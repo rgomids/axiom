@@ -1,0 +1,49 @@
+schema_version: "0.1"
+
+agent:
+  name: ""
+  objective: ""
+  target: "codex"
+
+project:
+  name: ""
+  description: ""
+  repository_mode: "single|multi-repo|unknown"
+  stack: []
+  architecture: ""
+  constraints: []
+
+sources:
+  product: []
+  architecture: []
+  decisions: []
+  task_tracking: []
+  external_docs: []
+
+workflows: []
+skills: []
+specialist_roles: []
+
+providers:
+  source_control:
+    required_capabilities: []
+  tracking:
+    required_capabilities: []
+  documentation:
+    required_capabilities: []
+
+validation:
+  commands: []
+  definition_of_done: []
+
+risk:
+  level: "low|medium|high|critical|unknown"
+  human_approval_points: []
+  prohibited_actions: []
+
+package:
+  scope: "minimal|standard|complete"
+  output_name: ""
+
+assumptions: []
+open_questions: []

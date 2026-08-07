@@ -1,0 +1,17 @@
+schema_version: "0.1"
+
+package:
+  name: ""
+  version: "0.1.0"
+  generator: "Axiom Agent Factory"
+
+target:
+  name: "codex"
+
+files: []
+assumptions: []
+risks: []
+
+validation:
+  status: "pending"
+  checks: []

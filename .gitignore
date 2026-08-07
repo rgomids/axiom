@@ -1,0 +1,41 @@
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+
+# Credentials and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Sensitive local data and database dumps
+*.dump
+*.sql.gz
+*.sql.bz2
+*.sql.xz
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+
+# Operating systems and editors
+.DS_Store
+.idea/
+.vscode/
+
+# Temporary files, caches, logs, and generated output
+tmp/
+.temp/
+.cache/
+*.log
+coverage/
+dist/
+build/
+vendor/
+node_modules/
