@@ -7,7 +7,9 @@
 - Last amended: 2026-08-08
 - Authority: normative project governance
 
-`MUST`, `MUST NOT`, `SHOULD` and `MAY` are normative terms. This constitution governs both Axiom development and harnesses produced by Axiom. More specific specifications and decisions MUST comply with it.
+`MUST`, `MUST NOT`, `SHOULD` and `MAY` are normative terms. This constitution governs development of Axiom. More specific Axiom specifications and decisions MUST comply with it.
+
+Generated harnesses and other future Axiom artifacts do not inherit this constitution automatically. Their approved specifications MUST declare which governance rules apply. Extending Axiom governance to generated artifacts remains a product goal, not a current contract.
 
 ## I. Intent before implementation
 
@@ -28,7 +30,7 @@
 - Documentation is product state and MUST evolve with the behavior or decision it describes.
 - Important knowledge MUST survive chat history in versioned or otherwise durable artifacts.
 - Work MUST be traceable, where applicable, through `intent -> specification -> decision -> implementation -> validation -> release`.
-- Every completed activity MUST leave enough context, evidence and unresolved questions for a future session to continue without reconstructing intent from chat.
+- Meaningful Axiom changes MUST leave enough context, evidence and unresolved questions for a future session to continue without reconstructing intent from chat.
 
 ## IV. Explicit decisions and honest evidence
 
@@ -47,7 +49,7 @@
 
 - Least privilege, explicit approval boundaries, safe defaults and preservation of existing data are mandatory.
 - Security and observability MUST be considered while specifying and planning, not appended after implementation.
-- Executions with material effect MUST identify the responsible human or agent, relevant inputs, outcome, evidence and approval or waiver.
+- Material Axiom changes MUST identify the responsible human or agent, relevant inputs, outcome, evidence and approval or waiver when required.
 - A human remains accountable for material product, architecture, security and release decisions.
 
 ## VII. Small coherent changes
@@ -59,9 +61,9 @@
 ## VIII. Project and repository boundaries
 
 - `Project != Repository`.
-- A Project is the logical boundary that connects intent, work, decisions, executions, evidence and releases.
-- A Project MAY span multiple independent repositories. Repository proximity, common provider and Git submodules MUST NOT be assumed.
-- Workspace, persistence, provider contracts and synchronization models remain open until explicitly decided.
+- A Project is a logical boundary distinct from Repository.
+- A Project MAY associate multiple independent repositories. Repository proximity, common provider and Git submodules MUST NOT be assumed.
+- This distinction does not define Project as the primary aggregate or ownership boundary. Workspace, persistence, ownership, provider contracts and synchronization models remain open until explicitly decided.
 
 ## Governance
 

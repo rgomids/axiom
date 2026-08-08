@@ -12,7 +12,9 @@ Current repository guidance and discovery consistently state this constraint. Wo
 
 ## Decision
 
-Project is Axiom's primary logical product boundary. Repository is an associated version-control and delivery boundary. A Project may relate multiple independent Repositories, and the domain must not require physical proximity, a common provider, a monorepo or Git submodules.
+Project is a logical boundary distinct from Repository. A Project may associate multiple independent Repositories, and the domain must not require physical proximity, a common provider, a monorepo or Git submodules.
+
+This decision does not establish Project as Axiom's primary aggregate, ownership boundary or persistence root. Those choices remain open with the Workspace and state models.
 
 ## Alternatives considered
 

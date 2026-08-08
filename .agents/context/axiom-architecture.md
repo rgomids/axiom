@@ -31,7 +31,7 @@ Workflow
 
 Current classification:
 
-- accepted logical boundary: Project is not Repository;
+- accepted distinction: Project is not Repository; aggregate and ownership boundaries remain open;
 - candidate operational context: Workspace;
 - accepted concepts with open representations: Specification, Plan, Decision, Evidence;
 - candidate lifecycle concepts: Work Item, Execution, Release, Integration;

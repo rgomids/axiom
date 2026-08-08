@@ -8,7 +8,7 @@ The initial tree `Workspace -> Project -> repositories/work/specifications/decis
 
 ```mermaid
 flowchart TB
-    WS["Workspace\n(candidate operational context)"] -. presents .-> P["Project\n(logical boundary)"]
+    WS["Workspace\n(candidate operational context)"] -. presents .-> P["Project\n(distinct from Repository)"]
     P --> R["Repository associations"]
     P --> WI["Work Items"]
     P --> S["Specifications"]
@@ -36,12 +36,12 @@ Workspace may present many Projects, but presentation does not yet imply persist
 - **Not:** a synonym for filesystem directory, Git monorepo, organization or Project.
 - **Open:** identity, persistence, ownership, portability and whether multiple Workspaces may reference one Project.
 
-### Project — accepted logical boundary
+### Project — accepted distinction, candidate ownership boundary
 
-- **Responsibility:** connect a product outcome with repositories, Work Items, Specifications, Decisions, Executions, Evidence and Releases.
-- **Relations:** associates one or more Repositories; governs project-scoped work and knowledge.
+- **Candidate responsibility:** relate a product outcome with repositories, Work Items, Specifications, Decisions, Executions, Evidence and Releases.
+- **Relations:** may associate one or more Repositories. Ownership of project-scoped work and knowledge is not yet decided.
 - **Lifecycle:** candidate states are active, paused and archived; no state machine is approved.
-- **Not:** a repository, directory, provider project, issue board or deployment environment.
+- **Not:** a repository, directory, provider project, issue board, deployment environment, or approved primary aggregate.
 - **Open:** canonical identity, metadata format, nesting, source of truth and cross-Project sharing.
 
 ### Repository — accepted concept

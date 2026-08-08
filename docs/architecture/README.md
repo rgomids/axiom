@@ -8,7 +8,7 @@ Direções conceituais atuais ficam em [../../.agents/context/axiom-architecture
 
 - [Conceptual Model](conceptual-model.md) — domain language, relationships, boundaries, lifecycles and open questions.
 - [Provider Boundaries](provider-boundaries.md) — justified capability boundaries and premature abstractions to avoid.
-- [ADR-0001 — Project is not Repository](../decisions/0001-project-is-not-repository.md) — accepted logical boundary.
+- [ADR-0001 — Project is not Repository](../decisions/0001-project-is-not-repository.md) — accepted distinction; aggregate and ownership remain open.
 
 Quando uma decisão arquitetural durável existir:
 
