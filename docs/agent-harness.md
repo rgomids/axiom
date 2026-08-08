@@ -45,3 +45,5 @@ Each generation exercise should capture:
 - which concepts belong in the future Axiom core.
 
 Those observations are direct product input.
+
+The first documented exercise is [Dogfooding 001 — Go Pull Request Review Agent](product/dogfooding/001-go-pr-review-agent.md). It exposed the specification for [Codex Agent Harness Generation](specifications/001-codex-agent-harness-generation/spec.md) without generating application code or claiming an executable renderer exists.

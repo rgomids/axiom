@@ -2,6 +2,8 @@
 
 ## Current conceptual model
 
+Canonical definitions, boundaries and open questions live in `docs/architecture/conceptual-model.md`. This file is a routing summary.
+
 Axiom should be decomposed around stable domain concepts rather than vendor products.
 
 Candidate concepts:
@@ -27,6 +29,14 @@ Policy
 Workflow
 ```
 
+Current classification:
+
+- accepted logical boundary: Project is not Repository;
+- candidate operational context: Workspace;
+- accepted concepts with open representations: Specification, Plan, Decision, Evidence;
+- candidate lifecycle concepts: Work Item, Execution, Release, Integration;
+- supporting concepts: Artifact, Agent, Provider.
+
 ## Architectural direction
 
 Prefer:
@@ -42,6 +52,8 @@ adapters/providers/renderers
 ```
 
 External products such as GitHub, GitLab, Linear, Jira, Notion, Confluence, Codex, or future runtimes must not leak unnecessarily into core domain contracts.
+
+Use `docs/architecture/provider-boundaries.md` for the abstraction threshold. Do not create a universal provider interface before a specified workflow requires one.
 
 ## Multi-repository principle
 

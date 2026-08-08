@@ -4,6 +4,12 @@ O Axiom ainda não possui arquitetura de aplicação aprovada. Este bootstrap n�
 
 Direções conceituais atuais ficam em [../../.agents/context/axiom-architecture.md](../../.agents/context/axiom-architecture.md). Elas orientam investigação e desenho, mas não substituem specifications ou ADRs aprovados.
 
+## Current foundation
+
+- [Conceptual Model](conceptual-model.md) — domain language, relationships, boundaries, lifecycles and open questions.
+- [Provider Boundaries](provider-boundaries.md) — justified capability boundaries and premature abstractions to avoid.
+- [ADR-0001 — Project is not Repository](../decisions/0001-project-is-not-repository.md) — accepted logical boundary.
+
 Quando uma decisão arquitetural durável existir:
 
 1. registre contexto e trade-offs em `docs/decisions/`;

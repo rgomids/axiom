@@ -16,9 +16,9 @@ O repositório começa com um harness Codex para exercitar esses fluxos antes de
 
 Product discovery and the current project definition are maintained in Notion during the initial discovery phase:
 https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979
-Durable technical decisions, specifications and architecture artifacts should progressively be versioned in this repository as the project evolves.
+Durable technical decisions, specifications and architecture artifacts are versioned in this repository as the project evolves. Notion remains a discovery source, not automatic approval.
 
-Comece por [docs/product/README.md](docs/product/README.md). Regras operacionais de segurança ficam em [docs/security/repository-security.md](docs/security/repository-security.md), e o bootstrap local em [docs/development/getting-started.md](docs/development/getting-started.md).
+Comece pela [fundação de produto](docs/product/foundation.md) e pela [Constitution](docs/product/constitution.md). O [modelo conceitual](docs/architecture/conceptual-model.md), as [specifications](docs/specifications/README.md), os [ADRs](docs/decisions/README.md) e a [pesquisa](docs/research/README.md) separam estado aprovado de questões abertas. Regras operacionais de segurança ficam em [docs/security/repository-security.md](docs/security/repository-security.md), e o bootstrap local em [docs/development/getting-started.md](docs/development/getting-started.md).
 
 ## Agent workflow
 
@@ -43,6 +43,11 @@ Comandos adicionais estão em [docs/commands.md](docs/commands.md).
 ```text
 .agents/              Codex context, policies, skills, and templates
 docs/                 Durable project documentation
+  product/             Constitution, product foundation, and dogfooding
+  architecture/        Conceptual boundaries and architecture
+  specifications/      Desired behavior before implementation
+  decisions/           Accepted or proposed durable decisions
+  research/            Hypotheses and comparative evidence
 scripts/              Deterministic repository checks
 AGENTS.md              Agent entrypoint and policy router
 SECURITY.md            Vulnerability reporting policy
