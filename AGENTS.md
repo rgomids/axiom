@@ -33,10 +33,11 @@ Do not treat Axiom as a generic chatbot or prompt collection.
 When sources conflict, prefer:
 
 1. current repository state and executable evidence;
-2. approved specifications and ADRs;
-3. current product/architecture documentation;
-4. task/work-item context;
-5. assumptions clearly marked as assumptions.
+2. the project constitution;
+3. approved specifications and ADRs;
+4. current product/architecture documentation;
+5. task/work-item context;
+6. assumptions clearly marked as assumptions.
 
 Never silently overwrite an approved decision.
 
@@ -75,6 +76,7 @@ Load only the skill(s) required for the current task.
 
 Read on demand:
 
+- `docs/product/constitution.md`
 - `.agents/context/axiom-product.md`
 - `.agents/context/axiom-architecture.md`
 - `.agents/context/research-hypotheses.md`

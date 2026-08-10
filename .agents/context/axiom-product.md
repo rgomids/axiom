@@ -4,6 +4,8 @@
 
 Axiom aims to be a control plane for AI-assisted software development.
 
+Canonical product classification is in `docs/product/foundation.md`. Normative governance is in `docs/product/constitution.md`; do not duplicate those documents here.
+
 The problem is not merely code generation. The product should help preserve coherence across:
 
 - product intent;
@@ -34,6 +36,8 @@ Project != Repository
 ```
 
 A project can own or reference multiple repositories.
+
+This boundary is accepted by `docs/decisions/0001-project-is-not-repository.md`. Workspace persistence and ownership remain open.
 
 ## Desired lifecycle
 
@@ -85,3 +89,13 @@ Still open unless an ADR/spec says otherwise:
 - remote service requirements;
 - first persistence model;
 - packaging and distribution strategy.
+
+## First vertical slice
+
+`docs/specifications/001-codex-agent-harness-generation/spec.md` proposes the first flow:
+
+```text
+intent -> intake -> normalized blueprint -> artifact plan -> Codex renderer -> validation -> package
+```
+
+It is proposed, not implementation approval. Dogfood evidence and prioritized gaps live in `docs/product/dogfooding/001-go-pr-review-agent.md`.
