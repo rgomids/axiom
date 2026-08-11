@@ -2,10 +2,11 @@
 
 ## Status
 
-Research complete on 2026-08-11. Architectural recommendation is recorded as
-[ADR-0002](../decisions/0002-axiom-speckit-relationship.md) with status
-**Proposed**. No Spec-Kit dependency, wrapper, compatibility contract, copied
-template, or Lingo implementation is authorized.
+Two controlled scenarios completed on 2026-08-11. Architectural recommendation
+is recorded as [ADR-0002](../decisions/0002-axiom-speckit-relationship.md) with
+status **Proposed**. The PR remains an active evaluation surface pending human
+review. No Spec-Kit dependency, production wrapper, compatibility contract,
+copied template, or Lingo implementation is authorized.
 
 Temporary reproducibility evidence is committed under
 [`experiments/speckit-evaluation/`](../../experiments/speckit-evaluation/).
@@ -40,7 +41,9 @@ catalogs, project-local overrides, manifest-aware updates, and optional Git
 workflow support. The experiment used pinned one-shot `uvx`; it did not add a
 persistent dependency.
 
-## Method
+## Scenario 001 — Full SDD comparison
+
+### Method
 
 A neutral documentation-only scenario introduced a repository-local process for
 future command deprecations. It exercised requirements, clarification,
@@ -58,7 +61,7 @@ Controls:
 - no output was improved after observing the other approach;
 - no provider mutation, permanent dependency, Lingo, or application code.
 
-## Comparable outcome
+### Evidence
 
 Both workflows completed the scenario with:
 
@@ -82,7 +85,7 @@ Measured execution:
 
 These are real Codex CLI metrics for one scenario, not general benchmarks.
 
-## Axiom strengths
+### Axiom strengths
 
 - Explicit intake classification: fact, requirement, assumption, unknown, and
   non-goal.
@@ -94,7 +97,7 @@ These are real Codex CLI metrics for one scenario, not general benchmarks.
 - Lower measured time and token use in this run.
 - No extra workflow installation in an existing Axiom repository.
 
-## Axiom gaps
+### Axiom gaps
 
 - Phase handoffs, schemas, requirement coverage, and convergence are not
   deterministic or standardized.
@@ -107,7 +110,7 @@ These are real Codex CLI metrics for one scenario, not general benchmarks.
 - Extensibility, installation, upgrade, compatibility, and catalog contracts
   are immature compared with Spec-Kit.
 
-## Spec-Kit strengths
+### Spec-Kit strengths
 
 - Mature, consistent artifact and command structure.
 - Structured clarification with bounded questions and recommended options.
@@ -126,7 +129,7 @@ similar inference, but analyze classified it High and the corrected output
 explicitly left allocation unresolved. This is evidence of practical value in
 Spec-Kit's cross-artifact analysis loop.
 
-## Spec-Kit limits
+### Spec-Kit limits
 
 - Higher measured time, token use, artifact count, and operational ceremony for
   a small documentation change.
@@ -191,7 +194,7 @@ Lowest external coupling but highest reinvention and no interoperability path.
 Safer than premature dependency, but discards too much relevant evidence from a
 mature adjacent workflow.
 
-## Ranking and recommendation
+## Scenario 001 recommendation
 
 1. C — conceptual compatibility.
 2. B — encapsulation/orchestration.
@@ -210,20 +213,121 @@ Recommend C as a Proposed direction:
   and tested;
 - keep B available for a later narrow adapter experiment.
 
-## Reconsider when
+## Scenario 002 — Analyze/converge capability reuse
 
-- an approved Axiom workflow can compare a pinned optional Spec-Kit adapter with
-  an Axiom-native path;
-- upgrade, failure, rollback, provenance, privacy, and multi-repository behavior
-  are tested;
+### Evidence
+
+A second frozen fixture contained five deliberate semantic inconsistencies
+across specification, plan, tasks, implementation, tests, and decisions:
+
+- rollback requirement without task/implementation/verification;
+- Redis task and implementation without a requirement;
+- service-generated identifier contradicting caller-owned identifier intent;
+- unverifiable performance acceptance;
+- PostgreSQL introduced without decision evidence.
+
+The expected-finding oracle, neutral capability contract, decision criteria,
+scenario, and current-Axiom prompt were frozen before execution. Current Axiom
+ran first without skill improvements. Only afterward, the experiment added a
+50-line Axiom-native analysis skill and a confined Spec-Kit `v0.16.2` adapter.
+
+| Run | Expected | Detected | Missed | Unexpected | Input tokens | Wall time |
+|---|---:|---:|---:|---:|---:|---:|
+| Current Axiom baseline | 5 | 4 | 1 | 4 | 94,595 | 107.35s |
+| C — experimental Axiom-native | 5 | 4 | 1 | 1 | 77,514 | 89.82s |
+| B — encapsulated Spec-Kit | 5 | 3 | 2 | 3 | 193,169 | 177.83s + 1.30s preparation |
+
+All approaches found rollback coverage, identifier contradiction, and
+unverifiable performance. Both Axiom runs found the missing decision. B could
+not because official analyze/converge does not consume the translated decision
+artifact. Every approach missed Redis as unsupported behavior. C's experimental
+fixture-boundary rule reduced unexpected findings from four to one but did not
+improve expected-finding recall over current Axiom.
+
+B successfully ran official analyze then converge. Converge appended six tasks
+and nine lines to the disposable task file. The adapter preserved raw events,
+normalized findings, path/category/severity mappings, and exposed failure
+states. It required 226 shell lines plus a 37-line prompt and generated 31
+Spec-Kit files (about 292 KiB) in the temporary workspace. C required a 50-line
+skill plus a 19-line prompt, excluding shared neutral validation/scoring.
+
+Failure tests showed:
+
+- missing launcher: fail closed, exit 69;
+- unavailable pinned ref: raw upstream exit 1, no result, partial temp cleanup;
+- incompatible output: fail closed, exit 65, no normalized output;
+- capability nonzero exit: fail closed through wrapper exit 70;
+- actual converge write: confined to disposable `tasks.md`.
+
+The latest stable Spec-Kit release still equaled the pin (`v0.16.2`), so a real
+two-version upgrade comparison was not possible.
+
+### Interpretation
+
+B demonstrated immediate mature analyze/converge behavior but did not improve
+accuracy after translation. It lost an Axiom-relevant Decision input, doubled
+runtime, used 2.49 times C's input tokens, added mutable disposable state, and
+introduced version/failure/cleanup responsibilities.
+
+C directly represented every neutral input and produced better precision with
+lower context and runtime. Its quality is still insufficient: it missed one
+deliberate unsupported behavior, remained model-driven, and has no production
+Project-level implementation. Scenario 002 supports conceptual compatibility,
+not immediate Axiom-native product implementation.
+
+For a Project spanning independent backend, frontend, and infra repositories,
+B would need one synthetic aggregate Spec-Kit project, three projected
+projects, or one run per repository plus Axiom-owned correlation. C could
+operate on a Project-level matrix without translation, but Axiom lacks the
+minimum Project/repository source and evidence contracts needed to prove it.
+
+### Recommendation
+
+Keep the ranking:
+
+1. C — conceptual compatibility;
+2. B — encapsulation/orchestration;
+3. D — reference only;
+4. A — direct dependency.
+
+C remains the leading hypothesis because it detected one more expected major
+finding than B, produced two fewer unexpected findings, and materially reduced
+translation, coupling, context, and runtime. B remains plausible only as an
+optional bounded adapter when a specific approved workflow benefits enough to
+justify its maintenance surface.
+
+ADR-0002 remains Proposed. No result authorizes implementation or adoption.
+
+### Limitations
+
+- one synthetic, single-repository scenario and one run per approach;
+- no variance estimate;
+- non-executable fixture makes unexpected-finding classification oracle-bound;
+- no newer stable Spec-Kit version existed for upgrade migration testing;
+- multi-repository behavior is reasoned, not executable;
+- neither C prototype nor B adapter is production architecture.
+
+## Remaining evidence
+
+- a newer stable Spec-Kit release allows a real pinned-vs-upgrade compatibility
+  test;
+- Axiom defines minimum Project/repository source and evidence contracts, making
+  an executable multi-repository comparison non-speculative;
 - user demand justifies an import/export contract;
 - Spec-Kit adds domain capabilities that materially overlap Axiom's Project,
   Execution, Evidence, Release, or living-document contracts;
 - Axiom's own implementation cost for generic SDD exceeds measured adapter
   maintenance cost.
 
+No Scenario 003 was added. Multi-repository coordination could change the
+decision later, but executing it before the minimum Project contract exists
+would compare invented scaffolds. Upgrade compatibility can change B's
+maintenance assessment only after a newer stable release exists. Agent-harness
+generation does not test the observed analyze/converge gap.
+
 ## Remaining human decisions
 
-- Accept, reject, or revise ADR-0002's Proposed recommendation.
+- Accept, reject, or revise ADR-0002's Proposed recommendation after reviewing
+  both scenarios.
 - If accepted later, choose whether initial compatibility means vocabulary and
   lifecycle mapping only or a separately specified import/export contract.

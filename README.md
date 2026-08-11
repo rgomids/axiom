@@ -18,7 +18,7 @@ Product discovery and the current project definition are maintained in Notion du
 https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979
 Durable technical decisions, specifications and architecture artifacts are versioned in this repository as the project evolves. Notion remains a discovery source, not automatic approval.
 
-Comece pela [fundação de produto](docs/product/foundation.md) e pela [Constitution](docs/product/constitution.md). O [modelo conceitual](docs/architecture/conceptual-model.md), as [specifications](docs/specifications/README.md), os [ADRs](docs/decisions/README.md) e a [pesquisa](docs/research/README.md) separam estado aprovado de questões abertas. A [avaliação Axiom/Spec-Kit](docs/research/axiom-speckit-evaluation.md) registra o primeiro experimento formal sem adotar a dependência. Regras operacionais de segurança ficam em [docs/security/repository-security.md](docs/security/repository-security.md), e o bootstrap local em [docs/development/getting-started.md](docs/development/getting-started.md).
+Comece pela [fundação de produto](docs/product/foundation.md) e pela [Constitution](docs/product/constitution.md). O [modelo conceitual](docs/architecture/conceptual-model.md), as [specifications](docs/specifications/README.md), os [ADRs](docs/decisions/README.md) e a [pesquisa](docs/research/README.md) separam estado aprovado de questões abertas. A [avaliação Axiom/Spec-Kit](docs/research/axiom-speckit-evaluation.md) registra os cenários full-SDD e analyze/converge sem adotar a dependência. Regras operacionais de segurança ficam em [docs/security/repository-security.md](docs/security/repository-security.md), e o bootstrap local em [docs/development/getting-started.md](docs/development/getting-started.md).
 
 ## Agent workflow
 

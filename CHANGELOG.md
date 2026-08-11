@@ -5,6 +5,8 @@
 - research: run the controlled Axiom and GitHub Spec-Kit `v0.16.2` comparison and preserve temporary reproducibility evidence.
 - architecture: propose ADR-0002 recommending conceptual compatibility without a mandatory Spec-Kit dependency.
 - docs: publish durable findings, overlap analysis, strategy ranking, measured metrics, and reconsideration conditions.
+- research: add Scenario 002 comparing current Axiom, experimental Axiom-native analyze/converge, and a confined Spec-Kit adapter with accuracy, failure, upgrade, and multi-repository evidence.
+- architecture: keep ADR-0002 Proposed and retain C as the leading hypothesis after capability-level B vs C evidence.
 
 ## [2026-08-08]
 

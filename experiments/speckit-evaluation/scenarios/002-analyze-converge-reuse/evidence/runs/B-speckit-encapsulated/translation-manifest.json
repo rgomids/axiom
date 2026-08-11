@@ -1,0 +1,19 @@
+{
+  "spec_kit_ref": "v0.16.2",
+  "feature_directory": "specs/002-analyze-converge-reuse",
+  "exact_copies": [
+    "scenario/specification.md -> specs/002-analyze-converge-reuse/spec.md",
+    "scenario/plan.md -> specs/002-analyze-converge-reuse/plan.md",
+    "scenario/tasks.md -> specs/002-analyze-converge-reuse/tasks.md",
+    "scenario/implementation/src -> src",
+    "scenario/implementation/tests -> tests",
+    "scenario/decisions.md -> .experiment/decisions.md"
+  ],
+  "translation_loss": [
+    "Official analyze/converge does not consume the neutral decision artifact."
+  ],
+  "invented_adapter_state": [
+    "Disposable feature directory and feature.json",
+    "Generated .specify scaffold and default unfilled constitution"
+  ]
+}

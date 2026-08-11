@@ -63,4 +63,19 @@ git remote -v
 git branch --show-current
 ```
 
+## Temporary Spec-Kit evaluation
+
+Validate the frozen Scenario 002 inputs, prototype hashes, scripts, and failure
+behavior without installing a persistent dependency:
+
+```bash
+cd experiments/speckit-evaluation/scenarios/002-analyze-converge-reuse
+shasum -a 256 -c scenario/checksums.sha256
+shasum -a 256 -c protocol/freeze.sha256
+shasum -a 256 -c protocol/prototype-freeze.sha256
+bash -n scripts/*.sh adapters/speckit/*.sh
+scripts/test-tools.sh
+adapters/speckit/test-failures.sh
+```
+
 Não use Makefile como interface principal. Este repositório não possui Makefile nem runtime de aplicação neste estágio.

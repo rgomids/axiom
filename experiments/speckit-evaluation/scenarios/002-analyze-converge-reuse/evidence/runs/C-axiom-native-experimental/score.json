@@ -1,0 +1,51 @@
+{
+  "expected_findings": 5,
+  "detected_findings": 4,
+  "missed_findings": 1,
+  "unexpected_findings": 1,
+  "false_negatives": 1,
+  "false_positives": 1,
+  "accuracy_ratio": 0.8,
+  "detected": [
+    {
+      "id": "EXP-001",
+      "category": "requirement_coverage",
+      "subject_reference": "FR-004",
+      "severity": "major"
+    },
+    {
+      "id": "EXP-003",
+      "category": "contradiction",
+      "subject_reference": "FR-001",
+      "severity": "major"
+    },
+    {
+      "id": "EXP-004",
+      "category": "unverifiable_acceptance",
+      "subject_reference": "AC-003",
+      "severity": "major"
+    },
+    {
+      "id": "EXP-005",
+      "category": "missing_decision",
+      "subject_reference": "PLAN-002",
+      "severity": "major"
+    }
+  ],
+  "missed": [
+    {
+      "id": "EXP-002",
+      "category": "unsupported_behavior",
+      "subject_reference": "T-003",
+      "severity": "major"
+    }
+  ],
+  "unexpected": [
+    {
+      "id": "AXN-002",
+      "category": "requirement_coverage",
+      "subject_reference": "RecordService.create / T-002 / duplicate-conflict test",
+      "severity": "major"
+    }
+  ]
+}

@@ -2,7 +2,8 @@
 
 ## Status
 
-Proposed on 2026-08-11. Human acceptance required.
+Proposed on 2026-08-11. Still Proposed after Scenario 002. Human acceptance
+required.
 
 ## Context
 
@@ -28,14 +29,31 @@ A controlled same-scenario experiment found:
   Axiom's self-review missed;
 - neither run demonstrated Axiom's required multi-repository and Evidence model.
 
+A second capability-level experiment compared current Axiom, an experimental
+Axiom-native capability, and a confined pinned Spec-Kit adapter on five frozen
+semantic inconsistencies. It found:
+
+- current Axiom and experimental C each detected 4/5 expected findings; C
+  reduced unexpected findings from four to one;
+- B detected 3/5 and produced three unexpected findings;
+- B lost the Decision input at the official analyze/converge boundary and
+  therefore missed PostgreSQL introduced without decision evidence;
+- every approach missed unsupported Redis behavior;
+- C used 77,514 input tokens and 89.82 seconds; B used 193,169 input tokens and
+  179.13 seconds including preparation;
+- B converge appended six tasks to disposable state and required explicit
+  failure, version, normalization, and cleanup behavior;
+- no newer stable Spec-Kit version existed for a real upgrade comparison;
+- multi-repository analysis still lacks executable evidence for both paths.
+
 Durable evidence: [Axiom and GitHub Spec-Kit Evaluation](../research/axiom-speckit-evaluation.md).
 Temporary reproducibility evidence:
 [`experiments/speckit-evaluation/`](../../experiments/speckit-evaluation/).
 
 ## Proposed decision
 
-Axiom should implement **conceptual compatibility with Spec-Kit without a
-mandatory runtime dependency**.
+Axiom should continue evaluating **conceptual compatibility with Spec-Kit
+without a mandatory runtime dependency** as the leading Proposed direction.
 
 Axiom should:
 
@@ -68,19 +86,23 @@ separate later.
 **Benefits:** Reuse selected Spec-Kit capabilities behind an Axiom experience
 while keeping Project/Evidence orchestration above it.
 
-**Limitations/trade-offs:** Wrapper may leak upstream state and errors. Requires
-version pinning, compatibility matrices, migrations, provenance, rollback, and
-two workflow models. Viable after a narrow adapter experiment.
+**Limitations/trade-offs:** The narrow adapter experiment lost the Decision
+input, detected fewer expected findings, used more time/context, appended to
+disposable tasks, and required pinning, output normalization, compatibility
+fixtures, failure mapping, cleanup, and future migration tests. It remains
+viable for a bounded workflow only when reuse value exceeds those costs.
 
 ### C — Conceptual compatibility
 
 **Benefits:** Preserves Axiom domain, customization, multi-repository direction,
 living documentation, and future Lingo while learning from proven Spec-Kit
-patterns. Keeps optional interoperability reversible.
+patterns. Scenario 002's experimental native path detected more expected
+findings than the adapter with lower time/context and no translation loss.
 
 **Limitations/trade-offs:** Axiom owns implementation and can duplicate generic
-SDD, drift, or claim compatibility too vaguely. Mappings and reuse boundaries
-must be explicit and tested.
+SDD, drift, or claim compatibility too vaguely. The experimental native path
+still missed unsupported Redis behavior and remains model-driven. Mappings and
+reuse boundaries must be explicit and tested.
 
 ### D — Reference only
 
@@ -109,6 +131,8 @@ and full ownership of generic SDD/Codex/upgrade mechanics.
 - Conceptual mappings can drift as both projects evolve.
 - Spec-Kit users receive no automatic artifact interoperability.
 - Axiom needs its own equivalent of observed analyze/converge value.
+- Scenario 002 does not authorize promoting its experimental skill into the
+  product.
 
 ## Risks
 
@@ -132,10 +156,11 @@ Controls if accepted:
 
 ## Revisit when
 
-- a bounded Axiom workflow demonstrates a pinned Spec-Kit adapter with lower
-  validated cost than Axiom-native implementation;
-- upgrades, failures, rollback, provenance, privacy, and multi-repository
-  aggregation are tested;
+- a bounded Axiom workflow demonstrates an adapter with materially better
+  detection or lower validated total cost than the Axiom-native path;
+- a newer stable Spec-Kit release permits real upgrade/migration testing;
+- Axiom defines minimum Project/repository input and evidence contracts so
+  multi-repository aggregation can be executed rather than hypothesized;
 - users require Spec-Kit artifact interoperability;
 - Spec-Kit's domain model materially converges with Axiom Project, Execution,
   Evidence, Release, provider, or living-document requirements;
