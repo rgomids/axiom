@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-08-11]
+
+- research: run the controlled Axiom and GitHub Spec-Kit `v0.16.2` comparison and preserve temporary reproducibility evidence.
+- architecture: propose ADR-0002 recommending conceptual compatibility without a mandatory Spec-Kit dependency.
+- docs: publish durable findings, overlap analysis, strategy ranking, measured metrics, and reconsideration conditions.
+
 ## [2026-08-08]
 
 - product: add the normative Axiom Constitution and classified product foundation.
