@@ -4,8 +4,9 @@ No numeric score is used. Every comparison is tied to Scenario 002 evidence.
 
 | Criterion | B — Spec-Kit encapsulated | C — Axiom-native experimental |
 |---|---|---|
-| Detection accuracy | 3/5 expected findings (60%). Missed unsupported Redis and missing PostgreSQL decision. | 4/5 (80%). Missed unsupported Redis. |
-| False positives | 3 unexpected findings under frozen oracle. | 1 unexpected finding. |
+| Seeded finding recall | 3/5 expected findings (60%). Missed unsupported Redis and missing PostgreSQL decision. | 4/5 (80%). Missed unsupported Redis. |
+| Unexpected findings | 3, all manually classified out of scope for the non-executable fixture. | 1, manually classified out of scope for the non-executable fixture. |
+| Validated false positives | 0. Unexpected does not automatically mean false positive. | 0. Unexpected does not automatically mean false positive. |
 | False negatives | 2/5. One is directly caused by decisions not entering official capability input. | 1/5. Reverse trace did not separate unsupported Redis from architecture-decision treatment. |
 | Traceability | Strong spec/plan/task and appended-task trace; loses neutral decision trace. | Direct neutral references across all five artifact classes; no path translation. |
 | Evidence quality | Exact lines and convergence diff; raw events preserved. Decision evidence absent by contract. | Exact cross-artifact evidence and explicit fixture limitation; raw events preserved. |
@@ -25,8 +26,10 @@ No numeric score is used. Every comparison is tied to Scenario 002 evidence.
 
 ## Decision-rule application
 
-The pre-run rule makes major-finding detection primary, then prefers lower
-translation, coupling, upgrade risk, and multi-repository impedance when
-quality is equivalent. C detected one more expected major finding, produced two
-fewer unexpected findings, and used materially less time/context. B therefore
-does not meet the predeclared conditions needed to displace C in this scenario.
+The pre-run rule makes major seeded-finding detection primary, then prefers
+lower translation, coupling, upgrade risk, and multi-repository impedance when
+quality is equivalent. C detected one more expected major finding, avoided B's
+Decision-input translation loss, produced two fewer unexpected findings, and
+used materially less time/context. Both paths produced zero validated false
+positives. B therefore does not meet the predeclared conditions needed to
+displace C in this scenario.

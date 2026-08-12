@@ -45,8 +45,12 @@ The private scoring oracle is excluded from executor workspaces.
 
 ## Result
 
-- [Accuracy](evidence/accuracy.md): C experimental 4/5 expected with one
-  unexpected; B 3/5 with three unexpected.
+- [Seeded detection](evidence/accuracy.md): C experimental 4/5 expected with one
+  unexpected; B 3/5 with three unexpected. Unexpected findings are classified
+  separately from validated false positives.
+- [Unexpected findings review](evidence/unexpected-findings-review.md): all
+  eight current unexpected findings are out-of-scope observations; none is a
+  validated false positive.
 - [Metrics](evidence/metrics.md): C used 77,514 input tokens and 89.82s; B used
   193,169 and 179.13s including preparation.
 - [Adapter failures](evidence/adapter-failures.md): unavailable, incompatible,

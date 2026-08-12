@@ -231,18 +231,32 @@ scenario, and current-Axiom prompt were frozen before execution. Current Axiom
 ran first without skill improvements. Only afterward, the experiment added a
 50-line Axiom-native analysis skill and a confined Spec-Kit `v0.16.2` adapter.
 
-| Run | Expected | Detected | Missed | Unexpected | Input tokens | Wall time |
-|---|---:|---:|---:|---:|---:|---:|
-| Current Axiom baseline | 5 | 4 | 1 | 4 | 94,595 | 107.35s |
-| C — experimental Axiom-native | 5 | 4 | 1 | 1 | 77,514 | 89.82s |
-| B — encapsulated Spec-Kit | 5 | 3 | 2 | 3 | 193,169 | 177.83s + 1.30s preparation |
+| Run | Expected | Detected | Missed | Seeded recall | Unexpected | Validated false positives | Input tokens | Wall time |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Current Axiom baseline | 5 | 4 | 1 | 80% | 4 | 0 | 94,595 | 107.35s |
+| C — experimental Axiom-native | 5 | 4 | 1 | 80% | 1 | 0 | 77,514 | 89.82s |
+| B — encapsulated Spec-Kit | 5 | 3 | 2 | 60% | 3 | 0 | 193,169 | 177.83s + 1.30s preparation |
 
 All approaches found rollback coverage, identifier contradiction, and
 unverifiable performance. Both Axiom runs found the missing decision. B could
 not because official analyze/converge does not consume the translated decision
 artifact. Every approach missed Redis as unsupported behavior. C's experimental
 fixture-boundary rule reduced unexpected findings from four to one but did not
-improve expected-finding recall over current Axiom.
+improve seeded-finding recall over current Axiom.
+
+The original scorer incorrectly treated every unexpected finding as a false
+positive even though the oracle covers only the five seeded faults. Post-run
+methodology review classified all eight unexpected findings individually. Each
+is a production-completeness observation outside the explicitly non-executable,
+deliberately partial fixture: baseline 4, C 1, B 3. Valid additional findings,
+validated false positives, duplicates, and unclassified findings are all zero.
+No model was re-executed; original results, events, timing, and seeded detection
+remain unchanged.
+
+Expected matches were also revalidated. Exact neutral category plus an exact
+stable-reference token is sufficient for these five unique oracle pairs; every
+current match is semantically correct. The scorer now rejects substring-only
+matches and records the actual finding ID used for each detected expected item.
 
 B successfully ran official analyze then converge. Converge appended six tasks
 and nine lines to the disposable task file. The adapter preserved raw events,
@@ -264,16 +278,18 @@ two-version upgrade comparison was not possible.
 
 ### Interpretation
 
-B demonstrated immediate mature analyze/converge behavior but did not improve
-accuracy after translation. It lost an Axiom-relevant Decision input, doubled
+B demonstrated immediate mature analyze/converge behavior but had lower seeded
+recall after translation. It lost an Axiom-relevant Decision input, doubled
 runtime, used 2.49 times C's input tokens, added mutable disposable state, and
 introduced version/failure/cleanup responsibilities.
 
-C directly represented every neutral input and produced better precision with
-lower context and runtime. Its quality is still insufficient: it missed one
-deliberate unsupported behavior, remained model-driven, and has no production
-Project-level implementation. Scenario 002 supports conceptual compatibility,
-not immediate Axiom-native product implementation.
+C directly represented every neutral input, produced fewer unexpected
+out-of-scope observations, and used lower context and runtime. Both B and C
+produced zero validated false positives, so false-positive count does not
+distinguish them. C's quality is still insufficient: it missed one deliberate
+unsupported behavior, remained model-driven, and has no production Project-level
+implementation. Scenario 002 supports conceptual compatibility, not immediate
+Axiom-native product implementation.
 
 For a Project spanning independent backend, frontend, and infra repositories,
 B would need one synthetic aggregate Spec-Kit project, three projected
@@ -291,10 +307,12 @@ Keep the ranking:
 4. A — direct dependency.
 
 C remains the leading hypothesis because it detected one more expected major
-finding than B, produced two fewer unexpected findings, and materially reduced
-translation, coupling, context, and runtime. B remains plausible only as an
-optional bounded adapter when a specific approved workflow benefits enough to
-justify its maintenance surface.
+finding than B, avoided B's Decision-input loss, and materially reduced
+translation, runtime coupling, context, runtime, failure handling, and
+multi-repository impedance. C also produced two fewer unexpected observations,
+but the recommendation does not treat them as false positives. B remains
+plausible only as an optional bounded adapter when a specific approved workflow
+benefits enough to justify its maintenance surface.
 
 ADR-0002 remains Proposed. No result authorizes implementation or adoption.
 
@@ -302,28 +320,35 @@ ADR-0002 remains Proposed. No result authorizes implementation or adoption.
 
 - one synthetic, single-repository scenario and one run per approach;
 - no variance estimate;
-- non-executable fixture makes unexpected-finding classification oracle-bound;
+- the seeded oracle is not complete ground truth; unexpected-finding
+  classification remains explicit experiment-review judgment;
 - no newer stable Spec-Kit version existed for upgrade migration testing;
 - multi-repository behavior is reasoned, not executable;
 - neither C prototype nor B adapter is production architecture.
 
-## Remaining evidence
+### Redis unsupported-behavior gap
 
-- a newer stable Spec-Kit release allows a real pinned-vs-upgrade compatibility
-  test;
-- Axiom defines minimum Project/repository source and evidence contracts, making
-  an executable multi-repository comparison non-speculative;
-- user demand justifies an import/export contract;
-- Spec-Kit adds domain capabilities that materially overlap Axiom's Project,
-  Execution, Evidence, Release, or living-document contracts;
-- Axiom's own implementation cost for generic SDD exceeds measured adapter
-  maintenance cost.
+Every path missed Redis introduced by plan, task, and implementation without a
+supporting requirement. This is a candidate for a future Axiom capability:
+detect introduced behavior or implementation scope that has no supporting
+requirement, decision, or approved-plan rationale. This research conclusion does
+not authorize implementation in Axiom.
 
-No Scenario 003 was added. Multi-repository coordination could change the
-decision later, but executing it before the minimum Project contract exists
-would compare invented scaffolds. Upgrade compatibility can change B's
-maintenance assessment only after a newer stable release exists. Agent-harness
-generation does not test the observed analyze/converge gap.
+## Remaining evidence that could materially change the B vs C decision
+
+No additional scenario is currently required before human review of ADR-0002.
+
+Three future questions can reopen the comparison when their prerequisites exist:
+
+| Question | Why it matters | Result favoring B | Result favoring C |
+|---|---|---|---|
+| Can a bounded B adapter preserve Axiom Decision input and match C's seeded recall without adding Axiom-native semantic analysis? | Decision translation loss caused B's lower Scenario 002 recall. | Equal or better recall with small isolated translation. | Persistent loss, or parity only by duplicating native analysis. |
+| How do B and C operate after minimum Project/repository input and evidence contracts exist? | Multi-repository delivery is central to Axiom and unproven for both. | Lower total aggregation complexity with equivalent provenance. | Synthetic projections or provenance loss for B while C consumes the Project contract directly. |
+| What is B's migration cost when a newer stable Spec-Kit release exists? | No real upgrade was available in Scenario 002. | Controlled compatible upgrade cheaper than native maintenance. | Material adapter/schema/failure regression and migration cost. |
+
+These are revisit conditions, not a reason to create Scenario 003 now.
+Agent-harness generation does not test the observed analyze/converge Decision
+gap.
 
 ## Remaining human decisions
 

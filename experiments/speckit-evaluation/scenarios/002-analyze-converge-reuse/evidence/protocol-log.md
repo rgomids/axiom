@@ -55,3 +55,16 @@ No experimental Axiom capability or Spec-Kit adapter existed at freeze time.
   `9e724d301c7ee0e76b7edbf058c966f41135cb2f1fd0e53d3d667170dd904e32`;
   previous failure-test hash:
   `b1bf02f67a85a7f043acffc4aac6f4881fbb4417e73079879b0281e6ab2a8d1e`.
+
+- `2026-08-12T03:29:59Z` — post-run methodology amendment separated unexpected
+  findings from validated false positives. All eight unexpected findings were
+  individually reviewed against the frozen non-executable fixture boundary and
+  classified out of scope. The scorer now accepts the review artifact, reports
+  seeded recall and classification counts, rejects substring-only reference
+  matches, and records the matching actual finding ID. Original scorer hash:
+  `e9fd5cbbdb3f9d18cd8d65b13b3f02602786a2a4805a97ed23702367556c82f7`;
+  original test hash:
+  `77ef616c8ae23674f6d645c049293fb07f60d224c04f64f8acbf61962576540b`.
+  The integrity manifest was amended for the methodology tooling; frozen
+  scenario/protocol inputs and every original model result, event stream, and
+  timing file remain unchanged. No model was re-executed.

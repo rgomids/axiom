@@ -15,6 +15,17 @@ scripts/test-tools.sh
 adapters/speckit/test-failures.sh
 ```
 
+Recalculate a derived score with explicit unexpected-finding classification:
+
+```sh
+scripts/score-findings.sh \
+  oracle/expected-findings.json \
+  evidence/runs/APPROACH/result.json \
+  evidence/unexpected-findings-review.json
+```
+
+This command does not execute a model or replace original run evidence.
+
 ## Current Axiom baseline and native prototype
 
 Each run used a separate `mktemp -d` workspace containing the current Axiom

@@ -7,6 +7,8 @@ test_dir=$(mktemp -d /tmp/axiom-scenario002-tools.XXXXXX)
 trap 'rm -rf "$test_dir"' EXIT
 
 "$script_dir/validate-findings.sh" "$scenario_root/oracle/expected-findings.json" >/dev/null
+"$script_dir/validate-unexpected-review.sh" \
+  "$scenario_root/evidence/unexpected-findings-review.json" >/dev/null
 
 jq '.interactions = 0' "$scenario_root/oracle/expected-findings.json" \
   > "$test_dir/invalid.json"
@@ -35,15 +37,51 @@ jq '{
   }])
 }' "$scenario_root/oracle/expected-findings.json" > "$test_dir/actual.json"
 
+jq -n '{
+  methodology:"test review",
+  reviews:[{
+    approach:"test",
+    finding_id:"TST-999",
+    original_category:"task_coverage",
+    subject:"T-999",
+    classification:"false_positive",
+    rationale:"Controlled scorer classification.",
+    evidence:["test fixture"],
+    reviewer:"experiment-review"
+  }]
+}' > "$test_dir/review.json"
+
 "$script_dir/score-findings.sh" \
   "$scenario_root/oracle/expected-findings.json" "$test_dir/actual.json" \
+  "$test_dir/review.json" \
   > "$test_dir/score.json"
 
 jq -e '
   .expected_findings == 5 and
   .detected_findings == 1 and
   .missed_findings == 4 and
-  .unexpected_findings == 1
+  .unexpected_findings == 1 and
+  .false_positives == 1 and
+  .seeded_recall_ratio == 0.2 and
+  .unexpected_classification == {
+    valid_additional_findings:0,
+    false_positives:1,
+    out_of_scope_observations:0,
+    duplicates:0,
+    unclassified:0
+  }
 ' "$test_dir/score.json" >/dev/null
+
+jq '.findings[0].subject_reference = "FR-0010"' \
+  "$test_dir/actual.json" > "$test_dir/substring.json"
+"$script_dir/score-findings.sh" \
+  "$scenario_root/oracle/expected-findings.json" "$test_dir/substring.json" \
+  > "$test_dir/substring-score.json"
+jq -e '
+  .detected_findings == 0 and
+  .unexpected_findings == 2 and
+  .false_positives == 0 and
+  .unexpected_classification.unclassified == 2
+' "$test_dir/substring-score.json" >/dev/null
 
 echo "tool_tests=passed"

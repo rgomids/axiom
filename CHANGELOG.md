@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-08-12]
+
+- research: correct Scenario 002 methodology by separating unexpected findings from manually validated false positives and reporting seeded recall.
+- test: require exact stable-reference matches, validate unexpected-finding classifications, and preserve original model execution evidence.
+- architecture: keep ADR-0002 Proposed with C as the evidence-supported leading hypothesis; no Scenario 003 or implementation authorized.
+
 ## [2026-08-11]
 
 - research: run the controlled Axiom and GitHub Spec-Kit `v0.16.2` comparison and preserve temporary reproducibility evidence.

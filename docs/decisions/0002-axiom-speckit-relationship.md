@@ -36,6 +36,9 @@ semantic inconsistencies. It found:
 - current Axiom and experimental C each detected 4/5 expected findings; C
   reduced unexpected findings from four to one;
 - B detected 3/5 and produced three unexpected findings;
+- post-run review classified all unexpected findings as out-of-scope
+  production-completeness observations for the deliberately non-executable
+  fixture; B and C each produced zero validated false positives;
 - B lost the Decision input at the official analyze/converge boundary and
   therefore missed PostgreSQL introduced without decision evidence;
 - every approach missed unsupported Redis behavior;
@@ -45,6 +48,11 @@ semantic inconsistencies. It found:
   failure, version, normalization, and cleanup behavior;
 - no newer stable Spec-Kit version existed for a real upgrade comparison;
 - multi-repository analysis still lacks executable evidence for both paths.
+
+The 4/5 and 3/5 values are seeded recall over five deliberate faults, not
+complete accuracy. Expected matches were revalidated by exact neutral category
+and exact stable-reference token; no false match was found. Original model
+outputs remain unchanged, and no model was re-executed for the methodology fix.
 
 Durable evidence: [Axiom and GitHub Spec-Kit Evaluation](../research/axiom-speckit-evaluation.md).
 Temporary reproducibility evidence:
@@ -87,10 +95,10 @@ separate later.
 while keeping Project/Evidence orchestration above it.
 
 **Limitations/trade-offs:** The narrow adapter experiment lost the Decision
-input, detected fewer expected findings, used more time/context, appended to
-disposable tasks, and required pinning, output normalization, compatibility
-fixtures, failure mapping, cleanup, and future migration tests. It remains
-viable for a bounded workflow only when reuse value exceeds those costs.
+input, had lower seeded recall, used more time/context, appended to disposable
+tasks, and required pinning, output normalization, compatibility fixtures,
+failure mapping, cleanup, and future migration tests. It remains viable for a
+bounded workflow only when reuse value exceeds those costs.
 
 ### C — Conceptual compatibility
 
@@ -103,6 +111,11 @@ findings than the adapter with lower time/context and no translation loss.
 SDD, drift, or claim compatibility too vaguely. The experimental native path
 still missed unsupported Redis behavior and remains model-driven. Mappings and
 reuse boundaries must be explicit and tested.
+
+The missed Redis root cause is a research gap for a possible future capability:
+detect introduced behavior or implementation scope without supporting
+requirement, decision, or approved-plan rationale. This ADR does not authorize
+that capability's implementation.
 
 ### D — Reference only
 
@@ -165,3 +178,8 @@ Controls if accepted:
 - Spec-Kit's domain model materially converges with Axiom Project, Execution,
   Evidence, Release, provider, or living-document requirements;
 - Axiom's generic SDD implementation cost or quality becomes unacceptable.
+
+No additional scenario is currently required before human review of ADR-0002.
+Future multi-repository or upgrade evidence can trigger reconsideration only
+after Axiom's minimum Project/repository contracts or a newer stable Spec-Kit
+release make those comparisons executable rather than speculative.

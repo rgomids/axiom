@@ -78,4 +78,7 @@ scripts/test-tools.sh
 adapters/speckit/test-failures.sh
 ```
 
+`scripts/test-tools.sh` also validates the unexpected-finding review and proves
+that seeded reference matching rejects substring-only matches.
+
 Não use Makefile como interface principal. Este repositório não possui Makefile nem runtime de aplicação neste estágio.
