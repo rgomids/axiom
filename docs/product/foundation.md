@@ -56,6 +56,7 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 
 - The project now uses the [Axiom Constitution](constitution.md) as normative governance.
 - `Project != Repository` is accepted in [ADR-0001](../decisions/0001-project-is-not-repository.md).
+- Axiom owns its SDD harness, domain, and lifecycle; Spec-Kit is a strategic upstream research reference with no runtime, architectural, behavioral, or file-format compatibility commitment, as accepted in [ADR-0002](../decisions/0002-axiom-speckit-relationship.md).
 - Codex is the only currently supported native renderer in the existing harness. This is a bounded current-state decision, not a commitment that Axiom will remain single-runtime.
 - The first specified dogfood slice is [Codex agent harness generation](../specifications/001-codex-agent-harness-generation/spec.md).
 
@@ -63,7 +64,6 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 
 - The product may start as a personal local-first CLI written in Go.
 - Axiom may persist its own Workspace, Work Item, Execution and Evidence identities.
-- Axiom may orchestrate Spec-Kit, depend on it, implement compatible concepts, or use it only as reference.
 - RTK, Caveman, Ponytail, Graphify and `tech-leads-club/agent-skills` may offer useful techniques. None is adopted.
 
 ### Open questions
@@ -74,7 +74,6 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 - Which execution events and evidence must be retained, for how long, and with what privacy controls?
 - Is Axiom initially a preparer, orchestrator, executor, or deterministic workflow controller?
 - What is the autonomy and approval model by action and risk?
-- Which Spec-Kit relationship, if any, should be adopted?
 
 ## Source register and authority
 

@@ -2,11 +2,14 @@
 
 ## Status
 
-Two controlled scenarios completed on 2026-08-11. Architectural recommendation
-is recorded as [ADR-0002](../decisions/0002-axiom-speckit-relationship.md) with
-status **Proposed**. The PR remains an active evaluation surface pending human
-review. No Spec-Kit dependency, production wrapper, compatibility contract,
-copied template, or Lingo implementation is authorized.
+Two controlled scenarios completed on 2026-08-11. After review of both scenarios
+and the methodology correction, the human architectural decision was recorded
+as [ADR-0002](../decisions/0002-axiom-speckit-relationship.md) with status
+**Accepted** on 2026-09-10: Axiom will implement its own SDD harness, domain, and
+lifecycle, informed by Spec-Kit as a strategic upstream research reference. No
+Spec-Kit dependency, production wrapper, compatibility promise, copied
+template, Lingo implementation, upstream-watch automation, or new harness
+implementation is authorized by this research.
 
 Temporary reproducibility evidence is committed under
 [`experiments/speckit-evaluation/`](../../experiments/speckit-evaluation/).
@@ -23,6 +26,24 @@ Which relationship should Axiom have with GitHub Spec-Kit?
 - D — reference only.
 
 The research did not select an answer before collecting comparative evidence.
+
+## Research trajectory
+
+```text
+Initial hypothesis
+-> A / B / C / D
+-> Scenario 001
+-> C leading
+-> Scenario 002
+-> B vs C
+-> C empirically stronger
+-> human architectural decision
+-> independent Axiom implementation informed by Spec-Kit
+```
+
+“C leading” records the experiment-stage interpretation. The final decision is
+not a compatibility promise: it preserves independent Axiom ownership while
+treating Spec-Kit as a strategic upstream research reference.
 
 ## Evaluated upstream
 
@@ -165,7 +186,10 @@ analyze/converge, Codex rendering, manifests, extension model, and update system
 without a domain-specific reason would be duplication. Directly adopting them
 would create runtime and lifecycle coupling before Axiom's own contracts exist.
 
-## Strategy assessment
+## Historical strategy assessment
+
+The following A/B/C/D assessment is preserved as the interpretation used during
+the experiments, before the final human decision.
 
 ### A — Direct dependency
 
@@ -244,6 +268,8 @@ artifact. Every approach missed Redis as unsupported behavior. C's experimental
 fixture-boundary rule reduced unexpected findings from four to one but did not
 improve seeded-finding recall over current Axiom.
 
+### Methodology correction
+
 The original scorer incorrectly treated every unexpected finding as a false
 positive even though the oracle covers only the five seeded faults. Post-run
 methodology review classified all eight unexpected findings individually. Each
@@ -257,6 +283,8 @@ Expected matches were also revalidated. Exact neutral category plus an exact
 stable-reference token is sufficient for these five unique oracle pairs; every
 current match is semantically correct. The scorer now rejects substring-only
 matches and records the actual finding ID used for each detected expected item.
+
+### Additional adapter and upgrade evidence
 
 B successfully ran official analyze then converge. Converge appended six tasks
 and nine lines to the disposable task file. The adapter preserved raw events,
@@ -297,7 +325,7 @@ projects, or one run per repository plus Axiom-owned correlation. C could
 operate on a Project-level matrix without translation, but Axiom lacks the
 minimum Project/repository source and evidence contracts needed to prove it.
 
-### Recommendation
+### Scenario 002 interpretation before human decision
 
 Keep the ranking:
 
@@ -314,7 +342,8 @@ but the recommendation does not treat them as false positives. B remains
 plausible only as an optional bounded adapter when a specific approved workflow
 benefits enough to justify its maintenance surface.
 
-ADR-0002 remains Proposed. No result authorizes implementation or adoption.
+This evidence made C the empirically stronger experiment-stage hypothesis. It
+did not itself authorize implementation or establish a compatibility contract.
 
 ### Limitations
 
@@ -334,11 +363,10 @@ detect introduced behavior or implementation scope that has no supporting
 requirement, decision, or approved-plan rationale. This research conclusion does
 not authorize implementation in Axiom.
 
-## Remaining evidence that could materially change the B vs C decision
+## Revisit evidence that could materially change the accepted decision
 
-No additional scenario is currently required before human review of ADR-0002.
-
-Three future questions can reopen the comparison when their prerequisites exist:
+Human acceptance of ADR-0002 required no additional scenario. The following
+questions can trigger reconsideration when their prerequisites exist.
 
 | Question | Why it matters | Result favoring B | Result favoring C |
 |---|---|---|---|
@@ -350,9 +378,34 @@ These are revisit conditions, not a reason to create Scenario 003 now.
 Agent-harness generation does not test the observed analyze/converge Decision
 gap.
 
-## Remaining human decisions
+## Decision
 
-- Accept, reject, or revise ADR-0002's Proposed recommendation after reviewing
-  both scenarios.
-- If accepted later, choose whether initial compatibility means vocabulary and
-  lifecycle mapping only or a separately specified import/export contract.
+Human review accepted **Independent Axiom implementation informed by Spec-Kit**.
+Axiom owns its SDD harness, domain, and lifecycle. Spec-Kit is a strategic
+upstream research reference, not a runtime dependency, technological
+foundation, mandatory adapter, file-format contract, behavioral compatibility
+promise, or architectural dependency.
+
+Axiom may learn from Spec-Kit patterns only after asking whether they solve an
+Axiom problem, validating them against Axiom requirements, experimenting when
+necessary, and recording an ADR when the consequence is architectural.
+Divergence is allowed where Axiom's domain requires different behavior.
+
+## Future upstream watch
+
+An approximately weekly Spec-Kit Upstream Watch is a **Planned** direction. It
+will compare the last evaluated upstream state with the current state across
+releases, documentation, workflows, commands, extensions, presets, agent
+integrations, templates, architecture, and concepts. Relevant findings should
+flow through research, experiments when needed, ADR review when architectural,
+and Axiom-native implementation after approval.
+
+No watch mechanism is selected or implemented here. See the
+[strategic upstream register](spec-kit-strategic-upstream.md).
+
+## Next work, not implemented
+
+The next product activity is to **Design the first Axiom-native SDD harness
+evolution**. Intake, specify, clarify, plan, tasks, implement, review, analyze,
+converge, and reconcile are candidate inputs, not an approved final workflow.
+**Design Spec-Kit Upstream Watch** remains a separate future activity.

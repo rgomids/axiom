@@ -171,6 +171,29 @@ Work Item -> Specification -> Plan -> Implementation activity
 
 Provider trade-offs and abstraction thresholds are detailed in [Provider Boundaries](provider-boundaries.md).
 
+## Strategic upstream boundary
+
+[ADR-0002](../decisions/0002-axiom-speckit-relationship.md) establishes that
+Axiom owns its SDD harness, domain, and lifecycle. Spec-Kit is observed through
+research as a strategic upstream reference; it is not a required layer between
+Axiom workflows and ports/providers, and it does not replace any Axiom domain
+concept.
+
+```mermaid
+flowchart TB
+    D["Axiom domain"] --> W["Axiom workflows"]
+    W --> C["Axiom capabilities"]
+    C --> P["Ports"]
+    P --> A["Providers / adapters"]
+    SK["Spec-Kit"] -. upstream research .-> R["Axiom research"]
+    R -. validated learning .-> C
+```
+
+Any future Spec-Kit adapter, import/export contract, or compatibility guarantee
+requires a concrete need and a separate approved decision. The planned
+[Spec-Kit Upstream Watch](../research/spec-kit-strategic-upstream.md) is a
+research process, not an implemented architectural component.
+
 ## Traceability invariant
 
 Where a stage applies, Axiom must be able to navigate references without reconstructing them from chat:

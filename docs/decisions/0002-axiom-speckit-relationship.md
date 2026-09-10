@@ -2,184 +2,183 @@
 
 ## Status
 
-Proposed on 2026-08-11. Still Proposed after Scenario 002. Human acceptance
-required.
+Accepted on 2026-09-10 after human review of Scenario 001, Scenario 002, and
+the Scenario 002 methodology correction.
 
 ## Context
 
 Axiom and GitHub Spec-Kit overlap in intent-first development, constitution,
 specification, clarification, planning, tasks, implementation, and validation.
-Spec-Kit `v0.16.2` also provides mature Codex integration, checklists,
-cross-artifact analysis, convergence, extensions, presets, workflows, bundles,
-manifests, and upgrades.
+Spec-Kit also demonstrates useful patterns for bounded clarification,
+requirements checklists, cross-artifact analysis, convergence, traceability,
+workflow decomposition, extensions, presets, workflow composition, agent
+integration, and context management.
 
-Axiom's target domain is broader than the evaluated Spec-Kit feature flow. It
-needs a logical Project distinct from Repository, multi-repository delivery,
-Work Item/provider boundaries, accountable Decisions, Executions, Evidence,
-Artifacts, Releases, and living-document reconciliation.
+Axiom's target domain is broader than the evaluated Spec-Kit feature flow. Its
+authoritative concepts are Workspace, Project, Repository, Work Item,
+Specification, Plan, Decision, Execution, Evidence, Artifact, Agent, Provider,
+Integration, and Release. No upstream concept automatically replaces an Axiom
+concept.
 
-A controlled same-scenario experiment found:
+Scenario 001 compared complete documentation-only SDD workflows. Spec-Kit
+provided stronger standardized artifacts, cross-artifact analysis, and
+convergence, while Axiom was leaner and aligned directly with its own domain.
+Spec-Kit's analysis caught an unsupported identifier-allocation inference that
+Axiom's self-review missed.
 
-- both workflows completed the documentation-only scenario with one human
-  clarification batch and no application code or dependency;
-- Axiom was leaner and aligned with its domain/review/reconcile concepts;
-- Spec-Kit used more time/tokens but provided stronger standardized artifacts,
-  cross-artifact analysis, and convergence;
-- Spec-Kit analysis caught an unsupported identifier-allocation inference that
-  Axiom's self-review missed;
-- neither run demonstrated Axiom's required multi-repository and Evidence model.
-
-A second capability-level experiment compared current Axiom, an experimental
-Axiom-native capability, and a confined pinned Spec-Kit adapter on five frozen
-semantic inconsistencies. It found:
-
-- current Axiom and experimental C each detected 4/5 expected findings; C
-  reduced unexpected findings from four to one;
-- B detected 3/5 and produced three unexpected findings;
-- post-run review classified all unexpected findings as out-of-scope
-  production-completeness observations for the deliberately non-executable
-  fixture; B and C each produced zero validated false positives;
-- B lost the Decision input at the official analyze/converge boundary and
-  therefore missed PostgreSQL introduced without decision evidence;
-- every approach missed unsupported Redis behavior;
-- C used 77,514 input tokens and 89.82 seconds; B used 193,169 input tokens and
-  179.13 seconds including preparation;
-- B converge appended six tasks to disposable state and required explicit
-  failure, version, normalization, and cleanup behavior;
-- no newer stable Spec-Kit version existed for a real upgrade comparison;
-- multi-repository analysis still lacks executable evidence for both paths.
-
-The 4/5 and 3/5 values are seeded recall over five deliberate faults, not
-complete accuracy. Expected matches were revalidated by exact neutral category
-and exact stable-reference token; no false match was found. Original model
-outputs remain unchanged, and no model was re-executed for the methodology fix.
+Scenario 002 compared current Axiom, an experimental Axiom-native capability,
+and a confined Spec-Kit adapter over five frozen semantic inconsistencies. The
+Axiom-native experiment detected 4/5 seeded findings; the adapter detected 3/5.
+The adapter lost Decision semantics at its input boundary, consumed more
+context and runtime, added integration and upgrade responsibilities, and
+created impedance for Project distinct from Repository and future
+multi-repository workflows. The methodology correction established that
+unexpected findings were not automatically false positives; original model
+outputs and frozen evidence were not changed.
 
 Durable evidence: [Axiom and GitHub Spec-Kit Evaluation](../research/axiom-speckit-evaluation.md).
-Temporary reproducibility evidence:
+Reproducibility evidence:
 [`experiments/speckit-evaluation/`](../../experiments/speckit-evaluation/).
 
-## Proposed decision
+## Decision
 
-Axiom should continue evaluating **conceptual compatibility with Spec-Kit
-without a mandatory runtime dependency** as the leading Proposed direction.
+**Axiom will maintain an independent SDD harness, domain model, and lifecycle,
+informed by Spec-Kit.**
 
-Axiom should:
+Spec-Kit is a strategic upstream research reference, not an architectural or
+runtime dependency. Axiom may adopt patterns demonstrated by Spec-Kit only
+after validating that they solve an Axiom problem. Resulting capabilities will
+be specified and implemented as Axiom-native behavior unless a future,
+independently approved decision establishes a narrower integration.
 
-- keep its own domain and state authoritative;
-- define explicit conceptual mappings where semantics genuinely align;
-- adopt proven interaction and quality patterns such as bounded clarification,
-  requirements checklists, cross-artifact analysis, and convergence;
-- avoid copying upstream templates or promising file compatibility by default;
-- add import/export or an executable Spec-Kit adapter only through a separately
-  approved specification and evidence;
-- keep encapsulation/orchestration as a reconsideration path.
+This relationship follows:
 
-This proposal does not authorize implementation, Spec-Kit installation,
-dependency adoption, Lingo changes, or an interoperability contract.
+```mermaid
+flowchart TB
+    SK["Spec-Kit"] -->|upstream research| R["Axiom Research"]
+    R -->|evaluated patterns| H["Independent Axiom Harness"]
+    H --> C["Axiom / Lingo / Agents"]
+```
+
+The learning path is:
+
+```text
+Spec-Kit evolves
+-> Axiom observes
+-> assess relevance
+-> research
+-> test whether it solves an Axiom problem
+-> experiment when necessary
+-> ADR when architecturally relevant
+-> Axiom-native implementation
+```
+
+Spec-Kit changes are never incorporated automatically.
+
+### Domain ownership
+
+Axiom owns its domain. When Axiom requirements differ from Spec-Kit, deliberate
+divergence is allowed and is not, by itself, incompatibility or technical debt.
+This is especially relevant to Project distinct from Repository,
+multi-repository Projects, Decision, Execution, Evidence, Providers,
+Integrations, Release, cross-repository orchestration, durable knowledge, and
+observability.
+
+### No runtime or compatibility commitment
+
+This decision establishes no:
+
+- Spec-Kit runtime dependency or required adapter;
+- architectural dependency on Spec-Kit;
+- behavioral compatibility guarantee;
+- equivalence between Axiom and Spec-Kit specifications, plans, or tasks;
+- compatibility guarantee for `.specify/`, `spec.md`, `plan.md`, `tasks.md`,
+  templates, or any other upstream format;
+- automatic import, export, migration, or upgrade path.
+
+Future import/export or adapters require a concrete need, specification,
+evidence, and their own approval.
+
+### Strategic upstream watch
+
+A future **Spec-Kit Upstream Watch** should periodically, approximately weekly,
+compare the last evaluated upstream state with the current upstream state. It
+should consider releases, documentation, workflows, commands, extensions,
+presets, agent integrations, templates, architecture, and concepts; record
+irrelevant changes; and route relevant changes through research, experiment,
+and ADR review when warranted.
+
+The watch is **Planned**, not implemented. This ADR chooses no GitHub Actions,
+cron, agent runtime, Lingo component, provider, storage, model, or report
+format.
 
 ## Alternatives considered
 
 ### A — Direct dependency
 
-**Benefits:** Immediate reuse of mature SDD artifacts, Codex support, analysis,
-convergence, extensibility, and upstream improvements.
-
-**Limitations/trade-offs:** Highest coupling to upstream layout, commands,
-templates, versions, and upgrade lifecycle. Axiom must still build its broader
-domain around Spec-Kit. Lingo and multi-repository evolution become harder to
-separate later.
+Immediate reuse of mature upstream capabilities, with the highest coupling to
+upstream runtime, layout, commands, templates, versions, and upgrades. It does
+not solve Axiom's broader domain needs and would make later divergence harder.
 
 ### B — Encapsulation/orchestration
 
-**Benefits:** Reuse selected Spec-Kit capabilities behind an Axiom experience
-while keeping Project/Evidence orchestration above it.
-
-**Limitations/trade-offs:** The narrow adapter experiment lost the Decision
-input, had lower seeded recall, used more time/context, appended to disposable
-tasks, and required pinning, output normalization, compatibility fixtures,
-failure mapping, cleanup, and future migration tests. It remains viable for a
-bounded workflow only when reuse value exceeds those costs.
+Reuse selected capabilities behind an Axiom surface. Scenario 002 demonstrated
+translation loss, lower seeded recall, greater context/runtime cost, mutable
+adapter state, and additional compatibility, failure, cleanup, and migration
+responsibilities. It remains possible only for a future bounded need with its
+own evidence and approval.
 
 ### C — Conceptual compatibility
 
-**Benefits:** Preserves Axiom domain, customization, multi-repository direction,
-living documentation, and future Lingo while learning from proven Spec-Kit
-patterns. Scenario 002's experimental native path detected more expected
-findings than the adapter with lower time/context and no translation loss.
-
-**Limitations/trade-offs:** Axiom owns implementation and can duplicate generic
-SDD, drift, or claim compatibility too vaguely. The experimental native path
-still missed unsupported Redis behavior and remains model-driven. Mappings and
-reuse boundaries must be explicit and tested.
-
-The missed Redis root cause is a research gap for a possible future capability:
-detect introduced behavior or implementation scope without supporting
-requirement, decision, or approved-plan rationale. This ADR does not authorize
-that capability's implementation.
+The experiments used this label for the leading hypothesis. It preserved Axiom
+authority and enabled learning from Spec-Kit, but “compatibility” could imply a
+future behavioral or file-format promise. The accepted decision retains the
+learning benefit while explicitly removing that promise.
 
 ### D — Reference only
 
-**Benefits:** Lowest external coupling and maximum freedom.
-
-**Limitations/trade-offs:** Highest reinvention, no interoperability promise,
-and full ownership of generic SDD/Codex/upgrade mechanics.
+Maximum independence, but a passive relationship risks missing useful upstream
+developments. The accepted decision adds deliberate strategic observation
+without coupling Axiom to Spec-Kit.
 
 ## Consequences
 
 ### Positive
 
-- Axiom Project, Execution, Evidence, provider, Release, and documentation
-  lifecycles remain unconstrained by one upstream project/feature layout.
-- No Spec-Kit runtime/version/upgrade dependency enters Axiom now.
-- Proven Spec-Kit quality patterns can influence Axiom's specifications and
-  deterministic contracts.
-- A later optional adapter remains possible without migrating authoritative
-  Axiom state first.
+- Axiom retains architectural independence and lower coupling.
+- No mandatory translation layer or upstream runtime is required.
+- Axiom can represent its domain directly and evolve multi-repository behavior.
+- Decision, Execution, and Evidence may evolve independently.
+- Useful upstream innovations can be absorbed selectively after validation.
+- Runtime and vendor coupling are reduced.
 
 ### Negative / trade-offs
 
-- Axiom must implement and maintain its own workflow contracts.
-- Generic SDD functionality may be duplicated without strict capability-level
-  reuse-or-own decisions.
-- Conceptual mappings can drift as both projects evolve.
-- Spec-Kit users receive no automatic artifact interoperability.
-- Axiom needs its own equivalent of observed analyze/converge value.
-- Scenario 002 does not authorize promoting its experimental skill into the
-  product.
+- Axiom owns implementation and maintenance of its SDD capabilities.
+- Axiom must actively monitor upstream developments.
+- Useful Spec-Kit improvements do not arrive automatically.
+- Patterns may require independent experimentation and implementation.
+- Divergence must be deliberate and documented.
 
-## Risks
+## Explicit non-goals
 
-- **Compatibility theater:** names align while semantics differ.
-- **Reimplementation waste:** Axiom rebuilds mature generic features without a
-  domain-specific reason.
-- **Drift:** upstream changes invalidate mappings.
-- **Under-validation:** Axiom repeats the self-review gap observed in the
-  experiment.
-- **Delayed reuse:** avoiding a dependency now may postpone valuable adapter
-  evidence.
+This ADR does not establish or authorize:
 
-Controls if accepted:
-
-- version every conceptual mapping and state semantic differences;
-- require deterministic cross-artifact coverage and convergence in Axiom;
-- evaluate generic capabilities individually before rebuilding them;
-- keep upstream monitoring as research, not implicit architecture;
-- require a separate ADR/specification before any runtime adapter or import/export
-  contract.
+- a Spec-Kit runtime dependency or production adapter;
+- file, `.specify/`, template, or behavioral compatibility;
+- automatic migration;
+- Lingo architecture or implementation;
+- implementation of the Spec-Kit Upstream Watch;
+- implementation of the next Axiom-native SDD harness.
 
 ## Revisit when
 
-- a bounded Axiom workflow demonstrates an adapter with materially better
-  detection or lower validated total cost than the Axiom-native path;
-- a newer stable Spec-Kit release permits real upgrade/migration testing;
-- Axiom defines minimum Project/repository input and evidence contracts so
-  multi-repository aggregation can be executed rather than hypothesized;
-- users require Spec-Kit artifact interoperability;
-- Spec-Kit's domain model materially converges with Axiom Project, Execution,
-  Evidence, Release, provider, or living-document requirements;
-- Axiom's generic SDD implementation cost or quality becomes unacceptable.
+- users demonstrate a concrete interoperability need that cannot be met by an
+  Axiom-native capability at acceptable cost;
+- a bounded adapter demonstrates materially better validated outcomes after
+  preserving Axiom domain semantics;
+- Axiom's independent SDD implementation cost or quality becomes unacceptable;
+- a material upstream change invalidates assumptions behind this decision.
 
-No additional scenario is currently required before human review of ADR-0002.
-Future multi-repository or upgrade evidence can trigger reconsideration only
-after Axiom's minimum Project/repository contracts or a newer stable Spec-Kit
-release make those comparisons executable rather than speculative.
+Reconsideration requires new evidence and does not create an automatic
+compatibility or dependency commitment.

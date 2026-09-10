@@ -40,5 +40,7 @@ formal experiment was completed on 2026-08-11 against Spec-Kit `v0.16.2`:
 3. an explicit scorecard covering artifact quality, deterministic validation, upgrade behavior, token/context cost, multi-repository fit, traceability and user friction.
 
 See the [durable evaluation](axiom-speckit-evaluation.md) and
-[ADR-0002](../decisions/0002-axiom-speckit-relationship.md). ADR-0002 remains
-Proposed; no adoption or implementation follows automatically.
+[ADR-0002](../decisions/0002-axiom-speckit-relationship.md). Human review later
+accepted an independent Axiom implementation informed by Spec-Kit as a
+strategic upstream reference. This pre-experiment analysis remains historical;
+no adoption or implementation follows automatically.

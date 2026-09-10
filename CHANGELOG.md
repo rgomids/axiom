@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-09-10]
+
+- architecture: accept ADR-0002 with an independent Axiom SDD harness, domain, and lifecycle informed by Spec-Kit as a strategic upstream reference.
+- docs: record no runtime, architectural, behavioral, or file-format compatibility commitment and preserve deliberate divergence.
+- research: preserve Scenario 001 and Scenario 002 as historical evidence while recording the later human decision.
+- planning: document an approximately weekly Spec-Kit Upstream Watch as future work without selecting or implementing its mechanism.
+
 ## [2026-08-12]
 
 - research: correct Scenario 002 methodology by separating unexpected findings from manually validated false positives and reporting seeded recall.
