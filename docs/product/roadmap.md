@@ -73,3 +73,9 @@ security boundaries, failure handling, acceptance evidence, and migration
 impact. [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md)
 accepts Lingo as the architectural local control-plane direction; it does not
 authorize implementation by itself.
+
+The proposed [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
+combines the minimum configuration behavior behind blocks 1–4 and 7, including
+portable creation, reopening and local installation. Its
+[clarifications](../specifications/002-lingo-project-initialization/clarifications.md)
+remain open before planning; this is specification work, not implementation.
