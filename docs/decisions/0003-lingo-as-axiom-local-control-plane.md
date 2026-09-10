@@ -2,8 +2,11 @@
 
 ## Status
 
-Proposed on 2026-09-10 for human review. This proposal requires refinement
-through a Specification before acceptance or implementation.
+Accepted on 2026-09-10 after human review.
+
+Acceptance establishes the architectural direction only. Implementation still
+requires a Specification defining observable behavior, boundaries, failure
+handling, security constraints, migration impact, and acceptance evidence.
 
 ## Context
 
@@ -30,18 +33,18 @@ Constraints:
 - Projects must be portable across runtimes;
 - secrets never enter portable Project configuration;
 - Spec-Kit remains a strategic upstream reference under ADR-0002;
-- no implementation is authorized by this ADR.
+- this ADR does not authorize implementation without an approved Specification.
 
-## Proposed decision
+## Decision
 
-Use **Lingo as the candidate executable local control plane for Axiom**.
+Use **Lingo as Axiom's executable local control plane**.
 
 Axiom remains the product, domain, policies, lifecycle, and contracts. Lingo
-would execute or coordinate those contracts through Project configuration,
+will execute or coordinate those contracts through Project configuration,
 workflows, Agent Planning, orchestration, runtime/model/capability resolution,
 integration bootstrap, execution state, Evidence collection, and a CLI/wizard.
 
-Runtime adapters would bridge Lingo to Codex, Claude, Kiro, and future runtimes.
+Runtime adapters will bridge Lingo to Codex, Claude, Kiro, and future runtimes.
 Runtime skills should tend toward thin entrypoints:
 
 ```text
@@ -82,7 +85,7 @@ portable/local state separation and a stable adapter boundary.
 
 ### Positive
 
-- one candidate source of executable workflow behavior across runtimes;
+- one source of executable workflow behavior across runtimes;
 - lower duplication and drift in runtime skills;
 - Axiom domain remains independent from runtime and provider products;
 - local-first operation and Project portability remain possible;
