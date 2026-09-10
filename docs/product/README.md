@@ -2,7 +2,7 @@
 
 Axiom é uma plataforma para governar o ciclo de desenvolvimento de software assistido por IA.
 
-Estado consolidado: [Product Foundation](foundation.md). Governança normativa: [Axiom Constitution](constitution.md).
+Estado consolidado: [Product Foundation](foundation.md). Governança normativa: [Axiom Constitution](constitution.md). Sequenciamento futuro: [Product Roadmap](roadmap.md).
 
 Seu objetivo é manter coerência entre:
 
@@ -38,7 +38,8 @@ Decisões técnicas duráveis, especificações e artefatos de arquitetura devem
 
 Contexto resumido para agentes: [../../.agents/context/axiom-product.md](../../.agents/context/axiom-product.md).
 
-## First vertical slice
+## Current and future slices
 
 - [Specification 001 — Codex Agent Harness Generation](../specifications/001-codex-agent-harness-generation/spec.md)
 - [Dogfooding 001 — Go Pull Request Review Agent](dogfooding/001-go-pr-review-agent.md)
+- [`lingo project init` candidate slice](roadmap.md#candidate-first-executable-slice) — architecture direction only; requires a Specification before implementation.

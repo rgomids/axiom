@@ -26,8 +26,7 @@ fix an upstream Spec-Kit version as a domain or runtime requirement.
 ```mermaid
 flowchart TB
     SK["Spec-Kit"] -->|upstream research| R["Axiom Research"]
-    R -->|patterns evaluated against Axiom needs| H["Independent Axiom Harness"]
-    H --> P["Axiom / Lingo / Agents"]
+    R -->|patterns evaluated against Axiom needs| H["Independent Axiom capabilities"]
 ```
 
 Axiom learns from patterns, not implementations by default. Candidate patterns

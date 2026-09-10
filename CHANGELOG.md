@@ -3,7 +3,11 @@
 ## [2026-09-10]
 
 - architecture: accept ADR-0002 with an independent Axiom SDD harness, domain, and lifecycle informed by Spec-Kit as a strategic upstream reference.
+- architecture: propose ADR-0003 with Lingo as Axiom's local executable control plane while preserving Axiom as product, domain, policies, and contracts.
+- architecture: refine Project, Execution, Agent, Provider, Integration, Capability, Runtime, Transport, Agent Profile, Model Profile, Agent Planner, Orchestrator, and Business Context boundaries.
+- security: separate portable Project configuration from local state and require credential references instead of versioned secrets.
 - docs: record no runtime, architectural, behavioral, or file-format compatibility commitment and preserve deliberate divergence.
+- docs: add control-plane direction and roadmap for Project configuration, runtime/model portability, capability negotiation, multi-agent orchestration, thin runtime skills, and a future Project Wizard.
 - research: preserve Scenario 001 and Scenario 002 as historical evidence while recording the later human decision.
 - planning: document an approximately weekly Spec-Kit Upstream Watch as future work without selecting or implementing its mechanism.
 

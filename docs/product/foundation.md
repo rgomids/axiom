@@ -19,7 +19,7 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 
 ## What Axiom is and why it exists
 
-**Requirement:** Axiom is a development control plane intended to preserve coherence across product intent, specifications, architecture, work, repositories, execution, validation, documentation, releases and evidence when humans and AI agents collaborate.
+**Requirement:** Axiom is the product, domain, policies, and contracts intended to preserve coherence across product intent, specifications, architecture, work, repositories, execution, validation, documentation, releases and evidence when humans and AI agents collaborate. Lingo is the candidate executable local control plane; the two names are not interchangeable.
 
 **Problem evidence from discovery:** agent-assisted development fragments context and durable state, especially when work spans repositories and external systems.
 
@@ -32,7 +32,7 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 - The repository contains a Codex-first harness, policies, skills, templates and deterministic shell validation.
 - No Axiom CLI, application runtime, `go.mod`, database, infrastructure or provider adapter exists.
 - The current agent factory describes `intake -> normalized blueprint -> artifact plan -> Codex renderer -> validation -> package`.
-- Notion contains discovery material and explicitly marks strategic choices as open.
+- Notion contains discovery material, accepted-decision summaries, and explicitly classified proposals/open questions.
 
 ### Requirements
 
@@ -42,6 +42,10 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 - Useful deterministic behavior must remain possible without an available model.
 - No source-control, tracking or documentation provider may be mandatory at the domain level.
 - Relevant human approval boundaries must remain explicit.
+- An Axiom Project must remain portable across agent runtimes, with runtime-specific overrides isolated from domain concepts.
+- Portable Project configuration must exclude secrets and machine-specific state.
+- Roles must not be coupled to concrete models; model availability belongs to runtime resolution.
+- Provider, Capability, Integration and Transport must remain distinct; MCP is a possible Transport, not a domain concept.
 
 ### Principles
 
@@ -64,6 +68,9 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 
 - The product may start as a personal local-first CLI written in Go.
 - Axiom may persist its own Workspace, Work Item, Execution and Evidence identities.
+- Lingo may become the executable local control plane that conducts Axiom workflows while runtime skills and adapters remain thin, as proposed in [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md).
+- Project may become the principal persistent operational context without necessarily becoming the aggregate root or owning every related record.
+- Agent Planning and orchestration may derive capability-based execution graphs with parent and child Executions and durable Evidence.
 - RTK, Caveman, Ponytail, Graphify and `tech-leads-club/agent-skills` may offer useful techniques. None is adopted.
 
 ### Open questions
@@ -72,8 +79,9 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 - What state is authoritative in Axiom versus repositories and external providers?
 - Does a Work Item have Axiom identity, provider identity, or a hybrid mapping?
 - Which execution events and evidence must be retained, for how long, and with what privacy controls?
-- Is Axiom initially a preparer, orchestrator, executor, or deterministic workflow controller?
+- Which orchestration responsibilities belong to Lingo, runtime adapters, and individual agents?
 - What is the autonomy and approval model by action and risk?
+- What are the contracts for Project manifests, local state, runtime/model discovery, capability negotiation, Execution graphs and credential references?
 
 ## Source register and authority
 

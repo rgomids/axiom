@@ -14,7 +14,13 @@ Axiom definitions
 → Axiom CLI automates proven workflows
 ```
 
-The harness is therefore not disposable scaffolding. It is an executable product hypothesis.
+The harness is therefore not disposable scaffolding. It is the current manual
+executable product hypothesis.
+
+The proposed future direction is different: central workflow behavior would be
+conducted by Lingo under Axiom contracts, while runtime skills become thin
+entrypoints. Existing skills do not change until ADR-0003 is reviewed and a
+Specification defines migration, compatibility, and acceptance evidence.
 
 ## Boundaries
 
@@ -28,6 +34,8 @@ This version deliberately does **not** decide:
 - production deployment;
 - final agent schema;
 - adoption of token-saving/context tools.
+- Lingo implementation or migration from current skills;
+- runtime adapters, Agent Planner, orchestration, execution graphs, or model discovery.
 
 Those should emerge from specifications and validated experiments.
 

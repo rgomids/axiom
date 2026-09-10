@@ -56,8 +56,7 @@ This relationship follows:
 ```mermaid
 flowchart TB
     SK["Spec-Kit"] -->|upstream research| R["Axiom Research"]
-    R -->|evaluated patterns| H["Independent Axiom Harness"]
-    H --> C["Axiom / Lingo / Agents"]
+    R -->|evaluated patterns| H["Independent Axiom capabilities"]
 ```
 
 The learning path is:
@@ -170,6 +169,9 @@ This ADR does not establish or authorize:
 - Lingo architecture or implementation;
 - implementation of the Spec-Kit Upstream Watch;
 - implementation of the next Axiom-native SDD harness.
+
+The later Lingo control-plane proposal is intentionally governed by
+[ADR-0003](0003-lingo-as-axiom-local-control-plane.md), not by this decision.
 
 ## Revisit when
 

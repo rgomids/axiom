@@ -2,7 +2,9 @@
 
 ## Product thesis
 
-Axiom aims to be a control plane for AI-assisted software development.
+Axiom is the product, domain, policies, and contracts for governing AI-assisted
+software development. Lingo is the proposed local executable control plane;
+the names are not synonyms and ADR-0003 remains Proposed.
 
 Canonical product classification is in `docs/product/foundation.md`. Normative governance is in `docs/product/constitution.md`; do not duplicate those documents here.
 
@@ -74,6 +76,9 @@ Do not infer that the CLI must be built immediately. The current harness exists 
 - structured events and decisions are preferred over raw chat logs;
 - token/context efficiency is a first-class concern;
 - the product should still expose useful deterministic behavior when an LLM is unavailable.
+- Project configuration should be portable across agent runtimes and separate from machine-local state and credentials;
+- roles and capabilities should remain independent from concrete runtime models;
+- orchestrated parent/child Executions should produce durable Evidence rather than rely on chat history.
 
 ## Current strategic questions
 
@@ -83,12 +88,23 @@ Still open unless an ADR/spec says otherwise:
 - local-first vs hybrid synchronization model;
 - authoritative sources for technical and operational state;
 - internal work-item model;
-- execution vs preparation/orchestration boundaries;
+- exact Agent Planner, Orchestrator and execution-graph contracts;
 - autonomy/approval model;
 - repository discovery and workspace model;
 - remote service requirements;
 - first persistence model;
 - packaging and distribution strategy.
+- portable Project manifest and local-state formats;
+- runtime/model discovery and capability-negotiation contracts;
+- Integration bootstrap and credential-reference behavior.
+
+## Architectural roadmap
+
+The next capability blocks are Lingo control-plane refinement, Project
+manifest and portable/local configuration, runtime/model abstraction,
+capability/Integration modeling, Execution graph and orchestration, thin
+runtime skills/adapters, and the Project init wizard. See
+`docs/product/roadmap.md`; this sequence is not implementation authorization.
 
 ## First vertical slice
 
