@@ -8,8 +8,8 @@ separate pull request.
 
 ## Next capability blocks
 
-1. **Lingo as Axiom Control Plane** — refine the proposed Axiom/Lingo boundary,
-   command surface, lifecycle responsibility, and acceptance evidence.
+1. **Lingo as Axiom Control Plane** — specify the accepted Axiom/Lingo boundary,
+   command surface, lifecycle responsibility, and acceptance evidence before implementation.
 2. **Project Manifest and Portable/Local Configuration** — specify Project
    identity, shareable configuration, machine-local state, credential
    references, validation, and installation behavior.
@@ -71,4 +71,5 @@ the full orchestration platform.
 No implementation begins before a Specification defines behavior, non-goals,
 security boundaries, failure handling, acceptance evidence, and migration
 impact. [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md)
-remains Proposed until human review.
+accepts Lingo as the architectural local control-plane direction; it does not
+authorize implementation by itself.
