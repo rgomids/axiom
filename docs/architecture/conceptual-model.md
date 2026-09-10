@@ -16,11 +16,11 @@ This is an initial domain-language baseline, not a data model, API, schema or pe
 | Artifact, Agent | supporting | Assist core concepts without replacing them. |
 | Provider, Capability, Runtime, Transport | boundary | Protect Axiom domain contracts from external products and execution mechanisms. |
 | Integration, Agent Profile, Model Profile | configuration | Select or bind behavior inside approved boundaries; not domain ownership. |
-| Agent Planner, Orchestrator | candidate | Future executable capabilities proposed for Lingo. |
+| Agent Planner, Orchestrator | candidate | Future executable capabilities for Lingo; detailed contracts remain subject to Specification. |
 
-The Axiom/Lingo execution boundary is a strong proposal documented in
-[ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md), not an
-accepted implementation decision.
+The Axiom/Lingo execution boundary is accepted by
+[ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md). Its detailed
+contracts and implementation remain subject to Specifications and later decisions.
 
 The initial tree `Workspace -> Project -> repositories/work/specifications/decisions/executions` is not accepted as an aggregate hierarchy. It mixes an operational view with ownership. Current model:
 
@@ -57,7 +57,7 @@ Workspace may present many Projects, but presentation does not yet imply persist
 
 ### Project — accepted distinction, candidate operational context and ownership boundary
 
-- **Candidate responsibility:** act as the principal persistent operational context relating a product outcome with repositories, Work Items, Specifications, Decisions, Executions, Evidence, Business Context, Integrations, configuration and Releases.
+- **Candidate responsibility:** act as a persistent operational context relating a product outcome with repositories, Work Items, Specifications, Decisions, Executions, Evidence, Business Context, Integrations, configuration and Releases.
 - **Relations:** may associate one or more Repositories. Ownership of project-scoped work and knowledge is not yet decided.
 - **Lifecycle:** candidate states are active, paused and archived; no state machine is approved.
 - **Not:** a repository, directory, provider project, issue board, deployment environment, automatically the aggregate root, or owner of every related record.
@@ -284,9 +284,10 @@ reconstructing the domain definition of the Project.
 
 Provider trade-offs and abstraction thresholds are detailed in [Provider Boundaries](provider-boundaries.md).
 
-The proposed executable relationship among Axiom, Lingo, Runtime adapters,
+The accepted executable relationship among Axiom, Lingo, Runtime adapters,
 Agent Planning and orchestration is recorded in
-[ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md).
+[ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md). Detailed
+contracts remain subject to Specification.
 
 ## Strategic upstream boundary
 
@@ -325,5 +326,3 @@ intent / Work Item
 -> Reconciliation
 -> Release
 ```
-
-Absence of a stage must be explicit, not inferred from a missing link.
