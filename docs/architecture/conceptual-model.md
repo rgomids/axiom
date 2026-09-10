@@ -2,7 +2,25 @@
 
 ## Status and scope
 
-This is an initial domain-language baseline, not a data model, API, schema or persistence decision. Terms marked **accepted** may guide specifications. Terms marked **candidate** remain subject to clarification.
+This is an initial domain-language baseline, not a data model, API, schema or persistence decision. Terms marked **accepted** may guide specifications. Terms marked **candidate** remain subject to clarification. **Supporting**, **boundary**, and **configuration** classify a concept's role; they do not imply that its representation is approved.
+
+## Classification map
+
+| Concept | Deliberate classification | Current standing |
+|---|---|---|
+| Project | accepted distinction; candidate operational context and ownership boundary | `Project != Repository` is accepted; primary persistence, ownership and aggregate boundaries remain open. |
+| Repository | accepted | Independent version-controlled delivery boundary associated with a Project. |
+| Work Item | candidate | Provider-neutral work intent; not a provider record. |
+| Specification, Plan, Decision, Evidence | accepted concepts | Representations and some lifecycles remain open. |
+| Execution, Release, Business Context | candidate | Required direction; schemas and ownership remain open. |
+| Artifact, Agent | supporting | Assist core concepts without replacing them. |
+| Provider, Capability, Runtime, Transport | boundary | Protect Axiom domain contracts from external products and execution mechanisms. |
+| Integration, Agent Profile, Model Profile | configuration | Select or bind behavior inside approved boundaries; not domain ownership. |
+| Agent Planner, Orchestrator | candidate | Future executable capabilities for Lingo; detailed contracts remain subject to Specification. |
+
+The Axiom/Lingo execution boundary is accepted by
+[ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md). Its detailed
+contracts and implementation remain subject to Specifications and later decisions.
 
 The initial tree `Workspace -> Project -> repositories/work/specifications/decisions/executions` is not accepted as an aggregate hierarchy. It mixes an operational view with ownership. Current model:
 
@@ -13,6 +31,7 @@ flowchart TB
     P --> WI["Work Items"]
     P --> S["Specifications"]
     P --> D["Decisions"]
+    P --> BC["Business Context"]
     P --> X["Executions"]
     WI --> S
     S --> PL["Plans"]
@@ -36,13 +55,13 @@ Workspace may present many Projects, but presentation does not yet imply persist
 - **Not:** a synonym for filesystem directory, Git monorepo, organization or Project.
 - **Open:** identity, persistence, ownership, portability and whether multiple Workspaces may reference one Project.
 
-### Project — accepted distinction, candidate ownership boundary
+### Project — accepted distinction, candidate operational context and ownership boundary
 
-- **Candidate responsibility:** relate a product outcome with repositories, Work Items, Specifications, Decisions, Executions, Evidence and Releases.
+- **Candidate responsibility:** act as a persistent operational context relating a product outcome with repositories, Work Items, Specifications, Decisions, Executions, Evidence, Business Context, Integrations, configuration and Releases.
 - **Relations:** may associate one or more Repositories. Ownership of project-scoped work and knowledge is not yet decided.
 - **Lifecycle:** candidate states are active, paused and archived; no state machine is approved.
-- **Not:** a repository, directory, provider project, issue board, deployment environment, or approved primary aggregate.
-- **Open:** canonical identity, metadata format, nesting, source of truth and cross-Project sharing.
+- **Not:** a repository, directory, provider project, issue board, deployment environment, automatically the aggregate root, or owner of every related record.
+- **Open:** canonical identity, metadata format, portable/local split, nesting, source of truth, ownership, aggregate boundary and cross-Project sharing.
 
 ### Repository — accepted concept
 
@@ -93,6 +112,13 @@ Work Item -> Specification -> Plan -> Implementation activity
                                       -> Execution(s) -> Evidence
 ```
 
+### Business Context — candidate
+
+- **Responsibility:** preserve durable glossary, domain language, acronyms, conventions, business rules, product constraints and architectural conventions relevant to a Project.
+- **Relations:** informs Specifications, Plans, Agent Profiles, context construction and validation.
+- **Not:** chat memory, a final schema, a model prompt, or authority that overrides approved Decisions.
+- **Open:** representation, ownership, versioning, scoping and validation.
+
 ### Decision — accepted concept
 
 - **Responsibility:** record an explicit choice, accountable status, evidence, alternatives, trade-offs and revisit conditions.
@@ -112,12 +138,12 @@ Work Item -> Specification -> Plan -> Implementation activity
 
 ### Execution — candidate
 
-- **Responsibility:** record one bounded attempt by a human or agent to perform an activity under known intent, context, policies and approvals.
-- **Relations:** belongs to a Project and usually a Work Item, Specification or Plan; names actor/Agent, Provider capabilities, affected Repositories, produced Evidence and Artifacts.
+- **Responsibility:** record one bounded attempt by a human or Agent to perform an activity under known intent, context, policies and approvals, including its place in an orchestration graph.
+- **Relations:** belongs to a Project and usually a Work Item, Specification or Plan; may reference parent and child Executions, role, Agent Profile, Runtime, Model Profile, required capabilities, affected Repositories, inputs, outputs, Evidence and Artifacts.
 - **Lifecycle:** candidate `prepared -> authorized -> running -> succeeded|failed|blocked|cancelled`.
 - **Not:** a full chat transcript, agent definition, task, or automatic proof of correctness.
 - **Minimum durable record candidate:** stable identity, actor, purpose, source references, timestamps, status, affected targets, approvals/waivers, validation summary, output references and blockers.
-- **Open:** event schema, retention, privacy/redaction, replay semantics and whether prepared-but-not-run activity counts as Execution.
+- **Open:** graph and event schemas, dependency semantics, concurrency, cancellation, retention, privacy/redaction, replay semantics and whether prepared-but-not-run activity counts as Execution.
 
 ### Evidence — accepted concept, open representation
 
@@ -149,27 +175,142 @@ Work Item -> Specification -> Plan -> Implementation activity
 ### Agent — supporting concept
 
 - **Responsibility:** describe an AI-assisted actor profile or runtime participant with purpose, capabilities, policies and approval boundaries.
-- **Relations:** may perform Executions through a Provider and consume a Blueprint or rendered harness.
+- **Relations:** may perform Executions through a Runtime and consume an Agent Profile, Blueprint or rendered harness.
 - **Lifecycle:** defined, validated, enabled, disabled, versioned; exact model open.
 - **Not:** the model provider, a human, a Work Item or an Execution.
-- **Open:** identity, versioning, runtime portability and accountability mapping.
+- **Open:** identity, versioning, runtime portability, specialization and accountability mapping.
+
+### Agent Profile — configuration concept
+
+- **Responsibility:** configure a role, required capabilities, policies, approval boundaries, and reasoning/context requirements without selecting a concrete model in the domain.
+- **Relations:** may guide Agent Planning and be referenced by an Execution; resolves through a Runtime and Model Profile.
+- **Not:** an Agent instance, concrete model, runtime adapter, or guarantee that a capability is available.
+- **Open:** schema, inheritance, versioning and Project/runtime override rules.
+
+### Model Profile — configuration concept
+
+- **Responsibility:** map user-selected execution classes such as orchestrator, worker or lightweight work to models available in a selected Runtime.
+- **Relations:** belongs to Project/runtime configuration and may be referenced by an Agent Profile or Execution.
+- **Not:** a Role, a hardcoded global model catalog, or a domain rule tying one role to one model.
+- **Open:** discovery, validation, fallback, cost and context-window representation.
+
+### Agent Planner — candidate capability
+
+- **Responsibility:** derive required capabilities, candidate roles, runtime/model constraints and execution topology from an approved Plan.
+- **Relations:** consumes a Plan and available capabilities; proposes Agent Profiles and an Execution graph for authorization.
+- **Not:** a fixed `frontend + backend = full-stack` rule, model selector alone, or permission to execute.
+- **Open:** deterministic versus model-assisted rules, risk/cost optimization, override and approval points.
+
+Candidate roles include architect, backend engineer, frontend engineer,
+full-stack engineer, database engineer, QA engineer, security reviewer, code
+reviewer and documentation agent. These are capability roles, not concrete
+models. The planner may select separate frontend/backend roles or a full-stack
+role based on scope, dependencies, risk, parallelism, cost and complexity. SQL
+alone does not imply a database specialist.
+
+```mermaid
+flowchart TB
+    P["Plan"] --> C["Required capabilities"]
+    C --> T["Agent topology"]
+    T --> O["Orchestrator / Architect"]
+    O --> B["Backend"]
+    O --> F["Frontend"]
+    O --> D["Database"]
+    O --> R["Reviewer"]
+    T --> G["Execution graph"]
+```
+
+### Orchestrator — candidate capability
+
+- **Responsibility:** coordinate authorized Executions, observe progress, resolve dependencies, consolidate results, request decisions, enforce Plan boundaries, collect Evidence and reconcile final state.
+- **Relations:** conducts an Execution graph and observes child Executions; does not replace them.
+- **Not:** the Project owner, an automatic architect role, a source of product truth, or the Plan itself.
+- **Open:** identity, failure/retry/cancellation semantics, delegation authority, concurrency and human escalation.
 
 ### Provider — boundary concept
 
 - **Responsibility:** name an external system offering capabilities such as source control, tracking, documentation or agent execution.
-- **Relations:** reached through an Integration when an application workflow needs its capabilities.
-- **Not:** a core domain owner or a reason to force a universal interface.
+- **Relations:** offers Capabilities and is bound through an Integration; a runtime adapter may reach it through a Transport.
+- **Not:** a Capability, Integration, Transport, core domain owner, or reason to force a universal interface.
 - **Open:** initial capability contracts and source-of-truth rules.
+
+### Capability — boundary concept
+
+- **Responsibility:** name a provider-neutral operation or property required by a workflow, such as `work-item.read`, `documentation.write` or `repository.read`.
+- **Relations:** required by Plans/workflows and offered by Providers, Runtimes or configured Integrations; participates in negotiation before Execution.
+- **Not:** a Provider product, transport protocol, permission grant, or implementation interface by itself.
+- **Open:** vocabulary, versioning, composition, constraints and negotiation result model.
 
 ### Integration — candidate configuration concept
 
 - **Responsibility:** bind a Project or Workspace to a Provider with configuration, capability scope and trust/permission policy.
-- **Relations:** supplies provider capabilities to workflows and Executions.
+- **Relations:** supplies Provider capabilities to workflows and Executions through a selected Transport and credential reference.
 - **Lifecycle:** configured, verified, degraded, disabled or removed; exact states open.
-- **Not:** a Provider implementation, credential value or domain entity by default.
-- **Open:** scope, credential references, health, portability and persistence.
+- **Not:** a Provider, Capability, Transport, MCP server, credential value or domain entity by default.
+- **Open:** scope, credential references, Transport selection, health, capability negotiation, portability and persistence.
+
+### Runtime — boundary concept
+
+- **Responsibility:** identify an execution environment and expose available models and capabilities through a runtime adapter.
+- **Relations:** hosts or invokes Agents and Executions; resolves Model Profiles and may satisfy provider/integration capabilities.
+- **Not:** an Agent role, concrete model, Project owner, or Axiom domain.
+- **Examples:** Codex, Claude, Kiro and future execution environments.
+- **Open:** discovery, lifecycle, adapter contract, capability reporting and failure mapping.
+
+### Transport — boundary concept
+
+- **Responsibility:** identify the infrastructure mechanism an adapter uses to reach a Provider or runtime capability.
+- **Relations:** selected by an Integration or adapter after domain capability requirements are known.
+- **Not:** an Integration, Provider, Capability or domain concept. In particular, `Integration != MCP`.
+- **Examples:** MCP, native API, CLI, HTTP and future mechanisms.
+- **Open:** selection, fallback, observability, lifecycle and security policy.
+
+## Configuration and portability boundary
+
+Project configuration is expected to separate portable, versionable intent
+from machine-local state. Portable configuration may reference repositories,
+Providers, required capabilities, Integrations, Model Profiles, policies and
+credential identifiers. It must not contain secret values, absolute
+machine-specific paths, runtime process identifiers, caches or temporary state.
+
+Credential configuration stores references only. Environment variables,
+operating-system credential stores and runtime-managed credentials are possible
+future sources; none is selected. The final filesystem and persistence model
+remain open.
+
+An Axiom Project must not belong to Codex, Claude, Kiro or another Runtime.
+Runtime-specific overrides may exist, but changing Runtime must not require
+reconstructing the domain definition of the Project.
 
 Provider trade-offs and abstraction thresholds are detailed in [Provider Boundaries](provider-boundaries.md).
+
+The accepted executable relationship among Axiom, Lingo, Runtime adapters,
+Agent Planning and orchestration is recorded in
+[ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md). Detailed
+contracts remain subject to Specification.
+
+## Strategic upstream boundary
+
+[ADR-0002](../decisions/0002-axiom-speckit-relationship.md) establishes that
+Axiom owns its SDD harness, domain, and lifecycle. Spec-Kit is observed through
+research as a strategic upstream reference; it is not a required layer between
+Axiom workflows and ports/providers, and it does not replace any Axiom domain
+concept.
+
+```mermaid
+flowchart TB
+    D["Axiom domain"] --> W["Axiom workflows"]
+    W --> C["Axiom capabilities"]
+    C --> P["Ports"]
+    P --> A["Providers / adapters"]
+    SK["Spec-Kit"] -. upstream research .-> R["Axiom research"]
+    R -. validated learning .-> C
+```
+
+Any future Spec-Kit adapter, import/export contract, or compatibility guarantee
+requires a concrete need and a separate approved decision. The planned
+[Spec-Kit Upstream Watch](../research/spec-kit-strategic-upstream.md) is a
+research process, not an implemented architectural component.
 
 ## Traceability invariant
 
@@ -179,9 +320,9 @@ Where a stage applies, Axiom must be able to navigate references without reconst
 intent / Work Item
 -> Specification
 -> Decision and Plan
--> Execution
+-> Agent Planning when needed
+-> Execution graph
 -> Evidence and Artifact
+-> Reconciliation
 -> Release
 ```
-
-Absence of a stage must be explicit, not inferred from a missing link.

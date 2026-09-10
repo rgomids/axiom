@@ -2,7 +2,10 @@
 
 ## Status
 
-**Research / hypothesis.** No Spec-Kit dependency, wrapper or copied artifact is approved by this document.
+**Pre-experiment research / historical hypothesis.** The formal comparison is
+now documented in [Axiom and GitHub Spec-Kit Evaluation](axiom-speckit-evaluation.md).
+No Spec-Kit dependency, wrapper, compatibility contract, or copied artifact is
+approved by this document.
 
 ## Verified reference
 
@@ -26,12 +29,18 @@ These are upstream capabilities as observed on 2026-08-08, not Axiom decisions.
 - Spec-Kit now supports Codex and richer extensibility than the historical discovery summary alone implied; adopting or wrapping it therefore requires a current experiment, not assumptions based on an older version.
 - The first Axiom slice is agent-harness generation, not application-feature implementation. Direct dependency offers no proven benefit for this slice yet.
 
-## Research recommendation
+## Historical research recommendation
 
-Use **C (conceptual compatibility)** as the comparison baseline for the next experiment while keeping **B (encapsulation)** viable. This is not adoption. Before a decision, run the same bounded specification through:
+This analysis recommended using **C (conceptual compatibility)** as the
+comparison baseline while keeping **B (encapsulation)** viable. The required
+formal experiment was completed on 2026-08-11 against Spec-Kit `v0.16.2`:
 
 1. current Axiom harness;
 2. current Spec-Kit Codex integration;
 3. an explicit scorecard covering artifact quality, deterministic validation, upgrade behavior, token/context cost, multi-repository fit, traceability and user friction.
 
-Decision owner and acceptance thresholds remain open.
+See the [durable evaluation](axiom-speckit-evaluation.md) and
+[ADR-0002](../decisions/0002-axiom-speckit-relationship.md). Human review later
+accepted an independent Axiom implementation informed by Spec-Kit as a
+strategic upstream reference. This pre-experiment analysis remains historical;
+no adoption or implementation follows automatically.

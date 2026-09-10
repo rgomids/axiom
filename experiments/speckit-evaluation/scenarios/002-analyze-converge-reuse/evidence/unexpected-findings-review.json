@@ -1,0 +1,113 @@
+{
+  "methodology": "Unexpected findings are reviewed individually against the original finding text and frozen fixture boundary. Absence from the seeded oracle does not imply false positive.",
+  "reviews": [
+    {
+      "approach": "C-current-axiom-baseline",
+      "finding_id": "AXC-002",
+      "original_category": "task_coverage",
+      "subject": "T-001",
+      "classification": "out_of_scope_observation",
+      "rationale": "A production implementation of the stated HTTP plan would need routes and mappings, but the frozen source is explicitly a non-executable semantic fixture and does not claim production completeness.",
+      "evidence": [
+        "scenario/implementation/src/record-service.ts:1 labels the source a frozen, non-executable experiment fixture.",
+        "scenario/tasks.md:12-13 says every listed task is represented and no additional work is implied."
+      ],
+      "reviewer": "experiment-review"
+    },
+    {
+      "approach": "C-current-axiom-baseline",
+      "finding_id": "AXC-003",
+      "original_category": "task_coverage",
+      "subject": "T-002",
+      "classification": "out_of_scope_observation",
+      "rationale": "Concrete PostgreSQL and duplicate-error behavior would be required for executable production code, but concrete adapters and executable completeness are outside this deliberately partial fixture.",
+      "evidence": [
+        "scenario/implementation/src/record-service.ts:1 labels the source non-executable.",
+        "scenario/implementation/src/record-service.ts:10-13 represents the repository boundary used by the semantic fixture.",
+        "scenario/tasks.md:12-13 limits the fixture to represented task concepts without implied additional work."
+      ],
+      "reviewer": "experiment-review"
+    },
+    {
+      "approach": "C-current-axiom-baseline",
+      "finding_id": "AXC-004",
+      "original_category": "task_coverage",
+      "subject": "T-003",
+      "classification": "out_of_scope_observation",
+      "rationale": "A concrete Redis adapter would matter in production, but adapter completeness is outside the non-executable fixture. The finding also does not identify the seeded root problem that Redis lacks supporting requirement evidence.",
+      "evidence": [
+        "scenario/implementation/src/record-service.ts:1 labels the source non-executable.",
+        "scenario/implementation/src/record-service.ts:15-18 represents the cache boundary.",
+        "oracle/expected-findings.json EXP-002 defines the seeded issue as unsupported Redis behavior, not missing adapter implementation."
+      ],
+      "reviewer": "experiment-review"
+    },
+    {
+      "approach": "C-current-axiom-baseline",
+      "finding_id": "AXC-005",
+      "original_category": "task_coverage",
+      "subject": "T-004",
+      "classification": "out_of_scope_observation",
+      "rationale": "Executable assertions would be required in a production repository, but the test artifact is explicitly a frozen, non-executable representation used only for semantic analysis.",
+      "evidence": [
+        "scenario/implementation/tests/record-service.test.ts:1 labels the tests a frozen, non-executable experiment fixture.",
+        "scenario/tasks.md:12-13 states that no additional fixture work is implied."
+      ],
+      "reviewer": "experiment-review"
+    },
+    {
+      "approach": "C-axiom-native-experimental",
+      "finding_id": "AXN-002",
+      "original_category": "requirement_coverage",
+      "subject": "RecordService.create / T-002 / duplicate-conflict test",
+      "classification": "out_of_scope_observation",
+      "rationale": "Explicit conflict mapping is production-relevant, but the source and tests are non-executable semantic representations. Treating their lack of runnable error behavior as capability failure exceeds the frozen fixture boundary.",
+      "evidence": [
+        "scenario/implementation/src/record-service.ts:1 labels the source non-executable.",
+        "scenario/implementation/tests/record-service.test.ts:1 labels the tests non-executable.",
+        "scenario/tasks.md:12-13 says the represented task inventory implies no additional work."
+      ],
+      "reviewer": "experiment-review"
+    },
+    {
+      "approach": "B-speckit-encapsulated",
+      "finding_id": "SPK-004",
+      "original_category": "requirement_coverage",
+      "subject": "FR-002/T-002",
+      "classification": "out_of_scope_observation",
+      "rationale": "Conflict mapping and executable verification are valid production concerns, but this finding judges completeness that the frozen non-executable fixture deliberately does not provide.",
+      "evidence": [
+        "scenario/implementation/src/record-service.ts:1 labels the source non-executable.",
+        "scenario/implementation/tests/record-service.test.ts:1 labels the tests non-executable.",
+        "scenario/tasks.md:12-13 says no additional fixture work is implied."
+      ],
+      "reviewer": "experiment-review"
+    },
+    {
+      "approach": "B-speckit-encapsulated",
+      "finding_id": "SPK-005",
+      "original_category": "task_coverage",
+      "subject": "PLAN-001/T-001",
+      "classification": "out_of_scope_observation",
+      "rationale": "HTTP adapters would be necessary for a production API, but the scenario source is a deliberately partial semantic fixture rather than an executable API implementation.",
+      "evidence": [
+        "scenario/implementation/src/record-service.ts:1 labels the source a non-executable fixture.",
+        "scenario/tasks.md:12-13 limits the fixture to represented task concepts."
+      ],
+      "reviewer": "experiment-review"
+    },
+    {
+      "approach": "B-speckit-encapsulated",
+      "finding_id": "SPK-006",
+      "original_category": "task_coverage",
+      "subject": "PLAN-005/T-004",
+      "classification": "out_of_scope_observation",
+      "rationale": "Runnable tests are appropriate production evidence, but the bodyless declarations are part of an explicitly non-executable semantic fixture and should not count against this capability comparison.",
+      "evidence": [
+        "scenario/implementation/tests/record-service.test.ts:1 labels the tests non-executable.",
+        "scenario/tasks.md:12-13 says every listed task is represented and no additional work is implied."
+      ],
+      "reviewer": "experiment-review"
+    }
+  ]
+}

@@ -27,6 +27,13 @@ Provider
 Capability
 Policy
 Workflow
+Runtime
+Transport
+Agent Profile
+Model Profile
+Agent Planner
+Orchestrator
+Business Context
 ```
 
 Current classification:
@@ -34,8 +41,11 @@ Current classification:
 - accepted distinction: Project is not Repository; aggregate and ownership boundaries remain open;
 - candidate operational context: Workspace;
 - accepted concepts with open representations: Specification, Plan, Decision, Evidence;
-- candidate lifecycle concepts: Work Item, Execution, Release, Integration;
+- candidate lifecycle concepts: Work Item, Execution, Release, Integration and Business Context;
 - supporting concepts: Artifact, Agent, Provider.
+- boundary concepts: Provider, Capability, Runtime and Transport;
+- configuration concepts: Integration, Agent Profile and Model Profile;
+- candidate executable capabilities: Agent Planner and Orchestrator.
 
 ## Architectural direction
 
@@ -53,7 +63,27 @@ adapters/providers/renderers
 
 External products such as GitHub, GitLab, Linear, Jira, Notion, Confluence, Codex, or future runtimes must not leak unnecessarily into core domain contracts.
 
+The current strong proposal separates:
+
+```text
+Axiom product/domain/policies/contracts
+    ↓
+Lingo local control plane
+    ↓
+workflows / Project state / runtime resolution
+    ↓
+thin runtime adapters and skills
+```
+
+This direction is documented in `docs/architecture/control-plane.md` and
+ADR-0003. ADR-0003 remains Proposed; do not implement Lingo or treat the
+boundary as accepted before a Specification and human review.
+
 Use `docs/architecture/provider-boundaries.md` for the abstraction threshold. Do not create a universal provider interface before a specified workflow requires one.
+
+Preserve `Role != Model`, `Provider != Transport`, `Integration != MCP`,
+`Execution != Agent`, and `Skill != workflow source of truth`. Secrets never
+belong in portable Project configuration.
 
 ## Multi-repository principle
 

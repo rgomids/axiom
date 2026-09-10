@@ -4,6 +4,11 @@
 
 Completed process simulation on 2026-08-08 using the current `axiom-agent-factory` skill, blueprint template, Codex renderer guidance and repository validators. No agent package was generated or added to the repository. Renderer and packaging results are therefore assessed, not claimed as executed.
 
+This is point-in-time evidence. The Spec-Kit research item recorded below was
+later resolved by [ADR-0002](../../decisions/0002-axiom-speckit-relationship.md):
+Axiom now owns an independent harness direction and treats Spec-Kit as a
+strategic upstream reference.
+
 ## Input
 
 > Preciso de um agente responsável por revisar Pull Requests de aplicações Go, considerando arquitetura, segurança, testes e qualidade.

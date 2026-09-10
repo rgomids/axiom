@@ -1,0 +1,17 @@
+diff --git a/specs/002-analyze-converge-reuse/tasks.md b/specs/002-analyze-converge-reuse/tasks.md
+index 8faf553..d2569a7 100644
+--- a/specs/002-analyze-converge-reuse/tasks.md
++++ b/specs/002-analyze-converge-reuse/tasks.md
+@@ -11,3 +11,12 @@
+
+ Execution note: every listed task is represented in the frozen implementation
+ fixture. No additional work is implied.
++
++## Phase 1: Convergence
++
++- [ ] T005 Accept, validate, and preserve the caller-provided identifier instead of generating a service UUID per FR-001 (contradicts)
++- [ ] T006 Map duplicate repository failures to a conflict result without changing the existing record per FR-002 (partial)
++- [ ] T007 Complete the `POST /records` and `GET /records/{id}` HTTP adapters per PLAN-001 (partial)
++- [ ] T008 Add the rollback runbook and backward-compatible persistence verification needed to preserve accepted records per FR-004 (missing)
++- [ ] T009 Define an objective performance target and add automated performance verification per AC-003 (missing)
++- [ ] T010 Replace the placeholder test declarations with executable coverage for creation, conflicts, retrieval, and the resolved identifier contract per PLAN-005 (partial)

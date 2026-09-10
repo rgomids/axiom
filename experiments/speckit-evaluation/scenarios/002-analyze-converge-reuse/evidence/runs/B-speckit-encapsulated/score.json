@@ -1,0 +1,76 @@
+{
+  "expected_findings": 5,
+  "detected_findings": 3,
+  "missed_findings": 2,
+  "unexpected_findings": 3,
+  "false_negatives": 2,
+  "false_positives": 0,
+  "seeded_recall_ratio": 0.6,
+  "unexpected_classification": {
+    "valid_additional_findings": 0,
+    "false_positives": 0,
+    "out_of_scope_observations": 3,
+    "duplicates": 0,
+    "unclassified": 0
+  },
+  "detected": [
+    {
+      "id": "EXP-001",
+      "category": "requirement_coverage",
+      "subject_reference": "FR-004",
+      "severity": "major",
+      "actual_finding_id": "SPK-003"
+    },
+    {
+      "id": "EXP-003",
+      "category": "contradiction",
+      "subject_reference": "FR-001",
+      "severity": "major",
+      "actual_finding_id": "SPK-001"
+    },
+    {
+      "id": "EXP-004",
+      "category": "unverifiable_acceptance",
+      "subject_reference": "AC-003",
+      "severity": "major",
+      "actual_finding_id": "SPK-002"
+    }
+  ],
+  "missed": [
+    {
+      "id": "EXP-002",
+      "category": "unsupported_behavior",
+      "subject_reference": "T-003",
+      "severity": "major"
+    },
+    {
+      "id": "EXP-005",
+      "category": "missing_decision",
+      "subject_reference": "PLAN-002",
+      "severity": "major"
+    }
+  ],
+  "unexpected": [
+    {
+      "id": "SPK-004",
+      "category": "requirement_coverage",
+      "subject_reference": "FR-002/T-002",
+      "severity": "major",
+      "classification": "out_of_scope_observation"
+    },
+    {
+      "id": "SPK-005",
+      "category": "task_coverage",
+      "subject_reference": "PLAN-001/T-001",
+      "severity": "major",
+      "classification": "out_of_scope_observation"
+    },
+    {
+      "id": "SPK-006",
+      "category": "task_coverage",
+      "subject_reference": "PLAN-005/T-004",
+      "severity": "major",
+      "classification": "out_of_scope_observation"
+    }
+  ]
+}
