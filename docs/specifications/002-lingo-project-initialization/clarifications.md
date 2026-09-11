@@ -2,10 +2,12 @@
 
 ## Status
 
-2026-09-11 — Specification/Clarification only. [Specification 002](spec.md)
-remains Proposed / ready for final human review. Q1–Q6 below are human-approved
-decisions for this Specification, not approval of the complete Specification or
-authorization to create Plan, Tasks or implementation.
+2026-09-11 — Specification 002 approved. [Specification 002](spec.md) is
+Approved by final human review on 2026-09-11. Q1–Q6 remain Resolved by human review.
+No blocking clarification remains for planning. Approval closes intake → specify
+→ clarify and authorizes Plan as the next phase after PR #3 is merged, in a new
+change. It does not authorize direct implementation; an approved Plan is still
+required. This PR creates no Plan, Tasks or implementation.
 
 ## Resolved from authoritative input
 
@@ -47,12 +49,13 @@ questions and proposed defaults where they differed. No Q1–Q6 blocker remains.
   filesystem races/TOCTOU and approved boundaries. Concrete techniques remain for
   Plan/implementation. Safe read-only Repository path resolution authorizes no write.
 
-## Remaining proposed behavior
+## Approved slice behavior
 
-These slice behaviors remain subject to final Specification review; they do not
-reopen Q1–Q6 or assert additional human-approved architectural decisions.
+These behaviors are covered by final Specification approval on 2026-09-11.
+They do not reopen Q1–Q6 or establish additional global architectural decisions.
+Original P identifiers are retained for decision traceability.
 
-| ID | Proposed behavior and rationale | Specification |
+| ID | Approved slice behavior and rationale | Specification |
 |---|---|---|
 | P3 | Portable intent authoritative; local records bind stable keys and validated content revision. No implicit Workspace catalog/ownership. | Portable/local table |
 | P4 | Init creates; identical rerun is no-op; changed intent conflicts. No update/force mode or automatic merge. | FR-012 |
@@ -65,7 +68,7 @@ reopen Q1–Q6 or assert additional human-approved architectural decisions.
 
 Earlier P1/P2/P7/P10 defaults are superseded by Q1/Q5/Q4/Q2 respectively.
 
-## Open questions and architectural boundary
+## Planning details and architectural boundary
 
 No material blocking question remains from this review. Exact override name,
 CLI syntax, initial schema version token/support rule and filesystem techniques
@@ -103,9 +106,12 @@ and CHANGELOG to remove stale open-question gates and artificial Provider
 requirements. Conceptual model, Provider boundaries, accepted ADRs, harness,
 commands and security policies need no change.
 
-Review recommendation: Proposed / ready for final human review. Q1–Q6 resolution
-does not approve the Specification or authorize progression. Next step is a new
-human review. No Plan, Tasks, implementation, adapters or dependencies are created.
+Final human decision on 2026-09-11: Specification 002 — Approved; Q1–Q6 —
+Resolved by human review. This records the Constitution/SDD gate:
+intake → specify → clarify → [human approval] → plan.
+Next step: merge PR #3, then start Plan in a new change. Implementation is not
+authorized by this PR and remains gated by an approved Plan. No Plan, Tasks,
+implementation, adapters or dependencies are created.
 Executable Lingo acceptance remains unverified because no Lingo code exists.
 
 ## Validation of this documentation change

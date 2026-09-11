@@ -75,13 +75,15 @@ impact. [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md)
 accepts Lingo as the architectural local control-plane direction; it does not
 authorize implementation by itself.
 
-The proposed [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
+The approved [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
 combines the minimum configuration behavior behind blocks 1–4 and 7, including
 portable creation, reopening and local installation. Its
 [clarifications](../specifications/002-lingo-project-initialization/clarifications.md)
 record Q1–Q6 as resolved by human review: UUID v4, one strict `axiom.yaml`,
 OS-native local state for Linux/macOS with root override, presence-only Runtime
 observations, minimal portable validity with explicit installation gaps, and
-conservative Repository matching. The Specification remains Proposed / ready
-for final human review. Next step is a new human review; no Plan, Tasks or
-implementation is authorized.
+conservative Repository matching. Specification 002 is Approved by human review
+on 2026-09-11. The first Lingo vertical slice has an approved Specification and
+is ready for planning; it is not implemented. No blocking clarification remains.
+Next step: merge PR #3, then start Plan in a new change. Implementation remains
+gated by an approved Plan; this PR creates no Plan, Tasks or implementation.

@@ -2,12 +2,15 @@
 
 ## Status and authority
 
-Proposed / ready for final human review, 2026-09-11. Stage: intake → specify → clarify.
-This document specifies future behavior; no executable Lingo exists. No Plan,
-implementation, adapter, dependency, or new ADR is authorized by this document.
-Requirements below are proposed slice contracts, not accepted global schemas
-or lifecycle states. [Clarifications](clarifications.md) records their basis,
-human-approved Q1–Q6 decisions, review gate, and validation evidence.
+Approved. Approved by human review on 2026-09-11.
+Q1–Q6 are Resolved by human review. Intake → specify → clarify are complete.
+Approval authorizes Plan as the next phase after PR #3 is merged, in a new change.
+It does not authorize direct implementation; implementation remains subject to
+an approved Plan. No Plan, Tasks, implementation, adapter, dependency, or new ADR
+is created in this PR. This document specifies future behavior; no executable
+Lingo exists. Requirements below are approved slice contracts, not accepted global
+schemas or lifecycle states. [Clarifications](clarifications.md) records their
+basis, human-approved Q1–Q6 decisions, approval gate, and validation evidence.
 
 Authoritative context:
 
@@ -354,7 +357,10 @@ rules preserve the accepted conceptual distinctions. Optional declarations do
 not promote candidate concepts to accepted schemas. No dependency, external
 mutation, implementation, or change to an accepted ADR is introduced.
 
-Q1–Q6 are resolved by human review in clarifications.md. The Specification remains
-Proposed / ready for final human review, not Approved. Next step is a new human
-review; resolution of these questions does not authorize progression. Stop at
-specify → clarify; no Plan, Tasks or implementation is created in this PR.
+Q1–Q6 are Resolved by human review in clarifications.md. Specification 002 is
+Approved by final human review on 2026-09-11, with no blocking clarification
+remaining for planning. This decision records the human gate:
+intake → specify → clarify → [human approval] → plan.
+After merging PR #3, start Plan in a new change. Approval does not authorize
+implementation directly; an approved Plan remains required. No Plan, Tasks or
+implementation is created in this PR.
