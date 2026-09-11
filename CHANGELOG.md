@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-11]
+
+- specification: reconcile Specification 002 with human-approved Q1–Q6 decisions; simplify required configuration, specify UUID v4 and strict axiom.yaml, native Linux/macOS local state, presence-only Runtime observations and conservative Repository matching.
+- security: distinguish deterministic secret rejection from optional best-effort scanning; express write-target protection as a behavioral invariant covering traversal, symlink redirection and TOCTOU.
+- docs: align journeys, FR/SEC/AC coverage, clarifications, index, roadmap and README; retain Proposed status for final human review without Plan, Tasks or implementation.
+
 ## [2026-09-10]
 
 - specification: propose Lingo Project Initialization with portable/local boundaries, deterministic creation and installation behavior, security criteria, acceptance evidence, and open clarifications; stop before planning or implementation.
