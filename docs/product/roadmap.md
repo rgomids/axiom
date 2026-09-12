@@ -84,6 +84,7 @@ OS-native local state for Linux/macOS with root override, presence-only Runtime
 observations, minimal portable validity with explicit installation gaps, and
 conservative Repository matching. Specification 002 is Approved by human review
 on 2026-09-11. The first Lingo vertical slice has an approved Specification and
-is ready for planning; it is not implemented. No blocking clarification remains.
-Next step: merge PR #3, then start Plan in a new change. Implementation remains
-gated by an approved Plan; this PR creates no Plan, Tasks or implementation.
+now has a [Plan ready for human review](../specifications/002-lingo-project-initialization/plan.md)
+after PR #3 merged; it is not implemented. No blocking clarification remains.
+Next step: human review of the Plan. Tasks and Implementation require explicit
+human approval of that Plan; this change adds no Tasks or implementation.
