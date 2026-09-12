@@ -84,7 +84,10 @@ OS-native local state for Linux/macOS with root override, presence-only Runtime
 observations, minimal portable validity with explicit installation gaps, and
 conservative Repository matching. Specification 002 is Approved by human review
 on 2026-09-11. The first Lingo vertical slice has an approved Specification and
-now has a [Plan ready for human review](../specifications/002-lingo-project-initialization/plan.md)
-after PR #3 merged; it is not implemented. No blocking clarification remains.
-Next step: human review of the Plan. Tasks and Implementation require explicit
+now has a [Plan reconciled after human review](../specifications/002-lingo-project-initialization/plan.md)
+in PR #4; it is not implemented. [ADR-0004](../decisions/0004-portable-project-manifest.md)
+records the accepted versioned Portable Project Manifest decision from that review.
+The Plan preserves distinct optional declaration states and versions internal local
+records with `formatVersion`, separately from portable `schemaVersion`.
+Next step: human re-review and final approval of the Plan. Tasks and Implementation require explicit
 human approval of that Plan; this change adds no Tasks or implementation.

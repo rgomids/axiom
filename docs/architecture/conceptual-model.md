@@ -61,7 +61,8 @@ Workspace may present many Projects, but presentation does not yet imply persist
 - **Relations:** may associate one or more Repositories. Ownership of project-scoped work and knowledge is not yet decided.
 - **Lifecycle:** candidate states are active, paused and archived; no state machine is approved.
 - **Not:** a repository, directory, provider project, issue board, deployment environment, automatically the aggregate root, or owner of every related record.
-- **Open:** canonical identity, metadata format, portable/local split, nesting, source of truth, ownership, aggregate boundary and cross-Project sharing.
+- **Decided boundary:** [ADR-0004](../decisions/0004-portable-project-manifest.md) establishes versioned portable Project intent, currently `axiom.yaml`, distinct from local state. Specification 002 defines slice identity; its Plan documents the initial concrete schema.
+- **Open:** nesting, ownership, aggregate boundary, cross-Project sharing and synchronization; broader metadata and local persistence contracts remain subject to specifications.
 
 ### Repository — accepted concept
 
@@ -267,16 +268,19 @@ flowchart TB
 
 ## Configuration and portability boundary
 
-Project configuration is expected to separate portable, versionable intent
-from machine-local state. Portable configuration may reference repositories,
+[ADR-0004](../decisions/0004-portable-project-manifest.md), accepted during human
+review of the Specification 002 Plan, establishes a versioned Portable Project
+Manifest, currently `axiom.yaml`, separating shared intent from machine-local state. Portable configuration may reference repositories,
 Providers, required capabilities, Integrations, Model Profiles, policies and
 credential identifiers. It must not contain secret values, absolute
 machine-specific paths, runtime process identifiers, caches or temporary state.
 
 Credential configuration stores references only. Environment variables,
 operating-system credential stores and runtime-managed credentials are possible
-future sources; none is selected. The final filesystem and persistence model
-remain open.
+future sources; none is selected. The initial schema is documented in the
+[Specification 002 Plan](../specifications/002-lingo-project-initialization/plan.md#2-portable-manifest-contract).
+Global persistence, ownership and synchronization remain open; internal local
+installation storage is a slice-level Plan detail.
 
 An Axiom Project must not belong to Codex, Claude, Kiro or another Runtime.
 Runtime-specific overrides may exist, but changing Runtime must not require

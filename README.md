@@ -13,7 +13,8 @@ O repositório começa com um harness Codex para exercitar esses fluxos antes de
 - harness SDD, domínio e lifecycle próprios definidos como direção aceita, com Spec-Kit somente como referência upstream estratégica;
 - Lingo aceito como Control Plane local executável na ADR-0003, sem implementação;
 - Project configuration, runtime/model portability, capability negotiation e orquestração multi-agent registrados como direção para futuras Specifications;
-- [Specification 002 — Lingo Project Initialization](docs/specifications/002-lingo-project-initialization/spec.md) Approved por revisão humana em 2026-09-11; Q1–Q6 resolvidas por revisão humana; [Plan](docs/specifications/002-lingo-project-initialization/plan.md) pronto para revisão humana após merge do PR #3; Tasks e Implementation aguardam aprovação humana explícita do Plan;
+- [Specification 002 — Lingo Project Initialization](docs/specifications/002-lingo-project-initialization/spec.md) Approved por revisão humana em 2026-09-11; Q1–Q6 resolvidas por revisão humana; [Plan](docs/specifications/002-lingo-project-initialization/plan.md) reconciliado após revisão humana do PR #4 e pronto para nova revisão; Tasks e Implementation aguardam aprovação humana explícita do Plan;
+- [ADR-0004 — Portable Project Manifest](docs/decisions/0004-portable-project-manifest.md) Accepted: manifesto portátil/versionado do Project, distinto do estado local; schema inicial detalhado no Plan;
 - nenhum código de aplicação ou runtime implantável.
 
 ## Documentation

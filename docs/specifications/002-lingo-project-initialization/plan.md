@@ -2,7 +2,20 @@
 
 ## Status, authority and scope
 
-**Plan ready for human review** — 2026-09-11. Proposed technical plan; not approved.
+**Plan reconciled after human review; ready for human re-review** — 2026-09-12.
+The three decisions below are resolved; final Plan approval remains pending.
+
+Human review of [PR #4](https://github.com/rgomids/axiom/pull/4) approved:
+
+1. A versioned Portable Project Manifest, recorded in Accepted
+   [ADR-0004](../../decisions/0004-portable-project-manifest.md).
+2. Distinct absent, `unconfigured` and empty-collection intent where each field
+   permits those forms; normalization, round-trip and FR-012 retain the distinction.
+3. Internal local records use explicit `formatVersion: 1`, separately from the
+   portable `schemaVersion`; unknown formats fail safely without migration.
+
+These decisions arose during Plan review, after Specification/clarification
+approval. They do not retroactively alter those artifacts or approve the whole Plan.
 
 Baseline: `main` at `374c643`, after PR #3 merged. The approved
 [Specification](spec.md) and [Q1–Q6](clarifications.md) close intake → specify →
@@ -39,7 +52,7 @@ repository resolution belongs to this slice.
 The first slice establishes a portable Project, then reopens and installs it
 without network or AI. Lingo presents and executes Axiom contracts; it does not
 own or redefine Project identity. Project is not Repository or Runtime, Role is
-not Model, Provider is not Transport, Integration is not MCP.
+not Model, Runtime is not Model, Provider is not Transport, Integration is not MCP.
 
 ```mermaid
 flowchart TD
@@ -93,6 +106,11 @@ confirmation tied to a preview; application rechecks that preview before any wri
 
 ## 2. Portable manifest contract
 
+[ADR-0004](../../decisions/0004-portable-project-manifest.md) establishes the
+durable versioned Portable Project Manifest, currently represented by `axiom.yaml`.
+The concrete initial schema is documented in this section under the approved
+Specification; it remains subject to final Plan review, not frozen globally by the ADR.
+
 Proposed initial token: integer `schemaVersion: 1`. Support exactly integer `1`;
 missing, null, string `"1"`, malformed or other versions fail. There is no implied
 backward/forward compatibility, numeric proximity rule, migration or down-conversion.
@@ -128,6 +146,57 @@ cannot use empty strings in place of required values. Optional omission,
 not a substitute for these forms. Duplicate declaration keys fail within their
 collection. Opaque identifiers receive structural validation, not catalog lookup.
 
+### Declaration-state semantics (resolved by human review)
+
+- **absent:** the concept was not declared in the manifest.
+- **`unconfigured`:** the concept was explicitly declared but has no configuration
+  or binding yet, only where the field contract accepts this declaration state.
+- **empty collection `[]`:** the concept was explicitly configured as a collection
+  that currently has no members.
+
+The normalized model retains presence and the permitted declaration form at every
+field below. Canonicalization must not silently collapse one state into another.
+Semantic equivalence and FR-012 reexecution do not equate these states by default:
+with the same ID and otherwise equal content, changing `providers` from absent to
+`unconfigured` or `[]` is changed intent and init conflicts without writes. Repeating
+any one unchanged form is a no-op. Explicit author edits remain valid on reopen
+when structurally allowed, preserving identity and requiring revalidation (FR-014).
+
+A semantic decode → normalize → encode → decode round-trip preserves represented
+intent, including nested optional presence and empty lists. YAML formatting is not
+semantic intent; reopen/install still preserve source bytes exactly. Shared local
+observations such as Runtime `unverified` do not erase distinct portable declarations.
+
+| Version 1 field(s) | Absent permitted? | `unconfigured` permitted? | Empty collection `[]` permitted? |
+|---|---|---|---|
+| `schemaVersion`, `project`, `project.id`, `project.name` | No | No declaration state | No |
+| `repositories`; each association `key` | No | No declaration state | No; at least one association |
+| `repositories[].remote` | Yes | No declaration state | No |
+| `runtime` | Yes | Yes, scalar | No; configured form requires `id` |
+| `runtime.id` | No within configured Runtime | No declaration state | No |
+| `providers`, `integrations`, `modelProfiles`, `credentialReferences`, `policies` | Yes | Yes, scalar | Yes; three distinct states |
+| `providers[].key`, `providers[].id`, `integrations[].key`, `modelProfiles[].key`, `credentialReferences[].key` | No within each declaration | No declaration state | No |
+| `integrations[].providerRef`, `integrations[].credentialRef` | Yes; `providerRef` required with Transport | No declaration state | No |
+| `integrations[].capabilities` | Yes | No declaration state | Yes; distinct from absence |
+| `integrations[].transport` | Yes | No declaration state | No; present mapping requires `id` |
+| `integrations[].transport.id` | No within Transport | No declaration state | No |
+| `integrations[].transport.reference`, `credentialReferences[].sourceHint` | Yes | No declaration state | No |
+| `modelProfiles[].state` | Yes for configured profile | Yes, exact scalar; excludes `runtimeRef` and `model` | No |
+| `modelProfiles[].runtimeRef`, `modelProfiles[].model` | Only when `state: unconfigured` | No declaration state | No |
+| `businessContext` | Yes | Yes, scalar | No; closed mapping may be `{}` |
+| `businessContext.text` | Yes | No declaration state | No; a string, including empty text, retains presence |
+| `businessContext.documents` | Yes | No declaration state | Yes; distinct from absence |
+
+Collection members must satisfy the shapes above: no null, empty mapping or
+`unconfigured` member substitutes for a required object, identifier or document path.
+The word `unconfigured` in an opaque identifier/text is ordinary string data, not
+an extra state. An Integration with only its required `key` is a declared object
+missing a binding; do not synthesize a `state` field or global Integration lifecycle.
+`businessContext: {}` is a declared mapping with no members, distinct from absence,
+`unconfigured` and `{documents: []}`; do not insert omitted text/documents defaults.
+No field admits explicit null. Only the documented scalar unions and profile
+`state` admit the declaration state; the rule adds no global `unconfigured` value.
+
 Parsing pipeline, before either portable or local writes:
 
 1. Read one regular `axiom.yaml` from the explicit source through safe access.
@@ -157,7 +226,8 @@ Canonical output has stable field order, stable keyed-collection ordering, UTF-8
 and final newline. Preserve case and content of opaque IDs and text; no lowercasing
 of names, model IDs or Repository paths. Sort unordered declarations by key; retain
 user text/document ordering where meaningful. Optional forms remain represented
-as supplied; equivalence compares validated normalized values, not YAML formatting.
+as supplied; equivalence compares validated normalized values including the
+field-specific declaration states above, not YAML formatting.
 Creation with equal values and the same ID gives equal canonical bytes.
 Reopen/install never serialize back over the source, including comments/formatting.
 
@@ -185,13 +255,29 @@ portable definition tree, including canonical aliases; do not place local state 
 its versioned artifact directory. No state path derives directly from unchecked
 Repository keys or user names.
 
-Proposed internal layout: `<root>/projects/<validated-uuid>/installation.json`.
+Proposed internal layout: `<state-root>/projects/<project-id>/installation.json`,
+where Project ID is the validated UUID and state root is resolved as above.
 One small versioned local record per ID, not a database or Workspace registry.
 JSON is an internal encoding choice, replaceable behind the store port; it is not
-another portable manifest. Record unknown format versions fail safely without
-migration or deletion. UUID is a lookup/correlation key, not an aggregate decision.
+another portable manifest and is not part of Project identity. The Local Installation
+Store encapsulates its format and validates it before interpreting/reusing bindings
+or replacing a record. UUID is a lookup/correlation key, not an aggregate decision.
 
-Record only ID, canonical configuration source location, manifest byte digest,
+Every record requires the top-level member `"formatVersion": 1` (integer), alongside
+the metadata below. `axiom.yaml` / `schemaVersion` versions Axiom's portable Project
+contract; `installation.json` / `formatVersion` versions Lingo's internal local
+state. Never use `schemaVersion` for this local record or emit `formatVersion` in
+portable configuration. This internal format choice needs no ADR at this stage.
+
+A missing version, malformed JSON, duplicate version member, null, boolean, string
+`"1"`, non-integer version, or unknown integer version fails safely before local
+writes or binding reuse. A record using only `schemaVersion` has a missing
+`formatVersion`; it is not a legacy format to infer or convert. Preserve the record
+and portable files; report local-state failure separately from portable validity.
+A missing record is a new-install case; an existing unversioned record is an error.
+No automatic migration, fallback overwrite, downgrade or deletion in this slice.
+
+Record only formatVersion, ID, canonical configuration source location, manifest byte digest,
 referenced-document digests, local revision, Repository-key binding observations,
 credential-reference metadata, Runtime path/observations and attempt metadata.
 Digest revision covers the validated manifest and contained documents in stable
@@ -365,6 +451,7 @@ Linux and macOS during implementation; no dependency or syscall wrapper is added
 | Cancel before confirmed commit | No durable Project; release guard and remove only owned staging |
 | Validation/version/security failure | No portable or local writes |
 | Disk full, permission denial, short write before publication | Existing data unchanged; safe failure; owned staging cleanup or recovery guidance |
+| Invalid/missing/unknown local record format | No local writes or binding reuse; preserve existing record and portable files; report local-state failure without invalidating portable intent |
 | Another writer changes target/record | Conflict; conflicting definitions cannot both claim success |
 | Portable committed, local installation fails | Preserve valid portable output; report local installation incomplete; retry reuses ID and bytes |
 | Interrupted attempt or unknown leftovers | Normal open blocked with explicit recovery result; inspect under guard; never recursively delete unknown content |
@@ -393,6 +480,7 @@ from deterministic result fields.
 |---|---|
 | `invalid_manifest` | Syntax/type/required/reference errors; correct named safe field; no writes |
 | `unsupported_schema` | Missing/malformed version distinguished from unsupported token; obtain supported definition; no conversion |
+| `invalid_local_state`, `unsupported_local_format` | Missing/malformed local version versus unknown integer; preserve record; no migration or binding reuse; separate from portable schema errors |
 | `duplicate_field`, `unknown_field` | Exact safe location; remove duplicate/unknown declaration; no writes |
 | `repository_conflict` | Duplicate key/locator or unresolved alias decision; correct or explicitly resolve ambiguity |
 | `local_binding_conflict` | Duplicate checkout, mismatch or source relocation; rebind explicitly; never alter Git metadata |
@@ -452,15 +540,15 @@ Filesystem integration must also exercise real OS primitives, not just mocks.
 | AC-01 | Domain, codec, create/reopen, CLI | Unit required/optional matrix; use-case correction/confirmation; black-box minimal round trip with generated v4 UUID | Unit and functional reports; safe manifest digest and reopened identity |
 | AC-02 | Matching, checkout observer, install | Normalization table; two-provider/local-only cases; SSH/HTTPS human ambiguity; two-machine isolated install | Case results, relationships and zero network calls |
 | AC-03 | Local store/discovery, install/reopen | Native Linux/macOS roots in isolated accounts plus override roots; unrelated checkouts; missing credentials/checkouts | OS/version and before/after portable hashes; binding snapshots with sanitized paths |
-| AC-04 | Identity/equivalence, stores, binding replacement | Init/install no-op; rename/copy/Runtime edit preserves UUID; changed intent/ID; duplicate key/remote/checkout; confirmed relocation | Stable bytes, write/entropy counts, conflict matrix and no fork allocation |
-| AC-05 | Optional contracts, Runtime observation | Reference matrix; present/absent/non-executable/uncertain executable; J2 black-box; profile incompatibility | Basis and three-state golden results; no readiness claims or process launches |
-| AC-06 | Codec/domain validation | Golden valid/invalid YAML; all-depth unknown/duplicate keys, schema types/versions, alias/merge/tags, dangling references | Diagnostics snapshots and zero-write assertions |
+| AC-04 | Identity/equivalence, stores, binding replacement | Init/install no-op for each permitted declaration state; pairwise absent/unconfigured/empty changes conflict under FR-012; nested presence changes; rename/copy/Runtime edit preserves UUID; changed intent/ID; duplicate key/remote/checkout; confirmed relocation | Stable bytes, write/entropy counts, conflict matrix and no fork allocation |
+| AC-05 | Optional contracts, Runtime observation | Field-specific absent/unconfigured/empty and reference matrix; reject forbidden state forms; present/absent/non-executable/uncertain executable; J2 black-box; profile incompatibility | Basis and three-state golden results; no readiness claims or process launches |
+| AC-06 | Codec/domain validation and local store | Declaration-state semantic round trips; local formatVersion missing/malformed/unknown and schemaVersion-only records (AC-03/AC-07 support); Golden valid/invalid YAML; all-depth unknown/duplicate keys, schema types/versions, alias/merge/tags, dangling references | Diagnostics snapshots and zero-write assertions |
 | AC-07 | Application and safe stores | Cancellation at each phase; short write/disk-full/read-only/permissions; crash before/after each commit; local failure; competing processes | Fault table, exit status, preserved file hashes and recoverable-state results |
 | AC-08 | Structural guards, safe reporting, optional scanner | Synthetic prohibited structures/URL parameters; unavailable/failed/finding scanner; no credential-source reads | Sentinel non-leak assertions over every output and file, warning snapshots |
 | AC-09 | Root discovery and safe filesystem | Traversal, absolute ref, symlink/hard-link/ancestor races; read-only binding aliases; ACLs and unsafe override; cleanup/recovery attacks | Both OS results, outside-tree hashes and protected operation/failure outcomes |
 | AC-10 | All application I/O boundaries, CLI | Isolated black-box init/install; unexpected process/network calls fail test; repository hooks configured but never executed | Side-effect ledger and unchanged external configuration snapshots |
 | AC-11 | Wizard/application, context codec | Skip/omit/unconfigured context; untrusted text; independent field correction; closed stdin/non-TTY missing input | Prompt/output goldens, bounded completion and retained draft assertions |
-| AC-12 | Result classification/rendering | Repeated identical observations; randomized map order; valid-with-gaps versus record-write failure; no-op write counts | Stable diagnostic goldens excluding entropy/attempt metadata; classification matrix |
+| AC-12 | Result classification/rendering | Repeated identical observations for each declaration state; distinguish changed intent despite equal Runtime observations; local-format failure versus portable validity; randomized map order; valid-with-gaps versus record-write failure; no-op write counts | Stable diagnostic goldens excluding entropy/attempt metadata; classification matrix |
 
 Failure tests inject faults at named boundaries and use barriers for races, not
 sleep-based timing alone. Include two independent writer processes, identical and
@@ -511,19 +599,23 @@ Update README, commands and changelog when executable behavior actually arrives.
 | Plan choice | Alternatives / trade-offs / reconsideration |
 |---|---|
 | Cohesive internal packages and consumer-owned ports | Fewer packages mixes I/O and rules; framework/layer-per-type adds cost. Proposed structure is internal, reversible and slice-scoped |
+| Versioned Portable Project Manifest (Accepted ADR-0004) | Human Plan review resolved portable intent as a durable Axiom contract consumed by Lingo; current axiom.yaml representation and initial schema detail stay distinct; incompatible evolution requires explicit versioning |
+| Distinct declaration states (resolved by human review) | Collapsing absence/unconfigured/empty would lose author intent and cause false no-ops; field-specific normalization/round-trip and pairwise tests retain distinctions |
 | Version integer 1 and closed optional shapes | Free-form maps ease extension but defeat strict typo/security checks. Public compatibility becomes harder after first release; review now under Q2/FR-015 |
-| Native local root plus `LINGO_STATE_ROOT`; small per-ID record | Uniform home path conflicts with Q3; database/catalog adds unneeded technology/ownership. Layout is local implementation detail, not global persistence choice |
+| Native local root plus `LINGO_STATE_ROOT`; small per-ID record | Uniform home path conflicts with Q3; database/catalog adds unneeded technology/ownership. Explicit internal `formatVersion: 1` is resolved by human review; fail closed without migration. Layout remains local implementation detail, not global persistence choice |
 | Anchored protected operations, no-replace portable creation, independent local commit | Path check plus rename cannot satisfy SEC-003/004; cross-root transaction adds complexity. Proposed controls implement existing invariants; fail closed where guarantees cannot be established |
 | Metadata-only Runtime and Repository observation | Commands/network broaden authority and change approved scope. Limited observations deliberately retain explicit unresolved results |
 
-No new blocking cross-cutting architectural choice identified. ADR-0001–0003 stay
-Accepted and unchanged. Initial schema, override and filesystem strategy were
-explicitly delegated to Plan by clarifications; their review occurs through this
-Plan, without promoting them to global decisions.
+Human Plan review identified and resolved the durable Portable Project Manifest
+choice in Accepted [ADR-0004](../../decisions/0004-portable-project-manifest.md).
+ADR-0001–0003 remain Accepted and unchanged. The initial schema details, override
+and filesystem strategy remain slice-scoped Plan details. The local `formatVersion`
+and distinct declaration semantics are resolved here, without separate ADRs.
+Final Plan approval is still required; ADR acceptance does not advance the lifecycle.
 
 **Human decision required** applies if implementation evidence requires a durable
 cross-cutting choice beyond those boundaries: for example a global persistence
-engine, changed trust boundary or public compatibility commitment. Stop affected
+engine, changed trust boundary or compatibility expansion beyond ADR-0004. Stop affected
 work and present decision, options, recommendation and trade-offs; do not create
 or accept an ADR automatically. For storage, options would include retaining this
 slice-local file store versus adopting a shared engine; recommendation remains the
@@ -532,45 +624,59 @@ and operational cost. No such expansion is required to approve this Plan.
 
 Primary risks: proving concurrent filesystem confinement/durability on both OSes;
 parser strictness and diagnostics without leaks; public version-1 shape compatibility;
-local metadata layout limitations; conservative matching leaving human ambiguity;
+local metadata layout limitations and unsupported local formats; accidental loss
+of declaration intent during normalization; conservative matching leaving human ambiguity;
 and best-effort scanning missing secrets. Mitigations are explicit preconditions,
 fail-closed adapters, unit/fault/black-box Evidence, human schema review and honest
 gap/warning reporting. No executable safety or acceptance guarantee is claimed now.
 
 Constitution check: I–II consume approved intent and stop at Plan; III–IV retain
-Specification/ADR links, proposed decisions and future Evidence without invented
-results; V–VI use deterministic rules, explicit authority and security tests;
+Specification/ADR links, Accepted ADR-0004 from human Plan review, remaining
+proposed technical details and future Evidence without invented results; V–VI use deterministic rules, explicit authority and security tests;
 VII limits packages/state to validated workflows; VIII keeps Project distinct from
 Repository without assigning aggregate or Workspace ownership. No waiver or
 conflict with accepted ADRs identified. Spec-Kit remains strategic upstream only.
 
 ## 12. Documentation validation and review gate
 
-Only this Plan plus lifecycle/discovery references and changelog are changed.
+This Plan, ADR-0004, its index, affected conceptual/lifecycle references and changelog
+are reconciled after human review.
 Specification and clarification approval history remain untouched. Current validation
 uses the existing repository scripts and a local Markdown/link/traceability check;
 results are recorded after execution below. Application acceptance remains unverified.
 
-Human review should accept or revise schema shapes, local layout/override, safety
+Human re-review should verify the three resolved decisions and accept or revise
+remaining schema shapes, local layout/override, safety
 preconditions, sequence and AC coverage. This change ends at
 **Specification 002 → Plan**. Do not create Tasks or begin Implementation without
 explicit human approval.
 
-Executed on 2026-09-11 from repository root:
+Executed on 2026-09-12 from repository root unless stated otherwise:
 
-- `./scripts/validate-repository.sh .` — passed: harness/package structure,
-  both existing regression suites, sensitive-file scan and whitespace validation.
-- `./scripts/check-sensitive-files.sh .` — passed for tracked/unignored worktree files.
-- `bash -n scripts/*.sh` — passed.
-- `git diff --check`, `git diff --cached --check` and
-  `./scripts/check-sensitive-files.sh --staged .` — passed; staged content reviewed.
-- Local Python Markdown/link/traceability check — passed for five changed Markdown
-  documents and 40 relative links; balanced fences/table rows and complete
-  AC-01–AC-12 / SEC-001–SEC-005 matrix entries. This is a structural check, not
-  rendered Markdown or external URL validation.
-- Dedicated `gitleaks`, `markdownlint`, `markdownlint-cli2`, `lychee` and `shellcheck`
-  executables unavailable. Dedicated secret/lint/link-scanner coverage remains
-  unverified; no dependency installed.
-- Semantic review against Specification, Q1–Q6, ADRs and Constitution found no
-  blocking scope or contract conflict. Diff restricted to five Markdown files;
-  no Tasks, implementation, dependencies or ADR changes.
+- `./scripts/validate-repository.sh .` — passed, including package structure,
+  both Bash regression suites, sensitive-file scan and whitespace validation.
+- `./scripts/check-sensitive-files.sh .` and
+  `./scripts/check-sensitive-files.sh --staged .` — passed; staged paths/content reviewed.
+- `bash -n scripts/*.sh` and individual `bash -n` invocations for every root
+  script — passed (the multi-argument invocation alone checks only its first file).
+- `git diff --check` and `git diff --cached --check` — passed.
+- Temporary local Python structural check — passed: eight changed Markdown files,
+  65 relative links including heading anchors, balanced fences and table columns,
+  unique complete AC-01–AC-12 / SEC-001–SEC-005 matrix entries, FR-001–FR-016
+  definitions/references, and ADR-0001–0004 numbering/index references. No dedicated
+  Markdown renderer or external URL validation is claimed.
+- Frozen Scenario 002 checks documented in [commands](../../commands.md) — passed:
+  all three SHA-256 manifests, shell syntax, `scripts/test-tools.sh` and
+  `adapters/speckit/test-failures.sh`, from that experiment's root. Frozen files unchanged.
+- `gitleaks`, `markdownlint`, `markdownlint-cli2`, `lychee` and `shellcheck`
+  executables unavailable; dedicated scanner/linter coverage remains unverified.
+  No dependency installed. Available scans and content review found no secrets.
+- Final diff review against `origin/main` — eight Markdown files only; no edits to
+  Specification/clarifications or ADR-0001–0003, no new `tasks.md`, Go files,
+  dependencies, CI or application implementation. Historical experiment Tasks
+  are unchanged. No blocking or nonblocking reconciliation finding remains.
+
+Previous Plan validation remains in Git history. These checks validate documentation
+and the existing harness, not executable Lingo acceptance. Specification 002 remains
+at Plan, reconciled and ready for human re-review; Tasks and Implementation remain
+blocked until final human Plan approval and authorization to advance.
