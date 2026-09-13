@@ -1,6 +1,42 @@
 # Clarifications — Lingo Project Initialization
 
-## Status
+## Current status — 2026-09-12
+
+**Ready for human re-review.** Subsequent human review of PR #4 explicitly
+reopened Specification 002's location, minimum and update contracts. Original
+2026-09-11 approval is preserved below as historical evidence. H1–H8 supersede
+only the stated portions; original Q1–Q6 are not silently relabeled or erased.
+Specification and Plan now consume these later human-approved decisions. Tasks
+and Implementation remain blocked pending explicit final Plan approval and
+authorization to advance.
+
+## Subsequent human decisions — 2026-09-12
+
+Authority: explicit human reconciliation request during PR #4 Plan review, after
+original Specification approval. No agent approval is inferred.
+
+| ID | Approved revision | Supersession / traceability |
+|---|---|---|
+| H1 | Per-user logical Axiom root: `projects/<slug>` is portable/shared working copy; `state/projects/<id>/installation.json` is machine-local only. No config created inside associated Repository. Native Linux/macOS state mappings and test override retained. | Refines Q3/P3; FR-017; SEC-003/005; AC-03, AC-13–14, AC-17 |
+| H2 | UUID v4 canonical immutable id; installation-unique mutable slug; mutable nonunique display name. Full slug grammar `[a-z0-9]+(-[a-z0-9]+)*`; explicit collision resolution and protected rename/move with ID/state continuity. | Extends Q1; FR-001/017; AC-13–14/16 |
+| H3 | Init requires only schemaVersion and Project id/slug/name. Repositories may be absent/empty. Context, policies and documents can arrive later through update. Minimal directories require no preexisting referenced files. | Supersedes Q5's >=1 Repository minimum; FR-010/018; AC-01/11/15 |
+| H4 | Init remains create/no-op/conflict with no force; explicit update legitimately evolves same Project, validates proposed state, previews safe diff, checks authority/revision, persists atomically and preserves old state on pre-commit failure. | Supersedes P4's exclusion of update and create-only question 8–11 answer; FR-012/018; AC-15–16 |
+| H5 | AI may propose/explain drafts; application/domain validation, authority, filesystem, versioning, identity and persistence remain deterministic. | Extends P9's no required AI boundary; FR-019; SEC-002; AC-15 |
+| H6 | Optional dedicated portable Git backing, independent of Repository associations; only supported portable artifacts exported. No primary symlink sync strategy. | Refines previously open distribution boundary; FR-020; AC-17–18 |
+| H7 | Local mutation, optional local Git commit and optional remote push/sync have separate authority and outcomes. No implicit remote mutation; deliberate future autoPush requires explicit authority. Git execution remains deferred. | FR-021; SEC-002; AC-18 |
+| H8 | Extend Accepted ADR-0004 for these durable portable/local boundary decisions; preserve original approval and earlier Plan decisions on declaration forms and local formatVersion. Final reconciled Plan needs human re-review. | ADR-0001–0003 unchanged; no new ADR, Tasks or implementation |
+
+These changes carry compatibility cost: slug becomes required and zero associations
+becomes valid in the unreleased schema proposal. No executable schema or migration
+exists; do not imply compatibility with old drafts or silently migrate files.
+No global slug uniqueness, aggregate ownership, Git adapter or sync engine decided.
+
+The remaining sections record the original review only; their dated statements
+about PR #3, create-only scope, minimum and next Plan phase are historical and
+are superseded where H1–H8 say so. Current requirements live in [spec.md](spec.md)
+and current design in [plan.md](plan.md).
+
+## Original approval — 2026-09-11
 
 2026-09-11 — Specification 002 approved. [Specification 002](spec.md) is
 Approved by final human review on 2026-09-11. Q1–Q6 remain Resolved by human review.

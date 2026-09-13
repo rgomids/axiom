@@ -2,6 +2,12 @@
 
 ## [2026-09-12]
 
+- specification: reopen/reconcile Specification 002 and Clarifications after subsequent human Plan review; preserve original 2026-09-11 approval and record H1–H8 replacing/refining location, minimum and FR-012/update contracts.
+- architecture: extend Accepted ADR-0004 with immutable ID versus mutable slug/name, portable working copy versus local state, incremental mutation and optional dedicated Git backing with explicit remote authority; no new ADR or sync engine.
+- planning: reconcile Plan for minimal init, explicit update, safe slug move, rollback/concurrency and ID-addressed state continuity; extend future AC-13–AC-18 and security traceability. Ready for human re-review; Tasks and Implementation remain blocked.
+
+Earlier review in this same date (retained historical entries):
+
 - architecture: record Accepted ADR-0004 — Portable Project Manifest from human Plan review; distinguish the durable versioned contract, current axiom.yaml representation and initial schema details.
 - planning: reconcile Specification 002 Plan with distinct absent/unconfigured/empty intent and internal installation.json formatVersion; extend future round-trip, no-op and local-version failure coverage.
 - docs: reconcile ADR index, conceptual boundary and lifecycle references; preserve Specification/clarification history and ADR-0001–0003. Plan awaits human re-review and final approval; no Tasks or Implementation.

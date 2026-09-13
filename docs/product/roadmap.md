@@ -46,7 +46,8 @@ A future `lingo project init` flow is expected to guide:
 11. Project creation.
 
 These are possible wizard topics, not mandatory declarations. Specification 002
-requires only Project ID/name, >=1 Repository association and schemaVersion;
+requires only Project ID/slug/name and schemaVersion after the 2026-09-12
+human revision; Repository associations may be absent/empty;
 Runtime, Providers, Integrations, profiles and Business Context may be absent or
 unconfigured. Provider requirements need a concrete workflow/Capability.
 Provider choices remain independent. Work Items are not provider records, a
@@ -58,11 +59,13 @@ through capability discovery rather than a hardcoded domain catalog.
 `lingo project init` is the candidate first vertical slice:
 
 ```text
-Project ID + name + schemaVersion
--> At least one Repository association
+Project ID + slug + name + schemaVersion
+-> Portable working copy under projects/<slug>
+-> Optional Repository associations
 -> Optional Runtime / Providers / Integrations / profiles / context
 -> Validate
--> Persist
+-> Persist atomically
+-> Explicit update with diff/authority/revision, preserving ID
 ```
 
 The minimum slice should prove portable Project definition, safe local state,
@@ -75,19 +78,21 @@ impact. [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md)
 accepts Lingo as the architectural local control-plane direction; it does not
 authorize implementation by itself.
 
-The approved [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
-combines the minimum configuration behavior behind blocks 1–4 and 7, including
-portable creation, reopening and local installation. Its
-[clarifications](../specifications/002-lingo-project-initialization/clarifications.md)
-record Q1–Q6 as resolved by human review: UUID v4, one strict `axiom.yaml`,
-OS-native local state for Linux/macOS with root override, presence-only Runtime
-observations, minimal portable validity with explicit installation gaps, and
-conservative Repository matching. Specification 002 is Approved by human review
-on 2026-09-11. The first Lingo vertical slice has an approved Specification and
-now has a [Plan reconciled after human review](../specifications/002-lingo-project-initialization/plan.md)
-in PR #4; it is not implemented. [ADR-0004](../decisions/0004-portable-project-manifest.md)
-records the accepted versioned Portable Project Manifest decision from that review.
-The Plan preserves distinct optional declaration states and versions internal local
-records with `formatVersion`, separately from portable `schemaVersion`.
-Next step: human re-review and final approval of the Plan. Tasks and Implementation require explicit
-human approval of that Plan; this change adds no Tasks or implementation.
+[Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
+combines blocks 1–4 and 7: minimal creation, explicit incremental update, reopening
+and local installation. Original human approval was 2026-09-11. Subsequent PR #4
+Plan review on 2026-09-12 reopened location/minimum/update contracts through
+[H1–H8](../specifications/002-lingo-project-initialization/clarifications.md#subsequent-human-decisions--2026-09-12),
+preserving original Q1–Q6 history. Current [Plan](../specifications/002-lingo-project-initialization/plan.md)
+is reconciled against that revised Specification; no Lingo implementation exists.
+
+Extended [ADR-0004](../decisions/0004-portable-project-manifest.md) records canonical
+ID versus slug/name, portable working copy distinct from ID-addressed local state,
+incremental mutation and optional dedicated Git backing. Git commit/export/sync
+execution remains deferred; remote authority is explicit and never an init/update
+side effect. Backing Git is not automatically a Repository association. Internal
+`formatVersion` stays separate from portable `schemaVersion`; declaration forms
+retain their intent distinctions.
+
+**Ready for human re-review.** Tasks and Implementation remain blocked until explicit
+human Plan approval and authorization to advance. No Tasks or implementation added.

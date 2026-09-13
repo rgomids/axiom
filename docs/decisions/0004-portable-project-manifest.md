@@ -8,6 +8,16 @@ Accepted on 2026-09-12, recording the explicit human decision during review of
 Acceptance concerns this architectural choice; final Plan approval remains pending.
 Tasks and Implementation are not authorized by this ADR.
 
+### Subsequent reconciliation — 2026-09-12
+
+Later human review of the same PR explicitly approved id/slug/name, the portable
+working copy versus local installation state, incremental mutation and optional Git
+backing/sync authority. This extends the accepted decision below under that explicit
+human authority. It does not rewrite Specification 002's original approval on
+2026-09-11 or approve the reconciled Plan. [H1–H8](../specifications/002-lingo-project-initialization/clarifications.md#subsequent-human-decisions--2026-09-12)
+record exactly which earlier contracts changed. Previous ADR wording remains in Git
+history; ADR-0001–0003 remain Accepted and unchanged.
+
 ## Context
 
 An Axiom Project must preserve shareable intent and identity across machines,
@@ -59,7 +69,47 @@ decision. The initial slice rejects unsupported versions without migration.
 Internal Lingo installation storage is encapsulated behind the Local Installation
 Store; its version/layout is a Plan detail, not a second portable contract or a
 new architectural decision here. Project aggregate ownership, Workspace hierarchy,
-repository sharing and synchronization remain open.
+repository sharing and concrete synchronization protocols remain open; optional
+Git backing and authority separation are decided below.
+
+### Identity, working copy and incremental mutation
+
+Project remains logical, distinct from Repository. Canonical immutable UUID v4
+survives name/slug rename, update, export, sync and another machine installation.
+Slug is mutable human/CLI/location ergonomics, unique within one installation;
+name is mutable nonunique presentation. Slug never becomes canonical identity.
+Concrete slug grammar and collision/rename acceptance belong to Specification 002.
+
+The per-user logical layout is `projects/<slug>/` for the portable/shared working
+copy and `state/projects/<id>/installation.json` for installation state. Conceptually
+these live under `~/.axiom`; existing native platform state conventions still map
+the state role. A home directory location does not make portable intent private
+machine state. Working copies contain manifest, optional context/documents/policies
+and explicitly supported artifacts; no associated Repository is an implicit home
+for them. Local paths, credentials, caches, PIDs, observations, Execution data and
+bindings never belong in portable content. Local records keep internal
+`formatVersion`, separately from portable `schemaVersion`.
+
+Project may start with minimal identity and evolve. Init is create/no-op/conflict;
+explicit update validates a complete proposed state, presents a safe diff, verifies
+human/system authority and expected revision, and persists atomically. Slug rename
+preserves UUID and local continuity, protecting collisions and filesystem races.
+AI may propose drafts; deterministic application/domain controls validate identity,
+schema, paths, conflicts, authority, versioning and persistence. No AI direct-write
+bypass. These are portable intent boundaries, not a new aggregate or storage engine.
+
+### Optional distribution and synchronization
+
+Portable working copy may later use a dedicated Git backing repository. It is not
+automatically a Repository association. Symlink is a filesystem safety concern,
+not the primary export/sync mechanism. Local mutation, optional local Git commit
+and optional remote push/sync have separate outcomes and authority. Remote mutation
+requires explicit approval, including a deliberately configured future autoPush
+policy; it is never implicit in init/update. Only portable artifacts are published.
+
+This boundary decision selects no Git adapter, metadata schema, merge algorithm,
+transport or synchronization engine. Those require later approved scope. The
+current Plan reserves the boundary and forbids implicit Git effects.
 
 ## Alternatives considered
 
@@ -80,6 +130,23 @@ Separates shared intent from local bindings and makes compatibility inspectable.
 Adds strict validation and version-evolution responsibilities, with lower runtime
 and machine coupling. This is the human-approved choice.
 
+### Placement and evolution alternatives assessed in the later review
+
+| Alternative | Trade-off and decision |
+|---|---|
+| Configuration in an associated Repository | Familiar local editing, but couples Project location and permissions to one delivery boundary; rejected under Project != Repository |
+| One private local tree containing intent and bindings | Simpler writes, but sharing risks metadata/secrets and weakens portability; rejected |
+| Shared working copy plus separate ID-addressed state | Adds discovery, slug collision/rename and cross-root recovery work; preserves identity, portability and least privilege; human-approved |
+| Immutable creation only / manually bypass application to evolve | Smaller initial use case, but cannot validate/authorize legitimate incremental changes coherently; replaced by explicit deterministic update |
+| Required Git, implicit push or primary symlink sync | Git adds operational/dependency cost; implicit push broadens authority; symlink ties distribution to local topology. Rejected as defaults |
+| Optional dedicated Git backing with explicit sync | Adds future conflict/recovery design, but separates delivery associations and remote authority; human-approved boundary only |
+
+ADR assessment: all four candidate decisions refine the same portable-intent/local
+installation boundary already owned here. Extending ADR-0004 avoids splitting one
+source-of-truth contract across competing ADRs. No separate engine, aggregate or
+remote topology decision justifies ADR-0005 now. Later Git implementation may reveal
+an independent durable decision requiring its own evidence and human approval.
+
 ## Consequences
 
 ### Positive
@@ -92,6 +159,11 @@ and machine coupling. This is the human-approved choice.
 ### Negative / trade-offs
 
 - Axiom owns schema documentation, validation and explicit evolution costs.
+- Slug namespace, safe directory moves, atomic multi-artifact update and local-state
+  recovery add filesystem/concurrency complexity. ID and published slug semantics
+  become harder to change after distribution; no automatic migration is promised.
+- Optional Git reduces mandatory coupling but defers sync conflict handling and
+  metadata design; remote publication must retain its independent authority gate.
 - Readers must distinguish unsupported versions and portable validity from local
   installation and readiness; a valid manifest alone cannot make a workflow run.
 - Published fields and version semantics become harder to change after adoption;
