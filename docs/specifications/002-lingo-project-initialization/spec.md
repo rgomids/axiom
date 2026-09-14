@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-**Ready for human re-review** — Specification and Plan reconciliation, 2026-09-12.
+**Ready for human re-review** — Specification and Plan reconciliation, 2026-09-14.
 
 Specification originally approved by human review on 2026-09-11; Q1–Q6 were
 resolved at that gate. Subsequent human Plan review of PR #4 on 2026-09-12
@@ -11,6 +11,9 @@ id/slug/name, minimal creation, incremental update and optional portable Git
 distribution/synchronization boundaries. These are later human decisions, not
 part of the original approval. [Clarifications](clarifications.md) preserves the
 original decisions and records their supersession/refinement as H1–H8.
+The [latest human decision, 2026-09-14](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508)
+confirms that model and refines update input versus persisted state as H9.
+Partial command intent is permitted; complete domain-validated state is required.
 
 This revision reconciles Specification → Clarifications → [Plan](plan.md).
 Final human re-review remains required; Tasks and Implementation remain blocked
@@ -327,10 +330,15 @@ working copy; local state remains addressed by ID and preserves binding continui
   detect installation-wide collision between different IDs. Rename requires explicit
   preview/authority over old/new paths, collision and expected-revision checks,
   TOCTOU-safe move, unchanged UUID and ID-addressed local state continuity.
-- **FR-018 Explicit update:** load current portable state; validate immutable identity;
-  produce proposed state; fully validate schema, references, policies and safety;
+- **FR-018 Explicit update:** commands may receive partial patches/intents. Load
+  current portable state; the domain must apply the requested intent to materialize
+  a complete proposed Project state, preserving immutable identity. Validate all
+  invariants against that complete state, including schema, references, policies and safety;
   show safe diff/preview; confirm human/system authority tied to the exact revision
-  and write set; persist atomically with expected-revision concurrency control.
+  and write set; enforce applicable version and concurrency requirements, then
+  persist only the complete valid result atomically with expected-revision control.
+  Direct partial mutation of `axiom.yaml`, patch persistence, and any bypass of
+  domain/application validation are forbidden, regardless of caller.
   Preserve prior state on pre-commit failure; concurrent conflicting updates cannot
   both succeed. Refresh/invalidate local observations only when affected. Updates
   may add/remove/change Repository associations, name, slug, Runtime, Providers,
@@ -443,7 +451,7 @@ no real Provider, credential value, model service, or fake production adapter.
 | AC-12 | Identical inputs/observations produce equivalent output and stable diagnostics; portable validity, installed-with-gaps and installation failure stay distinct; no creation/install or presence check implies operational readiness | Repeated-run comparison excluding UUID allocation/attempt metadata; classification matrix including valid Project with local gaps and failed local persistence (FR-016) |
 | AC-13 | Invalid/empty/traversal slug fails before path use; different IDs with same installation slug conflict; no global uniqueness inferred | Unit grammar/identity matrix and two-process init/install collision integration; unchanged occupied destination (FR-017, SEC-003–004) |
 | AC-14 | Explicit slug rename moves portable directory, preserves project.id and local state continuity; name need not be unique | Black-box old/new lookup, document hashes, same ID-addressed installation/bindings; collision, symlink/TOCTOU and move-failure integration (FR-001, FR-017, SEC-003–005) |
-| AC-15 | Explicit update succeeds where changed init conflicts; minimal init needs no documents; later updates validate complete proposed state, show safe diff and enforce authority | Unit add/remove/reference matrix, no-authority/stale-preview cases and black-box J6 including document addition, declaration states and unchanged UUID (FR-012, FR-018–019) |
+| AC-15 | Explicit update succeeds where changed init conflicts; minimal init needs no documents; partial update intent materializes a complete proposed state, validates all invariants, shows safe diff and enforces authority/version/concurrency before complete persistence | Unit partial-intent add/remove/reference matrix (including invalid retained references), no-direct-patch persistence, no-authority/stale-preview cases and black-box J6 including document addition, declaration states and unchanged UUID (FR-012, FR-018–019) |
 | AC-16 | Failed update preserves prior portable state; concurrent conflicting updates cannot both succeed; post-commit local failure is reported distinctly | Fault/crash/rollback integration before/after commit, two-process expected-revision races including rename versus update and local-state continuity recovery (FR-013, FR-017–018, SEC-004) |
 | AC-17 | Entire portable working copy excludes machine state and secrets; home location does not make it private local state | Unit artifact allowlist, integration portable/local root overlap and export-set exclusion, black-box portable snapshot checks (FR-020, SEC-001, SEC-005) |
 | AC-18 | Optional backing Git is not an associated Repository; local mutation never implies commit/push; remote sync requires explicit authority | Boundary tests with denied Git/network spies for init/update; future export/sync contract tests for independent association lists, denied authority, explicit sync/autoPush and separate failure outcomes before Git delivery (FR-020–021, SEC-002) |
@@ -460,13 +468,16 @@ limitations. Existing harness checks do not prove these future behaviors.
 
 Intent and acceptance precede implementation. Constitution I–IV require reopening
 materially changed approved intent: the 2026-09-11 approval remains historical,
-while H1–H8 record explicit subsequent human authority on 2026-09-12. ADR-0004
+while H1–H8 record explicit subsequent human authority on 2026-09-12 and H9
+records the 2026-09-14 confirmation and update refinement. ADR-0004
 is extended within its portable/local boundary; ADR-0001–0003 remain unchanged.
 Constitution V–VIII retain deterministic authority, least privilege and
 Project != Repository without imposing aggregate/Workspace ownership.
 
-No material clarification blocker remains. Git mechanics and concrete CLI syntax
-remain deferred design details, not permission to implement them. Current gate:
+The partial-input versus complete-state question is resolved by H9. Remaining
+init/update review concerns and deferred Git/authority mechanics are identified in
+[Plan review concerns](plan.md#remaining-review-concerns-and-deferred-design).
+They are not implicit decisions or permission to implement. Current gate:
 **Ready for human re-review** of reconciled Specification/Clarifications/Plan.
 Tasks and Implementation remain blocked pending explicit human Plan approval and
 authorization to advance. All acceptance Evidence above remains future work.

@@ -1,14 +1,37 @@
 # Clarifications — Lingo Project Initialization
 
-## Current status — 2026-09-12
+## Current status — 2026-09-14
 
 **Ready for human re-review.** Subsequent human review of PR #4 explicitly
 reopened Specification 002's location, minimum and update contracts. Original
 2026-09-11 approval is preserved below as historical evidence. H1–H8 supersede
 only the stated portions; original Q1–Q6 are not silently relabeled or erased.
+H9 below records the latest human confirmation and update-contract refinement.
 Specification and Plan now consume these later human-approved decisions. Tasks
 and Implementation remain blocked pending explicit final Plan approval and
 authorization to advance.
+
+## Latest human decision — 2026-09-14
+
+Authority: [Human review decision — Project update contract](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508),
+posted by `rgomids` on 2026-09-14 at 12:47:22 UTC. This is the authority for
+this reconciliation; it confirms rather than replaces the prior Project model.
+
+| ID | Approved revision | Supersession / traceability |
+|---|---|---|
+| H9 | Commands may express partial patches/intents. Lingo loads current Project; the domain materializes a complete proposed state and validates all invariants; application enforces applicable authority/version/concurrency, presents the required safe diff and persists only the complete valid result. No direct partial mutation of `axiom.yaml` or domain/application validation bypass. Init stays create/no-op/conflict; update is explicit mutation. | Refines H4, FR-012/018, AC-15–16 and Plan use-case/test boundaries; extends ADR-0004 without replacing H1–H8 |
+
+The same comment reconfirms Project != Repository; immutable canonical UUID v4;
+mutable slug/name with slug locating the portable working copy; portable
+`projects/<slug>/` versus local `state/projects/<id>/`; minimal init with later
+Repository/document association; independent optional Git backing; and separate
+local mutation, optional local Git commit and remote push/sync authority. No
+remote mutation is implicit. Earlier declaration-state and formatVersion decisions
+remain unchanged. No Tasks or Implementation authorized; final Plan approval is pending.
+
+Partial input is resolved, not an open choice between patch-only validation and
+complete-state validation. Remaining init/update and Git/authority concerns are
+listed in [Plan review concerns](plan.md#remaining-review-concerns-and-deferred-design).
 
 ## Subsequent human decisions — 2026-09-12
 

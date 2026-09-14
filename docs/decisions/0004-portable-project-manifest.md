@@ -18,6 +18,15 @@ human authority. It does not rewrite Specification 002's original approval on
 record exactly which earlier contracts changed. Previous ADR wording remains in Git
 history; ADR-0001–0003 remain Accepted and unchanged.
 
+### Update-contract confirmation — 2026-09-14
+
+The [latest human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508)
+confirms the previous Project model and refines incremental update: partial
+command intent is permitted, but domain materialization and validation of complete
+proposed state must precede persistence. [H9](../specifications/002-lingo-project-initialization/clarifications.md#latest-human-decision--2026-09-14)
+records authority and traceability. Original acceptance and H1–H8 remain historical;
+this confirmation does not approve the final Plan or authorize Tasks/Implementation.
+
 ## Context
 
 An Axiom Project must preserve shareable intent and identity across machines,
@@ -91,8 +100,12 @@ bindings never belong in portable content. Local records keep internal
 `formatVersion`, separately from portable `schemaVersion`.
 
 Project may start with minimal identity and evolve. Init is create/no-op/conflict;
-explicit update validates a complete proposed state, presents a safe diff, verifies
-human/system authority and expected revision, and persists atomically. Slug rename
+explicit update may receive a partial patch/intent. Lingo loads current Project;
+the domain materializes a complete proposed state and validates all invariants.
+Application presents the required safe diff and enforces applicable human/system
+authority, version and concurrency requirements before persisting only the complete
+valid result atomically. Direct partial mutation of `axiom.yaml` and bypass of
+domain/application validation are forbidden for every caller. Slug rename
 preserves UUID and local continuity, protecting collisions and filesystem races.
 AI may propose drafts; deterministic application/domain controls validate identity,
 schema, paths, conflicts, authority, versioning and persistence. No AI direct-write

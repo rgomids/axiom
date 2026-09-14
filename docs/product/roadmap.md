@@ -83,7 +83,7 @@ combines blocks 1–4 and 7: minimal creation, explicit incremental update, reop
 and local installation. Original human approval was 2026-09-11. Subsequent PR #4
 Plan review on 2026-09-12 reopened location/minimum/update contracts through
 [H1–H8](../specifications/002-lingo-project-initialization/clarifications.md#subsequent-human-decisions--2026-09-12),
-preserving original Q1–Q6 history. Current [Plan](../specifications/002-lingo-project-initialization/plan.md)
+preserving original Q1–Q6 history. [H9, confirmed 2026-09-14](../specifications/002-lingo-project-initialization/clarifications.md#latest-human-decision--2026-09-14), permits partial update intent with complete domain materialization/validation before persistence. Current [Plan](../specifications/002-lingo-project-initialization/plan.md)
 is reconciled against that revised Specification; no Lingo implementation exists.
 
 Extended [ADR-0004](../decisions/0004-portable-project-manifest.md) records canonical

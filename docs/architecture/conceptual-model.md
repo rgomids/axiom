@@ -91,8 +91,13 @@ flowchart TD
     WC -. optional commit then explicitly authorized sync .-> G
 ```
 
-Minimal init creates identity/structure; explicit update validates proposed intent,
-previews diff, checks authority/revision and commits atomically. Changed init intent
+The [2026-09-14 human confirmation](../specifications/002-lingo-project-initialization/clarifications.md#latest-human-decision--2026-09-14)
+retains this model. Minimal init creates identity/structure. Explicit update may
+receive partial intent; Lingo loads current Project and domain materializes and
+validates the complete proposed state. Application previews the required safe diff,
+checks applicable authority/version/concurrency and persists only the complete valid
+result atomically. No direct partial `axiom.yaml` mutation or validation bypass.
+Changed init intent
 still conflicts. AI proposes; Lingo validates; human/system authority approves;
 deterministic persistence commits. Local update, optional Git commit and remote
 sync remain separate. Remote authority is explicit; symlink is not primary sync.

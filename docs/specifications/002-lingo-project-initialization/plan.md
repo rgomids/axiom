@@ -2,8 +2,8 @@
 
 ## Status, authority and scope
 
-**Plan reconciled after human review; ready for human re-review** — 2026-09-12.
-The decisions below and subsequent H1–H8 are human-approved; final Plan approval
+**Plan reconciled after human review; ready for human re-review** — 2026-09-14.
+The decisions below and subsequent H1–H9 are human-approved; final Plan approval
 and authorization to advance remain pending.
 
 Human review of [PR #4](https://github.com/rgomids/axiom/pull/4) approved:
@@ -21,8 +21,13 @@ approval. The later reconciliation request materially revised the Specification;
 and reconcile it, preserving the original 2026-09-11 approval as history. This Plan
 consumes the revised Specification; it cannot override it or approve itself.
 
-Baseline: PR #4 at `bbe2e71`; `main` at `374c643`, after PR #3 merged. Original [Specification](spec.md) approval closed intake → specify → clarify.
-Current PR branch and main were inspected before this revision. Subsequent
+Latest authority: [2026-09-14 human update-contract decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508).
+[H9](clarifications.md#latest-human-decision--2026-09-14) confirms the prior model
+and permits partial command intent while requiring complete domain materialization,
+validation and persistence. Reconciliation baseline: PR #4 at `337da03`.
+
+Historical 2026-09-12 baseline: PR #4 at `bbe2e71`; `main` at `374c643`, after PR #3 merged. Original [Specification](spec.md) approval closed intake → specify → clarify.
+That baseline was inspected for the previous revision. Subsequent
 2026-09-12 human decisions reopen affected contracts as H1–H8; this change
 reconciles Specification → Clarifications → Plan only. Tasks and Implementation require
 explicit human approval of this Plan and authorization to advance.
@@ -358,10 +363,31 @@ unrepresentable in emitted `axiom.yaml`.
 | Install on another machine (J3) | Read supplied manifest/documents; validate first; collect missing bindings; preview and confirm local record; reuse equivalent record | Native/override root, arbitrary checkout paths and unsupported sources; success may include unresolved gaps; portable hashes unchanged |
 | Resolve/relocate binding | Compare association keys and observed metadata; require explicit confirmation for replacement/source relocation; revalidate before local commit | Missing checkout is unresolved; remote mismatch or duplicate checkout blocks that binding pending human resolution; no remote rewrite |
 | Observe Runtime | Selected ID plus explicit local executable path → three-state observation with basis | Presence-only file metadata; never launch executable, shell, discovery command or model request |
-| Update (J6) | Resolve slug; load current artifact snapshot and immutable ID; create draft with explicit edits; fully validate proposed state; preview safe diff; verify authority bound to revision/write set; atomic commit | Includes Repository add/remove/change, name/slug, Runtime, Providers, Integrations, profiles, context/documents, policies and credential references; affected observations become stale, unrelated bindings remain |
+| Update (J6) | Resolve slug; load current artifact snapshot and immutable ID; accept partial intent; domain materializes complete proposed state from current snapshot plus intent; validate all invariants and applicable versions; preview safe diff; verify authority bound to revision/write set; atomic commit | Includes Repository add/remove/change, name/slug, Runtime, Providers, Integrations, profiles, context/documents, policies and credential references; affected observations become stale, unrelated bindings remain |
 | Rename slug (J6) | Same update protocol plus old/new namespace reservation, no-replace destination check and protected portable directory move | Same UUID and ID-addressed state; no stale old-slug alias accepted silently; preserve prior state on pre-commit failure |
 
-Optional future AI enters only through the proposed-state input. It may interpret
+### Partial command intent and complete Project state (H9)
+
+Input completeness and state completeness are separate contracts. A command may
+supply only the requested change; callers need not resubmit the entire Project.
+Application loads the current recognized snapshot and revision. Domain applies
+the explicit intent to produce a complete proposed Project state, then validates
+all invariants against that state, including retained fields and cross-references.
+Application enforces applicable version, authority, expected-revision and filesystem
+requirements, presents the safe diff required by FR-018, then passes only the
+complete valid artifact set to persistence. No direct partial `axiom.yaml` mutation
+or domain/application validation bypass is allowed. A patch is input, never the
+persisted Project or a shortcut to validating only changed fields.
+
+For example, a name-only intent retains UUID, slug, associations and declaration
+forms in the complete proposed state. A Repository removal that leaves a retained
+reference dangling must fail complete-state validation before any write. Changing
+a field from absent to `unconfigured` or `[]` remains explicit field-specific intent;
+omission from a patch is not implicitly removal or an empty declaration. Exact
+patch syntax and operation encoding remain unselected; no JSON/YAML merge-patch
+standard is adopted by this decision. Init retains FR-012 create/no-op/conflict.
+
+Optional future AI enters only through draft/intent input. It may interpret
 intent and explain consequences; it cannot call filesystem persistence directly or
 provide its own approval. Application validates schema, identity, references, path
 safety, authority and expected revision regardless of caller. Preview is sanitized
@@ -411,9 +437,9 @@ create a Repository association by inference. Symlinks are not the sync model.
 Keep the workflow boundaries distinct:
 
 ```text
-explicit project update → validate → atomic local persist
-                                    → optional local Git commit
-                                    → optional explicitly authorized remote sync/push
+explicit update intent → complete proposed Project → validate → atomic local persist
+                                                             → optional local Git commit
+                                                             → optional explicitly authorized remote sync/push
 ```
 
 No push is required for local success. Future `autoPush: true` must be a deliberate,
@@ -662,7 +688,7 @@ Filesystem integration must also exercise real OS primitives, not just mocks.
 | AC-12 | Result classification/rendering | Repeated identical observations for each declaration state; distinguish changed intent despite equal Runtime observations; local-format failure versus portable validity; randomized map order; valid-with-gaps versus record-write failure; no-op write counts | Stable diagnostic goldens excluding entropy/attempt metadata; classification matrix |
 | AC-13 | Slug domain, namespace resolution and stores | Unit valid/invalid grammar; collision across IDs in init/install; two-process slug reservation | Zero writes/entropy on rejected slug; unchanged occupied directory |
 | AC-14 | Update/rename, portable and local stores | Name nonuniqueness; successful directory move; ID/binding continuity; collision, symlink and TOCTOU fault cases | Before/after UUID, paths, document hashes and same installation record key |
-| AC-15 | Update application, draft boundary, CLI | Minimal init then add document/Repository; remove/change association and dangling references; safe preview; missing/stale authority; changed init conflict versus valid update | Unit matrix and J6 black-box reports; denied-write spies and sanitized diff |
+| AC-15 | Domain materialization, update application, draft boundary, CLI | Partial name-only intent retains untouched fields/UUID/declaration forms; partial remove leaves retained dangling reference and fails; complete proposed state checked even when changed fields alone are valid; persistence never receives a patch; minimal init then add document/Repository; safe preview; missing/stale authority or unsupported version; changed init conflict versus valid update | Unit matrix, controlled store integration asserting complete valid artifact set or zero writes, and J6 black-box reports; denied-write spies and sanitized diff |
 | AC-16 | Transaction/namespace/ID guards and recovery | Failure at every update/move stage; conflicting update/update and rename/update processes; local failure after portable commit | Prior-state rollback hashes, one winning revision, committed-state recovery and binding continuity |
 | AC-17 | Artifact validation and root separation | Full portable-tree forbidden-state cases, disjoint roots, home working copy classification and future export set | Portable snapshots omit all local state; allowlist rejection evidence |
 | AC-18 | Application authority and future Git boundary | Init/update Git/network denial spies; future backing distinct from associations; explicit remote authority/autoPush and independent local/remote failure results | Current-slice denied side effects; later Git delivery must provide boundary/functional evidence before release |
@@ -730,7 +756,7 @@ choice in Accepted [ADR-0004](../../decisions/0004-portable-project-manifest.md)
 ADR-0001–0003 remain Accepted and unchanged. The initial schema details, override
 and filesystem strategy remain slice-scoped Plan details. The local `formatVersion`
 and distinct declaration semantics are resolved here, without separate ADRs.
-H1–H8 extend ADR-0004 naturally: identity ergonomics, portable working copy,
+H1–H9 extend ADR-0004 naturally: identity ergonomics, portable working copy,
 incremental mutation and optional backing are aspects of shared intent versus local
 installation, not new aggregate ownership or a sync-engine choice. No new ADR.
 Final Plan approval is still required; ADR acceptance does not advance the lifecycle.
@@ -763,7 +789,7 @@ conflict with accepted ADRs identified. Spec-Kit remains strategic upstream only
 ## 12. Documentation validation and review gate
 
 Specification, Clarifications, Plan, ADR-0004 and directly affected references
-are reconciled to H1–H8. Original approval and prior validation remain historical;
+are reconciled to H1–H9. Original approval and prior validation remain historical;
 this revision does not claim old checks validate new contracts. No new Tasks,
 application code, adapter, dependency, CI, migration or runtime integration.
 
@@ -773,7 +799,54 @@ Concrete protected filesystem protocol remains an implementation proof obligatio
 Git metadata schema, transport, merge/conflict engine and automation remain outside
 this Plan's execution scope. No material product question blocks re-review.
 
-### Current documentation validation — 2026-09-12
+### Remaining review concerns and deferred design
+
+- **Init/update:** H9 resolves partial input versus complete validated persistence.
+  Human review still assesses the proposed field-preservation/removal semantics,
+  declaration-state distinctions, safe diff bound to revision/authority, update
+  atomicity, slug move and local-state continuity. Exact command/patch syntax,
+  operation encoding and numeric exit codes remain unselected. No generic patch
+  standard, force path or weaker validator is implied.
+- **Local authority and concurrency:** approval must cover the actual revision and
+  write set; stale/revoked approval cannot be reused. Concrete representation of
+  scoped system authority and proof of filesystem confinement, atomic visibility,
+  rollback and recovery on Linux/macOS remain design/evidence obligations before
+  delivery. This reconciliation supplies no implementation evidence or waiver.
+- **Git/remote authority:** separate local mutation, optional local Git commit and
+  remote push/sync are approved boundaries. Backing metadata schema, preservation
+  during portable updates, hooks/credential-helper controls, transport, remote
+  conflict/recovery and any future autoPush authority lifecycle remain deferred
+  to approved Git scope. No Git execution, implicit push or schema field is added.
+
+These concerns are returned for human review; none reopens H9 or grants Tasks or
+Implementation authority. The Plan is ready for new human review, not approved.
+
+### Current documentation validation — 2026-09-14
+
+- Repository validation passed via `./scripts/validate-repository.sh .`, including
+  package checks, both Bash regression suites, worktree sensitive-file scan and
+  whitespace validation. Individual `bash -n` checks passed for `scripts/*.sh`.
+- Temporary Python documentation checks passed over 13 changed Markdown files:
+  97 relative links/anchors, balanced fences/table columns, unique complete
+  FR-001–FR-021 / SEC-001–SEC-005 / AC-01–AC-18 definitions and Plan traceability.
+  H9 authority links and complete-state/no-bypass wording were checked. Original
+  H1–H8 and Q1–Q6 clarification body and earlier validation evidence are unchanged.
+- Semantic review aligned Specification, Clarifications, Plan, ADR-0004 and
+  conceptual model; supporting indexes now reference H9. Stale ADR-0003 Proposed
+  references and a nonexistent architecture routing path were corrected from the
+  existing Accepted ADR, without changing ADR-0001–0003. No blocking reconciliation
+  finding remains; review concerns above stay explicit rather than implicitly decided.
+- Staged paths/content, `git diff --check`, `git diff --cached --check` and
+  `./scripts/check-sensitive-files.sh --staged .` were checked before commit.
+  Changes contain documentation only; no Tasks, code, dependencies, CI or frozen
+  experiment artifacts changed.
+- `gitleaks`, `markdownlint`, `markdownlint-cli2`, `lychee` and `shellcheck` are
+  unavailable. Dedicated secret/lint/external-link checks remain unverified; no
+  global dependency installed. Lingo unit/integration/functional and Linux/macOS
+  filesystem evidence remains planned, not executed acceptance. Frozen experiment
+  tests were not rerun because this reconciliation does not affect them.
+
+### Historical documentation validation — 2026-09-12
 
 Executed from repository root for this reconciliation:
 
