@@ -94,5 +94,7 @@ side effect. Backing Git is not automatically a Repository association. Internal
 `formatVersion` stays separate from portable `schemaVersion`; declaration forms
 retain their intent distinctions.
 
-**Ready for final human Plan review.** Tasks and Implementation remain blocked until explicit
-human Plan approval and authorization to advance. No Tasks or implementation added.
+PR #4 approved and merged on 2026-09-14. **Plan: Approved.**
+[Tasks](../specifications/002-lingo-project-initialization/tasks.md): **In review**
+(21 Tasks with dependency and FR/SEC/AC Evidence matrices).
+**Implementation: Not authorized. Ready for human Tasks review.**

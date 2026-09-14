@@ -2,7 +2,11 @@
 
 ## Status and authority
 
-**Ready for final human Plan review** — Specification and Plan reconciliation, 2026-09-14.
+**Plan: Approved · Tasks: In review · Implementation: Not authorized** — 2026-09-14.
+
+PR #4 was approved and merged at `b85657ff23dcfc40fbd9ea05b7a3876959b3554e`.
+The subsequent explicit human request authorizes [Tasks](tasks.md) only;
+**Ready for human Tasks review**. No implementation authority is inferred.
 
 Specification originally approved by human review on 2026-09-11; Q1–Q6 were
 resolved at that gate. Subsequent human Plan review of PR #4 on 2026-09-12
@@ -21,10 +25,10 @@ The [latest Git Authority decision](https://github.com/rgomids/axiom/pull/4#issu
 approves the independent Project mutation, local Git commit and remote sync/push
 boundary. Project model, init/update and logical atomicity approvals are preserved.
 
-This revision reconciles Specification → Clarifications → [Plan](plan.md).
-Final human Plan review remains required; Tasks and Implementation remain blocked
-until explicit Plan approval and authorization to advance. No executable Lingo,
-adapters, dependencies or application tests are introduced by this change.
+The approved contract now traces Specification → Clarifications → [Plan](plan.md)
+→ [Tasks](tasks.md). Tasks approval and explicit Implementation authorization
+remain required. No executable Lingo, adapters, dependencies or application tests
+are introduced by this documentation change.
 
 Authoritative context:
 
@@ -501,9 +505,9 @@ Constitution V–VIII retain deterministic authority, least privilege and
 Project != Repository without imposing aggregate/Workspace ownership.
 
 H9/H10 resolve partial input, complete-state validation and logical atomicity.
-H11 resolves Git Authority; final human Plan review and future Evidence obligations are identified in
+H11 resolves Git Authority. The later PR #4 approval and merge close Plan review;
+[Tasks](tasks.md) are now in review under the explicit human request. Deferred
+mechanisms and future Evidence obligations remain in
 [Plan review concerns](plan.md#remaining-review-concerns-and-deferred-design).
-They are not implicit decisions or permission to implement. Current gate:
-**Ready for final human Plan review** of reconciled Specification/Clarifications/Plan.
-Tasks and Implementation remain blocked pending explicit human Plan approval and
-authorization to advance. All acceptance Evidence above remains future work.
+**Plan: Approved. Tasks: In review. Implementation: Not authorized.**
+All acceptance Evidence above remains future work.
