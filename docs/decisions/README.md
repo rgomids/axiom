@@ -7,7 +7,7 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 - [ADR-0001 — Project is not Repository](0001-project-is-not-repository.md) — Accepted, 2026-08-08.
 - [ADR-0002 — Axiom Relationship with GitHub Spec-Kit](0002-axiom-speckit-relationship.md) — Accepted, 2026-09-10.
 - [ADR-0003 — Lingo as Axiom Local Control Plane](0003-lingo-as-axiom-local-control-plane.md) — Accepted, 2026-09-10; implementation requires an approved Specification.
-- [ADR-0004 — Portable Project Manifest](0004-portable-project-manifest.md) — Accepted, 2026-09-12, from human review of the Specification 002 Plan; extended by subsequent human H1–H8 decisions on identity, working copy, update and optional Git backing, then H9 on 2026-09-14 confirming partial update intent with complete validated persistence; final Plan approval remains pending.
+- [ADR-0004 — Portable Project Manifest](0004-portable-project-manifest.md) — Accepted, 2026-09-12, from human review of the Specification 002 Plan; extended by subsequent human H1–H8 decisions on identity, working copy, update and optional Git backing, then H9–H11 on 2026-09-14 confirming complete validated updates, logical atomicity and Git Authority boundary without selecting concrete persistence/Git mechanisms; final Plan approval remains pending.
 
 ## Candidate assessment
 

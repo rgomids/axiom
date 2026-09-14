@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-**Ready for human re-review** — Specification and Plan reconciliation, 2026-09-14.
+**Ready for final human Plan review** — Specification and Plan reconciliation, 2026-09-14.
 
 Specification originally approved by human review on 2026-09-11; Q1–Q6 were
 resolved at that gate. Subsequent human Plan review of PR #4 on 2026-09-12
@@ -17,9 +17,12 @@ Partial command intent is permitted; complete domain-validated state is required
 The [latest atomicity decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664710882), recorded as H10,
 approves the Project model and init/update contract with logical atomicity.
 Concrete persistence mechanisms remain implementation choices requiring Evidence.
+The [latest Git Authority decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5665679754), H11,
+approves the independent Project mutation, local Git commit and remote sync/push
+boundary. Project model, init/update and logical atomicity approvals are preserved.
 
 This revision reconciles Specification → Clarifications → [Plan](plan.md).
-Final human re-review remains required; Tasks and Implementation remain blocked
+Final human Plan review remains required; Tasks and Implementation remain blocked
 until explicit Plan approval and authorization to advance. No executable Lingo,
 adapters, dependencies or application tests are introduced by this change.
 
@@ -358,20 +361,35 @@ working copy; local state remains addressed by ID and preserves binding continui
   authority approves → deterministic persistence commits. Schema, filesystem,
   identity, conflict/path checks, authority and versioning remain deterministic
   application/domain responsibilities. No direct AI write bypass or AI requirement.
+  AI may propose Git operations but receives no implicit authority for local or remote Git effects.
 - **FR-020 Optional Git backing:** future export may initialize Git in the portable
   working copy, configure an explicitly supplied origin, commit/publish and record
   backing/sync configuration. This dedicated Git repository is not automatically
-  an associated Repository. Export includes only supported portable artifacts;
+  an associated Repository; `.git` in the portable working copy creates no association.
+  Export includes only supported portable artifacts;
   local state/bindings and secrets never enter it. Symlinks are filesystem security
   concerns, not the primary distribution/sync mechanism.
-- **FR-021 Sync authority:** local mutation → validation → atomic local persist →
-  optional local Git commit → optional remote sync/push are separate outcomes.
-  Local update success cannot imply remote publication. Remote mutations require
-  explicit authority, including any deliberately configured future `autoPush: true`;
-  default behavior cannot infer that choice. Git failures cannot undo or obscure a
-  successful local commit. Git execution, backing metadata schema, conflict/merge
-  algorithms and sync automation require later approved planning; only these
-  compatibility/authority boundaries are defined here.
+- **FR-021 Sync authority:** Project mutation → optional local Git commit → optional
+  explicitly authorized remote sync/push are three separate operations with their
+  own authority and outcomes. Local mutation implies no Git; its success depends
+  on neither Git commit nor push. Later commit/push failures must not undo or
+  misreport rollback of an already confirmed local Project mutation. Init, update,
+  installation, validation and local Git commit never imply remote publication.
+  Machine-local state, credentials, local bindings and observations are excluded
+  from portable Git backing. No implicit network mutation, hooks, credential-helper
+  changes, remote creation, branch rewrite, force push, merge/rebase or other Git
+  effects are authorized. Future autoPush/equivalent automation requires explicit
+  authority and separate human-approved design. Git execution remains deferred.
+
+### Git design boundary (H11)
+
+Concrete Git backing schema/metadata, branch strategy, merge/rebase, conflict
+resolution, sync protocol, transport, credential helpers, hooks, metadata
+preservation, dirty-tree handling, recovery protocol, autoPush implementation and
+remote-authority representation remain future design/implementation obligations.
+None is selected by this boundary approval; appropriate Evidence and authorized
+scope are required before delivery. Any autoPush/equivalent automation requires
+explicit authority and separate human-approved design.
 
 ## Validity and failures
 
@@ -461,7 +479,7 @@ no real Provider, credential value, model service, or fake production adapter.
 | AC-15 | Explicit update succeeds where changed init conflicts; minimal init needs no documents; partial update intent materializes a complete proposed state, validates all invariants, shows safe diff and enforces authority/version/concurrency before complete persistence | Unit partial-intent add/remove/reference matrix (including invalid retained references), no-direct-patch persistence, no-authority/stale-preview cases and black-box J6 including document addition, declaration states and unchanged UUID (FR-012, FR-018–019) |
 | AC-16 | Logical atomicity: no partial Project accepted as valid; pre-commit failure preserves prior authoritative state; successful commit makes complete new state authoritative; conflicting updates cannot both succeed; post-commit failures report actual state without false rollback | Linux/macOS fault/crash tests around adapter-defined commit, concurrent readers/writers, confinement/collision tests including manifest/documents and rename versus update, identity/local-state continuity recovery (FR-013, FR-017–018, SEC-004) |
 | AC-17 | Entire portable working copy excludes machine state and secrets; home location does not make it private local state | Unit artifact allowlist, integration portable/local root overlap and export-set exclusion, black-box portable snapshot checks (FR-020, SEC-001, SEC-005) |
-| AC-18 | Optional backing Git is not an associated Repository; local mutation never implies commit/push; remote sync requires explicit authority | Boundary tests with denied Git/network spies for init/update; future export/sync contract tests for independent association lists, denied authority, explicit sync/autoPush and separate failure outcomes before Git delivery (FR-020–021, SEC-002) |
+| AC-18 | Optional backing/`.git` creates no Repository association; local mutation, optional Git commit and explicit remote sync have independent authority/outcomes; local success depends on neither commit nor push; no false rollback or local-state export; AI has no implicit Git authority | Denied Git/network spies for current init/update/install/validate; future authorized Git tests for association independence, portable-only backing, AI/authority denial, no implicit publication, commit/push failures preserving confirmed local success, and separately approved automation before Git delivery (FR-020–021, SEC-002) |
 
 Minimum delivery Evidence: approved Specification and resolved blocking questions;
 traceable unit, filesystem integration, and functional black-box results for
@@ -477,15 +495,15 @@ Intent and acceptance precede implementation. Constitution I–IV require reopen
 materially changed approved intent: the 2026-09-11 approval remains historical,
 while H1–H8 record explicit subsequent human authority on 2026-09-12 and H9
 records partial-input refinement; H10 approves the model and init/update contract
-with logical atomicity on 2026-09-14. ADR-0004
+with logical atomicity on 2026-09-14; H11 approves Git Authority. ADR-0004
 is extended within its portable/local boundary; ADR-0001–0003 remain unchanged.
 Constitution V–VIII retain deterministic authority, least privilege and
 Project != Repository without imposing aggregate/Workspace ownership.
 
 H9/H10 resolve partial input, complete-state validation and logical atomicity.
-Remaining Git Authority review and implementation Evidence obligations are identified in
+H11 resolves Git Authority; final human Plan review and future Evidence obligations are identified in
 [Plan review concerns](plan.md#remaining-review-concerns-and-deferred-design).
 They are not implicit decisions or permission to implement. Current gate:
-**Ready for human re-review** of reconciled Specification/Clarifications/Plan.
+**Ready for final human Plan review** of reconciled Specification/Clarifications/Plan.
 Tasks and Implementation remain blocked pending explicit human Plan approval and
 authorization to advance. All acceptance Evidence above remains future work.

@@ -2,20 +2,54 @@
 
 ## Current status — 2026-09-14
 
-**Ready for human re-review.** Subsequent human review of PR #4 explicitly
+**Ready for final human Plan review.** Subsequent human review of PR #4 explicitly
 reopened Specification 002's location, minimum and update contracts. Original
 2026-09-11 approval is preserved below as historical evidence. H1–H8 supersede
 only the stated portions; original Q1–Q6 are not silently relabeled or erased.
-H9 records partial-input refinement; H10 records the latest approval of the Project
-model and init/update contract with logical atomicity. Git/authority review remains.
+H9 records partial-input refinement; H10 approves logical atomicity; H11 approves
+the Git Authority boundary. Final human Plan review remains pending.
 Specification and Plan now consume these later human-approved decisions. Tasks
 and Implementation remain blocked pending explicit final Plan approval and
 authorization to advance.
 
+## Git Authority approval — 2026-09-14
+
+Latest authority: [Human review decision — Git Authority](https://github.com/rgomids/axiom/pull/4#issuecomment-5665679754),
+posted by `rgomids` on 2026-09-14 at 14:35:31 UTC.
+
+| ID | Approved revision | Supersession / traceability |
+|---|---|---|
+| H11 | Project mutation, optional local Git commit and optional explicitly authorized remote sync/push are three separate operations with separate authority/outcomes. Local mutation implies no Git and succeeds independently of commit/push; later Git failures cannot undo or falsely report rollback of confirmed local mutation. Optional backing, including `.git` in the portable working copy, creates no Repository association. Machine-local state, credentials, bindings and observations never enter portable backing. No implicit publication or Git effects; AI proposals confer no local/remote Git authority. Automation requires explicit authority and separate human-approved design. | Confirms H6/H7 and resolves Git Authority boundary review; FR-019–021, SEC-002, AC-18 and ADR-0004. H1–H10 remain unchanged in substance; final Plan approval is not granted |
+
+```text
+Project mutation
+      ↓
+optional local Git commit
+      ↓
+optional explicitly authorized remote sync/push
+```
+
+Init, update, installation, validation and local Git commit never imply remote
+sync/push. This Plan authorizes no implicit network mutation, hooks,
+credential-helper changes, remote creation, branch rewrite, force push,
+merge/rebase or other Git effects.
+
+Concrete Git backing schema/metadata, branch strategy, merge/rebase, conflict
+resolution, sync protocol, transport, credential helpers, hooks, metadata
+preservation, dirty-tree handling, recovery protocol, autoPush implementation and
+remote-authority representation remain future design/implementation obligations.
+None is selected by this boundary approval; appropriate Evidence and authorized
+scope are required before delivery. Any autoPush/equivalent automation requires
+explicit authority and separate human-approved design.
+
+Current gate: Project mental model, init/update, logical atomicity and Git
+Authority boundary approved; **final human Plan review pending**. No Tasks,
+Implementation, self-approval or advance is authorized by this reconciliation.
+
 ## Logical atomicity confirmation — 2026-09-14
 
 Authority: [Human review decision — Project update atomicity](https://github.com/rgomids/axiom/pull/4#issuecomment-5664710882),
-posted by `rgomids` on 2026-09-14 at 13:26:32 UTC. This is the latest authority;
+posted by `rgomids` on 2026-09-14 at 13:26:32 UTC. This is the H10 authority;
 H9 below remains the historical partial-input decision.
 
 | ID | Approved revision | Supersession / traceability |
@@ -25,12 +59,14 @@ H9 below remains the historical partial-input decision.
 Persistence adapters choose concrete mechanisms during authorized implementation.
 Linux/macOS tests must provide Evidence for confinement, collision protection,
 concurrency, logical atomicity and recovery. These are implementation obligations
-and acceptance invariants, not approval of a technique. Remaining human review
-concerns [Git Authority](plan.md#remaining-review-concerns-and-deferred-design).
+and acceptance invariants, not approval of a technique. H11 subsequently resolves
+the Git Authority boundary; [deferred design](plan.md#remaining-review-concerns-and-deferred-design) remains future work.
 Final Plan approval and authorization to advance remain pending; no Tasks or
 Implementation is authorized. H1–H9 and original approval remain preserved below.
 
 ## Latest human decision — 2026-09-14
+
+Historical H9 decision; heading retained for existing links. Current authority is H11 above.
 
 Authority: [Human review decision — Project update contract](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508),
 posted by `rgomids` on 2026-09-14 at 12:47:22 UTC. This is the authority for
@@ -49,8 +85,8 @@ remote mutation is implicit. Earlier declaration-state and formatVersion decisio
 remain unchanged. No Tasks or Implementation authorized; final Plan approval is pending.
 
 Partial input is resolved, not an open choice between patch-only validation and
-complete-state validation. H10 resolves logical atomicity; remaining Git/authority concerns are
-listed in [Plan review concerns](plan.md#remaining-review-concerns-and-deferred-design).
+complete-state validation. H10 resolves logical atomicity and H11 Git Authority;
+[Plan review and deferred design](plan.md#remaining-review-concerns-and-deferred-design) distinguish the final gate from future obligations.
 
 ## Subsequent human decisions — 2026-09-12
 

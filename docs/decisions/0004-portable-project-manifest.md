@@ -29,11 +29,19 @@ this confirmation does not approve the final Plan or authorize Tasks/Implementat
 
 ### Logical atomicity confirmation — 2026-09-14
 
-The [latest human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664710882)
+The [H10 human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664710882)
 approves the Project model and init/update contract with logical atomicity.
 [H10](../specifications/002-lingo-project-initialization/clarifications.md#logical-atomicity-confirmation--2026-09-14)
-records this refinement; remaining human review concerns Git/authority and the
-final Plan gate. No Tasks or Implementation is authorized.
+records this refinement; H11 below resolves the later Git Authority boundary
+review. The final human Plan gate remains pending. No Tasks or Implementation is authorized.
+
+### Git Authority approval — 2026-09-14
+
+The [latest human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5665679754),
+[H11](../specifications/002-lingo-project-initialization/clarifications.md#git-authority-approval--2026-09-14),
+approves the Git Authority boundary below and confirms Project mental model,
+init/update and H10 logical atomicity. Final human Plan review remains pending;
+no Tasks or Implementation is authorized. Earlier approvals remain preserved.
 
 ## Context
 
@@ -132,16 +140,37 @@ confinement, collision protection, concurrency, logical atomicity and recovery.
 
 ### Optional distribution and synchronization
 
-Portable working copy may later use a dedicated Git backing repository. It is not
-automatically a Repository association. Symlink is a filesystem safety concern,
-not the primary export/sync mechanism. Local mutation, optional local Git commit
-and optional remote push/sync have separate outcomes and authority. Remote mutation
-requires explicit approval, including a deliberately configured future autoPush
-policy; it is never implicit in init/update. Only portable artifacts are published.
+Portable working copy may later use dedicated Git backing independent of Repository
+associations. A `.git` in that working copy creates no Repository association.
+Symlinks remain a filesystem safety concern, not the primary export/sync model.
 
-This boundary decision selects no Git adapter, metadata schema, merge algorithm,
-transport or synchronization engine. Those require later approved scope. The
-current Plan reserves the boundary and forbids implicit Git effects.
+```text
+Project mutation
+      ↓
+optional local Git commit
+      ↓
+optional explicitly authorized remote sync/push
+```
+
+These are separate operations with separate authority and outcomes. Project
+mutation implies no Git and succeeds independently of commit/push. Later Git
+failure cannot undo or falsely report rollback of confirmed local Project mutation.
+Remote sync/push is never implied by init, update, installation, validation or
+local Git commit. AI may propose operations but has no implicit authority for
+local or remote Git effects. Machine-local state, credentials, bindings,
+observations and other non-portable state never enter portable backing.
+
+This Plan authorizes no implicit network mutation, hooks, credential-helper
+changes, remote creation, branch rewrite, force push, merge/rebase or other Git
+effects. Only the authority boundary is approved; Git execution is deferred.
+
+Concrete Git backing schema/metadata, branch strategy, merge/rebase, conflict
+resolution, sync protocol, transport, credential helpers, hooks, metadata
+preservation, dirty-tree handling, recovery protocol, autoPush implementation and
+remote-authority representation remain future design/implementation obligations.
+None is selected by this boundary approval; appropriate Evidence and authorized
+scope are required before delivery. Any autoPush/equivalent automation requires
+explicit authority and separate human-approved design.
 
 ## Alternatives considered
 

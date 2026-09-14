@@ -96,11 +96,15 @@ retains this model. Minimal init creates identity/structure. Explicit update may
 receive partial intent; Lingo loads current Project and domain materializes and
 validates the complete proposed state. Application previews the required safe diff,
 checks applicable authority/version/concurrency and persists only the complete valid
-result atomically. No direct partial `axiom.yaml` mutation or validation bypass.
+result with H10 logical atomicity; persistence mechanisms require Linux/macOS Evidence. No direct partial `axiom.yaml` mutation or validation bypass.
 Changed init intent
 still conflicts. AI proposes; Lingo validates; human/system authority approves;
 deterministic persistence commits. Local update, optional Git commit and remote
-sync remain separate. Remote authority is explicit; symlink is not primary sync.
+sync remain separate under [H11](../specifications/002-lingo-project-initialization/clarifications.md#git-authority-approval--2026-09-14).
+Local success depends on neither Git commit nor push; their failures never imply
+rollback of confirmed Project mutation. `.git` creates no Repository association;
+AI proposals grant no Git authority. Remote authority is explicit, automation
+requires separate human-approved design, and symlink is not primary sync.
 Git execution and concrete sync design remain future work, not current capability.
 
 ### Repository — accepted concept

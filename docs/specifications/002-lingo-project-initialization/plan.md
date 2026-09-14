@@ -2,8 +2,8 @@
 
 ## Status, authority and scope
 
-**Plan reconciled after human review; ready for human re-review** — 2026-09-14.
-The decisions below and subsequent H1–H10 are human-approved; final Plan approval
+**Plan reconciled after human review; ready for final human Plan review** — 2026-09-14.
+The decisions below and subsequent H1–H11 are human-approved; final Plan approval
 and authorization to advance remain pending.
 
 Human review of [PR #4](https://github.com/rgomids/axiom/pull/4) approved:
@@ -21,11 +21,14 @@ approval. The later reconciliation request materially revised the Specification;
 and reconcile it, preserving the original 2026-09-11 approval as history. This Plan
 consumes the revised Specification; it cannot override it or approve itself.
 
-Latest authority: [2026-09-14 human atomicity decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664710882).
-[H10](clarifications.md#logical-atomicity-confirmation--2026-09-14) approves the
-Project model and init/update contract with logical atomicity, without selecting
-persistence techniques. H9's partial intent and complete-state validation remain.
-Reconciliation baseline: PR #4 at `17460cb`; remaining human review is Git/authority.
+Latest authority: [2026-09-14 human Git Authority decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5665679754).
+[H11](clarifications.md#git-authority-approval--2026-09-14) approves the Git Authority
+boundary. H9 partial intent/complete-state validation and H10 logical atomicity
+remain intact; no persistence technique is selected. Project mental model,
+init/update, logical atomicity and Git Authority are approved; final human Plan
+review and explicit authorization to advance remain pending.
+Reconciliation input head: PR #4 at `0393ef1`; base/merge-base `main` at `374c643`.
+The published PR body records the resulting current head and validation scope.
 
 Historical 2026-09-12 baseline: PR #4 at `bbe2e71`; `main` at `374c643`, after PR #3 merged. Original [Specification](spec.md) approval closed intake → specify → clarify.
 That baseline was inspected for the previous revision. Subsequent
@@ -435,23 +438,37 @@ configure the supplied origin, commit/publish and record explicit backing setup.
 That backing is independent of the `repositories` association collection and cannot
 create a Repository association by inference. Symlinks are not the sync model.
 
-Keep the workflow boundaries distinct:
+Approved Git Authority boundary (H11):
 
 ```text
-explicit update intent → complete proposed Project → validate → atomic local persist
-                                                             → optional local Git commit
-                                                             → optional explicitly authorized remote sync/push
+Project mutation
+      ↓
+optional local Git commit
+      ↓
+optional explicitly authorized remote sync/push
 ```
 
-No push is required for local success. Future `autoPush: true` must be a deliberate,
-scoped authority decision, not a field accepted by the current closed schema or
-an inferred account preference. Git failure is separately reported without undoing
-committed local intent. Local credentials/bindings never enter the published set;
-Git operational metadata is not portable Project intent. Backing configuration
-schema, Git metadata preservation, hooks/credential-helper controls, remote conflict
-resolution and recovery await later approved design before any Git execution.
-Current unit/application boundaries and black-box init/update must deny Git/network
-side effects; AC-18's Git execution evidence belongs to that later delivery.
+Each operation has separate authority and outcome. Project mutation implies no
+Git; local success depends on neither Git commit nor remote push. Later commit or
+push failure cannot undo or falsely report rollback of confirmed local Project
+mutation. Init/update/install/validate and local Git commit never imply remote
+publication. AI may propose operations but receives no implicit local/remote Git
+authority. A `.git` in the working copy creates no Repository association.
+Machine-local installation state, credentials, bindings, observations and other
+non-portable state never enter the portable Git backing.
+
+No implicit network mutation, hooks, credential-helper changes, remote creation,
+branch rewrite, force push, merge/rebase or other Git effects are authorized by
+this Plan. Current application/black-box boundaries must deny Git/network effects;
+AC-18's actual Git execution Evidence belongs to later authorized delivery.
+
+Concrete Git backing schema/metadata, branch strategy, merge/rebase, conflict
+resolution, sync protocol, transport, credential helpers, hooks, metadata
+preservation, dirty-tree handling, recovery protocol, autoPush implementation and
+remote-authority representation remain future design/implementation obligations.
+None is selected by this boundary approval; appropriate Evidence and authorized
+scope are required before delivery. Any autoPush/equivalent automation requires
+explicit authority and separate human-approved design.
 
 ## 5. Repository matching
 
@@ -671,7 +688,7 @@ Filesystem integration must also exercise real OS primitives, not just mocks.
 | AC-15 | Domain materialization, update application, draft boundary, CLI | Partial name-only intent retains untouched fields/UUID/declaration forms; partial remove leaves retained dangling reference and fails; complete proposed state checked even when changed fields alone are valid; persistence never receives a patch; minimal init then add document/Repository; safe preview; missing/stale authority or unsupported version; changed init conflict versus valid update | Unit matrix, controlled store integration asserting complete valid artifact set or zero writes, and J6 black-box reports; denied-write spies and sanitized diff |
 | AC-16 | Logical commit, collision/concurrency protection and recovery | Linux/macOS failures around adapter-defined commit; concurrent readers never accept mixed manifest/document state; conflicting update/update and rename/update processes; local failure after portable commit | Pre-commit prior-state hashes, one winning revision, committed-state recovery and binding continuity |
 | AC-17 | Artifact validation and root separation | Full portable-tree forbidden-state cases, disjoint roots, home working copy classification and future export set | Portable snapshots omit all local state; allowlist rejection evidence |
-| AC-18 | Application authority and future Git boundary | Init/update Git/network denial spies; future backing distinct from associations; explicit remote authority/autoPush and independent local/remote failure results | Current-slice denied side effects; later Git delivery must provide boundary/functional evidence before release |
+| AC-18 | Application authority and future Git boundary | Init/update/install/validate Git/network denial spies; future `.git` creates no association; portable-only backing; AI authority denial; independent Project/commit/push outcomes, no false rollback; separately approved automation | Current-slice denied side effects; later Git delivery must provide boundary/functional evidence before release |
 
 Failure tests inject faults at named boundaries and use barriers for races, not
 sleep-based timing alone. Include two independent writer processes, identical and
@@ -736,7 +753,7 @@ choice in Accepted [ADR-0004](../../decisions/0004-portable-project-manifest.md)
 ADR-0001–0003 remain Accepted and unchanged. The initial schema details, override
 and filesystem strategy remain slice-scoped Plan details. The local `formatVersion`
 and distinct declaration semantics are resolved here, without separate ADRs.
-H1–H10 extend ADR-0004 naturally: identity ergonomics, portable working copy,
+H1–H11 extend ADR-0004 naturally: identity ergonomics, portable working copy,
 incremental mutation and optional backing are aspects of shared intent versus local
 installation, not new aggregate ownership or a sync-engine choice. No new ADR.
 Final Plan approval is still required; ADR acceptance does not advance the lifecycle.
@@ -769,43 +786,63 @@ conflict with accepted ADRs identified. Spec-Kit remains strategic upstream only
 ## 12. Documentation validation and review gate
 
 Specification, Clarifications, Plan, ADR-0004 and directly affected references
-are reconciled to H1–H10. Original approval and prior validation remain historical;
+are reconciled to H1–H11. Original approval and prior validation remain historical;
 this revision does not claim old checks validate new contracts. No new Tasks,
 application code, adapter, dependency, CI, migration or runtime integration.
 
 H10 approves the Project model and init/update contract, including logical
-atomicity, slug rename and local continuity. Human re-review now concerns the
-remaining Git/authority boundary and final Plan gate.
+atomicity, slug rename and local continuity. H11 approves the Git Authority
+boundary. Only final human Plan review and authorization to advance remain pending.
 Concrete protected filesystem protocol remains an implementation proof obligation;
 Git metadata schema, transport, merge/conflict engine and automation remain outside
 this Plan's execution scope. No material product question blocks re-review.
 
 ### Remaining review concerns and deferred design
 
-- **Approved init/update; implementation Evidence pending:** H9/H10 resolve partial
-  input, complete-state validation and logical atomicity. Exact command/patch
-  encoding and persistence controls remain implementation details within those
-  invariants. Linux/macOS proof remains required; no technique is pre-approved.
-- **Git Authority — scope and lifecycle:** review how local mutation, optional local
-  Git commit and remote push/sync receive separate scoped authority, tied to the
-  actual revision/write set and intended destination. Decide representation,
-  expiry/revocation and revalidation of system authority and any future autoPush
-  policy; stale approval must not authorize new effects.
-- **Git Authority — execution boundary:** review backing metadata and preservation
-  during Project updates, hooks/credential-helper execution controls, credentials
-  and transport permissions. Backing is independent of Repository associations;
-  no association or portable document grants execution/publication authority.
-- **Git Authority — outcomes and recovery:** review remote conflict/retry/recovery
-  and reporting when local persistence, local Git commit or remote push fails
-  independently. Local success must not imply remote success or broaden permission
-  for retry. Concrete Git schema/adapter/transport/merge design remains deferred.
+- **Approved:** Project mental model; init/update contract; logical Project
+  atomicity (H10); Git Authority boundary (H11). No material boundary question
+  remains open and no resolved approval is reopened.
+- **Final human Plan review pending:** this reconciliation cannot approve its own
+  Plan. Tasks and Implementation require explicit human approval and authorization
+  to advance; no execution or merge is authorized by the boundary decisions.
+- **Future Evidence:** persistence adapter chooses concrete mechanisms within H10;
+  Linux/macOS confinement, collision, concurrency, logical atomicity and recovery
+  proof remains mandatory. No staging, locks, syscalls or multi-file engine selected.
+- **Deferred Git design:** concrete backing schema/metadata, branches, merge/rebase,
+  conflict resolution, sync protocol, transport, credential helpers, hooks,
+  metadata preservation, dirty-tree handling, recovery protocol, autoPush and
+  concrete remote-authority representation require later authorized scope/design
+  and appropriate Evidence. They are not unresolved architectural decisions for
+  this Specification or permission to implement. Authority scope/revocation/retry
+  mechanics must respect the approved boundary; no mechanism is selected here.
 
-These Git/authority points remain for human review and later authorized Git scope;
-no Git execution or implicit push is added. Project model and init/update approval
-are preserved; final Plan approval and authorization to advance remain pending.
-No Tasks or Implementation is authorized.
+No material blocker or contradiction was identified in the reconciliation. The
+remaining human decision is final Plan approval and explicit authorization to
+advance. **Ready for final human Plan review.**
 
-### Current H10 documentation validation — 2026-09-14
+### Current H11 documentation validation — 2026-09-14
+
+- Reconciliation input head `0393ef1`; base/merge-base `374c643`. Full PR scope:
+  13 Markdown files; this reconciliation changes 10 existing Markdown files.
+- `./scripts/validate-repository.sh .` passed, including package validation, both
+  Bash regression suites and worktree sensitive-file scanning. Individual
+  `bash -n` checks passed for all five root scripts; environment-ignore rules passed.
+- Temporary documentation checks passed: 13 PR files, 102 relative links/anchors,
+  balanced fences/tables, unique complete FR-001–021 / SEC-001–005 / AC-01–18
+  definitions and AC/SEC Plan references. H1–H10 decision rows, original history,
+  H10 logical commit/adapter Evidence section and AC-16 remain unchanged.
+- Worktree, full-PR and staged whitespace checks and staged sensitive-file scan
+  passed; staged paths/content reviewed. Full PR contains only Markdown: no Tasks,
+  code, dependencies, CI, Implementation or frozen-experiment changes.
+- Self-review against H1–H11 covered specification, architecture, security and
+  Evidence/traceability. No material blocker, contradiction or finding remains.
+  Only final human Plan approval and explicit authorization to advance are pending.
+- gitleaks, markdownlint, markdownlint-cli2, lychee and shellcheck unavailable;
+  dedicated coverage remains unverified. No dependencies installed. Lingo tests,
+  Linux/macOS persistence Evidence and future authorized Git Evidence remain
+  delivery obligations; documentation/harness checks do not prove those behaviors.
+
+### Prior H10 documentation validation — 2026-09-14 (historical)
 
 - Repository validator, both Bash regression suites, worktree/staged sensitive-file
   scans, individual root-script syntax checks and diff whitespace checks passed.
@@ -869,5 +906,5 @@ Executed from repository root for this reconciliation:
 
 These checks provide documentation/repository Evidence only, not Lingo acceptance.
 
-**Ready for human re-review.** Tasks and Implementation remain blocked until
+**Ready for final human Plan review.** Tasks and Implementation remain blocked until
 explicit final human Plan approval and authorization to advance.
