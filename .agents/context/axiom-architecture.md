@@ -63,7 +63,7 @@ adapters/providers/renderers
 
 External products such as GitHub, GitLab, Linear, Jira, Notion, Confluence, Codex, or future runtimes must not leak unnecessarily into core domain contracts.
 
-The current strong proposal separates:
+The accepted ADR-0003 direction separates:
 
 ```text
 Axiom product/domain/policies/contracts
@@ -75,9 +75,10 @@ workflows / Project state / runtime resolution
 thin runtime adapters and skills
 ```
 
-This direction is documented in `docs/architecture/control-plane.md` and
-ADR-0003. ADR-0003 remains Proposed; do not implement Lingo or treat the
-boundary as accepted before a Specification and human review.
+This direction is documented in `docs/architecture/conceptual-model.md` and
+`docs/decisions/0003-lingo-as-axiom-local-control-plane.md`, Accepted on 2026-09-10.
+Acceptance does not authorize implementation; Specification and Plan approval
+and explicit authorization to advance remain required.
 
 Use `docs/architecture/provider-boundaries.md` for the abstraction threshold. Do not create a universal provider interface before a specified workflow requires one.
 

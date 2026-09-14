@@ -61,7 +61,51 @@ Workspace may present many Projects, but presentation does not yet imply persist
 - **Relations:** may associate one or more Repositories. Ownership of project-scoped work and knowledge is not yet decided.
 - **Lifecycle:** candidate states are active, paused and archived; no state machine is approved.
 - **Not:** a repository, directory, provider project, issue board, deployment environment, automatically the aggregate root, or owner of every related record.
-- **Open:** canonical identity, metadata format, portable/local split, nesting, source of truth, ownership, aggregate boundary and cross-Project sharing.
+- **Decided boundary:** [ADR-0004](../decisions/0004-portable-project-manifest.md) establishes versioned portable Project intent, currently `axiom.yaml`, distinct from local state. Specification 002 defines slice identity; its Plan documents the initial concrete schema.
+- **Open:** nesting, ownership, aggregate boundary, cross-Project sharing and concrete synchronization protocols; broader metadata and local persistence contracts remain subject to specifications.
+
+### Project identity, working copy and backing — accepted boundary
+
+Later human Plan review on 2026-09-12 revised Specification 002 after its original
+2026-09-11 approval; [H1–H8](../specifications/002-lingo-project-initialization/clarifications.md#subsequent-human-decisions--2026-09-12)
+and extended [ADR-0004](../decisions/0004-portable-project-manifest.md) record authority.
+
+- `id`: immutable canonical UUID v4; correlation and local-state address.
+- `slug`: mutable installation-unique CLI name and default portable directory name;
+  safe explicit rename/move preserves ID and local bindings.
+- `name`: mutable nonunique presentation.
+
+Logical `~/.axiom/projects/<slug>/` is portable/shared working copy, containing
+manifest and optional supported context/documents/policies. Logical
+`~/.axiom/state/projects/<id>/installation.json` is exclusively machine state;
+native platform mapping remains in Specification/Plan. No config starts inside an
+associated Repository. Local paths, credentials, observations and ephemeral state
+never enter portable content; `formatVersion` stays separate from `schemaVersion`.
+
+```mermaid
+flowchart TD
+    P["Logical Project: immutable id, mutable slug/name"] --> R["Independent Repository associations: backend/frontend/mobile"]
+    P --> WC["Portable working copy: projects/slug"]
+    WC -. optional backing .-> G["Dedicated Git repository; not an automatic association"]
+    P --> LS["Local installation state: state/projects/id"]
+    WC -. optional commit then explicitly authorized sync .-> G
+```
+
+The [2026-09-14 human confirmation](../specifications/002-lingo-project-initialization/clarifications.md#latest-human-decision--2026-09-14)
+retains this model. Minimal init creates identity/structure. Explicit update may
+receive partial intent; Lingo loads current Project and domain materializes and
+validates the complete proposed state. Application previews the required safe diff,
+checks applicable authority/version/concurrency and persists only the complete valid
+result with H10 logical atomicity; persistence mechanisms require Linux/macOS Evidence. No direct partial `axiom.yaml` mutation or validation bypass.
+Changed init intent
+still conflicts. AI proposes; Lingo validates; human/system authority approves;
+deterministic persistence commits. Local update, optional Git commit and remote
+sync remain separate under [H11](../specifications/002-lingo-project-initialization/clarifications.md#git-authority-approval--2026-09-14).
+Local success depends on neither Git commit nor push; their failures never imply
+rollback of confirmed Project mutation. `.git` creates no Repository association;
+AI proposals grant no Git authority. Remote authority is explicit, automation
+requires separate human-approved design, and symlink is not primary sync.
+Git execution and concrete sync design remain future work, not current capability.
 
 ### Repository — accepted concept
 
@@ -267,16 +311,19 @@ flowchart TB
 
 ## Configuration and portability boundary
 
-Project configuration is expected to separate portable, versionable intent
-from machine-local state. Portable configuration may reference repositories,
+[ADR-0004](../decisions/0004-portable-project-manifest.md), accepted during human
+review of the Specification 002 Plan, establishes a versioned Portable Project
+Manifest, currently `axiom.yaml`, separating shared intent from machine-local state. Portable configuration may reference repositories,
 Providers, required capabilities, Integrations, Model Profiles, policies and
 credential identifiers. It must not contain secret values, absolute
 machine-specific paths, runtime process identifiers, caches or temporary state.
 
 Credential configuration stores references only. Environment variables,
 operating-system credential stores and runtime-managed credentials are possible
-future sources; none is selected. The final filesystem and persistence model
-remain open.
+future sources; none is selected. The initial schema is documented in the
+[Specification 002 Plan](../specifications/002-lingo-project-initialization/plan.md#2-portable-manifest-contract).
+Global persistence/ownership and concrete sync protocols remain open; internal local
+installation storage is a slice-level Plan detail.
 
 An Axiom Project must not belong to Codex, Claude, Kiro or another Runtime.
 Runtime-specific overrides may exist, but changing Runtime must not require

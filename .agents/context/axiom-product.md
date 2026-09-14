@@ -3,8 +3,9 @@
 ## Product thesis
 
 Axiom is the product, domain, policies, and contracts for governing AI-assisted
-software development. Lingo is the proposed local executable control plane;
-the names are not synonyms and ADR-0003 remains Proposed.
+software development. Lingo is the accepted local executable control-plane direction
+under ADR-0003 (2026-09-10); the names are not synonyms. Implementation remains
+gated by approved Specification/Plan and explicit authorization to advance.
 
 Canonical product classification is in `docs/product/foundation.md`. Normative governance is in `docs/product/constitution.md`; do not duplicate those documents here.
 
