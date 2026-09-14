@@ -6,16 +6,35 @@
 reopened Specification 002's location, minimum and update contracts. Original
 2026-09-11 approval is preserved below as historical evidence. H1–H8 supersede
 only the stated portions; original Q1–Q6 are not silently relabeled or erased.
-H9 below records the latest human confirmation and update-contract refinement.
+H9 records partial-input refinement; H10 records the latest approval of the Project
+model and init/update contract with logical atomicity. Git/authority review remains.
 Specification and Plan now consume these later human-approved decisions. Tasks
 and Implementation remain blocked pending explicit final Plan approval and
 authorization to advance.
+
+## Logical atomicity confirmation — 2026-09-14
+
+Authority: [Human review decision — Project update atomicity](https://github.com/rgomids/axiom/pull/4#issuecomment-5664710882),
+posted by `rgomids` on 2026-09-14 at 13:26:32 UTC. This is the latest authority;
+H9 below remains the historical partial-input decision.
+
+| ID | Approved revision | Supersession / traceability |
+|---|---|---|
+| H10 | Project model and init/update contract approved with logical atomicity: never expose a partially updated Project as valid. Before commit the previous valid Project remains authoritative and failures preserve it; after successful commit the complete new valid Project is authoritative and failures report actual committed state without false rollback. Slug rename and manifest/document updates preserve identity and local-state continuity. | Clarifies H4/H9, FR-018, AC-16, Plan persistence/Evidence and ADR-0004; does not approve a multi-file transaction technique, staging layout, lock protocol, syscall or engine |
+
+Persistence adapters choose concrete mechanisms during authorized implementation.
+Linux/macOS tests must provide Evidence for confinement, collision protection,
+concurrency, logical atomicity and recovery. These are implementation obligations
+and acceptance invariants, not approval of a technique. Remaining human review
+concerns [Git Authority](plan.md#remaining-review-concerns-and-deferred-design).
+Final Plan approval and authorization to advance remain pending; no Tasks or
+Implementation is authorized. H1–H9 and original approval remain preserved below.
 
 ## Latest human decision — 2026-09-14
 
 Authority: [Human review decision — Project update contract](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508),
 posted by `rgomids` on 2026-09-14 at 12:47:22 UTC. This is the authority for
-this reconciliation; it confirms rather than replaces the prior Project model.
+the H9 reconciliation; it confirms rather than replaces the prior Project model.
 
 | ID | Approved revision | Supersession / traceability |
 |---|---|---|
@@ -30,7 +49,7 @@ remote mutation is implicit. Earlier declaration-state and formatVersion decisio
 remain unchanged. No Tasks or Implementation authorized; final Plan approval is pending.
 
 Partial input is resolved, not an open choice between patch-only validation and
-complete-state validation. Remaining init/update and Git/authority concerns are
+complete-state validation. H10 resolves logical atomicity; remaining Git/authority concerns are
 listed in [Plan review concerns](plan.md#remaining-review-concerns-and-deferred-design).
 
 ## Subsequent human decisions — 2026-09-12

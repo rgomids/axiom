@@ -3,7 +3,7 @@
 ## Status, authority and scope
 
 **Plan reconciled after human review; ready for human re-review** — 2026-09-14.
-The decisions below and subsequent H1–H9 are human-approved; final Plan approval
+The decisions below and subsequent H1–H10 are human-approved; final Plan approval
 and authorization to advance remain pending.
 
 Human review of [PR #4](https://github.com/rgomids/axiom/pull/4) approved:
@@ -21,10 +21,11 @@ approval. The later reconciliation request materially revised the Specification;
 and reconcile it, preserving the original 2026-09-11 approval as history. This Plan
 consumes the revised Specification; it cannot override it or approve itself.
 
-Latest authority: [2026-09-14 human update-contract decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508).
-[H9](clarifications.md#latest-human-decision--2026-09-14) confirms the prior model
-and permits partial command intent while requiring complete domain materialization,
-validation and persistence. Reconciliation baseline: PR #4 at `337da03`.
+Latest authority: [2026-09-14 human atomicity decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664710882).
+[H10](clarifications.md#logical-atomicity-confirmation--2026-09-14) approves the
+Project model and init/update contract with logical atomicity, without selecting
+persistence techniques. H9's partial intent and complete-state validation remain.
+Reconciliation baseline: PR #4 at `17460cb`; remaining human review is Git/authority.
 
 Historical 2026-09-12 baseline: PR #4 at `bbe2e71`; `main` at `374c643`, after PR #3 merged. Original [Specification](spec.md) approval closed intake → specify → clarify.
 That baseline was inspected for the previous revision. Subsequent
@@ -344,7 +345,7 @@ Keychain, Windows Credential Manager, Secret Service/libsecret and runtime-manag
 sources without installing or selecting any store; unsupported/unbound sources
 remain unresolved, including Windows hints on MVP hosts.
 
-Directories and lock/staging containers are owner-only; files owner read/write.
+Directories, including any chosen lock/staging containers, are owner-only; files owner read/write.
 Validate existing ownership, modes and effective ACLs; do not broaden access or
 silently chmod unrelated existing directories. Refuse unsafe roots. Apply the same
 rules to override roots, local records, logs and temporary data; `.gitignore` is
@@ -358,13 +359,13 @@ unrepresentable in emitted `axiom.yaml`.
 |---|---|---|
 | Create (J1/J2) | Inspect target first; reuse recognized ID or allocate new UUID; collect required/optional fields; preserve unrelated draft values on correction; validate; preview; confirm; persist portable; optionally install local state | Target inspection, entropy, contained files, permissions and commit outcomes; cancellation before commit leaves no durable Project |
 | Validate | Strict decode, version, domain/reference/security checks; stable issues | File reads and optional scanning are observations, not network validation |
-| Persist | Compare expected revision and preview; create without replacement or atomically replace recognized Project through explicit update | Atomic filesystem operations and durability checks; actual commit status determines result |
+| Persist | Compare expected revision and preview; create without replacement or atomically replace recognized Project through explicit update | Logical Project atomicity and durability evidence; adapter selects operations; actual commit status determines result |
 | Reopen (J4) | Validated slug or explicit source; parse and validate; match local record by ID/revision; return portable validity separately | Missing/stale paths are reobserved; opening alone does not mutate portable or local state |
 | Install on another machine (J3) | Read supplied manifest/documents; validate first; collect missing bindings; preview and confirm local record; reuse equivalent record | Native/override root, arbitrary checkout paths and unsupported sources; success may include unresolved gaps; portable hashes unchanged |
 | Resolve/relocate binding | Compare association keys and observed metadata; require explicit confirmation for replacement/source relocation; revalidate before local commit | Missing checkout is unresolved; remote mismatch or duplicate checkout blocks that binding pending human resolution; no remote rewrite |
 | Observe Runtime | Selected ID plus explicit local executable path → three-state observation with basis | Presence-only file metadata; never launch executable, shell, discovery command or model request |
 | Update (J6) | Resolve slug; load current artifact snapshot and immutable ID; accept partial intent; domain materializes complete proposed state from current snapshot plus intent; validate all invariants and applicable versions; preview safe diff; verify authority bound to revision/write set; atomic commit | Includes Repository add/remove/change, name/slug, Runtime, Providers, Integrations, profiles, context/documents, policies and credential references; affected observations become stale, unrelated bindings remain |
-| Rename slug (J6) | Same update protocol plus old/new namespace reservation, no-replace destination check and protected portable directory move | Same UUID and ID-addressed state; no stale old-slug alias accepted silently; preserve prior state on pre-commit failure |
+| Rename slug (J6) | Same logical update contract plus old/new slug collision protection and safe location change; mechanism remains an adapter choice | Same UUID and ID-addressed state; no stale old-slug alias accepted silently; preserve prior state on pre-commit failure |
 
 ### Partial command intent and complete Project state (H9)
 
@@ -497,108 +498,87 @@ expected identity and allowed relative names, not a general string path. Protect
 portable destination and local state as separate authorized roots. No lexical
 prefix test or `realpath`-then-write sequence is sufficient.
 
-Resolve existing ancestors without following symlinks for writes; validate types,
-ownership and permissions. Bind operations to opened directory handles and perform
-child lookup/create/rename relative to those handles with no-follow semantics.
-Reject traversal, absolute child paths, symlink/reparse redirection, unexpected
-mount transitions, special files and hard-linked mutable target files. User-supplied
-names/keys never become unchecked path components. Read-only checkout symlinks
-confer no write capability.
+Confinement must hold through reads, writes, cleanup and recovery, including
+ancestor replacement/rename and final-leaf symlink races. Reject traversal,
+redirection outside authorized roots and unsafe target types; user names and
+imported documents confer no filesystem authority. Lexical prefix checks or a
+`realpath`-then-write check alone cannot prove protection against races.
 
-A held directory handle alone does not prevent an ancestor being moved outside
-the authorized destination. Establish stable trusted ancestry as a write
-precondition: no competing actor may rename authorized ancestors during the
-transaction. Refuse a shared/writable ancestry where platform guarantees cannot
-establish this. Recheck identities before publication to detect changes, but do
-not treat rechecks as the security primitive that closes a race. Platform-specific
-implementation must demonstrate confinement under the supported threat model;
-if native primitives/permissions cannot guarantee it, return a security failure
-before writes rather than degrade to path-based operations. Privileged or same-user
-processes able to revoke those protections cannot be defended by a path check;
-such environments must not receive a claim of protected persistence.
+Directory handles, relative no-follow operations, ownership/permission checks and
+protected ancestry are candidate controls, not approved syscall requirements.
+A held handle alone does not prevent an ancestor moving outside the authorized
+root. The adapter must define its supported filesystem/threat assumptions and
+prove confinement on Linux/macOS. If guarantees cannot be established, fail safely
+before mutation; do not claim protection against actors able to revoke them.
 
-Contained document reads use the same anchored resolution principle and reject
-symlink escapes; no interpolation or fetch. Authorized write handles never originate
-from imported document content. Security tests must race ancestor replacement and
-rename as well as final-leaf symlink swaps, including staging, cleanup and recovery.
+### Logical commit and recovery contract (H10)
 
-### Transaction protocol
+1. Inspect target/slug read-only. Equivalent init returns no-op; changed intent
+   conflicts and directs to explicit update. Update loads current state and keeps ID.
+2. Materialize and validate the complete proposed manifest/document state against
+   the expected revision. Preview safe edits and old/new locations; authority covers
+   that revision and write set. No direct partial manifest mutation or validation bypass.
+3. Never expose a partially updated Project as valid. Before the logical commit
+   point, the previous complete valid Project remains authoritative; failures
+   preserve it. After successful commit, the complete new valid Project becomes
+   authoritative. This is logical atomicity, not a required simultaneous physical
+   switch of multiple files or directories.
+4. Protect slug collisions and concurrent init/install/update/rename operations;
+   conflicting writers cannot both succeed. Slug rename and manifest/document
+   updates preserve immutable UUID and ID-addressed local-state continuity.
+5. The adapter must define and prove its commit point, reader validity checks,
+   durability, failure classification and recovery behavior. After commit, report
+   actual committed state, including uncertainty or incomplete local reconciliation;
+   never falsely claim rollback. If validity or outcome cannot be established,
+   report recovery required instead of presenting partial state as a valid Project.
+6. Reconcile local metadata separately by ID and expected local revision; preserve
+   bindings and credential references, update source/slug/revision and invalidate
+   affected observations. Local failure after portable commit cannot undo that
+   commit. No cross-root filesystem transaction is required by this contract.
+7. Cleanup only provably owned temporary objects after establishing commit state.
+   Preserve unknown files and Git metadata; unsupported trees fail safely before
+   writes. Git-backed updates require later approved preservation/authority design.
 
-1. Inspect the current target/slug read-only. Init with equivalent existing intent
-   returns no-op without entropy/writes; changed intent conflicts and directs to
-   explicit update. New creation may use a missing/empty destination. Update loads
-   a recognized complete artifact set and immutable ID; never allocate a new ID.
-2. Fully validate the proposed manifest and supported documents against one stable
-   snapshot. Minimal init may omit documents; supplied update documents must be
-   contained/readable and valid before commit. Calculate expected content revision
-   across manifest and documents. Preview exact safe edits and old/new locations;
-   authority covers this revision and write set only.
-3. Acquire bounded exclusive guards in a fixed order: installation slug namespace,
-   immutable Project ID, then destination objects/local record as needed. Recheck
-   expected revisions and ownership. Competing init/install/rename/update must use
-   the same coordination boundary. Noncooperating edits still require protected
-   ancestry and atomic publication checks, not trust in locks alone.
-4. Stage the complete proposed portable artifact set in private attempt-owned space
-   on the same filesystem. Keep local locks, digests and attempt/recovery metadata
-   outside the portable working copy; authorize a disjoint private transaction area
-   when native state is on another filesystem. Do not leak machine state into export.
-   Sync bytes and required directory metadata. Preserve the prior complete snapshot.
-5. Creation publishes the entire minimal directory using no-replace semantics.
-   Explicit update must switch the recognized complete artifact set atomically;
-   changing manifest and documents through separate visible renames is insufficient.
-   Slug rename must couple the manifest slug change and directory move into the
-   same protected publication protocol, checking destination collision and TOCTOU.
-   A platform adapter must prove atomic visibility to supported readers and complete
-   pre-commit rollback; if no tested primitive/protocol meets this, fail before mutation.
-   No specific syscall sequence is falsely claimed to solve multi-file rename here.
-6. Publication is the portable commit point. Failures before it preserve old content,
-   location and UUID. After it, report actual committed state, including durability
-   uncertainty; never claim rollback of a successful commit. Incomplete/uncertain
-   transactions block normal Lingo open with explicit recovery guidance. Readers
-   must honor the same guards and recovery checks; third-party uncoordinated reads
-   receive no stronger cross-file transaction guarantee.
-7. Update local installation metadata separately using ID + expected local revision,
-   protected staging and atomic recognized-record replacement. After slug rename,
-   retain the same `state/projects/<id>/installation.json`, bindings and credential
-   references; reconcile source/slug/digests and invalidate affected observations.
-   There is no cross-root transaction promise. If local persistence fails after
-   portable commit, retain ID continuity, mark observations stale and report local
-   installation incomplete. Recovery uses protected attempt metadata plus verified
-   committed ID/revision/location, not a stale slug as identity or automatic overwrite.
-8. Cleanup only provably owned staging/old snapshot objects after commit status is
-   established. Unknown files, unsupported extra artifacts or active Git metadata
-   must not be silently copied/deleted by update; unsupported trees fail before writes. Future Git-backed update requires
-   an approved preservation protocol before execution; current boundaries alone do
-   not authorize Git integration. Cross-filesystem slug moves fail safely unless a
-   later approved protocol proves equivalent guarantees.
+### Implementation options and required Evidence
 
-Filesystem primitives are an adapter obligation, not a new portable format.
-Local filesystems supporting tested atomic publication, durability and permission
-semantics are required for writes. Unsupported/network filesystem semantics produce
-a clear safe failure. Selection of concrete Go/OS calls must be proven on both
-Linux and macOS during implementation; no dependency or syscall wrapper is added now.
+The persistence adapter may choose staging/snapshots, ordered locks or other
+coordination, protected rename/publication, recovery metadata, or another mechanism
+that satisfies the contract. Same-filesystem staging, disjoint private staging
+areas, lock acquisition order, syscall sequences and a multi-file transaction
+engine are **not approved architectural decisions or mandatory techniques**.
+If used, local coordination/recovery metadata stays outside portable content;
+cleanup requires ownership evidence and must not interfere with active writers.
+
+During authorized implementation, document the chosen protocol and provide unit,
+Linux/macOS integration and black-box Evidence for confinement, collisions,
+concurrency, manifest/document validity, slug rename, identity/local continuity,
+pre-commit failure preservation and post-commit recovery/reporting. Inject failures
+and crashes around the actual chosen commit point and race readers/writers. A
+protocol must never accept a mixed Project state as valid. Unsupported filesystem
+or cross-filesystem behavior must fail safely unless equivalent guarantees are
+proven. No specific Go/OS call, layout, lock protocol or engine is selected here.
 
 ### Failure matrix
 
 | Failure / retry point | Required outcome |
 |---|---|
-| Cancel before confirmed commit | No durable Project; release guard and remove only owned staging |
+| Cancel before confirmed commit | No durable Project; release any acquired coordination and remove only owned temporary artifacts |
 | Validation/version/security failure | No portable or local writes |
-| Disk full, permission denial, short write before publication | Existing data unchanged; safe failure; owned staging cleanup or recovery guidance |
+| Disk full, permission denial, short write before publication | Existing data unchanged; safe failure; owned temporary-artifact cleanup or recovery guidance |
 | Invalid/missing/unknown local record format | No local writes or binding reuse; preserve existing record and portable files; report local-state failure without invalidating portable intent |
 | Slug collision or rename destination changes | Conflict before commit; preserve old portable location, UUID and ID-addressed state |
-| Update fails before publication | Prior manifest/documents/location intact; clean only owned staging; no new ID |
+| Update fails before publication | Prior manifest/documents/location intact; clean only owned temporary artifacts; no new ID |
 | Rename committed, local metadata fails | Report committed new location with incomplete local reconciliation; recover by verified ID/revision, preserving bindings |
 | Another writer changes target/record | Conflict; conflicting definitions cannot both claim success |
 | Portable committed, local installation fails | Preserve valid portable output; report local installation incomplete; retry reuses ID and bytes |
-| Interrupted attempt or unknown leftovers | Normal open blocked with explicit recovery result; inspect under guard; never recursively delete unknown content |
-| Manifest committed but attempt marker remains | Validate committed bytes/identity against owned attempt; report recoverable committed state; explicit recovery finalizes only known metadata |
+| Interrupted attempt or unknown leftovers | Normal open blocked with explicit recovery result; inspect with proven concurrency protection; never recursively delete unknown content |
+| Project committed but chosen recovery metadata remains | Validate committed bytes/identity against owned attempt; report recoverable committed state; explicit recovery finalizes only known metadata |
 | Outcome cannot be established | Recovery-required failure; preserve evidence and files; no automatic replacement |
 | Equivalent init/install retry | No rewrite, ID allocation, timestamp refresh or duplicate registration; return existing result after read-only revalidation |
 
-A lock's apparent age or PID is not sufficient to delete it. Recovery distinguishes
+If locks are chosen, apparent age or PID is not sufficient to delete them. Recovery distinguishes
 active owner, provably ended attempt, unknown files and committed output. Cleanup
-uses anchored handles and identity checks for attempt-owned objects only. A new
+must prove confinement and identity for attempt-owned objects only; concrete controls are adapter choices. A new
 attempt rereads actual state. No automatic rollback deletes a successfully created
 Project; local record failure preserves previous complete record. If portable bytes
 change during install, abort local publication and revalidate; a later source edit
@@ -647,8 +627,8 @@ explicit destination and permissions within the write summary.
 | SEC-001 | Closed DTOs and reference-only fields; deterministic rejection of credential-value structures, credential-bearing URL user-info and known sensitive query parameter names; no environment/store expansion; sanitized diagnostics at every layer | Structural rejection before writes; sentinel values absent from stdout/stderr, records, staged files, logs and Evidence; zero secret-source reads |
 | SEC-002 | Init/install/update ports expose only authorized local I/O and observation; draft AI carries no authority; future Git commit/push separate; no external command/network/Provider setup surface; untrusted text never executed | Black-box filesystem snapshots of Git/Runtime/MCP/external config; denied network/process/secret-read spies; no hooks |
 | SEC-003 | Anchored directory operations, trusted ancestry precondition, no-follow/exclusive publication, restricted relative references; separate read-only bindings | Invalid slug, collision, slug rename/move, traversal, leaf/ancestor symlink swap, ancestor rename, hard-link and TOCTOU fault matrix; unauthorized destinations unchanged |
-| SEC-004 | Expected revisions, namespace/ID guards, no-replace creation, atomic recognized portable update/move and local record replacement, owned-only cleanup and explicit recovery | Update rollback, state continuity after rename, concurrent update/rename; conflicting writers cannot both succeed; unknown files survive; committed/partial outcomes classified correctly |
-| SEC-005 | Portable working copy/native state/override separation, owner-only metadata/staging/ACL validation, complete artifact exclusion by construction | Linux/macOS permission checks, overlapping-root rejection, portable snapshots free of local state; sanitized public fixtures |
+| SEC-004 | Expected revisions, collision/concurrency protection, logical Project atomicity, safe local record replacement, owned-only cleanup and explicit recovery; adapter-selected mechanisms | Update rollback, state continuity after rename, concurrent update/rename; conflicting writers cannot both succeed; unknown files survive; committed/partial outcomes classified correctly |
+| SEC-005 | Portable working copy/native state/override separation, owner-only metadata and any chosen staging; ACL validation, complete artifact exclusion by construction | Linux/macOS permission checks, overlapping-root rejection, portable snapshots free of local state; sanitized public fixtures |
 
 The URL sensitive-parameter policy is a deterministic, versioned list with fixture
 coverage (for example token/password/API-key/signature parameter families), separate
@@ -689,7 +669,7 @@ Filesystem integration must also exercise real OS primitives, not just mocks.
 | AC-13 | Slug domain, namespace resolution and stores | Unit valid/invalid grammar; collision across IDs in init/install; two-process slug reservation | Zero writes/entropy on rejected slug; unchanged occupied directory |
 | AC-14 | Update/rename, portable and local stores | Name nonuniqueness; successful directory move; ID/binding continuity; collision, symlink and TOCTOU fault cases | Before/after UUID, paths, document hashes and same installation record key |
 | AC-15 | Domain materialization, update application, draft boundary, CLI | Partial name-only intent retains untouched fields/UUID/declaration forms; partial remove leaves retained dangling reference and fails; complete proposed state checked even when changed fields alone are valid; persistence never receives a patch; minimal init then add document/Repository; safe preview; missing/stale authority or unsupported version; changed init conflict versus valid update | Unit matrix, controlled store integration asserting complete valid artifact set or zero writes, and J6 black-box reports; denied-write spies and sanitized diff |
-| AC-16 | Transaction/namespace/ID guards and recovery | Failure at every update/move stage; conflicting update/update and rename/update processes; local failure after portable commit | Prior-state rollback hashes, one winning revision, committed-state recovery and binding continuity |
+| AC-16 | Logical commit, collision/concurrency protection and recovery | Linux/macOS failures around adapter-defined commit; concurrent readers never accept mixed manifest/document state; conflicting update/update and rename/update processes; local failure after portable commit | Pre-commit prior-state hashes, one winning revision, committed-state recovery and binding continuity |
 | AC-17 | Artifact validation and root separation | Full portable-tree forbidden-state cases, disjoint roots, home working copy classification and future export set | Portable snapshots omit all local state; allowlist rejection evidence |
 | AC-18 | Application authority and future Git boundary | Init/update Git/network denial spies; future backing distinct from associations; explicit remote authority/autoPush and independent local/remote failure results | Current-slice denied side effects; later Git delivery must provide boundary/functional evidence before release |
 
@@ -725,7 +705,7 @@ AC-18 splits current denied-side-effect/boundary proof from later Git delivery p
 | 2. Strict manifest | Version 1 DTO, node validation and canonical codec; stage 1 | AC-06 goldens, structural secret rejection, bounded-parser cases | Parser behavior/library must satisfy strictness before adoption |
 | 3. Protected persistence primitive | Prove confinement, no-replace publication and expected local revision semantics with synthetic bytes; stage 1 boundary contracts | Linux/macOS race/fault/ACL/concurrency evidence | Highest-risk primitive first; unsupported guarantee fails closed |
 | 4. Create use case | Draft, target-first identity, correction/preview/confirmation and portable commit; stages 1–3 | Minimal create/reopen through application, cancellation/no-op/failure evidence | No durable writes before validated confirmation |
-| 5. Update and reopen | Explicit update/diff/authority, document staging, slug rename and byte-preserving reopen; stages 2–4 | Update/rollback/rename/concurrency/continuity and interrupted-state results | Never make init an update command |
+| 5. Update and reopen | Explicit update/diff/authority, document updates, slug rename and byte-preserving reopen; stages 2–4 | Update/rollback/rename/concurrency/continuity and interrupted-state results | Never make init an update command |
 | 6. Local install/bindings | OS roots, local record, read-only checkout matching, explicit relocation; stages 3–5 | Two-machine/native/override tests, unchanged portable hashes, partial local failure | Do not hide gaps or turn metadata reads into Git execution |
 | 7. Runtime observations | Presence-only facts and separate gaps; stages 1, 6 | Three-state basis matrix, zero launches, profile mismatch evidence | No capability/model/workflow readiness inference |
 | 8. CLI presentation | Thin guided actions and safe reports over tested use cases; stages 4–7 | J1–J6 black-box flows, missing-input timeout, stable diagnostics | Command/exit-code review; no duplicate business logic |
@@ -748,7 +728,7 @@ Update README, commands and changelog when executable behavior actually arrives.
 | Distinct declaration states (resolved by human review) | Collapsing absence/unconfigured/empty would lose author intent and cause false no-ops; field-specific normalization/round-trip and pairwise tests retain distinctions |
 | Version integer 1 and closed optional shapes | Free-form maps ease extension but defeat strict typo/security checks. Public compatibility becomes harder after first release; review now under Q2/FR-015 |
 | Native local root plus `LINGO_STATE_ROOT`; small per-ID record | Logical projects/state roles retain Q3 native state mapping; portable home working copy remains shareable. Database/catalog adds unneeded technology/ownership. Explicit internal `formatVersion: 1` is resolved by human review; fail closed without migration. Physical state layout remains an internal detail; durable portable/local separation and ID continuity are recorded in extended ADR-0004 |
-| Anchored protected operations, no-replace creation, atomic explicit update/slug move, independent local commit | Path check plus rename cannot satisfy SEC-003/004; cross-root transaction adds complexity. Proposed controls implement existing invariants; fail closed where guarantees cannot be established |
+| Logical atomicity and confinement; adapter-selected persistence controls | Path check plus rename cannot satisfy SEC-003/004; cross-root transaction adds complexity. H10 approves invariants only; staging, locks and syscalls remain implementation options requiring Linux/macOS Evidence; fail closed where guarantees cannot be established |
 | Metadata-only Runtime and Repository observation | Commands/network broaden authority and change approved scope. Limited observations deliberately retain explicit unresolved results |
 
 Human Plan review identified and resolved the durable Portable Project Manifest
@@ -756,7 +736,7 @@ choice in Accepted [ADR-0004](../../decisions/0004-portable-project-manifest.md)
 ADR-0001–0003 remain Accepted and unchanged. The initial schema details, override
 and filesystem strategy remain slice-scoped Plan details. The local `formatVersion`
 and distinct declaration semantics are resolved here, without separate ADRs.
-H1–H9 extend ADR-0004 naturally: identity ergonomics, portable working copy,
+H1–H10 extend ADR-0004 naturally: identity ergonomics, portable working copy,
 incremental mutation and optional backing are aspects of shared intent versus local
 installation, not new aggregate ownership or a sync-engine choice. No new ADR.
 Final Plan approval is still required; ADR acceptance does not advance the lifecycle.
@@ -773,7 +753,7 @@ and operational cost. No such expansion is required to approve this Plan.
 Primary risks: proving concurrent filesystem confinement/durability on both OSes;
 parser strictness and diagnostics without leaks; public version-1 shape compatibility;
 local metadata layout limitations and unsupported local formats;
-proving multi-artifact update/slug move rollback and post-commit state continuity; accidental loss
+proving logical atomicity for manifest/document updates and slug moves, pre-commit preservation and post-commit continuity; accidental loss
 of declaration intent during normalization; conservative matching leaving human ambiguity;
 and best-effort scanning missing secrets. Mitigations are explicit preconditions,
 fail-closed adapters, unit/fault/black-box Evidence, human schema review and honest
@@ -789,39 +769,57 @@ conflict with accepted ADRs identified. Spec-Kit remains strategic upstream only
 ## 12. Documentation validation and review gate
 
 Specification, Clarifications, Plan, ADR-0004 and directly affected references
-are reconciled to H1–H9. Original approval and prior validation remain historical;
+are reconciled to H1–H10. Original approval and prior validation remain historical;
 this revision does not claim old checks validate new contracts. No new Tasks,
 application code, adapter, dependency, CI, migration or runtime integration.
 
-Human re-review must assess revised contracts and Plan together, especially minimal
-creation, slug namespace/rename safety, update atomicity and local continuity.
+H10 approves the Project model and init/update contract, including logical
+atomicity, slug rename and local continuity. Human re-review now concerns the
+remaining Git/authority boundary and final Plan gate.
 Concrete protected filesystem protocol remains an implementation proof obligation;
 Git metadata schema, transport, merge/conflict engine and automation remain outside
 this Plan's execution scope. No material product question blocks re-review.
 
 ### Remaining review concerns and deferred design
 
-- **Init/update:** H9 resolves partial input versus complete validated persistence.
-  Human review still assesses the proposed field-preservation/removal semantics,
-  declaration-state distinctions, safe diff bound to revision/authority, update
-  atomicity, slug move and local-state continuity. Exact command/patch syntax,
-  operation encoding and numeric exit codes remain unselected. No generic patch
-  standard, force path or weaker validator is implied.
-- **Local authority and concurrency:** approval must cover the actual revision and
-  write set; stale/revoked approval cannot be reused. Concrete representation of
-  scoped system authority and proof of filesystem confinement, atomic visibility,
-  rollback and recovery on Linux/macOS remain design/evidence obligations before
-  delivery. This reconciliation supplies no implementation evidence or waiver.
-- **Git/remote authority:** separate local mutation, optional local Git commit and
-  remote push/sync are approved boundaries. Backing metadata schema, preservation
-  during portable updates, hooks/credential-helper controls, transport, remote
-  conflict/recovery and any future autoPush authority lifecycle remain deferred
-  to approved Git scope. No Git execution, implicit push or schema field is added.
+- **Approved init/update; implementation Evidence pending:** H9/H10 resolve partial
+  input, complete-state validation and logical atomicity. Exact command/patch
+  encoding and persistence controls remain implementation details within those
+  invariants. Linux/macOS proof remains required; no technique is pre-approved.
+- **Git Authority — scope and lifecycle:** review how local mutation, optional local
+  Git commit and remote push/sync receive separate scoped authority, tied to the
+  actual revision/write set and intended destination. Decide representation,
+  expiry/revocation and revalidation of system authority and any future autoPush
+  policy; stale approval must not authorize new effects.
+- **Git Authority — execution boundary:** review backing metadata and preservation
+  during Project updates, hooks/credential-helper execution controls, credentials
+  and transport permissions. Backing is independent of Repository associations;
+  no association or portable document grants execution/publication authority.
+- **Git Authority — outcomes and recovery:** review remote conflict/retry/recovery
+  and reporting when local persistence, local Git commit or remote push fails
+  independently. Local success must not imply remote success or broaden permission
+  for retry. Concrete Git schema/adapter/transport/merge design remains deferred.
 
-These concerns are returned for human review; none reopens H9 or grants Tasks or
-Implementation authority. The Plan is ready for new human review, not approved.
+These Git/authority points remain for human review and later authorized Git scope;
+no Git execution or implicit push is added. Project model and init/update approval
+are preserved; final Plan approval and authorization to advance remain pending.
+No Tasks or Implementation is authorized.
 
-### Current documentation validation — 2026-09-14
+### Current H10 documentation validation — 2026-09-14
+
+- Repository validator, both Bash regression suites, worktree/staged sensitive-file
+  scans, individual root-script syntax checks and diff whitespace checks passed.
+- Temporary documentation checks cover five Markdown files, relative links/anchors,
+  fences/tables, complete FR/SEC/AC definitions, AC/SEC Plan references and H10
+  authority. H1–H8 and original clarification history remain byte-for-byte unchanged.
+- Diff review confirms logical atomicity, adapter choice, Linux/macOS Evidence
+  obligations and remaining Git Authority review. Only the four requested documents
+  and CHANGELOG changed; README/commands need no operational update.
+- gitleaks, markdownlint, markdownlint-cli2, lychee and shellcheck are unavailable;
+  dedicated coverage remains unverified. No dependencies installed. Lingo/platform
+  tests remain future Evidence; current checks prove documentation/harness hygiene.
+
+### Prior H9 documentation validation — 2026-09-14 (historical)
 
 - Repository validation passed via `./scripts/validate-repository.sh .`, including
   package checks, both Bash regression suites, worktree sensitive-file scan and

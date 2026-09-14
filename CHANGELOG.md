@@ -2,6 +2,10 @@
 
 ## [2026-09-14]
 
+- planning: reconcile PR #4 atomicity decision as H10 across Plan, Specification, Clarifications and ADR-0004. Preserve logical Project atomicity and pre/post-commit outcomes; leave multi-file transaction, staging, lock and syscall choices to implementation with Linux/macOS Evidence. Project model and init/update contract approved; remaining Git Authority review explicit. No Tasks or Implementation.
+
+Earlier reconciliation on this date (historical):
+
 - specification: reconcile PR #4's latest human decision as H9: partial update intent is allowed; domain materializes and validates complete proposed Project state before application-authorized complete persistence. Preserve H1–H8 and original approval history.
 - planning: align FR-018, AC-15, use cases and planned verification; forbid direct partial manifest mutation or validation bypass; identify remaining init/update and Git/authority review concerns. Plan ready for new human review; no Tasks or Implementation.
 - architecture: refine Accepted ADR-0004 and conceptual model with the same update contract; preserve confirmed identity, portability, minimal init and separate Git authority boundaries. Update H9 index references and correct stale architectural/context references to ADR-0003's existing 2026-09-10 acceptance, without changing that ADR.

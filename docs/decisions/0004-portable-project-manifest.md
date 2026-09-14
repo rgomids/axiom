@@ -20,12 +20,20 @@ history; ADR-0001–0003 remain Accepted and unchanged.
 
 ### Update-contract confirmation — 2026-09-14
 
-The [latest human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508)
+The [partial-input human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664182508)
 confirms the previous Project model and refines incremental update: partial
 command intent is permitted, but domain materialization and validation of complete
 proposed state must precede persistence. [H9](../specifications/002-lingo-project-initialization/clarifications.md#latest-human-decision--2026-09-14)
 records authority and traceability. Original acceptance and H1–H8 remain historical;
 this confirmation does not approve the final Plan or authorize Tasks/Implementation.
+
+### Logical atomicity confirmation — 2026-09-14
+
+The [latest human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5664710882)
+approves the Project model and init/update contract with logical atomicity.
+[H10](../specifications/002-lingo-project-initialization/clarifications.md#logical-atomicity-confirmation--2026-09-14)
+records this refinement; remaining human review concerns Git/authority and the
+final Plan gate. No Tasks or Implementation is authorized.
 
 ## Context
 
@@ -104,12 +112,23 @@ explicit update may receive a partial patch/intent. Lingo loads current Project;
 the domain materializes a complete proposed state and validates all invariants.
 Application presents the required safe diff and enforces applicable human/system
 authority, version and concurrency requirements before persisting only the complete
-valid result atomically. Direct partial mutation of `axiom.yaml` and bypass of
+valid result with logical atomicity. Direct partial mutation of `axiom.yaml` and bypass of
 domain/application validation are forbidden for every caller. Slug rename
 preserves UUID and local continuity, protecting collisions and filesystem races.
 AI may propose drafts; deterministic application/domain controls validate identity,
 schema, paths, conflicts, authority, versioning and persistence. No AI direct-write
 bypass. These are portable intent boundaries, not a new aggregate or storage engine.
+
+Never expose a partially updated Project as valid. Before commit the previous
+valid Project remains authoritative and failures preserve it; after successful
+commit the complete new valid Project becomes authoritative. Post-commit failures
+report actual committed state and must not falsely claim rollback. This applies
+to manifest/document updates and slug rename with identity/local-state continuity.
+
+The adapter chooses concrete persistence mechanisms. Multi-file transactions,
+staging layouts, locks, syscalls and transaction engines are not approved by this
+ADR. Chosen mechanisms must provide Linux/macOS implementation Evidence for
+confinement, collision protection, concurrency, logical atomicity and recovery.
 
 ### Optional distribution and synchronization
 
@@ -172,7 +191,7 @@ an independent durable decision requiring its own evidence and human approval.
 ### Negative / trade-offs
 
 - Axiom owns schema documentation, validation and explicit evolution costs.
-- Slug namespace, safe directory moves, atomic multi-artifact update and local-state
+- Slug namespace, safe location changes, logical Project atomicity and local-state
   recovery add filesystem/concurrency complexity. ID and published slug semantics
   become harder to change after distribution; no automatic migration is promised.
 - Optional Git reduces mandatory coupling but defers sync conflict handling and
