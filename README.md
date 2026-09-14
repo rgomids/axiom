@@ -2,7 +2,7 @@
 
 Axiom é uma plataforma, domínio e conjunto de contratos para governar o ciclo de desenvolvimento de software assistido por IA. Seu objetivo é preservar coerência entre intenção de produto, specifications, arquitetura, ADRs, tarefas, múltiplos repositórios, implementação, validação, documentação, release e evidências operacionais.
 
-O repositório começa com um harness Codex para exercitar esses fluxos antes de automatizá-los. A CLI do Axiom está planejada para Go, mas ainda não existe: este bootstrap não inicializa aplicação, `go.mod`, framework, banco ou infraestrutura.
+O repositório começa com um harness Codex para exercitar esses fluxos antes de automatizá-los. T01 da Specification 002 entrega domínio puro em Go, com testes. A CLI ainda não existe; não há framework, banco ou infraestrutura.
 
 ## Current state
 
@@ -11,9 +11,9 @@ O repositório começa com um harness Codex para exercitar esses fluxos antes de
 - documentação durável organizada em `docs/`;
 - validação local do pacote e de arquivos potencialmente sensíveis;
 - harness SDD, domínio e lifecycle próprios definidos como direção aceita, com Spec-Kit somente como referência upstream estratégica;
-- Lingo aceito como Control Plane local executável na ADR-0003, sem implementação;
+- Lingo aceito como Control Plane local executável na ADR-0003; primeiro domínio puro implementado em `internal/project/`;
 - Project configuration, runtime/model portability, capability negotiation e orquestração multi-agent registrados como direção para futuras Specifications;
-- [Specification 002 — Lingo Project Initialization](docs/specifications/002-lingo-project-initialization/spec.md) originalmente aprovada em 2026-09-11; reaberta/reconciliada por decisões humanas posteriores de 2026-09-12 sobre localização, id/slug/name, init mínimo, update explícito e Git backing/sync opcional. [Clarifications](docs/specifications/002-lingo-project-initialization/clarifications.md) preservam histórico Q1–Q6 e registram H1–H11: modelo do Project, init/update, atomicidade lógica e fronteira Git Authority aprovados; mecanismos de persistência e design Git permanecem futuros, sujeitos a Evidence; [Plan](docs/specifications/002-lingo-project-initialization/plan.md): **Approved**, PR #4 aprovado e mergeado em 2026-09-14. [Tasks](docs/specifications/002-lingo-project-initialization/tasks.md): **In review** (21 Tasks). **Implementation: Not authorized**; pronto para revisão humana de Tasks;
+- [Specification 002 — Lingo Project Initialization](docs/specifications/002-lingo-project-initialization/spec.md) originalmente aprovada em 2026-09-11; reaberta/reconciliada por decisões humanas posteriores de 2026-09-12 sobre localização, id/slug/name, init mínimo, update explícito e Git backing/sync opcional. [Clarifications](docs/specifications/002-lingo-project-initialization/clarifications.md) preservam histórico Q1–Q6 e registram H1–H11: modelo do Project, init/update, atomicidade lógica e fronteira Git Authority aprovados; mecanismos de persistência e design Git permanecem futuros, sujeitos a Evidence; [Plan](docs/specifications/002-lingo-project-initialization/plan.md): **Approved**, PR #4 aprovado e mergeado em 2026-09-14. [Tasks](docs/specifications/002-lingo-project-initialization/tasks.md): **Approved** após PR #5 mergeado. **Implementation: Authorized (T01 only)**; [T01 e Evidence](docs/specifications/002-lingo-project-initialization/evidence-t01.md) prontos para human implementation review. **T02–T21: Not started**;
 - [ADR-0004 — Portable Project Manifest](docs/decisions/0004-portable-project-manifest.md) Accepted: manifesto portátil/versionado do Project, working copy portátil separada do estado local por ID, evolução incremental e Git backing opcional; extensão aprovada nas decisões humanas posteriores, schema inicial detalhado no Plan;
 - nenhum código de aplicação ou runtime implantável.
 
@@ -41,6 +41,17 @@ No diretório raiz:
 ./scripts/check-sensitive-files.sh .
 ```
 
+Para validar T01 com Go instalado, sem downloads de módulos/toolchain:
+
+```bash
+export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+go test -race ./internal/project
+go vet ./...
+go build ./...
+go run ./scripts/check-project-domain.go
+bash scripts/test-check-project-domain.sh
+```
+
 Comandos adicionais estão em [docs/commands.md](docs/commands.md).
 
 ## Repository structure
@@ -53,7 +64,9 @@ docs/                 Durable project documentation
   specifications/      Desired behavior before implementation
   decisions/           Accepted or proposed durable decisions
   research/            Hypotheses and comparative evidence
-scripts/              Deterministic repository checks
+internal/project/     Pure Go Project domain and behavior tests
+go.mod                Standard-library-only Go module
+scripts/              Deterministic repository and domain-boundary checks
 experiments/          Temporary, reviewable research evidence
 AGENTS.md              Agent entrypoint and policy router
 SECURITY.md            Vulnerability reporting policy
@@ -62,4 +75,4 @@ CHANGELOG.md           Relevant repository changes
 
 ## Stack
 
-O estado inicial usa Markdown, Bash, Git, GitHub e um harness Codex. Go é apenas a linguagem planejada para uma futura CLI; não é uma dependência deste bootstrap.
+Stack: Go 1.26 para domínio e testes; biblioteca padrão somente. Markdown, Bash, Git, GitHub e harness Codex permanecem. Sem serviços, jobs, variáveis de ambiente de aplicação ou dependências externas.

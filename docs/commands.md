@@ -6,6 +6,26 @@ Execute estes comandos na raiz de `/Users/rgomids/Projects/axiom`.
 
 Não há aplicação ou CLI para executar neste bootstrap. Nenhum comando futuro do Axiom é definido aqui.
 
+## T01 domain validation
+
+Go 1.26 instalado. Biblioteca padrão somente; sem serviços/dependências locais.
+Build valida pacote de domínio; não produz CLI.
+
+```bash
+export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
+go test -cover ./...
+go test -race -shuffle=on -count=10 ./internal/project
+go vet ./...
+go build ./...
+go run ./scripts/check-project-domain.go
+bash scripts/test-check-project-domain.sh
+```
+
+O checker AST inspeciona imports/símbolos puros e helpers dos testes fora da suíte
+de domínio. O runner Go e ferramentas de verificação fazem I/O de compilação e
+relatório; comportamento de domínio/testes não faz I/O de aplicação.
+[Evidence e limites de T01](specifications/002-lingo-project-initialization/evidence-t01.md).
+
 ## Harness validation
 
 Valide o bootstrap completo:

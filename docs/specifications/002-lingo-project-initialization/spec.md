@@ -1,6 +1,19 @@
 # Specification 002 — Lingo Project Initialization
 
-## Status and authority
+## Implementation authorization — 2026-09-14
+
+**Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T01 only).**
+
+Human confirmed [PR #5](https://github.com/rgomids/axiom/pull/5) reviewed and merged,
+with `main` at `f70c7e5e762c408db3093753e6dabbc74d65f035` as the implementation baseline.
+Explicit authorization covers only **T01 — Project values and complete-state invariants**.
+H1–H11, approved task definitions, Plan contracts and Accepted ADRs remain unchanged.
+[T01 Evidence](evidence-t01.md) records delivered domain behavior and reproducible checks.
+**T01: Ready for human implementation review. T02–T21: Not started.**
+No advance to another delivery unit, self-approval or merge is authorized.
+Earlier lifecycle entries below are dated historical evidence, superseded only as status.
+
+## Historical status and authority before PR #5 approval
 
 **Plan: Approved · Tasks: In review · Implementation: Not authorized** — 2026-09-14.
 

@@ -18,7 +18,7 @@ O repositório remoto usa SSH. Não mova, apague ou sobrescreva outro diretório
 - Codex para operar o harness de agentes;
 - GitHub CLI apenas para administração do repositório remoto.
 
-Não existe CLI ou aplicação Axiom executável neste estágio. Go está planejado, mas ainda não é requisito e não deve ser inicializado sem specification e decisão apropriadas.
+T01 da Specification 002 entrega domínio puro em Go. Go 1.26 é requisito para seus testes e build; biblioteca padrão somente, sem instalação de dependências externas. Ainda não existe CLI Lingo. Consulte [comandos de domínio](../commands.md#t01-domain-validation) e [Evidence T01](../specifications/002-lingo-project-initialization/evidence-t01.md).
 
 ## Validate the harness
 
