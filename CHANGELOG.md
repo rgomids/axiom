@@ -2,6 +2,8 @@
 
 ## [2026-09-14]
 
+- planning: record approved/merged PR #4 and explicit Tasks-only authorization; add 21 Specification 002 Tasks with dependency DAG, FR/SEC/AC ownership, H1–H11/ADR/Plan traceability and future platform/security Evidence obligations. Plan: Approved; Tasks: In review; Implementation: Not authorized. Preserve prior decisions and validation history.
+
 - specification: record PR #4 Git Authority approval as H11; preserve H1–H10 and separate Project mutation, optional local Git commit and explicitly authorized remote sync/push, with independent authority/outcomes and no false rollback or local-state export.
 - planning: remove resolved Git Authority review gates; defer concrete Git mechanisms and automation design with future Evidence. Reconcile status references and PR description to H1–H11/current scope. Ready for final human Plan review; no Tasks or Implementation.
 

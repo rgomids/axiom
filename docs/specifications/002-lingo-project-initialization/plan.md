@@ -2,6 +2,20 @@
 
 ## Status, authority and scope
 
+**Plan: Approved · Tasks: In review · Implementation: Not authorized** — 2026-09-14.
+
+PR #4 was approved and merged at `b85657ff23dcfc40fbd9ea05b7a3876959b3554e`.
+The subsequent explicit human request authorizes [Tasks](tasks.md) only.
+**Ready for human Tasks review.** Human Tasks approval and explicit Implementation
+authorization remain required. Sections 1–11 are the approved technical baseline;
+“proposed” wording records how those details entered Plan review, not an open
+choice to redefine approved contracts. Mechanisms explicitly left to Implementation
+remain unselected. Dated reconciliation/gate statements below record the pre-merge
+history and are superseded only as lifecycle status by this entry. H1–H11 and
+accepted decisions are unchanged.
+
+### Historical Plan reconciliation before approval
+
 **Plan reconciled after human review; ready for final human Plan review** — 2026-09-14.
 The decisions below and subsequent H1–H11 are human-approved; final Plan approval
 and authorization to advance remain pending.
@@ -785,6 +799,9 @@ conflict with accepted ADRs identified. Spec-Kit remains strategic upstream only
 
 ## 12. Documentation validation and review gate
 
+The following entries preserve pre-merge review and validation history. Current
+lifecycle is recorded at the top and bottom of this Plan.
+
 Specification, Clarifications, Plan, ADR-0004 and directly affected references
 are reconciled to H1–H11. Original approval and prior validation remain historical;
 this revision does not claim old checks validate new contracts. No new Tasks,
@@ -906,5 +923,5 @@ Executed from repository root for this reconciliation:
 
 These checks provide documentation/repository Evidence only, not Lingo acceptance.
 
-**Ready for final human Plan review.** Tasks and Implementation remain blocked until
-explicit final human Plan approval and authorization to advance.
+**Current gate — 2026-09-14:** Plan: Approved. [Tasks](tasks.md): In review.
+Implementation: Not authorized. **Ready for human Tasks review.**

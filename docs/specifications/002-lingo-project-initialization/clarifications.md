@@ -2,15 +2,14 @@
 
 ## Current status — 2026-09-14
 
-**Ready for final human Plan review.** Subsequent human review of PR #4 explicitly
-reopened Specification 002's location, minimum and update contracts. Original
-2026-09-11 approval is preserved below as historical evidence. H1–H8 supersede
-only the stated portions; original Q1–Q6 are not silently relabeled or erased.
-H9 records partial-input refinement; H10 approves logical atomicity; H11 approves
-the Git Authority boundary. Final human Plan review remains pending.
-Specification and Plan now consume these later human-approved decisions. Tasks
-and Implementation remain blocked pending explicit final Plan approval and
-authorization to advance.
+**Plan: Approved · Tasks: In review · Implementation: Not authorized.**
+PR #4 was approved and merged on 2026-09-14; the subsequent explicit human request
+authorizes [Tasks](tasks.md) only. **Ready for human Tasks review.**
+
+H1–H11, their authority links and original Q1–Q6 history below remain unchanged.
+Their dated pending-gate statements describe the pre-merge decisions, not the
+current lifecycle. Plan approval supersedes that pending gate without changing
+any Project, atomicity, Git Authority or declaration-state contract.
 
 ## Git Authority approval — 2026-09-14
 
