@@ -2,6 +2,10 @@
 
 ## [2026-09-14]
 
+- implementation: deliver authorized Specification 002 T01 pure Go domain: immutable Project identity, declaration/reference invariants, conservative locators, complete proposed-state materialization and presence-preserving equivalence. Add behavior tests and domain I/O boundary verification; retain reproducible Evidence. Specification/Plan/Tasks Approved; T01 ready for human implementation review; T02–T21 Not started.
+
+Earlier Tasks review on this date (historical):
+
 - planning: record approved/merged PR #4 and explicit Tasks-only authorization; add 21 Specification 002 Tasks with dependency DAG, FR/SEC/AC ownership, H1–H11/ADR/Plan traceability and future platform/security Evidence obligations. Plan: Approved; Tasks: In review; Implementation: Not authorized. Preserve prior decisions and validation history.
 
 - specification: record PR #4 Git Authority approval as H11; preserve H1–H10 and separate Project mutation, optional local Git commit and explicitly authorized remote sync/push, with independent authority/outcomes and no false rollback or local-state export.
