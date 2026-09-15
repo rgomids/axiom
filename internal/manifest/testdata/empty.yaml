@@ -1,0 +1,10 @@
+# Synthetic minimal Project; source formatting is not portable semantics.
+project: {name: Sample, slug: sample, id: 12345678-1234-4abc-8def-123456789abc}
+schemaVersion: 1
+repositories: []
+providers: []
+integrations: []
+modelProfiles: []
+businessContext: {}
+credentialReferences: []
+policies: []
