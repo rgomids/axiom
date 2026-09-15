@@ -1,6 +1,22 @@
 # Clarifications — Lingo Project Initialization
 
-## Implementation authorization — 2026-09-14
+## T02 implementation authorization and review gate — 2026-09-14
+
+**Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T02 only).**
+
+GitHub confirms [PR #6](https://github.com/rgomids/axiom/pull/6) merged into `main`
+on 2026-09-14 at 19:58:54 UTC. Updated `main` baseline:
+`ffc9af9b7158de62f94671472c9ddedf36439802`. T01 is incorporated at that revision.
+The subsequent explicit human request authorizes only **T02 — Consumer-owned ports,
+authority and outcomes**. [T02 Evidence](evidence-t02.md) records implementation,
+exact delivery SHA, contract tests and limitations.
+
+**T01: Accepted / merged. T02: Ready for human implementation review.
+T03–T21: Not started.** No merge or next-Task authority follows from this delivery.
+H1–H11, approved task definitions, Plan contracts and ADRs remain unchanged.
+Earlier lifecycle entries below are historical; this entry supersedes status only.
+
+## Historical T01 implementation authorization — 2026-09-14
 
 **Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T01 only).**
 
