@@ -1,6 +1,23 @@
 # Tasks — Specification 002: Lingo Project Initialization
 
-## T02 implementation authorization and review gate — 2026-09-14
+## T03 implementation authorization and review gate — 2026-09-15
+
+**Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T03 only).**
+
+[PR #7](https://github.com/rgomids/axiom/pull/7) merged into `main` on
+2026-09-15 at 03:37:48 UTC. Baseline:
+`378338cc0af79eaaec8b17e3cada44629515c043`. Explicit human authorization covers
+only **T03 — Strict manifest decoding and canonical encoding**.
+[T03 Evidence](evidence-t03.md) records the exact implementation SHA, parser
+experiment, tests, resource limits and exclusions.
+
+**T01: Accepted / merged. T02: Accepted / merged.
+T03: Ready for human implementation review. T04–T21: Not started.**
+T03 merge grants no T04 authority. No self-approval or merge is authorized.
+Approved H1–H11, schemas, Task definitions and ADRs remain unchanged; prior entries
+below are historical and superseded only as lifecycle status.
+
+## Historical T02 implementation authorization and review gate — 2026-09-14
 
 **Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T02 only).**
 

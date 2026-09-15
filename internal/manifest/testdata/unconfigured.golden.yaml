@@ -1,0 +1,12 @@
+schemaVersion: 1
+project:
+  id: 12345678-1234-4abc-8def-123456789abc
+  slug: sample
+  name: Sample
+runtime: unconfigured
+providers: unconfigured
+integrations: unconfigured
+modelProfiles: unconfigured
+businessContext: unconfigured
+credentialReferences: unconfigured
+policies: unconfigured

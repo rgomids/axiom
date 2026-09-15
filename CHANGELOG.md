@@ -1,5 +1,11 @@
 # Changelog
 
+## [2026-09-15]
+
+- fix: address PR #8 human review within T03: reject relative/local URI paths in logical references and known credential payloads in identifier fields; bound canonical output during serialization. Add encode/decode, escaped-syntax, writer-bound and positive regressions; retain prior implementation Evidence. T01/T02 contracts unchanged; T04–T21 Not started; human re-review required.
+
+- implementation: deliver Specification 002 T03 strict portable manifest codec, closed DTOs, canonical round trips, declaration-state preservation, resource limits, structural security rejection and sanitized diagnostics. Pin experimentally validated YAML parser v3.0.5; add golden, schema, abuse, bounds, pairwise, port integration, fuzz and dependency-boundary tests. T01/T02 Accepted / merged; T03 Ready for human implementation review; T04–T21 Not started. T03 merge does not authorize T04.
+
 ## [2026-09-14]
 
 - implementation: deliver authorized Specification 002 T02 consumer-owned application ports, complete snapshots and revisions, exact preview-bound authority, safe ordered issues and truthful portable/local commit outcomes. Add contract/fault/barrier tests and deterministic dependency checks. T01 Accepted / merged (PR #6); T02 Ready for human implementation review; T03–T21 Not started. No concrete codec, persistence, CLI or Git execution.
