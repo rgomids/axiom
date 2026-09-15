@@ -1,5 +1,9 @@
 # T03 — Implementation Evidence
 
+The initial implementation record below is historical. The subsequent
+[post-human-review revision](#post-human-review-revision--2026-09-15) records the
+three Major findings, corrections, current implementation SHA and fresh validation.
+
 ## Authority, baseline and delivery — 2026-09-15
 
 - Specification / Clarifications / Plan / Tasks and ADR-0001–0004 are authority.
@@ -244,3 +248,151 @@ required. No independent agent review or human acceptance is claimed.
   T02 contracts, ADR decisions and approved schema shapes remain unchanged.
 
 **Stop at human implementation review. Do not merge. Do not start T04.**
+
+## Post-human-review revision — 2026-09-15
+
+### Authority and exact revision
+
+- Read PR #8 description, all current reviews and issue/inline comments through
+  `gh pr view 8 --repo rgomids/axiom --json title,body,state,headRefName,headRefOid,baseRefName,comments,reviews,url`
+  and paginated `gh api repos/rgomids/axiom/pulls/8/comments` and
+  `gh api repos/rgomids/axiom/pulls/8/reviews`. One human review, three Major
+  findings, no issue or inline comments at intake. Review:
+  [2026-09-15 human review](https://github.com/rgomids/axiom/pull/8#pullrequestreview-5212615197).
+- Revision baseline: `aea1f1efaed5bc2161a651a18ee05368d859dbeb`, clean branch
+  `codex/t03-strict-manifest-codec`, confirmed against fetched remote head.
+- Specification, Clarifications H1–H11, Plan, Tasks, ADR-0004, domain, adapter,
+  existing tests and this Evidence were inspected before editing production code.
+  Scope remains T03; approved contracts require no amendment.
+- **Corrected implementation SHA: `48e90be5bd9179fbf5047364d3b0462d1be7435a`.** A subsequent
+  documentation commit records the implementation hash without self-reference.
+- **T03: Ready for human re-review. T01/T02: Accepted / merged.
+  T04–T21: Not started.** No approval, merge or next-Task authority is inferred.
+
+### Findings, root causes and corrections
+
+| Human finding | Root cause | Correction and regression Evidence |
+|---|---|---|
+| Major: `sourceHint` accepts relative local paths | Generic machine-path check covered rooted forms only; URL check required `://` | Logical-reference validation rejects `.`/`..` path components, rooted suffixes, backslashes, drive-relative forms and `file:` URIs. Tests cover direct, namespaced, YAML-escaped and percent-escaped forms in encode and decode |
+| Major: structural secret payloads accepted as identifiers | `referencePayload` ran only for logical fields and recognized only `:` | Apply the existing finite sensitive-name families to all nine schema-classified identifier fields and logical references, with `:` and `=` delimiters, case/hyphen/underscore folding and whitespace around the name. No entropy/value scanner or catalog |
+| Major: Encode materializes oversized YAML before checking `MaxBytes` | Unrestricted `bytes.Buffer` followed by Decode's byte check | Private `io.Writer` rejects crossing writes before allocation/copy, retains at most `MaxBytes` bytes/capacity and stays failed. Encode/Close overflow maps to `byte_limit`, returns nil bytes and bypasses round-trip parsing on that failure. Successful output still passes unchanged Decode/Equivalent validation |
+
+Additional equivalent bug found during review: `repositories[].remote` accepted
+`file:/synthetic`, `FILE:relative` and `file:../synthetic` as SSH shorthand.
+The adapter now rejects the `file` scheme before the `://` check. The domain's
+locator normalization and public contracts remain unchanged. Ordinary SSH/HTTPS
+locators, case-sensitive paths and benign escaped query data still round-trip.
+
+Security checks inspect percent-decoded views without changing stored values.
+Nested escapes cannot hide the same path/payload syntax; malformed escapes fail
+closed. A per-value inspection budget of four times the original byte length
+bounds repeated decoding work; excessively nested escaping fails closed. This
+applies to logical/identifier syntax only. Remote query-name handling retains its
+existing single URL-query decoding policy. No environment/store value is resolved.
+
+Positive tests preserve environment names, Keychain/Secret Service/libsecret/
+Windows Credential Manager/runtime-managed logical entries, namespace-style secret
+references, ARN-style identifiers, slash-separated logical names and opaque model
+IDs. Single-letter namespaces remain permitted in identifier fields; the
+drive-relative restriction is specific to logical references. Bare `token`,
+`password` and other sensitive-family names remain valid identifiers. Human names
+and Business Context text are not subjected to this structural payload policy.
+An ordinary slash-separated name cannot establish a filesystem location by itself;
+these checks reject explicit local syntax, not every string that could name a file.
+
+### Regression tests and negative controls
+
+- `TestReviewLogicalPaths`, `TestReviewLogicalFieldVariants`: path rejection and
+  legitimate references across all six logical schema fields; encode/decode and
+  semantic preservation. Original examples and equivalent encodings included.
+- `TestReviewIdentifierPayloads`: all nine identifier fields, both delimiters and
+  all existing sensitive-name families; positive opaque identifiers and names.
+- `TestReviewEscapedSyntaxAndFreeText`, `TestReviewLocalURIRemotes`: encoded names/
+  delimiters, YAML escapes, local URI variants, preserved human text and remotes.
+- `TestBoundedOutputWriter`: arbitrary tested chunk sizes, exact limit, empty
+  writes, oversized first write, crossing write without partial copy, sticky
+  failure and retained buffer capacity. No dependency chunk-size assumptions.
+- `TestEncodeStopsAtWriterBound`: valid domain Projects with 1 MiB plain text and
+  128 KiB text whose YAML escaping exceeds the ceiling. Observes the writer used
+  by the Encode implementation: overflow flag set, retained buffer within bound,
+  nil public output, `byte_limit`; post-serialization Decode alone cannot explain
+  the observed writer rejection.
+- `TestEncodeOutputByteBoundary`: canonical byte lengths `MaxBytes-1`, `MaxBytes`
+  and `MaxBytes+1`, final newline, valid round trip and exact rejection boundary.
+- Existing T02 snapshot integration now includes the path/payload findings;
+  fuzz seeds include nested escaping, local URI, payloads and valid store references.
+  Existing goldens and declaration/nested-presence matrices remain unchanged.
+
+Before production fixes, new security regressions failed with missing structural
+rejections. Re-running against baseline `security.go` reproduced both original
+security bugs (exit 1); restoring corrected code passed. An encode negative control
+temporarily restored unrestricted `bytes.Buffer` serialization plus subsequent
+Decode: `TestEncodeStopsAtWriterBound` failed with `Encode did not enforce the
+writer bound` (exit 1), despite the later byte-limit rejection. Restoring the writer
+passed. Both temporary substitutions were restored before final validation/commit.
+This distinguishes writer enforcement from a test that only checks the returned code.
+
+Initial writer tests failed to compile before `boundedOutput`/`encodeWithOutput`
+existed (exit 1, expected). An initial result-reporting shell wrapper used zsh's
+read-only `status` variable and failed after running the tests; subsequent wrappers
+used `review_exit`, and the negative-control commands completed as recorded above.
+
+### Executed validation
+
+Final platform: **macOS 26.6.2 (25G83), Darwin arm64, Apple M1; Go 1.26.1**.
+All Go commands used `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`; no downloads or
+dependency changes. The required full command list in the original reproduction
+section was rerun as applicable below; the historical extra 200,000-execution
+campaign and historical coverage percentages are not fresh results.
+
+| Command | Fresh result |
+|---|---|
+| `go test -run '^TestReview' ./internal/manifest` | Exit 1 against baseline security; exit 0 after fixes |
+| `go test -run '^TestReviewLocalURIRemotes$' ./internal/manifest` | Exit 1 before additional URI fix; covered by final passing suite |
+| `go test -run '^TestEncodeStopsAtWriterBound$' ./internal/manifest` | Exit 1 with unrestricted-buffer negative control; corrected writer passed |
+| `go test ./...` | Exit 0; passed |
+| `go test -race ./...` | Exit 0; passed |
+| `go vet ./...` | Exit 0; passed |
+| `go build ./...` | Exit 0; passed |
+| `go mod verify` | Exit 0; passed |
+| `go test -fuzz=FuzzDecodeSafeRoundTrip -fuzztime=30s -parallel=2 ./internal/manifest` | Exit 0; 380,888 executions; passed |
+| `go test -run '^$' -bench=BenchmarkHostileBounds -benchtime=1x -benchmem ./internal/manifest` | Exit 0; measurements below |
+| `go run ./scripts/check-project-domain.go` | Exit 0; passed |
+| `bash scripts/test-check-project-domain.sh` | Exit 0; passed |
+| `go run ./scripts/check-projectapp.go` | Exit 0; passed |
+| `bash scripts/test-check-projectapp.sh` | Exit 0; passed |
+| `./scripts/validate-repository.sh .` | Exit 0; passed |
+| `git diff --check` / `git diff --cached --check` | Exit 0; passed |
+| `./scripts/check-sensitive-files.sh --staged .` | Exit 0; passed |
+
+Final hostile-input benchmark, one iteration per case:
+
+| Case | ns/op | B/op | allocs/op |
+|---|---:|---:|---:|
+| Byte ceiling + 1 | 2,750 | 32 | 1 |
+| Depth 10,001 | 5,130,208 | 5,496,040 | 9,153 |
+| Dense sequence at byte ceiling | 44,550,833 | 44,804,080 | 393,319 |
+
+### Review and remaining limitations
+
+- Self-review covered each finding, equivalent syntax, scope, dependency direction,
+  sanitized failures, positive compatibility and all declaration-presence forms.
+  No remaining blocking finding identified; human re-review remains required.
+- Writer tests prove retained output length/capacity and controlled failure at the
+  writer boundary. They do **not** prove total Encode heap usage or a deadline:
+  the caller's Project, detached state/DTOs, encoder scalar/event working memory
+  and transient buffer growth allocations are outside that bound. No arbitrary
+  total-memory claim or dependency-internal chunk-size assumption is made.
+- Decoder node/depth checks still follow byte-bounded AST construction. Benchmarks
+  are observations, not guaranteed maxima. Structural exclusion is not proof of
+  secret absence; no generic scanner or free-text secret detection was introduced.
+- **Linux was not executed.** Filesystem, CLI, persistence, permission, crash and
+  install guarantees remain outside T03. T04 and later Tasks remain unstarted.
+- `gitleaks`, `markdownlint`, `markdownlint-cli2`, `lychee`, `shellcheck` unavailable
+  in PATH; dedicated checks remain unverified. No tools installed. Repository
+  sensitive-file/content checks and manual synthetic-fixture review are separate.
+- Only adapter implementation/tests, this Evidence and CHANGELOG change. Domain,
+  T02 ports, normative Specifications/Plan/Tasks and accepted ADRs remain unchanged.
+  README and command instructions already describe the same package/API/toolchain.
+
+**Ready for human re-review. No approval or merge. T04 not started.**
