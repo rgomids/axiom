@@ -6,10 +6,16 @@ Execute estes comandos na raiz de `/Users/rgomids/Projects/axiom`.
 
 Não há aplicação ou CLI para executar neste bootstrap. Nenhum comando futuro do Axiom é definido aqui.
 
-## T01 domain and T02 application contract validation
+## T01–T03 validation
 
-Go 1.26 instalado. Biblioteca padrão somente; sem serviços/dependências locais.
-Build valida domínio e contratos de aplicação; não produz CLI.
+Go 1.26 instalado. T01/T02 usam biblioteca padrão; T03 usa o parser fixado em
+`go.mod`/`go.sum`. Em cache novo, preparação explícita com rede:
+
+```bash
+GOTOOLCHAIN=local go mod download go.yaml.in/yaml/v3@v3.0.5
+```
+
+Depois, os checks abaixo rodam offline. Build valida pacotes; não produz CLI.
 
 ```bash
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
@@ -17,6 +23,9 @@ go test -cover ./...
 go test -race -shuffle=on -count=10 ./...
 go vet ./...
 go build ./...
+go mod verify
+go test -fuzz=FuzzDecodeSafeRoundTrip -fuzztime=30s -parallel=2 ./internal/manifest
+go test -run '^$' -bench=BenchmarkHostileBounds -benchtime=1x -benchmem ./internal/manifest
 go run ./scripts/check-project-domain.go
 bash scripts/test-check-project-domain.sh
 go run ./scripts/check-projectapp.go
@@ -30,6 +39,9 @@ relatório; comportamento de domínio/testes não faz I/O de aplicação.
 [T02](specifications/002-lingo-project-initialization/evidence-t02.md). Checker de aplicação
 bloqueia imports externos à fronteira e I/O ambiente, inclusive nos testes.
 Spies/barreiras em memória provam contratos; não provam protocolo de filesystem.
+[T03 Evidence](specifications/002-lingo-project-initialization/evidence-t03.md) detalha
+parser, schema, limites, security policy v1 e cobertura. Teste AST do codec verifica
+imports de produção; fixtures são sintéticas. Não há CLI, persistência ou instalação.
 
 ## Harness validation
 
