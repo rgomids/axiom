@@ -84,7 +84,7 @@ and local installation. Original human approval was 2026-09-11. Subsequent PR #4
 Plan review on 2026-09-12 reopened location/minimum/update contracts through
 [H1–H8](../specifications/002-lingo-project-initialization/clarifications.md#subsequent-human-decisions--2026-09-12),
 preserving original Q1–Q6 history. [H9, confirmed 2026-09-14](../specifications/002-lingo-project-initialization/clarifications.md#latest-human-decision--2026-09-14), permits partial update intent with complete domain materialization/validation before persistence. H10 preserves logical atomicity without choosing persistence mechanisms; [H11](../specifications/002-lingo-project-initialization/clarifications.md#git-authority-approval--2026-09-14) approves Git Authority. Current [Plan](../specifications/002-lingo-project-initialization/plan.md)
-is reconciled against that revised Specification; T01 now delivers the pure Project domain.
+is reconciled against that revised Specification; T01 delivers the pure Project domain; T02 delivers application boundary contracts.
 
 Extended [ADR-0004](../decisions/0004-portable-project-manifest.md) records canonical
 ID versus slug/name, portable working copy distinct from ID-addressed local state,
@@ -96,5 +96,6 @@ retain their intent distinctions.
 
 PR #4 approved and merged on 2026-09-14. **Plan: Approved.**
 [Tasks](../specifications/002-lingo-project-initialization/tasks.md): **Approved** after PR #5 merge.
-**Implementation: Authorized (T01 only).** [T01 Evidence](../specifications/002-lingo-project-initialization/evidence-t01.md)
-is ready for human implementation review. **T02–T21: Not started.**
+**Implementation: Authorized (T02 only). T01: Accepted / merged**, PR #6.
+[T02 Evidence](../specifications/002-lingo-project-initialization/evidence-t02.md):
+**Ready for human implementation review. T03–T21: Not started.**

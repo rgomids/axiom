@@ -6,25 +6,30 @@ Execute estes comandos na raiz de `/Users/rgomids/Projects/axiom`.
 
 Não há aplicação ou CLI para executar neste bootstrap. Nenhum comando futuro do Axiom é definido aqui.
 
-## T01 domain validation
+## T01 domain and T02 application contract validation
 
 Go 1.26 instalado. Biblioteca padrão somente; sem serviços/dependências locais.
-Build valida pacote de domínio; não produz CLI.
+Build valida domínio e contratos de aplicação; não produz CLI.
 
 ```bash
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
 go test -cover ./...
-go test -race -shuffle=on -count=10 ./internal/project
+go test -race -shuffle=on -count=10 ./...
 go vet ./...
 go build ./...
 go run ./scripts/check-project-domain.go
 bash scripts/test-check-project-domain.sh
+go run ./scripts/check-projectapp.go
+bash scripts/test-check-projectapp.sh
 ```
 
 O checker AST inspeciona imports/símbolos puros e helpers dos testes fora da suíte
 de domínio. O runner Go e ferramentas de verificação fazem I/O de compilação e
 relatório; comportamento de domínio/testes não faz I/O de aplicação.
-[Evidence e limites de T01](specifications/002-lingo-project-initialization/evidence-t01.md).
+[Evidence e limites de T01](specifications/002-lingo-project-initialization/evidence-t01.md) e
+[T02](specifications/002-lingo-project-initialization/evidence-t02.md). Checker de aplicação
+bloqueia imports externos à fronteira e I/O ambiente, inclusive nos testes.
+Spies/barreiras em memória provam contratos; não provam protocolo de filesystem.
 
 ## Harness validation
 

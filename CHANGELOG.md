@@ -2,6 +2,8 @@
 
 ## [2026-09-14]
 
+- implementation: deliver authorized Specification 002 T02 consumer-owned application ports, complete snapshots and revisions, exact preview-bound authority, safe ordered issues and truthful portable/local commit outcomes. Add contract/fault/barrier tests and deterministic dependency checks. T01 Accepted / merged (PR #6); T02 Ready for human implementation review; T03–T21 Not started. No concrete codec, persistence, CLI or Git execution.
+
 - implementation: deliver authorized Specification 002 T01 pure Go domain: immutable Project identity, declaration/reference invariants, conservative locators, complete proposed-state materialization and presence-preserving equivalence. Add behavior tests and domain I/O boundary verification; retain reproducible Evidence. Specification/Plan/Tasks Approved; T01 ready for human implementation review; T02–T21 Not started.
 
 Earlier Tasks review on this date (historical):
