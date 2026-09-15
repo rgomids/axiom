@@ -86,7 +86,12 @@ func TestT02PortAndReadSnapshotFailureHasNoEffects(t *testing.T) {
 	if !bytes.Equal(input, original) {
 		t.Fatal("source bytes rewritten")
 	}
-	for _, bad := range []string{minimal + "secret: " + sentinel, minimal + "runtime: *" + sentinel} {
+	for _, bad := range []string{
+		minimal + "secret: " + sentinel, minimal + "runtime: *" + sentinel,
+		minimal + "credentialReferences: [{key: aws, sourceHint: '../../.aws/credentials'}]",
+		minimal + "runtime: {id: 'password:" + sentinel + "'}",
+		minimal + "providers: [{key: aws, id: 'token=" + sentinel + "'}]",
+	} {
 		source := []byte(bad)
 		before := bytes.Clone(source)
 		snapshot, issues := projectapp.ReadSnapshot(codec, source, nil)
@@ -107,7 +112,14 @@ func TestT02PortAndReadSnapshotFailureHasNoEffects(t *testing.T) {
 	// accepted by Codec. Boundary tests additionally inspect production imports.
 }
 func FuzzDecodeSafeRoundTrip(f *testing.F) {
-	for _, s := range []string{minimal, "", minimal + "runtime: *missing", minimal + "runtime: &a [*a]", minimal + "businessContext: {text: '世界'}"} {
+	for _, s := range []string{
+		minimal, "", minimal + "runtime: *missing", minimal + "runtime: &a [*a]", minimal + "businessContext: {text: '世界'}",
+		minimal + "credentialReferences: [{key: c, sourceHint: '%252e%252e%252fsecret'}]",
+		minimal + "credentialReferences: [{key: c, sourceHint: 'file:/synthetic'}]",
+		minimal + "credentialReferences: [{key: c, sourceHint: 'vault:team/entry'}]",
+		minimal + "runtime: {id: 'password:" + sentinel + "'}",
+		minimal + "providers: [{key: p, id: 'token=" + sentinel + "'}]",
+	} {
 		f.Add([]byte(s))
 	}
 	f.Fuzz(func(t *testing.T, input []byte) {

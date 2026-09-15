@@ -128,19 +128,28 @@ func validateNode(n *yaml.Node) []project.Issue {
 // limits also apply to domain-created Projects; rejected output is never returned.
 // The checked round trip prevents parser coercion, invalid UTF-8 or lossy output.
 func Encode(p project.Project) ([]byte, []project.Issue) {
+	return encodeWithOutput(p, &boundedOutput{})
+}
+
+func encodeWithOutput(p project.Project, output *boundedOutput) ([]byte, []project.Issue) {
 	if !p.Equivalent(p) {
 		return nil, problem("project", "invalid_project")
 	}
-	var output bytes.Buffer
-	encoder := yaml.NewEncoder(&output)
+	encoder := yaml.NewEncoder(output)
 	encoder.SetIndent(2)
 	if err := encoder.Encode(fromDomain(p.State())); err != nil {
+		if output.exceeded {
+			return nil, problem("manifest", "byte_limit")
+		}
 		return nil, problem("manifest", "invalid_encoding")
 	}
 	if err := encoder.Close(); err != nil {
+		if output.exceeded {
+			return nil, problem("manifest", "byte_limit")
+		}
 		return nil, problem("manifest", "invalid_encoding")
 	}
-	result := output.Bytes()
+	result := output.data
 	q, issues := Decode(result)
 	if len(issues) != 0 {
 		return nil, issues
