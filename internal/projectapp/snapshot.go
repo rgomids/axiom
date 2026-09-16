@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/rgomids/axiom/internal/project"
 )
@@ -117,11 +118,12 @@ func ReadSnapshot(codec ManifestCodec, manifest []byte, documents []Document) (A
 	return s, nil
 }
 
-// ValidDocumentName is the lexical name check used by ReadSnapshot. Local digest
-// metadata reuses it without narrowing or normalizing names. The manifest name
-// is reserved; this check grants no filesystem authority or text-safety proof.
+// ValidDocumentName requires valid UTF-8 and lexical names for ReadSnapshot.
+// Local digest metadata reuses it without replacing or normalizing names.
+// The manifest name is reserved; this check grants no filesystem authority or
+// text-safety proof.
 func ValidDocumentName(name string) bool {
-	if name == "" || name == "axiom.yaml" || strings.ContainsAny(name, "\\:$`\x00\r\n") || strings.HasPrefix(name, "~") {
+	if !utf8.ValidString(name) || name == "" || name == "axiom.yaml" || strings.ContainsAny(name, "\\:$`\x00\r\n") || strings.HasPrefix(name, "~") {
 		return false
 	}
 	for _, part := range strings.Split(name, "/") {

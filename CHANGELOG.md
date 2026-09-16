@@ -2,6 +2,8 @@
 
 ## [2026-09-16]
 
+- fix: reject invalid UTF-8 document names at the T02 snapshot producer for T04 lossless JSON metadata; preserve valid U+FFFD, # and ?, retain local defense in depth, and add producer/composition regressions. No T05+ work.
+
 - fix: resolve PR #9 ArtifactDigest.Name compatibility finding: T04 reuses the unchanged T02 document-name predicate, preserves valid names including #, ?, controls and literal U+FFFD without normalization, and rejects malformed Unicode without repair. Add real manifest/Project/snapshot/digest/local-record round-trip and negative boundary regressions; preserve portable protections, H12 and all prior Evidence. No T05+ work.
 
 - fix: apply human-approved H12 / Option B within T04: remove persisted localRevision from local format v1, retain unchanged T02 exact-byte LocalRevision and independent portableRevision metadata. Update closed DTO, mapping, fixtures and regressions; reject obsolete field without migration or reuse.

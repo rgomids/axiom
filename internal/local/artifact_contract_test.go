@@ -81,6 +81,19 @@ func TestPortableArtifactDigestRecordRoundTrip(t *testing.T) {
 	}
 }
 
+func TestReadSnapshotRejectsInvalidUTF8BeforeLocalRecord(t *testing.T) {
+	name := string([]byte{'c', 'o', 'n', 't', 'e', 'x', 't', '/', 0xff, '.', 'm', 'd'})
+	// Keep the manifest valid: malformed bytes enter through Document.Name,
+	// without any JSON/YAML encoding that could replace them first.
+	snapshot, issues := projectapp.ReadSnapshot(manifest.Codec{}, []byte(artifactManifest), []projectapp.Document{{Name: name, Content: []byte("content")}})
+	if len(issues) == 0 {
+		t.Error("invalid UTF-8 document name accepted")
+	}
+	if snapshot.Digests() != nil {
+		t.Error("invalid document produced reusable digests before T04")
+	}
+}
+
 func TestArtifactNameUnicodeWirePreservation(t *testing.T) {
 	for _, input := range []struct{ quoted, name string }{
 		{`"context/api�.md"`, "context/api\ufffd.md"},

@@ -66,6 +66,35 @@ func TestSnapshotsAreCompleteDetachedAndRevisioned(t *testing.T) {
 	}
 }
 
+func TestReadSnapshotRejectsInvalidUTF8DocumentName(t *testing.T) {
+	name := string([]byte{'c', 'o', 'n', 't', 'e', 'x', 't', '/', 0xff, '.', 'm', 'd'})
+	snapshot, issues := projectapp.ReadSnapshot(fixtureCodec{definition(t)}, []byte("synthetic manifest"), []projectapp.Document{{Name: name, Content: []byte("content")}})
+	if len(issues) == 0 {
+		t.Error("invalid UTF-8 document name accepted")
+	}
+	if snapshot.Digests() != nil {
+		t.Error("invalid document produced reusable digests")
+	}
+	if projectapp.ValidDocumentName(name) {
+		t.Error("document-name contract accepted invalid UTF-8")
+	}
+}
+
+func TestReadSnapshotPreservesValidReplacementRune(t *testing.T) {
+	const name = "context/api\ufffdlegacy.md"
+	if !projectapp.ValidDocumentName(name) {
+		t.Fatal("valid U+FFFD rejected by document-name contract")
+	}
+	snapshot, issues := projectapp.ReadSnapshot(fixtureCodec{definition(t)}, []byte("synthetic manifest"), []projectapp.Document{{Name: name, Content: []byte("content")}})
+	if len(issues) != 0 {
+		t.Fatal("valid U+FFFD rejected", issues)
+	}
+	digests := snapshot.Digests()
+	if len(digests) != 2 || digests[1].Name != name {
+		t.Fatal("valid U+FFFD changed in artifact metadata")
+	}
+}
+
 func TestWriteSetContainsDeletionsAndMoveDestinations(t *testing.T) {
 	p := definition(t)
 	old, issues := projectapp.ReadSnapshot(fixtureCodec{p}, []byte("old"), []projectapp.Document{{Name: "context/removed.md", Content: []byte("old document")}})
