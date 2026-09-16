@@ -15,9 +15,13 @@ import (
 
 func validateState(s RecordState) []Issue {
 	for _, issue := range project.ValidateIdentity(s.ProjectID, s.ObservedSlug) {
-		return problem(issue.Field, issue.Code)
+		field := "installation.projectId"
+		if issue.Field == "project.slug" {
+			field = "installation.observedSlug"
+		}
+		return problem(field, issue.Code)
 	}
-	if !absoluteLocation(s.SourceLocation) {
+	if !localLocation(s.SourceLocation) {
 		return problem("installation.sourceLocation", "invalid_location")
 	}
 	if !logicalReference(s.LocalRevision) {
@@ -77,9 +81,13 @@ func validTime(t time.Time) bool { return t.Year() >= 0 && t.Year() <= 9999 }
 func cleanText(s string) bool {
 	return utf8.ValidString(s) && !strings.ContainsRune(s, '\ufffd') && strings.IndexFunc(s, unicode.IsControl) < 0
 }
-func optionalLocation(s string) bool { return s == "" || absoluteLocation(s) }
-func absoluteLocation(s string) bool {
-	return cleanText(s) && strings.HasPrefix(s, "/") && path.Clean(s) == s && !strings.ContainsAny(s, "\\$`?#")
+func optionalLocation(s string) bool { return s == "" || localLocation(s) }
+
+// Local paths are serialized metadata, not portable references or filesystem
+// authority. Preserve spelling; resolution and physical validation belong to
+// future adapters. Metacharacters are literal data and are never evaluated.
+func localLocation(s string) bool {
+	return s != "" && cleanText(s)
 }
 func artifactName(s string) bool {
 	if s == "axiom.yaml" {

@@ -2,6 +2,8 @@
 
 ## [2026-09-16]
 
+- fix: address PR #9 human review within T04: preserve arbitrary local path text without filesystem policy; map domain identity diagnostics to local schema fields. Add public codec regressions; retain invalid-text rejection and shared domain rules.
+- docs: investigate ambiguous persisted localRevision versus T02 exact-byte CAS; record both options and recommend single revision pending explicit human decision. T04 blocked on that decision; no revision-model change or T05+ implementation.
 - feature: deliver authorized Specification 002 T04 strict local installation JSON codec with exact formatVersion 1, closed metadata DTOs, safe diagnostics, no partial records, explicit missing/corrupt distinction and consumer-owned T02 metadata reuse. Share existing domain identity validation without changing its rules. Add version/structure/security/round-trip tests and static boundary Evidence; no filesystem persistence or T05+ work.
 - docs: record T01–T03 Accepted / merged, verified baseline `1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`, T04 Ready for human implementation review and T05–T21 Not started. T04 merge grants no T05 authority; preserve prior lifecycle history and approved contracts.
 

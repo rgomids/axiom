@@ -1,5 +1,214 @@
 # T04 — Implementation Evidence
 
+## Human review response — 2026-09-16
+
+**T04: Blocked on human decision. Not Accepted. T05–T21: Not started.**
+
+Authority: [latest human review on PR #9](https://github.com/rgomids/axiom/pull/9#pullrequestreview-5225789699),
+submitted by `rgomids` at `2026-09-16T17:03:41Z` against
+`2e8b61c5ae22ca79156fec1cde4b8797a29dab54`, plus the explicit request to address
+its independent path/diagnostic findings and investigate revision semantics.
+`git fetch --all --prune` completed before editing; clean current branch and PR
+head both matched that SHA on `codex/t04-local-installation-record-codec`.
+Comparison baseline remains `origin/main` at
+`1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`.
+
+This response supersedes the initial path policy and initial “no remaining blocking
+finding” conclusion below. All sections starting at “Authority, baseline and
+delivery” preserve the original delivery record, including its unapproved dual
+revision interpretation; those statements are historical, not new authority.
+No approved Specification, Clarifications, Plan, Tasks, ADR, T02 contract or
+revision wire field was changed in this response.
+
+### Findings and implemented corrections
+
+- **Major — local path validation:** replace `absoluteLocation` with metadata-only
+  `localLocation`: nonempty valid UTF-8 text without control characters or U+FFFD.
+  Required `sourceLocation` remains nonempty; empty Repository/Runtime paths still
+  represent unresolved bindings. Preserve `#`, `$`, `?`, backticks, backslashes,
+  quotes, Unicode, spaces, relative spelling, repeated separators and dot components
+  literally. No trim, interpolation, `path.Clean`, absolute-path requirement or
+  physical lookup applies to these three local slots. Plan §3's canonical source
+  remains a future adapter observation obligation; successful codec validation
+  cannot establish canonicality or qualify metadata for filesystem use.
+  Portable artifact-name and credential-reference policies are unchanged.
+- **Minor — identity diagnostics:** continue calling `project.ValidateIdentity`
+  as the only UUID/slug rule implementation. Translate its first issue's field:
+  `project.id` → `installation.projectId`, `project.slug` →
+  `installation.observedSlug`. Preserve domain code, error severity, first-error
+  ordering and local-state category/remedy. No domain rule or T02 API changed.
+- **Major — revision ambiguity:** investigated below; neither option implemented.
+  Keeping the existing field while awaiting review is not approval of its semantics.
+
+New public-boundary regressions in `internal/local/review_test.go`:
+
+| Test | Evidence / traceability |
+|---|---|
+| `TestLocalPathsPreserveArbitraryMetadata` | NewRecord → encode → observed decode preserves all three path slots, complete metadata and exact observed input revision; T04, FR-014, AC-03/12, Plan §3 |
+| `TestLocalPathTextRejectedAtEachBoundary` | Each slot rejects controls (including C1), invalid UTF-8, replacement characters and unpaired surrogates; no reusable Record/output; source required versus unresolved optional paths retained; T04, FR-016, AC-06/12 |
+| `TestIdentityDiagnosticsUseLocalSchemaWithDomainRules` | Construction and wire decode compare acceptance and first error directly with domain validation for valid UUIDs/slugs, UUID case/version/variant, missing values, invalid slug forms and simultaneous failures; only schema paths change; T04, FR-016, AC-12 |
+
+Existing negative tests in `record_test.go` and `structure_test.go` now use empty
+required source and NUL Runtime path instead of rejecting relative spelling.
+Tests exercise codec behavior and domain integration in memory; no CLI or real
+filesystem flow exists or is claimed.
+
+### HUMAN DECISION REQUIRED
+
+Investigation found insufficient authority to establish two deliberate revision
+concepts, or to remove a Plan-listed field without human approval:
+
+- Specification “Portable configuration and local state” requires recording the
+  validated **portable** revision/content. FR-013/018 and SEC-004 require concurrency
+  protection; they do not define a second persisted local label.
+- Plan §1 supplies an expected-record-revision store contract. Plan §3 lists
+  “local revision” among stored metadata but defines no independent label semantics,
+  producer, lifecycle or relation to CAS. Plan §6 requires expected local revision
+  for reconciliation. The original Plan commit `061846a` already contained this
+  same ambiguity; it did not establish two revision models.
+- T02 (`5e18a48`, merged via PR #7) concretely defines `ObserveLocalRevision(record)`
+  as SHA-256 of exact observed record bytes in `internal/projectapp/snapshot.go`.
+  `LocalReader`, `PreviewLocal` and `ExpectedRevisions.Local` propagate this separate
+  observation. `LocalState` contains no second revision label. T02 Evidence's
+  “Exact revisions” section confirms this contract.
+- Tasks T02 owns expected revisions; T04 repeats Plan §3 “local revision”; T07 owns
+  future local CAS and forbids revision/timestamp rewrites on equivalent no-op.
+  None establishes independent semantics for another token.
+- Clarifications Q3/P3/H1/H8/H9/H10 and ADR-0004 establish versioned machine-local
+  state, ID continuity and authority/concurrency, not a second revision label.
+  ADR-0004 leaves internal layout/version details to Plan. Later lifecycle approvals
+  do not resolve the ambiguity. T04's implementation/Evidence interpretation is
+  evidence of what was written, not a human decision authorizing that interpretation.
+
+Putting the exact-byte revision inside the same record would require the embedded
+value to equal the hash of bytes that include that value. Writing the computed hash
+changes those bytes again; ordinary hashing/encoding cannot provide that fixed-point
+contract. Excluding the field or storing a predecessor hash would be a different
+contract, not T02's exact-byte observation. The existing opaque string avoids that
+cycle only by introducing a second concept whose purpose is unspecified.
+
+#### Option A — dual revision model
+
+Keep exact-byte CAS `projectapp.LocalRevision`; rename the persisted value to
+**`reconciliationLabel`**. Proposed semantics, subject to human approval: an opaque
+identifier naming the authorized local reconciliation that produced the record,
+with diagnostic/correlation value only. It is neither content digest, monotonic
+counter, freshness/authenticity proof nor CAS precondition. A future store/use-case
+would supply it in the complete proposal before preview/approval, retain it on
+no-op, and preserve/report the actually committed value after failure. Its overlap
+with existing `Attempt.Correlation` needs a demonstrated independent consumer.
+No allocation or persistence protocol is selected here.
+
+Exact reconciliation set if approved:
+
+1. `spec.md`: local metadata meaning and relation to concurrency; dated authority.
+2. `clarifications.md`: new dated human decision preserving Q1–Q6/H1–H11 history.
+3. `plan.md` §1/§3/§6: two distinct responsibilities, wire name, producer, proposal
+   authority, no-op and post-commit semantics; exact-byte CAS remains external.
+4. `tasks.md` T02/T04/T07: metadata versus CAS ownership and required Evidence.
+5. `docs/decisions/0004-portable-project-manifest.md`: dated boundary clarification,
+   keeping detailed internal wire layout in Plan and preserving accepted history.
+6. `internal/projectapp/ports.go` (`LocalState`) and contract/authority tests: carry
+   the label in the complete approved proposal so a writer cannot add an unreviewed
+   value. `LocalRevision`, `ExpectedRevisions` and hashing semantics stay unchanged.
+7. `internal/local/record.go`, `dto.go`, `mapping.go`, `validation.go`, both JSON
+   fixtures, affected `record_test.go`, `structure_test.go`, `boundary_test.go` and
+   `integration_test.go`: rename, validate, map, round-trip and protect the new field.
+8. `evidence-t02.md` (dated addition), `evidence-t04.md`, `CHANGELOG.md`: record the
+   approved change, validation and compatibility implications. README/index/roadmap
+   lifecycle entries change only when the actual review gate changes.
+
+Cost: second lifecycle and authority-bearing proposal field, possible duplication
+of attempt metadata, and another v1 compatibility commitment. Benefit exists only
+if an independent reconciliation consumer needs that durable label.
+
+#### Option B — single revision model
+
+Remove persisted `localRevision`; retain `projectapp.LocalRevision` as the sole
+**local-record** revision contract. `portableRevision` remains distinct content
+metadata describing the portable snapshot; it is unaffected.
+
+Consequences and exact reconciliation set if approved:
+
+1. `clarifications.md`: dated human resolution; `spec.md` local-state section can
+   clarify external observed local revision without changing portable-revision
+   requirements. Preserve earlier approvals.
+2. `plan.md` §3: remove local revision from stored fields and explicitly describe
+   deriving it from exact read bytes. §1/§6 retain expected-revision semantics,
+   cross-referencing that clarification.
+3. `tasks.md` T04: distinguish codec metadata from returned observed revision;
+   T07: derive/recheck exact bytes, with no stored label to allocate or increment.
+4. `internal/local/record.go` (`RecordState`), `dto.go`, `mapping.go`, `validation.go`:
+   remove the persisted member and its validation/mapping. Keep
+   `DecodeObservedRecord`/missing/invalid behavior unchanged.
+5. Both JSON fixtures and affected `record_test.go`, `structure_test.go`,
+   `boundary_test.go`, `integration_test.go`: update closed inventory and assumptions;
+   add explicit unknown-field rejection for obsolete `localRevision`. Retain exact
+   observed-byte revision assertions. Fuzz seeds follow updated fixtures.
+6. `evidence-t04.md` and `CHANGELOG.md`: record approved reconciliation and rerun
+   Evidence; lifecycle references change only when the gate changes. T02 contracts
+   and historical Evidence remain valid. ADR-0004 needs no semantic change: it does
+   not specify a stored revision field; verify its Plan references remain coherent.
+
+Future store reads exact bytes, validates metadata, passes the external observation
+into preview/CAS, and rechecks under its eventual protected commit protocol. It
+hashes newly encoded bytes to observe the resulting revision; no self-reference or
+label allocation. Equivalent no-op preserves bytes. Byte-equal ABA remains a limit
+of the existing T02 content-observation contract; a new history-sensitive guarantee
+would need separate authority. No filesystem CAS is implemented here.
+
+Compatibility: this changes the proposed closed v1 format, so existing PR fixtures
+with the removed field would fail, not migrate or be overwritten. Human approval
+must settle that before freezing v1. No deployed store or migration is claimed.
+
+**Recommendation: Option B.** It matches the already accepted T02 consumer
+contract, removes an unused second concept and avoids self-reference. Plan/Tasks
+still require explicit reconciliation; technical preference is not authority.
+PR remains **Blocked on human decision**, open for review, without merge or T05.
+
+### Review-response commands and results
+
+Platform: macOS 26.6.2 (25G83), Darwin 25.6.0 arm64; Go 1.26.1 darwin/arm64.
+All Go checks used `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`; no dependencies
+or tools installed. These results concern this response, not inferred old Evidence.
+
+| Command / check | Exit | Result |
+|---|---|---|
+| `go test ./internal/local -run 'TestLocalPathsPreserveArbitraryMetadata\|TestLocalPathTextRejectedAtEachBoundary\|TestIdentityDiagnosticsUseLocalSchemaWithDomainRules'` before production edit | 1 | Expected red: valid paths rejected and identity fields used portable namespace |
+| `go test ./internal/local` after correction | 0 | Passed |
+| `go test ./...` | 0 | Four packages passed |
+| `go test -cover ./...` | 0 | local 95.3%; manifest 96.0%; project 99.6%; projectapp 100.0% |
+| `go test -race ./...` | 0 | Four packages passed |
+| `go vet ./...` | 0 | Passed |
+| `go build ./...` | 0 | Package build passed; no CLI |
+| `go mod verify` | 0 | All modules verified |
+| `go test -fuzz=FuzzRecordRoundTrip -fuzztime=20s -parallel=2 ./internal/local` | 0 | 127,379 executions; no failure |
+| `go run ./scripts/check-project-domain.go` | 0 | Seven domain source/test files passed |
+| `bash scripts/test-check-project-domain.sh` | 0 | Pure fixture accepted, seven forbidden fixtures rejected |
+| `go run ./scripts/check-projectapp.go` | 0 | Seven application source/test files passed |
+| `bash scripts/test-check-projectapp.sh` | 0 | Inward fixture accepted, eleven forbidden fixtures rejected |
+| `./scripts/validate-repository.sh .` | 0 | Harness/package validation, both Bash regression suites, sensitive-file and whitespace checks passed |
+| `./scripts/check-sensitive-files.sh .` | 0 | Worktree passed |
+| `./scripts/check-sensitive-files.sh --staged .` | 0 | Staged content passed |
+| `git diff --check`; `git diff --cached --check` | 0 | Passed |
+| Individual `bash -n` for `scripts/*.sh` | 0 | All root shell scripts passed syntax checks |
+| Temporary Python documentation/boundary check | 0 | 27 local link targets and fences checked; original Evidence suffix preserved byte-for-byte; Specification/Clarifications/Plan/Tasks/ADR-0004, project/projectapp/manifest and dependency files unchanged from review head |
+
+Diff/security review: seven changed files, production changes confined to
+`internal/local/validation.go`; regressions plus Evidence, README gate and changelog.
+No filesystem API, new port, dependency or T05+ responsibility introduced.
+`docs/commands.md` already documents the executed validation commands; stack,
+run/test instructions and directory layout remain current. Optional scanners were
+looked up with Python `shutil.which`; all five named below were absent.
+
+Remaining limits: no proof of filesystem existence, canonicality, confinement,
+symlinks/TOCTOU, ownership, permissions/ACLs, atomic writes or CAS enforcement.
+Linux execution remains unverified; tests run on macOS. Finite fuzzing/coverage
+cannot prove correctness or absence of secrets. `gitleaks`, `markdownlint`,
+`markdownlint-cli2`, `lychee` and `shellcheck` are unavailable; their dedicated
+coverage is unverified. Existing reference validation, closed schema and no-effects
+boundary remain intact; arbitrary valid path text is not a secret-scanning guarantee.
+
 ## Authority, baseline and delivery — 2026-09-16
 
 - Explicit human authorization covers **T04 only**. Source authority:

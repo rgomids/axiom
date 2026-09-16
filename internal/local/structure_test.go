@@ -87,7 +87,7 @@ func TestMetadataValidationAndSourceKinds(t *testing.T) {
 		func(s *local.RecordState) { s.Credentials = append(s.Credentials, s.Credentials[0]) },
 		func(s *local.RecordState) { s.Repositories[0].Observation.Availability = 99 },
 		func(s *local.RecordState) { s.Repositories[0].Observation.Basis = 99 },
-		func(s *local.RecordState) { s.Runtime.ExplicitPath = "relative" },
+		func(s *local.RecordState) { s.Runtime.ExplicitPath = "/synthetic/\x00runtime" },
 		func(s *local.RecordState) { s.Attempt.Correlation = "token:synthetic" },
 		func(s *local.RecordState) { s.Attempt.At = time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC) },
 	}
