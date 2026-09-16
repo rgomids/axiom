@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+  "projectId": "123e4567-e89b-42d3-a456-426614174000",
+  "observedSlug": "demo",
+  "sourceLocation": "/synthetic/projects/demo",
+  "portableRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "localRevision": "revision-1",
+  "artifactDigests": [
+    {
+      "name": "axiom.yaml",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "name": "context/readme.md",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "repositories": [
+    {
+      "repositoryKey": "api",
+      "explicitPath": "/synthetic/checkouts/api",
+      "canonicalIdentity": "checkout-1",
+      "observation": {
+        "availability": "unverified",
+        "basis": "not_checked",
+        "observedAt": "2026-09-16T12:00:00Z"
+      }
+    }
+  ],
+  "credentials": [
+    {
+      "referenceKey": "auth",
+      "sourceKind": "environment",
+      "itemReference": "EXAMPLE_REF"
+    }
+  ],
+  "runtime": {
+    "runtimeId": "example-runtime",
+    "explicitPath": "/synthetic/bin/runtime",
+    "observation": {
+      "availability": "unverified",
+      "basis": "not_checked",
+      "observedAt": "2026-09-16T12:00:00Z"
+    }
+  },
+  "attempt": {
+    "correlation": "attempt-1",
+    "at": "2026-09-16T12:00:00Z"
+  }
+}

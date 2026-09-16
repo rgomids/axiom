@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "projectId": "123e4567-e89b-42d3-a456-426614174000",
+  "observedSlug": "demo",
+  "sourceLocation": "/synthetic/projects/demo",
+  "portableRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "localRevision": "revision-1",
+  "artifactDigests": [
+    {
+      "name": "axiom.yaml",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "repositories": [],
+  "credentials": []
+}
