@@ -1,6 +1,23 @@
 # Clarifications — Lingo Project Initialization
 
-## T03 implementation authorization and review gate — 2026-09-15
+## T04 implementation authorization and review gate — 2026-09-16
+
+**Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T04 only).**
+
+Human authorization covers only **T04 — Strict local installation record codec**.
+[PR #8](https://github.com/rgomids/axiom/pull/8) merged T03 into `main` on
+2026-09-16 at 15:00:21 UTC. Verified baseline:
+`1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`.
+[T04 Evidence](evidence-t04.md) records implementation SHA, closed local format,
+codec/static-boundary checks and unproven filesystem properties.
+
+**T01: Accepted / merged. T02: Accepted / merged. T03: Accepted / merged.
+T04: Ready for human implementation review. T05–T21: Not started.**
+T04 merge grants no T05 authority. No self-approval or merge is authorized.
+Approved contract bodies, Task definitions and ADRs remain unchanged. Earlier
+entries below preserve history and are superseded only as lifecycle status.
+
+## Historical T03 implementation authorization and review gate — 2026-09-15
 
 **Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T03 only).**
 

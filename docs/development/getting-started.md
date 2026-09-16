@@ -19,10 +19,10 @@ O repositório remoto usa SSH. Não mova, apague ou sobrescreva outro diretório
 - GitHub CLI apenas para administração do repositório remoto.
 
 Specification 002 entrega domínio (T01), contratos de aplicação (T02) e codec
-portátil (T03). Go 1.26 é requisito; T03 depende de `go.yaml.in/yaml/v3@v3.0.5`.
-Consulte [preparação do cache e validação offline](../commands.md#t01t03-validation)
-e [Evidence T03](../specifications/002-lingo-project-initialization/evidence-t03.md).
-Ainda não existe CLI Lingo, persistência ou instalação. T04–T21 não iniciadas.
+portátil (T03) e codec local JSON (T04). Go 1.26 é requisito; T03 depende de `go.yaml.in/yaml/v3@v3.0.5`.
+Consulte [preparação do cache e validação offline](../commands.md#t01t04-validation)
+e [Evidence T04](../specifications/002-lingo-project-initialization/evidence-t04.md).
+Ainda não existe CLI Lingo, persistência ou instalação. T04 aguarda human implementation review; T05–T21 não iniciadas.
 
 ## Validate the harness
 

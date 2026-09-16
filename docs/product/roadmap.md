@@ -84,7 +84,7 @@ and local installation. Original human approval was 2026-09-11. Subsequent PR #4
 Plan review on 2026-09-12 reopened location/minimum/update contracts through
 [H1–H8](../specifications/002-lingo-project-initialization/clarifications.md#subsequent-human-decisions--2026-09-12),
 preserving original Q1–Q6 history. [H9, confirmed 2026-09-14](../specifications/002-lingo-project-initialization/clarifications.md#latest-human-decision--2026-09-14), permits partial update intent with complete domain materialization/validation before persistence. H10 preserves logical atomicity without choosing persistence mechanisms; [H11](../specifications/002-lingo-project-initialization/clarifications.md#git-authority-approval--2026-09-14) approves Git Authority. Current [Plan](../specifications/002-lingo-project-initialization/plan.md)
-is reconciled against that revised Specification; T01 delivers the pure Project domain; T02 delivers application boundary contracts; T03 delivers the strict portable manifest codec.
+is reconciled against that revised Specification; T01 delivers the pure Project domain; T02 delivers application boundary contracts; T03 delivers the strict portable manifest codec; T04 delivers the strict local JSON record codec.
 
 Extended [ADR-0004](../decisions/0004-portable-project-manifest.md) records canonical
 ID versus slug/name, portable working copy distinct from ID-addressed local state,
@@ -95,7 +95,8 @@ side effect. Backing Git is not automatically a Repository association. Internal
 retain their intent distinctions.
 
 PR #4 approved and merged on 2026-09-14. **Plan: Approved.**
-[Tasks](../specifications/002-lingo-project-initialization/tasks.md): **Approved** after PR #5 merge.
-**Implementation: Authorized (T03 only). T01 and T02: Accepted / merged**, PRs #6/#7.
-[T03 Evidence](../specifications/002-lingo-project-initialization/evidence-t03.md):
-**Ready for human implementation review. T04–T21: Not started.** T03 merge does not authorize T04.
+[Tasks](../specifications/002-lingo-project-initialization/tasks.md): **Approved**.
+**Implementation: Authorized (T04 only). T01, T02 and T03: Accepted / merged**,
+PRs #6/#7/#8. [T04 Evidence](../specifications/002-lingo-project-initialization/evidence-t04.md):
+**Ready for human implementation review. T05–T21: Not started.**
+T04 merge does not authorize T05. No CLI, persistence or runtime execution is delivered.

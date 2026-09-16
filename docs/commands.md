@@ -6,9 +6,11 @@ Execute estes comandos na raiz de `/Users/rgomids/Projects/axiom`.
 
 Não há aplicação ou CLI para executar neste bootstrap. Nenhum comando futuro do Axiom é definido aqui.
 
-## T01–T03 validation
+<a id="t01t03-validation"></a>
 
-Go 1.26 instalado. T01/T02 usam biblioteca padrão; T03 usa o parser fixado em
+## T01–T04 validation
+
+Go 1.26 instalado. T01/T02/T04 usam biblioteca padrão; T03 usa o parser fixado em
 `go.mod`/`go.sum`. Em cache novo, preparação explícita com rede:
 
 ```bash
@@ -24,6 +26,7 @@ go test -race -shuffle=on -count=10 ./...
 go vet ./...
 go build ./...
 go mod verify
+go test -fuzz=FuzzRecordRoundTrip -fuzztime=20s -parallel=2 ./internal/local
 go test -fuzz=FuzzDecodeSafeRoundTrip -fuzztime=30s -parallel=2 ./internal/manifest
 go test -run '^$' -bench=BenchmarkHostileBounds -benchtime=1x -benchmem ./internal/manifest
 go run ./scripts/check-project-domain.go
@@ -41,7 +44,11 @@ bloqueia imports externos à fronteira e I/O ambiente, inclusive nos testes.
 Spies/barreiras em memória provam contratos; não provam protocolo de filesystem.
 [T03 Evidence](specifications/002-lingo-project-initialization/evidence-t03.md) detalha
 parser, schema, limites, security policy v1 e cobertura. Teste AST do codec verifica
-imports de produção; fixtures são sintéticas. Não há CLI, persistência ou instalação.
+imports de produção; fixtures são sintéticas.
+[T04 Evidence](specifications/002-lingo-project-initialization/evidence-t04.md) registra
+JSON estrito, metadados locais, ausência versus corrupção e testes de fronteira.
+`go test ./internal/local` inclui matrizes, round-trips, inspeção estática do DTO/imports
+e integração com fake do port T02. Não há CLI, persistência ou instalação.
 
 ## Harness validation
 

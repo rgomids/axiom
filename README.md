@@ -2,7 +2,7 @@
 
 Axiom é uma plataforma, domínio e conjunto de contratos para governar o ciclo de desenvolvimento de software assistido por IA. Seu objetivo é preservar coerência entre intenção de produto, specifications, arquitetura, ADRs, tarefas, múltiplos repositórios, implementação, validação, documentação, release e evidências operacionais.
 
-O repositório começa com um harness Codex para exercitar esses fluxos antes de automatizá-los. T01 da Specification 002 entrega domínio puro em Go; T02 acrescenta contratos de aplicação, authority e outcomes; T03 entrega codec estrito do manifesto portátil em `internal/manifest/`, com testes. A CLI ainda não existe; não há framework, banco ou infraestrutura.
+O repositório começa com um harness Codex para exercitar esses fluxos antes de automatizá-los. T01 da Specification 002 entrega domínio puro em Go; T02 acrescenta contratos de aplicação, authority e outcomes; T03 entrega codec estrito do manifesto portátil em `internal/manifest/`; T04 acrescenta codec JSON estrito do registro local em `internal/local/`, com testes. A CLI ainda não existe; não há framework, banco ou infraestrutura.
 
 ## Current state
 
@@ -13,9 +13,9 @@ O repositório começa com um harness Codex para exercitar esses fluxos antes de
 - harness SDD, domínio e lifecycle próprios definidos como direção aceita, com Spec-Kit somente como referência upstream estratégica;
 - Lingo aceito como Control Plane local executável na ADR-0003; domínio puro em `internal/project/` e ports pertencentes à aplicação em `internal/projectapp/`;
 - Project configuration, runtime/model portability, capability negotiation e orquestração multi-agent registrados como direção para futuras Specifications;
-- [Specification 002 — Lingo Project Initialization](docs/specifications/002-lingo-project-initialization/spec.md) originalmente aprovada em 2026-09-11; reaberta/reconciliada por decisões humanas posteriores de 2026-09-12 sobre localização, id/slug/name, init mínimo, update explícito e Git backing/sync opcional. [Clarifications](docs/specifications/002-lingo-project-initialization/clarifications.md) preservam histórico Q1–Q6 e registram H1–H11: modelo do Project, init/update, atomicidade lógica e fronteira Git Authority aprovados; mecanismos de persistência e design Git permanecem futuros, sujeitos a Evidence; [Plan](docs/specifications/002-lingo-project-initialization/plan.md): **Approved**, PR #4 aprovado e mergeado em 2026-09-14. [Tasks](docs/specifications/002-lingo-project-initialization/tasks.md): **Approved** após PR #5 mergeado. **Implementation: Authorized (T03 only)**; **T01 e T02: Accepted / merged**, PRs #6/#7. [T03 e Evidence](docs/specifications/002-lingo-project-initialization/evidence-t03.md): **Ready for human implementation review**. **T04–T21: Not started**; merge de T03 não autoriza T04;
+- [Specification 002 — Lingo Project Initialization](docs/specifications/002-lingo-project-initialization/spec.md) originalmente aprovada em 2026-09-11; reaberta/reconciliada por decisões humanas posteriores de 2026-09-12 sobre localização, id/slug/name, init mínimo, update explícito e Git backing/sync opcional. [Clarifications](docs/specifications/002-lingo-project-initialization/clarifications.md) preservam histórico Q1–Q6 e registram H1–H11: modelo do Project, init/update, atomicidade lógica e fronteira Git Authority aprovados; mecanismos de persistência e design Git permanecem futuros, sujeitos a Evidence; [Plan](docs/specifications/002-lingo-project-initialization/plan.md): **Approved**, PR #4 aprovado e mergeado em 2026-09-14. [Tasks](docs/specifications/002-lingo-project-initialization/tasks.md): **Approved** após PR #5 mergeado. **Implementation: Authorized (T04 only)**; **T01, T02 e T03: Accepted / merged**, PRs #6/#7/#8. [T04 e Evidence](docs/specifications/002-lingo-project-initialization/evidence-t04.md): **Ready for human implementation review**. **T05–T21: Not started**; merge de T04 não autoriza T05;
 - [ADR-0004 — Portable Project Manifest](docs/decisions/0004-portable-project-manifest.md) Accepted: manifesto portátil/versionado do Project, working copy portátil separada do estado local por ID, evolução incremental e Git backing opcional; extensão aprovada nas decisões humanas posteriores, schema inicial detalhado no Plan;
-- nenhuma CLI ou runtime implantável; codec portátil disponível, adapters de filesystem ainda não implementados.
+- nenhuma CLI ou runtime implantável; codecs portátil e local disponíveis, adapters de filesystem ainda não implementados.
 
 ## Documentation
 
@@ -41,7 +41,7 @@ No diretório raiz:
 ./scripts/check-sensitive-files.sh .
 ```
 
-Para validar T01–T03 com Go 1.26 e `go.yaml.in/yaml/v3@v3.0.5` no cache, sem downloads durante os checks:
+Para validar T01–T04 com Go 1.26 e `go.yaml.in/yaml/v3@v3.0.5` no cache, sem downloads durante os checks:
 
 ```bash
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
@@ -70,6 +70,7 @@ docs/                 Durable project documentation
 internal/project/     Pure Go Project domain and behavior tests
 internal/projectapp/  Application ports, snapshots, authority, outcomes and contract tests
 internal/manifest/    Strict portable YAML codec, DTO mapping and contract tests
+internal/local/       Strict local JSON record codec and metadata boundary tests
 go.mod / go.sum       Go module and pinned YAML dependency checksums
 scripts/              Deterministic repository and domain-boundary checks
 experiments/          Temporary, reviewable research evidence
@@ -80,4 +81,4 @@ CHANGELOG.md           Relevant repository changes
 
 ## Stack
 
-Stack: Go 1.26; domínio e contratos de aplicação usam biblioteca padrão. Codec usa `go.yaml.in/yaml/v3` v3.0.5, validado por contract tests. Markdown, Bash, Git, GitHub e harness Codex permanecem. Sem serviços, jobs ou variáveis de ambiente de aplicação. Preparação do cache e checks: [comandos](docs/commands.md#t01t03-validation).
+Stack: Go 1.26; domínio e contratos de aplicação usam biblioteca padrão. Codec local usa biblioteca padrão; codec portátil usa `go.yaml.in/yaml/v3` v3.0.5, validado por contract tests. Markdown, Bash, Git, GitHub e harness Codex permanecem. Sem serviços, jobs ou variáveis de ambiente de aplicação. Preparação do cache e checks: [comandos](docs/commands.md#t01t04-validation).
