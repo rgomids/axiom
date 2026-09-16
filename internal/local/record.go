@@ -9,17 +9,18 @@ import (
 )
 
 // RecordState uses existing consumer-owned metadata contracts. SourceLocation is
-// data, never a Destination capability. LocalRevision is an opaque store-supplied
-// revision label; it is not the exact-byte CAS revision returned by the reader.
-// The codec neither allocates nor increments revisions.
+// data, never a Destination capability. PortableRevision records the independent
+// portable snapshot digest. The sole local revision is projectapp.LocalRevision,
+// derived from exact observed bytes and returned separately by the reader; it is
+// never stored inside the record.
 type RecordState struct {
-	ProjectID, ObservedSlug, SourceLocation, LocalRevision string
-	PortableRevision                                       projectapp.PortableRevision
-	ArtifactDigests                                        []projectapp.ArtifactDigest
-	Repositories                                           []projectapp.RepositoryBinding
-	Credentials                                            []projectapp.CredentialBinding
-	Runtime                                                projectapp.RuntimeBinding
-	Attempt                                                projectapp.AttemptMetadata
+	ProjectID, ObservedSlug, SourceLocation string
+	PortableRevision                        projectapp.PortableRevision
+	ArtifactDigests                         []projectapp.ArtifactDigest
+	Repositories                            []projectapp.RepositoryBinding
+	Credentials                             []projectapp.CredentialBinding
+	Runtime                                 projectapp.RuntimeBinding
+	Attempt                                 projectapp.AttemptMetadata
 }
 
 // Record is sealed after complete validation. Its zero value is unusable.

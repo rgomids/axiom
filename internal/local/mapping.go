@@ -9,7 +9,7 @@ import (
 
 func toDTO(s RecordState) recordDTO {
 	revision, _ := s.PortableRevision.Digest()
-	d := recordDTO{FormatVersion: 1, ProjectID: s.ProjectID, ObservedSlug: s.ObservedSlug, SourceLocation: s.SourceLocation, LocalRevision: s.LocalRevision, PortableRevision: hex.EncodeToString(revision[:]), ArtifactDigests: []digestDTO{}, Repositories: []repositoryDTO{}, Credentials: []credentialDTO{}}
+	d := recordDTO{FormatVersion: 1, ProjectID: s.ProjectID, ObservedSlug: s.ObservedSlug, SourceLocation: s.SourceLocation, PortableRevision: hex.EncodeToString(revision[:]), ArtifactDigests: []digestDTO{}, Repositories: []repositoryDTO{}, Credentials: []credentialDTO{}}
 	for _, a := range s.ArtifactDigests {
 		d.ArtifactDigests = append(d.ArtifactDigests, digestDTO{a.Name, hex.EncodeToString(a.Digest[:])})
 	}
@@ -88,7 +88,7 @@ func parseDigest(value string) ([32]byte, bool) {
 	return result, true
 }
 func fromDTO(d recordDTO) (RecordState, []Issue) {
-	s := RecordState{ProjectID: d.ProjectID, ObservedSlug: d.ObservedSlug, SourceLocation: d.SourceLocation, LocalRevision: d.LocalRevision, ArtifactDigests: []projectapp.ArtifactDigest{}, Repositories: []projectapp.RepositoryBinding{}, Credentials: []projectapp.CredentialBinding{}}
+	s := RecordState{ProjectID: d.ProjectID, ObservedSlug: d.ObservedSlug, SourceLocation: d.SourceLocation, ArtifactDigests: []projectapp.ArtifactDigest{}, Repositories: []projectapp.RepositoryBinding{}, Credentials: []projectapp.CredentialBinding{}}
 	revision, ok := parseDigest(d.PortableRevision)
 	if !ok {
 		return RecordState{}, problem("installation.portableRevision", "invalid_digest")

@@ -109,7 +109,7 @@ func TestLimitsAndUnicode(t *testing.T) {
 	assertCode(t, []byte(strings.Repeat("[", local.MaxRecordDepth+1)+strings.Repeat("]", local.MaxRecordDepth+1)), "depth_limit")
 	assertCode(t, []byte("["+strings.Repeat("0,", local.MaxRecordNodes)+"0]"), "node_limit")
 	for _, s := range []string{`"\ud800"`, `"\udc00"`, `"\ud800x"`} {
-		rejected(t, bytes.Replace(fixture(t, "minimal"), []byte(`"revision-1"`), []byte(s), 1))
+		rejected(t, bytes.Replace(fixture(t, "minimal"), []byte(`"/synthetic/projects/demo"`), []byte(s), 1))
 	}
 }
 
@@ -195,7 +195,6 @@ func TestAllReferenceSlotsRejectPayload(t *testing.T) {
 		t.Fatal(issues)
 	}
 	for _, mutate := range []func(*local.RecordState){
-		func(s *local.RecordState) { s.LocalRevision = "token:synthetic" },
 		func(s *local.RecordState) { s.Credentials[0].ReferenceKey = "token:synthetic" },
 		func(s *local.RecordState) { s.Credentials[0].SourceKind = "token:synthetic" },
 		func(s *local.RecordState) { s.Repositories[0].RepositoryKey = "token:synthetic" },
@@ -244,7 +243,7 @@ func TestByteBoundaryAndEncodeLimit(t *testing.T) {
 	}
 	assertCode(t, append(input, ' '), "byte_limit")
 	s := r.State()
-	s.LocalRevision = strings.Repeat("a", local.MaxRecordBytes)
+	s.SourceLocation = strings.Repeat("a", local.MaxRecordBytes)
 	r, issues = local.NewRecord(s)
 	if len(issues) > 0 {
 		t.Fatal(issues)

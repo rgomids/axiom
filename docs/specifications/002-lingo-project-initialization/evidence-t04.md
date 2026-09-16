@@ -1,5 +1,100 @@
 # T04 — Implementation Evidence
 
+## H12 / Option B implementation — 2026-09-16
+
+**Human revision decision resolved. T04: Ready for human re-review, not Accepted.
+T05–T21: Not started. No merge.**
+
+Authority: explicit human instruction to adopt **Option B — single revision model**,
+recorded as [H12](clarifications.md#single-local-revision-decision--2026-09-16).
+It authorizes removal of persisted `localRevision` from local v1 and reconciliation
+of Specification/Clarifications/Plan/Tasks/Evidence, while preserving T02 and
+prohibiting T05. This entry supersedes the pending decision and dual-revision
+interpretation in the dated sections below; their complete text is retained as
+historical Evidence, including the earlier alternatives and test results.
+
+Baseline: clean branch `codex/t04-local-installation-record-codec`, local/remote/PR
+head `05622fb022d27233ab4a7fd11927d164ab917d23`, verified after
+`git fetch --all --prune`. Main comparison baseline:
+`1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`. Only T04 code and affected
+contract/status/Evidence documents change in this response.
+
+### Current revision contract and delivered changes
+
+- Removed `RecordState.LocalRevision`, DTO `localRevision`, both mapping directions,
+  its validation and both fixture members. Local v1 accepts records without it and
+  rejects the removed member as `unknown_field` through the existing closed schema.
+  No replacement label, migration, compatibility fallback or overwrite was added.
+- `DecodeObservedRecord` still returns T02's `projectapp.LocalRevision` from
+  `ObserveLocalRevision(input)`: SHA-256 of exact observed bytes, including JSON
+  whitespace. It hashes no reconstructed/canonical form, excludes no field and
+  stores no hash inside its own input. Production implementation of that function
+  and all `internal/projectapp` source/tests remain unchanged.
+- `portableRevision` remains required independent metadata for the validated
+  portable snapshot. It survives local binding changes and round trips; it is not
+  the revision of `installation.json`.
+- Missing record still returns explicit `MissingLocalRevision`; invalid existing
+  records, including those with the removed member, return zero unusable Record
+  and invalid zero revision. Input bytes are preserved; no reusable binding escapes.
+- Existing path/identity corrections remain: arbitrary valid local path text is
+  metadata only; domain UUID/slug rules remain shared and codec issues use local
+  schema paths. Portable codec/domain, dependencies and ADR-0004 are unchanged.
+- Specification local-state contract, Plan §1/§3/§6 and Tasks T04/T07 now document
+  H12. T07 text clarifies future obligations only; no T07 implementation or new
+  authority. A future store must compare externally observed exact bytes under
+  protected commit semantics and preserve bytes on no-op, without allocating a
+  persisted revision. ADR-0004 already delegates internal record details to Plan,
+  so no architectural amendment is necessary.
+
+### Regression Evidence
+
+| Test / change | Observed behavior / traceability |
+|---|---|
+| `TestLocalRevisionDerivedOnlyFromObservedBytes` | Valid v1 without localRevision decodes; whitespace-only differences preserve all metadata but change local revision; encode omits the field; encoded bytes yield their own exact observation; changed checkout path changes local revision while preserving portableRevision. H12, T04, FR-014/016, AC-03/12 |
+| `TestPersistedLocalRevisionRejectedWithoutReuse` | Old field fails as unknown with safe stable diagnostics, no usable Record/revision/output and unchanged input. H12, T04, AC-06/07/12 |
+| `TestLocalReaderFailureNeverReusesBinding` | Controlled T02 LocalReader integration now also rejects old-field record before binding reuse. No actual filesystem reader/store claimed |
+| `TestRecordDTOClosedMetadataInventory` | Closed v1 inventory has no localRevision member; independent portableRevision retained |
+| Updated fixtures/security/resource tests | Minimal/configured fixtures omit removed field; Unicode and oversized-output tests now exercise sourceLocation; reference tests retain all remaining reference slots; missing/corrupt and previous path/identity regressions still pass |
+
+### Commands and results for H12
+
+macOS 26.6.2 (25G83), Darwin 25.6.0 arm64; Go 1.26.1 darwin/arm64.
+All Go commands used `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`.
+No dependency or tool installation.
+
+| Command / check | Exit | Result |
+|---|---|---|
+| `go test ./internal/local -run 'TestLocalRevisionDerivedOnlyFromObservedBytes\|TestPersistedLocalRevisionRejectedWithoutReuse\|TestRecordDTOClosedMetadataInventory'` before production edit | 1 | Expected red: old DTO inventory, missing-field requirement and reusable obsolete-field record |
+| `go test ./internal/local` after production edit | 0 | Passed |
+| `go test ./...` | 0 | All four packages passed |
+| `go test -cover ./...` | 0 | local 95.2%; manifest 96.0%; project 99.6%; projectapp 100.0% |
+| `go test -race ./...` | 0 | All four packages passed |
+| `go vet ./...` | 0 | Passed |
+| `go build ./...` | 0 | Package build passed; no CLI |
+| `go mod verify` | 0 | All modules verified |
+| `go test -fuzz=FuzzRecordRoundTrip -fuzztime=20s -parallel=2 ./internal/local` | 0 | 441,381 executions, no failure |
+| `go run ./scripts/check-project-domain.go` | 0 | Seven domain source/test files passed |
+| `bash scripts/test-check-project-domain.sh` | 0 | Pure fixture accepted; seven forbidden fixtures rejected |
+| `go run ./scripts/check-projectapp.go` | 0 | Seven application source/test files passed |
+| `bash scripts/test-check-projectapp.sh` | 0 | Inward fixture accepted; eleven forbidden fixtures rejected |
+
+### Limits and review recommendation
+
+H12 removes the revision decision blocker; no remaining blocking finding identified
+in this scoped self-review. Recommend **Ready for human re-review** on PR #9,
+not Accepted or merge. Approval of Option B does not approve the implementation.
+The proposed local v1 shape deliberately rejects earlier PR records with
+`localRevision`; no deployed compatibility or migration is claimed.
+
+Filesystem persistence, native roots, canonical resolution, symlink/confinement,
+TOCTOU, ownership/ACLs, atomicity, CAS enforcement and Linux execution remain
+unimplemented/unverified. Existing T02 content-revision semantics (including
+byte-equal ABA limits) are unchanged. Finite fuzzing and coverage prove neither
+correctness nor secret absence. Tool lookup (`shutil.which`) found `gitleaks`,
+`markdownlint`, `markdownlint-cli2`, `lychee` and `shellcheck` unavailable;
+dedicated scanning/lint coverage remains unverified. No T05–T21 responsibilities,
+new ports, frameworks or dependencies were introduced.
+
 ## Human review response — 2026-09-16
 
 **T04: Blocked on human decision. Not Accepted. T05–T21: Not started.**

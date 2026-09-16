@@ -24,9 +24,6 @@ func validateState(s RecordState) []Issue {
 	if !localLocation(s.SourceLocation) {
 		return problem("installation.sourceLocation", "invalid_location")
 	}
-	if !logicalReference(s.LocalRevision) {
-		return problem("installation.localRevision", "invalid_reference")
-	}
 	if _, ok := s.PortableRevision.Digest(); !ok {
 		return problem("installation.portableRevision", "invalid_revision")
 	}

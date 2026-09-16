@@ -60,7 +60,7 @@ func TestLocalProductionDependencyBoundary(t *testing.T) {
 // becomes representable, even if a behavioral fixture does not exercise it.
 func TestRecordDTOClosedMetadataInventory(t *testing.T) {
 	inventories := map[reflect.Type]string{
-		reflect.TypeFor[recordDTO]():      "formatVersion projectId observedSlug sourceLocation portableRevision localRevision artifactDigests repositories credentials runtime attempt",
+		reflect.TypeFor[recordDTO]():      "formatVersion projectId observedSlug sourceLocation portableRevision artifactDigests repositories credentials runtime attempt",
 		reflect.TypeFor[digestDTO]():      "name digest",
 		reflect.TypeFor[repositoryDTO]():  "repositoryKey explicitPath canonicalIdentity observation",
 		reflect.TypeFor[credentialDTO]():  "referenceKey sourceKind itemReference",

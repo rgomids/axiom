@@ -1,5 +1,18 @@
 # Specification 002 — Lingo Project Initialization
 
+## T04 single local revision reconciliation — 2026-09-16
+
+Human decision [H12](clarifications.md#single-local-revision-decision--2026-09-16) adopts **Option B — single revision model**:
+local format v1 contains no persisted `localRevision`. Existing
+`projectapp.LocalRevision`, derived from exact observed record bytes, remains the
+sole local-record revision; `portableRevision` remains independent portable
+snapshot metadata. T02 contracts are unchanged. The affected contract below is
+reconciled under this explicit authority; prior dated approvals remain history.
+
+**T04: Ready for human re-review, not Accepted. T05–T21: Not started.**
+Implementation and [Evidence](evidence-t04.md) remain limited to T04. No merge,
+filesystem persistence or advance to T05 is authorized.
+
 ## T04 implementation authorization and review gate — 2026-09-16
 
 **Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T04 only).**
@@ -188,6 +201,15 @@ Local records refer to Project ID and Repository keys and record which portable
 revision/content they validated. Same ID with changed portable content triggers
 revalidation; old availability observations cannot prove current readiness.
 The Project ID is a correlation key, not an aggregate or ownership decision.
+
+Under [H12](clarifications.md#single-local-revision-decision--2026-09-16), the sole
+local-record revision is `projectapp.LocalRevision`, derived from the exact
+observed bytes and supplied separately for expected-revision concurrency checks.
+It is not a field inside `installation.json`. Local format v1 rejects the removed
+`localRevision` member as unknown, without migration or fallback overwrite.
+`portableRevision` remains independent metadata identifying the validated portable
+snapshot; it is not the local-record revision. Missing and malformed records remain
+distinct. This preserves T02 and introduces no filesystem enforcement mechanism.
 
 The MVP uses one portable manifest, `axiom.yaml`, with explicit `schemaVersion`
 and strict parsing. Unknown core fields, duplicate fields and unsupported schema

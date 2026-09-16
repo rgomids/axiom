@@ -98,7 +98,6 @@ func TestStrictStructures(t *testing.T) {
 		{`"projectId": "123e4567-e89b-42d3-a456-426614174000"`, `"projectId": "bad"`},
 		{`"observedSlug": "demo"`, `"observedSlug": "../demo"`},
 		{`"sourceLocation": "/synthetic/projects/demo"`, `"sourceLocation": ""`},
-		{`"localRevision": "revision-1"`, `"localRevision": 1`},
 		{`"referenceKey": "auth"`, `"referenceKey": "auth", "referenceKey": "other"`},
 		{`"sourceKind": "environment"`, `"sourceKind": null`},
 		{`"itemReference": "EXAMPLE_REF"`, `"itemReference": {"value":"SYNTHETIC_REJECTED"}`},

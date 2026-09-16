@@ -45,7 +45,7 @@ func TestLocalReaderFailureNeverReusesBinding(t *testing.T) {
 		t.Fatal(issues)
 	}
 	good := fixture(t, "configured")
-	for _, data := range [][]byte{good, bytes.Replace(good, []byte(`"formatVersion": 1,`), nil, 1), bytes.Replace(good, []byte(`"formatVersion": 1`), []byte(`"formatVersion": 2`), 1), nil} {
+	for _, data := range [][]byte{good, bytes.Replace(good, []byte(`"formatVersion": 1`), []byte(`"formatVersion": 1, "localRevision": "revision-1"`), 1), bytes.Replace(good, []byte(`"formatVersion": 1,`), nil, 1), bytes.Replace(good, []byte(`"formatVersion": 1`), []byte(`"formatVersion": 2`), 1), nil} {
 		f := &recordReader{data: data, exists: true}
 		before := bytes.Clone(data)
 		got, revision, issues := f.ReadLocal(context.Background(), p)

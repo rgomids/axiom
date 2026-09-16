@@ -4,7 +4,6 @@
   "observedSlug": "demo",
   "sourceLocation": "/synthetic/projects/demo",
   "portableRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  "localRevision": "revision-1",
   "artifactDigests": [
     {
       "name": "axiom.yaml",

@@ -9,7 +9,6 @@ type recordDTO struct {
 	ObservedSlug     string          `json:"observedSlug"`
 	SourceLocation   string          `json:"sourceLocation"`
 	PortableRevision string          `json:"portableRevision"`
-	LocalRevision    string          `json:"localRevision"`
 	ArtifactDigests  []digestDTO     `json:"artifactDigests"`
 	Repositories     []repositoryDTO `json:"repositories"`
 	Credentials      []credentialDTO `json:"credentials"`
