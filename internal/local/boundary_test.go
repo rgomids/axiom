@@ -12,7 +12,7 @@ import (
 )
 
 func TestLocalProductionDependencyBoundary(t *testing.T) {
-	allowed := map[string]bool{"bytes": true, "encoding/json": true, "encoding/hex": true, "fmt": true, "io": true, "net/url": true, "path": true, "reflect": true, "slices": true, "strings": true, "time": true, "unicode": true, "unicode/utf8": true, "github.com/rgomids/axiom/internal/project": true, "github.com/rgomids/axiom/internal/projectapp": true}
+	allowed := map[string]bool{"bytes": true, "encoding/json": true, "encoding/hex": true, "fmt": true, "io": true, "net/url": true, "reflect": true, "slices": true, "strings": true, "time": true, "unicode": true, "unicode/utf8": true, "github.com/rgomids/axiom/internal/project": true, "github.com/rgomids/axiom/internal/projectapp": true}
 	entries, err := os.ReadDir(".")
 	if err != nil {
 		t.Fatal(err)

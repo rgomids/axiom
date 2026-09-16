@@ -1,5 +1,138 @@
 # T04 — Implementation Evidence
 
+## Artifact digest compatibility review response — 2026-09-16
+
+**T04: Ready for human re-review, not Accepted. T05–T21: Not started. No merge.**
+
+Authority: explicit instruction to resolve the latest PR #9 human re-review
+(2026-09-16 18:03:06 UTC, reviewed commit
+`82247b086b0c6e6d6dd382bee2dd4f4a20cf165e`): **Needs changes — 1 Major**,
+T04 rejecting document names accepted by the portable snapshot producer.
+`git fetch --all --prune` completed before changes; branch
+`codex/t04-local-installation-record-codec` was clean and matched remote/PR HEAD.
+Current main baseline is `1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`, already
+an ancestor of that HEAD. All prior Evidence below is preserved verbatim.
+
+### Finding, cause and correction
+
+`project.relativeDocument` validates domain document references; T03 decodes a
+strict manifest to that Project. T02 `ReadSnapshot` additionally validates supplied
+document names, rejects ambiguous/duplicate names and requires referenced documents.
+`ArtifactSnapshot.Digests()` emits `axiom.yaml` plus those exact document names.
+T04 instead used its own `artifactName`, including a `?#` ban and `cleanText`.
+Thus a valid producer snapshot could fail `local.NewRecord` as `invalid_artifact`.
+
+- Reuse the existing T02 predicate as `projectapp.ValidDocumentName`; its body and
+  `ReadSnapshot` behavior are unchanged. T01/domain and T03/manifest are unchanged.
+  This exposes existing validation for reuse, without changing accepted portable
+  values, snapshot completeness, digest computation, ports or revision semantics.
+- Delete T04's duplicate lexical grammar and its `path` dependency/allowlist entry.
+  Keep the manifest digest requirement, duplicate detection, UTF-8 representability
+  and existing wire resource limits. Metadata grants no filesystem authority.
+- The same comparison and red regression exposed another manifestation of this
+  finding: portable document names containing escaped tab/control characters or
+  literal U+FFFD are valid upstream, yet local `cleanText` rejected them. This was
+  reported before production changes. Artifact names now follow the existing T02
+  rules; local paths and logical references retain their existing text protections.
+- To preserve valid U+FFFD without accepting lossy Unicode repair, check JSON Unicode
+  escape code units before token decoding: reject isolated/reversed/mismatched
+  surrogates; accept valid pairs and genuine literal/escaped U+FFFD. Malformed UTF-8
+  remains rejected before JSON encoding/decoding. No replacement or normalization.
+  This bounded scan uses the existing input-byte limit and standard library only.
+
+Traversal, absolute/rooted references, backslashes, colon, interpolation markers,
+NUL/CR/LF, dot/empty components, duplicate names and reserved manifest-document
+collisions retain their existing responsible domain/snapshot checks. Local decoding
+reuses snapshot lexical validation; it does not establish physical containment.
+No approved contract or architectural decision required amendment.
+
+### Cross-contract comparison
+
+| Value | Producer / consumer comparison and outcome |
+|---|---|
+| `ArtifactDigest` | Only validated `ArtifactSnapshot.Digests()` is a sealed producer here. Exact names now share the T02 check; all 32 digest bytes survive hex serialization. Manifest digest and name uniqueness remain enforced. UTF-8/wire resource checks remain encoding constraints; arbitrary Go strings from unchecked proposals are not proof of valid portable text. |
+| `RepositoryBinding` | T02 declares metadata and copies proposals; no implemented validated checkout-binding producer exists. T04 retains key uniqueness, logical-reference and path-text checks; arbitrary local path spelling remains preserved. No additional validated-producer incompatibility found. |
+| `CredentialBinding` | T02 explicitly calls these untrusted strings requiring T04/T14 validation. Source/item/reference validation remains T04-owned; unsupported source kinds and unresolved source/item gaps still round-trip. No secret resolution. |
+| `RuntimeBinding` | T02 declares an observer port and metadata; no runtime execution or validated producer is implemented. T04 retains optional zero binding, required ID for configured binding, literal path metadata and enum/time checks. |
+| `Observation` | All three availability values and six basis values map both ways, including zero observation. Existing regression covers their Cartesian product. RFC3339Nano representability is a local wire check; T02 does not validate arbitrary `time.Time` proposals or observation truth. |
+| `AttemptMetadata` | T02 carries caller-supplied correlation/time, without an implemented validated attempt producer. T04 retains absent zero attempt, reference checks and representable timestamp validation. |
+| `PortableRevision` | Valid snapshot revisions expose the same 32 bytes required by T04; `RecordedPortableRevision` restores them exactly. Invalid/missing revisions remain invalid for an existing record, consistent with `NewLocalSnapshot`. |
+| Project ID / observed slug | `Project` uses `ValidateIdentity`; T04 invokes the same rules and remaps diagnostics only. Existing UUID/slug regressions remain green; the cross-package test derives both values from the decoded Project. |
+
+`NewLocalSnapshot` seals identity, source capability and present portable revision;
+it does **not** certify all proposal metadata. Its contract explicitly assigns safe
+metadata/wire validation to T04. No further incompatibility involving a validated
+producer was established. No binding/reference/time contract was changed.
+
+### Regression Evidence
+
+- `TestPortableArtifactDigestRecordRoundTrip`: real `manifest.Decode` → valid
+  Project → `ReadSnapshot(manifest.Codec{}, ...)` → `Digests()` → `NewRecord` →
+  `EncodeRecord` → `DecodeRecord`. Separate cases include
+  `context/api#legacy.md`, `context/api?legacy.md`, percent spelling, spaces,
+  composed/decomposed Unicode, escaped tab/control and literal U+FFFD. A policy
+  document also crosses the composition. Checks exact names, independently
+  calculated SHA-256 content digests, Project equivalence, complete local metadata,
+  portable revision and stable repeated encoding.
+- `TestInvalidPortableDocumentNamesNeverProduceDigests`: invalid references fail
+  domain construction, real manifest decoding and snapshot construction; no digests
+  escape. This proves rejection remains at the portable boundary.
+- `TestArtifactNamesKeepSnapshotBoundaryProtections`: rejects invalid extra
+  documents in T02 and matching invalid/duplicate local digests through constructor
+  and decoder, including dot/empty path components and reserved `axiom.yaml`.
+- `TestArtifactNameUnicodeWirePreservation`: valid literal/escaped U+FFFD and
+  surrogate pairs preserve metadata; malformed pairs/escapes and invalid UTF-8 fail;
+  literal backslash-u text in local paths remains literal data.
+- Existing path/identity, payload rejection, duplicate/closed-schema, observation,
+  missing/corrupt, H12 exact-byte revision and obsolete-field regressions retained.
+
+### Commands and results
+
+Platform: macOS 26.6.2 arm64; Go 1.26.1 darwin/arm64.
+All Go commands used `export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`.
+No dependency or tool installation.
+
+| Command / check | Exit | Result |
+|---|---|---|
+| `git fetch --all --prune`; branch/status/HEAD/main and PR/reviews inspection | 0 | Correct clean branch, current main ancestry and latest human review verified |
+| `go test ./internal/local -run 'TestPortableArtifactDigestRecordRoundTrip\|TestInvalidPortableDocumentNamesNeverProduceDigests\|TestArtifactNamesKeepSnapshotBoundaryProtections'` before production edit | 1 | Expected red for `#`, `?`, tab and U+FFFD at `invalid_artifact`. Initial extra raw DEL fixture failed YAML decoding and was removed from positive cases; it was not evidence of a valid producer value. |
+| `go test ./internal/local` after edits | 0 | All local tests passed |
+| `go test ./...` | 0 | All four packages passed |
+| `go test -cover ./...` | 0 | local 95.5%; manifest 96.0%; project 99.6%; projectapp 100.0% |
+| `go test -race ./...` | 0 | All four packages passed |
+| `go vet ./...` | 0 | Passed |
+| `go build ./...` | 0 | Package build passed; no CLI |
+| `go mod verify` | 0 | All modules verified |
+| `go run ./scripts/check-project-domain.go` | 0 | Seven domain source/test files passed |
+| `bash scripts/test-check-project-domain.sh` | 0 | Pure fixture accepted; seven forbidden fixtures rejected |
+| `go run ./scripts/check-projectapp.go` | 0 | Seven application source/test files passed |
+| `bash scripts/test-check-projectapp.sh` | 0 | Inward fixture accepted; eleven forbidden fixtures rejected |
+| `go test -fuzz=FuzzRecordRoundTrip -fuzztime=20s -parallel=2 ./internal/local` | 0 | 505,849 executions; no failure |
+| `./scripts/validate-repository.sh .` | 0 | Harness/package and Bash suites, sensitive-file and whitespace checks passed |
+| `./scripts/check-sensitive-files.sh .` | 0 | Worktree passed |
+| `git diff --check` | 0 | Passed |
+| Individual `bash -n` for `scripts/*.sh` | 0 | Passed |
+| `git diff --cached --name-status`; `git diff --cached`; `git diff --cached --check`; `./scripts/check-sensitive-files.sh --staged .` | 0 | Seven scoped paths/content reviewed; staged whitespace and sensitive-file checks passed |
+| Temporary Python history/contract/document check | 0 | Prior Evidence preserved verbatim; T02 predicate body identical; domain, portable codec, other application contracts, approved artifacts, ADRs and dependencies unchanged; seven local documentation links and fences checked |
+
+### Scope, limits and review recommendation
+
+Reviewed producer/consumer code, new public-boundary regressions and incremental
+diff against the previous PR HEAD and current main. README and `docs/commands.md`
+already document unchanged run/test/stack commands. Specification, Clarifications,
+Plan, Tasks, ADRs and dependencies need no update for this compatibility fix.
+
+No remaining blocking finding identified in scoped self-review. **Ready for human
+re-review** on PR #9; no self-approval or merge. H12 remains intact. T05–T21,
+filesystem persistence, root discovery, symlink/confinement/TOCTOU, physical CAS,
+atomic writes, CLI, migration and Runtime/Provider/network execution are excluded.
+
+Linux and physical filesystem behavior remain unverified. Finite fuzzing/coverage
+cannot prove correctness or absence of secrets. Tool lookup (`shutil.which`)
+confirmed `gitleaks`, `markdownlint`, `markdownlint-cli2`, `lychee` and `shellcheck`
+unavailable; dedicated scanner/linter coverage is not claimed. All mandatory
+commands ran; no required validation was skipped.
+
 ## H12 / Option B implementation — 2026-09-16
 
 **Human revision decision resolved. T04: Ready for human re-review, not Accepted.

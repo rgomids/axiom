@@ -2,6 +2,8 @@
 
 ## [2026-09-16]
 
+- fix: resolve PR #9 ArtifactDigest.Name compatibility finding: T04 reuses the unchanged T02 document-name predicate, preserves valid names including #, ?, controls and literal U+FFFD without normalization, and rejects malformed Unicode without repair. Add real manifest/Project/snapshot/digest/local-record round-trip and negative boundary regressions; preserve portable protections, H12 and all prior Evidence. No T05+ work.
+
 - fix: apply human-approved H12 / Option B within T04: remove persisted localRevision from local format v1, retain unchanged T02 exact-byte LocalRevision and independent portableRevision metadata. Update closed DTO, mapping, fixtures and regressions; reject obsolete field without migration or reuse.
 - docs: reconcile Specification/Clarifications/Plan/Tasks and T04 Evidence with explicit human authority; preserve earlier decisions and Evidence. T04 Ready for human re-review, not Accepted; T05–T21 remain unstarted.
 - fix: address PR #9 human review within T04: preserve arbitrary local path text without filesystem policy; map domain identity diagnostics to local schema fields. Add public codec regressions; retain invalid-text rejection and shared domain rules.

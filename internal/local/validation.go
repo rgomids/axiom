@@ -3,7 +3,6 @@ package local
 import (
 	"fmt"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 	"unicode"
@@ -29,7 +28,8 @@ func validateState(s RecordState) []Issue {
 	}
 	names := map[string]bool{}
 	for i, a := range s.ArtifactDigests {
-		if !artifactName(a.Name) || names[a.Name] {
+		// UTF-8 is required for lossless JSON; lexical names belong to T02.
+		if !utf8.ValidString(a.Name) || (a.Name != "axiom.yaml" && !projectapp.ValidDocumentName(a.Name)) || names[a.Name] {
 			return problem(fmt.Sprintf("installation.artifactDigests[%d]", i), "invalid_artifact")
 		}
 		names[a.Name] = true
@@ -85,20 +85,6 @@ func optionalLocation(s string) bool { return s == "" || localLocation(s) }
 // future adapters. Metacharacters are literal data and are never evaluated.
 func localLocation(s string) bool {
 	return s != "" && cleanText(s)
-}
-func artifactName(s string) bool {
-	if s == "axiom.yaml" {
-		return true
-	}
-	if s == "" || path.Clean(s) != s || strings.HasPrefix(s, "/") || strings.HasPrefix(s, "~") || strings.ContainsAny(s, "\\:$`?#") || !cleanText(s) {
-		return false
-	}
-	for _, part := range strings.Split(s, "/") {
-		if part == ".." || part == "." {
-			return false
-		}
-	}
-	return true
 }
 func optionalReference(s string) bool { return s == "" || logicalReference(s) }
 

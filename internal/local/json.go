@@ -2,6 +2,7 @@ package local
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,6 +25,9 @@ func parseRecord(input []byte) (any, []Issue) {
 	}
 	if !utf8.Valid(input) {
 		return nil, problem("installation", "invalid_utf8")
+	}
+	if !validUnicodeEscapes(input) {
+		return nil, problem("installation", "invalid_unicode")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(input))
 	decoder.UseNumber()
@@ -55,10 +59,48 @@ func readValue(d *json.Decoder, depth int, nodes *int) (any, []Issue) {
 	case json.Delim('['):
 		return readArray(d, depth, nodes)
 	}
-	if s, ok := token.(string); ok && strings.ContainsRune(s, '\ufffd') {
-		return nil, problem("installation", "invalid_unicode")
-	}
 	return token, nil
+}
+
+// Reject malformed surrogate escapes before encoding/json can replace them with
+// U+FFFD. A literal or explicitly escaped U+FFFD is valid document-name data;
+// metadata-specific text rules still apply to local paths and logical references.
+func validUnicodeEscapes(input []byte) bool {
+	for i := 0; i < len(input); i++ {
+		if input[i] != '\\' {
+			continue
+		}
+		i++ // Skip an escaped backslash rather than interpreting its following text.
+		if i >= len(input) || input[i] != 'u' {
+			continue
+		}
+		unit, ok := unicodeUnit(input[i+1:])
+		if !ok || (unit >= 0xdc00 && unit <= 0xdfff) {
+			return false
+		}
+		i += 4
+		if unit < 0xd800 || unit > 0xdbff {
+			continue
+		}
+		if len(input)-i < 7 || input[i+1] != '\\' || input[i+2] != 'u' {
+			return false
+		}
+		low, ok := unicodeUnit(input[i+3:])
+		if !ok || low < 0xdc00 || low > 0xdfff {
+			return false
+		}
+		i += 6
+	}
+	return true
+}
+
+func unicodeUnit(input []byte) (uint16, bool) {
+	if len(input) < 4 {
+		return 0, false
+	}
+	var unit [2]byte
+	_, err := hex.Decode(unit[:], input[:4])
+	return uint16(unit[0])<<8 | uint16(unit[1]), err == nil
 }
 func readObject(d *json.Decoder, depth int, nodes *int) (any, []Issue) {
 	result := map[string]any{}
