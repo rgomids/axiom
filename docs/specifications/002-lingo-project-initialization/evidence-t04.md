@@ -1,5 +1,128 @@
 # T04 — Implementation Evidence
 
+## Invalid UTF-8 producer review response — 2026-09-16
+
+**T04: Ready for human re-review, not Accepted. T05–T21: Not started. No merge.**
+
+Authority: explicit instruction to resolve only the latest human PR #9 finding,
+submitted by `rgomids` at `2026-09-16T18:30:43Z` against
+`97eda90b5d23a5c963eaea9b0eb0bdbf9b12a344`: **Needs changes — 1 Major**.
+Preflight ran `git fetch --all --prune`, `git status`, `git branch --show-current`,
+`git rev-parse HEAD` and `git rev-parse origin/main`. The worktree was clean on
+`codex/t04-local-installation-record-codec`; local, remote and PR HEAD matched the
+reviewed SHA, with no later commit. Main remained
+`1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`. PR reviews and comments confirmed
+the invalid-UTF-8 finding was the latest human review.
+
+**New implementation HEAD: `612637d6f940dac6485e5a2fcc9d900f18d506d2`.**
+This subsequent documentation commit records that tested implementation SHA;
+the final review HEAD is obtained with `git rev-parse HEAD` after this commit.
+All historical Evidence below is preserved verbatim. This section supersedes
+the earlier compatibility conclusion where it omitted malformed producer strings.
+
+### Root cause and minimal correction
+
+`ValidDocumentName` checked lexical syntax but not UTF-8 validity. A caller could
+pass `Document.Name` containing byte `0xff` alongside a valid manifest/Project;
+`ReadSnapshot` accepted it and `Digests()` emitted the exact invalid Go string.
+T04 correctly refused that metadata as `invalid_artifact`.
+
+The producer now requires `utf8.ValidString(name)` before accepting any document.
+Invalid bytes are rejected, never normalized or replaced. Byte `0xff` is invalid
+UTF-8; the real U+FFFD rune (`\ufffd`, UTF-8 bytes `ef bf bd`) is valid text and
+remains accepted. No U+FFFD blacklist was added to document/artifact names.
+
+Removing T04's `utf8.ValidString(a.Name)` would be incorrect: `encoding/json`
+can replace invalid bytes with U+FFFD, silently changing the metadata. That guard,
+strict JSON input checks and surrogate-escape validation remain unchanged. Manual
+invalid `RecordState` construction still fails, retaining defense in depth.
+
+Reviewed `internal/project/validation.go`: domain references have their existing
+portable lexical rules; the demonstrated escape is the supplied document boundary,
+including unreferenced documents. T02 checks every supplied name even with an
+injected codec, so no domain modification is needed to enforce this invariant.
+No filesystem rule, normalization or architectural contract was introduced.
+
+The application boundary checker initially rejected the new standard-library
+import. Its allowlist now permits only `unicode/utf8.ValidString`, a pure predicate
+with no I/O. Added fixtures accept that operation and reject an unreviewed symbol
+from the same package; existing dependency/effect restrictions remain intact.
+
+### Regression and cross-boundary review
+
+- `TestReadSnapshotRejectsInvalidUTF8DocumentName` directly tests T02 with its
+  existing pure codec/valid Project helper and the requested `context/` + `0xff`
+  + `.md` bytes. Requires issues, nil `Digests()` and predicate rejection.
+- `TestReadSnapshotRejectsInvalidUTF8BeforeLocalRecord` uses the real manifest
+  codec with a valid minimal manifest and the raw invalid document name. Requires
+  failure and nil metadata before any local-record construction; no serialization
+  can repair the test input first.
+- `TestReadSnapshotPreservesValidReplacementRune` explicitly accepts
+  `context/api\ufffdlegacy.md` and checks exact digest-name preservation in T02.
+- Existing `TestPortableArtifactDigestRecordRoundTrip` remains green for `#`, `?`,
+  valid U+FFFD, composed/decomposed Unicode and other valid names through
+  `manifest.Decode` → valid Project → `ReadSnapshot` → `Digests` → `NewRecord` →
+  `EncodeRecord` → `DecodeRecord`, checking exact metadata and stable encoding.
+- Existing `TestArtifactNameUnicodeWirePreservation` still rejects manual invalid
+  UTF-8 `RecordState` and malformed wire Unicode, while preserving genuine U+FFFD.
+
+Explicit review of the six requested boundaries confirms: `ValidDocumentName`
+requires valid UTF-8; `ReadSnapshot` validates every name before sealing a snapshot;
+`Digests` emits only the fixed UTF-8 manifest name and copied validated names, or
+nil for an invalid snapshot. `NewRecord` retains its UTF-8 guard and shared lexical
+predicate. `EncodeRecord` serializes a sealed record; `DecodeRecord` checks Unicode
+before decoding and revalidates metadata. Accepted names survive as exact Go strings.
+
+**Every ArtifactDigest.Name emitted by an ArtifactSnapshot validated by T02 is
+valid UTF-8 and representable losslessly by the T04 codec.** This is a name
+representation invariant; existing whole-record size/depth/node limits and other
+metadata validation remain in force.
+
+### Validation results
+
+Platform: macOS 26.6.2 (25G83), arm64; Go 1.26.1 darwin/arm64.
+All Go commands used `export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`.
+No dependencies or tools installed.
+
+| Command / check | Exit | Result |
+|---|---|---|
+| Targeted new producer and real-codec regressions before fix | 1 | Expected red: invalid names accepted and reusable digests emitted; U+FFFD/#/? positives passed |
+| `go test ./internal/projectapp` | 0 | Passed after producer fix |
+| `go test ./internal/local` | 0 | Passed, including composition and manual-invalid-state defense |
+| `go test ./...` | 0 | All four packages passed |
+| `go test -cover ./...` | 0 | local 95.5%; manifest 96.0%; project 99.6%; projectapp 100.0% |
+| `go test -race ./...` | 0 | All four packages passed |
+| `go vet ./...` | 0 | Passed |
+| `go build ./...` | 0 | Passed |
+| `go mod verify` | 0 | All modules verified |
+| `go run ./scripts/check-project-domain.go` | 0 | Seven domain source/test files passed |
+| `bash scripts/test-check-project-domain.sh` | 0 | Pure fixture accepted; seven forbidden fixtures rejected |
+| `go run ./scripts/check-projectapp.go` | 0 | Seven application source/test files passed after narrow allowlist update |
+| `bash scripts/test-check-projectapp.sh` | 0 | Two positive fixtures and twelve negative fixtures passed; new positive fixture was red before allowlist update |
+| `go test -fuzz=FuzzRecordRoundTrip -fuzztime=20s -parallel=2 ./internal/local` | 0 | 467,168 executions; no failure |
+| Projectapp fuzz inventory | — | No existing fuzz target in `internal/projectapp`; none skipped |
+| `./scripts/validate-repository.sh .` | 0 | Repository/harness and Bash regression checks passed |
+| `./scripts/check-sensitive-files.sh .` | 0 | Worktree passed |
+| `git diff --check` | 0 | Passed |
+| `bash -n scripts/test-check-projectapp.sh` | 0 | Changed shell script syntax passed |
+| Staged paths/content review, `git diff --cached --check`, `./scripts/check-sensitive-files.sh --staged .` | 0 | Scoped implementation commit reviewed and passed |
+
+### Scope and review status
+
+Production change is confined to `internal/projectapp/snapshot.go`; other changes
+are regressions, the narrow checker allowance/fixtures, CHANGELOG and this Evidence.
+README and `docs/commands.md` already describe the unchanged stack and commands.
+Specification, Plan, Tasks, Clarifications, ADRs, H12, local codec production files,
+domain, portable codec, revision calculations and dependencies are unchanged.
+No T05–T21, persistence, discovery, physical path checks, symlink/confinement/TOCTOU,
+CAS, atomic writes, migration, CLI or Runtime/Provider/network execution added.
+
+No blocking finding identified in scoped self-review. Ready for human re-review
+on PR #9, without self-approval or merge. Linux/filesystem behavior is unverified.
+Tool lookup confirmed `gitleaks`, `markdownlint`, `markdownlint-cli2`, `lychee` and
+`shellcheck` unavailable; their dedicated coverage is not claimed. All mandatory
+checks passed. Finite fuzzing and coverage do not prove universal correctness.
+
 ## Artifact digest compatibility review response — 2026-09-16
 
 **T04: Ready for human re-review, not Accepted. T05–T21: Not started. No merge.**
