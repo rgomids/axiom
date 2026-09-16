@@ -1,0 +1,46 @@
+schemaVersion: 1
+project:
+  id: 12345678-1234-4abc-8def-123456789abc
+  slug: sample
+  name: Sample
+repositories:
+  - key: api
+    remote: https://example.com/Org/API.git
+  - key: local
+  - key: web
+    remote: git@other.example:Team/Web.git
+runtime:
+  id: opaque-runtime
+providers:
+  - key: other
+    id: unconfigured
+  - key: work
+    id: Opaque/Provider
+integrations:
+  - key: issues
+    providerRef: work
+    capabilities:
+      - read-work
+      - write-work
+    transport:
+      id: opaque-transport
+      reference: logical-binding
+    credentialRef: work-ref
+  - key: request-only
+modelProfiles:
+  - key: draft
+    runtimeRef: opaque-runtime
+    model: Opaque/Model
+  - key: later
+    state: unconfigured
+businessContext:
+  text: 'Propósito: ${SYNTHETIC_NAME} is data.'
+  documents:
+    - context/purpose.md
+    - context/glossary.md
+credentialReferences:
+  - key: other-ref
+  - key: work-ref
+    sourceHint: environment
+policies:
+  - policies/review.md

@@ -18,7 +18,11 @@ O repositório remoto usa SSH. Não mova, apague ou sobrescreva outro diretório
 - Codex para operar o harness de agentes;
 - GitHub CLI apenas para administração do repositório remoto.
 
-T01 da Specification 002 entrega domínio puro em Go. Go 1.26 é requisito para seus testes e build; biblioteca padrão somente, sem instalação de dependências externas. Ainda não existe CLI Lingo. Consulte [comandos de domínio](../commands.md#t01-domain-validation) e [Evidence T01](../specifications/002-lingo-project-initialization/evidence-t01.md).
+Specification 002 entrega domínio (T01), contratos de aplicação (T02) e codec
+portátil (T03). Go 1.26 é requisito; T03 depende de `go.yaml.in/yaml/v3@v3.0.5`.
+Consulte [preparação do cache e validação offline](../commands.md#t01t03-validation)
+e [Evidence T03](../specifications/002-lingo-project-initialization/evidence-t03.md).
+Ainda não existe CLI Lingo, persistência ou instalação. T04–T21 não iniciadas.
 
 ## Validate the harness
 
