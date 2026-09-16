@@ -19,6 +19,9 @@ head `05622fb022d27233ab4a7fd11927d164ab917d23`, verified after
 `1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`. Only T04 code and affected
 contract/status/Evidence documents change in this response.
 
+**H12 implementation SHA: `a8a8ea28fdc373819d42ad1f0a2fbbec42a98573`.**
+This subsequent documentation commit records final hygiene results and that SHA.
+
 ### Current revision contract and delivered changes
 
 - Removed `RecordState.LocalRevision`, DTO `localRevision`, both mapping directions,
@@ -77,6 +80,16 @@ No dependency or tool installation.
 | `bash scripts/test-check-project-domain.sh` | 0 | Pure fixture accepted; seven forbidden fixtures rejected |
 | `go run ./scripts/check-projectapp.go` | 0 | Seven application source/test files passed |
 | `bash scripts/test-check-projectapp.sh` | 0 | Inward fixture accepted; eleven forbidden fixtures rejected |
+| `./scripts/validate-repository.sh .` | 0 | Harness/package validation, both Bash regression suites, worktree sensitive-file and whitespace checks passed |
+| `./scripts/check-sensitive-files.sh .` | 0 | Worktree passed |
+| `./scripts/check-sensitive-files.sh --staged .` | 0 | Staged content passed |
+| `git diff --check`; `git diff --cached --check` | 0 | Passed |
+| Individual `bash -n` for `scripts/*.sh` | 0 | Passed |
+| Temporary Python document/boundary check | 0 | 107 local link targets, H12 anchors and fences checked; all prior T04 Evidence and clarification history preserved; T01/T02/T03, ADRs and dependency files unchanged from baseline |
+
+Reviewed staged paths/content and scoped diff against the previous PR head and
+`main`. `docs/commands.md` already contains the required commands; run/test/stack
+instructions need no operational change. README records the resolved H12 gate.
 
 ### Limits and review recommendation
 
