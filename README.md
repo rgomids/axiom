@@ -1,84 +1,144 @@
 # Axiom
 
-Axiom é uma plataforma, domínio e conjunto de contratos para governar o ciclo de desenvolvimento de software assistido por IA. Seu objetivo é preservar coerência entre intenção de produto, specifications, arquitetura, ADRs, tarefas, múltiplos repositórios, implementação, validação, documentação, release e evidências operacionais.
+**Keep intent, decisions, code, and evidence connected.**
 
-O repositório começa com um harness Codex para exercitar esses fluxos antes de automatizá-los. T01 da Specification 002 entrega domínio puro em Go; T02 acrescenta contratos de aplicação, authority e outcomes; T03 entrega codec estrito do manifesto portátil em `internal/manifest/`; T04 acrescenta codec JSON estrito do registro local em `internal/local/`, com testes. A CLI ainda não existe; não há framework, banco ou infraestrutura.
+Axiom is being built to connect software intent, architecture, implementation, and validation across human and AI work.
 
-## Current state
+**Early development.** Explore the Codex harness and tested Go foundations today. Lingo, the planned local CLI, is not yet available.
 
-- harness Codex operacional em `.agents/`;
-- contexto de produto, arquitetura e pesquisa separado de decisões aprovadas;
-- documentação durável organizada em `docs/`;
-- validação local do pacote e de arquivos potencialmente sensíveis;
-- harness SDD, domínio e lifecycle próprios definidos como direção aceita, com Spec-Kit somente como referência upstream estratégica;
-- Lingo aceito como Control Plane local executável na ADR-0003; domínio puro em `internal/project/` e ports pertencentes à aplicação em `internal/projectapp/`;
-- Project configuration, runtime/model portability, capability negotiation e orquestração multi-agent registrados como direção para futuras Specifications;
-- [Specification 002 — Lingo Project Initialization](docs/specifications/002-lingo-project-initialization/spec.md) originalmente aprovada em 2026-09-11; reaberta/reconciliada por decisões humanas posteriores de 2026-09-12 sobre localização, id/slug/name, init mínimo, update explícito e Git backing/sync opcional. [Clarifications](docs/specifications/002-lingo-project-initialization/clarifications.md) preservam histórico Q1–Q6 e registram H1–H11: modelo do Project, init/update, atomicidade lógica e fronteira Git Authority aprovados; mecanismos de persistência e design Git permanecem futuros, sujeitos a Evidence; [Plan](docs/specifications/002-lingo-project-initialization/plan.md): **Approved**, PR #4 aprovado e mergeado em 2026-09-14. [Tasks](docs/specifications/002-lingo-project-initialization/tasks.md): **Approved** após PR #5 mergeado. **Implementation: Authorized (T04 only)**; **T01, T02 e T03: Accepted / merged**, PRs #6/#7/#8. [T04 e Evidence](docs/specifications/002-lingo-project-initialization/evidence-t04.md): **Ready for human re-review** após decisão humana H12: revisão local única derivada dos bytes observados, sem campo persistido; contratos T02 preservados. **T05–T21: Not started**; merge de T04 não autoriza T05;
-- [ADR-0004 — Portable Project Manifest](docs/decisions/0004-portable-project-manifest.md) Accepted: manifesto portátil/versionado do Project, working copy portátil separada do estado local por ID, evolução incremental e Git backing opcional; extensão aprovada nas decisões humanas posteriores, schema inicial detalhado no Plan;
-- nenhuma CLI ou runtime implantável; codecs portátil e local disponíveis, adapters de filesystem ainda não implementados.
+[Explore Axiom](#explore-axiom) · [Architecture](docs/architecture/README.md) · [Specifications](docs/specifications/README.md) · [Documentation](#documentation)
+
+## What is Axiom?
+
+AI agents help write code, but its rationale often stays in prompts, chats, and disconnected documents. Each handoff risks losing what was intended, decided, or verified.
+
+Axiom aims to preserve those connections for developers and teams working across agents, repositories, and sessions.
+
+Technically, it defines the domain, policies, and workflows for a development control plane. This repository exercises that approach through a Codex harness and Go implementation.
+
+## Why Axiom?
+
+- **Intent gets lost.** Specifications record outcomes, constraints, and acceptance criteria before code.
+- **Context fragments.** A Project can relate independent repositories without treating any one repository as the whole project.
+- **Decisions drift from implementation.** Plans and architecture decisions provide durable references for humans and agents.
+- **Completion claims lack proof.** Validation and Evidence make results inspectable and reproducible.
+
+Spec-Driven Development (SDD) connects the reason for a change to its implementation and acceptance evidence.
+
+## Project status
+
+**Available in this repository:**
+
+- Codex-first harness: context, policies, skills, templates, and validation scripts.
+- Go implementation of Project rules, application contracts, portable manifests, and local installation records, with tests.
+- Versioned Specifications, architecture decisions, and implementation Evidence.
+
+**Not available yet:** Lingo CLI, filesystem persistence, runtime adapters, and orchestration. There is no complete deployable application or implemented provider integration.
+
+See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
+
+## How Axiom works
+
+Each step leaves context the next step can use:
+
+```mermaid
+flowchart LR
+    I["Intent"] --> S["Specification"]
+    S --> P["Decisions<br/>and Plan"]
+    P --> X["Implementation"]
+    X --> V["Validation<br/>and Review"]
+    V --> E["Evidence<br/>and Reconciliation"]
+    E -. informs next intent .-> I
+```
+
+Implementation happens through bounded Executions. Human approval gates material choices; Evidence supports acceptance and reconciles documentation with results. Today, humans and the harness conduct this workflow. Automated orchestration remains future work.
+
+## Explore Axiom
+
+Requirements: Git, Bash, standard POSIX utilities, and **Go 1.26 or later** for Go tests. The first Go run may download the dependency pinned in `go.mod`.
+
+```bash
+git clone https://github.com/rgomids/axiom.git
+cd axiom
+./scripts/validate-repository.sh .
+go test ./...
+```
+
+The validator checks repository and harness structure, runs shell test suites, and scans for sensitive files. Go tests exercise the implemented foundations. No service starts.
+
+Next, choose a path:
+
+- **Explore the workflow:** read [AGENTS.md](AGENTS.md), then browse the [harness skills](.agents/skills/). Codex is needed to operate the harness, not to run the checks above.
+- **Follow a feature:** open [Specifications](docs/specifications/README.md) and follow its Specification, Plan, Tasks, and Evidence.
+- **Develop locally:** use [Getting Started](docs/development/getting-started.md) and the [command reference](docs/commands.md) for setup, offline validation, and build checks.
+
+## Core concepts
+
+Domain vocabulary; some concepts remain unimplemented.
+
+| Concept | Meaning |
+|---|---|
+| [Project](docs/decisions/0001-project-is-not-repository.md) | A logical project boundary, distinct from a Repository; it may associate multiple independent repositories. |
+| [Specification](docs/specifications/README.md) | Desired behavior, constraints, non-goals, and acceptance evidence. |
+| [Architecture / ADR](docs/decisions/README.md) | System boundaries and durable decisions, including rationale, alternatives, and trade-offs. |
+| [Execution](docs/architecture/conceptual-model.md#execution-and-proof) | A bounded attempt to perform work under known intent and approvals; its record model remains open. |
+| [Evidence](docs/architecture/conceptual-model.md#execution-and-proof) | An inspectable observation supporting a claim: a test result, command outcome, diff, or review. |
+| [Authority](docs/product/constitution.md) | Explicit permission and approval boundaries for actions; an AI proposal does not grant permission. |
+| [Agent / Runtime](docs/architecture/conceptual-model.md#actors-and-external-boundaries) | An Agent participates in work; a Runtime provides its execution environment and capabilities. |
+| [Lingo](docs/decisions/0003-lingo-as-axiom-local-control-plane.md) | The accepted direction for Axiom's local executable control plane; its CLI is not yet implemented. |
+
+## Architecture
+
+Axiom separates project intent and rules from execution tools and external providers. Lingo is intended to conduct local workflows while runtime and provider adapters stay at the boundary.
+
+Simplified system context, showing the intended relationships rather than deployed integrations:
+
+```mermaid
+flowchart TB
+    H["Humans"] -->|intent and approvals| A["Axiom"]
+    R["Agents / Runtimes"] ---|workflow participation| A
+    A -->|project associations| G["Independent Repositories"]
+    A -. future integrations .-> P["External Providers"]
+```
+
+See [Architecture](docs/architecture/README.md), the [conceptual model](docs/architecture/conceptual-model.md), and [provider boundaries](docs/architecture/provider-boundaries.md) for details and open questions.
 
 ## Documentation
 
-Product discovery and the current project definition are maintained in Notion during the initial discovery phase:
-https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979
-Durable technical decisions, specifications and architecture artifacts are versioned in this repository as the project evolves. Notion remains a discovery source, not automatic approval.
+| Topic | Start here |
+|---|---|
+| Product | [Product Foundation](docs/product/foundation.md) · [Roadmap](docs/product/roadmap.md) |
+| Principles | [Constitution](docs/product/constitution.md) |
+| Architecture | [Architecture overview](docs/architecture/README.md) |
+| Specifications | [Specifications and implementation evidence](docs/specifications/README.md) |
+| Decisions | [Architecture Decision Records](docs/decisions/README.md) |
+| Research | [Research index](docs/research/README.md) |
+| Development | [Getting Started](docs/development/getting-started.md) · [Commands](docs/commands.md) |
+| History | [Changelog](CHANGELOG.md) |
+| Security | [Security policy](SECURITY.md) · [Repository security](docs/security/repository-security.md) |
 
-Comece pela [fundação de produto](docs/product/foundation.md), pela [Constitution](docs/product/constitution.md) e pelo [roadmap](docs/product/roadmap.md). O [modelo conceitual](docs/architecture/conceptual-model.md), as [specifications](docs/specifications/README.md), os [ADRs](docs/decisions/README.md) e a [pesquisa](docs/research/README.md) separam estado aprovado de questões abertas. A [avaliação Axiom/Spec-Kit](docs/research/axiom-speckit-evaluation.md) preserva os cenários full-SDD e analyze/converge; a [ADR-0002](docs/decisions/0002-axiom-speckit-relationship.md) estabelece implementação Axiom independente e Spec-Kit como referência upstream estratégica. A [ADR-0003](docs/decisions/0003-lingo-as-axiom-local-control-plane.md) estabelece Lingo como Control Plane local; implementação depende de Specification e Plan aprovados. Regras operacionais de segurança ficam em [docs/security/repository-security.md](docs/security/repository-security.md), e o bootstrap local em [docs/development/getting-started.md](docs/development/getting-started.md).
-
-## Agent workflow
-
-Antes de alterar o projeto, leia [AGENTS.md](AGENTS.md) e carregue apenas as skills relevantes em `.agents/skills/`. O harness é Codex-first; conceitos de domínio e blueprints devem permanecer vendor-neutral quando prático.
-
-## Validation
-
-No diretório raiz:
-
-```bash
-./scripts/validate-repository.sh .
-./scripts/validate-agent-package.sh .
-./scripts/test-validate-agent-package.sh
-./scripts/test-check-sensitive-files.sh
-./scripts/check-sensitive-files.sh .
-```
-
-Para validar T01–T04 com Go 1.26 e `go.yaml.in/yaml/v3@v3.0.5` no cache, sem downloads durante os checks:
-
-```bash
-export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
-go test -cover ./...
-go test -race -shuffle=on -count=10 ./...
-go vet ./...
-go build ./...
-go run ./scripts/check-project-domain.go
-bash scripts/test-check-project-domain.sh
-go run ./scripts/check-projectapp.go
-bash scripts/test-check-projectapp.sh
-```
-
-Comandos adicionais estão em [docs/commands.md](docs/commands.md).
+[Notion discovery](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979) provides background. Versioned repository artifacts carry technical decisions and implementation evidence; discovery does not imply approval.
 
 ## Repository structure
 
 ```text
-.agents/              Codex context, policies, skills, and templates
-docs/                 Durable project documentation
-  product/             Constitution, product foundation, and dogfooding
-  architecture/        Conceptual boundaries and architecture
-  specifications/      Desired behavior before implementation
-  decisions/           Accepted or proposed durable decisions
-  research/            Hypotheses and comparative evidence
-internal/project/     Pure Go Project domain and behavior tests
-internal/projectapp/  Application ports, snapshots, authority, outcomes and contract tests
-internal/manifest/    Strict portable YAML codec, DTO mapping and contract tests
-internal/local/       Strict local JSON record codec and metadata boundary tests
-go.mod / go.sum       Go module and pinned YAML dependency checksums
-scripts/              Deterministic repository and domain-boundary checks
-experiments/          Temporary, reviewable research evidence
-AGENTS.md              Agent entrypoint and policy router
-SECURITY.md            Vulnerability reporting policy
-CHANGELOG.md           Relevant repository changes
+.agents/       Codex harness: context, policies, skills, and templates
+docs/          Product, architecture, specifications, decisions, and research
+internal/      Go implementation and tests
+scripts/       Repository, security, and architecture checks
+experiments/   Bounded research and evaluation evidence
 ```
 
-## Stack
+## Contributing
 
-Stack: Go 1.26; domínio e contratos de aplicação usam biblioteca padrão. Codec local usa biblioteca padrão; codec portátil usa `go.yaml.in/yaml/v3` v3.0.5, validado por contract tests. Markdown, Bash, Git, GitHub e harness Codex permanecem. Sem serviços, jobs ou variáveis de ambiente de aplicação. Preparação do cache e checks: [comandos](docs/commands.md#t01t04-validation).
+Start with [Getting Started](docs/development/getting-started.md) and [AGENTS.md](AGENTS.md). Follow the relevant Specification and approved scope, keep changes small, include reproducible validation, and update affected documentation. Material changes require explicit human approval.
+
+Documentation improvements, reproducible bug reports, and reviews of Specifications are useful ways to contribute while the product takes shape.
+
+## Security
+
+Report suspected vulnerabilities privately using [SECURITY.md](SECURITY.md).
+
+## License
+
+No project license file is currently defined in this repository.
