@@ -108,6 +108,7 @@ See [Architecture](docs/architecture/README.md), the [conceptual model](docs/arc
 | Topic | Start here |
 |---|---|
 | Product | [Product Foundation](docs/product/foundation.md) · [Roadmap](docs/product/roadmap.md) |
+| Documentation governance | [Canonical sources, lifecycle, and anti-drift rules](docs/documentation.md) |
 | Principles | [Constitution](docs/product/constitution.md) |
 | Architecture | [Architecture overview](docs/architecture/README.md) |
 | Specifications | [Specifications and implementation evidence](docs/specifications/README.md) |
