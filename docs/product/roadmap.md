@@ -24,7 +24,7 @@ These foundations do not yet form an executable Lingo application.
 [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
 is the first active vertical slice. Its approved scope connects minimal Project
 creation, explicit update, validation, reopening and local installation.
-Completion still requires the authorized delivery of filesystem safety and
+Completion will require future, separately authorized delivery of filesystem safety and
 persistence, application use cases, local observations, CLI presentation and
 end-to-end acceptance Evidence under its [Plan](../specifications/002-lingo-project-initialization/plan.md).
 
