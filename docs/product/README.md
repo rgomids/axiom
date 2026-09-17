@@ -26,20 +26,27 @@ Suporte a múltiplos repositórios é um requisito de domínio. Ele não implica
 
 Decisão e trade-offs: [ADR-0001](../decisions/0001-project-is-not-repository.md). Linguagem de domínio e questões abertas: [Conceptual Model](../architecture/conceptual-model.md).
 
-## Current documentation source
+## Documentation authority
 
-Durante a fase inicial de discovery, a definição corrente de produto é mantida no Notion:
-
-https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979
-
-O Notion é, neste momento, referência de produto e discovery. Seu conteúdo não deve ser copiado automaticamente. Antes de versionar qualquer informação externa, verifique sua classificação e se ela pode ser pública.
-
-Decisões técnicas duráveis, especificações e artefatos de arquitetura devem migrar progressivamente para este repositório quando forem aprovados e estiverem prontos para publicação.
+- **Notion:** visão de produto, discovery, fluxos e hipóteses em
+  [Notion discovery](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979).
+  Conteúdo externo não implica aprovação ou permissão de publicação; confirme
+  classificação antes de incorporá-lo ao repositório público.
+- **GitHub / repositório versionado:** verdade técnica em Specifications, ADRs,
+  arquitetura, código e Evidence. Artefatos aprovados governam os contratos;
+  contexto de agentes resume e aponta para essas fontes.
+- **GitHub Issues/Projects, quando adotados:** estado operacional do trabalho.
+  Não substituem contratos aprovados nem transformam roadmap em task tracker.
 
 Contexto resumido para agentes: [../../.agents/context/axiom-product.md](../../.agents/context/axiom-product.md).
 
 ## Current and future slices
 
+- [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
+  — primeiro slice em implementação incremental: init mínimo, update explícito,
+  reabertura e instalação local. Consulte o [lifecycle atual](../specifications/README.md#002--lingo-project-initialization);
+  a CLI ainda não está disponível.
 - [Specification 001 — Codex Agent Harness Generation](../specifications/001-codex-agent-harness-generation/spec.md)
+  — Proposed, voltada ao harness.
 - [Dogfooding 001 — Go Pull Request Review Agent](dogfooding/001-go-pr-review-agent.md)
-- [`lingo project init` candidate slice](roadmap.md#candidate-first-executable-slice) — architecture direction only; requires a Specification before implementation.
+  — evidência do harness.

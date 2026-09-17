@@ -7,14 +7,14 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 - [ADR-0001 — Project is not Repository](0001-project-is-not-repository.md) — Accepted, 2026-08-08.
 - [ADR-0002 — Axiom Relationship with GitHub Spec-Kit](0002-axiom-speckit-relationship.md) — Accepted, 2026-09-10.
 - [ADR-0003 — Lingo as Axiom Local Control Plane](0003-lingo-as-axiom-local-control-plane.md) — Accepted, 2026-09-10; implementation requires an approved Specification.
-- [ADR-0004 — Portable Project Manifest](0004-portable-project-manifest.md) — Accepted, 2026-09-12, from human review of the Specification 002 Plan; extended by subsequent human H1–H8 decisions on identity, working copy, update and optional Git backing, then H9–H11 on 2026-09-14 confirming complete validated updates, logical atomicity and Git Authority boundary without selecting concrete persistence/Git mechanisms; final Plan approval remains pending.
+- [ADR-0004 — Portable Project Manifest](0004-portable-project-manifest.md) — Accepted, 2026-09-12; versioned portable intent, identity/evolution and local-state separation, with explicit Git authority boundaries.
 
 ## Candidate assessment
 
 | Candidate | Current classification | ADR now? |
 |---|---|---|
 | Codex-first harness | Accepted bounded product scope for current harness; not a permanent single-runtime commitment. | No. Existing scope is explicit and reversible. |
-| Go for future CLI | Proposed direction; no application implementation approved. | Later, with an approved CLI specification and alternatives evidence. |
+| Go for future CLI | Go foundations implemented; CLI framework and distribution remain undecided. | Later, with an approved CLI specification and alternatives evidence. |
 | Provider abstraction | Accepted boundary principle; concrete ports and adapters remain open. | Later, when a specified integration creates a durable contract. |
 | Local versus remote control-plane topology | Local Lingo direction accepted; remote and hybrid alternatives remain revisit paths. | Accepted in ADR-0003; detailed behavior still requires Specification evidence. |
 | Portable Project Manifest | Versioned shareable Project intent, currently axiom.yaml, distinct from local state. | Accepted in ADR-0004; concrete v1 contract belongs to Specification 002/Plan. Identity/location, incremental update and optional Git backing authority extend this boundary; concrete storage/sync engines and aggregate ownership remain open. |

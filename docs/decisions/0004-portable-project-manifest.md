@@ -5,16 +5,23 @@
 Accepted on 2026-09-12, recording the explicit human decision during review of
 [PR #4](https://github.com/rgomids/axiom/pull/4), the
 [Specification 002 Plan](../specifications/002-lingo-project-initialization/plan.md).
-Acceptance concerns this architectural choice; final Plan approval remains pending.
-Tasks and Implementation are not authorized by this ADR.
+Acceptance concerns this architectural choice. This ADR does not itself authorize
+Tasks or Implementation. Current implementation lifecycle belongs to the
+[Specification index](../specifications/README.md#002--lingo-project-initialization).
+
+## Historical decision record
+
+The dated entries below preserve the approval sequence and the gates that existed
+at each review. Statements about pending Plan approval or implementation authority
+are historical snapshots, not current lifecycle status.
 
 ### Subsequent reconciliation — 2026-09-12
 
 Later human review of the same PR explicitly approved id/slug/name, the portable
 working copy versus local installation state, incremental mutation and optional Git
 backing/sync authority. This extends the accepted decision below under that explicit
-human authority. It does not rewrite Specification 002's original approval on
-2026-09-11 or approve the reconciled Plan. [H1–H8](../specifications/002-lingo-project-initialization/clarifications.md#subsequent-human-decisions--2026-09-12)
+human authority. That review did not rewrite Specification 002's original approval
+on 2026-09-11 or approve the reconciled Plan. [H1–H8](../specifications/002-lingo-project-initialization/clarifications.md#subsequent-human-decisions--2026-09-12)
 record exactly which earlier contracts changed. Previous ADR wording remains in Git
 history; ADR-0001–0003 remain Accepted and unchanged.
 
@@ -25,7 +32,7 @@ confirms the previous Project model and refines incremental update: partial
 command intent is permitted, but domain materialization and validation of complete
 proposed state must precede persistence. [H9](../specifications/002-lingo-project-initialization/clarifications.md#latest-human-decision--2026-09-14)
 records authority and traceability. Original acceptance and H1–H8 remain historical;
-this confirmation does not approve the final Plan or authorize Tasks/Implementation.
+that confirmation did not approve the final Plan or authorize Tasks/Implementation.
 
 ### Logical atomicity confirmation — 2026-09-14
 
@@ -33,15 +40,16 @@ The [H10 human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-56
 approves the Project model and init/update contract with logical atomicity.
 [H10](../specifications/002-lingo-project-initialization/clarifications.md#logical-atomicity-confirmation--2026-09-14)
 records this refinement; H11 below resolves the later Git Authority boundary
-review. The final human Plan gate remains pending. No Tasks or Implementation is authorized.
+review. At that review, the final human Plan gate was pending; no Tasks or
+Implementation was authorized.
 
 ### Git Authority approval — 2026-09-14
 
 The [latest human decision](https://github.com/rgomids/axiom/pull/4#issuecomment-5665679754),
 [H11](../specifications/002-lingo-project-initialization/clarifications.md#git-authority-approval--2026-09-14),
 approves the Git Authority boundary below and confirms Project mental model,
-init/update and H10 logical atomicity. Final human Plan review remains pending;
-no Tasks or Implementation is authorized. Earlier approvals remain preserved.
+init/update and H10 logical atomicity. At that review, final human Plan review
+was pending; no Tasks or Implementation was authorized. Earlier approvals remain preserved.
 
 ## Context
 

@@ -1,12 +1,10 @@
 # Project Commands
 
-Execute estes comandos na raiz de `/Users/rgomids/Projects/axiom`.
+Execute estes comandos na raiz do repositório.
 
 ## Runtime
 
 Não há aplicação ou CLI para executar neste bootstrap. Nenhum comando futuro do Axiom é definido aqui.
-
-<a id="t01t03-validation"></a>
 
 ## T01–T04 validation
 

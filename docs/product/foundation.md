@@ -19,18 +19,20 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 
 ## What Axiom is and why it exists
 
-**Requirement:** Axiom is the product, domain, policies, and contracts intended to preserve coherence across product intent, specifications, architecture, work, repositories, execution, validation, documentation, releases and evidence when humans and AI agents collaborate. Lingo is the candidate executable local control plane; the two names are not interchangeable.
+**Requirement:** Axiom is the product, domain, policies, and contracts intended to preserve coherence across product intent, specifications, architecture, work, repositories, execution, validation, documentation, releases and evidence when humans and AI agents collaborate. Lingo is the accepted local executable control-plane direction; the two names are not interchangeable.
 
 **Problem evidence from discovery:** agent-assisted development fragments context and durable state, especially when work spans repositories and external systems.
 
-**Current product outcome:** prove a small, useful, traceable workflow through the repository harness before automating a broader platform.
+**Current product outcome:** incrementally deliver the first executable slice, [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md), using the harness and tested Go foundations before automating a broader platform.
 
 ## Current classification
 
 ### Facts
 
 - The repository contains a Codex-first harness, policies, skills, templates and deterministic shell validation.
-- No Axiom CLI, application runtime, `go.mod`, database, infrastructure or provider adapter exists.
+- A Go module exists in `go.mod`, with tested Project domain rules, application contracts, a portable manifest codec and a local record codec. See the [implemented foundation](../architecture/README.md#implemented-foundation).
+- Specification 002 has merged implementation for T01–T04. T04 still awaits explicit human acceptance; T05–T21 remain not started and not authorized. The [Specification index](../specifications/README.md#002--lingo-project-initialization) owns the current lifecycle summary.
+- No executable application or Lingo CLI, filesystem persistence, operational installation, runtime/provider adapter or orchestration exists.
 - The current agent factory describes `intake -> normalized blueprint -> artifact plan -> Codex renderer -> validation -> package`.
 - Notion contains discovery material, accepted-decision summaries, and explicitly classified proposals/open questions.
 
@@ -62,13 +64,13 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 - `Project != Repository` is accepted in [ADR-0001](../decisions/0001-project-is-not-repository.md).
 - Axiom owns its SDD harness, domain, and lifecycle; Spec-Kit is a strategic upstream research reference with no runtime, architectural, behavioral, or file-format compatibility commitment, as accepted in [ADR-0002](../decisions/0002-axiom-speckit-relationship.md).
 - Codex is the only currently supported native renderer in the existing harness. This is a bounded current-state decision, not a commitment that Axiom will remain single-runtime.
-- The first specified dogfood slice is [Codex agent harness generation](../specifications/001-codex-agent-harness-generation/spec.md).
+- Local-first Lingo is the accepted executable control-plane direction in [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md).
+- The versioned Portable Project Manifest and its separation from local installation state are accepted in [ADR-0004](../decisions/0004-portable-project-manifest.md).
+- Specification 002 is the first slice in incremental implementation, under an approved Specification, Plan and Tasks with separate implementation authorization. [Specification 001 — Codex agent harness generation](../specifications/001-codex-agent-harness-generation/spec.md) remains a Proposed harness slice.
 
 ### Hypotheses
 
-- The product may start as a personal local-first CLI written in Go.
 - Axiom may persist its own Workspace, Work Item, Execution and Evidence identities.
-- Lingo may become the executable local control plane that conducts Axiom workflows while runtime skills and adapters remain thin, as proposed in [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md).
 - Project may become the principal persistent operational context without necessarily becoming the aggregate root or owning every related record.
 - Agent Planning and orchestration may derive capability-based execution graphs with parent and child Executions and durable Evidence.
 - RTK, Caveman, Ponytail, Graphify and `tech-leads-club/agent-skills` may offer useful techniques. None is adopted.
@@ -76,12 +78,13 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 ### Open questions
 
 - Is Workspace a persisted aggregate, a local operational view, or both?
-- What state is authoritative in Axiom versus repositories and external providers?
+- How will future provider synchronization resolve ownership and conflicts per artifact type? Current documentation authority is defined in the [product index](README.md#documentation-authority).
 - Does a Work Item have Axiom identity, provider identity, or a hybrid mapping?
 - Which execution events and evidence must be retained, for how long, and with what privacy controls?
 - Which orchestration responsibilities belong to Lingo, runtime adapters, and individual agents?
-- What is the autonomy and approval model by action and risk?
-- What are the contracts for Project manifests, local state, runtime/model discovery, capability negotiation, Execution graphs and credential references?
+- How will future workflows extend action/risk approval policies beyond the explicit authority boundaries already specified for Project operations?
+- What are the runtime/model discovery, capability-negotiation and Execution-graph contracts?
+- Which concrete filesystem publication/recovery mechanisms will satisfy the approved Plan, and which credential sources will future integrations resolve? Portable and local v1 formats and logical credential references are already specified; they are not open design questions.
 
 ## Source register and authority
 
