@@ -1,12 +1,27 @@
-# Axiom
+<p align="center">
+  <img src="docs/assets/axiom-logo-github.png" alt="Axiom logo" width="460">
+</p>
 
-**Keep intent, decisions, code, and evidence connected.**
+<h1 align="center">Axiom</h1>
+
+<p align="center"><strong>Keep intent, decisions, code, and evidence connected.</strong></p>
+
+<p align="center">
+  <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 1.26+"></a>
+  <a href="https://github.com/rgomids/axiom/commits/main/"><img src="https://img.shields.io/github/last-commit/rgomids/axiom/main?style=flat-square" alt="Last commit on main"></a>
+  <a href="https://github.com/rgomids/axiom/stargazers"><img src="https://img.shields.io/github/stars/rgomids/axiom?style=flat-square" alt="GitHub stars"></a>
+</p>
 
 Axiom is being built to connect software intent, architecture, implementation, and validation across human and AI work.
 
 **Early development.** Explore the Codex harness and tested Go foundations today. Lingo, the planned local CLI, is not yet available.
 
-[Explore Axiom](#explore-axiom) · [Architecture](docs/architecture/README.md) · [Specifications](docs/specifications/README.md) · [Documentation](#documentation)
+<p align="center">
+  <a href="#explore-axiom">Explore Axiom</a> ·
+  <a href="docs/architecture/README.md">Architecture</a> ·
+  <a href="docs/specifications/README.md">Specifications</a> ·
+  <a href="#documentation">Documentation</a>
+</p>
 
 ## What is Axiom?
 

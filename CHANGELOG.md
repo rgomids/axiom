@@ -2,6 +2,8 @@
 
 ## [2026-09-17]
 
+- docs: add the approved Axiom logo and centered README header with verifiable Go 1.26+, main last-commit, and repository-stars badges.
+
 - docs: establish documentation governance with canonical sources, classification, lifecycle and anti-drift rules; align the agent documentation policy and README navigation.
 
 - docs: reconcile product and agent context with the implemented Go foundation; separate roadmap/ADR direction from Specification lifecycle, preserve pending T04 acceptance, and make onboarding portable. Keep README and approved contracts unchanged.
