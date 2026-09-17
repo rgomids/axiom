@@ -1,6 +1,45 @@
 # Clarifications — Lingo Project Initialization
 
-## T03 implementation authorization and review gate — 2026-09-15
+## Single local revision decision — 2026-09-16
+
+Authority: explicit human instruction following the
+[PR #9 review](https://github.com/rgomids/axiom/pull/9#pullrequestreview-5225789699)
+and the [T04 revision analysis](evidence-t04.md#human-decision-required):
+“Adotar Option B — single revision model. Remover o localRevision persistido do
+formato local v1 e manter projectapp.LocalRevision, derivado dos bytes exatos
+observados, como única revisão do local record. portableRevision permanece como
+metadata independente do snapshot portátil.” The same instruction authorizes
+Specification/Clarifications/Plan/Tasks/Evidence reconciliation, preserves T02,
+and prohibits starting T05.
+
+| ID | Approved revision | Supersession / traceability |
+|---|---|---|
+| H12 | Single local-record revision: existing `projectapp.LocalRevision` is derived from exact observed record bytes and returned separately, never persisted inside those bytes. Remove `localRevision` from local format v1; retain independent `portableRevision` metadata. Closed schema rejects the removed member; no migration or fallback overwrite. | Resolves PR #9's human-decision gate and supersedes Plan §3/T04's persisted-local-revision interpretation. T02 contracts, H1–H11 and ADR-0004 remain unchanged. Specification local-state contract, Plan §1/§3/§6, Tasks T04/T07 and T04 Evidence reconciled. |
+
+This is explicit authority for the local v1 adjustment, not acceptance of the
+implementation or authority to advance. **T04: Ready for human re-review, not
+Accepted. T05–T21: Not started.** Historical entries below retain their dates and
+prior gates. No additional persisted label, revision allocation or filesystem
+CAS mechanism is approved or implemented by this decision.
+
+## T04 implementation authorization and review gate — 2026-09-16
+
+**Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T04 only).**
+
+Human authorization covers only **T04 — Strict local installation record codec**.
+[PR #8](https://github.com/rgomids/axiom/pull/8) merged T03 into `main` on
+2026-09-16 at 15:00:21 UTC. Verified baseline:
+`1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`.
+[T04 Evidence](evidence-t04.md) records implementation SHA, closed local format,
+codec/static-boundary checks and unproven filesystem properties.
+
+**T01: Accepted / merged. T02: Accepted / merged. T03: Accepted / merged.
+T04: Ready for human implementation review. T05–T21: Not started.**
+T04 merge grants no T05 authority. No self-approval or merge is authorized.
+Approved contract bodies, Task definitions and ADRs remain unchanged. Earlier
+entries below preserve history and are superseded only as lifecycle status.
+
+## Historical T03 implementation authorization and review gate — 2026-09-15
 
 **Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T03 only).**
 

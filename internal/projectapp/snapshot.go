@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/rgomids/axiom/internal/project"
 )
@@ -104,7 +105,7 @@ func ReadSnapshot(codec ManifestCodec, manifest []byte, documents []Document) (A
 	sort.Slice(docs, func(i, j int) bool { return docs[i].Name < docs[j].Name })
 	names := map[string]bool{}
 	for _, doc := range docs {
-		if !artifactName(doc.Name) || names[doc.Name] {
+		if !ValidDocumentName(doc.Name) || names[doc.Name] {
 			return ArtifactSnapshot{}, problem(InvalidSnapshot)
 		}
 		names[doc.Name] = true
@@ -116,8 +117,13 @@ func ReadSnapshot(codec ManifestCodec, manifest []byte, documents []Document) (A
 	s.revision = PortableRevision{digest: artifactDigest(bytes, docs), present: true, valid: true}
 	return s, nil
 }
-func artifactName(name string) bool {
-	if name == "" || name == "axiom.yaml" || strings.ContainsAny(name, "\\:$`\x00\r\n") || strings.HasPrefix(name, "~") {
+
+// ValidDocumentName requires valid UTF-8 and lexical names for ReadSnapshot.
+// Local digest metadata reuses it without replacing or normalizing names.
+// The manifest name is reserved; this check grants no filesystem authority or
+// text-safety proof.
+func ValidDocumentName(name string) bool {
+	if !utf8.ValidString(name) || name == "" || name == "axiom.yaml" || strings.ContainsAny(name, "\\:$`\x00\r\n") || strings.HasPrefix(name, "~") {
 		return false
 	}
 	for _, part := range strings.Split(name, "/") {

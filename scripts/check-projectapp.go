@@ -28,6 +28,7 @@ var allowed = map[string]string{
 	"time":            "Time Unix",
 	"reflect":         "DeepEqual",
 	"testing":         "T",
+	"unicode/utf8":    "ValidString",
 	"github.com/rgomids/axiom/internal/project": "Project State Issue New Configured BusinessContext Declaration Repository Provider Runtime Integration ModelProfile CredentialReference Intent Set",
 }
 

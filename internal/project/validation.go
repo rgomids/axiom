@@ -45,12 +45,7 @@ func validate(s State) []Issue {
 	if s.SchemaVersion != 1 {
 		v.add("schemaVersion", "unsupported_schema")
 	}
-	if !uuidPattern.MatchString(s.ID) {
-		v.add("project.id", "invalid_id")
-	}
-	if !slugPattern.MatchString(s.Slug) {
-		v.add("project.slug", "invalid_slug")
-	}
+	v.issues = append(v.issues, ValidateIdentity(s.ID, s.Slug)...)
 	v.required("project.name", s.Name)
 	v.repositories(s.Repositories)
 	if s.Runtime.form == Present {
@@ -216,4 +211,17 @@ func relativeDocument(value string) bool {
 		}
 	}
 	return true
+}
+
+// ValidateIdentity applies the same domain rules to portable identity and local
+// observed identity metadata. It performs no lookup or filesystem operation.
+func ValidateIdentity(id, slug string) []Issue {
+	v := &validation{}
+	if !uuidPattern.MatchString(id) {
+		v.add("project.id", "invalid_id")
+	}
+	if !slugPattern.MatchString(slug) {
+		v.add("project.slug", "invalid_slug")
+	}
+	return v.issues
 }

@@ -1,6 +1,36 @@
 # Tasks — Specification 002: Lingo Project Initialization
 
-## T03 implementation authorization and review gate — 2026-09-15
+## T04 single local revision reconciliation — 2026-09-16
+
+Human decision [H12](clarifications.md#single-local-revision-decision--2026-09-16) adopts **Option B — single revision model**:
+local format v1 contains no persisted `localRevision`. Existing
+`projectapp.LocalRevision`, derived from exact observed record bytes, remains the
+sole local-record revision; `portableRevision` remains independent portable
+snapshot metadata. T02 contracts are unchanged. The affected contract below is
+reconciled under this explicit authority; prior dated approvals remain history.
+
+**T04: Ready for human re-review, not Accepted. T05–T21: Not started.**
+Implementation and [Evidence](evidence-t04.md) remain limited to T04. No merge,
+filesystem persistence or advance to T05 is authorized.
+
+## T04 implementation authorization and review gate — 2026-09-16
+
+**Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T04 only).**
+
+Human authorization covers only **T04 — Strict local installation record codec**.
+[PR #8](https://github.com/rgomids/axiom/pull/8) merged T03 into `main` on
+2026-09-16 at 15:00:21 UTC. Verified baseline:
+`1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`.
+[T04 Evidence](evidence-t04.md) records implementation SHA, closed local format,
+codec/static-boundary checks and unproven filesystem properties.
+
+**T01: Accepted / merged. T02: Accepted / merged. T03: Accepted / merged.
+T04: Ready for human implementation review. T05–T21: Not started.**
+T04 merge grants no T05 authority. No self-approval or merge is authorized.
+Approved contract bodies, Task definitions and ADRs remain unchanged. Earlier
+entries below preserve history and are superseded only as lifecycle status.
+
+## Historical T03 implementation authorization and review gate — 2026-09-15
 
 **Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T03 only).**
 
@@ -193,13 +223,13 @@ is wired, following Plan §10; T06 proves complete artifact mutation before upda
 ### T04 — Strict local installation record codec
 
 - **Objective:** Validate internal local format before reusing bindings.
-- **Scope:** Plan §3 record fields only: integer formatVersion 1, UUID, observed slug/source, manifest/document digests, local revision, bindings/reference metadata, observations/attempt metadata. Keep schemaVersion portable-only; no secret values or document bodies. Missing record differs from existing malformed/unversioned record.
+- **Scope:** Plan §3 record fields only: integer formatVersion 1, UUID, observed slug/source, manifest/document digests, independent portableRevision metadata, bindings/reference metadata, observations/attempt metadata. H12 removes persisted localRevision from v1; return unchanged T02 projectapp.LocalRevision derived from exact observed bytes separately from metadata. Keep schemaVersion portable-only; no secret values or document bodies. Missing record differs from existing malformed/unversioned record.
 - **Dependencies:** T01
-- **Traceability:** FR-008, FR-014, FR-016; SEC-001, SEC-005; AC-03, AC-06, AC-07, AC-08, AC-12; H1, H8; ADR-0004
+- **Traceability:** FR-008, FR-014, FR-016; SEC-001, SEC-005; AC-03, AC-06, AC-07, AC-08, AC-12; H1, H8, H12; ADR-0004
 - **Plan / boundary:** §3, §7, §9; local record adapter
 - **Expected paths:** internal/local/; colocated testdata/
-- **Completion criterion:** Missing/malformed/duplicate version, null/bool/string/non-integer/unknown integer and schemaVersion-only records fail before reuse; valid record preserves local reference metadata and ID.
-- **Required Evidence:** Unit JSON/version matrix and round trips; no binding reuse on failure; portable DTO cannot encode local fields; no credential/body serialization.
+- **Completion criterion:** Missing/malformed/duplicate version, null/bool/string/non-integer/unknown integer and schemaVersion-only records fail before reuse; valid record preserves local reference metadata and ID. Removed localRevision is rejected as unknown; exact-byte observed revision stays external and portableRevision remains independent (H12).
+- **Required Evidence:** Unit JSON/version matrix and round trips; absent persisted revision accepted, removed field rejected, byte-only changes alter observed local revision while portableRevision is preserved; no binding reuse on failure; portable DTO cannot encode local fields; no credential/body serialization.
 - **Explicit exclusions:** Portable schema changes, migration, fallback overwrite, actual record writes, database/catalog.
 
 ### T05 — Confined access and create publication
@@ -229,9 +259,9 @@ is wired, following Plan §10; T06 proves complete artifact mutation before upda
 ### T07 — Native roots and ID-addressed local store
 
 - **Objective:** Persist protected machine state separately from portable intent.
-- **Scope:** Plan Linux/macOS native roots and LINGO_STATE_ROOT/LINGO_PROJECTS_ROOT precedence; empty/relative/unsafe override rejection; disjoint canonical roots; no portable working copy in known associated checkout. ID-addressed installation.json and expected local revision. Resolve slug across managed root and valid local source records; ambiguity fails safely. Restrictive ownership/modes/effective ACLs, digest tracking and local no-op.
+- **Scope:** Plan Linux/macOS native roots and LINGO_STATE_ROOT/LINGO_PROJECTS_ROOT precedence; empty/relative/unsafe override rejection; disjoint canonical roots; no portable working copy in known associated checkout. ID-addressed installation.json and expected exact-byte local revision derived externally from observed bytes (H12), with no persisted revision allocation/increment. Resolve slug across managed root and valid local source records; ambiguity fails safely. Restrictive ownership/modes/effective ACLs, digest tracking and local no-op.
 - **Dependencies:** T04, T05
-- **Traceability:** FR-012, FR-013, FR-014, FR-017; SEC-003, SEC-004, SEC-005; AC-03, AC-04, AC-07, AC-09, AC-13, AC-14, AC-17; H1, H2, H8, H10; ADR-0004
+- **Traceability:** FR-012, FR-013, FR-014, FR-017; SEC-003, SEC-004, SEC-005; AC-03, AC-04, AC-07, AC-09, AC-13, AC-14, AC-17; H1, H2, H8, H10, H12; ADR-0004
 - **Plan / boundary:** §3, §6, §8–9; local store/discovery adapter
 - **Expected paths:** internal/local/; native/override integration fixtures
 - **Completion criterion:** Only validated ID addresses records; invalid records are preserved without binding reuse; local CAS prevents lost updates; equivalent record causes no timestamp/revision rewrite. Root override changes discovery, never authority.

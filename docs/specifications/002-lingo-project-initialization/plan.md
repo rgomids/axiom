@@ -1,6 +1,36 @@
 # Plan — Specification 002: Lingo Project Initialization
 
-## T03 implementation authorization and review gate — 2026-09-15
+## T04 single local revision reconciliation — 2026-09-16
+
+Human decision [H12](clarifications.md#single-local-revision-decision--2026-09-16) adopts **Option B — single revision model**:
+local format v1 contains no persisted `localRevision`. Existing
+`projectapp.LocalRevision`, derived from exact observed record bytes, remains the
+sole local-record revision; `portableRevision` remains independent portable
+snapshot metadata. T02 contracts are unchanged. The affected contract below is
+reconciled under this explicit authority; prior dated approvals remain history.
+
+**T04: Ready for human re-review, not Accepted. T05–T21: Not started.**
+Implementation and [Evidence](evidence-t04.md) remain limited to T04. No merge,
+filesystem persistence or advance to T05 is authorized.
+
+## T04 implementation authorization and review gate — 2026-09-16
+
+**Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T04 only).**
+
+Human authorization covers only **T04 — Strict local installation record codec**.
+[PR #8](https://github.com/rgomids/axiom/pull/8) merged T03 into `main` on
+2026-09-16 at 15:00:21 UTC. Verified baseline:
+`1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`.
+[T04 Evidence](evidence-t04.md) records implementation SHA, closed local format,
+codec/static-boundary checks and unproven filesystem properties.
+
+**T01: Accepted / merged. T02: Accepted / merged. T03: Accepted / merged.
+T04: Ready for human implementation review. T05–T21: Not started.**
+T04 merge grants no T05 authority. No self-approval or merge is authorized.
+Approved contract bodies, Task definitions and ADRs remain unchanged. Earlier
+entries below preserve history and are superseded only as lifecycle status.
+
+## Historical T03 implementation authorization and review gate — 2026-09-15
 
 **Specification: Approved · Plan: Approved · Tasks: Approved · Implementation: Authorized (T03 only).**
 
@@ -170,7 +200,7 @@ Minimum boundary contracts, expressed here as responsibilities rather than APIs:
 |---|---|
 | Manifest codec | Bytes → parsed portable definition + safe issues; validated definition → canonical bytes; application consumes |
 | Portable store | Authorized old/new destinations + expected revision + validated artifact set → atomic create/update/move/no-op/conflict/recovery result; no unrestricted path-write interface |
-| Local installation store | Project ID + expected record revision + proposed local snapshot → atomic result; separate from portable store |
+| Local installation store | Project ID + expected exact-byte record revision (external observation, H12/§3) + proposed local snapshot → atomic result; separate from portable store |
 | Local observations | Explicit checkout/executable/reference paths → read-only facts or safe failure; no command execution method |
 | Identity and attempt metadata | New UUID v4 only when creation is necessary; injectable entropy/clock for repeatable tests |
 | Optional text inspection | Untrusted text → sanitized warning categories or unavailable/failed; no authority to rewrite or certify configuration |
@@ -395,11 +425,28 @@ No automatic migration, fallback overwrite, downgrade or deletion in this slice.
 
 Record only formatVersion, ID, observed slug (lookup metadata, never identity),
 canonical configuration source location, manifest byte digest,
-referenced-document digests, local revision, Repository-key binding observations,
+referenced-document digests, portable snapshot revision, Repository-key binding observations,
 credential-reference metadata, Runtime path/observations and attempt metadata.
 Digest revision covers the validated manifest and contained documents in stable
 path order. Use a cryptographic content digest for change detection, not identity,
 authenticity or secret scanning. Never record credential values or text bodies.
+
+[H12](clarifications.md#single-local-revision-decision--2026-09-16) resolves the
+previous “local revision” inventory entry: local format v1 has **no persisted
+`localRevision` field**. The sole local-record revision is T02's unchanged
+`projectapp.LocalRevision`, computed by `ObserveLocalRevision(record)` over exact
+observed serialized bytes, including formatting. It is returned separately from
+decoded metadata. No field is excluded from that hash, and no hash or second label
+is embedded in its own input. `portableRevision` remains the independent recorded
+digest of the validated portable snapshot.
+
+Existing records containing the removed field fail closed as unknown-field input;
+no compatibility inference, migration, rewrite or deletion. Missing records retain
+`MissingLocalRevision`; malformed existing records yield failure and no reusable
+record/revision. A future store must recheck exact observed bytes under its approved
+commit protection, observe new encoded bytes after mutation and preserve bytes on
+no-op; it allocates/increments no persisted revision. This documents T07 obligations,
+not its implementation. T02's content-revision semantics remain unchanged.
 
 Credential binding metadata may name an environment variable or an external store
 item/reference. Do not read the variable value, call a store, prompt for a secret,
@@ -608,8 +655,9 @@ before mutation; do not claim protection against actors able to revoke them.
    actual committed state, including uncertainty or incomplete local reconciliation;
    never falsely claim rollback. If validity or outcome cannot be established,
    report recovery required instead of presenting partial state as a valid Project.
-6. Reconcile local metadata separately by ID and expected local revision; preserve
-   bindings and credential references, update source/slug/revision and invalidate
+6. Reconcile local metadata separately by ID and expected exact-byte local revision
+   returned outside the record (H12/§3); preserve bindings and credential references,
+   update source/slug/portable snapshot revision and invalidate
    affected observations. Local failure after portable commit cannot undo that
    commit. No cross-root filesystem transaction is required by this contract.
 7. Cleanup only provably owned temporary objects after establishing commit state.

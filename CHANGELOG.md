@@ -1,5 +1,18 @@
 # Changelog
 
+## [2026-09-16]
+
+- fix: reject invalid UTF-8 document names at the T02 snapshot producer for T04 lossless JSON metadata; preserve valid U+FFFD, # and ?, retain local defense in depth, and add producer/composition regressions. No T05+ work.
+
+- fix: resolve PR #9 ArtifactDigest.Name compatibility finding: T04 reuses the unchanged T02 document-name predicate, preserves valid names including #, ?, controls and literal U+FFFD without normalization, and rejects malformed Unicode without repair. Add real manifest/Project/snapshot/digest/local-record round-trip and negative boundary regressions; preserve portable protections, H12 and all prior Evidence. No T05+ work.
+
+- fix: apply human-approved H12 / Option B within T04: remove persisted localRevision from local format v1, retain unchanged T02 exact-byte LocalRevision and independent portableRevision metadata. Update closed DTO, mapping, fixtures and regressions; reject obsolete field without migration or reuse.
+- docs: reconcile Specification/Clarifications/Plan/Tasks and T04 Evidence with explicit human authority; preserve earlier decisions and Evidence. T04 Ready for human re-review, not Accepted; T05–T21 remain unstarted.
+- fix: address PR #9 human review within T04: preserve arbitrary local path text without filesystem policy; map domain identity diagnostics to local schema fields. Add public codec regressions; retain invalid-text rejection and shared domain rules.
+- docs: investigate ambiguous persisted localRevision versus T02 exact-byte CAS; record both options and recommend single revision pending explicit human decision. T04 blocked on that decision; no revision-model change or T05+ implementation.
+- feature: deliver authorized Specification 002 T04 strict local installation JSON codec with exact formatVersion 1, closed metadata DTOs, safe diagnostics, no partial records, explicit missing/corrupt distinction and consumer-owned T02 metadata reuse. Share existing domain identity validation without changing its rules. Add version/structure/security/round-trip tests and static boundary Evidence; no filesystem persistence or T05+ work.
+- docs: record T01–T03 Accepted / merged, verified baseline `1de3b02d97818138c32f6b2a07555cfe1ffd4a9b`, T04 Ready for human implementation review and T05–T21 Not started. T04 merge grants no T05 authority; preserve prior lifecycle history and approved contracts.
+
 ## [2026-09-15]
 
 - fix: address PR #8 human review within T03: reject relative/local URI paths in logical references and known credential payloads in identifier fields; bound canonical output during serialization. Add encode/decode, escaped-syntax, writer-bound and positive regressions; retain prior implementation Evidence. T01/T02 contracts unchanged; T04–T21 Not started; human re-review required.
