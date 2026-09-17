@@ -181,7 +181,7 @@ Functional black-box coverage is at the in-memory codec API; no CLI exists.
 
 Platform: **macOS 26.6.2 (25G83), Darwin arm64, Apple M1**.
 Toolchain: **Go 1.26.1**. Run from repository root, after explicitly preparing the
-pinned dependency cache as documented in [commands](../../commands.md#t01t03-validation):
+pinned dependency cache as documented in [commands](../../commands.md#t01t04-validation):
 
 ```bash
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off

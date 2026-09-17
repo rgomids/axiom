@@ -1,118 +1,82 @@
 # Axiom Product Context
 
-## Product thesis
+## Product thesis and canonical sources
 
-Axiom is the product, domain, policies, and contracts for governing AI-assisted
-software development. Lingo is the accepted local executable control-plane direction
-under ADR-0003 (2026-09-10); the names are not synonyms. Implementation remains
-gated by approved Specification/Plan and explicit authorization to advance.
+Axiom owns the product, domain, policies and contracts for governing AI-assisted
+software development. Lingo is the accepted local-first executable control-plane
+direction under [ADR-0003](../../docs/decisions/0003-lingo-as-axiom-local-control-plane.md).
+The names are not synonyms. Runtime skills are entrypoints, not the workflow
+source of truth; durable Evidence is not raw chat history.
 
-Canonical product classification is in `docs/product/foundation.md`. Normative governance is in `docs/product/constitution.md`; do not duplicate those documents here.
+Use these canonical sources rather than expanding this routing summary:
 
-The problem is not merely code generation. The product should help preserve coherence across:
+- [Product Foundation](../../docs/product/foundation.md): facts, requirements,
+  decisions, hypotheses and open questions.
+- [Constitution](../../docs/product/constitution.md): normative governance.
+- [Product index](../../docs/product/README.md#documentation-authority): discovery,
+  versioned technical truth and operational tracking responsibilities.
+- [Architecture](../../docs/architecture/README.md): target boundaries and implemented foundation.
+- [Specification index](../../docs/specifications/README.md): current approval,
+  implementation and acceptance state; merge never grants next-Task authority.
+- [Roadmap](../../docs/product/roadmap.md): capabilities and dependencies, not delivery authorization.
 
-- product intent;
-- specifications;
-- architecture;
-- ADRs;
-- work items;
-- repositories;
-- implementation;
-- validation;
-- documentation;
-- release and operational evidence.
+## Product boundaries
 
-## Primary user scenarios
+A Project may relate multiple independent Repositories. It does not require
+submodules, common providers or colocated checkouts. Preserve `Project != Repository`,
+`Role != Model`, `Execution != Agent`, `Provider != Transport` and `Integration != MCP`.
 
-A user may be:
+[ADR-0004](../../docs/decisions/0004-portable-project-manifest.md) accepts the
+versioned Portable Project Manifest, currently `axiom.yaml`, distinct from local
+installation state. Project UUID is immutable; slug and name are mutable.
+Portable working copies use `projects/<slug>`; local state uses
+`state/projects/<id>`. Secrets and machine-local bindings never belong in portable intent.
 
-- an individual software engineer;
-- a developer working within a team;
-- a person building a product from zero.
+[Specification 002](../../docs/specifications/002-lingo-project-initialization/spec.md)
+and its approved Plan define minimal init, explicit update, reopening and local
+installation. Update may start from partial intent but must materialize and
+validate complete proposed state before persistence. Optional Git backing creates
+no Repository association; Project mutation, local commit and remote push/sync
+have separate authority and outcomes. External mutations require explicit authority.
+The Plan and clarifications own detailed formats and revision semantics.
 
-A project may span multiple independent repositories on the same machine.
+## Implemented foundation and active slice
 
-The agent must understand that:
+Specification 002 is the first active vertical slice, delivered incrementally.
+The Go module contains Project invariants (`internal/project`), application
+contracts and authority (`internal/projectapp`), the portable manifest codec
+(`internal/manifest`) and local JSON record codec (`internal/local`), with tests.
+These foundations do not provide complete use cases, a Lingo CLI, filesystem
+persistence, operational installation, runtime adapters or orchestration.
 
-```text
-Project != Repository
-```
+Implementation requires approved artifacts and explicit authorization for the
+bounded Task. Consult the Specification index before advancing; neither roadmap
+direction, code availability nor technical merge substitutes for human acceptance.
 
-A project can own or reference multiple repositories.
+[Specification 001](../../docs/specifications/001-codex-agent-harness-generation/spec.md)
+remains Proposed. Its agent-factory flow and
+[dogfood evidence](../../docs/product/dogfooding/001-go-pr-review-agent.md)
+inform the existing Codex-first harness; they do not replace the active slice.
 
-This boundary is accepted by `docs/decisions/0001-project-is-not-repository.md`. Workspace persistence and ownership remain open.
+## Future capabilities and unresolved questions
 
-## Desired lifecycle
+Future work may include runtime/model discovery, capability negotiation,
+Integration bootstrap, Agent Planning, Execution graphs and orchestration.
+Configuration declarations already exist; their presence does not establish
+connectivity or implemented execution. No provider or runtime is mandatory at
+the domain level, and useful deterministic behavior must remain possible without an LLM.
 
-```text
-idea/discovery
-→ product definition
-→ specification
-→ architecture
-→ planning
-→ tasks
-→ implementation
-→ validation
-→ documentation
-→ release
-→ observation
-→ learning
-→ new change
-```
+Still unresolved beyond the approved slice contracts:
 
-## Product direction
+- Workspace persistence/ownership and cross-Project repository sharing;
+- internal Work Item identity and future provider ownership/conflict policies;
+- concrete filesystem publication/recovery mechanisms satisfying the Plan;
+- remote/hybrid collaboration and synchronization protocols;
+- runtime discovery, capability negotiation and Integration bootstrap behavior;
+- credential-source resolution, execution/Evidence schemas, retention and privacy;
+- Agent Planner/Orchestrator contracts and future action/risk approval policies;
+- CLI framework, packaging and distribution strategy.
 
-Axiom should eventually provide a CLI.
-
-Planned CLI implementation language: **Go**.
-
-Do not infer that the CLI must be built immediately. The current harness exists to validate workflows before automating them.
-
-## Important product characteristics
-
-- local-first is a strong candidate, not yet an immutable decision;
-- external systems should be adapters/providers rather than core dependencies;
-- Codex is the first operational agent runtime for this repository;
-- durable context should live in artifacts rather than only conversation history;
-- structured events and decisions are preferred over raw chat logs;
-- token/context efficiency is a first-class concern;
-- the product should still expose useful deterministic behavior when an LLM is unavailable.
-- Project configuration should be portable across agent runtimes and separate from machine-local state and credentials;
-- roles and capabilities should remain independent from concrete runtime models;
-- orchestrated parent/child Executions should produce durable Evidence rather than rely on chat history.
-
-## Current strategic questions
-
-Still open unless an ADR/spec says otherwise:
-
-- exact MVP boundary;
-- local-first vs hybrid synchronization model;
-- authoritative sources for technical and operational state;
-- internal work-item model;
-- exact Agent Planner, Orchestrator and execution-graph contracts;
-- autonomy/approval model;
-- repository discovery and workspace model;
-- remote service requirements;
-- first persistence model;
-- packaging and distribution strategy.
-- portable Project manifest and local-state formats;
-- runtime/model discovery and capability-negotiation contracts;
-- Integration bootstrap and credential-reference behavior.
-
-## Architectural roadmap
-
-The next capability blocks are Lingo control-plane refinement, Project
-manifest and portable/local configuration, runtime/model abstraction,
-capability/Integration modeling, Execution graph and orchestration, thin
-runtime skills/adapters, and the Project init wizard. See
-`docs/product/roadmap.md`; this sequence is not implementation authorization.
-
-## First vertical slice
-
-`docs/specifications/001-codex-agent-harness-generation/spec.md` proposes the first flow:
-
-```text
-intent -> intake -> normalized blueprint -> artifact plan -> Codex renderer -> validation -> package
-```
-
-It is proposed, not implementation approval. Dogfood evidence and prioritized gaps live in `docs/product/dogfooding/001-go-pr-review-agent.md`.
+Do not reopen resolved identity, minimal-init, portable/local format or Project
+update/authority questions. Consult approved Specifications and ADRs before
+classifying any issue as undecided.
