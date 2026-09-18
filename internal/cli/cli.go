@@ -4,7 +4,6 @@ package cli
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"io"
 )
@@ -179,5 +178,3 @@ func (UnavailableService) Update(context.Context, UpdateInput) Result {
 	return unavailable()
 }
 func unavailable() Result { return Result{Status: Failed, Category: "application_unavailable"} }
-
-var ErrUnavailable = errors.New("application unavailable")
