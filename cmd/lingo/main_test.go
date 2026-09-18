@@ -12,9 +12,10 @@ import (
 )
 
 func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
-	root := t.TempDir()
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
-	t.Setenv("LINGO_STATE_ROOT", filepath.Join(root, "state"))
+	t.Setenv("LINGO_STATE_ROOT", state)
 	service := compose()
 
 	runCLI(t, service, []string{"project", "init", "--slug", "sample", "--name", "Sample"}, cli.ExitSuccess, "applied")
@@ -30,7 +31,7 @@ func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
 	if err != nil || string(beforeInstall) != string(afterInstall) {
 		t.Fatalf("install changed portable manifest: %v", err)
 	}
-	records, err := filepath.Glob(filepath.Join(root, "state", "projects", "*", "installation.json"))
+	records, err := filepath.Glob(filepath.Join(state, "projects", "*", "installation.json"))
 	if err != nil || len(records) != 1 {
 		t.Fatalf("installation record paths = %v, %v", records, err)
 	}
@@ -53,6 +54,38 @@ func TestComposedCLIRejectsRelativeRoot(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "application_unavailable") {
 		t.Fatalf("unexpected error event: %q", output.String())
+	}
+}
+
+func TestStateRootOverride(t *testing.T) {
+	t.Setenv("LINGO_STATE_ROOT", "/tmp/lingo-state/../lingo-state")
+	got, err := stateRoot()
+	if err != nil || got != "/tmp/lingo-state" {
+		t.Fatalf("stateRoot override = %q, %v", got, err)
+	}
+}
+
+func TestStateRootRejectsInvalidOverride(t *testing.T) {
+	for _, value := range []string{"", "relative/state", "/"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("LINGO_STATE_ROOT", value)
+			if root, err := stateRoot(); err == nil || root != "" {
+				t.Fatalf("stateRoot accepted invalid override: %q, %v", root, err)
+			}
+		})
+	}
+}
+
+func TestCompositionRejectsOverlappingRootsBeforeCreation(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", filepath.Join(root, "state"))
+	var output bytes.Buffer
+	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), &output); code != cli.ExitFailure {
+		t.Fatalf("overlapping roots accepted: code=%d", code)
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("portable root created before root validation: %v", err)
 	}
 }
 

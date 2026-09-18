@@ -6,7 +6,12 @@ Execute estes comandos na raiz do repositório.
 
 O POC é local. Ele não acessa rede, Git, providers, runtimes ou credenciais. Use
 um root temporário/isolado enquanto avalia; `LINGO_PROJECTS_ROOT` deve ser absoluto.
-Sem override, Lingo usa `~/.axiom/projects`.
+Sem override, Lingo usa `~/.axiom/projects` para configuração portátil. Estado
+local usa `$XDG_STATE_HOME/lingo` no Linux quando absoluto, caso contrário
+`$HOME/.local/state/lingo`; no macOS, usa
+`$HOME/Library/Application Support/Lingo`. `LINGO_STATE_ROOT` substitui esse
+destino para desenvolvimento/testes e deve ser absoluto, não vazio e separado
+do root portátil.
 
 ```bash
 export LINGO_PROJECTS_ROOT="$(mktemp -d)"
@@ -23,10 +28,10 @@ Cada operação escreve um evento JSON seguro em stdout e retorna `0` em sucesso
 `1` em erro/conflito e `2` em cancelamento. `init` é create/no-op/conflito: não
 renomeia nem atualiza um Project existente; use `update` para alterar o nome.
 
-`install` grava o record local estrito em `LINGO_STATE_ROOT/projects/<project-id>/installation.json`;
+`install` grava o record local estrito em `<state-root>/projects/<project-id>/installation.json`;
 não altera o manifest de origem. O adaptador atual aceita somente Project mínimo de um único `axiom.yaml`. Ele
 recusa symlinks, artefatos extras e roots relativos em vez de tentar preservar
-documentos opcionais sem um protocolo completo. Estado local/instalação, binding,
+documentos opcionais sem um protocolo completo. Binding,
 rename, documentos, Git, Runtime, Provider e rede permanecem fora deste incremento.
 
 ## T01–T04 validation

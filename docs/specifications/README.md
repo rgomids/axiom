@@ -12,7 +12,7 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 ## 002 — Lingo Project Initialization
 
 First active vertical slice, in incremental implementation. Current lifecycle,
-reconciled on 2026-09-17 against versioned artifacts and merged PRs:
+reconciled on 2026-09-18 against versioned artifacts, merged PRs and POC issues:
 
 | Artifact / delivery | Status |
 |---|---|
@@ -21,12 +21,16 @@ reconciled on 2026-09-17 against versioned artifacts and merged PRs:
 | [Tasks](002-lingo-project-initialization/tasks.md) | **Approved** |
 | T01–T03 | **Accepted / merged** — PRs [#6](https://github.com/rgomids/axiom/pull/6), [#7](https://github.com/rgomids/axiom/pull/7), [#8](https://github.com/rgomids/axiom/pull/8) |
 | T04 | **Merged; pending human acceptance/re-review** — [PR #9](https://github.com/rgomids/axiom/pull/9); not marked Accepted |
-| T05–T21 | **Not started / not authorized** |
+| POC #16–#18 | **Delivered on POC branch; under human review in [PR #27](https://github.com/rgomids/axiom/pull/27)** — executable CLI, minimal init/validate/reopen/name update, limited filesystem persistence and separate local install |
+| POC #19 | **Pending** — filesystem hardening, atomicity/recovery and security proof |
+| POC #20 | **Pending** — complete acceptance and failure-path Evidence |
+| POC #21 | **Pending** — dogfooding and human acceptance |
+| Specification 002 / POC #14 | **Partial implementation; not Accepted/Done** |
 
 POC delivery work is isolated on `poc/functional-baseline` pending one final human
 review PR. Its current executable scope and limitations are recorded in
-[POC Evidence](002-lingo-project-initialization/evidence-poc.md); it does not
-retroactively change T05–T21 acceptance status.
+[POC Evidence](002-lingo-project-initialization/evidence-poc.md). The POC issue
+deliveries do not establish completion of the full T05–T21 Task DAG.
 
 PR #9 received a final human re-review on 2026-09-17 reporting no findings and
 “Ready to merge”, then merged. That review is recorded; it is not converted here
@@ -45,7 +49,7 @@ Implementation Evidence:
 [T02](002-lingo-project-initialization/evidence-t02.md),
 [T03](002-lingo-project-initialization/evidence-t03.md),
 [T04](002-lingo-project-initialization/evidence-t04.md).
-These deliveries establish Project domain rules, application contracts and
-portable/local codecs. They do not deliver a CLI, filesystem persistence,
-operational installation, runtime adapters or orchestration. Concrete persistence
-and Git mechanisms remain outside this documentation change.
+T01–T04 established Project domain rules, application contracts and portable/local
+codecs. POC #16–#18 additionally delivered the limited CLI, filesystem
+persistence and local installation noted above. Runtime adapters and orchestration
+remain unavailable; #19–#21 proof and acceptance work remains open.

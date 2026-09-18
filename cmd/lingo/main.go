@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
@@ -20,11 +22,14 @@ func compose() cli.Service {
 	if err != nil {
 		return cli.UnavailableService{}
 	}
-	store, err := local.NewPortableStore(root)
+	state, err := stateRoot()
 	if err != nil {
 		return cli.UnavailableService{}
 	}
-	state, err := stateRoot()
+	if rootsOverlap(root, state) {
+		return cli.UnavailableService{}
+	}
+	store, err := local.NewPortableStore(root)
 	if err != nil {
 		return cli.UnavailableService{}
 	}
@@ -33,6 +38,18 @@ func compose() cli.Service {
 		return cli.UnavailableService{}
 	}
 	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation, root}
+}
+
+func rootsOverlap(first, second string) bool {
+	return within(first, second) || within(second, first)
+}
+
+func within(parent, child string) bool {
+	relative, err := filepath.Rel(parent, child)
+	if err != nil {
+		return false
+	}
+	return relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))
 }
 
 func projectsRoot() (string, error) {
@@ -49,8 +66,8 @@ func projectsRoot() (string, error) {
 	return filepath.Join(home, ".axiom", "projects"), nil
 }
 func stateRoot() (string, error) {
-	if override := os.Getenv("LINGO_STATE_ROOT"); override != "" {
-		if !filepath.IsAbs(override) {
+	if override, set := os.LookupEnv("LINGO_STATE_ROOT"); set {
+		if !filepath.IsAbs(override) || filepath.Clean(override) == string(filepath.Separator) {
 			return "", projectapp.ErrUnsafe
 		}
 		return filepath.Clean(override), nil
@@ -59,7 +76,7 @@ func stateRoot() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".axiom", "state"), nil
+	return local.NativeStateRoot(runtime.GOOS, home, os.Getenv("XDG_STATE_HOME"))
 }
 
 type lifecycleService struct {

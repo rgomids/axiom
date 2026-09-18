@@ -2,6 +2,8 @@
 
 ## [2026-09-18]
 
+- fix: align Lingo's default machine-local root with native macOS Application Support and Linux XDG state directories; reject invalid explicit root overrides. Reconcile Specification 002's POC delivery status while #19–#21 and human acceptance remain pending.
+
 - feature: add the initial local Lingo POC lifecycle: `project init`, `validate`, `reopen`, and explicit name `update` for a minimal one-file portable Project. The adapter uses validated slugs, private staging for create, atomic manifest replacement for update, per-slug coordination and sanitized JSON outcomes. Optional documents, installation/local state, bindings, rename, runtime/provider integration, Git and network remain unsupported.
 
 - feature: add explicit local installation for the minimal Lingo POC. `project install` reads a strict portable manifest and writes an ID-addressed `installation.json` outside the portable root without rewriting portable bytes. Credential resolution, bindings and automatic local-state reconciliation remain unavailable.

@@ -1,5 +1,14 @@
 # Tasks — Specification 002: Lingo Project Initialization
 
+## POC implementation status — 2026-09-18
+
+POC issues #16–#18 delivered a bounded executable Project lifecycle, recorded in
+[Specification status](spec.md#poc-delivery-status--2026-09-18) and
+[POC Evidence](evidence-poc.md). The issue scopes do not declare the full T05–T21
+Task DAG complete: #19 filesystem proof, #20 acceptance Evidence and #21
+dogfooding/human acceptance remain pending. T04-only status entries below are
+historical snapshots; this section does not revise Task definitions or approval.
+
 ## T04 single local revision reconciliation — 2026-09-16
 
 Human decision [H12](clarifications.md#single-local-revision-decision--2026-09-16) adopts **Option B — single revision model**:
