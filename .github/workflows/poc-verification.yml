@@ -1,0 +1,34 @@
+name: POC verification
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Unit, integration and black-box tests
+        run: go test -race ./...
+      - name: Static and build checks
+        run: |
+          go vet ./...
+          go build ./...
+          go mod verify
+      - name: Repository checks
+        run: ./scripts/validate-repository.sh .
+      - name: Bounded dogfooding smoke test
+        run: ./scripts/dogfood-poc.sh

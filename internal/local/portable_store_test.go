@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -171,5 +172,104 @@ func TestPortableUpdateCancellationBeforePublicationPreservesOldBytes(t *testing
 	data, err := store.Read(context.Background(), "sample")
 	if err != nil || string(data) != "old" {
 		t.Fatalf("authoritative manifest after cancellation = %q, %v", data, err)
+	}
+}
+
+func TestPortableConflictingWritersHaveOneWinner(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var workers sync.WaitGroup
+	for _, next := range []string{"first", "second"} {
+		workers.Add(1)
+		go func(next string) {
+			defer workers.Done()
+			<-start
+			results <- store.Update(context.Background(), "sample", []byte("old"), []byte(next))
+		}(next)
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+	success, conflict := 0, 0
+	for result := range results {
+		switch {
+		case result == nil:
+			success++
+		case errors.Is(result, ErrConflict):
+			conflict++
+		default:
+			t.Fatalf("unexpected writer result: %v", result)
+		}
+	}
+	if success != 1 || conflict != 1 {
+		t.Fatalf("writer results: success=%d conflict=%d", success, conflict)
+	}
+	actual, err := store.Read(context.Background(), "sample")
+	if err != nil || string(actual) != "first" && string(actual) != "second" {
+		t.Fatalf("winner bytes = %q, %v", actual, err)
+	}
+}
+
+func TestPortableCreateRejectsAncestorReplacementBeforePublication(t *testing.T) {
+	parent := privateTestRoot(t)
+	root := filepath.Join(parent, "projects")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	outside := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.beforeCreatePublication = func() {
+		if err := os.Rename(root, filepath.Join(parent, "moved")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(outside, root); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.Create(context.Background(), "sample", []byte("manifest")); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("ancestor replacement = %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(outside, "sample")); !os.IsNotExist(err) {
+		t.Fatalf("outside target changed: %v", err)
+	}
+}
+
+func TestPortableUpdateRejectsProjectRenameBeforePublication(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	outside := privateTestRoot(t)
+	store.beforeUpdatePublication = func() {
+		if err := os.Rename(filepath.Join(root, "sample"), filepath.Join(root, "moved")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(outside, filepath.Join(root, "sample")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.Update(context.Background(), "sample", []byte("old"), []byte("new")); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("project replacement = %v", err)
+	}
+	if body, err := os.ReadFile(filepath.Join(root, "moved", manifestName)); err != nil || string(body) != "old" {
+		t.Fatalf("prior bytes = %q, %v", body, err)
+	}
+	if _, err := os.Lstat(filepath.Join(outside, manifestName)); !os.IsNotExist(err) {
+		t.Fatalf("outside target changed: %v", err)
 	}
 }

@@ -99,6 +99,9 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if s.beforeCreatePublication != nil {
 			s.beforeCreatePublication()
 		}
+		if err := stillAtPath(root, s.root); err != nil {
+			return err
+		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -175,6 +178,18 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 		if s.beforeUpdatePublication != nil {
 			s.beforeUpdatePublication()
 		}
+		if err := stillAtPath(root, s.root); err != nil {
+			if clearAttempt(projectRoot, attempt) != nil {
+				return ErrRecoveryRequired
+			}
+			return err
+		}
+		if err := stillAtPath(projectRoot, filepath.Join(s.root, slug)); err != nil {
+			if clearAttempt(projectRoot, attempt) != nil {
+				return ErrRecoveryRequired
+			}
+			return err
+		}
 		if err := ctx.Err(); err != nil {
 			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
 				return cleanup
@@ -210,6 +225,9 @@ func (s PortableStore) withLock(slug string, create, exclusive bool, action func
 		return err
 	}
 	defer root.Close()
+	if err := stillAtPath(root, s.root); err != nil {
+		return err
+	}
 	lock, err := lockDirectory(root, exclusive)
 	if err != nil {
 		return err

@@ -50,6 +50,47 @@ func TestPortableLockSerializesProcessesAndSurvivesCrash(t *testing.T) {
 	}
 }
 
+func TestPortableReadersAndWritersConflictWithOtherProcess(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(os.Args[0], "-test.run=^TestPortableProcessHelper$")
+	command.Env = append(os.Environ(), "AXIOM_POC_HELPER=hold", "AXIOM_POC_ROOT="+root)
+	output, err := command.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = command.Process.Kill()
+		_ = command.Wait()
+	}()
+	line, err := bufio.NewReader(output).ReadString('\n')
+	if err != nil || strings.TrimSpace(line) != "locked" {
+		t.Fatalf("helper did not acquire lock: %q, %v", line, err)
+	}
+	if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("concurrent reader = %v", err)
+	}
+	if err := store.Update(context.Background(), "sample", []byte("old"), []byte("new")); !errors.Is(err, ErrConflict) {
+		t.Fatalf("concurrent writer = %v", err)
+	}
+	if err := command.Process.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	_ = command.Wait()
+	if body, err := store.Read(context.Background(), "sample"); err != nil || string(body) != "old" {
+		t.Fatalf("bytes after conflict = %q, %v", body, err)
+	}
+}
+
 func TestPortableCreateCrashBoundaryRequiresRecovery(t *testing.T) {
 	for _, point := range []string{"stage", "published"} {
 		t.Run(point, func(t *testing.T) {

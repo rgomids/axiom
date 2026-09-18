@@ -117,6 +117,20 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		if s.beforePublication != nil {
 			s.beforePublication()
 		}
+		for _, check := range []struct {
+			root *os.Root
+			path string
+		}{
+			{projects, filepath.Join(s.root, "projects")},
+			{target, filepath.Join(s.root, "projects", snapshot.Project().State().ID)},
+		} {
+			if err := stillAtPath(check.root, check.path); err != nil {
+				if clearAttempt(target, attempt) != nil {
+					return failedInstallation("recovery_required")
+				}
+				return failedInstallation("storage_failure")
+			}
+		}
 		if err := ctx.Err(); err != nil {
 			if clearAttempt(target, attempt) != nil {
 				return failedInstallation("recovery_required")
@@ -199,6 +213,9 @@ func (s InstallationStore) withIDLock(create bool, action func(*os.Root) Install
 		return failedInstallation("storage_failure")
 	}
 	defer root.Close()
+	if err := stillAtPath(root, s.root); err != nil {
+		return failedInstallation("storage_failure")
+	}
 	lock, err := lockDirectory(root, create)
 	if err != nil {
 		return failedInstallation("storage_failure")
