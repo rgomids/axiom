@@ -40,9 +40,14 @@ Execute o dogfooding reproduzível deste incremento em roots temporários:
 ./scripts/dogfood-poc.sh
 ```
 
-O script exige Go 1.26, Bash, `find`, `wc`, `tr` e `cmp`. A saída contém eventos
-JSON seguros e uma linha PASS. Instalação usa publicação sem substituição; resíduos
+O script exige Go 1.26, Bash, `find`, `wc`, `tr`, `cut`, `shasum` e `cmp`. A saída contém eventos
+JSON seguros e um resultado estruturado com hashes SHA-256. Instalação usa publicação sem substituição; resíduos
 de tentativas interrompidas retornam `recovery_required` e exigem inspeção humana.
+No macOS, o adaptador exige build com cgo para inspecionar ACLs; sem cgo,
+operações de filesystem falham fechadas.
+Consulte o [procedimento manual de recovery](specifications/002-lingo-project-initialization/recovery-poc.md)
+antes de mover qualquer artefato. A matriz macOS/Linux executa os mesmos checks
+em [POC verification](../.github/workflows/poc-verification.yml).
 
 ## T01–T04 validation
 

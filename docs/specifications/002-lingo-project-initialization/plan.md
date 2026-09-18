@@ -6,7 +6,8 @@ The approved Plan remains the contract. POC issues #16–#18 merged the minimal
 CLI and portable/local lifecycle described in the
 [Specification status](spec.md#poc-delivery-status--2026-09-18). One-file
 filesystem hardening and black-box Evidence for #19–#20 are in progress;
-dogfooding for #21 is recorded, while platform/fault proof and human acceptance
+dogfooding for #21 is recorded. macOS/Linux runtime checks passed in draft PR #29,
+while ACL/full fault proof and human acceptance
 remain pending. Earlier T04-only gates below are dated history, not the current
 implementation status. No Plan contract is amended here.
 

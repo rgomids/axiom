@@ -16,6 +16,7 @@ type InstallationStore struct {
 	root              string
 	beforePublication func()
 	afterPublication  func()
+	syncDirectory     func(*os.Root) error
 }
 type InstallationStatus string
 
@@ -150,10 +151,10 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		if s.afterPublication != nil {
 			s.afterPublication()
 		}
-		if err := syncRoot(target); err != nil {
+		if err := s.sync(target); err != nil {
 			return failedInstallation("recovery_required")
 		}
-		if err := syncRoot(projects); err != nil {
+		if err := s.sync(projects); err != nil {
 			return failedInstallation("recovery_required")
 		}
 		if err := clearAttempt(target, attempt); err != nil {
@@ -161,6 +162,13 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		}
 		return InstallationResult{Status: InstallationApplied, Category: "installed"}
 	})
+}
+
+func (s InstallationStore) sync(root *os.Root) error {
+	if s.syncDirectory != nil {
+		return s.syncDirectory(root)
+	}
+	return syncRoot(root)
 }
 
 func (s InstallationStore) Reopen(ctx context.Context, source string) InstallationResult {

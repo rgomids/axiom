@@ -29,6 +29,7 @@ type PortableStore struct {
 	afterCreatePublication  func()
 	beforeUpdatePublication func()
 	afterUpdatePublication  func()
+	syncDirectory           func(*os.Root) error
 }
 
 func NewPortableStore(path string) (PortableStore, error) {
@@ -93,7 +94,7 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if err := writePrivateFile(stage, manifestName, manifest); err != nil {
 			return err
 		}
-		if err := syncRoot(stage); err != nil {
+		if err := s.sync(stage); err != nil {
 			return err
 		}
 		if s.beforeCreatePublication != nil {
@@ -128,7 +129,7 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if s.afterCreatePublication != nil {
 			s.afterCreatePublication()
 		}
-		if err := syncRoot(root); err != nil {
+		if err := s.sync(root); err != nil {
 			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
 		}
 		return clearAttempt(root, attempt)
@@ -205,11 +206,18 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 		if s.afterUpdatePublication != nil {
 			s.afterUpdatePublication()
 		}
-		if err := syncRoot(projectRoot); err != nil {
+		if err := s.sync(projectRoot); err != nil {
 			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
 		}
 		return clearAttempt(projectRoot, attempt)
 	})
+}
+
+func (s PortableStore) sync(root *os.Root) error {
+	if s.syncDirectory != nil {
+		return s.syncDirectory(root)
+	}
+	return syncRoot(root)
 }
 
 func (s PortableStore) withLock(slug string, create, exclusive bool, action func(*os.Root) error) error {

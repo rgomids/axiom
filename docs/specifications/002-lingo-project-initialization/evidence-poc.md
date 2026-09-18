@@ -56,8 +56,10 @@ The bounded Axiom change exercised here is POC persistence hardening on
 It creates a temporary Project for that change, validates, reopens, installs,
 updates its name, verifies portable bytes stay unchanged during install, verifies
 one ID-addressed local record, and observes stale local state after update. Its
-temporary files are removed after the run. The local macOS run exited 0 and
-emitted the expected JSON categories for all eight commands.
+temporary files are removed after the run. The original local macOS run exited
+0 and emitted the expected JSON categories for all eight commands. Draft PR
+#29 additionally emits a structured `poc_dogfood` result with portable before/
+after-install and after-update SHA-256 hashes plus the local-record hash.
 
 | POC criterion | Executable evidence | Current result |
 |---|---|---|
@@ -71,7 +73,7 @@ emitted the expected JSON categories for all eight commands.
 | Pre-commit cancellation | `go test ./internal/local -run 'Test(PortableUpdateCancellationBeforePublicationPreservesOldBytes|InstallationCancellationBeforePublicationLeavesNoRecord)' -count=1` | Passed on macOS; cancellation at the final test barrier before publication preserves the old manifest or absent local record and removes owned attempt artifacts. |
 | Permission denial before update | `go test ./internal/local -run TestPortableUpdatePermissionFailurePreservesOldBytes -count=1` | Passed under unprivileged macOS user; prior bytes stay intact. Root execution skips this case. |
 | Read-only validation | `go test ./cmd/lingo -run TestValidateDoesNotCreateRootsOrLockFiles -count=1` | Passed on macOS; missing roots and lock files are not created by validate. |
-| Repository/static checks | `go test -race ./...`, `go vet ./...`, `go build ./...`, `go mod verify`, `./scripts/validate-repository.sh .` | Passed on macOS. Linux cross-build passed; Linux execution unverified. |
+| Repository/static checks at PR #28 | `go test -race ./...`, `go vet ./...`, `go build ./...`, `go mod verify`, `./scripts/validate-repository.sh .` | Passed on macOS at PR #28. Linux execution was unverified at that point; later evidence follows. |
 
 The local adapter now uses owner-only roots, directory-handle operations,
 no-follow file opens, hard-link rejection, no-replace create/install publication,
@@ -81,21 +83,56 @@ temporary artifacts or uncertain post-publication sync. Existing unknown
 artifacts are preserved. The POC still supports only one portable manifest and
 no local record replacement.
 
-### Remaining acceptance blockers
+### PR #29 verification — 2026-09-18
 
-- Linux execution and filesystem fault evidence are unavailable on this host.
-- Disk-full, short-write, broader permission/ACL, remaining commit/fault stages,
-  concurrent reader, and hostile same-user ancestor
-  replacement matrices are not complete. ACL behavior is unverified.
-  Cross-build does not establish runtime behavior.
-- Interrupted attempt artifacts fail closed with `recovery_required`; there is
-  no automated recovery command or proved ownership-based cleanup protocol.
-- Specification 002's full T05–T21 and AC-01–AC-18 matrix remain broader than
-  this one-file POC. Rename, documents, bindings, Runtime and guided flows are
-  unavailable.
-- `gitleaks` is unavailable. The repository sensitive-file checker passed, but
-  scanner coverage remains unverified.
+Base: `main` at `9544e38` after merged PR #28. The first verification commit is
+`9b70f04c625a5ef35b8f153ea000f55d304cf271`. The
+[GitHub Actions run](https://github.com/rgomids/axiom/actions/runs/35398139103)
+executed that commit on Ubuntu 24.04 and macOS 15. Both jobs passed
+`go test -race ./...`, `go vet ./...`, `go build ./...`, `go mod verify`,
+`./scripts/validate-repository.sh .` and `./scripts/dogfood-poc.sh`.
+This is runtime Linux evidence, not merely a cross-build. Reproduce the
+same checks locally from the PR commit or rerun the workflow.
+One local macOS run of the revised dogfooding script exited 0: portable
+before-install and after-install SHA-256 were both
+`8849e6e9ab9eb9f5edf36635ef30b8f71fe8a81d584392c80e7dde50b6994e28`;
+after-update SHA-256 was
+`6433b90b883b3926383855c9687f330de485a9373f3ae7b522dfd08f11b176c7`.
+The UUID is generated per run, so these sample hashes are evidence of equality
+and change in that run, not fixed goldens.
 
-These gaps keep POC issues #19 and #20 open. #21 dogfooding is recorded, but
-explicit human acceptance is still pending. Neither a technical merge nor this
-Evidence authorizes MVP work.
+| POC obligation / Specification mapping | Reproducible test or command | Observation and limit |
+|---|---|---|
+| Init, validate, reopen, install, update; AC-01, AC-03, AC-15 subset | `go test ./cmd/lingo -run TestExecutableMinimalLifecycleAndFailurePaths -count=1`; `./scripts/dogfood-poc.sh` | Real executable and bounded Axiom dogfooding run on both platforms. One manifest and name update only. |
+| Portable intent vs local state; AC-03, AC-17 subset | Same black-box test; `./scripts/dogfood-poc.sh` | Exact portable bytes unchanged during install; one separate ID-addressed local record; stale local observation after update. |
+| Invalid input and conflicts; AC-06, AC-07, AC-13, AC-15 subset | `go test ./cmd/lingo ./internal/manifest ./internal/project ./internal/projectapp` | Parser, identity, CLI and application tests pass. Full Specification matrix remains wider. |
+| Cancellation and pre-commit preservation; AC-07, AC-16 subset | `go test ./internal/local -run 'Test(PortableUpdateCancellationBeforePublicationPreservesOldBytes|InstallationCancellationBeforePublicationLeavesNoRecord)' -count=1` | Prior manifest or absent record remains authoritative. |
+| Process death before/after publication; AC-07, AC-16 subset | `go test ./internal/local -run 'Test(Portable(Create|Update)CrashBoundaryRequiresRecovery|InstallationCrashBoundaryRequiresRecovery)' -count=1` | Pre-commit leaves no final target or old bytes; post-commit leaves complete new bytes; interrupted artifacts produce `recovery_required`. |
+| Post-publication sync failure; AC-07, AC-16 subset | `go test ./internal/local -run 'Test(PortablePostPublicationSyncFailureRequiresRecovery|InstallationPostPublicationSyncFailureRequiresRecovery)' -count=1` | Injected `EIO` after publication leaves complete new bytes and a preserved attempt marker; read/reopen returns `recovery_required`. Physical power-loss durability remains unproved. |
+| Concurrent reader/writer and conflicting updates; AC-07, AC-16 subset | `go test ./internal/local -run 'Test(PortableReadersAndWritersConflictWithOtherProcess|PortableConflictingWritersHaveOneWinner)' -count=1` | Process-held exclusive lock rejects reader/writer; two stale updates have one winner. Independent slugs still share a root lock. |
+| Symlink, hard link, rename and ancestor replacement; AC-09, AC-16 subset | `go test ./internal/local -run 'Test(PortableStoreRejects|PortableCreateRejectsAncestorReplacementBeforePublication|PortableUpdateRejectsProjectRenameBeforePublication|InstallationRejectsTargetReplacementBeforePublication)' -count=1` | Controlled replacements fail before publication; outside sentinels unchanged. Arbitrary hostile same-user interleavings remain unproved. |
+| Short write and simulated storage exhaustion; AC-07 subset | `go test ./internal/local -run TestWriteCompleteHandlesShortWritesAndStorageFaults -count=1` | Partial writes are completed; zero progress and injected `ENOSPC`/`EDQUOT` fail. This is a writer-level fault test, not a full filesystem disk-full run. |
+| Permission denial; AC-07, AC-09 subset | `go test ./internal/local -run TestPortableUpdatePermissionFailurePreservesOldBytes -count=1` | Unprivileged macOS and Linux runs passed; root execution skips. ACL checks are separate below. |
+| Explicit ACL detection; SEC-005, AC-09 subset | `go test ./internal/local -run 'TestPrivate(RootRejectsPermissiveACLDespiteMode0700|FileRejectsPermissiveACL|RootRejectsDefaultACLDespiteMode0700)' -count=1` | macOS extended ACLs and Linux POSIX default ACLs are rejected when mode bits alone appear private. Linux runtime result for this added test is pending the next CI run. Inherited or concurrent ACL mutation remains a separate race question. |
+| Recovery classification; AC-07, AC-16 subset | Crash tests above; [manual recovery procedure](recovery-poc.md) | Recognized interrupted artifacts fail closed and are preserved for operator review. No automatic repair or proved recovery after power loss. |
+
+### Remaining gaps for #19–#21
+
+- `#19`: Full adapter-level disk-full/short-write, injected sync/rename fault
+  stages beyond the post-publication sync case, and exhaustive same-user race
+  proof are incomplete. A macOS synthetic directory retained `0700` mode while
+  an `everyone` ACL granted list/search; draft PR #29 now rejects such ACLs on
+  opened roots/files. Linux default-ACL and inherited ACL behavior must be
+  confirmed by CI before claiming SEC-005 coverage.
+- `#19`: `recovery_required` is deterministic for recognized leftovers, with a
+  [manual operator procedure](recovery-poc.md). It preserves Evidence and unknown
+  artifacts. Automatic recovery is outside this POC; post-publication durability
+  uncertainty requires explicit inspection and cannot be reported as a rollback.
+- `#20`: The POC subset above has reproducible macOS/Linux Evidence. Full
+  AC-01–AC-18 coverage is not claimed: rename, documents, bindings, Runtime,
+  guided flows, and Git execution are outside the delivered one-file baseline.
+- `#21`: The bounded dogfooding run is recorded and repeatable. Explicit human
+  acceptance remains pending. Merge and test success do not mark Specification
+  002 or parent #14 Accepted or authorize MVP.
+- `gitleaks` is unavailable on the local host. The repository sensitive-file
+  checker passed; consolidated scanner coverage remains unverified.

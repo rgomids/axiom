@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
@@ -89,13 +90,13 @@ func TestInstallationProcessHelper(t *testing.T) {
 	store.beforePublication = func() {
 		if point == "stage" {
 			fmt.Fprintln(os.Stdout, point)
-			select {}
+			time.Sleep(time.Hour)
 		}
 	}
 	store.afterPublication = func() {
 		if point == "published" {
 			fmt.Fprintln(os.Stdout, point)
-			select {}
+			time.Sleep(time.Hour)
 		}
 	}
 	result := store.Install(context.Background(), os.Getenv("AXIOM_INSTALL_SOURCE"))

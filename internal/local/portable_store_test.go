@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"testing"
 )
 
@@ -271,5 +272,45 @@ func TestPortableUpdateRejectsProjectRenameBeforePublication(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(outside, manifestName)); !os.IsNotExist(err) {
 		t.Fatalf("outside target changed: %v", err)
+	}
+}
+
+func TestPortablePostPublicationSyncFailureRequiresRecovery(t *testing.T) {
+	for _, operation := range []string{"create", "update"} {
+		t.Run(operation, func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if operation == "update" {
+				if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			calls := 0
+			store.syncDirectory = func(directory *os.Root) error {
+				calls++
+				if operation == "update" || calls == 2 {
+					return syscall.EIO
+				}
+				return syncRoot(directory)
+			}
+			if operation == "create" {
+				err = store.Create(context.Background(), "sample", []byte("new"))
+			} else {
+				err = store.Update(context.Background(), "sample", []byte("old"), []byte("new"))
+			}
+			if !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatalf("sync failure = %v", err)
+			}
+			if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatalf("read after uncertain durability = %v", err)
+			}
+			actual, err := os.ReadFile(filepath.Join(root, "sample", manifestName))
+			if err != nil || string(actual) != "new" {
+				t.Fatalf("published bytes = %q, %v", actual, err)
+			}
+		})
 	}
 }

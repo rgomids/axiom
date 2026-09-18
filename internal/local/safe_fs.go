@@ -71,6 +71,17 @@ func privateRoot(path string) (*os.Root, error) {
 			return nil, ErrUnsafe
 		}
 	}
+	directory, err := root.Open(".")
+	if err != nil {
+		root.Close()
+		return nil, ErrUnsafe
+	}
+	err = checkPrivateACL(directory)
+	directory.Close()
+	if err != nil {
+		root.Close()
+		return nil, err
+	}
 	return root, nil
 }
 
@@ -188,6 +199,17 @@ func existingPrivateChild(parent *os.Root, name string) (*os.Root, error) {
 		child.Close()
 		return nil, ErrUnsafe
 	}
+	directory, err := child.Open(".")
+	if err != nil {
+		child.Close()
+		return nil, ErrUnsafe
+	}
+	err = checkPrivateACL(directory)
+	directory.Close()
+	if err != nil {
+		child.Close()
+		return nil, err
+	}
 	return child, nil
 }
 
@@ -219,6 +241,9 @@ func readPrivateFile(root *os.Root, name string) ([]byte, error) {
 	if !ok || stat.Nlink != 1 {
 		return nil, ErrUnsafe
 	}
+	if err := checkPrivateACL(file); err != nil {
+		return nil, err
+	}
 	data, err := io.ReadAll(io.LimitReader(file, MaxRecordBytes+1))
 	if err != nil || len(data) > MaxRecordBytes {
 		return nil, ErrUnsafe
@@ -229,6 +254,10 @@ func readPrivateFile(root *os.Root, name string) ([]byte, error) {
 func writePrivateFile(root *os.Root, name string, content []byte) error {
 	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0o600)
 	if err != nil {
+		return err
+	}
+	if err := checkPrivateACL(file); err != nil {
+		file.Close()
 		return err
 	}
 	if err := writeComplete(file, content); err != nil {

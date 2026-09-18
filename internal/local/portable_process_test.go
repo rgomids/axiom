@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPortableLockSerializesProcessesAndSurvivesCrash(t *testing.T) {
@@ -193,7 +194,8 @@ func TestPortableProcessHelper(t *testing.T) {
 	if point == "hold" {
 		if err := store.withLock("sample", false, true, func(*os.Root) error {
 			fmt.Fprintln(os.Stdout, "locked")
-			select {}
+			time.Sleep(time.Hour)
+			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -203,13 +205,13 @@ func TestPortableProcessHelper(t *testing.T) {
 		store.beforeUpdatePublication = func() {
 			if point == "update-stage" {
 				fmt.Fprintln(os.Stdout, point)
-				select {}
+				time.Sleep(time.Hour)
 			}
 		}
 		store.afterUpdatePublication = func() {
 			if point == "update-published" {
 				fmt.Fprintln(os.Stdout, point)
-				select {}
+				time.Sleep(time.Hour)
 			}
 		}
 		if err := store.Update(context.Background(), "sample", []byte("old"), []byte("new")); err != nil {
@@ -220,13 +222,13 @@ func TestPortableProcessHelper(t *testing.T) {
 	store.beforeCreatePublication = func() {
 		if point == "stage" {
 			fmt.Fprintln(os.Stdout, point)
-			select {}
+			time.Sleep(time.Hour)
 		}
 	}
 	store.afterCreatePublication = func() {
 		if point == "published" {
 			fmt.Fprintln(os.Stdout, point)
-			select {}
+			time.Sleep(time.Hour)
 		}
 	}
 	if err := store.Create(context.Background(), "sample", []byte("complete")); err != nil {
