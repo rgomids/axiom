@@ -2,7 +2,7 @@
 
 ## [2026-09-18]
 
-- fix: anchor minimal POC filesystem operations to private directory handles, reject symlink/hard-link targets, publish create/install without replacement, keep validate read-only, and report interrupted attempts as recovery-required. Add process and executable black-box tests plus reproducible dogfooding Evidence; Linux fault proof and human acceptance remain open.
+- fix: anchor minimal POC filesystem operations to private directory handles, reject symlink/hard-link targets, publish create/install without replacement, keep validate read-only, and report interrupted attempts through durable markers as recovery-required. Add process crash-boundary and executable black-box tests plus reproducible dogfooding Evidence; Linux fault proof and human acceptance remain open.
 
 - fix: align Lingo's default machine-local root with native macOS Application Support and Linux XDG state directories; reject invalid explicit root overrides. Reconcile Specification 002's POC delivery status while #19–#21 and human acceptance remain pending.
 

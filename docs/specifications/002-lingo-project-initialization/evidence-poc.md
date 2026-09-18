@@ -49,8 +49,9 @@ before an update.
 ## Hardening and dogfooding — 2026-09-18
 
 The bounded Axiom change exercised here is POC persistence hardening on
-`agent/finish-poc` at implementation commit
-`a704a6367485d3a800a36ee31521d9dd245b5b95`. Run
+`agent/finish-poc` at implementation commits
+`a704a6367485d3a800a36ee31521d9dd245b5b95` and
+`f91caf0723d09ebfb47c15cf55ffd08fbdd465e8`. Run
 `./scripts/dogfood-poc.sh` from the repository root.
 It creates a temporary Project for that change, validates, reopens, installs,
 updates its name, verifies portable bytes stay unchanged during install, verifies
@@ -64,24 +65,27 @@ emitted the expected JSON categories for all eight commands.
 | Portable/local separation | Black-box test and `./scripts/dogfood-poc.sh` | Passed on macOS; install preserves exact portable bytes and publishes one separate local record. |
 | Create/update confinement | `go test ./internal/local -run TestPortableStore -count=1` | Passed on macOS for symlink ancestor, symlink Project, hard-linked manifest, unknown artifacts and interrupted temporary artifacts. |
 | Process coordination | `go test ./internal/local -run TestPortableLockSerializesProcessesAndSurvivesCrash -count=1` | Passed on macOS; conflicting process cannot create while lock held and can proceed after owner death. |
+| Create/update crash boundaries | `go test ./internal/local -run 'TestPortable(Create|Update)CrashBoundaryRequiresRecovery' -count=1` | Passed on macOS; subprocess termination before and after publication preserves old/new complete bytes and normal reads return `recovery_required`. |
+| Local-install crash boundaries | `go test ./internal/local -run TestInstallationCrashBoundaryRequiresRecovery -count=1` | Passed on macOS; subprocess termination before/after record publication leaves absent/complete record and reopen returns `recovery_required`. |
 | Permission denial before update | `go test ./internal/local -run TestPortableUpdatePermissionFailurePreservesOldBytes -count=1` | Passed under unprivileged macOS user; prior bytes stay intact. Root execution skips this case. |
 | Read-only validation | `go test ./cmd/lingo -run TestValidateDoesNotCreateRootsOrLockFiles -count=1` | Passed on macOS; missing roots and lock files are not created by validate. |
 | Repository/static checks | `go test -race ./...`, `go vet ./...`, `go build ./...`, `go mod verify`, `./scripts/validate-repository.sh .` | Passed on macOS. Linux cross-build passed; Linux execution unverified. |
 
 The local adapter now uses owner-only roots, directory-handle operations,
 no-follow file opens, hard-link rejection, no-replace create/install publication,
-atomic one-file update, directory locks released on process exit, bounded reads,
-and explicit `recovery_required` for interrupted temporary artifacts or uncertain
-post-publication sync. Existing unknown artifacts are preserved. The POC still
-supports only one portable manifest and no local record replacement.
+atomic one-file update, durable attempt markers, directory locks released on
+process exit, bounded reads, and explicit `recovery_required` for interrupted
+temporary artifacts or uncertain post-publication sync. Existing unknown
+artifacts are preserved. The POC still supports only one portable manifest and
+no local record replacement.
 
 ### Remaining acceptance blockers
 
 - Linux execution and filesystem fault evidence are unavailable on this host.
-- Disk-full, short-write, broader permission/ACL, crash at each commit boundary,
-  concurrent reader, and hostile same-user ancestor replacement matrices are not
-  complete. ACL behavior is unverified. Cross-build does not establish runtime
-  behavior.
+- Disk-full, short-write, broader permission/ACL, remaining commit/fault stages,
+  concurrent reader, and hostile same-user ancestor
+  replacement matrices are not complete. ACL behavior is unverified.
+  Cross-build does not establish runtime behavior.
 - Interrupted attempt artifacts fail closed with `recovery_required`; there is
   no automated recovery command or proved ownership-based cleanup protocol.
 - Specification 002's full T05–T21 and AC-01–AC-18 matrix remain broader than
