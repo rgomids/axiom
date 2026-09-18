@@ -74,8 +74,14 @@ imports de produção; fixtures são sintéticas.
 [T04 Evidence](specifications/002-lingo-project-initialization/evidence-t04.md) registra
 JSON estrito, metadados locais, ausência versus corrupção e testes de fronteira.
 `go test ./internal/local` inclui matrizes, round-trips, inspeção estática do DTO/imports
-e integração com fake do port T02. A persistência atual é limitada ao lifecycle
-portátil mínimo descrito acima; não há instalação ou estado local operacional.
+e integração com fake do port T02. Além do lifecycle portátil, este POC inclui
+`lingo project install`, que persiste `installation.json` em
+`<state-root>/projects/<project-id>/installation.json`; `reopen` reconhece esse
+estado local quando disponível. Configuração portátil e estado local permanecem
+separados. Bindings, resolução de credenciais, Runtime observations,
+reconciliação avançada, hardening completo de filesystem, crash recovery e
+proteção contra races de symlink, canonical-path e ancestor continuam fora do
+POC; o escopo restante é #19–#21.
 
 ## Harness validation
 

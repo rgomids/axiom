@@ -25,8 +25,13 @@ portátil e local JSON. Go 1.26 ou posterior é requisito para os checks Go; o c
 portátil depende de `go.yaml.in/yaml/v3@v3.0.5`.
 Consulte [preparação do cache e validação offline](../commands.md#t01t04-validation)
 e [Evidence T04](../specifications/002-lingo-project-initialization/evidence-t04.md).
-O POC Lingo oferece lifecycle portátil mínimo; consulte [comandos](../commands.md#lingo-poc-minimal-lifecycle).
-Instalação operacional/estado local, bindings, documentos opcionais e integrações ainda não existem.
+O POC Lingo oferece lifecycle portátil mínimo e `lingo project install`, que
+persiste `installation.json` em `<state-root>/projects/<project-id>/installation.json`.
+`reopen` reconhece o estado local quando disponível, separado da configuração
+portátil. Bindings, resolução de credenciais, Runtime observations, reconciliação
+avançada, hardening completo de filesystem, crash recovery e proteção contra
+races de symlink, canonical-path e ancestor continuam fora do POC; o escopo
+restante é #19–#21. Consulte [comandos](../commands.md#lingo-poc-minimal-lifecycle).
 Consulte o [lifecycle atual](../specifications/README.md#002--lingo-project-initialization)
 para distinguir implementação mergeada, aceitação humana e autorização de novas Tasks.
 
