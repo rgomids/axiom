@@ -24,7 +24,15 @@ func compose() cli.Service {
 	if err != nil {
 		return cli.UnavailableService{}
 	}
-	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{})}
+	state, err := stateRoot()
+	if err != nil {
+		return cli.UnavailableService{}
+	}
+	installation, err := local.NewInstallationStore(state)
+	if err != nil {
+		return cli.UnavailableService{}
+	}
+	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation}
 }
 
 func projectsRoot() (string, error) {
@@ -40,8 +48,24 @@ func projectsRoot() (string, error) {
 	}
 	return filepath.Join(home, ".axiom", "projects"), nil
 }
+func stateRoot() (string, error) {
+	if override := os.Getenv("LINGO_STATE_ROOT"); override != "" {
+		if !filepath.IsAbs(override) {
+			return "", projectapp.ErrUnsafe
+		}
+		return filepath.Clean(override), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".axiom", "state"), nil
+}
 
-type lifecycleService struct{ lifecycle projectapp.Lifecycle }
+type lifecycleService struct {
+	lifecycle    projectapp.Lifecycle
+	installation local.InstallationStore
+}
 
 func (s lifecycleService) Init(ctx context.Context, input cli.InitInput) cli.Result {
 	return cliResult(s.lifecycle.Init(ctx, projectapp.InitRequest{Slug: input.Slug, Name: input.Name}))
@@ -54,6 +78,14 @@ func (s lifecycleService) Reopen(ctx context.Context, input cli.ProjectInput) cl
 }
 func (s lifecycleService) Update(ctx context.Context, input cli.UpdateInput) cli.Result {
 	return cliResult(s.lifecycle.Update(ctx, projectapp.UpdateRequest{Slug: input.Slug, Name: input.Name}))
+}
+func (s lifecycleService) Install(ctx context.Context, input cli.InstallInput) cli.Result {
+	result := s.installation.Install(ctx, input.Source)
+	status := cli.Failed
+	if result.Status == local.InstallationApplied || result.Status == local.InstallationUnchanged {
+		status = cli.Succeeded
+	}
+	return cli.Result{Status: status, Category: result.Category}
 }
 
 func cliResult(result projectapp.LifecycleResult) cli.Result {

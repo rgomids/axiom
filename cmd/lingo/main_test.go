@@ -14,11 +14,25 @@ import (
 func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", filepath.Join(root, "state"))
 	service := compose()
 
 	runCLI(t, service, []string{"project", "init", "--slug", "sample", "--name", "Sample"}, cli.ExitSuccess, "applied")
 	runCLI(t, service, []string{"project", "validate", "--slug", "sample"}, cli.ExitSuccess, "valid")
 	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened")
+	beforeInstall, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runCLI(t, service, []string{"project", "install", "--source", filepath.Join(root, "sample")}, cli.ExitSuccess, "installed")
+	afterInstall, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
+	if err != nil || string(beforeInstall) != string(afterInstall) {
+		t.Fatalf("install changed portable manifest: %v", err)
+	}
+	records, err := filepath.Glob(filepath.Join(root, "state", "projects", "*", "installation.json"))
+	if err != nil || len(records) != 1 {
+		t.Fatalf("installation record paths = %v, %v", records, err)
+	}
 	runCLI(t, service, []string{"project", "update", "--slug", "sample", "--name", "Changed"}, cli.ExitSuccess, "applied")
 
 	manifest, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))

@@ -108,3 +108,7 @@ func (s *recordingService) Update(_ context.Context, input UpdateInput) Result {
 	s.call = "update:" + input.Slug + ":" + input.Name
 	return Result{Status: Succeeded, Category: "applied"}
 }
+func (s *recordingService) Install(_ context.Context, input InstallInput) Result {
+	s.call = "install:" + input.Source
+	return Result{Status: Succeeded, Category: "installed"}
+}
