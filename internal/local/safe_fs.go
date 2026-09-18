@@ -1,6 +1,7 @@
 package local
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -249,6 +250,17 @@ func readPrivateFile(root *os.Root, name string) ([]byte, error) {
 		return nil, ErrUnsafe
 	}
 	return data, nil
+}
+
+func verifyPreparedFile(root *os.Root, name string, expected []byte) error {
+	actual, err := readPrivateFile(root, name)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(actual, expected) {
+		return ErrUnsafe
+	}
+	return nil
 }
 
 func writePrivateFile(root *os.Root, name string, content []byte) error {

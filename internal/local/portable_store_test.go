@@ -400,3 +400,47 @@ func TestPortableDiskFullBeforePublicationPreservesPriorState(t *testing.T) {
 		})
 	}
 }
+
+func TestPortableRejectsStagedHardLinkBeforePublication(t *testing.T) {
+	for _, operation := range []string{"create", "update"} {
+		t.Run(operation, func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if operation == "update" {
+				if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			outside := filepath.Join(privateTestRoot(t), "linked")
+			linkStage := func(pattern string) {
+				matches, err := filepath.Glob(pattern)
+				if err != nil || len(matches) != 1 {
+					t.Fatalf("stage paths = %v, %v", matches, err)
+				}
+				if err := os.Link(matches[0], outside); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if operation == "create" {
+				store.beforeCreatePublication = func() { linkStage(filepath.Join(root, ".lingo-stage-sample-*", manifestName)) }
+				err = store.Create(context.Background(), "sample", []byte("new"))
+			} else {
+				store.beforeUpdatePublication = func() { linkStage(filepath.Join(root, "sample", ".lingo-manifest-*")) }
+				err = store.Update(context.Background(), "sample", []byte("old"), []byte("new"))
+			}
+			if !errors.Is(err, ErrUnsafe) {
+				t.Fatalf("hard-linked stage accepted: %v", err)
+			}
+			if operation == "create" {
+				if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrNotFound) {
+					t.Fatalf("unpublished create read = %v", err)
+				}
+			} else if actual, err := store.Read(context.Background(), "sample"); err != nil || string(actual) != "old" {
+				t.Fatalf("prior manifest = %q, %v", actual, err)
+			}
+		})
+	}
+}

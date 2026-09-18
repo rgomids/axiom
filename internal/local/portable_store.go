@@ -101,6 +101,9 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if s.beforeCreatePublication != nil {
 			s.beforeCreatePublication()
 		}
+		if err := verifyPreparedFile(stage, manifestName, manifest); err != nil {
+			return err
+		}
 		if err := stillAtPath(root, s.root); err != nil {
 			return err
 		}
@@ -179,6 +182,12 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 		}
 		if s.beforeUpdatePublication != nil {
 			s.beforeUpdatePublication()
+		}
+		if err := verifyPreparedFile(projectRoot, temporary, manifest); err != nil {
+			if clearAttempt(projectRoot, attempt) != nil {
+				return ErrRecoveryRequired
+			}
+			return err
 		}
 		if err := stillAtPath(root, s.root); err != nil {
 			if clearAttempt(projectRoot, attempt) != nil {

@@ -119,6 +119,12 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		if s.beforePublication != nil {
 			s.beforePublication()
 		}
+		if err := verifyPreparedFile(target, temporary, wire); err != nil {
+			if clearAttempt(target, attempt) != nil {
+				return failedInstallation("recovery_required")
+			}
+			return failedInstallation("storage_failure")
+		}
 		for _, check := range []struct {
 			root *os.Root
 			path string

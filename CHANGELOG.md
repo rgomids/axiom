@@ -2,7 +2,7 @@
 
 ## [2026-09-18]
 
-- fix: check complete private-file writes, opened directory identity and platform ACLs before one-file publication; add controlled storage-fault, process-conflict, writer-conflict, ACL and replacement-race regressions. Run POC tests and dogfooding on macOS/Linux in GitHub Actions; document manual recovery and remaining fault/race proof gaps without declaring acceptance.
+- fix: check complete private-file writes, staged-file bytes/link count, opened directory identity and platform ACLs before one-file publication; add controlled storage-fault, process-conflict, writer-conflict, ACL and replacement-race regressions. Run POC tests and dogfooding on macOS/Linux in GitHub Actions; document manual recovery and remaining fault/race proof gaps without declaring acceptance.
 
 - fix: anchor minimal POC filesystem operations to private directory handles, reject symlink/hard-link targets, publish create/install without replacement, keep validate read-only, and report interrupted attempts through durable markers as recovery-required. Add process crash-boundary and executable black-box tests plus reproducible dogfooding Evidence; Linux fault proof and human acceptance remain open.
 
