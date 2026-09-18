@@ -8,9 +8,10 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("project not found")
-	ErrConflict = errors.New("project conflict")
-	ErrUnsafe   = errors.New("unsafe project storage")
+	ErrNotFound         = errors.New("project not found")
+	ErrConflict         = errors.New("project conflict")
+	ErrUnsafe           = errors.New("unsafe project storage")
+	ErrRecoveryRequired = errors.New("project recovery required")
 )
 
 // PortableLifecycleStore is consumer-owned. It has no path, document-body, or
@@ -168,6 +169,8 @@ func storageResult(err error) LifecycleResult {
 		return LifecycleResult{Status: LifecycleConflict, Category: "conflict"}
 	case errors.Is(err, context.Canceled):
 		return LifecycleResult{Status: LifecycleCancelled, Category: "cancelled"}
+	case errors.Is(err, ErrRecoveryRequired):
+		return failed("recovery_required")
 	default:
 		return failed("storage_failure")
 	}

@@ -1,9 +1,8 @@
 # Architecture
 
-Axiom define produto, domínio, políticas e contratos. Lingo é a direção aceita
-para executá-los como control plane local, conforme a ADR-0003. A ADR-0004 define
-o Portable Project Manifest separado do estado local. Direção arquitetural aceita
-e fundação implementada não equivalem a uma aplicação operacional.
+Axiom define produto, domínio, políticas e contratos. Lingo executa um POC local
+limitado, conforme a ADR-0003. A ADR-0004 define o Portable Project Manifest
+separado do estado local. O POC não implementa toda a Specification 002.
 
 ## Target architecture
 
@@ -11,26 +10,30 @@ A [Specification 002](../specifications/002-lingo-project-initialization/spec.md
 e seu [Plan](../specifications/002-lingo-project-initialization/plan.md#1-architecture-and-minimal-organization)
 descrevem CLI → aplicação → domínio/contratos → ports → adapters. Dependências de
 código apontam para dentro: domínio não depende de codecs, filesystem ou vendors;
-a aplicação define os ports que consome. Apresentação e adapters concretos de
-filesystem ainda precisam de implementação autorizada e Evidence.
+a aplicação define os ports que consome. Apresentação e adapters concretos do
+POC existem; a cobertura completa de filesystem e Evidence ainda precisa
+cumprir o Plan.
 
 Contexto de orientação para agentes: [../../.agents/context/axiom-architecture.md](../../.agents/context/axiom-architecture.md).
 Specifications e ADRs aprovados continuam sendo fontes canônicas.
 
 ## Implemented foundation
 
-O módulo Go contém quatro pacotes com testes:
+O módulo Go contém estes pacotes com testes:
 
 | Pacote | Responsabilidade implementada |
 |---|---|
 | [`internal/project`](../../internal/project/) | Domínio e invariantes de Project; identidade imutável, declarações e materialização/validação de estado completo |
 | [`internal/projectapp`](../../internal/projectapp/) | Contratos de aplicação, ports, snapshots/revisões, authority vinculada ao preview e resultados de mutação |
 | [`internal/manifest`](../../internal/manifest/) | Codec estrito do manifesto portátil `axiom.yaml`, com mapeamento para domínio e serialização canônica em memória |
-| [`internal/local`](../../internal/local/) | Codec estrito do registro local JSON, metadados e distinção entre ausência e registro inválido, em memória |
+| [`internal/local`](../../internal/local/) | Codec local JSON e stores de filesystem restritos ao Project mínimo; operações ancoradas e estado local separado |
+| [`internal/cli`](../../internal/cli/) e [`cmd/lingo`](../../cmd/lingo/) | Apresentação JSON e executável para init, validate, reopen, install e update de nome |
 
-`internal/projectapp` não entrega casos de uso completos. `internal/local` ainda
-não implementa armazenamento em filesystem. Testes de codecs e contratos com
-fakes não provam persistência, CAS físico, confinamento, symlink/TOCTOU ou recovery.
+`internal/projectapp` entrega apenas o lifecycle mínimo. `internal/local` usa
+`os.Root` e `golang.org/x/sys/unix@v0.44.0` para operações de filesystem em
+Linux/macOS. Testes de codecs e contratos com fakes não provam persistência;
+os testes de filesystem do POC cobrem somente os casos registrados em
+[Evidence](../specifications/002-lingo-project-initialization/evidence-poc.md).
 O [índice da Specification](../specifications/README.md#002--lingo-project-initialization)
 aponta para Tasks, Evidence e estado de aceitação.
 
@@ -41,9 +44,10 @@ portátil validado. Detalhes pertencem às
 
 ## Not implemented
 
-Não existem aplicação/CLI Lingo executável, persistência em filesystem,
-instalação operacional, runtime/provider adapters ou orchestration. Framework CLI,
-engine de persistência, runtime e provider não são escolhidos por este panorama.
+Não existem documentos opcionais no store POC, rename, bindings, runtime/provider
+adapters ou orchestration. Recuperação automatizada, garantias completas contra
+races hostis e Evidence em Linux permanecem abertas. Nenhum framework CLI ou
+engine geral de persistência foi adotado.
 
 ## Architecture references
 

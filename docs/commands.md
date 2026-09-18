@@ -34,13 +34,25 @@ recusa symlinks, artefatos extras e roots relativos em vez de tentar preservar
 documentos opcionais sem um protocolo completo. Binding,
 rename, documentos, Git, Runtime, Provider e rede permanecem fora deste incremento.
 
+Execute o dogfooding reproduzível deste incremento em roots temporários:
+
+```bash
+./scripts/dogfood-poc.sh
+```
+
+O script exige Go 1.26, Bash, `find`, `wc`, `tr` e `cmp`. A saída contém eventos
+JSON seguros e uma linha PASS. Instalação usa publicação sem substituição; resíduos
+de tentativas interrompidas retornam `recovery_required` e exigem inspeção humana.
+
 ## T01–T04 validation
 
-Go 1.26 instalado. T01/T02/T04 usam biblioteca padrão; T03 usa o parser fixado em
-`go.mod`/`go.sum`. Em cache novo, preparação explícita com rede:
+Go 1.26 instalado. T01/T02/T04 usam biblioteca padrão; T03 usa o parser fixado
+em `go.mod`/`go.sum`. O store POC usa `golang.org/x/sys/unix@v0.44.0` em
+Linux/macOS. Em cache novo, preparação explícita com rede:
 
 ```bash
 GOTOOLCHAIN=local go mod download go.yaml.in/yaml/v3@v3.0.5
+GOTOOLCHAIN=local go mod download golang.org/x/sys@v0.44.0
 ```
 
 Depois, os checks abaixo rodam offline. Build valida pacotes e o executável Lingo POC.
@@ -79,9 +91,8 @@ e integração com fake do port T02. Além do lifecycle portátil, este POC incl
 `<state-root>/projects/<project-id>/installation.json`; `reopen` reconhece esse
 estado local quando disponível. Configuração portátil e estado local permanecem
 separados. Bindings, resolução de credenciais, Runtime observations,
-reconciliação avançada, hardening completo de filesystem, crash recovery e
-proteção contra races de symlink, canonical-path e ancestor continuam fora do
-POC; o escopo restante é #19–#21.
+reconciliação avançada, recuperação automatizada e a matriz completa de falhas
+de filesystem continuam fora da evidência concluída; #19–#21 seguem abertos.
 
 ## Harness validation
 

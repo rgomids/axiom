@@ -7,14 +7,15 @@ acceptance. POC issues [#16](https://github.com/rgomids/axiom/issues/16)–
 [#18](https://github.com/rgomids/axiom/issues/18) delivered an executable local
 Lingo CLI for minimal Project `init`, read-only `validate`, `reopen`, explicit
 name `update`, limited filesystem persistence, and separate local `install` state.
-These changes are under review in [PR #27](https://github.com/rgomids/axiom/pull/27);
-[POC Evidence](evidence-poc.md) records current behavior and limits.
+These changes merged in [PR #27](https://github.com/rgomids/axiom/pull/27).
+[POC Evidence](evidence-poc.md) records current behavior, hardening work and limits.
 
 [#19](https://github.com/rgomids/axiom/issues/19) still owns filesystem
 hardening, atomicity/recovery and security proof;
 [#20](https://github.com/rgomids/axiom/issues/20) owns complete acceptance and
 failure-path Evidence; [#21](https://github.com/rgomids/axiom/issues/21) owns
-dogfooding and human acceptance. The POC and parent
+dogfooding and human acceptance. A bounded dogfooding execution is recorded,
+while Linux/fault proof and explicit human acceptance remain open. The POC and parent
 [#14](https://github.com/rgomids/axiom/issues/14) remain open. Dated T04 gates
 below record historical state and do not describe current POC delivery.
 

@@ -1,0 +1,278 @@
+package local
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
+
+	"golang.org/x/sys/unix"
+)
+
+// privateRoot creates and opens one owner-only directory without following
+// user-owned symlinks in its ancestry. The returned Root anchors later work to
+// directory objects instead of repeating absolute-path resolution.
+func privateRoot(path string) (*os.Root, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) == string(filepath.Separator) {
+		return nil, ErrUnsafe
+	}
+	canonical, err := trustedCanonical(path)
+	if err != nil {
+		return nil, err
+	}
+	root, err := os.OpenRoot(string(filepath.Separator))
+	if err != nil {
+		return nil, err
+	}
+	for _, part := range strings.Split(strings.TrimPrefix(canonical, string(filepath.Separator)), string(filepath.Separator)) {
+		if part == "" {
+			continue
+		}
+		if err := root.Mkdir(part, 0o700); err != nil && !os.IsExist(err) {
+			root.Close()
+			return nil, err
+		}
+		info, err := root.Lstat(part)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			root.Close()
+			return nil, ErrUnsafe
+		}
+		next, err := root.OpenRoot(part)
+		root.Close()
+		if err != nil {
+			return nil, ErrUnsafe
+		}
+		root = next
+	}
+	info, err := root.Stat(".")
+	if err != nil || !ownedByUser(info) {
+		root.Close()
+		return nil, ErrUnsafe
+	}
+	if info.Mode().Perm()&0o077 != 0 {
+		directory, err := root.Open(".")
+		if err != nil {
+			root.Close()
+			return nil, ErrUnsafe
+		}
+		err = directory.Chmod(0o700)
+		directory.Close()
+		if err != nil {
+			root.Close()
+			return nil, ErrUnsafe
+		}
+	}
+	return root, nil
+}
+
+func existingPrivateRoot(path string) (*os.Root, error) {
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return nil, ErrNotFound
+	}
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 || !ownedByUser(info) {
+		return nil, ErrUnsafe
+	}
+	return privateRoot(path)
+}
+
+// RootsOverlap resolves trusted system aliases before any root is created.
+func RootsOverlap(first, second string) (bool, error) {
+	a, err := trustedCanonical(first)
+	if err != nil {
+		return false, err
+	}
+	b, err := trustedCanonical(second)
+	if err != nil {
+		return false, err
+	}
+	return pathWithin(a, b) || pathWithin(b, a), nil
+}
+
+func pathWithin(parent, child string) bool {
+	relative, err := filepath.Rel(parent, child)
+	return err == nil && (relative == "." || relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))
+}
+
+func trustedCanonical(path string) (string, error) {
+	clean := filepath.Clean(path)
+	current := string(filepath.Separator)
+	for _, part := range strings.Split(strings.TrimPrefix(clean, current), current) {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return "", ErrUnsafe
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			stat, ok := info.Sys().(*syscall.Stat_t)
+			if !ok || stat.Uid != 0 {
+				return "", ErrUnsafe
+			}
+		}
+	}
+	probe := clean
+	var suffix []string
+	for {
+		if _, err := os.Lstat(probe); err == nil {
+			break
+		} else if !os.IsNotExist(err) {
+			return "", ErrUnsafe
+		}
+		suffix = append(suffix, filepath.Base(probe))
+		probe = filepath.Dir(probe)
+	}
+	resolved, err := filepath.EvalSymlinks(probe)
+	if err != nil {
+		return "", ErrUnsafe
+	}
+	for i := len(suffix) - 1; i >= 0; i-- {
+		resolved = filepath.Join(resolved, suffix[i])
+	}
+	return resolved, nil
+}
+
+func ownedByUser(info os.FileInfo) bool {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return ok && int(stat.Uid) == os.Geteuid()
+}
+
+func privateChild(parent *os.Root, name string) (*os.Root, error) {
+	if err := parent.Mkdir(name, 0o700); err != nil && !os.IsExist(err) {
+		return nil, err
+	}
+	info, err := parent.Lstat(name)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 || !ownedByUser(info) {
+		return nil, ErrUnsafe
+	}
+	return existingPrivateChild(parent, name)
+}
+
+func existingPrivateChild(parent *os.Root, name string) (*os.Root, error) {
+	info, err := parent.Lstat(name)
+	if os.IsNotExist(err) {
+		return nil, ErrNotFound
+	}
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 || !ownedByUser(info) {
+		return nil, ErrUnsafe
+	}
+	child, err := parent.OpenRoot(name)
+	if err != nil {
+		return nil, ErrUnsafe
+	}
+	actual, err := child.Stat(".")
+	if err != nil || !os.SameFile(info, actual) {
+		child.Close()
+		return nil, ErrUnsafe
+	}
+	return child, nil
+}
+
+func temporaryName(prefix string) (string, error) {
+	var entropy [16]byte
+	if _, err := rand.Read(entropy[:]); err != nil {
+		return "", err
+	}
+	return prefix + hex.EncodeToString(entropy[:]), nil
+}
+
+func readPrivateFile(root *os.Root, name string) ([]byte, error) {
+	if info, err := root.Lstat(name); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return nil, ErrUnsafe
+	}
+	file, err := root.OpenFile(name, os.O_RDONLY|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		if errors.Is(err, syscall.ELOOP) {
+			return nil, ErrUnsafe
+		}
+		return nil, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || !ownedByUser(info) || info.Mode().Perm()&0o077 != 0 {
+		return nil, ErrUnsafe
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat.Nlink != 1 {
+		return nil, ErrUnsafe
+	}
+	data, err := io.ReadAll(io.LimitReader(file, MaxRecordBytes+1))
+	if err != nil || len(data) > MaxRecordBytes {
+		return nil, ErrUnsafe
+	}
+	return data, nil
+}
+
+func writePrivateFile(root *os.Root, name string, content []byte) error {
+	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := file.Write(content); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
+}
+
+func syncRoot(root *os.Root) error {
+	file, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	return file.Sync()
+}
+
+func markAttempt(root *os.Root, prefix string) (string, error) {
+	name, err := temporaryName(prefix)
+	if err != nil {
+		return "", err
+	}
+	if err := writePrivateFile(root, name, []byte("pending\n")); err != nil {
+		return "", err
+	}
+	if err := syncRoot(root); err != nil {
+		return name, ErrRecoveryRequired
+	}
+	return name, nil
+}
+
+func clearAttempt(root *os.Root, name string) error {
+	if err := root.Remove(name); err != nil {
+		return ErrRecoveryRequired
+	}
+	if err := syncRoot(root); err != nil {
+		return ErrRecoveryRequired
+	}
+	return nil
+}
+
+func lockDirectory(root *os.Root, exclusive bool) (*os.File, error) {
+	file, err := root.Open(".")
+	if err != nil {
+		return nil, err
+	}
+	mode := syscall.LOCK_SH | syscall.LOCK_NB
+	if exclusive {
+		mode = syscall.LOCK_EX | syscall.LOCK_NB
+	}
+	if err := syscall.Flock(int(file.Fd()), mode); err != nil {
+		file.Close()
+		if errors.Is(err, syscall.EWOULDBLOCK) {
+			return nil, ErrConflict
+		}
+		return nil, err
+	}
+	return file, nil
+}

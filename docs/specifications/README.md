@@ -21,14 +21,14 @@ reconciled on 2026-09-18 against versioned artifacts, merged PRs and POC issues:
 | [Tasks](002-lingo-project-initialization/tasks.md) | **Approved** |
 | T01–T03 | **Accepted / merged** — PRs [#6](https://github.com/rgomids/axiom/pull/6), [#7](https://github.com/rgomids/axiom/pull/7), [#8](https://github.com/rgomids/axiom/pull/8) |
 | T04 | **Merged; pending human acceptance/re-review** — [PR #9](https://github.com/rgomids/axiom/pull/9); not marked Accepted |
-| POC #16–#18 | **Delivered on POC branch; under human review in [PR #27](https://github.com/rgomids/axiom/pull/27)** — executable CLI, minimal init/validate/reopen/name update, limited filesystem persistence and separate local install |
-| POC #19 | **Pending** — filesystem hardening, atomicity/recovery and security proof |
-| POC #20 | **Pending** — complete acceptance and failure-path Evidence |
-| POC #21 | **Pending** — dogfooding and human acceptance |
+| POC #16–#18 | **Merged in [PR #27](https://github.com/rgomids/axiom/pull/27)** — executable CLI, minimal init/validate/reopen/name update and separate local install |
+| POC #19 | **In progress** — one-file filesystem hardening delivered for review; complete fault/platform proof pending |
+| POC #20 | **In progress** — executable black-box tests added; complete acceptance and failure-path Evidence pending |
+| POC #21 | **Dogfooding recorded; human acceptance pending** |
 | Specification 002 / POC #14 | **Partial implementation; not Accepted/Done** |
 
-POC delivery work is isolated on `poc/functional-baseline` pending one final human
-review PR. Its current executable scope and limitations are recorded in
+PR #27 merged the initial POC baseline. Current hardening and dogfooding
+Evidence, including open blockers, are recorded in
 [POC Evidence](002-lingo-project-initialization/evidence-poc.md). The POC issue
 deliveries do not establish completion of the full T05–T21 Task DAG.
 

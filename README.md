@@ -78,9 +78,10 @@ git clone https://github.com/rgomids/axiom.git
 cd axiom
 ./scripts/validate-repository.sh .
 go test ./...
+./scripts/dogfood-poc.sh
 ```
 
-The validator checks repository and harness structure, runs shell test suites, and scans for sensitive files. Go tests exercise the implemented foundations. No service starts.
+The validator checks repository and harness structure, runs shell test suites, and scans for sensitive files. Go tests exercise the implementation. Dogfooding runs the minimal Lingo lifecycle in temporary local roots. No service starts.
 
 Next, choose a path:
 

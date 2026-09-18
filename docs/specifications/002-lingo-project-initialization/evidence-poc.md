@@ -2,7 +2,7 @@
 
 ## Delivered baseline
 
-The POC integration branch provides a local executable path:
+The merged POC baseline and this hardening change provide a local executable path:
 
 ```text
 init -> validate -> reopen -> install -> reopen -> explicit name update
@@ -38,11 +38,64 @@ before an update.
 
 - Only a minimal Project with one `axiom.yaml` is supported; documents/policies
   are refused rather than rewritten.
-- The root-local lock is a POC coordination mechanism. Crash recovery, hostile
-  ancestor replacement, hard-link attacks, and multiprocess proof are unverified.
+- The initial baseline used a root-local lock. The hardening change below adds
+  directory locks, hard-link rejection and limited multiprocess proof. Full
+  crash/ancestor-race proof remains unverified.
 - Local bindings, credentials, Runtime observation, rename, Git, remote sync,
   provider integration and orchestration are unsupported.
 - `gitleaks` is not installed. `scripts/test-check-projectapp.sh` requires a
   local Go 1.26 toolchain; this host's forced-local toolchain is Go 1.24.5.
 
-Human acceptance of this POC and any subsequent delivery scope remain required.
+## Hardening and dogfooding — 2026-09-18
+
+The bounded Axiom change exercised here is POC persistence hardening on
+`agent/finish-poc` at implementation commits
+`a704a6367485d3a800a36ee31521d9dd245b5b95` and
+`f91caf0723d09ebfb47c15cf55ffd08fbdd465e8`. Run
+`./scripts/dogfood-poc.sh` from the repository root.
+It creates a temporary Project for that change, validates, reopens, installs,
+updates its name, verifies portable bytes stay unchanged during install, verifies
+one ID-addressed local record, and observes stale local state after update. Its
+temporary files are removed after the run. The local macOS run exited 0 and
+emitted the expected JSON categories for all eight commands.
+
+| POC criterion | Executable evidence | Current result |
+|---|---|---|
+| Minimal lifecycle and failures | `go test ./cmd/lingo -run TestExecutableMinimalLifecycleAndFailurePaths -count=1` | Passed on macOS; real executable covers init, validate, reopen, install, update, no-op, conflict, missing input and stale state. |
+| Portable/local separation | Black-box test and `./scripts/dogfood-poc.sh` | Passed on macOS; install preserves exact portable bytes and publishes one separate local record. |
+| Create/update confinement | `go test ./internal/local -run TestPortableStore -count=1` | Passed on macOS for symlink ancestor, symlink Project, hard-linked manifest, unknown artifacts and interrupted temporary artifacts. |
+| Process coordination | `go test ./internal/local -run TestPortableLockSerializesProcessesAndSurvivesCrash -count=1` | Passed on macOS; conflicting process cannot create while lock held and can proceed after owner death. |
+| Create/update crash boundaries | `go test ./internal/local -run 'TestPortable(Create|Update)CrashBoundaryRequiresRecovery' -count=1` | Passed on macOS; subprocess termination before and after publication preserves old/new complete bytes and normal reads return `recovery_required`. |
+| Local-install crash boundaries | `go test ./internal/local -run TestInstallationCrashBoundaryRequiresRecovery -count=1` | Passed on macOS; subprocess termination before/after record publication leaves absent/complete record and reopen returns `recovery_required`. |
+| Local-record confinement | `go test ./cmd/lingo -run 'TestInstall(RejectsHardLinkedRecordWithoutWritingOutside|PreservesUnknownLocalArtifact)' -count=1` | Passed on macOS; install rejects a hard-linked record without changing its outside target, and install/reopen reject unknown local artifacts without deleting them or changing the record. |
+| Pre-commit cancellation | `go test ./internal/local -run 'Test(PortableUpdateCancellationBeforePublicationPreservesOldBytes|InstallationCancellationBeforePublicationLeavesNoRecord)' -count=1` | Passed on macOS; cancellation at the final test barrier before publication preserves the old manifest or absent local record and removes owned attempt artifacts. |
+| Permission denial before update | `go test ./internal/local -run TestPortableUpdatePermissionFailurePreservesOldBytes -count=1` | Passed under unprivileged macOS user; prior bytes stay intact. Root execution skips this case. |
+| Read-only validation | `go test ./cmd/lingo -run TestValidateDoesNotCreateRootsOrLockFiles -count=1` | Passed on macOS; missing roots and lock files are not created by validate. |
+| Repository/static checks | `go test -race ./...`, `go vet ./...`, `go build ./...`, `go mod verify`, `./scripts/validate-repository.sh .` | Passed on macOS. Linux cross-build passed; Linux execution unverified. |
+
+The local adapter now uses owner-only roots, directory-handle operations,
+no-follow file opens, hard-link rejection, no-replace create/install publication,
+atomic one-file update, durable attempt markers, directory locks released on
+process exit, bounded reads, and explicit `recovery_required` for interrupted
+temporary artifacts or uncertain post-publication sync. Existing unknown
+artifacts are preserved. The POC still supports only one portable manifest and
+no local record replacement.
+
+### Remaining acceptance blockers
+
+- Linux execution and filesystem fault evidence are unavailable on this host.
+- Disk-full, short-write, broader permission/ACL, remaining commit/fault stages,
+  concurrent reader, and hostile same-user ancestor
+  replacement matrices are not complete. ACL behavior is unverified.
+  Cross-build does not establish runtime behavior.
+- Interrupted attempt artifacts fail closed with `recovery_required`; there is
+  no automated recovery command or proved ownership-based cleanup protocol.
+- Specification 002's full T05–T21 and AC-01–AC-18 matrix remain broader than
+  this one-file POC. Rename, documents, bindings, Runtime and guided flows are
+  unavailable.
+- `gitleaks` is unavailable. The repository sensitive-file checker passed, but
+  scanner coverage remains unverified.
+
+These gaps keep POC issues #19 and #20 open. #21 dogfooding is recorded, but
+explicit human acceptance is still pending. Neither a technical merge nor this
+Evidence authorizes MVP work.

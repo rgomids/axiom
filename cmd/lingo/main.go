@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
@@ -26,7 +25,7 @@ func compose() cli.Service {
 	if err != nil {
 		return cli.UnavailableService{}
 	}
-	if rootsOverlap(root, state) {
+	if overlap, err := local.RootsOverlap(root, state); err != nil || overlap {
 		return cli.UnavailableService{}
 	}
 	store, err := local.NewPortableStore(root)
@@ -38,18 +37,6 @@ func compose() cli.Service {
 		return cli.UnavailableService{}
 	}
 	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation, root}
-}
-
-func rootsOverlap(first, second string) bool {
-	return within(first, second) || within(second, first)
-}
-
-func within(parent, child string) bool {
-	relative, err := filepath.Rel(parent, child)
-	if err != nil {
-		return false
-	}
-	return relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))
 }
 
 func projectsRoot() (string, error) {

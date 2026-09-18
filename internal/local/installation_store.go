@@ -1,16 +1,22 @@
 package local
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
 )
 
-type InstallationStore struct{ root string }
+type InstallationStore struct {
+	root              string
+	beforePublication func()
+	afterPublication  func()
+}
 type InstallationStatus string
 
 const (
@@ -25,22 +31,15 @@ type InstallationResult struct {
 	Category string
 }
 
-func NewInstallationStore(root string) (InstallationStore, error) {
-	if !filepath.IsAbs(root) {
+func NewInstallationStore(path string) (InstallationStore, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) == string(filepath.Separator) {
 		return InstallationStore{}, ErrUnsafe
 	}
-	root = filepath.Clean(root)
-	if err := os.MkdirAll(root, 0o700); err != nil {
+	canonical, err := trustedCanonical(path)
+	if err != nil {
 		return InstallationStore{}, err
 	}
-	info, err := os.Lstat(root)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return InstallationStore{}, ErrUnsafe
-	}
-	if err := os.Chmod(root, 0o700); err != nil {
-		return InstallationStore{}, err
-	}
-	return InstallationStore{root: root}, nil
+	return InstallationStore{root: canonical}, nil
 }
 
 func (s InstallationStore) Install(ctx context.Context, source string) InstallationResult {
@@ -49,36 +48,105 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		return result
 	}
 	source = filepath.Clean(source)
-	record, recordIssues := NewRecord(RecordState{ProjectID: snapshot.Project().State().ID, ObservedSlug: snapshot.Project().State().Slug, SourceLocation: source, PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests()})
-	if len(recordIssues) != 0 {
+	record, issues := NewRecord(RecordState{ProjectID: snapshot.Project().State().ID, ObservedSlug: snapshot.Project().State().Slug, SourceLocation: source, PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests()})
+	if len(issues) != 0 {
 		return failedInstallation("invalid_local_state")
 	}
-	wire, recordIssues := EncodeRecord(record)
-	if len(recordIssues) != 0 {
+	wire, issues := EncodeRecord(record)
+	if len(issues) != 0 {
 		return failedInstallation("invalid_local_state")
 	}
-	target := filepath.Join(s.root, "projects", snapshot.Project().State().ID)
-	if err := os.MkdirAll(target, 0o700); err != nil {
-		return failedInstallation("storage_failure")
-	}
-	path := filepath.Join(target, "installation.json")
-	if prior, err := os.ReadFile(path); err == nil {
-		existing, _, issues := DecodeObservedRecord(prior, true)
-		if len(issues) != 0 {
-			return failedInstallation("invalid_existing_local_state")
+	return s.withIDLock(true, func(projects *os.Root) InstallationResult {
+		target, err := privateChild(projects, snapshot.Project().State().ID)
+		if err != nil {
+			return failedInstallation("storage_failure")
 		}
-		state := existing.State()
-		if state.SourceLocation == source && state.PortableRevision == snapshot.Revision() {
-			return InstallationResult{Status: InstallationUnchanged, Category: "already_installed"}
+		defer target.Close()
+		if category := installationDirectoryIssue(target); category != "" {
+			return failedInstallation(category)
 		}
-		return InstallationResult{Status: InstallationConflict, Category: "explicit_replacement_required"}
-	} else if !os.IsNotExist(err) {
-		return failedInstallation("storage_failure")
-	}
-	if err := writeDurable(path, wire); err != nil {
-		return failedInstallation("storage_failure")
-	}
-	return InstallationResult{Status: InstallationApplied, Category: "installed"}
+		prior, err := readPrivateFile(target, "installation.json")
+		if err == nil {
+			if _, _, issues := DecodeObservedRecord(prior, true); len(issues) != 0 {
+				return failedInstallation("invalid_existing_local_state")
+			}
+			if bytes.Equal(prior, wire) {
+				return InstallationResult{Status: InstallationUnchanged, Category: "already_installed"}
+			}
+			return InstallationResult{Status: InstallationConflict, Category: "explicit_replacement_required"}
+		}
+		if !os.IsNotExist(err) {
+			if errors.Is(err, ErrUnsafe) {
+				return failedInstallation("invalid_existing_local_state")
+			}
+			return failedInstallation("storage_failure")
+		}
+		again, result := portableSnapshot(ctx, source)
+		if result.Status == InstallationFailed || again.Revision() != snapshot.Revision() {
+			return failedInstallation("source_changed")
+		}
+		if err := ctx.Err(); err != nil {
+			return failedInstallation("cancelled")
+		}
+		temporary, err := temporaryName(".lingo-install-")
+		if err != nil {
+			return failedInstallation("storage_failure")
+		}
+		published := false
+		defer func() {
+			if !published {
+				_ = target.Remove(temporary)
+			}
+		}()
+		if err := writePrivateFile(target, temporary, wire); err != nil {
+			return failedInstallation("storage_failure")
+		}
+		if err := ctx.Err(); err != nil {
+			return failedInstallation("cancelled")
+		}
+		attempt, err := markAttempt(target, ".lingo-attempt-install-")
+		if err != nil {
+			return failedInstallation("recovery_required")
+		}
+		if err := ctx.Err(); err != nil {
+			if clearAttempt(target, attempt) != nil {
+				return failedInstallation("recovery_required")
+			}
+			return failedInstallation("cancelled")
+		}
+		if s.beforePublication != nil {
+			s.beforePublication()
+		}
+		if err := ctx.Err(); err != nil {
+			if clearAttempt(target, attempt) != nil {
+				return failedInstallation("recovery_required")
+			}
+			return failedInstallation("cancelled")
+		}
+		if err := renameNoReplace(target, temporary, "installation.json"); err != nil {
+			if clearAttempt(target, attempt) != nil {
+				return failedInstallation("recovery_required")
+			}
+			if os.IsExist(err) {
+				return InstallationResult{Status: InstallationConflict, Category: "explicit_replacement_required"}
+			}
+			return failedInstallation("storage_failure")
+		}
+		published = true
+		if s.afterPublication != nil {
+			s.afterPublication()
+		}
+		if err := syncRoot(target); err != nil {
+			return failedInstallation("recovery_required")
+		}
+		if err := syncRoot(projects); err != nil {
+			return failedInstallation("recovery_required")
+		}
+		if err := clearAttempt(target, attempt); err != nil {
+			return failedInstallation("recovery_required")
+		}
+		return InstallationResult{Status: InstallationApplied, Category: "installed"}
+	})
 }
 
 func (s InstallationStore) Reopen(ctx context.Context, source string) InstallationResult {
@@ -87,23 +155,69 @@ func (s InstallationStore) Reopen(ctx context.Context, source string) Installati
 		return result
 	}
 	source = filepath.Clean(source)
-	path := filepath.Join(s.root, "projects", snapshot.Project().State().ID, "installation.json")
-	bytes, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+	return s.withIDLock(false, func(projects *os.Root) InstallationResult {
+		target, err := existingPrivateChild(projects, snapshot.Project().State().ID)
+		if errors.Is(err, ErrNotFound) {
+			return InstallationResult{Status: InstallationUnchanged, Category: "reopened_without_local_state"}
+		}
+		if err != nil {
+			return failedInstallation("storage_failure")
+		}
+		defer target.Close()
+		if category := installationDirectoryIssue(target); category != "" {
+			return failedInstallation(category)
+		}
+		wire, err := readPrivateFile(target, "installation.json")
+		if os.IsNotExist(err) {
+			return InstallationResult{Status: InstallationUnchanged, Category: "reopened_without_local_state"}
+		}
+		if err != nil {
+			return failedInstallation("invalid_existing_local_state")
+		}
+		record, _, issues := DecodeObservedRecord(wire, true)
+		if len(issues) != 0 {
+			return failedInstallation("invalid_existing_local_state")
+		}
+		state := record.State()
+		if state.SourceLocation != source || state.PortableRevision != snapshot.Revision() {
+			return InstallationResult{Status: InstallationConflict, Category: "local_state_revalidation_required"}
+		}
+		return InstallationResult{Status: InstallationUnchanged, Category: "reopened_with_local_state"}
+	})
+}
+
+func (s InstallationStore) withIDLock(create bool, action func(*os.Root) InstallationResult) InstallationResult {
+	open := existingPrivateRoot
+	if create {
+		open = privateRoot
+	}
+	root, err := open(s.root)
+	if errors.Is(err, ErrNotFound) && !create {
 		return InstallationResult{Status: InstallationUnchanged, Category: "reopened_without_local_state"}
 	}
 	if err != nil {
 		return failedInstallation("storage_failure")
 	}
-	record, _, issues := DecodeObservedRecord(bytes, true)
-	if len(issues) != 0 {
-		return failedInstallation("invalid_existing_local_state")
+	defer root.Close()
+	lock, err := lockDirectory(root, create)
+	if err != nil {
+		return failedInstallation("storage_failure")
 	}
-	state := record.State()
-	if state.SourceLocation != source || state.PortableRevision != snapshot.Revision() {
-		return InstallationResult{Status: InstallationConflict, Category: "local_state_revalidation_required"}
+	defer lock.Close()
+	var projects *os.Root
+	if create {
+		projects, err = privateChild(root, "projects")
+	} else {
+		projects, err = existingPrivateChild(root, "projects")
 	}
-	return InstallationResult{Status: InstallationUnchanged, Category: "reopened_with_local_state"}
+	if errors.Is(err, ErrNotFound) && !create {
+		return InstallationResult{Status: InstallationUnchanged, Category: "reopened_without_local_state"}
+	}
+	if err != nil {
+		return failedInstallation("storage_failure")
+	}
+	defer projects.Close()
+	return action(projects)
 }
 
 func portableSnapshot(ctx context.Context, source string) (projectapp.ArtifactSnapshot, InstallationResult) {
@@ -113,30 +227,57 @@ func portableSnapshot(ctx context.Context, source string) (projectapp.ArtifactSn
 	if !filepath.IsAbs(source) {
 		return projectapp.ArtifactSnapshot{}, failedInstallation("invalid_input")
 	}
-	source = filepath.Clean(source)
-	if err := onlyManifest(source); err != nil {
-		return projectapp.ArtifactSnapshot{}, installationError(err)
+	if _, err := os.Lstat(source); os.IsNotExist(err) {
+		return projectapp.ArtifactSnapshot{}, failedInstallation("project_not_found")
+	} else if err != nil {
+		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
 	}
-	bytes, err := readRegular(filepath.Join(source, manifestName))
+	root, err := existingPrivateRoot(source)
 	if err != nil {
-		return projectapp.ArtifactSnapshot{}, installationError(err)
+		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
 	}
-	snapshot, issues := projectapp.ReadSnapshot(manifest.Codec{}, bytes, nil)
+	defer root.Close()
+	file, err := root.Open(".")
+	if err != nil {
+		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
+	}
+	entries, err := file.Readdirnames(-1)
+	file.Close()
+	if err != nil || len(entries) != 1 || entries[0] != manifestName {
+		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
+	}
+	input, err := readPrivateFile(root, manifestName)
+	if err != nil {
+		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
+	}
+	snapshot, issues := projectapp.ReadSnapshot(manifest.Codec{}, input, nil)
 	if len(issues) != 0 {
 		return projectapp.ArtifactSnapshot{}, failedInstallation("invalid_project")
 	}
 	return snapshot, InstallationResult{Status: InstallationApplied}
 }
 
-func installationError(err error) InstallationResult {
-	if errors.Is(err, ErrNotFound) {
-		return failedInstallation("project_not_found")
-	}
-	if errors.Is(err, ErrUnsafe) {
-		return failedInstallation("unsafe_source")
-	}
-	return failedInstallation("storage_failure")
-}
 func failedInstallation(category string) InstallationResult {
 	return InstallationResult{Status: InstallationFailed, Category: category}
+}
+
+func installationDirectoryIssue(root *os.Root) string {
+	file, err := root.Open(".")
+	if err != nil {
+		return "storage_failure"
+	}
+	names, err := file.Readdirnames(-1)
+	file.Close()
+	if err != nil {
+		return "storage_failure"
+	}
+	for _, name := range names {
+		if strings.HasPrefix(name, ".lingo-install-") || strings.HasPrefix(name, ".lingo-attempt-install-") {
+			return "recovery_required"
+		}
+		if name != "installation.json" {
+			return "invalid_existing_local_state"
+		}
+	}
+	return ""
 }

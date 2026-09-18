@@ -17,16 +17,19 @@ remain with each Specification. Nothing here authorizes implementation.
   foundations cover Project invariants, application contracts and authority,
   portable manifests and local record codecs. See [Architecture](../architecture/README.md).
 
-These foundations do not yet form an executable Lingo application.
+The repository now includes an executable minimal Lingo POC. Its supported
+commands, limits and acceptance status are recorded in the
+[Specification index](../specifications/README.md).
 
 ## Complete Specification 002
 
 [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
 is the first active vertical slice. Its approved scope connects minimal Project
 creation, explicit update, validation, reopening and local installation.
-Completion will require future, separately authorized delivery of filesystem safety and
-persistence, application use cases, local observations, CLI presentation and
-end-to-end acceptance Evidence under its [Plan](../specifications/002-lingo-project-initialization/plan.md).
+The POC covers only the minimal one-file path. Completing Specification 002 still
+requires separately authorized delivery of its remaining application, security,
+recovery and acceptance contracts under the
+[Plan](../specifications/002-lingo-project-initialization/plan.md).
 
 Minimal init requires identity and schema version, without mandatory Repository,
 Runtime or Provider configuration. Update must materialize and validate complete
