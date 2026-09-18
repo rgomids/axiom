@@ -2,6 +2,8 @@
 
 ## [2026-09-17]
 
+- docs: adopt Apache-2.0 and establish contribution, conduct, and support policies with structured GitHub Issue and Pull Request templates. No implementation or new Task authorization.
+
 - docs: add the approved Axiom logo and centered README header with verifiable Go 1.26+, main last-commit, and repository-stars badges.
 
 - docs: establish documentation governance with canonical sources, classification, lifecycle and anti-drift rules; align the agent documentation policy and README navigation.

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private vulnerability reporting
+    url: https://github.com/rgomids/axiom/blob/main/SECURITY.md
+    about: Follow SECURITY.md; never report sensitive vulnerability details in public Issues.

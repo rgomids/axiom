@@ -7,6 +7,7 @@
 <p align="center"><strong>Keep intent, decisions, code, and evidence connected.</strong></p>
 
 <p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="Apache License 2.0"></a>
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 1.26+"></a>
   <a href="https://github.com/rgomids/axiom/commits/main/"><img src="https://img.shields.io/github/last-commit/rgomids/axiom/main?style=flat-square" alt="Last commit on main"></a>
   <a href="https://github.com/rgomids/axiom/stargazers"><img src="https://img.shields.io/github/stars/rgomids/axiom?style=flat-square" alt="GitHub stars"></a>
@@ -130,6 +131,7 @@ See [Architecture](docs/architecture/README.md), the [conceptual model](docs/arc
 | Decisions | [Architecture Decision Records](docs/decisions/README.md) |
 | Research | [Research index](docs/research/README.md) |
 | Development | [Getting Started](docs/development/getting-started.md) · [Commands](docs/commands.md) |
+| Community | [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Support](SUPPORT.md) |
 | History | [Changelog](CHANGELOG.md) |
 | Security | [Security policy](SECURITY.md) · [Repository security](docs/security/repository-security.md) |
 
@@ -147,7 +149,7 @@ experiments/   Bounded research and evaluation evidence
 
 ## Contributing
 
-Start with [Getting Started](docs/development/getting-started.md) and [AGENTS.md](AGENTS.md). Follow the relevant Specification and approved scope, keep changes small, include reproducible validation, and update affected documentation. Material changes require explicit human approval.
+Read the [contribution guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md). Use the [Issue forms](.github/ISSUE_TEMPLATE/) and [Pull Request template](.github/PULL_REQUEST_TEMPLATE.md). Follow the relevant Specification and approved scope, keep changes small, include reproducible validation, and update affected documentation. Material changes require explicit human approval.
 
 Documentation improvements, reproducible bug reports, and reviews of Specifications are useful ways to contribute while the product takes shape.
 
@@ -157,4 +159,4 @@ Report suspected vulnerabilities privately using [SECURITY.md](SECURITY.md).
 
 ## License
 
-No project license file is currently defined in this repository.
+Axiom is licensed under the Apache License 2.0 (SPDX: `Apache-2.0`). See [LICENSE](LICENSE) for the full text.
