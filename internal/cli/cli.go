@@ -21,6 +21,7 @@ type Service interface {
 	Validate(context.Context, ProjectInput) Result
 	Reopen(context.Context, ProjectInput) Result
 	Update(context.Context, UpdateInput) Result
+	Install(context.Context, InstallInput) Result
 }
 
 type InitInput struct {
@@ -34,6 +35,7 @@ type UpdateInput struct {
 	Slug string
 	Name string
 }
+type InstallInput struct{ Source string }
 
 type Status string
 
@@ -70,11 +72,13 @@ const (
 	validateAction action = "validate"
 	reopenAction   action = "reopen"
 	updateAction   action = "update"
+	installAction  action = "install"
 )
 
 type requestInput struct {
-	slug string
-	name string
+	slug   string
+	name   string
+	source string
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
@@ -95,7 +99,10 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if operation == initAction && (values.slug == "" || values.name == "") {
 		return operation, values, category("missing_required_input")
 	}
-	if operation != initAction && values.slug == "" {
+	if operation == installAction && values.source == "" {
+		return operation, values, category("missing_required_input")
+	}
+	if operation != initAction && operation != installAction && values.slug == "" {
 		return operation, values, category("missing_required_input")
 	}
 	if operation == updateAction && values.name == "" {
@@ -112,6 +119,9 @@ func flags(operation action, args []string) (requestInput, bool) {
 	if operation == initAction || operation == updateAction {
 		set.StringVar(&values.name, "name", "", "")
 	}
+	if operation == installAction {
+		set.StringVar(&values.source, "source", "", "")
+	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return requestInput{}, false
 	}
@@ -119,7 +129,7 @@ func flags(operation action, args []string) (requestInput, bool) {
 }
 
 func known(operation action) bool {
-	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction
+	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction
 }
 
 func dispatch(ctx context.Context, operation action, input requestInput, service Service) Result {
@@ -135,6 +145,8 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.Reopen(ctx, ProjectInput{Slug: input.slug})
 	case updateAction:
 		return service.Update(ctx, UpdateInput{Slug: input.slug, Name: input.name})
+	case installAction:
+		return service.Install(ctx, InstallInput{Source: input.source})
 	}
 	return Result{Status: Failed, Category: "invalid_command"}
 }
@@ -177,4 +189,5 @@ func (UnavailableService) Reopen(context.Context, ProjectInput) Result {
 func (UnavailableService) Update(context.Context, UpdateInput) Result {
 	return unavailable()
 }
-func unavailable() Result { return Result{Status: Failed, Category: "application_unavailable"} }
+func (UnavailableService) Install(context.Context, InstallInput) Result { return unavailable() }
+func unavailable() Result                                               { return Result{Status: Failed, Category: "application_unavailable"} }

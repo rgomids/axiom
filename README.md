@@ -49,7 +49,7 @@ Spec-Driven Development (SDD) connects the reason for a change to its implementa
 - Go implementation of Project rules, application contracts, portable manifests, local installation records, and um lifecycle portátil mínimo de Lingo, with tests.
 - Versioned Specifications, architecture decisions, and implementation Evidence.
 
-**Limites atuais:** o POC Lingo cobre apenas `init`, `validate`, `reopen` e alteração explícita de nome para Projects mínimos de um único `axiom.yaml`. Documentos opcionais, instalação/estado local, bindings, Runtime, Git, rede e orquestração ainda não são suportados. There is no provider integration.
+**Limites atuais:** o POC Lingo cobre `init`, `validate`, `reopen`, `install` local e alteração explícita de nome para Projects mínimos de um único `axiom.yaml`. Documentos opcionais, bindings, Runtime, Git, rede e orquestração ainda não são suportados. There is no provider integration.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 

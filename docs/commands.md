@@ -10,10 +10,12 @@ Sem override, Lingo usa `~/.axiom/projects`.
 
 ```bash
 export LINGO_PROJECTS_ROOT="$(mktemp -d)"
+export LINGO_STATE_ROOT="$(mktemp -d)"
 
 go run ./cmd/lingo project init --slug sample --name "Sample"
 go run ./cmd/lingo project validate --slug sample
 go run ./cmd/lingo project reopen --slug sample
+go run ./cmd/lingo project install --source "$LINGO_PROJECTS_ROOT/sample"
 go run ./cmd/lingo project update --slug sample --name "Sample renamed"
 ```
 
@@ -21,7 +23,8 @@ Cada operação escreve um evento JSON seguro em stdout e retorna `0` em sucesso
 `1` em erro/conflito e `2` em cancelamento. `init` é create/no-op/conflito: não
 renomeia nem atualiza um Project existente; use `update` para alterar o nome.
 
-O adaptador atual aceita somente Project mínimo de um único `axiom.yaml`. Ele
+`install` grava o record local estrito em `LINGO_STATE_ROOT/projects/<project-id>/installation.json`;
+não altera o manifest de origem. O adaptador atual aceita somente Project mínimo de um único `axiom.yaml`. Ele
 recusa symlinks, artefatos extras e roots relativos em vez de tentar preservar
 documentos opcionais sem um protocolo completo. Estado local/instalação, binding,
 rename, documentos, Git, Runtime, Provider e rede permanecem fora deste incremento.
