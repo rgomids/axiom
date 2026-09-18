@@ -30,6 +30,7 @@ type PortableStore struct {
 	beforeUpdatePublication func()
 	afterUpdatePublication  func()
 	syncDirectory           func(*os.Root) error
+	writeFile               func(*os.Root, string, []byte) error
 }
 
 func NewPortableStore(path string) (PortableStore, error) {
@@ -91,7 +92,7 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 				_ = root.Remove(stageName)
 			}
 		}()
-		if err := writePrivateFile(stage, manifestName, manifest); err != nil {
+		if err := s.write(stage, manifestName, manifest); err != nil {
 			return err
 		}
 		if err := s.sync(stage); err != nil {
@@ -160,7 +161,7 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 			return err
 		}
 		defer projectRoot.Remove(temporary)
-		if err := writePrivateFile(projectRoot, temporary, manifest); err != nil {
+		if err := s.write(projectRoot, temporary, manifest); err != nil {
 			return err
 		}
 		if err := ctx.Err(); err != nil {
@@ -218,6 +219,13 @@ func (s PortableStore) sync(root *os.Root) error {
 		return s.syncDirectory(root)
 	}
 	return syncRoot(root)
+}
+
+func (s PortableStore) write(root *os.Root, name string, content []byte) error {
+	if s.writeFile != nil {
+		return s.writeFile(root, name, content)
+	}
+	return writePrivateFile(root, name, content)
 }
 
 func (s PortableStore) withLock(slug string, create, exclusive bool, action func(*os.Root) error) error {

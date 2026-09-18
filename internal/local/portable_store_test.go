@@ -314,3 +314,89 @@ func TestPortablePostPublicationSyncFailureRequiresRecovery(t *testing.T) {
 		})
 	}
 }
+
+func TestPortableManualRecoveryPreservesEvidenceAndReopens(t *testing.T) {
+	for _, published := range []bool{false, true} {
+		t.Run(map[bool]string{false: "before publication", true: "after publication"}[published], func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+				t.Fatal(err)
+			}
+			projectPath := filepath.Join(root, "sample")
+			marker := filepath.Join(projectPath, ".lingo-attempt-update-synthetic")
+			if err := os.WriteFile(marker, []byte("pending\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			want := "old"
+			if published {
+				if err := os.WriteFile(filepath.Join(projectPath, manifestName), []byte("new"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				want = "new"
+			} else {
+				if err := os.WriteFile(filepath.Join(projectPath, ".lingo-manifest-synthetic"), []byte("new"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatalf("interrupted read = %v", err)
+			}
+			quarantine := privateTestRoot(t)
+			for _, name := range []string{".lingo-attempt-update-synthetic", ".lingo-manifest-synthetic"} {
+				source := filepath.Join(projectPath, name)
+				if _, err := os.Lstat(source); os.IsNotExist(err) {
+					continue
+				} else if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Rename(source, filepath.Join(quarantine, name)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if data, err := os.ReadFile(filepath.Join(quarantine, ".lingo-attempt-update-synthetic")); err != nil || string(data) != "pending\n" {
+				t.Fatalf("quarantined Evidence = %q, %v", data, err)
+			}
+			actual, err := store.Read(context.Background(), "sample")
+			if err != nil || string(actual) != want {
+				t.Fatalf("reopened after operator quarantine = %q, %v", actual, err)
+			}
+		})
+	}
+}
+
+func TestPortableDiskFullBeforePublicationPreservesPriorState(t *testing.T) {
+	for _, operation := range []string{"create", "update"} {
+		t.Run(operation, func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if operation == "update" {
+				if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			store.writeFile = simulateDiskFull
+			if operation == "create" {
+				err = store.Create(context.Background(), "sample", []byte("new"))
+			} else {
+				err = store.Update(context.Background(), "sample", []byte("old"), []byte("new"))
+			}
+			if !errors.Is(err, syscall.ENOSPC) {
+				t.Fatalf("disk-full failure = %v", err)
+			}
+			actual, err := store.Read(context.Background(), "sample")
+			if operation == "create" && !errors.Is(err, ErrNotFound) {
+				t.Fatalf("unpublished create read = %q, %v", actual, err)
+			}
+			if operation == "update" && (err != nil || string(actual) != "old") {
+				t.Fatalf("prior manifest = %q, %v", actual, err)
+			}
+		})
+	}
+}

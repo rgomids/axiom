@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
 	"syscall"
 	"testing"
 )
@@ -12,6 +13,18 @@ type faultWriter struct {
 	limit int
 	fault error
 	data  bytes.Buffer
+}
+
+func simulateDiskFull(root *os.Root, name string, content []byte) error {
+	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	if len(content) != 0 {
+		_, _ = file.Write(content[:1])
+	}
+	_ = file.Close()
+	return syscall.ENOSPC
 }
 
 func (w *faultWriter) Write(content []byte) (int, error) {

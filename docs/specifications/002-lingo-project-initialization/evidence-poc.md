@@ -116,16 +116,16 @@ and change in that run, not fixed goldens.
 | Post-publication sync failure; AC-07, AC-16 subset | `go test ./internal/local -run 'Test(PortablePostPublicationSyncFailureRequiresRecovery|InstallationPostPublicationSyncFailureRequiresRecovery)' -count=1` | Injected `EIO` after publication leaves complete new bytes and a preserved attempt marker; read/reopen returns `recovery_required`. Physical power-loss durability remains unproved. |
 | Concurrent reader/writer and conflicting updates; AC-07, AC-16 subset | `go test ./internal/local -run 'Test(PortableReadersAndWritersConflictWithOtherProcess|PortableConflictingWritersHaveOneWinner)' -count=1` | Process-held exclusive lock rejects reader/writer; two stale updates have one winner. Independent slugs still share a root lock. |
 | Symlink, hard link, rename and ancestor replacement; AC-09, AC-16 subset | `go test ./internal/local -run 'Test(PortableStoreRejects|PortableCreateRejectsAncestorReplacementBeforePublication|PortableUpdateRejectsProjectRenameBeforePublication|InstallationRejectsTargetReplacementBeforePublication)' -count=1` | Controlled replacements fail before publication; outside sentinels unchanged. Arbitrary hostile same-user interleavings remain unproved. |
-| Short write and simulated storage exhaustion; AC-07 subset | `go test ./internal/local -run TestWriteCompleteHandlesShortWritesAndStorageFaults -count=1` | Partial writes are completed; zero progress and injected `ENOSPC`/`EDQUOT` fail. This is a writer-level fault test, not a full filesystem disk-full run. |
+| Short write and simulated storage exhaustion; AC-07 subset | `go test ./internal/local -run 'Test(WriteCompleteHandlesShortWritesAndStorageFaults|PortableDiskFullBeforePublicationPreservesPriorState|InstallationDiskFullBeforePublicationLeavesNoRecord)' -count=1` | Partial writes are completed; zero progress and injected `ENOSPC`/`EDQUOT` fail. Adapter-level injected `ENOSPC` after a one-byte temporary write preserves absent/old final state. No physical full-filesystem run. |
 | Permission denial; AC-07, AC-09 subset | `go test ./internal/local -run TestPortableUpdatePermissionFailurePreservesOldBytes -count=1` | Unprivileged macOS and Linux runs passed; root execution skips. ACL checks are separate below. |
 | Explicit ACL detection; SEC-005, AC-09 subset | `go test ./internal/local -run 'TestPrivate(RootRejectsPermissiveACLDespiteMode0700|FileRejectsPermissiveACL|RootRejectsDefaultACLDespiteMode0700)' -count=1` | macOS extended ACLs and Linux POSIX default ACLs are rejected when mode bits alone appear private; both platform jobs passed. Inherited or concurrent ACL mutation remains a separate race question. |
-| Recovery classification; AC-07, AC-16 subset | Crash tests above; [manual recovery procedure](recovery-poc.md) | Recognized interrupted artifacts fail closed and are preserved for operator review. No automatic repair or proved recovery after power loss. |
+| Recovery classification; AC-07, AC-16 subset | Crash tests above; `go test ./internal/local -run TestPortableManualRecoveryPreservesEvidenceAndReopens -count=1`; [manual recovery procedure](recovery-poc.md) | Recognized interrupted artifacts fail closed; a controlled operator quarantine preserves the marker and permits reopening old/new complete bytes. No automatic repair or proved recovery after power loss. |
 
 ### Remaining gaps for #19–#21
 
-- `#19`: Full adapter-level disk-full/short-write, injected sync/rename fault
-  stages beyond the post-publication sync case, and exhaustive same-user race
-  proof are incomplete. A macOS synthetic directory retained `0700` mode while
+- `#19`: Physical disk-full, injected rename faults and sync/fault stages beyond
+  the post-publication case, and exhaustive same-user race proof are incomplete.
+  A macOS synthetic directory retained `0700` mode while
   an `everyone` ACL granted list/search; draft PR #29 now rejects such ACLs on
   opened roots/files. The Linux default-ACL test also passed; inherited and
   concurrent ACL changes remain outside the tested interleavings.
@@ -154,7 +154,7 @@ acceptance. `satisfied` means observed in versioned tests and Evidence;
 | Init, validate, reopen, explicit update | Satisfied | Only name update and one manifest are supported as the approved POC baseline. | No |
 | Portable intent separated from local state | Satisfied | Install keeps exact portable bytes; local record stays under an ID-addressed state root. | No |
 | Filesystem safety, atomicity and recovery | Partially satisfied | ACL detection, controlled renames, atomic publication and manual recovery are covered; arbitrary hostile same-user timing and full fault matrix remain unproved. Complete adversarial review or reconcile the threat model. | Yes under SEC-003/005 as currently written |
-| Failures never publish partial or invalid state | Partially satisfied | Tested cancellation, crash and sync-failure stages preserve complete old/new bytes; real disk-full and remaining fault stages need adapter-level tests. | Yes until those stages are checked or explicitly scoped out |
+| Failures never publish partial or invalid state | Partially satisfied | Tested cancellation, crash, injected disk-full and sync-failure stages preserve complete old/new bytes; physical disk-full and remaining rename/fault stages need proof or explicit POC scoping. | Yes until those stages are checked or explicitly scoped out |
 | Deterministic tests and reproducible Evidence | Partially satisfied | POC tests and macOS/Linux CI are reproducible; the uncovered #19 matrix prevents complete #20 claim. | Yes, depends on #19 |
 | Workflow used on bounded Axiom change | Satisfied | PR #28 dogfooding plus repeatable script in PR #29. | No |
 | Limitations and unsupported scenarios documented | Satisfied | One-manifest boundary, manual recovery, missing full Specification features and proof gaps listed above. | No |

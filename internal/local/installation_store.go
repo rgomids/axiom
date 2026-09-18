@@ -17,6 +17,7 @@ type InstallationStore struct {
 	beforePublication func()
 	afterPublication  func()
 	syncDirectory     func(*os.Root) error
+	writeFile         func(*os.Root, string, []byte) error
 }
 type InstallationStatus string
 
@@ -99,7 +100,7 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 				_ = target.Remove(temporary)
 			}
 		}()
-		if err := writePrivateFile(target, temporary, wire); err != nil {
+		if err := s.write(target, temporary, wire); err != nil {
 			return failedInstallation("storage_failure")
 		}
 		if err := ctx.Err(); err != nil {
@@ -169,6 +170,13 @@ func (s InstallationStore) sync(root *os.Root) error {
 		return s.syncDirectory(root)
 	}
 	return syncRoot(root)
+}
+
+func (s InstallationStore) write(root *os.Root, name string, content []byte) error {
+	if s.writeFile != nil {
+		return s.writeFile(root, name, content)
+	}
+	return writePrivateFile(root, name, content)
 }
 
 func (s InstallationStore) Reopen(ctx context.Context, source string) InstallationResult {
