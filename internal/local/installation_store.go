@@ -117,6 +117,12 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		if s.beforePublication != nil {
 			s.beforePublication()
 		}
+		if err := ctx.Err(); err != nil {
+			if clearAttempt(target, attempt) != nil {
+				return failedInstallation("recovery_required")
+			}
+			return failedInstallation("cancelled")
+		}
 		if err := renameNoReplace(target, temporary, "installation.json"); err != nil {
 			if clearAttempt(target, attempt) != nil {
 				return failedInstallation("recovery_required")

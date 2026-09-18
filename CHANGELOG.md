@@ -4,6 +4,8 @@
 
 - fix: anchor minimal POC filesystem operations to private directory handles, reject symlink/hard-link targets, publish create/install without replacement, keep validate read-only, and report interrupted attempts through durable markers as recovery-required. Add process crash-boundary and executable black-box tests plus reproducible dogfooding Evidence; Linux fault proof and human acceptance remain open.
 
+- fix: honor cancellation observed immediately before update/install publication; clear the owned attempt marker and preserve the prior manifest or absent local record. Add deterministic pre-commit cancellation regressions.
+
 - fix: align Lingo's default machine-local root with native macOS Application Support and Linux XDG state directories; reject invalid explicit root overrides. Reconcile Specification 002's POC delivery status while #19–#21 and human acceptance remain pending.
 
 - feature: add the initial local Lingo POC lifecycle: `project init`, `validate`, `reopen`, and explicit name `update` for a minimal one-file portable Project. The adapter uses validated slugs, private staging for create, atomic manifest replacement for update, per-slug coordination and sanitized JSON outcomes. Optional documents, installation/local state, bindings, rename, runtime/provider integration, Git and network remain unsupported.

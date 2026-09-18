@@ -153,3 +153,23 @@ func TestPortableUpdatePermissionFailurePreservesOldBytes(t *testing.T) {
 		t.Fatalf("prior bytes changed: %q, %v", data, err)
 	}
 }
+
+func TestPortableUpdateCancellationBeforePublicationPreservesOldBytes(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	store.beforeUpdatePublication = cancel
+	if err := store.Update(ctx, "sample", []byte("old"), []byte("new")); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled update = %v", err)
+	}
+	data, err := store.Read(context.Background(), "sample")
+	if err != nil || string(data) != "old" {
+		t.Fatalf("authoritative manifest after cancellation = %q, %v", data, err)
+	}
+}

@@ -175,6 +175,12 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 		if s.beforeUpdatePublication != nil {
 			s.beforeUpdatePublication()
 		}
+		if err := ctx.Err(); err != nil {
+			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
+				return cleanup
+			}
+			return err
+		}
 		if err := projectRoot.Rename(temporary, manifestName); err != nil {
 			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
 				return cleanup
