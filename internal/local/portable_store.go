@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -14,216 +15,198 @@ import (
 const manifestName = "axiom.yaml"
 
 var (
-	ErrNotFound = projectapp.ErrNotFound
-	ErrConflict = projectapp.ErrConflict
-	ErrUnsafe   = projectapp.ErrUnsafe
+	ErrNotFound         = projectapp.ErrNotFound
+	ErrConflict         = projectapp.ErrConflict
+	ErrUnsafe           = projectapp.ErrUnsafe
+	ErrRecoveryRequired = projectapp.ErrRecoveryRequired
 )
 
-// PortableStore is a deliberately small filesystem adapter for the POC's
-// one-artifact portable Project. It accepts a validated slug, never a raw path.
-// Context/policy documents are rejected rather than silently overwritten; their
-// complete-artifact protocol is a later POC increment.
+// PortableStore supports one validated manifest per Project. Operations stay
+// anchored to private directory objects and coordinate across processes.
 type PortableStore struct{ root string }
 
-func NewPortableStore(root string) (PortableStore, error) {
-	if !filepath.IsAbs(root) {
+func NewPortableStore(path string) (PortableStore, error) {
+	if !filepath.IsAbs(path) || filepath.Clean(path) == string(filepath.Separator) {
 		return PortableStore{}, ErrUnsafe
 	}
-	clean := filepath.Clean(root)
-	if err := os.MkdirAll(clean, 0o700); err != nil {
-		return PortableStore{}, fmt.Errorf("prepare portable root: %w", err)
+	canonical, err := trustedCanonical(path)
+	if err != nil {
+		return PortableStore{}, err
 	}
-	info, err := os.Lstat(clean)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return PortableStore{}, ErrUnsafe
-	}
-	if err := os.Chmod(clean, 0o700); err != nil {
-		return PortableStore{}, fmt.Errorf("protect portable root: %w", err)
-	}
-	locks := filepath.Join(clean, ".lingo-locks")
-	if err := os.Mkdir(locks, 0o700); err != nil && !os.IsExist(err) {
-		return PortableStore{}, fmt.Errorf("prepare portable locks: %w", err)
-	}
-	info, err = os.Lstat(locks)
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return PortableStore{}, ErrUnsafe
-	}
-	return PortableStore{root: clean}, nil
+	return PortableStore{root: canonical}, nil
 }
 
-// Read returns a complete manifest byte slice or a typed missing result. It
-// rejects extra artifacts because this minimal adapter cannot safely preserve a
-// multi-artifact Project during update.
 func (s PortableStore) Read(ctx context.Context, slug string) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	var result []byte
-	err := s.withLock(slug, func(target string) error {
-		if err := onlyManifest(target); err != nil {
-			return err
-		}
-		input, err := readRegular(filepath.Join(target, manifestName))
-		if os.IsNotExist(err) {
-			return ErrNotFound
-		}
+	err := s.withLock(slug, false, false, func(root *os.Root) error {
+		projectRoot, err := openManifestProject(root, slug)
 		if err != nil {
 			return err
 		}
-		result = input
-		return nil
+		defer projectRoot.Close()
+		result, err = readPrivateFile(projectRoot, manifestName)
+		if os.IsNotExist(err) {
+			return ErrUnsafe
+		}
+		return err
 	})
 	return result, err
 }
 
-// Create publishes a complete one-file Project directory. The staging directory
-// is private; directory rename is the POC create commit point.
+// Create publishes a complete private directory with no replacement.
+// Directory rename is the commit point.
 func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return s.withLock(slug, func(target string) error {
-		if _, err := os.Lstat(target); err == nil {
+	return s.withLock(slug, true, true, func(root *os.Root) error {
+		if _, err := root.Lstat(slug); err == nil {
 			return ErrConflict
 		} else if !os.IsNotExist(err) {
-			return fmt.Errorf("inspect portable target: %w", err)
+			return err
 		}
-		stage, err := os.MkdirTemp(s.root, ".lingo-stage-")
+		stageName, err := temporaryName(".lingo-stage-" + slug + "-")
 		if err != nil {
-			return fmt.Errorf("create private stage: %w", err)
-		}
-		defer os.RemoveAll(stage)
-		if err := os.Chmod(stage, 0o700); err != nil {
-			return fmt.Errorf("protect private stage: %w", err)
-		}
-		if err := writeDurable(filepath.Join(stage, manifestName), manifest); err != nil {
 			return err
 		}
-		if err := syncDirectory(stage); err != nil {
+		stage, err := privateChild(root, stageName)
+		if err != nil {
 			return err
 		}
-		if err := os.Rename(stage, target); err != nil {
-			return fmt.Errorf("publish portable project: %w", err)
+		defer stage.Close()
+		published := false
+		defer func() {
+			if !published {
+				_ = stage.Remove(manifestName)
+				_ = root.Remove(stageName)
+			}
+		}()
+		if err := writePrivateFile(stage, manifestName, manifest); err != nil {
+			return err
 		}
-		return syncDirectory(s.root)
+		if err := syncRoot(stage); err != nil {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := renameNoReplace(root, stageName, slug); err != nil {
+			if os.IsExist(err) {
+				return ErrConflict
+			}
+			return fmt.Errorf("publish project: %w", err)
+		}
+		published = true
+		if err := syncRoot(root); err != nil {
+			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
+		}
+		return nil
 	})
 }
 
-// Update atomically replaces the sole supported artifact after comparing its
-// exact observed bytes under the slug lock. A stale writer reports ErrConflict.
+// Update compares exact observed bytes under a process lock and replaces
+// only the supported manifest. Readers never accept a partial manifest.
 func (s PortableStore) Update(ctx context.Context, slug string, expected, manifest []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return s.withLock(slug, func(target string) error {
-		if err := onlyManifest(target); err != nil {
+	return s.withLock(slug, false, true, func(root *os.Root) error {
+		projectRoot, err := openManifestProject(root, slug)
+		if err != nil {
 			return err
 		}
-		current, err := readRegular(filepath.Join(target, manifestName))
-		if os.IsNotExist(err) {
-			return ErrNotFound
-		}
+		defer projectRoot.Close()
+		current, err := readPrivateFile(projectRoot, manifestName)
 		if err != nil {
 			return err
 		}
 		if !bytes.Equal(current, expected) {
 			return ErrConflict
 		}
-		file, err := os.CreateTemp(target, ".lingo-manifest-")
+		temporary, err := temporaryName(".lingo-manifest-")
 		if err != nil {
-			return fmt.Errorf("create replacement manifest: %w", err)
+			return err
 		}
-		temporary := file.Name()
-		defer os.Remove(temporary)
-		if err := file.Chmod(0o600); err != nil {
-			file.Close()
-			return fmt.Errorf("protect replacement manifest: %w", err)
+		defer projectRoot.Remove(temporary)
+		if err := writePrivateFile(projectRoot, temporary, manifest); err != nil {
+			return err
 		}
-		if _, err := file.Write(manifest); err != nil {
-			file.Close()
-			return fmt.Errorf("write replacement manifest: %w", err)
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-		if err := file.Sync(); err != nil {
-			file.Close()
-			return fmt.Errorf("sync replacement manifest: %w", err)
+		if err := projectRoot.Rename(temporary, manifestName); err != nil {
+			return err
 		}
-		if err := file.Close(); err != nil {
-			return fmt.Errorf("close replacement manifest: %w", err)
+		if err := syncRoot(projectRoot); err != nil {
+			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
 		}
-		if err := os.Rename(temporary, filepath.Join(target, manifestName)); err != nil {
-			return fmt.Errorf("publish replacement manifest: %w", err)
-		}
-		return syncDirectory(target)
+		return nil
 	})
 }
 
-func (s PortableStore) withLock(slug string, action func(string) error) error {
+func (s PortableStore) withLock(slug string, create, exclusive bool, action func(*os.Root) error) error {
 	if !project.ValidSlug(slug) {
 		return ErrUnsafe
 	}
-	lock := filepath.Join(s.root, ".lingo-locks", slug+".lock")
-	if err := os.Mkdir(lock, 0o700); err != nil {
-		if os.IsExist(err) {
-			return ErrConflict
-		}
-		return fmt.Errorf("acquire portable lock: %w", err)
+	open := existingPrivateRoot
+	if create {
+		open = privateRoot
 	}
-	defer os.Remove(lock)
-	return action(filepath.Join(s.root, slug))
-}
-
-func onlyManifest(target string) error {
-	info, err := os.Lstat(target)
-	if os.IsNotExist(err) {
-		return ErrNotFound
-	}
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return ErrUnsafe
-	}
-	entries, err := os.ReadDir(target)
+	root, err := open(s.root)
 	if err != nil {
-		return fmt.Errorf("read portable project: %w", err)
+		return err
 	}
-	if len(entries) != 1 || entries[0].Name() != manifestName {
-		return ErrUnsafe
+	defer root.Close()
+	lock, err := lockDirectory(root, exclusive)
+	if err != nil {
+		return err
 	}
-	return nil
+	defer lock.Close()
+	entries, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	names, err := entries.Readdirnames(-1)
+	entries.Close()
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		if strings.HasPrefix(name, ".lingo-stage-"+slug+"-") {
+			return ErrRecoveryRequired
+		}
+	}
+	return action(root)
 }
 
-func readRegular(path string) ([]byte, error) {
-	info, err := os.Lstat(path)
+func openManifestProject(root *os.Root, slug string) (*os.Root, error) {
+	projectRoot, err := existingPrivateChild(root, slug)
 	if err != nil {
 		return nil, err
 	}
-	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+	file, err := projectRoot.Open(".")
+	if err != nil {
+		projectRoot.Close()
+		return nil, err
+	}
+	entries, err := file.Readdirnames(-1)
+	file.Close()
+	if err != nil {
+		projectRoot.Close()
+		return nil, err
+	}
+	for _, name := range entries {
+		if strings.HasPrefix(name, ".lingo-manifest-") {
+			projectRoot.Close()
+			return nil, ErrRecoveryRequired
+		}
+	}
+	if len(entries) != 1 || entries[0] != manifestName {
+		projectRoot.Close()
 		return nil, ErrUnsafe
 	}
-	return os.ReadFile(path)
-}
-
-func writeDurable(path string, content []byte) error {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return fmt.Errorf("create portable manifest: %w", err)
-	}
-	defer file.Close()
-	if _, err := file.Write(content); err != nil {
-		return fmt.Errorf("write portable manifest: %w", err)
-	}
-	if err := file.Sync(); err != nil {
-		return fmt.Errorf("sync portable manifest: %w", err)
-	}
-	return file.Close()
-}
-
-func syncDirectory(path string) error {
-	directory, err := os.Open(path)
-	if err != nil {
-		return fmt.Errorf("open portable directory: %w", err)
-	}
-	defer directory.Close()
-	if err := directory.Sync(); err != nil {
-		return fmt.Errorf("sync portable directory: %w", err)
-	}
-	return nil
+	return projectRoot, nil
 }
