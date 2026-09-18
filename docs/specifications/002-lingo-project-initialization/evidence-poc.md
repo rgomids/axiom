@@ -98,6 +98,12 @@ ACL and post-publication sync fault tests plus structured hash output. Its
 [GitHub Actions run](https://github.com/rgomids/axiom/actions/runs/35398936936)
 passed the same checks on Ubuntu 24.04 and macOS 15, including both platform
 ACL tests.
+The later [run at `21d3d3a`](https://github.com/rgomids/axiom/actions/runs/35399489754)
+passed both platforms with the adapter-level injected disk-full, manual
+recovery and staged hard-link race tests added. The workflow uses commit-pinned
+`actions/checkout` and `actions/setup-go` from `064311f` onward; its
+[macOS/Linux run](https://github.com/rgomids/axiom/actions/runs/35399559877)
+passed all jobs.
 One local macOS run of the revised dogfooding script exited 0: portable
 before-install and after-install SHA-256 were both
 `8849e6e9ab9eb9f5edf36635ef30b8f71fe8a81d584392c80e7dde50b6994e28`;
