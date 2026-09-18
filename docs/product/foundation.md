@@ -30,9 +30,9 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 ### Facts
 
 - The repository contains a Codex-first harness, policies, skills, templates and deterministic shell validation.
-- A Go module exists in `go.mod`, with tested Project domain rules, application contracts, a portable manifest codec and a local record codec. See the [implemented foundation](../architecture/README.md#implemented-foundation).
-- Specification 002 has merged implementation for T01–T04. T04 still awaits explicit human acceptance; T05–T21 remain not started and not authorized. The [Specification index](../specifications/README.md#002--lingo-project-initialization) owns the current lifecycle summary.
-- No executable application or Lingo CLI, filesystem persistence, operational installation, runtime/provider adapter or orchestration exists.
+- A Go module exists in `go.mod`, with tested Project rules, application contracts, portable/local codecs and an executable minimal Lingo POC. See the [implemented foundation](../architecture/README.md#implemented-foundation).
+- The [Specification index](../specifications/README.md#002--lingo-project-initialization) owns the current delivery and acceptance status.
+- Runtime/provider adapters and orchestration are unavailable. The POC's filesystem and acceptance limits are recorded in [Evidence](../specifications/002-lingo-project-initialization/evidence-poc.md).
 - The current agent factory describes `intake -> normalized blueprint -> artifact plan -> Codex renderer -> validation -> package`.
 - Notion contains discovery material, accepted-decision summaries, and explicitly classified proposals/open questions.
 

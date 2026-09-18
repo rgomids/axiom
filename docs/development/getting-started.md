@@ -22,16 +22,18 @@ use-o sem mover, apagar ou sobrescrever outros diretórios. SSH não é requisit
 
 A fundação Go da Specification 002 contém domínio, contratos de aplicação e codecs
 portátil e local JSON. Go 1.26 ou posterior é requisito para os checks Go; o codec
-portátil depende de `go.yaml.in/yaml/v3@v3.0.5`.
+portátil depende de `go.yaml.in/yaml/v3@v3.0.5`; o store POC usa
+`golang.org/x/sys/unix@v0.44.0` em Linux/macOS.
 Consulte [preparação do cache e validação offline](../commands.md#t01t04-validation)
 e [Evidence T04](../specifications/002-lingo-project-initialization/evidence-t04.md).
 O POC Lingo oferece lifecycle portátil mínimo e `lingo project install`, que
 persiste `installation.json` em `<state-root>/projects/<project-id>/installation.json`.
 `reopen` reconhece o estado local quando disponível, separado da configuração
 portátil. Bindings, resolução de credenciais, Runtime observations, reconciliação
-avançada, hardening completo de filesystem, crash recovery e proteção contra
-races de symlink, canonical-path e ancestor continuam fora do POC; o escopo
-restante é #19–#21. Consulte [comandos](../commands.md#lingo-poc-minimal-lifecycle).
+avançada e recuperação automatizada continuam indisponíveis. A proteção básica
+de filesystem foi ampliada, mas Linux, ACLs e a matriz completa de falhas/races
+seguem sem Evidence; #19–#21 permanecem abertos. Consulte
+[comandos](../commands.md#lingo-poc-minimal-lifecycle).
 Consulte o [lifecycle atual](../specifications/README.md#002--lingo-project-initialization)
 para distinguir implementação mergeada, aceitação humana e autorização de novas Tasks.
 

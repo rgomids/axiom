@@ -45,9 +45,10 @@ The Plan and clarifications own detailed formats and revision semantics.
 Specification 002 is the first active vertical slice, delivered incrementally.
 The Go module contains Project invariants (`internal/project`), application
 contracts and authority (`internal/projectapp`), the portable manifest codec
-(`internal/manifest`) and local JSON record codec (`internal/local`), with tests.
-These foundations do not provide complete use cases, a Lingo CLI, filesystem
-persistence, operational installation, runtime adapters or orchestration.
+(`internal/manifest`), local JSON codec and minimal filesystem stores
+(`internal/local`), and a limited executable Lingo CLI (`internal/cli`,
+`cmd/lingo`). The POC covers one-manifest Project operations; complete
+Specification 002 use cases, runtime adapters and orchestration remain open.
 
 Implementation requires approved artifacts and explicit authorization for the
 bounded Task. Consult the Specification index before advancing; neither roadmap
