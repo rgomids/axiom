@@ -16,7 +16,7 @@ hardening, atomicity/recovery and security proof;
 [#20](https://github.com/rgomids/axiom/issues/20) owns complete acceptance and
 failure-path Evidence; [#21](https://github.com/rgomids/axiom/issues/21) owns
 dogfooding and human acceptance. A bounded dogfooding execution is recorded,
-while ACL/full fault proof and explicit human acceptance remain open. The POC and parent
+while full fault/race proof and explicit human acceptance remain open. The POC and parent
 [#14](https://github.com/rgomids/axiom/issues/14) remain open. Dated T04 gates
 below record historical state and do not describe current POC delivery.
 

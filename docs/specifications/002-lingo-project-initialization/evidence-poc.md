@@ -93,6 +93,11 @@ executed that commit on Ubuntu 24.04 and macOS 15. Both jobs passed
 `./scripts/validate-repository.sh .` and `./scripts/dogfood-poc.sh`.
 This is runtime Linux evidence, not merely a cross-build. Reproduce the
 same checks locally from the PR commit or rerun the workflow.
+The follow-up commit `a074ca0346d9420ed61d202523c52f394e7e3eda` added
+ACL and post-publication sync fault tests plus structured hash output. Its
+[GitHub Actions run](https://github.com/rgomids/axiom/actions/runs/35398936936)
+passed the same checks on Ubuntu 24.04 and macOS 15, including both platform
+ACL tests.
 One local macOS run of the revised dogfooding script exited 0: portable
 before-install and after-install SHA-256 were both
 `8849e6e9ab9eb9f5edf36635ef30b8f71fe8a81d584392c80e7dde50b6994e28`;
@@ -113,7 +118,7 @@ and change in that run, not fixed goldens.
 | Symlink, hard link, rename and ancestor replacement; AC-09, AC-16 subset | `go test ./internal/local -run 'Test(PortableStoreRejects|PortableCreateRejectsAncestorReplacementBeforePublication|PortableUpdateRejectsProjectRenameBeforePublication|InstallationRejectsTargetReplacementBeforePublication)' -count=1` | Controlled replacements fail before publication; outside sentinels unchanged. Arbitrary hostile same-user interleavings remain unproved. |
 | Short write and simulated storage exhaustion; AC-07 subset | `go test ./internal/local -run TestWriteCompleteHandlesShortWritesAndStorageFaults -count=1` | Partial writes are completed; zero progress and injected `ENOSPC`/`EDQUOT` fail. This is a writer-level fault test, not a full filesystem disk-full run. |
 | Permission denial; AC-07, AC-09 subset | `go test ./internal/local -run TestPortableUpdatePermissionFailurePreservesOldBytes -count=1` | Unprivileged macOS and Linux runs passed; root execution skips. ACL checks are separate below. |
-| Explicit ACL detection; SEC-005, AC-09 subset | `go test ./internal/local -run 'TestPrivate(RootRejectsPermissiveACLDespiteMode0700|FileRejectsPermissiveACL|RootRejectsDefaultACLDespiteMode0700)' -count=1` | macOS extended ACLs and Linux POSIX default ACLs are rejected when mode bits alone appear private. Linux runtime result for this added test is pending the next CI run. Inherited or concurrent ACL mutation remains a separate race question. |
+| Explicit ACL detection; SEC-005, AC-09 subset | `go test ./internal/local -run 'TestPrivate(RootRejectsPermissiveACLDespiteMode0700|FileRejectsPermissiveACL|RootRejectsDefaultACLDespiteMode0700)' -count=1` | macOS extended ACLs and Linux POSIX default ACLs are rejected when mode bits alone appear private; both platform jobs passed. Inherited or concurrent ACL mutation remains a separate race question. |
 | Recovery classification; AC-07, AC-16 subset | Crash tests above; [manual recovery procedure](recovery-poc.md) | Recognized interrupted artifacts fail closed and are preserved for operator review. No automatic repair or proved recovery after power loss. |
 
 ### Remaining gaps for #19–#21
@@ -122,8 +127,8 @@ and change in that run, not fixed goldens.
   stages beyond the post-publication sync case, and exhaustive same-user race
   proof are incomplete. A macOS synthetic directory retained `0700` mode while
   an `everyone` ACL granted list/search; draft PR #29 now rejects such ACLs on
-  opened roots/files. Linux default-ACL and inherited ACL behavior must be
-  confirmed by CI before claiming SEC-005 coverage.
+  opened roots/files. The Linux default-ACL test also passed; inherited and
+  concurrent ACL changes remain outside the tested interleavings.
 - `#19`: `recovery_required` is deterministic for recognized leftovers, with a
   [manual operator procedure](recovery-poc.md). It preserves Evidence and unknown
   artifacts. Automatic recovery is outside this POC; post-publication durability
@@ -136,3 +141,33 @@ and change in that run, not fixed goldens.
   002 or parent #14 Accepted or authorize MVP.
 - `gitleaks` is unavailable on the local host. The repository sensitive-file
   checker passed; consolidated scanner coverage remains unverified.
+
+### Parent #14 exit checklist for human review
+
+This assessment is for the bounded one-file POC, not full Specification 002
+acceptance. `satisfied` means observed in versioned tests and Evidence;
+`partially satisfied` means the POC requirement has a material unproved edge.
+
+| #14 exit item | Assessment | Gap, risk, minimum next work | POC blocker? |
+|---|---|---|---|
+| Executable local Lingo CLI | Satisfied | Minimal commands exercised as a real binary. | No |
+| Init, validate, reopen, explicit update | Satisfied | Only name update and one manifest are supported as the approved POC baseline. | No |
+| Portable intent separated from local state | Satisfied | Install keeps exact portable bytes; local record stays under an ID-addressed state root. | No |
+| Filesystem safety, atomicity and recovery | Partially satisfied | ACL detection, controlled renames, atomic publication and manual recovery are covered; arbitrary hostile same-user timing and full fault matrix remain unproved. Complete adversarial review or reconcile the threat model. | Yes under SEC-003/005 as currently written |
+| Failures never publish partial or invalid state | Partially satisfied | Tested cancellation, crash and sync-failure stages preserve complete old/new bytes; real disk-full and remaining fault stages need adapter-level tests. | Yes until those stages are checked or explicitly scoped out |
+| Deterministic tests and reproducible Evidence | Partially satisfied | POC tests and macOS/Linux CI are reproducible; the uncovered #19 matrix prevents complete #20 claim. | Yes, depends on #19 |
+| Workflow used on bounded Axiom change | Satisfied | PR #28 dogfooding plus repeatable script in PR #29. | No |
+| Limitations and unsupported scenarios documented | Satisfied | One-manifest boundary, manual recovery, missing full Specification features and proof gaps listed above. | No |
+| Explicit human acceptance | Not satisfied | Human review and acceptance decision have not occurred. Do not mark Specification 002 or #14 Accepted from a merge or CI run. | Yes, final gate |
+
+Scope limitations already established by #14 and the delivery issues: this POC
+does not provide production compatibility, distributed persistence, remote
+locking/sync, broad Provider/Runtime integration, Git execution or automated
+orchestration. Manual recovery remains the documented POC procedure. Security
+and fault-proof gaps above are **not** accepted waivers.
+
+**Human decision required** if the POC is to be accepted without exhaustive
+same-user race proof: may SEC-003's adversary be limited to cooperating Lingo
+processes plus controlled path replacement checks for this one-file POC, with
+malicious concurrent mutation by another process under the same UID explicitly
+unsupported? If not, complete the stronger confinement proof before acceptance.
