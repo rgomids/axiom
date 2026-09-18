@@ -1,5 +1,14 @@
 # Plan — Specification 002: Lingo Project Initialization
 
+## POC implementation status — 2026-09-18
+
+The approved Plan remains the contract. POC issues #16–#18 have delivered the
+minimal CLI and portable/local lifecycle described in the
+[Specification status](spec.md#poc-delivery-status--2026-09-18). Filesystem
+hardening/recovery (#19), complete acceptance Evidence (#20), and dogfooding /
+human acceptance (#21) remain pending. Earlier T04-only gates below are dated
+history, not the current implementation status. No Plan contract is amended here.
+
 ## T04 single local revision reconciliation — 2026-09-16
 
 Human decision [H12](clarifications.md#single-local-revision-decision--2026-09-16) adopts **Option B — single revision model**:

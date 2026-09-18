@@ -15,7 +15,7 @@
 
 Axiom is being built to connect software intent, architecture, implementation, and validation across human and AI work.
 
-**Early development.** Explore the Codex harness and tested Go foundations today. Lingo, the planned local CLI, is not yet available.
+**POC em andamento.** Lingo já oferece um lifecycle portátil mínimo, local e testável. Limites e comandos estão em [Commands](docs/commands.md#lingo-poc-minimal-lifecycle).
 
 <p align="center">
   <a href="#explore-axiom">Explore Axiom</a> ·
@@ -46,10 +46,10 @@ Spec-Driven Development (SDD) connects the reason for a change to its implementa
 **Available in this repository:**
 
 - Codex-first harness: context, policies, skills, templates, and validation scripts.
-- Go implementation of Project rules, application contracts, portable manifests, and local installation records, with tests.
+- Go implementation of Project rules, application contracts, portable manifests, local installation records, and um lifecycle portátil mínimo de Lingo, with tests.
 - Versioned Specifications, architecture decisions, and implementation Evidence.
 
-**Not available yet:** Lingo CLI, filesystem persistence, runtime adapters, and orchestration. There is no complete deployable application or implemented provider integration.
+**Limites atuais:** o POC Lingo cobre `init`, `validate`, `reopen`, `install` local e alteração explícita de nome para Projects mínimos de um único `axiom.yaml`. Documentos opcionais, bindings, Runtime, Git, rede e orquestração ainda não são suportados. There is no provider integration.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 
@@ -101,7 +101,7 @@ Domain vocabulary; some concepts remain unimplemented.
 | [Evidence](docs/architecture/conceptual-model.md#execution-and-proof) | An inspectable observation supporting a claim: a test result, command outcome, diff, or review. |
 | [Authority](docs/product/constitution.md) | Explicit permission and approval boundaries for actions; an AI proposal does not grant permission. |
 | [Agent / Runtime](docs/architecture/conceptual-model.md#actors-and-external-boundaries) | An Agent participates in work; a Runtime provides its execution environment and capabilities. |
-| [Lingo](docs/decisions/0003-lingo-as-axiom-local-control-plane.md) | The accepted direction for Axiom's local executable control plane; its CLI is not yet implemented. |
+| [Lingo](docs/decisions/0003-lingo-as-axiom-local-control-plane.md) | Axiom's local executable control plane. The POC currently exposes a small portable Project lifecycle; broader operations remain unavailable. |
 
 ## Architecture
 

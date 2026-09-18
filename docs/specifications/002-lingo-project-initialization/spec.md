@@ -1,5 +1,23 @@
 # Specification 002 — Lingo Project Initialization
 
+## POC delivery status — 2026-09-18
+
+The approved Specification remains in partial implementation and awaits human
+acceptance. POC issues [#16](https://github.com/rgomids/axiom/issues/16)–
+[#18](https://github.com/rgomids/axiom/issues/18) delivered an executable local
+Lingo CLI for minimal Project `init`, read-only `validate`, `reopen`, explicit
+name `update`, limited filesystem persistence, and separate local `install` state.
+These changes are under review in [PR #27](https://github.com/rgomids/axiom/pull/27);
+[POC Evidence](evidence-poc.md) records current behavior and limits.
+
+[#19](https://github.com/rgomids/axiom/issues/19) still owns filesystem
+hardening, atomicity/recovery and security proof;
+[#20](https://github.com/rgomids/axiom/issues/20) owns complete acceptance and
+failure-path Evidence; [#21](https://github.com/rgomids/axiom/issues/21) owns
+dogfooding and human acceptance. The POC and parent
+[#14](https://github.com/rgomids/axiom/issues/14) remain open. Dated T04 gates
+below record historical state and do not describe current POC delivery.
+
 ## T04 single local revision reconciliation — 2026-09-16
 
 Human decision [H12](clarifications.md#single-local-revision-decision--2026-09-16) adopts **Option B — single revision model**:

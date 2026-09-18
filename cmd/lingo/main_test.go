@@ -1,0 +1,101 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/rgomids/axiom/internal/cli"
+)
+
+func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+
+	runCLI(t, service, []string{"project", "init", "--slug", "sample", "--name", "Sample"}, cli.ExitSuccess, "applied")
+	runCLI(t, service, []string{"project", "validate", "--slug", "sample"}, cli.ExitSuccess, "valid")
+	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened_without_local_state")
+	beforeInstall, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runCLI(t, service, []string{"project", "install", "--source", filepath.Join(root, "sample")}, cli.ExitSuccess, "installed")
+	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened_with_local_state")
+	afterInstall, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
+	if err != nil || string(beforeInstall) != string(afterInstall) {
+		t.Fatalf("install changed portable manifest: %v", err)
+	}
+	records, err := filepath.Glob(filepath.Join(state, "projects", "*", "installation.json"))
+	if err != nil || len(records) != 1 {
+		t.Fatalf("installation record paths = %v, %v", records, err)
+	}
+	runCLI(t, service, []string{"project", "update", "--slug", "sample", "--name", "Changed"}, cli.ExitSuccess, "applied")
+
+	manifest, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(manifest), "name: Changed") {
+		t.Fatalf("updated manifest does not contain new name: %q", manifest)
+	}
+}
+
+func TestComposedCLIRejectsRelativeRoot(t *testing.T) {
+	t.Setenv("LINGO_PROJECTS_ROOT", "relative")
+	var output bytes.Buffer
+	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), &output); code != cli.ExitFailure {
+		t.Fatalf("exit code = %d", code)
+	}
+	if !strings.Contains(output.String(), "application_unavailable") {
+		t.Fatalf("unexpected error event: %q", output.String())
+	}
+}
+
+func TestStateRootOverride(t *testing.T) {
+	t.Setenv("LINGO_STATE_ROOT", "/tmp/lingo-state/../lingo-state")
+	got, err := stateRoot()
+	if err != nil || got != "/tmp/lingo-state" {
+		t.Fatalf("stateRoot override = %q, %v", got, err)
+	}
+}
+
+func TestStateRootRejectsInvalidOverride(t *testing.T) {
+	for _, value := range []string{"", "relative/state", "/"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("LINGO_STATE_ROOT", value)
+			if root, err := stateRoot(); err == nil || root != "" {
+				t.Fatalf("stateRoot accepted invalid override: %q, %v", root, err)
+			}
+		})
+	}
+}
+
+func TestCompositionRejectsOverlappingRootsBeforeCreation(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", filepath.Join(root, "state"))
+	var output bytes.Buffer
+	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), &output); code != cli.ExitFailure {
+		t.Fatalf("overlapping roots accepted: code=%d", code)
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("portable root created before root validation: %v", err)
+	}
+}
+
+func runCLI(t *testing.T, service cli.Service, args []string, wantCode int, wantCategory string) {
+	t.Helper()
+	var output bytes.Buffer
+	if code := cli.Run(context.Background(), args, service, &output); code != wantCode {
+		t.Fatalf("%v: exit code = %d, output=%q", args, code, output.String())
+	}
+	if !strings.Contains(output.String(), `"category":"`+wantCategory+`"`) {
+		t.Fatalf("%v: category absent from %q", args, output.String())
+	}
+}

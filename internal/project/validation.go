@@ -225,3 +225,7 @@ func ValidateIdentity(id, slug string) []Issue {
 	}
 	return v.issues
 }
+
+// ValidSlug is the producer-owned lexical predicate used before a slug reaches
+// a filesystem adapter. It grants no filesystem authority by itself.
+func ValidSlug(slug string) bool { return slugPattern.MatchString(slug) }

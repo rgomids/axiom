@@ -2,9 +2,37 @@
 
 Execute estes comandos na raiz do repositório.
 
-## Runtime
+## Lingo POC minimal lifecycle
 
-Não há aplicação ou CLI para executar neste bootstrap. Nenhum comando futuro do Axiom é definido aqui.
+O POC é local. Ele não acessa rede, Git, providers, runtimes ou credenciais. Use
+um root temporário/isolado enquanto avalia; `LINGO_PROJECTS_ROOT` deve ser absoluto.
+Sem override, Lingo usa `~/.axiom/projects` para configuração portátil. Estado
+local usa `$XDG_STATE_HOME/lingo` no Linux quando absoluto, caso contrário
+`$HOME/.local/state/lingo`; no macOS, usa
+`$HOME/Library/Application Support/Lingo`. `LINGO_STATE_ROOT` substitui esse
+destino para desenvolvimento/testes e deve ser absoluto, não vazio e separado
+do root portátil.
+
+```bash
+export LINGO_PROJECTS_ROOT="$(mktemp -d)"
+export LINGO_STATE_ROOT="$(mktemp -d)"
+
+go run ./cmd/lingo project init --slug sample --name "Sample"
+go run ./cmd/lingo project validate --slug sample
+go run ./cmd/lingo project reopen --slug sample
+go run ./cmd/lingo project install --source "$LINGO_PROJECTS_ROOT/sample"
+go run ./cmd/lingo project update --slug sample --name "Sample renamed"
+```
+
+Cada operação escreve um evento JSON seguro em stdout e retorna `0` em sucesso,
+`1` em erro/conflito e `2` em cancelamento. `init` é create/no-op/conflito: não
+renomeia nem atualiza um Project existente; use `update` para alterar o nome.
+
+`install` grava o record local estrito em `<state-root>/projects/<project-id>/installation.json`;
+não altera o manifest de origem. O adaptador atual aceita somente Project mínimo de um único `axiom.yaml`. Ele
+recusa symlinks, artefatos extras e roots relativos em vez de tentar preservar
+documentos opcionais sem um protocolo completo. Binding,
+rename, documentos, Git, Runtime, Provider e rede permanecem fora deste incremento.
 
 ## T01–T04 validation
 
@@ -15,7 +43,7 @@ Go 1.26 instalado. T01/T02/T04 usam biblioteca padrão; T03 usa o parser fixado 
 GOTOOLCHAIN=local go mod download go.yaml.in/yaml/v3@v3.0.5
 ```
 
-Depois, os checks abaixo rodam offline. Build valida pacotes; não produz CLI.
+Depois, os checks abaixo rodam offline. Build valida pacotes e o executável Lingo POC.
 
 ```bash
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
@@ -46,7 +74,14 @@ imports de produção; fixtures são sintéticas.
 [T04 Evidence](specifications/002-lingo-project-initialization/evidence-t04.md) registra
 JSON estrito, metadados locais, ausência versus corrupção e testes de fronteira.
 `go test ./internal/local` inclui matrizes, round-trips, inspeção estática do DTO/imports
-e integração com fake do port T02. Não há CLI, persistência ou instalação.
+e integração com fake do port T02. Além do lifecycle portátil, este POC inclui
+`lingo project install`, que persiste `installation.json` em
+`<state-root>/projects/<project-id>/installation.json`; `reopen` reconhece esse
+estado local quando disponível. Configuração portátil e estado local permanecem
+separados. Bindings, resolução de credenciais, Runtime observations,
+reconciliação avançada, hardening completo de filesystem, crash recovery e
+proteção contra races de symlink, canonical-path e ancestor continuam fora do
+POC; o escopo restante é #19–#21.
 
 ## Harness validation
 
@@ -123,4 +158,4 @@ adapters/speckit/test-failures.sh
 `scripts/test-tools.sh` also validates the unexpected-finding review and proves
 that seeded reference matching rejects substring-only matches.
 
-Não use Makefile como interface principal. Este repositório não possui Makefile nem runtime de aplicação neste estágio.
+Não use Makefile como interface principal. Este repositório não possui Makefile.
