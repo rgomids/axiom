@@ -32,7 +32,7 @@ func compose() cli.Service {
 	if err != nil {
 		return cli.UnavailableService{}
 	}
-	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation}
+	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation, root}
 }
 
 func projectsRoot() (string, error) {
@@ -65,6 +65,7 @@ func stateRoot() (string, error) {
 type lifecycleService struct {
 	lifecycle    projectapp.Lifecycle
 	installation local.InstallationStore
+	projectsRoot string
 }
 
 func (s lifecycleService) Init(ctx context.Context, input cli.InitInput) cli.Result {
@@ -74,7 +75,15 @@ func (s lifecycleService) Validate(ctx context.Context, input cli.ProjectInput) 
 	return cliResult(s.lifecycle.Validate(ctx, projectapp.ProjectRequest{Slug: input.Slug}))
 }
 func (s lifecycleService) Reopen(ctx context.Context, input cli.ProjectInput) cli.Result {
-	return cliResult(s.lifecycle.Reopen(ctx, projectapp.ProjectRequest{Slug: input.Slug}))
+	result := cliResult(s.lifecycle.Reopen(ctx, projectapp.ProjectRequest{Slug: input.Slug}))
+	if result.Status != cli.Succeeded {
+		return result
+	}
+	localResult := s.installation.Reopen(ctx, filepath.Join(s.projectsRoot, input.Slug))
+	if localResult.Status == local.InstallationFailed || localResult.Status == local.InstallationConflict {
+		return cli.Result{Status: cli.Failed, Category: localResult.Category}
+	}
+	return cli.Result{Status: cli.Succeeded, Category: localResult.Category}
 }
 func (s lifecycleService) Update(ctx context.Context, input cli.UpdateInput) cli.Result {
 	return cliResult(s.lifecycle.Update(ctx, projectapp.UpdateRequest{Slug: input.Slug, Name: input.Name}))

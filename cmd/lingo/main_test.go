@@ -19,12 +19,13 @@ func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
 
 	runCLI(t, service, []string{"project", "init", "--slug", "sample", "--name", "Sample"}, cli.ExitSuccess, "applied")
 	runCLI(t, service, []string{"project", "validate", "--slug", "sample"}, cli.ExitSuccess, "valid")
-	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened")
+	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened_without_local_state")
 	beforeInstall, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	runCLI(t, service, []string{"project", "install", "--source", filepath.Join(root, "sample")}, cli.ExitSuccess, "installed")
+	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened_with_local_state")
 	afterInstall, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
 	if err != nil || string(beforeInstall) != string(afterInstall) {
 		t.Fatalf("install changed portable manifest: %v", err)

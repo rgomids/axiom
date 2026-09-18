@@ -44,24 +44,11 @@ func NewInstallationStore(root string) (InstallationStore, error) {
 }
 
 func (s InstallationStore) Install(ctx context.Context, source string) InstallationResult {
-	if err := ctx.Err(); err != nil {
-		return failedInstallation("cancelled")
-	}
-	if !filepath.IsAbs(source) {
-		return failedInstallation("invalid_input")
+	snapshot, result := portableSnapshot(ctx, source)
+	if result.Status == InstallationFailed {
+		return result
 	}
 	source = filepath.Clean(source)
-	if err := onlyManifest(source); err != nil {
-		return installationError(err)
-	}
-	bytes, err := readRegular(filepath.Join(source, manifestName))
-	if err != nil {
-		return installationError(err)
-	}
-	snapshot, issues := projectapp.ReadSnapshot(manifest.Codec{}, bytes, nil)
-	if len(issues) != 0 {
-		return failedInstallation("invalid_project")
-	}
 	record, recordIssues := NewRecord(RecordState{ProjectID: snapshot.Project().State().ID, ObservedSlug: snapshot.Project().State().Slug, SourceLocation: source, PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests()})
 	if len(recordIssues) != 0 {
 		return failedInstallation("invalid_local_state")
@@ -92,6 +79,53 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		return failedInstallation("storage_failure")
 	}
 	return InstallationResult{Status: InstallationApplied, Category: "installed"}
+}
+
+func (s InstallationStore) Reopen(ctx context.Context, source string) InstallationResult {
+	snapshot, result := portableSnapshot(ctx, source)
+	if result.Status == InstallationFailed {
+		return result
+	}
+	source = filepath.Clean(source)
+	path := filepath.Join(s.root, "projects", snapshot.Project().State().ID, "installation.json")
+	bytes, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return InstallationResult{Status: InstallationUnchanged, Category: "reopened_without_local_state"}
+	}
+	if err != nil {
+		return failedInstallation("storage_failure")
+	}
+	record, _, issues := DecodeObservedRecord(bytes, true)
+	if len(issues) != 0 {
+		return failedInstallation("invalid_existing_local_state")
+	}
+	state := record.State()
+	if state.SourceLocation != source || state.PortableRevision != snapshot.Revision() {
+		return InstallationResult{Status: InstallationConflict, Category: "local_state_revalidation_required"}
+	}
+	return InstallationResult{Status: InstallationUnchanged, Category: "reopened_with_local_state"}
+}
+
+func portableSnapshot(ctx context.Context, source string) (projectapp.ArtifactSnapshot, InstallationResult) {
+	if err := ctx.Err(); err != nil {
+		return projectapp.ArtifactSnapshot{}, failedInstallation("cancelled")
+	}
+	if !filepath.IsAbs(source) {
+		return projectapp.ArtifactSnapshot{}, failedInstallation("invalid_input")
+	}
+	source = filepath.Clean(source)
+	if err := onlyManifest(source); err != nil {
+		return projectapp.ArtifactSnapshot{}, installationError(err)
+	}
+	bytes, err := readRegular(filepath.Join(source, manifestName))
+	if err != nil {
+		return projectapp.ArtifactSnapshot{}, installationError(err)
+	}
+	snapshot, issues := projectapp.ReadSnapshot(manifest.Codec{}, bytes, nil)
+	if len(issues) != 0 {
+		return projectapp.ArtifactSnapshot{}, failedInstallation("invalid_project")
+	}
+	return snapshot, InstallationResult{Status: InstallationApplied}
 }
 
 func installationError(err error) InstallationResult {
