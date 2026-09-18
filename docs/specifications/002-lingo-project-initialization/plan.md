@@ -9,7 +9,12 @@ filesystem hardening and black-box Evidence for #19–#20 are in progress;
 dogfooding for #21 is recorded. macOS/Linux runtime checks passed in draft PR #29,
 while full fault/race proof and human acceptance
 remain pending. Earlier T04-only gates below are dated history, not the current
-implementation status. No Plan contract is amended here.
+implementation status. This revision formally reconciles the verification
+scope: the POC may use a repository workflow solely for reproducible
+verification/acceptance Evidence on Linux and macOS. Product/platform CI and
+release automation remain outside the slice. This clarification does not expand
+the product or persistence contracts, create a permanent architecture commitment,
+or imply human Acceptance.
 
 ## T04 single local revision reconciliation — 2026-09-16
 
@@ -156,7 +161,7 @@ Also applied [repository instructions](../../../AGENTS.md),
 
 Only Axiom repository is affected. The proposed implementation language remains
 Go; this change adds no Go files, module, dependency, CLI framework, parser
-library, adapter, storage engine, migration, new CI or `tasks.md`.
+library, adapter, storage engine, migration, product/platform CI or `tasks.md`.
 No Provider implementation, external Integration, Runtime execution, clone/fetch,
 credential store, Windows implementation, Work Item, model selection, complete
 capability negotiation, orchestration, fork semantics or semantic Provider

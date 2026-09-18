@@ -85,6 +85,11 @@ no local record replacement.
 
 ### PR #29 verification — 2026-09-18
 
+The [POC verification workflow](../../../.github/workflows/poc-verification.yml)
+is limited to reproducible verification/acceptance Evidence for this POC. It is
+not a product capability, release pipeline or permanent architecture commitment.
+Passing jobs do not settle #19–#21, close #14 or replace human Acceptance.
+
 Base: `main` at `9544e38` after merged PR #28. The first verification commit is
 `9b70f04c625a5ef35b8f153ea000f55d304cf271`. The
 [GitHub Actions run](https://github.com/rgomids/axiom/actions/runs/35398139103)

@@ -170,9 +170,12 @@ Excluded: Go code, Cobra, a binary, Project database, runtime/provider adapters,
 real Jira/GitHub/Notion operations, MCP installation or configuration mutation,
 model discovery, Agent Planner, Agent spawning, multi-agent orchestration,
 Execution Graph engine, daemon, API, cloud/remote control plane, remote sync,
-new CI, Spec-Kit adapter, upstream-watch implementation, migrations, automatic
-Git clone/fetch, and automatic credential-store setup. No runtime-skill
-migration or external configuration mutation is included.
+product/platform CI, Spec-Kit adapter, upstream-watch implementation, migrations,
+automatic Git clone/fetch, and automatic credential-store setup. No runtime-skill
+migration or external configuration mutation is included. A repository workflow
+strictly limited to verification/acceptance Evidence for this POC may run its
+checks on Linux and macOS. It is not a product capability, release pipeline or
+permanent architectural commitment; a passing run does not grant human Acceptance.
 
 ## Minimum configuration contract
 

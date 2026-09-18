@@ -1,4 +1,5 @@
 name: POC verification
+# Bounded POC acceptance/verification Evidence; no product or release pipeline.
 
 on:
   pull_request:
