@@ -25,7 +25,8 @@ portátil e local JSON. Go 1.26 ou posterior é requisito para os checks Go; o c
 portátil depende de `go.yaml.in/yaml/v3@v3.0.5`.
 Consulte [preparação do cache e validação offline](../commands.md#t01t04-validation)
 e [Evidence T04](../specifications/002-lingo-project-initialization/evidence-t04.md).
-Ainda não existem CLI Lingo, persistência em filesystem ou instalação operacional.
+O POC Lingo oferece lifecycle portátil mínimo; consulte [comandos](../commands.md#lingo-poc-minimal-lifecycle).
+Instalação operacional/estado local, bindings, documentos opcionais e integrações ainda não existem.
 Consulte o [lifecycle atual](../specifications/README.md#002--lingo-project-initialization)
 para distinguir implementação mergeada, aceitação humana e autorização de novas Tasks.
 
@@ -53,7 +54,7 @@ Execute também os checks locais de segurança:
 3. Consulte somente o contexto e as políticas relevantes em `.agents/`.
 4. Execute mudanças através da menor skill aplicável em `.agents/skills/`.
 5. Preserve a separação entre discovery, hipótese, specification, decisão, implementação e evidência.
-6. Não invente comandos da futura CLI.
+6. Use somente os comandos POC documentados; não invente comandos futuros.
 
 ## Before a commit
 

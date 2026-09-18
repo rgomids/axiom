@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026-09-18]
+
+- feature: add the initial local Lingo POC lifecycle: `project init`, `validate`, `reopen`, and explicit name `update` for a minimal one-file portable Project. The adapter uses validated slugs, private staging for create, atomic manifest replacement for update, per-slug coordination and sanitized JSON outcomes. Optional documents, installation/local state, bindings, rename, runtime/provider integration, Git and network remain unsupported.
+
 ## [2026-09-17]
 
 - docs: adopt Apache-2.0 and establish contribution, conduct, and support policies with structured GitHub Issue and Pull Request templates. No implementation or new Task authorization.
