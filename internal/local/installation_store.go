@@ -12,7 +12,11 @@ import (
 	"github.com/rgomids/axiom/internal/projectapp"
 )
 
-type InstallationStore struct{ root string }
+type InstallationStore struct {
+	root              string
+	beforePublication func()
+	afterPublication  func()
+}
 type InstallationStatus string
 
 const (
@@ -100,17 +104,39 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		if err := ctx.Err(); err != nil {
 			return failedInstallation("cancelled")
 		}
+		attempt, err := markAttempt(target, ".lingo-attempt-install-")
+		if err != nil {
+			return failedInstallation("recovery_required")
+		}
+		if err := ctx.Err(); err != nil {
+			if clearAttempt(target, attempt) != nil {
+				return failedInstallation("recovery_required")
+			}
+			return failedInstallation("cancelled")
+		}
+		if s.beforePublication != nil {
+			s.beforePublication()
+		}
 		if err := renameNoReplace(target, temporary, "installation.json"); err != nil {
+			if clearAttempt(target, attempt) != nil {
+				return failedInstallation("recovery_required")
+			}
 			if os.IsExist(err) {
 				return InstallationResult{Status: InstallationConflict, Category: "explicit_replacement_required"}
 			}
 			return failedInstallation("storage_failure")
 		}
 		published = true
+		if s.afterPublication != nil {
+			s.afterPublication()
+		}
 		if err := syncRoot(target); err != nil {
 			return failedInstallation("recovery_required")
 		}
 		if err := syncRoot(projects); err != nil {
+			return failedInstallation("recovery_required")
+		}
+		if err := clearAttempt(target, attempt); err != nil {
 			return failedInstallation("recovery_required")
 		}
 		return InstallationResult{Status: InstallationApplied, Category: "installed"}
@@ -240,7 +266,7 @@ func installationDirectoryIssue(root *os.Root) string {
 		return "storage_failure"
 	}
 	for _, name := range names {
-		if strings.HasPrefix(name, ".lingo-install-") {
+		if strings.HasPrefix(name, ".lingo-install-") || strings.HasPrefix(name, ".lingo-attempt-install-") {
 			return "recovery_required"
 		}
 		if name != "installation.json" {

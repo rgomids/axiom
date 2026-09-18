@@ -23,7 +23,13 @@ var (
 
 // PortableStore supports one validated manifest per Project. Operations stay
 // anchored to private directory objects and coordinate across processes.
-type PortableStore struct{ root string }
+type PortableStore struct {
+	root                    string
+	beforeCreatePublication func()
+	afterCreatePublication  func()
+	beforeUpdatePublication func()
+	afterUpdatePublication  func()
+}
 
 func NewPortableStore(path string) (PortableStore, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) == string(filepath.Separator) {
@@ -90,20 +96,39 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if err := syncRoot(stage); err != nil {
 			return err
 		}
+		if s.beforeCreatePublication != nil {
+			s.beforeCreatePublication()
+		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		attempt, err := markAttempt(root, ".lingo-attempt-"+slug+"-")
+		if err != nil {
+			return err
+		}
+		if err := ctx.Err(); err != nil {
+			if cleanup := clearAttempt(root, attempt); cleanup != nil {
+				return cleanup
+			}
+			return err
+		}
 		if err := renameNoReplace(root, stageName, slug); err != nil {
+			if cleanup := clearAttempt(root, attempt); cleanup != nil {
+				return cleanup
+			}
 			if os.IsExist(err) {
 				return ErrConflict
 			}
 			return fmt.Errorf("publish project: %w", err)
 		}
 		published = true
+		if s.afterCreatePublication != nil {
+			s.afterCreatePublication()
+		}
 		if err := syncRoot(root); err != nil {
 			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
 		}
-		return nil
+		return clearAttempt(root, attempt)
 	})
 }
 
@@ -137,13 +162,32 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := projectRoot.Rename(temporary, manifestName); err != nil {
+		attempt, err := markAttempt(projectRoot, ".lingo-attempt-update-")
+		if err != nil {
 			return err
+		}
+		if err := ctx.Err(); err != nil {
+			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
+				return cleanup
+			}
+			return err
+		}
+		if s.beforeUpdatePublication != nil {
+			s.beforeUpdatePublication()
+		}
+		if err := projectRoot.Rename(temporary, manifestName); err != nil {
+			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
+				return cleanup
+			}
+			return err
+		}
+		if s.afterUpdatePublication != nil {
+			s.afterUpdatePublication()
 		}
 		if err := syncRoot(projectRoot); err != nil {
 			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
 		}
-		return nil
+		return clearAttempt(projectRoot, attempt)
 	})
 }
 
@@ -175,7 +219,7 @@ func (s PortableStore) withLock(slug string, create, exclusive bool, action func
 		return err
 	}
 	for _, name := range names {
-		if strings.HasPrefix(name, ".lingo-stage-"+slug+"-") {
+		if strings.HasPrefix(name, ".lingo-stage-"+slug+"-") || strings.HasPrefix(name, ".lingo-attempt-"+slug+"-") {
 			return ErrRecoveryRequired
 		}
 	}
@@ -199,7 +243,7 @@ func openManifestProject(root *os.Root, slug string) (*os.Root, error) {
 		return nil, err
 	}
 	for _, name := range entries {
-		if strings.HasPrefix(name, ".lingo-manifest-") {
+		if strings.HasPrefix(name, ".lingo-manifest-") || strings.HasPrefix(name, ".lingo-attempt-update-") {
 			projectRoot.Close()
 			return nil, ErrRecoveryRequired
 		}

@@ -234,6 +234,30 @@ func syncRoot(root *os.Root) error {
 	return file.Sync()
 }
 
+func markAttempt(root *os.Root, prefix string) (string, error) {
+	name, err := temporaryName(prefix)
+	if err != nil {
+		return "", err
+	}
+	if err := writePrivateFile(root, name, []byte("pending\n")); err != nil {
+		return "", err
+	}
+	if err := syncRoot(root); err != nil {
+		return name, ErrRecoveryRequired
+	}
+	return name, nil
+}
+
+func clearAttempt(root *os.Root, name string) error {
+	if err := root.Remove(name); err != nil {
+		return ErrRecoveryRequired
+	}
+	if err := syncRoot(root); err != nil {
+		return ErrRecoveryRequired
+	}
+	return nil
+}
+
 func lockDirectory(root *os.Root, exclusive bool) (*os.File, error) {
 	file, err := root.Open(".")
 	if err != nil {
