@@ -56,6 +56,19 @@ func TestRunDoesNotExposeRejectedInput(t *testing.T) {
 	assertEvent(t, output.String(), "init", Failed, "invalid_input")
 }
 
+func TestRunDoesNotExposeRejectedCommand(t *testing.T) {
+	const sentinel = "do-not-render-this-command"
+	var output bytes.Buffer
+	code := Run(context.Background(), []string{"project", sentinel}, &recordingService{}, &output)
+	if code != ExitFailure {
+		t.Fatalf("exit code = %d", code)
+	}
+	if strings.Contains(output.String(), sentinel) {
+		t.Fatalf("output exposed rejected command: %q", output.String())
+	}
+	assertEvent(t, output.String(), "unknown", Failed, "invalid_command")
+}
+
 func TestRunUsesCancelledExitCode(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

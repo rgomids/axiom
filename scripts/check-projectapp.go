@@ -18,9 +18,10 @@ import (
 // Restrict qualified standard-library symbols to the pure operations consumed.
 // Any expansion requires an explicit review of its I/O behavior.
 var allowed = map[string]string{
-	"context":         "Context Background WithCancel",
+	"context":         "Context Background WithCancel Canceled",
 	"crypto/sha256":   "Sum256",
 	"encoding/binary": "BigEndian",
+	"errors":          "Is New",
 	"sort":            "Slice",
 	"strings":         "ContainsAny HasPrefix Split Contains",
 	"sync":            "Mutex",
@@ -29,7 +30,7 @@ var allowed = map[string]string{
 	"reflect":         "DeepEqual",
 	"testing":         "T",
 	"unicode/utf8":    "ValidString",
-	"github.com/rgomids/axiom/internal/project": "Project State Issue New Configured BusinessContext Declaration Repository Provider Runtime Integration ModelProfile CredentialReference Intent Set",
+	"github.com/rgomids/axiom/internal/project": "Project State Issue New Configured BusinessContext Declaration Repository Provider Runtime Integration ModelProfile CredentialReference Intent Set ValidSlug Absent",
 }
 
 func main() {

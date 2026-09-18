@@ -86,7 +86,7 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	}
 	operation := action(args[1])
 	if !known(operation) {
-		return operation, requestInput{}, category("invalid_command")
+		return "unknown", requestInput{}, category("invalid_command")
 	}
 	values, ok := flags(operation, args[2:])
 	if !ok {
