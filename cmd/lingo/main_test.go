@@ -156,6 +156,66 @@ func TestInstallRejectsSymlinkRecordWithoutWritingOutside(t *testing.T) {
 	}
 }
 
+func TestInstallRejectsHardLinkedRecordWithoutWritingOutside(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+	runCLI(t, service, []string{"project", "init", "--slug", "sample", "--name", "Sample"}, cli.ExitSuccess, "applied")
+	source := filepath.Join(root, "sample")
+	runCLI(t, service, []string{"project", "install", "--source", source}, cli.ExitSuccess, "installed")
+	records, err := filepath.Glob(filepath.Join(state, "projects", "*", "installation.json"))
+	if err != nil || len(records) != 1 {
+		t.Fatalf("records: %v, %v", records, err)
+	}
+	outside := filepath.Join(t.TempDir(), "outside")
+	if err := os.WriteFile(outside, []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(records[0]); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Link(outside, records[0]); err != nil {
+		t.Fatal(err)
+	}
+	runCLI(t, service, []string{"project", "install", "--source", source}, cli.ExitFailure, "invalid_existing_local_state")
+	if data, err := os.ReadFile(outside); err != nil || string(data) != "keep" {
+		t.Fatalf("outside changed: %q, %v", data, err)
+	}
+}
+
+func TestInstallPreservesUnknownLocalArtifact(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+	runCLI(t, service, []string{"project", "init", "--slug", "sample", "--name", "Sample"}, cli.ExitSuccess, "applied")
+	source := filepath.Join(root, "sample")
+	runCLI(t, service, []string{"project", "install", "--source", source}, cli.ExitSuccess, "installed")
+	records, err := filepath.Glob(filepath.Join(state, "projects", "*", "installation.json"))
+	if err != nil || len(records) != 1 {
+		t.Fatalf("records: %v, %v", records, err)
+	}
+	before, err := os.ReadFile(records[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	unknown := filepath.Join(filepath.Dir(records[0]), "unknown")
+	if err := os.WriteFile(unknown, []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runCLI(t, service, []string{"project", "install", "--source", source}, cli.ExitFailure, "invalid_existing_local_state")
+	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitFailure, "invalid_existing_local_state")
+	if after, err := os.ReadFile(records[0]); err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("record changed: %v", err)
+	}
+	if data, err := os.ReadFile(unknown); err != nil || string(data) != "keep" {
+		t.Fatalf("unknown artifact changed: %q, %v", data, err)
+	}
+}
+
 func TestValidateDoesNotCreateRootsOrLockFiles(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "projects")
 	state := filepath.Join(t.TempDir(), "state")
