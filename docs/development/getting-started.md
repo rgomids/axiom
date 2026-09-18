@@ -31,8 +31,9 @@ persiste `installation.json` em `<state-root>/projects/<project-id>/installation
 `reopen` reconhece o estado local quando disponível, separado da configuração
 portátil. Bindings, resolução de credenciais, Runtime observations, reconciliação
 avançada e recuperação automatizada continuam indisponíveis. A proteção básica
-de filesystem foi ampliada, mas Linux, ACLs e a matriz completa de falhas/races
-seguem sem Evidence; #19–#21 permanecem abertos. Consulte
+de filesystem foi ampliada e executada em Linux/macOS, inclusive com testes de
+ACL. A matriz completa de falhas/races ainda não tem Evidence; #19–#21
+permanecem abertos. Consulte
 [comandos](../commands.md#lingo-poc-minimal-lifecycle).
 Consulte o [lifecycle atual](../specifications/README.md#002--lingo-project-initialization)
 para distinguir implementação mergeada, aceitação humana e autorização de novas Tasks.

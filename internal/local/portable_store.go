@@ -29,6 +29,8 @@ type PortableStore struct {
 	afterCreatePublication  func()
 	beforeUpdatePublication func()
 	afterUpdatePublication  func()
+	syncDirectory           func(*os.Root) error
+	writeFile               func(*os.Root, string, []byte) error
 }
 
 func NewPortableStore(path string) (PortableStore, error) {
@@ -90,14 +92,20 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 				_ = root.Remove(stageName)
 			}
 		}()
-		if err := writePrivateFile(stage, manifestName, manifest); err != nil {
+		if err := s.write(stage, manifestName, manifest); err != nil {
 			return err
 		}
-		if err := syncRoot(stage); err != nil {
+		if err := s.sync(stage); err != nil {
 			return err
 		}
 		if s.beforeCreatePublication != nil {
 			s.beforeCreatePublication()
+		}
+		if err := verifyPreparedFile(stage, manifestName, manifest); err != nil {
+			return err
+		}
+		if err := stillAtPath(root, s.root); err != nil {
+			return err
 		}
 		if err := ctx.Err(); err != nil {
 			return err
@@ -125,7 +133,7 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if s.afterCreatePublication != nil {
 			s.afterCreatePublication()
 		}
-		if err := syncRoot(root); err != nil {
+		if err := s.sync(root); err != nil {
 			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
 		}
 		return clearAttempt(root, attempt)
@@ -156,7 +164,7 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 			return err
 		}
 		defer projectRoot.Remove(temporary)
-		if err := writePrivateFile(projectRoot, temporary, manifest); err != nil {
+		if err := s.write(projectRoot, temporary, manifest); err != nil {
 			return err
 		}
 		if err := ctx.Err(); err != nil {
@@ -175,6 +183,24 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 		if s.beforeUpdatePublication != nil {
 			s.beforeUpdatePublication()
 		}
+		if err := verifyPreparedFile(projectRoot, temporary, manifest); err != nil {
+			if clearAttempt(projectRoot, attempt) != nil {
+				return ErrRecoveryRequired
+			}
+			return err
+		}
+		if err := stillAtPath(root, s.root); err != nil {
+			if clearAttempt(projectRoot, attempt) != nil {
+				return ErrRecoveryRequired
+			}
+			return err
+		}
+		if err := stillAtPath(projectRoot, filepath.Join(s.root, slug)); err != nil {
+			if clearAttempt(projectRoot, attempt) != nil {
+				return ErrRecoveryRequired
+			}
+			return err
+		}
 		if err := ctx.Err(); err != nil {
 			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
 				return cleanup
@@ -190,11 +216,25 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 		if s.afterUpdatePublication != nil {
 			s.afterUpdatePublication()
 		}
-		if err := syncRoot(projectRoot); err != nil {
+		if err := s.sync(projectRoot); err != nil {
 			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
 		}
 		return clearAttempt(projectRoot, attempt)
 	})
+}
+
+func (s PortableStore) sync(root *os.Root) error {
+	if s.syncDirectory != nil {
+		return s.syncDirectory(root)
+	}
+	return syncRoot(root)
+}
+
+func (s PortableStore) write(root *os.Root, name string, content []byte) error {
+	if s.writeFile != nil {
+		return s.writeFile(root, name, content)
+	}
+	return writePrivateFile(root, name, content)
 }
 
 func (s PortableStore) withLock(slug string, create, exclusive bool, action func(*os.Root) error) error {
@@ -210,6 +250,9 @@ func (s PortableStore) withLock(slug string, create, exclusive bool, action func
 		return err
 	}
 	defer root.Close()
+	if err := stillAtPath(root, s.root); err != nil {
+		return err
+	}
 	lock, err := lockDirectory(root, exclusive)
 	if err != nil {
 		return err

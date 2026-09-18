@@ -8,14 +8,15 @@ acceptance. POC issues [#16](https://github.com/rgomids/axiom/issues/16)–
 Lingo CLI for minimal Project `init`, read-only `validate`, `reopen`, explicit
 name `update`, limited filesystem persistence, and separate local `install` state.
 These changes merged in [PR #27](https://github.com/rgomids/axiom/pull/27).
-[POC Evidence](evidence-poc.md) records current behavior, hardening work and limits.
+[POC Evidence](evidence-poc.md) records current behavior, macOS/Linux checks,
+hardening work and limits from merged PR #28 and draft PR #29.
 
 [#19](https://github.com/rgomids/axiom/issues/19) still owns filesystem
 hardening, atomicity/recovery and security proof;
 [#20](https://github.com/rgomids/axiom/issues/20) owns complete acceptance and
 failure-path Evidence; [#21](https://github.com/rgomids/axiom/issues/21) owns
 dogfooding and human acceptance. A bounded dogfooding execution is recorded,
-while Linux/fault proof and explicit human acceptance remain open. The POC and parent
+while full fault/race proof and explicit human acceptance remain open. The POC and parent
 [#14](https://github.com/rgomids/axiom/issues/14) remain open. Dated T04 gates
 below record historical state and do not describe current POC delivery.
 
@@ -169,9 +170,12 @@ Excluded: Go code, Cobra, a binary, Project database, runtime/provider adapters,
 real Jira/GitHub/Notion operations, MCP installation or configuration mutation,
 model discovery, Agent Planner, Agent spawning, multi-agent orchestration,
 Execution Graph engine, daemon, API, cloud/remote control plane, remote sync,
-new CI, Spec-Kit adapter, upstream-watch implementation, migrations, automatic
-Git clone/fetch, and automatic credential-store setup. No runtime-skill
-migration or external configuration mutation is included.
+product/platform CI, Spec-Kit adapter, upstream-watch implementation, migrations,
+automatic Git clone/fetch, and automatic credential-store setup. No runtime-skill
+migration or external configuration mutation is included. A repository workflow
+strictly limited to verification/acceptance Evidence for this POC may run its
+checks on Linux and macOS. It is not a product capability, release pipeline or
+permanent architectural commitment; a passing run does not grant human Acceptance.
 
 ## Minimum configuration contract
 

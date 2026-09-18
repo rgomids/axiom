@@ -419,7 +419,9 @@ is wired, following Plan §10; T06 proves complete artifact mutation before upda
 - **Expected paths:** internal/local/ and internal/projectapp/ integration tests; sanitized Evidence
 - **Completion criterion:** Conflicting writers cannot both succeed; readers never accept mixed state; pre-commit hashes survive, successful commit remains authoritative, uncertain outcome reports recovery-required. Retry no-op allocates/writes nothing; rename preserves UUID/bindings.
 - **Required Evidence:** Separate Linux and macOS results with OS/filesystem/privilege assumptions, fault stage/commit status/outcome table, portable/local digests and process exit status. Permission cases use controlled unprivileged accounts; unavailable platform or bypassed case stays unverified and blocks completion.
-- **Explicit exclusions:** Mocked-only filesystem proof, weakening tests for elevated privileges, auto-deleting unknown leftovers, false rollback, new CI or required transaction technique.
+- **Explicit exclusions:** Mocked-only filesystem proof, weakening tests for elevated privileges, auto-deleting unknown leftovers, false rollback, product/platform CI or required transaction technique.
+  The POC-only verification workflow permitted by the Specification supplies
+  Evidence, not a T19 product deliverable.
 
 ### T20 — Black-box acceptance and traceability audit
 

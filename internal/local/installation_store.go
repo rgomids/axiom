@@ -16,6 +16,8 @@ type InstallationStore struct {
 	root              string
 	beforePublication func()
 	afterPublication  func()
+	syncDirectory     func(*os.Root) error
+	writeFile         func(*os.Root, string, []byte) error
 }
 type InstallationStatus string
 
@@ -98,7 +100,7 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 				_ = target.Remove(temporary)
 			}
 		}()
-		if err := writePrivateFile(target, temporary, wire); err != nil {
+		if err := s.write(target, temporary, wire); err != nil {
 			return failedInstallation("storage_failure")
 		}
 		if err := ctx.Err(); err != nil {
@@ -116,6 +118,26 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		}
 		if s.beforePublication != nil {
 			s.beforePublication()
+		}
+		if err := verifyPreparedFile(target, temporary, wire); err != nil {
+			if clearAttempt(target, attempt) != nil {
+				return failedInstallation("recovery_required")
+			}
+			return failedInstallation("storage_failure")
+		}
+		for _, check := range []struct {
+			root *os.Root
+			path string
+		}{
+			{projects, filepath.Join(s.root, "projects")},
+			{target, filepath.Join(s.root, "projects", snapshot.Project().State().ID)},
+		} {
+			if err := stillAtPath(check.root, check.path); err != nil {
+				if clearAttempt(target, attempt) != nil {
+					return failedInstallation("recovery_required")
+				}
+				return failedInstallation("storage_failure")
+			}
 		}
 		if err := ctx.Err(); err != nil {
 			if clearAttempt(target, attempt) != nil {
@@ -136,10 +158,10 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		if s.afterPublication != nil {
 			s.afterPublication()
 		}
-		if err := syncRoot(target); err != nil {
+		if err := s.sync(target); err != nil {
 			return failedInstallation("recovery_required")
 		}
-		if err := syncRoot(projects); err != nil {
+		if err := s.sync(projects); err != nil {
 			return failedInstallation("recovery_required")
 		}
 		if err := clearAttempt(target, attempt); err != nil {
@@ -147,6 +169,20 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		}
 		return InstallationResult{Status: InstallationApplied, Category: "installed"}
 	})
+}
+
+func (s InstallationStore) sync(root *os.Root) error {
+	if s.syncDirectory != nil {
+		return s.syncDirectory(root)
+	}
+	return syncRoot(root)
+}
+
+func (s InstallationStore) write(root *os.Root, name string, content []byte) error {
+	if s.writeFile != nil {
+		return s.writeFile(root, name, content)
+	}
+	return writePrivateFile(root, name, content)
 }
 
 func (s InstallationStore) Reopen(ctx context.Context, source string) InstallationResult {
@@ -199,6 +235,9 @@ func (s InstallationStore) withIDLock(create bool, action func(*os.Root) Install
 		return failedInstallation("storage_failure")
 	}
 	defer root.Close()
+	if err := stillAtPath(root, s.root); err != nil {
+		return failedInstallation("storage_failure")
+	}
 	lock, err := lockDirectory(root, create)
 	if err != nil {
 		return failedInstallation("storage_failure")

@@ -1,6 +1,7 @@
 package local
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -46,6 +47,11 @@ func privateRoot(path string) (*os.Root, error) {
 		if err != nil {
 			return nil, ErrUnsafe
 		}
+		actual, err := next.Stat(".")
+		if err != nil || !os.SameFile(info, actual) {
+			next.Close()
+			return nil, ErrUnsafe
+		}
 		root = next
 	}
 	info, err := root.Stat(".")
@@ -65,6 +71,17 @@ func privateRoot(path string) (*os.Root, error) {
 			root.Close()
 			return nil, ErrUnsafe
 		}
+	}
+	directory, err := root.Open(".")
+	if err != nil {
+		root.Close()
+		return nil, ErrUnsafe
+	}
+	err = checkPrivateACL(directory)
+	directory.Close()
+	if err != nil {
+		root.Close()
+		return nil, err
 	}
 	return root, nil
 }
@@ -143,6 +160,18 @@ func ownedByUser(info os.FileInfo) bool {
 	return ok && int(stat.Uid) == os.Geteuid()
 }
 
+func stillAtPath(root *os.Root, path string) error {
+	visible, err := os.Lstat(path)
+	if err != nil || visible.Mode()&os.ModeSymlink != 0 {
+		return ErrUnsafe
+	}
+	opened, err := root.Stat(".")
+	if err != nil || !os.SameFile(visible, opened) {
+		return ErrUnsafe
+	}
+	return nil
+}
+
 func privateChild(parent *os.Root, name string) (*os.Root, error) {
 	if err := parent.Mkdir(name, 0o700); err != nil && !os.IsExist(err) {
 		return nil, err
@@ -170,6 +199,17 @@ func existingPrivateChild(parent *os.Root, name string) (*os.Root, error) {
 	if err != nil || !os.SameFile(info, actual) {
 		child.Close()
 		return nil, ErrUnsafe
+	}
+	directory, err := child.Open(".")
+	if err != nil {
+		child.Close()
+		return nil, ErrUnsafe
+	}
+	err = checkPrivateACL(directory)
+	directory.Close()
+	if err != nil {
+		child.Close()
+		return nil, err
 	}
 	return child, nil
 }
@@ -202,6 +242,9 @@ func readPrivateFile(root *os.Root, name string) ([]byte, error) {
 	if !ok || stat.Nlink != 1 {
 		return nil, ErrUnsafe
 	}
+	if err := checkPrivateACL(file); err != nil {
+		return nil, err
+	}
 	data, err := io.ReadAll(io.LimitReader(file, MaxRecordBytes+1))
 	if err != nil || len(data) > MaxRecordBytes {
 		return nil, ErrUnsafe
@@ -209,12 +252,27 @@ func readPrivateFile(root *os.Root, name string) ([]byte, error) {
 	return data, nil
 }
 
+func verifyPreparedFile(root *os.Root, name string, expected []byte) error {
+	actual, err := readPrivateFile(root, name)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(actual, expected) {
+		return ErrUnsafe
+	}
+	return nil
+}
+
 func writePrivateFile(root *os.Root, name string, content []byte) error {
 	file, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0o600)
 	if err != nil {
 		return err
 	}
-	if _, err := file.Write(content); err != nil {
+	if err := checkPrivateACL(file); err != nil {
+		file.Close()
+		return err
+	}
+	if err := writeComplete(file, content); err != nil {
 		file.Close()
 		return err
 	}
@@ -223,6 +281,20 @@ func writePrivateFile(root *os.Root, name string, content []byte) error {
 		return err
 	}
 	return file.Close()
+}
+
+func writeComplete(writer io.Writer, content []byte) error {
+	for len(content) != 0 {
+		written, err := writer.Write(content)
+		if err != nil {
+			return err
+		}
+		if written <= 0 || written > len(content) {
+			return io.ErrShortWrite
+		}
+		content = content[written:]
+	}
+	return nil
 }
 
 func syncRoot(root *os.Root) error {

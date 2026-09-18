@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPortableLockSerializesProcessesAndSurvivesCrash(t *testing.T) {
@@ -47,6 +48,47 @@ func TestPortableLockSerializesProcessesAndSurvivesCrash(t *testing.T) {
 	}
 	if body, err := store.Read(context.Background(), "sample"); err != nil || string(body) != "first" {
 		t.Fatalf("published bytes = %q, %v", body, err)
+	}
+}
+
+func TestPortableReadersAndWritersConflictWithOtherProcess(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(os.Args[0], "-test.run=^TestPortableProcessHelper$")
+	command.Env = append(os.Environ(), "AXIOM_POC_HELPER=hold", "AXIOM_POC_ROOT="+root)
+	output, err := command.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = command.Process.Kill()
+		_ = command.Wait()
+	}()
+	line, err := bufio.NewReader(output).ReadString('\n')
+	if err != nil || strings.TrimSpace(line) != "locked" {
+		t.Fatalf("helper did not acquire lock: %q, %v", line, err)
+	}
+	if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("concurrent reader = %v", err)
+	}
+	if err := store.Update(context.Background(), "sample", []byte("old"), []byte("new")); !errors.Is(err, ErrConflict) {
+		t.Fatalf("concurrent writer = %v", err)
+	}
+	if err := command.Process.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	_ = command.Wait()
+	if body, err := store.Read(context.Background(), "sample"); err != nil || string(body) != "old" {
+		t.Fatalf("bytes after conflict = %q, %v", body, err)
 	}
 }
 
@@ -152,7 +194,8 @@ func TestPortableProcessHelper(t *testing.T) {
 	if point == "hold" {
 		if err := store.withLock("sample", false, true, func(*os.Root) error {
 			fmt.Fprintln(os.Stdout, "locked")
-			select {}
+			time.Sleep(time.Hour)
+			return nil
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -162,13 +205,13 @@ func TestPortableProcessHelper(t *testing.T) {
 		store.beforeUpdatePublication = func() {
 			if point == "update-stage" {
 				fmt.Fprintln(os.Stdout, point)
-				select {}
+				time.Sleep(time.Hour)
 			}
 		}
 		store.afterUpdatePublication = func() {
 			if point == "update-published" {
 				fmt.Fprintln(os.Stdout, point)
-				select {}
+				time.Sleep(time.Hour)
 			}
 		}
 		if err := store.Update(context.Background(), "sample", []byte("old"), []byte("new")); err != nil {
@@ -179,13 +222,13 @@ func TestPortableProcessHelper(t *testing.T) {
 	store.beforeCreatePublication = func() {
 		if point == "stage" {
 			fmt.Fprintln(os.Stdout, point)
-			select {}
+			time.Sleep(time.Hour)
 		}
 	}
 	store.afterCreatePublication = func() {
 		if point == "published" {
 			fmt.Fprintln(os.Stdout, point)
-			select {}
+			time.Sleep(time.Hour)
 		}
 	}
 	if err := store.Create(context.Background(), "sample", []byte("complete")); err != nil {

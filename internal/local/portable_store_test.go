@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
+	"syscall"
 	"testing"
 )
 
@@ -171,5 +173,274 @@ func TestPortableUpdateCancellationBeforePublicationPreservesOldBytes(t *testing
 	data, err := store.Read(context.Background(), "sample")
 	if err != nil || string(data) != "old" {
 		t.Fatalf("authoritative manifest after cancellation = %q, %v", data, err)
+	}
+}
+
+func TestPortableConflictingWritersHaveOneWinner(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var workers sync.WaitGroup
+	for _, next := range []string{"first", "second"} {
+		workers.Add(1)
+		go func(next string) {
+			defer workers.Done()
+			<-start
+			results <- store.Update(context.Background(), "sample", []byte("old"), []byte(next))
+		}(next)
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+	success, conflict := 0, 0
+	for result := range results {
+		switch {
+		case result == nil:
+			success++
+		case errors.Is(result, ErrConflict):
+			conflict++
+		default:
+			t.Fatalf("unexpected writer result: %v", result)
+		}
+	}
+	if success != 1 || conflict != 1 {
+		t.Fatalf("writer results: success=%d conflict=%d", success, conflict)
+	}
+	actual, err := store.Read(context.Background(), "sample")
+	if err != nil || string(actual) != "first" && string(actual) != "second" {
+		t.Fatalf("winner bytes = %q, %v", actual, err)
+	}
+}
+
+func TestPortableCreateRejectsAncestorReplacementBeforePublication(t *testing.T) {
+	parent := privateTestRoot(t)
+	root := filepath.Join(parent, "projects")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	outside := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.beforeCreatePublication = func() {
+		if err := os.Rename(root, filepath.Join(parent, "moved")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(outside, root); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.Create(context.Background(), "sample", []byte("manifest")); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("ancestor replacement = %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(outside, "sample")); !os.IsNotExist(err) {
+		t.Fatalf("outside target changed: %v", err)
+	}
+}
+
+func TestPortableUpdateRejectsProjectRenameBeforePublication(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	outside := privateTestRoot(t)
+	store.beforeUpdatePublication = func() {
+		if err := os.Rename(filepath.Join(root, "sample"), filepath.Join(root, "moved")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(outside, filepath.Join(root, "sample")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.Update(context.Background(), "sample", []byte("old"), []byte("new")); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("project replacement = %v", err)
+	}
+	if body, err := os.ReadFile(filepath.Join(root, "moved", manifestName)); err != nil || string(body) != "old" {
+		t.Fatalf("prior bytes = %q, %v", body, err)
+	}
+	if _, err := os.Lstat(filepath.Join(outside, manifestName)); !os.IsNotExist(err) {
+		t.Fatalf("outside target changed: %v", err)
+	}
+}
+
+func TestPortablePostPublicationSyncFailureRequiresRecovery(t *testing.T) {
+	for _, operation := range []string{"create", "update"} {
+		t.Run(operation, func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if operation == "update" {
+				if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			calls := 0
+			store.syncDirectory = func(directory *os.Root) error {
+				calls++
+				if operation == "update" || calls == 2 {
+					return syscall.EIO
+				}
+				return syncRoot(directory)
+			}
+			if operation == "create" {
+				err = store.Create(context.Background(), "sample", []byte("new"))
+			} else {
+				err = store.Update(context.Background(), "sample", []byte("old"), []byte("new"))
+			}
+			if !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatalf("sync failure = %v", err)
+			}
+			if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatalf("read after uncertain durability = %v", err)
+			}
+			actual, err := os.ReadFile(filepath.Join(root, "sample", manifestName))
+			if err != nil || string(actual) != "new" {
+				t.Fatalf("published bytes = %q, %v", actual, err)
+			}
+		})
+	}
+}
+
+func TestPortableManualRecoveryPreservesEvidenceAndReopens(t *testing.T) {
+	for _, published := range []bool{false, true} {
+		t.Run(map[bool]string{false: "before publication", true: "after publication"}[published], func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+				t.Fatal(err)
+			}
+			projectPath := filepath.Join(root, "sample")
+			marker := filepath.Join(projectPath, ".lingo-attempt-update-synthetic")
+			if err := os.WriteFile(marker, []byte("pending\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			want := "old"
+			if published {
+				if err := os.WriteFile(filepath.Join(projectPath, manifestName), []byte("new"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				want = "new"
+			} else {
+				if err := os.WriteFile(filepath.Join(projectPath, ".lingo-manifest-synthetic"), []byte("new"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatalf("interrupted read = %v", err)
+			}
+			quarantine := privateTestRoot(t)
+			for _, name := range []string{".lingo-attempt-update-synthetic", ".lingo-manifest-synthetic"} {
+				source := filepath.Join(projectPath, name)
+				if _, err := os.Lstat(source); os.IsNotExist(err) {
+					continue
+				} else if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Rename(source, filepath.Join(quarantine, name)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if data, err := os.ReadFile(filepath.Join(quarantine, ".lingo-attempt-update-synthetic")); err != nil || string(data) != "pending\n" {
+				t.Fatalf("quarantined Evidence = %q, %v", data, err)
+			}
+			actual, err := store.Read(context.Background(), "sample")
+			if err != nil || string(actual) != want {
+				t.Fatalf("reopened after operator quarantine = %q, %v", actual, err)
+			}
+		})
+	}
+}
+
+func TestPortableDiskFullBeforePublicationPreservesPriorState(t *testing.T) {
+	for _, operation := range []string{"create", "update"} {
+		t.Run(operation, func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if operation == "update" {
+				if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			store.writeFile = simulateDiskFull
+			if operation == "create" {
+				err = store.Create(context.Background(), "sample", []byte("new"))
+			} else {
+				err = store.Update(context.Background(), "sample", []byte("old"), []byte("new"))
+			}
+			if !errors.Is(err, syscall.ENOSPC) {
+				t.Fatalf("disk-full failure = %v", err)
+			}
+			actual, err := store.Read(context.Background(), "sample")
+			if operation == "create" && !errors.Is(err, ErrNotFound) {
+				t.Fatalf("unpublished create read = %q, %v", actual, err)
+			}
+			if operation == "update" && (err != nil || string(actual) != "old") {
+				t.Fatalf("prior manifest = %q, %v", actual, err)
+			}
+		})
+	}
+}
+
+func TestPortableRejectsStagedHardLinkBeforePublication(t *testing.T) {
+	for _, operation := range []string{"create", "update"} {
+		t.Run(operation, func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if operation == "update" {
+				if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			outside := filepath.Join(privateTestRoot(t), "linked")
+			linkStage := func(pattern string) {
+				matches, err := filepath.Glob(pattern)
+				if err != nil || len(matches) != 1 {
+					t.Fatalf("stage paths = %v, %v", matches, err)
+				}
+				if err := os.Link(matches[0], outside); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if operation == "create" {
+				store.beforeCreatePublication = func() { linkStage(filepath.Join(root, ".lingo-stage-sample-*", manifestName)) }
+				err = store.Create(context.Background(), "sample", []byte("new"))
+			} else {
+				store.beforeUpdatePublication = func() { linkStage(filepath.Join(root, "sample", ".lingo-manifest-*")) }
+				err = store.Update(context.Background(), "sample", []byte("old"), []byte("new"))
+			}
+			if !errors.Is(err, ErrUnsafe) {
+				t.Fatalf("hard-linked stage accepted: %v", err)
+			}
+			if operation == "create" {
+				if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrNotFound) {
+					t.Fatalf("unpublished create read = %v", err)
+				}
+			} else if actual, err := store.Read(context.Background(), "sample"); err != nil || string(actual) != "old" {
+				t.Fatalf("prior manifest = %q, %v", actual, err)
+			}
+		})
 	}
 }
