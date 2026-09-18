@@ -6,6 +6,8 @@
 
 - feature: add explicit local installation for the minimal Lingo POC. `project install` reads a strict portable manifest and writes an ID-addressed `installation.json` outside the portable root without rewriting portable bytes. Credential resolution, bindings and automatic local-state reconciliation remain unavailable.
 
+- docs: record consolidated POC lifecycle Evidence, reproducible checks and explicit filesystem/security limitations for final human review.
+
 ## [2026-09-17]
 
 - docs: adopt Apache-2.0 and establish contribution, conduct, and support policies with structured GitHub Issue and Pull Request templates. No implementation or new Task authorization.
