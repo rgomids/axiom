@@ -1,0 +1,58 @@
+name: Feature request
+description: Discuss a problem or opportunity before implementation.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An Issue does not represent approval, change the roadmap, or authorize implementation.
+        Do not include secrets or private data. Use [SECURITY.md](https://github.com/rgomids/axiom/blob/main/SECURITY.md) for vulnerabilities.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+    validations:
+      required: true
+  - type: textarea
+    id: user
+    attributes:
+      label: Affected user
+      description: Describe the user role or use case without identifying private individuals.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: What should remain outside this proposal?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or context
+      description: Provide public or sanitized context and related Specifications, ADRs, or contracts when applicable.
+    validations:
+      required: true
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Willingness to contribute
+      description: This answer does not grant implementation authority.
+      options:
+        - I can help discuss or validate the proposal.
+        - I can contribute implementation after explicit authorization.
+        - I am sharing the proposal only.
+    validations:
+      required: true
