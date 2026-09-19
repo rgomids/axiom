@@ -8,6 +8,8 @@
 
 - feature: add the Codex Runtime bootstrap with five validated user-global `$axiom-*` skills, exact status inspection, idempotent install, conflict/symlink protection and attempt-local rollback. Skills remain thin Lingo entrypoints; no Project or workflow rules are duplicated.
 
+- feature: resolve installed Projects by UUID or slug from protected local state independently of caller CWD; preserve multiple repository bindings and fail explicitly for ambiguous selectors, missing sources, moved repositories and invalid local records.
+
 ## [2026-09-18]
 
 - docs: reconcile Specification 002 and Plan scope for the POC-only Linux/macOS verification workflow; classify its runs as acceptance Evidence, not product CI or release automation. Preserve #19–#21, #14 and SEC-003 human gates.

@@ -229,3 +229,15 @@ The default user-global root is `$HOME/.agents/skills`. For isolated validation:
 AXIOM_CODEX_SKILLS_ROOT=/absolute/test/root lingo runtime codex install
 ./scripts/test-codex-skills.sh
 ```
+
+## Resolve a configured Project globally
+
+Use a canonical Project UUID or installation-unique slug from any directory:
+
+```bash
+lingo project resolve --selector my-project
+```
+
+Resolution reads protected machine-local state. It never searches the caller's
+current directory and fails explicitly for ambiguous Projects or unavailable
+portable/repository locations.

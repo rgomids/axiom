@@ -21,6 +21,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"update", []string{"project", "update", "--slug", "alpha", "--name", "Renamed"}, "update:alpha:Renamed"},
 		{"runtime install", []string{"runtime", "codex", "install"}, "runtime-install"},
 		{"runtime status", []string{"runtime", "codex", "status"}, "runtime-status"},
+		{"resolve", []string{"project", "resolve", "--selector", "alpha"}, "resolve:alpha"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -124,5 +125,9 @@ func (s *recordingService) RuntimeCodexInstall(context.Context) Result {
 }
 func (s *recordingService) RuntimeCodexStatus(context.Context) Result {
 	s.call = "runtime-status"
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) Resolve(_ context.Context, input ResolveInput) Result {
+	s.call = "resolve:" + input.Selector
 	return Result{Status: Succeeded, Category: "applied"}
 }

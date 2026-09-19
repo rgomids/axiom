@@ -24,6 +24,7 @@ type Service interface {
 	Install(context.Context, InstallInput) Result
 	RuntimeCodexInstall(context.Context) Result
 	RuntimeCodexStatus(context.Context) Result
+	Resolve(context.Context, ResolveInput) Result
 }
 
 type InitInput struct {
@@ -38,6 +39,7 @@ type UpdateInput struct {
 	Name string
 }
 type InstallInput struct{ Source string }
+type ResolveInput struct{ Selector string }
 
 type Status string
 
@@ -75,14 +77,16 @@ const (
 	reopenAction       action = "reopen"
 	updateAction       action = "update"
 	installAction      action = "install"
+	resolveAction      action = "resolve"
 	codexInstallAction action = "runtime_codex_install"
 	codexStatusAction  action = "runtime_codex_status"
 )
 
 type requestInput struct {
-	slug   string
-	name   string
-	source string
+	slug     string
+	name     string
+	source   string
+	selector string
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
@@ -113,7 +117,10 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if operation == installAction && values.source == "" {
 		return operation, values, category("missing_required_input")
 	}
-	if operation != initAction && operation != installAction && values.slug == "" {
+	if operation == resolveAction && values.selector == "" {
+		return operation, values, category("missing_required_input")
+	}
+	if operation != initAction && operation != installAction && operation != resolveAction && values.slug == "" {
 		return operation, values, category("missing_required_input")
 	}
 	if operation == updateAction && values.name == "" {
@@ -133,6 +140,9 @@ func flags(operation action, args []string) (requestInput, bool) {
 	if operation == installAction {
 		set.StringVar(&values.source, "source", "", "")
 	}
+	if operation == resolveAction {
+		set.StringVar(&values.selector, "selector", "", "")
+	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return requestInput{}, false
 	}
@@ -140,7 +150,7 @@ func flags(operation action, args []string) (requestInput, bool) {
 }
 
 func known(operation action) bool {
-	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction
+	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction
 }
 
 func dispatch(ctx context.Context, operation action, input requestInput, service Service) Result {
@@ -158,6 +168,8 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.Update(ctx, UpdateInput{Slug: input.slug, Name: input.name})
 	case installAction:
 		return service.Install(ctx, InstallInput{Source: input.source})
+	case resolveAction:
+		return service.Resolve(ctx, ResolveInput{Selector: input.selector})
 	case codexInstallAction:
 		return service.RuntimeCodexInstall(ctx)
 	case codexStatusAction:
@@ -207,4 +219,5 @@ func (UnavailableService) Update(context.Context, UpdateInput) Result {
 func (UnavailableService) Install(context.Context, InstallInput) Result { return unavailable() }
 func (UnavailableService) RuntimeCodexInstall(context.Context) Result   { return unavailable() }
 func (UnavailableService) RuntimeCodexStatus(context.Context) Result    { return unavailable() }
+func (UnavailableService) Resolve(context.Context, ResolveInput) Result { return unavailable() }
 func unavailable() Result                                               { return Result{Status: Failed, Category: "application_unavailable"} }

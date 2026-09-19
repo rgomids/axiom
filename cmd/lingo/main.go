@@ -158,6 +158,14 @@ func (s lifecycleService) Install(ctx context.Context, input cli.InstallInput) c
 	}
 	return cli.Result{Status: status, Category: result.Category}
 }
+func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) cli.Result {
+	result := s.installation.Resolve(ctx, input.Selector)
+	status := cli.Failed
+	if result.Status == local.ResolutionFound {
+		status = cli.Succeeded
+	}
+	return cli.Result{Status: status, Category: result.Category}
+}
 
 func cliResult(result projectapp.LifecycleResult) cli.Result {
 	status := cli.Failed
