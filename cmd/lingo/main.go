@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/codexruntime"
@@ -24,7 +25,7 @@ func main() {
 	if len(os.Args) == 2 && os.Args[1] == "version" {
 		os.Exit(writeVersion(os.Stdout))
 	}
-	os.Exit(cli.Run(context.Background(), os.Args[1:], compose(), os.Stdout))
+	os.Exit(cli.RunInteractive(context.Background(), os.Args[1:], compose(), os.Stdin, os.Stdout, os.Stderr))
 }
 
 type versionInfo struct {
@@ -165,6 +166,39 @@ func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) c
 		status = cli.Succeeded
 	}
 	return cli.Result{Status: status, Category: result.Category}
+}
+func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInput) cli.Result {
+	keys := make([]string, 0, len(input.Repositories))
+	bindings := make([]projectapp.RepositoryBinding, 0, len(input.Repositories))
+	for _, repository := range input.Repositories {
+		info, err := os.Lstat(repository.Path)
+		if err != nil || !filepath.IsAbs(repository.Path) || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return cli.Result{Status: cli.Failed, Category: "repository_unavailable"}
+		}
+		keys = append(keys, repository.Key)
+		bindings = append(bindings, projectapp.RepositoryBinding{
+			RepositoryKey: repository.Key,
+			ExplicitPath:  filepath.Clean(repository.Path),
+			Observation:   projectapp.Observation{Availability: projectapp.Unverified, Basis: projectapp.NotChecked, ObservedAt: time.Time{}},
+		})
+	}
+	portable := s.lifecycle.Configure(ctx, projectapp.ConfigureRequest{Slug: input.Slug, Name: input.Name, RepositoryKeys: keys})
+	if portable.Status != projectapp.LifecycleApplied && portable.Status != projectapp.LifecycleUnchanged {
+		return cliResult(portable)
+	}
+	localResult := s.installation.InstallWithBindings(ctx, filepath.Join(s.projectsRoot, input.Slug), bindings)
+	if localResult.Status != local.InstallationApplied && localResult.Status != local.InstallationUnchanged {
+		category := "local_configuration_failed"
+		if portable.Status == projectapp.LifecycleApplied {
+			category = "portable_committed_local_failed"
+		}
+		return cli.Result{Status: cli.Failed, Category: category}
+	}
+	category := "project_configured"
+	if portable.Status == projectapp.LifecycleUnchanged && localResult.Status == local.InstallationUnchanged {
+		category = "project_already_configured"
+	}
+	return cli.Result{Status: cli.Succeeded, Category: category}
 }
 
 func cliResult(result projectapp.LifecycleResult) cli.Result {

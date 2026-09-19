@@ -6,8 +6,39 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestExecutableGuidedProjectConfiguration(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "lingo")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build executable: %v: %s", err, output)
+	}
+	portable := filepath.Join(t.TempDir(), "portable")
+	state := filepath.Join(t.TempDir(), "state")
+	repository := filepath.Join(t.TempDir(), "repository")
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command(binary, "project", "configure")
+	command.Env = append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state)
+	command.Stdin = strings.NewReader("guided\nGuided Project\nmain\n" + repository + "\n")
+	var stdout, stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		t.Fatalf("guided configure: %v: stdout=%s stderr=%s", err, stdout.String(), stderr.String())
+	}
+	var event cliEvent
+	if err := json.Unmarshal(bytes.TrimSpace(stdout.Bytes()), &event); err != nil || event.Category != "project_configured" {
+		t.Fatalf("guided event = %+v, %v; output=%s", event, err, stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Repository path") {
+		t.Fatalf("guided prompts missing: %q", stderr.String())
+	}
+}
 
 type cliEvent struct {
 	Operation string `json:"operation"`
@@ -52,6 +83,12 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	if err != nil || len(installed) != 5 {
 		t.Fatalf("installed Codex skills = %v, %v", installed, err)
 	}
+	repository := filepath.Join(t.TempDir(), "configured-repository")
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	run(0, "success", "project_configured", "project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main="+repository)
+	run(0, "success", "project_resolved", "project", "resolve", "--selector", "configured")
 	run(1, "error", "missing_required_input", "project", "init", "--slug", "sample")
 	run(0, "success", "applied", "project", "init", "--slug", "sample", "--name", "Sample")
 	run(0, "success", "already_initialized", "project", "init", "--slug", "sample", "--name", "Sample")
@@ -71,7 +108,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		t.Fatalf("install changed portable bytes: %v", err)
 	}
 	records, err := filepath.Glob(filepath.Join(state, "projects", "*", "installation.json"))
-	if err != nil || len(records) != 1 {
+	if err != nil || len(records) != 2 {
 		t.Fatalf("local records = %v, %v", records, err)
 	}
 	run(0, "success", "applied", "project", "update", "--slug", "sample", "--name", "Changed")

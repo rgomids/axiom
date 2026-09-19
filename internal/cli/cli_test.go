@@ -22,6 +22,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"runtime install", []string{"runtime", "codex", "install"}, "runtime-install"},
 		{"runtime status", []string{"runtime", "codex", "status"}, "runtime-status"},
 		{"resolve", []string{"project", "resolve", "--selector", "alpha"}, "resolve:alpha"},
+		{"configure", []string{"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, "configure:alpha:Alpha:main:/tmp/alpha"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -48,6 +49,19 @@ func TestRunFailsPromptlyWithoutRequiredInput(t *testing.T) {
 		t.Fatalf("exit code = %d", code)
 	}
 	assertEvent(t, output.String(), "init", Failed, "missing_required_input")
+}
+
+func TestRunInteractiveGuidesProjectConfiguration(t *testing.T) {
+	var output, prompts bytes.Buffer
+	input := strings.NewReader("alpha\nAlpha\nmain\n/tmp/alpha\n")
+	code := RunInteractive(context.Background(), []string{"project", "configure"}, &recordingService{}, input, &output, &prompts)
+	if code != ExitSuccess {
+		t.Fatalf("exit code = %d, output=%s", code, output.String())
+	}
+	assertEvent(t, output.String(), "configure", Succeeded, "applied")
+	if !strings.Contains(prompts.String(), "Repository path") {
+		t.Fatalf("prompts = %q", prompts.String())
+	}
 }
 
 func TestRunDoesNotExposeRejectedInput(t *testing.T) {
@@ -129,5 +143,10 @@ func (s *recordingService) RuntimeCodexStatus(context.Context) Result {
 }
 func (s *recordingService) Resolve(_ context.Context, input ResolveInput) Result {
 	s.call = "resolve:" + input.Selector
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) Configure(_ context.Context, input ConfigureInput) Result {
+	repository := input.Repositories[0]
+	s.call = "configure:" + input.Slug + ":" + input.Name + ":" + repository.Key + ":" + repository.Path
 	return Result{Status: Succeeded, Category: "applied"}
 }

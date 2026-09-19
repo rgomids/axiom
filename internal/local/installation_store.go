@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/rgomids/axiom/internal/manifest"
+	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 )
 
@@ -45,12 +46,21 @@ func NewInstallationStore(path string) (InstallationStore, error) {
 }
 
 func (s InstallationStore) Install(ctx context.Context, source string) InstallationResult {
+	return s.InstallWithBindings(ctx, source, nil)
+}
+
+// InstallWithBindings publishes the same strict local record as Install while
+// requiring an exact local path binding for every portable Repository key.
+func (s InstallationStore) InstallWithBindings(ctx context.Context, source string, bindings []projectapp.RepositoryBinding) InstallationResult {
 	snapshot, result := portableSnapshot(ctx, source)
 	if result.Status == InstallationFailed {
 		return result
 	}
+	if !bindingsMatchProject(snapshot.Project(), bindings) {
+		return failedInstallation("invalid_repository_bindings")
+	}
 	source = filepath.Clean(source)
-	record, issues := NewRecord(RecordState{ProjectID: snapshot.Project().State().ID, ObservedSlug: snapshot.Project().State().Slug, SourceLocation: source, PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests()})
+	record, issues := NewRecord(RecordState{ProjectID: snapshot.Project().State().ID, ObservedSlug: snapshot.Project().State().Slug, SourceLocation: source, PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests(), Repositories: bindings})
 	if len(issues) != 0 {
 		return failedInstallation("invalid_local_state")
 	}
@@ -169,6 +179,27 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 		}
 		return InstallationResult{Status: InstallationApplied, Category: "installed"}
 	})
+}
+
+func bindingsMatchProject(p project.Project, bindings []projectapp.RepositoryBinding) bool {
+	repositories, configured := p.State().Repositories.Value()
+	if !configured {
+		return len(bindings) == 0
+	}
+	if len(repositories) != len(bindings) {
+		return false
+	}
+	expected := make(map[string]bool, len(repositories))
+	for _, repository := range repositories {
+		expected[repository.Key] = true
+	}
+	for _, binding := range bindings {
+		if !expected[binding.RepositoryKey] {
+			return false
+		}
+		delete(expected, binding.RepositoryKey)
+	}
+	return len(expected) == 0
 }
 
 func (s InstallationStore) sync(root *os.Root) error {

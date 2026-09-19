@@ -2,10 +2,12 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
 	"io"
+	"strings"
 )
 
 const (
@@ -25,6 +27,7 @@ type Service interface {
 	RuntimeCodexInstall(context.Context) Result
 	RuntimeCodexStatus(context.Context) Result
 	Resolve(context.Context, ResolveInput) Result
+	Configure(context.Context, ConfigureInput) Result
 }
 
 type InitInput struct {
@@ -40,6 +43,11 @@ type UpdateInput struct {
 }
 type InstallInput struct{ Source string }
 type ResolveInput struct{ Selector string }
+type RepositoryInput struct{ Key, Path string }
+type ConfigureInput struct {
+	Slug, Name   string
+	Repositories []RepositoryInput
+}
 
 type Status string
 
@@ -61,6 +69,23 @@ type Result struct {
 // It never turns a parser error into user-visible text because parser text may
 // contain rejected input.
 func Run(ctx context.Context, args []string, service Service, stdout io.Writer) int {
+	return RunInteractive(ctx, args, service, nil, stdout, io.Discard)
+}
+
+// RunInteractive adds the bounded prompt path used by `project configure`.
+// Prompts stay on stderr while stdout remains one machine-readable event.
+func RunInteractive(ctx context.Context, args []string, service Service, stdin io.Reader, stdout, stderr io.Writer) int {
+	if service == nil {
+		return emit(stdout, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
+	}
+	if len(args) == 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
+		input, ok := promptConfiguration(stdin, stderr)
+		if !ok {
+			return emit(stdout, event{Operation: configureAction, Status: Failed, Category: "missing_required_input"})
+		}
+		response := service.Configure(ctx, input)
+		return emit(stdout, event{Operation: configureAction, Status: response.Status, Category: response.Category})
+	}
 	operation, input, result := request(args, service)
 	if result != nil {
 		return emit(stdout, event{Operation: operation, Status: Failed, Category: *result})
@@ -78,15 +103,17 @@ const (
 	updateAction       action = "update"
 	installAction      action = "install"
 	resolveAction      action = "resolve"
+	configureAction    action = "configure"
 	codexInstallAction action = "runtime_codex_install"
 	codexStatusAction  action = "runtime_codex_status"
 )
 
 type requestInput struct {
-	slug     string
-	name     string
-	source   string
-	selector string
+	slug         string
+	name         string
+	source       string
+	selector     string
+	repositories repositoryFlags
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
@@ -120,6 +147,9 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if operation == resolveAction && values.selector == "" {
 		return operation, values, category("missing_required_input")
 	}
+	if operation == configureAction && (values.slug == "" || values.name == "" || len(values.repositories) == 0) {
+		return operation, values, category("missing_required_input")
+	}
 	if operation != initAction && operation != installAction && operation != resolveAction && values.slug == "" {
 		return operation, values, category("missing_required_input")
 	}
@@ -143,6 +173,10 @@ func flags(operation action, args []string) (requestInput, bool) {
 	if operation == resolveAction {
 		set.StringVar(&values.selector, "selector", "", "")
 	}
+	if operation == configureAction {
+		set.StringVar(&values.name, "name", "", "")
+		set.Var(&values.repositories, "repository", "")
+	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return requestInput{}, false
 	}
@@ -150,7 +184,7 @@ func flags(operation action, args []string) (requestInput, bool) {
 }
 
 func known(operation action) bool {
-	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction
+	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction || operation == configureAction
 }
 
 func dispatch(ctx context.Context, operation action, input requestInput, service Service) Result {
@@ -170,6 +204,12 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.Install(ctx, InstallInput{Source: input.source})
 	case resolveAction:
 		return service.Resolve(ctx, ResolveInput{Selector: input.selector})
+	case configureAction:
+		repositories, ok := parseRepositories(input.repositories)
+		if !ok {
+			return Result{Status: Failed, Category: "invalid_input"}
+		}
+		return service.Configure(ctx, ConfigureInput{Slug: input.slug, Name: input.name, Repositories: repositories})
 	case codexInstallAction:
 		return service.RuntimeCodexInstall(ctx)
 	case codexStatusAction:
@@ -200,6 +240,55 @@ func emit(writer io.Writer, value event) int {
 
 func category(value string) *string { return &value }
 
+type repositoryFlags []string
+
+func (r *repositoryFlags) String() string { return strings.Join(*r, ",") }
+func (r *repositoryFlags) Set(value string) error {
+	*r = append(*r, value)
+	return nil
+}
+
+func parseRepositories(values []string) ([]RepositoryInput, bool) {
+	result := make([]RepositoryInput, 0, len(values))
+	for _, value := range values {
+		key, path, ok := strings.Cut(value, "=")
+		if !ok || key == "" || path == "" {
+			return nil, false
+		}
+		result = append(result, RepositoryInput{Key: key, Path: path})
+	}
+	return result, true
+}
+
+func promptConfiguration(input io.Reader, prompts io.Writer) (ConfigureInput, bool) {
+	scanner := bufio.NewScanner(input)
+	read := func(prompt string) (string, bool) {
+		_, _ = io.WriteString(prompts, prompt)
+		if !scanner.Scan() {
+			return "", false
+		}
+		value := strings.TrimSpace(scanner.Text())
+		return value, value != ""
+	}
+	slug, ok := read("Project slug: ")
+	if !ok {
+		return ConfigureInput{}, false
+	}
+	name, ok := read("Project name: ")
+	if !ok {
+		return ConfigureInput{}, false
+	}
+	key, ok := read("Repository key: ")
+	if !ok {
+		return ConfigureInput{}, false
+	}
+	path, ok := read("Repository path: ")
+	if !ok {
+		return ConfigureInput{}, false
+	}
+	return ConfigureInput{Slug: slug, Name: name, Repositories: []RepositoryInput{{Key: key, Path: path}}}, true
+}
+
 // UnavailableService makes the executable fail closed until its composition root
 // receives the authorized application use cases in subsequent POC delivery work.
 type UnavailableService struct{}
@@ -216,8 +305,9 @@ func (UnavailableService) Reopen(context.Context, ProjectInput) Result {
 func (UnavailableService) Update(context.Context, UpdateInput) Result {
 	return unavailable()
 }
-func (UnavailableService) Install(context.Context, InstallInput) Result { return unavailable() }
-func (UnavailableService) RuntimeCodexInstall(context.Context) Result   { return unavailable() }
-func (UnavailableService) RuntimeCodexStatus(context.Context) Result    { return unavailable() }
-func (UnavailableService) Resolve(context.Context, ResolveInput) Result { return unavailable() }
-func unavailable() Result                                               { return Result{Status: Failed, Category: "application_unavailable"} }
+func (UnavailableService) Install(context.Context, InstallInput) Result     { return unavailable() }
+func (UnavailableService) RuntimeCodexInstall(context.Context) Result       { return unavailable() }
+func (UnavailableService) RuntimeCodexStatus(context.Context) Result        { return unavailable() }
+func (UnavailableService) Resolve(context.Context, ResolveInput) Result     { return unavailable() }
+func (UnavailableService) Configure(context.Context, ConfigureInput) Result { return unavailable() }
+func unavailable() Result                                                   { return Result{Status: Failed, Category: "application_unavailable"} }

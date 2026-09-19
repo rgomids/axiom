@@ -33,6 +33,10 @@ func NewLifecycle(store PortableLifecycleStore, codec ManifestCodec, ids Identit
 }
 
 type InitRequest struct{ Slug, Name string }
+type ConfigureRequest struct {
+	Slug, Name     string
+	RepositoryKeys []string
+}
 type ProjectRequest struct{ Slug string }
 type UpdateRequest struct{ Slug, Name string }
 
@@ -77,6 +81,56 @@ func (l Lifecycle) Init(ctx context.Context, request InitRequest) LifecycleResul
 		return failed("identity_allocation_failed")
 	}
 	p, domainIssues := project.New(project.State{SchemaVersion: 1, ID: id, Slug: request.Slug, Name: request.Name})
+	if len(domainIssues) != 0 {
+		return failed("invalid_input")
+	}
+	manifest, issues := l.codec.Encode(p)
+	if len(issues) != 0 {
+		return failed("encoding_failed")
+	}
+	if _, issues := ReadSnapshot(l.codec, manifest, nil); len(issues) != 0 {
+		return failed("encoding_failed")
+	}
+	return result(l.store.Create(ctx, request.Slug, manifest))
+}
+
+// Configure creates one complete portable Project including repository keys.
+// Machine-local paths remain outside this request and portable domain state.
+func (l Lifecycle) Configure(ctx context.Context, request ConfigureRequest) LifecycleResult {
+	if l.invalid() {
+		return failed("application_unavailable")
+	}
+	if !project.ValidSlug(request.Slug) || request.Name == "" || len(request.RepositoryKeys) == 0 {
+		return failed("invalid_input")
+	}
+	repositories := make([]project.Repository, len(request.RepositoryKeys))
+	for index, key := range request.RepositoryKeys {
+		repositories[index] = project.Repository{Key: key}
+	}
+	existing, err := l.store.Read(ctx, request.Slug)
+	if err == nil {
+		snapshot, issues := ReadSnapshot(l.codec, existing, nil)
+		if len(issues) != 0 {
+			return failed("invalid_existing_project")
+		}
+		state := snapshot.Project().State()
+		desired, domainIssues := project.New(project.State{SchemaVersion: 1, ID: state.ID, Slug: request.Slug, Name: request.Name, Repositories: project.Configured(repositories)})
+		if len(domainIssues) != 0 {
+			return failed("invalid_input")
+		}
+		if snapshot.Project().Equivalent(desired) {
+			return LifecycleResult{Status: LifecycleUnchanged, Category: "already_configured"}
+		}
+		return LifecycleResult{Status: LifecycleConflict, Category: "explicit_update_required"}
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return storageResult(err)
+	}
+	id, issues := l.ids.NewID()
+	if len(issues) != 0 {
+		return failed("identity_allocation_failed")
+	}
+	p, domainIssues := project.New(project.State{SchemaVersion: 1, ID: id, Slug: request.Slug, Name: request.Name, Repositories: project.Configured(repositories)})
 	if len(domainIssues) != 0 {
 		return failed("invalid_input")
 	}
