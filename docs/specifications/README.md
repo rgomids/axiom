@@ -53,3 +53,20 @@ T01–T04 established Project domain rules, application contracts and portable/l
 codecs. POC #16–#18 additionally delivered the limited CLI, filesystem
 persistence and local installation noted above. Runtime adapters and orchestration
 remain unavailable; #19–#21 proof and acceptance work remains open.
+
+## 003 — E2E Codex POC
+
+Implementation-authorized on 2026-09-19 and tracked by #30–#40.
+
+| Artifact | Status |
+|---|---|
+| [Specification](003-e2e-codex-poc/spec.md) | **Approved** |
+| [Clarifications](003-e2e-codex-poc/clarifications.md) | **Resolved** |
+| [Plan](003-e2e-codex-poc/plan.md) | **Approved** |
+| [Tasks](003-e2e-codex-poc/tasks.md) | **Approved / authorized** |
+| [T31 Evidence](003-e2e-codex-poc/evidence-t31.md) | **Ready for review** |
+
+The requested standalone skill spelling `axiom:<skill>` is incompatible with the
+validated Codex hyphen-case skill-name contract. The authorized reversible POC
+mapping is `$axiom-<skill>`. Technical completion will leave #30/#40 awaiting
+explicit human acceptance.
