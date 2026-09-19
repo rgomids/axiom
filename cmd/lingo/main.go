@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -26,6 +27,9 @@ var (
 func main() {
 	if len(os.Args) == 2 && os.Args[1] == "version" {
 		os.Exit(writeVersion(os.Stdout))
+	}
+	if len(os.Args) == 2 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
+		os.Exit(cli.Help(os.Stdout))
 	}
 	os.Exit(cli.RunInteractive(context.Background(), os.Args[1:], compose(), os.Stdin, os.Stdout, os.Stderr))
 }
@@ -218,7 +222,19 @@ func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) c
 	if result.Status == local.ResolutionFound {
 		status = cli.Succeeded
 	}
-	return cli.Result{Status: status, Category: result.Category}
+	response := cli.Result{Status: status, Category: result.Category}
+	if result.Status == local.ResolutionFound {
+		response.Project = projectView(result.Project)
+	}
+	return response
+}
+
+func projectView(project local.ResolvedProject) *cli.ProjectView {
+	view := &cli.ProjectView{ID: project.ID, Slug: project.Slug, Source: project.Source, Repositories: make([]cli.RepositoryView, 0, len(project.Repositories))}
+	for _, repository := range project.Repositories {
+		view.Repositories = append(view.Repositories, cli.RepositoryView{Key: repository.Key, Path: repository.Path})
+	}
+	return view
 }
 func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInput) cli.Result {
 	keys := make([]string, 0, len(input.Repositories))
@@ -299,7 +315,22 @@ func workflowResult(result workflow.Result) cli.Result {
 	if result.Status == workflow.Succeeded {
 		status = cli.Succeeded
 	}
-	return cli.Result{Status: status, Category: result.Category}
+	response := cli.Result{Status: status, Category: result.Category}
+	if result.State.ProjectID != "" {
+		view := &cli.WorkflowView{Status: result.State.Status, RepositoryKey: result.State.RepositoryKey, RepositoryPath: result.State.RepositoryPath, WorkItem: result.State.WorkItem, Steps: make([]cli.WorkflowStepView, 0, len(result.State.Steps))}
+		if result.State.Current < len(result.State.Steps) {
+			view.CurrentGate = result.State.Steps[result.State.Current].Gate
+		}
+		for _, step := range result.State.Steps {
+			digest := ""
+			if step.Digest != ([32]byte{}) {
+				digest = hex.EncodeToString(step.Digest[:])
+			}
+			view.Steps = append(view.Steps, cli.WorkflowStepView{Gate: step.Gate, Status: step.Status, Reference: step.Reference, Digest: digest})
+		}
+		response.Workflow = view
+	}
+	return response
 }
 
 func workItemResult(result workitem.Result) cli.Result {
@@ -307,7 +338,11 @@ func workItemResult(result workitem.Result) cli.Result {
 	if result.Status == workitem.Succeeded {
 		status = cli.Succeeded
 	}
-	return cli.Result{Status: status, Category: result.Category}
+	response := cli.Result{Status: status, Category: result.Category}
+	if result.Link.Number > 0 {
+		response.WorkItem = &cli.WorkItemView{Repository: result.Link.ProviderRepository, Number: result.Link.Number, URL: result.Link.URL, State: result.Link.State}
+	}
+	return response
 }
 
 func cliResult(result projectapp.LifecycleResult) cli.Result {

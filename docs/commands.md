@@ -230,12 +230,44 @@ AXIOM_CODEX_SKILLS_ROOT=/absolute/test/root lingo runtime codex install
 ./scripts/test-codex-skills.sh
 ```
 
+Known prior Axiom skill content is upgraded atomically. Changed or unrelated
+content remains a conflict and is never overwritten.
+
+## CLI output and help
+
+Direct Lingo use defaults to a concise human status. Skills and scripts use the
+stable JSON surface by putting `--json` before the command:
+
+```bash
+lingo project show --selector my-project
+lingo --json project show --selector my-project
+lingo help
+```
+
+JSON results always contain `operation`, `status`, and `category`. Successful
+Project, Work Item, and workflow operations also contain typed `project`,
+`workItem`, or `workflow` payloads. The workflow payload supplies the resolved
+repository path, current gate, step status, references, and Evidence digests.
+Exit codes are `0` for success, `1` for failure, and `2` for cancellation.
+
+| Codex skill | Stable Lingo entrypoint |
+|---|---|
+| `$axiom-project-configure` | `lingo --json project configure` |
+| `$axiom-project-show` | `lingo --json project show --selector ...` |
+| `$axiom-work-item-create` | `lingo --json work-item create\|select ...` |
+| `$axiom-work-item-run` | `lingo --json workflow start\|advance\|resume ...` |
+| `$axiom-work-item-status` | `lingo --json workflow status\|evidence ...` |
+
+Skills collect missing selectors conversationally, but Lingo retains validation,
+repository resolution, workflow ordering, and external-mutation authority.
+
 ## Resolve a configured Project globally
 
 Use a canonical Project UUID or installation-unique slug from any directory:
 
 ```bash
 lingo project resolve --selector my-project
+lingo project show --selector my-project
 ```
 
 Resolution reads protected machine-local state. It never searches the caller's

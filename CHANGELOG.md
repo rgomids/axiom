@@ -16,6 +16,8 @@
 
 - feature: add the persistent sequential Axiom delivery workflow with fixed Specification-through-Reconciliation gates, repository-anchored artifact digests, inspectable interruption/resume, and explicitly authorized Work Item completion.
 
+- feature: complete equivalent Lingo/Codex entrypoints with a real `project show` command, default human output, explicit typed `--json` payloads, command/skill help, exact thin-skill command templates and controlled upgrades of known prior Axiom skill content.
+
 ## [2026-09-18]
 
 - docs: reconcile Specification 002 and Plan scope for the POC-only Linux/macOS verification workflow; classify its runs as acceptance Evidence, not product CI or release automation. Preserve #19–#21, #14 and SEC-003 human gates.

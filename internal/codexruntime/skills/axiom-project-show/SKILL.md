@@ -5,6 +5,6 @@ description: Inspect or resolve a configured Axiom Project through Lingo from an
 
 # Show Axiom Project
 
-Collect a Project slug or ID when absent. Run `lingo project show` with that
-selector and report its structured result. Never infer a repository from Codex's
-current working directory.
+Collect a Project slug or ID when absent. Run `lingo --json project show
+--selector <slug-or-id>` and report its structured Project and repository
+associations. Never infer a repository from Codex's current working directory.

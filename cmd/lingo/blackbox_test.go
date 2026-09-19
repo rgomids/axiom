@@ -22,7 +22,7 @@ func TestExecutableGuidedProjectConfiguration(t *testing.T) {
 	if err := os.Mkdir(repository, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	command := exec.Command(binary, "project", "configure")
+	command := exec.Command(binary, "--json", "project", "configure")
 	command.Env = append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state)
 	command.Stdin = strings.NewReader("guided\nGuided Project\nmain\n" + repository + "\n")
 	var stdout, stderr bytes.Buffer
@@ -44,6 +44,19 @@ type cliEvent struct {
 	Operation string `json:"operation"`
 	Status    string `json:"status"`
 	Category  string `json:"category"`
+	Project   *struct {
+		Slug         string `json:"slug"`
+		Repositories []struct {
+			Key, Path string
+		} `json:"repositories"`
+	} `json:"project"`
+	Workflow *struct {
+		Status, CurrentGate, RepositoryPath string
+	} `json:"workflow"`
+	WorkItem *struct {
+		URL, State string
+		Number     int
+	} `json:"workItem"`
 }
 
 func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
@@ -56,9 +69,9 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	state := filepath.Join(t.TempDir(), "state")
 	skills := filepath.Join(t.TempDir(), "skills")
 	environment := append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+skills)
-	run := func(wantCode int, wantStatus, wantCategory string, args ...string) {
+	run := func(wantCode int, wantStatus, wantCategory string, args ...string) cliEvent {
 		t.Helper()
-		command := exec.Command(binary, args...)
+		command := exec.Command(binary, append([]string{"--json"}, args...)...)
 		command.Env = environment
 		output, err := command.CombinedOutput()
 		code := 0
@@ -76,6 +89,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		if code != wantCode || event.Status != wantStatus || event.Category != wantCategory {
 			t.Fatalf("%v: code=%d event=%+v", args, code, event)
 		}
+		return event
 	}
 	run(0, "success", "codex_configured", "runtime", "codex", "install")
 	run(0, "success", "codex_ready", "runtime", "codex", "status")
@@ -104,8 +118,15 @@ exit 1
 	environment = append(environment, "AXIOM_GIT_BIN="+gitBinary, "AXIOM_GH_BIN="+ghBinary)
 	run(0, "success", "project_configured", "project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main="+repository)
 	run(0, "success", "project_resolved", "project", "resolve", "--selector", "configured")
+	shown := run(0, "success", "project_resolved", "project", "show", "--selector", "configured")
+	if shown.Project == nil || shown.Project.Slug != "configured" || len(shown.Project.Repositories) != 1 || shown.Project.Repositories[0].Path != repository {
+		t.Fatalf("project payload = %+v", shown.Project)
+	}
 	run(1, "error", "external_mutation_denied", "work-item", "create", "--project", "configured", "--repository", "main", "--title", "POC")
-	run(0, "success", "work_item_linked", "work-item", "create", "--project", "configured", "--repository", "main", "--title", "POC", "--authorize-external")
+	created := run(0, "success", "work_item_linked", "work-item", "create", "--project", "configured", "--repository", "main", "--title", "POC", "--authorize-external")
+	if created.WorkItem == nil || created.WorkItem.Number != 7 || created.WorkItem.State != "OPEN" {
+		t.Fatalf("work item payload = %+v", created.WorkItem)
+	}
 	run(0, "success", "work_item_loaded", "work-item", "show", "--project", "configured", "--repository", "main", "--number", "7")
 	run(0, "success", "work_item_commented", "work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence", "--authorize-external")
 	run(0, "success", "workflow_started", "workflow", "start", "--project", "configured", "--repository", "main", "--number", "7")
@@ -119,7 +140,10 @@ exit 1
 		t.Fatal(err)
 	}
 	run(1, "error", "workflow_interrupted", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--gate", "implementation", "--outcome", "fail", "--reference", "implementation.md")
-	run(0, "success", "workflow_interrupted", "workflow", "status", "--project", "configured", "--repository", "main", "--number", "7")
+	interrupted := run(0, "success", "workflow_interrupted", "workflow", "status", "--project", "configured", "--repository", "main", "--number", "7")
+	if interrupted.Workflow == nil || interrupted.Workflow.Status != "interrupted" || interrupted.Workflow.CurrentGate != "implementation" || interrupted.Workflow.RepositoryPath != repository {
+		t.Fatalf("workflow payload = %+v", interrupted.Workflow)
+	}
 	run(0, "success", "workflow_resumed", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7")
 	for _, gate := range []string{"implementation", "review", "evidence", "reconciliation"} {
 		if err := os.WriteFile(filepath.Join(repository, gate+".md"), []byte(gate), 0o600); err != nil {

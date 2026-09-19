@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -83,35 +84,71 @@ const (
 type Result struct {
 	Status   Status
 	Category string
+	Project  *ProjectView
+	WorkItem *WorkItemView
+	Workflow *WorkflowView
+}
+
+type RepositoryView struct {
+	Key  string `json:"key"`
+	Path string `json:"path"`
+}
+type ProjectView struct {
+	ID           string           `json:"id"`
+	Slug         string           `json:"slug"`
+	Source       string           `json:"source"`
+	Repositories []RepositoryView `json:"repositories"`
+}
+type WorkItemView struct {
+	Repository string `json:"repository"`
+	Number     int    `json:"number"`
+	URL        string `json:"url"`
+	State      string `json:"state"`
+}
+type WorkflowStepView struct {
+	Gate      string `json:"gate"`
+	Status    string `json:"status"`
+	Reference string `json:"reference,omitempty"`
+	Digest    string `json:"digest,omitempty"`
+}
+type WorkflowView struct {
+	Status         string             `json:"status"`
+	CurrentGate    string             `json:"currentGate,omitempty"`
+	RepositoryKey  string             `json:"repositoryKey"`
+	RepositoryPath string             `json:"repositoryPath"`
+	WorkItem       int                `json:"workItem"`
+	Steps          []WorkflowStepView `json:"steps"`
 }
 
 // Run parses one CLI action, delegates it, and emits one safe structured event.
 // It never turns a parser error into user-visible text because parser text may
 // contain rejected input.
 func Run(ctx context.Context, args []string, service Service, stdout io.Writer) int {
-	return RunInteractive(ctx, args, service, nil, stdout, io.Discard)
+	structured := append([]string{"--json"}, args...)
+	return RunInteractive(ctx, structured, service, nil, stdout, io.Discard)
 }
 
-// RunInteractive adds the bounded prompt path used by `project configure`.
-// Prompts stay on stderr while stdout remains one machine-readable event.
+// RunInteractive adds the bounded prompt path used by `project configure` and
+// selects human or machine-readable presentation without changing application behavior.
 func RunInteractive(ctx context.Context, args []string, service Service, stdin io.Reader, stdout, stderr io.Writer) int {
+	mode, args := parseOutputMode(args)
 	if service == nil {
-		return emit(stdout, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
+		return emit(stdout, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
 	}
 	if len(args) == 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
 		input, ok := promptConfiguration(stdin, stderr)
 		if !ok {
-			return emit(stdout, event{Operation: configureAction, Status: Failed, Category: "missing_required_input"})
+			return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "missing_required_input"})
 		}
 		response := service.Configure(ctx, input)
-		return emit(stdout, event{Operation: configureAction, Status: response.Status, Category: response.Category})
+		return emit(stdout, mode, eventFrom(configureAction, response))
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
-		return emit(stdout, event{Operation: operation, Status: Failed, Category: *result})
+		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
 	}
 	response := dispatch(ctx, operation, input, service)
-	return emit(stdout, event{Operation: operation, Status: response.Status, Category: response.Category})
+	return emit(stdout, mode, eventFrom(operation, response))
 }
 
 type action string
@@ -123,6 +160,7 @@ const (
 	updateAction           action = "update"
 	installAction          action = "install"
 	resolveAction          action = "resolve"
+	showAction             action = "show"
 	configureAction        action = "configure"
 	workItemCreateAction   action = "work_item_create"
 	workItemSelectAction   action = "work_item_select"
@@ -206,13 +244,13 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if operation == installAction && values.source == "" {
 		return operation, values, category("missing_required_input")
 	}
-	if operation == resolveAction && values.selector == "" {
+	if (operation == resolveAction || operation == showAction) && values.selector == "" {
 		return operation, values, category("missing_required_input")
 	}
 	if operation == configureAction && (values.slug == "" || values.name == "" || len(values.repositories) == 0) {
 		return operation, values, category("missing_required_input")
 	}
-	if operation != initAction && operation != installAction && operation != resolveAction && values.slug == "" {
+	if operation != initAction && operation != installAction && operation != resolveAction && operation != showAction && values.slug == "" {
 		return operation, values, category("missing_required_input")
 	}
 	if operation == updateAction && values.name == "" {
@@ -232,7 +270,7 @@ func flags(operation action, args []string) (requestInput, bool) {
 	if operation == installAction {
 		set.StringVar(&values.source, "source", "", "")
 	}
-	if operation == resolveAction {
+	if operation == resolveAction || operation == showAction {
 		set.StringVar(&values.selector, "selector", "", "")
 	}
 	if operation == configureAction {
@@ -295,7 +333,7 @@ func knownWorkflow(operation action) bool {
 }
 
 func known(operation action) bool {
-	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction || operation == configureAction
+	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction || operation == showAction || operation == configureAction
 }
 
 func dispatch(ctx context.Context, operation action, input requestInput, service Service) Result {
@@ -313,7 +351,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.Update(ctx, UpdateInput{Slug: input.slug, Name: input.name})
 	case installAction:
 		return service.Install(ctx, InstallInput{Source: input.source})
-	case resolveAction:
+	case resolveAction, showAction:
 		return service.Resolve(ctx, ResolveInput{Selector: input.selector})
 	case configureAction:
 		repositories, ok := parseRepositories(input.repositories)
@@ -358,16 +396,44 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 }
 
 type event struct {
-	Operation action `json:"operation"`
-	Status    Status `json:"status"`
-	Category  string `json:"category"`
+	Operation action        `json:"operation"`
+	Status    Status        `json:"status"`
+	Category  string        `json:"category"`
+	Project   *ProjectView  `json:"project,omitempty"`
+	WorkItem  *WorkItemView `json:"workItem,omitempty"`
+	Workflow  *WorkflowView `json:"workflow,omitempty"`
 }
 
-func emit(writer io.Writer, value event) int {
+type outputMode string
+
+const (
+	humanOutput outputMode = "human"
+	jsonOutput  outputMode = "json"
+)
+
+func parseOutputMode(args []string) (outputMode, []string) {
+	if len(args) > 0 && args[0] == "--json" {
+		return jsonOutput, args[1:]
+	}
+	if len(args) > 0 && args[0] == "--human" {
+		return humanOutput, args[1:]
+	}
+	return humanOutput, args
+}
+
+func eventFrom(operation action, result Result) event {
+	return event{Operation: operation, Status: result.Status, Category: result.Category, Project: result.Project, WorkItem: result.WorkItem, Workflow: result.Workflow}
+}
+
+func emit(writer io.Writer, mode outputMode, value event) int {
 	if writer == nil {
 		return ExitFailure
 	}
-	_ = json.NewEncoder(writer).Encode(value)
+	if mode == jsonOutput {
+		_ = json.NewEncoder(writer).Encode(value)
+	} else {
+		emitHuman(writer, value)
+	}
 	if value.Status == Succeeded {
 		return ExitSuccess
 	}
@@ -375,6 +441,22 @@ func emit(writer io.Writer, value event) int {
 		return ExitCancelled
 	}
 	return ExitFailure
+}
+
+func emitHuman(writer io.Writer, value event) {
+	_, _ = io.WriteString(writer, string(value.Status)+": "+value.Category+" ("+string(value.Operation)+")\n")
+	if value.Project != nil {
+		_, _ = io.WriteString(writer, "project "+value.Project.Slug+" ["+value.Project.ID+"]\n")
+		for _, repository := range value.Project.Repositories {
+			_, _ = io.WriteString(writer, "repository "+repository.Key+" "+strconv.Quote(repository.Path)+"\n")
+		}
+	}
+	if value.WorkItem != nil {
+		_, _ = io.WriteString(writer, "work-item "+value.WorkItem.URL+" ["+value.WorkItem.State+"]\n")
+	}
+	if value.Workflow != nil {
+		_, _ = io.WriteString(writer, "workflow "+value.Workflow.Status+" current="+value.Workflow.CurrentGate+" repository="+strconv.Quote(value.Workflow.RepositoryPath)+"\n")
+	}
 }
 
 func category(value string) *string { return &value }
