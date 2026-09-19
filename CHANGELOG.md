@@ -4,6 +4,8 @@
 
 - specification: approve the complete E2E Codex POC journey, implementation plan and #31–#40 task mapping; preserve existing Axiom/Lingo, Project/Repository and portable/local boundaries. Record the supported standalone Codex `$axiom-<skill>` mapping because literal colon names fail the current hyphen-case skill contract; final human acceptance remains separate.
 
+- feature: add a source-checkout Axiom installer that publishes Lingo to an explicit user PATH directory, records checksum ownership, supports safe idempotent reruns, refuses modified/unowned destinations, and exposes build source/revision through `lingo version`.
+
 ## [2026-09-18]
 
 - docs: reconcile Specification 002 and Plan scope for the POC-only Linux/macOS verification workflow; classify its runs as acceptance Evidence, not product CI or release automation. Preserve #19–#21, #14 and SEC-003 human gates.

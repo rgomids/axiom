@@ -57,6 +57,29 @@ func TestComposedCLIRejectsRelativeRoot(t *testing.T) {
 	}
 }
 
+func TestVersionReportsAxiomSourceMetadata(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if code := writeVersion(file); code != cli.ExitSuccess {
+		t.Fatalf("version exit code = %d", code)
+	}
+	if _, err := file.Seek(0, 0); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(file.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"product":"Axiom"`, `"binary":"lingo"`, `"version":"devel"`, `"commit":"unknown"`, `"source":"https://github.com/rgomids/axiom"`} {
+		if !bytes.Contains(data, []byte(expected)) {
+			t.Fatalf("version output missing %q: %s", expected, data)
+		}
+	}
+}
+
 func TestStateRootOverride(t *testing.T) {
 	t.Setenv("LINGO_STATE_ROOT", "/tmp/lingo-state/../lingo-state")
 	got, err := stateRoot()
