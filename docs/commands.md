@@ -291,3 +291,40 @@ lingo work-item complete --project my-project --repository main --number 123 \
 Create, comment and complete refuse execution without explicit external mutation
 authority. Authentication comes from the existing `gh` CLI session; Axiom does
 not persist its credential.
+
+## Execute the bounded workflow
+
+Start one workflow from an already linked Work Item:
+
+```bash
+lingo workflow start --project my-project --repository main --number 123
+lingo workflow status --project my-project --repository main --number 123
+```
+
+Advance gates in fixed order. Each technical gate requires a repository-relative
+regular artifact no larger than 1 MiB; Lingo stores its SHA-256 digest in local
+workflow state. Repository resolution comes from Project state, not caller CWD.
+
+```bash
+lingo workflow advance --project my-project --repository main --number 123 \
+  --gate specification --outcome pass --reference docs/spec.md
+```
+
+Gate order: `specification`, `clarification`, `plan`, `tasks`, `implementation`,
+`review`, `evidence`, `reconciliation`, `completion`. A failed gate interrupts
+the workflow without closing the Work Item:
+
+```bash
+lingo workflow advance --project my-project --repository main --number 123 \
+  --gate implementation --outcome fail --reference evidence/test-failure.txt
+lingo workflow resume --project my-project --repository main --number 123
+lingo workflow evidence --project my-project --repository main --number 123
+```
+
+Completion accepts no artifact reference. It requires every earlier gate to
+have passed plus explicit external mutation authority:
+
+```bash
+lingo workflow advance --project my-project --repository main --number 123 \
+  --gate completion --outcome pass --authorize-external
+```

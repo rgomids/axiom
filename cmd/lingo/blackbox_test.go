@@ -108,7 +108,28 @@ exit 1
 	run(0, "success", "work_item_linked", "work-item", "create", "--project", "configured", "--repository", "main", "--title", "POC", "--authorize-external")
 	run(0, "success", "work_item_loaded", "work-item", "show", "--project", "configured", "--repository", "main", "--number", "7")
 	run(0, "success", "work_item_commented", "work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence", "--authorize-external")
-	run(0, "success", "work_item_completed", "work-item", "complete", "--project", "configured", "--repository", "main", "--number", "7", "--authorize-external")
+	run(0, "success", "workflow_started", "workflow", "start", "--project", "configured", "--repository", "main", "--number", "7")
+	for _, gate := range []string{"specification", "clarification", "plan", "tasks"} {
+		if err := os.WriteFile(filepath.Join(repository, gate+".md"), []byte(gate), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		run(0, "success", "workflow_advanced", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--gate", gate, "--outcome", "pass", "--reference", gate+".md")
+	}
+	if err := os.WriteFile(filepath.Join(repository, "implementation.md"), []byte("implementation"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run(1, "error", "workflow_interrupted", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--gate", "implementation", "--outcome", "fail", "--reference", "implementation.md")
+	run(0, "success", "workflow_interrupted", "workflow", "status", "--project", "configured", "--repository", "main", "--number", "7")
+	run(0, "success", "workflow_resumed", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7")
+	for _, gate := range []string{"implementation", "review", "evidence", "reconciliation"} {
+		if err := os.WriteFile(filepath.Join(repository, gate+".md"), []byte(gate), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		run(0, "success", "workflow_advanced", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--gate", gate, "--outcome", "pass", "--reference", gate+".md")
+	}
+	run(0, "success", "workflow_evidence_ready", "workflow", "evidence", "--project", "configured", "--repository", "main", "--number", "7")
+	run(1, "error", "external_mutation_denied", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--gate", "completion", "--outcome", "pass")
+	run(0, "success", "workflow_completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--gate", "completion", "--outcome", "pass", "--authorize-external")
 	run(1, "error", "missing_required_input", "project", "init", "--slug", "sample")
 	run(0, "success", "applied", "project", "init", "--slug", "sample", "--name", "Sample")
 	run(0, "success", "already_initialized", "project", "init", "--slug", "sample", "--name", "Sample")

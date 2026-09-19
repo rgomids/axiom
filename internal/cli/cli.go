@@ -33,6 +33,11 @@ type Service interface {
 	WorkItemShow(context.Context, WorkItemInput) Result
 	WorkItemComment(context.Context, WorkItemInput) Result
 	WorkItemComplete(context.Context, WorkItemInput) Result
+	WorkflowStart(context.Context, WorkflowInput) Result
+	WorkflowAdvance(context.Context, WorkflowInput) Result
+	WorkflowResume(context.Context, WorkflowInput) Result
+	WorkflowStatus(context.Context, WorkflowInput) Result
+	WorkflowEvidence(context.Context, WorkflowInput) Result
 }
 
 type InitInput struct {
@@ -57,6 +62,11 @@ type WorkItemInput struct {
 	Project, Repository, Title, Body, Message string
 	Number                                    int
 	AuthorizeExternal                         bool
+}
+type WorkflowInput struct {
+	Project, Repository, Gate, Outcome, Reference string
+	Number                                        int
+	AuthorizeExternal                             bool
 }
 
 type Status string
@@ -119,6 +129,11 @@ const (
 	workItemShowAction     action = "work_item_show"
 	workItemCommentAction  action = "work_item_comment"
 	workItemCompleteAction action = "work_item_complete"
+	workflowStartAction    action = "workflow_start"
+	workflowAdvanceAction  action = "workflow_advance"
+	workflowResumeAction   action = "workflow_resume"
+	workflowStatusAction   action = "workflow_status"
+	workflowEvidenceAction action = "workflow_evidence"
 	codexInstallAction     action = "runtime_codex_install"
 	codexStatusAction      action = "runtime_codex_status"
 )
@@ -130,6 +145,7 @@ type requestInput struct {
 	selector                                  string
 	repositories                              repositoryFlags
 	project, repository, title, body, message string
+	gate, outcome, reference                  string
 	number                                    int
 	authorizeExternal                         bool
 }
@@ -155,6 +171,20 @@ func request(args []string, service Service) (action, requestInput, *string) {
 			return operation, requestInput{}, category("invalid_input")
 		}
 		if values.project == "" || values.repository == "" || operation == workItemCreateAction && values.title == "" || operation != workItemCreateAction && values.number <= 0 || operation == workItemCommentAction && values.message == "" {
+			return operation, values, category("missing_required_input")
+		}
+		return operation, values, nil
+	}
+	if len(args) >= 2 && args[0] == "workflow" {
+		operation := action("workflow_" + args[1])
+		if !knownWorkflow(operation) {
+			return "unknown", requestInput{}, category("invalid_command")
+		}
+		values, ok := workflowFlags(operation, args[2:])
+		if !ok {
+			return operation, requestInput{}, category("invalid_input")
+		}
+		if values.project == "" || values.repository == "" || values.number <= 0 || operation == workflowAdvanceAction && (values.gate == "" || values.outcome == "") {
 			return operation, values, category("missing_required_input")
 		}
 		return operation, values, nil
@@ -241,6 +271,29 @@ func knownWorkItem(operation action) bool {
 	return operation == workItemCreateAction || operation == workItemSelectAction || operation == workItemShowAction || operation == workItemCommentAction || operation == workItemCompleteAction
 }
 
+func workflowFlags(operation action, args []string) (requestInput, bool) {
+	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	var values requestInput
+	set.StringVar(&values.project, "project", "", "")
+	set.StringVar(&values.repository, "repository", "", "")
+	set.IntVar(&values.number, "number", 0, "")
+	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
+	if operation == workflowAdvanceAction {
+		set.StringVar(&values.gate, "gate", "", "")
+		set.StringVar(&values.outcome, "outcome", "", "")
+		set.StringVar(&values.reference, "reference", "", "")
+	}
+	if err := set.Parse(args); err != nil || set.NArg() != 0 {
+		return requestInput{}, false
+	}
+	return values, true
+}
+
+func knownWorkflow(operation action) bool {
+	return operation == workflowStartAction || operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowStatusAction || operation == workflowEvidenceAction
+}
+
 func known(operation action) bool {
 	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction || operation == configureAction
 }
@@ -281,6 +334,20 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 			return service.WorkItemComment(ctx, value)
 		default:
 			return service.WorkItemComplete(ctx, value)
+		}
+	case workflowStartAction, workflowAdvanceAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction:
+		value := WorkflowInput{Project: input.project, Repository: input.repository, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, AuthorizeExternal: input.authorizeExternal}
+		switch operation {
+		case workflowStartAction:
+			return service.WorkflowStart(ctx, value)
+		case workflowAdvanceAction:
+			return service.WorkflowAdvance(ctx, value)
+		case workflowResumeAction:
+			return service.WorkflowResume(ctx, value)
+		case workflowStatusAction:
+			return service.WorkflowStatus(ctx, value)
+		default:
+			return service.WorkflowEvidence(ctx, value)
 		}
 	case codexInstallAction:
 		return service.RuntimeCodexInstall(ctx)
@@ -389,6 +456,15 @@ func (UnavailableService) WorkItemComment(context.Context, WorkItemInput) Result
 	return unavailable()
 }
 func (UnavailableService) WorkItemComplete(context.Context, WorkItemInput) Result {
+	return unavailable()
+}
+func (UnavailableService) WorkflowStart(context.Context, WorkflowInput) Result { return unavailable() }
+func (UnavailableService) WorkflowAdvance(context.Context, WorkflowInput) Result {
+	return unavailable()
+}
+func (UnavailableService) WorkflowResume(context.Context, WorkflowInput) Result { return unavailable() }
+func (UnavailableService) WorkflowStatus(context.Context, WorkflowInput) Result { return unavailable() }
+func (UnavailableService) WorkflowEvidence(context.Context, WorkflowInput) Result {
 	return unavailable()
 }
 func unavailable() Result { return Result{Status: Failed, Category: "application_unavailable"} }
