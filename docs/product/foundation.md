@@ -30,9 +30,14 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 ### Facts
 
 - The repository contains a Codex-first harness, policies, skills, templates and deterministic shell validation.
-- A Go module exists in `go.mod`, with tested Project rules, application contracts, portable/local codecs and an executable minimal Lingo POC. See the [implemented foundation](../architecture/README.md#implemented-foundation).
+- A Go module exists in `go.mod`, with tested Project rules, application
+  contracts, portable/local codecs and an executable E2E Lingo/Codex POC. See
+  the [implemented foundation](../architecture/README.md#implemented-foundation).
 - The [Specification index](../specifications/README.md#002--lingo-project-initialization) owns the current delivery and acceptance status.
-- Runtime/provider adapters and orchestration are unavailable. The POC's filesystem and acceptance limits are recorded in [Evidence](../specifications/002-lingo-project-initialization/evidence-poc.md).
+- The bounded E2E POC implements a Codex Runtime adapter, five thin global skills,
+  GitHub Issue Work Items, Project/repository resolution and one sequential
+  workflow. It is not a general runtime/provider/orchestration platform. See
+  [Specification 003 Evidence](../specifications/003-e2e-codex-poc/final-report.md).
 - The current agent factory describes `intake -> normalized blueprint -> artifact plan -> Codex renderer -> validation -> package`.
 - Notion contains discovery material, accepted-decision summaries, and explicitly classified proposals/open questions.
 

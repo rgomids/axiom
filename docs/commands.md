@@ -2,10 +2,11 @@
 
 Execute estes comandos na raiz do repositório.
 
-## Lingo POC minimal lifecycle
+## Lingo Project lifecycle
 
-O POC é local. Ele não acessa rede, Git, providers, runtimes ou credenciais. Use
-um root temporário/isolado enquanto avalia; `LINGO_PROJECTS_ROOT` deve ser absoluto.
+O lifecycle portátil básico é local. Comandos separados de Runtime/Work Item
+podem acessar Codex user-global e GitHub quando explicitamente invocados. Use um
+root temporário/isolado enquanto avalia; `LINGO_PROJECTS_ROOT` deve ser absoluto.
 Sem override, Lingo usa `~/.axiom/projects` para configuração portátil. Estado
 local usa `$XDG_STATE_HOME/lingo` no Linux quando absoluto, caso contrário
 `$HOME/.local/state/lingo`; no macOS, usa
@@ -24,15 +25,17 @@ go run ./cmd/lingo project install --source "$LINGO_PROJECTS_ROOT/sample"
 go run ./cmd/lingo project update --slug sample --name "Sample renamed"
 ```
 
-Cada operação escreve um evento JSON seguro em stdout e retorna `0` em sucesso,
-`1` em erro/conflito e `2` em cancelamento. `init` é create/no-op/conflito: não
+Cada operação escreve resumo humano por padrão; prefixe o comando com `--json`
+para evento estruturado. Exit codes: `0` sucesso, `1` erro/conflito, `2`
+cancelamento. `init` é create/no-op/conflito: não
 renomeia nem atualiza um Project existente; use `update` para alterar o nome.
 
 `install` grava o record local estrito em `<state-root>/projects/<project-id>/installation.json`;
-não altera o manifest de origem. O adaptador atual aceita somente Project mínimo de um único `axiom.yaml`. Ele
-recusa symlinks, artefatos extras e roots relativos em vez de tentar preservar
-documentos opcionais sem um protocolo completo. Binding,
-rename, documentos, Git, Runtime, Provider e rede permanecem fora deste incremento.
+não altera o manifest de origem. O store portátil básico aceita somente Project
+mínimo de um único `axiom.yaml` e recusa symlinks, artefatos extras e roots
+relativos. Bindings, Runtime Codex, GitHub Work Items e workflow usam
+stores/adapters separados; rename e documentos opcionais completos continuam
+fora do POC.
 
 Execute o dogfooding reproduzível deste incremento em roots temporários:
 
@@ -99,9 +102,9 @@ e integração com fake do port T02. Além do lifecycle portátil, este POC incl
 `lingo project install`, que persiste `installation.json` em
 `<state-root>/projects/<project-id>/installation.json`; `reopen` reconhece esse
 estado local quando disponível. Configuração portátil e estado local permanecem
-separados. Bindings, resolução de credenciais, Runtime observations,
-reconciliação avançada, recuperação automatizada e a matriz completa de falhas
-de filesystem continuam fora da evidência concluída; #19–#21 seguem abertos.
+separados. Credenciais continuam externas no `gh`; recuperação automatizada e a
+matriz completa de falhas de filesystem continuam fora da evidência concluída.
+#19/#20 seguem abertos e #21 está pronta para aceite humano.
 
 ## Harness validation
 

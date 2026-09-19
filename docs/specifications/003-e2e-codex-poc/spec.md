@@ -3,8 +3,9 @@
 ## Status
 
 Approved and implementation-authorized by the human execution request on
-2026-09-19. Delivery is tracked by issues #30–#40. Technical completion does
-not equal final human acceptance; #30 and #40 remain open at that gate.
+2026-09-19. T31–T39 are technically delivered; T40 reconciliation is ready for
+human review. Technical completion does not equal final human acceptance; #30
+and #40 remain open at that gate.
 
 ## Intent
 

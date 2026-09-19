@@ -26,8 +26,11 @@ O módulo Go contém estes pacotes com testes:
 | [`internal/project`](../../internal/project/) | Domínio e invariantes de Project; identidade imutável, declarações e materialização/validação de estado completo |
 | [`internal/projectapp`](../../internal/projectapp/) | Contratos de aplicação, ports, snapshots/revisões, authority vinculada ao preview e resultados de mutação |
 | [`internal/manifest`](../../internal/manifest/) | Codec estrito do manifesto portátil `axiom.yaml`, com mapeamento para domínio e serialização canônica em memória |
-| [`internal/local`](../../internal/local/) | Codec local JSON e stores de filesystem restritos ao Project mínimo; operações ancoradas e estado local separado |
-| [`internal/cli`](../../internal/cli/) e [`cmd/lingo`](../../cmd/lingo/) | Apresentação JSON e executável para init, validate, reopen, install e update de nome |
+| [`internal/local`](../../internal/local/) | Codecs/stores locais estritos para instalação, bindings, Work Items e workflow; operações ancoradas e estado local separado |
+| [`internal/codexruntime`](../../internal/codexruntime/) | Instalação/inspeção das cinco skills globais thin-entrypoint do Codex |
+| [`internal/workitem`](../../internal/workitem/) | Casos de uso provider-neutral e adapter GitHub limitado para create/select/show/comment/close |
+| [`internal/workflow`](../../internal/workflow/) | Gates sequenciais persistentes, Evidence por digest, interrupção/retomada e completion autorizada |
+| [`internal/cli`](../../internal/cli/) e [`cmd/lingo`](../../cmd/lingo/) | Superfícies humana/JSON para Project, Runtime, Work Item e workflow |
 
 `internal/projectapp` entrega apenas o lifecycle mínimo. `internal/local` usa
 `os.Root` e `golang.org/x/sys/unix@v0.44.0` para operações de filesystem em
@@ -44,10 +47,11 @@ portátil validado. Detalhes pertencem às
 
 ## Not implemented
 
-Não existem documentos opcionais no store POC, rename, bindings, runtime/provider
-adapters ou orchestration. Recuperação automatizada, garantias completas contra
-races hostis e Evidence em Linux permanecem abertas. Nenhum framework CLI ou
-engine geral de persistência foi adotado.
+O POC não implementa outros Runtimes/Providers, workflow multi-agent/paralelo,
+package manager/auto-update, sincronização remota, documentos opcionais/rename
+completos da Specification 002, nem recuperação automática. Garantias completas
+contra power loss, todas as falhas de filesystem e races hostis same-UID seguem
+abertas em #19/#20. Nenhum engine geral de persistência foi adotado.
 
 ## Architecture references
 
