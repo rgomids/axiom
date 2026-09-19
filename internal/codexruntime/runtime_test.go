@@ -20,9 +20,42 @@ func TestEmbeddedSkillsUseSupportedNamesAndThinEntrypoints(t *testing.T) {
 			t.Fatal(err)
 		}
 		text := string(content)
-		if !strings.Contains(text, "name: "+name) || !strings.Contains(text, "lingo ") {
+		if !strings.Contains(text, "name: "+name) || !strings.Contains(text, "lingo --json") {
 			t.Fatalf("skill is not a named thin Lingo entrypoint: %s", name)
 		}
+	}
+}
+
+func TestInstallUpgradesExactPriorAxiomSkill(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "skills")
+	directory := filepath.Join(root, "axiom-project-show")
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	legacy := `---
+name: axiom-project-show
+description: Inspect or resolve a configured Axiom Project through Lingo from any working directory.
+---
+
+# Show Axiom Project
+
+Collect a Project slug or ID when absent. Run ` + "`lingo project show`" + ` with that
+selector and report its structured result. Never infer a repository from Codex's
+current working directory.
+`
+	if err := os.WriteFile(filepath.Join(directory, "SKILL.md"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := service.Install(context.Background()); got.Status != Applied {
+		t.Fatalf("upgrade = %#v", got)
+	}
+	data, err := os.ReadFile(filepath.Join(directory, "SKILL.md"))
+	if err != nil || !strings.Contains(string(data), "lingo --json project show") {
+		t.Fatalf("skill not upgraded: %q, %v", data, err)
 	}
 }
 

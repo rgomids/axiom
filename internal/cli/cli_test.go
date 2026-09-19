@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 )
@@ -23,6 +24,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"runtime install", []string{"runtime", "codex", "install"}, "runtime-install"},
 		{"runtime status", []string{"runtime", "codex", "status"}, "runtime-status"},
 		{"resolve", []string{"project", "resolve", "--selector", "alpha"}, "resolve:alpha"},
+		{"show", []string{"project", "show", "--selector", "alpha"}, "resolve:alpha"},
 		{"configure", []string{"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, "configure:alpha:Alpha:main:/tmp/alpha"},
 		{"work item select", []string{"work-item", "select", "--project", "alpha", "--repository", "main", "--number", "7"}, "work-item-select:alpha:main:7"},
 		{"workflow advance", []string{"workflow", "advance", "--project", "alpha", "--repository", "main", "--number", "7", "--gate", "specification", "--outcome", "pass", "--reference", "spec.md"}, "workflow-advance:alpha:main:7:specification:pass:spec.md"},
@@ -63,13 +65,21 @@ func TestRunFailsPromptlyWithoutRequiredInput(t *testing.T) {
 func TestRunInteractiveGuidesProjectConfiguration(t *testing.T) {
 	var output, prompts bytes.Buffer
 	input := strings.NewReader("alpha\nAlpha\nmain\n/tmp/alpha\n")
-	code := RunInteractive(context.Background(), []string{"project", "configure"}, &recordingService{}, input, &output, &prompts)
+	code := RunInteractive(context.Background(), []string{"--json", "project", "configure"}, &recordingService{}, input, &output, &prompts)
 	if code != ExitSuccess {
 		t.Fatalf("exit code = %d, output=%s", code, output.String())
 	}
 	assertEvent(t, output.String(), "configure", Succeeded, "applied")
 	if !strings.Contains(prompts.String(), "Repository path") {
 		t.Fatalf("prompts = %q", prompts.String())
+	}
+}
+
+func TestRunInteractiveDefaultsToHumanOutput(t *testing.T) {
+	var output bytes.Buffer
+	code := RunInteractive(context.Background(), []string{"project", "show", "--selector", "alpha"}, &recordingService{}, nil, &output, io.Discard)
+	if code != ExitSuccess || !strings.Contains(output.String(), "success: applied (show)") || !strings.Contains(output.String(), `repository main "/tmp/alpha"`) {
+		t.Fatalf("human output = %q, code=%d", output.String(), code)
 	}
 }
 
@@ -152,7 +162,7 @@ func (s *recordingService) RuntimeCodexStatus(context.Context) Result {
 }
 func (s *recordingService) Resolve(_ context.Context, input ResolveInput) Result {
 	s.call = "resolve:" + input.Selector
-	return Result{Status: Succeeded, Category: "applied"}
+	return Result{Status: Succeeded, Category: "applied", Project: &ProjectView{ID: "123e4567-e89b-42d3-a456-426614174000", Slug: input.Selector, Repositories: []RepositoryView{{Key: "main", Path: "/tmp/alpha"}}}}
 }
 func (s *recordingService) Configure(_ context.Context, input ConfigureInput) Result {
 	repository := input.Repositories[0]
