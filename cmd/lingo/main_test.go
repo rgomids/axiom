@@ -57,6 +57,72 @@ func TestComposedCLIRejectsRelativeRoot(t *testing.T) {
 	}
 }
 
+func TestConfigurePublishesPortableKeysAndLocalPathsThenResolves(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	repository := filepath.Join(t.TempDir(), "repository")
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+	runCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository}, cli.ExitSuccess, "project_configured")
+	runCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository}, cli.ExitSuccess, "project_already_configured")
+	runCLI(t, service, []string{"project", "resolve", "--selector", "configured"}, cli.ExitSuccess, "project_resolved")
+	manifestBytes, err := os.ReadFile(filepath.Join(root, "configured", "axiom.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestText := string(manifestBytes)
+	if !strings.Contains(manifestText, "key: main") || strings.Contains(manifestText, repository) {
+		t.Fatalf("portable/local boundary violated: %s", manifestText)
+	}
+	records, err := filepath.Glob(filepath.Join(state, "projects", "*", "installation.json"))
+	if err != nil || len(records) != 1 {
+		t.Fatalf("records = %v, %v", records, err)
+	}
+	recordBytes, err := os.ReadFile(records[0])
+	if err != nil || !bytes.Contains(recordBytes, []byte(repository)) {
+		t.Fatalf("local repository binding absent: %s, %v", recordBytes, err)
+	}
+}
+
+func TestConfigureInvalidRepositoriesPublishNothing(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	repository := filepath.Join(t.TempDir(), "repository")
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+	runCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository, "--repository", "main=" + repository}, cli.ExitFailure, "invalid_input")
+	if _, err := os.Stat(filepath.Join(root, "configured")); !os.IsNotExist(err) {
+		t.Fatalf("invalid configuration published portable state: %v", err)
+	}
+}
+
+func TestConfigureReportsCommittedPortableStateWhenLocalPublicationFails(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	repository := filepath.Join(t.TempDir(), "repository")
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+	if err := os.Symlink(t.TempDir(), state); err != nil {
+		t.Fatal(err)
+	}
+	runCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository}, cli.ExitFailure, "portable_committed_local_failed")
+	if _, err := os.Stat(filepath.Join(root, "configured", "axiom.yaml")); err != nil {
+		t.Fatalf("committed portable state not reported truthfully: %v", err)
+	}
+}
+
 func TestVersionReportsAxiomSourceMetadata(t *testing.T) {
 	file, err := os.CreateTemp(t.TempDir(), "version")
 	if err != nil {

@@ -241,3 +241,24 @@ lingo project resolve --selector my-project
 Resolution reads protected machine-local state. It never searches the caller's
 current directory and fails explicitly for ambiguous Projects or unavailable
 portable/repository locations.
+
+## Configure a Project
+
+Guided CLI:
+
+```bash
+lingo project configure
+```
+
+Repeatable non-interactive form:
+
+```bash
+lingo project configure \
+  --slug my-project \
+  --name "My Project" \
+  --repository main=/absolute/path/to/working-copy
+```
+
+Repeat `--repository` for multi-repository Projects. Keys enter portable intent;
+absolute paths remain only in protected machine-local state. Codex uses the same
+command through `$axiom-project-configure`.

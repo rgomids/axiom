@@ -10,6 +10,8 @@
 
 - feature: resolve installed Projects by UUID or slug from protected local state independently of caller CWD; preserve multiple repository bindings and fail explicitly for ambiguous selectors, missing sources, moved repositories and invalid local records.
 
+- feature: configure a complete Project through guided or argument-driven Lingo, publish repository keys in portable intent and absolute working-copy paths only in strict local state, then resolve immediately from any CWD. Preserve separate portable/local commit truth on post-commit failure.
+
 ## [2026-09-18]
 
 - docs: reconcile Specification 002 and Plan scope for the POC-only Linux/macOS verification workflow; classify its runs as acceptance Evidence, not product CI or release automation. Preserve #19–#21, #14 and SEC-003 human gates.
