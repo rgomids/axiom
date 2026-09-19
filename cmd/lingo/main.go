@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -75,7 +76,12 @@ func compose() cli.Service {
 	}
 	github, _ := workitem.NewGitHubAdapter(os.Getenv("AXIOM_GIT_BIN"), os.Getenv("AXIOM_GH_BIN"))
 	workItemService := workitem.New(workItemResolver{installation}, github, github, workItems)
-	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation, codex, workItemService, root}
+	workflows, err := local.NewWorkflowStore(state)
+	if err != nil {
+		return cli.UnavailableService{}
+	}
+	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows)
+	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root}
 }
 
 func codexSkillsRoot() string {
@@ -121,10 +127,14 @@ type lifecycleService struct {
 	installation local.InstallationStore
 	codex        codexruntime.Service
 	workItems    workitem.Service
+	workflows    workflow.Service
 	projectsRoot string
 }
 
 type workItemResolver struct{ installation local.InstallationStore }
+
+type workflowResolver struct{ installation local.InstallationStore }
+type workflowWorkItems struct{ service workitem.Service }
 
 func (r workItemResolver) Resolve(ctx context.Context, selector string) (workitem.Project, string) {
 	resolved := r.installation.Resolve(ctx, selector)
@@ -136,6 +146,27 @@ func (r workItemResolver) Resolve(ctx context.Context, selector string) (workite
 		project.Repositories = append(project.Repositories, workitem.Repository{Key: repository.Key, Path: repository.Path})
 	}
 	return project, ""
+}
+
+func (r workflowResolver) Resolve(ctx context.Context, selector string) (workflow.Project, string) {
+	resolved := r.installation.Resolve(ctx, selector)
+	if resolved.Status != local.ResolutionFound {
+		return workflow.Project{}, resolved.Category
+	}
+	project := workflow.Project{ID: resolved.Project.ID, Repositories: make([]workflow.Repository, 0, len(resolved.Project.Repositories))}
+	for _, repository := range resolved.Project.Repositories {
+		project.Repositories = append(project.Repositories, workflow.Repository{Key: repository.Key, Path: repository.Path})
+	}
+	return project, ""
+}
+
+func (w workflowWorkItems) Available(ctx context.Context, project, repository string, number int) bool {
+	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, number)
+	return result.Status == workitem.Succeeded && result.Link.State == "OPEN"
+}
+
+func (w workflowWorkItems) Complete(ctx context.Context, project, repository string, number int, authorized bool) string {
+	return w.service.Complete(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, number, authorized).Category
 }
 
 func (s lifecycleService) RuntimeCodexInstall(ctx context.Context) cli.Result {
@@ -237,6 +268,38 @@ func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkIte
 }
 func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
 	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number, input.AuthorizeExternal))
+}
+
+func workflowTarget(input cli.WorkflowInput) workflow.Target {
+	return workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, WorkItem: input.Number}
+}
+
+func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)))
+}
+func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	return workflowResult(s.workflows.Advance(ctx, workflowTarget(input), input.Gate, input.Outcome, input.Reference, input.AuthorizeExternal))
+}
+func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input)))
+}
+func (s lifecycleService) WorkflowStatus(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	return workflowResult(s.workflows.Status(ctx, workflowTarget(input)))
+}
+func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	result := s.workflows.Status(ctx, workflowTarget(input))
+	if result.Status == workflow.Succeeded {
+		result.Category = "workflow_evidence_ready"
+	}
+	return workflowResult(result)
+}
+
+func workflowResult(result workflow.Result) cli.Result {
+	status := cli.Failed
+	if result.Status == workflow.Succeeded {
+		status = cli.Succeeded
+	}
+	return cli.Result{Status: status, Category: result.Category}
 }
 
 func workItemResult(result workitem.Result) cli.Result {

@@ -25,6 +25,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"resolve", []string{"project", "resolve", "--selector", "alpha"}, "resolve:alpha"},
 		{"configure", []string{"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, "configure:alpha:Alpha:main:/tmp/alpha"},
 		{"work item select", []string{"work-item", "select", "--project", "alpha", "--repository", "main", "--number", "7"}, "work-item-select:alpha:main:7"},
+		{"workflow advance", []string{"workflow", "advance", "--project", "alpha", "--repository", "main", "--number", "7", "--gate", "specification", "--outcome", "pass", "--reference", "spec.md"}, "workflow-advance:alpha:main:7:specification:pass:spec.md"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -41,6 +42,9 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 			}
 			if test.args[0] == "work-item" {
 				operation = "work_item_" + test.args[1]
+			}
+			if test.args[0] == "workflow" {
+				operation = "workflow_" + test.args[1]
 			}
 			assertEvent(t, output.String(), operation, Succeeded, "applied")
 		})
@@ -170,5 +174,21 @@ func (s *recordingService) WorkItemComment(context.Context, WorkItemInput) Resul
 	return Result{Status: Succeeded, Category: "applied"}
 }
 func (s *recordingService) WorkItemComplete(context.Context, WorkItemInput) Result {
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkflowStart(context.Context, WorkflowInput) Result {
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkflowAdvance(_ context.Context, input WorkflowInput) Result {
+	s.call = "workflow-advance:" + input.Project + ":" + input.Repository + ":" + fmt.Sprint(input.Number) + ":" + input.Gate + ":" + input.Outcome + ":" + input.Reference
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkflowResume(context.Context, WorkflowInput) Result {
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkflowStatus(context.Context, WorkflowInput) Result {
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkflowEvidence(context.Context, WorkflowInput) Result {
 	return Result{Status: Succeeded, Category: "applied"}
 }

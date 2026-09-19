@@ -14,6 +14,8 @@
 
 - feature: add bounded GitHub Work Item create/select/show/comment/complete capabilities behind provider-neutral ports, explicit external mutation authority, exact provider-reference validation, protected local linkage and bounded `git`/`gh` transports.
 
+- feature: add the persistent sequential Axiom delivery workflow with fixed Specification-through-Reconciliation gates, repository-anchored artifact digests, inspectable interruption/resume, and explicitly authorized Work Item completion.
+
 ## [2026-09-18]
 
 - docs: reconcile Specification 002 and Plan scope for the POC-only Linux/macOS verification workflow; classify its runs as acceptance Evidence, not product CI or release automation. Preserve #19–#21, #14 and SEC-003 human gates.
