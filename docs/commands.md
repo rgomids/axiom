@@ -262,3 +262,32 @@ lingo project configure \
 Repeat `--repository` for multi-repository Projects. Keys enter portable intent;
 absolute paths remain only in protected machine-local state. Codex uses the same
 command through `$axiom-project-configure`.
+
+## GitHub Work Items
+
+Create or select one GitHub Issue linked to a configured Project repository:
+
+```bash
+lingo work-item create \
+  --project my-project \
+  --repository main \
+  --title "Bounded change" \
+  --body "Scope and acceptance criteria" \
+  --authorize-external
+
+lingo work-item select --project my-project --repository main --number 123
+lingo work-item show --project my-project --repository main --number 123
+```
+
+Add an Evidence/status reference or complete the Issue:
+
+```bash
+lingo work-item comment --project my-project --repository main --number 123 \
+  --message "Evidence: ..." --authorize-external
+lingo work-item complete --project my-project --repository main --number 123 \
+  --authorize-external
+```
+
+Create, comment and complete refuse execution without explicit external mutation
+authority. Authentication comes from the existing `gh` CLI session; Axiom does
+not persist its credential.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -23,6 +24,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"runtime status", []string{"runtime", "codex", "status"}, "runtime-status"},
 		{"resolve", []string{"project", "resolve", "--selector", "alpha"}, "resolve:alpha"},
 		{"configure", []string{"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, "configure:alpha:Alpha:main:/tmp/alpha"},
+		{"work item select", []string{"work-item", "select", "--project", "alpha", "--repository", "main", "--number", "7"}, "work-item-select:alpha:main:7"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -36,6 +38,9 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 			operation := test.args[1]
 			if test.args[0] == "runtime" {
 				operation = "runtime_codex_" + test.args[2]
+			}
+			if test.args[0] == "work-item" {
+				operation = "work_item_" + test.args[1]
 			}
 			assertEvent(t, output.String(), operation, Succeeded, "applied")
 		})
@@ -148,5 +153,22 @@ func (s *recordingService) Resolve(_ context.Context, input ResolveInput) Result
 func (s *recordingService) Configure(_ context.Context, input ConfigureInput) Result {
 	repository := input.Repositories[0]
 	s.call = "configure:" + input.Slug + ":" + input.Name + ":" + repository.Key + ":" + repository.Path
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkItemCreate(context.Context, WorkItemInput) Result {
+	s.call = "work-item-create"
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkItemSelect(_ context.Context, input WorkItemInput) Result {
+	s.call = "work-item-select:" + input.Project + ":" + input.Repository + ":" + fmt.Sprint(input.Number)
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkItemShow(context.Context, WorkItemInput) Result {
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkItemComment(context.Context, WorkItemInput) Result {
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkItemComplete(context.Context, WorkItemInput) Result {
 	return Result{Status: Succeeded, Category: "applied"}
 }
