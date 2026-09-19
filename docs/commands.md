@@ -202,3 +202,30 @@ refused. Test installation and unrelated-CWD invocation with:
 ```bash
 ./scripts/test-install-axiom.sh
 ```
+
+## Configure Codex Runtime
+
+Install and inspect the global thin Axiom skills:
+
+```bash
+lingo runtime codex install
+lingo runtime codex status
+```
+
+Codex standalone skill names accept lowercase letters, digits and hyphens, so
+the requested semantic `axiom:<skill>` names are invoked as:
+
+```text
+$axiom-project-configure
+$axiom-project-show
+$axiom-work-item-create
+$axiom-work-item-run
+$axiom-work-item-status
+```
+
+The default user-global root is `$HOME/.agents/skills`. For isolated validation:
+
+```bash
+AXIOM_CODEX_SKILLS_ROOT=/absolute/test/root lingo runtime codex install
+./scripts/test-codex-skills.sh
+```

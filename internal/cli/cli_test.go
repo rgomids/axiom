@@ -19,6 +19,8 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"validate", []string{"project", "validate", "--slug", "alpha"}, "validate:alpha"},
 		{"reopen", []string{"project", "reopen", "--slug", "alpha"}, "reopen:alpha"},
 		{"update", []string{"project", "update", "--slug", "alpha", "--name", "Renamed"}, "update:alpha:Renamed"},
+		{"runtime install", []string{"runtime", "codex", "install"}, "runtime-install"},
+		{"runtime status", []string{"runtime", "codex", "status"}, "runtime-status"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -29,7 +31,11 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 			if service.call != test.call {
 				t.Fatalf("call = %q, want %q", service.call, test.call)
 			}
-			assertEvent(t, output.String(), string(test.args[1]), Succeeded, "applied")
+			operation := test.args[1]
+			if test.args[0] == "runtime" {
+				operation = "runtime_codex_" + test.args[2]
+			}
+			assertEvent(t, output.String(), operation, Succeeded, "applied")
 		})
 	}
 }
@@ -111,4 +117,12 @@ func (s *recordingService) Update(_ context.Context, input UpdateInput) Result {
 func (s *recordingService) Install(_ context.Context, input InstallInput) Result {
 	s.call = "install:" + input.Source
 	return Result{Status: Succeeded, Category: "installed"}
+}
+func (s *recordingService) RuntimeCodexInstall(context.Context) Result {
+	s.call = "runtime-install"
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) RuntimeCodexStatus(context.Context) Result {
+	s.call = "runtime-status"
+	return Result{Status: Succeeded, Category: "applied"}
 }
