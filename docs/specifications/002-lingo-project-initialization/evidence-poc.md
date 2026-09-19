@@ -43,8 +43,8 @@ before an update.
   crash/ancestor-race proof remains unverified.
 - Local bindings, credentials, Runtime observation, rename, Git, remote sync,
   provider integration and orchestration are unsupported.
-- `gitleaks` is not installed. `scripts/test-check-projectapp.sh` requires a
-  local Go 1.26 toolchain; this host's forced-local toolchain is Go 1.24.5.
+- The original 2026-09-18 run lacked `gitleaks`; the 2026-09-19 E2E delivery ran
+  gitleaks 8.30.1 successfully. Historical tool availability is not rewritten.
 
 ## Hardening and dogfooding — 2026-09-18
 
@@ -151,7 +151,20 @@ and change in that run, not fixed goldens.
   acceptance remains pending. Merge and test success do not mark Specification
   002 or parent #14 Accepted or authorize MVP.
 - `gitleaks` is unavailable on the local host. The repository sensitive-file
-  checker passed; consolidated scanner coverage remains unverified.
+  checker passed; consolidated scanner coverage remained unverified in that
+  historical run. T39 later records a successful gitleaks 8.30.1 scan.
+
+### E2E extension — 2026-09-19
+
+Specification 003 [T39 Evidence](../003-e2e-codex-poc/evidence-t39.md) extends
+the bounded lifecycle with installation, Project bindings/resolution, Codex
+Runtime skills, GitHub Work Items and the complete workflow. The revised
+`scripts/dogfood-poc.sh` runs that path from an unrelated CWD with isolated
+roots and bounded fake provider binaries on macOS/Linux. This closes the former
+Runtime/Provider/binding test gap for the E2E POC, but does not close #19's
+physical power-loss, exhaustive hostile same-UID race or remaining real
+filesystem-fault proof gaps. #19 and dependent #20 therefore remain open rather
+than treating broader E2E success as filesystem acceptance.
 
 ### Parent #14 exit checklist for human review
 

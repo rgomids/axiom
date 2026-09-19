@@ -40,9 +40,13 @@ Execute o dogfooding reproduzível deste incremento em roots temporários:
 ./scripts/dogfood-poc.sh
 ```
 
-O script exige Go 1.26, Bash, `find`, `wc`, `tr`, `cut`, `shasum` e `cmp`. A saída contém eventos
-JSON seguros e um resultado estruturado com hashes SHA-256. Instalação usa publicação sem substituição; resíduos
-de tentativas interrompidas retornam `recovery_required` e exigem inspeção humana.
+O script exige Go 1.26, Bash, `find`, `wc`, `tr`, `grep`, `sed`, `awk` e
+`shasum`. Ele instala Lingo em um PATH isolado, inicia fora do Project, instala e
+verifica as cinco skills, configura/resolve Project, usa um Provider GitHub fake
+limitado, executa todos os gates, cobre interrupção/retomada e completa o Work
+Item somente com authority explícita. A saída final é Evidence JSON versionada
+com hashes SHA-256. Instalação usa publicação sem substituição; resíduos de
+tentativas interrompidas retornam `recovery_required` e exigem inspeção humana.
 No macOS, o adaptador exige build com cgo para inspecionar ACLs; sem cgo,
 operações de filesystem falham fechadas.
 Consulte o [procedimento manual de recovery](specifications/002-lingo-project-initialization/recovery-poc.md)
