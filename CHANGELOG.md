@@ -20,6 +20,8 @@
 
 - test: expand `dogfood-poc.sh` into the complete isolated install, global-skill, unrelated-CWD Project, GitHub Work Item, interruption/resume, Evidence, reconciliation and completion journey; record a real user-global Codex discovery run for #39.
 
+- docs: reconcile README, architecture, setup, roadmap, Specifications and final POC report to the delivered Codex/GitHub/sequential-workflow scope; preserve #19/#20 proof gaps and explicit human acceptance for #21/#30/#40.
+
 ## [2026-09-18]
 
 - docs: reconcile Specification 002 and Plan scope for the POC-only Linux/macOS verification workflow; classify its runs as acceptance Evidence, not product CI or release automation. Preserve #19–#21, #14 and SEC-003 human gates.

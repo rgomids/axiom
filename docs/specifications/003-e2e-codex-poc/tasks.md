@@ -2,8 +2,9 @@
 
 ## Status
 
-Approved and implementation-authorized on 2026-09-19. Each task maps one-to-one
-to its delivery issue and must retain a dedicated PR into `poc/e2e-axiom-codex`.
+Approved and implementation-authorized on 2026-09-19. T31–T39 are delivered in
+dedicated PRs to `poc/e2e-axiom-codex`; T40 is the final technical reconciliation.
+Human acceptance and final merge remain separate gates.
 
 ## Dependency graph
 

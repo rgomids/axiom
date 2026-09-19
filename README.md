@@ -15,7 +15,10 @@
 
 Axiom is being built to connect software intent, architecture, implementation, and validation across human and AI work.
 
-**POC em andamento.** Lingo já oferece um lifecycle portátil mínimo, local e testável. Limites e comandos estão em [Commands](docs/commands.md#lingo-poc-minimal-lifecycle).
+**POC E2E tecnicamente pronta para aceite humano.** Lingo instala localmente,
+configura Codex e suas skills globais, resolve Projects fora do CWD, integra um
+Work Item GitHub e conduz o workflow sequencial até Evidence e conclusão. Veja
+[Commands](docs/commands.md) e o [relatório final](docs/specifications/003-e2e-codex-poc/final-report.md).
 
 <p align="center">
   <a href="#explore-axiom">Explore Axiom</a> ·
@@ -46,10 +49,15 @@ Spec-Driven Development (SDD) connects the reason for a change to its implementa
 **Available in this repository:**
 
 - Codex-first harness: context, policies, skills, templates, and validation scripts.
-- Go implementation of Project rules, application contracts, portable manifests, local installation records, and um lifecycle portátil mínimo de Lingo, with tests.
+- Go implementation of Project rules, portable/local state, Codex Runtime,
+  GitHub Work Items, and a bounded persistent Lingo workflow, with tests.
 - Versioned Specifications, architecture decisions, and implementation Evidence.
 
-**Limites atuais:** o POC Lingo cobre `init`, `validate`, `reopen`, `install` local e alteração explícita de nome para Projects mínimos de um único `axiom.yaml`. Documentos opcionais, bindings, Runtime, Git, rede e orquestração ainda não são suportados. There is no provider integration.
+**Limites atuais:** Codex é o único Runtime e GitHub Issues o único Work Item
+Provider. O workflow é sequencial e executado por um agente; outros Runtimes,
+multi-agent, package managers, auto-update, sincronização remota e garantias de
+produção não fazem parte do POC. Gaps de filesystem de #19/#20 continuam
+explícitos. Aceite e merge final permanecem decisões humanas.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 
@@ -76,12 +84,17 @@ Requirements: Git, Bash, standard POSIX utilities, and **Go 1.26 or later** for 
 ```bash
 git clone https://github.com/rgomids/axiom.git
 cd axiom
+./scripts/install-axiom.sh
+lingo runtime codex install
 ./scripts/validate-repository.sh .
 go test ./...
 ./scripts/dogfood-poc.sh
 ```
 
-The validator checks repository and harness structure, runs shell test suites, and scans for sensitive files. Go tests exercise the implementation. Dogfooding runs the minimal Lingo lifecycle in temporary local roots. No service starts.
+The validator checks repository/harness structure and sensitive files. Go tests
+exercise application and adapter contracts. Dogfooding installs Lingo, global
+skills, Project, synthetic GitHub Work Item and the full workflow in temporary
+roots. No long-running service starts.
 
 Next, choose a path:
 
@@ -102,20 +115,21 @@ Domain vocabulary; some concepts remain unimplemented.
 | [Evidence](docs/architecture/conceptual-model.md#execution-and-proof) | An inspectable observation supporting a claim: a test result, command outcome, diff, or review. |
 | [Authority](docs/product/constitution.md) | Explicit permission and approval boundaries for actions; an AI proposal does not grant permission. |
 | [Agent / Runtime](docs/architecture/conceptual-model.md#actors-and-external-boundaries) | An Agent participates in work; a Runtime provides its execution environment and capabilities. |
-| [Lingo](docs/decisions/0003-lingo-as-axiom-local-control-plane.md) | Axiom's local executable control plane. The POC currently exposes a small portable Project lifecycle; broader operations remain unavailable. |
+| [Lingo](docs/decisions/0003-lingo-as-axiom-local-control-plane.md) | Axiom's local executable control plane. The POC exposes Project, Codex Runtime, GitHub Work Item and bounded workflow operations. |
 
 ## Architecture
 
 Axiom separates project intent and rules from execution tools and external providers. Lingo is intended to conduct local workflows while runtime and provider adapters stay at the boundary.
 
-Simplified system context, showing the intended relationships rather than deployed integrations:
+Simplified POC system context:
 
 ```mermaid
 flowchart TB
     H["Humans"] -->|intent and approvals| A["Axiom"]
-    R["Agents / Runtimes"] ---|workflow participation| A
+    R["Codex Runtime / Agent"] -->|thin global skills| L["Lingo"]
+    L -->|application workflow| A
     A -->|project associations| G["Independent Repositories"]
-    A -. future integrations .-> P["External Providers"]
+    L -->|bounded adapter| P["GitHub Issues"]
 ```
 
 See [Architecture](docs/architecture/README.md), the [conceptual model](docs/architecture/conceptual-model.md), and [provider boundaries](docs/architecture/provider-boundaries.md) for details and open questions.

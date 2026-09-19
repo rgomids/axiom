@@ -17,8 +17,9 @@ use-o sem mover, apagar ou sobrescrever outros diretórios. SSH não é requisit
 - Git; acesso HTTPS ao GitHub para clonar o repositório público;
 - Bash;
 - utilitários POSIX usados pelos scripts (`find`, `grep` e `awk`);
-- Codex apenas para operar o harness de agentes, não para executar as validações;
-- GitHub CLI apenas para administração do repositório remoto.
+- Codex para o caminho Runtime E2E; não é necessário para checks Go/shell;
+- GitHub CLI autenticado para operações reais de Work Item (o dogfood
+  determinístico usa um fake controlado).
 
 A fundação Go da Specification 002 contém domínio, contratos de aplicação e codecs
 portátil e local JSON. Go 1.26 ou posterior é requisito para os checks Go; o codec
@@ -26,15 +27,12 @@ portátil depende de `go.yaml.in/yaml/v3@v3.0.5`; o store POC usa
 `golang.org/x/sys/unix@v0.44.0` em Linux/macOS.
 Consulte [preparação do cache e validação offline](../commands.md#t01t04-validation)
 e [Evidence T04](../specifications/002-lingo-project-initialization/evidence-t04.md).
-O POC Lingo oferece lifecycle portátil mínimo e `lingo project install`, que
-persiste `installation.json` em `<state-root>/projects/<project-id>/installation.json`.
-`reopen` reconhece o estado local quando disponível, separado da configuração
-portátil. Bindings, resolução de credenciais, Runtime observations, reconciliação
-avançada e recuperação automatizada continuam indisponíveis. A proteção básica
-de filesystem foi ampliada e executada em Linux/macOS, inclusive com testes de
-ACL. A matriz completa de falhas/races ainda não tem Evidence; #19–#21
-permanecem abertos. Consulte
-[comandos](../commands.md#lingo-poc-minimal-lifecycle).
+O POC Lingo oferece lifecycle portátil/local, bindings e resolução global de
+Project, bootstrap do Codex, Work Items GitHub e workflow sequencial persistente.
+Paths absolutos permanecem no estado local; credenciais continuam no `gh`.
+Recuperação automática e a matriz completa de falhas/races não são prometidas;
+#19/#20 permanecem abertas e #21 aguarda aceite humano. Consulte
+[comandos](../commands.md).
 Consulte o [lifecycle atual](../specifications/README.md#002--lingo-project-initialization)
 para distinguir implementação mergeada, aceitação humana e autorização de novas Tasks.
 
@@ -57,12 +55,13 @@ Execute também os checks locais de segurança:
 
 ## Work with Codex
 
-1. Abra a raiz do seu checkout do repositório.
-2. Leia [../../AGENTS.md](../../AGENTS.md) antes de alterar arquivos.
-3. Consulte somente o contexto e as políticas relevantes em `.agents/`.
-4. Execute mudanças através da menor skill aplicável em `.agents/skills/`.
-5. Preserve a separação entre discovery, hipótese, specification, decisão, implementação e evidência.
-6. Use somente os comandos POC documentados; não invente comandos futuros.
+1. Execute `./scripts/install-axiom.sh` e confirme `lingo version` fora do checkout.
+2. Execute `lingo runtime codex install` e `lingo runtime codex status`.
+3. Configure um Project com `lingo project configure`.
+4. Inicie Codex fora do repository e invoque uma skill global `$axiom-*` usando
+   somente seletores lógicos.
+5. Preserve a separação entre discovery, hipótese, Specification, decisão,
+   implementação e Evidence; não invente comandos futuros.
 
 ## Before a commit
 
