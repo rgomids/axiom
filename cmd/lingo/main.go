@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -12,8 +13,33 @@ import (
 	"github.com/rgomids/axiom/internal/projectapp"
 )
 
+var (
+	buildVersion = "devel"
+	buildCommit  = "unknown"
+	buildSource  = "https://github.com/rgomids/axiom"
+)
+
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		os.Exit(writeVersion(os.Stdout))
+	}
 	os.Exit(cli.Run(context.Background(), os.Args[1:], compose(), os.Stdout))
+}
+
+type versionInfo struct {
+	Product string `json:"product"`
+	Binary  string `json:"binary"`
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
+	Source  string `json:"source"`
+}
+
+func writeVersion(output *os.File) int {
+	info := versionInfo{Product: "Axiom", Binary: "lingo", Version: buildVersion, Commit: buildCommit, Source: buildSource}
+	if err := json.NewEncoder(output).Encode(info); err != nil {
+		return cli.ExitFailure
+	}
+	return cli.ExitSuccess
 }
 
 func compose() cli.Service {
