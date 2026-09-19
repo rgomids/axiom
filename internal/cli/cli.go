@@ -28,6 +28,11 @@ type Service interface {
 	RuntimeCodexStatus(context.Context) Result
 	Resolve(context.Context, ResolveInput) Result
 	Configure(context.Context, ConfigureInput) Result
+	WorkItemCreate(context.Context, WorkItemInput) Result
+	WorkItemSelect(context.Context, WorkItemInput) Result
+	WorkItemShow(context.Context, WorkItemInput) Result
+	WorkItemComment(context.Context, WorkItemInput) Result
+	WorkItemComplete(context.Context, WorkItemInput) Result
 }
 
 type InitInput struct {
@@ -47,6 +52,11 @@ type RepositoryInput struct{ Key, Path string }
 type ConfigureInput struct {
 	Slug, Name   string
 	Repositories []RepositoryInput
+}
+type WorkItemInput struct {
+	Project, Repository, Title, Body, Message string
+	Number                                    int
+	AuthorizeExternal                         bool
 }
 
 type Status string
@@ -97,23 +107,31 @@ func RunInteractive(ctx context.Context, args []string, service Service, stdin i
 type action string
 
 const (
-	initAction         action = "init"
-	validateAction     action = "validate"
-	reopenAction       action = "reopen"
-	updateAction       action = "update"
-	installAction      action = "install"
-	resolveAction      action = "resolve"
-	configureAction    action = "configure"
-	codexInstallAction action = "runtime_codex_install"
-	codexStatusAction  action = "runtime_codex_status"
+	initAction             action = "init"
+	validateAction         action = "validate"
+	reopenAction           action = "reopen"
+	updateAction           action = "update"
+	installAction          action = "install"
+	resolveAction          action = "resolve"
+	configureAction        action = "configure"
+	workItemCreateAction   action = "work_item_create"
+	workItemSelectAction   action = "work_item_select"
+	workItemShowAction     action = "work_item_show"
+	workItemCommentAction  action = "work_item_comment"
+	workItemCompleteAction action = "work_item_complete"
+	codexInstallAction     action = "runtime_codex_install"
+	codexStatusAction      action = "runtime_codex_status"
 )
 
 type requestInput struct {
-	slug         string
-	name         string
-	source       string
-	selector     string
-	repositories repositoryFlags
+	slug                                      string
+	name                                      string
+	source                                    string
+	selector                                  string
+	repositories                              repositoryFlags
+	project, repository, title, body, message string
+	number                                    int
+	authorizeExternal                         bool
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
@@ -126,6 +144,20 @@ func request(args []string, service Service) (action, requestInput, *string) {
 			return operation, requestInput{}, nil
 		}
 		return "unknown", requestInput{}, category("invalid_command")
+	}
+	if len(args) >= 2 && args[0] == "work-item" {
+		operation := action("work_item_" + args[1])
+		if !knownWorkItem(operation) {
+			return "unknown", requestInput{}, category("invalid_command")
+		}
+		values, ok := workItemFlags(operation, args[2:])
+		if !ok {
+			return operation, requestInput{}, category("invalid_input")
+		}
+		if values.project == "" || values.repository == "" || operation == workItemCreateAction && values.title == "" || operation != workItemCreateAction && values.number <= 0 || operation == workItemCommentAction && values.message == "" {
+			return operation, values, category("missing_required_input")
+		}
+		return operation, values, nil
 	}
 	if len(args) < 2 || args[0] != "project" {
 		return "unknown", requestInput{}, category("invalid_command")
@@ -183,6 +215,32 @@ func flags(operation action, args []string) (requestInput, bool) {
 	return values, true
 }
 
+func workItemFlags(operation action, args []string) (requestInput, bool) {
+	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	var values requestInput
+	set.StringVar(&values.project, "project", "", "")
+	set.StringVar(&values.repository, "repository", "", "")
+	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
+	if operation == workItemCreateAction {
+		set.StringVar(&values.title, "title", "", "")
+		set.StringVar(&values.body, "body", "", "")
+	} else {
+		set.IntVar(&values.number, "number", 0, "")
+	}
+	if operation == workItemCommentAction {
+		set.StringVar(&values.message, "message", "", "")
+	}
+	if err := set.Parse(args); err != nil || set.NArg() != 0 {
+		return requestInput{}, false
+	}
+	return values, true
+}
+
+func knownWorkItem(operation action) bool {
+	return operation == workItemCreateAction || operation == workItemSelectAction || operation == workItemShowAction || operation == workItemCommentAction || operation == workItemCompleteAction
+}
+
 func known(operation action) bool {
 	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction || operation == configureAction
 }
@@ -210,6 +268,20 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
 		return service.Configure(ctx, ConfigureInput{Slug: input.slug, Name: input.name, Repositories: repositories})
+	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction:
+		value := WorkItemInput{Project: input.project, Repository: input.repository, Title: input.title, Body: input.body, Message: input.message, Number: input.number, AuthorizeExternal: input.authorizeExternal}
+		switch operation {
+		case workItemCreateAction:
+			return service.WorkItemCreate(ctx, value)
+		case workItemSelectAction:
+			return service.WorkItemSelect(ctx, value)
+		case workItemShowAction:
+			return service.WorkItemShow(ctx, value)
+		case workItemCommentAction:
+			return service.WorkItemComment(ctx, value)
+		default:
+			return service.WorkItemComplete(ctx, value)
+		}
 	case codexInstallAction:
 		return service.RuntimeCodexInstall(ctx)
 	case codexStatusAction:
@@ -305,9 +377,18 @@ func (UnavailableService) Reopen(context.Context, ProjectInput) Result {
 func (UnavailableService) Update(context.Context, UpdateInput) Result {
 	return unavailable()
 }
-func (UnavailableService) Install(context.Context, InstallInput) Result     { return unavailable() }
-func (UnavailableService) RuntimeCodexInstall(context.Context) Result       { return unavailable() }
-func (UnavailableService) RuntimeCodexStatus(context.Context) Result        { return unavailable() }
-func (UnavailableService) Resolve(context.Context, ResolveInput) Result     { return unavailable() }
-func (UnavailableService) Configure(context.Context, ConfigureInput) Result { return unavailable() }
-func unavailable() Result                                                   { return Result{Status: Failed, Category: "application_unavailable"} }
+func (UnavailableService) Install(context.Context, InstallInput) Result         { return unavailable() }
+func (UnavailableService) RuntimeCodexInstall(context.Context) Result           { return unavailable() }
+func (UnavailableService) RuntimeCodexStatus(context.Context) Result            { return unavailable() }
+func (UnavailableService) Resolve(context.Context, ResolveInput) Result         { return unavailable() }
+func (UnavailableService) Configure(context.Context, ConfigureInput) Result     { return unavailable() }
+func (UnavailableService) WorkItemCreate(context.Context, WorkItemInput) Result { return unavailable() }
+func (UnavailableService) WorkItemSelect(context.Context, WorkItemInput) Result { return unavailable() }
+func (UnavailableService) WorkItemShow(context.Context, WorkItemInput) Result   { return unavailable() }
+func (UnavailableService) WorkItemComment(context.Context, WorkItemInput) Result {
+	return unavailable()
+}
+func (UnavailableService) WorkItemComplete(context.Context, WorkItemInput) Result {
+	return unavailable()
+}
+func unavailable() Result { return Result{Status: Failed, Category: "application_unavailable"} }

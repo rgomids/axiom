@@ -87,8 +87,28 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	if err := os.Mkdir(repository, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	gitBinary := filepath.Join(t.TempDir(), "git")
+	ghBinary := filepath.Join(t.TempDir(), "gh")
+	if err := os.WriteFile(gitBinary, []byte("#!/bin/sh\nprintf '%s\\n' 'git@github.com:owner/repo.git'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	ghScript := `#!/bin/sh
+if [ "$1" = issue ] && [ "$2" = create ]; then printf '%s\n' 'https://github.com/owner/repo/issues/7'; exit 0; fi
+if [ "$1" = issue ] && [ "$2" = view ]; then printf '%s\n' '{"Number":7,"URL":"https://github.com/owner/repo/issues/7","State":"CLOSED"}'; exit 0; fi
+if [ "$1" = issue ] && { [ "$2" = comment ] || [ "$2" = close ]; }; then printf '%s\n' ok; exit 0; fi
+exit 1
+`
+	if err := os.WriteFile(ghBinary, []byte(ghScript), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	environment = append(environment, "AXIOM_GIT_BIN="+gitBinary, "AXIOM_GH_BIN="+ghBinary)
 	run(0, "success", "project_configured", "project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main="+repository)
 	run(0, "success", "project_resolved", "project", "resolve", "--selector", "configured")
+	run(1, "error", "external_mutation_denied", "work-item", "create", "--project", "configured", "--repository", "main", "--title", "POC")
+	run(0, "success", "work_item_linked", "work-item", "create", "--project", "configured", "--repository", "main", "--title", "POC", "--authorize-external")
+	run(0, "success", "work_item_loaded", "work-item", "show", "--project", "configured", "--repository", "main", "--number", "7")
+	run(0, "success", "work_item_commented", "work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence", "--authorize-external")
+	run(0, "success", "work_item_completed", "work-item", "complete", "--project", "configured", "--repository", "main", "--number", "7", "--authorize-external")
 	run(1, "error", "missing_required_input", "project", "init", "--slug", "sample")
 	run(0, "success", "applied", "project", "init", "--slug", "sample", "--name", "Sample")
 	run(0, "success", "already_initialized", "project", "init", "--slug", "sample", "--name", "Sample")
