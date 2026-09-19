@@ -28,9 +28,23 @@ The repository test executes the same supported-name predicate plus embedded
 frontmatter/delegation checks in Go and reports the unavailable optional validator.
 
 Unit tests cover absent/configured/idempotent status, unowned conflict,
-attempt-local rollback and symlink refusal. Global discovery from an unrelated
-Codex session is reserved for the final dogfooding run because it requires a new
-host session after installation.
+attempt-local rollback and symlink refusal.
+
+## Real global discovery — 2026-09-19
+
+The integration branch installed Lingo at `$HOME/.local/bin/lingo`, then ran
+`lingo runtime codex install` and `status` from `$HOME`; both returned success.
+A new projectless Codex task started at:
+
+```text
+/Users/rgomids/Documents/Codex/2026-09-19/axiom-global-skill-discovery
+```
+
+Task `01a0b9ee-f23e-7a21-b527-207204870870` explicitly invoked
+`$axiom-project-show`, loaded the user-global skill, identified its delegation as
+`lingo project show <slug-or-id>`, and performed no mutation because no selector
+was supplied. This proves discovery outside this repository. The full Project and
+Work Item journey remains #39 scope.
 
 ## Naming divergence
 
