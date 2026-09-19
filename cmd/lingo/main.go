@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -62,7 +63,22 @@ func compose() cli.Service {
 	if err != nil {
 		return cli.UnavailableService{}
 	}
-	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation, root}
+	codex, err := codexruntime.New(codexSkillsRoot())
+	if err != nil {
+		return cli.UnavailableService{}
+	}
+	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation, codex, root}
+}
+
+func codexSkillsRoot() string {
+	if override := os.Getenv("AXIOM_CODEX_SKILLS_ROOT"); override != "" {
+		return override
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".agents", "skills")
 }
 
 func projectsRoot() (string, error) {
@@ -95,7 +111,23 @@ func stateRoot() (string, error) {
 type lifecycleService struct {
 	lifecycle    projectapp.Lifecycle
 	installation local.InstallationStore
+	codex        codexruntime.Service
 	projectsRoot string
+}
+
+func (s lifecycleService) RuntimeCodexInstall(ctx context.Context) cli.Result {
+	return runtimeResult(s.codex.Install(ctx))
+}
+func (s lifecycleService) RuntimeCodexStatus(ctx context.Context) cli.Result {
+	return runtimeResult(s.codex.Inspect(ctx))
+}
+
+func runtimeResult(result codexruntime.Result) cli.Result {
+	status := cli.Failed
+	if result.Status == codexruntime.Applied || result.Status == codexruntime.Unchanged || result.Status == codexruntime.Ready {
+		status = cli.Succeeded
+	}
+	return cli.Result{Status: status, Category: result.Category}
 }
 
 func (s lifecycleService) Init(ctx context.Context, input cli.InitInput) cli.Result {

@@ -6,6 +6,8 @@
 
 - feature: add a source-checkout Axiom installer that publishes Lingo to an explicit user PATH directory, records checksum ownership, supports safe idempotent reruns, refuses modified/unowned destinations, and exposes build source/revision through `lingo version`.
 
+- feature: add the Codex Runtime bootstrap with five validated user-global `$axiom-*` skills, exact status inspection, idempotent install, conflict/symlink protection and attempt-local rollback. Skills remain thin Lingo entrypoints; no Project or workflow rules are duplicated.
+
 ## [2026-09-18]
 
 - docs: reconcile Specification 002 and Plan scope for the POC-only Linux/macOS verification workflow; classify its runs as acceptance Evidence, not product CI or release automation. Preserve #19–#21, #14 and SEC-003 human gates.

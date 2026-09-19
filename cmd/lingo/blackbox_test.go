@@ -23,7 +23,8 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	}
 	portable := filepath.Join(t.TempDir(), "portable")
 	state := filepath.Join(t.TempDir(), "state")
-	environment := append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state)
+	skills := filepath.Join(t.TempDir(), "skills")
+	environment := append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+skills)
 	run := func(wantCode int, wantStatus, wantCategory string, args ...string) {
 		t.Helper()
 		command := exec.Command(binary, args...)
@@ -44,6 +45,12 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		if code != wantCode || event.Status != wantStatus || event.Category != wantCategory {
 			t.Fatalf("%v: code=%d event=%+v", args, code, event)
 		}
+	}
+	run(0, "success", "codex_configured", "runtime", "codex", "install")
+	run(0, "success", "codex_ready", "runtime", "codex", "status")
+	installed, err := filepath.Glob(filepath.Join(skills, "axiom-*", "SKILL.md"))
+	if err != nil || len(installed) != 5 {
+		t.Fatalf("installed Codex skills = %v, %v", installed, err)
 	}
 	run(1, "error", "missing_required_input", "project", "init", "--slug", "sample")
 	run(0, "success", "applied", "project", "init", "--slug", "sample", "--name", "Sample")

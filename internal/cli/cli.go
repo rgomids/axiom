@@ -22,6 +22,8 @@ type Service interface {
 	Reopen(context.Context, ProjectInput) Result
 	Update(context.Context, UpdateInput) Result
 	Install(context.Context, InstallInput) Result
+	RuntimeCodexInstall(context.Context) Result
+	RuntimeCodexStatus(context.Context) Result
 }
 
 type InitInput struct {
@@ -68,11 +70,13 @@ func Run(ctx context.Context, args []string, service Service, stdout io.Writer) 
 type action string
 
 const (
-	initAction     action = "init"
-	validateAction action = "validate"
-	reopenAction   action = "reopen"
-	updateAction   action = "update"
-	installAction  action = "install"
+	initAction         action = "init"
+	validateAction     action = "validate"
+	reopenAction       action = "reopen"
+	updateAction       action = "update"
+	installAction      action = "install"
+	codexInstallAction action = "runtime_codex_install"
+	codexStatusAction  action = "runtime_codex_status"
 )
 
 type requestInput struct {
@@ -84,6 +88,13 @@ type requestInput struct {
 func request(args []string, service Service) (action, requestInput, *string) {
 	if service == nil {
 		return "unknown", requestInput{}, category("application_unavailable")
+	}
+	if len(args) == 3 && args[0] == "runtime" && args[1] == "codex" {
+		operation := action("runtime_codex_" + args[2])
+		if operation == codexInstallAction || operation == codexStatusAction {
+			return operation, requestInput{}, nil
+		}
+		return "unknown", requestInput{}, category("invalid_command")
 	}
 	if len(args) < 2 || args[0] != "project" {
 		return "unknown", requestInput{}, category("invalid_command")
@@ -147,6 +158,10 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.Update(ctx, UpdateInput{Slug: input.slug, Name: input.name})
 	case installAction:
 		return service.Install(ctx, InstallInput{Source: input.source})
+	case codexInstallAction:
+		return service.RuntimeCodexInstall(ctx)
+	case codexStatusAction:
+		return service.RuntimeCodexStatus(ctx)
 	}
 	return Result{Status: Failed, Category: "invalid_command"}
 }
@@ -190,4 +205,6 @@ func (UnavailableService) Update(context.Context, UpdateInput) Result {
 	return unavailable()
 }
 func (UnavailableService) Install(context.Context, InstallInput) Result { return unavailable() }
+func (UnavailableService) RuntimeCodexInstall(context.Context) Result   { return unavailable() }
+func (UnavailableService) RuntimeCodexStatus(context.Context) Result    { return unavailable() }
 func unavailable() Result                                               { return Result{Status: Failed, Category: "application_unavailable"} }
