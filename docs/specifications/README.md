@@ -94,9 +94,13 @@ and reconciliation only. The draft consolidates #54–#57 and #63–#68 into the
 clean-environment journey from installation through explicit human acceptance.
 It defines Project/Work Item UX, Provider workflow projection, Runtime selectors,
 completion statuses, detailed Markdown artifacts, provenance, persistence,
-migration, onboarding, acceptance criteria, and required Evidence.
+compatibility, onboarding, acceptance criteria, and required Evidence.
 
-Four material choices remain explicit: release installation/platforms, detail-
-artifact ownership/retention, filesystem threat model, and supported migration
-from the accepted POC. Approval permits Plan work only. No MVP implementation,
-ADR acceptance, Tasks, release, or final acceptance is authorized.
+Four material choices remain explicit: release installation plus exact
+OS/architecture matrix, detail-artifact ownership/lifecycle without creating a
+parallel domain entity, bounded filesystem threat model plus mandatory
+Specification 002/security reconciliation before Plan, and compatibility with
+clean v1 as the recommended baseline without automatic POC migration. Approval
+authorizes only the next phase explicitly recorded by the human decision. No Plan,
+MVP implementation, ADR acceptance, Tasks, release, or final acceptance is
+authorized by the draft.

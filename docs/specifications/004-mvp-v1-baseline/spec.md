@@ -79,8 +79,10 @@ This draft reconciles:
   user content. This draft uses one central provenance envelope and requires
   renderers to distinguish Axiom framing from unchanged user text.
 
-No approved Specification or ADR is superseded by this draft. HD-3 or HD-4 may
-require explicit reconciliation after human approval.
+No approved Specification or ADR is superseded by this draft. If the bounded
+HD-3 recommendation is approved, Specification 002 and the affected security and
+architecture contracts MUST be reconciled before Plan authorization. HD-4 may
+also require an explicit compatibility decision before implementation planning.
 
 ## Intake
 
@@ -119,6 +121,32 @@ a concise completion result ready for explicit human acceptance.
   judgment where interpretation or generation is not required;
 - external mutation, migration, and destructive recovery require explicit
   authority appropriate to their effects.
+
+## Non-goals
+
+The following exclusions consolidate the existing MVP tracker and related-issue
+boundaries. They constrain the MVP; they do not establish new behavior or relax
+requirements inside the supported local contract:
+
+- mandatory support for multiple external Providers;
+- broad multi-runtime support beyond the required Codex path;
+- multi-agent orchestration;
+- automated Agent Planning;
+- a cloud control plane;
+- multi-tenancy;
+- remote collaboration or synchronization;
+- distributed persistence or remote locking;
+- automatic updating;
+- support for every package manager;
+- Windows support for the MVP;
+- signing, notarization, cryptographic provenance, attestation, or equivalent
+  release trust mechanisms unless a future specific decision authorizes them;
+  the informational provenance contract below remains required;
+- production-grade durability beyond the explicitly supported local MVP contract;
+- storing raw chat history as Evidence;
+- making detailed artifacts part of portable Project intent;
+- general backwards-compatibility guarantees across arbitrary historical
+  versions.
 
 ## Preserved architectural boundaries
 
@@ -310,7 +338,7 @@ vary in syntax, but MUST NOT vary in meaning.
 |---|---|
 | `status` | One canonical terminal status from the set below. |
 | `result` | Short primary outcome, bounded to one scannable statement. |
-| `references` | Relevant Project, Repository, Work Item, Execution/attempt, Provider, or artifact identifiers/links. Omit only when none exists. |
+| `references` | Relevant Project, Repository, Work Item, Execution, local operation-correlation, Provider, or artifact identifiers/links. Omit only when none exists. |
 | `next` | Next safe action when further action is applicable. |
 | `details` | Stable reference to a Markdown detail artifact when one exists. |
 | `provenance` | Canonical Axiom product/version/build identity. |
@@ -349,8 +377,9 @@ Artifacts MUST:
 
 - be Markdown, bounded in size, sanitized, and free of secrets/raw chat history;
 - have stable identity independent of a display filename;
-- record operation/attempt reference, creation time, provenance, source references,
-  outcome, and retention class;
+- record the applicable Execution reference or local operation-correlation
+  identity, creation time, provenance, source references, outcome, and retention
+  class;
 - be referenced by the completion result and, when it supports a claim, by the
   corresponding Evidence record;
 - distinguish diagnostic context from Evidence claims;
@@ -401,7 +430,9 @@ MUST NOT claim authorship over the transported content.
   or deleted automatically.
 - **FR-026 Schema compatibility:** every portable and local persisted format MUST
   have an explicit version and reader compatibility rule. Missing, malformed,
-  unsupported-newer, and unsupported-older versions are distinct failures.
+  unsupported-newer, and unsupported-older versions are distinct failures. State
+  safely identified as belonging to the historical POC MUST NOT be treated as
+  absent or overwritten; its supported handling depends on HD-4.
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.
@@ -417,8 +448,8 @@ MUST NOT claim authorship over the transported content.
 
 The residual POC gaps are not silently waived: physical power-loss durability,
 remaining fault stages, ACL mutation, arbitrary hostile same-UID interleavings,
-automatic recovery, and migration Evidence must be mapped to the approved threat
-model and test matrix. HD-3 and HD-4 decide the material boundary.
+automatic recovery, and compatibility or migration Evidence must be mapped to the
+approved threat model and test matrix. HD-3 and HD-4 decide the material boundary.
 
 ## Installation, onboarding, and upgrade
 
@@ -486,8 +517,10 @@ Global invariants:
 - local state and generated artifacts MUST use restrictive platform-appropriate
   permissions and reject unsafe ownership/link conditions;
 - supported operations MUST be reproducible without maintainer-local state;
-- observability MUST correlate one operation/attempt across summary, artifact,
-  Evidence, local state, and Provider projection without exposing credentials.
+- observability MUST correlate one operation across summary, artifact, Evidence,
+  local state, and Provider projection without exposing credentials; HD-2 decides
+  whether that identity is subordinate to an Execution or is only local operational
+  correlation before an Execution exists.
 
 ## Observable acceptance criteria
 
@@ -510,7 +543,7 @@ Global invariants:
 | AC-15 | CLI, Runtime, Provider comments, Markdown, and generated source/text expose equivalent truthful provenance for release, development, dirty, and unavailable-revision builds. |
 | AC-16 | Unchanged transported user content is not labeled as Axiom-authored. |
 | AC-17 | Supported publication faults preserve old/new complete authority, classify recovery deterministically, and preserve unknown artifacts. |
-| AC-18 | Unsupported schema/version combinations fail before destructive mutation; the approved upgrade migration previews, backs up, migrates, validates, and supports its documented recovery/rollback behavior. |
+| AC-18 | Unsupported schema/version combinations fail before destructive mutation; the approved compatibility path detects historical POC state without overwrite and provides its documented clean-install, export/reconfigure, backup, recovery, and, only if separately approved, migration behavior. |
 | AC-19 | Reinstall/upgrade is safe and idempotent for owned equivalent content and refuses unowned conflicts. |
 | AC-20 | A representative confirmed Provider effect followed by local failure reports `partial` with the confirmed reference and a safe next action. |
 | AC-21 | Clean-environment RC dogfood completes install -> first run -> Project -> Work Item -> workflow -> Evidence -> completion through Runtime and direct CLI entrypoints. |
@@ -532,7 +565,9 @@ Release-candidate Evidence MUST include:
 - workflow gate transitions, interruption/resume, artifact identities/digests,
   and final completion reference;
 - provenance observations on each supported generated surface;
-- filesystem fault/recovery and migration matrix tied to the approved threat model;
+- filesystem fault/recovery and compatibility-transition matrix tied to the
+  approved threat model, including migration Evidence only when migration is part
+  of the approved path;
 - secret/sensitive-file and security review results;
 - relevant unit, integration, functional black-box, race, vet, build, module,
   repository, and documentation validation results;
@@ -560,11 +595,13 @@ before final acceptance. Every external mutation remains explicitly authorized.
          +--> #68 clean RC dogfood + docs + human acceptance
 ```
 
-The future Plan may reorder independently implementable units but MUST preserve
+If authorized after the human decisions and required reconciliations, a future
+Plan may reorder independently implementable units but MUST preserve
 contract dependencies: provenance and completion semantics precede surface-wide
 adoption; artifact ownership precedes persistence; migration policy precedes
 upgrade; all delivered blocks precede #68. Approval of this Specification permits
-planning only and does not authorize any delivery issue.
+the next expressly authorized phase only and does not itself authorize Plan work,
+any delivery issue, implementation, or release.
 
 ## Requirements, details, and open questions
 
@@ -586,22 +623,31 @@ explicit platform/channel set?
 **Recommendation:** B. It best tests “usable by another developer” without making
 a package manager, signing, notarization, auto-update, or Windows part of MVP.
 Source-only is smaller but retains toolchain/history assumptions; broader packaging
-adds release and supply-chain scope.
+adds release and supply-chain scope. The future Plan and release contract MUST each
+declare the exact supported OS/architecture combinations. Candidate combinations
+include `darwin/arm64`, `darwin/amd64`, `linux/amd64`, and `linux/arm64`, but this
+draft does not assume all four. Any combination not explicitly selected is
+unsupported for that release. Source installation remains available for
+contributors and does not expand the binary support matrix.
 
 ### HD-2 — Detailed artifact ownership and lifecycle
 
-**Human decision required:** Should MVP detail artifacts be (A) owned by a durable
-Execution/operation-attempt under machine-local Project state, retained while
-referenced by active workflow/Evidence and removed only through explicit dry-run
-cleanup; (B) temporary cache files with bounded expiry; or (C) portable Project
-artifacts?
+**Human decision required:** Should MVP detail artifacts be (A) durable,
+machine-local artifacts linked to the applicable execution context and retained
+while needed by workflow/Evidence; (B) temporary cache files with bounded expiry;
+or (C) portable Project artifacts? If A is selected, must an attempt be a
+subordinate identity within Execution, or must commands that occur before an
+Execution exists use only a local operational correlation identity without
+creating another domain entity?
 
-**Recommendation:** A. It preserves correlation and Evidence without polluting
-portable intent. Pre-workflow commands use an operation-attempt owner; workflow
-commands use their Execution/attempt owner. Stable ID is authoritative; filenames
-are presentation. No automatic cleanup in v1; explicit cleanup refuses referenced
-artifacts. This creates a durable Execution/Evidence ownership and retention
-decision requiring an ADR before implementation.
+**Recommendation:** A, with explicit safe cleanup only. It preserves correlation
+and Evidence without polluting portable intent. Artifacts remain durable while
+needed, are removed only by explicit cleanup that refuses referenced or uncertain
+content, and never enter the Portable Project Manifest. This recommendation does
+not create `operation-attempt` as a domain concept parallel to Execution. A future
+ADR MUST decide between an attempt subordinate to Execution and non-domain local
+correlation for pre-Execution commands, and MUST also decide final ownership,
+location, retention, Evidence relation, and cleanup before implementation.
 
 ### HD-3 — MVP filesystem threat model
 
@@ -616,30 +662,51 @@ uncertainty, and guided recovery?
 model while keeping “no write outside authorized target” normative for supported
 conditions. Treat malicious same-UID mutation and physical power-loss guarantees
 as unsupported, not solved. This narrows previously approved proof expectations
-and therefore requires explicit human approval plus an ADR/security reconciliation;
-silence would leave the stronger Specification 002 criteria binding.
+and therefore requires explicit human approval plus reconciliation; silence leaves
+the stronger Specification 002 criteria binding.
 
-### HD-4 — Supported migration predecessor
+If this recommendation is approved, Specification 002 and every affected security
+or architecture contract MUST be reconciled before any Plan for Specification 004
+is authorized. Two accepted Specifications MUST NOT retain contradictory normative
+requirements. The ADR/security reconciliation MUST record the supported threat,
+excluded threats, properties that remain mandatory, required Evidence, and the
+exact relationship to Specification 002 SEC-003 and SEC-005. The bounded model
+includes path-traversal protection, supported symlink/link attacks, confinement to
+the authorized target, process concurrency, deterministic injected fault stages,
+fail-closed uncertainty, guided recovery, and protection against partial or invalid
+canonical state. It excludes malicious same-UID actors performing arbitrary
+interleavings and guarantees against physical power loss or media durability.
 
-**Human decision required:** Must v1 support an in-place upgrade from the accepted
-`v0.1.0-poc.1` state, only clean v1 installation, or a broader compatibility window?
+### HD-4 — Compatibility baseline and historical POC state
 
-**Recommendation:** Support one explicit predecessor, `v0.1.0-poc.1`, where its
-persisted state can be classified safely; otherwise require export/reconfigure with
-preserved backup and actionable diagnostics. Reject unknown newer formats and do
-not promise general N-1 compatibility until another released schema exists. This
-is a public compatibility commitment and likely requires an ADR if approved.
+**Human decision required:** Is clean v1 installation the only officially supported
+baseline, with safe detection and explicit export/reconfigure for historical POC
+state, or will a separately justified compatibility decision also support in-place
+migration from `v0.1.0-poc.1`?
+
+**Recommendation:** Make clean v1 installation the officially supported baseline.
+`v0.1.0-poc.1` is a historical snapshot with no compatibility commitment, not an
+automatically supported migration predecessor. When POC-owned state is detected,
+the v1 path must never overwrite it as absent; it should preserve backup/export
+where applicable and provide actionable diagnostics plus an explicit
+export/reconfigure path. In-place POC migration remains excluded unless later
+proved simple and safe and explicitly approved through a specific ADR/compatibility
+decision. Unknown newer formats fail closed; unsupported older formats receive
+explicit diagnostics; no migration or downgrade is silent; no generic N-1 or
+arbitrary historical compatibility is promised.
 
 ## ADR candidates
 
-- **Required if HD-2 is approved:** Execution/operation detail-artifact ownership,
-  local location boundary, Evidence relation, retention, and cleanup.
+- **Required if HD-2 is approved:** detail-artifact ownership and relationship to
+  Execution, pre-Execution correlation identity, local location boundary, Evidence
+  relation, retention, and cleanup.
 - **Required if HD-3 changes the existing proof boundary:** local persistence
   threat model and durability/recovery guarantees, with explicit relationship to
   Specification 002 SEC-003/SEC-005.
-- **Likely required if HD-4 is approved:** persisted-schema compatibility and
-  migration/rollback policy across releases.
-- **Assess during Plan after HD-1:** distribution/supply-chain ADR if published
+- **Required before any in-place POC migration:** specific persisted-schema
+  compatibility and migration/rollback decision; clean install plus
+  export/reconfigure does not itself accept such migration.
+- **Assess during an authorized Plan after HD-1:** distribution/supply-chain ADR if published
   binaries establish a durable release topology or trust boundary. A routine
   source installer alone does not justify an ADR.
 
@@ -664,7 +731,10 @@ No ADR is accepted by this draft.
 ## Review gate
 
 This draft is ready for human review of the complete behavioral scope and HD-1
-through HD-4. Approval should record each decision explicitly and reconcile any
-affected ADR/security contract before Plan work begins.
+through HD-4. Approval should record each decision explicitly. If bounded HD-3 is
+approved, Specification 002 and affected ADR/security/architecture contracts must
+be reconciled before Plan authorization. Approval authorizes only the next phase
+explicitly recorded by the human decision; it does not implicitly authorize Plan,
+Tasks, implementation, or release.
 
 **Next artifact: Human review / approval of MVP Specification**
