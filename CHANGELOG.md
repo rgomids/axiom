@@ -2,6 +2,8 @@
 
 ## [2026-09-20]
 
+- approval: record the explicit PR #71 human decision accepting ADR-0007 and ADR-0008 and approving the Specification 004 Plan. Authorize the Tasks phase only; implementation, Provider mutation, migration execution, installer/release publication and final MVP acceptance remain unauthorized. Windows support remains a future roadmap follow-up and does not change the current MVP support matrix.
+
 - architecture: propose ADR-0007 for one shared logical local publication and
   recovery protocol, including deterministic coordination, private preparation,
   protected publication, prior/new complete generations, commit truth and
