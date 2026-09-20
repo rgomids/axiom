@@ -54,14 +54,14 @@ approved on 2026-09-20. The authorized reconciliation records
 [ADR-0006](../decisions/0006-machine-local-detail-artifacts.md) for HD-2, and H13
 updates across Specification 002. PR #70 merged that reconciliation and received
 explicit human approval. The resulting
-[Specification 004 Plan](../specifications/004-mvp-v1-baseline/plan.md) is ready
-and was explicitly approved on 2026-09-20. Review identified
+[Specification 004 Plan](../specifications/004-mvp-v1-baseline/plan.md) was
+explicitly approved on 2026-09-20. Review identified
 [ADR-0007](../decisions/0007-local-publication-and-recovery-protocol.md), defining
 the shared local publication/recovery protocol, and
-[ADR-0008](../decisions/0008-minimal-machine-local-execution-record.md), proposing
-the bounded machine-local sequential Execution record. Both were Accepted on 2026-09-20 and
-must be explicitly accepted or revised before Plan approval/Tasks. The Plan does
-not authorize implementation, Provider mutation, or release.
+[ADR-0008](../decisions/0008-minimal-machine-local-execution-record.md), defining
+the bounded machine-local sequential Execution record. Both were Accepted in the
+same PR #71 human decision. The Tasks phase is authorized; implementation,
+Provider mutation, migration execution, and release remain separately gated.
 
 ## Complete Specification 002
 
