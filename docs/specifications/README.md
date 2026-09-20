@@ -83,3 +83,20 @@ Acceptance testing created MVP follow-ups
 [#57](https://github.com/rgomids/axiom/issues/57). They record guided setup,
 Intent-driven Work Item creation, provider-visible workflow progress and
 argument-driven Runtime skill UX; they do not retroactively expand POC scope.
+
+## 004 — Usable MVP v1 Baseline
+
+[Specification](004-mvp-v1-baseline/spec.md): **Draft — ready for human review;
+Human decision required**.
+
+Issue [#62](https://github.com/rgomids/axiom/issues/62) authorizes Specification
+and reconciliation only. The draft consolidates #54–#57 and #63–#68 into the
+clean-environment journey from installation through explicit human acceptance.
+It defines Project/Work Item UX, Provider workflow projection, Runtime selectors,
+completion statuses, detailed Markdown artifacts, provenance, persistence,
+migration, onboarding, acceptance criteria, and required Evidence.
+
+Four material choices remain explicit: release installation/platforms, detail-
+artifact ownership/retention, filesystem threat model, and supported migration
+from the accepted POC. Approval permits Plan work only. No MVP implementation,
+ADR acceptance, Tasks, release, or final acceptance is authorized.

@@ -24,10 +24,10 @@ PR #52 merged to `main`. Its commands, limits and acceptance status are recorded
 in the [Specification index](../specifications/README.md). Acceptance does not
 authorize later roadmap work.
 
-## MVP follow-ups from POC acceptance
+## MVP specification
 
 Manual POC acceptance identified four concrete experience gaps that should inform
-the next bounded MVP specifications:
+the MVP:
 
 - [#54](https://github.com/rgomids/axiom/issues/54) — guided Project setup that
   asks for Project identity, repositories and Work Item Provider instead of
@@ -39,8 +39,12 @@ the next bounded MVP specifications:
 - [#57](https://github.com/rgomids/axiom/issues/57) — explicit Runtime skill
   selectors/arguments with questions only for missing inputs.
 
-These issues are product direction captured from dogfooding, not implementation
-authority. They still require normal Specification/decision/planning gates.
+The [draft MVP Specification](../specifications/004-mvp-v1-baseline/spec.md),
+tracked by [#62](https://github.com/rgomids/axiom/issues/62), now consolidates
+these experience gaps with completion output, detailed artifacts, provenance,
+persistence/recovery/migration, installation/upgrade, and clean-environment
+acceptance. It is ready for human review with material decisions still explicit;
+it grants no Plan, Task, implementation, ADR, or release authority.
 
 ## Complete Specification 002
 

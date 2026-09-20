@@ -2,6 +2,12 @@
 
 ## [2026-09-20]
 
+- specification: draft Specification 004 for human review, consolidating the MVP
+  clean-environment journey, Project/Work Item UX, workflow visibility, Runtime
+  selectors, completion output, detailed artifacts, provenance, persistence and
+  migration, onboarding, acceptance Evidence, and four explicit human decisions;
+  no Plan, Tasks, implementation, ADR, or release authority is granted.
+
 - acceptance: record explicit human acceptance of the merged E2E Codex POC; close #21/#30/#40, preserve #19/#20 as known proof gaps, and capture MVP follow-ups #54–#57 for guided Project setup, Intent-driven Work Item creation, provider-visible workflow progress and argument-driven Runtime skills.
 - reconciliation: close the historical POC validation card #53 and POC-scoped #19/#20 after acceptance without claiming their residual proof gaps are solved; carry persistence/recovery hardening into future MVP specification instead of leaving stale POC work open.
 
