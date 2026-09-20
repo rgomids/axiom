@@ -6,9 +6,12 @@
   clean-environment journey, Project/Work Item UX, workflow visibility, Runtime
   selectors, completion output, detailed artifacts, provenance, persistence and
   compatibility, onboarding, acceptance Evidence, explicit non-goals, and four
-  human decisions; clean v1 is the recommended baseline, bounded-threat-model
-  approval requires Specification 002/security reconciliation before Plan, and no
-  Plan, Tasks, implementation, ADR, or release authority is granted.
+  human decisions; record HD-1 through HD-4 as checksummed macOS/Linux binary
+  distribution, durable machine-local detail artifacts, a bounded threat model
+  requiring Specification 002/security/architecture reconciliation before Plan,
+  and clean v1 compatibility without automatic POC migration. Final Specification
+  approval remains pending; no Plan, Tasks, implementation, ADR, or release
+  authority is granted.
 
 - acceptance: record explicit human acceptance of the merged E2E Codex POC; close #21/#30/#40, preserve #19/#20 as known proof gaps, and capture MVP follow-ups #54–#57 for guided Project setup, Intent-driven Work Item creation, provider-visible workflow progress and argument-driven Runtime skills.
 - reconciliation: close the historical POC validation card #53 and POC-scoped #19/#20 after acceptance without claiming their residual proof gaps are solved; carry persistence/recovery hardening into future MVP specification instead of leaving stale POC work open.

@@ -43,11 +43,14 @@ The [draft MVP Specification](../specifications/004-mvp-v1-baseline/spec.md),
 tracked by [#62](https://github.com/rgomids/axiom/issues/62), now consolidates
 these experience gaps with completion output, detailed artifacts, provenance,
 persistence/recovery/compatibility, installation/upgrade, and clean-environment
-acceptance. It is ready for human review with four material decisions still
-explicit, including required Specification 002/security reconciliation before
-Plan if the bounded filesystem threat model is approved and clean v1 as the
-recommended compatibility baseline without automatic POC migration. It grants no
-Plan, Task, implementation, ADR, or release authority.
+acceptance. Human review on 2026-09-20 recorded the four material directions:
+checksummed macOS/Linux binaries with an explicit release OS/architecture matrix,
+durable machine-local detail artifacts with an ADR-required ownership boundary,
+the bounded filesystem threat model with mandatory Specification 002/security/
+architecture reconciliation before Plan, and clean v1 as the compatibility
+baseline without automatic POC migration. Final Specification approval remains
+pending, and the draft grants no Plan, Task, implementation, ADR, or release
+authority.
 
 ## Complete Specification 002
 

@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-**Draft — ready for human review. Human decision required.**
+**Draft — human decisions recorded; ready for final human approval.**
 
 Tracked by [#62](https://github.com/rgomids/axiom/issues/62) under the
 [MVP tracker #15](https://github.com/rgomids/axiom/issues/15). This artifact is
@@ -51,17 +51,28 @@ This draft reconciles:
 - Unknown or invalid persisted state fails closed; it is never treated as absent
   or permission to overwrite.
 
-### Ambiguities converted to explicit decisions
+### Human decisions recorded on 2026-09-20
 
-- #67 requires a clean supported installation but does not choose source build,
-  published binary, platforms, or release trust boundary: HD-1.
-- #63 requires owned detailed artifacts, while Execution/Evidence ownership and
-  retention remain open in the conceptual model: HD-2.
-- #19/#20 preserve stronger filesystem proof gaps without an approved MVP threat
-  model: HD-3.
-- #66 requires compatibility/migration behavior, while the accepted POC and
-  Specification 002 promise no automatic migration or compatibility window:
-  HD-4.
+Human review of PR #69 records the following directions:
+
+- **HD-1:** use published checksummed binaries for macOS/Linux, retaining source
+  installation for contributors. The authorized Plan/release contract MUST declare
+  the exact supported OS/architecture matrix before distribution.
+- **HD-2:** keep detailed artifacts durable and machine-local while required by
+  workflow/Evidence, with explicit safe cleanup. They are not portable Project
+  content. An ADR MUST define their final ownership/lifecycle and the relationship
+  between Execution and any pre-Execution correlation identity.
+- **HD-3:** use a bounded local filesystem threat model that preserves authorized
+  target confinement, supported path/link protection, process concurrency,
+  deterministic fault stages, fail-closed uncertainty, guided recovery, and
+  protection against partial/invalid canonical state. Malicious same-UID arbitrary
+  interleavings and physical power-loss/media-durability guarantees are excluded.
+  Specification 002 plus affected security/architecture contracts MUST be
+  reconciled before any Plan for Specification 004.
+- **HD-4:** use clean v1 installation as the officially supported compatibility
+  baseline. Historical POC state is detected and preserved with actionable
+  backup/export/reconfigure behavior when applicable; no in-place POC migration
+  commitment exists without a later explicit compatibility decision and Evidence.
 
 ### Apparent conflicts resolved without changing accepted decisions
 
@@ -79,10 +90,11 @@ This draft reconciles:
   user content. This draft uses one central provenance envelope and requires
   renderers to distinguish Axiom framing from unchanged user text.
 
-No approved Specification or ADR is superseded by this draft. If the bounded
-HD-3 recommendation is approved, Specification 002 and the affected security and
-architecture contracts MUST be reconciled before Plan authorization. HD-4 may
-also require an explicit compatibility decision before implementation planning.
+No approved Specification or ADR is superseded merely by this draft. The
+recorded HD-3 decision requires Specification 002 and the affected security and
+architecture contracts to be reconciled before Plan authorization. HD-4 establishes
+clean v1 as the compatibility baseline; any future in-place historical migration
+requires a separate explicit compatibility decision before implementation.
 
 ## Intake
 
@@ -115,8 +127,9 @@ a concise completion result ready for explicit human acceptance.
 - Codex is the only required Runtime for this MVP;
 - GitHub Issues is the first supported Work Item Provider adapter, without
   making GitHub a domain requirement;
-- macOS and Linux are the current candidate platforms; the exact release support
-  commitment is an open human decision below;
+- macOS and Linux are the selected release OS boundary; the authorized
+  Plan/release contract MUST declare the exact supported OS/architecture
+  combinations before distribution;
 - deterministic application/domain contracts remain usable without model
   judgment where interpretation or generation is not required;
 - external mutation, migration, and destructive recovery require explicit
@@ -388,8 +401,10 @@ Artifacts MUST:
 - never enter the Portable Project Manifest or portable Project working copy by
   implementation convenience.
 
-The proposed MVP ownership/location/retention decision is HD-2 below. Until it is
-approved, implementation MUST NOT select a storage root or automatic cleanup rule.
+HD-2 records machine-local durable ownership as the MVP direction. Before
+implementation, an ADR MUST define the final storage root, relationship to
+Execution/pre-Execution correlation, retention, Evidence relation, and explicit
+safe cleanup semantics.
 
 ## Provenance contract
 
@@ -432,7 +447,9 @@ MUST NOT claim authorship over the transported content.
   have an explicit version and reader compatibility rule. Missing, malformed,
   unsupported-newer, and unsupported-older versions are distinct failures. State
   safely identified as belonging to the historical POC MUST NOT be treated as
-  absent or overwritten; its supported handling depends on HD-4.
+  absent or overwritten; HD-4 requires preservation plus actionable
+  backup/export/reconfigure handling, without an automatic in-place migration
+  commitment.
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.
@@ -449,7 +466,8 @@ MUST NOT claim authorship over the transported content.
 The residual POC gaps are not silently waived: physical power-loss durability,
 remaining fault stages, ACL mutation, arbitrary hostile same-UID interleavings,
 automatic recovery, and compatibility or migration Evidence must be mapped to the
-approved threat model and test matrix. HD-3 and HD-4 decide the material boundary.
+approved threat model and test matrix. HD-3 fixes the bounded threat boundary;
+HD-4 fixes clean v1 as the compatibility baseline.
 
 ## Installation, onboarding, and upgrade
 
@@ -471,7 +489,9 @@ approved threat model and test matrix. HD-3 and HD-4 decide the material boundar
   compatibility checks MUST be ordered so a failed upgrade does not silently leave
   an unusable mixed state. Partial confirmed effects use the completion contract.
 
-Exact release artifacts and platform commitments depend on HD-1.
+HD-1 selects checksummed macOS/Linux binaries plus source installation for
+contributors. The exact supported OS/architecture combinations remain a required
+Plan/release declaration before distribution.
 
 ## Failure cases and invariants
 
@@ -518,9 +538,9 @@ Global invariants:
   permissions and reject unsafe ownership/link conditions;
 - supported operations MUST be reproducible without maintainer-local state;
 - observability MUST correlate one operation across summary, artifact, Evidence,
-  local state, and Provider projection without exposing credentials; HD-2 decides
-  whether that identity is subordinate to an Execution or is only local operational
-  correlation before an Execution exists.
+  local state, and Provider projection without exposing credentials; under HD-2,
+  the required ADR decides whether that identity is subordinate to an Execution or
+  is only local operational correlation before an Execution exists.
 
 ## Observable acceptance criteria
 
@@ -609,106 +629,95 @@ any delivery issue, implementation, or release.
 |---|---|
 | Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above. |
 | Implementation detail deferred to Plan | CLI framework, concrete Go packages/interfaces, exact JSON schema, Provider label spelling, prompt UI, filesystem syscalls, migration algorithm, installer implementation, artifact filename rendering. |
-| Human decision required | HD-1 through HD-4 below and any resulting ADR. |
+| Human decisions recorded | HD-1 through HD-4 are recorded below; required ADR/reconciliation work remains gated, and final Specification approval is still pending. |
 
-## Human decisions required
+## Human decisions recorded — 2026-09-20
+
+These decisions were explicitly recorded during human review of PR #69. They
+resolve the material directions needed by this Specification but do not by
+themselves approve the complete Specification or authorize Plan, Tasks,
+implementation, accepted ADRs, or release work.
 
 ### HD-1 — Supported release installation and platforms
 
-**Human decision required:** Is the MVP release contract (A) repository-source
-installation requiring Go on macOS/Linux, (B) published checksummed binaries for
-macOS/Linux with source installation retained for contributors, or (C) another
-explicit platform/channel set?
+**Decision:** use published checksummed binaries for macOS/Linux, while retaining
+source installation for contributors.
 
-**Recommendation:** B. It best tests “usable by another developer” without making
-a package manager, signing, notarization, auto-update, or Windows part of MVP.
-Source-only is smaller but retains toolchain/history assumptions; broader packaging
-adds release and supply-chain scope. The future Plan and release contract MUST each
-declare the exact supported OS/architecture combinations. Candidate combinations
-include `darwin/arm64`, `darwin/amd64`, `linux/amd64`, and `linux/arm64`, but this
-draft does not assume all four. Any combination not explicitly selected is
-unsupported for that release. Source installation remains available for
-contributors and does not expand the binary support matrix.
+The authorized Plan and release contract MUST explicitly declare the supported
+OS/architecture combinations before distribution. Candidate combinations include
+`darwin/arm64`, `darwin/amd64`, `linux/amd64`, and `linux/arm64`; this
+decision does not silently promise every candidate. Any combination not explicitly
+declared is unsupported for that release.
+
+Package-manager distribution, automatic updating, Windows support, signing, and
+notarization remain outside the MVP unless separately decided.
 
 ### HD-2 — Detailed artifact ownership and lifecycle
 
-**Human decision required:** Should MVP detail artifacts be (A) durable,
-machine-local artifacts linked to the applicable execution context and retained
-while needed by workflow/Evidence; (B) temporary cache files with bounded expiry;
-or (C) portable Project artifacts? If A is selected, must an attempt be a
-subordinate identity within Execution, or must commands that occur before an
-Execution exists use only a local operational correlation identity without
-creating another domain entity?
+**Decision:** detail artifacts are durable, machine-local artifacts retained while
+needed by workflow/Evidence and removed only through explicit safe cleanup. They
+MUST NOT enter the Portable Project Manifest or portable Project working copy.
 
-**Recommendation:** A, with explicit safe cleanup only. It preserves correlation
-and Evidence without polluting portable intent. Artifacts remain durable while
-needed, are removed only by explicit cleanup that refuses referenced or uncertain
-content, and never enter the Portable Project Manifest. This recommendation does
-not create `operation-attempt` as a domain concept parallel to Execution. A future
-ADR MUST decide between an attempt subordinate to Execution and non-domain local
-correlation for pre-Execution commands, and MUST also decide final ownership,
-location, retention, Evidence relation, and cleanup before implementation.
+This decision intentionally does not create an `operation-attempt` entity parallel
+to Execution. Before implementation, an ADR MUST define final ownership/location,
+Evidence relation, retention and cleanup, and decide whether attempt identity is
+subordinate to Execution or whether pre-Execution commands use only non-domain
+local correlation identity.
 
 ### HD-3 — MVP filesystem threat model
 
-**Human decision required:** Must MVP acceptance prove Specification 002's full
-SEC-003/SEC-005 boundary against arbitrary hostile same-UID interleavings and
-physical power loss, or may the v1 threat model explicitly exclude a malicious
-same-UID actor and physical-media durability while retaining confinement against
-path/link attacks, process concurrency, injected fault stages, fail-closed
-uncertainty, and guided recovery?
+**Decision:** adopt the bounded local threat model.
 
-**Recommendation:** Explicitly choose and document the latter bounded local threat
-model while keeping “no write outside authorized target” normative for supported
-conditions. Treat malicious same-UID mutation and physical power-loss guarantees
-as unsupported, not solved. This narrows previously approved proof expectations
-and therefore requires explicit human approval plus reconciliation; silence leaves
-the stronger Specification 002 criteria binding.
+The supported boundary retains:
 
-If this recommendation is approved, Specification 002 and every affected security
-or architecture contract MUST be reconciled before any Plan for Specification 004
-is authorized. Two accepted Specifications MUST NOT retain contradictory normative
-requirements. The ADR/security reconciliation MUST record the supported threat,
-excluded threats, properties that remain mandatory, required Evidence, and the
-exact relationship to Specification 002 SEC-003 and SEC-005. The bounded model
-includes path-traversal protection, supported symlink/link attacks, confinement to
-the authorized target, process concurrency, deterministic injected fault stages,
-fail-closed uncertainty, guided recovery, and protection against partial or invalid
-canonical state. It excludes malicious same-UID actors performing arbitrary
-interleavings and guarantees against physical power loss or media durability.
+- confinement to the exact authorized target;
+- traversal and supported symlink/link protections;
+- process concurrency protection;
+- deterministic injected fault stages;
+- fail-closed uncertainty;
+- guided recovery;
+- protection against partial or invalid canonical state.
+
+The MVP explicitly excludes guarantees against malicious same-UID actors performing
+arbitrary interleavings and against physical power loss/media durability. These are
+unsupported guarantees, not solved risks.
+
+Because this narrows previously approved proof expectations, Specification 002 and
+all affected security/architecture contracts MUST be reconciled before any Plan for
+Specification 004 is authorized. The reconciliation/ADR MUST state supported and
+excluded threats, still-mandatory properties, required Evidence, and the exact
+relationship to Specification 002 SEC-003/SEC-005.
 
 ### HD-4 — Compatibility baseline and historical POC state
 
-**Human decision required:** Is clean v1 installation the only officially supported
-baseline, with safe detection and explicit export/reconfigure for historical POC
-state, or will a separately justified compatibility decision also support in-place
-migration from `v0.1.0-poc.1`?
+**Decision:** clean v1 installation is the officially supported compatibility
+baseline.
 
-**Recommendation:** Make clean v1 installation the officially supported baseline.
-`v0.1.0-poc.1` is a historical snapshot with no compatibility commitment, not an
-automatically supported migration predecessor. When POC-owned state is detected,
-the v1 path must never overwrite it as absent; it should preserve backup/export
-where applicable and provide actionable diagnostics plus an explicit
-export/reconfigure path. In-place POC migration remains excluded unless later
-proved simple and safe and explicitly approved through a specific ADR/compatibility
-decision. Unknown newer formats fail closed; unsupported older formats receive
-explicit diagnostics; no migration or downgrade is silent; no generic N-1 or
-arbitrary historical compatibility is promised.
+`v0.1.0-poc.1` remains a historical snapshot without an automatic compatibility
+or migration commitment. When POC-owned state is recognized, v1 MUST NOT treat it
+as absent or overwrite it. The supported path provides actionable diagnostics and
+preserves backup/export where applicable, followed by explicit export/reconfigure.
+
+In-place migration from the POC remains unsupported unless a later bounded
+compatibility/ADR decision proves it safe and explicitly authorizes it. Unknown
+newer formats fail closed; unsupported older formats are diagnosed explicitly; no
+migration or downgrade is silent; no generic N-1 or arbitrary historical
+compatibility is promised.
 
 ## ADR candidates
 
-- **Required if HD-2 is approved:** detail-artifact ownership and relationship to
-  Execution, pre-Execution correlation identity, local location boundary, Evidence
-  relation, retention, and cleanup.
-- **Required if HD-3 changes the existing proof boundary:** local persistence
-  threat model and durability/recovery guarantees, with explicit relationship to
-  Specification 002 SEC-003/SEC-005.
+- **Required by HD-2 before implementation:** detail-artifact ownership and
+  relationship to Execution, pre-Execution correlation identity, local location
+  boundary, Evidence relation, retention, and cleanup.
+- **Required by HD-3 before Plan authorization:** local persistence threat model and
+  durability/recovery guarantees, with explicit reconciliation to Specification
+  002 SEC-003/SEC-005 and affected security/architecture contracts.
 - **Required before any in-place POC migration:** specific persisted-schema
   compatibility and migration/rollback decision; clean install plus
   export/reconfigure does not itself accept such migration.
-- **Assess during an authorized Plan after HD-1:** distribution/supply-chain ADR if published
-  binaries establish a durable release topology or trust boundary. A routine
-  source installer alone does not justify an ADR.
+- **Assess during an authorized Plan under HD-1:** distribution/supply-chain ADR
+  if published binaries establish a durable release topology or trust boundary. A
+  routine source installer alone does not justify an ADR.
 
 No ADR is accepted by this draft.
 
@@ -718,8 +727,9 @@ No ADR is accepted by this draft.
   precede implementation.
 - POC facts remain Evidence; experimental implementation does not silently define
   MVP contracts.
-- Material architecture, security, compatibility, and ownership choices remain
-  explicit human decisions.
+- Material architecture, security, compatibility, and ownership choices are
+  recorded as explicit human decisions; required reconciliation and ADR gates
+  remain enforceable.
 - Deterministic classifications and stable references take precedence over prose
   or model judgment.
 - Least privilege, exact mutation authority, portable/local separation, and
@@ -730,11 +740,11 @@ No ADR is accepted by this draft.
 
 ## Review gate
 
-This draft is ready for human review of the complete behavioral scope and HD-1
-through HD-4. Approval should record each decision explicitly. If bounded HD-3 is
-approved, Specification 002 and affected ADR/security/architecture contracts must
-be reconciled before Plan authorization. Approval authorizes only the next phase
-explicitly recorded by the human decision; it does not implicitly authorize Plan,
-Tasks, implementation, or release.
+HD-1 through HD-4 are recorded. This draft is ready for final human review of
+the complete Specification. HD-3 requires Specification 002 and affected
+security/architecture reconciliation before any Plan authorization; HD-2 requires
+its artifact-lifecycle ADR before implementation. Final Specification approval
+authorizes only the next phase explicitly recorded by the human decision and does
+not implicitly authorize Plan, Tasks, implementation, accepted ADRs, or release.
 
-**Next artifact: Human review / approval of MVP Specification**
+**Next artifact: Final human review / approval of MVP Specification**

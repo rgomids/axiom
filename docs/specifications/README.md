@@ -86,8 +86,7 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 
 ## 004 — Usable MVP v1 Baseline
 
-[Specification](004-mvp-v1-baseline/spec.md): **Draft — ready for human review;
-Human decision required**.
+[Specification](004-mvp-v1-baseline/spec.md): **Draft — human decisions recorded; ready for final human approval**.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) authorizes Specification
 and reconciliation only. The draft consolidates #54–#57 and #63–#68 into the
@@ -96,11 +95,11 @@ It defines Project/Work Item UX, Provider workflow projection, Runtime selectors
 completion statuses, detailed Markdown artifacts, provenance, persistence,
 compatibility, onboarding, acceptance criteria, and required Evidence.
 
-Four material choices remain explicit: release installation plus exact
-OS/architecture matrix, detail-artifact ownership/lifecycle without creating a
-parallel domain entity, bounded filesystem threat model plus mandatory
-Specification 002/security reconciliation before Plan, and compatibility with
-clean v1 as the recommended baseline without automatic POC migration. Approval
-authorizes only the next phase explicitly recorded by the human decision. No Plan,
-MVP implementation, ADR acceptance, Tasks, release, or final acceptance is
-authorized by the draft.
+Human review on 2026-09-20 recorded HD-1 through HD-4: checksummed macOS/Linux
+binary distribution with an explicit release OS/architecture matrix, durable
+machine-local detail artifacts with an ADR-required Execution/correlation
+boundary, the bounded filesystem threat model with mandatory Specification
+002/security/architecture reconciliation before Plan, and clean v1 as the
+compatibility baseline without automatic POC migration. Final Specification
+approval remains pending. No Plan, MVP implementation, ADR acceptance, Tasks,
+release, or final MVP acceptance is authorized by the draft.
