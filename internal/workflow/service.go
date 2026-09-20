@@ -23,7 +23,18 @@ type Resolver interface {
 
 type WorkItems interface {
 	Available(context.Context, string, string, int) bool
-	Complete(context.Context, string, string, int, bool) string
+	Complete(context.Context, string, string, int, bool) WorkItemCompletion
+}
+
+type WorkItem struct {
+	ProjectID, RepositoryKey, ProviderRepository string
+	Number                                       int
+	URL, State                                   string
+}
+
+type WorkItemCompletion struct {
+	Category string
+	WorkItem WorkItem
 }
 
 type Step struct {
@@ -56,6 +67,7 @@ type Result struct {
 	Status   Status
 	Category string
 	State    State
+	WorkItem *WorkItem
 }
 
 type Target struct {
@@ -189,16 +201,25 @@ func (s Service) complete(ctx context.Context, target Target, state State, outco
 	if outcome != "pass" {
 		return failure("completion_requires_pass")
 	}
-	if category := s.workItems.Complete(ctx, target.ProjectSelector, target.RepositoryKey, target.WorkItem, authorized); category != "work_item_completed" {
-		return failure(category)
+	completion := s.workItems.Complete(ctx, target.ProjectSelector, target.RepositoryKey, target.WorkItem, authorized)
+	workItem := completionWorkItem(completion.WorkItem)
+	if completion.Category != "work_item_completed" {
+		return Result{Status: Failed, Category: completion.Category, State: state, WorkItem: workItem}
 	}
 	state.Steps[state.Current].Status = "passed"
 	state.Current++
 	state.Status = "completed"
 	if err := s.store.Save(ctx, state); err != nil {
-		return Result{Status: Failed, Category: "work_item_completed_workflow_write_failed", State: state}
+		return Result{Status: Failed, Category: "work_item_completed_workflow_write_failed", State: state, WorkItem: workItem}
 	}
-	return Result{Status: Succeeded, Category: "workflow_completed", State: state}
+	return Result{Status: Succeeded, Category: "workflow_completed", State: state, WorkItem: workItem}
+}
+
+func completionWorkItem(item WorkItem) *WorkItem {
+	if item.Number <= 0 {
+		return nil
+	}
+	return &item
 }
 
 func (s Service) resolve(ctx context.Context, target Target) (Project, Repository, Result) {

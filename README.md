@@ -85,6 +85,9 @@ Requirements: Git, Bash, standard POSIX utilities, and **Go 1.26 or later** for 
 git clone https://github.com/rgomids/axiom.git
 cd axiom
 ./scripts/install-axiom.sh
+export PATH="$HOME/.local/bin:$PATH"
+command -v lingo
+lingo version
 lingo runtime codex install
 ./scripts/validate-repository.sh .
 go test ./...

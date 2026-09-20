@@ -186,11 +186,14 @@ Não use Makefile como interface principal. Este repositório não possui Makefi
 ## Install the E2E POC locally
 
 Install Axiom from the current checkout. The default user binary destination is
-`$HOME/.local/bin`; it must already be included in `PATH` for bare `lingo`
-invocation:
+`$HOME/.local/bin`. The installer reports `pathConfigured: false` and prints a
+shell-safe export when that directory is absent from `PATH`; it does not mutate
+shell profiles:
 
 ```bash
 ./scripts/install-axiom.sh
+export PATH="$HOME/.local/bin:$PATH"
+command -v lingo
 lingo version
 ```
 
@@ -200,11 +203,15 @@ For an isolated or custom user destination:
 AXIOM_BIN_DIR=/absolute/path/to/bin \
 AXIOM_INSTALL_STATE_ROOT=/absolute/path/to/state \
 ./scripts/install-axiom.sh
+export PATH="/absolute/path/to/bin:$PATH"
 ```
 
 The installer is safe to rerun. It replaces only a prior binary whose exact
 checksum matches its protected receipt; an unrelated or modified destination is
-refused. Test installation and unrelated-CWD invocation with:
+refused. `lingo version` and the receipt report whether source was dirty at build
+time; dirty builds use a `-dirty` version suffix, so commit metadata does not imply
+exact clean-source identity. Test missing-PATH guidance, dirty metadata,
+installation and unrelated-CWD invocation with:
 
 ```bash
 ./scripts/test-install-axiom.sh

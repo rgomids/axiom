@@ -3,12 +3,15 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workitem"
 )
 
 func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
@@ -139,10 +142,55 @@ func TestVersionReportsAxiomSourceMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"product":"Axiom"`, `"binary":"lingo"`, `"version":"devel"`, `"commit":"unknown"`, `"source":"https://github.com/rgomids/axiom"`} {
+	for _, expected := range []string{`"product":"Axiom"`, `"binary":"lingo"`, `"version":"devel"`, `"commit":"unknown"`, `"dirty":false`, `"dirtyKnown":false`, `"source":"https://github.com/rgomids/axiom"`} {
 		if !bytes.Contains(data, []byte(expected)) {
 			t.Fatalf("version output missing %q: %s", expected, data)
 		}
+	}
+}
+
+func TestWorkItemFailureRendersCommittedExternalState(t *testing.T) {
+	result := workItemResult(workitem.Result{
+		Status:   workitem.Failed,
+		Category: "provider_committed_local_failed",
+		Link: workitem.Link{
+			ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
+			RepositoryKey:      "main",
+			ProviderRepository: "owner/repo",
+			Number:             7,
+			URL:                "https://github.com/owner/repo/issues/7",
+			State:              "CLOSED",
+		},
+	})
+	if result.WorkItem == nil || result.WorkItem.ProjectID == "" || result.WorkItem.RepositoryKey != "main" || result.WorkItem.Repository != "owner/repo" || result.WorkItem.State != "CLOSED" {
+		t.Fatalf("result = %#v", result)
+	}
+	payload, err := json.Marshal(result.WorkItem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"projectId":"123e4567-e89b-42d3-a456-426614174000"`, `"repositoryKey":"main"`, `"repository":"owner/repo"`, `"number":7`, `"url":"https://github.com/owner/repo/issues/7"`, `"state":"CLOSED"`} {
+		if !bytes.Contains(payload, []byte(expected)) {
+			t.Fatalf("work item payload missing %q: %s", expected, payload)
+		}
+	}
+}
+
+func TestWorkflowFailureRendersCommittedExternalState(t *testing.T) {
+	result := workflowResult(workflow.Result{
+		Status:   workflow.Failed,
+		Category: "provider_committed_local_failed",
+		WorkItem: &workflow.WorkItem{
+			ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
+			RepositoryKey:      "main",
+			ProviderRepository: "owner/repo",
+			Number:             7,
+			URL:                "https://github.com/owner/repo/issues/7",
+			State:              "CLOSED",
+		},
+	})
+	if result.WorkItem == nil || result.WorkItem.ProjectID == "" || result.WorkItem.RepositoryKey != "main" || result.WorkItem.Repository != "owner/repo" || result.WorkItem.State != "CLOSED" {
+		t.Fatalf("result = %#v", result)
 	}
 }
 

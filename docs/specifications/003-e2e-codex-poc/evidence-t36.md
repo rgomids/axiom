@@ -13,7 +13,9 @@
 - Closed JSON linkage records Project ID, repository key, `owner/repo`, Issue
   number, canonical HTTPS URL and state under protected local state.
 - Provider success followed by local write failure is reported as
-  `provider_committed_local_failed`, never rollback.
+  `provider_committed_local_failed`, never rollback. The failed Result still
+  exposes Project ID, repository key, provider repository, Issue number, canonical
+  URL and confirmed `OPEN`/`CLOSED` state for manual reconciliation.
 
 ## Reproduction
 
@@ -31,8 +33,8 @@ go mod verify
 
 Deterministic fakes cover Git remote resolution, create/read/comment/close,
 authority denial before provider calls, exact URL/repository/number validation,
-local round trip and truthful post-provider failure. Live GitHub mutation is
-reserved for #39 dogfooding.
+local round trip and exact payload retention after Create/Complete provider commit
+plus local save failure. Live GitHub mutation is reserved for #39 dogfooding.
 
 ## Security limits
 

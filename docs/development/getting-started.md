@@ -55,12 +55,16 @@ Execute também os checks locais de segurança:
 
 ## Work with Codex
 
-1. Execute `./scripts/install-axiom.sh` e confirme `lingo version` fora do checkout.
-2. Execute `lingo runtime codex install` e `lingo runtime codex status`.
-3. Configure um Project com `lingo project configure`.
-4. Inicie Codex fora do repository e invoque uma skill global `$axiom-*` usando
+1. Execute `./scripts/install-axiom.sh`.
+2. Se o installer informar `pathConfigured: false`, execute a instrução exibida;
+   para o destino padrão: `export PATH="$HOME/.local/bin:$PATH"`. O installer não
+   altera arquivos de shell/profile.
+3. Confirme `command -v lingo` e `lingo version` fora do checkout.
+4. Execute `lingo runtime codex install` e `lingo runtime codex status`.
+5. Configure um Project com `lingo project configure`.
+6. Inicie Codex fora do repository e invoque uma skill global `$axiom-*` usando
    somente seletores lógicos.
-5. Preserve a separação entre discovery, hipótese, Specification, decisão,
+7. Preserve a separação entre discovery, hipótese, Specification, decisão,
    implementação e Evidence; não invente comandos futuros.
 
 ## Before a commit

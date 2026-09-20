@@ -8,6 +8,20 @@ binary_root=${AXIOM_BIN_DIR:-"${HOME}/.local/bin"}
 state_root=${AXIOM_INSTALL_STATE_ROOT:-"${XDG_STATE_HOME:-${HOME}/.local/state}/axiom/install"}
 source_url=https://github.com/rgomids/axiom
 
+path_configured=false
+case ":${PATH:-}:" in
+  *":$binary_root:"*) path_configured=true ;;
+esac
+
+report_result() {
+  local result=$1
+  printf '{"event":"axiom_install","result":"%s","version":"%s","commit":"%s","dirty":%s,"pathConfigured":%s}\n' \
+    "$result" "$version" "$commit" "$dirty" "$path_configured"
+  if [[ "$path_configured" == false ]]; then
+    printf 'path_notice: lingo is not on PATH; run: export PATH=%q:$PATH\n' "$binary_root" >&2
+  fi
+}
+
 case "$binary_root:$state_root" in
   /*:/*) ;;
   *) printf '%s\n' 'install_error: absolute destinations required' >&2; exit 1 ;;
@@ -40,8 +54,13 @@ trap cleanup EXIT
 
 commit=$(git -C "$repository_root" rev-parse --verify HEAD)
 version="poc-${commit:0:12}"
+dirty=false
+if [[ -n $(git -C "$repository_root" status --porcelain --untracked-files=normal) ]]; then
+  dirty=true
+  version="${version}-dirty"
+fi
 go build -trimpath \
-  -ldflags "-X main.buildVersion=$version -X main.buildCommit=$commit -X main.buildSource=$source_url" \
+  -ldflags "-X main.buildVersion=$version -X main.buildCommit=$commit -X main.buildDirty=$dirty -X main.buildSource=$source_url" \
   -o "$stage" "$repository_root/cmd/lingo"
 chmod 700 "$stage"
 new_checksum=$(shasum -a 256 "$stage" | awk '{print $1}')
@@ -52,7 +71,7 @@ if [[ -e "$destination" || -L "$destination" ]]; then
     exit 1
   fi
   if cmp -s -- "$stage" "$destination"; then
-    printf '{"event":"axiom_install","result":"unchanged","version":"%s","commit":"%s"}\n' "$version" "$commit"
+    report_result unchanged
     exit 0
   fi
   if [[ ! -f "$receipt" || -L "$receipt" ]]; then
@@ -76,9 +95,10 @@ stage=
   printf 'sha256=%s\n' "$new_checksum"
   printf 'source=%s\n' "$source_url"
   printf 'commit=%s\n' "$commit"
+  printf 'dirty=%s\n' "$dirty"
 } >"$receipt_stage"
 chmod 600 "$receipt_stage"
 mv -f -- "$receipt_stage" "$receipt"
 receipt_stage=
 
-printf '{"event":"axiom_install","result":"installed","version":"%s","commit":"%s"}\n' "$version" "$commit"
+report_result installed

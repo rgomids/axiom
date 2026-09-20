@@ -13,7 +13,9 @@
   resets only that gate for a new attempt.
 - Completion can run only after every technical gate passes and requires
   `--authorize-external`. Provider completion preceding a failed local write is
-  reported truthfully as `work_item_completed_workflow_write_failed`.
+  reported truthfully. Both `provider_committed_local_failed` and
+  `work_item_completed_workflow_write_failed` preserve the confirmed Issue URL,
+  identity and `CLOSED` state in the workflow/CLI Result.
 - Workflow rules live in Lingo application behavior. Codex skills remain thin
   entrypoints.
 
@@ -48,6 +50,8 @@ completion without authority, then completes with authority.
   categories;
 - repository binding changed after workflow start;
 - strict closed local JSON and private file mode.
+- external completion state propagation when Work Item linkage or workflow
+  persistence fails after the Provider commit.
 
 Live GitHub mutation and the real unrelated-CWD Codex dogfood remain assigned to
 T39/#39. Final human acceptance remains outside T37.

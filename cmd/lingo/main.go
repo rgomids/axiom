@@ -21,6 +21,7 @@ import (
 var (
 	buildVersion = "devel"
 	buildCommit  = "unknown"
+	buildDirty   = "unknown"
 	buildSource  = "https://github.com/rgomids/axiom"
 )
 
@@ -35,15 +36,25 @@ func main() {
 }
 
 type versionInfo struct {
-	Product string `json:"product"`
-	Binary  string `json:"binary"`
-	Version string `json:"version"`
-	Commit  string `json:"commit"`
-	Source  string `json:"source"`
+	Product    string `json:"product"`
+	Binary     string `json:"binary"`
+	Version    string `json:"version"`
+	Commit     string `json:"commit"`
+	Dirty      bool   `json:"dirty"`
+	DirtyKnown bool   `json:"dirtyKnown"`
+	Source     string `json:"source"`
 }
 
 func writeVersion(output *os.File) int {
-	info := versionInfo{Product: "Axiom", Binary: "lingo", Version: buildVersion, Commit: buildCommit, Source: buildSource}
+	info := versionInfo{
+		Product:    "Axiom",
+		Binary:     "lingo",
+		Version:    buildVersion,
+		Commit:     buildCommit,
+		Dirty:      buildDirty == "true",
+		DirtyKnown: buildDirty == "true" || buildDirty == "false",
+		Source:     buildSource,
+	}
 	if err := json.NewEncoder(output).Encode(info); err != nil {
 		return cli.ExitFailure
 	}
@@ -169,8 +180,19 @@ func (w workflowWorkItems) Available(ctx context.Context, project, repository st
 	return result.Status == workitem.Succeeded && result.Link.State == "OPEN"
 }
 
-func (w workflowWorkItems) Complete(ctx context.Context, project, repository string, number int, authorized bool) string {
-	return w.service.Complete(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, number, authorized).Category
+func (w workflowWorkItems) Complete(ctx context.Context, project, repository string, number int, authorized bool) workflow.WorkItemCompletion {
+	result := w.service.Complete(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, number, authorized)
+	return workflow.WorkItemCompletion{
+		Category: result.Category,
+		WorkItem: workflow.WorkItem{
+			ProjectID:          result.Link.ProjectID,
+			RepositoryKey:      result.Link.RepositoryKey,
+			ProviderRepository: result.Link.ProviderRepository,
+			Number:             result.Link.Number,
+			URL:                result.Link.URL,
+			State:              result.Link.State,
+		},
+	}
 }
 
 func (s lifecycleService) RuntimeCodexInstall(ctx context.Context) cli.Result {
@@ -330,6 +352,9 @@ func workflowResult(result workflow.Result) cli.Result {
 		}
 		response.Workflow = view
 	}
+	if result.WorkItem != nil {
+		response.WorkItem = &cli.WorkItemView{ProjectID: result.WorkItem.ProjectID, RepositoryKey: result.WorkItem.RepositoryKey, Repository: result.WorkItem.ProviderRepository, Number: result.WorkItem.Number, URL: result.WorkItem.URL, State: result.WorkItem.State}
+	}
 	return response
 }
 
@@ -340,7 +365,7 @@ func workItemResult(result workitem.Result) cli.Result {
 	}
 	response := cli.Result{Status: status, Category: result.Category}
 	if result.Link.Number > 0 {
-		response.WorkItem = &cli.WorkItemView{Repository: result.Link.ProviderRepository, Number: result.Link.Number, URL: result.Link.URL, State: result.Link.State}
+		response.WorkItem = &cli.WorkItemView{ProjectID: result.Link.ProjectID, RepositoryKey: result.Link.RepositoryKey, Repository: result.Link.ProviderRepository, Number: result.Link.Number, URL: result.Link.URL, State: result.Link.State}
 	}
 	return response
 }

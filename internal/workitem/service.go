@@ -176,7 +176,7 @@ func (s Service) persist(ctx context.Context, project Project, key, repository s
 	}
 	link := Link{ProjectID: project.ID, RepositoryKey: key, ProviderRepository: repository, Number: external.Number, URL: external.URL, State: external.State}
 	if err := s.store.Save(ctx, link); err != nil {
-		return failure("local_work_item_write_failed")
+		return Result{Status: Failed, Category: "local_work_item_write_failed", Link: link}
 	}
 	return Result{Status: Succeeded, Category: "work_item_linked", Link: link}
 }

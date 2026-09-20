@@ -100,10 +100,12 @@ type ProjectView struct {
 	Repositories []RepositoryView `json:"repositories"`
 }
 type WorkItemView struct {
-	Repository string `json:"repository"`
-	Number     int    `json:"number"`
-	URL        string `json:"url"`
-	State      string `json:"state"`
+	ProjectID     string `json:"projectId"`
+	RepositoryKey string `json:"repositoryKey"`
+	Repository    string `json:"repository"`
+	Number        int    `json:"number"`
+	URL           string `json:"url"`
+	State         string `json:"state"`
 }
 type WorkflowStepView struct {
 	Gate      string `json:"gate"`
@@ -452,7 +454,7 @@ func emitHuman(writer io.Writer, value event) {
 		}
 	}
 	if value.WorkItem != nil {
-		_, _ = io.WriteString(writer, "work-item "+value.WorkItem.URL+" ["+value.WorkItem.State+"]\n")
+		_, _ = io.WriteString(writer, "work-item "+value.WorkItem.URL+" ["+value.WorkItem.State+"] project="+value.WorkItem.ProjectID+" repository-key="+value.WorkItem.RepositoryKey+" provider-repository="+value.WorkItem.Repository+"\n")
 	}
 	if value.Workflow != nil {
 		_, _ = io.WriteString(writer, "workflow "+value.Workflow.Status+" current="+value.Workflow.CurrentGate+" repository="+strconv.Quote(value.Workflow.RepositoryPath)+"\n")

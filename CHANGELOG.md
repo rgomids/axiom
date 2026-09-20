@@ -1,5 +1,9 @@
 # Changelog
 
+## [2026-09-20]
+
+- fix: make source installation report deterministic PATH setup guidance without shell-profile mutation, mark dirty-checkout builds in installer/version metadata, and preserve confirmed GitHub Issue identity/state through post-provider Work Item or workflow persistence failures.
+
 ## [2026-09-19]
 
 - specification: approve the complete E2E Codex POC journey, implementation plan and #31–#40 task mapping; preserve existing Axiom/Lingo, Project/Repository and portable/local boundaries. Record the supported standalone Codex `$axiom-<skill>` mapping because literal colon names fail the current hyphen-case skill contract; final human acceptance remains separate.

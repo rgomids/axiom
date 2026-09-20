@@ -2,10 +2,53 @@ package workflow
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestCompletionPreservesExternalStateWhenWorkItemPersistenceFails(t *testing.T) {
+	repository := t.TempDir()
+	store := &memoryStore{}
+	items := &fakeWorkItems{
+		exists: true,
+		completion: WorkItemCompletion{
+			Category: "provider_committed_local_failed",
+			WorkItem: WorkItem{
+				ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
+				RepositoryKey:      "main",
+				ProviderRepository: "owner/repo",
+				Number:             7,
+				URL:                "https://github.com/owner/repo/issues/7",
+				State:              "CLOSED",
+			},
+		},
+	}
+	service := New(fakeResolver{repository}, items, store)
+	target := Target{ProjectSelector: "sample", RepositoryKey: "main", WorkItem: 7}
+	advanceToCompletion(t, service, target, repository)
+
+	result := service.Advance(context.Background(), target, "completion", "pass", "", true)
+	if result.Category != "provider_committed_local_failed" || result.WorkItem == nil || *result.WorkItem != confirmedClosedWorkItem() {
+		t.Fatalf("completion result = %#v", result)
+	}
+}
+
+func TestCompletionPreservesExternalStateWhenWorkflowPersistenceFails(t *testing.T) {
+	repository := t.TempDir()
+	store := &memoryStore{}
+	items := &fakeWorkItems{exists: true}
+	service := New(fakeResolver{repository}, items, store)
+	target := Target{ProjectSelector: "sample", RepositoryKey: "main", WorkItem: 7}
+	advanceToCompletion(t, service, target, repository)
+	store.failSave = true
+
+	result := service.Advance(context.Background(), target, "completion", "pass", "", true)
+	if result.Category != "work_item_completed_workflow_write_failed" || result.WorkItem == nil || *result.WorkItem != confirmedClosedWorkItem() {
+		t.Fatalf("completion result = %#v", result)
+	}
+}
 
 func TestWorkflowRunsSequentiallyInterruptsResumesAndCompletes(t *testing.T) {
 	repository := t.TempDir()
@@ -77,20 +120,39 @@ func (r *mutableResolver) Resolve(context.Context, string) (Project, string) {
 
 type fakeWorkItems struct {
 	exists, completed bool
+	completion        WorkItemCompletion
 }
 
 func (f *fakeWorkItems) Available(context.Context, string, string, int) bool { return f.exists }
-func (f *fakeWorkItems) Complete(_ context.Context, _, _ string, _ int, authorized bool) string {
+func (f *fakeWorkItems) Complete(_ context.Context, _, _ string, _ int, authorized bool) WorkItemCompletion {
 	if !authorized {
-		return "external_mutation_denied"
+		return WorkItemCompletion{Category: "external_mutation_denied"}
 	}
 	f.completed = true
-	return "work_item_completed"
+	if f.completion.Category != "" {
+		return f.completion
+	}
+	return WorkItemCompletion{
+		Category: "work_item_completed",
+		WorkItem: confirmedClosedWorkItem(),
+	}
+}
+
+func confirmedClosedWorkItem() WorkItem {
+	return WorkItem{
+		ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
+		RepositoryKey:      "main",
+		ProviderRepository: "owner/repo",
+		Number:             7,
+		URL:                "https://github.com/owner/repo/issues/7",
+		State:              "CLOSED",
+	}
 }
 
 type memoryStore struct {
-	state   State
-	created bool
+	state    State
+	created  bool
+	failSave bool
 }
 
 func (s *memoryStore) Create(_ context.Context, state State) error {
@@ -108,8 +170,20 @@ func (s *memoryStore) Load(context.Context, string, string, int) (State, error) 
 	return s.state, nil
 }
 func (s *memoryStore) Save(_ context.Context, state State) error {
+	if s.failSave {
+		return errors.New("write failed")
+	}
 	s.state = state
 	return nil
+}
+
+func advanceToCompletion(t *testing.T, service Service, target Target, repository string) {
+	t.Helper()
+	assertCategory(t, service.Start(context.Background(), target), Succeeded, "workflow_started")
+	for _, gate := range Gates[:8] {
+		writeArtifact(t, repository, gate+".md")
+		assertCategory(t, service.Advance(context.Background(), target, gate, "pass", gate+".md", false), Succeeded, "workflow_advanced")
+	}
 }
 
 func writeArtifact(t *testing.T, root, name string) {

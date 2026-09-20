@@ -30,7 +30,8 @@ Skills contain no duplicate Project, provider or workflow rules.
 ## User journey
 
 1. `scripts/install-axiom.sh` builds a revisioned Lingo binary into an explicit
-   user PATH destination with a protected ownership receipt.
+   user PATH destination with a protected ownership receipt, reports dirty source
+   metadata and gives safe PATH guidance without changing shell profiles.
 2. `lingo runtime codex install` publishes five exact user-global skills and
    `status` verifies them.
 3. `lingo project configure` writes logical repository keys to portable intent
@@ -93,6 +94,10 @@ a multi-agent graph contract.
 | deterministic tests/Evidence | macOS/Linux POC workflow; T31–T39 Evidence; final validation |
 | limitations and foundation gates | this report; Specification 002 `evidence-poc.md`; #19/#20 comments |
 | explicit human acceptance | pending by design; #21/#30/#40 remain open |
+
+Post-provider failure Results retain Project/repository identity, Issue URL and
+confirmed state. Workflow completion propagates the same payload if either Work
+Item linkage or workflow persistence fails after GitHub confirms `CLOSED`.
 
 ## Validation
 

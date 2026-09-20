@@ -48,7 +48,15 @@ func TestCompleteReportsProviderCommitWhenLocalSaveFails(t *testing.T) {
 	}
 	store.failSave = true
 	result := service.Complete(context.Background(), target, 7, true)
-	if result.Category != "provider_committed_local_failed" || provider.closes != 1 {
+	want := Link{
+		ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
+		RepositoryKey:      "main",
+		ProviderRepository: "owner/repo",
+		Number:             7,
+		URL:                "https://github.com/owner/repo/issues/7",
+		State:              "CLOSED",
+	}
+	if result.Category != "provider_committed_local_failed" || result.Link != want || provider.closes != 1 {
 		t.Fatalf("complete = %#v, closes=%d", result, provider.closes)
 	}
 }
@@ -59,7 +67,15 @@ func TestCreateReportsProviderCommitWhenLocalSaveFails(t *testing.T) {
 	store.failSave = true
 	service := New(fakeResolver{}, fakeLocator{}, provider, store)
 	result := service.Create(context.Background(), Target{"sample", "main"}, "Title", "Body", true)
-	if result.Category != "provider_committed_local_failed" || provider.creates != 1 {
+	want := Link{
+		ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
+		RepositoryKey:      "main",
+		ProviderRepository: "owner/repo",
+		Number:             7,
+		URL:                "https://github.com/owner/repo/issues/7",
+		State:              "OPEN",
+	}
+	if result.Category != "provider_committed_local_failed" || result.Link != want || provider.creates != 1 {
 		t.Fatalf("create = %#v, calls=%d", result, provider.creates)
 	}
 }
