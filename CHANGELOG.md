@@ -2,6 +2,32 @@
 
 ## [2026-09-20]
 
+- approval: record the explicit PR #71 human decision accepting ADR-0007 and ADR-0008 and approving the Specification 004 Plan. Authorize the Tasks phase only; implementation, Provider mutation, migration execution, installer/release publication and final MVP acceptance remain unauthorized. Windows support remains a future roadmap follow-up and does not change the current MVP support matrix.
+
+- architecture: propose ADR-0007 for one shared logical local publication and
+  recovery protocol, including deterministic coordination, private preparation,
+  protected publication, prior/new complete generations, commit truth and
+  fail-closed readers. Keep ADR-0005 as the threat-model authority and leave
+  syscalls, filenames, layouts, libraries and Go packages to implementation.
+- architecture: propose ADR-0008 for the minimal versioned machine-local Execution
+  record required by the bounded sequential MVP workflow. Preserve Execution !=
+  Agent, local workflow authority, Provider projection separation and the open
+  future general Execution graph. Both new ADRs await explicit human review.
+- planning: refresh the versioned release matrix from official sources to macOS
+  27.0/arm64 and Ubuntu 26.04 LTS/amd64+arm64; separate supported product targets
+  from current GitHub-hosted CI availability. Record initial quota/retention
+  rationale, capacity-exhaustion outcomes and dogfooding review obligations without
+  claiming benchmark Evidence. Plan remains ready for human review and blocked
+  from approval/Tasks while ADR-0007/0008 are Proposed.
+
+- planning: add the Specification 004 implementation Plan after PR #70 resolved
+  the architecture gate; define vertical delivery slices, GitHub projection,
+  Runtime selectors, canonical completion/provenance, machine-local artifact
+  layout and retention, bounded APFS/ext4 publication/recovery, clean-v1
+  install/upgrade compatibility, RC acceptance, and complete FR/security/AC
+  traceability. Plan ready for human review; no Tasks, implementation, Provider
+  mutation, migration, or release authorized.
+
 - architecture: accept ADR-0005 directly from Specification 004 HD-3, defining the bounded local filesystem threat model: exact authorized-target confinement, supported traversal/link/replacement protection, process concurrency, deterministic injected faults, complete canonical state, fail-closed uncertainty, restrictive local metadata and guided recovery remain required; malicious same-UID arbitrary interleavings, physical power loss and physical-media durability are explicit unsupported guarantees.
 - architecture: accept ADR-0006 directly from Specification 004 HD-2, defining one Axiom-owned machine-local detail-artifact boundary with stable identity, Execution-first/pre-Execution correlation, Evidence references, purpose-based retention and explicit reference-aware safe cleanup; no operation-attempt entity, layout, package or retention duration is selected.
 - reconciliation: record H13 and align Specification 002 SEC-003/SEC-005, affected acceptance criteria, Plan, Tasks, conceptual model, indexes, roadmap and historical POC Evidence with HD-3 while preserving the original approval/Evidence history. No Specification 004 Plan, Tasks, implementation, migration, installer or release work started.
