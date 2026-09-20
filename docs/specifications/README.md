@@ -95,12 +95,14 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 
 [Specification](004-mvp-v1-baseline/spec.md): **Approved — human approval recorded on 2026-09-20**.
 
-[Plan](004-mvp-v1-baseline/plan.md): **Ready for human review**. Tasks and
-implementation remain unauthorized.
+[Plan](004-mvp-v1-baseline/plan.md): **Ready for human review; depends on proposed
+ADR-0007 and ADR-0008**. Tasks and implementation remain unauthorized.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
-explicit Plan request authorized this Plan document only. The approved
+Plan was explicitly requested and authorized as process context for PR #71 only;
+no separate GitHub authorization artifact was cited. PR #71 is the auditable
+approval point, and neither the request nor checks/merge imply approval. The approved
 Specification consolidates #54–#57 and #63–#68 into the clean-environment journey
 from installation through explicit human acceptance.
 It defines Project/Work Item UX, Provider workflow projection, Runtime selectors,
@@ -118,7 +120,12 @@ was explicitly approved on 2026-09-20. HD-3 is formalized by
 dated Specification 002 H13 reconciliation; HD-2 is formalized by
 [ADR-0006](../decisions/0006-machine-local-detail-artifacts.md) without adding an
 operation-attempt domain entity. PR #70 merged that reconciliation to `main` and
-received explicit human approval, resolving the Plan gate. The Plan now defines
-the proposed incremental implementation and future Evidence strategy; it is not
-Approved. No MVP implementation, Tasks, release, or final MVP acceptance is
-authorized.
+received explicit human approval, resolving the Plan gate. Plan review identified
+two new durable proposals:
+[ADR-0007](../decisions/0007-local-publication-and-recovery-protocol.md) for the
+shared local publication/recovery protocol and
+[ADR-0008](../decisions/0008-minimal-machine-local-execution-record.md) for the
+bounded sequential Execution record. Both remain **Proposed — ready for human
+review**. The Plan is not Approved and cannot advance to Tasks until both decisions
+are explicitly accepted or revised by a human. No MVP implementation, Provider
+mutation, release, or final MVP acceptance is authorized.

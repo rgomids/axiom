@@ -65,7 +65,10 @@ autorizar sua implementação. A
 [Specification 004](docs/specifications/004-mvp-v1-baseline/spec.md) consolida o
 baseline MVP aprovado. Seu
 [Plan](docs/specifications/004-mvp-v1-baseline/plan.md) está pronto para revisão
-humana; nenhuma Task ou implementação MVP está autorizada.
+humana e depende da decisão humana sobre os ADRs propostos
+[0007](docs/decisions/0007-local-publication-and-recovery-protocol.md) e
+[0008](docs/decisions/0008-minimal-machine-local-execution-record.md); nenhuma
+Task ou implementação MVP está autorizada.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 

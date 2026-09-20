@@ -55,7 +55,13 @@ approved on 2026-09-20. The authorized reconciliation records
 updates across Specification 002. PR #70 merged that reconciliation and received
 explicit human approval. The resulting
 [Specification 004 Plan](../specifications/004-mvp-v1-baseline/plan.md) is ready
-for human review; it does not authorize Tasks, implementation, or release.
+for human review. Review identified
+[ADR-0007](../decisions/0007-local-publication-and-recovery-protocol.md), proposing
+the shared local publication/recovery protocol, and
+[ADR-0008](../decisions/0008-minimal-machine-local-execution-record.md), proposing
+the bounded machine-local sequential Execution record. Both remain Proposed and
+must be explicitly accepted or revised before Plan approval/Tasks. The Plan does
+not authorize implementation, Provider mutation, or release.
 
 ## Complete Specification 002
 

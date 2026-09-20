@@ -2,6 +2,22 @@
 
 ## [2026-09-20]
 
+- architecture: propose ADR-0007 for one shared logical local publication and
+  recovery protocol, including deterministic coordination, private preparation,
+  protected publication, prior/new complete generations, commit truth and
+  fail-closed readers. Keep ADR-0005 as the threat-model authority and leave
+  syscalls, filenames, layouts, libraries and Go packages to implementation.
+- architecture: propose ADR-0008 for the minimal versioned machine-local Execution
+  record required by the bounded sequential MVP workflow. Preserve Execution !=
+  Agent, local workflow authority, Provider projection separation and the open
+  future general Execution graph. Both new ADRs await explicit human review.
+- planning: refresh the versioned release matrix from official sources to macOS
+  27.0/arm64 and Ubuntu 26.04 LTS/amd64+arm64; separate supported product targets
+  from current GitHub-hosted CI availability. Record initial quota/retention
+  rationale, capacity-exhaustion outcomes and dogfooding review obligations without
+  claiming benchmark Evidence. Plan remains ready for human review and blocked
+  from approval/Tasks while ADR-0007/0008 are Proposed.
+
 - planning: add the Specification 004 implementation Plan after PR #70 resolved
   the architecture gate; define vertical delivery slices, GitHub projection,
   Runtime selectors, canonical completion/provenance, machine-local artifact

@@ -16,13 +16,31 @@ including merged PR #70 and explicit human acceptance of
 [Specification 002 H13](../002-lingo-project-initialization/clarifications.md#bounded-local-filesystem-threat-model--2026-09-20).
 The former HD-3 planning gate is therefore resolved.
 
+This Plan was requested after PR #70 completed that gate. That request is process
+context for PR #71, not a separate GitHub approval artifact. PR #71 is the durable
+place for the human to review this Plan and the architectural proposals discovered
+during its review. No approval is inferred from the request, branch, checks, or
+merge state.
+
 Canonical inputs:
 
 - Specification 004 and HD-1–HD-4;
 - Specification 002, H1–H13, its approved Plan, and its partial implementation;
-- ADR-0001–ADR-0006;
+- Accepted ADR-0001–ADR-0006;
 - the conceptual model, Provider boundaries, Constitution, roadmap, and current
   repository implementation/Evidence.
+
+Plan review identified two durable cross-cutting choices that are not already
+accepted:
+
+- [ADR-0007](../../decisions/0007-local-publication-and-recovery-protocol.md)
+  proposes the shared local publication/recovery protocol;
+- [ADR-0008](../../decisions/0008-minimal-machine-local-execution-record.md)
+  proposes the bounded machine-local Execution record.
+
+Both remain **Proposed — ready for human review**. This Plan depends on their
+human acceptance or explicit revision before it can be Approved or advance to
+Tasks. They are outputs of Plan review, not retroactive canonical inputs.
 
 The accepted POC is historical Evidence and an implementation baseline. Its
 commands, status values, schemas, storage layouts, and adapters are not v1
@@ -120,12 +138,16 @@ Planned cohesive package evolution:
 Existing packages should be evolved, not wrapped by a universal framework. A
 second Provider or Runtime is required before generalizing adapter registration.
 
-The MVP uses a minimal, versioned, machine-local Execution record only for the
+Subject to human acceptance of
+[ADR-0008](../../decisions/0008-minimal-machine-local-execution-record.md), the
+MVP uses a minimal, versioned, machine-local Execution record only for the
 specified sequential workflow: opaque Execution ID, Project ID, Repository key,
 Work Item reference, Runtime ID, workflow version, current stage, state revision,
-transition records, timestamps, provenance, artifact/Evidence references, and
-terminal state. This does not settle the broad Execution model or create an
-`operation-attempt` entity. Pre-Execution commands use only ADR-0006's opaque
+bounded transition records, timestamps, provenance, artifact/Evidence references,
+and terminal state. The ADR owns identity, authority, lifecycle, and cross-boundary
+meaning. Exact field names, encoding, path, indexes, and package types remain
+implementation details. This does not settle the broad Execution model or create
+an `operation-attempt` entity. Pre-Execution commands use only ADR-0006's opaque
 local correlation ID.
 
 ## 4. Delivery slices and dependency ordering
@@ -308,25 +330,44 @@ category/outcome; retention class; content byte length; SHA-256 digest; live
 reference summaries; optional superseding artifact; and cleanup state. Adding an
 Execution reference later preserves artifact identity and original correlation.
 
-Concrete limits:
+No benchmark or production-volume Evidence currently supports an exact threshold.
+The following values are therefore **initial bounded MVP defaults/guardrails**,
+selected to make resource behavior testable and fail closed. Dogfooding and RC
+Evidence must measure observed sizes/counts and recommend retention or limit
+adjustment. Values may change in a later reviewed Plan/release without changing
+artifact identity, Evidence-reference meaning, or ADR-0006 ownership invariants.
 
-- Markdown content: 1 MiB per artifact;
-- metadata: 64 KiB per artifact;
-- captured output included in one artifact: 256 KiB after sanitization;
-- 10,000 live artifacts and 1 GiB aggregate content per state root;
-- cleanup record: 64 KiB; retain 90 days after confirmed cleanup.
+| Boundary | Initial value | Kind | Objective and controlled risk | Cost / validation obligation |
+|---|---:|---|---|---|
+| Markdown content per artifact | 1 MiB | Hard per-object guardrail | Bound memory/disk use and prevent one diagnostic from becoming an unbounded log container | Large diagnosis must be safely summarized or split into separately identified artifacts; dogfood real reports and record truncation/split behavior |
+| Metadata per artifact | 64 KiB | Hard schema guardrail | Bound decode/allocation and prevent references/provenance from becoming a payload channel | Limits reference fan-out; implementation must reject rather than silently drop required metadata |
+| Sanitized captured output included per artifact | 256 KiB | Hard capture guardrail | Bound untrusted external output before durable publication and reduce sensitive-data exposure | May omit useful tail/context; any truncation must be explicit and preserve the source/result classification |
+| Live artifacts per state root | 10,000 | Hard initial capacity guardrail | Bound lookup/reference scans and inode/object growth | Heavy users may exhaust count before bytes; no eviction is implicit and dogfood must measure scan/lookup cost |
+| Aggregate artifact content per state root | 1 GiB | Hard initial capacity guardrail | Bound local storage consumption independently of object count | Workflows can block detail creation at capacity; cleanup remains separately authorized and reference-aware |
+| Cleanup record | 64 KiB per record | Hard audit guardrail | Keep cleanup explanation bounded and prevent removed payload from being copied into audit state | Large cleanup must be batched with complete identities/digests; no removed identity may be silently omitted |
+| Confirmed cleanup-record retention | 90 days | Default policy | Preserve a bounded audit window for operator review without retaining deleted payload indefinitely | More metadata remains local; dogfood must assess usefulness and volume before release |
 
-Capacity exhaustion fails artifact creation without rewriting the primary operation
-outcome and never triggers implicit deletion.
+Capacity exhaustion never triggers deletion or changes a confirmed primary effect.
+It appears in the completion contract as follows:
+
+- before any requested effect, inability to create a required artifact is `failure`;
+- after a confirmed primary effect, required artifact/reference failure is `partial`
+  and lists the confirmed effect plus safe next action;
+- when details are optional and the requested primary effect is complete, the
+  primary status remains truthful and the bounded result states that optional
+  details were unavailable;
+- input/schema bounds detected before action are `validation_failure`;
+- ambiguous capacity or reference state fails closed and preserves content for
+  review.
 
 Retention classes and policy:
 
-| Class | Required retention | Cleanup eligibility |
-|---|---|---|
-| `active` | While workflow/Execution/recovery/review dependency is active | Only after authoritative terminal resolution and explicit reclassification |
-| `evidence` | While any retained Evidence references identity+digest | 365 days after every Evidence reference is explicitly retired |
-| `diagnostic` | Bounded troubleshooting context without live dependency | 30 days after creation or supersession, with no live references |
-| `preserved_review` | Ownership, validity, or reference state uncertain | Never age-eligible; operator must resolve/reclassify |
+| Class | Required retention | Policy kind and rationale | Cleanup eligibility / cost |
+|---|---|---|---|
+| `active` | While workflow/Execution/recovery/review dependency is active | Hard reference invariant; protects continuation and current review rather than using age as authority | Only after authoritative terminal resolution and explicit reclassification; may retain indefinitely while work remains active |
+| `evidence` | While any retained Evidence references identity+digest | Hard reference invariant plus initial 365-day post-retirement default; preserves a review/audit window after explicit reference retirement | 365 days after every Evidence reference is explicitly retired; storage cost persists after retirement and duration needs dogfood/review Evidence |
+| `diagnostic` | Initial 30-day default after creation or supersession | Default policy for bounded troubleshooting context with no live dependency | Eligible only with no live references; short window may reduce late diagnosis and must be validated through dogfooding |
+| `preserved_review` | While ownership, validity, or reference state is uncertain | Hard fail-closed invariant; age cannot establish deletion authority | Never age-eligible; operator must resolve/reclassify, accepting possible capacity pressure |
 
 Cleanup is always an explicit, previewed, separately authorized command. It locks
 and revalidates exact identity, ownership, type, links, digest, references, and
@@ -344,19 +385,67 @@ observation, and verification context.
 
 ### Supported release matrix and assumptions
 
-The v1 release target is exactly:
+Versioned support research was refreshed on 2026-09-20 from official sources:
 
-| OS | Architecture | Supported local filesystem for acceptance |
-|---|---|---|
-| macOS 15.x | `arm64` | local APFS, default case-insensitive configuration |
-| macOS 15.x | `amd64` | local APFS, default case-insensitive configuration |
-| Ubuntu 24.04 LTS | `amd64` | local ext4 |
-| Ubuntu 24.04 LTS | `arm64` | local ext4 |
+- Apple lists [macOS 27 Golden Gate 27.0 as the latest macOS](https://support.apple.com/en-ie/109033)
+  and its [compatibility list](https://support.apple.com/en-us/127455) supports
+  Apple-silicon Macs only. Therefore macOS 27 has no supported `amd64` target.
+- Canonical lists [Ubuntu 26.04 LTS](https://ubuntu.com/about/release-cycle) as
+  the current LTS, released April 2026, with vendor support for `amd64`, `armhf`,
+  `arm64`, `s390x`, `riscv64`, and `ppc64el-p9`. The MVP selects only `amd64` and
+  `arm64`, the candidate Linux binary targets in HD-1; other Ubuntu architectures
+  remain outside MVP scope until required and evidenced.
+- Apple documents [APFS as the default Mac filesystem](https://support.apple.com/guide/disk-utility/file-system-formats-dsku19ed921c/22.7/mac/27)
+  and case-sensitive APFS as a distinct format. Ubuntu documents an ext4-capable
+  local platform; the official Ubuntu
+  [`rename`/`renameat2` reference](https://manpages.ubuntu.com/manpages/jammy/man2/rename.2.html)
+  requires source/target on the same mounted filesystem and records
+  filesystem-specific no-replace support.
+
+The v1 supported release target and reproducible initial acceptance baseline are
+exactly:
+
+| Supported release / acceptance baseline | Product architecture | Supported local filesystem for acceptance | Rationale |
+|---|---|---|---|
+| macOS 27 / macOS 27.0 | `arm64` | local APFS, default case-insensitive format | Latest stable macOS major and current 27.0 release; Apple supports only Apple silicon, so no `amd64` binary is claimed |
+| Ubuntu 26.04 LTS / Ubuntu 26.04 LTS | `amd64` | local ext4 | Latest Ubuntu LTS; primary x86-64 Linux binary target selected by HD-1 |
+| Ubuntu 26.04 LTS / Ubuntu 26.04 LTS | `arm64` | local ext4 | Latest Ubuntu LTS; ARM64 Linux target selected by HD-1 and required to avoid architecture-by-cross-compile claims |
+
+Every Evidence record includes the exact OS point version, build/kernel, image,
+architecture, and filesystem observation. A later macOS 27 maintenance release or
+Ubuntu 26.04 point release requires the applicable native compatibility rerun before
+the release claim expands; `27` or `26.04 LTS` is not a floating unrecorded runner.
 
 Every row requires native execution Evidence; cross-compilation alone is
 insufficient. Other distributions, OS versions, architectures, case-sensitive APFS,
-network mounts, FUSE, overlay filesystems, removable media, and cross-filesystem
-publication are unsupported for v1 unless later added with equivalent Evidence.
+network mounts, FUSE, overlay/union filesystems, removable media, and
+cross-filesystem publication are unsupported for v1 unless later added with
+equivalent Evidence.
+
+Relevant filesystem restrictions become acceptance preconditions, not broader
+guarantees: staging and canonical targets share one mounted local filesystem;
+case behavior is detected and must match the row; APFS shared-container free space
+is re-observed rather than treated as reserved capacity; ext4 no-replace/rename
+support is probed or established for the target; and Ubuntu 26.04's documented
+[POSIX ACL inheritance limitation with `mkdir -p`](https://documentation.ubuntu.com/release-notes/26.04/changes-since-previous-interim/)
+means implementation cannot rely on inherited ACLs and must explicitly set and
+revalidate final ownership/mode/ACL state.
+
+Supported product targets remain separate from currently automated CI:
+
+| Target | Current GitHub-hosted availability on 2026-09-20 | Evidence consequence |
+|---|---|---|
+| macOS 27.0 `arm64` | [`xcode-27`](https://github.com/actions/runner-images/blob/main/images/macos/xcode-27-arm64-Readme.md) runs macOS 27.0/arm64 as a public-preview image | Exact native automation is available, but the repository does not use it yet and preview capacity/support is not GA. RC Evidence must record the exact image/environment and a rerun/backstop path. |
+| Ubuntu 26.04 LTS `amd64` | [`ubuntu-26.04`](https://github.com/actions/runner-images/issues/14226) exists as public preview | Exact native automation is available; preview availability/SLA limitations and the exact image must be recorded. |
+| Ubuntu 26.04 LTS `arm64` | [`ubuntu-26.04-arm`](https://github.com/actions/runner-images/issues/14226) exists as public preview | Exact native architecture automation is available with the same preview limitations. |
+
+GitHub documents that `-latest` can lag the vendor's latest OS and lists current
+[runner labels and architectures](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job).
+The repository's current `macos-15`/`ubuntu-24.04` workflow remains historical POC
+verification only and cannot claim MVP matrix Evidence. No workflow is changed by
+this Plan. Future exact-target runs may use the preview labels above, explicit
+self-hosted/native environments, or later GA labels; missing exact target Evidence
+remains an explicit release blocker rather than a reason to weaken product support.
 
 Assumptions: intended local user owns managed roots; required regular-file,
 directory-handle, identity, link-count, rename, restrictive mode/ACL, and advisory
@@ -364,9 +453,18 @@ process-lock semantics are available; staging and canonical target share one loc
 filesystem; clocks are not used for concurrency authority. Failure to establish an
 assumption returns validation failure or `recovery_required` before mutation.
 
-### Publication protocol
+### Proposed publication protocol mapping
 
-All mutable local stores use one shared protocol implemented behind narrow ports:
+[ADR-0007](../../decisions/0007-local-publication-and-recovery-protocol.md)
+owns the proposed architectural invariants: shared logical states, deterministic
+coordination order, private preparation, protected publication, bounded recovery
+state, one commit point, prior/new generations, fail-closed readers, and owned-only
+cleanup. It remains Proposed; human acceptance or revision is required before this
+Plan or implementation can treat the protocol as architecture.
+
+If ADR-0007 is accepted without material revision, implementation planning maps it
+behind narrow ports as follows. Syscalls, filenames, lock backend, record encoding,
+and Go libraries remain Task/implementation choices validated by native Evidence:
 
 1. validate explicit root/object authority; open anchored roots without following
    unchecked names; validate ownership, type, mode/ACL, link count, and ancestry;
@@ -388,7 +486,7 @@ All mutable local stores use one shared protocol implemented behind narrow ports
 10. record confirmed commit, release locks, then clean only positively owned staging,
     prior-generation, and marker objects.
 
-For journaled multi-file publication, the prior complete directory is retained as
+For proposed journaled multi-file publication, the prior complete directory is retained as
 an identified prior generation before final publication. Before commit it remains
 the recoverable authority; after commit the new complete generation is authority.
 Crash/uncertainty blocks ordinary readers rather than exposing either partial tree.
@@ -450,7 +548,7 @@ or independent publisher authenticity.
 ### Distribution and first run
 
 Publish versioned release archives and `SHA256SUMS` through GitHub Releases for
-all four supported targets.
+all three supported targets.
 Each archive contains `lingo`, license/notices, release metadata, and the compatible
 Codex skill-set manifest. The documented install path downloads or accepts an exact
 version, verifies the published checksum before execution/publication, and installs
@@ -602,7 +700,7 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | FR-010 | §6 structured provider-neutral draft |
 | FR-011 | §6 two-phase Provider mutation gate |
 | FR-012 | §3/§6 capability port and GitHub adapter |
-| FR-013 | §7 authoritative local workflow |
+| FR-013 | §7 authoritative local workflow; proposed ADR-0008 Execution authority |
 | FR-014 | §7 exactly one namespaced GitHub stage label |
 | FR-015 | §7 transition comment contract |
 | FR-016 | §7 truthful failed/interrupted/partial projection |
@@ -611,10 +709,10 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | FR-019 | §8 missing-only Runtime questions |
 | FR-020 | §8 strict unknown/duplicate/conflicting inputs |
 | FR-021 | §3/§8 thin delegation to same use cases |
-| FR-022 | §10 old/new complete canonical publication |
+| FR-022 | §10 old/new complete canonical publication; proposed ADR-0007 protocol |
 | FR-023 | §9/§10 pre/post-commit truth |
 | FR-024 | §10 anchored exact-target confinement |
-| FR-025 | §10 deterministic guided recovery |
+| FR-025 | §10 deterministic guided recovery; proposed ADR-0007 reader/recovery contract |
 | FR-026 | §10/§12 explicit closed format compatibility |
 | FR-027 | §12 migration preview contract; no POC migration selected |
 | FR-028 | §12 authorized backup/rollback boundary |
@@ -635,8 +733,8 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | Specification 004 security/NFR clauses | §9 limits/sanitization, §10 ownership/confinement, §14 security controls, §15 Evidence |
 | SEC-001 | §6/§9/§14 secret exclusion and non-leak tests |
 | SEC-002 | §5–§8 explicit authority; denied external/Git/process effects |
-| SEC-003 | §10 anchored roots, links, identity, locks, supported race boundary |
-| SEC-004 | §10 revisions, old/new publication, owned-only cleanup/recovery |
+| SEC-003 | §10 anchored roots, links, identity, locks, supported race boundary; ADR-0005 plus proposed ADR-0007 |
+| SEC-004 | §10 revisions, old/new publication, owned-only cleanup/recovery; proposed ADR-0007 |
 | SEC-005 | §9/§10 restrictive local metadata and portable exclusion |
 
 ### Acceptance criteria
@@ -659,7 +757,7 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | AC-14 | §9 sanitized/bounded/addressable/correlated local artifact |
 | AC-15 | §11 cross-surface provenance states |
 | AC-16 | §6/§11 user-content authorship separation |
-| AC-17 | §10 F0–F8 old/new/recovery matrix |
+| AC-17 | §10 F0–F8 old/new/recovery matrix; proposed ADR-0007 |
 | AC-18 | §12 version/POC detection and export-reconfigure path |
 | AC-19 | §12 owned idempotent install/upgrade and conflict refusal |
 | AC-20 | §6/§9 confirmed Provider effect plus local failure `partial` |
@@ -683,7 +781,7 @@ and reconfiguration instead.
 | Local artifact volume/privacy | hard quotas, sanitization, purpose retention, explicit reference-aware cleanup |
 | GitHub Releases/checksums share one publication channel | integrity is claimed; signing/authenticity is not; future trust expansion needs human decision |
 | Closed v1 schemas increase evolution cost | explicit versions, fail-closed readers, no silent migration |
-| Four binary targets increase release cost | each row blocks release if native Evidence is unavailable; no untested target claim |
+| Three binary targets increase release cost | each row blocks release if native Evidence is unavailable; no untested target claim |
 | POC and v1 roots may be ambiguous | positive signature required; uncertainty preserved for review |
 
 Deferred without blocking this Plan: second Runtime/Provider, portable artifact
@@ -691,12 +789,23 @@ publication, generic Execution graph, broader Evidence schema, package managers,
 automatic update, signing/notarization, remote collaboration, Git synchronization,
 and in-place POC migration.
 
-No new durable choice beyond Specification 004 and ADR-0001–ADR-0006 was found.
+Architecture assessment found two new durable choices:
+
+| Candidate | Assessment |
+|---|---|
+| Shared local publication/recovery protocol | Cross-cutting, durable, and expensive to change after persisted state ships. Proposed separately in ADR-0007; human decision required. |
+| Minimal machine-local Execution record | Crosses workflow, resume, Provider projection, completion, artifacts/Evidence, and compatibility. Cohesion differs from filesystem publication, so it is proposed separately in ADR-0008; human decision required. |
+| OS/architecture support matrix | Concrete release scope required by HD-1 and reproducibly versioned here. It is reassessed per release and does not define a permanent platform architecture; no ADR. |
+| Artifact quotas and retention durations | Initial operational defaults/guardrails explicitly delegated to Plan by ADR-0006, measurable and revisable without changing identity/ownership contracts; no ADR. |
+| Artifact layout/metadata and installation receipt schema | Versioned local adapter formats implementing already approved ownership/compatibility requirements. Exact paths, field names and encoding remain replaceable behind closed readers/migration gates; no separate ADR unless identity or lifecycle changes. |
+| Package/component map | Planning decomposition with inward dependencies and consumer-owned ports, not a published API or permanent module topology; no ADR. |
+| GitHub label/comment spelling and GitHub Releases adapter | First-adapter conventions within the approved MVP, replaceable behind Provider/distribution boundaries and carrying no broad compatibility/authenticity promise; no ADR at this stage. |
+
 If implementation or Plan review requires a different release trust topology,
-shared persistence engine, broad Execution schema, automatic cleanup, portable
-artifact exchange, or in-place migration, stop with **Human decision required**:
-state problem, options, recommendation, trade-offs, reversibility, and future
-impact. Do not create or accept an ADR automatically.
+storage engine, broad Execution schema, automatic cleanup, portable artifact
+exchange, or in-place migration, stop with **Human decision required**: state
+problem, options, recommendation, trade-offs, reversibility, and future impact.
+Do not accept an ADR automatically.
 
 ## 18. Constitution and ADR compliance
 
@@ -715,6 +824,8 @@ impact. Do not create or accept an ADR automatically.
 - ADR-0005 defines supported filesystem proof and explicit exclusions.
 - ADR-0006 defines artifact ownership, correlation, Evidence relation, retention,
   and cleanup without an operation-attempt entity.
+- ADR-0007 and ADR-0008 are Proposed, not compliance claims. This Plan requires
+  their human acceptance or explicit revision before approval/Tasks.
 - Role != Model, Execution != Agent, Provider != Transport, Integration != MCP,
   Skill != workflow truth, Evidence != chat, and Provider projection != workflow
   truth remain intact.
@@ -726,7 +837,9 @@ No constitutional conflict or ADR contradiction was identified.
 Human review must confirm:
 
 - exact support matrix and filesystem assumptions;
-- component/package boundaries and minimal Execution record scope;
+- ADR-0007 local publication/recovery invariants and their Plan mapping;
+- ADR-0008 minimal Execution identity, authority, lifecycle, and scope;
+- component/package boundaries;
 - vertical slice order;
 - GitHub label/comment projection conventions;
 - canonical result and provenance contracts;
@@ -738,5 +851,9 @@ Human review must confirm:
 Approval of this Plan would authorize only the next expressly requested SDD phase.
 It would not approve future Tasks, start implementation, authorize Provider
 mutation/release, or grant final MVP acceptance.
+
+Plan approval must not be recorded while ADR-0007 or ADR-0008 remains Proposed.
+The human may accept/revise those decisions and approve the Plan in the same PR,
+but each decision and the Plan require an explicit, auditable statement.
 
 **Plan: Ready for human review**
