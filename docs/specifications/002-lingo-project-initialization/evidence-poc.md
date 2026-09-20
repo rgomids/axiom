@@ -147,9 +147,9 @@ and change in that run, not fixed goldens.
 - `#20`: The POC subset above has reproducible macOS/Linux Evidence. Full
   AC-01–AC-18 coverage is not claimed: rename, documents, bindings, Runtime,
   guided flows, and Git execution are outside the delivered one-file baseline.
-- `#21`: The bounded dogfooding run is recorded and repeatable. Explicit human
-  acceptance remains pending. Merge and test success do not mark Specification
-  002 or parent #14 Accepted or authorize MVP.
+- `#21`: The bounded dogfooding run is recorded and repeatable. Human
+  acceptance of the E2E POC was recorded on 2026-09-20 and #21 was closed.
+  This does not mark Specification 002 or parent #14 Accepted or authorize MVP.
 - `gitleaks` is unavailable on the local host. The repository sensitive-file
   checker passed; consolidated scanner coverage remained unverified in that
   historical run. T39 later records a successful gitleaks 8.30.1 scan.
@@ -182,7 +182,7 @@ acceptance. `satisfied` means observed in versioned tests and Evidence;
 | Deterministic tests and reproducible Evidence | Partially satisfied | POC tests and macOS/Linux CI are reproducible; the uncovered #19 matrix prevents complete #20 claim. | Yes, depends on #19 |
 | Workflow used on bounded Axiom change | Satisfied | PR #28 dogfooding plus repeatable script in PR #29. | No |
 | Limitations and unsupported scenarios documented | Satisfied | One-manifest boundary, manual recovery, missing full Specification features and proof gaps listed above. | No |
-| Explicit human acceptance | Not satisfied | Human review and acceptance decision have not occurred. Do not mark Specification 002 or #14 Accepted from a merge or CI run. | Yes, final gate |
+| Explicit human acceptance | Satisfied for the bounded E2E POC; Specification 002/#14 remains partial | Maintainer accepted #30 on 2026-09-20 with #19/#20 retained as explicit gaps. This is not full Specification 002/#14 acceptance. | No for #30; #14 remains gated by its open technical criteria |
 
 Scope limitations already established by #14 and the delivery issues: this POC
 does not provide production compatibility, distributed persistence, remote
@@ -190,8 +190,8 @@ locking/sync, broad Provider/Runtime integration, Git execution or automated
 orchestration. Manual recovery remains the documented POC procedure. Security
 and fault-proof gaps above are **not** accepted waivers.
 
-**Human decision required** if the POC is to be accepted without exhaustive
-same-user race proof: may SEC-003's adversary be limited to cooperating Lingo
-processes plus controlled path replacement checks for this one-file POC, with
-malicious concurrent mutation by another process under the same UID explicitly
-unsupported? If not, complete the stronger confinement proof before acceptance.
+**Human decision recorded — 2026-09-20:** the bounded E2E POC was accepted
+with the remaining physical-power-loss, fault-matrix and hostile same-UID proof
+gaps kept explicit in #19/#20. This acceptance is not a security waiver and does
+not mark Specification 002 or parent #14 complete; their stronger criteria remain
+open until separately satisfied or explicitly respecified.
