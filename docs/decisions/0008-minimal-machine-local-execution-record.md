@@ -2,13 +2,14 @@
 
 ## Status
 
-**Proposed — ready for human review.**
+**Accepted — human approval recorded on 2026-09-20.**
 
-This proposal was identified during review of the
-[Specification 004 Plan](../specifications/004-mvp-v1-baseline/plan.md). It is
-not Accepted and does not authorize Tasks, implementation, Provider projection,
-workflow execution, migration, or release. Human acceptance or explicit revision
-is required before the Plan can advance.
+This decision was identified during review of the
+[Specification 004 Plan](../specifications/004-mvp-v1-baseline/plan.md) and was
+explicitly accepted by the human reviewer in PR #71 on 2026-09-20. Acceptance
+authorizes the architectural direction described here; Tasks are the next
+authorized SDD phase, while implementation, Provider projection, workflow
+execution, migration, and release remain separately gated.
 
 ## Decision in one sentence
 
@@ -55,7 +56,7 @@ expand scope beyond the approved single sequential workflow.
 - Detail artifacts are subordinate to Execution when one exists under ADR-0006.
 - Clean v1 is the compatibility baseline; no automatic POC migration is implied.
 
-## Proposed decision
+## Decision
 
 ### Architectural invariants
 
@@ -87,9 +88,9 @@ expand scope beyond the approved single sequential workflow.
 9. **Bounded history.** The record retains enough transition history for resume,
    reconciliation, review, and Evidence traceability. It is not raw chat history,
    unrestricted model reasoning, or unbounded external output.
-10. **Shared local publication contract.** Mutation follows the accepted local
-    publication/recovery decision if ADR-0007 is accepted. Until then, concrete
-    persistence remains blocked.
+10. **Shared local publication contract.** Mutation follows accepted ADR-0007's
+    local publication/recovery decision. Concrete mechanisms remain Task and
+    implementation choices behind that accepted architectural contract.
 
 ### Minimum semantic fields
 
@@ -135,7 +136,7 @@ requirements. This would create premature architecture and migration cost.
 ### Minimal versioned sequential Execution record
 
 Supports the approved workflow, resume, projection, completion, and Evidence while
-leaving general graph/orchestration semantics open. This is the proposed option.
+leaving general graph/orchestration semantics open. This is the accepted option.
 
 ## Consequences
 
@@ -192,5 +193,6 @@ authority are preserved.
   complexity.
 
 Reconsideration requires explicit human review, compatibility and Provider
-reconciliation impact, and executable Evidence. Validation or merge does not
-accept this proposal.
+reconciliation impact, and executable Evidence. The current decision was
+explicitly accepted in PR #71 on 2026-09-20; validation or merge alone would not
+have constituted that acceptance.
