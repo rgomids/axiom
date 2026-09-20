@@ -64,11 +64,13 @@ no hardening do MVP. Os follow-ups #54–#57 registram a direção de UX do MVP 
 autorizar sua implementação. A
 [Specification 004](docs/specifications/004-mvp-v1-baseline/spec.md) consolida o
 baseline MVP aprovado. Seu
-[Plan](docs/specifications/004-mvp-v1-baseline/plan.md) está pronto para revisão
-humana e depende da decisão humana sobre os ADRs propostos
+[Plan](docs/specifications/004-mvp-v1-baseline/plan.md) foi aprovado junto com os
+ADRs aceitos
 [0007](docs/decisions/0007-local-publication-and-recovery-protocol.md) e
-[0008](docs/decisions/0008-minimal-machine-local-execution-record.md); nenhuma
-Task ou implementação MVP está autorizada.
+[0008](docs/decisions/0008-minimal-machine-local-execution-record.md). As
+[Tasks propostas](docs/specifications/004-mvp-v1-baseline/tasks.md) estão prontas
+para revisão humana; ainda não foram aprovadas e nenhuma implementação MVP está
+autorizada.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 
@@ -125,7 +127,7 @@ Domain vocabulary; some concepts remain unimplemented.
 | [Project](docs/decisions/0001-project-is-not-repository.md) | A logical project boundary, distinct from a Repository; it may associate multiple independent repositories. |
 | [Specification](docs/specifications/README.md) | Desired behavior, constraints, non-goals, and acceptance evidence. |
 | [Architecture / ADR](docs/decisions/README.md) | System boundaries and durable decisions, including rationale, alternatives, and trade-offs. |
-| [Execution](docs/architecture/conceptual-model.md#execution-and-proof) | A bounded attempt to perform work under known intent and approvals; its record model remains open. |
+| [Execution](docs/architecture/conceptual-model.md#execution-and-proof) | A bounded attempt under known intent and approvals; ADR-0008 accepts only the MVP's minimal local sequential record, while the general graph remains open. |
 | [Evidence](docs/architecture/conceptual-model.md#execution-and-proof) | An inspectable observation supporting a claim: a test result, command outcome, diff, or review. |
 | [Authority](docs/product/constitution.md) | Explicit permission and approval boundaries for actions; an AI proposal does not grant permission. |
 | [Agent / Runtime](docs/architecture/conceptual-model.md#actors-and-external-boundaries) | An Agent participates in work; a Runtime provides its execution environment and capabilities. |
