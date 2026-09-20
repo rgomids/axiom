@@ -1,13 +1,29 @@
 # Tasks — Specification 002: Lingo Project Initialization
 
-## POC implementation status — 2026-09-18
+## HD-3 filesystem threat-model reconciliation — 2026-09-20
+
+These existing approved Tasks inherit [H13](clarifications.md#bounded-local-filesystem-threat-model--2026-09-20)
+and [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md).
+Their filesystem/security Evidence now targets the bounded local threat model:
+exact target confinement, traversal and supported link/replacement cases, Axiom
+process concurrency, deterministic injected faults, complete canonical state,
+fail-closed uncertainty, restrictive local metadata and guided recovery. Malicious
+same-UID arbitrary interleavings, physical power loss and physical-media durability
+are explicit exclusions, not passing cases or solved risks.
+
+This reconciliation adjusts the proof boundary of already approved Specification
+002 Tasks. It creates no Specification 004 Task, authorizes no implementation,
+and does not select syscalls, packages, locks, staging layouts, or filenames.
+
+## Historical POC implementation status — 2026-09-18
 
 POC issues #16–#18 delivered a bounded executable Project lifecycle, recorded in
-[Specification status](spec.md#poc-delivery-status--2026-09-18) and
+[historical Specification status](spec.md#historical-poc-delivery-status--2026-09-18) and
 [POC Evidence](evidence-poc.md). The issue scopes do not declare the full T05–T21
-Task DAG complete: #19 filesystem proof, #20 acceptance Evidence and #21
-dogfooding/human acceptance remain pending. T04-only status entries below are
-historical snapshots; this section does not revise Task definitions or approval.
+Task DAG complete. At that date, #19 filesystem proof, #20 acceptance Evidence and
+#21 dogfooding/human acceptance remained pending. Those POC issues later closed
+under explicit POC acceptance with gaps preserved for HD-3. T04-only status entries
+below are historical snapshots.
 
 ## T04 single local revision reconciliation — 2026-09-16
 
@@ -93,11 +109,12 @@ Earlier lifecycle entries below are dated historical evidence, superseded only a
 - Baseline: current `main` / `origin/main`, `b85657ff23dcfc40fbd9ea05b7a3876959b3554e`, merge of [PR #4](https://github.com/rgomids/axiom/pull/4).
 
 Authority chain: [Intent and journeys](spec.md#intake) → [Specification](spec.md)
-→ [Clarifications H1–H11](clarifications.md) → Accepted
+→ [Clarifications H1–H13](clarifications.md) → Accepted
 [ADR-0001](../../decisions/0001-project-is-not-repository.md),
 [ADR-0002](../../decisions/0002-axiom-speckit-relationship.md),
 [ADR-0003](../../decisions/0003-lingo-as-axiom-local-control-plane.md),
-[ADR-0004](../../decisions/0004-portable-project-manifest.md) →
+[ADR-0004](../../decisions/0004-portable-project-manifest.md), and
+[ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md) →
 [Approved Plan](plan.md) → these Tasks → future authorized Implementation → Evidence.
 The Plan at the baseline supplies technical authority; this document decomposes it,
 without reopening decisions. H8's historical Plan gate is satisfied by the later
@@ -130,9 +147,14 @@ Every Task inherits the Specification and Plan, including these constraints:
 - H10 specifies logical Project atomicity: no mixed manifest/document state is
   accepted as valid; old complete state is authoritative before commit, new complete
   state after commit. Post-commit failures never imply false rollback. Adapter
-  chooses/proves commit point, reader checks, durability and recovery. No staging
+  chooses/proves commit point, reader checks, supported software-visible
+  retention/acknowledgment semantics and recovery. No staging
   layout, lock protocol, syscall, transaction engine or cross-root transaction is
   mandated by these Tasks. Unsafe/unsupported guarantees fail closed.
+- H13 bounds filesystem proof while preserving confinement, supported link and
+  replacement protection, process concurrency, deterministic fault injection,
+  restrictive metadata and recovery. Malicious same-UID arbitrary interleavings,
+  physical power loss and physical-media durability are unsupported.
 - H11 separates Project mutation, optional local Git commit and explicitly
   authorized remote sync/push. Current slice has no Git execution. No backing/sync
   engine, branch strategy, merge/rebase, remote creation, push, autoPush, hooks or
@@ -244,37 +266,37 @@ is wired, following Plan §10; T06 proves complete artifact mutation before upda
 ### T05 — Confined access and create publication
 
 - **Objective:** Prove safe read/write boundaries and no-replace creation before wiring init.
-- **Scope:** Explicit authorized directory identity and allowed relative names; safe manifest/document reads; portable artifact allowlist and containment; create publication, target inspection, installation-wide slug coordination seam and expected revisions. Protect ancestor/leaf replacement, symlinks, hard links and cleanup. Define chosen commit point, reader validity, durability and recovery with synthetic complete artifacts; fail closed if unsupported.
+- **Scope:** Explicit authorized directory identity and allowed relative names; safe manifest/document reads; portable artifact allowlist and containment; create publication, target inspection, installation-wide slug coordination seam and expected revisions. Protect supported ancestor/leaf replacement, symlink, hard-link and cleanup cases at declared inspection/commit boundaries. Define chosen commit point, reader validity, software-visible acknowledgment/retention and recovery with synthetic complete artifacts; fail closed if unsupported.
 - **Dependencies:** T02
-- **Traceability:** FR-012, FR-013, FR-017, FR-020; SEC-003, SEC-004, SEC-005; AC-07, AC-09, AC-13, AC-17; H1, H2, H6, H10; ADR-0004
+- **Traceability:** FR-012, FR-013, FR-017, FR-020; SEC-003, SEC-004, SEC-005; AC-07, AC-09, AC-13, AC-17; H1, H2, H6, H10, H13; ADR-0004/0005
 - **Plan / boundary:** §1, §3, §6, §8–10; portable local adapter
 - **Expected paths:** internal/local/; filesystem integration tests/testdata/
 - **Completion criterion:** Conflicting creates cannot both succeed; invalid slugs never reach paths; no authorized operation escapes or replaces unknown content; incomplete output is never read as valid. Supported filesystem assumptions and protocol documented with Evidence.
-- **Required Evidence:** Linux/macOS integration with two processes and barriers, traversal/leaf/ancestor/hard-link races, short writes/disk-full/permission failure, unauthorized-tree hashes, pre/post-commit interruption and owned-only cleanup; unit port contracts.
-- **Explicit exclusions:** Mandatory staging/lock/syscall/transaction choice, global storage engine, complete update/rename wiring, Git metadata mutation.
+- **Required Evidence:** Linux/macOS integration with two Axiom processes and barriers; traversal plus pre-existing/controlled leaf/ancestor/symlink/hard-link replacements; deterministic short-write/space-quota/permission and commit-stage faults; unauthorized-tree hashes, truthful pre/post-commit interruption and owned-only cleanup; unit port contracts; declared filesystem assumptions.
+- **Explicit exclusions:** Malicious same-UID arbitrary interleavings, physical power-loss/media durability, mandatory staging/lock/syscall/transaction choice, global storage engine, complete update/rename wiring, Git metadata mutation.
 
 ### T06 — Complete artifact update, move and recovery persistence
 
 - **Objective:** Preserve H10 atomicity across manifest/documents and slug movement.
 - **Scope:** Expected-revision complete artifact replacement and old/new destination authority; namespace collision protection across create/install/update/rename; coherent reader validation; explicit recovery and confined owned-only cleanup. Preserve old complete state before commit, new complete state after commit; classify uncertain outcomes safely. Unsupported trees/Git metadata preserved. Local reconciliation remains separate.
 - **Dependencies:** T03, T05
-- **Traceability:** FR-013, FR-017, FR-018; SEC-003, SEC-004; AC-07, AC-09, AC-14, AC-15, AC-16; H2, H4, H9, H10; ADR-0004
+- **Traceability:** FR-013, FR-017, FR-018; SEC-003, SEC-004; AC-07, AC-09, AC-14, AC-15, AC-16; H2, H4, H9, H10, H13; ADR-0004/0005
 - **Plan / boundary:** §4, §6, §8–10; portable store adapter
 - **Expected paths:** internal/local/; manifest/document integration fixtures
 - **Completion criterion:** No mixed Project accepted by concurrent readers; stale revisions and occupied rename targets conflict; actual commit status drives recovery. Chosen protocol proves required behavior without imposing a cross-root transaction.
-- **Required Evidence:** Linux/macOS adapter tests for document addition/removal, update/update and rename/update races, old/new content hashes, pre/post-commit crashes, cancellation after publication, active/ended/unknown attempt ownership and unsupported/cross-filesystem safe failure.
-- **Explicit exclusions:** Patch persistence, implicit rollback after commit, prescribed filesystem mechanism, local bindings redefinition, Git-backed update engine.
+- **Required Evidence:** Linux/macOS adapter tests for document addition/removal, controlled update/update and rename/update races, old/new content hashes, deterministic process interruption before/after commit, cancellation after publication, active/ended/unknown attempt ownership and unsupported/cross-filesystem safe failure.
+- **Explicit exclusions:** Malicious same-UID arbitrary interleavings, physical power-loss/media durability, patch persistence, implicit rollback after commit, prescribed filesystem mechanism, local bindings redefinition, Git-backed update engine.
 
 ### T07 — Native roots and ID-addressed local store
 
 - **Objective:** Persist protected machine state separately from portable intent.
 - **Scope:** Plan Linux/macOS native roots and LINGO_STATE_ROOT/LINGO_PROJECTS_ROOT precedence; empty/relative/unsafe override rejection; disjoint canonical roots; no portable working copy in known associated checkout. ID-addressed installation.json and expected exact-byte local revision derived externally from observed bytes (H12), with no persisted revision allocation/increment. Resolve slug across managed root and valid local source records; ambiguity fails safely. Restrictive ownership/modes/effective ACLs, digest tracking and local no-op.
 - **Dependencies:** T04, T05
-- **Traceability:** FR-012, FR-013, FR-014, FR-017; SEC-003, SEC-004, SEC-005; AC-03, AC-04, AC-07, AC-09, AC-13, AC-14, AC-17; H1, H2, H8, H10, H12; ADR-0004
+- **Traceability:** FR-012, FR-013, FR-014, FR-017; SEC-003, SEC-004, SEC-005; AC-03, AC-04, AC-07, AC-09, AC-13, AC-14, AC-17; H1, H2, H8, H10, H12, H13; ADR-0004/0005
 - **Plan / boundary:** §3, §6, §8–9; local store/discovery adapter
 - **Expected paths:** internal/local/; native/override integration fixtures
 - **Completion criterion:** Only validated ID addresses records; invalid records are preserved without binding reuse; local CAS prevents lost updates; equivalent record causes no timestamp/revision rewrite. Root override changes discovery, never authority.
-- **Required Evidence:** Linux/macOS native roots in isolated accounts and override tests; unsafe ACL/root overlap/alias tests; local CAS races, record-write failures, unknown formats preserved and portable hashes unchanged.
+- **Required Evidence:** Linux/macOS native roots in isolated accounts and override tests; ownership/type/link/unsafe ACL/root-overlap/alias tests at supported boundaries; local CAS process races, record-write failures, unknown formats preserved and portable hashes unchanged; arbitrary same-UID ACL mutation explicitly excluded.
 - **Explicit exclusions:** Global registry/database, Workspace persistence, Windows implementation, silent permission broadening, secrets or machine state in portable backing.
 
 ### T08 — Read-only validate use case
@@ -330,11 +352,11 @@ is wired, following Plan §10; T06 proves complete artifact mutation before upda
 - **Objective:** Expose explicit rename as a protected complete Project update.
 - **Scope:** Validate old/new slug, resolve installation-wide collisions, preview both locations, commit complete moved manifest/document state under expected revision. Reconcile observed slug/source locally by same ID, preserve bindings, invalidate only affected facts. Reject silent stale old-slug aliases; recover local continuity after successful move and local-record failure.
 - **Dependencies:** T11
-- **Traceability:** FR-001, FR-013, FR-017, FR-018; SEC-003, SEC-004, SEC-005; AC-13, AC-14, AC-15, AC-16; H1, H2, H4, H9, H10; ADR-0004
+- **Traceability:** FR-001, FR-013, FR-017, FR-018; SEC-003, SEC-004, SEC-005; AC-13, AC-14, AC-15, AC-16; H1, H2, H4, H9, H10, H13; ADR-0004/0005
 - **Plan / boundary:** §3, §4, §6, §9; rename application
 - **Expected paths:** internal/projectapp/; rename integration fixtures
 - **Completion criterion:** Success preserves UUID/documents/bindings at new slug; pre-commit collision/failure preserves prior location; post-commit record failure truthfully identifies committed location and recovery by ID.
-- **Required Evidence:** Unit invalid/colliding slug and authority tests; Linux/macOS integration old/new lookup, same local record key, document hashes, TOCTOU, concurrent rename/update and move/local failure cases.
+- **Required Evidence:** Unit invalid/colliding slug and authority tests; Linux/macOS integration old/new lookup, same local record key, document hashes, supported controlled replacement/TOCTOU cases, concurrent Axiom rename/update and move/local failure cases.
 - **Explicit exclusions:** Global slug uniqueness, old-slug alias service, identity fork, forced overwrite, Git rename/sync strategy.
 
 ### T13 — Read-only checkout observations
@@ -400,26 +422,26 @@ is wired, following Plan §10; T06 proves complete artifact mutation before upda
 ### T18 — Security boundary regression suite
 
 - **Objective:** Provide explicit adversarial SEC evidence across codecs and local adapters.
-- **Scope:** Synthetic fixtures cover credential-value structures, URL user-info/versioned sensitive-parameter policy, sentinel leaks, scanner finding/unavailable/failure, parser resource abuse, traversal, absolute refs, executable/environment interpolation, symlinks/hard links, ancestor races, overwrite, unknown cleanup, unsafe ACLs and portable/local overlap. Attack every write/cleanup/recovery phase. Deny process/network/secret reads and assert whole portable artifact exclusion.
+- **Scope:** Synthetic fixtures cover credential-value structures, URL user-info/versioned sensitive-parameter policy, sentinel leaks, scanner finding/unavailable/failure, parser resource abuse, traversal, absolute refs, executable/environment interpolation, pre-existing/controlled symlink/hard-link/ancestor/leaf replacements, overwrite, unknown cleanup, unsafe ACLs and portable/local overlap. Exercise every supported write/cleanup/recovery phase. Deny process/network/secret reads and assert whole portable artifact exclusion.
 - **Dependencies:** T03, T06, T07, T13, T16
-- **Traceability:** FR-008, FR-009, FR-013, FR-015, FR-019, FR-020, FR-021; SEC-001, SEC-002, SEC-003, SEC-004, SEC-005; AC-06, AC-08, AC-09, AC-10, AC-16, AC-17, AC-18; H1, H5–H7, H10, H11; ADR-0001/0003/0004
+- **Traceability:** FR-008, FR-009, FR-013, FR-015, FR-019, FR-020, FR-021; SEC-001, SEC-002, SEC-003, SEC-004, SEC-005; AC-06, AC-08, AC-09, AC-10, AC-16, AC-17, AC-18; H1, H5–H7, H10, H11, H13; ADR-0001/0003/0004/0005
 - **Plan / boundary:** §2, §3, §5–9; security fixtures across existing boundaries
 - **Expected paths:** Colocated internal/manifest/, internal/local/, internal/projectapp/ tests and testdata/
 - **Completion criterion:** Invalid structures fail before writes; unauthorized trees unchanged; sentinels absent from files/temporary diagnostics/output/logs/Evidence. Shell metacharacters never execute. Unsupported guarantees fail closed; scanner warnings never claim complete secret absence.
-- **Required Evidence:** Unit rejection/redaction/parser-limit matrix; Linux/macOS adversarial adapter integration, denial ledgers, permissions/ACL results and public-safe security review. T20 adds CLI end-to-end security assertions.
-- **Explicit exclusions:** Real secrets, external scanner service, new authority, executing attack payloads outside controlled test targets, Git implementation or prescribed protection mechanism.
+- **Required Evidence:** Unit rejection/redaction/parser-limit matrix; Linux/macOS bounded adversarial adapter integration at declared boundaries, denial ledgers, permissions/ACL results, threat-model assumptions/exclusions and public-safe security review. T20 adds CLI end-to-end security assertions.
+- **Explicit exclusions:** Malicious same-UID arbitrary interleavings, physical power-loss/media durability, real secrets, external scanner service, new authority, executing attack payloads outside controlled test targets, Git implementation or prescribed protection mechanism.
 
 ### T19 — Fault, recovery and concurrency evidence
 
 - **Objective:** Prove complete-state outcomes on both supported operating systems.
-- **Scope:** Exercise chosen adapter commit boundaries through application: create/update/install/rename/binding, manifest/document changes and local CAS. Independent writer processes and concurrent readers use barriers, not sleeps alone. Inject disk-full, short-write, permission/read-only, interruption/crash, cancellation pre/post commit, local failure after portable commit, active/stale/unknown recovery ownership and rename versus update.
+- **Scope:** Exercise chosen adapter commit boundaries through application: create/update/install/rename/binding, manifest/document changes and local CAS. Independent Axiom writer processes and concurrent readers use barriers, not sleeps alone. Deterministically inject incomplete-write, space/quota, permission/read-only, pre-publication, publication, post-publication/pre-acknowledgment, cleanup and process-interruption failures; cover cancellation pre/post commit, local failure after portable commit, active/stale/unknown recovery ownership and rename versus update.
 - **Dependencies:** T12, T15, T16
-- **Traceability:** FR-012, FR-013, FR-014, FR-017, FR-018; SEC-003, SEC-004, SEC-005; AC-03, AC-04, AC-07, AC-09, AC-13, AC-14, AC-15, AC-16; H1, H2, H4, H9, H10; ADR-0004
+- **Traceability:** FR-012, FR-013, FR-014, FR-017, FR-018; SEC-003, SEC-004, SEC-005; AC-03, AC-04, AC-07, AC-09, AC-13, AC-14, AC-15, AC-16; H1, H2, H4, H9, H10, H13; ADR-0004/0005
 - **Plan / boundary:** §6, §8–10; real filesystem/application integration
 - **Expected paths:** internal/local/ and internal/projectapp/ integration tests; sanitized Evidence
 - **Completion criterion:** Conflicting writers cannot both succeed; readers never accept mixed state; pre-commit hashes survive, successful commit remains authoritative, uncertain outcome reports recovery-required. Retry no-op allocates/writes nothing; rename preserves UUID/bindings.
-- **Required Evidence:** Separate Linux and macOS results with OS/filesystem/privilege assumptions, fault stage/commit status/outcome table, portable/local digests and process exit status. Permission cases use controlled unprivileged accounts; unavailable platform or bypassed case stays unverified and blocks completion.
-- **Explicit exclusions:** Mocked-only filesystem proof, weakening tests for elevated privileges, auto-deleting unknown leftovers, false rollback, product/platform CI or required transaction technique.
+- **Required Evidence:** Separate Linux and macOS results with OS/filesystem/privilege assumptions, deterministic fault stage/commit status/outcome table, portable/local digests and process exit status. Permission cases use controlled unprivileged accounts; unavailable supported case stays unverified and blocks completion. Excluded physical events and arbitrary same-UID adversary remain labeled unsupported.
+- **Explicit exclusions:** Malicious same-UID arbitrary interleavings, physical power-loss/media durability, mocked-only filesystem proof, weakening tests for elevated privileges, auto-deleting unknown leftovers, false rollback, product/platform CI or required transaction technique.
   The POC-only verification workflow permitted by the Specification supplies
   Evidence, not a T19 product deliverable.
 
@@ -428,11 +450,11 @@ is wired, following Plan §10; T06 proves complete artifact mutation before upda
 - **Objective:** Close current-slice AC coverage with observable CLI evidence.
 - **Scope:** Run J1–J6 through eventual executable without internal imports, native/override roots on Linux/macOS, controlled stdin and two-machine fixtures. Cover all AC rows below with unit/integration prerequisites, actual CLI outcomes and static dependency checks. Deny Git/network/process/secret effects; preserve external Git/Runtime/MCP config snapshots. A preexisting .git never infers an association; unsupported backing writes preserve it and fail safely.
 - **Dependencies:** T17, T18, T19
-- **Traceability:** FR-001–FR-021; SEC-001–SEC-005; AC-01–AC-18; H1–H11; ADR-0001–0004
+- **Traceability:** FR-001–FR-021; SEC-001–SEC-005; AC-01–AC-18; H1–H11, H13; ADR-0001–0005
 - **Plan / boundary:** §8–10; CLI/black-box acceptance and engineering/security review
 - **Expected paths:** Black-box tests/testdata/; sanitized component-to-AC Evidence
 - **Completion criterion:** Every applicable AC has reproducible passing Evidence on required platforms and reviewed limitations; current AC-18 proves denied effects/boundaries only. Inspect inward imports/no domain I/O and no scope expansion. Unmet required evidence blocks completion rather than being marked passed.
-- **Required Evidence:** CLI commands/exit codes, safe stdout/stderr snapshots, hashes, no-op counts, schema/declaration matrices, security side-effect ledger, platform fault reports and reviewer findings. Static repository checks are reported separately; manual inspection only for usability/public-safe review or platform observations unavailable to automation, never substitute for required tests.
+- **Required Evidence:** CLI commands/exit codes, safe stdout/stderr snapshots, hashes, no-op counts, schema/declaration matrices, security side-effect ledger, platform/filesystem assumptions, bounded fault reports, explicit excluded-threat statement and reviewer findings. Static repository checks are reported separately; manual inspection only for usability/public-safe review or supported platform observations unavailable to automation, never substitute for required tests.
 - **Explicit exclusions:** Actual Git commit/push failure tests or autoPush delivery (future Specification), production services, CI introduction, claiming current harness as Lingo acceptance.
 
 ### T21 — Post-Implementation documentation and Evidence reconciliation
@@ -440,7 +462,7 @@ is wired, following Plan §10; T06 proves complete artifact mutation before upda
 - **Objective:** Reconcile delivered behavior and retained evidence after authorized Implementation.
 - **Scope:** Update README run/test/stack/structure, docs/commands.md, applicable architecture/schema/operations docs and CHANGELOG from actual delivered behavior. Link Task/FR/SEC/AC to tests/commands/results and platform support, security findings, recovery/rollback guidance and limitations. Record subsequent human gates with dates; preserve approved decisions and original Evidence.
 - **Dependencies:** T20
-- **Traceability:** FR-015, FR-016; SEC-001, SEC-005; AC-01–AC-18 Evidence; H8, H10, H11; ADR-0001–0004; Constitution III–VI
+- **Traceability:** FR-015, FR-016; SEC-001, SEC-005; AC-01–AC-18 Evidence; H8, H10, H11, H13; ADR-0001–0005; Constitution III–VI
 - **Plan / boundary:** §9–12; documentation/Evidence reconciliation
 - **Expected paths:** README.md; docs/commands.md; CHANGELOG.md; applicable docs/architecture/ and Specification 002 Evidence references
 - **Completion criterion:** Docs describe only verified delivered behavior; full AC/security/platform matrix and reproducible commands are linked; future Git evidence stays explicitly deferred. Human release/review gate recorded, never inferred from agent tests.
@@ -477,9 +499,9 @@ and T21 reconciles results. A reference alone is not completion Evidence.
 | FR-021 | T02, T17, T18, T20 | No implicit Git/network effects or authority; mutation outcome independent of Git. Actual commit/push failure handling, sync/automation and authority representation require future authorized design/Implementation |
 | SEC-001 | T02, T03, T04, T08, T18, T20 | Structural secret rejection, scanner warnings, zero reads and full diagnostic/file sentinel coverage |
 | SEC-002 | T02, T08, T13, T14, T16, T17, T18, T20 | Deny external config/Git/hooks/network/commands and AI authority |
-| SEC-003 | T05, T06, T07, T12, T13, T15, T18, T19, T20 | Traversal, symlinks/hard links/ancestor races, confined access and recovery |
+| SEC-003 | T05, T06, T07, T12, T13, T15, T18, T19, T20 | Exact confinement; traversal and supported link/replacement cases; process concurrency and recovery within H13 |
 | SEC-004 | T05, T06, T07, T09, T11, T12, T15, T18, T19 | No overwrite/mixed validity; collision/CAS/recovery ownership |
-| SEC-005 | T04, T07, T12, T14, T16, T18, T19, T20 | Native/override permissions and portable exclusion by construction |
+| SEC-005 | T04, T07, T12, T14, T16, T18, T19, T20 | Native/override ownership/permissions/ACLs at supported boundaries and portable exclusion by construction; no physical/media guarantee |
 
 FR-019–021 and AC-18 are deliberately split between current boundary proof and
 future execution. No Task may satisfy their deferred portion by adding Git, AI,
@@ -502,16 +524,16 @@ results are separate obligations wherever OS behavior is involved.
 | AC-04 | T01, T03, T07, T09, T10, T11, T13, T14, T15, T17, T19 | U pairwise declaration/nested-presence equivalence; I/B no-op write/entropy/timestamp counts, changed init conflicts, duplicate keys/locators/checkouts, copy/edit/Runtime change preserving ID |
 | AC-05 | T01, T11, T16, T17 | U optional forms/reference/profile matrix; I presence basis/uncertainty; B J2 missing/unconfigured Runtime/Providers/Integrations, no execution/readiness claim |
 | AC-06 | T03, T04, T08, T10, T18 | U strict YAML/version/closed mappings/duplicate/anchors/alias/merge/tag and local format matrix; I/B invalid schemas produce safe errors and zero writes; semantic round-trip goldens |
-| AC-07 | T05, T06, T07, T09, T10, T11, T14, T15, T17, T19 | I faults/crashes before/after actual commit, local failure and CAS races; B J5 cancellation/retry/recovery with preserved hashes and truthful commit state |
+| AC-07 | T05, T06, T07, T09, T10, T11, T14, T15, T17, T19 | I deterministic injected faults/process interruptions before/after actual commit, local failure and CAS races; B J5 cancellation/retry/guided recovery with preserved hashes and truthful commit state; excluded physical events explicit |
 | AC-08 | T02, T03, T04, T08, T14, T18 | U structural URL/reference/value rejection and scanner four-state matrix; I/B no reads and sentinel absent from files, stdout/stderr, logs and Evidence |
-| AC-09 | T05, T06, T07, T12, T13, T15, T18, T19 | I Linux/macOS traversal/symlink/hard-link/ancestor/ACL/TOCTOU attacks through write/cleanup/recovery; B unchanged outside-target snapshots and read-only binding resolution |
+| AC-09 | T05, T06, T07, T12, T13, T15, T18, T19 | I Linux/macOS traversal plus supported controlled symlink/hard-link/ancestor/leaf/ACL/TOCTOU cases through write/cleanup/recovery; B unchanged outside-target snapshots and read-only binding resolution; arbitrary same-UID adversary excluded |
 | AC-10 | T02, T08, T13, T16, T17, T18 | I denied effects; B init/update/install/validate with unchanged external Git/Runtime/MCP configuration, zero hooks/process/network/AI calls |
 | AC-11 | T01, T03, T08, T09, T11, T17 | U context absence/unconfigured/untrusted text; B retained independent fields on correction, missing-input timeout and no interpolation/execution |
 | AC-12 | T02, T03, T04, T08, T09, T10, T14, T16, T17 | U randomized order/stable issues and classification matrix; B repeated deterministic output excluding UUID allocation/attempt metadata; distinguish local-format failure, installed-with-gaps and failed installation |
 | AC-13 | T01, T05, T07, T09, T12, T14, T19 | U full slug grammar and zero path/entropy use on invalid input; I two-process init/install/rename namespace collision; B conflict without occupied-target change |
-| AC-14 | T06, T07, T10, T12, T17, T19 | U nonunique name/immutable ID; I move/TOCTOU/collision/local failure; B J6 old/new slug lookup, document hashes, same ID-addressed bindings |
+| AC-14 | T06, T07, T10, T12, T17, T19 | U nonunique name/immutable ID; I move/supported replacement-TOCTOU/collision/local failure within H13; B J6 old/new slug lookup, document hashes, same ID-addressed bindings |
 | AC-15 | T01, T02, T03, T06, T09, T11, T12, T17, T19 | U partial intent to complete state, invalid retained reference, no patch persistence; I stale/revoked authority/version/revision zero writes; B changed init conflict versus explicit document/Repository/declaration update |
-| AC-16 | T06, T11, T12, T17, T18, T19 | I both OSes concurrent readers/writers and crashes around actual commit, rename versus update, manifest/documents coherent; B pre/post-commit truthful reports, recovery and local continuity |
+| AC-16 | T06, T11, T12, T17, T18, T19 | I both OSes concurrent Axiom readers/writers and deterministic process interruption/faults around actual commit, rename versus update, manifest/documents coherent; B truthful reports, recovery and local continuity; no physical durability claim |
 | AC-17 | T05, T07, T08, T18 | U artifact allowlist; I root overlap and forbidden full-tree content; B portable snapshot excludes all local state/credentials regardless of home location; no export engine |
 | AC-18 | T02, T08, T17, T18, T20 | U boundary/authority denial; B zero Git/network effects for init/update/install/validate, .git never infers association, unsupported backing mutation preserves metadata. Actual Git/automation tests explicitly deferred above |
 
@@ -519,13 +541,15 @@ results are separate obligations wherever OS behavior is involved.
 
 Self-review must inspect both these matrices and each Task's scope; counts alone
 cannot establish semantic coverage. Every Task has Specification/Clarification,
-Plan and ADR origins. Constitution I–IV keep Tasks subject to human approval;
-V–VI require deterministic, sanitized Evidence; VII–VIII preserve small slice-local
-boundaries and Project != Repository. No new architecture decision or waiver.
+Plan and ADR origins. Constitution I–IV keep implementation subject to explicit
+authority; V–VI require deterministic, sanitized Evidence; VII–VIII preserve small
+slice-local boundaries and Project != Repository. H13/ADR-0005 changes only the
+approved proof boundary and introduces no implementation waiver.
 
-Current change validates documents/repository only. Planned U/I/B tests, Linux/macOS
-logical atomicity, fault/concurrency/security and CLI acceptance remain unexecuted
-Implementation obligations. No production behavior is claimed.
+Current change validates documents/repository only. Remaining U/I/B tests,
+bounded Linux/macOS logical atomicity, fault/concurrency/security and CLI
+acceptance remain unexecuted or partial implementation obligations according to
+the Specification index. No new production behavior is claimed.
 
 ### Tasks documentation validation — 2026-09-14
 

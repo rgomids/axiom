@@ -86,6 +86,20 @@ Preserve `Role != Model`, `Provider != Transport`, `Integration != MCP`,
 `Execution != Agent`, and `Skill != workflow source of truth`. Secrets never
 belong in portable Project configuration.
 
+Accepted Specification 004 decisions add two bounded architectural contracts:
+
+- ADR-0005: exact authorized-target confinement, supported traversal/link/
+  replacement protection, process concurrency, deterministic faults, complete
+  canonical state and guided recovery remain required; malicious same-UID
+  arbitrary interleavings and physical power-loss/media durability are unsupported.
+- ADR-0006: detail artifacts use one Axiom-owned machine-local boundary with
+  stable identity, Execution-first correlation, non-domain local correlation
+  before Execution, Evidence references, purpose-based retention and explicit
+  reference-aware cleanup. They never enter portable Project intent.
+
+Concrete filesystem mechanisms, artifact paths/layout, retention durations and
+size limits remain future Plan/implementation work.
+
 ## Multi-repository principle
 
 A project may reference several repositories without Git submodules.

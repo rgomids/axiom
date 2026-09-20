@@ -2,6 +2,10 @@
 
 ## [2026-09-20]
 
+- architecture: accept ADR-0005 directly from Specification 004 HD-3, defining the bounded local filesystem threat model: exact authorized-target confinement, supported traversal/link/replacement protection, process concurrency, deterministic injected faults, complete canonical state, fail-closed uncertainty, restrictive local metadata and guided recovery remain required; malicious same-UID arbitrary interleavings, physical power loss and physical-media durability are explicit unsupported guarantees.
+- architecture: accept ADR-0006 directly from Specification 004 HD-2, defining one Axiom-owned machine-local detail-artifact boundary with stable identity, Execution-first/pre-Execution correlation, Evidence references, purpose-based retention and explicit reference-aware safe cleanup; no operation-attempt entity, layout, package or retention duration is selected.
+- reconciliation: record H13 and align Specification 002 SEC-003/SEC-005, affected acceptance criteria, Plan, Tasks, conceptual model, indexes, roadmap and historical POC Evidence with HD-3 while preserving the original approval/Evidence history. No Specification 004 Plan, Tasks, implementation, migration, installer or release work started.
+
 - specification: draft Specification 004 for human review, consolidating the MVP
   clean-environment journey, Project/Work Item UX, workflow visibility, Runtime
   selectors, completion output, detailed artifacts, provenance, persistence and

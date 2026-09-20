@@ -153,7 +153,11 @@ recorded rather than bypassed.
 - Automatic recovery, physical power-loss durability, the complete fault matrix
   and arbitrary hostile same-UID filesystem races were not proven by the POC.
   Historical cards #19/#20 are closed with those concerns preserved as MVP
-  hardening inputs rather than reported as solved.
+  hardening inputs rather than reported as solved. Specification 004 HD-3 and
+  [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md) later
+  retain supported deterministic fault/concurrency/confinement/recovery Evidence
+  while classifying malicious same-UID arbitrary interleavings and physical
+  power-loss/media durability as unsupported guarantees.
 - Optional Project documents, full rename and remaining Specification 002 Tasks
   are not authorized or implied by this POC.
 

@@ -22,7 +22,7 @@ reconciled on 2026-09-18 against versioned artifacts, merged PRs and POC issues:
 | T01–T03 | **Accepted / merged** — PRs [#6](https://github.com/rgomids/axiom/pull/6), [#7](https://github.com/rgomids/axiom/pull/7), [#8](https://github.com/rgomids/axiom/pull/8) |
 | T04 | **Merged; pending human acceptance/re-review** — [PR #9](https://github.com/rgomids/axiom/pull/9); not marked Accepted |
 | POC #16–#18 | **Merged in [PR #27](https://github.com/rgomids/axiom/pull/27)** — executable CLI, minimal init/validate/reopen/name update and separate local install |
-| POC #19 | **Closed / not planned for further POC work** — bounded hardening delivered; residual physical-power-loss/fault-matrix/hostile-race proof becomes MVP hardening input |
+| POC #19 | **Closed / historical Evidence** — bounded hardening delivered; HD-3/ADR-0005 retain supported fault/concurrency/confinement proof while classifying physical power loss and arbitrary malicious same-UID interleavings as unsupported guarantees |
 | POC #20 | **Closed / not planned for further POC work** — deterministic/E2E Evidence was sufficient for POC acceptance; broader Evidence requirements move to the future MVP scope |
 | POC #21 | **Accepted / closed** — E2E dogfooding and limitations reconciled on 2026-09-20 |
 | Specification 002 / POC #14 | **Partial implementation; not Accepted/Done** |
@@ -39,7 +39,14 @@ gate. Neither its merge nor this documentation reconciliation authorizes T05.
 
 Specification approval originated on 2026-09-11. Subsequent
 [Clarifications](002-lingo-project-initialization/clarifications.md) preserve Q1–Q6
-and H1–H12 history. Plan and Tasks approval followed in PRs
+and H1–H13 history. H13, derived from Specification 004 HD-3 on 2026-09-20,
+reconciles SEC-003/SEC-005 and affected AC/Plan/Task Evidence with the bounded local
+filesystem threat model in
+[ADR-0005](../decisions/0005-bounded-local-filesystem-threat-model.md). It preserves
+confinement, supported link/replacement protection, process concurrency, fault
+injection, complete canonical state and recovery while explicitly excluding
+malicious same-UID arbitrary interleavings and physical power-loss/media guarantees.
+Plan and Tasks approval followed in PRs
 [#4](https://github.com/rgomids/axiom/pull/4) and [#5](https://github.com/rgomids/axiom/pull/5).
 Dated pre-merge gates in those artifacts and Evidence describe their review-time
 state; use this index for the current consolidated lifecycle.
@@ -89,7 +96,7 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 [Specification](004-mvp-v1-baseline/spec.md): **Approved — human approval recorded on 2026-09-20**.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) authorizes Specification
-and reconciliation only. The draft consolidates #54–#57 and #63–#68 into the
+and reconciliation only. The approved Specification consolidates #54–#57 and #63–#68 into the
 clean-environment journey from installation through explicit human acceptance.
 It defines Project/Work Item UX, Provider workflow projection, Runtime selectors,
 completion statuses, detailed Markdown artifacts, provenance, persistence,
@@ -100,8 +107,11 @@ binary distribution with an explicit release OS/architecture matrix, durable
 machine-local detail artifacts with an ADR-required Execution/correlation
 boundary, the bounded filesystem threat model with mandatory Specification
 002/security/architecture reconciliation before Plan, and clean v1 as the
-compatibility baseline without automatic POC migration. The complete Specification was explicitly approved on 2026-09-20. HD-3 now
-requires Specification 002 plus affected security/architecture reconciliation
-before Plan authorization, and HD-2 requires its artifact-lifecycle ADR before
-implementation. No Plan, MVP implementation, Tasks, release, or final MVP
-acceptance is authorized by this approval.
+compatibility baseline without automatic POC migration. The complete Specification
+was explicitly approved on 2026-09-20. HD-3 is formalized by
+[ADR-0005](../decisions/0005-bounded-local-filesystem-threat-model.md) and the
+dated Specification 002 H13 reconciliation; HD-2 is formalized by
+[ADR-0006](../decisions/0006-machine-local-detail-artifacts.md) without adding an
+operation-attempt domain entity. Merge and human approval of the reconciliation
+PR remain the gate before Plan. No Plan, MVP implementation, Tasks, release, or
+final MVP acceptance is authorized by this approval.

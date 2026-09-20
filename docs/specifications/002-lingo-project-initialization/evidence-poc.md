@@ -139,6 +139,18 @@ additional POC work after explicit acceptance. The technical gaps below remain
 valid inputs for MVP hardening; closing the cards does not assert that these
 proof obligations were satisfied.
 
+### Subsequent HD-3 mapping — 2026-09-20
+
+Specification 004 HD-3 and
+[ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md) later
+reconciled the proof boundary. Controlled traversal/link/replacement cases,
+process concurrency, deterministic fault stages, complete canonical state,
+fail-closed uncertainty, permissions/ACL checks and guided recovery remain required
+MVP Evidence. Malicious same-UID arbitrary interleavings, physical power loss and
+physical-media durability are now explicitly unsupported guarantees, not POC gaps
+claimed as solved. The observations below remain historical Evidence and do not
+become a permanent implementation contract.
+
 - `#19`: Physical disk-full, injected rename faults and sync/fault stages beyond
   the post-publication case, and exhaustive same-user race proof are incomplete.
   A macOS synthetic directory retained `0700` mode while
@@ -184,8 +196,8 @@ acceptance. `satisfied` means observed in versioned tests and Evidence;
 | Executable local Lingo CLI | Satisfied | Minimal commands exercised as a real binary. | No |
 | Init, validate, reopen, explicit update | Satisfied | Only name update and one manifest are supported as the approved POC baseline. | No |
 | Portable intent separated from local state | Satisfied | Install keeps exact portable bytes; local record stays under an ID-addressed state root. | No |
-| Filesystem safety, atomicity and recovery | Partially satisfied | ACL detection, controlled renames, atomic publication and manual recovery are covered; arbitrary hostile same-user timing and full fault matrix remain unproved. Complete adversarial review or reconcile the threat model. | Yes under SEC-003/005 as currently written |
-| Failures never publish partial or invalid state | Partially satisfied | Tested cancellation, crash, injected disk-full and sync-failure stages preserve complete old/new bytes; physical disk-full and remaining rename/fault stages need proof or explicit POC scoping. | Yes until those stages are checked or explicitly scoped out |
+| Filesystem safety, atomicity and recovery | Partially satisfied at POC close | ACL detection, controlled renames, atomic publication and manual recovery were covered; arbitrary hostile same-user timing and full fault matrix were unproved. HD-3 later reconciled the threat model without retroactively changing this observation. | Historical blocker under the pre-HD-3 reading |
+| Failures never publish partial or invalid state | Partially satisfied at POC close | Tested cancellation, process interruption, injected disk-full and sync-failure stages preserved complete old/new bytes; remaining supported deterministic stages require future Evidence. Physical power loss is excluded by HD-3. | Historical blocker; future matrix follows ADR-0005 |
 | Deterministic tests and reproducible Evidence | Partially satisfied | POC tests and macOS/Linux CI are reproducible; the uncovered #19 matrix prevents complete #20 claim. | Yes, depends on #19 |
 | Workflow used on bounded Axiom change | Satisfied | PR #28 dogfooding plus repeatable script in PR #29. | No |
 | Limitations and unsupported scenarios documented | Satisfied | One-manifest boundary, manual recovery, missing full Specification features and proof gaps listed above. | No |

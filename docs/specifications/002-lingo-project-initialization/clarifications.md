@@ -1,5 +1,30 @@
 # Clarifications — Lingo Project Initialization
 
+## Bounded local filesystem threat model — 2026-09-20
+
+Authority: explicit human approval of Specification 004 and its
+[HD-3 decision](../004-mvp-v1-baseline/spec.md#hd-3--mvp-filesystem-threat-model),
+recorded in [PR #69](https://github.com/rgomids/axiom/pull/69). The approved next
+phase authorizes reconciliation of Specification 002 plus affected security and
+architecture contracts before the Specification 004 Plan.
+
+| ID | Approved revision | Supersession / traceability |
+|---|---|---|
+| H13 | Adopt the bounded local filesystem threat model. Preserve exact authorized-target confinement, traversal and supported link/replacement protection, process concurrency, deterministic injected fault stages, complete old-or-new canonical state, fail-closed uncertainty, guided recovery, restrictive local metadata and truthful pre/post-commit outcomes. Explicitly exclude guarantees against malicious same-UID arbitrary hostile interleavings, physical power loss and physical-media durability. Excluded risks are unsupported, not solved. | Narrows only the previously implied unbounded proof boundary in SEC-003/SEC-005, AC-07/09/14/16, Plan §6/§8–10 and Tasks T05/T06/T07/T12/T18–T21. Preserves H1–H12, historical POC Evidence and implementation-mechanism neutrality. Durable rationale: ADR-0005. Origin: Specification 004 HD-3. |
+
+Supported properties fail closed when their assumptions cannot be established.
+The future Plan must declare OS/architecture/filesystem assumptions and map the
+chosen protocol to deterministic fault, concurrency, confinement, permission and
+recovery Evidence. It must not present controlled POC interleavings as proof of an
+excluded malicious same-UID adversary or present sync/rename success as a physical
+power-loss/media guarantee.
+
+This reconciliation is not a waiver of traversal/link protection, concurrency,
+logical atomicity, recovery, or existing-data preservation. It does not approve a
+syscall, lock, staging layout, Go package, Specification 004 Plan, Task,
+implementation, migration, installer, or release. H1–H12 and the dated records
+below remain historical and auditable.
+
 ## Single local revision decision — 2026-09-16
 
 Authority: explicit human instruction following the

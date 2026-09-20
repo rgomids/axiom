@@ -213,7 +213,8 @@ and machine coupling. This is the human-approved choice.
 ADR assessment: all four candidate decisions refine the same portable-intent/local
 installation boundary already owned here. Extending ADR-0004 avoids splitting one
 source-of-truth contract across competing ADRs. No separate engine, aggregate or
-remote topology decision justifies ADR-0005 now. Later Git implementation may reveal
+remote topology ADR was justified at that review. ADR-0005 was later assigned to
+the unrelated bounded local filesystem threat model. Later Git implementation may reveal
 an independent durable decision requiring its own evidence and human approval.
 
 ## Consequences
