@@ -2,12 +2,13 @@
 
 ## 1. Status, authority and source baseline
 
-**Plan: Ready for human review.**
+**Plan: Approved — human approval recorded on 2026-09-20.**
 
 This Plan describes how to realize the behavior approved in
-[Specification 004](spec.md). It is
-not Approved and does not authorize Tasks, implementation, migration, Provider
-mutation, release, or human acceptance. No `tasks.md` is created by this change.
+[Specification 004](spec.md). It was explicitly approved by the human reviewer in
+PR #71 on 2026-09-20 together with ADR-0007 and ADR-0008. The next authorized SDD
+phase is Tasks only. Implementation, migration, Provider mutation, release, and
+final MVP acceptance remain unauthorized. No `tasks.md` is created by this change.
 
 Planning baseline: `main` at `9537cdca08686c45a8dc32f292e571e08be78031`,
 including merged PR #70 and explicit human acceptance of
@@ -38,9 +39,9 @@ accepted:
 - [ADR-0008](../../decisions/0008-minimal-machine-local-execution-record.md)
   proposes the bounded machine-local Execution record.
 
-Both remain **Proposed — ready for human review**. This Plan depends on their
-human acceptance or explicit revision before it can be Approved or advance to
-Tasks. They are outputs of Plan review, not retroactive canonical inputs.
+Both were explicitly **Accepted on 2026-09-20** in PR #71 together with approval
+of this Plan. They are outputs of Plan review, not retroactive canonical inputs.
+Their acceptance clears the architecture gate for the authorized Tasks phase.
 
 The accepted POC is historical Evidence and an implementation baseline. Its
 commands, status values, schemas, storage layouts, and adapters are not v1
@@ -138,7 +139,7 @@ Planned cohesive package evolution:
 Existing packages should be evolved, not wrapped by a universal framework. A
 second Provider or Runtime is required before generalizing adapter registration.
 
-Subject to human acceptance of
+Under accepted
 [ADR-0008](../../decisions/0008-minimal-machine-local-execution-record.md), the
 MVP uses a minimal, versioned, machine-local Execution record only for the
 specified sequential workflow: opaque Execution ID, Project ID, Repository key,
@@ -453,16 +454,15 @@ process-lock semantics are available; staging and canonical target share one loc
 filesystem; clocks are not used for concurrency authority. Failure to establish an
 assumption returns validation failure or `recovery_required` before mutation.
 
-### Proposed publication protocol mapping
+### Publication protocol mapping
 
 [ADR-0007](../../decisions/0007-local-publication-and-recovery-protocol.md)
-owns the proposed architectural invariants: shared logical states, deterministic
+owns the accepted architectural invariants: shared logical states, deterministic
 coordination order, private preparation, protected publication, bounded recovery
 state, one commit point, prior/new generations, fail-closed readers, and owned-only
-cleanup. It remains Proposed; human acceptance or revision is required before this
-Plan or implementation can treat the protocol as architecture.
+cleanup.
 
-If ADR-0007 is accepted without material revision, implementation planning maps it
+Under accepted ADR-0007, implementation planning maps it
 behind narrow ports as follows. Syscalls, filenames, lock backend, record encoding,
 and Go libraries remain Task/implementation choices validated by native Evidence:
 
@@ -700,7 +700,7 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | FR-010 | §6 structured provider-neutral draft |
 | FR-011 | §6 two-phase Provider mutation gate |
 | FR-012 | §3/§6 capability port and GitHub adapter |
-| FR-013 | §7 authoritative local workflow; proposed ADR-0008 Execution authority |
+| FR-013 | §7 authoritative local workflow; ADR-0008 Execution authority |
 | FR-014 | §7 exactly one namespaced GitHub stage label |
 | FR-015 | §7 transition comment contract |
 | FR-016 | §7 truthful failed/interrupted/partial projection |
@@ -709,10 +709,10 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | FR-019 | §8 missing-only Runtime questions |
 | FR-020 | §8 strict unknown/duplicate/conflicting inputs |
 | FR-021 | §3/§8 thin delegation to same use cases |
-| FR-022 | §10 old/new complete canonical publication; proposed ADR-0007 protocol |
+| FR-022 | §10 old/new complete canonical publication; ADR-0007 protocol |
 | FR-023 | §9/§10 pre/post-commit truth |
 | FR-024 | §10 anchored exact-target confinement |
-| FR-025 | §10 deterministic guided recovery; proposed ADR-0007 reader/recovery contract |
+| FR-025 | §10 deterministic guided recovery; ADR-0007 reader/recovery contract |
 | FR-026 | §10/§12 explicit closed format compatibility |
 | FR-027 | §12 migration preview contract; no POC migration selected |
 | FR-028 | §12 authorized backup/rollback boundary |
@@ -733,8 +733,8 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | Specification 004 security/NFR clauses | §9 limits/sanitization, §10 ownership/confinement, §14 security controls, §15 Evidence |
 | SEC-001 | §6/§9/§14 secret exclusion and non-leak tests |
 | SEC-002 | §5–§8 explicit authority; denied external/Git/process effects |
-| SEC-003 | §10 anchored roots, links, identity, locks, supported race boundary; ADR-0005 plus proposed ADR-0007 |
-| SEC-004 | §10 revisions, old/new publication, owned-only cleanup/recovery; proposed ADR-0007 |
+| SEC-003 | §10 anchored roots, links, identity, locks, supported race boundary; ADR-0005 plus ADR-0007 |
+| SEC-004 | §10 revisions, old/new publication, owned-only cleanup/recovery; ADR-0007 |
 | SEC-005 | §9/§10 restrictive local metadata and portable exclusion |
 
 ### Acceptance criteria
@@ -757,7 +757,7 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | AC-14 | §9 sanitized/bounded/addressable/correlated local artifact |
 | AC-15 | §11 cross-surface provenance states |
 | AC-16 | §6/§11 user-content authorship separation |
-| AC-17 | §10 F0–F8 old/new/recovery matrix; proposed ADR-0007 |
+| AC-17 | §10 F0–F8 old/new/recovery matrix; ADR-0007 |
 | AC-18 | §12 version/POC detection and export-reconfigure path |
 | AC-19 | §12 owned idempotent install/upgrade and conflict refusal |
 | AC-20 | §6/§9 confirmed Provider effect plus local failure `partial` |
@@ -793,8 +793,8 @@ Architecture assessment found two new durable choices:
 
 | Candidate | Assessment |
 |---|---|
-| Shared local publication/recovery protocol | Cross-cutting, durable, and expensive to change after persisted state ships. Proposed separately in ADR-0007; human decision required. |
-| Minimal machine-local Execution record | Crosses workflow, resume, Provider projection, completion, artifacts/Evidence, and compatibility. Cohesion differs from filesystem publication, so it is proposed separately in ADR-0008; human decision required. |
+| Shared local publication/recovery protocol | Cross-cutting, durable, and expensive to change after persisted state ships. Accepted separately in ADR-0007 by explicit human decision in PR #71. |
+| Minimal machine-local Execution record | Crosses workflow, resume, Provider projection, completion, artifacts/Evidence, and compatibility. Cohesion differs from filesystem publication, so it is accepted separately in ADR-0008 by explicit human decision in PR #71. |
 | OS/architecture support matrix | Concrete release scope required by HD-1 and reproducibly versioned here. It is reassessed per release and does not define a permanent platform architecture; no ADR. |
 | Artifact quotas and retention durations | Initial operational defaults/guardrails explicitly delegated to Plan by ADR-0006, measurable and revisable without changing identity/ownership contracts; no ADR. |
 | Artifact layout/metadata and installation receipt schema | Versioned local adapter formats implementing already approved ownership/compatibility requirements. Exact paths, field names and encoding remain replaceable behind closed readers/migration gates; no separate ADR unless identity or lifecycle changes. |
@@ -824,17 +824,17 @@ Do not accept an ADR automatically.
 - ADR-0005 defines supported filesystem proof and explicit exclusions.
 - ADR-0006 defines artifact ownership, correlation, Evidence relation, retention,
   and cleanup without an operation-attempt entity.
-- ADR-0007 and ADR-0008 are Proposed, not compliance claims. This Plan requires
-  their human acceptance or explicit revision before approval/Tasks.
+- ADR-0007 and ADR-0008 are Accepted by explicit human decision in PR #71 and
+  form part of this approved Plan's architectural baseline.
 - Role != Model, Execution != Agent, Provider != Transport, Integration != MCP,
   Skill != workflow truth, Evidence != chat, and Provider projection != workflow
   truth remain intact.
 
 No constitutional conflict or ADR contradiction was identified.
 
-## 19. Review gate
+## 19. Approval record
 
-Human review must confirm:
+Human approval recorded in PR #71 confirms:
 
 - exact support matrix and filesystem assumptions;
 - ADR-0007 local publication/recovery invariants and their Plan mapping;
@@ -848,12 +848,11 @@ Human review must confirm:
 - clean-v1/POC compatibility and upgrade path;
 - FR/SEC/AC traceability and planned Evidence.
 
-Approval of this Plan would authorize only the next expressly requested SDD phase.
-It would not approve future Tasks, start implementation, authorize Provider
-mutation/release, or grant final MVP acceptance.
+Approval of this Plan authorizes the **Tasks phase only**. It does not approve the
+future Tasks artifact, start implementation, authorize Provider mutation/release,
+or grant final MVP acceptance. Implementation remains gated by explicit approval
+of the Tasks artifact and its own authority.
 
-Plan approval must not be recorded while ADR-0007 or ADR-0008 remains Proposed.
-The human may accept/revise those decisions and approve the Plan in the same PR,
-but each decision and the Plan require an explicit, auditable statement.
+The explicit auditable human decision is recorded in PR #71 on 2026-09-20.
 
-**Plan: Ready for human review**
+**Plan: Approved — human approval recorded on 2026-09-20.**
