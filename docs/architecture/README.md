@@ -2,7 +2,9 @@
 
 Axiom define produto, domínio, políticas e contratos. Lingo executa um POC local
 limitado, conforme a ADR-0003. A ADR-0004 define o Portable Project Manifest
-separado do estado local. O POC não implementa toda a Specification 002.
+separado do estado local. ADR-0005 define o threat model local limitado do MVP;
+ADR-0006 define ownership e lifecycle dos detail artifacts. O POC não implementa
+toda a Specification 002.
 
 ## Target architecture
 
@@ -49,9 +51,13 @@ portátil validado. Detalhes pertencem às
 
 O POC não implementa outros Runtimes/Providers, workflow multi-agent/paralelo,
 package manager/auto-update, sincronização remota, documentos opcionais/rename
-completos da Specification 002, nem recuperação automática. Garantias completas
-contra power loss, todas as falhas de filesystem e races hostis same-UID seguem
-abertas em #19/#20. Nenhum engine geral de persistência foi adotado.
+completos da Specification 002, nem recuperação automática. #19/#20 preservam
+Evidence histórica, não contratos atuais. Sob ADR-0005, confinement ao target
+autorizado, traversal/link protection suportada, concorrência entre processos,
+fault injection determinístico, estado canônico completo, fail-closed uncertainty
+e guided recovery seguem obrigatórios. Malicious same-UID arbitrary interleavings,
+physical power loss e physical-media durability são garantias explicitamente
+unsupported, não riscos resolvidos. Nenhum engine geral de persistência foi adotado.
 
 ## Architecture references
 
@@ -61,6 +67,8 @@ abertas em #19/#20. Nenhum engine geral de persistência foi adotado.
 - [ADR-0002 — Axiom Relationship with GitHub Spec-Kit](../decisions/0002-axiom-speckit-relationship.md) — Accepted; Axiom independente, Spec-Kit como referência estratégica de pesquisa.
 - [ADR-0003 — Lingo as Axiom Local Control Plane](../decisions/0003-lingo-as-axiom-local-control-plane.md) — Accepted; separação entre domínio Axiom e execução local Lingo.
 - [ADR-0004 — Portable Project Manifest](../decisions/0004-portable-project-manifest.md) — Accepted; intenção portátil versionada e estado local separados.
+- [ADR-0005 — Bounded local filesystem threat model](../decisions/0005-bounded-local-filesystem-threat-model.md) — Accepted; propriedades suportadas, exclusões e Evidence do boundary local.
+- [ADR-0006 — Machine-local detail artifacts](../decisions/0006-machine-local-detail-artifacts.md) — Accepted; ownership, Execution/correlation, Evidence, retention e cleanup seguro.
 
 Decisões duráveis registram contexto e trade-offs em ADRs. Diagramas versionados
 usam C4 como orientação e distinguem alvo, implementação existente e propostas.

@@ -1,6 +1,30 @@
 # Specification 002 — Lingo Project Initialization
 
-## POC delivery status — 2026-09-18
+## HD-3 filesystem threat-model reconciliation — 2026-09-20
+
+Specification 004 was approved by human review on 2026-09-20 with
+[HD-3](../004-mvp-v1-baseline/spec.md#hd-3--mvp-filesystem-threat-model).
+That decision narrows the previously ambiguous proof boundary of SEC-003/SEC-005
+without removing the safety properties they protect. [H13](clarifications.md#bounded-local-filesystem-threat-model--2026-09-20)
+and [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md)
+record the durable reconciliation.
+
+Within the supported Linux/macOS local boundary, this Specification still requires
+exact authorized-target confinement, traversal and supported link/replacement
+protection, process concurrency control, deterministic fault injection, old-or-new
+complete canonical state, fail-closed uncertainty, truthful pre/post-commit
+semantics, restrictive local metadata, and guided recovery. It does not claim a
+guarantee against a malicious same-UID actor performing arbitrary hostile
+interleavings, physical power loss, or physical-media durability. Those are
+explicitly unsupported threats/guarantees, not solved risks.
+
+This dated reconciliation supersedes only the stronger implied proof boundary.
+Original approvals, H1–H12, POC Evidence, unresolved historical findings, and
+mechanism-neutral requirements remain auditable. Existing POC implementations
+remain historical Evidence rather than the required implementation contract.
+No Specification 004 Plan, Tasks, implementation, or release is authorized here.
+
+## Historical POC delivery status — 2026-09-18
 
 The approved Specification remains in partial implementation and awaits human
 acceptance. POC issues [#16](https://github.com/rgomids/axiom/issues/16)–
@@ -11,13 +35,13 @@ These changes merged in [PR #27](https://github.com/rgomids/axiom/pull/27).
 [POC Evidence](evidence-poc.md) records current behavior, macOS/Linux checks,
 hardening work and limits from merged PR #28 and draft PR #29.
 
-[#19](https://github.com/rgomids/axiom/issues/19) still owns filesystem
-hardening, atomicity/recovery and security proof;
-[#20](https://github.com/rgomids/axiom/issues/20) owns complete acceptance and
-failure-path Evidence; [#21](https://github.com/rgomids/axiom/issues/21) owns
-dogfooding and human acceptance. A bounded dogfooding execution is recorded,
-while full fault/race proof and explicit human acceptance remain open. The POC and parent
-[#14](https://github.com/rgomids/axiom/issues/14) remain open. Dated T04 gates
+At that date, [#19](https://github.com/rgomids/axiom/issues/19) owned filesystem
+hardening, atomicity/recovery and security proof; [#20](https://github.com/rgomids/axiom/issues/20)
+owned complete acceptance and failure-path Evidence; and
+[#21](https://github.com/rgomids/axiom/issues/21) owned dogfooding and human
+acceptance. Those POC-scoped issues were later closed after explicit POC acceptance,
+with their gaps preserved as input to HD-3 rather than reported as solved. Parent
+[#14](https://github.com/rgomids/axiom/issues/14) remains open. Dated T04 gates
 below record historical state and do not describe current POC delivery.
 
 ## T04 single local revision reconciliation — 2026-09-16
@@ -547,13 +571,17 @@ external side effects because none are authorized.
   No implicit network access, permission escalation, or repository hook execution.
 - **SEC-003 Write boundary:** no Lingo write may escape, be redirected, or reach
   any destination other than the target explicitly authorized by the user. Protect
-  all writes against path traversal, symlink redirection, filesystem races/TOCTOU
-  and writes outside the approved boundary, including during persistence. Portable
-  file references remain relative and contained, without absolute machine paths or
+  all writes against path traversal, pre-existing or controlled symlink/hard-link
+  redirection, changed object identity, stale process authority and supported
+  replacement/TOCTOU cases at the declared inspection and commit boundaries.
+  Confinement applies during persistence, cleanup and recovery. Portable file
+  references remain relative and contained, without absolute machine paths or
   executable interpolation. Read-only Repository bindings may resolve paths safely,
   including symlinks, provided that no implicit write is authorized; bindings remain
   read-only in this slice. Concrete filesystem techniques belong to Plan/implementation,
-  not this invariant.
+  not this invariant. Per HD-3/H13, proof excludes malicious same-UID arbitrary
+  interleavings outside the supported boundaries; inability to establish a required
+  supported property fails closed rather than weakening confinement.
 - **SEC-004 Existing data:** no silent overwrite, recursive cleanup of unknown
   content, or partial Project presented as valid. Detect races and fail safely. Update requires expected revision; failed
   pre-commit update preserves the old state; slug rename protects collision/TOCTOU
@@ -563,8 +591,11 @@ external side effects because none are authorized.
   Local data is excluded from portable output by construction, not merely by
   `.gitignore`. Linux and macOS native directories and the explicit local-root
   override must satisfy the same protections; state never enters `axiom.yaml`. Only
-  sanitized fixtures
-  and public-safe Evidence follow the current repository security policy.
+  sanitized fixtures and public-safe Evidence follow the current repository security
+  policy. Ownership, permission, ACL, type and link conditions are validated at the
+  supported operation boundaries and unsafe observations fail closed. This contract
+  does not claim protection from arbitrary malicious same-UID permission/ACL
+  interleavings, physical power-loss durability, or physical-media durability.
 
 ## Acceptance criteria and future executable evidence
 
@@ -580,16 +611,16 @@ no real Provider, credential value, model service, or fake production adapter.
 | AC-04 | Same init/install is no-op; rename/edit, Runtime change and copy preserve immutable UUID; changed init intent/different ID, duplicate keys/exact or safely normalized remotes/checkouts, and ambiguous targets conflict | Unit UUID/duplicate cases and black-box conflict/relocation matrix; no independent fork identity (FR-001, FR-004, FR-012) |
 | AC-05 | Runtime/Providers/Integrations/profiles may be absent or unconfigured without artificial declarations; available/unavailable/unverified observations state their basis; unavailable/unverified does not invalidate Project/install or prove capability/model readiness | Unit optional/reference matrix; controlled presence-check cases and black-box J2 without network, model or arbitrary Runtime execution (FR-005–007) |
 | AC-06 | One axiom.yaml requires schemaVersion; missing/malformed/unsupported version, unknown/duplicate core field, dangling reference and malformed data fail before writes; no split manifest or automatic migration | Strict parser/validator unit matrix and unchanged filesystem assertions (FR-015) |
-| AC-07 | Cancel/retry, permissions/read-only failure, partial local-install failure, interrupted commit and concurrent writer preserve existing data; conflicting writers cannot both succeed | Controlled filesystem fault integration plus black-box recovery (FR-013) |
+| AC-07 | Cancel/retry, permissions/read-only failure, partial local-install failure, interrupted commit and concurrent writer preserve existing data under the supported commit protocol; conflicting Axiom writers cannot both succeed | Deterministic injected faults at incomplete-write, pre-publication, publication, post-publication/pre-acknowledgment and cleanup stages plus black-box guided recovery; physical power-loss/media guarantees excluded (FR-013, H13, ADR-0005) |
 | AC-08 | Deterministic rejection covers credential values in reference-only/prohibited fields, credential-bearing URL user-info, known sensitive URL parameters and secret-value structures before writes, without leakage; optional free-text/context/document scanning gives safe findings or unavailable/failure warnings/Evidence, never proof of secret absence or structural invalidity solely from scanner unavailability; credential values never read and sources may remain unresolved | Synthetic structural rejection/redaction matrix over output/logs/Evidence/files, scanner available/finding/unavailable/failure cases and controlled no-secret-read assertions (FR-008, SEC-001) |
-| AC-09 | No write escapes, is redirected or reaches a destination other than the explicitly authorized target under traversal, symlink redirection, races/TOCTOU or outside-boundary attempts; absolute machine paths in portable references fail; safe read-only bindings permit no implicit writes | Filesystem security integration with adversarial races, unchanged unauthorized-target assertions, safe binding relocation/resolution and Linux/macOS permission checks; no prescribed filesystem technique (SEC-003–005) |
+| AC-09 | No write escapes, is redirected or reaches a destination other than the explicitly authorized target under traversal, supported symlink/hard-link/replacement/TOCTOU cases, stale process authority or outside-boundary attempts; absolute machine paths in portable references fail; safe read-only bindings permit no implicit writes | Linux/macOS filesystem integration with controlled adversarial interleavings at declared inspection/commit boundaries, unchanged unauthorized-target assertions, safe binding resolution and ownership/permission/ACL checks; malicious same-UID arbitrary interleavings are explicitly outside the proof boundary (SEC-003–005, H13, ADR-0005) |
 | AC-10 | Init/install/update perform no external config/Git/Provider mutation; no hooks, implicit network, or AI invocation | Black-box side-effect assertions in isolated environment (SEC-002) |
 | AC-11 | Business Context may be absent/unconfigured or persist as untrusted data; invalid fields corrected independently; missing required interactive input fails promptly | Unit optional context/reference validation and black-box wizard/input tests (FR-009–011) |
 | AC-12 | Identical inputs/observations produce equivalent output and stable diagnostics; portable validity, installed-with-gaps and installation failure stay distinct; no creation/install or presence check implies operational readiness | Repeated-run comparison excluding UUID allocation/attempt metadata; classification matrix including valid Project with local gaps and failed local persistence (FR-016) |
 | AC-13 | Invalid/empty/traversal slug fails before path use; different IDs with same installation slug conflict; no global uniqueness inferred | Unit grammar/identity matrix and two-process init/install collision integration; unchanged occupied destination (FR-017, SEC-003–004) |
-| AC-14 | Explicit slug rename moves portable directory, preserves project.id and local state continuity; name need not be unique | Black-box old/new lookup, document hashes, same ID-addressed installation/bindings; collision, symlink/TOCTOU and move-failure integration (FR-001, FR-017, SEC-003–005) |
+| AC-14 | Explicit slug rename moves portable directory, preserves project.id and local state continuity; name need not be unique | Black-box old/new lookup, document hashes, same ID-addressed installation/bindings; collision, supported symlink/replacement/TOCTOU and move-failure integration within H13 (FR-001, FR-017, SEC-003–005, ADR-0005) |
 | AC-15 | Explicit update succeeds where changed init conflicts; minimal init needs no documents; partial update intent materializes a complete proposed state, validates all invariants, shows safe diff and enforces authority/version/concurrency before complete persistence | Unit partial-intent add/remove/reference matrix (including invalid retained references), no-direct-patch persistence, no-authority/stale-preview cases and black-box J6 including document addition, declaration states and unchanged UUID (FR-012, FR-018–019) |
-| AC-16 | Logical atomicity: no partial Project accepted as valid; pre-commit failure preserves prior authoritative state; successful commit makes complete new state authoritative; conflicting updates cannot both succeed; post-commit failures report actual state without false rollback | Linux/macOS fault/crash tests around adapter-defined commit, concurrent readers/writers, confinement/collision tests including manifest/documents and rename versus update, identity/local-state continuity recovery (FR-013, FR-017–018, SEC-004) |
+| AC-16 | Logical atomicity: no partial Project accepted as valid; pre-commit failure preserves prior authoritative state; successful commit makes complete new state authoritative; conflicting updates cannot both succeed; post-commit failures report actual state without false rollback | Linux/macOS deterministic process-concurrency and injected-fault tests around the adapter-defined commit, confinement/collision cases including manifest/documents and rename versus update, identity/local-state continuity and guided recovery; no physical power-loss/media durability claim (FR-013, FR-017–018, SEC-004, H13, ADR-0005) |
 | AC-17 | Entire portable working copy excludes machine state and secrets; home location does not make it private local state | Unit artifact allowlist, integration portable/local root overlap and export-set exclusion, black-box portable snapshot checks (FR-020, SEC-001, SEC-005) |
 | AC-18 | Optional backing/`.git` creates no Repository association; local mutation, optional Git commit and explicit remote sync have independent authority/outcomes; local success depends on neither commit nor push; no false rollback or local-state export; AI has no implicit Git authority | Denied Git/network spies for current init/update/install/validate; future authorized Git tests for association independence, portable-only backing, AI/authority denial, no implicit publication, commit/push failures preserving confirmed local success, and separately approved automation before Git delivery (FR-020–021, SEC-002) |
 
@@ -598,8 +629,11 @@ traceable unit, filesystem integration, and functional black-box results for
 AC-01–18, with Git execution evidence in AC-18 deferred until authorized Git
 delivery (current slice must prove denied side effects and boundary contracts);
 sanitized command/exit-status reports, content comparisons and fault
-results; platform coverage named explicitly; security review and remaining
-limitations. Existing harness checks do not prove these future behaviors.
+results; platform/filesystem assumptions named explicitly; security review and
+remaining limitations. Evidence must distinguish controlled supported interleavings
+and deterministic injected faults from excluded arbitrary same-UID, physical
+power-loss and media-durability guarantees. Existing harness checks do not prove
+these future behaviors.
 
 ## Constitution check and review gate
 
@@ -607,15 +641,18 @@ Intent and acceptance precede implementation. Constitution I–IV require reopen
 materially changed approved intent: the 2026-09-11 approval remains historical,
 while H1–H8 record explicit subsequent human authority on 2026-09-12 and H9
 records partial-input refinement; H10 approves the model and init/update contract
-with logical atomicity on 2026-09-14; H11 approves Git Authority. ADR-0004
-is extended within its portable/local boundary; ADR-0001–0003 remain unchanged.
+with logical atomicity on 2026-09-14; H11 approves Git Authority; H13 records the
+2026-09-20 HD-3 threat-model reconciliation. ADR-0004 is extended within its
+portable/local boundary; ADR-0005 records H13; ADR-0001–0003 remain unchanged.
 Constitution V–VIII retain deterministic authority, least privilege and
 Project != Repository without imposing aggregate/Workspace ownership.
 
 H9/H10 resolve partial input, complete-state validation and logical atomicity.
-H11 resolves Git Authority. The later PR #4 approval and merge close Plan review;
-[Tasks](tasks.md) are now in review under the explicit human request. Deferred
-mechanisms and future Evidence obligations remain in
-[Plan review concerns](plan.md#remaining-review-concerns-and-deferred-design).
-**Plan: Approved. Tasks: In review. Implementation: Not authorized.**
-All acceptance Evidence above remains future work.
+H11 resolves Git Authority. H13 reconciles SEC-003/SEC-005 and the affected ACs
+to the bounded local filesystem threat model without selecting mechanisms.
+Specification 002 Plan and Tasks were approved in their dated lifecycle; delivery
+remains partial and parent #14 is not complete. Current consolidated status lives
+in the [Specification index](../README.md#002--lingo-project-initialization).
+H13 authorizes no new implementation unit. Deferred mechanisms and remaining
+Evidence obligations stay in the
+[Plan](plan.md#remaining-review-concerns-and-deferred-design).

@@ -78,3 +78,11 @@ interleavings required by the unresolved #19 threat-model gate. #19 remains
 open. Because #20 explicitly depends on deterministic persistence/recovery
 Evidence, #20 also remains open pending that gate; no green E2E check is treated
 as acceptance or waiver.
+
+This paragraph records the 2026-09-19 gate. On 2026-09-20, #19/#20 closed as
+historical POC work and Specification 004 HD-3/
+[ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md)
+reconciled the MVP boundary. Supported deterministic faults, process concurrency,
+confinement and recovery still require Evidence; malicious same-UID arbitrary
+interleavings and physical power-loss/media durability are unsupported guarantees,
+not risks this T39 run solved.

@@ -4,6 +4,12 @@ Este repositório é público. Toda mudança deve ser avaliada como se seu conte
 
 A política normativa para agentes está em [../../.agents/policies/security.md](../../.agents/policies/security.md). Reporte de vulnerabilidades está em [../../SECURITY.md](../../SECURITY.md).
 
+Este documento governa publicação e operação segura deste repositório. O threat
+model do filesystem local do produto está em
+[ADR-0005](../decisions/0005-bounded-local-filesystem-threat-model.md). As exclusões
+same-UID/power-loss/media desse ADR não reduzem estas regras de secrets, autoridade,
+conteúdo externo ou revisão antes de commit.
+
 ## Mandatory rules
 
 - Nunca versionar secrets.

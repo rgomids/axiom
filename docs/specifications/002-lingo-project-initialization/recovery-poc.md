@@ -49,3 +49,10 @@ installation failure does not roll back a valid portable Project.
 This is an explicit operator procedure, not an automatic recovery guarantee.
 The POC does not prove recovery under all disk-full, ACL, hostile same-user race
 or abrupt power-loss conditions. Those gaps remain in [POC Evidence](evidence-poc.md).
+
+Subsequent Specification 004 HD-3 and
+[ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md) retain
+guided fail-closed recovery for supported deterministic faults and process
+concurrency. Malicious same-UID arbitrary interleavings, physical power loss and
+physical-media durability are explicitly unsupported guarantees, not risks this
+historical POC procedure solved.

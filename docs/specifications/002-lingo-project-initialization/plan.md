@@ -1,10 +1,29 @@
 # Plan — Specification 002: Lingo Project Initialization
 
-## POC implementation status — 2026-09-18
+## HD-3 filesystem threat-model reconciliation — 2026-09-20
+
+Human-approved Specification 004 HD-3 narrows the proof boundary consumed by this
+existing Plan. [H13](clarifications.md#bounded-local-filesystem-threat-model--2026-09-20)
+and [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md)
+preserve exact target confinement, traversal and supported link/replacement
+protection, Axiom process concurrency, deterministic injected fault stages,
+logical old-or-new publication, fail-closed uncertainty, guided recovery,
+restrictive local metadata, and truthful commit outcomes.
+
+This Plan no longer implies guarantees against malicious same-UID arbitrary
+interleavings, physical power loss, or physical-media durability. Future Evidence
+must state supported OS/filesystem assumptions and distinguish controlled
+interleavings/injected faults from those exclusions. No concrete mechanism changes:
+syscalls, lock/staging layout, filenames, packages, and exact fault matrix remain
+implementation choices under the reconciled contract. This edit reconciles the
+existing approved Specification 002 Plan; it does not create or authorize the
+Specification 004 Plan, Tasks, implementation, or release.
+
+## Historical POC implementation status — 2026-09-18
 
 The approved Plan remains the contract. POC issues #16–#18 merged the minimal
 CLI and portable/local lifecycle described in the
-[Specification status](spec.md#poc-delivery-status--2026-09-18). One-file
+[historical Specification status](spec.md#historical-poc-delivery-status--2026-09-18). One-file
 filesystem hardening and black-box Evidence for #19–#20 are in progress;
 dogfooding for #21 is recorded. macOS/Linux runtime checks passed in draft PR #29,
 while full fault/race proof and human acceptance
@@ -638,18 +657,21 @@ expected identity and allowed relative names, not a general string path. Protect
 portable destination and local state as separate authorized roots. No lexical
 prefix test or `realpath`-then-write sequence is sufficient.
 
-Confinement must hold through reads, writes, cleanup and recovery, including
-ancestor replacement/rename and final-leaf symlink races. Reject traversal,
-redirection outside authorized roots and unsafe target types; user names and
-imported documents confer no filesystem authority. Lexical prefix checks or a
-`realpath`-then-write check alone cannot prove protection against races.
+Confinement must hold through reads, writes, cleanup and recovery for the supported
+threats, including pre-existing and controlled ancestor/leaf replacement, symlink,
+hard-link and object-identity changes at declared inspection and commit boundaries.
+Reject traversal, redirection outside authorized roots and unsafe target types;
+user names and imported documents confer no filesystem authority. Lexical prefix
+checks or a `realpath`-then-write check alone cannot establish this property.
 
 Directory handles, relative no-follow operations, ownership/permission checks and
 protected ancestry are candidate controls, not approved syscall requirements.
-A held handle alone does not prevent an ancestor moving outside the authorized
-root. The adapter must define its supported filesystem/threat assumptions and
-prove confinement on Linux/macOS. If guarantees cannot be established, fail safely
-before mutation; do not claim protection against actors able to revoke them.
+A held handle alone does not establish every supported property. The adapter must
+define its supported filesystem assumptions and prove confinement on declared
+Linux/macOS combinations. If a required property cannot be established, fail
+safely before mutation. Under H13/ADR-0005, the proof does not cover a malicious
+same-UID actor performing arbitrary hostile interleavings outside the declared
+boundaries; this exclusion cannot be described as a solved risk.
 
 ### Logical commit and recovery contract (H10)
 
@@ -667,10 +689,12 @@ before mutation; do not claim protection against actors able to revoke them.
    conflicting writers cannot both succeed. Slug rename and manifest/document
    updates preserve immutable UUID and ID-addressed local-state continuity.
 5. The adapter must define and prove its commit point, reader validity checks,
-   durability, failure classification and recovery behavior. After commit, report
+   software-visible retention/acknowledgment semantics, failure classification and
+   recovery behavior within H13. After commit, report
    actual committed state, including uncertainty or incomplete local reconciliation;
    never falsely claim rollback. If validity or outcome cannot be established,
    report recovery required instead of presenting partial state as a valid Project.
+   No physical power-loss or physical-media durability guarantee is implied.
 6. Reconcile local metadata separately by ID and expected exact-byte local revision
    returned outside the record (H12/§3); preserve bindings and credential references,
    update source/slug/portable snapshot revision and invalidate
@@ -693,11 +717,15 @@ cleanup requires ownership evidence and must not interfere with active writers.
 During authorized implementation, document the chosen protocol and provide unit,
 Linux/macOS integration and black-box Evidence for confinement, collisions,
 concurrency, manifest/document validity, slug rename, identity/local continuity,
-pre-commit failure preservation and post-commit recovery/reporting. Inject failures
-and crashes around the actual chosen commit point and race readers/writers. A
+pre-commit failure preservation and post-commit recovery/reporting. Deterministically
+inject incomplete-write, pre-publication, publication, post-publication/
+pre-acknowledgment and cleanup failures around the chosen commit point; coordinate
+controlled readers/writers with barriers. A
 protocol must never accept a mixed Project state as valid. Unsupported filesystem
 or cross-filesystem behavior must fail safely unless equivalent guarantees are
-proven. No specific Go/OS call, layout, lock protocol or engine is selected here.
+proven. Physical power loss, physical-media durability and malicious same-UID
+arbitrary interleavings are excluded from proof. No specific Go/OS call, layout,
+lock protocol or engine is selected here.
 
 ### Failure matrix
 
@@ -767,9 +795,9 @@ explicit destination and permissions within the write summary.
 |---|---|---|
 | SEC-001 | Closed DTOs and reference-only fields; deterministic rejection of credential-value structures, credential-bearing URL user-info and known sensitive query parameter names; no environment/store expansion; sanitized diagnostics at every layer | Structural rejection before writes; sentinel values absent from stdout/stderr, records, staged files, logs and Evidence; zero secret-source reads |
 | SEC-002 | Init/install/update ports expose only authorized local I/O and observation; draft AI carries no authority; future Git commit/push separate; no external command/network/Provider setup surface; untrusted text never executed | Black-box filesystem snapshots of Git/Runtime/MCP/external config; denied network/process/secret-read spies; no hooks |
-| SEC-003 | Anchored directory operations, trusted ancestry precondition, no-follow/exclusive publication, restricted relative references; separate read-only bindings | Invalid slug, collision, slug rename/move, traversal, leaf/ancestor symlink swap, ancestor rename, hard-link and TOCTOU fault matrix; unauthorized destinations unchanged |
+| SEC-003 | Exact authorized roots/objects, contained references, object-identity validation, supported no-follow/no-replace protections and process concurrency; separate read-only bindings; fail closed when assumptions fail | Invalid slug, collision, slug rename/move, traversal, pre-existing and controlled leaf/ancestor symlink/hard-link/replacement cases at declared boundaries; unauthorized destinations unchanged; excluded arbitrary same-UID interleavings labeled unsupported |
 | SEC-004 | Expected revisions, collision/concurrency protection, logical Project atomicity, safe local record replacement, owned-only cleanup and explicit recovery; adapter-selected mechanisms | Update rollback, state continuity after rename, concurrent update/rename; conflicting writers cannot both succeed; unknown files survive; committed/partial outcomes classified correctly |
-| SEC-005 | Portable working copy/native state/override separation, owner-only metadata and any chosen staging; ACL validation, complete artifact exclusion by construction | Linux/macOS permission checks, overlapping-root rejection, portable snapshots free of local state; sanitized public fixtures |
+| SEC-005 | Portable working copy/native state/override separation, restrictive owned metadata and any chosen staging; ownership/type/link/ACL validation at supported boundaries; complete artifact exclusion by construction | Linux/macOS permission/ACL checks, overlapping-root rejection, portable snapshots free of local state, sanitized public fixtures; no physical power-loss/media or arbitrary same-UID ACL-mutation claim |
 
 The URL sensitive-parameter policy is a deterministic, versioned list with fixture
 coverage (for example token/password/API-key/signature parameter families), separate
@@ -801,27 +829,29 @@ Filesystem integration must also exercise real OS primitives, not just mocks.
 | AC-04 | Identity/equivalence, stores, binding replacement | Init/install no-op for each permitted declaration state; pairwise absent/unconfigured/empty changes conflict under FR-012; nested presence changes; rename/copy/Runtime edit preserves UUID; changed intent/ID; duplicate key/remote/checkout; confirmed relocation | Stable bytes, write/entropy counts, conflict matrix and no fork allocation |
 | AC-05 | Optional contracts, Runtime observation | Field-specific absent/unconfigured/empty and reference matrix; reject forbidden state forms; present/absent/non-executable/uncertain executable; J2 black-box; profile incompatibility | Basis and three-state golden results; no readiness claims or process launches |
 | AC-06 | Codec/domain validation and local store | Declaration-state semantic round trips; local formatVersion missing/malformed/unknown and schemaVersion-only records (AC-03/AC-07 support); Golden valid/invalid YAML; all-depth unknown/duplicate keys, schema types/versions, alias/merge/tags, dangling references | Diagnostics snapshots and zero-write assertions |
-| AC-07 | Application and safe stores | Cancellation at each phase; short write/disk-full/read-only/permissions; crash before/after each commit; local failure; competing processes | Fault table, exit status, preserved file hashes and recoverable-state results |
+| AC-07 | Application and safe stores | Cancellation; short write/space-quota/read-only/permissions; deterministic faults at incomplete-write, pre-publication, publication, post-publication/pre-acknowledgment and cleanup; local failure; competing Axiom processes | Fault-stage/commit-status table, exit status, preserved hashes, recovery results and explicit excluded physical-event boundary |
 | AC-08 | Structural guards, safe reporting, optional scanner | Synthetic prohibited structures/URL parameters; unavailable/failed/finding scanner; no credential-source reads | Sentinel non-leak assertions over every output and file, warning snapshots |
-| AC-09 | Root discovery and safe filesystem | Traversal, absolute ref, symlink/hard-link/ancestor races; read-only binding aliases; ACLs and unsafe override; cleanup/recovery attacks | Both OS results, outside-tree hashes and protected operation/failure outcomes |
+| AC-09 | Root discovery and safe filesystem | Traversal, absolute ref, pre-existing/controlled symlink, hard-link and ancestor/leaf replacement cases at declared boundaries; read-only binding aliases; ACLs and unsafe override; cleanup/recovery attacks | Both OS results, outside-tree hashes, protected operation/failure outcomes, supported assumptions and explicit same-UID adversary exclusion |
 | AC-10 | All application I/O boundaries, CLI | Isolated black-box init/install; unexpected process/network calls fail test; repository hooks configured but never executed | Side-effect ledger and unchanged external configuration snapshots |
 | AC-11 | Wizard/application, context codec | Skip/omit/unconfigured context; untrusted text; independent field correction; closed stdin/non-TTY missing input | Prompt/output goldens, bounded completion and retained draft assertions |
 | AC-12 | Result classification/rendering | Repeated identical observations for each declaration state; distinguish changed intent despite equal Runtime observations; local-format failure versus portable validity; randomized map order; valid-with-gaps versus record-write failure; no-op write counts | Stable diagnostic goldens excluding entropy/attempt metadata; classification matrix |
 | AC-13 | Slug domain, namespace resolution and stores | Unit valid/invalid grammar; collision across IDs in init/install; two-process slug reservation | Zero writes/entropy on rejected slug; unchanged occupied directory |
-| AC-14 | Update/rename, portable and local stores | Name nonuniqueness; successful directory move; ID/binding continuity; collision, symlink and TOCTOU fault cases | Before/after UUID, paths, document hashes and same installation record key |
+| AC-14 | Update/rename, portable and local stores | Name nonuniqueness; successful directory move; ID/binding continuity; collision and supported symlink/replacement/TOCTOU fault cases | Before/after UUID, paths, document hashes, same installation record key and declared H13 boundary |
 | AC-15 | Domain materialization, update application, draft boundary, CLI | Partial name-only intent retains untouched fields/UUID/declaration forms; partial remove leaves retained dangling reference and fails; complete proposed state checked even when changed fields alone are valid; persistence never receives a patch; minimal init then add document/Repository; safe preview; missing/stale authority or unsupported version; changed init conflict versus valid update | Unit matrix, controlled store integration asserting complete valid artifact set or zero writes, and J6 black-box reports; denied-write spies and sanitized diff |
-| AC-16 | Logical commit, collision/concurrency protection and recovery | Linux/macOS failures around adapter-defined commit; concurrent readers never accept mixed manifest/document state; conflicting update/update and rename/update processes; local failure after portable commit | Pre-commit prior-state hashes, one winning revision, committed-state recovery and binding continuity |
+| AC-16 | Logical commit, collision/concurrency protection and recovery | Deterministic Linux/macOS faults around adapter-defined commit; concurrent Axiom readers never accept mixed state; conflicting update/update and rename/update processes; local failure after portable commit | Pre-commit prior-state hashes, one winning revision, committed-state recovery, binding continuity and explicit no physical power-loss/media durability claim |
 | AC-17 | Artifact validation and root separation | Full portable-tree forbidden-state cases, disjoint roots, home working copy classification and future export set | Portable snapshots omit all local state; allowlist rejection evidence |
 | AC-18 | Application authority and future Git boundary | Init/update/install/validate Git/network denial spies; future `.git` creates no association; portable-only backing; AI authority denial; independent Project/commit/push outcomes, no false rollback; separately approved automation | Current-slice denied side effects; later Git delivery must provide boundary/functional evidence before release |
 
-Failure tests inject faults at named boundaries and use barriers for races, not
-sleep-based timing alone. Include two independent writer processes, identical and
-conflicting intents, local-record compare-and-swap conflict, cancellation after
-publication and stale-recovery ownership. Add adversarial filesystem tests around
-every write/cleanup phase, not just initial validation. Run on Linux and macOS;
+Failure tests inject faults at named boundaries and use barriers for controlled
+process races, not sleep-based timing alone. Include two independent Axiom writer
+processes, identical and conflicting intents, local-record compare-and-swap
+conflict, cancellation after publication and stale-recovery ownership. Add
+supported adversarial filesystem cases around every write/cleanup phase, not just
+initial validation. Run on Linux and macOS;
 one platform passing never implies the other. Do not weaken tests when elevated
 privileges bypass permission failures; use controlled unprivileged accounts or
-report those cases unverified.
+report those cases unverified. Record malicious same-UID arbitrary interleavings,
+physical power loss and media durability as excluded, never passed or solved.
 
 Golden fixtures suit canonical manifests and safe deterministic diagnostics. Keep
 OS paths/timestamps outside stable fields; fixtures contain placeholders only.
@@ -879,8 +909,10 @@ and filesystem strategy remain slice-scoped Plan details. The local `formatVersi
 and distinct declaration semantics are resolved here, without separate ADRs.
 H1–H11 extend ADR-0004 naturally: identity ergonomics, portable working copy,
 incremental mutation and optional backing are aspects of shared intent versus local
-installation, not new aggregate ownership or a sync-engine choice. No new ADR.
-Final Plan approval is still required; ADR acceptance does not advance the lifecycle.
+installation, not new aggregate ownership or a sync-engine choice. H13 and
+ADR-0005 later define the bounded filesystem proof boundary without selecting an
+engine or mechanism. The existing Specification 002 Plan and Tasks are approved;
+that status does not authorize unstarted implementation or Specification 004 Plan work.
 
 **Human decision required** applies if implementation evidence requires a durable
 cross-cutting choice beyond those boundaries: for example a global persistence
@@ -891,7 +923,8 @@ slice-local file store versus adopting a shared engine; recommendation remains t
 slice-local store until a multi-feature requirement justifies coupling, migration
 and operational cost. No such expansion is required to approve this Plan.
 
-Primary risks: proving concurrent filesystem confinement/durability on both OSes;
+Primary risks: proving bounded concurrent filesystem confinement and truthful
+software-visible commit/recovery semantics on declared OS/filesystem combinations;
 parser strictness and diagnostics without leaks; public version-1 shape compatibility;
 local metadata layout limitations and unsupported local formats;
 proving logical atomicity for manifest/document updates and slug moves, pre-commit preservation and post-commit continuity; accidental loss
@@ -899,6 +932,8 @@ of declaration intent during normalization; conservative matching leaving human 
 and best-effort scanning missing secrets. Mitigations are explicit preconditions,
 fail-closed adapters, unit/fault/black-box Evidence, human schema review and honest
 gap/warning reporting. No executable safety or acceptance guarantee is claimed now.
+Physical power-loss/media durability and malicious same-UID arbitrary interleavings
+remain unsupported under H13/ADR-0005, not silently mitigated.
 
 Constitution check: I–II consume approved intent and stop at Plan; III–IV retain
 Specification/ADR links, Accepted ADR-0004 from human Plan review, remaining
@@ -909,32 +944,37 @@ conflict with accepted ADRs identified. Spec-Kit remains strategic upstream only
 
 ## 12. Documentation validation and review gate
 
-The following entries preserve pre-merge review and validation history. Current
-lifecycle is recorded at the top and bottom of this Plan.
+The following dated entries preserve pre-merge review and validation history.
+Current consolidated lifecycle is recorded in the
+[Specification index](../README.md#002--lingo-project-initialization).
 
-Specification, Clarifications, Plan, ADR-0004 and directly affected references
-are reconciled to H1–H11. Original approval and prior validation remain historical;
-this revision does not claim old checks validate new contracts. No new Tasks,
-application code, adapter, dependency, CI, migration or runtime integration.
+Specification, Clarifications, Plan, Tasks, ADR-0005 and directly affected
+references are reconciled to H13. Original approval and prior validation remain
+historical; this revision does not claim old checks validate new contracts. No
+Specification 004 Plan/Tasks, application code, adapter, dependency, CI, migration
+or runtime integration is introduced.
 
 H10 approves the Project model and init/update contract, including logical
 atomicity, slug rename and local continuity. H11 approves the Git Authority
-boundary. Only final human Plan review and authorization to advance remain pending.
-Concrete protected filesystem protocol remains an implementation proof obligation;
+boundary. H13 approves the bounded threat model. Concrete protected filesystem
+protocol remains an implementation proof obligation;
 Git metadata schema, transport, merge/conflict engine and automation remain outside
-this Plan's execution scope. No material product question blocks re-review.
+this Plan's execution scope. Remaining implementation still requires explicit
+authority; this reconciliation is prepared for human review.
 
 ### Remaining review concerns and deferred design
 
 - **Approved:** Project mental model; init/update contract; logical Project
-  atomicity (H10); Git Authority boundary (H11). No material boundary question
-  remains open and no resolved approval is reopened.
-- **Final human Plan review pending:** this reconciliation cannot approve its own
-  Plan. Tasks and Implementation require explicit human approval and authorization
-  to advance; no execution or merge is authorized by the boundary decisions.
+  atomicity (H10); Git Authority boundary (H11); bounded filesystem threat model
+  (H13/ADR-0005). No resolved approval is reopened.
+- **Current authority:** Specification 002 Plan/Tasks are approved but remaining
+  delivery is not authorized by H13. Specification 004 Plan remains blocked until
+  this reconciliation is merged and approved.
 - **Future Evidence:** persistence adapter chooses concrete mechanisms within H10;
-  Linux/macOS confinement, collision, concurrency, logical atomicity and recovery
-  proof remains mandatory. No staging, locks, syscalls or multi-file engine selected.
+  bounded Linux/macOS confinement, supported link/replacement cases, collision,
+  process concurrency, deterministic faults, logical atomicity and recovery proof
+  remain mandatory. No staging, locks, syscalls or multi-file engine selected;
+  excluded H13 threats are reported unsupported, never passed.
 - **Deferred Git design:** concrete backing schema/metadata, branches, merge/rebase,
   conflict resolution, sync protocol, transport, credential helpers, hooks,
   metadata preservation, dirty-tree handling, recovery protocol, autoPush and
@@ -943,9 +983,8 @@ this Plan's execution scope. No material product question blocks re-review.
   this Specification or permission to implement. Authority scope/revocation/retry
   mechanics must respect the approved boundary; no mechanism is selected here.
 
-No material blocker or contradiction was identified in the reconciliation. The
-remaining human decision is final Plan approval and explicit authorization to
-advance. **Ready for final human Plan review.**
+No material blocker or contradiction was identified in the H13 reconciliation.
+**Ready for human reconciliation/ADR review.**
 
 ### Current H11 documentation validation — 2026-09-14
 

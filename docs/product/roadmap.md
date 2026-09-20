@@ -39,7 +39,7 @@ the MVP:
 - [#57](https://github.com/rgomids/axiom/issues/57) — explicit Runtime skill
   selectors/arguments with questions only for missing inputs.
 
-The [draft MVP Specification](../specifications/004-mvp-v1-baseline/spec.md),
+The [approved MVP Specification](../specifications/004-mvp-v1-baseline/spec.md),
 tracked by [#62](https://github.com/rgomids/axiom/issues/62), now consolidates
 these experience gaps with completion output, detailed artifacts, provenance,
 persistence/recovery/compatibility, installation/upgrade, and clean-environment
@@ -49,10 +49,12 @@ durable machine-local detail artifacts with an ADR-required ownership boundary,
 the bounded filesystem threat model with mandatory Specification 002/security/
 architecture reconciliation before Plan, and clean v1 as the compatibility
 baseline without automatic POC migration. The Specification was explicitly
-approved on 2026-09-20. The next authorized work is HD-3 reconciliation of
-Specification 002 and affected security/architecture contracts, plus required ADR
-work; Plan, Tasks, implementation, and release remain unauthorized until their
-respective gates are satisfied.
+approved on 2026-09-20. The authorized reconciliation records
+[ADR-0005](../decisions/0005-bounded-local-filesystem-threat-model.md) for HD-3,
+[ADR-0006](../decisions/0006-machine-local-detail-artifacts.md) for HD-2, and H13
+updates across Specification 002. Merge and human approval of that reconciliation
+are the remaining gate before the Specification 004 Plan. Plan, Tasks,
+implementation, and release remain unauthorized until their respective gates.
 
 ## Complete Specification 002
 

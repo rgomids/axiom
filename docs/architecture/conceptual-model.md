@@ -13,7 +13,7 @@ This is an initial domain-language baseline, not a data model, API, schema or pe
 | Work Item | candidate | Provider-neutral work intent; not a provider record. |
 | Specification, Plan, Decision, Evidence | accepted concepts | Representations and some lifecycles remain open. |
 | Execution, Release, Business Context | candidate | Required direction; schemas and ownership remain open. |
-| Artifact, Agent | supporting | Assist core concepts without replacing them. |
+| Artifact, Agent | supporting | Assist core concepts without replacing them. ADR-0006 accepts the machine-local detail-artifact ownership/lifecycle subset; other artifact representations remain open. |
 | Provider, Capability, Runtime, Transport | boundary | Protect Axiom domain contracts from external products and execution mechanisms. |
 | Integration, Agent Profile, Model Profile | configuration | Select or bind behavior inside approved boundaries; not domain ownership. |
 | Agent Planner, Orchestrator | candidate | Future executable capabilities for Lingo; detailed contracts remain subject to Specification. |
@@ -189,6 +189,13 @@ Work Item -> Specification -> Plan -> Implementation activity
 - **Minimum durable record candidate:** stable identity, actor, purpose, source references, timestamps, status, affected targets, approvals/waivers, validation summary, output references and blockers.
 - **Open:** graph and event schemas, dependency semantics, concurrency, cancellation, retention, privacy/redaction, replay semantics and whether prepared-but-not-run activity counts as Execution.
 
+[ADR-0006](../decisions/0006-machine-local-detail-artifacts.md) resolves only the
+detail-artifact relationship: when an Execution exists, its detail artifacts are
+subordinate to and reference it. Before an Execution exists, an operation may use
+an opaque machine-local correlation identity that is not a domain entity,
+authority token, or portable identity. This does not settle the Execution schema
+or create an `operation-attempt` concept.
+
 ### Evidence — accepted concept, open representation
 
 - **Responsibility:** support a claim with reproducible or inspectable observation.
@@ -204,7 +211,15 @@ Work Item -> Specification -> Plan -> Implementation activity
 - **Relations:** may be consumed or produced by Executions and grouped in Releases.
 - **Lifecycle:** draft, validated, published, superseded or removed as defined by its artifact type.
 - **Not:** a universal untyped blob that replaces domain concepts.
-- **Open:** common metadata needed across artifact types.
+- **Accepted detail-artifact boundary:** oversized diagnostic/review/recovery/
+  Evidence-support Markdown uses one Axiom-owned machine-local storage boundary,
+  stable opaque identity, bounded sanitized content, purpose-based retention and
+  explicit reference-aware cleanup. It never enters portable Project intent or a
+  Repository by convenience. A detail artifact is not automatically Evidence;
+  Evidence references its identity/digest in support of a claim. See
+  [ADR-0006](../decisions/0006-machine-local-detail-artifacts.md).
+- **Open:** common metadata across other artifact types, concrete local layout,
+  size/retention values, portable publication bundles and cross-machine exchange.
 
 ### Release — candidate
 
@@ -324,6 +339,13 @@ future sources; none is selected. The initial schema is documented in the
 [Specification 002 Plan](../specifications/002-lingo-project-initialization/plan.md#2-portable-manifest-contract).
 Global persistence/ownership and concrete sync protocols remain open; internal local
 installation storage is a slice-level Plan detail.
+
+Local filesystem safety for MVP planning follows the bounded threat model in
+[ADR-0005](../decisions/0005-bounded-local-filesystem-threat-model.md): exact
+authorized-target confinement, supported traversal/link/replacement protection,
+process concurrency, deterministic fault injection, complete canonical state and
+guided recovery remain required. Malicious same-UID arbitrary interleavings,
+physical power loss and physical-media durability are unsupported guarantees.
 
 An Axiom Project must not belong to Codex, Claude, Kiro or another Runtime.
 Runtime-specific overrides may exist, but changing Runtime must not require

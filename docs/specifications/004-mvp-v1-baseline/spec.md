@@ -10,7 +10,11 @@ this Specification was recorded on 2026-09-20. Approval fixes the MVP behavioral
 baseline but does not authorize Tasks, implementation, release, migration, or
 external Provider mutation. Because of HD-3, Plan authorization remains blocked
 until Specification 002 and the affected security/architecture contracts are
-reconciled; HD-2 also requires its artifact-lifecycle ADR before implementation.
+reconciled and approved. The authorized reconciliation change records
+[ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md) for HD-3
+and [ADR-0006](../../decisions/0006-machine-local-detail-artifacts.md) for HD-2.
+Their acceptance follows directly from the already approved human decisions and
+does not authorize Plan, Tasks, or implementation.
 
 The E2E Codex POC was explicitly accepted on 2026-09-20 and is historical
 Evidence for this Specification. Its experimental commands, formats, storage
@@ -404,10 +408,13 @@ Artifacts MUST:
 - never enter the Portable Project Manifest or portable Project working copy by
   implementation convenience.
 
-HD-2 records machine-local durable ownership as the MVP direction. Before
-implementation, an ADR MUST define the final storage root, relationship to
-Execution/pre-Execution correlation, retention, Evidence relation, and explicit
-safe cleanup semantics.
+HD-2's durable architecture is recorded in
+[ADR-0006](../../decisions/0006-machine-local-detail-artifacts.md): one central
+Axiom-owned machine-local artifact boundary; stable opaque identity; Execution as
+primary owner/correlation when present; a non-domain local correlation identity
+before Execution; Evidence references rather than automatic Evidence status;
+purpose-based retention; and explicit reference-aware, fail-closed cleanup.
+Exact paths, layouts, packages, limits, and retention durations remain Plan work.
 
 ## Provenance contract
 
@@ -466,11 +473,13 @@ MUST NOT claim authorship over the transported content.
   paths, local observations, workflow state, or Execution artifacts into portable
   Project intent.
 
-The residual POC gaps are not silently waived: physical power-loss durability,
-remaining fault stages, ACL mutation, arbitrary hostile same-UID interleavings,
-automatic recovery, and compatibility or migration Evidence must be mapped to the
-approved threat model and test matrix. HD-3 fixes the bounded threat boundary;
-HD-4 fixes clean v1 as the compatibility baseline.
+The residual POC gaps are not silently waived. ADR-0005 maps traversal, supported
+link/replacement cases, process concurrency, deterministic injected fault stages,
+logical old-or-new publication, permissions/ACL checks, fail-closed uncertainty,
+and guided recovery into the supported boundary. Malicious same-UID arbitrary
+interleavings, physical power loss, and physical-media durability are explicitly
+unsupported guarantees, not solved risks. Compatibility or migration Evidence
+remains governed by HD-4's clean-v1 baseline.
 
 ## Installation, onboarding, and upgrade
 
@@ -541,9 +550,9 @@ Global invariants:
   permissions and reject unsafe ownership/link conditions;
 - supported operations MUST be reproducible without maintainer-local state;
 - observability MUST correlate one operation across summary, artifact, Evidence,
-  local state, and Provider projection without exposing credentials; under HD-2,
-  the required ADR decides whether that identity is subordinate to an Execution or
-  is only local operational correlation before an Execution exists.
+  local state, and Provider projection without exposing credentials; under
+  ADR-0006, artifacts are subordinate to Execution when one exists, while a
+  pre-Execution command uses only an opaque non-domain local correlation identity.
 
 ## Observable acceptance criteria
 
@@ -632,7 +641,7 @@ any delivery issue, implementation, or release.
 |---|---|
 | Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above. |
 | Implementation detail deferred to Plan | CLI framework, concrete Go packages/interfaces, exact JSON schema, Provider label spelling, prompt UI, filesystem syscalls, migration algorithm, installer implementation, artifact filename rendering. |
-| Human decisions recorded | HD-1 through HD-4 are recorded below; required ADR/reconciliation work remains gated, and final Specification approval is still pending. |
+| Human decisions recorded | HD-1 through HD-4 and complete Specification approval were recorded on 2026-09-20. ADR-0005/0006 directly formalize HD-3/HD-2; the reconciliation PR remains the gate before Plan. |
 
 ## Human decisions recorded — 2026-09-20
 
@@ -707,14 +716,17 @@ newer formats fail closed; unsupported older formats are diagnosed explicitly; n
 migration or downgrade is silent; no generic N-1 or arbitrary historical
 compatibility is promised.
 
-## ADR candidates
+## ADR status and remaining candidates
 
-- **Required by HD-2 before implementation:** detail-artifact ownership and
-  relationship to Execution, pre-Execution correlation identity, local location
-  boundary, Evidence relation, retention, and cleanup.
-- **Required by HD-3 before Plan authorization:** local persistence threat model and
-  durability/recovery guarantees, with explicit reconciliation to Specification
-  002 SEC-003/SEC-005 and affected security/architecture contracts.
+- **Accepted from HD-2:**
+  [ADR-0006](../../decisions/0006-machine-local-detail-artifacts.md) defines
+  machine-local ownership, Execution-first/pre-Execution correlation, Evidence
+  relation, retention, uncertainty, and safe cleanup without creating an
+  operation-attempt domain entity.
+- **Accepted from HD-3:**
+  [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md) defines
+  the supported and excluded threats, mandatory persistence/recovery properties,
+  and Specification 002 SEC-003/SEC-005 proof boundary.
 - **Required before any in-place POC migration:** specific persisted-schema
   compatibility and migration/rollback decision; clean install plus
   export/reconfigure does not itself accept such migration.
@@ -722,7 +734,8 @@ compatibility is promised.
   if published binaries establish a durable release topology or trust boundary. A
   routine source installer alone does not justify an ADR.
 
-No ADR is accepted by this draft.
+ADR-0005 and ADR-0006 introduce no material choice beyond approved HD-3 and HD-2.
+Other candidate decisions remain unaccepted.
 
 ## Constitution check
 
@@ -744,10 +757,10 @@ No ADR is accepted by this draft.
 ## Review gate
 
 HD-1 through HD-4 are recorded and the complete Specification was explicitly
-approved by the human reviewer on 2026-09-20. HD-3 requires Specification 002 and
-affected security/architecture reconciliation before any Plan authorization;
-HD-2 requires its artifact-lifecycle ADR before implementation. This approval
-authorizes the required reconciliation/ADR work only; it does not authorize Plan,
-Tasks, implementation, accepted ADRs beyond those explicitly reviewed, or release.
+approved by the human reviewer on 2026-09-20. The authorized reconciliation
+produces ADR-0005/0006 and aligns Specification 002 plus affected architecture
+contracts. Merge and human approval of that reconciliation remain the gate before
+Plan. No Plan, Tasks, implementation, migration, installer, or release is
+authorized by these documentation changes.
 
-**Next artifact: Specification 002 + security/architecture reconciliation for HD-3, with required ADR work**
+**Next artifact after merge and human approval of this reconciliation: Plan for Specification 004**
