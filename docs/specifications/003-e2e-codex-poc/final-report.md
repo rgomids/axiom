@@ -2,11 +2,12 @@
 
 ## Final status
 
-**READY FOR HUMAN ACCEPTANCE**
+**ACCEPTED — 2026-09-20**
 
-Technical delivery is complete on `poc/e2e-axiom-codex`. This status does not
-mean Accepted, does not merge the final PR, and does not authorize MVP or later
-Specification 002 Tasks.
+The human maintainer completed manual acceptance testing and accepted the bounded
+E2E Codex POC. PR #52 is merged to `main`; #21, #30 and #40 are closed as
+completed. Acceptance does not authorize MVP work or mark the remaining
+Specification 002 Task DAG complete.
 
 ## Summary
 
@@ -58,11 +59,11 @@ Skills contain no duplicate Project, provider or workflow rules.
 | #37 | persistent sequential workflow | Closed / PR #48 |
 | #38 | equivalent human/JSON/skill entrypoints | Closed / PR #49 |
 | #39 | deterministic and real Runtime dogfooding Evidence | Closed / PR #50 |
-| #40 | final reconciliation and acceptance preparation | READY FOR HUMAN ACCEPTANCE |
+| #40 | final reconciliation and acceptance preparation | Accepted / closed |
 | #19 | filesystem proof beyond controlled POC cases | Open; explicit gap |
 | #20 | dependent persistence/recovery Evidence gate | Open; explicit gap |
-| #21 | baseline dogfood/reconciliation | READY FOR HUMAN ACCEPTANCE |
-| #30 | parent E2E outcome | READY FOR HUMAN ACCEPTANCE |
+| #21 | baseline dogfood/reconciliation | Accepted / closed |
+| #30 | parent E2E outcome | Accepted / closed |
 
 ## Architecture
 
@@ -93,7 +94,7 @@ a multi-agent graph contract.
 | equivalent authority/validation | CLI adapter tests; denied provider/completion checks in T36–T39 |
 | deterministic tests/Evidence | macOS/Linux POC workflow; T31–T39 Evidence; final validation |
 | limitations and foundation gates | this report; Specification 002 `evidence-poc.md`; #19/#20 comments |
-| explicit human acceptance | pending by design; #21/#30/#40 remain open |
+| explicit human acceptance | accepted by maintainer on 2026-09-20; #21/#30/#40 closed |
 
 Post-provider failure Results retain Project/repository identity, Issue URL and
 confirmed state. Workflow completion propagates the same payload if either Work
@@ -117,7 +118,8 @@ gitleaks git --no-banner --redact --log-opts='--all'
 ```
 
 Staged sensitive-file checks passed before every issue commit. Final branch
-validation and review are repeated after T40 merges and before the final PR.
+validation and review passed before PR #52 merged to `main`; manual human
+acceptance followed on 2026-09-20.
 
 ## Dogfooding Evidence
 
@@ -160,8 +162,8 @@ Clean deterministic reproduction without live external mutation:
 ```bash
 git clone https://github.com/rgomids/axiom.git
 cd axiom
-git fetch origin poc/e2e-axiom-codex
-git checkout --detach origin/poc/e2e-axiom-codex
+git checkout main
+git pull --ff-only
 ./scripts/dogfood-poc.sh
 ```
 
@@ -199,13 +201,29 @@ repository-key and Work Item selectors. Follow [Commands](../../commands.md#exec
 for gate advancement. Use `--authorize-external` only when deliberately creating,
 commenting on or closing the validation Issue.
 
-## Human decision
+## Human acceptance
 
-Does this bounded delivery prove the complete value path requested by #30?
+The maintainer accepted the bounded POC on 2026-09-20 after manual validation of
+the merged flow:
 
 ```text
 install -> Codex -> Project -> Work Item -> workflow
 -> implementation -> review -> Evidence -> reconciliation -> completion
 ```
 
-Only the human reviewer can answer. Until then: **READY FOR HUMAN ACCEPTANCE**.
+The acceptance explicitly retains #19/#20 as known persistence/recovery proof
+gaps rather than silently treating them as complete.
+
+The same validation identified four MVP follow-ups:
+
+- [#54](https://github.com/rgomids/axiom/issues/54) — guided, explicit Project
+  configuration interview instead of assuming the Runtime CWD.
+- [#55](https://github.com/rgomids/axiom/issues/55) — Intent-driven Work Item
+  creation with a structured draft before external mutation.
+- [#56](https://github.com/rgomids/axiom/issues/56) — provider-visible workflow
+  stage markers and bounded structured transition comments.
+- [#57](https://github.com/rgomids/axiom/issues/57) — inline Runtime skill
+  selectors/arguments to reduce unnecessary conversational round trips.
+
+These are MVP direction, not retroactive POC blockers and not automatic
+implementation authority.
