@@ -22,13 +22,13 @@ reconciled on 2026-09-18 against versioned artifacts, merged PRs and POC issues:
 | T01–T03 | **Accepted / merged** — PRs [#6](https://github.com/rgomids/axiom/pull/6), [#7](https://github.com/rgomids/axiom/pull/7), [#8](https://github.com/rgomids/axiom/pull/8) |
 | T04 | **Merged; pending human acceptance/re-review** — [PR #9](https://github.com/rgomids/axiom/pull/9); not marked Accepted |
 | POC #16–#18 | **Merged in [PR #27](https://github.com/rgomids/axiom/pull/27)** — executable CLI, minimal init/validate/reopen/name update and separate local install |
-| POC #19 | **In progress** — PR #28 merged; [draft PR #29](https://github.com/rgomids/axiom/pull/29) adds macOS/Linux, ACL and sync-fault proof; full fault and hostile-race proof pending |
-| POC #20 | **In progress** — deterministic/E2E Evidence recorded; dependent #19 proof gate remains open |
+| POC #19 | **Closed / not planned for further POC work** — bounded hardening delivered; residual physical-power-loss/fault-matrix/hostile-race proof becomes MVP hardening input |
+| POC #20 | **Closed / not planned for further POC work** — deterministic/E2E Evidence was sufficient for POC acceptance; broader Evidence requirements move to the future MVP scope |
 | POC #21 | **Accepted / closed** — E2E dogfooding and limitations reconciled on 2026-09-20 |
 | Specification 002 / POC #14 | **Partial implementation; not Accepted/Done** |
 
 PR #27 merged the initial POC baseline; PR #28 merged bounded hardening. Current verification and dogfooding
-Evidence, including open blockers, are recorded in
+Evidence, including the residual limitations accepted for POC closure, are recorded in
 [POC Evidence](002-lingo-project-initialization/evidence-poc.md). The POC issue
 deliveries do not establish completion of the full T05–T21 Task DAG.
 
@@ -53,8 +53,10 @@ T01–T04 established Project domain rules, application contracts and portable/l
 codecs. POC #16–#18 delivered the initial CLI, filesystem persistence and local
 installation. Specification 003 adds bounded Codex Runtime, GitHub Work Item and
 sequential workflow adapters without completing the remaining Specification 002
-Task DAG. #19/#20 proof gaps remain open; #21 was accepted/closed during the 2026-09-20
-E2E POC acceptance. This does not mark Specification 002 or parent #14 complete.
+Task DAG. #19/#20 were closed after POC acceptance without claiming their stronger
+proof obligations were satisfied; those residual concerns are inputs to MVP
+hardening. #21 was accepted/closed during the 2026-09-20 E2E POC acceptance.
+This does not mark Specification 002 or parent #14 complete.
 
 ## 003 — E2E Codex POC
 
