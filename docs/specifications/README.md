@@ -122,11 +122,12 @@ dated Specification 002 H13 reconciliation; HD-2 is formalized by
 [ADR-0006](../decisions/0006-machine-local-detail-artifacts.md) without adding an
 operation-attempt domain entity. PR #70 merged that reconciliation to `main` and
 received explicit human approval, resolving the Plan gate. Plan review identified
-two new durable proposals:
+two new durable decisions:
 [ADR-0007](../decisions/0007-local-publication-and-recovery-protocol.md) for the
 shared local publication/recovery protocol and
 [ADR-0008](../decisions/0008-minimal-machine-local-execution-record.md) for the
-bounded sequential Execution record. Both were **Accepted by explicit human decision on 2026-09-20**. The approved Plan authorizes the Tasks phase only; implementation remains separately gated.
-review**. The Plan is not Approved and cannot advance to Tasks until both decisions
-are explicitly accepted or revised by a human. No MVP implementation, Provider
-mutation, release, or final MVP acceptance is authorized.
+bounded sequential Execution record. Both were **Accepted by explicit human
+decision on 2026-09-20**, and the Specification 004 Plan was Approved in the same
+PR #71 decision. The Tasks phase is authorized; the Tasks artifact is not yet
+approved, and MVP implementation, Provider mutation, release, and final MVP
+acceptance remain unauthorized.
