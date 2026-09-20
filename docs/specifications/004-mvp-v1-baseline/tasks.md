@@ -124,9 +124,9 @@ IDs do not imply permission to execute in numeric order.
 | T11 | S4 | Sequential workflow transition truth | T10 |
 | T12 | S4 | Idempotent GitHub stage/comment projection | T11 |
 | T13 | S4 | Workflow interruption, concurrency, and projection convergence | T12 |
-| T14 | S5 | Strict CLI selector path | T07, T09, T11 |
+| T14 | S5 | Strict CLI selector path | T13 |
 | T15 | S5 | Thin Codex selector path and completion convergence | T02, T05, T13, T14 |
-| T16 | S6 | Compatibility inspection and historical POC classification | T05, T07, T10 |
+| T16 | S6 | Compatibility inspection and historical POC classification | T15 |
 | T17 | S6 | Authorized POC backup/export/reconfigure path | T16 |
 | T18 | S6 | Reference-aware artifact cleanup and capacity recovery | T02, T10, T15 |
 | T19 | S6 | Guided local recovery | T03, T10, T18 |
@@ -139,18 +139,28 @@ IDs do not imply permission to execute in numeric order.
 
 The critical path is `T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07 -> T08
 -> T09 -> T10 -> T11 -> T12 -> T13 -> T14 -> T15`, followed by S6 convergence
-and S7. Limited parallelism exists only after contracts are available: T04 may
-advance alongside later S1 review after T03; T16 and T18 may advance independently
-after their distinct owners exist; security preparation may be distributed among
-owning Tasks but T21 cannot close before every listed boundary is observable.
+and S7. This preserves the approved slice order `S1 -> S2 -> S3 -> S4 -> S5 ->
+S6 -> S7`: every S5 Task waits for S4 closure, and every S6 Task waits directly
+or transitively for S5 closure. Limited parallelism exists only after those slice
+gates: T16 and T18 may advance independently after T15; security preparation may
+be distributed among owning Tasks, but T21 cannot close before every listed
+boundary is observable.
 
 ```mermaid
 flowchart LR
     T01 --> T02 --> T03 --> T04 --> T05 --> T06 --> T07 --> T08 --> T09
     T09 --> T10 --> T11 --> T12 --> T13 --> T14 --> T15
-    T05 --> T16
-    T07 --> T16
-    T10 --> T16 --> T17
+    T01 --> T04
+    T01 --> T06
+    T01 --> T08
+    T02 --> T09
+    T02 --> T15
+    T03 --> T07
+    T03 --> T09
+    T03 --> T10
+    T05 --> T15
+    T13 --> T15
+    T15 --> T16 --> T17
     T02 --> T18
     T10 --> T18
     T15 --> T18
@@ -398,7 +408,7 @@ flowchart LR
 
 - **Objective:** Fully specified CLI selectors reach the correct Project/Repository/Work Item/Execution without questions; partial input asks only missing/ambiguous values and invalid input never falls back to CWD.
 - **Slice:** S5 — Codex selector path and completion convergence.
-- **Dependencies:** T07, T09, T11.
+- **Dependencies:** T13.
 - **Requirements:** FR-018–FR-021; AC-10, AC-11; MVP-SEC-03, MVP-SEC-05; MVP-NFR-01, MVP-NFR-02.
 - **ADRs / decisions:** ADR-0001, ADR-0003, ADR-0008.
 - **Affected boundaries:** CLI parsing, selector validation/resolution, guided input adapter, operation-shaped application dispatch.
@@ -432,7 +442,7 @@ flowchart LR
 
 - **Objective:** Read-only inspection distinguishes absent v1, valid v1, recognized POC, malformed, unsupported older, unsupported newer, and recovery-required state with actionable next steps.
 - **Slice:** S6 — Recovery, cleanup and upgrade.
-- **Dependencies:** T05, T07, T10.
+- **Dependencies:** T15.
 - **Requirements:** FR-026–FR-030, FR-032, FR-036; AC-18, AC-19; MVP-SEC-02, MVP-SEC-06–MVP-SEC-08; MVP-NFR-01, MVP-NFR-03–MVP-NFR-05; SEC-001, SEC-003–SEC-005.
 - **ADRs / decisions:** ADR-0004–ADR-0008; HD-4.
 - **Affected boundaries:** compatibility inspector, v1/POC signatures, installation/Project/Work Item/workflow/skill readers, completion/detail output.
@@ -753,8 +763,9 @@ acceptance. Those claims remain assigned to the Tasks above.
 
 Tasks-phase validation on 2026-09-20 established:
 
-- 25 unique complete Task definitions; table/body dependency consistency; valid
-  references; acyclic DAG; and at least one Task in every slice S1–S7;
+- 25 unique complete Task definitions; exact table/body/Mermaid dependency
+  equivalence; valid references; acyclic DAG; at least one Task in every slice
+  S1–S7; and programmatic enforcement of the S4 -> S5 and S5 -> S6 gates;
 - complete ownership for FR-001–FR-037, AC-01–AC-24, MVP security/NFR aliases,
   inherited SEC-001–SEC-005, HD-1–HD-4, and ADR-0001–ADR-0008;
 - Markdown-only scope across the five authorized paths, valid relative links,
