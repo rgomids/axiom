@@ -23,8 +23,8 @@ reconciled on 2026-09-18 against versioned artifacts, merged PRs and POC issues:
 | T04 | **Merged; pending human acceptance/re-review** — [PR #9](https://github.com/rgomids/axiom/pull/9); not marked Accepted |
 | POC #16–#18 | **Merged in [PR #27](https://github.com/rgomids/axiom/pull/27)** — executable CLI, minimal init/validate/reopen/name update and separate local install |
 | POC #19 | **In progress** — PR #28 merged; [draft PR #29](https://github.com/rgomids/axiom/pull/29) adds macOS/Linux, ACL and sync-fault proof; full fault and hostile-race proof pending |
-| POC #20 | **In progress** — black-box and cross-platform Evidence recorded; full POC failure matrix pending |
-| POC #21 | **Dogfooding recorded; human acceptance pending** |
+| POC #20 | **In progress** — deterministic/E2E Evidence recorded; dependent #19 proof gate remains open |
+| POC #21 | **READY FOR HUMAN ACCEPTANCE** — E2E dogfooding and limitations reconciled |
 | Specification 002 / POC #14 | **Partial implementation; not Accepted/Done** |
 
 PR #27 merged the initial POC baseline; PR #28 merged bounded hardening. Current verification and dogfooding
@@ -50,6 +50,25 @@ Implementation Evidence:
 [T03](002-lingo-project-initialization/evidence-t03.md),
 [T04](002-lingo-project-initialization/evidence-t04.md).
 T01–T04 established Project domain rules, application contracts and portable/local
-codecs. POC #16–#18 additionally delivered the limited CLI, filesystem
-persistence and local installation noted above. Runtime adapters and orchestration
-remain unavailable; #19–#21 proof and acceptance work remains open.
+codecs. POC #16–#18 delivered the initial CLI, filesystem persistence and local
+installation. Specification 003 adds bounded Codex Runtime, GitHub Work Item and
+sequential workflow adapters without completing the remaining Specification 002
+Task DAG. #19/#20 proof gaps remain open; #21 awaits human acceptance.
+
+## 003 — E2E Codex POC
+
+Implementation-authorized on 2026-09-19 and tracked by #30–#40.
+
+| Artifact | Status |
+|---|---|
+| [Specification](003-e2e-codex-poc/spec.md) | **Approved** |
+| [Clarifications](003-e2e-codex-poc/clarifications.md) | **Resolved** |
+| [Plan](003-e2e-codex-poc/plan.md) | **Approved** |
+| [Tasks](003-e2e-codex-poc/tasks.md) | **Approved / authorized** |
+| T31–T39 Evidence | **Delivered / merged into POC integration branch** |
+| [Final report](003-e2e-codex-poc/final-report.md) | **READY FOR HUMAN ACCEPTANCE** |
+
+The requested standalone skill spelling `axiom:<skill>` is incompatible with the
+validated Codex hyphen-case skill-name contract. The authorized reversible POC
+mapping is `$axiom-<skill>`. #30/#40 remain open awaiting explicit human
+acceptance and final merge to `main`.

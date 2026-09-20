@@ -2,18 +2,63 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workitem"
+)
+
+var (
+	buildVersion = "devel"
+	buildCommit  = "unknown"
+	buildDirty   = "unknown"
+	buildSource  = "https://github.com/rgomids/axiom"
 )
 
 func main() {
-	os.Exit(cli.Run(context.Background(), os.Args[1:], compose(), os.Stdout))
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		os.Exit(writeVersion(os.Stdout))
+	}
+	if len(os.Args) == 2 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
+		os.Exit(cli.Help(os.Stdout))
+	}
+	os.Exit(cli.RunInteractive(context.Background(), os.Args[1:], compose(), os.Stdin, os.Stdout, os.Stderr))
+}
+
+type versionInfo struct {
+	Product    string `json:"product"`
+	Binary     string `json:"binary"`
+	Version    string `json:"version"`
+	Commit     string `json:"commit"`
+	Dirty      bool   `json:"dirty"`
+	DirtyKnown bool   `json:"dirtyKnown"`
+	Source     string `json:"source"`
+}
+
+func writeVersion(output *os.File) int {
+	info := versionInfo{
+		Product:    "Axiom",
+		Binary:     "lingo",
+		Version:    buildVersion,
+		Commit:     buildCommit,
+		Dirty:      buildDirty == "true",
+		DirtyKnown: buildDirty == "true" || buildDirty == "false",
+		Source:     buildSource,
+	}
+	if err := json.NewEncoder(output).Encode(info); err != nil {
+		return cli.ExitFailure
+	}
+	return cli.ExitSuccess
 }
 
 func compose() cli.Service {
@@ -36,7 +81,33 @@ func compose() cli.Service {
 	if err != nil {
 		return cli.UnavailableService{}
 	}
-	return lifecycleService{projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation, root}
+	codex, err := codexruntime.New(codexSkillsRoot())
+	if err != nil {
+		return cli.UnavailableService{}
+	}
+	workItems, err := local.NewWorkItemStore(state)
+	if err != nil {
+		return cli.UnavailableService{}
+	}
+	github, _ := workitem.NewGitHubAdapter(os.Getenv("AXIOM_GIT_BIN"), os.Getenv("AXIOM_GH_BIN"))
+	workItemService := workitem.New(workItemResolver{installation}, github, github, workItems)
+	workflows, err := local.NewWorkflowStore(state)
+	if err != nil {
+		return cli.UnavailableService{}
+	}
+	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows)
+	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root}
+}
+
+func codexSkillsRoot() string {
+	if override := os.Getenv("AXIOM_CODEX_SKILLS_ROOT"); override != "" {
+		return override
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".agents", "skills")
 }
 
 func projectsRoot() (string, error) {
@@ -69,7 +140,74 @@ func stateRoot() (string, error) {
 type lifecycleService struct {
 	lifecycle    projectapp.Lifecycle
 	installation local.InstallationStore
+	codex        codexruntime.Service
+	workItems    workitem.Service
+	workflows    workflow.Service
 	projectsRoot string
+}
+
+type workItemResolver struct{ installation local.InstallationStore }
+
+type workflowResolver struct{ installation local.InstallationStore }
+type workflowWorkItems struct{ service workitem.Service }
+
+func (r workItemResolver) Resolve(ctx context.Context, selector string) (workitem.Project, string) {
+	resolved := r.installation.Resolve(ctx, selector)
+	if resolved.Status != local.ResolutionFound {
+		return workitem.Project{}, resolved.Category
+	}
+	project := workitem.Project{ID: resolved.Project.ID, Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}
+	for _, repository := range resolved.Project.Repositories {
+		project.Repositories = append(project.Repositories, workitem.Repository{Key: repository.Key, Path: repository.Path})
+	}
+	return project, ""
+}
+
+func (r workflowResolver) Resolve(ctx context.Context, selector string) (workflow.Project, string) {
+	resolved := r.installation.Resolve(ctx, selector)
+	if resolved.Status != local.ResolutionFound {
+		return workflow.Project{}, resolved.Category
+	}
+	project := workflow.Project{ID: resolved.Project.ID, Repositories: make([]workflow.Repository, 0, len(resolved.Project.Repositories))}
+	for _, repository := range resolved.Project.Repositories {
+		project.Repositories = append(project.Repositories, workflow.Repository{Key: repository.Key, Path: repository.Path})
+	}
+	return project, ""
+}
+
+func (w workflowWorkItems) Available(ctx context.Context, project, repository string, number int) bool {
+	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, number)
+	return result.Status == workitem.Succeeded && result.Link.State == "OPEN"
+}
+
+func (w workflowWorkItems) Complete(ctx context.Context, project, repository string, number int, authorized bool) workflow.WorkItemCompletion {
+	result := w.service.Complete(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, number, authorized)
+	return workflow.WorkItemCompletion{
+		Category: result.Category,
+		WorkItem: workflow.WorkItem{
+			ProjectID:          result.Link.ProjectID,
+			RepositoryKey:      result.Link.RepositoryKey,
+			ProviderRepository: result.Link.ProviderRepository,
+			Number:             result.Link.Number,
+			URL:                result.Link.URL,
+			State:              result.Link.State,
+		},
+	}
+}
+
+func (s lifecycleService) RuntimeCodexInstall(ctx context.Context) cli.Result {
+	return runtimeResult(s.codex.Install(ctx))
+}
+func (s lifecycleService) RuntimeCodexStatus(ctx context.Context) cli.Result {
+	return runtimeResult(s.codex.Inspect(ctx))
+}
+
+func runtimeResult(result codexruntime.Result) cli.Result {
+	status := cli.Failed
+	if result.Status == codexruntime.Applied || result.Status == codexruntime.Unchanged || result.Status == codexruntime.Ready {
+		status = cli.Succeeded
+	}
+	return cli.Result{Status: status, Category: result.Category}
 }
 
 func (s lifecycleService) Init(ctx context.Context, input cli.InitInput) cli.Result {
@@ -99,6 +237,137 @@ func (s lifecycleService) Install(ctx context.Context, input cli.InstallInput) c
 		status = cli.Succeeded
 	}
 	return cli.Result{Status: status, Category: result.Category}
+}
+func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) cli.Result {
+	result := s.installation.Resolve(ctx, input.Selector)
+	status := cli.Failed
+	if result.Status == local.ResolutionFound {
+		status = cli.Succeeded
+	}
+	response := cli.Result{Status: status, Category: result.Category}
+	if result.Status == local.ResolutionFound {
+		response.Project = projectView(result.Project)
+	}
+	return response
+}
+
+func projectView(project local.ResolvedProject) *cli.ProjectView {
+	view := &cli.ProjectView{ID: project.ID, Slug: project.Slug, Source: project.Source, Repositories: make([]cli.RepositoryView, 0, len(project.Repositories))}
+	for _, repository := range project.Repositories {
+		view.Repositories = append(view.Repositories, cli.RepositoryView{Key: repository.Key, Path: repository.Path})
+	}
+	return view
+}
+func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInput) cli.Result {
+	keys := make([]string, 0, len(input.Repositories))
+	bindings := make([]projectapp.RepositoryBinding, 0, len(input.Repositories))
+	for _, repository := range input.Repositories {
+		info, err := os.Lstat(repository.Path)
+		if err != nil || !filepath.IsAbs(repository.Path) || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return cli.Result{Status: cli.Failed, Category: "repository_unavailable"}
+		}
+		keys = append(keys, repository.Key)
+		bindings = append(bindings, projectapp.RepositoryBinding{
+			RepositoryKey: repository.Key,
+			ExplicitPath:  filepath.Clean(repository.Path),
+			Observation:   projectapp.Observation{Availability: projectapp.Unverified, Basis: projectapp.NotChecked, ObservedAt: time.Time{}},
+		})
+	}
+	portable := s.lifecycle.Configure(ctx, projectapp.ConfigureRequest{Slug: input.Slug, Name: input.Name, RepositoryKeys: keys})
+	if portable.Status != projectapp.LifecycleApplied && portable.Status != projectapp.LifecycleUnchanged {
+		return cliResult(portable)
+	}
+	localResult := s.installation.InstallWithBindings(ctx, filepath.Join(s.projectsRoot, input.Slug), bindings)
+	if localResult.Status != local.InstallationApplied && localResult.Status != local.InstallationUnchanged {
+		category := "local_configuration_failed"
+		if portable.Status == projectapp.LifecycleApplied {
+			category = "portable_committed_local_failed"
+		}
+		return cli.Result{Status: cli.Failed, Category: category}
+	}
+	category := "project_configured"
+	if portable.Status == projectapp.LifecycleUnchanged && localResult.Status == local.InstallationUnchanged {
+		category = "project_already_configured"
+	}
+	return cli.Result{Status: cli.Succeeded, Category: category}
+}
+
+func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	return workItemResult(s.workItems.Create(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Title, input.Body, input.AuthorizeExternal))
+}
+func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	return workItemResult(s.workItems.Select(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number))
+}
+func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	return workItemResult(s.workItems.Show(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number))
+}
+func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number, input.Message, input.AuthorizeExternal))
+}
+func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number, input.AuthorizeExternal))
+}
+
+func workflowTarget(input cli.WorkflowInput) workflow.Target {
+	return workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, WorkItem: input.Number}
+}
+
+func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)))
+}
+func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	return workflowResult(s.workflows.Advance(ctx, workflowTarget(input), input.Gate, input.Outcome, input.Reference, input.AuthorizeExternal))
+}
+func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input)))
+}
+func (s lifecycleService) WorkflowStatus(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	return workflowResult(s.workflows.Status(ctx, workflowTarget(input)))
+}
+func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	result := s.workflows.Status(ctx, workflowTarget(input))
+	if result.Status == workflow.Succeeded {
+		result.Category = "workflow_evidence_ready"
+	}
+	return workflowResult(result)
+}
+
+func workflowResult(result workflow.Result) cli.Result {
+	status := cli.Failed
+	if result.Status == workflow.Succeeded {
+		status = cli.Succeeded
+	}
+	response := cli.Result{Status: status, Category: result.Category}
+	if result.State.ProjectID != "" {
+		view := &cli.WorkflowView{Status: result.State.Status, RepositoryKey: result.State.RepositoryKey, RepositoryPath: result.State.RepositoryPath, WorkItem: result.State.WorkItem, Steps: make([]cli.WorkflowStepView, 0, len(result.State.Steps))}
+		if result.State.Current < len(result.State.Steps) {
+			view.CurrentGate = result.State.Steps[result.State.Current].Gate
+		}
+		for _, step := range result.State.Steps {
+			digest := ""
+			if step.Digest != ([32]byte{}) {
+				digest = hex.EncodeToString(step.Digest[:])
+			}
+			view.Steps = append(view.Steps, cli.WorkflowStepView{Gate: step.Gate, Status: step.Status, Reference: step.Reference, Digest: digest})
+		}
+		response.Workflow = view
+	}
+	if result.WorkItem != nil {
+		response.WorkItem = &cli.WorkItemView{ProjectID: result.WorkItem.ProjectID, RepositoryKey: result.WorkItem.RepositoryKey, Repository: result.WorkItem.ProviderRepository, Number: result.WorkItem.Number, URL: result.WorkItem.URL, State: result.WorkItem.State}
+	}
+	return response
+}
+
+func workItemResult(result workitem.Result) cli.Result {
+	status := cli.Failed
+	if result.Status == workitem.Succeeded {
+		status = cli.Succeeded
+	}
+	response := cli.Result{Status: status, Category: result.Category}
+	if result.Link.Number > 0 {
+		response.WorkItem = &cli.WorkItemView{ProjectID: result.Link.ProjectID, RepositoryKey: result.Link.RepositoryKey, Repository: result.Link.ProviderRepository, Number: result.Link.Number, URL: result.Link.URL, State: result.Link.State}
+	}
+	return response
 }
 
 func cliResult(result projectapp.LifecycleResult) cli.Result {

@@ -1,0 +1,59 @@
+{
+  "evidenceVersion": 1,
+  "capturedAt": "2026-09-19T17:06:33-03:00",
+  "sourceRevision": "5ae90de0e619a8ea33b8f6629206f5adcc30f00b",
+  "platform": "darwin-arm64",
+  "installation": {
+    "version": "poc-5ae90de0e619",
+    "binarySha256": "0a529495e080db4c90d8e1190d35df8345b32b3336b0cebfb6c187895b0cb600",
+    "pathEntryVerifiedOutsideProject": true
+  },
+  "runtime": {
+    "name": "Codex",
+    "globalSkillCount": 5,
+    "discoveryThreadId": "01a0bb43-9b1a-7513-92d3-b56d9dbee8bf",
+    "initialCwd": "/Users/rgomids/Documents/Codex/2026-09-19/axiom-poc-runtime-dogfood",
+    "invokedSkill": "axiom-work-item-status",
+    "logicalCommand": "lingo --json workflow status --project axiom-e2e-poc --repository main --number 39",
+    "repositoryPathWasPromptInput": false,
+    "resolvedRepositoryPath": "/Users/rgomids/Projects/axiom",
+    "observedCurrentGate": "implementation",
+    "skillSha256": {
+      "axiom-project-configure": "b9d55306f7f4e1b33b7606c4327f94cf18dd12287536be7f27d61f8f9a95dc1e",
+      "axiom-project-show": "a80b3038c497fe3f3b817e5d5d28bca68de96d9ceaf76630f08ad1e34c5db0f4",
+      "axiom-work-item-create": "6750abfe6cb817ff4f011d7c6b59a27e4b12832a7c1bbae68a9357bee249d4bd",
+      "axiom-work-item-run": "a75f21684d38f325840461fbe8e959ed9fd2b925ac630c7d471147fdfef124dd",
+      "axiom-work-item-status": "4fbb6fda699dc50af88f96355cb9cbed05dbebf34a7ed3218bc26b72b7fd60c7"
+    }
+  },
+  "project": {
+    "id": "25693078-10b6-49e7-ba3a-d8c69e401ebf",
+    "slug": "axiom-e2e-poc",
+    "repositoryKey": "main"
+  },
+  "workItem": {
+    "provider": "github",
+    "repository": "rgomids/axiom",
+    "number": 39,
+    "url": "https://github.com/rgomids/axiom/issues/39"
+  },
+  "deterministicDogfood": {
+    "cwdIndependent": true,
+    "runtimeSkillFailureCovered": true,
+    "missingProjectCovered": true,
+    "movedRepositoryCovered": true,
+    "externalMutationDenialCovered": true,
+    "workflowInterruptionResumeCovered": true,
+    "workflowCompleted": true,
+    "result": "pass"
+  },
+  "tooling": {
+    "go": "go1.26.1 darwin/arm64",
+    "gitleaks": "8.30.1"
+  },
+  "limitations": [
+    "The projectless Codex task resolved and inspected the repository but its isolated task sandbox required a separate user UI approval for the repository write; the already-authorized primary Codex task applied the proposed bounded script assertion.",
+    "Live GitHub selection used issue 39; deterministic provider mutation coverage uses bounded fake git and gh executables.",
+    "Issue 19 filesystem threat-model proof gaps remain and are not waived by this Evidence."
+  ]
+}

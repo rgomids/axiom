@@ -1,5 +1,31 @@
 # Changelog
 
+## [2026-09-20]
+
+- fix: make source installation report deterministic PATH setup guidance without shell-profile mutation, mark dirty-checkout builds in installer/version metadata, and preserve confirmed GitHub Issue identity/state through post-provider Work Item or workflow persistence failures.
+
+## [2026-09-19]
+
+- specification: approve the complete E2E Codex POC journey, implementation plan and #31–#40 task mapping; preserve existing Axiom/Lingo, Project/Repository and portable/local boundaries. Record the supported standalone Codex `$axiom-<skill>` mapping because literal colon names fail the current hyphen-case skill contract; final human acceptance remains separate.
+
+- feature: add a source-checkout Axiom installer that publishes Lingo to an explicit user PATH directory, records checksum ownership, supports safe idempotent reruns, refuses modified/unowned destinations, and exposes build source/revision through `lingo version`.
+
+- feature: add the Codex Runtime bootstrap with five validated user-global `$axiom-*` skills, exact status inspection, idempotent install, conflict/symlink protection and attempt-local rollback. Skills remain thin Lingo entrypoints; no Project or workflow rules are duplicated.
+
+- feature: resolve installed Projects by UUID or slug from protected local state independently of caller CWD; preserve multiple repository bindings and fail explicitly for ambiguous selectors, missing sources, moved repositories and invalid local records.
+
+- feature: configure a complete Project through guided or argument-driven Lingo, publish repository keys in portable intent and absolute working-copy paths only in strict local state, then resolve immediately from any CWD. Preserve separate portable/local commit truth on post-commit failure.
+
+- feature: add bounded GitHub Work Item create/select/show/comment/complete capabilities behind provider-neutral ports, explicit external mutation authority, exact provider-reference validation, protected local linkage and bounded `git`/`gh` transports.
+
+- feature: add the persistent sequential Axiom delivery workflow with fixed Specification-through-Reconciliation gates, repository-anchored artifact digests, inspectable interruption/resume, and explicitly authorized Work Item completion.
+
+- feature: complete equivalent Lingo/Codex entrypoints with a real `project show` command, default human output, explicit typed `--json` payloads, command/skill help, exact thin-skill command templates and controlled upgrades of known prior Axiom skill content.
+
+- test: expand `dogfood-poc.sh` into the complete isolated install, global-skill, unrelated-CWD Project, GitHub Work Item, interruption/resume, Evidence, reconciliation and completion journey; record a real user-global Codex discovery run for #39.
+
+- docs: reconcile README, architecture, setup, roadmap, Specifications and final POC report to the delivered Codex/GitHub/sequential-workflow scope; preserve #19/#20 proof gaps and explicit human acceptance for #21/#30/#40.
+
 ## [2026-09-18]
 
 - docs: reconcile Specification 002 and Plan scope for the POC-only Linux/macOS verification workflow; classify its runs as acceptance Evidence, not product CI or release automation. Preserve #19–#21, #14 and SEC-003 human gates.

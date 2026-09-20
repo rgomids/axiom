@@ -17,9 +17,11 @@ remain with each Specification. Nothing here authorizes implementation.
   foundations cover Project invariants, application contracts and authority,
   portable manifests and local record codecs. See [Architecture](../architecture/README.md).
 
-The repository now includes an executable minimal Lingo POC. Its supported
-commands, limits and acceptance status are recorded in the
-[Specification index](../specifications/README.md).
+The repository now includes an executable E2E Lingo/Codex POC: local install,
+global thin skills, Project bindings/resolution, GitHub Work Items and a bounded
+sequential workflow. Its commands, limits and acceptance status are recorded in
+the [Specification index](../specifications/README.md). Human acceptance is
+pending; technical delivery does not authorize later roadmap work.
 
 ## Complete Specification 002
 
@@ -53,7 +55,7 @@ what must be understood first.
 | Runtime and model discovery | Adapter lifecycle, capability reporting and failure semantics beyond portable declarations |
 | Capability negotiation and Integration bootstrap | Workflow needs, provider-neutral capability vocabulary, explicit setup authority and credential-source resolution |
 | Agent Planning and orchestration | Execution graphs, dependencies, parent/child Executions, approval/failure handling and durable Evidence contracts |
-| Thin runtime skills and adapters | Specified Lingo commands/workflows that entrypoints can invoke without duplicating behavior |
+| Additional Runtime skills and adapters | Validate a second Runtime before generalizing the delivered Codex-only boundary |
 | Richer Project wizard | Runtime/Integration discovery and setup contracts beyond the minimal guided flow already specified |
 | Portable distribution and synchronization | Independent local/remote Git authority, conflict handling, recovery and explicit compatibility policy |
 
