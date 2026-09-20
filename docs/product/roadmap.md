@@ -48,9 +48,11 @@ checksummed macOS/Linux binaries with an explicit release OS/architecture matrix
 durable machine-local detail artifacts with an ADR-required ownership boundary,
 the bounded filesystem threat model with mandatory Specification 002/security/
 architecture reconciliation before Plan, and clean v1 as the compatibility
-baseline without automatic POC migration. Final Specification approval remains
-pending, and the draft grants no Plan, Task, implementation, ADR, or release
-authority.
+baseline without automatic POC migration. The Specification was explicitly
+approved on 2026-09-20. The next authorized work is HD-3 reconciliation of
+Specification 002 and affected security/architecture contracts, plus required ADR
+work; Plan, Tasks, implementation, and release remain unauthorized until their
+respective gates are satisfied.
 
 ## Complete Specification 002
 

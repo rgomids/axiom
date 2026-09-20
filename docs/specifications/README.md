@@ -86,7 +86,7 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 
 ## 004 — Usable MVP v1 Baseline
 
-[Specification](004-mvp-v1-baseline/spec.md): **Draft — human decisions recorded; ready for final human approval**.
+[Specification](004-mvp-v1-baseline/spec.md): **Approved — human approval recorded on 2026-09-20**.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) authorizes Specification
 and reconciliation only. The draft consolidates #54–#57 and #63–#68 into the
@@ -100,6 +100,8 @@ binary distribution with an explicit release OS/architecture matrix, durable
 machine-local detail artifacts with an ADR-required Execution/correlation
 boundary, the bounded filesystem threat model with mandatory Specification
 002/security/architecture reconciliation before Plan, and clean v1 as the
-compatibility baseline without automatic POC migration. Final Specification
-approval remains pending. No Plan, MVP implementation, ADR acceptance, Tasks,
-release, or final MVP acceptance is authorized by the draft.
+compatibility baseline without automatic POC migration. The complete Specification was explicitly approved on 2026-09-20. HD-3 now
+requires Specification 002 plus affected security/architecture reconciliation
+before Plan authorization, and HD-2 requires its artifact-lifecycle ADR before
+implementation. No Plan, MVP implementation, Tasks, release, or final MVP
+acceptance is authorized by this approval.

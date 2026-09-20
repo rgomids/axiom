@@ -2,12 +2,15 @@
 
 ## Status and authority
 
-**Draft — human decisions recorded; ready for final human approval.**
+**Approved — human approval recorded on 2026-09-20.**
 
 Tracked by [#62](https://github.com/rgomids/axiom/issues/62) under the
-[MVP tracker #15](https://github.com/rgomids/axiom/issues/15). This artifact is
-Specification work only. It does not authorize a Plan, Tasks, implementation,
-release, migration, external Provider mutation, or acceptance claim.
+[MVP tracker #15](https://github.com/rgomids/axiom/issues/15). Human approval of
+this Specification was recorded on 2026-09-20. Approval fixes the MVP behavioral
+baseline but does not authorize Tasks, implementation, release, migration, or
+external Provider mutation. Because of HD-3, Plan authorization remains blocked
+until Specification 002 and the affected security/architecture contracts are
+reconciled; HD-2 also requires its artifact-lifecycle ADR before implementation.
 
 The E2E Codex POC was explicitly accepted on 2026-09-20 and is historical
 Evidence for this Specification. Its experimental commands, formats, storage
@@ -740,11 +743,11 @@ No ADR is accepted by this draft.
 
 ## Review gate
 
-HD-1 through HD-4 are recorded. This draft is ready for final human review of
-the complete Specification. HD-3 requires Specification 002 and affected
-security/architecture reconciliation before any Plan authorization; HD-2 requires
-its artifact-lifecycle ADR before implementation. Final Specification approval
-authorizes only the next phase explicitly recorded by the human decision and does
-not implicitly authorize Plan, Tasks, implementation, accepted ADRs, or release.
+HD-1 through HD-4 are recorded and the complete Specification was explicitly
+approved by the human reviewer on 2026-09-20. HD-3 requires Specification 002 and
+affected security/architecture reconciliation before any Plan authorization;
+HD-2 requires its artifact-lifecycle ADR before implementation. This approval
+authorizes the required reconciliation/ADR work only; it does not authorize Plan,
+Tasks, implementation, accepted ADRs beyond those explicitly reviewed, or release.
 
-**Next artifact: Final human review / approval of MVP Specification**
+**Next artifact: Specification 002 + security/architecture reconciliation for HD-3, with required ADR work**
