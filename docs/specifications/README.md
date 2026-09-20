@@ -95,9 +95,14 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 
 [Specification](004-mvp-v1-baseline/spec.md): **Approved — human approval recorded on 2026-09-20**.
 
-Issue [#62](https://github.com/rgomids/axiom/issues/62) authorizes Specification
-and reconciliation only. The approved Specification consolidates #54–#57 and #63–#68 into the
-clean-environment journey from installation through explicit human acceptance.
+[Plan](004-mvp-v1-baseline/plan.md): **Ready for human review**. Tasks and
+implementation remain unauthorized.
+
+Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
+Specification and reconciliation only. After PR #70 resolved that gate, the
+explicit Plan request authorized this Plan document only. The approved
+Specification consolidates #54–#57 and #63–#68 into the clean-environment journey
+from installation through explicit human acceptance.
 It defines Project/Work Item UX, Provider workflow projection, Runtime selectors,
 completion statuses, detailed Markdown artifacts, provenance, persistence,
 compatibility, onboarding, acceptance criteria, and required Evidence.
@@ -112,6 +117,8 @@ was explicitly approved on 2026-09-20. HD-3 is formalized by
 [ADR-0005](../decisions/0005-bounded-local-filesystem-threat-model.md) and the
 dated Specification 002 H13 reconciliation; HD-2 is formalized by
 [ADR-0006](../decisions/0006-machine-local-detail-artifacts.md) without adding an
-operation-attempt domain entity. Merge and human approval of the reconciliation
-PR remain the gate before Plan. No Plan, MVP implementation, Tasks, release, or
-final MVP acceptance is authorized by this approval.
+operation-attempt domain entity. PR #70 merged that reconciliation to `main` and
+received explicit human approval, resolving the Plan gate. The Plan now defines
+the proposed incremental implementation and future Evidence strategy; it is not
+Approved. No MVP implementation, Tasks, release, or final MVP acceptance is
+authorized.

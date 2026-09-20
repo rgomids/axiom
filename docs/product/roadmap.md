@@ -52,9 +52,10 @@ baseline without automatic POC migration. The Specification was explicitly
 approved on 2026-09-20. The authorized reconciliation records
 [ADR-0005](../decisions/0005-bounded-local-filesystem-threat-model.md) for HD-3,
 [ADR-0006](../decisions/0006-machine-local-detail-artifacts.md) for HD-2, and H13
-updates across Specification 002. Merge and human approval of that reconciliation
-are the remaining gate before the Specification 004 Plan. Plan, Tasks,
-implementation, and release remain unauthorized until their respective gates.
+updates across Specification 002. PR #70 merged that reconciliation and received
+explicit human approval. The resulting
+[Specification 004 Plan](../specifications/004-mvp-v1-baseline/plan.md) is ready
+for human review; it does not authorize Tasks, implementation, or release.
 
 ## Complete Specification 002
 

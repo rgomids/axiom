@@ -2,6 +2,14 @@
 
 ## [2026-09-20]
 
+- planning: add the Specification 004 implementation Plan after PR #70 resolved
+  the architecture gate; define vertical delivery slices, GitHub projection,
+  Runtime selectors, canonical completion/provenance, machine-local artifact
+  layout and retention, bounded APFS/ext4 publication/recovery, clean-v1
+  install/upgrade compatibility, RC acceptance, and complete FR/security/AC
+  traceability. Plan ready for human review; no Tasks, implementation, Provider
+  mutation, migration, or release authorized.
+
 - architecture: accept ADR-0005 directly from Specification 004 HD-3, defining the bounded local filesystem threat model: exact authorized-target confinement, supported traversal/link/replacement protection, process concurrency, deterministic injected faults, complete canonical state, fail-closed uncertainty, restrictive local metadata and guided recovery remain required; malicious same-UID arbitrary interleavings, physical power loss and physical-media durability are explicit unsupported guarantees.
 - architecture: accept ADR-0006 directly from Specification 004 HD-2, defining one Axiom-owned machine-local detail-artifact boundary with stable identity, Execution-first/pre-Execution correlation, Evidence references, purpose-based retention and explicit reference-aware safe cleanup; no operation-attempt entity, layout, package or retention duration is selected.
 - reconciliation: record H13 and align Specification 002 SEC-003/SEC-005, affected acceptance criteria, Plan, Tasks, conceptual model, indexes, roadmap and historical POC Evidence with HD-3 while preserving the original approval/Evidence history. No Specification 004 Plan, Tasks, implementation, migration, installer or release work started.
