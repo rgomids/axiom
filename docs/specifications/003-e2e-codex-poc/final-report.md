@@ -60,8 +60,8 @@ Skills contain no duplicate Project, provider or workflow rules.
 | #38 | equivalent human/JSON/skill entrypoints | Closed / PR #49 |
 | #39 | deterministic and real Runtime dogfooding Evidence | Closed / PR #50 |
 | #40 | final reconciliation and acceptance preparation | Accepted / closed |
-| #19 | filesystem proof beyond controlled POC cases | Open; explicit gap |
-| #20 | dependent persistence/recovery Evidence gate | Open; explicit gap |
+| #19 | filesystem proof beyond controlled POC cases | Closed / not planned for further POC work; residual gap carried to MVP hardening |
+| #20 | dependent persistence/recovery Evidence gate | Closed / not planned for further POC work; broader Evidence deferred to MVP scope |
 | #21 | baseline dogfood/reconciliation | Accepted / closed |
 | #30 | parent E2E outcome | Accepted / closed |
 
@@ -151,7 +151,9 @@ recorded rather than bypassed.
   transaction spanning all five skill directories.
 - Local bindings/workflow state do not synchronize across machines.
 - Automatic recovery, physical power-loss durability, the complete fault matrix
-  and arbitrary hostile same-UID filesystem races remain unresolved in #19/#20.
+  and arbitrary hostile same-UID filesystem races were not proven by the POC.
+  Historical cards #19/#20 are closed with those concerns preserved as MVP
+  hardening inputs rather than reported as solved.
 - Optional Project documents, full rename and remaining Specification 002 Tasks
   are not authorized or implied by this POC.
 
@@ -211,8 +213,10 @@ install -> Codex -> Project -> Work Item -> workflow
 -> implementation -> review -> Evidence -> reconciliation -> completion
 ```
 
-The acceptance explicitly retains #19/#20 as known persistence/recovery proof
-gaps rather than silently treating them as complete.
+The acceptance explicitly retains the persistence/recovery proof gaps documented
+by #19/#20 rather than silently treating them as complete. The historical POC
+cards were subsequently closed so the next hardening scope can be defined by the
+MVP Specification instead of extending the finished POC backlog.
 
 The same validation identified four MVP follow-ups:
 

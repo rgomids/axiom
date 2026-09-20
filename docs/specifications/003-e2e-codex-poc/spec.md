@@ -6,7 +6,9 @@ Approved and implementation-authorized on 2026-09-19, then explicitly accepted
 by the human maintainer after manual dogfooding on 2026-09-20. T31–T40 are
 delivered, PR #52 is merged to `main`, and #30/#40 are closed. This acceptance
 proves the bounded Codex/GitHub/sequential-workflow POC; it does not authorize
-MVP scope or close the independent #19/#20 filesystem proof gaps.
+MVP scope or imply that the stronger filesystem proof gaps historically tracked
+in #19/#20 were solved. Those POC cards were later closed with the residual
+requirements carried forward as MVP hardening inputs.
 
 ## Intent
 

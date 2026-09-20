@@ -57,10 +57,11 @@ Spec-Driven Development (SDD) connects the reason for a change to its implementa
 **Limites atuais:** Codex é o único Runtime e GitHub Issues o único Work Item
 Provider. O workflow é sequencial e executado por um agente; outros Runtimes,
 multi-agent, package managers, auto-update, sincronização remota e garantias de
-produção não fazem parte do POC. Gaps de filesystem de #19/#20 continuam
-explícitos. A POC E2E foi aceita e mergeada; #19/#20 permanecem gaps técnicos conhecidos e
-os follow-ups #54–#57 registram a direção de UX do MVP sem autorizar sua
-implementação.
+produção não fazem parte do POC. Os gaps de filesystem originalmente rastreados
+em #19/#20 continuam explícitos como limitações conhecidas; os cards históricos
+foram encerrados ao fechar a fase POC e esses requisitos devem ser respecificados
+no hardening do MVP. Os follow-ups #54–#57 registram a direção de UX do MVP sem
+autorizar sua implementação.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 

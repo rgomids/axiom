@@ -132,7 +132,12 @@ and change in that run, not fixed goldens.
 | Explicit ACL detection; SEC-005, AC-09 subset | `go test ./internal/local -run 'TestPrivate(RootRejectsPermissiveACLDespiteMode0700|FileRejectsPermissiveACL|RootRejectsDefaultACLDespiteMode0700)' -count=1` | macOS extended ACLs and Linux POSIX default ACLs are rejected when mode bits alone appear private; both platform jobs passed. Inherited or concurrent ACL mutation remains a separate race question. |
 | Recovery classification; AC-07, AC-16 subset | Crash tests above; `go test ./internal/local -run TestPortableManualRecoveryPreservesEvidenceAndReopens -count=1`; [manual recovery procedure](recovery-poc.md) | Recognized interrupted artifacts fail closed; a controlled operator quarantine preserves the marker and permits reopening old/new complete bytes. No automatic repair or proved recovery after power loss. |
 
-### Remaining gaps for #19–#21
+### Remaining gaps carried beyond the POC
+
+On 2026-09-20, historical POC cards #19/#20 were closed as `not planned` for
+additional POC work after explicit acceptance. The technical gaps below remain
+valid inputs for MVP hardening; closing the cards does not assert that these
+proof obligations were satisfied.
 
 - `#19`: Physical disk-full, injected rename faults and sync/fault stages beyond
   the post-publication case, and exhaustive same-user race proof are incomplete.
@@ -163,8 +168,10 @@ Runtime skills, GitHub Work Items and the complete workflow. The revised
 roots and bounded fake provider binaries on macOS/Linux. This closes the former
 Runtime/Provider/binding test gap for the E2E POC, but does not close #19's
 physical power-loss, exhaustive hostile same-UID race or remaining real
-filesystem-fault proof gaps. #19 and dependent #20 therefore remain open rather
-than treating broader E2E success as filesystem acceptance.
+filesystem-fault proof gaps. The POC accepted those limitations explicitly;
+#19/#20 were later closed so stronger persistence/recovery proof can be
+respecified against the MVP scope and threat model rather than kept as stale POC
+work.
 
 ### Parent #14 exit checklist for human review
 
