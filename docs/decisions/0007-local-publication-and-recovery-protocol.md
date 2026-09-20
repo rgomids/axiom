@@ -2,14 +2,14 @@
 
 ## Status
 
-**Proposed — ready for human review.**
+**Accepted — human approval recorded on 2026-09-20.**
 
-This proposal was identified during review of the
-[Specification 004 Plan](../specifications/004-mvp-v1-baseline/plan.md). It is
-not Accepted and does not authorize Tasks, implementation, migration, cleanup,
-release, or any local or Provider mutation. The Plan cannot be approved or used
-to advance to Tasks until a human accepts, rejects, or explicitly revises this
-decision.
+This decision was identified during review of the
+[Specification 004 Plan](../specifications/004-mvp-v1-baseline/plan.md) and was
+explicitly accepted by the human reviewer in PR #71 on 2026-09-20. Acceptance
+authorizes the architectural direction described here; Tasks are the next
+authorized SDD phase, while implementation, migration, cleanup, release, and any
+local or Provider mutation remain separately gated.
 
 ## Decision in one sentence
 
@@ -65,7 +65,7 @@ across Project, workflow, artifact, receipt, and other mutable local records.
 - Permit later storage-adapter replacement without changing user-visible authority
   or completion semantics.
 
-## Proposed decision
+## Decision
 
 ### Architectural invariants
 
@@ -152,7 +152,7 @@ would need heuristics that conflict with fail-closed recovery.
 
 Creates one semantic contract without freezing syscalls, filenames, or a storage
 engine. It increases up-front design and testing cost but keeps commit truth,
-coordination, readers, and recovery coherent. This is the proposed option.
+coordination, readers, and recovery coherent. This is the accepted option.
 
 ## Consequences
 
@@ -206,5 +206,5 @@ reversible when observable invariants and persisted formats do not change.
 - incidents or Evidence invalidate the selected commit point or reader behavior.
 
 Reconsideration requires explicit human review, compatibility/migration impact,
-and updated Evidence. This proposal must not be treated as Accepted by merge,
-validation, or Plan approval alone.
+and updated Evidence. The current decision was explicitly accepted in PR #71 on
+2026-09-20; merge or validation alone would not have constituted that acceptance.
