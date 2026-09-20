@@ -15,9 +15,10 @@
 
 Axiom is being built to connect software intent, architecture, implementation, and validation across human and AI work.
 
-**POC E2E tecnicamente pronta para aceite humano.** Lingo instala localmente,
-configura Codex e suas skills globais, resolve Projects fora do CWD, integra um
-Work Item GitHub e conduz o workflow sequencial até Evidence e conclusão. Veja
+**POC E2E aceita em 2026-09-20.** Lingo instala localmente, configura Codex e
+suas skills globais, resolve Projects fora do CWD, integra um Work Item GitHub e
+conduz o workflow sequencial até Evidence e conclusão. A validação humana também
+gerou follow-ups de UX/orquestração para o MVP (#54–#57). Veja
 [Commands](docs/commands.md) e o [relatório final](docs/specifications/003-e2e-codex-poc/final-report.md).
 
 <p align="center">
@@ -57,7 +58,9 @@ Spec-Driven Development (SDD) connects the reason for a change to its implementa
 Provider. O workflow é sequencial e executado por um agente; outros Runtimes,
 multi-agent, package managers, auto-update, sincronização remota e garantias de
 produção não fazem parte do POC. Gaps de filesystem de #19/#20 continuam
-explícitos. Aceite e merge final permanecem decisões humanas.
+explícitos. A POC E2E foi aceita e mergeada; #19/#20 permanecem gaps técnicos conhecidos e
+os follow-ups #54–#57 registram a direção de UX do MVP sem autorizar sua
+implementação.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 

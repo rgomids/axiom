@@ -2,6 +2,8 @@
 
 ## [2026-09-20]
 
+- acceptance: record explicit human acceptance of the merged E2E Codex POC; close #21/#30/#40, retain #19/#20 as known proof gaps, and capture MVP follow-ups #54–#57 for guided Project setup, Intent-driven Work Item creation, provider-visible workflow progress and argument-driven Runtime skills.
+
 - fix: make source installation report deterministic PATH setup guidance without shell-profile mutation, mark dirty-checkout builds in installer/version metadata, and preserve confirmed GitHub Issue identity/state through post-provider Work Item or workflow persistence failures.
 
 ## [2026-09-19]

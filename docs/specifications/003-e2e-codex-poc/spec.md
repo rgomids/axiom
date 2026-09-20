@@ -2,10 +2,11 @@
 
 ## Status
 
-Approved and implementation-authorized by the human execution request on
-2026-09-19. T31–T39 are technically delivered; T40 reconciliation is ready for
-human review. Technical completion does not equal final human acceptance; #30
-and #40 remain open at that gate.
+Approved and implementation-authorized on 2026-09-19, then explicitly accepted
+by the human maintainer after manual dogfooding on 2026-09-20. T31–T40 are
+delivered, PR #52 is merged to `main`, and #30/#40 are closed. This acceptance
+proves the bounded Codex/GitHub/sequential-workflow POC; it does not authorize
+MVP scope or close the independent #19/#20 filesystem proof gaps.
 
 ## Intent
 
@@ -186,7 +187,26 @@ portable/local state. Every failure is sanitized and leaves an inspectable state
 - macOS manual dogfooding and Linux/macOS automated checks are recorded where
   available; unverified platform claims are excluded.
 - Evidence maps #30–#40 plus applicable #19–#21 obligations to reproducible commands.
-- #30/#40 remain `READY FOR HUMAN ACCEPTANCE` until explicit human acceptance.
+- Human acceptance was recorded on 2026-09-20; #30/#40 are closed as completed.
+
+## Human acceptance findings
+
+Manual acceptance confirmed that the bounded value path is useful and functional,
+while also exposing MVP-level interaction gaps that are intentionally not treated
+as retroactive POC blockers:
+
+- [#54](https://github.com/rgomids/axiom/issues/54): Project configuration must
+  be a guided, explicit interview and must not infer/configure the caller CWD.
+- [#55](https://github.com/rgomids/axiom/issues/55): Work Item creation should
+  explore Intent and produce a structured provider Work Item before mutation.
+- [#56](https://github.com/rgomids/axiom/issues/56): workflow stage and bounded
+  transition Evidence should be projected to the provider Work Item.
+- [#57](https://github.com/rgomids/axiom/issues/57): Runtime skills should accept
+  explicit selectors/arguments and ask only for missing information.
+
+These issues are follow-up direction for the MVP. Their existence does not expand
+the accepted POC scope or authorize implementation without the normal Axiom
+Specification/Plan/Tasks gates.
 
 ## Non-goals
 

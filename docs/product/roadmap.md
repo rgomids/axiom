@@ -17,11 +17,30 @@ remain with each Specification. Nothing here authorizes implementation.
   foundations cover Project invariants, application contracts and authority,
   portable manifests and local record codecs. See [Architecture](../architecture/README.md).
 
-The repository now includes an executable E2E Lingo/Codex POC: local install,
-global thin skills, Project bindings/resolution, GitHub Work Items and a bounded
-sequential workflow. Its commands, limits and acceptance status are recorded in
-the [Specification index](../specifications/README.md). Human acceptance is
-pending; technical delivery does not authorize later roadmap work.
+The repository now includes an accepted executable E2E Lingo/Codex POC: local
+install, global thin skills, Project bindings/resolution, GitHub Work Items and a
+bounded sequential workflow. Human acceptance was recorded on 2026-09-20 after
+PR #52 merged to `main`. Its commands, limits and acceptance status are recorded
+in the [Specification index](../specifications/README.md). Acceptance does not
+authorize later roadmap work.
+
+## MVP follow-ups from POC acceptance
+
+Manual POC acceptance identified four concrete experience gaps that should inform
+the next bounded MVP specifications:
+
+- [#54](https://github.com/rgomids/axiom/issues/54) — guided Project setup that
+  asks for Project identity, repositories and Work Item Provider instead of
+  inferring the caller CWD.
+- [#55](https://github.com/rgomids/axiom/issues/55) — Intent-driven Work Item
+  creation interview and structured issue draft.
+- [#56](https://github.com/rgomids/axiom/issues/56) — provider-visible Axiom
+  workflow stage plus bounded structured transition/Evidence comments.
+- [#57](https://github.com/rgomids/axiom/issues/57) — explicit Runtime skill
+  selectors/arguments with questions only for missing inputs.
+
+These issues are product direction captured from dogfooding, not implementation
+authority. They still require normal Specification/decision/planning gates.
 
 ## Complete Specification 002
 
