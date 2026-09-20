@@ -83,3 +83,25 @@ Acceptance testing created MVP follow-ups
 [#57](https://github.com/rgomids/axiom/issues/57). They record guided setup,
 Intent-driven Work Item creation, provider-visible workflow progress and
 argument-driven Runtime skill UX; they do not retroactively expand POC scope.
+
+## 004 — Usable MVP v1 Baseline
+
+[Specification](004-mvp-v1-baseline/spec.md): **Approved — human approval recorded on 2026-09-20**.
+
+Issue [#62](https://github.com/rgomids/axiom/issues/62) authorizes Specification
+and reconciliation only. The draft consolidates #54–#57 and #63–#68 into the
+clean-environment journey from installation through explicit human acceptance.
+It defines Project/Work Item UX, Provider workflow projection, Runtime selectors,
+completion statuses, detailed Markdown artifacts, provenance, persistence,
+compatibility, onboarding, acceptance criteria, and required Evidence.
+
+Human review on 2026-09-20 recorded HD-1 through HD-4: checksummed macOS/Linux
+binary distribution with an explicit release OS/architecture matrix, durable
+machine-local detail artifacts with an ADR-required Execution/correlation
+boundary, the bounded filesystem threat model with mandatory Specification
+002/security/architecture reconciliation before Plan, and clean v1 as the
+compatibility baseline without automatic POC migration. The complete Specification was explicitly approved on 2026-09-20. HD-3 now
+requires Specification 002 plus affected security/architecture reconciliation
+before Plan authorization, and HD-2 requires its artifact-lifecycle ADR before
+implementation. No Plan, MVP implementation, Tasks, release, or final MVP
+acceptance is authorized by this approval.

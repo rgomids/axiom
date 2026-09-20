@@ -61,7 +61,10 @@ produção não fazem parte do POC. Os gaps de filesystem originalmente rastread
 em #19/#20 continuam explícitos como limitações conhecidas; os cards históricos
 foram encerrados ao fechar a fase POC e esses requisitos devem ser respecificados
 no hardening do MVP. Os follow-ups #54–#57 registram a direção de UX do MVP sem
-autorizar sua implementação.
+autorizar sua implementação. A
+[Specification 004](docs/specifications/004-mvp-v1-baseline/spec.md) consolida o
+baseline MVP e está pronta para decisão humana; nenhuma implementação MVP está
+autorizada por esse draft.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 

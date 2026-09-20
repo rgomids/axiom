@@ -24,10 +24,10 @@ PR #52 merged to `main`. Its commands, limits and acceptance status are recorded
 in the [Specification index](../specifications/README.md). Acceptance does not
 authorize later roadmap work.
 
-## MVP follow-ups from POC acceptance
+## MVP specification
 
 Manual POC acceptance identified four concrete experience gaps that should inform
-the next bounded MVP specifications:
+the MVP:
 
 - [#54](https://github.com/rgomids/axiom/issues/54) — guided Project setup that
   asks for Project identity, repositories and Work Item Provider instead of
@@ -39,8 +39,20 @@ the next bounded MVP specifications:
 - [#57](https://github.com/rgomids/axiom/issues/57) — explicit Runtime skill
   selectors/arguments with questions only for missing inputs.
 
-These issues are product direction captured from dogfooding, not implementation
-authority. They still require normal Specification/decision/planning gates.
+The [draft MVP Specification](../specifications/004-mvp-v1-baseline/spec.md),
+tracked by [#62](https://github.com/rgomids/axiom/issues/62), now consolidates
+these experience gaps with completion output, detailed artifacts, provenance,
+persistence/recovery/compatibility, installation/upgrade, and clean-environment
+acceptance. Human review on 2026-09-20 recorded the four material directions:
+checksummed macOS/Linux binaries with an explicit release OS/architecture matrix,
+durable machine-local detail artifacts with an ADR-required ownership boundary,
+the bounded filesystem threat model with mandatory Specification 002/security/
+architecture reconciliation before Plan, and clean v1 as the compatibility
+baseline without automatic POC migration. The Specification was explicitly
+approved on 2026-09-20. The next authorized work is HD-3 reconciliation of
+Specification 002 and affected security/architecture contracts, plus required ADR
+work; Plan, Tasks, implementation, and release remain unauthorized until their
+respective gates are satisfied.
 
 ## Complete Specification 002
 
