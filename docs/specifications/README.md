@@ -96,8 +96,11 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 [Specification](004-mvp-v1-baseline/spec.md): **Approved — human approval recorded on 2026-09-20**.
 
 [Plan](004-mvp-v1-baseline/plan.md): **Approved — human approval recorded on
-2026-09-20** together with ADR-0007 and ADR-0008. The Tasks phase is authorized;
-the Tasks artifact is not yet approved and implementation remains unauthorized.
+2026-09-20** together with ADR-0007 and ADR-0008.
+
+[Tasks](004-mvp-v1-baseline/tasks.md): **Ready for human review**. The 25 proposed
+vertical delivery units cover S1–S7 with an explicit acyclic DAG and complete
+FR/security/NFR/AC/HD/ADR ownership. Implementation remains unauthorized.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -128,6 +131,6 @@ shared local publication/recovery protocol and
 [ADR-0008](../decisions/0008-minimal-machine-local-execution-record.md) for the
 bounded sequential Execution record. Both were **Accepted by explicit human
 decision on 2026-09-20**, and the Specification 004 Plan was Approved in the same
-PR #71 decision. The Tasks phase is authorized; the Tasks artifact is not yet
-approved, and MVP implementation, Provider mutation, release, and final MVP
-acceptance remain unauthorized.
+PR #71 decision. The authorized Tasks phase now has a proposed artifact ready for
+human review. It is not Approved, and MVP implementation, Provider mutation,
+release, and final MVP acceptance remain unauthorized.

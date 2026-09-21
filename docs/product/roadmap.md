@@ -62,6 +62,10 @@ the shared local publication/recovery protocol, and
 the bounded machine-local sequential Execution record. Both were Accepted in the
 same PR #71 human decision. The Tasks phase is authorized; implementation,
 Provider mutation, migration execution, and release remain separately gated.
+The resulting [Tasks artifact](../specifications/004-mvp-v1-baseline/tasks.md)
+decomposes S1–S7 into 25 proposed vertical units with explicit dependency and
+Evidence ownership. It is ready for human review, not Approved; implementation
+remains unauthorized.
 
 ## Complete Specification 002
 
