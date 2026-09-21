@@ -142,6 +142,10 @@ PR #71 decision. The corrected final 25-Task DAG was then **Approved by explicit
 human decision in [PR #72](https://github.com/rgomids/axiom/pull/72) on
 2026-09-20**, concluding the Tasks phase. On 2026-09-21 T01 was explicitly
 accepted and merged in PR #74 and operational governance moved to the Slice
-boundary. S1 is authorized; S2–S7, Provider mutation outside an authorized Task
-boundary, release, and final MVP acceptance remain separately gated. Operational
-Slice trackers are #75–#81.
+boundary. T02–T03 complete the remaining S1 implementation with bounded local
+detail artifacts and shared fail-closed publication/recovery semantics; the
+reproducible security/filesystem record is in
+[S1 Evidence](004-mvp-v1-baseline/evidence-s1.md). Technical review/merge remains
+separate from human acceptance. S2–S7, Provider mutation outside an authorized
+Task boundary, release, and final MVP acceptance remain separately gated.
+Operational Slice trackers are #75–#81.

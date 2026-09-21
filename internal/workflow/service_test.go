@@ -50,6 +50,16 @@ func TestCompletionPreservesExternalStateWhenWorkflowPersistenceFails(t *testing
 	}
 }
 
+func TestWorkflowStoreRecoveryRequiredRemainsDistinct(t *testing.T) {
+	repository := t.TempDir()
+	store := &memoryStore{}
+	service := New(fakeResolver{repository}, &fakeWorkItems{exists: true}, store)
+	target := Target{ProjectSelector: "sample", RepositoryKey: "main", WorkItem: 7}
+	assertCategory(t, service.Start(context.Background(), target), Succeeded, "workflow_started")
+	store.recoveryLoad = true
+	assertCategory(t, service.Status(context.Background(), target), Failed, "recovery_required")
+}
+
 func TestWorkflowRunsSequentiallyInterruptsResumesAndCompletes(t *testing.T) {
 	repository := t.TempDir()
 	store := &memoryStore{}
@@ -150,9 +160,10 @@ func confirmedClosedWorkItem() WorkItem {
 }
 
 type memoryStore struct {
-	state    State
-	created  bool
-	failSave bool
+	state        State
+	created      bool
+	failSave     bool
+	recoveryLoad bool
 }
 
 func (s *memoryStore) Create(_ context.Context, state State) error {
@@ -164,6 +175,9 @@ func (s *memoryStore) Create(_ context.Context, state State) error {
 	return nil
 }
 func (s *memoryStore) Load(context.Context, string, string, int) (State, error) {
+	if s.recoveryLoad {
+		return State{}, ErrRecoveryRequired
+	}
 	if !s.created {
 		return State{}, os.ErrNotExist
 	}

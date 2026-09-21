@@ -1,12 +1,10 @@
 package local
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -31,6 +29,7 @@ type PortableStore struct {
 	afterUpdatePublication  func()
 	syncDirectory           func(*os.Root) error
 	writeFile               func(*os.Root, string, []byte) error
+	removeAttempt           func(*os.Root, string) error
 }
 
 func NewPortableStore(path string) (PortableStore, error) {
@@ -84,11 +83,14 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if err != nil {
 			return err
 		}
-		defer stage.Close()
 		published := false
+		stageOpen := true
 		defer func() {
 			if !published {
-				_ = stage.Remove(manifestName)
+				if stageOpen {
+					_ = stage.Remove(manifestName)
+					_ = stage.Close()
+				}
 				_ = root.Remove(stageName)
 			}
 		}()
@@ -110,33 +112,64 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		attempt, err := markAttempt(root, ".lingo-attempt-"+slug+"-")
+		hooks := s.publicationHooks()
+		markerName, err := writeProtocolMarker(root, slug, stageName, false, [32]byte{}, digestBytes(manifest), hooks)
 		if err != nil {
-			return err
+			return publicationFailure(FaultF3, false, err)
 		}
-		if err := ctx.Err(); err != nil {
-			if cleanup := clearAttempt(root, attempt); cleanup != nil {
-				return cleanup
+		marker, err := readProtocolMarker(root, markerName)
+		if err != nil {
+			return publicationFailure(FaultF3, false, err)
+		}
+		removeStage := func() error {
+			if stageOpen {
+				if err := stage.Remove(manifestName); err != nil {
+					return err
+				}
+				if err := stage.Close(); err != nil {
+					return err
+				}
+				stageOpen = false
 			}
-			return err
+			return hooks.removeName(root, stageName)
+		}
+		cleanup := func() error { return cleanupPreCommit(root, markerName, removeStage, hooks) }
+		if err := ctx.Err(); err != nil {
+			return cleanupFailure(FaultF3, err, cleanup())
+		}
+		if err := updateProtocolStage(root, markerName, marker, FaultF5, hooks); err != nil {
+			return publicationFailure(FaultF4, false, ErrRecoveryRequired)
 		}
 		if err := renameNoReplace(root, stageName, slug); err != nil {
-			if cleanup := clearAttempt(root, attempt); cleanup != nil {
-				return cleanup
-			}
 			if os.IsExist(err) {
-				return ErrConflict
+				return cleanupFailure(FaultF5, ErrConflict, cleanup())
 			}
-			return fmt.Errorf("publish project: %w", err)
+			return cleanupFailure(FaultF5, fmt.Errorf("publish project: %w", err), cleanup())
 		}
 		published = true
+		if err := stage.Close(); err != nil {
+			return publicationFailure(FaultF6, true, ErrRecoveryRequired)
+		}
+		stageOpen = false
 		if s.afterCreatePublication != nil {
 			s.afterCreatePublication()
 		}
-		if err := s.sync(root); err != nil {
-			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
+		if err := updateProtocolStage(root, markerName, marker, FaultF6, hooks); err != nil {
+			return publicationFailure(FaultF6, true, ErrRecoveryRequired)
 		}
-		return clearAttempt(root, attempt)
+		if err := hooks.syncRoot(root); err != nil {
+			return publicationFailure(FaultF6, true, ErrRecoveryRequired)
+		}
+		if err := updateProtocolStage(root, markerName, marker, FaultF7, hooks); err != nil {
+			return publicationFailure(FaultF7, true, ErrRecoveryRequired)
+		}
+		if err := updateProtocolStage(root, markerName, marker, FaultF8, hooks); err != nil {
+			return publicationFailure(FaultF8, true, ErrRecoveryRequired)
+		}
+		if err := removeProtocolState(root, markerName, hooks); err != nil {
+			return publicationFailure(FaultF8, true, ErrRecoveryRequired)
+		}
+		return nil
 	})
 }
 
@@ -152,75 +185,21 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 			return err
 		}
 		defer projectRoot.Close()
-		current, err := readPrivateFile(projectRoot, manifestName)
-		if err != nil {
-			return err
-		}
-		if !bytes.Equal(current, expected) {
-			return ErrConflict
-		}
-		temporary, err := temporaryName(".lingo-manifest-")
-		if err != nil {
-			return err
-		}
-		defer projectRoot.Remove(temporary)
-		if err := s.write(projectRoot, temporary, manifest); err != nil {
-			return err
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		attempt, err := markAttempt(projectRoot, ".lingo-attempt-update-")
-		if err != nil {
-			return err
-		}
-		if err := ctx.Err(); err != nil {
-			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
-				return cleanup
+		hooks := s.publicationHooks()
+		hooks.afterStage = s.beforeUpdatePublication
+		hooks.beforeCommit = func() error {
+			if err := stillAtPath(root, s.root); err != nil {
+				return err
 			}
-			return err
+			return stillAtPath(projectRoot, filepath.Join(s.root, slug))
 		}
-		if s.beforeUpdatePublication != nil {
-			s.beforeUpdatePublication()
-		}
-		if err := verifyPreparedFile(projectRoot, temporary, manifest); err != nil {
-			if clearAttempt(projectRoot, attempt) != nil {
-				return ErrRecoveryRequired
-			}
-			return err
-		}
-		if err := stillAtPath(root, s.root); err != nil {
-			if clearAttempt(projectRoot, attempt) != nil {
-				return ErrRecoveryRequired
-			}
-			return err
-		}
-		if err := stillAtPath(projectRoot, filepath.Join(s.root, slug)); err != nil {
-			if clearAttempt(projectRoot, attempt) != nil {
-				return ErrRecoveryRequired
-			}
-			return err
-		}
-		if err := ctx.Err(); err != nil {
-			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
-				return cleanup
-			}
-			return err
-		}
-		if err := projectRoot.Rename(temporary, manifestName); err != nil {
-			if cleanup := clearAttempt(projectRoot, attempt); cleanup != nil {
-				return cleanup
-			}
-			return err
-		}
-		if s.afterUpdatePublication != nil {
-			s.afterUpdatePublication()
-		}
-		if err := s.sync(projectRoot); err != nil {
-			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
-		}
-		return clearAttempt(projectRoot, attempt)
+		hooks.afterCommit = s.afterUpdatePublication
+		return publishFile(ctx, projectRoot, manifestName, expected, manifest, false, hooks)
 	})
+}
+
+func (s PortableStore) publicationHooks() publicationHooks {
+	return publicationHooks{remove: s.removeAttempt, sync: s.syncDirectory, write: s.writeFile, stagePrefix: ".lingo-manifest-"}
 }
 
 func (s PortableStore) sync(root *os.Root) error {
@@ -235,6 +214,10 @@ func (s PortableStore) write(root *os.Root, name string, content []byte) error {
 		return s.writeFile(root, name, content)
 	}
 	return writePrivateFile(root, name, content)
+}
+
+func (s PortableStore) clear(root *os.Root, name string) error {
+	return removeProtocolState(root, name, s.publicationHooks())
 }
 
 func (s PortableStore) withLock(slug string, create, exclusive bool, action func(*os.Root) error) error {
@@ -258,19 +241,18 @@ func (s PortableStore) withLock(slug string, create, exclusive bool, action func
 		return err
 	}
 	defer lock.Close()
-	entries, err := root.Open(".")
-	if err != nil {
-		return err
-	}
-	names, err := entries.Readdirnames(-1)
-	entries.Close()
-	if err != nil {
-		return err
-	}
-	for _, name := range names {
-		if strings.HasPrefix(name, ".lingo-stage-"+slug+"-") || strings.HasPrefix(name, ".lingo-attempt-"+slug+"-") {
-			return ErrRecoveryRequired
+	if pending, err := protocolStatePresent(root); err != nil || pending {
+		if err != nil {
+			return err
 		}
+		return ErrRecoveryRequired
+	}
+	pending, err := directoryPrefixPresentBounded(root, maxLocalDirectoryEntries, ".lingo-stage-"+slug+"-", ".lingo-attempt-"+slug+"-")
+	if err != nil {
+		return err
+	}
+	if pending {
+		return ErrRecoveryRequired
 	}
 	return action(root)
 }
@@ -280,22 +262,25 @@ func openManifestProject(root *os.Root, slug string) (*os.Root, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, err := projectRoot.Open(".")
-	if err != nil {
+	if pending, err := protocolStatePresent(projectRoot); err != nil || pending {
 		projectRoot.Close()
-		return nil, err
-	}
-	entries, err := file.Readdirnames(-1)
-	file.Close()
-	if err != nil {
-		projectRoot.Close()
-		return nil, err
-	}
-	for _, name := range entries {
-		if strings.HasPrefix(name, ".lingo-manifest-") || strings.HasPrefix(name, ".lingo-attempt-update-") {
-			projectRoot.Close()
-			return nil, ErrRecoveryRequired
+		if err != nil {
+			return nil, err
 		}
+		return nil, ErrRecoveryRequired
+	}
+	pending, err := directoryPrefixPresentBounded(projectRoot, maxLocalDirectoryEntries, ".lingo-manifest-", ".lingo-attempt-update-")
+	if err != nil || pending {
+		projectRoot.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrRecoveryRequired
+	}
+	entries, err := readDirectoryNamesBounded(projectRoot, 1)
+	if err != nil {
+		projectRoot.Close()
+		return nil, err
 	}
 	if len(entries) != 1 || entries[0] != manifestName {
 		projectRoot.Close()

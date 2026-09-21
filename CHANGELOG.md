@@ -1,5 +1,28 @@
 # Changelog
 
+## [2026-09-21]
+
+- implementation: complete the authorized remainder of MVP S1 with closed,
+  bounded machine-local Markdown detail artifacts, opaque identity/correlation,
+  digest-checked create/read, explicit capacity failure without eviction, and
+  completion-aware required/optional artifact materialization.
+- security: add the shared protected local publication state machine with fixed
+  broad-to-narrow process coordination, expected byte revisions, private staging,
+  versioned recovery markers, protected old-or-new commit points, F0–F8 fault
+  classification, and fail-closed readers for artifact, Work Item, workflow,
+  Project, and installation state.
+- test: add codec/sanitization/limit/capacity/link/type/permission/digest cases,
+  stale-authority and old/new matrices, deterministic F0–F8 injection,
+  multi-process barrier/crash coverage, and S1 regression Evidence. No S2 work,
+  Provider mutation, Git remote mutation, Runtime installation, or release work.
+- fix: preserve reconciliable Work Item selection by loading the observed local
+  revision before update, keep first selection on the protected create path, and
+  expand per-store T03 Evidence with explicit F0–F8 applicability and tests.
+- fix: restore strict create-conflict semantics in the shared protected file
+  publisher so repeated workflow start loads the existing lineage and reports
+  `workflow_already_started`; keep operation-specific idempotency in owning
+  stores instead of the publication primitive.
+
 ## [2026-09-20]
 
 - implementation: complete explicitly authorized Specification 004 T01 only with

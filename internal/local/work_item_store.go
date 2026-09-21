@@ -3,6 +3,7 @@ package local
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,7 +15,10 @@ import (
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
-type WorkItemStore struct{ root string }
+type WorkItemStore struct {
+	root  string
+	hooks publicationHooks
+}
 
 type workItemDTO struct {
 	FormatVersion      int    `json:"formatVersion"`
@@ -49,49 +53,32 @@ func (s WorkItemStore) Save(ctx context.Context, link workitem.Link) error {
 		return err
 	}
 	wire = append(wire, '\n')
-	root, err := privateRoot(s.root)
+	root, items, projectRoot, err := s.openProject(link.ProjectID, true)
 	if err != nil {
 		return err
 	}
 	defer root.Close()
-	items, err := privateChild(root, "work-items")
-	if err != nil {
-		return err
-	}
 	defer items.Close()
-	projectRoot, err := privateChild(items, link.ProjectID)
-	if err != nil {
-		return err
-	}
 	defer projectRoot.Close()
-	lock, err := lockDirectory(projectRoot, true)
+	locks, err := lockRoots(true, root, items, projectRoot)
 	if err != nil {
 		return err
 	}
-	defer lock.Close()
+	defer closeFiles(locks)
 	name := workItemName(link.RepositoryKey, link.Number)
-	if current, readErr := readPrivateFile(projectRoot, name); readErr == nil {
-		if _, decodeErr := decodeWorkItem(current); decodeErr != nil {
-			return ErrUnsafe
+	create := link.Revision == ([32]byte{})
+	var expected []byte
+	if !create {
+		expected, err = readPublishedFile(projectRoot, name)
+		if err != nil {
+			return err
 		}
-	} else if !os.IsNotExist(readErr) {
-		return readErr
+		if sha256.Sum256(expected) != link.Revision {
+			return workItemStoreError(ErrConflict)
+		}
 	}
-	temporary, err := temporaryName(".lingo-work-item-")
-	if err != nil {
-		return err
-	}
-	defer projectRoot.Remove(temporary)
-	if err := writePrivateFile(projectRoot, temporary, wire); err != nil {
-		return err
-	}
-	if err := verifyPreparedFile(projectRoot, temporary, wire); err != nil {
-		return err
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	return projectRoot.Rename(temporary, name)
+	err = publishFile(ctx, projectRoot, name, expected, wire, create, s.hooks)
+	return workItemStoreError(err)
 }
 
 func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey string, number int) (workitem.Link, error) {
@@ -102,31 +89,65 @@ func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey string
 	if !validWorkItemLink(probe) {
 		return workitem.Link{}, ErrUnsafe
 	}
-	root, err := existingPrivateRoot(s.root)
+	root, items, projectRoot, err := s.openProject(projectID, false)
 	if err != nil {
-		return workitem.Link{}, err
+		return workitem.Link{}, workItemStoreError(err)
 	}
 	defer root.Close()
-	items, err := existingPrivateChild(root, "work-items")
-	if err != nil {
-		return workitem.Link{}, err
-	}
 	defer items.Close()
-	projectRoot, err := existingPrivateChild(items, projectID)
-	if err != nil {
-		return workitem.Link{}, err
-	}
 	defer projectRoot.Close()
-	lock, err := lockDirectory(projectRoot, false)
+	locks, err := lockRoots(false, root, items, projectRoot)
 	if err != nil {
-		return workitem.Link{}, err
+		return workitem.Link{}, workItemStoreError(err)
 	}
-	defer lock.Close()
-	wire, err := readPrivateFile(projectRoot, workItemName(repositoryKey, number))
+	defer closeFiles(locks)
+	wire, err := readPublishedFile(projectRoot, workItemName(repositoryKey, number))
 	if err != nil {
-		return workitem.Link{}, err
+		return workitem.Link{}, workItemStoreError(err)
 	}
-	return decodeWorkItem(wire)
+	link, err := decodeWorkItem(wire)
+	if err == nil {
+		link.Revision = sha256.Sum256(wire)
+	}
+	return link, err
+}
+
+func workItemStoreError(err error) error {
+	if errors.Is(err, ErrNotFound) || os.IsNotExist(err) {
+		return errors.Join(err, workitem.ErrNotFound)
+	}
+	if errors.Is(err, ErrRecoveryRequired) {
+		return errors.Join(err, workitem.ErrRecoveryRequired)
+	}
+	if errors.Is(err, ErrConflict) {
+		return errors.Join(err, workitem.ErrConflict)
+	}
+	return err
+}
+
+func (s WorkItemStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, error) {
+	openRoot := existingPrivateRoot
+	openChild := existingPrivateChild
+	if create {
+		openRoot = privateRoot
+		openChild = privateChild
+	}
+	root, err := openRoot(s.root)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	items, err := openChild(root, "work-items")
+	if err != nil {
+		root.Close()
+		return nil, nil, nil, err
+	}
+	projectRoot, err := openChild(items, projectID)
+	if err != nil {
+		items.Close()
+		root.Close()
+		return nil, nil, nil, err
+	}
+	return root, items, projectRoot, nil
 }
 
 func decodeWorkItem(wire []byte) (workitem.Link, error) {

@@ -3,6 +3,7 @@ package workitem
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 )
 
@@ -35,6 +36,61 @@ func TestCreateSelectCommentAndComplete(t *testing.T) {
 	completed := service.Complete(context.Background(), target, 7, true)
 	if completed.Category != "work_item_completed" || completed.Link.State != "CLOSED" {
 		t.Fatalf("complete = %#v", completed)
+	}
+}
+
+func TestSelectReconcilesExistingLinkWithObservedRevision(t *testing.T) {
+	provider := &fakeProvider{readState: "CLOSED"}
+	store := newFakeStore()
+	expected := [32]byte{1}
+	store.links["main"] = Link{
+		ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
+		RepositoryKey:      "main",
+		ProviderRepository: "owner/repo",
+		Number:             7,
+		URL:                "https://github.com/owner/repo/issues/7",
+		State:              "OPEN",
+		Revision:           expected,
+	}
+	result := New(fakeResolver{}, fakeLocator{}, provider, store).Select(context.Background(), Target{"sample", "main"}, 7)
+	if result.Status != Succeeded || result.Link.State != "CLOSED" || result.Link.Revision != expected {
+		t.Fatalf("reconciled select = %#v", result)
+	}
+	if store.saved.Revision != expected {
+		t.Fatalf("save revision = %x want %x", store.saved.Revision, expected)
+	}
+}
+
+func TestSelectRejectsStaleProviderObservationAfterConcurrentLocalUpdate(t *testing.T) {
+	oldRevision := [32]byte{1}
+	newRevision := [32]byte{2}
+	initial := Link{
+		ProjectID: "123e4567-e89b-42d3-a456-426614174000", RepositoryKey: "main",
+		ProviderRepository: "owner/repo", Number: 7,
+		URL: "https://github.com/owner/repo/issues/7", State: "OPEN", Revision: oldRevision,
+	}
+	store := &casStore{link: initial}
+	provider := &barrierProvider{entered: make(chan struct{}), release: make(chan struct{})}
+	result := make(chan Result, 1)
+	go func() {
+		result <- New(fakeResolver{}, fakeLocator{}, provider, store).Select(context.Background(), Target{"sample", "main"}, 7)
+	}()
+
+	<-provider.entered
+	store.replace(Link{
+		ProjectID: initial.ProjectID, RepositoryKey: initial.RepositoryKey,
+		ProviderRepository: initial.ProviderRepository, Number: initial.Number,
+		URL: initial.URL, State: "LOCAL_B", Revision: newRevision,
+	})
+	close(provider.release)
+
+	selected := <-result
+	if selected.Status != Failed || selected.Category != "local_work_item_conflict" {
+		t.Fatalf("stale select = %#v", selected)
+	}
+	preserved, err := store.Load(context.Background(), initial.ProjectID, initial.RepositoryKey, initial.Number)
+	if err != nil || preserved.State != "LOCAL_B" || preserved.Revision != newRevision {
+		t.Fatalf("concurrent state replaced: %#v, %v", preserved, err)
 	}
 }
 
@@ -80,6 +136,21 @@ func TestCreateReportsProviderCommitWhenLocalSaveFails(t *testing.T) {
 	}
 }
 
+func TestRecoveryRequiredRemainsDistinctFromMissingAndGenericFailure(t *testing.T) {
+	provider := &fakeProvider{}
+	store := newFakeStore()
+	store.recovery = true
+	service := New(fakeResolver{}, fakeLocator{}, provider, store)
+	created := service.Create(context.Background(), Target{"sample", "main"}, "Title", "Body", true)
+	if created.Category != "provider_committed_local_recovery_required" || provider.creates != 1 {
+		t.Fatalf("create = %#v", created)
+	}
+	shown := service.Show(context.Background(), Target{"sample", "main"}, 7)
+	if shown.Category != "recovery_required" {
+		t.Fatalf("show = %#v", shown)
+	}
+}
+
 type fakeResolver struct{}
 
 func (fakeResolver) Resolve(context.Context, string) (Project, string) {
@@ -92,14 +163,68 @@ func (fakeLocator) GitHubRepository(context.Context, string) (string, error) {
 	return "owner/repo", nil
 }
 
-type fakeProvider struct{ creates, comments, closes int }
+type fakeProvider struct {
+	creates, comments, closes int
+	readState                 string
+}
+
+type barrierProvider struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (*barrierProvider) Create(context.Context, string, string, string) (External, error) {
+	return External{}, errors.New("unexpected create")
+}
+func (p *barrierProvider) Read(context.Context, string, int) (External, error) {
+	close(p.entered)
+	<-p.release
+	return External{7, "https://github.com/owner/repo/issues/7", "OPEN"}, nil
+}
+func (*barrierProvider) Comment(context.Context, string, int, string) error {
+	return errors.New("unexpected comment")
+}
+func (*barrierProvider) Close(context.Context, string, int) (External, error) {
+	return External{}, errors.New("unexpected close")
+}
+
+type casStore struct {
+	mu   sync.Mutex
+	link Link
+}
+
+func (s *casStore) Save(_ context.Context, link Link) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if link.Revision != s.link.Revision {
+		return ErrConflict
+	}
+	s.link = link
+	return nil
+}
+
+func (s *casStore) Load(context.Context, string, string, int) (Link, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.link, nil
+}
+
+func (s *casStore) replace(link Link) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.link = link
+}
 
 func (p *fakeProvider) Create(context.Context, string, string, string) (External, error) {
 	p.creates++
 	return External{7, "https://github.com/owner/repo/issues/7", "OPEN"}, nil
 }
-func (*fakeProvider) Read(context.Context, string, int) (External, error) {
-	return External{7, "https://github.com/owner/repo/issues/7", "OPEN"}, nil
+func (p *fakeProvider) Read(context.Context, string, int) (External, error) {
+	state := p.readState
+	if state == "" {
+		state = "OPEN"
+	}
+	return External{7, "https://github.com/owner/repo/issues/7", state}, nil
 }
 func (p *fakeProvider) Comment(context.Context, string, int, string) error { p.comments++; return nil }
 func (p *fakeProvider) Close(context.Context, string, int) (External, error) {
@@ -109,21 +234,30 @@ func (p *fakeProvider) Close(context.Context, string, int) (External, error) {
 
 type fakeStore struct {
 	links    map[string]Link
+	saved    Link
 	failSave bool
+	recovery bool
 }
 
 func newFakeStore() *fakeStore { return &fakeStore{links: map[string]Link{}} }
 func (s *fakeStore) Save(_ context.Context, link Link) error {
+	if s.recovery {
+		return ErrRecoveryRequired
+	}
 	if s.failSave {
 		return errors.New("write failed")
 	}
+	s.saved = link
 	s.links[link.RepositoryKey] = link
 	return nil
 }
 func (s *fakeStore) Load(context.Context, string, string, int) (Link, error) {
+	if s.recovery {
+		return Link{}, ErrRecoveryRequired
+	}
 	link, ok := s.links["main"]
 	if !ok {
-		return Link{}, errors.New("missing")
+		return Link{}, ErrNotFound
 	}
 	return link, nil
 }

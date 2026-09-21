@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -223,6 +224,13 @@ func temporaryName(prefix string) (string, error) {
 }
 
 func readPrivateFile(root *os.Root, name string) ([]byte, error) {
+	return readPrivateFileBounded(root, name, MaxRecordBytes)
+}
+
+func readPrivateFileBounded(root *os.Root, name string, limit int) ([]byte, error) {
+	if limit <= 0 {
+		return nil, ErrUnsafe
+	}
 	if info, err := root.Lstat(name); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		return nil, ErrUnsafe
 	}
@@ -245,8 +253,8 @@ func readPrivateFile(root *os.Root, name string) ([]byte, error) {
 	if err := checkPrivateACL(file); err != nil {
 		return nil, err
 	}
-	data, err := io.ReadAll(io.LimitReader(file, MaxRecordBytes+1))
-	if err != nil || len(data) > MaxRecordBytes {
+	data, err := io.ReadAll(io.LimitReader(file, int64(limit)+1))
+	if err != nil || len(data) > limit {
 		return nil, ErrUnsafe
 	}
 	return data, nil
@@ -306,12 +314,86 @@ func syncRoot(root *os.Root) error {
 	return file.Sync()
 }
 
+const (
+	directoryReadBatch       = 64
+	maxLocalDirectoryEntries = 10_002
+)
+
+func walkDirectoryNamesBounded(root *os.Root, limit int, visit func(string) bool) error {
+	if limit < 0 {
+		return ErrUnsafe
+	}
+	directory, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	defer directory.Close()
+	seen := 0
+	for {
+		batch := directoryReadBatch
+		if remaining := limit - seen + 1; remaining < batch {
+			batch = remaining
+		}
+		names, readErr := directory.Readdirnames(batch)
+		for _, name := range names {
+			seen++
+			if seen > limit {
+				return ErrUnsafe
+			}
+			if visit != nil && !visit(name) {
+				return nil
+			}
+		}
+		if errors.Is(readErr, io.EOF) {
+			return nil
+		}
+		if readErr != nil {
+			return readErr
+		}
+	}
+}
+
+func readDirectoryNamesBounded(root *os.Root, limit int) ([]string, error) {
+	names := make([]string, 0, min(limit, directoryReadBatch))
+	err := walkDirectoryNamesBounded(root, limit, func(name string) bool {
+		names = append(names, name)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return names, nil
+}
+
+func directoryPrefixPresentBounded(root *os.Root, limit int, prefixes ...string) (bool, error) {
+	present := false
+	err := walkDirectoryNamesBounded(root, limit, func(name string) bool {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(name, prefix) {
+				present = true
+				return false
+			}
+		}
+		return true
+	})
+	return present, err
+}
+
 func markAttempt(root *os.Root, prefix string) (string, error) {
 	name, err := temporaryName(prefix)
 	if err != nil {
 		return "", err
 	}
-	if err := writePrivateFile(root, name, []byte("pending\n")); err != nil {
+	wire, err := json.Marshal(struct {
+		FormatVersion int    `json:"formatVersion"`
+		OperationID   string `json:"operationId"`
+		Stage         string `json:"stage"`
+	}{FormatVersion: 1, OperationID: name, Stage: "pre_publication"})
+	if err != nil {
+		return "", err
+	}
+	wire = append(wire, '\n')
+	if err := writePrivateFile(root, name, wire); err != nil {
 		return "", err
 	}
 	if err := syncRoot(root); err != nil {
@@ -321,13 +403,7 @@ func markAttempt(root *os.Root, prefix string) (string, error) {
 }
 
 func clearAttempt(root *os.Root, name string) error {
-	if err := root.Remove(name); err != nil {
-		return ErrRecoveryRequired
-	}
-	if err := syncRoot(root); err != nil {
-		return ErrRecoveryRequired
-	}
-	return nil
+	return removeProtocolState(root, name, publicationHooks{})
 }
 
 func lockDirectory(root *os.Root, exclusive bool) (*os.File, error) {
@@ -347,4 +423,23 @@ func lockDirectory(root *os.Root, exclusive bool) (*os.File, error) {
 		return nil, err
 	}
 	return file, nil
+}
+
+func lockRoots(exclusive bool, roots ...*os.Root) ([]*os.File, error) {
+	locks := make([]*os.File, 0, len(roots))
+	for _, root := range roots {
+		lock, err := lockDirectory(root, exclusive)
+		if err != nil {
+			closeFiles(locks)
+			return nil, err
+		}
+		locks = append(locks, lock)
+	}
+	return locks, nil
+}
+
+func closeFiles(files []*os.File) {
+	for index := len(files) - 1; index >= 0; index-- {
+		_ = files[index].Close()
+	}
 }

@@ -85,12 +85,7 @@ func (s InstallationStore) Resolve(ctx context.Context, selector string) Resolut
 }
 
 func childNames(root *os.Root) ([]string, error) {
-	directory, err := root.Open(".")
-	if err != nil {
-		return nil, err
-	}
-	defer directory.Close()
-	names, err := directory.Readdirnames(-1)
+	names, err := readDirectoryNamesBounded(root, maxLocalDirectoryEntries)
 	sort.Strings(names)
 	return names, err
 }

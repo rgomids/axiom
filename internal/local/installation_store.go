@@ -19,6 +19,7 @@ type InstallationStore struct {
 	afterPublication  func()
 	syncDirectory     func(*os.Root) error
 	writeFile         func(*os.Root, string, []byte) error
+	removeAttempt     func(*os.Root, string) error
 }
 type InstallationStatus string
 
@@ -121,7 +122,7 @@ func (s InstallationStore) InstallWithBindings(ctx context.Context, source strin
 			return failedInstallation("recovery_required")
 		}
 		if err := ctx.Err(); err != nil {
-			if clearAttempt(target, attempt) != nil {
+			if s.clear(target, attempt) != nil {
 				return failedInstallation("recovery_required")
 			}
 			return failedInstallation("cancelled")
@@ -130,7 +131,7 @@ func (s InstallationStore) InstallWithBindings(ctx context.Context, source strin
 			s.beforePublication()
 		}
 		if err := verifyPreparedFile(target, temporary, wire); err != nil {
-			if clearAttempt(target, attempt) != nil {
+			if s.clear(target, attempt) != nil {
 				return failedInstallation("recovery_required")
 			}
 			return failedInstallation("storage_failure")
@@ -143,20 +144,20 @@ func (s InstallationStore) InstallWithBindings(ctx context.Context, source strin
 			{target, filepath.Join(s.root, "projects", snapshot.Project().State().ID)},
 		} {
 			if err := stillAtPath(check.root, check.path); err != nil {
-				if clearAttempt(target, attempt) != nil {
+				if s.clear(target, attempt) != nil {
 					return failedInstallation("recovery_required")
 				}
 				return failedInstallation("storage_failure")
 			}
 		}
 		if err := ctx.Err(); err != nil {
-			if clearAttempt(target, attempt) != nil {
+			if s.clear(target, attempt) != nil {
 				return failedInstallation("recovery_required")
 			}
 			return failedInstallation("cancelled")
 		}
 		if err := renameNoReplace(target, temporary, "installation.json"); err != nil {
-			if clearAttempt(target, attempt) != nil {
+			if s.clear(target, attempt) != nil {
 				return failedInstallation("recovery_required")
 			}
 			if os.IsExist(err) {
@@ -174,7 +175,7 @@ func (s InstallationStore) InstallWithBindings(ctx context.Context, source strin
 		if err := s.sync(projects); err != nil {
 			return failedInstallation("recovery_required")
 		}
-		if err := clearAttempt(target, attempt); err != nil {
+		if err := s.clear(target, attempt); err != nil {
 			return failedInstallation("recovery_required")
 		}
 		return InstallationResult{Status: InstallationApplied, Category: "installed"}
@@ -214,6 +215,10 @@ func (s InstallationStore) write(root *os.Root, name string, content []byte) err
 		return s.writeFile(root, name, content)
 	}
 	return writePrivateFile(root, name, content)
+}
+
+func (s InstallationStore) clear(root *os.Root, name string) error {
+	return removeProtocolState(root, name, publicationHooks{remove: s.removeAttempt, sync: s.syncDirectory})
 }
 
 func (s InstallationStore) Reopen(ctx context.Context, source string) InstallationResult {
@@ -307,12 +312,7 @@ func portableSnapshot(ctx context.Context, source string) (projectapp.ArtifactSn
 		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
 	}
 	defer root.Close()
-	file, err := root.Open(".")
-	if err != nil {
-		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
-	}
-	entries, err := file.Readdirnames(-1)
-	file.Close()
+	entries, err := readDirectoryNamesBounded(root, 1)
 	if err != nil || len(entries) != 1 || entries[0] != manifestName {
 		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
 	}
@@ -332,12 +332,7 @@ func failedInstallation(category string) InstallationResult {
 }
 
 func installationDirectoryIssue(root *os.Root) string {
-	file, err := root.Open(".")
-	if err != nil {
-		return "storage_failure"
-	}
-	names, err := file.Readdirnames(-1)
-	file.Close()
+	names, err := readDirectoryNamesBounded(root, maxLocalDirectoryEntries)
 	if err != nil {
 		return "storage_failure"
 	}

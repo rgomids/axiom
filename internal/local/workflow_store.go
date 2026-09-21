@@ -3,6 +3,7 @@ package local
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -15,7 +16,10 @@ import (
 	"github.com/rgomids/axiom/internal/workflow"
 )
 
-type WorkflowStore struct{ root string }
+type WorkflowStore struct {
+	root  string
+	hooks publicationHooks
+}
 
 type workflowDTO struct {
 	FormatVersion  int               `json:"formatVersion"`
@@ -60,43 +64,31 @@ func (s WorkflowStore) write(ctx context.Context, state workflow.State, create b
 	if err != nil {
 		return ErrUnsafe
 	}
-	root, projectRoot, err := s.openProject(state.ProjectID, true)
+	root, workflows, projectRoot, err := s.openProject(state.ProjectID, true)
 	if err != nil {
 		return err
 	}
 	defer root.Close()
+	defer workflows.Close()
 	defer projectRoot.Close()
-	lock, err := lockDirectory(projectRoot, true)
+	locks, err := lockRoots(true, root, workflows, projectRoot)
 	if err != nil {
 		return err
 	}
-	defer lock.Close()
+	defer closeFiles(locks)
 	name := workflowName(state.RepositoryKey, state.WorkItem)
-	_, readErr := readPrivateFile(projectRoot, name)
-	if create && readErr == nil {
-		return ErrConflict
+	var expected []byte
+	if !create {
+		expected, err = readPublishedFile(projectRoot, name)
+		if err != nil {
+			return err
+		}
+		if state.Revision == ([32]byte{}) || sha256.Sum256(expected) != state.Revision {
+			return ErrConflict
+		}
 	}
-	if !create && os.IsNotExist(readErr) {
-		return ErrNotFound
-	}
-	if readErr != nil && !os.IsNotExist(readErr) {
-		return readErr
-	}
-	temporary, err := temporaryName(".lingo-workflow-")
-	if err != nil {
-		return err
-	}
-	defer projectRoot.Remove(temporary)
-	if err := writePrivateFile(projectRoot, temporary, wire); err != nil {
-		return err
-	}
-	if err := verifyPreparedFile(projectRoot, temporary, wire); err != nil {
-		return err
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	return projectRoot.Rename(temporary, name)
+	err = publishFile(ctx, projectRoot, name, expected, wire, create, s.hooks)
+	return workflowStoreError(err)
 }
 
 func (s WorkflowStore) Load(ctx context.Context, projectID, repositoryKey string, workItem int) (workflow.State, error) {
@@ -106,32 +98,44 @@ func (s WorkflowStore) Load(ctx context.Context, projectID, repositoryKey string
 	if !validWorkflowAddress(projectID, repositoryKey, workItem) {
 		return workflow.State{}, ErrUnsafe
 	}
-	root, projectRoot, err := s.openProject(projectID, false)
+	root, workflows, projectRoot, err := s.openProject(projectID, false)
 	if err != nil {
 		return workflow.State{}, err
 	}
 	defer root.Close()
+	defer workflows.Close()
 	defer projectRoot.Close()
-	lock, err := lockDirectory(projectRoot, false)
+	locks, err := lockRoots(false, root, workflows, projectRoot)
 	if err != nil {
 		return workflow.State{}, err
 	}
-	defer lock.Close()
-	wire, err := readPrivateFile(projectRoot, workflowName(repositoryKey, workItem))
+	defer closeFiles(locks)
+	wire, err := readPublishedFile(projectRoot, workflowName(repositoryKey, workItem))
 	if err != nil {
-		return workflow.State{}, err
+		return workflow.State{}, workflowStoreError(err)
 	}
-	return decodeWorkflow(wire)
+	state, err := decodeWorkflow(wire)
+	if err == nil {
+		state.Revision = sha256.Sum256(wire)
+	}
+	return state, err
 }
 
-func (s WorkflowStore) openProject(projectID string, create bool) (*os.Root, *os.Root, error) {
+func workflowStoreError(err error) error {
+	if errors.Is(err, ErrRecoveryRequired) {
+		return errors.Join(err, workflow.ErrRecoveryRequired)
+	}
+	return err
+}
+
+func (s WorkflowStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, error) {
 	openRoot := existingPrivateRoot
 	if create {
 		openRoot = privateRoot
 	}
 	root, err := openRoot(s.root)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	openChild := existingPrivateChild
 	if create {
@@ -140,15 +144,15 @@ func (s WorkflowStore) openProject(projectID string, create bool) (*os.Root, *os
 	workflows, err := openChild(root, "workflows")
 	if err != nil {
 		root.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	projectRoot, err := openChild(workflows, projectID)
-	workflows.Close()
 	if err != nil {
+		workflows.Close()
 		root.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return root, projectRoot, nil
+	return root, workflows, projectRoot, nil
 }
 
 func encodeWorkflow(state workflow.State) ([]byte, error) {

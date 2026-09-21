@@ -52,6 +52,8 @@ Spec-Driven Development (SDD) connects the reason for a change to its implementa
 - Codex-first harness: context, policies, skills, templates, and validation scripts.
 - Go implementation of Project rules, portable/local state, Codex Runtime,
   GitHub Work Items, and a bounded persistent Lingo workflow, with tests.
+- Canonical completion/provenance plus durable bounded machine-local detail
+  artifacts and fail-closed protected local publication for the S1 substrate.
 - Versioned Specifications, architecture decisions, and implementation Evidence.
 
 **Limites atuais:** Codex é o único Runtime e GitHub Issues o único Work Item
@@ -71,8 +73,9 @@ ADRs aceitos
 [Tasks](docs/specifications/004-mvp-v1-baseline/tasks.md) foram aprovadas por
 decisão humana no [PR #72](https://github.com/rgomids/axiom/pull/72) em
 2026-09-20. A DAG final corrigida contém 25 Tasks e está reconciliada com o Plan
-aprovado. Essa decisão conclui a fase de Tasks; nenhuma implementação MVP está
-autorizada.
+aprovado. S1 foi autorizado como unidade operacional: T01 está aceito/mergeado e
+T02–T03 entregam o restante do substrate local protegido. S2–S7 continuam não
+autorizados; validação técnica ou merge de S1 não implica aceitação humana.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 

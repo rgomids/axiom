@@ -31,7 +31,7 @@ Specification 004 — Approved
 -> Tasks — Approved
 -> S1 Implementation — Authorized / in progress
    -> T01 — Accepted / merged in PR #74
-   -> T02–T03 — Authorized within S1
+   -> T02–T03 — Implemented with reproducible S1 Evidence; technical review pending
 -> S2–S7 Implementation — Not authorized
 ```
 
@@ -220,6 +220,10 @@ flowchart LR
 
 ### T02 — Durable bounded detail artifact create/read
 
+**Implementation checkpoint:** complete in the S1 delivery branch; see
+[S1 Evidence](evidence-s1.md). This records technical completion, not human
+acceptance.
+
 - **Objective:** A forced detailed result publishes exactly one valid machine-local Markdown artifact and resolves it by stable ID; routine compact success creates none.
 - **Slice:** S1.
 - **Dependencies:** T01.
@@ -236,6 +240,10 @@ flowchart LR
 - **Risks / gates:** Measured dogfood data may justify later reviewed limit changes; it cannot silently alter ADR-0006 ownership/retention invariants.
 
 ### T03 — Shared protected publication and fail-closed reading
+
+**Implementation checkpoint:** complete in the S1 delivery branch; see
+[S1 Evidence](evidence-s1.md). This records technical completion, not human
+acceptance and not authority for S2.
 
 - **Objective:** Existing Project, installation, Work Item, workflow, and artifact stores expose one consistent old-or-new commit truth and deterministic `recovery_required` behavior under supported faults.
 - **Slice:** S1.
