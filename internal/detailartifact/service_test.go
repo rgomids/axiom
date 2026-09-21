@@ -39,20 +39,25 @@ func TestMaterializeCreatesExactlyOneForcedArtifactAndNoCompactArtifact(t *testi
 func TestMaterializePreservesPrimaryTruthAcrossArtifactFailure(t *testing.T) {
 	failure := errors.New("capacity")
 	for _, test := range []struct {
-		name     string
-		required bool
-		primary  completion.Facts
-		want     completion.Status
+		name                         string
+		required                     bool
+		primary                      completion.Facts
+		want                         completion.Status
+		wantRequestedEffectConfirmed bool
 	}{
-		{"required before primary", true, completion.Facts{}, completion.Failure},
-		{"required after primary", true, completion.Facts{RequestedEffectConfirmed: true}, completion.Partial},
-		{"optional after primary", false, completion.Facts{Completed: true}, completion.Success},
+		{"required before primary", true, completion.Facts{}, completion.Failure, false},
+		{"required after completed without requested effect", true, completion.Facts{Completed: true}, completion.Failure, false},
+		{"required after primary", true, completion.Facts{RequestedEffectConfirmed: true}, completion.Partial, true},
+		{"optional after primary", false, completion.Facts{Completed: true}, completion.Success, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			result := Materialize(context.Background(), &recordingCreator{err: failure}, true, test.required, test.primary, validDraft(t))
 			status, err := completion.Classify(result.Facts)
 			if err != nil || status != test.want || !errors.Is(result.Err, failure) {
 				t.Fatalf("materialization = %#v status=%s err=%v", result, status, err)
+			}
+			if result.Facts.RequestedEffectConfirmed != test.wantRequestedEffectConfirmed {
+				t.Fatalf("RequestedEffectConfirmed = %t, want %t", result.Facts.RequestedEffectConfirmed, test.wantRequestedEffectConfirmed)
 			}
 		})
 	}

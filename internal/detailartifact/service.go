@@ -29,7 +29,7 @@ func Materialize(ctx context.Context, store Creator, needed, required bool, prim
 	if !required {
 		return Materialization{Facts: primary, Err: err}
 	}
-	if primary.RequestedEffectConfirmed || primary.Completed {
+	if primary.RequestedEffectConfirmed {
 		return Materialization{Facts: completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, Err: err}
 	}
 	return Materialization{Facts: completion.Facts{Failed: true}, Err: err}
