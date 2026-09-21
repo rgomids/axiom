@@ -46,12 +46,40 @@ run_failure() {
   grep -q '"category":"'"$category"'"' "$output"
 }
 
+assert_canonical() {
+  local output=$1
+  local status=$2
+  local result=$3
+  grep -Fq '"status":"'"$status"'"' "$output"
+  grep -Fq '"result":"'"$result"'"' "$output"
+  grep -Fq '"provenance":{"product":"Axiom","version":"development","revision":"' "$output"
+  grep -Fq '"sourceState":"' "$output"
+  if grep -Fq '"category":' "$output"; then
+    exit 1
+  fi
+}
+
+run_canonical_failure() {
+  local label=$1
+  local status=$2
+  local result=$3
+  local next=$4
+  shift 4
+  local output="$temporary/canonical-failure-$label.json"
+  if lingo --json "$@" >"$output"; then
+    exit 1
+  fi
+  assert_canonical "$output" "$status" "$result"
+  grep -Fq '"next":"'"$next"'"' "$output"
+}
+
 cd "$unrelated"
 resolved_binary=$(command -v lingo)
 if [[ "$resolved_binary" != "$binary_root/lingo" ]]; then
   exit 1
 fi
-lingo version >"$temporary/version.json"
+lingo --json version >"$temporary/version.json"
+assert_canonical "$temporary/version.json" success "Axiom build information"
 
 run_failure codex_not_configured runtime codex status
 run_success codex_configured "$temporary/runtime-install.json" runtime codex install
@@ -87,11 +115,20 @@ export AXIOM_FAKE_PROVIDER_STATE="$provider_state"
 
 run_success project_configured "$temporary/project-configure.json" project configure \
   --slug dogfood-project --name "Dogfood Project" --repository "main=$repository"
-run_success project_resolved "$temporary/project-show.json" project show --selector dogfood-project
-grep -q '"path":"'"$repository"'"' "$temporary/project-show.json"
-run_failure project_not_found project show --selector missing-project
+lingo --json project show --selector dogfood-project >"$temporary/project-show.json"
+assert_canonical "$temporary/project-show.json" success "Project resolved"
+grep -Fq '"references":["project:' "$temporary/project-show.json"
+grep -Fq '"repository:main"' "$temporary/project-show.json"
+if grep -Fq '"path":' "$temporary/project-show.json"; then
+  exit 1
+fi
+run_canonical_failure project-not-found validation_failure "Project was not found" \
+  "Provide an existing Project UUID or slug" project show --selector missing-project
 mv -- "$repository" "$temporary/moved-repository"
-run_failure repository_unavailable project show --selector dogfood-project
+run_canonical_failure repository-unavailable retryable_failure \
+  "Project repository is unavailable" \
+  "Restore the configured repository binding and retry inspection" \
+  project show --selector dogfood-project
 mv -- "$temporary/moved-repository" "$repository"
 
 run_failure external_mutation_denied work-item create --project dogfood-project \

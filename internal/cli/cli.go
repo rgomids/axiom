@@ -9,6 +9,9 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/provenance"
 )
 
 const (
@@ -28,6 +31,7 @@ type Service interface {
 	RuntimeCodexInstall(context.Context) Result
 	RuntimeCodexStatus(context.Context) Result
 	Resolve(context.Context, ResolveInput) Result
+	Show(context.Context, ResolveInput) Result
 	Configure(context.Context, ConfigureInput) Result
 	WorkItemCreate(context.Context, WorkItemInput) Result
 	WorkItemSelect(context.Context, WorkItemInput) Result
@@ -82,11 +86,12 @@ const (
 // must not return raw paths, input values, parser output, or operating-system
 // error strings for this surface.
 type Result struct {
-	Status   Status
-	Category string
-	Project  *ProjectView
-	WorkItem *WorkItemView
-	Workflow *WorkflowView
+	Status     Status
+	Category   string
+	Project    *ProjectView
+	WorkItem   *WorkItemView
+	Workflow   *WorkflowView
+	Completion *completion.Result
 }
 
 type RepositoryView struct {
@@ -125,14 +130,14 @@ type WorkflowView struct {
 // Run parses one CLI action, delegates it, and emits one safe structured event.
 // It never turns a parser error into user-visible text because parser text may
 // contain rejected input.
-func Run(ctx context.Context, args []string, service Service, stdout io.Writer) int {
+func Run(ctx context.Context, args []string, service Service, source provenance.Value, stdout io.Writer) int {
 	structured := append([]string{"--json"}, args...)
-	return RunInteractive(ctx, structured, service, nil, stdout, io.Discard)
+	return RunInteractive(ctx, structured, service, source, nil, stdout, io.Discard)
 }
 
 // RunInteractive adds the bounded prompt path used by `project configure` and
 // selects human or machine-readable presentation without changing application behavior.
-func RunInteractive(ctx context.Context, args []string, service Service, stdin io.Reader, stdout, stderr io.Writer) int {
+func RunInteractive(ctx context.Context, args []string, service Service, source provenance.Value, stdin io.Reader, stdout, stderr io.Writer) int {
 	mode, args := parseOutputMode(args)
 	if service == nil {
 		return emit(stdout, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
@@ -147,10 +152,50 @@ func RunInteractive(ctx context.Context, args []string, service Service, stdin i
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
+		if operation == validateAction || operation == showAction {
+			return emitParserFailure(stdout, mode, operation, *result, source)
+		}
 		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
 	}
 	response := dispatch(ctx, operation, input, service)
-	return emit(stdout, mode, eventFrom(operation, response))
+	return emitResponse(stdout, mode, operation, response)
+}
+
+func emitParserFailure(writer io.Writer, mode outputMode, operation action, issue string, source provenance.Value) int {
+	message, next := parserFailureText(operation, issue)
+	statement, err := provenance.NewText(message, provenance.AxiomAuthored)
+	if err != nil {
+		return ExitFailure
+	}
+	nextAction, err := provenance.NewText(next, provenance.AxiomAuthored)
+	if err != nil {
+		return ExitFailure
+	}
+	result, err := completion.NewValidationFailure(statement, nextAction, source)
+	if err != nil {
+		return ExitFailure
+	}
+	return emitCompletion(writer, mode, result)
+}
+
+func parserFailureText(operation action, issue string) (string, string) {
+	if operation == validateAction && issue == "missing_required_input" {
+		return "Project slug is required", "Provide a Project slug and retry validation"
+	}
+	if operation == showAction && issue == "missing_required_input" {
+		return "Project selector is required", "Provide a Project UUID or slug and retry inspection"
+	}
+	if operation == validateAction {
+		return "Project validation input is invalid", "Review supported validation flags and retry"
+	}
+	return "Project inspection input is invalid", "Review supported inspection flags and retry"
+}
+
+func emitResponse(writer io.Writer, mode outputMode, operation action, response Result) int {
+	if response.Completion != nil {
+		return emitCompletion(writer, mode, *response.Completion)
+	}
+	return emit(writer, mode, eventFrom(operation, response))
 }
 
 type action string
@@ -340,6 +385,12 @@ func known(operation action) bool {
 
 func dispatch(ctx context.Context, operation action, input requestInput, service Service) Result {
 	if err := ctx.Err(); err != nil {
+		if operation == validateAction {
+			return service.Validate(ctx, ProjectInput{Slug: input.slug})
+		}
+		if operation == showAction {
+			return service.Show(ctx, ResolveInput{Selector: input.selector})
+		}
 		return Result{Status: Cancelled, Category: "cancelled"}
 	}
 	switch operation {
@@ -353,8 +404,10 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.Update(ctx, UpdateInput{Slug: input.slug, Name: input.name})
 	case installAction:
 		return service.Install(ctx, InstallInput{Source: input.source})
-	case resolveAction, showAction:
+	case resolveAction:
 		return service.Resolve(ctx, ResolveInput{Selector: input.selector})
+	case showAction:
+		return service.Show(ctx, ResolveInput{Selector: input.selector})
 	case configureAction:
 		repositories, ok := parseRepositories(input.repositories)
 		if !ok {
@@ -514,13 +567,17 @@ func promptConfiguration(input io.Reader, prompts io.Writer) (ConfigureInput, bo
 
 // UnavailableService makes the executable fail closed until its composition root
 // receives the authorized application use cases in subsequent POC delivery work.
-type UnavailableService struct{}
+type UnavailableService struct{ source provenance.Value }
+
+func NewUnavailableService(source provenance.Value) UnavailableService {
+	return UnavailableService{source: source}
+}
 
 func (UnavailableService) Init(context.Context, InitInput) Result {
 	return unavailable()
 }
-func (UnavailableService) Validate(context.Context, ProjectInput) Result {
-	return unavailable()
+func (s UnavailableService) Validate(context.Context, ProjectInput) Result {
+	return s.canonicalUnavailable("Project validation unavailable")
 }
 func (UnavailableService) Reopen(context.Context, ProjectInput) Result {
 	return unavailable()
@@ -528,10 +585,13 @@ func (UnavailableService) Reopen(context.Context, ProjectInput) Result {
 func (UnavailableService) Update(context.Context, UpdateInput) Result {
 	return unavailable()
 }
-func (UnavailableService) Install(context.Context, InstallInput) Result         { return unavailable() }
-func (UnavailableService) RuntimeCodexInstall(context.Context) Result           { return unavailable() }
-func (UnavailableService) RuntimeCodexStatus(context.Context) Result            { return unavailable() }
-func (UnavailableService) Resolve(context.Context, ResolveInput) Result         { return unavailable() }
+func (UnavailableService) Install(context.Context, InstallInput) Result { return unavailable() }
+func (UnavailableService) RuntimeCodexInstall(context.Context) Result   { return unavailable() }
+func (UnavailableService) RuntimeCodexStatus(context.Context) Result    { return unavailable() }
+func (UnavailableService) Resolve(context.Context, ResolveInput) Result { return unavailable() }
+func (s UnavailableService) Show(context.Context, ResolveInput) Result {
+	return s.canonicalUnavailable("Project inspection unavailable")
+}
 func (UnavailableService) Configure(context.Context, ConfigureInput) Result     { return unavailable() }
 func (UnavailableService) WorkItemCreate(context.Context, WorkItemInput) Result { return unavailable() }
 func (UnavailableService) WorkItemSelect(context.Context, WorkItemInput) Result { return unavailable() }
@@ -552,3 +612,18 @@ func (UnavailableService) WorkflowEvidence(context.Context, WorkflowInput) Resul
 	return unavailable()
 }
 func unavailable() Result { return Result{Status: Failed, Category: "application_unavailable"} }
+
+func (s UnavailableService) canonicalUnavailable(message string) Result {
+	if !s.source.Valid() {
+		return unavailable()
+	}
+	statement, err := provenance.NewText(message, provenance.AxiomAuthored)
+	if err != nil {
+		return unavailable()
+	}
+	result, err := completion.New(completion.Facts{Failed: true}, statement, nil, provenance.Text{}, "", s.source)
+	if err != nil {
+		return unavailable()
+	}
+	return Result{Completion: &result}
+}

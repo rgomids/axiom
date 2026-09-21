@@ -26,8 +26,10 @@ go run ./cmd/lingo project update --slug sample --name "Sample renamed"
 ```
 
 Cada operação escreve resumo humano por padrão; prefixe o comando com `--json`
-para evento estruturado. Exit codes: `0` sucesso, `1` erro/conflito, `2`
-cancelamento. `init` é create/no-op/conflito: não
+para evento estruturado. `version`, `project validate` e `project show` usam o
+contrato canônico de completion; demais comandos POC preservam temporariamente o
+evento histórico. Exit codes: `0` sucesso, `1` erro/conflito, `2`
+interrupção/cancelamento. `init` é create/no-op/conflito: não
 renomeia nem atualiza um Project existente; use `update` para alterar o nome.
 
 `install` grava o record local estrito em `<state-root>/projects/<project-id>/installation.json`;
@@ -195,6 +197,7 @@ shell profiles:
 export PATH="$HOME/.local/bin:$PATH"
 command -v lingo
 lingo version
+lingo --json version
 ```
 
 For an isolated or custom user destination:
@@ -208,9 +211,10 @@ export PATH="/absolute/path/to/bin:$PATH"
 
 The installer is safe to rerun. It replaces only a prior binary whose exact
 checksum matches its protected receipt; an unrelated or modified destination is
-refused. `lingo version` and the receipt report whether source was dirty at build
-time; dirty builds use a `-dirty` version suffix, so commit metadata does not imply
-exact clean-source identity. Test missing-PATH guidance, dirty metadata,
+refused. `lingo version` reports `development` for source builds plus short revision
+or `unavailable` and source state `clean`, `dirty`, or `unknown`; it never invents
+a release version. The receipt retains the full source commit and dirty flag. Test
+missing-PATH guidance, dirty metadata,
 installation and unrelated-CWD invocation with:
 
 ```bash
@@ -258,11 +262,12 @@ lingo --json project show --selector my-project
 lingo help
 ```
 
-JSON results always contain `operation`, `status`, and `category`. Successful
-Project, Work Item, and workflow operations also contain typed `project`,
-`workItem`, or `workflow` payloads. The workflow payload supplies the resolved
-repository path, current gate, step status, references, and Evidence digests.
-Exit codes are `0` for success, `1` for failure, and `2` for cancellation.
+Canonical JSON for `version`, `project validate`, and `project show` uses
+`status`, `result`, optional `references`, optional `next`, optional `details`, and
+mandatory `provenance`. Human output renders the same semantic value. Other POC
+operations temporarily retain `operation`, `status`, `category`, and applicable
+typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
+`0` for success, `1` for failure, and `2` for interruption/cancellation.
 
 | Codex skill | Stable Lingo entrypoint |
 |---|---|

@@ -3,100 +3,128 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
+	"strconv"
 	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/codexruntime"
+	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
 var (
-	buildVersion = "devel"
-	buildCommit  = "unknown"
-	buildDirty   = "unknown"
-	buildSource  = "https://github.com/rgomids/axiom"
+	buildVersion     = provenance.Development
+	buildRevision    = provenance.Unavailable
+	buildSourceState = string(provenance.Unknown)
+	buildRelease     = "false"
 )
 
 func main() {
-	if len(os.Args) == 2 && os.Args[1] == "version" {
-		os.Exit(writeVersion(os.Stdout))
+	source := currentProvenance()
+	if format, ok := versionFormat(os.Args[1:]); ok {
+		os.Exit(writeVersion(os.Stdout, format, source))
 	}
 	if len(os.Args) == 2 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
 		os.Exit(cli.Help(os.Stdout))
 	}
-	os.Exit(cli.RunInteractive(context.Background(), os.Args[1:], compose(), os.Stdin, os.Stdout, os.Stderr))
+	os.Exit(cli.RunInteractive(context.Background(), os.Args[1:], composeWithProvenance(source), source, os.Stdin, os.Stdout, os.Stderr))
 }
 
-type versionInfo struct {
-	Product    string `json:"product"`
-	Binary     string `json:"binary"`
-	Version    string `json:"version"`
-	Commit     string `json:"commit"`
-	Dirty      bool   `json:"dirty"`
-	DirtyKnown bool   `json:"dirtyKnown"`
-	Source     string `json:"source"`
-}
-
-func writeVersion(output *os.File) int {
-	info := versionInfo{
-		Product:    "Axiom",
-		Binary:     "lingo",
-		Version:    buildVersion,
-		Commit:     buildCommit,
-		Dirty:      buildDirty == "true",
-		DirtyKnown: buildDirty == "true" || buildDirty == "false",
-		Source:     buildSource,
+func versionFormat(args []string) (cli.CompletionFormat, bool) {
+	if len(args) == 1 && args[0] == "version" {
+		return cli.CompletionHuman, true
 	}
-	if err := json.NewEncoder(output).Encode(info); err != nil {
+	if len(args) == 2 && args[1] == "version" && args[0] == "--json" {
+		return cli.CompletionJSON, true
+	}
+	if len(args) == 2 && args[1] == "version" && args[0] == "--human" {
+		return cli.CompletionHuman, true
+	}
+	return "", false
+}
+
+func writeVersion(output *os.File, format cli.CompletionFormat, source provenance.Value) int {
+	result, ok := newCompletion(completion.Facts{Completed: true}, "Axiom build information", nil, "", source)
+	if !ok {
 		return cli.ExitFailure
 	}
-	return cli.ExitSuccess
+	return cli.WriteCompletion(output, format, *result.Completion)
+}
+
+func currentProvenance() provenance.Value {
+	release, err := strconv.ParseBool(buildRelease)
+	if err != nil {
+		return unknownProvenance()
+	}
+	settings := make([]provenance.Setting, 0, 2)
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" || setting.Key == "vcs.modified" {
+				settings = append(settings, provenance.Setting{Key: setting.Key, Value: setting.Value})
+			}
+		}
+	}
+	value, err := provenance.FromBuild(provenance.Build{Release: release, Version: buildVersion, Revision: buildRevision, SourceState: provenance.SourceState(buildSourceState)}, settings)
+	if err != nil {
+		return unknownProvenance()
+	}
+	return value
+}
+
+func unknownProvenance() provenance.Value {
+	value, _ := provenance.FromBuild(provenance.Build{Version: provenance.Development, Revision: provenance.Unavailable, SourceState: provenance.Unknown}, nil)
+	return value
 }
 
 func compose() cli.Service {
+	return composeWithProvenance(currentProvenance())
+}
+
+func composeWithProvenance(source provenance.Value) cli.Service {
 	root, err := projectsRoot()
 	if err != nil {
-		return cli.UnavailableService{}
+		return cli.NewUnavailableService(source)
 	}
 	state, err := stateRoot()
 	if err != nil {
-		return cli.UnavailableService{}
+		return cli.NewUnavailableService(source)
 	}
 	if overlap, err := local.RootsOverlap(root, state); err != nil || overlap {
-		return cli.UnavailableService{}
+		return cli.NewUnavailableService(source)
 	}
 	store, err := local.NewPortableStore(root)
 	if err != nil {
-		return cli.UnavailableService{}
+		return cli.NewUnavailableService(source)
 	}
 	installation, err := local.NewInstallationStore(state)
 	if err != nil {
-		return cli.UnavailableService{}
+		return cli.NewUnavailableService(source)
 	}
 	codex, err := codexruntime.New(codexSkillsRoot())
 	if err != nil {
-		return cli.UnavailableService{}
+		return cli.NewUnavailableService(source)
 	}
 	workItems, err := local.NewWorkItemStore(state)
 	if err != nil {
-		return cli.UnavailableService{}
+		return cli.NewUnavailableService(source)
 	}
 	github, _ := workitem.NewGitHubAdapter(os.Getenv("AXIOM_GIT_BIN"), os.Getenv("AXIOM_GH_BIN"))
 	workItemService := workitem.New(workItemResolver{installation}, github, github, workItems)
 	workflows, err := local.NewWorkflowStore(state)
 	if err != nil {
-		return cli.UnavailableService{}
+		return cli.NewUnavailableService(source)
 	}
 	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows)
-	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root}
+	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, provenance: source}
 }
 
 func codexSkillsRoot() string {
@@ -144,6 +172,7 @@ type lifecycleService struct {
 	workItems    workitem.Service
 	workflows    workflow.Service
 	projectsRoot string
+	provenance   provenance.Value
 }
 
 type workItemResolver struct{ installation local.InstallationStore }
@@ -214,7 +243,17 @@ func (s lifecycleService) Init(ctx context.Context, input cli.InitInput) cli.Res
 	return cliResult(s.lifecycle.Init(ctx, projectapp.InitRequest{Slug: input.Slug, Name: input.Name}))
 }
 func (s lifecycleService) Validate(ctx context.Context, input cli.ProjectInput) cli.Result {
-	return cliResult(s.lifecycle.Validate(ctx, projectapp.ProjectRequest{Slug: input.Slug}))
+	result := s.lifecycle.Validate(ctx, projectapp.ProjectRequest{Slug: input.Slug})
+	if result.Status == projectapp.LifecycleApplied || result.Status == projectapp.LifecycleUnchanged {
+		return canonicalCompletion(completion.Facts{Completed: true}, "Project is valid", nil, "", s.provenance)
+	}
+	if result.Status == projectapp.LifecycleCancelled {
+		return canonicalCompletion(completion.Facts{WasInterrupted: true}, "Project validation was interrupted", nil, "Retry Project validation", s.provenance)
+	}
+	if result.Category == "storage_failure" || result.Category == "application_unavailable" {
+		return canonicalCompletion(completion.Facts{Failed: true}, "Project validation failed", nil, "", s.provenance)
+	}
+	return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project state is invalid", nil, "Correct Project state and retry validation", s.provenance)
 }
 func (s lifecycleService) Reopen(ctx context.Context, input cli.ProjectInput) cli.Result {
 	result := cliResult(s.lifecycle.Reopen(ctx, projectapp.ProjectRequest{Slug: input.Slug}))
@@ -249,6 +288,41 @@ func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) c
 		response.Project = projectView(result.Project)
 	}
 	return response
+}
+
+func (s lifecycleService) Show(ctx context.Context, input cli.ResolveInput) cli.Result {
+	result := s.installation.Resolve(ctx, input.Selector)
+	if result.Status != local.ResolutionFound {
+		return projectShowFailure(result.Category, s.provenance)
+	}
+	references := []string{"project:" + result.Project.ID}
+	for _, repository := range result.Project.Repositories {
+		references = append(references, "repository:"+repository.Key)
+	}
+	return canonicalCompletion(completion.Facts{Completed: true}, "Project resolved", references, "", s.provenance)
+}
+
+func projectShowFailure(category string, source provenance.Value) cli.Result {
+	switch category {
+	case "invalid_project_selector":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project selector is invalid", nil, "Provide a valid Project UUID or slug", source)
+	case "project_not_found":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project was not found", nil, "Provide an existing Project UUID or slug", source)
+	case "project_ambiguous":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project selector is ambiguous", nil, "Provide the exact Project UUID", source)
+	case "invalid_existing_local_state":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project state is invalid", nil, "Repair or reconfigure local Project state before retrying inspection", source)
+	case "recovery_required":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project state requires recovery", nil, "Review preserved local recovery state before retrying inspection", source)
+	case "project_source_unavailable":
+		return canonicalCompletion(completion.Facts{RetrySafeFailure: true}, "Project source is unavailable", nil, "Restore the configured Project source and retry inspection", source)
+	case "repository_unavailable":
+		return canonicalCompletion(completion.Facts{RetrySafeFailure: true}, "Project repository is unavailable", nil, "Restore the configured repository binding and retry inspection", source)
+	case "cancelled":
+		return canonicalCompletion(completion.Facts{WasInterrupted: true}, "Project inspection was interrupted", nil, "Retry Project inspection", source)
+	default:
+		return canonicalCompletion(completion.Facts{Failed: true}, "Project inspection failed", nil, "Inspect local storage and application availability before retrying", source)
+	}
 }
 
 func projectView(project local.ResolvedProject) *cli.ProjectView {
@@ -379,4 +453,31 @@ func cliResult(result projectapp.LifecycleResult) cli.Result {
 		status = cli.Cancelled
 	}
 	return cli.Result{Status: status, Category: result.Category}
+}
+
+func canonicalCompletion(facts completion.Facts, message string, references []string, next string, source provenance.Value) cli.Result {
+	result, ok := newCompletion(facts, message, references, next, source)
+	if !ok {
+		return cli.Result{Status: cli.Failed, Category: "application_unavailable"}
+	}
+	return result
+}
+
+func newCompletion(facts completion.Facts, message string, references []string, next string, source provenance.Value) (cli.Result, bool) {
+	statement, err := provenance.NewText(message, provenance.AxiomAuthored)
+	if err != nil {
+		return cli.Result{}, false
+	}
+	var nextAction provenance.Text
+	if next != "" {
+		nextAction, err = provenance.NewText(next, provenance.AxiomAuthored)
+		if err != nil {
+			return cli.Result{}, false
+		}
+	}
+	canonical, err := completion.New(facts, statement, references, nextAction, "", source)
+	if err != nil {
+		return cli.Result{}, false
+	}
+	return cli.Result{Completion: &canonical}, true
 }

@@ -2,6 +2,17 @@
 
 ## [2026-09-20]
 
+- implementation: complete explicitly authorized Specification 004 T01 only with
+  central immutable completion/provenance contracts, seven closed terminal
+  statuses, six semantic result fields, bounded equivalent human/JSON renderers,
+  truthful release/development/dirty/unavailable build identity, and canonical
+  `version`, `project validate`, and `project show` read-only surfaces.
+- test: add status/effect and provenance matrices, golden human/JSON output,
+  renderer-failure confirmed-effect preservation, authorship sentinels, output
+  bounds, build-flag black-box cases, zero-mutation read-only ledgers, and static
+  dependency/renderer checks. T01 Evidence is produced; human acceptance remains
+  pending and T02–T25 remain unauthorized.
+
 - approval: record the explicit PR #72 human decision approving the corrected
   final Specification 004 DAG of 25 Tasks as reconciled with the approved Plan.
   The decision concludes the Tasks phase only; implementation, T01 or any other

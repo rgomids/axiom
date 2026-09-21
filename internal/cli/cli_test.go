@@ -8,6 +8,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/rgomids/axiom/internal/completion"
 )
 
 func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
@@ -32,7 +34,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			if code := Run(context.Background(), test.args, service, &output); code != ExitSuccess {
+			if code := Run(context.Background(), test.args, service, completionProvenance(t), &output); code != ExitSuccess {
 				t.Fatalf("exit code = %d", code)
 			}
 			if service.call != test.call {
@@ -55,7 +57,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 
 func TestRunFailsPromptlyWithoutRequiredInput(t *testing.T) {
 	var output bytes.Buffer
-	code := Run(context.Background(), []string{"project", "init", "--slug", "alpha"}, &recordingService{}, &output)
+	code := Run(context.Background(), []string{"project", "init", "--slug", "alpha"}, &recordingService{}, completionProvenance(t), &output)
 	if code != ExitFailure {
 		t.Fatalf("exit code = %d", code)
 	}
@@ -65,7 +67,7 @@ func TestRunFailsPromptlyWithoutRequiredInput(t *testing.T) {
 func TestRunInteractiveGuidesProjectConfiguration(t *testing.T) {
 	var output, prompts bytes.Buffer
 	input := strings.NewReader("alpha\nAlpha\nmain\n/tmp/alpha\n")
-	code := RunInteractive(context.Background(), []string{"--json", "project", "configure"}, &recordingService{}, input, &output, &prompts)
+	code := RunInteractive(context.Background(), []string{"--json", "project", "configure"}, &recordingService{}, completionProvenance(t), input, &output, &prompts)
 	if code != ExitSuccess {
 		t.Fatalf("exit code = %d, output=%s", code, output.String())
 	}
@@ -77,7 +79,7 @@ func TestRunInteractiveGuidesProjectConfiguration(t *testing.T) {
 
 func TestRunInteractiveDefaultsToHumanOutput(t *testing.T) {
 	var output bytes.Buffer
-	code := RunInteractive(context.Background(), []string{"project", "show", "--selector", "alpha"}, &recordingService{}, nil, &output, io.Discard)
+	code := RunInteractive(context.Background(), []string{"project", "show", "--selector", "alpha"}, &recordingService{}, completionProvenance(t), nil, &output, io.Discard)
 	if code != ExitSuccess || !strings.Contains(output.String(), "success: applied (show)") || !strings.Contains(output.String(), `repository main "/tmp/alpha"`) {
 		t.Fatalf("human output = %q, code=%d", output.String(), code)
 	}
@@ -86,7 +88,7 @@ func TestRunInteractiveDefaultsToHumanOutput(t *testing.T) {
 func TestRunDoesNotExposeRejectedInput(t *testing.T) {
 	const sentinel = "do-not-render-this-value"
 	var output bytes.Buffer
-	code := Run(context.Background(), []string{"project", "init", "--slug", "alpha", "--name", "Alpha", "--unexpected", sentinel}, &recordingService{}, &output)
+	code := Run(context.Background(), []string{"project", "init", "--slug", "alpha", "--name", "Alpha", "--unexpected", sentinel}, &recordingService{}, completionProvenance(t), &output)
 	if code != ExitFailure {
 		t.Fatalf("exit code = %d", code)
 	}
@@ -99,7 +101,7 @@ func TestRunDoesNotExposeRejectedInput(t *testing.T) {
 func TestRunDoesNotExposeRejectedCommand(t *testing.T) {
 	const sentinel = "do-not-render-this-command"
 	var output bytes.Buffer
-	code := Run(context.Background(), []string{"project", sentinel}, &recordingService{}, &output)
+	code := Run(context.Background(), []string{"project", sentinel}, &recordingService{}, completionProvenance(t), &output)
 	if code != ExitFailure {
 		t.Fatalf("exit code = %d", code)
 	}
@@ -109,14 +111,68 @@ func TestRunDoesNotExposeRejectedCommand(t *testing.T) {
 	assertEvent(t, output.String(), "unknown", Failed, "invalid_command")
 }
 
+func TestCanonicalProjectParserFailuresDoNotCallApplicationServices(t *testing.T) {
+	const sentinel = "do-not-render-this-value"
+	tests := []struct {
+		name       string
+		args       []string
+		wantResult string
+		wantNext   string
+	}{
+		{"validate unknown flag", []string{"project", "validate", "--unknown", sentinel}, "Project validation input is invalid", "Review supported validation flags and retry"},
+		{"show unknown flag", []string{"project", "show", "--unknown", sentinel}, "Project inspection input is invalid", "Review supported inspection flags and retry"},
+		{"validate missing slug", []string{"project", "validate"}, "Project slug is required", "Provide a Project slug and retry validation"},
+		{"show missing selector", []string{"project", "show"}, "Project selector is required", "Provide a Project UUID or slug and retry inspection"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := &recordingService{}
+			var structured bytes.Buffer
+			code := RunInteractive(context.Background(), append([]string{"--json"}, test.args...), service, completionProvenance(t), nil, &structured, io.Discard)
+			if code != ExitFailure {
+				t.Fatalf("JSON exit code = %d", code)
+			}
+			if service.call != "" {
+				t.Fatalf("application service called: %q", service.call)
+			}
+			if strings.Contains(structured.String(), sentinel) {
+				t.Fatalf("JSON exposed rejected input: %q", structured.String())
+			}
+			var event completionEvent
+			if err := json.Unmarshal(structured.Bytes(), &event); err != nil {
+				t.Fatalf("canonical JSON = %q: %v", structured.String(), err)
+			}
+			if event.Status != completion.ValidationFailure || event.Result != test.wantResult || event.Next != test.wantNext {
+				t.Fatalf("canonical event = %+v", event)
+			}
+
+			var human bytes.Buffer
+			code = RunInteractive(context.Background(), append([]string{"--human"}, test.args...), service, completionProvenance(t), nil, &human, io.Discard)
+			if code != ExitFailure || service.call != "" {
+				t.Fatalf("human exit=%d application call=%q", code, service.call)
+			}
+			for _, expected := range []string{"status: validation_failure", "result: " + event.Result, "next: " + event.Next, "provenance: Axiom"} {
+				if !strings.Contains(human.String(), expected) {
+					t.Fatalf("human/JSON mismatch: %q absent from %q", expected, human.String())
+				}
+			}
+		})
+	}
+}
+
 func TestRunUsesCancelledExitCode(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
+	canonical := canonicalResult(t, completion.Interrupted, []string{"operation:validation"}, "Retry Project validation", completionProvenance(t))
+	service := &canonicalRecordingService{Result: Result{Completion: &canonical}}
 	var output bytes.Buffer
-	if code := Run(ctx, []string{"project", "validate", "--slug", "alpha"}, &recordingService{}, &output); code != ExitCancelled {
+	if code := Run(ctx, []string{"project", "validate", "--slug", "alpha"}, service, completionProvenance(t), &output); code != ExitCancelled {
 		t.Fatalf("exit code = %d", code)
 	}
-	assertEvent(t, output.String(), "validate", Cancelled, "cancelled")
+	if !strings.Contains(output.String(), `"status":"interrupted"`) {
+		t.Fatalf("canonical interruption absent from %q", output.String())
+	}
 }
 
 func assertEvent(t *testing.T, output, operation string, status Status, category string) {
@@ -131,6 +187,13 @@ func assertEvent(t *testing.T, output, operation string, status Status, category
 }
 
 type recordingService struct{ call string }
+
+type canonicalRecordingService struct {
+	recordingService
+	Result Result
+}
+
+func (s *canonicalRecordingService) Validate(context.Context, ProjectInput) Result { return s.Result }
 
 func (s *recordingService) Init(_ context.Context, input InitInput) Result {
 	s.call = "init:" + input.Slug + ":" + input.Name
@@ -161,6 +224,10 @@ func (s *recordingService) RuntimeCodexStatus(context.Context) Result {
 	return Result{Status: Succeeded, Category: "applied"}
 }
 func (s *recordingService) Resolve(_ context.Context, input ResolveInput) Result {
+	s.call = "resolve:" + input.Selector
+	return Result{Status: Succeeded, Category: "applied", Project: &ProjectView{ID: "123e4567-e89b-42d3-a456-426614174000", Slug: input.Selector, Repositories: []RepositoryView{{Key: "main", Path: "/tmp/alpha"}}}}
+}
+func (s *recordingService) Show(_ context.Context, input ResolveInput) Result {
 	s.call = "resolve:" + input.Selector
 	return Result{Status: Succeeded, Category: "applied", Project: &ProjectView{ID: "123e4567-e89b-42d3-a456-426614174000", Slug: input.Selector, Repositories: []RepositoryView{{Key: "main", Path: "/tmp/alpha"}}}}
 }

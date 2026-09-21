@@ -101,8 +101,10 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 [Tasks](004-mvp-v1-baseline/tasks.md): **Approved — human approval recorded on
 2026-09-20 in [PR #72](https://github.com/rgomids/axiom/pull/72)**. The corrected
 final DAG has 25 vertical delivery units across S1–S7 and is reconciled with the
-approved Plan. This concludes the Tasks phase; implementation remains
-unauthorized.
+approved Plan. A subsequent explicit human decision authorized T01 only. T01
+canonical completion/provenance implementation is complete with
+[Evidence](004-mvp-v1-baseline/evidence-t01.md) produced; human acceptance remains
+pending and T02–T25 remain unauthorized.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -135,5 +137,6 @@ bounded sequential Execution record. Both were **Accepted by explicit human
 decision on 2026-09-20**, and the Specification 004 Plan was Approved in the same
 PR #71 decision. The corrected final 25-Task DAG was then **Approved by explicit
 human decision in [PR #72](https://github.com/rgomids/axiom/pull/72) on
-2026-09-20**, concluding the Tasks phase. MVP implementation, Provider mutation,
-release, and final MVP acceptance remain unauthorized.
+2026-09-20**, concluding the Tasks phase. A later explicit human authorization
+opened and completed T01 only; its Evidence awaits human acceptance. T02–T25,
+Provider mutation, release, and final MVP acceptance remain unauthorized.
