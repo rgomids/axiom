@@ -68,8 +68,10 @@ baseline MVP aprovado. Seu
 ADRs aceitos
 [0007](docs/decisions/0007-local-publication-and-recovery-protocol.md) e
 [0008](docs/decisions/0008-minimal-machine-local-execution-record.md). As
-[Tasks propostas](docs/specifications/004-mvp-v1-baseline/tasks.md) estão prontas
-para revisão humana; ainda não foram aprovadas e nenhuma implementação MVP está
+[Tasks](docs/specifications/004-mvp-v1-baseline/tasks.md) foram aprovadas por
+decisão humana no [PR #72](https://github.com/rgomids/axiom/pull/72) em
+2026-09-20. A DAG final corrigida contém 25 Tasks e está reconciliada com o Plan
+aprovado. Essa decisão conclui a fase de Tasks; nenhuma implementação MVP está
 autorizada.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
