@@ -65,8 +65,14 @@ same PR #71 human decision. The resulting
 into a corrected final DAG of 25 vertical units with explicit dependency and
 Evidence ownership. It was Approved by explicit human decision in
 [PR #72](https://github.com/rgomids/axiom/pull/72) on 2026-09-20, concluding the
-Tasks phase. Implementation, Provider mutation, migration execution, and release
-remain unauthorized and separately gated.
+Tasks phase. Operational delivery now uses S1–S7 as the primary tracking/authorization units,
+with T01–T25 retained as the approved internal decomposition. S1 is authorized in
+[#75](https://github.com/rgomids/axiom/issues/75): T01 was accepted/merged in PR
+#74 and T02–T03 may proceed inside the approved S1 boundary. S2–S7, Provider
+mutation outside an authorized Task boundary, migration execution, and release
+remain separately gated. Slice trackers are
+[#75](https://github.com/rgomids/axiom/issues/75) through
+[#81](https://github.com/rgomids/axiom/issues/81).
 
 ## Complete Specification 002
 
