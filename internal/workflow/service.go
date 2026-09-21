@@ -4,11 +4,14 @@ package workflow
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+var ErrRecoveryRequired = errors.New("workflow recovery required")
 
 var Gates = []string{"specification", "clarification", "plan", "tasks", "implementation", "review", "evidence", "reconciliation", "completion"}
 
@@ -48,6 +51,7 @@ type State struct {
 	Status                                   string
 	Current                                  int
 	Steps                                    []Step
+	Revision                                 [32]byte
 }
 
 type Store interface {
@@ -105,7 +109,7 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 			}
 			return Result{Status: Succeeded, Category: "workflow_already_started", State: existing}
 		}
-		return failure("workflow_write_failed")
+		return workflowStoreFailure(err)
 	}
 	return Result{Status: Succeeded, Category: "workflow_started", State: state}
 }
@@ -117,6 +121,9 @@ func (s Service) Advance(ctx context.Context, target Target, gate, outcome, refe
 	}
 	state, err := s.store.Load(ctx, project.ID, target.RepositoryKey, target.WorkItem)
 	if err != nil {
+		if errors.Is(err, ErrRecoveryRequired) {
+			return failure("recovery_required")
+		}
 		return failure("workflow_not_found")
 	}
 	if state.Status == "completed" {
@@ -145,7 +152,7 @@ func (s Service) Advance(ctx context.Context, target Target, gate, outcome, refe
 		step.Status = "failed"
 		state.Status = "interrupted"
 		if err := s.store.Save(ctx, state); err != nil {
-			return failure("workflow_write_failed")
+			return workflowStoreFailure(err)
 		}
 		return Result{Status: Failed, Category: "workflow_interrupted", State: state}
 	}
@@ -153,7 +160,7 @@ func (s Service) Advance(ctx context.Context, target Target, gate, outcome, refe
 	state.Current++
 	state.Status = "active"
 	if err := s.store.Save(ctx, state); err != nil {
-		return failure("workflow_write_failed")
+		return workflowStoreFailure(err)
 	}
 	return Result{Status: Succeeded, Category: "workflow_advanced", State: state}
 }
@@ -169,7 +176,7 @@ func (s Service) Resume(ctx context.Context, target Target) Result {
 	state.Status = "active"
 	state.Steps[state.Current].Status = "pending"
 	if err := s.store.Save(ctx, state); err != nil {
-		return failure("workflow_write_failed")
+		return workflowStoreFailure(err)
 	}
 	return Result{Status: Succeeded, Category: "workflow_resumed", State: state}
 }
@@ -189,6 +196,9 @@ func (s Service) load(ctx context.Context, target Target) (State, Result) {
 	}
 	state, err := s.store.Load(ctx, project.ID, target.RepositoryKey, target.WorkItem)
 	if err != nil {
+		if errors.Is(err, ErrRecoveryRequired) {
+			return State{}, failure("recovery_required")
+		}
 		return State{}, failure("workflow_not_found")
 	}
 	if state.RepositoryPath != repository.Path {
@@ -210,7 +220,11 @@ func (s Service) complete(ctx context.Context, target Target, state State, outco
 	state.Current++
 	state.Status = "completed"
 	if err := s.store.Save(ctx, state); err != nil {
-		return Result{Status: Failed, Category: "work_item_completed_workflow_write_failed", State: state, WorkItem: workItem}
+		category := "work_item_completed_workflow_write_failed"
+		if errors.Is(err, ErrRecoveryRequired) {
+			category = "work_item_completed_workflow_recovery_required"
+		}
+		return Result{Status: Failed, Category: category, State: state, WorkItem: workItem}
 	}
 	return Result{Status: Succeeded, Category: "workflow_completed", State: state, WorkItem: workItem}
 }
@@ -269,3 +283,10 @@ func artifactDigest(root, reference string) ([32]byte, bool) {
 }
 
 func failure(category string) Result { return Result{Status: Failed, Category: category} }
+
+func workflowStoreFailure(err error) Result {
+	if errors.Is(err, ErrRecoveryRequired) {
+		return failure("recovery_required")
+	}
+	return failure("workflow_write_failed")
+}

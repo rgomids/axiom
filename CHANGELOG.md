@@ -1,5 +1,21 @@
 # Changelog
 
+## [2026-09-21]
+
+- implementation: complete the authorized remainder of MVP S1 with closed,
+  bounded machine-local Markdown detail artifacts, opaque identity/correlation,
+  digest-checked create/read, explicit capacity failure without eviction, and
+  completion-aware required/optional artifact materialization.
+- security: add the shared protected local publication state machine with fixed
+  broad-to-narrow process coordination, expected byte revisions, private staging,
+  versioned recovery markers, protected old-or-new commit points, F0–F8 fault
+  classification, and fail-closed readers for artifact, Work Item, workflow,
+  Project, and installation state.
+- test: add codec/sanitization/limit/capacity/link/type/permission/digest cases,
+  stale-authority and old/new matrices, deterministic F0–F8 injection,
+  multi-process barrier/crash coverage, and S1 regression Evidence. No S2 work,
+  Provider mutation, Git remote mutation, Runtime installation, or release work.
+
 ## [2026-09-20]
 
 - implementation: complete explicitly authorized Specification 004 T01 only with

@@ -2,7 +2,12 @@
 // required by the E2E POC.
 package workitem
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var ErrRecoveryRequired = errors.New("work item recovery required")
 
 type Repository struct{ Key, Path string }
 type Project struct {
@@ -35,6 +40,7 @@ type Link struct {
 	ProjectID, RepositoryKey, ProviderRepository string
 	Number                                       int
 	URL, State                                   string
+	Revision                                     [32]byte
 }
 
 type Store interface {
@@ -82,9 +88,9 @@ func (s Service) Create(ctx context.Context, target Target, title, body string, 
 	if err != nil {
 		return failure("github_mutation_failed")
 	}
-	result = s.persist(ctx, project, target.RepositoryKey, repository, external)
+	result = s.persist(ctx, project, target.RepositoryKey, repository, external, [32]byte{})
 	if result.Status == Failed {
-		result.Category = "provider_committed_local_failed"
+		result.Category = providerCommittedCategory(result.Category)
 	}
 	return result
 }
@@ -98,7 +104,7 @@ func (s Service) Select(ctx context.Context, target Target, number int) Result {
 	if err != nil {
 		return failure("github_read_failed")
 	}
-	return s.persist(ctx, project, target.RepositoryKey, repository, external)
+	return s.persist(ctx, project, target.RepositoryKey, repository, external, [32]byte{})
 }
 
 func (s Service) Show(ctx context.Context, target Target, number int) Result {
@@ -108,6 +114,9 @@ func (s Service) Show(ctx context.Context, target Target, number int) Result {
 	}
 	link, err := s.store.Load(ctx, project.ID, target.RepositoryKey, number)
 	if err != nil {
+		if errors.Is(err, ErrRecoveryRequired) {
+			return failure("recovery_required")
+		}
 		return failure("work_item_not_found")
 	}
 	return Result{Status: Succeeded, Category: "work_item_loaded", Link: link}
@@ -140,9 +149,9 @@ func (s Service) Complete(ctx context.Context, target Target, number int, author
 	if err != nil {
 		return failure("github_mutation_failed")
 	}
-	result := s.persist(ctx, Project{ID: shown.Link.ProjectID}, shown.Link.RepositoryKey, shown.Link.ProviderRepository, external)
+	result := s.persist(ctx, Project{ID: shown.Link.ProjectID}, shown.Link.RepositoryKey, shown.Link.ProviderRepository, external, shown.Link.Revision)
 	if result.Status == Failed {
-		result.Category = "provider_committed_local_failed"
+		result.Category = providerCommittedCategory(result.Category)
 		return result
 	}
 	result.Category = "work_item_completed"
@@ -170,15 +179,25 @@ func (s Service) resolve(ctx context.Context, target Target) (Project, string, R
 	return Project{}, "", failure("repository_not_configured")
 }
 
-func (s Service) persist(ctx context.Context, project Project, key, repository string, external External) Result {
+func (s Service) persist(ctx context.Context, project Project, key, repository string, external External, revision [32]byte) Result {
 	if !validExternal(repository, external.Number, external) {
 		return failure("invalid_github_response")
 	}
-	link := Link{ProjectID: project.ID, RepositoryKey: key, ProviderRepository: repository, Number: external.Number, URL: external.URL, State: external.State}
+	link := Link{ProjectID: project.ID, RepositoryKey: key, ProviderRepository: repository, Number: external.Number, URL: external.URL, State: external.State, Revision: revision}
 	if err := s.store.Save(ctx, link); err != nil {
+		if errors.Is(err, ErrRecoveryRequired) {
+			return Result{Status: Failed, Category: "local_work_item_recovery_required", Link: link}
+		}
 		return Result{Status: Failed, Category: "local_work_item_write_failed", Link: link}
 	}
 	return Result{Status: Succeeded, Category: "work_item_linked", Link: link}
 }
 
 func failure(category string) Result { return Result{Status: Failed, Category: category} }
+
+func providerCommittedCategory(local string) string {
+	if local == "local_work_item_recovery_required" {
+		return "provider_committed_local_recovery_required"
+	}
+	return "provider_committed_local_failed"
+}

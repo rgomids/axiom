@@ -80,6 +80,21 @@ func TestCreateReportsProviderCommitWhenLocalSaveFails(t *testing.T) {
 	}
 }
 
+func TestRecoveryRequiredRemainsDistinctFromMissingAndGenericFailure(t *testing.T) {
+	provider := &fakeProvider{}
+	store := newFakeStore()
+	store.recovery = true
+	service := New(fakeResolver{}, fakeLocator{}, provider, store)
+	created := service.Create(context.Background(), Target{"sample", "main"}, "Title", "Body", true)
+	if created.Category != "provider_committed_local_recovery_required" || provider.creates != 1 {
+		t.Fatalf("create = %#v", created)
+	}
+	shown := service.Show(context.Background(), Target{"sample", "main"}, 7)
+	if shown.Category != "recovery_required" {
+		t.Fatalf("show = %#v", shown)
+	}
+}
+
 type fakeResolver struct{}
 
 func (fakeResolver) Resolve(context.Context, string) (Project, string) {
@@ -110,10 +125,14 @@ func (p *fakeProvider) Close(context.Context, string, int) (External, error) {
 type fakeStore struct {
 	links    map[string]Link
 	failSave bool
+	recovery bool
 }
 
 func newFakeStore() *fakeStore { return &fakeStore{links: map[string]Link{}} }
 func (s *fakeStore) Save(_ context.Context, link Link) error {
+	if s.recovery {
+		return ErrRecoveryRequired
+	}
 	if s.failSave {
 		return errors.New("write failed")
 	}
@@ -121,6 +140,9 @@ func (s *fakeStore) Save(_ context.Context, link Link) error {
 	return nil
 }
 func (s *fakeStore) Load(context.Context, string, string, int) (Link, error) {
+	if s.recovery {
+		return Link{}, ErrRecoveryRequired
+	}
 	link, ok := s.links["main"]
 	if !ok {
 		return Link{}, errors.New("missing")

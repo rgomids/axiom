@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -223,6 +224,13 @@ func temporaryName(prefix string) (string, error) {
 }
 
 func readPrivateFile(root *os.Root, name string) ([]byte, error) {
+	return readPrivateFileBounded(root, name, MaxRecordBytes)
+}
+
+func readPrivateFileBounded(root *os.Root, name string, limit int) ([]byte, error) {
+	if limit <= 0 {
+		return nil, ErrUnsafe
+	}
 	if info, err := root.Lstat(name); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		return nil, ErrUnsafe
 	}
@@ -245,8 +253,8 @@ func readPrivateFile(root *os.Root, name string) ([]byte, error) {
 	if err := checkPrivateACL(file); err != nil {
 		return nil, err
 	}
-	data, err := io.ReadAll(io.LimitReader(file, MaxRecordBytes+1))
-	if err != nil || len(data) > MaxRecordBytes {
+	data, err := io.ReadAll(io.LimitReader(file, int64(limit)+1))
+	if err != nil || len(data) > limit {
 		return nil, ErrUnsafe
 	}
 	return data, nil
@@ -311,7 +319,16 @@ func markAttempt(root *os.Root, prefix string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := writePrivateFile(root, name, []byte("pending\n")); err != nil {
+	wire, err := json.Marshal(struct {
+		FormatVersion int    `json:"formatVersion"`
+		OperationID   string `json:"operationId"`
+		Stage         string `json:"stage"`
+	}{FormatVersion: 1, OperationID: name, Stage: "pre_publication"})
+	if err != nil {
+		return "", err
+	}
+	wire = append(wire, '\n')
+	if err := writePrivateFile(root, name, wire); err != nil {
 		return "", err
 	}
 	if err := syncRoot(root); err != nil {
@@ -347,4 +364,23 @@ func lockDirectory(root *os.Root, exclusive bool) (*os.File, error) {
 		return nil, err
 	}
 	return file, nil
+}
+
+func lockRoots(exclusive bool, roots ...*os.Root) ([]*os.File, error) {
+	locks := make([]*os.File, 0, len(roots))
+	for _, root := range roots {
+		lock, err := lockDirectory(root, exclusive)
+		if err != nil {
+			closeFiles(locks)
+			return nil, err
+		}
+		locks = append(locks, lock)
+	}
+	return locks, nil
+}
+
+func closeFiles(files []*os.File) {
+	for index := len(files) - 1; index >= 0; index-- {
+		_ = files[index].Close()
+	}
 }

@@ -3,6 +3,7 @@ package local
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -28,6 +29,33 @@ func TestWorkflowStoreRoundTripsStrictPrivateState(t *testing.T) {
 	info, err := os.Stat(record)
 	if err != nil || info.Mode().Perm() != 0o600 {
 		t.Fatalf("record mode = %v, %v", info, err)
+	}
+}
+
+func TestWorkflowStoreRequiresExpectedRevision(t *testing.T) {
+	store, err := NewWorkflowStore(filepath.Join(t.TempDir(), "state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := validWorkflow(t.TempDir())
+	if err := store.Create(context.Background(), state); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.Load(context.Background(), state.ProjectID, state.RepositoryKey, state.WorkItem)
+	if err != nil || loaded.Revision == ([32]byte{}) {
+		t.Fatalf("missing revision: %#v %v", loaded, err)
+	}
+	stale := loaded
+	stale.Steps = append([]workflow.Step(nil), loaded.Steps...)
+	loaded.Status = "interrupted"
+	loaded.Steps[0].Status = "failed"
+	loaded.Steps[0].Reference = "spec.md"
+	loaded.Steps[0].Digest[0] = 1
+	if err := store.Save(context.Background(), loaded); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(context.Background(), stale); !errors.Is(err, ErrConflict) {
+		t.Fatalf("stale save = %v", err)
 	}
 }
 
