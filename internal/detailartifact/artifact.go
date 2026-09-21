@@ -4,6 +4,7 @@ package detailartifact
 import (
 	"crypto/sha256"
 	"errors"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -185,7 +186,7 @@ func validMetadata(value string, limit int) bool {
 	if value == "" || len(value) > limit || !utf8.ValidString(value) || strings.TrimSpace(value) != value {
 		return false
 	}
-	if sensitiveText(value) {
+	if sensitiveText(value) || sensitiveURL(value) {
 		return false
 	}
 	for _, current := range value {
@@ -194,6 +195,28 @@ func validMetadata(value string, limit int) bool {
 		}
 	}
 	return true
+}
+
+func sensitiveURL(value string) bool {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return false
+	}
+	if parsed.User != nil {
+		return true
+	}
+	for _, field := range strings.Split(parsed.RawQuery, "&") {
+		rawName, _, _ := strings.Cut(field, "=")
+		name, err := url.QueryUnescape(rawName)
+		if err != nil {
+			continue
+		}
+		switch strings.ToLower(name) {
+		case "token", "access_token", "refresh_token", "api_key", "client_secret", "password":
+			return true
+		}
+	}
+	return false
 }
 
 func sensitiveText(value string) bool {

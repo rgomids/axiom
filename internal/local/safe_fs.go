@@ -314,6 +314,71 @@ func syncRoot(root *os.Root) error {
 	return file.Sync()
 }
 
+const (
+	directoryReadBatch       = 64
+	maxLocalDirectoryEntries = 10_002
+)
+
+func walkDirectoryNamesBounded(root *os.Root, limit int, visit func(string) bool) error {
+	if limit < 0 {
+		return ErrUnsafe
+	}
+	directory, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	defer directory.Close()
+	seen := 0
+	for {
+		batch := directoryReadBatch
+		if remaining := limit - seen + 1; remaining < batch {
+			batch = remaining
+		}
+		names, readErr := directory.Readdirnames(batch)
+		for _, name := range names {
+			seen++
+			if seen > limit {
+				return ErrUnsafe
+			}
+			if visit != nil && !visit(name) {
+				return nil
+			}
+		}
+		if errors.Is(readErr, io.EOF) {
+			return nil
+		}
+		if readErr != nil {
+			return readErr
+		}
+	}
+}
+
+func readDirectoryNamesBounded(root *os.Root, limit int) ([]string, error) {
+	names := make([]string, 0, min(limit, directoryReadBatch))
+	err := walkDirectoryNamesBounded(root, limit, func(name string) bool {
+		names = append(names, name)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return names, nil
+}
+
+func directoryPrefixPresentBounded(root *os.Root, limit int, prefixes ...string) (bool, error) {
+	present := false
+	err := walkDirectoryNamesBounded(root, limit, func(name string) bool {
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(name, prefix) {
+				present = true
+				return false
+			}
+		}
+		return true
+	})
+	return present, err
+}
+
 func markAttempt(root *os.Root, prefix string) (string, error) {
 	name, err := temporaryName(prefix)
 	if err != nil {
@@ -338,13 +403,7 @@ func markAttempt(root *os.Root, prefix string) (string, error) {
 }
 
 func clearAttempt(root *os.Root, name string) error {
-	if err := root.Remove(name); err != nil {
-		return ErrRecoveryRequired
-	}
-	if err := syncRoot(root); err != nil {
-		return ErrRecoveryRequired
-	}
-	return nil
+	return removeProtocolState(root, name, publicationHooks{})
 }
 
 func lockDirectory(root *os.Root, exclusive bool) (*os.File, error) {

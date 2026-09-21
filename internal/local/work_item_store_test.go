@@ -164,3 +164,56 @@ func TestPublishFileCleanupFailuresRequireRecoveryBeforeCommit(t *testing.T) {
 		})
 	}
 }
+
+func TestPublishFileRestoresMarkerWhenRemovalSyncFailsAfterCommit(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	store, err := NewWorkItemStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := workitem.Link{ProjectID: "123e4567-e89b-42d3-a456-426614174000", RepositoryKey: "main", ProviderRepository: "owner/repo", Number: 7, URL: "https://github.com/owner/repo/issues/7", State: "OPEN"}
+	if err := store.Save(context.Background(), link); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.Load(context.Background(), link.ProjectID, link.RepositoryKey, link.Number)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded.State = "CLOSED"
+	projectPath := filepath.Join(state, "work-items", link.ProjectID)
+	sentinel := filepath.Join(state, "outside-owned-sentinel")
+	if err := os.WriteFile(sentinel, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	removed := false
+	failed := false
+	store.hooks.remove = func(root *os.Root, name string) error {
+		err := root.Remove(name)
+		if err == nil && strings.HasPrefix(name, ".axiom-recovery-") {
+			removed = true
+		}
+		return err
+	}
+	store.hooks.sync = func(root *os.Root) error {
+		if removed && !failed {
+			failed = true
+			return syscall.EIO
+		}
+		return syncRoot(root)
+	}
+	err = store.Save(context.Background(), loaded)
+	var publication *PublicationError
+	if !errors.As(err, &publication) || !publication.Committed || !errors.Is(err, ErrRecoveryRequired) || !removed || !failed {
+		t.Fatalf("post-removal sync result = %v", err)
+	}
+	wire, err := os.ReadFile(filepath.Join(projectPath, workItemName(link.RepositoryKey, link.Number)))
+	if err != nil || !strings.Contains(string(wire), `"state":"CLOSED"`) {
+		t.Fatalf("canonical bytes = %q, %v", wire, err)
+	}
+	if _, err := store.Load(context.Background(), link.ProjectID, link.RepositoryKey, link.Number); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("reader after removal sync failure = %v", err)
+	}
+	if content, err := os.ReadFile(sentinel); err != nil || string(content) != "unchanged" {
+		t.Fatalf("non-protocol object changed = %q, %v", content, err)
+	}
+}

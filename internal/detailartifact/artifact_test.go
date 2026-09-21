@@ -108,6 +108,95 @@ func TestArtifactRejectsSensitiveReferenceMetadataOnCreateAndDecode(t *testing.T
 	}
 }
 
+func TestArtifactRejectsCredentialURLsInReferenceMetadataOnCreateAndDecode(t *testing.T) {
+	sentinel := "SYNTHETIC_" + "SECRET"
+	unsafe := []string{
+		"https://user:pass" + "word@example.com",
+		"https://user:" + sentinel + "@example.com",
+		"https://example.com/?token=x",
+		"https://example.com/?access_token=x",
+		"https://example.com/?refresh_token=x",
+		"https://example.com/?api_key=x",
+		"https://example.com/?client_secret=x",
+		"https://example.com/?password=x",
+		"https://example.com/?ToKeN=x",
+		"https://example.com/?access%5Ftoken=x",
+		"https://example.com/?token=" + sentinel,
+	}
+	for _, value := range unsafe {
+		t.Run(value[:min(len(value), 32)], func(t *testing.T) {
+			for _, field := range []struct {
+				name      string
+				apply     func(*Draft, string)
+				persisted func(Artifact) []string
+			}{
+				{
+					name: "references",
+					apply: func(draft *Draft, input string) {
+						draft.References = []Reference{{Kind: "source", Value: input}}
+					},
+					persisted: func(artifact Artifact) []string {
+						values := make([]string, 0, len(artifact.References))
+						for _, reference := range artifact.References {
+							values = append(values, reference.Value)
+						}
+						return values
+					},
+				},
+				{
+					name: "live references",
+					apply: func(draft *Draft, input string) {
+						draft.LiveReferences = []string{input}
+					},
+					persisted: func(artifact Artifact) []string { return artifact.LiveReferences },
+				},
+			} {
+				t.Run(field.name, func(t *testing.T) {
+					draft := validDraft(t)
+					field.apply(&draft, value)
+					artifact, err := New("123e4567-e89b-42d3-a456-426614174001", time.Now(), draft)
+					if err == nil || strings.Contains(err.Error(), sentinel) {
+						t.Fatalf("create result leaked or accepted sensitive URL")
+					}
+					for _, persisted := range field.persisted(artifact) {
+						if strings.Contains(persisted, sentinel) {
+							t.Fatal("sensitive sentinel reached artifact state")
+						}
+					}
+
+					safe := validDraft(t)
+					field.apply(&safe, "safe-reference")
+					artifact, err = New("123e4567-e89b-42d3-a456-426614174001", time.Now(), safe)
+					if err != nil {
+						t.Fatal(err)
+					}
+					metadata, err := EncodeMetadata(artifact)
+					if err != nil {
+						t.Fatal(err)
+					}
+					metadata = bytes.Replace(metadata, []byte("safe-reference"), []byte(value), 1)
+					if _, err := Decode(metadata, artifact.Markdown); err == nil || strings.Contains(err.Error(), sentinel) {
+						t.Fatalf("decode result leaked or accepted sensitive URL")
+					}
+				})
+			}
+		})
+	}
+
+	for _, apply := range []func(*Draft){
+		func(draft *Draft) {
+			draft.References = []Reference{{Kind: "issue", Value: "https://github.com/owner/repo/issues/123"}}
+		},
+		func(draft *Draft) { draft.LiveReferences = []string{"https://github.com/owner/repo/issues/123"} },
+	} {
+		draft := validDraft(t)
+		apply(&draft)
+		if _, err := New("123e4567-e89b-42d3-a456-426614174001", time.Now(), draft); err != nil {
+			t.Fatalf("safe URL rejected: %v", err)
+		}
+	}
+}
+
 func TestArtifactRequiresStableCorrelationAndDigest(t *testing.T) {
 	draft := validDraft(t)
 	draft.CorrelationID = ""

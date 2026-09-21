@@ -94,21 +94,11 @@ func (h publicationHooks) writeFile(root *os.Root, name string, content []byte) 
 }
 
 func protocolStatePresent(root *os.Root) (bool, error) {
-	directory, err := root.Open(".")
-	if err != nil {
-		return false, err
-	}
-	names, err := directory.Readdirnames(-1)
-	directory.Close()
-	if err != nil {
-		return false, err
-	}
-	for _, name := range names {
-		if strings.HasPrefix(name, ".axiom-stage-") || strings.HasPrefix(name, ".axiom-recovery-") {
-			return true, nil
-		}
-	}
-	return false, nil
+	return protocolStatePresentBounded(root, maxLocalDirectoryEntries)
+}
+
+func protocolStatePresentBounded(root *os.Root, limit int) (bool, error) {
+	return directoryPrefixPresentBounded(root, limit, ".axiom-stage-", ".axiom-recovery-")
 }
 
 func writeProtocolMarker(root *os.Root, object, staging string, priorPresent bool, prior [32]byte, next [32]byte, hooks publicationHooks) (string, error) {
@@ -221,10 +211,28 @@ func cleanupPreCommit(root *os.Root, marker string, removeStage func() error, ho
 	if err := hooks.syncRoot(root); err != nil {
 		return err
 	}
-	if err := hooks.removeName(root, marker); err != nil {
-		return err
+	return removeProtocolState(root, marker, hooks)
+}
+
+func removeProtocolState(root *os.Root, name string, hooks publicationHooks) error {
+	wire, err := readPrivateFileBounded(root, name, 64<<10)
+	if err != nil {
+		return ErrRecoveryRequired
 	}
-	return hooks.syncRoot(root)
+	if err := hooks.removeName(root, name); err != nil {
+		return ErrRecoveryRequired
+	}
+	if err := hooks.syncRoot(root); err == nil {
+		return nil
+	}
+	// Removal is already visible in this namespace even when its directory sync
+	// fails. Restore the exact bounded owned marker so subsequent readers remain
+	// fail-closed; canonical bytes and the commit classification stay unchanged.
+	if _, err := root.Lstat(name); os.IsNotExist(err) {
+		_ = writePrivateFile(root, name, wire)
+	}
+	_ = hooks.syncRoot(root)
+	return ErrRecoveryRequired
 }
 
 func cleanupStagedFile(root *os.Root, stage string, hooks publicationHooks) error {
@@ -387,10 +395,7 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 	if err := hooks.at(FaultF8); err != nil {
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 	}
-	if err := hooks.removeName(root, markerName); err != nil {
-		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
-	}
-	if err := hooks.syncRoot(root); err != nil {
+	if err := removeProtocolState(root, markerName, hooks); err != nil {
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 	}
 	return nil

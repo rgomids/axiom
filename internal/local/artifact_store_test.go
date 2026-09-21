@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -176,6 +177,69 @@ func TestArtifactStoreCapacityAndCollisionFailWithoutEviction(t *testing.T) {
 	}
 }
 
+func TestArtifactStoreCapacityBoundariesAndInvalidEntriesDoNotEvict(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		count   int
+		wantErr error
+	}{
+		{name: "below", count: detailartifact.MaxLiveArtifacts - 1},
+		{name: "exactly", count: detailartifact.MaxLiveArtifacts, wantErr: ErrCapacity},
+		{name: "above", count: detailartifact.MaxLiveArtifacts + 1, wantErr: ErrCapacity},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := artifactStore(t)
+			store.capacity = func(*os.Root) (int, int64, error) { return test.count, 0, nil }
+			_, err := store.Create(context.Background(), artifactDraft(t))
+			if !errors.Is(err, test.wantErr) || test.wantErr == nil && err != nil {
+				t.Fatalf("capacity boundary = %v", err)
+			}
+		})
+	}
+
+	store := artifactStore(t)
+	root, objects, err := store.openObjects(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	defer objects.Close()
+	for index := 0; index < 129; index++ {
+		name := fmt.Sprintf("invalid-%03d", index)
+		if err := objects.Mkdir(name, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := artifactCapacity(objects); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("invalid capacity state = %v", err)
+	}
+	for index := 0; index < 129; index++ {
+		name := fmt.Sprintf("invalid-%03d", index)
+		if _, err := objects.Lstat(name); err != nil {
+			t.Fatalf("capacity scan removed %s: %v", name, err)
+		}
+	}
+}
+
+func TestArtifactObjectEnumerationRejectsAdditionalEntriesBoundedly(t *testing.T) {
+	store := artifactStore(t)
+	if _, err := store.Create(context.Background(), artifactDraft(t)); err != nil {
+		t.Fatal(err)
+	}
+	object := filepath.Join(store.root, "artifacts", "v1", "objects", "12", testArtifactID)
+	for index := 0; index < 129; index++ {
+		if err := os.WriteFile(filepath.Join(object, fmt.Sprintf("unexpected-%03d", index)), nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := store.Read(context.Background(), testArtifactID); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("artifact with extra entries = %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(object, "unexpected-128")); err != nil {
+		t.Fatalf("artifact read removed unknown entry: %v", err)
+	}
+}
+
 func TestArtifactStoreFaultStagesPreserveCommitTruthAndFailClosed(t *testing.T) {
 	for index, stage := range []FaultStage{FaultF0, FaultF1, FaultF2, FaultF3, FaultF4, FaultF5, FaultF6, FaultF7, FaultF8} {
 		t.Run(string(stage), func(t *testing.T) {
@@ -206,6 +270,52 @@ func TestArtifactStoreFaultStagesPreserveCommitTruthAndFailClosed(t *testing.T) 
 				t.Fatalf("reader did not fail closed: %v", readErr)
 			}
 		})
+	}
+}
+
+func TestArtifactStoreRestoresMarkerWhenRemovalSyncFailsAfterCommit(t *testing.T) {
+	store := artifactStore(t)
+	if err := os.MkdirAll(store.root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(store.root, "outside-owned-sentinel")
+	if err := os.WriteFile(sentinel, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	removed := false
+	failed := false
+	store.hooks.remove = func(root *os.Root, name string) error {
+		err := root.Remove(name)
+		if err == nil && strings.HasPrefix(name, ".axiom-recovery-") {
+			removed = true
+		}
+		return err
+	}
+	store.hooks.sync = func(root *os.Root) error {
+		if removed && !failed {
+			failed = true
+			return syscall.EIO
+		}
+		return syncRoot(root)
+	}
+	draft := artifactDraft(t)
+	_, err := store.Create(context.Background(), draft)
+	var publication *PublicationError
+	if !errors.As(err, &publication) || !publication.Committed || !errors.Is(err, ErrRecoveryRequired) || !removed || !failed {
+		t.Fatalf("post-removal sync result = %v", err)
+	}
+	object := filepath.Join(store.root, "artifacts", "v1", "objects", "12", testArtifactID)
+	if _, err := os.ReadFile(filepath.Join(object, "metadata.json")); err != nil {
+		t.Fatalf("canonical metadata unavailable: %v", err)
+	}
+	if markdown, err := os.ReadFile(filepath.Join(object, "details.md")); err != nil || string(markdown) != string(draft.Markdown) {
+		t.Fatalf("canonical content = %q, %v", markdown, err)
+	}
+	if _, err := store.Read(context.Background(), testArtifactID); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("reader after removal sync failure = %v", err)
+	}
+	if content, err := os.ReadFile(sentinel); err != nil || string(content) != "unchanged" {
+		t.Fatalf("non-protocol object changed = %q, %v", content, err)
 	}
 }
 

@@ -450,6 +450,48 @@ func TestPortableCleanupFailurePreservesCommittedBytesAndRequiresRecovery(t *tes
 	}
 }
 
+func TestPortableCreateRestoresMarkerWhenRemovalSyncFailsAfterCommit(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(root, "owned-sentinel")
+	if err := os.WriteFile(sentinel, []byte("unchanged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	removed := false
+	failed := false
+	store.removeAttempt = func(directory *os.Root, name string) error {
+		err := directory.Remove(name)
+		if err == nil && strings.HasPrefix(name, ".axiom-recovery-") {
+			removed = true
+		}
+		return err
+	}
+	store.syncDirectory = func(directory *os.Root) error {
+		if removed && !failed {
+			failed = true
+			return syscall.EIO
+		}
+		return syncRoot(directory)
+	}
+	err = store.Create(context.Background(), "sample", []byte("new"))
+	var publication *PublicationError
+	if !errors.As(err, &publication) || !publication.Committed || !errors.Is(err, ErrRecoveryRequired) || !removed || !failed {
+		t.Fatalf("post-removal sync result = %v", err)
+	}
+	if body, err := os.ReadFile(filepath.Join(root, "sample", manifestName)); err != nil || string(body) != "new" {
+		t.Fatalf("canonical bytes = %q, %v", body, err)
+	}
+	if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("reader after removal sync failure = %v", err)
+	}
+	if content, err := os.ReadFile(sentinel); err != nil || string(content) != "unchanged" {
+		t.Fatalf("non-protocol object changed = %q, %v", content, err)
+	}
+}
+
 func TestPortableManualRecoveryPreservesEvidenceAndReopens(t *testing.T) {
 	for _, published := range []bool{false, true} {
 		t.Run(map[bool]string{false: "before publication", true: "after publication"}[published], func(t *testing.T) {

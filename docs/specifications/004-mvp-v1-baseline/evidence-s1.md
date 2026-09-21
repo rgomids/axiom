@@ -48,6 +48,11 @@ or marker makes the relevant reader return `recovery_required`.
 | Captured output represented per artifact | 256 KiB | reject before publication |
 | Live artifacts per state root | 10,000 | explicit capacity error; no eviction |
 | Aggregate artifact content | 1 GiB | explicit capacity error; no eviction |
+| Directory read batch | 64 entries | incremental enumeration; no unbounded read |
+| Artifact object directory | 2 entries | reject on the third entry |
+| Artifact shard namespace | 256 entries | reject on the 257th entry |
+| Artifact IDs across shards | 10,000 entries | stop and fail closed on the 10,001st entry |
+| Local protocol scan | 10,002 entries | stop and fail closed when exceeded |
 
 Lookup accepts only a lowercase UUID v4 and returns `artifact:<uuid>` after
 validating object identity, closed metadata, content size/digest, owner-only
@@ -82,7 +87,7 @@ store boundary.
 | F5 | Protected directory create or atomic manifest replacement | One winner; loser conflicts; reader returns winner only | No after controlled collision cleanup | `TestPortableConflictingWritersHaveOneWinner` |
 | F6 | Post-rename directory sync/ack boundary | New complete bytes exist; reader blocks while marker survives | Yes | `TestPortablePostPublicationSyncFailureRequiresRecovery`; `TestPortableCreateCrashBoundaryRequiresRecovery`; `TestPortableUpdateCrashBoundaryRequiresRecovery` |
 | F7 | No secondary Provider/artifact effect in Project publication | Canonical Project commit is the sole primary effect | N/A | S1 Project store exposes no secondary effect |
-| F8 | Attempt-marker removal and directory sync | Canonical bytes remain committed; ordinary reader blocks | Yes | `TestPortableCleanupFailurePreservesCommittedBytesAndRequiresRecovery` |
+| F8 | Attempt-marker removal and directory sync | Canonical bytes remain committed; ordinary reader blocks; a failed sync after successful removal restores the owned marker | Yes | `TestPortableCleanupFailurePreservesCommittedBytesAndRequiresRecovery`; `TestPortableCreateRestoresMarkerWhenRemovalSyncFailsAfterCommit` |
 
 ### Installation store
 
@@ -103,7 +108,7 @@ no-op and different existing bytes are an explicit conflict.
 | F5 | Protected no-replace rename | Complete concurrent winner remains readable; attempted publisher returns conflict | No after controlled collision cleanup | `TestInstallationPublicationCollisionPreservesCompleteWinner` |
 | F6 | Post-rename target/projects sync and acknowledgment | Complete record exists; normal reopen blocks while marker survives | Yes | `TestInstallationPostPublicationSyncFailureRequiresRecovery`; `TestInstallationCrashBoundaryRequiresRecovery` |
 | F7 | No secondary effect in local installation-record publication | Canonical record is the sole effect | N/A | Runtime installation belongs to T04 and was not introduced |
-| F8 | Attempt-marker removal and sync | Canonical record remains committed; reopen blocks | Yes | `TestInstallationCleanupFailurePreservesCommittedRecordAndRequiresRecovery` |
+| F8 | Attempt-marker removal and sync | Canonical record remains committed; reopen blocks; a failed sync after successful removal restores the owned marker | Yes | `TestInstallationCleanupFailurePreservesCommittedRecordAndRequiresRecovery`; `TestInstallationRestoresAttemptWhenRemovalSyncFailsAfterCommit` |
 
 ### Work Item store
 
@@ -123,7 +128,7 @@ requires SHA-256 of the exact observed canonical bytes.
 | F5 | Atomic no-replace/create or replacement rename | Old or new complete JSON only | Yes for injected uncertainty | same matrix `/F5` |
 | F6 | Post-rename marker/confirmation/sync | New SHA-256 is committed; reader blocks pending acknowledgment | Yes | same matrix `/F6` |
 | F7 | Protocol post-primary checkpoint; no Provider call inside store | Canonical new bytes stay committed | Yes for injected interruption | same matrix `/F7`; no external secondary effect claimed |
-| F8 | Marker cleanup/sync | Canonical new bytes stay committed; leftover blocks reader | Yes | same matrix `/F8` |
+| F8 | Marker cleanup/sync | Canonical new bytes stay committed; failed sync after successful marker removal restores fail-closed state | Yes | same matrix `/F8`; `TestPublishFileRestoresMarkerWhenRemovalSyncFailsAfterCommit` |
 
 `Service.Select` separately proves reconciliation: it loads the local link,
 then reads the Provider, and passes the previously observed revision to `Save`.
@@ -168,7 +173,7 @@ SHA-256 content digest and creation checks the exact capacity observation.
 | F5 | Protected no-replace directory rename | Complete object or absence; collision cannot replace | Yes for injected uncertainty | fault matrix `/F5`; `TestArtifactStoreCapacityAndCollisionFailWithoutEviction` |
 | F6 | Post-rename marker, canonical reread/digest and sync | Complete digest-verified artifact committed; lookup blocks | Yes | fault matrix `/F6` |
 | F7 | Protocol post-primary checkpoint; no secondary effect in store | Complete artifact remains committed | Yes for injected interruption | fault matrix `/F7`; completion-service partial classification is tested separately |
-| F8 | Marker cleanup/sync | Complete artifact remains committed; leftover blocks lookup | Yes | fault matrix `/F8` |
+| F8 | Marker cleanup/sync | Complete artifact remains committed; failed sync after successful marker removal restores fail-closed state | Yes | fault matrix `/F8`; `TestArtifactStoreRestoresMarkerWhenRemovalSyncFailsAfterCommit` |
 
 ### Process, confinement, and mechanism rationale
 
@@ -201,6 +206,11 @@ obligatory at T22.
 - Synthetic token/private-key/raw-chat sentinels are rejected from Markdown and
   free reference metadata on both creation and decode; unsafe input is neither
   truncated nor persisted.
+- Structurally valid URLs in `Reference.Value` and `LiveReferences` reject any
+  user-info and case-insensitive sensitive query names `token`, `access_token`,
+  `refresh_token`, `api_key`, `client_secret`, and `password`. Creation and decode
+  return generic errors without the sensitive value; a safe GitHub issue URL is
+  accepted (`TestArtifactRejectsCredentialURLsInReferenceMetadataOnCreateAndDecode`).
 - Invalid UTF-8, control characters, oversized content/metadata, unknown or
   duplicate metadata fields, invalid correlation, and digest mismatch fail.
 - Symlink, hard-link, wrong type, permissive mode/ACL, collision, replacement,
@@ -209,6 +219,38 @@ obligatory at T22.
   artifact creation; production code has no Provider, Git, Runtime, network, or
   process-execution port.
 - Capacity failures preserve existing objects and perform no automatic cleanup.
+
+## Review-finding remediation Evidence
+
+The PR #83 review remediation adds deterministic coverage for all three reported
+findings without changing the ADR-0007 commit point, authority, marker schema, or
+persisted recovery meaning:
+
+- URL credential/user-info and sensitive-query rejection is covered across
+  `References`, `LiveReferences`, `New`, and `Decode`, including case-insensitive
+  query-name matching and a safe URL acceptance case. The synthetic sensitive
+  value is absent from returned errors, accepted artifact state, and this Evidence.
+- `TestPublishFileRestoresMarkerWhenRemovalSyncFailsAfterCommit`,
+  `TestArtifactStoreRestoresMarkerWhenRemovalSyncFailsAfterCommit`,
+  `TestPortableCreateRestoresMarkerWhenRemovalSyncFailsAfterCommit`, and
+  `TestInstallationRestoresAttemptWhenRemovalSyncFailsAfterCommit` inject `EIO`
+  only after marker removal succeeds. Each proves committed canonical bytes remain,
+  the result is truthful, the next reader returns `recovery_required`, and unrelated
+  objects remain unchanged.
+- `TestProtocolStateScanIsBoundedAndFailClosed`,
+  `TestDirectoryEnumerationStopsAtExplicitLimit`,
+  `TestArtifactObjectEnumerationRejectsAdditionalEntriesBoundedly`, and
+  `TestArtifactStoreCapacityBoundariesAndInvalidEntriesDoNotEvict` cover empty,
+  safe, marker, exact-limit, over-limit, large-unknown-entry, artifact-object, and
+  capacity paths. Enumeration uses batches, never truncates, and never evicts or
+  cleans unknown entries.
+
+The remediation run executed every command in the Reproduction section with exit
+0. The focused race/shuffle command passed three repetitions for all six requested
+packages; the full suite, vet, build, module verification, install test, dogfood,
+repository validation, sensitive-file checks, both Gitleaks modes, shell syntax,
+and `git diff --check` also passed. This remains technical Evidence only, not Human
+Acceptance, S2 authority, guided recovery, cleanup authority, migration, or release.
 
 ## Reproduction
 

@@ -157,40 +157,45 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 			stage.Close()
 		}
 	}()
-	cleanupStage := func() {
-		_ = stage.Remove("metadata.json")
-		_ = stage.Remove("details.md")
-		stage.Close()
+	cleanupStage := func() error {
+		var cleanupErr error
+		for _, name := range []string{"metadata.json", "details.md"} {
+			if err := stage.Remove(name); err != nil && !os.IsNotExist(err) {
+				cleanupErr = errors.Join(cleanupErr, err)
+			}
+		}
+		if err := stage.Close(); err != nil {
+			cleanupErr = errors.Join(cleanupErr, err)
+		}
 		stageOpen = false
-		_ = shard.Remove(stageName)
+		if err := shard.Remove(stageName); err != nil && !os.IsNotExist(err) {
+			cleanupErr = errors.Join(cleanupErr, err)
+		}
+		return cleanupErr
 	}
 	if err := s.hooks.at(FaultF1); err != nil {
 		if !errors.Is(err, ErrSimulatedInterruption) {
-			cleanupStage()
+			return cleanupFailure(FaultF1, err, cleanupStage())
 		}
 		return publicationFailure(FaultF1, false, err)
 	}
 	if err := writePrivateFile(stage, "metadata.json", metadata); err != nil {
-		cleanupStage()
-		return publicationFailure(FaultF1, false, err)
+		return cleanupFailure(FaultF1, err, cleanupStage())
 	}
 	if err := writePrivateFile(stage, "details.md", artifact.Markdown); err != nil {
-		cleanupStage()
-		return publicationFailure(FaultF1, false, err)
+		return cleanupFailure(FaultF1, err, cleanupStage())
 	}
 	if err := syncRoot(stage); err != nil {
-		cleanupStage()
-		return publicationFailure(FaultF1, false, err)
+		return cleanupFailure(FaultF1, err, cleanupStage())
 	}
 	if err := s.hooks.at(FaultF2); err != nil {
 		if !errors.Is(err, ErrSimulatedInterruption) {
-			cleanupStage()
+			return cleanupFailure(FaultF2, err, cleanupStage())
 		}
 		return publicationFailure(FaultF2, false, err)
 	}
 	if _, err := readArtifactObject(stage, artifact.ID); err != nil {
-		cleanupStage()
-		return publicationFailure(FaultF2, false, err)
+		return cleanupFailure(FaultF2, err, cleanupStage())
 	}
 	markerName, err := writeProtocolMarker(shard, artifact.ID, stageName, false, [32]byte{}, artifact.Digest, s.hooks)
 	if err != nil {
@@ -200,20 +205,19 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 	if err != nil {
 		return publicationFailure(FaultF3, false, err)
 	}
-	cleanupPreCommit := func() { _ = shard.Remove(markerName); cleanupStage(); _ = syncRoot(shard) }
+	cleanup := func() error { return cleanupPreCommit(shard, markerName, cleanupStage, s.hooks) }
 	if err := s.hooks.at(FaultF3); err != nil {
 		if !errors.Is(err, ErrSimulatedInterruption) {
-			cleanupPreCommit()
+			return cleanupFailure(FaultF3, err, cleanup())
 		}
 		return publicationFailure(FaultF3, false, err)
 	}
 	if err := ctx.Err(); err != nil {
-		cleanupPreCommit()
-		return publicationFailure(FaultF3, false, err)
+		return cleanupFailure(FaultF3, err, cleanup())
 	}
 	if err := s.hooks.at(FaultF4); err != nil {
 		if !errors.Is(err, ErrSimulatedInterruption) {
-			cleanupPreCommit()
+			return cleanupFailure(FaultF4, err, cleanup())
 		}
 		return publicationFailure(FaultF4, false, err)
 	}
@@ -222,15 +226,14 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 	}
 	if err := s.hooks.at(FaultF5); err != nil {
 		if !errors.Is(err, ErrSimulatedInterruption) {
-			cleanupPreCommit()
+			return cleanupFailure(FaultF5, err, cleanup())
 		}
 		return publicationFailure(FaultF5, false, err)
 	}
 	stage.Close()
 	stageOpen = false
 	if err := renameNoReplace(shard, stageName, artifact.ID); err != nil {
-		cleanupPreCommit()
-		return publicationFailure(FaultF5, false, err)
+		return cleanupFailure(FaultF5, err, cleanup())
 	}
 	if err := updateProtocolStage(shard, markerName, marker, FaultF6, s.hooks); err != nil {
 		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
@@ -262,10 +265,7 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 	if err := s.hooks.at(FaultF8); err != nil {
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 	}
-	if err := shard.Remove(markerName); err != nil {
-		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
-	}
-	if err := syncRoot(shard); err != nil {
+	if err := removeProtocolState(shard, markerName, s.hooks); err != nil {
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 	}
 	return nil
@@ -305,12 +305,7 @@ func (s ArtifactStore) openObjects(create bool) (*os.Root, *os.Root, error) {
 }
 
 func readArtifactObject(root *os.Root, expectedID string) (detailartifact.Artifact, error) {
-	directory, err := root.Open(".")
-	if err != nil {
-		return detailartifact.Artifact{}, err
-	}
-	names, err := directory.Readdirnames(-1)
-	directory.Close()
+	names, err := readDirectoryNamesBounded(root, 2)
 	if err != nil {
 		return detailartifact.Artifact{}, err
 	}
@@ -334,14 +329,9 @@ func readArtifactObject(root *os.Root, expectedID string) (detailartifact.Artifa
 }
 
 func artifactCapacity(objects *os.Root) (int, int64, error) {
-	directory, err := objects.Open(".")
+	shards, err := readDirectoryNamesBounded(objects, 256)
 	if err != nil {
-		return 0, 0, err
-	}
-	shards, err := directory.Readdirnames(-1)
-	directory.Close()
-	if err != nil {
-		return 0, 0, err
+		return 0, 0, ErrRecoveryRequired
 	}
 	count := 0
 	var total int64
@@ -357,16 +347,10 @@ func artifactCapacity(objects *os.Root) (int, int64, error) {
 			shard.Close()
 			return 0, 0, ErrRecoveryRequired
 		}
-		listing, err := shard.Open(".")
+		ids, err := readDirectoryNamesBounded(shard, detailartifact.MaxLiveArtifacts-count)
 		if err != nil {
 			shard.Close()
-			return 0, 0, err
-		}
-		ids, err := listing.Readdirnames(-1)
-		listing.Close()
-		if err != nil {
-			shard.Close()
-			return 0, 0, err
+			return 0, 0, ErrRecoveryRequired
 		}
 		for _, id := range ids {
 			if !detailartifact.ValidID(id) || id[:2] != name {

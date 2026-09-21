@@ -163,6 +163,46 @@ func TestInstallationCleanupFailurePreservesCommittedRecordAndRequiresRecovery(t
 	}
 }
 
+func TestInstallationRestoresAttemptWhenRemovalSyncFailsAfterCommit(t *testing.T) {
+	source := privateTestRoot(t)
+	manifest := []byte("schemaVersion: 1\nproject:\n  id: 123e4567-e89b-42d3-a456-426614174000\n  slug: sample\n  name: Sample\n")
+	if err := os.WriteFile(filepath.Join(source, manifestName), manifest, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	state := privateTestRoot(t)
+	store, err := NewInstallationStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removed := false
+	failed := false
+	store.removeAttempt = func(root *os.Root, name string) error {
+		err := root.Remove(name)
+		if err == nil {
+			removed = true
+		}
+		return err
+	}
+	store.syncDirectory = func(root *os.Root) error {
+		if removed && !failed {
+			failed = true
+			return syscall.EIO
+		}
+		return syncRoot(root)
+	}
+	result := store.Install(context.Background(), source)
+	if result.Status != InstallationFailed || result.Category != "recovery_required" || !removed || !failed {
+		t.Fatalf("post-removal sync result = %+v", result)
+	}
+	record := filepath.Join(state, "projects", "123e4567-e89b-42d3-a456-426614174000", "installation.json")
+	if _, err := os.ReadFile(record); err != nil {
+		t.Fatalf("canonical record unavailable: %v", err)
+	}
+	if reopened := store.Reopen(context.Background(), source); reopened.Status != InstallationFailed || reopened.Category != "recovery_required" {
+		t.Fatalf("reader after removal sync failure = %+v", reopened)
+	}
+}
+
 func TestInstallationDiskFullBeforePublicationLeavesNoRecord(t *testing.T) {
 	source := privateTestRoot(t)
 	manifest := []byte("schemaVersion: 1\nproject:\n  id: 123e4567-e89b-42d3-a456-426614174000\n  slug: sample\n  name: Sample\n")

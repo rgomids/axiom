@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -167,10 +166,7 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if err := updateProtocolStage(root, markerName, marker, FaultF8, hooks); err != nil {
 			return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 		}
-		if err := hooks.removeName(root, markerName); err != nil {
-			return publicationFailure(FaultF8, true, ErrRecoveryRequired)
-		}
-		if err := hooks.syncRoot(root); err != nil {
+		if err := removeProtocolState(root, markerName, hooks); err != nil {
 			return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 		}
 		return nil
@@ -221,10 +217,7 @@ func (s PortableStore) write(root *os.Root, name string, content []byte) error {
 }
 
 func (s PortableStore) clear(root *os.Root, name string) error {
-	if s.removeAttempt != nil {
-		return s.removeAttempt(root, name)
-	}
-	return clearAttempt(root, name)
+	return removeProtocolState(root, name, s.publicationHooks())
 }
 
 func (s PortableStore) withLock(slug string, create, exclusive bool, action func(*os.Root) error) error {
@@ -254,19 +247,12 @@ func (s PortableStore) withLock(slug string, create, exclusive bool, action func
 		}
 		return ErrRecoveryRequired
 	}
-	entries, err := root.Open(".")
+	pending, err := directoryPrefixPresentBounded(root, maxLocalDirectoryEntries, ".lingo-stage-"+slug+"-", ".lingo-attempt-"+slug+"-")
 	if err != nil {
 		return err
 	}
-	names, err := entries.Readdirnames(-1)
-	entries.Close()
-	if err != nil {
-		return err
-	}
-	for _, name := range names {
-		if strings.HasPrefix(name, ".lingo-stage-"+slug+"-") || strings.HasPrefix(name, ".lingo-attempt-"+slug+"-") {
-			return ErrRecoveryRequired
-		}
+	if pending {
+		return ErrRecoveryRequired
 	}
 	return action(root)
 }
@@ -283,22 +269,18 @@ func openManifestProject(root *os.Root, slug string) (*os.Root, error) {
 		}
 		return nil, ErrRecoveryRequired
 	}
-	file, err := projectRoot.Open(".")
-	if err != nil {
+	pending, err := directoryPrefixPresentBounded(projectRoot, maxLocalDirectoryEntries, ".lingo-manifest-", ".lingo-attempt-update-")
+	if err != nil || pending {
 		projectRoot.Close()
-		return nil, err
-	}
-	entries, err := file.Readdirnames(-1)
-	file.Close()
-	if err != nil {
-		projectRoot.Close()
-		return nil, err
-	}
-	for _, name := range entries {
-		if strings.HasPrefix(name, ".lingo-manifest-") || strings.HasPrefix(name, ".lingo-attempt-update-") {
-			projectRoot.Close()
-			return nil, ErrRecoveryRequired
+		if err != nil {
+			return nil, err
 		}
+		return nil, ErrRecoveryRequired
+	}
+	entries, err := readDirectoryNamesBounded(projectRoot, 1)
+	if err != nil {
+		projectRoot.Close()
+		return nil, err
 	}
 	if len(entries) != 1 || entries[0] != manifestName {
 		projectRoot.Close()

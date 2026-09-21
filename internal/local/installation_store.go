@@ -218,10 +218,7 @@ func (s InstallationStore) write(root *os.Root, name string, content []byte) err
 }
 
 func (s InstallationStore) clear(root *os.Root, name string) error {
-	if s.removeAttempt != nil {
-		return s.removeAttempt(root, name)
-	}
-	return clearAttempt(root, name)
+	return removeProtocolState(root, name, publicationHooks{remove: s.removeAttempt, sync: s.syncDirectory})
 }
 
 func (s InstallationStore) Reopen(ctx context.Context, source string) InstallationResult {
@@ -315,12 +312,7 @@ func portableSnapshot(ctx context.Context, source string) (projectapp.ArtifactSn
 		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
 	}
 	defer root.Close()
-	file, err := root.Open(".")
-	if err != nil {
-		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
-	}
-	entries, err := file.Readdirnames(-1)
-	file.Close()
+	entries, err := readDirectoryNamesBounded(root, 1)
 	if err != nil || len(entries) != 1 || entries[0] != manifestName {
 		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
 	}
@@ -340,12 +332,7 @@ func failedInstallation(category string) InstallationResult {
 }
 
 func installationDirectoryIssue(root *os.Root) string {
-	file, err := root.Open(".")
-	if err != nil {
-		return "storage_failure"
-	}
-	names, err := file.Readdirnames(-1)
-	file.Close()
+	names, err := readDirectoryNamesBounded(root, maxLocalDirectoryEntries)
 	if err != nil {
 		return "storage_failure"
 	}
