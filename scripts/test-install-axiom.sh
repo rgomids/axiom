@@ -30,7 +30,7 @@ if [[ $(PATH="$AXIOM_BIN_DIR:$PATH" command -v lingo) != "$AXIOM_BIN_DIR/lingo" 
   exit 1
 fi
 case "$version" in
-  *'"product":"Axiom"'*'"binary":"lingo"'*'"source":"https://github.com/rgomids/axiom"'*) ;;
+  *'status: success'*'result: Axiom build information'*'provenance: Axiom development'*'source=clean'*) ;;
   *) exit 1 ;;
 esac
 
@@ -62,9 +62,9 @@ case "$dirty" in
   *'"result":"installed"'*'"dirty":true'*'"pathConfigured":false'*) ;;
   *) exit 1 ;;
 esac
-dirty_version=$(PATH="$AXIOM_BIN_DIR:$PATH" lingo version)
+dirty_version=$(PATH="$AXIOM_BIN_DIR:$PATH" lingo --json version)
 case "$dirty_version" in
-  *'"dirty":true'*'"dirtyKnown":true'*) ;;
+  *'"version":"development"'*'"sourceState":"dirty"'*) ;;
   *) exit 1 ;;
 esac
 if ! grep -Fq 'dirty=true' "$AXIOM_INSTALL_STATE_ROOT/lingo.receipt"; then

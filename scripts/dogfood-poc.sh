@@ -51,7 +51,7 @@ resolved_binary=$(command -v lingo)
 if [[ "$resolved_binary" != "$binary_root/lingo" ]]; then
   exit 1
 fi
-lingo version >"$temporary/version.json"
+lingo --json version >"$temporary/version.json"
 
 run_failure codex_not_configured runtime codex status
 run_success codex_configured "$temporary/runtime-install.json" runtime codex install

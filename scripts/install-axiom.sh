@@ -53,14 +53,15 @@ cleanup() {
 trap cleanup EXIT
 
 commit=$(git -C "$repository_root" rev-parse --verify HEAD)
-version="poc-${commit:0:12}"
+version=development
 dirty=false
+source_state=clean
 if [[ -n $(git -C "$repository_root" status --porcelain --untracked-files=normal) ]]; then
   dirty=true
-  version="${version}-dirty"
+  source_state=dirty
 fi
 go build -trimpath \
-  -ldflags "-X main.buildVersion=$version -X main.buildCommit=$commit -X main.buildDirty=$dirty -X main.buildSource=$source_url" \
+  -ldflags "-X main.buildVersion=$version -X main.buildRevision=${commit:0:12} -X main.buildSourceState=$source_state -X main.buildRelease=false" \
   -o "$stage" "$repository_root/cmd/lingo"
 chmod 700 "$stage"
 new_checksum=$(shasum -a 256 "$stage" | awk '{print $1}')

@@ -8,6 +8,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/rgomids/axiom/internal/completion"
 )
 
 func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
@@ -112,11 +114,15 @@ func TestRunDoesNotExposeRejectedCommand(t *testing.T) {
 func TestRunUsesCancelledExitCode(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
+	canonical := canonicalResult(t, completion.Interrupted, []string{"operation:validation"}, "Retry Project validation", completionProvenance(t))
+	service := &canonicalRecordingService{Result: Result{Completion: &canonical}}
 	var output bytes.Buffer
-	if code := Run(ctx, []string{"project", "validate", "--slug", "alpha"}, &recordingService{}, &output); code != ExitCancelled {
+	if code := Run(ctx, []string{"project", "validate", "--slug", "alpha"}, service, &output); code != ExitCancelled {
 		t.Fatalf("exit code = %d", code)
 	}
-	assertEvent(t, output.String(), "validate", Cancelled, "cancelled")
+	if !strings.Contains(output.String(), `"status":"interrupted"`) {
+		t.Fatalf("canonical interruption absent from %q", output.String())
+	}
 }
 
 func assertEvent(t *testing.T, output, operation string, status Status, category string) {
@@ -131,6 +137,13 @@ func assertEvent(t *testing.T, output, operation string, status Status, category
 }
 
 type recordingService struct{ call string }
+
+type canonicalRecordingService struct {
+	recordingService
+	Result Result
+}
+
+func (s *canonicalRecordingService) Validate(context.Context, ProjectInput) Result { return s.Result }
 
 func (s *recordingService) Init(_ context.Context, input InitInput) Result {
 	s.call = "init:" + input.Slug + ":" + input.Name
@@ -161,6 +174,10 @@ func (s *recordingService) RuntimeCodexStatus(context.Context) Result {
 	return Result{Status: Succeeded, Category: "applied"}
 }
 func (s *recordingService) Resolve(_ context.Context, input ResolveInput) Result {
+	s.call = "resolve:" + input.Selector
+	return Result{Status: Succeeded, Category: "applied", Project: &ProjectView{ID: "123e4567-e89b-42d3-a456-426614174000", Slug: input.Selector, Repositories: []RepositoryView{{Key: "main", Path: "/tmp/alpha"}}}}
+}
+func (s *recordingService) Show(_ context.Context, input ResolveInput) Result {
 	s.call = "resolve:" + input.Selector
 	return Result{Status: Succeeded, Category: "applied", Project: &ProjectView{ID: "123e4567-e89b-42d3-a456-426614174000", Slug: input.Selector, Repositories: []RepositoryView{{Key: "main", Path: "/tmp/alpha"}}}}
 }

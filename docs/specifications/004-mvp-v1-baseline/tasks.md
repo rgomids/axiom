@@ -4,7 +4,9 @@
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
-**Implementation: Not authorized.**
+**T01 Implementation: Completed — Evidence produced; human acceptance pending.**
+
+**T02–T25 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -13,6 +15,11 @@ accepted the corrected final DAG of 25 Tasks as reconciled with the approved
 other Task, start implementation, grant local or external mutation authority,
 publish an installer/release, or make the final MVP acceptance decision.
 
+A subsequent explicit human decision on 2026-09-20 authorized implementation of
+T01 only, accepted its kickoff analysis as the execution baseline, and preserved
+every successor gate. T01 implementation and its Evidence are now complete for
+independent review; checks, completion, or merge do not supply human acceptance.
+
 Authority chain:
 
 ```text
@@ -20,7 +27,10 @@ Specification 004 — Approved
 -> ADR-0001..ADR-0008 — Accepted
 -> Plan — Approved
 -> Tasks — Approved
--> Implementation — Not authorized
+-> T01 Implementation — Completed
+-> T01 Evidence — Produced
+-> T01 Human Acceptance — Pending
+-> T02–T25 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical

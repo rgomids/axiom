@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
@@ -22,7 +24,7 @@ func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
 	service := compose()
 
 	runCLI(t, service, []string{"project", "init", "--slug", "sample", "--name", "Sample"}, cli.ExitSuccess, "applied")
-	runCLI(t, service, []string{"project", "validate", "--slug", "sample"}, cli.ExitSuccess, "valid")
+	runCanonicalCLI(t, service, []string{"project", "validate", "--slug", "sample"}, cli.ExitSuccess, "success", "Project is valid")
 	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened_without_local_state")
 	beforeInstall, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
 	if err != nil {
@@ -132,7 +134,11 @@ func TestVersionReportsAxiomSourceMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer file.Close()
-	if code := writeVersion(file); code != cli.ExitSuccess {
+	source, err := provenance.FromBuild(provenance.Build{Version: provenance.Development, Revision: provenance.Unavailable, SourceState: provenance.Unknown}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := writeVersion(file, cli.CompletionJSON, source); code != cli.ExitSuccess {
 		t.Fatalf("version exit code = %d", code)
 	}
 	if _, err := file.Seek(0, 0); err != nil {
@@ -142,7 +148,7 @@ func TestVersionReportsAxiomSourceMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"product":"Axiom"`, `"binary":"lingo"`, `"version":"devel"`, `"commit":"unknown"`, `"dirty":false`, `"dirtyKnown":false`, `"source":"https://github.com/rgomids/axiom"`} {
+	for _, expected := range []string{`"status":"success"`, `"result":"Axiom build information"`, `"product":"Axiom"`, `"version":"development"`, `"revision":"unavailable"`, `"sourceState":"unknown"`} {
 		if !bytes.Contains(data, []byte(expected)) {
 			t.Fatalf("version output missing %q: %s", expected, data)
 		}
@@ -359,7 +365,7 @@ func TestValidateDoesNotCreateRootsOrLockFiles(t *testing.T) {
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
 	t.Setenv("LINGO_STATE_ROOT", state)
 	service := compose()
-	runCLI(t, service, []string{"project", "validate", "--slug", "missing"}, cli.ExitFailure, "project_not_found")
+	runCanonicalCLI(t, service, []string{"project", "validate", "--slug", "missing"}, cli.ExitFailure, "validation_failure", "Project state is invalid")
 	for _, path := range []string{root, state} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("validate created %q: %v", path, err)
@@ -370,7 +376,7 @@ func TestValidateDoesNotCreateRootsOrLockFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runCLI(t, service, []string{"project", "validate", "--slug", "sample"}, cli.ExitSuccess, "valid")
+	runCanonicalCLI(t, service, []string{"project", "validate", "--slug", "sample"}, cli.ExitSuccess, "success", "Project is valid")
 	after, err := os.ReadDir(root)
 	if err != nil || len(after) != len(before) {
 		t.Fatalf("validate changed root entries: %v, %v", after, err)
@@ -378,6 +384,70 @@ func TestValidateDoesNotCreateRootsOrLockFiles(t *testing.T) {
 	if _, err := os.Stat(state); !os.IsNotExist(err) {
 		t.Fatalf("validate created local state: %v", err)
 	}
+}
+
+func TestCanonicalReadOnlySurfacesDoNotMutateState(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	repository := filepath.Join(t.TempDir(), "repository")
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+	runCLI(t, service, []string{"project", "configure", "--slug", "sample", "--name", "Sample", "--repository", "main=" + repository}, cli.ExitSuccess, "project_configured")
+	before := snapshotTrees(t, root, state, repository)
+
+	for _, args := range [][]string{
+		{"--human", "project", "validate", "--slug", "sample"},
+		{"--json", "project", "validate", "--slug", "sample"},
+		{"--human", "project", "show", "--selector", "sample"},
+		{"--json", "project", "show", "--selector", "sample"},
+	} {
+		var output bytes.Buffer
+		if code := cli.RunInteractive(context.Background(), args, service, nil, &output, &bytes.Buffer{}); code != cli.ExitSuccess {
+			t.Fatalf("%v: exit=%d output=%q", args, code, output.String())
+		}
+		if !strings.Contains(output.String(), "Axiom") {
+			t.Fatalf("%v: provenance absent from %q", args, output.String())
+		}
+	}
+	after := snapshotTrees(t, root, state, repository)
+	if !bytes.Equal(before, after) {
+		t.Fatalf("read-only canonical surfaces mutated state\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
+func snapshotTrees(t *testing.T, roots ...string) []byte {
+	t.Helper()
+	entries := make([]string, 0)
+	for _, root := range roots {
+		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			relative, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+			entry := root + ":" + relative + ":" + info.Mode().String()
+			if info.Mode().IsRegular() {
+				content, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				entry += ":" + string(content)
+			}
+			entries = append(entries, entry)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	sort.Strings(entries)
+	return []byte(strings.Join(entries, "\n"))
 }
 
 func TestInterruptedInstallRequiresRecoveryAndPreservesPortableBytes(t *testing.T) {
@@ -419,5 +489,18 @@ func runCLI(t *testing.T, service cli.Service, args []string, wantCode int, want
 	}
 	if !strings.Contains(output.String(), `"category":"`+wantCategory+`"`) {
 		t.Fatalf("%v: category absent from %q", args, output.String())
+	}
+}
+
+func runCanonicalCLI(t *testing.T, service cli.Service, args []string, wantCode int, wantStatus, wantResult string) {
+	t.Helper()
+	var output bytes.Buffer
+	if code := cli.Run(context.Background(), args, service, &output); code != wantCode {
+		t.Fatalf("%v: exit code = %d, output=%q", args, code, output.String())
+	}
+	for _, expected := range []string{`"status":"` + wantStatus + `"`, `"result":"` + wantResult + `"`, `"provenance":{`} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("%v: %q absent from %q", args, expected, output.String())
+		}
 	}
 }

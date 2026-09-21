@@ -103,11 +103,17 @@ cd axiom
 export PATH="$HOME/.local/bin:$PATH"
 command -v lingo
 lingo version
+lingo --json version
 lingo runtime codex install
 ./scripts/validate-repository.sh .
 go test ./...
 ./scripts/dogfood-poc.sh
 ```
+
+`lingo version`, `project validate`, and `project show` expose the canonical
+six-field completion contract with one truthful Axiom build provenance value in
+human or JSON form. Other POC command surfaces retain their historical output
+until their authorized Specification 004 Tasks migrate them.
 
 The validator checks repository/harness structure and sensitive files. Go tests
 exercise application and adapter contracts. Dogfooding installs Lingo, global
