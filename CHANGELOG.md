@@ -2,13 +2,19 @@
 
 ## [2026-09-20]
 
+- approval: record the explicit PR #72 human decision approving the corrected
+  final Specification 004 DAG of 25 Tasks as reconciled with the approved Plan.
+  The decision concludes the Tasks phase only; implementation, T01 or any other
+  Task, Provider mutation, prerelease publication and release remain
+  unauthorized.
+
 - planning: decompose the approved Specification 004 Plan into 25 proposed
   vertical Tasks across S1–S7, with an explicit acyclic dependency graph,
   FR-001–FR-037, AC-01–AC-24, security/NFR, SEC-001–SEC-005, HD-1–HD-4 and
   ADR-0001–ADR-0008 ownership, task-level authority/side-effect/recovery rules,
-  and future native RC Evidence. Tasks are ready for human review;
-  implementation, Provider mutation, prerelease publication and release remain
-  unauthorized.
+  and future native RC Evidence. The corrected final artifact was approved in
+  PR #72; implementation, Provider mutation, prerelease publication and release
+  remain unauthorized.
 
 - approval: record the explicit PR #71 human decision accepting ADR-0007 and ADR-0008 and approving the Specification 004 Plan. Authorize the Tasks phase only; implementation, Provider mutation, migration execution, installer/release publication and final MVP acceptance remain unauthorized. Windows support remains a future roadmap follow-up and does not change the current MVP support matrix.
 

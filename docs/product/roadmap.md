@@ -60,12 +60,13 @@ explicitly approved on 2026-09-20. Review identified
 the shared local publication/recovery protocol, and
 [ADR-0008](../decisions/0008-minimal-machine-local-execution-record.md), defining
 the bounded machine-local sequential Execution record. Both were Accepted in the
-same PR #71 human decision. The Tasks phase is authorized; implementation,
-Provider mutation, migration execution, and release remain separately gated.
-The resulting [Tasks artifact](../specifications/004-mvp-v1-baseline/tasks.md)
-decomposes S1–S7 into 25 proposed vertical units with explicit dependency and
-Evidence ownership. It is ready for human review, not Approved; implementation
-remains unauthorized.
+same PR #71 human decision. The resulting
+[Tasks artifact](../specifications/004-mvp-v1-baseline/tasks.md) decomposes S1–S7
+into a corrected final DAG of 25 vertical units with explicit dependency and
+Evidence ownership. It was Approved by explicit human decision in
+[PR #72](https://github.com/rgomids/axiom/pull/72) on 2026-09-20, concluding the
+Tasks phase. Implementation, Provider mutation, migration execution, and release
+remain unauthorized and separately gated.
 
 ## Complete Specification 002
 

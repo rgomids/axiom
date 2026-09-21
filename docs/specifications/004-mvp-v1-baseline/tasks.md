@@ -2,29 +2,25 @@
 
 ## Status and authority
 
-**Tasks: Ready for human review.**
+**Tasks: Approved — human approval recorded on 2026-09-20.**
 
 **Implementation: Not authorized.**
 
-Baseline: `main` at `ce4feef2b46b44622f13e16b2cca31c5f4643c6b`, merge of
-[PR #71](https://github.com/rgomids/axiom/pull/71). The
-[Specification](spec.md), [Plan](plan.md), and
-[ADR-0001 through ADR-0008](../../decisions/README.md) are approved/Accepted as
-recorded on 2026-09-20. Human approval of the Plan authorizes this Tasks phase
-only. It does not approve this artifact, authorize any Task, start implementation,
-grant local or external mutation authority, publish an installer/release, or make
-the final MVP acceptance decision.
+Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
+of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
+accepted the corrected final DAG of 25 Tasks as reconciled with the approved
+[Plan](plan.md) and concluded the Tasks phase. It does not authorize T01 or any
+other Task, start implementation, grant local or external mutation authority,
+publish an installer/release, or make the final MVP acceptance decision.
 
 Authority chain:
 
 ```text
-Specification 004 + HD-1..HD-4
--> ADR-0001..ADR-0008
--> approved Plan
--> these proposed Tasks
--> future explicitly authorized implementation units
--> retained Evidence
--> explicit human RC acceptance or rejection
+Specification 004 — Approved
+-> ADR-0001..ADR-0008 — Accepted
+-> Plan — Approved
+-> Tasks — Approved
+-> Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -777,6 +773,6 @@ These checks validate decomposition and repository hygiene only. All behavioral,
 native-platform, Provider, Runtime, filesystem, security, and RC Evidence remains
 future work under explicit Task authority.
 
-**Tasks: Ready for human review.**
+**Tasks: Approved — human approval recorded on 2026-09-20.**
 
 **Implementation: Not authorized.**
