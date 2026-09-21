@@ -116,7 +116,9 @@ Mechanism: shared single-file publisher with anchored roots, ordered advisory
 locks, private stage, bounded JSON recovery marker containing prior/new SHA-256,
 atomic create/update rename, confirmation, and owned cleanup. Commit is canonical
 file rename. Create uses the zero revision only when the record is absent; update
-requires SHA-256 of the exact observed canonical bytes.
+requires SHA-256 of the exact observed canonical bytes. Repeating a zero-revision
+create, even with identical bytes, conflicts without replacement
+(`TestWorkItemStoreCreateCollisionConflictsWithoutReplacement`).
 
 | Stage | Applicable mechanism | Pre/post-commit and reader outcome | `recovery_required` | Test / limitation |
 |---|---|---|---|---|
@@ -140,7 +142,12 @@ proves the stale observation conflicts without replacing the concurrent writer
 
 Mechanism and commit point are the shared single-file protocol above. Create is
 explicit; save requires SHA-256 of exact observed workflow JSON bytes. Workflow
-format/status checks run before publication.
+format/status checks run before publication. An existing canonical workflow,
+including byte-identical content, conflicts at the protected create boundary;
+the application then loads and reports the existing lineage. This composition is
+covered by `TestWorkflowServiceStartReturnsExistingWorkflowWithRealStore`, while
+`TestWorkflowStoreCreateCollisionNeverReplacesCanonicalState` covers identical
+and divergent create collisions without replacement.
 
 | Stage | Applicable mechanism | Pre/post-commit and reader outcome | `recovery_required` | Test / limitation |
 |---|---|---|---|---|

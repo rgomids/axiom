@@ -18,6 +18,10 @@
 - fix: preserve reconciliable Work Item selection by loading the observed local
   revision before update, keep first selection on the protected create path, and
   expand per-store T03 Evidence with explicit F0–F8 applicability and tests.
+- fix: restore strict create-conflict semantics in the shared protected file
+  publisher so repeated workflow start loads the existing lineage and reports
+  `workflow_already_started`; keep operation-specific idempotency in owning
+  stores instead of the publication primitive.
 
 ## [2026-09-20]
 

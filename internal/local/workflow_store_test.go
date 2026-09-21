@@ -32,6 +32,60 @@ func TestWorkflowStoreRoundTripsStrictPrivateState(t *testing.T) {
 	}
 }
 
+func TestWorkflowServiceStartReturnsExistingWorkflowWithRealStore(t *testing.T) {
+	repository := t.TempDir()
+	store, err := NewWorkflowStore(filepath.Join(t.TempDir(), "state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := workflow.New(
+		workflowStoreResolver{repository: repository},
+		workflowStoreWorkItems{},
+		store,
+	)
+	target := workflow.Target{ProjectSelector: "sample", RepositoryKey: "main", WorkItem: 7}
+
+	first := service.Start(context.Background(), target)
+	if first.Status != workflow.Succeeded || first.Category != "workflow_started" {
+		t.Fatalf("first start = %#v", first)
+	}
+	second := service.Start(context.Background(), target)
+	if second.Status != workflow.Succeeded || second.Category != "workflow_already_started" {
+		t.Fatalf("second start = %#v", second)
+	}
+}
+
+func TestWorkflowStoreCreateCollisionNeverReplacesCanonicalState(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		change func(*workflow.State)
+	}{
+		{name: "identical", change: func(*workflow.State) {}},
+		{name: "different", change: func(state *workflow.State) { state.RepositoryPath = t.TempDir() }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store, err := NewWorkflowStore(filepath.Join(t.TempDir(), "state"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			state := validWorkflow(t.TempDir())
+			if err := store.Create(context.Background(), state); err != nil {
+				t.Fatal(err)
+			}
+			attempt := state
+			test.change(&attempt)
+
+			if err := store.Create(context.Background(), attempt); !errors.Is(err, ErrConflict) {
+				t.Fatalf("create collision = %v", err)
+			}
+			loaded, err := store.Load(context.Background(), state.ProjectID, state.RepositoryKey, state.WorkItem)
+			if err != nil || loaded.Status != state.Status || loaded.RepositoryPath != state.RepositoryPath {
+				t.Fatalf("canonical state = %#v, %v", loaded, err)
+			}
+		})
+	}
+}
+
 func TestWorkflowStoreRequiresExpectedRevision(t *testing.T) {
 	store, err := NewWorkflowStore(filepath.Join(t.TempDir(), "state"))
 	if err != nil {
@@ -136,4 +190,24 @@ func validWorkflow(repository string) workflow.State {
 		steps[index] = workflow.Step{Gate: gate, Status: "pending"}
 	}
 	return workflow.State{ProjectID: "123e4567-e89b-42d3-a456-426614174000", RepositoryKey: "main", RepositoryPath: repository, WorkItem: 7, Status: "active", Steps: steps}
+}
+
+type workflowStoreResolver struct{ repository string }
+
+func (r workflowStoreResolver) Resolve(context.Context, string) (workflow.Project, string) {
+	return workflow.Project{
+		ID: "123e4567-e89b-42d3-a456-426614174000",
+		Repositories: []workflow.Repository{{
+			Key:  "main",
+			Path: r.repository,
+		}},
+	}, ""
+}
+
+type workflowStoreWorkItems struct{}
+
+func (workflowStoreWorkItems) Available(context.Context, string, string, int) bool { return true }
+
+func (workflowStoreWorkItems) Complete(context.Context, string, string, int, bool) workflow.WorkItemCompletion {
+	return workflow.WorkItemCompletion{}
 }

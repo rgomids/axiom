@@ -258,9 +258,6 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 	current, readErr := readPrivateFile(root, name)
 	if create {
 		if readErr == nil {
-			if bytes.Equal(current, next) {
-				return nil
-			}
 			return ErrConflict
 		}
 		if !os.IsNotExist(readErr) {
