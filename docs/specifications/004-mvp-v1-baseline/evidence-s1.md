@@ -15,7 +15,8 @@ Runtime installation, migration, release, or physical power-loss durability.
 ## Delivered contracts
 
 - `internal/detailartifact` owns closed metadata v1, initial Plan guardrails,
-  structural sensitive-value rejection, correlation, SHA-256 integrity,
+  structural sensitive-value rejection across Markdown, `Reference.Value`, and
+  `LiveReferences`, correlation, SHA-256 integrity,
   retention classification, and required/optional completion materialization.
 - `internal/local.ArtifactStore` owns
   `<state-root>/artifacts/v1/objects/<prefix>/<uuid>/` and publishes exactly
@@ -24,9 +25,10 @@ Runtime installation, migration, release, or physical power-loss durability.
   marker, private staging, protected create/update, canonical confirmation,
   committed-state reporting, and fail-closed reader checks.
 - Work Item and workflow records now carry exact observed byte revisions for
-  stale-authority rejection. Project and installation stores retain their
-  existing anchored directory/file publication and now write versioned attempt
-  metadata under the same logical protocol.
+  stale-authority rejection. Project create/update uses the shared versioned
+  recovery marker with object, operation, stage, prior/new presence and digest,
+  staging object, and rename commit protocol. Installation retains its bounded
+  versioned attempt marker within the same observable publication invariants.
 - Coordination order is managed state root, store namespace, Project/object
   scope. Locks are kernel-backed and acquired broad-to-narrow. A conflict does
   not wait, retry, or infer lock ownership from PID/time.
@@ -60,19 +62,22 @@ effect in S1. Test names are exact Go test identifiers under `internal/local`.
 ### Project store (`PortableStore`)
 
 Mechanism: anchored `os.Root` handles, non-blocking kernel advisory locks, private
-same-filesystem directory staging for create, private file staging for update,
-protected no-replace directory rename or atomic file rename, and a bounded
-versioned attempt marker. Create commits when the staged Project directory is
-renamed to the canonical slug; update commits when the staged manifest replaces
-`axiom.yaml`. Update authority is the exact previously observed manifest bytes;
-their SHA-256 is the observable portable revision above this store boundary.
+same-filesystem directory staging for create, the shared single-file publisher
+for update, protected no-replace directory rename or atomic file rename, and the
+shared bounded versioned recovery marker. The marker identifies the affected
+object, operation ID, protocol stage, prior/new presence and SHA-256, staging
+object, and rename commit protocol. Create commits when the staged Project
+directory is renamed to the canonical slug; update commits when the staged
+manifest replaces `axiom.yaml`. Update authority is the exact previously observed
+manifest bytes; their SHA-256 is the observable portable revision above this
+store boundary.
 
 | Stage | Applicable mechanism | Pre/post-commit and reader outcome | `recovery_required` | Test / limitation |
 |---|---|---|---|---|
 | F0 | Pre-cancel after entry, before staging | Prior bytes remain readable; no digest change | No | `TestPortableCancellationBeforeStagingPreservesOldBytes` |
 | F1 | Complete-write loop; ENOSPC/EDQUOT seam | Create stays absent or update retains exact expected bytes | No after controlled cleanup | `TestPortableDiskFullBeforePublicationPreservesPriorState`; `TestWriteCompleteHandlesShortWritesAndStorageFaults` |
 | F2 | Prepared manifest identity/mode/link verification | Unsafe stage is not published; prior/absence remains authority | No when controlled cleanup succeeds; surviving stage fails closed | `TestPortableRejectsStagedHardLinkBeforePublication`; `TestPortableStoreReportsInterruptedCreate`; `TestPortableStoreReportsInterruptedUpdate` |
-| F3 | Expected-byte recheck, cancellation, root/Project identity recheck | Prior exact bytes remain authority | No after controlled cancellation cleanup; Yes after process death with marker | `TestPortableUpdateCancellationBeforePublicationPreservesOldBytes`; `TestPortableCreateRejectsAncestorReplacementBeforePublication`; `TestPortableUpdateRejectsProjectRenameBeforePublication`; crash tests |
+| F3 | Expected-byte recheck, cancellation, root/Project identity recheck | Prior exact bytes remain authority; marker identifies both possible generations | No after controlled cancellation cleanup; Yes after process death or uncertain cleanup with marker | `TestPortableUpdateCancellationBeforePublicationPreservesOldBytes`; `TestPortableRecoveryMarkerIdentifiesPriorAndNewGeneration`; replacement and crash tests |
 | F4 | No separate prior-generation rename | Atomic file replacement retains old bytes until F5; create has no prior generation | N/A as a distinct Project-store stage | ADR-0007 permits replaceable mechanisms; no separate prior object exists |
 | F5 | Protected directory create or atomic manifest replacement | One winner; loser conflicts; reader returns winner only | No after controlled collision cleanup | `TestPortableConflictingWritersHaveOneWinner` |
 | F6 | Post-rename directory sync/ack boundary | New complete bytes exist; reader blocks while marker survives | Yes | `TestPortablePostPublicationSyncFailureRequiresRecovery`; `TestPortableCreateCrashBoundaryRequiresRecovery`; `TestPortableUpdateCrashBoundaryRequiresRecovery` |
@@ -113,7 +118,7 @@ requires SHA-256 of the exact observed canonical bytes.
 | F0 | Injected after locks/before staging | Exact prior revision remains readable | No | `TestWorkItemStoreRequiresExpectedRevisionAndFailsClosedAcrossF0F8/F0` |
 | F1 | Injected before complete staged write | Exact prior revision remains readable | No | same matrix `/F1`; short/zero-write primitive test |
 | F2 | Injected after stage/before validation | No commit; surviving private stage blocks reader | Yes | same matrix `/F2` |
-| F3 | Expected SHA-256 and target recheck | Stale update conflicts; interruption retains prior authority | Yes only when injected state survives | same matrix `/F3`; `TestWorkItemStoreRejectsStaleRevision` |
+| F3 | Expected SHA-256 and target recheck | Stale update conflicts; interruption retains prior authority; failed marker/stage removal or cleanup sync reports uncommitted recovery uncertainty | Yes when injected state or uncertain cleanup survives | same matrix `/F3`; `TestWorkItemStoreRejectsStaleRevision`; `TestPublishFileCleanupFailuresRequireRecoveryBeforeCommit` |
 | F4 | Marker checkpoint before publication; no separate prior file for atomic replacement | Prior canonical revision remains; marker records prior/new digests | Yes | same matrix `/F4` |
 | F5 | Atomic no-replace/create or replacement rename | Old or new complete JSON only | Yes for injected uncertainty | same matrix `/F5` |
 | F6 | Post-rename marker/confirmation/sync | New SHA-256 is committed; reader blocks pending acknowledgment | Yes | same matrix `/F6` |
@@ -121,8 +126,10 @@ requires SHA-256 of the exact observed canonical bytes.
 | F8 | Marker cleanup/sync | Canonical new bytes stay committed; leftover blocks reader | Yes | same matrix `/F8` |
 
 `Service.Select` separately proves reconciliation: it loads the local link,
-passes its observed revision to `Save`, and updates changed Provider state without
-weakening stale-revision rejection (`TestSelectReconcilesExistingLinkWithObservedRevision`).
+then reads the Provider, and passes the previously observed revision to `Save`.
+A deterministic barrier test updates local state during the Provider call and
+proves the stale observation conflicts without replacing the concurrent writer
+(`TestSelectRejectsStaleProviderObservationAfterConcurrentLocalUpdate`).
 
 ### Workflow store
 
@@ -191,7 +198,9 @@ obligatory at T22.
 
 ## Security and confinement observations
 
-- Synthetic token/private-key/raw-chat sentinels are rejected and not persisted.
+- Synthetic token/private-key/raw-chat sentinels are rejected from Markdown and
+  free reference metadata on both creation and decode; unsafe input is neither
+  truncated nor persisted.
 - Invalid UTF-8, control characters, oversized content/metadata, unknown or
   duplicate metadata fields, invalid correlation, and digest mismatch fail.
 - Symlink, hard-link, wrong type, permissive mode/ACL, collision, replacement,
@@ -217,7 +226,10 @@ go mod verify
 ./scripts/dogfood-poc.sh
 ./scripts/validate-repository.sh .
 ./scripts/check-sensitive-files.sh .
+./scripts/check-sensitive-files.sh --staged .
 gitleaks dir . --no-banner --redact
+gitleaks git --staged --no-banner --redact
+for script in scripts/*.sh; do bash -n "$script" || exit 1; done
 git diff --check
 ```
 

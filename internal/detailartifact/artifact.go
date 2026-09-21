@@ -122,8 +122,7 @@ func SafeMarkdown(content []byte) bool {
 		return false
 	}
 	text := string(content)
-	privateKeyBoundary := "-----BEGIN PRIVATE " + "KEY-----"
-	if sensitiveAssignment.MatchString(text) || strings.Contains(text, privateKeyBoundary) || strings.Contains(text, "<|assistant|") || strings.Contains(text, "<|user|") {
+	if sensitiveText(text) {
 		return false
 	}
 	for _, current := range text {
@@ -186,12 +185,20 @@ func validMetadata(value string, limit int) bool {
 	if value == "" || len(value) > limit || !utf8.ValidString(value) || strings.TrimSpace(value) != value {
 		return false
 	}
+	if sensitiveText(value) {
+		return false
+	}
 	for _, current := range value {
 		if unicode.IsControl(current) {
 			return false
 		}
 	}
 	return true
+}
+
+func sensitiveText(value string) bool {
+	privateKeyBoundary := "-----BEGIN PRIVATE " + "KEY-----"
+	return sensitiveAssignment.MatchString(value) || strings.Contains(value, privateKeyBoundary) || strings.Contains(value, "<|assistant|") || strings.Contains(value, "<|user|")
 }
 
 func cloneReferences(values []Reference) []Reference {

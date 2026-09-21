@@ -74,7 +74,7 @@ func (s WorkItemStore) Save(ctx context.Context, link workitem.Link) error {
 			return err
 		}
 		if sha256.Sum256(expected) != link.Revision {
-			return ErrConflict
+			return workItemStoreError(ErrConflict)
 		}
 	}
 	err = publishFile(ctx, projectRoot, name, expected, wire, create, s.hooks)
@@ -118,6 +118,9 @@ func workItemStoreError(err error) error {
 	}
 	if errors.Is(err, ErrRecoveryRequired) {
 		return errors.Join(err, workitem.ErrRecoveryRequired)
+	}
+	if errors.Is(err, ErrConflict) {
+		return errors.Join(err, workitem.ErrConflict)
 	}
 	return err
 }

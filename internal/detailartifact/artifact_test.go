@@ -67,6 +67,47 @@ func TestArtifactBoundsAndSanitization(t *testing.T) {
 	}
 }
 
+func TestArtifactRejectsSensitiveReferenceMetadataOnCreateAndDecode(t *testing.T) {
+	for _, sentinel := range []string{
+		"pass" + "word=SYNTHETIC_VALUE_SENTINEL",
+		"api_" + "key:SYNTHETIC_VALUE_SENTINEL",
+		"authori" + "zation=Bearer SYNTHETIC_VALUE_SENTINEL",
+	} {
+		t.Run(sentinel[:3], func(t *testing.T) {
+			for _, apply := range []func(*Draft){
+				func(draft *Draft) { draft.References = []Reference{{Kind: "source", Value: sentinel}} },
+				func(draft *Draft) { draft.LiveReferences = []string{sentinel} },
+			} {
+				draft := validDraft(t)
+				apply(&draft)
+				if _, err := New("123e4567-e89b-42d3-a456-426614174001", time.Now(), draft); err == nil {
+					t.Fatalf("sensitive metadata accepted: %q", sentinel)
+				}
+			}
+
+			for _, apply := range []func(*Draft){
+				func(draft *Draft) { draft.References = []Reference{{Kind: "source", Value: "safe-reference"}} },
+				func(draft *Draft) { draft.LiveReferences = []string{"safe-reference"} },
+			} {
+				draft := validDraft(t)
+				apply(&draft)
+				artifact, err := New("123e4567-e89b-42d3-a456-426614174001", time.Now(), draft)
+				if err != nil {
+					t.Fatal(err)
+				}
+				metadata, err := EncodeMetadata(artifact)
+				if err != nil {
+					t.Fatal(err)
+				}
+				metadata = bytes.Replace(metadata, []byte("safe-reference"), []byte(sentinel), 1)
+				if _, err := Decode(metadata, artifact.Markdown); err == nil {
+					t.Fatalf("adulterated sensitive metadata accepted: %q", sentinel)
+				}
+			}
+		})
+	}
+}
+
 func TestArtifactRequiresStableCorrelationAndDigest(t *testing.T) {
 	draft := validDraft(t)
 	draft.CorrelationID = ""

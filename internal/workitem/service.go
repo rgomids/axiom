@@ -9,6 +9,7 @@ import (
 
 var (
 	ErrNotFound         = errors.New("work item not found")
+	ErrConflict         = errors.New("work item conflict")
 	ErrRecoveryRequired = errors.New("work item recovery required")
 )
 
@@ -103,13 +104,13 @@ func (s Service) Select(ctx context.Context, target Target, number int) Result {
 	if result.Status == Failed {
 		return result
 	}
-	external, err := s.provider.Read(ctx, repository, number)
-	if err != nil {
-		return failure("github_read_failed")
-	}
 	revision, result := s.selectedRevision(ctx, project.ID, target.RepositoryKey, number)
 	if result.Status == Failed {
 		return result
+	}
+	external, err := s.provider.Read(ctx, repository, number)
+	if err != nil {
+		return failure("github_read_failed")
 	}
 	return s.persist(ctx, project, target.RepositoryKey, repository, external, revision)
 }
@@ -206,6 +207,9 @@ func (s Service) persist(ctx context.Context, project Project, key, repository s
 	}
 	link := Link{ProjectID: project.ID, RepositoryKey: key, ProviderRepository: repository, Number: external.Number, URL: external.URL, State: external.State, Revision: revision}
 	if err := s.store.Save(ctx, link); err != nil {
+		if errors.Is(err, ErrConflict) {
+			return Result{Status: Failed, Category: "local_work_item_conflict", Link: link}
+		}
 		if errors.Is(err, ErrRecoveryRequired) {
 			return Result{Status: Failed, Category: "local_work_item_recovery_required", Link: link}
 		}

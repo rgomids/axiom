@@ -192,7 +192,7 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 		cleanupStage()
 		return publicationFailure(FaultF2, false, err)
 	}
-	markerName, err := writeProtocolMarker(shard, artifact.ID, stageName, [32]byte{}, artifact.Digest)
+	markerName, err := writeProtocolMarker(shard, artifact.ID, stageName, false, [32]byte{}, artifact.Digest, s.hooks)
 	if err != nil {
 		return publicationFailure(FaultF3, false, err)
 	}
@@ -217,7 +217,7 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 		}
 		return publicationFailure(FaultF4, false, err)
 	}
-	if err := updateProtocolStage(shard, markerName, marker, FaultF5); err != nil {
+	if err := updateProtocolStage(shard, markerName, marker, FaultF5, s.hooks); err != nil {
 		return publicationFailure(FaultF5, false, ErrRecoveryRequired)
 	}
 	if err := s.hooks.at(FaultF5); err != nil {
@@ -232,7 +232,7 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 		cleanupPreCommit()
 		return publicationFailure(FaultF5, false, err)
 	}
-	if err := updateProtocolStage(shard, markerName, marker, FaultF6); err != nil {
+	if err := updateProtocolStage(shard, markerName, marker, FaultF6, s.hooks); err != nil {
 		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
 	}
 	if err := s.hooks.at(FaultF6); err != nil {
@@ -250,13 +250,13 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 	if err := syncRoot(shard); err != nil {
 		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
 	}
-	if err := updateProtocolStage(shard, markerName, marker, FaultF7); err != nil {
+	if err := updateProtocolStage(shard, markerName, marker, FaultF7, s.hooks); err != nil {
 		return publicationFailure(FaultF7, true, ErrRecoveryRequired)
 	}
 	if err := s.hooks.at(FaultF7); err != nil {
 		return publicationFailure(FaultF7, true, err)
 	}
-	if err := updateProtocolStage(shard, markerName, marker, FaultF8); err != nil {
+	if err := updateProtocolStage(shard, markerName, marker, FaultF8, s.hooks); err != nil {
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 	}
 	if err := s.hooks.at(FaultF8); err != nil {

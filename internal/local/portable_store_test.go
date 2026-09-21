@@ -3,8 +3,10 @@ package local
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -307,13 +309,17 @@ func TestPortablePostPublicationSyncFailureRequiresRecovery(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			calls := 0
+			committed := false
 			store.syncDirectory = func(directory *os.Root) error {
-				calls++
-				if operation == "update" || calls == 2 {
+				if committed {
 					return syscall.EIO
 				}
 				return syncRoot(directory)
+			}
+			if operation == "create" {
+				store.afterCreatePublication = func() { committed = true }
+			} else {
+				store.afterUpdatePublication = func() { committed = true }
 			}
 			if operation == "create" {
 				err = store.Create(context.Background(), "sample", []byte("new"))
@@ -332,6 +338,98 @@ func TestPortablePostPublicationSyncFailureRequiresRecovery(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPortableRecoveryMarkerIdentifiesPriorAndNewGeneration(t *testing.T) {
+	for _, operation := range []string{"create", "update"} {
+		t.Run(operation, func(t *testing.T) {
+			root := privateTestRoot(t)
+			store, err := NewPortableStore(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if operation == "update" {
+				if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			syncCalls := 0
+			cancelAt := 2
+			if operation == "update" {
+				cancelAt = 1
+			}
+			store.syncDirectory = func(directory *os.Root) error {
+				syncCalls++
+				err := syncRoot(directory)
+				if syncCalls == cancelAt {
+					cancel()
+				}
+				return err
+			}
+			store.removeAttempt = func(directory *os.Root, name string) error {
+				if strings.HasPrefix(name, ".axiom-recovery-") {
+					return syscall.EIO
+				}
+				return directory.Remove(name)
+			}
+			if operation == "create" {
+				err = store.Create(ctx, "sample", []byte("new"))
+			} else {
+				err = store.Update(ctx, "sample", []byte("old"), []byte("new"))
+			}
+			var publication *PublicationError
+			if !errors.As(err, &publication) || publication.Committed || !errors.Is(err, ErrRecoveryRequired) {
+				t.Fatalf("interrupted %s = %v", operation, err)
+			}
+			if _, readErr := store.Read(context.Background(), "sample"); !errors.Is(readErr, ErrRecoveryRequired) {
+				t.Fatalf("reader after %s interruption = %v", operation, readErr)
+			}
+
+			markerPath := root
+			if operation == "update" {
+				markerPath = filepath.Join(root, "sample")
+			}
+			markerRoot, err := os.OpenRoot(markerPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer markerRoot.Close()
+			markerName := recoveryMarkerName(t, markerPath)
+			marker, err := readProtocolMarker(markerRoot, markerName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if marker.Object == "" || marker.OperationID == "" || marker.Staging == "" || marker.Stage != FaultF3 || marker.CommitProtocol != "rename" || !marker.NewPresent {
+				t.Fatalf("incomplete marker: %#v", marker)
+			}
+			if marker.PriorPresent != (operation == "update") || marker.NewRevision != fmt.Sprintf("%x", digestBytes([]byte("new"))) {
+				t.Fatalf("generation marker: %#v", marker)
+			}
+			wantPrior := fmt.Sprintf("%x", [32]byte{})
+			if operation == "update" {
+				wantPrior = fmt.Sprintf("%x", digestBytes([]byte("old")))
+			}
+			if marker.PriorRevision != wantPrior {
+				t.Fatalf("prior revision = %s want %s", marker.PriorRevision, wantPrior)
+			}
+		})
+	}
+}
+
+func recoveryMarkerName(t *testing.T, path string) string {
+	t.Helper()
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".axiom-recovery-") {
+			return entry.Name()
+		}
+	}
+	t.Fatal("recovery marker missing")
+	return ""
 }
 
 func TestPortableCleanupFailurePreservesCommittedBytesAndRequiresRecovery(t *testing.T) {

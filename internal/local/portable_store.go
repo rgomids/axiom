@@ -1,7 +1,6 @@
 package local
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -85,11 +84,14 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if err != nil {
 			return err
 		}
-		defer stage.Close()
 		published := false
+		stageOpen := true
 		defer func() {
 			if !published {
-				_ = stage.Remove(manifestName)
+				if stageOpen {
+					_ = stage.Remove(manifestName)
+					_ = stage.Close()
+				}
 				_ = root.Remove(stageName)
 			}
 		}()
@@ -111,33 +113,67 @@ func (s PortableStore) Create(ctx context.Context, slug string, manifest []byte)
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		attempt, err := markAttempt(root, ".lingo-attempt-"+slug+"-")
+		hooks := s.publicationHooks()
+		markerName, err := writeProtocolMarker(root, slug, stageName, false, [32]byte{}, digestBytes(manifest), hooks)
 		if err != nil {
-			return err
+			return publicationFailure(FaultF3, false, err)
 		}
-		if err := ctx.Err(); err != nil {
-			if cleanup := s.clear(root, attempt); cleanup != nil {
-				return cleanup
+		marker, err := readProtocolMarker(root, markerName)
+		if err != nil {
+			return publicationFailure(FaultF3, false, err)
+		}
+		removeStage := func() error {
+			if stageOpen {
+				if err := stage.Remove(manifestName); err != nil {
+					return err
+				}
+				if err := stage.Close(); err != nil {
+					return err
+				}
+				stageOpen = false
 			}
-			return err
+			return hooks.removeName(root, stageName)
+		}
+		cleanup := func() error { return cleanupPreCommit(root, markerName, removeStage, hooks) }
+		if err := ctx.Err(); err != nil {
+			return cleanupFailure(FaultF3, err, cleanup())
+		}
+		if err := updateProtocolStage(root, markerName, marker, FaultF5, hooks); err != nil {
+			return publicationFailure(FaultF4, false, ErrRecoveryRequired)
 		}
 		if err := renameNoReplace(root, stageName, slug); err != nil {
-			if cleanup := s.clear(root, attempt); cleanup != nil {
-				return cleanup
-			}
 			if os.IsExist(err) {
-				return ErrConflict
+				return cleanupFailure(FaultF5, ErrConflict, cleanup())
 			}
-			return fmt.Errorf("publish project: %w", err)
+			return cleanupFailure(FaultF5, fmt.Errorf("publish project: %w", err), cleanup())
 		}
 		published = true
+		if err := stage.Close(); err != nil {
+			return publicationFailure(FaultF6, true, ErrRecoveryRequired)
+		}
+		stageOpen = false
 		if s.afterCreatePublication != nil {
 			s.afterCreatePublication()
 		}
-		if err := s.sync(root); err != nil {
-			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
+		if err := updateProtocolStage(root, markerName, marker, FaultF6, hooks); err != nil {
+			return publicationFailure(FaultF6, true, ErrRecoveryRequired)
 		}
-		return s.clear(root, attempt)
+		if err := hooks.syncRoot(root); err != nil {
+			return publicationFailure(FaultF6, true, ErrRecoveryRequired)
+		}
+		if err := updateProtocolStage(root, markerName, marker, FaultF7, hooks); err != nil {
+			return publicationFailure(FaultF7, true, ErrRecoveryRequired)
+		}
+		if err := updateProtocolStage(root, markerName, marker, FaultF8, hooks); err != nil {
+			return publicationFailure(FaultF8, true, ErrRecoveryRequired)
+		}
+		if err := hooks.removeName(root, markerName); err != nil {
+			return publicationFailure(FaultF8, true, ErrRecoveryRequired)
+		}
+		if err := hooks.syncRoot(root); err != nil {
+			return publicationFailure(FaultF8, true, ErrRecoveryRequired)
+		}
+		return nil
 	})
 }
 
@@ -153,75 +189,21 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 			return err
 		}
 		defer projectRoot.Close()
-		current, err := readPrivateFile(projectRoot, manifestName)
-		if err != nil {
-			return err
-		}
-		if !bytes.Equal(current, expected) {
-			return ErrConflict
-		}
-		temporary, err := temporaryName(".lingo-manifest-")
-		if err != nil {
-			return err
-		}
-		defer projectRoot.Remove(temporary)
-		if err := s.write(projectRoot, temporary, manifest); err != nil {
-			return err
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		attempt, err := markAttempt(projectRoot, ".lingo-attempt-update-")
-		if err != nil {
-			return err
-		}
-		if err := ctx.Err(); err != nil {
-			if cleanup := s.clear(projectRoot, attempt); cleanup != nil {
-				return cleanup
+		hooks := s.publicationHooks()
+		hooks.afterStage = s.beforeUpdatePublication
+		hooks.beforeCommit = func() error {
+			if err := stillAtPath(root, s.root); err != nil {
+				return err
 			}
-			return err
+			return stillAtPath(projectRoot, filepath.Join(s.root, slug))
 		}
-		if s.beforeUpdatePublication != nil {
-			s.beforeUpdatePublication()
-		}
-		if err := verifyPreparedFile(projectRoot, temporary, manifest); err != nil {
-			if s.clear(projectRoot, attempt) != nil {
-				return ErrRecoveryRequired
-			}
-			return err
-		}
-		if err := stillAtPath(root, s.root); err != nil {
-			if s.clear(projectRoot, attempt) != nil {
-				return ErrRecoveryRequired
-			}
-			return err
-		}
-		if err := stillAtPath(projectRoot, filepath.Join(s.root, slug)); err != nil {
-			if s.clear(projectRoot, attempt) != nil {
-				return ErrRecoveryRequired
-			}
-			return err
-		}
-		if err := ctx.Err(); err != nil {
-			if cleanup := s.clear(projectRoot, attempt); cleanup != nil {
-				return cleanup
-			}
-			return err
-		}
-		if err := projectRoot.Rename(temporary, manifestName); err != nil {
-			if cleanup := s.clear(projectRoot, attempt); cleanup != nil {
-				return cleanup
-			}
-			return err
-		}
-		if s.afterUpdatePublication != nil {
-			s.afterUpdatePublication()
-		}
-		if err := s.sync(projectRoot); err != nil {
-			return fmt.Errorf("project committed; durability unverified: %w", ErrRecoveryRequired)
-		}
-		return s.clear(projectRoot, attempt)
+		hooks.afterCommit = s.afterUpdatePublication
+		return publishFile(ctx, projectRoot, manifestName, expected, manifest, false, hooks)
 	})
+}
+
+func (s PortableStore) publicationHooks() publicationHooks {
+	return publicationHooks{remove: s.removeAttempt, sync: s.syncDirectory, write: s.writeFile, stagePrefix: ".lingo-manifest-"}
 }
 
 func (s PortableStore) sync(root *os.Root) error {
@@ -266,6 +248,12 @@ func (s PortableStore) withLock(slug string, create, exclusive bool, action func
 		return err
 	}
 	defer lock.Close()
+	if pending, err := protocolStatePresent(root); err != nil || pending {
+		if err != nil {
+			return err
+		}
+		return ErrRecoveryRequired
+	}
 	entries, err := root.Open(".")
 	if err != nil {
 		return err
@@ -287,6 +275,13 @@ func openManifestProject(root *os.Root, slug string) (*os.Root, error) {
 	projectRoot, err := existingPrivateChild(root, slug)
 	if err != nil {
 		return nil, err
+	}
+	if pending, err := protocolStatePresent(projectRoot); err != nil || pending {
+		projectRoot.Close()
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrRecoveryRequired
 	}
 	file, err := projectRoot.Open(".")
 	if err != nil {
