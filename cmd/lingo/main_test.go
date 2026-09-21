@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -54,7 +55,7 @@ func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
 func TestComposedCLIRejectsRelativeRoot(t *testing.T) {
 	t.Setenv("LINGO_PROJECTS_ROOT", "relative")
 	var output bytes.Buffer
-	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), &output); code != cli.ExitFailure {
+	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), currentProvenance(), &output); code != cli.ExitFailure {
 		t.Fatalf("exit code = %d", code)
 	}
 	if !strings.Contains(output.String(), "application_unavailable") {
@@ -155,6 +156,35 @@ func TestVersionReportsAxiomSourceMetadata(t *testing.T) {
 	}
 }
 
+func TestProjectShowClassifiesResolutionCauses(t *testing.T) {
+	tests := []struct {
+		category   string
+		wantStatus completion.Status
+		wantResult string
+		wantNext   string
+	}{
+		{"project_not_found", completion.ValidationFailure, "Project was not found", "Provide an existing Project UUID or slug"},
+		{"repository_unavailable", completion.RetryableFailure, "Project repository is unavailable", "Restore the configured repository binding and retry inspection"},
+		{"invalid_existing_local_state", completion.ValidationFailure, "Local Project state is invalid", "Repair or reconfigure local Project state before retrying inspection"},
+		{"recovery_required", completion.ValidationFailure, "Local Project state requires recovery", "Review preserved local recovery state before retrying inspection"},
+		{"cancelled", completion.Interrupted, "Project inspection was interrupted", "Retry Project inspection"},
+		{"storage_failure", completion.Failure, "Project inspection failed", "Inspect local storage and application availability before retrying"},
+		{"application_unavailable", completion.Failure, "Project inspection failed", "Inspect local storage and application availability before retrying"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.category, func(t *testing.T) {
+			result := projectShowFailure(test.category, currentProvenance())
+			if result.Completion == nil {
+				t.Fatal("canonical completion absent")
+			}
+			if result.Completion.Status() != test.wantStatus || result.Completion.Result().String() != test.wantResult || result.Completion.Next().String() != test.wantNext {
+				t.Fatalf("completion = status=%s result=%q next=%q", result.Completion.Status(), result.Completion.Result().String(), result.Completion.Next().String())
+			}
+		})
+	}
+}
+
 func TestWorkItemFailureRendersCommittedExternalState(t *testing.T) {
 	result := workItemResult(workitem.Result{
 		Status:   workitem.Failed,
@@ -224,7 +254,7 @@ func TestCompositionRejectsOverlappingRootsBeforeCreation(t *testing.T) {
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
 	t.Setenv("LINGO_STATE_ROOT", filepath.Join(root, "state"))
 	var output bytes.Buffer
-	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), &output); code != cli.ExitFailure {
+	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), currentProvenance(), &output); code != cli.ExitFailure {
 		t.Fatalf("overlapping roots accepted: code=%d", code)
 	}
 	if _, err := os.Stat(root); !os.IsNotExist(err) {
@@ -244,7 +274,7 @@ func TestCompositionRejectsSymlinkAliasBeforeCreation(t *testing.T) {
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
 	t.Setenv("LINGO_STATE_ROOT", filepath.Join(alias, "state"))
 	var output bytes.Buffer
-	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), &output); code != cli.ExitFailure {
+	if code := cli.Run(context.Background(), []string{"project", "init", "--slug", "sample", "--name", "Sample"}, compose(), currentProvenance(), &output); code != cli.ExitFailure {
 		t.Fatalf("alias accepted: %d", code)
 	}
 	if _, err := os.Stat(filepath.Join(root, "state")); !os.IsNotExist(err) {
@@ -406,7 +436,7 @@ func TestCanonicalReadOnlySurfacesDoNotMutateState(t *testing.T) {
 		{"--json", "project", "show", "--selector", "sample"},
 	} {
 		var output bytes.Buffer
-		if code := cli.RunInteractive(context.Background(), args, service, nil, &output, &bytes.Buffer{}); code != cli.ExitSuccess {
+		if code := cli.RunInteractive(context.Background(), args, service, currentProvenance(), nil, &output, &bytes.Buffer{}); code != cli.ExitSuccess {
 			t.Fatalf("%v: exit=%d output=%q", args, code, output.String())
 		}
 		if !strings.Contains(output.String(), "Axiom") {
@@ -484,7 +514,7 @@ func TestInterruptedInstallRequiresRecoveryAndPreservesPortableBytes(t *testing.
 func runCLI(t *testing.T, service cli.Service, args []string, wantCode int, wantCategory string) {
 	t.Helper()
 	var output bytes.Buffer
-	if code := cli.Run(context.Background(), args, service, &output); code != wantCode {
+	if code := cli.Run(context.Background(), args, service, currentProvenance(), &output); code != wantCode {
 		t.Fatalf("%v: exit code = %d, output=%q", args, code, output.String())
 	}
 	if !strings.Contains(output.String(), `"category":"`+wantCategory+`"`) {
@@ -495,7 +525,7 @@ func runCLI(t *testing.T, service cli.Service, args []string, wantCode int, want
 func runCanonicalCLI(t *testing.T, service cli.Service, args []string, wantCode int, wantStatus, wantResult string) {
 	t.Helper()
 	var output bytes.Buffer
-	if code := cli.Run(context.Background(), args, service, &output); code != wantCode {
+	if code := cli.Run(context.Background(), args, service, currentProvenance(), &output); code != wantCode {
 		t.Fatalf("%v: exit code = %d, output=%q", args, code, output.String())
 	}
 	for _, expected := range []string{`"status":"` + wantStatus + `"`, `"result":"` + wantResult + `"`, `"provenance":{`} {

@@ -36,7 +36,7 @@ func main() {
 	if len(os.Args) == 2 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
 		os.Exit(cli.Help(os.Stdout))
 	}
-	os.Exit(cli.RunInteractive(context.Background(), os.Args[1:], composeWithProvenance(source), os.Stdin, os.Stdout, os.Stderr))
+	os.Exit(cli.RunInteractive(context.Background(), os.Args[1:], composeWithProvenance(source), source, os.Stdin, os.Stdout, os.Stderr))
 }
 
 func versionFormat(args []string) (cli.CompletionFormat, bool) {
@@ -293,16 +293,36 @@ func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) c
 func (s lifecycleService) Show(ctx context.Context, input cli.ResolveInput) cli.Result {
 	result := s.installation.Resolve(ctx, input.Selector)
 	if result.Status != local.ResolutionFound {
-		if result.Category == "cancelled" {
-			return canonicalCompletion(completion.Facts{WasInterrupted: true}, "Project inspection was interrupted", nil, "Retry Project inspection", s.provenance)
-		}
-		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project could not be resolved", nil, "Provide an explicit Project UUID or slug", s.provenance)
+		return projectShowFailure(result.Category, s.provenance)
 	}
 	references := []string{"project:" + result.Project.ID}
 	for _, repository := range result.Project.Repositories {
 		references = append(references, "repository:"+repository.Key)
 	}
 	return canonicalCompletion(completion.Facts{Completed: true}, "Project resolved", references, "", s.provenance)
+}
+
+func projectShowFailure(category string, source provenance.Value) cli.Result {
+	switch category {
+	case "invalid_project_selector":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project selector is invalid", nil, "Provide a valid Project UUID or slug", source)
+	case "project_not_found":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project was not found", nil, "Provide an existing Project UUID or slug", source)
+	case "project_ambiguous":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project selector is ambiguous", nil, "Provide the exact Project UUID", source)
+	case "invalid_existing_local_state":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project state is invalid", nil, "Repair or reconfigure local Project state before retrying inspection", source)
+	case "recovery_required":
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project state requires recovery", nil, "Review preserved local recovery state before retrying inspection", source)
+	case "project_source_unavailable":
+		return canonicalCompletion(completion.Facts{RetrySafeFailure: true}, "Project source is unavailable", nil, "Restore the configured Project source and retry inspection", source)
+	case "repository_unavailable":
+		return canonicalCompletion(completion.Facts{RetrySafeFailure: true}, "Project repository is unavailable", nil, "Restore the configured repository binding and retry inspection", source)
+	case "cancelled":
+		return canonicalCompletion(completion.Facts{WasInterrupted: true}, "Project inspection was interrupted", nil, "Retry Project inspection", source)
+	default:
+		return canonicalCompletion(completion.Facts{Failed: true}, "Project inspection failed", nil, "Inspect local storage and application availability before retrying", source)
+	}
 }
 
 func projectView(project local.ResolvedProject) *cli.ProjectView {

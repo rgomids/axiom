@@ -785,4 +785,10 @@ future work under explicit Task authority.
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
-**Implementation: Not authorized.**
+**T01 Implementation — Completed.**
+
+**T01 Evidence — Produced.**
+
+**T01 Human Acceptance — Pending.**
+
+**T02–T25 Implementation — Not authorized.**

@@ -8,8 +8,9 @@
   accepted as execution baseline.
 - Baseline: `main` at `ae4c6133bf25a71d7192af65bf0e8c4d9b45f0fa`, merge
   of [PR #73](https://github.com/rgomids/axiom/pull/73).
-- Delivery branch: `impl/spec-004-t01-completion-provenance`. Delivery revision is
-  the future commit containing this Evidence and the accompanying implementation.
+- Delivery branch: `impl/spec-004-t01-completion-provenance`. Technical review
+  started from PR head `494b12f97c1f`; the reproducible delivery state is the
+  final PR head containing this Evidence and its remediation.
 - **T01 Implementation: Completed. T01 Evidence: Produced. T01 Human Acceptance:
   Pending. T02–T25: Not authorized.**
 
@@ -59,6 +60,17 @@ Existing domain effects remain unchanged. `project show` returns stable Project 
 Repository identifiers as references, not machine-local paths. Remaining POC
 commands retain historical output until their separately authorized MVP Tasks.
 
+Review remediation keeps classification out of renderers and command handlers:
+
+- parser/required-input failures for `project validate` and `project show` create
+  `validation_failure` directly from central completion/provenance contracts and
+  never invoke an application service with invented empty input;
+- `project show` maps selector/not-found, invalid/recovery state, unavailable
+  Project/Repository bindings, interruption, and operational failure to distinct
+  truthful canonical outcomes without transporting raw OS errors or local paths;
+- `scripts/dogfood-poc.sh` consumes canonical `project show` fields and rejects the
+  removed legacy category/path shape.
+
 The source installer now injects `development`, short revision, and clean/dirty
 source state into the binary. It retains existing owned-destination, receipt,
 idempotency, conflict, and no-shell-profile behavior. No release/distribution path
@@ -73,11 +85,13 @@ was added.
 | AC-12 T01 portion | Seven statuses and equivalent human/JSON projections | `TestCanonicalStatusesAreClosed`, `TestCompletionGoldenMatrix` |
 | AC-15 T01 portion | Central released/development/dirty/unavailable provenance, consumed by initial surfaces | `TestBuildProvenanceMatrix`, `TestReleaseProvenanceFailsClosed`, `TestExecutableVersionHumanJSONAndBuildProvenance` |
 | MVP-NFR-01 | Closed classification, stable field order, one process value, deterministic renderers | classification/provenance tables and golden output |
-| MVP-NFR-02 | Bounded authored text/references and 16 KiB final-output guard | `TestCompletionOutputIsBounded`, unsafe metadata tests, observed byte counts below |
-| MVP-NFR-06 | Stable result references plus canonical process provenance without secrets | result/provenance tests and read-only command ledger |
+| MVP-NFR-02 | Bounded authored text/references and 16 KiB final-output guard | `TestCompletionOutputIsBounded` and unsafe metadata tests |
+| MVP-NFR-06 | Stable result references plus canonical process provenance without secrets | result/provenance tests and `TestCanonicalReadOnlySurfacesDoNotMutateState` |
 | ADR-0003 | Axiom contracts remain central; Lingo CLI only projects them | AST dependency/renderer checks and package inspection |
 | HD-1 T01 portion | Development builds say `development`; release identity requires clean revision-bound SemVer | provenance matrix and synthetic build-flag black box |
 | User/Axiom authorship boundary | Completion summary/next accept only typed Axiom-authored text | `TestAuthoredTextRejectsTransportedUserContent`, `TestResultRejectsTransportedUserSummaryAndUnsafeMetadata` |
+| Parser failure boundary | Rejected flags/missing slug or selector never call `Validate`/`Show`; rejected values are not echoed | `TestCanonicalProjectParserFailuresDoNotCallApplicationServices` |
+| Project inspection truth | Resolution causes preserve distinct status/result/next semantics | `TestProjectShowClassifiesResolutionCauses` and dogfood success/not-found/unavailable cases |
 
 AC-12 Runtime convergence remains T15/T24 work. AC-15 Provider, Runtime, Markdown,
 Evidence, and generated source/text propagation remains with its approved successor
@@ -101,7 +115,7 @@ owners. T01 supplies their central contract only.
 Exit mapping preserves the existing `0`/`1`/`2` process convention. It is not a
 new architecture decision and does not redefine status meaning.
 
-## Provenance cases and exact build inputs
+## Provenance cases
 
 | Case | Inputs | Expected canonical value |
 |---|---|---|
@@ -111,49 +125,15 @@ new architecture decision and does not redefine status meaning.
 | unavailable | `release=false version=development revision=unavailable source=unknown` | `Axiom development unavailable unknown` |
 | invalid release | non-SemVer, unavailable revision, dirty/unknown source, or numeric prerelease with leading zero | rejected; never a release identity |
 
-Measured black-box binary build:
+## Output bounds and read-only behavior
 
-```text
--trimpath
--X main.buildVersion=development
--X main.buildRevision=ae4c6133bf25
--X main.buildSourceState=clean
--X main.buildRelease=false
-sha256=b72f5e9adff14dad8f095b802e79f5d4224e84d6204af58855b6e17956ad326f
-```
-
-Hash identifies this isolated Evidence build, not a release or golden artifact.
-
-## Output bounds and mutation ledger
-
-Observed bytes, including trailing newline, from the isolated build:
-
-| Invocation | Exit | Bytes |
-|---|---:|---:|
-| `lingo version` | 0 | 113 |
-| `lingo --json version` | 0 | 161 |
-| `lingo project validate --slug sample` | 0 | 106 |
-| `lingo --json project validate --slug sample` | 0 | 154 |
-| `lingo project show --selector sample` | 0 | 189 |
-| `lingo --json project show --selector sample` | 0 | 234 |
-
-All remain below the 16 KiB renderer ceiling. Unit guards also bound authored text,
-reference count/length, detail reference length, UTF-8 validity, whitespace, and
-control characters.
-
-After isolated fixture setup, all six read-only invocations above ran against the
-same portable, local-state, and Repository roots:
-
-```text
-before=0db031bac7f89b511045c43dcdfcc62b6dfb88397fa1758cb37e76bc7d6258a7
-after=0db031bac7f89b511045c43dcdfcc62b6dfb88397fa1758cb37e76bc7d6258a7
-unchanged=true
-```
-
-The ledger hashes sorted file identities/content. It supports zero-write behavior;
-it is not a filesystem-concurrency or recovery claim. Unit/black-box tests also
-verify missing validation roots stay absent. No Git, network, Provider, Runtime
-installation, shell-profile, release, or external mutation occurred.
+`TestCompletionOutputIsBounded` enforces the 16 KiB renderer ceiling. Constructor
+tests bound authored text, reference count/length, detail reference length, UTF-8,
+whitespace, and control characters. `TestCanonicalReadOnlySurfacesDoNotMutateState`
+snapshots portable, local-state, and Repository trees around human and JSON
+`project validate`/`project show` invocations. Missing-root tests prove validation
+does not create roots or lock files. These tests establish the T01 read-only
+boundary; they do not claim filesystem concurrency or recovery behavior.
 
 ## Static architecture and security Evidence
 
@@ -168,21 +148,14 @@ installation, shell-profile, release, or external mutation occurred.
   fields through the canonical constructors.
 - Metadata tests reject invalid UTF-8 boundaries, control/newline injection,
   oversized values, unknown statuses/states, and unsafe release claims.
-- Worktree sensitive-file checker passed. Gitleaks scanned approximately 1.85 MB
-  and reported no leaks. Scanners complement structural controls; they do not prove
-  absence of every secret.
+- Worktree and staged sensitive-file checks passed. Gitleaks 8.30.1 scanned the
+  worktree with redaction and reported no leaks. Scanners complement structural
+  controls; they do not prove absence of every secret.
 
 ## Reproduction and executed results
 
 Environment: macOS 27.0 build 26A428, Darwin arm64,
-`go version go1.26.1 darwin/arm64`.
-
-Initial TDD construction:
-
-```text
-go test ./internal/provenance ./internal/completion
-exit 1 — expected: packages had tests but no implementation files/types
-```
+`go version go1.26.0 darwin/arm64`.
 
 Final commands from repository root:
 
@@ -197,8 +170,11 @@ go mod verify
 ./scripts/dogfood-poc.sh
 ./scripts/validate-repository.sh .
 ./scripts/check-sensitive-files.sh .
+./scripts/check-sensitive-files.sh --staged .
 gitleaks dir . --no-banner --redact
-for script in scripts/*.sh; do bash -n "$script" || exit; done
+for script in scripts/*.sh; do
+  bash -n "$script" || exit 1
+done
 git diff --check
 ```
 
@@ -211,9 +187,17 @@ git diff --check
 | Existing isolated POC dogfood regression | Exit 0; PATH notice only, all state/provider fakes remained under temporary roots |
 | Repository validator | Exit 0; package structure, validator regressions, sensitive scan, bootstrap checks passed |
 | Worktree sensitive-file scan | Exit 0; passed |
-| Gitleaks | Exit 0; no leaks found |
+| Staged sensitive-file scan | Exit 0; passed against the complete proposed index |
+| Gitleaks 8.30.1 worktree scan | Exit 0; approximately 1.86 MB scanned; no leaks found |
 | Shell syntax | Exit 0 for every `scripts/*.sh` file |
 | Diff whitespace check | Exit 0 |
+
+At reviewed head `494b12f97c1f`, POC verification run `35553059841` failed on
+both macOS and Ubuntu because dogfood still asserted the legacy `project show`
+event. The remediated dogfood passes locally and now asserts canonical success,
+not-found, and repository-unavailable results. GitHub Actions status is live
+provider state and must be checked at the final PR head; it is not inferred from
+local validation or embedded as self-acceptance in this document.
 
 ## Review findings and limitations
 
@@ -231,11 +215,7 @@ security. No blocker, critical, or major finding remains.
   archive, checksum publication, signing, or authenticity claim occurred.
 - This run provides macOS arm64 implementation Evidence. T01 has no native target
   matrix ownership; T22/T24 remain responsible for approved exact-target Evidence.
-- Build hashes and mutation-ledger hashes are per-run observations, not stable
-  goldens.
-- Staged-only sensitive scanning was not run because no index/commit operation was
-  required. Worktree scanning and Gitleaks covered all current tracked/untracked
-  files.
+- No per-run binary or mutation-ledger hash is promoted as a stable golden.
 
 **Return to human T01 implementation review. Do not start T02 or any successor
 without a new explicit human authorization.**

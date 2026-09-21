@@ -135,6 +135,10 @@ func New(facts Facts, result provenance.Text, references []string, next provenan
 	return Result{status: status, result: result, references: stableReferences, next: next, details: details, provenance: source}, nil
 }
 
+func NewValidationFailure(result, next provenance.Text, source provenance.Value) (Result, error) {
+	return New(Facts{ValidationFailed: true}, result, nil, next, "", source)
+}
+
 func (r Result) Status() Status               { return r.status }
 func (r Result) Result() provenance.Text      { return r.result }
 func (r Result) Next() provenance.Text        { return r.next }

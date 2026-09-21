@@ -130,14 +130,14 @@ type WorkflowView struct {
 // Run parses one CLI action, delegates it, and emits one safe structured event.
 // It never turns a parser error into user-visible text because parser text may
 // contain rejected input.
-func Run(ctx context.Context, args []string, service Service, stdout io.Writer) int {
+func Run(ctx context.Context, args []string, service Service, source provenance.Value, stdout io.Writer) int {
 	structured := append([]string{"--json"}, args...)
-	return RunInteractive(ctx, structured, service, nil, stdout, io.Discard)
+	return RunInteractive(ctx, structured, service, source, nil, stdout, io.Discard)
 }
 
 // RunInteractive adds the bounded prompt path used by `project configure` and
 // selects human or machine-readable presentation without changing application behavior.
-func RunInteractive(ctx context.Context, args []string, service Service, stdin io.Reader, stdout, stderr io.Writer) int {
+func RunInteractive(ctx context.Context, args []string, service Service, source provenance.Value, stdin io.Reader, stdout, stderr io.Writer) int {
 	mode, args := parseOutputMode(args)
 	if service == nil {
 		return emit(stdout, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
@@ -152,11 +152,8 @@ func RunInteractive(ctx context.Context, args []string, service Service, stdin i
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
-		if operation == validateAction {
-			return emitCanonicalResponse(stdout, mode, service.Validate(ctx, ProjectInput{}))
-		}
-		if operation == showAction {
-			return emitCanonicalResponse(stdout, mode, service.Show(ctx, ResolveInput{}))
+		if operation == validateAction || operation == showAction {
+			return emitParserFailure(stdout, mode, operation, *result, source)
 		}
 		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
 	}
@@ -164,11 +161,34 @@ func RunInteractive(ctx context.Context, args []string, service Service, stdin i
 	return emitResponse(stdout, mode, operation, response)
 }
 
-func emitCanonicalResponse(writer io.Writer, mode outputMode, response Result) int {
-	if response.Completion == nil {
-		return emit(writer, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
+func emitParserFailure(writer io.Writer, mode outputMode, operation action, issue string, source provenance.Value) int {
+	message, next := parserFailureText(operation, issue)
+	statement, err := provenance.NewText(message, provenance.AxiomAuthored)
+	if err != nil {
+		return ExitFailure
 	}
-	return emitCompletion(writer, mode, *response.Completion)
+	nextAction, err := provenance.NewText(next, provenance.AxiomAuthored)
+	if err != nil {
+		return ExitFailure
+	}
+	result, err := completion.NewValidationFailure(statement, nextAction, source)
+	if err != nil {
+		return ExitFailure
+	}
+	return emitCompletion(writer, mode, result)
+}
+
+func parserFailureText(operation action, issue string) (string, string) {
+	if operation == validateAction && issue == "missing_required_input" {
+		return "Project slug is required", "Provide a Project slug and retry validation"
+	}
+	if operation == showAction && issue == "missing_required_input" {
+		return "Project selector is required", "Provide a Project UUID or slug and retry inspection"
+	}
+	if operation == validateAction {
+		return "Project validation input is invalid", "Review supported validation flags and retry"
+	}
+	return "Project inspection input is invalid", "Review supported inspection flags and retry"
 }
 
 func emitResponse(writer io.Writer, mode outputMode, operation action, response Result) int {
