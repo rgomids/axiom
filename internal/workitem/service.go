@@ -7,7 +7,10 @@ import (
 	"errors"
 )
 
-var ErrRecoveryRequired = errors.New("work item recovery required")
+var (
+	ErrNotFound         = errors.New("work item not found")
+	ErrRecoveryRequired = errors.New("work item recovery required")
+)
 
 type Repository struct{ Key, Path string }
 type Project struct {
@@ -104,7 +107,25 @@ func (s Service) Select(ctx context.Context, target Target, number int) Result {
 	if err != nil {
 		return failure("github_read_failed")
 	}
-	return s.persist(ctx, project, target.RepositoryKey, repository, external, [32]byte{})
+	revision, result := s.selectedRevision(ctx, project.ID, target.RepositoryKey, number)
+	if result.Status == Failed {
+		return result
+	}
+	return s.persist(ctx, project, target.RepositoryKey, repository, external, revision)
+}
+
+func (s Service) selectedRevision(ctx context.Context, projectID, repositoryKey string, number int) ([32]byte, Result) {
+	link, err := s.store.Load(ctx, projectID, repositoryKey, number)
+	if err == nil {
+		return link.Revision, Result{}
+	}
+	if errors.Is(err, ErrNotFound) {
+		return [32]byte{}, Result{}
+	}
+	if errors.Is(err, ErrRecoveryRequired) {
+		return [32]byte{}, failure("recovery_required")
+	}
+	return [32]byte{}, failure("local_work_item_read_failed")
 }
 
 func (s Service) Show(ctx context.Context, target Target, number int) Result {

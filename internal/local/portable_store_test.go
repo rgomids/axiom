@@ -176,6 +176,25 @@ func TestPortableUpdateCancellationBeforePublicationPreservesOldBytes(t *testing
 	}
 }
 
+func TestPortableCancellationBeforeStagingPreservesOldBytes(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Create(context.Background(), "sample", []byte("old")); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := store.Update(ctx, "sample", []byte("old"), []byte("new")); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled update = %v", err)
+	}
+	if body, err := store.Read(context.Background(), "sample"); err != nil || string(body) != "old" {
+		t.Fatalf("prior bytes = %q, %v", body, err)
+	}
+}
+
 func TestPortableConflictingWritersHaveOneWinner(t *testing.T) {
 	root := privateTestRoot(t)
 	store, err := NewPortableStore(root)
@@ -312,6 +331,24 @@ func TestPortablePostPublicationSyncFailureRequiresRecovery(t *testing.T) {
 				t.Fatalf("published bytes = %q, %v", actual, err)
 			}
 		})
+	}
+}
+
+func TestPortableCleanupFailurePreservesCommittedBytesAndRequiresRecovery(t *testing.T) {
+	root := privateTestRoot(t)
+	store, err := NewPortableStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.removeAttempt = func(*os.Root, string) error { return ErrRecoveryRequired }
+	if err := store.Create(context.Background(), "sample", []byte("new")); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("cleanup failure = %v", err)
+	}
+	if body, err := os.ReadFile(filepath.Join(root, "sample", manifestName)); err != nil || string(body) != "new" {
+		t.Fatalf("committed bytes = %q, %v", body, err)
+	}
+	if _, err := store.Read(context.Background(), "sample"); !errors.Is(err, ErrRecoveryRequired) {
+		t.Fatalf("reader after cleanup failure = %v", err)
 	}
 }
 

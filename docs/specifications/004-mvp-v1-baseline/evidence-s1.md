@@ -51,27 +51,143 @@ Lookup accepts only a lowercase UUID v4 and returns `artifact:<uuid>` after
 validating object identity, closed metadata, content size/digest, owner-only
 mode/ACL, regular-file type, and link count. Paths are never lookup authority.
 
-## Fault and reader matrix
+## Per-store fault and reader Evidence
 
-| Stage | Injected/observed case | Required and verified truth |
+The tables below distinguish a tested protocol checkpoint from a stage that the
+store cannot reach. `N/A` is not coverage: it means the store has no corresponding
+effect in S1. Test names are exact Go test identifiers under `internal/local`.
+
+### Project store (`PortableStore`)
+
+Mechanism: anchored `os.Root` handles, non-blocking kernel advisory locks, private
+same-filesystem directory staging for create, private file staging for update,
+protected no-replace directory rename or atomic file rename, and a bounded
+versioned attempt marker. Create commits when the staged Project directory is
+renamed to the canonical slug; update commits when the staged manifest replaces
+`axiom.yaml`. Update authority is the exact previously observed manifest bytes;
+their SHA-256 is the observable portable revision above this store boundary.
+
+| Stage | Applicable mechanism | Pre/post-commit and reader outcome | `recovery_required` | Test / limitation |
+|---|---|---|---|---|
+| F0 | Pre-cancel after entry, before staging | Prior bytes remain readable; no digest change | No | `TestPortableCancellationBeforeStagingPreservesOldBytes` |
+| F1 | Complete-write loop; ENOSPC/EDQUOT seam | Create stays absent or update retains exact expected bytes | No after controlled cleanup | `TestPortableDiskFullBeforePublicationPreservesPriorState`; `TestWriteCompleteHandlesShortWritesAndStorageFaults` |
+| F2 | Prepared manifest identity/mode/link verification | Unsafe stage is not published; prior/absence remains authority | No when controlled cleanup succeeds; surviving stage fails closed | `TestPortableRejectsStagedHardLinkBeforePublication`; `TestPortableStoreReportsInterruptedCreate`; `TestPortableStoreReportsInterruptedUpdate` |
+| F3 | Expected-byte recheck, cancellation, root/Project identity recheck | Prior exact bytes remain authority | No after controlled cancellation cleanup; Yes after process death with marker | `TestPortableUpdateCancellationBeforePublicationPreservesOldBytes`; `TestPortableCreateRejectsAncestorReplacementBeforePublication`; `TestPortableUpdateRejectsProjectRenameBeforePublication`; crash tests |
+| F4 | No separate prior-generation rename | Atomic file replacement retains old bytes until F5; create has no prior generation | N/A as a distinct Project-store stage | ADR-0007 permits replaceable mechanisms; no separate prior object exists |
+| F5 | Protected directory create or atomic manifest replacement | One winner; loser conflicts; reader returns winner only | No after controlled collision cleanup | `TestPortableConflictingWritersHaveOneWinner` |
+| F6 | Post-rename directory sync/ack boundary | New complete bytes exist; reader blocks while marker survives | Yes | `TestPortablePostPublicationSyncFailureRequiresRecovery`; `TestPortableCreateCrashBoundaryRequiresRecovery`; `TestPortableUpdateCrashBoundaryRequiresRecovery` |
+| F7 | No secondary Provider/artifact effect in Project publication | Canonical Project commit is the sole primary effect | N/A | S1 Project store exposes no secondary effect |
+| F8 | Attempt-marker removal and directory sync | Canonical bytes remain committed; ordinary reader blocks | Yes | `TestPortableCleanupFailurePreservesCommittedBytesAndRequiresRecovery` |
+
+### Installation store
+
+Mechanism: anchored state/Project roots, broad-to-narrow advisory locking, strict
+source re-observation, private file staging, protected no-replace rename, directory
+sync, and bounded versioned attempt marker. It is create-only in S1. Commit is the
+rename to `installation.json`. The record embeds the exact portable revision;
+there is no expected local revision for create. Equivalent existing bytes are a
+no-op and different existing bytes are an explicit conflict.
+
+| Stage | Applicable mechanism | Pre/post-commit and reader outcome | `recovery_required` | Test / limitation |
+|---|---|---|---|---|
+| F0 | Pre-cancel before source/stage mutation | No local record; reopen reports absent local state | No | `TestInstallationCancellationBeforeStagingLeavesNoRecord` |
+| F1 | Complete-write loop; ENOSPC/EDQUOT seam | No canonical record | No after controlled cleanup | `TestInstallationDiskFullBeforePublicationLeavesNoRecord`; shared short/zero-write test |
+| F2 | Prepared record identity/link/content verification | Unsafe staged record is not published | No when controlled cleanup succeeds | `TestInstallationRejectsStagedHardLinkBeforePublication` |
+| F3 | Source revision, cancellation, target/root identity recheck | No record is committed; replacement target is not followed | No after controlled cleanup; Yes after process death with marker | `TestInstallationCancellationBeforePublicationLeavesNoRecord`; `TestInstallationRejectsTargetReplacementBeforePublication`; crash test |
+| F4 | No prior-generation preservation | Installation is create-only and cannot replace an existing record | N/A | Existing divergent record conflicts before staging |
+| F5 | Protected no-replace rename | Complete concurrent winner remains readable; attempted publisher returns conflict | No after controlled collision cleanup | `TestInstallationPublicationCollisionPreservesCompleteWinner` |
+| F6 | Post-rename target/projects sync and acknowledgment | Complete record exists; normal reopen blocks while marker survives | Yes | `TestInstallationPostPublicationSyncFailureRequiresRecovery`; `TestInstallationCrashBoundaryRequiresRecovery` |
+| F7 | No secondary effect in local installation-record publication | Canonical record is the sole effect | N/A | Runtime installation belongs to T04 and was not introduced |
+| F8 | Attempt-marker removal and sync | Canonical record remains committed; reopen blocks | Yes | `TestInstallationCleanupFailurePreservesCommittedRecordAndRequiresRecovery` |
+
+### Work Item store
+
+Mechanism: shared single-file publisher with anchored roots, ordered advisory
+locks, private stage, bounded JSON recovery marker containing prior/new SHA-256,
+atomic create/update rename, confirmation, and owned cleanup. Commit is canonical
+file rename. Create uses the zero revision only when the record is absent; update
+requires SHA-256 of the exact observed canonical bytes.
+
+| Stage | Applicable mechanism | Pre/post-commit and reader outcome | `recovery_required` | Test / limitation |
+|---|---|---|---|---|
+| F0 | Injected after locks/before staging | Exact prior revision remains readable | No | `TestWorkItemStoreRequiresExpectedRevisionAndFailsClosedAcrossF0F8/F0` |
+| F1 | Injected before complete staged write | Exact prior revision remains readable | No | same matrix `/F1`; short/zero-write primitive test |
+| F2 | Injected after stage/before validation | No commit; surviving private stage blocks reader | Yes | same matrix `/F2` |
+| F3 | Expected SHA-256 and target recheck | Stale update conflicts; interruption retains prior authority | Yes only when injected state survives | same matrix `/F3`; `TestWorkItemStoreRejectsStaleRevision` |
+| F4 | Marker checkpoint before publication; no separate prior file for atomic replacement | Prior canonical revision remains; marker records prior/new digests | Yes | same matrix `/F4` |
+| F5 | Atomic no-replace/create or replacement rename | Old or new complete JSON only | Yes for injected uncertainty | same matrix `/F5` |
+| F6 | Post-rename marker/confirmation/sync | New SHA-256 is committed; reader blocks pending acknowledgment | Yes | same matrix `/F6` |
+| F7 | Protocol post-primary checkpoint; no Provider call inside store | Canonical new bytes stay committed | Yes for injected interruption | same matrix `/F7`; no external secondary effect claimed |
+| F8 | Marker cleanup/sync | Canonical new bytes stay committed; leftover blocks reader | Yes | same matrix `/F8` |
+
+`Service.Select` separately proves reconciliation: it loads the local link,
+passes its observed revision to `Save`, and updates changed Provider state without
+weakening stale-revision rejection (`TestSelectReconcilesExistingLinkWithObservedRevision`).
+
+### Workflow store
+
+Mechanism and commit point are the shared single-file protocol above. Create is
+explicit; save requires SHA-256 of exact observed workflow JSON bytes. Workflow
+format/status checks run before publication.
+
+| Stage | Applicable mechanism | Pre/post-commit and reader outcome | `recovery_required` | Test / limitation |
+|---|---|---|---|---|
+| F0 | After locks/before staging | Prior workflow revision readable | No | `TestWorkflowStoreFailsClosedAcrossF0F8/F0` |
+| F1 | Before complete staged write | Prior workflow revision readable | No | same matrix `/F1`; shared short/zero-write primitive test |
+| F2 | After stage/before validation | No commit; surviving stage blocks reader | Yes | same matrix `/F2` |
+| F3 | Expected SHA-256 and target recheck | Stale save conflicts; prior remains authority | Yes only when injected state survives | same matrix `/F3`; `TestWorkflowStoreRequiresExpectedRevision` |
+| F4 | Marker checkpoint before atomic replacement | Prior canonical revision remains; prior/new digests retained | Yes | same matrix `/F4` |
+| F5 | Atomic create/replacement rename | Old or new complete workflow only | Yes for injected uncertainty | same matrix `/F5` |
+| F6 | Post-rename confirmation/sync | New workflow revision committed; reader blocks | Yes | same matrix `/F6` |
+| F7 | Protocol post-primary checkpoint; no Provider projection in T03 | Canonical workflow remains committed | Yes for injected interruption | same matrix `/F7`; Provider projection belongs to T12 |
+| F8 | Marker cleanup/sync | Canonical workflow remains committed; leftover blocks reader | Yes | same matrix `/F8` |
+
+### Artifact store
+
+Mechanism: shared vocabulary implemented for one multi-file object using an
+anchored shard root, private directory staging, strict reread/digest validation,
+bounded JSON recovery marker, protected no-replace directory rename, canonical
+confirmation, and owned cleanup. Commit is rename to the UUID v4 canonical
+directory. Create authority has no prior object revision; metadata records the
+SHA-256 content digest and creation checks the exact capacity observation.
+
+| Stage | Applicable mechanism | Pre/post-commit and reader outcome | `recovery_required` | Test / limitation |
+|---|---|---|---|---|
+| F0 | After locks/capacity, before stage | Artifact absent | No | `TestArtifactStoreFaultStagesPreserveCommitTruthAndFailClosed/F0` |
+| F1 | Stage creation/write | Artifact absent if controlled cleanup completes | Yes only if private stage survives | same matrix `/F1`; shared short/zero-write test |
+| F2 | Complete metadata/content/digest/mode/link validation | No canonical object; surviving stage blocks lookup | Yes | same matrix `/F2`; `TestArtifactStoreRejectsDigestModeLinkAndTypeChanges` |
+| F3 | Capacity/identity/context recheck and marker | No canonical object | Yes for injected interruption | fault matrix `/F3`; capacity/collision test |
+| F4 | Marker checkpoint; create has no prior generation | Artifact remains absent; intended digest retained in marker | Yes | fault matrix `/F4`; no prior artifact exists |
+| F5 | Protected no-replace directory rename | Complete object or absence; collision cannot replace | Yes for injected uncertainty | fault matrix `/F5`; `TestArtifactStoreCapacityAndCollisionFailWithoutEviction` |
+| F6 | Post-rename marker, canonical reread/digest and sync | Complete digest-verified artifact committed; lookup blocks | Yes | fault matrix `/F6` |
+| F7 | Protocol post-primary checkpoint; no secondary effect in store | Complete artifact remains committed | Yes for injected interruption | fault matrix `/F7`; completion-service partial classification is tested separately |
+| F8 | Marker cleanup/sync | Complete artifact remains committed; leftover blocks lookup | Yes | fault matrix `/F8` |
+
+### Process, confinement, and mechanism rationale
+
+| Store | Process/concurrency observation | Outside-root observation |
 |---|---|---|
-| F0 | cancellation/error after coordination | no canonical mutation; prior readable |
-| F1 | no progress, short-write loop, ENOSPC/EDQUOT/error before complete stage | no commit; absent stage cleaned or interruption recognized |
-| F2 | interrupted/corrupt/unsafe prepared object | no publication; reader fails closed when stage survives |
-| F3 | cancellation/stale expected revision/target recheck | prior authority; stale write rejected |
-| F4 | prior-generation boundary / pre-publication error | prior remains complete; uncertainty remains marked |
-| F5 | collision/rename publication error | old or new complete canonical object only |
-| F6 | interruption after rename before acknowledgment/confirmation | committed only when canonical generation is confirmable; otherwise recovery required |
-| F7 | acknowledged primary plus secondary failure | primary remains committed; caller can classify truthful partial |
-| F8 | cleanup error/identity uncertainty | canonical commit preserved; exact leftovers retained and readers fail closed |
+| Project | Create/update helpers are killed after pipe barriers before and after commit; readers then require recovery. Separate two-process lock tests admit one owner and reject the contender. | Ancestor-replacement tests prove redirected trees unchanged. Shared sentinel SHA-256 remains `aaa8d3c8d74ad3e8f6b1772aa9c7e0eaa528cb42fc93599ce2f125b00d4c424c`. |
+| Installation | Helper is killed after pre/post-commit barriers; reopen requires recovery and observes absent/complete canonical record according to commit point. | Target-replacement test proves redirected tree unchanged; shared sentinel hash remains the value above. |
+| Work Item | No separate process-kill helper: the adapter uses the same `publishFile` and ordered kernel-lock implementation tested by its full F0–F8 matrix and process-lock suites. | Shared per-store confinement test retains the sentinel hash above. |
+| Workflow | No separate process-kill helper: same shared publisher/lock implementation, plus its own full adapter F0–F8 matrix. | Shared per-store confinement test retains the sentinel hash above. |
+| Artifact | Helper is killed after a staged barrier; a concurrent writer conflicts and subsequent access requires recovery. | Artifact-specific portable/Repository sentinels and shared per-store sentinel retain the hash above. |
 
-Artifact tests exercise F0–F8 over the multi-file directory publication. Work
-Item tests exercise F0–F8 over shared single-file create/update publication.
-Workflow stale-revision tests use the same single-file implementation. Existing
-Project and installation process tests exercise real process death before and
-after their directory/file commit points. Multi-process artifact and Project
-tests use pipe barriers as the oracle; sleeps only keep the helper alive after
-the barrier.
+`TestEveryT03StorePreservesOutsideRootHash` runs successful publication through
+all five adapters and asserts the exact pre/post sentinel digest. Attack-specific
+replacement/link/type tests remain separate so this normal-path hash does not
+stand in for confinement validation.
+
+The selected mechanisms are standard-library anchored filesystem handles,
+kernel locks, same-filesystem private staging, rename publication, bounded
+versioned markers, exact byte digests, and fail-closed reads. They preserve the
+ADR-0007 observable invariants without making a persisted syscall/library choice.
+Assumptions remain: user-owned local roots; supported regular-file/directory
+identity, link-count, restrictive mode/ACL, rename and advisory-lock semantics;
+stage and canonical target on one filesystem. Exclusions remain malicious
+arbitrary same-UID interleaving, physical power loss/media guarantees, mutating
+recovery, and native Ubuntu 26.04 evidence. Exact-target native evidence remains
+obligatory at T22.
 
 ## Security and confinement observations
 

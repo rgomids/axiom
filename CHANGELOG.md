@@ -15,6 +15,9 @@
   stale-authority and old/new matrices, deterministic F0–F8 injection,
   multi-process barrier/crash coverage, and S1 regression Evidence. No S2 work,
   Provider mutation, Git remote mutation, Runtime installation, or release work.
+- fix: preserve reconciliable Work Item selection by loading the observed local
+  revision before update, keep first selection on the protected create path, and
+  expand per-store T03 Evidence with explicit F0–F8 applicability and tests.
 
 ## [2026-09-20]
 

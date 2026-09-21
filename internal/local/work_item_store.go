@@ -91,14 +91,14 @@ func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey string
 	}
 	root, items, projectRoot, err := s.openProject(projectID, false)
 	if err != nil {
-		return workitem.Link{}, err
+		return workitem.Link{}, workItemStoreError(err)
 	}
 	defer root.Close()
 	defer items.Close()
 	defer projectRoot.Close()
 	locks, err := lockRoots(false, root, items, projectRoot)
 	if err != nil {
-		return workitem.Link{}, err
+		return workitem.Link{}, workItemStoreError(err)
 	}
 	defer closeFiles(locks)
 	wire, err := readPublishedFile(projectRoot, workItemName(repositoryKey, number))
@@ -113,6 +113,9 @@ func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey string
 }
 
 func workItemStoreError(err error) error {
+	if errors.Is(err, ErrNotFound) || os.IsNotExist(err) {
+		return errors.Join(err, workitem.ErrNotFound)
+	}
 	if errors.Is(err, ErrRecoveryRequired) {
 		return errors.Join(err, workitem.ErrRecoveryRequired)
 	}

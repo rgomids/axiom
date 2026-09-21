@@ -33,6 +33,17 @@ func TestWorkItemStoreRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWorkItemStoreReportsMissingForFirstSelection(t *testing.T) {
+	store, err := NewWorkItemStore(filepath.Join(t.TempDir(), "state"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = store.Load(context.Background(), "123e4567-e89b-42d3-a456-426614174000", "main", 7)
+	if !errors.Is(err, workitem.ErrNotFound) {
+		t.Fatalf("missing load = %v", err)
+	}
+}
+
 func TestWorkItemStoreRequiresExpectedRevisionAndFailsClosedAcrossF0F8(t *testing.T) {
 	for index, stage := range []FaultStage{FaultF0, FaultF1, FaultF2, FaultF3, FaultF4, FaultF5, FaultF6, FaultF7, FaultF8} {
 		t.Run(string(stage), func(t *testing.T) {

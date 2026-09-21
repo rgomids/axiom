@@ -38,6 +38,28 @@ func TestCreateSelectCommentAndComplete(t *testing.T) {
 	}
 }
 
+func TestSelectReconcilesExistingLinkWithObservedRevision(t *testing.T) {
+	provider := &fakeProvider{readState: "CLOSED"}
+	store := newFakeStore()
+	expected := [32]byte{1}
+	store.links["main"] = Link{
+		ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
+		RepositoryKey:      "main",
+		ProviderRepository: "owner/repo",
+		Number:             7,
+		URL:                "https://github.com/owner/repo/issues/7",
+		State:              "OPEN",
+		Revision:           expected,
+	}
+	result := New(fakeResolver{}, fakeLocator{}, provider, store).Select(context.Background(), Target{"sample", "main"}, 7)
+	if result.Status != Succeeded || result.Link.State != "CLOSED" || result.Link.Revision != expected {
+		t.Fatalf("reconciled select = %#v", result)
+	}
+	if store.saved.Revision != expected {
+		t.Fatalf("save revision = %x want %x", store.saved.Revision, expected)
+	}
+}
+
 func TestCompleteReportsProviderCommitWhenLocalSaveFails(t *testing.T) {
 	provider := &fakeProvider{}
 	store := newFakeStore()
@@ -107,14 +129,21 @@ func (fakeLocator) GitHubRepository(context.Context, string) (string, error) {
 	return "owner/repo", nil
 }
 
-type fakeProvider struct{ creates, comments, closes int }
+type fakeProvider struct {
+	creates, comments, closes int
+	readState                 string
+}
 
 func (p *fakeProvider) Create(context.Context, string, string, string) (External, error) {
 	p.creates++
 	return External{7, "https://github.com/owner/repo/issues/7", "OPEN"}, nil
 }
-func (*fakeProvider) Read(context.Context, string, int) (External, error) {
-	return External{7, "https://github.com/owner/repo/issues/7", "OPEN"}, nil
+func (p *fakeProvider) Read(context.Context, string, int) (External, error) {
+	state := p.readState
+	if state == "" {
+		state = "OPEN"
+	}
+	return External{7, "https://github.com/owner/repo/issues/7", state}, nil
 }
 func (p *fakeProvider) Comment(context.Context, string, int, string) error { p.comments++; return nil }
 func (p *fakeProvider) Close(context.Context, string, int) (External, error) {
@@ -124,6 +153,7 @@ func (p *fakeProvider) Close(context.Context, string, int) (External, error) {
 
 type fakeStore struct {
 	links    map[string]Link
+	saved    Link
 	failSave bool
 	recovery bool
 }
@@ -136,6 +166,7 @@ func (s *fakeStore) Save(_ context.Context, link Link) error {
 	if s.failSave {
 		return errors.New("write failed")
 	}
+	s.saved = link
 	s.links[link.RepositoryKey] = link
 	return nil
 }
@@ -145,7 +176,7 @@ func (s *fakeStore) Load(context.Context, string, string, int) (Link, error) {
 	}
 	link, ok := s.links["main"]
 	if !ok {
-		return Link{}, errors.New("missing")
+		return Link{}, ErrNotFound
 	}
 	return link, nil
 }
