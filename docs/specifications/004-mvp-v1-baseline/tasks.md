@@ -4,9 +4,9 @@
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
-**T01 Implementation: Completed — Evidence produced; human acceptance pending.**
+**S1 Implementation: Authorized — T01 accepted/merged; T02–T03 may proceed within the approved S1 boundary.**
 
-**T02–T25 Implementation: Not authorized.**
+**S2–S7 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -15,10 +15,12 @@ accepted the corrected final DAG of 25 Tasks as reconciled with the approved
 other Task, start implementation, grant local or external mutation authority,
 publish an installer/release, or make the final MVP acceptance decision.
 
-A subsequent explicit human decision on 2026-09-20 authorized implementation of
-T01 only, accepted its kickoff analysis as the execution baseline, and preserved
-every successor gate. T01 implementation and its Evidence are now complete for
-independent review; checks, completion, or merge do not supply human acceptance.
+A subsequent explicit human decision authorized T01 implementation. On 2026-09-21,
+T01 was explicitly accepted and merged in PR #74. The same human decision moved
+normal MVP delivery governance to the approved S1–S7 Slice boundary: T01–T25
+remain the internal decomposition, while an authorized Slice may progress through
+its approved Tasks without a new Task-by-Task human authorization unless a
+separate human-decision gate is triggered.
 
 Authority chain:
 
@@ -27,17 +29,21 @@ Specification 004 — Approved
 -> ADR-0001..ADR-0008 — Accepted
 -> Plan — Approved
 -> Tasks — Approved
--> T01 Implementation — Completed
--> T01 Evidence — Produced
--> T01 Human Acceptance — Pending
--> T02–T25 Implementation — Not authorized
+-> S1 Implementation — Authorized / in progress
+   -> T01 — Accepted / merged in PR #74
+   -> T02–T03 — Authorized within S1
+-> S2–S7 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
 Evidence, not the v1 contract. Existing behavior may be reused only where it
 satisfies the approved Specification, Plan, ADRs, and the Task-specific Evidence
-below. Completion, merge, or acceptance of one Task grants no authority for its
-successors.
+below. Within an authorized Slice, completion or acceptance of one Task does not
+require a new human authorization for the next approved Task. Explicit human
+gates remain required for new/changed Specification scope, durable architectural
+decisions, material authority/side-effect changes, destructive or external
+mutation boundaries called out by the approved Tasks, prerelease/release
+publication, required real-provider acceptance runs, and final MVP acceptance.
 
 ## Shared delivery rules
 
@@ -45,6 +51,12 @@ Every Task is a vertical delivery unit: it includes the smallest necessary domai
 application, adapter, presentation, tests, and Evidence changes for its observable
 outcome. Package names in the Plan describe likely impact, not permission to split
 work by technical layer or freeze a public API.
+
+All Tasks inherit these constraints. Evidence is proportional to risk: ordinary
+bounded implementation may rely on tests, CI, and PR evidence; stronger
+reproducible Evidence remains required where a Task crosses security,
+filesystem/recovery, Provider/external mutation, native-platform,
+migration/upgrade, or RC boundaries.
 
 All Tasks inherit these constraints:
 
@@ -785,10 +797,10 @@ future work under explicit Task authority.
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
-**T01 Implementation — Completed.**
+**S1 Implementation — Authorized / in progress.**
 
-**T01 Evidence — Produced.**
+**T01 — Accepted / merged in PR #74.**
 
-**T01 Human Acceptance — Pending.**
+**T02–T03 — Authorized within S1.**
 
-**T02–T25 Implementation — Not authorized.**
+**S2–S7 Implementation — Not authorized.**
