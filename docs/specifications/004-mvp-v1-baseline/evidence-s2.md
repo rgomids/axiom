@@ -48,6 +48,10 @@ human acceptance. Issue or PR state also does not supply human acceptance.
 - Installation is idempotent, upgrades only known older Axiom bytes, and refuses
   changed/foreign/link-unsafe files plus roots/files with permissive modes or
   extended ACLs.
+- The distributed `darwin && !cgo` binary inspects extended security through
+  `fgetattrlist` on the already-open object, first confirming that the volume
+  reports ACL support. Missing capability, malformed response, or syscall failure
+  remains fail-closed; ACL-free objects are accepted and present ACLs are refused.
 - Process coordination uses one private, schema-checked advisory lock file.
   A live holder returns `codex_skill_install_concurrent`; kernel lock release
   after real `SIGKILL` permits safe inspection and resume of exact missing/current
@@ -125,6 +129,7 @@ zero unless the command itself is a negative-path assertion inside a test:
 ```bash
 bash -n scripts/build-release-archives.sh scripts/install-release.sh \
   scripts/test-release-archives.sh scripts/dogfood-poc.sh
+CGO_ENABLED=0 go test ./internal/darwinacl ./internal/codexruntime ./internal/local -count=1
 go test ./... -count=1
 go test -race ./internal/codexruntime ./internal/projectapp ./internal/local ./internal/cli ./cmd/lingo -count=1
 go vet ./...
@@ -138,45 +143,68 @@ go mod verify
 git diff --check
 ```
 
-PR #84 review remediation reran this matrix on the environment above. The Go
-unit/integration/black-box suite, selected race suite, vet, build, module
-verification, release archive/install suite, Codex skill suite, dogfood journey,
-repository validator, sensitive-file scan, and diff check all exited zero. New
-negative cases explicitly observed exact-host-row rejection, permissive-root and
-ACL refusal, unknown receipt-field refusal, active-process refusal, ambiguous-lock
-`recovery_required`, and safe resume after a real child-process `SIGKILL`.
-Gitleaks was available and reported no leaks.
+PR #84 blocker remediation reran this matrix on the environment above. The
+explicit no-cgo adapter tests, Go unit/integration/black-box suite, selected race
+suite, vet, build, module verification, release archive/install suite, Codex skill
+suite, dogfood journey, repository validator, sensitive-file scan, and diff check
+all exited zero. Negative cases retained exact-host-row rejection,
+permissive-root and ACL refusal, unknown receipt-field refusal, active-process
+refusal, ambiguous-lock `recovery_required`, safe resume after a real child-process
+`SIGKILL`, and foreign skill preservation. Gitleaks was available and reported no
+leaks.
 
-Clean-source identified-artifact observation from implementation commit
-`3a9e765dd8bfd6b5c1b9dc866ca1d960f3e440a9`, version `0.1.0-s2.1`:
+Clean-source corrected-artifact observation from implementation commit
+`3c528c18e63d5743c7d7ca5e4232c81fc0d987f7`, version `0.1.0-s2.2`:
 
 | Archive | SHA-256 |
 |---|---|
-| `axiom-0.1.0-s2.1-macos-27-arm64.tar.gz` | `b11a17081fc82c79f9ece07894aff6da425d6f0fabb64f46c6c4bfa8eb98d6bd` |
-| `axiom-0.1.0-s2.1-ubuntu-26.04-amd64.tar.gz` | `df66ea374f95c0f5988b140d5ada6437ae8c3f8e8f0bc74f9ec2ac513db42435` |
-| `axiom-0.1.0-s2.1-ubuntu-26.04-arm64.tar.gz` | `64e2ca506c8ead1d7c3a2c3d14d3ba375748d2e3dbd175ee7953478e249c4c98` |
+| `axiom-0.1.0-s2.2-macos-27-arm64.tar.gz` | `38fdfeca40170f406afe2395e206ba09f070176439679a40da6195265e4063af` |
+| `axiom-0.1.0-s2.2-ubuntu-26.04-amd64.tar.gz` | `54e697a3c54ed4dab94d0d88546b204280db337d93bb7766a07fdd30f6465dae` |
+| `axiom-0.1.0-s2.2-ubuntu-26.04-arm64.tar.gz` | `456d1230051dbaab395435522a47210545cb45e2c01834d01fbed9d5d3eec051` |
 
-The native macOS archive installed with `install_status=installed`; its binary
-reported version `0.1.0-s2.1`, revision `3a9e765dd8bf`, and source state `clean`.
-The installed binary digest was
-`51d55c8e358196110a3173cc2e0ffa5072af8bf988e78d87a64ee5256fca5566`;
-the closed receipt digest was
-`cc276213c36d72001747d9a60d5c6fe8fbedcf31383f73011a1a604e76f6f0a1`.
+The corrected native macOS archive executed the real installed-binary sequence:
+
+```text
+install archive
+-> lingo version
+-> first-run
+-> runtime codex install
+-> runtime codex status
+-> runtime codex install (idempotent rerun)
+```
+
+The archive install returned `install_status=installed`. The extracted binary
+reported version `0.1.0-s2.2`, revision `3c528c18e63d`, and source state `clean`.
+Its SHA-256 was
+`37c450270d1314f5877aad7a841b10d0520f5e6c971cd150f5cdbaaae534abe0`;
+the closed installation receipt SHA-256 was
+`913fd89565d5949c4eb00954439dbf4caacf9ed954143ed01448b9fae6c22f57`.
+
+Before installation, `first-run` exited nonzero with `validation_failure` and
+exactly five `missing` skills whose names and digests matched the archive
+manifest. `runtime codex install` returned `codex_configured`, installed exactly
+five skill directories, and reported all five as `equivalent`. Each installed
+`SKILL.md` digest matched the manifest values recorded above. `runtime codex
+status` returned success with `Lingo and Codex skills are compatible`; the second
+install returned `codex_already_configured` and preserved the complete runtime
+file digest set.
+
+The runtime root and five skill directories remained owner `501`, mode `0700`,
+and ACL-free; the skill files, lock, and receipt remained owner `501`, mode
+`0600`, link count one, and ACL-free. The archive regression also presented a
+private foreign `axiom-project-configure/SKILL.md`; install returned
+`codex_skill_conflict` and its SHA-256 remained unchanged.
+
 These artifacts were generated only in an isolated temporary directory for
 Evidence; they were not published as a prerelease or GitHub Release.
-
-The clean-source hashes above remain the pre-review S2 implementation artifact
-observation. Review remediation changed the embedded installer, so they are not
-claimed as final corrected-branch release hashes. The remediation archive suite
-used isolated `--development` archives from the working tree; no release artifact
-was published.
 
 ## Native Evidence and limitations
 
 - The macOS 27/arm64 archive is built and installed natively in this Evidence run.
-- Review remediation was exercised natively on macOS 27.0/arm64, including the
-  exact-version negative case, destination ACL refusal, and Codex skill-process
-  `SIGKILL` resume.
+- Blocker remediation was exercised natively on macOS 27.0/arm64 with the actual
+  no-cgo archive binary, including the complete first-run/install/status journey,
+  exact-version negative case, destination and Runtime ACL refusal, and Codex
+  skill-process `SIGKILL` resume.
 - Ubuntu 26.04 amd64 and arm64 binaries/archives are cross-compiled and their
   structure/manifests/checksums are verified here. This is not substituted for
   native ext4 execution.
