@@ -73,9 +73,10 @@ ADRs aceitos
 [Tasks](docs/specifications/004-mvp-v1-baseline/tasks.md) foram aprovadas por
 decisão humana no [PR #72](https://github.com/rgomids/axiom/pull/72) em
 2026-09-20. A DAG final corrigida contém 25 Tasks e está reconciliada com o Plan
-aprovado. S1 foi autorizado como unidade operacional: T01 está aceito/mergeado e
-T02–T03 entregam o restante do substrate local protegido. S2–S7 continuam não
-autorizados; validação técnica ou merge de S1 não implica aceitação humana.
+aprovado. S1 foi entregue em `main` até o PR #83. S2 foi autorizado como unidade
+operacional e T04–T07 estão implementadas com Evidence reproduzível, aguardando
+revisão humana. S3–S7 continuam não autorizados; validação técnica ou merge não
+implica aceitação humana.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 
@@ -107,13 +108,15 @@ export PATH="$HOME/.local/bin:$PATH"
 command -v lingo
 lingo version
 lingo --json version
+lingo first-run
 lingo runtime codex install
 ./scripts/validate-repository.sh .
 go test ./...
 ./scripts/dogfood-poc.sh
 ```
 
-`lingo version`, `project validate`, and `project show` expose the canonical
+`lingo version`, `first-run`, `project configure`, `project validate`, and
+`project show` expose the canonical
 six-field completion contract with one truthful Axiom build provenance value in
 human or JSON form. Other POC command surfaces retain their historical output
 until their authorized Specification 004 Tasks migrate them.
@@ -122,6 +125,23 @@ The validator checks repository/harness structure and sensitive files. Go tests
 exercise application and adapter contracts. Dogfooding installs Lingo, global
 skills, Project, synthetic GitHub Work Item and the full workflow in temporary
 roots. No long-running service starts.
+
+For the S2 exact-version archive path, build only from a clean checkout and use
+an explicit absolute output directory:
+
+```bash
+./scripts/build-release-archives.sh --version 0.1.0 --output /absolute/release
+./scripts/install-release.sh \
+  --archive /absolute/release/axiom-0.1.0-macos-27-arm64.tar.gz \
+  --checksums /absolute/release/SHA256SUMS \
+  --bin-dir /absolute/user-owned/bin \
+  --receipt-dir /absolute/user-owned/state
+```
+
+Select the archive matching the host; Ubuntu archive names use
+`ubuntu-26.04-{amd64,arm64}`. The installer verifies the archive and closed bundle
+manifests before publishing, never edits `PATH` or a shell profile, and preserves
+foreign or modified content. GitHub Release publication is not part of S2.
 
 Next, choose a path:
 

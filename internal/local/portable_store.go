@@ -2,10 +2,13 @@ package local
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 )
@@ -32,6 +35,12 @@ type PortableStore struct {
 	removeAttempt           func(*os.Root, string) error
 }
 
+type PortableObservation struct {
+	Exists   bool
+	Revision string
+	Snapshot projectapp.ArtifactSnapshot
+}
+
 func NewPortableStore(path string) (PortableStore, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) == string(filepath.Separator) {
 		return PortableStore{}, ErrUnsafe
@@ -41,6 +50,27 @@ func NewPortableStore(path string) (PortableStore, error) {
 		return PortableStore{}, err
 	}
 	return PortableStore{root: canonical}, nil
+}
+
+// Inspect observes one portable Project without creating its root. Missing is a
+// first-class revision; malformed or recovery state remains an error.
+func (s PortableStore) Inspect(ctx context.Context, slug string) (PortableObservation, error) {
+	wire, err := s.Read(ctx, slug)
+	if errors.Is(err, ErrNotFound) {
+		return PortableObservation{Revision: "absent"}, nil
+	}
+	if err != nil {
+		return PortableObservation{}, err
+	}
+	snapshot, issues := projectapp.ReadSnapshot(manifest.Codec{}, wire, nil)
+	if len(issues) != 0 {
+		return PortableObservation{}, ErrUnsafe
+	}
+	digest, ok := snapshot.Revision().Digest()
+	if !ok {
+		return PortableObservation{}, ErrUnsafe
+	}
+	return PortableObservation{Exists: true, Revision: hex.EncodeToString(digest[:]), Snapshot: snapshot}, nil
 }
 
 func (s PortableStore) Read(ctx context.Context, slug string) ([]byte, error) {

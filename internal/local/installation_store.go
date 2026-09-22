@@ -3,6 +3,7 @@ package local
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -35,6 +36,13 @@ type InstallationResult struct {
 	Category string
 }
 
+type InstallationObservation struct {
+	Exists   bool
+	Revision string
+	Record   Record
+	Wire     []byte
+}
+
 func NewInstallationStore(path string) (InstallationStore, error) {
 	if !filepath.IsAbs(path) || filepath.Clean(path) == string(filepath.Separator) {
 		return InstallationStore{}, ErrUnsafe
@@ -44,6 +52,55 @@ func NewInstallationStore(path string) (InstallationStore, error) {
 		return InstallationStore{}, err
 	}
 	return InstallationStore{root: canonical}, nil
+}
+
+// Inspect observes one exact ID-addressed local record without creating roots or
+// validating ambient CWD. Invalid, interrupted, or foreign state is never
+// collapsed into absence.
+func (s InstallationStore) Inspect(ctx context.Context, projectID string) (InstallationObservation, string) {
+	if err := ctx.Err(); err != nil {
+		return InstallationObservation{}, "cancelled"
+	}
+	root, err := existingPrivateRoot(s.root)
+	if errors.Is(err, ErrNotFound) {
+		return InstallationObservation{Revision: "absent"}, ""
+	}
+	if err != nil {
+		return InstallationObservation{}, "invalid_existing_local_state"
+	}
+	defer root.Close()
+	projects, err := existingPrivateChild(root, "projects")
+	if errors.Is(err, ErrNotFound) {
+		return InstallationObservation{Revision: "absent"}, ""
+	}
+	if err != nil {
+		return InstallationObservation{}, "invalid_existing_local_state"
+	}
+	defer projects.Close()
+	target, err := existingPrivateChild(projects, projectID)
+	if errors.Is(err, ErrNotFound) {
+		return InstallationObservation{Revision: "absent"}, ""
+	}
+	if err != nil {
+		return InstallationObservation{}, "invalid_existing_local_state"
+	}
+	defer target.Close()
+	if category := installationDirectoryIssue(target); category != "" {
+		return InstallationObservation{}, category
+	}
+	wire, err := readPrivateFile(target, "installation.json")
+	if err != nil {
+		return InstallationObservation{}, "invalid_existing_local_state"
+	}
+	record, revision, issues := DecodeObservedRecord(wire, true)
+	if len(issues) != 0 || record.State().ProjectID != projectID {
+		return InstallationObservation{}, "invalid_existing_local_state"
+	}
+	digest, ok := revision.Digest()
+	if !ok {
+		return InstallationObservation{}, "invalid_existing_local_state"
+	}
+	return InstallationObservation{Exists: true, Revision: hex.EncodeToString(digest[:]), Record: record, Wire: append([]byte(nil), wire...)}, ""
 }
 
 func (s InstallationStore) Install(ctx context.Context, source string) InstallationResult {

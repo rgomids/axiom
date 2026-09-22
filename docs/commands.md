@@ -26,9 +26,10 @@ go run ./cmd/lingo project update --slug sample --name "Sample renamed"
 ```
 
 Cada operação escreve resumo humano por padrão; prefixe o comando com `--json`
-para evento estruturado. `version`, `project validate` e `project show` usam o
-contrato canônico de completion; demais comandos POC preservam temporariamente o
-evento histórico. Exit codes: `0` sucesso, `1` erro/conflito, `2`
+para evento estruturado. `version`, `first-run`, `project configure`,
+`project validate` e `project show` usam o contrato canônico de completion;
+demais comandos POC preservam temporariamente o evento histórico. Exit codes:
+`0` sucesso, `1` erro/conflito, `2`
 interrupção/cancelamento. `init` é create/no-op/conflito: não
 renomeia nem atualiza um Project existente; use `update` para alterar o nome.
 
@@ -228,6 +229,7 @@ Install and inspect the global thin Axiom skills:
 ```bash
 lingo runtime codex install
 lingo runtime codex status
+lingo first-run
 ```
 
 Codex standalone skill names accept lowercase letters, digits and hyphens, so
@@ -249,7 +251,45 @@ AXIOM_CODEX_SKILLS_ROOT=/absolute/test/root lingo runtime codex install
 ```
 
 Known prior Axiom skill content is upgraded atomically. Changed or unrelated
-content remains a conflict and is never overwritten.
+content remains a conflict and is never overwritten. `first-run` reports binary
+compatibility plus the exact digest/state of each of the five skills, then directs
+the user to explicit Project setup. It does not invoke Codex or infer a Project.
+
+## Build and install exact-version S2 archives
+
+A release build requires a clean checkout, an exact semantic version, and an
+absolute output directory. It emits three checksummed archives plus
+`SHA256SUMS`:
+
+```bash
+./scripts/build-release-archives.sh \
+  --version 0.1.0 \
+  --output /absolute/release
+```
+
+Supported archive rows are macOS 27/arm64, Ubuntu 26.04/amd64, and Ubuntu
+26.04/arm64. Install the archive matching the current host into explicit
+user-owned destinations:
+
+```bash
+./scripts/install-release.sh \
+  --archive /absolute/release/axiom-0.1.0-macos-27-arm64.tar.gz \
+  --checksums /absolute/release/SHA256SUMS \
+  --bin-dir /absolute/user-owned/bin \
+  --receipt-dir /absolute/user-owned/state
+```
+
+The install is checksum-first, records a closed receipt, is a no-op for the exact
+owned generation, and refuses platform, ownership, link, type, receipt, and
+content conflicts. It never edits shell profiles or `PATH`. S2 deliberately
+refuses version upgrades; resumable upgrade belongs to T20.
+
+Validate archive structure, clean install, no-op, conflicts, interruption, and
+recovery markers with:
+
+```bash
+./scripts/test-release-archives.sh
+```
 
 ## CLI output and help
 
@@ -262,7 +302,8 @@ lingo --json project show --selector my-project
 lingo help
 ```
 
-Canonical JSON for `version`, `project validate`, and `project show` uses
+Canonical JSON for `version`, `first-run`, `project configure`, `project validate`,
+and `project show` uses
 `status`, `result`, optional `references`, optional `next`, optional `details`, and
 mandatory `provenance`. Human output renders the same semantic value. Other POC
 operations temporarily retain `operation`, `status`, `category`, and applicable
@@ -304,15 +345,33 @@ lingo project configure
 Repeatable non-interactive form:
 
 ```bash
-lingo project configure \
+lingo --json project configure \
   --slug my-project \
   --name "My Project" \
-  --repository main=/absolute/path/to/working-copy
+  --repository main=/absolute/path/to/working-copy \
+  --work-item-provider github
 ```
 
-Repeat `--repository` for multi-repository Projects. Keys enter portable intent;
-absolute paths remain only in protected machine-local state. Codex uses the same
-command through `$axiom-project-configure`.
+This first call is read-only and returns `setup.projectId` plus an exact
+`setup.digest`. After review, repeat the same facts with:
+
+```bash
+lingo --json project configure \
+  --project-id <preview-project-id> \
+  --slug my-project \
+  --name "My Project" \
+  --repository main=/absolute/path/to/working-copy \
+  --work-item-provider github \
+  --preview-digest <preview-digest> \
+  --authorize-local
+```
+
+Repeat `--repository` for multi-repository Projects. Keys and capability intent
+enter portable state; absolute paths and observed revisions remain only in
+protected machine-local state and the review preview. Replaced bindings or changed
+state invalidate authority. Guided mode previews the same normalized proposal and
+asks before publication. Codex uses the same command through
+`$axiom-project-configure`; neither path infers identity from CWD or Git.
 
 ## GitHub Work Items
 

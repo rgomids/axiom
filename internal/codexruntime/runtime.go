@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 )
 
 //go:embed skills/*/SKILL.md
@@ -23,36 +24,58 @@ var skillNames = []string{
 	"axiom-work-item-status",
 }
 
-var legacySkillDigests = map[string]string{
-	"axiom-project-configure": "87dc55d4a459d4abf70bb53c7f91695da9cbae18da3a5afd6112f964062b5b9c",
-	"axiom-project-show":      "594fc02985f5884c780b2c584c6774424bb63c5234ee2f32e5800002cd3c5c02",
-	"axiom-work-item-create":  "556fff5e6b38d204bd4acd6a37f74a23da33c88409a7fbc91c9ccfaf3d70c493",
-	"axiom-work-item-run":     "35bf4d66efa1a182479579f882a408f9b394c32e5b0e02d7dfbf8ef9d129c59b",
-	"axiom-work-item-status":  "009ab0f59c2992c79ca7732a2d451f2b652e4afd94697afd02572bb75ec3db0b",
+var legacySkillDigests = map[string][]string{
+	"axiom-project-configure": {"87dc55d4a459d4abf70bb53c7f91695da9cbae18da3a5afd6112f964062b5b9c", "b9d55306f7f4e1b33b7606c4327f94cf18dd12287536be7f27d61f8f9a95dc1e"},
+	"axiom-project-show":      {"594fc02985f5884c780b2c584c6774424bb63c5234ee2f32e5800002cd3c5c02"},
+	"axiom-work-item-create":  {"556fff5e6b38d204bd4acd6a37f74a23da33c88409a7fbc91c9ccfaf3d70c493"},
+	"axiom-work-item-run":     {"35bf4d66efa1a182479579f882a408f9b394c32e5b0e02d7dfbf8ef9d129c59b"},
+	"axiom-work-item-status":  {"009ab0f59c2992c79ca7732a2d451f2b652e4afd94697afd02572bb75ec3db0b"},
 }
 
 type Status string
 
 const (
-	Applied   Status = "applied"
-	Unchanged Status = "unchanged"
-	Ready     Status = "ready"
-	Missing   Status = "missing"
-	Failed    Status = "failed"
+	Applied      Status = "applied"
+	Unchanged    Status = "unchanged"
+	Ready        Status = "ready"
+	Missing      Status = "missing"
+	Partial      Status = "partial"
+	Incompatible Status = "incompatible"
+	Failed       Status = "failed"
 )
 
-type Result struct {
-	Status   Status
-	Category string
+type SkillState struct {
+	Name, Digest, State string
 }
 
-type Service struct{ root string }
+type Result struct {
+	Status              Status
+	Category            string
+	SkillSetVersion     string
+	BinaryCompatibility string
+	Skills              []SkillState
+}
+
+type Service struct {
+	root                string
+	binaryCompatibility string
+	afterSkill          func(string)
+}
 
 func New(root string) (Service, error) {
 	if !filepath.IsAbs(root) || filepath.Clean(root) == string(filepath.Separator) {
 		return Service{}, errors.New("unsafe Codex skill root")
 	}
-	return Service{root: filepath.Clean(root)}, nil
+	return Service{root: filepath.Clean(root), binaryCompatibility: BinaryCompatibility}, nil
+}
+
+func NewForBinary(root, compatibility string) (Service, error) {
+	service, err := New(root)
+	if err != nil {
+		return Service{}, err
+	}
+	service.binaryCompatibility = compatibility
+	return service, nil
 }
 
 func (s Service) Install(ctx context.Context) Result {
@@ -62,43 +85,54 @@ func (s Service) Install(ctx context.Context) Result {
 	if err := ensureRoot(s.root); err != nil {
 		return Result{Status: Failed, Category: "codex_skill_root_unavailable"}
 	}
+	lock := filepath.Join(s.root, ".axiom-skill-set.lock")
+	if err := os.Mkdir(lock, 0o700); err != nil {
+		return s.inspectResult(Failed, "codex_skill_install_concurrent")
+	}
+	defer os.Remove(lock)
 	for _, name := range skillNames {
 		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
 		if err != nil {
 			return Result{Status: Failed, Category: "codex_skill_package_invalid"}
 		}
 		if !installableOne(s.root, name, content) {
-			return Result{Status: Failed, Category: "codex_skill_conflict"}
+			return s.inspectResult(Failed, "codex_skill_conflict")
 		}
 	}
-	created := make([]string, 0, len(skillNames))
 	changed := false
 	for _, name := range skillNames {
 		if err := ctx.Err(); err != nil {
-			rollback(created)
-			return Result{Status: Failed, Category: "cancelled"}
+			return s.inspectResult(Partial, "codex_skill_install_partial")
 		}
 		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
 		if err != nil {
-			rollback(created)
 			return Result{Status: Failed, Category: "codex_skill_package_invalid"}
 		}
 		changedOne, createdOne, err := installOne(s.root, name, content)
 		if err != nil {
-			rollback(created)
-			return Result{Status: Failed, Category: "codex_skill_conflict"}
+			return s.inspectResult(Partial, "codex_skill_install_partial")
 		}
-		if createdOne {
-			created = append(created, filepath.Join(s.root, name))
-		}
+		_ = createdOne
 		if changedOne {
 			changed = true
 		}
+		if s.afterSkill != nil {
+			s.afterSkill(name)
+		}
 	}
+	receipt, err := receiptBytes()
+	if err != nil {
+		return s.inspectResult(Partial, "codex_skill_receipt_incomplete")
+	}
+	receiptChanged, receiptPublished := publishReceipt(s.root, receipt)
+	if !receiptPublished {
+		return s.inspectResult(Partial, "codex_skill_receipt_incomplete")
+	}
+	changed = changed || receiptChanged
 	if !changed {
-		return Result{Status: Unchanged, Category: "codex_already_configured"}
+		return s.inspectResult(Unchanged, "codex_already_configured")
 	}
-	return Result{Status: Applied, Category: "codex_configured"}
+	return s.inspectResult(Applied, "codex_configured")
 }
 
 func installableOne(root, name string, content []byte) bool {
@@ -107,6 +141,9 @@ func installableOne(root, name string, content []byte) bool {
 		return true
 	}
 	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return false
+	}
+	if !privateDirectory(filepath.Join(root, name)) {
 		return false
 	}
 	return matchesInstalled(root, name, content) || matchesLegacyInstalled(root, name)
@@ -118,18 +155,103 @@ func (s Service) Inspect(ctx context.Context) Result {
 	}
 	info, err := os.Lstat(s.root)
 	if os.IsNotExist(err) {
-		return Result{Status: Missing, Category: "codex_not_configured"}
+		return s.inspectResult(Missing, "codex_not_configured")
 	}
 	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
 		return Result{Status: Failed, Category: "codex_skill_root_unavailable"}
 	}
+	if s.binaryCompatibility != BinaryCompatibility {
+		return s.inspectResult(Incompatible, "codex_binary_skill_incompatible")
+	}
 	for _, name := range skillNames {
 		content, readErr := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
 		if readErr != nil || !matchesInstalled(s.root, name, content) {
-			return Result{Status: Missing, Category: "codex_skills_missing_or_changed"}
+			return s.inspectResult(Missing, "codex_skills_missing_or_changed")
 		}
 	}
-	return Result{Status: Ready, Category: "codex_ready"}
+	receipt, err := receiptBytes()
+	if err != nil || !matchesPrivateFile(filepath.Join(s.root, receiptName), receipt) {
+		return s.inspectResult(Partial, "codex_skill_receipt_incomplete")
+	}
+	return s.inspectResult(Ready, "codex_ready")
+}
+
+func (s Service) inspectResult(status Status, category string) Result {
+	result := Result{Status: status, Category: category, SkillSetVersion: SkillSetVersion, BinaryCompatibility: s.binaryCompatibility, Skills: make([]SkillState, 0, len(skillNames))}
+	for _, name := range skillNames {
+		content, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		digest := sha256.Sum256(content)
+		state := "missing"
+		if matchesInstalled(s.root, name, content) {
+			state = "equivalent"
+		} else if matchesLegacyInstalled(s.root, name) {
+			state = "owned_older"
+		} else if _, err := os.Lstat(filepath.Join(s.root, name)); err == nil {
+			state = "modified_or_foreign"
+		}
+		result.Skills = append(result.Skills, SkillState{Name: name, Digest: hex.EncodeToString(digest[:]), State: state})
+	}
+	return result
+}
+
+func publishReceipt(root string, content []byte) (bool, bool) {
+	path := filepath.Join(root, receiptName)
+	if matchesPrivateFile(path, content) {
+		return false, true
+	}
+	if _, err := os.Lstat(path); err == nil || !os.IsNotExist(err) {
+		return false, false
+	}
+	directory, err := os.OpenRoot(root)
+	if err != nil {
+		return false, false
+	}
+	defer directory.Close()
+	const temporary = ".axiom-skill-set-receipt-stage"
+	file, err := directory.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return false, false
+	}
+	defer directory.Remove(temporary)
+	written, writeErr := file.Write(content)
+	syncErr := file.Sync()
+	closeErr := file.Close()
+	if writeErr != nil || syncErr != nil || closeErr != nil || written != len(content) {
+		return false, false
+	}
+	if _, err := directory.Stat(receiptName); err == nil || !os.IsNotExist(err) {
+		return false, false
+	}
+	if err := directory.Rename(temporary, receiptName); err != nil {
+		return false, false
+	}
+	return true, true
+}
+
+func matchesPrivateFile(path string, expected []byte) bool {
+	if !privateRegularFile(path) {
+		return false
+	}
+	actual, err := os.ReadFile(path)
+	return err == nil && string(actual) == string(expected)
+}
+
+func privateRegularFile(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
+		return false
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return ok && stat.Nlink == 1 && stat.Uid == uint32(os.Getuid())
+}
+
+func privateDirectory(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
+		return false
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return ok && stat.Uid == uint32(os.Getuid())
 }
 
 func ensureRoot(root string) error {
@@ -139,6 +261,10 @@ func ensureRoot(root string) error {
 	}
 	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
 		return errors.New("invalid root")
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || stat.Uid != uint32(os.Getuid()) {
+		return errors.New("invalid root ownership")
 	}
 	return nil
 }
@@ -184,7 +310,13 @@ func matchesLegacyInstalled(root, name string) bool {
 		return false
 	}
 	digest := sha256.Sum256(content)
-	return hex.EncodeToString(digest[:]) == legacySkillDigests[name]
+	value := hex.EncodeToString(digest[:])
+	for _, known := range legacySkillDigests[name] {
+		if value == known {
+			return true
+		}
+	}
+	return false
 }
 
 func replaceKnownSkill(directory, name string, content []byte) error {
@@ -211,33 +343,47 @@ func replaceKnownSkill(directory, name string, content []byte) error {
 		return err
 	}
 	digest := sha256.Sum256(current)
-	if hex.EncodeToString(digest[:]) != legacySkillDigests[name] {
+	known := false
+	for _, expected := range legacySkillDigests[name] {
+		if hex.EncodeToString(digest[:]) == expected {
+			known = true
+		}
+	}
+	if !known {
 		return errors.New("skill changed during update")
 	}
 	return root.Rename(temporary, "SKILL.md")
 }
 
 func singleSkillContent(directory string) ([]byte, bool) {
+	if !privateDirectory(directory) {
+		return nil, false
+	}
 	entries, err := os.ReadDir(directory)
 	if err != nil || len(entries) != 1 || entries[0].Name() != "SKILL.md" || entries[0].Type()&os.ModeSymlink != 0 {
 		return nil, false
 	}
-	content, err := os.ReadFile(filepath.Join(directory, "SKILL.md"))
+	path := filepath.Join(directory, "SKILL.md")
+	if !privateRegularFile(path) {
+		return nil, false
+	}
+	content, err := os.ReadFile(path)
 	return content, err == nil
 }
 
 func matchesInstalled(root, name string, expected []byte) bool {
 	directory := filepath.Join(root, name)
+	if !privateDirectory(directory) {
+		return false
+	}
 	entries, err := os.ReadDir(directory)
 	if err != nil || len(entries) != 1 || entries[0].Name() != "SKILL.md" || entries[0].Type()&os.ModeSymlink != 0 {
 		return false
 	}
-	actual, err := os.ReadFile(filepath.Join(directory, "SKILL.md"))
-	return err == nil && string(actual) == string(expected)
-}
-
-func rollback(paths []string) {
-	for index := len(paths) - 1; index >= 0; index-- {
-		_ = os.RemoveAll(paths[index])
+	path := filepath.Join(directory, "SKILL.md")
+	if !privateRegularFile(path) {
+		return false
 	}
+	actual, err := os.ReadFile(path)
+	return err == nil && string(actual) == string(expected)
 }

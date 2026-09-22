@@ -144,6 +144,39 @@ func (l Lifecycle) Configure(ctx context.Context, request ConfigureRequest) Life
 	return result(l.store.Create(ctx, request.Slug, manifest))
 }
 
+// PublishConfigured persists one already validated complete Project proposal.
+// It never allocates or changes identity and never treats divergent state as an
+// update. Setup preview owns proposal construction; this method owns only the
+// create/no-op/conflict publication boundary.
+func (l Lifecycle) PublishConfigured(ctx context.Context, proposed project.Project) LifecycleResult {
+	if l.invalid() || !proposed.Equivalent(proposed) {
+		return failed("application_unavailable")
+	}
+	state := proposed.State()
+	existing, err := l.store.Read(ctx, state.Slug)
+	if err == nil {
+		snapshot, issues := ReadSnapshot(l.codec, existing, nil)
+		if len(issues) != 0 {
+			return failed("invalid_existing_project")
+		}
+		if snapshot.Project().Equivalent(proposed) {
+			return LifecycleResult{Status: LifecycleUnchanged, Category: "already_configured"}
+		}
+		return LifecycleResult{Status: LifecycleConflict, Category: "project_conflict"}
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return storageResult(err)
+	}
+	wire, issues := l.codec.Encode(proposed)
+	if len(issues) != 0 {
+		return failed("encoding_failed")
+	}
+	if _, issues := ReadSnapshot(l.codec, wire, nil); len(issues) != 0 {
+		return failed("encoding_failed")
+	}
+	return result(l.store.Create(ctx, state.Slug, wire))
+}
+
 func (l Lifecycle) Validate(ctx context.Context, request ProjectRequest) LifecycleResult {
 	if l.invalid() {
 		return failed("application_unavailable")

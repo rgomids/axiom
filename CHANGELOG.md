@@ -2,6 +2,21 @@
 
 ## [2026-09-21]
 
+- implementation: complete the authorized MVP S2 boundary (T04–T07) with
+  checksummed exact-version archives for the three approved target rows, owned
+  local installation, a closed five-skill Codex manifest, explicit first-run
+  compatibility, read-only Project setup preview, and digest-bound portable/local
+  publication.
+- security: refuse checksum, platform, ownership, link, type, stale-authority,
+  repository-replacement, concurrent-publication, and foreign-content conflicts;
+  preserve confirmed binary or portable effects as truthful partial state without
+  shell-profile, Git, Provider, Repository, or ambient-CWD mutation.
+- test: add archive/install interruption and recovery cases, skill compatibility
+  and partial-resume matrices, guided/full-input equivalence, capability blocking,
+  multi-Repository separation, two-process setup concurrency, unrelated-CWD
+  resolution, and S2 Evidence. Native target execution remains explicitly deferred
+  to T22/T24; S3–S7 remain unauthorized.
+
 - implementation: complete the authorized remainder of MVP S1 with closed,
   bounded machine-local Markdown detail artifacts, opaque identity/correlation,
   digest-checked create/read, explicit capacity failure without eviction, and

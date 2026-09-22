@@ -81,9 +81,13 @@ fi
 lingo --json version >"$temporary/version.json"
 assert_canonical "$temporary/version.json" success "Axiom build information"
 
-run_failure codex_not_configured runtime codex status
+if lingo --json first-run >"$temporary/first-run-missing.json"; then
+  exit 1
+fi
+assert_canonical "$temporary/first-run-missing.json" validation_failure "Codex skill compatibility is not ready"
 run_success codex_configured "$temporary/runtime-install.json" runtime codex install
-run_success codex_ready "$temporary/runtime-status.json" runtime codex status
+lingo --json first-run >"$temporary/runtime-status.json"
+assert_canonical "$temporary/runtime-status.json" success "Lingo and Codex skills are compatible"
 skill_count=$(find "$skills_root" -name SKILL.md -type f | wc -l | tr -d ' ')
 if [[ "$skill_count" != 5 ]]; then
   exit 1
@@ -94,7 +98,10 @@ for skill in axiom-project-configure axiom-project-show axiom-work-item-create a
 done
 rm -- "$skills_root/axiom-work-item-status/SKILL.md"
 rmdir -- "$skills_root/axiom-work-item-status"
-run_failure codex_skills_missing_or_changed runtime codex status
+if lingo --json runtime codex status >"$temporary/runtime-missing.json"; then
+  exit 1
+fi
+assert_canonical "$temporary/runtime-missing.json" validation_failure "Codex skill compatibility is not ready"
 run_success codex_configured "$temporary/runtime-repair.json" runtime codex install
 
 git_binary="$temporary/git"
@@ -113,8 +120,17 @@ export AXIOM_GIT_BIN="$git_binary"
 export AXIOM_GH_BIN="$gh_binary"
 export AXIOM_FAKE_PROVIDER_STATE="$provider_state"
 
-run_success project_configured "$temporary/project-configure.json" project configure \
-  --slug dogfood-project --name "Dogfood Project" --repository "main=$repository"
+lingo --json project configure --slug dogfood-project --name "Dogfood Project" \
+  --repository "main=$repository" --work-item-provider github >"$temporary/project-preview.json"
+assert_canonical "$temporary/project-preview.json" success "Project setup preview ready"
+project_id=$(sed -n 's/.*"projectId":"\([^"]*\)".*/\1/p' "$temporary/project-preview.json")
+preview_digest=$(sed -n 's/.*"digest":"\([^"]*\)".*/\1/p' "$temporary/project-preview.json")
+[[ -n "$project_id" && -n "$preview_digest" ]]
+lingo --json project configure --project-id "$project_id" --slug dogfood-project \
+  --name "Dogfood Project" --repository "main=$repository" \
+  --work-item-provider github --preview-digest "$preview_digest" --authorize-local \
+  >"$temporary/project-configure.json"
+assert_canonical "$temporary/project-configure.json" success "Project setup published"
 lingo --json project show --selector dogfood-project >"$temporary/project-show.json"
 assert_canonical "$temporary/project-show.json" success "Project resolved"
 grep -Fq '"references":["project:' "$temporary/project-show.json"
