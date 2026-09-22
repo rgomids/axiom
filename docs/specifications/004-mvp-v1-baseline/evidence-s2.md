@@ -126,8 +126,23 @@ go mod verify
 git diff --check
 ```
 
-The clean-source archive run and its three outer SHA-256 values are recorded in
-the identified-artifact table added after the implementation commit.
+Clean-source identified-artifact observation from implementation commit
+`3a9e765dd8bfd6b5c1b9dc866ca1d960f3e440a9`, version `0.1.0-s2.1`:
+
+| Archive | SHA-256 |
+|---|---|
+| `axiom-0.1.0-s2.1-macos-27-arm64.tar.gz` | `b11a17081fc82c79f9ece07894aff6da425d6f0fabb64f46c6c4bfa8eb98d6bd` |
+| `axiom-0.1.0-s2.1-ubuntu-26.04-amd64.tar.gz` | `df66ea374f95c0f5988b140d5ada6437ae8c3f8e8f0bc74f9ec2ac513db42435` |
+| `axiom-0.1.0-s2.1-ubuntu-26.04-arm64.tar.gz` | `64e2ca506c8ead1d7c3a2c3d14d3ba375748d2e3dbd175ee7953478e249c4c98` |
+
+The native macOS archive installed with `install_status=installed`; its binary
+reported version `0.1.0-s2.1`, revision `3a9e765dd8bf`, and source state `clean`.
+The installed binary digest was
+`51d55c8e358196110a3173cc2e0ffa5072af8bf988e78d87a64ee5256fca5566`;
+the closed receipt digest was
+`cc276213c36d72001747d9a60d5c6fe8fbedcf31383f73011a1a604e76f6f0a1`.
+These artifacts were generated only in an isolated temporary directory for
+Evidence; they were not published as a prerelease or GitHub Release.
 
 ## Native Evidence and limitations
 
