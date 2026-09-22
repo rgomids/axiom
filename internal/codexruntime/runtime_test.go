@@ -1,12 +1,16 @@
 package codexruntime
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestEmbeddedSkillsUseSupportedNamesAndThinEntrypoints(t *testing.T) {
@@ -84,7 +88,7 @@ func TestInstallAndInspectGlobalSkills(t *testing.T) {
 	}
 }
 
-func TestInstallRefusesConcurrentSkillPublication(t *testing.T) {
+func TestInstallRefusesAmbiguousLegacyLockState(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "skills")
 	service, err := New(root)
 	if err != nil {
@@ -93,13 +97,119 @@ func TestInstallRefusesConcurrentSkillPublication(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, ".axiom-skill-set.lock"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_install_concurrent" {
-		t.Fatalf("concurrent install = %#v", got)
+	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "recovery_required" {
+		t.Fatalf("ambiguous lock = %#v", got)
+	}
+	if info, err := os.Stat(filepath.Join(root, ".axiom-skill-set.lock")); err != nil || !info.IsDir() {
+		t.Fatalf("ambiguous lock changed: %v, %v", info, err)
 	}
 	for _, skill := range skillNames {
 		if _, err := os.Stat(filepath.Join(root, skill)); !os.IsNotExist(err) {
-			t.Fatalf("concurrent install published %s: %v", skill, err)
+			t.Fatalf("ambiguous install published %s: %v", skill, err)
 		}
+	}
+}
+
+func TestInstallPreservesUnknownLockContent(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "skills")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	lock := filepath.Join(root, installLockName)
+	if err := os.WriteFile(lock, []byte("unknown\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "recovery_required" {
+		t.Fatalf("unknown lock = %#v", got)
+	}
+	wire, err := os.ReadFile(lock)
+	if err != nil || string(wire) != "unknown\n" {
+		t.Fatalf("unknown lock changed: %q, %v", wire, err)
+	}
+}
+
+func TestInstallProcessLockRefusesActiveAndResumesAfterSIGKILL(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "skills")
+	command := exec.Command(os.Args[0], "-test.run=^TestInstallProcessHelper$")
+	command.Env = append(os.Environ(), "AXIOM_CODEX_INSTALL_HELPER=hold", "AXIOM_CODEX_INSTALL_ROOT="+root)
+	output, err := command.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = command.Process.Kill()
+		_ = command.Wait()
+	}()
+	line, err := bufio.NewReader(output).ReadString('\n')
+	if err != nil || strings.TrimSpace(line) != "locked" {
+		t.Fatalf("lock barrier not reached: %q, %v", line, err)
+	}
+	service, err := New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_install_concurrent" {
+		t.Fatalf("active lock = %#v", got)
+	}
+	if err := command.Process.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	_ = command.Wait()
+	if got := service.Install(context.Background()); got.Status != Applied || got.Category != "codex_configured" {
+		t.Fatalf("abandoned lock resume = %#v", got)
+	}
+	if got := service.Inspect(context.Background()); got.Status != Ready {
+		t.Fatalf("resumed install = %#v", got)
+	}
+}
+
+func TestInstallProcessHelper(t *testing.T) {
+	if os.Getenv("AXIOM_CODEX_INSTALL_HELPER") != "hold" {
+		return
+	}
+	service, err := New(os.Getenv("AXIOM_CODEX_INSTALL_ROOT"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.afterSkill = func(string) {
+		fmt.Fprintln(os.Stdout, "locked")
+		_ = os.Stdout.Sync()
+		time.Sleep(time.Hour)
+	}
+	result := service.Install(context.Background())
+	if result.Status != Applied {
+		t.Fatal(result)
+	}
+}
+
+func TestInstallAndInspectRejectUnsafeRootPermissions(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "skills")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(root, 0o770); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_root_unavailable" {
+		t.Fatalf("unsafe install root = %#v", got)
+	}
+	if got := service.Inspect(context.Background()); got.Status != Failed || got.Category != "codex_skill_root_unavailable" {
+		t.Fatalf("unsafe inspect root = %#v", got)
+	}
+	info, err := os.Stat(root)
+	if err != nil || info.Mode().Perm() != 0o770 {
+		t.Fatalf("unsafe root changed: %v, %v", info, err)
 	}
 }
 

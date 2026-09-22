@@ -7,10 +7,13 @@ import (
 	"embed"
 	"encoding/hex"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 //go:embed skills/*/SKILL.md
@@ -31,6 +34,11 @@ var legacySkillDigests = map[string][]string{
 	"axiom-work-item-run":     {"35bf4d66efa1a182479579f882a408f9b394c32e5b0e02d7dfbf8ef9d129c59b"},
 	"axiom-work-item-status":  {"009ab0f59c2992c79ca7732a2d451f2b652e4afd94697afd02572bb75ec3db0b"},
 }
+
+const (
+	installLockName = ".axiom-skill-set.lock"
+	installLockWire = "formatVersion=1\n"
+)
 
 type Status string
 
@@ -85,11 +93,11 @@ func (s Service) Install(ctx context.Context) Result {
 	if err := ensureRoot(s.root); err != nil {
 		return Result{Status: Failed, Category: "codex_skill_root_unavailable"}
 	}
-	lock := filepath.Join(s.root, ".axiom-skill-set.lock")
-	if err := os.Mkdir(lock, 0o700); err != nil {
-		return s.inspectResult(Failed, "codex_skill_install_concurrent")
+	lock, category := acquireInstallLock(s.root)
+	if category != "" {
+		return s.inspectResult(Failed, category)
 	}
-	defer os.Remove(lock)
+	defer lock.Close()
 	for _, name := range skillNames {
 		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
 		if err != nil {
@@ -153,11 +161,11 @@ func (s Service) Inspect(ctx context.Context) Result {
 	if err := ctx.Err(); err != nil {
 		return Result{Status: Failed, Category: "cancelled"}
 	}
-	info, err := os.Lstat(s.root)
+	_, err := os.Lstat(s.root)
 	if os.IsNotExist(err) {
 		return s.inspectResult(Missing, "codex_not_configured")
 	}
-	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+	if err != nil || !privateDirectory(s.root) {
 		return Result{Status: Failed, Category: "codex_skill_root_unavailable"}
 	}
 	if s.binaryCompatibility != BinaryCompatibility {
@@ -241,8 +249,16 @@ func privateRegularFile(path string) bool {
 	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
 		return false
 	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	return ok && stat.Nlink == 1 && stat.Uid == uint32(os.Getuid())
+	file, err := os.OpenFile(path, os.O_RDONLY|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(info, opened) || !privateRegularInfo(opened) {
+		return false
+	}
+	return checkPrivateACL(file) == nil
 }
 
 func privateDirectory(path string) bool {
@@ -250,23 +266,112 @@ func privateDirectory(path string) bool {
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
 		return false
 	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	return ok && stat.Uid == uint32(os.Getuid())
+	directory, err := os.OpenFile(path, os.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return false
+	}
+	defer directory.Close()
+	opened, err := directory.Stat()
+	if err != nil || !os.SameFile(info, opened) || !ownedByUser(opened) {
+		return false
+	}
+	return checkPrivateACL(directory) == nil
 }
 
 func ensureRoot(root string) error {
 	info, err := os.Lstat(root)
 	if os.IsNotExist(err) {
-		return os.MkdirAll(root, 0o700)
+		if err := os.MkdirAll(root, 0o700); err != nil {
+			return err
+		}
+		if !privateDirectory(root) {
+			return errors.New("unsafe created root")
+		}
+		return nil
 	}
-	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() || !privateDirectory(root) {
 		return errors.New("invalid root")
 	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || stat.Uid != uint32(os.Getuid()) {
-		return errors.New("invalid root ownership")
-	}
 	return nil
+}
+
+func acquireInstallLock(root string) (*os.File, string) {
+	directory, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, "recovery_required"
+	}
+	defer directory.Close()
+	file, created, err := openInstallLock(directory)
+	if err != nil {
+		return nil, "recovery_required"
+	}
+	if err := syscall.Flock(int(file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		file.Close()
+		if errors.Is(err, syscall.EWOULDBLOCK) {
+			return nil, "codex_skill_install_concurrent"
+		}
+		return nil, "recovery_required"
+	}
+	if !privateOpenRegular(file) || !lockStillAtPath(directory, file) {
+		file.Close()
+		return nil, "recovery_required"
+	}
+	if created {
+		if _, err := file.WriteString(installLockWire); err != nil || file.Sync() != nil {
+			file.Close()
+			return nil, "recovery_required"
+		}
+		return file, ""
+	}
+	if _, err := file.Seek(0, 0); err != nil {
+		file.Close()
+		return nil, "recovery_required"
+	}
+	wire, err := io.ReadAll(io.LimitReader(file, int64(len(installLockWire)+1)))
+	if err != nil || string(wire) != installLockWire {
+		file.Close()
+		return nil, "recovery_required"
+	}
+	return file, ""
+}
+
+func openInstallLock(root *os.Root) (*os.File, bool, error) {
+	file, err := root.OpenFile(installLockName, os.O_RDWR|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0o600)
+	if err == nil {
+		return file, true, nil
+	}
+	if !os.IsExist(err) {
+		return nil, false, err
+	}
+	file, err = root.OpenFile(installLockName, os.O_RDWR|unix.O_NOFOLLOW, 0)
+	return file, false, err
+}
+
+func lockStillAtPath(root *os.Root, file *os.File) bool {
+	visible, err := root.Lstat(installLockName)
+	if err != nil || visible.Mode()&os.ModeSymlink != 0 {
+		return false
+	}
+	opened, err := file.Stat()
+	return err == nil && os.SameFile(visible, opened)
+}
+
+func privateOpenRegular(file *os.File) bool {
+	info, err := file.Stat()
+	return err == nil && privateRegularInfo(info) && checkPrivateACL(file) == nil
+}
+
+func privateRegularInfo(info os.FileInfo) bool {
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+		return false
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return ok && stat.Nlink == 1 && stat.Uid == uint32(os.Getuid())
+}
+
+func ownedByUser(info os.FileInfo) bool {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return ok && stat.Uid == uint32(os.Getuid())
 }
 
 func installOne(root, name string, content []byte) (bool, bool, error) {

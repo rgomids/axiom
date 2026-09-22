@@ -138,10 +138,14 @@ an explicit absolute output directory:
   --receipt-dir /absolute/user-owned/state
 ```
 
-Select the archive matching the host; Ubuntu archive names use
-`ubuntu-26.04-{amd64,arm64}`. The installer verifies the archive and closed bundle
-manifests before publishing, never edits `PATH` or a shell profile, and preserves
-foreign or modified content. GitHub Release publication is not part of S2.
+Select the archive matching the exact approved host row: macOS 27.0/arm64 or
+Ubuntu 26.04/amd64 or arm64. The installer verifies OS version/distribution,
+architecture, archive and closed bundle manifests before publishing. Existing
+destination roots must remain owner-only and ACL-free; the installer does not
+repair foreign permissions. The receipt records one installation time and
+preserves it on equivalent reinstall. The installer never edits `PATH` or a shell
+profile and preserves foreign or modified content. GitHub Release publication is
+not part of S2.
 
 Next, choose a path:
 

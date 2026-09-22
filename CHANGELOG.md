@@ -2,6 +2,19 @@
 
 ## [2026-09-21]
 
+- fix: validate the complete S2 release row against exact macOS 27.0 or Ubuntu
+  26.04 host facts, record and preserve `installedAt` in the closed installation
+  receipt, and keep equivalent reinstall idempotent.
+- security: reject permissive modes and extended ACLs on existing install and
+  Codex skill roots; replace the removable Codex lock directory with a private,
+  schema-checked advisory lock that distinguishes active concurrency from a
+  safely resumable lock released by process death and preserves ambiguous state
+  as `recovery_required`.
+- test: add exact-version/distro rejection, unsafe root/ACL, closed receipt,
+  installation-time preservation, active cross-process lock, real `SIGKILL`,
+  abandoned-lock resume, and ambiguous-lock preservation coverage. Scope remains
+  S2 T04–T07; no S3+ behavior or release publication was added.
+
 - implementation: complete the authorized MVP S2 boundary (T04–T07) with
   checksummed exact-version archives for the three approved target rows, owned
   local installation, a closed five-skill Codex manifest, explicit first-run

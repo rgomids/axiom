@@ -267,9 +267,10 @@ absolute output directory. It emits three checksummed archives plus
   --output /absolute/release
 ```
 
-Supported archive rows are macOS 27/arm64, Ubuntu 26.04/amd64, and Ubuntu
-26.04/arm64. Install the archive matching the current host into explicit
-user-owned destinations:
+Supported archive rows are the exact approved baselines macOS 27.0/arm64,
+Ubuntu 26.04/amd64, and Ubuntu 26.04/arm64. Other macOS versions, Linux
+distributions, Ubuntu versions, and architectures fail closed. Install the
+archive matching the current host into explicit user-owned destinations:
 
 ```bash
 ./scripts/install-release.sh \
@@ -279,10 +280,14 @@ user-owned destinations:
   --receipt-dir /absolute/user-owned/state
 ```
 
-The install is checksum-first, records a closed receipt, is a no-op for the exact
-owned generation, and refuses platform, ownership, link, type, receipt, and
-content conflicts. It never edits shell profiles or `PATH`. S2 deliberately
-refuses version upgrades; resumable upgrade belongs to T20.
+The install is checksum-first. Existing binary and receipt roots must be owned by
+the current user, mode `0700`, and free of extended ACLs; unsafe roots are
+preserved, not repaired. The closed receipt includes an RFC 3339 UTC
+`installedAt` value created for the successful installation generation and
+preserved on equivalent reinstall. Exact owned reinstall is a no-op. Platform,
+ownership, permission, ACL, link, type, schema, and content conflicts fail closed.
+The installer never edits shell profiles or `PATH`. S2 deliberately refuses
+version upgrades; resumable upgrade belongs to T20.
 
 Validate archive structure, clean install, no-op, conflicts, interruption, and
 recovery markers with:

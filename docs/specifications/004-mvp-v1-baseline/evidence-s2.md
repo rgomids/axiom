@@ -23,13 +23,18 @@ human acceptance. Issue or PR state also does not supply human acceptance.
   the compatible five-skill manifest and files, and a complete inner SHA-256
   manifest. `SHA256SUMS` identifies the outer archives.
 - `scripts/install-release.sh` stages and rechecks the selected archive before
-  extraction, rejects unlisted files and unsafe archive types/paths, validates
-  host platform, skill and release schemas, and publishes only to explicit
-  absolute user-owned destinations.
+  extraction, rejects unlisted files and unsafe archive types/paths, and validates
+  the complete release row: exact macOS 27.0/arm64 or Ubuntu 26.04 distribution
+  and version on amd64/arm64. Unknown host facts and every other row fail closed.
+- Existing binary and receipt roots must be owner-only mode `0700` with no
+  detected extended ACL. Unsafe roots and foreign permissions are preserved, not
+  silently repaired.
 - The closed receipt binds destination, binary/archive/skill-manifest digests,
   version, revision, source state, platform, architecture, and skill-set version.
-  Equivalent reinstall is `unchanged`; foreign, modified, symlinked, hard-linked,
-  divergent, wrong-platform, or concurrent state is preserved and refused.
+  It also records `installedAt` once in RFC 3339 UTC. Equivalent reinstall
+  preserves that value and is `unchanged`; unknown receipt fields and foreign,
+  modified, symlinked, hard-linked, divergent, wrong-platform, or concurrent
+  state are preserved and refused.
 - The installer never edits a shell profile or `PATH`. S2 refuses owned version
   upgrade because resumable upgrade belongs to T20.
 
@@ -40,9 +45,14 @@ human acceptance. Issue or PR state also does not supply human acceptance.
 - `first-run` and `runtime codex status` report canonical completion/provenance
   plus every skill's expected digest and observed state: `missing`, `equivalent`,
   `owned_older`, or `modified_or_foreign`.
-- Installation is idempotent, upgrades only known older Axiom bytes, refuses
-  changed/foreign/link-unsafe files, retains a partial installed set after a
-  deterministic interruption, and safely completes it on an explicit retry.
+- Installation is idempotent, upgrades only known older Axiom bytes, and refuses
+  changed/foreign/link-unsafe files plus roots/files with permissive modes or
+  extended ACLs.
+- Process coordination uses one private, schema-checked advisory lock file.
+  A live holder returns `codex_skill_install_concurrent`; kernel lock release
+  after real `SIGKILL` permits safe inspection and resume of exact missing/current
+  skill state. Unknown content/type/permissions are preserved and return
+  `recovery_required`.
 - First run directs `runtime codex install` and then explicit `project configure`;
   it does not invoke Codex, configure a Project, inspect Git, or edit a profile.
 
@@ -91,6 +101,8 @@ Current skill digests:
 | F0–F3 before binary commit | injected `before_binary`, checksum/manifest/platform/link/type conflicts | no binary or receipt; owned marker/stage removed |
 | F3 stale setup authority | changed inputs, Repository replacement, changed revisions | `denied_authority`; no Project publication |
 | F4–F5 coordination/publication | existing lock, foreign destination, hard link, two-process Project race | conflict preserved; exactly one Project winner, loser refuses |
+| T05 process death during skill publication | child process holds the advisory lock after one exact skill publication, then receives `SIGKILL` | concurrent retry refuses while child lives; post-death retry validates the persistent lock marker and partial skill bytes, completes the set, and reaches `codex_ready` |
+| T05 ambiguous lock state | legacy directory or invalid private lock state at the canonical lock path | `recovery_required`; unknown state remains untouched |
 | F6 binary committed before receipt | injected `after_binary` | binary remains, receipt absent, marker says `binary_committed`, retry is `recovery_required` |
 | F7 portable committed before local state | deterministic local-root replacement hook | canonical `partial`; portable digest remains readable |
 | F8 cleanup | pre-commit marker cleanup plus S1 shared-publication F8 suite | commit truth preserved; unknown post-commit marker is not deleted automatically |
@@ -126,6 +138,15 @@ go mod verify
 git diff --check
 ```
 
+PR #84 review remediation reran this matrix on the environment above. The Go
+unit/integration/black-box suite, selected race suite, vet, build, module
+verification, release archive/install suite, Codex skill suite, dogfood journey,
+repository validator, sensitive-file scan, and diff check all exited zero. New
+negative cases explicitly observed exact-host-row rejection, permissive-root and
+ACL refusal, unknown receipt-field refusal, active-process refusal, ambiguous-lock
+`recovery_required`, and safe resume after a real child-process `SIGKILL`.
+Gitleaks was available and reported no leaks.
+
 Clean-source identified-artifact observation from implementation commit
 `3a9e765dd8bfd6b5c1b9dc866ca1d960f3e440a9`, version `0.1.0-s2.1`:
 
@@ -144,15 +165,27 @@ the closed receipt digest was
 These artifacts were generated only in an isolated temporary directory for
 Evidence; they were not published as a prerelease or GitHub Release.
 
+The clean-source hashes above remain the pre-review S2 implementation artifact
+observation. Review remediation changed the embedded installer, so they are not
+claimed as final corrected-branch release hashes. The remediation archive suite
+used isolated `--development` archives from the working tree; no release artifact
+was published.
+
 ## Native Evidence and limitations
 
 - The macOS 27/arm64 archive is built and installed natively in this Evidence run.
+- Review remediation was exercised natively on macOS 27.0/arm64, including the
+  exact-version negative case, destination ACL refusal, and Codex skill-process
+  `SIGKILL` resume.
 - Ubuntu 26.04 amd64 and arm64 binaries/archives are cross-compiled and their
   structure/manifests/checksums are verified here. This is not substituted for
   native ext4 execution.
 - Exact Ubuntu point-release/kernel/ext4 runs, ACL matrices, all target-specific
   primitives, owned upgrade/resume, and the complete target matrix remain explicit
   blocking obligations of T20, T22, and T24.
+- The optional bundled Codex validator dependency was unavailable on this host;
+  `scripts/test-codex-skills.sh` reported that limitation and completed its Go
+  contract validation. No real Codex invocation is claimed by this remediation.
 - Distribution trust in S2 is SHA-256 integrity only. Signing, notarization,
   package managers, automatic update, and GitHub Release publication remain out
   of scope.
