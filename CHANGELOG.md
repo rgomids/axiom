@@ -13,7 +13,8 @@
 - test: add unit, adapter, integration, CLI, and executable black-box coverage for
   question minimization, cancellation/denial, provenance, metacharacters, stale
   local revision, timeout/output/rate-limit/ambiguous responses, duplicate
-  prevention, and truthful confirmed-provider/local-failure partial results.
+  prevention, truthful confirmed-provider/local-failure partial results, and the
+  bounded installed-binary dogfood journey through the reviewed S3 draft.
 - fix: make the distributed `darwin && !cgo` binary inspect extended ACL state
   through the open file descriptor, preserving fail-closed volume-capability,
   ownership, permission, type, symlink, and hard-link checks for Codex skills

@@ -104,19 +104,19 @@ fi
 assert_canonical "$temporary/runtime-missing.json" validation_failure "Codex skill compatibility is not ready"
 run_success codex_configured "$temporary/runtime-repair.json" runtime codex install
 
-git_binary="$temporary/git"
 gh_binary="$temporary/gh"
 provider_state="$temporary/provider-state"
 printf '%s\n' OPEN >"$provider_state"
-printf '%s\n' '#!/bin/sh' "printf '%s\\n' 'git@github.com:owner/repo.git'" >"$git_binary"
 printf '%s\n' '#!/bin/sh' \
-  'if [ "$1" = issue ] && [ "$2" = create ]; then printf "%s\n" "https://github.com/owner/repo/issues/7"; exit 0; fi' \
-  'if [ "$1" = issue ] && [ "$2" = view ]; then value=$(sed -n "1p" "$AXIOM_FAKE_PROVIDER_STATE"); printf "{\"Number\":7,\"URL\":\"https://github.com/owner/repo/issues/7\",\"State\":\"%s\"}\n" "$value"; exit 0; fi' \
-  'if [ "$1" = issue ] && [ "$2" = comment ]; then printf "%s\n" ok; exit 0; fi' \
-  'if [ "$1" = issue ] && [ "$2" = close ]; then printf "%s\n" CLOSED >"$AXIOM_FAKE_PROVIDER_STATE"; printf "%s\n" ok; exit 0; fi' \
-  'exit 1' >"$gh_binary"
-chmod 700 "$git_binary" "$gh_binary"
-export AXIOM_GIT_BIN="$git_binary"
+  'case "$*" in' \
+  '  *search/issues*) printf "%s\n" "{\"total_count\":0,\"items\":[]}" ;;' \
+  '  *issues/7/comments*) printf "%s\n" "{\"id\":1}" ;;' \
+  '  *PATCH*issues/7*) printf "%s\n" CLOSED >"$AXIOM_FAKE_PROVIDER_STATE"; printf "%s\n" "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"closed\"}" ;;' \
+  '  *issues/7*) value=$(sed -n "1p" "$AXIOM_FAKE_PROVIDER_STATE" | tr "[:upper:]" "[:lower:]"); printf "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"%s\"}\n" "$value" ;;' \
+  '  *POST*repos/owner/repo/issues*) cat >/dev/null; printf "%s\n" "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\"}" ;;' \
+  '  *) exit 1 ;;' \
+  'esac' >"$gh_binary"
+chmod 700 "$gh_binary"
 export AXIOM_GH_BIN="$gh_binary"
 export AXIOM_FAKE_PROVIDER_STATE="$provider_state"
 
@@ -147,11 +147,23 @@ run_canonical_failure repository-unavailable retryable_failure \
   project show --selector dogfood-project
 mv -- "$temporary/moved-repository" "$repository"
 
-run_failure external_mutation_denied work-item create --project dogfood-project \
-  --repository main --title "POC dogfood"
-run_success work_item_linked "$temporary/work-item.json" work-item create \
-  --project dogfood-project --repository main --title "POC dogfood" \
-  --body "Synthetic deterministic E2E" --authorize-external
+draft_args=(work-item create --project dogfood-project --repository main \
+  --provider-repository owner/repo --intent "Dogfood delivery is blocked" \
+  --desired-outcome "Dogfood delivery proceeds safely" \
+  --context "Synthetic deterministic E2E" --scope "Bounded Work Item change" \
+  --constraints "Preserve exact authority" --non-goals "No implicit workflow" \
+  --acceptance "Deterministic dogfood passes")
+lingo --json "${draft_args[@]}" >"$temporary/work-item-preview.json"
+assert_canonical "$temporary/work-item-preview.json" success "Work Item draft ready for review"
+work_item_digest=$(sed -n 's/.*"digest":"\([^"]*\)".*/\1/p' "$temporary/work-item-preview.json")
+[[ -n "$work_item_digest" ]]
+run_canonical_failure work-item-stale denied_authority "Work Item authority denied" \
+  "Review the exact preview and grant only the required authority" \
+  "${draft_args[@]}" --preview-digest stale --authorize-external
+lingo --json "${draft_args[@]}" --preview-digest "$work_item_digest" \
+  --authorize-external >"$temporary/work-item.json"
+assert_canonical "$temporary/work-item.json" success "GitHub Work Item linked"
+grep -Fq '"externalId":"7"' "$temporary/work-item.json"
 run_success workflow_started "$temporary/workflow-start.json" workflow start \
   --project dogfood-project --repository main --number 7
 

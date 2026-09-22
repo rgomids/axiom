@@ -83,6 +83,7 @@ go build ./...
 go mod verify
 ./scripts/validate-repository.sh .
 ./scripts/check-sensitive-files.sh .
+./scripts/dogfood-poc.sh
 gitleaks detect --source . --no-git
 git diff --check
 ```
