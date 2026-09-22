@@ -72,7 +72,8 @@ this run created no real Issue and does not claim the real-provider observation.
 ## Validation environment and commands
 
 Implementation and tests ran on macOS 27.0/arm64 with Go 1.26.1. The final
-branch validation commands are:
+implementation snapshot is commit `e0bd2f1` (`feat: implement MVP S3 intent to
+work item`). The branch validation commands are:
 
 ```bash
 go test ./...
