@@ -3,10 +3,11 @@
 package codexruntime
 
 import (
-	"errors"
 	"os"
+
+	"github.com/rgomids/axiom/internal/darwinacl"
 )
 
-func checkPrivateACL(*os.File) error {
-	return errors.New("ACL inspection unavailable")
+func checkPrivateACL(file *os.File) error {
+	return darwinacl.CheckPrivate(file)
 }

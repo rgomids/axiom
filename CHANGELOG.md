@@ -1,5 +1,15 @@
 # Changelog
 
+## [2026-09-22]
+
+- fix: make the distributed `darwin && !cgo` binary inspect extended ACL state
+  through the open file descriptor, preserving fail-closed volume-capability,
+  ownership, permission, type, symlink, and hard-link checks for Codex skills
+  and Project state.
+- test: execute first run, five-skill install, ready status, equivalent reinstall,
+  manifest-digest checks, private mode/ACL checks, and foreign-content refusal
+  through the installed binary extracted from the native macOS archive.
+
 ## [2026-09-21]
 
 - fix: validate the complete S2 release row against exact macOS 27.0 or Ubuntu

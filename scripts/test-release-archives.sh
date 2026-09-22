@@ -8,6 +8,36 @@ temporary=$(mktemp -d)
 temporary=$(cd "$temporary" && pwd -P)
 trap 'rm -rf -- "$temporary"' EXIT
 
+digest_file() {
+  shasum -a 256 "$1" | awk '{print $1}'
+}
+
+file_mode() {
+  stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"
+}
+
+file_owner() {
+  stat -f %u "$1" 2>/dev/null || stat -c %u "$1"
+}
+
+file_links() {
+  stat -f %l "$1" 2>/dev/null || stat -c %h "$1"
+}
+
+acl_absent() {
+  local path=$1 mode
+  case "$(uname -s)" in
+    Darwin)
+      [[ $(LC_ALL=C ls -lde "$path" | wc -l | tr -d ' ') == 1 ]]
+      ;;
+    Linux)
+      mode=$(LC_ALL=C ls -ld "$path" | awk '{print $1}') || return 1
+      [[ "$mode" =~ ^[-d][rwx-]{9}$ ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 for invalid_version in 01.2.3 1.2.3. 1.2.3-01; do
   if "$repository_root/scripts/build-release-archives.sh" --version "$invalid_version" --output "$temporary/invalid-$invalid_version" --development >/dev/null 2>&1; then
     exit 1
@@ -63,17 +93,69 @@ if [[ -n "$native" ]]; then
   if AXIOM_CODEX_SKILLS_ROOT="$temporary/runtime-skills" "$temporary/bin/lingo" --json first-run >"$temporary/first-run.json"; then
     exit 1
   fi
+  grep -Fq '"status":"validation_failure"' "$temporary/first-run.json"
+  [[ $(grep -o '"state":"missing"' "$temporary/first-run.json" | wc -l | tr -d ' ') == 5 ]]
   mkdir -p "$temporary/native-bundle"
   tar -xzf "$native" -C "$temporary/native-bundle"
   archived_skills_manifest=$(find "$temporary/native-bundle" -name skills-manifest.txt -type f)
+  skill_count=0
   while IFS='=' read -r key hash; do
     case "$key" in
       skill.*)
         name=${key#skill.}
         grep -Fq '"name":"'"$name"'","sha256":"'"$hash"'","state":"missing"' "$temporary/first-run.json"
+        skill_count=$((skill_count + 1))
         ;;
     esac
   done <"$archived_skills_manifest"
+  [[ "$skill_count" == 5 ]]
+
+  AXIOM_CODEX_SKILLS_ROOT="$temporary/runtime-skills" "$temporary/bin/lingo" --json runtime codex install >"$temporary/runtime-install.json"
+  grep -Fq '"status":"success","category":"codex_configured"' "$temporary/runtime-install.json"
+  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-install.json" | wc -l | tr -d ' ') == 5 ]]
+  [[ $(find "$temporary/runtime-skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') == 5 ]]
+  while IFS='=' read -r key hash; do
+    case "$key" in
+      skill.*)
+        name=${key#skill.}
+        skill_file="$temporary/runtime-skills/$name/SKILL.md"
+        [[ -f "$skill_file" && ! -L "$skill_file" && $(digest_file "$skill_file") == "$hash" ]]
+        grep -Fq '"name":"'"$name"'","sha256":"'"$hash"'","state":"equivalent"' "$temporary/runtime-install.json"
+        ;;
+    esac
+  done <"$archived_skills_manifest"
+
+  AXIOM_CODEX_SKILLS_ROOT="$temporary/runtime-skills" "$temporary/bin/lingo" --json runtime codex status >"$temporary/runtime-status.json"
+  grep -Fq '"status":"success","result":"Lingo and Codex skills are compatible"' "$temporary/runtime-status.json"
+  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-status.json" | wc -l | tr -d ' ') == 5 ]]
+
+  runtime_before=$(find "$temporary/runtime-skills" -type f -print | LC_ALL=C sort | while IFS= read -r file; do printf '%s  %s\n' "$(digest_file "$file")" "${file#"$temporary/runtime-skills/"}"; done)
+  AXIOM_CODEX_SKILLS_ROOT="$temporary/runtime-skills" "$temporary/bin/lingo" --json runtime codex install >"$temporary/runtime-reinstall.json"
+  grep -Fq '"status":"success","category":"codex_already_configured"' "$temporary/runtime-reinstall.json"
+  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-reinstall.json" | wc -l | tr -d ' ') == 5 ]]
+  runtime_after=$(find "$temporary/runtime-skills" -type f -print | LC_ALL=C sort | while IFS= read -r file; do printf '%s  %s\n' "$(digest_file "$file")" "${file#"$temporary/runtime-skills/"}"; done)
+  [[ "$runtime_after" == "$runtime_before" ]]
+
+  while IFS= read -r directory; do
+    [[ ! -L "$directory" && $(file_mode "$directory") == 700 && $(file_owner "$directory") == "$(id -u)" ]]
+    acl_absent "$directory"
+  done < <(find "$temporary/runtime-skills" -type d | LC_ALL=C sort)
+  while IFS= read -r file; do
+    [[ -f "$file" && ! -L "$file" && $(file_mode "$file") == 600 && $(file_owner "$file") == "$(id -u)" && $(file_links "$file") == 1 ]]
+    acl_absent "$file"
+  done < <(find "$temporary/runtime-skills" -type f | LC_ALL=C sort)
+
+  mkdir -p "$temporary/foreign-skills/axiom-project-configure"
+  printf 'foreign skill content\n' >"$temporary/foreign-skills/axiom-project-configure/SKILL.md"
+  chmod 700 "$temporary/foreign-skills" "$temporary/foreign-skills/axiom-project-configure"
+  chmod 600 "$temporary/foreign-skills/axiom-project-configure/SKILL.md"
+  foreign_before=$(digest_file "$temporary/foreign-skills/axiom-project-configure/SKILL.md")
+  if AXIOM_CODEX_SKILLS_ROOT="$temporary/foreign-skills" "$temporary/bin/lingo" --json runtime codex install >"$temporary/foreign-install.json"; then
+    exit 1
+  fi
+  grep -Fq '"status":"error","category":"codex_skill_conflict"' "$temporary/foreign-install.json"
+  [[ $(digest_file "$temporary/foreign-skills/axiom-project-configure/SKILL.md") == "$foreign_before" ]]
+
   before=$(shasum -a 256 "$temporary/bin/lingo" | awk '{print $1}')
   sleep 1
   "$repository_root/scripts/install-release.sh" --archive "$native" --checksums "$temporary/release/SHA256SUMS" --bin-dir "$temporary/bin" --receipt-dir "$temporary/receipt" | grep -Fq 'install_status=unchanged'

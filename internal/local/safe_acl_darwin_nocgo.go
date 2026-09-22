@@ -2,7 +2,15 @@
 
 package local
 
-import "os"
+import (
+	"os"
 
-// No verified ACL inspection is available without cgo on macOS.
-func checkPrivateACL(*os.File) error { return ErrUnsafe }
+	"github.com/rgomids/axiom/internal/darwinacl"
+)
+
+func checkPrivateACL(file *os.File) error {
+	if err := darwinacl.CheckPrivate(file); err == nil {
+		return nil
+	}
+	return ErrUnsafe
+}

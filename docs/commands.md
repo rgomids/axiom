@@ -53,8 +53,10 @@ limitado, executa todos os gates, cobre interrupção/retomada e completa o Work
 Item somente com authority explícita. A saída final é Evidence JSON versionada
 com hashes SHA-256. Instalação usa publicação sem substituição; resíduos de
 tentativas interrompidas retornam `recovery_required` e exigem inspeção humana.
-No macOS, o adaptador exige build com cgo para inspecionar ACLs; sem cgo,
-operações de filesystem falham fechadas.
+No macOS, builds com e sem cgo inspecionam ACLs no objeto aberto. O caminho sem
+cgo usa `fgetattrlist` e confirma suporte do volume a extended security antes de
+aceitar ausência de ACL; resposta incompleta ou estado indeterminado falha
+fechado.
 Consulte o [procedimento manual de recovery](specifications/002-lingo-project-initialization/recovery-poc.md)
 antes de mover qualquer artefato. A matriz macOS/Linux executa os mesmos checks
 em [POC verification](../.github/workflows/poc-verification.yml).
