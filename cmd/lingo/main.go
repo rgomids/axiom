@@ -14,6 +14,7 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/githubissues"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
@@ -119,8 +120,14 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
-	github, _ := workitem.NewGitHubAdapter(os.Getenv("AXIOM_GIT_BIN"), os.Getenv("AXIOM_GH_BIN"))
-	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, github, github, workItems)
+	github, githubErr := githubissues.New(os.Getenv("AXIOM_GH_BIN"))
+	var capability workitem.Capability
+	var legacy workitem.LegacyProjection
+	if githubErr == nil {
+		capability = github
+		legacy = github
+	}
+	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, capability, legacy, workItems, source)
 	workflows, err := local.NewWorkflowStore(state)
 	if err != nil {
 		return cli.NewUnavailableService(source)
@@ -203,7 +210,7 @@ func (r workItemResolver) Resolve(ctx context.Context, selector string) (workite
 	if !providersConfigured || !integrationsConfigured || !githubWorkItemCapability(providers, integrations) {
 		return workitem.Project{}, "work_item_capability_unavailable"
 	}
-	project := workitem.Project{ID: resolved.Project.ID, Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}
+	project := workitem.Project{ID: resolved.Project.ID, Provider: "github", Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}
 	for _, repository := range resolved.Project.Repositories {
 		project.Repositories = append(project.Repositories, workitem.Repository{Key: repository.Key, Path: repository.Path})
 	}
@@ -248,19 +255,20 @@ func (r workflowResolver) Resolve(ctx context.Context, selector string) (workflo
 }
 
 func (w workflowWorkItems) Available(ctx context.Context, project, repository string, number int) bool {
-	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, number)
+	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, strconv.Itoa(number))
 	return result.Status == workitem.Succeeded && result.Link.State == "OPEN"
 }
 
 func (w workflowWorkItems) Complete(ctx context.Context, project, repository string, number int, authorized bool) workflow.WorkItemCompletion {
-	result := w.service.Complete(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, number, authorized)
+	result := w.service.Complete(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, strconv.Itoa(number), authorized)
+	legacyNumber, _ := strconv.Atoi(result.Link.ExternalID)
 	return workflow.WorkItemCompletion{
 		Category: result.Category,
 		WorkItem: workflow.WorkItem{
 			ProjectID:          result.Link.ProjectID,
 			RepositoryKey:      result.Link.RepositoryKey,
-			ProviderRepository: result.Link.ProviderRepository,
-			Number:             result.Link.Number,
+			ProviderRepository: result.Link.Resource,
+			Number:             legacyNumber,
 			URL:                result.Link.URL,
 			State:              result.Link.State,
 		},
@@ -519,19 +527,32 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 }
 
 func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	return workItemResult(s.workItems.Create(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Title, input.Body, input.AuthorizeExternal))
+	draft := workitem.DraftInput{
+		Target: workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository},
+		Intent: input.Intent, Problem: workitem.SectionInput{Supplied: input.Problem}, DesiredOutcome: workitem.SectionInput{Supplied: input.DesiredOutcome},
+		Context: workitem.SectionInput{Supplied: input.Context}, Scope: workitem.SectionInput{Supplied: input.Scope}, Constraints: workitem.SectionInput{Supplied: input.Constraints},
+		NonGoals: workitem.SectionInput{Supplied: input.NonGoals}, Acceptance: workitem.SectionInput{Supplied: input.Acceptance}, Cancelled: input.Cancelled,
+	}
+	if !input.AuthorizeExternal && input.PreviewDigest == "" {
+		return workItemResult(s.workItems.Prepare(ctx, draft), s.provenance)
+	}
+	return workItemResult(s.workItems.Create(ctx, draft, input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	return workItemResult(s.workItems.Select(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number))
+	target := workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}
+	if !input.AuthorizeLocal && input.PreviewDigest == "" {
+		return workItemResult(s.workItems.PreviewSelect(ctx, target, strconv.Itoa(input.Number)), s.provenance)
+	}
+	return workItemResult(s.workItems.Select(ctx, target, strconv.Itoa(input.Number), input.PreviewDigest, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	return workItemResult(s.workItems.Show(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number))
+	return workItemResult(s.workItems.Show(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, strconv.Itoa(input.Number)), s.provenance)
 }
 func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number, input.Message, input.AuthorizeExternal))
+	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, strconv.Itoa(input.Number), input.Message, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, input.Number, input.AuthorizeExternal))
+	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, strconv.Itoa(input.Number), input.AuthorizeExternal), s.provenance)
 }
 
 func workflowTarget(input cli.WorkflowInput) workflow.Target {
@@ -579,21 +600,77 @@ func workflowResult(result workflow.Result) cli.Result {
 		response.Workflow = view
 	}
 	if result.WorkItem != nil {
-		response.WorkItem = &cli.WorkItemView{ProjectID: result.WorkItem.ProjectID, RepositoryKey: result.WorkItem.RepositoryKey, Repository: result.WorkItem.ProviderRepository, Number: result.WorkItem.Number, URL: result.WorkItem.URL, State: result.WorkItem.State}
+		response.WorkItem = &cli.WorkItemView{ProjectID: result.WorkItem.ProjectID, RepositoryKey: result.WorkItem.RepositoryKey, Provider: "github", Resource: result.WorkItem.ProviderRepository, ExternalID: strconv.Itoa(result.WorkItem.Number), URL: result.WorkItem.URL, State: result.WorkItem.State}
 	}
 	return response
 }
 
-func workItemResult(result workitem.Result) cli.Result {
-	status := cli.Failed
-	if result.Status == workitem.Succeeded {
-		status = cli.Succeeded
+func workItemResult(result workitem.Result, source provenance.Value) cli.Result {
+	message, next := workItemResultText(result)
+	facts := factsForCompletionStatus(result.Status)
+	references := []string{}
+	if result.Link.ExternalID != "" {
+		references = append(references, "provider:"+result.Link.Provider+":"+result.Link.Resource+"#"+result.Link.ExternalID)
 	}
-	response := cli.Result{Status: status, Category: result.Category}
-	if result.Link.Number > 0 {
-		response.WorkItem = &cli.WorkItemView{ProjectID: result.Link.ProjectID, RepositoryKey: result.Link.RepositoryKey, Repository: result.Link.ProviderRepository, Number: result.Link.Number, URL: result.Link.URL, State: result.Link.State}
+	response := canonicalCompletion(facts, message, references, next, source)
+	response.Category = result.Category
+	response.Draft = result.Draft
+	response.Selection = result.Selection
+	response.Questions = result.Questions
+	if result.Link.ExternalID != "" {
+		response.WorkItem = &cli.WorkItemView{ProjectID: result.Link.ProjectID, RepositoryKey: result.Link.RepositoryKey, Provider: result.Link.Provider, Resource: result.Link.Resource, ExternalID: result.Link.ExternalID, URL: result.Link.URL, State: result.Link.State}
 	}
 	return response
+}
+
+func factsForCompletionStatus(status completion.Status) completion.Facts {
+	switch status {
+	case completion.Success:
+		return completion.Facts{Completed: true}
+	case completion.ValidationFailure:
+		return completion.Facts{ValidationFailed: true}
+	case completion.DeniedAuthority:
+		return completion.Facts{AuthorityDenied: true}
+	case completion.Partial:
+		return completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}
+	case completion.Interrupted:
+		return completion.Facts{WasInterrupted: true}
+	case completion.RetryableFailure:
+		return completion.Facts{RetrySafeFailure: true}
+	default:
+		return completion.Facts{Failed: true}
+	}
+}
+
+func workItemResultText(result workitem.Result) (string, string) {
+	switch result.Category {
+	case "work_item_draft_ready":
+		return "Work Item draft ready for review", "Repeat create with this preview digest and explicit external authority"
+	case "draft_incomplete":
+		return "Work Item intent is incomplete", "Provide answers only for the listed missing fields"
+	case "draft_cancelled", "create_cancelled":
+		return "Work Item operation cancelled", "Resume with the same explicit inputs when ready"
+	case "work_item_selection_ready":
+		return "GitHub Work Item selection ready for review", "Repeat select with this preview digest and explicit local authority"
+	case "external_authority_denied", "local_authority_denied", "external_mutation_denied":
+		return "Work Item authority denied", "Review the exact preview and grant only the required authority"
+	case "work_item_linked", "work_item_already_linked":
+		return "GitHub Work Item linked", "Inspect the local Work Item link before starting later workflow work"
+	case "work_item_loaded":
+		return "Work Item link loaded", "Use only separately authorized later operations"
+	case "work_item_commented":
+		return "Historical Work Item comment completed", "Treat this as POC behavior until the later Slice replaces it"
+	case "work_item_completed":
+		return "Historical Work Item completion completed", "Treat this as POC behavior until the later Slice replaces it"
+	case "provider_create_ambiguous":
+		return "GitHub create result is ambiguous", "Retry the same reviewed draft; reconciliation runs before any create"
+	case "provider_rate_limited", "provider_unavailable":
+		return "GitHub capability is temporarily unavailable", "Retry the same operation after provider recovery"
+	case "provider_confirmed_local_failed", "provider_confirmed_local_conflict", "provider_confirmed_local_recovery_required", "provider_confirmed_local_read_failed", "local_link_committed_recovery_required":
+		return "GitHub effect confirmed but local linkage is incomplete", "Preserve the Issue reference and reconcile local linkage before retrying create"
+	default:
+		return "Work Item operation did not complete", "Review bounded validation details and retry safely"
+	}
 }
 
 func cliResult(result projectapp.LifecycleResult) cli.Result {

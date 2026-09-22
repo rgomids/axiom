@@ -2,6 +2,18 @@
 
 ## [2026-09-22]
 
+- implementation: complete the authorized MVP S3 boundary (T08–T09) with a
+  provider-neutral, authorship-preserving Intent draft; deterministic missing-field
+  interview; reviewed digest; exact GitHub create/select authority; and generic
+  protected local Work Item linkage.
+- security: keep draft preview read-only, reject bounded secret/control/oversized
+  input before effects, pass untrusted Issue content through JSON stdin, bound
+  provider time/output, validate exact GitHub identity/state, and reconcile by
+  correlation before every retry boundary to prevent blind duplicate creation.
+- test: add unit, adapter, integration, CLI, and executable black-box coverage for
+  question minimization, cancellation/denial, provenance, metacharacters, stale
+  local revision, timeout/output/rate-limit/ambiguous responses, duplicate
+  prevention, and truthful confirmed-provider/local-failure partial results.
 - fix: make the distributed `darwin && !cgo` binary inspect extended ACL state
   through the open file descriptor, preserving fail-closed volume-capability,
   ownership, permission, type, symlink, and hard-link checks for Codex skills

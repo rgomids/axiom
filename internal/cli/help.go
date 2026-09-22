@@ -24,7 +24,7 @@ Stable Codex skill mapping:
 
 Use --json for machine-readable output. Default and --human output are readable
 status summaries. Mutation authority remains explicit through
---authorize-external.
+--authorize-external or --authorize-local.
 `
 
 func Help(writer io.Writer) int {

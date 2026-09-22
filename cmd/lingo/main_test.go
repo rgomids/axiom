@@ -265,8 +265,8 @@ func TestWorkItemJourneyRequiresReadyConfiguredCapability(t *testing.T) {
 			t.Setenv("LINGO_STATE_ROOT", state)
 			service := compose()
 			configureProject(t, service, "capability", "Capability", "main="+repository, provider)
-			result := service.WorkItemCreate(context.Background(), cli.WorkItemInput{Project: "capability", Repository: "main", Title: "Blocked", AuthorizeExternal: true})
-			if result.Status != cli.Failed || result.Category != "work_item_capability_unavailable" {
+			result := service.WorkItemCreate(context.Background(), cli.WorkItemInput{Project: "capability", Repository: "main", ProviderRepository: "owner/repo", Intent: "Blocked", AuthorizeExternal: true})
+			if result.Completion == nil || result.Completion.Status() != completion.ValidationFailure || result.Category != "work_item_capability_unavailable" {
 				t.Fatalf("provider %q work item result = %#v", provider, result)
 			}
 		})
@@ -361,25 +361,22 @@ func TestProjectShowClassifiesResolutionCauses(t *testing.T) {
 
 func TestWorkItemFailureRendersCommittedExternalState(t *testing.T) {
 	result := workItemResult(workitem.Result{
-		Status:   workitem.Failed,
-		Category: "provider_committed_local_failed",
+		Status:   completion.Partial,
+		Category: "provider_confirmed_local_failed",
 		Link: workitem.Link{
-			ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
-			RepositoryKey:      "main",
-			ProviderRepository: "owner/repo",
-			Number:             7,
-			URL:                "https://github.com/owner/repo/issues/7",
-			State:              "CLOSED",
+			ProjectID: "123e4567-e89b-42d3-a456-426614174000", RepositoryKey: "main",
+			Provider: "github", Resource: "owner/repo", ExternalID: "7",
+			URL: "https://github.com/owner/repo/issues/7", State: "CLOSED",
 		},
-	})
-	if result.WorkItem == nil || result.WorkItem.ProjectID == "" || result.WorkItem.RepositoryKey != "main" || result.WorkItem.Repository != "owner/repo" || result.WorkItem.State != "CLOSED" {
+	}, currentProvenance())
+	if result.WorkItem == nil || result.WorkItem.ProjectID == "" || result.WorkItem.RepositoryKey != "main" || result.WorkItem.Provider != "github" || result.WorkItem.Resource != "owner/repo" || result.WorkItem.ExternalID != "7" || result.WorkItem.State != "CLOSED" {
 		t.Fatalf("result = %#v", result)
 	}
 	payload, err := json.Marshal(result.WorkItem)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"projectId":"123e4567-e89b-42d3-a456-426614174000"`, `"repositoryKey":"main"`, `"repository":"owner/repo"`, `"number":7`, `"url":"https://github.com/owner/repo/issues/7"`, `"state":"CLOSED"`} {
+	for _, expected := range []string{`"projectId":"123e4567-e89b-42d3-a456-426614174000"`, `"repositoryKey":"main"`, `"provider":"github"`, `"resource":"owner/repo"`, `"externalId":"7"`, `"url":"https://github.com/owner/repo/issues/7"`, `"state":"CLOSED"`} {
 		if !bytes.Contains(payload, []byte(expected)) {
 			t.Fatalf("work item payload missing %q: %s", expected, payload)
 		}
@@ -399,7 +396,7 @@ func TestWorkflowFailureRendersCommittedExternalState(t *testing.T) {
 			State:              "CLOSED",
 		},
 	})
-	if result.WorkItem == nil || result.WorkItem.ProjectID == "" || result.WorkItem.RepositoryKey != "main" || result.WorkItem.Repository != "owner/repo" || result.WorkItem.State != "CLOSED" {
+	if result.WorkItem == nil || result.WorkItem.ProjectID == "" || result.WorkItem.RepositoryKey != "main" || result.WorkItem.Provider != "github" || result.WorkItem.Resource != "owner/repo" || result.WorkItem.ExternalID != "7" || result.WorkItem.State != "CLOSED" {
 		t.Fatalf("result = %#v", result)
 	}
 }

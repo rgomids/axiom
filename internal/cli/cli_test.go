@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/workitem"
 )
 
 func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
@@ -28,7 +29,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"resolve", []string{"project", "resolve", "--selector", "alpha"}, "resolve:alpha"},
 		{"show", []string{"project", "show", "--selector", "alpha"}, "resolve:alpha"},
 		{"configure", []string{"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, "configure:alpha:Alpha:main:/tmp/alpha"},
-		{"work item select", []string{"work-item", "select", "--project", "alpha", "--repository", "main", "--number", "7"}, "work-item-select:alpha:main:7"},
+		{"work item select", []string{"work-item", "select", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--number", "7"}, "work-item-select:alpha:main:7"},
 		{"workflow advance", []string{"workflow", "advance", "--project", "alpha", "--repository", "main", "--number", "7", "--gate", "specification", "--outcome", "pass", "--reference", "spec.md"}, "workflow-advance:alpha:main:7:specification:pass:spec.md"},
 	}
 	for _, test := range cases {
@@ -86,6 +87,34 @@ func TestRunInteractiveAsksOnlyMissingProvider(t *testing.T) {
 	}
 	if !strings.Contains(prompts.String(), "Work Item provider") || strings.Contains(prompts.String(), "Project slug") || strings.Contains(prompts.String(), "Project name") || strings.Contains(prompts.String(), "Repository key") {
 		t.Fatalf("missing-only prompts = %q", prompts.String())
+	}
+}
+
+func TestRunInteractiveGuidesWorkItemCreateAndBindsExactPreview(t *testing.T) {
+	service := &guidedWorkItemService{completion: canonicalResult(t, completion.Success, []string{"operation:work_item_create"}, "Review result", completionProvenance(t))}
+	input := strings.NewReader("alpha\nmain\nowner/repo\nObserved problem\nSafe outcome\nRelevant context\nBounded scope\nPreserve authority\nNo workflow\nTests pass\nyes\n")
+	var output, prompts bytes.Buffer
+	code := RunInteractive(context.Background(), []string{"--json", "work-item", "create"}, service, completionProvenance(t), input, &output, &prompts)
+	if code != ExitSuccess || len(service.inputs) != 2 {
+		t.Fatalf("exit=%d inputs=%#v output=%q", code, service.inputs, output.String())
+	}
+	if service.inputs[0].AuthorizeExternal || service.inputs[1].PreviewDigest != "reviewed-digest" || !service.inputs[1].AuthorizeExternal {
+		t.Fatalf("authority inputs = %#v", service.inputs)
+	}
+	if !strings.Contains(prompts.String(), `"digest": "reviewed-digest"`) || !strings.Contains(prompts.String(), "Create this exact GitHub Issue") {
+		t.Fatalf("prompts = %q", prompts.String())
+	}
+}
+
+func TestRunInteractiveWorkItemCancellationHasNoAuthority(t *testing.T) {
+	service := &guidedWorkItemService{completion: canonicalResult(t, completion.Success, []string{"operation:work_item_create"}, "Review result", completionProvenance(t))}
+	input := strings.NewReader("alpha\nmain\nowner/repo\nObserved problem\nSafe outcome\nRelevant context\nBounded scope\nPreserve authority\nNo workflow\nTests pass\nno\n")
+	var output bytes.Buffer
+	if code := RunInteractive(context.Background(), []string{"--json", "work-item", "create"}, service, completionProvenance(t), input, &output, io.Discard); code != ExitSuccess {
+		t.Fatalf("exit=%d output=%q", code, output.String())
+	}
+	if len(service.inputs) != 2 || !service.inputs[1].Cancelled || service.inputs[1].AuthorizeExternal {
+		t.Fatalf("cancellation inputs = %#v", service.inputs)
 	}
 }
 
@@ -203,6 +232,23 @@ type recordingService struct{ call string }
 type canonicalRecordingService struct {
 	recordingService
 	Result Result
+}
+
+type guidedWorkItemService struct {
+	recordingService
+	completion completion.Result
+	inputs     []WorkItemInput
+}
+
+func (s *guidedWorkItemService) WorkItemCreate(_ context.Context, input WorkItemInput) Result {
+	s.inputs = append(s.inputs, input)
+	if input.Cancelled {
+		return Result{Completion: &s.completion}
+	}
+	if !input.AuthorizeExternal {
+		return Result{Completion: &s.completion, Draft: &workitem.DraftPreview{Digest: "reviewed-digest"}}
+	}
+	return Result{Completion: &s.completion}
 }
 
 func (s *canonicalRecordingService) Validate(context.Context, ProjectInput) Result { return s.Result }

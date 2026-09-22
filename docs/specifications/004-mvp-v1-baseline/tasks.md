@@ -6,9 +6,11 @@
 
 **S1 Implementation: Delivered on `main` through PR #83. This is technical delivery, not an inferred human MVP acceptance.**
 
-**S2 Implementation: Authorized on 2026-09-21; T04–T07 implemented with reproducible S2 Evidence and pending human review.**
+**S2 Implementation: Delivered on `main` through PR #84 with reproducible S2 Evidence. This is technical delivery, not inferred human MVP acceptance.**
 
-**S3–S7 Implementation: Not authorized.**
+**S3 Implementation: Authorized on 2026-09-22; T08–T09 implemented in the delivery branch with reproducible S3 Evidence, pending human review and a separately authorized real-provider observation.**
+
+**S4–S7 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -34,9 +36,12 @@ Specification 004 — Approved
 -> S1 Implementation — Delivered on main through PR #83
    -> T01 — Accepted / merged in PR #74
    -> T02–T03 — Merged in PR #83 with reproducible S1 Evidence
--> S2 Implementation — Authorized / implemented; human review pending
-   -> T04–T07 — Implemented with reproducible S2 Evidence
--> S3–S7 Implementation — Not authorized
+-> S2 Implementation — Delivered on main through PR #84
+   -> T04–T07 — Merged with reproducible S2 Evidence
+-> S3 Implementation — Authorized / implemented in delivery branch; human review pending
+   -> T08–T09 — Implemented with reproducible S3 Evidence
+   -> Required real-provider observation — Pending exact per-run human authority
+-> S4–S7 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -350,6 +355,10 @@ truthful; this does not authorize T08 or any other S3 work.
 
 ### T08 — Intent interview and structured Work Item draft
 
+**Implementation checkpoint:** complete in the S3 delivery branch; see
+[S3 Evidence](evidence-s3.md). Preview remains read-only and binds the normalized
+draft, target, effects, expected local revision, correlation, and provenance.
+
 - **Objective:** Intent plus supplied facts becomes a bounded provider-neutral draft whose complete normalized form is reviewed before external mutation.
 - **Slice:** S3 — Intent to GitHub Work Item.
 - **Dependencies:** T01, T07.
@@ -366,6 +375,11 @@ truthful; this does not authorize T08 or any other S3 work.
 - **Risks / gates:** Model-assisted text may propose content but cannot supply authority or bypass deterministic completeness/bounds.
 
 ### T09 — Authorized GitHub Work Item create/select and linkage
+
+**Implementation checkpoint:** complete in the S3 delivery branch; see
+[S3 Evidence](evidence-s3.md). Fake-provider and executable black-box paths are
+validated. The mandatory bounded real GitHub observation remains pending exact
+per-run authority and public-safe content; no real Issue was created by this run.
 
 - **Objective:** Exact authority creates or selects one GitHub Issue, validates its identity/state, and persists one exact local Work Item reference; denial/cancel is zero-effect and confirmed external/local failure is truthful `partial`.
 - **Slice:** S3.
@@ -831,6 +845,8 @@ future work under explicit Task authority.
 
 **T02–T03 — Merged in PR #83 with reproducible S1 Evidence.**
 
-**S2 Implementation — Authorized / implemented with reproducible S2 Evidence; human review pending.**
+**S2 Implementation — Delivered on `main` through PR #84 with reproducible S2 Evidence.**
 
-**S3–S7 Implementation — Not authorized.**
+**S3 Implementation — Authorized / implemented in the delivery branch with reproducible S3 Evidence; human review and exact-authority real-provider observation pending.**
+
+**S4–S7 Implementation — Not authorized.**

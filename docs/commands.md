@@ -369,7 +369,7 @@ lingo --json project configure \
   --name "My Project" \
   --repository main=/absolute/path/to/working-copy \
   --work-item-provider github \
-  --preview-digest <preview-digest> \
+  --preview-digest "$PREVIEW_DIGEST" \
   --authorize-local
 ```
 
@@ -382,32 +382,82 @@ asks before publication. Codex uses the same command through
 
 ## GitHub Work Items
 
-Create or select one GitHub Issue linked to a configured Project repository:
+Create begins with a read-only, provider-neutral draft preview. Guided mode asks
+only missing fields, prints the exact draft/target/effects/digest, and accepts
+only the literal `yes` before the external effect:
 
 ```bash
 lingo work-item create \
   --project my-project \
   --repository main \
-  --title "Bounded change" \
-  --body "Scope and acceptance criteria" \
-  --authorize-external
+  --provider-repository owner/repository
+```
 
-lingo work-item select --project my-project --repository main --number 123
+For non-interactive use, provide all seven sections. The first call is read-only:
+
+```bash
+lingo --json work-item create \
+  --project my-project \
+  --repository main \
+  --provider-repository owner/repository \
+  --problem "Observed behavior blocks delivery" \
+  --desired-outcome "Delivery proceeds safely" \
+  --context "Observed on supported hosts" \
+  --scope "Bounded application change" \
+  --constraints "Preserve exact authority" \
+  --non-goals "No workflow execution" \
+  --acceptance "Deterministic checks pass"
+```
+
+After reviewing every preview fact, repeat the exact same fields with the returned
+digest and explicit external authority:
+
+```bash
+lingo --json work-item create \
+  --project my-project \
+  --repository main \
+  --provider-repository owner/repository \
+  --problem "Observed behavior blocks delivery" \
+  --desired-outcome "Delivery proceeds safely" \
+  --context "Observed on supported hosts" \
+  --scope "Bounded application change" \
+  --constraints "Preserve exact authority" \
+  --non-goals "No workflow execution" \
+  --acceptance "Deterministic checks pass" \
+  --preview-digest "$PREVIEW_DIGEST" \
+  --authorize-external
+```
+
+`--intent` may supply the problem section when `--problem` is absent. Changed
+facts invalidate the digest. Authentication comes only from the existing `gh`
+CLI session; Axiom does not persist its credential or infer a Git remote.
+
+Selecting an existing Issue is a separate local-publication review. Preview the
+exact provider identity/state first, then repeat it with local authority:
+
+```bash
+lingo --json work-item select \
+  --project my-project \
+  --repository main \
+  --provider-repository owner/repository \
+  --number 123
+
+lingo --json work-item select \
+  --project my-project \
+  --repository main \
+  --provider-repository owner/repository \
+  --number 123 \
+  --preview-digest <preview-digest> \
+  --authorize-local
+
 lingo work-item show --project my-project --repository main --number 123
 ```
 
-Add an Evidence/status reference or complete the Issue:
-
-```bash
-lingo work-item comment --project my-project --repository main --number 123 \
-  --message "Evidence: ..." --authorize-external
-lingo work-item complete --project my-project --repository main --number 123 \
-  --authorize-external
-```
-
-Create, comment and complete refuse execution without explicit external mutation
-authority. Authentication comes from the existing `gh` CLI session; Axiom does
-not persist its credential.
+Ambiguous create results reconcile by the deterministic correlation marker before
+any later create attempt. Confirmed GitHub effect plus local failure is reported
+as canonical `partial` with the Issue reference. Historical POC `comment` and
+`complete` commands remain compatibility surfaces only; they are not part of S3
+and must not be treated as workflow progress or human acceptance.
 
 ## Execute the bounded workflow
 

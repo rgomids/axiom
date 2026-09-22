@@ -8,8 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -21,13 +24,14 @@ type WorkItemStore struct {
 }
 
 type workItemDTO struct {
-	FormatVersion      int    `json:"formatVersion"`
-	ProjectID          string `json:"projectId"`
-	RepositoryKey      string `json:"repositoryKey"`
-	ProviderRepository string `json:"providerRepository"`
-	Number             int    `json:"number"`
-	URL                string `json:"url"`
-	State              string `json:"state"`
+	FormatVersion int    `json:"formatVersion"`
+	ProjectID     string `json:"projectId"`
+	RepositoryKey string `json:"repositoryKey"`
+	Provider      string `json:"provider"`
+	Resource      string `json:"resource"`
+	ExternalID    string `json:"externalId"`
+	URL           string `json:"url"`
+	State         string `json:"state"`
 }
 
 func NewWorkItemStore(root string) (WorkItemStore, error) {
@@ -48,7 +52,7 @@ func (s WorkItemStore) Save(ctx context.Context, link workitem.Link) error {
 	if !validWorkItemLink(link) {
 		return ErrUnsafe
 	}
-	wire, err := json.Marshal(workItemDTO{1, link.ProjectID, link.RepositoryKey, link.ProviderRepository, link.Number, link.URL, link.State})
+	wire, err := json.Marshal(workItemDTO{1, link.ProjectID, link.RepositoryKey, link.Provider, link.Resource, link.ExternalID, link.URL, link.State})
 	if err != nil {
 		return err
 	}
@@ -65,7 +69,7 @@ func (s WorkItemStore) Save(ctx context.Context, link workitem.Link) error {
 		return err
 	}
 	defer closeFiles(locks)
-	name := workItemName(link.RepositoryKey, link.Number)
+	name := workItemName(link.RepositoryKey, link.ExternalID)
 	create := link.Revision == ([32]byte{})
 	var expected []byte
 	if !create {
@@ -81,11 +85,11 @@ func (s WorkItemStore) Save(ctx context.Context, link workitem.Link) error {
 	return workItemStoreError(err)
 }
 
-func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey string, number int) (workitem.Link, error) {
+func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey, externalID string) (workitem.Link, error) {
 	if err := ctx.Err(); err != nil {
 		return workitem.Link{}, err
 	}
-	probe := workitem.Link{ProjectID: projectID, RepositoryKey: repositoryKey, ProviderRepository: "x/y", Number: number, URL: fmt.Sprintf("https://github.com/x/y/issues/%d", number), State: "OPEN"}
+	probe := workitem.Link{ProjectID: projectID, RepositoryKey: repositoryKey, Provider: "provider", Resource: "resource", ExternalID: externalID, URL: "https://example.invalid/item", State: "OPEN"}
 	if !validWorkItemLink(probe) {
 		return workitem.Link{}, ErrUnsafe
 	}
@@ -101,15 +105,19 @@ func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey string
 		return workitem.Link{}, workItemStoreError(err)
 	}
 	defer closeFiles(locks)
-	wire, err := readPublishedFile(projectRoot, workItemName(repositoryKey, number))
+	wire, err := readPublishedFile(projectRoot, workItemName(repositoryKey, externalID))
 	if err != nil {
 		return workitem.Link{}, workItemStoreError(err)
 	}
 	link, err := decodeWorkItem(wire)
-	if err == nil {
-		link.Revision = sha256.Sum256(wire)
+	if err != nil {
+		return workitem.Link{}, err
 	}
-	return link, err
+	if link.ProjectID != projectID || link.RepositoryKey != repositoryKey || link.ExternalID != externalID {
+		return workitem.Link{}, ErrUnsafe
+	}
+	link.Revision = sha256.Sum256(wire)
+	return link, nil
 }
 
 func workItemStoreError(err error) error {
@@ -160,7 +168,7 @@ func decodeWorkItem(wire []byte) (workitem.Link, error) {
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return workitem.Link{}, ErrUnsafe
 	}
-	link := workitem.Link{ProjectID: dto.ProjectID, RepositoryKey: dto.RepositoryKey, ProviderRepository: dto.ProviderRepository, Number: dto.Number, URL: dto.URL, State: dto.State}
+	link := workitem.Link{ProjectID: dto.ProjectID, RepositoryKey: dto.RepositoryKey, Provider: dto.Provider, Resource: dto.Resource, ExternalID: dto.ExternalID, URL: dto.URL, State: dto.State}
 	if dto.FormatVersion != 1 || !validWorkItemLink(link) {
 		return workitem.Link{}, ErrUnsafe
 	}
@@ -168,13 +176,17 @@ func decodeWorkItem(wire []byte) (workitem.Link, error) {
 }
 
 func validWorkItemLink(link workitem.Link) bool {
-	if len(project.ValidateIdentity(link.ProjectID, "work-item")) != 0 || !project.ValidSlug(link.RepositoryKey) || !workitem.ValidGitHubRepository(link.ProviderRepository) || link.Number <= 0 {
+	if len(project.ValidateIdentity(link.ProjectID, "work-item")) != 0 || !project.ValidSlug(link.RepositoryKey) || !workitem.ValidProviderID(link.Provider) || !validProviderResource(link.Resource) || !workitem.ValidExternalID(link.ExternalID) {
 		return false
 	}
-	expected := fmt.Sprintf("https://github.com/%s/issues/%d", link.ProviderRepository, link.Number)
-	return link.URL == expected && (link.State == "OPEN" || link.State == "CLOSED")
+	parsed, err := url.Parse(link.URL)
+	return err == nil && parsed.Scheme == "https" && parsed.Hostname() != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" && (link.State == "OPEN" || link.State == "CLOSED")
 }
 
-func workItemName(repositoryKey string, number int) string {
-	return fmt.Sprintf("%s-%d.json", repositoryKey, number)
+func validProviderResource(value string) bool {
+	return value != "" && len(value) <= 256 && utf8.ValidString(value) && !strings.ContainsAny(value, "\\\x00\n\r")
+}
+
+func workItemName(repositoryKey, externalID string) string {
+	return fmt.Sprintf("%s-%s.json", repositoryKey, externalID)
 }
