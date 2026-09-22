@@ -75,9 +75,10 @@ decisão humana no [PR #72](https://github.com/rgomids/axiom/pull/72) em
 2026-09-20. A DAG final corrigida contém 25 Tasks e está reconciliada com o Plan
 aprovado. S1 foi entregue em `main` até o PR #83 e S2 até o PR #84. S3 foi
 explicitamente autorizado como unidade operacional em 2026-09-22; T08–T09 estão
-implementados nesta branch com Evidence reproduzível, aguardando revisão humana
-e a observação real de Provider separadamente autorizada. S4–S7 continuam não
-autorizados; validação técnica ou merge não implica aceitação humana.
+implementados nesta branch com Evidence determinística reproduzível. A observação
+real obrigatória de T09 continua pendente de autoridade por execução; portanto S3
+não está integralmente validado. S4–S7 continuam não autorizados; validação
+técnica ou merge não implica aceitação humana.
 
 See the [roadmap](docs/product/roadmap.md) for direction and [Specifications](docs/specifications/README.md) for detailed scope and approval state.
 

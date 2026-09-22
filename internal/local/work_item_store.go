@@ -8,11 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -24,14 +24,13 @@ type WorkItemStore struct {
 }
 
 type workItemDTO struct {
-	FormatVersion int    `json:"formatVersion"`
-	ProjectID     string `json:"projectId"`
-	RepositoryKey string `json:"repositoryKey"`
-	Provider      string `json:"provider"`
-	Resource      string `json:"resource"`
-	ExternalID    string `json:"externalId"`
-	URL           string `json:"url"`
-	State         string `json:"state"`
+	FormatVersion      int    `json:"formatVersion"`
+	ProjectID          string `json:"projectId"`
+	RepositoryKey      string `json:"repositoryKey"`
+	ProviderRepository string `json:"providerRepository"`
+	Number             int    `json:"number"`
+	URL                string `json:"url"`
+	State              string `json:"state"`
 }
 
 func NewWorkItemStore(root string) (WorkItemStore, error) {
@@ -49,10 +48,11 @@ func (s WorkItemStore) Save(ctx context.Context, link workitem.Link) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if !validWorkItemLink(link) {
+	number, valid := validV1WorkItemLink(link)
+	if !valid {
 		return ErrUnsafe
 	}
-	wire, err := json.Marshal(workItemDTO{1, link.ProjectID, link.RepositoryKey, link.Provider, link.Resource, link.ExternalID, link.URL, link.State})
+	wire, err := json.Marshal(workItemDTO{1, link.ProjectID, link.RepositoryKey, link.Resource, number, link.URL, link.State})
 	if err != nil {
 		return err
 	}
@@ -89,8 +89,7 @@ func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey, exter
 	if err := ctx.Err(); err != nil {
 		return workitem.Link{}, err
 	}
-	probe := workitem.Link{ProjectID: projectID, RepositoryKey: repositoryKey, Provider: "provider", Resource: "resource", ExternalID: externalID, URL: "https://example.invalid/item", State: "OPEN"}
-	if !validWorkItemLink(probe) {
+	if len(project.ValidateIdentity(projectID, "work-item")) != 0 || !project.ValidSlug(repositoryKey) || !validV1GitHubNumber(externalID) {
 		return workitem.Link{}, ErrUnsafe
 	}
 	root, items, projectRoot, err := s.openProject(projectID, false)
@@ -168,23 +167,35 @@ func decodeWorkItem(wire []byte) (workitem.Link, error) {
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return workitem.Link{}, ErrUnsafe
 	}
-	link := workitem.Link{ProjectID: dto.ProjectID, RepositoryKey: dto.RepositoryKey, Provider: dto.Provider, Resource: dto.Resource, ExternalID: dto.ExternalID, URL: dto.URL, State: dto.State}
-	if dto.FormatVersion != 1 || !validWorkItemLink(link) {
+	link := workitem.Link{ProjectID: dto.ProjectID, RepositoryKey: dto.RepositoryKey, Provider: "github", Resource: dto.ProviderRepository, ExternalID: strconv.Itoa(dto.Number), URL: dto.URL, State: dto.State}
+	if dto.FormatVersion != 1 {
+		return workitem.Link{}, ErrUnsafe
+	}
+	if _, valid := validV1WorkItemLink(link); !valid {
 		return workitem.Link{}, ErrUnsafe
 	}
 	return link, nil
 }
 
-func validWorkItemLink(link workitem.Link) bool {
-	if len(project.ValidateIdentity(link.ProjectID, "work-item")) != 0 || !project.ValidSlug(link.RepositoryKey) || !workitem.ValidProviderID(link.Provider) || !validProviderResource(link.Resource) || !workitem.ValidExternalID(link.ExternalID) {
-		return false
+func validV1WorkItemLink(link workitem.Link) (int, bool) {
+	if len(project.ValidateIdentity(link.ProjectID, "work-item")) != 0 || !project.ValidSlug(link.RepositoryKey) || link.Provider != "github" || !validV1GitHubRepository(link.Resource) || !validV1GitHubNumber(link.ExternalID) {
+		return 0, false
 	}
-	parsed, err := url.Parse(link.URL)
-	return err == nil && parsed.Scheme == "https" && parsed.Hostname() != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" && (link.State == "OPEN" || link.State == "CLOSED")
+	number, _ := strconv.Atoi(link.ExternalID)
+	expectedURL := fmt.Sprintf("https://github.com/%s/issues/%d", link.Resource, number)
+	return number, link.URL == expectedURL && (link.State == "OPEN" || link.State == "CLOSED")
 }
 
-func validProviderResource(value string) bool {
-	return value != "" && len(value) <= 256 && utf8.ValidString(value) && !strings.ContainsAny(value, "\\\x00\n\r")
+func validV1GitHubNumber(value string) bool {
+	number, err := strconv.Atoi(value)
+	return err == nil && number > 0 && strconv.Itoa(number) == value
+}
+
+var v1GitHubSegment = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
+func validV1GitHubRepository(value string) bool {
+	parts := strings.Split(value, "/")
+	return len(parts) == 2 && parts[0] != "." && parts[0] != ".." && parts[1] != "." && parts[1] != ".." && v1GitHubSegment.MatchString(parts[0]) && v1GitHubSegment.MatchString(parts[1])
 }
 
 func workItemName(repositoryKey, externalID string) string {

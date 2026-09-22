@@ -97,7 +97,7 @@ func (a Adapter) Create(parent context.Context, request workitem.CreateRequest) 
 	output, err := a.run(parent, payload, "api", "--method", "POST", "repos/"+request.Resource+"/issues", "--input", "-")
 	if err != nil {
 		var provider *workitem.ProviderError
-		if errors.As(err, &provider) {
+		if errors.As(err, &provider) && provider.Kind == workitem.ProviderUnavailable && provider.Retryable {
 			provider.Ambiguous = true
 		}
 		return workitem.External{}, err
@@ -179,6 +179,7 @@ func (a Adapter) run(parent context.Context, input []byte, arguments ...string) 
 	ctx, cancel := context.WithTimeout(parent, a.timeout)
 	defer cancel()
 	var stdout, stderr boundedBuffer
+	arguments = includeHTTPMetadata(arguments)
 	command := exec.CommandContext(ctx, a.gh, arguments...)
 	command.Stdin = bytes.NewReader(input)
 	command.Stdout = &stdout
@@ -187,20 +188,79 @@ func (a Adapter) run(parent context.Context, input []byte, arguments ...string) 
 	if errors.Is(stdout.err, errOutputLimit) || errors.Is(stderr.err, errOutputLimit) {
 		return nil, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
 	}
+	status, headers, body, included := parseIncludedResponse(stdout.Bytes())
 	if err == nil {
+		if included && (status < 200 || status >= 300) {
+			return nil, classifyHTTPFailure(status, headers)
+		}
+		if included {
+			return body, nil
+		}
 		return append([]byte(nil), stdout.Bytes()...), nil
 	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return nil, &workitem.ProviderError{Kind: workitem.ProviderAmbiguous, Retryable: true, Ambiguous: true}
 	}
-	lower := strings.ToLower(stderr.String())
-	if strings.Contains(lower, "rate limit") || strings.Contains(lower, "http 429") {
-		return nil, &workitem.ProviderError{Kind: workitem.ProviderRateLimited, Retryable: true}
+	if included {
+		return nil, classifyHTTPFailure(status, headers)
 	}
-	if strings.Contains(lower, "authentication") || strings.Contains(lower, "http 401") || strings.Contains(lower, "bad credentials") {
-		return nil, &workitem.ProviderError{Kind: workitem.ProviderUnauthenticated}
+	return nil, &workitem.ProviderError{Kind: workitem.ProviderUnavailable}
+}
+
+func includeHTTPMetadata(arguments []string) []string {
+	if len(arguments) == 0 || arguments[0] != "api" {
+		return arguments
 	}
-	return nil, &workitem.ProviderError{Kind: workitem.ProviderUnavailable, Retryable: true}
+	withMetadata := make([]string, 0, len(arguments)+1)
+	withMetadata = append(withMetadata, "api", "--include")
+	return append(withMetadata, arguments[1:]...)
+}
+
+func parseIncludedResponse(output []byte) (int, map[string]string, []byte, bool) {
+	headerEnd := bytes.Index(output, []byte("\r\n\r\n"))
+	separatorSize := 4
+	if headerEnd < 0 {
+		headerEnd = bytes.Index(output, []byte("\n\n"))
+		separatorSize = 2
+	}
+	if headerEnd < 0 {
+		return 0, nil, nil, false
+	}
+	lines := strings.Split(strings.ReplaceAll(string(output[:headerEnd]), "\r\n", "\n"), "\n")
+	if len(lines) == 0 {
+		return 0, nil, nil, false
+	}
+	statusFields := strings.Fields(lines[0])
+	if len(statusFields) < 2 || !strings.HasPrefix(statusFields[0], "HTTP/") {
+		return 0, nil, nil, false
+	}
+	status, err := strconv.Atoi(statusFields[1])
+	if err != nil || status < 100 || status > 599 {
+		return 0, nil, nil, false
+	}
+	headers := make(map[string]string)
+	for _, line := range lines[1:] {
+		name, value, found := strings.Cut(line, ":")
+		if !found {
+			continue
+		}
+		headers[strings.ToLower(strings.TrimSpace(name))] = strings.TrimSpace(value)
+	}
+	body := append([]byte(nil), output[headerEnd+separatorSize:]...)
+	return status, headers, body, true
+}
+
+func classifyHTTPFailure(status int, headers map[string]string) *workitem.ProviderError {
+	if status == 401 {
+		return &workitem.ProviderError{Kind: workitem.ProviderUnauthenticated}
+	}
+	if status == 429 || status == 403 && (headers["x-ratelimit-remaining"] == "0" || headers["retry-after"] != "") {
+		return &workitem.ProviderError{Kind: workitem.ProviderRateLimited, Retryable: true}
+	}
+	if status >= 500 && status <= 599 {
+		return &workitem.ProviderError{Kind: workitem.ProviderUnavailable, Retryable: true}
+	}
+	return &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
 }
 
 func decodeIssue(repository, expected string, source []byte) (workitem.External, error) {

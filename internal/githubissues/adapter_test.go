@@ -2,6 +2,7 @@ package githubissues
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,7 +73,7 @@ esac
 	}
 }
 
-func TestAdapterStrictlyRejectsMismatchedResponseAndRateLimit(t *testing.T) {
+func TestAdapterStrictlyRejectsMismatchedResponseAndStructuredRateLimit(t *testing.T) {
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	if err := os.WriteFile(gh, []byte("#!/bin/sh\nprintf '%s\\n' '{\"number\":7,\"html_url\":\"https://github.com/other/repo/issues/7\",\"state\":\"open\"}'\n"), 0o700); err != nil {
@@ -82,13 +83,131 @@ func TestAdapterStrictlyRejectsMismatchedResponseAndRateLimit(t *testing.T) {
 	if _, err := adapter.Read(context.Background(), "owner/repo", "7"); err == nil {
 		t.Fatal("mismatched response accepted")
 	}
-	if err := os.WriteFile(gh, []byte("#!/bin/sh\nprintf '%s\\n' 'API rate limit exceeded' >&2\nexit 1\n"), 0o700); err != nil {
+	if err := os.WriteFile(gh, []byte("#!/bin/sh\nprintf 'HTTP/2.0 429 response\\r\\nRetry-After: 1\\r\\n\\r\\n'\nexit 1\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	_, err := adapter.Read(context.Background(), "owner/repo", "7")
 	provider, ok := err.(*workitem.ProviderError)
 	if !ok || provider.Kind != workitem.ProviderRateLimited || !provider.Retryable {
 		t.Fatalf("rate limit = %#v", err)
+	}
+}
+
+func TestAdapterClassifiesStructuredHTTPStatusConservatively(t *testing.T) {
+	directory := t.TempDir()
+	gh := filepath.Join(directory, "gh")
+	script := `#!/bin/sh
+status="${AXIOM_TEST_HTTP_STATUS:-200}"
+printf 'HTTP/2.0 %s response\r\n' "$status"
+if [ -n "$AXIOM_TEST_RATE_REMAINING" ]; then
+  printf 'X-RateLimit-Remaining: %s\r\n' "$AXIOM_TEST_RATE_REMAINING"
+fi
+if [ -n "$AXIOM_TEST_RETRY_AFTER" ]; then
+  printf 'Retry-After: %s\r\n' "$AXIOM_TEST_RETRY_AFTER"
+fi
+printf 'Content-Type: application/json\r\n\r\n'
+if [ "$status" = 200 ]; then
+  printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"open"}'
+  exit 0
+fi
+printf '%s\n' '{"message":"controlled failure"}'
+exit 1
+`
+	if err := os.WriteFile(gh, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := New(gh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AXIOM_TEST_HTTP_STATUS", "200")
+	if external, err := adapter.Read(context.Background(), "owner/repo", "7"); err != nil || external.ID != "7" {
+		t.Fatalf("included success = %#v, %v", external, err)
+	}
+	tests := []struct {
+		name       string
+		status     string
+		remaining  string
+		retryAfter string
+		kind       workitem.ProviderErrorKind
+		retryable  bool
+	}{
+		{name: "400", status: "400", kind: workitem.ProviderInvalidResponse},
+		{name: "401", status: "401", kind: workitem.ProviderUnauthenticated},
+		{name: "403", status: "403", kind: workitem.ProviderInvalidResponse},
+		{name: "403_rate_limit", status: "403", remaining: "0", kind: workitem.ProviderRateLimited, retryable: true},
+		{name: "404", status: "404", kind: workitem.ProviderInvalidResponse},
+		{name: "410", status: "410", kind: workitem.ProviderInvalidResponse},
+		{name: "422", status: "422", kind: workitem.ProviderInvalidResponse},
+		{name: "429", status: "429", kind: workitem.ProviderRateLimited, retryable: true},
+		{name: "500", status: "500", kind: workitem.ProviderUnavailable, retryable: true},
+		{name: "503", status: "503", kind: workitem.ProviderUnavailable, retryable: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Setenv("AXIOM_TEST_HTTP_STATUS", test.status)
+			t.Setenv("AXIOM_TEST_RATE_REMAINING", test.remaining)
+			t.Setenv("AXIOM_TEST_RETRY_AFTER", test.retryAfter)
+			_, err := adapter.Read(context.Background(), "owner/repo", "7")
+			var provider *workitem.ProviderError
+			if !errors.As(err, &provider) || provider.Kind != test.kind || provider.Retryable != test.retryable || provider.Ambiguous {
+				t.Fatalf("classification = %#v", err)
+			}
+		})
+	}
+}
+
+func TestAdapterCreateMarksOnlyUncertainRetryableFailureAmbiguous(t *testing.T) {
+	directory := t.TempDir()
+	gh := filepath.Join(directory, "gh")
+	script := `#!/bin/sh
+status="$AXIOM_TEST_HTTP_STATUS"
+printf 'HTTP/2.0 %s response\r\nContent-Type: application/json\r\n\r\n' "$status"
+printf '%s\n' '{"message":"controlled failure"}'
+exit 1
+`
+	if err := os.WriteFile(gh, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := New(gh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := workitem.CreateRequest{Resource: "owner/repo", Correlation: strings.Repeat("a", 64), Document: workitem.ProviderDocument{Title: "Title", Body: "Body"}}
+	for _, test := range []struct {
+		status    string
+		kind      workitem.ProviderErrorKind
+		retryable bool
+		ambiguous bool
+	}{
+		{status: "401", kind: workitem.ProviderUnauthenticated},
+		{status: "503", kind: workitem.ProviderUnavailable, retryable: true, ambiguous: true},
+	} {
+		t.Run(test.status, func(t *testing.T) {
+			t.Setenv("AXIOM_TEST_HTTP_STATUS", test.status)
+			_, err := adapter.Create(context.Background(), request)
+			var provider *workitem.ProviderError
+			if !errors.As(err, &provider) || provider.Kind != test.kind || provider.Retryable != test.retryable || provider.Ambiguous != test.ambiguous {
+				t.Fatalf("classification = %#v", err)
+			}
+		})
+	}
+}
+
+func TestAdapterUnknownCLIErrorIsNotRetryable(t *testing.T) {
+	directory := t.TempDir()
+	gh := filepath.Join(directory, "gh")
+	if err := os.WriteFile(gh, []byte("#!/bin/sh\nprintf '%s\\n' 'unstructured failure' >&2\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := New(gh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = adapter.Read(context.Background(), "owner/repo", "7")
+	var provider *workitem.ProviderError
+	if !errors.As(err, &provider) || provider.Retryable || provider.Ambiguous {
+		t.Fatalf("classification = %#v", err)
 	}
 }
 

@@ -53,6 +53,18 @@ this run created no real Issue and does not claim the real-provider observation.
 - A confirmed Provider effect followed by local read/write/conflict/recovery
   failure is canonical `partial` and retains the exact external reference.
   Committed-but-uncertain protected publication also remains truthful partial.
+- The provider-neutral domain link maps at the local adapter boundary to the
+  existing Work Item `formatVersion: 1` fields `providerRepository` and `number`.
+  Existing v1 records remain readable; no v2 schema or migration exists. The v1
+  adapter rejects non-`github`, non-positive, non-numeric, or non-canonical Issue
+  IDs before creating any local state.
+- `gh api --include` supplies bounded response status and headers. `401` is
+  unauthenticated/non-retryable; `429` and structured rate-limited `403` are
+  retryable; `5xx` is unavailable/retryable; ordinary `403` and deterministic
+  `400`/`404`/`410`/`422` failures are non-retryable. Missing reliable HTTP
+  metadata fails closed without retry. Create timeout and retryable unavailable
+  results remain ambiguous and require reconciliation; no blind create retry was
+  added.
 
 ## Deterministic observations
 
@@ -60,9 +72,12 @@ this run created no real Issue and does not claim the real-provider observation.
 |---|---|---|
 | incomplete or cancelled interview | application/CLI spies | ordered missing questions or `interrupted`; zero Provider effects |
 | stale/absent create authority | exact preview digest test | `denied_authority`; zero create and local saves |
+| existing or newly written v1 Work Item | protected store codec tests | old wire fields retained and mapped to provider-neutral domain identity |
+| v1-unrepresentable provider/external ID | pre-publication adapter validation | unsafe input rejected before state-root creation |
 | stored identity differs from requested path | protected store decode test | unsafe record rejected before use |
 | metacharacter/Markdown input | fake executable argument/stdin capture | content only in JSON stdin and indented authored sections |
-| rate limit, timeout, oversized or mismatched response | bounded adapter fake | typed retry/failure boundary; invalid content rejected |
+| 401/403/404/422/429/500/503 | included-status adapter matrix | only explicit rate-limit and 5xx cases are retryable |
+| timeout, oversized, unstructured or mismatched response | bounded adapter fake | timeout ambiguous; other unknown/invalid content fails closed without retry |
 | ambiguous create | sequenced reconciliation fake | second reconciliation before result; no blind retry |
 | existing/multiple correlation match | reconciliation ledger | one valid Issue reused; multiple matches fail before create |
 | local revision changed after select preview | store revision fault | stale digest denied; zero save |
@@ -71,9 +86,9 @@ this run created no real Issue and does not claim the real-provider observation.
 
 ## Validation environment and commands
 
-Implementation and tests ran on macOS 27.0/arm64 with Go 1.26.1. The final
-implementation snapshot is commit `e0bd2f1` (`feat: implement MVP S3 intent to
-work item`). The branch validation commands are:
+Implementation and tests ran on macOS 27.0/arm64 with Go 1.26.1. Review
+remediation was validated in the working tree based on commit `757b894`; no
+commit or push is claimed by this Evidence update. The validation commands are:
 
 ```bash
 go test ./...
@@ -83,8 +98,10 @@ go build ./...
 go mod verify
 ./scripts/validate-repository.sh .
 ./scripts/check-sensitive-files.sh .
+./scripts/check-sensitive-files.sh --staged .
 ./scripts/dogfood-poc.sh
 gitleaks detect --source . --no-git
+gitleaks git --staged --redact --no-banner
 git diff --check
 ```
 
@@ -108,6 +125,7 @@ executables and temporary protected roots; no real GitHub mutation occurs.
 
 ## Acceptance status
 
-S3 T08–T09 are technically implemented and ready for human review, except for the
-separately gated real-provider observation recorded above. Human acceptance is not
-claimed. No authority exists here to start T10 or any S4–S7 Task.
+T08 implementation and deterministic Evidence are complete. T09 implementation
+and deterministic tests are complete, but T09 and S3 are not fully validated:
+the separately gated real-provider observation remains pending. Human acceptance
+is not claimed. No authority exists here to start T10 or any S4–S7 Task.

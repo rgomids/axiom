@@ -2,7 +2,8 @@
 
 ## [2026-09-22]
 
-- implementation: complete the authorized MVP S3 boundary (T08–T09) with a
+- implementation: complete the deterministic implementation scope of the
+  authorized MVP S3 boundary (T08–T09) with a
   provider-neutral, authorship-preserving Intent draft; deterministic missing-field
   interview; reviewed digest; exact GitHub create/select authority; and generic
   protected local Work Item linkage.
@@ -15,6 +16,16 @@
   local revision, timeout/output/rate-limit/ambiguous responses, duplicate
   prevention, truthful confirmed-provider/local-failure partial results, and the
   bounded installed-binary dogfood journey through the reviewed S3 draft.
+- fix: preserve the existing Work Item `formatVersion: 1` wire identity while
+  mapping it to provider-neutral domain fields; reject providers and external IDs
+  that the GitHub-specific v1 adapter cannot represent before writing.
+- fix: classify GitHub adapter failures from bounded `gh api --include` HTTP
+  metadata: authentication and deterministic 4xx failures are non-retryable,
+  rate limits and 5xx failures are explicit retry boundaries, and unknown CLI
+  failures fail closed without retry.
+- evidence: keep the mandatory T09 real-provider observation pending exact
+  per-run human authority; deterministic tests, CI, review, or merge do not
+  substitute for that observation or human acceptance.
 - fix: make the distributed `darwin && !cgo` binary inspect extended ACL state
   through the open file descriptor, preserving fail-closed volume-capability,
   ownership, permission, type, symlink, and hard-link checks for Codex skills

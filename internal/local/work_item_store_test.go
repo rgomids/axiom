@@ -36,6 +36,75 @@ func TestWorkItemStoreRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWorkItemStoreLoadsExistingV1RecordIntoProviderNeutralLink(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	projectID := "123e4567-e89b-42d3-a456-426614174000"
+	projectRoot := filepath.Join(state, "work-items", projectID)
+	if err := os.MkdirAll(projectRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	wire := []byte("{\"formatVersion\":1,\"projectId\":\"" + projectID + "\",\"repositoryKey\":\"main\",\"providerRepository\":\"owner/repo\",\"number\":7,\"url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"OPEN\"}\n")
+	if err := os.WriteFile(filepath.Join(projectRoot, "main-7.json"), wire, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := NewWorkItemStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.Load(context.Background(), projectID, "main", "7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Provider != "github" || got.Resource != "owner/repo" || got.ExternalID != "7" || got.URL != "https://github.com/owner/repo/issues/7" || got.State != "OPEN" || got.Revision == ([32]byte{}) {
+		t.Fatalf("loaded v1 link = %#v", got)
+	}
+}
+
+func TestWorkItemStorePersistsProviderNeutralLinkUsingExistingV1WireFormat(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "state")
+	store, err := NewWorkItemStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	link := testWorkItemLink()
+	if err := store.Save(context.Background(), link); err != nil {
+		t.Fatal(err)
+	}
+	wire, err := os.ReadFile(filepath.Join(state, "work-items", link.ProjectID, "main-7.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "{\"formatVersion\":1,\"projectId\":\"123e4567-e89b-42d3-a456-426614174000\",\"repositoryKey\":\"main\",\"providerRepository\":\"owner/repo\",\"number\":7,\"url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"OPEN\"}\n"
+	if string(wire) != want {
+		t.Fatalf("wire = %q, want %q", wire, want)
+	}
+}
+
+func TestWorkItemStoreRejectsLinksV1CannotRepresentBeforeWriting(t *testing.T) {
+	for name, mutate := range map[string]func(*workitem.Link){
+		"other_provider": func(link *workitem.Link) { link.Provider = "gitlab" },
+		"non_numeric":    func(link *workitem.Link) { link.ExternalID = "issue-seven" },
+		"zero":           func(link *workitem.Link) { link.ExternalID = "0" },
+		"non_canonical":  func(link *workitem.Link) { link.ExternalID = "007" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			state := filepath.Join(t.TempDir(), "state")
+			store, err := NewWorkItemStore(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			link := testWorkItemLink()
+			mutate(&link)
+			if err := store.Save(context.Background(), link); !errors.Is(err, ErrUnsafe) {
+				t.Fatalf("save = %v", err)
+			}
+			if _, err := os.Stat(state); !os.IsNotExist(err) {
+				t.Fatalf("state written before rejection: %v", err)
+			}
+		})
+	}
+}
+
 func TestWorkItemStoreReportsMissingForFirstSelection(t *testing.T) {
 	store, err := NewWorkItemStore(filepath.Join(t.TempDir(), "state"))
 	if err != nil {
@@ -62,7 +131,8 @@ func TestWorkItemStoreRejectsRecordWhoseIdentityDoesNotMatchRequestedPath(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	wire = []byte(strings.Replace(string(wire), `"externalId":"7"`, `"externalId":"8"`, 1))
+	wire = []byte(strings.Replace(string(wire), `"number":7`, `"number":8`, 1))
+	wire = []byte(strings.Replace(string(wire), `/issues/7`, `/issues/8`, 1))
 	if err := os.WriteFile(path, wire, 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -8,7 +8,7 @@
 
 **S2 Implementation: Delivered on `main` through PR #84 with reproducible S2 Evidence. This is technical delivery, not inferred human MVP acceptance.**
 
-**S3 Implementation: Authorized on 2026-09-22; T08–T09 implemented in the delivery branch with reproducible S3 Evidence, pending human review and a separately authorized real-provider observation.**
+**S3 Implementation: Authorized on 2026-09-22; T08 implementation/Evidence and T09 implementation/deterministic tests are complete in the delivery branch. T09's mandatory real-provider observation remains pending exact per-run authority; S3 is not fully validated.**
 
 **S4–S7 Implementation: Not authorized.**
 
@@ -38,8 +38,9 @@ Specification 004 — Approved
    -> T02–T03 — Merged in PR #83 with reproducible S1 Evidence
 -> S2 Implementation — Delivered on main through PR #84
    -> T04–T07 — Merged with reproducible S2 Evidence
--> S3 Implementation — Authorized / implemented in delivery branch; human review pending
-   -> T08–T09 — Implemented with reproducible S3 Evidence
+-> S3 Implementation — Authorized; deterministic delivery in branch; human review pending
+   -> T08 — Implementation and deterministic Evidence complete
+   -> T09 — Implementation and deterministic tests complete
    -> Required real-provider observation — Pending exact per-run human authority
 -> S4–S7 Implementation — Not authorized
 ```
@@ -376,10 +377,11 @@ draft, target, effects, expected local revision, correlation, and provenance.
 
 ### T09 — Authorized GitHub Work Item create/select and linkage
 
-**Implementation checkpoint:** complete in the S3 delivery branch; see
-[S3 Evidence](evidence-s3.md). Fake-provider and executable black-box paths are
-validated. The mandatory bounded real GitHub observation remains pending exact
-per-run authority and public-safe content; no real Issue was created by this run.
+**Implementation checkpoint:** implementation and deterministic tests are complete
+in the S3 delivery branch; see [S3 Evidence](evidence-s3.md). Fake-provider and
+executable black-box paths are validated. T09 is not fully validated: the
+mandatory bounded real GitHub observation remains pending exact per-run authority
+and public-safe content; no real Issue was created by this run.
 
 - **Objective:** Exact authority creates or selects one GitHub Issue, validates its identity/state, and persists one exact local Work Item reference; denial/cancel is zero-effect and confirmed external/local failure is truthful `partial`.
 - **Slice:** S3.
@@ -847,6 +849,6 @@ future work under explicit Task authority.
 
 **S2 Implementation — Delivered on `main` through PR #84 with reproducible S2 Evidence.**
 
-**S3 Implementation — Authorized / implemented in the delivery branch with reproducible S3 Evidence; human review and exact-authority real-provider observation pending.**
+**S3 Implementation — Authorized; T08 deterministic Evidence and T09 implementation/tests complete in the delivery branch. Human review and T09's exact-authority real-provider observation remain pending; S3 is not fully validated.**
 
 **S4–S7 Implementation — Not authorized.**
