@@ -86,9 +86,15 @@ this run created no real Issue and does not claim the real-provider observation.
 
 ## Validation environment and commands
 
-Implementation and tests ran on macOS 27.0/arm64 with Go 1.26.1. Review
-remediation was validated in the working tree based on commit `757b894`; no
-commit or push is claimed by this Evidence update. The validation commands are:
+Implementation and tests ran on macOS 27.0/arm64 with Go 1.26.1. The local
+validation commands below were executed successfully during implementation and
+review remediation. The final validated commit is
+`7ca31e001d27807535264366a44a56ffa906fbf0` (`7ca31e0`,
+`fix: preserve S3 work item compatibility`). GitHub Actions workflow
+`POC verification` run
+[`35763290464`](https://github.com/rgomids/axiom/actions/runs/35763290464)
+validated that exact commit successfully; jobs `verify (ubuntu-24.04)` and
+`verify (macos-15)` both completed successfully. The validation commands are:
 
 ```bash
 go test ./...
