@@ -9,9 +9,12 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -73,8 +76,11 @@ func TestConfigurePublishesPortableKeysAndLocalPathsThenResolves(t *testing.T) {
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
 	t.Setenv("LINGO_STATE_ROOT", state)
 	service := compose()
-	runCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository}, cli.ExitSuccess, "project_configured")
-	runCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository}, cli.ExitSuccess, "project_already_configured")
+	configureProject(t, service, "configured", "Configured", "main="+repository, "github")
+	preview := previewProject(t, service, "configured", "Configured", "main="+repository, "github")
+	if len(preview.Effects) != 0 {
+		t.Fatalf("equivalent replay effects = %v", preview.Effects)
+	}
 	runCLI(t, service, []string{"project", "resolve", "--selector", "configured"}, cli.ExitSuccess, "project_resolved")
 	manifestBytes, err := os.ReadFile(filepath.Join(root, "configured", "axiom.yaml"))
 	if err != nil {
@@ -104,9 +110,122 @@ func TestConfigureInvalidRepositoriesPublishNothing(t *testing.T) {
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
 	t.Setenv("LINGO_STATE_ROOT", state)
 	service := compose()
-	runCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository, "--repository", "main=" + repository}, cli.ExitFailure, "invalid_input")
+	runCanonicalCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository, "--repository", "main=" + repository}, cli.ExitFailure, "validation_failure", "Project setup input is invalid")
 	if _, err := os.Stat(filepath.Join(root, "configured")); !os.IsNotExist(err) {
 		t.Fatalf("invalid configuration published portable state: %v", err)
+	}
+}
+
+func TestGuidedSetupDenialPublishesNothing(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	repository := filepath.Join(t.TempDir(), "repository")
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	input := strings.NewReader("denied\nDenied\nmain=" + repository + "\n\ngithub\nno\n")
+	var output, prompts bytes.Buffer
+	code := cli.RunInteractive(context.Background(), []string{"--json", "project", "configure"}, compose(), currentProvenance(), input, &output, &prompts)
+	if code != cli.ExitFailure || !strings.Contains(output.String(), `"status":"denied_authority"`) {
+		t.Fatalf("denial code=%d output=%s prompts=%s", code, output.String(), prompts.String())
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("denied setup created portable root: %v", err)
+	}
+	if _, err := os.Stat(state); !os.IsNotExist(err) {
+		t.Fatalf("denied setup created local root: %v", err)
+	}
+}
+
+func TestConfigurePreviewIsReadOnlyAndAuthorityBindsExactDigest(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	api := filepath.Join(t.TempDir(), "api")
+	web := filepath.Join(t.TempDir(), "web")
+	for _, path := range []string{api, web} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+	preview := previewProject(t, service, "multi", "Multi", "web="+web, "github")
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("preview created portable root: %v", err)
+	}
+	if _, err := os.Stat(state); !os.IsNotExist(err) {
+		t.Fatalf("preview created local root: %v", err)
+	}
+	staleArgs := []string{"project", "configure", "--project-id", preview.ProjectID, "--slug", "multi", "--name", "Multi", "--repository", "web=" + web, "--repository", "api=" + api, "--work-item-provider", "github", "--preview-digest", preview.Digest, "--authorize-local"}
+	runCanonicalCLI(t, service, staleArgs, cli.ExitFailure, "denied_authority", "Project setup authority is missing or stale")
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("stale authority created portable root: %v", err)
+	}
+	freshResult := service.Configure(context.Background(), cli.ConfigureInput{ProjectID: preview.ProjectID, Slug: "multi", Name: "Multi", Repositories: []cli.RepositoryInput{{Key: "web", Path: web}, {Key: "api", Path: api}}, WorkItemProvider: "github"})
+	if freshResult.Setup == nil || freshResult.Completion == nil || freshResult.Completion.Status() != completion.Success {
+		t.Fatalf("fresh preview = %#v", freshResult)
+	}
+	args := []string{"project", "configure", "--project-id", preview.ProjectID, "--slug", "multi", "--name", "Multi", "--repository", "web=" + web, "--repository", "api=" + api, "--work-item-provider", "github", "--preview-digest", freshResult.Setup.Digest, "--authorize-local"}
+	runCanonicalCLI(t, service, args, cli.ExitSuccess, "success", "Project setup published")
+	manifestBytes, err := os.ReadFile(filepath.Join(root, "multi", "axiom.yaml"))
+	if err != nil || bytes.Contains(manifestBytes, []byte(api)) || bytes.Contains(manifestBytes, []byte(web)) {
+		t.Fatalf("portable/local separation failed: %v, %s", err, manifestBytes)
+	}
+	records, err := filepath.Glob(filepath.Join(state, "projects", "*", "installation.json"))
+	if err != nil || len(records) != 1 {
+		t.Fatalf("local records = %v, %v", records, err)
+	}
+	recordBytes, err := os.ReadFile(records[0])
+	if err != nil || !bytes.Contains(recordBytes, []byte(api)) || !bytes.Contains(recordBytes, []byte(web)) {
+		t.Fatalf("independent bindings missing: %v, %s", err, recordBytes)
+	}
+	old, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(old)
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	runCLI(t, service, []string{"project", "resolve", "--selector", preview.ProjectID}, cli.ExitSuccess, "project_resolved")
+	if err := os.Rename(api, api+"-prior"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(api, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	runCanonicalCLI(t, service, []string{"project", "show", "--selector", preview.ProjectID}, cli.ExitFailure, "retryable_failure", "Project repository is unavailable")
+}
+
+func TestConfigureRefusesRepositoryReplacementAfterPreview(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	repository := filepath.Join(t.TempDir(), "repository")
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+	preview := previewProject(t, service, "replaced", "Replaced", "main="+repository, "github")
+	prior := repository + "-prior"
+	if err := os.Rename(repository, prior); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(repository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	changed := time.Unix(1_900_000_000, 0)
+	if err := os.Chtimes(repository, changed, changed); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{"project", "configure", "--project-id", preview.ProjectID, "--slug", "replaced", "--name", "Replaced", "--repository", "main=" + repository, "--work-item-provider", "github", "--preview-digest", preview.Digest, "--authorize-local"}
+	runCanonicalCLI(t, service, args, cli.ExitFailure, "denied_authority", "Project setup authority is missing or stale")
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Fatalf("repository replacement published state: %v", err)
 	}
 }
 
@@ -119,13 +238,68 @@ func TestConfigureReportsCommittedPortableStateWhenLocalPublicationFails(t *test
 	}
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
 	t.Setenv("LINGO_STATE_ROOT", state)
-	service := compose()
-	if err := os.Symlink(t.TempDir(), state); err != nil {
-		t.Fatal(err)
+	service := compose().(lifecycleService)
+	preview := previewProject(t, service, "configured", "Configured", "main="+repository, "github")
+	service.beforeLocalPublication = func() {
+		if err := os.Symlink(t.TempDir(), state); err != nil {
+			t.Fatal(err)
+		}
 	}
-	runCLI(t, service, []string{"project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository}, cli.ExitFailure, "portable_committed_local_failed")
+	args := []string{"project", "configure", "--project-id", preview.ProjectID, "--slug", "configured", "--name", "Configured", "--repository", "main=" + repository, "--work-item-provider", "github", "--preview-digest", preview.Digest, "--authorize-local"}
+	runCanonicalCLI(t, service, args, cli.ExitFailure, "partial", "Portable Project published; local bindings did not complete")
 	if _, err := os.Stat(filepath.Join(root, "configured", "axiom.yaml")); err != nil {
 		t.Fatalf("committed portable state not reported truthfully: %v", err)
+	}
+}
+
+func TestWorkItemJourneyRequiresReadyConfiguredCapability(t *testing.T) {
+	for _, provider := range []string{"", "linear"} {
+		t.Run("provider-"+provider, func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "projects")
+			state := filepath.Join(t.TempDir(), "state")
+			repository := filepath.Join(t.TempDir(), "repository")
+			if err := os.Mkdir(repository, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("LINGO_PROJECTS_ROOT", root)
+			t.Setenv("LINGO_STATE_ROOT", state)
+			service := compose()
+			configureProject(t, service, "capability", "Capability", "main="+repository, provider)
+			result := service.WorkItemCreate(context.Background(), cli.WorkItemInput{Project: "capability", Repository: "main", Title: "Blocked", AuthorizeExternal: true})
+			if result.Status != cli.Failed || result.Category != "work_item_capability_unavailable" {
+				t.Fatalf("provider %q work item result = %#v", provider, result)
+			}
+		})
+	}
+}
+
+func TestFirstRunReportsMissingReadyAndIncompatibleSkillStates(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	skills := filepath.Join(t.TempDir(), "skills")
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	t.Setenv("AXIOM_CODEX_SKILLS_ROOT", skills)
+	service := compose().(lifecycleService)
+	missing := service.RuntimeCodexStatus(context.Background())
+	if missing.Completion == nil || missing.Completion.Status() != completion.ValidationFailure || missing.Runtime == nil || len(missing.Runtime.Skills) != 5 || missing.Runtime.Skills[0].State != "missing" {
+		t.Fatalf("missing first run = %#v", missing)
+	}
+	if installed := service.RuntimeCodexInstall(context.Background()); installed.Status != cli.Succeeded || installed.Runtime == nil || len(installed.Runtime.Skills) != 5 {
+		t.Fatalf("skill install = %#v", installed)
+	}
+	ready := service.RuntimeCodexStatus(context.Background())
+	if ready.Completion == nil || ready.Completion.Status() != completion.Success || ready.Runtime == nil || ready.Runtime.Skills[0].State != "equivalent" {
+		t.Fatalf("ready first run = %#v", ready)
+	}
+	incompatibleRuntime, err := codexruntime.NewForBinary(skills, "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.codex = incompatibleRuntime
+	incompatible := service.RuntimeCodexStatus(context.Background())
+	if incompatible.Completion == nil || incompatible.Completion.Status() != completion.ValidationFailure || incompatible.Runtime == nil || incompatible.Runtime.BinaryCompatibility != "2" {
+		t.Fatalf("incompatible first run = %#v", incompatible)
 	}
 }
 
@@ -426,7 +600,7 @@ func TestCanonicalReadOnlySurfacesDoNotMutateState(t *testing.T) {
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
 	t.Setenv("LINGO_STATE_ROOT", state)
 	service := compose()
-	runCLI(t, service, []string{"project", "configure", "--slug", "sample", "--name", "Sample", "--repository", "main=" + repository}, cli.ExitSuccess, "project_configured")
+	configureProject(t, service, "sample", "Sample", "main="+repository, "github")
 	before := snapshotTrees(t, root, state, repository)
 
 	for _, args := range [][]string{
@@ -533,4 +707,37 @@ func runCanonicalCLI(t *testing.T, service cli.Service, args []string, wantCode 
 			t.Fatalf("%v: %q absent from %q", args, expected, output.String())
 		}
 	}
+}
+
+func previewProject(t *testing.T, service cli.Service, slug, name, repository, provider string) projectapp.SetupPreview {
+	t.Helper()
+	args := []string{"project", "configure", "--slug", slug, "--name", name, "--repository", repository}
+	if provider != "" {
+		args = append(args, "--work-item-provider", provider)
+	}
+	var output bytes.Buffer
+	if code := cli.Run(context.Background(), args, service, currentProvenance(), &output); code != cli.ExitSuccess {
+		t.Fatalf("preview: code=%d output=%s", code, output.String())
+	}
+	var event struct {
+		Setup projectapp.SetupPreview `json:"setup"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &event); err != nil || event.Setup.Digest == "" || event.Setup.ProjectID == "" {
+		t.Fatalf("preview output = %s, %v", output.String(), err)
+	}
+	return event.Setup
+}
+
+func configureProject(t *testing.T, service cli.Service, slug, name, repository, provider string) projectapp.SetupPreview {
+	t.Helper()
+	preview := previewProject(t, service, slug, name, repository, provider)
+	args := []string{"project", "configure", "--project-id", preview.ProjectID, "--slug", slug, "--name", name, "--repository", repository, "--preview-digest", preview.Digest, "--authorize-local"}
+	if provider != "" {
+		args = append(args, "--work-item-provider", provider)
+	}
+	var output bytes.Buffer
+	if code := cli.Run(context.Background(), args, service, currentProvenance(), &output); code != cli.ExitSuccess || !strings.Contains(output.String(), `"status":"success"`) {
+		t.Fatalf("publish: code=%d output=%s", code, output.String())
+	}
+	return preview
 }

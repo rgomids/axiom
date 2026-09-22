@@ -1,20 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strconv"
-	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
+	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflow"
@@ -118,13 +120,13 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 		return cli.NewUnavailableService(source)
 	}
 	github, _ := workitem.NewGitHubAdapter(os.Getenv("AXIOM_GIT_BIN"), os.Getenv("AXIOM_GH_BIN"))
-	workItemService := workitem.New(workItemResolver{installation}, github, github, workItems)
+	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, github, github, workItems)
 	workflows, err := local.NewWorkflowStore(state)
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
 	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows)
-	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, provenance: source}
+	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, provenance: source}
 }
 
 func codexSkillsRoot() string {
@@ -166,16 +168,22 @@ func stateRoot() (string, error) {
 }
 
 type lifecycleService struct {
-	lifecycle    projectapp.Lifecycle
-	installation local.InstallationStore
-	codex        codexruntime.Service
-	workItems    workitem.Service
-	workflows    workflow.Service
-	projectsRoot string
-	provenance   provenance.Value
+	lifecycle              projectapp.Lifecycle
+	portable               local.PortableStore
+	installation           local.InstallationStore
+	codex                  codexruntime.Service
+	workItems              workitem.Service
+	workflows              workflow.Service
+	projectsRoot           string
+	stateRoot              string
+	provenance             provenance.Value
+	beforeLocalPublication func()
 }
 
-type workItemResolver struct{ installation local.InstallationStore }
+type workItemResolver struct {
+	installation local.InstallationStore
+	portable     local.PortableStore
+}
 
 type workflowResolver struct{ installation local.InstallationStore }
 type workflowWorkItems struct{ service workitem.Service }
@@ -185,11 +193,46 @@ func (r workItemResolver) Resolve(ctx context.Context, selector string) (workite
 	if resolved.Status != local.ResolutionFound {
 		return workitem.Project{}, resolved.Category
 	}
+	portable, err := r.portable.Inspect(ctx, resolved.Project.Slug)
+	if err != nil || !portable.Exists || portable.Snapshot.Project().State().ID != resolved.Project.ID {
+		return workitem.Project{}, "invalid_project_capability_state"
+	}
+	state := portable.Snapshot.Project().State()
+	providers, providersConfigured := state.Providers.Value()
+	integrations, integrationsConfigured := state.Integrations.Value()
+	if !providersConfigured || !integrationsConfigured || !githubWorkItemCapability(providers, integrations) {
+		return workitem.Project{}, "work_item_capability_unavailable"
+	}
 	project := workitem.Project{ID: resolved.Project.ID, Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}
 	for _, repository := range resolved.Project.Repositories {
 		project.Repositories = append(project.Repositories, workitem.Repository{Key: repository.Key, Path: repository.Path})
 	}
 	return project, ""
+}
+
+func githubWorkItemCapability(providers []project.Provider, integrations []project.Integration) bool {
+	providerReady := false
+	for _, provider := range providers {
+		if provider.Key == "work-items" && provider.ID == "github" {
+			providerReady = true
+		}
+	}
+	if !providerReady {
+		return false
+	}
+	for _, integration := range integrations {
+		provider, configured := integration.ProviderRef.Value()
+		capabilities, declared := integration.Capabilities.Value()
+		if integration.Key != "work-items" || !configured || provider != "work-items" || !declared {
+			continue
+		}
+		for _, capability := range capabilities {
+			if capability == projectapp.WorkItemCapability {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (r workflowResolver) Resolve(ctx context.Context, selector string) (workflow.Project, string) {
@@ -228,7 +271,20 @@ func (s lifecycleService) RuntimeCodexInstall(ctx context.Context) cli.Result {
 	return runtimeResult(s.codex.Install(ctx))
 }
 func (s lifecycleService) RuntimeCodexStatus(ctx context.Context) cli.Result {
-	return runtimeResult(s.codex.Inspect(ctx))
+	result := s.codex.Inspect(ctx)
+	if result.Status == codexruntime.Ready {
+		response := canonicalCompletion(completion.Facts{Completed: true}, "Lingo and Codex skills are compatible", []string{"skill-set:" + result.SkillSetVersion}, "Run project configure with explicit Project inputs", s.provenance)
+		response.Runtime = runtimeView(result)
+		return response
+	}
+	if result.Status == codexruntime.Incompatible || result.Status == codexruntime.Missing || result.Status == codexruntime.Partial {
+		response := canonicalCompletion(completion.Facts{ValidationFailed: true}, "Codex skill compatibility is not ready", nil, "Run runtime codex install, then project configure", s.provenance)
+		response.Runtime = runtimeView(result)
+		return response
+	}
+	response := canonicalCompletion(completion.Facts{Failed: true}, "Codex compatibility inspection failed", nil, "Inspect the configured Codex skill root", s.provenance)
+	response.Runtime = runtimeView(result)
+	return response
 }
 
 func runtimeResult(result codexruntime.Result) cli.Result {
@@ -236,7 +292,15 @@ func runtimeResult(result codexruntime.Result) cli.Result {
 	if result.Status == codexruntime.Applied || result.Status == codexruntime.Unchanged || result.Status == codexruntime.Ready {
 		status = cli.Succeeded
 	}
-	return cli.Result{Status: status, Category: result.Category}
+	return cli.Result{Status: status, Category: result.Category, Runtime: runtimeView(result)}
+}
+
+func runtimeView(result codexruntime.Result) *cli.RuntimeView {
+	view := &cli.RuntimeView{SkillSetVersion: result.SkillSetVersion, BinaryCompatibility: result.BinaryCompatibility, Skills: make([]cli.RuntimeSkillView, 0, len(result.Skills))}
+	for _, skill := range result.Skills {
+		view.Skills = append(view.Skills, cli.RuntimeSkillView{Name: skill.Name, SHA256: skill.Digest, State: skill.State})
+	}
+	return view
 }
 
 func (s lifecycleService) Init(ctx context.Context, input cli.InitInput) cli.Result {
@@ -333,37 +397,125 @@ func projectView(project local.ResolvedProject) *cli.ProjectView {
 	return view
 }
 func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInput) cli.Result {
-	keys := make([]string, 0, len(input.Repositories))
-	bindings := make([]projectapp.RepositoryBinding, 0, len(input.Repositories))
+	repositories := make([]projectapp.SetupRepository, 0, len(input.Repositories))
 	for _, repository := range input.Repositories {
-		info, err := os.Lstat(repository.Path)
-		if err != nil || !filepath.IsAbs(repository.Path) || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-			return cli.Result{Status: cli.Failed, Category: "repository_unavailable"}
+		cleanPath := filepath.Clean(repository.Path)
+		identity, err := local.DirectoryIdentity(cleanPath)
+		if err != nil {
+			return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project setup input is invalid", nil, "Provide an existing absolute non-link Repository path", s.provenance)
 		}
-		keys = append(keys, repository.Key)
-		bindings = append(bindings, projectapp.RepositoryBinding{
-			RepositoryKey: repository.Key,
-			ExplicitPath:  filepath.Clean(repository.Path),
-			Observation:   projectapp.Observation{Availability: projectapp.Unverified, Basis: projectapp.NotChecked, ObservedAt: time.Time{}},
-		})
+		repositories = append(repositories, projectapp.SetupRepository{Key: repository.Key, Path: cleanPath, Revision: identity})
 	}
-	portable := s.lifecycle.Configure(ctx, projectapp.ConfigureRequest{Slug: input.Slug, Name: input.Name, RepositoryKeys: keys})
-	if portable.Status != projectapp.LifecycleApplied && portable.Status != projectapp.LifecycleUnchanged {
-		return cliResult(portable)
+	portableObservation, err := s.portable.Inspect(ctx, input.Slug)
+	if err != nil && !errors.Is(err, projectapp.ErrNotFound) {
+		return canonicalCompletion(completion.Facts{Failed: true}, "Project setup inspection failed", nil, "Inspect portable Project state before retrying", s.provenance)
 	}
-	localResult := s.installation.InstallWithBindings(ctx, filepath.Join(s.projectsRoot, input.Slug), bindings)
+	projectID := input.ProjectID
+	if portableObservation.Exists {
+		existingID := portableObservation.Snapshot.Project().State().ID
+		if projectID != "" && projectID != existingID {
+			return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project identity conflicts with existing state", nil, "Use the existing Project identity or a different slug", s.provenance)
+		}
+		projectID = existingID
+	}
+	if projectID == "" {
+		allocated, issues := (local.IdentityAllocator{}).NewID()
+		if len(issues) != 0 {
+			return canonicalCompletion(completion.Facts{Failed: true}, "Project identity allocation failed", nil, "Retry Project setup", s.provenance)
+		}
+		projectID = allocated
+	}
+	localObservation, category := s.installation.Inspect(ctx, projectID)
+	if category != "" {
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project state is not safe to configure", nil, "Inspect preserved local state before retrying", s.provenance)
+	}
+	observation := projectapp.SetupObservation{
+		PortableDestination: filepath.Join(s.projectsRoot, input.Slug),
+		LocalDestination:    filepath.Join(s.stateRoot, "projects", projectID),
+		PortableRevision:    portableObservation.Revision,
+		LocalRevision:       localObservation.Revision,
+	}
+	setupInput := projectapp.SetupInput{ProjectID: projectID, Slug: input.Slug, Name: input.Name, Repositories: repositories, WorkItemProvider: input.WorkItemProvider}
+	proposal, issues := projectapp.PrepareSetup(manifest.Codec{}, setupInput, observation)
+	if len(issues) != 0 {
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project setup input is invalid", nil, "Correct Project identity, repositories, or capability declaration", s.provenance)
+	}
+	observation.PortableEquivalent = portableObservation.Exists && portableObservation.Snapshot.Project().Equivalent(proposal.Project())
+	desiredSnapshot, snapshotIssues := projectapp.ReadSnapshot(manifest.Codec{}, proposal.Manifest(), nil)
+	if len(snapshotIssues) != 0 {
+		return canonicalCompletion(completion.Facts{Failed: true}, "Project setup proposal could not be encoded", nil, "Review application availability before retrying", s.provenance)
+	}
+	desiredRecord, recordIssues := local.NewRecord(local.RecordState{ProjectID: projectID, ObservedSlug: input.Slug, SourceLocation: filepath.Join(s.projectsRoot, input.Slug), PortableRevision: desiredSnapshot.Revision(), ArtifactDigests: desiredSnapshot.Digests(), Repositories: proposal.Bindings()})
+	if len(recordIssues) != 0 {
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project proposal is invalid", nil, "Correct Repository bindings and retry", s.provenance)
+	}
+	desiredWire, encodeIssues := local.EncodeRecord(desiredRecord)
+	if len(encodeIssues) != 0 {
+		return canonicalCompletion(completion.Facts{Failed: true}, "Local Project proposal could not be encoded", nil, "Review application availability before retrying", s.provenance)
+	}
+	observation.LocalEquivalent = localObservation.Exists && bytes.Equal(localObservation.Wire, desiredWire)
+	proposal, issues = projectapp.PrepareSetup(manifest.Codec{}, setupInput, observation)
+	if len(issues) != 0 {
+		return canonicalCompletion(completion.Facts{Failed: true}, "Project setup proposal failed", nil, "Retry Project setup", s.provenance)
+	}
+	preview := proposal.Preview()
+	if portableObservation.Exists && !observation.PortableEquivalent {
+		result := canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project setup conflicts with existing portable state", nil, "Choose a different slug or use an explicit Project update", s.provenance)
+		result.Setup = &preview
+		return result
+	}
+	if !input.AuthorizeLocal {
+		next := "Review preview, then repeat with --project-id, --preview-digest, and --authorize-local"
+		if len(preview.Effects) == 0 {
+			next = "No publication is required"
+		}
+		result := canonicalCompletion(completion.Facts{Completed: true}, "Project setup preview ready", []string{"project:" + projectID}, next, s.provenance)
+		result.Setup = &preview
+		return result
+	}
+	if !proposal.MatchesDigest(input.PreviewDigest) {
+		result := canonicalCompletion(completion.Facts{AuthorityDenied: true}, "Project setup authority is missing or stale", nil, "Review the current preview and authorize its exact digest", s.provenance)
+		result.Setup = &preview
+		return result
+	}
+	portableResult := s.lifecycle.PublishConfigured(ctx, proposal.Project())
+	if portableResult.Status != projectapp.LifecycleApplied && portableResult.Status != projectapp.LifecycleUnchanged {
+		facts := completion.Facts{Failed: true}
+		if portableResult.Status == projectapp.LifecycleConflict {
+			facts = completion.Facts{AuthorityDenied: true}
+		}
+		result := canonicalCompletion(facts, "Portable Project publication failed", nil, "Review current state and prepare a fresh preview", s.provenance)
+		result.Setup = &preview
+		return result
+	}
+	if s.beforeLocalPublication != nil {
+		s.beforeLocalPublication()
+	}
+	localResult := s.installation.InstallWithBindings(ctx, filepath.Join(s.projectsRoot, input.Slug), proposal.Bindings())
 	if localResult.Status != local.InstallationApplied && localResult.Status != local.InstallationUnchanged {
-		category := "local_configuration_failed"
-		if portable.Status == projectapp.LifecycleApplied {
-			category = "portable_committed_local_failed"
+		facts := completion.Facts{Failed: true}
+		references := []string(nil)
+		message := "Local Project publication failed"
+		if portableResult.Status == projectapp.LifecycleApplied {
+			facts = completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}
+			references = []string{"project:" + projectID, "portable:" + observation.PortableDestination}
+			message = "Portable Project published; local bindings did not complete"
 		}
-		return cli.Result{Status: cli.Failed, Category: category}
+		result := canonicalCompletion(facts, message, references, "Inspect local state and resume with a fresh preview", s.provenance)
+		result.Setup = &preview
+		return result
 	}
-	category := "project_configured"
-	if portable.Status == projectapp.LifecycleUnchanged && localResult.Status == local.InstallationUnchanged {
-		category = "project_already_configured"
+	message := "Project setup published"
+	if portableResult.Status == projectapp.LifecycleUnchanged && localResult.Status == local.InstallationUnchanged {
+		message = "Project setup already matches the authorized proposal"
 	}
-	return cli.Result{Status: cli.Succeeded, Category: category}
+	next := "Project resolves by UUID or slug; Work Item capability is ready"
+	if preview.Capability.Readiness != projectapp.CapabilityReady {
+		next = "Project is valid; configure a supported Work Item capability before starting that journey"
+	}
+	result := canonicalCompletion(completion.Facts{Completed: true}, message, []string{"project:" + projectID}, next, s.provenance)
+	result.Setup = &preview
+	return result
 }
 
 func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItemInput) cli.Result {

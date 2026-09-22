@@ -66,14 +66,26 @@ func TestRunFailsPromptlyWithoutRequiredInput(t *testing.T) {
 
 func TestRunInteractiveGuidesProjectConfiguration(t *testing.T) {
 	var output, prompts bytes.Buffer
-	input := strings.NewReader("alpha\nAlpha\nmain\n/tmp/alpha\n")
+	input := strings.NewReader("alpha\nAlpha\nmain=/tmp/alpha\n\nnone\n")
 	code := RunInteractive(context.Background(), []string{"--json", "project", "configure"}, &recordingService{}, completionProvenance(t), input, &output, &prompts)
 	if code != ExitSuccess {
 		t.Fatalf("exit code = %d, output=%s", code, output.String())
 	}
 	assertEvent(t, output.String(), "configure", Succeeded, "applied")
-	if !strings.Contains(prompts.String(), "Repository path") {
+	if !strings.Contains(prompts.String(), "Repository key=absolute-path") {
 		t.Fatalf("prompts = %q", prompts.String())
+	}
+}
+
+func TestRunInteractiveAsksOnlyMissingProvider(t *testing.T) {
+	var output, prompts bytes.Buffer
+	input := strings.NewReader("none\n")
+	code := RunInteractive(context.Background(), []string{"--json", "project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, &recordingService{}, completionProvenance(t), input, &output, &prompts)
+	if code != ExitSuccess {
+		t.Fatalf("exit code = %d, output=%s", code, output.String())
+	}
+	if !strings.Contains(prompts.String(), "Work Item provider") || strings.Contains(prompts.String(), "Project slug") || strings.Contains(prompts.String(), "Project name") || strings.Contains(prompts.String(), "Repository key") {
+		t.Fatalf("missing-only prompts = %q", prompts.String())
 	}
 }
 

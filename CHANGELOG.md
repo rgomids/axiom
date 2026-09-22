@@ -1,6 +1,44 @@
 # Changelog
 
+## [2026-09-22]
+
+- fix: make the distributed `darwin && !cgo` binary inspect extended ACL state
+  through the open file descriptor, preserving fail-closed volume-capability,
+  ownership, permission, type, symlink, and hard-link checks for Codex skills
+  and Project state.
+- test: execute first run, five-skill install, ready status, equivalent reinstall,
+  manifest-digest checks, private mode/ACL checks, and foreign-content refusal
+  through the installed binary extracted from the native macOS archive.
+
 ## [2026-09-21]
+
+- fix: validate the complete S2 release row against exact macOS 27.0 or Ubuntu
+  26.04 host facts, record and preserve `installedAt` in the closed installation
+  receipt, and keep equivalent reinstall idempotent.
+- security: reject permissive modes and extended ACLs on existing install and
+  Codex skill roots; replace the removable Codex lock directory with a private,
+  schema-checked advisory lock that distinguishes active concurrency from a
+  safely resumable lock released by process death and preserves ambiguous state
+  as `recovery_required`.
+- test: add exact-version/distro rejection, unsafe root/ACL, closed receipt,
+  installation-time preservation, active cross-process lock, real `SIGKILL`,
+  abandoned-lock resume, and ambiguous-lock preservation coverage. Scope remains
+  S2 T04–T07; no S3+ behavior or release publication was added.
+
+- implementation: complete the authorized MVP S2 boundary (T04–T07) with
+  checksummed exact-version archives for the three approved target rows, owned
+  local installation, a closed five-skill Codex manifest, explicit first-run
+  compatibility, read-only Project setup preview, and digest-bound portable/local
+  publication.
+- security: refuse checksum, platform, ownership, link, type, stale-authority,
+  repository-replacement, concurrent-publication, and foreign-content conflicts;
+  preserve confirmed binary or portable effects as truthful partial state without
+  shell-profile, Git, Provider, Repository, or ambient-CWD mutation.
+- test: add archive/install interruption and recovery cases, skill compatibility
+  and partial-resume matrices, guided/full-input equivalence, capability blocking,
+  multi-Repository separation, two-process setup concurrency, unrelated-CWD
+  resolution, and S2 Evidence. Native target execution remains explicitly deferred
+  to T22/T24; S3–S7 remain unauthorized.
 
 - implementation: complete the authorized remainder of MVP S1 with closed,
   bounded machine-local Markdown detail artifacts, opaque identity/correlation,

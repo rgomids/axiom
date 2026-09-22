@@ -4,9 +4,11 @@
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
-**S1 Implementation: Authorized — T01 accepted/merged; T02–T03 may proceed within the approved S1 boundary.**
+**S1 Implementation: Delivered on `main` through PR #83. This is technical delivery, not an inferred human MVP acceptance.**
 
-**S2–S7 Implementation: Not authorized.**
+**S2 Implementation: Authorized on 2026-09-21; T04–T07 implemented with reproducible S2 Evidence and pending human review.**
+
+**S3–S7 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -29,10 +31,12 @@ Specification 004 — Approved
 -> ADR-0001..ADR-0008 — Accepted
 -> Plan — Approved
 -> Tasks — Approved
--> S1 Implementation — Authorized / in progress
+-> S1 Implementation — Delivered on main through PR #83
    -> T01 — Accepted / merged in PR #74
-   -> T02–T03 — Implemented with reproducible S1 Evidence; technical review pending
--> S2–S7 Implementation — Not authorized
+   -> T02–T03 — Merged in PR #83 with reproducible S1 Evidence
+-> S2 Implementation — Authorized / implemented; human review pending
+   -> T04–T07 — Implemented with reproducible S2 Evidence
+-> S3–S7 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -262,6 +266,10 @@ acceptance and not authority for S2.
 
 ### T04 — Checksummed release archive and owned installation
 
+**Implementation checkpoint:** complete in the S2 delivery branch; see
+[S2 Evidence](evidence-s2.md). This records technical completion, not human
+acceptance, release publication, T20 upgrade completion, or T22/T24 native Evidence.
+
 - **Objective:** An exact-version archive installs an inspectable `lingo` plus receipt into an explicit user-owned destination after checksum verification; equivalent reinstall is a no-op and conflicts are preserved.
 - **Slice:** S2 — Install, first run and Project setup.
 - **Dependencies:** T01, T03.
@@ -278,6 +286,10 @@ acceptance and not authority for S2.
 - **Risks / gates:** Distribution trust claims remain checksum integrity only. Broader trust topology requires **Human decision required**.
 
 ### T05 — Codex skill-set compatibility and first run
+
+**Implementation checkpoint:** complete in the S2 delivery branch; see
+[S2 Evidence](evidence-s2.md). The owned five-skill set and first-run compatibility
+surface are implemented; broader Runtime evolution remains outside S2.
 
 - **Objective:** First run reports binary/state/Codex compatibility and directs explicit Project setup; the complete owned five-skill set installs or upgrades without overwriting user-modified content.
 - **Slice:** S2.
@@ -296,6 +308,10 @@ acceptance and not authority for S2.
 
 ### T06 — Guided/non-interactive Project setup preview
 
+**Implementation checkpoint:** complete in the S2 delivery branch; see
+[S2 Evidence](evidence-s2.md). Preview remains read-only and does not derive
+Project identity or capability from CWD or Git.
+
 - **Objective:** Complete flags or a missing-only interview produce the same validated Project/local proposal and a separated safe preview before any write.
 - **Slice:** S2.
 - **Dependencies:** T01, T05.
@@ -312,6 +328,10 @@ acceptance and not authority for S2.
 - **Risks / gates:** A new portable field or ownership meaning must follow ADR-0004 compatibility and human review.
 
 ### T07 — Authorized Project setup publication
+
+**Implementation checkpoint:** complete in the S2 delivery branch; see
+[S2 Evidence](evidence-s2.md). Portable and local publication remain separately
+truthful; this does not authorize T08 or any other S3 work.
 
 - **Objective:** Confirmed Project setup publishes complete portable intent and ID-addressed local bindings, then resolves from unrelated CWD; equivalent replay is a no-op.
 - **Slice:** S2.
@@ -805,10 +825,12 @@ future work under explicit Task authority.
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
-**S1 Implementation — Authorized / in progress.**
+**S1 Implementation — Delivered on `main` through PR #83.**
 
 **T01 — Accepted / merged in PR #74.**
 
-**T02–T03 — Authorized within S1.**
+**T02–T03 — Merged in PR #83 with reproducible S1 Evidence.**
 
-**S2–S7 Implementation — Not authorized.**
+**S2 Implementation — Authorized / implemented with reproducible S2 Evidence; human review pending.**
+
+**S3–S7 Implementation — Not authorized.**

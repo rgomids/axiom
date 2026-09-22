@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
 )
 
@@ -60,8 +61,11 @@ type InstallInput struct{ Source string }
 type ResolveInput struct{ Selector string }
 type RepositoryInput struct{ Key, Path string }
 type ConfigureInput struct {
-	Slug, Name   string
-	Repositories []RepositoryInput
+	ProjectID, Slug, Name string
+	Repositories          []RepositoryInput
+	WorkItemProvider      string
+	PreviewDigest         string
+	AuthorizeLocal        bool
 }
 type WorkItemInput struct {
 	Project, Repository, Title, Body, Message string
@@ -92,6 +96,19 @@ type Result struct {
 	WorkItem   *WorkItemView
 	Workflow   *WorkflowView
 	Completion *completion.Result
+	Setup      *projectapp.SetupPreview
+	Runtime    *RuntimeView
+}
+
+type RuntimeSkillView struct {
+	Name   string `json:"name"`
+	SHA256 string `json:"sha256"`
+	State  string `json:"state"`
+}
+type RuntimeView struct {
+	SkillSetVersion     string             `json:"skillSetVersion"`
+	BinaryCompatibility string             `json:"binaryCompatibility"`
+	Skills              []RuntimeSkillView `json:"skills"`
 }
 
 type RepositoryView struct {
@@ -142,13 +159,14 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if service == nil {
 		return emit(stdout, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
 	}
-	if len(args) == 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
-		input, ok := promptConfiguration(stdin, stderr)
+	if len(args) >= 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
+		values, ok := flags(configureAction, args[2:])
 		if !ok {
-			return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "missing_required_input"})
+			return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "invalid_input"})
 		}
-		response := service.Configure(ctx, input)
-		return emit(stdout, mode, eventFrom(configureAction, response))
+		if values.slug == "" || values.name == "" || len(values.repositories) == 0 || !flagSupplied(args[2:], "--work-item-provider") {
+			return runInteractiveConfiguration(ctx, mode, args[2:], service, stdin, stdout, stderr)
+		}
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
@@ -159,6 +177,15 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	response := dispatch(ctx, operation, input, service)
 	return emitResponse(stdout, mode, operation, response)
+}
+
+func flagSupplied(args []string, name string) bool {
+	for _, value := range args {
+		if value == name || strings.HasPrefix(value, name+"=") {
+			return true
+		}
+	}
+	return false
 }
 
 func emitParserFailure(writer io.Writer, mode outputMode, operation action, issue string, source provenance.Value) int {
@@ -193,6 +220,12 @@ func parserFailureText(operation action, issue string) (string, string) {
 
 func emitResponse(writer io.Writer, mode outputMode, operation action, response Result) int {
 	if response.Completion != nil {
+		if response.Setup != nil {
+			return emitSetupCompletion(writer, mode, *response.Completion, *response.Setup)
+		}
+		if response.Runtime != nil {
+			return emitRuntimeCompletion(writer, mode, *response.Completion, *response.Runtime)
+		}
 		return emitCompletion(writer, mode, *response.Completion)
 	}
 	return emit(writer, mode, eventFrom(operation, response))
@@ -221,23 +254,31 @@ const (
 	workflowEvidenceAction action = "workflow_evidence"
 	codexInstallAction     action = "runtime_codex_install"
 	codexStatusAction      action = "runtime_codex_status"
+	firstRunAction         action = "first_run"
 )
 
 type requestInput struct {
 	slug                                      string
 	name                                      string
+	projectID                                 string
 	source                                    string
 	selector                                  string
 	repositories                              repositoryFlags
+	workItemProvider                          string
+	previewDigest                             string
 	project, repository, title, body, message string
 	gate, outcome, reference                  string
 	number                                    int
 	authorizeExternal                         bool
+	authorizeLocal                            bool
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
 	if service == nil {
 		return "unknown", requestInput{}, category("application_unavailable")
+	}
+	if len(args) == 1 && args[0] == "first-run" {
+		return firstRunAction, requestInput{}, nil
 	}
 	if len(args) == 3 && args[0] == "runtime" && args[1] == "codex" {
 		operation := action("runtime_codex_" + args[2])
@@ -321,8 +362,12 @@ func flags(operation action, args []string) (requestInput, bool) {
 		set.StringVar(&values.selector, "selector", "", "")
 	}
 	if operation == configureAction {
+		set.StringVar(&values.projectID, "project-id", "", "")
 		set.StringVar(&values.name, "name", "", "")
 		set.Var(&values.repositories, "repository", "")
+		set.StringVar(&values.workItemProvider, "work-item-provider", "", "")
+		set.StringVar(&values.previewDigest, "preview-digest", "", "")
+		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return requestInput{}, false
@@ -413,7 +458,11 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		if !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
-		return service.Configure(ctx, ConfigureInput{Slug: input.slug, Name: input.name, Repositories: repositories})
+		provider := input.workItemProvider
+		if provider == "none" {
+			provider = ""
+		}
+		return service.Configure(ctx, ConfigureInput{ProjectID: input.projectID, Slug: input.slug, Name: input.name, Repositories: repositories, WorkItemProvider: provider, PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal})
 	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction:
 		value := WorkItemInput{Project: input.project, Repository: input.repository, Title: input.title, Body: input.body, Message: input.message, Number: input.number, AuthorizeExternal: input.authorizeExternal}
 		switch operation {
@@ -446,17 +495,21 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.RuntimeCodexInstall(ctx)
 	case codexStatusAction:
 		return service.RuntimeCodexStatus(ctx)
+	case firstRunAction:
+		return service.RuntimeCodexStatus(ctx)
 	}
 	return Result{Status: Failed, Category: "invalid_command"}
 }
 
 type event struct {
-	Operation action        `json:"operation"`
-	Status    Status        `json:"status"`
-	Category  string        `json:"category"`
-	Project   *ProjectView  `json:"project,omitempty"`
-	WorkItem  *WorkItemView `json:"workItem,omitempty"`
-	Workflow  *WorkflowView `json:"workflow,omitempty"`
+	Operation action                   `json:"operation"`
+	Status    Status                   `json:"status"`
+	Category  string                   `json:"category"`
+	Project   *ProjectView             `json:"project,omitempty"`
+	WorkItem  *WorkItemView            `json:"workItem,omitempty"`
+	Workflow  *WorkflowView            `json:"workflow,omitempty"`
+	Setup     *projectapp.SetupPreview `json:"setup,omitempty"`
+	Runtime   *RuntimeView             `json:"runtime,omitempty"`
 }
 
 type outputMode string
@@ -477,7 +530,7 @@ func parseOutputMode(args []string) (outputMode, []string) {
 }
 
 func eventFrom(operation action, result Result) event {
-	return event{Operation: operation, Status: result.Status, Category: result.Category, Project: result.Project, WorkItem: result.WorkItem, Workflow: result.Workflow}
+	return event{Operation: operation, Status: result.Status, Category: result.Category, Project: result.Project, WorkItem: result.WorkItem, Workflow: result.Workflow, Setup: result.Setup, Runtime: result.Runtime}
 }
 
 func emit(writer io.Writer, mode outputMode, value event) int {
@@ -512,6 +565,9 @@ func emitHuman(writer io.Writer, value event) {
 	if value.Workflow != nil {
 		_, _ = io.WriteString(writer, "workflow "+value.Workflow.Status+" current="+value.Workflow.CurrentGate+" repository="+strconv.Quote(value.Workflow.RepositoryPath)+"\n")
 	}
+	if value.Runtime != nil {
+		emitRuntimeHuman(writer, *value.Runtime)
+	}
 }
 
 func category(value string) *string { return &value }
@@ -536,33 +592,102 @@ func parseRepositories(values []string) ([]RepositoryInput, bool) {
 	return result, true
 }
 
-func promptConfiguration(input io.Reader, prompts io.Writer) (ConfigureInput, bool) {
+func runInteractiveConfiguration(ctx context.Context, mode outputMode, args []string, service Service, input io.Reader, stdout, prompts io.Writer) int {
+	values, ok := flags(configureAction, args)
+	if !ok {
+		return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "invalid_input"})
+	}
+	repositories, ok := parseRepositories(values.repositories)
+	if !ok {
+		return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "invalid_input"})
+	}
 	scanner := bufio.NewScanner(input)
-	read := func(prompt string) (string, bool) {
-		_, _ = io.WriteString(prompts, prompt)
-		if !scanner.Scan() {
-			return "", false
+	configuration, ok := promptConfiguration(scanner, prompts, ConfigureInput{
+		ProjectID: values.projectID, Slug: values.slug, Name: values.name,
+		Repositories: repositories, WorkItemProvider: values.workItemProvider,
+		PreviewDigest: values.previewDigest, AuthorizeLocal: values.authorizeLocal,
+	})
+	if !ok {
+		return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "missing_required_input"})
+	}
+	if configuration.AuthorizeLocal {
+		return emitResponse(stdout, mode, configureAction, service.Configure(ctx, configuration))
+	}
+	preview := service.Configure(ctx, configuration)
+	if preview.Setup == nil || preview.Completion == nil || preview.Completion.Status() != completion.Success {
+		return emitResponse(stdout, mode, configureAction, preview)
+	}
+	if prompts != nil {
+		wire, _ := json.MarshalIndent(preview.Setup, "", "  ")
+		_, _ = prompts.Write(append(wire, '\n'))
+	}
+	answer, ok := readPromptLine(scanner, prompts, "Publish this exact proposal? [yes/no]: ", false)
+	if !ok || answer != "yes" {
+		configuration.ProjectID = preview.Setup.ProjectID
+		configuration.PreviewDigest = ""
+		configuration.AuthorizeLocal = true
+		return emitResponse(stdout, mode, configureAction, service.Configure(ctx, configuration))
+	}
+	configuration.ProjectID = preview.Setup.ProjectID
+	configuration.PreviewDigest = preview.Setup.Digest
+	configuration.AuthorizeLocal = true
+	return emitResponse(stdout, mode, configureAction, service.Configure(ctx, configuration))
+}
+
+func promptConfiguration(scanner *bufio.Scanner, prompts io.Writer, current ConfigureInput) (ConfigureInput, bool) {
+	var ok bool
+	if current.Slug == "" {
+		current.Slug, ok = readPromptLine(scanner, prompts, "Project slug: ", true)
+		if !ok {
+			return ConfigureInput{}, false
 		}
-		value := strings.TrimSpace(scanner.Text())
-		return value, value != ""
 	}
-	slug, ok := read("Project slug: ")
-	if !ok {
-		return ConfigureInput{}, false
+	if current.Name == "" {
+		current.Name, ok = readPromptLine(scanner, prompts, "Project name: ", true)
+		if !ok {
+			return ConfigureInput{}, false
+		}
 	}
-	name, ok := read("Project name: ")
-	if !ok {
-		return ConfigureInput{}, false
+	if len(current.Repositories) == 0 {
+		for {
+			value, read := readPromptLine(scanner, prompts, "Repository key=absolute-path (blank to finish): ", false)
+			if !read {
+				return ConfigureInput{}, false
+			}
+			if value == "" {
+				break
+			}
+			repositories, valid := parseRepositories([]string{value})
+			if !valid {
+				return ConfigureInput{}, false
+			}
+			current.Repositories = append(current.Repositories, repositories[0])
+		}
+		if len(current.Repositories) == 0 {
+			return ConfigureInput{}, false
+		}
 	}
-	key, ok := read("Repository key: ")
-	if !ok {
-		return ConfigureInput{}, false
+	if current.WorkItemProvider == "" {
+		current.WorkItemProvider, ok = readPromptLine(scanner, prompts, "Work Item provider (github or none): ", true)
+		if !ok {
+			return ConfigureInput{}, false
+		}
+		if current.WorkItemProvider == "none" {
+			current.WorkItemProvider = ""
+		}
 	}
-	path, ok := read("Repository path: ")
-	if !ok {
-		return ConfigureInput{}, false
+	return current, true
+}
+
+func readPromptLine(scanner *bufio.Scanner, output io.Writer, prompt string, required bool) (string, bool) {
+	if output != nil {
+		_, _ = io.WriteString(output, prompt)
 	}
-	return ConfigureInput{Slug: slug, Name: name, Repositories: []RepositoryInput{{Key: key, Path: path}}}, true
+	if !scanner.Scan() {
+		return "", false
+	}
+	value := strings.TrimSpace(scanner.Text())
+	return value, !required || value != ""
 }
 
 // UnavailableService makes the executable fail closed until its composition root

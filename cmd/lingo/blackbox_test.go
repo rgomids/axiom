@@ -24,18 +24,18 @@ func TestExecutableGuidedProjectConfiguration(t *testing.T) {
 	}
 	command := exec.Command(binary, "--json", "project", "configure")
 	command.Env = append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state)
-	command.Stdin = strings.NewReader("guided\nGuided Project\nmain\n" + repository + "\n")
+	command.Stdin = strings.NewReader("guided\nGuided Project\nmain=" + repository + "\n\ngithub\nyes\n")
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 	if err := command.Run(); err != nil {
 		t.Fatalf("guided configure: %v: stdout=%s stderr=%s", err, stdout.String(), stderr.String())
 	}
-	var event cliEvent
-	if err := json.Unmarshal(bytes.TrimSpace(stdout.Bytes()), &event); err != nil || event.Category != "project_configured" {
+	var event canonicalEvent
+	if err := json.Unmarshal(bytes.TrimSpace(stdout.Bytes()), &event); err != nil || event.Status != "success" || event.Result != "Project setup published" {
 		t.Fatalf("guided event = %+v, %v; output=%s", event, err, stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "Repository path") {
+	if !strings.Contains(stderr.String(), "Repository key=absolute-path") || !strings.Contains(stderr.String(), `"digest"`) {
 		t.Fatalf("guided prompts missing: %q", stderr.String())
 	}
 }
@@ -111,6 +111,11 @@ type canonicalEvent struct {
 	Provenance struct {
 		Product, Version, Revision, SourceState string
 	} `json:"provenance"`
+	Setup struct {
+		ProjectID string   `json:"projectId"`
+		Digest    string   `json:"digest"`
+		Effects   []string `json:"effects"`
+	} `json:"setup"`
 }
 
 func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
@@ -167,8 +172,10 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		}
 		return event
 	}
+	runCanonical(1, "validation_failure", "Codex skill compatibility is not ready", "first-run")
 	run(0, "success", "codex_configured", "runtime", "codex", "install")
-	run(0, "success", "codex_ready", "runtime", "codex", "status")
+	runCanonical(0, "success", "Lingo and Codex skills are compatible", "runtime", "codex", "status")
+	runCanonical(0, "success", "Lingo and Codex skills are compatible", "first-run")
 	installed, err := filepath.Glob(filepath.Join(skills, "axiom-*", "SKILL.md"))
 	if err != nil || len(installed) != 5 {
 		t.Fatalf("installed Codex skills = %v, %v", installed, err)
@@ -192,7 +199,42 @@ exit 1
 		t.Fatal(err)
 	}
 	environment = append(environment, "AXIOM_GIT_BIN="+gitBinary, "AXIOM_GH_BIN="+ghBinary)
-	run(0, "success", "project_configured", "project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main="+repository)
+	preview := runCanonical(0, "success", "Project setup preview ready", "project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main="+repository, "--work-item-provider", "github")
+	if preview.Setup.ProjectID == "" || preview.Setup.Digest == "" {
+		t.Fatalf("setup preview = %+v", preview.Setup)
+	}
+	runCanonical(0, "success", "Project setup published", "project", "configure", "--project-id", preview.Setup.ProjectID, "--slug", "configured", "--name", "Configured", "--repository", "main="+repository, "--work-item-provider", "github", "--preview-digest", preview.Setup.Digest, "--authorize-local")
+	raceRepository := filepath.Join(t.TempDir(), "race-repository")
+	if err := os.Mkdir(raceRepository, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	racePreview := runCanonical(0, "success", "Project setup preview ready", "project", "configure", "--slug", "race", "--name", "Race", "--repository", "main="+raceRepository, "--work-item-provider", "github")
+	raceArgs := []string{"--json", "project", "configure", "--project-id", racePreview.Setup.ProjectID, "--slug", "race", "--name", "Race", "--repository", "main=" + raceRepository, "--work-item-provider", "github", "--preview-digest", racePreview.Setup.Digest, "--authorize-local"}
+	commands := []*exec.Cmd{exec.Command(binary, raceArgs...), exec.Command(binary, raceArgs...)}
+	outputs := []*bytes.Buffer{{}, {}}
+	for index, command := range commands {
+		command.Env = environment
+		command.Stdout = outputs[index]
+		command.Stderr = outputs[index]
+		if err := command.Start(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, command := range commands {
+		_ = command.Wait()
+	}
+	statuses := map[string]int{}
+	for _, output := range outputs {
+		var event canonicalEvent
+		if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &event); err != nil {
+			t.Fatalf("concurrent setup output %q: %v", output.String(), err)
+		}
+		statuses[event.Status]++
+	}
+	losers := statuses["denied_authority"] + statuses["failure"]
+	if statuses["success"] != 1 || losers != 1 {
+		t.Fatalf("concurrent setup statuses = %v; outputs=%q / %q", statuses, outputs[0], outputs[1])
+	}
 	run(0, "success", "project_resolved", "project", "resolve", "--selector", "configured")
 	shown := runCanonical(0, "success", "Project resolved", "project", "show", "--selector", "configured")
 	if len(shown.References) != 2 || !strings.HasPrefix(shown.References[0], "project:") || shown.References[1] != "repository:main" {
@@ -249,7 +291,7 @@ exit 1
 		t.Fatalf("install changed portable bytes: %v", err)
 	}
 	records, err := filepath.Glob(filepath.Join(state, "projects", "*", "installation.json"))
-	if err != nil || len(records) != 2 {
+	if err != nil || len(records) != 3 {
 		t.Fatalf("local records = %v, %v", records, err)
 	}
 	run(0, "success", "applied", "project", "update", "--slug", "sample", "--name", "Changed")

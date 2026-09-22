@@ -9,6 +9,7 @@ Usage:
   lingo help
 
 Commands:
+  first-run
   runtime codex install|status
   project configure|show|resolve|init|validate|reopen|update|install
   work-item create|select|show|comment|complete

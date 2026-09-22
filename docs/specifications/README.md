@@ -103,11 +103,12 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 final DAG has 25 vertical delivery units across S1–S7 and is reconciled with the
 approved Plan. Operational delivery now uses S1–S7 as the primary tracking and
 normal implementation-authorization units while T01–T25 remain the approved
-internal decomposition. S1 is authorized and tracked in
-[#75](https://github.com/rgomids/axiom/issues/75). T01 canonical
-completion/provenance was accepted and merged in PR #74; T02–T03 may proceed
-inside S1 without separate Task-by-Task human authorization. S2–S7 remain
-unauthorized.
+internal decomposition. S1 is tracked in
+[#75](https://github.com/rgomids/axiom/issues/75): T01 canonical
+completion/provenance was accepted and merged in PR #74, and T02–T03 were
+delivered through PR #83. S2 is explicitly authorized and tracked in
+[#76](https://github.com/rgomids/axiom/issues/76); T04–T07 are implemented with
+S2 Evidence and await human review. S3–S7 remain unauthorized.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -142,10 +143,12 @@ PR #71 decision. The corrected final 25-Task DAG was then **Approved by explicit
 human decision in [PR #72](https://github.com/rgomids/axiom/pull/72) on
 2026-09-20**, concluding the Tasks phase. On 2026-09-21 T01 was explicitly
 accepted and merged in PR #74 and operational governance moved to the Slice
-boundary. T02–T03 complete the remaining S1 implementation with bounded local
-detail artifacts and shared fail-closed publication/recovery semantics; the
-reproducible security/filesystem record is in
-[S1 Evidence](004-mvp-v1-baseline/evidence-s1.md). Technical review/merge remains
-separate from human acceptance. S2–S7, Provider mutation outside an authorized
-Task boundary, release, and final MVP acceptance remain separately gated.
+boundary. T02–T03 were delivered to `main` through PR #83; their reproducible
+security/filesystem record is in
+[S1 Evidence](004-mvp-v1-baseline/evidence-s1.md). S2 was then explicitly
+authorized and T04–T07 were implemented with the reproducible record in
+[S2 Evidence](004-mvp-v1-baseline/evidence-s2.md). Technical completion/review
+remains separate from human acceptance. S3–S7, Provider mutation outside an
+authorized Task boundary, prerelease/release publication, and final MVP acceptance
+remain separately gated.
 Operational Slice trackers are #75–#81.

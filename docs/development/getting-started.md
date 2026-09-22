@@ -60,8 +60,11 @@ Execute também os checks locais de segurança:
    para o destino padrão: `export PATH="$HOME/.local/bin:$PATH"`. O installer não
    altera arquivos de shell/profile.
 3. Confirme `command -v lingo` e `lingo version` fora do checkout.
-4. Execute `lingo runtime codex install` e `lingo runtime codex status`.
-5. Configure um Project com `lingo project configure`.
+4. Execute `lingo first-run`, depois `lingo runtime codex install` e confirme
+   novamente com `lingo first-run`.
+5. Configure um Project com `lingo project configure`; revise o preview e confirme
+   a mesma proposta. O modo completo exige `--project-id`, `--preview-digest` e
+   `--authorize-local` na segunda chamada.
 6. Inicie Codex fora do repository e invoque uma skill global `$axiom-*` usando
    somente seletores lógicos.
 7. Preserve a separação entre discovery, hipótese, Specification, decisão,

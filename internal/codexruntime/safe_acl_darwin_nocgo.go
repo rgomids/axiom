@@ -1,6 +1,6 @@
 //go:build darwin && !cgo
 
-package local
+package codexruntime
 
 import (
 	"os"
@@ -9,8 +9,5 @@ import (
 )
 
 func checkPrivateACL(file *os.File) error {
-	if err := darwinacl.CheckPrivate(file); err == nil {
-		return nil
-	}
-	return ErrUnsafe
+	return darwinacl.CheckPrivate(file)
 }
