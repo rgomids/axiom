@@ -23,9 +23,17 @@
   metadata: authentication and deterministic 4xx failures are non-retryable,
   rate limits and 5xx failures are explicit retry boundaries, and unknown CLI
   failures fail closed without retry.
-- evidence: keep the mandatory T09 real-provider observation pending exact
-  per-run human authority; deterministic tests, CI, review, or merge do not
-  substitute for that observation or human acceptance.
+- evidence: complete the mandatory bounded T09 real-provider observation under
+  exact per-run authority with one GitHub Issue create and one protected local
+  Work Item link; this does not imply human acceptance.
+- docs: make the repository agent an explicit contributor governed by the
+  canonical contribution workflow and Pull Request template.
+- docs: establish the English README as the stable canonical landing page, add
+  a complete Brazilian Portuguese translation, require same-change
+  reconciliation, and validate reciprocal language navigation.
+- research: consolidate the completed Spec-Kit experiment findings in Axiom
+  Notion discovery and retire the temporary versioned experiment without
+  changing ADR-0002 or erasing legitimate historical references.
 - fix: make the distributed `darwin && !cgo` binary inspect extended ACL state
   through the open file descriptor, preserving fail-closed volume-capability,
   ownership, permission, type, symlink, and hard-link checks for Codex skills

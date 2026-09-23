@@ -20,6 +20,7 @@ required_files=(
   "AGENTS.md"
   "CHANGELOG.md"
   "README.md"
+  "docs/README.pt-BR.md"
   "SECURITY.md"
   ".agents/policies/security.md"
   "docs/product/README.md"
@@ -34,6 +35,11 @@ required_files=(
 for relative in "${required_files[@]}"; do
   [[ -s "$ROOT/$relative" ]] || fail "required non-empty file is missing: $relative"
 done
+
+while IFS= read -r -d '' root_readme; do
+  [[ "${root_readme#"$ROOT/"}" == "README.md" ]] \
+    || fail "only README.md is allowed at the repository root: ${root_readme#"$ROOT/"}"
+done < <(find "$ROOT" -maxdepth 1 -type f -name 'README*.md' -print0)
 
 required_ignores=(
   ".env"
@@ -70,6 +76,10 @@ notion_url="https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979"
 
 grep -Fq -- "$notion_url" "$ROOT/README.md" \
   || fail "Notion source is missing from README.md"
+grep -Fq -- 'href="docs/README.pt-BR.md"' "$ROOT/README.md" \
+  || fail "README.md is missing the Brazilian Portuguese navigation link"
+grep -Fq -- 'href="../README.md"' "$ROOT/docs/README.pt-BR.md" \
+  || fail "docs/README.pt-BR.md is missing the English navigation link"
 grep -Fq -- "$notion_url" "$ROOT/docs/product/README.md" \
   || fail "Notion source is missing from docs/product/README.md"
 

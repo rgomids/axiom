@@ -83,6 +83,7 @@ Read on demand:
 
 Policies:
 
+- `.agents/policies/contribution.md`
 - `.agents/policies/architecture.md`
 - `.agents/policies/quality.md`
 - `.agents/policies/security.md`
