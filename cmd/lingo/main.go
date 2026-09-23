@@ -663,10 +663,14 @@ func workItemResultText(result workitem.Result) (string, string) {
 	case "work_item_completed":
 		return "Historical Work Item completion completed", "Treat this as POC behavior until the later Slice replaces it"
 	case "provider_create_ambiguous":
-		return "GitHub create result is ambiguous", "Retry the same reviewed draft; reconciliation runs before any create"
+		return "GitHub create result is ambiguous", "Repeat the same reviewed draft to reconcile only; Axiom will not create again while the durable attempt is pending"
 	case "provider_rate_limited", "provider_unavailable":
 		return "GitHub capability is temporarily unavailable", "Retry the same operation after provider recovery"
-	case "provider_confirmed_local_failed", "provider_confirmed_local_conflict", "provider_confirmed_local_recovery_required", "provider_confirmed_local_read_failed", "local_link_committed_recovery_required":
+	case "local_create_attempt_recovery_required", "local_create_attempt_conflict", "local_create_attempt_failed":
+		return "Create-attempt state is not safely writable", "Inspect protected local state; no GitHub create was issued by this execution"
+	case "work_item_ambiguous":
+		return "Work Item identity is ambiguous", "Specify and reconcile the exact provider resource before continuing"
+	case "provider_confirmed_local_failed", "provider_confirmed_local_conflict", "provider_confirmed_local_recovery_required", "provider_confirmed_local_read_failed", "provider_confirmed_create_attempt_recovery_required", "local_link_committed_recovery_required":
 		return "GitHub effect confirmed but local linkage is incomplete", "Preserve the Issue reference and reconcile local linkage before retrying create"
 	default:
 		return "Work Item operation did not complete", "Review bounded validation details and retry safely"

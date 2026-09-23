@@ -54,9 +54,10 @@ const (
 )
 
 type ProviderError struct {
-	Kind      ProviderErrorKind
-	Retryable bool
-	Ambiguous bool
+	Kind               ProviderErrorKind
+	Retryable          bool
+	Ambiguous          bool
+	EffectNotCommitted bool
 }
 
 func (e *ProviderError) Error() string { return string(e.Kind) }
@@ -97,9 +98,30 @@ type Link struct {
 	Revision                       [32]byte
 }
 
+type CreateAttemptState string
+
+const (
+	// Pending means an external create may have happened. It never authorizes
+	// another create; only reconciliation may resolve it.
+	CreateAttemptPending      CreateAttemptState = "pending"
+	CreateAttemptRetryAllowed CreateAttemptState = "retry_allowed"
+	CreateAttemptConfirmed    CreateAttemptState = "confirmed"
+)
+
+type CreateAttempt struct {
+	Target        DraftTarget
+	Correlation   string
+	PreviewDigest string
+	State         CreateAttemptState
+	ExternalID    string
+	Revision      [32]byte
+}
+
 type Store interface {
 	Save(context.Context, Link) error
-	Load(context.Context, string, string, string) (Link, error)
+	Load(context.Context, string, string, string, string, string) (Link, error)
+	SaveCreateAttempt(context.Context, CreateAttempt) error
+	LoadCreateAttempt(context.Context, DraftTarget) (CreateAttempt, error)
 }
 
 type Target struct {
@@ -226,6 +248,13 @@ func (s Service) Create(ctx context.Context, input DraftInput, previewDigest str
 	if ctx.Err() != nil {
 		return result(completion.Interrupted, "create_cancelled")
 	}
+	attempt, attemptErr := s.store.LoadCreateAttempt(ctx, prepared.Draft.Target)
+	if attemptErr == nil {
+		return s.resumeCreate(ctx, *prepared.Draft, attempt)
+	}
+	if !errors.Is(attemptErr, ErrNotFound) {
+		return createAttemptFailure(attemptErr)
+	}
 	reconciled, reconciliation := s.reconcile(ctx, *prepared.Draft)
 	if reconciliation.Category != "" {
 		return reconciliation
@@ -233,25 +262,97 @@ func (s Service) Create(ctx context.Context, input DraftInput, previewDigest str
 	if reconciled.ID != "" {
 		return s.persistConfirmed(ctx, prepared.Draft.Target, reconciled)
 	}
-	external, err := s.capability.Create(ctx, CreateRequest{Resource: prepared.Draft.Target.Resource, Correlation: prepared.Draft.Correlation, Document: prepared.Draft.ProviderDocument})
+	attempt = CreateAttempt{
+		Target: prepared.Draft.Target, Correlation: prepared.Draft.Correlation,
+		PreviewDigest: prepared.Draft.Digest, State: CreateAttemptPending,
+	}
+	if err := s.store.SaveCreateAttempt(ctx, attempt); err != nil {
+		return createAttemptFailure(err)
+	}
+	attempt, attemptErr = s.store.LoadCreateAttempt(ctx, prepared.Draft.Target)
+	if attemptErr != nil {
+		return createAttemptFailure(attemptErr)
+	}
+	return s.executeCreate(ctx, *prepared.Draft, attempt)
+}
+
+func (s Service) resumeCreate(ctx context.Context, preview DraftPreview, attempt CreateAttempt) Result {
+	if attempt.State == CreateAttemptPending {
+		return s.reconcileAttempt(ctx, attempt)
+	}
+	if attempt.State == CreateAttemptConfirmed && attempt.Correlation == preview.Correlation && attempt.PreviewDigest == preview.Digest {
+		link, err := s.store.Load(ctx, attempt.Target.ProjectID, attempt.Target.RepositoryKey, attempt.Target.Provider, attempt.Target.Resource, attempt.ExternalID)
+		if err == nil {
+			return Result{Status: completion.Success, Category: "work_item_already_linked", Link: link}
+		}
+		if !errors.Is(err, ErrNotFound) {
+			return createAttemptFailure(err)
+		}
+		return s.reconcileAttempt(ctx, attempt)
+	}
+	attempt.Correlation = preview.Correlation
+	attempt.PreviewDigest = preview.Digest
+	attempt.State = CreateAttemptPending
+	attempt.ExternalID = ""
+	if err := s.store.SaveCreateAttempt(ctx, attempt); err != nil {
+		return createAttemptFailure(err)
+	}
+	attempt, err := s.store.LoadCreateAttempt(ctx, preview.Target)
+	if err != nil {
+		return createAttemptFailure(err)
+	}
+	return s.executeCreate(ctx, preview, attempt)
+}
+
+func (s Service) executeCreate(ctx context.Context, preview DraftPreview, attempt CreateAttempt) Result {
+	external, err := s.capability.Create(ctx, CreateRequest{Resource: preview.Target.Resource, Correlation: preview.Correlation, Document: preview.ProviderDocument})
 	if err == nil {
-		if !s.capability.ValidExternal(prepared.Draft.Target.Resource, external.ID, external) {
+		if !s.capability.ValidExternal(preview.Target.Resource, external.ID, external) {
 			return result(completion.Failure, "invalid_provider_response")
 		}
-		return s.persistConfirmed(ctx, prepared.Draft.Target, external)
+		return s.persistAndConfirmAttempt(ctx, attempt, external)
 	}
 	var provider *ProviderError
-	if !errors.As(err, &provider) || !provider.Ambiguous {
+	if errors.As(err, &provider) && provider.EffectNotCommitted {
+		attempt.State = CreateAttemptRetryAllowed
+		if saveErr := s.store.SaveCreateAttempt(ctx, attempt); saveErr != nil {
+			return createAttemptFailure(saveErr)
+		}
 		return providerFailure(err, "provider_create_failed")
 	}
-	reconciled, reconciliation = s.reconcile(ctx, *prepared.Draft)
+	return s.reconcileAttempt(ctx, attempt)
+}
+
+func (s Service) reconcileAttempt(ctx context.Context, attempt CreateAttempt) Result {
+	preview := DraftPreview{Target: attempt.Target, Correlation: attempt.Correlation}
+	reconciled, reconciliation := s.reconcile(ctx, preview)
 	if reconciliation.Category != "" {
 		return reconciliation
 	}
 	if reconciled.ID == "" {
 		return result(completion.RetryableFailure, "provider_create_ambiguous")
 	}
-	return s.persistConfirmed(ctx, prepared.Draft.Target, reconciled)
+	return s.persistAndConfirmAttempt(ctx, attempt, reconciled)
+}
+
+func (s Service) persistAndConfirmAttempt(ctx context.Context, attempt CreateAttempt, external External) Result {
+	persisted := s.persistConfirmed(ctx, attempt.Target, external)
+	if persisted.Status != completion.Success {
+		return persisted
+	}
+	current, err := s.store.LoadCreateAttempt(ctx, attempt.Target)
+	if err != nil {
+		persisted.Status = completion.Partial
+		persisted.Category = "provider_confirmed_create_attempt_recovery_required"
+		return persisted
+	}
+	current.State = CreateAttemptConfirmed
+	current.ExternalID = external.ID
+	if err := s.store.SaveCreateAttempt(ctx, current); err != nil {
+		persisted.Status = completion.Partial
+		persisted.Category = "provider_confirmed_create_attempt_recovery_required"
+	}
+	return persisted
 }
 
 func (s Service) PreviewSelect(ctx context.Context, target Target, selector string) Result {
@@ -269,7 +370,7 @@ func (s Service) PreviewSelect(ctx context.Context, target Target, selector stri
 	if !s.capability.ValidExternal(resolved.Resource, selector, external) {
 		return result(completion.Failure, "invalid_provider_response")
 	}
-	link, loadErr := s.store.Load(ctx, project.ID, resolved.RepositoryKey, selector)
+	link, loadErr := s.store.Load(ctx, project.ID, resolved.RepositoryKey, resolved.Provider, resolved.Resource, selector)
 	expected := "missing"
 	effects := []string{"publish_local_work_item_link"}
 	if loadErr == nil {
@@ -295,7 +396,7 @@ func (s Service) Select(ctx context.Context, target Target, selector, previewDig
 		return previewed
 	}
 	if len(previewed.Selection.Effects) == 0 {
-		link, _ := s.store.Load(ctx, previewed.Selection.Target.ProjectID, previewed.Selection.Target.RepositoryKey, selector)
+		link, _ := s.store.Load(ctx, previewed.Selection.Target.ProjectID, previewed.Selection.Target.RepositoryKey, previewed.Selection.Target.Provider, previewed.Selection.Target.Resource, selector)
 		return Result{Status: completion.Success, Category: "work_item_already_linked", Link: link, Selection: previewed.Selection}
 	}
 	if !authorized || previewDigest == "" || previewDigest != previewed.Selection.Digest {
@@ -317,10 +418,13 @@ func (s Service) Show(ctx context.Context, target Target, selector string) Resul
 	if failure.Category != "" {
 		return failure
 	}
-	link, err := s.store.Load(ctx, project.ID, repositoryKey, selector)
+	link, err := s.store.Load(ctx, project.ID, repositoryKey, "", "", selector)
 	if err != nil {
 		if errors.Is(err, ErrRecoveryRequired) {
 			return result(completion.Failure, "recovery_required")
+		}
+		if errors.Is(err, ErrConflict) {
+			return result(completion.Failure, "work_item_ambiguous")
 		}
 		return result(completion.Failure, "work_item_not_found")
 	}
@@ -402,7 +506,7 @@ func (s Service) resolve(ctx context.Context, input Target) (Project, DraftTarge
 }
 
 func (s Service) preview(draft Draft, target DraftTarget) (DraftPreview, error) {
-	effects := []string{"create_provider_work_item", "publish_local_work_item_link"}
+	effects := []string{"publish_local_create_attempt_fence", "create_provider_work_item", "publish_local_work_item_link"}
 	semantic := struct {
 		Target     DraftTarget
 		Draft      Draft
@@ -436,7 +540,7 @@ func (s Service) reconcile(ctx context.Context, preview DraftPreview) (External,
 
 func (s Service) persistConfirmed(ctx context.Context, target DraftTarget, external External) Result {
 	link := linkFrom(target, external, [32]byte{})
-	if existing, err := s.store.Load(ctx, target.ProjectID, target.RepositoryKey, external.ID); err == nil {
+	if existing, err := s.store.Load(ctx, target.ProjectID, target.RepositoryKey, target.Provider, target.Resource, external.ID); err == nil {
 		if equivalentExternal(existing, external, target.Provider, target.Resource) {
 			return Result{Status: completion.Success, Category: "work_item_already_linked", Link: existing}
 		}
@@ -563,6 +667,16 @@ func providerFailure(err error, fallback string) Result {
 		return result(completion.RetryableFailure, string(provider.Kind))
 	}
 	return result(completion.Failure, string(provider.Kind))
+}
+
+func createAttemptFailure(err error) Result {
+	if errors.Is(err, ErrRecoveryRequired) {
+		return result(completion.Failure, "local_create_attempt_recovery_required")
+	}
+	if errors.Is(err, ErrConflict) {
+		return result(completion.Failure, "local_create_attempt_conflict")
+	}
+	return result(completion.Failure, "local_create_attempt_failed")
 }
 
 func result(status completion.Status, category string) Result {

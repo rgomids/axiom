@@ -193,6 +193,10 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	ghBinary := filepath.Join(t.TempDir(), "gh")
+	createCount := filepath.Join(t.TempDir(), "create-count")
+	if err := os.WriteFile(createCount, []byte("0\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	ghScript := `#!/bin/sh
 case "$*" in
   *search/issues*) printf '%s\n' '{"total_count":0,"items":[]}' ;;
@@ -200,6 +204,7 @@ case "$*" in
   *PATCH*issues/7*) printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"closed"}' ;;
   *issues/7*) printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"open"}' ;;
   *issues/8*) printf '%s\n' '{"number":8,"html_url":"https://github.com/owner/repo/issues/8","state":"open"}' ;;
+  *POST*repos/owner/ambiguous/issues*) count=$(awk '{print $1}' "$AXIOM_TEST_CREATE_COUNT"); count=$((count + 1)); printf '%s\n' "$count" > "$AXIOM_TEST_CREATE_COUNT"; cat >/dev/null; exit 1 ;;
   *POST*issues*) cat >/dev/null; printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"open"}' ;;
   *) exit 1 ;;
 esac
@@ -208,7 +213,7 @@ exit 0
 	if err := os.WriteFile(ghBinary, []byte(ghScript), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	environment = append(environment, "AXIOM_GH_BIN="+ghBinary)
+	environment = append(environment, "AXIOM_GH_BIN="+ghBinary, "AXIOM_TEST_CREATE_COUNT="+createCount)
 	preview := runCanonical(0, "success", "Project setup preview ready", "project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main="+repository, "--work-item-provider", "github")
 	if preview.Setup.ProjectID == "" || preview.Setup.Digest == "" {
 		t.Fatalf("setup preview = %+v", preview.Setup)
@@ -259,6 +264,15 @@ exit 0
 	created := runCanonical(0, "success", "GitHub Work Item linked", append(draftArgs, "--preview-digest", draft.Draft.Digest, "--authorize-external")...)
 	if created.WorkItem == nil || created.WorkItem.ExternalID != "7" || created.WorkItem.State != "OPEN" {
 		t.Fatalf("work item payload = %+v", created.WorkItem)
+	}
+	ambiguousArgs := []string{"work-item", "create", "--project", "configured", "--repository", "main", "--provider-repository", "owner/ambiguous", "--intent", "Ambiguous delivery", "--desired-outcome", "Safe reconciliation", "--context", "Separate process", "--scope", "Bounded change", "--constraints", "No duplicate", "--non-goals", "No workflow", "--acceptance", "One POST"}
+	ambiguousDraft := runCanonical(0, "success", "Work Item draft ready for review", ambiguousArgs...)
+	for range 2 {
+		runCanonical(1, "retryable_failure", "GitHub create result is ambiguous", append(ambiguousArgs, "--preview-digest", ambiguousDraft.Draft.Digest, "--authorize-external")...)
+	}
+	count, err := os.ReadFile(createCount)
+	if err != nil || strings.TrimSpace(string(count)) != "1" {
+		t.Fatalf("ambiguous create count = %q, %v", count, err)
 	}
 	runCanonical(0, "success", "Work Item link loaded", "work-item", "show", "--project", "configured", "--repository", "main", "--number", "7")
 	selection := runCanonical(0, "success", "GitHub Work Item selection ready for review", "work-item", "select", "--project", "configured", "--repository", "main", "--provider-repository", "owner/repo", "--number", "8")

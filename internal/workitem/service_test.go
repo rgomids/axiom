@@ -27,7 +27,7 @@ func TestPrepareCompleteDraftIsDeterministicReadOnlyAndPreservesAuthorship(t *te
 	if got := first.Draft.Draft.Sections[0]; got.Content != input.Intent || got.Authorship != provenance.UserAuthored {
 		t.Fatalf("intent reuse = %#v", got)
 	}
-	wantEffects := []string{"create_provider_work_item", "publish_local_work_item_link"}
+	wantEffects := []string{"publish_local_create_attempt_fence", "create_provider_work_item", "publish_local_work_item_link"}
 	if !reflect.DeepEqual(first.Draft.Effects, wantEffects) || first.Draft.ExpectedRevisions.Local != "missing" {
 		t.Fatalf("preview authority facts = %#v", first.Draft)
 	}
@@ -135,12 +135,86 @@ func TestCreateReconcilesBeforeRetryAndNeverBlindlyDuplicates(t *testing.T) {
 
 func TestCreateAmbiguousWithoutMatchReturnsSafeRetryBoundary(t *testing.T) {
 	provider := &fakeCapability{createErr: &ProviderError{Kind: ProviderAmbiguous, Ambiguous: true, Retryable: true}, reconcileSequence: [][]External{{}, {}}}
-	service := testService(provider, newFakeStore())
+	store := newFakeStore()
+	service := testService(provider, store)
 	input := completeDraft()
 	preview := service.Prepare(context.Background(), input)
 	result := service.Create(context.Background(), input, preview.Draft.Digest, true)
 	if result.Status != completion.RetryableFailure || result.Category != "provider_create_ambiguous" || provider.creates != 1 {
 		t.Fatalf("ambiguous = %#v", result)
+	}
+	second := testService(provider, store).Create(context.Background(), input, preview.Draft.Digest, true)
+	if second.Status != completion.RetryableFailure || second.Category != "provider_create_ambiguous" || provider.creates != 1 {
+		t.Fatalf("second execution = %#v provider=%+v", second, provider)
+	}
+}
+
+func TestCreateSecondExecutionReconcilesAmbiguousAttemptAndPersistsLink(t *testing.T) {
+	match := External{ID: "7", URL: "https://github.com/owner/repo/issues/7", State: "OPEN"}
+	provider := &fakeCapability{
+		createErr:         &ProviderError{Kind: ProviderAmbiguous, Ambiguous: true, Retryable: true},
+		reconcileSequence: [][]External{{}, {}, {match}},
+	}
+	store := newFakeStore()
+	input := completeDraft()
+	firstService := testService(provider, store)
+	preview := firstService.Prepare(context.Background(), input)
+	first := firstService.Create(context.Background(), input, preview.Draft.Digest, true)
+	if first.Status != completion.RetryableFailure {
+		t.Fatalf("first execution = %#v", first)
+	}
+	second := testService(provider, store).Create(context.Background(), input, preview.Draft.Digest, true)
+	if second.Status != completion.Success || second.Link.ExternalID != "7" || provider.creates != 1 || store.saves != 1 {
+		t.Fatalf("second execution = %#v provider=%+v saves=%d", second, provider, store.saves)
+	}
+}
+
+func TestCreatePendingAttemptWithMultipleMatchesFailsClosedAcrossExecutions(t *testing.T) {
+	match := External{ID: "7", URL: "https://github.com/owner/repo/issues/7", State: "OPEN"}
+	provider := &fakeCapability{
+		createErr:         &ProviderError{Kind: ProviderAmbiguous, Ambiguous: true, Retryable: true},
+		reconcileSequence: [][]External{{}, {}, {match, match}},
+	}
+	store := newFakeStore()
+	input := completeDraft()
+	service := testService(provider, store)
+	preview := service.Prepare(context.Background(), input)
+	if first := service.Create(context.Background(), input, preview.Draft.Digest, true); first.Status != completion.RetryableFailure {
+		t.Fatalf("first execution = %#v", first)
+	}
+	second := testService(provider, store).Create(context.Background(), input, preview.Draft.Digest, true)
+	if second.Status != completion.Failure || second.Category != "provider_reconciliation_ambiguous" || provider.creates != 1 {
+		t.Fatalf("second execution = %#v provider=%+v", second, provider)
+	}
+}
+
+func TestCreateRetriesOnlyAfterProviderProvesNoEffect(t *testing.T) {
+	provider := &fakeCapability{createErr: &ProviderError{Kind: ProviderUnauthenticated, EffectNotCommitted: true}}
+	store := newFakeStore()
+	input := completeDraft()
+	service := testService(provider, store)
+	preview := service.Prepare(context.Background(), input)
+	first := service.Create(context.Background(), input, preview.Draft.Digest, true)
+	if first.Status != completion.Failure || provider.creates != 1 {
+		t.Fatalf("definitive failure = %#v provider=%+v", first, provider)
+	}
+	provider.createErr = nil
+	second := testService(provider, store).Create(context.Background(), input, preview.Draft.Digest, true)
+	if second.Status != completion.Success || provider.creates != 2 {
+		t.Fatalf("safe retry = %#v provider=%+v", second, provider)
+	}
+}
+
+func TestCreateUntypedFailureRemainsReconcileOnly(t *testing.T) {
+	provider := &fakeCapability{createErr: errors.New("unknown provider outcome")}
+	store := newFakeStore()
+	input := completeDraft()
+	service := testService(provider, store)
+	preview := service.Prepare(context.Background(), input)
+	first := service.Create(context.Background(), input, preview.Draft.Digest, true)
+	second := testService(provider, store).Create(context.Background(), input, preview.Draft.Digest, true)
+	if first.Status != completion.RetryableFailure || second.Status != completion.RetryableFailure || provider.creates != 1 {
+		t.Fatalf("unknown outcome = %#v / %#v provider=%+v", first, second, provider)
 	}
 }
 
@@ -191,11 +265,11 @@ func TestSelectRequiresReviewedLocalAuthorityAndUsesExpectedRevision(t *testing.
 func TestSelectRejectsStaleLocalRevision(t *testing.T) {
 	provider := &fakeCapability{}
 	store := newFakeStore()
-	store.links["7"] = Link{Provider: "github", Resource: "owner/repo", ExternalID: "7", URL: "https://github.com/owner/repo/issues/7", State: "CLOSED", Revision: [32]byte{2}}
+	store.links["github:owner/repo:7"] = Link{Provider: "github", Resource: "owner/repo", ExternalID: "7", URL: "https://github.com/owner/repo/issues/7", State: "CLOSED", Revision: [32]byte{2}}
 	service := testService(provider, store)
 	target := completeDraft().Target
 	preview := service.PreviewSelect(context.Background(), target, "7")
-	store.links["7"] = Link{Provider: "github", Resource: "owner/repo", ExternalID: "7", URL: "https://github.com/owner/repo/issues/7", State: "CLOSED", Revision: [32]byte{3}}
+	store.links["github:owner/repo:7"] = Link{Provider: "github", Resource: "owner/repo", ExternalID: "7", URL: "https://github.com/owner/repo/issues/7", State: "CLOSED", Revision: [32]byte{3}}
 	result := service.Select(context.Background(), target, "7", preview.Selection.Digest, true)
 	if result.Status != completion.DeniedAuthority || result.Category != "local_authority_denied" || store.saves != 0 {
 		t.Fatalf("stale selection = %#v", result)
@@ -263,29 +337,69 @@ func (*fakeCapability) Close(context.Context, string, string) (External, error) 
 
 type fakeStore struct {
 	links    map[string]Link
+	attempts map[string]CreateAttempt
 	saves    int
 	failSave bool
 }
 
-func newFakeStore() *fakeStore { return &fakeStore{links: map[string]Link{}} }
+func newFakeStore() *fakeStore {
+	return &fakeStore{links: map[string]Link{}, attempts: map[string]CreateAttempt{}}
+}
 func (s *fakeStore) Save(_ context.Context, link Link) error {
 	s.saves++
 	if s.failSave {
 		return errors.New("controlled write failure")
 	}
-	if current, exists := s.links[link.ExternalID]; exists && link.Revision != current.Revision {
+	key := link.Provider + ":" + link.Resource + ":" + link.ExternalID
+	if current, exists := s.links[key]; exists && link.Revision != current.Revision {
 		return ErrConflict
 	}
 	link.Revision = [32]byte{1}
-	s.links[link.ExternalID] = link
+	s.links[key] = link
 	return nil
 }
-func (s *fakeStore) Load(_ context.Context, _, _, externalID string) (Link, error) {
-	link, ok := s.links[externalID]
+func (s *fakeStore) Load(_ context.Context, _, _, provider, resource, externalID string) (Link, error) {
+	if provider == "" && resource == "" {
+		var found Link
+		for _, link := range s.links {
+			if link.ExternalID != externalID {
+				continue
+			}
+			if found.ExternalID != "" {
+				return Link{}, ErrConflict
+			}
+			found = link
+		}
+		if found.ExternalID != "" {
+			return found, nil
+		}
+		return Link{}, ErrNotFound
+	}
+	link, ok := s.links[provider+":"+resource+":"+externalID]
 	if !ok {
 		return Link{}, ErrNotFound
 	}
 	return link, nil
+}
+func (s *fakeStore) SaveCreateAttempt(_ context.Context, attempt CreateAttempt) error {
+	key := attempt.Target.Provider + ":" + attempt.Target.Resource
+	current, exists := s.attempts[key]
+	if exists && attempt.Revision != current.Revision {
+		return ErrConflict
+	}
+	if !exists && attempt.Revision != ([32]byte{}) {
+		return ErrConflict
+	}
+	attempt.Revision[0]++
+	s.attempts[key] = attempt
+	return nil
+}
+func (s *fakeStore) LoadCreateAttempt(_ context.Context, target DraftTarget) (CreateAttempt, error) {
+	attempt, ok := s.attempts[target.Provider+":"+target.Resource]
+	if !ok {
+		return CreateAttempt{}, ErrNotFound
+	}
+	return attempt, nil
 }
 
 func testService(provider *fakeCapability, store *fakeStore) Service {

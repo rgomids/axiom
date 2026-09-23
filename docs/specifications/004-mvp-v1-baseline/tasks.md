@@ -8,7 +8,7 @@
 
 **S2 Implementation: Delivered on `main` through PR #84 with reproducible S2 Evidence. This is technical delivery, not inferred human MVP acceptance.**
 
-**S3 Implementation: Authorized on 2026-09-22; T08 implementation/Evidence and T09 implementation/deterministic tests are complete in the delivery branch. T09's mandatory real-provider observation remains pending exact per-run authority; S3 is not fully validated.**
+**S3 Implementation: T08 and T09 implementation plus the bounded real-provider observation are technically complete in the delivery branch. Current PR review corrections remain subject to human review. Human acceptance is not inferred.**
 
 **S4–S7 Implementation: Not authorized.**
 
@@ -38,10 +38,10 @@ Specification 004 — Approved
    -> T02–T03 — Merged in PR #83 with reproducible S1 Evidence
 -> S2 Implementation — Delivered on main through PR #84
    -> T04–T07 — Merged with reproducible S2 Evidence
--> S3 Implementation — Authorized; deterministic delivery in branch; human review pending
+-> S3 Implementation — Technically implemented in branch; current corrections under human review
    -> T08 — Implementation and deterministic Evidence complete
-   -> T09 — Implementation and deterministic tests complete
-   -> Required real-provider observation — Pending exact per-run human authority
+   -> T09 — Implementation, deterministic tests, and bounded real-provider observation complete
+   -> Human acceptance — Not inferred
 -> S4–S7 Implementation — Not authorized
 ```
 
@@ -377,11 +377,11 @@ draft, target, effects, expected local revision, correlation, and provenance.
 
 ### T09 — Authorized GitHub Work Item create/select and linkage
 
-**Implementation checkpoint:** implementation and deterministic tests are complete
-in the S3 delivery branch; see [S3 Evidence](evidence-s3.md). Fake-provider and
-executable black-box paths are validated. T09 is not fully validated: the
-mandatory bounded real GitHub observation remains pending exact per-run authority
-and public-safe content; no real Issue was created by this run.
+**Implementation checkpoint:** implementation, deterministic tests, and the
+separately authorized bounded real GitHub observation are complete in the S3
+delivery branch; see [S3 Evidence](evidence-s3.md). Issue #90 records the
+historical observation. Current PR review corrections remain subject to human
+review and do not imply human acceptance or authorize T10/S4+.
 
 - **Objective:** Exact authority creates or selects one GitHub Issue, validates its identity/state, and persists one exact local Work Item reference; denial/cancel is zero-effect and confirmed external/local failure is truthful `partial`.
 - **Slice:** S3.
@@ -389,9 +389,9 @@ and public-safe content; no real Issue was created by this run.
 - **Requirements:** FR-008–FR-012, FR-017, FR-023; AC-06, AC-07, AC-16, AC-20; MVP-SEC-01–MVP-SEC-05; MVP-NFR-01–MVP-NFR-03, MVP-NFR-06; SEC-001, SEC-002, SEC-004.
 - **ADRs / decisions:** ADR-0003, ADR-0006, ADR-0007; Provider != domain authority.
 - **Affected boundaries:** workflow-specific WorkItemCapability port, GitHub Issues adapter, local link store, external-effect correlation, completion/artifact output.
-- **Expected implementation:** Bind authority to complete draft/target/effects; execute one bounded time-limited create or exact read/select; strictly validate response/reference/state; persist link with expected revision; read/reconcile by correlation before retry after ambiguous or confirmed create.
+- **Expected implementation:** Bind authority to complete draft/target/effects; durably fence the target before one bounded time-limited create; strictly validate response/reference/state; persist link with expected revision and provider/resource/external identity; after an ambiguous create, reconcile the persisted correlation without another mutation.
 - **Authority and side effects:** Separate explicit GitHub mutation authority. Allowed: one reviewed Issue create/update effect and exact local linkage. Forbidden: repository/Git mutation, issue close, labels/comments, arbitrary command interpolation, blind create retry, credential persistence.
-- **Failure / recovery:** Unauthenticated/rate-limited/unavailable maps to safe failure/retry boundary; invalid response fails closed; confirmed create plus local failure is `partial` with Issue reference; ambiguous create requires read/reconcile before retry.
+- **Failure / recovery:** Unauthenticated/rate-limited/unavailable maps to truthful effect knowledge; invalid response fails closed; confirmed create plus local failure is `partial` with Issue reference; ambiguous create persists across processes and permits reconciliation only until resolved.
 - **Explicit non-goals:** Workflow projection, issue closure as acceptance, generic provider framework, second Provider.
 - **Mandatory tests:** Fake-provider side-effect ledger; denial/cancel; strict responses; time/output bounds; shell metacharacters; rate-limit/transient/ambiguous cases; confirmed-effect/local-fault injection; duplicate prevention; one separately authorized bounded real GitHub observation.
 - **Expected Evidence:** Unit/application/adapter results, exact sanitized commands or API requests, response validation, external/local effect ledger, Issue reference, local revision/digest, limitation and cleanup ownership.
@@ -849,6 +849,6 @@ future work under explicit Task authority.
 
 **S2 Implementation — Delivered on `main` through PR #84 with reproducible S2 Evidence.**
 
-**S3 Implementation — Authorized; T08 deterministic Evidence and T09 implementation/tests complete in the delivery branch. Human review and T09's exact-authority real-provider observation remain pending; S3 is not fully validated.**
+**S3 Implementation — T08 and T09 implementation plus the bounded real-provider observation are technically complete in the delivery branch. Current PR review corrections remain subject to human review. Human acceptance is not inferred.**
 
 **S4–S7 Implementation — Not authorized.**

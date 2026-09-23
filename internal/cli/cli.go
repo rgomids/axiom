@@ -687,7 +687,7 @@ func runInteractiveWorkItemCreate(ctx context.Context, mode outputMode, values r
 		}
 		_, _ = prompts.Write(wire)
 	}
-	answer, ok := readPromptLine(scanner, prompts, "Create this exact GitHub Issue and local link? [yes/no]: ", false)
+	answer, ok := readPromptLine(scanner, prompts, "Publish this create-attempt fence, create this exact GitHub Issue, and publish its local link? [yes/no]: ", false)
 	if !ok || answer != "yes" {
 		cancelled := workItemInput(values, true)
 		return emitResponse(stdout, mode, workItemCreateAction, service.WorkItemCreate(ctx, cancelled))

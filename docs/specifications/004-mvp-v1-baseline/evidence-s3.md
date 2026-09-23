@@ -24,7 +24,8 @@ Work Item link. It did not authorize T10, S4, cleanup, or any other effect.
 - Every section retains `user` or `axiom` authorship. Missing questions are
   deterministic and limited to materially absent sections.
 - Preview binds Project/repository/provider target, normalized draft, rendered
-  provider document, exact effect set, expected local revision, correlation,
+  provider document, exact effect set (including the durable create-attempt
+  fence), expected local revision, correlation,
   provenance, and digest. Preparing it performs no Provider or local write.
 - UTF-8/control, per-field and aggregate size, and structural secret-sentinel
   checks occur before rendering or effects. Provider rendering indents section
@@ -47,25 +48,30 @@ Work Item link. It did not authorize T10, S4, cleanup, or any other effect.
   shell-interpolated or placed in arguments. Responses must match the exact
   `https://github.com/<owner>/<repository>/issues/<number>` identity and
   `OPEN|CLOSED` state.
-- Before create, and again after an ambiguous result, application code searches
-  for the exact deterministic correlation marker. Zero matches permits one
-  create; one valid match is reused; multiple/invalid matches fail closed. No
-  blind create retry exists.
+- Before the first POST, application code searches for the exact deterministic
+  correlation marker and durably publishes a target-scoped create-attempt fence.
+  A `pending` fence survives process restart and permits reconciliation only:
+  zero matches stays non-mutating, one valid match is reused, and
+  multiple/invalid matches fail closed. Only a Provider response that explicitly
+  proves no effect transitions the fence to `retry_allowed`; no time heuristic
+  or blind create retry exists.
 - A confirmed Provider effect followed by local read/write/conflict/recovery
   failure is canonical `partial` and retains the exact external reference.
   Committed-but-uncertain protected publication also remains truthful partial.
 - The provider-neutral domain link maps at the local adapter boundary to the
   existing Work Item `formatVersion: 1` fields `providerRepository` and `number`.
-  Existing v1 records remain readable; no v2 schema or migration exists. The v1
-  adapter rejects non-`github`, non-positive, non-numeric, or non-canonical Issue
-  IDs before creating any local state.
+  New filenames hash `provider + resource + externalID` under the
+  Project/repository scope. Existing `repositoryKey-externalID` v1 records remain
+  readable and updatable only when their decoded identity exactly matches; no v2
+  wire schema or bulk migration exists. Two resources with the same Issue number
+  cannot overwrite each other, and an unqualified ambiguous lookup fails closed.
 - `gh api --include` supplies bounded response status and headers. `401` is
   unauthenticated/non-retryable; `429` and structured rate-limited `403` are
   retryable; `5xx` is unavailable/retryable; ordinary `403` and deterministic
   `400`/`404`/`410`/`422` failures are non-retryable. Missing reliable HTTP
-  metadata fails closed without retry. Create timeout and retryable unavailable
-  results remain ambiguous and require reconciliation; no blind create retry was
-  added.
+  metadata is ambiguous for create because it cannot prove absence of an effect.
+  Create timeout, unknown transport failure, invalid success response, and `5xx`
+  remain ambiguous and require reconciliation; no blind create retry was added.
 
 ## Deterministic observations
 
@@ -78,9 +84,13 @@ Work Item link. It did not authorize T10, S4, cleanup, or any other effect.
 | stored identity differs from requested path | protected store decode test | unsafe record rejected before use |
 | metacharacter/Markdown input | fake executable argument/stdin capture | content only in JSON stdin and indented authored sections |
 | 401/403/404/422/429/500/503 | included-status adapter matrix | only explicit rate-limit and 5xx cases are retryable |
-| timeout, oversized, unstructured or mismatched response | bounded adapter fake | timeout ambiguous; other unknown/invalid content fails closed without retry |
+| timeout, oversized, unstructured or mismatched response | bounded adapter fake | uncertain create outcomes are ambiguous/reconciliation-only; read-only invalid content fails closed |
 | ambiguous create | sequenced reconciliation fake | second reconciliation before result; no blind retry |
+| ambiguous create across two executable processes | installed-binary fake `gh` ledger plus protected state root | second process performs reconciliation only; total POST count remains one |
+| later reconciliation after ambiguous create | two application service executions sharing durable-store semantics | one exact match is linked; total create count remains one |
 | existing/multiple correlation match | reconciliation ledger | one valid Issue reused; multiple matches fail before create |
+| same external ID in two Provider resources | protected store identity tests | both exact links remain distinct; unqualified lookup fails closed |
+| create-attempt stale revision | protected store CAS test | stale update conflicts without changing pending/confirmed truth |
 | local revision changed after select preview | store revision fault | stale digest denied; zero save |
 | confirmed Issue plus local failure | store fault injection | canonical `partial` with exact Issue reference |
 | executable create/select | isolated fake `gh` black box | preview has zero mutation; one authorized create/select link |
@@ -136,6 +146,11 @@ The reconciled snapshot is the merge tree on which the complete local suite was
 rerun after integrating `main`; the later Evidence-only publication commit does
 not replace either historical fact.
 
+The later PR review remediation adds deterministic local/process tests for the
+durable create-attempt fence and collision-free persisted identity. It does not
+repeat or broaden the historical real-provider mutation and does not alter the
+Issue #90 observation facts above.
+
 ## Validation environment and commands
 
 Implementation and tests ran on macOS 27.0/arm64 with Go 1.26.1. The local
@@ -170,6 +185,34 @@ technical suite after the real observation passed `12/12`. Provider traffic in
 the deterministic tests uses synthetic fake executables and temporary protected
 roots; the separately documented bounded observation is the only real GitHub
 mutation in this Evidence.
+
+### PR review remediation validation — 2026-09-23
+
+The durable create-attempt and persisted-identity corrections were validated on
+macOS 27.0/arm64 with Go 1.26.1. The following commands exited zero:
+
+```bash
+go test ./...
+go test -race ./...
+go vet ./...
+go build ./...
+go mod verify
+./scripts/validate-repository.sh .
+./scripts/check-sensitive-files.sh .
+./scripts/check-sensitive-files.sh --staged .
+./scripts/dogfood-poc.sh
+gitleaks detect --source . --no-git --redact --no-banner
+gitleaks git --staged --redact --no-banner
+git diff --check
+```
+
+The final dogfood run reported binary SHA-256
+`05af88e3bdc37ff1c0547574b7305d15320601ba989937c9245f351be9cca8e4`
+and workflow SHA-256
+`09bd10109ec5ef0e79f3900304880ecc3095c469bf58655875bfcffe5b15ab3e`.
+Its result was `pass`. All Provider behavior in this remediation validation used
+the controlled fake executable; no new real GitHub mutation was authorized or
+performed.
 
 ## Limitations and remaining gates
 

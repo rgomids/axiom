@@ -435,9 +435,15 @@ lingo --json work-item select \
 lingo work-item show --project my-project --repository main --number 123
 ```
 
-Ambiguous create results reconcile by the deterministic correlation marker before
-any later create attempt. Confirmed GitHub effect plus local failure is reported
-as canonical `partial` with the Issue reference. Historical POC `comment` and
+The reviewed effect set includes the local create-attempt fence. Before POST,
+Axiom durably reserves the exact target/draft create attempt. An
+ambiguous result leaves that fence `pending`; every later process reconciles the
+persisted correlation only and cannot emit another POST until the ambiguity is
+resolved. Zero matches remain fail-closed without a time heuristic; one exact
+match is linked; multiple matches require operator review. Confirmed GitHub
+effect plus local failure is reported as canonical `partial` with the Issue
+reference. New local link filenames bind provider, resource, and external ID;
+existing v1 records remain readable through exact identity validation. Historical POC `comment` and
 `complete` commands remain compatibility surfaces only; they are not part of S3
 and must not be treated as workflow progress or human acceptance.
 

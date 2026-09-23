@@ -194,6 +194,31 @@ exit 1
 	}
 }
 
+func TestAdapterCreateTreatsUnknownOrInvalidSuccessResponseAsAmbiguous(t *testing.T) {
+	directory := t.TempDir()
+	gh := filepath.Join(directory, "gh")
+	adapterRequest := workitem.CreateRequest{Resource: "owner/repo", Correlation: strings.Repeat("a", 64), Document: workitem.ProviderDocument{Title: "Title", Body: "Body"}}
+	for name, script := range map[string]string{
+		"unknown_cli_failure": "#!/bin/sh\nprintf '%s\\n' 'unknown' >&2\nexit 1\n",
+		"invalid_success":     "#!/bin/sh\nprintf '%s\\n' '{\"unexpected\":true}'\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := os.WriteFile(gh, []byte(script), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			adapter, err := New(gh)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = adapter.Create(context.Background(), adapterRequest)
+			var provider *workitem.ProviderError
+			if !errors.As(err, &provider) || !provider.Ambiguous || provider.EffectNotCommitted {
+				t.Fatalf("create classification = %#v", err)
+			}
+		})
+	}
+}
+
 func TestAdapterUnknownCLIErrorIsNotRetryable(t *testing.T) {
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")

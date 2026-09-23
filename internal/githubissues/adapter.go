@@ -88,21 +88,28 @@ func (a Adapter) Render(draft workitem.Draft, _ workitem.DraftTarget, correlatio
 
 func (a Adapter) Create(parent context.Context, request workitem.CreateRequest) (workitem.External, error) {
 	if !a.ValidResource(request.Resource) || len(request.Correlation) != 64 || request.Document.Title == "" || request.Document.Body == "" || len(request.Document.Body) > bodyLimit {
-		return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
+		return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse, EffectNotCommitted: true}
 	}
 	payload, err := json.Marshal(map[string]string{"title": request.Document.Title, "body": request.Document.Body})
 	if err != nil {
-		return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
+		return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse, EffectNotCommitted: true}
 	}
 	output, err := a.run(parent, payload, "api", "--method", "POST", "repos/"+request.Resource+"/issues", "--input", "-")
 	if err != nil {
 		var provider *workitem.ProviderError
-		if errors.As(err, &provider) && provider.Kind == workitem.ProviderUnavailable && provider.Retryable {
+		if errors.As(err, &provider) && !provider.EffectNotCommitted {
 			provider.Ambiguous = true
 		}
 		return workitem.External{}, err
 	}
-	return decodeIssue(request.Resource, "", output)
+	external, err := decodeIssue(request.Resource, "", output)
+	if err != nil {
+		var provider *workitem.ProviderError
+		if errors.As(err, &provider) {
+			provider.Ambiguous = true
+		}
+	}
+	return external, err
 }
 
 func (a Adapter) ReconcileCreate(ctx context.Context, repository, correlation string) ([]workitem.External, error) {
@@ -252,15 +259,15 @@ func parseIncludedResponse(output []byte) (int, map[string]string, []byte, bool)
 
 func classifyHTTPFailure(status int, headers map[string]string) *workitem.ProviderError {
 	if status == 401 {
-		return &workitem.ProviderError{Kind: workitem.ProviderUnauthenticated}
+		return &workitem.ProviderError{Kind: workitem.ProviderUnauthenticated, EffectNotCommitted: true}
 	}
 	if status == 429 || status == 403 && (headers["x-ratelimit-remaining"] == "0" || headers["retry-after"] != "") {
-		return &workitem.ProviderError{Kind: workitem.ProviderRateLimited, Retryable: true}
+		return &workitem.ProviderError{Kind: workitem.ProviderRateLimited, Retryable: true, EffectNotCommitted: true}
 	}
 	if status >= 500 && status <= 599 {
 		return &workitem.ProviderError{Kind: workitem.ProviderUnavailable, Retryable: true}
 	}
-	return &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
+	return &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse, EffectNotCommitted: true}
 }
 
 func decodeIssue(repository, expected string, source []byte) (workitem.External, error) {

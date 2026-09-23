@@ -101,7 +101,7 @@ func TestRunInteractiveGuidesWorkItemCreateAndBindsExactPreview(t *testing.T) {
 	if service.inputs[0].AuthorizeExternal || service.inputs[1].PreviewDigest != "reviewed-digest" || !service.inputs[1].AuthorizeExternal {
 		t.Fatalf("authority inputs = %#v", service.inputs)
 	}
-	if !strings.Contains(prompts.String(), `"digest": "reviewed-digest"`) || !strings.Contains(prompts.String(), "Create this exact GitHub Issue") {
+	if !strings.Contains(prompts.String(), `"digest": "reviewed-digest"`) || !strings.Contains(prompts.String(), "Publish this create-attempt fence") {
 		t.Fatalf("prompts = %q", prompts.String())
 	}
 }

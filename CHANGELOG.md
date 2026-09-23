@@ -1,5 +1,17 @@
 # Changelog
 
+## [2026-09-23]
+
+- fix: reserve a protected durable create-attempt fence before GitHub POST;
+  ambiguous or unknown outcomes now remain reconciliation-only across process
+  restarts, preventing automatic duplicate creation.
+- fix: key new local Work Item records by provider, resource, and external ID
+  while retaining exact validated reads and updates for legacy v1 records;
+  unqualified same-number collisions fail closed.
+- docs: reconcile T08/T09 and S3 status with the completed bounded real-provider
+  observation while preserving current human-review, human-acceptance, and
+  T10/S4+ gates.
+
 ## [2026-09-22]
 
 - implementation: complete the deterministic implementation scope of the
