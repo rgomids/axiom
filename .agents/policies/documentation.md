@@ -13,6 +13,22 @@ Before reconciling documents, consult [Documentation Governance v1](../../docs/d
 - Reconcile conflicting secondary sources against canonical sources; expose evidence/contract discrepancies for explicit resolution.
 - Do not manually duplicate volatile content or add unverifiable claims or badges.
 
+## README hygiene and localization
+
+- `README.md` is the canonical English project landing page.
+- `docs/README.pt-BR.md` is its official Brazilian Portuguese translation.
+- README is a stable project landing page, not an operational status dashboard.
+- Keep Task, Slice, PR, daily delivery, acceptance-date, and temporary follow-up
+  state in their canonical Specifications, Evidence, Issues, PRs, Changelog, or
+  other owning records. Link instead of copying volatile state into README.
+- Reconcile both READMEs in the same work and Pull Request whenever the
+  canonical README changes materially.
+- Do not add Portuguese prose to `README.md`, except unavoidable language
+  navigation labels.
+
+These rules apply to the Axiom repository agent through the
+[contribution policy](contribution.md).
+
 ## Reconciliation examples
 
 | Change | Expected documentation |

@@ -1,3 +1,0 @@
-   Updating https://github.com/github/spec-kit.git (v0.0.0-axiom-missing)
-  × Failed to resolve `--with` requirement
-  ╰─▶ Git operation failed
