@@ -875,4 +875,8 @@ future work under explicit Task authority.
 
 **S3 Implementation — T08 and T09 implementation plus the bounded real-provider observation are technically complete in the delivery branch. Current PR review corrections remain subject to human review. Human acceptance is not inferred.**
 
-**S4–S7 Implementation — Not authorized.**
+**S4 Implementation — Technically complete in PR #91 with deterministic,
+fake-Provider, and authorized real-provider Evidence. Human acceptance is not
+inferred.**
+
+**S5–S7 Implementation — Not authorized.**

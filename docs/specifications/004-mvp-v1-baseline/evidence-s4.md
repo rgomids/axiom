@@ -114,6 +114,14 @@ build, module verification, installed-binary dogfood, and Gitleaks all exited
 `0`. The dogfood remained isolated and used its fake Provider; it did not mutate
 Issue #92.
 
+The real-provider observation and that local/full validation were executed from
+`3f6321e8369fc9295503d9e8a742fca5c065afd8`. The resulting Evidence and Tasks
+reconciliation were then committed as
+`b95217a957e563d3882e4ee7acb5f689a9ac1316`. POC verification for that
+reconciliation commit completed successfully on both configured GitHub Actions
+jobs. The later commit records the results; it is not presented as the commit
+from which the observation was executed.
+
 The final isolated installed-binary dogfood observation recorded these fields;
 the projection key is written separately below to keep its digest classification
 explicit during secret scanning:
