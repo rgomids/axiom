@@ -16,7 +16,7 @@ Before reconciling documents, consult [Documentation Governance v1](../../docs/d
 ## README hygiene and localization
 
 - `README.md` is the canonical English project landing page.
-- `README.pt-BR.md` is its official Brazilian Portuguese translation.
+- `docs/README.pt-BR.md` is its official Brazilian Portuguese translation.
 - README is a stable project landing page, not an operational status dashboard.
 - Keep Task, Slice, PR, daily delivery, acceptance-date, and temporary follow-up
   state in their canonical Specifications, Evidence, Issues, PRs, Changelog, or

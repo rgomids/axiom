@@ -28,7 +28,7 @@ Define how Axiom documentation is classified, maintained, reviewed, and reconcil
 | Implementation evidence | Evidence, tests, commits, and PRs |
 | Delivery history | Git, PRs, Releases, and [Changelog](../CHANGELOG.md), as available |
 | Consolidated Specification status | [docs/specifications/README.md](specifications/README.md) |
-| Stable repository landing page | Canonical English [README.md](../README.md) and synchronized official [README.pt-BR.md](../README.pt-BR.md) translation |
+| Stable repository landing page | Canonical English [README.md](../README.md) and synchronized official [README.pt-BR.md](README.pt-BR.md) translation |
 
 Notion does not mirror GitHub. It links to canonical technical artifacts.
 
@@ -93,7 +93,7 @@ Update only affected sources, then reconcile their summaries and links. Review c
 ## Localization
 
 [README.md](../README.md) is the canonical English README.
-[README.pt-BR.md](../README.pt-BR.md) is its official complete Brazilian
+[README.pt-BR.md](README.pt-BR.md) is its official complete Brazilian
 Portuguese translation. Both files provide reciprocal language navigation.
 
 Any material change to the canonical README must reconcile the translation in
