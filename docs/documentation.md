@@ -28,6 +28,7 @@ Define how Axiom documentation is classified, maintained, reviewed, and reconcil
 | Implementation evidence | Evidence, tests, commits, and PRs |
 | Delivery history | Git, PRs, Releases, and [Changelog](../CHANGELOG.md), as available |
 | Consolidated Specification status | [docs/specifications/README.md](specifications/README.md) |
+| Stable repository landing page | Canonical English [README.md](../README.md) and synchronized official [README.pt-BR.md](../README.pt-BR.md) translation |
 
 Notion does not mirror GitHub. It links to canonical technical artifacts.
 
@@ -83,7 +84,19 @@ Update only affected sources, then reconcile their summaries and links. Review c
 - Do not record a hypothesis as an accepted decision.
 - Do not add a status, badge, or claim that cannot be verified. Prefer source-backed dynamic displays for volatile facts instead of manually maintained values.
 - When sources conflict, reconcile the secondary source and preserve the canonical source. If executable evidence conflicts with an approved contract, expose the discrepancy for explicit resolution rather than silently changing the contract or approval history.
+- README is a stable project landing page, not an operational status dashboard.
+  Keep current Task, Slice, PR, daily implementation, acceptance-date, and
+  temporary follow-up state in their owning Specifications, Evidence, Issues,
+  PRs, Changelog, or other canonical records; link to those records instead of
+  copying their state into README.
 
 ## Localization
 
-Translated documentation may be introduced in the future. This change creates no translations. Until a specific localization policy exists, the current [README](../README.md) remains canonical. Future translations must declare their source and how drift is prevented. Translation tools and processes remain undecided.
+[README.md](../README.md) is the canonical English README.
+[README.pt-BR.md](../README.pt-BR.md) is its official complete Brazilian
+Portuguese translation. Both files provide reciprocal language navigation.
+
+Any material change to the canonical README must reconcile the translation in
+the same work and Pull Request. `README.md` must remain English except for
+unavoidable language-navigation labels. Other translations remain future work
+and require an explicit source and drift-prevention rule before introduction.

@@ -20,6 +20,7 @@ required_files=(
   "AGENTS.md"
   "CHANGELOG.md"
   "README.md"
+  "README.pt-BR.md"
   "SECURITY.md"
   ".agents/policies/security.md"
   "docs/product/README.md"
@@ -70,6 +71,10 @@ notion_url="https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979"
 
 grep -Fq -- "$notion_url" "$ROOT/README.md" \
   || fail "Notion source is missing from README.md"
+grep -Fq -- 'href="README.pt-BR.md"' "$ROOT/README.md" \
+  || fail "README.md is missing the Brazilian Portuguese navigation link"
+grep -Fq -- 'href="README.md"' "$ROOT/README.pt-BR.md" \
+  || fail "README.pt-BR.md is missing the English navigation link"
 grep -Fq -- "$notion_url" "$ROOT/docs/product/README.md" \
   || fail "Notion source is missing from docs/product/README.md"
 
