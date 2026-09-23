@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Axiom — Keep intent, decisions, code, and evidence connected</title>
+<meta name="description" content="Axiom is an AI-assisted software development control plane. It keeps specifications, decisions, implementation, and evidence connected across agents, repositories, and sessions.">
+<link rel="canonical" href="https://rgomids.github.io/axiom/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Axiom — Keep intent, decisions, code, and evidence connected">
+<meta property="og:description" content="An AI-assisted software development control plane built around Spec-Driven Development: specifications, plans, bounded execution, and reproducible evidence.">
+<meta property="og:image" content="https://rgomids.github.io/axiom/assets/axiom-logo-github.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Axiom — Keep intent, decisions, code, and evidence connected">
+<meta name="twitter:description" content="An AI-assisted software development control plane built around Spec-Driven Development.">
+<meta name="twitter:image" content="https://rgomids.github.io/axiom/assets/axiom-logo-github.png">
+
+<link rel="icon" href="assets/axiom-logo.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/axiom-logo.png">
+<link rel="stylesheet" href="styles.css">
+
+<!-- Applied before first paint so the stored theme never flashes. -->
+<script>
+  try {
+    var stored = localStorage.getItem('axiom-theme');
+    var theme = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {}
+</script>
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="backdrop" aria-hidden="true"></div>
+
+<header class="site-header">
+  <div class="shell header-inner">
+    <a class="brand" href="#top" aria-label="Axiom — home">
+      <img class="brand-mark" src="assets/axiom-logo-github.png" alt="Axiom" width="1989" height="789" decoding="async">
+    </a>
+
+    <nav class="header-nav" aria-label="Primary">
+      <a class="nav-link" href="https://github.com/rgomids/axiom">GitHub</a>
+      <a class="nav-link" href="https://github.com/rgomids/axiom#readme">Documentation</a>
+      <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+          <path fill="currentColor" d="M20.7 14.6A8.6 8.6 0 0 1 9.4 3.3a1 1 0 0 0-1.3-1.2 10.6 10.6 0 1 0 13.8 13.8 1 1 0 0 0-1.2-1.3Z"/>
+        </svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="4.2" fill="currentColor"/>
+          <g stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/>
+          </g>
+        </svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="top">
+    <div class="shell hero-inner">
+      <img class="hero-logo" src="assets/axiom-logo.png" alt="" width="1244" height="1244" decoding="async">
+
+      <p class="eyebrow"><span class="dot"></span>Open source · Under active development</p>
+
+      <h1 class="hero-title">Keep intent, decisions, code, and evidence <span class="accent">connected</span>.</h1>
+
+      <p class="hero-copy">
+        Axiom is an AI-assisted software development control plane. It links what a change is
+        meant to achieve to how it was decided, implemented, and proven — across agents,
+        repositories, and sessions.
+      </p>
+
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/rgomids/axiom">
+          <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33C3.81 14.36 3.34 12.83 3.34 12.83c-.36-.92-.89-1.17-.89-1.17-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+          </svg>
+          View on GitHub
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/rgomids/axiom#readme">Explore Documentation</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="what" aria-labelledby="what-title">
+    <div class="shell section-grid">
+      <div class="section-head">
+        <p class="kicker">// what is axiom</p>
+        <h2 id="what-title">Rationale that survives the handoff</h2>
+      </div>
+      <div class="section-body">
+        <p class="lead">
+          AI agents help write code, but the reasoning behind it often stays in prompts, chats,
+          and disconnected documents. Every handoff risks losing what was intended, what was
+          decided, and what was actually verified.
+        </p>
+        <p class="lead">
+          Axiom preserves those connections. It defines the domain, policies, and workflows of a
+          development control plane — exercised in this repository through a Codex harness and a
+          Go implementation.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="why" aria-labelledby="why-title">
+    <div class="shell section-grid">
+      <div class="section-head">
+        <p class="kicker">// why axiom</p>
+        <h2 id="why-title">Four things that break, and what replaces them</h2>
+      </div>
+      <div class="section-body">
+
+      <ul class="cards" role="list">
+        <li class="card">
+          <p class="card-problem">Intent gets lost</p>
+          <h3>Specifications</h3>
+          <p>Outcomes, constraints, and acceptance criteria are recorded before code is written.</p>
+        </li>
+        <li class="card">
+          <p class="card-problem">Context fragments</p>
+          <h3>Projects</h3>
+          <p>A Project relates independent repositories without treating any single one as the whole.</p>
+        </li>
+        <li class="card">
+          <p class="card-problem">Decisions drift</p>
+          <h3>Plans &amp; ADRs</h3>
+          <p>Plans and architecture decisions become durable references for humans and agents alike.</p>
+        </li>
+        <li class="card">
+          <p class="card-problem">Completion lacks proof</p>
+          <h3>Evidence</h3>
+          <p>Validation and Evidence make results inspectable and reproducible, not merely asserted.</p>
+        </li>
+      </ul>
+
+      <p class="note">
+        <strong>Spec-Driven Development (SDD)</strong> connects intent → implementation → validation.
+      </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="shell section-grid">
+      <div class="section-head">
+        <p class="kicker">// how it works</p>
+        <h2 id="how-title">A lifecycle where every step feeds the next</h2>
+      </div>
+      <div class="section-body">
+
+      <ol class="lifecycle" role="list">
+        <li class="step"><span class="step-n">01</span><span class="step-name">Intent</span></li>
+        <li class="step"><span class="step-n">02</span><span class="step-name">Specification</span></li>
+        <li class="step"><span class="step-n">03</span><span class="step-name">Plan</span></li>
+        <li class="step"><span class="step-n">04</span><span class="step-name">Implementation</span></li>
+        <li class="step"><span class="step-n">05</span><span class="step-name">Evidence</span></li>
+      </ol>
+
+      <ul class="rules" role="list">
+        <li><span class="tick" aria-hidden="true"></span>Each step produces the context the next step consumes.</li>
+        <li><span class="tick" aria-hidden="true"></span>Execution happens in bounded units, never open-ended.</li>
+        <li><span class="tick" aria-hidden="true"></span>Human approval gates every material decision.</li>
+        <li><span class="tick" aria-hidden="true"></span>Evidence validates the outcome and reconciles the docs with it.</li>
+      </ul>
+
+      <p class="note">
+        Today this workflow is conducted by humans together with the harness.
+        Automated orchestration remains future work.
+      </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="status" aria-labelledby="status-title">
+    <div class="shell section-grid">
+      <div class="section-head">
+        <p class="kicker">// project status</p>
+        <h2 id="status-title">What exists today — and what does not</h2>
+        <p class="section-lede">
+          Axiom is open source and under active development. Delivered capabilities and planned
+          capabilities are listed separately, on purpose.
+        </p>
+      </div>
+      <div class="section-body">
+
+      <div class="status-grid">
+        <article class="status-col is-available">
+          <h3 class="status-head"><span class="badge">Available</span></h3>
+          <ul role="list">
+            <li>Codex-first harness: context, policies, skills, templates, and validation scripts</li>
+            <li>Go implementation of Project rules, portable/local state, Codex Runtime, and GitHub Work Items</li>
+            <li>Evidence and validation workflow</li>
+            <li>Versioned Specifications and architecture decisions (ADRs)</li>
+            <li>Delivery slices S1 and S2 delivered on <code>main</code></li>
+          </ul>
+        </article>
+
+        <article class="status-col is-progress">
+          <h3 class="status-head"><span class="badge">In progress</span></h3>
+          <ul role="list">
+            <li>S3 authorized and active: T08 – T09 implemented, with human and provider gates still pending</li>
+            <li>S4 – S7 specified, with no authorization to implement</li>
+          </ul>
+        </article>
+
+        <article class="status-col is-future">
+          <h3 class="status-head"><span class="badge">Future work</span></h3>
+          <ul role="list">
+            <li>Multi-agent orchestration</li>
+            <li>Additional runtimes beyond Codex</li>
+            <li>Additional work-item providers beyond GitHub Issues</li>
+            <li>Remote sync and package managers</li>
+            <li>Production guarantees</li>
+          </ul>
+        </article>
+      </div>
+
+      <p class="note">
+        Nothing under <em>Future work</em> is implemented. Technical validation or a merge does
+        not imply human acceptance.
+      </p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="shell footer-inner">
+    <p class="footer-brand">
+      <strong>Axiom</strong>
+      <span class="footer-tag">Keep intent, decisions, code, and evidence connected.</span>
+    </p>
+    <nav class="footer-nav" aria-label="Footer">
+      <a href="https://github.com/rgomids/axiom">GitHub</a>
+      <a href="https://github.com/rgomids/axiom#readme">Documentation</a>
+      <a href="https://github.com/rgomids/axiom/blob/main/LICENSE">Apache 2.0 License</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="app.js" defer></script>
+<script src="rain.js" defer></script>
+</body>
+</html>
