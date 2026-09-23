@@ -85,8 +85,7 @@ and technical checks do not imply human acceptance.
 Deterministic validation ran on macOS 27.0/arm64 with Go 1.26.1 from branch
 `agent/s4-workflow-provider-projection`. Initial S4 delivery was based on
 `c37a297cb3ee698ca7da0cce51ea98acf2f776f6`; review remediation was validated
-from PR head `02facfb0e6532751578451236c589346521cc38d` plus the focused working-tree
-changes recorded by this Evidence. Every command below exited `0`:
+from PR head `c0eb6e14ecdb213376651dc0da3026e13f85553b`. Every command below exited `0`:
 
 ```bash
 go test ./internal/workflow ./internal/local ./internal/githubissues ./cmd/lingo
