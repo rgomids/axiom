@@ -7,10 +7,11 @@ T10–T13. Work started from `main` revision `c37a297`, the PR #85 merge. T14/S5
 implementation, Issue closure, prerelease/release publication, merge, and final
 MVP acceptance were not authorized and were not performed.
 
-The deterministic implementation and fake-Provider observations below are
-complete. The mandatory bounded real GitHub label/comment observation remains a
-**Human decision required** gate. No real Provider projection is claimed here,
-and technical checks do not imply human acceptance.
+The deterministic implementation, fake-Provider observations, and mandatory
+bounded real GitHub label/comment observation below are complete. The real
+observation used exact per-run human authority recorded on 2026-09-23. This
+closes the T12–T13 technical Evidence gate only; technical checks and Provider
+effects do not imply human acceptance.
 
 ## Delivered behavior
 
@@ -105,6 +106,14 @@ git diff --check
 `gitleaks detect --source . --no-git --redact --no-banner` also exited `0` and
 reported no leaks. `go mod verify` reported `all modules verified`.
 
+After the real observation and Evidence reconciliation, the same full suite was
+repeated from branch HEAD `3f6321e8369fc9295503d9e8a742fca5c065afd8`.
+Repository validation, worktree sensitive-file scan, `git diff --check`, all Go
+tests including race and ten shuffled workflow/local/GitHub adapter runs, vet,
+build, module verification, installed-binary dogfood, and Gitleaks all exited
+`0`. The dogfood remained isolated and used its fake Provider; it did not mutate
+Issue #92.
+
 The final isolated installed-binary dogfood observation recorded these fields;
 the projection key is written separately below to keep its digest classification
 explicit during secret scanning:
@@ -138,15 +147,120 @@ projection comment. Exact fake-Provider authority converged to one
 The persisted local projection record contained the ordered intended effects and
 the same confirmed set. Reinspection after every fake effect and a final replay
 preview observed zero remaining effects. These are deterministic fake-Provider
-facts, not the pending real GitHub observation.
+facts; the following observation records the separate real GitHub proof.
 
-## Remaining mandatory observation
+## Real GitHub Provider observation
 
-No real GitHub mutation has been executed for S4. Before one bounded observation,
-the operator must select the exact Issue target and review a fresh
-`workflow reconcile` preview containing repository, Issue, Execution revision,
-projection key, exact label/comment effects, comment text, cleanup ownership,
-and retry behavior. Separate exact authority is required for that preview digest.
-The observation must prove before/after state and replay convergence without
-closing the Issue or removing non-Axiom content. Until then, T12/T13 real-provider
-Evidence and the S4 PR remain pending.
+### Target and local truth
+
+The controlled run created one explicitly disposable test Issue through the
+authorized GitHub account, then used only public Lingo commands to configure an
+isolated Project, select the Issue, start one Execution, and advance the normal
+sequence to `implementation`:
+
+| Fact | Observed value |
+|---|---|
+| Repository | `rgomids/axiom` |
+| Issue | [#92](https://github.com/rgomids/axiom/issues/92) |
+| Test title | `[TEST][AXIOM S4] Real Provider Observation` |
+| Project | `76fb1fd4-d3cc-4fc8-9835-f5171be0f096` / `axiom-s4-provider-observation` |
+| Repository key | `main` |
+| Execution ID | `f557b2a4-6120-46a9-8d12-64b67ee1d62b` |
+| Workflow / Runtime | `mvp-v1-sequential` / `codex` |
+| Stage / revision / status | `implementation` / `6` / `active` |
+| Projection key | `14a97e484e1706a06f0105f7edc71b0887f921e8e9fb5cae247a4c77539d9e4f` |
+| Branch HEAD used by Lingo | `3f6321e8369fc9295503d9e8a742fca5c065afd8` (`clean`) |
+
+Transitions were committed in order: revision 1 `intake`; revision 2
+`specification`; revision 3 `clarification`; revision 4 `plan`; revision 5
+`tasks`; revision 6 `implementation`. No persisted state was edited manually.
+
+### BEFORE snapshot
+
+- Issue #92 was `OPEN`, had no labels, zero comments, and no workflow projection
+  marker.
+- The repository had 25 labels and no `axiom:stage:*` label. Its observed names
+  were `bug`, `cross-cutting`, `documentation`, `duplicate`, `enhancement`,
+  `good first issue`, `help wanted`, `invalid`, `question`, `scope:mvp`,
+  `slice:s1` through `slice:s7`, `status:active`, `status:done`,
+  `status:planned`, `status:superseded`, `type:epic`, `type:historical`,
+  `type:slice`, and `wontfix`.
+- The Issue title/body explicitly identified disposable S4 Evidence; no generic
+  test label or new taxonomy was introduced.
+
+### Read-only preview and exact authority
+
+The first and immediately repeated read-only `workflow reconcile` observations
+were identical:
+
+```text
+observation digest: 16bef7c44639514bba191122cc9ca224c9130489e554ac0ad8e71dcda0f06745
+preview digest:     7f0f7b92a97c751b47cf69607dfaa3486c4d2fe340fe8139f087006d01997bd3
+desired label:      axiom:stage:implementation
+Issue state:        OPEN
+Issue labels:       []
+CommentPresent:     false
+```
+
+The reviewed ordered effect set, authorized only for that target, Execution
+revision, projection key, observation, digest, and order, was:
+
+```json
+[
+  {"kind":"create_stage_label","value":"axiom:stage:implementation"},
+  {"kind":"add_stage_label","value":"axiom:stage:implementation"},
+  {"kind":"post_transition_comment","value":"<!-- axiom:workflow-projection:14a97e484e1706a06f0105f7edc71b0887f921e8e9fb5cae247a4c77539d9e4f -->\nAxiom workflow transition\n\n- Stage: `implementation`\n- Outcome: `pass`\n- Next: Execute implementation\n\n_Axiom development · 3f6321e8369f · clean · f557b2a4-6120-46a9-8d12-64b67ee1d62b_"}
+]
+```
+
+Programmatic review proved three effects only, no `remove_stage_label`, one
+projection marker in the comment, Issue `OPEN`, and unchanged branch HEAD before
+`--authorize-external` consumed the exact preview digest.
+
+### AFTER snapshot and confirmed ledger
+
+- Issue #92 remained `OPEN`.
+- Its only label became `axiom:stage:implementation`; no non-Axiom label existed
+  to remove and none was removed.
+- The repository label was created with color `5319e7` and description
+  `Axiom current workflow stage`.
+- Exactly one comment existed, at
+  `https://github.com/rgomids/axiom/issues/92#issuecomment-5801613781`, containing
+  exactly the projection marker and text above. Its body was 287 bytes with
+  SHA-256 `02a9e528d525cf2a6d37c221555a72dc5c7ed058191c8239ee40525f215540fc`.
+- The local Execution remained `implementation`, revision `6`, status `active`;
+  Provider state did not advance, repair, or reconstruct it.
+- The protected `0600` Execution record had SHA-256
+  `19f3087c650d0dbf8cd84e4b0ada0b46cc71cdbfeb5575acb13fb44e85fb6fe5`.
+  Its projection record had `ExecutionRevision=6`, the projection key above,
+  `Intended` equal to the three ordered effects, `Confirmed` equal to the same
+  three effects, and `Complete=true`.
+
+The exact Provider delta was therefore one repository label, one Issue-label
+association, and one projection comment. No Issue state or foreign content
+changed.
+
+### Replay convergence
+
+A read-only replay of `workflow reconcile` for revision 6 observed Issue `OPEN`,
+the current Axiom label, and `CommentPresent=true`, returning:
+
+```text
+effects = []
+observation digest = 6829dbc0a85abca9359e1535f531cef716f647e485bf85954e944c1120208389
+preview digest = b1be21e635ca863e8864d754a44fd825ec9192ce6f61c0432855a8450a51357a
+```
+
+Immediate reinspection still found one Issue label, one repository
+`axiom:stage:*` label, one comment, and exactly one matching projection marker.
+No authorized replay mutation was necessary because the public preview already
+proved natural convergence.
+
+### Safety assertions
+
+- The Issue was not closed.
+- No non-Axiom label was removed; no external comment or content was modified.
+- Projection used exact revision/digest authority and no stale authority retry.
+- Provider state did not advance or repair local Execution truth.
+- Replay created no label or comment and duplicated no mutation.
+- No S5 behavior, merge, release, or human-acceptance claim was introduced.

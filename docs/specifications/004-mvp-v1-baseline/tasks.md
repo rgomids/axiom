@@ -10,7 +10,7 @@
 
 **S3 Implementation: Delivered on `main` through PR #85 with deterministic Evidence and one bounded real-provider observation. Human acceptance is not inferred.**
 
-**S4 Implementation: T10–T13 implementation and deterministic Evidence are complete in the delivery branch. The mandatory bounded real-provider projection observation remains at a Human decision required gate. Human acceptance is not inferred.**
+**S4 Implementation: T10–T13 implementation, deterministic Evidence, and the mandatory bounded real-provider projection observation are technically complete in the delivery branch. Human acceptance is not inferred.**
 
 **S5–S7 Implementation: Not authorized.**
 
@@ -44,9 +44,9 @@ Specification 004 — Approved
    -> T08 — Implementation and deterministic Evidence complete
    -> T09 — Implementation, deterministic tests, and bounded real-provider observation complete
    -> Human acceptance — Not inferred
--> S4 Implementation — Deterministic implementation complete in branch
+-> S4 Implementation — Technical implementation and Evidence complete in branch
    -> T10–T13 — Application, store, adapter, CLI, black-box and dogfood checks complete
-   -> Real-provider projection observation — Human decision required
+   -> Real-provider projection observation — Complete under exact per-run authority
    -> Human acceptance — Not inferred
 -> S5–S7 Implementation — Not authorized
 ```
@@ -448,9 +448,10 @@ completion, not human acceptance.
 
 ### T12 — Idempotent GitHub stage/comment projection
 
-**Implementation checkpoint:** implementation and deterministic fake-Provider
-Evidence are complete in the S4 delivery branch. The mandatory authorized real
-projection observation remains pending; see [S4 Evidence](evidence-s4.md).
+**Implementation checkpoint:** implementation, deterministic fake-Provider
+Evidence, and the mandatory authorized real projection observation are complete
+in the S4 delivery branch; see [S4 Evidence](evidence-s4.md). This records
+technical completion, not human acceptance.
 
 - **Objective:** Explicit authority reconciles one committed transition into exactly one `axiom:stage:<stage>` label and at most one semantically unique bounded transition comment.
 - **Slice:** S4.
@@ -470,8 +471,8 @@ projection observation remains pending; see [S4 Evidence](evidence-s4.md).
 ### T13 — Workflow interruption, concurrency, and projection convergence
 
 **Implementation checkpoint:** deterministic concurrency, interruption, and
-projection convergence implementation is complete in the S4 delivery branch.
-The real-provider observation inherited from T12 remains pending; see
+projection convergence implementation plus the real-provider observation
+inherited from T12 are complete in the S4 delivery branch; see
 [S4 Evidence](evidence-s4.md). Human acceptance is not inferred.
 
 - **Objective:** Two processes, interruption, retry, and projection/local failures converge on one committed Execution revision and truthful Provider projection.
