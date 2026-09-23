@@ -76,10 +76,8 @@ func TestS4ProjectionPreviewAuthorityReplayAndExternalPreservation(t *testing.T)
 	target := s4Target()
 	service.Start(context.Background(), target)
 	transitioned := service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
-	provider.observation = ProjectionObservation{
-		RepositoryLabels: []string{"bug"},
-		IssueLabels:      []string{"external", "axiom:stage:foreign", "axiom:stage:intake"},
-	}
+	provider.observation.RepositoryLabels = []string{"bug"}
+	provider.observation.IssueLabels = []string{"external", "axiom:stage:foreign", "axiom:stage:intake"}
 
 	previewed := service.PrepareProjection(context.Background(), target, transitioned.State.Revision)
 	if previewed.Preview == nil || previewed.Status != Succeeded {
@@ -99,6 +97,26 @@ func TestS4ProjectionPreviewAuthorityReplayAndExternalPreservation(t *testing.T)
 	replayed := service.PrepareProjection(context.Background(), target, transitioned.State.Revision)
 	if replayed.Preview == nil || len(replayed.Preview.Effects) != 0 {
 		t.Fatalf("replay preview = %#v", replayed)
+	}
+}
+
+func TestS4ChangedIssueStateInvalidatesProjectionAuthority(t *testing.T) {
+	service, _, provider := newS4Service(t)
+	target := s4Target()
+	service.Start(context.Background(), target)
+	transitioned := service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
+	previewed := service.PrepareProjection(context.Background(), target, transitioned.State.Revision)
+	if previewed.Preview == nil {
+		t.Fatalf("preview = %#v", previewed)
+	}
+
+	provider.observation.IssueState = "CLOSED"
+	denied := service.Project(context.Background(), target, transitioned.State.Revision, previewed.Preview.Digest, true)
+	if denied.Status != Denied || denied.Category != "projection_authority_denied" || len(provider.effects) != 0 {
+		t.Fatalf("stale authority = %#v effects=%v", denied, provider.effects)
+	}
+	if denied.Preview == nil || denied.Preview.Digest == previewed.Preview.Digest {
+		t.Fatalf("issue state did not change digest: before=%#v after=%#v", previewed.Preview, denied.Preview)
 	}
 }
 
@@ -170,12 +188,24 @@ func TestS4ConfirmedProviderEffectThenBookkeepingFailureIsPartial(t *testing.T) 
 	target := s4Target()
 	service.Start(context.Background(), target)
 	transitioned := service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
-	provider.observation = ProjectionObservation{RepositoryLabels: []string{"axiom:stage:specification"}, IssueLabels: []string{"axiom:stage:specification"}}
+	provider.observation.RepositoryLabels = []string{"axiom:stage:specification"}
+	provider.observation.IssueLabels = []string{"axiom:stage:specification"}
 	previewed := service.PrepareProjection(context.Background(), target, transitioned.State.Revision)
 	store.failSaveAt = store.saves + 2
 	result := service.Project(context.Background(), target, transitioned.State.Revision, previewed.Preview.Digest, true)
 	if result.Status != Partial || result.Category != "provider_confirmed_projection_bookkeeping_failed" || provider.commentCount != 1 || store.state.Revision != 2 {
 		t.Fatalf("partial = %#v provider=%#v state=%#v", result, provider, store.state)
+	}
+	if len(store.state.Projections) != 1 || store.state.Projections[0].Complete || len(store.state.Projections[0].Confirmed) != 0 {
+		t.Fatalf("partial ledger = %#v", store.state.Projections)
+	}
+
+	retried := service.Project(context.Background(), target, transitioned.State.Revision, previewed.Preview.Digest, true)
+	if retried.Status != Succeeded || retried.Category != "projection_converged" || provider.commentCount != 1 || provider.effectCount(PostTransitionComment) != 1 {
+		t.Fatalf("retry = %#v provider=%#v", retried, provider)
+	}
+	if len(store.state.Projections) != 1 || !store.state.Projections[0].Complete || len(store.state.Projections[0].Intended) != 1 || len(store.state.Projections[0].Confirmed) != 1 {
+		t.Fatalf("reconciled ledger = %#v", store.state.Projections)
 	}
 }
 
@@ -213,7 +243,7 @@ func newS4Service(t *testing.T) (Service, *s4Store, *s4Projection) {
 	t.Helper()
 	source := newS4Source(t)
 	store := &s4Store{}
-	provider := &s4Projection{}
+	provider := &s4Projection{observation: s4ProjectionObservation()}
 	service := New(
 		s4Resolver{},
 		s4WorkItems{},
@@ -238,6 +268,16 @@ func newS4Source(t *testing.T) provenance.Value {
 
 func s4Target() Target {
 	return Target{ProjectSelector: "sample", RepositoryKey: "main", WorkItem: "7", RuntimeID: "codex"}
+}
+
+func s4ProjectionObservation() ProjectionObservation {
+	return ProjectionObservation{
+		Provider:        "github",
+		Resource:        "owner/repo",
+		IssueExternalID: "7",
+		IssueURL:        "https://github.com/owner/repo/issues/7",
+		IssueState:      "OPEN",
+	}
 }
 
 type s4Resolver struct{}

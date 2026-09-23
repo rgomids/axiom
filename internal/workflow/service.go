@@ -158,8 +158,14 @@ type ProjectionEffect struct {
 	Value string               `json:"value"`
 }
 type ProjectionObservation struct {
-	RepositoryLabels, IssueLabels []string
-	CommentPresent                bool
+	Provider         string   `json:"provider"`
+	Resource         string   `json:"resource"`
+	IssueExternalID  string   `json:"issueExternalId"`
+	IssueURL         string   `json:"issueUrl"`
+	IssueState       string   `json:"issueState"`
+	RepositoryLabels []string `json:"repositoryLabels"`
+	IssueLabels      []string `json:"issueLabels"`
+	CommentPresent   bool     `json:"commentPresent"`
 }
 type ProjectionCapability interface {
 	Inspect(context.Context, WorkItem, string, string) (ProjectionObservation, error)
@@ -183,15 +189,16 @@ type ProjectionError struct {
 func (e *ProjectionError) Error() string { return string(e.Kind) }
 
 type ProjectionPreview struct {
-	ExecutionID       string             `json:"executionId"`
-	ExecutionRevision uint64             `json:"executionRevision"`
-	ProjectionKey     string             `json:"projectionKey"`
-	Stage             Stage              `json:"stage"`
-	Label             string             `json:"label"`
-	Comment           string             `json:"comment"`
-	Effects           []ProjectionEffect `json:"effects"`
-	ObservationDigest string             `json:"observationDigest"`
-	Digest            string             `json:"digest"`
+	ExecutionID       string                `json:"executionId"`
+	ExecutionRevision uint64                `json:"executionRevision"`
+	ProjectionKey     string                `json:"projectionKey"`
+	Stage             Stage                 `json:"stage"`
+	Label             string                `json:"label"`
+	Comment           string                `json:"comment"`
+	Effects           []ProjectionEffect    `json:"effects"`
+	Observation       ProjectionObservation `json:"observation"`
+	ObservationDigest string                `json:"observationDigest"`
+	Digest            string                `json:"digest"`
 }
 
 type Status = completion.Status
@@ -386,35 +393,56 @@ func (s Service) Transition(ctx context.Context, target Target, input Transition
 }
 
 func (s Service) PrepareProjection(ctx context.Context, target Target, expectedRevision uint64) Result {
+	prepared, _ := s.prepareProjection(ctx, target, expectedRevision)
+	return prepared
+}
+
+func (s Service) prepareProjection(ctx context.Context, target Target, expectedRevision uint64) (Result, ProjectionObservation) {
 	if err := ctx.Err(); err != nil {
-		return result(Interrupted, "workflow_cancelled", State{})
+		return result(Interrupted, "workflow_cancelled", State{}), ProjectionObservation{}
 	}
 	state, failed := s.load(ctx, target)
 	if failed.Category != "" {
-		return failed
+		return failed, ProjectionObservation{}
 	}
 	if state.Revision != expectedRevision {
-		return result(Denied, "stale_execution_revision", state)
+		return result(Denied, "stale_execution_revision", state), ProjectionObservation{}
 	}
 	if len(state.Transitions) == 0 || state.Transitions[len(state.Transitions)-1].Revision != expectedRevision {
-		return result(ValidationFailed, "projection_transition_unavailable", state)
+		return result(ValidationFailed, "projection_transition_unavailable", state), ProjectionObservation{}
 	}
 	if s.projection == nil {
-		return result(ValidationFailed, "projection_capability_unavailable", state)
+		return result(ValidationFailed, "projection_capability_unavailable", state), ProjectionObservation{}
 	}
-	preview, err := s.projectionPreview(ctx, state)
+	preview, observation, err := s.projectionPreview(ctx, state)
 	if err != nil {
-		return projectionFailure(err, state, false)
+		return projectionFailure(err, state, false), ProjectionObservation{}
 	}
-	return Result{Status: Succeeded, Category: "projection_preview_ready", State: state, Preview: &preview}
+	return Result{Status: Succeeded, Category: "projection_preview_ready", State: state, Preview: &preview}, observation
 }
 
 func (s Service) Project(ctx context.Context, target Target, expectedRevision uint64, previewDigest string, authorized bool) Result {
-	prepared := s.PrepareProjection(ctx, target, expectedRevision)
+	prepared, observation := s.prepareProjection(ctx, target, expectedRevision)
 	if prepared.Status != Succeeded || prepared.Preview == nil {
 		return prepared
 	}
-	if !authorized || previewDigest == "" || previewDigest != prepared.Preview.Digest {
+	if !authorized || previewDigest == "" {
+		prepared.Status, prepared.Category = Denied, "projection_authority_denied"
+		return prepared
+	}
+	state, found, changed := reconcileProjectionRecord(prepared.State, expectedRevision, observation)
+	if changed {
+		saved := s.save(ctx, state, Succeeded, "projection_effect_reconciled")
+		if saved.Status != Succeeded {
+			return result(Partial, "provider_confirmed_projection_bookkeeping_failed", state)
+		}
+		prepared.State = saved.State
+	}
+	if found && projectionComplete(prepared.State, expectedRevision) && len(prepared.Preview.Effects) == 0 {
+		prepared.Category = "projection_converged"
+		return prepared
+	}
+	if previewDigest != prepared.Preview.Digest {
 		prepared.Status, prepared.Category = Denied, "projection_authority_denied"
 		return prepared
 	}
@@ -422,7 +450,7 @@ func (s Service) Project(ctx context.Context, target Target, expectedRevision ui
 		prepared.Category = "projection_already_converged"
 		return prepared
 	}
-	state := upsertProjection(prepared.State, projectionRecord(prepared.State, *prepared.Preview))
+	state = upsertProjection(prepared.State, projectionRecord(prepared.State, *prepared.Preview))
 	saved := s.save(ctx, state, Succeeded, "projection_intent_recorded")
 	if saved.Status != Succeeded {
 		return saved
@@ -440,6 +468,9 @@ func (s Service) Project(ctx context.Context, target Target, expectedRevision ui
 		observation, inspectErr := s.projection.Inspect(ctx, state.WorkItem, prepared.Preview.Label, prepared.Preview.ProjectionKey)
 		if inspectErr != nil {
 			return projectionFailure(errors.Join(err, inspectErr), state, confirmedAny)
+		}
+		if !validProjectionObservation(state.WorkItem, observation) {
+			return projectionFailure(&ProjectionError{Kind: ProjectionInvalidResponse}, state, confirmedAny)
 		}
 		if !effectObserved(effect, observation) {
 			return projectionFailure(&ProjectionError{Kind: ProjectionInvalidResponse, Retryable: true, Ambiguous: true}, state, confirmedAny)
@@ -525,13 +556,18 @@ func (s Service) save(ctx context.Context, state State, status Status, category 
 	return result(status, category, loaded)
 }
 
-func (s Service) projectionPreview(ctx context.Context, state State) (ProjectionPreview, error) {
+func (s Service) projectionPreview(ctx context.Context, state State) (ProjectionPreview, ProjectionObservation, error) {
 	key := projectionKey(state.ExecutionID, state.Revision)
 	label := stagePrefix + string(state.Stage)
 	observation, err := s.projection.Inspect(ctx, state.WorkItem, label, key)
 	if err != nil {
-		return ProjectionPreview{}, err
+		return ProjectionPreview{}, ProjectionObservation{}, err
 	}
+	if !validProjectionObservation(state.WorkItem, observation) {
+		return ProjectionPreview{}, ProjectionObservation{}, &ProjectionError{Kind: ProjectionInvalidResponse}
+	}
+	observation.RepositoryLabels = sorted(observation.RepositoryLabels)
+	observation.IssueLabels = sorted(observation.IssueLabels)
 	comment := transitionComment(state, key)
 	effects := make([]ProjectionEffect, 0, 4)
 	if !contains(observation.RepositoryLabels, label) {
@@ -553,13 +589,62 @@ func (s Service) projectionPreview(ctx context.Context, state State) (Projection
 	if !observation.CommentPresent {
 		effects = append(effects, ProjectionEffect{Kind: PostTransitionComment, Value: comment})
 	}
-	observationDigest := digest(struct {
-		RepositoryLabels, IssueLabels []string
-		CommentPresent                bool
-	}{sorted(observation.RepositoryLabels), sorted(observation.IssueLabels), observation.CommentPresent})
-	preview := ProjectionPreview{ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, ProjectionKey: key, Stage: state.Stage, Label: label, Comment: comment, Effects: effects, ObservationDigest: observationDigest}
+	observationDigest := digest(observation)
+	preview := ProjectionPreview{ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, ProjectionKey: key, Stage: state.Stage, Label: label, Comment: comment, Effects: effects, Observation: observation, ObservationDigest: observationDigest}
 	preview.Digest = digest(preview)
-	return preview, nil
+	return preview, observation, nil
+}
+
+func reconcileProjectionRecord(state State, revision uint64, observation ProjectionObservation) (State, bool, bool) {
+	for index := range state.Projections {
+		record := &state.Projections[index]
+		if record.ExecutionRevision != revision {
+			continue
+		}
+		changed := false
+		for _, effect := range record.Intended {
+			if containsEffect(record.Confirmed, effect) || !effectObserved(effect, observation) {
+				continue
+			}
+			record.Confirmed = append(record.Confirmed, effect)
+			changed = true
+		}
+		complete := effectsConfirmed(record.Intended, record.Confirmed)
+		if record.Complete != complete {
+			record.Complete = complete
+			changed = true
+		}
+		return state, true, changed
+	}
+	return state, false, false
+}
+
+func projectionComplete(state State, revision uint64) bool {
+	for _, record := range state.Projections {
+		if record.ExecutionRevision == revision {
+			return record.Complete
+		}
+	}
+	return false
+}
+
+func validProjectionObservation(item WorkItem, observation ProjectionObservation) bool {
+	if observation.Provider != item.Provider || observation.Resource != item.Resource || observation.IssueExternalID != item.ExternalID || observation.IssueURL != item.URL || observation.IssueState != "OPEN" && observation.IssueState != "CLOSED" || len(observation.RepositoryLabels) > 100 || len(observation.IssueLabels) > 100 {
+		return false
+	}
+	for _, labels := range [][]string{observation.RepositoryLabels, observation.IssueLabels} {
+		seen := make(map[string]struct{}, len(labels))
+		for _, label := range labels {
+			if label == "" || len(label) > 256 {
+				return false
+			}
+			if _, exists := seen[label]; exists {
+				return false
+			}
+			seen[label] = struct{}{}
+		}
+	}
+	return true
 }
 
 func projectionRecord(state State, preview ProjectionPreview) ProjectionRecord {

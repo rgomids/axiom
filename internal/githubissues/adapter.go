@@ -219,7 +219,16 @@ func (a Adapter) Inspect(ctx context.Context, item workflow.WorkItem, desiredLab
 			present = true
 		}
 	}
-	return workflow.ProjectionObservation{RepositoryLabels: repositoryLabels, IssueLabels: issueLabels, CommentPresent: present}, nil
+	return workflow.ProjectionObservation{
+		Provider:         item.Provider,
+		Resource:         item.Resource,
+		IssueExternalID:  observed.ID,
+		IssueURL:         observed.URL,
+		IssueState:       observed.State,
+		RepositoryLabels: repositoryLabels,
+		IssueLabels:      issueLabels,
+		CommentPresent:   present,
+	}, nil
 }
 
 func (a Adapter) Apply(ctx context.Context, item workflow.WorkItem, effect workflow.ProjectionEffect) error {

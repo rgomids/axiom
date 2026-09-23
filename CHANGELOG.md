@@ -17,6 +17,12 @@
 - evidence: record deterministic S4 Evidence. The required bounded real-provider
   projection observation remains behind separate exact human authority; no human
   acceptance or S5+ authority is inferred.
+- fix: bind projection authority to exact Provider/resource and observed Issue
+  identity, URL, state, labels, and comment presence so external Issue-state
+  changes invalidate stale authority before Provider effects.
+- fix: reconcile previously intended Provider effects into the local
+  Intended/Confirmed ledger before planning new mutations, allowing a confirmed
+  effect plus bookkeeping failure to converge without duplicate mutation.
 
 - fix: reserve a protected durable create-attempt fence before GitHub POST;
   ambiguous or unknown outcomes now remain reconciliation-only across process

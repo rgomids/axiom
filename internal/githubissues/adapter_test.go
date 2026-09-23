@@ -74,6 +74,38 @@ esac
 	}
 }
 
+func TestInspectReturnsExactIssueIdentityStateAndProjectionFacts(t *testing.T) {
+	directory := t.TempDir()
+	gh := filepath.Join(directory, "gh")
+	projectionKey := strings.Repeat("a", 64)
+	script := `#!/bin/sh
+case "$*" in
+  *issues/7/comments*) printf '%s\n' '[{"body":"<!-- axiom:workflow-projection:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->"}]' ;;
+  *issues/7*) printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"closed","labels":[{"name":"external"}]}' ;;
+  *repos/owner/repo/labels*) printf '%s\n' '[{"name":"axiom:stage:specification"}]' ;;
+  *) exit 1 ;;
+esac
+`
+	if err := os.WriteFile(gh, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	adapter, err := New(gh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := workflow.WorkItem{Provider: "github", Resource: "owner/repo", ExternalID: "7", URL: "https://github.com/owner/repo/issues/7", State: "OPEN"}
+	observation, err := adapter.Inspect(context.Background(), item, "axiom:stage:specification", projectionKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if observation.Provider != "github" || observation.Resource != "owner/repo" || observation.IssueExternalID != "7" || observation.IssueURL != item.URL || observation.IssueState != "CLOSED" {
+		t.Fatalf("identity/state = %#v", observation)
+	}
+	if len(observation.RepositoryLabels) != 1 || observation.RepositoryLabels[0] != "axiom:stage:specification" || len(observation.IssueLabels) != 1 || observation.IssueLabels[0] != "external" || !observation.CommentPresent {
+		t.Fatalf("projection facts = %#v", observation)
+	}
+}
+
 func TestAdapterStrictlyRejectsMismatchedResponseAndStructuredRateLimit(t *testing.T) {
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")

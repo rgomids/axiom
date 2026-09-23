@@ -35,9 +35,11 @@ and technical checks do not imply human acceptance.
 
 ### T12–T13 — post-commit projection and convergence
 
-- `workflow reconcile` first reads bounded repository labels, exact Issue state,
-  Issue labels, and comments, then returns a digest-bound preview. Preparing the
-  preview performs no mutation.
+- `workflow reconcile` first reads and binds exact Provider, repository/resource,
+  Issue external ID, URL, state, bounded repository labels, Issue labels, and
+  projection-comment presence, then returns a digest-bound preview. Preparing
+  the preview performs no mutation. An external OPEN/CLOSED state change alters
+  the observation and preview digests, invalidating stale mutation authority.
 - Exact authority binds Work Item, committed Execution revision, stable projection
   key, current stage label, provenance-marked bounded comment, observation, and
   ordered effect set.
@@ -46,8 +48,11 @@ and technical checks do not imply human acceptance.
   most one comment for the Execution revision. It never advances local truth.
 - Intended effects are persisted before Provider calls. Every successful or
   ambiguous mutation is reinspected before confirmation is recorded. Replays
-  reconcile the same stable key; confirmed Provider effect followed by local
-  bookkeeping failure is canonical `partial`.
+  first reconcile previously Intended but unconfirmed effects from the current
+  Provider observation, persist Confirmed/Complete, and only then determine
+  whether new Provider effects remain. A confirmed effect followed by local
+  bookkeeping failure is canonical `partial`; retry converges the ledger without
+  repeating the mutation or duplicating the projection comment.
 - Provider execution remains bounded by the existing absolute `gh` process,
   15-second deadline, 256 KiB captured-output limit, JSON stdin, strict response
   identity/state/content checks, and closed error taxonomy.
@@ -67,18 +72,21 @@ and technical checks do not imply human acceptance.
 | crash at staged/committed publication boundaries | killed helper process | reader fails closed with `recovery_required` |
 | F0–F8 local-store faults | deterministic publication hooks | prior truth or preserved uncertain marker; no mixed reader |
 | missing/stale projection authority | preview digest tests | zero Provider mutation |
+| Issue OPEN after preview becomes CLOSED | exact fake observation identity/state | digest changes; old authority denied; zero Provider effects |
 | foreign and obsolete stage labels | fake Provider ledger | foreign label preserved; only Axiom-owned obsolete label removed |
 | ambiguous Provider response | apply-then-error fake plus reinspection | effect confirmed once; no duplicate mutation |
 | success response without observable effect | apply fake plus bounded read | retryable reconcile; effect not falsely confirmed |
 | Provider unavailable | inspect failure | local transition remains authoritative and unchanged |
-| confirmed comment plus local save failure | Provider/store fault seams | canonical `partial` with preserved intended ledger |
+| confirmed comment plus local save failure | Provider/store fault seams | canonical `partial`; retry records Confirmed, sets Complete, and does not repost comment |
 | installed-binary dogfood | isolated Project/state/fake `gh` | complete local workflow plus one authorized fake projection converges |
 
 ## Commands executed
 
 Deterministic validation ran on macOS 27.0/arm64 with Go 1.26.1 from branch
-`agent/s4-workflow-provider-projection`, based on `c37a297cb3ee698ca7da0cce51ea98acf2f776f6`.
-Every command below exited `0`:
+`agent/s4-workflow-provider-projection`. Initial S4 delivery was based on
+`c37a297cb3ee698ca7da0cce51ea98acf2f776f6`; review remediation was validated
+from PR head `02facfb0e6532751578451236c589346521cc38d` plus the focused working-tree
+changes recorded by this Evidence. Every command below exited `0`:
 
 ```bash
 go test ./internal/workflow ./internal/local ./internal/githubissues ./cmd/lingo
@@ -86,8 +94,12 @@ bash scripts/dogfood-poc.sh
 go test ./...
 go test -race ./...
 go vet ./...
+go build ./...
+go mod verify
+go test -shuffle=on -count=10 ./internal/workflow ./internal/local ./internal/githubissues
 ./scripts/validate-repository.sh .
 ./scripts/check-sensitive-files.sh .
+./scripts/check-sensitive-files.sh --staged .
 git diff --check
 ```
 
@@ -99,7 +111,7 @@ the projection key is written separately below to keep its digest classification
 explicit during secret scanning:
 
 ```json
-{"evidenceVersion":1,"evidence":"axiom_e2e_dogfood","cwdIndependent":true,"globalSkillCount":5,"workItem":7,"executionId":"5aeddfc3-8de9-4cba-bb0f-aef1ce3ac07d","revision":13,"workflow":"completed","projectionKey":"recorded below","projectionDigest":"8896312d16d71f82c4d21e4815233e3fc060d96ead08d63d8524e0d477aa7860","binarySha256":"0020fc807e99c1acf540b0984d33f5563e18bba4cdaa07e015b04c7503fe1502","workflowSha256":"185b61ae5ff7558b90ba28b016de6386b90f272e50419074947e0aeea9152190","result":"pass"}
+{"evidenceVersion":1,"evidence":"axiom_e2e_dogfood","cwdIndependent":true,"globalSkillCount":5,"workItem":7,"executionId":"307c7248-4d99-447d-902c-a98de408a4e6","revision":13,"workflow":"completed","projectionKey":"recorded below","projectionDigest":"8d2b3da0fa3845894c165e79a271e047e3c7b0a201fed46413841b242503f41f","binarySha256":"259e647e00a102aef8602fe3bd2e68dcaa48da3924031769778b2c1a8b6383dd","workflowSha256":"fa73975a6480ab691f0a83be2cc44ba4d11aad1979545032951cb46696e9cf08","result":"pass"}
 ```
 
 That run used this exact local transition matrix:
@@ -123,7 +135,7 @@ That run used this exact local transition matrix:
 At revision 6 the fake Provider before-state contained no stage label and no
 projection comment. Exact fake-Provider authority converged to one
 `axiom:stage:implementation` label and one comment carrying projection marker
-`a721ff5eef76fa618e9032eaeeff5b7fc0137ad291798b9556ecacb68d90a93d`.
+`d0d66d7194019d8a82c9512cbb9675b9e54f0b57a3aea9713f6a156ad598eca4`.
 The persisted local projection record contained the ordered intended effects and
 the same confirmed set. Reinspection after every fake effect and a final replay
 preview observed zero remaining effects. These are deterministic fake-Provider
