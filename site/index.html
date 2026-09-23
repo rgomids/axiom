@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,16 +22,6 @@
 <link rel="icon" href="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo.png" type="image/png">
 <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo.png">
 <link rel="stylesheet" href="styles.css">
-
-<!-- Applied before first paint so the stored theme never flashes. -->
-<script>
-  try {
-    var stored = localStorage.getItem('axiom-theme');
-    /* #86: dark is the default. The OS preference is never used as the
-       initial theme; only an explicit stored choice can select light. */
-    document.documentElement.setAttribute('data-theme', stored === 'light' ? 'light' : 'dark');
-  } catch (e) {}
-</script>
 </head>
 <body>
 
@@ -48,18 +38,7 @@
     <nav class="header-nav" aria-label="Primary">
       <a class="nav-link" href="https://github.com/rgomids/axiom">GitHub</a>
       <a class="nav-link" href="https://github.com/rgomids/axiom#documentation">Documentation</a>
-      <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme">
-        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-          <path fill="currentColor" d="M20.7 14.6A8.6 8.6 0 0 1 9.4 3.3a1 1 0 0 0-1.3-1.2 10.6 10.6 0 1 0 13.8 13.8 1 1 0 0 0-1.2-1.3Z"/>
-        </svg>
-        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-          <circle cx="12" cy="12" r="4.2" fill="currentColor"/>
-          <g stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-            <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.2 5.2l1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2l-1.6 1.6"/>
-          </g>
-        </svg>
-      </button>
-    </nav>
+nav>
   </div>
 </header>
 
@@ -251,7 +230,6 @@
   </div>
 </footer>
 
-<script src="app.js" defer></script>
 <script src="rain.js" defer></script>
 </body>
 </html>

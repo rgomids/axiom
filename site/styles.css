@@ -1,6 +1,6 @@
 /* ===========================================================================
    Axiom — bootstrap landing page
-   Dark is the default theme; [data-theme="light"] overrides the tokens only.
+   Dark is the only theme. There is no light palette and no theme switch.
    =========================================================================== */
 
 :root {
@@ -34,49 +34,10 @@
   --radius: 14px;
   --radius-sm: 9px;
 
-  --logo-blend: screen;
-  --logo-plate: transparent;
-  --logo-pad: 0px;
-
   --rain-color: rgba(61, 220, 132, 0.52);
   --rain-glow:  rgba(61, 220, 132, 0.35);
 
   color-scheme: dark;
-}
-
-[data-theme="light"] {
-  --bg:            #f7f9f8;
-  --bg-raised:     #ffffff;
-  --surface:       #ffffff;
-  --surface-hover: #f1f5f3;
-  --border:        #dde5e1;
-  --border-strong: #c3d1ca;
-
-  --text:          #0c1512;
-  --text-muted:    #53655c;
-  --text-faint:    #6d7f76;
-
-  --accent:        #0f8a4a;
-  --accent-strong: #0b6f3b;
-  --accent-ink:    #ffffff;
-  --accent-soft:   rgba(15, 138, 74, 0.09);
-  --accent-line:   rgba(15, 138, 74, 0.26);
-  --glow:          rgba(15, 138, 74, 0.10);
-
-  --amber:         #8a6410;
-  --amber-soft:    rgba(138, 100, 16, 0.10);
-
-  /* The brand assets ship on a black background: on light surfaces they get
-     their own dark plate instead of being blended into the page. */
-  --logo-blend: normal;
-  --logo-plate: #05080a;
-  --logo-pad: 6px;
-
-  /* Black glyphs on light surfaces, kept faint so copy stays readable. */
-  --rain-color: rgba(8, 14, 11, 0.32);
-  --rain-glow:  transparent;
-
-  color-scheme: light;
 }
 
 /* --------------------------------------------------------------------- base */
@@ -243,9 +204,7 @@ code {
   height: 62px;
   width: auto;
   object-fit: contain;
-  mix-blend-mode: var(--logo-blend);
-  background: var(--logo-plate);
-  padding: var(--logo-pad);
+  mix-blend-mode: screen;
   border-radius: var(--radius-sm);
 }
 
@@ -268,29 +227,6 @@ code {
   text-decoration: none;
 }
 
-.theme-toggle {
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  margin-left: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-.theme-toggle:hover {
-  color: var(--accent);
-  border-color: var(--accent-line);
-}
-.theme-toggle svg { grid-area: 1 / 1; }
-
-.icon-sun { display: none; }
-[data-theme="light"] .icon-moon { display: none; }
-[data-theme="light"] .icon-sun { display: block; }
-
 /* --------------------------------------------------------------------- hero */
 
 .hero {
@@ -309,9 +245,7 @@ code {
   max-width: 100%;
   aspect-ratio: 1;
   object-fit: contain;
-  mix-blend-mode: var(--logo-blend);
-  background: var(--logo-plate);
-  padding: var(--logo-pad);
+  mix-blend-mode: screen;
   border-radius: 16px;
   filter: drop-shadow(0 0 30px var(--glow));
 
