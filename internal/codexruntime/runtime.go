@@ -28,11 +28,11 @@ var skillNames = []string{
 }
 
 var legacySkillDigests = map[string][]string{
-	"axiom-project-configure": {"87dc55d4a459d4abf70bb53c7f91695da9cbae18da3a5afd6112f964062b5b9c", "b9d55306f7f4e1b33b7606c4327f94cf18dd12287536be7f27d61f8f9a95dc1e"},
-	"axiom-project-show":      {"594fc02985f5884c780b2c584c6774424bb63c5234ee2f32e5800002cd3c5c02"},
-	"axiom-work-item-create":  {"556fff5e6b38d204bd4acd6a37f74a23da33c88409a7fbc91c9ccfaf3d70c493"},
-	"axiom-work-item-run":     {"35bf4d66efa1a182479579f882a408f9b394c32e5b0e02d7dfbf8ef9d129c59b"},
-	"axiom-work-item-status":  {"009ab0f59c2992c79ca7732a2d451f2b652e4afd94697afd02572bb75ec3db0b"},
+	"axiom-project-configure": {"d481dc61ecd7a9afd1ffd0a79908515f15f04a75002a7d501eea5517f1f4844e", "87dc55d4a459d4abf70bb53c7f91695da9cbae18da3a5afd6112f964062b5b9c", "b9d55306f7f4e1b33b7606c4327f94cf18dd12287536be7f27d61f8f9a95dc1e"},
+	"axiom-project-show":      {"a80b3038c497fe3f3b817e5d5d28bca68de96d9ceaf76630f08ad1e34c5db0f4", "594fc02985f5884c780b2c584c6774424bb63c5234ee2f32e5800002cd3c5c02"},
+	"axiom-work-item-create":  {"fe9c6ce1817f5246e749c7ab03d74cf41db07ed5678a07065d90940572dc12d3", "556fff5e6b38d204bd4acd6a37f74a23da33c88409a7fbc91c9ccfaf3d70c493"},
+	"axiom-work-item-run":     {"a75f21684d38f325840461fbe8e959ed9fd2b925ac630c7d471147fdfef124dd", "35bf4d66efa1a182479579f882a408f9b394c32e5b0e02d7dfbf8ef9d129c59b"},
+	"axiom-work-item-status":  {"4fbb6fda699dc50af88f96355cb9cbed05dbebf34a7ed3218bc26b72b7fd60c7", "009ab0f59c2992c79ca7732a2d451f2b652e4afd94697afd02572bb75ec3db0b"},
 }
 
 const (

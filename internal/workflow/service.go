@@ -92,7 +92,7 @@ type WorkItem struct {
 	URL, State                     string
 }
 type WorkItems interface {
-	Load(context.Context, string, string, string) (WorkItem, error)
+	Load(context.Context, string, string, string, string, string) (WorkItem, error)
 }
 
 type Identity struct{ Product, Version, Revision, SourceState string }
@@ -219,7 +219,11 @@ type Result struct {
 	State    State
 	Preview  *ProjectionPreview
 }
-type Target struct{ ProjectSelector, RepositoryKey, WorkItem, RuntimeID string }
+type Target struct {
+	ProjectSelector, RepositoryKey               string
+	WorkItemProvider, WorkItemResource, WorkItem string
+	ExecutionID, RuntimeID                       string
+}
 type TransitionInput struct {
 	ExpectedRevision uint64
 	Stage            Stage
@@ -254,6 +258,9 @@ func New(resolver Resolver, workItems WorkItems, store Store, projection Project
 func (s Service) Start(ctx context.Context, target Target) Result {
 	if err := ctx.Err(); err != nil {
 		return result(Interrupted, "workflow_cancelled", State{})
+	}
+	if target.ExecutionID != "" {
+		return result(ValidationFailed, "execution_selector_conflict", State{})
 	}
 	project, repository, item, failed := s.resolve(ctx, target)
 	if failed.Category != "" {
@@ -504,7 +511,7 @@ func (s Service) resolve(ctx context.Context, target Target) (Project, Repositor
 	if repository.Key == "" {
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "repository_not_configured", State{})
 	}
-	item, err := s.workItems.Load(ctx, target.ProjectSelector, target.RepositoryKey, target.WorkItem)
+	item, err := s.workItems.Load(ctx, target.ProjectSelector, target.RepositoryKey, target.WorkItemProvider, target.WorkItemResource, target.WorkItem)
 	if err != nil || !validWorkItem(item) {
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "work_item_not_linked", State{})
 	}
@@ -530,6 +537,9 @@ func (s Service) loadResolved(ctx context.Context, target Target) (State, Reposi
 	}
 	if !equivalentStart(state, project.ID, repository.Key, item, target.RuntimeID) {
 		return State{}, Repository{}, result(ValidationFailed, "execution_scope_conflict", state)
+	}
+	if target.ExecutionID != "" && state.ExecutionID != target.ExecutionID {
+		return State{}, Repository{}, result(ValidationFailed, "execution_selector_conflict", State{})
 	}
 	return state, repository, Result{}
 }

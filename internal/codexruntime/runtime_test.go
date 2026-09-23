@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,32 @@ import (
 	"testing"
 	"time"
 )
+
+func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
+	if SkillSetVersion != "2" || BinaryCompatibility != "2" {
+		t.Fatalf("compatibility=%s/%s", SkillSetVersion, BinaryCompatibility)
+	}
+	for _, name := range skillNames {
+		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(content)
+		for _, required := range []string{"lingo --json", "`status`", "`result`", "`references`", "`next`", "`details`", "`provenance`"} {
+			if !strings.Contains(text, required) {
+				t.Fatalf("%s missing thin adapter contract %q", name, required)
+			}
+		}
+	}
+	for _, name := range []string{"axiom-work-item-run", "axiom-work-item-status"} {
+		content, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		for _, required := range []string{"--project", "--repository", "--work-item", "--execution", "github:<owner>/<repository>#<number>"} {
+			if !strings.Contains(string(content), required) {
+				t.Fatalf("%s missing selector %q", name, required)
+			}
+		}
+	}
+}
 
 func TestEmbeddedSkillsUseSupportedNamesAndThinEntrypoints(t *testing.T) {
 	validName := regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -347,7 +374,7 @@ func TestInspectReportsBinaryCompatibilityAndPartialResume(t *testing.T) {
 	if got := service.Install(context.Background()); got.Status != Applied {
 		t.Fatalf("resume = %#v", got)
 	}
-	incompatible, err := NewForBinary(root, "2")
+	incompatible, err := NewForBinary(root, "3")
 	if err != nil {
 		t.Fatal(err)
 	}

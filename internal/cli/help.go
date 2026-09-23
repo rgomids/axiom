@@ -25,6 +25,16 @@ Stable Codex skill mapping:
 Use --json for machine-readable output. Default and --human output are readable
 status summaries. Mutation authority remains explicit through
 --authorize-external or --authorize-local.
+
+Strict selector vocabulary:
+  --project <project-uuid-or-slug>
+  --repository <project-scoped-key>
+  --work-item github:<owner>/<repository>#<number>
+  --execution <execution-id> (all workflow operations except start)
+
+Fully specified selectors require no prompt. Missing selectors may be prompted;
+unknown, duplicate, conflicting, or ambiguous selectors fail validation without
+CWD, Git, Provider, or Runtime fallback.
 `
 
 func Help(writer io.Writer) int {

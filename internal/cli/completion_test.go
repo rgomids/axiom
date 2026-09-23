@@ -101,6 +101,26 @@ func TestCompletionOutputIsBounded(t *testing.T) {
 	}
 }
 
+func TestCompletionPreservesStableDetailReferenceAcrossRenderers(t *testing.T) {
+	statement, err := provenance.NewText("diagnostic available", provenance.AxiomAuthored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := completion.New(completion.Facts{Completed: true}, statement, nil, provenance.Text{}, "artifact:123e4567-e89b-42d3-a456-426614174000", completionProvenance(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		format CompletionFormat
+		want   string
+	}{{CompletionJSON, `"details":"artifact:123e4567-e89b-42d3-a456-426614174000"`}, {CompletionHuman, "details: artifact:123e4567-e89b-42d3-a456-426614174000"}} {
+		var output bytes.Buffer
+		if code := WriteCompletion(&output, test.format, result); code != ExitSuccess || !strings.Contains(output.String(), test.want) {
+			t.Fatalf("%s code=%d output=%q", test.format, code, output.String())
+		}
+	}
+}
+
 func TestWorkItemPreviewWithWorstCaseEscapingRemainsBounded(t *testing.T) {
 	content := strings.Repeat(`"\\<>`, 4*1024)
 	preview := &workitem.DraftPreview{

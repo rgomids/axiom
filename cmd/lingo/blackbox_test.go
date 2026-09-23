@@ -126,8 +126,9 @@ type canonicalEvent struct {
 		URL, State, ExternalID string
 	} `json:"workItem"`
 	Workflow *struct {
-		ExecutionID, Status, CurrentGate string
-		Revision                         uint64
+		ExecutionID, Status, CurrentGate, RepositoryKey string
+		Revision                                        uint64
+		WorkItem                                        struct{ Resource string }
 	} `json:"workflow"`
 	Projection *struct {
 		Digest, ProjectionKey string
@@ -144,11 +145,13 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	portable := filepath.Join(t.TempDir(), "portable")
 	state := filepath.Join(t.TempDir(), "state")
 	skills := filepath.Join(t.TempDir(), "skills")
+	unrelatedCWD := t.TempDir()
 	environment := append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+skills)
 	run := func(wantCode int, wantStatus, wantCategory string, args ...string) cliEvent {
 		t.Helper()
 		command := exec.Command(binary, append([]string{"--json"}, args...)...)
 		command.Env = environment
+		command.Dir = unrelatedCWD
 		output, err := command.CombinedOutput()
 		code := 0
 		if err != nil {
@@ -171,6 +174,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		t.Helper()
 		command := exec.Command(binary, append([]string{"--json"}, args...)...)
 		command.Env = environment
+		command.Dir = unrelatedCWD
 		output, err := command.CombinedOutput()
 		code := 0
 		if err != nil {
@@ -296,6 +300,47 @@ exit 0
 	started := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "start", "--project", "configured", "--repository", "main", "--number", "7")
 	if started.Workflow == nil || started.Workflow.ExecutionID == "" || started.Workflow.CurrentGate != "intake" || started.Workflow.Revision != 1 {
 		t.Fatalf("started workflow = %+v", started.Workflow)
+	}
+	exactWorkItem := "github:owner/repo#7"
+	runCanonical(0, "success", "Work Item link loaded", "work-item", "show", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem)
+	exactStatus := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
+	if exactStatus.Workflow == nil || exactStatus.Workflow.ExecutionID != started.Workflow.ExecutionID || exactStatus.Workflow.WorkItem.Resource != "owner/repo" || exactStatus.Workflow.RepositoryKey != "main" {
+		t.Fatalf("exact selector result = %+v", exactStatus.Workflow)
+	}
+	fullySpecified := exec.Command(binary, "--json", "workflow", "status", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
+	fullySpecified.Env = environment
+	fullySpecified.Dir = unrelatedCWD
+	var fullOutput, fullPrompts bytes.Buffer
+	fullySpecified.Stdout = &fullOutput
+	fullySpecified.Stderr = &fullPrompts
+	if err := fullySpecified.Run(); err != nil || fullPrompts.Len() != 0 {
+		t.Fatalf("full selector err=%v prompts=%q output=%s", err, fullPrompts.String(), fullOutput.String())
+	}
+	partial := exec.Command(binary, "--json", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem)
+	partial.Env = environment
+	partial.Dir = unrelatedCWD
+	partial.Stdin = strings.NewReader(started.Workflow.ExecutionID + "\n")
+	var partialOutput, partialPrompts bytes.Buffer
+	partial.Stdout = &partialOutput
+	partial.Stderr = &partialPrompts
+	if err := partial.Run(); err != nil || partialPrompts.String() != "Execution ID: " {
+		t.Fatalf("partial err=%v prompts=%q output=%s", err, partialPrompts.String(), partialOutput.String())
+	}
+	executionRecords, err := filepath.Glob(filepath.Join(state, "executions", "v1", preview.Setup.ProjectID, "*.json"))
+	if err != nil || len(executionRecords) != 1 {
+		t.Fatalf("execution records=%v err=%v", executionRecords, err)
+	}
+	beforeInvalid, err := os.ReadFile(executionRecords[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem, "--execution", "018f4a44-7c31-7dd4-9d00-222222222222")
+	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "missing", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
+	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", "github:owner/repo#999", "--execution", started.Workflow.ExecutionID)
+	runCanonical(1, "validation_failure", "Explicit selector input is invalid", "workflow", "status", "--project", "configured", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
+	afterInvalid, err := os.ReadFile(executionRecords[0])
+	if err != nil || !bytes.Equal(beforeInvalid, afterInvalid) {
+		t.Fatalf("invalid selector changed execution: %v", err)
 	}
 	revision := uint64(1)
 	for _, gate := range []string{"intake", "specification", "clarification", "plan", "tasks"} {
