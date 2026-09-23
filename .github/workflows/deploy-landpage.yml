@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'landing_page/**'
+      - 'docs/assets/**'
       - '.github/workflows/deploy-landpage.yml'
   workflow_dispatch:
 
@@ -28,6 +29,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/configure-pages@v5
+
+      # docs/assets/ é a fonte única dos logos; o site os consome em assets/.
+      # Copiar aqui evita manter uma segunda cópia versionada no repositório.
+      - name: Assemble landing page assets
+        run: |
+          mkdir -p landing_page/assets
+          cp docs/assets/axiom-logo.png docs/assets/axiom-logo-github.png landing_page/assets/
 
       - uses: actions/upload-pages-artifact@v3
         with:
