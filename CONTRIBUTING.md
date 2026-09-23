@@ -30,6 +30,30 @@ go test ./...
 4. Update only affected documentation and include verifiable Evidence: commands, outcomes, and known limits. Raw claims of completion are insufficient.
 5. Run the relevant checks below, inspect the diff, and submit a PR for review. Address review feedback within the agreed scope.
 
+## Commit messages
+
+Use this format for commits in the final review history:
+
+```text
+<type>(<optional-scope>): <concise description>
+```
+
+Accepted types are `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`, `chore`, and `security`. The scope is optional; use it only when it improves understanding.
+
+Examples:
+
+```text
+feat(web): add bootstrap landing page
+fix(pages): correct deployment artifact path
+docs(contributing): define commit message requirements
+ci(pages): deploy static site to GitHub Pages
+security(filesystem): reject unsafe destination ownership
+```
+
+Each commit must represent one coherent unit of change. Its subject must explain the observable purpose, not merely identify modified files. Generic messages such as `wip`, `update`, `changes`, `fix`, `misc`, `added stuff`, or equivalents are not acceptable in final history. Do not group unrelated changes in one commit.
+
+Temporary `fixup!`, `squash!`, or WIP commits may exist during local development, but squash or reword them before requesting review. Add a body when the subject alone does not make the context or rationale clear; small, self-explanatory commits do not need one.
+
 ## Validation
 
 Run commands directly from the repository root. The [command reference](docs/commands.md) explains their scope and offline options.
@@ -49,15 +73,29 @@ Before every commit, inspect staged paths and content and run `./scripts/check-s
 
 ## Pull requests
 
-Use the [PR template](.github/PULL_REQUEST_TEMPLATE.md) and provide:
+Use the [PR template](.github/PULL_REQUEST_TEMPLATE.md). A PR without a description is not ready for review. Replace every template placeholder with real information or an objective explanation of why that item is not applicable. The description must provide:
 
 - context and the problem being solved;
 - scope and non-goals;
 - related Issue, Specification, or ADR when applicable;
-- validations executed and their results;
+- validations executed, their results, and reproducible Evidence;
 - documentation and security impact;
 - known limitations;
 - confirmation that unrelated changes are absent.
+
+CI results do not replace Evidence or the context required in the PR description. Before requesting review, the author must inspect the PR title, description, and commit history.
+
+### Ready for review
+
+A PR is ready for review only when, at minimum:
+
+1. its description is complete;
+2. its scope is coherent;
+3. relevant Issue, Specification, and ADR references are linked;
+4. applicable validations and Evidence are recorded;
+5. known limitations are declared;
+6. temporary or WIP commits are cleaned up; and
+7. the diff contains no unrelated changes.
 
 A technical merge does not establish human acceptance. Acceptance does not automatically authorize the next Task. Contributions may be declined, split, or reformulated during review. Required explicit authorization must be recorded before work proceeds.
 
