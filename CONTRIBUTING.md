@@ -24,11 +24,33 @@ cd axiom
 go test ./...
 ```
 
-1. Create a small, focused branch for the discussed scope.
+1. Create a small, focused branch for the discussed scope, following the branch naming convention below.
 2. Consult affected contracts; add or adjust tests appropriate to the change, using test-first development where useful.
 3. Keep commits coherent. Do not mix unrelated refactors or changes.
 4. Update only affected documentation and include verifiable Evidence: commands, outcomes, and known limits. Raw claims of completion are insufficient.
 5. Run the relevant checks below, inspect the diff, and submit a PR for review. Address review feedback within the agreed scope.
+
+## Branch names
+
+Use this format:
+
+```text
+<category>/<concise-kebab-case-description>
+```
+
+Use a lowercase category that identifies the kind of work or its bounded delivery context. Prefer the commit types below when they fit. Categories such as `agent`, `issue`, `impl`, `release`, and `poc` are also acceptable when they make the workflow context clearer.
+
+Examples:
+
+```text
+agent/s3-intent-work-item
+docs/spec-004-tasks-approval
+issue/62-mvp-specification
+fix/pages-deployment-artifact
+security/filesystem-destination-ownership
+```
+
+Use lowercase ASCII letters, digits, and hyphens; do not use spaces or underscores. Include a relevant Issue, Specification, Task, or Slice identifier when it improves traceability, but do not invent one when none applies. Avoid vague names such as `changes`, `update`, `wip`, or `my-branch`. Each branch must represent one coherent scope, and its name never grants implementation or external-effect authorization.
 
 ## Commit messages
 
