@@ -7,25 +7,29 @@
 <meta name="description" content="Axiom is an AI-assisted software development control plane. It keeps specifications, decisions, implementation, and evidence connected across agents, repositories, and sessions.">
 <link rel="canonical" href="https://rgomids.github.io/axiom/">
 
+<!-- Identity assets are reused from their canonical versioned location,
+     docs/assets/, through raw.githubusercontent.com absolute URLs.
+     They are never copied into site/. -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Axiom — Keep intent, decisions, code, and evidence connected">
 <meta property="og:description" content="An AI-assisted software development control plane built around Spec-Driven Development: specifications, plans, bounded execution, and reproducible evidence.">
-<meta property="og:image" content="https://rgomids.github.io/axiom/assets/axiom-logo-github.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-github.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Axiom — Keep intent, decisions, code, and evidence connected">
 <meta name="twitter:description" content="An AI-assisted software development control plane built around Spec-Driven Development.">
-<meta name="twitter:image" content="https://rgomids.github.io/axiom/assets/axiom-logo-github.png">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-github.png">
 
-<link rel="icon" href="https://github.com/rgomids/axiom/blob/main/docs/assets/axiom-logo.png" type="image/png">
-<link rel="apple-touch-icon" href="https://github.com/rgomids/axiom/blob/main/docs/assets/axiom-logo.png">
+<link rel="icon" href="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo.png" type="image/png">
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo.png">
 <link rel="stylesheet" href="styles.css">
 
 <!-- Applied before first paint so the stored theme never flashes. -->
 <script>
   try {
     var stored = localStorage.getItem('axiom-theme');
-    var theme = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-    document.documentElement.setAttribute('data-theme', theme);
+    /* #86: dark is the default. The OS preference is never used as the
+       initial theme; only an explicit stored choice can select light. */
+    document.documentElement.setAttribute('data-theme', stored === 'light' ? 'light' : 'dark');
   } catch (e) {}
 </script>
 </head>
@@ -38,7 +42,7 @@
 <header class="site-header">
   <div class="shell header-inner">
     <a class="brand" href="#top" aria-label="Axiom — home">
-      <img class="brand-mark" src="https://github.com/rgomids/axiom/blob/main/docs/assets/axiom-logo-github.png" alt="Axiom" width="1989" height="789" decoding="async">
+      <img class="brand-mark" src="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-github.png" alt="Axiom" width="1983" height="793" decoding="async">
     </a>
 
     <nav class="header-nav" aria-label="Primary">
@@ -63,7 +67,7 @@
 
   <section class="hero" id="top">
     <div class="shell hero-inner">
-      <img class="hero-logo" src="https://github.com/rgomids/axiom/blob/main/docs/assets/axiom-logo.png" alt="" width="1244" height="1244" decoding="async">
+      <img class="hero-logo" src="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo.png" alt="" width="1254" height="1254" decoding="async">
 
       <p class="eyebrow"><span class="dot"></span>Open source · Under active development</p>
 

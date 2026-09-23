@@ -50,3 +50,10 @@ Contexto resumido para agentes: [../../.agents/context/axiom-product.md](../../.
   — Proposed, voltada ao harness.
 - [Dogfooding 001 — Go Pull Request Review Agent](dogfooding/001-go-pr-review-agent.md)
   — evidência do harness.
+
+## Superfícies públicas
+
+- [Landing page](https://rgomids.github.io/axiom/) — página pública versionada em
+  `site/`, publicada no GitHub Pages. Instruções de desenvolvimento local no
+  [README](../../README.md#website); registro reproduzível em
+  [Evidence da landing page](evidence-landing-page.md).

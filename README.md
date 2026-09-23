@@ -135,6 +135,7 @@ See the [architecture overview](docs/architecture/README.md),
 | Delivery | [Specifications and Evidence](docs/specifications/README.md) |
 | Research | [Research index](docs/research/README.md) |
 | Development | [Getting Started](docs/development/getting-started.md) · [Commands](docs/commands.md) |
+| Website | [Landing page](https://rgomids.github.io/axiom/) · [Local development](#website) · [Acceptance Evidence](docs/product/evidence-landing-page.md) |
 | Community | [Contributing](CONTRIBUTING.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [Support](SUPPORT.md) |
 | Security | [Security policy](SECURITY.md) · [Repository security](docs/security/repository-security.md) |
 | History | [Changelog](CHANGELOG.md) |
@@ -144,6 +145,29 @@ provides product discovery and research context. Versioned repository artifacts
 own technical contracts, decisions, and implementation evidence. Discovery does
 not imply approval.
 
+## Website
+
+The public landing page is published at <https://rgomids.github.io/axiom/>. It is
+served from [`site/`](site/) by
+[the Pages workflow](.github/workflows/deploy-landpage.yml) on every push to `main`
+that touches those files.
+
+Serve it locally with any static file server:
+
+```bash
+python3 -m http.server 8000 --directory site
+```
+
+Then open <http://localhost:8000>.
+
+The identity assets are not duplicated under `site/`. `docs/assets/` remains their
+only versioned location, and the page loads them through the absolute raw URLs
+`https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo.png`
+and `.../axiom-logo-github.png`, so the local server renders exactly what GitHub
+Pages renders. Reproducible checks:
+[`./scripts/validate-landing-page.sh .`](scripts/validate-landing-page.sh) and the
+[landing page Evidence](docs/product/evidence-landing-page.md).
+
 ## Repository structure
 
 ```text
@@ -151,6 +175,7 @@ not imply approval.
 docs/      Product, architecture, specifications, decisions, and research
 internal/  Go implementation and tests
 scripts/   Repository, security, release, and validation tooling
+site/      Public landing page published to GitHub Pages
 ```
 
 ## Contributing

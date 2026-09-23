@@ -135,6 +135,7 @@ Consulte a [visão geral da arquitetura](architecture/README.md), o
 | Entrega | [Specifications e Evidence](specifications/README.md) |
 | Pesquisa | [Índice de pesquisa](research/README.md) |
 | Desenvolvimento | [Getting Started](development/getting-started.md) · [Comandos](commands.md) |
+| Site | [Landing page](https://rgomids.github.io/axiom/) · [Desenvolvimento local](#site) · [Evidence de aceitação](product/evidence-landing-page.md) |
 | Comunidade | [Contribuição](../CONTRIBUTING.md) · [Código de Conduta](../CODE_OF_CONDUCT.md) · [Suporte](../SUPPORT.md) |
 | Segurança | [Política de segurança](../SECURITY.md) · [Segurança do repositório](security/repository-security.md) |
 | Histórico | [Changelog](../CHANGELOG.md) |
@@ -144,6 +145,30 @@ fornece contexto de discovery de produto e pesquisa. Artefatos versionados do
 repositório são responsáveis por contratos técnicos, decisões e Evidence de
 implementação. Discovery não implica aprovação.
 
+## Site
+
+A landing page pública é publicada em <https://rgomids.github.io/axiom/>. Ela é
+servida a partir de [`site/`](../site/) pelo
+[workflow do Pages](../.github/workflows/deploy-landpage.yml) a cada push em `main`
+que altere esses arquivos.
+
+Para servi-la localmente, use qualquer servidor estático:
+
+```bash
+python3 -m http.server 8000 --directory site
+```
+
+Depois abra <http://localhost:8000>.
+
+Os assets de identidade não são duplicados em `site/`. `docs/assets/` continua
+sendo a única localização versionada deles, e a página os carrega pelas URLs
+absolutas
+`https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo.png`
+e `.../axiom-logo-github.png`, de modo que o servidor local renderiza exatamente o
+mesmo que o GitHub Pages. Verificações reproduzíveis:
+[`./scripts/validate-landing-page.sh .`](../scripts/validate-landing-page.sh) e a
+[Evidence da landing page](product/evidence-landing-page.md).
+
 ## Estrutura do repositório
 
 ```text
@@ -151,6 +176,7 @@ implementação. Discovery não implica aprovação.
 docs/      Produto, arquitetura, specifications, decisões e pesquisa
 internal/  Implementação Go e testes
 scripts/   Ferramentas de repositório, segurança, release e validação
+site/      Landing page pública publicada no GitHub Pages
 ```
 
 ## Como contribuir

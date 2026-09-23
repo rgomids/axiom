@@ -10,14 +10,6 @@
 
   if (!toggle) return;
 
-  function read() {
-    try {
-      return localStorage.getItem(STORAGE_KEY);
-    } catch (e) {
-      return null;
-    }
-  }
-
   function write(theme) {
     try {
       localStorage.setItem(STORAGE_KEY, theme);
@@ -34,6 +26,9 @@
     );
   }
 
+  /* #86 defines dark as the default, so the OS colour-scheme preference is
+     deliberately not followed: only the toggle changes the theme, and only a
+     stored choice survives a reload. */
   apply(root.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
 
   toggle.addEventListener('click', function () {
@@ -41,13 +36,4 @@
     apply(next);
     write(next);
   });
-
-  // Follow the OS while the visitor has not made an explicit choice.
-  var query = window.matchMedia('(prefers-color-scheme: light)');
-  var onChange = function (event) {
-    if (!read()) apply(event.matches ? 'light' : 'dark');
-  };
-
-  if (query.addEventListener) query.addEventListener('change', onChange);
-  else if (query.addListener) query.addListener(onChange);
 })();
