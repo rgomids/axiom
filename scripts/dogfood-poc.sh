@@ -105,20 +105,27 @@ assert_canonical "$temporary/runtime-missing.json" validation_failure "Codex ski
 run_success codex_configured "$temporary/runtime-repair.json" runtime codex install
 
 gh_binary="$temporary/gh"
-provider_state="$temporary/provider-state"
-printf '%s\n' OPEN >"$provider_state"
+provider_label="$temporary/provider-label"
+provider_comment="$temporary/provider-comment.json"
+: >"$provider_label"
+: >"$provider_comment"
 printf '%s\n' '#!/bin/sh' \
   'case "$*" in' \
   '  *search/issues*) printf "%s\n" "{\"total_count\":0,\"items\":[]}" ;;' \
-  '  *issues/7/comments*) printf "%s\n" "{\"id\":1}" ;;' \
-  '  *PATCH*issues/7*) printf "%s\n" CLOSED >"$AXIOM_FAKE_PROVIDER_STATE"; printf "%s\n" "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"closed\"}" ;;' \
-  '  *issues/7*) value=$(sed -n "1p" "$AXIOM_FAKE_PROVIDER_STATE" | tr "[:upper:]" "[:lower:]"); printf "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"%s\"}\n" "$value" ;;' \
+  '*POST*repos/owner/repo/labels*) input=$(cat); value=$(printf "%s" "$input" | sed -n "s/.*\"name\":\"\([^\"]*\)\".*/\1/p"); printf "%s\n" "$value" >"$AXIOM_FAKE_PROVIDER_LABEL"; printf "%s\n" "$input" ;;' \
+  '*repos/owner/repo/labels?per_page=100*) if [ -s "$AXIOM_FAKE_PROVIDER_LABEL" ]; then value=$(sed -n "1p" "$AXIOM_FAKE_PROVIDER_LABEL"); printf "[{\"name\":\"%s\"}]\n" "$value"; else printf "%s\n" "[]"; fi ;;' \
+  '*POST*issues/7/comments*) cat >"$AXIOM_FAKE_PROVIDER_COMMENT"; printf "%s\n" "{\"id\":1}" ;;' \
+  '*issues/7/comments?per_page=100*) if [ -s "$AXIOM_FAKE_PROVIDER_COMMENT" ]; then printf "["; cat "$AXIOM_FAKE_PROVIDER_COMMENT"; printf "]\n"; else printf "%s\n" "[]"; fi ;;' \
+  '*POST*issues/7/labels*) input=$(cat); value=$(printf "%s" "$input" | sed -n "s/.*\"labels\":\[\"\([^\"]*\)\"\].*/\1/p"); printf "%s\n" "$value" >"$AXIOM_FAKE_PROVIDER_LABEL"; printf "%s\n" "$input" ;;' \
+  '*DELETE*issues/7/labels/*) : >"$AXIOM_FAKE_PROVIDER_LABEL"; printf "%s\n" "{}" ;;' \
+  '*issues/7*) if [ -s "$AXIOM_FAKE_PROVIDER_LABEL" ]; then value=$(sed -n "1p" "$AXIOM_FAKE_PROVIDER_LABEL"); labels="[{\"name\":\"$value\"}]"; else labels="[]"; fi; printf "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\",\"labels\":%s}\n" "$labels" ;;' \
   '  *POST*repos/owner/repo/issues*) cat >/dev/null; printf "%s\n" "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\"}" ;;' \
   '  *) exit 1 ;;' \
   'esac' >"$gh_binary"
 chmod 700 "$gh_binary"
 export AXIOM_GH_BIN="$gh_binary"
-export AXIOM_FAKE_PROVIDER_STATE="$provider_state"
+export AXIOM_FAKE_PROVIDER_LABEL="$provider_label"
+export AXIOM_FAKE_PROVIDER_COMMENT="$provider_comment"
 
 lingo --json project configure --slug dogfood-project --name "Dogfood Project" \
   --repository "main=$repository" --work-item-provider github >"$temporary/project-preview.json"
@@ -164,53 +171,76 @@ lingo --json "${draft_args[@]}" --preview-digest "$work_item_digest" \
   --authorize-external >"$temporary/work-item.json"
 assert_canonical "$temporary/work-item.json" success "GitHub Work Item linked"
 grep -Fq '"externalId":"7"' "$temporary/work-item.json"
-run_success workflow_started "$temporary/workflow-start.json" workflow start \
-  --project dogfood-project --repository main --number 7
+lingo --json workflow start --project dogfood-project --repository main --number 7 \
+  >"$temporary/workflow-start.json"
+assert_canonical "$temporary/workflow-start.json" success "Execution workflow operation completed"
+execution_id=$(sed -n 's/.*"executionId":"\([^"]*\)".*/\1/p' "$temporary/workflow-start.json")
+[[ -n "$execution_id" ]]
+revision=1
 
-for gate in specification clarification plan tasks; do
+for gate in intake specification clarification plan tasks; do
   printf '%s\n' "$gate" >"$repository/$gate.md"
-  run_success workflow_advanced "$temporary/workflow-$gate.json" workflow advance \
-    --project dogfood-project --repository main --number 7 --gate "$gate" \
-    --outcome pass --reference "$gate.md"
+  reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
+  lingo --json workflow advance --project dogfood-project --repository main --number 7 \
+    --expected-revision "$revision" --gate "$gate" --outcome pass \
+    --reference "evidence:$gate.md:$reference_digest" >"$temporary/workflow-$gate.json"
+  assert_canonical "$temporary/workflow-$gate.json" success "Execution workflow operation completed"
+  revision=$((revision + 1))
 done
+
+lingo --json workflow reconcile --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" >"$temporary/workflow-projection-preview.json"
+assert_canonical "$temporary/workflow-projection-preview.json" success "Execution workflow operation completed"
+projection_digest=$(sed -n 's/.*"projection":.*"digest":"\([^"]*\)".*/\1/p' "$temporary/workflow-projection-preview.json")
+projection_key=$(sed -n 's/.*"projectionKey":"\([^"]*\)".*/\1/p' "$temporary/workflow-projection-preview.json")
+[[ -n "$projection_digest" && -n "$projection_key" ]]
+lingo --json workflow reconcile --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" --preview-digest "$projection_digest" --authorize-external \
+  >"$temporary/workflow-projected.json"
+assert_canonical "$temporary/workflow-projected.json" success "Execution workflow operation completed"
+grep -Fq 'axiom:stage:implementation' "$provider_label"
+grep -Fq 'axiom:workflow-projection:' "$provider_comment"
+lingo --json workflow reconcile --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" >"$temporary/workflow-projection-replay.json"
+assert_canonical "$temporary/workflow-projection-replay.json" success "Execution workflow operation completed"
+grep -Fq '"effects":[]' "$temporary/workflow-projection-replay.json"
 
 printf '%s\n' implementation >"$repository/implementation.md"
-run_failure workflow_interrupted workflow advance --project dogfood-project \
-  --repository main --number 7 --gate implementation --outcome fail \
-  --reference implementation.md
-run_success workflow_interrupted "$temporary/workflow-interrupted.json" workflow status \
-  --project dogfood-project --repository main --number 7
-run_failure workflow_resume_required workflow advance --project dogfood-project \
-  --repository main --number 7 --gate implementation --outcome pass \
-  --reference implementation.md
-run_success workflow_resumed "$temporary/workflow-resume.json" workflow resume \
-  --project dogfood-project --repository main --number 7
-
-for gate in implementation review evidence reconciliation; do
-  printf '%s\n' "$gate" >"$repository/$gate.md"
-  run_success workflow_advanced "$temporary/workflow-$gate.json" workflow advance \
-    --project dogfood-project --repository main --number 7 --gate "$gate" \
-    --outcome pass --reference "$gate.md"
-done
-
-run_success workflow_evidence_ready "$temporary/workflow-evidence.json" workflow evidence \
-  --project dogfood-project --repository main --number 7
-grep -q '"currentGate":"completion"' "$temporary/workflow-evidence.json"
-run_failure external_mutation_denied workflow advance --project dogfood-project \
-  --repository main --number 7 --gate completion --outcome pass
-run_success workflow_completed "$temporary/workflow-completed.json" workflow advance \
-  --project dogfood-project --repository main --number 7 --gate completion \
-  --outcome pass --authorize-external
-if [[ $(sed -n '1p' "$provider_state") != CLOSED ]]; then
+implementation_digest=$(shasum -a 256 "$repository/implementation.md" | awk '{print $1}')
+if lingo --json workflow advance --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" --gate implementation --outcome fail \
+  --reference "evidence:implementation.md:$implementation_digest" >"$temporary/workflow-interrupted.json"; then
   exit 1
 fi
+assert_canonical "$temporary/workflow-interrupted.json" interrupted "Execution remains at the current workflow stage"
+revision=$((revision + 1))
+lingo --json workflow resume --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" >"$temporary/workflow-resume.json"
+assert_canonical "$temporary/workflow-resume.json" success "Execution workflow operation completed"
+revision=$((revision + 1))
+
+for gate in implementation review evidence reconciliation completion; do
+  printf '%s\n' "$gate" >"$repository/$gate.md"
+  reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
+  lingo --json workflow advance --project dogfood-project --repository main --number 7 \
+    --expected-revision "$revision" --gate "$gate" --outcome pass \
+    --reference "evidence:$gate.md:$reference_digest" >"$temporary/workflow-$gate.json"
+  assert_canonical "$temporary/workflow-$gate.json" success "Execution workflow operation completed"
+  revision=$((revision + 1))
+done
+
+lingo --json workflow evidence --project dogfood-project --repository main --number 7 \
+  >"$temporary/workflow-evidence.json"
+assert_canonical "$temporary/workflow-evidence.json" success "Execution workflow operation completed"
+grep -q '"currentGate":"completion"' "$temporary/workflow-evidence.json"
+grep -q '"status":"completed"' "$temporary/workflow-evidence.json"
 
 binary_sha=$(shasum -a 256 "$resolved_binary" | awk '{print $1}')
-workflow_record=$(find "$state_root/workflows" -name '*.json' -type f -print)
+workflow_record=$(find "$state_root/executions/v1" -name '*.json' -type f -print)
 workflow_count=$(printf '%s\n' "$workflow_record" | grep -c .)
 if [[ "$workflow_count" != 1 ]]; then
   exit 1
 fi
 workflow_sha=$(shasum -a 256 "$workflow_record" | awk '{print $1}')
-printf '{"evidenceVersion":1,"evidence":"axiom_e2e_dogfood","cwdIndependent":true,"globalSkillCount":%s,"workItem":7,"workflow":"completed","binarySha256":"%s","workflowSha256":"%s","result":"pass"}\n' \
-  "$skill_count" "$binary_sha" "$workflow_sha"
+printf '{"evidenceVersion":1,"evidence":"axiom_e2e_dogfood","cwdIndependent":true,"globalSkillCount":%s,"workItem":7,"executionId":"%s","revision":%s,"workflow":"completed","projectionKey":"%s","projectionDigest":"%s","binarySha256":"%s","workflowSha256":"%s","result":"pass"}\n' \
+  "$skill_count" "$execution_id" "$revision" "$projection_key" "$projection_digest" "$binary_sha" "$workflow_sha"

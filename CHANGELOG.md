@@ -2,6 +2,28 @@
 
 ## [2026-09-23]
 
+- implementation: complete the deterministic implementation scope of authorized
+  MVP S4 (T10–T13) with a closed bounded machine-local Execution record, exact
+  revision transitions, interruption/resume, validated artifact/Evidence
+  references, and local-only completion truth.
+- implementation: add preview-digest-bound GitHub stage/comment projection with
+  stable per-revision keys, Axiom-owned label replacement, non-Axiom preservation,
+  bounded reinspection, intended/confirmed effect bookkeeping, and reconcile-first
+  ambiguity handling; GitHub Issue closure is not part of workflow completion.
+- test: add application, protected-store, F0–F8, two-process barrier/crash,
+  GitHub adapter, CLI black-box, and installed-binary dogfood coverage for one
+  winning revision, stale authority, replay, Provider failures, no duplicate
+  comment, and truthful partial outcomes.
+- evidence: record deterministic S4 Evidence. The required bounded real-provider
+  projection observation remains behind separate exact human authority; no human
+  acceptance or S5+ authority is inferred.
+- fix: bind projection authority to exact Provider/resource and observed Issue
+  identity, URL, state, labels, and comment presence so external Issue-state
+  changes invalidate stale authority before Provider effects.
+- fix: reconcile previously intended Provider effects into the local
+  Intended/Confirmed ledger before planning new mutations, allowing a confirmed
+  effect plus bookkeeping failure to converge without duplicate mutation.
+
 - fix: reserve a protected durable create-attempt fence before GitHub POST;
   ambiguous or unknown outcomes now remain reconciliation-only across process
   restarts, preventing automatic duplicate creation.

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -156,6 +158,167 @@ func (a Adapter) Read(ctx context.Context, repository, selector string) (workite
 		return workitem.External{}, err
 	}
 	return decodeIssue(repository, selector, output)
+}
+
+// Inspect reads only bounded GitHub state needed to reconcile one committed
+// local transition. Provider content never changes local workflow truth.
+func (a Adapter) Inspect(ctx context.Context, item workflow.WorkItem, desiredLabel, projectionKey string) (workflow.ProjectionObservation, error) {
+	if !a.validProjection(item, desiredLabel, projectionKey) {
+		return workflow.ProjectionObservation{}, &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse}
+	}
+	repositoryLabels, err := a.readNames(ctx, "repos/"+item.Resource+"/labels?per_page=100")
+	if err != nil {
+		return workflow.ProjectionObservation{}, projectionError(err, false)
+	}
+	issueOutput, err := a.run(ctx, nil, "api", "repos/"+item.Resource+"/issues/"+item.ExternalID)
+	if err != nil {
+		return workflow.ProjectionObservation{}, projectionError(err, false)
+	}
+	var issue struct {
+		Number  int    `json:"number"`
+		HTMLURL string `json:"html_url"`
+		State   string `json:"state"`
+		Labels  []struct {
+			Name string `json:"name"`
+		} `json:"labels"`
+	}
+	if err := json.Unmarshal(issueOutput, &issue); err != nil {
+		return workflow.ProjectionObservation{}, &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse}
+	}
+	observed := workitem.External{ID: strconv.Itoa(issue.Number), URL: issue.HTMLURL, State: strings.ToUpper(issue.State)}
+	if !a.ValidExternal(item.Resource, item.ExternalID, observed) || len(issue.Labels) > 100 {
+		return workflow.ProjectionObservation{}, &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse}
+	}
+	issueLabels := make([]string, 0, len(issue.Labels))
+	for _, label := range issue.Labels {
+		if label.Name == "" || len(label.Name) > 256 {
+			return workflow.ProjectionObservation{}, &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse}
+		}
+		issueLabels = append(issueLabels, label.Name)
+	}
+	commentsOutput, err := a.run(ctx, nil, "api", "repos/"+item.Resource+"/issues/"+item.ExternalID+"/comments?per_page=100")
+	if err != nil {
+		return workflow.ProjectionObservation{}, projectionError(err, false)
+	}
+	var comments []struct {
+		Body string `json:"body"`
+	}
+	if err := json.Unmarshal(commentsOutput, &comments); err != nil || len(comments) >= 100 {
+		return workflow.ProjectionObservation{}, &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse}
+	}
+	marker := "<!-- axiom:workflow-projection:" + projectionKey + " -->"
+	present := false
+	for _, comment := range comments {
+		if len(comment.Body) > bodyLimit {
+			return workflow.ProjectionObservation{}, &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse}
+		}
+		if strings.Contains(comment.Body, marker) {
+			if present {
+				return workflow.ProjectionObservation{}, &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse}
+			}
+			present = true
+		}
+	}
+	return workflow.ProjectionObservation{
+		Provider:         item.Provider,
+		Resource:         item.Resource,
+		IssueExternalID:  observed.ID,
+		IssueURL:         observed.URL,
+		IssueState:       observed.State,
+		RepositoryLabels: repositoryLabels,
+		IssueLabels:      issueLabels,
+		CommentPresent:   present,
+	}, nil
+}
+
+func (a Adapter) Apply(ctx context.Context, item workflow.WorkItem, effect workflow.ProjectionEffect) error {
+	if !a.validProjectionItem(item) || effect.Value == "" {
+		return &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse, EffectNotCommitted: true}
+	}
+	var payload []byte
+	var arguments []string
+	switch effect.Kind {
+	case workflow.CreateStageLabel:
+		if !validStageLabel(effect.Value) {
+			return &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse, EffectNotCommitted: true}
+		}
+		payload, _ = json.Marshal(map[string]string{"name": effect.Value, "color": "5319e7", "description": "Axiom current workflow stage"})
+		arguments = []string{"api", "--method", "POST", "repos/" + item.Resource + "/labels", "--input", "-"}
+	case workflow.AddStageLabel:
+		if !validStageLabel(effect.Value) {
+			return &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse, EffectNotCommitted: true}
+		}
+		payload, _ = json.Marshal(map[string][]string{"labels": []string{effect.Value}})
+		arguments = []string{"api", "--method", "POST", "repos/" + item.Resource + "/issues/" + item.ExternalID + "/labels", "--input", "-"}
+	case workflow.RemoveStageLabel:
+		if !validStageLabel(effect.Value) {
+			return &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse, EffectNotCommitted: true}
+		}
+		arguments = []string{"api", "--method", "DELETE", "repos/" + item.Resource + "/issues/" + item.ExternalID + "/labels/" + url.PathEscape(effect.Value)}
+	case workflow.PostTransitionComment:
+		if len(effect.Value) > bodyLimit || !strings.Contains(effect.Value, "<!-- axiom:workflow-projection:") {
+			return &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse, EffectNotCommitted: true}
+		}
+		payload, _ = json.Marshal(map[string]string{"body": effect.Value})
+		arguments = []string{"api", "--method", "POST", "repos/" + item.Resource + "/issues/" + item.ExternalID + "/comments", "--input", "-"}
+	default:
+		return &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse, EffectNotCommitted: true}
+	}
+	_, err := a.run(ctx, payload, arguments...)
+	if err != nil {
+		return projectionError(err, true)
+	}
+	return nil
+}
+
+func (a Adapter) readNames(ctx context.Context, endpoint string) ([]string, error) {
+	output, err := a.run(ctx, nil, "api", endpoint)
+	if err != nil {
+		return nil, err
+	}
+	var labels []struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(output, &labels); err != nil || len(labels) >= 100 {
+		return nil, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
+	}
+	result := make([]string, 0, len(labels))
+	for _, label := range labels {
+		if label.Name == "" || len(label.Name) > 256 {
+			return nil, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
+		}
+		result = append(result, label.Name)
+	}
+	return result, nil
+}
+
+func (a Adapter) validProjection(item workflow.WorkItem, label, key string) bool {
+	return a.validProjectionItem(item) && validStageLabel(label) && len(key) == 64
+}
+func (a Adapter) validProjectionItem(item workflow.WorkItem) bool {
+	return item.Provider == "github" && a.ValidResource(item.Resource) && a.ValidExternal(item.Resource, item.ExternalID, workitem.External{ID: item.ExternalID, URL: item.URL, State: item.State})
+}
+func validStageLabel(value string) bool {
+	if !strings.HasPrefix(value, "axiom:stage:") {
+		return false
+	}
+	stage := workflow.Stage(strings.TrimPrefix(value, "axiom:stage:"))
+	return stage.Valid() && value == "axiom:stage:"+string(stage)
+}
+func projectionError(err error, mutation bool) error {
+	var provider *workitem.ProviderError
+	if !errors.As(err, &provider) {
+		return &workflow.ProjectionError{Kind: workflow.ProjectionUnavailable, Ambiguous: mutation, Retryable: mutation}
+	}
+	kind := map[workitem.ProviderErrorKind]workflow.ProjectionErrorKind{
+		workitem.ProviderUnavailable:     workflow.ProjectionUnavailable,
+		workitem.ProviderUnauthenticated: workflow.ProjectionUnauthenticated,
+		workitem.ProviderRateLimited:     workflow.ProjectionRateLimited,
+		workitem.ProviderInvalidResponse: workflow.ProjectionInvalidResponse,
+		workitem.ProviderAmbiguous:       workflow.ProjectionAmbiguous,
+	}[provider.Kind]
+	ambiguous := provider.Ambiguous || mutation && !provider.EffectNotCommitted
+	return &workflow.ProjectionError{Kind: kind, Retryable: provider.Retryable, Ambiguous: ambiguous, EffectNotCommitted: provider.EffectNotCommitted}
 }
 
 // Historical POC-only operations. S3 does not invoke them.
