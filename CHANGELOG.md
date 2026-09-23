@@ -2,6 +2,22 @@
 
 ## [2026-09-23]
 
+- implementation: add the authorized MVP S5 strict selector path for exact
+  Project UUID/slug, Project-scoped Repository, canonical GitHub Work Item, and
+  applicable Execution identity without CWD/Git/Provider/Runtime fallback.
+- implementation: evolve the five installed Codex skills to skill set v2 and
+  binary compatibility v2 as thin `lingo --json` adapters over canonical
+  completion, provenance, authorship, detail-reference, and authority semantics.
+- security: reject unknown, duplicate, conflicting, malformed, and shell-like
+  selector input before application dispatch; exact Work Item and Execution
+  references are revalidated against protected local state before any operation.
+- test: add missing-only/zero-question prompt counts, UUID/slug equivalence,
+  Repository/Work Item/Execution scoping, unrelated-CWD black-box, zero-effect
+  failure ledger, detail-reference rendering, skill compatibility, and bounded
+  real Codex Runtime observations using isolated roots and no Provider mutation.
+- evidence: record S5 deterministic and real Runtime Evidence without claiming
+  human acceptance, Provider authority, release readiness, or S6 authority.
+
 - implementation: complete the deterministic implementation scope of authorized
   MVP S4 (T10–T13) with a closed bounded machine-local Execution record, exact
   revision transitions, interruption/resume, validated artifact/Evidence

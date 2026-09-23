@@ -291,8 +291,27 @@ lingo --json project show --selector my-project
 lingo help
 ```
 
-Canonical JSON for `version`, `first-run`, `project configure`, `project validate`,
-and `project show` uses
+Strict S5 workflow selectors are explicit and independent of current directory:
+
+```bash
+lingo --json workflow start \
+  --project <project-uuid-or-slug> \
+  --repository <project-scoped-key> \
+  --work-item 'github:<owner>/<repository>#<number>'
+
+lingo --json workflow status \
+  --project <project-uuid-or-slug> \
+  --repository <project-scoped-key> \
+  --work-item 'github:<owner>/<repository>#<number>' \
+  --execution <execution-id>
+```
+
+A complete call asks zero questions. Interactive calls preserve supplied valid
+values and ask only missing selectors. Unknown, duplicate, conflicting,
+ambiguous, or malformed selectors return canonical `validation_failure` before
+effects. A selector never grants local or Provider mutation authority.
+
+Canonical JSON for current MVP surfaces, including workflow selector operations, uses
 `status`, `result`, optional `references`, optional `next`, optional `details`, and
 mandatory `provenance`. Human output renders the same semantic value. Other POC
 operations temporarily retain `operation`, `status`, `category`, and applicable
