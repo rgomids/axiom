@@ -383,20 +383,17 @@ func TestWorkItemFailureRendersCommittedExternalState(t *testing.T) {
 	}
 }
 
-func TestWorkflowFailureRendersCommittedExternalState(t *testing.T) {
+func TestWorkflowPartialRendersCommittedExternalState(t *testing.T) {
 	result := workflowResult(workflow.Result{
-		Status:   workflow.Failed,
-		Category: "provider_committed_local_failed",
-		WorkItem: &workflow.WorkItem{
-			ProjectID:          "123e4567-e89b-42d3-a456-426614174000",
-			RepositoryKey:      "main",
-			ProviderRepository: "owner/repo",
-			Number:             7,
-			URL:                "https://github.com/owner/repo/issues/7",
-			State:              "CLOSED",
+		Status:   workflow.Partial,
+		Category: "provider_confirmed_projection_bookkeeping_failed",
+		State: workflow.State{
+			ExecutionID: "018f4a44-7c31-7dd4-9d00-111111111111",
+			ProjectID:   "123e4567-e89b-42d3-a456-426614174000", RepositoryKey: "main",
+			WorkItem: workflow.WorkItem{Provider: "github", Resource: "owner/repo", ExternalID: "7", URL: "https://github.com/owner/repo/issues/7", State: "OPEN"},
 		},
-	})
-	if result.WorkItem == nil || result.WorkItem.ProjectID == "" || result.WorkItem.RepositoryKey != "main" || result.WorkItem.Provider != "github" || result.WorkItem.Resource != "owner/repo" || result.WorkItem.ExternalID != "7" || result.WorkItem.State != "CLOSED" {
+	}, currentProvenance())
+	if result.Workflow == nil || result.Workflow.WorkItem.ProjectID == "" || result.Workflow.WorkItem.RepositoryKey != "main" || result.Workflow.WorkItem.Provider != "github" || result.Workflow.WorkItem.Resource != "owner/repo" || result.Workflow.WorkItem.ExternalID != "7" || result.Workflow.WorkItem.State != "OPEN" {
 		t.Fatalf("result = %#v", result)
 	}
 }

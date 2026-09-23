@@ -53,7 +53,7 @@ func TestEveryT03StorePreservesOutsideRootHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := workflows.Create(context.Background(), validWorkflow(t.TempDir())); err != nil {
+	if err := workflows.Create(context.Background(), validExecution()); err != nil {
 		t.Fatal(err)
 	}
 

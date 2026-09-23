@@ -8,9 +8,11 @@
 
 **S2 Implementation: Delivered on `main` through PR #84 with reproducible S2 Evidence. This is technical delivery, not inferred human MVP acceptance.**
 
-**S3 Implementation: T08 and T09 implementation plus the bounded real-provider observation are technically complete in the delivery branch. Current PR review corrections remain subject to human review. Human acceptance is not inferred.**
+**S3 Implementation: Delivered on `main` through PR #85 with deterministic Evidence and one bounded real-provider observation. Human acceptance is not inferred.**
 
-**S4–S7 Implementation: Not authorized.**
+**S4 Implementation: T10–T13 implementation and deterministic Evidence are complete in the delivery branch. The mandatory bounded real-provider projection observation remains at a Human decision required gate. Human acceptance is not inferred.**
+
+**S5–S7 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -38,11 +40,15 @@ Specification 004 — Approved
    -> T02–T03 — Merged in PR #83 with reproducible S1 Evidence
 -> S2 Implementation — Delivered on main through PR #84
    -> T04–T07 — Merged with reproducible S2 Evidence
--> S3 Implementation — Technically implemented in branch; current corrections under human review
+-> S3 Implementation — Delivered on main through PR #85
    -> T08 — Implementation and deterministic Evidence complete
    -> T09 — Implementation, deterministic tests, and bounded real-provider observation complete
    -> Human acceptance — Not inferred
--> S4–S7 Implementation — Not authorized
+-> S4 Implementation — Deterministic implementation complete in branch
+   -> T10–T13 — Application, store, adapter, CLI, black-box and dogfood checks complete
+   -> Real-provider projection observation — Human decision required
+   -> Human acceptance — Not inferred
+-> S5–S7 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -400,6 +406,10 @@ review and do not imply human acceptance or authorize T10/S4+.
 
 ### T10 — Minimal Execution start, status, and resume authority
 
+**Implementation checkpoint:** deterministic implementation complete in the S4
+delivery branch; see [S4 Evidence](evidence-s4.md). This records technical
+completion, not human acceptance.
+
 - **Objective:** A linked Work Item starts one stable machine-local Execution and status/resume reads only committed local truth.
 - **Slice:** S4 — Workflow truth and Provider projection.
 - **Dependencies:** T03, T09.
@@ -416,6 +426,10 @@ review and do not imply human acceptance or authorize T10/S4+.
 - **Risks / gates:** Identity, authority, lifecycle, or cross-boundary semantic changes require **Human decision required**; encoding/path changes alone do not.
 
 ### T11 — Sequential workflow transition truth
+
+**Implementation checkpoint:** deterministic implementation complete in the S4
+delivery branch; see [S4 Evidence](evidence-s4.md). This records technical
+completion, not human acceptance.
 
 - **Objective:** One Execution advances only the approved sequential gate from an exact revision, records bounded outcome/references, and preserves truthful terminal state.
 - **Slice:** S4.
@@ -434,6 +448,10 @@ review and do not imply human acceptance or authorize T10/S4+.
 
 ### T12 — Idempotent GitHub stage/comment projection
 
+**Implementation checkpoint:** implementation and deterministic fake-Provider
+Evidence are complete in the S4 delivery branch. The mandatory authorized real
+projection observation remains pending; see [S4 Evidence](evidence-s4.md).
+
 - **Objective:** Explicit authority reconciles one committed transition into exactly one `axiom:stage:<stage>` label and at most one semantically unique bounded transition comment.
 - **Slice:** S4.
 - **Dependencies:** T11.
@@ -450,6 +468,11 @@ review and do not imply human acceptance or authorize T10/S4+.
 - **Risks / gates:** Append-only comments cannot roll back; Evidence must preserve confirmed effect and safe next action.
 
 ### T13 — Workflow interruption, concurrency, and projection convergence
+
+**Implementation checkpoint:** deterministic concurrency, interruption, and
+projection convergence implementation is complete in the S4 delivery branch.
+The real-provider observation inherited from T12 remains pending; see
+[S4 Evidence](evidence-s4.md). Human acceptance is not inferred.
 
 - **Objective:** Two processes, interruption, retry, and projection/local failures converge on one committed Execution revision and truthful Provider projection.
 - **Slice:** S4.

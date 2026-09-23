@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -275,6 +276,52 @@ func TestRenderTruncatesUnicodeTitleWithoutBreakingUTF8(t *testing.T) {
 	document, err := adapter.Render(draft, workitem.DraftTarget{}, strings.Repeat("a", 64), testSource())
 	if err != nil || !strings.HasSuffix(document.Title, "...") || strings.ContainsRune(document.Title, '\ufffd') {
 		t.Fatalf("title=%q err=%v", document.Title, err)
+	}
+}
+
+func TestProjectionInspectAndApplyAreBoundedAndNamespaced(t *testing.T) {
+	directory := t.TempDir()
+	gh := filepath.Join(directory, "gh")
+	log := filepath.Join(directory, "log")
+	script := `#!/bin/sh
+printf '%s\n' "$*" >> "$AXIOM_TEST_LOG"
+case "$*" in
+  *'/labels?per_page=100'*) printf '%s\n' '[{"name":"bug"},{"name":"axiom:stage:intake"}]' ;;
+  *'/comments?per_page=100'*) printf '%s\n' '[]' ;;
+  *'issues/7'*) printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"open","labels":[{"name":"external"},{"name":"axiom:stage:intake"}]}' ;;
+  *) cat >/dev/null ;;
+esac
+`
+	if err := os.WriteFile(gh, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("AXIOM_TEST_LOG", log)
+	adapter, _ := New(gh)
+	item := workflow.WorkItem{Provider: "github", Resource: "owner/repo", ExternalID: "7", URL: "https://github.com/owner/repo/issues/7", State: "OPEN"}
+	key := strings.Repeat("a", 64)
+	observed, err := adapter.Inspect(context.Background(), item, "axiom:stage:specification", key)
+	if err != nil || len(observed.RepositoryLabels) != 2 || len(observed.IssueLabels) != 2 || observed.CommentPresent {
+		t.Fatalf("observation = %#v, %v", observed, err)
+	}
+	effects := []workflow.ProjectionEffect{
+		{Kind: workflow.CreateStageLabel, Value: "axiom:stage:specification"},
+		{Kind: workflow.AddStageLabel, Value: "axiom:stage:specification"},
+		{Kind: workflow.RemoveStageLabel, Value: "axiom:stage:intake"},
+		{Kind: workflow.PostTransitionComment, Value: "<!-- axiom:workflow-projection:" + key + " -->\nSafe"},
+	}
+	for _, effect := range effects {
+		if err := adapter.Apply(context.Background(), item, effect); err != nil {
+			t.Fatalf("apply %s: %v", effect.Kind, err)
+		}
+	}
+	if err := adapter.Apply(context.Background(), item, workflow.ProjectionEffect{Kind: workflow.RemoveStageLabel, Value: "external"}); err == nil {
+		t.Fatal("non-Axiom label removal accepted")
+	}
+	commands, _ := os.ReadFile(log)
+	for _, expected := range []string{"repos/owner/repo/labels", "issues/7/labels", "issues/7/labels/axiom:stage:intake", "issues/7/comments"} {
+		if !strings.Contains(string(commands), expected) {
+			t.Fatalf("commands missing %q: %s", expected, commands)
+		}
 	}
 }
 

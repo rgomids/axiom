@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -45,6 +46,7 @@ type Service interface {
 	WorkflowResume(context.Context, WorkflowInput) Result
 	WorkflowStatus(context.Context, WorkflowInput) Result
 	WorkflowEvidence(context.Context, WorkflowInput) Result
+	WorkflowReconcile(context.Context, WorkflowInput) Result
 }
 
 type InitInput struct {
@@ -78,9 +80,11 @@ type WorkItemInput struct {
 	Cancelled                                bool
 }
 type WorkflowInput struct {
-	Project, Repository, Gate, Outcome, Reference string
-	Number                                        int
-	AuthorizeExternal                             bool
+	Project, Repository, Gate, Outcome, Reference, Next string
+	Number                                              int
+	ExpectedRevision                                    uint64
+	PreviewDigest                                       string
+	AuthorizeExternal                                   bool
 }
 
 type Status string
@@ -106,6 +110,7 @@ type Result struct {
 	Draft      *workitem.DraftPreview
 	Selection  *workitem.SelectionPreview
 	Questions  []workitem.Question
+	Projection *workflow.ProjectionPreview
 }
 
 type RuntimeSkillView struct {
@@ -139,18 +144,22 @@ type WorkItemView struct {
 	State         string `json:"state"`
 }
 type WorkflowStepView struct {
-	Gate      string `json:"gate"`
-	Status    string `json:"status"`
-	Reference string `json:"reference,omitempty"`
-	Digest    string `json:"digest,omitempty"`
+	Revision    uint64 `json:"revision"`
+	From        string `json:"from"`
+	To          string `json:"to"`
+	Outcome     string `json:"outcome"`
+	CommittedAt string `json:"committedAt"`
 }
 type WorkflowView struct {
-	Status         string             `json:"status"`
-	CurrentGate    string             `json:"currentGate,omitempty"`
-	RepositoryKey  string             `json:"repositoryKey"`
-	RepositoryPath string             `json:"repositoryPath"`
-	WorkItem       int                `json:"workItem"`
-	Steps          []WorkflowStepView `json:"steps"`
+	ExecutionID     string             `json:"executionId"`
+	WorkflowVersion string             `json:"workflowVersion"`
+	Status          string             `json:"status"`
+	CurrentGate     string             `json:"currentGate"`
+	Revision        uint64             `json:"revision"`
+	RepositoryKey   string             `json:"repositoryKey"`
+	WorkItem        WorkItemView       `json:"workItem"`
+	RuntimeID       string             `json:"runtimeId"`
+	Transitions     []WorkflowStepView `json:"transitions"`
 }
 
 // Run parses one CLI action, delegates it, and emits one safe structured event.
@@ -247,6 +256,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.Draft != nil || response.Selection != nil || response.WorkItem != nil || len(response.Questions) != 0 {
 			return emitWorkItemCompletion(writer, mode, *response.Completion, response)
 		}
+		if response.Workflow != nil || response.Projection != nil {
+			return emitWorkflowCompletion(writer, mode, *response.Completion, response)
+		}
 		return emitCompletion(writer, mode, *response.Completion)
 	}
 	return emit(writer, mode, eventFrom(operation, response))
@@ -255,27 +267,28 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 type action string
 
 const (
-	initAction             action = "init"
-	validateAction         action = "validate"
-	reopenAction           action = "reopen"
-	updateAction           action = "update"
-	installAction          action = "install"
-	resolveAction          action = "resolve"
-	showAction             action = "show"
-	configureAction        action = "configure"
-	workItemCreateAction   action = "work_item_create"
-	workItemSelectAction   action = "work_item_select"
-	workItemShowAction     action = "work_item_show"
-	workItemCommentAction  action = "work_item_comment"
-	workItemCompleteAction action = "work_item_complete"
-	workflowStartAction    action = "workflow_start"
-	workflowAdvanceAction  action = "workflow_advance"
-	workflowResumeAction   action = "workflow_resume"
-	workflowStatusAction   action = "workflow_status"
-	workflowEvidenceAction action = "workflow_evidence"
-	codexInstallAction     action = "runtime_codex_install"
-	codexStatusAction      action = "runtime_codex_status"
-	firstRunAction         action = "first_run"
+	initAction              action = "init"
+	validateAction          action = "validate"
+	reopenAction            action = "reopen"
+	updateAction            action = "update"
+	installAction           action = "install"
+	resolveAction           action = "resolve"
+	showAction              action = "show"
+	configureAction         action = "configure"
+	workItemCreateAction    action = "work_item_create"
+	workItemSelectAction    action = "work_item_select"
+	workItemShowAction      action = "work_item_show"
+	workItemCommentAction   action = "work_item_comment"
+	workItemCompleteAction  action = "work_item_complete"
+	workflowStartAction     action = "workflow_start"
+	workflowAdvanceAction   action = "workflow_advance"
+	workflowResumeAction    action = "workflow_resume"
+	workflowStatusAction    action = "workflow_status"
+	workflowEvidenceAction  action = "workflow_evidence"
+	workflowReconcileAction action = "workflow_reconcile"
+	codexInstallAction      action = "runtime_codex_install"
+	codexStatusAction       action = "runtime_codex_status"
+	firstRunAction          action = "first_run"
 )
 
 type requestInput struct {
@@ -291,8 +304,9 @@ type requestInput struct {
 	intent, problem, desiredOutcome, context string
 	scope, constraints, nonGoals, acceptance string
 	message                                  string
-	gate, outcome, reference                 string
+	gate, outcome, reference, next           string
 	number                                   int
+	expectedRevision                         uint64
 	authorizeExternal                        bool
 	authorizeLocal                           bool
 }
@@ -335,7 +349,8 @@ func request(args []string, service Service) (action, requestInput, *string) {
 		if !ok {
 			return operation, requestInput{}, category("invalid_input")
 		}
-		if values.project == "" || values.repository == "" || values.number <= 0 || operation == workflowAdvanceAction && (values.gate == "" || values.outcome == "") {
+		needsRevision := operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowReconcileAction
+		if values.project == "" || values.repository == "" || values.number <= 0 || needsRevision && values.expectedRevision == 0 || operation == workflowAdvanceAction && (values.gate == "" || values.outcome == "") {
 			return operation, values, category("missing_required_input")
 		}
 		return operation, values, nil
@@ -442,11 +457,18 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 	set.StringVar(&values.project, "project", "", "")
 	set.StringVar(&values.repository, "repository", "", "")
 	set.IntVar(&values.number, "number", 0, "")
-	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
+	if operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowReconcileAction {
+		set.Uint64Var(&values.expectedRevision, "expected-revision", 0, "")
+	}
+	if operation == workflowReconcileAction {
+		set.StringVar(&values.previewDigest, "preview-digest", "", "")
+		set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
+	}
 	if operation == workflowAdvanceAction {
 		set.StringVar(&values.gate, "gate", "", "")
 		set.StringVar(&values.outcome, "outcome", "", "")
 		set.StringVar(&values.reference, "reference", "", "")
+		set.StringVar(&values.next, "next", "", "")
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return requestInput{}, false
@@ -455,7 +477,7 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 }
 
 func knownWorkflow(operation action) bool {
-	return operation == workflowStartAction || operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowStatusAction || operation == workflowEvidenceAction
+	return operation == workflowStartAction || operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowStatusAction || operation == workflowEvidenceAction || operation == workflowReconcileAction
 }
 
 func known(operation action) bool {
@@ -511,8 +533,8 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		default:
 			return service.WorkItemComplete(ctx, value)
 		}
-	case workflowStartAction, workflowAdvanceAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction:
-		value := WorkflowInput{Project: input.project, Repository: input.repository, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, AuthorizeExternal: input.authorizeExternal}
+	case workflowStartAction, workflowAdvanceAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction:
+		value := WorkflowInput{Project: input.project, Repository: input.repository, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal}
 		switch operation {
 		case workflowStartAction:
 			return service.WorkflowStart(ctx, value)
@@ -522,6 +544,8 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 			return service.WorkflowResume(ctx, value)
 		case workflowStatusAction:
 			return service.WorkflowStatus(ctx, value)
+		case workflowReconcileAction:
+			return service.WorkflowReconcile(ctx, value)
 		default:
 			return service.WorkflowEvidence(ctx, value)
 		}
@@ -536,14 +560,15 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 }
 
 type event struct {
-	Operation action                   `json:"operation"`
-	Status    Status                   `json:"status"`
-	Category  string                   `json:"category"`
-	Project   *ProjectView             `json:"project,omitempty"`
-	WorkItem  *WorkItemView            `json:"workItem,omitempty"`
-	Workflow  *WorkflowView            `json:"workflow,omitempty"`
-	Setup     *projectapp.SetupPreview `json:"setup,omitempty"`
-	Runtime   *RuntimeView             `json:"runtime,omitempty"`
+	Operation  action                      `json:"operation"`
+	Status     Status                      `json:"status"`
+	Category   string                      `json:"category"`
+	Project    *ProjectView                `json:"project,omitempty"`
+	WorkItem   *WorkItemView               `json:"workItem,omitempty"`
+	Workflow   *WorkflowView               `json:"workflow,omitempty"`
+	Setup      *projectapp.SetupPreview    `json:"setup,omitempty"`
+	Runtime    *RuntimeView                `json:"runtime,omitempty"`
+	Projection *workflow.ProjectionPreview `json:"projection,omitempty"`
 }
 
 type outputMode string
@@ -564,7 +589,7 @@ func parseOutputMode(args []string) (outputMode, []string) {
 }
 
 func eventFrom(operation action, result Result) event {
-	return event{Operation: operation, Status: result.Status, Category: result.Category, Project: result.Project, WorkItem: result.WorkItem, Workflow: result.Workflow, Setup: result.Setup, Runtime: result.Runtime}
+	return event{Operation: operation, Status: result.Status, Category: result.Category, Project: result.Project, WorkItem: result.WorkItem, Workflow: result.Workflow, Setup: result.Setup, Runtime: result.Runtime, Projection: result.Projection}
 }
 
 func emit(writer io.Writer, mode outputMode, value event) int {
@@ -597,7 +622,7 @@ func emitHuman(writer io.Writer, value event) {
 		_, _ = io.WriteString(writer, "work-item "+value.WorkItem.URL+" ["+value.WorkItem.State+"] project="+value.WorkItem.ProjectID+" repository-key="+value.WorkItem.RepositoryKey+" provider="+value.WorkItem.Provider+" resource="+value.WorkItem.Resource+" external-id="+value.WorkItem.ExternalID+"\n")
 	}
 	if value.Workflow != nil {
-		_, _ = io.WriteString(writer, "workflow "+value.Workflow.Status+" current="+value.Workflow.CurrentGate+" repository="+strconv.Quote(value.Workflow.RepositoryPath)+"\n")
+		_, _ = io.WriteString(writer, "execution "+value.Workflow.ExecutionID+" "+value.Workflow.Status+" current="+value.Workflow.CurrentGate+" revision="+strconv.FormatUint(value.Workflow.Revision, 10)+"\n")
 	}
 	if value.Runtime != nil {
 		emitRuntimeHuman(writer, *value.Runtime)
@@ -849,6 +874,9 @@ func (UnavailableService) WorkflowAdvance(context.Context, WorkflowInput) Result
 func (UnavailableService) WorkflowResume(context.Context, WorkflowInput) Result { return unavailable() }
 func (UnavailableService) WorkflowStatus(context.Context, WorkflowInput) Result { return unavailable() }
 func (UnavailableService) WorkflowEvidence(context.Context, WorkflowInput) Result {
+	return unavailable()
+}
+func (UnavailableService) WorkflowReconcile(context.Context, WorkflowInput) Result {
 	return unavailable()
 }
 func unavailable() Result { return Result{Status: Failed, Category: "application_unavailable"} }

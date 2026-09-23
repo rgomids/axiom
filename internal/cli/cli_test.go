@@ -30,7 +30,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"show", []string{"project", "show", "--selector", "alpha"}, "resolve:alpha"},
 		{"configure", []string{"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, "configure:alpha:Alpha:main:/tmp/alpha"},
 		{"work item select", []string{"work-item", "select", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--number", "7"}, "work-item-select:alpha:main:7"},
-		{"workflow advance", []string{"workflow", "advance", "--project", "alpha", "--repository", "main", "--number", "7", "--gate", "specification", "--outcome", "pass", "--reference", "spec.md"}, "workflow-advance:alpha:main:7:specification:pass:spec.md"},
+		{"workflow advance", []string{"workflow", "advance", "--project", "alpha", "--repository", "main", "--number", "7", "--expected-revision", "1", "--gate", "intake", "--outcome", "pass"}, "workflow-advance:alpha:main:7:intake:pass:"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -325,5 +325,8 @@ func (s *recordingService) WorkflowStatus(context.Context, WorkflowInput) Result
 	return Result{Status: Succeeded, Category: "applied"}
 }
 func (s *recordingService) WorkflowEvidence(context.Context, WorkflowInput) Result {
+	return Result{Status: Succeeded, Category: "applied"}
+}
+func (s *recordingService) WorkflowReconcile(context.Context, WorkflowInput) Result {
 	return Result{Status: Succeeded, Category: "applied"}
 }

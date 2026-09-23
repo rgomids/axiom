@@ -304,7 +304,7 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 | `$axiom-project-configure` | `lingo --json project configure` |
 | `$axiom-project-show` | `lingo --json project show --selector ...` |
 | `$axiom-work-item-create` | `lingo --json work-item create\|select ...` |
-| `$axiom-work-item-run` | `lingo --json workflow start\|advance\|resume ...` |
+| `$axiom-work-item-run` | `lingo --json workflow start\|advance\|resume\|reconcile ...` |
 | `$axiom-work-item-status` | `lingo --json workflow status\|evidence ...` |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
@@ -456,30 +456,68 @@ lingo workflow start --project my-project --repository main --number 123
 lingo workflow status --project my-project --repository main --number 123
 ```
 
-Advance gates in fixed order. Each technical gate requires a repository-relative
-regular artifact no larger than 1 MiB; Lingo stores its SHA-256 digest in local
-workflow state. Repository resolution comes from Project state, not caller CWD.
+Advance gates in fixed order from the exact current revision. Optional references
+are either a machine-local detail artifact or a repository-relative regular
+Evidence file no larger than 1 MiB. The caller supplies the expected SHA-256;
+Lingo re-reads and validates it before committing the transition. Repository
+resolution comes from Project state, not caller CWD.
 
 ```bash
 lingo workflow advance --project my-project --repository main --number 123 \
-  --gate specification --outcome pass --reference docs/spec.md
+  --expected-revision 1 --gate intake --outcome pass \
+  --reference evidence:docs/intent.md:<sha256> --next "Review specification"
 ```
 
-Gate order: `specification`, `clarification`, `plan`, `tasks`, `implementation`,
-`review`, `evidence`, `reconciliation`, `completion`. A failed gate interrupts
-the workflow without closing the Work Item:
+Gate order: `intake`, `specification`, `clarification`, `plan`, `tasks`,
+`implementation`, `review`, `evidence`, `reconciliation`, `completion`.
+References use `evidence:<repository-relative-path>:<sha256>` or
+`artifact:<artifact-id>:<sha256>`. A failed gate records an interrupted
+transition at the same stage. Resume requires the new exact revision. Neither
+operation closes the Work Item:
 
 ```bash
 lingo workflow advance --project my-project --repository main --number 123 \
-  --gate implementation --outcome fail --reference evidence/test-failure.txt
-lingo workflow resume --project my-project --repository main --number 123
+  --expected-revision 6 --gate implementation --outcome fail \
+  --reference evidence:evidence/test-failure.txt:<sha256>
+lingo workflow resume --project my-project --repository main --number 123 \
+  --expected-revision 7
 lingo workflow evidence --project my-project --repository main --number 123
 ```
 
-Completion accepts no artifact reference. It requires every earlier gate to
-have passed plus explicit external mutation authority:
+Local completion is a local transition only. It requires the exact current
+revision and never closes the GitHub Issue:
 
 ```bash
 lingo workflow advance --project my-project --repository main --number 123 \
-  --gate completion --outcome pass --authorize-external
+  --expected-revision 10 --gate completion --outcome pass
 ```
+
+GitHub progress is a separate, post-commit projection. First inspect the current
+Provider state and review the returned target, Execution revision, projection
+key, comment, exact effects, observation digest, and preview digest:
+
+```bash
+lingo --json workflow reconcile \
+  --project my-project --repository main --number 123 \
+  --expected-revision 2
+```
+
+Only after explicit review, repeat the same target/revision with the exact digest
+and external authority:
+
+```bash
+lingo --json workflow reconcile \
+  --project my-project --repository main --number 123 \
+  --expected-revision 2 \
+  --preview-digest <preview-digest> \
+  --authorize-external
+```
+
+Projection creates/adds only the current `axiom:stage:<stage>` label, removes
+only obsolete labels in that namespace, and posts at most one provenance-marked
+comment per Execution revision. It preserves non-Axiom labels/content. Every
+mutation is reinspected before its intended/confirmed ledger advances. Ambiguous
+or unavailable results are reconcile-first; a confirmed Provider effect followed
+by local bookkeeping failure is `partial`. Replaying the same revision converges
+without a duplicate comment. Projection never advances, repairs, or completes
+local workflow truth.

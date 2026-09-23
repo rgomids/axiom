@@ -10,6 +10,7 @@ import (
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -78,6 +79,12 @@ type workItemCompletionEvent struct {
 	Questions []workitem.Question        `json:"questions,omitempty"`
 }
 
+type workflowCompletionEvent struct {
+	completionEvent
+	Workflow   *WorkflowView               `json:"workflow,omitempty"`
+	Projection *workflow.ProjectionPreview `json:"projection,omitempty"`
+}
+
 const maxWorkItemPreviewOutputBytes = 128 * 1024
 
 func emitWorkItemCompletion(writer io.Writer, mode outputMode, result completion.Result, response Result) int {
@@ -110,6 +117,24 @@ func emitWorkItemCompletion(writer io.Writer, mode outputMode, result completion
 	if err != nil {
 		return ExitFailure
 	}
+	written, err := writer.Write(content)
+	if err != nil || written != len(content) {
+		return ExitFailure
+	}
+	return completionExitCode(result.Status())
+}
+
+func emitWorkflowCompletion(writer io.Writer, mode outputMode, result completion.Result, response Result) int {
+	if writer == nil || !result.Valid() {
+		return ExitFailure
+	}
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	value := workflowCompletionEvent{completionEvent: base, Workflow: response.Workflow, Projection: response.Projection}
+	content, err := json.Marshal(value)
+	if err != nil || len(content)+1 > maxWorkItemPreviewOutputBytes {
+		return ExitFailure
+	}
+	content = append(content, '\n')
 	written, err := writer.Write(content)
 	if err != nil || written != len(content) {
 		return ExitFailure

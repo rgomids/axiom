@@ -3,13 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strconv"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/codexruntime"
@@ -132,7 +132,12 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
-	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows)
+	artifacts, err := local.NewArtifactStore(state)
+	if err != nil {
+		return cli.NewUnavailableService(source)
+	}
+	references := local.NewWorkflowReferenceValidator(artifacts)
+	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil)
 	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, provenance: source}
 }
 
@@ -254,25 +259,12 @@ func (r workflowResolver) Resolve(ctx context.Context, selector string) (workflo
 	return project, ""
 }
 
-func (w workflowWorkItems) Available(ctx context.Context, project, repository string, number int) bool {
-	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, strconv.Itoa(number))
-	return result.Status == workitem.Succeeded && result.Link.State == "OPEN"
-}
-
-func (w workflowWorkItems) Complete(ctx context.Context, project, repository string, number int, authorized bool) workflow.WorkItemCompletion {
-	result := w.service.Complete(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, strconv.Itoa(number), authorized)
-	legacyNumber, _ := strconv.Atoi(result.Link.ExternalID)
-	return workflow.WorkItemCompletion{
-		Category: result.Category,
-		WorkItem: workflow.WorkItem{
-			ProjectID:          result.Link.ProjectID,
-			RepositoryKey:      result.Link.RepositoryKey,
-			ProviderRepository: result.Link.Resource,
-			Number:             legacyNumber,
-			URL:                result.Link.URL,
-			State:              result.Link.State,
-		},
+func (w workflowWorkItems) Load(ctx context.Context, project, repository, selector string) (workflow.WorkItem, error) {
+	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, selector)
+	if result.Status != workitem.Succeeded {
+		return workflow.WorkItem{}, workitem.ErrNotFound
 	}
+	return workflow.WorkItem{Provider: result.Link.Provider, Resource: result.Link.Resource, ExternalID: result.Link.ExternalID, URL: result.Link.URL, State: result.Link.State}, nil
 }
 
 func (s lifecycleService) RuntimeCodexInstall(ctx context.Context) cli.Result {
@@ -556,53 +548,111 @@ func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkIt
 }
 
 func workflowTarget(input cli.WorkflowInput) workflow.Target {
-	return workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, WorkItem: input.Number}
+	return workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, WorkItem: strconv.Itoa(input.Number), RuntimeID: "codex"}
 }
 
 func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)))
+	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	return workflowResult(s.workflows.Advance(ctx, workflowTarget(input), input.Gate, input.Outcome, input.Reference, input.AuthorizeExternal))
+	references, ok := workflowReferences(input.Reference)
+	if !ok {
+		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
+	}
+	return workflowResult(s.workflows.Transition(ctx, workflowTarget(input), workflow.TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: workflow.Stage(input.Gate), Outcome: workflow.Outcome(input.Outcome), References: references, Next: input.Next}), s.provenance)
 }
 func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input)))
+	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 }
 func (s lifecycleService) WorkflowStatus(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	return workflowResult(s.workflows.Status(ctx, workflowTarget(input)))
+	return workflowResult(s.workflows.Status(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.WorkflowInput) cli.Result {
 	result := s.workflows.Status(ctx, workflowTarget(input))
 	if result.Status == workflow.Succeeded {
 		result.Category = "workflow_evidence_ready"
 	}
-	return workflowResult(result)
+	return workflowResult(result, s.provenance)
 }
 
-func workflowResult(result workflow.Result) cli.Result {
-	status := cli.Failed
-	if result.Status == workflow.Succeeded {
-		status = cli.Succeeded
+func (s lifecycleService) WorkflowReconcile(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if !input.AuthorizeExternal {
+		return workflowResult(s.workflows.PrepareProjection(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 	}
-	response := cli.Result{Status: status, Category: result.Category}
+	return workflowResult(s.workflows.Project(ctx, workflowTarget(input), input.ExpectedRevision, input.PreviewDigest, true), s.provenance)
+}
+
+func workflowReferences(value string) ([]workflow.Reference, bool) {
+	if value == "" {
+		return nil, true
+	}
+	parts := strings.Split(value, ":")
+	if len(parts) != 3 {
+		return nil, false
+	}
+	return []workflow.Reference{{Kind: parts[0], ID: parts[1], Digest: parts[2]}}, true
+}
+
+func workflowResult(result workflow.Result, source provenance.Value) cli.Result {
+	facts := factsForCompletionStatus(result.Status)
+	response := canonicalCompletion(facts, workflowResultText(result), workflowResultReferences(result), workflowResultNext(result), source)
+	response.Category = result.Category
+	response.Projection = result.Preview
 	if result.State.ProjectID != "" {
-		view := &cli.WorkflowView{Status: result.State.Status, RepositoryKey: result.State.RepositoryKey, RepositoryPath: result.State.RepositoryPath, WorkItem: result.State.WorkItem, Steps: make([]cli.WorkflowStepView, 0, len(result.State.Steps))}
-		if result.State.Current < len(result.State.Steps) {
-			view.CurrentGate = result.State.Steps[result.State.Current].Gate
-		}
-		for _, step := range result.State.Steps {
-			digest := ""
-			if step.Digest != ([32]byte{}) {
-				digest = hex.EncodeToString(step.Digest[:])
-			}
-			view.Steps = append(view.Steps, cli.WorkflowStepView{Gate: step.Gate, Status: step.Status, Reference: step.Reference, Digest: digest})
+		view := &cli.WorkflowView{ExecutionID: result.State.ExecutionID, WorkflowVersion: result.State.WorkflowVersion, Status: string(result.State.Status), CurrentGate: string(result.State.Stage), Revision: result.State.Revision, RepositoryKey: result.State.RepositoryKey, RuntimeID: result.State.RuntimeID, WorkItem: cli.WorkItemView{ProjectID: result.State.ProjectID, RepositoryKey: result.State.RepositoryKey, Provider: result.State.WorkItem.Provider, Resource: result.State.WorkItem.Resource, ExternalID: result.State.WorkItem.ExternalID, URL: result.State.WorkItem.URL, State: result.State.WorkItem.State}, Transitions: make([]cli.WorkflowStepView, 0, len(result.State.Transitions))}
+		for _, step := range result.State.Transitions {
+			view.Transitions = append(view.Transitions, cli.WorkflowStepView{Revision: step.Revision, From: string(step.From), To: string(step.To), Outcome: string(step.Outcome), CommittedAt: step.CommittedAt.Format("2006-01-02T15:04:05.999999999Z07:00")})
 		}
 		response.Workflow = view
 	}
-	if result.WorkItem != nil {
-		response.WorkItem = &cli.WorkItemView{ProjectID: result.WorkItem.ProjectID, RepositoryKey: result.WorkItem.RepositoryKey, Provider: "github", Resource: result.WorkItem.ProviderRepository, ExternalID: strconv.Itoa(result.WorkItem.Number), URL: result.WorkItem.URL, State: result.WorkItem.State}
-	}
 	return response
+}
+
+func workflowResultText(result workflow.Result) string {
+	if result.Category == "workflow_cancelled" {
+		return "Execution workflow operation was cancelled"
+	}
+	if result.Status == workflow.Succeeded {
+		return "Execution workflow operation completed"
+	}
+	if result.Status == workflow.Partial {
+		return "Provider effect confirmed but projection bookkeeping is incomplete"
+	}
+	if result.Status == workflow.Retryable {
+		return "Provider projection requires bounded reconciliation"
+	}
+	if result.Status == workflow.Denied {
+		return "Execution authority is stale or incomplete"
+	}
+	if result.Status == workflow.Interrupted {
+		return "Execution remains at the current workflow stage"
+	}
+	return "Execution workflow operation did not complete"
+}
+func workflowResultReferences(result workflow.Result) []string {
+	refs := []string{}
+	if result.State.ExecutionID != "" {
+		refs = append(refs, "execution:"+result.State.ExecutionID)
+	}
+	if result.State.WorkItem.URL != "" && result.Status == workflow.Partial {
+		refs = append(refs, "provider:"+result.State.WorkItem.URL)
+	}
+	return refs
+}
+func workflowResultNext(result workflow.Result) string {
+	if result.Category == "workflow_cancelled" {
+		return "Read current Execution status before retrying"
+	}
+	if result.Status == workflow.Partial || result.Status == workflow.Retryable {
+		return "Re-read Provider state and reconcile the same projection key before retrying mutation"
+	}
+	if result.Status == workflow.Denied {
+		return "Read current Execution status and prepare fresh exact authority"
+	}
+	if result.Status == workflow.Interrupted {
+		return "Resume from the exact committed Execution revision"
+	}
+	return ""
 }
 
 func workItemResult(result workitem.Result, source provenance.Value) cli.Result {
