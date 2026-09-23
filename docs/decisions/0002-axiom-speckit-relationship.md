@@ -37,8 +37,9 @@ unexpected findings were not automatically false positives; original model
 outputs and frozen evidence were not changed.
 
 Durable evidence: [Axiom and GitHub Spec-Kit Evaluation](../research/axiom-speckit-evaluation.md).
-Reproducibility evidence:
-[`experiments/speckit-evaluation/`](../../experiments/speckit-evaluation/).
+The temporary versioned experiment was retired after human review and
+consolidation of its discovery conclusions; this does not change the decision
+or its approval history.
 
 ## Decision
 

@@ -11,10 +11,11 @@ Spec-Kit dependency, production wrapper, compatibility promise, copied
 template, Lingo implementation, upstream-watch automation, or new harness
 implementation is authorized by this research.
 
-Temporary reproducibility evidence is committed under
-[`experiments/speckit-evaluation/`](../../experiments/speckit-evaluation/).
-This document is self-contained because that directory may be removed after
-human review and preservation of durable findings.
+The temporary versioned experiment was retired on 2026-09-22 after its durable
+findings were consolidated into
+[Axiom Notion discovery](https://app.notion.com/p/3dee01f2262681b6b247ff55baa0b463)
+and the accepted decision artifacts. This historical summary remains
+self-contained; the removed experiment is not an active repository structure.
 
 ## Question
 

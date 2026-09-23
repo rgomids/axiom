@@ -2,7 +2,11 @@
 
 ## Project maturity
 
-Axiom is in early development. The Codex harness and tested Go foundations are available. Lingo CLI, operational filesystem persistence, runtime adapters, and orchestration do not exist yet. See [project status](README.md#project-status) and the [Specifications index](docs/specifications/README.md) for authoritative scope and lifecycle references. The roadmap expresses direction, not implementation authorization.
+Axiom is in early development. The Codex harness, tested Go foundations, and a
+bounded local Lingo control plane are available. See [project status](README.md#project-status)
+for stable capability context and the [Specifications index](docs/specifications/README.md)
+for authoritative scope and lifecycle state. The roadmap expresses direction,
+not implementation authorization.
 
 ## Before contributing
 

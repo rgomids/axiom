@@ -1,4 +1,0 @@
-{"type":"thread.started","thread_id":"019ff2a5-c3c8-76d3-9919-f44f851ff6ff"}
-{"type":"turn.started"}
-{"type":"error","message":"invalid_json_schema: requirement_reference oneOf is not permitted"}
-{"type":"turn.failed","error":{"message":"HTTP 400 invalid_json_schema before model execution"}}

@@ -1,4 +1,0 @@
-{"type":"thread.started","thread_id":"019ff2a6-8083-78b1-9581-84bab48f6b20"}
-{"type":"turn.started"}
-{"type":"error","message":"invalid_json_schema: artifacts_consulted uniqueItems is not permitted"}
-{"type":"turn.failed","error":{"message":"HTTP 400 invalid_json_schema before model execution"}}

@@ -96,5 +96,6 @@ future specification, not an approved workflow.
   accepted relationship.
 - [Axiom and GitHub Spec-Kit Evaluation](axiom-speckit-evaluation.md) preserves
   the research path and measured evidence.
-- [`experiments/speckit-evaluation/`](../../experiments/speckit-evaluation/)
-  preserves Scenario 001 and Scenario 002 reproducibility evidence.
+- [Axiom Notion discovery](https://app.notion.com/p/3dee01f2262681b6b247ff55baa0b463)
+  preserves the consolidated discovery conclusions after retirement of the
+  temporary versioned experiment.
