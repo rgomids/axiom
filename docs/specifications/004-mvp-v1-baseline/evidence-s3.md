@@ -121,6 +121,21 @@ reviewed clean revision, and the regenerated preview was byte-identical. The
 Provider observation then executed exactly once. No T10/S4+ behavior and no
 Issue cleanup or closure occurred.
 
+## Reconciled PR snapshot
+
+- Real-provider observation snapshot:
+  `dcddc49c8c51a3eeb515279c7b11712f8cf912bd`
+- Final reconciled PR validation snapshot:
+  `abf1cf649d0090c6332ca1fd9459d27cee2bd977`
+- `origin/main` integrated:
+  `aaf54becd443a5fd72fee5a62cbb82da58b4ff51`
+- Final validation: `12/12` commands `PASS`
+
+The real-provider snapshot remains the revision that exercised exact authority.
+The reconciled snapshot is the merge tree on which the complete local suite was
+rerun after integrating `main`; the later Evidence-only publication commit does
+not replace either historical fact.
+
 ## Validation environment and commands
 
 Implementation and tests ran on macOS 27.0/arm64 with Go 1.26.1. The local
