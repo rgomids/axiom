@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'landing_page/**'
+      - 'site/**'
       - 'docs/assets/**'
       - '.github/workflows/deploy-landpage.yml'
   workflow_dispatch:
@@ -34,12 +34,12 @@ jobs:
       # Copiar aqui evita manter uma segunda cópia versionada no repositório.
       - name: Assemble landing page assets
         run: |
-          mkdir -p landing_page/assets
-          cp docs/assets/axiom-logo.png docs/assets/axiom-logo-github.png landing_page/assets/
+          mkdir -p site/assets
+          cp docs/assets/axiom-logo.png docs/assets/axiom-logo-github.png site/assets/
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./landing_page
+          path: ./site
 
       - id: deployment
         uses: actions/deploy-pages@v4
