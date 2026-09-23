@@ -9,9 +9,10 @@ comments/labels/closure, repository or Git mutation, release publication, and
 final MVP acceptance were not authorized and were not performed.
 
 The results below establish technical implementation Evidence. They do not imply
-human acceptance. A real GitHub observation requires separate exact per-run
-authority plus reviewed public-safe content. That authority was not supplied, so
-this run created no real Issue and does not claim the real-provider observation.
+human acceptance. Separate exact per-run authority was supplied for one bounded,
+reviewed, public-safe real GitHub observation. That observation created Issue
+[#90](https://github.com/rgomids/axiom/issues/90) and published its exact local
+Work Item link. It did not authorize T10, S4, cleanup, or any other effect.
 
 ## Delivered behavior
 
@@ -84,6 +85,42 @@ this run created no real Issue and does not claim the real-provider observation.
 | confirmed Issue plus local failure | store fault injection | canonical `partial` with exact Issue reference |
 | executable create/select | isolated fake `gh` black box | preview has zero mutation; one authorized create/select link |
 
+## Bounded real-provider observation
+
+The mandatory observation ran from `2026-09-23T02:34:38Z` through
+`2026-09-23T03:47:22Z` against implementation revision
+`dcddc49c8c51a3eeb515279c7b11712f8cf912bd`.
+
+- Provider/resource: `github` / `rgomids/axiom`
+- Project ID: `b6e613a6-dffc-4c9f-8b29-4af63119e6f5`
+- Preview digest:
+  `d3be82df29047141950e012b439c6d438f45e97db73fc7a9e62f478b129be8e3`
+- Correlation:
+  `fed8a7fbc4fd1660733a0ad53decfadab41a2077255d97a5e294785e99729ea5`
+- Expected effects: `create_provider_work_item`,
+  `publish_local_work_item_link`
+- Observed effects: exactly one GitHub Issue create and exactly one matching
+  protected local Work Item publication
+- Issue: `#90`, `https://github.com/rgomids/axiom/issues/90`, state `OPEN`
+- Issue attributes: title/body byte-equivalent to preview; zero labels,
+  comments, assignees, or milestone; no closure
+- Invalid digest: `denied_authority`; zero Provider effects and zero local Work
+  Item effects
+- Correlation count: `0` before create, `1` after create, `1` after final suite;
+  no duplicate Issue was created
+- Local record: `formatVersion: 1`, `externalId: 90`,
+  `providerRepository: rgomids/axiom`, state `OPEN`
+- Local record SHA-256:
+  `7056cd648293f2c0ece08e849fcdfb6f4dda5249eb38526274e00f5413c39467`
+
+Validation initially stopped when repository drift was detected. At that
+checkpoint no Provider mutation had occurred. After explicit operator authority,
+unrelated `landing_page/index.html` work was preserved in stash
+`a312ca1833b9d0fe6c87c3c5b1dbde063f5e69ad`, the branch returned to the exact
+reviewed clean revision, and the regenerated preview was byte-identical. The
+Provider observation then executed exactly once. No T10/S4+ behavior and no
+Issue cleanup or closure occurred.
+
 ## Validation environment and commands
 
 Implementation and tests ran on macOS 27.0/arm64 with Go 1.26.1. The local
@@ -113,16 +150,16 @@ git diff --check
 
 The Go suites include pure unit tests, application/store integration, adapter
 process-boundary tests, CLI tests, and installed executable-style black-box
-tests. Every command above exited zero; Gitleaks reported no leaks. Provider
-traffic in these tests uses synthetic deterministic fake
-executables and temporary protected roots; no real GitHub mutation occurs.
+tests. Every command above exited zero; Gitleaks reported no leaks. The final
+technical suite after the real observation passed `12/12`. Provider traffic in
+the deterministic tests uses synthetic fake executables and temporary protected
+roots; the separately documented bounded observation is the only real GitHub
+mutation in this Evidence.
 
-## Limitations and pending gate
+## Limitations and remaining gates
 
-- The mandatory one bounded real GitHub observation remains pending exact
-  per-run human authority, reviewed target/content/effects, cleanup ownership,
-  and a public-safe test payload. It must not be inferred from this implementation
-  request, tests, PR creation, review, or merge.
+- The mandatory bounded real GitHub observation is complete. Issue #90 remains
+  open; no cleanup/closure was authorized or performed.
 - Historical POC comment/complete and workflow code remain compatibility inputs;
   they are not S3 completion behavior and were not advanced.
 - GitHub Issues is the only implemented Work Item capability. The application
@@ -131,7 +168,7 @@ executables and temporary protected roots; no real GitHub mutation occurs.
 
 ## Acceptance status
 
-T08 implementation and deterministic Evidence are complete. T09 implementation
-and deterministic tests are complete, but T09 and S3 are not fully validated:
-the separately gated real-provider observation remains pending. Human acceptance
-is not claimed. No authority exists here to start T10 or any S4–S7 Task.
+T08 is technically complete. T09 is technically complete, including its
+mandatory bounded real-provider observation. S3 technical completion criteria
+are satisfied. Human acceptance is not claimed. No authority exists here to
+start T10 or any S4–S7 Task; this Evidence does not declare the MVP complete.
