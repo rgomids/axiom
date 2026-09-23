@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'landpage/**'
+      - 'landing_page/**'
       - '.github/workflows/deploy-landpage.yml'
   workflow_dispatch:
 
@@ -31,7 +31,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./landpage
+          path: ./landing_page
 
       - id: deployment
         uses: actions/deploy-pages@v4
