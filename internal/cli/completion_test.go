@@ -8,6 +8,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workitem"
 )
 
 func TestCompletionGoldenMatrix(t *testing.T) {
@@ -96,6 +97,25 @@ func TestCompletionOutputIsBounded(t *testing.T) {
 		}
 		if output.Len() == 0 || output.Len() > MaxCompletionOutputBytes {
 			t.Fatalf("%s output bytes = %d", format, output.Len())
+		}
+	}
+}
+
+func TestWorkItemPreviewWithWorstCaseEscapingRemainsBounded(t *testing.T) {
+	content := strings.Repeat(`"\\<>`, 4*1024)
+	preview := &workitem.DraftPreview{
+		Draft:            workitem.Draft{Sections: []workitem.DraftSection{{Name: "problem", Content: content, Authorship: provenance.UserAuthored}}},
+		ProviderDocument: workitem.ProviderDocument{Title: "Axiom draft", Body: content},
+		Digest:           strings.Repeat("a", 64),
+	}
+	result := canonicalResult(t, completion.Success, nil, "Review preview", completionProvenance(t))
+	for _, mode := range []outputMode{humanOutput, jsonOutput} {
+		var output bytes.Buffer
+		if code := emitWorkItemCompletion(&output, mode, result, Result{Draft: preview}); code != ExitSuccess {
+			t.Fatalf("%s exit=%d bytes=%d", mode, code, output.Len())
+		}
+		if output.Len() == 0 || output.Len() > maxWorkItemPreviewOutputBytes {
+			t.Fatalf("%s bytes=%d", mode, output.Len())
 		}
 	}
 }

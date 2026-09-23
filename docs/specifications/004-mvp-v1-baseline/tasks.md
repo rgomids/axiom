@@ -6,9 +6,11 @@
 
 **S1 Implementation: Delivered on `main` through PR #83. This is technical delivery, not an inferred human MVP acceptance.**
 
-**S2 Implementation: Authorized on 2026-09-21; T04–T07 implemented with reproducible S2 Evidence and pending human review.**
+**S2 Implementation: Delivered on `main` through PR #84 with reproducible S2 Evidence. This is technical delivery, not inferred human MVP acceptance.**
 
-**S3–S7 Implementation: Not authorized.**
+**S3 Implementation: T08 and T09 implementation plus the bounded real-provider observation are technically complete in the delivery branch. Current PR review corrections remain subject to human review. Human acceptance is not inferred.**
+
+**S4–S7 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -34,9 +36,13 @@ Specification 004 — Approved
 -> S1 Implementation — Delivered on main through PR #83
    -> T01 — Accepted / merged in PR #74
    -> T02–T03 — Merged in PR #83 with reproducible S1 Evidence
--> S2 Implementation — Authorized / implemented; human review pending
-   -> T04–T07 — Implemented with reproducible S2 Evidence
--> S3–S7 Implementation — Not authorized
+-> S2 Implementation — Delivered on main through PR #84
+   -> T04–T07 — Merged with reproducible S2 Evidence
+-> S3 Implementation — Technically implemented in branch; current corrections under human review
+   -> T08 — Implementation and deterministic Evidence complete
+   -> T09 — Implementation, deterministic tests, and bounded real-provider observation complete
+   -> Human acceptance — Not inferred
+-> S4–S7 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -350,6 +356,10 @@ truthful; this does not authorize T08 or any other S3 work.
 
 ### T08 — Intent interview and structured Work Item draft
 
+**Implementation checkpoint:** complete in the S3 delivery branch; see
+[S3 Evidence](evidence-s3.md). Preview remains read-only and binds the normalized
+draft, target, effects, expected local revision, correlation, and provenance.
+
 - **Objective:** Intent plus supplied facts becomes a bounded provider-neutral draft whose complete normalized form is reviewed before external mutation.
 - **Slice:** S3 — Intent to GitHub Work Item.
 - **Dependencies:** T01, T07.
@@ -367,15 +377,21 @@ truthful; this does not authorize T08 or any other S3 work.
 
 ### T09 — Authorized GitHub Work Item create/select and linkage
 
+**Implementation checkpoint:** implementation, deterministic tests, and the
+separately authorized bounded real GitHub observation are complete in the S3
+delivery branch; see [S3 Evidence](evidence-s3.md). Issue #90 records the
+historical observation. Current PR review corrections remain subject to human
+review and do not imply human acceptance or authorize T10/S4+.
+
 - **Objective:** Exact authority creates or selects one GitHub Issue, validates its identity/state, and persists one exact local Work Item reference; denial/cancel is zero-effect and confirmed external/local failure is truthful `partial`.
 - **Slice:** S3.
 - **Dependencies:** T02, T03, T08.
 - **Requirements:** FR-008–FR-012, FR-017, FR-023; AC-06, AC-07, AC-16, AC-20; MVP-SEC-01–MVP-SEC-05; MVP-NFR-01–MVP-NFR-03, MVP-NFR-06; SEC-001, SEC-002, SEC-004.
 - **ADRs / decisions:** ADR-0003, ADR-0006, ADR-0007; Provider != domain authority.
 - **Affected boundaries:** workflow-specific WorkItemCapability port, GitHub Issues adapter, local link store, external-effect correlation, completion/artifact output.
-- **Expected implementation:** Bind authority to complete draft/target/effects; execute one bounded time-limited create or exact read/select; strictly validate response/reference/state; persist link with expected revision; read/reconcile by correlation before retry after ambiguous or confirmed create.
+- **Expected implementation:** Bind authority to complete draft/target/effects; durably fence the target before one bounded time-limited create; strictly validate response/reference/state; persist link with expected revision and provider/resource/external identity; after an ambiguous create, reconcile the persisted correlation without another mutation.
 - **Authority and side effects:** Separate explicit GitHub mutation authority. Allowed: one reviewed Issue create/update effect and exact local linkage. Forbidden: repository/Git mutation, issue close, labels/comments, arbitrary command interpolation, blind create retry, credential persistence.
-- **Failure / recovery:** Unauthenticated/rate-limited/unavailable maps to safe failure/retry boundary; invalid response fails closed; confirmed create plus local failure is `partial` with Issue reference; ambiguous create requires read/reconcile before retry.
+- **Failure / recovery:** Unauthenticated/rate-limited/unavailable maps to truthful effect knowledge; invalid response fails closed; confirmed create plus local failure is `partial` with Issue reference; ambiguous create persists across processes and permits reconciliation only until resolved.
 - **Explicit non-goals:** Workflow projection, issue closure as acceptance, generic provider framework, second Provider.
 - **Mandatory tests:** Fake-provider side-effect ledger; denial/cancel; strict responses; time/output bounds; shell metacharacters; rate-limit/transient/ambiguous cases; confirmed-effect/local-fault injection; duplicate prevention; one separately authorized bounded real GitHub observation.
 - **Expected Evidence:** Unit/application/adapter results, exact sanitized commands or API requests, response validation, external/local effect ledger, Issue reference, local revision/digest, limitation and cleanup ownership.
@@ -831,6 +847,8 @@ future work under explicit Task authority.
 
 **T02–T03 — Merged in PR #83 with reproducible S1 Evidence.**
 
-**S2 Implementation — Authorized / implemented with reproducible S2 Evidence; human review pending.**
+**S2 Implementation — Delivered on `main` through PR #84 with reproducible S2 Evidence.**
 
-**S3–S7 Implementation — Not authorized.**
+**S3 Implementation — T08 and T09 implementation plus the bounded real-provider observation are technically complete in the delivery branch. Current PR review corrections remain subject to human review. Human acceptance is not inferred.**
+
+**S4–S7 Implementation — Not authorized.**

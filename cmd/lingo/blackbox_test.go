@@ -99,8 +99,7 @@ type cliEvent struct {
 		Status, CurrentGate, RepositoryPath string
 	} `json:"workflow"`
 	WorkItem *struct {
-		URL, State string
-		Number     int
+		URL, State, ExternalID string
 	} `json:"workItem"`
 }
 
@@ -116,6 +115,15 @@ type canonicalEvent struct {
 		Digest    string   `json:"digest"`
 		Effects   []string `json:"effects"`
 	} `json:"setup"`
+	Draft *struct {
+		Digest string `json:"digest"`
+	} `json:"draft"`
+	Selection *struct {
+		Digest string `json:"digest"`
+	} `json:"selection"`
+	WorkItem *struct {
+		URL, State, ExternalID string
+	} `json:"workItem"`
 }
 
 func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
@@ -184,21 +192,28 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	if err := os.Mkdir(repository, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	gitBinary := filepath.Join(t.TempDir(), "git")
 	ghBinary := filepath.Join(t.TempDir(), "gh")
-	if err := os.WriteFile(gitBinary, []byte("#!/bin/sh\nprintf '%s\\n' 'git@github.com:owner/repo.git'\n"), 0o700); err != nil {
+	createCount := filepath.Join(t.TempDir(), "create-count")
+	if err := os.WriteFile(createCount, []byte("0\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	ghScript := `#!/bin/sh
-if [ "$1" = issue ] && [ "$2" = create ]; then printf '%s\n' 'https://github.com/owner/repo/issues/7'; exit 0; fi
-if [ "$1" = issue ] && [ "$2" = view ]; then printf '%s\n' '{"Number":7,"URL":"https://github.com/owner/repo/issues/7","State":"CLOSED"}'; exit 0; fi
-if [ "$1" = issue ] && { [ "$2" = comment ] || [ "$2" = close ]; }; then printf '%s\n' ok; exit 0; fi
-exit 1
+case "$*" in
+  *search/issues*) printf '%s\n' '{"total_count":0,"items":[]}' ;;
+  *issues/7/comments*) printf '%s\n' '{"id":1}' ;;
+  *PATCH*issues/7*) printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"closed"}' ;;
+  *issues/7*) printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"open"}' ;;
+  *issues/8*) printf '%s\n' '{"number":8,"html_url":"https://github.com/owner/repo/issues/8","state":"open"}' ;;
+  *POST*repos/owner/ambiguous/issues*) count=$(awk '{print $1}' "$AXIOM_TEST_CREATE_COUNT"); count=$((count + 1)); printf '%s\n' "$count" > "$AXIOM_TEST_CREATE_COUNT"; cat >/dev/null; exit 1 ;;
+  *POST*issues*) cat >/dev/null; printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"open"}' ;;
+  *) exit 1 ;;
+esac
+exit 0
 `
 	if err := os.WriteFile(ghBinary, []byte(ghScript), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	environment = append(environment, "AXIOM_GIT_BIN="+gitBinary, "AXIOM_GH_BIN="+ghBinary)
+	environment = append(environment, "AXIOM_GH_BIN="+ghBinary, "AXIOM_TEST_CREATE_COUNT="+createCount)
 	preview := runCanonical(0, "success", "Project setup preview ready", "project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main="+repository, "--work-item-provider", "github")
 	if preview.Setup.ProjectID == "" || preview.Setup.Digest == "" {
 		t.Fatalf("setup preview = %+v", preview.Setup)
@@ -240,13 +255,35 @@ exit 1
 	if len(shown.References) != 2 || !strings.HasPrefix(shown.References[0], "project:") || shown.References[1] != "repository:main" {
 		t.Fatalf("project references = %+v", shown.References)
 	}
-	run(1, "error", "external_mutation_denied", "work-item", "create", "--project", "configured", "--repository", "main", "--title", "POC")
-	created := run(0, "success", "work_item_linked", "work-item", "create", "--project", "configured", "--repository", "main", "--title", "POC", "--authorize-external")
-	if created.WorkItem == nil || created.WorkItem.Number != 7 || created.WorkItem.State != "OPEN" {
+	draftArgs := []string{"work-item", "create", "--project", "configured", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Delivery is blocked", "--desired-outcome", "Delivery proceeds", "--context", "Supported host", "--scope", "Bounded change", "--constraints", "Preserve authority", "--non-goals", "No workflow", "--acceptance", "Tests pass"}
+	draft := runCanonical(0, "success", "Work Item draft ready for review", draftArgs...)
+	if draft.Draft == nil || draft.Draft.Digest == "" {
+		t.Fatalf("draft preview = %+v", draft.Draft)
+	}
+	runCanonical(1, "denied_authority", "Work Item authority denied", append(draftArgs, "--preview-digest", "stale", "--authorize-external")...)
+	created := runCanonical(0, "success", "GitHub Work Item linked", append(draftArgs, "--preview-digest", draft.Draft.Digest, "--authorize-external")...)
+	if created.WorkItem == nil || created.WorkItem.ExternalID != "7" || created.WorkItem.State != "OPEN" {
 		t.Fatalf("work item payload = %+v", created.WorkItem)
 	}
-	run(0, "success", "work_item_loaded", "work-item", "show", "--project", "configured", "--repository", "main", "--number", "7")
-	run(0, "success", "work_item_commented", "work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence", "--authorize-external")
+	ambiguousArgs := []string{"work-item", "create", "--project", "configured", "--repository", "main", "--provider-repository", "owner/ambiguous", "--intent", "Ambiguous delivery", "--desired-outcome", "Safe reconciliation", "--context", "Separate process", "--scope", "Bounded change", "--constraints", "No duplicate", "--non-goals", "No workflow", "--acceptance", "One POST"}
+	ambiguousDraft := runCanonical(0, "success", "Work Item draft ready for review", ambiguousArgs...)
+	for range 2 {
+		runCanonical(1, "retryable_failure", "GitHub create result is ambiguous", append(ambiguousArgs, "--preview-digest", ambiguousDraft.Draft.Digest, "--authorize-external")...)
+	}
+	count, err := os.ReadFile(createCount)
+	if err != nil || strings.TrimSpace(string(count)) != "1" {
+		t.Fatalf("ambiguous create count = %q, %v", count, err)
+	}
+	runCanonical(0, "success", "Work Item link loaded", "work-item", "show", "--project", "configured", "--repository", "main", "--number", "7")
+	selection := runCanonical(0, "success", "GitHub Work Item selection ready for review", "work-item", "select", "--project", "configured", "--repository", "main", "--provider-repository", "owner/repo", "--number", "8")
+	if selection.Selection == nil || selection.Selection.Digest == "" {
+		t.Fatalf("selection preview = %+v", selection.Selection)
+	}
+	selected := runCanonical(0, "success", "GitHub Work Item linked", "work-item", "select", "--project", "configured", "--repository", "main", "--provider-repository", "owner/repo", "--number", "8", "--preview-digest", selection.Selection.Digest, "--authorize-local")
+	if selected.WorkItem == nil || selected.WorkItem.ExternalID != "8" {
+		t.Fatalf("selected item = %+v", selected.WorkItem)
+	}
+	runCanonical(0, "success", "Historical Work Item comment completed", "work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence", "--authorize-external")
 	run(0, "success", "workflow_started", "workflow", "start", "--project", "configured", "--repository", "main", "--number", "7")
 	for _, gate := range []string{"specification", "clarification", "plan", "tasks"} {
 		if err := os.WriteFile(filepath.Join(repository, gate+".md"), []byte(gate), 0o600); err != nil {

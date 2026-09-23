@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workitem"
 )
 
 const (
@@ -68,9 +69,13 @@ type ConfigureInput struct {
 	AuthorizeLocal        bool
 }
 type WorkItemInput struct {
-	Project, Repository, Title, Body, Message string
-	Number                                    int
-	AuthorizeExternal                         bool
+	Project, Repository, ProviderRepository  string
+	Intent, Problem, DesiredOutcome, Context string
+	Scope, Constraints, NonGoals, Acceptance string
+	Message, PreviewDigest                   string
+	Number                                   int
+	AuthorizeExternal, AuthorizeLocal        bool
+	Cancelled                                bool
 }
 type WorkflowInput struct {
 	Project, Repository, Gate, Outcome, Reference string
@@ -98,6 +103,9 @@ type Result struct {
 	Completion *completion.Result
 	Setup      *projectapp.SetupPreview
 	Runtime    *RuntimeView
+	Draft      *workitem.DraftPreview
+	Selection  *workitem.SelectionPreview
+	Questions  []workitem.Question
 }
 
 type RuntimeSkillView struct {
@@ -124,8 +132,9 @@ type ProjectView struct {
 type WorkItemView struct {
 	ProjectID     string `json:"projectId"`
 	RepositoryKey string `json:"repositoryKey"`
-	Repository    string `json:"repository"`
-	Number        int    `json:"number"`
+	Provider      string `json:"provider"`
+	Resource      string `json:"resource"`
+	ExternalID    string `json:"externalId"`
 	URL           string `json:"url"`
 	State         string `json:"state"`
 }
@@ -166,6 +175,15 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		}
 		if values.slug == "" || values.name == "" || len(values.repositories) == 0 || !flagSupplied(args[2:], "--work-item-provider") {
 			return runInteractiveConfiguration(ctx, mode, args[2:], service, stdin, stdout, stderr)
+		}
+	}
+	if len(args) >= 2 && args[0] == "work-item" && args[1] == "create" && stdin != nil {
+		values, ok := workItemFlags(workItemCreateAction, args[2:])
+		if !ok {
+			return emit(stdout, mode, event{Operation: workItemCreateAction, Status: Failed, Category: "invalid_input"})
+		}
+		if !completeWorkItemCreate(values) {
+			return runInteractiveWorkItemCreate(ctx, mode, values, service, stdin, stdout, stderr)
 		}
 	}
 	operation, input, result := request(args, service)
@@ -226,6 +244,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.Runtime != nil {
 			return emitRuntimeCompletion(writer, mode, *response.Completion, *response.Runtime)
 		}
+		if response.Draft != nil || response.Selection != nil || response.WorkItem != nil || len(response.Questions) != 0 {
+			return emitWorkItemCompletion(writer, mode, *response.Completion, response)
+		}
 		return emitCompletion(writer, mode, *response.Completion)
 	}
 	return emit(writer, mode, eventFrom(operation, response))
@@ -258,19 +279,22 @@ const (
 )
 
 type requestInput struct {
-	slug                                      string
-	name                                      string
-	projectID                                 string
-	source                                    string
-	selector                                  string
-	repositories                              repositoryFlags
-	workItemProvider                          string
-	previewDigest                             string
-	project, repository, title, body, message string
-	gate, outcome, reference                  string
-	number                                    int
-	authorizeExternal                         bool
-	authorizeLocal                            bool
+	slug                                     string
+	name                                     string
+	projectID                                string
+	source                                   string
+	selector                                 string
+	repositories                             repositoryFlags
+	workItemProvider                         string
+	previewDigest                            string
+	project, repository, providerRepository  string
+	intent, problem, desiredOutcome, context string
+	scope, constraints, nonGoals, acceptance string
+	message                                  string
+	gate, outcome, reference                 string
+	number                                   int
+	authorizeExternal                        bool
+	authorizeLocal                           bool
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
@@ -296,7 +320,8 @@ func request(args []string, service Service) (action, requestInput, *string) {
 		if !ok {
 			return operation, requestInput{}, category("invalid_input")
 		}
-		if values.project == "" || values.repository == "" || operation == workItemCreateAction && values.title == "" || operation != workItemCreateAction && values.number <= 0 || operation == workItemCommentAction && values.message == "" {
+		needsTarget := operation == workItemCreateAction || operation == workItemSelectAction
+		if values.project == "" || values.repository == "" || needsTarget && values.providerRepository == "" || operation != workItemCreateAction && values.number <= 0 || operation == workItemCommentAction && values.message == "" {
 			return operation, values, category("missing_required_input")
 		}
 		return operation, values, nil
@@ -381,10 +406,19 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 	var values requestInput
 	set.StringVar(&values.project, "project", "", "")
 	set.StringVar(&values.repository, "repository", "", "")
+	set.StringVar(&values.providerRepository, "provider-repository", "", "")
+	set.StringVar(&values.previewDigest, "preview-digest", "", "")
 	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
+	set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
 	if operation == workItemCreateAction {
-		set.StringVar(&values.title, "title", "", "")
-		set.StringVar(&values.body, "body", "", "")
+		set.StringVar(&values.intent, "intent", "", "")
+		set.StringVar(&values.problem, "problem", "", "")
+		set.StringVar(&values.desiredOutcome, "desired-outcome", "", "")
+		set.StringVar(&values.context, "context", "", "")
+		set.StringVar(&values.scope, "scope", "", "")
+		set.StringVar(&values.constraints, "constraints", "", "")
+		set.StringVar(&values.nonGoals, "non-goals", "", "")
+		set.StringVar(&values.acceptance, "acceptance", "", "")
 	} else {
 		set.IntVar(&values.number, "number", 0, "")
 	}
@@ -464,7 +498,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		}
 		return service.Configure(ctx, ConfigureInput{ProjectID: input.projectID, Slug: input.slug, Name: input.name, Repositories: repositories, WorkItemProvider: provider, PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal})
 	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction:
-		value := WorkItemInput{Project: input.project, Repository: input.repository, Title: input.title, Body: input.body, Message: input.message, Number: input.number, AuthorizeExternal: input.authorizeExternal}
+		value := WorkItemInput{Project: input.project, Repository: input.repository, ProviderRepository: input.providerRepository, Intent: input.intent, Problem: input.problem, DesiredOutcome: input.desiredOutcome, Context: input.context, Scope: input.scope, Constraints: input.constraints, NonGoals: input.nonGoals, Acceptance: input.acceptance, Message: input.message, PreviewDigest: input.previewDigest, Number: input.number, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal}
 		switch operation {
 		case workItemCreateAction:
 			return service.WorkItemCreate(ctx, value)
@@ -560,7 +594,7 @@ func emitHuman(writer io.Writer, value event) {
 		}
 	}
 	if value.WorkItem != nil {
-		_, _ = io.WriteString(writer, "work-item "+value.WorkItem.URL+" ["+value.WorkItem.State+"] project="+value.WorkItem.ProjectID+" repository-key="+value.WorkItem.RepositoryKey+" provider-repository="+value.WorkItem.Repository+"\n")
+		_, _ = io.WriteString(writer, "work-item "+value.WorkItem.URL+" ["+value.WorkItem.State+"] project="+value.WorkItem.ProjectID+" repository-key="+value.WorkItem.RepositoryKey+" provider="+value.WorkItem.Provider+" resource="+value.WorkItem.Resource+" external-id="+value.WorkItem.ExternalID+"\n")
 	}
 	if value.Workflow != nil {
 		_, _ = io.WriteString(writer, "workflow "+value.Workflow.Status+" current="+value.Workflow.CurrentGate+" repository="+strconv.Quote(value.Workflow.RepositoryPath)+"\n")
@@ -590,6 +624,87 @@ func parseRepositories(values []string) ([]RepositoryInput, bool) {
 		result = append(result, RepositoryInput{Key: key, Path: path})
 	}
 	return result, true
+}
+
+func completeWorkItemCreate(values requestInput) bool {
+	return values.project != "" && values.repository != "" && values.providerRepository != "" &&
+		(values.intent != "" || values.problem != "") && values.desiredOutcome != "" && values.context != "" &&
+		values.scope != "" && values.constraints != "" && values.nonGoals != "" && values.acceptance != ""
+}
+
+func runInteractiveWorkItemCreate(ctx context.Context, mode outputMode, values requestInput, service Service, input io.Reader, stdout, prompts io.Writer) int {
+	scanner := bufio.NewScanner(input)
+	fields := []struct {
+		value  *string
+		prompt string
+	}{
+		{&values.project, "Project UUID or slug: "},
+		{&values.repository, "Project repository key: "},
+		{&values.providerRepository, "GitHub repository owner/name: "},
+	}
+	for _, field := range fields {
+		if *field.value != "" {
+			continue
+		}
+		value, ok := readPromptLine(scanner, prompts, field.prompt, true)
+		if !ok {
+			return emitResponse(stdout, mode, workItemCreateAction, service.WorkItemCreate(ctx, WorkItemInput{Project: values.project, Repository: values.repository, ProviderRepository: values.providerRepository, Cancelled: true}))
+		}
+		*field.value = value
+	}
+	if values.intent == "" && values.problem == "" {
+		value, ok := readPromptLine(scanner, prompts, "Intent or problem: ", true)
+		if !ok {
+			return emitResponse(stdout, mode, workItemCreateAction, service.WorkItemCreate(ctx, WorkItemInput{Project: values.project, Repository: values.repository, ProviderRepository: values.providerRepository, Cancelled: true}))
+		}
+		values.intent = value
+	}
+	sections := []struct {
+		value  *string
+		prompt string
+	}{
+		{&values.desiredOutcome, "Desired outcome: "}, {&values.context, "Context: "}, {&values.scope, "Scope: "},
+		{&values.constraints, "Constraints: "}, {&values.nonGoals, "Non-goals: "}, {&values.acceptance, "Acceptance expectations: "},
+	}
+	for _, field := range sections {
+		if *field.value != "" {
+			continue
+		}
+		value, ok := readPromptLine(scanner, prompts, field.prompt, true)
+		if !ok {
+			return emitResponse(stdout, mode, workItemCreateAction, service.WorkItemCreate(ctx, workItemInput(values, true)))
+		}
+		*field.value = value
+	}
+	preview := service.WorkItemCreate(ctx, workItemInput(values, false))
+	if preview.Draft == nil || preview.Completion == nil || preview.Completion.Status() != completion.Success {
+		return emitResponse(stdout, mode, workItemCreateAction, preview)
+	}
+	if prompts != nil {
+		wire, err := marshalWorkItemValue(preview.Draft, true)
+		if err != nil {
+			return ExitFailure
+		}
+		_, _ = prompts.Write(wire)
+	}
+	answer, ok := readPromptLine(scanner, prompts, "Publish this create-attempt fence, create this exact GitHub Issue, and publish its local link? [yes/no]: ", false)
+	if !ok || answer != "yes" {
+		cancelled := workItemInput(values, true)
+		return emitResponse(stdout, mode, workItemCreateAction, service.WorkItemCreate(ctx, cancelled))
+	}
+	authorized := workItemInput(values, false)
+	authorized.PreviewDigest = preview.Draft.Digest
+	authorized.AuthorizeExternal = true
+	return emitResponse(stdout, mode, workItemCreateAction, service.WorkItemCreate(ctx, authorized))
+}
+
+func workItemInput(values requestInput, cancelled bool) WorkItemInput {
+	return WorkItemInput{
+		Project: values.project, Repository: values.repository, ProviderRepository: values.providerRepository,
+		Intent: values.intent, Problem: values.problem, DesiredOutcome: values.desiredOutcome, Context: values.context,
+		Scope: values.scope, Constraints: values.constraints, NonGoals: values.nonGoals, Acceptance: values.acceptance,
+		PreviewDigest: values.previewDigest, AuthorizeExternal: values.authorizeExternal, Cancelled: cancelled,
+	}
 }
 
 func runInteractiveConfiguration(ctx context.Context, mode outputMode, args []string, service Service, input io.Reader, stdout, prompts io.Writer) int {

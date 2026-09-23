@@ -106,9 +106,16 @@ normal implementation-authorization units while T01–T25 remain the approved
 internal decomposition. S1 is tracked in
 [#75](https://github.com/rgomids/axiom/issues/75): T01 canonical
 completion/provenance was accepted and merged in PR #74, and T02–T03 were
-delivered through PR #83. S2 is explicitly authorized and tracked in
-[#76](https://github.com/rgomids/axiom/issues/76); T04–T07 are implemented with
-S2 Evidence and await human review. S3–S7 remain unauthorized.
+delivered through PR #83. S2 was delivered through PR #84 and is tracked in
+[#76](https://github.com/rgomids/axiom/issues/76). S3 was explicitly authorized
+on 2026-09-22 and is tracked in
+[#77](https://github.com/rgomids/axiom/issues/77); T08 and T09 implementation plus
+deterministic tests are recorded in
+[S3 Evidence](004-mvp-v1-baseline/evidence-s3.md). T09's separately authorized
+bounded real-provider observation created Issue #90 and is complete. S3 is
+technically implemented; current PR review corrections remain subject to human
+review, and human acceptance is not inferred.
+S4–S7 remain unauthorized.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -146,9 +153,12 @@ accepted and merged in PR #74 and operational governance moved to the Slice
 boundary. T02–T03 were delivered to `main` through PR #83; their reproducible
 security/filesystem record is in
 [S1 Evidence](004-mvp-v1-baseline/evidence-s1.md). S2 was then explicitly
-authorized and T04–T07 were implemented with the reproducible record in
-[S2 Evidence](004-mvp-v1-baseline/evidence-s2.md). Technical completion/review
-remains separate from human acceptance. S3–S7, Provider mutation outside an
-authorized Task boundary, prerelease/release publication, and final MVP acceptance
-remain separately gated.
+authorized and T04–T07 were delivered through PR #84 with the reproducible record
+in [S2 Evidence](004-mvp-v1-baseline/evidence-s2.md). S3 was explicitly authorized
+on 2026-09-22; T08–T09 implementation and deterministic tests are recorded in
+[S3 Evidence](004-mvp-v1-baseline/evidence-s3.md). T09's mandatory bounded
+real-provider observation is complete at its documented historical revision.
+Technical completion and current review corrections remain separate from human
+acceptance. S4–S7, Provider mutation outside an exact authorized run,
+prerelease/release publication, and final MVP acceptance remain separately gated.
 Operational Slice trackers are #75–#81.

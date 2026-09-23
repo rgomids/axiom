@@ -10,6 +10,7 @@ import (
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workitem"
 )
 
 const MaxCompletionOutputBytes = 16 * 1024
@@ -67,6 +68,69 @@ type setupCompletionEvent struct {
 type runtimeCompletionEvent struct {
 	completionEvent
 	Runtime RuntimeView `json:"runtime"`
+}
+
+type workItemCompletionEvent struct {
+	completionEvent
+	Draft     *workitem.DraftPreview     `json:"draft,omitempty"`
+	Selection *workitem.SelectionPreview `json:"selection,omitempty"`
+	WorkItem  *WorkItemView              `json:"workItem,omitempty"`
+	Questions []workitem.Question        `json:"questions,omitempty"`
+}
+
+const maxWorkItemPreviewOutputBytes = 128 * 1024
+
+func emitWorkItemCompletion(writer io.Writer, mode outputMode, result completion.Result, response Result) int {
+	if writer == nil || !result.Valid() {
+		return ExitFailure
+	}
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	value := workItemCompletionEvent{completionEvent: base, Draft: response.Draft, Selection: response.Selection, WorkItem: response.WorkItem}
+	if len(response.Questions) != 0 {
+		value.Questions = response.Questions
+	}
+	if mode == humanOutput {
+		content := renderCompletionHuman(result)
+		extra, err := marshalWorkItemValue(value, true)
+		if err != nil {
+			return ExitFailure
+		}
+		content = append(content, "preview: "...)
+		content = append(content, extra...)
+		if len(content) > maxWorkItemPreviewOutputBytes {
+			return ExitFailure
+		}
+		written, err := writer.Write(content)
+		if err != nil || written != len(content) {
+			return ExitFailure
+		}
+		return completionExitCode(result.Status())
+	}
+	content, err := marshalWorkItemValue(value, false)
+	if err != nil {
+		return ExitFailure
+	}
+	written, err := writer.Write(content)
+	if err != nil || written != len(content) {
+		return ExitFailure
+	}
+	return completionExitCode(result.Status())
+}
+
+func marshalWorkItemValue(value any, indented bool) ([]byte, error) {
+	var output bytes.Buffer
+	encoder := json.NewEncoder(&output)
+	encoder.SetEscapeHTML(false)
+	if indented {
+		encoder.SetIndent("", "  ")
+	}
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	if output.Len() > maxWorkItemPreviewOutputBytes {
+		return nil, errors.New("work item preview exceeds output limit")
+	}
+	return output.Bytes(), nil
 }
 
 func emitRuntimeCompletion(writer io.Writer, mode outputMode, result completion.Result, runtime RuntimeView) int {

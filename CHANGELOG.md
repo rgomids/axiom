@@ -1,7 +1,43 @@
 # Changelog
 
+## [2026-09-23]
+
+- fix: reserve a protected durable create-attempt fence before GitHub POST;
+  ambiguous or unknown outcomes now remain reconciliation-only across process
+  restarts, preventing automatic duplicate creation.
+- fix: key new local Work Item records by provider, resource, and external ID
+  while retaining exact validated reads and updates for legacy v1 records;
+  unqualified same-number collisions fail closed.
+- docs: reconcile T08/T09 and S3 status with the completed bounded real-provider
+  observation while preserving current human-review, human-acceptance, and
+  T10/S4+ gates.
+
 ## [2026-09-22]
 
+- implementation: complete the deterministic implementation scope of the
+  authorized MVP S3 boundary (T08–T09) with a
+  provider-neutral, authorship-preserving Intent draft; deterministic missing-field
+  interview; reviewed digest; exact GitHub create/select authority; and generic
+  protected local Work Item linkage.
+- security: keep draft preview read-only, reject bounded secret/control/oversized
+  input before effects, pass untrusted Issue content through JSON stdin, bound
+  provider time/output, validate exact GitHub identity/state, and reconcile by
+  correlation before every retry boundary to prevent blind duplicate creation.
+- test: add unit, adapter, integration, CLI, and executable black-box coverage for
+  question minimization, cancellation/denial, provenance, metacharacters, stale
+  local revision, timeout/output/rate-limit/ambiguous responses, duplicate
+  prevention, truthful confirmed-provider/local-failure partial results, and the
+  bounded installed-binary dogfood journey through the reviewed S3 draft.
+- fix: preserve the existing Work Item `formatVersion: 1` wire identity while
+  mapping it to provider-neutral domain fields; reject providers and external IDs
+  that the GitHub-specific v1 adapter cannot represent before writing.
+- fix: classify GitHub adapter failures from bounded `gh api --include` HTTP
+  metadata: authentication and deterministic 4xx failures are non-retryable,
+  rate limits and 5xx failures are explicit retry boundaries, and unknown CLI
+  failures fail closed without retry.
+- evidence: complete the mandatory bounded T09 real-provider observation under
+  exact per-run authority with one GitHub Issue create and one protected local
+  Work Item link; this does not imply human acceptance.
 - docs: make the repository agent an explicit contributor governed by the
   canonical contribution workflow and Pull Request template.
 - docs: establish the English README as the stable canonical landing page, add
