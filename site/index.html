@@ -16,8 +16,8 @@
 <meta name="twitter:description" content="An AI-assisted software development control plane built around Spec-Driven Development.">
 <meta name="twitter:image" content="https://rgomids.github.io/axiom/assets/axiom-logo-github.png">
 
-<link rel="icon" href="assets/axiom-logo.png" type="image/png">
-<link rel="apple-touch-icon" href="assets/axiom-logo.png">
+<link rel="icon" href="https://github.com/rgomids/axiom/blob/main/docs/assets/axiom-logo.png" type="image/png">
+<link rel="apple-touch-icon" href="https://github.com/rgomids/axiom/blob/main/docs/assets/axiom-logo.png">
 <link rel="stylesheet" href="styles.css">
 
 <!-- Applied before first paint so the stored theme never flashes. -->
@@ -38,12 +38,12 @@
 <header class="site-header">
   <div class="shell header-inner">
     <a class="brand" href="#top" aria-label="Axiom — home">
-      <img class="brand-mark" src="assets/axiom-logo-github.png" alt="Axiom" width="1989" height="789" decoding="async">
+      <img class="brand-mark" src="https://github.com/rgomids/axiom/blob/main/docs/assets/axiom-logo-github.png" alt="Axiom" width="1989" height="789" decoding="async">
     </a>
 
     <nav class="header-nav" aria-label="Primary">
       <a class="nav-link" href="https://github.com/rgomids/axiom">GitHub</a>
-      <a class="nav-link" href="https://github.com/rgomids/axiom#readme">Documentation</a>
+      <a class="nav-link" href="https://github.com/rgomids/axiom#documentation">Documentation</a>
       <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to light theme">
         <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
           <path fill="currentColor" d="M20.7 14.6A8.6 8.6 0 0 1 9.4 3.3a1 1 0 0 0-1.3-1.2 10.6 10.6 0 1 0 13.8 13.8 1 1 0 0 0-1.2-1.3Z"/>
@@ -63,7 +63,7 @@
 
   <section class="hero" id="top">
     <div class="shell hero-inner">
-      <img class="hero-logo" src="assets/axiom-logo.png" alt="" width="1244" height="1244" decoding="async">
+      <img class="hero-logo" src="https://github.com/rgomids/axiom/blob/main/docs/assets/axiom-logo.png" alt="" width="1244" height="1244" decoding="async">
 
       <p class="eyebrow"><span class="dot"></span>Open source · Under active development</p>
 
@@ -82,7 +82,7 @@
           </svg>
           View on GitHub
         </a>
-        <a class="btn btn-ghost" href="https://github.com/rgomids/axiom#readme">Explore Documentation</a>
+        <a class="btn btn-ghost" href="https://github.com/rgomids/axiom#documentation">Explore Documentation</a>
       </div>
     </div>
   </section>
@@ -194,36 +194,38 @@
           <h3 class="status-head"><span class="badge">Available</span></h3>
           <ul role="list">
             <li>Codex-first harness: context, policies, skills, templates, and validation scripts</li>
-            <li>Go implementation of Project rules, portable/local state, Codex Runtime, and GitHub Work Items</li>
-            <li>Evidence and validation workflow</li>
-            <li>Versioned Specifications and architecture decisions (ADRs)</li>
-            <li>Delivery slices S1 and S2 delivered on <code>main</code></li>
+            <li>Go implementation of Project rules, portable and local state, the Codex Runtime, GitHub Work Items, and a bounded persistent Lingo workflow, with tests</li>
+            <li>Canonical completion and provenance records, with fail-closed protected local publication for the S1 substrate</li>
+            <li>Versioned Specifications, architecture decisions (ADRs), and implementation Evidence</li>
+            <li>Delivery slice S1 delivered on <code>main</code> through PR #83</li>
           </ul>
         </article>
 
         <article class="status-col is-progress">
           <h3 class="status-head"><span class="badge">In progress</span></h3>
           <ul role="list">
-            <li>S3 authorized and active: T08 – T09 implemented, with human and provider gates still pending</li>
-            <li>S4 – S7 specified, with no authorization to implement</li>
+            <li>S2 authorized as an operational unit: T04 – T07 implemented with reproducible Evidence, awaiting human review</li>
           </ul>
         </article>
 
         <article class="status-col is-future">
           <h3 class="status-head"><span class="badge">Future work</span></h3>
           <ul role="list">
+            <li>S3 – S7 specified, with no authorization to implement</li>
             <li>Multi-agent orchestration</li>
             <li>Additional runtimes beyond Codex</li>
             <li>Additional work-item providers beyond GitHub Issues</li>
-            <li>Remote sync and package managers</li>
+            <li>Remote sync, package managers, and auto-update</li>
             <li>Production guarantees</li>
           </ul>
         </article>
       </div>
 
       <p class="note">
-        Nothing under <em>Future work</em> is implemented. Technical validation or a merge does
-        not imply human acceptance.
+        Nothing under <em>Future work</em> is implemented, and nothing there is authorized to be
+        implemented. Technical validation or a merge does not imply human acceptance. This summary
+        follows the <a href="https://github.com/rgomids/axiom#project-status">versioned project
+        status</a>, which remains the source of truth.
       </p>
       </div>
     </div>
@@ -239,7 +241,7 @@
     </p>
     <nav class="footer-nav" aria-label="Footer">
       <a href="https://github.com/rgomids/axiom">GitHub</a>
-      <a href="https://github.com/rgomids/axiom#readme">Documentation</a>
+      <a href="https://github.com/rgomids/axiom#documentation">Documentation</a>
       <a href="https://github.com/rgomids/axiom/blob/main/LICENSE">Apache 2.0 License</a>
     </nav>
   </div>
