@@ -136,6 +136,47 @@ type canonicalEvent struct {
 	} `json:"projection"`
 }
 
+func TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "lingo")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build executable: %v: %s", err, output)
+	}
+	root := t.TempDir()
+	portable := filepath.Join(root, "portable")
+	state := filepath.Join(root, "state")
+	providerLedger := filepath.Join(root, "provider-called")
+	ghBinary := filepath.Join(root, "gh")
+	ghScript := "#!/bin/sh\nprintf called >\"$AXIOM_TEST_PROVIDER_LEDGER\"\nexit 1\n"
+	if err := os.WriteFile(ghBinary, []byte(ghScript), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	environment := append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_GH_BIN="+ghBinary, "AXIOM_TEST_PROVIDER_LEDGER="+providerLedger)
+	cases := [][]string{
+		{"workflow", "status", "-project", "alpha", "-project", "beta"},
+		{"workflow", "status", "--project", "alpha", "-project", "beta"},
+		{"workflow", "status", "-execution", "first", "-execution", "second"},
+	}
+	for _, args := range cases {
+		command := exec.Command(binary, append([]string{"--json"}, args...)...)
+		command.Env = environment
+		output, err := command.CombinedOutput()
+		exit, ok := err.(*exec.ExitError)
+		if !ok || exit.ExitCode() != 1 {
+			t.Fatalf("%v: err=%v output=%s", args, err, output)
+		}
+		var event canonicalEvent
+		if err := json.Unmarshal(bytes.TrimSpace(output), &event); err != nil || event.Status != "validation_failure" {
+			t.Fatalf("%v: event=%+v err=%v output=%s", args, event, err, output)
+		}
+	}
+	for _, path := range []string{portable, state, providerLedger} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("invalid selector created effect at %s: %v", path, err)
+		}
+	}
+}
+
 func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	binary := filepath.Join(t.TempDir(), "lingo")
 	build := exec.Command("go", "build", "-o", binary, ".")

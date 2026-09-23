@@ -65,6 +65,9 @@ func TestStrictSelectorParserRejectsUnknownDuplicateAndConflictingInput(t *testi
 	}{
 		{"unknown", []string{"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--unknown", "value"}},
 		{"duplicate", []string{"workflow", "status", "--project", "alpha", "--project", "other", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution"}},
+		{"single-hyphen duplicate project", []string{"workflow", "status", "-project", "alpha", "-project", "other", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution"}},
+		{"mixed-hyphen duplicate project", []string{"workflow", "status", "--project", "alpha", "-project", "other", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution"}},
+		{"single-hyphen duplicate execution", []string{"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "-execution", "first", "-execution", "second"}},
 		{"conflicting", []string{"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--number", "7", "--execution", "execution"}},
 		{"unsafe selector", []string{"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7;touch", "--execution", "execution"}},
 	}

@@ -2,7 +2,9 @@ package codexruntime
 
 import (
 	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,7 +14,90 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/provenance"
 )
+
+type codexCompletionView struct {
+	Status     completion.Status `json:"status"`
+	Result     string            `json:"result"`
+	References []string          `json:"references"`
+	Next       string            `json:"next"`
+	Details    string            `json:"details"`
+	Provenance struct {
+		Product     string                 `json:"product"`
+		Version     string                 `json:"version"`
+		Revision    string                 `json:"revision"`
+		SourceState provenance.SourceState `json:"sourceState"`
+	} `json:"provenance"`
+}
+
+func TestCodexCompletionContractPreservesCLISevenStatusMatrix(t *testing.T) {
+	source, err := provenance.FromBuild(provenance.Build{Version: provenance.Development, Revision: "abc123def456", SourceState: provenance.Clean}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		status     completion.Status
+		facts      completion.Facts
+		references []string
+		next       string
+		details    string
+	}{
+		{completion.Success, completion.Facts{Completed: true}, []string{"project:alpha"}, "", ""},
+		{completion.Failure, completion.Facts{Failed: true}, nil, "Inspect application diagnostics", "artifact:failure"},
+		{completion.ValidationFailure, completion.Facts{ValidationFailed: true}, nil, "Correct selectors", ""},
+		{completion.DeniedAuthority, completion.Facts{AuthorityDenied: true}, nil, "Obtain exact authority", ""},
+		{completion.Partial, completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, []string{"provider:github#7"}, "Retry local persistence", "artifact:partial"},
+		{completion.Interrupted, completion.Facts{WasInterrupted: true}, []string{"execution:123"}, "Resume execution", ""},
+		{completion.RetryableFailure, completion.Facts{RetrySafeFailure: true}, nil, "Retry after dependency recovery", "artifact:retryable"},
+	}
+	for _, test := range cases {
+		t.Run(string(test.status), func(t *testing.T) {
+			statement, err := provenance.NewText("operation completed", provenance.AxiomAuthored)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var next provenance.Text
+			if test.next != "" {
+				next, err = provenance.NewText(test.next, provenance.AxiomAuthored)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			result, err := completion.New(test.facts, statement, test.references, next, test.details, source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var rendered bytes.Buffer
+			cli.WriteCompletion(&rendered, cli.CompletionJSON, result)
+			var observed codexCompletionView
+			if err := json.Unmarshal(rendered.Bytes(), &observed); err != nil {
+				t.Fatalf("decode runtime-facing completion: %v: %s", err, rendered.String())
+			}
+			if observed.Status != test.status || observed.Result != "operation completed" || !sameStrings(observed.References, test.references) || observed.Next != test.next || observed.Details != test.details {
+				t.Fatalf("completion mismatch: %+v", observed)
+			}
+			if observed.Provenance.Product != provenance.Product || observed.Provenance.Version != provenance.Development || observed.Provenance.Revision != "abc123def456" || observed.Provenance.SourceState != provenance.Clean {
+				t.Fatalf("provenance mismatch: %+v", observed.Provenance)
+			}
+		})
+	}
+}
+
+func sameStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
 
 func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
 	if SkillSetVersion != "2" || BinaryCompatibility != "2" {

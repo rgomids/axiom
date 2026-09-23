@@ -468,9 +468,6 @@ func selectorRequestIssue(operation action, values requestInput) string {
 }
 
 func flags(operation action, args []string) (requestInput, bool) {
-	if duplicateFlags(args, map[string]bool{"repository": true}) {
-		return requestInput{}, false
-	}
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	var values requestInput
@@ -492,6 +489,9 @@ func flags(operation action, args []string) (requestInput, bool) {
 		set.StringVar(&values.previewDigest, "preview-digest", "", "")
 		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
 	}
+	if invalidFlagSyntax(set, args, map[string]bool{"repository": true}, false) {
+		return requestInput{}, false
+	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return requestInput{}, false
 	}
@@ -499,9 +499,6 @@ func flags(operation action, args []string) (requestInput, bool) {
 }
 
 func workItemFlags(operation action, args []string) (requestInput, bool) {
-	if duplicateFlags(args, nil) {
-		return requestInput{}, false
-	}
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	var values requestInput
@@ -527,6 +524,9 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 	if operation == workItemCommentAction {
 		set.StringVar(&values.message, "message", "", "")
 	}
+	if invalidFlagSyntax(set, args, nil, operation != workItemCreateAction) {
+		return requestInput{}, false
+	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && (values.providerRepository != "" || values.number != 0) {
 		return requestInput{}, false
 	}
@@ -538,9 +538,6 @@ func knownWorkItem(operation action) bool {
 }
 
 func workflowFlags(operation action, args []string) (requestInput, bool) {
-	if duplicateFlags(args, nil) {
-		return requestInput{}, false
-	}
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	var values requestInput
@@ -562,29 +559,47 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 		set.StringVar(&values.reference, "reference", "", "")
 		set.StringVar(&values.next, "next", "", "")
 	}
+	if invalidFlagSyntax(set, args, nil, true) {
+		return requestInput{}, false
+	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && values.number != 0 {
 		return requestInput{}, false
 	}
 	return values, true
 }
 
-func duplicateFlags(args []string, repeatable map[string]bool) bool {
+func invalidFlagSyntax(set *flag.FlagSet, args []string, repeatable map[string]bool, longOnly bool) bool {
 	seen := make(map[string]bool)
-	for _, value := range args {
+	for index := 0; index < len(args); index++ {
+		value := args[index]
+		if value == "--" || longOnly && strings.HasPrefix(value, "-") && !strings.HasPrefix(value, "--") {
+			return true
+		}
 		if !strings.HasPrefix(value, "--") {
-			continue
+			return false
 		}
 		name := strings.TrimPrefix(value, "--")
-		if index := strings.IndexByte(name, '='); index >= 0 {
-			name = name[:index]
+		hasValue := false
+		if separator := strings.IndexByte(name, '='); separator >= 0 {
+			name = name[:separator]
+			hasValue = true
 		}
-		if repeatable[name] {
-			continue
+		current := set.Lookup(name)
+		if current == nil {
+			return true
 		}
-		if seen[name] {
+		if !repeatable[name] && seen[name] {
 			return true
 		}
 		seen[name] = true
+		boolean, isBoolean := current.Value.(interface{ IsBoolFlag() bool })
+		if hasValue || isBoolean && boolean.IsBoolFlag() {
+			continue
+		}
+		if index+1 >= len(args) {
+			return true
+		}
+		index++
 	}
 	return false
 }

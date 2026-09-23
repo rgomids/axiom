@@ -14,6 +14,7 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflow"
@@ -63,6 +64,60 @@ func TestComposedCLIRejectsRelativeRoot(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "application_unavailable") {
 		t.Fatalf("unexpected error event: %q", output.String())
+	}
+}
+
+func TestWorkflowSelectorAmbiguityFailsBeforeFallbackOrEffects(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	runtimeRoot := filepath.Join(t.TempDir(), "skills")
+	providerLedger := filepath.Join(t.TempDir(), "provider-called")
+	ghBinary := filepath.Join(t.TempDir(), "gh")
+	if err := os.WriteFile(ghBinary, []byte("#!/bin/sh\nprintf called >\"$AXIOM_TEST_PROVIDER_LEDGER\"\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	t.Setenv("AXIOM_CODEX_SKILLS_ROOT", runtimeRoot)
+	t.Setenv("AXIOM_GH_BIN", ghBinary)
+	t.Setenv("AXIOM_TEST_PROVIDER_LEDGER", providerLedger)
+	for _, id := range []string{"123e4567-e89b-42d3-a456-426614174000", "123e4567-e89b-42d3-a456-426614174001"} {
+		source := filepath.Join(t.TempDir(), id)
+		if err := os.Mkdir(source, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		record, issues := local.NewRecord(local.RecordState{
+			ProjectID:        id,
+			ObservedSlug:     "duplicate",
+			SourceLocation:   source,
+			PortableRevision: projectapp.RecordedPortableRevision([32]byte{1}),
+			ArtifactDigests:  []projectapp.ArtifactDigest{{Name: "axiom.yaml", Digest: [32]byte{1}}},
+		})
+		if len(issues) != 0 {
+			t.Fatal(issues)
+		}
+		wire, issues := local.EncodeRecord(record)
+		if len(issues) != 0 {
+			t.Fatal(issues)
+		}
+		directory := filepath.Join(state, "projects", id)
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(directory, "installation.json"), wire, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := snapshotTrees(t, state)
+	runCanonicalCLI(t, compose(), []string{"workflow", "status", "--project", "duplicate", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "018f4a44-7c31-7dd4-9d00-111111111111"}, cli.ExitFailure, "validation_failure", "Execution workflow operation did not complete")
+	after := snapshotTrees(t, state)
+	if !bytes.Equal(before, after) {
+		t.Fatalf("ambiguous selector mutated local state\nbefore=%s\nafter=%s", before, after)
+	}
+	for _, path := range []string{root, runtimeRoot, providerLedger} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("ambiguous selector used fallback or caused effect at %s: %v", path, err)
+		}
 	}
 }
 
