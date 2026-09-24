@@ -51,6 +51,12 @@ Plan and Tasks approval followed in PRs
 Dated pre-merge gates in those artifacts and Evidence describe their review-time
 state; use this index for the current consolidated lifecycle.
 
+Issue #94 proposes one later cross-Specification clarification: Work Item metadata
+policy would reuse the existing `schemaVersion: 1` `policies` document references,
+without adding manifest fields or migration. That clarification and its separately
+versioned policy-document contract remain unapproved with the Specification 004
+amendment; they do not change the approved/delivered Specification 002 baseline.
+
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
 [T02](002-lingo-project-initialization/evidence-t02.md),

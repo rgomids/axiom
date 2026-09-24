@@ -7,7 +7,7 @@
 ### Issue #94 amendment approval gate
 
 The original Plan approval remains historical. The proposed S6 placement,
-T26–T29 decomposition, lifecycle/gate/flag contract, recovery inspection, and
+  T26–T29 decomposition, gate-to-lifecycle projection/flag contract, recovery inspection, and
 metadata-policy boundary require explicit human approval in the amendment review.
 Until that decision, implementation is unauthorized; checks, merge, Issue state,
 or tracker edits do not approve the amendment or any successor Slice.
@@ -79,7 +79,7 @@ Evidence, task identities, and historical stage observations remain unchanged.
 - preserve one deterministic application contract across CLI and Runtime skills;
 - make Project setup, Work Item intent, workflow state, Provider projection,
   completion, artifacts, provenance, recovery, and upgrade observable end to end;
-- make the Work Item a durable lifecycle anchor with explicit stage gates,
+- make the Work Item a durable lifecycle anchor with deterministic gate-derived stages,
   orthogonal flags, bounded history, recovery signals, and Project-resolved
   Work Item/Pull Request metadata;
 - make local publication safe under ADR-0005's bounded threat model;
@@ -152,7 +152,7 @@ Planned cohesive package evolution:
 | `internal/project`, `internal/projectapp`, `internal/manifest` | Existing Project rules, complete proposals, authority, portable codec | Preserve Specification 002 contracts |
 | `internal/workitem` | Intent/draft/use cases, provider-neutral lifecycle and metadata-policy intentions, and Work Item capability ports | No GitHub fields, formatting, or transport |
 | `internal/githubissues` | GitHub issue/PR lookup and mutation, lifecycle/flag labels, metadata effects, bounded comments, response validation | No workflow authority or local truth |
-| `internal/workflow` | Detailed sequential gates, minimal local Execution record, Work Item lifecycle transitions, prerequisites, projection/recovery intent | No Runtime or Provider transport |
+| `internal/workflow` | Detailed sequential gates, minimal local Execution record, deterministic Work Item lifecycle projection, prerequisites, projection/recovery intent | No Runtime or Provider transport |
 | `internal/detailartifact` | Metadata, retention/reference rules, lookup and cleanup use cases | No portable publication |
 | `internal/local` | Versioned stores, anchored filesystem protocol, locks, recovery and OS roots | No domain policy invention |
 | `internal/codexruntime` | Thin skill content, installation ownership and compatibility | No duplicated application behavior |
@@ -187,7 +187,7 @@ behavior; Tasks must not be split merely by layer.
 | S3 — Intent to GitHub Work Item | Intent becomes reviewed structured draft; authorized create/select persists exact GitHub reference; denial/cancel has zero Provider effects | S2 | Fake-adapter side-effect ledger and bounded real GitHub observation |
 | S4 — Workflow truth and Provider projection | One local Execution advances sequential gates and reconciles one GitHub stage marker plus idempotent transition comments | S3 | Transition/replay/concurrency matrix and real projection observation |
 | S5 — Codex selector path and completion convergence | Fully specified skill runs without avoidable questions; CLI/skill meanings and all terminal statuses match | S4 | Host-contract tests and CLI/Runtime semantic-equivalence matrix |
-| S6 — Durable Work Item lifecycle and metadata governance | One Work Item exposes gated provider-neutral lifecycle truth, orthogonal flags, bounded history, safe recovery signals, and resolved Work Item/PR metadata | S5 | Gate/flag matrix, exactly-one-stage projection, history replay, recovery inspection, metadata-resolution matrix |
+| S6 — Durable Work Item lifecycle and metadata governance | One Work Item exposes a provider-neutral lifecycle projection derived from canonical gates/facts, orthogonal flags, bounded history, safe recovery signals, and resolved Work Item/PR metadata | S5 | Gate/fact derivation and flag matrix, exactly-one-stage projection, history replay, recovery inspection, metadata-resolution matrix |
 | S7 — Recovery, cleanup and upgrade | Operator can inspect/recover recognized interrupted state, safely clean eligible artifacts, detect POC state, and perform supported owned upgrade | S1–S6 | Fault matrix, cleanup/reference tests, compatibility and upgrade black-box |
 | S8 — Release candidate acceptance | Isolated clean environments complete install through Evidence/completion and representative failure/upgrade paths | all prior | Versioned RC report; human decision remains pending |
 
@@ -286,22 +286,48 @@ artifact/Evidence references, authority requirements, provenance, and next actio
 Only one process can commit a transition from a revision. Resume rereads state and
 does not infer success from an interrupted command.
 
-The Issue #94 amendment adds one provider-neutral Work Item lifecycle value inside
-the same revisioned local workflow authority:
+The Issue #94 amendment adds one provider-neutral, read-only Work Item lifecycle
+projection over the same revisioned local workflow authority:
 
 ```text
 intake -> specifying -> specified -> planning -> planned
 -> implementing -> implemented -> reviewing -> reviewed -> accepted
 ```
 
-It is a human-visible lifecycle summary, not a second Execution lineage. S4 gates
-provide prerequisite facts: specification/clarification support `specified`;
-plan/tasks support `planned`; implementation supports `implemented`; and
-review/evidence/reconciliation support `reviewed`. No mapping is automatic. An
-explicit lifecycle transition validates the exact local revision, required
-artifacts/decisions, blockers, authority, and target before one commit. The S4
-`completion` gate cannot create `accepted`; only a recorded human acceptance
-decision can.
+It is a human-visible summary, not a second Execution state machine or persisted
+stage field. Derivation uses this total mapping:
+
+| Current canonical gate/status | Revisioned additional fact | Derived stage |
+|---|---|---|
+| `intake` | none | `intake` |
+| `specification` or `clarification` | valid preceding history | `specifying` |
+| `plan` | no planning authority yet | `specified` |
+| `plan` with planning authority, or `tasks` | explicit planning authority; `tasks` also has Plan transition/reference | `planning` |
+| `implementation` | no implementation authority yet | `planned` |
+| `implementation` | exact implementation scope and authority | `implementing` |
+| `review` | review-start fact absent | `implemented` |
+| `review` with review-start fact, or `evidence` or `reconciliation` | explicit review-start fact; later gates retain preceding review/Evidence facts | `reviewing` |
+| `completion`, active or terminal, without human acceptance | completed review, Evidence, reconciliation, and blocking-finding disposition | `reviewed` |
+| terminally completed `completion` | explicit human acceptance of the bounded outcome | `accepted` |
+
+Planning authority, exact implementation authority, review start, and human
+acceptance are bounded, revisioned local facts with scope/reference/digest and
+provenance. They are not Provider observations. Absence at the deliberate
+`specified`, `planned`, and `implemented` boundaries selects that earlier stage;
+absence or contradiction after the corresponding boundary is an inconsistent
+Execution and returns `recovery_required`. No best-effort stage is projected.
+
+`review`, `evidence`, and `reconciliation` all derive `reviewing` until
+reconciliation passes into `completion`; only then is `reviewed` derived.
+Technical completion does not create `accepted`. The acceptance fact may be
+recorded only against a terminally completed Execution and does not alter its gate.
+
+This preserves ADR-0008 without amendment: Execution identity, one sequential gate
+set, transition lineage, revision authority, terminal semantics, and Provider
+non-authority are unchanged. The new function reads facts ADR-0008 already permits
+in revisioned transitions/terminal truth. Persisting an independent lifecycle
+field or transition history would instead change lifecycle semantics and requires
+a new architecture decision before implementation.
 
 GitHub projection uses these amended adapter conventions:
 
@@ -312,7 +338,7 @@ GitHub projection uses these amended adapter conventions:
 - transition comments contain stage, outcome, bounded references, provenance, and
   next action where applicable;
 - each Axiom comment includes a non-rendered namespaced projection key derived from
-  Execution ID plus committed lifecycle revision;
+  Execution ID plus the canonical Execution revision used for derivation;
 - local state records intended and confirmed projection keys/effects;
 - reconciliation reads current labels/flags/comments, removes only positively
   identified obsolete Axiom markers, preserves non-Axiom labels/content, and
@@ -325,7 +351,9 @@ local truth. Provider state cannot close a local gate. Reconciliation from stale
 local revision or ambiguous Provider response fails closed.
 
 Zero, multiple, unknown, or contradictory `axiom:stage:*` observations are drift,
-not transition authority. Reconciliation may replace a positively identified
+not transition authority. Drift blocks only Provider reconciliation; a valid local
+gate transition remains governed exclusively by local facts and authority.
+Reconciliation may replace a positively identified
 legacy S4 label only under a reviewed exact effect plan; unknown namespaced labels
 are preserved and produce `recovery_required`. This permits future delivery
 without rewriting S4 Evidence or mutating historical Provider observations during
@@ -355,7 +383,10 @@ identity/authority.
 ### Project metadata policy
 
 Project portable intent may declare bounded required/default metadata intentions
-for Work Item create/update and Pull Request preparation/review. The application
+for Work Item create/update and Pull Request preparation/review by referencing a
+contained policy document through Specification 002's existing `policies` field.
+No new `axiom.yaml` field is added: `schemaVersion: 1` remains closed, and no
+migration or implicit compatibility is introduced. The application
 asks a policy resolver for provider-neutral outcomes such as resolved, optional,
 required-but-missing, or unsupported capability. The GitHub adapter alone maps
 those intentions to concrete labels, assignee, milestone, supported Project/status,
@@ -372,10 +403,27 @@ The MVP intention vocabulary is closed:
 | `reviewers` | Pull Request | requested reviewers resolved through Project Provider identity bindings |
 
 Lifecycle stage and auxiliary flags are workflow projection, not metadata-policy
-inputs. Each policy entry is required or optional and may define a deterministic
-default/logical reference. Concrete portable encoding and schema-version evolution
-must follow ADR-0004; observations, provider IDs, credentials, and effect ledgers
-remain machine-local.
+inputs. The referenced document is a distinct strict portable contract with:
+
+- integer `policyVersion: 1` and exact `kind: work-item-metadata`;
+- optional closed `workItem` mapping limited to `classification`, `owner`,
+  `delivery_target`, and `tracking_state`;
+- optional closed `pullRequest` mapping limited to `classification`, `owner`, and
+  `reviewers`;
+- each intention encoded as a closed mapping with required `requirement`
+  (`required` or `optional`) and optional bounded provider-neutral `default` or
+  logical reference; `reviewers` alone may be a bounded list;
+- exactly one referenced document of this `kind`; duplicates, unknown fields,
+  malformed types, or missing/malformed/unsupported versions fail metadata-policy
+  resolution before prompts or Provider effects.
+
+The document is not another Project manifest and cannot redefine identity,
+workflow, security, authority, Provider bindings, or local observations. Arbitrary
+policy documents remain untrusted data. Specification 002 base manifest validation
+still validates the contained reference; T28 additionally validates this recognized
+policy kind before use. No automatic migration or down-conversion exists.
+Observations, provider IDs, credentials, concrete GitHub field names, identity
+bindings, and effect ledgers remain machine-local or adapter-owned.
 
 Resolution order is deterministic: explicit operation input, applicable Project
 policy, already validated Work Item/PR context, then one prompt only for each
@@ -791,7 +839,7 @@ All Evidence below is planned, not executed by this Plan.
 | Functional black-box | CLI and installed Codex skills from unrelated CWD; guided and complete inputs; human/JSON semantic equivalence; side-effect ledger |
 | Security | sentinel non-leak checks, denied process/network/secret reads, unsafe ownership/link/ACL cases, bounded input/output, public-sensitive-file scan |
 | Clean dogfood | native release archive on every support row plus bounded real Codex/GitHub observation |
-| Work Item lifecycle | ten-stage gate matrix, orthogonal-flag matrix, exactly-one-stage drift cases, bounded-comment replay, missing-local-state reconciliation, and Work Item/PR metadata policy resolution |
+| Work Item lifecycle | ten-stage gate/fact derivation matrix, orthogonal-flag matrix, exactly-one-stage drift cases, bounded-comment replay, missing-local-state reconciliation, and Work Item/PR metadata policy resolution |
 
 Retained Evidence maps claim -> source version -> command/test -> exit/result ->
 artifact/reference/digest -> environment -> limitation. It excludes raw chat and
@@ -847,8 +895,8 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | FR-036 | §8/§12 detectable binary/skill compatibility |
 | FR-037 | §12 preflight, staged upgrade and partial truth |
 | FR-038 | §7 durable Work Item references and bounded operational anchor |
-| FR-039 | §7 closed provider-neutral lifecycle stages and exact GitHub mapping |
-| FR-040 | §7 exact-revision prerequisite/authority gates before commit |
+| FR-039 | §7 deterministic canonical-gate/fact derivation and exact GitHub mapping |
+| FR-040 | §7 unchanged canonical transition checks plus read-only fail-closed derivation |
 | FR-041 | §7 orthogonal local conditions and GitHub auxiliary flags |
 | FR-042 | §7 bounded idempotent reference-first lifecycle comments |
 | FR-043 | §7 missing-local-state inspection and ADR-0007 recovery boundary |
@@ -919,7 +967,7 @@ and reconfiguration instead.
 | Three binary targets increase release cost | each row blocks release if native Evidence is unavailable; no untested target claim |
 | POC and v1 roots may be ambiguous | positive signature required; uncertainty preserved for review |
 | Provider has zero/multiple/manual lifecycle labels | treat as drift; preserve unknown content; require exact reconciliation or human decision |
-| Detailed Execution gates and lifecycle stages diverge | explicit prerequisite mapping and one local revision boundary; never infer from Provider |
+| Detailed Execution gates and derived lifecycle stages diverge | total deterministic mapping; inconsistent local facts return `recovery_required`; never infer from Provider |
 | Metadata policy grows into a universal schema | MVP operation-specific intentions/capabilities only; GitHub fields remain adapter-owned |
 
 Deferred without blocking this Plan: second Runtime/Provider, portable artifact
@@ -938,7 +986,7 @@ Architecture assessment found two new durable choices:
 | Artifact layout/metadata and installation receipt schema | Versioned local adapter formats implementing already approved ownership/compatibility requirements. Exact paths, field names and encoding remain replaceable behind closed readers/migration gates; no separate ADR unless identity or lifecycle changes. |
 | Package/component map | Planning decomposition with inward dependencies and consumer-owned ports, not a published API or permanent module topology; no ADR. |
 | GitHub label/comment spelling and GitHub Releases adapter | First-adapter conventions within the approved MVP, replaceable behind Provider/distribution boundaries and carrying no broad compatibility/authenticity promise; no ADR at this stage. |
-| Work Item lifecycle, flags, bounded history and metadata policy | Extends the already approved local-authority/Provider-projection contract. Execution identity/lifecycle, source-of-truth ownership, data ownership and recovery semantics do not change; no new ADR. Reassess if implementation requires another workflow authority, portable Execution, Provider-owned gates, or a generic custom-field schema. |
+| Work Item lifecycle projection, flags, bounded history and metadata policy | Extends the already approved local-authority/Provider-projection contract. Lifecycle is derived from the existing gates/facts, so Execution identity, gate semantics, source-of-truth ownership, data ownership and recovery semantics do not change; ADR-0008 remains valid without alteration and no new ADR is needed. Reassess if implementation requires another workflow authority, an independently persisted lifecycle, portable Execution, Provider-owned gates, or a generic custom-field schema. |
 
 If implementation or Plan review requires a different release trust topology,
 storage engine, broad Execution schema, automatic cleanup, portable artifact

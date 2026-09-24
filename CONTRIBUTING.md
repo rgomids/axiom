@@ -56,13 +56,15 @@ amended Specification 004; this text does not authorize implementation.
   Item or Pull Request metadata still unresolved after policy/context resolution;
   keep concrete GitHub fields in the adapter boundary.
 - If local workflow truth is unavailable, inspect and reconcile. Never reconstruct
-  an Execution or advance a stage from Provider/Repository inference; contradictory
-  or insufficient facts require `recovery_required` and human decision.
+  an Execution, advance a canonical gate, or infer a derived stage from
+  Provider/Repository state; contradictory or insufficient facts require
+  `recovery_required` and human decision.
 
-PRs affecting this lifecycle must state the current/target lifecycle stage,
-prerequisites and authority, auxiliary flags, Provider effects, recovery impact,
-and whether a human acceptance decision remains pending. `Not applicable` is
-valid only with an objective reason.
+PRs affecting this lifecycle must state the current and target canonical Execution
+gates, the current and expected derived lifecycle stages, prerequisites and
+authority, auxiliary flags, Provider effects, recovery impact, and whether a human
+acceptance decision remains pending. `Not applicable` is valid only with an
+objective reason.
 
 ## Branch names
 

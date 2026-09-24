@@ -33,8 +33,9 @@ must also:
 
 - preserve Repository artifacts as technical truth, local Execution/workflow as
   canonical workflow truth, and Provider state as projection/recovery signal;
-- validate exact current/target lifecycle stage, revision, prerequisites,
-  references, blockers, and authority before any local transition;
+- validate exact current/target canonical Execution gate, current/expected derived
+  lifecycle stage, revision, prerequisites, references, blockers, and authority
+  before any local transition;
 - keep blocked/decision/approval/recovery conditions as auxiliary flags rather
   than inventing stage combinations;
 - treat merge, CI, review, Issue closure, and Provider metadata as non-authority

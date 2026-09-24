@@ -16,10 +16,11 @@ Link applicable records and affected contracts. State when none applies.
 
 ## Work Item lifecycle / authority
 
-For lifecycle-affecting changes, state current and target lifecycle stage,
-prerequisites, explicit authority, auxiliary flags, planned Provider effects,
-recovery impact, and whether human acceptance remains pending. Otherwise explain
-objectively why this section is not applicable.
+For lifecycle-affecting changes, state current and target canonical Execution
+gates, current and expected derived lifecycle stages, prerequisites, explicit
+authority, auxiliary flags, planned Provider effects, recovery impact, and whether
+human acceptance remains pending. Otherwise explain objectively why this section
+is not applicable.
 
 ## Changes
 

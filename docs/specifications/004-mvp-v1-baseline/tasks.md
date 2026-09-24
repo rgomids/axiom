@@ -167,7 +167,7 @@ IDs do not imply permission to execute in numeric order.
 | T13 | S4 | Workflow interruption, concurrency, and projection convergence | T12 |
 | T14 | S5 | Strict CLI selector path | T13 |
 | T15 | S5 | Thin Codex selector path and completion convergence | T02, T05, T13, T14 |
-| T26 | Proposed S6 | Provider-neutral Work Item lifecycle stage and gates | T15 |
+| T26 | Proposed S6 | Deterministic Work Item lifecycle projection from canonical gates | T15 |
 | T27 | Proposed S6 | GitHub lifecycle/flag projection and bounded history | T26 |
 | T28 | Proposed S6 | Project metadata policy for Work Items and Pull Requests | T07, T09, T15, T27 |
 | T29 | Proposed S6 | Missing-local-state reconciliation and Slice convergence | T03, T13, T27, T28 |
@@ -556,36 +556,36 @@ the Codex-facing contract. Human acceptance is not inferred.
 - **Completion criteria:** Skills are thin deterministic adapters and all observed semantics converge with CLI/application truth.
 - **Risks / gates:** Real Codex invocation is required Evidence but cannot substitute for deterministic tests or grant Provider authority.
 
-### T26 — Provider-neutral Work Item lifecycle stage and gates
+### T26 — Deterministic Work Item lifecycle projection from canonical gates
 
 **Amendment status:** proposed by Issue #94; implementation requires explicit
 human approval of the amended Specification/Plan/Tasks.
 
-- **Objective:** Commit one provider-neutral Work Item lifecycle stage only after the exact current revision and all transition prerequisites, blockers, references, decisions, and authority have been validated.
+- **Objective:** Derive exactly one provider-neutral Work Item lifecycle stage from the canonical Execution gate/history and required revisioned human facts, without persisting a second lifecycle state.
 - **Slice:** Proposed S6 — Durable Work Item lifecycle and metadata governance.
 - **Dependencies:** T15.
 - **Requirements:** FR-013, FR-016, FR-038–FR-041; AC-09, AC-25, AC-26, AC-29; MVP-SEC-01, MVP-SEC-03; MVP-NFR-01, MVP-NFR-06; SEC-002, SEC-004, SEC-005.
 - **ADRs / decisions:** ADR-0003, ADR-0006–ADR-0008. Preserve one Execution lineage and local workflow authority.
-- **Affected boundaries:** provider-neutral lifecycle value, prerequisite/gate policy, Execution workflow state, transition references, completion classification.
-- **Expected implementation:** Add the closed ten-stage lifecycle value without replacing S4's historical detailed gates; validate only the next transition; bind explicit artifact/decision/authority facts; keep blocked/needs-decision/needs-approval/recovery-required as separate conditions; require an explicit human decision for `reviewed -> accepted`.
-- **Authority and side effects:** Exact local transition authority only. No Provider mutation, PR/Issue close, Repository write, or inferred human decision. A valid selector, merge, CI, review, or Provider state grants no transition authority.
-- **Failure / recovery:** Stale, skipped, contradictory, blocked, reference-missing, or unauthorized transitions return deterministic non-success before canonical mutation. A confirmed local transition survives later projection/rendering failure.
+- **Affected boundaries:** provider-neutral derived lifecycle value, canonical gate/fact mapping, Execution transition references, completion and acceptance facts.
+- **Expected implementation:** Preserve S4's closed gates as the sole state machine; implement the Specification's total derivation table; validate revisioned planning authority, implementation authority, review start, and terminal human acceptance facts; keep blocked/needs-decision/needs-approval/recovery-required as separate conditions; add no independent lifecycle field or transition history.
+- **Authority and side effects:** Derivation is read-only. Existing canonical gate operations retain their exact local authority. Recording human acceptance requires exact local decision authority against a terminally completed Execution. No Provider mutation, PR/Issue close, Repository write, or inferred human decision. A valid selector, merge, CI, review, or Provider state grants no gate or acceptance authority.
+- **Failure / recovery:** Expected absent start facts at `plan`, `implementation`, and `review` derive `specified`, `planned`, and `implemented`. Any other stale, skipped, contradictory, blocked, reference-missing, or scope-mismatched combination returns `recovery_required` before local or Provider mutation. A confirmed canonical transition survives later derivation/projection/rendering failure.
 - **Explicit non-goals:** General workflow engine, custom stages, second Execution lineage, graph/orchestration behavior, or Provider-owned gates.
-- **Mandatory tests:** Complete stage/transition table; every unmet prerequisite; stale/skipped/duplicate/conflicting transition; independent auxiliary-condition matrix; explicit acceptance decision; merge/CI/closure/Provider non-authority; codec/version/bounds and replay.
-- **Expected Evidence:** Stage/revision/digest matrix, prerequisite/authority facts, zero-effect ledgers for every invalid case, committed transition references, and proof S4 records/Evidence remain unchanged.
-- **Completion criteria:** Exactly one local lifecycle stage is authoritative; valid next transitions commit once; invalid transitions and external technical signals advance nothing.
+- **Mandatory tests:** Complete gate/fact-to-stage table; intentional absent-fact boundaries; every inconsistent prerequisite combination; stale/skipped/duplicate/conflicting canonical transition; independent auxiliary-condition matrix; terminal explicit acceptance decision; merge/CI/closure/Provider non-authority; old-record compatibility and replay.
+- **Expected Evidence:** Gate/history/fact/revision-to-stage matrix, prerequisite/authority facts, zero-effect ledgers for every inconsistent case, canonical transition references, and proof S4 records/Evidence remain unchanged.
+- **Completion criteria:** Every valid Execution snapshot derives exactly one stage without a lifecycle write; inconsistent snapshots fail closed; valid canonical transitions commit once; external technical signals advance nothing.
 - **Risks / gates:** Any change to Execution identity/lifecycle, source-of-truth ownership, or general stage configurability requires **Human decision required** and renewed ADR assessment.
 
 ### T27 — GitHub lifecycle/flag projection and bounded history
 
-- **Objective:** Reconcile committed lifecycle truth to exactly one GitHub stage label, applicable independent flags, and one bounded idempotent transition comment without changing local authority.
+- **Objective:** Reconcile the stage derived from committed canonical Execution truth to exactly one GitHub stage label, applicable independent flags, and one bounded idempotent transition comment without changing local authority.
 - **Slice:** Proposed S6.
 - **Dependencies:** T26.
 - **Requirements:** FR-013–FR-017, FR-038–FR-042; AC-08, AC-09, AC-25–AC-29; MVP-SEC-01–MVP-SEC-05; MVP-NFR-01–MVP-NFR-03, MVP-NFR-06; SEC-001, SEC-002, SEC-004.
 - **ADRs / decisions:** ADR-0003, ADR-0006–ADR-0008. Extend S4 projection; do not rewrite it.
 - **Affected boundaries:** projection plan/observation, GitHub label/comment adapter, auxiliary flags, legacy S4-label recognition, intended/confirmed ledger.
 - **Expected implementation:** Project the exact ten-label namespace and four independent flags; detect zero/multiple/unknown/contradictory markers; reuse exact preview/authority/reinspection; post reference-first comments under the existing 16 KiB and 16-reference limits; replace only positively identified legacy S4 labels under reviewed effects.
-- **Authority and side effects:** Separate exact GitHub authority bound to Work Item, Execution/lifecycle revision, projection key, observation digest, preview digest, and ordered effects. Forbidden: Issue closure, foreign-content removal, unknown namespaced-label deletion, duplicate comment, or local transition from Provider state.
+- **Authority and side effects:** Separate exact GitHub authority bound to Work Item, canonical Execution revision and derived stage, projection key, observation digest, preview digest, and ordered effects. Forbidden: Issue closure, foreign-content removal, unknown namespaced-label deletion, duplicate comment, or local transition from Provider state.
 - **Failure / recovery:** Drift or unknown namespaced content is `recovery_required`; ambiguous effects are reinspected; confirmed effect plus bookkeeping failure is truthful `partial`; replay converges without duplication.
 - **Explicit non-goals:** Webhooks, bidirectional sync, arbitrary labels/stages, general Provider framework, or dense artifact publication in comments.
 - **Mandatory tests:** Exact label enum; exactly-one-stage matrix; all flag combinations independent of stage; foreign/unknown preservation; legacy S4 replacement preview; bounded/reference-only comment; replay/ambiguous/partial/stale-authority cases; bounded real GitHub observation only under separate per-run authority.
@@ -601,11 +601,11 @@ human approval of the amended Specification/Plan/Tasks.
 - **Requirements:** FR-003, FR-006, FR-011, FR-012, FR-044; AC-04–AC-07, AC-31; MVP-SEC-01–MVP-SEC-05, MVP-SEC-07; MVP-NFR-01, MVP-NFR-02, MVP-NFR-06; SEC-001, SEC-002.
 - **ADRs / decisions:** ADR-0001, ADR-0003, ADR-0004, ADR-0007. Project intent remains portable; Provider observation remains local.
 - **Affected boundaries:** Project metadata-policy contract, capability resolution, Work Item/PR operation previews, GitHub issue/PR adapter effects, guided missing-input collection.
-- **Expected implementation:** Define the closed `classification`, `owner`, `delivery_target`, `tracking_state`, and PR `reviewers` intentions plus resolved/optional/required-missing/unsupported results; apply deterministic precedence; evolve portable schema under ADR-0004; preview exact sources/effects; let GitHub map labels, assignee, milestone, supported Project/status, and PR labels/assignee/review metadata.
+- **Expected implementation:** Use Specification 002 `schemaVersion: 1`'s existing `policies` references without adding manifest fields; validate one closed `policyVersion: 1`, `kind: work-item-metadata` document with the bounded Work Item/PR intention sets; reject duplicate/unknown/unsupported policy forms without migration; produce resolved/optional/required-missing/unsupported results; apply deterministic precedence; preview exact sources/effects; let GitHub map labels, assignee, milestone, supported Project/status, and PR labels/assignee/review metadata.
 - **Authority and side effects:** Resolution is read-only. Any Work Item/PR mutation retains a separate exact Provider authority. Policy never grants review approval, merge, Issue closure, or workflow acceptance.
 - **Failure / recovery:** Unsupported optional capability is explicit; unsupported or missing mandatory capability/value blocks before mutation; changed Provider/Project observation invalidates authority; partial confirmed effects remain inspectable/reconcilable.
 - **Explicit non-goals:** Generic custom fields, universal metadata CRUD, sophisticated GitHub Projects automation, second Provider implementation, credential storage, or automatic reviewer approval.
-- **Mandatory tests:** Resolution precedence; required/default/optional/unsupported matrix; zero-question fully resolved path; missing-only prompt counts; Work Item versus PR capability separation; adapter field isolation; stale preview, denial, partial, and no-effect cases.
+- **Mandatory tests:** Unchanged closed `axiom.yaml` v1 schema; absent/unconfigured/empty/one-policy references; policy version/kind/closed-field/duplicate-kind validation; resolution precedence; required/default/optional/unsupported matrix; zero-question fully resolved path; missing-only prompt counts; Work Item versus PR capability separation; adapter field isolation; stale preview, denial, partial, and no-effect cases.
 - **Expected Evidence:** Policy/result fixtures, prompt and capability ledgers, exact GitHub-effect previews through fakes, zero-effect denial cases, portable/local separation hashes, and no GitHub concepts in domain contracts.
 - **Completion criteria:** Deterministically resolvable metadata needs no question; unresolved mandatory metadata blocks precisely; GitHub-specific fields remain adapter-owned.
 - **Risks / gates:** A generic metadata/custom-field schema or portable Provider observation requires **Human decision required** and renewed ADR assessment.
@@ -881,7 +881,7 @@ not completion Evidence.
 | AC-23 | T21–T25 | Versioned sanitized Evidence with environment/limitations |
 | AC-24 | T23–T25 | Automation prepares decision; explicit human accept/reject only |
 | AC-25 | T26, T27, T24 | Closed lifecycle enum and exact GitHub label mapping |
-| AC-26 | T26, T29, T24 | Valid/invalid lifecycle transition and zero-effect matrix |
+| AC-26 | T26, T29, T24 | Read-only derivation and inconsistent-fact zero-effect matrix |
 | AC-27 | T27, T29, T24 | Exactly one stage, independent flags, foreign-content preservation |
 | AC-28 | T27, T29, T24 | Bounded history and no-duplicate replay |
 | AC-29 | T26, T27, T24 | Human-only acceptance and technical/Provider non-authority |
