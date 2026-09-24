@@ -216,7 +216,7 @@ func TestCanonicalProjectParserFailuresDoNotCallApplicationServices(t *testing.T
 		wantNext   string
 	}{
 		{"validate unknown flag", []string{"project", "validate", "--unknown", sentinel}, "Project validation input is invalid", "Review supported validation flags and retry"},
-		{"show unknown flag", []string{"project", "show", "--unknown", sentinel}, "Project inspection input is invalid", "Review supported inspection flags and retry"},
+		{"show unknown flag", []string{"project", "show", "--unknown", sentinel}, "Explicit selector input is invalid", "Remove unknown, duplicate, or conflicting inputs and retry"},
 		{"validate missing slug", []string{"project", "validate"}, "Project slug is required", "Provide a Project slug and retry validation"},
 		{"show missing selector", []string{"project", "show"}, "Project selector is required", "Provide a Project UUID or slug and retry inspection"},
 	}

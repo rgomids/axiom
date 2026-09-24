@@ -182,7 +182,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if len(args) >= 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
 		values, ok := flags(configureAction, args[2:])
 		if !ok {
-			return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "invalid_input"})
+			return emitParserFailure(stdout, mode, configureAction, "invalid_input", source)
 		}
 		if values.slug == "" || values.name == "" || len(values.repositories) == 0 || !flagSupplied(args[2:], "--work-item-provider") {
 			return runInteractiveConfiguration(ctx, mode, args[2:], service, stdin, stdout, stderr)
@@ -191,7 +191,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if len(args) >= 2 && args[0] == "work-item" && args[1] == "create" && stdin != nil {
 		values, ok := workItemFlags(workItemCreateAction, args[2:])
 		if !ok {
-			return emit(stdout, mode, event{Operation: workItemCreateAction, Status: Failed, Category: "invalid_input"})
+			return emitParserFailure(stdout, mode, workItemCreateAction, "invalid_input", source)
 		}
 		if !completeWorkItemCreate(values) {
 			return runInteractiveWorkItemCreate(ctx, mode, values, service, stdin, stdout, stderr)
@@ -214,7 +214,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
-		if operation == validateAction || operation == showAction || selectorAction(operation) {
+		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) {
 			return emitParserFailure(stdout, mode, operation, *result, source)
 		}
 		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
@@ -250,6 +250,9 @@ func emitParserFailure(writer io.Writer, mode outputMode, operation action, issu
 }
 
 func parserFailureText(operation action, issue string) (string, string) {
+	if issue == "invalid_input" && (operation == showAction || operation == resolveAction || operation == configureAction) {
+		return "Explicit selector input is invalid", "Remove unknown, duplicate, or conflicting inputs and retry"
+	}
 	if operation == validateAction && issue == "missing_required_input" {
 		return "Project slug is required", "Provide a Project slug and retry validation"
 	}
@@ -492,7 +495,7 @@ func flags(operation action, args []string) (requestInput, bool) {
 		set.StringVar(&values.previewDigest, "preview-digest", "", "")
 		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
 	}
-	if invalidFlagSyntax(set, args, map[string]bool{"repository": true}, false) {
+	if invalidFlagSyntax(set, args, map[string]bool{"repository": true}) {
 		return requestInput{}, false
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
@@ -527,7 +530,7 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 	if operation == workItemCommentAction {
 		set.StringVar(&values.message, "message", "", "")
 	}
-	if invalidFlagSyntax(set, args, nil, operation != workItemCreateAction) {
+	if invalidFlagSyntax(set, args, nil) {
 		return requestInput{}, false
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && (values.providerRepository != "" || values.number != 0) {
@@ -562,7 +565,7 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 		set.StringVar(&values.reference, "reference", "", "")
 		set.StringVar(&values.next, "next", "", "")
 	}
-	if invalidFlagSyntax(set, args, nil, true) {
+	if invalidFlagSyntax(set, args, nil) {
 		return requestInput{}, false
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && values.number != 0 {
@@ -571,15 +574,14 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 	return values, true
 }
 
-func invalidFlagSyntax(set *flag.FlagSet, args []string, repeatable map[string]bool, longOnly bool) bool {
+func invalidFlagSyntax(set *flag.FlagSet, args []string, repeatable map[string]bool) bool {
 	seen := make(map[string]bool)
 	for index := 0; index < len(args); index++ {
 		value := args[index]
-		if value == "--" || longOnly && strings.HasPrefix(value, "-") && !strings.HasPrefix(value, "--") {
+		// Go flag accepts single-hyphen aliases and silently overwrites duplicates.
+		// Reject unsupported syntax before handing any arguments to it.
+		if value == "--" || !strings.HasPrefix(value, "--") {
 			return true
-		}
-		if !strings.HasPrefix(value, "--") {
-			return false
 		}
 		name := strings.TrimPrefix(value, "--")
 		hasValue := false

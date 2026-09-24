@@ -142,38 +142,139 @@ func TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects(t *testing.T) {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build executable: %v: %s", err, output)
 	}
+	surfaces := []struct{ command, flags string }{
+		{"project show", "selector"},
+		{"project resolve", "selector"},
+		{"project configure", "project-id slug"},
+		{"work-item create", "project repository provider-repository"},
+		{"work-item select", "project repository work-item"},
+		{"work-item show", "project repository work-item"},
+		{"work-item comment", "project repository work-item"},
+		{"work-item complete", "project repository work-item"},
+		{"workflow start", "project repository work-item execution"},
+		{"workflow advance", "project repository work-item execution"},
+		{"workflow resume", "project repository work-item execution"},
+		{"workflow status", "project repository work-item execution"},
+		{"workflow evidence", "project repository work-item execution"},
+		{"workflow reconcile", "project repository work-item execution"},
+	}
+	var cases [][]string
+	for _, surface := range surfaces {
+		for _, name := range strings.Fields(surface.flags) {
+			for _, suffix := range [][]string{
+				{"-" + name, "alpha"},
+				{"-" + name + "=alpha"},
+				{"-" + name, "alpha", "-" + name, "beta"},
+				{"--" + name, "alpha", "-" + name, "beta"},
+				{"--" + name, "alpha", "--" + name, "beta"},
+				{"--" + name + "=alpha", "--" + name + "=beta"},
+			} {
+				cases = append(cases, append(strings.Fields(surface.command), suffix...))
+			}
+		}
+	}
+	cases = append(cases,
+		[]string{"project", "configure", "-repository", "main=/tmp/main"},
+		[]string{"project", "configure", "--repository", "main=/tmp/main", "-repository", "other=/tmp/other"},
+		[]string{"project", "configure", "--unknown", "value"},
+		[]string{"work-item", "create", "--unknown", "value"},
+		[]string{"work-item", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--number", "7"},
+		[]string{"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7;touch", "--execution", "execution"},
+	)
+	for _, existing := range []bool{false, true} {
+		t.Run(strconv.FormatBool(existing), func(t *testing.T) {
+			root := t.TempDir()
+			portable, state := filepath.Join(root, "portable"), filepath.Join(root, "state")
+			skills, home, cwd := filepath.Join(root, "skills"), filepath.Join(root, "home"), filepath.Join(root, "unrelated-cwd")
+			bin := filepath.Join(root, "bin")
+			for _, path := range []string{home, cwd, bin} {
+				if err := os.Mkdir(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for name, ledger := range map[string]string{"gh": "provider-ledger", "codex": "runtime-ledger", "git": "git-ledger"} {
+				script := "#!/bin/sh\nprintf called >>\"$AXIOM_TEST_LEDGER_ROOT/" + ledger + "\"\nexit 1\n"
+				if err := os.WriteFile(filepath.Join(bin, name), []byte(script), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if existing {
+				// Byte sentinels test preservation, not validity of domain records.
+				for _, path := range []string{
+					filepath.Join(portable, "preserved.json"),
+					filepath.Join(state, "executions", "v1", "preserved.json"),
+					filepath.Join(skills, "preserved.md"),
+					filepath.Join(root, "provider-ledger"),
+					filepath.Join(root, "runtime-ledger"),
+					filepath.Join(root, "git-ledger"),
+				} {
+					if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte("preserved\n"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			before := snapshotTrees(t, root)
+			for _, args := range cases {
+				t.Run(strings.Join(args, " "), func(t *testing.T) {
+					command := exec.Command(binary, append([]string{"--json"}, args...)...)
+					command.Dir = cwd
+					command.Env = append(os.Environ(), "HOME="+home, "PATH="+bin, "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+skills, "AXIOM_GH_BIN="+filepath.Join(bin, "gh"), "AXIOM_TEST_LEDGER_ROOT="+root)
+					var output, prompts bytes.Buffer
+					command.Stdout, command.Stderr = &output, &prompts
+					err := command.Run()
+					exit, ok := err.(*exec.ExitError)
+					if !ok || exit.ExitCode() != 1 {
+						t.Fatalf("err=%v output=%s", err, output.String())
+					}
+					var event struct{ Status, Result, Next string }
+					if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &event); err != nil || event.Status != "validation_failure" || event.Result != "Explicit selector input is invalid" || event.Next != "Remove unknown, duplicate, or conflicting inputs and retry" || prompts.Len() != 0 {
+						t.Fatalf("event=%+v err=%v output=%s prompts=%s", event, err, output.String(), prompts.String())
+					}
+					if after := snapshotTrees(t, root); !bytes.Equal(before, after) {
+						t.Fatal("invalid input changed portable/local/Execution/skills roots or Provider/Runtime/Git ledgers")
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestExecutableProjectConfigureRepeatableRepository(t *testing.T) {
 	root := t.TempDir()
-	portable := filepath.Join(root, "portable")
-	state := filepath.Join(root, "state")
-	providerLedger := filepath.Join(root, "provider-called")
-	ghBinary := filepath.Join(root, "gh")
-	ghScript := "#!/bin/sh\nprintf called >\"$AXIOM_TEST_PROVIDER_LEDGER\"\nexit 1\n"
-	if err := os.WriteFile(ghBinary, []byte(ghScript), 0o700); err != nil {
-		t.Fatal(err)
+	binary := filepath.Join(root, "lingo")
+	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build: %v: %s", err, output)
 	}
-	environment := append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_GH_BIN="+ghBinary, "AXIOM_TEST_PROVIDER_LEDGER="+providerLedger)
-	cases := [][]string{
-		{"workflow", "status", "-project", "alpha", "-project", "beta"},
-		{"workflow", "status", "--project", "alpha", "-project", "beta"},
-		{"workflow", "status", "-execution", "first", "-execution", "second"},
-	}
-	for _, args := range cases {
-		command := exec.Command(binary, append([]string{"--json"}, args...)...)
-		command.Env = environment
-		output, err := command.CombinedOutput()
-		exit, ok := err.(*exec.ExitError)
-		if !ok || exit.ExitCode() != 1 {
-			t.Fatalf("%v: err=%v output=%s", args, err, output)
-		}
-		var event canonicalEvent
-		if err := json.Unmarshal(bytes.TrimSpace(output), &event); err != nil || event.Status != "validation_failure" {
-			t.Fatalf("%v: event=%+v err=%v output=%s", args, event, err, output)
+	main, other := filepath.Join(root, "main"), filepath.Join(root, "other")
+	for _, repository := range []string{main, other} {
+		if err := os.Mkdir(repository, 0o700); err != nil {
+			t.Fatal(err)
 		}
 	}
-	for _, path := range []string{portable, state, providerLedger} {
-		if _, err := os.Stat(path); !os.IsNotExist(err) {
-			t.Fatalf("invalid selector created effect at %s: %v", path, err)
+	before := snapshotTrees(t, root)
+	command := exec.Command(binary, "--json", "project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main="+main, "--repository=other="+other, "--work-item-provider", "none")
+	command.Env = append(os.Environ(), "LINGO_PROJECTS_ROOT="+filepath.Join(root, "portable"), "LINGO_STATE_ROOT="+filepath.Join(root, "state"), "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(root, "skills"))
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("configure: %v: %s", err, output)
+	}
+	var event struct {
+		Status string
+		Setup  struct {
+			Repositories []struct{ Key, LocalPath string }
 		}
+	}
+	if err := json.Unmarshal(output, &event); err != nil || event.Status != "success" || len(event.Setup.Repositories) != 2 {
+		t.Fatalf("event=%+v err=%v", event, err)
+	}
+	if event.Setup.Repositories[0].Key != "main" || event.Setup.Repositories[0].LocalPath != main || event.Setup.Repositories[1].Key != "other" || event.Setup.Repositories[1].LocalPath != other {
+		t.Fatalf("repositories=%+v", event.Setup.Repositories)
+	}
+	if after := snapshotTrees(t, root); !bytes.Equal(before, after) {
+		t.Fatal("configuration preview changed state")
 	}
 }
 

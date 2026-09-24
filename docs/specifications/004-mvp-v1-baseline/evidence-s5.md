@@ -35,6 +35,35 @@ No real GitHub mutation, release/prerelease, S6 work, merge, Issue closure, or
 human MVP acceptance occurred. Local mutations were confined to synthetic
 temporary roots. Provider behavior used only a local fake executable.
 
+## Strict-parser follow-up — 2026-09-24
+
+Review of PR #93 at `b181a3c7d5ad7051cbf6b7459619f20774563d31`
+found that the prior short-flag remediation covered Work Item operations except
+create and all workflow operations, but left the shared Project parser and Work
+Item create in permissive `longOnly=false` mode. Go `flag.FlagSet` then accepted
+single-hyphen flags and silently kept the last duplicate value. The new regression
+first reproduced `project show -selector alpha -selector beta` dispatching `beta`.
+
+This follow-up is a local working-tree correction on that PR head. It removes
+that opt-out from the shared syntax validator: every flag token must use `--`;
+unknown names, duplicates, terminators, and positional arguments fail before
+`flag.FlagSet.Parse`. The existing repeatable allowlist still permits multiple
+`--repository` bindings for Project configuration; Work Item Repository selectors
+remain non-repeatable. Project lifecycle commands using the same parser also use
+the same long-form syntax check.
+
+Project show/resolve/configure syntax errors and the interactive create/configure
+preflight now reuse the existing selector completion: `validation_failure`,
+`Explicit selector input is invalid`, and
+`Remove unknown, duplicate, or conflicting inputs and retry`. Missing-input
+messages and domain/authority rules are unchanged. No skill change is needed:
+the five thin Codex adapters still delegate to the same Lingo boundary.
+
+The new tests are deterministic parser and real-executable Evidence, not a new
+real Codex observation. Historical Runtime observations below remain tied to
+`1813cc40f081bd2fdaf03d77d4bfd52bea8d30cb`. No human acceptance or S6 authority
+is claimed by this follow-up.
+
 ## Environment
 
 | Fact | Observation |
@@ -247,6 +276,58 @@ command. Their canonical outputs were identical: `validation_failure`, result
 conflicting inputs and retry`, and clean head provenance. Captures are
 `status-validation_failure.codex.stdout`, `validation-duplicate.stdout`, and
 `validation-conflict.stdout`.
+
+### Follow-up deterministic invalid-selector matrix
+
+`TestStrictSelectorLongFormsBeforeDispatch` exercises both nil-stdin and
+interactive entry points, asserting zero application calls/prompts and the exact
+canonical status/result/next. `TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects`
+runs the built executable from unrelated CWD with isolated HOME, portable, local,
+and skill roots and fake Provider/Runtime/Git executables that record calls.
+
+| Surface | Invalid forms exercised | Result |
+|---|---|---|
+| Project show and resolve | `-selector`, `-selector=value`, short/short, long/short, long/long, repeated `--selector=value` | canonical validation failure before dispatch |
+| Project configure | single-hyphen and duplicated `project-id`/`slug`; short and mixed `repository`; unknown flags; parser also covers `name`, `work-item-provider`, `preview-digest`, `authorize-local` | canonical validation failure before prompts/dispatch |
+| Work Item create | short, equals, short/short, long/short, long/long selectors for Project, Repository, Provider repository; unknown flags | canonical validation failure before prompts/dispatch |
+| Work Item select/show/comment/complete | same forms for Project, Repository, Work Item; conflicting Work Item/legacy number; parser also covers Provider repository and number | canonical validation failure before dispatch |
+| Workflow start/advance/resume/status/evidence/reconcile | same forms for Project, Repository, Work Item, Execution; malformed Work Item; parser also covers number | canonical validation failure before dispatch |
+| Project configure repeatable positive control | `--repository main=... --repository=other=...` | both bindings preserved in parser and executable setup preview; no writes |
+
+Each invalid executable case is run with absent roots/ledgers and again with
+preexisting byte sentinels, including a sentinel under `state/executions/v1`.
+Whole-tree snapshots compare paths, modes, and bytes after every invocation:
+portable/local/Execution/skill files and Provider/Runtime/Git ledgers remain
+unchanged, and absent paths remain absent. Sentinels prove preservation; they
+are not claimed as valid domain Execution fixtures. Every invalid invocation
+exits `1` with exact canonical output and no prompts. Existing composed tests
+retain valid-record, ambiguity, conflict, malformed-selector, and seven-status
+coverage. The Runtime ledger is a fake-executable fallback detector, not a real
+Codex run.
+
+Follow-up validation ran on the local working tree based on
+`b181a3c7d5ad7051cbf6b7459619f20774563d31`; these results do not replace the
+historical Runtime validation below.
+
+| Command | Exit | Observation |
+|---|---:|---|
+| `go test ./internal/cli ./cmd/lingo -run 'TestStrict\|TestCanonicalProjectParser\|TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects\|TestExecutableProjectConfigureRepeatableRepository' -count=1` | 0 | focused parser/canonical/executable regressions pass |
+| `go test ./...` | 0 | all packages pass |
+| `go test -race ./...` | 0 | all applicable packages pass |
+| `go vet ./...` | 0 | no diagnostics |
+| `go build ./...` | 0 | all targets build |
+| `go mod verify` | 0 | all modules verified |
+| `./scripts/dogfood-poc.sh` | 0 | isolated fake-Provider workflow completes at revision 13 |
+| `./scripts/validate-repository.sh .` | 0 | repository and harness checks pass |
+| `./scripts/check-sensitive-files.sh .` | 0 | worktree scan passes |
+| `gitleaks detect --source . --no-git --redact` | 0 | no leaks found |
+| `git diff --check` | 0 | no whitespace errors |
+
+Engineering/security review: the correction is confined to CLI syntax and
+existing completion rendering, with no domain, Provider authority, Runtime skill,
+or dependency changes. The reported Major short-flag bypass is corrected and
+validated locally. Publication and human re-review remain separate; this record
+claims neither remote finding resolution nor human acceptance.
 
 ## Commands and validation
 

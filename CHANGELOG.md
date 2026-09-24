@@ -2,6 +2,10 @@
 
 ## [2026-09-24]
 
+- fix: enforce long-form flags uniformly across Project, Work Item create, and
+  existing strict selector parsers; preserve repeatable configuration repositories
+  and return canonical selector failures before prompts or application dispatch.
+
 - fix: preserve operation-specific `setup`, `project`, `draft`, `selection`,
   `workItem`, `workflow`, and `projection` payloads separately from canonical
   completion in installed Codex skills; restore the resolved Project payload in
