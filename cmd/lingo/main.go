@@ -366,7 +366,9 @@ func (s lifecycleService) Show(ctx context.Context, input cli.ResolveInput) cli.
 	for _, repository := range result.Project.Repositories {
 		references = append(references, "repository:"+repository.Key)
 	}
-	return canonicalCompletion(completion.Facts{Completed: true}, "Project resolved", references, "", s.provenance)
+	response := canonicalCompletion(completion.Facts{Completed: true}, "Project resolved", references, "", s.provenance)
+	response.Project = projectView(result.Project)
+	return response
 }
 
 func projectShowFailure(category string, source provenance.Value) cli.Result {

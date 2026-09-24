@@ -66,6 +66,11 @@ type setupCompletionEvent struct {
 	Setup projectapp.SetupPreview `json:"setup"`
 }
 
+type projectCompletionEvent struct {
+	completionEvent
+	Project ProjectView `json:"project"`
+}
+
 type runtimeCompletionEvent struct {
 	completionEvent
 	Runtime RuntimeView `json:"runtime"`
@@ -226,6 +231,40 @@ func emitSetupCompletion(writer io.Writer, mode outputMode, result completion.Re
 	}
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
 	content, err := json.Marshal(setupCompletionEvent{completionEvent: base, Setup: setup})
+	if err != nil || len(content)+1 > MaxCompletionOutputBytes {
+		return ExitFailure
+	}
+	content = append(content, '\n')
+	written, err := writer.Write(content)
+	if err != nil || written != len(content) {
+		return ExitFailure
+	}
+	return completionExitCode(result.Status())
+}
+
+func emitProjectCompletion(writer io.Writer, mode outputMode, result completion.Result, project ProjectView) int {
+	if writer == nil || !result.Valid() {
+		return ExitFailure
+	}
+	if mode == humanOutput {
+		content := renderCompletionHuman(result)
+		var extra bytes.Buffer
+		fmt.Fprintf(&extra, "project: %s [%s] source=%s\n", project.Slug, project.ID, project.Source)
+		for _, repository := range project.Repositories {
+			fmt.Fprintf(&extra, "repository: %s path=%q\n", repository.Key, repository.Path)
+		}
+		content = append(content, extra.Bytes()...)
+		if len(content) > MaxCompletionOutputBytes {
+			return ExitFailure
+		}
+		written, err := writer.Write(content)
+		if err != nil || written != len(content) {
+			return ExitFailure
+		}
+		return completionExitCode(result.Status())
+	}
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	content, err := json.Marshal(projectCompletionEvent{completionEvent: base, Project: project})
 	if err != nil || len(content)+1 > MaxCompletionOutputBytes {
 		return ExitFailure
 	}

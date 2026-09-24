@@ -137,6 +137,24 @@ func TestConfigurePublishesPortableKeysAndLocalPathsThenResolves(t *testing.T) {
 		t.Fatalf("equivalent replay effects = %v", preview.Effects)
 	}
 	runCLI(t, service, []string{"project", "resolve", "--selector", "configured"}, cli.ExitSuccess, "project_resolved")
+	var shown bytes.Buffer
+	if code := cli.Run(context.Background(), []string{"project", "show", "--selector", "configured"}, service, currentProvenance(), &shown); code != cli.ExitSuccess {
+		t.Fatalf("project show exit=%d output=%s", code, shown.String())
+	}
+	var showEvent struct {
+		Project *struct {
+			Slug         string `json:"slug"`
+			Repositories []struct {
+				Key string `json:"key"`
+			} `json:"repositories"`
+		} `json:"project"`
+	}
+	if err := json.Unmarshal(shown.Bytes(), &showEvent); err != nil {
+		t.Fatalf("project show JSON: %v: %s", err, shown.String())
+	}
+	if showEvent.Project == nil || showEvent.Project.Slug != "configured" || len(showEvent.Project.Repositories) != 1 || showEvent.Project.Repositories[0].Key != "main" {
+		t.Fatalf("project show payload = %+v", showEvent.Project)
+	}
 	manifestBytes, err := os.ReadFile(filepath.Join(root, "configured", "axiom.yaml"))
 	if err != nil {
 		t.Fatal(err)

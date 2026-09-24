@@ -274,6 +274,9 @@ func selectorAction(operation action) bool {
 
 func emitResponse(writer io.Writer, mode outputMode, operation action, response Result) int {
 	if response.Completion != nil {
+		if response.Project != nil {
+			return emitProjectCompletion(writer, mode, *response.Completion, *response.Project)
+		}
 		if response.Setup != nil {
 			return emitSetupCompletion(writer, mode, *response.Completion, *response.Setup)
 		}

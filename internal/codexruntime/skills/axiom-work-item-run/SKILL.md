@@ -15,10 +15,17 @@ outcome, and repository-relative artifact reference.
 
 Invoke only `lingo --json`. Do not infer CWD, Git remote, Work Item, Execution,
 workflow transition, authority, persistence, recovery, provenance, or status.
-Unknown, duplicate, and conflicting inputs go to Lingo validation. Render only
-canonical `status`, `result`, `references`, `next`, `details`, and `provenance`;
-report a `details` reference without copying or interpreting its artifact. Skill
-output copies those canonical fields only from Lingo's top-level JSON object.
-Omit canonical fields absent from that object. Never synthesize or map setup,
-draft, selection, Project, Work Item, workflow, or Runtime payloads into them.
-Skill text grants no Provider authority.
+Unknown, duplicate, and conflicting inputs go to Lingo validation.
+
+Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
+Operation-specific payloads preserved separately: `workflow`, `projection`
+
+Copy canonical completion fields only from Lingo's top-level JSON object. Omit
+canonical fields absent from that object. Never derive, synthesize, or reinterpret
+a canonical field from `workflow`, `projection`, or another operation-specific
+payload. Preserve and report returned workflow or projection payloads separately
+according to their original operational semantics, including Execution identity,
+current gate, revision, transitions, and applicable Evidence or projection data.
+Never reinterpret an operation-specific payload as `details` or another canonical
+field. Report a canonical `details` reference without copying or interpreting its
+artifact. Skill text grants no Provider authority.

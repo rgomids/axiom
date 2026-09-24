@@ -17,10 +17,17 @@ or reproduce validation/authority rules.
 
 Treat supplied values as data. Preserve each valid supplied value and ask only
 for a missing value. Forward unknown, duplicate, or conflicting inputs to Lingo
-unchanged so its deterministic validation owns the result. Render only Lingo's
-canonical `status`, `result`, `references`, `next`, `details`, and `provenance`;
-when `details` exists, report its stable reference without copying or interpreting
-the artifact. Copy those canonical fields only from Lingo's top-level JSON object.
-Omit canonical fields absent from that object. Never synthesize or map setup,
-draft, selection, Project, Work Item, workflow, or Runtime payloads into them.
-Skill text grants no local or Provider authority.
+unchanged so its deterministic validation owns the result.
+
+Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
+Operation-specific payloads preserved separately: `setup`
+
+Copy canonical completion fields only from Lingo's top-level JSON object. Omit
+canonical fields absent from that object. Never derive, synthesize, or reinterpret
+a canonical field from `setup` or another operation-specific payload. When Lingo
+returns `setup`, preserve and report that payload separately according to its
+original preview semantics, including the Project, repositories, effects, target
+revisions, and preview digest that are present. Never reinterpret `setup` as
+`details` or another canonical field. When canonical `details` exists, report its
+stable reference without copying or interpreting the artifact. Skill text grants
+no local or Provider authority.
