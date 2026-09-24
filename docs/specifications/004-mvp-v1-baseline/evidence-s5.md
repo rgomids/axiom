@@ -4,7 +4,7 @@
 
 This record covers Specification 004 Slice S5 only: T14–T15. The final real
 Codex Runtime observations ran against clean implementation revision
-`ae289b0a50917e0931c65cc8a4596fda4cfcf650` on branch
+`1813cc40f081bd2fdaf03d77d4bfd52bea8d30cb` on branch
 `agent/s5-cli-codex-selectors`. Documentation reconciliation follows as a
 separate revision and does not change the exercised Runtime, CLI, or application
 behavior.
@@ -41,15 +41,15 @@ temporary roots. Provider behavior used only a local fake executable.
 |---|---|
 | Repository | `rgomids/axiom` |
 | Branch | `agent/s5-cli-codex-selectors` |
-| Exercised commit | `ae289b0a50917e0931c65cc8a4596fda4cfcf650` |
+| Exercised commit | `1813cc40f081bd2fdaf03d77d4bfd52bea8d30cb` |
 | Source state | `clean` during build and all final Runtime observations |
-| PR relation at observation | PR #93 branch; local branch one commit ahead of remote head `69f7eaf80ba486980db59a71966046fdd8dbf5db` |
+| PR relation at observation | PR #93 branch; local branch two commits ahead of remote head `69f7eaf80ba486980db59a71966046fdd8dbf5db` |
 | macOS | 27.0, build `26A428` |
 | Architecture | `arm64` |
 | Codex CLI | `codex-cli 0.155.1` |
 | Model | `gpt-5.6-luna` |
 | Reasoning | `low` through `-c 'model_reasoning_effort="low"'` |
-| Evidence root | `/tmp/axiom-s5-remediation-final-UAamta` |
+| Evidence root | `/tmp/axiom-s5-final-head-4kljpK` |
 
 `codex exec --help` for the installed CLI exposed `--model`, `--config`,
 `--ephemeral`, `--ignore-user-config`, `--ignore-rules`, `--strict-config`,
@@ -188,7 +188,7 @@ lingo --json workflow status \
 Question count was zero. Lingo exited `0`; Codex exited `0`. The final canonical
 result was `success`, `Execution workflow operation completed`, reference
 `execution:319b5eea-1db6-4980-8259-8294a65e18ad`, and provenance
-`Axiom/development/ae289b0a5091/clean`. Event capture:
+`Axiom/development/1813cc40f081/clean`. Event capture:
 `workflow-status.codex.stdout`; final response:
 `workflow-status.codex.last.txt`.
 
@@ -264,11 +264,11 @@ uname -m
 
 Runtime Evidence used direct `lingo --json` commands paired with the real
 `codex exec` envelope above. Raw final captures remain outside the repository at
-`/tmp/axiom-s5-remediation-final-UAamta`; earlier captures are not used for final
+`/tmp/axiom-s5-final-head-4kljpK`; earlier captures are not used for final
 claims.
 
 Final validation on the working tree based on exercised implementation commit
-`ae289b0a50917e0931c65cc8a4596fda4cfcf650`, including this Evidence and
+`1813cc40f081bd2fdaf03d77d4bfd52bea8d30cb`, including the prior Evidence and
 CHANGELOG reconciliation:
 
 | Command | Exit | Observation |
