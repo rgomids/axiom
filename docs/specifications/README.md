@@ -115,7 +115,12 @@ deterministic tests are recorded in
 bounded real-provider observation created Issue #90 and is complete. S3 is
 technically implemented; current PR review corrections remain subject to human
 review, and human acceptance is not inferred.
-S4–S7 remain unauthorized.
+S4 was delivered through PR #91. S5 was explicitly authorized on 2026-09-23;
+T14–T15 implementation, deterministic tests, and bounded real Codex Runtime
+observation are recorded in
+[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S5 is technically implemented
+in its delivery branch; human acceptance is not inferred. S6–S7 remain
+unauthorized.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -159,6 +164,8 @@ on 2026-09-22; T08–T09 implementation and deterministic tests are recorded in
 [S3 Evidence](004-mvp-v1-baseline/evidence-s3.md). T09's mandatory bounded
 real-provider observation is complete at its documented historical revision.
 Technical completion and current review corrections remain separate from human
-acceptance. S4–S7, Provider mutation outside an exact authorized run,
+acceptance. S4 was delivered through PR #91. S5 was explicitly authorized on
+2026-09-23 and its T14–T15 technical record is in
+[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S6–S7, Provider mutation outside an exact authorized run,
 prerelease/release publication, and final MVP acceptance remain separately gated.
 Operational Slice trackers are #75–#81.

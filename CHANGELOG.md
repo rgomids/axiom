@@ -1,6 +1,43 @@
 # Changelog
 
+## [2026-09-24]
+
+- fix: enforce long-form flags uniformly across Project, Work Item create, and
+  existing strict selector parsers; preserve repeatable configuration repositories
+  and return canonical selector failures before prompts or application dispatch.
+
+- fix: preserve operation-specific `setup`, `project`, `draft`, `selection`,
+  `workItem`, `workflow`, and `projection` payloads separately from canonical
+  completion in installed Codex skills; restore the resolved Project payload in
+  `project show` without allowing nested data to synthesize canonical fields.
+
 ## [2026-09-23]
+
+- fix: require installed Codex skills to copy only canonical top-level completion
+  fields, omit absent fields, and never reinterpret operation payloads as
+  `details`; preserve controlled upgrade from the prior Axiom-owned v2 digests.
+- fix: reject unsupported single-hyphen selector flags before Go `flag.FlagSet`
+  parsing so duplicate or mixed `-project`/`--project` and `-execution` forms
+  cannot silently overwrite prior values or reach application/store/Provider code.
+- test: prove the seven canonical completion statuses preserve result, applicable
+  references/next/details, and provenance from central completion through CLI JSON
+  to the Codex-facing contract; add an ambiguous Project-slug fixture with zero
+  portable, local, Provider, or Runtime effects.
+- implementation: add the authorized MVP S5 strict selector path for exact
+  Project UUID/slug, Project-scoped Repository, canonical GitHub Work Item, and
+  applicable Execution identity without CWD/Git/Provider/Runtime fallback.
+- implementation: evolve the five installed Codex skills to skill set v2 and
+  binary compatibility v2 as thin `lingo --json` adapters over canonical
+  completion, provenance, authorship, detail-reference, and authority semantics.
+- security: reject unknown, duplicate, conflicting, malformed, and shell-like
+  selector input before application dispatch; exact Work Item and Execution
+  references are revalidated against protected local state before any operation.
+- test: add missing-only/zero-question prompt counts, UUID/slug equivalence,
+  Repository/Work Item/Execution scoping, unrelated-CWD black-box, zero-effect
+  failure ledger, detail-reference rendering, skill compatibility, and bounded
+  real Codex Runtime observations using isolated roots and no Provider mutation.
+- evidence: record S5 deterministic and real Runtime Evidence without claiming
+  human acceptance, Provider authority, release readiness, or S6 authority.
 
 - implementation: complete the deterministic implementation scope of authorized
   MVP S4 (T10–T13) with a closed bounded machine-local Execution record, exact

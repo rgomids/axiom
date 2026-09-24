@@ -126,13 +126,156 @@ type canonicalEvent struct {
 		URL, State, ExternalID string
 	} `json:"workItem"`
 	Workflow *struct {
-		ExecutionID, Status, CurrentGate string
-		Revision                         uint64
+		ExecutionID, Status, CurrentGate, RepositoryKey string
+		Revision                                        uint64
+		WorkItem                                        struct{ Resource string }
 	} `json:"workflow"`
 	Projection *struct {
 		Digest, ProjectionKey string
 		Effects               []struct{ Kind, Value string }
 	} `json:"projection"`
+}
+
+func TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "lingo")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build executable: %v: %s", err, output)
+	}
+	surfaces := []struct{ command, flags string }{
+		{"project show", "selector"},
+		{"project resolve", "selector"},
+		{"project configure", "project-id slug"},
+		{"work-item create", "project repository provider-repository"},
+		{"work-item select", "project repository work-item"},
+		{"work-item show", "project repository work-item"},
+		{"work-item comment", "project repository work-item"},
+		{"work-item complete", "project repository work-item"},
+		{"workflow start", "project repository work-item execution"},
+		{"workflow advance", "project repository work-item execution"},
+		{"workflow resume", "project repository work-item execution"},
+		{"workflow status", "project repository work-item execution"},
+		{"workflow evidence", "project repository work-item execution"},
+		{"workflow reconcile", "project repository work-item execution"},
+	}
+	var cases [][]string
+	for _, surface := range surfaces {
+		for _, name := range strings.Fields(surface.flags) {
+			for _, suffix := range [][]string{
+				{"-" + name, "alpha"},
+				{"-" + name + "=alpha"},
+				{"-" + name, "alpha", "-" + name, "beta"},
+				{"--" + name, "alpha", "-" + name, "beta"},
+				{"--" + name, "alpha", "--" + name, "beta"},
+				{"--" + name + "=alpha", "--" + name + "=beta"},
+			} {
+				cases = append(cases, append(strings.Fields(surface.command), suffix...))
+			}
+		}
+	}
+	cases = append(cases,
+		[]string{"project", "configure", "-repository", "main=/tmp/main"},
+		[]string{"project", "configure", "--repository", "main=/tmp/main", "-repository", "other=/tmp/other"},
+		[]string{"project", "configure", "--unknown", "value"},
+		[]string{"work-item", "create", "--unknown", "value"},
+		[]string{"work-item", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--number", "7"},
+		[]string{"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7;touch", "--execution", "execution"},
+	)
+	for _, existing := range []bool{false, true} {
+		t.Run(strconv.FormatBool(existing), func(t *testing.T) {
+			root := t.TempDir()
+			portable, state := filepath.Join(root, "portable"), filepath.Join(root, "state")
+			skills, home, cwd := filepath.Join(root, "skills"), filepath.Join(root, "home"), filepath.Join(root, "unrelated-cwd")
+			bin := filepath.Join(root, "bin")
+			for _, path := range []string{home, cwd, bin} {
+				if err := os.Mkdir(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for name, ledger := range map[string]string{"gh": "provider-ledger", "codex": "runtime-ledger", "git": "git-ledger"} {
+				script := "#!/bin/sh\nprintf called >>\"$AXIOM_TEST_LEDGER_ROOT/" + ledger + "\"\nexit 1\n"
+				if err := os.WriteFile(filepath.Join(bin, name), []byte(script), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if existing {
+				// Byte sentinels test preservation, not validity of domain records.
+				for _, path := range []string{
+					filepath.Join(portable, "preserved.json"),
+					filepath.Join(state, "executions", "v1", "preserved.json"),
+					filepath.Join(skills, "preserved.md"),
+					filepath.Join(root, "provider-ledger"),
+					filepath.Join(root, "runtime-ledger"),
+					filepath.Join(root, "git-ledger"),
+				} {
+					if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte("preserved\n"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			before := snapshotTrees(t, root)
+			for _, args := range cases {
+				t.Run(strings.Join(args, " "), func(t *testing.T) {
+					command := exec.Command(binary, append([]string{"--json"}, args...)...)
+					command.Dir = cwd
+					command.Env = append(os.Environ(), "HOME="+home, "PATH="+bin, "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+skills, "AXIOM_GH_BIN="+filepath.Join(bin, "gh"), "AXIOM_TEST_LEDGER_ROOT="+root)
+					var output, prompts bytes.Buffer
+					command.Stdout, command.Stderr = &output, &prompts
+					err := command.Run()
+					exit, ok := err.(*exec.ExitError)
+					if !ok || exit.ExitCode() != 1 {
+						t.Fatalf("err=%v output=%s", err, output.String())
+					}
+					var event struct{ Status, Result, Next string }
+					if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &event); err != nil || event.Status != "validation_failure" || event.Result != "Explicit selector input is invalid" || event.Next != "Remove unknown, duplicate, or conflicting inputs and retry" || prompts.Len() != 0 {
+						t.Fatalf("event=%+v err=%v output=%s prompts=%s", event, err, output.String(), prompts.String())
+					}
+					if after := snapshotTrees(t, root); !bytes.Equal(before, after) {
+						t.Fatal("invalid input changed portable/local/Execution/skills roots or Provider/Runtime/Git ledgers")
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestExecutableProjectConfigureRepeatableRepository(t *testing.T) {
+	root := t.TempDir()
+	binary := filepath.Join(root, "lingo")
+	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build: %v: %s", err, output)
+	}
+	main, other := filepath.Join(root, "main"), filepath.Join(root, "other")
+	for _, repository := range []string{main, other} {
+		if err := os.Mkdir(repository, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before := snapshotTrees(t, root)
+	command := exec.Command(binary, "--json", "project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main="+main, "--repository=other="+other, "--work-item-provider", "none")
+	command.Env = append(os.Environ(), "LINGO_PROJECTS_ROOT="+filepath.Join(root, "portable"), "LINGO_STATE_ROOT="+filepath.Join(root, "state"), "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(root, "skills"))
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("configure: %v: %s", err, output)
+	}
+	var event struct {
+		Status string
+		Setup  struct {
+			Repositories []struct{ Key, LocalPath string }
+		}
+	}
+	if err := json.Unmarshal(output, &event); err != nil || event.Status != "success" || len(event.Setup.Repositories) != 2 {
+		t.Fatalf("event=%+v err=%v", event, err)
+	}
+	if event.Setup.Repositories[0].Key != "main" || event.Setup.Repositories[0].LocalPath != main || event.Setup.Repositories[1].Key != "other" || event.Setup.Repositories[1].LocalPath != other {
+		t.Fatalf("repositories=%+v", event.Setup.Repositories)
+	}
+	if after := snapshotTrees(t, root); !bytes.Equal(before, after) {
+		t.Fatal("configuration preview changed state")
+	}
 }
 
 func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
@@ -144,11 +287,13 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	portable := filepath.Join(t.TempDir(), "portable")
 	state := filepath.Join(t.TempDir(), "state")
 	skills := filepath.Join(t.TempDir(), "skills")
+	unrelatedCWD := t.TempDir()
 	environment := append(os.Environ(), "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+skills)
 	run := func(wantCode int, wantStatus, wantCategory string, args ...string) cliEvent {
 		t.Helper()
 		command := exec.Command(binary, append([]string{"--json"}, args...)...)
 		command.Env = environment
+		command.Dir = unrelatedCWD
 		output, err := command.CombinedOutput()
 		code := 0
 		if err != nil {
@@ -171,6 +316,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		t.Helper()
 		command := exec.Command(binary, append([]string{"--json"}, args...)...)
 		command.Env = environment
+		command.Dir = unrelatedCWD
 		output, err := command.CombinedOutput()
 		code := 0
 		if err != nil {
@@ -296,6 +442,47 @@ exit 0
 	started := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "start", "--project", "configured", "--repository", "main", "--number", "7")
 	if started.Workflow == nil || started.Workflow.ExecutionID == "" || started.Workflow.CurrentGate != "intake" || started.Workflow.Revision != 1 {
 		t.Fatalf("started workflow = %+v", started.Workflow)
+	}
+	exactWorkItem := "github:owner/repo#7"
+	runCanonical(0, "success", "Work Item link loaded", "work-item", "show", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem)
+	exactStatus := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
+	if exactStatus.Workflow == nil || exactStatus.Workflow.ExecutionID != started.Workflow.ExecutionID || exactStatus.Workflow.WorkItem.Resource != "owner/repo" || exactStatus.Workflow.RepositoryKey != "main" {
+		t.Fatalf("exact selector result = %+v", exactStatus.Workflow)
+	}
+	fullySpecified := exec.Command(binary, "--json", "workflow", "status", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
+	fullySpecified.Env = environment
+	fullySpecified.Dir = unrelatedCWD
+	var fullOutput, fullPrompts bytes.Buffer
+	fullySpecified.Stdout = &fullOutput
+	fullySpecified.Stderr = &fullPrompts
+	if err := fullySpecified.Run(); err != nil || fullPrompts.Len() != 0 {
+		t.Fatalf("full selector err=%v prompts=%q output=%s", err, fullPrompts.String(), fullOutput.String())
+	}
+	partial := exec.Command(binary, "--json", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem)
+	partial.Env = environment
+	partial.Dir = unrelatedCWD
+	partial.Stdin = strings.NewReader(started.Workflow.ExecutionID + "\n")
+	var partialOutput, partialPrompts bytes.Buffer
+	partial.Stdout = &partialOutput
+	partial.Stderr = &partialPrompts
+	if err := partial.Run(); err != nil || partialPrompts.String() != "Execution ID: " {
+		t.Fatalf("partial err=%v prompts=%q output=%s", err, partialPrompts.String(), partialOutput.String())
+	}
+	executionRecords, err := filepath.Glob(filepath.Join(state, "executions", "v1", preview.Setup.ProjectID, "*.json"))
+	if err != nil || len(executionRecords) != 1 {
+		t.Fatalf("execution records=%v err=%v", executionRecords, err)
+	}
+	beforeInvalid, err := os.ReadFile(executionRecords[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", exactWorkItem, "--execution", "018f4a44-7c31-7dd4-9d00-222222222222")
+	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "missing", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
+	runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "status", "--project", "configured", "--repository", "main", "--work-item", "github:owner/repo#999", "--execution", started.Workflow.ExecutionID)
+	runCanonical(1, "validation_failure", "Explicit selector input is invalid", "workflow", "status", "--project", "configured", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem, "--execution", started.Workflow.ExecutionID)
+	afterInvalid, err := os.ReadFile(executionRecords[0])
+	if err != nil || !bytes.Equal(beforeInvalid, afterInvalid) {
+		t.Fatalf("invalid selector changed execution: %v", err)
 	}
 	revision := uint64(1)
 	for _, gate := range []string{"intake", "specification", "clarification", "plan", "tasks"} {

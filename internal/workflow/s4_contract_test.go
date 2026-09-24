@@ -288,7 +288,7 @@ func (s4Resolver) Resolve(context.Context, string) (Project, string) {
 
 type s4WorkItems struct{}
 
-func (s4WorkItems) Load(context.Context, string, string, string) (WorkItem, error) {
+func (s4WorkItems) Load(context.Context, string, string, string, string, string) (WorkItem, error) {
 	return WorkItem{Provider: "github", Resource: "owner/repo", ExternalID: "7", URL: "https://github.com/owner/repo/issues/7", State: "OPEN"}, nil
 }
 

@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	SkillSetVersion     = "1"
-	BinaryCompatibility = "1"
+	SkillSetVersion     = "2"
+	BinaryCompatibility = "2"
 	receiptName         = ".axiom-skill-set.receipt"
 )
 

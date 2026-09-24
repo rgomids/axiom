@@ -71,7 +71,8 @@ type ConfigureInput struct {
 	AuthorizeLocal        bool
 }
 type WorkItemInput struct {
-	Project, Repository, ProviderRepository  string
+	Project, Repository, WorkItem            string
+	Provider, ProviderRepository, ExternalID string
 	Intent, Problem, DesiredOutcome, Context string
 	Scope, Constraints, NonGoals, Acceptance string
 	Message, PreviewDigest                   string
@@ -80,11 +81,12 @@ type WorkItemInput struct {
 	Cancelled                                bool
 }
 type WorkflowInput struct {
-	Project, Repository, Gate, Outcome, Reference, Next string
-	Number                                              int
-	ExpectedRevision                                    uint64
-	PreviewDigest                                       string
-	AuthorizeExternal                                   bool
+	Project, Repository, WorkItem, Provider, ProviderRepository string
+	ExternalID, Execution, Gate, Outcome, Reference, Next       string
+	Number                                                      int
+	ExpectedRevision                                            uint64
+	PreviewDigest                                               string
+	AuthorizeExternal                                           bool
 }
 
 type Status string
@@ -180,7 +182,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if len(args) >= 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
 		values, ok := flags(configureAction, args[2:])
 		if !ok {
-			return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "invalid_input"})
+			return emitParserFailure(stdout, mode, configureAction, "invalid_input", source)
 		}
 		if values.slug == "" || values.name == "" || len(values.repositories) == 0 || !flagSupplied(args[2:], "--work-item-provider") {
 			return runInteractiveConfiguration(ctx, mode, args[2:], service, stdin, stdout, stderr)
@@ -189,15 +191,30 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if len(args) >= 2 && args[0] == "work-item" && args[1] == "create" && stdin != nil {
 		values, ok := workItemFlags(workItemCreateAction, args[2:])
 		if !ok {
-			return emit(stdout, mode, event{Operation: workItemCreateAction, Status: Failed, Category: "invalid_input"})
+			return emitParserFailure(stdout, mode, workItemCreateAction, "invalid_input", source)
 		}
 		if !completeWorkItemCreate(values) {
 			return runInteractiveWorkItemCreate(ctx, mode, values, service, stdin, stdout, stderr)
 		}
 	}
+	if len(args) >= 2 && args[0] == "work-item" && args[1] != "create" && stdin != nil {
+		operation := action("work_item_" + args[1])
+		values, ok := workItemFlags(operation, args[2:])
+		if knownWorkItem(operation) && ok && values.number == 0 && (values.project == "" || values.repository == "" || values.workItem == "") {
+			return runInteractiveSelectors(ctx, mode, operation, values, service, source, stdin, stdout, stderr)
+		}
+	}
+	if len(args) >= 2 && args[0] == "workflow" && stdin != nil {
+		operation := action("workflow_" + args[1])
+		values, ok := workflowFlags(operation, args[2:])
+		needsExecution := operation != workflowStartAction
+		if knownWorkflow(operation) && ok && values.number == 0 && (values.project == "" || values.repository == "" || values.workItem == "" || needsExecution && values.execution == "") {
+			return runInteractiveSelectors(ctx, mode, operation, values, service, source, stdin, stdout, stderr)
+		}
+	}
 	operation, input, result := request(args, service)
 	if result != nil {
-		if operation == validateAction || operation == showAction {
+		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) {
 			return emitParserFailure(stdout, mode, operation, *result, source)
 		}
 		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
@@ -233,6 +250,9 @@ func emitParserFailure(writer io.Writer, mode outputMode, operation action, issu
 }
 
 func parserFailureText(operation action, issue string) (string, string) {
+	if issue == "invalid_input" && (operation == showAction || operation == resolveAction || operation == configureAction) {
+		return "Explicit selector input is invalid", "Remove unknown, duplicate, or conflicting inputs and retry"
+	}
 	if operation == validateAction && issue == "missing_required_input" {
 		return "Project slug is required", "Provide a Project slug and retry validation"
 	}
@@ -242,11 +262,24 @@ func parserFailureText(operation action, issue string) (string, string) {
 	if operation == validateAction {
 		return "Project validation input is invalid", "Review supported validation flags and retry"
 	}
+	if selectorAction(operation) {
+		if issue == "missing_required_input" {
+			return "Explicit selectors are incomplete", "Provide only the missing Project, Repository, Work Item, or Execution selector"
+		}
+		return "Explicit selector input is invalid", "Remove unknown, duplicate, or conflicting inputs and retry"
+	}
 	return "Project inspection input is invalid", "Review supported inspection flags and retry"
+}
+
+func selectorAction(operation action) bool {
+	return knownWorkItem(operation) || knownWorkflow(operation)
 }
 
 func emitResponse(writer io.Writer, mode outputMode, operation action, response Result) int {
 	if response.Completion != nil {
+		if response.Project != nil {
+			return emitProjectCompletion(writer, mode, *response.Completion, *response.Project)
+		}
 		if response.Setup != nil {
 			return emitSetupCompletion(writer, mode, *response.Completion, *response.Setup)
 		}
@@ -300,7 +333,8 @@ type requestInput struct {
 	repositories                             repositoryFlags
 	workItemProvider                         string
 	previewDigest                            string
-	project, repository, providerRepository  string
+	project, repository, workItem, execution string
+	providerRepository                       string
 	intent, problem, desiredOutcome, context string
 	scope, constraints, nonGoals, acceptance string
 	message                                  string
@@ -334,9 +368,8 @@ func request(args []string, service Service) (action, requestInput, *string) {
 		if !ok {
 			return operation, requestInput{}, category("invalid_input")
 		}
-		needsTarget := operation == workItemCreateAction || operation == workItemSelectAction
-		if values.project == "" || values.repository == "" || needsTarget && values.providerRepository == "" || operation != workItemCreateAction && values.number <= 0 || operation == workItemCommentAction && values.message == "" {
-			return operation, values, category("missing_required_input")
+		if issue := selectorRequestIssue(operation, values); issue != "" {
+			return operation, values, category(issue)
 		}
 		return operation, values, nil
 	}
@@ -349,9 +382,8 @@ func request(args []string, service Service) (action, requestInput, *string) {
 		if !ok {
 			return operation, requestInput{}, category("invalid_input")
 		}
-		needsRevision := operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowReconcileAction
-		if values.project == "" || values.repository == "" || values.number <= 0 || needsRevision && values.expectedRevision == 0 || operation == workflowAdvanceAction && (values.gate == "" || values.outcome == "") {
-			return operation, values, category("missing_required_input")
+		if issue := selectorRequestIssue(operation, values); issue != "" {
+			return operation, values, category(issue)
 		}
 		return operation, values, nil
 	}
@@ -387,6 +419,60 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	return operation, values, nil
 }
 
+func selectorRequestIssue(operation action, values requestInput) string {
+	if values.workItem != "" && (values.number != 0 || values.providerRepository != "") {
+		return "invalid_input"
+	}
+	if values.project == "" || values.repository == "" {
+		return "missing_required_input"
+	}
+	if knownWorkItem(operation) {
+		if operation == workItemCreateAction {
+			if values.workItem != "" {
+				return "invalid_input"
+			}
+			if values.providerRepository == "" {
+				return "missing_required_input"
+			}
+			return ""
+		}
+		if values.workItem == "" && values.number <= 0 {
+			return "missing_required_input"
+		}
+		if values.workItem != "" {
+			if _, _, _, ok := parseWorkItemSelector(values.workItem); !ok {
+				return "invalid_input"
+			}
+		}
+		if operation == workItemSelectAction && values.workItem == "" && values.providerRepository == "" {
+			return "missing_required_input"
+		}
+		if operation == workItemCommentAction && values.message == "" {
+			return "missing_required_input"
+		}
+		return ""
+	}
+	if values.workItem == "" && values.number <= 0 {
+		return "missing_required_input"
+	}
+	if values.workItem != "" {
+		if _, _, _, ok := parseWorkItemSelector(values.workItem); !ok {
+			return "invalid_input"
+		}
+		if operation == workflowStartAction && values.execution != "" {
+			return "invalid_input"
+		}
+		if operation != workflowStartAction && values.execution == "" {
+			return "missing_required_input"
+		}
+	}
+	needsRevision := operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowReconcileAction
+	if needsRevision && values.expectedRevision == 0 || operation == workflowAdvanceAction && (values.gate == "" || values.outcome == "") {
+		return "missing_required_input"
+	}
+	return ""
+}
+
 func flags(operation action, args []string) (requestInput, bool) {
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
@@ -409,6 +495,9 @@ func flags(operation action, args []string) (requestInput, bool) {
 		set.StringVar(&values.previewDigest, "preview-digest", "", "")
 		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
 	}
+	if invalidFlagSyntax(set, args, map[string]bool{"repository": true}) {
+		return requestInput{}, false
+	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return requestInput{}, false
 	}
@@ -422,6 +511,7 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 	set.StringVar(&values.project, "project", "", "")
 	set.StringVar(&values.repository, "repository", "", "")
 	set.StringVar(&values.providerRepository, "provider-repository", "", "")
+	set.StringVar(&values.workItem, "work-item", "", "")
 	set.StringVar(&values.previewDigest, "preview-digest", "", "")
 	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
 	set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
@@ -440,7 +530,10 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 	if operation == workItemCommentAction {
 		set.StringVar(&values.message, "message", "", "")
 	}
-	if err := set.Parse(args); err != nil || set.NArg() != 0 {
+	if invalidFlagSyntax(set, args, nil) {
+		return requestInput{}, false
+	}
+	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && (values.providerRepository != "" || values.number != 0) {
 		return requestInput{}, false
 	}
 	return values, true
@@ -456,6 +549,8 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 	var values requestInput
 	set.StringVar(&values.project, "project", "", "")
 	set.StringVar(&values.repository, "repository", "", "")
+	set.StringVar(&values.workItem, "work-item", "", "")
+	set.StringVar(&values.execution, "execution", "", "")
 	set.IntVar(&values.number, "number", 0, "")
 	if operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowReconcileAction {
 		set.Uint64Var(&values.expectedRevision, "expected-revision", 0, "")
@@ -470,10 +565,77 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 		set.StringVar(&values.reference, "reference", "", "")
 		set.StringVar(&values.next, "next", "", "")
 	}
-	if err := set.Parse(args); err != nil || set.NArg() != 0 {
+	if invalidFlagSyntax(set, args, nil) {
+		return requestInput{}, false
+	}
+	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && values.number != 0 {
 		return requestInput{}, false
 	}
 	return values, true
+}
+
+func invalidFlagSyntax(set *flag.FlagSet, args []string, repeatable map[string]bool) bool {
+	seen := make(map[string]bool)
+	for index := 0; index < len(args); index++ {
+		value := args[index]
+		// Go flag accepts single-hyphen aliases and silently overwrites duplicates.
+		// Reject unsupported syntax before handing any arguments to it.
+		if value == "--" || !strings.HasPrefix(value, "--") {
+			return true
+		}
+		name := strings.TrimPrefix(value, "--")
+		hasValue := false
+		if separator := strings.IndexByte(name, '='); separator >= 0 {
+			name = name[:separator]
+			hasValue = true
+		}
+		current := set.Lookup(name)
+		if current == nil {
+			return true
+		}
+		if !repeatable[name] && seen[name] {
+			return true
+		}
+		seen[name] = true
+		boolean, isBoolean := current.Value.(interface{ IsBoolFlag() bool })
+		if hasValue || isBoolean && boolean.IsBoolFlag() {
+			continue
+		}
+		if index+1 >= len(args) {
+			return true
+		}
+		index++
+	}
+	return false
+}
+
+func parseWorkItemSelector(value string) (string, string, string, bool) {
+	provider, target, found := strings.Cut(value, ":")
+	resource, externalID, numbered := strings.Cut(target, "#")
+	if !found || !numbered || provider != "github" || !validProviderResource(resource) {
+		return "", "", "", false
+	}
+	number, err := strconv.Atoi(externalID)
+	if err != nil || number <= 0 || strconv.Itoa(number) != externalID {
+		return "", "", "", false
+	}
+	return provider, resource, externalID, true
+}
+
+func validProviderResource(value string) bool {
+	owner, repository, found := strings.Cut(value, "/")
+	if !found || owner == "" || repository == "" || strings.Contains(repository, "/") || owner == "." || owner == ".." || repository == "." || repository == ".." {
+		return false
+	}
+	for _, part := range []string{owner, repository} {
+		for _, character := range part {
+			if character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' || character >= '0' && character <= '9' || strings.ContainsRune("_.-", character) {
+				continue
+			}
+			return false
+		}
+	}
+	return true
 }
 
 func knownWorkflow(operation action) bool {
@@ -520,7 +682,15 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		}
 		return service.Configure(ctx, ConfigureInput{ProjectID: input.projectID, Slug: input.slug, Name: input.name, Repositories: repositories, WorkItemProvider: provider, PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal})
 	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction:
-		value := WorkItemInput{Project: input.project, Repository: input.repository, ProviderRepository: input.providerRepository, Intent: input.intent, Problem: input.problem, DesiredOutcome: input.desiredOutcome, Context: input.context, Scope: input.scope, Constraints: input.constraints, NonGoals: input.nonGoals, Acceptance: input.acceptance, Message: input.message, PreviewDigest: input.previewDigest, Number: input.number, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal}
+		provider, resource, externalID, ok := parseWorkItemSelector(input.workItem)
+		if input.workItem != "" && !ok {
+			return Result{Status: Failed, Category: "invalid_input"}
+		}
+		value := WorkItemInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Intent: input.intent, Problem: input.problem, DesiredOutcome: input.desiredOutcome, Context: input.context, Scope: input.scope, Constraints: input.constraints, NonGoals: input.nonGoals, Acceptance: input.acceptance, Message: input.message, PreviewDigest: input.previewDigest, Number: input.number, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal}
+		if input.workItem == "" {
+			value.ProviderRepository = input.providerRepository
+			value.ExternalID = strconv.Itoa(input.number)
+		}
 		switch operation {
 		case workItemCreateAction:
 			return service.WorkItemCreate(ctx, value)
@@ -534,7 +704,11 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 			return service.WorkItemComplete(ctx, value)
 		}
 	case workflowStartAction, workflowAdvanceAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction:
-		value := WorkflowInput{Project: input.project, Repository: input.repository, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal}
+		provider, resource, externalID, ok := parseWorkItemSelector(input.workItem)
+		if input.workItem != "" && !ok {
+			return Result{Status: Failed, Category: "invalid_input"}
+		}
+		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal}
 		switch operation {
 		case workflowStartAction:
 			return service.WorkflowStart(ctx, value)
@@ -655,6 +829,38 @@ func completeWorkItemCreate(values requestInput) bool {
 	return values.project != "" && values.repository != "" && values.providerRepository != "" &&
 		(values.intent != "" || values.problem != "") && values.desiredOutcome != "" && values.context != "" &&
 		values.scope != "" && values.constraints != "" && values.nonGoals != "" && values.acceptance != ""
+}
+
+func runInteractiveSelectors(ctx context.Context, mode outputMode, operation action, values requestInput, service Service, source provenance.Value, input io.Reader, stdout, prompts io.Writer) int {
+	scanner := bufio.NewScanner(input)
+	fields := []struct {
+		value  *string
+		prompt string
+	}{
+		{&values.project, "Project UUID or slug: "},
+		{&values.repository, "Project repository key: "},
+		{&values.workItem, "Work Item selector (github:owner/repository#number): "},
+	}
+	if knownWorkflow(operation) && operation != workflowStartAction {
+		fields = append(fields, struct {
+			value  *string
+			prompt string
+		}{&values.execution, "Execution ID: "})
+	}
+	for _, field := range fields {
+		if *field.value != "" {
+			continue
+		}
+		value, ok := readPromptLine(scanner, prompts, field.prompt, true)
+		if !ok {
+			return emitParserFailure(stdout, mode, operation, "missing_required_input", source)
+		}
+		*field.value = value
+	}
+	if issue := selectorRequestIssue(operation, values); issue != "" {
+		return emitParserFailure(stdout, mode, operation, issue, source)
+	}
+	return emitResponse(stdout, mode, operation, dispatch(ctx, operation, values, service))
 }
 
 func runInteractiveWorkItemCreate(ctx context.Context, mode outputMode, values requestInput, service Service, input io.Reader, stdout, prompts io.Writer) int {

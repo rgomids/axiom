@@ -418,7 +418,11 @@ func (s Service) Show(ctx context.Context, target Target, selector string) Resul
 	if failure.Category != "" {
 		return failure
 	}
-	link, err := s.store.Load(ctx, project.ID, repositoryKey, "", "", selector)
+	provider := ""
+	if target.ProviderResource != "" {
+		provider = s.capability.ProviderID()
+	}
+	link, err := s.store.Load(ctx, project.ID, repositoryKey, provider, target.ProviderResource, selector)
 	if err != nil {
 		if errors.Is(err, ErrRecoveryRequired) {
 			return result(completion.Failure, "recovery_required")
@@ -432,12 +436,15 @@ func (s Service) Show(ctx context.Context, target Target, selector string) Resul
 }
 
 func (s Service) resolveLinked(ctx context.Context, input Target) (Project, string, Result) {
-	if s.resolver == nil || s.store == nil || !s.source.Valid() || input.ProjectSelector == "" || input.RepositoryKey == "" || input.ProviderResource != "" {
+	if s.resolver == nil || s.store == nil || !s.source.Valid() || input.ProjectSelector == "" || input.RepositoryKey == "" {
 		return Project{}, "", result(completion.ValidationFailure, "invalid_work_item_input")
 	}
 	project, category := s.resolver.Resolve(ctx, input.ProjectSelector)
 	if category != "" {
 		return Project{}, "", result(completion.ValidationFailure, category)
+	}
+	if input.ProviderResource != "" && (s.capability == nil || project.Provider != s.capability.ProviderID() || !s.capability.ValidResource(input.ProviderResource)) {
+		return Project{}, "", result(completion.ValidationFailure, "invalid_work_item_input")
 	}
 	for _, repository := range project.Repositories {
 		if repository.Key == input.RepositoryKey {

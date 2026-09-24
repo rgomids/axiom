@@ -10,9 +10,11 @@
 
 **S3 Implementation: Delivered on `main` through PR #85 with deterministic Evidence and one bounded real-provider observation. Human acceptance is not inferred.**
 
-**S4 Implementation: T10–T13 implementation, deterministic Evidence, and the mandatory bounded real-provider projection observation are technically complete in the delivery branch. Human acceptance is not inferred.**
+**S4 Implementation: Delivered on `main` through PR #91 with deterministic, fake-Provider, and authorized bounded real-provider Evidence. Human acceptance is not inferred.**
 
-**S5–S7 Implementation: Not authorized.**
+**S5 Implementation: T14–T15 implementation, deterministic Evidence, and bounded real Codex Runtime observation are technically complete in the delivery branch. Human acceptance is not inferred.**
+
+**S6–S7 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -44,11 +46,13 @@ Specification 004 — Approved
    -> T08 — Implementation and deterministic Evidence complete
    -> T09 — Implementation, deterministic tests, and bounded real-provider observation complete
    -> Human acceptance — Not inferred
--> S4 Implementation — Technical implementation and Evidence complete in branch
+-> S4 Implementation — Delivered on main through PR #91
    -> T10–T13 — Application, store, adapter, CLI, black-box and dogfood checks complete
    -> Real-provider projection observation — Complete under exact per-run authority
    -> Human acceptance — Not inferred
--> S5–S7 Implementation — Not authorized
+-> S5 Implementation — T14–T15 technical implementation and Evidence complete in branch
+   -> Human acceptance — Not inferred
+-> S6–S7 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -492,6 +496,12 @@ inherited from T12 are complete in the S4 delivery branch; see
 
 ### T14 — Strict CLI selector path
 
+**Implementation checkpoint:** deterministic application, parser, CLI, and
+executable black-box coverage is complete in the S5 delivery branch; see
+[S5 Evidence](evidence-s5.md). This includes unsupported single-hyphen duplicate
+flags and a protected-state fixture proving ambiguous Project slug rejection with
+zero store/Provider/Runtime effects. Human acceptance is not inferred.
+
 - **Objective:** Fully specified CLI selectors reach the correct Project/Repository/Work Item/Execution without questions; partial input asks only missing/ambiguous values and invalid input never falls back to CWD.
 - **Slice:** S5 — Codex selector path and completion convergence.
 - **Dependencies:** T13.
@@ -508,6 +518,13 @@ inherited from T12 are complete in the S4 delivery branch; see
 - **Risks / gates:** New selector meanings that collapse Project/Repository/Provider identities require review.
 
 ### T15 — Thin Codex selector path and completion convergence
+
+**Implementation checkpoint:** skill-set v2, deterministic compatibility/thin-
+adapter checks, seven-status/detail/provenance regression, and bounded real Codex
+Runtime observation are complete in the S5 delivery branch; see
+[S5 Evidence](evidence-s5.md). The seven-status test consumes central completion
+results through the real CLI JSON renderer and validates every canonical field at
+the Codex-facing contract. Human acceptance is not inferred.
 
 - **Objective:** Installed Codex skills pass explicit selectors to Lingo and produce the same semantic result, provenance, detail reference, and all seven terminal statuses as direct CLI use.
 - **Slice:** S5.
@@ -879,4 +896,8 @@ future work under explicit Task authority.
 fake-Provider, and authorized real-provider Evidence. Human acceptance is not
 inferred.**
 
-**S5–S7 Implementation — Not authorized.**
+**S5 Implementation — T14–T15 technically complete in the delivery branch with
+deterministic and bounded real Codex Runtime Evidence. Human acceptance is not
+inferred.**
+
+**S6–S7 Implementation — Not authorized.**

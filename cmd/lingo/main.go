@@ -259,8 +259,11 @@ func (r workflowResolver) Resolve(ctx context.Context, selector string) (workflo
 	return project, ""
 }
 
-func (w workflowWorkItems) Load(ctx context.Context, project, repository, selector string) (workflow.WorkItem, error) {
-	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository}, selector)
+func (w workflowWorkItems) Load(ctx context.Context, project, repository, provider, resource, selector string) (workflow.WorkItem, error) {
+	if provider != "" && provider != "github" {
+		return workflow.WorkItem{}, workitem.ErrNotFound
+	}
+	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository, ProviderResource: resource}, selector)
 	if result.Status != workitem.Succeeded {
 		return workflow.WorkItem{}, workitem.ErrNotFound
 	}
@@ -363,7 +366,9 @@ func (s lifecycleService) Show(ctx context.Context, input cli.ResolveInput) cli.
 	for _, repository := range result.Project.Repositories {
 		references = append(references, "repository:"+repository.Key)
 	}
-	return canonicalCompletion(completion.Facts{Completed: true}, "Project resolved", references, "", s.provenance)
+	response := canonicalCompletion(completion.Facts{Completed: true}, "Project resolved", references, "", s.provenance)
+	response.Project = projectView(result.Project)
+	return response
 }
 
 func projectShowFailure(category string, source provenance.Value) cli.Result {
@@ -531,24 +536,47 @@ func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItem
 	return workItemResult(s.workItems.Create(ctx, draft, input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if input.Provider != "" && input.Provider != "github" {
+		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
+	}
 	target := workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}
 	if !input.AuthorizeLocal && input.PreviewDigest == "" {
-		return workItemResult(s.workItems.PreviewSelect(ctx, target, strconv.Itoa(input.Number)), s.provenance)
+		return workItemResult(s.workItems.PreviewSelect(ctx, target, workItemExternalID(input)), s.provenance)
 	}
-	return workItemResult(s.workItems.Select(ctx, target, strconv.Itoa(input.Number), input.PreviewDigest, input.AuthorizeLocal), s.provenance)
+	return workItemResult(s.workItems.Select(ctx, target, workItemExternalID(input), input.PreviewDigest, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	return workItemResult(s.workItems.Show(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, strconv.Itoa(input.Number)), s.provenance)
+	if input.Provider != "" && input.Provider != "github" {
+		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
+	}
+	return workItemResult(s.workItems.Show(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input)), s.provenance)
 }
 func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, strconv.Itoa(input.Number), input.Message, input.AuthorizeExternal), s.provenance)
+	if input.Provider != "" && input.Provider != "github" {
+		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
+	}
+	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.Message, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository}, strconv.Itoa(input.Number), input.AuthorizeExternal), s.provenance)
+	if input.Provider != "" && input.Provider != "github" {
+		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
+	}
+	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.AuthorizeExternal), s.provenance)
+}
+
+func workItemExternalID(input cli.WorkItemInput) string {
+	if input.ExternalID != "" {
+		return input.ExternalID
+	}
+	return strconv.Itoa(input.Number)
 }
 
 func workflowTarget(input cli.WorkflowInput) workflow.Target {
-	return workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, WorkItem: strconv.Itoa(input.Number), RuntimeID: "codex"}
+	externalID := input.ExternalID
+	if externalID == "" {
+		externalID = strconv.Itoa(input.Number)
+	}
+	return workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, WorkItemProvider: input.Provider, WorkItemResource: input.ProviderRepository, WorkItem: externalID, ExecutionID: input.Execution, RuntimeID: "codex"}
 }
 
 func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
