@@ -34,6 +34,36 @@ go test ./...
 4. Update only affected documentation and include verifiable Evidence: commands, outcomes, and known limits. Raw claims of completion are insufficient.
 5. Run the relevant checks below, inspect the diff, and submit a PR for review. Address review feedback within the agreed scope.
 
+## Work Item lifecycle governance
+
+The Issue #94 amendment proposes the following rules for Axiom-managed Work Items.
+They become implementation governance only after explicit human approval of the
+amended Specification 004; this text does not authorize implementation.
+
+- Repository artifacts remain technical source of truth; local Execution/workflow
+  state remains canonical workflow truth; Provider metadata is a durable
+  projection and recovery signal only.
+- GitHub lifecycle projection uses exactly one canonical `axiom:stage:*` marker
+  from the closed Specification 004 set. `axiom:blocked`,
+  `axiom:needs-decision`, `axiom:needs-approval`, and
+  `axiom:recovery-required` are independent flags, never synthetic stages.
+- Do not manually treat labels, Issue closure, merge, green CI, or PR review as
+  authority to advance local workflow or record acceptance.
+- Transition comments must be bounded and reference Specifications, Plans/Tasks,
+  PRs, Evidence, next actions, or blockers instead of copying dense documents,
+  logs, or chat.
+- Apply Project metadata policy deterministically. Ask only for required Work
+  Item or Pull Request metadata still unresolved after policy/context resolution;
+  keep concrete GitHub fields in the adapter boundary.
+- If local workflow truth is unavailable, inspect and reconcile. Never reconstruct
+  an Execution or advance a stage from Provider/Repository inference; contradictory
+  or insufficient facts require `recovery_required` and human decision.
+
+PRs affecting this lifecycle must state the current/target lifecycle stage,
+prerequisites and authority, auxiliary flags, Provider effects, recovery impact,
+and whether a human acceptance decision remains pending. `Not applicable` is
+valid only with an objective reason.
+
 ## Branch names
 
 Use this format:

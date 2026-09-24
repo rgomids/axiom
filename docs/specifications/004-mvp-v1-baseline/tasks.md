@@ -12,9 +12,11 @@
 
 **S4 Implementation: Delivered on `main` through PR #91 with deterministic, fake-Provider, and authorized bounded real-provider Evidence. Human acceptance is not inferred.**
 
-**S5 Implementation: T14–T15 implementation, deterministic Evidence, and bounded real Codex Runtime observation are technically complete in the delivery branch. Human acceptance is not inferred.**
+**S5 Implementation: Delivered on `main` through PR #93 with deterministic Evidence and bounded real Codex Runtime observation. Human acceptance is not inferred.**
 
-**S6–S7 Implementation: Not authorized.**
+**Issue #94 amendment / proposed S6: Human approval required. T26–T29 implementation is not authorized.**
+
+**S7–S8 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -50,9 +52,10 @@ Specification 004 — Approved
    -> T10–T13 — Application, store, adapter, CLI, black-box and dogfood checks complete
    -> Real-provider projection observation — Complete under exact per-run authority
    -> Human acceptance — Not inferred
--> S5 Implementation — T14–T15 technical implementation and Evidence complete in branch
+-> S5 Implementation — Delivered on main through PR #93
    -> Human acceptance — Not inferred
--> S6–S7 Implementation — Not authorized
+-> Proposed S6 amendment — T26–T29 require explicit human approval
+-> S7–S8 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -164,25 +167,28 @@ IDs do not imply permission to execute in numeric order.
 | T13 | S4 | Workflow interruption, concurrency, and projection convergence | T12 |
 | T14 | S5 | Strict CLI selector path | T13 |
 | T15 | S5 | Thin Codex selector path and completion convergence | T02, T05, T13, T14 |
-| T16 | S6 | Compatibility inspection and historical POC classification | T15 |
-| T17 | S6 | Authorized POC backup/export/reconfigure path | T16 |
-| T18 | S6 | Reference-aware artifact cleanup and capacity recovery | T02, T10, T15 |
-| T19 | S6 | Guided local recovery | T03, T10, T18 |
-| T20 | S6 | Owned install upgrade and resumable partial state | T04, T05, T16, T19 |
-| T21 | S6 | Cross-slice security and bounded-I/O regression | T09, T13, T15, T17, T18, T20 |
-| T22 | S6 | Exact-target native filesystem/install/upgrade Evidence | T19, T20, T21 |
-| T23 | S7 | Identified RC archives and authorized prerelease publication | T22 |
-| T24 | S7 | Clean-environment CLI/Codex/GitHub acceptance matrix | T23 |
-| T25 | S7 | Versioned RC Evidence, documentation reconciliation, and human gate | T24 |
+| T26 | Proposed S6 | Provider-neutral Work Item lifecycle stage and gates | T15 |
+| T27 | Proposed S6 | GitHub lifecycle/flag projection and bounded history | T26 |
+| T28 | Proposed S6 | Project metadata policy for Work Items and Pull Requests | T07, T09, T15, T27 |
+| T29 | Proposed S6 | Missing-local-state reconciliation and Slice convergence | T03, T13, T27, T28 |
+| T16 | S7 | Compatibility inspection and historical POC classification | T29 |
+| T17 | S7 | Authorized POC backup/export/reconfigure path | T16 |
+| T18 | S7 | Reference-aware artifact cleanup and capacity recovery | T02, T10, T15, T29 |
+| T19 | S7 | Guided local recovery | T03, T10, T18 |
+| T20 | S7 | Owned install upgrade and resumable partial state | T04, T05, T16, T19 |
+| T21 | S7 | Cross-slice security and bounded-I/O regression | T09, T13, T15, T17, T18, T20, T29 |
+| T22 | S7 | Exact-target native filesystem/install/upgrade Evidence | T19, T20, T21 |
+| T23 | S8 | Identified RC archives and authorized prerelease publication | T22 |
+| T24 | S8 | Clean-environment CLI/Codex/GitHub acceptance matrix | T23 |
+| T25 | S8 | Versioned RC Evidence, documentation reconciliation, and human gate | T24 |
 
 The critical path is `T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07 -> T08
--> T09 -> T10 -> T11 -> T12 -> T13 -> T14 -> T15`, followed by S6 convergence
-and S7. This preserves the approved slice order `S1 -> S2 -> S3 -> S4 -> S5 ->
-S6 -> S7`: every S5 Task waits for S4 closure, and every S6 Task waits directly
-or transitively for S5 closure. Limited parallelism exists only after those slice
-gates: T16 and T18 may advance independently after T15; security preparation may
-be distributed among owning Tasks, but T21 cannot close before every listed
-boundary is observable.
+-> T09 -> T10 -> T11 -> T12 -> T13 -> T14 -> T15`, followed by proposed S6
+convergence, S7, and S8. The amended slice order is `S1 -> S2 -> S3 -> S4 -> S5
+-> S6 -> S7 -> S8`: every proposed S6 Task waits directly or transitively for S5
+closure, and every S7 Task waits directly or transitively for T29. Limited
+parallelism exists after the new gate: T16 and T18 may advance independently after
+their prerequisites; T21 cannot close before every listed boundary is observable.
 
 ```mermaid
 flowchart LR
@@ -198,10 +204,18 @@ flowchart LR
     T03 --> T10
     T05 --> T15
     T13 --> T15
-    T15 --> T16 --> T17
+    T15 --> T26 --> T27 --> T28 --> T29
+    T07 --> T28
+    T09 --> T28
+    T15 --> T28
+    T03 --> T29
+    T13 --> T29
+    T27 --> T29
+    T29 --> T16 --> T17
     T02 --> T18
     T10 --> T18
     T15 --> T18
+    T29 --> T18
     T03 --> T19
     T10 --> T19
     T18 --> T19
@@ -215,6 +229,7 @@ flowchart LR
     T17 --> T21
     T18 --> T21
     T20 --> T21
+    T29 --> T21
     T19 --> T22
     T20 --> T22
     T21 --> T22 --> T23 --> T24 --> T25
@@ -541,11 +556,82 @@ the Codex-facing contract. Human acceptance is not inferred.
 - **Completion criteria:** Skills are thin deterministic adapters and all observed semantics converge with CLI/application truth.
 - **Risks / gates:** Real Codex invocation is required Evidence but cannot substitute for deterministic tests or grant Provider authority.
 
+### T26 — Provider-neutral Work Item lifecycle stage and gates
+
+**Amendment status:** proposed by Issue #94; implementation requires explicit
+human approval of the amended Specification/Plan/Tasks.
+
+- **Objective:** Commit one provider-neutral Work Item lifecycle stage only after the exact current revision and all transition prerequisites, blockers, references, decisions, and authority have been validated.
+- **Slice:** Proposed S6 — Durable Work Item lifecycle and metadata governance.
+- **Dependencies:** T15.
+- **Requirements:** FR-013, FR-016, FR-038–FR-041; AC-09, AC-25, AC-26, AC-29; MVP-SEC-01, MVP-SEC-03; MVP-NFR-01, MVP-NFR-06; SEC-002, SEC-004, SEC-005.
+- **ADRs / decisions:** ADR-0003, ADR-0006–ADR-0008. Preserve one Execution lineage and local workflow authority.
+- **Affected boundaries:** provider-neutral lifecycle value, prerequisite/gate policy, Execution workflow state, transition references, completion classification.
+- **Expected implementation:** Add the closed ten-stage lifecycle value without replacing S4's historical detailed gates; validate only the next transition; bind explicit artifact/decision/authority facts; keep blocked/needs-decision/needs-approval/recovery-required as separate conditions; require an explicit human decision for `reviewed -> accepted`.
+- **Authority and side effects:** Exact local transition authority only. No Provider mutation, PR/Issue close, Repository write, or inferred human decision. A valid selector, merge, CI, review, or Provider state grants no transition authority.
+- **Failure / recovery:** Stale, skipped, contradictory, blocked, reference-missing, or unauthorized transitions return deterministic non-success before canonical mutation. A confirmed local transition survives later projection/rendering failure.
+- **Explicit non-goals:** General workflow engine, custom stages, second Execution lineage, graph/orchestration behavior, or Provider-owned gates.
+- **Mandatory tests:** Complete stage/transition table; every unmet prerequisite; stale/skipped/duplicate/conflicting transition; independent auxiliary-condition matrix; explicit acceptance decision; merge/CI/closure/Provider non-authority; codec/version/bounds and replay.
+- **Expected Evidence:** Stage/revision/digest matrix, prerequisite/authority facts, zero-effect ledgers for every invalid case, committed transition references, and proof S4 records/Evidence remain unchanged.
+- **Completion criteria:** Exactly one local lifecycle stage is authoritative; valid next transitions commit once; invalid transitions and external technical signals advance nothing.
+- **Risks / gates:** Any change to Execution identity/lifecycle, source-of-truth ownership, or general stage configurability requires **Human decision required** and renewed ADR assessment.
+
+### T27 — GitHub lifecycle/flag projection and bounded history
+
+- **Objective:** Reconcile committed lifecycle truth to exactly one GitHub stage label, applicable independent flags, and one bounded idempotent transition comment without changing local authority.
+- **Slice:** Proposed S6.
+- **Dependencies:** T26.
+- **Requirements:** FR-013–FR-017, FR-038–FR-042; AC-08, AC-09, AC-25–AC-29; MVP-SEC-01–MVP-SEC-05; MVP-NFR-01–MVP-NFR-03, MVP-NFR-06; SEC-001, SEC-002, SEC-004.
+- **ADRs / decisions:** ADR-0003, ADR-0006–ADR-0008. Extend S4 projection; do not rewrite it.
+- **Affected boundaries:** projection plan/observation, GitHub label/comment adapter, auxiliary flags, legacy S4-label recognition, intended/confirmed ledger.
+- **Expected implementation:** Project the exact ten-label namespace and four independent flags; detect zero/multiple/unknown/contradictory markers; reuse exact preview/authority/reinspection; post reference-first comments under the existing 16 KiB and 16-reference limits; replace only positively identified legacy S4 labels under reviewed effects.
+- **Authority and side effects:** Separate exact GitHub authority bound to Work Item, Execution/lifecycle revision, projection key, observation digest, preview digest, and ordered effects. Forbidden: Issue closure, foreign-content removal, unknown namespaced-label deletion, duplicate comment, or local transition from Provider state.
+- **Failure / recovery:** Drift or unknown namespaced content is `recovery_required`; ambiguous effects are reinspected; confirmed effect plus bookkeeping failure is truthful `partial`; replay converges without duplication.
+- **Explicit non-goals:** Webhooks, bidirectional sync, arbitrary labels/stages, general Provider framework, or dense artifact publication in comments.
+- **Mandatory tests:** Exact label enum; exactly-one-stage matrix; all flag combinations independent of stage; foreign/unknown preservation; legacy S4 replacement preview; bounded/reference-only comment; replay/ambiguous/partial/stale-authority cases; bounded real GitHub observation only under separate per-run authority.
+- **Expected Evidence:** Before/preview/after/replay snapshots, exact effect ledger, comment bytes/digest/references, projection keys, foreign-content hashes, and historical S4 non-mutation statement.
+- **Completion criteria:** A conforming managed Issue converges to one lifecycle marker and correct flags/history; drift never advances local truth or causes unreviewed deletion.
+- **Risks / gates:** Provider comments remain append-only. Unknown Axiom-like metadata is preserved for human decision rather than normalized heuristically.
+
+### T28 — Project metadata policy for Work Items and Pull Requests
+
+- **Objective:** Resolve required/default Work Item and Pull Request metadata from explicit inputs, Project policy, and validated context, prompting only for unresolved mandatory values and keeping concrete GitHub fields in the adapter.
+- **Slice:** Proposed S6.
+- **Dependencies:** T07, T09, T15, T27.
+- **Requirements:** FR-003, FR-006, FR-011, FR-012, FR-044; AC-04–AC-07, AC-31; MVP-SEC-01–MVP-SEC-05, MVP-SEC-07; MVP-NFR-01, MVP-NFR-02, MVP-NFR-06; SEC-001, SEC-002.
+- **ADRs / decisions:** ADR-0001, ADR-0003, ADR-0004, ADR-0007. Project intent remains portable; Provider observation remains local.
+- **Affected boundaries:** Project metadata-policy contract, capability resolution, Work Item/PR operation previews, GitHub issue/PR adapter effects, guided missing-input collection.
+- **Expected implementation:** Define the closed `classification`, `owner`, `delivery_target`, `tracking_state`, and PR `reviewers` intentions plus resolved/optional/required-missing/unsupported results; apply deterministic precedence; evolve portable schema under ADR-0004; preview exact sources/effects; let GitHub map labels, assignee, milestone, supported Project/status, and PR labels/assignee/review metadata.
+- **Authority and side effects:** Resolution is read-only. Any Work Item/PR mutation retains a separate exact Provider authority. Policy never grants review approval, merge, Issue closure, or workflow acceptance.
+- **Failure / recovery:** Unsupported optional capability is explicit; unsupported or missing mandatory capability/value blocks before mutation; changed Provider/Project observation invalidates authority; partial confirmed effects remain inspectable/reconcilable.
+- **Explicit non-goals:** Generic custom fields, universal metadata CRUD, sophisticated GitHub Projects automation, second Provider implementation, credential storage, or automatic reviewer approval.
+- **Mandatory tests:** Resolution precedence; required/default/optional/unsupported matrix; zero-question fully resolved path; missing-only prompt counts; Work Item versus PR capability separation; adapter field isolation; stale preview, denial, partial, and no-effect cases.
+- **Expected Evidence:** Policy/result fixtures, prompt and capability ledgers, exact GitHub-effect previews through fakes, zero-effect denial cases, portable/local separation hashes, and no GitHub concepts in domain contracts.
+- **Completion criteria:** Deterministically resolvable metadata needs no question; unresolved mandatory metadata blocks precisely; GitHub-specific fields remain adapter-owned.
+- **Risks / gates:** A generic metadata/custom-field schema or portable Provider observation requires **Human decision required** and renewed ADR assessment.
+
+### T29 — Missing-local-state reconciliation and Slice convergence
+
+- **Objective:** Inspect Provider projection/history, Repository artifacts, and available local generations and return either current truth, one exact ADR-0007 recovery plan, or `recovery_required` with human decision—never a synthesized Execution or transition.
+- **Slice:** Proposed S6.
+- **Dependencies:** T03, T13, T27, T28.
+- **Requirements:** FR-017, FR-022–FR-026, FR-038, FR-043, FR-044; AC-17, AC-20, AC-27, AC-28, AC-30, AC-31; MVP-SEC-01–MVP-SEC-04, MVP-SEC-06, MVP-SEC-08; MVP-NFR-01, MVP-NFR-03, MVP-NFR-04, MVP-NFR-06; SEC-002–SEC-005.
+- **ADRs / decisions:** ADR-0005–ADR-0008; Provider is a recovery signal, not workflow authority.
+- **Affected boundaries:** recovery inspector/result, local canonical/prior/stage records, Repository reference validation, Provider projection/history observation, Slice Evidence.
+- **Expected implementation:** Correlate exact Work Item/Execution/projection identities, revisions, digests, lifecycle markers, flags, comments, and artifact references; classify aligned current truth, validated local-generation recovery, insufficient evidence, and contradiction; require fresh exact authority for any ADR-0007 recovery mutation.
+- **Authority and side effects:** Inspection is read-only. Recovery mutation remains separately authorized and local-only. Provider/Repository observations cannot create state, replay work, clear blockers, or grant implementation/acceptance authority.
+- **Failure / recovery:** Missing canonical state plus only Provider/Repository signals is `recovery_required`; a validated owned prior/new generation yields a recovery plan, not automatic mutation; contradictions/unknown content are preserved for review.
+- **Explicit non-goals:** Silent Execution reconstruction, heuristic stage selection, remote workflow truth, automatic recovery/cleanup, or broad migration.
+- **Mandatory tests:** Current-local/aligned projection; absent local with Provider only; validated prior/new generation; multiple/unknown labels; missing/changed artifacts; contradictory history; stale recovery authority; zero-write inspection; full T26–T28 convergence and regression.
+- **Expected Evidence:** Input-source/digest matrix, reconciliation classifications, proposed exact recovery effects, tree hashes proving read-only inspection, human-decision outputs, full repository validation, and bounded fake/real Provider separation.
+- **Completion criteria:** Every supported evidence combination yields a deterministic non-invented result; no missing/contradictory state advances workflow; S6 contracts converge end to end.
+- **Risks / gates:** If safe recovery requires reconstructing Execution identity/history from external data, stop with **Human decision required**; that would change ADR-0008.
+
 ### T16 — Compatibility inspection and historical POC classification
 
 - **Objective:** Read-only inspection distinguishes absent v1, valid v1, recognized POC, malformed, unsupported older, unsupported newer, and recovery-required state with actionable next steps.
-- **Slice:** S6 — Recovery, cleanup and upgrade.
-- **Dependencies:** T15.
+- **Slice:** S7 — Recovery, cleanup and upgrade.
+- **Dependencies:** T29.
 - **Requirements:** FR-026–FR-030, FR-032, FR-036; AC-18, AC-19; MVP-SEC-02, MVP-SEC-06–MVP-SEC-08; MVP-NFR-01, MVP-NFR-03–MVP-NFR-05; SEC-001, SEC-003–SEC-005.
 - **ADRs / decisions:** ADR-0004–ADR-0008; HD-4.
 - **Affected boundaries:** compatibility inspector, v1/POC signatures, installation/Project/Work Item/workflow/skill readers, completion/detail output.
@@ -561,7 +647,7 @@ the Codex-facing contract. Human acceptance is not inferred.
 ### T17 — Authorized POC backup/export/reconfigure path
 
 - **Objective:** Recognized POC state can be backed up locally, portable Project intent exported to an empty target, and clean v1 reconfiguration guided without deleting or migrating POC workflow/Execution history.
-- **Slice:** S6.
+- **Slice:** S7.
 - **Dependencies:** T16.
 - **Requirements:** FR-027–FR-030; AC-18; MVP-SEC-01–MVP-SEC-03, MVP-SEC-06–MVP-SEC-09; MVP-NFR-03–MVP-NFR-06; SEC-001–SEC-005.
 - **ADRs / decisions:** ADR-0004–ADR-0007; HD-4.
@@ -578,8 +664,8 @@ the Codex-facing contract. Human acceptance is not inferred.
 ### T18 — Reference-aware artifact cleanup and capacity recovery
 
 - **Objective:** Operator previews and explicitly removes only eligible owned artifacts while active, Evidence-referenced, recovery-related, and uncertain content remains protected; capacity exhaustion never triggers eviction.
-- **Slice:** S6.
-- **Dependencies:** T02, T10, T15.
+- **Slice:** S7.
+- **Dependencies:** T02, T10, T15, T29.
 - **Requirements:** FR-023, FR-025, FR-033; AC-13, AC-14, AC-17; MVP-SEC-01, MVP-SEC-02, MVP-SEC-06, MVP-SEC-08, MVP-SEC-09; MVP-NFR-01, MVP-NFR-03, MVP-NFR-06; SEC-001, SEC-003–SEC-005.
 - **ADRs / decisions:** ADR-0005–ADR-0008; HD-2, HD-3.
 - **Affected boundaries:** retention/reference view, cleanup preview/authority, artifact store, cleanup record, Execution/Evidence references.
@@ -595,7 +681,7 @@ the Codex-facing contract. Human acceptance is not inferred.
 ### T19 — Guided local recovery
 
 - **Objective:** Read-only inspection explains interrupted publication; fresh authority restores/finalizes only a recognized complete generation while ambiguous/unknown state remains preserved for operator review.
-- **Slice:** S6.
+- **Slice:** S7.
 - **Dependencies:** T03, T10, T18.
 - **Requirements:** FR-022–FR-029; AC-17, AC-18; MVP-SEC-01, MVP-SEC-06, MVP-SEC-08, MVP-SEC-09; MVP-NFR-01, MVP-NFR-03, MVP-NFR-04, MVP-NFR-06; SEC-002–SEC-005.
 - **ADRs / decisions:** ADR-0004–ADR-0008; HD-3, HD-4.
@@ -612,7 +698,7 @@ the Codex-facing contract. Human acceptance is not inferred.
 ### T20 — Owned install upgrade and resumable partial state
 
 - **Objective:** Exact-version upgrade previews and verifies binary, receipt, skills, state compatibility, space, and effects; authorized publication reports each confirmed effect and safely resumes mixed owned state.
-- **Slice:** S6.
+- **Slice:** S7.
 - **Dependencies:** T04, T05, T16, T19.
 - **Requirements:** FR-026–FR-029, FR-031–FR-037; AC-18, AC-19; MVP-SEC-01, MVP-SEC-05, MVP-SEC-06, MVP-SEC-08; MVP-NFR-01, MVP-NFR-03–MVP-NFR-07; SEC-002–SEC-005.
 - **ADRs / decisions:** ADR-0003–ADR-0007; HD-1, HD-3, HD-4.
@@ -629,8 +715,8 @@ the Codex-facing contract. Human acceptance is not inferred.
 ### T21 — Cross-slice security and bounded-I/O regression
 
 - **Objective:** Public-safe adversarial tests prove rejection/non-effects for secrets, untrusted data, traversal/link/replacement, Provider responses, command injection, and bounded inputs/outputs across delivered slices.
-- **Slice:** S6.
-- **Dependencies:** T09, T13, T15, T17, T18, T20.
+- **Slice:** S7.
+- **Dependencies:** T09, T13, T15, T17, T18, T20, T29.
 - **Requirements:** FR-004, FR-011, FR-016, FR-020, FR-023–FR-025, FR-030, FR-032, FR-034; AC-07, AC-09, AC-11–AC-14, AC-16, AC-17, AC-20, AC-22, AC-23; MVP-SEC-01–MVP-SEC-09; MVP-NFR-01–MVP-NFR-06; SEC-001–SEC-005.
 - **ADRs / decisions:** ADR-0001, ADR-0003–ADR-0008; HD-2–HD-4.
 - **Affected boundaries:** all codecs, application authorities, filesystem adapters, CLI/skills, GitHub/command adapter, backup/export/cleanup/upgrade.
@@ -646,7 +732,7 @@ the Codex-facing contract. Human acceptance is not inferred.
 ### T22 — Exact-target native filesystem/install/upgrade Evidence
 
 - **Objective:** Native runs prove applicable filesystem, concurrency, installation, cleanup, recovery, and upgrade behavior on every approved release row; missing row remains an explicit release blocker.
-- **Slice:** S6.
+- **Slice:** S7.
 - **Dependencies:** T19, T20, T21.
 - **Requirements:** FR-022–FR-037; AC-01, AC-14, AC-17–AC-19, AC-22, AC-23; MVP-SEC-06, MVP-SEC-08, MVP-SEC-09; MVP-NFR-03–MVP-NFR-07; SEC-003–SEC-005.
 - **ADRs / decisions:** ADR-0005–ADR-0007; HD-1, HD-3, HD-4.
@@ -663,7 +749,7 @@ the Codex-facing contract. Human acceptance is not inferred.
 ### T23 — Identified RC archives and authorized prerelease publication
 
 - **Objective:** One clean revision produces immutable checksummed RC archives for all supported targets and, with exact authority, publishes them plus `SHA256SUMS` and instructions as an identified GitHub prerelease candidate.
-- **Slice:** S7 — Release candidate acceptance.
+- **Slice:** S8 — Release candidate acceptance.
 - **Dependencies:** T22.
 - **Requirements:** FR-031–FR-037; AC-01, AC-19, AC-21, AC-23, AC-24; MVP-SEC-01, MVP-SEC-02, MVP-SEC-04–MVP-SEC-06; MVP-NFR-05–MVP-NFR-07.
 - **ADRs / decisions:** ADR-0003, ADR-0005, ADR-0007; HD-1, HD-3.
@@ -680,26 +766,26 @@ the Codex-facing contract. Human acceptance is not inferred.
 ### T24 — Clean-environment CLI/Codex/GitHub acceptance matrix
 
 - **Objective:** Each supported clean environment completes the published install-to-completion journey through direct CLI and Codex, including representative denial, failure, interruption, recovery, cleanup, and upgrade paths.
-- **Slice:** S7.
+- **Slice:** S8.
 - **Dependencies:** T23.
-- **Requirements:** FR-001–FR-037; AC-01–AC-23; MVP-SEC-01–MVP-SEC-09; MVP-NFR-01–MVP-NFR-07; SEC-001–SEC-005; HD-1–HD-4.
+- **Requirements:** FR-001–FR-044; AC-01–AC-23, AC-25–AC-31; MVP-SEC-01–MVP-SEC-09; MVP-NFR-01–MVP-NFR-07; SEC-001–SEC-005; HD-1–HD-4.
 - **ADRs / decisions:** ADR-0001–ADR-0008.
 - **Affected boundaries:** published installer/archive, CLI, Codex skills, Project, Work Item, Execution/workflow, GitHub projection, completion/artifacts/Evidence, recovery/cleanup/upgrade.
-- **Expected implementation:** From isolated accounts/VMs with no Axiom roots, follow published instructions only: install -> provenance/compatibility -> first run -> Project -> Intent -> authorized GitHub Work Item -> workflow/projection -> Evidence/details -> completion -> reinstall/upgrade -> recovery/cleanup checks.
+- **Expected implementation:** From isolated accounts/VMs with no Axiom roots, follow published instructions only: install -> provenance/compatibility -> first run -> Project/metadata policy -> Intent -> authorized GitHub Work Item -> gated lifecycle/flags/bounded history -> workflow/projection -> Evidence/details -> completion -> missing-local-state inspection -> reinstall/upgrade -> recovery/cleanup checks.
 - **Authority and side effects:** **Human gate before each real run.** Exact authority required for bounded GitHub Issue/label/comment effects and Codex invocation. Allowed effects and cleanup ownership listed before execution. Forbidden: closing work as human acceptance, unrelated repository/Git mutation, credential publication, release promotion.
 - **Failure / recovery:** Exercise all seven statuses, invalid selectors, denial, interruption/resume, retryable Provider failure, confirmed Provider/local failure, recovery-required, capacity exhaustion, POC detection/export-reconfigure, and partial upgrade. Preserve external effects/references truthfully.
 - **Explicit non-goals:** Automated human acceptance, broad provider/runtime coverage, production workload/load test, historical CI substitution.
 - **Mandatory tests:** Full black-box journey on all three support rows; CLI/Runtime semantic matrix; real bounded Codex discovery/invocation; real bounded GitHub create/projection; controlled fake failure/non-effect cases; documentation replay.
 - **Expected Evidence:** Candidate/environment identity, commands/exits, hashes/references, prompt counts, Provider/Codex observations, side-effect ledger, artifact/Evidence IDs/digests, platform facts, exclusions, unexecuted cases, and cleanup disposition.
-- **Completion criteria:** Every AC-01–AC-23 has inspectable future Evidence on required scope/platforms; failures or unavailable rows block RC readiness.
+- **Completion criteria:** Every AC-01–AC-23 and AC-25–AC-31 has inspectable future Evidence on required scope/platforms; AC-24 remains the separate human decision and failures or unavailable rows block RC readiness.
 - **Risks / gates:** Real credentials stay outside Evidence. Test success prepares review only and never fills AC-24's human decision.
 
 ### T25 — Versioned RC Evidence, documentation reconciliation, and human gate
 
 - **Objective:** Publish a sanitized, auditable RC report and reconcile only delivered behavior, then stop for explicit human accept/reject decision.
-- **Slice:** S7.
+- **Slice:** S8.
 - **Dependencies:** T24.
-- **Requirements:** FR-001–FR-037 Evidence closure; AC-21–AC-24; MVP-SEC-02; MVP-NFR-05–MVP-NFR-07; SEC-001, SEC-005; Constitution II–VI.
+- **Requirements:** FR-001–FR-044 Evidence closure; AC-21–AC-31; MVP-SEC-02; MVP-NFR-05–MVP-NFR-07; SEC-001, SEC-005; Constitution II–VI.
 - **ADRs / decisions:** ADR-0001–ADR-0008; HD-1–HD-4.
 - **Affected boundaries:** Specification Evidence/index, README, commands, architecture/operations docs, CHANGELOG, RC report, final human gate.
 - **Expected implementation:** Map every claim to source revision, command/test, exit/result, artifact/reference/digest, environment, limitation, and review finding; include measured artifact sizes/counts and recommendation on initial limits/retention; reconcile docs to verified behavior only.
@@ -758,6 +844,13 @@ not completion Evidence.
 | FR-035 | T04–T07, T24 |
 | FR-036 | T05, T15, T16, T20, T24 |
 | FR-037 | T20, T22, T24 |
+| FR-038 | T26–T29, T24 |
+| FR-039 | T26, T27, T29, T24 |
+| FR-040 | T26, T29, T24 |
+| FR-041 | T26, T27, T29, T24 |
+| FR-042 | T27, T29, T24 |
+| FR-043 | T29, T19, T24 |
+| FR-044 | T28, T29, T24 |
 
 ### Acceptance criteria
 
@@ -787,44 +880,51 @@ not completion Evidence.
 | AC-22 | T20–T24 | Denial/interruption/retry/recovery/upgrade matrix |
 | AC-23 | T21–T25 | Versioned sanitized Evidence with environment/limitations |
 | AC-24 | T23–T25 | Automation prepares decision; explicit human accept/reject only |
+| AC-25 | T26, T27, T24 | Closed lifecycle enum and exact GitHub label mapping |
+| AC-26 | T26, T29, T24 | Valid/invalid lifecycle transition and zero-effect matrix |
+| AC-27 | T27, T29, T24 | Exactly one stage, independent flags, foreign-content preservation |
+| AC-28 | T27, T29, T24 | Bounded history and no-duplicate replay |
+| AC-29 | T26, T27, T24 | Human-only acceptance and technical/Provider non-authority |
+| AC-30 | T29, T19, T24 | Exact local-generation recovery or `recovery_required` |
+| AC-31 | T28, T29, T24 | Metadata policy resolution, missing-only prompts, adapter isolation |
 
 ### Security, NFR, human decisions, and ADRs
 
 | Requirement / decision | Responsible Tasks |
 |---|---|
-| MVP-SEC-01 | T03–T24 where mutation occurs; audited by T21/T24 |
-| MVP-SEC-02 | T02, T06, T08, T09, T16–T18, T21, T23–T25 |
-| MVP-SEC-03 | T06, T08, T09, T11, T14, T15, T17, T21, T24 |
-| MVP-SEC-04 | T09, T12, T13, T21, T23, T24 |
-| MVP-SEC-05 | T04–T06, T09, T14, T15, T20, T21, T23, T24 |
-| MVP-SEC-06 | T02–T07, T10, T13, T16–T24 |
+| MVP-SEC-01 | T03–T29 where mutation occurs; audited by T21/T24 |
+| MVP-SEC-02 | T02, T06, T08, T09, T16–T18, T21, T23–T25, T27–T29 |
+| MVP-SEC-03 | T06, T08, T09, T11, T14, T15, T17, T21, T24, T26–T29 |
+| MVP-SEC-04 | T09, T12, T13, T21, T23, T24, T27–T29 |
+| MVP-SEC-05 | T04–T06, T09, T14, T15, T20, T21, T23, T24, T27, T28 |
+| MVP-SEC-06 | T02–T07, T10, T13, T16–T24, T29 |
 | MVP-SEC-07 | T06, T07, T16, T17, T21, T24 |
-| MVP-SEC-08 | T03, T04, T07, T10, T13, T16–T22, T24 |
+| MVP-SEC-08 | T03, T04, T07, T10, T13, T16–T22, T24, T29 |
 | MVP-SEC-09 | T02, T17–T19, T21, T22, T24 |
-| MVP-NFR-01 | T01–T24; audited by T21/T24 |
-| MVP-NFR-02 | T01, T02, T06, T08, T14, T15, T24 |
-| MVP-NFR-03 | T02–T05, T08–T25 where I/O occurs |
+| MVP-NFR-01 | T01–T29; audited by T21/T24 |
+| MVP-NFR-02 | T01, T02, T06, T08, T14, T15, T24, T27, T28 |
+| MVP-NFR-03 | T02–T05, T08–T29 where I/O occurs |
 | MVP-NFR-04 | T02–T07, T10, T16–T22, T24 |
 | MVP-NFR-05 | T04, T05, T07, T15–T17, T20, T22–T25 |
-| MVP-NFR-06 | T01, T02, T07, T09–T13, T15, T18–T25 |
+| MVP-NFR-06 | T01, T02, T07, T09–T13, T15, T18–T29 |
 | MVP-NFR-07 | T04, T20, T22–T25 |
-| SEC-001 | T02, T06, T08, T09, T16–T18, T21, T24, T25 |
-| SEC-002 | T03–T07, T09–T15, T17–T21, T23, T24 |
-| SEC-003 | T03, T04, T07, T10, T13, T16–T22, T24 |
-| SEC-004 | T03, T07, T09–T13, T17–T22, T24 |
-| SEC-005 | T02–T07, T10, T13, T16–T22, T24, T25 |
+| SEC-001 | T02, T06, T08, T09, T16–T18, T21, T24, T25, T27, T28 |
+| SEC-002 | T03–T07, T09–T15, T17–T21, T23, T24, T26–T29 |
+| SEC-003 | T03, T04, T07, T10, T13, T16–T22, T24, T29 |
+| SEC-004 | T03, T07, T09–T13, T17–T22, T24, T26–T29 |
+| SEC-005 | T02–T07, T10, T13, T16–T22, T24, T25, T26, T29 |
 | HD-1 | T04, T05, T20, T22–T25 |
 | HD-2 | T02, T06, T07, T10, T11, T15, T18, T21, T24, T25 |
 | HD-3 | T02–T04, T07, T13, T17–T24 |
 | HD-4 | T04, T16, T17, T20, T22–T25 |
-| ADR-0001 | T06, T07, T14, T21, T24, T25 |
+| ADR-0001 | T06, T07, T14, T21, T24, T25, T28 |
 | ADR-0002 | T08, T24, T25 |
-| ADR-0003 | T01, T04–T15, T20, T23–T25 |
-| ADR-0004 | T03, T06, T07, T16, T17, T19–T21, T24, T25 |
-| ADR-0005 | T02–T04, T07, T10, T13, T16–T24 |
-| ADR-0006 | T02, T03, T09–T13, T15, T18, T19, T21, T24, T25 |
-| ADR-0007 | T02–T05, T07, T09–T13, T17–T24 |
-| ADR-0008 | T10–T15, T18, T19, T21, T24, T25 |
+| ADR-0003 | T01, T04–T15, T20, T23–T29 |
+| ADR-0004 | T03, T06, T07, T16, T17, T19–T21, T24, T25, T28 |
+| ADR-0005 | T02–T04, T07, T10, T13, T16–T24, T29 |
+| ADR-0006 | T02, T03, T09–T13, T15, T18, T19, T21, T24–T29 |
+| ADR-0007 | T02–T05, T07, T09–T13, T17–T24, T26–T29 |
+| ADR-0008 | T10–T15, T18, T19, T21, T24–T27, T29 |
 
 No FR, AC, approved security/NFR clause, inherited SEC requirement, HD decision,
 or Accepted ADR is silently deferred. T25 is documentary closure, not the sole
@@ -836,6 +936,10 @@ by approved scope rather than omitted requirements.
 No new durable cross-cutting decision was identified during decomposition. The
 approved Plan and ADR-0001–ADR-0008 cover the required identity, authority,
 ownership, workflow, publication, recovery, compatibility, and release boundaries.
+The proposed Issue #94 contract extends the existing local workflow and Provider
+projection; it does not change their source-of-truth model, create another
+Execution lifecycle, or introduce a generic metadata schema. Human approval of
+the amended Specification/Plan/Tasks remains required before T26–T29.
 
 Future Task implementation may choose reversible mechanisms such as syscalls,
 lock library, local filenames/layout, journal encoding, Go package/interface shape,
@@ -851,6 +955,12 @@ Task-specific external gates remain explicit:
 
 - T09/T12 real GitHub observations require exact reviewed Provider authority.
 - T15/T24 real Codex invocation requires isolated compatible Runtime state.
+- T27 real GitHub lifecycle/flag/history observation requires exact reviewed
+  Provider authority.
+- T28 Work Item/PR metadata mutation requires an operation-specific exact preview
+  and separate Provider authority.
+- T29 mutating local recovery requires fresh exact ADR-0007 recovery authority;
+  its ordinary reconciliation inspection remains read-only.
 - T23 requires exact GitHub prerelease/tag/asset publication authority.
 - T24 requires per-run Provider mutation authority and declared cleanup ownership.
 - T25 stops before human RC acceptance/rejection and stable release promotion.
@@ -880,6 +990,12 @@ These checks validate decomposition and repository hygiene only. All behavioral,
 native-platform, Provider, Runtime, filesystem, security, and RC Evidence remains
 future work under explicit Task authority.
 
+The Issue #94 amendment adds four proposed Tasks without rewriting the 2026-09-20
+25-Task validation record. Amendment validation must prove 29 unique definitions,
+table/body/Mermaid equivalence, an acyclic DAG, complete FR-038–FR-044 and
+AC-25–AC-31 ownership, and the gates `S5 -> proposed S6 -> S7 -> S8`. These are
+document-structure claims only; they do not prove or authorize T26–T29 behavior.
+
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
 **S1 Implementation — Delivered on `main` through PR #83.**
@@ -890,14 +1006,15 @@ future work under explicit Task authority.
 
 **S2 Implementation — Delivered on `main` through PR #84 with reproducible S2 Evidence.**
 
-**S3 Implementation — T08 and T09 implementation plus the bounded real-provider observation are technically complete in the delivery branch. Current PR review corrections remain subject to human review. Human acceptance is not inferred.**
+**S3 Implementation — Delivered on `main` through PR #85 with deterministic and bounded real-provider Evidence. Human acceptance is not inferred.**
 
 **S4 Implementation — Technically complete in PR #91 with deterministic,
 fake-Provider, and authorized real-provider Evidence. Human acceptance is not
 inferred.**
 
-**S5 Implementation — T14–T15 technically complete in the delivery branch with
-deterministic and bounded real Codex Runtime Evidence. Human acceptance is not
-inferred.**
+**S5 Implementation — Delivered on `main` through PR #93 with deterministic and
+bounded real Codex Runtime Evidence. Human acceptance is not inferred.**
 
-**S6–S7 Implementation — Not authorized.**
+**Proposed S6 (T26–T29) — Amendment review required; implementation is not authorized.**
+
+**S7–S8 Implementation — Not authorized.**

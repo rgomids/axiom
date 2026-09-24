@@ -95,32 +95,35 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 
 [Specification](004-mvp-v1-baseline/spec.md): **Approved — human approval recorded on 2026-09-20**.
 
+Issue [#94](https://github.com/rgomids/axiom/issues/94) proposes an amendment to
+Specification/Plan/Tasks for a durable Work Item lifecycle anchor and metadata
+governance. The amendment and proposed T26–T29/S6 placement require explicit
+human approval; no implementation or successor Slice is authorized by the proposal.
+
 [Plan](004-mvp-v1-baseline/plan.md): **Approved — human approval recorded on
 2026-09-20** together with ADR-0007 and ADR-0008.
 
 [Tasks](004-mvp-v1-baseline/tasks.md): **Approved — human approval recorded on
 2026-09-20 in [PR #72](https://github.com/rgomids/axiom/pull/72)**. The corrected
-final DAG has 25 vertical delivery units across S1–S7 and is reconciled with the
-approved Plan. Operational delivery now uses S1–S7 as the primary tracking and
-normal implementation-authorization units while T01–T25 remain the approved
-internal decomposition. S1 is tracked in
+original final DAG has 25 vertical delivery units across S1–S7 and is reconciled
+with the approved Plan. T01–T25 remain the approved historical decomposition.
+The proposed #94 amendment adds T26–T29 after S5, renumbers the remaining Slices
+to S7/S8, and remains unapproved. S1 is tracked in
 [#75](https://github.com/rgomids/axiom/issues/75): T01 canonical
 completion/provenance was accepted and merged in PR #74, and T02–T03 were
 delivered through PR #83. S2 was delivered through PR #84 and is tracked in
 [#76](https://github.com/rgomids/axiom/issues/76). S3 was explicitly authorized
 on 2026-09-22 and is tracked in
-[#77](https://github.com/rgomids/axiom/issues/77); T08 and T09 implementation plus
-deterministic tests are recorded in
+[#77](https://github.com/rgomids/axiom/issues/77); T08 and T09 were delivered
+through PR #85 and their deterministic tests are recorded in
 [S3 Evidence](004-mvp-v1-baseline/evidence-s3.md). T09's separately authorized
-bounded real-provider observation created Issue #90 and is complete. S3 is
-technically implemented; current PR review corrections remain subject to human
-review, and human acceptance is not inferred.
-S4 was delivered through PR #91. S5 was explicitly authorized on 2026-09-23;
+bounded real-provider observation created Issue #90 and is complete. Human
+acceptance is not inferred. S4 was delivered through PR #91. S5 was explicitly
+authorized on 2026-09-23 and delivered through PR #93;
 T14–T15 implementation, deterministic tests, and bounded real Codex Runtime
 observation are recorded in
-[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S5 is technically implemented
-in its delivery branch; human acceptance is not inferred. S6–S7 remain
-unauthorized.
+[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). Human acceptance is not
+inferred. Proposed S6 and remaining S7–S8 implementation remain unauthorized.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -166,6 +169,8 @@ real-provider observation is complete at its documented historical revision.
 Technical completion and current review corrections remain separate from human
 acceptance. S4 was delivered through PR #91. S5 was explicitly authorized on
 2026-09-23 and its T14–T15 technical record is in
-[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S6–S7, Provider mutation outside an exact authorized run,
+[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). Proposed S6 and remaining S7–S8,
+Provider mutation outside an exact authorized run,
 prerelease/release publication, and final MVP acceptance remain separately gated.
-Operational Slice trackers are #75–#81.
+Current accepted operational Slice trackers remain #75–#81 until the #94
+amendment is explicitly approved and tracker renumbering is reconciled.
