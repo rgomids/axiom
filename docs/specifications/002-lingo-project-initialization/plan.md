@@ -1,8 +1,8 @@
 # Plan — Specification 002: Lingo Project Initialization
 
-## Proposed Issue #94 policy-reference reconciliation — 2026-09-24
+## Issue #94 policy-reference reconciliation — approved 2026-09-24
 
-Specification 004's proposed Work Item metadata policy reuses the existing
+Specification 004's approved Work Item metadata policy reuses the existing
 `policies` list of contained relative document references. The closed
 `schemaVersion: 1` field table below does not change, so existing readers continue
 to accept/reject the same `axiom.yaml` structures and no manifest migration exists.
@@ -16,8 +16,9 @@ unknown fields, duplicate recognized policy kinds, and malformed values fail the
 dependent operation before prompts or effects. Unrecognized policy documents
 remain untrusted data and grant no behavior or authority.
 
-This clarification is proposed with Issue #94 and requires human approval before
-T28 implementation. It preserves ADR-0004; adding structured fields directly to
+This clarification was explicitly approved with Issue #94 on 2026-09-24. T28
+implementation remains separately gated. It preserves ADR-0004; adding structured
+fields directly to
 `axiom.yaml` would instead require an explicit manifest-version decision and
 cross-Specification schema evolution.
 
