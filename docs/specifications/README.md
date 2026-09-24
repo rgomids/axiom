@@ -51,11 +51,11 @@ Plan and Tasks approval followed in PRs
 Dated pre-merge gates in those artifacts and Evidence describe their review-time
 state; use this index for the current consolidated lifecycle.
 
-Issue #94 proposes one later cross-Specification clarification: Work Item metadata
-policy would reuse the existing `schemaVersion: 1` `policies` document references,
-without adding manifest fields or migration. That clarification and its separately
-versioned policy-document contract remain unapproved with the Specification 004
-amendment; they do not change the approved/delivered Specification 002 baseline.
+Issue #94's cross-Specification clarification was explicitly approved on
+2026-09-24: Work Item metadata policy reuses the existing `schemaVersion: 1`
+`policies` document references without adding manifest fields or migration. The
+separately versioned policy-document contract is now part of the approved amendment
+and does not change the delivered Specification 002 manifest baseline.
 
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
@@ -101,10 +101,11 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 
 [Specification](004-mvp-v1-baseline/spec.md): **Approved — human approval recorded on 2026-09-20**.
 
-Issue [#94](https://github.com/rgomids/axiom/issues/94) proposes an amendment to
-Specification/Plan/Tasks for a durable Work Item lifecycle anchor and metadata
-governance. The amendment and proposed T26–T29/S6 placement require explicit
-human approval; no implementation or successor Slice is authorized by the proposal.
+Issue [#94](https://github.com/rgomids/axiom/issues/94) defines the amendment for
+a durable Work Item lifecycle anchor and metadata governance. Human review on
+2026-09-24 explicitly approved FR-038–FR-044, AC-25–AC-31, T26–T29/S6 placement,
+and the Specification 002 policy-reference clarification. S6 implementation remains
+separately gated.
 
 [Plan](004-mvp-v1-baseline/plan.md): **Approved — human approval recorded on
 2026-09-20** together with ADR-0007 and ADR-0008.
@@ -113,8 +114,9 @@ human approval; no implementation or successor Slice is authorized by the propos
 2026-09-20 in [PR #72](https://github.com/rgomids/axiom/pull/72)**. The corrected
 original final DAG has 25 vertical delivery units across S1–S7 and is reconciled
 with the approved Plan. T01–T25 remain the approved historical decomposition.
-The proposed #94 amendment adds T26–T29 after S5, renumbers the remaining Slices
-to S7/S8, and remains unapproved. S1 is tracked in
+The approved #94 amendment adds T26–T29 after S5 and renumbers the remaining
+Slices to S7/S8. The amended DAG has 29 Tasks across S1–S8; T01–T25 remain the
+historical decomposition and T26–T29 are the approved S6 additions. S1 is tracked in
 [#75](https://github.com/rgomids/axiom/issues/75): T01 canonical
 completion/provenance was accepted and merged in PR #74, and T02–T03 were
 delivered through PR #83. S2 was delivered through PR #84 and is tracked in
@@ -129,7 +131,7 @@ authorized on 2026-09-23 and delivered through PR #93;
 T14–T15 implementation, deterministic tests, and bounded real Codex Runtime
 observation are recorded in
 [S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). Human acceptance is not
-inferred. Proposed S6 and remaining S7–S8 implementation remain unauthorized.
+inferred. S6 and remaining S7–S8 implementation remain separately gated.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -175,8 +177,8 @@ real-provider observation is complete at its documented historical revision.
 Technical completion and current review corrections remain separate from human
 acceptance. S4 was delivered through PR #91. S5 was explicitly authorized on
 2026-09-23 and its T14–T15 technical record is in
-[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). Proposed S6 and remaining S7–S8,
-Provider mutation outside an exact authorized run,
-prerelease/release publication, and final MVP acceptance remain separately gated.
-Current accepted operational Slice trackers remain #75–#81 until the #94
-amendment is explicitly approved and tracker renumbering is reconciled.
+[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S6 and remaining S7–S8,
+Provider mutation outside an exact authorized run, prerelease/release publication,
+and final MVP acceptance remain separately gated. Accepted operational Slice
+trackers are #75–#79 for S1–S5, #94 for S6, #80 for S7, and #81 for S8 after the
+2026-09-24 amendment reconciliation.
