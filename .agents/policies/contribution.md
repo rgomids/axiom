@@ -28,7 +28,7 @@ Before opening a Pull Request, inspect the branch, complete diff, commits, PR
 title and description, related references, Evidence, documentation impact,
 security impact, limitations, and absence of out-of-scope changes.
 
-For an Axiom-managed Work Item under the proposed Issue #94 amendment, the agent
+For an Axiom-managed Work Item under the approved Issue #94 amendment, the agent
 must also:
 
 - preserve Repository artifacts as technical truth, local Execution/workflow as
@@ -46,8 +46,9 @@ must also:
 - return `recovery_required` for missing, insufficient, or contradictory local
   truth instead of reconstructing an Execution or inferring progress.
 
-These rules do not authorize T26–T29. Until the Specification 004 amendment is
-explicitly approved, the agent may prepare/review/reconcile its artifacts only.
+These rules govern the approved amendment, but do not by themselves authorize
+T26–T29 implementation. S6 implementation remains separately gated and starts only
+after explicit authorization.
 
 When opening a Pull Request, use the repository template and replace every
 placeholder with truthful content or an objective not-applicable explanation.
