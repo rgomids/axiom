@@ -145,6 +145,31 @@ func TestReviewRemediatedV2SkillsRemainUpgradeable(t *testing.T) {
 	}
 }
 
+func TestPublishReceiptUpgradesOnlyExactPriorAxiomReceipt(t *testing.T) {
+	current, err := receiptBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prior := []byte("formatVersion=1\nskillSetVersion=2\nbinaryCompatibility=2\nmanifestSha256=38c044c2f82de2dd26e4296a6e22db7f16b87f8c3478790323473fdf44a281d2\n")
+	root := t.TempDir()
+	path := filepath.Join(root, receiptName)
+	if err := os.WriteFile(path, prior, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if changed, published := publishReceipt(root, current); !changed || !published {
+		t.Fatalf("known prior receipt upgrade = changed %t published %t", changed, published)
+	}
+	if !matchesPrivateFile(path, current) {
+		t.Fatal("known prior receipt was not replaced with current receipt")
+	}
+	if err := os.WriteFile(path, []byte("foreign\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if changed, published := publishReceipt(root, current); changed || published {
+		t.Fatalf("foreign receipt changed = changed %t published %t", changed, published)
+	}
+}
+
 func containsString(values []string, expected string) bool {
 	for _, value := range values {
 		if value == expected {

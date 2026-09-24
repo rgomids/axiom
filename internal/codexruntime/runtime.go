@@ -40,6 +40,10 @@ const (
 	installLockWire = "formatVersion=1\n"
 )
 
+var legacyReceiptWires = [][]byte{
+	[]byte("formatVersion=1\nskillSetVersion=2\nbinaryCompatibility=2\nmanifestSha256=38c044c2f82de2dd26e4296a6e22db7f16b87f8c3478790323473fdf44a281d2\n"),
+}
+
 type Status string
 
 const (
@@ -207,7 +211,12 @@ func publishReceipt(root string, content []byte) (bool, bool) {
 	if matchesPrivateFile(path, content) {
 		return false, true
 	}
-	if _, err := os.Lstat(path); err == nil || !os.IsNotExist(err) {
+	if _, err := os.Lstat(path); err == nil {
+		if !matchesLegacyReceipt(path) {
+			return false, false
+		}
+		return replaceKnownReceipt(root, content)
+	} else if !os.IsNotExist(err) {
 		return false, false
 	}
 	directory, err := os.OpenRoot(root)
@@ -228,6 +237,42 @@ func publishReceipt(root string, content []byte) (bool, bool) {
 		return false, false
 	}
 	if _, err := directory.Stat(receiptName); err == nil || !os.IsNotExist(err) {
+		return false, false
+	}
+	if err := directory.Rename(temporary, receiptName); err != nil {
+		return false, false
+	}
+	return true, true
+}
+
+func matchesLegacyReceipt(path string) bool {
+	for _, wire := range legacyReceiptWires {
+		if matchesPrivateFile(path, wire) {
+			return true
+		}
+	}
+	return false
+}
+
+func replaceKnownReceipt(root string, content []byte) (bool, bool) {
+	directory, err := os.OpenRoot(root)
+	if err != nil {
+		return false, false
+	}
+	defer directory.Close()
+	const temporary = ".axiom-skill-set-receipt-stage"
+	file, err := directory.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return false, false
+	}
+	defer directory.Remove(temporary)
+	written, writeErr := file.Write(content)
+	syncErr := file.Sync()
+	closeErr := file.Close()
+	if writeErr != nil || syncErr != nil || closeErr != nil || written != len(content) {
+		return false, false
+	}
+	if !matchesLegacyReceipt(filepath.Join(root, receiptName)) {
 		return false, false
 	}
 	if err := directory.Rename(temporary, receiptName); err != nil {
