@@ -2,6 +2,13 @@
 
 ## [2026-09-23]
 
+- fix: reject unsupported single-hyphen selector flags before Go `flag.FlagSet`
+  parsing so duplicate or mixed `-project`/`--project` and `-execution` forms
+  cannot silently overwrite prior values or reach application/store/Provider code.
+- test: prove the seven canonical completion statuses preserve result, applicable
+  references/next/details, and provenance from central completion through CLI JSON
+  to the Codex-facing contract; add an ambiguous Project-slug fixture with zero
+  portable, local, Provider, or Runtime effects.
 - implementation: add the authorized MVP S5 strict selector path for exact
   Project UUID/slug, Project-scoped Repository, canonical GitHub Work Item, and
   applicable Execution identity without CWD/Git/Provider/Runtime fallback.

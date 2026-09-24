@@ -498,7 +498,9 @@ inherited from T12 are complete in the S4 delivery branch; see
 
 **Implementation checkpoint:** deterministic application, parser, CLI, and
 executable black-box coverage is complete in the S5 delivery branch; see
-[S5 Evidence](evidence-s5.md). Human acceptance is not inferred.
+[S5 Evidence](evidence-s5.md). This includes unsupported single-hyphen duplicate
+flags and a protected-state fixture proving ambiguous Project slug rejection with
+zero store/Provider/Runtime effects. Human acceptance is not inferred.
 
 - **Objective:** Fully specified CLI selectors reach the correct Project/Repository/Work Item/Execution without questions; partial input asks only missing/ambiguous values and invalid input never falls back to CWD.
 - **Slice:** S5 — Codex selector path and completion convergence.
@@ -520,7 +522,9 @@ executable black-box coverage is complete in the S5 delivery branch; see
 **Implementation checkpoint:** skill-set v2, deterministic compatibility/thin-
 adapter checks, seven-status/detail/provenance regression, and bounded real Codex
 Runtime observation are complete in the S5 delivery branch; see
-[S5 Evidence](evidence-s5.md). Human acceptance is not inferred.
+[S5 Evidence](evidence-s5.md). The seven-status test consumes central completion
+results through the real CLI JSON renderer and validates every canonical field at
+the Codex-facing contract. Human acceptance is not inferred.
 
 - **Objective:** Installed Codex skills pass explicit selectors to Lingo and produce the same semantic result, provenance, detail reference, and all seven terminal statuses as direct CLI use.
 - **Slice:** S5.

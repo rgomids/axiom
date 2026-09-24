@@ -7,14 +7,17 @@ T14–T15. Work started from clean `main` revision
 `f32a345eac2f19dfef91a460a4db9cc8928bd454`, the PR #91 merge, on branch
 `agent/s5-cli-codex-selectors`.
 
-The validated implementation and tests are committed at
-`04ebccde6ce8e5dfdcec2f259b95e079fc76ec4a`. Documentation/Evidence reconciliation
-follows separately so this record can name that immutable implementation revision.
+The initial implementation and tests are committed at
+`04ebccde6ce8e5dfdcec2f259b95e079fc76ec4a`. Review remediation is committed at
+`92d5b9f81c0b7f7367d5df994bf2b2893dcdd598`: it closes single-hyphen flag parsing,
+the deterministic seven-status CLI/Codex contract matrix, and the explicit
+ambiguous-selector case. Documentation/Evidence reconciliation follows separately
+so this record can name immutable implementation revisions.
 
-No real Provider mutation, release/prerelease action, S6 work, Issue mutation,
-or human MVP acceptance was performed or inferred. The real Codex observations
-used isolated temporary Project, state, HOME, skill, and working roots; Codex and
-Lingo were restricted to read-only status behavior and no GitHub command ran.
+No product-path real Provider mutation, release/prerelease action, S6 work, or
+human MVP acceptance was performed or inferred. The real Codex observations used
+isolated temporary Project, state, HOME, skill, and working roots; Codex and Lingo
+were restricted to read-only status behavior and no GitHub command ran.
 
 ## T14 — strict CLI selector path
 
@@ -27,10 +30,12 @@ The canonical selector vocabulary is:
 --execution <exact Execution ID, except workflow start>
 ```
 
-The CLI rejects unknown, duplicate, conflicting, or malformed inputs before
-application dispatch. Scalar flags are single-valued. `--work-item` conflicts
-with the pre-S5 split target flags instead of silently winning. Shell-like
-characters are rejected as selector data and never interpolated.
+The CLI rejects unknown, duplicate, conflicting, malformed, or unsupported
+single-hyphen inputs before application dispatch. Only the documented long form
+is public; `-project` and `-execution` are not accepted as aliases. Scalar flags
+are single-valued. `--work-item` conflicts with the pre-S5 split target flags
+instead of silently winning. Shell-like characters are rejected as selector data
+and never interpolated.
 
 The application path revalidates Project resolution, Repository membership,
 exact linked Provider resource/external ID, and applicable Execution identity.
@@ -48,15 +53,23 @@ reject a mismatched identity. Selector validity grants no mutation authority.
 | Missing Execution only | Only `Execution ID:` | 1 | read-only |
 | Unknown flag | `validation_failure` | 0 | 0 |
 | Duplicate `--project` | `validation_failure` | 0 | 0 |
+| Duplicate `-project` | `validation_failure` | 0 | 0 |
+| Mixed `--project` / `-project` | `validation_failure` | 0 | 0 |
+| Duplicate `-execution` | `validation_failure` | 0 | 0 |
 | `--work-item` plus `--number` | `validation_failure` | 0 | 0 |
 | Malformed/shell-like Work Item | `validation_failure` | 0 | 0 |
+| Two installed Projects with the same slug | `validation_failure` | 0 | 0 |
 | Unknown Repository/Work Item | `validation_failure` | 0 | 0 |
 | Mismatched Execution | `validation_failure` | 0 | 0 |
 | Unrelated CWD | Same explicit resolution | 0 | read-only |
 
-The executable black-box test byte-compares the protected Execution record before
-and after the invalid selector matrix. Bytes remain identical. The fake Provider
-ledger receives no call for these read-only or parser-failure cases.
+The executable black-box test proves the three required single-hyphen cases create
+no portable, local-store, or fake-Provider ledger entry. A composed integration
+fixture creates two valid protected installation records with the same observed
+slug. Resolution returns `project_ambiguous`; protected state remains byte-identical,
+and portable, Provider, and Runtime roots remain absent. This is selector
+ambiguity, distinct from Provider create ambiguity, and no CWD/Git/global fallback
+is attempted.
 
 `internal/cli` recording-service tests also compare parsed full selectors with
 the direct operation-shaped application input. The CLI adds presentation syntax;
@@ -115,8 +128,12 @@ Partial observation:
 
 ### CLI/Codex semantic matrix
 
-The shared `completion.Result` and renderer golden matrix owns classification;
-skills only forward JSON and render its fields.
+The shared `completion.Result` owns classification. The deterministic
+`TestCodexCompletionContractPreservesCLISevenStatusMatrix` constructs each status
+from central completion facts, renders the real CLI JSON bytes, decodes the exact
+Codex-facing contract, and compares `status`, `result`, applicable `references`,
+`next`, `details`, and full provenance. Skills only invoke `lingo --json` and render
+those canonical fields; they contain no status classifier.
 
 | Canonical status | CLI meaning | Codex meaning |
 |---|---|---|
@@ -148,6 +165,9 @@ gh issue view 79 --json number,state,title,body,url
 gh issue view 15 --json number,state,title,body,url
 go test ./internal/cli ./internal/workflow ./internal/workitem ./cmd/lingo
 go test ./internal/codexruntime ./cmd/lingo ./internal/cli ./internal/workflow ./internal/workitem
+go test ./internal/cli -run 'TestStrictSelectorParserRejectsUnknownDuplicateAndConflictingInput'
+go test ./cmd/lingo -run 'TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects|TestWorkflowSelectorAmbiguityFailsBeforeFallbackOrEffects'
+go test ./internal/codexruntime -run 'TestCodexCompletionContractPreservesCLISevenStatusMatrix|TestSkillSetV2KeepsSelectorsAndCanonicalResultThin'
 go test ./...
 git diff --check
 go build -o <isolated-root>/lingo ./cmd/lingo
