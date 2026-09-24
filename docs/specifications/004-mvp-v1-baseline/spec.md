@@ -200,10 +200,24 @@ Flags MUST NOT multiply or rename lifecycle stages. Provider flag mutation does
 not create the corresponding local fact; it is only a signal to inspect and
 reconcile.
 
+A valid local `blocked` condition remains orthogonal to lifecycle derivation. For
+example, an `implementation` gate with valid implementation authority still
+derives `implementing` while `blocked` is true and projects both
+`axiom:stage:implementing` and `axiom:blocked`. The blocker does not make the
+Execution inconsistent, change its derived stage, or produce
+`recovery_required`.
+
 Canonical gate transitions remain the explicit local operations. Each transition
 MUST validate the current gate, expected Execution revision, required artifacts and
 decisions, applicable authority, blockers, and next gate before committing. The
 lifecycle projection is recomputed only from the resulting valid local snapshot.
+When an applicable blocker prevents the next transition, the operation MUST deny
+the transition before mutation, keep the canonical gate unchanged, infer no new
+authority, and continue deriving the lifecycle stage and independent `blocked`
+condition from the current valid snapshot. Such a denial becomes
+`recovery_required` only when the underlying facts are stale, incompatible,
+contradictory, unknown, insufficient, out of order, scope-mismatched, or otherwise
+do not identify one valid local truth.
 Merge, green CI, PR approval, Issue closure, Project status, or Provider labels
 MUST NOT create any local fact or satisfy human acceptance.
 

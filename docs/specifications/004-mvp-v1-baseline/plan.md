@@ -344,6 +344,14 @@ GitHub projection uses these amended adapter conventions:
   identified obsolete Axiom markers, preserves non-Axiom labels/content, and
   posts no semantic duplicate.
 
+A valid blocked snapshot retains its derived lifecycle stage and independently
+projects `axiom:blocked`; the blocker is not a lifecycle inconsistency. If the
+blocker applies to the next canonical gate transition, the operation is denied
+before mutation: the gate does not advance, no authority is inferred, and the
+current snapshot continues to determine both stage and flags. Only stale,
+incompatible, contradictory, unknown, insufficient, out-of-order, or
+scope-mismatched local truth returns `recovery_required`.
+
 Projection is a separately authorized post-commit effect. A local transition never
 waits for GitHub to become authoritative. Provider failure returns `partial` or
 `retryable_failure` according to confirmed effects; it never advances or rewinds
@@ -942,7 +950,7 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | AC-23 | §13/§15 versioned sanitized Evidence report |
 | AC-24 | §1/§13 separate human Specification/RC decisions |
 | AC-25 | S6/§7 lifecycle enum and exact GitHub label mapping |
-| AC-26 | S6/§7 valid versus stale/skipped/blocked/unauthorized transition matrix |
+| AC-26 | S6/§7 valid lifecycle derivation plus blocked/unauthorized transition denial versus stale/skipped/contradictory snapshot matrix |
 | AC-27 | S6/§7 exactly-one-stage plus orthogonal flags and foreign-content preservation |
 | AC-28 | S6/§7 bounded history and replay convergence |
 | AC-29 | S6/§7 explicit human-only `accepted` gate |
