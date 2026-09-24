@@ -142,9 +142,8 @@ lingo --json project show --selector dogfood-project >"$temporary/project-show.j
 assert_canonical "$temporary/project-show.json" success "Project resolved"
 grep -Fq '"references":["project:' "$temporary/project-show.json"
 grep -Fq '"repository:main"' "$temporary/project-show.json"
-if grep -Fq '"path":' "$temporary/project-show.json"; then
-  exit 1
-fi
+grep -Fq '"project":{"id":"' "$temporary/project-show.json"
+grep -Fq '"repositories":[{"key":"main","path":"'"$repository"'"}]' "$temporary/project-show.json"
 run_canonical_failure project-not-found validation_failure "Project was not found" \
   "Provide an existing Project UUID or slug" project show --selector missing-project
 mv -- "$repository" "$temporary/moved-repository"

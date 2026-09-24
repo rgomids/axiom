@@ -1,5 +1,12 @@
 # Changelog
 
+## [2026-09-24]
+
+- fix: preserve operation-specific `setup`, `project`, `draft`, `selection`,
+  `workItem`, `workflow`, and `projection` payloads separately from canonical
+  completion in installed Codex skills; restore the resolved Project payload in
+  `project show` without allowing nested data to synthesize canonical fields.
+
 ## [2026-09-23]
 
 - fix: require installed Codex skills to copy only canonical top-level completion
