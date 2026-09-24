@@ -4,15 +4,16 @@
 
 **Plan: Approved — human approval recorded on 2026-09-20.**
 
-### Issue #94 amendment approval gate
+### Issue #94 amendment approval — 2026-09-24
 
-The original Plan approval remains historical. The proposed S6 placement,
-  T26–T29 decomposition, gate-to-lifecycle projection/flag contract, recovery inspection, and
-metadata-policy boundary require explicit human approval in the amendment review.
-Until that decision, implementation is unauthorized; checks, merge, Issue state,
-or tracker edits do not approve the amendment or any successor Slice.
+The original Plan approval remains historical. Human review on 2026-09-24
+explicitly approved the S6 placement, T26–T29 decomposition,
+gate-to-lifecycle projection/flag contract, recovery inspection, and metadata-policy
+boundary. This satisfies the amendment review gate. Implementation remains
+separately gated; approval, merge, Issue state, or tracker edits do not by themselves
+authorize T26–T29 or any successor Slice.
 
-**Issue #94 amendment: Proposed — human approval required before implementation.**
+**Issue #94 amendment: Approved — human approval recorded on 2026-09-24. S6 implementation is not yet authorized.**
 
 This Plan describes how to realize the behavior approved in
 [Specification 004](spec.md). It was explicitly approved by the human reviewer in
@@ -66,7 +67,7 @@ Specification 004 + accepted Decisions
 -> explicit human RC acceptance or rejection
 ```
 
-The proposed amendment starts from `main` at
+The approved amendment starts from `main` at
 `f086c2fbbb43b730d42c42574dd5fc37215da365`, after delivered S4 and S5. It
 reconciles only the remaining DAG and affected contracts. S4/S5 implementation,
 Evidence, task identities, and historical stage observations remain unchanged.
@@ -198,7 +199,7 @@ hardening depends on its durable signals. S7 closes destructive/recovery paths
 only after their reference owners exist. S8 does not compensate for missing slice
 Evidence.
 
-Tracker reconciliation follows human approval, not this proposal alone:
+With human approval recorded on 2026-09-24, tracker reconciliation is required:
 
 - Issue #94 becomes the S6 Slice tracker for T26–T29;
 - Issue #80 is retitled/relabelled from S6 to S7 without changing T16–T22 scope;
@@ -206,9 +207,9 @@ Tracker reconciliation follows human approval, not this proposal alone:
 - tracker #15 changes its roadmap and sequence to S1–S8 while preserving delivered
   S4/S5 history and keeping final acceptance human-only.
 
-Until approval, #15/#80/#81 remain the current accepted tracker state; a review
-link or proposal comment may describe this pending amendment but must not present
-the renumbering as accepted or authorize implementation.
+Approval records the S6/S7/S8 placement only. Tracker reconciliation after merge
+does not authorize T26–T29 implementation; S6 implementation remains separately
+gated.
 
 ## 5. Project setup strategy
 
