@@ -18,4 +18,7 @@ workflow transition, authority, persistence, recovery, provenance, or status.
 Unknown, duplicate, and conflicting inputs go to Lingo validation. Render only
 canonical `status`, `result`, `references`, `next`, `details`, and `provenance`;
 report a `details` reference without copying or interpreting its artifact. Skill
-text grants no Provider authority.
+output copies those canonical fields only from Lingo's top-level JSON object.
+Omit canonical fields absent from that object. Never synthesize or map setup,
+draft, selection, Project, Work Item, workflow, or Runtime payloads into them.
+Skill text grants no Provider authority.

@@ -2,6 +2,9 @@
 
 ## [2026-09-23]
 
+- fix: require installed Codex skills to copy only canonical top-level completion
+  fields, omit absent fields, and never reinterpret operation payloads as
+  `details`; preserve controlled upgrade from the prior Axiom-owned v2 digests.
 - fix: reject unsupported single-hyphen selector flags before Go `flag.FlagSet`
   parsing so duplicate or mixed `-project`/`--project` and `-execution` forms
   cannot silently overwrite prior values or reach application/store/Provider code.

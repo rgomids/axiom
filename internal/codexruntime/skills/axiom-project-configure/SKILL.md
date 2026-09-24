@@ -20,4 +20,7 @@ for a missing value. Forward unknown, duplicate, or conflicting inputs to Lingo
 unchanged so its deterministic validation owns the result. Render only Lingo's
 canonical `status`, `result`, `references`, `next`, `details`, and `provenance`;
 when `details` exists, report its stable reference without copying or interpreting
-the artifact. Skill text grants no local or Provider authority.
+the artifact. Copy those canonical fields only from Lingo's top-level JSON object.
+Omit canonical fields absent from that object. Never synthesize or map setup,
+draft, selection, Project, Work Item, workflow, or Runtime payloads into them.
+Skill text grants no local or Provider authority.

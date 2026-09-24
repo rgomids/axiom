@@ -23,4 +23,7 @@ remote, retry an ambiguous create blindly, or treat linkage as human acceptance.
 Ask only for missing or Lingo-reported ambiguous inputs. Do not parse identity,
 classify status, inspect persistence, or grant authority. Render only canonical
 `status`, `result`, `references`, `next`, `details`, and `provenance`; preserve
-transported user text as user-authored.
+transported user text as user-authored. Copy those canonical fields only from
+Lingo's top-level JSON object. Omit canonical fields absent from that object.
+Never synthesize or map setup, draft, selection, Project, Work Item, workflow, or
+Runtime payloads into them.

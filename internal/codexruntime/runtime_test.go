@@ -114,6 +114,11 @@ func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
 				t.Fatalf("%s missing thin adapter contract %q", name, required)
 			}
 		}
+		for _, required := range []string{"top-level", "Omit canonical fields absent", "Never synthesize or map"} {
+			if !strings.Contains(text, required) {
+				t.Fatalf("%s missing exact canonical projection rule %q", name, required)
+			}
+		}
 	}
 	for _, name := range []string{"axiom-work-item-run", "axiom-work-item-status"} {
 		content, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
@@ -123,6 +128,30 @@ func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestReviewRemediatedV2SkillsRemainUpgradeable(t *testing.T) {
+	prior := map[string]string{
+		"axiom-project-configure": "05d8e420f440529df3bd75a521f3d9493d5cefe3d9fc16ddb1da9ffeed553cd1",
+		"axiom-project-show":      "d7f86666dd2036b53a4cdbe2d6b67d096936f59b164ae9573806fbb9a40d97fd",
+		"axiom-work-item-create":  "9b6d28569d02a97ff0273d08a9abd6bc70ec573050c2bd9f3cc5dd40e984fcaf",
+		"axiom-work-item-run":     "49d269602abedde05dc357135dc9262f6146bccc87cb97784790659f5eed37a4",
+		"axiom-work-item-status":  "9f4d5063347eb47ef38d7c7789f27fb13f3a224880e53915080b0ba9bbe8ec5d",
+	}
+	for name, digest := range prior {
+		if !containsString(legacySkillDigests[name], digest) {
+			t.Fatalf("%s prior owned digest is not upgradeable", name)
+		}
+	}
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func TestEmbeddedSkillsUseSupportedNamesAndThinEntrypoints(t *testing.T) {
