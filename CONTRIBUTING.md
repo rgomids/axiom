@@ -36,9 +36,9 @@ go test ./...
 
 ## Work Item lifecycle governance
 
-The Issue #94 amendment proposes the following rules for Axiom-managed Work Items.
-They become implementation governance only after explicit human approval of the
-amended Specification 004; this text does not authorize implementation.
+The Issue #94 amendment, approved by human review on 2026-09-24, establishes the
+following rules for Axiom-managed Work Items. Approval of the amendment does not by
+itself authorize T26–T29 implementation; S6 implementation remains separately gated.
 
 - Repository artifacts remain technical source of truth; local Execution/workflow
   state remains canonical workflow truth; Provider metadata is a durable
