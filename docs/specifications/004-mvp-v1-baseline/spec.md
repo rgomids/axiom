@@ -4,7 +4,7 @@
 
 **Approved — human approval recorded on 2026-09-20.**
 
-**Issue #94 amendment: Proposed — human approval required before implementation.**
+**Issue #94 amendment: Approved — human approval recorded on 2026-09-24. T26–T29 implementation remains separately gated.**
 
 Tracked by [#62](https://github.com/rgomids/axiom/issues/62) under the
 [MVP tracker #15](https://github.com/rgomids/axiom/issues/15). Human approval of
@@ -23,7 +23,7 @@ Evidence for this Specification. Its experimental commands, formats, storage
 choices, and adapters become MVP contracts only where this Specification or an
 existing accepted decision says so.
 
-The proposed Issue #94 amendment reconciles the delivered S4/S5 baseline with a
+The approved Issue #94 amendment reconciles the delivered S4/S5 baseline with a
 durable Work Item lifecycle contract. It does not rewrite S4/S5 history, authorize
 implementation, advance S6+, or infer human acceptance from review, merge, CI,
 Issue closure, or Provider state.
@@ -49,7 +49,7 @@ This draft reconciles:
 - ADR-0001 through ADR-0004, the conceptual model, Provider boundaries, product
   roadmap, and Constitution.
 - delivered S4/S5 implementation and Evidence in PRs #91 and #93;
-- Issue #94's durable Work Item lifecycle and metadata-governance proposal.
+- Issue #94's approved durable Work Item lifecycle and metadata-governance amendment.
 
 ## Reconciliation findings
 
@@ -863,9 +863,9 @@ Evidence remain unchanged historical delivery records.
 
 | Classification | This Specification |
 |---|---|
-| Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above, including proposed FR-038–FR-044 and AC-25–AC-31. |
+| Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above, including approved FR-038–FR-044 and AC-25–AC-31. |
 | Implementation detail deferred to Plan | CLI framework, concrete Go packages/interfaces, exact JSON schema, prompt UI, filesystem syscalls, migration algorithm, installer implementation, artifact filename rendering, lifecycle-record encoding, and concrete metadata-policy schema. GitHub label spelling is fixed only for the Issue #94 adapter projection. |
-| Human decisions recorded | HD-1 through HD-4 and complete original Specification approval were recorded on 2026-09-20. ADR-0005/0006 directly formalize HD-3/HD-2. The Issue #94 amendment remains proposed and requires explicit human approval before implementation. |
+| Human decisions recorded | HD-1 through HD-4 and complete original Specification approval were recorded on 2026-09-20. ADR-0005/0006 directly formalize HD-3/HD-2. The Issue #94 amendment, FR-038–FR-044, AC-25–AC-31, S6 placement, and Specification 002 policy-reference clarification were explicitly approved on 2026-09-24. This approval does not by itself authorize T26–T29 implementation. |
 
 ## Human decisions recorded — 2026-09-20
 
@@ -1010,11 +1010,11 @@ authorized by these documentation changes.
 
 **Next artifact after merge and human approval of this reconciliation: Plan for Specification 004**
 
-### Current amendment gate — Issue #94
+### Issue #94 amendment approval — 2026-09-24
 
-The original review record above remains historical. For this amendment, human
-review must explicitly approve or reject FR-038–FR-044, AC-25–AC-31, and the
-proposed delivery placement before implementation. Merge, checks, Issue labels,
-or closure do not fill that decision. Until approval, the next authorized action
-is review/reconciliation of this amendment only; no T26–T29 implementation or
-successor Slice work is authorized.
+The original review record above remains historical. Human review explicitly
+approved FR-038–FR-044, AC-25–AC-31, the S6 delivery placement, and the
+Specification 002 policy-reference clarification on 2026-09-24. This satisfies the
+amendment decision gate. Merge, checks, Issue labels, or closure did not substitute
+for that decision. T26–T29 implementation and successor Slice work remain
+separately gated and are not started by this approval or merge.
