@@ -1,8 +1,8 @@
 # Specification 002 — Lingo Project Initialization
 
-## Proposed Issue #94 policy-reference reconciliation — 2026-09-24
+## Issue #94 policy-reference reconciliation — approved 2026-09-24
 
-Specification 004's proposed Work Item/Pull Request metadata policy uses the
+Specification 004's approved Work Item/Pull Request metadata policy uses the
 already approved `schemaVersion: 1` `policies` list as contained document
 references. It adds no core manifest field, extension container, Provider
 observation, identity binding, credential, or local state to `axiom.yaml`.
@@ -15,9 +15,10 @@ authority. Unsupported/malformed policy versions fail that policy-dependent
 operation before effects; no automatic migration, down-conversion, or silent
 acceptance under portable Project `schemaVersion: 1` is permitted.
 
-This is a proposed cross-Specification clarification only. Human approval of the
-Issue #94 amendment remains required before implementation. ADR-0004's portable
-intent/local-state boundary and explicit evolution rules remain unchanged.
+This cross-Specification clarification was explicitly approved with the Issue #94
+amendment on 2026-09-24. Approval records the contract only; T28 implementation
+remains separately gated. ADR-0004's portable intent/local-state boundary and
+explicit evolution rules remain unchanged.
 
 ## HD-3 filesystem threat-model reconciliation — 2026-09-20
 
