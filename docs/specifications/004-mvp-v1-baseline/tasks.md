@@ -4,6 +4,8 @@
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
+**Issue #94 Tasks amendment (T26–T29 / S6 placement): Approved — human approval recorded on 2026-09-24.**
+
 **S1 Implementation: Delivered on `main` through PR #83. This is technical delivery, not an inferred human MVP acceptance.**
 
 **S2 Implementation: Delivered on `main` through PR #84 with reproducible S2 Evidence. This is technical delivery, not inferred human MVP acceptance.**
@@ -14,7 +16,7 @@
 
 **S5 Implementation: Delivered on `main` through PR #93 with deterministic Evidence and bounded real Codex Runtime observation. Human acceptance is not inferred.**
 
-**Issue #94 amendment / proposed S6: Human approval required. T26–T29 implementation is not authorized.**
+**Issue #94 amendment / S6 decomposition: Approved — human approval recorded on 2026-09-24. T26–T29 implementation is not yet authorized.**
 
 **S7–S8 Implementation: Not authorized.**
 
@@ -54,7 +56,7 @@ Specification 004 — Approved
    -> Human acceptance — Not inferred
 -> S5 Implementation — Delivered on main through PR #93
    -> Human acceptance — Not inferred
--> Proposed S6 amendment — T26–T29 require explicit human approval
+-> S6 amendment — approved; T26–T29 implementation remains separately gated
 -> S7–S8 Implementation — Not authorized
 ```
 
@@ -167,10 +169,10 @@ IDs do not imply permission to execute in numeric order.
 | T13 | S4 | Workflow interruption, concurrency, and projection convergence | T12 |
 | T14 | S5 | Strict CLI selector path | T13 |
 | T15 | S5 | Thin Codex selector path and completion convergence | T02, T05, T13, T14 |
-| T26 | Proposed S6 | Deterministic Work Item lifecycle projection from canonical gates | T15 |
-| T27 | Proposed S6 | GitHub lifecycle/flag projection and bounded history | T26 |
-| T28 | Proposed S6 | Project metadata policy for Work Items and Pull Requests | T07, T09, T15, T27 |
-| T29 | Proposed S6 | Missing-local-state reconciliation and Slice convergence | T03, T13, T27, T28 |
+| T26 | S6 | Deterministic Work Item lifecycle projection from canonical gates | T15 |
+| T27 | S6 | GitHub lifecycle/flag projection and bounded history | T26 |
+| T28 | S6 | Project metadata policy for Work Items and Pull Requests | T07, T09, T15, T27 |
+| T29 | S6 | Missing-local-state reconciliation and Slice convergence | T03, T13, T27, T28 |
 | T16 | S7 | Compatibility inspection and historical POC classification | T29 |
 | T17 | S7 | Authorized POC backup/export/reconfigure path | T16 |
 | T18 | S7 | Reference-aware artifact cleanup and capacity recovery | T02, T10, T15, T29 |
@@ -183,9 +185,9 @@ IDs do not imply permission to execute in numeric order.
 | T25 | S8 | Versioned RC Evidence, documentation reconciliation, and human gate | T24 |
 
 The critical path is `T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07 -> T08
--> T09 -> T10 -> T11 -> T12 -> T13 -> T14 -> T15`, followed by proposed S6
+-> T09 -> T10 -> T11 -> T12 -> T13 -> T14 -> T15`, followed by S6
 convergence, S7, and S8. The amended slice order is `S1 -> S2 -> S3 -> S4 -> S5
--> S6 -> S7 -> S8`: every proposed S6 Task waits directly or transitively for S5
+-> S6 -> S7 -> S8`: every S6 Task waits directly or transitively for S5
 closure, and every S7 Task waits directly or transitively for T29. Limited
 parallelism exists after the new gate: T16 and T18 may advance independently after
 their prerequisites; T21 cannot close before every listed boundary is observable.
@@ -558,11 +560,11 @@ the Codex-facing contract. Human acceptance is not inferred.
 
 ### T26 — Deterministic Work Item lifecycle projection from canonical gates
 
-**Amendment status:** proposed by Issue #94; implementation requires explicit
-human approval of the amended Specification/Plan/Tasks.
+**Amendment status:** approved by human review on 2026-09-24; implementation
+remains separately gated and is not started by this approval.
 
 - **Objective:** Derive exactly one provider-neutral Work Item lifecycle stage from the canonical Execution gate/history and required revisioned human facts, without persisting a second lifecycle state.
-- **Slice:** Proposed S6 — Durable Work Item lifecycle and metadata governance.
+- **Slice:** S6 — Durable Work Item lifecycle and metadata governance.
 - **Dependencies:** T15.
 - **Requirements:** FR-013, FR-016, FR-038–FR-041; AC-09, AC-25, AC-26, AC-29; MVP-SEC-01, MVP-SEC-03; MVP-NFR-01, MVP-NFR-06; SEC-002, SEC-004, SEC-005.
 - **ADRs / decisions:** ADR-0003, ADR-0006–ADR-0008. Preserve one Execution lineage and local workflow authority.
@@ -579,7 +581,7 @@ human approval of the amended Specification/Plan/Tasks.
 ### T27 — GitHub lifecycle/flag projection and bounded history
 
 - **Objective:** Reconcile the stage derived from committed canonical Execution truth to exactly one GitHub stage label, applicable independent flags, and one bounded idempotent transition comment without changing local authority.
-- **Slice:** Proposed S6.
+- **Slice:** S6.
 - **Dependencies:** T26.
 - **Requirements:** FR-013–FR-017, FR-038–FR-042; AC-08, AC-09, AC-25–AC-29; MVP-SEC-01–MVP-SEC-05; MVP-NFR-01–MVP-NFR-03, MVP-NFR-06; SEC-001, SEC-002, SEC-004.
 - **ADRs / decisions:** ADR-0003, ADR-0006–ADR-0008. Extend S4 projection; do not rewrite it.
@@ -596,7 +598,7 @@ human approval of the amended Specification/Plan/Tasks.
 ### T28 — Project metadata policy for Work Items and Pull Requests
 
 - **Objective:** Resolve required/default Work Item and Pull Request metadata from explicit inputs, Project policy, and validated context, prompting only for unresolved mandatory values and keeping concrete GitHub fields in the adapter.
-- **Slice:** Proposed S6.
+- **Slice:** S6.
 - **Dependencies:** T07, T09, T15, T27.
 - **Requirements:** FR-003, FR-006, FR-011, FR-012, FR-044; AC-04–AC-07, AC-31; MVP-SEC-01–MVP-SEC-05, MVP-SEC-07; MVP-NFR-01, MVP-NFR-02, MVP-NFR-06; SEC-001, SEC-002.
 - **ADRs / decisions:** ADR-0001, ADR-0003, ADR-0004, ADR-0007. Project intent remains portable; Provider observation remains local.
@@ -613,7 +615,7 @@ human approval of the amended Specification/Plan/Tasks.
 ### T29 — Missing-local-state reconciliation and Slice convergence
 
 - **Objective:** Inspect Provider projection/history, Repository artifacts, and available local generations and return either current truth, one exact ADR-0007 recovery plan, or `recovery_required` with human decision—never a synthesized Execution or transition.
-- **Slice:** Proposed S6.
+- **Slice:** S6.
 - **Dependencies:** T03, T13, T27, T28.
 - **Requirements:** FR-017, FR-022–FR-026, FR-038, FR-043, FR-044; AC-17, AC-20, AC-27, AC-28, AC-30, AC-31; MVP-SEC-01–MVP-SEC-04, MVP-SEC-06, MVP-SEC-08; MVP-NFR-01, MVP-NFR-03, MVP-NFR-04, MVP-NFR-06; SEC-002–SEC-005.
 - **ADRs / decisions:** ADR-0005–ADR-0008; Provider is a recovery signal, not workflow authority.
@@ -936,7 +938,7 @@ by approved scope rather than omitted requirements.
 No new durable cross-cutting decision was identified during decomposition. The
 approved Plan and ADR-0001–ADR-0008 cover the required identity, authority,
 ownership, workflow, publication, recovery, compatibility, and release boundaries.
-The proposed Issue #94 contract extends the existing local workflow and Provider
+The approved Issue #94 contract extends the existing local workflow and Provider
 projection; it does not change their source-of-truth model, create another
 Execution lifecycle, or introduce a generic metadata schema. Human approval of
 the amended Specification/Plan/Tasks remains required before T26–T29.
@@ -990,10 +992,10 @@ These checks validate decomposition and repository hygiene only. All behavioral,
 native-platform, Provider, Runtime, filesystem, security, and RC Evidence remains
 future work under explicit Task authority.
 
-The Issue #94 amendment adds four proposed Tasks without rewriting the 2026-09-20
-25-Task validation record. Amendment validation must prove 29 unique definitions,
+The Issue #94 amendment adds four approved Tasks without rewriting the 2026-09-20
+25-Task validation record. Amendment validation proves 29 unique definitions,
 table/body/Mermaid equivalence, an acyclic DAG, complete FR-038–FR-044 and
-AC-25–AC-31 ownership, and the gates `S5 -> proposed S6 -> S7 -> S8`. These are
+AC-25–AC-31 ownership, and the gates `S5 -> S6 -> S7 -> S8`. These are
 document-structure claims only; they do not prove or authorize T26–T29 behavior.
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
@@ -1015,6 +1017,6 @@ inferred.**
 **S5 Implementation — Delivered on `main` through PR #93 with deterministic and
 bounded real Codex Runtime Evidence. Human acceptance is not inferred.**
 
-**Proposed S6 (T26–T29) — Amendment review required; implementation is not authorized.**
+**S6 (T26–T29) — Amendment approved on 2026-09-24; implementation is not yet authorized.**
 
 **S7–S8 Implementation — Not authorized.**
