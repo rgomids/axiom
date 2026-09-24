@@ -4,6 +4,8 @@
 
 **Approved — human approval recorded on 2026-09-20.**
 
+**Issue #94 amendment: Approved — human approval recorded on 2026-09-24. T26–T29 implementation remains separately gated.**
+
 Tracked by [#62](https://github.com/rgomids/axiom/issues/62) under the
 [MVP tracker #15](https://github.com/rgomids/axiom/issues/15). Human approval of
 this Specification was recorded on 2026-09-20. Approval fixes the MVP behavioral
@@ -20,6 +22,11 @@ The E2E Codex POC was explicitly accepted on 2026-09-20 and is historical
 Evidence for this Specification. Its experimental commands, formats, storage
 choices, and adapters become MVP contracts only where this Specification or an
 existing accepted decision says so.
+
+The approved Issue #94 amendment reconciles the delivered S4/S5 baseline with a
+durable Work Item lifecycle contract. It does not rewrite S4/S5 history, authorize
+implementation, advance S6+, or infer human acceptance from review, merge, CI,
+Issue closure, or Provider state.
 
 Normative terms `MUST`, `MUST NOT`, `SHOULD`, and `MAY` follow the
 [Axiom Constitution](../../product/constitution.md).
@@ -41,6 +48,8 @@ This draft reconciles:
 - accepted Specifications 002 and 003, their clarifications, Plans, and Evidence;
 - ADR-0001 through ADR-0004, the conceptual model, Provider boundaries, product
   roadmap, and Constitution.
+- delivered S4/S5 implementation and Evidence in PRs #91 and #93;
+- Issue #94's approved durable Work Item lifecycle and metadata-governance amendment.
 
 ## Reconciliation findings
 
@@ -102,6 +111,159 @@ recorded HD-3 decision requires Specification 002 and the affected security and
 architecture contracts to be reconciled before Plan authorization. HD-4 establishes
 clean v1 as the compatibility baseline; any future in-place historical migration
 requires a separate explicit compatibility decision before implementation.
+
+### Issue #94 amendment — durable Work Item lifecycle anchor
+
+The Work Item is the durable operational anchor that a human can inspect across
+machines and after loss of ordinary local availability. It is not a replacement
+for either authoritative layer:
+
+```text
+Repository artifacts = versioned technical source of truth
+Local Execution/workflow state = canonical workflow truth
+Provider Work Item = authorized durable projection and recovery signal
+```
+
+The amendment introduces a provider-neutral `WorkItemLifecycleStage` projection:
+
+```text
+intake
+-> specifying
+-> specified
+-> planning
+-> planned
+-> implementing
+-> implemented
+-> reviewing
+-> reviewed
+-> accepted
+```
+
+This lifecycle stage is a deterministic, read-only projection of S4's canonical
+Execution gate, its revisioned transition facts, and the explicit human decisions
+listed below. It is not persisted or transitioned independently. The only workflow
+state machine remains `intake -> specification -> clarification -> plan -> tasks ->
+implementation -> review -> evidence -> reconciliation -> completion` under the
+existing Execution revision and lineage.
+
+| Canonical local condition | Additional required fact | Derived lifecycle stage |
+|---|---|---|
+| current gate `intake` | none beyond valid Execution scope | `intake` |
+| current gate `specification` or `clarification` | none beyond valid prior gate history | `specifying` |
+| current gate `plan` | Specification/Decision references and all required Specification decisions exist; planning authority is not yet recorded | `specified` |
+| current gate `plan` with planning authority, or current gate `tasks` | revisioned explicit planning authority; `tasks` also requires the prior Plan transition/reference | `planning` |
+| current gate `implementation` without implementation authority | approved Plan/Tasks references and validation plus required human Plan/Tasks approval | `planned` |
+| current gate `implementation` with implementation authority | revisioned exact implementation scope and explicit implementation authority | `implementing` |
+| current gate `review` before review starts | implementation result and applicable deterministic validation/Evidence references | `implemented` |
+| current gate `review` after review starts, or current gate `evidence` or `reconciliation` | revisioned review-start fact; later gates also require the preceding review/Evidence transition facts | `reviewing` |
+| current gate `completion` without explicit human acceptance | completed review, resolved or explicitly decided blocking findings, Evidence, and reconciliation references | `reviewed` |
+| terminally completed `completion` gate with explicit human acceptance | revisioned human decision identifying the bounded accepted outcome | `accepted` |
+
+Absence of a start/authority fact at the three intentional boundaries above
+(`plan`, `implementation`, or `review`) keeps the derived stage at `specified`,
+`planned`, or `implemented`; it does not invent a transition. Any other missing,
+stale, contradictory, out-of-order, or scope-mismatched prerequisite makes the
+derivation `recovery_required`. It MUST NOT select a best-effort stage, mutate the
+Execution, or prepare Provider effects.
+
+For GitHub, the exact adapter projection is:
+
+```text
+axiom:stage:intake
+axiom:stage:specifying
+axiom:stage:specified
+axiom:stage:planning
+axiom:stage:planned
+axiom:stage:implementing
+axiom:stage:implemented
+axiom:stage:reviewing
+axiom:stage:reviewed
+axiom:stage:accepted
+```
+
+A successfully managed GitHub Work Item MUST expose exactly one marker from that
+closed set. Zero, multiple, unknown, or contradictory `axiom:stage:*` observations
+are projection drift and MUST fail closed for Provider reconciliation. They do not
+advance, rewind, or veto an otherwise valid canonical local gate transition.
+
+Orthogonal conditions use zero or more separate provider-neutral flags. The
+GitHub adapter maps the MVP set exactly to:
+
+```text
+axiom:blocked
+axiom:needs-decision
+axiom:needs-approval
+axiom:recovery-required
+```
+
+Flags MUST NOT multiply or rename lifecycle stages. Provider flag mutation does
+not create the corresponding local fact; it is only a signal to inspect and
+reconcile.
+
+A valid local `blocked` condition remains orthogonal to lifecycle derivation. For
+example, an `implementation` gate with valid implementation authority still
+derives `implementing` while `blocked` is true and projects both
+`axiom:stage:implementing` and `axiom:blocked`. The blocker does not make the
+Execution inconsistent, change its derived stage, or produce
+`recovery_required`.
+
+Canonical gate transitions remain the explicit local operations. Each transition
+MUST validate the current gate, expected Execution revision, required artifacts and
+decisions, applicable authority, blockers, and next gate before committing. The
+lifecycle projection is recomputed only from the resulting valid local snapshot.
+When an applicable blocker prevents the next transition, the operation MUST deny
+the transition before mutation, keep the canonical gate unchanged, infer no new
+authority, and continue deriving the lifecycle stage and independent `blocked`
+condition from the current valid snapshot. Such a denial becomes
+`recovery_required` only when the underlying facts are stale, incompatible,
+contradictory, unknown, insufficient, out of order, scope-mismatched, or otherwise
+do not identify one valid local truth.
+Merge, green CI, PR approval, Issue closure, Project status, or Provider labels
+MUST NOT create any local fact or satisfy human acceptance.
+
+`reviewed` means the canonical `review`, `evidence`, and `reconciliation` work has
+passed and the Execution has reached `completion`; merely entering `review`,
+producing Evidence, or obtaining technical/Provider approval is insufficient.
+`completion` remains the detailed canonical gate and terminal result boundary.
+`accepted` is projected only after that gate is terminally completed and the
+bounded outcome has a separate explicit human acceptance decision.
+
+Material changes in the derived lifecycle stage MAY project one bounded idempotent
+operational comment. Such a comment contains only a transition/outcome summary, stable
+references to Specification/Plan/Tasks/PR/Evidence or other artifacts, and the
+next action or blocker. Dense documents, raw logs, chat, unrestricted reasoning,
+and copied Evidence do not belong in Provider comments.
+
+Recovery inspection combines Provider stage/flags and bounded transition history
+with Repository artifacts and available local records. It may return only:
+
+- current local truth plus a projection-reconciliation preview;
+- a validated ADR-0007 recovery plan for an identified prior/new local generation,
+  requiring fresh exact authority before mutation; or
+- `recovery_required` with the observed contradiction/insufficiency and the human
+  decision needed.
+
+Provider and Repository evidence alone MUST NOT silently create an Execution,
+select a lifecycle stage, replay a gate transition, create a required local fact,
+or grant implementation/acceptance authority.
+
+A Project MAY declare a bounded metadata policy for Work Item and Pull Request
+operations. The domain expresses required/default metadata intentions and required
+capabilities; provider adapters resolve concrete fields and effects. For GitHub,
+the adapter may resolve labels, assignee, milestone, supported Project/status,
+and Pull Request labels/assignee/review metadata. Axiom asks the user only for a
+required value that remains unresolved after deterministic Project policy and
+operation-context resolution. Arbitrary custom fields, a generic workflow engine,
+and broad GitHub Projects automation remain outside the MVP.
+
+The MVP intention set is closed to `classification`, `owner`, `delivery_target`,
+`tracking_state`, and Pull Request `reviewers`. It uses Specification 002's existing
+`policies` document references; it adds no field to the closed `schemaVersion: 1`
+manifest. The referenced Work Item metadata policy has its own strict version and
+closed schema; unsupported versions fail without migration. Lifecycle stage/flags
+remain owned by workflow projection and are not metadata-policy inputs. Provider
+observations, identity bindings, credentials, concrete field names, and effect
+ledgers remain machine-local or adapter-owned rather than portable domain values.
 
 ## Intake
 
@@ -200,7 +362,7 @@ Project MAY remain portable-valid without a configured Work Item Provider, but
 the supported Work Item journey MUST stop with an actionable missing-capability
 result until a supported Provider is explicitly configured.
 
-The supported workflow stages are:
+The supported detailed Execution gates remain:
 
 ```text
 intake -> specification -> clarification -> plan -> tasks
@@ -210,7 +372,9 @@ intake -> specification -> clarification -> plan -> tasks
 Clarification MAY be satisfied without a separate artifact when no material
 question exists, but its gate result remains observable. Completion requires
 all applicable technical gates plus explicit authority for any external
-mutation. Final MVP acceptance remains a separate human decision.
+mutation. The Work Item lifecycle projection defined by the Issue #94 amendment
+does not replace or advance these gates. Final MVP acceptance remains a separate
+human decision.
 
 ## User journeys
 
@@ -241,10 +405,12 @@ authority leaves Provider state unchanged.
 ### J4 — Visible workflow
 
 The developer starts or resumes the bounded workflow. Local state records the
-truthful current gate. With explicit Provider authority, the GitHub Issue shows
-exactly one current Axiom stage marker and bounded transition comments referencing
-relevant artifacts/Evidence. Failed or interrupted transitions do not project a
-later stage as complete.
+truthful current Execution gate and provider-neutral Work Item lifecycle stage.
+With explicit Provider authority, the GitHub Issue shows exactly one canonical
+Axiom lifecycle-stage marker, zero or more orthogonal auxiliary flags, and bounded
+transition comments referencing relevant artifacts/Evidence. Failed, invalid,
+skipped, contradictory, or interrupted transitions do not advance local truth or
+project a later stage as complete.
 
 ### J5 — Argument-driven Runtime invocation
 
@@ -324,14 +490,43 @@ the final human acceptance decision.
 - **FR-013 Local truth:** validated local workflow state is the execution source
   of truth; Provider state is an authorized, idempotent, reconcilable projection.
 - **FR-014 Current-stage marker:** the supported GitHub adapter MUST expose exactly
-  one canonical current Axiom stage marker. Naming is an adapter UX detail and
-  MUST be documented and namespaced.
+  one canonical current Axiom lifecycle-stage marker from the Issue #94 closed
+  namespace. The domain value remains Provider-neutral.
 - **FR-015 Transition comment:** a material transition comment MUST contain stage,
   outcome, relevant references, provenance, and next action when applicable.
 - **FR-016 Truthful failure:** failed, denied, interrupted, or partial transitions
   MUST NOT present a later stage or external completion as successful.
 - **FR-017 Reconciliation:** replay/reconciliation MUST avoid duplicate markers
   and semantically duplicate comments while preserving confirmed Provider effects.
+- **FR-038 Durable Work Item anchor:** a managed Work Item MUST expose a bounded
+  durable lifecycle projection that connects the current stage to stable
+  Specification, Plan/Tasks, Pull Request, Evidence, blocker, and next-action
+  references without copying dense artifacts.
+- **FR-039 Lifecycle stage:** the closed provider-neutral
+  `WorkItemLifecycleStage` MUST be derived deterministically from canonical
+  Execution gate/history plus the explicit local facts defined by this amendment;
+  it MUST NOT be independently persisted or transitioned. GitHub MUST map the
+  derived value to the exact `axiom:stage:*` set and treat zero, multiple, unknown,
+  or contradictory markers as projection drift.
+- **FR-040 Gate projection:** every canonical gate transition MUST retain S4's
+  exact current gate/revision, prerequisite, reference, blocker, and authority
+  checks. Lifecycle derivation from the resulting snapshot MUST either return the
+  unique mapped stage or `recovery_required`; it MUST NOT mutate canonical truth.
+- **FR-041 Auxiliary flags:** blocked, decision, approval, and recovery conditions
+  MUST remain orthogonal to lifecycle stage. Provider markers MUST NOT create or
+  clear local facts by themselves.
+- **FR-042 Bounded history:** material lifecycle comments MUST be bounded,
+  idempotent, provenance-marked, and reference-first; repeated reconciliation
+  MUST NOT duplicate them.
+- **FR-043 Missing-local-state reconciliation:** Provider projection/history,
+  Repository artifacts, and available local records MAY produce a read-only
+  reconciliation or exact recovery plan, but MUST NOT silently reconstruct an
+  Execution or infer a transition. Contradictory or insufficient evidence MUST
+  return `recovery_required` and require human decision.
+- **FR-044 Project metadata policy:** Project configuration MUST be able to
+  resolve required/default Work Item and Pull Request metadata through
+  provider-neutral intentions and capability results. Provider-specific fields
+  and effects remain adapter-owned; only unresolved mandatory values may prompt.
 
 ### Runtime invocation
 
@@ -516,6 +711,12 @@ The MVP MUST handle at least:
 - Provider unavailable, unauthenticated, rate-limited, invalid response, or
   confirmed mutation followed by local failure;
 - failed, interrupted, resumed, stale, or already-completed workflow transition;
+- inconsistent lifecycle derivation, unmet canonical gate prerequisite, or absent human decision;
+- zero, multiple, unknown, manually changed, or contradictory Provider stage
+  markers and auxiliary flags;
+- unresolved required Work Item/Pull Request metadata policy;
+- missing local Execution with aligned, insufficient, or contradictory
+  Provider/Repository recovery signals;
 - completion summary rendering failure after confirmed domain/external effect;
 - detail-artifact write failure without hiding the primary operation truth;
 - released, development, dirty, and revision-unavailable provenance;
@@ -537,6 +738,13 @@ Global invariants:
 8. Evidence is inspectable support for a claim, not raw chat history.
 9. Axiom provenance never claims authorship over unchanged user content.
 10. Automated validation never grants final human acceptance.
+11. A valid Execution snapshot derives exactly one lifecycle stage; no second
+    lifecycle state is persisted and auxiliary conditions never create synthetic
+    stage combinations.
+12. `accepted` exists only after an explicit human decision; merge, CI, PR review,
+    Issue closure, and Provider status never imply it.
+13. Missing local workflow truth is inspected and recovered explicitly, never
+    reconstructed or advanced from Provider projection.
 
 ## Non-functional requirements
 
@@ -582,6 +790,13 @@ Global invariants:
 | AC-22 | RC dogfood exercises validation, authority denial, interruption/resume, retryable external failure, recovery-required state, and supported upgrade. |
 | AC-23 | Versioned Evidence identifies candidate build, environment, commands, exits, hashes/references, exclusions, and known limitations without raw chat history or secrets. |
 | AC-24 | Human explicitly accepts or rejects the Specification and, later, the release candidate; automation never fills either decision. |
+| AC-25 | Every valid canonical Execution gate/history plus required-fact combination derives exactly one of the ten Work Item lifecycle stages; GitHub projects it as the exact namespaced label defined by this amendment. |
+| AC-26 | Canonical gate transition behavior remains S4-compatible; lifecycle derivation is read-only, and missing/contradictory non-boundary facts return `recovery_required` with zero local or Provider effects. |
+| AC-27 | A managed GitHub Issue converges to exactly one lifecycle-stage label plus the applicable independent auxiliary flags without removing foreign content. |
+| AC-28 | Material lifecycle history comments remain bounded, reference-first, provenance-marked, and idempotent across replay. |
+| AC-29 | Merge, green CI, PR approval, Issue closure, or manual Provider metadata cannot produce `accepted`; only terminal canonical completion plus one explicit revisioned human decision can. |
+| AC-30 | With local workflow state unavailable, inspection returns either an exact authorized local-generation recovery plan or `recovery_required`; no Execution or transition is silently synthesized. |
+| AC-31 | Project policy deterministically resolves available Work Item/PR metadata, prompts only for unresolved mandatory values, and keeps GitHub-specific fields inside the adapter. |
 
 ## Required acceptance Evidence
 
@@ -596,6 +811,9 @@ Release-candidate Evidence MUST include:
 - Work Item draft/authority and Provider projection references;
 - workflow gate transitions, interruption/resume, artifact identities/digests,
   and final completion reference;
+- Work Item gate/fact-to-lifecycle derivation and flag matrix, exactly-one-stage Provider observations,
+  bounded-history replay, missing-local-state reconciliation, and metadata-policy
+  resolution/non-prompt observations;
 - provenance observations on each supported generated surface;
 - filesystem fault/recovery and compatibility-transition matrix tied to the
   approved threat model, including migration Evidence only when migration is part
@@ -635,13 +853,19 @@ upgrade; all delivered blocks precede #68. Approval of this Specification permit
 the next expressly authorized phase only and does not itself authorize Plan work,
 any delivery issue, implementation, or release.
 
+The Issue #94 amendment adds one bounded Slice after delivered S5 and before the
+current recovery/upgrade Slice. Its lifecycle/gate/projection/recovery-signal and
+metadata-policy contracts must be delivered before compatibility hardening and RC
+acceptance can claim the amended Work Item journey. Existing S4/S5 Tasks and
+Evidence remain unchanged historical delivery records.
+
 ## Requirements, details, and open questions
 
 | Classification | This Specification |
 |---|---|
-| Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above. |
-| Implementation detail deferred to Plan | CLI framework, concrete Go packages/interfaces, exact JSON schema, Provider label spelling, prompt UI, filesystem syscalls, migration algorithm, installer implementation, artifact filename rendering. |
-| Human decisions recorded | HD-1 through HD-4 and complete Specification approval were recorded on 2026-09-20. ADR-0005/0006 directly formalize HD-3/HD-2; the reconciliation PR remains the gate before Plan. |
+| Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above, including approved FR-038–FR-044 and AC-25–AC-31. |
+| Implementation detail deferred to Plan | CLI framework, concrete Go packages/interfaces, exact JSON schema, prompt UI, filesystem syscalls, migration algorithm, installer implementation, artifact filename rendering, lifecycle-record encoding, and concrete metadata-policy schema. GitHub label spelling is fixed only for the Issue #94 adapter projection. |
+| Human decisions recorded | HD-1 through HD-4 and complete original Specification approval were recorded on 2026-09-20. ADR-0005/0006 directly formalize HD-3/HD-2. The Issue #94 amendment, FR-038–FR-044, AC-25–AC-31, S6 placement, and Specification 002 policy-reference clarification were explicitly approved on 2026-09-24. This approval does not by itself authorize T26–T29 implementation. |
 
 ## Human decisions recorded — 2026-09-20
 
@@ -737,6 +961,27 @@ compatibility is promised.
 ADR-0005 and ADR-0006 introduce no material choice beyond approved HD-3 and HD-2.
 Other candidate decisions remain unaccepted.
 
+### Issue #94 ADR assessment
+
+No new ADR is proposed. The amendment keeps the existing durable decisions:
+
+- ADR-0003 keeps executable workflow behavior in Lingo under Axiom contracts;
+- ADR-0004 keeps Project policy portable and local workflow observations/state
+  machine-local;
+- ADR-0007 remains the local commit/recovery authority;
+- ADR-0008 remains the single stable Execution lineage and explicitly forbids
+  reconstruction from Provider metadata.
+
+The derived lifecycle projection, flags, bounded Provider history, recovery
+inspection, and metadata-policy capability extend the approved Specification 004
+contract without changing source-of-truth ownership, Execution identity/gate
+semantics, Provider abstraction ownership, or fundamental recovery semantics.
+ADR-0008 therefore remains valid without alteration: no second lifecycle field,
+transition history, identity, or authority is introduced. Stop and reassess an ADR
+if implementation instead requires a second workflow authority, portable/shared
+Execution state, Provider-owned gates, a generic metadata/custom-field schema, or
+silent reconstruction of local truth.
+
 ## Constitution check
 
 - Intent, actors, constraints, non-goals, failures, acceptance, and Evidence
@@ -764,3 +1009,12 @@ Plan. No Plan, Tasks, implementation, migration, installer, or release is
 authorized by these documentation changes.
 
 **Next artifact after merge and human approval of this reconciliation: Plan for Specification 004**
+
+### Issue #94 amendment approval — 2026-09-24
+
+The original review record above remains historical. Human review explicitly
+approved FR-038–FR-044, AC-25–AC-31, the S6 delivery placement, and the
+Specification 002 policy-reference clarification on 2026-09-24. This satisfies the
+amendment decision gate. Merge, checks, Issue labels, or closure did not substitute
+for that decision. T26–T29 implementation and successor Slice work remain
+separately gated and are not started by this approval or merge.

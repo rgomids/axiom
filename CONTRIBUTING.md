@@ -34,6 +34,38 @@ go test ./...
 4. Update only affected documentation and include verifiable Evidence: commands, outcomes, and known limits. Raw claims of completion are insufficient.
 5. Run the relevant checks below, inspect the diff, and submit a PR for review. Address review feedback within the agreed scope.
 
+## Work Item lifecycle governance
+
+The Issue #94 amendment, approved by human review on 2026-09-24, establishes the
+following rules for Axiom-managed Work Items. Approval of the amendment does not by
+itself authorize T26–T29 implementation; S6 implementation remains separately gated.
+
+- Repository artifacts remain technical source of truth; local Execution/workflow
+  state remains canonical workflow truth; Provider metadata is a durable
+  projection and recovery signal only.
+- GitHub lifecycle projection uses exactly one canonical `axiom:stage:*` marker
+  from the closed Specification 004 set. `axiom:blocked`,
+  `axiom:needs-decision`, `axiom:needs-approval`, and
+  `axiom:recovery-required` are independent flags, never synthetic stages.
+- Do not manually treat labels, Issue closure, merge, green CI, or PR review as
+  authority to advance local workflow or record acceptance.
+- Transition comments must be bounded and reference Specifications, Plans/Tasks,
+  PRs, Evidence, next actions, or blockers instead of copying dense documents,
+  logs, or chat.
+- Apply Project metadata policy deterministically. Ask only for required Work
+  Item or Pull Request metadata still unresolved after policy/context resolution;
+  keep concrete GitHub fields in the adapter boundary.
+- If local workflow truth is unavailable, inspect and reconcile. Never reconstruct
+  an Execution, advance a canonical gate, or infer a derived stage from
+  Provider/Repository state; contradictory or insufficient facts require
+  `recovery_required` and human decision.
+
+PRs affecting this lifecycle must state the current and target canonical Execution
+gates, the current and expected derived lifecycle stages, prerequisites and
+authority, auxiliary flags, Provider effects, recovery impact, and whether a human
+acceptance decision remains pending. `Not applicable` is valid only with an
+objective reason.
+
 ## Branch names
 
 Use this format:
