@@ -336,8 +336,8 @@ esac
 		t.Fatalf("observation = %#v, %v", observed, err)
 	}
 	effects := []workflow.ProjectionEffect{
-		{Kind: workflow.CreateStageLabel, Value: "axiom:stage:specification"},
-		{Kind: workflow.AddStageLabel, Value: "axiom:stage:specification"},
+		{Kind: workflow.CreateStageLabel, Value: "axiom:stage:specifying"},
+		{Kind: workflow.AddStageLabel, Value: "axiom:stage:specifying"},
 		{Kind: workflow.RemoveStageLabel, Value: "axiom:stage:intake"},
 		{Kind: workflow.PostTransitionComment, Value: "<!-- axiom:workflow-projection:" + key + " -->\nSafe"},
 	}

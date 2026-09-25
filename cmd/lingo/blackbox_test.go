@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -347,6 +349,14 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	if err := os.Mkdir(repository, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	referenceContent := []byte("S6 synthetic lifecycle reference\n")
+	if err := os.WriteFile(filepath.Join(repository, "s6-reference.md"), referenceContent, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	referenceDigest := fmt.Sprintf("%x", sha256.Sum256(referenceContent))
+	factArgs := func(revision uint64, fact, kind string) []string {
+		return []string{"workflow", "fact", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--fact", fact, "--active", "--reference", kind + ":s6-reference.md:" + referenceDigest, "--authorize-local"}
+	}
 	ghBinary := filepath.Join(t.TempDir(), "gh")
 	createCount := filepath.Join(t.TempDir(), "create-count")
 	if err := os.WriteFile(createCount, []byte("0\n"), 0o600); err != nil {
@@ -485,13 +495,24 @@ exit 0
 		t.Fatalf("invalid selector changed execution: %v", err)
 	}
 	revision := uint64(1)
-	for _, gate := range []string{"intake", "specification", "clarification", "plan", "tasks"} {
+	for _, gate := range []string{"intake", "specification", "clarification"} {
 		advanced := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", gate, "--outcome", "pass")
 		revision++
 		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
 			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
 		}
 	}
+	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "planning-authority", "specification")...)
+	revision++
+	for _, gate := range []string{"plan", "tasks"} {
+		advanced := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", gate, "--outcome", "pass")
+		revision++
+		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
+			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
+		}
+	}
+	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "implementation-authority", "plan")...)
+	revision++
 	interrupted := runCanonical(2, "interrupted", "Execution remains at the current workflow stage", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", "implementation", "--outcome", "fail")
 	revision++
 	if interrupted.Workflow == nil || interrupted.Workflow.Status != "interrupted" || interrupted.Workflow.CurrentGate != "implementation" || interrupted.Workflow.Revision != revision {
@@ -502,13 +523,22 @@ exit 0
 	if resumed.Workflow == nil || resumed.Workflow.Status != "active" || resumed.Workflow.Revision != revision {
 		t.Fatalf("resumed = %+v", resumed.Workflow)
 	}
-	for _, gate := range []string{"implementation", "review", "evidence", "reconciliation", "completion"} {
+	advancedToReview := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", "implementation", "--outcome", "pass")
+	revision++
+	if advancedToReview.Workflow == nil || advancedToReview.Workflow.Revision != revision {
+		t.Fatalf("advanced workflow = %+v", advancedToReview.Workflow)
+	}
+	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "review-started", "evidence")...)
+	revision++
+	for _, gate := range []string{"review", "evidence", "reconciliation", "completion"} {
 		advanced := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", gate, "--outcome", "pass")
 		revision++
 		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
 			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
 		}
 	}
+	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "human-acceptance", "evidence")...)
+	revision++
 	runCanonical(0, "success", "Execution workflow operation completed", "workflow", "evidence", "--project", "configured", "--repository", "main", "--number", "7")
 	run(1, "error", "missing_required_input", "project", "init", "--slug", "sample")
 	run(0, "success", "applied", "project", "init", "--slug", "sample", "--name", "Sample")

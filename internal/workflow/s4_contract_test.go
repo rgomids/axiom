@@ -77,7 +77,7 @@ func TestS4ProjectionPreviewAuthorityReplayAndExternalPreservation(t *testing.T)
 	service.Start(context.Background(), target)
 	transitioned := service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
 	provider.observation.RepositoryLabels = []string{"bug"}
-	provider.observation.IssueLabels = []string{"external", "axiom:stage:foreign", "axiom:stage:intake"}
+	provider.observation.IssueLabels = []string{"external", "external:stage:foreign", "axiom:stage:intake"}
 
 	previewed := service.PrepareProjection(context.Background(), target, transitioned.State.Revision)
 	if previewed.Preview == nil || previewed.Status != Succeeded {
@@ -91,7 +91,7 @@ func TestS4ProjectionPreviewAuthorityReplayAndExternalPreservation(t *testing.T)
 		t.Fatalf("denied projection = %#v effects=%v", denied, provider.effects)
 	}
 	projected := service.Project(context.Background(), target, transitioned.State.Revision, previewed.Preview.Digest, true)
-	if projected.Category != "projection_converged" || !provider.hasLabel("external") || !provider.hasLabel("axiom:stage:foreign") || provider.hasLabel("axiom:stage:intake") || !provider.hasLabel("axiom:stage:specification") || provider.commentCount != 1 {
+	if projected.Category != "projection_converged" || !provider.hasLabel("external") || !provider.hasLabel("external:stage:foreign") || provider.hasLabel("axiom:stage:intake") || !provider.hasLabel("axiom:stage:specifying") || provider.commentCount != 1 {
 		t.Fatalf("projection = %#v provider=%#v", projected, provider)
 	}
 	replayed := service.PrepareProjection(context.Background(), target, transitioned.State.Revision)
@@ -188,8 +188,8 @@ func TestS4ConfirmedProviderEffectThenBookkeepingFailureIsPartial(t *testing.T) 
 	target := s4Target()
 	service.Start(context.Background(), target)
 	transitioned := service.Transition(context.Background(), target, TransitionInput{ExpectedRevision: 1, Stage: Intake, Outcome: OutcomePassed})
-	provider.observation.RepositoryLabels = []string{"axiom:stage:specification"}
-	provider.observation.IssueLabels = []string{"axiom:stage:specification"}
+	provider.observation.RepositoryLabels = []string{"axiom:stage:specifying"}
+	provider.observation.IssueLabels = []string{"axiom:stage:specifying"}
 	previewed := service.PrepareProjection(context.Background(), target, transitioned.State.Revision)
 	store.failSaveAt = store.saves + 2
 	result := service.Project(context.Background(), target, transitioned.State.Revision, previewed.Preview.Digest, true)
@@ -272,11 +272,13 @@ func s4Target() Target {
 
 func s4ProjectionObservation() ProjectionObservation {
 	return ProjectionObservation{
-		Provider:        "github",
-		Resource:        "owner/repo",
-		IssueExternalID: "7",
-		IssueURL:        "https://github.com/owner/repo/issues/7",
-		IssueState:      "OPEN",
+		Provider:         "github",
+		Resource:         "owner/repo",
+		IssueExternalID:  "7",
+		IssueURL:         "https://github.com/owner/repo/issues/7",
+		IssueState:       "OPEN",
+		RepositoryLabels: []string{"axiom:stage:intake"},
+		IssueLabels:      []string{"axiom:stage:intake"},
 	}
 }
 

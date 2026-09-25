@@ -239,13 +239,13 @@ func (a Adapter) Apply(ctx context.Context, item workflow.WorkItem, effect workf
 	var arguments []string
 	switch effect.Kind {
 	case workflow.CreateStageLabel:
-		if !validStageLabel(effect.Value) {
+		if !workflow.ValidDesiredProjectionLabel(effect.Value) {
 			return &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse, EffectNotCommitted: true}
 		}
 		payload, _ = json.Marshal(map[string]string{"name": effect.Value, "color": "5319e7", "description": "Axiom current workflow stage"})
 		arguments = []string{"api", "--method", "POST", "repos/" + item.Resource + "/labels", "--input", "-"}
 	case workflow.AddStageLabel:
-		if !validStageLabel(effect.Value) {
+		if !workflow.ValidDesiredProjectionLabel(effect.Value) {
 			return &workflow.ProjectionError{Kind: workflow.ProjectionInvalidResponse, EffectNotCommitted: true}
 		}
 		payload, _ = json.Marshal(map[string][]string{"labels": []string{effect.Value}})
@@ -299,11 +299,7 @@ func (a Adapter) validProjectionItem(item workflow.WorkItem) bool {
 	return item.Provider == "github" && a.ValidResource(item.Resource) && a.ValidExternal(item.Resource, item.ExternalID, workitem.External{ID: item.ExternalID, URL: item.URL, State: item.State})
 }
 func validStageLabel(value string) bool {
-	if !strings.HasPrefix(value, "axiom:stage:") {
-		return false
-	}
-	stage := workflow.Stage(strings.TrimPrefix(value, "axiom:stage:"))
-	return stage.Valid() && value == "axiom:stage:"+string(stage)
+	return workflow.ValidProjectionLabel(value)
 }
 func projectionError(err error, mutation bool) error {
 	var provider *workitem.ProviderError

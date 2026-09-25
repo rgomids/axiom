@@ -2,6 +2,23 @@
 
 ## [2026-09-24]
 
+- implementation: deliver authorized MVP S6 (T26–T29) with a ten-stage Work
+  Item lifecycle derived from canonical Execution gates and revisioned local
+  facts, without persisting a second state machine.
+- implementation: extend exact GitHub projection with one lifecycle label,
+  independent bounded flags, reference-first history, strict drift detection,
+  and legacy S4-label recognition while preserving foreign content.
+- implementation: add the strict provider-neutral `work-item-metadata` policy
+  contract, deterministic resolution and adapter-owned GitHub effect previews;
+  add read-only missing-local-state classification and exact ADR-0007 generation
+  recovery plans without synthesizing Execution truth.
+- security: require exact revisions, validated references, explicit local fact
+  authority, digest-bound Provider previews, and fresh exact recovery authority;
+  Provider, Repository, CI, merge, review, and Issue state grant no workflow or
+  human-acceptance authority.
+- test: add lifecycle/fact/flag/drift, metadata schema/precedence/capability,
+  reconciliation, adapter, CLI, black-box, and backward-compatibility coverage.
+
 - fix: enforce long-form flags uniformly across Project, Work Item create, and
   existing strict selector parsers; preserve repeatable configuration repositories
   and return canonical selector failures before prompts or application dispatch.
