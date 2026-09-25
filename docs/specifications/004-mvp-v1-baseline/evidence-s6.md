@@ -169,6 +169,11 @@ sensitive-file checker behavior. `go mod verify` reported `all modules verified`
 Gitleaks reported no leaks. The final documentation commit is validated again
 before publication; it does not change the exercised Go implementation.
 
+After the dogfood remediation, GitHub Actions run `36082452489` completed the
+repository POC verification successfully on both `ubuntu-24.04` (59 seconds) and
+`macos-15` (1 minute 17 seconds). This CI result supplements rather than replaces
+the deterministic local Evidence above.
+
 ## Requirement and acceptance coverage
 
 | Contract | Evidence owner |
@@ -188,7 +193,7 @@ commit authority, Provider non-authority, or ADR-0007 recovery semantics.
   deterministic fake/adapter Evidence does not claim a real Provider effect.
 - No local recovery mutation was run; only read-only classification and exact
   recovery-authority matching were exercised.
-- Native execution was macOS arm64 only. Repository tests remain portable, but no
-  native Linux S6 run is claimed here.
+- Local native execution was macOS arm64. The final POC verification also passed
+  on GitHub-hosted Ubuntu 24.04 and macOS 15 runners.
 - Technical completion, passing checks, PR review, merge, and Provider state do
   not constitute human acceptance.
