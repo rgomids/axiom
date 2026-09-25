@@ -9,6 +9,16 @@ implementation was exercised at clean commit
 `847f21a611e3cecd8bbb4fec0342de9ba23ecd53`. Its Git tree is
 `d438fc05e612c641d67c2e4db5eb5d67f7a196c0`.
 
+The first PR CI run found one validation-fixture regression, not a product-state
+failure: `scripts/dogfood-poc.sh` still advanced the S4 journey without the S6
+facts and began Provider reconciliation with zero lifecycle markers, which S6
+correctly classifies as drift. Commit
+`7c05fbe56ed3b8ed7432ac0818bab44ae31e5b49` records the four synthetic lifecycle
+facts and starts the bounded fake Provider observation already aligned. The
+dogfood journey and full repository validation then passed from that clean
+revision. Deterministic adapter tests remain the Evidence for label creation and
+legacy-label replacement effects.
+
 Canonical local Execution remains the sole workflow truth.
 `WorkItemLifecycleStage` is computed read-only from canonical gate history and
 revisioned local facts. GitHub labels/comments, Repository artifacts, merge, CI,
@@ -28,6 +38,7 @@ merge, or human MVP acceptance occurred.
 | Repository | `rgomids/axiom` |
 | Branch | `feat/94-s6-work-item-lifecycle` |
 | Exercised commit | `56beb4fc310894ff8de128f52c6a96d22711bec8` |
+| Final clean validation commit | `7c05fbe56ed3b8ed7432ac0818bab44ae31e5b49` |
 | Source state | clean |
 | Go | `go1.26.1 darwin/arm64` |
 | macOS | 27.0, build `26A428` |
@@ -69,6 +80,12 @@ The executable black-box journey records all four boundary facts through
 `workflow fact`, covers interruption/resume, reaches terminal completion, then
 records explicit human acceptance. Strict CLI validation and the thin installed
 workflow skill preserve explicit selectors and authority.
+
+The clean bounded dogfood journey uses only synthetic data and a local fake
+Provider. It completed at revision 17 with `lifecycleStage=accepted`, five
+installed skills, one Work Item, and one Execution. This fixture simulates the
+explicit acceptance authority for contract testing; it is not human acceptance
+of S6 or the MVP.
 
 ## T27 — GitHub projection and bounded history
 
@@ -136,6 +153,7 @@ go test -count=1 ./internal/workflow -run 'Lifecycle|Projection|Reconciliation'
 go test -count=1 ./internal/workitem -run Metadata
 go test -count=1 ./internal/githubissues -run 'Metadata|Projection'
 go test -race -count=1 ./internal/workflow ./internal/workitem ./internal/githubissues
+./scripts/dogfood-poc.sh
 ./scripts/validate-repository.sh .
 ./scripts/validate-agent-package.sh .
 ./scripts/check-sensitive-files.sh .
