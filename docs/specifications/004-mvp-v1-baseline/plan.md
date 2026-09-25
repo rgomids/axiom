@@ -9,11 +9,12 @@
 The original Plan approval remains historical. Human review on 2026-09-24
 explicitly approved the S6 placement, T26–T29 decomposition,
 gate-to-lifecycle projection/flag contract, recovery inspection, and metadata-policy
-boundary. This satisfies the amendment review gate. Implementation remains
-separately gated; approval, merge, Issue state, or tracker edits do not by themselves
-authorize T26–T29 or any successor Slice.
+boundary. This satisfies the amendment review gate. That approval alone did not
+authorize implementation; a later explicit human instruction on 2026-09-24
+authorized T26–T29 only. Merge, Issue state, or tracker edits do not authorize
+any successor Slice.
 
-**Issue #94 amendment: Approved — human approval recorded on 2026-09-24. S6 implementation is not yet authorized.**
+**Issue #94 amendment: Approved, and S6 implementation explicitly authorized on 2026-09-24. Technical implementation is recorded at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not inferred.**
 
 This Plan describes how to realize the behavior approved in
 [Specification 004](spec.md). It was explicitly approved by the human reviewer in
@@ -208,8 +209,8 @@ With human approval recorded on 2026-09-24, tracker reconciliation is required:
   S4/S5 history and keeping final acceptance human-only.
 
 Approval records the S6/S7/S8 placement only. Tracker reconciliation after merge
-does not authorize T26–T29 implementation; S6 implementation remains separately
-gated.
+did not authorize T26–T29 implementation; the later explicit S6 authorization
+did. S7–S8 remain separately gated.
 
 ## 5. Project setup strategy
 
