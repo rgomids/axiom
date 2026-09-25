@@ -130,14 +130,21 @@ rejects a changed observation.
 The inspector is a pure read-only function over current state, bounded local
 generations, Provider observations, and Repository references. It returns only:
 
-1. validated current local truth with aligned lifecycle projection;
+1. validated current local truth, plus the shared T27 projection preview when a
+   recognized Provider drift has deterministic reconciliation effects;
 2. one exact validated local-generation recovery plan requiring fresh authority;
 3. `recovery_required` with reason and human decision.
 
-Provider-only, Repository-only, changed-artifact, unknown-label, contradictory,
-missing-generation, and multiple-generation fixtures produce no Execution and no
-transition. One validated generation binds its name and digest; stale authority
-does not match. Before/after state digests in the read-only test are identical.
+Aligned Provider observations return current truth with zero effects. Missing or
+obsolete flags, one recognized S4 lifecycle label, and a missing projection
+comment return current truth plus only the T27 effects needed for convergence.
+Zero/unknown/multiple lifecycle labels, Provider-only, Repository-only,
+changed-artifact, contradictory, missing-generation, and multiple-generation
+fixtures produce no Execution and no transition. A structurally valid generation
+whose lifecycle cannot be derived is not a recovery candidate. One semantically
+valid generation binds its name and digest; stale authority does not match.
+Before/after state and Provider-observation digests in read-only tests are
+identical.
 
 ## Commands and exit status
 
@@ -173,6 +180,30 @@ After the dogfood remediation, GitHub Actions run `36082452489` completed the
 repository POC verification successfully on both `ubuntu-24.04` (59 seconds) and
 `macos-15` (1 minute 17 seconds). This CI result supplements rather than replaces
 the deterministic local Evidence above.
+
+### PR #96 validation remediation — 2026-09-25
+
+The T29 correction was validated in a modified worktree based on PR head
+`06b4a2316d77270a81f8deb58e2fc09a093daa2b`. The patch adds semantic lifecycle
+validation for local-generation recovery and makes T27 projection-preview
+construction reusable by read-only T29 inspection. No commit identity, clean
+source state, Provider effect, recovery mutation, merge, or human acceptance is
+claimed for this worktree validation.
+
+The following requested commands ran from the Repository root and exited `0`:
+
+```text
+go test ./...
+go vet ./...
+go build ./...
+go mod verify
+go test -count=1 ./internal/workflow -run 'Lifecycle|Projection|Reconciliation'
+go test -race -count=1 ./internal/workflow ./internal/workitem ./internal/githubissues
+./scripts/validate-repository.sh .
+./scripts/validate-agent-package.sh .
+./scripts/check-sensitive-files.sh .
+git diff --check
+```
 
 ## Requirement and acceptance coverage
 

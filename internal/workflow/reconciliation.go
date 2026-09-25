@@ -32,6 +32,7 @@ type RecoveryEffect struct {
 type ReconciliationResult struct {
 	Kind       ReconciliationKind
 	Lifecycle  *LifecycleProjection
+	Projection *ProjectionPreview
 	Recovery   *RecoveryEffect
 	Reason     string
 	NeedsHuman bool
@@ -52,13 +53,11 @@ func InspectReconciliation(input ReconciliationInput) ReconciliationResult {
 			return recoveryRequired("repository_reference_mismatch")
 		}
 		if input.Provider != nil {
-			if !validProjectionObservation(input.Current.WorkItem, *input.Provider) {
-				return recoveryRequired("invalid_provider_observation")
-			}
-			observed, legacy, err := observedLifecycleStage(input.Provider.IssueLabels)
-			if err != nil || legacy || observed != lifecycleLabel(lifecycle.Stage) || !providerFlagsAligned(input.Provider.IssueLabels, lifecycle.Conditions) {
+			preview, err := prepareProjectionPreview(*input.Current, lifecycle, *input.Provider)
+			if err != nil {
 				return recoveryRequired("provider_projection_drift")
 			}
+			return ReconciliationResult{Kind: ReconciliationCurrentTruth, Lifecycle: &lifecycle, Projection: &preview}
 		}
 		return ReconciliationResult{Kind: ReconciliationCurrentTruth, Lifecycle: &lifecycle}
 	}
@@ -118,6 +117,9 @@ func (result ReconciliationResult) Authorizes(authority RecoveryAuthority) bool 
 
 func validGeneration(generation LocalGeneration) bool {
 	if !generation.Validated || generation.Name == "" || !validDigest(generation.Digest) || !ValidState(generation.State) {
+		return false
+	}
+	if _, err := DeriveLifecycle(generation.State); err != nil {
 		return false
 	}
 	wire := cloneState(generation.State)

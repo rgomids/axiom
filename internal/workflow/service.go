@@ -644,26 +644,36 @@ func (s Service) save(ctx context.Context, state State, status Status, category 
 }
 
 func (s Service) projectionPreview(ctx context.Context, state State) (ProjectionPreview, ProjectionObservation, error) {
-	key := projectionKey(state.ExecutionID, state.Revision)
 	lifecycle, lifecycleErr := DeriveLifecycle(state)
 	if lifecycleErr != nil {
 		return ProjectionPreview{}, ProjectionObservation{}, ErrRecoveryRequired
 	}
 	label := lifecycleLabel(lifecycle.Stage)
+	key := projectionKey(state.ExecutionID, state.Revision)
 	observation, err := s.projection.Inspect(ctx, state.WorkItem, label, key)
 	if err != nil {
 		return ProjectionPreview{}, ProjectionObservation{}, err
 	}
+	preview, err := prepareProjectionPreview(state, lifecycle, observation)
+	return preview, preview.Observation, err
+}
+
+func prepareProjectionPreview(state State, lifecycle LifecycleProjection, observation ProjectionObservation) (ProjectionPreview, error) {
 	if !validProjectionObservation(state.WorkItem, observation) {
-		return ProjectionPreview{}, ProjectionObservation{}, &ProjectionError{Kind: ProjectionInvalidResponse}
+		return ProjectionPreview{}, &ProjectionError{Kind: ProjectionInvalidResponse}
 	}
 	observation.RepositoryLabels = sorted(observation.RepositoryLabels)
 	observation.IssueLabels = sorted(observation.IssueLabels)
 	observedStage, legacyStage, err := observedLifecycleStage(observation.IssueLabels)
 	if err != nil {
-		return ProjectionPreview{}, ProjectionObservation{}, err
+		return ProjectionPreview{}, err
 	}
+	label := lifecycleLabel(lifecycle.Stage)
+	key := projectionKey(state.ExecutionID, state.Revision)
 	comment := transitionComment(state, key)
+	if comment == "" {
+		return ProjectionPreview{}, ErrRecoveryRequired
+	}
 	desired := append([]string{label}, lifecycleFlags(lifecycle.Conditions)...)
 	effects := make([]ProjectionEffect, 0, 12)
 	for _, wanted := range desired {
@@ -686,17 +696,17 @@ func (s Service) projectionPreview(ctx context.Context, state State) (Projection
 		effects = append(effects, ProjectionEffect{Kind: PostTransitionComment, Value: comment})
 	}
 	if len(effects) > 16 {
-		return ProjectionPreview{}, ProjectionObservation{}, ErrRecoveryRequired
+		return ProjectionPreview{}, ErrRecoveryRequired
 	}
 	for _, effect := range effects {
 		if !validEffect(effect) {
-			return ProjectionPreview{}, ProjectionObservation{}, ErrRecoveryRequired
+			return ProjectionPreview{}, ErrRecoveryRequired
 		}
 	}
 	observationDigest := digest(observation)
 	preview := ProjectionPreview{ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, ProjectionKey: key, Stage: state.Stage, LifecycleStage: lifecycle.Stage, Label: label, Comment: comment, Effects: effects, Observation: observation, ObservationDigest: observationDigest}
 	preview.Digest = digest(preview)
-	return preview, observation, nil
+	return preview, nil
 }
 
 func reconcileProjectionRecord(state State, revision uint64, observation ProjectionObservation) (State, bool, bool) {
