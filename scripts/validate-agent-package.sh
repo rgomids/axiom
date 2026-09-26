@@ -24,8 +24,15 @@ if find "$TARGET" -path "$TARGET/.git" -prune -o -type l -print -quit | grep -q 
   fail "symlinks are not allowed in Codex packages"
 fi
 
-if [[ -f "$TARGET/CLAUDE.md" || -d "$TARGET/.claude" ]]; then
+# A root CLAUDE.md is allowed only as the exact pointer "@AGENTS.md"; it adds
+# no Claude-specific instructions. Any other Claude artifact is rejected.
+if [[ -d "$TARGET/.claude" || -e "$TARGET/.claude" ]]; then
   fail "Claude artifacts found in Codex package"
+fi
+if [[ -e "$TARGET/CLAUDE.md" || -L "$TARGET/CLAUDE.md" ]]; then
+  if [[ -L "$TARGET/CLAUDE.md" || ! -f "$TARGET/CLAUDE.md" || "$(cat "$TARGET/CLAUDE.md")" != "@AGENTS.md" ]]; then
+    fail "Claude artifacts found in Codex package"
+  fi
 fi
 
 "$SCRIPT_DIR/check-sensitive-files.sh" --directory "$TARGET"

@@ -28,6 +28,26 @@ printf 'EXAMPLE_VALUE=replace-me\n' > "$SAFE_PACKAGE/.env.example"
 "$VALIDATOR" "$SAFE_PACKAGE" >/dev/null 2>&1 \
   || fail "regular package should pass validation"
 
+POINTER_PACKAGE="$TEST_ROOT/pointer"
+new_package "$POINTER_PACKAGE"
+printf '@AGENTS.md\n' > "$POINTER_PACKAGE/CLAUDE.md"
+"$VALIDATOR" "$POINTER_PACKAGE" >/dev/null 2>&1 \
+  || fail "exact CLAUDE.md pointer to AGENTS.md should pass validation"
+
+CLAUDE_PACKAGE="$TEST_ROOT/claude"
+new_package "$CLAUDE_PACKAGE"
+printf '@AGENTS.md\nAlways use Claude-specific instructions.\n' > "$CLAUDE_PACKAGE/CLAUDE.md"
+if "$VALIDATOR" "$CLAUDE_PACKAGE" >/dev/null 2>&1; then
+  fail "CLAUDE.md with its own instructions should fail validation"
+fi
+
+DOT_CLAUDE_PACKAGE="$TEST_ROOT/dot-claude"
+new_package "$DOT_CLAUDE_PACKAGE"
+mkdir "$DOT_CLAUDE_PACKAGE/.claude"
+if "$VALIDATOR" "$DOT_CLAUDE_PACKAGE" >/dev/null 2>&1; then
+  fail ".claude directory should fail validation"
+fi
+
 LINKED_PACKAGE="$TEST_ROOT/linked"
 new_package "$LINKED_PACKAGE"
 printf '# Outside content\n' > "$TEST_ROOT/outside.md"

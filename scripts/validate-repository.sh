@@ -83,7 +83,12 @@ grep -Fq -- 'href="../README.md"' "$ROOT/docs/README.pt-BR.md" \
 grep -Fq -- "$notion_url" "$ROOT/docs/product/README.md" \
   || fail "Notion source is missing from docs/product/README.md"
 
-if find "$ROOT" -path "$ROOT/.git" -prune -o \( -name 'CLAUDE.md' -o -name '.claude' \) -print -quit | grep -q .; then
+# Only the root pointer CLAUDE.md containing exactly "@AGENTS.md" is allowed.
+if find "$ROOT" -path "$ROOT/.git" -prune -o \( -name 'CLAUDE.md' -o -name '.claude' \) -print \
+    | grep -vx "$ROOT/CLAUDE.md" | grep -q .; then
+  fail "Claude-specific artifact found"
+fi
+if [[ -e "$ROOT/CLAUDE.md" || -L "$ROOT/CLAUDE.md" ]] && [[ -L "$ROOT/CLAUDE.md" || ! -f "$ROOT/CLAUDE.md" || "$(cat "$ROOT/CLAUDE.md")" != "@AGENTS.md" ]]; then
   fail "Claude-specific artifact found"
 fi
 

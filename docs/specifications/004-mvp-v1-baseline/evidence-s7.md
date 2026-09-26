@@ -351,10 +351,11 @@ adding exact-target runners is a separately reviewed workflow change.
   version 2. This is pre-existing and was observed but not changed.
 - **Excluded by the approved threat model:** arbitrary malicious same-UID
   interleavings, physical power loss, and media durability.
-- **Repository validators with the operator file.** `validate-repository.sh`
-  and `validate-agent-package.sh` fail only on the untracked operator-owned
-  `CLAUDE.md` (a Claude-specific artifact under repository policy). On a copy
-  of the tree excluding only that file, both pass.
+- **Repository validators and `CLAUDE.md`.** At `408a2b5`,
+  `validate-repository.sh` and `validate-agent-package.sh` failed only on the
+  untracked operator `CLAUDE.md`. After the operator asked to commit it, both
+  validators were changed to allow only a root `CLAUDE.md` whose entire content
+  is `@AGENTS.md`. Any other Claude artifact is still rejected.
 
 ## Commands and results
 
@@ -366,7 +367,7 @@ adding exact-target runners is a separately reviewed workflow change.
 | `./scripts/test-s7-security.sh` | `failures=0 result=pass` |
 | `./scripts/test-s7-native.sh` | `native_row=macos-27.0-arm64-apfs failures=0 result=pass` |
 | `./scripts/check-sensitive-files.sh --staged .`, `gitleaks` (staged and worktree) | pass / no leaks |
-| `./scripts/validate-repository.sh .`, `./scripts/validate-agent-package.sh .` | fail only on the untracked operator `CLAUDE.md`; pass on the tree excluding it |
+| `./scripts/validate-repository.sh .`, `./scripts/validate-agent-package.sh .` | at `408a2b5`: fail only on the untracked operator `CLAUDE.md`, pass without it; after the pointer allowance: pass |
 | `git diff --check` | clean |
 
 Human acceptance of S7 is not inferred from this record.
