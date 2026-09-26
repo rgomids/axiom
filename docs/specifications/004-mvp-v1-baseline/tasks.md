@@ -18,7 +18,9 @@
 
 **S6 Implementation: Explicitly authorized on 2026-09-24. T26–T29 are technically complete at implementation commit `56beb4fc310894ff8de128f52c6a96d22711bec8`; reproducible Evidence is recorded in [S6 Evidence](evidence-s6.md). Human acceptance is not inferred.**
 
-**S7–S8 Implementation: Not authorized.**
+**S7 Implementation: Explicitly authorized on 2026-09-25 (Issue #80). T16–T21 are technically complete at implementation commits `11f2b7decbe4ddef428d4cb3b7e962680100e1db` and `408a2b51f20e797744f9f6ba6eaa00e0061582f9`; T22 has passing native Evidence for the macOS 27.0/arm64/APFS row only, and the two Ubuntu 26.04 rows remain unexecuted blockers. Evidence is recorded in [S7 Evidence](evidence-s7.md). Human acceptance is not inferred.**
+
+**S8 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -58,7 +60,11 @@ Specification 004 — Approved
    -> Human acceptance — Not inferred
 -> S6 Implementation — authorized; T26–T29 technically complete in the delivery branch
    -> Human acceptance — Not inferred
--> S7–S8 Implementation — Not authorized
+-> S7 Implementation — authorized 2026-09-25
+   -> T16–T21 — technically complete at 11f2b7d + 408a2b5
+   -> T22 — macOS 27.0/arm64/APFS native pass; Ubuntu 26.04 rows not executed (blocking)
+   -> Human acceptance — Not inferred
+-> S8 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -1021,4 +1027,6 @@ bounded real Codex Runtime Evidence. Human acceptance is not inferred.**
 
 **S6 (T26–T29) — Explicitly authorized and technically complete at implementation commit `56beb4fc310894ff8de128f52c6a96d22711bec8`, with reproducible [S6 Evidence](evidence-s6.md). Human acceptance is not inferred.**
 
-**S7–S8 Implementation — Not authorized.**
+**S7 (T16–T22) — Explicitly authorized on 2026-09-25. T16–T21 technically complete at implementation commits `11f2b7decbe4ddef428d4cb3b7e962680100e1db` and `408a2b51f20e797744f9f6ba6eaa00e0061582f9`; T22 native Evidence passes on macOS 27.0/arm64/APFS and remains blocked on the unexecuted Ubuntu 26.04 amd64/arm64 ext4 rows. See [S7 Evidence](evidence-s7.md). Human acceptance is not inferred.**
+
+**S8 Implementation — Not authorized.**

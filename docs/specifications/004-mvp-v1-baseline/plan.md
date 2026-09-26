@@ -16,6 +16,8 @@ any successor Slice.
 
 **Issue #94 amendment: Approved, and S6 implementation explicitly authorized on 2026-09-24. Technical implementation is recorded at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not inferred.**
 
+**S7 (T16–T22): explicitly authorized on 2026-09-25. Technical implementation is recorded at `11f2b7decbe4ddef428d4cb3b7e962680100e1db` and `408a2b51f20e797744f9f6ba6eaa00e0061582f9` with [S7 Evidence](evidence-s7.md); T22 Ubuntu native rows remain unexecuted; human acceptance is not inferred.**
+
 This Plan describes how to realize the behavior approved in
 [Specification 004](spec.md). It was explicitly approved by the human reviewer in
 PR #71 on 2026-09-20 together with ADR-0007 and ADR-0008. The next authorized SDD
@@ -210,7 +212,7 @@ With human approval recorded on 2026-09-24, tracker reconciliation is required:
 
 Approval records the S6/S7/S8 placement only. Tracker reconciliation after merge
 did not authorize T26–T29 implementation; the later explicit S6 authorization
-did. S7–S8 remain separately gated.
+did. S7 was separately authorized on 2026-09-25; S8 remains separately gated.
 
 ## 5. Project setup strategy
 
