@@ -18,7 +18,7 @@
 
 **S6 Implementation: Explicitly authorized on 2026-09-24. T26–T29 are technically complete at implementation commit `56beb4fc310894ff8de128f52c6a96d22711bec8`; reproducible Evidence is recorded in [S6 Evidence](evidence-s6.md). Human acceptance is not inferred.**
 
-**S7 Implementation: Explicitly authorized on 2026-09-25 (Issue #80). T16–T21 are technically complete at implementation commits `11f2b7decbe4ddef428d4cb3b7e962680100e1db` and `408a2b51f20e797744f9f6ba6eaa00e0061582f9`; T22 has passing native Evidence for the macOS 27.0/arm64/APFS row only, and the two Ubuntu 26.04 rows remain unexecuted blockers. Evidence is recorded in [S7 Evidence](evidence-s7.md). Human acceptance is not inferred.**
+**S7 Implementation: Explicitly authorized on 2026-09-25 (Issue #80). Current Evidence was executed at `604bd10c29c03606fa948f18937da5c413d51c50`. T16, T17, T19, and T21 are technically complete. T20 is technically complete for the Plan ordering; the Codex skill-set receipt refresh needs a release-format decision. T18 is technically complete except the 365-day Evidence post-retirement boundary, which requires a human decision because no retirement is persisted. T22 has passing native Evidence for the macOS 27.0/arm64/APFS row only, and the two Ubuntu 26.04 rows remain unexecuted blockers. Evidence is recorded in [S7 Evidence](evidence-s7.md). Human acceptance is not inferred.**
 
 **S8 Implementation: Not authorized.**
 
@@ -61,8 +61,10 @@ Specification 004 — Approved
 -> S6 Implementation — authorized; T26–T29 technically complete in the delivery branch
    -> Human acceptance — Not inferred
 -> S7 Implementation — authorized 2026-09-25
-   -> T16–T21 — technically complete at 11f2b7d + 408a2b5
-   -> T22 — macOS 27.0/arm64/APFS native pass; Ubuntu 26.04 rows not executed (blocking)
+   -> T16, T17, T19, T21 — technically complete (Evidence at 604bd10)
+   -> T18 — technically complete; 365-day Evidence boundary: Human decision required
+   -> T20 — technically complete; skill-set receipt refresh: Human decision required
+   -> T22 — macOS 27.0/arm64/APFS native pass at 604bd10; Ubuntu 26.04 rows not executed (blocking)
    -> Human acceptance — Not inferred
 -> S8 Implementation — Not authorized
 ```

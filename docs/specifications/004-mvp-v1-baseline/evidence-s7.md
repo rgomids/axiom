@@ -4,25 +4,39 @@
 
 This record covers Specification 004 Slice S7 only: T16–T22, tracked by
 [Issue #80](https://github.com/rgomids/axiom/issues/80). S7 was explicitly
-authorized on 2026-09-25 (recorded on Issue #80). The implementation is commit
-`11f2b7decbe4ddef428d4cb3b7e962680100e1db` plus the upgrade-resume fix
-`408a2b51f20e797744f9f6ba6eaa00e0061582f9` (tree
-`607eb25e94660b1be786c46b2b120fb002ea7d64`) on branch
-`feat/80-s7-compatibility-recovery`, based on `main` at `8971255` (S6 merge,
-PR #96). The final Evidence runs executed with `HEAD` at `408a2b5`; the only
-tracked differences were the uncommitted status and Evidence documents recorded
-in the following documentation commit, so the exercised code equals `408a2b5`.
+authorized on 2026-09-25 (recorded on Issue #80). The implementation is on
+branch `feat/80-s7-compatibility-recovery`, based on `main` at `8971255` (S6
+merge, PR #96):
+
+| Commit | Content |
+|---|---|
+| `11f2b7decbe4ddef428d4cb3b7e962680100e1db` | S7 delivery (T16–T22) |
+| `408a2b51f20e797744f9f6ba6eaa00e0061582f9` | upgrade resume after all effects |
+| `3eb4427` | maintainer-runtime bootstrap contract and closed `CLAUDE.md` validator (review follow-up) |
+| `b69a93fa66d3aa0bb99c8e77541ed3c240ed503a` | T20: skill files published inside `lingo upgrade` (review follow-up) |
+| `d76a3b3`, `604bd10c29c03606fa948f18937da5c413d51c50` | native-suite script defects exposed by a clean checkout |
+
+**The current Evidence was executed at `604bd10` (tree
+`b9d53a266fdc8dd036623ed162faf13a3243fad2`) with a clean worktree and no
+untracked entries.** The commit that adds this record changes documentation
+only. Results recorded at `408a2b5` are kept below as history only; they do
+not cover later code.
 
 Every destructive, recovery, and upgrade case ran against isolated temporary
 roots created by the tests or scripts. No real user state, installed binary,
-Codex skill root, or Provider was mutated. No GitHub mutation, prerelease,
-release, merge, Issue closure, or human acceptance occurred. Passing tests, CI,
+Codex skill root, or Provider was mutated. The only GitHub mutations were
+explicitly authorized updates to PR #100 (branch push, body, and metadata). No
+prerelease, release, merge, Issue closure, or human acceptance occurred. Passing tests, CI,
 commits, or PR state do not constitute human acceptance.
 
-**Result:** T16–T21 are technically complete with the Evidence below. T22 has
-passing native Evidence for the macOS 27.0/arm64/APFS row only. The Ubuntu
-26.04 amd64/ext4 and arm64/ext4 rows were **not executed** and remain explicit
-blockers for T22 completion.
+**Result at `604bd10`:**
+
+| Task | State |
+|---|---|
+| T16, T17, T19, T21 | technically complete |
+| T18 | technically complete except the 365-day Evidence boundary: **Human decision required** (see [Human decisions required](#human-decisions-required)) |
+| T20 | technically complete for the Plan ordering (binary, receipt, skill files, verification); the Codex skill-set receipt refresh needs a release-format decision (**Human decision required**) |
+| T22 | native pass for macOS 27.0/arm64/APFS only; the Ubuntu 26.04 amd64/ext4 and arm64/ext4 rows were **not executed** and block T22 |
 
 ## Handoff recovery
 
@@ -52,8 +66,8 @@ No S8 multi-agent or multi-runtime concept was present or introduced.
 |---|---|
 | Repository | `rgomids/axiom` |
 | Branch | `feat/80-s7-compatibility-recovery` |
-| Implementation commits | `11f2b7decbe4ddef428d4cb3b7e962680100e1db`, `408a2b51f20e797744f9f6ba6eaa00e0061582f9` |
-| Exercised code | `408a2b5` (tracked differences: documentation only; one untracked operator-owned `CLAUDE.md`, not part of S7) |
+| Implementation commits | see the table above |
+| Exercised code | `604bd10`, clean worktree, `untracked_entries=0` |
 | Go | `go1.26.1 darwin/arm64` |
 | macOS | 27.0, build `26A428`, kernel `27.0.0` |
 | Architecture | `arm64` |
@@ -61,7 +75,7 @@ No S8 multi-agent or multi-runtime concept was present or introduced.
 | Hard-link primitive | available (probed) |
 | Gitleaks | 8.30.1 |
 
-Content digests at `408a2b5`:
+Content digests at `604bd10` (unchanged files keep their `408a2b5` digest):
 
 | Artifact | SHA-256 |
 |---|---|
@@ -71,12 +85,15 @@ Content digests at `408a2b5`:
 | `internal/local/artifact_cleanup.go` | `d37b33e6050a283fbf42615bf09539d60a838d1fc6091c3b4d370b51ccc2374b` |
 | `internal/local/recovery.go` | `97b38004b3dc6948678918a6ec13fa90cd58d4826c745a97e7e28820e73e1f82` |
 | `internal/detailartifact/cleanup.go` | `0a91bbe691a7b11c247626b6056caa836395350a2e0fbb4ae0436349f1b396df` |
-| `internal/install/upgrade.go` | `c807d29bd29f596efd3a63176ba31d6b4ded0eaf0629bdedd16c93f02692521f` |
-| `internal/install/archive.go` | `87898a3d6f8dccc719af4a64009b1a09b471a4076e0794d3470783148c8e4fef` |
+| `internal/install/upgrade.go` | `71712db48b2aaee31cb61fe37b479e2b3ee5b20c5c2e07b10f38c840e03488b7` |
+| `internal/codexruntime/upgrade.go` | `9f031ad8e3200f4a64d179083142ead843b772f94a30e409d0bfabdf62d926d6` |
+| `internal/install/archive.go` | `96aa5482476bcd76196847cac7cb2ebf5600db7cf728e662c633e2fffe1b1184` |
 | `internal/cli/maintenance.go` | `f2a335c1e9cafb971665f297926f59b4fac496fc3bb4a873bbbda05493139fcd` |
-| `cmd/lingo/maintenance.go` | `76ad198b7c69302f1df5fb2c186599a968bb8aa9cddf5bc8719ebb9267e81b34` |
-| `scripts/test-s7-security.sh` | `7977f714d5bb45ad92d0f473d3f23ff8c3b67dc273f29984af044b95a8d3c933` |
-| `scripts/test-s7-native.sh` | `3004e79a34b12e8721f043d18e56ad0551098338478b4d0638cda54ad6826354` |
+| `cmd/lingo/maintenance.go` | `9089019482db59e4e232d1e815c90bc200ac31e3af6f1f11b6bbb27be3756760` |
+| `scripts/test-s7-security.sh` | `5b6aa63e7248aa852e9a3bddf1731dda5383c36e415c927e457613b8ebe71f6d` |
+| `scripts/test-s7-native.sh` | `eef9bb929140a515a242940e5f0e04dc8480006a8dcfb43ec8f1f49301fb80ed` |
+| `scripts/check-claude-bootstrap.sh` | `3cca0c2ef943160095d02eafe7ae1ece43631df23936eb032d31fd77fb8942ac` |
+| `CLAUDE.md` | `336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49` (`@AGENTS.md` + newline) |
 | `scripts/generate-poc-fixture.sh` | `88c8ebd5d0d99ebcfc8e3f4450e3cba9b3c8cd693bfbfbebfa9236ce791b0ad3` |
 
 ## T16 — Compatibility inspection and POC classification
@@ -170,7 +187,7 @@ and preview fails closed (`TestArtifactCleanupFailsClosedOnUncertainReferenceSta
 | `diagnostic`, unreferenced, 31 days and exactly 30 days | eligible |
 | `diagnostic`, 30 days minus 1 second | preserved `diagnostic_within_30_days` |
 | `active`; `preserved_review` | preserved |
-| `evidence`, 400 days | preserved `evidence_retirement_unrecorded` |
+| `evidence`, 400 days, no reference | preserved `evidence_retirement_unrecorded` (the 365-day boundary is not implementable; see [Human decisions required](#human-decisions-required)) |
 | metadata live reference; cross-artifact reference; Execution transition reference; artifact of an interrupted Execution | preserved `referenced` |
 | confirmed cleanup record, 90 days minus 1 minute / plus 1 minute | preserved / eligible |
 
@@ -226,32 +243,66 @@ only if the fresh plan digest is identical.
 before anything else: the single exact `SHA256SUMS` entry; a single bundle
 root; regular files only; a complete `MANIFEST.sha256`; closed release metadata;
 and the approved skill manifest. It then previews the source and target
-versions, archive digest, ordered effects, state classification, skill
-compatibility, and free space.
+versions, archive digest, ordered effects, state classification, skill state,
+and free space in both the binary directory and the Codex skill root.
 
-| Case (`internal/install`) | Outcome |
+**Ordering (Plan §12).** Read-only preflight → exact preview → authority bound
+to the preview digest → re-validation under the installer lock and the Codex
+skill-set lock → binary (published, re-read) → installation receipt → each
+Axiom skill file with its expected digest → compatibility and skill
+verification. Each effect is confirmed individually; there is no cross-root
+transaction.
+
+**Skill ownership.** A present Axiom skill is replaced only when one of these
+holds:
+- the whole installed set reproduces the installation receipt's
+  `skillManifestSha256`;
+- the running binary knows the content as its own or as a legacy digest;
+- a resumed operation recorded the skill's expected revision in the shared
+  `.axiom-install-operation` marker before its first effect.
+
+A missing skill in a configured set is created. Modified, foreign, unsafe, or
+unexpected entries refuse before any effect.
+
+| Case (`internal/install`, `internal/codexruntime`) | Outcome |
 |---|---|
 | Checksum mismatch / missing / duplicate entry | refused |
 | Symlink entry; unlisted file; dirty release metadata; shell metacharacters in version; skewed skill manifest | refused; nothing executed |
-| 1.0.0 → 1.1.0 | ledger: binary then receipt, each re-read and confirmed; `installedAt` preserved; modes `0700`/`0600`; lock and marker removed |
-| Equivalent candidate after upgrade | no effects; no authority issued |
-| Installed skills not matching the candidate | `partial` with next action `lingo runtime codex install` |
-| Interruption after binary publication | `partial` with ledger `[binary]`; marker `stage=binary_committed` with the exact archive digest; a different archive is `recovery_required`; the same archive resumes with the receipt effect only |
-| Interruption after both effects, before marker removal | resumed preview has no publication effect but is authorizable to clear only the owned marker; afterwards a plain no-op (fixed in `408a2b5` after the first Evidence run exposed the stuck state) |
+| 1.0.0 → 1.1.0 with skills already equal to the candidate | ledger binary, receipt; `success`, `skillReceipt=unchanged`; `installedAt` preserved; modes `0700`/`0600`; lock and marker removed |
+| 1.0.0 → 1.1.0 with the owned 1.0.0 skill set | ledger binary, receipt, five skills in order, each confirmed; skill files equal the candidate (`0600` in `0700` directories); `partial` with `skillReceipt=refresh_required`; next preview is a no-op |
+| Known-legacy (historical POC) skills, one skill missing | four replaced, one created (`expected=absent`) |
+| Modified skill; unexpected entry; `0644` skill; symlinked skill directory; interrupted runtime install stage | `skill_conflict`; owned tree unchanged |
+| Upgrade staging leftover without an operation marker | `recovery_required` |
+| Codex skill-set lock held by a concurrent install | `skill_set_busy_or_interrupted`; zero effects |
+| Skill changed after review | `authority_denied`; zero effects |
+| Interruption after each of the 7 ordered effects | `partial`; ledger lists exactly the confirmed prefix; marker records all five expected skill revisions; a different archive is `recovery_required`; the same archive previews exactly the remaining effects (plus a crashed skill stage as a leftover), resumes, removes the leftover and marker, and ends with every skill equal to the candidate |
+| Skill modified after an interruption | resume refused `recovery_required`; zero effects |
+| Interruption after all effects, before marker removal | resumed preview has no publication effect but is authorizable to clear only the owned marker |
 | Downgrade; divergent same version; modified binary; unsupported host row; concurrent lock; installer marker; hard-linked binary; symlinked receipt; POC state; permissive target | refused before any effect; owned tree unchanged |
 | Receipt changed after review; insufficient space | denied / refused with zero effects |
+| `PublishUpgradeSkill` with a mismatched or absent expectation; non-Axiom name | refused; no staging left |
 | SemVer precedence including pre-release and build metadata | verified |
+
+**Codex skill-set receipt.** `.axiom-skill-set.receipt` is derived from the
+installing binary's runtime `skillSetVersion`/`binaryCompatibility` (currently
+`2`/`2`). Release archive format 1 does not carry the candidate's values; its
+skill manifest declares `1`/`1`. The upgrade therefore never writes that
+receipt. When skill files change, it reports `partial` with
+`skillReceipt=refresh_required` and the next action
+`lingo runtime codex install` with the upgraded binary. The native row shows
+that this action makes the runtime compatible. See
+[Human decisions required](#human-decisions-required).
 
 The upgrade shares the installer's `.axiom-install.lock` and
 `.axiom-install-operation` names, so each refuses the other's interrupted state.
-There is no cross-root transaction, automatic rollback, downgrade, or automatic
-update.
+It also takes the Codex runtime's `.axiom-skill-set.lock`. There is no automatic
+rollback, downgrade, or automatic update.
 
 ## T21 — Cross-slice security and bounded-I/O regression
 
 `scripts/test-s7-security.sh` names exact tests per requirement alias and fails
 when a name no longer exists, so an empty match cannot pass silently. The run
-at `408a2b5` reported `failures=0 result=pass`:
+at `604bd10` reported `failures=0 result=pass`:
 
 | Requirement aliases | Owning tests (package) |
 |---|---|
@@ -264,8 +315,9 @@ at `408a2b5` reported `failures=0 result=pass`:
 | MVP-SEC-09, FR-025, FR-033 | cleanup eligibility, capacity, retention, and partial tests; recovery F-stage, preserved, and directory tests |
 | MVP-NFR-01 | completion status classification matrix |
 | MVP-NFR-03 | manifest byte/depth/node limits; inventory entry bound |
-| FR-023, SEC-004 | upgrade interruption and resume; skill-incompatible partial; Work Item confirmed-effect partial |
-| FR-036 | historical POC skill set is known legacy and upgraded by the authorized flow |
+| FR-023, SEC-004 | upgrade interruption at every ordered effect and resume; skill changed after interruption; Work Item confirmed-effect partial |
+| FR-036, MVP-SEC-06, SEC-005 | historical POC skill set is known legacy; owned skill publication, legacy replacement, skill conflicts, expected-revision publication, staging leftovers |
+| MVP-SEC-01, MVP-SEC-05 | skill stale authority and concurrent Codex install |
 
 Also in that run: `go test -race` on the S7 packages passed;
 `check-sensitive-files.sh` passed; `gitleaks detect --source . --no-git`
@@ -286,28 +338,32 @@ supplemental, not proof of absence.
 `scripts/test-s7-native.sh` detects the exact row, probes case behavior and
 hard links, runs named test groups, then drives real archives through the
 published installer and the owned upgrade on the native filesystem. Result on
-`macos-27.0-arm64-apfs` at `408a2b5`: 28 passing steps, `failures=0 result=pass`.
+`macos-27.0-arm64-apfs` at `604bd10`: `source_state=clean`,
+`untracked_entries=0`, `archive_kind=release`, 34 passing steps,
+`failures=0 result=pass`.
 
 | Step | Result |
 |---|---|
 | F0–F8 publication; two-process barriers; traversal/link/replacement; ownership/mode/ACL | pass |
-| Artifact capacity/cleanup; guided recovery; compatibility/transfer; upgrade units; race | pass |
+| Artifact capacity/cleanup; guided recovery; compatibility/transfer; upgrade units (including skill publication, interruption at every effect, skill conflicts); race | pass |
 | Existing release-archive suite | pass |
-| Build 1.0.0 and 1.1.0 archives (development, see limitations) | pass |
+| Build 1.0.0 and 1.1.0 **release-mode** archives | pass |
 | Clean install; equivalent reinstall `unchanged`; installer refuses owned upgrade | pass |
 | Upgrade preview read-only; stale digest `denied_authority`; apply; receipt version and binary digest verified | pass |
 | Equivalent upgrade no-op; installer accepts the upgraded receipt as `unchanged`; downgrade refused | pass |
 | Native resume: binary committed, receipt pending; installer refuses; preview shows receipt only; apply succeeds; marker cleared | pass |
+| Native skills: historical POC skill set; preview has five skill effects; apply reports `skillReceipt=refresh_required`; published files equal the 1.1.0 archive skills; no staging or marker left; upgraded binary's `runtime codex install` then reports a compatible runtime | pass |
 
 | Row | Status |
 |---|---|
-| macOS 27.0 / arm64 / APFS (case-insensitive) | **pass** at `11f2b7d` and again at `408a2b5` |
-| Ubuntu 26.04 / amd64 / ext4 | **not executed**: no environment available; release blocker |
-| Ubuntu 26.04 / arm64 / ext4 | **not executed**: no environment available; release blocker |
+| macOS 27.0 / arm64 / APFS (case-insensitive) | **pass** at `604bd10` (history: also at `11f2b7d` and `408a2b5` with development archives) |
+| Ubuntu 26.04 / amd64 / ext4 | **not executed**: no matching environment is available (no VM, container, or remote runner on this host); blocks T22 and release |
+| Ubuntu 26.04 / arm64 / ext4 | **not executed**: same reason; blocks T22 and release |
 
 Cross-compilation is not substituted for native Evidence. The existing
-`macos-15`/`ubuntu-24.04` workflow remains historical and was not changed;
-adding exact-target runners is a separately reviewed workflow change.
+`macos-15`/`ubuntu-24.04` workflow is a regression check, not T22 Evidence. It
+was not changed; adding exact-target runners is a separately reviewed workflow
+change.
 
 ## Discovered pre-existing defects fixed in S7
 
@@ -323,51 +379,165 @@ adding exact-target runners is a separately reviewed workflow change.
    as files by GNU tar on Ubuntu, failing the installer there.
    `build-release-archives.sh` now sets `COPYFILE_DISABLE=1`; the strict Go
    archive reader rejects such entries.
+3. **Native suite on a clean checkout (S7).** With no untracked files,
+   `test-s7-native.sh` expanded an empty array under `set -u`, which macOS bash
+   3.2 rejects, so it aborted before building archives. Earlier runs only
+   passed because an untracked file forced development mode. Fixed in
+   `d76a3b3`.
 
 ## Limitations and unexecuted cases
 
 - **T22 Ubuntu rows were not executed.** They remain blocking for T22 and for
   release; no Ubuntu behavior is claimed.
-- **Development archives.** Native archives were built with `--development`
-  because the untracked operator file makes the checkout dirty for the release
-  builder (`release=false`, development provenance). Clean release-mode
-  archives remain RC Evidence work.
-- **Evidence retention.** Evidence-class artifacts are never age-eligible:
-  metadata format 1 records no reference-retirement time, so the Plan's "365
-  days after retirement" cannot be computed without risking early removal.
-  Enabling it needs a recorded retirement time, which is a persisted-format
-  change requiring a reviewed decision.
+- **Native archives** at `604bd10` are release-mode builds from a clean
+  checkout of an unpublished branch. They are not identified RC archives
+  (T23/S8 work).
+- **Evidence retention.** Evidence-class artifacts are never age-eligible; see
+  [Human decisions required](#human-decisions-required).
 - **Interrupted S2 attempt markers** (`.lingo-install-*`,
   `.lingo-attempt-*`) have no prior/new generation facts and are always
   `preserved_review`.
-- **Skill upgrade.** `lingo upgrade` does not write skill files. It reports
-  skill compatibility, and the known-legacy skill set is upgraded by the
-  existing authorized `lingo runtime codex install` of the new binary.
+- **Skill-set receipt.** `lingo upgrade` publishes skill files but not the
+  Codex skill-set receipt; see [Human decisions required](#human-decisions-required).
+- **Upgrade skill ownership by set proof** reconstructs the release skill
+  manifest in the format `build-release-archives.sh` writes today. A future
+  manifest format change must keep this reconstruction in step, or the
+  set proof fails closed to per-skill ownership.
 - **Stale upgrade lock.** A process killed while holding
   `.axiom-install.lock` leaves it in place, as the installer does; both report
   busy until an operator confirms no operation is running.
 - **Skill manifest version skew.** The release skill manifest declares
   `skillSetVersion=1`/`binaryCompatibility=1` while the runtime receipt uses
-  version 2. This is pre-existing and was observed but not changed.
+  version 2. This is pre-existing and is the root cause of the skill-set
+  receipt decision below. It was not changed.
 - **Excluded by the approved threat model:** arbitrary malicious same-UID
   interleavings, physical power loss, and media durability.
-- **Repository validators and `CLAUDE.md`.** At `408a2b5`,
-  `validate-repository.sh` and `validate-agent-package.sh` failed only on the
-  untracked operator `CLAUDE.md`. After the operator asked to commit it, both
-  validators were changed to allow only a root `CLAUDE.md` whose entire content
-  is `@AGENTS.md`. Any other Claude artifact is still rejected.
+- **Local `.claude/` directories fail validation by design.** A maintainer
+  whose Claude client creates project-level configuration must keep it outside
+  the checkout, or first obtain a recorded decision.
+
+## Maintainer runtime bootstrap (not S8)
+
+By human decision (2026-09-26, PR #100), Codex and Claude are both maintainer
+runtimes for this repository. `AGENTS.md` records the contract ("Maintainer
+runtimes"):
+- `AGENTS.md` remains the single canonical agent policy;
+- the only runtime-specific file is a regular root `CLAUDE.md` whose entire
+  content is `@AGENTS.md`;
+- anything else (other content or target, nested or differently cased
+  `CLAUDE.md`, `CLAUDE.local.md`, `.claude/`, symlinks) requires an explicit
+  recorded decision.
+
+`scripts/check-claude-bootstrap.sh` enforces this for both
+`validate-repository.sh` and `validate-agent-package.sh`.
+`scripts/test-check-claude-bootstrap.sh` covers 20 cases:
+- pass: absent file, exact pointer, exact pointer without a final newline;
+- fail: own instructions, extra blank line, CRLF, other targets, prose,
+  nested, differently cased, `CLAUDE.local.md`, `.claude` directory, file, or
+  nested directory, symlinks inside and outside the root, directory,
+  missing or symlinked `AGENTS.md`.
+
+`test-validate-agent-package.sh` adds end-to-end different-target and nested
+cases. The root `CLAUDE.md` is therefore not a finding under this contract.
+
+This is **maintainer/runtime bootstrap support** for developing this
+repository. It is not **Axiom product multi-runtime orchestration** (Runtime
+and model resolution, Execution Graph, child Executions, cross-runtime
+coordination, budgets). That remains Slice S8, tracked by Issue #97, and is
+neither implemented nor evidenced here.
+
+## Human decisions required
+
+### T18 — Evidence 365-day post-retirement retention
+
+**Human decision required.** The approved rule makes an Evidence artifact
+eligible "365 days after every Evidence reference is explicitly retired". It
+cannot be implemented correctly on the current persisted model.
+
+1. **Missing information.** No authoritative record exists that an Evidence
+   reference was explicitly retired, or when. `metadata.json` format 1 records
+   `createdAt`, `references`, `liveReferences`, `supersededBy`, and
+   `cleanupState` (always `retained`). Execution records hold transition
+   references. No command or store operation retires a reference.
+2. **Why it is impossible today.**
+   - The window starts at an explicit act that is never persisted.
+   - `createdAt` is not retirement.
+   - An unreferenced artifact may never have been referenced, or may have lost
+     its reference in a way Axiom cannot attribute.
+   - The metadata decoder is closed (`DisallowUnknownFields`, `formatVersion`
+     1), so no field can be added compatibly.
+
+   Any inference could delete Evidence early. The current fail-closed
+   behavior (`evidence_retirement_unrecorded`, never eligible) is the only
+   correct one. The 30-day (`diagnostic`) and 90-day (cleanup record)
+   boundaries are implemented and tested with a fake clock.
+3. **Smallest evolution.** Add an explicit, separately authorized "retire
+   Evidence references" operation, published under the state-root lock
+   through the ADR-0007 protocol. It writes a bounded owned retirement record
+   per artifact (artifact ID, digest, retired reference identities, retirement
+   time), for example under `artifacts/v1/retirements/`. Artifact metadata v1
+   stays unchanged. Cleanup counts 365 days from the recorded time and only
+   when no live reference remains.
+4. **Compatibility and migration.** No backfill: an absent record means "not
+   retired", which preserves today's behavior for all existing artifacts. The
+   compatibility inspector must learn the new record type; older binaries
+   would classify it as unknown content (`malformed`), which blocks mutation
+   rather than losing data. That requires a reviewed state-format decision.
+5. **Security and recovery impact.**
+   - Retirement becomes a precursor to deletion authority, so it needs exact
+     preview/authority, audit, lock, and stale-reference refusal.
+   - Recovery must classify interrupted retirement publication like other
+     ADR-0007 objects.
+   - A wrong local clock could shorten the window, exactly as it can for the
+     30/90-day rules.
+6. **Recommendation.** Keep the current fail-closed behavior for the MVP.
+   Record in the Plan that Evidence post-retirement cleanup is deferred until
+   an explicit retirement operation is specified and approved. Specify that
+   operation as a separate reviewed change rather than inside S7.
+
+Until decided, T18's "30/365/90-day" boundary obligation is met for 30 and 90
+days only.
+
+### T20 — Codex skill-set receipt after an upgrade
+
+**Human decision required** (it does not block the Plan ordering, which is
+implemented):
+
+- **Problem.** The upgrade publishes skill files but cannot publish the
+  candidate's `.axiom-skill-set.receipt`, because release archive format 1
+  does not carry the candidate binary's runtime
+  `skillSetVersion`/`binaryCompatibility`. Its manifest says `1`/`1`; the
+  runtime uses `2`/`2`.
+- **Options.**
+  - (a) Extend the release skill manifest with the runtime identity, so the
+    upgrade can publish a self-verifying skill-set receipt. This is a release
+    format, installer, and `LoadCandidate` change.
+  - (b) Keep the current explicit `partial` + `refresh_required` + next action.
+  - (c) Execute the upgraded binary after publication. This is a new trust
+    topology.
+- **Recommendation.** (b) for S7, and (a) as a reviewed release-format
+  decision before RC.
 
 ## Commands and results
 
+All at `604bd10`, clean worktree:
+
 | Command | Result |
 |---|---|
-| `go build ./...`, `go vet ./...`, `go mod verify` | pass |
+| `go build ./...`, `go vet ./...`, `go mod verify` | pass; all modules verified |
 | `go test ./... -count=1` | pass (all packages) |
-| `go test -race` (compatibility, install, local, detailartifact, codexruntime, cli, cmd/lingo) | pass |
-| `./scripts/test-s7-security.sh` | `failures=0 result=pass` |
-| `./scripts/test-s7-native.sh` | `native_row=macos-27.0-arm64-apfs failures=0 result=pass` |
-| `./scripts/check-sensitive-files.sh --staged .`, `gitleaks` (staged and worktree) | pass / no leaks |
-| `./scripts/validate-repository.sh .`, `./scripts/validate-agent-package.sh .` | at `408a2b5`: fail only on the untracked operator `CLAUDE.md`, pass without it; after the pointer allowance: pass |
+| `go test -race ./internal/compatibility ./internal/install ./internal/local ./internal/detailartifact ./internal/codexruntime ./internal/cli ./cmd/lingo -count=1` | pass |
+| `./scripts/test-s7-security.sh` | 28 case groups pass; `failures=0 result=pass` (includes race, sensitive files, gitleaks worktree) |
+| `./scripts/test-s7-native.sh` | `native_row=macos-27.0-arm64-apfs archive_kind=release failures=0 result=pass` (34 steps) |
+| `./scripts/validate-repository.sh .` | pass (runs `check-claude-bootstrap.sh` and its test) |
+| `./scripts/validate-agent-package.sh .` | pass |
+| `./scripts/check-sensitive-files.sh .`; `--staged` before each commit | pass |
+| `./scripts/test-check-claude-bootstrap.sh` | pass (20 cases) |
+| `./scripts/test-validate-agent-package.sh` | pass |
+| `gitleaks detect --source .` (209 commits) and `--no-git`; `gitleaks protect --staged` before each commit | no leaks |
 | `git diff --check` | clean |
+
+History: at `408a2b5` the same suite passed except the repository validators,
+which then failed only on the untracked `CLAUDE.md`.
 
 Human acceptance of S7 is not inferred from this record.

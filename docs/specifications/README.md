@@ -134,8 +134,9 @@ observation are recorded in
 [S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). Human acceptance is not
 inferred. S6 T26–T29 were explicitly authorized and their technical delivery is
 recorded in [S6 Evidence](004-mvp-v1-baseline/evidence-s6.md). S7 T16–T22 were
-explicitly authorized on 2026-09-25; T16–T21 technical delivery and macOS 27.0
-native T22 Evidence are recorded in [S7 Evidence](004-mvp-v1-baseline/evidence-s7.md),
+explicitly authorized on 2026-09-25; their technical delivery, macOS 27.0
+native T22 Evidence, and two recorded human decisions (T18 Evidence retention,
+T20 skill-set receipt) are in [S7 Evidence](004-mvp-v1-baseline/evidence-s7.md),
 with the Ubuntu 26.04 native rows still unexecuted. S8 implementation remains
 separately gated.
 

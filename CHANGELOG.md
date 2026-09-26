@@ -2,6 +2,20 @@
 
 ## [2026-09-26]
 
+- implementation: `lingo upgrade` publishes the candidate's verified Codex skill
+  files after the binary and receipt. Each file needs an expected digest,
+  owned content, and the skill-set lock, and takes part in preview, authority,
+  the ledger, interruption, and resume. When skill files change, the
+  skill-set receipt is left for the upgraded binary and reported as
+  `refresh_required`.
+- governance: Codex and Claude are both maintainer runtimes. `AGENTS.md`
+  stays the single agent policy; the only allowed runtime bootstrap is a root
+  `CLAUDE.md` containing exactly `@AGENTS.md`, enforced by
+  `scripts/check-claude-bootstrap.sh`. This is not S8 product multi-runtime
+  orchestration.
+- fix: the S7 native suite no longer aborts on a clean checkout under macOS
+  bash 3.2, and asserts the runtime status result correctly.
+
 - implementation: deliver authorized MVP S7 (T16–T22) maintenance paths:
   read-only `compatibility inspect`; separately authorized POC `compatibility
   backup` and portable `compatibility export`; reference-aware `artifact
