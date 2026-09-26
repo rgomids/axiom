@@ -118,7 +118,7 @@ func TestArtifactCleanupEligibilityMatrixUsesAuthoritativeReferences(t *testing.
 	if len(effects) != 2 || !effects[eligible.ID] || !effects[boundary.ID] {
 		t.Fatalf("effects=%+v", preview.Effects)
 	}
-	for id, reason := range map[string]string{young.ID: "diagnostic_within_30_days", active.ID: "active", evidence.ID: "evidence_retirement_unrecorded", review.ID: "preserved_review", live.ID: "referenced", crossTarget.ID: "referenced", referenced.ID: "referenced", owned.ID: "referenced"} {
+	for id, reason := range map[string]string{young.ID: "diagnostic_within_30_days", active.ID: "active", evidence.ID: "evidence_not_retired", review.ID: "preserved_review", live.ID: "referenced", crossTarget.ID: "referenced", referenced.ID: "referenced", owned.ID: "referenced"} {
 		if got := preservedReason(preview, id); got != reason {
 			t.Fatalf("artifact %s reason=%q want %q", id, got, reason)
 		}

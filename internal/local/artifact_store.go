@@ -140,6 +140,9 @@ func (s ArtifactStore) create(ctx context.Context, artifact detailartifact.Artif
 		}
 		return ErrRecoveryRequired
 	}
+	if err := s.supersedeRetirements(root, artifact); err != nil {
+		return err
+	}
 	if _, err := shard.Lstat(artifact.ID); err == nil {
 		return ErrConflict
 	} else if !os.IsNotExist(err) {

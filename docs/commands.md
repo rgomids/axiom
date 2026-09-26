@@ -613,14 +613,23 @@ Explicit, reference-aware artifact cleanup:
 ```bash
 lingo --json artifact cleanup
 lingo --json artifact cleanup --preview-digest <digest> --authorize-local
+lingo --json artifact retire --artifact <artifact-id>
+lingo --json artifact retire --artifact <artifact-id> --preview-digest <digest> --authorize-local
 ```
 
-Only unreferenced `diagnostic` artifacts at least 30 days old and confirmed
-cleanup records at least 90 days old are eligible. References come from every
-local Execution record under the state-root lock; uncertain reference state
-fails closed. `active`, `preserved_review`, referenced, and `evidence` artifacts
-are preserved. Evidence artifacts stay preserved because metadata format 1 does
-not record when Evidence references were retired. Each authorized batch removes
+Eligible: unreferenced `diagnostic` artifacts at least 30 days old, `evidence`
+artifacts at least 365 days after an explicit retirement, and confirmed cleanup
+records at least 90 days old. References come from every local Execution record
+and artifact under the state-root lock; uncertain reference state fails closed.
+`active`, `preserved_review`, and referenced artifacts are always preserved.
+
+`artifact retire` records that Evidence has no live reference; it removes
+nothing. It is denied for any referenced, non-Evidence, or already retired
+artifact, and writes `artifacts/v1/retirements/<id>.json` (format 1, separate
+from metadata format 1) bound to the exact artifact revision. Evidence without a
+retirement, or with a corrupt, stale, or other-revision retirement, is preserved.
+A new artifact that references a retired artifact supersedes its retirement, so
+a later retirement must be recorded explicitly. Each authorized batch removes
 at most 128 exact objects and publishes a bounded cleanup record before removal.
 Capacity exhaustion never deletes anything.
 

@@ -168,8 +168,10 @@ func recoveryDirectories(ctx context.Context, scope, path string) ([]string, err
 			return nil, err
 		}
 	}
-	if chainExists(root, []string{"artifacts", "v1", "cleanup"}) {
-		directories = append(directories, "artifacts/v1/cleanup")
+	for _, name := range []string{"cleanup", "retirements"} {
+		if chainExists(root, []string{"artifacts", "v1", name}) {
+			directories = append(directories, "artifacts/v1/"+name)
+		}
 	}
 	sort.Strings(directories)
 	return directories, ctx.Err()

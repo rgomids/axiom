@@ -158,6 +158,54 @@ func (s lifecycleService) ArtifactCleanup(ctx context.Context, input cli.Mainten
 	}
 }
 
+type retirementView struct {
+	Preview detailartifact.RetirementPreview `json:"preview"`
+	Result  *local.RetirementResult          `json:"result,omitempty"`
+}
+
+// ArtifactRetire records an explicit Evidence retirement: preview, exact
+// authority, and revalidation under lock. Nothing is removed; the 365-day
+// cleanup window starts at the published retirement.
+func (s lifecycleService) ArtifactRetire(ctx context.Context, input cli.MaintenanceInput) cli.Result {
+	store, err := local.NewArtifactStore(s.stateRoot)
+	if err != nil {
+		return s.maintenanceResult(completion.Facts{ValidationFailed: true}, "Artifact root is unsafe", nil, "Use an absolute non-root LINGO_STATE_ROOT", nil)
+	}
+	preview, err := store.PreviewRetirement(ctx, time.Now().UTC(), input.ArtifactID)
+	switch {
+	case errors.Is(err, local.ErrUnsafe):
+		return s.maintenanceResult(completion.Facts{ValidationFailed: true}, "Artifact identity is invalid", nil, "Provide an artifact identity from a Lingo detail reference", nil)
+	case errors.Is(err, local.ErrNotFound):
+		return s.maintenanceResult(completion.Facts{ValidationFailed: true}, "Artifact was not found", nil, "Provide an existing artifact identity", nil)
+	case errors.Is(err, local.ErrConflict):
+		return s.maintenanceResult(completion.Facts{RetrySafeFailure: true}, "Artifact state is locked by another operation", nil, "Retry after the other operation completes", nil)
+	case err != nil:
+		return s.maintenanceResult(completion.Facts{Failed: true}, "Artifact or reference state is uncertain; retirement is denied", nil, "Run `lingo recovery inspect` and resolve preserved state before retirement", nil)
+	}
+	view := retirementView{Preview: preview}
+	references := []string{"retirement:" + preview.Digest}
+	if preview.Denied != "" {
+		return s.maintenanceResult(completion.Facts{AuthorityDenied: true}, "Artifact retirement denied: "+preview.Denied, references, "Only unreferenced, unretired Evidence can be retired", view)
+	}
+	if !input.AuthorizeLocal {
+		return s.maintenanceResult(completion.Facts{Completed: true}, "Artifact retirement preview ready", references, "Review the artifact, then repeat with --preview-digest "+preview.Digest+" --authorize-local", view)
+	}
+	authority, err := detailartifact.AuthorizeRetirement(preview, input.PreviewDigest)
+	if err != nil {
+		return s.maintenanceResult(completion.Facts{AuthorityDenied: true}, "Artifact retirement authority is missing or stale", nil, "Review the current preview and authorize its exact digest", view)
+	}
+	result, err := store.ApplyRetirement(ctx, preview, authority)
+	switch {
+	case err == nil:
+		view.Result = &result
+		return s.maintenanceResult(completion.Facts{Completed: true}, "Evidence retirement recorded", append(references, "retirement-record:"+result.RecordID), "Evidence becomes cleanup-eligible 365 days after retirement unless referenced again", view)
+	case errors.Is(err, local.ErrConflict):
+		return s.maintenanceResult(completion.Facts{AuthorityDenied: true}, "Artifact state changed after review", nil, "Prepare and review a fresh preview", nil)
+	default:
+		return s.maintenanceResult(completion.Facts{Failed: true}, "Artifact retirement was not confirmed", nil, "Run `lingo recovery inspect` before any further retirement or cleanup", nil)
+	}
+}
+
 type recoveryView struct {
 	Plans      []local.RecoveryPlan  `json:"plans"`
 	PlansTotal int                   `json:"plansTotal"`

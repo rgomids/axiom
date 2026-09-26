@@ -15,6 +15,13 @@ type MaintenanceInput struct {
 	Target, Archive, Checksums, BinaryDir, ReceiptDir string
 	PreviewDigest                                     string
 	AuthorizeLocal                                    bool
+	ArtifactID                                        string
+}
+
+// ArtifactRetirementService is optional beside MaintenanceService so existing
+// presentation fakes keep compiling; without it retirement is unavailable.
+type ArtifactRetirementService interface {
+	ArtifactRetire(context.Context, MaintenanceInput) Result
 }
 
 // MaintenanceService is optional so presentation fakes need not implement it;
@@ -34,6 +41,7 @@ const (
 	compatibilityBackupAction  action = "compatibility_backup"
 	compatibilityExportAction  action = "compatibility_export"
 	artifactCleanupAction      action = "artifact_cleanup"
+	artifactRetireAction       action = "artifact_retire"
 	recoveryInspectAction      action = "recovery_inspect"
 	recoveryApplyAction        action = "recovery_apply"
 	upgradeAction              action = "upgrade"
@@ -55,6 +63,8 @@ func maintenanceAction(args []string) (action, []string, bool) {
 		return compatibilityExportAction, args[2:], true
 	case "artifact cleanup":
 		return artifactCleanupAction, args[2:], true
+	case "artifact retire":
+		return artifactRetireAction, args[2:], true
 	case "recovery inspect":
 		return recoveryInspectAction, args[2:], true
 	case "recovery apply":
@@ -78,6 +88,9 @@ func maintenanceFlags(operation action, args []string) (MaintenanceInput, string
 	if operation == compatibilityBackupAction || operation == compatibilityExportAction {
 		set.StringVar(&input.Target, "target", "", "")
 	}
+	if operation == artifactRetireAction {
+		set.StringVar(&input.ArtifactID, "artifact", "", "")
+	}
 	if operation == upgradeAction {
 		set.StringVar(&input.Archive, "archive", "", "")
 		set.StringVar(&input.Checksums, "checksums", "", "")
@@ -94,6 +107,8 @@ func maintenanceFlags(operation action, args []string) (MaintenanceInput, string
 	case (operation == compatibilityBackupAction || operation == compatibilityExportAction) && input.Target == "":
 		return input, "missing_required_input"
 	case operation == upgradeAction && (input.Archive == "" || input.Checksums == "" || input.BinaryDir == "" || input.ReceiptDir == ""):
+		return input, "missing_required_input"
+	case operation == artifactRetireAction && input.ArtifactID == "":
 		return input, "missing_required_input"
 	case operation == recoveryApplyAction && (input.PreviewDigest == "" || !input.AuthorizeLocal):
 		return input, "missing_required_input"
@@ -128,6 +143,12 @@ func runMaintenance(ctx context.Context, mode outputMode, operation action, args
 		response = maintenance.CompatibilityExport(ctx, input)
 	case artifactCleanupAction:
 		response = maintenance.ArtifactCleanup(ctx, input)
+	case artifactRetireAction:
+		retirement, ok := service.(ArtifactRetirementService)
+		if !ok {
+			return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: "application_unavailable"})
+		}
+		response = retirement.ArtifactRetire(ctx, input)
 	case recoveryInspectAction:
 		response = maintenance.RecoveryInspect(ctx)
 	case recoveryApplyAction:

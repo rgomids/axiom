@@ -31,6 +31,9 @@ type CleanupEffect struct {
 	Digest   string `json:"digest"`
 	Bytes    int64  `json:"bytes"`
 	Basis    string `json:"basis"`
+	// Retirement is the exact retirement record revision an Evidence removal
+	// depends on; it is revalidated before removal.
+	Retirement string `json:"retirement,omitempty"`
 }
 
 // RecordObservation is one existing cleanup audit record, read under lock.
@@ -58,11 +61,10 @@ type CleanupAuthority struct{ digest string }
 // PlanCleanup derives eligibility only from authoritative references, the
 // retention class, and the preview clock. Uncertainty always preserves.
 //
-// Evidence-class artifacts are never age-eligible in metadata format 1: the
-// approved policy starts the 365-day window when every Evidence reference is
-// explicitly retired, and that retirement time is not recorded. Treating
-// creation time as retirement time could remove Evidence early.
-func PlanCleanup(now time.Time, artifacts []Artifact, references map[string][]string, revisions map[string]string, records []RecordObservation) (CleanupPreview, error) {
+// Evidence-class artifacts become eligible only 365 days after an explicit
+// retirement record bound to the exact artifact revision; CreatedAt and the
+// momentary absence of references never substitute for that record.
+func PlanCleanup(now time.Time, artifacts []Artifact, references map[string][]string, revisions map[string]string, records []RecordObservation, retirements map[string]RetirementObservation) (CleanupPreview, error) {
 	if now.IsZero() {
 		return CleanupPreview{}, errors.New("cleanup clock required")
 	}
@@ -83,7 +85,8 @@ func PlanCleanup(now time.Time, artifacts []Artifact, references map[string][]st
 	eligible := make([]CleanupEffect, 0)
 	for _, artifact := range ordered {
 		revision := revisions[artifact.ID]
-		reason := ""
+		reason, basis := "", "diagnostic_unreferenced_30_days"
+		retirement, retired := retirements[artifact.ID]
 		switch {
 		case !artifact.Valid() || revision == "":
 			reason = "uncertain"
@@ -94,7 +97,7 @@ func PlanCleanup(now time.Time, artifacts []Artifact, references map[string][]st
 		case artifact.Retention == PreservedReview:
 			reason = "preserved_review"
 		case artifact.Retention == Evidence:
-			reason = "evidence_retirement_unrecorded"
+			reason, basis = evidenceEligibility(now, artifact, revision, retirement, retired), "evidence_retired_365_days"
 		case artifact.Retention != Diagnostic:
 			reason = "uncertain"
 		case now.Sub(artifact.CreatedAt) < DiagnosticRetention:
@@ -105,7 +108,23 @@ func PlanCleanup(now time.Time, artifacts []Artifact, references map[string][]st
 			preview.PreservedSummary[reason]++
 			continue
 		}
-		eligible = append(eligible, CleanupEffect{Kind: EffectArtifact, ID: artifact.ID, Revision: revision, Digest: hex.EncodeToString(artifact.Digest[:]), Bytes: int64(artifact.ContentBytes), Basis: "diagnostic_unreferenced_30_days"})
+		effect := CleanupEffect{Kind: EffectArtifact, ID: artifact.ID, Revision: revision, Digest: hex.EncodeToString(artifact.Digest[:]), Bytes: int64(artifact.ContentBytes), Basis: basis}
+		if artifact.Retention == Evidence {
+			effect.Retirement = retirement.Revision
+		}
+		eligible = append(eligible, effect)
+	}
+	// A retirement without its artifact grants nothing and is only reported.
+	orphans := make([]string, 0)
+	for id := range retirements {
+		if _, ok := revisions[id]; !ok {
+			orphans = append(orphans, id)
+		}
+	}
+	sort.Strings(orphans)
+	for _, id := range orphans {
+		preview.preserved = append(preview.preserved, id+":retirement_orphan")
+		preview.PreservedSummary["retirement_orphan"]++
 	}
 	orderedRecords := append([]RecordObservation(nil), records...)
 	sort.Slice(orderedRecords, func(i, j int) bool { return orderedRecords[i].ID < orderedRecords[j].ID })

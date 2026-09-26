@@ -31,6 +31,7 @@ const (
 	InventoryExecution        InventoryKind = "execution"
 	InventoryArtifact         InventoryKind = "artifact_object"
 	InventoryCleanupRecord    InventoryKind = "artifact_cleanup_record"
+	InventoryRetirementRecord InventoryKind = "artifact_retirement_record"
 	InventoryPortableManifest InventoryKind = "portable_manifest"
 	InventoryPOCWorkflow      InventoryKind = "poc_workflow"
 	InventoryRecovery         InventoryKind = "recovery_state"
@@ -43,13 +44,13 @@ const (
 
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
-	return k == InventoryCreateAttempt || k == InventoryExecution || k == InventoryArtifact || k == InventoryCleanupRecord
+	return k == InventoryCreateAttempt || k == InventoryExecution || k == InventoryArtifact || k == InventoryCleanupRecord || k == InventoryRetirementRecord
 }
 
 // Supported reports kinds a v1 reader accepts or the POC signature recognizes.
 func (k InventoryKind) Supported() bool {
 	switch k {
-	case InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryPortableManifest, InventoryPOCWorkflow:
+	case InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryPortableManifest, InventoryPOCWorkflow:
 		return true
 	}
 	return false
@@ -68,8 +69,9 @@ type Inventory struct {
 }
 
 // MaxInventoryEntries bounds one read-only inspection. It covers the 10,000
-// live-artifact guardrail (three entries per object) plus ordinary records.
-const MaxInventoryEntries = 40_000
+// live-artifact guardrail (three entries per object plus one retirement
+// record) and ordinary records.
+const MaxInventoryEntries = 50_000
 
 var inventoryEntryLimit = MaxInventoryEntries
 
@@ -278,6 +280,21 @@ func walkArtifactsV1(w *inventoryWalk, version *os.Root, relative string) error 
 			}, func(wire []byte) InventoryKind {
 				if _, err := decodeCleanupRecord(wire); err == nil {
 					return InventoryCleanupRecord
+				}
+				return versionedFailure(wire)
+			})
+		case "retirements":
+			return eachFile(w, version, name, childRelative, func(file, _ string) (InventoryKind, int) {
+				if protocolName(file) {
+					return InventoryRecovery, 0
+				}
+				if !detailartifact.ValidRetirementRecordID(file) {
+					return InventoryUnknown, 0
+				}
+				return "", detailartifact.MaxRetirementRecord
+			}, func(wire []byte) InventoryKind {
+				if _, err := decodeRetirementRecord(wire); err == nil {
+					return InventoryRetirementRecord
 				}
 				return versionedFailure(wire)
 			})

@@ -47,7 +47,7 @@ func (s ArtifactStore) PreviewCleanup(ctx context.Context, now time.Time) (detai
 	}
 	root, objects, err := s.openObjects(false)
 	if errors.Is(err, ErrNotFound) {
-		return detailartifact.PlanCleanup(now, nil, nil, nil, nil)
+		return detailartifact.PlanCleanup(now, nil, nil, nil, nil, nil)
 	}
 	if err != nil {
 		return detailartifact.CleanupPreview{}, err
@@ -58,20 +58,28 @@ func (s ArtifactStore) PreviewCleanup(ctx context.Context, now time.Time) (detai
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return detailartifact.CleanupPreview{}, err
 	}
+	retirements, err := openRetirementDirectory(root, false)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return detailartifact.CleanupPreview{}, err
+	}
 	roots := []*os.Root{root, objects}
 	if cleanup != nil {
 		defer cleanup.Close()
 		roots = append(roots, cleanup)
+	}
+	if retirements != nil {
+		defer retirements.Close()
+		roots = append(roots, retirements)
 	}
 	locks, err := lockRoots(false, roots...)
 	if err != nil {
 		return detailartifact.CleanupPreview{}, err
 	}
 	defer closeFiles(locks)
-	return planCleanupLocked(now, root, objects, cleanup)
+	return planCleanupLocked(now, root, objects, cleanup, retirements)
 }
 
-func planCleanupLocked(now time.Time, root, objects, cleanup *os.Root) (detailartifact.CleanupPreview, error) {
+func planCleanupLocked(now time.Time, root, objects, cleanup, retirements *os.Root) (detailartifact.CleanupPreview, error) {
 	artifacts, revisions, err := inspectArtifacts(objects)
 	if err != nil {
 		return detailartifact.CleanupPreview{}, err
@@ -87,7 +95,14 @@ func planCleanupLocked(now time.Time, root, objects, cleanup *os.Root) (detailar
 			return detailartifact.CleanupPreview{}, err
 		}
 	}
-	return detailartifact.PlanCleanup(now, artifacts, references, revisions, records)
+	var retired map[string]detailartifact.RetirementObservation
+	if retirements != nil {
+		retired, err = inspectRetirements(retirements)
+		if err != nil {
+			return detailartifact.CleanupPreview{}, err
+		}
+	}
+	return detailartifact.PlanCleanup(now, artifacts, references, revisions, records, retired)
 }
 
 // ApplyCleanup revalidates the exact preview under exclusive locks, records a
@@ -110,12 +125,21 @@ func (s ArtifactStore) ApplyCleanup(ctx context.Context, preview detailartifact.
 		return CleanupResult{}, err
 	}
 	defer cleanup.Close()
-	locks, err := lockRoots(true, root, objects, cleanup)
+	retirements, err := openRetirementDirectory(root, false)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return CleanupResult{}, err
+	}
+	roots := []*os.Root{root, objects, cleanup}
+	if retirements != nil {
+		defer retirements.Close()
+		roots = append(roots, retirements)
+	}
+	locks, err := lockRoots(true, roots...)
 	if err != nil {
 		return CleanupResult{}, err
 	}
 	defer closeFiles(locks)
-	current, err := planCleanupLocked(preview.ObservedAt, root, objects, cleanup)
+	current, err := planCleanupLocked(preview.ObservedAt, root, objects, cleanup, retirements)
 	if err != nil {
 		return CleanupResult{}, err
 	}
@@ -145,7 +169,7 @@ func (s ArtifactStore) ApplyCleanup(ctx context.Context, preview detailartifact.
 				break
 			}
 		}
-		if err := removeCleanupEffect(objects, cleanup, effect); err != nil {
+		if err := removeCleanupEffect(objects, cleanup, retirements, effect); err != nil {
 			result.Preserved = append(result.Preserved, effect.ID+":revalidation_failed")
 			removalErr = err
 			break
@@ -359,10 +383,10 @@ func inspectCleanupRecords(cleanup *os.Root) ([]detailartifact.RecordObservation
 	return records, nil
 }
 
-func removeCleanupEffect(objects, cleanup *os.Root, effect detailartifact.CleanupEffect) error {
+func removeCleanupEffect(objects, cleanup, retirements *os.Root, effect detailartifact.CleanupEffect) error {
 	switch effect.Kind {
 	case detailartifact.EffectArtifact:
-		return removeExactArtifact(objects, effect)
+		return removeExactArtifact(objects, retirements, effect)
 	case detailartifact.EffectCleanupRecord:
 		if !detailartifact.ValidCleanupRecordID(effect.ID) {
 			return ErrUnsafe
@@ -384,7 +408,7 @@ func removeCleanupEffect(objects, cleanup *os.Root, effect detailartifact.Cleanu
 	}
 }
 
-func removeExactArtifact(objects *os.Root, effect detailartifact.CleanupEffect) error {
+func removeExactArtifact(objects, retirements *os.Root, effect detailartifact.CleanupEffect) error {
 	if !detailartifact.ValidID(effect.ID) {
 		return ErrUnsafe
 	}
@@ -403,7 +427,21 @@ func removeExactArtifact(objects *os.Root, effect detailartifact.CleanupEffect) 
 	if revision != effect.Revision || hex.EncodeToString(artifact.Digest[:]) != effect.Digest || int64(artifact.ContentBytes) != effect.Bytes {
 		return ErrConflict
 	}
-	if len(artifact.LiveReferences) != 0 || artifact.Retention != detailartifact.Diagnostic {
+	if len(artifact.LiveReferences) != 0 {
+		return ErrConflict
+	}
+	switch artifact.Retention {
+	case detailartifact.Diagnostic:
+		if effect.Retirement != "" {
+			return ErrConflict
+		}
+	case detailartifact.Evidence:
+		// The exact retirement is consumed first: an interruption after this
+		// point leaves unretired Evidence, which is always preserved.
+		if err := removeRetirementExact(retirements, effect.ID, effect.Retirement); err != nil {
+			return err
+		}
+	default:
 		return ErrConflict
 	}
 	object, err := existingPrivateChild(shard, effect.ID)

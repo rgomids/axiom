@@ -15,7 +15,7 @@ Commands:
   work-item create|select|show|comment|complete
   workflow start|advance|fact|resume|status|evidence|reconcile
   compatibility inspect|backup|export
-  artifact cleanup
+  artifact cleanup|retire
   recovery inspect|apply
   upgrade --archive <path> --checksums <path> --bin-dir <dir> --receipt-dir <dir>
 

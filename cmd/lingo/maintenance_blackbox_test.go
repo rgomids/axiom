@@ -228,3 +228,21 @@ func TestExecutableRecoveryAndCleanupAreExplicit(t *testing.T) {
 		t.Fatalf("cleanup=%+v", cleanup)
 	}
 }
+
+func TestExecutableArtifactRetireRequiresExactEvidenceIdentity(t *testing.T) {
+	harness := newMaintenanceHarness(t)
+	for _, args := range [][]string{
+		{"artifact", "retire"},
+		{"artifact", "retire", "--artifact", "../escape"},
+		{"artifact", "retire", "--artifact", "123e4567-e89b-42d3-a456-426614174000"},
+		{"artifact", "retire", "--artifact", "123e4567-e89b-42d3-a456-426614174000", "--authorize-local"},
+	} {
+		event, output, code := harness.run(t, args...)
+		if code == 0 || event.Status == "completed" || strings.Contains(output, "retirement-record:") {
+			t.Fatalf("%v: %s", args, output)
+		}
+	}
+	if _, err := os.Lstat(filepath.Join(harness.base, "state", "artifacts", "v1", "retirements")); !os.IsNotExist(err) {
+		t.Fatalf("retirement namespace created without authority: %v", err)
+	}
+}
