@@ -61,18 +61,24 @@ the shared local publication/recovery protocol, and
 [ADR-0008](../decisions/0008-minimal-machine-local-execution-record.md), defining
 the bounded machine-local sequential Execution record. Both were Accepted in the
 same PR #71 human decision. The resulting
-[Tasks artifact](../specifications/004-mvp-v1-baseline/tasks.md) decomposes S1–S7
+[Tasks artifact](../specifications/004-mvp-v1-baseline/tasks.md) originally decomposed S1–S7
 into a corrected final DAG of 25 vertical units with explicit dependency and
 Evidence ownership. It was Approved by explicit human decision in
 [PR #72](https://github.com/rgomids/axiom/pull/72) on 2026-09-20, concluding the
-Tasks phase. Operational delivery now uses S1–S7 as the primary tracking/authorization units,
-with T01–T25 retained as the approved internal decomposition. S1 is authorized in
-[#75](https://github.com/rgomids/axiom/issues/75): T01 was accepted/merged in PR
-#74 and T02–T03 may proceed inside the approved S1 boundary. S2–S7, Provider
-mutation outside an authorized Task boundary, migration execution, and release
-remain separately gated. Slice trackers are
-[#75](https://github.com/rgomids/axiom/issues/75) through
-[#81](https://github.com/rgomids/axiom/issues/81).
+Tasks phase. S1–S7 are technically delivered on `main`; their Evidence remains in
+Specification 004 and technical delivery does not infer human acceptance. T01–T25
+remain the approved historical decomposition, with T26–T29 added by the approved
+Issue #94 amendment. Provider mutation outside exact authority, successor-slice
+implementation, migration execution and release remain separately gated. Delivered
+Slice trackers are #75–#80, with #94 owning S6.
+
+Issue [#97](https://github.com/rgomids/axiom/issues/97) records the 2026-09-26
+product-scope decision to add `S8 — Multi-runtime agent planning and multi-agent
+execution` after delivered S7 and move release-candidate acceptance to S9 while
+preserving T23–T25. Specification FR-045–FR-061, AC-32–AC-43, proposed
+[ADR-0009](../decisions/0009-parent-child-execution-graph.md), Plan and T30–T36
+Tasks are prepared for human review; none is approved or implementation-authorized
+by repository validation or merge.
 
 ## Complete Specification 002
 
@@ -103,10 +109,9 @@ what must be understood first.
 
 | Capability | Dependency or question to resolve |
 |---|---|
-| Runtime and model discovery | Adapter lifecycle, capability reporting and failure semantics beyond portable declarations |
-| Capability negotiation and Integration bootstrap | Workflow needs, provider-neutral capability vocabulary, explicit setup authority and credential-source resolution |
-| Agent Planning and orchestration | Execution graphs, dependencies, parent/child Executions, approval/failure handling and durable Evidence contracts |
-| Additional Runtime skills and adapters | Validate a second Runtime before generalizing the delivered Codex-only boundary |
+| Runtime/model ecosystem beyond S8 | Adapter lifecycle and capability reporting beyond the two bounded acceptance Runtime paths |
+| Dynamic or distributed orchestration | Portable/shared authority, remote scheduling, graph expansion and multi-machine recovery |
+| Additional Runtime skills and adapters | Validate each additional Runtime without generalizing the bounded S8 allowlist into an arbitrary plugin ecosystem |
 | Richer Project wizard | Runtime/Integration discovery and setup contracts beyond the minimal guided flow already specified |
 | Portable distribution and synchronization | Independent local/remote Git authority, conflict handling, recovery and explicit compatibility policy |
 

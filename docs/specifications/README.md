@@ -138,8 +138,17 @@ explicitly authorized on 2026-09-25 and are technically complete, including the
 T18 Evidence retirement record (HD-S7-T18) and macOS 27.0 native T22 Evidence;
 see [S7 Evidence](004-mvp-v1-baseline/evidence-s7.md). By HD-S7-T22 the Ubuntu
 26.04 native rows were not executed and are deferred to the T24
-clean-environment RC acceptance matrix, where they remain mandatory. S8
-implementation remains separately gated.
+clean-environment RC acceptance matrix, where they remain mandatory.
+
+Issue [#97](https://github.com/rgomids/axiom/issues/97) records the product-scope
+decision to add `S8 — Multi-runtime agent planning and multi-agent execution` and
+move unchanged T23–T25 release-candidate acceptance to S9. Proposed
+FR-045–FR-061, AC-32–AC-43,
+[ADR-0009](../decisions/0009-parent-child-execution-graph.md), the amended Plan and
+T30–T36 decomposition are ready for human review, not approved. S8 implementation
+and S9 release work remain unauthorized. If approved, the amended DAG contains 36
+Tasks across S1–S9; that count is proposal status, not a replacement for the
+approved historical 29-Task baseline until human decision.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -188,8 +197,9 @@ acceptance. S4 was delivered through PR #91. S5 was explicitly authorized on
 [S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S6 technical delivery is
 recorded in [S6 Evidence](004-mvp-v1-baseline/evidence-s6.md). S7 technical
 delivery is recorded in [S7 Evidence](004-mvp-v1-baseline/evidence-s7.md). The
-Ubuntu 26.04 native Evidence deferred to T24, S8,
+Ubuntu 26.04 native Evidence deferred to T24, now S9,
 Provider mutation outside an exact authorized run, prerelease/release publication,
 and final MVP acceptance remain separately gated. Accepted operational Slice
-trackers are #75–#79 for S1–S5, #94 for S6, #80 for S7, and #81 for S8 after the
-2026-09-24 amendment reconciliation.
+trackers are #75–#79 for S1–S5, #94 for S6, and #80 for S7. Issue #97 is the
+proposed S8 tracker; #81 becomes S9 only through separately authorized Provider
+reconciliation.
