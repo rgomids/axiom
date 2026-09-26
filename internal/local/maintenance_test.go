@@ -655,3 +655,38 @@ func snapshotDirectory(t *testing.T, directory string) string {
 	}
 	return builder.String()
 }
+
+// BenchmarkMaintenanceScanCost measures the bounded read cost of cleanup
+// preview and compatibility inventory over 1,000 live artifacts.
+func BenchmarkMaintenanceScanCost(b *testing.B) {
+	state := filepath.Join(b.TempDir(), "state")
+	store, err := NewArtifactStore(state)
+	if err != nil {
+		b.Fatal(err)
+	}
+	next := 0
+	store.allocate = func() (string, error) {
+		next++
+		return fmt.Sprintf("123e4567-e89b-42d3-a456-%012d", next), nil
+	}
+	store.now = func() (time.Time, error) { return cleanupClock.Add(-31 * 24 * time.Hour), nil }
+	for index := 0; index < 1000; index++ {
+		if _, err := store.Create(context.Background(), artifactDraft(b)); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.Run("cleanup-preview", func(b *testing.B) {
+		for index := 0; index < b.N; index++ {
+			if _, err := store.PreviewCleanup(context.Background(), cleanupClock); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("state-inventory", func(b *testing.B) {
+		for index := 0; index < b.N; index++ {
+			if _, err := InspectStateInventory(context.Background(), state); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}

@@ -312,6 +312,40 @@ func TestUpgradeInterruptionAfterBinaryIsPartialAndResumable(t *testing.T) {
 	}
 }
 
+func TestUpgradeResumeAfterAllEffectsFinalizesMarker(t *testing.T) {
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+	service := NewService()
+	preview, _ := service.Preview(context.Background(), installed.target, candidate)
+	authority, _ := Authorize(preview, preview.Digest)
+	service.afterEffect = func(kind string) error {
+		if kind == "receipt" {
+			return errors.New("interrupted before marker cleanup")
+		}
+		return nil
+	}
+	if result, err := service.Apply(context.Background(), preview, authority); err == nil || result.Status != "partial" || len(result.Ledger) != 2 {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+	if err != nil || !resume.Resume || len(resume.Effects) != 0 {
+		t.Fatalf("resume=%+v err=%v", resume, err)
+	}
+	resumeAuthority, err := Authorize(resume, resume.Digest)
+	if err != nil {
+		t.Fatalf("marker-only resume was not authorizable: %v", err)
+	}
+	if result, err := NewService().Apply(context.Background(), resume, resumeAuthority); err != nil || result.Status != "success" || len(result.Ledger) != 0 {
+		t.Fatalf("finalize=%+v err=%v", result, err)
+	}
+	if _, err := os.Lstat(filepath.Join(installed.target.ReceiptDir, markerName)); !os.IsNotExist(err) {
+		t.Fatal("marker remained after finalization")
+	}
+	if noOp, err := NewService().Preview(context.Background(), installed.target, candidate); err != nil || noOp.Resume || len(noOp.Effects) != 0 {
+		t.Fatalf("post-finalize preview=%+v err=%v", noOp, err)
+	}
+}
+
 func TestUpgradeRefusalsHaveZeroEffects(t *testing.T) {
 	tests := []struct {
 		name   string

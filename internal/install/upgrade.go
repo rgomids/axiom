@@ -225,7 +225,9 @@ func previewDigest(preview Preview) string {
 }
 
 func Authorize(preview Preview, reviewedDigest string) (Authority, error) {
-	if len(preview.Effects) == 0 && len(preview.Leftovers) == 0 || preview.Digest == "" || preview.Digest != reviewedDigest {
+	// A resumed operation with no remaining publication still needs authority
+	// to clear its owned marker; otherwise the installation stays blocked.
+	if len(preview.Effects) == 0 && len(preview.Leftovers) == 0 && !preview.Resume || preview.Digest == "" || preview.Digest != reviewedDigest {
 		return Authority{}, &Error{Category: "authority_denied"}
 	}
 	return Authority{digest: preview.Digest}, nil

@@ -256,7 +256,7 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 		return s.maintenanceResult(facts, "Upgrade blocked before any effect: "+category, nil, upgradeNext(category), upgradeView{Preview: preview})
 	}
 	references := []string{"upgrade:" + preview.Digest}
-	if len(preview.Effects) == 0 && len(preview.Leftovers) == 0 {
+	if len(preview.Effects) == 0 && len(preview.Leftovers) == 0 && !preview.Resume {
 		next := "No upgrade effect is required"
 		if preview.Skills == install.SkillsRequireInstall {
 			next = "Run `lingo runtime codex install` with the upgraded binary to publish the compatible skill set"

@@ -62,7 +62,7 @@ case_group "MVP-NFR-01" ./internal/completion TestStatusEffectClassificationMatr
 case_group "MVP-NFR-03" ./internal/manifest TestByteDepthAndNodeLimits TestParserContractStreamAndHostileBounds TestBoundedOutputWriter
 case_group "MVP-NFR-03" ./internal/local TestInventoryEntryBoundFailsClosed
 case_group "MVP-NFR-04,MVP-SEC-06" ./internal/compatibility TestTransferCapacityAndInterruptionPreserveSource
-case_group "SEC-004,FR-023" ./internal/install TestUpgradeInterruptionAfterBinaryIsPartialAndResumable TestUpgradeReportsIncompatibleSkillsAsPartial
+case_group "SEC-004,FR-023" ./internal/install TestUpgradeInterruptionAfterBinaryIsPartialAndResumable TestUpgradeResumeAfterAllEffectsFinalizesMarker TestUpgradeReportsIncompatibleSkillsAsPartial
 case_group "SEC-004,FR-023" ./internal/workitem TestConfirmedProviderEffectAndLocalFailureIsPartial
 case_group "FR-036,MVP-SEC-06" ./internal/codexruntime TestHistoricalPOCSkillSetIsKnownLegacy TestInstallRefusesConflictAndRollsBackCurrentAttempt
 
