@@ -115,8 +115,8 @@ esac
 build_flag=()
 [[ -n $(git -C "$repository_root" status --porcelain --untracked-files=normal) ]] && build_flag=(--development)
 printf 'archive_kind=%s\n' "$( ((${#build_flag[@]})) && printf development || printf release )"
-step build-archive-1.0.0 "$repository_root/scripts/build-release-archives.sh" --version 1.0.0 --output "$temporary/r100" "${build_flag[@]}"
-step build-archive-1.1.0 "$repository_root/scripts/build-release-archives.sh" --version 1.1.0 --output "$temporary/r110" "${build_flag[@]}"
+step build-archive-1.0.0 "$repository_root/scripts/build-release-archives.sh" --version 1.0.0 --output "$temporary/r100" ${build_flag[@]+"${build_flag[@]}"}
+step build-archive-1.1.0 "$repository_root/scripts/build-release-archives.sh" --version 1.1.0 --output "$temporary/r110" ${build_flag[@]+"${build_flag[@]}"}
 old_archive="$temporary/r100/axiom-1.0.0-$platform_bundle.tar.gz"
 new_archive="$temporary/r110/axiom-1.1.0-$platform_bundle.tar.gz"
 bin="$temporary/install/bin"
