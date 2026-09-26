@@ -323,7 +323,7 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 | `$axiom-project-configure` | `lingo --json project configure` |
 | `$axiom-project-show` | `lingo --json project show --selector ...` |
 | `$axiom-work-item-create` | `lingo --json work-item create\|select ...` |
-| `$axiom-work-item-run` | `lingo --json workflow start\|advance\|resume\|reconcile ...` |
+| `$axiom-work-item-run` | `lingo --json workflow start\|advance\|fact\|resume\|reconcile ...` |
 | `$axiom-work-item-status` | `lingo --json workflow status\|evidence ...` |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
@@ -490,7 +490,9 @@ lingo workflow advance --project my-project --repository main --number 123 \
 Gate order: `intake`, `specification`, `clarification`, `plan`, `tasks`,
 `implementation`, `review`, `evidence`, `reconciliation`, `completion`.
 References use `evidence:<repository-relative-path>:<sha256>` or
-`artifact:<artifact-id>:<sha256>`. A failed gate records an interrupted
+`artifact:<artifact-id>:<sha256>`; lifecycle boundary facts additionally accept
+the closed `specification`, `decision`, `plan`, `tasks`, and `pull_request`
+reference kinds. A failed gate records an interrupted
 transition at the same stage. Resume requires the new exact revision. Neither
 operation closes the Work Item:
 
@@ -502,6 +504,26 @@ lingo workflow resume --project my-project --repository main --number 123 \
   --expected-revision 7
 lingo workflow evidence --project my-project --repository main --number 123
 ```
+
+The ten-stage Work Item lifecycle is derived from canonical gates plus explicit,
+revisioned local facts; it is not a second state machine. Record one fact with an
+exact revision, a validated reference, and local authority:
+
+```bash
+lingo --json workflow fact \
+  --project my-project --repository main --number 123 \
+  --execution <execution-id> --expected-revision <revision> \
+  --fact planning-authority --active \
+  --reference specification:docs/specifications/example/spec.md:<sha256> \
+  --authorize-local
+```
+
+Supported facts are `planning-authority`, `implementation-authority`,
+`review-started`, `human-acceptance`, `blocked`, `needs-decision`, and
+`needs-approval`. Omit `--active` only to clear an auxiliary condition. Authority
+facts must be active. GitHub state, merge, CI, review, or Issue closure never
+records a fact or produces `accepted`; terminal completion plus explicit human
+acceptance is required.
 
 Local completion is a local transition only. It requires the exact current
 revision and never closes the GitHub Issue:
@@ -532,9 +554,14 @@ lingo --json workflow reconcile \
   --authorize-external
 ```
 
-Projection creates/adds only the current `axiom:stage:<stage>` label, removes
-only obsolete labels in that namespace, and posts at most one provenance-marked
-comment per Execution revision. It preserves non-Axiom labels/content. Every
+Projection uses exactly one of `intake`, `specifying`, `specified`, `planning`,
+`planned`, `implementing`, `implemented`, `reviewing`, `reviewed`, or `accepted`
+under `axiom:stage:*`, plus applicable `axiom:blocked`,
+`axiom:needs-decision`, `axiom:needs-approval`, and
+`axiom:recovery-required` flags. Zero, multiple, unknown, or contradictory Axiom
+markers require recovery. Projection removes only positively identified obsolete
+managed labels and posts at most one provenance-marked comment per Execution
+revision. It preserves foreign labels/content. Every
 mutation is reinspected before its intended/confirmed ledger advances. Ambiguous
 or unavailable results are reconcile-first; a confirmed Provider effect followed
 by local bookkeeping failure is `partial`. Replaying the same revision converges

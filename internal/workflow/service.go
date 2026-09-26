@@ -68,6 +68,7 @@ const (
 	OutcomePassed  Outcome = "pass"
 	OutcomeFailed  Outcome = "fail"
 	OutcomeResumed Outcome = "resumed"
+	OutcomeFact    Outcome = "fact"
 )
 
 type ExecutionStatus string
@@ -106,6 +107,7 @@ type Transition struct {
 	Next          string
 	CommittedAt   time.Time
 	Provenance    Identity
+	Fact          *LifecycleFact `json:"fact,omitempty"`
 }
 type Terminal struct {
 	Status           completion.Status
@@ -189,16 +191,17 @@ type ProjectionError struct {
 func (e *ProjectionError) Error() string { return string(e.Kind) }
 
 type ProjectionPreview struct {
-	ExecutionID       string                `json:"executionId"`
-	ExecutionRevision uint64                `json:"executionRevision"`
-	ProjectionKey     string                `json:"projectionKey"`
-	Stage             Stage                 `json:"stage"`
-	Label             string                `json:"label"`
-	Comment           string                `json:"comment"`
-	Effects           []ProjectionEffect    `json:"effects"`
-	Observation       ProjectionObservation `json:"observation"`
-	ObservationDigest string                `json:"observationDigest"`
-	Digest            string                `json:"digest"`
+	ExecutionID       string                 `json:"executionId"`
+	ExecutionRevision uint64                 `json:"executionRevision"`
+	ProjectionKey     string                 `json:"projectionKey"`
+	Stage             Stage                  `json:"stage"`
+	LifecycleStage    WorkItemLifecycleStage `json:"lifecycleStage"`
+	Label             string                 `json:"label"`
+	Comment           string                 `json:"comment"`
+	Effects           []ProjectionEffect     `json:"effects"`
+	Observation       ProjectionObservation  `json:"observation"`
+	ObservationDigest string                 `json:"observationDigest"`
+	Digest            string                 `json:"digest"`
 }
 
 type Status = completion.Status
@@ -230,6 +233,12 @@ type TransitionInput struct {
 	Outcome          Outcome
 	References       []Reference
 	Next             string
+}
+type LifecycleFactInput struct {
+	ExpectedRevision uint64
+	Kind             LifecycleFactKind
+	Active           bool
+	Reference        Reference
 }
 type IDAllocator func() (string, error)
 type Clock func() time.Time
@@ -316,6 +325,9 @@ func (s Service) Status(ctx context.Context, target Target) Result {
 	if failed.Category != "" {
 		return failed
 	}
+	if _, err := DeriveLifecycle(state); err != nil {
+		return result(Failed, "recovery_required", state)
+	}
 	return result(Succeeded, "execution_"+string(state.Status), state)
 }
 
@@ -366,6 +378,13 @@ func (s Service) Transition(ctx context.Context, target Target, input Transition
 	if state.Status == ExecutionInterrupted {
 		return result(ValidationFailed, "execution_resume_required", state)
 	}
+	lifecycle, lifecycleErr := DeriveLifecycle(state)
+	if lifecycleErr != nil {
+		return result(Failed, "recovery_required", state)
+	}
+	if lifecycle.Conditions.Blocked && input.Outcome == OutcomePassed {
+		return result(Denied, "workflow_blocked", state)
+	}
 	if input.Stage != state.Stage {
 		return result(ValidationFailed, "workflow_stage_conflict", state)
 	}
@@ -396,7 +415,65 @@ func (s Service) Transition(ctx context.Context, target Target, input Transition
 	state.Stage = next
 	state.UpdatedAt = event.CommittedAt
 	state.Transitions = append(state.Transitions, event)
+	if _, err := DeriveLifecycle(state); err != nil {
+		return result(Failed, "recovery_required", cloneState(stateWithoutLastTransition(state)))
+	}
 	return s.save(ctx, state, status, category)
+}
+
+func stateWithoutLastTransition(state State) State {
+	if len(state.Transitions) == 0 {
+		return state
+	}
+	last := state.Transitions[len(state.Transitions)-1]
+	state.Transitions = state.Transitions[:len(state.Transitions)-1]
+	state.Revision--
+	state.Stage = last.From
+	state.UpdatedAt = state.CreatedAt
+	if len(state.Transitions) != 0 {
+		state.UpdatedAt = state.Transitions[len(state.Transitions)-1].CommittedAt
+	}
+	state.Status = ExecutionActive
+	state.Terminal = nil
+	return state
+}
+
+// RecordLifecycleFact appends one revisioned local fact without changing the
+// canonical gate. Provider observations and technical signals cannot call this
+// operation implicitly; exact caller authority remains mandatory.
+func (s Service) RecordLifecycleFact(ctx context.Context, target Target, input LifecycleFactInput, authorized bool) Result {
+	if err := ctx.Err(); err != nil {
+		return result(Interrupted, "workflow_cancelled", State{})
+	}
+	state, repository, failed := s.loadResolved(ctx, target)
+	if failed.Category != "" {
+		return failed
+	}
+	if state.Revision != input.ExpectedRevision {
+		return result(Denied, "stale_execution_revision", state)
+	}
+	if !authorized {
+		return result(Denied, "lifecycle_fact_authority_denied", state)
+	}
+	if !factAllowedAt(input.Kind, state.Stage) || !validReference(input.Reference) || state.Status == ExecutionInterrupted {
+		return result(ValidationFailed, "invalid_lifecycle_fact", state)
+	}
+	if s.references == nil || s.references.Validate(ctx, state.ExecutionID, repository.Path, input.Reference) != nil {
+		return result(ValidationFailed, "lifecycle_fact_reference_unavailable", state)
+	}
+	fact := LifecycleFact{Kind: input.Kind, Active: input.Active, ScopeDigest: executionScopeDigest(state), Reference: input.Reference}
+	previous := cloneState(state)
+	transitionInput := TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: state.Stage, Outcome: OutcomeFact, References: []Reference{input.Reference}}
+	event := transitionFor(state, transitionInput, state.Stage, s.now().UTC(), s.source)
+	event.RequestDigest = digest(input)
+	event.Fact = &fact
+	state.Revision++
+	state.UpdatedAt = event.CommittedAt
+	state.Transitions = append(state.Transitions, event)
+	if _, err := DeriveLifecycle(state); err != nil {
+		return result(ValidationFailed, "inconsistent_lifecycle_fact", previous)
+	}
+	return s.save(ctx, state, Succeeded, "lifecycle_fact_recorded")
 }
 
 func (s Service) PrepareProjection(ctx context.Context, target Target, expectedRevision uint64) Result {
@@ -567,42 +644,69 @@ func (s Service) save(ctx context.Context, state State, status Status, category 
 }
 
 func (s Service) projectionPreview(ctx context.Context, state State) (ProjectionPreview, ProjectionObservation, error) {
+	lifecycle, lifecycleErr := DeriveLifecycle(state)
+	if lifecycleErr != nil {
+		return ProjectionPreview{}, ProjectionObservation{}, ErrRecoveryRequired
+	}
+	label := lifecycleLabel(lifecycle.Stage)
 	key := projectionKey(state.ExecutionID, state.Revision)
-	label := stagePrefix + string(state.Stage)
 	observation, err := s.projection.Inspect(ctx, state.WorkItem, label, key)
 	if err != nil {
 		return ProjectionPreview{}, ProjectionObservation{}, err
 	}
+	preview, err := prepareProjectionPreview(state, lifecycle, observation)
+	return preview, preview.Observation, err
+}
+
+func prepareProjectionPreview(state State, lifecycle LifecycleProjection, observation ProjectionObservation) (ProjectionPreview, error) {
 	if !validProjectionObservation(state.WorkItem, observation) {
-		return ProjectionPreview{}, ProjectionObservation{}, &ProjectionError{Kind: ProjectionInvalidResponse}
+		return ProjectionPreview{}, &ProjectionError{Kind: ProjectionInvalidResponse}
 	}
 	observation.RepositoryLabels = sorted(observation.RepositoryLabels)
 	observation.IssueLabels = sorted(observation.IssueLabels)
+	observedStage, legacyStage, err := observedLifecycleStage(observation.IssueLabels)
+	if err != nil {
+		return ProjectionPreview{}, err
+	}
+	label := lifecycleLabel(lifecycle.Stage)
+	key := projectionKey(state.ExecutionID, state.Revision)
 	comment := transitionComment(state, key)
-	effects := make([]ProjectionEffect, 0, 4)
-	if !contains(observation.RepositoryLabels, label) {
-		effects = append(effects, ProjectionEffect{Kind: CreateStageLabel, Value: label})
+	if comment == "" {
+		return ProjectionPreview{}, ErrRecoveryRequired
 	}
-	if !contains(observation.IssueLabels, label) {
-		effects = append(effects, ProjectionEffect{Kind: AddStageLabel, Value: label})
-	}
-	obsolete := make([]string, 0)
-	for _, current := range observation.IssueLabels {
-		if validStageEffect(current) && current != label {
-			obsolete = append(obsolete, current)
+	desired := append([]string{label}, lifecycleFlags(lifecycle.Conditions)...)
+	effects := make([]ProjectionEffect, 0, 12)
+	for _, wanted := range desired {
+		if !contains(observation.RepositoryLabels, wanted) {
+			effects = append(effects, ProjectionEffect{Kind: CreateStageLabel, Value: wanted})
+		}
+		if !contains(observation.IssueLabels, wanted) {
+			effects = append(effects, ProjectionEffect{Kind: AddStageLabel, Value: wanted})
 		}
 	}
-	sort.Strings(obsolete)
-	for _, current := range obsolete {
-		effects = append(effects, ProjectionEffect{Kind: RemoveStageLabel, Value: current})
+	if observedStage != label || legacyStage {
+		effects = append(effects, ProjectionEffect{Kind: RemoveStageLabel, Value: observedStage})
+	}
+	for _, current := range observation.IssueLabels {
+		if validLifecycleFlag(current) && !contains(desired, current) {
+			effects = append(effects, ProjectionEffect{Kind: RemoveStageLabel, Value: current})
+		}
 	}
 	if !observation.CommentPresent {
 		effects = append(effects, ProjectionEffect{Kind: PostTransitionComment, Value: comment})
 	}
+	if len(effects) > 16 {
+		return ProjectionPreview{}, ErrRecoveryRequired
+	}
+	for _, effect := range effects {
+		if !validEffect(effect) {
+			return ProjectionPreview{}, ErrRecoveryRequired
+		}
+	}
 	observationDigest := digest(observation)
-	preview := ProjectionPreview{ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, ProjectionKey: key, Stage: state.Stage, Label: label, Comment: comment, Effects: effects, Observation: observation, ObservationDigest: observationDigest}
+	preview := ProjectionPreview{ExecutionID: state.ExecutionID, ExecutionRevision: state.Revision, ProjectionKey: key, Stage: state.Stage, LifecycleStage: lifecycle.Stage, Label: label, Comment: comment, Effects: effects, Observation: observation, ObservationDigest: observationDigest}
 	preview.Digest = digest(preview)
-	return preview, observation, nil
+	return preview, nil
 }
 
 func reconcileProjectionRecord(state State, revision uint64, observation ProjectionObservation) (State, bool, bool) {
@@ -708,6 +812,9 @@ func effectObserved(effect ProjectionEffect, observation ProjectionObservation) 
 	return false
 }
 func projectionFailure(err error, state State, confirmed bool) Result {
+	if errors.Is(err, ErrRecoveryRequired) {
+		return result(Failed, "recovery_required", state)
+	}
 	var provider *ProjectionError
 	if errors.As(err, &provider) {
 		if confirmed {
@@ -772,7 +879,7 @@ func ValidState(state State) bool {
 	derivedStatus := ExecutionActive
 	lastCommittedAt := state.CreatedAt
 	for index, event := range state.Transitions {
-		if event.Revision != uint64(index+2) || !event.From.Valid() || !event.To.Valid() || event.Outcome != OutcomePassed && event.Outcome != OutcomeFailed && event.Outcome != OutcomeResumed || event.RequestDigest == "" || event.CommittedAt.IsZero() || !validIdentity(event.Provenance) || len(event.References) > maxReferences || !validOptionalText(event.Next) {
+		if event.Revision != uint64(index+2) || !event.From.Valid() || !event.To.Valid() || event.Outcome != OutcomePassed && event.Outcome != OutcomeFailed && event.Outcome != OutcomeResumed && event.Outcome != OutcomeFact || event.RequestDigest == "" || event.CommittedAt.IsZero() || !validIdentity(event.Provenance) || len(event.References) > maxReferences || !validOptionalText(event.Next) {
 			return false
 		}
 		if event.From != derivedStage || !validTransitionShape(event, derivedStage, derivedStatus) {
@@ -792,11 +899,18 @@ func ValidState(state State) bool {
 			derivedStatus = ExecutionInterrupted
 		case OutcomeResumed:
 			derivedStatus = ExecutionActive
+		case OutcomeFact:
+			if event.Fact == nil {
+				return false
+			}
 		}
 		for _, reference := range event.References {
 			if !validReference(reference) {
 				return false
 			}
+		}
+		if event.Outcome != OutcomeFact && event.Fact != nil {
+			return false
 		}
 	}
 	if state.Stage != derivedStage || state.Status != derivedStatus {
@@ -833,21 +947,31 @@ func ValidState(state State) bool {
 }
 
 func validProjectionRecord(state State, record ProjectionRecord) bool {
-	event := state.Transitions[record.ExecutionRevision-2]
-	projected := state
-	projected.Stage = event.To
-	projected.Revision = record.ExecutionRevision
-	projected.Transitions = state.Transitions[:record.ExecutionRevision-1]
-	label := stagePrefix + string(event.To)
-	comment := transitionComment(projected, record.Key)
+	projected := projectionSnapshot(state, record.ExecutionRevision)
+	lifecycle, err := DeriveLifecycle(projected)
+	if err == nil {
+		label := lifecycleLabel(lifecycle.Stage)
+		desired := append([]string{label}, lifecycleFlags(lifecycle.Conditions)...)
+		if validProjectionEffects(record, desired, transitionComment(projected, record.Key), validProjectionLabel) {
+			return true
+		}
+	}
+
+	// Persisted S4 records remain readable without rewriting their labels,
+	// comments, or Evidence. New previews never create these legacy effects.
+	legacyLabel := stagePrefix + string(projected.Stage)
+	return validProjectionEffects(record, []string{legacyLabel}, legacyTransitionComment(projected, record.Key), validLegacyStageLabel)
+}
+
+func validProjectionEffects(record ProjectionRecord, desired []string, comment string, removable func(string) bool) bool {
 	for _, effect := range append(cloneEffects(record.Intended), record.Confirmed...) {
 		switch effect.Kind {
 		case CreateStageLabel, AddStageLabel:
-			if effect.Value != label {
+			if !contains(desired, effect.Value) {
 				return false
 			}
 		case RemoveStageLabel:
-			if !validStageEffect(effect.Value) || effect.Value == label {
+			if !removable(effect.Value) || contains(desired, effect.Value) {
 				return false
 			}
 		case PostTransitionComment:
@@ -859,7 +983,38 @@ func validProjectionRecord(state State, record ProjectionRecord) bool {
 	return true
 }
 
+func projectionSnapshot(state State, revision uint64) State {
+	projected := cloneState(state)
+	projected.Stage = Intake
+	projected.Status = ExecutionActive
+	projected.Revision = revision
+	projected.Transitions = projected.Transitions[:revision-1]
+	projected.UpdatedAt = projected.CreatedAt
+	projected.Terminal = nil
+	projected.Projections = nil
+	for _, event := range projected.Transitions {
+		projected.Stage = event.To
+		projected.UpdatedAt = event.CommittedAt
+		switch event.Outcome {
+		case OutcomePassed:
+			projected.Status = ExecutionActive
+			if event.From == Completion {
+				projected.Status = ExecutionCompleted
+				projected.Terminal = &Terminal{Status: completion.Success, ConfirmedEffects: []string{"local_execution_transition"}}
+			}
+		case OutcomeFailed:
+			projected.Status = ExecutionInterrupted
+		case OutcomeResumed:
+			projected.Status = ExecutionActive
+		}
+	}
+	return projected
+}
+
 func validTransitionShape(event Transition, stage Stage, status ExecutionStatus) bool {
+	if event.Outcome == OutcomeFact {
+		return event.To == stage && event.Fact != nil
+	}
 	if status == ExecutionCompleted {
 		return false
 	}
@@ -891,6 +1046,28 @@ func hasDuplicateEffects(effects []ProjectionEffect) bool {
 }
 
 func transitionComment(state State, key string) string {
+	event := state.Transitions[len(state.Transitions)-1]
+	lifecycle, err := DeriveLifecycle(state)
+	if err != nil {
+		return ""
+	}
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "<!-- axiom:workflow-projection:%s -->\n", key)
+	fmt.Fprintf(&builder, "Axiom lifecycle projection\n\n- Lifecycle: `%s`\n- Canonical gate: `%s`\n- Outcome: `%s`\n", lifecycle.Stage, state.Stage, event.Outcome)
+	if len(event.References) != 0 {
+		builder.WriteString("- References:")
+		for _, reference := range event.References {
+			fmt.Fprintf(&builder, " `%s:%s`", reference.Kind, reference.ID)
+		}
+		builder.WriteByte('\n')
+	}
+	if event.Next != "" {
+		fmt.Fprintf(&builder, "- Next: %s\n", event.Next)
+	}
+	fmt.Fprintf(&builder, "\n_Axiom %s · %s · %s · %s_", event.Provenance.Version, event.Provenance.Revision, event.Provenance.SourceState, state.ExecutionID)
+	return builder.String()
+}
+func legacyTransitionComment(state State, key string) string {
 	event := state.Transitions[len(state.Transitions)-1]
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "<!-- axiom:workflow-projection:%s -->\n", key)
@@ -925,7 +1102,12 @@ func validWorkItem(item WorkItem) bool {
 	return validText(item.Provider) && validText(item.Resource) && validText(item.ExternalID) && validText(item.URL) && (item.State == "OPEN" || item.State == "CLOSED")
 }
 func validReference(reference Reference) bool {
-	return (reference.Kind == "artifact" || reference.Kind == "evidence") && validText(reference.ID) && validDigest(reference.Digest)
+	switch reference.Kind {
+	case "artifact", "evidence", "specification", "decision", "plan", "tasks", "pull_request":
+		return validText(reference.ID) && validDigest(reference.Digest)
+	default:
+		return false
+	}
 }
 func validEffect(effect ProjectionEffect) bool {
 	if effect.Kind != CreateStageLabel && effect.Kind != AddStageLabel && effect.Kind != RemoveStageLabel && effect.Kind != PostTransitionComment {
@@ -934,14 +1116,48 @@ func validEffect(effect ProjectionEffect) bool {
 	if effect.Kind == PostTransitionComment {
 		return validMultiline(effect.Value, 16*1024)
 	}
-	return validStageEffect(effect.Value)
+	return validProjectionLabel(effect.Value)
 }
 func validStageEffect(value string) bool {
 	if !strings.HasPrefix(value, stagePrefix) {
 		return false
 	}
+	stage := WorkItemLifecycleStage(strings.TrimPrefix(value, stagePrefix))
+	return stage.Valid() && value == lifecycleLabel(stage)
+}
+func validProjectionLabel(value string) bool {
+	return validStageEffect(value) || validLifecycleFlag(value) || validLegacyStageLabel(value)
+}
+func validLegacyStageLabel(value string) bool {
+	if !strings.HasPrefix(value, stagePrefix) {
+		return false
+	}
 	stage := Stage(strings.TrimPrefix(value, stagePrefix))
 	return stage.Valid() && value == stagePrefix+string(stage)
+}
+func observedLifecycleStage(labels []string) (string, bool, error) {
+	var observed string
+	legacy := false
+	for _, label := range labels {
+		if strings.HasPrefix(label, "axiom:") && !strings.HasPrefix(label, stagePrefix) && !validLifecycleFlag(label) {
+			return "", false, ErrRecoveryRequired
+		}
+		if !strings.HasPrefix(label, stagePrefix) {
+			continue
+		}
+		if !validStageEffect(label) && !validLegacyStageLabel(label) {
+			return "", false, ErrRecoveryRequired
+		}
+		if observed != "" {
+			return "", false, ErrRecoveryRequired
+		}
+		observed = label
+		legacy = !validStageEffect(label)
+	}
+	if observed == "" {
+		return "", false, ErrRecoveryRequired
+	}
+	return observed, legacy, nil
 }
 func validDigest(value string) bool {
 	decoded, err := hex.DecodeString(value)
@@ -1029,6 +1245,10 @@ func cloneState(state State) State {
 	state.Transitions = append([]Transition(nil), state.Transitions...)
 	for index := range state.Transitions {
 		state.Transitions[index].References = cloneReferences(state.Transitions[index].References)
+		if state.Transitions[index].Fact != nil {
+			fact := *state.Transitions[index].Fact
+			state.Transitions[index].Fact = &fact
+		}
 	}
 	state.Projections = append([]ProjectionRecord(nil), state.Projections...)
 	for index := range state.Projections {

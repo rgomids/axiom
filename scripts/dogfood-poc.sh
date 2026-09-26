@@ -177,7 +177,7 @@ execution_id=$(sed -n 's/.*"executionId":"\([^"]*\)".*/\1/p' "$temporary/workflo
 [[ -n "$execution_id" ]]
 revision=1
 
-for gate in intake specification clarification plan tasks; do
+for gate in intake specification clarification; do
   printf '%s\n' "$gate" >"$repository/$gate.md"
   reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
   lingo --json workflow advance --project dogfood-project --repository main --number 7 \
@@ -187,6 +187,36 @@ for gate in intake specification clarification plan tasks; do
   revision=$((revision + 1))
 done
 
+specification_digest=$(shasum -a 256 "$repository/specification.md" | awk '{print $1}')
+lingo --json workflow fact --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" --fact planning-authority --active \
+  --reference "specification:specification.md:$specification_digest" --authorize-local \
+  >"$temporary/workflow-planning-authority.json"
+assert_canonical "$temporary/workflow-planning-authority.json" success "Execution workflow operation completed"
+revision=$((revision + 1))
+
+for gate in plan tasks; do
+  printf '%s\n' "$gate" >"$repository/$gate.md"
+  reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
+  lingo --json workflow advance --project dogfood-project --repository main --number 7 \
+    --expected-revision "$revision" --gate "$gate" --outcome pass \
+    --reference "evidence:$gate.md:$reference_digest" >"$temporary/workflow-$gate.json"
+  assert_canonical "$temporary/workflow-$gate.json" success "Execution workflow operation completed"
+  revision=$((revision + 1))
+done
+
+plan_digest=$(shasum -a 256 "$repository/plan.md" | awk '{print $1}')
+lingo --json workflow fact --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" --fact implementation-authority --active \
+  --reference "plan:plan.md:$plan_digest" --authorize-local \
+  >"$temporary/workflow-implementation-authority.json"
+assert_canonical "$temporary/workflow-implementation-authority.json" success "Execution workflow operation completed"
+revision=$((revision + 1))
+
+# S6 treats zero lifecycle markers as Provider drift. Seed the bounded fake with
+# the exact already-aligned observation; deterministic adapter tests cover label
+# creation/replacement effects separately.
+printf '%s\n' 'axiom:stage:implementing' >"$provider_label"
 lingo --json workflow reconcile --project dogfood-project --repository main --number 7 \
   --expected-revision "$revision" >"$temporary/workflow-projection-preview.json"
 assert_canonical "$temporary/workflow-projection-preview.json" success "Execution workflow operation completed"
@@ -197,7 +227,7 @@ lingo --json workflow reconcile --project dogfood-project --repository main --nu
   --expected-revision "$revision" --preview-digest "$projection_digest" --authorize-external \
   >"$temporary/workflow-projected.json"
 assert_canonical "$temporary/workflow-projected.json" success "Execution workflow operation completed"
-grep -Fq 'axiom:stage:implementation' "$provider_label"
+grep -Fq 'axiom:stage:implementing' "$provider_label"
 grep -Fq 'axiom:workflow-projection:' "$provider_comment"
 lingo --json workflow reconcile --project dogfood-project --repository main --number 7 \
   --expected-revision "$revision" >"$temporary/workflow-projection-replay.json"
@@ -218,7 +248,23 @@ lingo --json workflow resume --project dogfood-project --repository main --numbe
 assert_canonical "$temporary/workflow-resume.json" success "Execution workflow operation completed"
 revision=$((revision + 1))
 
-for gate in implementation review evidence reconciliation completion; do
+printf '%s\n' implementation >"$repository/implementation.md"
+implementation_digest=$(shasum -a 256 "$repository/implementation.md" | awk '{print $1}')
+lingo --json workflow advance --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" --gate implementation --outcome pass \
+  --reference "evidence:implementation.md:$implementation_digest" \
+  >"$temporary/workflow-implementation.json"
+assert_canonical "$temporary/workflow-implementation.json" success "Execution workflow operation completed"
+revision=$((revision + 1))
+
+lingo --json workflow fact --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" --fact review-started --active \
+  --reference "evidence:implementation.md:$implementation_digest" --authorize-local \
+  >"$temporary/workflow-review-started.json"
+assert_canonical "$temporary/workflow-review-started.json" success "Execution workflow operation completed"
+revision=$((revision + 1))
+
+for gate in review evidence reconciliation completion; do
   printf '%s\n' "$gate" >"$repository/$gate.md"
   reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
   lingo --json workflow advance --project dogfood-project --repository main --number 7 \
@@ -228,11 +274,20 @@ for gate in implementation review evidence reconciliation completion; do
   revision=$((revision + 1))
 done
 
+evidence_digest=$(shasum -a 256 "$repository/evidence.md" | awk '{print $1}')
+lingo --json workflow fact --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" --fact human-acceptance --active \
+  --reference "evidence:evidence.md:$evidence_digest" --authorize-local \
+  >"$temporary/workflow-human-acceptance.json"
+assert_canonical "$temporary/workflow-human-acceptance.json" success "Execution workflow operation completed"
+revision=$((revision + 1))
+
 lingo --json workflow evidence --project dogfood-project --repository main --number 7 \
   >"$temporary/workflow-evidence.json"
 assert_canonical "$temporary/workflow-evidence.json" success "Execution workflow operation completed"
 grep -q '"currentGate":"completion"' "$temporary/workflow-evidence.json"
 grep -q '"status":"completed"' "$temporary/workflow-evidence.json"
+grep -q '"lifecycleStage":"accepted"' "$temporary/workflow-evidence.json"
 
 binary_sha=$(shasum -a 256 "$resolved_binary" | awk '{print $1}')
 workflow_record=$(find "$state_root/executions/v1" -name '*.json' -type f -print)

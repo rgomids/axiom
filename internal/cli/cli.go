@@ -83,10 +83,16 @@ type WorkItemInput struct {
 type WorkflowInput struct {
 	Project, Repository, WorkItem, Provider, ProviderRepository string
 	ExternalID, Execution, Gate, Outcome, Reference, Next       string
+	Fact                                                        string
 	Number                                                      int
 	ExpectedRevision                                            uint64
 	PreviewDigest                                               string
-	AuthorizeExternal                                           bool
+	AuthorizeExternal, AuthorizeLocal                           bool
+	Active                                                      bool
+}
+
+type LifecycleFactService interface {
+	WorkflowFact(context.Context, WorkflowInput) Result
 }
 
 type Status string
@@ -157,6 +163,10 @@ type WorkflowView struct {
 	WorkflowVersion string             `json:"workflowVersion"`
 	Status          string             `json:"status"`
 	CurrentGate     string             `json:"currentGate"`
+	LifecycleStage  string             `json:"lifecycleStage,omitempty"`
+	Blocked         bool               `json:"blocked,omitempty"`
+	NeedsDecision   bool               `json:"needsDecision,omitempty"`
+	NeedsApproval   bool               `json:"needsApproval,omitempty"`
 	Revision        uint64             `json:"revision"`
 	RepositoryKey   string             `json:"repositoryKey"`
 	WorkItem        WorkItemView       `json:"workItem"`
@@ -315,6 +325,7 @@ const (
 	workItemCompleteAction  action = "work_item_complete"
 	workflowStartAction     action = "workflow_start"
 	workflowAdvanceAction   action = "workflow_advance"
+	workflowFactAction      action = "workflow_fact"
 	workflowResumeAction    action = "workflow_resume"
 	workflowStatusAction    action = "workflow_status"
 	workflowEvidenceAction  action = "workflow_evidence"
@@ -338,11 +349,12 @@ type requestInput struct {
 	intent, problem, desiredOutcome, context string
 	scope, constraints, nonGoals, acceptance string
 	message                                  string
-	gate, outcome, reference, next           string
+	gate, outcome, reference, next, fact     string
 	number                                   int
 	expectedRevision                         uint64
 	authorizeExternal                        bool
 	authorizeLocal                           bool
+	active                                   bool
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
@@ -466,8 +478,11 @@ func selectorRequestIssue(operation action, values requestInput) string {
 			return "missing_required_input"
 		}
 	}
-	needsRevision := operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowReconcileAction
+	needsRevision := operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction
 	if needsRevision && values.expectedRevision == 0 || operation == workflowAdvanceAction && (values.gate == "" || values.outcome == "") {
+		return "missing_required_input"
+	}
+	if operation == workflowFactAction && (values.fact == "" || values.reference == "") {
 		return "missing_required_input"
 	}
 	return ""
@@ -552,7 +567,7 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 	set.StringVar(&values.workItem, "work-item", "", "")
 	set.StringVar(&values.execution, "execution", "", "")
 	set.IntVar(&values.number, "number", 0, "")
-	if operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowReconcileAction {
+	if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {
 		set.Uint64Var(&values.expectedRevision, "expected-revision", 0, "")
 	}
 	if operation == workflowReconcileAction {
@@ -564,6 +579,12 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 		set.StringVar(&values.outcome, "outcome", "", "")
 		set.StringVar(&values.reference, "reference", "", "")
 		set.StringVar(&values.next, "next", "", "")
+	}
+	if operation == workflowFactAction {
+		set.StringVar(&values.fact, "fact", "", "")
+		set.BoolVar(&values.active, "active", false, "")
+		set.StringVar(&values.reference, "reference", "", "")
+		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
 	}
 	if invalidFlagSyntax(set, args, nil) {
 		return requestInput{}, false
@@ -639,7 +660,7 @@ func validProviderResource(value string) bool {
 }
 
 func knownWorkflow(operation action) bool {
-	return operation == workflowStartAction || operation == workflowAdvanceAction || operation == workflowResumeAction || operation == workflowStatusAction || operation == workflowEvidenceAction || operation == workflowReconcileAction
+	return operation == workflowStartAction || operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowStatusAction || operation == workflowEvidenceAction || operation == workflowReconcileAction
 }
 
 func known(operation action) bool {
@@ -703,17 +724,23 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		default:
 			return service.WorkItemComplete(ctx, value)
 		}
-	case workflowStartAction, workflowAdvanceAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction:
+	case workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction:
 		provider, resource, externalID, ok := parseWorkItemSelector(input.workItem)
 		if input.workItem != "" && !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
-		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal}
+		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, Fact: input.fact, Active: input.active, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal}
 		switch operation {
 		case workflowStartAction:
 			return service.WorkflowStart(ctx, value)
 		case workflowAdvanceAction:
 			return service.WorkflowAdvance(ctx, value)
+		case workflowFactAction:
+			factService, ok := service.(LifecycleFactService)
+			if !ok {
+				return Result{Status: Failed, Category: "application_unavailable"}
+			}
+			return factService.WorkflowFact(ctx, value)
 		case workflowResumeAction:
 			return service.WorkflowResume(ctx, value)
 		case workflowStatusAction:

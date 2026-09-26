@@ -104,8 +104,9 @@ argument-driven Runtime skill UX; they do not retroactively expand POC scope.
 Issue [#94](https://github.com/rgomids/axiom/issues/94) defines the amendment for
 a durable Work Item lifecycle anchor and metadata governance. Human review on
 2026-09-24 explicitly approved FR-038–FR-044, AC-25–AC-31, T26–T29/S6 placement,
-and the Specification 002 policy-reference clarification. S6 implementation remains
-separately gated.
+and the Specification 002 policy-reference clarification. S6 implementation was
+then explicitly authorized on 2026-09-24 and is technically complete at
+`56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not inferred.
 
 [Plan](004-mvp-v1-baseline/plan.md): **Approved — human approval recorded on
 2026-09-20** together with ADR-0007 and ADR-0008.
@@ -131,7 +132,9 @@ authorized on 2026-09-23 and delivered through PR #93;
 T14–T15 implementation, deterministic tests, and bounded real Codex Runtime
 observation are recorded in
 [S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). Human acceptance is not
-inferred. S6 and remaining S7–S8 implementation remain separately gated.
+inferred. S6 T26–T29 were explicitly authorized and their technical delivery is
+recorded in [S6 Evidence](004-mvp-v1-baseline/evidence-s6.md). Remaining S7–S8
+implementation remains separately gated.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -177,7 +180,8 @@ real-provider observation is complete at its documented historical revision.
 Technical completion and current review corrections remain separate from human
 acceptance. S4 was delivered through PR #91. S5 was explicitly authorized on
 2026-09-23 and its T14–T15 technical record is in
-[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S6 and remaining S7–S8,
+[S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S6 technical delivery is
+recorded in [S6 Evidence](004-mvp-v1-baseline/evidence-s6.md). Remaining S7–S8,
 Provider mutation outside an exact authorized run, prerelease/release publication,
 and final MVP acceptance remain separately gated. Accepted operational Slice
 trackers are #75–#79 for S1–S5, #94 for S6, #80 for S7, and #81 for S8 after the

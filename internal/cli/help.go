@@ -13,7 +13,7 @@ Commands:
   runtime codex install|status
   project configure|show|resolve|init|validate|reopen|update|install
   work-item create|select|show|comment|complete
-  workflow start|advance|resume|status|evidence|reconcile
+  workflow start|advance|fact|resume|status|evidence|reconcile
 
 Stable Codex skill mapping:
   $axiom-project-configure -> lingo --json project configure

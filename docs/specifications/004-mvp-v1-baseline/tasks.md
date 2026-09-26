@@ -16,7 +16,7 @@
 
 **S5 Implementation: Delivered on `main` through PR #93 with deterministic Evidence and bounded real Codex Runtime observation. Human acceptance is not inferred.**
 
-**Issue #94 amendment / S6 decomposition: Approved — human approval recorded on 2026-09-24. T26–T29 implementation is not yet authorized.**
+**S6 Implementation: Explicitly authorized on 2026-09-24. T26–T29 are technically complete at implementation commit `56beb4fc310894ff8de128f52c6a96d22711bec8`; reproducible Evidence is recorded in [S6 Evidence](evidence-s6.md). Human acceptance is not inferred.**
 
 **S7–S8 Implementation: Not authorized.**
 
@@ -56,7 +56,8 @@ Specification 004 — Approved
    -> Human acceptance — Not inferred
 -> S5 Implementation — Delivered on main through PR #93
    -> Human acceptance — Not inferred
--> S6 amendment — approved; T26–T29 implementation remains separately gated
+-> S6 Implementation — authorized; T26–T29 technically complete in the delivery branch
+   -> Human acceptance — Not inferred
 -> S7–S8 Implementation — Not authorized
 ```
 
@@ -560,8 +561,8 @@ the Codex-facing contract. Human acceptance is not inferred.
 
 ### T26 — Deterministic Work Item lifecycle projection from canonical gates
 
-**Amendment status:** approved by human review on 2026-09-24; implementation
-remains separately gated and is not started by this approval.
+**Implementation status:** explicitly authorized on 2026-09-24 and technically
+complete at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not inferred.
 
 - **Objective:** Derive exactly one provider-neutral Work Item lifecycle stage from the canonical Execution gate/history and required revisioned human facts, without persisting a second lifecycle state.
 - **Slice:** S6 — Durable Work Item lifecycle and metadata governance.
@@ -941,7 +942,8 @@ ownership, workflow, publication, recovery, compatibility, and release boundarie
 The approved Issue #94 contract extends the existing local workflow and Provider
 projection; it does not change their source-of-truth model, create another
 Execution lifecycle, or introduce a generic metadata schema. Human approval of
-the amended Specification/Plan/Tasks remains required before T26–T29.
+the amended Specification/Plan/Tasks and explicit S6 implementation authority
+were recorded on 2026-09-24.
 
 Future Task implementation may choose reversible mechanisms such as syscalls,
 lock library, local filenames/layout, journal encoding, Go package/interface shape,
@@ -1017,6 +1019,6 @@ inferred.**
 **S5 Implementation — Delivered on `main` through PR #93 with deterministic and
 bounded real Codex Runtime Evidence. Human acceptance is not inferred.**
 
-**S6 (T26–T29) — Amendment approved on 2026-09-24; implementation is not yet authorized.**
+**S6 (T26–T29) — Explicitly authorized and technically complete at implementation commit `56beb4fc310894ff8de128f52c6a96d22711bec8`, with reproducible [S6 Evidence](evidence-s6.md). Human acceptance is not inferred.**
 
 **S7–S8 Implementation — Not authorized.**

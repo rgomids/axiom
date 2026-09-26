@@ -31,7 +31,7 @@ func (v WorkflowReferenceValidator) Validate(ctx context.Context, executionID, r
 			return ErrUnsafe
 		}
 		return nil
-	case "evidence":
+	case "evidence", "specification", "decision", "plan", "tasks", "pull_request":
 		return validateWorkflowEvidence(repositoryPath, reference)
 	default:
 		return ErrUnsafe

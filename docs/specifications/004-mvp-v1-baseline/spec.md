@@ -4,7 +4,7 @@
 
 **Approved — human approval recorded on 2026-09-20.**
 
-**Issue #94 amendment: Approved — human approval recorded on 2026-09-24. T26–T29 implementation remains separately gated.**
+**Issue #94 amendment: Approved, and S6 T26–T29 implementation explicitly authorized on 2026-09-24. Technical implementation is recorded at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not inferred.**
 
 Tracked by [#62](https://github.com/rgomids/axiom/issues/62) under the
 [MVP tracker #15](https://github.com/rgomids/axiom/issues/15). Human approval of

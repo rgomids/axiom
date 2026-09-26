@@ -589,6 +589,26 @@ func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.Workflo
 	}
 	return workflowResult(s.workflows.Transition(ctx, workflowTarget(input), workflow.TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: workflow.Stage(input.Gate), Outcome: workflow.Outcome(input.Outcome), References: references, Next: input.Next}), s.provenance)
 }
+func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	references, ok := workflowReferences(input.Reference)
+	if !ok || len(references) != 1 {
+		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
+	}
+	kinds := map[string]workflow.LifecycleFactKind{
+		"planning-authority":       workflow.FactPlanningAuthority,
+		"implementation-authority": workflow.FactImplementationAuthority,
+		"review-started":           workflow.FactReviewStarted,
+		"human-acceptance":         workflow.FactHumanAcceptance,
+		"blocked":                  workflow.FactBlocked,
+		"needs-decision":           workflow.FactNeedsDecision,
+		"needs-approval":           workflow.FactNeedsApproval,
+	}
+	kind := kinds[input.Fact]
+	if kind == "" {
+		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_lifecycle_fact"}, s.provenance)
+	}
+	return workflowResult(s.workflows.RecordLifecycleFact(ctx, workflowTarget(input), workflow.LifecycleFactInput{ExpectedRevision: input.ExpectedRevision, Kind: kind, Active: input.Active, Reference: references[0]}, input.AuthorizeLocal), s.provenance)
+}
 func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
 	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 }
@@ -628,6 +648,12 @@ func workflowResult(result workflow.Result, source provenance.Value) cli.Result 
 	response.Projection = result.Preview
 	if result.State.ProjectID != "" {
 		view := &cli.WorkflowView{ExecutionID: result.State.ExecutionID, WorkflowVersion: result.State.WorkflowVersion, Status: string(result.State.Status), CurrentGate: string(result.State.Stage), Revision: result.State.Revision, RepositoryKey: result.State.RepositoryKey, RuntimeID: result.State.RuntimeID, WorkItem: cli.WorkItemView{ProjectID: result.State.ProjectID, RepositoryKey: result.State.RepositoryKey, Provider: result.State.WorkItem.Provider, Resource: result.State.WorkItem.Resource, ExternalID: result.State.WorkItem.ExternalID, URL: result.State.WorkItem.URL, State: result.State.WorkItem.State}, Transitions: make([]cli.WorkflowStepView, 0, len(result.State.Transitions))}
+		if lifecycle, err := workflow.DeriveLifecycle(result.State); err == nil {
+			view.LifecycleStage = string(lifecycle.Stage)
+			view.Blocked = lifecycle.Conditions.Blocked
+			view.NeedsDecision = lifecycle.Conditions.NeedsDecision
+			view.NeedsApproval = lifecycle.Conditions.NeedsApproval
+		}
 		for _, step := range result.State.Transitions {
 			view.Transitions = append(view.Transitions, cli.WorkflowStepView{Revision: step.Revision, From: string(step.From), To: string(step.To), Outcome: string(step.Outcome), CommittedAt: step.CommittedAt.Format("2006-01-02T15:04:05.999999999Z07:00")})
 		}
