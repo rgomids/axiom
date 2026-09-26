@@ -119,6 +119,9 @@ type Result struct {
 	Selection  *workitem.SelectionPreview
 	Questions  []workitem.Question
 	Projection *workflow.ProjectionPreview
+	// Maintenance is a bounded, content-free view for compatibility,
+	// cleanup, recovery, and upgrade previews and results.
+	Maintenance any
 }
 
 type RuntimeSkillView struct {
@@ -188,6 +191,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	mode, args := parseOutputMode(args)
 	if service == nil {
 		return emit(stdout, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
+	}
+	if operation, rest, ok := maintenanceAction(args); ok {
+		return runMaintenance(ctx, mode, operation, rest, service, source, stdout)
 	}
 	if len(args) >= 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
 		values, ok := flags(configureAction, args[2:])

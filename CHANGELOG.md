@@ -1,5 +1,50 @@
 # Changelog
 
+## [2026-09-26]
+
+- implementation: explicit Evidence retirement (HD-S7-T18). `lingo artifact
+  retire` previews, then with exact authority publishes
+  `artifacts/v1/retirements/<id>.json`, which is separate from metadata v1.
+  Cleanup makes Evidence eligible 365 days after a valid retirement bound to
+  the exact revision. Referenced, stale, corrupt, or missing retirements
+  preserve Evidence, and a re-reference supersedes the retirement.
+- docs: close S7 technically. T22 is complete under the revised S7 scope
+  (HD-S7-T22). The Ubuntu 26.04 native rows were not executed; they are
+  deferred to the T24 clean-environment RC acceptance matrix and remain
+  mandatory there.
+- implementation: `lingo upgrade` publishes the candidate's verified Codex skill
+  files after the binary and receipt. Each file needs an expected digest,
+  owned content, and the skill-set lock, and takes part in preview, authority,
+  the ledger, interruption, and resume. When skill files change, the
+  skill-set receipt is left for the upgraded binary and reported as
+  `refresh_required`.
+- governance: Codex and Claude are both maintainer runtimes. `AGENTS.md`
+  stays the single agent policy; the only allowed runtime bootstrap is a root
+  `CLAUDE.md` containing exactly `@AGENTS.md`, enforced by
+  `scripts/check-claude-bootstrap.sh`. This is not S8 product multi-runtime
+  orchestration.
+- fix: the S7 native suite no longer aborts on a clean checkout under macOS
+  bash 3.2, and asserts the runtime status result correctly.
+
+- implementation: deliver authorized MVP S7 (T16–T22) maintenance paths:
+  read-only `compatibility inspect`; separately authorized POC `compatibility
+  backup` and portable `compatibility export`; reference-aware `artifact
+  cleanup`; guided `recovery inspect|apply`; and owned `upgrade` with ordered,
+  individually confirmed binary/receipt effects and resumable partial state.
+- implementation: classify persisted state with the real v1 decoders and a
+  frozen `v0.1.0-poc.1` workflow signature; fixtures are produced by the
+  historical tag binary via `scripts/generate-poc-fixture.sh`.
+- fix: recognize the `v0.1.0-poc.1` `axiom-work-item-create` skill as a known
+  legacy Axiom skill; its digest was omitted when the skill changed in S3.
+- fix: build release archives with `COPYFILE_DISABLE=1` so macOS `tar` does not
+  embed AppleDouble `._*` entries that are absent from `MANIFEST.sha256`.
+- security: every maintenance mutation requires the exact current preview
+  digest; uncertain, mixed, unsafe, or contradictory state is preserved; the
+  inventory never opens non-regular files; Evidence artifacts are not
+  age-eligible without a recorded retirement time.
+- test: add S7 compatibility, transfer, cleanup, recovery, upgrade, black-box,
+  `scripts/test-s7-security.sh`, and `scripts/test-s7-native.sh` coverage.
+
 ## [2026-09-24]
 
 - implementation: deliver authorized MVP S6 (T26–T29) with a ten-stage Work

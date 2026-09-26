@@ -16,6 +16,8 @@ any successor Slice.
 
 **Issue #94 amendment: Approved, and S6 implementation explicitly authorized on 2026-09-24. Technical implementation is recorded at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not inferred.**
 
+**S7 (T16–T22): explicitly authorized on 2026-09-25. Technical implementation is recorded at `11f2b7decbe4ddef428d4cb3b7e962680100e1db` and `408a2b51f20e797744f9f6ba6eaa00e0061582f9` with [S7 Evidence](evidence-s7.md); T22 Ubuntu native rows remain unexecuted; human acceptance is not inferred.**
+
 This Plan describes how to realize the behavior approved in
 [Specification 004](spec.md). It was explicitly approved by the human reviewer in
 PR #71 on 2026-09-20 together with ADR-0007 and ADR-0008. The next authorized SDD
@@ -210,7 +212,7 @@ With human approval recorded on 2026-09-24, tracker reconciliation is required:
 
 Approval records the S6/S7/S8 placement only. Tracker reconciliation after merge
 did not authorize T26–T29 implementation; the later explicit S6 authorization
-did. S7–S8 remain separately gated.
+did. S7 was separately authorized on 2026-09-25; S8 remains separately gated.
 
 ## 5. Project setup strategy
 
@@ -548,6 +550,23 @@ Retention classes and policy:
 | `diagnostic` | Initial 30-day default after creation or supersession | Default policy for bounded troubleshooting context with no live dependency | Eligible only with no live references; short window may reduce late diagnosis and must be validated through dogfooding |
 | `preserved_review` | While ownership, validity, or reference state is uncertain | Hard fail-closed invariant; age cannot establish deletion authority | Never age-eligible; operator must resolve/reclassify, accepting possible capacity pressure |
 
+Evidence retirement (HD-S7-T18, human decision of 2026-09-26): the 365-day window
+starts only at an explicit, separately authorized retirement recorded as
+`artifacts/v1/retirements/<artifact-id>.json` (retirement format 1, outside the
+closed `metadata.json` v1 schema). The record binds the artifact ID, exact
+artifact revision and content digest, the retirement moment, the reviewed
+preview digest (whose observation had zero authoritative references), and its
+format version; its byte digest is the revision cleanup revalidates. Retirement
+follows preview -> exact authority -> revalidation under lock -> create-only
+ADR-0007 publication and is denied while any authoritative reference is live or
+a retirement already exists. Age, `createdAt`, momentary absence of references,
+and cleanup pressure never grant retirement. A later artifact reference
+supersedes (removes) the retirement before that artifact is published, so a
+re-reference that later disappears requires a new explicit retirement;
+Execution references are append-only in v1 and keep the artifact referenced.
+Missing, corrupt, stale, incompatible, or other-revision retirements preserve
+Evidence.
+
 Cleanup is always an explicit, previewed, separately authorized command. It locks
 and revalidates exact identity, ownership, type, links, digest, references, and
 eligibility before removal. Any uncertain owner/reference/lock state moves or keeps
@@ -596,7 +615,14 @@ Ubuntu 26.04 point release requires the applicable native compatibility rerun be
 the release claim expands; `27` or `26.04 LTS` is not a floating unrecorded runner.
 
 Every row requires native execution Evidence; cross-compilation alone is
-insufficient. Other distributions, OS versions, architectures, case-sensitive APFS,
+insufficient. Evidence phasing (HD-S7-T22, human decision of 2026-09-26): S7/T22
+requires the native row that is operated and dogfooded now, macOS 27/arm64/APFS.
+The Ubuntu 26.04/amd64/ext4 and Ubuntu 26.04/arm64/ext4 native rows remain
+supported targets and remain mandatory, but their native filesystem/install/
+upgrade Evidence obligation moves to the clean-environment RC acceptance matrix
+(T24) and must pass before any RC acceptance or release claim for those targets.
+No Ubuntu behavior is claimed by S7, and `ubuntu-24.04` CI is never Ubuntu 26.04
+Evidence. Other distributions, OS versions, architectures, case-sensitive APFS,
 network mounts, FUSE, overlay/union filesystems, removable media, and
 cross-filesystem publication are unsupported for v1 unless later added with
 equivalent Evidence.

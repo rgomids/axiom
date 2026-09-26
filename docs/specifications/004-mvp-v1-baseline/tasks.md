@@ -18,7 +18,9 @@
 
 **S6 Implementation: Explicitly authorized on 2026-09-24. T26–T29 are technically complete at implementation commit `56beb4fc310894ff8de128f52c6a96d22711bec8`; reproducible Evidence is recorded in [S6 Evidence](evidence-s6.md). Human acceptance is not inferred.**
 
-**S7–S8 Implementation: Not authorized.**
+**S7 Implementation: Explicitly authorized on 2026-09-25 (Issue #80); technically complete. Final S7 Evidence was executed at `ceb6d0288039793d15a98003d5b30a28a2f19122`, after the T18 Evidence retirement record (HD-S7-T18) implemented at `ffc2515`. T16–T22 are technically complete; T22 is complete under the revised S7 acceptance scope (HD-S7-T22): macOS 27.0/arm64/APFS passes natively, and the Ubuntu 26.04 amd64/ext4 and arm64/ext4 native rows were not executed and are deferred to the T24 clean-environment RC acceptance matrix, where they remain mandatory. T20 keeps the documented skill-set receipt limitation (`partial`/`refresh_required`) as a future release-format evolution. Evidence is recorded in [S7 Evidence](evidence-s7.md). Human acceptance is not inferred.**
+
+**S8 Implementation: Not authorized.**
 
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
@@ -58,7 +60,13 @@ Specification 004 — Approved
    -> Human acceptance — Not inferred
 -> S6 Implementation — authorized; T26–T29 technically complete in the delivery branch
    -> Human acceptance — Not inferred
--> S7–S8 Implementation — Not authorized
+-> S7 Implementation — authorized 2026-09-25; technically complete (Evidence at ceb6d02)
+   -> T16, T17, T19, T21 — technically complete
+   -> T18 — technically complete, including 365-day Evidence retirement (HD-S7-T18)
+   -> T20 — technically complete; skill-set receipt refresh is a documented future release-format evolution
+   -> T22 — complete under revised S7 scope (HD-S7-T22): macOS 27.0/arm64/APFS native pass; Ubuntu 26.04 amd64/arm64 ext4 not executed, deferred to T24
+   -> Human acceptance — Not inferred
+-> S8 Implementation — Not authorized
 ```
 
 The accepted POC and current Go packages are implementation inputs and historical
@@ -678,6 +686,7 @@ complete at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not 
 - **Explicit non-goals:** Permanent architectural retention values, portable artifact cleanup, legal deletion guarantees, payload retention inside audit record.
 - **Mandatory tests:** Eligibility matrix; active/Evidence/cross-artifact/recovery references; 30/365/90-day policy boundaries with fake clock; stale authority; race barriers; link/replacement/ACL; cleanup-record bound; capacity exhaustion before/after cleanup; no auto-delete.
 - **Expected Evidence:** Preview and authorization, reference graph snapshot, removed/preserved IDs/digests, bytes/count reclaimed, cleanup record, outside-root hashes, and measured dogfood volume/lookup cost.
+- **Evidence retirement (HD-S7-T18, 2026-09-26):** The 365-day Evidence window starts only at an explicit, separately authorized retirement recorded outside `metadata.json` v1 (see Plan retention). Retirement is denied while any authoritative reference is live; a later re-reference supersedes it; missing, corrupt, stale, or other-revision retirements preserve. Mandatory tests additionally cover 365d−1s/365d/365d+1s, referenced denial, stale authority, changed revision/digest, corrupt/missing record, re-reference and re-retirement, publication interruption/recovery, and link/type/permission confinement.
 - **Completion criteria:** Cleanup is explicit, exact, reference-aware, auditable, and cannot convert uncertainty or pressure into deletion authority.
 - **Risks / gates:** Dogfood recommendations may change defaults only through reviewed Plan/release reconciliation, not silently during implementation.
 
@@ -734,19 +743,19 @@ complete at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not 
 
 ### T22 — Exact-target native filesystem/install/upgrade Evidence
 
-- **Objective:** Native runs prove applicable filesystem, concurrency, installation, cleanup, recovery, and upgrade behavior on every approved release row; missing row remains an explicit release blocker.
+- **Objective:** Native runs prove applicable filesystem, concurrency, installation, cleanup, recovery, and upgrade behavior on the native row operated in S7 (macOS 27/arm64/APFS). Under HD-S7-T22 (2026-09-26) the two Ubuntu 26.04 rows remain supported targets whose native Evidence obligation moves to T24; a missing row remains an explicit RC/release blocker.
 - **Slice:** S7.
 - **Dependencies:** T19, T20, T21.
 - **Requirements:** FR-022–FR-037; AC-01, AC-14, AC-17–AC-19, AC-22, AC-23; MVP-SEC-06, MVP-SEC-08, MVP-SEC-09; MVP-NFR-03–MVP-NFR-07; SEC-003–SEC-005.
 - **ADRs / decisions:** ADR-0005–ADR-0007; HD-1, HD-3, HD-4.
 - **Affected boundaries:** APFS/ext4 adapters, native roots, installer/upgrade, artifact/cleanup/recovery, Evidence capture.
-- **Expected implementation:** Execute the same versioned suite on macOS 27/arm64/default case-insensitive APFS, Ubuntu 26.04/amd64/ext4, and Ubuntu 26.04/arm64/ext4; record exact point release/kernel/image/filesystem/primitives; preserve current macOS 15/Ubuntu 24.04 runs as historical only.
+- **Expected implementation:** Provide one versioned native suite that runs on every approved row; execute it on macOS 27/arm64/default case-insensitive APFS for S7; record exact point release/kernel/image/filesystem/primitives; record the Ubuntu 26.04/amd64/ext4 and Ubuntu 26.04/arm64/ext4 rows as not executed and deferred to T24 (never `pass`); preserve current macOS 15/Ubuntu 24.04 runs as historical only.
 - **Authority and side effects:** Tests operate on isolated owned roots/accounts/VMs. No production state or Provider mutation. Workflow/CI changes require their own reviewed implementation scope; preview runner availability is never assumed sufficient.
-- **Failure / recovery:** Unavailable or failing required row blocks completion; cross-compilation cannot substitute; unsupported filesystem/ownership semantics fail closed; test leftovers remain identified and safely cleanable.
+- **Failure / recovery:** A failing or unavailable macOS 27 row blocks S7 completion; the deferred Ubuntu rows block RC acceptance and release claims for those targets (T24); cross-compilation cannot substitute; unsupported filesystem/ownership semantics fail closed; test leftovers remain identified and safely cleanable.
 - **Explicit non-goals:** Windows, other Linux distributions/architectures/filesystems, case-sensitive APFS, network/FUSE/overlay/removable storage, physical power-loss testing.
-- **Mandatory tests:** T03 F0–F8; two-process barriers; traversal/link/replacement; ownership/mode/ACL; old/new readers; artifact capacity/cleanup; recovery; clean install/reinstall; ordered upgrade/partial resume on all three rows.
+- **Mandatory tests:** T03 F0–F8; two-process barriers; traversal/link/replacement; ownership/mode/ACL; old/new readers; artifact capacity/cleanup; recovery; clean install/reinstall; ordered upgrade/partial resume on the macOS 27/arm64/APFS row for S7; the same suite on both Ubuntu 26.04 rows under T24.
 - **Expected Evidence:** Per-row immutable report with candidate revision, environment inventory, commands/exits, filesystem observations, fault/concurrency tables, hashes/references, limitations, unavailable cases, and sanitized artifacts.
-- **Completion criteria:** All three exact rows have native passing Evidence for applicable claims; any missing evidence remains blocking, never downgraded to a documentation note.
+- **Completion criteria (revised by HD-S7-T22):** The macOS 27/arm64/APFS row has native passing Evidence for applicable claims, and both Ubuntu 26.04 rows are recorded as not executed and deferred to T24. Deferral is not a pass: no Ubuntu behavior is claimed, and the Ubuntu obligation stays blocking for RC acceptance/release, never downgraded to a documentation note.
 - **Risks / gates:** Preview runner drift/capacity needs recorded backstop/rerun path. Platform expansion requires reviewed support/Evidence change.
 
 ### T23 — Identified RC archives and authorized prerelease publication
@@ -778,9 +787,9 @@ complete at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not 
 - **Authority and side effects:** **Human gate before each real run.** Exact authority required for bounded GitHub Issue/label/comment effects and Codex invocation. Allowed effects and cleanup ownership listed before execution. Forbidden: closing work as human acceptance, unrelated repository/Git mutation, credential publication, release promotion.
 - **Failure / recovery:** Exercise all seven statuses, invalid selectors, denial, interruption/resume, retryable Provider failure, confirmed Provider/local failure, recovery-required, capacity exhaustion, POC detection/export-reconfigure, and partial upgrade. Preserve external effects/references truthfully.
 - **Explicit non-goals:** Automated human acceptance, broad provider/runtime coverage, production workload/load test, historical CI substitution.
-- **Mandatory tests:** Full black-box journey on all three support rows; CLI/Runtime semantic matrix; real bounded Codex discovery/invocation; real bounded GitHub create/projection; controlled fake failure/non-effect cases; documentation replay.
+- **Mandatory tests:** Full black-box journey on all three support rows; the T22 native filesystem/install/upgrade suite (`scripts/test-s7-native.sh` or its versioned successor) on Ubuntu 26.04/amd64/ext4 and Ubuntu 26.04/arm64/ext4, deferred from S7 by HD-S7-T22; CLI/Runtime semantic matrix; real bounded Codex discovery/invocation; real bounded GitHub create/projection; controlled fake failure/non-effect cases; documentation replay.
 - **Expected Evidence:** Candidate/environment identity, commands/exits, hashes/references, prompt counts, Provider/Codex observations, side-effect ledger, artifact/Evidence IDs/digests, platform facts, exclusions, unexecuted cases, and cleanup disposition.
-- **Completion criteria:** Every AC-01–AC-23 and AC-25–AC-31 has inspectable future Evidence on required scope/platforms; AC-24 remains the separate human decision and failures or unavailable rows block RC readiness.
+- **Completion criteria:** Every AC-01–AC-23 and AC-25–AC-31 has inspectable future Evidence on required scope/platforms, including native passing Evidence for both Ubuntu 26.04 rows deferred from T22; AC-24 remains the separate human decision and failures or unavailable rows block RC readiness.
 - **Risks / gates:** Real credentials stay outside Evidence. Test success prepares review only and never fills AC-24's human decision.
 
 ### T25 — Versioned RC Evidence, documentation reconciliation, and human gate
@@ -1021,4 +1030,6 @@ bounded real Codex Runtime Evidence. Human acceptance is not inferred.**
 
 **S6 (T26–T29) — Explicitly authorized and technically complete at implementation commit `56beb4fc310894ff8de128f52c6a96d22711bec8`, with reproducible [S6 Evidence](evidence-s6.md). Human acceptance is not inferred.**
 
-**S7–S8 Implementation — Not authorized.**
+**S7 (T16–T22) — Explicitly authorized on 2026-09-25 and technically complete; final Evidence at implementation commit `ceb6d0288039793d15a98003d5b30a28a2f19122` (T18 retirement at `ffc2515`). T22 is complete under the revised S7 acceptance scope (HD-S7-T22); the Ubuntu 26.04 amd64/arm64 ext4 native rows are deferred to T24 and remain mandatory before RC acceptance or release claims for those targets. See [S7 Evidence](evidence-s7.md). Human acceptance is not inferred.**
+
+**S8 Implementation — Not authorized.**

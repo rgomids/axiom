@@ -121,7 +121,9 @@ build_target() {
     done < <(find "$root/skills" -type f | LC_ALL=C sort)
   } >"$root/MANIFEST.sha256"
   local archive="$output/$bundle.tar.gz"
-  tar -C "$work" -czf "$archive" "$bundle"
+  # macOS bsdtar otherwise embeds AppleDouble ._* entries for extended
+  # attributes; they are unlisted in MANIFEST.sha256 and break other hosts.
+  COPYFILE_DISABLE=1 tar -C "$work" -czf "$archive" "$bundle"
   printf '%s  %s\n' "$(digest "$archive")" "$(basename "$archive")" >>"$checksums"
 }
 

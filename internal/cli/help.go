@@ -14,6 +14,10 @@ Commands:
   project configure|show|resolve|init|validate|reopen|update|install
   work-item create|select|show|comment|complete
   workflow start|advance|fact|resume|status|evidence|reconcile
+  compatibility inspect|backup|export
+  artifact cleanup|retire
+  recovery inspect|apply
+  upgrade --archive <path> --checksums <path> --bin-dir <dir> --receipt-dir <dir>
 
 Stable Codex skill mapping:
   $axiom-project-configure -> lingo --json project configure
@@ -21,6 +25,10 @@ Stable Codex skill mapping:
   $axiom-work-item-create  -> lingo --json work-item create|select
   $axiom-work-item-run     -> lingo --json workflow start|advance|resume|reconcile
   $axiom-work-item-status  -> lingo --json workflow status|evidence
+
+Maintenance commands are read-only previews unless repeated with the exact
+--preview-digest and --authorize-local. Backup/export targets must be absent
+absolute paths. Recovery applies one plan selected by its digest.
 
 Use --json for machine-readable output. Default and --human output are readable
 status summaries. Mutation authority remains explicit through
