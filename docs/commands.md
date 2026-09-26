@@ -270,8 +270,9 @@ preserved, not repaired. The closed receipt includes an RFC 3339 UTC
 `installedAt` value created for the successful installation generation and
 preserved on equivalent reinstall. Exact owned reinstall is a no-op. Platform,
 ownership, permission, ACL, link, type, schema, and content conflicts fail closed.
-The installer never edits shell profiles or `PATH`. S2 deliberately refuses
-version upgrades; resumable upgrade belongs to T20.
+The installer never edits shell profiles or `PATH`. It deliberately refuses
+version upgrades; use the owned upgrade path in
+[Compatibility, cleanup, recovery, and upgrade](#compatibility-cleanup-recovery-and-upgrade).
 
 Validate archive structure, clean install, no-op, conflicts, interruption, and
 recovery markers with:
@@ -567,3 +568,95 @@ or unavailable results are reconcile-first; a confirmed Provider effect followed
 by local bookkeeping failure is `partial`. Replaying the same revision converges
 without a duplicate comment. Projection never advances, repairs, or completes
 local workflow truth.
+
+## Compatibility, cleanup, recovery, and upgrade
+
+These S7 maintenance commands follow one rule: without `--authorize-local` they
+are read-only previews; a mutation requires repeating the command with the exact
+`--preview-digest` of a current preview. Any change between review and apply
+denies authority. Targets and roots are explicit; the CWD is never used.
+
+Classify the configured roots (`LINGO_PROJECTS_ROOT`, `LINGO_STATE_ROOT`, and the
+Codex skill root) without creating, locking, or changing anything:
+
+```bash
+lingo --json compatibility inspect
+```
+
+The closed classifications are `absent_v1`, `valid_v1`, `recognized_poc`,
+`malformed`, `unsupported_older`, `unsupported_newer`, and `recovery_required`.
+Recognition of historical `v0.1.0-poc.1` state requires the complete positive
+POC workflow signature; mixed POC/v1, partial, unknown, unsafe (link, mode,
+ownership, ACL, type, size), and uncertain state is preserved for review and is
+never reported as absent. Only Axiom-owned skill names in the shared skill root
+are inspected. The report contains categories, kinds, owned relative names, and
+digests, never file content.
+
+Recognized POC state is never migrated in place. Preserve it with separate
+authorities, each writing only new private objects into an absent target on the
+same local filesystem as the source, outside every owned root:
+
+```bash
+lingo --json compatibility backup --target /absolute/new/poc-backup
+lingo --json compatibility export --target /absolute/new/poc-export
+# after review, repeat each with --preview-digest <digest> --authorize-local
+```
+
+Backup copies every recognized POC object; export copies only validated
+portable Project manifests to `<target>/projects`, which a separate clean
+`LINGO_STATE_ROOT` can then configure explicitly with `lingo project configure`.
+`manifest.json` is written last; a target without it is incomplete and is never
+adopted. An equivalent completed target is reported as a no-op.
+
+Explicit, reference-aware artifact cleanup:
+
+```bash
+lingo --json artifact cleanup
+lingo --json artifact cleanup --preview-digest <digest> --authorize-local
+```
+
+Only unreferenced `diagnostic` artifacts at least 30 days old and confirmed
+cleanup records at least 90 days old are eligible. References come from every
+local Execution record under the state-root lock; uncertain reference state
+fails closed. `active`, `preserved_review`, referenced, and `evidence` artifacts
+are preserved. Evidence artifacts stay preserved because metadata format 1 does
+not record when Evidence references were retired. Each authorized batch removes
+at most 128 exact objects and publishes a bounded cleanup record before removal.
+Capacity exhaustion never deletes anything.
+
+Guided recovery of interrupted local publication:
+
+```bash
+lingo --json recovery inspect
+lingo --json recovery apply --preview-digest <plan-digest> --authorize-local
+```
+
+Inspection lists each interrupted protocol directory, its marker, generations,
+fault stage, and proposed action. Only `restore_prior` (before the commit point)
+and `finalize_committed` (after it) are ever applied, under a fresh exact plan
+digest and the owning store's lock order; a committed generation is never rolled
+back. Ambiguous, contradictory, corrupt, or unknown state and interrupted S2
+attempt markers remain `preserved_review`.
+
+Owned upgrade of a release installation made by `install-release.sh`:
+
+```bash
+lingo --json upgrade \
+  --archive /absolute/release/axiom-0.2.0-macos-27-arm64.tar.gz \
+  --checksums /absolute/release/SHA256SUMS \
+  --bin-dir /absolute/user-owned/bin \
+  --receipt-dir /absolute/user-owned/state
+# after review, repeat with --preview-digest <digest> --authorize-local
+```
+
+The archive is verified exactly as the installer does before anything else.
+Preflight requires the exact approved host row, an unmodified owned binary and
+receipt, a newer version (downgrade and divergent same-version replacement are
+refused), `absent_v1` or `valid_v1` state, and observed free space. The binary
+and then the receipt are published and re-read as separate confirmed effects;
+`installedAt` is preserved. A later failure is `partial`: the installer's
+`.axiom-install-operation` marker records the exact archive, so only the same
+archive can resume, and the installer refuses in the meantime. If installed
+Codex skills do not match the new version the result is `partial` and the next
+action is `lingo runtime codex install` with the upgraded binary. There is no
+automatic update, rollback, or cross-root transaction.

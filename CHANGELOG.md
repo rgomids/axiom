@@ -1,5 +1,26 @@
 # Changelog
 
+## [2026-09-26]
+
+- implementation: deliver authorized MVP S7 (T16–T22) maintenance paths:
+  read-only `compatibility inspect`; separately authorized POC `compatibility
+  backup` and portable `compatibility export`; reference-aware `artifact
+  cleanup`; guided `recovery inspect|apply`; and owned `upgrade` with ordered,
+  individually confirmed binary/receipt effects and resumable partial state.
+- implementation: classify persisted state with the real v1 decoders and a
+  frozen `v0.1.0-poc.1` workflow signature; fixtures are produced by the
+  historical tag binary via `scripts/generate-poc-fixture.sh`.
+- fix: recognize the `v0.1.0-poc.1` `axiom-work-item-create` skill as a known
+  legacy Axiom skill; its digest was omitted when the skill changed in S3.
+- fix: build release archives with `COPYFILE_DISABLE=1` so macOS `tar` does not
+  embed AppleDouble `._*` entries that are absent from `MANIFEST.sha256`.
+- security: every maintenance mutation requires the exact current preview
+  digest; uncertain, mixed, unsafe, or contradictory state is preserved; the
+  inventory never opens non-regular files; Evidence artifacts are not
+  age-eligible without a recorded retirement time.
+- test: add S7 compatibility, transfer, cleanup, recovery, upgrade, black-box,
+  `scripts/test-s7-security.sh`, and `scripts/test-s7-native.sh` coverage.
+
 ## [2026-09-24]
 
 - implementation: deliver authorized MVP S6 (T26–T29) with a ten-stage Work

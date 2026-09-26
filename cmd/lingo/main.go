@@ -138,7 +138,7 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	}
 	references := local.NewWorkflowReferenceValidator(artifacts)
 	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil)
-	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, provenance: source}
+	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), provenance: source}
 }
 
 func codexSkillsRoot() string {
@@ -188,6 +188,7 @@ type lifecycleService struct {
 	workflows              workflow.Service
 	projectsRoot           string
 	stateRoot              string
+	skillsRoot             string
 	provenance             provenance.Value
 	beforeLocalPublication func()
 }
