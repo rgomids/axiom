@@ -178,7 +178,7 @@ step skills-apply-partial-receipt-refresh bash -c "AXIOM_CODEX_SKILLS_ROOT='$ski
 mkdir -p "$temporary/extract110" && tar -xzf "$new_archive" -C "$temporary/extract110"
 step skills-published-match-candidate bash -c "for skill in '$temporary'/extract110/*/skills/*; do cmp -s \"\$skill/SKILL.md\" '$skills3/'\$(basename \"\$skill\")/SKILL.md || exit 1; done"
 step skills-no-staging-or-marker bash -c "[[ -z \$(find '$skills3' -name '.axiom-upgrade-skill.*') && ! -e '$receipts3/.axiom-install-operation' ]]"
-step skills-receipt-refresh-by-upgraded-binary bash -c "AXIOM_CODEX_SKILLS_ROOT='$skills3' '$bin3/lingo' --json runtime codex install | grep -q '\"status\":\"success\"' && AXIOM_CODEX_SKILLS_ROOT='$skills3' '$bin3/lingo' --json runtime codex status | grep -q '\"category\":\"codex_ready\"'"
+step skills-receipt-refresh-by-upgraded-binary bash -c "AXIOM_CODEX_SKILLS_ROOT='$skills3' '$bin3/lingo' --json runtime codex install | grep -q '\"status\":\"success\"' && AXIOM_CODEX_SKILLS_ROOT='$skills3' '$bin3/lingo' --json runtime codex status | grep -q '\"status\":\"success\",\"result\":\"Lingo and Codex skills are compatible\"'"
 
 printf 'failures=%d\n' "$failures"
 if ((failures)); then
