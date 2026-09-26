@@ -24,16 +24,9 @@ if find "$TARGET" -path "$TARGET/.git" -prune -o -type l -print -quit | grep -q 
   fail "symlinks are not allowed in Codex packages"
 fi
 
-# A root CLAUDE.md is allowed only as the exact pointer "@AGENTS.md"; it adds
-# no Claude-specific instructions. Any other Claude artifact is rejected.
-if [[ -d "$TARGET/.claude" || -e "$TARGET/.claude" ]]; then
-  fail "Claude artifacts found in Codex package"
-fi
-if [[ -e "$TARGET/CLAUDE.md" || -L "$TARGET/CLAUDE.md" ]]; then
-  if [[ -L "$TARGET/CLAUDE.md" || ! -f "$TARGET/CLAUDE.md" || "$(cat "$TARGET/CLAUDE.md")" != "@AGENTS.md" ]]; then
-    fail "Claude artifacts found in Codex package"
-  fi
-fi
+# Only the approved root bootstrap CLAUDE.md ("@AGENTS.md") is tolerated;
+# the Codex renderer never emits it. Any other Claude artifact fails.
+"$SCRIPT_DIR/check-claude-bootstrap.sh" "$TARGET" || fail "Claude artifacts found in Codex package"
 
 "$SCRIPT_DIR/check-sensitive-files.sh" --directory "$TARGET"
 

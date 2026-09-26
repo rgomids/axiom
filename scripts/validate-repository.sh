@@ -83,14 +83,7 @@ grep -Fq -- 'href="../README.md"' "$ROOT/docs/README.pt-BR.md" \
 grep -Fq -- "$notion_url" "$ROOT/docs/product/README.md" \
   || fail "Notion source is missing from docs/product/README.md"
 
-# Only the root pointer CLAUDE.md containing exactly "@AGENTS.md" is allowed.
-if find "$ROOT" -path "$ROOT/.git" -prune -o \( -name 'CLAUDE.md' -o -name '.claude' \) -print \
-    | grep -vx "$ROOT/CLAUDE.md" | grep -q .; then
-  fail "Claude-specific artifact found"
-fi
-if [[ -e "$ROOT/CLAUDE.md" || -L "$ROOT/CLAUDE.md" ]] && [[ -L "$ROOT/CLAUDE.md" || ! -f "$ROOT/CLAUDE.md" || "$(cat "$ROOT/CLAUDE.md")" != "@AGENTS.md" ]]; then
-  fail "Claude-specific artifact found"
-fi
+"$ROOT/scripts/check-claude-bootstrap.sh" "$ROOT"
 
 if find "$ROOT/docs" -type d -empty -print -quit | grep -q .; then
   fail "empty documentation directory found"
@@ -98,6 +91,7 @@ fi
 
 "$ROOT/scripts/validate-agent-package.sh" "$ROOT"
 "$ROOT/scripts/test-validate-agent-package.sh"
+"$ROOT/scripts/test-check-claude-bootstrap.sh"
 "$ROOT/scripts/test-check-sensitive-files.sh"
 "$ROOT/scripts/check-sensitive-files.sh" "$ROOT"
 git -C "$ROOT" diff --check

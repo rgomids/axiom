@@ -41,6 +41,20 @@ if "$VALIDATOR" "$CLAUDE_PACKAGE" >/dev/null 2>&1; then
   fail "CLAUDE.md with its own instructions should fail validation"
 fi
 
+TARGET_PACKAGE="$TEST_ROOT/claude-target"
+new_package "$TARGET_PACKAGE"
+printf '@README.md\n' > "$TARGET_PACKAGE/CLAUDE.md"
+if "$VALIDATOR" "$TARGET_PACKAGE" >/dev/null 2>&1; then
+  fail "CLAUDE.md pointing to another file should fail validation"
+fi
+
+NESTED_PACKAGE="$TEST_ROOT/nested-claude"
+new_package "$NESTED_PACKAGE"
+printf '@AGENTS.md\n' > "$NESTED_PACKAGE/.agents/skills/example/CLAUDE.md"
+if "$VALIDATOR" "$NESTED_PACKAGE" >/dev/null 2>&1; then
+  fail "nested CLAUDE.md should fail validation"
+fi
+
 DOT_CLAUDE_PACKAGE="$TEST_ROOT/dot-claude"
 new_package "$DOT_CLAUDE_PACKAGE"
 mkdir "$DOT_CLAUDE_PACKAGE/.claude"
