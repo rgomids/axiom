@@ -101,7 +101,7 @@ fi
 tests artifact-capacity-cleanup ./internal/local TestArtifactStoreCapacityAndCollisionFailWithoutEviction TestCapacityExhaustionNeverEvictsAndExplicitCleanupRestoresCapacity TestArtifactCleanupEligibilityMatrixUsesAuthoritativeReferences TestArtifactCleanupRequiresExactAuthorityAndRecordsBoundedAudit TestArtifactCleanupStaleReferenceAndConcurrentWriterDenyAuthority TestArtifactCleanupPartialRemovalIsTruthfulAndRecorded TestCleanupRecordRetentionAndBatchBounds
 tests guided-recovery ./internal/local TestGuidedRecoveryCoversRecognizedFileFaultStages TestGuidedRecoveryStageRemovedMarkerLeftRestoresPrior TestGuidedRecoveryPreservesAmbiguousCorruptAndUnknownState TestGuidedRecoveryRejectsStaleAuthorityAndConcurrentWriter TestGuidedRecoveryDirectoryPublications TestRecoveryAttemptLeftoversArePreservedForReview
 tests compatibility-transfer ./internal/compatibility TestRecognizedPOCFromHistoricalBinaryOutput TestClassificationMatrix TestUnsafeFilesystemFactsFailClosed TestBackupAndExportUseSeparateExactAuthorities TestTransferRejectsUnsafeTargetsAndStaleSource TestTransferCapacityAndInterruptionPreserveSource
-tests upgrade-units ./internal/install TestLoadCandidateMirrorsInstallerVerification TestUpgradeOrdersConfirmedEffectsAndPreservesInstalledAt TestUpgradeInterruptionAfterBinaryIsPartialAndResumable TestUpgradeResumeAfterAllEffectsFinalizesMarker TestUpgradeRefusalsHaveZeroEffects
+tests upgrade-units ./internal/install TestLoadCandidateMirrorsInstallerVerification TestUpgradeOrdersConfirmedEffectsAndPreservesInstalledAt TestUpgradeInterruptionAfterBinaryIsPartialAndResumable TestUpgradeResumeAfterAllEffectsFinalizesMarker TestUpgradeRefusalsHaveZeroEffects TestUpgradePublishesOwnedSkillFilesAfterBinaryAndReceipt TestUpgradeInterruptionAtEachOrderedEffectResumes TestUpgradeSkillConflictsHaveZeroEffects
 step race bash -c "cd '$repository_root' && go test -race ./internal/compatibility ./internal/install ./internal/local -count=1"
 step release-archive-suite "$repository_root/scripts/test-release-archives.sh"
 
@@ -157,6 +157,28 @@ resume_digest=$(sed -n 's/.*"references":\["upgrade:\([0-9a-f]\{64\}\)"\].*/\1/p
 step resume-preview-receipt-only bash -c "grep -q '\"resume\":true' '$temporary/resume.json' && [[ \$(grep -o '\"kind\":\"[a-z]*\"' '$temporary/resume.json' | sort -u | tr '\n' ' ') == '\"kind\":\"receipt\" ' ]]"
 step resume-apply bash -c "'$bin2/lingo' --json ${resume_args[*]} --preview-digest '$resume_digest' --authorize-local | grep -q '\"status\":\"success\"'"
 step resume-marker-cleared bash -c "[[ ! -e '$receipts2/.axiom-install-operation' ]]"
+
+# Native skill publication: a known-legacy (historical POC) Axiom skill set is
+# replaced by the candidate's verified skill files inside the upgrade itself.
+bin3="$temporary/install3/bin"
+receipts3="$temporary/install3/receipts"
+skills3="$temporary/install3/skills"
+mkdir -p "$temporary/install3" && chmod 700 "$temporary/install3"
+step skills-install-1.0.0 "$installer" --archive "$old_archive" --checksums "$temporary/r100/SHA256SUMS" --bin-dir "$bin3" --receipt-dir "$receipts3"
+mkdir -m 700 "$skills3"
+for skill in "$repository_root"/internal/compatibility/testdata/poc-v0.1.0-poc.1/skills/*; do
+  mkdir -m 700 "$skills3/$(basename "$skill")"
+  cp "$skill/SKILL.md" "$skills3/$(basename "$skill")/SKILL.md" && chmod 600 "$skills3/$(basename "$skill")/SKILL.md"
+done
+skill_args=(upgrade --archive "$new_archive" --checksums "$temporary/r110/SHA256SUMS" --bin-dir "$bin3" --receipt-dir "$receipts3")
+AXIOM_CODEX_SKILLS_ROOT="$skills3" "$bin3/lingo" --json "${skill_args[@]}" >"$temporary/skills.json" 2>/dev/null
+skill_digest=$(sed -n 's/.*"references":\["upgrade:\([0-9a-f]\{64\}\)"\].*/\1/p' "$temporary/skills.json")
+step skills-preview-five-effects bash -c "[[ \$(grep -o '\"kind\":\"skill\"' '$temporary/skills.json' | wc -l | tr -d ' ') == 5 ]]"
+step skills-apply-partial-receipt-refresh bash -c "AXIOM_CODEX_SKILLS_ROOT='$skills3' '$bin3/lingo' --json ${skill_args[*]} --preview-digest '$skill_digest' --authorize-local | grep -q '\"skillReceipt\":\"refresh_required\"'"
+mkdir -p "$temporary/extract110" && tar -xzf "$new_archive" -C "$temporary/extract110"
+step skills-published-match-candidate bash -c "for skill in '$temporary'/extract110/*/skills/*; do cmp -s \"\$skill/SKILL.md\" '$skills3/'\$(basename \"\$skill\")/SKILL.md || exit 1; done"
+step skills-no-staging-or-marker bash -c "[[ -z \$(find '$skills3' -name '.axiom-upgrade-skill.*') && ! -e '$receipts3/.axiom-install-operation' ]]"
+step skills-receipt-refresh-by-upgraded-binary bash -c "AXIOM_CODEX_SKILLS_ROOT='$skills3' '$bin3/lingo' --json runtime codex install | grep -q '\"status\":\"success\"' && AXIOM_CODEX_SKILLS_ROOT='$skills3' '$bin3/lingo' --json runtime codex status | grep -q '\"category\":\"codex_ready\"'"
 
 printf 'failures=%d\n' "$failures"
 if ((failures)); then

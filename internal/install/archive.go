@@ -42,6 +42,7 @@ type Candidate struct {
 	Binary              []byte
 	SkillManifestSHA256 string
 	Skills              map[string]string
+	SkillFiles          map[string][]byte
 }
 
 // LoadCandidate mirrors install-release.sh verification: exact SHA256SUMS
@@ -83,7 +84,7 @@ func LoadCandidate(archivePath, checksumsPath string) (Candidate, error) {
 	if err := verifyBundleManifest(files); err != nil {
 		return Candidate{}, &Error{Category: "archive_invalid"}
 	}
-	candidate := Candidate{ArchiveSHA256: actual, Binary: files["lingo"], Skills: map[string]string{}}
+	candidate := Candidate{ArchiveSHA256: actual, Binary: files["lingo"], Skills: map[string]string{}, SkillFiles: map[string][]byte{}}
 	if candidate.Metadata, candidate.Values, err = parseMetadata(files["release-metadata.txt"]); err != nil {
 		return Candidate{}, &Error{Category: "release_metadata_invalid"}
 	}
@@ -93,6 +94,9 @@ func LoadCandidate(archivePath, checksumsPath string) (Candidate, error) {
 		return Candidate{}, &Error{Category: "skill_manifest_invalid"}
 	}
 	candidate.SkillManifestSHA256 = digest(skillManifest)
+	for _, name := range skillNames {
+		candidate.SkillFiles[name] = files["skills/"+name+"/SKILL.md"]
+	}
 	if len(candidate.Binary) == 0 {
 		return Candidate{}, &Error{Category: "archive_invalid"}
 	}

@@ -257,11 +257,7 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 	}
 	references := []string{"upgrade:" + preview.Digest}
 	if len(preview.Effects) == 0 && len(preview.Leftovers) == 0 && !preview.Resume {
-		next := "No upgrade effect is required"
-		if preview.Skills == install.SkillsRequireInstall {
-			next = "Run `lingo runtime codex install` with the upgraded binary to publish the compatible skill set"
-		}
-		return s.maintenanceResult(completion.Facts{Completed: true}, "Installation already matches the candidate", references, next, upgradeView{Preview: preview})
+		return s.maintenanceResult(completion.Facts{Completed: true}, "Installation already matches the candidate", references, "No upgrade effect is required", upgradeView{Preview: preview})
 	}
 	if !input.AuthorizeLocal {
 		return s.maintenanceResult(completion.Facts{Completed: true}, "Upgrade preview ready", references, "Review effects, then repeat with --preview-digest "+preview.Digest+" --authorize-local", upgradeView{Preview: preview})
@@ -276,7 +272,7 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 	case err == nil && result.Status == "success":
 		return s.maintenanceResult(completion.Facts{Completed: true}, "Upgrade confirmed", references, "Run `lingo version` to verify the upgraded binary", view)
 	case err == nil:
-		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Binary and receipt upgraded; Codex skills are not yet compatible", references, "Run `lingo runtime codex install` with the upgraded binary", view)
+		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Binary, receipt, and Codex skill files upgraded; the Codex skill-set receipt was not refreshed", references, "Run `lingo runtime codex install` with the upgraded binary to refresh the skill-set receipt", view)
 	case len(result.Ledger) > 0:
 		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Upgrade partially applied: "+upgradeCategory(err), references, "Repeat `lingo upgrade` with the same archive to preview the resumable remaining effects", view)
 	case upgradeCategory(err) == "authority_denied":
@@ -307,7 +303,11 @@ func upgradeNext(category string) string {
 	case "unsupported_host":
 		return "Use the archive for this exact approved OS, version, and architecture"
 	case "insufficient_space":
-		return "Free space in the binary directory and preview again"
+		return "Free space in the binary directory and Codex skill root, then preview again"
+	case "skill_conflict":
+		return "Axiom skills in the Codex skill root are modified or not owned; preserve them for review"
+	case "skill_set_busy_or_interrupted":
+		return "Wait for the running Codex skill install to finish, then prepare a fresh preview"
 	}
 	return "Inspect the installation and retry with a fresh preview"
 }

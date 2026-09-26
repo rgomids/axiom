@@ -11,8 +11,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/compatibility"
 )
 
@@ -255,21 +257,277 @@ func TestUpgradeOrdersConfirmedEffectsAndPreservesInstalledAt(t *testing.T) {
 	}
 }
 
-func TestUpgradeReportsIncompatibleSkillsAsPartial(t *testing.T) {
+func (i *installation) withSkillsRoot(t *testing.T, skills map[string][]byte) string {
+	t.Helper()
+	i.withSkills(t, skills)
+	i.target.SkillsRoot = filepath.Join(filepath.Dir(i.target.BinaryDir), "skills")
+	return i.target.SkillsRoot
+}
+
+func assertSkills(t *testing.T, root string, skills map[string][]byte) {
+	t.Helper()
+	for _, name := range skillNames {
+		directory := filepath.Join(root, name)
+		entries, err := os.ReadDir(directory)
+		if err != nil || len(entries) != 1 || entries[0].Name() != "SKILL.md" {
+			t.Fatalf("%s entries=%v err=%v", name, entries, err)
+		}
+		if read(t, filepath.Join(directory, "SKILL.md")) != string(skills[name]) {
+			t.Fatalf("%s not published", name)
+		}
+		assertMode(t, filepath.Join(directory, "SKILL.md"), 0o600)
+	}
+}
+
+func TestUpgradePublishesOwnedSkillFilesAfterBinaryAndReceipt(t *testing.T) {
 	current := newBundle("1.0.0", []byte("old-binary\n"))
 	installed := install(t, current)
-	installed.withSkills(t, current.skills)
-	installed.target.SkillsRoot = filepath.Join(filepath.Dir(installed.target.BinaryDir), "skills")
-	candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+	root := installed.withSkillsRoot(t, current.skills)
+	next := newBundle("1.1.0", []byte("new-binary\n"))
+	candidate := installed.candidate(t, next)
 	service := NewService()
 	preview, err := service.Preview(context.Background(), installed.target, candidate)
-	if err != nil || preview.Skills != SkillsRequireInstall {
+	if err != nil || preview.Skills != SkillsPublish || len(preview.Effects) != 2+len(skillNames) {
 		t.Fatalf("preview=%+v err=%v", preview, err)
+	}
+	for index, name := range skillNames {
+		effect := preview.Effects[2+index]
+		if effect.Kind != "skill" || effect.Name != name || effect.Expected != digest(current.skills[name]) || effect.Next != digest(next.skills[name]) || effect.Target != filepath.Join(root, name, "SKILL.md") {
+			t.Fatalf("skill effect %d=%+v", index, effect)
+		}
+	}
+	if preview.Effects[0].Kind != "binary" || preview.Effects[1].Kind != "receipt" {
+		t.Fatalf("binary and receipt must precede skills: %+v", preview.Effects)
 	}
 	authority, _ := Authorize(preview, preview.Digest)
 	result, err := service.Apply(context.Background(), preview, authority)
-	if err != nil || result.Status != "partial" || result.Skills != SkillsRequireInstall || len(result.Ledger) != 2 {
-		t.Fatalf("mixed binary/skill outcome not partial: %+v %v", result, err)
+	if err != nil || result.Status != "partial" || result.Skills != SkillsMatch || result.SkillReceipt != SkillReceiptRefreshRequired || len(result.Ledger) != len(preview.Effects) {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	for index, entry := range result.Ledger {
+		if !entry.Confirmed || entry.Kind != preview.Effects[index].Kind || entry.Name != preview.Effects[index].Name || entry.Revision != preview.Effects[index].Next {
+			t.Fatalf("ledger %d=%+v", index, entry)
+		}
+	}
+	assertSkills(t, root, next.skills)
+	if _, err := os.Lstat(filepath.Join(installed.target.ReceiptDir, markerName)); !os.IsNotExist(err) {
+		t.Fatal("marker left behind")
+	}
+	again, err := service.Preview(context.Background(), installed.target, candidate)
+	if err != nil || len(again.Effects) != 0 || again.Skills != SkillsMatch {
+		t.Fatalf("post-upgrade preview=%+v err=%v", again, err)
+	}
+}
+
+func TestUpgradeReplacesKnownLegacySkillsAndCreatesMissingOnes(t *testing.T) {
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	legacy := map[string][]byte{}
+	for _, name := range skillNames[:4] {
+		wire, err := os.ReadFile(filepath.Join("..", "compatibility", "testdata", "poc-v0.1.0-poc.1", "skills", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		legacy[name] = wire
+	}
+	root := installed.withSkillsRoot(t, legacy)
+	next := newBundle("1.1.0", []byte("new-binary\n"))
+	preview, err := NewService().Preview(context.Background(), installed.target, installed.candidate(t, next))
+	if err != nil || len(preview.Effects) != 2+len(skillNames) || preview.Effects[len(preview.Effects)-1].Expected != absentRevision {
+		t.Fatalf("preview=%+v err=%v", preview, err)
+	}
+	authority, _ := Authorize(preview, preview.Digest)
+	if result, err := NewService().Apply(context.Background(), preview, authority); err != nil || result.Status != "partial" || result.SkillReceipt != SkillReceiptRefreshRequired {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	assertSkills(t, root, next.skills)
+}
+
+func TestUpgradeSkillConflictsHaveZeroEffects(t *testing.T) {
+	for name, mutate := range map[string]func(*testing.T, string){
+		"modified skill": func(t *testing.T, root string) {
+			writeFile(t, filepath.Join(root, skillNames[1], "SKILL.md"), []byte("operator edit\n"), 0o600)
+		},
+		"unexpected entry": func(t *testing.T, root string) {
+			writeFile(t, filepath.Join(root, skillNames[0], "notes.md"), []byte("x\n"), 0o600)
+		},
+		"permissive skill file": func(t *testing.T, root string) {
+			if err := os.Chmod(filepath.Join(root, skillNames[2], "SKILL.md"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"symlinked skill directory": func(t *testing.T, root string) {
+			outside := t.TempDir()
+			if err := os.Rename(filepath.Join(root, skillNames[3]), filepath.Join(outside, "moved")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Join(outside, "moved"), filepath.Join(root, skillNames[3])); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"interrupted runtime install": func(t *testing.T, root string) {
+			writeFile(t, filepath.Join(root, ".axiom-skill-set-receipt-stage"), []byte("x\n"), 0o600)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			current := newBundle("1.0.0", []byte("old-binary\n"))
+			installed := install(t, current)
+			root := installed.withSkillsRoot(t, current.skills)
+			mutate(t, root)
+			before := snapshot(t, filepath.Dir(installed.target.BinaryDir))
+			if _, err := NewService().Preview(context.Background(), installed.target, installed.candidate(t, newBundle("1.1.0", []byte("new\n")))); category(err) != "skill_conflict" {
+				t.Fatalf("error=%v", err)
+			}
+			if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
+				t.Fatal("refused upgrade changed owned state")
+			}
+		})
+	}
+	t.Run("staging leftover without an operation", func(t *testing.T) {
+		current := newBundle("1.0.0", []byte("old-binary\n"))
+		installed := install(t, current)
+		root := installed.withSkillsRoot(t, current.skills)
+		writeFile(t, filepath.Join(root, skillNames[0], codexruntime.UpgradeStagePrefix+"orphan"), []byte("x\n"), 0o600)
+		if _, err := NewService().Preview(context.Background(), installed.target, installed.candidate(t, newBundle("1.1.0", []byte("new\n")))); category(err) != "recovery_required" {
+			t.Fatalf("error=%v", err)
+		}
+	})
+}
+
+func TestUpgradeSkillStaleAuthorityAndConcurrentInstallHaveZeroEffects(t *testing.T) {
+	current := newBundle("1.0.0", []byte("old-binary\n"))
+	installed := install(t, current)
+	root := installed.withSkillsRoot(t, current.skills)
+	candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+	service := NewService()
+	preview, err := service.Preview(context.Background(), installed.target, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority, _ := Authorize(preview, preview.Digest)
+	lockPath := filepath.Join(root, ".axiom-skill-set.lock")
+	writeFile(t, lockPath, []byte("formatVersion=1\n"), 0o600)
+	holder, err := os.OpenFile(lockPath, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Flock(int(holder.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	before := snapshot(t, filepath.Dir(installed.target.BinaryDir))
+	if result, err := service.Apply(context.Background(), preview, authority); category(err) != "skill_set_busy_or_interrupted" || len(result.Ledger) != 0 {
+		t.Fatalf("concurrent install result=%+v err=%v", result, err)
+	}
+	holder.Close()
+	if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
+		t.Fatal("concurrent skill install changed state")
+	}
+	writeFile(t, filepath.Join(root, skillNames[4], "SKILL.md"), next(current.skills[skillNames[4]]), 0o600)
+	if result, err := service.Apply(context.Background(), preview, authority); category(err) != "authority_denied" || len(result.Ledger) != 0 {
+		t.Fatalf("stale skill authority result=%+v err=%v", result, err)
+	}
+	if read(t, filepath.Join(installed.target.BinaryDir, binaryName)) != string(current.binary) {
+		t.Fatal("stale authority changed the binary")
+	}
+}
+
+func next(wire []byte) []byte { return append(append([]byte(nil), wire...), "changed\n"...) }
+
+func TestUpgradeInterruptionAtEachOrderedEffectResumes(t *testing.T) {
+	labels := []string{"binary", "receipt"}
+	for _, name := range skillNames {
+		labels = append(labels, "skill:"+name)
+	}
+	for index, label := range labels {
+		t.Run(label, func(t *testing.T) {
+			current := newBundle("1.0.0", []byte("old-binary\n"))
+			installed := install(t, current)
+			root := installed.withSkillsRoot(t, current.skills)
+			upgrade := newBundle("1.1.0", []byte("new-binary\n"))
+			candidate := installed.candidate(t, upgrade)
+			service := NewService()
+			preview, _ := service.Preview(context.Background(), installed.target, candidate)
+			authority, _ := Authorize(preview, preview.Digest)
+			service.afterEffect = func(effect string) error {
+				if effect == label {
+					return errors.New("injected interruption")
+				}
+				return nil
+			}
+			result, err := service.Apply(context.Background(), preview, authority)
+			if err == nil || result.Status != "partial" || len(result.Ledger) != index+1 {
+				t.Fatalf("result=%+v err=%v", result, err)
+			}
+			marker := read(t, filepath.Join(installed.target.ReceiptDir, markerName))
+			for _, name := range skillNames {
+				if !strings.Contains(marker, "skill."+name+"="+digest(current.skills[name])+"\n") {
+					t.Fatalf("marker lacks authorized expectation for %s: %s", name, marker)
+				}
+			}
+			if other := installed.candidate(t, newBundle("1.2.0", []byte("other\n"))); true {
+				if _, err := NewService().Preview(context.Background(), installed.target, other); category(err) != "recovery_required" {
+					t.Fatalf("different archive resumed: %v", err)
+				}
+			}
+			if index >= 2 {
+				// A crash inside the next publication leaves only a private stage.
+				directory := filepath.Join(root, skillNames[(index-1)%len(skillNames)])
+				writeFile(t, filepath.Join(directory, codexruntime.UpgradeStagePrefix+"crashed"), []byte("partial"), 0o600)
+			}
+			resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil || !resume.Resume || len(resume.Effects) != len(labels)-index-1 {
+				t.Fatalf("resume=%+v err=%v", resume, err)
+			}
+			for offset, effect := range resume.Effects {
+				if want := labels[index+1+offset]; effect.Kind != want && effect.Kind+":"+effect.Name != want {
+					t.Fatalf("resume effect %d=%+v want %s", offset, effect, want)
+				}
+			}
+			if index >= 2 && len(resume.Leftovers) != 1 {
+				t.Fatalf("staging leftover not previewed: %v", resume.Leftovers)
+			}
+			resumeAuthority, err := Authorize(resume, resume.Digest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			final, err := NewService().Apply(context.Background(), resume, resumeAuthority)
+			if err != nil || final.Status != "partial" || final.SkillReceipt != SkillReceiptRefreshRequired || len(final.Ledger) != len(resume.Effects) {
+				t.Fatalf("final=%+v err=%v", final, err)
+			}
+			assertSkills(t, root, upgrade.skills)
+			if read(t, filepath.Join(installed.target.BinaryDir, binaryName)) != string(upgrade.binary) {
+				t.Fatal("binary not upgraded after resume")
+			}
+			if _, err := os.Lstat(filepath.Join(installed.target.ReceiptDir, markerName)); !os.IsNotExist(err) {
+				t.Fatal("marker remained after resumed completion")
+			}
+		})
+	}
+}
+
+func TestUpgradeResumeRefusesSkillChangedAfterInterruption(t *testing.T) {
+	current := newBundle("1.0.0", []byte("old-binary\n"))
+	installed := install(t, current)
+	root := installed.withSkillsRoot(t, current.skills)
+	candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+	service := NewService()
+	preview, _ := service.Preview(context.Background(), installed.target, candidate)
+	authority, _ := Authorize(preview, preview.Digest)
+	service.afterEffect = func(effect string) error {
+		if effect == "skill:"+skillNames[0] {
+			return errors.New("injected interruption")
+		}
+		return nil
+	}
+	if _, err := service.Apply(context.Background(), preview, authority); err == nil {
+		t.Fatal("interruption not reported")
+	}
+	writeFile(t, filepath.Join(root, skillNames[3], "SKILL.md"), []byte("operator edit\n"), 0o600)
+	before := snapshot(t, filepath.Dir(installed.target.BinaryDir))
+	if _, err := NewService().Preview(context.Background(), installed.target, candidate); category(err) != "recovery_required" {
+		t.Fatalf("changed skill resumed: %v", err)
+	}
+	if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
+		t.Fatal("refused resume changed state")
 	}
 }
 

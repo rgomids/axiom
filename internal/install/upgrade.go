@@ -1,5 +1,6 @@
 // Package install owns the exact, authorized upgrade of an Axiom-owned
-// release installation (binary, receipt) with explicit partial truth.
+// release installation (binary, receipt, Codex skill files) with explicit
+// partial truth.
 package install
 
 import (
@@ -13,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,9 +36,17 @@ const (
 )
 
 const (
-	SkillsNotConfigured  = "not_configured"
-	SkillsMatch          = "matches"
-	SkillsRequireInstall = "requires_runtime_install"
+	SkillsNotConfigured = "not_configured"
+	SkillsMatch         = "matches"
+	SkillsPublish       = "publish"
+)
+
+// The Codex skill-set receipt is derived from the running binary's runtime
+// constants, which release archive format 1 does not carry for the candidate.
+// The upgrade therefore never writes it and reports when it must be refreshed.
+const (
+	SkillReceiptUnchanged       = "unchanged"
+	SkillReceiptRefreshRequired = "refresh_required"
 )
 
 var (
@@ -50,8 +60,8 @@ type Error struct{ Category string }
 
 func (e *Error) Error() string { return "upgrade: " + e.Category }
 
-// Target names the explicit owned roots. SkillsRoot and State are inspected
-// read-only for compatibility; they are never written by the upgrade.
+// Target names the explicit owned roots. Axiom skill files under SkillsRoot
+// are replaced only when owned; State is inspected read-only and never written.
 type Target struct {
 	BinaryDir  string
 	ReceiptDir string
@@ -61,6 +71,7 @@ type Target struct {
 
 type Effect struct {
 	Kind     string `json:"kind"`
+	Name     string `json:"name,omitempty"`
 	Target   string `json:"target"`
 	Expected string `json:"expected"`
 	Next     string `json:"next"`
@@ -83,21 +94,24 @@ type Preview struct {
 	candidate      Candidate
 	currentReceipt []byte
 	nextReceipt    []byte
+	markerSkills   map[string]string
 }
 
 type Authority struct{ digest string }
 
 type LedgerEntry struct {
 	Kind      string `json:"kind"`
+	Name      string `json:"name,omitempty"`
 	Target    string `json:"target"`
 	Revision  string `json:"revision"`
 	Confirmed bool   `json:"confirmed"`
 }
 
 type Result struct {
-	Status string        `json:"status"`
-	Ledger []LedgerEntry `json:"ledger"`
-	Skills string        `json:"skills"`
+	Status       string        `json:"status"`
+	Ledger       []LedgerEntry `json:"ledger"`
+	Skills       string        `json:"skills"`
+	SkillReceipt string        `json:"skillReceipt,omitempty"`
 }
 
 // Service holds deterministic seams; production uses NewService.
@@ -142,6 +156,7 @@ func (s Service) preview(ctx context.Context, target Target, candidate Candidate
 			return Preview{}, &Error{Category: "recovery_required"}
 		}
 		preview.Resume = true
+		preview.markerSkills = recordedSkills(marker)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Preview{}, &Error{Category: "recovery_required"}
 	}
@@ -190,23 +205,33 @@ func (s Service) preview(ctx context.Context, target Target, candidate Candidate
 		preview.Effects = append(preview.Effects, Effect{Kind: "receipt", Target: filepath.Join(target.ReceiptDir, receiptName), Expected: digest(currentReceipt), Next: digest(preview.nextReceipt)})
 		preview.RequiredBytes += int64(len(preview.nextReceipt))
 	}
+	skills, err := planSkills(ctx, target.SkillsRoot, candidate, values["skillManifestSha256"], preview.markerSkills, preview.Resume)
+	if err != nil {
+		return preview, err
+	}
+	preview.Skills = skills.state
+	preview.Effects = append(preview.Effects, skills.effects...)
 	if preview.Resume {
-		preview.Leftovers = stageLeftovers(target)
+		preview.Leftovers = append(stageLeftovers(target), skills.leftovers...)
+		sort.Strings(preview.Leftovers)
 	}
 	space := s.availableSpace
 	if space == nil {
 		space = statfsAvailable
 	}
-	if len(preview.Effects) != 0 {
+	if len(preview.Effects) != len(skills.effects) {
 		available, err := space(target.BinaryDir)
 		if err != nil || uint64(preview.RequiredBytes)+maxReceiptBytes > available {
 			return preview, &Error{Category: "insufficient_space"}
 		}
 		preview.AvailableBytes = available
 	}
-	preview.Skills, err = skillCompatibility(ctx, target.SkillsRoot, candidate)
-	if err != nil {
-		return preview, &Error{Category: "skill_inspection_failed"}
+	if len(skills.effects) != 0 {
+		available, err := space(target.SkillsRoot)
+		if err != nil || uint64(skills.bytes)+maxReceiptBytes > available {
+			return preview, &Error{Category: "insufficient_space"}
+		}
+		preview.RequiredBytes += skills.bytes
 	}
 	preview.Digest = previewDigest(preview)
 	return preview, nil
@@ -233,9 +258,10 @@ func Authorize(preview Preview, reviewedDigest string) (Authority, error) {
 	return Authority{digest: preview.Digest}, nil
 }
 
-// Apply publishes each effect separately; there is no cross-root transaction.
-// A later failure is reported as partial with every confirmed effect listed,
-// and the owned operation marker keeps the installation resumable.
+// Apply publishes each effect separately in preview order (binary, receipt,
+// skill files); there is no cross-root transaction. A later failure is
+// reported as partial with every confirmed effect listed, and the owned
+// operation marker keeps the installation resumable.
 func (s Service) Apply(ctx context.Context, preview Preview, authority Authority) (Result, error) {
 	result := Result{Status: "denied_authority", Ledger: []LedgerEntry{}}
 	if authority.digest == "" || authority.digest != preview.Digest {
@@ -247,13 +273,34 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 		return result, &Error{Category: "installation_busy_or_interrupted"}
 	}
 	defer os.Remove(lock)
+	var skills codexruntime.Service
+	if touchesSkills(preview) {
+		var err error
+		if skills, err = codexruntime.New(preview.target.SkillsRoot); err != nil {
+			result.Status = "failure"
+			return result, &Error{Category: "skill_inspection_failed"}
+		}
+		unlock, err := skills.LockForUpgrade()
+		if err != nil {
+			result.Status = "failure"
+			return result, &Error{Category: "skill_set_busy_or_interrupted"}
+		}
+		defer unlock()
+	}
 	current, err := s.preview(ctx, preview.target, preview.candidate, true)
 	if err != nil || current.Digest != preview.Digest {
 		return result, &Error{Category: "authority_denied"}
 	}
 	result.Status = "failure"
+	recorded := current.markerSkills
 	if !current.Resume {
-		if err := writeMarker(current.target.ReceiptDir, current.candidate.ArchiveSHA256, "prepare", true); err != nil {
+		recorded = map[string]string{}
+		for _, effect := range current.Effects {
+			if effect.Kind == "skill" {
+				recorded[effect.Name] = effect.Expected
+			}
+		}
+		if err := writeMarker(current.target.ReceiptDir, current.candidate.ArchiveSHA256, "prepare", true, recorded); err != nil {
 			return result, &Error{Category: "marker_unavailable"}
 		}
 	}
@@ -267,20 +314,32 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			err = publishEffect(current.target.BinaryDir, binaryName, binaryStage, current.candidate.Binary, effect, 0o700, maxBinaryBytes)
 		case "receipt":
 			err = publishEffect(current.target.ReceiptDir, receiptName, receiptStage, current.nextReceipt, effect, 0o600, maxReceiptBytes)
+		case "skill":
+			expected := effect.Expected
+			if expected == absentRevision {
+				expected = ""
+			}
+			if skills.PublishUpgradeSkill(effect.Name, current.candidate.SkillFiles[effect.Name], expected) != nil {
+				err = &Error{Category: "skill_publication_failed"}
+			}
 		default:
 			err = &Error{Category: "invalid_effect"}
 		}
 		if err != nil {
 			return partial(result), err
 		}
-		result.Ledger = append(result.Ledger, LedgerEntry{Kind: effect.Kind, Target: effect.Target, Revision: effect.Next, Confirmed: true})
+		result.Ledger = append(result.Ledger, LedgerEntry{Kind: effect.Kind, Name: effect.Name, Target: effect.Target, Revision: effect.Next, Confirmed: true})
 		if effect.Kind == "binary" {
-			if err := writeMarker(current.target.ReceiptDir, current.candidate.ArchiveSHA256, "binary_committed", false); err != nil {
+			if err := writeMarker(current.target.ReceiptDir, current.candidate.ArchiveSHA256, "binary_committed", false, recorded); err != nil {
 				return partial(result), &Error{Category: "marker_unavailable"}
 			}
 		}
 		if s.afterEffect != nil {
-			if err := s.afterEffect(effect.Kind); err != nil {
+			label := effect.Kind
+			if effect.Name != "" {
+				label += ":" + effect.Name
+			}
+			if err := s.afterEffect(label); err != nil {
 				return partial(result), err
 			}
 		}
@@ -296,15 +355,34 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 	if err != nil || final.Classification != compatibility.AbsentV1 && final.Classification != compatibility.ValidV1 {
 		return partial(result), &Error{Category: "final_verification_failed"}
 	}
-	result.Skills, err = skillCompatibility(ctx, current.target.SkillsRoot, current.candidate)
-	if err != nil {
+	verified, err := planSkills(ctx, current.target.SkillsRoot, current.candidate, "", nil, false)
+	if err != nil || len(verified.effects) != 0 || len(verified.leftovers) != 0 {
 		return partial(result), &Error{Category: "final_verification_failed"}
 	}
-	result.Status = "success"
-	if result.Skills == SkillsRequireInstall {
-		result.Status = "partial"
+	result.Skills, result.Status = verified.state, "success"
+	if verified.state != SkillsNotConfigured {
+		// Skill files changed by this operation, including an interrupted
+		// earlier run, leave the skill-set receipt for the upgraded binary.
+		result.SkillReceipt = SkillReceiptUnchanged
+		if len(recorded) != 0 {
+			result.SkillReceipt, result.Status = SkillReceiptRefreshRequired, "partial"
+		}
 	}
 	return result, nil
+}
+
+func touchesSkills(preview Preview) bool {
+	for _, effect := range preview.Effects {
+		if effect.Kind == "skill" {
+			return true
+		}
+	}
+	for _, leftover := range preview.Leftovers {
+		if strings.HasPrefix(filepath.Base(leftover), codexruntime.UpgradeStagePrefix) {
+			return true
+		}
+	}
+	return len(preview.markerSkills) != 0
 }
 
 func partial(result Result) Result {
@@ -359,27 +437,84 @@ func publishEffect(directory, name, prefix string, wire []byte, effect Effect, m
 	return nil
 }
 
-func skillCompatibility(ctx context.Context, root string, candidate Candidate) (string, error) {
+const absentRevision = "absent"
+
+type skillPlan struct {
+	state     string
+	effects   []Effect
+	leftovers []string
+	bytes     int64
+}
+
+// planSkills derives Axiom skill effects from the verified candidate. A
+// present skill may be replaced only when owned: its whole set matches the
+// installation receipt's skill manifest, it is known to this binary, or a
+// resumed operation recorded it as the authorized expected revision.
+func planSkills(ctx context.Context, root string, candidate Candidate, installedManifest string, recorded map[string]string, resume bool) (skillPlan, error) {
+	plan := skillPlan{state: SkillsNotConfigured, effects: []Effect{}, leftovers: []string{}}
 	if root == "" {
-		return SkillsNotConfigured, nil
+		return plan, nil
 	}
 	service, err := codexruntime.New(root)
 	if err != nil {
-		return "", err
+		return plan, &Error{Category: "skill_inspection_failed"}
 	}
-	inventory, err := service.Inventory(ctx)
-	if err != nil {
-		return "", err
+	inventory, err := service.InspectUpgrade(ctx)
+	if errors.Is(err, codexruntime.ErrUpgradeConflict) {
+		return plan, &Error{Category: "skill_conflict"}
+	} else if err != nil {
+		return plan, &Error{Category: "skill_inspection_failed"}
 	}
-	if inventory.State == codexruntime.SkillSetAbsent {
-		return SkillsNotConfigured, nil
+	if !inventory.Configured {
+		return plan, nil
 	}
+	setOwned := installedManifest != "" && installedSkillManifest(inventory) == installedManifest
 	for _, skill := range inventory.Skills {
-		if skill.SHA256 == "" || skill.SHA256 != candidate.Skills[skill.Name] {
-			return SkillsRequireInstall, nil
+		if len(skill.Leftovers) != 0 && !resume {
+			return plan, &Error{Category: "recovery_required"}
 		}
+		plan.leftovers = append(plan.leftovers, skill.Leftovers...)
+		current := skill.SHA256
+		if current == "" {
+			current = absentRevision
+		}
+		next, content := candidate.Skills[skill.Name], candidate.SkillFiles[skill.Name]
+		if next == "" || digest(content) != next {
+			return plan, &Error{Category: "invalid_candidate"}
+		}
+		if expected, ok := recorded[skill.Name]; ok && current != expected && current != next {
+			return plan, &Error{Category: "recovery_required"}
+		}
+		if current == next {
+			continue
+		}
+		_, recordedSkill := recorded[skill.Name]
+		if current != absentRevision && !setOwned && !skill.Owned && !recordedSkill {
+			return plan, &Error{Category: "skill_conflict"}
+		}
+		plan.effects = append(plan.effects, Effect{Kind: "skill", Name: skill.Name, Target: filepath.Join(root, skill.Name, "SKILL.md"), Expected: current, Next: next})
+		plan.bytes += int64(len(content))
 	}
-	return SkillsMatch, nil
+	plan.state = SkillsMatch
+	if len(plan.effects) != 0 {
+		plan.state = SkillsPublish
+	}
+	return plan, nil
+}
+
+// installedSkillManifest reconstructs the release skill manifest that
+// build-release-archives.sh writes for the observed skill digests, so its
+// digest can be compared with the installation receipt.
+func installedSkillManifest(inventory codexruntime.UpgradeInventory) string {
+	var builder strings.Builder
+	builder.WriteString("formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n")
+	for _, skill := range inventory.Skills {
+		if skill.SHA256 == "" {
+			return ""
+		}
+		builder.WriteString("skill." + skill.Name + "=" + skill.SHA256 + "\n")
+	}
+	return digest([]byte(builder.String()))
 }
 
 func expectedReceipt(destination string, candidate Candidate, installedAt string) []byte {
@@ -435,6 +570,9 @@ func readMarker(directory string) (map[string]string, error) {
 		if !ok || values[key] != "" {
 			return nil, errors.New("marker schema")
 		}
+		if name, isSkill := strings.CutPrefix(key, "skill."); isSkill && (!slices.Contains(skillNames, name) || value != absentRevision && !digestPattern.MatchString(value)) {
+			return nil, errors.New("marker schema")
+		}
 		values[key] = value
 	}
 	if values["formatVersion"] != "1" || !digestPattern.MatchString(values["archiveSha256"]) || values["stage"] != "prepare" && values["stage"] != "binary_committed" {
@@ -443,10 +581,31 @@ func readMarker(directory string) (map[string]string, error) {
 	return values, nil
 }
 
+// recordedSkills returns the authorized expected skill revisions an upgrade
+// recorded before its first effect.
+func recordedSkills(marker map[string]string) map[string]string {
+	recorded := map[string]string{}
+	for key, value := range marker {
+		if name, ok := strings.CutPrefix(key, "skill."); ok {
+			recorded[name] = value
+		}
+	}
+	return recorded
+}
+
 // writeMarker uses the release installer's marker name and fields so the
-// installer and the upgrade path refuse each other's interrupted state.
-func writeMarker(directory, archive, stage string, create bool) error {
-	wire := []byte(fmt.Sprintf("formatVersion=1\nstage=%s\narchiveSha256=%s\noperation=upgrade\n", stage, archive))
+// installer and the upgrade path refuse each other's interrupted state. It
+// also records each skill's authorized expected revision so a resumed upgrade
+// can prove ownership of skills an interruption left unpublished.
+func writeMarker(directory, archive, stage string, create bool, skills map[string]string) error {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "formatVersion=1\nstage=%s\narchiveSha256=%s\noperation=upgrade\n", stage, archive)
+	for _, name := range skillNames {
+		if expected, ok := skills[name]; ok {
+			builder.WriteString("skill." + name + "=" + expected + "\n")
+		}
+	}
+	wire := []byte(builder.String())
 	path := filepath.Join(directory, markerName)
 	if create {
 		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0o600)

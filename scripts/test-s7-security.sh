@@ -40,7 +40,7 @@ case_group() {
 
 case_group "MVP-SEC-01,SEC-004" ./internal/compatibility TestBackupAndExportUseSeparateExactAuthorities TestTransferRejectsUnsafeTargetsAndStaleSource
 case_group "MVP-SEC-01,MVP-SEC-09" ./internal/local TestArtifactCleanupRequiresExactAuthorityAndRecordsBoundedAudit TestArtifactCleanupStaleReferenceAndConcurrentWriterDenyAuthority TestGuidedRecoveryRejectsStaleAuthorityAndConcurrentWriter
-case_group "MVP-SEC-01,MVP-SEC-05" ./internal/install TestUpgradeRefusalsHaveZeroEffects TestUpgradeStaleAuthorityAndSpaceHaveZeroEffects TestLoadCandidateMirrorsInstallerVerification
+case_group "MVP-SEC-01,MVP-SEC-05" ./internal/install TestUpgradeRefusalsHaveZeroEffects TestUpgradeStaleAuthorityAndSpaceHaveZeroEffects TestLoadCandidateMirrorsInstallerVerification TestUpgradeSkillStaleAuthorityAndConcurrentInstallHaveZeroEffects
 case_group "MVP-SEC-01,SEC-002" ./internal/projectapp TestAuthorityDenialCallsNoStore TestLocalAuthorityCannotAuthorizePortableAndViceVersa TestDeniedEffectsAndCancelledGate
 case_group "MVP-SEC-01,MVP-SEC-04" ./internal/workitem TestCreateRequiresExactPreviewAuthorityAndPersistsConfirmedIssue TestSelectRejectsStaleLocalRevision TestPrepareCancellationAndCapabilityMismatchHaveZeroEffects
 case_group "MVP-SEC-01,MVP-SEC-04" ./internal/workflow TestRecordFactAuthorityAndBlockedTransitionHaveZeroUnauthorizedEffects TestS4ChangedIssueStateInvalidatesProjectionAuthority TestS4ConfirmedProviderEffectThenBookkeepingFailureIsPartial TestReconciliationContradictionsStayReadOnlyAndRequireHumanDecision TestMissingLocalStateNeverSynthesizesExecution
@@ -62,9 +62,10 @@ case_group "MVP-NFR-01" ./internal/completion TestStatusEffectClassificationMatr
 case_group "MVP-NFR-03" ./internal/manifest TestByteDepthAndNodeLimits TestParserContractStreamAndHostileBounds TestBoundedOutputWriter
 case_group "MVP-NFR-03" ./internal/local TestInventoryEntryBoundFailsClosed
 case_group "MVP-NFR-04,MVP-SEC-06" ./internal/compatibility TestTransferCapacityAndInterruptionPreserveSource
-case_group "SEC-004,FR-023" ./internal/install TestUpgradeInterruptionAfterBinaryIsPartialAndResumable TestUpgradeResumeAfterAllEffectsFinalizesMarker TestUpgradeReportsIncompatibleSkillsAsPartial
+case_group "SEC-004,FR-023" ./internal/install TestUpgradeInterruptionAfterBinaryIsPartialAndResumable TestUpgradeResumeAfterAllEffectsFinalizesMarker TestUpgradeInterruptionAtEachOrderedEffectResumes TestUpgradeResumeRefusesSkillChangedAfterInterruption
 case_group "SEC-004,FR-023" ./internal/workitem TestConfirmedProviderEffectAndLocalFailureIsPartial
-case_group "FR-036,MVP-SEC-06" ./internal/codexruntime TestHistoricalPOCSkillSetIsKnownLegacy TestInstallRefusesConflictAndRollsBackCurrentAttempt
+case_group "FR-036,MVP-SEC-06" ./internal/codexruntime TestHistoricalPOCSkillSetIsKnownLegacy TestInstallRefusesConflictAndRollsBackCurrentAttempt TestPublishUpgradeSkillRequiresExpectedRevision TestInspectUpgradeReportsLeftoversAndRefusesUnknownEntries
+case_group "FR-036,MVP-SEC-06,SEC-005" ./internal/install TestUpgradePublishesOwnedSkillFilesAfterBinaryAndReceipt TestUpgradeReplacesKnownLegacySkillsAndCreatesMissingOnes TestUpgradeSkillConflictsHaveZeroEffects
 
 printf 'case=race-s7\n'
 if go test -race ./internal/compatibility ./internal/install ./internal/local ./internal/detailartifact ./internal/codexruntime -count=1 >/dev/null 2>&1; then
