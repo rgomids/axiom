@@ -134,11 +134,12 @@ observation are recorded in
 [S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). Human acceptance is not
 inferred. S6 T26–T29 were explicitly authorized and their technical delivery is
 recorded in [S6 Evidence](004-mvp-v1-baseline/evidence-s6.md). S7 T16–T22 were
-explicitly authorized on 2026-09-25; their technical delivery, macOS 27.0
-native T22 Evidence, and two recorded human decisions (T18 Evidence retention,
-T20 skill-set receipt) are in [S7 Evidence](004-mvp-v1-baseline/evidence-s7.md),
-with the Ubuntu 26.04 native rows still unexecuted. S8 implementation remains
-separately gated.
+explicitly authorized on 2026-09-25 and are technically complete, including the
+T18 Evidence retirement record (HD-S7-T18) and macOS 27.0 native T22 Evidence;
+see [S7 Evidence](004-mvp-v1-baseline/evidence-s7.md). By HD-S7-T22 the Ubuntu
+26.04 native rows were not executed and are deferred to the T24
+clean-environment RC acceptance matrix, where they remain mandatory. S8
+implementation remains separately gated.
 
 Issue [#62](https://github.com/rgomids/axiom/issues/62) originally authorized
 Specification and reconciliation only. After PR #70 resolved that gate, the
@@ -186,8 +187,8 @@ acceptance. S4 was delivered through PR #91. S5 was explicitly authorized on
 2026-09-23 and its T14–T15 technical record is in
 [S5 Evidence](004-mvp-v1-baseline/evidence-s5.md). S6 technical delivery is
 recorded in [S6 Evidence](004-mvp-v1-baseline/evidence-s6.md). S7 technical
-delivery is recorded in [S7 Evidence](004-mvp-v1-baseline/evidence-s7.md). Remaining
-S7 native Evidence, S8,
+delivery is recorded in [S7 Evidence](004-mvp-v1-baseline/evidence-s7.md). The
+Ubuntu 26.04 native Evidence deferred to T24, S8,
 Provider mutation outside an exact authorized run, prerelease/release publication,
 and final MVP acceptance remain separately gated. Accepted operational Slice
 trackers are #75–#79 for S1–S5, #94 for S6, #80 for S7, and #81 for S8 after the

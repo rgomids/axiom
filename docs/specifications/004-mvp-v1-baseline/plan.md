@@ -550,6 +550,23 @@ Retention classes and policy:
 | `diagnostic` | Initial 30-day default after creation or supersession | Default policy for bounded troubleshooting context with no live dependency | Eligible only with no live references; short window may reduce late diagnosis and must be validated through dogfooding |
 | `preserved_review` | While ownership, validity, or reference state is uncertain | Hard fail-closed invariant; age cannot establish deletion authority | Never age-eligible; operator must resolve/reclassify, accepting possible capacity pressure |
 
+Evidence retirement (HD-S7-T18, human decision of 2026-09-26): the 365-day window
+starts only at an explicit, separately authorized retirement recorded as
+`artifacts/v1/retirements/<artifact-id>.json` (retirement format 1, outside the
+closed `metadata.json` v1 schema). The record binds the artifact ID, exact
+artifact revision and content digest, the retirement moment, the reviewed
+preview digest (whose observation had zero authoritative references), and its
+format version; its byte digest is the revision cleanup revalidates. Retirement
+follows preview -> exact authority -> revalidation under lock -> create-only
+ADR-0007 publication and is denied while any authoritative reference is live or
+a retirement already exists. Age, `createdAt`, momentary absence of references,
+and cleanup pressure never grant retirement. A later artifact reference
+supersedes (removes) the retirement before that artifact is published, so a
+re-reference that later disappears requires a new explicit retirement;
+Execution references are append-only in v1 and keep the artifact referenced.
+Missing, corrupt, stale, incompatible, or other-revision retirements preserve
+Evidence.
+
 Cleanup is always an explicit, previewed, separately authorized command. It locks
 and revalidates exact identity, ownership, type, links, digest, references, and
 eligibility before removal. Any uncertain owner/reference/lock state moves or keeps
@@ -598,7 +615,14 @@ Ubuntu 26.04 point release requires the applicable native compatibility rerun be
 the release claim expands; `27` or `26.04 LTS` is not a floating unrecorded runner.
 
 Every row requires native execution Evidence; cross-compilation alone is
-insufficient. Other distributions, OS versions, architectures, case-sensitive APFS,
+insufficient. Evidence phasing (HD-S7-T22, human decision of 2026-09-26): S7/T22
+requires the native row that is operated and dogfooded now, macOS 27/arm64/APFS.
+The Ubuntu 26.04/amd64/ext4 and Ubuntu 26.04/arm64/ext4 native rows remain
+supported targets and remain mandatory, but their native filesystem/install/
+upgrade Evidence obligation moves to the clean-environment RC acceptance matrix
+(T24) and must pass before any RC acceptance or release claim for those targets.
+No Ubuntu behavior is claimed by S7, and `ubuntu-24.04` CI is never Ubuntu 26.04
+Evidence. Other distributions, OS versions, architectures, case-sensitive APFS,
 network mounts, FUSE, overlay/union filesystems, removable media, and
 cross-filesystem publication are unsupported for v1 unless later added with
 equivalent Evidence.

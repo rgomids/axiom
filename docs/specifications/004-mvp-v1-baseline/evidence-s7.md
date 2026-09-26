@@ -15,12 +15,14 @@ merge, PR #96):
 | `3eb4427` | maintainer-runtime bootstrap contract and closed `CLAUDE.md` validator (review follow-up) |
 | `b69a93fa66d3aa0bb99c8e77541ed3c240ed503a` | T20: skill files published inside `lingo upgrade` (review follow-up) |
 | `d76a3b3`, `604bd10c29c03606fa948f18937da5c413d51c50` | native-suite script defects exposed by a clean checkout |
+| `ffc251509541a8e2fcfbb244e200f34b2e4a04f9` | T18: explicit Evidence retirement record and `lingo artifact retire` (HD-S7-T18) |
+| `ceb6d0288039793d15a98003d5b30a28a2f19122` | retirement tests added to the S7 native and security suites |
 
-**The current Evidence was executed at `604bd10` (tree
-`b9d53a266fdc8dd036623ed162faf13a3243fad2`) with a clean worktree and no
+**The final S7 Evidence was executed at `ceb6d02` (`ceb6d0288039793d15a98003d5b30a28a2f19122`), which includes
+the T18 retirement record from `ffc2515`, with a clean worktree and no
 untracked entries.** The commit that adds this record changes documentation
-only. Results recorded at `408a2b5` are kept below as history only; they do
-not cover later code.
+only. Results recorded at `604bd10` and `408a2b5` are kept below as history
+only; they do not cover later code.
 
 Every destructive, recovery, and upgrade case ran against isolated temporary
 roots created by the tests or scripts. No real user state, installed binary,
@@ -29,14 +31,14 @@ explicitly authorized updates to PR #100 (branch push, body, and metadata). No
 prerelease, release, merge, Issue closure, or human acceptance occurred. Passing tests, CI,
 commits, or PR state do not constitute human acceptance.
 
-**Result at `604bd10`:**
+**Result at `ceb6d02` — S7 technically complete:**
 
 | Task | State |
 |---|---|
 | T16, T17, T19, T21 | technically complete |
-| T18 | technically complete except the 365-day Evidence boundary: **Human decision required** (see [Human decisions required](#human-decisions-required)) |
-| T20 | technically complete for the Plan ordering (binary, receipt, skill files, verification); the Codex skill-set receipt refresh needs a release-format decision (**Human decision required**) |
-| T22 | native pass for macOS 27.0/arm64/APFS only; the Ubuntu 26.04 amd64/ext4 and arm64/ext4 rows were **not executed** and block T22 |
+| T18 | technically complete, including the 365-day Evidence window after explicit retirement (HD-S7-T18) |
+| T20 | technically complete for the Plan ordering (binary, receipt, skill files, verification); the Codex skill-set receipt stays `partial`/`refresh_required` as a documented future release-format evolution |
+| T22 | complete under the revised S7 acceptance scope (HD-S7-T22): macOS 27.0/arm64/APFS native pass; both Ubuntu 26.04 rows **not executed**, deferred to T24 |
 
 ## Handoff recovery
 
@@ -67,7 +69,7 @@ No S8 multi-agent or multi-runtime concept was present or introduced.
 | Repository | `rgomids/axiom` |
 | Branch | `feat/80-s7-compatibility-recovery` |
 | Implementation commits | see the table above |
-| Exercised code | `604bd10`, clean worktree, `untracked_entries=0` |
+| Exercised code | `ceb6d02`, clean detached worktree, `untracked_entries=0` |
 | Go | `go1.26.1 darwin/arm64` |
 | macOS | 27.0, build `26A428`, kernel `27.0.0` |
 | Architecture | `arm64` |
@@ -75,23 +77,26 @@ No S8 multi-agent or multi-runtime concept was present or introduced.
 | Hard-link primitive | available (probed) |
 | Gitleaks | 8.30.1 |
 
-Content digests at `604bd10` (unchanged files keep their `408a2b5` digest):
+Content digests at `ceb6d02`:
 
 | Artifact | SHA-256 |
 |---|---|
 | `internal/compatibility/classification.go` | `b0623ad72327160c8b80aa0af57f08cb9c6ab86d8c3c1c75ea18ee0d5397fca7` |
 | `internal/compatibility/transfer.go` | `03d0377455b1d54a67c1df3ad848a22649b59d67e41b7b6781a969916abced76` |
-| `internal/local/inventory.go` | `eefdd290c0863935c0ad7eb8fba052026c51afa6ba68261f22fab4b6b27c9e7a` |
-| `internal/local/artifact_cleanup.go` | `d37b33e6050a283fbf42615bf09539d60a838d1fc6091c3b4d370b51ccc2374b` |
-| `internal/local/recovery.go` | `97b38004b3dc6948678918a6ec13fa90cd58d4826c745a97e7e28820e73e1f82` |
-| `internal/detailartifact/cleanup.go` | `0a91bbe691a7b11c247626b6056caa836395350a2e0fbb4ae0436349f1b396df` |
+| `internal/local/inventory.go` | `f9905d3f1632974c4ad65f445eefda6b3b84d3ac6136cb43c76528153548b3d2` |
+| `internal/local/artifact_cleanup.go` | `f852c53630de7a7f7c8300c9738d0a6ad3429eba8ab1e2f2fa65534d415ff25a` |
+| `internal/local/artifact_retirement.go` | `9fcf590e4e1b364deddc2c86fc556ab692760ce7586e8c870d551c77605e5834` |
+| `internal/local/artifact_store.go` | `c603e2b4f340480411ba68ee9293a910dc87c9ae605c1d069218c0beec8dc7cd` |
+| `internal/local/recovery.go` | `8a251d298ec896e75bade609e2a32bb14785ac0242046d8b40770d73bb6d5814` |
+| `internal/detailartifact/cleanup.go` | `bb469d91ae4d08457811e163496378a984a5a9763b4fe5b5954a0590afb2a530` |
+| `internal/detailartifact/retirement.go` | `99231f856088d03db32eadea1835c7048c117a72789d77bfc1e89e4224a6af78` |
 | `internal/install/upgrade.go` | `71712db48b2aaee31cb61fe37b479e2b3ee5b20c5c2e07b10f38c840e03488b7` |
 | `internal/codexruntime/upgrade.go` | `9f031ad8e3200f4a64d179083142ead843b772f94a30e409d0bfabdf62d926d6` |
 | `internal/install/archive.go` | `96aa5482476bcd76196847cac7cb2ebf5600db7cf728e662c633e2fffe1b1184` |
-| `internal/cli/maintenance.go` | `f2a335c1e9cafb971665f297926f59b4fac496fc3bb4a873bbbda05493139fcd` |
-| `cmd/lingo/maintenance.go` | `9089019482db59e4e232d1e815c90bc200ac31e3af6f1f11b6bbb27be3756760` |
-| `scripts/test-s7-security.sh` | `5b6aa63e7248aa852e9a3bddf1731dda5383c36e415c927e457613b8ebe71f6d` |
-| `scripts/test-s7-native.sh` | `eef9bb929140a515a242940e5f0e04dc8480006a8dcfb43ec8f1f49301fb80ed` |
+| `internal/cli/maintenance.go` | `4c4f18a4c37e30190bab42aa7a4f1ee1a32f0a138f5ad0c736dfb6ed92d8be6d` |
+| `cmd/lingo/maintenance.go` | `5c7318ad543b424a8afa966359ff7dce1162b02f496c5680b73beeafd397563b` |
+| `scripts/test-s7-security.sh` | `012d8b316bcf9b119b38ddf6fa2e5ca7e5972350105aeb31429f2f6432cd689d` |
+| `scripts/test-s7-native.sh` | `792d3b5ccd82f7567a45b333e9dd420bb5012920be2cda7a77987fccb2ae0455` |
 | `scripts/check-claude-bootstrap.sh` | `3cca0c2ef943160095d02eafe7ae1ece43631df23936eb032d31fd77fb8942ac` |
 | `CLAUDE.md` | `336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49` (`@AGENTS.md` + newline) |
 | `scripts/generate-poc-fixture.sh` | `88c8ebd5d0d99ebcfc8e3f4450e3cba9b3c8cd693bfbfbebfa9236ce791b0ad3` |
@@ -187,7 +192,7 @@ and preview fails closed (`TestArtifactCleanupFailsClosedOnUncertainReferenceSta
 | `diagnostic`, unreferenced, 31 days and exactly 30 days | eligible |
 | `diagnostic`, 30 days minus 1 second | preserved `diagnostic_within_30_days` |
 | `active`; `preserved_review` | preserved |
-| `evidence`, 400 days, no reference | preserved `evidence_retirement_unrecorded` (the 365-day boundary is not implementable; see [Human decisions required](#human-decisions-required)) |
+| `evidence`, 400 days, no reference, no retirement | preserved `evidence_not_retired` |
 | metadata live reference; cross-artifact reference; Execution transition reference; artifact of an interrupted Execution | preserved `referenced` |
 | confirmed cleanup record, 90 days minus 1 minute / plus 1 minute | preserved / eligible |
 
@@ -203,6 +208,63 @@ and preview fails closed (`TestArtifactCleanupFailsClosedOnUncertainReferenceSta
 - Batches are capped at 128 effects, and the remainder is reported.
 - Capacity exhaustion never evicts; explicit cleanup then succeeds.
 - Content outside the artifact root is unchanged.
+
+### Evidence retirement (HD-S7-T18, implemented at `ffc2515`)
+
+`lingo artifact retire --artifact <id>` previews; repeating it with the exact
+`--preview-digest` and `--authorize-local` revalidates under exclusive locks and
+publishes `artifacts/v1/retirements/<id>.json` through the create-only ADR-0007
+file protocol. Retirement format 1 is canonical JSON of at most 4 KiB:
+`formatVersion`, `artifactId`, `artifactRevision` (digest of metadata and
+content bytes), `sha256` (content digest), `retiredAt` (publication clock),
+`previewDigest` (the reviewed zero-reference observation), and
+`observedReferences` (always 0). `metadata.json` v1 is unchanged. Cleanup
+effects for Evidence carry the retirement record's byte digest, which is
+revalidated and consumed before the artifact is removed. Inventory classifies
+the record as `artifact_retirement_record`, and recovery inspects the
+namespace like `artifacts/v1/cleanup`.
+
+One fake-clock matrix (`TestRetentionEligibilityMatrix30_365_90`) covers all
+three windows in a single preview and applies it:
+
+| Fact | Outcome |
+|---|---|
+| `diagnostic`, exactly 30 days / 30 days − 1 s | eligible `diagnostic_unreferenced_30_days` / preserved `diagnostic_within_30_days` |
+| `evidence`, retired 365 days − 1 s ago | preserved `evidence_within_365_days_of_retirement` |
+| `evidence`, retired exactly 365 days ago / 365 days + 1 s ago | eligible `evidence_retired_365_days`; removal also consumes the retirement |
+| `evidence`, created 800 days ago, never retired | preserved `evidence_not_retired` (`createdAt` is never a substitute) |
+| confirmed cleanup record, completed exactly 90 days / 90 days − 1 s ago | eligible `confirmed_record_90_days` / preserved `cleanup_record_within_90_days` |
+
+Invariants and their tests:
+- Retirement is denied while an Execution, artifact, or metadata live reference
+  exists, for non-Evidence classes, and when a retirement already exists; a
+  denied preview cannot be authorized (`TestRetirementDeniedWhileReferenced`,
+  `TestRetirementStaleAuthorityAndDuplicateAreDenied`).
+- A reference committed after review makes the retirement authority stale;
+  nothing is published.
+- Corrupt, non-canonical, unknown-version, group-readable, symlinked, or
+  directory records preserve as `evidence_retirement_uncertain`; a record for
+  another revision or digest preserves as `evidence_retirement_stale`
+  (`TestRetirementCorruptStaleOrUnsafeRecordPreservesEvidence`). An unknown
+  name or a symlinked namespace fails the whole preview closed
+  (`TestRetirementNamespaceFailsClosed`).
+- **Re-reference:** creating an artifact that references a retired artifact
+  removes the retirement under the creator's exclusive lock before
+  publication. When that referrer is later cleaned up, the Evidence is
+  `evidence_not_retired`: the old clock never revives. A new explicit
+  retirement starts a new 365-day window
+  (`TestReReferenceSupersedesRetirementAndRequiresNewRetirement`). Execution
+  references are append-only in v1, so they keep the artifact referenced.
+- A retirement or reference that changes after cleanup review denies cleanup
+  authority, and the Evidence is kept
+  (`TestRetirementChangedAfterCleanupReviewDeniesAuthority`).
+- Interrupted publication at F1 is a pre-effect abort with no retirement. At
+  F2/F3/F5/F6 it surfaces a recovery plan for `artifacts/v1/retirements`, and
+  cleanup fails closed with `recovery_required`
+  (`TestRetirementPublicationInterruptionRequiresRecovery`).
+- CLI: a missing, invalid, or unknown `--artifact`, or `--authorize-local`
+  without a digest, never publishes anything
+  (`TestExecutableArtifactRetireRequiresExactEvidenceIdentity`).
 
 **Measured cost** (`BenchmarkMaintenanceScanCost`, added with this record,
 1,000 live artifacts, native row, measured on the exercised source): cleanup preview ≈157 ms/op (23 MB allocated); state inventory ≈131 ms/op.
@@ -291,7 +353,7 @@ receipt. When skill files change, it reports `partial` with
 `skillReceipt=refresh_required` and the next action
 `lingo runtime codex install` with the upgraded binary. The native row shows
 that this action makes the runtime compatible. See
-[Human decisions required](#human-decisions-required).
+[Human decisions](#human-decisions).
 
 The upgrade shares the installer's `.axiom-install.lock` and
 `.axiom-install-operation` names, so each refuses the other's interrupted state.
@@ -302,7 +364,7 @@ rollback, downgrade, or automatic update.
 
 `scripts/test-s7-security.sh` names exact tests per requirement alias and fails
 when a name no longer exists, so an empty match cannot pass silently. The run
-at `604bd10` reported `failures=0 result=pass`:
+at `ceb6d02` reported `failures=0 result=pass`:
 
 | Requirement aliases | Owning tests (package) |
 |---|---|
@@ -338,9 +400,10 @@ supplemental, not proof of absence.
 `scripts/test-s7-native.sh` detects the exact row, probes case behavior and
 hard links, runs named test groups, then drives real archives through the
 published installer and the owned upgrade on the native filesystem. Result on
-`macos-27.0-arm64-apfs` at `604bd10`: `source_state=clean`,
-`untracked_entries=0`, `archive_kind=release`, 34 passing steps,
-`failures=0 result=pass`.
+`macos-27.0-arm64-apfs` at `ceb6d02` (clean detached worktree):
+`source_state=clean`, `untracked_entries=0`, `archive_kind=release`,
+`failures=0 result=pass`. The artifact capacity/cleanup group now includes
+every retirement test. History: 34 passing steps at `604bd10`.
 
 | Step | Result |
 |---|---|
@@ -354,11 +417,17 @@ published installer and the owned upgrade on the native filesystem. Result on
 | Native resume: binary committed, receipt pending; installer refuses; preview shows receipt only; apply succeeds; marker cleared | pass |
 | Native skills: historical POC skill set; preview has five skill effects; apply reports `skillReceipt=refresh_required`; published files equal the 1.1.0 archive skills; no staging or marker left; upgraded binary's `runtime codex install` then reports a compatible runtime | pass |
 
-| Row | Status |
-|---|---|
-| macOS 27.0 / arm64 / APFS (case-insensitive) | **pass** at `604bd10` (history: also at `11f2b7d` and `408a2b5` with development archives) |
-| Ubuntu 26.04 / amd64 / ext4 | **not executed**: no matching environment is available (no VM, container, or remote runner on this host); blocks T22 and release |
-| Ubuntu 26.04 / arm64 / ext4 | **not executed**: same reason; blocks T22 and release |
+| Row | Executed | Status |
+|---|---|---|
+| macOS 27.0 / arm64 / APFS (case-insensitive) | yes | **pass** at `ceb6d02` (history: `604bd10`; `11f2b7d` and `408a2b5` with development archives) |
+| Ubuntu 26.04 / amd64 / ext4 | no | **deferred** to the T24 clean-environment/RC acceptance matrix by human decision HD-S7-T22 |
+| Ubuntu 26.04 / arm64 / ext4 | no | **deferred** to the T24 clean-environment/RC acceptance matrix by human decision HD-S7-T22 |
+
+HD-S7-T22 (2026-09-26): Axiom is not yet operated or dogfooded on Ubuntu 26.04,
+so S7 is not blocked on infrastructure that is not in use. The deferral is not a
+pass. No Ubuntu behavior is claimed, and Ubuntu remains a supported target. The
+native obligation for both rows moves to T24 (Plan "Evidence phasing"), and must
+pass before any RC acceptance or release claim for those targets.
 
 Cross-compilation is not substituted for native Evidence. The existing
 `macos-15`/`ubuntu-24.04` workflow is a regression check, not T22 Evidence. It
@@ -387,18 +456,23 @@ change.
 
 ## Limitations and unexecuted cases
 
-- **T22 Ubuntu rows were not executed.** They remain blocking for T22 and for
-  release; no Ubuntu behavior is claimed.
-- **Native archives** at `604bd10` are release-mode builds from a clean
+- **T22 Ubuntu rows were not executed.** By HD-S7-T22 they are deferred to
+  T24 and remain blocking for RC acceptance and release on those targets; no
+  Ubuntu behavior is claimed.
+- **Native archives** at `ceb6d02` are release-mode builds from a clean
   checkout of an unpublished branch. They are not identified RC archives
   (T23/S8 work).
-- **Evidence retention.** Evidence-class artifacts are never age-eligible; see
-  [Human decisions required](#human-decisions-required).
+- **Evidence retention.** The 365-day window depends on the local clock at
+  retirement and cleanup, exactly like the 30- and 90-day rules. Artifacts
+  created before this change have no retirement and stay preserved until they
+  are explicitly retired; there is no backfill. Binaries without this change
+  classify `artifacts/v1/retirements` as unknown content, which blocks
+  mutation rather than losing data.
 - **Interrupted S2 attempt markers** (`.lingo-install-*`,
   `.lingo-attempt-*`) have no prior/new generation facts and are always
   `preserved_review`.
 - **Skill-set receipt.** `lingo upgrade` publishes skill files but not the
-  Codex skill-set receipt; see [Human decisions required](#human-decisions-required).
+  Codex skill-set receipt; see [Human decisions](#human-decisions).
 - **Upgrade skill ownership by set proof** reconstructs the release skill
   manifest in the format `build-release-archives.sh` writes today. A future
   manifest format change must keep this reconstruction in step, or the
@@ -446,62 +520,28 @@ and model resolution, Execution Graph, child Executions, cross-runtime
 coordination, budgets). That remains Slice S8, tracked by Issue #97, and is
 neither implemented nor evidenced here.
 
-## Human decisions required
+## Human decisions
 
-### T18 — Evidence 365-day post-retirement retention
+### HD-S7-T18 — Evidence retirement (decided 2026-09-26, implemented)
 
-**Human decision required.** The approved rule makes an Evidence artifact
-eligible "365 days after every Evidence reference is explicitly retired". It
-cannot be implemented correctly on the current persisted model.
+The earlier analysis found that the 365-day rule could not be implemented
+because no retirement was persisted. The human decision chose that analysis's
+smallest evolution: an explicit, separately authorized retirement record
+outside `metadata.json` v1. It forbade `createdAt`, zero-reference inference,
+age, and cleanup pressure as substitutes, and required re-reference to
+invalidate an earlier retirement. It is implemented at `ffc2515` as described
+under [T18](#t18--reference-aware-artifact-cleanup-and-capacity-recovery).
 
-1. **Missing information.** No authoritative record exists that an Evidence
-   reference was explicitly retired, or when. `metadata.json` format 1 records
-   `createdAt`, `references`, `liveReferences`, `supersededBy`, and
-   `cleanupState` (always `retained`). Execution records hold transition
-   references. No command or store operation retires a reference.
-2. **Why it is impossible today.**
-   - The window starts at an explicit act that is never persisted.
-   - `createdAt` is not retirement.
-   - An unreferenced artifact may never have been referenced, or may have lost
-     its reference in a way Axiom cannot attribute.
-   - The metadata decoder is closed (`DisallowUnknownFields`, `formatVersion`
-     1), so no field can be added compatibly.
+### HD-S7-T22 — Ubuntu native Evidence phasing (decided 2026-09-26)
 
-   Any inference could delete Evidence early. The current fail-closed
-   behavior (`evidence_retirement_unrecorded`, never eligible) is the only
-   correct one. The 30-day (`diagnostic`) and 90-day (cleanup record)
-   boundaries are implemented and tested with a fake clock.
-3. **Smallest evolution.** Add an explicit, separately authorized "retire
-   Evidence references" operation, published under the state-root lock
-   through the ADR-0007 protocol. It writes a bounded owned retirement record
-   per artifact (artifact ID, digest, retired reference identities, retirement
-   time), for example under `artifacts/v1/retirements/`. Artifact metadata v1
-   stays unchanged. Cleanup counts 365 days from the recorded time and only
-   when no live reference remains.
-4. **Compatibility and migration.** No backfill: an absent record means "not
-   retired", which preserves today's behavior for all existing artifacts. The
-   compatibility inspector must learn the new record type; older binaries
-   would classify it as unknown content (`malformed`), which blocks mutation
-   rather than losing data. That requires a reviewed state-format decision.
-5. **Security and recovery impact.**
-   - Retirement becomes a precursor to deletion authority, so it needs exact
-     preview/authority, audit, lock, and stale-reference refusal.
-   - Recovery must classify interrupted retirement publication like other
-     ADR-0007 objects.
-   - A wrong local clock could shorten the window, exactly as it can for the
-     30/90-day rules.
-6. **Recommendation.** Keep the current fail-closed behavior for the MVP.
-   Record in the Plan that Evidence post-retirement cleanup is deferred until
-   an explicit retirement operation is specified and approved. Specify that
-   operation as a separate reviewed change rather than inside S7.
-
-Until decided, T18's "30/365/90-day" boundary obligation is met for 30 and 90
-days only.
+The Ubuntu 26.04 amd64/arm64 ext4 native rows are not S7 completion criteria.
+They are deferred to the T24 clean-environment/RC acceptance matrix, and remain
+mandatory there. See [T22](#t22--exact-target-native-evidence).
 
 ### T20 — Codex skill-set receipt after an upgrade
 
-**Human decision required** (it does not block the Plan ordering, which is
-implemented):
+Kept as a documented limitation for S7. It does not block the Plan ordering,
+which is implemented. Release format v2 is not implemented here:
 
 - **Problem.** The upgrade publishes skill files but cannot publish the
   candidate's `.axiom-skill-set.receipt`, because release archive format 1
@@ -520,23 +560,25 @@ implemented):
 
 ## Commands and results
 
-All at `604bd10`, clean worktree:
+All at `ceb6d02`, in a clean detached worktree (`untracked_entries=0`), macOS
+27.0 (`26A428`), arm64, `go1.26.1`:
 
 | Command | Result |
 |---|---|
 | `go build ./...`, `go vet ./...`, `go mod verify` | pass; all modules verified |
 | `go test ./... -count=1` | pass (all packages) |
 | `go test -race ./internal/compatibility ./internal/install ./internal/local ./internal/detailartifact ./internal/codexruntime ./internal/cli ./cmd/lingo -count=1` | pass |
-| `./scripts/test-s7-security.sh` | 28 case groups pass; `failures=0 result=pass` (includes race, sensitive files, gitleaks worktree) |
-| `./scripts/test-s7-native.sh` | `native_row=macos-27.0-arm64-apfs archive_kind=release failures=0 result=pass` (34 steps) |
-| `./scripts/validate-repository.sh .` | pass (runs `check-claude-bootstrap.sh` and its test) |
+| `go test ./internal/local ./cmd/lingo -run 'Retire\|Retention\|ReReference' -count=1 -v` | the 9 retirement tests plus the CLI retire test pass |
+| `./scripts/test-s7-security.sh` | `failures=0 result=pass`; includes race, sensitive files, `gitleaks_worktree=pass`, and the retirement tests under MVP-SEC-09/FR-033 |
+| `./scripts/test-s7-native.sh` | `native_row=macos-27.0-arm64-apfs archive_kind=release source_state=clean failures=0 result=pass` |
+| `./scripts/validate-repository.sh .` | pass |
 | `./scripts/validate-agent-package.sh .` | pass |
 | `./scripts/check-sensitive-files.sh .`; `--staged` before each commit | pass |
-| `./scripts/test-check-claude-bootstrap.sh` | pass (20 cases) |
-| `./scripts/test-validate-agent-package.sh` | pass |
-| `gitleaks detect --source .` (209 commits) and `--no-git`; `gitleaks protect --staged` before each commit | no leaks |
+| `gitleaks detect --source .` and `--no-git`; `gitleaks protect --staged` | no leaks |
 | `git diff --check` | clean |
 
+History: at `604bd10` the same suite passed (28 security case groups, 34
+native steps) before the retirement record existed.
 History: at `408a2b5` the same suite passed except the repository validators,
 which then failed only on the untracked `CLAUDE.md`.
 

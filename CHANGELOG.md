@@ -2,6 +2,16 @@
 
 ## [2026-09-26]
 
+- implementation: explicit Evidence retirement (HD-S7-T18). `lingo artifact
+  retire` previews, then with exact authority publishes
+  `artifacts/v1/retirements/<id>.json`, which is separate from metadata v1.
+  Cleanup makes Evidence eligible 365 days after a valid retirement bound to
+  the exact revision. Referenced, stale, corrupt, or missing retirements
+  preserve Evidence, and a re-reference supersedes the retirement.
+- docs: close S7 technically. T22 is complete under the revised S7 scope
+  (HD-S7-T22). The Ubuntu 26.04 native rows were not executed; they are
+  deferred to the T24 clean-environment RC acceptance matrix and remain
+  mandatory there.
 - implementation: `lingo upgrade` publishes the candidate's verified Codex skill
   files after the binary and receipt. Each file needs an expected digest,
   owned content, and the skill-set lock, and takes part in preview, authority,
