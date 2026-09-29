@@ -103,7 +103,7 @@ def validate(envelope):
             effects = step.get("effects", {})
             if set(effects) - {"local", "external"}:
                 fail(f"{step['label']}: effects must be local/external lists")
-            unknown = placeholders([argv, env, cwd]) - set(parameters)
+            unknown = placeholders([argv, env, cwd, step.get("requireOutput", [])]) - set(parameters)
             if unknown:
                 fail(f"{step['label']}: undeclared parameter {sorted(unknown)}")
 
@@ -161,7 +161,8 @@ def main():
     phase = next((item for item in envelope["phases"] if item["id"] == args.phase), None)
     if phase is None:
         fail("unknown phase")
-    needed = placeholders([[step["argv"], step["env"], step["cwd"]] for step in phase["steps"]])
+    needed = placeholders([[step["argv"], step["env"], step["cwd"], step.get("requireOutput", [])]
+                           for step in phase["steps"]])
     if args.plan:
         print(json.dumps({"envelope": envelope["id"], "envelopeSHA256": envelope_sha, "phase": phase["id"],
                           "authority": phase["authority"], "requiredApprovals": sorted(needed),
@@ -251,7 +252,7 @@ def main():
                                               step.get("expect", "success")):
                 raise RuntimeError(f"{step['label']}: exit {observation['exitCode']}, "
                                    f"expected {step.get('expect', 'success')}")
-            missing = [needle for needle in step.get("requireOutput", []) if needle not in text]
+            missing = [needle for needle in substitute(step.get("requireOutput", []), approved) if needle not in text]
             if missing:
                 raise RuntimeError(f"{step['label']}: required output not observed: {missing}")
         manifest["stageResult"] = "phase-steps-confirmed; T24 not complete"

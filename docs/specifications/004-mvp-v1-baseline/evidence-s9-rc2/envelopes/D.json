@@ -6,7 +6,7 @@
   "sourceRevision": "859969a07f3807822580431a05b6c78b07691fb1",
   "candidateSHA256": "84b11ddc7541d68a978d17916299c12dc0718ac15a286cfbce774fbc2aed88b2",
   "toolingSHA256": {
-    "s9-rc-envelope.py": "fcd52cf911e0f2d29a1d505829764b8891a551603c246d41c151ddef579575fc",
+    "s9-rc-envelope.py": "19ca6bf9bfccc2a14fad3981d2e9ab1c9df41bd4586737440ec4a903a30e299f",
     "s9-rc-evidence.py": "04535913fc850556fbeb04fc9306adaaaf6138d72743d40241ec0861847687a7"
   },
   "runtime": {
@@ -308,6 +308,64 @@
             "HEAD"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/Users/rgomids/.local/go/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp",
+            "GOCACHE": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/cache/go-build",
+            "GOTMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp",
+            "GOFLAGS": "-mod=readonly"
+          },
+          "timeoutSeconds": 30,
+          "expect": "success",
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        },
+        {
+          "label": "specification-digest",
+          "argv": [
+            "/usr/bin/shasum",
+            "-a",
+            "256",
+            "docs/specifications/004-mvp-v1-baseline/spec.md"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/Users/rgomids/.local/go/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp",
+            "GOCACHE": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/cache/go-build",
+            "GOTMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp",
+            "GOFLAGS": "-mod=readonly"
+          },
+          "timeoutSeconds": 30,
+          "expect": "success",
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        },
+        {
+          "label": "plan-digest",
+          "argv": [
+            "/usr/bin/shasum",
+            "-a",
+            "256",
+            "docs/specifications/004-mvp-v1-baseline/plan.md"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source",
           "env": {
             "USER": "rgomids",
             "LOGNAME": "rgomids",

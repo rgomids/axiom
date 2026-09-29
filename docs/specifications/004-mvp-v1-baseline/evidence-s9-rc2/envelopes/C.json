@@ -6,14 +6,14 @@
   "sourceRevision": "859969a07f3807822580431a05b6c78b07691fb1",
   "candidateSHA256": "84b11ddc7541d68a978d17916299c12dc0718ac15a286cfbce774fbc2aed88b2",
   "toolingSHA256": {
-    "s9-rc-envelope.py": "fcd52cf911e0f2d29a1d505829764b8891a551603c246d41c151ddef579575fc",
+    "s9-rc-envelope.py": "19ca6bf9bfccc2a14fad3981d2e9ab1c9df41bd4586737440ec4a903a30e299f",
     "s9-rc-evidence.py": "04535913fc850556fbeb04fc9306adaaaf6138d72743d40241ec0861847687a7"
   },
   "runtime": {
     "id": "claude",
     "executable": "/Users/rgomids/.local/bin/claude",
-    "realPath": "/Users/rgomids/.local/share/claude/versions/2.1.284",
-    "version": "2.1.284 (from install path; not executed during planning)",
+    "realPath": "/Users/rgomids/.local/share/claude/versions/2.1.285",
+    "version": "2.1.285 (from install path; not executed during planning)",
     "modelProfile": "none (direct `claude --print`)",
     "model": "sonnet"
   },
@@ -245,7 +245,7 @@
           "argv": [
             "/bin/ln",
             "-s",
-            "/Users/rgomids/.local/share/claude/versions/2.1.284",
+            "/Users/rgomids/.local/share/claude/versions/2.1.285",
             "/Users/rgomids/Projects/axiom-t24-rc2-lab/c/runtime-path/claude"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/c",
@@ -263,7 +263,7 @@
           "expect": "success",
           "effects": {
             "local": [
-              "symlink /Users/rgomids/Projects/axiom-t24-rc2-lab/c/runtime-path/claude -> /Users/rgomids/.local/share/claude/versions/2.1.284 (detection only)"
+              "symlink /Users/rgomids/Projects/axiom-t24-rc2-lab/c/runtime-path/claude -> /Users/rgomids/.local/share/claude/versions/2.1.285 (detection only)"
             ],
             "external": []
           }
@@ -292,7 +292,8 @@
           "requireOutput": [
             "\"status\":\"success\"",
             "\"detected\":1",
-            "\"runtime\":\"claude\",\"present\":true"
+            "\"runtime\":\"claude\",\"executable\":\"claude\",\"present\":true",
+            "\"state\":\"configured\""
           ],
           "effects": {
             "local": [

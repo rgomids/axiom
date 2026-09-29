@@ -145,22 +145,22 @@ repository; nothing there is committed until sanitized).
 
 | Id | Digest | Purpose | Authority class |
 |---|---|---|---|
-| A | `cb926b83be06ebe20903c56ab608d555528b043e939a403448773dc909f6a070` | macOS local install/first-run/installer-state matrix | local only |
-| B | `ae5f0a2f89bdcd0e6aca0b1f43e6c00c5fa54c3d338b79ebd19c05121846f55c` | real Codex invocation through installed rc.2 skills | local + Runtime |
-| C | `ce6efbd8f7ff65b044af2520e7af049cc37328596bbd9e23ab6b66d16944e7ea` | real Claude invocation through installed rc.2 skills | local + Runtime |
-| D | `4f18e034d45d8f29bee713b297d6ba2a5b091f6e528c2a29811681be5a7bdcc1` | Codex + Claude S8 graph, Integration/Reconciliation, Evidence | local + Runtime |
-| E | `986dc44fb61109ff07db78c20b2a62884068d19317af9e219b638ec4735a6370` | GitHub Work Item, projections, branch + PR (dogfood) | local + Provider |
-| F | `ea9061f1fd58a81c7a9b5088d7cdaedc549d5e9ca80eecb324a46755b21a65ee` | interruption/resume, projection drift/recovery, failure suites | local + Provider (F2) |
+| A | `3b9402355280bd1f0cd7cc8ac7eb8dfa20487bf5d5b74da594e507ad702e318a` | macOS local install/first-run/installer-state matrix | local only |
+| B | `110ad4393e2393c30dafc9296869bf8c6b4f13467fc5ddc68e4728b6849a796b` | real Codex invocation through installed rc.2 skills | local + Runtime |
+| C | `b16acf86767b6f4d3f0729f7c19a52294a244d7a78baaac9ca4b506a7add32ef` | real Claude invocation through installed rc.2 skills | local + Runtime |
+| D | `8a62b3c2b028322c7f960b0d40e79a9f10406cb6764e5566fec4853c5c2770a7` | Codex + Claude S8 graph, Integration/Reconciliation, Evidence | local + Runtime |
+| E | `84fa8b1b0f32d7c351937c096c933ca98b0e39bf19ca093e8eccdda9f2f4884a` | GitHub Work Item, projections, branch + PR (dogfood) | local + Provider |
+| F | `cc5415f0b9b3c923300cdf7f1d89b336472fcb9cdecf489e271b13678baa8318` | interruption/resume, projection drift/recovery, failure suites | local + Provider (F2) |
 
 Files: [A](envelopes/A.json) (identical bytes to the plan at
-`<lab>/evidence/A-macos-arm64/envelope.json`), [B](envelopes/B.json),
+`<lab>/evidence/A2-macos-arm64/envelope.json`), [B](envelopes/B.json),
 [C](envelopes/C.json), [D](envelopes/D.json) with
 [graph spec](envelopes/D-graph-spec.json) (SHA-256 `83ed14ac…693b`, checked by
 D1), [E](envelopes/E.json), [F](envelopes/F.json).
 
-Execution order: **A → B → C → D1, D2 → E1–E8 → D3, D4 → E9–E11 → F**.
+Execution order: **A → B → C → D1, D2 → E1–E6 → D3, D4 → E7–E9 → F**.
 Grouping is limited to steps with the same authority class inside one phase
-(for example E9 commits locally, pushes one new branch and opens one PR: a PR
+(for example E7 commits locally, pushes one new branch and opens one PR: a PR
 cannot exist without its branch, and a failed PR creation leaves only a branch
 the human deletes).
 
@@ -179,8 +179,8 @@ digest; `$EV` is this directory, `$LAB` the lab):
 ```bash
 ./scripts/test-s9-rc-acceptance.sh --version v0.1.2-rc.2 \
   --candidate "$EV/candidate-v0.1.2-rc.2.json" --prior-candidate "$EV/prior-candidate-v0.1.2-rc.1.json" \
-  --evidence-dir "$LAB/evidence/A-macos-arm64" --execute-install \
-  --approved-envelope-sha256 cb926b83be06ebe20903c56ab608d555528b043e939a403448773dc909f6a070
+  --evidence-dir "$LAB/evidence/A2-macos-arm64" --execute-install \
+  --approved-envelope-sha256 3b9402355280bd1f0cd7cc8ac7eb8dfa20487bf5d5b74da594e507ad702e318a
 
 python3 scripts/s9-rc-envelope.py --envelope "$EV/envelopes/B.json" \
   --candidate "$EV/candidate-v0.1.2-rc.2.json" --phase B1-setup \
@@ -225,3 +225,40 @@ host skill roots or GitHub state other than the reads listed above.
 
 Human reviews and authorizes the first bounded envelope (A). Provide or approve
 a mechanism for both Linux rows.
+
+## Execution log
+
+### Revision 1 envelopes (authorized 2026-09-29) — superseded
+
+The human authorized A–F revision 1 (`cb926b83…`, `ae5f0a2f…`, `ce6efbd8…`,
+`4f18e034…`, `986dc44f…`, `ea9061f1…`) with the condition that digests and scope
+stay exactly as approved.
+
+- **A not run:** Claude auto-updated from 2.1.284 to 2.1.285 after planning; A
+  binds the located executable's path and digest, so its recomputed envelope
+  would differ. No step executed.
+- **B1 attempt 1 failed on an envelope defect, not an RC defect**
+  (`<lab>/evidence/B-B1-setup-attempt-1`): fetch, bootstrap digest, clean install
+  of `v0.1.2-rc.2` (`install_status=installed`, provenance `859969a07f38`,
+  clean) and Codex-only first-run all succeeded (`detected:1`, Codex
+  `configured`, 5 user-global skills under the isolated HOME). The envelope's
+  expected substring omitted the `"executable"` field that the JSON places
+  between `runtime` and `present`. Effects: local lab files only
+  (`<lab>/b`, preserved); no ambiguity.
+- A pre-execution audit against the CLI contract
+  (`cmd/lingo/blackbox_test.go`, `cmd/lingo/s9_dogfood_blackbox_test.go`) then
+  found further revision-1 defects: E advanced to `plan` without the mandatory
+  `planning-authority`/`implementation-authority`/`review-started` facts,
+  used revision parameters where revisions are deterministic, and expected a
+  `recovery_required` string where drift returns `status:"failure"`; E9's tree
+  check compared a literal placeholder (the executor did not substitute
+  `requireOutput`).
+
+Revision 2 (table above) fixes these: executor substitutes approved values in
+`requireOutput` (test added); first-run expectations match the real JSON; A and
+C bind Claude 2.1.285; B uses a fresh lab dir (`<lab>/b-r2`); E carries the
+lifecycle facts (specification/plan references hashed in D1, graph acceptance
+Evidence as the `evidence` reference for `implementation` and `review-started`,
+correlating the workflow Execution with the graph parent) and deterministic
+revisions; F follows the real drift contract. Scope, targets and effects are
+unchanged. Revision 2 needs its own human authorization.

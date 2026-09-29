@@ -1,12 +1,12 @@
 {
   "schema": "axiom-s9-rc-envelope/v1",
   "id": "E",
-  "purpose": "Real GitHub Provider dogfood: Axiom-created Work Item, Claude-conducted workflow Execution, stage projections, and a reviewable PR carrying the D graph's integrated change",
+  "purpose": "Real GitHub Provider dogfood: Axiom-created Work Item, Claude-conducted workflow Execution with lifecycle facts, stage projections, and a reviewable PR carrying the D graph's integrated change; the review-started fact references the graph acceptance Evidence (workflow/graph correlation)",
   "rcTag": "v0.1.2-rc.2",
   "sourceRevision": "859969a07f3807822580431a05b6c78b07691fb1",
   "candidateSHA256": "84b11ddc7541d68a978d17916299c12dc0718ac15a286cfbce774fbc2aed88b2",
   "toolingSHA256": {
-    "s9-rc-envelope.py": "fcd52cf911e0f2d29a1d505829764b8891a551603c246d41c151ddef579575fc",
+    "s9-rc-envelope.py": "19ca6bf9bfccc2a14fad3981d2e9ab1c9df41bd4586737440ec4a903a30e299f",
     "s9-rc-evidence.py": "04535913fc850556fbeb04fc9306adaaaf6138d72743d40241ec0861847687a7"
   },
   "runtime": {
@@ -26,29 +26,14 @@
     "issueNumber": {
       "pattern": "[1-9][0-9]{0,6}"
     },
-    "rev0": {
-      "pattern": "[1-9][0-9]{0,3}"
-    },
     "projectionDigest": {
       "pattern": "[0-9a-f]{64}"
     },
-    "rev1": {
-      "pattern": "[1-9][0-9]{0,3}"
+    "specSHA256": {
+      "pattern": "[0-9a-f]{64}"
     },
-    "rev2": {
-      "pattern": "[1-9][0-9]{0,3}"
-    },
-    "rev3": {
-      "pattern": "[1-9][0-9]{0,3}"
-    },
-    "rev4": {
-      "pattern": "[1-9][0-9]{0,3}"
-    },
-    "revImplementation": {
-      "pattern": "[1-9][0-9]{0,3}"
-    },
-    "revReview": {
-      "pattern": "[1-9][0-9]{0,3}"
+    "planSHA256": {
+      "pattern": "[0-9a-f]{64}"
     },
     "integrationResultTree": {
       "pattern": "[0-9a-f]{40}"
@@ -58,16 +43,20 @@
     },
     "workflowExecutionId": {
       "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "graphEvidenceSHA256": {
+      "pattern": "[0-9a-f]{64}"
     }
   },
   "localEffects": [
     "Work Item/workflow state under /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state and /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
-    "local branch/commit in /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration"
+    "local branch/commit in /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+    "untracked /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source/.t24-evidence"
   ],
   "externalEffects": [
     "1 Issue in rgomids/axiom",
     "axiom:stage:* label creation (if absent) and label changes on that Issue only",
-    "at most one provenance-marked comment per projected Execution revision on that Issue",
+    "at most one provenance-marked comment per projected Execution revision on that Issue (3 projections)",
     "1 remote branch t24-rc2/dogfood-retire-synthetic-ubuntu-row",
     "1 PR to main"
   ],
@@ -253,11 +242,11 @@
           "expect": "success",
           "requireOutput": [
             "\"status\":\"success\"",
-            "\"runtimeId\":\"claude\""
+            "\"runtimeId\":\"claude\"",
+            "\"revision\":1"
           ],
           "capture": {
-            "executionId": "workflow.executionId",
-            "revision": "workflow.revision"
+            "executionId": "workflow.executionId"
           },
           "effects": {
             "local": [
@@ -265,13 +254,7 @@
             ],
             "external": []
           }
-        }
-      ]
-    },
-    {
-      "id": "E4-first-projection-preview",
-      "authority": "local",
-      "steps": [
+        },
         {
           "label": "first-projection-preview",
           "argv": [
@@ -286,7 +269,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{rev0}}"
+            "1"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
           "env": {
@@ -308,7 +291,8 @@
           ],
           "capture": {
             "digest": "projection.digest",
-            "stage": "projection.stage"
+            "label": "projection.label",
+            "effects": "projection.effects"
           },
           "effects": {
             "local": [],
@@ -318,7 +302,7 @@
       ]
     },
     {
-      "id": "E5-first-projection-apply",
+      "id": "E4-first-projection-apply",
       "authority": "provider",
       "steps": [
         {
@@ -335,7 +319,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{rev0}}",
+            "1",
             "--preview-digest",
             "{{projectionDigest}}",
             "--authorize-external"
@@ -361,18 +345,18 @@
           "effects": {
             "local": [],
             "external": [
-              "GitHub rgomids/axiom Issue #<issueNumber>: create axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
+              "GitHub rgomids/axiom Issue #<issueNumber> only: create the axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
             ]
           }
         }
       ]
     },
     {
-      "id": "E6-gates-to-implementation",
+      "id": "E5-gates-to-implementation",
       "authority": "local",
       "steps": [
         {
-          "label": "advance-intake",
+          "label": "advance-intake-pass",
           "argv": [
             "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
             "--json",
@@ -385,7 +369,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{rev0}}",
+            "1",
             "--gate",
             "intake",
             "--outcome",
@@ -407,17 +391,18 @@
           "timeoutSeconds": 60,
           "expect": "success",
           "requireOutput": [
-            "\"status\":\"success\""
+            "\"status\":\"success\"",
+            "\"revision\":2"
           ],
           "effects": {
             "local": [
-              "workflow transition intake -> next (local only)"
+              "workflow gate intake pass (local transition)"
             ],
             "external": []
           }
         },
         {
-          "label": "advance-specification",
+          "label": "advance-specification-pass",
           "argv": [
             "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
             "--json",
@@ -430,7 +415,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{rev1}}",
+            "2",
             "--gate",
             "specification",
             "--outcome",
@@ -452,17 +437,18 @@
           "timeoutSeconds": 60,
           "expect": "success",
           "requireOutput": [
-            "\"status\":\"success\""
+            "\"status\":\"success\"",
+            "\"revision\":3"
           ],
           "effects": {
             "local": [
-              "workflow transition specification -> next (local only)"
+              "workflow gate specification pass (local transition)"
             ],
             "external": []
           }
         },
         {
-          "label": "advance-clarification",
+          "label": "advance-clarification-pass",
           "argv": [
             "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
             "--json",
@@ -475,7 +461,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{rev2}}",
+            "3",
             "--gate",
             "clarification",
             "--outcome",
@@ -497,17 +483,66 @@
           "timeoutSeconds": 60,
           "expect": "success",
           "requireOutput": [
-            "\"status\":\"success\""
+            "\"status\":\"success\"",
+            "\"revision\":4"
           ],
           "effects": {
             "local": [
-              "workflow transition clarification -> next (local only)"
+              "workflow gate clarification pass (local transition)"
             ],
             "external": []
           }
         },
         {
-          "label": "advance-plan",
+          "label": "fact-planning-authority",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "fact",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "4",
+            "--fact",
+            "planning-authority",
+            "--active",
+            "--reference",
+            "specification:docs/specifications/004-mvp-v1-baseline/spec.md:{{specSHA256}}",
+            "--authorize-local"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\"",
+            "\"revision\":5"
+          ],
+          "effects": {
+            "local": [
+              "workflow fact planning-authority (local)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "advance-plan-pass",
           "argv": [
             "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
             "--json",
@@ -520,7 +555,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{rev3}}",
+            "5",
             "--gate",
             "plan",
             "--outcome",
@@ -542,17 +577,18 @@
           "timeoutSeconds": 60,
           "expect": "success",
           "requireOutput": [
-            "\"status\":\"success\""
+            "\"status\":\"success\"",
+            "\"revision\":6"
           ],
           "effects": {
             "local": [
-              "workflow transition plan -> next (local only)"
+              "workflow gate plan pass (local transition)"
             ],
             "external": []
           }
         },
         {
-          "label": "advance-tasks",
+          "label": "advance-tasks-pass",
           "argv": [
             "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
             "--json",
@@ -565,7 +601,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{rev4}}",
+            "6",
             "--gate",
             "tasks",
             "--outcome",
@@ -587,11 +623,60 @@
           "timeoutSeconds": 60,
           "expect": "success",
           "requireOutput": [
-            "\"status\":\"success\""
+            "\"status\":\"success\"",
+            "\"revision\":7"
           ],
           "effects": {
             "local": [
-              "workflow transition tasks -> next (local only)"
+              "workflow gate tasks pass (local transition)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "fact-implementation-authority",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "fact",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "7",
+            "--fact",
+            "implementation-authority",
+            "--active",
+            "--reference",
+            "plan:docs/specifications/004-mvp-v1-baseline/plan.md:{{planSHA256}}",
+            "--authorize-local"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\"",
+            "\"revision\":8"
+          ],
+          "effects": {
+            "local": [
+              "workflow fact implementation-authority (local)"
             ],
             "external": []
           }
@@ -626,23 +711,15 @@
           "timeoutSeconds": 60,
           "expect": "success",
           "requireOutput": [
-            "\"currentGate\":\"implementation\""
+            "\"currentGate\":\"implementation\"",
+            "\"revision\":8",
+            "\"runtimeId\":\"claude\""
           ],
-          "capture": {
-            "revision": "workflow.revision",
-            "executionId": "workflow.executionId"
-          },
           "effects": {
             "local": [],
             "external": []
           }
-        }
-      ]
-    },
-    {
-      "id": "E7-planned-projection-preview",
-      "authority": "local",
-      "steps": [
+        },
         {
           "label": "planned-projection-preview",
           "argv": [
@@ -657,7 +734,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{revImplementation}}"
+            "8"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
           "env": {
@@ -679,7 +756,8 @@
           ],
           "capture": {
             "digest": "projection.digest",
-            "stage": "projection.stage"
+            "label": "projection.label",
+            "effects": "projection.effects"
           },
           "effects": {
             "local": [],
@@ -689,7 +767,7 @@
       ]
     },
     {
-      "id": "E8-planned-projection-apply",
+      "id": "E6-planned-projection-apply",
       "authority": "provider",
       "steps": [
         {
@@ -706,7 +784,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{revImplementation}}",
+            "8",
             "--preview-digest",
             "{{projectionDigest}}",
             "--authorize-external"
@@ -732,14 +810,14 @@
           "effects": {
             "local": [],
             "external": [
-              "GitHub rgomids/axiom Issue #<issueNumber>: create axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
+              "GitHub rgomids/axiom Issue #<issueNumber> only: create the axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
             ]
           }
         }
       ]
     },
     {
-      "id": "E9-branch-and-pr",
+      "id": "E7-branch-and-pr",
       "authority": "provider",
       "steps": [
         {
@@ -971,11 +1049,94 @@
       ]
     },
     {
-      "id": "E10-review-preview",
+      "id": "E8-review-start",
       "authority": "local",
       "steps": [
         {
-          "label": "advance-implementation",
+          "label": "evidence-directory",
+          "argv": [
+            "/bin/mkdir",
+            "-p",
+            "-m",
+            "700",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source/.t24-evidence"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 30,
+          "expect": "success",
+          "effects": {
+            "local": [
+              "untracked /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source/.t24-evidence (lab clone only; never committed)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "copy-graph-evidence",
+          "argv": [
+            "/bin/cp",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/evidence/graph/acceptance-evidence.json",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source/.t24-evidence/graph-acceptance-evidence.json"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 30,
+          "expect": "success",
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        },
+        {
+          "label": "graph-evidence-digest",
+          "argv": [
+            "/usr/bin/shasum",
+            "-a",
+            "256",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source/.t24-evidence/graph-acceptance-evidence.json"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 30,
+          "expect": "success",
+          "requireOutput": [
+            "{{graphEvidenceSHA256}}"
+          ],
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        },
+        {
+          "label": "advance-implementation-pass",
           "argv": [
             "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
             "--json",
@@ -988,11 +1149,13 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{revImplementation}}",
+            "8",
             "--gate",
             "implementation",
             "--outcome",
-            "pass"
+            "pass",
+            "--reference",
+            "evidence:.t24-evidence/graph-acceptance-evidence.json:{{graphEvidenceSHA256}}"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
           "env": {
@@ -1010,11 +1173,60 @@
           "timeoutSeconds": 60,
           "expect": "success",
           "requireOutput": [
-            "\"status\":\"success\""
+            "\"status\":\"success\"",
+            "\"revision\":9"
           ],
           "effects": {
             "local": [
-              "workflow implementation gate pass (local)"
+              "workflow gate implementation pass (local transition)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "fact-review-started",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "fact",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "9",
+            "--fact",
+            "review-started",
+            "--active",
+            "--reference",
+            "evidence:.t24-evidence/graph-acceptance-evidence.json:{{graphEvidenceSHA256}}",
+            "--authorize-local"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\"",
+            "\"revision\":10"
+          ],
+          "effects": {
+            "local": [
+              "workflow fact review-started (local)"
             ],
             "external": []
           }
@@ -1033,7 +1245,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{revReview}}"
+            "10"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
           "env": {
@@ -1055,7 +1267,8 @@
           ],
           "capture": {
             "digest": "projection.digest",
-            "stage": "projection.stage"
+            "label": "projection.label",
+            "effects": "projection.effects"
           },
           "effects": {
             "local": [],
@@ -1065,7 +1278,7 @@
       ]
     },
     {
-      "id": "E11-review-projection-apply",
+      "id": "E9-review-projection-apply",
       "authority": "provider",
       "steps": [
         {
@@ -1082,7 +1295,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "{{revReview}}",
+            "10",
             "--preview-digest",
             "{{projectionDigest}}",
             "--authorize-external"
@@ -1108,7 +1321,7 @@
           "effects": {
             "local": [],
             "external": [
-              "GitHub rgomids/axiom Issue #<issueNumber>: create axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
+              "GitHub rgomids/axiom Issue #<issueNumber> only: create the axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
             ]
           }
         }
@@ -1124,13 +1337,11 @@
     "E4",
     "E5",
     "E6",
-    "E7",
-    "E8",
     "D3-graph-prepare",
     "D4-graph-run",
-    "E9",
-    "E10",
-    "E11"
+    "E7",
+    "E8",
+    "E9"
   ],
   "issueBody": {
     "fields": {
@@ -1142,10 +1353,11 @@
       "--acceptance": "bash -n and ./scripts/test-install-bootstrap.sh pass; go test/vet/build, repository and sensitive-file validation pass; docs no longer mention AXIOM_TEST_SYNTHETIC_UBUNTU_ROW."
     },
     "fieldsSHA256": "8d864d2f2c5829f9aa995c71787c90b8e520e47aee86dd9d59cc29b30ffd63c6",
-    "rendering": "Axiom renders the seven sections into the Issue body; E1's preview shows the exact providerDocument and digest for approval"
+    "rendering": "Axiom renders the seven sections into the Issue body; E1's preview shows the exact providerDocument and digest"
   },
   "notes": [
-    "Each provider phase is one per-run authority: envelope digest + the preview digest(s) shown by the preceding local phase.",
-    "Revision parameters are the exact Execution revisions shown by the preceding phase; a wrong value is denied by Axiom (stale revision) with no effect."
+    "Each provider phase is one per-run authority: envelope digest + the preview digest shown by the preceding local phase.",
+    "Execution revisions are deterministic (start = 1; every advance or fact +1, as in cmd/lingo/s9_dogfood_blackbox_test.go); a mismatch is denied by Axiom with no effect.",
+    "specSHA256/planSHA256 come from D1 (dogfood base); graphEvidenceSHA256 is the SHA-256 of D4's acceptance-evidence.json."
   ]
 }

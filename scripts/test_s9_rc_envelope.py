@@ -95,6 +95,13 @@ class EnvelopeExecutor(unittest.TestCase):
         self.assertEqual(self.invoke(path, "--approve", "digest=" + "a" * 64, digest=digest), 0)
         self.assertEqual(self.manifest()["observations"][0]["argv"], ["/bin/echo", "a" * 64])
 
+    def test_required_output_uses_approved_values(self):
+        path, digest = self.write(envelope([step("tree", ["/bin/echo", "a" * 64], requireOutput=["{{digest}}"])]))
+        self.assertEqual(self.invoke(path, "--approve", "digest=" + "a" * 64, digest=digest), 0)
+        self.assertEqual(self.invoke(path, "--approve", "digest=" + "b" * 64, digest=digest, evidence="other"), 1)
+        with self.assertRaises(SystemExit):
+            self.invoke(path, digest=digest, evidence="third")
+
     def test_environment_is_not_inherited_and_captures_are_recorded(self):
         path, digest = self.write(envelope([
             step("env", ["/usr/bin/env"], env={"ONLY": "declared"}, requireOutput=["ONLY=declared"]),
