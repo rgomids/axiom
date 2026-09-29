@@ -1,0 +1,1151 @@
+{
+  "schema": "axiom-s9-rc-envelope/v1",
+  "id": "E",
+  "purpose": "Real GitHub Provider dogfood: Axiom-created Work Item, Claude-conducted workflow Execution, stage projections, and a reviewable PR carrying the D graph's integrated change",
+  "rcTag": "v0.1.2-rc.2",
+  "sourceRevision": "859969a07f3807822580431a05b6c78b07691fb1",
+  "candidateSHA256": "84b11ddc7541d68a978d17916299c12dc0718ac15a286cfbce774fbc2aed88b2",
+  "toolingSHA256": {
+    "s9-rc-envelope.py": "fcd52cf911e0f2d29a1d505829764b8891a551603c246d41c151ddef579575fc",
+    "s9-rc-evidence.py": "04535913fc850556fbeb04fc9306adaaaf6138d72743d40241ec0861847687a7"
+  },
+  "runtime": {
+    "workflowRuntime": "claude (explicit --runtime claude at workflow start; validates the rc.1 attribution fix)",
+    "graph": "envelope D"
+  },
+  "provider": {
+    "id": "github",
+    "repository": "rgomids/axiom",
+    "authentication": "existing gh keyring session of account rgomids (scopes observed: repo, read:org, gist, admin:public_key); never read or copied"
+  },
+  "maxAttempts": 2,
+  "parameters": {
+    "workItemDigest": {
+      "pattern": "[0-9a-f]{64}"
+    },
+    "issueNumber": {
+      "pattern": "[1-9][0-9]{0,6}"
+    },
+    "rev0": {
+      "pattern": "[1-9][0-9]{0,3}"
+    },
+    "projectionDigest": {
+      "pattern": "[0-9a-f]{64}"
+    },
+    "rev1": {
+      "pattern": "[1-9][0-9]{0,3}"
+    },
+    "rev2": {
+      "pattern": "[1-9][0-9]{0,3}"
+    },
+    "rev3": {
+      "pattern": "[1-9][0-9]{0,3}"
+    },
+    "rev4": {
+      "pattern": "[1-9][0-9]{0,3}"
+    },
+    "revImplementation": {
+      "pattern": "[1-9][0-9]{0,3}"
+    },
+    "revReview": {
+      "pattern": "[1-9][0-9]{0,3}"
+    },
+    "integrationResultTree": {
+      "pattern": "[0-9a-f]{40}"
+    },
+    "graphParentId": {
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "workflowExecutionId": {
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    }
+  },
+  "localEffects": [
+    "Work Item/workflow state under /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state and /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+    "local branch/commit in /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration"
+  ],
+  "externalEffects": [
+    "1 Issue in rgomids/axiom",
+    "axiom:stage:* label creation (if absent) and label changes on that Issue only",
+    "at most one provenance-marked comment per projected Execution revision on that Issue",
+    "1 remote branch t24-rc2/dogfood-retire-synthetic-ubuntu-row",
+    "1 PR to main"
+  ],
+  "forbiddenEffects": [
+    "merge, approve, close or reopen any PR/Issue",
+    "Issue closure or human-acceptance fact",
+    "force-push or ref deletion",
+    "labels/comments on any other Issue/PR",
+    "release, tag or promotion",
+    "edits to PR #121 or other PRs",
+    "credential read/copy/print",
+    "workflow completion gate (after human review only)"
+  ],
+  "cleanup": "human: PR review/merge/close; remote branch deletion after merge; Issue closure only after merge and separately authorized; lab preserved",
+  "evidencePaths": [
+    "/Users/rgomids/Projects/axiom-t24-rc2-lab/evidence/E-<phase>-attempt-<n>/",
+    "Issue/PR URLs recorded in captures"
+  ],
+  "secretsBoundary": "gh uses its keyring session; git push uses `gh auth git-credential`; no token in argv/env/files (executor refuses credential-shaped values)",
+  "phases": [
+    {
+      "id": "E1-work-item-preview",
+      "authority": "local",
+      "steps": [
+        {
+          "label": "work-item-create-preview",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "work-item",
+            "create",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--provider-repository",
+            "rgomids/axiom",
+            "--problem",
+            "The install bootstrap test still carries a synthetic mount-namespace row that declares Ubuntu 26.04, although the 2026-09-28 platform reconciliation removed any distribution/version filter from the installer.",
+            "--desired-outcome",
+            "The bootstrap test and command reference describe only real supported-row behavior: any Linux x86_64/aarch64 host, or macOS 27.0/arm64.",
+            "--context",
+            "S9 T24 dogfood against v0.1.2-rc.2 (859969a07f38). Coordinated through an Axiom Execution Graph with one Codex child and one Claude child.",
+            "--scope",
+            "scripts/test-install-bootstrap.sh and the matching paragraph of docs/commands.md only.",
+            "--constraints",
+            "No installer or product behavior change; every other bootstrap case and exit code unchanged; no new dependency.",
+            "--non-goals",
+            "Changing native Linux Evidence obligations, T24/T25 acceptance, release or promotion.",
+            "--acceptance",
+            "bash -n and ./scripts/test-install-bootstrap.sh pass; go test/vet/build, repository and sensitive-file validation pass; docs no longer mention AXIOM_TEST_SYNTHETIC_UBUNTU_ROW."
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 120,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "capture": {
+            "digest": "draft.digest"
+          },
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2-work-item-create",
+      "authority": "provider",
+      "steps": [
+        {
+          "label": "work-item-create",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "work-item",
+            "create",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--provider-repository",
+            "rgomids/axiom",
+            "--problem",
+            "The install bootstrap test still carries a synthetic mount-namespace row that declares Ubuntu 26.04, although the 2026-09-28 platform reconciliation removed any distribution/version filter from the installer.",
+            "--desired-outcome",
+            "The bootstrap test and command reference describe only real supported-row behavior: any Linux x86_64/aarch64 host, or macOS 27.0/arm64.",
+            "--context",
+            "S9 T24 dogfood against v0.1.2-rc.2 (859969a07f38). Coordinated through an Axiom Execution Graph with one Codex child and one Claude child.",
+            "--scope",
+            "scripts/test-install-bootstrap.sh and the matching paragraph of docs/commands.md only.",
+            "--constraints",
+            "No installer or product behavior change; every other bootstrap case and exit code unchanged; no new dependency.",
+            "--non-goals",
+            "Changing native Linux Evidence obligations, T24/T25 acceptance, release or promotion.",
+            "--acceptance",
+            "bash -n and ./scripts/test-install-bootstrap.sh pass; go test/vet/build, repository and sensitive-file validation pass; docs no longer mention AXIOM_TEST_SYNTHETIC_UBUNTU_ROW.",
+            "--preview-digest",
+            "{{workItemDigest}}",
+            "--authorize-external"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 180,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "capture": {
+            "number": "workItem.externalId",
+            "url": "workItem.url"
+          },
+          "effects": {
+            "local": [
+              "local create-attempt fence and Work Item link"
+            ],
+            "external": [
+              "create exactly one Issue in rgomids/axiom with the seven reviewed sections (field digest 8d864d2f2c5829f9aa995c71787c90b8e520e47aee86dd9d59cc29b30ffd63c6)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "E3-workflow-start",
+      "authority": "local",
+      "steps": [
+        {
+          "label": "workflow-start",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "start",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--runtime",
+            "claude"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\"",
+            "\"runtimeId\":\"claude\""
+          ],
+          "capture": {
+            "executionId": "workflow.executionId",
+            "revision": "workflow.revision"
+          },
+          "effects": {
+            "local": [
+              "one workflow Execution persisted with RuntimeID claude"
+            ],
+            "external": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "E4-first-projection-preview",
+      "authority": "local",
+      "steps": [
+        {
+          "label": "first-projection-preview",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "reconcile",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{rev0}}"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 120,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "capture": {
+            "digest": "projection.digest",
+            "stage": "projection.stage"
+          },
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "E5-first-projection-apply",
+      "authority": "provider",
+      "steps": [
+        {
+          "label": "first-projection-apply",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "reconcile",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{rev0}}",
+            "--preview-digest",
+            "{{projectionDigest}}",
+            "--authorize-external"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 180,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [],
+            "external": [
+              "GitHub rgomids/axiom Issue #<issueNumber>: create axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "E6-gates-to-implementation",
+      "authority": "local",
+      "steps": [
+        {
+          "label": "advance-intake",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "advance",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{rev0}}",
+            "--gate",
+            "intake",
+            "--outcome",
+            "pass"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [
+              "workflow transition intake -> next (local only)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "advance-specification",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "advance",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{rev1}}",
+            "--gate",
+            "specification",
+            "--outcome",
+            "pass"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [
+              "workflow transition specification -> next (local only)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "advance-clarification",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "advance",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{rev2}}",
+            "--gate",
+            "clarification",
+            "--outcome",
+            "pass"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [
+              "workflow transition clarification -> next (local only)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "advance-plan",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "advance",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{rev3}}",
+            "--gate",
+            "plan",
+            "--outcome",
+            "pass"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [
+              "workflow transition plan -> next (local only)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "advance-tasks",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "advance",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{rev4}}",
+            "--gate",
+            "tasks",
+            "--outcome",
+            "pass"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [
+              "workflow transition tasks -> next (local only)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "workflow-status",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "status",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"currentGate\":\"implementation\""
+          ],
+          "capture": {
+            "revision": "workflow.revision",
+            "executionId": "workflow.executionId"
+          },
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "E7-planned-projection-preview",
+      "authority": "local",
+      "steps": [
+        {
+          "label": "planned-projection-preview",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "reconcile",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{revImplementation}}"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 120,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "capture": {
+            "digest": "projection.digest",
+            "stage": "projection.stage"
+          },
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "E8-planned-projection-apply",
+      "authority": "provider",
+      "steps": [
+        {
+          "label": "planned-projection-apply",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "reconcile",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{revImplementation}}",
+            "--preview-digest",
+            "{{projectionDigest}}",
+            "--authorize-external"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 180,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [],
+            "external": [
+              "GitHub rgomids/axiom Issue #<issueNumber>: create axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "E9-branch-and-pr",
+      "authority": "provider",
+      "steps": [
+        {
+          "label": "integration-tree",
+          "argv": [
+            "/opt/homebrew/bin/git",
+            "-C",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "write-tree"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "{{integrationResultTree}}"
+          ],
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        },
+        {
+          "label": "create-branch",
+          "argv": [
+            "/opt/homebrew/bin/git",
+            "-C",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "switch",
+            "--quiet",
+            "-c",
+            "t24-rc2/dogfood-retire-synthetic-ubuntu-row"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "effects": {
+            "local": [
+              "local branch t24-rc2/dogfood-retire-synthetic-ubuntu-row in the integration worktree"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "stage",
+          "argv": [
+            "/opt/homebrew/bin/git",
+            "-C",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "add",
+            "--",
+            "scripts/test-install-bootstrap.sh",
+            "docs/commands.md"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        },
+        {
+          "label": "commit",
+          "argv": [
+            "/opt/homebrew/bin/git",
+            "-C",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "commit",
+            "--quiet",
+            "-m",
+            "test(install): retire obsolete synthetic Ubuntu bootstrap row (S9 dogfood)",
+            "-m",
+            "Work Item #{{issueNumber}}; T24 rc.2 graph parent {{graphParentId}}."
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "effects": {
+            "local": [
+              "one local commit authored with the operator's configured git identity"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "commit-tree-matches-integration",
+          "argv": [
+            "/opt/homebrew/bin/git",
+            "-C",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "rev-parse",
+            "HEAD^{tree}"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 30,
+          "expect": "success",
+          "requireOutput": [
+            "{{integrationResultTree}}"
+          ],
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        },
+        {
+          "label": "push-branch",
+          "argv": [
+            "/opt/homebrew/bin/git",
+            "-C",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "-c",
+            "credential.helper=",
+            "-c",
+            "credential.helper=!/opt/homebrew/bin/gh auth git-credential",
+            "push",
+            "https://github.com/rgomids/axiom.git",
+            "HEAD:refs/heads/t24-rc2/dogfood-retire-synthetic-ubuntu-row"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 180,
+          "expect": "success",
+          "effects": {
+            "local": [],
+            "external": [
+              "create remote branch t24-rc2/dogfood-retire-synthetic-ubuntu-row in rgomids/axiom (new ref only; no force)"
+            ]
+          }
+        },
+        {
+          "label": "pr-create",
+          "argv": [
+            "/opt/homebrew/bin/gh",
+            "pr",
+            "create",
+            "--repo",
+            "rgomids/axiom",
+            "--base",
+            "main",
+            "--head",
+            "t24-rc2/dogfood-retire-synthetic-ubuntu-row",
+            "--title",
+            "test(install): retire obsolete synthetic Ubuntu bootstrap row (S9 dogfood)",
+            "--body",
+            "S9 T24 dogfood against v0.1.2-rc.2 (859969a07f38). Work Item: #{{issueNumber}}. Axiom workflow Execution {{workflowExecutionId}}; S8 graph parent {{graphParentId}} (Codex child + Claude child, local Integration/Reconciliation, combined validation). This PR is the bounded dogfood change only; it is not T24/T25 completion, RC acceptance or human acceptance."
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 120,
+          "expect": "success",
+          "requireOutput": [
+            "https://github.com/rgomids/axiom/pull/"
+          ],
+          "effects": {
+            "local": [],
+            "external": [
+              "open one PR t24-rc2/dogfood-retire-synthetic-ubuntu-row -> main in rgomids/axiom with the reviewed title/body"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "E10-review-preview",
+      "authority": "local",
+      "steps": [
+        {
+          "label": "advance-implementation",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "advance",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{revImplementation}}",
+            "--gate",
+            "implementation",
+            "--outcome",
+            "pass"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [
+              "workflow implementation gate pass (local)"
+            ],
+            "external": []
+          }
+        },
+        {
+          "label": "review-projection-preview",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "reconcile",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{revReview}}"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 120,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "capture": {
+            "digest": "projection.digest",
+            "stage": "projection.stage"
+          },
+          "effects": {
+            "local": [],
+            "external": []
+          }
+        }
+      ]
+    },
+    {
+      "id": "E11-review-projection-apply",
+      "authority": "provider",
+      "steps": [
+        {
+          "label": "review-projection-apply",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "reconcile",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "{{revReview}}",
+            "--preview-digest",
+            "{{projectionDigest}}",
+            "--authorize-external"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 180,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\""
+          ],
+          "effects": {
+            "local": [],
+            "external": [
+              "GitHub rgomids/axiom Issue #<issueNumber>: create axiom:stage:* label if absent, add it, remove only positively identified obsolete managed labels, post at most one provenance-marked comment for this Execution revision"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "sequencing": [
+    "D1-setup",
+    "D2-project-apply",
+    "E1",
+    "E2",
+    "E3",
+    "E4",
+    "E5",
+    "E6",
+    "E7",
+    "E8",
+    "D3-graph-prepare",
+    "D4-graph-run",
+    "E9",
+    "E10",
+    "E11"
+  ],
+  "issueBody": {
+    "fields": {
+      "--desired-outcome": "The bootstrap test and command reference describe only real supported-row behavior: any Linux x86_64/aarch64 host, or macOS 27.0/arm64.",
+      "--context": "S9 T24 dogfood against v0.1.2-rc.2 (859969a07f38). Coordinated through an Axiom Execution Graph with one Codex child and one Claude child.",
+      "--scope": "scripts/test-install-bootstrap.sh and the matching paragraph of docs/commands.md only.",
+      "--constraints": "No installer or product behavior change; every other bootstrap case and exit code unchanged; no new dependency.",
+      "--non-goals": "Changing native Linux Evidence obligations, T24/T25 acceptance, release or promotion.",
+      "--acceptance": "bash -n and ./scripts/test-install-bootstrap.sh pass; go test/vet/build, repository and sensitive-file validation pass; docs no longer mention AXIOM_TEST_SYNTHETIC_UBUNTU_ROW."
+    },
+    "fieldsSHA256": "8d864d2f2c5829f9aa995c71787c90b8e520e47aee86dd9d59cc29b30ffd63c6",
+    "rendering": "Axiom renders the seven sections into the Issue body; E1's preview shows the exact providerDocument and digest for approval"
+  },
+  "notes": [
+    "Each provider phase is one per-run authority: envelope digest + the preview digest(s) shown by the preceding local phase.",
+    "Revision parameters are the exact Execution revisions shown by the preceding phase; a wrong value is denied by Axiom (stale revision) with no effect."
+  ]
+}

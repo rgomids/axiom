@@ -54,6 +54,14 @@ VERIFIED from `f73d6d0c951dd40c5cc97c3794ad7ee5607092b5` (release ID
 ([T24 checkpoint](evidence-s9-t24.md)); T25 is blocked. Human acceptance:
 PENDING. Stable promotion was not performed.**
 
+**T24 corrected-RC preparation — 2026-09-29: T24 targets `v0.1.2-rc.2`
+(`859969a07f3807822580431a05b6c78b07691fb1`, release ID `399403900`, read back
+immutable/prerelease with four assets). Its T23 publication record is not yet
+reconciled in this repository. Harness and authority envelopes A–F are prepared
+([rc.2 checkpoint](evidence-s9-rc2/README.md)); nothing was executed. T24: IN
+PROGRESS / BLOCKED (Linux amd64/arm64 ext4 unavailable; envelopes await human
+authority). T25: BLOCKED. Human acceptance: PENDING.**
+
 Approved artifact: `main` at `c7f756209c608ff1f1a88947dcc425d07daaa831`, merge
 of [PR #72](https://github.com/rgomids/axiom/pull/72). Human approval in PR #72
 accepted the corrected final DAG of 25 Tasks as reconciled with the approved
