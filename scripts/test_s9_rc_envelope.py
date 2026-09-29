@@ -36,6 +36,26 @@ def step(label, argv, **extra):
     return value
 
 
+class CommittedEnvelopes(unittest.TestCase):
+    def test_every_committed_envelope_and_phase_validates(self):
+        for path in sorted(CANDIDATE.parent.glob("envelopes/[B-F].json")):
+            value = json.loads(path.read_text())
+            executor.validate(value)
+            for phase in value["phases"]:
+                argv = ["executor", "--envelope", str(path), "--candidate", str(CANDIDATE), "--phase", phase["id"], "--plan"]
+                with patch("sys.argv", argv), contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(executor.main(), 0, (path.name, phase["id"]))
+
+    def test_projection_never_precedes_its_transition(self):
+        # A projection projects the latest transition; start (revision 1) has none.
+        value = json.loads((CANDIDATE.parent / "envelopes/E.json").read_text())
+        for phase in value["phases"]:
+            for step in phase["steps"]:
+                if "reconcile" in step["argv"]:
+                    revision = int(step["argv"][step["argv"].index("--expected-revision") + 1])
+                    self.assertGreater(revision, 1, step["label"])
+
+
 class EnvelopeExecutor(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()

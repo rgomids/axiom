@@ -50,7 +50,7 @@
   },
   "localEffects": [
     "Work Item/workflow state under /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state and /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
-    "local branch/commit in /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+    "local branch/commit in /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces-run02/integration",
     "untracked /Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source/.t24-evidence"
   ],
   "externalEffects": [
@@ -254,6 +254,58 @@
             ],
             "external": []
           }
+        }
+      ]
+    },
+    {
+      "id": "E3b-intake-and-first-projection-preview",
+      "authority": "local",
+      "steps": [
+        {
+          "label": "advance-intake-pass",
+          "argv": [
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
+            "--json",
+            "workflow",
+            "advance",
+            "--project",
+            "axiom-t24-rc2",
+            "--repository",
+            "main",
+            "--number",
+            "{{issueNumber}}",
+            "--expected-revision",
+            "1",
+            "--gate",
+            "intake",
+            "--outcome",
+            "pass"
+          ],
+          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
+          "env": {
+            "USER": "rgomids",
+            "LOGNAME": "rgomids",
+            "SHELL": "/bin/zsh",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "HOME": "/Users/rgomids",
+            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
+            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
+            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
+          },
+          "timeoutSeconds": 60,
+          "expect": "success",
+          "requireOutput": [
+            "\"status\":\"success\"",
+            "\"revision\":2"
+          ],
+          "effects": {
+            "local": [
+              "workflow gate intake pass (local transition)"
+            ],
+            "external": []
+          }
         },
         {
           "label": "first-projection-preview",
@@ -269,7 +321,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "1"
+            "2"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
           "env": {
@@ -319,7 +371,7 @@
             "--number",
             "{{issueNumber}}",
             "--expected-revision",
-            "1",
+            "2",
             "--preview-digest",
             "{{projectionDigest}}",
             "--authorize-external"
@@ -355,52 +407,6 @@
       "id": "E5-gates-to-implementation",
       "authority": "local",
       "steps": [
-        {
-          "label": "advance-intake-pass",
-          "argv": [
-            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin/axiom",
-            "--json",
-            "workflow",
-            "advance",
-            "--project",
-            "axiom-t24-rc2",
-            "--repository",
-            "main",
-            "--number",
-            "{{issueNumber}}",
-            "--expected-revision",
-            "1",
-            "--gate",
-            "intake",
-            "--outcome",
-            "pass"
-          ],
-          "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
-          "env": {
-            "USER": "rgomids",
-            "LOGNAME": "rgomids",
-            "SHELL": "/bin/zsh",
-            "LANG": "C",
-            "LC_ALL": "C",
-            "HOME": "/Users/rgomids",
-            "PATH": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/home/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-            "LINGO_STATE_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/state",
-            "LINGO_PROJECTS_ROOT": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/projects",
-            "TMPDIR": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/tmp"
-          },
-          "timeoutSeconds": 60,
-          "expect": "success",
-          "requireOutput": [
-            "\"status\":\"success\"",
-            "\"revision\":2"
-          ],
-          "effects": {
-            "local": [
-              "workflow gate intake pass (local transition)"
-            ],
-            "external": []
-          }
-        },
         {
           "label": "advance-specification-pass",
           "argv": [
@@ -825,7 +831,7 @@
           "argv": [
             "/opt/homebrew/bin/git",
             "-C",
-            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces-run02/integration",
             "write-tree"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
@@ -854,7 +860,7 @@
           "argv": [
             "/opt/homebrew/bin/git",
             "-C",
-            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces-run02/integration",
             "switch",
             "--quiet",
             "-c",
@@ -885,7 +891,7 @@
           "argv": [
             "/opt/homebrew/bin/git",
             "-C",
-            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces-run02/integration",
             "add",
             "--",
             "scripts/test-install-bootstrap.sh",
@@ -914,7 +920,7 @@
           "argv": [
             "/opt/homebrew/bin/git",
             "-C",
-            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces-run02/integration",
             "commit",
             "--quiet",
             "-m",
@@ -947,7 +953,7 @@
           "argv": [
             "/opt/homebrew/bin/git",
             "-C",
-            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces-run02/integration",
             "rev-parse",
             "HEAD^{tree}"
           ],
@@ -977,7 +983,7 @@
           "argv": [
             "/opt/homebrew/bin/git",
             "-C",
-            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces/integration",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/workspaces-run02/integration",
             "-c",
             "credential.helper=",
             "-c",
@@ -1085,7 +1091,7 @@
           "label": "copy-graph-evidence",
           "argv": [
             "/bin/cp",
-            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/evidence/graph/acceptance-evidence.json",
+            "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/evidence/graph-run02/acceptance-evidence.json",
             "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey/source/.t24-evidence/graph-acceptance-evidence.json"
           ],
           "cwd": "/Users/rgomids/Projects/axiom-t24-rc2-lab/journey",
@@ -1334,11 +1340,13 @@
     "E1",
     "E2",
     "E3",
+    "E3b",
     "E4",
     "E5",
     "E6",
     "D3-graph-prepare",
     "D4-graph-run",
+    "D5..D7 (run 02)",
     "E7",
     "E8",
     "E9"
@@ -1357,6 +1365,7 @@
   },
   "notes": [
     "Each provider phase is one per-run authority: envelope digest + the preview digest shown by the preceding local phase.",
+    "A projection projects the latest transition, so the first projection follows the intake transition (revision 2); at revision 1 the product returns projection_transition_unavailable (internal/workflow/service.go prepareProjection).",
     "Execution revisions are deterministic (start = 1; every advance or fact +1, as in cmd/lingo/s9_dogfood_blackbox_test.go); a mismatch is denied by Axiom with no effect.",
     "specSHA256/planSHA256 come from D1 (dogfood base); graphEvidenceSHA256 is the SHA-256 of D4's acceptance-evidence.json."
   ]

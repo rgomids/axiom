@@ -408,9 +408,13 @@ func run(s spec, specDigest, parentID, approved, retryChild string) {
 	}
 	service, err := graphapplication.NewLocalService(ctx, graphapplication.LocalConfiguration{Repository: s.Repository, WorkspaceRoot: s.WorkspaceRoot, BaseRevision: prepared.Base, Graph: graph, GraphStore: store, RuntimeProfiles: profiles, Validators: validators(s)})
 	must(err)
-	workspaces, err := service.PrepareWorkspaces(ctx)
-	must(err)
-	write(s, "workspaces"+suffix+".json", workspaces)
+	// A retry reuses the child's existing worktree; the scheduler requires it
+	// clean (a failed attempt that left edits cannot be retried in place).
+	if retry == nil {
+		workspaces, prepareErr := service.PrepareWorkspaces(ctx)
+		must(prepareErr)
+		write(s, "workspaces.json", workspaces)
+	}
 	fmt.Println("dispatch starting", time.Now().UTC().Format(time.RFC3339))
 	dispatch, err := service.DispatchReady(ctx, retry, false)
 	write(s, "dispatch"+suffix+".json", dispatch)
