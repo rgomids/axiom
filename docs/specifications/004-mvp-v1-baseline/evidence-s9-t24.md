@@ -236,3 +236,11 @@ availability and the six authority envelopes (A–F) are recorded in
 invocation or Provider mutation was executed. T24 remains **IN PROGRESS /
 BLOCKED** (both Linux rows unavailable; every envelope awaits authority), T25
 **BLOCKED**, human acceptance **PENDING**.
+
+### Execution — 2026-09-29 (supersedes "nothing was executed" above)
+
+Under explicit human authority the rc.2 envelopes were executed (see
+[execution log](evidence-s9-rc2/README.md#execution-log)): A, B and C pass; D,
+E and F are partially executed. The Codex child of the S8 graph is blocked by an
+external Codex account usage limit. No product defect was found. T24 IN
+PROGRESS / BLOCKED (external), T25 BLOCKED.

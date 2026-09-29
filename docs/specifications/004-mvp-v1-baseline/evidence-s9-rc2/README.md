@@ -1,17 +1,29 @@
-# T24 against `v0.1.2-rc.2` — preparation checkpoint (2026-09-29)
+# T24 against `v0.1.2-rc.2` — execution checkpoint (2026-09-29)
 
 ```text
 RC: v0.1.2-rc.2
 revision: 859969a07f3807822580431a05b6c78b07691fb1
-T24: IN PROGRESS / BLOCKED (no acceptance journey executed)
-T25: BLOCKED
-human acceptance: PENDING
+T24: IN PROGRESS / BLOCKED — external: Codex account usage limit (resets 2026-10-03 18:02 local)
+T25: BLOCKED (depends on T24)
+human acceptance: conditionally granted by the human on 2026-09-29, effective only
+                  once A–F complete without a product defect — NOT yet effective
+product defects found: none
 ```
 
-This checkpoint prepares T24 for the corrected RC. It executes no acceptance
-journey, no Runtime invocation, no Provider mutation and no installation. It
-records read-only observations, harness changes, offline tooling tests and six
-authority envelopes (A–F) awaiting separate human authorization. The
+Executed under explicit human authority (envelopes A–F, then harness/vendor-drift
+revisions pre-authorized with identical scope and effects). **A, B and C
+passed. D, E and F are partially executed.** The S8 graph's Codex child cannot
+run: the Codex account reports "You've hit your usage limit … try again at Oct
+3rd, 2026 6:02 PM" ([diagnostic](execution/codex-usage-limit-diagnostic.txt)).
+That is an external quota, not an Axiom defect; buying credits or raising the
+limit is outside the agent's authority. See [Execution log](#execution-log).
+
+Linux amd64/ext4 and arm64/ext4: **human-attested manual validation** by the
+maintainer (2026-09-29, stated in the authorization; not observed by this
+session). Automated native Linux Evidence is post-MVP follow-up
+[#126](https://github.com/rgomids/axiom/issues/126).
+
+The first sections below are the preparation record (unchanged meaning); the
 [`rc.1` checkpoint](../evidence-s9-t24.md) and [`evidence-s9-rc/`](../evidence-s9-rc/)
 are preserved unchanged as history.
 
@@ -147,9 +159,9 @@ repository; nothing there is committed until sanitized).
 |---|---|---|---|
 | A | `3b9402355280bd1f0cd7cc8ac7eb8dfa20487bf5d5b74da594e507ad702e318a` | macOS local install/first-run/installer-state matrix | local only |
 | B | `110ad4393e2393c30dafc9296869bf8c6b4f13467fc5ddc68e4728b6849a796b` | real Codex invocation through installed rc.2 skills | local + Runtime |
-| C | `b16acf86767b6f4d3f0729f7c19a52294a244d7a78baaac9ca4b506a7add32ef` | real Claude invocation through installed rc.2 skills | local + Runtime |
-| D | `8a62b3c2b028322c7f960b0d40e79a9f10406cb6764e5566fec4853c5c2770a7` | Codex + Claude S8 graph, Integration/Reconciliation, Evidence | local + Runtime |
-| E | `84fa8b1b0f32d7c351937c096c933ca98b0e39bf19ca093e8eccdda9f2f4884a` | GitHub Work Item, projections, branch + PR (dogfood) | local + Provider |
+| C | `5d5fc81d27d10171affa18fda85d8ef891989de2b3ee155caf0278237871cb44` (rev 4) | real Claude invocation through installed rc.2 skills | local + Runtime |
+| D | `007c792d1e035541900dbf487065ef6f1aff19b27ba1b9c619d1fbd0f9291d9e` (rev 4) | Codex + Claude S8 graph, Integration/Reconciliation, Evidence | local + Runtime |
+| E | `da2cfbe523733b551873d78444ce02dd7de57368fe041959e7c47282cdb6b8d0` (rev 4) | GitHub Work Item, projections, branch + PR (dogfood) | local + Provider |
 | F | `cc5415f0b9b3c923300cdf7f1d89b336472fcb9cdecf489e271b13678baa8318` | interruption/resume, projection drift/recovery, failure suites | local + Provider (F2) |
 
 Files: [A](envelopes/A.json) (identical bytes to the plan at
@@ -158,7 +170,7 @@ Files: [A](envelopes/A.json) (identical bytes to the plan at
 [graph spec](envelopes/D-graph-spec.json) (SHA-256 `83ed14ac…693b`, checked by
 D1), [E](envelopes/E.json), [F](envelopes/F.json).
 
-Execution order: **A → B → C → D1, D2 → E1–E6 → D3, D4 → E7–E9 → F**.
+Execution order: **A → B → C → D1, D2 → E1–E6 → D3–D7 → E7–E9 → F**.
 Grouping is limited to steps with the same authority class inside one phase
 (for example E7 commits locally, pushes one new branch and opens one PR: a PR
 cannot exist without its branch, and a failed PR creation leaves only a branch
@@ -262,3 +274,42 @@ Evidence as the `evidence` reference for `implementation` and `review-started`,
 correlating the workflow Execution with the graph parent) and deterministic
 revisions; F follows the real drift contract. Scope, targets and effects are
 unchanged. Revision 2 needs its own human authorization.
+
+### Revision 2+ execution (authorized 2026-09-29; drift/harness revisions pre-authorized)
+
+Lab: `/Users/rgomids/Projects/axiom-t24-rc2-lab` (outside the repository).
+Per-phase ledgers (argv, cwd, exit, timeout, attempt, output digests, captures,
+declared effects) are copied to [execution/](execution/); raw Runtime output
+is not retained in the repository.
+
+| Envelope / phase | Result | Classification |
+|---|---|---|
+| **A** `3b940235…` (23 steps) | **pass**: APFS case-insensitive; release/latest/tag/prior read-back; clean install (asset `…macos-27-arm64`, binary `74322ae2…` = verified release); provenance `0.1.2-rc.2`/`859969a07f38`/clean; first-run neither/Codex/Claude/both + idempotent rerun (5 user-global skills per Runtime, unchanged); reinstall `unchanged` with identical inventory; foreign/modified/unsafe fail closed with unchanged inventory; owned upgrade `rc.1 → rc.2`; downgrade refused (`downgrade_refused`, no effect) | product pass |
+| **B** B1–B3 `110ad439…` | **pass**: Codex 0.157.1 used the rc.2 `$axiom-project-configure`/`$axiom-project-show` skills from the isolated HOME (H-B1 confirmed), previewed, applied with digest and `--authorize-local`, showed the Project; direct CLI verification | product pass |
+| C rev 2 `b16acf86…` C2 | failed: Claude 2.1.285 "Not logged in" with isolated `CLAUDE_CONFIG_DIR` | harness (H-C1 refuted) |
+| C rev 3 `5b5f2e95…` C2 | failed: "Not logged in" with isolated HOME | harness (H-C3 refuted) |
+| **C** rev 4 `5d5fc81d…` C1–C3 | **pass**: Claude-only first-run into the isolated root; Claude with host HOME used `/axiom-project-configure`/`/axiom-project-show` (host files byte-identical to rc.2's, checked before and unchanged after) and published the Project via the rc.2 CLI; direct verification | product pass; limitation: Claude read the byte-identical host copies, not the lab-installed ones |
+| **D1–D3** | **pass**: exact-RC install; dogfood base `859969a`; tooling product tree = RC; runner built; Project configured (preview → apply); graph published (parent `67b02fc9…`, run envelope `01074fa0…`) | product pass |
+| D4 graph run 01 | Claude child succeeded (edit + canonical answer); Codex child **failed** after 54 s (correct edit + canonical question, no final message) | external (Codex usage limit, consistent with the later diagnostic) |
+| D4b retry (rev 3 `a0140194…`) | refused before any effect: runner re-prepared workspaces (runner defect, fixed); product then correctly requires a clean workspace, so a failed attempt that left edits cannot be retried in place | harness defect; product fail-closed by design |
+| D5–D6 run 02 | pass: fresh graph (parent `84c16fdc…`, run envelope `f65ba808…`) | — |
+| D7 graph run 02 | Codex child failed in 5 s; Claude child edited docs, coordination wait expired (no Codex question) | **external: Codex usage limit** |
+| **E1–E6** (rev 3/4) | **pass**: Axiom-created Issue [#125](https://github.com/rgomids/axiom/issues/125) with the exact reviewed sections; workflow Execution `428b87fb…` with `runtimeId=claude`; projections `specifying` then `implementing` (label create/add/remove-obsolete, 2 provenance comments), all previews matching the envelope | product pass |
+| E3 rev 2 | first projection at revision 1 → `projection_transition_unavailable` (product projects transitions only) | harness defect, fixed (E3b) |
+| **F4** | **pass**: deterministic failure/retry/cancellation/partial/ambiguity suites at the exact product tree (8 packages ok) | deterministic |
+| E7–E9, F1–F3 | **not run** — depend on a completed graph Integration | blocked (external) |
+
+Diagnostic: one minimal read-only `codex exec` ("Reply with exactly: OK") was
+run to identify the failure; it returned the usage-limit error and had no other
+effect.
+
+Current external state: Issue #125 open with `axiom:stage:implementing` and
+two Axiom projection comments; workflow Execution at revision 8
+(`implementation`). No branch, PR, merge or release was created by this run.
+Lab worktrees/state are preserved.
+
+**Resume path (no scope change):** after the Codex quota resets (or the human
+raises it), run a fresh graph (run 03: D5–D7 with new roots), then E7–E9 and
+F1–F3. The Codex attempt of run 01 already shows the correct edit, so the
+dogfood change itself is not in doubt; the missing Evidence is the real
+Codex child completing inside the graph plus Integration/Reconciliation.
