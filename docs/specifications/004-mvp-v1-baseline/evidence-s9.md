@@ -12,14 +12,19 @@ statements below describe their original productization/pre-T23 snapshots.
 
 `v0.1.2-rc.2` (`859969a07f3807822580431a05b6c78b07691fb1`, release `399403900`)
 is **PUBLISHED AND VERIFIED** after the orphan incident was resolved (see the
-[incident record](evidence-s9-t23-rc2-incident.md)). T24 against it is recorded
-in [evidence-s9-rc2](evidence-s9-rc2/README.md): envelopes A (macOS install
-matrix), B (real Codex) and C (real Claude) pass; the S8 Codex+Claude graph,
-dogfood PR and recovery phases are partially executed and **blocked by an
-external Codex account usage limit** (resets 2026-10-03). No product defect was
-found. Linux rows: human-attested manual validation; automation is post-MVP
-[#126](https://github.com/rgomids/axiom/issues/126). T25 blocked; human
-acceptance conditionally granted and not yet effective.
+[incident record](evidence-s9-t23-rc2-incident.md)). **T24 and T25 are
+complete** against it ([rc.2 record](evidence-s9-rc2/README.md),
+[acceptance matrix](evidence-s9-rc2/ac-matrix.md)). The record covers:
+- macOS install matrix;
+- real Codex and Claude journeys;
+- the S8 Codex+Claude graph with Integration/Reconciliation;
+- the GitHub dogfood (Issue #125, PR #127);
+- recovery.
+
+No product defect was found. Linux rows: human-attested manual validation;
+automation is post-MVP [#126](https://github.com/rgomids/axiom/issues/126).
+**Human acceptance: ACCEPTED (2026-09-29). S9 complete.** The "blocked" and
+"not complete" statements below describe the pre-T23 productization snapshot.
 
 ## Claim and authority boundary
 

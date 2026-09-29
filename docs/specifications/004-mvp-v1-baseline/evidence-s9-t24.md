@@ -244,3 +244,11 @@ Under explicit human authority the rc.2 envelopes were executed (see
 E and F are partially executed. The Codex child of the S8 graph is blocked by an
 external Codex account usage limit. No product defect was found. T24 IN
 PROGRESS / BLOCKED (external), T25 BLOCKED.
+
+### Completion — 2026-09-29
+
+After the Codex quota reset, graph run 03 and the remaining E/F phases completed.
+**T24 COMPLETE, T25 COMPLETE, human acceptance ACCEPTED** (explicit, conditional
+on A–F without a product defect; condition met). See
+[evidence-s9-rc2](evidence-s9-rc2/README.md) and its
+[acceptance matrix](evidence-s9-rc2/ac-matrix.md). The rc.1 history above is unchanged.

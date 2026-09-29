@@ -1,22 +1,30 @@
-# T24 against `v0.1.2-rc.2` — execution checkpoint (2026-09-29)
+# T24 against `v0.1.2-rc.2` — final execution record (2026-09-29)
 
 ```text
 RC: v0.1.2-rc.2
 revision: 859969a07f3807822580431a05b6c78b07691fb1
-T24: IN PROGRESS / BLOCKED — external: Codex account usage limit (resets 2026-10-03 18:02 local)
-T25: BLOCKED (depends on T24)
-human acceptance: conditionally granted by the human on 2026-09-29, effective only
-                  once A–F complete without a product defect — NOT yet effective
+T24: COMPLETE
+T25: COMPLETE — Evidence reconciled; acceptance matrix in ac-matrix.md
+human acceptance: ACCEPTED (explicit conditional human acceptance of 2026-09-29,
+                  condition met: A–F completed without a product defect)
 product defects found: none
 ```
 
-Executed under explicit human authority (envelopes A–F, then harness/vendor-drift
-revisions pre-authorized with identical scope and effects). **A, B and C
-passed. D, E and F are partially executed.** The S8 graph's Codex child cannot
-run: the Codex account reports "You've hit your usage limit … try again at Oct
-3rd, 2026 6:02 PM" ([diagnostic](execution/codex-usage-limit-diagnostic.txt)).
-That is an external quota, not an Axiom defect; buying credits or raising the
-limit is outside the agent's authority. See [Execution log](#execution-log).
+Envelopes A–F ran under explicit human authority. Harness and vendor-drift
+revisions were pre-authorized with identical scope and effects, and all
+completed:
+
+- A: macOS install matrix.
+- B: real Codex.
+- C: real Claude.
+- D: S8 Codex + Claude graph, run 03.
+- E: GitHub dogfood, Issue [#125](https://github.com/rgomids/axiom/issues/125)
+  and PR [#127](https://github.com/rgomids/axiom/pull/127).
+- F: recovery and failure.
+
+Earlier attempts are preserved and classified as harness, vendor or external
+failures, never as product failures. See the [Execution log](#execution-log)
+and the [acceptance matrix](ac-matrix.md).
 
 Linux amd64/ext4 and arm64/ext4: **human-attested manual validation** by the
 maintainer (2026-09-29, stated in the authorization; not observed by this
@@ -160,8 +168,8 @@ repository; nothing there is committed until sanitized).
 | A | `3b9402355280bd1f0cd7cc8ac7eb8dfa20487bf5d5b74da594e507ad702e318a` | macOS local install/first-run/installer-state matrix | local only |
 | B | `110ad4393e2393c30dafc9296869bf8c6b4f13467fc5ddc68e4728b6849a796b` | real Codex invocation through installed rc.2 skills | local + Runtime |
 | C | `5d5fc81d27d10171affa18fda85d8ef891989de2b3ee155caf0278237871cb44` (rev 4) | real Claude invocation through installed rc.2 skills | local + Runtime |
-| D | `007c792d1e035541900dbf487065ef6f1aff19b27ba1b9c619d1fbd0f9291d9e` (rev 4) | Codex + Claude S8 graph, Integration/Reconciliation, Evidence | local + Runtime |
-| E | `da2cfbe523733b551873d78444ce02dd7de57368fe041959e7c47282cdb6b8d0` (rev 4) | GitHub Work Item, projections, branch + PR (dogfood) | local + Provider |
+| D | `4ba85b8c2998ca36d7617111ec464dc9f216d8185cae7a5bf13a7a820fee5680` (rev 5) | Codex + Claude S8 graph, Integration/Reconciliation, Evidence | local + Runtime |
+| E | `d4966153266aeddf36486180af7180281aaf1e0a96fee3ba8da419e7b1f20730` (rev 5) | GitHub Work Item, projections, branch + PR (dogfood) | local + Provider |
 | F | `cc5415f0b9b3c923300cdf7f1d89b336472fcb9cdecf489e271b13678baa8318` | interruption/resume, projection drift/recovery, failure suites | local + Provider (F2) |
 
 Files: [A](envelopes/A.json) (identical bytes to the plan at
@@ -297,19 +305,17 @@ is not retained in the repository.
 | **E1–E6** (rev 3/4) | **pass**: Axiom-created Issue [#125](https://github.com/rgomids/axiom/issues/125) with the exact reviewed sections; workflow Execution `428b87fb…` with `runtimeId=claude`; projections `specifying` then `implementing` (label create/add/remove-obsolete, 2 provenance comments), all previews matching the envelope | product pass |
 | E3 rev 2 | first projection at revision 1 → `projection_transition_unavailable` (product projects transitions only) | harness defect, fixed (E3b) |
 | **F4** | **pass**: deterministic failure/retry/cancellation/partial/ambiguity suites at the exact product tree (8 packages ok) | deterministic |
-| E7–E9, F1–F3 | **not run** — depend on a completed graph Integration | blocked (external) |
+| E7–E9, F1–F3 (first pass) | not run while the Codex quota was exhausted | superseded by the rows below |
+| D8–D10 graph run 03 (D rev 5 `4ba85b8c…`, after the quota reset; probe [output](execution/codex-quota-restored-probe.txt)) | **pass**: Codex 0.157.1 and Claude 2.1.285 children overlapped 23:18:24–23:18:51 UTC in isolated worktrees; question → answer coordination; Integration preview/authority/apply; ten combined validators exit 0; result tree `20da4d95…`; Evidence `real_run_recorded` (`879f36cc…`) | product pass |
+| **E7** (E rev 5 `d4966153…`) | **pass**: commit tree = Integration tree; new branch `t24-rc2/dogfood-retire-synthetic-ubuntu-row`; PR [#127](https://github.com/rgomids/axiom/pull/127) | product pass |
+| **E8–E9** | **pass**: `implementation` gate and `review-started` fact reference the graph acceptance Evidence (workflow ↔ graph correlation); projection `implementing`→`reviewing` applied | product pass |
+| **F1–F3** | **pass**: replay has zero effects; real drift (label removed) → `failure` with no effect, restored → converged with zero effects; failed `review` gate → `interrupted`, resume → `active`, stale resume → `denied_authority`; `recovery inspect`/`workflow evidence` success | product pass |
 
 Diagnostic: one minimal read-only `codex exec` ("Reply with exactly: OK") was
 run to identify the failure; it returned the usage-limit error and had no other
 effect.
 
-Current external state: Issue #125 open with `axiom:stage:implementing` and
-two Axiom projection comments; workflow Execution at revision 8
-(`implementation`). No branch, PR, merge or release was created by this run.
-Lab worktrees/state are preserved.
-
-**Resume path (no scope change):** after the Codex quota resets (or the human
-raises it), run a fresh graph (run 03: D5–D7 with new roots), then E7–E9 and
-F1–F3. The Codex attempt of run 01 already shows the correct edit, so the
-dogfood change itself is not in doubt; the missing Evidence is the real
-Codex child completing inside the graph plus Integration/Reconciliation.
+Final external state: Issue #125 open at `axiom:stage:reviewing` with three
+Axiom projection comments; PR #127 open for human review; workflow Execution at
+revision 12 (`review`, active). Merging #127 and completing #125 remain human
+review actions, as the E envelope specified. Lab worktrees/state are preserved.
