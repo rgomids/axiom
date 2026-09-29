@@ -299,6 +299,7 @@ if ((count == 1)); then
     check_identity "$release" true 'existing draft'
   else
     state=published
+    check_identity "$release" false 'existing published release'
     check_published "$release"
   fi
 fi

@@ -696,6 +696,26 @@ printf '{"id":60,"tag_name":"v0.1.0-rc.2","name":"other","target_commitish":"%s"
 expect_failure 'incident: a draft with a foreign name fails closed' "existing draft: release name is 'other'" envelope "$temporary/id" "${rc2[@]}"
 check 'incident: refusals made no effect' test "$(mutations)" == 0
 
+# A published release found by its tag converges only with its full identity:
+# right tag, tag at the revision and right assets are not enough.
+reset_github
+publish "$temporary/id" "${rc2[@]}" >/dev/null
+published=$(grep -l '"v0.1.0-rc.2"' "$state"/releases/*.json)
+cp "$published" "$temporary/published.json"
+before=$(mutations)
+jq '.name = "other"' "$temporary/published.json" >"$published"
+expect_failure 'published release with a foreign name fails closed' "existing published release: release name is 'other'" \
+  publish "$temporary/id" "${rc2[@]}"
+expect_failure 'check refuses a published release with a foreign name' "existing published release: release name is 'other'" \
+  "$fixture/scripts/publish-release.sh" --check --repo rgomids/axiom "${rc2[@]}"
+jq --arg c "$c1" '.target_commitish = $c' "$temporary/published.json" >"$published"
+expect_failure 'published release targeting another revision fails closed' "existing published release: release targets '$c1'" \
+  publish "$temporary/id" "${rc2[@]}"
+check 'published identity refusals made no effect' bash -c "[[ \$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|workflow)' '$state/ledger' || true) == $before ]] && grep -Fxq 'v0.1.0-rc.2 $c2' '$state/tags'"
+cp "$temporary/published.json" "$published"
+publish "$temporary/id" "${rc2[@]}" >"$temporary/pub"
+check 'a fully consistent published release still converges' bash -c "grep -Fxq publication=already_published '$temporary/pub' && grep -Fxq result=pass '$temporary/pub' && [[ \$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|workflow)' '$state/ledger' || true) == $before ]]"
+
 # --- 4. release.sh: prepare, envelope and authority boundary ---------------------------------------
 release() { (cd "$fixture" && "$fixture/scripts/release.sh" "$@"); }
 green() {
