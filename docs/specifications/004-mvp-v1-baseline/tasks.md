@@ -1550,8 +1550,9 @@ flowchart LR
     set/remove, and Repository upserts/removals;
   - add strict parsing/presence capture and presentation validation for
     duplicates/conflicting operations without moving merge/domain rules into CLI;
-  - make guided EDIT ask only about ambiguous intent and never prompt to rebuild
-    omitted values that application semantics preserve;
+  - after EDIT mode is explicit, make guided EDIT ask only about ambiguous field
+    intent and never prompt to rebuild omitted values that application semantics
+    preserve;
   - render the safe EDIT preview through existing JSON/human completion surfaces
     and update CLI help for the preview flags without changing canonical
     completion ownership;
@@ -1615,8 +1616,24 @@ flowchart LR
   - distinguish initiating CREATE collision from exact authorized CREATE replay;
     only replay bound to returned ID, mode, candidate, observations, effects, and
     digest may converge idempotently;
+  - reuse ADR-0007's existing shared logical publication/recovery protocol,
+    deterministic coordination order, commit truth, fail-closed reader behavior,
+    and bounded versioned recovery state where required for the portable/local
+    multi-object operation; make that state observably established before portable
+    CAS can create an intermediate cross-store state, and do not introduce a
+    Project-specific recovery protocol;
   - preserve portable-first publication ordering and report portable-confirmed /
-    local-failed as `partial` without rollback claims;
+    local-failed as `partial` without rollback claims while also leaving the
+    operation deterministically classifiable as prior, committed, or ambiguous;
+  - block ordinary reads and new EDIT preview with `recovery_required` for
+    recognized intermediate/uncertain state, preserve contradictory/unknown state
+    for review, and recover or clean up only complete generations/protocol objects
+    positively identified by owned recovery state under fresh exact recovery
+    authority before returning to normal preview/edit flow; never infer rollback
+    from absence or reverse a confirmed portable commit; for portable-confirmed /
+    local-failed, reconcile/finalize local state against the confirmed portable
+    generation or preserve ambiguity for operator review, while prior restoration
+    remains limited to a positively classified pre-commit branch;
   - preserve CREATE as an independent create-only mode; never use replay
     idempotency to accept a fresh request against an existing slug.
 - **Repository impact:** expected focused changes in `internal/projectapp`
@@ -1633,8 +1650,16 @@ flowchart LR
     candidate/effect drift, and authority mismatch;
   - CREATE replay tests prove exact replay idempotency and fresh/incomplete
     existing-slug CREATE refusal with zero writes;
-  - injected local failure after portable confirmation proves canonical `partial`,
-    confirmed effect reporting, preserved actual state, and fresh-preview recovery;
+  - injected local conflict/failure after confirmed portable commit proves
+    canonical truthful `partial`, confirmed-effect reporting, versioned recovery
+    classification, intermediate/incoherent-state detection, fail-closed normal
+    read/`recovery_required`, and preservation of contradictory/unknown state;
+  - deterministic recovery Evidence proves it selects/restores/finalizes and cleans
+    up only complete generations/protocol objects positively identified by owned
+    recovery state under fresh exact authority, never reverses the confirmed
+    portable commit, reconciles/finalizes local state against it or preserves
+    ambiguity, returns the operation to a coherent state across a new-process
+    reopen, and permits a fresh normal EDIT preview only after recovery completes;
   - Repository removal is observed in both portable association and local binding.
 - **Exclusions:** transaction/rollback across roots, new recovery protocol,
   migration, Git/Provider mutation, Runtime invocation, release/publication.
@@ -1649,6 +1674,10 @@ flowchart LR
   - update the versioned Runtime skill to clarify ambiguous create/edit intent,
     translate explicit intent into CLI arguments, replay the exact preview, and
     never read/merge/validate Project state itself;
+  - require an ambiguous CREATE/EDIT user request to remain unresolved until the
+    skill obtains explicit intent; before that clarification it translates no
+    configure argv, infers/replays no authority, invokes no mutation, and produces
+    zero writes;
   - reconcile owned-skill compatibility/receipt expectations using existing
     runtime installation and upgrade rules;
   - update command/user documentation only after behavior exists;
@@ -1667,6 +1696,13 @@ flowchart LR
     unknown removal; upsert/remove conflict; unspecified-value preservation;
     minimized safe preview; stale authority; exact CREATE replay versus initiating
     collision; and portable/local separation;
+  - Runtime black-box Evidence proves ambiguous CREATE/EDIT user intent is not
+    silently reinterpreted, triggers clarification, causes no CLI replay or
+    inferred authorization/mutation and zero writes, with zero CLI invocations and
+    byte-identical portable/local roots, then maps explicit CREATE only to argv
+    without `--project` or explicit EDIT only to argv with the supplied
+    `--project <uuid-or-slug>`; this is a separate case from UUID/slug selector
+    ambiguity, which remains an EDIT resolver failure without mode fallback;
   - shared CLI/Runtime fixtures prove equivalent normalized candidate, effect set,
     digest semantics, persisted result, and canonical completion for equivalent
     intent;
@@ -1693,6 +1729,7 @@ flowchart LR
 | EDIT by slug and UUID | `I132-T01`, `I132-T03` |
 | Unknown selector | `I132-T01`, `I132-T03` |
 | Representable ambiguous selector | `I132-T01`, `I132-T03` |
+| Ambiguous CREATE/EDIT user intent requires Runtime clarification, with no authority replay or mutation and zero writes until resolved | `I132-T03` |
 | Immutable ID; replay-only `--project-id`; no slug rename | `I132-T01`–`I132-T03` |
 | Scalar omission preserve and name/provider set | `I132-T01`, `I132-T03` |
 | Explicit provider removal; set/remove conflict | `I132-T01`, `I132-T03` |
@@ -1705,6 +1742,7 @@ flowchart LR
 | Unrelated credential/Runtime/attempt/local metadata excluded from user-visible preview | `I132-T01`, `I132-T03` |
 | Stale preview/authority/concurrency rejection | `I132-T02`, `I132-T03` |
 | Portable/local boundary and separately visible effects | `I132-T01`–`I132-T03` |
+| Confirmed portable commit plus local failure/conflict yields truthful `partial`, ADR-0007 fail-closed `recovery_required`, exact recovery from positively identified generations, coherent reopen, then a new normal preview | `I132-T02`, `I132-T03` |
 | CLI and Runtime skill semantic parity | `I132-T03` |
 
 ### Tasks review gate

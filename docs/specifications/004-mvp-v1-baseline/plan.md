@@ -1448,8 +1448,10 @@ CLI / Runtime skill
   -> complete portable + internal complete local candidate
   -> safe user-visible preview + ordered effects + complete-envelope digest
   -> exact-authority replay and fresh observations
+  -> ADR-0007 coordination + bounded recovery state when required
   -> portable CAS publication
   -> local CAS publication
+  -> fail-closed recovery gate before later normal reads/previews when incoherent
   -> canonical complete/partial/failure result
 ```
 
@@ -1501,6 +1503,15 @@ incoherent selected state produces an explicit zero-write failure. Interactive
 CREATE may continue collecting required fields. Interactive EDIT asks only for
 materially ambiguous intent; omission means preservation and must not trigger a
 prompt for every existing value.
+
+The Runtime skill resolves create/edit intent before translating any configure
+arguments. A user request that does not establish CREATE or EDIT triggers a
+clarifying question; the skill does not infer CREATE from absent natural-language
+selection, construct or replay authority, invoke mutation, or write portable/local
+state before explicit intent. After clarification, CREATE maps to CLI arguments
+without `--project`, while EDIT maps to `--project <uuid-or-slug>`. Selector
+resolution and UUID/slug ambiguity occur only after EDIT intent is explicit and
+remain a distinct failure case.
 
 ### 20.6 Application intent and complete candidate
 
@@ -1608,10 +1619,35 @@ operations only:
 3. reobserve actual state for the canonical result.
 
 Conflicting writers cannot both succeed. A stale portable or local observation
-before its write fails closed. Portable success followed by local conflict/failure
-is reported truthfully as `partial`, with confirmed portable effect and recovery
-next action; the system does not claim rollback. This preserves ADR-0007 logical
-publication and the existing portable/local non-atomic boundary.
+before its write fails closed. EDIT reuses the shared logical publication and
+recovery protocol accepted in ADR-0007; it does not define a second protocol for
+Project configuration. When the portable and local objects cannot publish as one
+canonical object, the operation uses the existing deterministic coordination and,
+where required by that protocol, bounded versioned recovery state identifying the
+intended objects, protocol stage, expected revisions, and positively identified
+prior/new complete generations. For this portable/local multi-object sequence,
+that recovery state is established and confirmably observable before the portable
+CAS can create an intermediate cross-store state, so a crash or new process can
+detect it rather than infer coherence from missing in-memory context.
+
+Portable commit confirmation followed by local conflict/failure is reported
+truthfully as `partial`, with the confirmed portable effect; the system does not
+claim rollback. That result also leaves state classifiable by ADR-0007 as prior,
+committed, or ambiguous rather than treating `partial` as sufficient recovery.
+Readers inspect relevant recovery state and fail closed with `recovery_required`
+for recognized intermediate or uncertain state; contradictory or unknown state is
+preserved for operator review. Recovery may select, restore, finalize, or clean up
+only complete generations and protocol objects positively identified by owned
+recovery state, under fresh exact recovery authority bound to current inspection.
+It never treats absence as proof of rollback or reverses the confirmed portable
+commit. In the portable-confirmed/local-failed branch, recovery reconciles or
+finalizes local state against that confirmed portable generation, or preserves
+ambiguity for operator review; restoring a prior generation is available only to a
+positively classified pre-commit branch. Ordinary reads and a new EDIT preview
+remain blocked until recovery returns the operation to a coherent state. Only then
+may fresh observations produce a new normal EDIT preview. This applies ADR-0007
+across the existing portable/local non-atomic boundary without claiming a
+cross-root transaction.
 
 ### 20.9 Compatibility, rollout, and documentation
 
@@ -1638,6 +1674,7 @@ observation. Minimum coverage:
 | CREATE replay separation | exact reviewed replay may converge idempotently; fresh/incomplete CREATE cannot reuse existing ID/state or replay authority |
 | EDIT by slug and UUID | resolver plus service integration; same normalized candidate for equivalent intent |
 | unknown and representable ambiguous selector | explicit zero-write failures; duplicate observed slug fixture for ambiguity |
+| ambiguous CREATE/EDIT user intent | Runtime black-box request requires clarification before argv translation; CLI spy records zero invocation and no preview replay/inferred authority/mutation; portable/local roots remain byte-identical until explicit intent, then CREATE maps without `--project` or EDIT with it |
 | scalar preserve/set/remove | application unit matrix; omitted values retained; provider set/remove conflict rejected |
 | Repository upsert/removal | application unit and portable/local integration; unspecified values and portable fields retained |
 | unknown removal and upsert/remove conflict | deterministic validation failure before writes |
@@ -1645,6 +1682,7 @@ observation. Minimum coverage:
 | local preview minimization | Repository binding changes/effects visible; unrelated credential, Runtime, attempt, and preserved local metadata absent from user output but bound internally |
 | stale preview/authority | portable drift, local drift, selector/ID drift, candidate/effect drift, concurrent writer; zero unauthorized overwrite |
 | portable/local separation | portable manifest contains logical associations only; machine paths/identities remain local; removal exposes both scoped effects |
+| portable committed / local publication failure | deterministic fault/CAS integration plus new-process black-box reopen proves truthful `partial`, confirmed effects, owned versioned recovery classification, fail-closed read/normal preview with zero writes and `recovery_required`, fresh exact-authority recovery from positively identified generations only without portable rollback, contradictory/unknown preservation, coherent reopen, and normal preview only after recovery |
 | CLI/Runtime skill parity | shared fixtures compare normalized candidate, effects, digest semantics, canonical result, and persisted state |
 
 Focused tests extend existing domain, `projectapp`, resolver, authority, store,
@@ -1664,7 +1702,7 @@ claim.
 | strict resolver blocks repair of broken binding | separate safe selection/source load from per-binding availability checks |
 | concurrent local metadata is overwritten | exact-wire local CAS over complete cloned record |
 | preview exposes unrelated local metadata | separate complete internal candidate from mutation-focused safe projection |
-| portable commit succeeds before local failure | truthful `partial`; no false rollback; fresh recovery preview |
+| portable commit succeeds before local failure | reuse ADR-0007 coordination/recovery state; truthful `partial`; fail-closed readers; deterministic recovery to a coherent positively identified generation before any fresh preview |
 | `none` remains ambiguous | compatibility alias limited to CREATE; EDIT removal has one explicit flag |
 | Runtime skill diverges | shared acceptance fixtures and no skill-side state reads/merge |
 
