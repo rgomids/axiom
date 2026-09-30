@@ -145,9 +145,11 @@ post-MVP follow-up for create/edit semantics in `project configure`. Its latest
 owner Clarification is the approved behavioral basis. The issue-scoped
 [Plan amendment](004-mvp-v1-baseline/plan.md#20-issue-132--createedit-project-configuration-follow-up)
 and [Tasks amendment](004-mvp-v1-baseline/tasks.md#issue-132-follow-up-tasks--createedit-project-configuration)
-are **Proposed / ready for human review**. `I132-T01`–`I132-T03` do not rewrite
-the historical S1–S9/T01–T40 DAG, authorize implementation, depend on Project
-listing issue #129, or imply Issue closure/human acceptance.
+are **Approved — human approval recorded on 2026-09-30**. The same explicit human
+instruction authorizes starting `I132-T01` implementation only. `I132-T02`/`I132-T03`
+remain separately gated; the amendment does not rewrite the historical
+S1–S9/T01–T40 DAG, depend on Project listing issue #129, or imply Issue
+closure/human acceptance.
 
 Issue [#97](https://github.com/rgomids/axiom/issues/97) records the product-scope
 decision to add `S8 — Multi-runtime agent planning and multi-agent execution` and

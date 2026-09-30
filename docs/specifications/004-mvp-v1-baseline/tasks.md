@@ -12,9 +12,10 @@ observations remain historical. T24 and human acceptance stay separately gated.
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
-**Issue #132 Tasks amendment (`I132-T01`–`I132-T03`): Proposed / ready for
-human review on 2026-09-30. Implementation is not authorized. These issue-scoped
-IDs do not extend or rewrite the historical S1–S9/T01–T40 DAG.**
+**Issue #132 Tasks amendment (`I132-T01`–`I132-T03`): Approved — human approval
+recorded on 2026-09-30. The same explicit human instruction authorizes starting
+`I132-T01` implementation only. `I132-T02`/`I132-T03` remain separately gated.
+These issue-scoped IDs do not extend or rewrite the historical S1–S9/T01–T40 DAG.**
 
 **Issue #94 Tasks amendment (T26–T29 / S6 placement): Approved — human approval recorded on 2026-09-24.**
 
@@ -1499,16 +1500,17 @@ ACCEPTED.)
 
 ### Status, authority, and boundary
 
-**Issue #132 Tasks amendment: Proposed / ready for human review.**
+**Issue #132 Tasks amendment: Approved — human approval recorded on 2026-09-30.**
 
 Authority chain:
 
 ```text
 Issue #132 + approved owner Clarification + CREATE collision addendum
--> proposed Issue #132 Plan amendment
--> these proposed issue-scoped Tasks
--> future explicit implementation authority
--> implementation and reproducible Evidence
+-> approved Issue #132 Plan amendment
+-> approved issue-scoped Tasks
+-> explicit human authority for I132-T01
+-> I132-T01 implementation and reproducible Evidence
+-> separate authority for I132-T02 / I132-T03
 -> separate human acceptance / Issue closure
 ```
 
@@ -1747,9 +1749,8 @@ flowchart LR
 
 ### Tasks review gate
 
-Plan/Tasks approval, green documentation checks, branch publication, PR review,
-or merge does not authorize implementation. Starting `I132-T01` requires a new
-explicit human implementation instruction. `I132-T02`/`I132-T03`, real Runtime
-execution, push/merge of future implementation, external effects, Issue closure,
-release, and human acceptance remain separately gated by their applicable
-authority.
+Plan/Tasks approval was recorded by explicit human decision on 2026-09-30. The
+same human instruction explicitly authorizes starting `I132-T01` implementation.
+That authority does not extend to `I132-T02`/`I132-T03`, real Runtime execution,
+push/merge of future implementation, external effects, Issue closure, release, or
+human acceptance; those remain separately gated by their applicable authority.

@@ -16,10 +16,11 @@ observations remain historical. T24 and human acceptance stay separately gated.
 
 Issue [#132](https://github.com/rgomids/axiom/issues/132) has an approved
 Clarification defining create/edit semantics for `project configure`. The
-issue-scoped Plan amendment below is **Proposed / ready for human review**.
-It does not reopen the delivered S1–S9 baseline, approve its Tasks amendment,
-or authorize implementation, Runtime execution, Provider mutation, merge, or
-Issue closure.
+issue-scoped Plan amendment below is **Approved — human approval recorded on 2026-09-30**.
+The same human decision also approved the issue-scoped Tasks amendment and explicitly
+authorized starting `I132-T01`. It does not reopen the delivered S1–S9 baseline or
+authorize `I132-T02`/`I132-T03`, real Runtime execution, Provider mutation, merge,
+release, Issue closure, or human acceptance.
 
 ### Issue #94 amendment approval — 2026-09-24
 
@@ -1368,7 +1369,7 @@ S9, external effects and human acceptance remain separately gated.
 
 ### 20.1 Status, authority and inputs
 
-**Issue #132 Plan amendment: Proposed / ready for human review.**
+**Issue #132 Plan amendment: Approved — human approval recorded on 2026-09-30.**
 
 The behavioral authority is the owner Clarification on
 [Issue #132](https://github.com/rgomids/axiom/issues/132#issuecomment-5919601292),
@@ -1715,6 +1716,8 @@ across portable/local roots, or a Runtime-owned merge/state machine.
 
 ### 20.12 Review gate
 
-Human approval of this Plan amendment authorizes review of the issue-scoped Tasks
-amendment only. It does not authorize `I132-T01`, any production code, Runtime
-execution, external effect, merge, release, or Issue closure.
+Human approval recorded on 2026-09-30 approves this Plan amendment and the
+issue-scoped Tasks amendment. The same explicit human instruction authorizes starting
+`I132-T01` implementation only. `I132-T02`/`I132-T03`, real Runtime execution,
+external effects, merge, release, Issue closure, and human acceptance remain
+separately gated.
