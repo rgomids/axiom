@@ -38,6 +38,7 @@ type Service interface {
 	FirstRun(context.Context) Result
 	Resolve(context.Context, ResolveInput) Result
 	Show(context.Context, ResolveInput) Result
+	List(context.Context) Result
 	Configure(context.Context, ConfigureInput) Result
 	WorkItemCreate(context.Context, WorkItemInput) Result
 	WorkItemSelect(context.Context, WorkItemInput) Result
@@ -122,6 +123,7 @@ type Result struct {
 	Status     Status
 	Category   string
 	Project    *ProjectView
+	Projects   []ProjectListView
 	WorkItem   *WorkItemView
 	Workflow   *WorkflowView
 	Completion *completion.Result
@@ -176,6 +178,11 @@ type ProjectView struct {
 	Slug         string           `json:"slug"`
 	Source       string           `json:"source"`
 	Repositories []RepositoryView `json:"repositories"`
+}
+type ProjectListView struct {
+	ID   string `json:"id"`
+	Slug string `json:"slug"`
+	Name string `json:"name"`
 }
 type WorkItemView struct {
 	ProjectID     string `json:"projectId"`
@@ -341,6 +348,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.Project != nil {
 			return emitProjectCompletion(writer, mode, *response.Completion, *response.Project)
 		}
+		if response.Projects != nil {
+			return emitProjectListCompletion(writer, mode, *response.Completion, response.Projects)
+		}
 		if response.Setup != nil {
 			return emitSetupCompletion(writer, mode, *response.Completion, *response.Setup)
 		}
@@ -371,6 +381,7 @@ const (
 	installAction           action = "install"
 	resolveAction           action = "resolve"
 	showAction              action = "show"
+	listAction              action = "list"
 	configureAction         action = "configure"
 	workItemCreateAction    action = "work_item_create"
 	workItemSelectAction    action = "work_item_select"
@@ -479,7 +490,7 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if operation == configureAction && (values.slug == "" || values.name == "" || len(values.repositories) == 0) {
 		return operation, values, category("missing_required_input")
 	}
-	if operation != initAction && operation != installAction && operation != resolveAction && operation != showAction && values.slug == "" {
+	if operation != initAction && operation != installAction && operation != resolveAction && operation != showAction && operation != listAction && values.slug == "" {
 		return operation, values, category("missing_required_input")
 	}
 	if operation == updateAction && values.name == "" {
@@ -549,7 +560,9 @@ func flags(operation action, args []string) (requestInput, bool) {
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	var values requestInput
-	set.StringVar(&values.slug, "slug", "", "")
+	if operation != listAction {
+		set.StringVar(&values.slug, "slug", "", "")
+	}
 	if operation == initAction || operation == updateAction {
 		set.StringVar(&values.name, "name", "", "")
 	}
@@ -734,7 +747,7 @@ func knownWorkflow(operation action) bool {
 }
 
 func known(operation action) bool {
-	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction || operation == showAction || operation == configureAction
+	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction || operation == showAction || operation == listAction || operation == configureAction
 }
 
 func dispatch(ctx context.Context, operation action, input requestInput, service Service) Result {
@@ -744,6 +757,9 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		}
 		if operation == showAction {
 			return service.Show(ctx, ResolveInput{Selector: input.selector})
+		}
+		if operation == listAction {
+			return service.List(ctx)
 		}
 		return Result{Status: Cancelled, Category: "cancelled"}
 	}
@@ -762,6 +778,8 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		return service.Resolve(ctx, ResolveInput{Selector: input.selector})
 	case showAction:
 		return service.Show(ctx, ResolveInput{Selector: input.selector})
+	case listAction:
+		return service.List(ctx)
 	case configureAction:
 		repositories, ok := parseRepositories(input.repositories)
 		if !ok {
@@ -1166,6 +1184,9 @@ func (UnavailableService) FirstRun(context.Context) Result              { return
 func (UnavailableService) Resolve(context.Context, ResolveInput) Result { return unavailable() }
 func (s UnavailableService) Show(context.Context, ResolveInput) Result {
 	return s.canonicalUnavailable("Project inspection unavailable")
+}
+func (s UnavailableService) List(context.Context) Result {
+	return s.canonicalUnavailable("Project listing unavailable")
 }
 func (UnavailableService) Configure(context.Context, ConfigureInput) Result     { return unavailable() }
 func (UnavailableService) WorkItemCreate(context.Context, WorkItemInput) Result { return unavailable() }

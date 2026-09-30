@@ -13,7 +13,7 @@ Commands:
   runtime codex install|status
   runtime claude install|status
   runtime profile validate
-  project configure|show|resolve|init|validate|reopen|update|install
+  project configure|list|show|resolve|init|validate|reopen|update|install
   work-item create|select|show|comment|complete
   workflow start|advance|fact|resume|status|evidence|reconcile
   compatibility inspect|backup|export
@@ -23,6 +23,7 @@ Commands:
 
 Stable Codex skill mapping:
   $axiom-project-configure -> axiom --json project configure
+  $axiom-project-list      -> axiom --json project list
   $axiom-project-show      -> axiom --json project show
   $axiom-work-item-create  -> axiom --json work-item create|select
   $axiom-work-item-run     -> axiom --json workflow start|advance|resume|reconcile

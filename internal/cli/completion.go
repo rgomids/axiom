@@ -71,6 +71,11 @@ type projectCompletionEvent struct {
 	Project ProjectView `json:"project"`
 }
 
+type projectListCompletionEvent struct {
+	completionEvent
+	Projects []ProjectListView `json:"projects"`
+}
+
 type runtimeCompletionEvent struct {
 	completionEvent
 	Runtime RuntimeView `json:"runtime"`
@@ -311,6 +316,45 @@ func emitProjectCompletion(writer io.Writer, mode outputMode, result completion.
 		return ExitFailure
 	}
 	content = append(content, '\n')
+	written, err := writer.Write(content)
+	if err != nil || written != len(content) {
+		return ExitFailure
+	}
+	return completionExitCode(result.Status())
+}
+
+const maxProjectListOutputBytes = 2 * 1024 * 1024
+
+func emitProjectListCompletion(writer io.Writer, mode outputMode, result completion.Result, projects []ProjectListView) int {
+	if writer == nil || !result.Valid() || projects == nil {
+		return ExitFailure
+	}
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	var content []byte
+	if mode == humanOutput {
+		content = renderCompletionHuman(result)
+		var extra bytes.Buffer
+		if len(projects) == 0 {
+			extra.WriteString("projects: none configured\n")
+		}
+		for _, project := range projects {
+			name := project.Name
+			if name == "" {
+				name = "<unavailable>"
+			}
+			fmt.Fprintf(&extra, "project: %s [%s] name=%q\n", project.Slug, project.ID, name)
+		}
+		content = append(content, extra.Bytes()...)
+	} else {
+		encoded, err := json.Marshal(projectListCompletionEvent{completionEvent: base, Projects: projects})
+		if err != nil {
+			return ExitFailure
+		}
+		content = append(encoded, '\n')
+	}
+	if len(content) > maxProjectListOutputBytes {
+		return ExitFailure
+	}
 	written, err := writer.Write(content)
 	if err != nil || written != len(content) {
 		return ExitFailure

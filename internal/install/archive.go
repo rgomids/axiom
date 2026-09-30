@@ -29,7 +29,7 @@ var (
 	semverPattern   = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
 	revisionPattern = regexp.MustCompile(`^[0-9a-f]{12}$`)
 	metadataFields  = []string{"formatVersion", "product", "version", "revision", "sourceState", "release", "platform", "goos", "architecture", "skillSetVersion"}
-	skillNames      = []string{"axiom-project-configure", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status"}
+	skillNames      = []string{"axiom-project-configure", "axiom-project-list", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status"}
 )
 
 // Candidate is a verified release bundle held in memory. Nothing from the

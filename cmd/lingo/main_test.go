@@ -173,6 +173,61 @@ func TestConfigurePublishesPortableKeysAndLocalPathsThenResolves(t *testing.T) {
 	}
 }
 
+func TestProjectListUsesProtectedStateOutsideCWDAndIgnoresPathAvailability(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "projects")
+	state := filepath.Join(t.TempDir(), "state")
+	t.Setenv("LINGO_PROJECTS_ROOT", root)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	service := compose()
+
+	alphaRepository := filepath.Join(t.TempDir(), "alpha-repository")
+	zetaRepository := filepath.Join(t.TempDir(), "zeta-repository")
+	for _, path := range []string{alphaRepository, zetaRepository} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	configureProject(t, service, "zeta", "Zeta", "main="+zetaRepository, "none")
+	configureProject(t, service, "alpha", "Alpha", "main="+alphaRepository, "none")
+	if err := os.RemoveAll(zetaRepository); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(root, "alpha")); err != nil {
+		t.Fatal(err)
+	}
+
+	before := snapshotTrees(t, state)
+	unrelated := t.TempDir()
+	prior, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(unrelated); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(prior) })
+
+	var output bytes.Buffer
+	if code := cli.Run(context.Background(), []string{"project", "list"}, service, currentProvenance(), &output); code != cli.ExitSuccess {
+		t.Fatalf("project list exit=%d output=%s", code, output.String())
+	}
+	var event struct {
+		Projects []cli.ProjectListView `json:"projects"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &event); err != nil {
+		t.Fatalf("project list JSON: %v: %s", err, output.String())
+	}
+	if len(event.Projects) != 2 || event.Projects[0].Slug != "alpha" || event.Projects[0].Name != "" || event.Projects[1].Slug != "zeta" || event.Projects[1].Name != "Zeta" {
+		t.Fatalf("projects = %#v", event.Projects)
+	}
+	if strings.Contains(output.String(), alphaRepository) || strings.Contains(output.String(), zetaRepository) {
+		t.Fatalf("project list exposed repository paths: %s", output.String())
+	}
+	if after := snapshotTrees(t, state); !bytes.Equal(before, after) {
+		t.Fatalf("project list mutated protected state\nbefore=%s\nafter=%s", before, after)
+	}
+}
+
 func TestConfigureInvalidRepositoriesPublishNothing(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "projects")
 	state := filepath.Join(t.TempDir(), "state")
@@ -355,10 +410,10 @@ func TestFirstRunReportsMissingReadyAndIncompatibleSkillStates(t *testing.T) {
 	t.Setenv("AXIOM_CODEX_SKILLS_ROOT", skills)
 	service := compose().(lifecycleService)
 	missing := service.RuntimeCodexStatus(context.Background())
-	if missing.Completion == nil || missing.Completion.Status() != completion.ValidationFailure || missing.Runtime == nil || len(missing.Runtime.Skills) != 5 || missing.Runtime.Skills[0].State != "missing" {
+	if missing.Completion == nil || missing.Completion.Status() != completion.ValidationFailure || missing.Runtime == nil || len(missing.Runtime.Skills) != 6 || missing.Runtime.Skills[0].State != "missing" {
 		t.Fatalf("missing first run = %#v", missing)
 	}
-	if installed := service.RuntimeCodexInstall(context.Background()); installed.Status != cli.Succeeded || installed.Runtime == nil || len(installed.Runtime.Skills) != 5 {
+	if installed := service.RuntimeCodexInstall(context.Background()); installed.Status != cli.Succeeded || installed.Runtime == nil || len(installed.Runtime.Skills) != 6 {
 		t.Fatalf("skill install = %#v", installed)
 	}
 	ready := service.RuntimeCodexStatus(context.Background())

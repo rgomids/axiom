@@ -143,6 +143,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		payloads []string
 	}{
 		{"axiom-project-configure", []string{"setup"}},
+		{"axiom-project-list", []string{"projects"}},
 		{"axiom-project-show", []string{"project"}},
 		{"axiom-work-item-create", []string{"draft", "selection", "workItem"}},
 		{"axiom-work-item-run", []string{"workflow", "projection"}},
@@ -156,6 +157,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		"details":"top-details",
 		"provenance":{"product":"Axiom","revision":"top-revision"},
 		"setup":{"status":"setup-status","details":"setup-details","digest":"setup-digest","effects":["write project"]},
+		"projects":[{"id":"123e4567-e89b-42d3-a456-426614174000","slug":"alpha","name":"Alpha"}],
 		"project":{"result":"project-result","details":"project-details","slug":"alpha","repositories":[{"key":"main"}]},
 		"draft":{"next":"draft-next","details":"draft-details","digest":"draft-digest","target":{"provider":"github"},"effects":["create issue"]},
 		"selection":{"references":["selection-reference"],"digest":"selection-digest"},
@@ -398,7 +400,7 @@ func TestInstallAndInspectGlobalSkills(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := service.Inspect(context.Background()); got.Status != Missing || len(got.Skills) != 5 || got.Skills[0].State != "missing" {
+	if got := service.Inspect(context.Background()); got.Status != Missing || len(got.Skills) != len(skillNames) || got.Skills[0].State != "missing" {
 		t.Fatalf("initial status = %#v", got)
 	}
 	if got := service.Install(context.Background()); got.Status != Applied || got.Category != "codex_configured" {
@@ -644,7 +646,7 @@ func TestInstallRefusesConflictAndRollsBackCurrentAttempt(t *testing.T) {
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {
 		t.Fatalf("install = %#v", got)
-	} else if len(got.Skills) != 5 || got.Skills[2].State != "modified_or_foreign" {
+	} else if len(got.Skills) != len(skillNames) || got.Skills[3].State != "modified_or_foreign" {
 		t.Fatalf("conflict detail = %#v", got.Skills)
 	}
 	for _, name := range []string{"axiom-project-configure", "axiom-project-show"} {
@@ -671,7 +673,7 @@ func TestInspectRejectsHardLinkedOwnedSkill(t *testing.T) {
 	if err := os.Link(path, filepath.Join(t.TempDir(), "skill-copy")); err != nil {
 		t.Fatal(err)
 	}
-	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[1].State != "modified_or_foreign" {
+	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[2].State != "modified_or_foreign" {
 		t.Fatalf("hard link inspection = %#v", got)
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {
@@ -692,7 +694,7 @@ func TestInspectRejectsUnsafeSkillPermissions(t *testing.T) {
 	if err := os.Chmod(directory, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[1].State != "modified_or_foreign" {
+	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[2].State != "modified_or_foreign" {
 		t.Fatalf("permission inspection = %#v", got)
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {
@@ -723,7 +725,7 @@ func TestSkillManifestIsClosedVersionedAndComplete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if manifest.FormatVersion != 1 || manifest.SkillSetVersion != SkillSetVersion || manifest.BinaryCompatibility != BinaryCompatibility || len(manifest.Skills) != 5 {
+	if manifest.FormatVersion != 1 || manifest.SkillSetVersion != SkillSetVersion || manifest.BinaryCompatibility != BinaryCompatibility || len(manifest.Skills) != len(skillNames) {
 		t.Fatalf("manifest = %#v", manifest)
 	}
 	seen := map[string]bool{}

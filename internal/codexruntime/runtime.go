@@ -25,6 +25,7 @@ var skillFiles fs.FS = embeddedSkills
 
 var skillNames = []string{
 	"axiom-project-configure",
+	"axiom-project-list",
 	"axiom-project-show",
 	"axiom-work-item-create",
 	"axiom-work-item-run",

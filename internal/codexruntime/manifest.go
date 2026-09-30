@@ -52,6 +52,15 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item-run":     "f0fd487fbbfcfb87bee9906244fb1fedbc0dd5bcbd1fb01594dc3df0c8e5e897",
 		"axiom-work-item-status":  "6a139090ff66759b64e630181373c32ff51ad2672d90d26184b6f81e9879b7d9",
 	}},
+	// Last five-skill revision, replaced when Project listing added the first
+	// additive shared Runtime entrypoint.
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project-configure": "b0d16b482ca3a08c20f8c5d7154573db825a563f458b3bf5284570fa263e4ad3",
+		"axiom-project-show":      "048975860d658e8134eb498c7cd5158104338a2629dd8a8cda4a2ecb0bb99c09",
+		"axiom-work-item-create":  "85e4f4badff647a337acf59e96d07909c9a3c47ce5e8df65fac08395c8aac8c4",
+		"axiom-work-item-run":     "3856374198506e8d6628dc76dda6058229382346115dca3a838a9bfb439f60d9",
+		"axiom-work-item-status":  "6a139090ff66759b64e630181373c32ff51ad2672d90d26184b6f81e9879b7d9",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.
@@ -68,17 +77,24 @@ func currentRevision() (skillSetRevision, error) {
 }
 
 func (r skillSetRevision) manifest() Manifest {
-	manifest := Manifest{FormatVersion: 1, SkillSetVersion: r.skillSetVersion, BinaryCompatibility: r.binaryCompatibility, Skills: make([]SkillDigest, 0, len(skillNames))}
-	for _, name := range skillNames {
+	names := make([]string, 0, len(r.skills))
+	for name := range r.skills {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	manifest := Manifest{FormatVersion: 1, SkillSetVersion: r.skillSetVersion, BinaryCompatibility: r.binaryCompatibility, Skills: make([]SkillDigest, 0, len(names))}
+	for _, name := range names {
 		manifest.Skills = append(manifest.Skills, SkillDigest{Name: name, SHA256: r.skills[name]})
 	}
-	sort.Slice(manifest.Skills, func(i, j int) bool { return manifest.Skills[i].Name < manifest.Skills[j].Name })
 	return manifest
 }
 
 func (r skillSetRevision) manifestDigest() (string, error) {
-	for _, name := range skillNames {
-		if r.skills[name] == "" {
+	if len(r.skills) == 0 {
+		return "", errors.New("incomplete skill set revision")
+	}
+	for _, digest := range r.skills {
+		if digest == "" {
 			return "", errors.New("incomplete skill set revision")
 		}
 	}
