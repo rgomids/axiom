@@ -12,6 +12,15 @@ observations remain historical. T24 and human acceptance stay separately gated.
 
 **Plan: Approved — human approval recorded on 2026-09-20.**
 
+### Issue #132 follow-up amendment — 2026-09-30
+
+Issue [#132](https://github.com/rgomids/axiom/issues/132) has an approved
+Clarification defining create/edit semantics for `project configure`. The
+issue-scoped Plan amendment below is **Proposed / ready for human review**.
+It does not reopen the delivered S1–S9 baseline, approve its Tasks amendment,
+or authorize implementation, Runtime execution, Provider mutation, merge, or
+Issue closure.
+
 ### Issue #94 amendment approval — 2026-09-24
 
 The original Plan approval remains historical. Human review on 2026-09-24
@@ -1354,3 +1363,279 @@ only that implementation gate. T30–T35 are technically complete. The exact rea
 T36 Codex + Claude run subsequently received separate authority, was executed,
 and produced the recorded Evidence. Technical outcome: S8 ready for human review.
 S9, external effects and human acceptance remain separately gated.
+
+## 20. Issue #132 — create/edit Project configuration follow-up
+
+### 20.1 Status, authority and inputs
+
+**Issue #132 Plan amendment: Proposed / ready for human review.**
+
+The behavioral authority is the latest owner Clarification on
+[Issue #132](https://github.com/rgomids/axiom/issues/132#issuecomment-5919601292).
+Planning inspected `main` at
+`015cdfdf04b9b93cf96334e18635b137e9b70499`, including:
+
+- the current `project configure` CLI and concrete service;
+- `projectapp` setup, authority, lifecycle, and complete-state contracts;
+- Project domain `Intent`/`Propose` behavior;
+- portable and machine-local stores plus UUID/slug resolution;
+- current CLI, application, store, black-box, and Runtime skill tests;
+- the versioned `axiom-project-configure` Runtime skill;
+- Specification 002 H9/H10, ADR-0004, and ADR-0007.
+
+The Issue Clarification is the approved specification basis for this bounded
+follow-up. Specification 002 already governs partial intent, complete candidate
+materialization, validation, portable/local separation, authority, and logical
+publication. This amendment selects how the delivered MVP surface will realize
+that behavior; it does not add a new Specification or ADR.
+
+### 20.2 Goals and non-goals
+
+Goals:
+
+- preserve existing CREATE behavior when `--project` is absent;
+- add explicit EDIT behavior when `--project <uuid-or-slug>` is present;
+- keep partial intent at the presentation/application boundary while previewing,
+  authorizing, and persisting a complete resulting configuration;
+- merge Repository operations by stable key without losing unspecified portable
+  associations, local bindings, or unrelated portable/local fields;
+- keep the Runtime skill a thin translator into the same CLI/application path;
+- fail closed on invalid intent, unknown/ambiguous selection, stale observations,
+  changed effects, or concurrent state changes.
+
+Non-goals remain those approved by Issue #132: slug rename, Project ID mutation,
+replace-all collections, implicit clear, JSON Patch or another generic patch DSL,
+local-only Repository unbind, and dependency on Project listing issue #129.
+No migration, new Provider, network effect, Git effect, release, or broad Project
+redesign is introduced.
+
+### 20.3 Current implementation findings
+
+The delivered setup path is a create-shaped vertical slice:
+
+- CLI input requires slug, name, at least one Repository, and an explicit Work
+  Item Provider declaration; it cannot retain omission as edit intent;
+- `projectapp.PrepareSetup` already produces a complete normalized portable
+  Project, a separate complete binding set, and a digest-bound preview, but it
+  reconstructs the setup surface from full input;
+- the Project domain already provides `Project.Propose(Intent)`, preserving
+  omitted fields and validating the complete result;
+- the installed Project resolver already implements exact UUID/slug selection
+  and explicit unknown/ambiguous outcomes without CWD inference;
+- portable storage has exact-observation update/CAS primitives, while the
+  concrete setup lifecycle currently publishes create/no-op/conflict only;
+- local installation currently installs create/no-op and refuses divergent
+  replacement, so EDIT needs an expected-revision replacement path;
+- the Runtime skill currently describes only full CREATE input.
+
+Existing contracts are extended rather than bypassed. CLI and Runtime skill do
+not load, merge, validate, digest, or persist Project state.
+
+### 20.4 Component flow and ownership
+
+```text
+CLI / Runtime skill
+  -> presence-aware Configure intent
+  -> application mode selection (CREATE or EDIT)
+  -> EDIT selector resolution + portable/local load
+  -> deterministic intent merge
+  -> Project.Propose complete-state validation
+  -> complete portable + local candidate
+  -> complete preview + ordered effects + digest
+  -> exact-authority replay and fresh observations
+  -> portable CAS publication
+  -> local CAS publication
+  -> canonical complete/partial/failure result
+```
+
+Ownership remains:
+
+| Concern | Owner |
+|---|---|
+| Flag syntax, presence capture, prompts, rendering | CLI presentation |
+| Create/edit mode, load orchestration, merge/upsert/removal, candidate construction | Project application layer |
+| Complete portable invariants and immutable ID | Project domain |
+| UUID/slug resolution and exact filesystem observations | local adapters |
+| Preview/effect/digest/authority validation | application contracts |
+| CAS publication, confinement, locking, and recovery protocol | portable/local adapters |
+| User-intent clarification and exact argv translation | Runtime skill |
+
+### 20.5 Presentation contract
+
+The non-interactive surface becomes:
+
+| Input | CREATE: no `--project` | EDIT: `--project <selector>` |
+|---|---|---|
+| `--project` | absent; its presence selects EDIT | required user-facing UUID/slug selector |
+| `--project-id` | returned canonical ID for authorized replay | returned canonical ID for replay; must match the freshly resolved selector |
+| `--slug` | required on initial preview | rejected; rename is outside #132 |
+| `--name` | required on initial preview | optional set |
+| `--work-item-provider` | explicit declaration | optional set |
+| `--remove-work-item-provider` | invalid for a new Project | explicit removal; conflicts with set |
+| `--repository <key>=<path>` | repeatable complete create input | repeatable add/update by key |
+| `--remove-repository <key>` | invalid for a new Project | repeatable explicit removal |
+| authority flags | exact preview replay | exact preview replay with mode/selector/ID preserved |
+
+CREATE never searches for an existing Project to reinterpret the request as
+EDIT. Existing same-slug/same-state create/no-op and conflict behavior remains
+unchanged. The legacy CREATE spelling `--work-item-provider none` remains a
+compatibility alias for an unconfigured provider on CREATE only; it is not an
+EDIT removal operation. EDIT requires `--remove-work-item-provider`.
+
+EDIT never creates a missing Project. Unknown, ambiguous, unsafe, corrupt, or
+incoherent selected state produces an explicit zero-write failure. Interactive
+CREATE may continue collecting required fields. Interactive EDIT asks only for
+materially ambiguous intent; omission means preservation and must not trigger a
+prompt for every existing value.
+
+### 20.6 Application intent and complete candidate
+
+The application input must retain presence independently of string zero values:
+
+- mode derived only from presence of `--project`;
+- optional selector plus replay-only canonical Project ID;
+- optional name set intent;
+- Work Item Provider set/remove intent;
+- ordered Repository upserts and removals;
+- preview digest and local authority marker.
+
+Before any state read, reject syntactic conflicts such as provider set plus
+remove, the same Repository key in upsert and removal sets, EDIT `--slug`, CREATE
+removals, or authority flags without the required replay inputs.
+
+For EDIT, application performs this deterministic sequence:
+
+1. Resolve exactly one installed Project by UUID or slug.
+2. Load the protected ID-addressed local record and the portable source it names.
+3. Decode and validate both, compare immutable ID, observed slug/source,
+   portable revision, and local exact-wire revision; stale or conflicting
+   relationships fail closed.
+4. Start from the complete portable Project and complete local record.
+5. Apply explicitly supplied scalar intent. Omitted name/provider state is
+   preserved. Provider set/remove updates the canonical `work-items` Provider and
+   Integration together while retaining unrelated declarations.
+6. Index portable Repository associations and local bindings by stable key.
+   Reject duplicate operations, reject removal of an unknown key, preserve
+   unspecified keys, preserve existing portable Repository fields during a path
+   upsert, add a new key for a new association, and remove both portable
+   association and local binding for explicit removal.
+7. Inspect each supplied Repository path using existing safe local observation
+   rules. Do not rederive unspecified bindings from CWD, Git remotes, or Provider
+   data.
+8. Sort portable associations and local bindings canonically by key.
+9. Pass the complete portable collection through `Project.Propose`, validating
+   every retained and changed invariant and cross-reference.
+10. Clone the complete local record and replace only Project metadata, portable
+    digests/revision, and bindings affected by the resulting candidate. Preserve
+    unrelated credential references, Runtime observations, and attempt metadata.
+
+Selector lookup for EDIT must be separable from availability validation of every
+existing Repository binding. Otherwise a user could not remove or repair a broken
+binding. Source confinement and safe portable loading remain mandatory; relaxing
+arbitrary local-record or source validation is not allowed.
+
+### 20.7 Complete preview, effects, and authority
+
+Preview remains read-only and represents the entire resulting configuration, not
+the submitted patch. Its operation payload includes:
+
+- explicit CREATE/EDIT mode and immutable Project ID;
+- full normalized portable Project candidate;
+- full safe machine-local candidate, including all resulting Repository bindings;
+- portable and local destinations plus exact observed revisions;
+- deterministic ordered effects, separating portable and machine-local scope;
+- digest of the complete authority envelope.
+
+Existing CREATE effect codes and fields remain compatible. EDIT extends effects
+with enough stable detail to distinguish at least portable Project update,
+portable Repository association removal, local binding add/update/removal, and
+local-record update. Repository removal therefore exposes two effects: one
+portable and one local. No effect implies no publication.
+
+Digest input binds mode, Project ID, canonical portable candidate bytes,
+canonical complete local candidate bytes, destinations, exact portable/local
+observations, and the ordered effect set. Authorized replay rebuilds the candidate
+from fresh state and explicit intent. Any selector-to-ID drift, portable/local
+revision drift, candidate drift, effect drift, missing authority, or digest
+mismatch returns denied/stale authority with no new write.
+
+### 20.8 Publication and concurrency
+
+CREATE keeps current create/no-op/conflict semantics. EDIT uses explicit update
+operations only:
+
+1. publish the complete portable candidate with the exact observed portable
+   snapshot as CAS precondition;
+2. after confirmed portable success/no-op, replace the complete local record
+   with its exact observed wire/revision as CAS precondition;
+3. reobserve actual state for the canonical result.
+
+Conflicting writers cannot both succeed. A stale portable or local observation
+before its write fails closed. Portable success followed by local conflict/failure
+is reported truthfully as `partial`, with confirmed portable effect and recovery
+next action; the system does not claim rollback. This preserves ADR-0007 logical
+publication and the existing portable/local non-atomic boundary.
+
+### 20.9 Compatibility, rollout, and documentation
+
+- no storage schema or migration is planned;
+- Project ID, slug, portable paths, and local record address remain unchanged;
+- CREATE CLI/JSON/human behavior remains regression-covered;
+- new JSON fields/effect details are additive; existing canonical completion
+  fields remain unchanged;
+- owned Runtime skill updates must follow existing skill-set ownership and
+  upgrade/receipt rules without overwriting foreign/modified skill files;
+- command, setup, and Runtime skill documentation changes land with the
+  implementation Task that makes them true, not in this planning-only change.
+
+### 20.10 Testing and acceptance Evidence
+
+Future implementation Evidence must distinguish deterministic unit/integration
+proof, native filesystem/concurrency proof, executable CLI proof, and real Runtime
+observation. Minimum coverage:
+
+| Case | Required proof |
+|---|---|
+| CREATE behavior unchanged | parser/service/executable black-box regression, including preview and authorized replay |
+| EDIT by slug and UUID | resolver plus service integration; same normalized candidate for equivalent intent |
+| unknown and representable ambiguous selector | explicit zero-write failures; duplicate observed slug fixture for ambiguity |
+| scalar preserve/set/remove | application unit matrix; omitted values retained; provider set/remove conflict rejected |
+| Repository upsert/removal | application unit and portable/local integration; unspecified values and portable fields retained |
+| unknown removal and upsert/remove conflict | deterministic validation failure before writes |
+| complete preview | full portable/local candidate, exact revisions, ordered effects, stable digest; partial patch never emitted as candidate |
+| stale preview/authority | portable drift, local drift, selector/ID drift, candidate/effect drift, concurrent writer; zero unauthorized overwrite |
+| portable/local separation | portable manifest contains logical associations only; machine paths/identities remain local; removal exposes both scoped effects |
+| CLI/Runtime skill parity | shared fixtures compare normalized candidate, effects, digest semantics, canonical result, and persisted state |
+
+Focused tests extend existing domain, `projectapp`, resolver, authority, store,
+CLI parser/service, executable black-box, and `codexruntime` suites. Native
+filesystem tests exercise CAS conflicts and portable-confirmed/local-failed
+outcomes under the existing supported threat model. Runtime Evidence uses an
+isolated installation and explicit per-run authority; unavailable real Runtime
+Evidence must be reported as unverified, never replaced by a fake acceptance
+claim.
+
+### 20.11 Risks and architectural assessment
+
+| Risk | Response |
+|---|---|
+| CLI accidentally owns merge rules | presence-only parsing; application unit tests and thin dispatch |
+| EDIT erases unrelated portable/local state | clone complete current snapshots; preserve-by-default matrix |
+| strict resolver blocks repair of broken binding | separate safe selection/source load from per-binding availability checks |
+| concurrent local metadata is overwritten | exact-wire local CAS over complete cloned record |
+| portable commit succeeds before local failure | truthful `partial`; no false rollback; fresh recovery preview |
+| `none` remains ambiguous | compatibility alias limited to CREATE; EDIT removal has one explicit flag |
+| Runtime skill diverges | shared acceptance fixtures and no skill-side state reads/merge |
+
+No new durable architectural decision was found. Partial intent to complete state
+is already approved by Specification 002 H9/H10 and ADR-0004. Revision/effect-
+bound authority, publication ordering, partial truth, and recovery are already
+covered by ADR-0007. Reassess and stop for a human decision only if implementation
+requires a schema migration, new identity/authority model, atomic transaction
+across portable/local roots, or a Runtime-owned merge/state machine.
+
+### 20.12 Review gate
+
+Human approval of this Plan amendment authorizes review of the issue-scoped Tasks
+amendment only. It does not authorize `I132-T01`, any production code, Runtime
+execution, external effect, merge, release, or Issue closure.

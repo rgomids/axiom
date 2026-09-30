@@ -12,6 +12,10 @@ observations remain historical. T24 and human acceptance stay separately gated.
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
+**Issue #132 Tasks amendment (`I132-T01`–`I132-T03`): Proposed / ready for
+human review on 2026-09-30. Implementation is not authorized. These issue-scoped
+IDs do not extend or rewrite the historical S1–S9/T01–T40 DAG.**
+
 **Issue #94 Tasks amendment (T26–T29 / S6 placement): Approved — human approval recorded on 2026-09-24.**
 
 **S1 Implementation: Delivered on `main` through PR #83. This is technical delivery, not an inferred human MVP acceptance.**
@@ -1490,3 +1494,203 @@ T23–T25, publication and acceptance are not authorized or started.**
 PUBLISHED AND VERIFIED at `859969a07f3807822580431a05b6c78b07691fb1`; T24 and
 T25 complete ([rc.2 record](evidence-s9-rc2/README.md)); human acceptance
 ACCEPTED.)
+
+## Issue #132 follow-up Tasks — create/edit Project configuration
+
+### Status, authority, and boundary
+
+**Issue #132 Tasks amendment: Proposed / ready for human review.**
+
+Authority chain:
+
+```text
+Issue #132 + approved owner Clarification
+-> proposed Issue #132 Plan amendment
+-> these proposed issue-scoped Tasks
+-> future explicit implementation authority
+-> implementation and reproducible Evidence
+-> separate human acceptance / Issue closure
+```
+
+This amendment decomposes only the approved create/edit behavior. It adds no
+production code, implementation Evidence, migration, dependency, CI workflow,
+Provider/Runtime effect, release action, or human acceptance. Historical
+Specification 004 Tasks and statuses remain unchanged.
+
+### Dependency DAG
+
+| Task | Outcome | Dependencies |
+|---|---|---|
+| `I132-T01` | Complete read-only EDIT candidate and preview | None |
+| `I132-T02` | Stale-safe authorized EDIT publication | `I132-T01` |
+| `I132-T03` | CLI/Runtime parity, black-box acceptance, and documentation | `I132-T01`, `I132-T02` |
+
+```mermaid
+flowchart LR
+    I132T01[I132-T01 complete edit preview]
+    I132T02[I132-T02 authorized edit publication]
+    I132T03[I132-T03 CLI Runtime parity and acceptance]
+    I132T01 --> I132T02
+    I132T01 --> I132T03
+    I132T02 --> I132T03
+```
+
+### `I132-T01` — Complete read-only EDIT candidate and preview
+
+- **Objective:** Accept explicit EDIT partial intent, resolve and load one
+  existing Project, deterministically materialize the complete portable/local
+  result, validate it, and return a complete zero-write preview.
+- **Scope:**
+  - add presence-aware configure intent for CREATE/EDIT, selector, scalar
+    set/remove, Repository upserts/removals, and replay identity;
+  - add strict presentation validation for conflicting operations without moving
+    merge/domain rules into CLI;
+  - resolve exact UUID/slug with explicit unknown/ambiguous outcomes, then load
+    coherent protected portable/local snapshots;
+  - separate safe selection/source loading from availability checks so a broken
+    binding can be removed or replaced without weakening source confinement;
+  - preserve omitted name/provider/Repository data and all unrelated
+    portable/local fields;
+  - merge Repository operations by key, reject unknown removal and overlapping
+    upsert/removal, preserve existing portable Repository fields, and sort the
+    resulting collections deterministically;
+  - reuse `Project.Propose` for complete-state invariant/reference validation;
+  - extend the setup preview to contain complete normalized portable/local
+    candidates, exact observations, separately scoped ordered effects, and a
+    complete authority digest;
+  - keep CREATE setup semantics and payload compatibility unchanged.
+- **Repository impact:** expected focused changes in `internal/cli`,
+  `internal/projectapp`, Project/local resolver/load seams, `cmd/lingo`, and their
+  unit/integration tests. No persistence mutation path is enabled by this Task.
+- **Completion/Evidence:**
+  - domain/application unit matrix proves scalar preserve/set/remove, provider
+    set/remove conflict, Repository add/update/remove, unknown removal,
+    overlapping operations, deterministic order, and preservation of unrelated
+    fields;
+  - resolver/service integration proves EDIT by slug and UUID plus explicit
+    unknown and representable ambiguous selector failures;
+  - preview tests prove full resulting configuration, portable/local separation,
+    distinct removal effects, stable digest, and zero writes;
+  - existing CREATE tests remain green without fallback to EDIT.
+- **Exclusions:** authorized writes, local record replacement, Runtime skill
+  changes, slug rename, Project ID mutation, replace-all/clear, local-only unbind,
+  listing issue #129, Provider/network/Git effects.
+
+### `I132-T02` — Stale-safe authorized EDIT publication
+
+- **Objective:** Publish an exactly reviewed complete EDIT candidate using
+  portable and local CAS boundaries while preserving truthful partial outcomes.
+- **Dependencies:** `I132-T01` complete and reviewed.
+- **Scope:**
+  - extend the explicit Project update path to publish the complete portable
+    candidate against exact observed portable bytes/revision;
+  - add bounded complete local-record replacement against exact observed
+    wire/revision, preserving unrelated local metadata;
+  - bind replay authority to mode, immutable Project ID, complete portable/local
+    candidates, destinations, revisions, and ordered effects;
+  - re-resolve selector and verify replay `--project-id` before mutation;
+  - reject stale portable/local observations, selector/identity drift, changed
+    candidate/effects, missing authority, and digest mismatch before unauthorized
+    overwrite;
+  - preserve portable-first publication ordering and report portable-confirmed /
+    local-failed as `partial` without rollback claims;
+  - preserve CREATE create/no-op/conflict behavior as an independent mode.
+- **Repository impact:** expected focused changes in `internal/projectapp`
+  lifecycle/authority ports, portable/local adapters, `cmd/lingo` orchestration,
+  and deterministic store/service tests. No schema migration.
+- **Completion/Evidence:**
+  - application-port tests prove the complete candidate, expected revisions, and
+    denied-write behavior reach adapters without patch persistence;
+  - adapter integration proves portable update/no-op/conflict and local
+    replace/no-op/conflict under exact CAS;
+  - deterministic concurrency tests prove one winner and stale-writer refusal for
+    both stores;
+  - stale preview matrix covers portable drift, local drift, selector/ID drift,
+    candidate/effect drift, and authority mismatch;
+  - injected local failure after portable confirmation proves canonical `partial`,
+    confirmed effect reporting, preserved actual state, and fresh-preview recovery;
+  - Repository removal is observed in both portable association and local binding.
+- **Exclusions:** transaction/rollback across roots, new recovery protocol,
+  migration, Git/Provider mutation, Runtime invocation, release/publication.
+
+### `I132-T03` — CLI/Runtime parity, acceptance Evidence, and documentation
+
+- **Objective:** Expose approved create/edit semantics through CLI and the
+  `axiom-project-configure` Runtime skill with equivalent outcomes and complete
+  acceptance Evidence.
+- **Dependencies:** `I132-T01` and `I132-T02` complete and reviewed.
+- **Scope:**
+  - add strict CLI flags `--project`, `--remove-work-item-provider`, and repeatable
+    `--remove-repository`; retain `--project-id` as replay-only canonical identity;
+  - keep CREATE requirements and create-only `--work-item-provider none`
+    compatibility; reject `none` as EDIT removal and direct users to the explicit
+    removal flag;
+  - make guided EDIT ask only about ambiguous intent, never rebuild omitted values
+    through prompts;
+  - update JSON/human rendering and help while preserving canonical completion
+    fields and additive setup payload compatibility;
+  - update the versioned Runtime skill to clarify ambiguous create/edit intent,
+    translate explicit intent into CLI arguments, replay the exact preview, and
+    never read/merge/validate Project state itself;
+  - reconcile owned-skill compatibility/receipt expectations using existing
+    runtime installation and upgrade rules;
+  - update command/user documentation only after behavior exists;
+  - capture deterministic and bounded real Runtime Evidence without inferring
+    authority or acceptance from the skill.
+- **Repository impact:** expected focused changes in `internal/cli`, `cmd/lingo`,
+  `internal/codexruntime/skills/axiom-project-configure`, runtime skill ownership/
+  compatibility fixtures as required, `docs/commands.md`, affected user docs, and
+  an issue-scoped Evidence artifact.
+- **Completion/Evidence:**
+  - strict-parser tests cover new flags, duplicates, syntax, set/remove conflicts,
+    replay requirements, and rejection before effects;
+  - executable black-box tests prove CREATE unchanged; EDIT by slug/UUID; unknown
+    and ambiguous selector; scalar preserve/set/remove; Repository upsert/removal;
+    unknown removal; upsert/remove conflict; unspecified-value preservation;
+    complete preview; stale authority; and portable/local separation;
+  - shared CLI/Runtime fixtures prove equivalent normalized candidate, effect set,
+    digest semantics, persisted result, and canonical completion for equivalent
+    intent;
+  - Runtime package tests prove the skill remains a thin entrypoint, setup payload
+    isolation remains intact, and owned/foreign skill upgrade behavior is safe;
+  - a bounded real supported-Runtime observation uses isolated roots and records
+    exact binary/skill revisions, command/argv, result, limitations, and zero
+    unapproved external effects. If unavailable, acceptance remains explicitly
+    unverified rather than simulated;
+  - repository, Go test/race/vet/build, native filesystem, sensitive-file,
+    secret-scan, and diff checks pass as applicable and are reported by exact
+    command.
+- **Exclusions:** skill-side state or merge rules, automatic user approval,
+  Provider/Git effects, listing dependency, broader Project edit UX, release,
+  stable publication, Issue closure, or human acceptance.
+
+### Acceptance traceability
+
+| Issue #132 acceptance / required case | Responsible Task(s) |
+|---|---|
+| CREATE without `--project`; no CREATE-to-EDIT fallback | `I132-T01`, `I132-T03` |
+| EDIT with `--project`; no EDIT-to-CREATE fallback | `I132-T01`, `I132-T03` |
+| EDIT by slug and UUID | `I132-T01`, `I132-T03` |
+| Unknown selector | `I132-T01`, `I132-T03` |
+| Representable ambiguous selector | `I132-T01`, `I132-T03` |
+| Immutable ID; replay-only `--project-id`; no slug rename | `I132-T01`–`I132-T03` |
+| Scalar omission preserve and name/provider set | `I132-T01`, `I132-T03` |
+| Explicit provider removal; set/remove conflict | `I132-T01`, `I132-T03` |
+| Repository add/update by stable key | `I132-T01`, `I132-T03` |
+| Repository removal from portable and local state | `I132-T01`–`I132-T03` |
+| Unknown Repository removal | `I132-T01`, `I132-T03` |
+| Repository upsert plus removal conflict | `I132-T01`, `I132-T03` |
+| Preservation of all unspecified portable/local values | `I132-T01`, `I132-T02` |
+| Complete preview and complete-candidate digest | `I132-T01`, `I132-T03` |
+| Stale preview/authority/concurrency rejection | `I132-T02`, `I132-T03` |
+| Portable/local boundary and separately visible effects | `I132-T01`–`I132-T03` |
+| CLI and Runtime skill semantic parity | `I132-T03` |
+
+### Tasks review gate
+
+Plan/Tasks approval, green documentation checks, branch publication, PR review,
+or merge does not authorize implementation. Starting `I132-T01` requires a new
+explicit human implementation instruction. `I132-T02`/`I132-T03`, real Runtime
+execution, push/merge of future implementation, external effects, Issue closure,
+release, and human acceptance remain separately gated by their applicable
+authority.
