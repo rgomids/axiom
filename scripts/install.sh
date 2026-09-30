@@ -20,9 +20,75 @@ umask 077
 
 repository_url=https://github.com/rgomids/axiom
 supported_rows='macOS 27.0/arm64, Linux/amd64, Linux/arm64'
+banner_printed=false
+
+if [ -t 2 ] && [ -z "${NO_COLOR+x}" ] && [ -n "${TERM:-}" ] && [ "${TERM:-}" != dumb ]; then
+  style_bold=$(printf '\033[1m')
+  style_dim=$(printf '\033[2m')
+  style_blue=$(printf '\033[34m')
+  style_green=$(printf '\033[32m')
+  style_red=$(printf '\033[31m')
+  style_reset=$(printf '\033[0m')
+else
+  style_bold=
+  style_dim=
+  style_blue=
+  style_green=
+  style_red=
+  style_reset=
+fi
+
+banner() {
+  [ "$banner_printed" = false ] || return 0
+  banner_printed=true
+  {
+    printf '\n'
+    printf '%s' "$style_bold"
+    cat <<'EOF'
+                                  +
+                                   +++++
+                                 +++++++++
+                                +++++++++++
+                              ++++++  .+++++*
+                               ++++     ++++
+                                ++++  :++++
+                         ++++++   +++ +++   ++++++
+                             +++   ++ ++   +++
+                             +++ + ++ ++ + +++
+                      +++++++++ ++ ++ ++ ++ +++++++++
+                   ++++++++    +++ ++ ++ +++    ++++++++
+                  *++       ++++  +++ +++ *++++       ++
+                  ++      ++++   +++   +++   +++       ++
+                   ++     ++   ++++     ++++   ++     ++
+                     +    ++  +++         +++  ++   **
+                           +  ++           ++  +
+                               +           +
+             +        +++    ++     ++        +++       +         +
+            +++         ++ +++      ++     +++   ++     +++     +++
+          ++  ++          ++        ++    ++      ++    +++++ +++++
+         ++     ++      ++ +++      ++     ++    +++    ++  +++  ++
+        ++       ++   +++    ++     ++      ++++++      ++       ++
+EOF
+    printf '%s' "$style_reset"
+    printf '%sAXIOM%s\n' "$style_bold" "$style_reset"
+    printf '%s----- Keep intent, decisions, code, and evidence connected.%s\n' "$style_dim" "$style_reset"
+    printf '\n'
+  } >&2
+}
+
+info() {
+  banner
+  printf '%sinstall_step:%s %s\n' "$style_blue" "$style_reset" "$1" >&2
+}
+
+success() {
+  banner
+  printf '%sinstall_ok:%s %s\n' "$style_green" "$style_reset" "$1" >&2
+}
 
 fail() {
-  printf 'install_error: %s\n' "$1" >&2
+  banner
+  printf '%sinstall_error:%s %s\n' "$style_red" "$style_reset" "$1" >&2
   exit 1
 }
 
@@ -133,6 +199,7 @@ case "$system:$machine" in
     ;;
 esac
 [ -n "$row" ] || fail "unsupported host $system/$machine; supported rows are exactly $supported_rows"
+info "checking required tools for $row"
 
 for tool in curl tar bash awk grep mktemp; do
   command -v "$tool" >/dev/null 2>&1 || fail "required tool not found: $tool"
@@ -144,6 +211,7 @@ elif command -v shasum >/dev/null 2>&1; then
 else
   fail 'required tool not found: sha256sum or shasum'
 fi
+success "host $row is supported"
 
 # fetch <url> <output> <max-bytes>: HTTPS only, including redirects.
 fetch() {
@@ -156,6 +224,7 @@ fetch() {
 if [ "$version_seen" = true ]; then
   tag=$version_tag
 else
+  info "resolving $selector"
   # GitHub redirects /releases/latest to the latest published non-prerelease,
   # non-draft release, or to /releases when there is none. Only the redirect
   # target is read; the page itself is not fetched or parsed.
@@ -184,6 +253,7 @@ fi
 version=${tag#v}
 asset=axiom-$version-$row.tar.gz
 bundle=axiom-$version-$row
+success "resolved $tag"
 
 work=$(mktemp -d)
 [ -n "$work" ] && [ -d "$work" ] || fail 'private temporary directory unavailable'
@@ -193,6 +263,7 @@ trap 'exit 130' HUP INT TERM
 chmod 700 "$work"
 
 download_url=$repository_url/releases/download/$tag
+info "downloading checksums for $tag"
 set +e
 fetch "$download_url/SHA256SUMS" "$work/SHA256SUMS" 65536
 status=$?
@@ -206,6 +277,7 @@ expected=$(awk -v name="$asset" '$2 == name && NF == 2 {print $1}' "$work/SHA256
 [ "$(printf '%s\n' "$expected" | grep -c .)" = 1 ] && printf '%s\n' "$expected" | grep -Eq '^[0-9a-f]{64}$' \
   || fail "release $tag publishes no single checksum for $asset; nothing was installed"
 
+info "downloading $asset"
 set +e
 fetch "$download_url/$asset" "$work/$asset" 268435456
 status=$?
@@ -217,6 +289,7 @@ case "$status" in
 esac
 actual=$(digest "$work/$asset")
 [ "$actual" = "$expected" ] || fail "checksum mismatch for $asset; nothing was installed"
+success "verified $asset"
 
 # Only now read the verified archive: take the bundle's release installer and
 # release metadata, regular files whose digests must match the bundle
@@ -224,6 +297,7 @@ actual=$(digest "$work/$asset")
 # of a clean release build.
 # Fixed member names without whitespace; expanded unquoted on purpose.
 members="$bundle/install.sh $bundle/release-metadata.txt $bundle/MANIFEST.sha256"
+info "checking verified bundle metadata"
 listing=$(tar -tvzf "$work/$asset" $members 2>/dev/null) \
   || fail "verified archive lacks its release installer or metadata; nothing was installed"
 [ "$(printf '%s\n' "$listing" | awk 'substr($1,1,1) == "-"' | grep -c .)" = 3 ] \
@@ -243,6 +317,7 @@ for expected_line in "product=Axiom" "version=$version" "sourceState=clean" "rel
   grep -Fxq "$expected_line" "$metadata" || fail "release metadata does not match $tag for $row; nothing was installed"
 done
 installer=$work/bundle/$bundle/install.sh
+success "bundle metadata matches $tag for $row"
 
 printf 'install_selector=%s\n' "$selector"
 printf 'install_tag=%s\n' "$tag"
@@ -251,6 +326,7 @@ printf 'install_asset=%s\n' "$asset"
 printf 'install_asset_sha256=%s\n' "$actual"
 printf 'install_row=%s\n' "$row"
 
+info "running verified release installer"
 set +e
 bash "$installer" --archive "$work/$asset" --checksums "$work/SHA256SUMS" --bin-dir "$binary_root" --receipt-dir "$receipt_root"
 status=$?
@@ -268,3 +344,4 @@ case ":${PATH:-}:" in
     printf "path_notice: axiom is not on PATH; run: export PATH='%s':\"\$PATH\"\n" "$quoted" >&2
     ;;
 esac
+success "installation complete"

@@ -173,7 +173,13 @@ mkdir -p "$temporary/os-tools" "$temporary/arch-tools"
 printf '#!/bin/sh\ncase "$1" in -s) echo FreeBSD ;; -m) echo amd64 ;; *) echo FreeBSD ;; esac\n' >"$temporary/os-tools/uname"
 printf '#!/bin/sh\ncase "$1" in -s) echo Linux ;; -m) echo riscv64 ;; *) echo Linux ;; esac\n' >"$temporary/arch-tools/uname"
 chmod 700 "$temporary/os-tools/uname" "$temporary/arch-tools/uname"
-step unsupported-os bash -eo pipefail -c 'EXTRA_PATH="$temporary/os-tools" refused "$home" "unsupported host FreeBSD/amd64" && no_network'
+step unsupported-os bash -eo pipefail -c '
+  EXTRA_PATH="$temporary/os-tools" refused "$home" "unsupported host FreeBSD/amd64" && no_network
+  grep -Fxq "AXIOM" "$temporary/stderr"
+  grep -Fq "++++++   +++ +++   ++++++" "$temporary/stderr"
+  grep -Fq "install_error: unsupported host FreeBSD/amd64" "$temporary/stderr"
+  ! LC_ALL=C grep -q $'\''\033'\'' "$temporary/stderr"
+'
 step unsupported-architecture bash -eo pipefail -c 'EXTRA_PATH="$temporary/arch-tools" refused "$home" "unsupported host Linux/riscv64" && no_network'
 [[ ! -e "$home/.local" ]] || { printf 'case=selector-home-untouched result=fail\n'; failures=$((failures + 1)); }
 
@@ -257,6 +263,13 @@ step exact-stable-version bash -eo pipefail -c '
   grep -Fxq "install_asset=axiom-1.0.0-$row.tar.gz" "$temporary/stdout"
   grep -Fxq "install_asset_sha256=$(asset_sha v1.0.0)" "$temporary/stdout"
   grep -Fxq "install_revision=$revision12" "$temporary/stdout"
+  grep -Fxq "AXIOM" "$temporary/stderr"
+  grep -Fq "++++++   +++ +++   ++++++" "$temporary/stderr"
+  grep -Fq "install_step: checking required tools for $row" "$temporary/stderr"
+  grep -Fq "install_step: downloading axiom-1.0.0-$row.tar.gz" "$temporary/stderr"
+  grep -Fq "install_ok: verified axiom-1.0.0-$row.tar.gz" "$temporary/stderr"
+  grep -Fq "install_ok: installation complete" "$temporary/stderr"
+  ! LC_ALL=C grep -q $'\''\033'\'' "$temporary/stderr"
   [[ $(installed_version "$home") == 1.0.0 ]]
   grep -Fxq "archiveSha256=$(asset_sha v1.0.0)" "$(receipt_of "$home")"
   grep -Fq "path_notice: axiom is not on PATH" "$temporary/stderr"
