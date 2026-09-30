@@ -1370,8 +1370,10 @@ S9, external effects and human acceptance remain separately gated.
 
 **Issue #132 Plan amendment: Proposed / ready for human review.**
 
-The behavioral authority is the latest owner Clarification on
-[Issue #132](https://github.com/rgomids/axiom/issues/132#issuecomment-5919601292).
+The behavioral authority is the owner Clarification on
+[Issue #132](https://github.com/rgomids/axiom/issues/132#issuecomment-5919601292),
+as reconciled by the explicit
+[CREATE collision addendum](https://github.com/rgomids/axiom/issues/132#issuecomment-5920044527).
 Planning inspected `main` at
 `015cdfdf04b9b93cf96334e18635b137e9b70499`, including:
 
@@ -1393,7 +1395,8 @@ that behavior; it does not add a new Specification or ADR.
 
 Goals:
 
-- preserve existing CREATE behavior when `--project` is absent;
+- preserve existing CREATE input behavior when `--project` is absent while
+  making an already configured requested slug an explicit zero-mutation failure;
 - add explicit EDIT behavior when `--project <uuid-or-slug>` is present;
 - keep partial intent at the presentation/application boundary while previewing,
   authorizing, and persisting a complete resulting configuration;
@@ -1424,6 +1427,8 @@ The delivered setup path is a create-shaped vertical slice:
   and explicit unknown/ambiguous outcomes without CWD inference;
 - portable storage has exact-observation update/CAS primitives, while the
   concrete setup lifecycle currently publishes create/no-op/conflict only;
+- the concrete setup path currently reuses an equivalent existing slug as a
+  no-op, which conflicts with the reconciled #132 CREATE collision decision;
 - local installation currently installs create/no-op and refuses divergent
   replacement, so EDIT needs an expected-revision replacement path;
 - the Runtime skill currently describes only full CREATE input.
@@ -1440,8 +1445,8 @@ CLI / Runtime skill
   -> EDIT selector resolution + portable/local load
   -> deterministic intent merge
   -> Project.Propose complete-state validation
-  -> complete portable + local candidate
-  -> complete preview + ordered effects + digest
+  -> complete portable + internal complete local candidate
+  -> safe user-visible preview + ordered effects + complete-envelope digest
   -> exact-authority replay and fresh observations
   -> portable CAS publication
   -> local CAS publication
@@ -1476,11 +1481,20 @@ The non-interactive surface becomes:
 | `--remove-repository <key>` | invalid for a new Project | repeatable explicit removal |
 | authority flags | exact preview replay | exact preview replay with mode/selector/ID preserved |
 
-CREATE never searches for an existing Project to reinterpret the request as
-EDIT. Existing same-slug/same-state create/no-op and conflict behavior remains
-unchanged. The legacy CREATE spelling `--work-item-provider none` remains a
-compatibility alias for an unconfigured provider on CREATE only; it is not an
-EDIT removal operation. EDIT requires `--remove-work-item-provider`.
+An initiating CREATE never searches for or reuses an existing Project. If the
+requested slug is already configured, CREATE fails explicitly with zero mutation,
+including when every supplied value is equivalent. It never becomes EDIT and
+never adopts the existing Project ID. The legacy CREATE spelling
+`--work-item-provider none` remains a compatibility alias for an unconfigured
+provider on CREATE only; it is not an EDIT removal operation. EDIT requires
+`--remove-work-item-provider`.
+
+Authorized replay of a reviewed CREATE preview is distinct from initiating a new
+CREATE request. Replay requires the returned canonical `--project-id`, exact
+`--preview-digest`, explicit authority, and the same CREATE mode, candidate,
+observations, and effects. Only that exact replay may converge idempotently after
+the reviewed attempt; a fresh or incomplete CREATE request against the now-
+existing slug still fails and cannot reuse replay semantics.
 
 EDIT never creates a missing Project. Unknown, ambiguous, unsafe, corrupt, or
 incoherent selected state produces an explicit zero-write failure. Interactive
@@ -1502,6 +1516,11 @@ The application input must retain presence independently of string zero values:
 Before any state read, reject syntactic conflicts such as provider set plus
 remove, the same Repository key in upsert and removal sets, EDIT `--slug`, CREATE
 removals, or authority flags without the required replay inputs.
+
+For an initiating CREATE, application inspects the requested slug before identity
+allocation/publication. An existing configured slug is a terminal collision with
+zero mutation and no reuse/no-op result. CREATE replay is recognized only from
+the complete replay tuple described in §20.5; partial replay inputs fail closed.
 
 For EDIT, application performs this deterministic sequence:
 
@@ -1536,15 +1555,30 @@ arbitrary local-record or source validation is not allowed.
 
 ### 20.7 Complete preview, effects, and authority
 
-Preview remains read-only and represents the entire resulting configuration, not
-the submitted patch. Its operation payload includes:
+Preview remains read-only and represents the complete resulting portable Project
+plus every machine-local change requested by this operation, never merely the
+submitted patch. Application retains two distinct representations:
+
+- an internal complete local candidate used for complete-state validation,
+  digest/authority construction, revision comparison, and later CAS; and
+- a user-visible safe preview projection containing only machine-local facts
+  needed to review this mutation.
+
+The operation payload includes:
 
 - explicit CREATE/EDIT mode and immutable Project ID;
 - full normalized portable Project candidate;
-- full safe machine-local candidate, including all resulting Repository bindings;
+- safe machine-local projection of resulting Repository bindings and their
+  intended add/update/removal changes;
 - portable and local destinations plus exact observed revisions;
 - deterministic ordered effects, separating portable and machine-local scope;
 - digest of the complete authority envelope.
+
+The user-visible projection does not serialize unrelated preserved
+credential-reference metadata, Runtime binding/observation metadata, attempt
+metadata, or other machine-local persistence fields. Those fields remain in the
+internal complete local candidate so omission cannot erase them and concurrent
+changes can still invalidate authority.
 
 Existing CREATE effect codes and fields remain compatible. EDIT extends effects
 with enough stable detail to distinguish at least portable Project update,
@@ -1561,7 +1595,10 @@ mismatch returns denied/stale authority with no new write.
 
 ### 20.8 Publication and concurrency
 
-CREATE keeps current create/no-op/conflict semantics. EDIT uses explicit update
+Initiating CREATE uses create-only publication: absent slug may publish; existing
+slug fails with zero mutation even when equivalent. Exact authorized replay of
+the reviewed CREATE envelope remains idempotent but is not a second initiating
+CREATE and cannot select or edit another Project. EDIT uses explicit update
 operations only:
 
 1. publish the complete portable candidate with the exact observed portable
@@ -1580,7 +1617,8 @@ publication and the existing portable/local non-atomic boundary.
 
 - no storage schema or migration is planned;
 - Project ID, slug, portable paths, and local record address remain unchanged;
-- CREATE CLI/JSON/human behavior remains regression-covered;
+- CREATE CLI/JSON/human input behavior remains regression-covered, with the
+  reconciled existing-slug failure replacing the former equivalent no-op;
 - new JSON fields/effect details are additive; existing canonical completion
   fields remain unchanged;
 - owned Runtime skill updates must follow existing skill-set ownership and
@@ -1596,13 +1634,15 @@ observation. Minimum coverage:
 
 | Case | Required proof |
 |---|---|
-| CREATE behavior unchanged | parser/service/executable black-box regression, including preview and authorized replay |
+| CREATE input and collision behavior | parser/service/executable black-box regression; initiating existing-slug CREATE fails with zero mutation and never becomes EDIT |
+| CREATE replay separation | exact reviewed replay may converge idempotently; fresh/incomplete CREATE cannot reuse existing ID/state or replay authority |
 | EDIT by slug and UUID | resolver plus service integration; same normalized candidate for equivalent intent |
 | unknown and representable ambiguous selector | explicit zero-write failures; duplicate observed slug fixture for ambiguity |
 | scalar preserve/set/remove | application unit matrix; omitted values retained; provider set/remove conflict rejected |
 | Repository upsert/removal | application unit and portable/local integration; unspecified values and portable fields retained |
 | unknown removal and upsert/remove conflict | deterministic validation failure before writes |
-| complete preview | full portable/local candidate, exact revisions, ordered effects, stable digest; partial patch never emitted as candidate |
+| complete preview | full portable candidate plus safe mutation-focused local projection, exact revisions, ordered effects, stable complete-envelope digest; partial patch never emitted as candidate |
+| local preview minimization | Repository binding changes/effects visible; unrelated credential, Runtime, attempt, and preserved local metadata absent from user output but bound internally |
 | stale preview/authority | portable drift, local drift, selector/ID drift, candidate/effect drift, concurrent writer; zero unauthorized overwrite |
 | portable/local separation | portable manifest contains logical associations only; machine paths/identities remain local; removal exposes both scoped effects |
 | CLI/Runtime skill parity | shared fixtures compare normalized candidate, effects, digest semantics, canonical result, and persisted state |
@@ -1623,6 +1663,7 @@ claim.
 | EDIT erases unrelated portable/local state | clone complete current snapshots; preserve-by-default matrix |
 | strict resolver blocks repair of broken binding | separate safe selection/source load from per-binding availability checks |
 | concurrent local metadata is overwritten | exact-wire local CAS over complete cloned record |
+| preview exposes unrelated local metadata | separate complete internal candidate from mutation-focused safe projection |
 | portable commit succeeds before local failure | truthful `partial`; no false rollback; fresh recovery preview |
 | `none` remains ambiguous | compatibility alias limited to CREATE; EDIT removal has one explicit flag |
 | Runtime skill diverges | shared acceptance fixtures and no skill-side state reads/merge |

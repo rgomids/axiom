@@ -1504,7 +1504,7 @@ ACCEPTED.)
 Authority chain:
 
 ```text
-Issue #132 + approved owner Clarification
+Issue #132 + approved owner Clarification + CREATE collision addendum
 -> proposed Issue #132 Plan amendment
 -> these proposed issue-scoped Tasks
 -> future explicit implementation authority
@@ -1521,13 +1521,13 @@ Specification 004 Tasks and statuses remain unchanged.
 
 | Task | Outcome | Dependencies |
 |---|---|---|
-| `I132-T01` | Complete read-only EDIT candidate and preview | None |
+| `I132-T01` | Executable zero-write EDIT CLI candidate and preview | None |
 | `I132-T02` | Stale-safe authorized EDIT publication | `I132-T01` |
-| `I132-T03` | CLI/Runtime parity, black-box acceptance, and documentation | `I132-T01`, `I132-T02` |
+| `I132-T03` | Runtime parity, full black-box acceptance, and documentation | `I132-T01`, `I132-T02` |
 
 ```mermaid
 flowchart LR
-    I132T01[I132-T01 complete edit preview]
+    I132T01[I132-T01 executable zero-write edit preview]
     I132T02[I132-T02 authorized edit publication]
     I132T03[I132-T03 CLI Runtime parity and acceptance]
     I132T01 --> I132T02
@@ -1535,16 +1535,26 @@ flowchart LR
     I132T02 --> I132T03
 ```
 
-### `I132-T01` — Complete read-only EDIT candidate and preview
+### `I132-T01` — Executable zero-write EDIT CLI candidate and preview
 
 - **Objective:** Accept explicit EDIT partial intent, resolve and load one
   existing Project, deterministically materialize the complete portable/local
-  result, validate it, and return a complete zero-write preview.
+  result, validate it, and expose the safe zero-write preview through the CLI.
 - **Scope:**
+  - add the minimum CLI contract required to invoke EDIT preview:
+    `--project <selector>`, optional `--name`, optional
+    `--work-item-provider`, `--remove-work-item-provider`, repeatable
+    `--repository <key>=<path>`, and repeatable
+    `--remove-repository <key>`;
   - add presence-aware configure intent for CREATE/EDIT, selector, scalar
-    set/remove, Repository upserts/removals, and replay identity;
-  - add strict presentation validation for conflicting operations without moving
-    merge/domain rules into CLI;
+    set/remove, and Repository upserts/removals;
+  - add strict parsing/presence capture and presentation validation for
+    duplicates/conflicting operations without moving merge/domain rules into CLI;
+  - make guided EDIT ask only about ambiguous intent and never prompt to rebuild
+    omitted values that application semantics preserve;
+  - render the safe EDIT preview through existing JSON/human completion surfaces
+    and update CLI help for the preview flags without changing canonical
+    completion ownership;
   - resolve exact UUID/slug with explicit unknown/ambiguous outcomes, then load
     coherent protected portable/local snapshots;
   - separate safe selection/source loading from availability checks so a broken
@@ -1555,10 +1565,14 @@ flowchart LR
     upsert/removal, preserve existing portable Repository fields, and sort the
     resulting collections deterministically;
   - reuse `Project.Propose` for complete-state invariant/reference validation;
-  - extend the setup preview to contain complete normalized portable/local
-    candidates, exact observations, separately scoped ordered effects, and a
-    complete authority digest;
-  - keep CREATE setup semantics and payload compatibility unchanged.
+  - retain the complete normalized local candidate internally for validation,
+    digest/authority, and later CAS while projecting only mutation-relevant safe
+    machine-local facts to the user-visible preview;
+  - expose full portable result, Repository binding changes, exact observations,
+    separately scoped ordered effects, and the complete-envelope digest;
+  - reconcile CREATE so an initiating request against an existing slug fails
+    explicitly with zero mutation, while exact authorized replay remains a
+    separate later concern for `I132-T02`.
 - **Repository impact:** expected focused changes in `internal/cli`,
   `internal/projectapp`, Project/local resolver/load seams, `cmd/lingo`, and their
   unit/integration tests. No persistence mutation path is enabled by this Task.
@@ -1569,9 +1583,15 @@ flowchart LR
     fields;
   - resolver/service integration proves EDIT by slug and UUID plus explicit
     unknown and representable ambiguous selector failures;
-  - preview tests prove full resulting configuration, portable/local separation,
-    distinct removal effects, stable digest, and zero writes;
-  - existing CREATE tests remain green without fallback to EDIT.
+  - strict-parser and CLI integration tests prove every EDIT preview flag,
+    repeatable collections, conflict rejection, guided omission preservation,
+    canonical rendering, and zero writes;
+  - preview tests prove the full portable result, minimized safe local projection,
+    portable/local separation, distinct removal effects, stable complete-envelope
+    digest, exclusion of unrelated credential/Runtime/attempt metadata, and zero
+    writes;
+  - CREATE tests prove an initiating existing-slug collision fails with zero
+    mutation and never falls back to EDIT or state/identity reuse.
 - **Exclusions:** authorized writes, local record replacement, Runtime skill
   changes, slug rename, Project ID mutation, replace-all/clear, local-only unbind,
   listing issue #129, Provider/network/Git effects.
@@ -1592,9 +1612,13 @@ flowchart LR
   - reject stale portable/local observations, selector/identity drift, changed
     candidate/effects, missing authority, and digest mismatch before unauthorized
     overwrite;
+  - distinguish initiating CREATE collision from exact authorized CREATE replay;
+    only replay bound to returned ID, mode, candidate, observations, effects, and
+    digest may converge idempotently;
   - preserve portable-first publication ordering and report portable-confirmed /
     local-failed as `partial` without rollback claims;
-  - preserve CREATE create/no-op/conflict behavior as an independent mode.
+  - preserve CREATE as an independent create-only mode; never use replay
+    idempotency to accept a fresh request against an existing slug.
 - **Repository impact:** expected focused changes in `internal/projectapp`
   lifecycle/authority ports, portable/local adapters, `cmd/lingo` orchestration,
   and deterministic store/service tests. No schema migration.
@@ -1607,28 +1631,21 @@ flowchart LR
     both stores;
   - stale preview matrix covers portable drift, local drift, selector/ID drift,
     candidate/effect drift, and authority mismatch;
+  - CREATE replay tests prove exact replay idempotency and fresh/incomplete
+    existing-slug CREATE refusal with zero writes;
   - injected local failure after portable confirmation proves canonical `partial`,
     confirmed effect reporting, preserved actual state, and fresh-preview recovery;
   - Repository removal is observed in both portable association and local binding.
 - **Exclusions:** transaction/rollback across roots, new recovery protocol,
   migration, Git/Provider mutation, Runtime invocation, release/publication.
 
-### `I132-T03` — CLI/Runtime parity, acceptance Evidence, and documentation
+### `I132-T03` — Runtime parity, acceptance Evidence, and documentation
 
-- **Objective:** Expose approved create/edit semantics through CLI and the
-  `axiom-project-configure` Runtime skill with equivalent outcomes and complete
-  acceptance Evidence.
+- **Objective:** Prove the `I132-T01`/`I132-T02` CLI behavior end to end, expose
+  equivalent intent through the `axiom-project-configure` Runtime skill, and
+  reconcile documentation and acceptance Evidence.
 - **Dependencies:** `I132-T01` and `I132-T02` complete and reviewed.
 - **Scope:**
-  - add strict CLI flags `--project`, `--remove-work-item-provider`, and repeatable
-    `--remove-repository`; retain `--project-id` as replay-only canonical identity;
-  - keep CREATE requirements and create-only `--work-item-provider none`
-    compatibility; reject `none` as EDIT removal and direct users to the explicit
-    removal flag;
-  - make guided EDIT ask only about ambiguous intent, never rebuild omitted values
-    through prompts;
-  - update JSON/human rendering and help while preserving canonical completion
-    fields and additive setup payload compatibility;
   - update the versioned Runtime skill to clarify ambiguous create/edit intent,
     translate explicit intent into CLI arguments, replay the exact preview, and
     never read/merge/validate Project state itself;
@@ -1637,17 +1654,19 @@ flowchart LR
   - update command/user documentation only after behavior exists;
   - capture deterministic and bounded real Runtime Evidence without inferring
     authority or acceptance from the skill.
-- **Repository impact:** expected focused changes in `internal/cli`, `cmd/lingo`,
-  `internal/codexruntime/skills/axiom-project-configure`, runtime skill ownership/
-  compatibility fixtures as required, `docs/commands.md`, affected user docs, and
-  an issue-scoped Evidence artifact.
+- **Repository impact:** expected focused changes in `cmd/lingo` executable
+  acceptance tests, `internal/codexruntime/skills/axiom-project-configure`,
+  runtime skill ownership/compatibility fixtures as required, `docs/commands.md`,
+  affected user docs, and an issue-scoped Evidence artifact. CLI flag
+  implementation, help, rendering, and preview parsing remain owned by
+  `I132-T01`.
 - **Completion/Evidence:**
-  - strict-parser tests cover new flags, duplicates, syntax, set/remove conflicts,
-    replay requirements, and rejection before effects;
-  - executable black-box tests prove CREATE unchanged; EDIT by slug/UUID; unknown
-    and ambiguous selector; scalar preserve/set/remove; Repository upsert/removal;
+  - executable black-box tests prove corrected CREATE collision/replay behavior;
+    EDIT by slug/UUID; unknown and ambiguous selector; scalar
+    preserve/set/remove; Repository upsert/removal;
     unknown removal; upsert/remove conflict; unspecified-value preservation;
-    complete preview; stale authority; and portable/local separation;
+    minimized safe preview; stale authority; exact CREATE replay versus initiating
+    collision; and portable/local separation;
   - shared CLI/Runtime fixtures prove equivalent normalized candidate, effect set,
     digest semantics, persisted result, and canonical completion for equivalent
     intent;
@@ -1668,7 +1687,8 @@ flowchart LR
 
 | Issue #132 acceptance / required case | Responsible Task(s) |
 |---|---|
-| CREATE without `--project`; no CREATE-to-EDIT fallback | `I132-T01`, `I132-T03` |
+| Initiating CREATE without `--project`; existing slug fails with zero mutation and no CREATE-to-EDIT fallback | `I132-T01`, `I132-T03` |
+| Exact authorized CREATE replay is separate from a fresh CREATE request | `I132-T02`, `I132-T03` |
 | EDIT with `--project`; no EDIT-to-CREATE fallback | `I132-T01`, `I132-T03` |
 | EDIT by slug and UUID | `I132-T01`, `I132-T03` |
 | Unknown selector | `I132-T01`, `I132-T03` |
@@ -1681,7 +1701,8 @@ flowchart LR
 | Unknown Repository removal | `I132-T01`, `I132-T03` |
 | Repository upsert plus removal conflict | `I132-T01`, `I132-T03` |
 | Preservation of all unspecified portable/local values | `I132-T01`, `I132-T02` |
-| Complete preview and complete-candidate digest | `I132-T01`, `I132-T03` |
+| Complete portable preview, minimized safe local projection, and complete internal-candidate digest | `I132-T01`, `I132-T03` |
+| Unrelated credential/Runtime/attempt/local metadata excluded from user-visible preview | `I132-T01`, `I132-T03` |
 | Stale preview/authority/concurrency rejection | `I132-T02`, `I132-T03` |
 | Portable/local boundary and separately visible effects | `I132-T01`–`I132-T03` |
 | CLI and Runtime skill semantic parity | `I132-T03` |
