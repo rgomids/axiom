@@ -226,6 +226,120 @@ A technical merge does not establish human acceptance. Acceptance does not autom
 
 Accepted submissions are licensed under [Apache-2.0](LICENSE), unless explicitly stated otherwise. Contributors must hold the rights necessary to submit their content; identify any different licensing explicitly for review.
 
+## Delivery tracking
+
+Issues stay open until the functionality they describe is published in a
+stable GitHub Release. Merging a Pull Request never closes an Issue.
+
+### Pull Request Issue metadata
+
+Every Pull Request declares its Issue relationship in its description, which
+the squash merge copies into the commit on `main`:
+
+```text
+Related-Issues: #132
+Completes-Issues: none
+```
+
+- `Related-Issues`: every Issue the PR advances, or `none`.
+- `Completes-Issues`: only the Issues whose remaining acceptance criteria this
+  PR completes, or `none`. Each one must also be in `Related-Issues`.
+- One line per key, at the start of a line, outside code blocks and HTML
+  comments, and at most 72 characters long (GitHub wraps the squash commit
+  body near that width). Values
+  are `none` or same-repository references separated by commas (`#12, #34`).
+  Each key appears exactly once. Duplicates, other repositories, URLs,
+  near-miss keys (`completes-issues:`, `Completes-Issue:`) or more than 20
+  Issues are refused.
+- A partial PR (for example one Task of a multi-Task Issue) lists the parent
+  Issue only in `Related-Issues`. Only the PR that completes the Issue lists it
+  in `Completes-Issues`. A mention, review, label, green CI or merge never
+  implies completion.
+- Do not use GitHub closing keywords (`close`, `fix` or `resolve` and their
+  forms, followed by an Issue reference) in the title or description, and do
+  not link Issues in the PR's Development sidebar: GitHub would close the
+  Issue at merge time. Both are refused.
+
+The [`delivery-metadata`](.github/workflows/delivery-metadata.yml) check
+validates this with
+[`scripts/delivery-issues.sh check-pr`](scripts/delivery-issues.sh), using the
+base revision's validator. It also requires that the metadata parse the same
+after a 72-column wrap, and that GitHub's `closingIssuesReferences` for the PR
+is empty. It runs on every PR except Release PRs opened by Release Please. It
+is not
+yet a required check (see Pending in
+[repository security](docs/security/repository-security.md#delivery-tracking)).
+Keep the metadata intact when editing the squash commit message. If a merged
+commit's metadata is malformed, the release that contains it fails closed. The
+fix is a reviewed line in
+[`.github/delivery-corrections.txt`](.github/delivery-corrections.txt) of the
+form `<full-sha> related=<n,m|none> completes=<n,m|none>`, with its reason
+recorded above it. The file is read as committed at the revision being
+resolved, so a correction counts only for releases whose release commit
+contains it. History is never rewritten.
+
+### Migration boundary (v0.2.0)
+
+Commits merged before this contract carry no metadata and deliver no Issue.
+Old closing keywords are not reinterpreted. The only exceptions are two
+reviewed records in `.github/delivery-corrections.txt`:
+
+- PR #143 (`f04dbf3`) explicitly implements #129;
+- PR #148 (`fc6cdf4`) completes #147; it closed that Issue with a keyword at
+  merge.
+
+These records let the `v0.2.0` envelope record #129 and #147 as delivered by
+`v0.2.0`. Their effect is `comment`, plus `project` when the projection is
+enabled. Both Issues were already closed by a keyword, and closed is not
+Released, so they are recorded but not re-closed. #132 is not completed: #145
+delivered only `I132-T01`. From `v0.2.0` on, only `Completes-Issues` delivers
+an Issue. Any Project #5 snapshot or mutation digest taken before these
+records is stale and must be refreshed by read-back before a Project
+migration. This applies only if this contract reaches `main` before Release PR
+#146 is merged, so that Release Please regenerates its release commit on top
+of it. If #146 merges first, `v0.2.0` publishes with the earlier scripts, and
+recording #129 needs a separately authorized manual action.
+
+### Lifecycle
+
+```text
+Planned -> In Progress -> In Review -> Awaiting Release -> Released (Issue closed)
+```
+
+| Event | Effect | Authority |
+|---|---|---|
+| Issue added to the Project | Status `Planned` (Issues only; Pull Requests stay in their own view) | maintainer or a verified built-in workflow |
+| Work starts, PR opened | Status `In Progress`, then `In Review` | maintainer, manually |
+| A PR with `Completes-Issues: none` merges | nothing changes; the commit keeps its `Related-Issues` | PR merge |
+| A PR with `Completes-Issues: #N` merges | bounded comment on #N; Status `Awaiting Release`; `Target Release` cleared because the version is not yet known; #N stays open; a closed #N is reported and left alone | PR merge; [`delivery-sync.yml`](.github/workflows/delivery-sync.yml), which re-scans from the latest release range on each push |
+| The Release PR merges (release commit) | `Target Release = vX.Y.Z` for every Issue that release delivers | Release PR merge; `delivery-sync.yml` |
+| A release candidate is published | nothing changes: an RC delivers no Issue and closes none | authorized envelope |
+| The stable release is published and read back | for each delivered Issue: bounded comment linking the release, Status `Released`, `Target Release = vX.Y.Z`, closed as completed | the same authorized publication envelope |
+
+The Issues a stable release delivers are the `Completes-Issues` of the
+first-parent commits after the previous release commit, up to and including
+its own release commit. They are deduplicated across PRs, so consecutive
+releases never share an Issue. The release notes list them under
+`### Issues delivered`. Each title is sanitized and rendered as a code span,
+so an Issue title cannot mention users or link references from a release.
+
+The Project status, `Target Release` and the delivery comments are a delivery
+projection for human visibility. They are not Axiom Execution truth and not
+the `axiom:stage:*` lifecycle of Axiom-managed Work Items (see
+[Work Item lifecycle governance](#work-item-lifecycle-governance)). They
+create no local fact and record no human acceptance. Blocked, decision,
+approval and recovery conditions stay out of the Status field.
+
+The Project is the existing `Axiom Base Line` #5, which is being evolved
+into `Axiom Delivery`; no second Project is created (see
+[repository security](docs/security/repository-security.md#delivery-tracking)).
+`.github/delivery-project.json` binds it and stays at
+`"projection": "disabled"` until the separately authorized migration is done.
+While disabled, comments and closure still happen and the envelope says
+`delivery_project=users/rgomids/projects/5 projection=disabled`. `Legacy Done`
+is a temporary migration status for historical `Done` items. It is never
+`Released`, and the scripts never set or read it.
+
 ## Release flow
 
 ```text
@@ -233,6 +347,7 @@ main -> Release PR -> review + approval -> squash merge
      -> prepare: build + verify -> publication envelope
      -> explicit human authorization of that envelope
      -> publish the same bytes: tag vX.Y.Z[-rc.N] + GitHub Release -> read-back
+     -> stable only: release, record and close the delivered Issues
 ```
 
 GitHub Releases is the initial distribution channel. Preparing a versioned
@@ -279,7 +394,7 @@ PREPARE  release-artifacts.yml: preflight -> build -> verify -> notes -> retaine
          release.sh: re-verify that artifact at the revision -> publication envelope + preview_digest
 AUTHORITY  a maintainer authorizes that exact preview_digest
 PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authorized digest
-         -> draft -> upload -> read-back -> publish -> read-back
+         -> draft -> upload -> read-back -> publish -> read-back -> delivered Issues (stable)
 ```
 
 1. [`release-artifacts.yml`](.github/workflows/release-artifacts.yml), dispatched
@@ -308,6 +423,16 @@ PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authoriz
    envelope's files, reads back each digest, publishes once and reads back the
    release, the tag and the `latest` pointer. Nothing is rebuilt after
    authorization.
+5. For a stable release, the same envelope also lists the
+   [delivered Issues](#delivery-tracking), each Issue's remote state
+   (`delivery_issue.N`) and its exact effects (`effect.issue.N`: comment,
+   Project status, close). They run only after the release reads back
+   published, and only if the Issue state still equals the authorized one. A
+   configured Project that cannot be resolved stops the run before the draft.
+   If an Issue effect fails after publication, the remote state has changed:
+   the next envelope lists only the remaining effects and needs a new
+   authorization. A release candidate's envelope says
+   `delivery_issues=not_applicable`.
 
 A stable release must be published from its release commit. A release
 candidate may be published from any `main` revision that does not record a
@@ -333,6 +458,7 @@ authorization.
 | authorize the exact publication envelope and dispatch it | maintainer, explicitly |
 | approve the `release` environment | maintainer, in GitHub |
 | repository settings, rulesets, environments | repository administrator |
+| migrating Project #5, its credential, environments and enabling `.github/delivery-project.json` | repository administrator; the file through a reviewed PR |
 
 Green CI, a merged Release PR or an earlier approval never authorizes a
 publication. Agents may prepare, verify and report, and dispatch publication
@@ -363,7 +489,7 @@ Evidence are in the [command reference](docs/commands.md#release-flow) and
 | | Merge to `main` | Release |
 |---|---|---|
 | Trigger | squash merge of a reviewed PR | prepared set, authorized envelope, dispatch of `publish-release.yml` |
-| Effects | commit on `main`; CI; Release PR update | tag, GitHub Release, assets |
+| Effects | commit on `main`; CI; Release PR update; delivery projection (`Awaiting Release`) | tag, GitHub Release, assets; delivered Issues released and closed (stable only) |
 | Authority | PR approval and required CI | authority over the exact envelope digest and `release` environment approval |
 | Reversible | by a new PR | never silently: tags and published releases are immutable |
 

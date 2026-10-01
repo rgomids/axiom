@@ -23,6 +23,8 @@ on:
 
 permissions:
   contents: read
+  # Stable notes list the delivered Issues with their titles.
+  issues: read
 
 defaults:
   run:
@@ -76,6 +78,8 @@ jobs:
       - name: Build supported release archives
         run: ./scripts/build-release-archives.sh --version "$RELEASE_VERSION" --output "$RUNNER_TEMP/axiom-release/artifacts"
       - name: Verify complete artifact set and render notes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           out="$RUNNER_TEMP/axiom-release"
           ./scripts/verify-release-artifacts.sh --dir "$out/artifacts" --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" >"$out/release-evidence.txt"

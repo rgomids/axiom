@@ -1,0 +1,75 @@
+name: Delivery metadata
+# Validates the explicit Issue relationship of a Pull Request:
+# "Related-Issues:" and "Completes-Issues:" lines in its description, which
+# the squash merge carries into the commit on main. GitHub closing keywords
+# are refused: Issues close only when a stable release that delivers them is
+# published. The description is untrusted input: it reaches the validator
+# only through an environment variable and a file, never shell interpolation.
+# The validator comes from the base revision, so a PR cannot weaken its own
+# check. It also fails when GitHub itself links an Issue to close on merge
+# (closing keywords or the Development sidebar: closingIssuesReferences).
+# Read-only token, no secrets; safe for fork PRs.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: delivery-metadata-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  delivery-metadata:
+    name: delivery-metadata
+    # Release PRs are written by Release Please and deliver no Issue. A branch
+    # name alone never skips the check: author and head repository must match.
+    if: >-
+      ${{ !(startsWith(github.head_ref, 'release-please--')
+        && github.event.pull_request.user.login == 'github-actions[bot]'
+        && github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+      - name: Validate Related-Issues and Completes-Issues
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if [[ ! -x scripts/delivery-issues.sh ]]; then
+            printf 'delivery metadata validator is not on the base revision yet; nothing to check\n'
+            exit 0
+          fi
+          printf '%s\n' "$PR_TITLE" >"$RUNNER_TEMP/title"
+          printf '%s\n' "$PR_BODY" >"$RUNNER_TEMP/body"
+          ./scripts/delivery-issues.sh check-pr --title "$RUNNER_TEMP/title" --body "$RUNNER_TEMP/body" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Refuse Issues GitHub would close at merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          [[ "$PR_NUMBER" =~ ^[0-9]+$ ]]
+          owner=${GITHUB_REPOSITORY%%/*}
+          name=${GITHUB_REPOSITORY#*/}
+          # shellcheck disable=SC2016
+          linked=$(gh api graphql -f owner="$owner" -f name="$name" -F number="$PR_NUMBER" -f query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) { pullRequest(number: $number) {
+                closingIssuesReferences(first: 20) { nodes { number } } } } }' \
+            --jq '[.data.repository.pullRequest.closingIssuesReferences.nodes[].number] | map("#\(.)") | join(", ")')
+          if [[ -n "$linked" ]]; then
+            printf 'GitHub would close %s at merge; remove the closing keyword or Development link and use Related-Issues/Completes-Issues\n' "$linked" >&2
+            exit 1
+          fi

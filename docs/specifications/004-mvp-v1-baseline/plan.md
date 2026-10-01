@@ -1024,6 +1024,31 @@ closed. The staged draft is never installable, so the
 T23 objective "publish once as a non-draft prerelease" is unchanged. Process
 and authority: [CONTRIBUTING.md](../../../CONTRIBUTING.md#release-flow).
 
+**Delivery traceability reconciliation (2026-10-01, proposed for human
+review; no Provider, Project or publication authority).** This covers
+maintainer delivery of this repository's own Issues. It is not product
+behavior. Each PR declares `Related-Issues` and `Completes-Issues` in its
+description, and the squash merge (`PR_BODY`) carries them into the commit on
+`main`. GitHub closing keywords are refused. A completing merge moves the
+Issue to the `Awaiting Release` delivery status and leaves it open. The
+Release PR merge records `Target Release`. Only the authorized publication
+envelope of a stable release releases and closes the Issue, after the release
+reads back. The Issue set is resolved deterministically from Git, from the
+release range (previous release commit, release commit]. The envelope binds
+that set, each Issue's remote state and its exact effects, so a change
+invalidates the authorization. A release candidate delivers no Issue. The
+existing GitHub Project #5 (`Axiom Base Line`, evolving to `Axiom
+Delivery`; projection disabled until its separately authorized migration,
+with a migration-only `Legacy Done` status never read as Released) is a
+human-visibility projection. `v0.2.0` is the migration boundary: legacy
+commits deliver nothing except two reviewed corrections recording #129 (PR
+#143) and #147 (PR #148), both already closed and recorded without
+re-closure; #132 stays incomplete. It
+is not Execution truth, not FR-039 `axiom:stage:*` derivation and not an
+FR-041 flag, and it records no acceptance. No ADR: the change extends the
+release envelope recorded above and adds no product-domain boundary. Process:
+[CONTRIBUTING.md](../../../CONTRIBUTING.md#delivery-tracking).
+
 RC is an identified candidate version/revision with immutable checksums and a
 declared support matrix, tagged `vX.Y.Z-rc.N` and published as a GitHub
 prerelease only under T23 authority. For each OS/architecture row, an isolated

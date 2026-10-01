@@ -14,6 +14,18 @@ State what this PR intentionally leaves outside its scope.
 
 Link applicable records and affected contracts. State when none applies.
 
+## Delivered Issues
+
+Replace both placeholders. List every Issue this PR advances in
+`Related-Issues`; list in `Completes-Issues` only the Issues whose remaining
+acceptance criteria this PR completes (`none` for a partial PR). Use same-repository
+references separated by commas, or `none`. Do not use GitHub closing keywords:
+Issues stay open after merge and close only when a stable release that
+delivers them is published (see CONTRIBUTING.md, Delivery tracking).
+
+Related-Issues: #<issue> or none
+Completes-Issues: #<issue> or none
+
 ## Work Item lifecycle / authority
 
 For lifecycle-affecting changes, state current and target canonical Execution

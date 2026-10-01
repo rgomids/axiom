@@ -345,6 +345,9 @@ case "$command" in
       grep -Ev '^(result|publication)=' "$temporary/verified"
       printf 'artifacts_verified=pass\n'
     fi
+    # A stable release must also have closed every Issue it delivers with its
+    # release record; a release candidate delivers none.
+    "$scripts/delivery-github.sh" verify --repo "$repository" --tag "$tag" --revision "$tag_sha"
     printf 'result=pass\n'
     ;;
   *)

@@ -1,0 +1,93 @@
+name: Delivery sync
+# Merge-time delivery projection. Each run re-scans main from the start of
+# the latest release's range, so a run GitHub skipped or superseded in the
+# concurrency group is still covered; every effect is idempotent and closed
+# Issues are never moved back. For the commits in that window:
+# - a commit whose squash message declares "Completes-Issues: #N" records a
+#   bounded comment on each Issue and, when a Project is configured, sets its
+#   Status to Awaiting Release and clears Target Release. The Issue stays open:
+#   merge is not publication.
+# - a release commit (merged Release PR) records Target Release vX.Y.Z for the
+#   Issue set that release delivers.
+# Partial PRs (Completes-Issues: none) have no effect. This is a delivery
+# projection for humans, never Axiom Execution truth or axiom:stage:* state.
+# Issue closure happens only in publish-release.yml, inside the authorized
+# publication envelope. Runs the trusted main revision only (push), never PR
+# code. The Project credential is an environment secret of `delivery`, used
+# only once .github/delivery-project.json sets "projection": "enabled".
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: delivery-sync
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      project: ${{ steps.config.outputs.project }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Read the delivery Project configuration
+        id: config
+        run: |
+          project=false
+          if [[ -f .github/delivery-project.json ]] && jq -e '.projection == "enabled"' .github/delivery-project.json >/dev/null; then
+            project=true
+          fi
+          printf 'project=%s\n' "$project" >>"$GITHUB_OUTPUT"
+
+  sync:
+    needs: plan
+    if: ${{ needs.plan.outputs.project != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Project merged deliveries onto their Issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: ./scripts/delivery-github.sh sync --repo "$GITHUB_REPOSITORY" --to "$PUSH_AFTER" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  sync-project:
+    needs: plan
+    if: ${{ needs.plan.outputs.project == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: delivery
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Project merged deliveries onto their Issues and the delivery Project
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AXIOM_DELIVERY_PROJECT_TOKEN: ${{ secrets.AXIOM_DELIVERY_PROJECT_TOKEN }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: ./scripts/delivery-github.sh sync --repo "$GITHUB_REPOSITORY" --to "$PUSH_AFTER" | tee -a "$GITHUB_STEP_SUMMARY"
