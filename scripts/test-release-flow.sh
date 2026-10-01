@@ -1537,8 +1537,8 @@ check 'ruleset requires exactly the CI job checks and the PR delivery-metadata c
 # Every required context must exist on the Release PR head, where Release
 # Please events start no pull_request run: its workflows are dispatched there.
 check 'every required context is produced on the Release PR path' bash -c "
-  grep -Fq 'gh workflow run ci.yml --repo \"\$GITHUB_REPOSITORY\" --ref \"\$RELEASE_BRANCH\"' '$workflows/release-please.yml' &&
-  grep -Fq 'gh workflow run delivery-metadata.yml --repo \"\$GITHUB_REPOSITORY\" --ref \"\$RELEASE_BRANCH\"' '$workflows/release-please.yml' &&
+  grep -Fq 'gh workflow run ci.yml --repo \"\$repository\" --ref \"\$RELEASE_BRANCH\"' '$repository_root/scripts/release-pr-checks.sh' &&
+  grep -Fq 'gh workflow run delivery-metadata.yml --repo \"\$repository\" --ref \"\$RELEASE_BRANCH\"' '$repository_root/scripts/release-pr-checks.sh' &&
   sed -n '/^on:/,/^[a-z]/p' '$workflows/ci.yml' | grep -Fxq '  workflow_dispatch:' &&
   sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-metadata.yml' | grep -Fxq '  workflow_dispatch:'"
 dispatch_path_is_guarded() {

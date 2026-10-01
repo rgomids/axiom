@@ -34,15 +34,10 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           skip-github-release: true
-      - name: Run required CI on the Release PR head
-        if: steps.release.outcome == 'success' && steps.release.outputs.prs_created == 'true' && steps.release.outputs.pr != ''
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Run required checks on the current Release PR head
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_PR: ${{ steps.release.outputs.pr }}
-        run: |
-          RELEASE_BRANCH="$(jq -er '.headBranchName' <<<"$RELEASE_PR")"
-          [[ "$RELEASE_BRANCH" =~ ^release-please--[A-Za-z0-9._/-]+$ ]]
-          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_BRANCH"
-          # Required delivery-metadata context on the Release PR head (the
-          # dispatch path accepts only this bot-authored Release PR head).
-          gh workflow run delivery-metadata.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_BRANCH"
+        run: ./scripts/release-pr-checks.sh dispatch "$GITHUB_REPOSITORY"
