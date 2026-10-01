@@ -64,7 +64,7 @@ without accepting implicit in-place migration of historical workflow truth:
 
 - RecognizedPOC MUST resolve to the canonical installer's bounded
   **preserve -> clean rebuild -> supported reconfiguration** transition when its
-  preservation/lifecycle policy and exact authority preconditions are satisfied;
+  policy, safety, and exact-authority preconditions are satisfied;
   otherwise the installer MUST refuse before mutation with actionable diagnostics;
 - historical POC Execution/workflow truth remains historical and MUST NOT be
   promoted silently into current canonical Execution/workflow state;
@@ -790,10 +790,10 @@ MUST NOT claim authorship over the transported content.
   its supported compatibility window and one supported forward path for each:
   direct compatibility, a bounded validated migration, or preserve plus
   rebuild/reconfiguration. State safely identified as historical RecognizedPOC
-  follows the 2026-10-01 Issue #153 decision: preserve a verifiable historical
-  copy, rebuild clean compatible active state, and reconfigure only explicitly
-  supported information. Historical POC Execution/workflow truth MUST NOT
-  silently become current canonical truth.
+  MUST resolve through the 2026-10-01 Issue #153 preserve -> clean rebuild ->
+  supported reconfiguration strategy when all policy, safety, and exact-authority
+  preconditions are satisfied; otherwise it MUST refuse before mutation. Historical
+  POC Execution/workflow truth MUST NOT silently become current canonical truth.
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.
@@ -803,12 +803,27 @@ MUST NOT claim authorship over the transported content.
   copy MUST live in a dedicated Axiom-owned machine-local archive namespace
   separate from active Project/State/Skills roots and be identified by the exact
   transition operation plus source digest. The source remains active/intact until
-  every required archived object and the final preservation manifest are
-  digest-verified. The upgrade MUST NOT automatically delete that archive.
+  the verified preservation manifest proves complete correspondence with the
+  revalidated source inventory required by the applicable preservation policy.
+  Legacy state MUST NOT be retired before that proof. For each required preserved
+  object, deterministic Evidence MUST record category, relative identity/path,
+  digest, and bytes in both the source inventory and preservation manifest.
+  Preservation MUST revalidate the source inventory, determine the exact
+  policy-required object set, copy those objects, verify bytes/digests, write the
+  final manifest, and compare it against the expected inventory/policy before
+  allowing retirement/quarantine. Any missing, unexpected, changed, or
+  unverifiable object MUST block retirement and report truthful failure, partial,
+  or recovery_required as applicable. The archive MUST NOT become canonical
+  active state. The upgrade MUST NOT automatically delete that archive.
   Subsequent cleanup requires a separate explicit, reference-aware cleanup action
   and MUST NOT rely on age alone. Cross-filesystem preservation is allowed by
   copy-and-verify; Axiom MUST NOT claim or depend on cross-filesystem atomic
-  rename. Backup/archive identity, ownership, permissions, retention, references,
+  rename. The archive destination MUST be Axiom-owned, safe, explicitly resolved,
+  outside active roots, and non-overlapping with the source. Cross-filesystem
+  preservation MUST retain all ownership, confinement, exact-authority, and
+  verification guarantees; the explicit regression matrix in Plan §21.6 and
+  I153-T02/I153-T03 is required new Evidence, not historical T17 coverage.
+  Backup/archive identity, ownership, permissions, retention, references,
   cleanup eligibility, and recovery status MUST remain explicit.
 - **FR-029 No silent downgrade:** downgrade or lossy conversion is refused unless a
   separately specified reversible path exists. Newer unknown state is never
@@ -976,8 +991,10 @@ Plan/release declaration before distribution.
   idempotent no-op. A newer resolved version MUST first resolve one explicit
   supported forward-transition strategy for the observed state: direct, bounded
   migration, preserve plus rebuild/reconfiguration, or refuse. Historical
-  RecognizedPOC uses the approved preserve -> clean rebuild -> supported
-  reconfiguration path and MUST NOT promote historical Execution/workflow truth
+  RecognizedPOC MUST resolve through the approved preserve -> clean rebuild ->
+  supported reconfiguration path when all policy, safety, and exact-authority
+  preconditions are satisfied; otherwise it MUST refuse before mutation. It MUST
+  NOT promote historical Execution/workflow truth
   into current canonical state. An older resolved version is refused as an
   automatic downgrade with zero installation effects. Foreign, modified, unsafe,
   ambiguous, corrupt, unsupported-newer, or out-of-window persisted state MUST
@@ -1543,7 +1560,8 @@ The human explicitly approved the compatibility direction on 2026-10-01:
   compatibility window and the supported forward strategy for each;
 - preserve RecognizedPOC into a dedicated Axiom-owned machine-local archive
   separate from active state, identified by operation/source digest; keep the
-  source intact until the archive manifest is fully digest-verified; never delete
+  source intact until the verified archive manifest proves complete correspondence
+  with the revalidated policy-required source inventory; never delete
   that archive as part of upgrade; allow later removal only through explicit
   reference-aware cleanup; and permit cross-filesystem copy-and-verify without
   claiming atomic rename.

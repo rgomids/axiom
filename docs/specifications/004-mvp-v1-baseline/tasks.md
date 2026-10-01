@@ -1793,6 +1793,9 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
   - replace generic user-facing state_incompatible dead ends with bounded product
     diagnostics that identify whether the state is unsupported,
     unsafe/recovery-required, or has an automatic supported transition;
+  - RecognizedPOC MUST resolve through preserve -> clean rebuild -> supported
+    reconfiguration when all policy, safety, and exact-authority preconditions hold;
+    otherwise it MUST refuse before mutation;
   - preserve exact preview/authority/revalidation and partial-truth semantics.
 - **Repository impact:** expected focused changes in internal/compatibility,
   internal/install, installer command/script integration and deterministic tests.
@@ -1817,13 +1820,24 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
 - **Requirements:** FR-026–FR-030, FR-037, FR-065; AC-17–AC-19, AC-46; ADR-0005,
   ADR-0007; Issue #153 compatibility decision.
 - **Scope:**
-  - positively revalidate the complete recognized POC signature;
+  - positively revalidate the complete recognized POC signature and source inventory;
+  - determine the exact policy-required object set, copy objects, verify bytes/digests,
+    write the final manifest, and compare it against the expected inventory/policy
+    before permitting retirement/quarantine;
+  - record category, relative identity/path, digest, and bytes per relevant object
+    in both source inventory and preservation manifest;
+  - block retirement for every missing, unexpected, changed, or unverifiable object
+    with truthful failure/partial/recovery_required; never activate the archive as
+    canonical active state;
   - produce a restrictive digest-manifested preservation archive in the approved
     Axiom-owned machine-local archive namespace, separate from active roots and
     identified by transition operation plus source digest, before any legacy
-    active state is retired;
+    active state is retired; resolve a safe destination explicitly outside active
+    roots and non-overlapping with the source;
   - support same- or cross-filesystem archive destinations through copy + per-object
-    digest verification plus a final manifest, never by assuming atomic rename;
+    digest verification plus a final manifest and complete inventory/policy
+    correspondence, never by assuming atomic rename or weakening ownership,
+    confinement, exact-authority, or verification guarantees;
   - validate and extract only portable Project intent supported by the current
     portable contract;
   - prepare clean compatible active state and reconstruct only explicitly
@@ -1833,7 +1847,19 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
   - activate rebuilt state using the existing publication/recovery invariants;
   - continue the protected owned binary/receipt/skill upgrade only after the
     applicable state transition prerequisites are satisfied.
-- **Recovery:** interruption after preservation, during rebuild, during activation,
+- **Mandatory security/safety regressions:** implement every Plan §21.6 matrix
+  case for same- and cross-filesystem preservation: path traversal, absolute-path
+  escape, symlink, hard-link when applicable to the threat model, ancestor
+  replacement, leaf replacement, ownership, mode, ACL, unsafe file type, collision /
+  occupied destination, stale authority, source digest drift, target drift, ENOSPC,
+  EDQUOT when supported, interruption during copy, interruption before final
+  manifest, partial archive, retry, equivalent no-op, secret/local-data boundary,
+  foreign/unknown content, and cross-filesystem target. Inject missing, unexpected,
+  changed, and unverifiable inventory/manifest objects independently, including
+  when copied-object digests pass. Record platform applicability/unverified cases
+  explicitly; historical T17 Evidence does not cover this new flow.
+- **Recovery:** interruption during copy or before final manifest, after
+  preservation, during rebuild, during activation,
   or after activation but before install completion must remain classifiable and
   resumable/finalizable under fresh exact authority. No retry may duplicate
   preservation or silently discard confirmed effects.
@@ -1842,7 +1868,11 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
   primitives where they satisfy the new contract; do not reinterpret POC
   Execution records as current schema by convenience.
 - **Completion/Evidence:**
-  - preservation manifest/digests verified before retirement;
+  - deterministic complete source inventory <-> final preservation manifest
+    correspondence against the revalidated policy-required set, with per-object
+    category, relative identity/path, digest, and bytes, verified before retirement;
+  - rejected missing/unexpected/changed/unverifiable objects preserve intact source
+    and deny retirement; record exact confirmed effects and recovery classification;
   - supported portable intent reconstructed and validated;
   - historical workflow/Execution material demonstrably absent from current
     canonical workflow state while remaining inspectable;
@@ -1853,7 +1883,8 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
   preservation archive, age-only cleanup authority, cross-filesystem atomic-rename
   assumptions, generic arbitrary-schema migration.
 - **Approved preservation lifecycle:** the upgrade keeps the source intact until
-  the complete archive manifest verifies; the archive is Axiom-owned,
+  verified final manifest proves complete correspondence with the revalidated
+  policy-required source inventory; the archive is Axiom-owned,
   machine-local, separate from active roots, and retained after upgrade. Later
   removal is a separate explicit reference-aware cleanup action under existing
   safety/recovery contracts.
@@ -1879,7 +1910,16 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
     canonical installer for N+1, and validate final axiom version plus active
     state;
   - rerun after success is unchanged;
-  - preserved historical state is inspectable;
+  - preserved historical state is inspectable and the archive is never canonical;
+  - independently compare the revalidated policy-required source inventory to the
+    verified final manifest using category, relative identity/path, digest, and
+    bytes; missing/unexpected/changed/unverifiable cases block retirement;
+  - execute and retain new regression Evidence for every I153-T02 / Plan §21.6
+    security/safety matrix case, including same- and cross-filesystem targets,
+    interruption during copy/before final manifest, ENOSPC and supported EDQUOT;
+    record applicability and unverified platform cases explicitly, never as pass;
+  - keep historical T17 Evidence unchanged; it does not prove the automatic
+    preservation/rebuild flow's new security/safety coverage;
   - unsupported/foreign/unsafe/out-of-policy matrices prove zero destructive
     effects;
   - exact commands, exits, state classifications, transition strategy, digests,
@@ -1895,6 +1935,8 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
 | Explicit stable persisted-state compatibility window | I153-T01, I153-T03 |
 | Supported newer owned upgrade resolves one transition strategy | I153-T01, I153-T03 |
 | RecognizedPOC preserved before retirement in the approved Axiom-owned archive lifecycle | I153-T02, I153-T03 |
+| Complete policy-required source inventory <-> manifest correspondence; missing/unexpected/changed/unverifiable refusal | I153-T02, I153-T03 |
+| Explicit new preservation security/safety matrix (Plan §21.6), separate from historical T17 Evidence | I153-T02, I153-T03 |
 | Cross-filesystem archive copy is digest-verified without atomic-rename assumptions | I153-T02, I153-T03 |
 | Preservation archive survives upgrade and cleanup is separately explicit/reference-aware | I153-T02, I153-T03 |
 | Valid portable Project intent reconstructed through current contract | I153-T02, I153-T03 |

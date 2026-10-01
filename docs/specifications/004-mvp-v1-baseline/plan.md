@@ -11,10 +11,11 @@ observations remain historical. T24 and human acceptance stay separately gated.
 ## Issue #153 forward-compatibility Plan amendment — 2026-10-01
 
 The 2026-10-01 human decision approves the product compatibility direction in
-Specification 004: RecognizedPOC may converge automatically only through
-preservation, clean compatible-state rebuild, and supported reconfiguration;
-historical workflow/Execution truth is not promoted. The current stable persisted-state compatibility window contains only canonical
-v1; RecognizedPOC is a separate historical transition. A future stable release
+Specification 004: RecognizedPOC MUST resolve through preserve -> clean rebuild ->
+supported reconfiguration when all policy, safety, and exact-authority
+preconditions are satisfied; otherwise it MUST refuse before mutation.
+Historical workflow/Execution truth is not promoted. The current stable persisted-
+state compatibility window contains only canonical v1; RecognizedPOC is a separate historical transition. A future stable release
 that introduces a new persisted-state format must declare its exact supported
 predecessor formats before publication.
 
@@ -964,14 +965,18 @@ contains only canonical v1. RecognizedPOC is handled by its separately approved
 historical transition and is not a member of that stable window. Any future stable
 release that introduces a new persisted-state format must, before publication,
 declare the exact predecessor stable formats retained in its compatibility window
-and one supported forward strategy for each. State outside that policy may fail
+and one supported forward strategy for each. State outside that policy MUST fail
 closed even when Axiom can recognize its provenance.
 
-For RecognizedPOC, the approved Issue #153 transition is:
+RecognizedPOC MUST resolve through the approved Issue #153 transition when all
+policy, safety, and exact-authority preconditions are satisfied; otherwise it MUST
+refuse before mutation. The transition is:
 
 1. inspect and positively recognize the complete POC-owned signature;
-2. create and verify a restrictive digest-manifested preservation copy before
-   any legacy active state is retired;
+2. revalidate the source inventory and exact policy-required object set; copy
+   objects, verify bytes/digests, write the final restrictive preservation manifest,
+   and prove complete inventory/policy correspondence before legacy retirement
+   (the detailed invariant is in §21.3);
 3. extract only portable Project intent that validates against the current
    portable contract;
 4. prepare clean compatible active state;
@@ -1822,7 +1827,7 @@ The application-level transition decision is a closed strategy:
 |---|---|
 | absent/current compatible | direct |
 | stable older format inside supported window | strategy declared by compatibility policy: direct, migrate, or preserve + rebuild/reconfigure |
-| RecognizedPOC | preserve + clean rebuild + supported reconfiguration |
+| RecognizedPOC | MUST preserve + clean rebuild + supported reconfiguration when all policy, safety, and exact-authority preconditions hold; otherwise MUST refuse before mutation |
 | foreign/modified/unsafe/ambiguous/corrupt/newer/out-of-window | refuse |
 
 The current supported stable-format window is exactly {v1}. RecognizedPOC is a
@@ -1841,17 +1846,37 @@ preservation archive that is separate from active Project/State/Skills roots. Th
 archive identity is bound to the exact transition operation and source digest so
 an equivalent retry can prove whether the same preservation already completed.
 
-The legacy source remains active/intact until every required archived object and
-the final preservation manifest are copied and digest-verified. Only after that
-verification may the transition retire/quarantine the legacy active state and
-prepare/activate clean compatible state.
+Legacy state MUST NOT be retired until the verified preservation manifest proves
+a complete correspondence with the revalidated source inventory required by the
+applicable preservation policy. The source remains active/intact until that proof.
+
+The ordered preservation protocol is:
+
+1. revalidate the source inventory;
+2. determine the exact object set required by the applicable preservation policy;
+3. copy those objects to the resolved archive destination;
+4. verify each object's bytes and digest;
+5. write the final preservation manifest;
+6. compare the final manifest against the expected inventory/policy object set;
+7. only after complete correspondence is proved, allow retirement/quarantine and
+   clean-state rebuild/activation under the existing recovery protocol.
+
+Deterministic Evidence records category, relative identity/path, digest, and bytes
+for each relevant object in the source inventory and preservation manifest, so
+`source inventory <-> preservation manifest` is independently checkable. A digest
+of only the objects that happened to be copied is insufficient. Missing,
+unexpected, changed, or unverifiable objects block retirement and produce truthful
+failure, partial, or recovery_required as applicable. The archive remains
+historical preservation material and MUST NOT become canonical active state.
 
 The upgrade itself never deletes the preservation archive. A later removal is a
 separate explicit reference-aware cleanup action governed by the existing cleanup
 safety model: live Evidence/recovery/other authoritative references protect the
 archive, uncertainty preserves it, and age alone grants no deletion authority.
 
-The archive may be copied to an Axiom-owned destination on another filesystem.
+The archive destination MUST be Axiom-owned, safe, explicitly resolved, outside
+active roots, and non-overlapping with the source. It may be on another filesystem;
+that path MUST NOT weaken ownership, confinement, exact-authority, or verification.
 Cross-filesystem preservation uses object-by-object copy plus digest verification
 and a final complete manifest; it does not rely on or claim an atomic rename
 across filesystems. Partial copies remain non-canonical preservation state and are
@@ -1869,9 +1894,10 @@ preservation destination/manifest, expected active-state effects, and install
 effects. Every durable effect is independently confirmable. Interruption may
 produce partial or recovery_required, but never silent mixed truth.
 
-Legacy active state is not retired until the required preservation manifest is
-complete and revalidated. Rebuilt active state is not canonical until its
-validation and activation commit point are confirmed. Retry re-inspects current
+Legacy active state is not retired until the verified final manifest proves
+complete correspondence with the revalidated policy-required source inventory.
+Incomplete or mismatched preservation denies retirement authority. Rebuilt active
+state is not canonical until its validation and activation commit point are confirmed. Retry re-inspects current
 truth and converges rather than repeating already confirmed effects.
 
 ### 21.5 Issue-scoped implementation units
@@ -1889,7 +1915,9 @@ does not authorize starting any of them.
 Minimum proof includes:
 
 - non-empty N -> N+1 journey using published/supported state;
-- RecognizedPOC preservation manifest verified before legacy retirement;
+- complete revalidated policy-required source inventory <-> final preservation
+  manifest correspondence, including category, relative identity/path, digest,
+  and bytes, verified before legacy retirement;
 - portable intent reconstructed only after current-contract validation;
 - historical workflow/Execution material preserved but absent from current
   canonical workflow state;
@@ -1900,6 +1928,27 @@ Minimum proof includes:
 - foreign/modified/unsafe/ambiguous/corrupt/newer/out-of-window refusal with zero
   destructive effects;
 - final installed version and active-state validation.
+
+The new same- and cross-filesystem preservation security/safety matrix is
+mandatory for I153-T02 implementation tests and I153-T03 regression/Evidence:
+
+| Required regression | Required proof |
+|---|---|
+| Path traversal; absolute-path escape; symlink; hard-link when applicable to the threat model; ancestor replacement; leaf replacement | Confinement and anchored identity hold; unsafe paths/links/replacements cannot authorize retirement or outside-root effects. |
+| Ownership; mode; ACL; unsafe file type; collision / occupied destination | Source/destination validation refuses unsafe or foreign targets without overwrite. |
+| Stale authority; source digest drift; target drift | Revalidation invalidates the old envelope before further mutation. |
+| ENOSPC; EDQUOT when supported; interruption during copy; interruption before final manifest; partial archive | Incomplete preservation never authorizes retirement; exact confirmed objects/effects and failure/partial/recovery-required remain inspectable. |
+| Missing; unexpected; changed; unverifiable manifest/inventory objects | Final correspondence check blocks retirement even when copied-object digests pass. |
+| Retry; equivalent no-op | Fresh authority reconciles partial truth without duplicating confirmed effects; completed equivalent operation proves no-op. |
+| Secret/local-data boundary; foreign/unknown content | Secrets/local data stay machine-local and out of portable intent/public Evidence; foreign/unknown content fails closed and is never imported into active state. |
+| Cross-filesystem target | Copy -> digest verification -> final manifest -> complete correspondence retains all ownership, confinement, authority, and verification guarantees without atomic-rename assumptions. |
+
+Evidence must record commands, exits, classifications, expected/confirmed effects,
+inventory/manifest correspondence, and source/destination identity and digest
+checks without secrets. For hard-link or EDQUOT cases unavailable on a supported
+row, record applicability, platform capability, and the explicit unverified case;
+never label an unexecuted case passed. Historical T17 Evidence remains historical:
+it does not establish this new flow's coverage. I153-T02/I153-T03 own the new proof.
 
 ### 21.7 Review gate
 
