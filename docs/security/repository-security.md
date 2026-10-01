@@ -262,7 +262,10 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
   merge commit, ou aquele commit; o motivo é `completed`; e nenhum registro
   `axiom-delivery:released` do bot foi escrito depois desse fechamento (uma
   publicação o viu), qualquer que seja a janela do run, nem pela release que
-  entrega esse merge. A condição é verificada de novo logo antes da reabertura.
+  entrega esse merge. Logo antes dos efeitos corretivos, o sync relê o estado
+  `closed/completed`, o closer e a data do evento planejado, além dos registros
+  de release. Qualquer mudança no fechamento pula também o comentário e a
+  projeção `Awaiting Release` dessa Issue.
   Um registro anterior ao fechamento pertence a uma entrega anterior de uma
   Issue reaberta. Fechamento manual, outro PR/commit ou closer desconhecido
   ou ilegível nunca é revertido.

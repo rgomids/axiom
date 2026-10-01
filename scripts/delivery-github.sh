@@ -651,7 +651,7 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
     resolve_project
     # Corrective reopen first: the bounded record is written before the
     # reopen, so a rerun after a failed reopen converges without a duplicate.
-    : >"$temporary/released-meanwhile"
+    : >"$temporary/skipped-reopening"
     while read -r kind issue sha extra covering closed_at; do
       [[ "$kind" == reopen ]] || continue
       comments=$(issue_comments "$issue") || exit 1
@@ -660,7 +660,18 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
       if { [[ "$covering" != none ]] && has_marker "$comments" "$(released_marker "v$covering")"; } \
         || released_after "$comments" "$closed_at"; then
         printf 'issue_skipped=%s reason=already_released commit=%s\n' "$issue" "$sha"
-        printf '%s\n' "$issue" >>"$temporary/released-meanwhile"
+        printf '%s\n' "$issue" >>"$temporary/skipped-reopening"
+        continue
+      fi
+      # A human may reopen/reclose the Issue while the rest of the window
+      # is planned. Authority belongs to the exact observed closure, not
+      # just the Issue number: re-read state and attribution before effects.
+      issue_json "$issue" >"$temporary/reopening-issue.json"
+      if ! jq -e '.state == "closed" and .state_reason == "completed"' "$temporary/reopening-issue.json" >/dev/null \
+        || ! closed_by_merge "$issue" "$sha" "$extra" \
+        || [[ $(cat "$temporary/closed-at-$issue") != "$closed_at" ]]; then
+        printf 'issue_skipped=%s reason=closure_changed commit=%s\n' "$issue" "$sha"
+        printf '%s\n' "$issue" >>"$temporary/skipped-reopening"
         continue
       fi
       if ! has_marker "$comments" "$(reopened_marker "$sha")"; then
@@ -677,7 +688,7 @@ GitHub closed this Issue when $by merged, before a stable release delivered it. 
     done <"$temporary/plan"
     while read -r kind issue sha extra; do
       [[ "$kind" == awaiting ]] || continue
-      grep -Fxq "$issue" "$temporary/released-meanwhile" && continue
+      grep -Fxq "$issue" "$temporary/skipped-reopening" && continue
       comments=$(issue_comments "$issue") || exit 1
       if has_marker "$comments" "$(completed_marker "$sha")"; then
         printf 'issue_comment_present=%s commit=%s\n' "$issue" "$sha"
@@ -694,7 +705,7 @@ Implementation completed by $by. This Issue stays open in **Awaiting Release** u
     awk '$1 != "reopen" {final[$2] = ($1 == "target" ? $4 : "-none-")} END {for (i in final) print i, final[i]}' "$temporary/plan" \
       | LC_ALL=C sort -n >"$temporary/final"
     while read -r issue target; do
-      grep -Fxq "$issue" "$temporary/released-meanwhile" && continue
+      grep -Fxq "$issue" "$temporary/skipped-reopening" && continue
       [[ "$target" == -none- ]] && target=
       node=$(issue_json "$issue" | jq -r '.node_id') || exit 1
       project_apply "$node" 'Awaiting Release' "$target" "$issue"
