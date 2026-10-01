@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Prints the deterministic GitHub Release body for one tag and exact revision.
 # Stable notes are the CHANGELOG.md section Release Please wrote for that
-# version at the revision; release-candidate notes are fixed text. Both end
-# with the source revision, the exact-version install command and the
+# version at the revision, followed by the Issues the release delivers: the
+# Completes-Issues metadata of the release's commits (delivery-issues.sh),
+# with titles read from GitHub and sanitized (delivery-github.sh titles).
+# Release-candidate notes are fixed text and deliver no Issue. Both end with
+# the source revision, the exact-version install command and the
 # integrity-only checksum statement. Read-only.
 set -euo pipefail
 
@@ -41,6 +44,18 @@ if [[ "$channel" == stable ]]; then
   ' <<<"$changelog")
   [[ -n "${section//[[:space:]]/}" ]] || fail "CHANGELOG.md has no Release Please section for $version"
   printf '%s\n' "$section" | sed -e '/./,$!d'
+  # An Issue title change after preparation changes these notes and so the
+  # authorized envelope: publication then refuses as a changed preview.
+  titles=$("$repository_root/scripts/delivery-github.sh" titles --repo "$repository" --tag "$tag" --revision "$revision") \
+    || fail 'cannot resolve the Issues delivered by this release'
+  printf '\n### Issues delivered\n\n'
+  if [[ -z "$titles" ]]; then
+    printf 'None declared.\n'
+  else
+    while IFS=$'\t' read -r number title; do
+      printf -- '- #%s %s\n' "$number" "$title"
+    done <<<"$titles"
+  fi
 else
   printf 'Release candidate %s. It is a GitHub prerelease: the default and\n' "$tag"
   printf '`--channel stable` installer selectors never choose it; install it only by\n'

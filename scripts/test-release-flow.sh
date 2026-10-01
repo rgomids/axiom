@@ -145,6 +145,73 @@ while (($#)); do
   esac
 done
 maybe_fail "$method $endpoint"
+# GraphQL subset for the delivery Project (Projects v2). The Project, its
+# fields and its items live in project.json / items.json; every mutation is
+# logged as PROJECT.
+if [[ "$endpoint" == graphql ]]; then
+  var() { local f; for f in "${fields[@]}"; do [[ "$f" == "$1="* ]] && { printf '%s' "${f#*=}"; return; }; done; }
+  query=$(var query)
+  op=query
+  for name in timelineItems closingIssuesReferences projectItems addProjectV2ItemById updateProjectV2ItemFieldValue clearProjectV2ItemFieldValue projectV2 node; do
+    [[ "$query" == *"$name("* ]] && { op=$name; break; }
+  done
+  maybe_fail "graphql $op"
+  # The close event of an Issue is read with the default (Issues) credential,
+  # never the Project credential; closed/N.json stages its last ClosedEvent.
+  if [[ "$op" == closingIssuesReferences ]]; then
+    [[ "${GH_TOKEN:-}" != "${FAKE_PROJECT_TOKEN:-unset}" ]] || { printf 'gh: Project credential used for a PR read\n' >&2; exit 1; }
+    jq -n --argjson n "$(cat "$s/closing-refs" 2>/dev/null || printf '[]')" \
+      '{data: {repository: {pullRequest: {closingIssuesReferences: {nodes: ($n | map({number: .}))}}}}}'
+    exit 0
+  fi
+  if [[ "$op" == timelineItems ]]; then
+    [[ "${GH_TOKEN:-}" != "${FAKE_PROJECT_TOKEN:-unset}" ]] || { printf 'gh: Project credential used for an Issue read\n' >&2; exit 1; }
+    cat "$s/closed/$(var number).json" 2>/dev/null || printf '{"data":{"repository":{"issue":{"timelineItems":{"nodes":[]}}}}}\n'
+    exit 0
+  fi
+  [[ -n "${GH_TOKEN:-}" && "$GH_TOKEN" == "${FAKE_PROJECT_TOKEN:-}" ]] || { printf 'gh: Bad credentials (HTTP 401)\n' >&2; exit 1; }
+  items=$s/items.json
+  [[ -f "$items" ]] || printf '{}' >"$items"
+  case "$op" in
+    projectV2)
+      jq --arg owner "$(var owner)" --argjson number "$(var number)" \
+        '{data: {user: {projectV2: (if .owner == $owner and .number == $number
+          then {id, title, closed, fields: {nodes: .fields}} else null end)}}}' "$s/project.json" ;;
+    addProjectV2ItemById)
+      content=$(var content)
+      log "PROJECT add $content"
+      jq --arg c "$content" 'if has($c) then . else .[$c] = {id: "PVTI_\($c)", status: "", target: ""} end' "$items" >"$items.new" && mv "$items.new" "$items"
+      jq --arg c "$content" '{data: {addProjectV2ItemById: {item: {id: .[$c].id}}}}' "$items" ;;
+    updateProjectV2ItemFieldValue)
+      item=$(var item) field=$(var field)
+      if [[ -n "$(var option)" ]]; then
+        name=$(jq -r --arg f "$field" --arg o "$(var option)" '.fields[] | select(.id == $f) | .options[] | select(.id == $o) | .name' "$s/project.json")
+        [[ -n "$name" ]] || { printf 'gh: unknown option\n' >&2; exit 1; }
+        log "PROJECT status $item $field $name"
+        jq --arg i "$item" --arg v "$name" '(.[] | select(.id == $i) | .status) = $v' "$items" >"$items.new" && mv "$items.new" "$items"
+      else
+        log "PROJECT target $item $field $(var text)"
+        jq --arg i "$item" --arg v "$(var text)" '(.[] | select(.id == $i) | .target) = $v' "$items" >"$items.new" && mv "$items.new" "$items"
+      fi
+      printf '{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"%s"}}}}\n' "$item" ;;
+    clearProjectV2ItemFieldValue)
+      item=$(var item)
+      log "PROJECT clear $item"
+      jq --arg i "$item" '(.[] | select(.id == $i) | .target) = ""' "$items" >"$items.new" && mv "$items.new" "$items"
+      printf '{"data":{"clearProjectV2ItemFieldValue":{"projectV2Item":{"id":"%s"}}}}\n' "$item" ;;
+    projectItems)
+      jq --arg c "$(var issue)" --arg p "$(jq -r .id "$s/project.json")" '.[$c] as $it
+        | {data: {node: {projectItems: {nodes: (if $it == null then [] else [{id: $it.id, project: {id: $p},
+            status: (if $it.status == "" then null else {name: $it.status} end),
+            target: (if $it.target == "" then null else {text: $it.target} end)}] end)}}}}' "$items" ;;
+    node)
+      jq --arg i "$(var item)" '[.[] | select(.id == $i)][0] as $it
+        | {data: {node: {status: (if $it.status == "" then null else {name: $it.status} end),
+                         target: (if $it.target == "" then null else {text: $it.target} end)}}}' "$items" ;;
+    *) printf 'fake gh: unsupported graphql\n' >&2; exit 2 ;;
+  esac
+  exit 0
+fi
 path=${endpoint#https://uploads.github.com/}
 path=${path#repos/$repo/}
 
@@ -227,6 +294,48 @@ case "$method $path" in
     sha=${sha%%/*}
     cat "$s/checks-$sha.json" 2>/dev/null || printf '{"check_runs":[]}\n' ;;
   "GET commits/"*"/pulls") cat "$s/pulls.json" 2>/dev/null || printf '[]\n' ;;
+  "GET pulls?"*)
+    head=${path#*head=}
+    head=${head%%&*}
+    jq --arg h "$head" '[.[] | select((.head.repo.owner.login + ":" + .head.ref) == $h)]' "$s/open-pulls.json" 2>/dev/null || printf '[]\n' ;;
+  "GET issues/"*"/comments?per_page=100")
+    number=${path#issues/}
+    number=${number%%/*}
+    # Test hook: a publication records FAKE_GH_RELEASE_ON_READ=N:TAG:K on the
+    # K-th comments read of Issue N (between sync planning and its effect).
+    if [[ -n "${FAKE_GH_RELEASE_ON_READ:-}" && "${FAKE_GH_RELEASE_ON_READ%%:*}" == "$number" ]]; then
+      reads=$(( $(cat "$s/reads-$number" 2>/dev/null || echo 0) + 1 ))
+      echo "$reads" >"$s/reads-$number"
+      if ((reads == ${FAKE_GH_RELEASE_ON_READ##*:})); then
+        [[ -f "$s/comments/$number.json" ]] || printf '[]' >"$s/comments/$number.json"
+        tag=${FAKE_GH_RELEASE_ON_READ#*:}
+        jq --arg tag "${tag%%:*}" '. + [{id: (length + 1), user: {login: "github-actions[bot]"},
+          created_at: "2026-10-01T12:00:00Z", body: "<!-- axiom-delivery:released tag=\($tag) -->\npublished"}]' \
+          "$s/comments/$number.json" >"$s/comments/$number.new" && mv "$s/comments/$number.new" "$s/comments/$number.json"
+      fi
+    fi
+    cat "$s/comments/$number.json" 2>/dev/null || printf '[]\n' ;;
+  "POST issues/"*"/comments")
+    number=${path#issues/}
+    number=${number%%/*}
+    log "COMMENT $number $(jq -r '.body | split("\n")[0]' "$input")"
+    mkdir -p "$s/comments"
+    [[ -f "$s/comments/$number.json" ]] || printf '[]' >"$s/comments/$number.json"
+    jq --slurpfile c "$input" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '. + [{id: (length + 1), user: {login: "github-actions[bot]"}, created_at: $at, body: $c[0].body}]' \
+      "$s/comments/$number.json" >"$s/comments/$number.new" && mv "$s/comments/$number.new" "$s/comments/$number.json"
+    printf '{"id":1}\n' ;;
+  "PATCH issues/"*)
+    number=${path#issues/}
+    [[ -f "$s/issues/$number.json" ]] || not_found
+    log "ISSUE $number ${fields[*]}"
+    for f in "${fields[@]}"; do
+      jq --arg k "${f%%=*}" --arg v "${f#*=}" '.[$k] = $v' "$s/issues/$number.json" >"$s/issues/$number.new" && mv "$s/issues/$number.new" "$s/issues/$number.json"
+    done
+    cat "$s/issues/$number.json" ;;
+  "GET issues/"*)
+    number=${path#issues/}
+    [[ -f "$s/issues/$number.json" ]] || not_found
+    cat "$s/issues/$number.json" ;;
   "POST issues/"*"/labels")
     number=${path#issues/}
     number=${number%%/*}
@@ -250,17 +359,17 @@ chmod 700 "$tools/gh"
 
 reset_github() {
   rm -rf -- "$state"
-  mkdir -p "$state/releases" "$state/assets"
+  mkdir -p "$state/releases" "$state/assets" "$state/issues" "$state/comments"
   : >"$state/ledger"
   : >"$state/tags"
 }
 mutations() {
-  grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|workflow)' "$state/ledger" || true
+  grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|COMMENT|ISSUE|PROJECT|workflow)' "$state/ledger" || true
 }
 # release_effects counts effects on tags, releases, assets, labels, or a
 # publication dispatch; a preparation dispatch is not one.
 release_effects() {
-  grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|workflow run publish-release)' "$state/ledger" || true
+  grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|COMMENT|ISSUE|PROJECT|workflow run publish-release)' "$state/ledger" || true
 }
 
 # --- Fixture repository -----------------------------------------------------------
@@ -272,7 +381,7 @@ git -C "$fixture" config user.email release-test@example.invalid
 git -C "$fixture" config user.name 'Release Test'
 git -C "$fixture" config commit.gpgsign false
 mkdir -p "$fixture/scripts" "$fixture/.github/rulesets"
-for script in release-tag-version.sh release-preflight.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh; do
+for script in release-tag-version.sh release-preflight.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh; do
   cp "$repository_root/scripts/$script" "$fixture/scripts/$script"
 done
 cp "$repository_root/.github/rulesets/main.json" "$fixture/.github/rulesets/main.json"
@@ -716,6 +825,545 @@ cp "$temporary/published.json" "$published"
 publish "$temporary/id" "${rc2[@]}" >"$temporary/pub"
 check 'a fully consistent published release still converges' bash -c "grep -Fxq publication=already_published '$temporary/pub' && grep -Fxq result=pass '$temporary/pub' && [[ \$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|workflow)' '$state/ledger' || true) == $before ]]"
 
+# --- 3c. Issue delivery: merge projection and release closure ------------------------------------
+# A separate fixture history with explicit delivery metadata. Issues close only
+# inside an authorized stable publication, after the release reads back.
+dfix=$temporary/delivery-fixture
+git init -q -b main "$dfix"
+git -C "$dfix" config user.email release-test@example.invalid
+git -C "$dfix" config user.name 'Release Test'
+git -C "$dfix" config commit.gpgsign false
+mkdir -p "$dfix/scripts" "$dfix/.github"
+cp "$fixture"/scripts/*.sh "$dfix/scripts/"
+dcommit() {
+  [[ -z "${3:-}" ]] || printf '{\n  ".": "%s"\n}\n' "$3" >"$dfix/.release-please-manifest.json"
+  git -C "$dfix" add -A
+  printf '%s\n\n%b' "$1" "$2" | git -C "$dfix" commit -q --allow-empty -F -
+  git -C "$dfix" rev-parse HEAD
+}
+printf '# Changelog\n' >"$dfix/CHANGELOG.md"
+d0=$(dcommit 'chore(main): release 0.1.0 (#9)' '' 0.1.0)
+d1=$(dcommit 'feat(project): EDIT preview (I20-T01) (#11)' 'Related-Issues: #20\nCompletes-Issues: none\n')
+d2=$(dcommit 'feat(project): CREATE and EDIT complete (#12)' 'Related-Issues: #20, #21\nCompletes-Issues: #20, #21\n')
+d3=$(dcommit 'fix(cli): help (#13)' 'Related-Issues: #22\nCompletes-Issues: #22\n')
+printf '# Changelog\n\n## [0.2.0](https://github.com/rgomids/axiom/compare/v0.1.0...v0.2.0) (2026-10-01)\n\n\n### Features\n\n* **project:** create and edit\n' >"$dfix/CHANGELOG.md"
+drel=$(dcommit 'chore(main): release 0.2.0 (#14)' 'Release PR body.\n' 0.2.0)
+dgh() { "$dfix/scripts/delivery-github.sh" "$@" --repo rgomids/axiom; }
+issue() {
+  jq -n --argjson n "$1" --arg title "$2" --arg state "${3:-open}" --arg reason "${4:-}" \
+    '{number: $n, node_id: "I_\($n)", title: $title, state: $state, state_reason: (if $reason == "" then null else $reason end)}' \
+    >"$state/issues/$1.json"
+}
+stage_issues() {
+  issue 20 'Support create and edit in project-configure'
+  issue 21 'Title with @someone, `code`, <b>bold</b> and [link](x)'
+  issue 22 'Help text'
+}
+# project_config disabled|enabled binds the fixture Project #7 like
+# .github/delivery-project.json binds Project #5.
+project_config() {
+  jq -n --arg projection "$1" '{schemaVersion: 2, owner: "rgomids", number: 7, projectId: "PVT_7",
+    title: "Axiom Delivery", projection: $projection, migrationStatuses: ["Legacy Done"]}' >"$dfix/.github/delivery-project.json"
+}
+# stage_project [EXTRA_STATUS...] stages the migrated Project: the five
+# operational Status options, any extra option, preserved Priority and
+# Workstream fields, and Target Release.
+stage_project() {
+  jq -n --args '{owner: "rgomids", number: 7, title: "Axiom Delivery", closed: false, id: "PVT_7",
+    fields: [{id: "F_TITLE", name: "Title", dataType: "TITLE"},
+      {id: "F_STATUS", name: "Status", dataType: "SINGLE_SELECT",
+       options: (([["Planned","O1"],["In Progress","O2"],["In Review","O3"],["Awaiting Release","O4"],["Released","O5"]]
+         + ($ARGS.positional | to_entries | map([.value, "O9\(.key)"]))) | map({name: .[0], id: .[1]}))},
+      {id: "F_PRIORITY", name: "Priority", dataType: "SINGLE_SELECT", options: [{id: "P1", name: "P1"}]},
+      {id: "F_WORKSTREAM", name: "Workstream", dataType: "SINGLE_SELECT", options: [{id: "W1", name: "Delivery"}]},
+      {id: "F_TARGET", name: "Target Release", dataType: "TEXT"}]}' "$@" >"$state/project.json"
+}
+item() { jq -r --arg c "I_$1" '.[$c] // {} | "\(.status // "")|\(.target // "")"' "$FAKE_GH_STATE/items.json" 2>/dev/null; }
+export FAKE_PROJECT_TOKEN=project-token-for-tests
+
+# Merge-time projection: partial PR no effect; completing PR -> Awaiting
+# Release, Issue open; reruns idempotent; closed Issue fails before effects.
+reset_github
+stage_issues
+project_config disabled
+dgh sync --from "$d0" --to "$d1" >"$temporary/sync"
+check 'partial PR merge: no Issue effect' bash -c "grep -Fxq planned=0 '$temporary/sync' && [[ \$(grep -Ec '^(COMMENT|ISSUE|PROJECT)' '$state/ledger' || true) == 0 ]]"
+dgh sync --from "$d1" --to "$d2" >"$temporary/sync"
+check 'completing PR merge comments on each completed Issue once' bash -c "[[ \$(grep -c '^COMMENT 20 <!-- axiom-delivery:completed commit=$d2 -->' '$state/ledger') == 1 && \$(grep -c '^COMMENT 21 ' '$state/ledger') == 1 ]] && grep -Fxq 'delivery_project=users/rgomids/projects/7 projection=disabled' '$temporary/sync'"
+check 'merge never closes the Issue' bash -c "[[ \$(jq -r .state '$state/issues/20.json') == open ]] && ! grep -q '^ISSUE' '$state/ledger'"
+check 'merge comment is bounded and names the PR' bash -c "jq -e '.[0].body | contains(\"#12\") and contains(\"Awaiting Release\") and (length < 400)' '$state/comments/20.json'"
+dgh sync --from "$d1" --to "$d2" >"$temporary/sync"
+check 'merge projection rerun is idempotent' bash -c "[[ \$(jq length '$state/comments/20.json') == 1 ]] && grep -Fxq 'issue_comment_present=20 commit=$d2' '$temporary/sync'"
+issue 22 'Help text' closed completed
+before=$(mutations)
+dgh sync --from "$d1" --to "$d3" >"$temporary/sync"
+check 'a closed Issue is reported and never moved' bash -c "grep -Fxq 'issue_skipped=22 reason=closed commit=$d3' '$temporary/sync' && ! grep -Eq '^(COMMENT|ISSUE|PROJECT).* 22( |$)' <(sed -n '$((before + 1)),\$p' '$state/ledger')"
+issue 22 'Help text'
+project_config enabled
+stage_project 'Legacy Done'
+expect_failure 'configured Project without its credential fails before effects' 'AXIOM_DELIVERY_PROJECT_TOKEN is unavailable' \
+  env -u AXIOM_DELIVERY_PROJECT_TOKEN "$dfix/scripts/delivery-github.sh" sync --repo rgomids/axiom --from "$d1" --to "$d3"
+check 'missing credential made no effect' test "$(mutations)" == "$before"
+export AXIOM_DELIVERY_PROJECT_TOKEN=$FAKE_PROJECT_TOKEN
+ledger_before=$(wc -l <"$state/ledger")
+dgh sync --from "$d1" --to "$d3" >"$temporary/sync"
+check 'Target Release is never assigned at a non-release merge' bash -c "! sed -n '$((ledger_before + 1)),\$p' '$state/ledger' | grep -q '^PROJECT target'"
+check 'completed Issues are Awaiting Release with no Target Release yet' bash -c "[[ '$(item 20)' == 'Awaiting Release|' && '$(item 22)' == 'Awaiting Release|' ]]"
+dgh sync --from "$d3" --to "$drel" >"$temporary/sync"
+check 'release commit records Target Release for its Issue set only' bash -c "[[ '$(item 20)' == 'Awaiting Release|v0.2.0' && '$(item 21)' == 'Awaiting Release|v0.2.0' && '$(item 22)' == 'Awaiting Release|v0.2.0' ]] && [[ \$(jq -r .state '$state/issues/20.json') == open ]]"
+dgh sync --to "$drel" >"$temporary/sync"
+check 'sync without --from re-scans from the latest release range and converges' bash -c "grep -Fxq 'range_from=$d0' '$temporary/sync' && [[ '$(item 20)' == 'Awaiting Release|v0.2.0' ]] && [[ \$(jq length '$state/comments/20.json') == 1 ]]"
+
+# Release notes list the delivered Issues, sanitized; RC lists none.
+"$dfix/scripts/release-notes.sh" --repo rgomids/axiom --tag v0.2.0 --revision "$drel" >"$temporary/dnotes"
+check 'stable notes have an Issues delivered section' bash -c "grep -Fxq '### Issues delivered' '$temporary/dnotes' && grep -Fxq -- '- #20 \`Support create and edit in project-configure\`' '$temporary/dnotes' && grep -Fxq -- '- #22 \`Help text\`' '$temporary/dnotes'"
+check 'untrusted Issue titles render as one code span: no mention, reference, link or HTML' grep -Fxq -- "- #21 \`Title with @someone, 'code', <b>bold</b> and [link](x)\`" "$temporary/dnotes"
+cmp -s "$temporary/dnotes" <("$dfix/scripts/release-notes.sh" --repo rgomids/axiom --tag v0.2.0 --revision "$drel") \
+  && check 'notes with delivered Issues are deterministic' true || check 'notes with delivered Issues are deterministic' false
+"$dfix/scripts/release-notes.sh" --repo rgomids/axiom --tag v0.2.0-rc.1 --revision "$d3" >"$temporary/dnotes-rc"
+check 'RC notes deliver no Issue' bash -c "! grep -q 'Issues delivered' '$temporary/dnotes-rc'"
+
+# Publication: the envelope binds the Issue set, states and effects.
+denvelope() {
+  local dir=$1
+  shift
+  "$dfix/scripts/publish-release.sh" --envelope --repo rgomids/axiom --prepared-run 11 --dir "$dir/artifacts" \
+    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" "$@"
+}
+dpublish_raw() {
+  local dir=$1
+  shift
+  "$dfix/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$dir/artifacts" \
+    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" "$@"
+}
+dpublish() {
+  local dir=$1
+  shift
+  denvelope "$dir" "$@" >"$temporary/denv" || return 1
+  dpublish_raw "$dir" "$@" --authorized-digest "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/denv")"
+}
+stable=(--tag v0.2.0 --revision "$drel" --make-latest true)
+reset_github
+stage_issues
+stage_project 'Legacy Done'
+make_set "$temporary/dset" 0.2.0 "$drel" delivery
+cp "$temporary/dnotes" "$temporary/dset/notes.md"
+denvelope "$temporary/dset" "${stable[@]}" >"$temporary/denv"
+for line in envelopeVersion=2 'delivery_project=users/rgomids/projects/7 projection=enabled' delivery_issues=20,21,22 "delivery_range_base=$d0" \
+  'delivery_issue.20=open delivered_by=#12' 'delivery_issue.22=open delivered_by=#13' \
+  effect.issue.20=comment,project,close effect.issue.21=comment,project,close; do
+  check "stable envelope states $line" grep -Fxq -- "$line" "$temporary/denv"
+done
+env -u AXIOM_DELIVERY_PROJECT_TOKEN "$dfix/scripts/publish-release.sh" --envelope --repo rgomids/axiom --prepared-run 11 \
+  --dir "$temporary/dset/artifacts" --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" "${stable[@]}" >"$temporary/denv-notoken"
+check 'computing the envelope needs no Project credential and makes no effect' cmp -s "$temporary/denv" "$temporary/denv-notoken"
+check 'the envelope made no effect' bash -c "[[ $(mutations) == 0 ]] && ! grep -q '^PROJECT' '$state/ledger'"
+ddigest=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/denv")
+issue 22 'Help text' closed completed
+check 'a changed Issue state changes the preview digest' bash -c "! denvelope_out=\$('$dfix/scripts/publish-release.sh' --envelope --repo rgomids/axiom --prepared-run 11 --dir '$temporary/dset/artifacts' --evidence '$temporary/dset/evidence.txt' --notes '$temporary/dset/notes.md' ${stable[*]} | grep -Fx preview_digest=$ddigest)"
+expect_failure 'authority over another Issue state is stale' 'preview changed; review and authorize again' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+check 'stale delivery authority made no effect' test "$(mutations)" == 0
+issue 22 'Help text'
+expect_failure 'configured Project without credential fails before any publication effect' 'AXIOM_DELIVERY_PROJECT_TOKEN is unavailable' \
+  env -u AXIOM_DELIVERY_PROJECT_TOKEN "$dfix/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$temporary/dset/artifacts" \
+  --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" "${stable[@]}" --authorized-digest "$ddigest"
+stage_project Blocked
+expect_failure 'Project Status drift fails before any publication effect' 'Project Status must contain' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+stage_project 'Legacy Done' Ready
+expect_failure 'a legacy Ready option is not accepted as a delivery state' 'Project Status must contain' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+stage_project 'Legacy Done'
+jq '(.fields[] | select(.name == "Status") | .options) |= map(select(.name != "Awaiting Release"))' "$state/project.json" >"$state/p" && mv "$state/p" "$state/project.json"
+expect_failure 'a Project missing an operational status fails closed' 'Project Status must contain' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+stage_project 'Legacy Done'
+jq '.id = "PVT_other"' "$state/project.json" >"$state/p" && mv "$state/p" "$state/project.json"
+expect_failure 'another Project node under the same number fails closed' 'is not the configured node PVT_7' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+stage_project 'Legacy Done'
+jq '.title = "Other"' "$state/project.json" >"$state/p" && mv "$state/p" "$state/project.json"
+expect_failure 'wrong Project fails before any publication effect' "is not titled 'Axiom Delivery'" \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+FAKE_GH_FAIL_ON='graphql projectV2' expect_failure 'Project API failure fails before any publication effect' 'cannot read Project' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+check 'delivery preflight refusals created no draft, tag or Issue effect' bash -c "[[ $(mutations) == 0 && ! -s '$state/tags' ]]"
+stage_project 'Legacy Done'
+
+# Partial: the release publishes, #20 is delivered, closing #21 fails.
+FAKE_GH_FAIL_ON='PATCH repos/rgomids/axiom/issues/21' expect_failure 'Issue effect failure after publication is reported' 'cannot close Issue #21' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+check 'release was published and read back before any Issue effect' bash -c "
+  first_issue=\$(grep -nE '^(COMMENT|ISSUE|PROJECT)' '$state/ledger' | head -n 1 | cut -d: -f1)
+  published=\$(grep -n '^PATCH release .*\"draft\":false' '$state/ledger' | cut -d: -f1)
+  [[ -n \"\$published\" && \"\$first_issue\" -gt \"\$published\" ]]"
+check 'delivered Issue: release record, Released vX.Y.Z, closed completed' bash -c "
+  [[ \$(jq -r '.state + \"/\" + .state_reason' '$state/issues/20.json') == closed/completed ]] && [[ '$(item 20)' == 'Released|v0.2.0' ]] &&
+  jq -e '.[-1].body | startswith(\"<!-- axiom-delivery:released tag=v0.2.0 -->\") and contains(\"releases/tag/v0.2.0\")' '$state/comments/20.json'"
+check 'partial state: #21 recorded but open, #22 untouched' bash -c "[[ \$(jq -r .state '$state/issues/21.json') == open && \$(jq -r .state '$state/issues/22.json') == open && ! -f '$state/comments/22.json' ]]"
+before=$(mutations)
+expect_failure 'the interrupted authority does not complete the partial state' 'preview changed; review and authorize again' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
+check 'stale authority after partial delivery made no effect' test "$(mutations)" == "$before"
+denvelope "$temporary/dset" "${stable[@]}" >"$temporary/denv"
+for line in publication_state=published 'delivery_issue.20=closed_released delivered_by=#12' effect.issue.20=none \
+  'delivery_issue.21=open_recorded delivered_by=#12' effect.issue.21=project,close effect.issue.22=comment,project,close; do
+  check "recovery envelope states $line" grep -Fxq -- "$line" "$temporary/denv"
+done
+check 'recovery envelope has no release effect' bash -c "! grep -Eq '^effect\\.(release|assets|publish|tag)=' '$temporary/denv'"
+dpublish "$temporary/dset" "${stable[@]}" >"$temporary/dpub"
+check 'new authority completes delivery without duplicates' bash -c "
+  grep -Fxq publication=already_published '$temporary/dpub' && grep -Fxq 'delivery=released issues=20,21,22' '$temporary/dpub' &&
+  [[ \$(jq -r .state '$state/issues/21.json') == closed && \$(jq -r .state '$state/issues/22.json') == closed ]] &&
+  [[ \$(jq '[.[] | select(.body | startswith(\"<!-- axiom-delivery:released\"))] | length' '$state/comments/21.json') == 1 ]] &&
+  [[ '$(item 21)' == 'Released|v0.2.0' && '$(item 22)' == 'Released|v0.2.0' ]]"
+before=$(mutations)
+dpublish "$temporary/dset" "${stable[@]}" >"$temporary/dpub"
+check 'rerun after full success is a no-op' bash -c "grep -Fxq effect=none '$temporary/denv' && [[ $(mutations) == $before ]] && grep -Fxq publication=already_published '$temporary/dpub'"
+dgh verify --tag v0.2.0 --revision "$drel" >"$temporary/dverify"
+check 'verify confirms every delivered Issue' grep -Fxq delivery=verified "$temporary/dverify"
+before=$(mutations)
+dgh sync --to "$drel" >"$temporary/sync"
+check 'a sync re-run after publication never moves released Issues back' bash -c "[[ $(mutations) == $before || \$(grep -Ec '^(COMMENT|ISSUE|PROJECT)' <(sed -n '$((before + 1)),\$p' '$state/ledger') || true) == 0 ]] && grep -Fxq 'issue_skipped=20 reason=closed commit=$d2' '$temporary/sync' && [[ '$(item 20)' == 'Released|v0.2.0' ]]"
+
+# Fresh stable publication applies every effect once, after read-back.
+reset_github
+stage_issues
+stage_project 'Legacy Done'
+dpublish "$temporary/dset" "${stable[@]}" >"$temporary/dpub"
+check 'stable publication closes exactly the delivered Issues' bash -c "
+  grep -Fxq publication=published '$temporary/dpub' && grep -Fxq 'delivery=released issues=20,21,22' '$temporary/dpub' &&
+  [[ \$(grep -c '^ISSUE .*state=closed' '$state/ledger') == 3 && \$(grep -c '^COMMENT' '$state/ledger') == 3 ]]"
+before=$(mutations)
+dpublish "$temporary/dset" "${stable[@]}" >/dev/null
+check 'stable delivery rerun converges' test "$(mutations)" == "$before"
+check 'Project effects touch only Status and Target Release, never Legacy Done' bash -c "
+  grep -q '^PROJECT status' '$state/ledger' && ! grep -E '^PROJECT (status|target) ' '$state/ledger' | grep -Ev '^PROJECT (status [^ ]+ F_STATUS|target [^ ]+ F_TARGET) ' | grep -q . &&
+  ! grep -q 'Legacy Done' '$state/ledger'"
+
+# Disabled projection (the committed state until the migration is
+# authorized): Project #N is identified, but no Project read, credential or
+# effect is needed; Issues are still recorded and closed.
+reset_github
+stage_issues
+project_config disabled
+denvelope "$temporary/dset" "${stable[@]}" >"$temporary/denv"
+check 'disabled projection: envelope names the Project and omits Project effects' bash -c "
+  grep -Fxq 'delivery_project=users/rgomids/projects/7 projection=disabled' '$temporary/denv' && grep -Fxq effect.issue.20=comment,close '$temporary/denv'"
+env -u AXIOM_DELIVERY_PROJECT_TOKEN "$dfix/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$temporary/dset/artifacts" \
+  --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" "${stable[@]}" \
+  --authorized-digest "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/denv")" >"$temporary/dpub"
+check 'disabled projection: Issues released and closed without any Project call' bash -c "
+  grep -Fxq 'delivery=released issues=20,21,22' '$temporary/dpub' && ! grep -q '^PROJECT' '$state/ledger' && [[ \$(jq -r .state '$state/issues/20.json') == closed ]]"
+dgh sync --to "$drel" >"$temporary/sync"
+check 'disabled projection: sync does not reconcile the Project' bash -c "
+  grep -Fxq reconcile=projection_disabled '$temporary/sync' && ! grep -q '^PROJECT' '$state/ledger'"
+
+# Enabling projection later repairs the released Issues: the Issue and its
+# release record are canonical, the Project is reconstructed from them.
+project_config enabled
+stage_project 'Legacy Done'
+before=$(wc -l <"$state/ledger")
+dgh sync --to "$drel" >"$temporary/sync"
+check 'reconciliation after enabling projection: every released Issue becomes Released vX.Y.Z' bash -c "
+  grep -Fxq reconcile=repaired '$temporary/sync' && grep -Fxq 'reconcile_repair=20 tag=v0.2.0 observed=absent' '$temporary/sync' &&
+  [[ '$(item 20)' == 'Released|v0.2.0' && '$(item 21)' == 'Released|v0.2.0' && '$(item 22)' == 'Released|v0.2.0' ]] &&
+  ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq '^(COMMENT|ISSUE)'"
+[[ "$(item 20)|$(item 21)|$(item 22)" == 'Released|v0.2.0|Released|v0.2.0|Released|v0.2.0' ]] \
+  && check 'reconciled items read Released with Target Release v0.2.0' true || check 'reconciled items read Released with Target Release v0.2.0' false
+before=$(mutations)
+dgh sync --to "$drel" >"$temporary/sync"
+check 'reconciliation rerun is idempotent: no Project write when consistent' bash -c "
+  [[ $(mutations) == $before ]] && grep -Fxq reconcile=consistent '$temporary/sync' && grep -Fxq 'reconcile_consistent=21 tag=v0.2.0' '$temporary/sync'"
+jq '.I_21.status = "Awaiting Release" | .I_21.target = "v0.1.9"' "$state/items.json" >"$state/i" && mv "$state/i" "$state/items.json"
+before=$(wc -l <"$state/ledger")
+dgh sync --to "$drel" >"$temporary/sync"
+check 'reconciliation repairs a wrong Status/Target Release and only that item' bash -c "
+  [[ '$(item 21)' == 'Released|v0.2.0' ]] && grep -Fxq 'reconcile_repair=21 tag=v0.2.0 observed=Awaiting_Release_v0.1.9' '$temporary/sync' &&
+  ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq 'I_(20|22)'"
+[[ "$(item 21)" == 'Released|v0.2.0' ]] && check 'repaired item reads back Released v0.2.0' true || check 'repaired item reads back Released v0.2.0' false
+# No repair without an unambiguous release record from the workflow bot.
+jq '.I_20.status = "Awaiting Release" | .I_21.status = "Awaiting Release" | .I_22.status = "Awaiting Release"' "$state/items.json" >"$state/i" && mv "$state/i" "$state/items.json"
+printf '[]\n' >"$state/comments/20.json"
+printf '[{"id":1,"user":{"login":"someone"},"body":"<!-- axiom-delivery:released tag=v0.2.0 -->"}]\n' >"$state/comments/21.json"
+jq '. + [{id: 9, user: {login: "github-actions[bot]"}, body: "<!-- axiom-delivery:released tag=v0.3.0 -->\\nlater"}]' "$state/comments/22.json" >"$state/c" && mv "$state/c" "$state/comments/22.json"
+before=$(mutations)
+dgh sync --to "$drel" >"$temporary/sync"
+check 'no repair without a release record, with a foreign record, or when a later release record names another tag' bash -c "
+  [[ $(mutations) == $before ]] && grep -Fxq reconcile=consistent '$temporary/sync' &&
+  grep -Fxq 'reconcile_skipped=20 tag=v0.2.0 reason=no_release_record' '$temporary/sync' &&
+  grep -Fxq 'reconcile_skipped=21 tag=v0.2.0 reason=no_release_record' '$temporary/sync' &&
+  grep -Fxq 'reconcile_skipped=22 tag=v0.2.0 reason=latest_record_v0.3.0' '$temporary/sync'"
+check 'unrepaired items keep their observed Status' bash -c "[[ \$(jq -r '.I_20.status + .I_21.status + .I_22.status' '$state/items.json') == 'Awaiting ReleaseAwaiting ReleaseAwaiting Release' ]]"
+# An unreadable Issue or an unresolvable later release is reported and
+# skipped; it never stops every later sync.
+mv "$state/issues/21.json" "$state/issue-21.moved"
+dgh sync --from "$drel" --to "$drel" >"$temporary/sync"
+check 'reconciliation skips an unreadable (transferred or deleted) Issue and continues' bash -c "
+  grep -Fxq 'reconcile_skipped=21 tag=v0.2.0 reason=issue_unreadable' '$temporary/sync' && grep -Fxq 'reconcile_skipped=22 tag=v0.2.0 reason=latest_record_v0.3.0' '$temporary/sync'"
+mv "$state/issue-21.moved" "$state/issues/21.json"
+dbad=$(dcommit 'fix: merged without metadata (#15)' 'Closes #23\n')
+dr021=$(dcommit 'chore(main): release 0.2.1 (#16)' '' 0.2.1)
+dgh sync --from "$dr021" --to "$dr021" >"$temporary/sync"
+check 'reconciliation skips an unresolvable release and still reconciles the others' bash -c "
+  grep -Fxq 'reconcile_skipped_release=v0.2.1 reason=unresolvable' '$temporary/sync' && grep -Fxq 'reconcile_skipped=20 tag=v0.2.0 reason=no_release_record' '$temporary/sync'"
+git -C "$dfix" reset -q --hard "$drel"
+mkdir -p "$dfix/.github"
+project_config enabled
+issue 20 'Reopened after release' open
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.2.0 -->"}]\n' >"$state/comments/20.json"
+dgh sync --to "$drel" >"$temporary/sync"
+check 'an open Issue is never reconciled as released' grep -Fxq 'reconcile_skipped=20 tag=v0.2.0 reason=not_closed_completed' "$temporary/sync"
+
+# A delivery state that changes after authorization stops the Issue effects.
+reset_github
+stage_issues
+dgh state --tag v0.2.0 --revision "$drel" >"$temporary/dstate"
+issue 21 'Changed title' closed completed
+expect_failure 'changed delivery state stops before any Issue effect' 'delivery state changed since authorization' \
+  dgh release --tag v0.2.0 --revision "$drel" --expect "$temporary/dstate"
+check 'changed delivery state made no effect' test "$(mutations)" == 0
+
+# Refused Issue states.
+issue 21 'Not wanted' closed not_planned
+expect_failure 'an Issue closed as not planned cannot be delivered' 'closed as not_planned' dgh state --tag v0.2.0 --revision "$drel"
+printf '{"number":21,"node_id":"PR_21","title":"a PR","state":"open","pull_request":{}}\n' >"$state/issues/21.json"
+expect_failure 'a pull request is not an Issue' '#21 is a pull request' dgh state --tag v0.2.0 --revision "$drel"
+rm "$state/issues/21.json"
+expect_failure 'a missing Issue fails closed' 'Issue #21 cannot be read' dgh state --tag v0.2.0 --revision "$drel"
+issue 21 'Released before' closed completed
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.1.0 -->\\nold"}]\n' >"$state/comments/21.json"
+expect_failure 'an Issue already released by another tag is not released again' 'already released by another tag' dgh state --tag v0.2.0 --revision "$drel"
+printf '[{"id":1,"user":{"login":"someone"},"body":"<!-- axiom-delivery:released tag=v0.2.0 -->"}]\n' >"$state/comments/21.json"
+dgh state --tag v0.2.0 --revision "$drel" >"$temporary/dstate"
+check 'release records from other authors are ignored' grep -Fxq 'delivery_issue.21=closed_unrecorded delivered_by=#12' "$temporary/dstate"
+check 'a closed unrecorded Issue is recorded, never reopened or re-closed' grep -Fxq effect.issue.21=comment,project "$temporary/dstate"
+
+# The release record is written only after the Project reads back: a Project
+# failure leaves no marker, so the next envelope still carries the effect,
+# including for an Issue that was already closed (legacy reconciliation).
+reset_github
+stage_issues
+stage_project 'Legacy Done'
+issue 21 'Closed by a legacy keyword' closed completed
+denvelope "$temporary/dset" "${stable[@]}" >"$temporary/denv"
+check 'a closed unrecorded Issue is recorded, not re-closed' grep -Fxq effect.issue.21=comment,project "$temporary/denv"
+FAKE_GH_FAIL_ON='graphql updateProjectV2ItemFieldValue' expect_failure 'Project failure after publication is reported' 'cannot set Project Status' \
+  dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/denv")"
+check 'no release record without its Project read-back' bash -c "! grep -q '^COMMENT' '$state/ledger' && [[ \$(jq -r .state '$state/issues/20.json') == open ]]"
+dpublish "$temporary/dset" "${stable[@]}" >"$temporary/dpub"
+check 'the recovery envelope completes the closed Issue Project effect' bash -c "
+  grep -Fxq effect.issue.21=comment,project '$temporary/denv' && [[ '$(item 21)' == 'Released|v0.2.0' ]] &&
+  jq -e '.[-1].body | contains(\"already closed before this release\")' '$state/comments/21.json' && ! grep -q '^ISSUE 21 ' '$state/ledger'"
+# A re-opened released Issue is not moved back by its released delivery.
+issue 20 'Support create and edit in project-configure'
+before=$(mutations)
+dgh sync --to "$drel" >"$temporary/sync"
+check 'sync never moves a re-opened released Issue back to Awaiting Release' bash -c "
+  grep -Fxq 'issue_skipped=20 reason=already_released commit=$d2' '$temporary/sync' && [[ '$(item 20)' == 'Released|v0.2.0' ]] &&
+  ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq '^(COMMENT 20|PROJECT .*I_20)'"
+
+# Development-sidebar race fail-safe: an Issue GitHub closed at the merge
+# that completes it is reopened only when its closer is exactly that merged
+# PR/commit and no stable release recorded it; anything else is untouched.
+closer() {
+  mkdir -p "$state/closed"
+  jq -n --arg kind "$2" --arg number "${3:-0}" --arg sha "${4:-}" --arg reason "${5:-COMPLETED}" '
+    {data: {repository: {issue: {timelineItems: {nodes: [{createdAt: "2026-10-01T06:00:00Z", stateReason: $reason, closer:
+      (if $kind == "pr" then {__typename: "PullRequest", number: ($number | tonumber), merged: true, mergeCommit: {oid: $sha}}
+       elif $kind == "commit" then {__typename: "Commit", oid: $sha} else null end)}]}}}}}' >"$state/closed/$1.json"
+}
+reset_github
+stage_issues
+stage_project 'Legacy Done'
+issue 20 'Closed by the sidebar link at merge' closed completed
+closer 20 pr 12 "$d2"
+issue 21 'Closed manually by a human' closed completed
+closer 21 none
+dgh sync --from "$d1" --to "$d2" >"$temporary/sync"
+check 'fail-safe: a closure attributable to the exact merged PR is reopened with a bounded record' bash -c "
+  [[ \$(jq -r .state '$state/issues/20.json') == open ]] && grep -Fxq 'effect=issue_reopened issue=20 commit=$d2' '$temporary/sync' &&
+  jq -e '.[0].body | startswith(\"<!-- axiom-delivery:reopened commit=$d2 -->\") and contains(\"#12\") and (length < 400)' '$state/comments/20.json' >/dev/null"
+check 'fail-safe: the record precedes the reopen, then the normal Awaiting Release projection continues' bash -c "
+  r=\$(grep -n '^COMMENT 20 <!-- axiom-delivery:reopened' '$state/ledger' | cut -d: -f1)
+  o=\$(grep -n '^ISSUE 20 state=open state_reason=reopened' '$state/ledger' | cut -d: -f1)
+  c=\$(grep -n '^COMMENT 20 <!-- axiom-delivery:completed commit=$d2' '$state/ledger' | cut -d: -f1)
+  [[ -n \"\$r\" && -n \"\$o\" && -n \"\$c\" && \$r -lt \$o && \$o -lt \$c ]] && [[ '$(item 20)' == 'Awaiting Release|' ]]"
+check 'fail-safe: a closure not attributable to the merge is never reopened' bash -c "
+  [[ \$(jq -r .state '$state/issues/21.json') == closed ]] && grep -Fxq 'issue_skipped=21 reason=closed commit=$d2' '$temporary/sync' &&
+  ! grep -Eq '^(COMMENT|ISSUE) 21 ' '$state/ledger'"
+[[ "$(item 20)" == 'Awaiting Release|' ]] && check 'fail-safe: reopened Issue is Awaiting Release' true || check 'fail-safe: reopened Issue is Awaiting Release' false
+before=$(grep -Ec '^(COMMENT|ISSUE)' "$state/ledger" || true)
+dgh sync --from "$d1" --to "$d2" >"$temporary/sync"
+check 'fail-safe rerun is idempotent: no second record, reopen or comment' bash -c "
+  [[ \$(grep -Ec '^(COMMENT|ISSUE)' '$state/ledger') == $before ]] && ! grep -q '^effect=issue_reopened' '$temporary/sync'"
+for case in 'pr 99 '"$d3"' COMPLETED|another merged PR' 'pr 13 '"$d2"' COMPLETED|the PR number with another merge commit' \
+  'pr 13 '"$d3"' NOT_PLANNED|a not-planned closure' 'commit 0 '"$d2"' COMPLETED|another commit' 'none 0 x COMPLETED|an unknown closer'; do
+  read -r kind number sha reason <<<"${case%%|*}"
+  issue 22 'Help text' closed "$([[ "$reason" == NOT_PLANNED ]] && printf not_planned || printf completed)"
+  closer 22 "$kind" "$number" "$sha" "$reason"
+  before=$(grep -Ec '^(COMMENT|ISSUE) 22 ' "$state/ledger" || true)
+  dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
+  check "fail-safe: ${case#*|} is never reopened" bash -c "
+    [[ \$(jq -r .state '$state/issues/22.json') == closed && \$(grep -Ec '^(COMMENT|ISSUE) 22 ' '$state/ledger' || true) == $before ]]"
+done
+issue 22 'Help text' closed completed
+closer 22 pr 13 "$d3"
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"created_at":"2026-10-01T09:00:00Z","body":"<!-- axiom-delivery:released tag=v0.2.0 -->\\npublished"}]\n' >"$state/comments/22.json"
+dgh sync --from "$d2" --to "$drel" >"$temporary/sync"
+check 'fail-safe: an Issue the delivering stable release recorded is never reopened' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && ! grep -q '^ISSUE 22 ' '$state/ledger'"
+dgh sync --from "$d1" --to "$d3" >"$temporary/sync"
+check 'fail-safe: a stale rerun whose window ends before the release commit never reopens a published Issue' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && ! grep -q '^ISSUE 22 ' '$state/ledger' && grep -Fxq 'issue_skipped=22 reason=closed commit=$d3' '$temporary/sync'"
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"created_at":"2026-09-01T00:00:00Z","body":"<!-- axiom-delivery:released tag=v0.1.0 -->\\nold"}]\n' >"$state/comments/22.json"
+dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
+check 'fail-safe: a record of an earlier release (earlier delivery of a reopened Issue) does not block' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == open ]] && grep -Fxq 'effect=issue_reopened issue=22 commit=$d3' '$temporary/sync'"
+issue 22 'Help text' closed completed
+rm "$state/comments/22.json"
+before=$(wc -l <"$state/ledger")
+FAKE_GH_RELEASE_ON_READ=22:v0.2.0:3 dgh sync --from "$d2" --to "$drel" >"$temporary/sync"
+check 'fail-safe: a release recorded between planning and the reopen wins: no reopen, comment or Awaiting Release' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && grep -Fxq 'issue_skipped=22 reason=already_released commit=$d3' '$temporary/sync' &&
+  ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq '^(ISSUE 22|COMMENT 22|PROJECT status PVTI_I_22 F_STATUS Awaiting Release)' &&
+  [[ '$(item 22)' == 'Released|v0.2.0' ]]"
+rm -f "$state/comments/22.json" "$state/reads-22"
+FAKE_GH_FAIL_ON='graphql timelineItems' dgh sync --from "$d2" --to "$d3" >"$temporary/sync" 2>"$temporary/err"
+check 'fail-safe: an unreadable closer is not attributable and never stops the projection' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && grep -Fxq 'closer_unreadable=22 commit=$d3' '$temporary/sync' &&
+  grep -Fxq 'issue_skipped=22 reason=closed commit=$d3' '$temporary/sync'"
+rm -f "$state/comments/22.json"
+closer 22 commit 0 "$d3"
+FAKE_GH_FAIL_ON='PATCH repos/rgomids/axiom/issues/22' expect_failure 'fail-safe: a failed reopen is reported' 'cannot reopen Issue #22' \
+  dgh sync --from "$d2" --to "$d3"
+check 'fail-safe: the bounded record exists, the Issue is still closed' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && [[ \$(jq length '$state/comments/22.json') == 1 ]]"
+dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
+check 'fail-safe: a rerun after a failed reopen converges without a duplicate record (commit closer)' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == open ]] &&
+  [[ \$(jq '[.[] | select(.body | startswith(\"<!-- axiom-delivery:reopened\"))] | length' '$state/comments/22.json') == 1 ]]"
+# Premature closure and the Release PR merge in one sync window: the
+# reopened Issue also receives the release's Target Release.
+issue 20 'Closed by the sidebar link at merge' closed completed
+closer 20 pr 12 "$d2"
+rm -f "$state/comments/20.json"
+dgh sync --from "$d1" --to "$drel" >"$temporary/sync"
+check 'fail-safe in the release window: reopened and Awaiting Release with Target Release' bash -c "
+  [[ \$(jq -r .state '$state/issues/20.json') == open ]] && [[ '$(item 20)' == 'Awaiting Release|v0.2.0' ]]"
+[[ "$(item 20)" == 'Awaiting Release|v0.2.0' ]] && check 'fail-safe in the release window: Target Release reads back' true || check 'fail-safe in the release window: Target Release reads back' false
+rm -rf "$state/closed"
+check 'reconciliation and undeclared-commit enforcement share the v0.2.0 boundary' bash -c "
+  grep -Fxq 'legacy_boundary=0.2.0' '$repository_root/scripts/delivery-issues.sh' &&
+  grep -Fq 'exit !(a[1] > 0 || a[2] >= 2)' '$repository_root/scripts/delivery-github.sh'"
+
+# v0.2.0 migration boundary: two reviewed legacy records for Issues already
+# closed by keywords. The notes list both; publication records them and never
+# closes them again; #132 stays out.
+lfix=$temporary/legacy-fixture
+git init -q -b main "$lfix"
+git -C "$lfix" config user.email release-test@example.invalid
+git -C "$lfix" config user.name 'Release Test'
+git -C "$lfix" config commit.gpgsign false
+mkdir -p "$lfix/scripts" "$lfix/.github"
+cp "$dfix"/scripts/*.sh "$lfix/scripts/"
+lcommit() {
+  [[ -z "${3:-}" ]] || printf '{\n  ".": "%s"\n}\n' "$3" >"$lfix/.release-please-manifest.json"
+  git -C "$lfix" add -A
+  printf '%s\n\n%b' "$1" "$2" | git -C "$lfix" commit -q --allow-empty -F -
+  git -C "$lfix" rev-parse HEAD
+}
+printf '# Changelog\n' >"$lfix/CHANGELOG.md"
+lcommit 'chore(main): release 0.1.2 (#121)' '' 0.1.2 >/dev/null
+lcommit 'feat(project): EDIT preview (I132-T01) (#145)' 'Partial work for #132.\n' >/dev/null
+l143=$(lcommit 'feat(project): list configured projects (#143)' 'Implements issue #129\n\nCloses #129\n')
+l148=$(lcommit 'fix(work-items): resolve portable Project from recorded SourceLocation (#147) (#148)' '- Closes #147.\n')
+printf '%s related=129 completes=129\n%s related=147 completes=147\n' "$l143" "$l148" >"$lfix/.github/delivery-corrections.txt"
+jq -n '{schemaVersion: 2, owner: "rgomids", number: 7, projectId: "PVT_7", title: "Axiom Delivery",
+  projection: "enabled", migrationStatuses: ["Legacy Done"]}' >"$lfix/.github/delivery-project.json"
+lcommit 'ci(delivery): adopt the delivery contract (#160)' 'Related-Issues: none\nCompletes-Issues: none\n' >/dev/null
+printf '# Changelog\n\n## [0.2.0](https://github.com/rgomids/axiom/compare/v0.1.2...v0.2.0) (2026-10-01)\n\n\n### Features\n\n* **project:** list configured projects\n' >"$lfix/CHANGELOG.md"
+lrel=$(lcommit 'chore(main): release 0.2.0 (#146)' 'Release PR body.\n' 0.2.0)
+reset_github
+stage_project 'Legacy Done'
+issue 129 'List configured Projects' closed completed
+issue 147 'resolve portable Project from recorded SourceLocation' closed completed
+issue 132 'Support create and edit in project-configure'
+"$lfix/scripts/release-notes.sh" --repo rgomids/axiom --tag v0.2.0 --revision "$lrel" >"$temporary/lnotes"
+check 'boundary notes list exactly #129 and #147' bash -c "
+  grep -Fxq -- '- #129 \`List configured Projects\`' '$temporary/lnotes' &&
+  grep -Fxq -- '- #147 \`resolve portable Project from recorded SourceLocation\`' '$temporary/lnotes' &&
+  [[ \$(sed -n '/^### Issues delivered/,/^---/p' '$temporary/lnotes' | grep -c '^- #') == 2 ]] && ! grep -q '#132' '$temporary/lnotes'"
+make_set "$temporary/lset" 0.2.0 "$lrel" legacy
+cp "$temporary/lnotes" "$temporary/lset/notes.md"
+lenvelope() {
+  "$lfix/scripts/publish-release.sh" --envelope --repo rgomids/axiom --prepared-run 11 --dir "$temporary/lset/artifacts" \
+    --evidence "$temporary/lset/evidence.txt" --notes "$temporary/lset/notes.md" --tag v0.2.0 --revision "$lrel" --make-latest true
+}
+lenvelope >"$temporary/lenv"
+for line in delivery_issues=129,147 'delivery_issue.129=closed_unrecorded delivered_by=#143' effect.issue.129=comment,project \
+  'delivery_issue.147=closed_unrecorded delivered_by=#148' effect.issue.147=comment,project; do
+  check "boundary envelope states $line" grep -Fxq -- "$line" "$temporary/lenv"
+done
+"$lfix/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$temporary/lset/artifacts" \
+  --evidence "$temporary/lset/evidence.txt" --notes "$temporary/lset/notes.md" --tag v0.2.0 --revision "$lrel" --make-latest true \
+  --authorized-digest "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/lenv")" >"$temporary/lpub"
+check 'boundary publication records #129 and #147 once, Released vX.Y.Z, never re-closes' bash -c "
+  grep -Fxq 'delivery=released issues=129,147' '$temporary/lpub' &&
+  [[ \$(grep -c '^COMMENT 129 ' '$state/ledger') == 1 && \$(grep -c '^COMMENT 147 ' '$state/ledger') == 1 ]] &&
+  ! grep -q '^ISSUE ' '$state/ledger' && [[ '$(item 129)' == 'Released|v0.2.0' && '$(item 147)' == 'Released|v0.2.0' ]] &&
+  ! grep -Eq '^(COMMENT|PROJECT .*I_)132' '$state/ledger' && [[ \$(jq -r .state '$state/issues/132.json') == open ]]"
+before=$(mutations)
+lenvelope >"$temporary/lenv"
+check 'boundary rerun converges: both recorded, no effect' bash -c "
+  grep -Fxq effect.issue.129=none '$temporary/lenv' && grep -Fxq effect.issue.147=none '$temporary/lenv' && [[ $(mutations) == $before ]]"
+
+# Release PR path of the required delivery-metadata check: Release Please
+# PRs start no pull_request run, so release-please.yml dispatches the check;
+# it passes only for the bot-authored Release PR head.
+reset_github
+rp_head=$(printf 'a%.0s' {1..40})
+jq -n --arg sha "$rp_head" '[{number: 146, user: {login: "github-actions[bot]"}, base: {ref: "main"},
+  head: {ref: "release-please--branches--main", sha: $sha, repo: {full_name: "rgomids/axiom", owner: {login: "rgomids"}}}}]' >"$state/open-pulls.json"
+rph() { "$dfix/scripts/delivery-github.sh" release-pr-head --repo rgomids/axiom "$@"; }
+rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]' >"$temporary/rph"
+check 'Release PR head dispatched by the bot passes without validating metadata' bash -c "
+  grep -Fxq 'release_pr=#146 head=$rp_head' '$temporary/rph' && grep -Fxq delivery_metadata=not_applicable '$temporary/rph' && [[ $(mutations) == 0 ]]"
+printf '[129]\n' >"$state/closing-refs"
+expect_failure 'a Release PR that would close an Issue at merge fails' 'the Release PR would close #129 at merge' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]'
+rm -f "$state/closing-refs"
+expect_failure 'a human dispatch never produces a passing check' 'only github-actions[bot] dispatches' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor rgomids
+expect_failure 'a dispatch on another branch fails' 'runs only on a release-please-- branch' \
+  rph --branch feature/x --sha "$rp_head" --actor 'github-actions[bot]'
+expect_failure 'a dispatch for another commit than the Release PR head fails' 'is not the head of one open bot-authored Release PR' \
+  rph --branch release-please--branches--main --sha "$(printf 'b%.0s' {1..40})" --actor 'github-actions[bot]'
+jq '.[0].user.login = "someone"' "$state/open-pulls.json" >"$state/p" && mv "$state/p" "$state/open-pulls.json"
+expect_failure 'a release-please-- branch PR not authored by the bot fails' 'is not the head of one open bot-authored Release PR' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]'
+jq '.[0].user.login = "github-actions[bot]" | .[0].head.repo = {full_name: "fork/axiom", owner: {login: "fork"}}' "$state/open-pulls.json" >"$state/p" && mv "$state/p" "$state/open-pulls.json"
+expect_failure 'a fork head with the same branch name fails' 'is not the head of one open bot-authored Release PR' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]'
+rm -f "$state/open-pulls.json"
+expect_failure 'no open Release PR fails' 'is not the head of one open bot-authored Release PR' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]'
+
+# Release candidates never touch Issues.
+reset_github
+stage_issues
+make_set "$temporary/drc" 0.2.0-rc.1 "$d3" rc
+"$dfix/scripts/release-notes.sh" --repo rgomids/axiom --tag v0.2.0-rc.1 --revision "$d3" >"$temporary/drc/notes.md"
+denvelope "$temporary/drc" --tag v0.2.0-rc.1 --revision "$d3" --make-latest false >"$temporary/denv"
+check 'RC envelope delivers no Issue' grep -Fxq delivery_issues=not_applicable "$temporary/denv"
+dpublish "$temporary/drc" --tag v0.2.0-rc.1 --revision "$d3" --make-latest false >"$temporary/dpub"
+check 'RC publication leaves every Issue open and untouched' bash -c "
+  grep -Fxq publication=published '$temporary/dpub' && grep -Fxq delivery=not_applicable '$temporary/dpub' &&
+  ! grep -Eq '^(COMMENT|ISSUE|PROJECT)' '$state/ledger' && [[ \$(jq -r .state '$state/issues/20.json') == open ]]"
+project_config disabled
+unset AXIOM_DELIVERY_PROJECT_TOKEN
+
 # --- 4. release.sh: prepare, envelope and authority boundary ---------------------------------------
 release() { (cd "$fixture" && "$fixture/scripts/release.sh" "$@"); }
 green() {
@@ -856,15 +1504,55 @@ check 'publication requires dispatch from main and a verified preflight' bash -c
 check 'publication never rebuilds: it consumes the prepared run artifact' bash -c "! grep -Eq 'build-release-archives|upload-artifact' '$workflows/publish-release.yml' && [[ \$(grep -c 'run-id: \${{ inputs.prepared_run }}' '$workflows/publish-release.yml') == 2 ]] && [[ \$(grep -c 'verify-prepared-release.sh' '$workflows/publish-release.yml') == 2 ]]"
 check 'publication is bound to the authorized envelope digest' bash -c "grep -Fq -- '--authorized-digest \"\$PREVIEW_DIGEST\"' '$workflows/publish-release.yml' && grep -Fq 'PREVIEW_DIGEST: \${{ inputs.preview_digest }}' '$workflows/publish-release.yml'"
 check 'preparation builds, verifies and retains the exact set without publishing' bash -c "grep -Fq build-release-archives.sh '$workflows/release-artifacts.yml' && grep -Fq verify-release-artifacts.sh '$workflows/release-artifacts.yml' && grep -Fq release-notes.sh '$workflows/release-artifacts.yml' && grep -Fq 'name: axiom-release-\${{ env.RELEASE_TAG }}' '$workflows/release-artifacts.yml' && ! grep -Eiq 'contents: write|gh release|git tag|git push|publish-release' '$workflows/release-artifacts.yml'"
-check 'no workflow uses repository secrets' bash -c "! grep -Fq 'secrets.' $workflows/*.yml"
+# The only secret is the delivery Project credential, and only inside jobs
+# gated by an environment: the approved publish job and the Project sync job.
+check 'only the delivery Project secret is used, only in environment-gated jobs' bash -c "
+  [[ \$(grep -ho 'secrets\.[A-Za-z0-9_]*' $workflows/*.yml | LC_ALL=C sort -u) == secrets.AXIOM_DELIVERY_PROJECT_TOKEN ]] &&
+  [[ \$(grep -l 'secrets\.' $workflows/*.yml | xargs -n1 basename | LC_ALL=C sort | paste -sd, -) == delivery-sync.yml,publish-release.yml ]] &&
+  [[ \$(grep -c 'secrets\.' '$workflows/publish-release.yml') == 1 && \$(grep -c 'secrets\.' '$workflows/delivery-sync.yml') == 1 ]] &&
+  sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
+  sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fxq '    environment: delivery' &&
+  sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
+  ! sed -n '/^  sync:/,/^  sync-project:/p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.'"
+check 'delivery workflows: PR metadata check has no token or secret, sync runs only on main pushes' bash -c "
+  [[ \$(sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-metadata.yml' | grep -E '^  [a-z_]+:' | tr -d ' :' | paste -sd, -) == pull_request,workflow_dispatch ]] &&
+  grep -Fxq 'permissions: {}' '$workflows/delivery-metadata.yml' && ! grep -Eq 'write|secrets\.|pull_request_target' '$workflows/delivery-metadata.yml' &&
+  grep -Fq 'ref: \${{ github.event.pull_request.base.sha }}' '$workflows/delivery-metadata.yml' &&
+  grep -Fq 'PR_BODY: \${{ github.event.pull_request.body }}' '$workflows/delivery-metadata.yml' &&
+  [[ \$(grep -c 'github.event.pull_request.body' '$workflows/delivery-metadata.yml') == 1 ]] &&
+  [[ \$(sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-sync.yml' | grep -E '^  [a-z_]+:' | tr -d ' :') == push ]] &&
+  sed -n '/^  push:/,/^[a-z]/p' '$workflows/delivery-sync.yml' | grep -Fxq '      - main' &&
+  grep -Fxq 'permissions: {}' '$workflows/delivery-sync.yml' && ! grep -Eq 'contents: write|pull_request' '$workflows/delivery-sync.yml'"
+check 'Issue closure is a publication effect: no workflow closes Issues on merge or release events' bash -c "
+  for w in $workflows/*.yml; do sed -n '/^on:/,/^[a-z]/p' \"\$w\"; done | grep -E '^  [a-z_]+:' | tr -d ' :' | grep -Eqv '^(pull_request|push|workflow_dispatch)$' && exit 1;
+  ! grep -Eq 'state=closed|state_reason' $workflows/*.yml"
 pinned=true
 while IFS= read -r line; do
   [[ "$line" =~ uses:\ [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}\ \#\ v[0-9.]+$ ]] || { printf 'unpinned: %s\n' "$line" >&2; pinned=false; }
 done < <(grep -hE '^\s+(- )?uses:' "$workflows"/*.yml)
 check 'every action is pinned by SHA' "$pinned"
 check 'checkouts never persist credentials' bash -c "[[ \$(grep -c 'actions/checkout@' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') == \$(grep -c 'persist-credentials: false' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') ]]"
-ci_contexts=$(printf 'release-contract\nverify (linux)\nverify (macos)\n')
-check 'ruleset requires exactly the CI job checks' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml'"
+ci_contexts=$(printf 'delivery-metadata\nrelease-contract\nverify (linux)\nverify (macos)\n')
+check 'ruleset requires exactly the CI job checks and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
+# Every required context must exist on the Release PR head, where Release
+# Please events start no pull_request run: its workflows are dispatched there.
+check 'every required context is produced on the Release PR path' bash -c "
+  grep -Fq 'gh workflow run ci.yml --repo \"\$GITHUB_REPOSITORY\" --ref \"\$RELEASE_BRANCH\"' '$workflows/release-please.yml' &&
+  grep -Fq 'gh workflow run delivery-metadata.yml --repo \"\$GITHUB_REPOSITORY\" --ref \"\$RELEASE_BRANCH\"' '$workflows/release-please.yml' &&
+  sed -n '/^on:/,/^[a-z]/p' '$workflows/ci.yml' | grep -Fxq '  workflow_dispatch:' &&
+  sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-metadata.yml' | grep -Fxq '  workflow_dispatch:'"
+dispatch_path_is_guarded() {
+  local w=$workflows/delivery-metadata.yml
+  grep -Fq "\${{ github.event_name == 'workflow_dispatch'" "$w" &&
+    grep -Fq 'ref: ${{ github.event.repository.default_branch }}' "$w" &&
+    grep -Fq './scripts/delivery-github.sh release-pr-head' "$w" &&
+    [[ $(grep -c "if: github.event_name == 'pull_request'" "$w") == 3 ]] &&
+    [[ $(grep -c "if: github.event_name == 'workflow_dispatch'" "$w") == 2 ]]
+}
+check 'the delivery-metadata dispatch path always runs trusted default-branch code and is never skipped' dispatch_path_is_guarded
+check 'release CI state ignores only the PR-only delivery-metadata check' bash -c "
+  grep -Fxq '    [[ \"\$name\" == delivery-metadata ]] && continue' '$repository_root/scripts/release.sh' &&
+  [[ \$(grep -c 'delivery-metadata ]] && continue' '$repository_root/scripts/release.sh') == 1 ]]"
 check 'ruleset: squash only, reviews, code owners, threads, no direct bypass' bash -c "jq -e '(.rules[] | select(.type == \"pull_request\") | .parameters | .allowed_merge_methods == [\"squash\"] and .required_approving_review_count >= 1 and .require_code_owner_review and .required_review_thread_resolution) and ([.rules[].type] | index(\"deletion\") and index(\"non_fast_forward\")) and all(.bypass_actors[]; .bypass_mode != \"always\")' '$repository_root/.github/rulesets/main.json' >/dev/null"
 check 'CODEOWNERS covers the repository' grep -Eq '^\* @[A-Za-z0-9-]+$' "$repository_root/.github/CODEOWNERS"
 skill=$repository_root/.agents/skills/axiom-release/SKILL.md

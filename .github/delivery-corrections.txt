@@ -1,0 +1,20 @@
+# Reviewed delivery metadata for immutable commits on main. One line per
+# commit: <full-sha> related=<n,m|none> completes=<n,m|none>. A line replaces
+# the commit's own metadata (or its absence) when Issue sets are resolved;
+# history is never rewritten. Each line needs a human-approved reason above it.
+#
+# v0.2.0 migration boundary. Two explicitly reviewed legacy completions merged
+# before the Completes-Issues contract; each PR closed its Issue with a GitHub
+# closing keyword at merge, which is not a release. These records let the
+# v0.2.0 publication envelope record each Issue as delivered by v0.2.0
+# (release comment, and Project status once enabled); both Issues are already
+# closed and are not re-closed. Old closing keywords are not otherwise
+# reinterpreted, and no other legacy commit is reconciled; in particular PR
+# #145 delivered only I132-T01 and #132 stays incomplete.
+#
+# Issue #129 (List configured Projects): PR #143 states "Implements issue
+# #129"; merged as f04dbf3.
+f04dbf38db4cb609256ede47e5fbcbe7a16c6487 related=129 completes=129
+# Issue #147 (resolve portable Project from recorded SourceLocation): PR #148
+# states "Closes #147"; merged as fc6cdf4.
+fc6cdf4749943df93ec4d91c473fe5152f4bc186 related=147 completes=147
