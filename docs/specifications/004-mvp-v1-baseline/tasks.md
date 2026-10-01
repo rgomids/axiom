@@ -12,6 +12,10 @@ observations remain historical. T24 and human acceptance stay separately gated.
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
+**Issue #153 compatibility direction: Approved by explicit human decision on
+2026-10-01. The issue-scoped I153-T01–I153-T03 decomposition below is proposed
+for review and does not authorize implementation, migration effects, release,
+merge, or Issue closure.**
 **Issue #132 Tasks amendment (`I132-T01`–`I132-T03`): Approved — human approval
 recorded on 2026-09-30. The same explicit human instruction authorizes starting
 `I132-T01` implementation only. `I132-T02`/`I132-T03` remain separately gated.
@@ -1075,6 +1079,12 @@ complete at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not 
   2026-09-28). A floating RC channel or an explicit downgrade mechanism is
   post-MVP and needs its own decision.
 
+**Post-delivery reconciliation:** Issue #153 later exposed that recognized legacy
+persisted state can still dead-end the canonical upgrade path. The historical T39
+delivery record remains unchanged for its original acceptance scope. The
+issue-scoped I153-T01–I153-T03 follow-up governs the newly approved
+compatibility-window and RecognizedPOC preserve/rebuild behavior.
+
 ### T40 — Codex + Claude first-run bootstrap
 
 - **Objective:** `axiom first-run` discovers supported Runtimes already installed
@@ -1754,3 +1764,135 @@ same human instruction explicitly authorizes starting `I132-T01` implementation.
 That authority does not extend to `I132-T02`/`I132-T03`, real Runtime execution,
 push/merge of future implementation, external effects, Issue closure, release, or
 human acceptance; those remain separately gated by their applicable authority.
+
+## Issue #153 — Forward-compatible owned-upgrade follow-up
+
+These issue-scoped Tasks extend the delivered S7/S9 compatibility/installer
+behavior without renumbering or rewriting the historical T01–T40 DAG.
+
+### I153-T01 — Forward-transition policy and installer orchestration
+
+- **Objective:** Make the canonical installer resolve persisted-state compatibility
+  separately from installation ownership and select exactly one supported
+  transition strategy before a newer owned upgrade proceeds.
+- **Dependencies:** approved Issue #153 Specification/Plan reconciliation.
+- **Requirements:** FR-026–FR-030, FR-037, FR-065; AC-17–AC-19, AC-22, AC-46;
+  ADR-0005, ADR-0007; HD-4 plus the 2026-10-01 Issue #153 decision.
+- **Scope:**
+  - introduce/centralize a deterministic compatibility-policy decision that maps
+    inspected state to direct, bounded migrate,
+    preserve_rebuild_reconfigure, or refuse;
+  - keep ownership and schema compatibility as independent inputs;
+  - make the supported stable persisted-state compatibility window explicit and
+    testable;
+  - have the canonical installer orchestrate the selected policy rather than
+    exposing internal compatibility commands as required user steps;
+  - replace generic user-facing state_incompatible dead ends with bounded product
+    diagnostics that identify whether the state is unsupported,
+    unsafe/recovery-required, or has an automatic supported transition;
+  - preserve exact preview/authority/revalidation and partial-truth semantics.
+- **Repository impact:** expected focused changes in internal/compatibility,
+  internal/install, installer command/script integration and deterministic tests.
+  Do not move compatibility semantics into shell presentation code.
+- **Completion/Evidence:**
+  - table-driven state/ownership/compatibility-window policy matrix;
+  - same-version no-op and newer-version transition resolution;
+  - out-of-window/foreign/modified/unsafe/ambiguous/corrupt/newer refusal with
+    zero destructive effects;
+  - preview digest/authority becomes stale when state or target release changes;
+  - user-facing installer path does not require manual
+    compatibility inspect/backup/export orchestration.
+- **Exclusions:** automatic downgrade, arbitrary historical migration, in-place
+  POC workflow/Execution migration, new source-of-truth or ownership semantics.
+
+### I153-T02 — RecognizedPOC preserve, clean rebuild, and reconfiguration
+
+- **Objective:** Implement the approved automatic RecognizedPOC transition
+  without converting historical POC workflow/Execution truth into current
+  canonical state.
+- **Dependencies:** I153-T01.
+- **Requirements:** FR-026–FR-030, FR-037, FR-065; AC-17–AC-19, AC-46; ADR-0005,
+  ADR-0007; Issue #153 compatibility decision.
+- **Scope:**
+  - positively revalidate the complete recognized POC signature;
+  - produce a restrictive digest-manifested preservation artifact before any
+    legacy active state is retired;
+  - validate and extract only portable Project intent supported by the current
+    portable contract;
+  - prepare clean compatible active state and reconstruct only explicitly
+    supported Project associations/configuration;
+  - retain historical workflow/Execution/Evidence material as inspectable
+    historical data, never as active canonical workflow truth;
+  - activate rebuilt state using the existing publication/recovery invariants;
+  - continue the protected owned binary/receipt/skill upgrade only after the
+    applicable state transition prerequisites are satisfied.
+- **Recovery:** interruption after preservation, during rebuild, during activation,
+  or after activation but before install completion must remain classifiable and
+  resumable/finalizable under fresh exact authority. No retry may duplicate
+  preservation or silently discard confirmed effects.
+- **Repository impact:** expected changes in compatibility preservation/transition
+  services plus installer orchestration. Reuse existing transfer/recovery
+  primitives where they satisfy the new contract; do not reinterpret POC
+  Execution records as current schema by convenience.
+- **Completion/Evidence:**
+  - preservation manifest/digests verified before retirement;
+  - supported portable intent reconstructed and validated;
+  - historical workflow/Execution material demonstrably absent from current
+    canonical workflow state while remaining inspectable;
+  - fault injection at each transition boundary yields truthful
+    partial/recovery_required;
+  - equivalent retry after success is a no-op.
+- **Exclusions:** semantic in-place POC migration, automatic cleanup/deletion of
+  preserved historical material, generic arbitrary-schema migration.
+
+### I153-T03 — Upgrade regression, Evidence, and reconciliation
+
+- **Objective:** Prove the supported forward-upgrade contract end to end and
+  reconcile durable documentation/Evidence to delivered behavior.
+- **Dependencies:** I153-T01 and I153-T02.
+- **Scope:**
+  - add a real non-empty N -> N+1 owned-upgrade journey to the release/acceptance
+    suite;
+  - include the historical RecognizedPOC classification that originally
+    produced state_incompatible;
+  - exercise interruption/recovery/retry across preservation, rebuilt-state
+    activation and install completion;
+  - verify stable compatibility-window behavior separately from the special
+    historical POC transition;
+  - reconcile installer diagnostics, commands/user documentation and Specification
+    Evidence only after implementation behavior is verified.
+- **Completion/Evidence:**
+  - install supported version N, create representative non-empty state, invoke the
+    canonical installer for N+1, and validate final axiom version plus active
+    state;
+  - rerun after success is unchanged;
+  - preserved historical state is inspectable;
+  - unsupported/foreign/unsafe/out-of-policy matrices prove zero destructive
+    effects;
+  - exact commands, exits, state classifications, transition strategy, digests,
+    recovery records and final validation are retained without secrets/raw chat.
+- **Exclusions:** release publication, stable promotion, Issue closure, unrelated
+  compatibility expansion.
+
+### Issue #153 acceptance traceability
+
+| Issue #153 acceptance / required case | Responsible Task(s) |
+|---|---|
+| Ownership and schema compatibility are independent | I153-T01 |
+| Explicit stable persisted-state compatibility window | I153-T01, I153-T03 |
+| Supported newer owned upgrade resolves one transition strategy | I153-T01, I153-T03 |
+| RecognizedPOC preserved before retirement | I153-T02, I153-T03 |
+| Valid portable Project intent reconstructed through current contract | I153-T02, I153-T03 |
+| Historical POC workflow/Execution truth preserved but not promoted | I153-T02, I153-T03 |
+| Interruption after preservation/before activation is recoverable | I153-T02, I153-T03 |
+| Interruption after activation/before install completion is recoverable | I153-T02, I153-T03 |
+| Equivalent successful retry is a no-op | I153-T02, I153-T03 |
+| Foreign/modified/unsafe/ambiguous/corrupt/newer/out-of-window refusal | I153-T01, I153-T03 |
+| Real non-empty N -> N+1 release regression | I153-T03 |
+
+### Issue #153 Tasks review gate
+
+The compatibility direction itself was approved by explicit human decision on
+2026-10-01. This issue-scoped Task decomposition is proposed for review together
+with the reconciled Plan. No I153-T0x implementation is authorized by this
+documentation change.
