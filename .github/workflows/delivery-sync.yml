@@ -10,8 +10,9 @@ name: Delivery sync
 # - a release commit (merged Release PR) records Target Release vX.Y.Z for the
 #   Issue set that release delivers.
 # - fail-safe: an Issue GitHub closed at exactly the completing merge (its
-#   last close event names that merged PR/commit) with no stable release
-#   record is reopened with a bounded record; other closures are left alone.
+#   last close event names that merged PR/commit), not yet recorded by the
+#   stable release delivering that merge, is reopened with a bounded record;
+#   other closures are left alone.
 # - with projection enabled, every stable release since v0.2.0 is reconciled:
 #   a closed/completed Issue whose latest release record names that release
 #   is repaired to Released with that Target Release.

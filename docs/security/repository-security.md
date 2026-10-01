@@ -174,9 +174,11 @@ Trade-offs registrados:
   continua exigindo code owner review de `@rgomids`, que uma aprovação do
   GitHub Actions não satisfaz; nenhum workflow deste repositório aprova PRs.
 - PRs e pushes feitos com `GITHUB_TOKEN` não disparam outros workflows; por
-  isso `release-please.yml` dispara `ci.yml` por `workflow_dispatch` na branch
-  do Release PR, sem PAT nem secret. Se isso falhar, fechar e reabrir o
-  Release PR também dispara a CI.
+  isso `release-please.yml` dispara `ci.yml` e `delivery-metadata.yml` por
+  `workflow_dispatch` na branch do Release PR, sem PAT nem secret. Se isso
+  falhar, fechar e reabrir o Release PR também dispara a CI (o
+  `delivery-metadata` por `pull_request` é pulado para o Release PR, mas o
+  próximo push do Release Please o dispara de novo por dispatch).
 - Com um único mantenedor, o próprio autor não pode aprovar seu PR; o bypass
   em modo `pull_request` permite o merge auditado pelo PR, mas nunca push
   direto em `main`. Release PRs (autor `github-actions`) recebem aprovação
@@ -202,7 +204,7 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
 
 | Workflow / job | Gatilho | Credencial | Efeitos |
 |---|---|---|---|
-| `delivery-metadata.yml` | `pull_request` (inclusive forks) | `GITHUB_TOKEN` com `contents: read` e `pull-requests: read`; sem secrets | nenhum: valida título e corpo com o validador da revisão base e recusa `closingIssuesReferences` |
+| `delivery-metadata.yml` | `pull_request` (inclusive forks); `workflow_dispatch` pelo `release-please.yml` | `GITHUB_TOKEN` com `contents: read` e `pull-requests: read`; sem secrets | nenhum: valida título e corpo com o validador da revisão base e recusa `closingIssuesReferences` |
 | `delivery-sync.yml` `sync` | `push` em `main`, com `"projection": "disabled"` | `GITHUB_TOKEN` `issues: write`, `pull-requests: read` (só para ler o closer de uma Issue fechada no merge) | comentário limitado e idempotente nas Issues completadas; reabertura de uma Issue fechada pelo GitHub exatamente nesse merge, com registro limitado |
 | `delivery-sync.yml` `sync-project` | `push` em `main`, só com `"projection": "enabled"` | `GITHUB_TOKEN` (Issues, `pull-requests: read`), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `delivery` (somente GraphQL do Project) | também Status `Awaiting Release` e `Target Release`; reconciliação para `Released` de Issues com registro de release |
 | `publish-release.yml` `publish` | dispatch autorizado, environment `release` aprovado | `GITHUB_TOKEN` `issues: write` (comentário e fechamento), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `release` (somente GraphQL do Project) | só os efeitos de Issue do envelope autorizado, depois do read-back |
@@ -237,6 +239,12 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
 - O skip de Release PRs exige branch `release-please--*`, autor
   `github-actions[bot]` e head no próprio repositório. O nome da branch
   sozinho não pula o check.
+- O caminho `workflow_dispatch` de `delivery-metadata.yml` executa o script
+  da branch padrão (não o da branch do Release PR) e só passa quando o ator é
+  `github-actions[bot]`, a ref é `release-please--*` e o SHA é o head do único
+  Release PR aberto, de autoria do bot, a partir do próprio repositório. Um
+  dispatch humano ou em outra branch falha; ele nunca é pulado, então não
+  produz um check verde.
 - `delivery-sync.yml` usa um concurrency group. O GitHub mantém só uma
   execução pendente por grupo, então cada execução reprocessa a janela desde
   o início do range da última release. Os efeitos são idempotentes, e Issues
@@ -244,15 +252,23 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
   GitHub fechou no próprio merge que a completa (link da sidebar Development
   adicionado depois do último check, ou keyword) é reaberta só quando o
   closer do último `ClosedEvent` é exatamente aquele PR mergeado, com aquele
-  merge commit, ou aquele commit; o motivo é `completed`; e não existe
-  registro `axiom-delivery:released`. Fechamento manual, outro PR/commit ou
-  closer desconhecido nunca é revertido.
+  merge commit, ou aquele commit; o motivo é `completed`; e a release estável
+  que entrega esse merge não deixou registro `axiom-delivery:released`
+  (registro de uma release anterior pertence a uma entrega anterior de uma
+  Issue reaberta). Fechamento manual, outro PR/commit ou closer desconhecido
+  ou ilegível nunca é revertido.
 - Com `"projection": "enabled"`, cada sync reconcilia o Project das releases
   estáveis desde `v0.2.0`: Issue fechada como `completed`, no Issue set da
   release, cujo registro `axiom-delivery:released` mais recente (do bot) nomeia
   aquela tag, volta a `Released` com aquele `Target Release`. Itens
   consistentes não são escritos; sem registro inequívoco não há reparo. A
   Issue e o registro são a Evidence canônica; o Project é reconstruível.
+  Uma release cujo Issue set não resolve, ou uma Issue ilegível (transferida
+  ou apagada), é reportada e pulada, sem bloquear os syncs seguintes. Um
+  item removido manualmente do Project volta no próximo sync. Custo: cada
+  sync relê as Issues de todas as releases desde `v0.2.0` (Issue e
+  comentários pelo `GITHUB_TOKEN`, item pelo PAT); isso cresce com o
+  histórico e deve ser limitado se aproximar o limite de requisições.
 - Nenhum workflow fecha Issues em `pull_request_target`, `issues`, `release`
   ou `workflow_run`. O fechamento só acontece dentro do envelope de publicação
   autorizado (`test-release-flow.sh` verifica isso estaticamente).
@@ -370,9 +386,10 @@ Ordem para habilitar, cada passo com autoridade humana própria:
 4. `delivery-metadata` faz parte dos required checks do estado desejado em
    `.github/rulesets/main.json`. Aplique esse ruleset (comando 1 de
    [Aplicação](#aplicação-administrador)) somente com autoridade humana
-   explícita, depois que o contrato estiver em `main`. O Release PR passa
-   porque o job é pulado, e `release.sh` não exige esse check em commits de
-   `main`, onde ele nunca roda.
+   explícita, depois que o contrato estiver em `main`. No Release PR o check
+   existe porque `release-please.yml` o dispara por `workflow_dispatch` na
+   branch do Release PR, como faz com `ci.yml`; `release.sh` não exige esse
+   check em commits de `main`, onde ele nunca roda.
 
 Leitura local do Project exige `gh auth refresh -s read:project`. O envelope
 não depende disso: ele lê só Issues e comentários.

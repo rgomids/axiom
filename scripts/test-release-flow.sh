@@ -288,6 +288,10 @@ case "$method $path" in
     sha=${sha%%/*}
     cat "$s/checks-$sha.json" 2>/dev/null || printf '{"check_runs":[]}\n' ;;
   "GET commits/"*"/pulls") cat "$s/pulls.json" 2>/dev/null || printf '[]\n' ;;
+  "GET pulls?"*)
+    head=${path#*head=}
+    head=${head%%&*}
+    jq --arg h "$head" '[.[] | select((.head.repo.owner.login + ":" + .head.ref) == $h)]' "$s/open-pulls.json" 2>/dev/null || printf '[]\n' ;;
   "GET issues/"*"/comments?per_page=100")
     number=${path#issues/}
     number=${number%%/*}
@@ -1073,6 +1077,21 @@ check 'no repair without a release record, with a foreign record, or when a late
   grep -Fxq 'reconcile_skipped=21 tag=v0.2.0 reason=no_release_record' '$temporary/sync' &&
   grep -Fxq 'reconcile_skipped=22 tag=v0.2.0 reason=latest_record_v0.3.0' '$temporary/sync'"
 check 'unrepaired items keep their observed Status' bash -c "[[ \$(jq -r '.I_20.status + .I_21.status + .I_22.status' '$state/items.json') == 'Awaiting ReleaseAwaiting ReleaseAwaiting Release' ]]"
+# An unreadable Issue or an unresolvable later release is reported and
+# skipped; it never stops every later sync.
+mv "$state/issues/21.json" "$state/issue-21.moved"
+dgh sync --from "$drel" --to "$drel" >"$temporary/sync"
+check 'reconciliation skips an unreadable (transferred or deleted) Issue and continues' bash -c "
+  grep -Fxq 'reconcile_skipped=21 tag=v0.2.0 reason=issue_unreadable' '$temporary/sync' && grep -Fxq 'reconcile_skipped=22 tag=v0.2.0 reason=latest_record_v0.3.0' '$temporary/sync'"
+mv "$state/issue-21.moved" "$state/issues/21.json"
+dbad=$(dcommit 'fix: merged without metadata (#15)' 'Closes #23\n')
+dr021=$(dcommit 'chore(main): release 0.2.1 (#16)' '' 0.2.1)
+dgh sync --from "$dr021" --to "$dr021" >"$temporary/sync"
+check 'reconciliation skips an unresolvable release and still reconciles the others' bash -c "
+  grep -Fxq 'reconcile_skipped_release=v0.2.1 reason=unresolvable' '$temporary/sync' && grep -Fxq 'reconcile_skipped=20 tag=v0.2.0 reason=no_release_record' '$temporary/sync'"
+git -C "$dfix" reset -q --hard "$drel"
+mkdir -p "$dfix/.github"
+project_config enabled
 issue 20 'Reopened after release' open
 printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.2.0 -->"}]\n' >"$state/comments/20.json"
 dgh sync --to "$drel" >"$temporary/sync"
@@ -1172,11 +1191,21 @@ for case in 'pr 99 '"$d3"' COMPLETED|another merged PR' 'pr 13 '"$d2"' COMPLETED
 done
 issue 22 'Help text' closed completed
 closer 22 pr 13 "$d3"
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.2.0 -->\\npublished"}]\n' >"$state/comments/22.json"
+dgh sync --from "$d2" --to "$drel" >"$temporary/sync"
+check 'fail-safe: an Issue the delivering stable release recorded is never reopened' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && ! grep -q '^ISSUE 22 ' '$state/ledger'"
 printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.1.0 -->\\nold"}]\n' >"$state/comments/22.json"
 dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
-check 'fail-safe: an Issue with a stable release record is never reopened' bash -c "
-  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && ! grep -q '^ISSUE 22 ' '$state/ledger'"
+check 'fail-safe: a record of an earlier release (earlier delivery of a reopened Issue) does not block' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == open ]] && grep -Fxq 'effect=issue_reopened issue=22 commit=$d3' '$temporary/sync'"
+issue 22 'Help text' closed completed
 rm "$state/comments/22.json"
+FAKE_GH_FAIL_ON='graphql timelineItems' dgh sync --from "$d2" --to "$d3" >"$temporary/sync" 2>"$temporary/err"
+check 'fail-safe: an unreadable closer is not attributable and never stops the projection' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && grep -Fxq 'closer_unreadable=22 commit=$d3' '$temporary/sync' &&
+  grep -Fxq 'issue_skipped=22 reason=closed commit=$d3' '$temporary/sync'"
+rm -f "$state/comments/22.json"
 closer 22 commit 0 "$d3"
 FAKE_GH_FAIL_ON='PATCH repos/rgomids/axiom/issues/22' expect_failure 'fail-safe: a failed reopen is reported' 'cannot reopen Issue #22' \
   dgh sync --from "$d2" --to "$d3"
@@ -1260,6 +1289,33 @@ before=$(mutations)
 lenvelope >"$temporary/lenv"
 check 'boundary rerun converges: both recorded, no effect' bash -c "
   grep -Fxq effect.issue.129=none '$temporary/lenv' && grep -Fxq effect.issue.147=none '$temporary/lenv' && [[ $(mutations) == $before ]]"
+
+# Release PR path of the required delivery-metadata check: Release Please
+# PRs start no pull_request run, so release-please.yml dispatches the check;
+# it passes only for the bot-authored Release PR head.
+reset_github
+rp_head=$(printf 'a%.0s' {1..40})
+jq -n --arg sha "$rp_head" '[{number: 146, user: {login: "github-actions[bot]"}, base: {ref: "main"},
+  head: {ref: "release-please--branches--main", sha: $sha, repo: {full_name: "rgomids/axiom", owner: {login: "rgomids"}}}}]' >"$state/open-pulls.json"
+rph() { "$dfix/scripts/delivery-github.sh" release-pr-head --repo rgomids/axiom "$@"; }
+rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]' >"$temporary/rph"
+check 'Release PR head dispatched by the bot passes without validating metadata' bash -c "
+  grep -Fxq 'release_pr=#146 head=$rp_head' '$temporary/rph' && grep -Fxq delivery_metadata=not_applicable '$temporary/rph' && [[ $(mutations) == 0 ]]"
+expect_failure 'a human dispatch never produces a passing check' 'only github-actions[bot] dispatches' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor rgomids
+expect_failure 'a dispatch on another branch fails' 'runs only on a release-please-- branch' \
+  rph --branch feature/x --sha "$rp_head" --actor 'github-actions[bot]'
+expect_failure 'a dispatch for another commit than the Release PR head fails' 'is not the head of one open bot-authored Release PR' \
+  rph --branch release-please--branches--main --sha "$(printf 'b%.0s' {1..40})" --actor 'github-actions[bot]'
+jq '.[0].user.login = "someone"' "$state/open-pulls.json" >"$state/p" && mv "$state/p" "$state/open-pulls.json"
+expect_failure 'a release-please-- branch PR not authored by the bot fails' 'is not the head of one open bot-authored Release PR' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]'
+jq '.[0].user.login = "github-actions[bot]" | .[0].head.repo = {full_name: "fork/axiom", owner: {login: "fork"}}' "$state/open-pulls.json" >"$state/p" && mv "$state/p" "$state/open-pulls.json"
+expect_failure 'a fork head with the same branch name fails' 'is not the head of one open bot-authored Release PR' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]'
+rm -f "$state/open-pulls.json"
+expect_failure 'no open Release PR fails' 'is not the head of one open bot-authored Release PR' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]'
 
 # Release candidates never touch Issues.
 reset_github
@@ -1426,7 +1482,7 @@ check 'only the delivery Project secret is used, only in environment-gated jobs'
   sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
   ! sed -n '/^  sync:/,/^  sync-project:/p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.'"
 check 'delivery workflows: PR metadata check has no token or secret, sync runs only on main pushes' bash -c "
-  [[ \$(sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-metadata.yml' | grep -E '^  [a-z_]+:' | tr -d ' :') == pull_request ]] &&
+  [[ \$(sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-metadata.yml' | grep -E '^  [a-z_]+:' | tr -d ' :' | paste -sd, -) == pull_request,workflow_dispatch ]] &&
   grep -Fxq 'permissions: {}' '$workflows/delivery-metadata.yml' && ! grep -Eq 'write|secrets\.|pull_request_target' '$workflows/delivery-metadata.yml' &&
   grep -Fq 'ref: \${{ github.event.pull_request.base.sha }}' '$workflows/delivery-metadata.yml' &&
   grep -Fq 'PR_BODY: \${{ github.event.pull_request.body }}' '$workflows/delivery-metadata.yml' &&
@@ -1445,6 +1501,22 @@ check 'every action is pinned by SHA' "$pinned"
 check 'checkouts never persist credentials' bash -c "[[ \$(grep -c 'actions/checkout@' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') == \$(grep -c 'persist-credentials: false' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') ]]"
 ci_contexts=$(printf 'delivery-metadata\nrelease-contract\nverify (linux)\nverify (macos)\n')
 check 'ruleset requires exactly the CI job checks and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
+# Every required context must exist on the Release PR head, where Release
+# Please events start no pull_request run: its workflows are dispatched there.
+check 'every required context is produced on the Release PR path' bash -c "
+  grep -Fq 'gh workflow run ci.yml --repo \"\$GITHUB_REPOSITORY\" --ref \"\$RELEASE_BRANCH\"' '$workflows/release-please.yml' &&
+  grep -Fq 'gh workflow run delivery-metadata.yml --repo \"\$GITHUB_REPOSITORY\" --ref \"\$RELEASE_BRANCH\"' '$workflows/release-please.yml' &&
+  sed -n '/^on:/,/^[a-z]/p' '$workflows/ci.yml' | grep -Fxq '  workflow_dispatch:' &&
+  sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-metadata.yml' | grep -Fxq '  workflow_dispatch:'"
+dispatch_path_is_guarded() {
+  local w=$workflows/delivery-metadata.yml
+  grep -Fq "\${{ github.event_name == 'workflow_dispatch'" "$w" &&
+    grep -Fq 'ref: ${{ github.event.repository.default_branch }}' "$w" &&
+    grep -Fq './scripts/delivery-github.sh release-pr-head' "$w" &&
+    [[ $(grep -c "if: github.event_name == 'pull_request'" "$w") == 3 ]] &&
+    [[ $(grep -c "if: github.event_name == 'workflow_dispatch'" "$w") == 2 ]]
+}
+check 'the delivery-metadata dispatch path always runs trusted default-branch code and is never skipped' dispatch_path_is_guarded
 check 'release CI state ignores only the PR-only delivery-metadata check' bash -c "
   grep -Fxq '    [[ \"\$name\" == delivery-metadata ]] && continue' '$repository_root/scripts/release.sh' &&
   [[ \$(grep -c 'delivery-metadata ]] && continue' '$repository_root/scripts/release.sh') == 1 ]]"

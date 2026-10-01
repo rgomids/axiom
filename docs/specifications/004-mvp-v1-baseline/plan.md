@@ -1048,10 +1048,11 @@ undeclared commits: above it, release resolution fails closed on any
 first-parent commit other than the release's own Release Please commit that
 lacks metadata or a reviewed correction. A post-merge fail-safe reopens an
 Issue GitHub closed at exactly its completing merge (attributed by the close
-event's closer) before any stable release; and with projection enabled, sync
+event's closer) before the stable release delivering that merge recorded it; and with projection enabled, sync
 repairs the Project of released Issues from their canonical release records.
-`delivery-metadata` joins the desired required checks; applying the ruleset
-stays separately authorized. It
+`delivery-metadata` joins the desired required checks (dispatched on the
+Release PR head, where it passes only for the bot-authored Release PR);
+applying the ruleset stays separately authorized. It
 is not Execution truth, not FR-039 `axiom:stage:*` derivation and not an
 FR-041 flag, and it records no acceptance. No ADR: the change extends the
 release envelope recorded above and adds no product-domain boundary. Process:

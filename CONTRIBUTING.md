@@ -265,19 +265,30 @@ validates this with
 [`scripts/delivery-issues.sh check-pr`](scripts/delivery-issues.sh), using the
 base revision's validator. It also requires that the metadata parse the same
 after a 72-column wrap, and that GitHub's `closingIssuesReferences` for the PR
-is empty. It runs on every PR except Release PRs opened by Release Please
-(the job is skipped, which a required check accepts). The desired `main`
-ruleset makes it a required check; applying that ruleset is a separate,
+is empty. Release PRs deliver no Issue and are not validated. Release Please
+updates them with `GITHUB_TOKEN`, which starts no `pull_request` run, so
+`release-please.yml` dispatches the check on the Release PR branch, next to
+CI. That dispatch runs the default branch's script and passes only for the
+head of the open bot-authored Release PR dispatched by the bot; any other
+dispatch fails and is never skipped. The desired `main` ruleset makes
+`delivery-metadata` a required check; applying that ruleset is a separate,
 authorized administrator action (see
 [repository security](docs/security/repository-security.md#delivery-tracking)).
+
 The check cannot observe a Development-sidebar link added after its last run,
-so delivery sync has a post-merge fail-safe: when GitHub closes an Issue at
-the merge that completes it, before any stable release, sync reopens it with a
-bounded `axiom-delivery:reopened` record and continues the normal
-`Awaiting Release` projection. It reopens only when the Issue's last close
-event names exactly that merged PR (with that merge commit) or that commit as
-closer, the reason is `completed`, and no `axiom-delivery:released` record
-exists. Any other closure is reported and left alone.
+so delivery sync has a post-merge fail-safe. When GitHub closes an Issue at
+the merge that completes it, before the stable release that delivers that
+merge recorded it, sync writes a bounded `axiom-delivery:reopened` record,
+reopens the Issue and continues the normal `Awaiting Release` projection. It
+reopens only when the Issue's last close event names exactly that merged PR
+(number from the squash subject, with that merge commit) or that commit as
+closer, and the reason is `completed`. A record of an earlier release belongs
+to an earlier delivery of a reopened Issue and does not block it. A manual
+close, another PR or commit, or an unreadable closer is reported and left
+alone. Limits: it covers only Issues the merge completes; GitHub closes
+linked Issues asynchronously, so a closure that lands after that push's sync
+is repaired by the next push to `main` (at the latest the Release PR merge),
+which re-scans the window.
 Keep the metadata intact when editing the squash commit message. If a merged
 commit's metadata is malformed, the release that contains it fails closed. The
 fix is a reviewed line in
