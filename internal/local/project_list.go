@@ -39,7 +39,6 @@ func (s InstallationStore) ListInstalled(ctx context.Context) ([]projectapp.Inst
 		return nil, err
 	}
 	result := make([]projectapp.InstalledProject, 0, len(names))
-	slugs := make(map[string]bool, len(names))
 	metadataBytes := 0
 	for _, name := range names {
 		if err := ctx.Err(); err != nil {
@@ -52,14 +51,10 @@ func (s InstallationStore) ListInstalled(ctx context.Context) ([]projectapp.Inst
 			}
 			return nil, ErrUnsafe
 		}
-		if slugs[resolved.Slug] {
-			return nil, ErrUnsafe
-		}
 		metadataBytes += len(resolved.ID) + len(resolved.Slug) + len(resolved.Source)
 		if metadataBytes > maxProjectListMetadataBytes {
 			return nil, ErrUnsafe
 		}
-		slugs[resolved.Slug] = true
 		result = append(result, projectapp.InstalledProject{ID: resolved.ID, Slug: resolved.Slug, Source: resolved.Source})
 	}
 	return result, nil

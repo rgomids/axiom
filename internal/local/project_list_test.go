@@ -73,7 +73,7 @@ func TestReadInstalledProjectDistinguishesUnavailableFromUnsafeSource(t *testing
 	}
 }
 
-func TestListInstalledFailsClosedForMalformedAndAmbiguousState(t *testing.T) {
+func TestListInstalledFailsClosedForUnsafeState(t *testing.T) {
 	t.Run("malformed", func(t *testing.T) {
 		stateRoot := filepath.Join(t.TempDir(), "state")
 		service, _ := NewInstallationStore(stateRoot)
@@ -111,17 +111,36 @@ func TestListInstalledFailsClosedForMalformedAndAmbiguousState(t *testing.T) {
 			t.Fatalf("unsafe target changed: %q, %v", wire, err)
 		}
 	})
+}
 
-	t.Run("duplicate slug", func(t *testing.T) {
-		stateRoot := filepath.Join(t.TempDir(), "state")
-		service, _ := NewInstallationStore(stateRoot)
-		for _, id := range []string{"123e4567-e89b-42d3-a456-426614174000", "123e4567-e89b-42d3-a456-426614174001"} {
-			writeResolutionRecord(t, stateRoot, recordForResolution(id, "duplicate", filepath.Join(t.TempDir(), "missing"), nil))
-		}
-		if projects, err := service.ListInstalled(context.Background()); err == nil || projects != nil {
-			t.Fatalf("ambiguous list = %#v, %v", projects, err)
-		}
-	})
+func TestListInstalledAllowsDuplicateSlugsAndCatalogUsesIDAsTieBreaker(t *testing.T) {
+	stateRoot := filepath.Join(t.TempDir(), "state")
+	service, err := NewInstallationStore(stateRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstID := "123e4567-e89b-42d3-a456-426614174000"
+	secondID := "123e4567-e89b-42d3-a456-426614174001"
+	for _, id := range []string{secondID, firstID} {
+		writeResolutionRecord(t, stateRoot, recordForResolution(id, "shared", filepath.Join(t.TempDir(), "missing"), nil))
+	}
+
+	installed, err := service.ListInstalled(context.Background())
+	if err != nil || len(installed) != 2 {
+		t.Fatalf("installed projects = %#v, %v", installed, err)
+	}
+	byID := make(map[string]projectapp.InstalledProject, len(installed))
+	for _, value := range installed {
+		byID[value.ID] = value
+	}
+	if byID[firstID].Slug != "shared" || byID[secondID].Slug != "shared" {
+		t.Fatalf("duplicate-slug projects = %#v", installed)
+	}
+
+	result := projectapp.NewProjectCatalog(service, service).List(context.Background())
+	if result.Status != projectapp.ProjectListSucceeded || len(result.Projects) != 2 || result.Projects[0].ID != firstID || result.Projects[1].ID != secondID {
+		t.Fatalf("catalog list = %#v", result)
+	}
 }
 
 func directorySnapshot(t *testing.T, root string) map[string]os.FileMode {
