@@ -3,7 +3,8 @@
 ## Status
 
 **Implementation authorized.** The requester explicitly approved the complete
-native port on 2026-09-30. This contract governs the implementation in PR #128;
+native port on 2026-09-30. This contract governs the implementation in PR #149
+(which supersedes the fork-based PR #128);
 upstream acceptance and release publication remain separate decisions. Validation
 results and remaining limitations are recorded in `evidence.md`.
 

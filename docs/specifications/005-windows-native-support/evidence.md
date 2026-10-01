@@ -2,7 +2,7 @@
 
 ## Scope
 
-Implementation for PR #128, requested and authorized on 2026-09-30. This is
+Implementation for PR #149 (superseding #128), requested and authorized on 2026-09-30. This is
 implementation/test evidence, not permission to merge or publish a release.
 
 Delivered code includes Windows security-descriptor and handle checks, NTFS and
@@ -30,6 +30,26 @@ Native Windows amd64, Go 1.26.0, local NTFS, user-private validation directory:
 - Execution Graph tests passed after converting synthetic absolute path fixtures
   to host paths.
 - PowerShell 5.1 parser accepted the bootstrap.
+
+## CI regression validation — 2026-10-01
+
+[CI run 36816149591](https://github.com/rgomids/axiom/actions/runs/36816149591)
+passed on commit `5b3d5f474f17a506a7d59c1207c030c26f7b65e4`:
+
+- Windows Server 2022 amd64: complete native Go suite, static/build/module
+  checks, and PowerShell 5.1 offline fresh-install/reinstall/upgrade contract.
+- Linux and macOS: race-enabled Go suites, static/build/module checks,
+  repository validators, and bounded dogfooding.
+- Release artifact and publication-flow contracts: passed.
+
+Integration with the newer Project edit/list and recorded-source changes keeps
+host-absolute fixture paths, JSON path escaping, and actual Windows DACL tests.
+Release checks retain all four platforms and the six current Runtime skills.
+
+A local development build and `go vet ./...` also passed. Executing that build
+for `version`/`help` was blocked by Smart App Control; local interactive use is
+not claimed as validated. Signing/trust compatibility with that policy is not
+delivered by this port. No security policy was changed.
 
 ## Validation limitations / release gates
 
