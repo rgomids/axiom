@@ -981,7 +981,7 @@ For RecognizedPOC, the approved Issue #153 transition is:
 Foreign, modified, unsafe, ambiguous, corrupt, unsupported-newer, and
 out-of-window state remains fail-closed. Recognition never means automatic
 migration permission.
-## 13. S9 productization, release and clean-environment acceptance
+
 ## 13. S9 productization, release and clean-environment acceptance
 
 Before an RC is identified, S9 closes the repository-local productization gap in
