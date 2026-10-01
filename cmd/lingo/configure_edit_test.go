@@ -14,6 +14,7 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/testfs"
 )
 
 // Issue #132 I132-T01 Evidence: EDIT is a zero-write preview over the real
@@ -182,7 +183,9 @@ func TestEditPreviewRepositoryAndProviderSemanticsOverRealStores(t *testing.T) {
 	if strings.Contains(event.Edit.PortableManifest, "key: api") || !strings.Contains(event.Edit.PortableManifest, "key: docs") {
 		t.Fatalf("portable associations wrong:\n%s", event.Edit.PortableManifest)
 	}
-	if !strings.Contains(output, moved) || !strings.Contains(output, docs) {
+	movedJSON, _ := json.Marshal(moved)
+	docsJSON, _ := json.Marshal(docs)
+	if !strings.Contains(output, string(movedJSON)) || !strings.Contains(output, string(docsJSON)) {
 		t.Fatal("changed local bindings are not reviewable")
 	}
 
@@ -415,12 +418,12 @@ func TestEditFailsClosedOnUnsafeOrIncoherentRecordedSource(t *testing.T) {
 			if err := os.Rename(source, source+"-real"); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(source+"-real", source); err != nil {
+			if err := testfs.Symlink(t, source+"-real", source); err != nil {
 				t.Fatal(err)
 			}
 		},
 		"shared source permissions": func(t *testing.T, _ editEnvironment, source string) {
-			if err := os.Chmod(source, 0o755); err != nil {
+			if err := testfs.SharedMode(source, 0o755); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -451,7 +454,8 @@ func TestEditFailsClosedOnUnsafeOrIncoherentRecordedSource(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if changed := strings.Replace(string(wire), `"`+source+`"`, `"elsewhere/external"`, 1); changed != string(wire) {
+				sourceJSON, _ := json.Marshal(source)
+				if changed := strings.Replace(string(wire), string(sourceJSON), `"elsewhere/external"`, 1); changed != string(wire) {
 					if err := os.WriteFile(record, []byte(changed), 0o600); err != nil {
 						t.Fatal(err)
 					}
