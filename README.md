@@ -133,6 +133,7 @@ After `first-run`, these skills are available in each configured Runtime:
 | Skill | Use it to |
 |---|---|
 | `axiom-project-configure` | Configure a Project and its local Repository associations. |
+| `axiom-project-list` | List configured Projects from any directory. |
 | `axiom-project-show` | Inspect or resolve a configured Project from any directory. |
 | `axiom-work-item-create` | Create or select a GitHub-backed Work Item. |
 | `axiom-work-item-run` | Start or resume the bounded delivery workflow for a Work Item. |
@@ -163,6 +164,9 @@ until you answer `yes`.
 ```bash
 # Configure a Project: slug, name, Repository key=absolute-path, provider
 axiom project configure
+
+# List configured Projects from any directory
+axiom project list
 
 # Inspect it from any directory
 axiom project show --selector my-project

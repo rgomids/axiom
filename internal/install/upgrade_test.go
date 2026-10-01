@@ -160,7 +160,7 @@ func TestLoadCandidateMirrorsInstallerVerification(t *testing.T) {
 	valid := newBundle("1.1.0", []byte("binary\n"))
 	archive, checksums := valid.write(t, t.TempDir())
 	candidate, err := LoadCandidate(archive, checksums)
-	if err != nil || candidate.Version != "1.1.0" || len(candidate.Skills) != 5 {
+	if err != nil || candidate.Version != "1.1.0" || len(candidate.Skills) != len(skillNames) {
 		t.Fatalf("candidate=%+v err=%v", candidate, err)
 	}
 	tests := []struct {
@@ -332,7 +332,7 @@ func TestUpgradePublishesOwnedSkillFilesAfterBinaryAndReceipt(t *testing.T) {
 func TestUpgradeReplacesKnownLegacySkillsAndCreatesMissingOnes(t *testing.T) {
 	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
 	legacy := map[string][]byte{}
-	for _, name := range skillNames[:4] {
+	for _, name := range []string{"axiom-project-configure", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run"} {
 		wire, err := os.ReadFile(filepath.Join("..", "compatibility", "testdata", "poc-v0.1.0-poc.1", "skills", name, "SKILL.md"))
 		if err != nil {
 			t.Fatal(err)

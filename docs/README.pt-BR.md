@@ -134,6 +134,7 @@ configurado:
 | Skill | Use para |
 |---|---|
 | `axiom-project-configure` | Configurar um Project e suas associações locais de Repository. |
+| `axiom-project-list` | Listar Projects configurados a partir de qualquer diretório. |
 | `axiom-project-show` | Inspecionar ou resolver um Project configurado a partir de qualquer diretório. |
 | `axiom-work-item-create` | Criar ou selecionar um Work Item baseado no GitHub. |
 | `axiom-work-item-run` | Iniciar ou retomar o workflow delimitado de entrega de um Work Item. |
@@ -164,6 +165,9 @@ nada até você responder `yes`.
 ```bash
 # Configure um Project: slug, nome, Repository chave=path-absoluto, provider
 axiom project configure
+
+# Liste os Projects configurados a partir de qualquer diretório
+axiom project list
 
 # Inspecione-o a partir de qualquer diretório
 axiom project show --selector my-project

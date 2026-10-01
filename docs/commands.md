@@ -27,7 +27,7 @@ go run ./cmd/lingo project update --slug sample --name "Sample renamed"
 
 Cada operação escreve resumo humano por padrão; prefixe o comando com `--json`
 para evento estruturado. `version`, `first-run`, `project configure`,
-`project validate` e `project show` usam o contrato canônico de completion;
+`project validate`, `project list` e `project show` usam o contrato canônico de completion;
 demais comandos POC preservam temporariamente o evento histórico. Exit codes:
 `0` sucesso, `1` erro/conflito, `2`
 interrupção/cancelamento. `init` é create/no-op/conflito: não
@@ -48,7 +48,7 @@ Execute o dogfooding reproduzível deste incremento em roots temporários:
 
 O script exige Go 1.26, Bash, `find`, `wc`, `tr`, `grep`, `sed`, `awk` e
 `shasum`. Ele instala Lingo em um PATH isolado, inicia fora do Project, instala e
-verifica as cinco skills, configura/resolve Project, usa um Provider GitHub fake
+verifica as seis skills, configura/resolve Project, usa um Provider GitHub fake
 limitado, executa todos os gates, cobre interrupção/retomada e completa o Work
 Item somente com authority explícita. A saída final é Evidence JSON versionada
 com hashes SHA-256. Instalação usa publicação sem substituição; resíduos de
@@ -284,6 +284,7 @@ the requested semantic `axiom:<skill>` names are invoked as:
 
 ```text
 $axiom-project-configure
+$axiom-project-list
 $axiom-project-show
 $axiom-work-item-create
 $axiom-work-item-run
@@ -677,6 +678,8 @@ stable JSON surface by putting `--json` before the command:
 ```bash
 axiom project show --selector my-project
 axiom --json project show --selector my-project
+axiom project list
+axiom --json project list
 axiom help
 ```
 
@@ -711,6 +714,7 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
 | `$axiom-project-configure` | `axiom --json project configure` |
+| `$axiom-project-list` | `axiom --json project list` |
 | `$axiom-project-show` | `axiom --json project show --selector ...` |
 | `$axiom-work-item-create` | `axiom --json work-item create\|select ...` |
 | `$axiom-work-item-run` | `axiom --json workflow start\|advance\|fact\|resume\|reconcile ...` |
@@ -720,6 +724,19 @@ Skills collect missing selectors conversationally, but Lingo retains validation,
 repository resolution, workflow ordering, and external-mutation authority.
 
 ## Resolve a configured Project globally
+
+List configured Projects from protected local installation records, independent
+of current directory and repository availability:
+
+```bash
+axiom project list
+axiom --json project list
+```
+
+JSON always contains a `projects` array with `id`, `slug`, and `name`; an empty
+installation returns `"projects": []`. When portable display metadata is
+temporarily unavailable, the configured Project remains present with an empty
+`name`. The concise listing never includes source or repository paths.
 
 Use a canonical Project UUID or installation-unique slug from any directory:
 

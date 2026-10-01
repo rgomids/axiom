@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -31,6 +32,7 @@ func TestRunDelegatesEachLifecycleOperation(t *testing.T) {
 		{"first run", []string{"first-run"}, "first-run"},
 		{"resolve", []string{"project", "resolve", "--selector", "alpha"}, "resolve:alpha"},
 		{"show", []string{"project", "show", "--selector", "alpha"}, "resolve:alpha"},
+		{"list", []string{"project", "list"}, "list"},
 		{"configure", []string{"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}, "configure:alpha:Alpha:main:/tmp/alpha"},
 		{"work item select", []string{"work-item", "select", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--number", "7"}, "work-item-select:alpha:main:7"},
 		{"work item exact", []string{"work-item", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"}, "work-item-show:alpha:main:github:owner/repo:7"},
@@ -187,6 +189,36 @@ func TestRunInteractiveDefaultsToHumanOutput(t *testing.T) {
 	}
 }
 
+func TestProjectListRendersExplicitJSONCollectionAndHumanEmptyState(t *testing.T) {
+	canonical := canonicalResult(t, completion.Success, nil, "", completionProvenance(t))
+	projects := []ProjectListView{
+		{ID: "123e4567-e89b-42d3-a456-426614174001", Slug: "alpha", Name: "Alpha"},
+		{ID: "123e4567-e89b-42d3-a456-426614174002", Slug: "beta"},
+	}
+	service := &canonicalRecordingService{Result: Result{Completion: &canonical, Projects: projects}}
+	var structured bytes.Buffer
+	if code := Run(context.Background(), []string{"project", "list"}, service, completionProvenance(t), &structured); code != ExitSuccess {
+		t.Fatalf("JSON exit=%d output=%s", code, structured.String())
+	}
+	var event projectListCompletionEvent
+	if err := json.Unmarshal(structured.Bytes(), &event); err != nil || !reflect.DeepEqual(event.Projects, projects) {
+		t.Fatalf("JSON list = %+v, %v; output=%s", event, err, structured.String())
+	}
+	if strings.Contains(structured.String(), `"source":`) || strings.Contains(structured.String(), `"repositories":`) {
+		t.Fatalf("JSON exposed paths: %s", structured.String())
+	}
+
+	emptyService := &canonicalRecordingService{Result: Result{Completion: &canonical, Projects: []ProjectListView{}}}
+	var human bytes.Buffer
+	if code := RunInteractive(context.Background(), []string{"project", "list"}, emptyService, completionProvenance(t), nil, &human, io.Discard); code != ExitSuccess || !strings.Contains(human.String(), "projects: none configured") {
+		t.Fatalf("human empty exit=%d output=%q", code, human.String())
+	}
+	structured.Reset()
+	if code := Run(context.Background(), []string{"project", "list"}, emptyService, completionProvenance(t), &structured); code != ExitSuccess || !strings.Contains(structured.String(), `"projects":[]`) {
+		t.Fatalf("JSON empty exit=%d output=%q", code, structured.String())
+	}
+}
+
 func TestRunDoesNotExposeRejectedInput(t *testing.T) {
 	const sentinel = "do-not-render-this-value"
 	var output bytes.Buffer
@@ -313,6 +345,7 @@ func (s *guidedWorkItemService) WorkItemCreate(_ context.Context, input WorkItem
 }
 
 func (s *canonicalRecordingService) Validate(context.Context, ProjectInput) Result { return s.Result }
+func (s *canonicalRecordingService) List(context.Context) Result                   { return s.Result }
 
 func (s *recordingService) Init(_ context.Context, input InitInput) Result {
 	s.call = "init:" + input.Slug + ":" + input.Name
@@ -361,6 +394,10 @@ func (s *recordingService) Resolve(_ context.Context, input ResolveInput) Result
 func (s *recordingService) Show(_ context.Context, input ResolveInput) Result {
 	s.call = "resolve:" + input.Selector
 	return Result{Status: Succeeded, Category: "applied", Project: &ProjectView{ID: "123e4567-e89b-42d3-a456-426614174000", Slug: input.Selector, Repositories: []RepositoryView{{Key: "main", Path: "/tmp/alpha"}}}}
+}
+func (s *recordingService) List(context.Context) Result {
+	s.call = "list"
+	return Result{Status: Succeeded, Category: "applied", Projects: []ProjectListView{}}
 }
 func (s *recordingService) Configure(_ context.Context, input ConfigureInput) Result {
 	repository := input.Repositories[0]

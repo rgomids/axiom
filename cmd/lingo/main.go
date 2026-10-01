@@ -139,7 +139,7 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	}
 	references := local.NewWorkflowReferenceValidator(artifacts)
 	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil)
-	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
+	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, projectCatalog: projectapp.NewProjectCatalog(installation, installation), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
 }
 
 func codexSkillsRoot() string {
@@ -187,6 +187,7 @@ type lifecycleService struct {
 	lifecycle              projectapp.Lifecycle
 	portable               local.PortableStore
 	installation           local.InstallationStore
+	projectCatalog         projectapp.ProjectCatalog
 	codex                  codexruntime.Service
 	workItems              workitem.Service
 	workflows              workflow.Service
@@ -211,11 +212,25 @@ func (r workItemResolver) Resolve(ctx context.Context, selector string) (workite
 	if resolved.Status != local.ResolutionFound {
 		return workitem.Project{}, resolved.Category
 	}
-	portable, err := r.portable.Inspect(ctx, resolved.Project.Slug)
-	if err != nil || !portable.Exists || portable.Snapshot.Project().State().ID != resolved.Project.ID {
+	// Source confinement (#147): read only the portable source the protected
+	// record names, never <projects-root>/<slug>, and accept it only when it is
+	// exactly the configuration that installation validated.
+	portable, err := r.portable.InspectRecordedSource(ctx, resolved.Project.Source, resolved.Project.Slug)
+	switch {
+	case ctx.Err() != nil:
+		return workitem.Project{}, "cancelled"
+	case errors.Is(err, local.ErrRecoveryRequired):
+		return workitem.Project{}, "recovery_required"
+	case err == nil && !portable.Exists:
+		return workitem.Project{}, "project_source_unavailable"
+	case err != nil:
 		return workitem.Project{}, "invalid_project_capability_state"
 	}
-	if !projectapp.GitHubWorkItemCapability(portable.Snapshot.Project().State()) {
+	state := portable.Snapshot.Project().State()
+	if state.ID != resolved.Project.ID || state.Slug != resolved.Project.Slug || portable.Snapshot.Revision() != resolved.Project.PortableRevision {
+		return workitem.Project{}, "invalid_project_capability_state"
+	}
+	if !projectapp.GitHubWorkItemCapability(state) {
 		return workitem.Project{}, "work_item_capability_unavailable"
 	}
 	project := workitem.Project{ID: resolved.Project.ID, Provider: "github", Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}
@@ -350,6 +365,33 @@ func (s lifecycleService) Show(ctx context.Context, input cli.ResolveInput) cli.
 	response := canonicalCompletion(completion.Facts{Completed: true}, "Project resolved", references, "", s.provenance)
 	response.Project = projectView(result.Project)
 	return response
+}
+
+func (s lifecycleService) List(ctx context.Context) cli.Result {
+	result := s.projectCatalog.List(ctx)
+	switch result.Status {
+	case projectapp.ProjectListSucceeded:
+		message := "Configured Projects listed"
+		if len(result.Projects) == 0 {
+			message = "No configured Projects"
+		}
+		response := canonicalCompletion(completion.Facts{Completed: true}, message, nil, "", s.provenance)
+		response.Projects = make([]cli.ProjectListView, 0, len(result.Projects))
+		for _, configured := range result.Projects {
+			response.Projects = append(response.Projects, cli.ProjectListView{ID: configured.ID, Slug: configured.Slug, Name: configured.Name})
+		}
+		return response
+	case projectapp.ProjectListCancelled:
+		return canonicalCompletion(completion.Facts{WasInterrupted: true}, "Project listing was interrupted", nil, "Retry Project listing", s.provenance)
+	default:
+		if result.Category == "invalid_existing_local_state" || result.Category == "invalid_project_state" {
+			return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Configured Project state is invalid", nil, "Repair protected Project state before retrying listing", s.provenance)
+		}
+		if result.Category == "recovery_required" {
+			return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Configured Project state requires recovery", nil, "Review preserved local recovery state before retrying listing", s.provenance)
+		}
+		return canonicalCompletion(completion.Facts{Failed: true}, "Project listing failed", nil, "Inspect local storage and application availability before retrying", s.provenance)
+	}
 }
 
 func projectShowFailure(category string, source provenance.Value) cli.Result {
