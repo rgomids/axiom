@@ -1783,8 +1783,11 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
     inspected state to direct, bounded migrate,
     preserve_rebuild_reconfigure, or refuse;
   - keep ownership and schema compatibility as independent inputs;
-  - make the supported stable persisted-state compatibility window explicit and
-    testable;
+  - encode the approved current stable persisted-state compatibility window as
+    canonical v1 only, with RecognizedPOC modeled separately as a historical
+    transition;
+  - require future stable persisted-state format changes to declare their exact
+    supported predecessor window and forward strategy before publication;
   - have the canonical installer orchestrate the selected policy rather than
     exposing internal compatibility commands as required user steps;
   - replace generic user-facing state_incompatible dead ends with bounded product
@@ -1810,7 +1813,9 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
 - **Objective:** Implement the approved automatic RecognizedPOC transition
   without converting historical POC workflow/Execution truth into current
   canonical state.
-- **Dependencies:** I153-T01.
+- **Dependencies:** I153-T01 plus explicit human approval of the preservation
+  lifecycle policy (destination, ownership, retention/cleanup, and cross-filesystem
+  behavior).
 - **Requirements:** FR-026–FR-030, FR-037, FR-065; AC-17–AC-19, AC-46; ADR-0005,
   ADR-0007; Issue #153 compatibility decision.
 - **Scope:**
@@ -1842,8 +1847,13 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
   - fault injection at each transition boundary yields truthful
     partial/recovery_required;
   - equivalent retry after success is a no-op.
-- **Exclusions:** semantic in-place POC migration, automatic cleanup/deletion of
-  preserved historical material, generic arbitrary-schema migration.
+- **Exclusions:** semantic in-place POC migration, policy invention for
+  preservation destination/retention, automatic cleanup/deletion of preserved
+  historical material without the approved lifecycle contract, generic
+  arbitrary-schema migration.
+- **Human decision gate:** I153-T02 MUST NOT start until preservation destination,
+  ownership, retention/cleanup eligibility, and cross-filesystem behavior are
+  explicitly approved and reconciled into Specification/Plan.
 
 ### I153-T03 — Upgrade regression, Evidence, and reconciliation
 
