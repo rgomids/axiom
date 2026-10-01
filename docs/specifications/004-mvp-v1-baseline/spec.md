@@ -62,16 +62,20 @@ the historical HD-4 compatibility baseline and the later FR-065/T39 convergent
 installer contract. The human decision recorded on 2026-10-01 resolves that gap
 without accepting implicit in-place migration of historical workflow truth:
 
-- RecognizedPOC MAY be handled automatically by the canonical installer only
-  through a bounded **preserve -> clean rebuild -> supported reconfiguration**
-  transition;
+- RecognizedPOC MUST resolve to the canonical installer's bounded
+  **preserve -> clean rebuild -> supported reconfiguration** transition when its
+  preservation/lifecycle policy and exact authority preconditions are satisfied;
+  otherwise the installer MUST refuse before mutation with actionable diagnostics;
 - historical POC Execution/workflow truth remains historical and MUST NOT be
   promoted silently into current canonical Execution/workflow state;
 - valid portable Project intent MAY be reconstructed only through the current
   validated portable contract;
-- forward compatibility is guaranteed by an explicit supported compatibility
-  window of persisted-state formats from stable releases, not by the fact that
-  Axiom can merely recognize ownership of arbitrary historical state;
+- the current supported stable persisted-state compatibility window contains
+  only canonical v1; RecognizedPOC is a separately supported historical transition,
+  not a member of that stable window;
+- any future stable release that introduces a new persisted-state format MUST,
+  before publication, declare the exact earlier stable persisted-state formats
+  that remain supported and the forward strategy for each;
 - owned/recognized state and migratable state remain distinct classifications;
 - foreign, modified, unsafe, ambiguous, corrupt, unsupported-newer and
   out-of-window state continue to fail closed.
@@ -778,9 +782,12 @@ MUST NOT claim authorship over the transported content.
   classification. Ownership and schema compatibility are separate: state being
   Axiom-owned or positively recognized MUST NOT by itself imply that semantic
   migration is safe. Missing, malformed, unsupported-newer, unsupported-older and
-  out-of-window versions are distinct failures. Stable releases MUST define an
-  explicit supported compatibility window for persisted-state formats; every
-  earlier stable format inside that window MUST have one supported forward path:
+  out-of-window versions are distinct failures. The current stable compatibility
+  window contains only canonical persisted-state format v1. RecognizedPOC is a
+  separately supported historical transition and does not expand that stable
+  window. Any future stable release that introduces a new persisted-state format
+  MUST declare, before publication, the exact earlier stable formats retained in
+  its supported compatibility window and one supported forward path for each:
   direct compatibility, a bounded validated migration, or preserve plus
   rebuild/reconfiguration. State safely identified as historical RecognizedPOC
   follows the 2026-10-01 Issue #153 decision: preserve a verifiable historical
@@ -1518,9 +1525,12 @@ The human explicitly approved the compatibility direction on 2026-10-01:
   reconfiguration;
 - do not promote historical POC Execution/workflow truth into current canonical
   state;
-- guarantee forward compatibility by an explicit supported persisted-state
-  compatibility window for stable releases rather than arbitrary historical
-  ownership recognition.
+- set the current supported stable persisted-state compatibility window to
+  canonical v1 only; RecognizedPOC remains a separately supported historical
+  transition;
+- require every future stable release that introduces a new persisted-state format
+  to declare before publication the exact earlier stable formats retained in its
+  compatibility window and the supported forward strategy for each.
 
 This decision authorizes Specification/Plan/Tasks reconciliation only. It does
 not authorize implementation, migration effects, release publication, merge, or
