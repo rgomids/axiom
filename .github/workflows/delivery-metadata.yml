@@ -6,7 +6,8 @@ name: Delivery metadata
 # published. The description is untrusted input: it reaches the validator
 # only through an environment variable and a file, never shell interpolation.
 # The validator comes from the base revision, so a PR cannot weaken it
-# without a reviewed change to this workflow. It also fails when GitHub itself links an Issue to close on merge
+# without a reviewed change to this workflow. It also fails when GitHub
+# itself links an Issue to close on merge
 # (closing keywords or the Development sidebar: closingIssuesReferences).
 # A Development-sidebar link changed after the last run triggers no event
 # here; delivery-sync.yml carries the post-merge fail-safe that reopens an

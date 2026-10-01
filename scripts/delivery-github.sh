@@ -327,12 +327,12 @@ closed_by_merge() {
 }
 
 # released_after COMMENTS TIME: a release record by the workflow bot was
-# written after TIME (a publication saw the closure and recorded it). A
-# record without a timestamp counts as after.
+# written at or after TIME (a publication saw the closure and recorded it).
+# A record without a second-precision UTC timestamp counts as after.
 released_after() {
   jq -e --arg bot "$bot_login" --arg at "$2" 'any(.[]; .user.login == $bot
     and (.body | startswith("<!-- axiom-delivery:released tag="))
-    and ((.created_at // "9999-12-31T23:59:59Z") > $at))' <<<"$1" >/dev/null
+    and ((.created_at // "") as $c | ($c | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$") | not) or $c >= $at))' <<<"$1" >/dev/null
 }
 
 comment() {
