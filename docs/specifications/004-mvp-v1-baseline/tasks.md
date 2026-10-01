@@ -1813,15 +1813,17 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
 - **Objective:** Implement the approved automatic RecognizedPOC transition
   without converting historical POC workflow/Execution truth into current
   canonical state.
-- **Dependencies:** I153-T01 plus explicit human approval of the preservation
-  lifecycle policy (destination, ownership, retention/cleanup, and cross-filesystem
-  behavior).
+- **Dependencies:** I153-T01.
 - **Requirements:** FR-026–FR-030, FR-037, FR-065; AC-17–AC-19, AC-46; ADR-0005,
   ADR-0007; Issue #153 compatibility decision.
 - **Scope:**
   - positively revalidate the complete recognized POC signature;
-  - produce a restrictive digest-manifested preservation artifact before any
-    legacy active state is retired;
+  - produce a restrictive digest-manifested preservation archive in the approved
+    Axiom-owned machine-local archive namespace, separate from active roots and
+    identified by transition operation plus source digest, before any legacy
+    active state is retired;
+  - support same- or cross-filesystem archive destinations through copy + per-object
+    digest verification plus a final manifest, never by assuming atomic rename;
   - validate and extract only portable Project intent supported by the current
     portable contract;
   - prepare clean compatible active state and reconstruct only explicitly
@@ -1847,13 +1849,14 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
   - fault injection at each transition boundary yields truthful
     partial/recovery_required;
   - equivalent retry after success is a no-op.
-- **Exclusions:** semantic in-place POC migration, policy invention for
-  preservation destination/retention, automatic cleanup/deletion of preserved
-  historical material without the approved lifecycle contract, generic
-  arbitrary-schema migration.
-- **Human decision gate:** I153-T02 MUST NOT start until preservation destination,
-  ownership, retention/cleanup eligibility, and cross-filesystem behavior are
-  explicitly approved and reconciled into Specification/Plan.
+- **Exclusions:** semantic in-place POC migration, upgrade-time deletion of the
+  preservation archive, age-only cleanup authority, cross-filesystem atomic-rename
+  assumptions, generic arbitrary-schema migration.
+- **Approved preservation lifecycle:** the upgrade keeps the source intact until
+  the complete archive manifest verifies; the archive is Axiom-owned,
+  machine-local, separate from active roots, and retained after upgrade. Later
+  removal is a separate explicit reference-aware cleanup action under existing
+  safety/recovery contracts.
 
 ### I153-T03 — Upgrade regression, Evidence, and reconciliation
 
@@ -1891,7 +1894,9 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
 | Ownership and schema compatibility are independent | I153-T01 |
 | Explicit stable persisted-state compatibility window | I153-T01, I153-T03 |
 | Supported newer owned upgrade resolves one transition strategy | I153-T01, I153-T03 |
-| RecognizedPOC preserved before retirement | I153-T02, I153-T03 |
+| RecognizedPOC preserved before retirement in the approved Axiom-owned archive lifecycle | I153-T02, I153-T03 |
+| Cross-filesystem archive copy is digest-verified without atomic-rename assumptions | I153-T02, I153-T03 |
+| Preservation archive survives upgrade and cleanup is separately explicit/reference-aware | I153-T02, I153-T03 |
 | Valid portable Project intent reconstructed through current contract | I153-T02, I153-T03 |
 | Historical POC workflow/Execution truth preserved but not promoted | I153-T02, I153-T03 |
 | Interruption after preservation/before activation is recoverable | I153-T02, I153-T03 |
@@ -1902,7 +1907,8 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
 
 ### Issue #153 Tasks review gate
 
-The compatibility direction itself was approved by explicit human decision on
+The compatibility direction, current v1 stable compatibility window, and
+RecognizedPOC preservation lifecycle were approved by explicit human decisions on
 2026-10-01. This issue-scoped Task decomposition is proposed for review together
 with the reconciled Plan. No I153-T0x implementation is authorized by this
 documentation change.
