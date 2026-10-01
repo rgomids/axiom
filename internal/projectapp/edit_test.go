@@ -1,7 +1,6 @@
 package projectapp_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -40,10 +38,33 @@ func (c *checkoutFixture) ObserveCheckout(_ context.Context, request projectapp.
 	if strings.Contains(request.ExplicitPath, "missing") {
 		return projectapp.CheckoutFacts{}, []projectapp.Issue{{Code: projectapp.InvalidSnapshot}}
 	}
-	return projectapp.CheckoutFacts{CanonicalIdentity: "fs:" + strings.TrimPrefix(request.ExplicitPath, "/"), Observation: projectapp.Observation{Availability: projectapp.Unverified, Basis: projectapp.NotChecked}}, nil
+	return projectapp.CheckoutFacts{CanonicalIdentity: "fs:" + request.ExplicitPath, Observation: projectapp.Observation{Availability: projectapp.Unverified, Basis: projectapp.NotChecked}}, nil
 }
 
-var observedAt = time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+var observedAt = time.Unix(1_788_000_000, 0)
+
+// localCodecFixture is a pure stand-in for the local adapter codec: it binds
+// every local field, including the recorded portable revision, into the wire.
+type localCodecFixture struct{}
+
+func (localCodecFixture) EncodeLocal(state projectapp.LocalRecordState) ([]byte, []projectapp.Issue) {
+	revision, ok := state.PortableRevision.Digest()
+	keys := map[string]bool{}
+	for _, binding := range state.Repositories {
+		if keys[binding.RepositoryKey] {
+			ok = false
+		}
+		keys[binding.RepositoryKey] = true
+	}
+	wire, err := json.Marshal(struct {
+		State    projectapp.LocalRecordState
+		Revision [32]byte
+	}{state, revision})
+	if !ok || err != nil {
+		return nil, []projectapp.Issue{{Code: projectapp.InvalidPreview}}
+	}
+	return wire, nil
+}
 
 // newEditFixture builds a complete, coherent installed Project whose portable
 // and local state both carry fields unrelated to configure intent.
@@ -83,14 +104,14 @@ func newEditFixture(t *testing.T) *editFixture {
 		ProjectID: editProjectID, ObservedSlug: "sample", SourceLocation: "/portable/sample",
 		PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests(),
 		Repositories: []projectapp.RepositoryBinding{
-			{RepositoryKey: "api", ExplicitPath: "/work/api", CanonicalIdentity: "fs:work/api", Observation: projectapp.Observation{Availability: projectapp.Available, Basis: projectapp.PresentMetadata, ObservedAt: observedAt}},
-			{RepositoryKey: "web", ExplicitPath: "/work/web-broken", CanonicalIdentity: "fs:work/web-broken", Observation: projectapp.Observation{Availability: projectapp.Unavailable, Basis: projectapp.MissingMetadata, ObservedAt: observedAt}},
+			{RepositoryKey: "api", ExplicitPath: "/work/api", CanonicalIdentity: "fs:/work/api", Observation: projectapp.Observation{Availability: projectapp.Available, Basis: projectapp.PresentMetadata, ObservedAt: observedAt}},
+			{RepositoryKey: "web", ExplicitPath: "/work/web-broken", CanonicalIdentity: "fs:/work/web-broken", Observation: projectapp.Observation{Availability: projectapp.Unavailable, Basis: projectapp.MissingMetadata, ObservedAt: observedAt}},
 		},
 		Credentials: []projectapp.CredentialBinding{{ReferenceKey: "chat-token", SourceKind: "keychain", ItemReference: "axiom/chat-item"}},
 		Runtime:     projectapp.RuntimeBinding{RuntimeID: "codex", ExplicitPath: "/opt/runtime-secret-location", Observation: projectapp.Observation{Availability: projectapp.Available, Basis: projectapp.PresentMetadata, ObservedAt: observedAt}},
 		Attempt:     projectapp.AttemptMetadata{Correlation: "attempt-correlation-marker", At: observedAt},
 	}
-	localWire, localIssues := local.RecordCodec{}.EncodeLocal(record)
+	localWire, localIssues := localCodecFixture{}.EncodeLocal(record)
 	if len(localIssues) != 0 {
 		t.Fatal(localIssues)
 	}
@@ -108,7 +129,7 @@ func (f *editFixture) preview(t *testing.T, intent projectapp.EditIntent) (proje
 	if intent.Selector == "" {
 		intent.Selector = "sample"
 	}
-	return projectapp.PreviewEdit(context.Background(), projectapp.EditPorts{Source: f, Checkouts: &checkoutFixture{}, Manifest: manifest.Codec{}, Local: local.RecordCodec{}}, intent)
+	return projectapp.PreviewEdit(context.Background(), projectapp.EditPorts{Source: f, Checkouts: &checkoutFixture{}, Manifest: manifest.Codec{}, Local: localCodecFixture{}}, intent)
 }
 
 func mustPreview(t *testing.T, f *editFixture, intent projectapp.EditIntent) projectapp.EditProposal {
@@ -152,7 +173,7 @@ func TestEditScalarPreserveSetAndRemove(t *testing.T) {
 	current := f.selection.Portable.Project()
 
 	preserved := mustPreview(t, f, projectapp.EditIntent{})
-	if !preserved.Project().Equivalent(current) || len(preserved.Preview().Effects) != 0 || !bytes.Equal(preserved.LocalWire(), f.selection.LocalWire) {
+	if !preserved.Project().Equivalent(current) || len(preserved.Preview().Effects) != 0 || string(preserved.LocalWire()) != string(f.selection.LocalWire) {
 		t.Fatalf("empty intent changed state: effects=%v", preserved.Preview().Effects)
 	}
 	if preserved.Preview().Name != "Sample" {
@@ -234,7 +255,7 @@ func (f *editFixture) replacePortable(t *testing.T, state project.State) {
 	}
 	f.selection.Portable = snapshot
 	f.selection.Local.PortableRevision, f.selection.Local.ArtifactDigests = snapshot.Revision(), snapshot.Digests()
-	localWire, localIssues := local.RecordCodec{}.EncodeLocal(f.selection.Local)
+	localWire, localIssues := localCodecFixture{}.EncodeLocal(f.selection.Local)
 	if len(localIssues) != 0 {
 		t.Fatal(localIssues)
 	}
@@ -258,7 +279,7 @@ func TestEditRepositoryAddUpdateRemoveByStableKey(t *testing.T) {
 		t.Fatal("update invented a portable remote")
 	}
 	bindings := proposal.Local().Repositories
-	if len(bindings) != 2 || bindings[0].RepositoryKey != "docs" || bindings[0].ExplicitPath != "/work/docs" || bindings[1].RepositoryKey != "web" || bindings[1].ExplicitPath != "/work/web-fixed" || bindings[1].CanonicalIdentity != "fs:work/web-fixed" {
+	if len(bindings) != 2 || bindings[0].RepositoryKey != "docs" || bindings[0].ExplicitPath != "/work/docs" || bindings[1].RepositoryKey != "web" || bindings[1].ExplicitPath != "/work/web-fixed" || bindings[1].CanonicalIdentity != "fs:/work/web-fixed" {
 		t.Fatalf("local bindings = %+v", bindings)
 	}
 	want := []string{
@@ -285,7 +306,7 @@ func TestEditRepositoryAddUpdateRemoveByStableKey(t *testing.T) {
 func TestEditRepositoryUpdatePreservesPortableFieldsAndOmittedBindings(t *testing.T) {
 	f := newEditFixture(t)
 	checkouts := &checkoutFixture{}
-	proposal, failure := projectapp.PreviewEdit(context.Background(), projectapp.EditPorts{Source: f, Checkouts: checkouts, Manifest: manifest.Codec{}, Local: local.RecordCodec{}}, projectapp.EditIntent{
+	proposal, failure := projectapp.PreviewEdit(context.Background(), projectapp.EditPorts{Source: f, Checkouts: checkouts, Manifest: manifest.Codec{}, Local: localCodecFixture{}}, projectapp.EditIntent{
 		Selector:          "sample",
 		RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: "/work/api-moved"}},
 	})
@@ -367,14 +388,14 @@ func TestEditIsDeterministicAcrossOperationOrderAndSelector(t *testing.T) {
 	f := newEditFixture(t)
 	first := mustPreview(t, f, projectapp.EditIntent{Selector: "sample", RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "zeta", Path: "/work/zeta"}, {Key: "alpha", Path: "/work/alpha"}}, RepositoryRemovals: []string{"web", "api"}})
 	second := mustPreview(t, f, projectapp.EditIntent{Selector: editProjectID, RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "alpha", Path: "/work/alpha"}, {Key: "zeta", Path: "/work/zeta"}}, RepositoryRemovals: []string{"api", "web"}})
-	if !reflect.DeepEqual(first.Preview(), second.Preview()) || !bytes.Equal(first.Manifest(), second.Manifest()) || !bytes.Equal(first.LocalWire(), second.LocalWire()) {
+	if !reflect.DeepEqual(first.Preview(), second.Preview()) || string(first.Manifest()) != string(second.Manifest()) || string(first.LocalWire()) != string(second.LocalWire()) {
 		t.Fatal("equivalent intent through slug and UUID produced different candidates")
 	}
 	keys := []string{}
 	for _, repository := range first.Preview().Repositories {
 		keys = append(keys, repository.Key)
 	}
-	if strings.Join(keys, ",") != "alpha,api,web,zeta" {
+	if !reflect.DeepEqual(keys, []string{"alpha", "api", "web", "zeta"}) {
 		t.Fatalf("preview order = %v", keys)
 	}
 	if !first.MatchesDigest(first.Preview().Digest) || first.MatchesDigest("") {
@@ -405,14 +426,14 @@ func TestEditPreviewIsCompleteSafeAndDigestBindsInternalLocalCandidate(t *testin
 		t.Fatal(err)
 	}
 	for _, hidden := range []string{"axiom/chat-item", "/opt/runtime-secret-location", "attempt-correlation-marker", "/work/api", "observedAt", "availability", "present_metadata"} {
-		if bytes.Contains(wire, []byte(hidden)) {
+		if strings.Contains(string(wire), hidden) {
 			t.Fatalf("user-visible preview exposed unrelated local metadata %q: %s", hidden, wire)
 		}
 	}
-	if !bytes.Contains(wire, []byte("/work/web-broken")) {
+	if !strings.Contains(string(wire), "/work/web-broken") {
 		t.Fatal("removed binding path is not reviewable")
 	}
-	if !bytes.Contains(proposal.LocalWire(), []byte("axiom/chat-item")) || !bytes.Contains(proposal.LocalWire(), []byte("attempt-correlation-marker")) {
+	if !strings.Contains(string(proposal.LocalWire()), "axiom/chat-item") || !strings.Contains(string(proposal.LocalWire()), "attempt-correlation-marker") {
 		t.Fatal("internal local candidate lost hidden metadata")
 	}
 	want := []string{"portable:update_portable_project", "portable:remove_portable_repository:web", "local:update_local_record", "local:remove_local_binding:web"}
@@ -423,7 +444,7 @@ func TestEditPreviewIsCompleteSafeAndDigestBindsInternalLocalCandidate(t *testin
 	// Hidden local metadata is bound by the digest even though it is not shown.
 	changed := newEditFixture(t)
 	changed.selection.Local.Attempt.Correlation = "attempt-correlation-other"
-	localWire, issues := local.RecordCodec{}.EncodeLocal(changed.selection.Local)
+	localWire, issues := localCodecFixture{}.EncodeLocal(changed.selection.Local)
 	if len(issues) != 0 {
 		t.Fatal(issues)
 	}

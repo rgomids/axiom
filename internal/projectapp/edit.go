@@ -1,7 +1,6 @@
 package projectapp
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -266,7 +265,7 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 		effects = append(effects, EditEffect{Scope: PortableScope, Code: "update_portable_project"})
 	}
 	effects = append(effects, portableRepositoryEffects(current, candidate)...)
-	if !bytes.Equal(localWire, selection.LocalWire) {
+	if ObserveLocalRevision(localWire) != ObserveLocalRevision(selection.LocalWire) {
 		effects = append(effects, EditEffect{Scope: LocalScope, Code: "update_local_record"})
 	}
 	effects = append(effects, bindingEffects...)
@@ -519,7 +518,7 @@ func portableRepositoryEffects(current, candidate project.Project) []EditEffect 
 			keys = append(keys, repository.Key)
 		}
 	}
-	sort.Strings(keys)
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 	effects := []EditEffect{}
 	for _, key := range keys {
 		switch {
