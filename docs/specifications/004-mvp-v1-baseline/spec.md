@@ -55,6 +55,29 @@ the correcting pull request:
   category and no side effects; a configuration found at another location never
   substitutes for the recorded one.
 
+## Issue #153 forward-compatibility reconciliation — 2026-10-01
+
+Issue [#153](https://github.com/rgomids/axiom/issues/153) exposed a gap between
+the historical HD-4 compatibility baseline and the later FR-065/T39 convergent
+installer contract. The human decision recorded on 2026-10-01 resolves that gap
+without accepting implicit in-place migration of historical workflow truth:
+
+- RecognizedPOC MAY be handled automatically by the canonical installer only
+  through a bounded **preserve -> clean rebuild -> supported reconfiguration**
+  transition;
+- historical POC Execution/workflow truth remains historical and MUST NOT be
+  promoted silently into current canonical Execution/workflow state;
+- valid portable Project intent MAY be reconstructed only through the current
+  validated portable contract;
+- forward compatibility is guaranteed by an explicit supported compatibility
+  window of persisted-state formats from stable releases, not by the fact that
+  Axiom can merely recognize ownership of arbitrary historical state;
+- owned/recognized state and migratable state remain distinct classifications;
+- foreign, modified, unsafe, ambiguous, corrupt, unsupported-newer and
+  out-of-window state continue to fail closed.
+
+This reconciliation authorizes the compatibility-policy direction only. It does
+not authorize implementation, destructive mutation, release, or merge.
 ## Status and authority
 
 **Approved — human approval recorded on 2026-09-20.**
@@ -751,12 +774,19 @@ MUST NOT claim authorship over the transported content.
   preserved. Ambiguous state MUST require operator review and MUST NOT be repaired
   or deleted automatically.
 - **FR-026 Schema compatibility:** every portable and local persisted format MUST
-  have an explicit version and reader compatibility rule. Missing, malformed,
-  unsupported-newer, and unsupported-older versions are distinct failures. State
-  safely identified as belonging to the historical POC MUST NOT be treated as
-  absent or overwritten; HD-4 requires preservation plus actionable
-  backup/export/reconfigure handling, without an automatic in-place migration
-  commitment.
+  have an explicit version, reader compatibility rule, and forward-transition
+  classification. Ownership and schema compatibility are separate: state being
+  Axiom-owned or positively recognized MUST NOT by itself imply that semantic
+  migration is safe. Missing, malformed, unsupported-newer, unsupported-older and
+  out-of-window versions are distinct failures. Stable releases MUST define an
+  explicit supported compatibility window for persisted-state formats; every
+  earlier stable format inside that window MUST have one supported forward path:
+  direct compatibility, a bounded validated migration, or preserve plus
+  rebuild/reconfiguration. State safely identified as historical RecognizedPOC
+  follows the 2026-10-01 Issue #153 decision: preserve a verifiable historical
+  copy, rebuild clean compatible active state, and reconfigure only explicitly
+  supported information. Historical POC Execution/workflow truth MUST NOT
+  silently become current canonical truth.
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.
@@ -923,13 +953,20 @@ Plan/release declaration before distribution.
     receipt), not to the selector.
 - **FR-065 Convergent reinstall/upgrade:** rerunning the supported bootstrap MUST
   converge through the existing ownership/preview/recovery safety contracts. For
-  an installation Axiom owns and recognizes: the same resolved version is an
-  idempotent no-op; a newer resolved version is a protected owned upgrade; an
-  older resolved version is refused as an automatic downgrade with zero
-  installation effects (a downgrade requires a future separately specified
-  explicit mechanism). Foreign, modified, unsafe, ambiguous or unsupported state
-  MUST fail closed and MUST NOT be overwritten to satisfy any version or channel
-  selection.
+  an installation Axiom owns and recognizes, ownership and persisted-state
+  compatibility are evaluated independently. The same resolved version is an
+  idempotent no-op. A newer resolved version MUST first resolve one explicit
+  supported forward-transition strategy for the observed state: direct, bounded
+  migration, preserve plus rebuild/reconfiguration, or refuse. Historical
+  RecognizedPOC uses the approved preserve -> clean rebuild -> supported
+  reconfiguration path and MUST NOT promote historical Execution/workflow truth
+  into current canonical state. An older resolved version is refused as an
+  automatic downgrade with zero installation effects. Foreign, modified, unsafe,
+  ambiguous, corrupt, unsupported-newer, or out-of-window persisted state MUST
+  fail closed and MUST NOT be overwritten to satisfy any version or channel
+  selection. Stable releases MUST keep the supported persisted-state compatibility
+  window explicit and must provide a forward path for every earlier stable format
+  that remains inside that window.
 - **FR-066 Multi-runtime first run:** `axiom first-run` MUST inspect supported
   Runtimes already present on the machine and configure every supported detected
   Axiom integration. Runtime skills/integration files installed by Axiom MUST use
@@ -1096,7 +1133,7 @@ Global invariants:
 | AC-15 | CLI, Runtime, Provider comments, Markdown, and generated source/text expose equivalent truthful provenance for release, development, dirty, and unavailable-revision builds. |
 | AC-16 | Unchanged transported user content is not labeled as Axiom-authored. |
 | AC-17 | Supported publication faults preserve old/new complete authority, classify recovery deterministically, and preserve unknown artifacts. |
-| AC-18 | Unsupported schema/version combinations fail before destructive mutation; the approved compatibility path detects historical POC state without overwrite and provides its documented clean-install, export/reconfigure, backup, recovery, and, only if separately approved, migration behavior. |
+| AC-18 | Unsupported schema/version combinations fail before destructive mutation. Historical RecognizedPOC state is positively identified, completely preserved before retirement, rebuilt into clean compatible active state, and reconfigured only from validated supported intent; historical POC Execution/workflow truth remains inspectable historical material and is not promoted into current canonical truth. |
 | AC-19 | Reinstall/upgrade is safe and idempotent for owned equivalent content and refuses unowned conflicts. |
 | AC-20 | A representative confirmed Provider effect followed by local failure reports `partial` with the confirmed reference and a safe next action. |
 | AC-21 | Clean-environment RC dogfood completes install -> first run -> Project -> Work Item -> workflow -> Evidence -> completion through Runtime and direct CLI entrypoints. |
@@ -1124,7 +1161,7 @@ Global invariants:
 | AC-43 | Existing sequential Executions remain readable/resumable with unchanged identity and semantics after graph support is introduced. |
 | AC-44 | A clean supported environment installs a checksum-verified published Axiom binary without source checkout/build and invokes it through the canonical `axiom` executable. Selection follows FR-064: no selector or `--channel stable` resolves only the latest published stable release and never an RC; `--version <tag>` resolves exactly that tag; a missing stable release, conflicting selectors or an unsupported selector fail with zero installation effects; the installation records the exact resolved release identity. |
 | AC-45 | The release automation produces the complete supported native artifact/checksum/provenance set from one clean revision without implying publication authority. |
-| AC-46 | Re-running the stable remote installer is a no-op when the owned installation already has the resolved version, performs a protected owned upgrade to a newer resolved version, refuses an older resolved version as an automatic downgrade, and refuses foreign/modified/unsafe/ambiguous targets with no silent overwrite. |
+| AC-46 | Re-running the stable remote installer is a no-op when the owned installation already has the resolved version. A newer owned installation resolves an explicit supported state transition before upgrade; supported stable formats inside the compatibility window converge, and RecognizedPOC converges through preserve -> clean rebuild -> supported reconfiguration. Older-version downgrade and foreign/modified/unsafe/ambiguous/corrupt/unsupported-newer/out-of-window state are refused with no silent overwrite. |
 | AC-47 | `axiom first-run` configures all supported Runtimes detected on the machine and truthfully covers Codex-only, Claude-only, Codex+Claude and no-Runtime cases without installing Runtimes or mutating credentials. |
 | AC-48 | The exact RC clean-environment journey uses the public `axiom` CLI and remote installer on every supported release row before Project/workflow/runtime acceptance, pinning the same immutable candidate with `--version vX.Y.Z-rc.N` and never a floating selector. |
 | AC-49 | At least one real Axiom engineering activity in S9 is coordinated through Axiom with Codex and Claude child Executions, Integration/Reconciliation and inspectable parent/child Evidence. |
@@ -1335,6 +1372,16 @@ newer formats fail closed; unsupported older formats are diagnosed explicitly; n
 migration or downgrade is silent; no generic N-1 or arbitrary historical
 compatibility is promised.
 
+**Issue #153 reconciliation — 2026-10-01:** HD-4 remains the historical
+baseline and its prohibition on implicit in-place POC migration remains in force.
+The later explicit human decision authorizes the canonical installer to automate
+the previously manual preservation/reconfiguration journey for positively
+recognized POC state as **preserve -> clean rebuild -> supported
+reconfiguration**. This is not an authorization to convert POC workflow or
+Execution history into current canonical truth. The same decision establishes an
+explicit supported compatibility window for stable persisted-state formats:
+stable formats inside the window require a supported forward path; recognizable
+state outside that policy may still fail closed.
 ## ADR status and remaining candidates
 
 - **Accepted from HD-2:**
@@ -1356,6 +1403,19 @@ compatibility is promised.
 ADR-0005 and ADR-0006 introduce no material choice beyond approved HD-3 and HD-2.
 Other candidate decisions remain unaccepted.
 
+### Issue #153 ADR assessment
+
+No new ADR is required for this bounded reconciliation because it preserves the
+existing source-of-truth, ownership, Execution identity, local publication and
+recovery architecture. It changes the supported product compatibility policy and
+installer orchestration contract, not the meaning of historical POC state.
+ADR-0005 and ADR-0007 continue to govern filesystem safety, exact authority,
+partial truth and recovery.
+
+Stop and reassess an ADR before implementation if the solution instead requires
+in-place semantic migration of POC workflow/Execution state, a generic migration
+registry that becomes a new cross-cutting architectural authority, a new durable
+compatibility store, or different source-of-truth/ownership semantics.
 ### Issue #94 ADR assessment
 
 No new ADR is proposed. The amendment keeps the existing durable decisions:
@@ -1448,3 +1508,20 @@ implementation is authorized by its exact authority (Issue #97 comment
 #5852650410). The later T36 real run was separately authorized and executed;
 that execution does not authorize human acceptance, S9/T23–T25, merge, release,
 deploy or Provider mutation.
+
+### Issue #153 compatibility decision — 2026-10-01
+
+The human explicitly approved the compatibility direction on 2026-10-01:
+
+- automate RecognizedPOC through preserve -> clean rebuild -> supported
+  reconfiguration;
+- do not promote historical POC Execution/workflow truth into current canonical
+  state;
+- guarantee forward compatibility by an explicit supported persisted-state
+  compatibility window for stable releases rather than arbitrary historical
+  ownership recognition.
+
+This decision authorizes Specification/Plan/Tasks reconciliation only. It does
+not authorize implementation, migration effects, release publication, merge, or
+Issue closure. The reconciled Plan/Tasks remain reviewable artifacts before
+implementation authority is granted.
