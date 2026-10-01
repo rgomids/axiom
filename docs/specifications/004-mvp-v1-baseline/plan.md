@@ -8,6 +8,16 @@ filesystem/security invariants and native Evidence obligations remain unchanged;
 macOS retains the current executable 27.0/arm64 constraint. Dated historical
 observations remain historical. T24 and human acceptance stay separately gated.
 
+## Issue #153 forward-compatibility Plan amendment — 2026-10-01
+
+The 2026-10-01 human decision approves the product compatibility direction in
+Specification 004: RecognizedPOC may converge automatically only through
+preservation, clean compatible-state rebuild, and supported reconfiguration;
+historical workflow/Execution truth is not promoted. Stable persisted-state
+formats are supported through an explicit compatibility window.
+
+This Plan amendment is proposed for review. It does not authorize implementation,
+migration effects, release, merge, or Issue closure.
 ## 1. Status, authority and source baseline
 
 **Plan: Approved — human approval recorded on 2026-09-20.**
@@ -149,7 +159,9 @@ Evidence, task identities, and historical stage observations remain unchanged.
   from one clean revision while keeping publication separately authorized;
 - let a supported clean macOS/Linux machine install Axiom through one stable
   remote bootstrap without source checkout/build, verify integrity, rerun
-  idempotently, and safely upgrade only an owned installation;
+  idempotently, and safely upgrade an owned installation only after resolving an
+  explicit persisted-state forward-transition strategy within the supported
+  compatibility policy;
 - make `axiom first-run` detect and configure every supported Runtime already
   present on the machine, covering Codex-only, Claude-only, both and neither
   without installing Runtimes or mutating credentials;
@@ -162,7 +174,8 @@ Specification 004 non-goals remain unchanged. In particular, this Plan does not
 add Windows, package managers, automatic update, signing/notarization, arbitrary
 Runtime plugins, multiple Work Item Providers, unlimited/dynamic child spawning,
 multi-machine distribution, cloud state, remote locks, generic Provider CRUD, raw
-chat Evidence, automatic POC migration, or physical durability guarantees.
+chat Evidence, in-place semantic POC workflow/Execution migration, generic
+migration of arbitrary historical state, or physical durability guarantees.
 
 The amendment also excludes arbitrary user-defined workflows, a generic custom-
 field/metadata engine, sophisticated GitHub Projects automation, Provider-owned
@@ -914,44 +927,61 @@ unsupported platform is refused without replacement.
 ### Upgrade ordering
 
 1. inspect platform, current receipt/binary/skills/state, free space, ownership,
-   schema compatibility, and recovery markers read-only;
-2. show exact source/target versions, roots, checksums, backups, and effects;
-3. require authority bound to preview and observed receipt/state revisions;
-4. stage and verify new binary and complete skill set;
-5. publish the binary, re-read its checksum, publish the receipt as a separate
-   confirmed effect, then publish skill files using their expected digests; there
-   is no cross-root transaction, and any later failure is reported `partial` with
-   the exact confirmed binary/receipt/skill state;
-6. run compatibility verification; no v1 state migration is expected for clean v1;
-7. report each confirmed effect. Mixed confirmed binary/skill outcome is `partial`
-   with a resumable safe action, not silent rollback.
+   schema compatibility, compatibility-window membership and recovery markers
+   read-only;
+2. resolve exactly one state transition strategy: direct, bounded migrate,
+   preserve_rebuild_reconfigure, or refuse;
+3. preview source/target versions, roots, checksums, preservation artifacts,
+   state-transition effects, binary/receipt/skill effects, and recovery markers;
+4. require authority bound to the exact preview plus observed receipt/state
+   revisions and transition strategy;
+5. complete and verify every required preservation effect before retiring or
+   replacing incompatible active state;
+6. stage and verify the candidate binary/skill set and, when required, prepare
+   migrated or rebuilt compatible state without treating partial state as
+   canonical;
+7. publish/activate ordered effects under ADR-0007 partial-truth semantics,
+   recording enough durable recovery state to distinguish completed effects from
+   remaining work;
+8. validate the resulting active state with the selected target release and
+   report each confirmed effect. Mixed outcomes are partial or recovery_required,
+   never silent rollback or inferred success.
 
-No automatic update, downgrade, or lossy conversion exists. A future mutating state
-migration must satisfy FR-027/FR-028 and requires a separately approved bounded
-compatibility decision when it includes POC in-place migration.
+No automatic background update, downgrade, or lossy conversion exists. In-place
+semantic migration of historical POC workflow/Execution state remains outside the
+approved Issue #153 transition and still requires a separate explicit
+compatibility/ADR decision.
 
-### Clean v1 and historical POC
+### Clean v1, compatibility window, and historical POC
 
-Clean v1 is the only supported compatibility baseline. A read-only compatibility
-inspector classifies absent v1, valid v1, recognized POC, malformed, unsupported
-older, and unsupported newer state. Current POC signatures include owned receipt,
-Project installation, Work Item, workflow, and skill formats/paths known at the
-merged POC revision. Recognition requires a complete positive signature; uncertainty
-is not treated as absence.
+Compatibility inspection keeps ownership separate from schema compatibility.
+The inspector classifies absent/current state, recognized historical state,
+malformed/corrupt state, unsupported older/newer state, and recovery-required
+state without mutation. Stable releases declare the persisted-state formats in
+their supported compatibility window. Every earlier stable format retained in
+that window must resolve to one supported forward strategy; state outside the
+window may fail closed even when Axiom can recognize its provenance.
 
-Recognized POC state is preserved. Supported action is:
+For RecognizedPOC, the approved Issue #153 transition is:
 
-1. inspect and list exact roots/content categories without secrets;
-2. create an explicitly authorized, restrictive, digest-manifested backup at an
-   empty target when local preservation is requested;
-3. export validated portable Project content only to an explicit empty target;
-4. install v1 into a separate clean state root and explicitly reconfigure local
-   bindings, Provider references, and workflow as applicable;
-5. verify new v1 state before any later, separately authorized cleanup.
+1. inspect and positively recognize the complete POC-owned signature;
+2. create and verify a restrictive digest-manifested preservation copy before
+   any legacy active state is retired;
+3. extract only portable Project intent that validates against the current
+   portable contract;
+4. prepare clean compatible active state;
+5. reconstruct only explicitly supported Project associations/configuration;
+6. preserve historical workflow/Execution/Evidence material as inspectable
+   historical data without activating it as current canonical workflow truth;
+7. activate the compatible state under the shared recovery/publication protocol;
+8. continue the protected owned release upgrade and validate the final active
+   state;
+9. make an equivalent retry converge to a no-op.
 
-There is no in-place POC migration, automatic deletion, or promise that POC
-workflow/Execution history becomes v1 state. Unknown/newer data fails closed.
-
+Foreign, modified, unsafe, ambiguous, corrupt, unsupported-newer, and
+out-of-window state remains fail-closed. Recognition never means automatic
+migration permission.
+## 13. S9 productization, release and clean-environment acceptance
 ## 13. S9 productization, release and clean-environment acceptance
 
 Before an RC is identified, S9 closes the repository-local productization gap in
@@ -979,9 +1009,13 @@ four bounded units:
    asset SHA-256 rather than the selector. It detects the supported row, obtains
    the resolved published artifact, verifies it before mutation and installs
    into an owned safe destination. For a recognized owned install, the same
-   resolved version is a no-op, a newer one converges through the existing
-   protected upgrade/recovery semantics, and an older one is refused as an
-   automatic downgrade; foreign/modified/unsafe/ambiguous targets refuse.
+   resolved version is a no-op. A newer release first resolves the observed
+   persisted state through the Specification 004 compatibility policy: direct,
+   bounded migrate, approved preserve_rebuild_reconfigure, or refuse.
+   RecognizedPOC uses the approved preserve -> clean rebuild -> supported
+   reconfiguration path. An older release is refused as an automatic downgrade;
+   foreign, modified, unsafe, ambiguous, corrupt, unsupported-newer, and
+   out-of-window state refuses without destructive effects.
 4. **Multi-runtime first run:** `axiom first-run` discovers supported local
    Runtime executables/configuration and installs/configures the corresponding
    Axiom integration for every detected Runtime in that Runtime's user-global
@@ -1209,7 +1243,7 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | FR-062 | §3/§13 canonical public `axiom` executable while preserving internal Lingo boundaries |
 | FR-063 | §13 clean-revision automated supported-platform artifacts/checksums/provenance; publication separately gated |
 | FR-064 | §13 canonical `scripts/install.sh` remote bootstrap with deterministic platform selection and integrity verification |
-| FR-065 | §11/§13 idempotent reinstall plus protected owned upgrade; foreign/unsafe/ambiguous refusal |
+| FR-065 | §11/§12/§13 idempotent reinstall plus explicit state-transition resolution; supported stable formats converge inside the compatibility window; RecognizedPOC uses preserve/rebuild/reconfigure; unsafe/out-of-policy state refuses |
 | FR-066 | §8/§13 Codex/Claude discovery and all-detected user-global Runtime skill integration from `axiom first-run` without credential/Runtime provisioning |
 | FR-067 | §13/§15 Axiom engineering dogfood through the S8 graph and retained integrated Evidence |
 
@@ -1245,7 +1279,7 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | AC-15 | §11 cross-surface provenance states |
 | AC-16 | §6/§11 user-content authorship separation |
 | AC-17 | §10 F0–F8 old/new/recovery matrix; ADR-0007 |
-| AC-18 | §12 version/POC detection and export-reconfigure path |
+| AC-18 | §12 RecognizedPOC positive recognition, verified preservation, clean rebuild/reconfiguration, and historical workflow non-promotion |
 | AC-19 | §12 owned idempotent install/upgrade and conflict refusal |
 | AC-20 | §6/§9 confirmed Provider effect plus local failure `partial` |
 | AC-21 | §13 complete clean CLI/Runtime RC journey |
@@ -1273,15 +1307,16 @@ inherited Specification 002 SEC-001–SEC-005 boundary used by Project persisten
 | AC-43 | S8/§3/§8A sequential ADR-0008 compatibility |
 | AC-44 | §13 clean remote install plus canonical public `axiom` executable |
 | AC-45 | §13 automated complete native artifact/checksum/provenance set |
-| AC-46 | §11/§13 equivalent no-op, owned upgrade and fail-closed foreign/unsafe install matrix |
+| AC-46 | §11/§12/§13 equivalent no-op, explicit supported state transition, RecognizedPOC preserve/rebuild convergence, downgrade refusal and fail-closed out-of-policy matrix |
 | AC-47 | §8/§13 Codex-only/Claude-only/both/neither first-run bootstrap matrix using Runtime-native user-global skill roots with zero provisioning side effects |
 | AC-48 | §13/§15 exact-RC clean journey starts through remote installer and public `axiom` on every support row |
 | AC-49 | §13/§15 one real Axiom engineering activity coordinated through Axiom with Codex+Claude and integrated Evidence |
 
 No Specification 004 requirement is deferred beyond its own declared non-goals.
-In-place POC migration remains conditionally deferred by HD-4 and would require a
-new explicit decision; this Plan implements detection, preservation, backup/export,
-and reconfiguration instead.
+The Issue #153 decision now permits automated RecognizedPOC preservation plus
+clean rebuild/reconfiguration, but in-place semantic migration of historical POC
+workflow/Execution truth remains deferred and would require a new explicit
+decision/ADR.
 
 ## 17. Risks, trade-offs and deferred decisions
 
@@ -1755,3 +1790,82 @@ issue-scoped Tasks amendment. The same explicit human instruction authorizes sta
 `I132-T01` implementation only. `I132-T02`/`I132-T03`, real Runtime execution,
 external effects, merge, release, Issue closure, and human acceptance remain
 separately gated.
+
+## 21. Issue #153 — Forward-compatible owned upgrades
+
+### 21.1 Decision and scope
+
+The approved product decision is fixed by the 2026-10-01 Specification
+reconciliation. This follow-up does not reopen the historical S7/S9 acceptance
+claims; it corrects the post-delivery compatibility gap exposed by #153.
+
+The implementation must preserve these boundaries:
+
+- installer owns user-facing orchestration;
+- compatibility owns deterministic classification and transition policy;
+- ownership recognition does not grant migration permission;
+- ADR-0005/ADR-0007 safety, authority, partial-truth and recovery rules remain
+  unchanged;
+- historical POC workflow/Execution truth never becomes current canonical truth
+  by reconstruction convenience.
+
+### 21.2 Transition contract
+
+The application-level transition decision is a closed strategy:
+
+| Observed state | Allowed strategy |
+|---|---|
+| absent/current compatible | direct |
+| stable older format inside supported window with explicit migrator | migrate |
+| RecognizedPOC | preserve + clean rebuild + supported reconfiguration |
+| foreign/modified/unsafe/ambiguous/corrupt/newer/out-of-window | refuse |
+
+The exact supported stable-format window is versioned product policy. It must be
+explicit and testable; recognition outside that window does not imply support.
+
+### 21.3 Recovery and commit truth
+
+A transition that requires preservation or rebuilding uses one recoverable
+operation envelope bound to the inspected state digest, target release, strategy,
+preservation destination/manifest, expected active-state effects, and install
+effects. Every durable effect is independently confirmable. Interruption may
+produce partial or recovery_required, but never silent mixed truth.
+
+Legacy active state is not retired until the required preservation manifest is
+complete and revalidated. Rebuilt active state is not canonical until its
+validation and activation commit point are confirmed. Retry re-inspects current
+truth and converges rather than repeating already confirmed effects.
+
+### 21.4 Issue-scoped implementation units
+
+- I153-T01 — transition policy/orchestration and installer diagnostics;
+- I153-T02 — RecognizedPOC preservation + clean rebuild/reconfiguration;
+- I153-T03 — N -> N+1 regression, interruption/retry matrix, Evidence and
+  documentation reconciliation.
+
+The detailed task contracts live in [tasks.md](tasks.md). This Plan amendment
+does not authorize starting any of them.
+
+### 21.5 Validation and Evidence
+
+Minimum proof includes:
+
+- non-empty N -> N+1 journey using published/supported state;
+- RecognizedPOC preservation manifest verified before legacy retirement;
+- portable intent reconstructed only after current-contract validation;
+- historical workflow/Execution material preserved but absent from current
+  canonical workflow state;
+- injected failure after preservation and before activation;
+- injected failure after compatible-state activation and before install
+  completion;
+- deterministic resume/recovery and equivalent retry no-op;
+- foreign/modified/unsafe/ambiguous/corrupt/newer/out-of-window refusal with zero
+  destructive effects;
+- final installed version and active-state validation.
+
+### 21.6 Review gate
+
+The product compatibility direction is approved by explicit human decision on
+2026-10-01. This Plan amendment and its issue-scoped Tasks are proposed for review.
+No implementation, migration effect, release, merge, or Issue closure is
+authorized by this documentation change.
