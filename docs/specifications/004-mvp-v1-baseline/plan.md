@@ -1832,15 +1832,34 @@ declare, before publication, the exact earlier stable persisted-state formats th
 remain supported and the forward strategy for each. Recognition outside those
 policies does not imply support.
 
-### 21.3 Preservation lifecycle decision gate
+### 21.3 Preservation lifecycle policy
 
-Automatic RecognizedPOC handling requires one remaining explicit product decision
-before I153-T02 implementation: the canonical destination, ownership, retention,
-cleanup eligibility, and cross-filesystem behavior of the preservation artifact.
+The human approved the preservation lifecycle on 2026-10-01.
 
-Implementation MUST NOT invent that policy. Until it is approved, the installer
-may classify/preview the RecognizedPOC transition but MUST refuse before any
-automatic preservation or legacy-state retirement.
+For RecognizedPOC, the transition creates a dedicated Axiom-owned machine-local
+preservation archive that is separate from active Project/State/Skills roots. The
+archive identity is bound to the exact transition operation and source digest so
+an equivalent retry can prove whether the same preservation already completed.
+
+The legacy source remains active/intact until every required archived object and
+the final preservation manifest are copied and digest-verified. Only after that
+verification may the transition retire/quarantine the legacy active state and
+prepare/activate clean compatible state.
+
+The upgrade itself never deletes the preservation archive. A later removal is a
+separate explicit reference-aware cleanup action governed by the existing cleanup
+safety model: live Evidence/recovery/other authoritative references protect the
+archive, uncertainty preserves it, and age alone grants no deletion authority.
+
+The archive may be copied to an Axiom-owned destination on another filesystem.
+Cross-filesystem preservation uses object-by-object copy plus digest verification
+and a final complete manifest; it does not rely on or claim an atomic rename
+across filesystems. Partial copies remain non-canonical preservation state and are
+classified/recovered explicitly before legacy retirement can proceed.
+
+Concrete filenames/layout remain implementation details as long as these identity,
+ownership, separation, verification, retention, cleanup, and recovery semantics
+are preserved.
 
 ### 21.4 Recovery and commit truth
 
@@ -1884,7 +1903,8 @@ Minimum proof includes:
 
 ### 21.7 Review gate
 
-The product compatibility direction is approved by explicit human decision on
+The product compatibility direction, stable v1 compatibility window, and
+RecognizedPOC preservation lifecycle are approved by explicit human decisions on
 2026-10-01. This Plan amendment and its issue-scoped Tasks are proposed for review.
 No implementation, migration effect, release, merge, or Issue closure is
 authorized by this documentation change.
