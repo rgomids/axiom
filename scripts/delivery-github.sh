@@ -19,7 +19,12 @@
 #   delivery-github.sh sync      --repo R --from SHA --to SHA
 #       Merge-time projection for the commits FROM..TO on main: a completing
 #       PR moves its Issues to Awaiting Release (Issue stays open); a release
-#       commit records Target Release for its Issue set.
+#       commit records Target Release for its Issue set. Fail-safe: an Issue
+#       GitHub closed at that exact merge (Development-sidebar link or
+#       keyword) before any stable release is reopened with a bounded record.
+#       With projection enabled, every stable release since v0.2.0 is then
+#       reconciled: a closed/completed Issue whose latest release record
+#       names that release is repaired to Released and its Target Release.
 #
 # Issue comments and closure use the caller's `gh` credentials (GITHUB_TOKEN
 # with issues: write in Actions). Project fields use only
@@ -216,6 +221,19 @@ read_item() {
     | jq -r '"\(.data.node.status.name // "")\t\(.data.node.target.text // "")"' || fail 'cannot read the Project item back'
 }
 
+# issue_item NODE prints "status<TAB>target" of the Issue's item in the
+# configured Project without adding it, or "absent". Read-only.
+issue_item() {
+  # shellcheck disable=SC2016
+  project_gh -f issue="$1" -f query='
+    query($issue: ID!) { node(id: $issue) { ... on Issue { projectItems(first: 50) { nodes { id project { id }
+      status: fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+      target: fieldValueByName(name: "Target Release") { ... on ProjectV2ItemFieldTextValue { text } } } } } } }' \
+    | jq -r --arg project "$project_id" '[.data.node.projectItems.nodes[] | select(.project.id == $project)][0]
+      | if . == null then "absent" else "\(.status.name // "")\t\(.target.text // "")" end' \
+    || fail 'cannot read the Project item of an Issue'
+}
+
 # project_apply NODE STATUS TARGET sets and reads back one Issue's projection.
 # TARGET "-" leaves Target Release unchanged; "" clears it.
 project_apply() {
@@ -256,6 +274,36 @@ has_marker() {
 
 released_marker() { printf '<!-- axiom-delivery:released tag=%s -->' "$1"; }
 completed_marker() { printf '<!-- axiom-delivery:completed commit=%s -->' "$1"; }
+reopened_marker() { printf '<!-- axiom-delivery:reopened commit=%s -->' "$1"; }
+
+# latest_release_tag COMMENTS prints the tag of the most recent release
+# record written by the workflow bot, or nothing.
+latest_release_tag() {
+  jq -r --arg bot "$bot_login" '[.[] | select(.user.login == $bot)
+    | .body | capture("^<!-- axiom-delivery:released tag=(?<tag>v[0-9]+\\.[0-9]+\\.[0-9]+) -->") | .tag] | last // empty' <<<"$1"
+}
+
+# closed_by_merge N SHA PR succeeds only when the current closure of Issue N
+# is attributable to exactly this merge: the closer of its last ClosedEvent
+# is pull request PR whose merge commit is SHA, or commit SHA itself, and the
+# closure reason is completed. A manual close, another PR or commit, or an
+# unknown closer is never attributable.
+closed_by_merge() {
+  local issue=$1 sha=$2 pr=$3 owner=${repository%%/*} name=${repository#*/} closed
+  # shellcheck disable=SC2016
+  closed=$(gh api graphql -f owner="$owner" -f name="$name" -F number="$issue" -f query='
+    query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) {
+      issue(number: $number) { timelineItems(last: 1, itemTypes: [CLOSED_EVENT]) { nodes { ... on ClosedEvent {
+        stateReason closer { __typename
+          ... on PullRequest { number merged mergeCommit { oid } }
+          ... on Commit { oid } } } } } } } }') || fail "cannot read the close event of Issue #$issue"
+  jq -e --arg sha "$sha" --arg pr "$pr" '
+    [.data.repository.issue.timelineItems.nodes[]] | length == 1 and (.[0] as $e
+    | $e.stateReason == "COMPLETED"
+    and (($e.closer.__typename == "PullRequest" and $pr != "none" and ($e.closer.number | tostring) == $pr
+          and $e.closer.merged == true and $e.closer.mergeCommit.oid == $sha)
+      or ($e.closer.__typename == "Commit" and $e.closer.oid == $sha)))' <<<"$closed" >/dev/null
+}
 
 comment() {
   jq -n --arg body "$2" '{body: $body}' >"$temporary/comment.json"
@@ -301,6 +349,60 @@ write_state() {
     printf 'delivery_issue.%s=%s delivered_by=%s\n' "$issue" "$state" "$(value "issue.$issue" "$temporary/release")"
     printf 'effect.issue.%s=%s\n' "$issue" "$effects"
   done
+}
+
+# reconcile_releases TO repairs the Project projection of Issues released by
+# every stable release since the v0.2.0 boundary on the first-parent history
+# of TO. The Issue and its release record are canonical; the Project is a
+# reconstructible projection. Repair needs: projection enabled, the Issue
+# closed as completed, in that release's Issue set, and its latest release
+# record (by the workflow bot) naming that tag. Anything ambiguous is
+# reported and left untouched; a consistent item is never written.
+reconcile_releases() {
+  local sha version parent issues issue node comments latest observed
+  if [[ "$project_enabled" != true ]]; then
+    printf 'reconcile=projection_disabled\n'
+    return 0
+  fi
+  : >"$temporary/reconcile"
+  while IFS= read -r sha; do
+    version=$(git -C "$repository_root" show "$sha:.release-please-manifest.json" 2>/dev/null | jq -r '.["."] // empty') || continue
+    parent=$(git -C "$repository_root" show "$sha^1:.release-please-manifest.json" 2>/dev/null | jq -r '.["."] // empty' || true)
+    [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$version" != "$parent" && -n "$parent" ]] || continue
+    # From the v0.2.0 boundary (legacy_boundary in delivery-issues.sh) on:
+    # earlier releases delivered no Issue through this contract.
+    awk -v v="$version" 'BEGIN {split(v, a, "."); exit !(a[1] > 0 || a[2] >= 2)}' || continue
+    "$repository_root/scripts/delivery-issues.sh" release --tag "v$version" --revision "$sha" >"$temporary/reconcile-release" || exit 1
+    issues=$(value issues "$temporary/reconcile-release")
+    [[ "$issues" == none ]] && continue
+    for issue in ${issues//,/ }; do
+      issue_json "$issue" >"$temporary/reconcile-issue.json"
+      if [[ $(jq -r '.state + "/" + (.state_reason // "")' "$temporary/reconcile-issue.json") != closed/completed ]]; then
+        printf 'reconcile_skipped=%s tag=v%s reason=not_closed_completed\n' "$issue" "$version"
+        continue
+      fi
+      comments=$(issue_comments "$issue")
+      latest=$(latest_release_tag "$comments")
+      if [[ "$latest" != "v$version" ]]; then
+        printf 'reconcile_skipped=%s tag=v%s reason=%s\n' "$issue" "$version" \
+          "$([[ -z "$latest" ]] && printf no_release_record || printf 'latest_record_%s' "$latest")"
+        continue
+      fi
+      resolve_project
+      node=$(jq -r '.node_id' "$temporary/reconcile-issue.json")
+      observed=$(issue_item "$node")
+      if [[ "$observed" == "Released"$'\t'"v$version" ]]; then
+        printf 'reconcile_consistent=%s tag=v%s\n' "$issue" "$version"
+        continue
+      fi
+      printf '%s %s %s %s\n' "$issue" "$node" "v$version" "${observed//[[:space:]]/_}" >>"$temporary/reconcile"
+    done
+  done < <(git -C "$repository_root" log --first-parent --format=%H "$to" -- .release-please-manifest.json)
+  while read -r issue node target observed; do
+    printf 'reconcile_repair=%s tag=%s observed=%s\n' "$issue" "$target" "$observed"
+    project_apply "$node" Released "$target" "$issue"
+  done <"$temporary/reconcile"
+  printf 'reconcile=%s\n' "$([[ -s "$temporary/reconcile" ]] && printf repaired || printf consistent)"
 }
 
 need_release_args() {
@@ -410,6 +512,7 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
     # Plan every effect and validate every Issue before the first effect. A
     # closed Issue is never moved back: it is reported and skipped.
     : >"$temporary/plan"
+    : >"$temporary/reopening"
     while IFS= read -r line; do
       sha=$(sed -E 's/^commit=([0-9a-f]+) .*/\1/' <<<"$line")
       pr=$(sed -E 's/.* pr=([^ ]+) .*/\1/' <<<"$line")
@@ -425,7 +528,21 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
       [[ "$targets" == none ]] || printf 'target %s\n' ${targets//,/ } >>"$temporary/entries"
       while read -r kind issue; do
         state=$(issue_json "$issue" | jq -r '.state') || exit 1
+        comments=$(issue_comments "$issue") || exit 1
+        # An Issue an earlier commit of this window reopens is planned as open.
+        grep -Fxq "$issue" "$temporary/reopening" && state=open
         if [[ "$state" != open ]]; then
+          # Fail-safe for a closure GitHub applied at this merge (a
+          # Development-sidebar link changed after the last metadata check,
+          # or a keyword): reopen only when the closure is attributable to
+          # exactly this merged PR/commit and no stable release recorded it.
+          if [[ "$kind" == awaiting ]] && ! has_marker "$comments" '<!-- axiom-delivery:released tag=' \
+            && closed_by_merge "$issue" "$sha" "$pr"; then
+            printf 'reopen %s %s %s\n' "$issue" "$sha" "$pr" >>"$temporary/plan"
+            printf 'awaiting %s %s %s\n' "$issue" "$sha" "$pr" >>"$temporary/plan"
+            printf '%s\n' "$issue" >>"$temporary/reopening"
+            continue
+          fi
           printf 'issue_skipped=%s reason=closed commit=%s\n' "$issue" "$sha"
           printf '::warning::Issue #%s is closed; delivery sync does not move it (commit %s)\n' "$issue" "${sha:0:12}"
           continue
@@ -433,7 +550,6 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
         # A re-opened Issue is not moved back by a delivery that a release
         # already recorded: the release commit covering this commit (or this
         # release commit itself) left its release record on the Issue.
-        comments=$(issue_comments "$issue") || exit 1
         covering=$(awk -v sha="$sha" '$1 == sha {print $2}' "$temporary/cover")
         if [[ "$kind" == awaiting && "$covering" != none ]] && has_marker "$comments" "$(released_marker "v$covering")"; then
           printf 'issue_skipped=%s reason=already_released commit=%s\n' "$issue" "$sha"
@@ -451,9 +567,29 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
       done <"$temporary/entries"
     done <"$temporary/commits"
     printf 'delivery_project=%s\nrange_from=%s\n' "$(project_label)" "$from"
-    printf 'commits=%s\nplanned=%s\n' "$(wc -l <"$temporary/commits" | tr -d ' ')" "$(wc -l <"$temporary/plan" | tr -d ' ')"
-    [[ -s "$temporary/plan" ]] || { printf 'delivery=no_effects\n'; exit 0; }
+    printf 'commits=%s\nplanned=%s\n' "$(wc -l <"$temporary/commits" | tr -d ' ')" "$(grep -cv '^reopen ' "$temporary/plan" || true)"
+    if [[ ! -s "$temporary/plan" ]]; then
+      printf 'delivery=no_effects\n'
+      reconcile_releases
+      exit 0
+    fi
     resolve_project
+    # Corrective reopen first: the bounded record is written before the
+    # reopen, so a rerun after a failed reopen converges without a duplicate.
+    while read -r kind issue sha extra; do
+      [[ "$kind" == reopen ]] || continue
+      if ! has_marker "$(issue_comments "$issue")" "$(reopened_marker "$sha")"; then
+        by="commit \`${sha:0:12}\`"
+        [[ "$extra" != none ]] && by="#$extra ($by)"
+        comment "$issue" "$(reopened_marker "$sha")
+GitHub closed this Issue when $by merged, before any stable release. Delivery closes Issues only when a stable release that contains them is published, so delivery sync reopens it; it stays open in **Awaiting Release**."
+        printf 'effect=issue_commented issue=%s marker=reopened commit=%s\n' "$issue" "$sha"
+      fi
+      gh api --method PATCH "repos/$repository/issues/$issue" -f state=open -f state_reason=reopened >/dev/null \
+        || fail "cannot reopen Issue #$issue"
+      [[ $(issue_json "$issue" | jq -r '.state') == open ]] || fail "Issue #$issue did not read back open"
+      printf 'effect=issue_reopened issue=%s commit=%s\n' "$issue" "$sha"
+    done <"$temporary/plan"
     while read -r kind issue sha extra; do
       [[ "$kind" == awaiting ]] || continue
       if has_marker "$(issue_comments "$issue")" "$(completed_marker "$sha")"; then
@@ -468,7 +604,7 @@ Implementation completed by $by. This Issue stays open in **Awaiting Release** u
     done <"$temporary/plan"
     # One Project update per Issue with its final state in commit order: a
     # completion clears Target Release, a later release commit sets it.
-    awk '{final[$2] = ($1 == "target" ? $4 : "-none-")} END {for (i in final) print i, final[i]}' "$temporary/plan" \
+    awk '$1 != "reopen" {final[$2] = ($1 == "target" ? $4 : "-none-")} END {for (i in final) print i, final[i]}' "$temporary/plan" \
       | LC_ALL=C sort -n >"$temporary/final"
     while read -r issue target; do
       [[ "$target" == -none- ]] && target=
@@ -476,6 +612,7 @@ Implementation completed by $by. This Issue stays open in **Awaiting Release** u
       project_apply "$node" 'Awaiting Release' "$target" "$issue"
     done <"$temporary/final"
     printf 'delivery=synced\n'
+    reconcile_releases
     ;;
   *)
     fail 'usage: delivery-github.sh state|preflight|release|verify|titles|sync [options]'

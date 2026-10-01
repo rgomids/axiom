@@ -152,10 +152,17 @@ if [[ "$endpoint" == graphql ]]; then
   var() { local f; for f in "${fields[@]}"; do [[ "$f" == "$1="* ]] && { printf '%s' "${f#*=}"; return; }; done; }
   query=$(var query)
   op=query
-  for name in addProjectV2ItemById updateProjectV2ItemFieldValue clearProjectV2ItemFieldValue projectV2 node; do
+  for name in timelineItems projectItems addProjectV2ItemById updateProjectV2ItemFieldValue clearProjectV2ItemFieldValue projectV2 node; do
     [[ "$query" == *"$name("* ]] && { op=$name; break; }
   done
   maybe_fail "graphql $op"
+  # The close event of an Issue is read with the default (Issues) credential,
+  # never the Project credential; closed/N.json stages its last ClosedEvent.
+  if [[ "$op" == timelineItems ]]; then
+    [[ "${GH_TOKEN:-}" != "${FAKE_PROJECT_TOKEN:-unset}" ]] || { printf 'gh: Project credential used for an Issue read\n' >&2; exit 1; }
+    cat "$s/closed/$(var number).json" 2>/dev/null || printf '{"data":{"repository":{"issue":{"timelineItems":{"nodes":[]}}}}}\n'
+    exit 0
+  fi
   [[ -n "${GH_TOKEN:-}" && "$GH_TOKEN" == "${FAKE_PROJECT_TOKEN:-}" ]] || { printf 'gh: Bad credentials (HTTP 401)\n' >&2; exit 1; }
   items=$s/items.json
   [[ -f "$items" ]] || printf '{}' >"$items"
@@ -186,6 +193,11 @@ if [[ "$endpoint" == graphql ]]; then
       log "PROJECT clear $item"
       jq --arg i "$item" '(.[] | select(.id == $i) | .target) = ""' "$items" >"$items.new" && mv "$items.new" "$items"
       printf '{"data":{"clearProjectV2ItemFieldValue":{"projectV2Item":{"id":"%s"}}}}\n' "$item" ;;
+    projectItems)
+      jq --arg c "$(var issue)" --arg p "$(jq -r .id "$s/project.json")" '.[$c] as $it
+        | {data: {node: {projectItems: {nodes: (if $it == null then [] else [{id: $it.id, project: {id: $p},
+            status: (if $it.status == "" then null else {name: $it.status} end),
+            target: (if $it.target == "" then null else {text: $it.target} end)}] end)}}}}' "$items" ;;
     node)
       jq --arg i "$(var item)" '[.[] | select(.id == $i)][0] as $it
         | {data: {node: {status: (if $it.status == "" then null else {name: $it.status} end),
@@ -1021,7 +1033,50 @@ env -u AXIOM_DELIVERY_PROJECT_TOKEN "$dfix/scripts/publish-release.sh" --repo rg
   --authorized-digest "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/denv")" >"$temporary/dpub"
 check 'disabled projection: Issues released and closed without any Project call' bash -c "
   grep -Fxq 'delivery=released issues=20,21,22' '$temporary/dpub' && ! grep -q '^PROJECT' '$state/ledger' && [[ \$(jq -r .state '$state/issues/20.json') == closed ]]"
+dgh sync --to "$drel" >"$temporary/sync"
+check 'disabled projection: sync does not reconcile the Project' bash -c "
+  grep -Fxq reconcile=projection_disabled '$temporary/sync' && ! grep -q '^PROJECT' '$state/ledger'"
+
+# Enabling projection later repairs the released Issues: the Issue and its
+# release record are canonical, the Project is reconstructed from them.
 project_config enabled
+stage_project 'Legacy Done'
+before=$(wc -l <"$state/ledger")
+dgh sync --to "$drel" >"$temporary/sync"
+check 'reconciliation after enabling projection: every released Issue becomes Released vX.Y.Z' bash -c "
+  grep -Fxq reconcile=repaired '$temporary/sync' && grep -Fxq 'reconcile_repair=20 tag=v0.2.0 observed=absent' '$temporary/sync' &&
+  [[ '$(item 20)' == 'Released|v0.2.0' && '$(item 21)' == 'Released|v0.2.0' && '$(item 22)' == 'Released|v0.2.0' ]] &&
+  ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq '^(COMMENT|ISSUE)'"
+[[ "$(item 20)|$(item 21)|$(item 22)" == 'Released|v0.2.0|Released|v0.2.0|Released|v0.2.0' ]] \
+  && check 'reconciled items read Released with Target Release v0.2.0' true || check 'reconciled items read Released with Target Release v0.2.0' false
+before=$(mutations)
+dgh sync --to "$drel" >"$temporary/sync"
+check 'reconciliation rerun is idempotent: no Project write when consistent' bash -c "
+  [[ $(mutations) == $before ]] && grep -Fxq reconcile=consistent '$temporary/sync' && grep -Fxq 'reconcile_consistent=21 tag=v0.2.0' '$temporary/sync'"
+jq '.I_21.status = "Awaiting Release" | .I_21.target = "v0.1.9"' "$state/items.json" >"$state/i" && mv "$state/i" "$state/items.json"
+before=$(wc -l <"$state/ledger")
+dgh sync --to "$drel" >"$temporary/sync"
+check 'reconciliation repairs a wrong Status/Target Release and only that item' bash -c "
+  [[ '$(item 21)' == 'Released|v0.2.0' ]] && grep -Fxq 'reconcile_repair=21 tag=v0.2.0 observed=Awaiting_Release_v0.1.9' '$temporary/sync' &&
+  ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq 'I_(20|22)'"
+[[ "$(item 21)" == 'Released|v0.2.0' ]] && check 'repaired item reads back Released v0.2.0' true || check 'repaired item reads back Released v0.2.0' false
+# No repair without an unambiguous release record from the workflow bot.
+jq '.I_20.status = "Awaiting Release" | .I_21.status = "Awaiting Release" | .I_22.status = "Awaiting Release"' "$state/items.json" >"$state/i" && mv "$state/i" "$state/items.json"
+printf '[]\n' >"$state/comments/20.json"
+printf '[{"id":1,"user":{"login":"someone"},"body":"<!-- axiom-delivery:released tag=v0.2.0 -->"}]\n' >"$state/comments/21.json"
+jq '. + [{id: 9, user: {login: "github-actions[bot]"}, body: "<!-- axiom-delivery:released tag=v0.3.0 -->\\nlater"}]' "$state/comments/22.json" >"$state/c" && mv "$state/c" "$state/comments/22.json"
+before=$(mutations)
+dgh sync --to "$drel" >"$temporary/sync"
+check 'no repair without a release record, with a foreign record, or when a later release record names another tag' bash -c "
+  [[ $(mutations) == $before ]] && grep -Fxq reconcile=consistent '$temporary/sync' &&
+  grep -Fxq 'reconcile_skipped=20 tag=v0.2.0 reason=no_release_record' '$temporary/sync' &&
+  grep -Fxq 'reconcile_skipped=21 tag=v0.2.0 reason=no_release_record' '$temporary/sync' &&
+  grep -Fxq 'reconcile_skipped=22 tag=v0.2.0 reason=latest_record_v0.3.0' '$temporary/sync'"
+check 'unrepaired items keep their observed Status' bash -c "[[ \$(jq -r '.I_20.status + .I_21.status + .I_22.status' '$state/items.json') == 'Awaiting ReleaseAwaiting ReleaseAwaiting Release' ]]"
+issue 20 'Reopened after release' open
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.2.0 -->"}]\n' >"$state/comments/20.json"
+dgh sync --to "$drel" >"$temporary/sync"
+check 'an open Issue is never reconciled as released' grep -Fxq 'reconcile_skipped=20 tag=v0.2.0 reason=not_closed_completed' "$temporary/sync"
 
 # A delivery state that changes after authorization stops the Issue effects.
 reset_github
@@ -1070,6 +1125,80 @@ dgh sync --to "$drel" >"$temporary/sync"
 check 'sync never moves a re-opened released Issue back to Awaiting Release' bash -c "
   grep -Fxq 'issue_skipped=20 reason=already_released commit=$d2' '$temporary/sync' && [[ '$(item 20)' == 'Released|v0.2.0' ]] &&
   ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq '^(COMMENT 20|PROJECT .*I_20)'"
+
+# Development-sidebar race fail-safe: an Issue GitHub closed at the merge
+# that completes it is reopened only when its closer is exactly that merged
+# PR/commit and no stable release recorded it; anything else is untouched.
+closer() {
+  mkdir -p "$state/closed"
+  jq -n --arg kind "$2" --arg number "${3:-0}" --arg sha "${4:-}" --arg reason "${5:-COMPLETED}" '
+    {data: {repository: {issue: {timelineItems: {nodes: [{stateReason: $reason, closer:
+      (if $kind == "pr" then {__typename: "PullRequest", number: ($number | tonumber), merged: true, mergeCommit: {oid: $sha}}
+       elif $kind == "commit" then {__typename: "Commit", oid: $sha} else null end)}]}}}}}' >"$state/closed/$1.json"
+}
+reset_github
+stage_issues
+stage_project 'Legacy Done'
+issue 20 'Closed by the sidebar link at merge' closed completed
+closer 20 pr 12 "$d2"
+issue 21 'Closed manually by a human' closed completed
+closer 21 none
+dgh sync --from "$d1" --to "$d2" >"$temporary/sync"
+check 'fail-safe: a closure attributable to the exact merged PR is reopened with a bounded record' bash -c "
+  [[ \$(jq -r .state '$state/issues/20.json') == open ]] && grep -Fxq 'effect=issue_reopened issue=20 commit=$d2' '$temporary/sync' &&
+  jq -e '.[0].body | startswith(\"<!-- axiom-delivery:reopened commit=$d2 -->\") and contains(\"#12\") and (length < 400)' '$state/comments/20.json' >/dev/null"
+check 'fail-safe: the record precedes the reopen, then the normal Awaiting Release projection continues' bash -c "
+  r=\$(grep -n '^COMMENT 20 <!-- axiom-delivery:reopened' '$state/ledger' | cut -d: -f1)
+  o=\$(grep -n '^ISSUE 20 state=open state_reason=reopened' '$state/ledger' | cut -d: -f1)
+  c=\$(grep -n '^COMMENT 20 <!-- axiom-delivery:completed commit=$d2' '$state/ledger' | cut -d: -f1)
+  [[ -n \"\$r\" && -n \"\$o\" && -n \"\$c\" && \$r -lt \$o && \$o -lt \$c ]] && [[ '$(item 20)' == 'Awaiting Release|' ]]"
+check 'fail-safe: a closure not attributable to the merge is never reopened' bash -c "
+  [[ \$(jq -r .state '$state/issues/21.json') == closed ]] && grep -Fxq 'issue_skipped=21 reason=closed commit=$d2' '$temporary/sync' &&
+  ! grep -Eq '^(COMMENT|ISSUE) 21 ' '$state/ledger'"
+[[ "$(item 20)" == 'Awaiting Release|' ]] && check 'fail-safe: reopened Issue is Awaiting Release' true || check 'fail-safe: reopened Issue is Awaiting Release' false
+before=$(grep -Ec '^(COMMENT|ISSUE)' "$state/ledger" || true)
+dgh sync --from "$d1" --to "$d2" >"$temporary/sync"
+check 'fail-safe rerun is idempotent: no second record, reopen or comment' bash -c "
+  [[ \$(grep -Ec '^(COMMENT|ISSUE)' '$state/ledger') == $before ]] && ! grep -q '^effect=issue_reopened' '$temporary/sync'"
+for case in 'pr 99 '"$d3"' COMPLETED|another merged PR' 'pr 13 '"$d2"' COMPLETED|the PR number with another merge commit' \
+  'pr 13 '"$d3"' NOT_PLANNED|a not-planned closure' 'commit 0 '"$d2"' COMPLETED|another commit' 'none 0 x COMPLETED|an unknown closer'; do
+  read -r kind number sha reason <<<"${case%%|*}"
+  issue 22 'Help text' closed "$([[ "$reason" == NOT_PLANNED ]] && printf not_planned || printf completed)"
+  closer 22 "$kind" "$number" "$sha" "$reason"
+  before=$(grep -Ec '^(COMMENT|ISSUE) 22 ' "$state/ledger" || true)
+  dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
+  check "fail-safe: ${case#*|} is never reopened" bash -c "
+    [[ \$(jq -r .state '$state/issues/22.json') == closed && \$(grep -Ec '^(COMMENT|ISSUE) 22 ' '$state/ledger' || true) == $before ]]"
+done
+issue 22 'Help text' closed completed
+closer 22 pr 13 "$d3"
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.1.0 -->\\nold"}]\n' >"$state/comments/22.json"
+dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
+check 'fail-safe: an Issue with a stable release record is never reopened' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && ! grep -q '^ISSUE 22 ' '$state/ledger'"
+rm "$state/comments/22.json"
+closer 22 commit 0 "$d3"
+FAKE_GH_FAIL_ON='PATCH repos/rgomids/axiom/issues/22' expect_failure 'fail-safe: a failed reopen is reported' 'cannot reopen Issue #22' \
+  dgh sync --from "$d2" --to "$d3"
+check 'fail-safe: the bounded record exists, the Issue is still closed' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && [[ \$(jq length '$state/comments/22.json') == 1 ]]"
+dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
+check 'fail-safe: a rerun after a failed reopen converges without a duplicate record (commit closer)' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == open ]] &&
+  [[ \$(jq '[.[] | select(.body | startswith(\"<!-- axiom-delivery:reopened\"))] | length' '$state/comments/22.json') == 1 ]]"
+# Premature closure and the Release PR merge in one sync window: the
+# reopened Issue also receives the release's Target Release.
+issue 20 'Closed by the sidebar link at merge' closed completed
+closer 20 pr 12 "$d2"
+rm -f "$state/comments/20.json"
+dgh sync --from "$d1" --to "$drel" >"$temporary/sync"
+check 'fail-safe in the release window: reopened and Awaiting Release with Target Release' bash -c "
+  [[ \$(jq -r .state '$state/issues/20.json') == open ]] && [[ '$(item 20)' == 'Awaiting Release|v0.2.0' ]]"
+[[ "$(item 20)" == 'Awaiting Release|v0.2.0' ]] && check 'fail-safe in the release window: Target Release reads back' true || check 'fail-safe in the release window: Target Release reads back' false
+rm -rf "$state/closed"
+check 'reconciliation and undeclared-commit enforcement share the v0.2.0 boundary' bash -c "
+  grep -Fxq 'legacy_boundary=0.2.0' '$repository_root/scripts/delivery-issues.sh' &&
+  grep -Fq 'exit !(a[1] > 0 || a[2] >= 2)' '$repository_root/scripts/delivery-github.sh'"
 
 # v0.2.0 migration boundary: two reviewed legacy records for Issues already
 # closed by keywords. The notes list both; publication records them and never
@@ -1314,8 +1443,11 @@ while IFS= read -r line; do
 done < <(grep -hE '^\s+(- )?uses:' "$workflows"/*.yml)
 check 'every action is pinned by SHA' "$pinned"
 check 'checkouts never persist credentials' bash -c "[[ \$(grep -c 'actions/checkout@' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') == \$(grep -c 'persist-credentials: false' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') ]]"
-ci_contexts=$(printf 'release-contract\nverify (linux)\nverify (macos)\n')
-check 'ruleset requires exactly the CI job checks' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml'"
+ci_contexts=$(printf 'delivery-metadata\nrelease-contract\nverify (linux)\nverify (macos)\n')
+check 'ruleset requires exactly the CI job checks and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
+check 'release CI state ignores only the PR-only delivery-metadata check' bash -c "
+  grep -Fxq '    [[ \"\$name\" == delivery-metadata ]] && continue' '$repository_root/scripts/release.sh' &&
+  [[ \$(grep -c 'delivery-metadata ]] && continue' '$repository_root/scripts/release.sh') == 1 ]]"
 check 'ruleset: squash only, reviews, code owners, threads, no direct bypass' bash -c "jq -e '(.rules[] | select(.type == \"pull_request\") | .parameters | .allowed_merge_methods == [\"squash\"] and .required_approving_review_count >= 1 and .require_code_owner_review and .required_review_thread_resolution) and ([.rules[].type] | index(\"deletion\") and index(\"non_fast_forward\")) and all(.bypass_actors[]; .bypass_mode != \"always\")' '$repository_root/.github/rulesets/main.json' >/dev/null"
 check 'CODEOWNERS covers the repository' grep -Eq '^\* @[A-Za-z0-9-]+$' "$repository_root/.github/CODEOWNERS"
 skill=$repository_root/.agents/skills/axiom-release/SKILL.md

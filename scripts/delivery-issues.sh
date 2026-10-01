@@ -15,6 +15,9 @@
 #       The Issue set delivered by the stable release committed at SHA:
 #       Completes-Issues of every first-parent commit since the previous
 #       release commit, deduplicated. A release candidate delivers none.
+#       After the legacy boundary (stable versions above v0.2.0) every
+#       ordinary commit in the range must declare metadata or have a reviewed
+#       correction; an undeclared one fails closed.
 #
 # Metadata grammar (one line per key, at column 0, outside fenced code):
 #
@@ -29,10 +32,16 @@
 # closed. A reviewed correction for an immutable commit can be recorded in
 # .github/delivery-corrections.txt (read at the resolved revision) as
 # "<full-sha> related=<list|none> completes=<list|none>".
+#
+# Legacy boundary: v0.2.0 is the last release whose range may contain
+# undeclared commits (history merged before this contract). For every later
+# stable release, only the Release Please release commit itself may be
+# undeclared; old closing keywords are never interpreted either way.
 set -euo pipefail
 
 repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 max_issues=20
+legacy_boundary=0.2.0
 
 fail() {
   printf 'delivery_metadata_error: %s\n' "$1" >&2
@@ -171,6 +180,17 @@ full_sha() {
   git -C "$repository_root" cat-file -e "$value^{commit}" 2>/dev/null || fail "not a known commit: $value"
 }
 
+# after_boundary VERSION succeeds when VERSION is a stable version above the
+# legacy boundary.
+after_boundary() {
+  local a b
+  IFS=. read -r -a a <<<"$1"
+  IFS=. read -r -a b <<<"$legacy_boundary"
+  ((a[0] != b[0])) && { ((a[0] > b[0])); return; }
+  ((a[1] != b[1])) && { ((a[1] > b[1])); return; }
+  ((a[2] > b[2]))
+}
+
 # manifest_at SHA prints the Release Please root version at SHA, or none.
 manifest_at() {
   local content
@@ -281,10 +301,22 @@ case "$mode" in
     : >"$temporary/delivered"
     undeclared=0
     total=0
+    enforce=false
+    after_boundary "$version" && enforce=true
+    printf 'legacy_boundary=v%s\nundeclared_policy=%s\n' "$legacy_boundary" \
+      "$([[ "$enforce" == true ]] && printf fail_closed || printf legacy_allowed)"
+    release_subject_re="^chore\\(main\\): release ${version//./\\.}( \\(#[1-9][0-9]{0,8}\\))?\$"
     while IFS= read -r sha; do
       total=$((total + 1))
       line=$(commit_line "$sha") || exit 1
-      [[ "$line" == *' metadata=undeclared '* ]] && undeclared=$((undeclared + 1))
+      if [[ "$line" == *' metadata=undeclared '* ]]; then
+        undeclared=$((undeclared + 1))
+        # Only this release's own Release Please commit may stay undeclared.
+        if [[ "$enforce" == true ]] && ! { [[ "$sha" == "$revision" ]] \
+          && [[ $(git -C "$repository_root" log -1 --format=%s "$sha") =~ $release_subject_re ]]; }; then
+          fail "commit $sha in the v$version range has no delivery metadata; record a reviewed correction in .github/delivery-corrections.txt"
+        fi
+      fi
       completes=$(sed -E 's/.* completes=([^ ]+)$/\1/' <<<"$line")
       pr=$(sed -E 's/^commit=[0-9a-f]+ pr=([^ ]+) .*/\1/' <<<"$line")
       [[ "$completes" == none ]] && continue

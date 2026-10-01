@@ -9,6 +9,12 @@ name: Delivery sync
 #   merge is not publication.
 # - a release commit (merged Release PR) records Target Release vX.Y.Z for the
 #   Issue set that release delivers.
+# - fail-safe: an Issue GitHub closed at exactly the completing merge (its
+#   last close event names that merged PR/commit) with no stable release
+#   record is reopened with a bounded record; other closures are left alone.
+# - with projection enabled, every stable release since v0.2.0 is reconciled:
+#   a closed/completed Issue whose latest release record names that release
+#   is repaired to Released with that Target Release.
 # Partial PRs (Completes-Issues: none) have no effect. This is a delivery
 # projection for humans, never Axiom Execution truth or axiom:stage:* state.
 # Issue closure happens only in publish-release.yml, inside the authorized
@@ -60,6 +66,9 @@ jobs:
     permissions:
       contents: read
       issues: write
+      # Reads the closer of an Issue closed at merge (merged PR and its merge
+      # commit) for the premature-closure fail-safe; never writes PRs.
+      pull-requests: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -80,6 +89,9 @@ jobs:
     permissions:
       contents: read
       issues: write
+      # Reads the closer of an Issue closed at merge (merged PR and its merge
+      # commit) for the premature-closure fail-safe; never writes PRs.
+      pull-requests: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

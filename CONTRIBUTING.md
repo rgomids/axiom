@@ -265,10 +265,19 @@ validates this with
 [`scripts/delivery-issues.sh check-pr`](scripts/delivery-issues.sh), using the
 base revision's validator. It also requires that the metadata parse the same
 after a 72-column wrap, and that GitHub's `closingIssuesReferences` for the PR
-is empty. It runs on every PR except Release PRs opened by Release Please. It
-is not
-yet a required check (see Pending in
+is empty. It runs on every PR except Release PRs opened by Release Please
+(the job is skipped, which a required check accepts). The desired `main`
+ruleset makes it a required check; applying that ruleset is a separate,
+authorized administrator action (see
 [repository security](docs/security/repository-security.md#delivery-tracking)).
+The check cannot observe a Development-sidebar link added after its last run,
+so delivery sync has a post-merge fail-safe: when GitHub closes an Issue at
+the merge that completes it, before any stable release, sync reopens it with a
+bounded `axiom-delivery:reopened` record and continues the normal
+`Awaiting Release` projection. It reopens only when the Issue's last close
+event names exactly that merged PR (with that merge commit) or that commit as
+closer, the reason is `completed`, and no `axiom-delivery:released` record
+exists. Any other closure is reported and left alone.
 Keep the metadata intact when editing the squash commit message. If a merged
 commit's metadata is malformed, the release that contains it fails closed. The
 fix is a reviewed line in
@@ -293,7 +302,12 @@ These records let the `v0.2.0` envelope record #129 and #147 as delivered by
 enabled. Both Issues were already closed by a keyword, and closed is not
 Released, so they are recorded but not re-closed. #132 is not completed: #145
 delivered only `I132-T01`. From `v0.2.0` on, only `Completes-Issues` delivers
-an Issue. Any Project #5 snapshot or mutation digest taken before these
+an Issue. `v0.2.0` is also the legacy boundary for undeclared commits: in the
+range of every later stable release, each ordinary first-parent commit must
+declare metadata or have a reviewed correction (which may be
+`related=none completes=none`). Only that release's own Release Please commit
+may stay undeclared. An unexpected undeclared commit makes release resolution
+fail closed; its closing keywords are never interpreted. Any Project #5 snapshot or mutation digest taken before these
 records is stale and must be refreshed by read-back before a Project
 migration. This applies only if this contract reaches `main` before Release PR
 #146 is merged, so that Release Please regenerates its release commit on top
@@ -311,10 +325,11 @@ Planned -> In Progress -> In Review -> Awaiting Release -> Released (Issue close
 | Issue added to the Project | Status `Planned` (Issues only; Pull Requests stay in their own view) | maintainer or a verified built-in workflow |
 | Work starts, PR opened | Status `In Progress`, then `In Review` | maintainer, manually |
 | A PR with `Completes-Issues: none` merges | nothing changes; the commit keeps its `Related-Issues` | PR merge |
-| A PR with `Completes-Issues: #N` merges | bounded comment on #N; Status `Awaiting Release`; `Target Release` cleared because the version is not yet known; #N stays open; a closed #N is reported and left alone | PR merge; [`delivery-sync.yml`](.github/workflows/delivery-sync.yml), which re-scans from the latest release range on each push |
+| A PR with `Completes-Issues: #N` merges | bounded comment on #N; Status `Awaiting Release`; `Target Release` cleared because the version is not yet known; #N stays open; if GitHub closed #N at exactly this merge before any stable release, it is reopened with a bounded record; any other closed #N is reported and left alone | PR merge; [`delivery-sync.yml`](.github/workflows/delivery-sync.yml), which re-scans from the latest release range on each push |
 | The Release PR merges (release commit) | `Target Release = vX.Y.Z` for every Issue that release delivers | Release PR merge; `delivery-sync.yml` |
 | A release candidate is published | nothing changes: an RC delivers no Issue and closes none | authorized envelope |
 | The stable release is published and read back | for each delivered Issue: bounded comment linking the release, Status `Released`, `Target Release = vX.Y.Z`, closed as completed | the same authorized publication envelope |
+| Projection enabled after a release published while it was disabled (or the Project drifted) | every closed/completed Issue whose latest `axiom-delivery:released` record names its release is repaired to `Released` and that `Target Release`; consistent items are not written; no record, a foreign record or a later record for another tag means no repair | `delivery-sync.yml` on each push, from `v0.2.0` on |
 
 The Issues a stable release delivers are the `Completes-Issues` of the
 first-parent commits after the previous release commit, up to and including
@@ -336,7 +351,9 @@ into `Axiom Delivery`; no second Project is created (see
 `.github/delivery-project.json` binds it and stays at
 `"projection": "disabled"` until the separately authorized migration is done.
 While disabled, comments and closure still happen and the envelope says
-`delivery_project=users/rgomids/projects/5 projection=disabled`. `Legacy Done`
+`delivery_project=users/rgomids/projects/5 projection=disabled`. The Issue and
+its release record stay canonical; the Project is reconstructed from them once
+the projection is enabled. `Legacy Done`
 is a temporary migration status for historical `Done` items. It is never
 `Released`, and the scripts never set or read it.
 

@@ -525,7 +525,7 @@ The process, versioning and authority rules are in
 | `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag` and `revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; read-only token; never publishes |
 | `.github/workflows/publish-release.yml` | manual dispatch from `main` with `tag`, `revision`, `prepared_run`, `preview_digest` | PUBLISH: re-verifies that prepared artifact, requires its envelope digest to equal `preview_digest`, then draft, upload, read-back, publish and, for a stable release, the envelope's Issue effects; `publish` job gated by the `release` environment; never rebuilds |
 | `.github/workflows/delivery-metadata.yml` | PR opened, edited, reopened or synchronized (not Release PRs) | validates `Related-Issues`/`Completes-Issues` and refuses closing keywords; no token write, no secret |
-| `.github/workflows/delivery-sync.yml` | push to `main` | merge-time delivery projection: completing PRs move Issues to `Awaiting Release` (Issues stay open); a release commit records `Target Release` |
+| `.github/workflows/delivery-sync.yml` | push to `main` | merge-time delivery projection: completing PRs move Issues to `Awaiting Release` (Issues stay open; one closed by GitHub at exactly that merge is reopened); a release commit records `Target Release`; with projection enabled, released Issues are reconciled to `Released` |
 
 Discover the state and the next step (read-only apart from `git fetch` of
 `main`):
@@ -619,11 +619,18 @@ Each command is read-only unless stated:
 ```
 
 `release` prints the Issue set a stable release delivers (`issues=`, one
-`issue.N=` line with the completing PRs, `range_base=`, `undeclared_commits=`).
+`issue.N=` line with the completing PRs, `range_base=`, `undeclared_commits=`,
+`legacy_boundary=v0.2.0`, `undeclared_policy=legacy_allowed|fail_closed`).
+Above the boundary an undeclared commit other than the release's own Release
+Please commit fails closed.
 For a release candidate it prints `issues=not_applicable`. `state` prints the
 delivery lines of the publication envelope. `delivery-github.sh sync` and
 `release` change Issues and the Project. They run only in `delivery-sync.yml`
-and inside an authorized `publish-release.yml` run.
+and inside an authorized `publish-release.yml` run. `sync` also reopens an
+Issue GitHub closed at exactly the completing merge (premature-closure
+fail-safe) and, with projection enabled, reconciles the Project of every stable
+release since `v0.2.0` (`reconcile_repair=`, `reconcile_consistent=`,
+`reconcile_skipped=` lines).
 `./scripts/release.sh verify` also runs `delivery-github.sh verify`.
 
 Test the delivery grammar, PR check and release Issue sets locally (no
@@ -635,8 +642,9 @@ GitHub):
 
 Test the whole contract with a stateful fake `gh` and local Git fixtures (no
 network or GitHub effects). This includes delivery: merge projection, notes,
-envelope binding, closure after read-back, RC behavior, partial recovery and
-Project failures before effects. preflight rules, notes, envelope completeness and
+envelope binding, closure after read-back, RC behavior, partial recovery,
+Project failures before effects, the premature-closure fail-safe and Project
+reconciliation after a disabled projection. preflight rules, notes, envelope completeness and
 determinism, stale authority, publication of exactly the envelope's bytes,
 reruns, partial drafts, conflicts, stable versus prerelease and `latest`, the
 prepare/publish authority boundary of `release.sh`, the Release Please

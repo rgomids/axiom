@@ -260,6 +260,39 @@ check 'boundary: #132 (partial, related only) and keyword-only #200 are excluded
 check 'boundary: corrected commits are reported as corrected, not declared' bash -c "
   [[ \$('$lfix/scripts/delivery-issues.sh' commits --from '$l0' --to '$lrel' | grep -c ' metadata=corrected ') == 2 ]]"
 
+check 'boundary: the v0.2.0 range keeps legacy undeclared commits allowed' bash -c "
+  grep -Fxq legacy_boundary=v0.2.0 '$temporary/legacy' && grep -Fxq undeclared_policy=legacy_allowed '$temporary/legacy'"
+
+# --- 4c. After the boundary undeclared commits fail closed ------------------------------------
+# A stable release above v0.2.0 accepts only declared or corrected commits;
+# its own Release Please commit is the single undeclared exception.
+lpost=$(lcommit 'feat: declared after the boundary (#170)' 'Related-Issues: #171\nCompletes-Issues: #171\n')
+lr021=$(lcommit 'chore(main): release 0.2.1 (#172)' '' 0.2.1)
+"$lfix/scripts/delivery-issues.sh" release --tag v0.2.1 --revision "$lr021" >"$temporary/post"
+check 'after the boundary: a fully declared range resolves, the release commit may be undeclared' bash -c "
+  grep -Fxq undeclared_policy=fail_closed '$temporary/post' && grep -Fxq issues=171 '$temporary/post' && grep -Fxq undeclared_commits=1 '$temporary/post'"
+lsneak=$(lcommit 'fix: merged without metadata (#173)' 'Closes #174\n')
+lr022=$(lcommit 'chore(main): release 0.2.2 (#175)' '' 0.2.2)
+expect_failure 'after the boundary: an undeclared ordinary commit fails release resolution' \
+  "commit $lsneak in the v0.2.2 range has no delivery metadata" "$lfix/scripts/delivery-issues.sh" release --tag v0.2.2 --revision "$lr022"
+check 'after the boundary: the old closing keyword was not interpreted' bash -c "
+  '$lfix/scripts/delivery-issues.sh' commits --from '$lr021' --to '$lr022' | grep -Fxq 'commit=$lsneak pr=173 release=none metadata=undeclared related=none completes=none'"
+git -C "$lfix" reset -q --hard "$lsneak"
+printf '%s related=174 completes=none\n' "$lsneak" >>"$lfix/.github/delivery-corrections.txt"
+lcommit 'docs(delivery): reviewed correction for #173 (#176)' 'Related-Issues: none\nCompletes-Issues: none\n' >/dev/null
+lr022=$(lcommit 'chore(main): release 0.2.2 (#177)' '' 0.2.2)
+"$lfix/scripts/delivery-issues.sh" release --tag v0.2.2 --revision "$lr022" >"$temporary/post"
+check 'after the boundary: an explicit reviewed correction resolves the commit without inferring completion' bash -c "
+  grep -Fxq issues=none '$temporary/post' && grep -Fxq undeclared_commits=1 '$temporary/post'"
+lsmuggle=$(lcommit 'feat: bump the manifest outside Release Please (#178)' '' 0.3.0)
+expect_failure 'after the boundary: a manifest change that is not a Release Please commit stays undeclared and fails' \
+  "commit $lsmuggle in the v0.3.0 range has no delivery metadata" "$lfix/scripts/delivery-issues.sh" release --tag v0.3.0 --revision "$lsmuggle"
+git -C "$lfix" reset -q --hard "$lr022"
+lcommit 'feat: declared (#179)' 'Related-Issues: none\nCompletes-Issues: none\n' >/dev/null
+lr100=$(lcommit 'chore(main): release 0.10.0 (#180)' '' 0.10.0)
+check 'after the boundary: versions compare numerically (0.10.0 enforces)' bash -c "
+  '$lfix/scripts/delivery-issues.sh' release --tag v0.10.0 --revision '$lr100' | grep -Fxq undeclared_policy=fail_closed"
+
 # --- 5. The repository's own history parses ------------------------------------------------
 first=$(git -C "$repository_root" rev-list --max-parents=0 HEAD | tail -n 1)
 "$issues" commits --from "$first" --to "$(git -C "$repository_root" rev-parse HEAD)" >"$temporary/history"

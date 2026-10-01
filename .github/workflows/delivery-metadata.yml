@@ -8,6 +8,9 @@ name: Delivery metadata
 # The validator comes from the base revision, so a PR cannot weaken its own
 # check. It also fails when GitHub itself links an Issue to close on merge
 # (closing keywords or the Development sidebar: closingIssuesReferences).
+# A Development-sidebar link changed after the last run triggers no event
+# here; delivery-sync.yml carries the post-merge fail-safe that reopens an
+# Issue closed by exactly that merge before any stable release.
 # Read-only token, no secrets; safe for fork PRs.
 
 on:

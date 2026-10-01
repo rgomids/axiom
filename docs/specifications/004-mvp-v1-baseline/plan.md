@@ -1043,7 +1043,15 @@ with a migration-only `Legacy Done` status never read as Released) is a
 human-visibility projection. `v0.2.0` is the migration boundary: legacy
 commits deliver nothing except two reviewed corrections recording #129 (PR
 #143) and #147 (PR #148), both already closed and recorded without
-re-closure; #132 stays incomplete. It
+re-closure; #132 stays incomplete. `v0.2.0` is also the legacy boundary for
+undeclared commits: above it, release resolution fails closed on any
+first-parent commit other than the release's own Release Please commit that
+lacks metadata or a reviewed correction. A post-merge fail-safe reopens an
+Issue GitHub closed at exactly its completing merge (attributed by the close
+event's closer) before any stable release; and with projection enabled, sync
+repairs the Project of released Issues from their canonical release records.
+`delivery-metadata` joins the desired required checks; applying the ruleset
+stays separately authorized. It
 is not Execution truth, not FR-039 `axiom:stage:*` derivation and not an
 FR-041 flag, and it records no acceptance. No ADR: the change extends the
 release envelope recorded above and adds no product-domain boundary. Process:

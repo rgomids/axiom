@@ -110,7 +110,7 @@ Payloads, hashes e ledger estão naquele Evidence.
 
 | Controle | Observado | Desejado |
 |---|---|---|
-| Ruleset `default` (id `22828068`) em `main` | deletion, non_fast_forward, PR com 1 aprovação, code owner review, resolução de threads, merge `merge`+`squash`, code_quality; **sem required status checks**; bypass `RepositoryRole` id 2 em modo `always` | igual, mais required checks `verify (linux)`, `verify (macos)`, `release-contract` (GitHub Actions, strict), merge somente `squash`, bypass somente via PR (`pull_request`) |
+| Ruleset `default` (id `22828068`) em `main` | deletion, non_fast_forward, PR com 1 aprovação, code owner review, resolução de threads, merge `merge`+`squash`, code_quality; **sem required status checks**; bypass `RepositoryRole` id 2 em modo `always` | igual, mais required checks `verify (linux)`, `verify (macos)`, `release-contract` e, desde o contrato de delivery, `delivery-metadata` (GitHub Actions, strict), merge somente `squash`, bypass somente via PR (`pull_request`) |
 | `CODEOWNERS` | ausente (code owner review sem owners) | `* @rgomids` (adicionado neste repositório) |
 | Métodos de merge | merge commit, squash e rebase habilitados; branch não removida após merge | somente squash, título = título do PR, remover branch após merge |
 | Actions | qualquer action; SHA pinning não exigido; `GITHUB_TOKEN` read; Actions não criam PRs | SHA pinning exigido; Actions podem criar PRs (Release Please) |
@@ -203,8 +203,8 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
 | Workflow / job | Gatilho | Credencial | Efeitos |
 |---|---|---|---|
 | `delivery-metadata.yml` | `pull_request` (inclusive forks) | `GITHUB_TOKEN` com `contents: read` e `pull-requests: read`; sem secrets | nenhum: valida título e corpo com o validador da revisão base e recusa `closingIssuesReferences` |
-| `delivery-sync.yml` `sync` | `push` em `main`, com `"projection": "disabled"` | `GITHUB_TOKEN` `issues: write` | comentário limitado e idempotente nas Issues completadas |
-| `delivery-sync.yml` `sync-project` | `push` em `main`, só com `"projection": "enabled"` | `GITHUB_TOKEN` (Issues), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `delivery` (somente GraphQL do Project) | também Status `Awaiting Release` e `Target Release` |
+| `delivery-sync.yml` `sync` | `push` em `main`, com `"projection": "disabled"` | `GITHUB_TOKEN` `issues: write`, `pull-requests: read` (só para ler o closer de uma Issue fechada no merge) | comentário limitado e idempotente nas Issues completadas; reabertura de uma Issue fechada pelo GitHub exatamente nesse merge, com registro limitado |
+| `delivery-sync.yml` `sync-project` | `push` em `main`, só com `"projection": "enabled"` | `GITHUB_TOKEN` (Issues, `pull-requests: read`), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `delivery` (somente GraphQL do Project) | também Status `Awaiting Release` e `Target Release`; reconciliação para `Released` de Issues com registro de release |
 | `publish-release.yml` `publish` | dispatch autorizado, environment `release` aprovado | `GITHUB_TOKEN` `issues: write` (comentário e fechamento), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `release` (somente GraphQL do Project) | só os efeitos de Issue do envelope autorizado, depois do read-back |
 
 - Separação: tudo o que é do repositório (ler Issues e comentários, comentar,
@@ -240,7 +240,19 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
 - `delivery-sync.yml` usa um concurrency group. O GitHub mantém só uma
   execução pendente por grupo, então cada execução reprocessa a janela desde
   o início do range da última release. Os efeitos são idempotentes, e Issues
-  fechadas nunca voltam de status.
+  fechadas nunca voltam de status, com uma exceção fail-safe: uma Issue que o
+  GitHub fechou no próprio merge que a completa (link da sidebar Development
+  adicionado depois do último check, ou keyword) é reaberta só quando o
+  closer do último `ClosedEvent` é exatamente aquele PR mergeado, com aquele
+  merge commit, ou aquele commit; o motivo é `completed`; e não existe
+  registro `axiom-delivery:released`. Fechamento manual, outro PR/commit ou
+  closer desconhecido nunca é revertido.
+- Com `"projection": "enabled"`, cada sync reconcilia o Project das releases
+  estáveis desde `v0.2.0`: Issue fechada como `completed`, no Issue set da
+  release, cujo registro `axiom-delivery:released` mais recente (do bot) nomeia
+  aquela tag, volta a `Released` com aquele `Target Release`. Itens
+  consistentes não são escritos; sem registro inequívoco não há reparo. A
+  Issue e o registro são a Evidence canônica; o Project é reconstruível.
 - Nenhum workflow fecha Issues em `pull_request_target`, `issues`, `release`
   ou `workflow_run`. O fechamento só acontece dentro do envelope de publicação
   autorizado (`test-release-flow.sh` verifica isso estaticamente).
@@ -355,8 +367,12 @@ Ordem para habilitar, cada passo com autoridade humana própria:
 3. Em um PR revisado, mude `"projection"` para `"enabled"`. Remova
    `Legacy Done` de `migrationStatuses` só quando a reconciliação histórica
    terminar e a opção não existir mais.
-4. Opcional: torne `delivery-metadata` um required check. Acrescente o
-   contexto em `.github/rulesets/main.json` e aplique o ruleset, juntos.
+4. `delivery-metadata` faz parte dos required checks do estado desejado em
+   `.github/rulesets/main.json`. Aplique esse ruleset (comando 1 de
+   [Aplicação](#aplicação-administrador)) somente com autoridade humana
+   explícita, depois que o contrato estiver em `main`. O Release PR passa
+   porque o job é pulado, e `release.sh` não exige esse check em commits de
+   `main`, onde ele nunca roda.
 
 Leitura local do Project exige `gh auth refresh -s read:project`. O envelope
 não depende disso: ele lê só Issues e comentários.
