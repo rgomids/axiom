@@ -805,8 +805,9 @@ link/replacement cases, process concurrency, deterministic injected fault stages
 logical old-or-new publication, permissions/ACL checks, fail-closed uncertainty,
 and guided recovery into the supported boundary. Malicious same-UID arbitrary
 interleavings, physical power loss, and physical-media durability are explicitly
-unsupported guarantees, not solved risks. Compatibility or migration Evidence
-remains governed by HD-4's clean-v1 baseline.
+unsupported guarantees, not solved risks. Compatibility and forward-transition Evidence remains governed by HD-4 plus the
+2026-10-01 Issue #153 reconciliation: supported strategies are explicit, preserved
+historical truth is not promoted, and unsafe/out-of-policy state remains fail-closed.
 
 ## Installation, onboarding, and upgrade
 
