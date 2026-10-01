@@ -1078,3 +1078,18 @@ upgraded binary (or `axiom runtime codex install` when Codex is not on `PATH`):
 it refreshes the Codex skill-set receipt and converges every other detected
 Runtime, such as Claude, from an earlier Axiom-owned revision to the new one.
 There is no automatic update, rollback, or cross-root transaction.
+
+Release PR check resolution (read-only):
+
+```bash
+./scripts/release-pr-checks.sh resolve rgomids/axiom
+python3 scripts/test-release-pr-checks.py
+```
+
+After every successful Release Please run, the workflow resolves the current open
+Release PR independently of action outputs, validates its bot author, repository,
+main base, expected branch and pending label, and checks its SHA against the remote
+ref before dispatching both required workflows. No open Release PR is reported
+explicitly; ambiguity, API errors and identity drift fail the run. Repeated
+dispatches only rerun checks. Existing Release PR heads must contain both workflow
+files; this path does not update their branches or bypass the delivery guard.

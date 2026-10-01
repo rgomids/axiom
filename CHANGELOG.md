@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/rgomids/axiom/compare/v0.1.2...v0.2.0) (2026-10-01)
+
+
+### Features
+
+* **project:** list configured projects ([#143](https://github.com/rgomids/axiom/issues/143)) ([f04dbf3](https://github.com/rgomids/axiom/commit/f04dbf38db4cb609256ede47e5fbcbe7a16c6487))
+* **project:** zero-write EDIT preview and CREATE collision (I132-T01) ([#145](https://github.com/rgomids/axiom/issues/145)) ([d7b8a70](https://github.com/rgomids/axiom/commit/d7b8a706b2e8eb8f649936de8c2aad5b2e013be3))
+
+
+### Bug Fixes
+
+* **work-items:** resolve portable Project from recorded SourceLocation ([#147](https://github.com/rgomids/axiom/issues/147)) ([#148](https://github.com/rgomids/axiom/issues/148)) ([fc6cdf4](https://github.com/rgomids/axiom/commit/fc6cdf4749943df93ec4d91c473fe5152f4bc186))
+
 ## [0.1.2](https://github.com/rgomids/axiom/compare/v0.1.1...v0.1.2) (2026-09-30)
 
 
