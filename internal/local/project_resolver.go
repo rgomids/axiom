@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/rgomids/axiom/internal/projectapp"
 )
 
 type ResolutionStatus string
@@ -15,8 +17,13 @@ const (
 	ResolutionFailed ResolutionStatus = "failed"
 )
 
+// ResolvedProject carries one consistent observation of a protected local
+// record. PortableRevision is the portable revision that installation
+// validated; consumers that read the portable configuration at Source must
+// compare it with a fresh observation before trusting that configuration.
 type ResolvedProject struct {
 	ID, Slug, Source string
+	PortableRevision projectapp.PortableRevision
 	Repositories     []ResolvedRepository
 }
 
@@ -122,7 +129,7 @@ func readResolvedProject(projects *os.Root, name string) (ResolvedProject, strin
 	if name != state.ProjectID {
 		return ResolvedProject{}, "invalid_existing_local_state"
 	}
-	result := ResolvedProject{ID: state.ProjectID, Slug: state.ObservedSlug, Source: state.SourceLocation}
+	result := ResolvedProject{ID: state.ProjectID, Slug: state.ObservedSlug, Source: state.SourceLocation, PortableRevision: state.PortableRevision}
 	result.Repositories = make([]ResolvedRepository, 0, len(state.Repositories))
 	for _, binding := range state.Repositories {
 		result.Repositories = append(result.Repositories, ResolvedRepository{Key: binding.RepositoryKey, Path: binding.ExplicitPath, CanonicalIdentity: binding.CanonicalIdentity})

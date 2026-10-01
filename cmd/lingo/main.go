@@ -206,11 +206,25 @@ func (r workItemResolver) Resolve(ctx context.Context, selector string) (workite
 	if resolved.Status != local.ResolutionFound {
 		return workitem.Project{}, resolved.Category
 	}
-	portable, err := r.portable.Inspect(ctx, resolved.Project.Slug)
-	if err != nil || !portable.Exists || portable.Snapshot.Project().State().ID != resolved.Project.ID {
+	// Source confinement (#147): read only the portable source the protected
+	// record names, never <projects-root>/<slug>, and accept it only when it is
+	// exactly the configuration that installation validated.
+	portable, err := r.portable.InspectRecordedSource(ctx, resolved.Project.Source, resolved.Project.Slug)
+	switch {
+	case ctx.Err() != nil:
+		return workitem.Project{}, "cancelled"
+	case errors.Is(err, local.ErrRecoveryRequired):
+		return workitem.Project{}, "recovery_required"
+	case err == nil && !portable.Exists:
+		return workitem.Project{}, "project_source_unavailable"
+	case err != nil:
 		return workitem.Project{}, "invalid_project_capability_state"
 	}
-	if !projectapp.GitHubWorkItemCapability(portable.Snapshot.Project().State()) {
+	state := portable.Snapshot.Project().State()
+	if state.ID != resolved.Project.ID || state.Slug != resolved.Project.Slug || portable.Snapshot.Revision() != resolved.Project.PortableRevision {
+		return workitem.Project{}, "invalid_project_capability_state"
+	}
+	if !projectapp.GitHubWorkItemCapability(state) {
 		return workitem.Project{}, "work_item_capability_unavailable"
 	}
 	project := workitem.Project{ID: resolved.Project.ID, Provider: "github", Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}

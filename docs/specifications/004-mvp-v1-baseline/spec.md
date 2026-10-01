@@ -34,6 +34,27 @@ review with the correcting pull request:
 
 Dated observations of `v0.1.2-rc.1` remain historical and are not rewritten.
 
+## Installed Project source reconciliation — 2026-10-01
+
+Issue #147 found that Work Item resolution read an installed Project's portable
+configuration from `<projects-root>/<slug>` instead of the configuration source
+location recorded by its installation. The correction clarifies FR-003 without
+changing architecture, ADR-0004/ADR-0005, `project install`, Repository binding
+semantics, or recorded Evidence; this clarification is pending human review with
+the correcting pull request:
+
+- **Recorded source (FR-003):** consumers resolving the portable configuration of
+  an installed Project use the configuration source recorded by that
+  installation; they must not infer a different source from the Project slug.
+  The configuration source location is machine-local installation data
+  (Specification 002, "Portable configuration and local state").
+- **Coherence:** the configuration observed at the recorded source is used only
+  when its Project ID, slug and portable revision equal the record's Project ID,
+  observed slug and recorded portable revision. Divergence, an absent or unsafe
+  source, recovery-required state, or cancellation fails closed with an explicit
+  category and no side effects; a configuration found at another location never
+  substitutes for the recorded one.
+
 ## Status and authority
 
 **Approved — human approval recorded on 2026-09-20.**
@@ -537,6 +558,10 @@ the final human acceptance decision.
 - **FR-003 Portable/local separation:** Project identity, Repository keys, and
   Provider declarations belong to portable intent; absolute working-copy paths,
   credentials, observations, and executable locations remain machine-local.
+  Consumers resolving the portable configuration of an installed Project use the
+  configuration source recorded by that installation; they must not infer a
+  different source from the Project slug (Specification 002 classifies the
+  configuration source location as machine-local installation data).
 - **FR-004 Review before publication:** Axiom MUST show a safe normalized summary
   of portable and local changes and require exact mutation authority before write.
 - **FR-005 Multi-repository:** the flow MUST accept multiple independent
