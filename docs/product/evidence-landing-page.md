@@ -9,8 +9,9 @@
 - Baseline: `main` at `2182b3e` (release 0.2.1,
   [PR #156](https://github.com/rgomids/axiom/pull/156)).
 - Delivery branch: `docs/86_added_landing_page`.
-- **Implementation: Completed. Evidence: Produced. Human acceptance: Pending.
-  Production deployment: observable only after merge — see Limitations.**
+- **Implementation: Completed against the amended #86 Definition of Done.
+  Evidence: Produced. Human acceptance: Pending. Production deployment:
+  observable only after merge — see Limitations.**
 
 Checks, review, commit or merge do not provide human acceptance.
 
@@ -33,8 +34,27 @@ These maintainer decisions refine #86 and are what the validator enforces:
    README and Specifications index: S1–S7 delivered, S8 technically complete and
    awaiting human review, Codex and Claude Runtime integrations available.
 
-Decisions 1–3 diverge from #86's Definition of Done, which asks for a
-Matrix-green palette and an explicit light-mode toggle. See Limitations.
+Decisions 1 and 2 replace three #86 Definition of Done items: *Visual identity
+follows the Matrix/terminal-inspired Axiom direction*, *Dark mode is the
+default* (now the only mode), and *Light mode can be toggled explicitly*.
+Decision 3 stays within #86, which allows lightweight animation but does not
+require it.
+
+### Definition of Done amendment — 2026-10-01
+
+The maintainer decided on 2026-10-01 that decisions 1–3 supersede those
+#86 items and that this delivery completes #86. Against the amended Definition
+of Done:
+
+| #86 item | Status |
+| --- | --- |
+| Matrix/terminal-inspired visual identity | Superseded by decision 2 (deep-sea direction) |
+| Dark mode is the default | Satisfied: dark is the only theme (decision 1) |
+| Light mode can be toggled explicitly | Superseded by decision 1 (no light theme) |
+
+The Issue body still lists the original items. It should be edited to quote this
+amendment so the Issue and this Evidence agree; that edit does not change the
+delivered page.
 
 ## What is published
 
@@ -309,11 +329,10 @@ The workflow uploads `./site` unchanged and copies no logo into it.
 
 ## Limitations
 
-- **#86 Definition of Done divergence.** #86 asks for a Matrix-green palette and
-  an explicit light-mode toggle. This delivery is dark only, deep-sea and
-  animation-free by maintainer decision. Until #86 is amended to record that
-  decision, those items are open divergences and this delivery cannot claim to
-  complete #86.
+- **#86 Issue text not yet synchronized.** The 2026-10-01 amendment (see
+  [Definition of Done amendment](#definition-of-done-amendment--2026-10-01))
+  supersedes the Matrix-green and light-mode items, but the Issue body still
+  lists them until it is edited.
 - **Deployment is observable only after merge.** The workflow triggers on `main`,
   and GitHub Pages must be enabled with *GitHub Actions* as its source. The Pages
   run, the served artifact and the live URL must be confirmed after merge.
