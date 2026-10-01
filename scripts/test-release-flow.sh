@@ -301,6 +301,15 @@ case "$method $path" in
   "GET issues/"*"/comments?per_page=100")
     number=${path#issues/}
     number=${number%%/*}
+    # Replace the latest closure between planning and the reopen effect.
+    if [[ -n "${FAKE_GH_CLOSURE_ON_READ:-}" && "${FAKE_GH_CLOSURE_ON_READ%%:*}" == "$number" ]]; then
+      reads=$(( $(cat "$s/closure-reads-$number" 2>/dev/null || echo 0) + 1 ))
+      echo "$reads" >"$s/closure-reads-$number"
+      if ((reads == ${FAKE_GH_CLOSURE_ON_READ##*:})); then
+        cp "$s/closure-after-$number.json" "$s/closed/$number.json"
+        cp "$s/issue-after-$number.json" "$s/issues/$number.json"
+      fi
+    fi
     # Test hook: a publication records FAKE_GH_RELEASE_ON_READ=N:TAG:K on the
     # K-th comments read of Issue N (between sync planning and its effect).
     if [[ -n "${FAKE_GH_RELEASE_ON_READ:-}" && "${FAKE_GH_RELEASE_ON_READ%%:*}" == "$number" ]]; then
@@ -1230,6 +1239,39 @@ check 'fail-safe: a release recorded between planning and the reopen wins: no re
   ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq '^(ISSUE 22|COMMENT 22|PROJECT status PVTI_I_22 F_STATUS Awaiting Release)' &&
   [[ '$(item 22)' == 'Released|v0.2.0' ]]"
 rm -f "$state/comments/22.json" "$state/reads-22"
+for replacement in manual other_merge changed_event state_open not_planned; do
+  issue 22 'Help text' closed completed
+  closer 22 pr 13 "$d3"
+  cp "$state/closed/22.json" "$state/closure-after-22.json"
+  cp "$state/issues/22.json" "$state/issue-after-22.json"
+  expected_state=closed
+  case "$replacement" in
+    manual) expression='.data.repository.issue.timelineItems.nodes[0].closer = null' ;;
+    other_merge) expression=".data.repository.issue.timelineItems.nodes[0].closer.mergeCommit.oid = \"$d2\"" ;;
+    changed_event) expression='.data.repository.issue.timelineItems.nodes[0].createdAt = "2026-10-01T07:00:00Z"' ;;
+    state_open)
+      expression='.'
+      expected_state=open
+      jq '.state = "open" | .state_reason = "reopened"' "$state/issues/22.json" >"$state/issue-after-22.json"
+      ;;
+    not_planned)
+      expression='.'
+      jq '.state_reason = "not_planned"' "$state/issues/22.json" >"$state/issue-after-22.json"
+      ;;
+  esac
+  jq "$expression" "$state/closure-after-22.json" >"$state/closure-after-22.new"
+  mv "$state/closure-after-22.new" "$state/closure-after-22.json"
+  rm -f "$state/closure-reads-22" "$state/comments/22.json"
+  before=$(wc -l <"$state/ledger")
+  FAKE_GH_CLOSURE_ON_READ=22:2 dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
+  check "fail-safe: $replacement closure replacing the planned event prevents all reopen effects" bash -c "
+    [[ \$(jq -r .state '$state/issues/22.json') == '$expected_state' ]] &&
+    grep -Fxq 'issue_skipped=22 reason=closure_changed commit=$d3' '$temporary/sync' &&
+    ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq '^(ISSUE 22|COMMENT 22|PROJECT .*PVTI_I_22)'"
+done
+issue 22 'Help text' closed completed
+rm -f "$state/comments/22.json"
+closer 22 pr 13 "$d3"
 FAKE_GH_FAIL_ON='graphql timelineItems' dgh sync --from "$d2" --to "$d3" >"$temporary/sync" 2>"$temporary/err"
 check 'fail-safe: an unreadable closer is not attributable and never stops the projection' bash -c "
   [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && grep -Fxq 'closer_unreadable=22 commit=$d3' '$temporary/sync' &&
