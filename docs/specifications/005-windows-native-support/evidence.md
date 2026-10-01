@@ -143,8 +143,12 @@ installation. The bootstrap matrix is a new dedicated Windows CI step.
   as part of the targeted three-package run.
 - The targeted `go test ./internal/windowsfs ./internal/install ./internal/local
   -count=1 -timeout=3m` run failed overall: Application Control refused to launch
-  the `windowsfs` and `local` test executables. No compile error was reported;
-  those two runtime results require CI evidence.
+  the `windowsfs` and `local` test executables. No compile error was reported.
+- A subsequent `go test ./... -count=1 -timeout=10m` passed `windowsfs` (including
+  the new DACL/creation regression), `cmd/lingo`, `projectapp`, `install` and the
+  other executed packages. It failed overall because Application Control refused
+  to launch `detailartifact`, `executiongraph`, `local`, `runtimeadapter` and
+  `workflow`; the complete suite therefore still requires CI evidence.
 - PowerShell 5.1 parser: passed for the final bootstrap and both Windows test
   scripts. `git diff --check`: passed.
 - `bash --login scripts/check-sensitive-files.sh .`: passed for the worktree.
@@ -158,6 +162,12 @@ installation. The bootstrap matrix is a new dedicated Windows CI step.
   GitHub access was restored. No Windows security policy was changed.
 - A new four-job CI result for this correction remains required before review;
   it will be recorded after the branch is pushed and the workflow completes.
+- [First correction run 36928342809](https://github.com/rgomids/axiom/actions/runs/36928342809)
+  on `2c3ede0` passed Linux, macOS, release contracts, and the complete native
+  Windows Go suite/static/build checks. The Windows installer test confirmed
+  Server refusal but initially propagated that expected native exit code to the
+  CI shell. The test now exits successfully only after verifying the refusal and
+  zero target effects; a fresh CI run is required for this correction.
 
 The PR remains **not ready for merge** until the current correction has executable
 validation. Earlier green runs do not satisfy that gate.

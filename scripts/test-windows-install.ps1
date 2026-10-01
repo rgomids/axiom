@@ -68,7 +68,8 @@ try {
             throw 'Windows Server must be refused without target mutation.'
         }
         Write-Output 'windows_server_refusal=pass; client_install_acceptance=not_run'
-        return
+        # The expected native refusal must not become the CI shell's exit code.
+        exit 0
     }
     Install-TestBundle $first
     $receiptFile = Join-Path $receipt 'installation.receipt'
