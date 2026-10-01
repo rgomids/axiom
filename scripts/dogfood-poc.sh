@@ -106,11 +106,11 @@ if [[ -n $(find "$runtime_home" -mindepth 1 -print -quit) ]]; then
   exit 1
 fi
 skill_count=$(find "$skills_root" -name SKILL.md -type f | wc -l | tr -d ' ')
-if [[ "$skill_count" != 5 ]]; then
+if [[ "$skill_count" != 6 ]]; then
   exit 1
 fi
 axiom help >"$temporary/help.txt"
-for skill in axiom-project-configure axiom-project-show axiom-work-item-create axiom-work-item-run axiom-work-item-status; do
+for skill in axiom-project-configure axiom-project-list axiom-project-show axiom-work-item-create axiom-work-item-run axiom-work-item-status; do
   grep -q "\$${skill}" "$temporary/help.txt"
 done
 rm -- "$skills_root/axiom-work-item-status/SKILL.md"

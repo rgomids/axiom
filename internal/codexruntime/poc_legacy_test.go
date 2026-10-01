@@ -17,7 +17,7 @@ func TestHistoricalPOCSkillSetIsKnownLegacy(t *testing.T) {
 	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range skillNames {
+	for name := range legacySkillDigests {
 		wire, err := os.ReadFile(filepath.Join(fixture, name, "SKILL.md"))
 		if err != nil {
 			t.Fatal(err)
