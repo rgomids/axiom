@@ -13,8 +13,10 @@ observations remain historical. T24 and human acceptance stay separately gated.
 The 2026-10-01 human decision approves the product compatibility direction in
 Specification 004: RecognizedPOC may converge automatically only through
 preservation, clean compatible-state rebuild, and supported reconfiguration;
-historical workflow/Execution truth is not promoted. Stable persisted-state
-formats are supported through an explicit compatibility window.
+historical workflow/Execution truth is not promoted. The current stable persisted-state compatibility window contains only canonical
+v1; RecognizedPOC is a separate historical transition. A future stable release
+that introduces a new persisted-state format must declare its exact supported
+predecessor formats before publication.
 
 This Plan amendment is proposed for review. It does not authorize implementation,
 migration effects, release, merge, or Issue closure.
@@ -957,10 +959,13 @@ compatibility/ADR decision.
 Compatibility inspection keeps ownership separate from schema compatibility.
 The inspector classifies absent/current state, recognized historical state,
 malformed/corrupt state, unsupported older/newer state, and recovery-required
-state without mutation. Stable releases declare the persisted-state formats in
-their supported compatibility window. Every earlier stable format retained in
-that window must resolve to one supported forward strategy; state outside the
-window may fail closed even when Axiom can recognize its provenance.
+state without mutation. The current stable persisted-state compatibility window
+contains only canonical v1. RecognizedPOC is handled by its separately approved
+historical transition and is not a member of that stable window. Any future stable
+release that introduces a new persisted-state format must, before publication,
+declare the exact predecessor stable formats retained in its compatibility window
+and one supported forward strategy for each. State outside that policy may fail
+closed even when Axiom can recognize its provenance.
 
 For RecognizedPOC, the approved Issue #153 transition is:
 
@@ -1816,14 +1821,28 @@ The application-level transition decision is a closed strategy:
 | Observed state | Allowed strategy |
 |---|---|
 | absent/current compatible | direct |
-| stable older format inside supported window with explicit migrator | migrate |
+| stable older format inside supported window | strategy declared by compatibility policy: direct, migrate, or preserve + rebuild/reconfigure |
 | RecognizedPOC | preserve + clean rebuild + supported reconfiguration |
 | foreign/modified/unsafe/ambiguous/corrupt/newer/out-of-window | refuse |
 
-The exact supported stable-format window is versioned product policy. It must be
-explicit and testable; recognition outside that window does not imply support.
+The current supported stable-format window is exactly {v1}. RecognizedPOC is a
+separate historical exception with its own preserve + clean rebuild + supported
+reconfiguration strategy. Any future stable release introducing v2 or later must
+declare, before publication, the exact earlier stable persisted-state formats that
+remain supported and the forward strategy for each. Recognition outside those
+policies does not imply support.
 
-### 21.3 Recovery and commit truth
+### 21.3 Preservation lifecycle decision gate
+
+Automatic RecognizedPOC handling requires one remaining explicit product decision
+before I153-T02 implementation: the canonical destination, ownership, retention,
+cleanup eligibility, and cross-filesystem behavior of the preservation artifact.
+
+Implementation MUST NOT invent that policy. Until it is approved, the installer
+may classify/preview the RecognizedPOC transition but MUST refuse before any
+automatic preservation or legacy-state retirement.
+
+### 21.4 Recovery and commit truth
 
 A transition that requires preservation or rebuilding uses one recoverable
 operation envelope bound to the inspected state digest, target release, strategy,
@@ -1836,7 +1855,7 @@ complete and revalidated. Rebuilt active state is not canonical until its
 validation and activation commit point are confirmed. Retry re-inspects current
 truth and converges rather than repeating already confirmed effects.
 
-### 21.4 Issue-scoped implementation units
+### 21.5 Issue-scoped implementation units
 
 - I153-T01 — transition policy/orchestration and installer diagnostics;
 - I153-T02 — RecognizedPOC preservation + clean rebuild/reconfiguration;
@@ -1846,7 +1865,7 @@ truth and converges rather than repeating already confirmed effects.
 The detailed task contracts live in [tasks.md](tasks.md). This Plan amendment
 does not authorize starting any of them.
 
-### 21.5 Validation and Evidence
+### 21.6 Validation and Evidence
 
 Minimum proof includes:
 
@@ -1863,7 +1882,7 @@ Minimum proof includes:
   destructive effects;
 - final installed version and active-state validation.
 
-### 21.6 Review gate
+### 21.7 Review gate
 
 The product compatibility direction is approved by explicit human decision on
 2026-10-01. This Plan amendment and its issue-scoped Tasks are proposed for review.
