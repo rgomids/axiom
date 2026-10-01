@@ -525,6 +525,10 @@ func portableRepositoryEffects(current, candidate project.Project) []EditEffect 
 	return effects
 }
 
+// workItemCapability reports readiness by the same contract Work Item
+// execution enforces, so a preserved incomplete declaration is never shown
+// as ready: a github work-items Provider without its declaring Integration is
+// missing the capability.
 func workItemCapability(state project.State) SetupCapabilityPreview {
 	capability := SetupCapabilityPreview{Capability: WorkItemCapability, Readiness: CapabilityMissing}
 	providers, _ := state.Providers.Value()
@@ -535,10 +539,38 @@ func workItemCapability(state project.State) SetupCapabilityPreview {
 		capability.Provider = provider.ID
 		capability.Readiness = CapabilityUnsupported
 		if provider.ID == "github" {
-			capability.Readiness = CapabilityReady
+			capability.Readiness = CapabilityMissing
+			if GitHubWorkItemCapability(state) {
+				capability.Readiness = CapabilityReady
+			}
 		}
 	}
 	return capability
+}
+
+// GitHubWorkItemCapability is the Work Item capability contract: the
+// work-items Provider is github and the work-items Integration references it
+// and declares the work-item capability.
+func GitHubWorkItemCapability(state project.State) bool {
+	providers, _ := state.Providers.Value()
+	providerReady := false
+	for _, provider := range providers {
+		if provider.Key == workItemsKey && provider.ID == "github" {
+			providerReady = true
+		}
+	}
+	if !providerReady {
+		return false
+	}
+	integrations, _ := state.Integrations.Value()
+	for _, integration := range integrations {
+		provider, configured := integration.ProviderRef.Value()
+		capabilities, declared := integration.Capabilities.Value()
+		if integration.Key == workItemsKey && configured && provider == workItemsKey && declared && containsText(capabilities, WorkItemCapability) {
+			return true
+		}
+	}
+	return false
 }
 
 // editEnvelope binds mode, identity, destinations, exact observations, the

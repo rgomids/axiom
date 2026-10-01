@@ -16,7 +16,6 @@ import (
 	"github.com/rgomids/axiom/internal/githubissues"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
-	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflow"
@@ -210,10 +209,7 @@ func (r workItemResolver) Resolve(ctx context.Context, selector string) (workite
 	if err != nil || !portable.Exists || portable.Snapshot.Project().State().ID != resolved.Project.ID {
 		return workitem.Project{}, "invalid_project_capability_state"
 	}
-	state := portable.Snapshot.Project().State()
-	providers, providersConfigured := state.Providers.Value()
-	integrations, integrationsConfigured := state.Integrations.Value()
-	if !providersConfigured || !integrationsConfigured || !githubWorkItemCapability(providers, integrations) {
+	if !projectapp.GitHubWorkItemCapability(portable.Snapshot.Project().State()) {
 		return workitem.Project{}, "work_item_capability_unavailable"
 	}
 	project := workitem.Project{ID: resolved.Project.ID, Provider: "github", Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}
@@ -221,31 +217,6 @@ func (r workItemResolver) Resolve(ctx context.Context, selector string) (workite
 		project.Repositories = append(project.Repositories, workitem.Repository{Key: repository.Key, Path: repository.Path})
 	}
 	return project, ""
-}
-
-func githubWorkItemCapability(providers []project.Provider, integrations []project.Integration) bool {
-	providerReady := false
-	for _, provider := range providers {
-		if provider.Key == "work-items" && provider.ID == "github" {
-			providerReady = true
-		}
-	}
-	if !providerReady {
-		return false
-	}
-	for _, integration := range integrations {
-		provider, configured := integration.ProviderRef.Value()
-		capabilities, declared := integration.Capabilities.Value()
-		if integration.Key != "work-items" || !configured || provider != "work-items" || !declared {
-			continue
-		}
-		for _, capability := range capabilities {
-			if capability == projectapp.WorkItemCapability {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (r workflowResolver) Resolve(ctx context.Context, selector string) (workflow.Project, string) {

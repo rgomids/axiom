@@ -553,3 +553,36 @@ func TestEditCandidateUsesProjectProposeInvariants(t *testing.T) {
 		t.Fatalf("dangling reference failure = %d", failure)
 	}
 }
+
+// Preview readiness follows the Work Item execution contract: a preserved
+// github work-items Provider without its declaring Integration is not ready.
+func TestEditPreviewCapabilityFollowsExecutionContract(t *testing.T) {
+	if ready := mustPreview(t, newEditFixture(t), projectapp.EditIntent{Name: set("Renamed")}); ready.Preview().Capability.Readiness != projectapp.CapabilityReady {
+		t.Fatalf("complete declaration readiness = %s", ready.Preview().Capability.Readiness)
+	}
+	chat := project.Integration{Key: "chat", ProviderRef: project.Configured("chat"), CredentialRef: project.Configured("chat-token")}
+	for name, integrations := range map[string][]project.Integration{
+		"integration absent":    {chat},
+		"different providerRef": {chat, {Key: "work-items", ProviderRef: project.Configured("chat"), Capabilities: project.Configured([]string{"work-item"})}},
+		"capability absent":     {chat, {Key: "work-items", ProviderRef: project.Configured("work-items"), Capabilities: project.Configured([]string{"other"})}},
+		"capabilities omitted":  {chat, {Key: "work-items", ProviderRef: project.Configured("work-items")}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newEditFixture(t)
+			state := f.selection.Portable.Project().State()
+			state.Integrations = project.Configured(integrations)
+			f.replacePortable(t, state)
+			if projectapp.GitHubWorkItemCapability(state) {
+				t.Fatal("execution contract accepted an incomplete declaration")
+			}
+			renamed := mustPreview(t, f, projectapp.EditIntent{Name: set("Renamed")})
+			if capability := renamed.Preview().Capability; capability.Provider != "github" || capability.Readiness != projectapp.CapabilityMissing {
+				t.Fatalf("name-only edit capability = %+v", capability)
+			}
+			repaired := mustPreview(t, f, projectapp.EditIntent{WorkItemProvider: set("github")})
+			if !projectapp.GitHubWorkItemCapability(repaired.Project().State()) || repaired.Preview().Capability.Readiness != projectapp.CapabilityReady {
+				t.Fatalf("explicit provider set did not restore the declaration: %+v", repaired.Preview().Capability)
+			}
+		})
+	}
+}
