@@ -242,9 +242,16 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
 - O caminho `workflow_dispatch` de `delivery-metadata.yml` executa o script
   da branch padrão (não o da branch do Release PR) e só passa quando o ator é
   `github-actions[bot]`, a ref é `release-please--*` e o SHA é o head do único
-  Release PR aberto, de autoria do bot, a partir do próprio repositório. Um
-  dispatch humano ou em outra branch falha; ele nunca é pulado, então não
-  produz um check verde.
+  Release PR aberto, de autoria do bot, a partir do próprio repositório, e
+  esse Release PR não fecharia nenhuma Issue no merge
+  (`closingIssuesReferences` vazio). Um dispatch humano ou em outra branch
+  falha; ele nunca é pulado, então não produz um check verde. Se a API ainda
+  não refletir um force-push do Release Please, o script tenta de novo; um
+  "Re-run job" também recupera.
+- A integridade de `delivery-metadata`, como a de todo required check,
+  depende do code owner review de `.github/workflows/**`: o arquivo de
+  workflow vem sempre da ref do PR ou do dispatch; só o script vem da base ou
+  da branch padrão.
 - `delivery-sync.yml` usa um concurrency group. O GitHub mantém só uma
   execução pendente por grupo, então cada execução reprocessa a janela desde
   o início do range da última release. Os efeitos são idempotentes, e Issues
@@ -252,10 +259,12 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
   GitHub fechou no próprio merge que a completa (link da sidebar Development
   adicionado depois do último check, ou keyword) é reaberta só quando o
   closer do último `ClosedEvent` é exatamente aquele PR mergeado, com aquele
-  merge commit, ou aquele commit; o motivo é `completed`; e a release estável
-  que entrega esse merge não deixou registro `axiom-delivery:released`
-  (registro de uma release anterior pertence a uma entrega anterior de uma
-  Issue reaberta). Fechamento manual, outro PR/commit ou closer desconhecido
+  merge commit, ou aquele commit; o motivo é `completed`; e nenhum registro
+  `axiom-delivery:released` do bot foi escrito depois desse fechamento (uma
+  publicação o viu), qualquer que seja a janela do run, nem pela release que
+  entrega esse merge. A condição é verificada de novo logo antes da reabertura.
+  Um registro anterior ao fechamento pertence a uma entrega anterior de uma
+  Issue reaberta. Fechamento manual, outro PR/commit ou closer desconhecido
   ou ilegível nunca é revertido.
 - Com `"projection": "enabled"`, cada sync reconcilia o Project das releases
   estáveis desde `v0.2.0`: Issue fechada como `completed`, no Issue set da

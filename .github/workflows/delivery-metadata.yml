@@ -5,8 +5,8 @@ name: Delivery metadata
 # are refused: Issues close only when a stable release that delivers them is
 # published. The description is untrusted input: it reaches the validator
 # only through an environment variable and a file, never shell interpolation.
-# The validator comes from the base revision, so a PR cannot weaken its own
-# check. It also fails when GitHub itself links an Issue to close on merge
+# The validator comes from the base revision, so a PR cannot weaken it
+# without a reviewed change to this workflow. It also fails when GitHub itself links an Issue to close on merge
 # (closing keywords or the Development sidebar: closingIssuesReferences).
 # A Development-sidebar link changed after the last run triggers no event
 # here; delivery-sync.yml carries the post-merge fail-safe that reopens an
@@ -18,8 +18,11 @@ name: Delivery metadata
 # Release PR branch: the required delivery-metadata context then exists on
 # the Release PR head. The dispatch path runs trusted default-branch code and
 # validates no metadata (a Release PR delivers no Issue). It passes only for
-# the head of the open bot-authored Release PR dispatched by the bot; any
-# other dispatch fails, it is never skipped.
+# the head of the open bot-authored Release PR dispatched by the bot, when
+# that PR would close no Issue at merge; any other dispatch fails, it is
+# never skipped. Like every required check, its integrity rests on
+# code-owner review of .github/workflows/**: this file comes from the PR or
+# dispatched ref, only the script comes from the base or default branch.
 
 on:
   pull_request:

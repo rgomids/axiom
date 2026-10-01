@@ -152,12 +152,18 @@ if [[ "$endpoint" == graphql ]]; then
   var() { local f; for f in "${fields[@]}"; do [[ "$f" == "$1="* ]] && { printf '%s' "${f#*=}"; return; }; done; }
   query=$(var query)
   op=query
-  for name in timelineItems projectItems addProjectV2ItemById updateProjectV2ItemFieldValue clearProjectV2ItemFieldValue projectV2 node; do
+  for name in timelineItems closingIssuesReferences projectItems addProjectV2ItemById updateProjectV2ItemFieldValue clearProjectV2ItemFieldValue projectV2 node; do
     [[ "$query" == *"$name("* ]] && { op=$name; break; }
   done
   maybe_fail "graphql $op"
   # The close event of an Issue is read with the default (Issues) credential,
   # never the Project credential; closed/N.json stages its last ClosedEvent.
+  if [[ "$op" == closingIssuesReferences ]]; then
+    [[ "${GH_TOKEN:-}" != "${FAKE_PROJECT_TOKEN:-unset}" ]] || { printf 'gh: Project credential used for a PR read\n' >&2; exit 1; }
+    jq -n --argjson n "$(cat "$s/closing-refs" 2>/dev/null || printf '[]')" \
+      '{data: {repository: {pullRequest: {closingIssuesReferences: {nodes: ($n | map({number: .}))}}}}}'
+    exit 0
+  fi
   if [[ "$op" == timelineItems ]]; then
     [[ "${GH_TOKEN:-}" != "${FAKE_PROJECT_TOKEN:-unset}" ]] || { printf 'gh: Project credential used for an Issue read\n' >&2; exit 1; }
     cat "$s/closed/$(var number).json" 2>/dev/null || printf '{"data":{"repository":{"issue":{"timelineItems":{"nodes":[]}}}}}\n'
@@ -295,6 +301,19 @@ case "$method $path" in
   "GET issues/"*"/comments?per_page=100")
     number=${path#issues/}
     number=${number%%/*}
+    # Test hook: a publication records FAKE_GH_RELEASE_ON_READ=N:TAG:K on the
+    # K-th comments read of Issue N (between sync planning and its effect).
+    if [[ -n "${FAKE_GH_RELEASE_ON_READ:-}" && "${FAKE_GH_RELEASE_ON_READ%%:*}" == "$number" ]]; then
+      reads=$(( $(cat "$s/reads-$number" 2>/dev/null || echo 0) + 1 ))
+      echo "$reads" >"$s/reads-$number"
+      if ((reads == ${FAKE_GH_RELEASE_ON_READ##*:})); then
+        [[ -f "$s/comments/$number.json" ]] || printf '[]' >"$s/comments/$number.json"
+        tag=${FAKE_GH_RELEASE_ON_READ#*:}
+        jq --arg tag "${tag%%:*}" '. + [{id: (length + 1), user: {login: "github-actions[bot]"},
+          created_at: "2026-10-01T12:00:00Z", body: "<!-- axiom-delivery:released tag=\($tag) -->\npublished"}]' \
+          "$s/comments/$number.json" >"$s/comments/$number.new" && mv "$s/comments/$number.new" "$s/comments/$number.json"
+      fi
+    fi
     cat "$s/comments/$number.json" 2>/dev/null || printf '[]\n' ;;
   "POST issues/"*"/comments")
     number=${path#issues/}
@@ -302,7 +321,7 @@ case "$method $path" in
     log "COMMENT $number $(jq -r '.body | split("\n")[0]' "$input")"
     mkdir -p "$s/comments"
     [[ -f "$s/comments/$number.json" ]] || printf '[]' >"$s/comments/$number.json"
-    jq --slurpfile c "$input" '. + [{id: (length + 1), user: {login: "github-actions[bot]"}, body: $c[0].body}]' \
+    jq --slurpfile c "$input" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '. + [{id: (length + 1), user: {login: "github-actions[bot]"}, created_at: $at, body: $c[0].body}]' \
       "$s/comments/$number.json" >"$s/comments/$number.new" && mv "$s/comments/$number.new" "$s/comments/$number.json"
     printf '{"id":1}\n' ;;
   "PATCH issues/"*)
@@ -1151,7 +1170,7 @@ check 'sync never moves a re-opened released Issue back to Awaiting Release' bas
 closer() {
   mkdir -p "$state/closed"
   jq -n --arg kind "$2" --arg number "${3:-0}" --arg sha "${4:-}" --arg reason "${5:-COMPLETED}" '
-    {data: {repository: {issue: {timelineItems: {nodes: [{stateReason: $reason, closer:
+    {data: {repository: {issue: {timelineItems: {nodes: [{createdAt: "2026-10-01T06:00:00Z", stateReason: $reason, closer:
       (if $kind == "pr" then {__typename: "PullRequest", number: ($number | tonumber), merged: true, mergeCommit: {oid: $sha}}
        elif $kind == "commit" then {__typename: "Commit", oid: $sha} else null end)}]}}}}}' >"$state/closed/$1.json"
 }
@@ -1191,16 +1210,26 @@ for case in 'pr 99 '"$d3"' COMPLETED|another merged PR' 'pr 13 '"$d2"' COMPLETED
 done
 issue 22 'Help text' closed completed
 closer 22 pr 13 "$d3"
-printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.2.0 -->\\npublished"}]\n' >"$state/comments/22.json"
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"created_at":"2026-10-01T09:00:00Z","body":"<!-- axiom-delivery:released tag=v0.2.0 -->\\npublished"}]\n' >"$state/comments/22.json"
 dgh sync --from "$d2" --to "$drel" >"$temporary/sync"
 check 'fail-safe: an Issue the delivering stable release recorded is never reopened' bash -c "
   [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && ! grep -q '^ISSUE 22 ' '$state/ledger'"
-printf '[{"id":1,"user":{"login":"github-actions[bot]"},"body":"<!-- axiom-delivery:released tag=v0.1.0 -->\\nold"}]\n' >"$state/comments/22.json"
+dgh sync --from "$d1" --to "$d3" >"$temporary/sync"
+check 'fail-safe: a stale rerun whose window ends before the release commit never reopens a published Issue' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && ! grep -q '^ISSUE 22 ' '$state/ledger' && grep -Fxq 'issue_skipped=22 reason=closed commit=$d3' '$temporary/sync'"
+printf '[{"id":1,"user":{"login":"github-actions[bot]"},"created_at":"2026-09-01T00:00:00Z","body":"<!-- axiom-delivery:released tag=v0.1.0 -->\\nold"}]\n' >"$state/comments/22.json"
 dgh sync --from "$d2" --to "$d3" >"$temporary/sync"
 check 'fail-safe: a record of an earlier release (earlier delivery of a reopened Issue) does not block' bash -c "
   [[ \$(jq -r .state '$state/issues/22.json') == open ]] && grep -Fxq 'effect=issue_reopened issue=22 commit=$d3' '$temporary/sync'"
 issue 22 'Help text' closed completed
 rm "$state/comments/22.json"
+before=$(wc -l <"$state/ledger")
+FAKE_GH_RELEASE_ON_READ=22:v0.2.0:3 dgh sync --from "$d2" --to "$drel" >"$temporary/sync"
+check 'fail-safe: a release recorded between planning and the reopen wins: no reopen, comment or Awaiting Release' bash -c "
+  [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && grep -Fxq 'issue_skipped=22 reason=already_released commit=$d3' '$temporary/sync' &&
+  ! sed -n '$((before + 1)),\$p' '$state/ledger' | grep -Eq '^(ISSUE 22|COMMENT 22|PROJECT status PVTI_I_22 F_STATUS Awaiting Release)' &&
+  [[ '$(item 22)' == 'Released|v0.2.0' ]]"
+rm -f "$state/comments/22.json" "$state/reads-22"
 FAKE_GH_FAIL_ON='graphql timelineItems' dgh sync --from "$d2" --to "$d3" >"$temporary/sync" 2>"$temporary/err"
 check 'fail-safe: an unreadable closer is not attributable and never stops the projection' bash -c "
   [[ \$(jq -r .state '$state/issues/22.json') == closed ]] && grep -Fxq 'closer_unreadable=22 commit=$d3' '$temporary/sync' &&
@@ -1301,6 +1330,10 @@ rph() { "$dfix/scripts/delivery-github.sh" release-pr-head --repo rgomids/axiom 
 rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]' >"$temporary/rph"
 check 'Release PR head dispatched by the bot passes without validating metadata' bash -c "
   grep -Fxq 'release_pr=#146 head=$rp_head' '$temporary/rph' && grep -Fxq delivery_metadata=not_applicable '$temporary/rph' && [[ $(mutations) == 0 ]]"
+printf '[129]\n' >"$state/closing-refs"
+expect_failure 'a Release PR that would close an Issue at merge fails' 'the Release PR would close #129 at merge' \
+  rph --branch release-please--branches--main --sha "$rp_head" --actor 'github-actions[bot]'
+rm -f "$state/closing-refs"
 expect_failure 'a human dispatch never produces a passing check' 'only github-actions[bot] dispatches' \
   rph --branch release-please--branches--main --sha "$rp_head" --actor rgomids
 expect_failure 'a dispatch on another branch fails' 'runs only on a release-please-- branch' \

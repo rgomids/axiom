@@ -269,8 +269,12 @@ is empty. Release PRs deliver no Issue and are not validated. Release Please
 updates them with `GITHUB_TOKEN`, which starts no `pull_request` run, so
 `release-please.yml` dispatches the check on the Release PR branch, next to
 CI. That dispatch runs the default branch's script and passes only for the
-head of the open bot-authored Release PR dispatched by the bot; any other
-dispatch fails and is never skipped. The desired `main` ruleset makes
+head of the open bot-authored Release PR dispatched by the bot, and only when
+that Release PR would close no Issue at merge; any other dispatch fails and
+is never skipped. The integrity of this check, like that of every required
+check, rests on code-owner review of `.github/workflows/**`: a workflow file
+always comes from the PR or dispatched ref, only the script comes from the
+base or default branch. The desired `main` ruleset makes
 `delivery-metadata` a required check; applying that ruleset is a separate,
 authorized administrator action (see
 [repository security](docs/security/repository-security.md#delivery-tracking)).
@@ -282,8 +286,11 @@ merge recorded it, sync writes a bounded `axiom-delivery:reopened` record,
 reopens the Issue and continues the normal `Awaiting Release` projection. It
 reopens only when the Issue's last close event names exactly that merged PR
 (number from the squash subject, with that merge commit) or that commit as
-closer, and the reason is `completed`. A record of an earlier release belongs
-to an earlier delivery of a reopened Issue and does not block it. A manual
+closer, and the reason is `completed`. It never reopens when a bot release
+record was written after that closure (a publication saw it), whatever window
+the run covers, and it re-checks this just before the reopen. A record written
+before the closure belongs to an earlier delivery of a reopened Issue and does
+not block it. A manual
 close, another PR or commit, or an unreadable closer is reported and left
 alone. Limits: it covers only Issues the merge completes; GitHub closes
 linked Issues asynchronously, so a closure that lands after that push's sync

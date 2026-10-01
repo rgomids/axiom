@@ -298,15 +298,16 @@ latest_release_tag() {
 # closed_by_merge N SHA PR succeeds only when the current closure of Issue N
 # is attributable to exactly this merge: the closer of its last ClosedEvent
 # is pull request PR (named by the squash subject) merged as SHA, or commit
-# SHA itself, and the closure reason is completed. A manual close, another PR or commit, or an unknown or
-# unreadable closer is never attributable.
+# SHA itself, and the closure reason is completed. A manual close, another
+# PR or commit, or an unknown or unreadable closer is never attributable.
+# On success the closure time is in $temporary/closed-at-N.
 closed_by_merge() {
   local issue=$1 sha=$2 pr=$3 owner=${repository%%/*} name=${repository#*/} closed
   # shellcheck disable=SC2016
   closed=$(gh api graphql -f owner="$owner" -f name="$name" -F number="$issue" -f query='
     query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) {
       issue(number: $number) { timelineItems(last: 1, itemTypes: [CLOSED_EVENT]) { nodes { ... on ClosedEvent {
-        stateReason closer { __typename
+        createdAt stateReason closer { __typename
           ... on PullRequest { number merged mergeCommit { oid } }
           ... on Commit { oid } } } } } } } }') || {
     # A closer the token cannot read (another repository, a Project) is not
@@ -318,9 +319,20 @@ closed_by_merge() {
   jq -e --arg sha "$sha" --arg pr "$pr" '
     [.data.repository.issue.timelineItems.nodes[]] | length == 1 and (.[0] as $e
     | $e.stateReason == "COMPLETED"
+    and ($e.createdAt | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z$"))
     and (($e.closer.__typename == "PullRequest" and $pr != "none" and ($e.closer.number | tostring) == $pr
           and $e.closer.merged == true and $e.closer.mergeCommit.oid == $sha)
-      or ($e.closer.__typename == "Commit" and $e.closer.oid == $sha)))' <<<"$closed" >/dev/null
+      or ($e.closer.__typename == "Commit" and $e.closer.oid == $sha)))' <<<"$closed" >/dev/null || return 1
+  jq -r '.data.repository.issue.timelineItems.nodes[0].createdAt' <<<"$closed" >"$temporary/closed-at-$issue"
+}
+
+# released_after COMMENTS TIME: a release record by the workflow bot was
+# written after TIME (a publication saw the closure and recorded it). A
+# record without a timestamp counts as after.
+released_after() {
+  jq -e --arg bot "$bot_login" --arg at "$2" 'any(.[]; .user.login == $bot
+    and (.body | startswith("<!-- axiom-delivery:released tag="))
+    and ((.created_at // "9999-12-31T23:59:59Z") > $at))' <<<"$1" >/dev/null
 }
 
 comment() {
@@ -402,9 +414,9 @@ reconcile_releases() {
     issues=$(value issues "$temporary/reconcile-release")
     [[ "$issues" == none ]] && continue
     for issue in ${issues//,/ }; do
-      if ! (issue_json "$issue") >"$temporary/reconcile-issue.json" 2>/dev/null; then
+      if ! (issue_json "$issue") >"$temporary/reconcile-issue.json" 2>"$temporary/reconcile-error"; then
         printf 'reconcile_skipped=%s tag=v%s reason=issue_unreadable\n' "$issue" "$version"
-        printf '::warning::Issue #%s cannot be read for Project reconciliation\n' "$issue"
+        printf '::warning::Issue #%s cannot be read for Project reconciliation: %s\n' "$issue" "$(tail -n 1 "$temporary/reconcile-error")"
         continue
       fi
       if [[ $(jq -r '.state + "/" + (.state_reason // "")' "$temporary/reconcile-issue.json") != closed/completed ]]; then
@@ -451,13 +463,28 @@ case "$mode" in
     [[ "$actor" == "$bot_login" ]] || fail "only $bot_login dispatches the Release PR delivery check (actor: ${actor:-none})"
     [[ "$branch" =~ ^release-please--[A-Za-z0-9._/-]+$ ]] || fail 'the Release PR delivery check runs only on a release-please-- branch'
     [[ "$head_sha" =~ ^[0-9a-f]{40}$ ]] || fail 'release-pr-head requires a full --sha'
-    gh api "repos/$repository/pulls?state=open&head=${repository%%/*}:$branch&per_page=100" >"$temporary/release-prs" \
-      || fail 'cannot read the open Release PR'
-    jq -e --arg bot "$bot_login" --arg repo "$repository" --arg branch "$branch" --arg sha "$head_sha" '
-      length == 1 and (.[0] | .user.login == $bot and .head.repo.full_name == $repo and .head.ref == $branch
-        and .head.sha == $sha and .base.ref == "main")' "$temporary/release-prs" >/dev/null \
-      || fail "$head_sha is not the head of one open bot-authored Release PR from $branch"
-    printf 'release_pr=#%s head=%s\ndelivery_metadata=not_applicable\n' "$(jq -r '.[0].number' "$temporary/release-prs")" "$head_sha"
+    # The pulls API can briefly lag a Release Please force-push: retry the
+    # head comparison a few times before failing (a re-run also recovers).
+    for attempt in 1 2 3; do
+      gh api "repos/$repository/pulls?state=open&head=${repository%%/*}:$branch&per_page=100" >"$temporary/release-prs" \
+        || fail 'cannot read the open Release PR'
+      jq -e --arg bot "$bot_login" --arg repo "$repository" --arg branch "$branch" --arg sha "$head_sha" '
+        length == 1 and (.[0] | .user.login == $bot and .head.repo.full_name == $repo and .head.ref == $branch
+          and .head.sha == $sha and .base.ref == "main")' "$temporary/release-prs" >/dev/null && break
+      ((attempt < 3)) || fail "$head_sha is not the head of one open bot-authored Release PR from $branch"
+      sleep "${AXIOM_RELEASE_RETRY_DELAY:-5}"
+    done
+    release_pr=$(jq -r '.[0].number' "$temporary/release-prs")
+    # A Release PR must not close Issues at merge either (body keyword or
+    # Development-sidebar link): only publication closes delivered Issues.
+    # shellcheck disable=SC2016
+    linked=$(gh api graphql -f owner="${repository%%/*}" -f name="${repository#*/}" -F number="$release_pr" -f query='
+      query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) {
+        pullRequest(number: $number) { closingIssuesReferences(first: 20) { nodes { number } } } } }' \
+      | jq -r '[.data.repository.pullRequest.closingIssuesReferences.nodes[].number] | map("#\(.)") | join(", ")') \
+      || fail 'cannot read the Issues the Release PR would close'
+    [[ -z "$linked" ]] || fail "the Release PR would close $linked at merge; remove the closing keyword or Development link"
+    printf 'release_pr=#%s head=%s\ndelivery_metadata=not_applicable\n' "$release_pr" "$head_sha"
     ;;
   preflight)
     need_release_args
@@ -581,10 +608,13 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
           # exactly this merged PR/commit and the stable release that
           # delivers this commit has not recorded it. A record of an earlier
           # release belongs to an earlier delivery of a reopened Issue.
+          # A release record written after the closure means a publication
+          # saw this closure, whatever window this run covers.
           if [[ "$kind" == awaiting ]] \
             && ! { [[ "$covering" != none ]] && has_marker "$comments" "$(released_marker "v$covering")"; } \
-            && closed_by_merge "$issue" "$sha" "$pr"; then
-            printf 'reopen %s %s %s %s\n' "$issue" "$sha" "$pr" "$covering" >>"$temporary/plan"
+            && closed_by_merge "$issue" "$sha" "$pr" \
+            && ! released_after "$comments" "$(cat "$temporary/closed-at-$issue")"; then
+            printf 'reopen %s %s %s %s %s\n' "$issue" "$sha" "$pr" "$covering" "$(cat "$temporary/closed-at-$issue")" >>"$temporary/plan"
             printf 'awaiting %s %s %s\n' "$issue" "$sha" "$pr" >>"$temporary/plan"
             printf '%s\n' "$issue" >>"$temporary/reopening"
             continue
@@ -622,12 +652,13 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
     # Corrective reopen first: the bounded record is written before the
     # reopen, so a rerun after a failed reopen converges without a duplicate.
     : >"$temporary/released-meanwhile"
-    while read -r kind issue sha extra covering; do
+    while read -r kind issue sha extra covering closed_at; do
       [[ "$kind" == reopen ]] || continue
       comments=$(issue_comments "$issue") || exit 1
       # Re-checked just before the effect: a publication that recorded this
       # delivery since planning wins, and the Issue is left as published.
-      if [[ "$covering" != none ]] && has_marker "$comments" "$(released_marker "v$covering")"; then
+      if { [[ "$covering" != none ]] && has_marker "$comments" "$(released_marker "v$covering")"; } \
+        || released_after "$comments" "$closed_at"; then
         printf 'issue_skipped=%s reason=already_released commit=%s\n' "$issue" "$sha"
         printf '%s\n' "$issue" >>"$temporary/released-meanwhile"
         continue
