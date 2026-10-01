@@ -398,8 +398,64 @@ func TestEditIsDeterministicAcrossOperationOrderAndSelector(t *testing.T) {
 	if !reflect.DeepEqual(keys, []string{"alpha", "api", "web", "zeta"}) {
 		t.Fatalf("preview order = %v", keys)
 	}
-	if !first.MatchesDigest(first.Preview().Digest) || first.MatchesDigest("") {
-		t.Fatal("digest is not stable")
+	if first.Preview().Digest == "" || first.Preview().Digest != second.Preview().Digest {
+		t.Fatal("digest is not deterministic for equivalent intent")
+	}
+	again := mustPreview(t, f, projectapp.EditIntent{Selector: "sample", RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "zeta", Path: "/work/zeta"}, {Key: "alpha", Path: "/work/alpha"}}, RepositoryRemovals: []string{"web", "api"}})
+	if again.Preview().Digest != first.Preview().Digest {
+		t.Fatal("digest is not stable across repeated previews")
+	}
+}
+
+// The digest binds every component of the authority envelope, including local
+// candidate fields that the user-visible preview never shows.
+func TestEditDigestBindsEveryEnvelopeComponent(t *testing.T) {
+	intent := projectapp.EditIntent{Name: set("Renamed")}
+	base := mustPreview(t, newEditFixture(t), intent).Preview().Digest
+	reencode := func(t *testing.T, f *editFixture) {
+		t.Helper()
+		wire, issues := localCodecFixture{}.EncodeLocal(f.selection.Local)
+		if len(issues) != 0 {
+			t.Fatal(issues)
+		}
+		digest := sha256.Sum256(wire)
+		f.selection.LocalWire, f.selection.LocalRevision = wire, hex.EncodeToString(digest[:])
+	}
+	for name, change := range map[string]struct {
+		mutate func(*testing.T, *editFixture)
+		intent projectapp.EditIntent
+	}{
+		"portable candidate": {intent: projectapp.EditIntent{Name: set("Other")}},
+		"local binding":      {intent: projectapp.EditIntent{Name: set("Renamed"), RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "web", Path: "/work/web-fixed"}}}},
+		"local destination": {intent: intent, mutate: func(_ *testing.T, f *editFixture) {
+			f.selection.LocalDestination = "/other-state/projects/" + editProjectID
+		}},
+		"portable destination": {intent: intent, mutate: func(t *testing.T, f *editFixture) {
+			f.selection.PortableDestination, f.selection.Local.SourceLocation = "/elsewhere/sample", "/elsewhere/sample"
+			reencode(t, f)
+		}},
+		"hidden credential reference": {intent: intent, mutate: func(t *testing.T, f *editFixture) {
+			f.selection.Local.Credentials = []projectapp.CredentialBinding{{ReferenceKey: "chat-token", SourceKind: "keychain", ItemReference: "axiom/other-item"}}
+			reencode(t, f)
+		}},
+		"hidden runtime binding": {intent: intent, mutate: func(t *testing.T, f *editFixture) {
+			f.selection.Local.Runtime.ExplicitPath = "/opt/other-runtime"
+			reencode(t, f)
+		}},
+		"hidden preserved binding observation": {intent: intent, mutate: func(t *testing.T, f *editFixture) {
+			f.selection.Local.Repositories[0].Observation.ObservedAt = time.Unix(1_788_003_600, 0)
+			reencode(t, f)
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newEditFixture(t)
+			if change.mutate != nil {
+				change.mutate(t, f)
+			}
+			if digest := mustPreview(t, f, change.intent).Preview().Digest; digest == base {
+				t.Fatal("digest did not change")
+			}
+		})
 	}
 }
 
@@ -464,19 +520,15 @@ func TestEditFailsClosedOnSelectionAndIncoherentState(t *testing.T) {
 			t.Fatalf("selection failure %d became %d", failure, got)
 		}
 	}
-	f := newEditFixture(t)
-	if _, failure := f.preview(t, projectapp.EditIntent{ProjectID: "123e4567-e89b-42d3-a456-426614174999"}); failure != projectapp.EditIdentityMismatch {
-		t.Fatalf("replay ID mismatch = %d", failure)
-	}
 	for name, mutate := range map[string]func(*projectapp.EditSelection){
 		"stale local portable revision": func(s *projectapp.EditSelection) {
 			s.Local.PortableRevision = projectapp.RecordedPortableRevision([32]byte{9})
 		},
-		"foreign source":      func(s *projectapp.EditSelection) { s.Local.SourceLocation = "/elsewhere/sample" },
-		"slug drift":          func(s *projectapp.EditSelection) { s.Local.ObservedSlug = "other" },
-		"local revision":      func(s *projectapp.EditSelection) { s.LocalRevision = "0000" },
-		"binding key drift":   func(s *projectapp.EditSelection) { s.Local.Repositories = s.Local.Repositories[:1] },
-		"missing local bytes": func(s *projectapp.EditSelection) { s.LocalWire = nil },
+		"source not the read destination": func(s *projectapp.EditSelection) { s.Local.SourceLocation = "/elsewhere/sample" },
+		"slug drift":                      func(s *projectapp.EditSelection) { s.Local.ObservedSlug = "other" },
+		"local revision":                  func(s *projectapp.EditSelection) { s.LocalRevision = "0000" },
+		"binding key drift":               func(s *projectapp.EditSelection) { s.Local.Repositories = s.Local.Repositories[:1] },
+		"missing local bytes":             func(s *projectapp.EditSelection) { s.LocalWire = nil },
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newEditFixture(t)

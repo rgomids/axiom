@@ -22,6 +22,7 @@ import (
 type editEnvironment struct {
 	root, state   string
 	api, web      string
+	extra         []string
 	service       cli.Service
 	projectID     string
 	createPreview projectapp.SetupPreview
@@ -84,10 +85,11 @@ type editEvent struct {
 // are byte-identical before and after it.
 func (env editEnvironment) runEdit(t *testing.T, wantCode int, wantStatus, wantResult string, args ...string) (editEvent, string) {
 	t.Helper()
-	before := snapshotTrees(t, env.root, env.state)
+	roots := append([]string{env.root, env.state}, env.extra...)
+	before := snapshotTrees(t, roots...)
 	var output bytes.Buffer
 	code := cli.Run(context.Background(), append([]string{"project", "configure"}, args...), env.service, currentProvenance(), &output)
-	if after := snapshotTrees(t, env.root, env.state); !bytes.Equal(before, after) {
+	if after := snapshotTrees(t, roots...); !bytes.Equal(before, after) {
 		t.Fatalf("%v wrote state\nbefore=%s\nafter=%s", args, before, after)
 	}
 	var event editEvent
@@ -205,7 +207,6 @@ func TestEditSelectorFailuresNeverFallBackToCreate(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(env.root, "missing")); !os.IsNotExist(err) {
 		t.Fatalf("unknown EDIT selector created a Project: %v", err)
 	}
-	env.runEdit(t, cli.ExitFailure, "validation_failure", "Project identity does not match the selector", "--project", "sample", "--project-id", "123e4567-e89b-42d3-a456-426614174999")
 
 	// A second installed record observing the same slug is representable and
 	// must fail as ambiguous rather than choosing either Project.
@@ -299,13 +300,173 @@ func TestEditPreviewHidesUnrelatedLocalMetadataButBindsIt(t *testing.T) {
 	}
 }
 
-func TestEditAuthorityFlagsFailClosedWithoutWrites(t *testing.T) {
+// EDIT replay/publication is I132-T02. Its inputs are rejected before any
+// selector resolution or portable/local read, and no preview is built.
+func TestEditReplayInputsFailBeforeAnyStateRead(t *testing.T) {
 	env := newEditEnvironment(t)
 	preview, _ := env.runEdit(t, cli.ExitSuccess, "success", "Project edit preview ready", "--project", "sample", "--name", "Renamed")
-	event, _ := env.runEdit(t, cli.ExitFailure, "validation_failure", "Project edit publication is not available",
-		"--project", "sample", "--name", "Renamed", "--project-id", env.projectID, "--preview-digest", preview.Edit.Digest, "--authorize-local")
-	if event.Edit.Digest != preview.Edit.Digest {
-		t.Fatal("authorized request did not rebuild the same preview")
+	for name, replay := range map[string][]string{
+		"preview digest":        {"--preview-digest", preview.Edit.Digest},
+		"authorize local":       {"--authorize-local"},
+		"digest and authority":  {"--preview-digest", preview.Edit.Digest, "--authorize-local"},
+		"complete replay tuple": {"--project-id", env.projectID, "--preview-digest", preview.Edit.Digest, "--authorize-local"},
+		"replay-only identity":  {"--project-id", env.projectID},
+	} {
+		t.Run(name, func(t *testing.T) {
+			args := append([]string{"--project", "sample", "--name", "Renamed"}, replay...)
+			event, output := env.runEdit(t, cli.ExitFailure, "validation_failure", "Project edit publication is not available", args...)
+			if strings.Contains(output, `"edit"`) || event.Edit.Digest != "" {
+				t.Fatalf("replay input built a preview: %s", output)
+			}
+		})
+	}
+
+	// The service guard also precedes selection: with an unknown selector and
+	// unreadable roots, any read would fail with a different result.
+	before := snapshotTrees(t, env.root, env.state)
+	for _, root := range []string{env.root, env.state} {
+		if err := os.Chmod(root, 0); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result := env.service.Configure(context.Background(), cli.ConfigureInput{Project: "missing", Name: "Renamed", NameSupplied: true, PreviewDigest: preview.Edit.Digest, AuthorizeLocal: true})
+	for _, root := range []string{env.root, env.state} {
+		if err := os.Chmod(root, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if result.Completion == nil || result.Completion.Result().String() != "Project edit publication is not available" || result.Edit != nil {
+		t.Fatalf("service replay guard = %+v", result)
+	}
+	if after := snapshotTrees(t, env.root, env.state); !bytes.Equal(before, after) {
+		t.Fatal("service replay guard changed state")
+	}
+}
+
+// installExternal initializes a portable Project outside the configured
+// projects root and installs it with project install, so its recorded
+// SourceLocation is not <projects-root>/<slug>.
+func (env *editEnvironment) installExternal(t *testing.T) string {
+	t.Helper()
+	sourceRoot := filepath.Join(t.TempDir(), "elsewhere")
+	t.Setenv("LINGO_PROJECTS_ROOT", sourceRoot)
+	runCLI(t, compose(), []string{"project", "init", "--slug", "external", "--name", "External"}, cli.ExitSuccess, "applied")
+	t.Setenv("LINGO_PROJECTS_ROOT", env.root)
+	source := filepath.Join(sourceRoot, "external")
+	runCLI(t, env.service, []string{"project", "install", "--source", source}, cli.ExitSuccess, "installed")
+	env.extra = append(env.extra, sourceRoot)
+	return source
+}
+
+func rewriteManifest(t *testing.T, source string, rewrite func(string) string) {
+	t.Helper()
+	path := filepath.Join(source, "axiom.yaml")
+	wire, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := rewrite(string(wire))
+	if changed == string(wire) {
+		t.Fatalf("manifest rewrite had no effect:\n%s", wire)
+	}
+	if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestEditPreviewLoadsArbitraryRecordedSource(t *testing.T) {
+	env := newEditEnvironment(t)
+	source := env.installExternal(t)
+	bySlug, _ := env.runEdit(t, cli.ExitSuccess, "success", "Project edit preview ready", "--project", "external", "--name", "External Renamed", "--repository", "api="+env.api)
+	preview := bySlug.Edit
+	if preview.PortableDestination != source || preview.Slug != "external" || preview.Name != "External Renamed" || preview.LocalDestination != filepath.Join(env.state, "projects", preview.ProjectID) {
+		t.Fatalf("recorded-source preview = %+v", preview)
+	}
+	byID, _ := env.runEdit(t, cli.ExitSuccess, "success", "Project edit preview ready", "--project", preview.ProjectID, "--name", "External Renamed", "--repository", "api="+env.api)
+	if !reflect.DeepEqual(byID.Edit, preview) {
+		t.Fatal("slug and UUID selection of a recorded source differ")
+	}
+	portable, err := local.NewPortableStore(env.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := portable.InspectRecordedSource(context.Background(), source, "external")
+	if err != nil || preview.PortableRevision != observed.Revision {
+		t.Fatalf("portable revision %s != recorded source %s (%v)", preview.PortableRevision, observed.Revision, err)
+	}
+	if got := effectList(preview.Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:add_portable_repository:api", "local:update_local_record", "local:add_local_binding:api"}) {
+		t.Fatalf("effects = %v", got)
+	}
+	if !strings.Contains(preview.PortableManifest, "name: External Renamed") || strings.Contains(preview.PortableManifest, env.api) {
+		t.Fatalf("portable candidate:\n%s", preview.PortableManifest)
+	}
+	// The default-root Project in the same installation stays editable.
+	env.runEdit(t, cli.ExitSuccess, "success", "Project edit preview ready", "--project", "sample", "--name", "Renamed")
+}
+
+func TestEditFailsClosedOnUnsafeOrIncoherentRecordedSource(t *testing.T) {
+	for name, mutate := range map[string]func(t *testing.T, env editEnvironment, source string){
+		"missing source": func(t *testing.T, _ editEnvironment, source string) {
+			if err := os.RemoveAll(source); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"symlinked source": func(t *testing.T, _ editEnvironment, source string) {
+			if err := os.Rename(source, source+"-real"); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(source+"-real", source); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"shared source permissions": func(t *testing.T, _ editEnvironment, source string) {
+			if err := os.Chmod(source, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"different portable project id": func(t *testing.T, _ editEnvironment, source string) {
+			rewriteManifest(t, source, func(wire string) string {
+				lines := strings.Split(wire, "\n")
+				for i, line := range lines {
+					if strings.HasPrefix(strings.TrimSpace(line), "id: ") {
+						lines[i] = strings.Repeat(" ", len(line)-len(strings.TrimLeft(line, " "))) + "id: 123e4567-e89b-42d3-a456-426614174999"
+					}
+				}
+				return strings.Join(lines, "\n")
+			})
+		},
+		"different portable slug": func(t *testing.T, _ editEnvironment, source string) {
+			rewriteManifest(t, source, func(wire string) string { return strings.Replace(wire, "slug: external", "slug: other", 1) })
+		},
+		"different portable revision": func(t *testing.T, _ editEnvironment, source string) {
+			rewriteManifest(t, source, func(wire string) string { return strings.Replace(wire, "name: External", "name: Changed", 1) })
+		},
+		"relative recorded source": func(t *testing.T, env editEnvironment, source string) {
+			records, err := filepath.Glob(filepath.Join(env.state, "projects", "*", "installation.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, record := range records {
+				wire, err := os.ReadFile(record)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if changed := strings.Replace(string(wire), `"`+source+`"`, `"elsewhere/external"`, 1); changed != string(wire) {
+					if err := os.WriteFile(record, []byte(changed), 0o600); err != nil {
+						t.Fatal(err)
+					}
+					return
+				}
+			}
+			t.Fatal("recorded source not found")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			env := newEditEnvironment(t)
+			source := env.installExternal(t)
+			mutate(t, env, source)
+			env.runEdit(t, cli.ExitFailure, "failure", "Selected Project state is not safe to edit", "--project", "external", "--name", "Renamed")
+		})
 	}
 }
 
@@ -319,14 +480,20 @@ func TestEditFailsClosedOnStalePortableLocalRelationship(t *testing.T) {
 
 func TestCreateCollisionFailsWithoutReuseOrEditFallback(t *testing.T) {
 	env := newEditEnvironment(t)
-	for name, args := range map[string][]string{
-		"equivalent values": {"--slug", "sample", "--name", "Sample", "--work-item-provider", "github", "--repository", "api=" + env.api, "--repository", "web=" + env.web},
-		"different values":  {"--slug", "sample", "--name", "Other", "--work-item-provider", "none", "--repository", "api=" + env.api},
-		"existing identity": {"--slug", "sample", "--name", "Sample", "--work-item-provider", "github", "--repository", "api=" + env.api, "--repository", "web=" + env.web, "--project-id", env.projectID},
-		"authorized replay": {"--slug", "sample", "--name", "Sample", "--work-item-provider", "github", "--repository", "api=" + env.api, "--repository", "web=" + env.web, "--project-id", env.projectID, "--preview-digest", env.createPreview.Digest, "--authorize-local"},
+	const slugTaken, identityTaken = "Project slug is already configured", "Project identity is already configured"
+	for name, test := range map[string]struct {
+		want string
+		args []string
+	}{
+		"equivalent values":                  {slugTaken, []string{"--slug", "sample", "--name", "Sample", "--work-item-provider", "github", "--repository", "api=" + env.api, "--repository", "web=" + env.web}},
+		"different values":                   {slugTaken, []string{"--slug", "sample", "--name", "Other", "--work-item-provider", "none", "--repository", "api=" + env.api}},
+		"existing identity":                  {slugTaken, []string{"--slug", "sample", "--name", "Sample", "--work-item-provider", "github", "--repository", "api=" + env.api, "--repository", "web=" + env.web, "--project-id", env.projectID}},
+		"authorized replay":                  {slugTaken, []string{"--slug", "sample", "--name", "Sample", "--work-item-provider", "github", "--repository", "api=" + env.api, "--repository", "web=" + env.web, "--project-id", env.projectID, "--preview-digest", env.createPreview.Digest, "--authorize-local"}},
+		"fresh slug with existing identity":  {identityTaken, []string{"--slug", "fresh", "--name", "Fresh", "--work-item-provider", "github", "--repository", "api=" + env.api, "--project-id", env.projectID}},
+		"authorized fresh slug, existing id": {identityTaken, []string{"--slug", "fresh", "--name", "Fresh", "--work-item-provider", "github", "--repository", "api=" + env.api, "--project-id", env.projectID, "--preview-digest", env.createPreview.Digest, "--authorize-local"}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			event, output := env.runEdit(t, cli.ExitFailure, "validation_failure", "Project slug is already configured", args...)
+			event, output := env.runEdit(t, cli.ExitFailure, "validation_failure", test.want, test.args...)
 			if strings.Contains(output, `"edit"`) || strings.Contains(output, `"setup"`) || strings.Contains(output, env.projectID) || len(event.References) != 0 {
 				t.Fatalf("collision reused or exposed existing Project state: %s", output)
 			}

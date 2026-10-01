@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"os"
@@ -443,6 +442,11 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 	if category != "" {
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project state is not safe to configure", nil, "Inspect preserved local state before retrying", s.provenance)
 	}
+	// A supplied --project-id that is already installed names another Project;
+	// CREATE never reuses or adopts an existing identity.
+	if localObservation.Exists {
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project identity is already configured", nil, "Omit --project-id to allocate a new identity, or select the existing Project with --project to preview an edit", s.provenance)
+	}
 	observation := projectapp.SetupObservation{
 		PortableDestination: filepath.Join(s.projectsRoot, input.Slug),
 		LocalDestination:    filepath.Join(s.stateRoot, "projects", projectID),
@@ -462,14 +466,8 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 	if len(recordIssues) != 0 {
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project proposal is invalid", nil, "Correct Repository bindings and retry", s.provenance)
 	}
-	desiredWire, encodeIssues := local.EncodeRecord(desiredRecord)
-	if len(encodeIssues) != 0 {
+	if _, encodeIssues := local.EncodeRecord(desiredRecord); len(encodeIssues) != 0 {
 		return canonicalCompletion(completion.Facts{Failed: true}, "Local Project proposal could not be encoded", nil, "Review application availability before retrying", s.provenance)
-	}
-	observation.LocalEquivalent = localObservation.Exists && bytes.Equal(localObservation.Wire, desiredWire)
-	proposal, issues = projectapp.PrepareSetup(manifest.Codec{}, setupInput, observation)
-	if len(issues) != 0 {
-		return canonicalCompletion(completion.Facts{Failed: true}, "Project setup proposal failed", nil, "Retry Project setup", s.provenance)
 	}
 	preview := proposal.Preview()
 	if !input.AuthorizeLocal {
@@ -527,13 +525,16 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 }
 
 // configureEdit exposes only the zero-write EDIT preview. No EDIT publication
-// path exists; authority flags fail closed without any write.
+// or replay path exists, so replay/authority inputs fail before any read.
 func (s lifecycleService) configureEdit(ctx context.Context, input cli.ConfigureInput) cli.Result {
 	if input.Slug != "" {
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit input is invalid", nil, "Remove --slug; Project rename is not supported", s.provenance)
 	}
+	if input.ProjectID != "" || input.PreviewDigest != "" || input.AuthorizeLocal {
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit publication is not available", nil, "Remove --project-id, --preview-digest, and --authorize-local; edit only previews", s.provenance)
+	}
 	intent := projectapp.EditIntent{
-		Selector: input.Project, ProjectID: input.ProjectID,
+		Selector:               input.Project,
 		Name:                   projectapp.OptionalText{Supplied: input.NameSupplied, Value: input.Name},
 		WorkItemProvider:       projectapp.OptionalText{Supplied: input.WorkItemProviderSupplied, Value: input.WorkItemProvider},
 		RemoveWorkItemProvider: input.RemoveWorkItemProvider,
@@ -543,7 +544,7 @@ func (s lifecycleService) configureEdit(ctx context.Context, input cli.Configure
 		intent.RepositoryUpserts = append(intent.RepositoryUpserts, projectapp.RepositoryUpsert{Key: repository.Key, Path: repository.Path})
 	}
 	ports := projectapp.EditPorts{
-		Source:    editSource{installation: s.installation, portable: s.portable, projectsRoot: s.projectsRoot, stateRoot: s.stateRoot},
+		Source:    editSource{installation: s.installation, portable: s.portable, stateRoot: s.stateRoot},
 		Checkouts: local.DirectoryObserver{}, Manifest: manifest.Codec{}, Local: local.RecordCodec{},
 	}
 	proposal, failure := projectapp.PreviewEdit(ctx, ports, intent)
@@ -551,11 +552,6 @@ func (s lifecycleService) configureEdit(ctx context.Context, input cli.Configure
 		return editFailure(failure, s.provenance)
 	}
 	preview := proposal.Preview()
-	if input.AuthorizeLocal || input.PreviewDigest != "" {
-		result := canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit publication is not available", nil, "Review the preview; no Project state was changed", s.provenance)
-		result.Edit = &preview
-		return result
-	}
 	next := "Review the complete preview; edit publication is not available in this build"
 	if len(preview.Effects) == 0 {
 		next = "No change is required"
@@ -573,8 +569,6 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 		message, next = "Project was not found", "Provide the UUID or slug of an existing Project; edit never creates a Project"
 	case projectapp.EditProjectAmbiguous:
 		message, next = "Project selector is ambiguous", "Select the Project by its UUID"
-	case projectapp.EditIdentityMismatch:
-		message, next = "Project identity does not match the selector", "Review the selected Project and prepare a fresh preview"
 	case projectapp.EditUnknownRepository:
 		message, next = "Repository to remove is not configured", "Remove only configured Repository keys"
 	case projectapp.EditRepositoryUnavailable:
@@ -594,12 +588,12 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 }
 
 // editSource selects exactly one installed Project and loads its protected
-// local record plus the confined portable source it names. It does not check
+// local record plus the recorded portable source it names. It does not check
 // binding availability so a broken binding can be repaired or removed.
 type editSource struct {
-	installation            local.InstallationStore
-	portable                local.PortableStore
-	projectsRoot, stateRoot string
+	installation local.InstallationStore
+	portable     local.PortableStore
+	stateRoot    string
 }
 
 func (e editSource) SelectForEdit(ctx context.Context, selector string) (projectapp.EditSelection, projectapp.EditFailure) {
@@ -615,16 +609,9 @@ func (e editSource) SelectForEdit(ctx context.Context, selector string) (project
 		return projectapp.EditSelection{}, projectapp.EditStateUnsafe
 	}
 	state := observation.Record.State()
-	if !project.ValidSlug(state.ObservedSlug) {
-		return projectapp.EditSelection{}, projectapp.EditStateUnsafe
-	}
-	// Source confinement: only a portable Project under the configured root,
-	// addressed by the recorded slug, can be edited.
-	destination := filepath.Join(e.projectsRoot, state.ObservedSlug)
-	if state.SourceLocation != destination {
-		return projectapp.EditSelection{}, projectapp.EditStateUnsafe
-	}
-	portable, err := e.portable.Inspect(ctx, state.ObservedSlug)
+	// Source confinement: read only the exact portable source the protected
+	// record names, through the same safe loading rules used to install it.
+	portable, err := e.portable.InspectRecordedSource(ctx, state.SourceLocation, state.ObservedSlug)
 	switch {
 	case ctx.Err() != nil:
 		return projectapp.EditSelection{}, projectapp.EditCancelled
@@ -635,7 +622,7 @@ func (e editSource) SelectForEdit(ctx context.Context, selector string) (project
 	}
 	return projectapp.EditSelection{
 		Portable: portable.Snapshot, Local: local.ApplicationRecord(observation.Record), LocalWire: observation.Wire,
-		PortableDestination: destination, LocalDestination: filepath.Join(e.stateRoot, "projects", state.ProjectID),
+		PortableDestination: state.SourceLocation, LocalDestination: filepath.Join(e.stateRoot, "projects", state.ProjectID),
 		PortableRevision: portable.Revision, LocalRevision: observation.Revision,
 	}, projectapp.EditOK
 }

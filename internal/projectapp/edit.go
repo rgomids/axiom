@@ -31,11 +31,9 @@ type OptionalText struct {
 type RepositoryUpsert struct{ Key, Path string }
 
 // EditIntent is partial explicit intent. Omission always means preservation.
-// ProjectID is the replay-only canonical ID; when present it must match the
-// freshly selected Project.
+// It carries no replay or authority input: EDIT publication is not delivered.
 type EditIntent struct {
 	Selector               string
-	ProjectID              string
 	Name                   OptionalText
 	WorkItemProvider       OptionalText
 	RemoveWorkItemProvider bool
@@ -83,7 +81,6 @@ const (
 	EditInvalidIntent
 	EditProjectNotFound
 	EditProjectAmbiguous
-	EditIdentityMismatch
 	EditStateUnsafe
 	EditRecoveryRequired
 	EditUnknownRepository
@@ -180,7 +177,7 @@ func (p EditProposal) Preview() EditPreview {
 
 // ValidateEditIntent rejects syntactic conflicts before any state read.
 func ValidateEditIntent(intent EditIntent) EditFailure {
-	if !boundedSetupText(intent.Selector, maxSetupDestinationBytes) || intent.ProjectID != "" && !boundedSetupText(intent.ProjectID, maxSetupDestinationBytes) {
+	if !boundedSetupText(intent.Selector, maxSetupDestinationBytes) {
 		return EditInvalidIntent
 	}
 	if intent.Name.Supplied && !boundedSetupText(intent.Name.Value, maxSetupNameBytes) {
@@ -229,9 +226,6 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 	current := selection.Portable.Project()
 	if failure := coherentSelection(selection); failure != EditOK {
 		return EditProposal{}, failure
-	}
-	if intent.ProjectID != "" && intent.ProjectID != current.State().ID {
-		return EditProposal{}, EditIdentityMismatch
 	}
 	candidate, failure := proposePortable(current, intent)
 	if failure != EditOK {
@@ -562,9 +556,4 @@ func editEnvelopeDigest(preview EditPreview, portable, local []byte) string {
 	wire, _ := json.Marshal(editEnvelope{Preview: preview, PortableCandidate: portable, LocalCandidate: local})
 	digest := sha256.Sum256(wire)
 	return hex.EncodeToString(digest[:])
-}
-
-// MatchesDigest recomputes the envelope digest; it confers no publication path.
-func (p EditProposal) MatchesDigest(value string) bool {
-	return value != "" && value == p.preview.Digest && value == editEnvelopeDigest(p.preview, p.manifest, p.localWire)
 }

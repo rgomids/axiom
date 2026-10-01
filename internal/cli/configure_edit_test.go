@@ -64,10 +64,6 @@ func TestConfigureEditCapturesPresenceWithoutMerging(t *testing.T) {
 			args: []string{"--project", "sample", "--repository", "web=/work/web", "--repository=docs=/work/docs", "--remove-repository", "api", "--remove-repository=old"},
 			want: ConfigureInput{Project: "sample", Repositories: []RepositoryInput{{Key: "web", Path: "/work/web"}, {Key: "docs", Path: "/work/docs"}}, RemoveRepositories: []string{"api", "old"}},
 		},
-		"replay identity passes through": {
-			args: []string{"--project", "sample", "--project-id", "123e4567-e89b-42d3-a456-426614174000"},
-			want: ConfigureInput{Project: "sample", ProjectID: "123e4567-e89b-42d3-a456-426614174000", Repositories: []RepositoryInput{}},
-		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			// A guided (stdin) EDIT prompts for nothing: omission is preservation.
@@ -114,6 +110,46 @@ func TestConfigureEditRejectsConflictsBeforeDispatch(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			assertStrictParserFailure(t, append([]string{"project", "configure"}, args...))
+		})
+	}
+}
+
+// EDIT publication/replay is I132-T02: its inputs fail during presence capture,
+// so the service (selector resolution, source and local reads) is never invoked.
+func TestConfigureEditRejectsReplayInputsBeforeDispatch(t *testing.T) {
+	const id = "123e4567-e89b-42d3-a456-426614174000"
+	for name, args := range map[string][]string{
+		"preview digest":           {"--project", "sample", "--name", "Renamed", "--preview-digest", "edit-digest"},
+		"authorize local":          {"--project", "sample", "--name", "Renamed", "--authorize-local"},
+		"digest and authority":     {"--project", "sample", "--name", "Renamed", "--preview-digest", "edit-digest", "--authorize-local"},
+		"complete replay tuple":    {"--project", "sample", "--project-id", id, "--preview-digest", "edit-digest", "--authorize-local"},
+		"replay-only project id":   {"--project", "sample", "--project-id", id},
+		"empty digest is supplied": {"--project", "sample", "--preview-digest="},
+		"explicit false authority": {"--project", "sample", "--authorize-local=false"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, interactive := range []bool{false, true} {
+				var input *strings.Reader
+				if interactive {
+					input = strings.NewReader("yes\n")
+				}
+				var output, prompts bytes.Buffer
+				service := newEditRecordingService(t)
+				var code int
+				full := append([]string{"--json", "project", "configure"}, args...)
+				if interactive {
+					code = RunInteractive(context.Background(), full, service, completionProvenance(t), input, &output, &prompts)
+				} else {
+					code = RunInteractive(context.Background(), full, service, completionProvenance(t), nil, &output, &prompts)
+				}
+				var event completionEvent
+				if err := json.Unmarshal(output.Bytes(), &event); err != nil {
+					t.Fatalf("interactive=%v: %v: %s", interactive, err, output.String())
+				}
+				if code != ExitFailure || len(service.inputs) != 0 || service.call != "" || prompts.Len() != 0 || event.Status != completion.ValidationFailure || event.Result != "Project edit publication is not available" || strings.Contains(output.String(), `"edit"`) {
+					t.Fatalf("interactive=%v: exit=%d inputs=%d call=%q prompts=%q output=%s", interactive, code, len(service.inputs), service.call, prompts.String(), output.String())
+				}
+			}
 		})
 	}
 }
@@ -167,7 +203,7 @@ func TestConfigureEditRendersCompletePreviewCanonically(t *testing.T) {
 func TestHelpDocumentsEditPreviewFlags(t *testing.T) {
 	var output bytes.Buffer
 	Help(&output)
-	for _, expected := range []string{"--project\n<project-uuid-or-slug> previews an edit", "--remove-work-item-provider", "--remove-repository <key>", "already\nconfigured slug fails"} {
+	for _, expected := range []string{"--project <project-uuid-or-slug> previews an edit", "--remove-work-item-provider", "--remove-repository <key>", "already\nconfigured slug or --project-id fails", "Edit rejects --slug (rename)", "--project-id, --preview-digest and\n--authorize-local"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("help missing %q", expected)
 		}

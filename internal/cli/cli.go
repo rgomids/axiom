@@ -282,7 +282,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
-		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) {
+		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) || *result == "unsupported_edit_authority" {
 			return emitParserFailure(stdout, mode, operation, *result, source)
 		}
 		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
@@ -320,6 +320,9 @@ func emitParserFailure(writer io.Writer, mode outputMode, operation action, issu
 func parserFailureText(operation action, issue string) (string, string) {
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
+	}
+	if issue == "unsupported_edit_authority" {
+		return "Project edit publication is not available", "Remove --project-id, --preview-digest, and --authorize-local; edit only previews"
 	}
 	if issue == "invalid_input" && (operation == showAction || operation == resolveAction || operation == configureAction) {
 		return "Explicit selector input is invalid", "Remove unknown, duplicate, or conflicting inputs and retry"
@@ -416,6 +419,7 @@ type requestInput struct {
 	removeWorkItemProvider                   bool
 	projectSupplied, slugSupplied            bool
 	nameSupplied, providerSupplied           bool
+	replaySupplied                           bool
 	previewDigest                            string
 	project, repository, workItem, execution string
 	providerRepository                       string
@@ -606,6 +610,8 @@ func flags(operation action, args []string) (requestInput, bool) {
 			values.nameSupplied = true
 		case "work-item-provider":
 			values.providerSupplied = true
+		case "project-id", "preview-digest", "authorize-local":
+			values.replaySupplied = true
 		}
 	})
 	return values, true
@@ -622,6 +628,11 @@ func configureRequestIssue(values requestInput) string {
 			return "missing_required_input"
 		}
 		return ""
+	}
+	// EDIT replay/publication is not delivered (I132-T02), so its inputs fail
+	// here, before any selector resolution or state read.
+	if values.replaySupplied {
+		return "unsupported_edit_authority"
 	}
 	// EDIT: rename is out of scope, the CREATE-only `none` alias is not a
 	// removal spelling, and set/remove of one target cannot be combined.
