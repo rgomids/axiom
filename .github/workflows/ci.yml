@@ -75,3 +75,5 @@ jobs:
         run: ./scripts/test-release-flow.sh
       - name: Delivery metadata and Issue release contract
         run: ./scripts/test-delivery.sh
+      - name: Release PR check dispatch regressions
+        run: python3 scripts/test-release-pr-checks.py
