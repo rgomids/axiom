@@ -797,9 +797,19 @@ MUST NOT claim authorship over the transported content.
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.
-- **FR-028 Backup and rollback:** migration MUST preserve a recoverable pre-migration
-  copy before canonical replacement when rollback cannot otherwise be guaranteed.
-  Backup identity, permissions, retention, and cleanup MUST be explicit.
+- **FR-028 Backup and rollback:** migration or preserve/rebuild transition MUST
+  preserve a recoverable pre-transition copy before canonical replacement when
+  rollback cannot otherwise be guaranteed. For RecognizedPOC, the preservation
+  copy MUST live in a dedicated Axiom-owned machine-local archive namespace
+  separate from active Project/State/Skills roots and be identified by the exact
+  transition operation plus source digest. The source remains active/intact until
+  every required archived object and the final preservation manifest are
+  digest-verified. The upgrade MUST NOT automatically delete that archive.
+  Subsequent cleanup requires a separate explicit, reference-aware cleanup action
+  and MUST NOT rely on age alone. Cross-filesystem preservation is allowed by
+  copy-and-verify; Axiom MUST NOT claim or depend on cross-filesystem atomic
+  rename. Backup/archive identity, ownership, permissions, retention, references,
+  cleanup eligibility, and recovery status MUST remain explicit.
 - **FR-029 No silent downgrade:** downgrade or lossy conversion is refused unless a
   separately specified reversible path exists. Newer unknown state is never
   overwritten as if absent.
@@ -1530,7 +1540,13 @@ The human explicitly approved the compatibility direction on 2026-10-01:
   transition;
 - require every future stable release that introduces a new persisted-state format
   to declare before publication the exact earlier stable formats retained in its
-  compatibility window and the supported forward strategy for each.
+  compatibility window and the supported forward strategy for each;
+- preserve RecognizedPOC into a dedicated Axiom-owned machine-local archive
+  separate from active state, identified by operation/source digest; keep the
+  source intact until the archive manifest is fully digest-verified; never delete
+  that archive as part of upgrade; allow later removal only through explicit
+  reference-aware cleanup; and permit cross-filesystem copy-and-verify without
+  claiming atomic rename.
 
 This decision authorizes Specification/Plan/Tasks reconciliation only. It does
 not authorize implementation, migration effects, release publication, merge, or
