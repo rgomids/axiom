@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/rgomids/axiom/compare/v0.2.0...v0.2.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **delivery:** revalidate close event before reopening Issue ([#155](https://github.com/rgomids/axiom/issues/155)) ([d93fa76](https://github.com/rgomids/axiom/commit/d93fa76672e881b886340c990e886a3c6cd412f6))
+
 ## [0.2.0](https://github.com/rgomids/axiom/compare/v0.1.2...v0.2.0) (2026-10-01)
 
 
