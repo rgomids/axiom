@@ -27,6 +27,11 @@ func windowsCandidate(t *testing.T, version string) Candidate {
 }
 
 func windowsTarget(t *testing.T) Target {
+	// Exercise filesystem/install mechanics on Server CI without claiming that
+	// its host is a supported product row. Host refusal is tested separately.
+	previous := hostRow
+	hostRow = func() string { return "windows:windows:amd64" }
+	t.Cleanup(func() { hostRow = previous })
 	base := t.TempDir()
 	return Target{BinaryDir: filepath.Join(base, "bin with spaces"), ReceiptDir: filepath.Join(base, "receipt"), State: compatibility.Roots{Projects: filepath.Join(base, "projects"), State: filepath.Join(base, "state")}}
 }

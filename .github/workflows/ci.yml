@@ -35,6 +35,7 @@ jobs:
           - platform: macos
             runner: macos-15
           - platform: windows
+            # Server is a regression host, not an approved installation row.
             runner: windows-2022
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
@@ -68,6 +69,10 @@ jobs:
         if: matrix.platform == 'windows'
         shell: powershell
         run: ./scripts/test-windows-install.ps1
+      - name: Windows bootstrap refusal contract (offline transport)
+        if: matrix.platform == 'windows'
+        shell: powershell
+        run: ./scripts/test-windows-bootstrap.ps1
 
   release-contract:
     name: release-contract

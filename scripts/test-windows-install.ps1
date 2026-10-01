@@ -56,6 +56,20 @@ try {
     $rejected = $false
     try { & (Join-Path $first.Root 'install.ps1') -Archive $first.Archive -Checksums $bad -BinDir $bin -ReceiptDir $receipt } catch { $rejected = $true }
     if (-not $rejected -or (Test-Path -LiteralPath $bin) -or (Test-Path -LiteralPath $receipt)) { throw 'Checksum refusal must have zero installation effects.' }
+    if ((Get-CimInstance Win32_OperatingSystem).ProductType -ne 1) {
+        # Windows PowerShell represents native stderr as error records; capture
+        # this expected failure without terminating before checking its exit code.
+        $savedPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $output = & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $bin --receipt-dir $receipt 2>&1
+        } finally { $ErrorActionPreference = $savedPreference }
+        if ($LASTEXITCODE -eq 0 -or ($output -join "`n") -notmatch 'unsupported_host' -or (Test-Path -LiteralPath $bin) -or (Test-Path -LiteralPath $receipt)) {
+            throw 'Windows Server must be refused without target mutation.'
+        }
+        Write-Output 'windows_server_refusal=pass; client_install_acceptance=not_run'
+        return
+    }
     Install-TestBundle $first
     $receiptFile = Join-Path $receipt 'installation.receipt'
     $before = [IO.File]::ReadAllText($receiptFile)

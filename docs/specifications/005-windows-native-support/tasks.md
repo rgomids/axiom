@@ -3,7 +3,8 @@
 ## Status
 
 **Implementation authorized** on 2026-09-30. Work and verification are delivered
-in PR #128; see `evidence.md` for executable results and remaining gates.
+in PR #149 (superseding #128); see `evidence.md` for executable results and
+remaining gates.
 
 | Task | Objective | Evidence |
 |---|---|---|

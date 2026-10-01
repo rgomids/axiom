@@ -17,6 +17,10 @@ if ($env:PROCESSOR_ARCHITEW6432) { $architecture = $env:PROCESSOR_ARCHITEW6432 }
 if ($env:OS -ne 'Windows_NT' -or $architecture -ne 'AMD64' -or -not [Environment]::Is64BitProcess) {
     throw 'Windows amd64 and 64-bit PowerShell are required.'
 }
+$hostVersion = Get-CimInstance Win32_OperatingSystem
+if ($hostVersion.ProductType -ne 1 -or [version]$hostVersion.Version -lt [version]'10.0.17763' -or ([version]$hostVersion.Version).Major -ne 10) {
+    throw 'Windows 10 version 1809 or later, or Windows 11, is required; Windows Server is unsupported.'
+}
 if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
     throw 'The Windows tar.exe utility is required (Windows 10 version 1809 or later).'
 }
@@ -101,14 +105,22 @@ try {
     $acl.SetAccessRuleProtection($true,$false)
     $rule = New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')
     $acl.AddAccessRule($rule)
-    [IO.Directory]::CreateDirectory($work) | Out-Null
-    Set-Acl -LiteralPath $work -AclObject $acl
+    # .NET Framework's security overload supplies the DACL at creation.
+    # PowerShell 7 uses the equivalent FileSystemAclExtensions API.
+    if ($PSVersionTable.PSEdition -eq 'Core') {
+        [IO.FileSystemAclExtensions]::CreateDirectory($acl, $work) | Out-Null
+    } else {
+        [IO.Directory]::CreateDirectory($work, $acl) | Out-Null
+    }
 
     $repository = 'https://github.com/rgomids/axiom'
     if ($Version) { $tag = $Version } else {
         $metadata = Join-Path $work 'latest.json'
         Get-ReleaseFile 'https://api.github.com/repos/rgomids/axiom/releases/latest' $metadata 1048576
         $release = Get-Content -LiteralPath $metadata -Raw | ConvertFrom-Json
+        if ($release -isnot [pscustomobject] -or $release.tag_name -isnot [string] -or $release.draft -isnot [bool] -or $release.prerelease -isnot [bool]) {
+            throw 'Invalid release metadata.'
+        }
         if ($release.draft -or $release.prerelease) { throw 'No stable release was resolved.' }
         $tag = [string]$release.tag_name
     }

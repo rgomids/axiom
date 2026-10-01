@@ -236,11 +236,15 @@ func LockFile(file *os.File) error {
 	return windows.LockFileEx(windows.Handle(file.Fd()), windows.LOCKFILE_EXCLUSIVE_LOCK|windows.LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &windows.Overlapped{})
 }
 
-// Mkdir creates first, then restricts only the directory created by this call.
+// Mkdir creates a directory with its final protected DACL, relative to a pinned
+// parent handle. No path-based reopen or post-creation hardening is needed.
 // Existing directories are never silently re-permissioned or adopted.
 func Mkdir(root *os.Root, name string) error {
-	if err := root.Mkdir(name, 0o700); err != nil {
-		return err
+	name = filepath.FromSlash(name)
+	for _, part := range strings.Split(name, `\`) {
+		if !ValidComponent(part) {
+			return ErrUnsafe
+		}
 	}
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
@@ -250,24 +254,33 @@ func Mkdir(root *os.Root, name string) error {
 	if err != nil {
 		return err
 	}
-	dacl, _, err := sd.DACL()
+	parent, err := root.Open(".")
 	if err != nil {
 		return err
 	}
-	p, err := windows.UTF16PtrFromString(filepath.Join(root.Name(), name))
+	defer parent.Close()
+	objectName, err := windows.NewNTUnicodeString(name)
 	if err != nil {
 		return err
 	}
-	h, err := windows.CreateFile(p, windows.WRITE_DAC|windows.READ_CONTROL, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	attrs := windows.OBJECT_ATTRIBUTES{
+		Length:        uint32(unsafe.Sizeof(windows.OBJECT_ATTRIBUTES{})),
+		RootDirectory: windows.Handle(parent.Fd()), ObjectName: objectName,
+		Attributes: windows.OBJ_CASE_INSENSITIVE | windows.OBJ_DONT_REPARSE, SecurityDescriptor: sd,
+	}
+	var h windows.Handle
+	var status windows.IO_STATUS_BLOCK
+	err = windows.NtCreateFile(&h, windows.FILE_GENERIC_READ, &attrs, &status, nil,
+		windows.FILE_ATTRIBUTE_DIRECTORY, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		windows.FILE_CREATE, windows.FILE_DIRECTORY_FILE, 0, 0)
 	if err != nil {
-		return err
+		var nt windows.NTStatus
+		if errors.As(err, &nt) {
+			err = nt.Errno()
+		}
+		return &os.PathError{Op: "mkdir", Path: name, Err: err}
 	}
 	f := os.NewFile(uintptr(h), name)
 	defer f.Close()
-	expected, e1 := root.Lstat(name)
-	actual, e2 := f.Stat()
-	if e1 != nil || e2 != nil || !os.SameFile(expected, actual) || expected.Mode()&os.ModeSymlink != 0 {
-		return ErrUnsafe
-	}
-	return windows.SetSecurityInfo(h, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, dacl, nil)
+	return Check(f, true)
 }

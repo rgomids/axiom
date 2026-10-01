@@ -9,10 +9,11 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 
 [Specification](005-windows-native-support/spec.md),
 [Plan](005-windows-native-support/plan.md), and
-[Tasks](005-windows-native-support/tasks.md): **Proposed**. This is the
-reviewable native Windows contract; it preserves the existing POSIX release and
-filesystem guarantees until Windows-specific security and native Evidence are
-delivered.
+[Tasks](005-windows-native-support/tasks.md): **Implementation authorized,
+2026-09-30**. Native implementation is under review in PR #149; validation and
+remaining acceptance/release gates are recorded in
+[Evidence](005-windows-native-support/evidence.md). Merge, human acceptance and
+release publication remain separate decisions.
 
 ## 001 — Codex agent harness generation
 
