@@ -924,7 +924,7 @@ code {
 .installer-line {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-16);
+  gap: var(--space-12);
   margin: 0 calc(-1 * var(--space-8));
   padding: 2px var(--space-8);
   border-radius: var(--radius-sm);
@@ -941,8 +941,9 @@ code {
 }
 .installer-line .copy-btn:hover { border-color: var(--accent); color: var(--text); }
 
+/* The command takes only its own width, so the button sits right after it */
 .installer-line code {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   padding: 3px 0 0;
   border: 0;
