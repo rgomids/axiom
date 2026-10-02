@@ -884,27 +884,38 @@ code {
   background: var(--bg-raised);
 }
 
-.installer-group { display: grid; gap: var(--space-8); }
+.installer-group { display: grid; gap: var(--space-4); }
 
 .installer-comment {
   color: var(--text-faint);
   font: var(--fs-12)/1.6 var(--font-mono);
 }
 
+/* Lines read as one terminal; the row lights up on hover */
 .installer-line {
   display: flex;
   align-items: flex-start;
   gap: var(--space-12);
-  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-12);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg);
+  margin: 0 calc(-1 * var(--space-8));
+  padding: 2px var(--space-8);
+  border-radius: var(--radius-sm);
+  transition: background var(--motion-fast) ease;
 }
+.installer-line:hover { background: rgba(255, 255, 255, 0.03); }
+
+.installer-line .copy-btn {
+  padding: 0 var(--space-8);
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.installer-line .copy-btn:hover { border-color: var(--accent); color: var(--text); }
 
 .installer-line code {
   flex: 1;
   min-width: 0;
-  padding: 4px 0 0;
+  padding: 2px 0 0;
   border: 0;
   background: none;
   color: var(--text);
