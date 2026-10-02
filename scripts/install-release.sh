@@ -356,9 +356,10 @@ upgrade_result() {
   printf '%s' "${result:-unavailable}"
 }
 
+# Only the top-level next step, never a nested effect's "next" revision.
 upgrade_next() {
   local next
-  next=$(sed -n 's/.*"next":"\([^"]*\)".*/\1/p' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9 :;,._`-')
+  next=$(sed -n 's/^{"status":"[a-z_]*","result":"[^"]*"\(,"references":\[[^]]*\]\)\{0,1\},"next":"\([^"]*\)".*/\2/p' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9 :;,._`-')
   printf '%s' "${next:-unavailable}"
 }
 

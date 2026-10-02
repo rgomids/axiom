@@ -2,6 +2,7 @@ package install
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -230,14 +231,7 @@ func TestUpgradeTransitionAuthorityIsStaleWhenStateChanges(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
-		{"state becomes recognized POC", func(t *testing.T, i installation) {
-			workflows := privateDirectory(t, privateDirectory(t, i.target.State.State, "workflows"), pocProjectID)
-			wire, err := os.ReadFile(filepath.Join(pocFixture, "state", "workflows", pocProjectID, "main-7.json"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			writeFile(t, filepath.Join(workflows, "main-7.json"), wire, 0o600)
-		}},
+		{"state becomes recognized POC", func(t *testing.T, i installation) { i.addPOCWorkflow(t) }},
 		{"state becomes unsupported newer", func(t *testing.T, i installation) {
 			replaceIn(t, i.workItem(), `"formatVersion":1`, `"formatVersion":2`)
 		}},
@@ -293,5 +287,74 @@ func TestUpgradeTransitionAuthorityIsStaleWhenTargetReleaseChanges(t *testing.T)
 		if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
 			t.Fatal("stale target authority changed installation or state")
 		}
+	}
+}
+
+func (i installation) addPOCWorkflow(t *testing.T) {
+	t.Helper()
+	workflows := privateDirectory(t, privateDirectory(t, i.target.State.State, "workflows"), pocProjectID)
+	wire, err := os.ReadFile(filepath.Join(pocFixture, "state", "workflows", pocProjectID, "main-7.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(workflows, "main-7.json"), wire, 0o600)
+}
+
+// A resumable interrupted upgrade still passes through the policy: state that
+// no longer resolves to direct blocks the resume without further effects and
+// keeps the operation marker for recovery.
+func TestUpgradeResumeRefusesNonDirectStateWithoutEffects(t *testing.T) {
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	installed.withV1State(t)
+	candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+	service := NewService()
+	preview, err := service.Preview(context.Background(), installed.target, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority, _ := Authorize(preview, preview.Digest)
+	service.afterEffect = func(kind string) error {
+		if kind == "binary" {
+			return errors.New("injected interruption")
+		}
+		return nil
+	}
+	if result, err := service.Apply(context.Background(), preview, authority); err == nil || result.Status != "partial" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	installed.addPOCWorkflow(t)
+	before := snapshot(t, filepath.Dir(installed.target.BinaryDir))
+	resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+	if category(err) != "state_transition_unavailable" || !resume.Resume || resume.Digest != "" || resume.Transition.Strategy != compatibility.StrategyPreserveRebuildReconfigure {
+		t.Fatalf("resume=%+v err=%v", resume, err)
+	}
+	if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
+		t.Fatal("refused resume changed installation or state")
+	}
+	if !strings.Contains(read(t, filepath.Join(installed.target.ReceiptDir, markerName)), "stage=binary_committed\n") {
+		t.Fatal("refused resume lost the operation marker")
+	}
+}
+
+// Resulting-state validation uses the same policy: state that stops resolving
+// to direct while effects publish is never reported as success.
+func TestUpgradeFinalStateMustStillResolveDirect(t *testing.T) {
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	installed.withV1State(t)
+	service := NewService()
+	preview, err := service.Preview(context.Background(), installed.target, installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n"))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority, _ := Authorize(preview, preview.Digest)
+	service.afterEffect = func(kind string) error {
+		if kind == "receipt" {
+			installed.addPOCWorkflow(t)
+		}
+		return nil
+	}
+	result, err := service.Apply(context.Background(), preview, authority)
+	if category(err) != "final_verification_failed" || result.Status != "partial" || len(result.Ledger) != 2 {
+		t.Fatalf("result=%+v err=%v", result, err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
@@ -301,7 +302,12 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 		if category == "installation_busy_or_interrupted" {
 			facts = completion.Facts{RetrySafeFailure: true}
 		}
-		return s.maintenanceResult(facts, "Upgrade blocked before any effect: "+category, nil, upgradeNext(category), upgradeView{Preview: preview})
+		next := upgradeNext(category)
+		if preview.Resume && strings.HasPrefix(category, "state_") {
+			// An earlier interrupted run may already have published effects.
+			next = "An interrupted upgrade to this archive is pending and existing Axiom state now blocks it; preserve the installation and state for operator review"
+		}
+		return s.maintenanceResult(facts, "Upgrade blocked before any effect: "+category, nil, next, upgradeView{Preview: preview})
 	}
 	references := []string{"upgrade:" + preview.Digest}
 	if len(preview.Effects) == 0 && len(preview.Leftovers) == 0 && !preview.Resume {
