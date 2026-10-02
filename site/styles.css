@@ -735,10 +735,10 @@ code {
   place-items: center;
   width: 128px;
   height: 128px;
-  border: 1.5px solid var(--teal);
+  border: 1.5px solid var(--gold);
   border-radius: 30px;
   background: var(--bg);
-  box-shadow: 0 0 40px rgba(125, 211, 200, 0.18);
+  box-shadow: 0 0 40px rgba(237, 179, 81, 0.2);
 }
 
 .flow-logo { width: 104px; height: 104px; object-fit: contain; }
