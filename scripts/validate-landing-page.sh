@@ -36,6 +36,7 @@ site_files=(
   "styles.css"
   "lang.js"
   "diagram.js"
+  "skills.js"
 )
 
 # Retired files: app.js carried the theme toggle, rain.js the Matrix background,

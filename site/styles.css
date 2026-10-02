@@ -26,7 +26,8 @@
   --accent-ink:    #101828;  /* DS semantic.action.onPrimary */
   --teal:          #7dd3c8;  /* landing: gradient end and eyebrows */
   --success:       #79dfa9;  /* DS semantic.status.success */
-  --gold:          #edb351;  /* DS color.brand-gold: brand signature only */
+  --gold:          #edb351;  /* DS color.brand-gold; landing also uses it as a light accent
+                                (eyebrows, step numbers, prompts, selected skill) — never in the gradient */
 
   --glow-blue:     rgba(145, 188, 255, 0.16);
   --glow-teal:     rgba(125, 211, 200, 0.12);
@@ -149,7 +150,7 @@ code {
 }
 
 .eyebrow {
-  color: var(--teal);
+  color: var(--gold);
   font-size: var(--fs-12);
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -241,7 +242,7 @@ code {
 }
 .lang-toggle:hover { border-color: var(--accent); background: var(--surface); }
 
-@media (min-width: 860px) {
+@media (min-width: 1000px) {
   .nav-section { display: inline-block; }
   .header-nav { gap: var(--space-8); }
 }
@@ -432,10 +433,10 @@ code {
 
 .window-body { display: grid; grid-template-columns: 1fr; }
 
+/* Side list of skills: wraps as chips on small screens, a column from 900px */
 .window-side {
-  display: none;
-  padding: var(--space-20) var(--space-16);
-  border-right: 1px solid var(--border);
+  padding: var(--space-16);
+  border-bottom: 1px solid var(--border);
   background: var(--bg-raised);
 }
 
@@ -447,33 +448,103 @@ code {
   text-transform: uppercase;
 }
 
-.window-side ul { margin: 0; padding: 0; list-style: none; }
+.skill-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
-.window-side li {
+.skill-tab {
+  width: 100%;
   padding: 6px var(--space-8);
+  border: 0;
   border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--text-faint);
   font: var(--fs-12)/1.5 var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+.skill-tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.04); }
+
+@media (max-width: 899px) {
+  .skill-tab { width: auto; border: 1px solid var(--border); }
 }
 
-.window-side li.is-current {
-  background: rgba(145, 188, 255, 0.1);
-  box-shadow: inset 2px 0 0 var(--accent);
+.skill-tab[aria-selected="true"] {
+  background: rgba(237, 179, 81, 0.1);
+  box-shadow: inset 2px 0 0 var(--gold);
   color: var(--text);
 }
 
-/* Lines wrap instead of scrolling, so the whole window always fits the screen */
-.window-code {
-  margin: 0;
+/* Skill panel: replaces the old command listing inside the window */
+.window-main {
+  min-width: 0;
   padding: var(--space-24) var(--space-20) var(--space-32);
+}
+
+.skill-name {
+  color: var(--gold);
+  font: 600 var(--fs-14)/1.4 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.skill-desc {
+  margin-top: var(--space-8);
+  color: var(--text);
+  font-size: var(--fs-16);
+  font-weight: 500;
+}
+
+.skill-note,
+.skill-invoke {
+  margin-top: var(--space-8);
+  color: var(--text-muted);
+  font-size: var(--fs-14);
+}
+.skill-invoke { margin-top: var(--space-16); }
+
+/* Example with its Copy button */
+.copy-block {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  margin-top: var(--space-8);
+  padding: var(--space-12) var(--space-12) var(--space-12) var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.copy-block pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding-top: 5px;
+  color: var(--text);
+  font: 13px/1.6 var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  color: var(--text);
-  font: var(--fs-12)/1.85 var(--font-mono);
 }
-.window-code code { padding: 0; border: 0; background: none; font-size: inherit; }
-.window-code .c { color: var(--text-faint); }
-.window-code .p { color: var(--teal); }
+.copy-block code { padding: 0; border: 0; background: none; font-size: inherit; }
+
+.copy-btn {
+  flex: none;
+  padding: var(--space-4) var(--space-12);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: 600 var(--fs-12)/1.8 var(--font-sans);
+  cursor: pointer;
+  transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+.copy-btn:hover { border-color: var(--accent); }
+.copy-btn.is-copied { border-color: var(--success); color: var(--success); }
 
 .preview-caption {
   padding: var(--space-12) var(--space-16);
@@ -487,9 +558,10 @@ code {
 }
 
 @media (min-width: 900px) {
-  .window-body { grid-template-columns: 230px 1fr; }
-  .window-side { display: block; }
-  .window-code { font-size: 13px; }
+  .window-body { grid-template-columns: 240px 1fr; }
+  .window-side { border-bottom: 0; border-right: 1px solid var(--border); padding: var(--space-20) var(--space-16); }
+  .skill-tabs { flex-direction: column; flex-wrap: nowrap; }
+  .window-main { padding: var(--space-32); }
 }
 
 /* --- Sections --- */
@@ -681,7 +753,7 @@ code {
   color: var(--text-faint);
   font-size: var(--fs-14);
 }
-.flow-process span { color: var(--teal); }
+.flow-process span { color: var(--gold); }
 
 @media (min-width: 760px) {
   .flow { padding: var(--space-32); }
@@ -752,16 +824,10 @@ code {
   .joined-item + .joined-item { border-left: 1px solid var(--border); }
 }
 
-/* --- Step numbers (Getting started) --- */
-.step-n { color: var(--teal); font: var(--fs-12)/1 var(--font-mono); }
+/* --- Step cards: How it works phases and Getting started steps --- */
+.step-n { color: var(--gold); font: var(--fs-12)/1 var(--font-mono); }
 
-/* --- Getting started --- */
-.start-grid {
-  display: grid;
-  gap: var(--space-32);
-}
-
-.start-steps {
+.step-cards {
   display: grid;
   gap: var(--space-12);
   margin: 0;
@@ -769,7 +835,7 @@ code {
   list-style: none;
 }
 
-.start-steps li {
+.step-cards li {
   display: flex;
   gap: var(--space-16);
   padding: var(--space-16) var(--space-20);
@@ -778,19 +844,79 @@ code {
   background: var(--surface);
 }
 
-.start-steps .step-n { padding-top: 5px; }
+.step-cards .step-n { padding-top: 5px; }
+.step-cards h3 { font-size: var(--fs-16); font-weight: 600; }
+.step-cards p { margin-top: var(--space-4); color: var(--text-muted); font-size: var(--fs-14); }
 
-.start-steps h3 { font-size: var(--fs-16); font-weight: 600; }
-
-.start-steps p { margin-top: var(--space-4); color: var(--text-muted); font-size: var(--fs-14); }
+.how-steps { margin-top: var(--space-20); }
 
 @media (min-width: 640px) {
-  .start-steps { grid-template-columns: repeat(2, 1fr); }
+  .step-cards { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (min-width: 1100px) {
   .start-steps { grid-template-columns: repeat(5, 1fr); }
-  .start-steps li { flex-direction: column; gap: var(--space-8); }
+  .how-steps { grid-template-columns: repeat(4, 1fr); }
+  .step-cards li { flex-direction: column; gap: var(--space-8); }
+}
+
+/* --- Getting started --- */
+/* Corner light, like the other sections */
+.section-glow {
+  background:
+    radial-gradient(ellipse 50% 40% at 15% 0%, var(--glow-blue), transparent 70%),
+    var(--bg);
+}
+
+.start-grid {
+  display: grid;
+  gap: var(--space-24);
+}
+
+/* Installer: one row per command, each with its own Copy button.
+   Commands wrap instead of scrolling, so they always fit the screen. */
+.installer {
+  display: grid;
+  gap: var(--space-20);
+  padding: var(--space-20);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised);
+}
+
+.installer-group { display: grid; gap: var(--space-8); }
+
+.installer-comment {
+  color: var(--text-faint);
+  font: var(--fs-12)/1.6 var(--font-mono);
+}
+
+.installer-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.installer-line code {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: var(--fs-12)/1.7 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.installer-line .p { color: var(--gold); }
+
+@media (min-width: 900px) {
+  .installer { padding: var(--space-24) var(--space-32); }
+  .installer-line code { font-size: 13px; }
 }
 
 /* --- Status --- */

@@ -41,6 +41,7 @@
       <a class="nav-link nav-section" href="#what" data-pt="O que é">What it is</a>
       <a class="nav-link nav-section" href="#how" data-pt="Como funciona">How it works</a>
       <a class="nav-link nav-section" href="#start" data-pt="Primeiros passos">Getting started</a>
+      <a class="nav-link nav-section" href="#install" data-pt="Instalador">Installer</a>
       <a class="nav-link nav-section" href="#status" data-pt="Status">Status</a>
       <a class="nav-link" href="https://github.com/rgomids/axiom">GitHub</a>
       <a class="nav-link" href="https://github.com/rgomids/axiom#documentation" data-pt="Documentação">Documentation</a>
@@ -194,6 +195,38 @@
         <figcaption class="flow-process" data-pt-html="Especificar &lt;span aria-hidden=&quot;true&quot;&gt;→&lt;/span&gt; Planejar &lt;span aria-hidden=&quot;true&quot;&gt;→&lt;/span&gt; Executar &lt;span aria-hidden=&quot;true&quot;&gt;→&lt;/span&gt; Validar">Specify <span aria-hidden="true">→</span> Plan <span aria-hidden="true">→</span> Execute <span aria-hidden="true">→</span> Validate</figcaption>
       </figure>
 
+      <!-- Phase cards: one line each, from README "How Axiom works" -->
+      <ol class="step-cards how-steps" role="list">
+        <li>
+          <span class="step-n">01</span>
+          <div>
+            <h3 data-pt="Especificar">Specify</h3>
+            <p data-pt="A intenção vira uma Especificação com resultados, restrições e critérios de aceitação, antes do código.">Intent becomes a Specification with outcomes, constraints, and acceptance criteria, before any code.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-n">02</span>
+          <div>
+            <h3 data-pt="Planejar">Plan</h3>
+            <p data-pt="Decisões e plano ficam registrados; escolhas de arquitetura com impacto viram ADRs.">Decisions and the plan are recorded; architecture choices with lasting impact become ADRs.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-n">03</span>
+          <div>
+            <h3 data-pt="Executar">Execute</h3>
+            <p data-pt="A implementação avança em Execuções delimitadas no Codex ou no Claude, e escolhas materiais passam por aprovação humana.">Implementation runs in bounded Executions on Codex or Claude, and material choices wait for human approval.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-n">04</span>
+          <div>
+            <h3 data-pt="Validar">Validate</h3>
+            <p data-pt="Validação e revisão geram Evidência e reconciliam a documentação. A aceitação continua sendo uma decisão humana.">Validation and review produce Evidence and reconcile the docs. Acceptance remains a human decision.</p>
+          </div>
+        </li>
+      </ol>
+
       <p class="callout" data-pt="Hoje cada passo é conduzido por pessoas junto com o harness e os Runtimes. A orquestração dinâmica segue como trabalho futuro.">
         Today each step is driven by humans together with the harness and the Runtimes.
         Dynamic orchestration remains future work.
@@ -201,8 +234,8 @@
     </div>
   </section>
 
-  <!-- Getting started: steps from README "Getting Started", then the terminal preview -->
-  <section class="section" id="start" aria-labelledby="start-title">
+  <!-- Getting started: the five steps from README "Getting Started", then the skills window -->
+  <section class="section section-glow" id="start" aria-labelledby="start-title">
     <div class="shell">
       <header class="section-head">
         <p class="eyebrow" data-pt="Primeiros passos">Getting started</p>
@@ -211,7 +244,7 @@
       </header>
 
       <div class="start-grid">
-        <ol class="start-steps" role="list">
+        <ol class="step-cards start-steps" role="list">
           <li>
             <span class="step-n">01</span>
             <div>
@@ -251,8 +284,9 @@
           </li>
         </ol>
 
-          <!-- Terminal preview: every command below is documented in README.md.
-               Decorative copy of the docs, so screen readers get the caption. -->
+        <!-- Skills window: tabs on the left, one panel per skill on the right.
+             skills.js switches panels and copies the example; text from
+             internal/codexruntime/skills and README "Available skills". -->
         <figure class="preview">
           <div class="window">
             <div class="window-bar" aria-hidden="true">
@@ -260,43 +294,149 @@
               <span class="window-title">~/my-project</span>
             </div>
             <div class="window-body">
-              <aside class="window-side" aria-hidden="true">
-                <p class="side-label" data-pt="Skills do Runtime">Runtime skills</p>
-                <ul role="list">
-                  <li>axiom-project-configure</li>
-                  <li>axiom-project-show</li>
-                  <li>axiom-work-item-create</li>
-                  <li class="is-current">axiom-work-item-run</li>
-                  <li>axiom-work-item-status</li>
+              <div class="window-side">
+                <p class="side-label" id="skills-label" data-pt="Skills do Runtime">Runtime skills</p>
+                <ul class="skill-tabs" role="tablist" aria-labelledby="skills-label">
+                  <li role="presentation"><button class="skill-tab" id="tab-axiom-project-configure" type="button" role="tab" aria-selected="true" aria-controls="panel-axiom-project-configure">axiom-project-configure</button></li>
+                  <li role="presentation"><button class="skill-tab" id="tab-axiom-project-list" type="button" role="tab" aria-selected="false" aria-controls="panel-axiom-project-list" tabindex="-1">axiom-project-list</button></li>
+                  <li role="presentation"><button class="skill-tab" id="tab-axiom-project-show" type="button" role="tab" aria-selected="false" aria-controls="panel-axiom-project-show" tabindex="-1">axiom-project-show</button></li>
+                  <li role="presentation"><button class="skill-tab" id="tab-axiom-work-item-create" type="button" role="tab" aria-selected="false" aria-controls="panel-axiom-work-item-create" tabindex="-1">axiom-work-item-create</button></li>
+                  <li role="presentation"><button class="skill-tab" id="tab-axiom-work-item-run" type="button" role="tab" aria-selected="false" aria-controls="panel-axiom-work-item-run" tabindex="-1">axiom-work-item-run</button></li>
+                  <li role="presentation"><button class="skill-tab" id="tab-axiom-work-item-status" type="button" role="tab" aria-selected="false" aria-controls="panel-axiom-work-item-status" tabindex="-1">axiom-work-item-status</button></li>
                 </ul>
-              </aside>
-<pre class="window-code" aria-hidden="true"><code><span class="c"># install the latest stable release</span>
-<span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh
-<span class="p">$</span> axiom version
-<span class="p">$</span> axiom first-run
-
-<span class="c"># relate repositories to one Project</span>
-<span class="p">$</span> axiom project configure
-<span class="p">$</span> axiom project show --selector my-project
-
-<span class="c"># run the bounded workflow for Issue #123</span>
-<span class="p">$</span> axiom workflow start  --project my-project --repository main --number 123
-<span class="p">$</span> axiom workflow status --project my-project --repository main --number 123</code></pre>
+              </div>
+              <div class="window-main">
+              <div class="skill-panel" id="panel-axiom-project-configure" role="tabpanel" aria-labelledby="tab-axiom-project-configure">
+                <p class="skill-name">axiom-project-configure</p>
+                <p class="skill-desc" data-pt="Configura um Projeto e as associações dos Repositórios locais.">Configure a Project and its local Repository associations.</p>
+                <p class="skill-note" data-pt="Mostra uma prévia somente leitura e não grava nada até você aprovar exatamente essa prévia.">Shows a read-only preview and writes nothing until you approve that exact preview.</p>
+                <p class="skill-invoke" data-pt-html="Use no Codex como &lt;code&gt;$axiom-project-configure&lt;/code&gt; ou no Claude como &lt;code&gt;/axiom-project-configure&lt;/code&gt;. O mesmo pelo terminal:">Invoke it in Codex as <code>$axiom-project-configure</code> or in Claude as <code>/axiom-project-configure</code>. The same from the terminal:</p>
+                <div class="copy-block">
+                  <pre><code>axiom project configure</code></pre>
+                  <button class="copy-btn" type="button" data-copy="axiom project configure"><span data-pt="Copiar">Copy</span></button>
+                </div>
+              </div>
+              <div class="skill-panel" id="panel-axiom-project-list" role="tabpanel" aria-labelledby="tab-axiom-project-list" hidden>
+                <p class="skill-name">axiom-project-list</p>
+                <p class="skill-desc" data-pt="Lista os Projetos configurados, de qualquer diretório.">List configured Projects from any directory.</p>
+                <p class="skill-note" data-pt="Lê o estado do próprio Axiom; nunca vasculha o sistema de arquivos.">Reads Axiom’s own state; it never scans the filesystem.</p>
+                <p class="skill-invoke" data-pt-html="Use no Codex como &lt;code&gt;$axiom-project-list&lt;/code&gt; ou no Claude como &lt;code&gt;/axiom-project-list&lt;/code&gt;. O mesmo pelo terminal:">Invoke it in Codex as <code>$axiom-project-list</code> or in Claude as <code>/axiom-project-list</code>. The same from the terminal:</p>
+                <div class="copy-block">
+                  <pre><code>axiom project list</code></pre>
+                  <button class="copy-btn" type="button" data-copy="axiom project list"><span data-pt="Copiar">Copy</span></button>
+                </div>
+              </div>
+              <div class="skill-panel" id="panel-axiom-project-show" role="tabpanel" aria-labelledby="tab-axiom-project-show" hidden>
+                <p class="skill-name">axiom-project-show</p>
+                <p class="skill-desc" data-pt="Inspeciona ou resolve um Projeto configurado, de qualquer diretório.">Inspect or resolve a configured Project from any directory.</p>
+                <p class="skill-note" data-pt="Mostra o Projeto e as associações de Repositório; nunca deduz um Repositório pelo diretório atual.">Reports the Project and its Repository associations; it never infers a Repository from the current directory.</p>
+                <p class="skill-invoke" data-pt-html="Use no Codex como &lt;code&gt;$axiom-project-show&lt;/code&gt; ou no Claude como &lt;code&gt;/axiom-project-show&lt;/code&gt;. O mesmo pelo terminal:">Invoke it in Codex as <code>$axiom-project-show</code> or in Claude as <code>/axiom-project-show</code>. The same from the terminal:</p>
+                <div class="copy-block">
+                  <pre><code>axiom project show --selector my-project</code></pre>
+                  <button class="copy-btn" type="button" data-copy="axiom project show --selector my-project"><span data-pt="Copiar">Copy</span></button>
+                </div>
+              </div>
+              <div class="skill-panel" id="panel-axiom-work-item-create" role="tabpanel" aria-labelledby="tab-axiom-work-item-create" hidden>
+                <p class="skill-name">axiom-work-item-create</p>
+                <p class="skill-desc" data-pt="Cria ou seleciona um Work Item no GitHub.">Create or select a GitHub-backed Work Item.</p>
+                <p class="skill-note" data-pt="Primeiro rascunha a Issue; ela só é criada depois que você autoriza exatamente essa prévia.">Drafts the Issue first; it is created only after you authorize that exact preview.</p>
+                <p class="skill-invoke" data-pt-html="Use no Codex como &lt;code&gt;$axiom-work-item-create&lt;/code&gt; ou no Claude como &lt;code&gt;/axiom-work-item-create&lt;/code&gt;. O mesmo pelo terminal:">Invoke it in Codex as <code>$axiom-work-item-create</code> or in Claude as <code>/axiom-work-item-create</code>. The same from the terminal:</p>
+                <div class="copy-block">
+                  <pre><code>axiom work-item create --project my-project --repository main --provider-repository owner/repository</code></pre>
+                  <button class="copy-btn" type="button" data-copy="axiom work-item create --project my-project --repository main --provider-repository owner/repository"><span data-pt="Copiar">Copy</span></button>
+                </div>
+              </div>
+              <div class="skill-panel" id="panel-axiom-work-item-run" role="tabpanel" aria-labelledby="tab-axiom-work-item-run" hidden>
+                <p class="skill-name">axiom-work-item-run</p>
+                <p class="skill-desc" data-pt="Inicia ou retoma o fluxo de entrega delimitado de um Work Item.">Start or resume the bounded delivery workflow for a Work Item.</p>
+                <p class="skill-note" data-pt="Segue o gate que o Axiom devolve; planejamento, implementação e aceitação humana só são registrados com autoridade explícita.">Follows the gate Axiom returns; planning, implementation and human acceptance are recorded only with explicit authority.</p>
+                <p class="skill-invoke" data-pt-html="Use no Codex como &lt;code&gt;$axiom-work-item-run&lt;/code&gt; ou no Claude como &lt;code&gt;/axiom-work-item-run&lt;/code&gt;. O mesmo pelo terminal:">Invoke it in Codex as <code>$axiom-work-item-run</code> or in Claude as <code>/axiom-work-item-run</code>. The same from the terminal:</p>
+                <div class="copy-block">
+                  <pre><code>axiom workflow start --project my-project --repository main --number 123</code></pre>
+                  <button class="copy-btn" type="button" data-copy="axiom workflow start --project my-project --repository main --number 123"><span data-pt="Copiar">Copy</span></button>
+                </div>
+              </div>
+              <div class="skill-panel" id="panel-axiom-work-item-status" role="tabpanel" aria-labelledby="tab-axiom-work-item-status" hidden>
+                <p class="skill-name">axiom-work-item-status</p>
+                <p class="skill-desc" data-pt="Inspeciona o status do fluxo e a Evidência de um Work Item.">Inspect Work Item workflow status and Evidence.</p>
+                <p class="skill-note" data-pt="Somente leitura: mostra o status, o gate atual e a Evidência, sem alterar nada.">Read-only: reports the status, the current gate and the Evidence, and changes nothing.</p>
+                <p class="skill-invoke" data-pt-html="Use no Codex como &lt;code&gt;$axiom-work-item-status&lt;/code&gt; ou no Claude como &lt;code&gt;/axiom-work-item-status&lt;/code&gt;. O mesmo pelo terminal:">Invoke it in Codex as <code>$axiom-work-item-status</code> or in Claude as <code>/axiom-work-item-status</code>. The same from the terminal:</p>
+                <div class="copy-block">
+                  <pre><code>axiom workflow status --project my-project --repository main --number 123</code></pre>
+                  <button class="copy-btn" type="button" data-copy="axiom workflow status --project my-project --repository main --number 123"><span data-pt="Copiar">Copy</span></button>
+                </div>
+              </div>
+              </div>
             </div>
           </div>
-          <figcaption class="preview-caption" data-pt="Comandos da documentação de primeiros passos. Os Runtimes Codex e Claude chamam a mesma CLI pelas skills.">Commands from the Getting Started guide. Codex and Claude Runtimes call the same CLI through skills.</figcaption>
+          <figcaption class="preview-caption" data-pt="Clique em uma skill para ver o que ela faz. Os Runtimes Codex e Claude chamam a mesma CLI pelas skills.">Click a skill to see what it does. Codex and Claude Runtimes call the same CLI through skills.</figcaption>
         </figure>
       </div>
+    </div>
+  </section>
 
-      <p class="callout" data-pt-html="Hosts suportados: macOS 27.0 em arm64 e Ubuntu 26.04 em amd64 ou arm64. &lt;a href=&quot;https://github.com/rgomids/axiom#getting-started&quot;&gt;Guia completo de primeiros passos&lt;/a&gt;.">
-        Supported hosts: macOS 27.0 on arm64 and Ubuntu 26.04 on amd64 or arm64.
+  <!-- Installer: the commands from README "Getting Started" -->
+  <section class="section section-alt" id="install" aria-labelledby="install-title">
+    <div class="shell">
+      <header class="section-head">
+        <p class="eyebrow" data-pt="Instalador">Installer</p>
+        <h2 id="install-title" data-pt="Instale pelo terminal.">Install from the terminal.</h2>
+        <p class="section-lede" data-pt="Os comandos do guia de primeiros passos, da instalação ao primeiro fluxo.">The commands from the Getting Started guide, from install to your first workflow.</p>
+      </header>
+
+      <div class="start-grid">
+<!-- One row per command; each Copy button is handled by skills.js -->
+        <div class="installer">
+          <div class="installer-group">
+            <p class="installer-comment"># install the latest stable release</p>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh</code>
+              <button class="copy-btn" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh"><span data-pt="Copiar">Copy</span></button>
+            </div>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom version</code>
+              <button class="copy-btn" type="button" data-copy="axiom version"><span data-pt="Copiar">Copy</span></button>
+            </div>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom first-run</code>
+              <button class="copy-btn" type="button" data-copy="axiom first-run"><span data-pt="Copiar">Copy</span></button>
+            </div>
+          </div>
+          <div class="installer-group">
+            <p class="installer-comment"># relate repositories to one Project</p>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom project configure</code>
+              <button class="copy-btn" type="button" data-copy="axiom project configure"><span data-pt="Copiar">Copy</span></button>
+            </div>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom project show --selector my-project</code>
+              <button class="copy-btn" type="button" data-copy="axiom project show --selector my-project"><span data-pt="Copiar">Copy</span></button>
+            </div>
+          </div>
+          <div class="installer-group">
+            <p class="installer-comment"># run the bounded workflow for Issue #123</p>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom workflow start --project my-project --repository main --number 123</code>
+              <button class="copy-btn" type="button" data-copy="axiom workflow start --project my-project --repository main --number 123"><span data-pt="Copiar">Copy</span></button>
+            </div>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom workflow status --project my-project --repository main --number 123</code>
+              <button class="copy-btn" type="button" data-copy="axiom workflow status --project my-project --repository main --number 123"><span data-pt="Copiar">Copy</span></button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="callout" data-pt-html="Hosts suportados: Mac e Linux. &lt;a href=&quot;https://github.com/rgomids/axiom#getting-started&quot;&gt;Guia completo de primeiros passos&lt;/a&gt;.">
+        Supported hosts: Mac and Linux.
         <a href="https://github.com/rgomids/axiom#getting-started">Full Getting Started guide</a>.
       </p>
     </div>
   </section>
 
   <!-- Project status: keep in step with README "Project status" -->
-  <section class="section section-alt" id="status" aria-labelledby="status-title">
+  <section class="section section-glow" id="status" aria-labelledby="status-title">
     <div class="shell">
       <header class="section-head">
         <p class="eyebrow" data-pt="Status do projeto">Project status</p>
@@ -377,6 +517,7 @@
 
 <script src="lang.js" defer></script>
 <script src="diagram.js" defer></script>
+<script src="skills.js" defer></script>
 
 <!-- Icons in the flow diagram are from Lucide (https://lucide.dev), inlined as SVG.
 ISC License
