@@ -24,15 +24,15 @@
   --accent:        #91bcff;  /* DS semantic.action.primary and focus.ring */
   --accent-strong: #b2d1ff;  /* DS semantic.action.hover */
   --accent-ink:    #101828;  /* DS semantic.action.onPrimary */
-  --teal:          #7dd3c8;  /* landing: gradient end and eyebrows */
-  --success:       #79dfa9;  /* DS semantic.status.success */
+  --blue-deep:     #4d8eff;  /* landing: deeper blue for the gradient, checks, rings and "available" (replaced the teal/green, maintainer 2026-10-02) */
+  --success:       #4d8eff;  /* landing: deep blue instead of DS semantic.status.success green (maintainer 2026-10-02) */
   --gold:          #edb351;  /* DS color.brand-gold; landing also uses it as a light accent
                                 (eyebrows, step numbers, prompts, selected skill) — never in the gradient */
 
   --glow-blue:     rgba(145, 188, 255, 0.16);
-  --glow-teal:     rgba(125, 211, 200, 0.12);
-  --line:          rgba(125, 211, 200, 0.38);
-  --gradient:      linear-gradient(100deg, var(--accent) 0%, var(--teal) 100%);
+  --glow-deep:     rgba(77, 142, 255, 0.12);
+  --line:          rgba(77, 142, 255, 0.38);
+  --gradient:      linear-gradient(100deg, var(--blue-deep) 0%, var(--accent) 100%);
 
   /* DS: Inter with system fallback; mono is landing-only (eyebrows, code) */
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -255,7 +255,7 @@ code {
   /* Static depth: a top haze, a glow behind the preview and a faint grid */
   background:
     radial-gradient(ellipse 60% 40% at 50% 0%, var(--glow-blue), transparent 70%),
-    radial-gradient(ellipse 55% 35% at 50% 88%, var(--glow-teal), transparent 70%),
+    radial-gradient(ellipse 55% 35% at 50% 88%, var(--glow-deep), transparent 70%),
     linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 120px 120px,
     linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 120px 120px,
     var(--bg);
@@ -342,7 +342,7 @@ code {
 .btn-primary:hover {
   color: var(--accent-ink);
   transform: translateY(-1px);
-  box-shadow: 0 10px 34px rgba(125, 211, 200, 0.32);
+  box-shadow: 0 10px 34px rgba(77, 142, 255, 0.32);
 }
 
 .btn-ghost {
@@ -379,8 +379,8 @@ code {
   width: 10px;
   height: 6px;
   margin-top: -3px;
-  border-left: 2px solid var(--teal);
-  border-bottom: 2px solid var(--teal);
+  border-left: 2px solid var(--blue-deep);
+  border-bottom: 2px solid var(--blue-deep);
   transform: rotate(-45deg);
 }
 
@@ -643,7 +643,7 @@ code {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background:
-    radial-gradient(ellipse 40% 60% at 50% 50%, rgba(125, 211, 200, 0.07), transparent 70%),
+    radial-gradient(ellipse 40% 60% at 50% 50%, rgba(77, 142, 255, 0.07), transparent 70%),
     var(--bg-raised);
 }
 
@@ -751,10 +751,10 @@ code {
   width: 128px;
   height: 128px;
   margin-left: -64px;
-  border: 1px solid var(--teal);
+  border: 1px solid var(--blue-deep);
   border-radius: 30px;
   opacity: 0;
-  box-shadow: 0 0 8px rgba(125, 211, 200, 0.5);
+  box-shadow: 0 0 8px rgba(77, 142, 255, 0.5);
   animation: flow-radiate 4.8s infinite;
   pointer-events: none;
 }

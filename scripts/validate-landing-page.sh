@@ -221,9 +221,9 @@ def contrast(a, b):
 
 pairs = [
     (fg, bg)
-    for fg in ("text", "text-muted", "text-faint", "accent", "accent-strong", "teal", "success", "gold")
+    for fg in ("text", "text-muted", "text-faint", "accent", "accent-strong", "blue-deep", "success", "gold")
     for bg in ("bg", "bg-raised", "surface", "surface-hover")
-] + [("accent-ink", "accent"), ("accent-ink", "accent-strong"), ("accent-ink", "teal")]
+] + [("accent-ink", "accent"), ("accent-ink", "accent-strong"), ("accent-ink", "blue-deep")]
 
 for fg, bg in pairs:
     if fg not in tokens or bg not in tokens:
