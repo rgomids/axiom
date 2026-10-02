@@ -22,17 +22,17 @@
   --text-faint:    #b2bac2;  /* DS semantic.text.muted */
 
   --accent:        #91bcff;  /* DS semantic.action.primary and focus.ring */
-  --accent-strong: #b2d1ff;  /* DS semantic.action.hover */
   --accent-ink:    #101828;  /* DS semantic.action.onPrimary */
-  --blue-deep:     #4d8eff;  /* landing: deeper blue for the gradient, checks, rings and "available" (replaced the teal/green, maintainer 2026-10-02) */
-  --success:       #4d8eff;  /* landing: deep blue instead of DS semantic.status.success green (maintainer 2026-10-02) */
-  --gold:          #edb351;  /* DS color.brand-gold; landing also uses it as a light accent
-                                (eyebrows, step numbers, prompts, selected skill) — never in the gradient */
+  --gold-strong:   #f5cf8b;  /* landing: lighter gold for gradients and hover */
+  --gold:          #edb351;  /* DS color.brand-gold; also the landing highlight: links, checks, eyebrows, gradient start */
 
   --glow-blue:     rgba(145, 188, 255, 0.16);
   --glow-deep:     rgba(77, 142, 255, 0.12);
-  --line:          rgba(77, 142, 255, 0.38);
-  --gradient:      linear-gradient(100deg, var(--blue-deep) 0%, var(--accent) 100%);
+  /* Faint 120px grid, used only by the hero (Getting started has a perspective grid) */
+  --grid:
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 120px 120px,
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 120px 120px;
+  --gradient:      linear-gradient(100deg, var(--gold) 0%, var(--gold-strong) 100%);
 
   /* DS: Inter with system fallback; mono is landing-only (eyebrows, code) */
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -45,9 +45,6 @@
   --fs-14: 14px;
   --fs-16: 16px;
   --fs-20: 20px;
-  --fs-24: 24px;
-  --fs-32: 32px;
-  --fs-48: 48px;
 
   /* DS spacing scale */
   --space-4: 4px;
@@ -93,17 +90,19 @@ body {
 
 img { max-width: 100%; height: auto; display: block; }
 
+/* Titles use the monospace stack, like the nav and the eyebrows */
 h1, h2, h3 {
   margin: 0;
   color: var(--text);
-  line-height: 1.12;
-  letter-spacing: -0.02em;
+  font-family: var(--font-mono);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 
 p { margin: 0; }
 
-a { color: var(--accent); text-underline-offset: 3px; }
-a:hover { color: var(--accent-strong); }
+a { color: var(--gold); text-underline-offset: 3px; }
+a:hover { color: var(--gold-strong); }
 
 code {
   font-family: var(--font-mono);
@@ -142,6 +141,7 @@ code {
   padding: 0 var(--space-20);
 }
 
+/* Highlighted words share the button's green gradient */
 .gradient-text {
   background: var(--gradient);
   -webkit-background-clip: text;
@@ -213,38 +213,130 @@ code {
 .header-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
 }
 
+/* Nav items: monospace, with a thin separator between neighbours */
 .nav-link {
+  position: relative;
   padding: var(--space-8) 6px;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: var(--fs-14);
+  font: var(--fs-12)/1.4 var(--font-mono);
+  letter-spacing: 0.02em;
   text-decoration: none;
   transition: color var(--motion-fast) ease;
 }
 .nav-link:hover { color: var(--text); }
 
+.nav-link + .nav-link { margin-left: 13px; }
+.nav-link + .nav-link::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -7px;
+  width: 1px;
+  height: 12px;
+  background: var(--border-strong);
+  transform: translateY(-50%);
+}
+
+/* Below 1000px the section links are hidden: no separator before GitHub */
+@media (max-width: 999px) {
+  .nav-section + .nav-link:not(.nav-section) { margin-left: 0; }
+  .nav-section + .nav-link:not(.nav-section)::before { display: none; }
+}
+
 .nav-section { display: none; }
 
+/* Language menu: globe button + flag list (lang.js) */
+.lang-menu { position: relative; margin-left: var(--space-12); }
+
 .lang-toggle {
-  margin-left: var(--space-4);
-  padding: var(--space-4) var(--space-12);
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text);
-  font: 600 var(--fs-12)/1.6 var(--font-mono);
-  letter-spacing: 0.08em;
   cursor: pointer;
   transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
 }
-.lang-toggle:hover { border-color: var(--accent); background: var(--surface); }
+.lang-toggle:hover,
+.lang-toggle[aria-expanded="true"] { border-color: var(--accent); background: var(--surface); }
+
+/* Spinning globe: the two meridians sweep across the face */
+.globe {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.globe-meridian {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: globe-spin 4s linear infinite;
+}
+.globe-meridian-two { animation-delay: -2s; }
+
+@keyframes globe-spin {
+  0%   { transform: translateX(-6px) scaleX(0.15); opacity: 0; }
+  15%  { opacity: 1; }
+  50%  { transform: translateX(0) scaleX(1); }
+  85%  { opacity: 1; }
+  100% { transform: translateX(6px) scaleX(0.15); opacity: 0; }
+}
+
+.lang-list {
+  position: absolute;
+  top: calc(100% + var(--space-8));
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-4);
+  list-style: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.lang-list[hidden] { display: none; }
+
+/* Flag-only options; the language name is the button's accessible label */
+.lang-option {
+  display: grid;
+  place-items: center;
+  padding: var(--space-8) var(--space-12);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-14);
+  text-align: left;
+  cursor: pointer;
+}
+.lang-option:hover,
+.lang-option:focus-visible { background: var(--surface-hover); color: var(--text); }
+.lang-option[aria-checked="true"] { background: rgba(237, 179, 81, 0.1); box-shadow: inset 2px 0 0 var(--gold); }
+
+.flag {
+  flex: none;
+  width: 30px;
+  height: 20px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
 
 @media (min-width: 1000px) {
   .nav-section { display: inline-block; }
-  .header-nav { gap: var(--space-8); }
 }
 
 /* --- Hero --- */
@@ -256,8 +348,7 @@ code {
   background:
     radial-gradient(ellipse 60% 40% at 50% 0%, var(--glow-blue), transparent 70%),
     radial-gradient(ellipse 55% 35% at 50% 88%, var(--glow-deep), transparent 70%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 120px 120px,
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px) 0 0 / 120px 120px,
+    var(--grid),
     var(--bg);
 }
 
@@ -292,8 +383,8 @@ code {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 8px var(--success);
+  background: var(--gold);
+  box-shadow: 0 0 8px var(--gold);
 }
 
 .hero-title {
@@ -301,7 +392,7 @@ code {
   margin-top: var(--space-24);
   font-size: clamp(1.9rem, 4.6vw, 3rem);  /* landing: display size above the DS scale */
   font-weight: 700;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.02em;
 }
 
 .hero-copy {
@@ -334,15 +425,16 @@ code {
               border-color var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 
+/* Bright, saturated yellow so the main call to action stands out */
 .btn-primary {
-  background: var(--gradient);
+  background: linear-gradient(100deg, #ffc93c 0%, #ffe07a 100%);
   color: var(--accent-ink);
-  box-shadow: 0 8px 28px rgba(145, 188, 255, 0.25);
+  box-shadow: 0 8px 28px rgba(255, 201, 60, 0.3);
 }
 .btn-primary:hover {
   color: var(--accent-ink);
   transform: translateY(-1px);
-  box-shadow: 0 10px 34px rgba(77, 142, 255, 0.32);
+  box-shadow: 0 10px 34px rgba(255, 201, 60, 0.42);
 }
 
 .btn-ghost {
@@ -379,8 +471,8 @@ code {
   width: 10px;
   height: 6px;
   margin-top: -3px;
-  border-left: 2px solid var(--blue-deep);
-  border-bottom: 2px solid var(--blue-deep);
+  border-left: 2px solid var(--gold);
+  border-bottom: 2px solid var(--gold);
   transform: rotate(-45deg);
 }
 
@@ -392,7 +484,7 @@ code {
   .guarantees li + li { border-top: 0; border-left: 1px solid var(--border); }
 }
 
-/* --- Terminal preview (Getting started) --- */
+/* --- Skills window (Getting started) --- */
 .preview {
   width: 100%;
   min-width: 0;
@@ -559,7 +651,7 @@ code {
   stroke-linejoin: round;
 }
 .copy-btn .icon-done { display: none; }
-.copy-btn.is-copied { border-color: var(--success); color: var(--success); }
+.copy-btn.is-copied { border-color: var(--gold); color: var(--gold); }
 .copy-btn.is-copied .icon-copy { display: none; }
 .copy-btn.is-copied .icon-done { display: block; }
 
@@ -604,6 +696,30 @@ code {
     var(--bg-raised);
 }
 
+/* Getting started: perspective floor grid (synthwave style), drawn as SVG in
+   index.html with its horizon at the top of the section. Static. Raise the
+   stroke alpha below to make it stronger. */
+.section-alt.section-grid {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 60% 35% at 50% 0%, rgba(145, 188, 255, 0.18), transparent 70%),
+    var(--bg-raised);
+}
+
+.persp-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  stroke: rgba(145, 188, 255, 0.22);
+  stroke-width: 1;
+  pointer-events: none;
+}
+.persp-grid line { vector-effect: non-scaling-stroke; }
+
 .section-head {
   max-width: 720px;
   margin: 0 auto var(--space-40);
@@ -634,6 +750,39 @@ code {
   .section { padding: 112px 0; }
 }
 
+/* --- How it works: blurred data-center photo behind the whole section ---
+   The photo is docs/assets/generic-server.jpeg, loaded from its raw URL.
+   Change the blur, the opacity or the overlay below to adjust it. */
+.section-photo {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.section-photo-img {
+  position: absolute;
+  inset: -24px;
+  z-index: -2;
+  width: calc(100% + 48px);
+  max-width: none;
+  height: calc(100% + 48px);
+  object-fit: cover;
+  filter: blur(6px) saturate(0.9);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* Dark overlay keeps every text token at its tested contrast */
+.section-photo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 50% 40% at 85% 0%, var(--glow-blue), transparent 70%),
+    linear-gradient(180deg, rgba(13, 17, 23, 0.82) 0%, rgba(13, 17, 23, 0.7) 50%, rgba(13, 17, 23, 0.88) 100%);
+}
+
 /* --- How it works: flow diagram (based on axiom-diagrama/) ---
    Wires and signals are drawn by diagram.js; the rings pulse here.
    Both stop under prefers-reduced-motion. */
@@ -644,8 +793,12 @@ code {
   border-radius: var(--radius-lg);
   background:
     radial-gradient(ellipse 40% 60% at 50% 50%, rgba(77, 142, 255, 0.07), transparent 70%),
-    var(--bg-raised);
+    rgba(18, 23, 30, 0.55);  /* translucent: the section photo shows through */
 }
+
+.flow-top,
+.flow-stage,
+.flow-process { position: relative; z-index: 1; }
 
 .flow-top { text-align: center; }
 
@@ -751,10 +904,10 @@ code {
   width: 128px;
   height: 128px;
   margin-left: -64px;
-  border: 1px solid var(--blue-deep);
+  border: 1px solid var(--gold);
   border-radius: 30px;
   opacity: 0;
-  box-shadow: 0 0 8px rgba(77, 142, 255, 0.5);
+  box-shadow: 0 0 8px rgba(237, 179, 81, 0.5);
   animation: flow-radiate 4.8s infinite;
   pointer-events: none;
 }
@@ -879,6 +1032,19 @@ code {
 
 .how-steps { margin-top: var(--space-20); }
 
+/* Getting started steps light up in gold on hover */
+.start-steps li {
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease,
+              box-shadow var(--motion-fast) ease;
+}
+.start-steps li:hover {
+  border-color: var(--gold);
+  background: rgba(237, 179, 81, 0.1);
+  box-shadow: 0 0 24px rgba(237, 179, 81, 0.12);
+}
+.start-steps li:hover h3 { color: var(--gold); }
+.start-steps li:hover p { color: var(--text); }
+
 @media (min-width: 640px) {
   .step-cards { grid-template-columns: repeat(2, 1fr); }
 }
@@ -960,83 +1126,118 @@ code {
   .installer-line code { font-size: 13px; }
 }
 
-/* --- Status --- */
-.status-grid {
+/* --- Foundation & discovery ---
+   Two typographic tracks instead of cards: a label column on the left and a
+   list on the right. Foundation is blue with solid rules; discovery is lighter, dashed
+   and amber. A short blue-to-amber rule bridges the two. */
+.track {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-20);
+  gap: var(--space-24);
 }
 
-.status-stack { display: grid; gap: var(--space-20); align-content: start; }
+.track-label { max-width: 32ch; }
 
-.status-card {
-  padding: var(--space-24);
-  border: 1px solid var(--border);
-  border-top: 2px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-}
-
-.status-head { margin-bottom: var(--space-16); }
-
-.badge {
-  display: inline-block;
-  padding: 2px var(--space-12);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-pill);
-  font: 600 var(--fs-12)/1.8 var(--font-mono);
-  letter-spacing: 0.08em;
+.track-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font: 600 var(--fs-12)/1.4 var(--font-mono);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+.track-name::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
 
-.status-card ul { margin: 0; padding: 0; list-style: none; }
-
-.status-card li {
-  position: relative;
-  padding-left: var(--space-20);
-  color: var(--text-muted);
+.track-note {
+  margin-top: var(--space-8);
+  color: var(--text-faint);
   font-size: var(--fs-14);
 }
-.status-card li + li { margin-top: var(--space-12); }
 
-.status-card li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.62em;
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  background: var(--text-faint);
+.track-list {
+  display: grid;
+  gap: 0 var(--space-40);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.is-available { border-top-color: var(--success); }
-.is-available .badge { color: var(--success); }
-.is-available li::before { background: var(--success); }
+.track-list li { padding: var(--space-20) 0; }
 
-.is-progress { border-top-color: var(--accent); }
-.is-progress .badge { color: var(--accent); }
-.is-progress li::before { background: var(--accent); }
-
-.is-future .badge { color: var(--text-faint); }
-.is-future li::before { background: transparent; border: 1px solid var(--text-faint); }
-
-@media (min-width: 900px) {
-  .status-grid { grid-template-columns: 1.15fr 1fr; }
+.track-list h3 {
+  margin: 0;
+  font: 600 var(--fs-16)/1.35 var(--font-mono);
+  letter-spacing: -0.01em;
 }
 
-/* --- Closing --- */
+.track-list p {
+  margin-top: var(--space-8);
+  font-size: var(--fs-14);
+  line-height: 1.6;
+}
+
+/* Foundation: solid, present */
+.track-foundation .track-name { color: var(--accent); }
+.track-foundation .track-name::before { background: var(--accent); }
+.track-foundation .track-list li { border-top: 1px solid var(--border-strong); }
+.track-foundation .track-list h3 { color: var(--text); }
+.track-foundation .track-list p { color: var(--text-muted); }
+
+/* Discovery: open, tentative */
+.track-discovery .track-name { color: var(--gold); }
+.track-discovery .track-name::before { background: var(--gold); border-radius: 50%; }
+.track-discovery .track-list li { border-top: 1px dashed rgba(237, 179, 81, 0.35); }
+.track-discovery .track-list h3 { color: var(--text-muted); font-weight: 500; }
+.track-discovery .track-list p { color: var(--text-faint); }
+
+.track-bridge {
+  width: 120px;
+  height: 1px;
+  margin: var(--space-48) 0;
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+}
+
+.track-disclaimer {
+  max-width: 68ch;
+  margin-top: var(--space-40);
+  padding-left: var(--space-16);
+  border-left: 2px solid rgba(237, 179, 81, 0.5);
+  color: var(--text-faint);
+  font-size: var(--fs-14);
+}
+.track-disclaimer strong { color: var(--text-muted); font-weight: 600; }
+
+@media (min-width: 720px) {
+  .track-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1000px) {
+  .track { grid-template-columns: 260px minmax(0, 1fr); gap: var(--space-48); }
+  .track-label { padding-top: var(--space-20); }
+  .track-bridge { margin-left: calc(260px + var(--space-48)); }
+  .track-disclaimer { margin-left: calc(260px + var(--space-48)); }
+  .track-discovery .track-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* --- Closing: golden band with dark text; buttons are inverted to stay visible --- */
 .closing {
   padding: var(--space-64) 0;
   border-top: 1px solid var(--border);
   background:
-    radial-gradient(ellipse 50% 70% at 50% 100%, var(--glow-blue), transparent 70%),
-    var(--bg);
+    radial-gradient(ellipse 60% 80% at 50% 0%, rgba(255, 255, 255, 0.28), transparent 70%),
+    linear-gradient(135deg, var(--gold) 0%, var(--gold-strong) 100%);
+  color: var(--accent-ink);
 }
 
 .closing-inner { text-align: center; }
 
 .closing h2 {
+  color: var(--accent-ink);
   font-size: clamp(1.9rem, 4.6vw, 3rem);
   font-weight: 700;
 }
@@ -1044,8 +1245,25 @@ code {
 .closing p {
   max-width: 56ch;
   margin: var(--space-16) auto 0;
-  color: var(--text-muted);
+  color: rgba(16, 24, 40, 0.82);
 }
+
+.closing .btn-primary {
+  background: var(--accent-ink);
+  color: var(--gold-strong);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.3);
+}
+.closing .btn-primary:hover { color: #ffe07a; box-shadow: 0 10px 30px rgba(16, 24, 40, 0.4); }
+
+.closing .btn-ghost {
+  border-color: rgba(16, 24, 40, 0.55);
+  background: transparent;
+  color: var(--accent-ink);
+}
+.closing .btn-ghost:hover { border-color: var(--accent-ink); background: rgba(16, 24, 40, 0.08); color: var(--accent-ink); }
+
+/* Focus ring in dark ink: the default light-blue ring would vanish on gold */
+.closing :focus-visible { outline-color: var(--accent-ink); }
 
 @media (min-width: 760px) {
   .closing { padding: 112px 0; }
@@ -1090,6 +1308,8 @@ code {
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .flow-ring { animation: none; }
+  .globe-meridian { animation: none; opacity: 1; transform: none; }
+  .globe-meridian-two { display: none; }
   *,
   *::before,
   *::after { transition: none !important; }

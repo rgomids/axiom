@@ -26,6 +26,7 @@ RAW_BASE="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets"
 LOGO_HERO="$RAW_BASE/axiom-logo-black.png"      # Open Graph and Twitter card
 LOGO_BRAND="$RAW_BASE/axiom-logo-white.png"     # hero logo, transparent
 LOGO_HEADER="$RAW_BASE/axiom-logo-github.png"   # header mark, rounded app tile
+PHOTO_HOW="$RAW_BASE/generic-server.jpeg"       # How it works section background
 LOGO_ICON="$RAW_BASE/axiom-logo-app-black.png"  # favicon and Apple Touch icon
 PUBLIC_URL="https://rgomids.github.io/axiom/"
 
@@ -64,6 +65,7 @@ canonical_assets=(
   "docs/assets/axiom-logo-white.png"
   "docs/assets/axiom-logo-app-black.png"
   "docs/assets/axiom-logo-github.png"
+  "docs/assets/generic-server.jpeg"
 )
 
 for relative in "${canonical_assets[@]}"; do
@@ -71,7 +73,7 @@ for relative in "${canonical_assets[@]}"; do
 done
 pass "canonical identity assets exist under docs/assets/"
 
-if find "$SITE" -type f -name 'axiom-logo*' -print -quit | grep -q .; then
+if find "$SITE" -type f \( -name 'axiom-logo*' -o -name 'generic-server*' \) -print -quit | grep -q .; then
   fail "canonical asset is duplicated inside site/"
 fi
 if [[ -d "$SITE/assets" ]]; then
@@ -125,13 +127,14 @@ expected_refs=(
   "<link rel=\"apple-touch-icon\" href=\"$LOGO_ICON\">"
   "src=\"$LOGO_BRAND\""
   "src=\"$LOGO_HEADER\""
+  "src=\"$PHOTO_HOW\""
 )
 
 for reference in "${expected_refs[@]}"; do
   grep -Fq -- "$reference" "$SITE/index.html" \
     || fail "canonical asset reference is missing from site/index.html: $reference"
 done
-pass "favicon, Apple Touch icon, Open Graph, Twitter, header and hero use canonical raw URLs"
+pass "favicon, Apple Touch icon, Open Graph, Twitter, header, hero and section photo use canonical raw URLs"
 
 # Declared width/height must match the canonical PNGs, or the reserved box has
 # the wrong aspect ratio and the hero shifts once the remote image arrives.
@@ -143,9 +146,23 @@ import sys
 root = sys.argv[1]
 html = open(root + "/site/index.html", encoding="utf-8").read()
 
-for name in ("axiom-logo-white.png", "axiom-logo-github.png"):
+def png_size(data):
+    return struct.unpack(">II", data[16:24])
+
+def jpeg_size(data):
+    i = 2
+    while i < len(data):
+        marker, length = data[i + 1], struct.unpack(">H", data[i + 2:i + 4])[0]
+        if marker in (0xC0, 0xC1, 0xC2):
+            height, width = struct.unpack(">HH", data[i + 5:i + 9])
+            return width, height
+        i += 2 + length
+    raise SystemExit("no JPEG frame header")
+
+for name in ("axiom-logo-white.png", "axiom-logo-github.png", "generic-server.jpeg"):
     with open(root + "/docs/assets/" + name, "rb") as handle:
-        width, height = struct.unpack(">II", handle.read(24)[16:24])
+        data = handle.read()
+    width, height = jpeg_size(data) if data[:2] == b"\xff\xd8" else png_size(data)
     pattern = r'src="[^"]*%s"[^>]*width="(\d+)" height="(\d+)"' % re.escape(name)
     matches = re.findall(pattern, html)
     if not matches:
@@ -221,9 +238,9 @@ def contrast(a, b):
 
 pairs = [
     (fg, bg)
-    for fg in ("text", "text-muted", "text-faint", "accent", "accent-strong", "blue-deep", "success", "gold")
+    for fg in ("text", "text-muted", "text-faint", "accent", "gold", "gold-strong")
     for bg in ("bg", "bg-raised", "surface", "surface-hover")
-] + [("accent-ink", "accent"), ("accent-ink", "accent-strong"), ("accent-ink", "blue-deep")]
+] + [("accent-ink", "accent"), ("accent-ink", "gold"), ("accent-ink", "gold-strong")]
 
 for fg, bg in pairs:
     if fg not in tokens or bg not in tokens:
@@ -236,9 +253,10 @@ pass "every text token reaches WCAG AA contrast on every background and surface 
 
 # --- Motion -------------------------------------------------------------------
 
-# Motion is confined to the flow diagram in "What it is": pulsing rings in CSS
-# and signals moved by diagram.js. Everything else is static. The diagram stops
-# under prefers-reduced-motion.
+# Motion is confined to two places: the flow diagram in "How it works" (pulsing
+# rings in CSS, signals moved by diagram.js) and the spinning globe on the
+# language button. Everything else is static. Both stop under
+# prefers-reduced-motion.
 grep -Fq -- '@media (prefers-reduced-motion: reduce)' "$SITE/styles.css" \
   || fail "styles.css has no prefers-reduced-motion treatment"
 
@@ -251,19 +269,21 @@ css = open(site + "/styles.css", encoding="utf-8").read()
 css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
 
 for name in re.findall(r"@keyframes\s+([\w-]+)", css):
-    if not name.startswith("flow-"):
-        raise SystemExit("@keyframes %s is outside the flow diagram" % name)
+    if not name.startswith(("flow-", "globe-")):
+        raise SystemExit("@keyframes %s is outside the flow diagram and the globe" % name)
 
 body = re.sub(r"@keyframes\s+[\w-]+\s*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
 for selector, block in re.findall(r"([^{}]+)\{([^{}]*)\}", body):
     if re.search(r"(^|;|\s)animation(-name)?\s*:", block):
         value = re.search(r"animation(?:-name)?\s*:\s*([^;]+)", block).group(1).strip()
-        if value != "none" and not all(part.strip().startswith(".flow") for part in selector.split(",")):
-            raise SystemExit("animation declared outside the flow diagram: " + selector.strip())
+        if value != "none" and not all(part.strip().startswith((".flow", ".globe")) for part in selector.split(",")):
+            raise SystemExit("animation declared outside the flow diagram and the globe: " + selector.strip())
 
 reduced = re.search(r"@media \(prefers-reduced-motion: reduce\)\s*\{(.*?)\n\}", css, re.S)
 if not reduced or not re.search(r"\.flow-ring\s*\{\s*animation:\s*none;", reduced.group(1)):
     raise SystemExit("the flow rings keep pulsing under prefers-reduced-motion")
+if not re.search(r"\.globe-meridian\s*\{\s*animation:\s*none;", reduced.group(1)):
+    raise SystemExit("the language globe keeps spinning under prefers-reduced-motion")
 PYEOF
 
 for file in "$SITE"/*.js; do
@@ -277,7 +297,7 @@ if grep -qE 'setInterval|\.animate\(' "$SITE/diagram.js"; then
 fi
 grep -Fq -- "matchMedia('(prefers-reduced-motion: reduce)')" "$SITE/diagram.js" \
   || fail "diagram.js does not honour prefers-reduced-motion"
-pass "motion is confined to the flow diagram and off under reduced motion"
+pass "motion is confined to the flow diagram and the language globe, off under reduced motion"
 
 # --- Retired background effects ----------------------------------------------
 
@@ -371,7 +391,7 @@ fi
 if [[ "${AXIOM_LANDING_PAGE_REMOTE:-0}" != "1" ]]; then
   skip "remote asset checks disabled; set AXIOM_LANDING_PAGE_REMOTE=1 to enable"
 else
-  for url in "$LOGO_HERO" "$LOGO_BRAND" "$LOGO_HEADER" "$LOGO_ICON"; do
+  for url in "$LOGO_HERO" "$LOGO_BRAND" "$LOGO_HEADER" "$LOGO_ICON" "$PHOTO_HOW"; do
     curl -fsSI -o /dev/null --max-time 20 "$url" \
       || fail "canonical asset URL did not answer successfully: $url"
   done

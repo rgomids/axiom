@@ -40,12 +40,26 @@
     <nav class="header-nav" aria-label="Primary">
       <a class="nav-link nav-section" href="#what" data-pt="O que é">What it is</a>
       <a class="nav-link nav-section" href="#how" data-pt="Como funciona">How it works</a>
-      <a class="nav-link nav-section" href="#start" data-pt="Primeiros passos">Getting started</a>
       <a class="nav-link nav-section" href="#install" data-pt="Instalador">Installer</a>
-      <a class="nav-link nav-section" href="#status" data-pt="Status">Status</a>
+      <a class="nav-link nav-section" href="#start" data-pt="Primeiros passos">Getting started</a>
+      <a class="nav-link nav-section" href="#foundation" data-pt="Fundação">Foundation</a>
       <a class="nav-link" href="https://github.com/rgomids/axiom">GitHub</a>
-      <a class="nav-link" href="https://github.com/rgomids/axiom#documentation" data-pt="Documentação">Documentation</a>
-      <button class="lang-toggle" id="lang-toggle" type="button" aria-label="Mudar para português" title="Mudar para português">PT</button>
+      <!-- Language menu: globe button opens a row of flags (names only for screen readers); behaviour in lang.js -->
+      <div class="lang-menu">
+        <button class="lang-toggle" id="lang-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="lang-list" aria-label="Language" title="Language">
+          <svg class="globe" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M2 12h20"/>
+            <path d="M4 7h16M4 17h16"/>
+            <ellipse class="globe-meridian" cx="12" cy="12" rx="4" ry="10"/>
+            <ellipse class="globe-meridian globe-meridian-two" cx="12" cy="12" rx="4" ry="10"/>
+          </svg>
+        </button>
+        <ul class="lang-list" id="lang-list" role="menu" aria-label="Language" hidden>
+          <li role="none"><button class="lang-option" type="button" role="menuitemradio" aria-checked="true" data-lang="en" aria-label="English" title="English" lang="en"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true" focusable="false"><rect width="30" height="20" fill="#b22234"/><g fill="#fff"><rect y="1.54" width="30" height="1.54"/><rect y="4.62" width="30" height="1.54"/><rect y="7.69" width="30" height="1.54"/><rect y="10.77" width="30" height="1.54"/><rect y="13.85" width="30" height="1.54"/><rect y="16.92" width="30" height="1.54"/></g><rect width="12" height="10.77" fill="#3c3b6e"/><g fill="#fff"><circle cx="2.4" cy="2.2" r="0.6"/><circle cx="6" cy="2.2" r="0.6"/><circle cx="9.6" cy="2.2" r="0.6"/><circle cx="4.2" cy="4.4" r="0.6"/><circle cx="7.8" cy="4.4" r="0.6"/><circle cx="2.4" cy="6.6" r="0.6"/><circle cx="6" cy="6.6" r="0.6"/><circle cx="9.6" cy="6.6" r="0.6"/><circle cx="4.2" cy="8.8" r="0.6"/><circle cx="7.8" cy="8.8" r="0.6"/></g></svg></button></li>
+          <li role="none"><button class="lang-option" type="button" role="menuitemradio" aria-checked="false" data-lang="pt" aria-label="Português (Brasil)" title="Português (Brasil)" lang="pt-BR"><svg class="flag" viewBox="0 0 30 20" aria-hidden="true" focusable="false"><rect width="30" height="20" fill="#009c3b"/><path d="M15 2.4 27.6 10 15 17.6 2.4 10z" fill="#ffdf00"/><circle cx="15" cy="10" r="4.6" fill="#002776"/><path d="M10.6 9.1c2.9-.5 6.3.2 8.8 1.8" stroke="#fff" stroke-width="0.8" fill="none"/></svg></button></li>
+        </ul>
+      </div>
     </nav>
   </div>
 </header>
@@ -59,7 +73,7 @@
 
       <p class="pill" data-pt-html="&lt;span class=&quot;pill-dot&quot;&gt;&lt;/span&gt;Código aberto · Em desenvolvimento ativo"><span class="pill-dot"></span>Open source · Under active development</p>
 
-      <h1 class="hero-title" data-pt-html="Mantenha intenção, decisões, código e evidências &lt;span class=&quot;gradient-text&quot;&gt;conectados&lt;/span&gt;.">Keep intent, decisions, code, and evidence <span class="gradient-text">connected</span>.</h1>
+      <h1 class="hero-title" data-pt-html="Mantenha intenção, decisões, código e evidências &lt;span class=&quot;gradient-text&quot;&gt;conectados&lt;/span&gt;">Keep intent, decisions, code, and evidence <span class="gradient-text">connected</span></h1>
 
       <p class="hero-copy" data-pt="O Axiom é um control plane de desenvolvimento que mantém intenção de software, arquitetura, implementação, validação e evidências operacionais conectadas no trabalho entre pessoas e IA.">
         Axiom is a development control plane for keeping software intent, architecture,
@@ -89,7 +103,7 @@
     <div class="shell">
       <header class="section-head">
         <p class="eyebrow" data-pt="O que é">What it is</p>
-        <h2 id="what-title" data-pt="O porquê que sobrevive à passagem de bastão.">Rationale that survives the handoff.</h2>
+        <h2 id="what-title" data-pt="O porquê que sobrevive à passagem de bastão">Rationale that survives the handoff</h2>
         <p class="section-lede" data-pt="Agentes de IA ajudam a escrever código, mas o raciocínio por trás dele costuma ficar em prompts, conversas e documentos soltos. O Axiom define o domínio, as políticas e os fluxos que mantêm essas ligações — exercitados neste repositório por um harness Codex e uma implementação em Go.">
           AI agents help write code, but the reasoning behind it often stays in prompts, chats, and
           disconnected documents. Axiom defines the domain, policies, and workflows that keep those
@@ -132,11 +146,13 @@
   </section>
 
   <!-- How it works: flow diagram from intent to delivery -->
-  <section class="section section-alt" id="how" aria-labelledby="how-title">
+  <section class="section section-alt section-photo" id="how" aria-labelledby="how-title">
+    <!-- Section background: canonical docs/assets photo, blurred and darkened in styles.css "section-photo" -->
+    <img class="section-photo-img" src="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/generic-server.jpeg" alt="" width="1672" height="941" decoding="async" loading="lazy">
     <div class="shell">
       <header class="section-head">
         <p class="eyebrow" data-pt="Como funciona">How it works</p>
-        <h2 id="how-title" data-pt="Um ciclo, para pessoas e para agentes.">One lifecycle, for people and for agents.</h2>
+        <h2 id="how-title" data-pt="Um ciclo, para pessoas e para agentes">One lifecycle, for people and for agents</h2>
         <p class="section-lede" data-pt="Cada passo produz o contexto que o passo seguinte consome.">Each step produces the context the next step consumes.</p>
       </header>
 
@@ -234,12 +250,80 @@
     </div>
   </section>
 
+  <!-- Installer: the commands from README "Getting Started" -->
+  <section class="section section-glow" id="install" aria-labelledby="install-title">
+    <div class="shell">
+      <header class="section-head">
+        <p class="eyebrow" data-pt="Instalador">Installer</p>
+        <h2 id="install-title" data-pt="Instale pelo terminal">Install from the terminal</h2>
+        <p class="section-lede" data-pt="Os comandos do guia de primeiros passos, da instalação ao primeiro fluxo.">The commands from the Getting Started guide, from install to your first workflow.</p>
+      </header>
+
+      <div class="start-grid">
+<!-- One row per command, Copy button right after it; copying is handled by skills.js -->
+        <div class="installer">
+          <div class="installer-group">
+            <p class="installer-comment"># install the latest stable release</p>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh</code>
+              <button class="copy-btn" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
+            </div>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom version</code>
+              <button class="copy-btn" type="button" data-copy="axiom version"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
+            </div>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom first-run</code>
+              <button class="copy-btn" type="button" data-copy="axiom first-run"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
+            </div>
+          </div>
+          <div class="installer-group">
+            <p class="installer-comment"># relate repositories to one Project</p>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom project configure</code>
+              <button class="copy-btn" type="button" data-copy="axiom project configure"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
+            </div>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom project show --selector my-project</code>
+              <button class="copy-btn" type="button" data-copy="axiom project show --selector my-project"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
+            </div>
+          </div>
+          <div class="installer-group">
+            <p class="installer-comment"># run the bounded workflow for Issue #123</p>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom workflow start --project my-project --repository main --number 123</code>
+              <button class="copy-btn" type="button" data-copy="axiom workflow start --project my-project --repository main --number 123"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
+            </div>
+            <div class="installer-line">
+              <code><span class="p" aria-hidden="true">$</span> axiom workflow status --project my-project --repository main --number 123</code>
+              <button class="copy-btn" type="button" data-copy="axiom workflow status --project my-project --repository main --number 123"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="callout" data-pt-html="Hosts suportados: Mac e Linux. &lt;a href=&quot;https://github.com/rgomids/axiom#getting-started&quot;&gt;Guia completo de primeiros passos&lt;/a&gt;.">
+        Supported hosts: Mac and Linux.
+        <a href="https://github.com/rgomids/axiom#getting-started">Full Getting Started guide</a>.
+      </p>
+    </div>
+  </section>
+
   <!-- Getting started: the five steps from README "Getting Started", then the skills window -->
-  <section class="section section-glow" id="start" aria-labelledby="start-title">
+  <section class="section section-alt section-grid" id="start" aria-labelledby="start-title">
+    <!-- Perspective floor grid (synthwave style), horizon at the top; styles.css "persp-grid" -->
+    <svg class="persp-grid" viewBox="0 0 1200 600" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="persp-fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0.04" stop-color="#fff" stop-opacity="0"/><stop offset="0.2" stop-color="#fff" stop-opacity="0.3"/><stop offset="0.38" stop-color="#fff" stop-opacity="1"/><stop offset="0.65" stop-color="#fff" stop-opacity="0.6"/><stop offset="1" stop-color="#fff" stop-opacity="0.2"/></linearGradient>
+        <mask id="persp-mask"><rect width="1200" height="600" fill="url(#persp-fade)"/></mask>
+      </defs>
+      <g mask="url(#persp-mask)"><line x1="0" y1="600.0" x2="1200" y2="600.0"/><line x1="0" y1="422.5" x2="1200" y2="422.5"/><line x1="0" y1="326.1" x2="1200" y2="326.1"/><line x1="0" y1="265.5" x2="1200" y2="265.5"/><line x1="0" y1="223.9" x2="1200" y2="223.9"/><line x1="0" y1="193.5" x2="1200" y2="193.5"/><line x1="0" y1="170.5" x2="1200" y2="170.5"/><line x1="0" y1="152.3" x2="1200" y2="152.3"/><line x1="0" y1="137.6" x2="1200" y2="137.6"/><line x1="0" y1="125.5" x2="1200" y2="125.5"/><line x1="0" y1="115.4" x2="1200" y2="115.4"/><line x1="0" y1="106.8" x2="1200" y2="106.8"/><line x1="0" y1="99.3" x2="1200" y2="99.3"/><line x1="0" y1="92.9" x2="1200" y2="92.9"/><line x1="0" y1="87.2" x2="1200" y2="87.2"/><line x1="0" y1="82.2" x2="1200" y2="82.2"/><line x1="-2400" y1="600" x2="32.4" y2="0"/><line x1="-2280" y1="600" x2="55.1" y2="0"/><line x1="-2160" y1="600" x2="77.8" y2="0"/><line x1="-2040" y1="600" x2="100.5" y2="0"/><line x1="-1920" y1="600" x2="123.2" y2="0"/><line x1="-1800" y1="600" x2="145.9" y2="0"/><line x1="-1680" y1="600" x2="168.6" y2="0"/><line x1="-1560" y1="600" x2="191.4" y2="0"/><line x1="-1440" y1="600" x2="214.1" y2="0"/><line x1="-1320" y1="600" x2="236.8" y2="0"/><line x1="-1200" y1="600" x2="259.5" y2="0"/><line x1="-1080" y1="600" x2="282.2" y2="0"/><line x1="-960" y1="600" x2="304.9" y2="0"/><line x1="-840" y1="600" x2="327.6" y2="0"/><line x1="-720" y1="600" x2="350.3" y2="0"/><line x1="-600" y1="600" x2="373.0" y2="0"/><line x1="-480" y1="600" x2="395.7" y2="0"/><line x1="-360" y1="600" x2="418.4" y2="0"/><line x1="-240" y1="600" x2="441.1" y2="0"/><line x1="-120" y1="600" x2="463.8" y2="0"/><line x1="0" y1="600" x2="486.5" y2="0"/><line x1="120" y1="600" x2="509.2" y2="0"/><line x1="240" y1="600" x2="531.9" y2="0"/><line x1="360" y1="600" x2="554.6" y2="0"/><line x1="480" y1="600" x2="577.3" y2="0"/><line x1="600" y1="600" x2="600.0" y2="0"/><line x1="720" y1="600" x2="622.7" y2="0"/><line x1="840" y1="600" x2="645.4" y2="0"/><line x1="960" y1="600" x2="668.1" y2="0"/><line x1="1080" y1="600" x2="690.8" y2="0"/><line x1="1200" y1="600" x2="713.5" y2="0"/><line x1="1320" y1="600" x2="736.2" y2="0"/><line x1="1440" y1="600" x2="758.9" y2="0"/><line x1="1560" y1="600" x2="781.6" y2="0"/><line x1="1680" y1="600" x2="804.3" y2="0"/><line x1="1800" y1="600" x2="827.0" y2="0"/><line x1="1920" y1="600" x2="849.7" y2="0"/><line x1="2040" y1="600" x2="872.4" y2="0"/><line x1="2160" y1="600" x2="895.1" y2="0"/><line x1="2280" y1="600" x2="917.8" y2="0"/><line x1="2400" y1="600" x2="940.5" y2="0"/><line x1="2520" y1="600" x2="963.2" y2="0"/><line x1="2640" y1="600" x2="985.9" y2="0"/><line x1="2760" y1="600" x2="1008.6" y2="0"/><line x1="2880" y1="600" x2="1031.4" y2="0"/><line x1="3000" y1="600" x2="1054.1" y2="0"/><line x1="3120" y1="600" x2="1076.8" y2="0"/><line x1="3240" y1="600" x2="1099.5" y2="0"/><line x1="3360" y1="600" x2="1122.2" y2="0"/><line x1="3480" y1="600" x2="1144.9" y2="0"/><line x1="3600" y1="600" x2="1167.6" y2="0"/></g>
+    </svg>
     <div class="shell">
       <header class="section-head">
         <p class="eyebrow" data-pt="Primeiros passos">Getting started</p>
-        <h2 id="start-title" data-pt="Da instalação ao primeiro fluxo.">From install to your first workflow.</h2>
+        <h2 id="start-title" data-pt="Da instalação ao primeiro fluxo">From install to your first workflow</h2>
         <p class="section-lede" data-pt="Usar o Axiom não exige clone, toolchain Go nem build.">Using Axiom needs no clone, Go toolchain, or build.</p>
       </header>
 
@@ -375,122 +459,109 @@
     </div>
   </section>
 
-  <!-- Installer: the commands from README "Getting Started" -->
-  <section class="section section-alt" id="install" aria-labelledby="install-title">
+  <!-- Foundation & discovery: durable, not a status snapshot. Foundation lists
+       stable capabilities in the repository; discovery lists explorations that
+       are not commitments. Layout in styles.css "Foundation & discovery". -->
+  <section class="section section-glow" id="foundation" aria-labelledby="foundation-title">
     <div class="shell">
       <header class="section-head">
-        <p class="eyebrow" data-pt="Instalador">Installer</p>
-        <h2 id="install-title" data-pt="Instale pelo terminal.">Install from the terminal.</h2>
-        <p class="section-lede" data-pt="Os comandos do guia de primeiros passos, da instalação ao primeiro fluxo.">The commands from the Getting Started guide, from install to your first workflow.</p>
+        <p class="eyebrow" data-pt="Fundação e discovery">Foundation &amp; discovery</p>
+        <h2 id="foundation-title" data-pt="Uma base sólida — e espaço para evoluir">A solid foundation — and room to evolve</h2>
+        <p class="section-lede" data-pt="Axiom já conecta intenção, execução e evidência em um fluxo controlado. As próximas capacidades são exploradas por discovery antes de se tornarem compromissos de produto.">Axiom already connects intent, execution, and evidence in a controlled flow. The next capabilities are explored through discovery before they become product commitments.</p>
       </header>
 
-      <div class="start-grid">
-<!-- One row per command, Copy button right after it; copying is handled by skills.js -->
-        <div class="installer">
-          <div class="installer-group">
-            <p class="installer-comment"># install the latest stable release</p>
-            <div class="installer-line">
-              <code><span class="p" aria-hidden="true">$</span> curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh</code>
-              <button class="copy-btn" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
-            </div>
-            <div class="installer-line">
-              <code><span class="p" aria-hidden="true">$</span> axiom version</code>
-              <button class="copy-btn" type="button" data-copy="axiom version"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
-            </div>
-            <div class="installer-line">
-              <code><span class="p" aria-hidden="true">$</span> axiom first-run</code>
-              <button class="copy-btn" type="button" data-copy="axiom first-run"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
-            </div>
-          </div>
-          <div class="installer-group">
-            <p class="installer-comment"># relate repositories to one Project</p>
-            <div class="installer-line">
-              <code><span class="p" aria-hidden="true">$</span> axiom project configure</code>
-              <button class="copy-btn" type="button" data-copy="axiom project configure"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
-            </div>
-            <div class="installer-line">
-              <code><span class="p" aria-hidden="true">$</span> axiom project show --selector my-project</code>
-              <button class="copy-btn" type="button" data-copy="axiom project show --selector my-project"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
-            </div>
-          </div>
-          <div class="installer-group">
-            <p class="installer-comment"># run the bounded workflow for Issue #123</p>
-            <div class="installer-line">
-              <code><span class="p" aria-hidden="true">$</span> axiom workflow start --project my-project --repository main --number 123</code>
-              <button class="copy-btn" type="button" data-copy="axiom workflow start --project my-project --repository main --number 123"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
-            </div>
-            <div class="installer-line">
-              <code><span class="p" aria-hidden="true">$</span> axiom workflow status --project my-project --repository main --number 123</code>
-              <button class="copy-btn" type="button" data-copy="axiom workflow status --project my-project --repository main --number 123"><svg class="icon-copy" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="icon-done" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span class="sr-only" data-pt="Copiar">Copy</span></button>
-            </div>
-          </div>
+      <div class="track track-foundation">
+        <div class="track-label">
+          <p class="track-name" data-pt="Fundação disponível">Available foundation</p>
+          <p class="track-note" data-pt="O que o Axiom já oferece hoje.">What Axiom already provides.</p>
         </div>
-
+        <ul class="track-list" role="list">
+            <li>
+              <h3 data-pt="Control plane local e determinístico">Local, deterministic control plane</h3>
+              <p data-pt="Com o Axiom governando o workflow enquanto os agentes atuam dentro de limites explícitos;">Axiom governs the workflow while agents act within explicit limits;</p>
+            </li>
+            <li>
+              <h3 data-pt="Projects independentes de Repository">Projects independent of Repositories</h3>
+              <p data-pt="Permitindo organizar o contexto de um produto sem confundir projeto lógico com código-fonte;">Organise a product&#x27;s context without confusing the logical project with source code;</p>
+            </li>
+            <li>
+              <h3 data-pt="Workflow orientado à intenção">Intent-driven workflow</h3>
+              <p data-pt="Conectando Specification, decisões, planejamento, implementação, validação e Evidence;">Connecting Specification, decisions, planning, implementation, validation, and Evidence;</p>
+            </li>
+            <li>
+              <h3 data-pt="Integração com runtimes de agentes">Agent runtime integration</h3>
+              <p data-pt="Com skills e adapters que mantêm as regras do processo dentro do Axiom;">Skills and adapters that keep the process rules inside Axiom;</p>
+            </li>
+            <li>
+              <h3 data-pt="Work Items integrados ao fluxo de desenvolvimento">Work Items in the development flow</h3>
+              <p data-pt="Preservando rastreabilidade entre demanda, execução e resultado;">Preserving traceability between request, execution, and result;</p>
+            </li>
+            <li>
+              <h3 data-pt="Evidence e proveniência como parte da entrega">Evidence and provenance as part of delivery</h3>
+              <p data-pt="Permitindo revisar o que aconteceu sem depender apenas da afirmação do agente;">Review what happened without relying only on the agent&#x27;s claim;</p>
+            </li>
+            <li>
+              <h3 data-pt="Instalação e estado locais">Local installation and state</h3>
+              <p data-pt="Mantendo configuração, execução e controle próximos ao ambiente do operador.">Keeping configuration, execution, and control close to the operator&#x27;s environment.</p>
+            </li>
+        </ul>
       </div>
 
-      <p class="callout" data-pt-html="Hosts suportados: Mac e Linux. &lt;a href=&quot;https://github.com/rgomids/axiom#getting-started&quot;&gt;Guia completo de primeiros passos&lt;/a&gt;.">
-        Supported hosts: Mac and Linux.
-        <a href="https://github.com/rgomids/axiom#getting-started">Full Getting Started guide</a>.
-      </p>
-    </div>
-  </section>
+      <div class="track-bridge" aria-hidden="true"></div>
 
-  <!-- Project status: keep in step with README "Project status" -->
-  <section class="section section-glow" id="status" aria-labelledby="status-title">
-    <div class="shell">
-      <header class="section-head">
-        <p class="eyebrow" data-pt="Status do projeto">Project status</p>
-        <h2 id="status-title" data-pt="O que existe hoje — e o que não existe.">What exists today — and what does not.</h2>
-        <p class="section-lede" data-pt="O que já foi entregue e o que está planejado aparecem separados, de propósito.">Delivered capabilities and planned capabilities are listed separately, on purpose.</p>
-      </header>
-
-      <div class="status-grid">
-        <article class="status-card is-available">
-          <h3 class="status-head"><span class="badge" data-pt="Disponível">Available</span></h3>
-          <ul role="list">
-            <li data-pt-html="CLI &lt;code&gt;axiom&lt;/code&gt; instalável a partir das releases versionadas, sem clone nem toolchain Go">The <code>axiom</code> CLI, installable from versioned releases with no clone or Go toolchain</li>
-            <li data-pt="Harness Codex-first: contexto, políticas, skills, templates e validação determinística">Codex-first harness: context, policies, skills, templates, and deterministic validation</li>
-            <li data-pt="Implementação em Go, com testes, das regras de Projeto, estado portátil e local, instalação de Runtime, Work Items do GitHub e um fluxo Lingo persistente e delimitado">Tested Go implementation of Project rules, portable and machine-local state, Runtime installation, GitHub Work Items, and a bounded persistent Lingo workflow</li>
-            <li data-pt-html="Integrações com os Runtimes Codex e Claude, configuradas por &lt;code&gt;axiom first-run&lt;/code&gt;">Codex and Claude Runtime integrations, configured by <code>axiom first-run</code></li>
-            <li data-pt="Contratos canônicos de conclusão e proveniência, com publicação e recuperação locais fail-closed">Canonical completion and provenance contracts, with fail-closed local publication and recovery</li>
-            <li data-pt="Fatias de entrega S1 – S7 do MVP entregues na main, com Especificações, ADRs e Evidência versionadas">MVP delivery slices S1 – S7 delivered on main, with versioned Specifications, ADRs, and Evidence</li>
-          </ul>
-        </article>
-
-        <div class="status-stack">
-          <article class="status-card is-progress">
-            <h3 class="status-head"><span class="badge" data-pt="Em andamento">In progress</span></h3>
-            <ul role="list">
-              <li data-pt="S8 — planejamento multi-runtime e execução multiagente: tecnicamente concluída, aguardando revisão humana">S8 — multi-runtime planning and multi-agent execution: technically complete, awaiting human review</li>
-            </ul>
-          </article>
-
-          <article class="status-card is-future">
-            <h3 class="status-head"><span class="badge" data-pt="Trabalho futuro">Future work</span></h3>
-            <ul role="list">
-              <li data-pt="Runtimes e adaptadores além de Codex e Claude">Runtimes and adapters beyond Codex and Claude</li>
-              <li data-pt="Provedores de Work Item além de GitHub Issues">Work Item providers beyond GitHub Issues</li>
-              <li data-pt="Orquestração dinâmica ou distribuída">Dynamic or distributed orchestration</li>
-              <li data-pt="Governança de orçamento de tokens e custo por Runtime">Runtime token and cost budget governance</li>
-              <li data-pt="Distribuição e sincronização portáteis entre máquinas">Portable distribution and synchronization across machines</li>
-            </ul>
-          </article>
+      <div class="track track-discovery">
+        <div class="track-label">
+          <p class="track-name" data-pt="Evoluções em discovery">Evolutions in discovery</p>
+          <p class="track-note" data-pt="Hipóteses em pesquisa, não funcionalidades prometidas.">Hypotheses under research, not promised features.</p>
         </div>
+        <ul class="track-list" role="list">
+            <li>
+              <h3 data-pt="Orquestração multi-runtime e multi-agent">Multi-runtime and multi-agent orchestration</h3>
+              <p data-pt="Escolher, combinar e alternar agentes e runtimes conforme capability, custo, disponibilidade, contexto e políticas da execução;">Choose, combine, and switch agents and runtimes by capability, cost, availability, context, and execution policy;</p>
+            </li>
+            <li>
+              <h3 data-pt="Esteiras de desenvolvimento customizáveis">Customisable development pipelines</h3>
+              <p data-pt="Definir etapas, agentes, gates humanos, retries, paralelismo e Evidence esperada para diferentes tipos de trabalho;">Define stages, agents, human gates, retries, parallelism, and expected Evidence for different kinds of work;</p>
+            </li>
+            <li>
+              <h3 data-pt="Configuração por etapa">Per-stage configuration</h3>
+              <p data-pt="Selecionar Runtime, Model Profile, reasoning effort e contexto específico para cada etapa do workflow;">Select Runtime, Model Profile, reasoning effort, and specific context for each workflow stage;</p>
+            </li>
+            <li>
+              <h3 data-pt="QA como capacidade de primeira classe">QA as a first-class capability</h3>
+              <p data-pt="Executar validações especializadas, incluindo testes funcionais, integração, segurança, acessibilidade e automação de interfaces com Evidence estruturada;">Run specialised validation — functional, integration, security, accessibility, and UI automation tests — with structured Evidence;</p>
+            </li>
+            <li>
+              <h3 data-pt="Control plane gráfico">Graphical control plane</h3>
+              <p data-pt="Acompanhar Projects, Work Items, Executions, agentes, gates, Evidence, falhas e múltiplos trabalhos ativos por uma interface visual;">Follow Projects, Work Items, Executions, agents, gates, Evidence, failures, and many active jobs through a visual interface;</p>
+            </li>
+            <li>
+              <h3 data-pt="Workspace isolado para execuções paralelas">Isolated workspaces for parallel executions</h3>
+              <p data-pt="Explorar Git worktrees para permitir que múltiplos agentes trabalhem simultaneamente sem disputar o mesmo working directory;">Explore Git worktrees so several agents can work at once without sharing the same working directory;</p>
+            </li>
+            <li>
+              <h3 data-pt="Secrets e identidade do operador">Secrets and operator identity</h3>
+              <p data-pt="Gerenciar credenciais de forma segura, com armazenamento protegido, autenticação, auditoria e controle de acesso;">Manage credentials securely, with protected storage, authentication, auditing, and access control;</p>
+            </li>
+            <li>
+              <h3 data-pt="Decisões probabilísticas especializadas">Specialised probabilistic decisions</h3>
+              <p data-pt="Explorar mecanismos como Jev/System One para routing, seleção de agentes, classificação e gates baseados em confiança sem substituir regras determinísticas;">Explore mechanisms such as Jev/System One for routing, agent selection, classification, and confidence-based gates, without replacing deterministic rules;</p>
+            </li>
+            <li>
+              <h3 data-pt="Documentação para humanos e agentes">Documentation for humans and agents</h3>
+              <p data-pt="Evoluir a documentação pública para uma experiência Git-native, navegável por pessoas e eficiente para consumo por agentes de IA.">Evolve the public documentation into a Git-native experience, navigable by people and efficient for AI agents to consume.</p>
+            </li>
+        </ul>
       </div>
 
-      <p class="callout" data-pt-html="Nada em &lt;em&gt;Trabalho futuro&lt;/em&gt; está implementado, e nada ali está autorizado a ser implementado. Validação técnica ou merge não implicam aceitação humana. Este resumo segue o &lt;a href=&quot;https://github.com/rgomids/axiom#project-status&quot;&gt;status do projeto versionado&lt;/a&gt;, que continua sendo a fonte da verdade.">
-        Nothing under <em>Future work</em> is implemented, and nothing there is authorized to be
-        implemented. Technical validation or a merge does not imply human acceptance. This summary
-        follows the <a href="https://github.com/rgomids/axiom#project-status">versioned project
-        status</a>, which remains the source of truth.
-      </p>
+      <p class="track-disclaimer" data-pt-html="&lt;strong&gt;Discovery não significa compromisso de implementação.&lt;/strong&gt; As capacidades futuras são pesquisadas, experimentadas e validadas antes de serem promovidas para Specifications e decisões versionadas."><strong>Discovery is not a commitment to implement.</strong> Future capabilities are researched, tried, and validated before they are promoted to Specifications and versioned decisions.</p>
     </div>
   </section>
 
   <!-- Closing call to action -->
   <section class="closing" aria-labelledby="closing-title">
     <div class="shell closing-inner">
-      <h2 id="closing-title" data-pt="Leia as especificações. Rode as verificações.">Read the specs. Run the checks.</h2>
+      <h2 id="closing-title" data-pt="Leia as especificações. Rode as verificações">Read the specs. Run the checks</h2>
       <p data-pt="Tudo o que o Axiom afirma está versionado no repositório, junto com a Evidência que comprova.">Everything Axiom claims is versioned in the repository, next to the Evidence that proves it.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/rgomids/axiom" data-pt="Ver no GitHub">View on GitHub</a>
@@ -504,8 +575,8 @@
 <footer class="site-footer">
   <div class="shell footer-inner">
     <p class="footer-brand">
-      <strong>Axiom</strong>
-      <span class="footer-tag" data-pt="Mantenha intenção, decisões, código e evidências conectados.">Keep intent, decisions, code, and evidence connected.</span>
+      <strong>AXIOM</strong>
+      <span data-pt="Mantenha intenção, decisões, código e evidências conectados.">Keep intent, decisions, code, and evidence connected.</span>
     </p>
     <nav class="footer-nav" aria-label="Footer">
       <a href="https://github.com/rgomids/axiom">GitHub</a>
