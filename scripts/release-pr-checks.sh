@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 # Read-only resolution followed only by required workflow dispatches.
 # Release Please output is intentionally irrelevant, including unchanged PRs.
+#   release-pr-checks.sh resolve  REPO [VERSION]
+#   release-pr-checks.sh dispatch REPO VERSION
+# dispatch requires the open Release PR to record VERSION, the version the
+# release plan validated (ADR-0011): a Release PR with another version gets no
+# required checks and so cannot be merged.
 set -euo pipefail
 fail() { printf 'release_pr_checks_error: %s\n' "$1" >&2; exit 1; }
 mode=${1:-}
 repository=${2:-}
+expected=${3:-}
 [[ "$mode" == resolve || "$mode" == dispatch ]] || fail 'expected resolve or dispatch'
 [[ "$repository" == rgomids/axiom ]] || fail 'unexpected repository'
+[[ -z "$expected" || "$expected" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || fail 'invalid planned version'
+[[ "$mode" == resolve || -n "$expected" ]] || fail 'dispatch requires the planned version'
 temporary=$(mktemp -d)
 trap 'rm -rf -- "$temporary"' EXIT
 # Broad discovery catches malformed release identities instead of silently
@@ -16,6 +24,8 @@ jq -e 'type == "array" and all(.[]; type == "array")' "$temporary/pages" >/dev/n
 jq '[.[][] | select((.head.ref // "" | startswith("release-please--")) or any(.labels[]?; .name == "autorelease: pending"))]' "$temporary/pages" >"$temporary/candidates"
 count=$(jq 'length' "$temporary/candidates")
 if [[ "$count" == 0 ]]; then
+  # A planned dispatch must have produced a Release PR.
+  [[ "$mode" == resolve ]] || fail 'no open Release PR for the planned version'
   printf 'release_pr_checks=no_open_release_pr\n'
   exit 0
 fi
@@ -30,6 +40,10 @@ validate() {
     and (.number | type == "number" and . > 0 and floor == .)
     and (.head.sha | type == "string" and test("^[0-9a-f]{40}$"))
   ' "$1" >/dev/null || fail 'inconsistent Release PR identity'
+  if [[ -n "$expected" ]]; then
+    jq -e --arg title "chore(main): release $expected" '.title == $title' "$1" >/dev/null \
+      || fail "Release PR does not record the planned version $expected"
+  fi
 }
 validate "$temporary/pr"
 number=$(jq -r '.number' "$temporary/pr")

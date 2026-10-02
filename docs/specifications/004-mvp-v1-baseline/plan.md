@@ -1102,6 +1102,27 @@ FR-041 flag, and it records no acceptance. No ADR: the change extends the
 release envelope recorded above and adds no product-domain boundary. Process:
 [CONTRIBUTING.md](../../../CONTRIBUTING.md#delivery-tracking).
 
+**Release start reconciliation (2026-10-02, proposed for human review; no
+publication authority; [ADR-0011](../../decisions/0011-command-driven-release-start.md)).**
+Merges integrate code; `$axiom-release` starts releases. `release-please.yml`
+no longer runs on pushes to `main`: `scripts/release.sh start` runs the
+Git-only release plan (`scripts/release-plan.sh`: every first-parent commit
+since the last release commit has a Conventional Commit subject and declared or
+reviewed delivery metadata, the previous release is published at its release
+commit, the planned tag is absent and newer than every stable tag, SemVer bump
+per the documented Release Please table) plus required CI on `main`, then
+dispatches Release Please with the planned version and the exact `main` SHA.
+The workflow re-runs the plan on that SHA before Release Please and dispatches
+the Release PR checks only when the Release PR records the planned version. An
+inconsistent commit stops the release before any Release PR, artifact, tag or
+release exists; it is fixed by a reviewed correction on `main`, not by
+recovery. `release.sh status` reports `state=` and `next_action=` for every
+phase (no release, Release PR open or stale, merged, preparing, awaiting
+publication authority, publishing, published), discovers the newest verified
+prepared run, and `publish` needs only the authorized `preview_digest`.
+PREPARE, the envelope, PUBLISH, verification and the delivery effects above are
+unchanged; ADR-0010 recovery remains for historical releases only.
+
 RC is an identified candidate version/revision with immutable checksums and a
 declared support matrix, tagged `vX.Y.Z-rc.N` and published as a GitHub
 prerelease only under T23 authority. For each OS/architecture row, an isolated

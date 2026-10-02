@@ -516,18 +516,22 @@ executables; archive bytes (tar timestamps) may differ, so the published
 ## Release flow
 
 The process, versioning and authority rules are in
-[CONTRIBUTING.md](../CONTRIBUTING.md#release-flow). Workflows:
+[CONTRIBUTING.md](../CONTRIBUTING.md#release-flow). Merges integrate code;
+`release.sh start` (`$axiom-release`) starts releases
+([ADR-0011](decisions/0011-command-driven-release-start.md)). Workflows:
 
 | Workflow | Trigger | Effect |
 |---|---|---|
 | `.github/workflows/ci.yml` | every PR, push to `main`, dispatch | required checks only; read-only token |
-| `.github/workflows/release-please.yml` | push to `main`, dispatch | opens/updates the Release PR (`CHANGELOG.md`, `.release-please-manifest.json`); never tags or releases; dispatches CI and `delivery-metadata` on the Release PR branch |
+| `.github/workflows/release-please.yml` | manual dispatch from `main` by `release.sh start` with `planned_version` and `main` (never a push) | requires `main` to still be the planned SHA, re-runs `release-plan.sh` on it, then opens/updates the Release PR (`CHANGELOG.md`, `.release-please-manifest.json`); dispatches CI and `delivery-metadata` on the Release PR branch only when the PR records the planned version; never tags or releases |
 | `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag` and `revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; read-only token; never publishes |
 | `.github/workflows/publish-release.yml` | manual dispatch from `main` with `tag`, `revision`, `prepared_run`, `preview_digest` | PUBLISH: re-verifies that prepared artifact, requires its envelope digest to equal `preview_digest`, then draft, upload, read-back, publish and, for a stable release, the envelope's Issue effects; `publish` job gated by the `release` environment; never rebuilds |
 | `.github/workflows/delivery-metadata.yml` | PR opened, edited, reopened or synchronized (not Release PRs); dispatch by `release-please.yml` on the Release PR branch | validates the Conventional Commit title and `Related-Issues`/`Completes-Issues`, and refuses closing keywords; on dispatch passes only for the bot-authored Release PR head (`delivery-github.sh release-pr-head`); no token write, no secret |
 | `.github/workflows/delivery-sync.yml` | push to `main` | merge-time delivery projection: completing PRs move Issues to `Awaiting Release` (Issues stay open; one closed by GitHub at exactly that merge is reopened); a release commit records `Target Release`; with projection enabled, released Issues are reconciled to `Released` |
 
-For an unpublished stable release whose immutable source lacks delivery
+Recovery is an exception for a release commit that already exists with
+inconsistent history (v0.3.0); new releases are validated before their
+Release PR. For an unpublished stable release whose immutable source lacks delivery
 metadata, opt-in `--corrections-revision <full-main-sha>` and
 `--corrections-digest <committed-file-sha256>` select the additional pinned
 input for `status`, `prepare` and `publish`. The same pins are required across
@@ -546,17 +550,50 @@ Discover the state and the next step (read-only apart from `git fetch` of
 
 `status` prints closed `key=value` facts (repository, branch, HEAD, worktree,
 `main`, required CI from `.github/rulesets/main.json`, `release` environment,
-open and merged-unpublished Release PRs) and `next_action`: `none`,
-`review_release_pr`, `blocked` with `reason`, `prepare`, `authorize_publication`
-or `verify_published`. A stable tag resolves to its release commit (the
-first-parent `main` commit whose manifest introduced the version); a release
-candidate defaults to `origin/main`. Preparation is offered only when required
-CI on the revision is green and the `release` environment requires a reviewer.
+open and merged-unpublished Release PRs, the release plan), `state` and
+`next_action`:
+
+| `state` | `next_action` | Meaning |
+|---|---|---|
+| `no_release_in_progress` | `none`, `start_release` or `blocked` | nothing releasable; the plan passed; or the plan refused (`reason`) |
+| `release_pr_starting` | `await_run` | a Release Please run is in flight |
+| `release_pr_open` | `review_release_pr`, `refresh_release_pr` or `blocked` | human review and merge; `main` moved or the plan changed; or `main` no longer validates |
+| `release_pr_merged` / `release_candidate` | `prepare` or `blocked` | build and verify the exact set of the release commit (or RC revision) |
+| `preparing` / `publishing` | `await_run` | a preparation or publication run is in flight (a publication waits for the `release` environment approval) |
+| `awaiting_publication_authority` | `authorize_publication` | the envelope of the newest verified prepared run, with `preview_digest` |
+| `published` | `verify_published` | read back and verify |
+
+A stable tag resolves to its release commit (the first-parent `main` commit
+whose manifest introduced the version); a release candidate defaults to
+`origin/main`. Preparation is offered only when required CI on the revision is
+green, the `release` environment requires a reviewer and the release range
+resolves its Issue set. `status` rediscovers the newest unexpired prepared
+artifact that verifies at the revision, so a later run resumes at the
+envelope without a run id.
+
+Start a release (preflight, then Release Please; no tag, release or artifact):
+
+```bash
+./scripts/release-plan.sh --main-ref origin/main
+./scripts/release.sh start
+```
+
+`release-plan.sh` is Git-only: for every first-parent commit since the last
+release commit it requires a Conventional Commit subject and declared or
+reviewed delivery metadata, requires the previous release to be published at
+that commit, refuses an existing or older planned tag, and prints
+`planned_version`, `planned_tag`, the bump, one `commit=` line per commit,
+`change.N` lines and the delivered Issues. `start` requires `next_action` to be
+`start_release` or `refresh_release_pr`, dispatches `release-please.yml` with
+`planned_version` and the exact `main` SHA, waits, and stops at
+`release_pr=<url>` with `next_action=review_release_pr`. It refuses when the
+Release PR does not record the planned version. It never approves or merges.
 
 Prepare, then review the envelope:
 
 ```bash
-./scripts/release.sh prepare --tag v0.1.0-rc.1 --revision <full-sha>
+./scripts/release.sh prepare
+./scripts/release.sh prepare --tag v0.1.0-rc.1
 ./scripts/release.sh status --tag v0.1.0-rc.1 --revision <full-sha> --prepared-run <run_id>
 ```
 
@@ -568,20 +605,27 @@ revision, and its publication envelope is printed as `preview.*` lines with
 authorization of that digest:
 
 ```bash
-./scripts/release.sh publish --tag v0.1.0-rc.1 --revision <full-sha> --prepared-run <run_id> \
-  --preview-digest <preview_digest> --authorize-publication
+./scripts/release.sh publish --preview-digest <preview_digest> --authorize-publication
+./scripts/release.sh publish --tag v0.1.0-rc.1 --preview-digest <preview_digest> --authorize-publication
 gh run watch <run_id> --repo rgomids/axiom --exit-status
 ```
+
+The digest binds the tag, revision and prepared run; `--tag`, `--revision`
+and `--prepared-run` are optional and, when given, must equal the envelope's.
 
 Without `--authorize-publication`, or when the envelope recomputed now differs
 from `--preview-digest`, nothing is dispatched (`preview changed; review and
 authorize again`). The publication workflow recomputes the envelope again from
 the same prepared bytes and refuses before any effect on a mismatch. A maintainer
-then approves the `release` environment in GitHub. Verify a published release;
-with `--download`, the assets are re-verified with `verify-release-artifacts.sh`
-in a clean clone at the tagged revision:
+then approves the `release` environment in GitHub. Verify a published release
+(default tag: the version `main` records). It requires the published
+`SHA256SUMS` and notes to equal the prepared set (`prepared_match=pass`, or
+`not_checked` once the workflow artifact expired); with `--download`, the
+assets are re-verified with `verify-release-artifacts.sh` in a clean clone at
+the tagged revision:
 
 ```bash
+./scripts/release.sh verify --download
 ./scripts/release.sh verify --tag v0.1.0-rc.1 --download
 ```
 
@@ -1106,10 +1150,13 @@ Release PR check resolution (read-only):
 python3 scripts/test-release-pr-checks.py
 ```
 
-After every successful Release Please run, the workflow resolves the current open
-Release PR independently of action outputs, validates its bot author, repository,
-main base, expected branch and pending label, and checks its SHA against the remote
-ref before dispatching both required workflows. No open Release PR is reported
-explicitly; ambiguity, API errors and identity drift fail the run. Repeated
+After every successful Release Please run (dispatched by `release.sh start`),
+the workflow resolves the current open Release PR independently of action
+outputs, validates its bot author, repository, main base, expected branch,
+pending label and the title `chore(main): release <planned_version>`, and
+checks its SHA against the remote ref before dispatching both required
+workflows (`dispatch rgomids/axiom <planned_version>`). A missing Release PR,
+another version, ambiguity, API errors and identity drift fail the run, so a
+Release PR with an unplanned version gets no required checks. Repeated
 dispatches only rerun checks. Existing Release PR heads must contain both workflow
 files; this path does not update their branches or bypass the delivery guard.

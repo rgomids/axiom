@@ -41,3 +41,5 @@ ADRs futuros devem registrar, no mínimo:
 Hipóteses de pesquisa não são decisões. Não crie um ADR apenas para preencher a árvore documental.
 
 ADR-0010 defines opt-in [pinned release metadata recovery](0010-pinned-release-corrections.md), preserving original source provenance and human publication gates.
+
+ADR-0011 makes the [release start command-driven](0011-command-driven-release-start.md): merges integrate code, `$axiom-release` starts releases after a preflight of the whole release range.

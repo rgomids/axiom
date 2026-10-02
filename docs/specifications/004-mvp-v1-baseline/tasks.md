@@ -1962,3 +1962,42 @@ RecognizedPOC preservation lifecycle were approved by explicit human decisions o
 2026-10-01. This issue-scoped Task decomposition is proposed for review together
 with the reconciled Plan. No I153-T0x implementation is authorized by this
 documentation change.
+
+## Release Flow v2 — command-driven release start
+
+This maintainer-process Task extends the T23/T38 release contract (Plan §13
+"Release start reconciliation", ADR-0011) without renumbering the T01–T40 DAG.
+It is not product Runtime behavior.
+
+### RF2-T01 — Explicit release start with preflight before the Release PR
+
+- **Objective:** A merge to `main` never starts versioning; `$axiom-release`
+  validates the whole release range, then dispatches Release Please, and
+  resumes every later phase from discovered state.
+- **Dependencies:** T23, T38 release contract; ADR-0010 recovery unchanged.
+- **Requirements:** FR-063; Plan §13 release, delivery and release-start
+  reconciliations; ADR-0011.
+- **Scope:**
+  - `release-please.yml`: `workflow_dispatch` only, inputs `planned_version`
+    and `main`, plan re-run before Release Please, Release PR version check
+    before its required checks are dispatched;
+  - `scripts/release-plan.sh`: Git-only range validation (Conventional
+    Commits, delivery metadata, previous release published, tag conflicts) and
+    SemVer plan;
+  - `scripts/release.sh`: `start`, `state=` reporting, stale Release PR
+    detection, in-flight run detection, prepared-run discovery, `publish` and
+    `verify` without operator-supplied SHAs or run ids;
+  - skill, CONTRIBUTING, command reference and repository security reconciled.
+- **Completion/Evidence:** `scripts/test-release-flow.sh` and
+  `scripts/test-release-pr-checks.py` prove: no push trigger; start →
+  preflight → dispatch; undeclared metadata or a nonconventional subject fails
+  before any dispatch, artifact, tag or release; feat/fix/breaking/Release-As
+  SemVer for `0.x` and `>=1.0`; open Release PR blocks preparation; prepare
+  uses the merged release commit and creates no tag or release; publication
+  without or with a stale digest has zero effects; verify fails on a different
+  asset, tag or revision; repeated status/start in intermediate states is
+  consistent and never duplicates a dispatch.
+- **Exclusions:** publishing a real release, tags, environment approval,
+  repository settings, ADR-0010 recovery changes, replacing Release Please.
+- **Status:** implemented in the Release Flow v2 PR, pending human review and
+  merge. v0.3.0 (merged, unpublished) still follows the ADR-0010 recovery.
