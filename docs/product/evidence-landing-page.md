@@ -21,46 +21,63 @@ These maintainer decisions refine #86 and are what the validator enforces:
 
 1. **Dark is the only theme.** There is no light palette, no theme switch, no
    `prefers-color-scheme` branch and no stored palette preference.
-2. **Deep-sea direction instead of Matrix green.** Deep-blue surfaces, a blue
-   accent, and two side tentacles behind the content.
-3. **No animation.** Nothing moves on its own. Depth is suggested by static light
-   shafts that fade with depth and by an abyss overlay that darkens as the reader
-   scrolls. The tentacles slide in with the scroll position; under
-   `prefers-reduced-motion` they stay in place.
+2. **Graphite devtool direction — 2026-10-01.** The maintainer replaced the
+   deep-sea direction (navy surfaces and scroll-driven side tentacles) with a
+   graphite canvas (`#0D1117`), a blue-to-teal accent and a centred hero. Layout
+   and density follow simple devtool landing pages (strong hero, one primary and
+   one secondary CTA, few sections); no other project's identity, copy or assets
+   are reused. The octopus survives only as the Axiom logo itself.
+3. **No animation.** Nothing moves on its own. Depth comes from static radial
+   light and a faint grid; hover transitions are disabled under
+   `prefers-reduced-motion`.
 4. **English/Portuguese switch.** The page is authored in English and carries the
    Portuguese version inline (`data-pt`, `data-pt-html`). The language is the only
    stored preference (`axiom-lang`).
-5. **Project status follows `main`.** The status section mirrors the versioned
-   README and Specifications index: S1–S7 delivered, S8 technically complete and
-   awaiting human review, Codex and Claude Runtime integrations available.
+5. **Content follows `main`.** The tagline, the description and the lifecycle
+   come from the versioned README (six steps, Intent → Evidence and
+   Reconciliation); every command in the terminal preview is documented in the
+   README *Getting Started*; the status section mirrors the README and the
+   Specifications index: S1–S7 delivered, S8 ready for human review, Codex and
+   Claude Runtime integrations available.
+6. **Axiom DS alignment without runtime coupling.** Text, action, focus and
+   status colours, the Inter type stack, the 12–48 px type scale, the spacing
+   scale, the 6/8 px radii and the 160 ms motion token use the Axiom DS dark
+   semantic values (`rgomids/axiom-ds`, `packages/tokens`, commit `ded417f`),
+   written as local CSS custom properties. No DS package, framework or build
+   step is consumed. Gold (`brand-gold #EDB351`) is used only as brand signature:
+   the diamond beside the header wordmark and the *6* in the facts band; status
+   uses success, action and muted roles.
 
-Decisions 1 and 2 replace three #86 Definition of Done items: *Visual identity
-follows the Matrix/terminal-inspired Axiom direction*, *Dark mode is the
-default* (now the only mode), and *Light mode can be toggled explicitly*.
-Decision 3 stays within #86, which allows lightweight animation but does not
-require it.
+Landing-specific exceptions, kept local and marked `landing` in `styles.css`:
+the `#0D1117` page canvas and `#12171E` band (deeper than DS `surface.canvas`),
+the teal gradient end, display sizes above 48 px for the hero and section
+titles, 16 px panel radii and pills, and the monospace stack for eyebrows and
+code. They are not proposed as reusable DS primitives.
 
-### Definition of Done amendment — 2026-10-01
+### Definition of Done amendments — 2026-10-01
 
-The maintainer decided on 2026-10-01 that decisions 1–3 supersede those
-#86 items and that this delivery completes #86. Against the amended Definition
-of Done:
+The maintainer decided on 2026-10-01 that decisions 1–3 supersede the
+conflicting visual items of #86 and that this delivery completes #86.
 
 | #86 item | Status |
 | --- | --- |
-| Matrix/terminal-inspired visual identity | Superseded by decision 2 (deep-sea direction) |
-| Dark mode is the default | Satisfied: dark is the only theme (decision 1) |
-| Light mode can be toggled explicitly | Superseded by decision 1 (no light theme) |
+| Matrix/terminal-inspired visual identity | Superseded by decision 2 |
+| Deep Sea direction; deep navy/blue primary palette | Superseded by decision 2 (graphite canvas, blue accent) |
+| Dark mode is the only landing-page theme | Satisfied (decision 1) |
+| Light mode can be toggled explicitly | Superseded by decision 1 |
+| Amber/gold logo signature preserved selectively | Satisfied (decision 6) |
+| Reusable primitives aligned with Axiom DS without framework coupling | Satisfied at token level (decision 6) |
+| Reusable decisions reconciled into Axiom DS or documented as landing-specific | Documented as landing-specific above; nothing is proposed back to the DS |
 
-The Issue body still lists the original items. It should be edited to quote this
-amendment so the Issue and this Evidence agree; that edit does not change the
-delivered page.
+The Issue body still describes the Deep Sea direction. It should be edited to
+quote decision 2 so the Issue and this Evidence agree; that edit does not change
+the delivered page.
 
 ## What is published
 
-`site/` is the whole published surface: `index.html`, `styles.css`, `ocean.js`,
-`lang.js`. `.github/workflows/deploy-landpage.yml` uploads that directory
-verbatim; it assembles nothing and copies nothing into it.
+`site/` is the whole published surface: `index.html`, `styles.css`, `lang.js`.
+`ocean.js` was retired with the tentacles. `.github/workflows/deploy-landpage.yml`
+uploads that directory verbatim; it assembles nothing and copies nothing into it.
 
 ## Canonical asset reuse
 
@@ -68,16 +85,18 @@ verbatim; it assembles nothing and copies nothing into it.
 page consumes them through the absolute raw URLs of those canonical files:
 
 ```text
-https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-white.png      header mark
-https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-black.png      hero, Open Graph, Twitter Card
+https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-github.png     header mark
+https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-white.png      hero logo, logo hub
+https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-black.png      Open Graph, Twitter Card
 https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-app-black.png  favicon, Apple Touch icon
 ```
 
-The white mark is transparent, so the header needs no blend mode. The hero uses
-the dark, glowing artwork that matches the deep-sea page. The app icon is opaque,
-so it survives any background a browser or launcher composites it on. No `blob`
-URL is used for an image, no relative path crosses the published boundary, and
-no copy of any asset exists under `site/`.
+The header uses the rounded app tile at the maintainer's request; on `main` it is
+byte-identical to `docs/assets/axiom-logo-github.png` at `d5f7822`. A GitHub
+`blob` URL renders an HTML page, so the raw URL is used instead. The white mark is
+transparent and keeps its gold detail on the graphite canvas. No `blob` URL is
+used for an image, no relative path crosses the published boundary, and no copy of
+any asset exists under `site/`.
 
 ## Reproducible checks
 
@@ -95,16 +114,16 @@ PASS: no canonical asset is duplicated inside site/
 PASS: no residual landing_page/ reference in the repository
 PASS: site/ loads no image through a GitHub blob URL
 PASS: site/ references no identity asset through a relative path
-PASS: favicon, Apple Touch icon, Open Graph, Twitter, header and hero use canonical raw URLs
+PASS: favicon, Apple Touch icon, Open Graph, Twitter, header, hero and logo hub use canonical raw URLs
 PASS: declared image dimensions match the canonical assets in docs/assets/
 PASS: canonical URL, Open Graph and Twitter metadata are present
 PASS: dark is the only theme: no OS branch, no stored preference, no toggle
 PASS: every text token reaches WCAG AA contrast on every background and surface token
 PASS: no animation: no keyframes, no script-driven motion, reduced motion honoured
-PASS: the background is the two tentacles, revealed by scrolling
+PASS: no retired background effect: the background is static light only
 PASS: every visible string has an English and a Portuguese version
 PASS: README.md documents the public URL and the local development command
-PASS: every published file answers over http://localhost:45907
+PASS: every published file answers over http://localhost:47735
 PASS: every canonical asset URL answers successfully
 PASS: landing page validation passed
 ```
@@ -156,9 +175,9 @@ grep -RE 'src="(\.\.?/|assets/)' site
 grep -R "raw.githubusercontent.com/rgomids/axiom/main/docs/assets" site
 ```
 
-The first three produce no output. The fourth lists the six canonical references
-in `site/index.html`: `og:image`, `twitter:image`, `icon`, `apple-touch-icon`, the
-header `<img>` and the hero `<img>`. `evidence-s3.md` is excluded because it
+The first three produce no output. The fourth matches seven canonical references
+in `site/index.html`: `og:image`, `twitter:image`, `icon`, `apple-touch-icon`, and
+the header, hero and logo hub `<img>`. `evidence-s3.md` is excluded because it
 quotes a historical stash message verbatim; editing an accepted record to satisfy
 a lint would falsify it. The only `blob` URL in `site/` is the footer link to
 `LICENSE`, a document a reader opens, not an asset the browser loads.
@@ -214,7 +233,6 @@ function frame(width, height) {
     document.body.appendChild(f);
   });
 }
-function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 (async function () {
   localStorage.clear();
   var f = await frame(1440, 900), w = f.contentWindow, d = f.contentDocument;
@@ -228,19 +246,14 @@ function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   log('second click  lang=' + d.documentElement.lang + ' stored=' + localStorage.getItem('axiom-lang'));
   log('storage keys  ' + Object.keys(localStorage).join(','));
   var imgs = d.querySelectorAll('img');
-  for (var i = 0; i < imgs.length; i++) log('img ' + (imgs[i].complete && imgs[i].naturalWidth ? 'OK ' : 'BROKEN ') + imgs[i].naturalWidth + 'x' + imgs[i].naturalHeight + ' ' + imgs[i].src.split('/').pop());
+  for (var i = 0; i < imgs.length; i++) log('img ' + (imgs[i].complete && imgs[i].naturalWidth ? 'OK ' : 'BROKEN ') + imgs[i].naturalWidth + 'x' + imgs[i].naturalHeight + ' ' + imgs[i].className + ' ' + imgs[i].src.split('/').pop());
   log('body background ' + w.getComputedStyle(d.body).backgroundColor);
   log('running animations ' + d.getAnimations().length);
-  var left = d.querySelector('.tentacle-left'), bd = d.querySelector('.backdrop');
-  for (var y of [0, 260, 900]) {
-    w.scrollTo({ top: y, behavior: 'instant' }); await wait(1000);
-    log('scrollY=' + Math.round(w.scrollY) + ' reveal=' + d.documentElement.style.getPropertyValue('--tentacle-reveal') +
-        ' tentacle=' + w.getComputedStyle(left).transform + ' abyss=' + w.getComputedStyle(bd, '::after').opacity);
-  }
   log('overflow@1440 ' + (d.documentElement.scrollWidth > d.documentElement.clientWidth));
   f.remove(); f = await frame(390, 844); d = f.contentDocument;
   log('overflow@390  ' + (d.documentElement.scrollWidth > d.documentElement.clientWidth) +
-      ' brand-name=' + f.contentWindow.getComputedStyle(d.querySelector('.brand-name')).display);
+      ' section-links=' + f.contentWindow.getComputedStyle(d.querySelector('.nav-section')).display +
+      ' hub-lines=' + f.contentWindow.getComputedStyle(d.querySelector('.hub-lines')).display);
   log('DONE');
 })();
 </script>
@@ -256,59 +269,50 @@ after click   lang=pt-BR toggle=EN stored=pt h1="Mantenha intenção, decisões,
 after reload  lang=pt-BR toggle=EN h1="Mantenha intenção, decisões, código e ev"
 second click  lang=en stored=en
 storage keys  axiom-lang
-img OK 1254x1254 axiom-logo-white.png
-img OK 1536x1024 axiom-logo-black.png
-body background rgb(4, 17, 38)
+img OK 1254x1254 brand-mark axiom-logo-github.png
+img OK 1254x1254 hero-logo axiom-logo-white.png
+img OK 1254x1254 hub-logo axiom-logo-white.png
+body background rgb(13, 17, 23)
 running animations 0
-scrollY=0 reveal=0.000 tentacle=matrix(1, 0, 0, 1, -249.693, 0) abyss=0
-scrollY=260 reveal=0.438 tentacle=matrix(1, 0, 0, 1, -140.327, 0) abyss=0.438
-scrollY=900 reveal=1.000 tentacle=matrix(1, 0, 0, 1, 0, 0) abyss=1
 overflow@1440 false
-overflow@390  false brand-name=none
+overflow@390  false section-links=none hub-lines=none
 DONE
 ```
 
 What this shows:
 
-- **Assets:** both `<img>` load from their canonical raw URLs, and their natural
-  sizes match the declared `width`/`height`. No asset is broken.
-- **Theme:** the page renders the dark palette with nothing stored. The only key
-  ever written is `axiom-lang`.
+- **Assets:** every `<img>` loads from its canonical raw URL, and its natural size
+  matches the declared `width`/`height`. No asset is broken.
+- **Theme:** the page renders the graphite palette with nothing stored. The only
+  key ever written is `axiom-lang`.
 - **Language:** the choice survives a reload and switches back.
-- **Motion:** `document.getAnimations()` is empty. The tentacles and the abyss
-  overlay track the scroll position and saturate at 1.
-- **Layout:** no horizontal overflow at 1440 px or 390 px. At 390 px the header
-  shows the mark only, so the word "Axiom" never collides with the navigation.
+- **Motion:** `document.getAnimations()` is empty, with and without
+  `--force-prefers-reduced-motion`.
+- **Layout:** no horizontal overflow at 1440 px or 390 px. At 390 px the section
+  links and the hub connector lines are hidden; the header keeps the mark, the
+  `AXIOM` wordmark, GitHub, Documentation and the language switch.
 
-With `--force-prefers-reduced-motion`, the tentacle `transform` is `none` at
-scroll positions 0, 260 and 900: the tentacles stay in place instead of sliding
-in. The `--tentacle-reveal` values in that run depend on headless frame timing,
-so they are not recorded as a result.
-
-Viewports were also inspected visually:
+Screenshots, captured with headless Chrome against the locally served `site/`
+and stored next to this Evidence (not published by the Pages workflow):
 
 ```bash
-google-chrome --headless --hide-scrollbars --window-size=1440,900 --screenshot=desktop.png http://127.0.0.1:8000/
-google-chrome --headless --hide-scrollbars --window-size=390,844  --screenshot=mobile.png  http://127.0.0.1:8000/
+google-chrome --headless --hide-scrollbars --window-size=1440,900  --virtual-time-budget=20000 --screenshot=desktop-hero.png http://127.0.0.1:8000/
+google-chrome --headless --hide-scrollbars --window-size=1440,5000 --virtual-time-budget=20000 --screenshot=full.png         http://127.0.0.1:8000/
+google-chrome --headless --hide-scrollbars --window-size=390,844   --virtual-time-budget=20000 --screenshot=mobile-hero.png  http://127.0.0.1:8000/
 ```
 
-Both render the hero, readable copy and both CTAs. At 390 px the hero stacks, the
-CTAs become full width, and the tentacles narrow and fade. On desktop the status
-section keeps *Available* on the left with *In progress* and *Future work* stacked
-on the right.
+The full page was trimmed and scaled to 50 %; metadata was stripped.
 
-#### Maintainer screenshots — 2026-10-01
+![Desktop hero, 1440 px](evidence-landing-page/desktop-hero.png)
 
-Captured by the maintainer in Chrome at a 1876 px wide desktop viewport, serving
-`site/` locally. The browser toolbar was cropped out and metadata stripped; the
-page content is unedited. They are review Evidence only and are not published by
-the Pages workflow.
+![Mobile hero, 390 px](evidence-landing-page/mobile-hero.png)
 
-![Header and hero](evidence-landing-page/desktop-hero.png)
+<details>
+<summary>Full page, desktop</summary>
 
-![What is Axiom and Why Axiom, with the side tentacles](evidence-landing-page/desktop-what-and-why.png)
+![Full page at 1440 px, scaled to 50 %](evidence-landing-page/desktop-full-page.png)
 
-![How it works and Project status](evidence-landing-page/desktop-how-and-status.png)
+</details>
 
 ### Supply chain
 
@@ -342,23 +346,23 @@ The workflow uploads `./site` unchanged and copies no logo into it.
 
 ## Limitations
 
-- **#86 Issue text not yet synchronized.** The 2026-10-01 amendment (see
-  [Definition of Done amendment](#definition-of-done-amendment--2026-10-01))
-  supersedes the Matrix-green and light-mode items, but the Issue body still
-  lists them until it is edited.
+- **#86 Issue text not yet synchronized.** Decision 2 supersedes the Deep Sea
+  direction the Issue still describes (see
+  [Definition of Done amendments](#definition-of-done-amendments--2026-10-01)).
 - **Deployment is observable only after merge.** The workflow triggers on `main`,
   and GitHub Pages must be enabled with *GitHub Actions* as its source. The Pages
   run, the served artifact and the live URL must be confirmed after merge.
-- **Assets resolve against `main`.** The raw URLs pin the `main` branch, so the
-  refreshed `axiom-logo-black.png` in this branch appears on the page only after
-  merge. A renamed or moved asset would break the page; the validator fails
-  closed if the canonical files or references stop matching.
+- **Assets resolve against `main`.** The raw URLs pin the `main` branch. A renamed
+  or moved asset would break the page; the validator fails closed if the canonical
+  files or references stop matching.
 - **Status is a snapshot.** The status section mirrors `main` as of the baseline.
   It must be updated with the README when slice state changes; the page links the
   versioned status as the source of truth.
-- The hero artwork is a 1 MB PNG served from `raw.githubusercontent.com`. An
-  optimised derivative would be a new canonical asset decision, not a copy under
-  `site/`.
+- **Axiom DS values are copied, not consumed.** The DS packages are private and
+  unpublished, and its compiled CSS defaults to the light theme, so the dark
+  semantic values are written as local custom properties. A DS token change is
+  not picked up automatically.
+- The Open Graph and Twitter image is still the 1 MB `axiom-logo-black.png`.
 - How social platforms crop or cache the Open Graph and Twitter images is outside
   this Evidence.
 - Headless Chrome only: no cross-browser or real-device matrix, and no Lighthouse
