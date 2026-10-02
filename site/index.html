@@ -27,7 +27,8 @@
 
 <a class="skip-link" href="#main" data-pt="Ir para o conteúdo">Skip to content</a>
 
-<!-- Header: layout in styles.css "Header"; the PT/EN switch is lang.js -->
+<!-- Header: layout in styles.css "Header"; the PT/EN switch is lang.js.
+     Section links follow the order of the sections on the page. -->
 <header class="site-header">
   <div class="shell header-inner">
     <a class="brand" href="#top" aria-label="Axiom — home">
@@ -39,6 +40,7 @@
     <nav class="header-nav" aria-label="Primary">
       <a class="nav-link nav-section" href="#what" data-pt="O que é">What it is</a>
       <a class="nav-link nav-section" href="#how" data-pt="Como funciona">How it works</a>
+      <a class="nav-link nav-section" href="#start" data-pt="Primeiros passos">Getting started</a>
       <a class="nav-link nav-section" href="#status" data-pt="Status">Status</a>
       <a class="nav-link" href="https://github.com/rgomids/axiom">GitHub</a>
       <a class="nav-link" href="https://github.com/rgomids/axiom#documentation" data-pt="Documentação">Documentation</a>
@@ -49,7 +51,7 @@
 
 <main id="main">
 
-  <!-- Hero: headline, CTAs, guarantees strip and the terminal preview -->
+  <!-- Hero: logo, headline, CTAs and the guarantees strip -->
   <section class="hero" id="top">
     <div class="shell hero-inner">
       <img class="hero-logo" src="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-white.png" alt="Axiom" width="1254" height="1254" decoding="async">
@@ -78,63 +80,10 @@
         <li><span class="check" aria-hidden="true"></span><span data-pt="Aprovação humana em cada decisão material">Human approval on every material decision</span></li>
         <li><span class="check" aria-hidden="true"></span><span data-pt="Evidência reproduzível, não apenas afirmada">Evidence you can reproduce, not just read</span></li>
       </ul>
-
-      <!-- Terminal preview: every command below is documented in README.md.
-           Decorative copy of the docs, so screen readers get the caption. -->
-      <figure class="preview">
-        <div class="window">
-          <div class="window-bar" aria-hidden="true">
-            <span class="window-dots"><i></i><i></i><i></i></span>
-            <span class="window-title">~/my-project</span>
-          </div>
-          <div class="window-body">
-            <aside class="window-side" aria-hidden="true">
-              <p class="side-label" data-pt="Skills do Runtime">Runtime skills</p>
-              <ul role="list">
-                <li>axiom-project-configure</li>
-                <li>axiom-project-show</li>
-                <li>axiom-work-item-create</li>
-                <li class="is-current">axiom-work-item-run</li>
-                <li>axiom-work-item-status</li>
-              </ul>
-            </aside>
-<pre class="window-code" aria-hidden="true"><code><span class="c"># install the latest stable release</span>
-<span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh
-<span class="p">$</span> axiom first-run
-
-<span class="c"># relate repositories to one Project</span>
-<span class="p">$</span> axiom project configure
-<span class="p">$</span> axiom project show --selector my-project
-
-<span class="c"># run the bounded workflow for Issue #123</span>
-<span class="p">$</span> axiom workflow start  --project my-project --repository main --number 123
-<span class="p">$</span> axiom workflow status --project my-project --repository main --number 123</code></pre>
-          </div>
-        </div>
-        <figcaption class="preview-caption" data-pt="Comandos da documentação de primeiros passos. Os Runtimes Codex e Claude chamam a mesma CLI pelas skills.">Commands from the Getting Started guide. Codex and Claude Runtimes call the same CLI through skills.</figcaption>
-      </figure>
     </div>
   </section>
 
-  <!-- Facts band: keep these in step with the README "Project status" -->
-  <section class="facts" aria-label="Project facts">
-    <div class="shell facts-inner">
-      <div class="fact">
-        <p class="fact-value gradient-text">S1–S7</p>
-        <p class="fact-label" data-pt="fatias do MVP entregues na main, com Especificações e Evidência versionadas">MVP slices delivered on main, with versioned Specifications and Evidence</p>
-      </div>
-      <div class="fact">
-        <p class="fact-value gradient-text">2</p>
-        <p class="fact-label" data-pt="integrações de Runtime disponíveis hoje: Codex e Claude">Runtime integrations available today: Codex and Claude</p>
-      </div>
-      <div class="fact">
-        <p class="fact-value gold-text">6</p>
-        <p class="fact-label" data-pt="passos da intenção à evidência, e a evidência informa a próxima intenção">steps from intent to evidence, and the evidence informs the next intent</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- What it is: logo hub, then the four problems and what replaces them -->
+  <!-- What it is: the four problems and what replaces them -->
   <section class="section" id="what" aria-labelledby="what-title">
     <div class="shell">
       <header class="section-head">
@@ -181,7 +130,7 @@
     </div>
   </section>
 
-  <!-- How it works: the same lifecycle seen by people and by agents -->
+  <!-- How it works: flow diagram from intent to delivery -->
   <section class="section section-alt" id="how" aria-labelledby="how-title">
     <div class="shell">
       <header class="section-head">
@@ -190,42 +139,60 @@
         <p class="section-lede" data-pt="Cada passo produz o contexto que o passo seguinte consome.">Each step produces the context the next step consumes.</p>
       </header>
 
-      <div class="split">
-        <article class="panel">
-          <p class="eyebrow" data-pt="Para quem decide">For the people deciding</p>
-          <h3 data-pt="Aprove a intenção, não só o diff.">Approve the intent, not just the diff.</h3>
-          <p data-pt="Toda decisão material passa por aprovação humana, e a Evidência reconcilia a documentação com o resultado.">Human approval gates every material decision, and Evidence reconciles the docs with the outcome.</p>
+      <!-- Flow diagram, based on axiom-diagrama/. Layout in styles.css "Flow diagram";
+           wires and moving signals are drawn by diagram.js, which stops all
+           motion under prefers-reduced-motion. Icons: Lucide (ISC),
+           inlined below; licence notice at the end of this file. -->
+      <figure class="flow" id="flow">
+        <div class="flow-top">
+          <span class="flow-label" data-pt="Intenção → Orquestração → Entrega">Intent → Orchestration → Delivery</span>
+        </div>
 
-          <ol class="steps" role="list">
-            <li><span class="step-n">01</span><span data-pt="Intenção">Intent</span></li>
-            <li><span class="step-n">02</span><span data-pt="Especificação">Specification</span></li>
-            <li><span class="step-n">03</span><span data-pt="Decisões e Plano">Decisions and Plan</span></li>
-            <li><span class="step-n">04</span><span data-pt="Implementação">Implementation</span></li>
-            <li><span class="step-n">05</span><span data-pt="Validação e Revisão">Validation and Review</span></li>
-            <li><span class="step-n">06</span><span data-pt="Evidência e Reconciliação">Evidence and Reconciliation</span></li>
-          </ol>
-        </article>
+        <div class="flow-stage">
+          <svg class="flow-wires" aria-hidden="true" focusable="false"></svg>
 
-        <article class="panel">
-          <p class="eyebrow" data-pt="Para quem executa">For the agents executing</p>
-          <h3 data-pt="Unidades delimitadas, nunca em aberto.">Bounded units, never open-ended.</h3>
-          <p data-pt="Cada skill chama a CLI axiom, que mantém a validação e a autoridade sobre toda mudança local ou externa.">Each skill calls the axiom CLI, which keeps validation and the authority for every local or external change.</p>
-
-<pre class="snippet" aria-label="Skill invocation"><code><span class="c">Codex: </span> $axiom-work-item-run
-<span class="c">Claude:</span> /axiom-work-item-run</code></pre>
-
-          <ul class="runtimes" role="list">
-            <li class="runtime">
-              <span class="runtime-icon" aria-hidden="true">&gt;_</span>
-              <span>Codex</span>
+          <ul class="flow-side flow-inputs" role="list">
+            <li class="flow-node" data-node="in0">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></svg>
+              <span><strong data-pt="Pedido e objetivo">Request &amp; goal</strong><small data-pt="Intenção • especificação">Intent • specification</small></span>
             </li>
-            <li class="runtime">
-              <span class="runtime-icon" aria-hidden="true">&#x2733;</span>
-              <span>Claude</span>
+            <li class="flow-node" data-node="in1">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></svg>
+              <span><strong data-pt="Arquitetura">Architecture</strong><small data-pt="Decisões • plano">Decisions • plan</small></span>
+            </li>
+            <li class="flow-node" data-node="in2">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 19a5 5 0 0 1-5-5v8"/><path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/><circle cx="13" cy="12" r="2"/><circle cx="20" cy="19" r="2"/></svg>
+              <span><strong data-pt="Contexto e código">Context &amp; code</strong><small data-pt="Repositórios • documentação">Repositories • documentation</small></span>
             </li>
           </ul>
-        </article>
-      </div>
+
+          <div class="flow-core" data-node="core">
+            <span class="flow-ring" aria-hidden="true"></span>
+            <span class="flow-ring flow-ring-two" aria-hidden="true"></span>
+            <span class="flow-frame" data-node="frame">
+              <img class="flow-logo" src="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-white.png" alt="" width="1254" height="1254" decoding="async">
+            </span>
+            <span class="flow-role" data-pt="Control plane de desenvolvimento">Development control plane</span>
+          </div>
+
+          <ul class="flow-side flow-outputs" role="list">
+            <li class="flow-node" data-node="out0">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 12.15V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2h-3.35"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m5 16-3 3 3 3"/><path d="m9 22 3-3-3-3"/></svg>
+              <span><strong data-pt="Código">Code</strong><small data-pt="Implementação • testes">Implementation • tests</small></span>
+            </li>
+            <li class="flow-node" data-node="out1">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M8 18v-1"/><path d="M12 18v-6"/><path d="M16 18v-3"/></svg>
+              <span><strong data-pt="Relatório">Report</strong><small data-pt="Validação • evidências">Validation • evidence</small></span>
+            </li>
+            <li class="flow-node" data-node="out2">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 22V12"/><path d="m16 17 2 2 4-4"/><path d="M21 11.127V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.729l7 4a2 2 0 0 0 2 .001l1.32-.753"/><path d="M3.29 7 12 12l8.71-5"/><path d="m7.5 4.27 8.997 5.148"/></svg>
+              <span><strong data-pt="Feature">Feature</strong><small data-pt="Entrega para revisão">Delivered for review</small></span>
+            </li>
+          </ul>
+        </div>
+
+        <figcaption class="flow-process" data-pt-html="Especificar &lt;span aria-hidden=&quot;true&quot;&gt;→&lt;/span&gt; Planejar &lt;span aria-hidden=&quot;true&quot;&gt;→&lt;/span&gt; Executar &lt;span aria-hidden=&quot;true&quot;&gt;→&lt;/span&gt; Validar">Specify <span aria-hidden="true">→</span> Plan <span aria-hidden="true">→</span> Execute <span aria-hidden="true">→</span> Validate</figcaption>
+      </figure>
 
       <p class="callout" data-pt="Hoje cada passo é conduzido por pessoas junto com o harness e os Runtimes. A orquestração dinâmica segue como trabalho futuro.">
         Today each step is driven by humans together with the harness and the Runtimes.
@@ -234,8 +201,102 @@
     </div>
   </section>
 
+  <!-- Getting started: steps from README "Getting Started", then the terminal preview -->
+  <section class="section" id="start" aria-labelledby="start-title">
+    <div class="shell">
+      <header class="section-head">
+        <p class="eyebrow" data-pt="Primeiros passos">Getting started</p>
+        <h2 id="start-title" data-pt="Da instalação ao primeiro fluxo.">From install to your first workflow.</h2>
+        <p class="section-lede" data-pt="Usar o Axiom não exige clone, toolchain Go nem build.">Using Axiom needs no clone, Go toolchain, or build.</p>
+      </header>
+
+      <div class="start-grid">
+        <ol class="start-steps" role="list">
+          <li>
+            <span class="step-n">01</span>
+            <div>
+              <h3 data-pt="Instale">Install</h3>
+              <p data-pt="O instalador verifica o checksum SHA-256 antes de extrair e instala o axiom em $HOME/.local/bin, sem sudo.">The installer verifies the SHA-256 checksum before extracting and installs axiom into $HOME/.local/bin, without sudo.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-n">02</span>
+            <div>
+              <h3 data-pt="Verifique">Verify</h3>
+              <p data-pt-html="&lt;code&gt;axiom version&lt;/code&gt; mostra a versão e a revisão instaladas.">
+                <code>axiom version</code> reports the installed version and revision.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-n">03</span>
+            <div>
+              <h3 data-pt="Primeira execução">First run</h3>
+              <p data-pt-html="&lt;code&gt;axiom first-run&lt;/code&gt; encontra Codex e Claude no PATH e instala as skills do Axiom em cada um. Nunca instala um Runtime nem toca em credenciais.">
+                <code>axiom first-run</code> finds Codex and Claude on your PATH and installs Axiom's skills for each. It never installs a Runtime or touches credentials.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-n">04</span>
+            <div>
+              <h3 data-pt="Configure um Projeto">Configure a Project</h3>
+              <p data-pt="Guiado: mostra a mudança exata e não grava nada até você responder yes.">Guided: it previews the exact change and writes nothing until you answer yes.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-n">05</span>
+            <div>
+              <h3 data-pt="Rode o fluxo">Run the workflow</h3>
+              <p data-pt="Crie um Work Item no GitHub Issues e inicie e acompanhe o fluxo delimitado dele.">Create a Work Item as a GitHub Issue, then start and inspect its bounded workflow.</p>
+            </div>
+          </li>
+        </ol>
+
+          <!-- Terminal preview: every command below is documented in README.md.
+               Decorative copy of the docs, so screen readers get the caption. -->
+        <figure class="preview">
+          <div class="window">
+            <div class="window-bar" aria-hidden="true">
+              <span class="window-dots"><i></i><i></i><i></i></span>
+              <span class="window-title">~/my-project</span>
+            </div>
+            <div class="window-body">
+              <aside class="window-side" aria-hidden="true">
+                <p class="side-label" data-pt="Skills do Runtime">Runtime skills</p>
+                <ul role="list">
+                  <li>axiom-project-configure</li>
+                  <li>axiom-project-show</li>
+                  <li>axiom-work-item-create</li>
+                  <li class="is-current">axiom-work-item-run</li>
+                  <li>axiom-work-item-status</li>
+                </ul>
+              </aside>
+<pre class="window-code" aria-hidden="true"><code><span class="c"># install the latest stable release</span>
+<span class="p">$</span> curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh
+<span class="p">$</span> axiom version
+<span class="p">$</span> axiom first-run
+
+<span class="c"># relate repositories to one Project</span>
+<span class="p">$</span> axiom project configure
+<span class="p">$</span> axiom project show --selector my-project
+
+<span class="c"># run the bounded workflow for Issue #123</span>
+<span class="p">$</span> axiom workflow start  --project my-project --repository main --number 123
+<span class="p">$</span> axiom workflow status --project my-project --repository main --number 123</code></pre>
+            </div>
+          </div>
+          <figcaption class="preview-caption" data-pt="Comandos da documentação de primeiros passos. Os Runtimes Codex e Claude chamam a mesma CLI pelas skills.">Commands from the Getting Started guide. Codex and Claude Runtimes call the same CLI through skills.</figcaption>
+        </figure>
+      </div>
+
+      <p class="callout" data-pt-html="Hosts suportados: macOS 27.0 em arm64 e Ubuntu 26.04 em amd64 ou arm64. &lt;a href=&quot;https://github.com/rgomids/axiom#getting-started&quot;&gt;Guia completo de primeiros passos&lt;/a&gt;.">
+        Supported hosts: macOS 27.0 on arm64 and Ubuntu 26.04 on amd64 or arm64.
+        <a href="https://github.com/rgomids/axiom#getting-started">Full Getting Started guide</a>.
+      </p>
+    </div>
+  </section>
+
   <!-- Project status: keep in step with README "Project status" -->
-  <section class="section" id="status" aria-labelledby="status-title">
+  <section class="section section-alt" id="status" aria-labelledby="status-title">
     <div class="shell">
       <header class="section-head">
         <p class="eyebrow" data-pt="Status do projeto">Project status</p>
@@ -315,5 +376,23 @@
 </footer>
 
 <script src="lang.js" defer></script>
+<script src="diagram.js" defer></script>
+
+<!-- Icons in the flow diagram are from Lucide (https://lucide.dev), inlined as SVG.
+ISC License
+
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. -->
 </body>
 </html>

@@ -27,36 +27,57 @@ These maintainer decisions refine #86 and are what the validator enforces:
    and density follow simple devtool landing pages (strong hero, one primary and
    one secondary CTA, few sections); no other project's identity, copy or assets
    are reused. The octopus survives only as the Axiom logo itself.
-3. **No animation.** Nothing moves on its own. Depth comes from static radial
-   light and a faint grid; hover transitions are disabled under
-   `prefers-reduced-motion`.
+3. **Motion only in the flow diagram — 2026-10-02.** *How it works* shows the
+   flow diagram adapted from the maintainer's `axiom-diagrama/` prototype: three
+   inputs, the Axiom core and three deliveries, with two rings pulsing around
+   the core (CSS `flow-radiate`) and a signal travelling each wire
+   (`diagram.js`). The maintainer chose subtle motion over a static diagram and
+   asked for no pause button. Under `prefers-reduced-motion` the rings and the
+   signals stop and only the wires remain. Everything else on the page is
+   static: depth comes from radial light and a faint grid.
 4. **English/Portuguese switch.** The page is authored in English and carries the
    Portuguese version inline (`data-pt`, `data-pt-html`). The language is the only
    stored preference (`axiom-lang`).
-5. **Content follows `main`.** The tagline, the description and the lifecycle
-   come from the versioned README (six steps, Intent → Evidence and
-   Reconciliation); every command in the terminal preview is documented in the
-   README *Getting Started*; the status section mirrors the README and the
-   Specifications index: S1–S7 delivered, S8 ready for human review, Codex and
-   Claude Runtime integrations available.
+5. **Content follows `main`.** The tagline and the description come from the
+   versioned README. *Getting started* summarises README *Getting Started* steps
+   1–5 and its terminal shows only commands documented there; the window wraps
+   long lines so it always fits the screen. The status section mirrors the
+   README and the Specifications index: S1–S7 delivered, S8 ready for human
+   review, Codex and Claude Runtime integrations available. The diagram core is
+   labelled *Development control plane*, the README's term, rather than the
+   prototype's "agent manager", because multi-agent execution (S8) still awaits
+   human review.
+7. **Page structure — 2026-10-02.** Hero → *What it is* → *How it works* (flow
+   diagram) → *Getting started* → *Project status* → closing CTA. The header's
+   section links follow that order. The facts band (S1–S7, 2 Runtimes, 6 steps)
+   and the "for the people deciding / for the agents executing" panels were
+   removed at the maintainer's request.
 6. **Axiom DS alignment without runtime coupling.** Text, action, focus and
    status colours, the Inter type stack, the 12–48 px type scale, the spacing
    scale, the 6/8 px radii and the 160 ms motion token use the Axiom DS dark
    semantic values (`rgomids/axiom-ds`, `packages/tokens`, commit `ded417f`),
    written as local CSS custom properties. No DS package, framework or build
    step is consumed. Gold (`brand-gold #EDB351`) is used only as brand signature:
-   the diamond beside the header wordmark and the *6* in the facts band; status
-   uses success, action and muted roles.
+   the diamond beside the header wordmark and the gold detail in the logos;
+   status uses success, action and muted roles.
 
 Landing-specific exceptions, kept local and marked `landing` in `styles.css`:
 the `#0D1117` page canvas and `#12171E` band (deeper than DS `surface.canvas`),
 the teal gradient end, display sizes above 48 px for the hero and section
 titles, 16 px panel radii and pills, and the monospace stack for eyebrows and
-code. They are not proposed as reusable DS primitives.
+code, and the flow diagram's frame, rings and signals. They are not proposed as
+reusable DS primitives.
+
+The diagram's six icons are Lucide (`message-square`, `network`, `folder-git-2`,
+`file-code-2`, `file-chart-column`, `package-check`), inlined as SVG with the
+Lucide ISC notice at the end of `index.html`. None is in Lucide's
+Feather-derived list, so the MIT notice does not apply. The prototype's
+embedded logo and the 444 KB `lucide.min.js` are not used; the core shows the
+canonical `axiom-logo-white.png`.
 
 ### Definition of Done amendments — 2026-10-01
 
-The maintainer decided on 2026-10-01 that decisions 1–3 supersede the
+The maintainer decided on 2026-10-01 and 2026-10-02 that decisions 1–3 supersede the
 conflicting visual items of #86 and that this delivery completes #86.
 
 | #86 item | Status |
@@ -75,8 +96,8 @@ the delivered page.
 
 ## What is published
 
-`site/` is the whole published surface: `index.html`, `styles.css`, `lang.js`.
-`ocean.js` was retired with the tentacles. `.github/workflows/deploy-landpage.yml`
+`site/` is the whole published surface: `index.html`, `styles.css`, `lang.js`,
+`diagram.js`. `ocean.js` was retired with the tentacles. `.github/workflows/deploy-landpage.yml`
 uploads that directory verbatim; it assembles nothing and copies nothing into it.
 
 ## Canonical asset reuse
@@ -86,7 +107,7 @@ page consumes them through the absolute raw URLs of those canonical files:
 
 ```text
 https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-github.png     header mark
-https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-white.png      hero logo
+https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-white.png      hero logo, flow diagram core
 https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-black.png      Open Graph, Twitter Card
 https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-app-black.png  favicon, Apple Touch icon
 ```
@@ -119,11 +140,11 @@ PASS: declared image dimensions match the canonical assets in docs/assets/
 PASS: canonical URL, Open Graph and Twitter metadata are present
 PASS: dark is the only theme: no OS branch, no stored preference, no toggle
 PASS: every text token reaches WCAG AA contrast on every background and surface token
-PASS: no animation: no keyframes, no script-driven motion, reduced motion honoured
+PASS: motion is confined to the flow diagram and off under reduced motion
 PASS: no retired background effect: the background is static light only
 PASS: every visible string has an English and a Portuguese version
 PASS: README.md documents the public URL and the local development command
-PASS: every published file answers over http://localhost:47735
+PASS: every published file answers over http://localhost:58387
 PASS: every canonical asset URL answers successfully
 PASS: landing page validation passed
 ```
@@ -175,9 +196,9 @@ grep -RE 'src="(\.\.?/|assets/)' site
 grep -R "raw.githubusercontent.com/rgomids/axiom/main/docs/assets" site
 ```
 
-The first three produce no output. The fourth matches six canonical references
+The first three produce no output. The fourth matches seven canonical references
 in `site/index.html`: `og:image`, `twitter:image`, `icon`, `apple-touch-icon`, and
-the header and hero `<img>`. `evidence-s3.md` is excluded because it
+the header, hero and diagram core `<img>`. `evidence-s3.md` is excluded because it
 quotes a historical stash message verbatim; editing an accepted record to satisfy
 a lint would falsify it. The only `blob` URL in `site/` is the footer link to
 `LICENSE`, a document a reader opens, not an asset the browser loads.
@@ -248,7 +269,12 @@ function frame(width, height) {
   var imgs = d.querySelectorAll('img');
   for (var i = 0; i < imgs.length; i++) log('img ' + (imgs[i].complete && imgs[i].naturalWidth ? 'OK ' : 'BROKEN ') + imgs[i].naturalWidth + 'x' + imgs[i].naturalHeight + ' ' + imgs[i].className + ' ' + imgs[i].src.split('/').pop());
   log('body background ' + w.getComputedStyle(d.body).backgroundColor);
-  log('running animations ' + d.getAnimations().length);
+  log('running animations ' + d.getAnimations().length + ' (' + d.getAnimations().map(function (x) { return x.animationName; }).join(',') + ')');
+  var nav = Array.prototype.map.call(d.querySelectorAll('.nav-section'), function (l) { return l.getAttribute('href'); });
+  var page = Array.prototype.map.call(d.querySelectorAll('main section[id]'), function (x) { return '#' + x.id; }).filter(function (id) { return nav.indexOf(id) >= 0; });
+  log('nav order     ' + nav.join(' ') + (nav.join() === page.join() ? '  = page order' : '  != page order ' + page.join(' ')));
+  var dotsShown = Array.prototype.filter.call(d.querySelectorAll('.flow-dot'), function (c) { return c.style.opacity === '1'; }).length;
+  log('flow wires=' + d.querySelectorAll('.flow-wire').length + ' signals-visible=' + dotsShown);
   log('overflow@1440 ' + (d.documentElement.scrollWidth > d.documentElement.clientWidth));
   f.remove(); f = await frame(390, 844); d = f.contentDocument;
   log('overflow@390  ' + (d.documentElement.scrollWidth > d.documentElement.clientWidth) +
@@ -271,11 +297,21 @@ second click  lang=en stored=en
 storage keys  axiom-lang
 img OK 1254x1254 brand-mark axiom-logo-github.png
 img OK 1254x1254 hero-logo axiom-logo-white.png
+img OK 1254x1254 flow-logo axiom-logo-white.png
 body background rgb(13, 17, 23)
-running animations 0
+running animations 7 (,,,,,flow-radiate,flow-radiate)
+nav order     #what #how #start #status  = page order
+flow wires=6 signals-visible=1
 overflow@1440 false
 overflow@390  false section-links=none brand-name=block
 DONE
+```
+
+With `--force-prefers-reduced-motion`:
+
+```text
+running animations 0 ()
+flow wires=6 signals-visible=0
 ```
 
 What this shows:
@@ -285,11 +321,15 @@ What this shows:
 - **Theme:** the page renders the graphite palette with nothing stored. The only
   key ever written is `axiom-lang`.
 - **Language:** the choice survives a reload and switches back.
-- **Motion:** `document.getAnimations()` is empty, with and without
-  `--force-prefers-reduced-motion`.
+- **Motion:** the only named animations are the two `flow-radiate` rings; the
+  other running entries are short opacity transitions on the diagram signals.
+  Under reduced motion nothing runs and no signal is visible; the six wires stay.
+- **Header order:** the section links (`#what #how #start #status`) appear in
+  the same order as the sections on the page.
 - **Layout:** no horizontal overflow at 1440 px or 390 px. At 390 px the section
-  links are hidden; the header keeps the mark, the `AXIOM` wordmark, GitHub,
-  Documentation and the language switch.
+  links are hidden and the diagram stacks vertically; the *Getting started*
+  window and its code fit the viewport at both widths (measured with
+  `scrollWidth <= clientWidth`), wrapping long commands on small screens.
 
 Screenshots, captured with headless Chrome against the locally served `site/`
 and stored next to this Evidence (not published by the Pages workflow):

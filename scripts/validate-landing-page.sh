@@ -35,6 +35,7 @@ site_files=(
   "index.html"
   "styles.css"
   "lang.js"
+  "diagram.js"
 )
 
 # Retired files: app.js carried the theme toggle, rain.js the Matrix background,
@@ -234,17 +235,48 @@ pass "every text token reaches WCAG AA contrast on every background and surface 
 
 # --- Motion -------------------------------------------------------------------
 
-# The page has no autonomous animation at all: depth comes from static light,
-# never from something moving on its own.
+# Motion is confined to the flow diagram in "What it is": pulsing rings in CSS
+# and signals moved by diagram.js. Everything else is static. The diagram stops
+# under prefers-reduced-motion.
 grep -Fq -- '@media (prefers-reduced-motion: reduce)' "$SITE/styles.css" \
   || fail "styles.css has no prefers-reduced-motion treatment"
-if grep -rqE '@keyframes|animation(-name)?:' "$SITE"; then
-  fail "site/ declares an animation; the landing page has none"
+
+python3 - "$SITE" <<'PYEOF' || fail "animation escapes the flow diagram or ignores reduced motion"
+import re
+import sys
+
+site = sys.argv[1]
+css = open(site + "/styles.css", encoding="utf-8").read()
+css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+for name in re.findall(r"@keyframes\s+([\w-]+)", css):
+    if not name.startswith("flow-"):
+        raise SystemExit("@keyframes %s is outside the flow diagram" % name)
+
+body = re.sub(r"@keyframes\s+[\w-]+\s*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
+for selector, block in re.findall(r"([^{}]+)\{([^{}]*)\}", body):
+    if re.search(r"(^|;|\s)animation(-name)?\s*:", block):
+        value = re.search(r"animation(?:-name)?\s*:\s*([^;]+)", block).group(1).strip()
+        if value != "none" and not all(part.strip().startswith(".flow") for part in selector.split(",")):
+            raise SystemExit("animation declared outside the flow diagram: " + selector.strip())
+
+reduced = re.search(r"@media \(prefers-reduced-motion: reduce\)\s*\{(.*?)\n\}", css, re.S)
+if not reduced or not re.search(r"\.flow-ring\s*\{\s*animation:\s*none;", reduced.group(1)):
+    raise SystemExit("the flow rings keep pulsing under prefers-reduced-motion")
+PYEOF
+
+for file in "$SITE"/*.js; do
+  [[ "$(basename "$file")" == "diagram.js" ]] && continue
+  if grep -qE 'requestAnimationFrame|setInterval|\.animate\(' "$file"; then
+    fail "$(basename "$file") drives motion; only diagram.js may"
+  fi
+done
+if grep -qE 'setInterval|\.animate\(' "$SITE/diagram.js"; then
+  fail "diagram.js uses setInterval or the Web Animations API"
 fi
-if grep -rqE 'setInterval|requestAnimationFrame|\.animate\(' "$SITE"; then
-  fail "site/ drives motion from script"
-fi
-pass "no animation: no keyframes, no script-driven motion, reduced motion honoured"
+grep -Fq -- "matchMedia('(prefers-reduced-motion: reduce)')" "$SITE/diagram.js" \
+  || fail "diagram.js does not honour prefers-reduced-motion"
+pass "motion is confined to the flow diagram and off under reduced motion"
 
 # --- Retired background effects ----------------------------------------------
 
