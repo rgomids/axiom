@@ -86,15 +86,17 @@ page consumes them through the absolute raw URLs of those canonical files:
 
 ```text
 https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-github.png     header mark
-https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-white.png      hero logo, logo hub
-https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-black.png      Open Graph, Twitter Card
+https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-white.png      hero logo
+https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-black.png      "What it is" watermark, Open Graph, Twitter Card
 https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets/axiom-logo-app-black.png  favicon, Apple Touch icon
 ```
 
 The header uses the rounded app tile at the maintainer's request; on `main` it is
 byte-identical to `docs/assets/axiom-logo-github.png` at `d5f7822`. A GitHub
 `blob` URL renders an HTML page, so the raw URL is used instead. The white mark is
-transparent and keeps its gold detail on the graphite canvas. No `blob` URL is
+transparent and keeps its gold detail on the graphite canvas. The dark artwork is
+transparent and already faded, so it serves as a watermark behind the *What it
+is* heading at 40 % opacity, stacked under the text and ignoring pointer events. No `blob` URL is
 used for an image, no relative path crosses the published boundary, and no copy of
 any asset exists under `site/`.
 
@@ -114,7 +116,7 @@ PASS: no canonical asset is duplicated inside site/
 PASS: no residual landing_page/ reference in the repository
 PASS: site/ loads no image through a GitHub blob URL
 PASS: site/ references no identity asset through a relative path
-PASS: favicon, Apple Touch icon, Open Graph, Twitter, header, hero and logo hub use canonical raw URLs
+PASS: favicon, Apple Touch icon, Open Graph, Twitter, header, hero and watermark use canonical raw URLs
 PASS: declared image dimensions match the canonical assets in docs/assets/
 PASS: canonical URL, Open Graph and Twitter metadata are present
 PASS: dark is the only theme: no OS branch, no stored preference, no toggle
@@ -177,7 +179,7 @@ grep -R "raw.githubusercontent.com/rgomids/axiom/main/docs/assets" site
 
 The first three produce no output. The fourth matches seven canonical references
 in `site/index.html`: `og:image`, `twitter:image`, `icon`, `apple-touch-icon`, and
-the header, hero and logo hub `<img>`. `evidence-s3.md` is excluded because it
+the header, hero and watermark `<img>`. `evidence-s3.md` is excluded because it
 quotes a historical stash message verbatim; editing an accepted record to satisfy
 a lint would falsify it. The only `blob` URL in `site/` is the footer link to
 `LICENSE`, a document a reader opens, not an asset the browser loads.
@@ -253,7 +255,7 @@ function frame(width, height) {
   f.remove(); f = await frame(390, 844); d = f.contentDocument;
   log('overflow@390  ' + (d.documentElement.scrollWidth > d.documentElement.clientWidth) +
       ' section-links=' + f.contentWindow.getComputedStyle(d.querySelector('.nav-section')).display +
-      ' hub-lines=' + f.contentWindow.getComputedStyle(d.querySelector('.hub-lines')).display);
+      ' watermark-under-text=' + (+f.contentWindow.getComputedStyle(d.querySelector('.watermark')).zIndex < +f.contentWindow.getComputedStyle(d.querySelector('#what .section-head')).zIndex));
   log('DONE');
 })();
 </script>
@@ -271,11 +273,11 @@ second click  lang=en stored=en
 storage keys  axiom-lang
 img OK 1254x1254 brand-mark axiom-logo-github.png
 img OK 1254x1254 hero-logo axiom-logo-white.png
-img OK 1254x1254 hub-logo axiom-logo-white.png
+img OK 1536x1024 watermark axiom-logo-black.png
 body background rgb(13, 17, 23)
 running animations 0
 overflow@1440 false
-overflow@390  false section-links=none hub-lines=none
+overflow@390  false section-links=none watermark-under-text=true
 DONE
 ```
 
@@ -289,8 +291,8 @@ What this shows:
 - **Motion:** `document.getAnimations()` is empty, with and without
   `--force-prefers-reduced-motion`.
 - **Layout:** no horizontal overflow at 1440 px or 390 px. At 390 px the section
-  links and the hub connector lines are hidden; the header keeps the mark, the
-  `AXIOM` wordmark, GitHub, Documentation and the language switch.
+  links are hidden; the header keeps the mark, the `AXIOM` wordmark, GitHub,
+  Documentation and the language switch. The watermark stacks below the text.
 
 Screenshots, captured with headless Chrome against the locally served `site/`
 and stored next to this Evidence (not published by the Pages workflow):
@@ -362,7 +364,9 @@ The workflow uploads `./site` unchanged and copies no logo into it.
   unpublished, and its compiled CSS defaults to the light theme, so the dark
   semantic values are written as local custom properties. A DS token change is
   not picked up automatically.
-- The Open Graph and Twitter image is still the 1 MB `axiom-logo-black.png`.
+- `axiom-logo-black.png` (about 1 MB) is both the watermark and the Open Graph
+  and Twitter image; an optimised derivative would be a new canonical asset
+  decision, not a copy under `site/`.
 - How social platforms crop or cache the Open Graph and Twitter images is outside
   this Evidence.
 - Headless Chrome only: no cross-browser or real-device matrix, and no Lighthouse

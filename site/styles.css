@@ -569,42 +569,28 @@ code {
   .section { padding: 112px 0; }
 }
 
-/* --- What it is: logo hub --- */
-.hub {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--space-40);
-}
+/* --- What it is: watermark ---
+   The dark artwork is already faded and transparent; it sits behind the
+   heading and never takes clicks. Raise opacity here to make it stronger. */
+.section-watermark { position: relative; overflow: hidden; }
+.section-watermark > .shell { position: relative; }
+.section-watermark > .shell > :not(.watermark) { position: relative; z-index: 1; }
 
-.hub-lines {
-  display: none;
-  flex: 1;
-  height: 160px;
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 1.5;
+.watermark {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 0;
+  width: min(1100px, 150%);
+  max-width: none;
+  transform: translateX(-50%);
+  opacity: 0.4;
+  pointer-events: none;
+  user-select: none;
 }
-.hub-lines path { vector-effect: non-scaling-stroke; }
-.hub-lines-right { transform: scaleX(-1); }
-
-.hub-tile {
-  flex: none;
-  width: 132px;
-  height: 132px;
-  padding: var(--space-8);
-  border: 1px solid var(--line);
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at 50% 40%, rgba(145, 188, 255, 0.18), transparent 70%),
-    var(--surface);
-  box-shadow: 0 0 60px rgba(125, 211, 200, 0.2), 0 0 0 8px rgba(125, 211, 200, 0.05);
-}
-
-.hub-logo { width: 100%; height: 100%; object-fit: contain; }
 
 @media (min-width: 760px) {
-  .hub-lines { display: block; }
+  .watermark { top: -40px; }
 }
 
 /* --- What it is: joined cards --- */
