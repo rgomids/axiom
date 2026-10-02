@@ -648,8 +648,8 @@ code {
 .flow-wire { fill: none; stroke: var(--border-strong); stroke-width: 1.5; }
 
 .flow-dot {
-  fill: var(--teal);
-  filter: drop-shadow(0 0 5px var(--teal));
+  fill: var(--gold);
+  filter: drop-shadow(0 0 5px var(--gold));
   transition: opacity var(--motion-fast) ease;
 }
 
