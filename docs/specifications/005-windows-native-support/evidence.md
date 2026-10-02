@@ -129,7 +129,7 @@ The existing `internal/install` candidate-validation tests additionally reject
 dirty bundle metadata, injected versions, skill-manifest skew and links before
 installation. The bootstrap matrix is a new dedicated Windows CI step.
 
-### Results and remaining work for this correction
+### Results for this correction
 
 - `powershell -NoProfile -File scripts/test-windows-bootstrap.ps1`: passed the
   complete matrix above, including strict metadata-shape cases, on Windows 11
@@ -148,29 +148,36 @@ installation. The bootstrap matrix is a new dedicated Windows CI step.
   the new DACL/creation regression), `cmd/lingo`, `projectapp`, `install` and the
   other executed packages. It failed overall because Application Control refused
   to launch `detailartifact`, `executiongraph`, `local`, `runtimeadapter` and
-  `workflow`; the complete suite therefore still requires CI evidence.
+  `workflow`. The complete suite is covered by the successful CI result below;
+  the local full-suite run is not reported as a pass.
 - PowerShell 5.1 parser: passed for the final bootstrap and both Windows test
   scripts. `git diff --check`: passed.
 - `bash --login scripts/check-sensitive-files.sh .`: passed for the worktree.
 - `bash --login scripts/validate-repository.sh .` reached the sensitive-file and
   package-structure checks (passed), then failed the existing negative fixture:
   `package containing a symlink should fail validation`. The repository validator
-  is not reported as passing on this Windows session; POSIX CI must
-  execute the full validator as configured.
+  is not reported as passing on this Windows session; the full validator passed
+  in the Linux and macOS CI jobs below.
 - The temporary session sandbox/network restriction was removed by the user.
   Go was downloaded from the official distribution and its SHA-256 verified;
   GitHub access was restored. No Windows security policy was changed.
-- A new four-job CI result for this correction remains required before review;
-  it will be recorded after the branch is pushed and the workflow completes.
 - [First correction run 36928342809](https://github.com/rgomids/axiom/actions/runs/36928342809)
   on `2c3ede0` passed Linux, macOS, release contracts, and the complete native
   Windows Go suite/static/build checks. The Windows installer test confirmed
   Server refusal but initially propagated that expected native exit code to the
   CI shell. The test now exits successfully only after verifying the refusal and
-  zero target effects; a fresh CI run is required for this correction.
+  zero target effects.
+- [Correction CI run 36928765729](https://github.com/rgomids/axiom/actions/runs/36928765729)
+  passed all four jobs on `2c14c4ba28f5d87904afe256acc05dbd89143ef4`:
+  - `verify (windows)`: complete native Go suite, static/build/module checks,
+    executable Server refusal, and the complete PowerShell bootstrap matrix.
+  - `verify (linux)` and `verify (macos)`: race-enabled Go suites, static/build/
+    module checks, repository validators and bounded dogfooding.
+  - `release-contract`: artifact, release/publication-flow and related contracts.
 
-The PR remains **not ready for merge** until the current correction has executable
-validation. Earlier green runs do not satisfy that gate.
+The correction's four-job CI gate has passed. Human review, merge and release
+publication remain separate decisions. Clean-account acceptance of a published
+Windows release remains the release gate described above.
 
 ## Security review
 
