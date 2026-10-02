@@ -19,6 +19,9 @@
 # GitHub can detach a draft whose tag does not exist yet into untagged-*.
 # A release that belongs to the candidate but is not bound to its tag is an
 # orphan_conflict: reported, never treated as absent, never duplicated.
+# A stable envelope also binds the delivery effects (delivery-github.sh): the
+# Issues the release delivers, their remote state and, only after the release
+# reads back published, their release record, Project status and closure.
 # Every remote effect is printed as an effect= line.
 set -euo pipefail
 
@@ -304,7 +307,13 @@ if ((count == 1)); then
   fi
 fi
 
-[[ "$check" == true ]] || resolve_release_pr
+if [[ "$check" == false ]]; then
+  resolve_release_pr
+  # Issue delivery is part of the authorized effect set; its state is read
+  # here, with the rest of the remote state, before any effect.
+  "$repository_root/scripts/delivery-github.sh" state --repo "$repository" --tag "$tag" --revision "$revision" \
+    >"$temporary/delivery" || fail 'cannot resolve the delivery state of this release'
+fi
 
 # --- Publication envelope ---------------------------------------------------
 # Deterministic, complete statement of what would be published and of the
@@ -312,7 +321,7 @@ fi
 # authority binds to; any change requires a new review.
 write_envelope() {
   local name sum
-  printf 'envelopeVersion=1\n'
+  printf 'envelopeVersion=2\n'
   printf 'repository=%s\n' "$repository"
   printf 'tag=%s\n' "$tag"
   printf 'version=%s\n' "$version"
@@ -337,10 +346,11 @@ write_envelope() {
   fi
   printf 'release_pr=%s\n' "$release_pr"
   printf 'release_pr_label_state=%s\n' "$release_pr_label_state"
+  cat "$temporary/delivery"
   if [[ "$state" == published ]]; then
     if [[ "$release_pr_label_state" == pending ]]; then
       printf 'effect.release_pr_label=pending_to_tagged\n'
-    else
+    elif ! awk '/^effect\.issue\./ && !/=none$/ {found = 1} END {exit !found}' "$temporary/delivery"; then
       printf 'effect=none\n'
     fi
     return
@@ -363,7 +373,18 @@ if [[ "$check" == false ]]; then
   fi
   [[ "$preview" == "$authorized_digest" ]] \
     || fail "preview changed; review and authorize again (current preview_digest=$preview)"
+  # A configured delivery Project that cannot be resolved fails here, before
+  # the first effect.
+  "$repository_root/scripts/delivery-github.sh" preflight --repo "$repository" --tag "$tag" --revision "$revision" >/dev/null \
+    || fail 'delivery preflight failed; nothing published'
 fi
+
+# deliver applies exactly the authorized delivery effects after the release
+# reads back published; a changed Issue state fails closed.
+deliver() {
+  "$repository_root/scripts/delivery-github.sh" release --repo "$repository" --tag "$tag" --revision "$revision" \
+    --expect "$temporary/delivery" || fail 'delivery effects failed after publication; rerun status for a new envelope'
+}
 
 printf 'publicationVersion=1\n'
 printf 'repository=%s\n' "$repository"
@@ -384,6 +405,7 @@ if [[ "$state" == published ]]; then
   latest=$(check_latest)
   printf 'latest=%s\n' "$latest"
   label_release_pr
+  deliver
   printf 'immutable=%s\n' "$(jq -r 'if has("immutable") then .immutable else "unknown" end' <<<"$release")"
   printf 'publication=already_published\n'
   printf 'result=pass\n'
@@ -483,6 +505,7 @@ check_published "$release"
 latest=$(check_latest)
 printf 'latest=%s\n' "$latest"
 label_release_pr
+deliver
 printf 'release_url=%s\n' "$(jq -r '.html_url' <<<"$release")"
 printf 'immutable=%s\n' "$(jq -r 'if has("immutable") then .immutable else "unknown" end' <<<"$release")"
 printf 'publication=published\n'

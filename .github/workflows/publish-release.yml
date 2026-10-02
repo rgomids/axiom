@@ -6,9 +6,11 @@ name: Publish release
 # that run, re-verifies it at the revision, recomputes the publication
 # envelope and stops unless its digest equals the authorized one. The publish
 # job also waits for approval of the protected `release` environment.
-# Order: verify prepared set -> envelope == authorized digest -> draft ->
-# assets -> read-back -> publish -> read-back. Reruns converge; conflicts and
-# changed previews fail closed before any effect.
+# Order: verify prepared set -> envelope == authorized digest -> delivery
+# preflight -> draft -> assets -> read-back -> publish -> read-back -> the
+# envelope's Issue effects (release record, Project status, closure) for a
+# stable release. Reruns converge; conflicts and changed previews fail closed
+# before any effect.
 
 on:
   workflow_dispatch:
@@ -47,6 +49,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: read
     steps:
       - name: Require dispatch from main and well-formed inputs
         env:
@@ -95,6 +98,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
       actions: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -112,6 +116,14 @@ jobs:
           path: ${{ runner.temp }}/prepared
           run-id: ${{ inputs.prepared_run }}
           github-token: ${{ github.token }}
+      - name: Read the delivery projection of the revision
+        id: delivery
+        run: |
+          projection=disabled
+          if [[ -f .github/delivery-project.json ]] && jq -e '.projection == "enabled"' .github/delivery-project.json >/dev/null; then
+            projection=enabled
+          fi
+          printf 'projection=%s\n' "$projection" >>"$GITHUB_OUTPUT"
       - name: Re-verify, match the authorized envelope, then publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -119,6 +131,11 @@ jobs:
           RELEASE_REVISION: ${{ inputs.revision }}
           PREPARED_RUN: ${{ inputs.prepared_run }}
           PREVIEW_DIGEST: ${{ inputs.preview_digest }}
+          # Classic PAT (project scope) for the user-owned delivery Project;
+          # a release environment secret, used only for Projects v2 GraphQL
+          # and only when .github/delivery-project.json at the revision sets
+          # "projection": "enabled". Issues use GITHUB_TOKEN.
+          AXIOM_DELIVERY_PROJECT_TOKEN: ${{ steps.delivery.outputs.projection == 'enabled' && secrets.AXIOM_DELIVERY_PROJECT_TOKEN || '' }}
         run: |
           [[ $(git rev-parse --verify HEAD) == "$RELEASE_REVISION" ]]
           prepared="$RUNNER_TEMP/prepared"

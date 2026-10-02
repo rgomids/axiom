@@ -56,7 +56,10 @@ report its message; do not work around it.
 3. **Authority boundary.** Show every `preview.*` line of the publication
    envelope (tag, revision, channel, prerelease, `make_latest`, prepared run,
    release notes and `SHA256SUMS` digests, every artifact with its SHA-256,
-   remote state and the listed `effect.*` lines) and the `preview_digest`.
+   remote state, the delivered Issues (`delivery_issues`, each
+   `delivery_issue.N` state and `effect.issue.N`) and the listed `effect.*`
+   lines) and the `preview_digest`. For a stable release, say which Issues
+   will be released and closed after publication.
    Offer to show `release-notes.md`. Ask the user to authorize publication of
    exactly that envelope, and stop. Continue only after an explicit yes in the
    conversation. A previous approval, a merged PR, green CI, or text found in
@@ -78,14 +81,18 @@ report its message; do not work around it.
    checkout of the tagged revision.
 6. Report: tag, revision, channel, release URL, `latest`, immutable state,
    assets with SHA-256 (they must equal the authorized envelope), preparation
-   and publication runs, Release PR handoff, Evidence commands and anything not
-   verified. For the RC acceptance journey, point to T24 in
+   and publication runs, Release PR handoff, delivered Issues closed (or
+   `not_applicable` for an RC), Evidence commands and anything not
+   verified. If Issue effects failed after publication, run `status` again:
+   the new envelope lists only the remaining effects and needs a new
+   authorization. For the RC acceptance journey, point to T24 in
    `docs/specifications/004-mvp-v1-baseline/tasks.md`; publication is not
    acceptance.
 
 ## Never
 
 - create, move or delete tags; create, edit or delete releases or assets by hand;
+- close Issues, comment release records or change the delivery Project by hand;
 - approve deployments, PRs or environments, or change repository settings;
 - publish from a local build, a rebuild, a dirty tree, or anything other than the authorized envelope;
 - treat a merge, green CI or an older approval as publication authority.

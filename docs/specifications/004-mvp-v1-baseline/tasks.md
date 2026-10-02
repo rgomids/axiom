@@ -12,6 +12,10 @@ observations remain historical. T24 and human acceptance stay separately gated.
 
 **Tasks: Approved — human approval recorded on 2026-09-20.**
 
+**Issue #153 compatibility direction: Approved by explicit human decision on
+2026-10-01. The issue-scoped I153-T01–I153-T03 decomposition below is proposed
+for review and does not authorize implementation, migration effects, release,
+merge, or Issue closure.**
 **Issue #132 Tasks amendment (`I132-T01`–`I132-T03`): Approved — human approval
 recorded on 2026-09-30. The same explicit human instruction authorizes starting
 `I132-T01` implementation only. `I132-T02`/`I132-T03` remain separately gated.
@@ -1075,6 +1079,12 @@ complete at `56beb4fc310894ff8de128f52c6a96d22711bec8`; human acceptance is not 
   2026-09-28). A floating RC channel or an explicit downgrade mechanism is
   post-MVP and needs its own decision.
 
+**Post-delivery reconciliation:** Issue #153 later exposed that recognized legacy
+persisted state can still dead-end the canonical upgrade path. The historical T39
+delivery record remains unchanged for its original acceptance scope. The
+issue-scoped I153-T01–I153-T03 follow-up governs the newly approved
+compatibility-window and RecognizedPOC preserve/rebuild behavior.
+
 ### T40 — Codex + Claude first-run bootstrap
 
 - **Objective:** `axiom first-run` discovers supported Runtimes already installed
@@ -1754,3 +1764,193 @@ same human instruction explicitly authorizes starting `I132-T01` implementation.
 That authority does not extend to `I132-T02`/`I132-T03`, real Runtime execution,
 push/merge of future implementation, external effects, Issue closure, release, or
 human acceptance; those remain separately gated by their applicable authority.
+
+## Issue #153 — Forward-compatible owned-upgrade follow-up
+
+These issue-scoped Tasks extend the delivered S7/S9 compatibility/installer
+behavior without renumbering or rewriting the historical T01–T40 DAG.
+
+### I153-T01 — Forward-transition policy and installer orchestration
+
+- **Objective:** Make the canonical installer resolve persisted-state compatibility
+  separately from installation ownership and select exactly one supported
+  transition strategy before a newer owned upgrade proceeds.
+- **Dependencies:** approved Issue #153 Specification/Plan reconciliation.
+- **Requirements:** FR-026–FR-030, FR-037, FR-065; AC-17–AC-19, AC-22, AC-46;
+  ADR-0005, ADR-0007; HD-4 plus the 2026-10-01 Issue #153 decision.
+- **Scope:**
+  - introduce/centralize a deterministic compatibility-policy decision that maps
+    inspected state to direct, bounded migrate,
+    preserve_rebuild_reconfigure, or refuse;
+  - keep ownership and schema compatibility as independent inputs;
+  - encode the approved current stable persisted-state compatibility window as
+    canonical v1 only, with RecognizedPOC modeled separately as a historical
+    transition;
+  - require future stable persisted-state format changes to declare their exact
+    supported predecessor window and forward strategy before publication;
+  - have the canonical installer orchestrate the selected policy rather than
+    exposing internal compatibility commands as required user steps;
+  - replace generic user-facing state_incompatible dead ends with bounded product
+    diagnostics that identify whether the state is unsupported,
+    unsafe/recovery-required, or has an automatic supported transition;
+  - RecognizedPOC MUST resolve through preserve -> clean rebuild -> supported
+    reconfiguration when all policy, safety, and exact-authority preconditions hold;
+    otherwise it MUST refuse before mutation;
+  - preserve exact preview/authority/revalidation and partial-truth semantics.
+- **Repository impact:** expected focused changes in internal/compatibility,
+  internal/install, installer command/script integration and deterministic tests.
+  Do not move compatibility semantics into shell presentation code.
+- **Completion/Evidence:**
+  - table-driven state/ownership/compatibility-window policy matrix;
+  - same-version no-op and newer-version transition resolution;
+  - out-of-window/foreign/modified/unsafe/ambiguous/corrupt/newer refusal with
+    zero destructive effects;
+  - preview digest/authority becomes stale when state or target release changes;
+  - user-facing installer path does not require manual
+    compatibility inspect/backup/export orchestration.
+- **Exclusions:** automatic downgrade, arbitrary historical migration, in-place
+  POC workflow/Execution migration, new source-of-truth or ownership semantics.
+
+### I153-T02 — RecognizedPOC preserve, clean rebuild, and reconfiguration
+
+- **Objective:** Implement the approved automatic RecognizedPOC transition
+  without converting historical POC workflow/Execution truth into current
+  canonical state.
+- **Dependencies:** I153-T01.
+- **Requirements:** FR-026–FR-030, FR-037, FR-065; AC-17–AC-19, AC-46; ADR-0005,
+  ADR-0007; Issue #153 compatibility decision.
+- **Scope:**
+  - positively revalidate the complete recognized POC signature and source inventory;
+  - determine the exact policy-required object set, copy objects, verify bytes/digests,
+    write the final manifest, and compare it against the expected inventory/policy
+    before permitting retirement/quarantine;
+  - record category, relative identity/path, digest, and bytes per relevant object
+    in both source inventory and preservation manifest;
+  - block retirement for every missing, unexpected, changed, or unverifiable object
+    with truthful failure/partial/recovery_required; never activate the archive as
+    canonical active state;
+  - produce a restrictive digest-manifested preservation archive in the approved
+    Axiom-owned machine-local archive namespace, separate from active roots and
+    identified by transition operation plus source digest, before any legacy
+    active state is retired; resolve a safe destination explicitly outside active
+    roots and non-overlapping with the source;
+  - support same- or cross-filesystem archive destinations through copy + per-object
+    digest verification plus a final manifest and complete inventory/policy
+    correspondence, never by assuming atomic rename or weakening ownership,
+    confinement, exact-authority, or verification guarantees;
+  - validate and extract only portable Project intent supported by the current
+    portable contract;
+  - prepare clean compatible active state and reconstruct only explicitly
+    supported Project associations/configuration;
+  - retain historical workflow/Execution/Evidence material as inspectable
+    historical data, never as active canonical workflow truth;
+  - activate rebuilt state using the existing publication/recovery invariants;
+  - continue the protected owned binary/receipt/skill upgrade only after the
+    applicable state transition prerequisites are satisfied.
+- **Mandatory security/safety regressions:** implement every Plan §21.6 matrix
+  case for same- and cross-filesystem preservation: path traversal, absolute-path
+  escape, symlink, hard-link when applicable to the threat model, ancestor
+  replacement, leaf replacement, ownership, mode, ACL, unsafe file type, collision /
+  occupied destination, stale authority, source digest drift, target drift, ENOSPC,
+  EDQUOT when supported, interruption during copy, interruption before final
+  manifest, partial archive, retry, equivalent no-op, secret/local-data boundary,
+  foreign/unknown content, and cross-filesystem target. Inject missing, unexpected,
+  changed, and unverifiable inventory/manifest objects independently, including
+  when copied-object digests pass. Record platform applicability/unverified cases
+  explicitly; historical T17 Evidence does not cover this new flow.
+- **Recovery:** interruption during copy or before final manifest, after
+  preservation, during rebuild, during activation,
+  or after activation but before install completion must remain classifiable and
+  resumable/finalizable under fresh exact authority. No retry may duplicate
+  preservation or silently discard confirmed effects.
+- **Repository impact:** expected changes in compatibility preservation/transition
+  services plus installer orchestration. Reuse existing transfer/recovery
+  primitives where they satisfy the new contract; do not reinterpret POC
+  Execution records as current schema by convenience.
+- **Completion/Evidence:**
+  - deterministic complete source inventory <-> final preservation manifest
+    correspondence against the revalidated policy-required set, with per-object
+    category, relative identity/path, digest, and bytes, verified before retirement;
+  - rejected missing/unexpected/changed/unverifiable objects preserve intact source
+    and deny retirement; record exact confirmed effects and recovery classification;
+  - supported portable intent reconstructed and validated;
+  - historical workflow/Execution material demonstrably absent from current
+    canonical workflow state while remaining inspectable;
+  - fault injection at each transition boundary yields truthful
+    partial/recovery_required;
+  - equivalent retry after success is a no-op.
+- **Exclusions:** semantic in-place POC migration, upgrade-time deletion of the
+  preservation archive, age-only cleanup authority, cross-filesystem atomic-rename
+  assumptions, generic arbitrary-schema migration.
+- **Approved preservation lifecycle:** the upgrade keeps the source intact until
+  verified final manifest proves complete correspondence with the revalidated
+  policy-required source inventory; the archive is Axiom-owned,
+  machine-local, separate from active roots, and retained after upgrade. Later
+  removal is a separate explicit reference-aware cleanup action under existing
+  safety/recovery contracts.
+
+### I153-T03 — Upgrade regression, Evidence, and reconciliation
+
+- **Objective:** Prove the supported forward-upgrade contract end to end and
+  reconcile durable documentation/Evidence to delivered behavior.
+- **Dependencies:** I153-T01 and I153-T02.
+- **Scope:**
+  - add a real non-empty N -> N+1 owned-upgrade journey to the release/acceptance
+    suite;
+  - include the historical RecognizedPOC classification that originally
+    produced state_incompatible;
+  - exercise interruption/recovery/retry across preservation, rebuilt-state
+    activation and install completion;
+  - verify stable compatibility-window behavior separately from the special
+    historical POC transition;
+  - reconcile installer diagnostics, commands/user documentation and Specification
+    Evidence only after implementation behavior is verified.
+- **Completion/Evidence:**
+  - install supported version N, create representative non-empty state, invoke the
+    canonical installer for N+1, and validate final axiom version plus active
+    state;
+  - rerun after success is unchanged;
+  - preserved historical state is inspectable and the archive is never canonical;
+  - independently compare the revalidated policy-required source inventory to the
+    verified final manifest using category, relative identity/path, digest, and
+    bytes; missing/unexpected/changed/unverifiable cases block retirement;
+  - execute and retain new regression Evidence for every I153-T02 / Plan §21.6
+    security/safety matrix case, including same- and cross-filesystem targets,
+    interruption during copy/before final manifest, ENOSPC and supported EDQUOT;
+    record applicability and unverified platform cases explicitly, never as pass;
+  - keep historical T17 Evidence unchanged; it does not prove the automatic
+    preservation/rebuild flow's new security/safety coverage;
+  - unsupported/foreign/unsafe/out-of-policy matrices prove zero destructive
+    effects;
+  - exact commands, exits, state classifications, transition strategy, digests,
+    recovery records and final validation are retained without secrets/raw chat.
+- **Exclusions:** release publication, stable promotion, Issue closure, unrelated
+  compatibility expansion.
+
+### Issue #153 acceptance traceability
+
+| Issue #153 acceptance / required case | Responsible Task(s) |
+|---|---|
+| Ownership and schema compatibility are independent | I153-T01 |
+| Explicit stable persisted-state compatibility window | I153-T01, I153-T03 |
+| Supported newer owned upgrade resolves one transition strategy | I153-T01, I153-T03 |
+| RecognizedPOC preserved before retirement in the approved Axiom-owned archive lifecycle | I153-T02, I153-T03 |
+| Complete policy-required source inventory <-> manifest correspondence; missing/unexpected/changed/unverifiable refusal | I153-T02, I153-T03 |
+| Explicit new preservation security/safety matrix (Plan §21.6), separate from historical T17 Evidence | I153-T02, I153-T03 |
+| Cross-filesystem archive copy is digest-verified without atomic-rename assumptions | I153-T02, I153-T03 |
+| Preservation archive survives upgrade and cleanup is separately explicit/reference-aware | I153-T02, I153-T03 |
+| Valid portable Project intent reconstructed through current contract | I153-T02, I153-T03 |
+| Historical POC workflow/Execution truth preserved but not promoted | I153-T02, I153-T03 |
+| Interruption after preservation/before activation is recoverable | I153-T02, I153-T03 |
+| Interruption after activation/before install completion is recoverable | I153-T02, I153-T03 |
+| Equivalent successful retry is a no-op | I153-T02, I153-T03 |
+| Foreign/modified/unsafe/ambiguous/corrupt/newer/out-of-window refusal | I153-T01, I153-T03 |
+| Real non-empty N -> N+1 release regression | I153-T03 |
+
+### Issue #153 Tasks review gate
+
+The compatibility direction, current v1 stable compatibility window, and
+RecognizedPOC preservation lifecycle were approved by explicit human decisions on
+2026-10-01. This issue-scoped Task decomposition is proposed for review together
+with the reconciled Plan. No I153-T0x implementation is authorized by this
+documentation change.

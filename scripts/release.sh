@@ -73,11 +73,14 @@ repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) 
 [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || fail 'unexpected repository name'
 
 # ci_state SHA prints success, pending, failure or missing for the required
-# checks named by the versioned main ruleset.
+# checks named by the versioned main ruleset. delivery-metadata is a Pull
+# Request-only check (it validates the PR description before merge), so it
+# never runs on a main commit and is not a CI state of the release revision.
 ci_state() {
   local runs name conclusion result=success
   runs=$(gh api "repos/$repository/commits/$1/check-runs?per_page=100") || { printf 'unknown'; return; }
   while IFS= read -r name; do
+    [[ "$name" == delivery-metadata ]] && continue
     conclusion=$(jq -r --arg name "$name" \
       '[.check_runs[] | select(.name == $name)] | sort_by(.started_at) | last | if . == null then "missing" elif .status != "completed" then "pending" else .conclusion end' <<<"$runs")
     case "$conclusion" in
@@ -345,6 +348,9 @@ case "$command" in
       grep -Ev '^(result|publication)=' "$temporary/verified"
       printf 'artifacts_verified=pass\n'
     fi
+    # A stable release must also have closed every Issue it delivers with its
+    # release record; a release candidate delivers none.
+    "$scripts/delivery-github.sh" verify --repo "$repository" --tag "$tag" --revision "$tag_sha"
     printf 'result=pass\n'
     ;;
   *)
