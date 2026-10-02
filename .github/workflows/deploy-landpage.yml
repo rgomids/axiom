@@ -1,6 +1,8 @@
-# Publishes the landing page in site/ to GitHub Pages. It runs only on main,
-# so the deployment is observable only after merge. The token can write Pages
-# and mint an OIDC token, which is why every Action is pinned to a commit SHA.
+# Validates the landing page in site/ and publishes it to GitHub Pages.
+# Pull requests only run the validation. Publication runs only on main (push or
+# manual dispatch) and only after validation passes, so the deployment is
+# observable only after merge. The deploy job can write Pages and mint an OIDC
+# token, which is why every Action is pinned to a commit SHA.
 name: Deploy landing page to GitHub Pages
 
 on:
@@ -8,22 +10,48 @@ on:
     branches: [main]
     paths:
       - 'site/**'
+      - 'docs/assets/**'
+      - 'scripts/validate-landing-page.sh'
+      - '.github/workflows/deploy-landpage.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'docs/assets/**'
+      - 'scripts/validate-landing-page.sh'
       - '.github/workflows/deploy-landpage.yml'
   workflow_dispatch:
 
+# Read-only by default; only the deploy job is granted Pages permissions.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # Let an in-flight publication finish; superseded queued runs are dropped.
 concurrency:
-  group: pages
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  validate:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      # Fails closed on missing files, non-canonical assets, contrast, motion,
+      # translations and documented URLs. Remote asset checks stay off: assets
+      # added in a pull request only reach main's raw URLs after merge.
+      - name: Validate landing page
+        run: ./scripts/validate-landing-page.sh .
+
+  deploy:
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
