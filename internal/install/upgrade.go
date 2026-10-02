@@ -207,7 +207,8 @@ func (s Service) previewIn(ctx context.Context, target Target, candidate Candida
 	}
 	state, err := compatibility.Inspect(ctx, target.State)
 	if err != nil {
-		return Preview{}, &Error{Category: "state_inspection_failed"}
+		// Keep Resume visible: an earlier interrupted run may have published effects.
+		return preview, &Error{Category: "state_inspection_failed"}
 	}
 	preview.State, preview.StateDigest = state.Classification, state.Digest
 	// The receipt and the unmodified binary above establish ownership; the

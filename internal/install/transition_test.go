@@ -358,3 +358,44 @@ func TestUpgradeFinalStateMustStillResolveDirect(t *testing.T) {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
 }
+
+// A failed state inspection during resume keeps the resume fact for the
+// caller, leaves the operation marker intact and plans no new effect.
+func TestUpgradeResumeKeepsResumeWhenStateInspectionFails(t *testing.T) {
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	installed.withV1State(t)
+	candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+	service := NewService()
+	preview, err := service.Preview(context.Background(), installed.target, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority, _ := Authorize(preview, preview.Digest)
+	service.afterEffect = func(kind string) error {
+		if kind == "binary" {
+			return errors.New("injected interruption")
+		}
+		return nil
+	}
+	if result, err := service.Apply(context.Background(), preview, authority); err == nil || result.Status != "partial" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	marker := filepath.Join(installed.target.ReceiptDir, markerName)
+	markerBefore := read(t, marker)
+	before := snapshot(t, filepath.Dir(installed.target.BinaryDir))
+	uninspectable := installed.target
+	uninspectable.State.State = "relative-state-root"
+	resume, err := NewService().Preview(context.Background(), uninspectable, candidate)
+	if category(err) != "state_inspection_failed" || !resume.Resume || resume.Digest != "" || len(resume.Effects) != 0 {
+		t.Fatalf("resume=%+v err=%v", resume, err)
+	}
+	if _, err := Authorize(resume, resume.Digest); category(err) != "authority_denied" {
+		t.Fatalf("failed inspection was authorizable: %v", err)
+	}
+	if read(t, marker) != markerBefore || !strings.Contains(markerBefore, "stage=binary_committed\n") {
+		t.Fatal("failed inspection changed the operation marker")
+	}
+	if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
+		t.Fatal("failed inspection changed installation or state")
+	}
+}

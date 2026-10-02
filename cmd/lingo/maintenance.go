@@ -302,12 +302,8 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 		if category == "installation_busy_or_interrupted" {
 			facts = completion.Facts{RetrySafeFailure: true}
 		}
-		next := upgradeNext(category)
-		if preview.Resume && strings.HasPrefix(category, "state_") {
-			// An earlier interrupted run may already have published effects.
-			next = "An interrupted upgrade to this archive is pending and existing Axiom state now blocks it; preserve the installation and state for operator review"
-		}
-		return s.maintenanceResult(facts, "Upgrade blocked before any effect: "+category, nil, next, upgradeView{Preview: preview})
+		message, next := upgradeBlocked(preview, category)
+		return s.maintenanceResult(facts, message, nil, next, upgradeView{Preview: preview})
 	}
 	references := []string{"upgrade:" + preview.Digest}
 	if len(preview.Effects) == 0 && len(preview.Leftovers) == 0 && !preview.Resume {
@@ -334,6 +330,15 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 	default:
 		return s.maintenanceResult(completion.Facts{Failed: true}, "Upgrade failed before any confirmed effect: "+upgradeCategory(err), nil, upgradeNext(upgradeCategory(err)), view)
 	}
+}
+
+// upgradeBlocked never claims an unchanged installation while an interrupted
+// upgrade is pending: an earlier run may already have published effects.
+func upgradeBlocked(preview install.Preview, category string) (string, string) {
+	if preview.Resume && strings.HasPrefix(category, "state_") {
+		return "Upgrade blocked before any further effect: " + category, "An interrupted upgrade to this archive is pending and existing Axiom state now blocks it; preserve the installation and state for operator review"
+	}
+	return "Upgrade blocked before any effect: " + category, upgradeNext(category)
 }
 
 func upgradeCategory(err error) string {
