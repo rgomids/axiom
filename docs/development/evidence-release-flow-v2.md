@@ -19,10 +19,10 @@ after:  PR -> merge -> main -> CI -> done
 
 | Command | Result |
 |---|---|
-| `./scripts/test-release-flow.sh` | PASS (all checks, including section 6 "Release Flow v2") |
+| `./scripts/test-release-flow.sh` | PASS (461 checks, including section 6 "Release Flow v2") |
 | `python3 scripts/test-release-pr-checks.py` | OK, 14 tests |
 | `./scripts/test-delivery.sh` | PASS |
-| `python3 scripts/test-release-corrections.py` | OK |
+| `python3 scripts/test-release-corrections.py` | OK, 12 tests |
 | `./scripts/test-release-pipeline.sh` | PASS |
 | `./scripts/validate-repository.sh .` | PASS |
 | `./scripts/check-sensitive-files.sh` | PASS |
@@ -44,6 +44,13 @@ Required scenarios and their checks in `scripts/test-release-flow.sh`:
 | idempotency in intermediate states | `start again with an open Release PR is refused (idempotent)`; `repeated start never duplicates the dispatch`; `an in-flight Release Please run is reported, never dispatched again`; `a publication waiting for environment approval is reported, never redispatched`; `prepare again is refused once a verified set exists` |
 | stale Release PR | `a releasable commit merged after the Release PR requires a refresh`; `a Release PR behind main by validated hidden commits stays reviewable (branch update only)`; `a refresh is not offered on a red main`; `a Release PR version different from the plan is never offered for review`; `an inconsistent commit merged after the Release PR blocks its review` |
 | Release PR built on unvalidated commits | `test-release-pr-checks.py` `test_base_must_be_validated_main`: no required checks dispatched |
+| `status --tag` of an unmerged stable release = `status` | `open Release PR: status --tag reaches the same decision as status`; `status --tag and status agree on hidden-only commits`; `status --tag and status agree on a stale Release PR`; `status --tag: a releasable commit after the Release PR requires a refresh, never a review`; `status --tag: a stale Release PR on a red main is blocked, never reviewed`; `status --tag of that Release PR version agrees with status` |
+| exact Release PR version | `status --tag v0.2.1 never accepts the Release PR of 0.2.10`; `status --tag v0.2.10 never accepts the Release PR of 0.2.1`; `status --tag needs the exact Release PR title, not a substring`; `status --tag is blocked like status when more than one Release PR is open` |
+| previous tag without GitHub Release → no start | `previous tag without its GitHub Release: start_release is not offered`; `… start is refused`; `… no dispatch, no Release PR` |
+| previous GitHub Release draft / wrong revision / other tag | `previous GitHub Release still a draft: …`; `previous GitHub Release at another revision: …`; `previous GitHub Release bound to another tag: …`; `refused previous-release states dispatched nothing and opened no Release PR` |
+| previous release unpublished while a Release PR is open | `an open Release PR is not offered for review while the previous release is unpublished`; `the unpublished previous release blocks status and status --tag alike` |
+| ADR-0010 recovery release as previous release | `a recovery-published previous release allows the next start`; `malformed recovery pins on the previous release block the next start`; `a previous release pinning a control revision off main runs none of its scripts and blocks the start`; `… older than its source blocks the start`; `… its own release commit as control blocks the start`; `a recovery previous release without its revision pin blocks the next start` |
+| `status --tag` while Release Please runs | `status --tag also waits for an in-flight Release Please run` |
 
 ## Independent review
 
@@ -74,6 +81,53 @@ hidden-only commit merged after it would have made `refresh_release_pr` loop.
 planned version, and otherwise for the branch update the strict ruleset
 already requires.
 
+## PR #164 review findings (second round)
+
+- major: `status --tag vX.Y.Z` of a stable release not merged yet accepted
+  any open Release PR whose title *contained* the version (`0.3.1` matched
+  `0.3.10`) and answered `review_release_pr` without `release_pr_facts`
+  (no staleness, plan, `main` CI, base or refresh check). Now it considers
+  only the Release PR titled exactly `chore(main): release X.Y.Z` and judges
+  it through `open_release_pr_status`, the same path as `status`; the tests
+  compare the `state`/`next_action`/`reason` of both commands.
+- major: the previous release was proven only by its tag (`release-plan.sh`
+  is Git-only and stays so). `release.sh` now requires
+  `previous_release_state=published` from `publish-release.sh --check` for
+  `plan.previous_tag` at `plan.previous_release_commit` before
+  `start_release`, `refresh_release_pr` or `review_release_pr`; a missing
+  GitHub Release, a draft, a release at another revision or bound to another
+  tag fails closed. A previous ADR-0010 recovery release is checked exactly
+  as `verify` checks one: the pins its notes record (`published_recovery_pins`)
+  go through `pinned_control` (control revision on first-parent `main` and
+  descending from the release commit, verified checkout, that revision's
+  `recovery_validate`), then that revision's `publish-release.sh --check`.
+  Both helpers are now shared with `verify`.
+
+An independent read-only review of these fixes then found, and this PR fixed:
+the first version of the recovery branch checked only first-parent `main`
+(not ancestry, not the presence of the recovery protocol) before running the
+control revision's scripts, and its clone could continue on the wrong
+revision when the checkout failed inside `$(status)` (no `errexit`); both now
+go through `pinned_control`, which chains the checkout and asserts `HEAD`.
+`status --tag` without an exact Release PR now reports
+`state=no_release_in_progress` (it said `release_pr_merged`), and its
+in-flight Release Please branch is tested. ADR-0011 and the command
+reference no longer overstate which checks gate the review.
+
+Mutation testing (each mutant run against the full suite, then restored):
+
+| Mutant | Killed by |
+|---|---|
+| old `contains` + direct `review_release_pr` | 14 checks (exact version, same decision, stale PR) |
+| substring match through the shared path | `status --tag v0.2.1 never accepts the Release PR of 0.2.10`; `… not a substring` |
+| exact match but no `release_pr_facts` | 12 checks (same decision, hidden-only, stale, red `main`) |
+| no previous-release check | 17 checks |
+| draft accepted as published | 11 checks (draft, other revision, other tag) |
+| recovery pins not passed to the check | `a recovery-published previous release allows the next start` |
+| previous-release check only in the no-release path | 17 checks (review of an open Release PR) |
+| local scripts instead of the pinned control scripts | `a recovery-published previous release allows the next start` (later notes format) |
+| no ancestry check in `pinned_control` | `a previous release pinning a control revision older than its source blocks the start` |
+
 ## Read-only check against the real repository
 
 `./scripts/release.sh status` on `main` `db8ed3afc0538171552870712f8f97562feda016`
@@ -95,7 +149,21 @@ refuses a new release (`release v0.3.0 is recorded on main but not published`);
 against a fake remote where v0.3.0 is published it plans `0.3.1` (two `fix`
 commits, metadata declared).
 
+After the second-round fixes, `release.sh status` on the same `main` still
+reports the v0.3.0 recovery path unchanged, and the previous-release check
+passes on the real published v0.2.1
+(`publish-release.sh --check --tag v0.2.1 --revision 2182b3e…` →
+`publication_state=published`, `result=pass`), so it does not block a real
+published release.
+
 ## Not verified here
+
+- The previous-release check runs at `status`/`start` time; `release-please.yml`
+  re-runs only the Git-only plan. A GitHub Release deleted between `status`
+  and the dispatch (seconds, admin-only), or a direct maintainer dispatch of
+  `release-please.yml`, is not checked by the workflow; the next `status`
+  blocks the review of the resulting Release PR. `prepare` and `publish` of a
+  merged Release PR do not re-check the previous release.
 
 - The dispatch-only `release-please.yml`, the Release Please action and
   `release-pr-checks.sh dispatch` on GitHub: covered by static contracts and

@@ -67,6 +67,10 @@ step carries them to the next.
      to `.github/delivery-corrections.txt`, which is not a recovery. Other
      examples: fix required CI, merge or refresh the Release PR, or apply the
      pending repository settings in `docs/security/repository-security.md`.
+     A `previous_release_state` other than `published` (its tag exists but its
+     GitHub Release is missing, a draft or bound elsewhere) means the previous
+     release is unfinished: continue it with `$axiom-release <previous_tag>`;
+     no new release starts before it.
      `publication_state=orphan_conflict` means a release of this candidate
      exists without its tag (for example `untagged-*`). Report its id and
      assets and ask for a human decision. Never delete, edit or re-tag it.

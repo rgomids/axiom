@@ -32,16 +32,26 @@ Merges integrate code. `$axiom-release` starts releases.
 - `scripts/release-plan.sh` is the deterministic, Git-only preflight of a new
   release. For the first-parent commits since the last release commit on
   `main` it requires a Conventional Commit subject and declared (or reviewed,
-  committed) delivery metadata; the previous release must be published at its
-  release commit; the planned tag must not exist and must be newer than every
-  stable tag. It computes the SemVer bump with the documented Release Please
+  committed) delivery metadata; the tag of the previous release must exist
+  at its release commit; the planned tag must not exist and must be newer than
+  every stable tag. It computes the SemVer bump with the documented Release Please
   semantics. One inconsistent commit stops the release before any Release PR,
   artifact, tag or release exists.
 - `scripts/release.sh start` runs that preflight plus the remote facts
   (required CI on `main`, no in-flight run, no GitHub Release for the planned
-  tag), then dispatches `release-please.yml`, waits, and reports the Release PR
-  whose version must equal the plan. The same checks gate a refresh. It never
-  approves or merges it.
+  tag, and the previous release published: a non-draft GitHub Release bound
+  to its tag and release commit, read with the same `publish-release.sh
+  --check` remote publication state as any release and with the ADR-0010 pins
+  that release records), then dispatches `release-please.yml`, waits, and
+  reports the Release PR whose version must equal the plan. The same checks
+  gate a refresh; the previous-release check also gates the review of an open
+  Release PR. A tag without its GitHub Release, a draft or a release bound
+  elsewhere fails closed. These remote gates live in `release.sh`, the only
+  supported start: `release-please.yml` re-runs only the Git-only plan, so a
+  direct maintainer dispatch of it bypasses them (its Release PR still needs
+  human review and merge). After the Release PR is merged, `prepare` and
+  `publish` do not re-check the previous release. It never approves or merges
+  it.
 - `scripts/release.sh status` is a state machine
   (`state=` + `next_action=`) that discovers the release in progress from
   GitHub and Git: no release, Release PR open (stale when `main` moved or the
@@ -49,7 +59,10 @@ Merges integrate code. `$axiom-release` starts releases.
   awaiting publication authority, published. It discovers the newest verified
   prepared run of the release, so the maintainer never supplies SHAs, run ids
   or intermediate digests; `publish` only needs the `preview_digest` the human
-  authorized.
+  authorized. `status --tag vX.Y.Z` of a stable release not merged yet
+  considers only the open Release PR whose title records exactly that version
+  and judges it through the same check as `status`, so both reach the same
+  decision about the same Release PR.
 - Release Please stays the versioning, `CHANGELOG.md`, manifest and Release PR
   mechanism. The prepare, publication envelope, authority, publish, verify and
   delivery phases are unchanged.

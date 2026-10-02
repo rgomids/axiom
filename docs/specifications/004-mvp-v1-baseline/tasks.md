@@ -1982,10 +1982,11 @@ It is not product Runtime behavior.
     and `main`, plan re-run before Release Please, Release PR version check
     before its required checks are dispatched;
   - `scripts/release-plan.sh`: Git-only range validation (Conventional
-    Commits, delivery metadata, previous release published, tag conflicts) and
+    Commits, delivery metadata, previous release tagged, tag conflicts) and
     SemVer plan;
-  - `scripts/release.sh`: `start`, `state=` reporting, stale Release PR
-    detection, in-flight run detection, prepared-run discovery, `publish` and
+  - `scripts/release.sh`: `start`, `state=` reporting, previous release
+    published as a GitHub Release (`publish-release.sh --check`), stale
+    Release PR detection shared by `status` and `status --tag`, in-flight run detection, prepared-run discovery, `publish` and
     `verify` without operator-supplied SHAs or run ids;
   - skill, CONTRIBUTING, command reference and repository security reconciled.
 - **Completion/Evidence:** `scripts/test-release-flow.sh` and
@@ -1996,7 +1997,10 @@ It is not product Runtime behavior.
   uses the merged release commit and creates no tag or release; publication
   without or with a stale digest has zero effects; verify fails on a different
   asset, tag or revision; repeated status/start in intermediate states is
-  consistent and never duplicates a dispatch.
+  consistent and never duplicates a dispatch; a previous tag without its
+  GitHub Release, a draft or a release at another revision blocks the start;
+  `status --tag` matches the exact Release PR version and agrees with
+  `status`.
 - **Exclusions:** publishing a real release, tags, environment approval,
   repository settings, ADR-0010 recovery changes, replacing Release Please.
 - **Status:** implemented in the Release Flow v2 PR, pending human review and

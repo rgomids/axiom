@@ -14,7 +14,9 @@
 # to be supplied by hand.
 # START runs the release plan (release-plan.sh: every commit since the last
 # release has a Conventional Commit subject and delivery metadata; SemVer
-# plan) and the remote facts, then dispatches release-please.yml with the
+# plan) and the remote facts (among them: the previous release the plan
+# builds on is a published GitHub Release at its tag and release commit),
+# then dispatches release-please.yml with the
 # planned version and the exact main SHA, waits, and reports the Release PR,
 # whose version must equal the plan. It never approves or merges it.
 # PREPARE: `prepare` dispatches release-artifacts.yml (read-only token; it
@@ -227,6 +229,84 @@ plan_facts() {
   grep -Ev '^(planVersion|result|planned_version|planned_tag|main)=' "$temporary/plan" | sed 's/^/plan./' >>"$temporary/status"
 }
 
+# pinned_control DIR TAG SOURCE REVISION DIGEST is the one entry to the
+# ADR-0010 control revision of a published recovery release. In this script
+# it requires REVISION on first-parent main and descending from SOURCE (the
+# release commit of TAG); only then it checks REVISION out into DIR (with
+# origin/main) and validates the pins with that revision's recovery protocol,
+# printing its facts. On refusal it sets reason and fails; no script of an
+# unchecked revision runs.
+pinned_control() {
+  local dir=$1 control_tag=$2 source=$3 control=$4 control_digest=$5
+  grep -Fxq "$control" < <(git -C "$repository_root" rev-list --first-parent origin/main) \
+    || { reason='correction revision is not on first-parent main'; return 1; }
+  git -C "$repository_root" merge-base --is-ancestor "$source" "$control" 2>/dev/null \
+    || { reason='correction revision does not descend from source'; return 1; }
+  rm -rf -- "$dir"
+  { git clone --quiet --no-hardlinks "$repository_root" "$dir" \
+    && git -C "$dir" checkout --quiet --detach "$control" \
+    && git -C "$dir" fetch --quiet "$repository_root" '+refs/remotes/origin/main:refs/remotes/origin/main'; } 2>/dev/null \
+    && [[ $(git -C "$dir" rev-parse HEAD) == "$control" && -f "$dir/scripts/release-recovery.sh" ]] \
+    || { reason='correction revision has no recovery protocol to check out'; return 1; }
+  (
+    repository_root=$dir
+    export AXIOM_RELEASE_CORRECTIONS_REVISION=$control AXIOM_RELEASE_CORRECTIONS_DIGEST=$control_digest
+    source "$dir/scripts/release-recovery.sh"
+    recovery_validate "$control_tag" "$source"
+  ) || { reason='correction pins do not validate at the correction revision'; return 1; }
+}
+
+# published_recovery_pins BODY sets pins_revision and pins_digest to the
+# ADR-0010 correction pins a published release records in its notes, or
+# empties both when it records none. Ambiguous or malformed pins set reason
+# and fail.
+published_recovery_pins() {
+  pins_revision=
+  pins_digest=
+  grep -q '^- Recovery corrections ' <<<"$1" || return 0
+  [[ $(grep -c '^- Recovery corrections revision:' <<<"$1") == 1 && $(grep -c '^- Recovery corrections SHA-256:' <<<"$1") == 1 ]] \
+    || { reason='ambiguous recovery provenance'; return 1; }
+  pins_revision=$(sed -nE 's/^- Recovery corrections revision: `([0-9a-f]{40})`$/\1/p' <<<"$1")
+  pins_digest=$(sed -nE 's/^- Recovery corrections SHA-256: `([0-9a-f]{64})`$/\1/p' <<<"$1")
+  [[ "$pins_revision" =~ ^[0-9a-f]{40}$ && "$pins_digest" =~ ^[0-9a-f]{64}$ ]] || { reason='malformed recovery provenance'; return 1; }
+}
+
+# previous_release_facts proves on GitHub what release-plan.sh, being
+# Git-only, proves only for the tag: the release the plan builds on
+# (plan.previous_tag at plan.previous_release_commit) is published as a
+# non-draft GitHub Release bound to that tag and commit. It is the remote
+# publication state of publish-release.sh --check, the one status and verify
+# use. A recovery release (ADR-0010) is checked like verify checks it: its
+# recorded pins through pinned_control, then the scripts of that control
+# revision. Latest is not part of it. On refusal it sets reason and fails.
+previous_release_facts() {
+  local previous_tag previous_commit previous_state body check_scripts=$scripts
+  previous_tag=$(value plan.previous_tag "$temporary/status")
+  previous_commit=$(value plan.previous_release_commit "$temporary/status")
+  # A missing or unreadable release leaves no pins; the check below then
+  # classifies it (absent, or a recovery release without its pins).
+  body=$(gh api "repos/$repository/releases/tags/$previous_tag" 2>/dev/null | jq -r '.body // ""') || body=
+  published_recovery_pins "$body" || { reason="previous release $previous_tag: $reason"; return 1; }
+  if [[ -n "$pins_revision" ]]; then
+    pinned_control "$temporary/previous-control" "$previous_tag" "$previous_commit" "$pins_revision" "$pins_digest" \
+      >/dev/null 2>"$temporary/previous-error" || { reason="previous release $previous_tag: published $reason"; return 1; }
+    check_scripts=$temporary/previous-control/scripts
+  fi
+  if ! AXIOM_RELEASE_CORRECTIONS_REVISION=$pins_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$pins_digest \
+    "$check_scripts/publish-release.sh" --check --repo "$repository" --tag "$previous_tag" --revision "$previous_commit" \
+    --make-latest false >"$temporary/previous" 2>"$temporary/previous-error"; then
+    printf 'previous_release_state=%s\n' "$(value publication_state "$temporary/previous")" >>"$temporary/status"
+    reason="previous release $previous_tag is not consistently published: $(sed 's/^[a-z_]*_error: //' "$temporary/previous-error" | head -n 1); resolve it with \$axiom-release (release.sh status --tag $previous_tag) first"
+    return 1
+  fi
+  previous_state=$(value publication_state "$temporary/previous")
+  printf 'previous_release_state=%s\n' "$previous_state" >>"$temporary/status"
+  if [[ "$previous_state" != published ]]; then
+    reason="previous release $previous_tag has its tag but its GitHub Release is ${previous_state/absent/missing}; finish it with \$axiom-release (release.sh status --tag $previous_tag) first"
+    return 1
+  fi
+}
+
 # discover_prepared_run sets prepared_run to the newest unexpired prepared
 # artifact of $tag whose set verifies at $revision and yields an envelope.
 discover_prepared_run() {
@@ -270,6 +350,10 @@ release_pr_facts() {
     next=blocked; reason="$reason; fix it on main, then run release.sh start to refresh the Release PR"
     return
   fi
+  if ! previous_release_facts; then
+    next=blocked
+    return
+  fi
   # Release Please builds the Release PR as one commit on top of main.
   base=$(gh api "repos/$repository/commits/$head" | jq -r 'if (.parents | length) == 1 then .parents[0].sha else empty end') \
     || fail 'cannot read the Release PR head commit'
@@ -305,6 +389,19 @@ release_pr_facts() {
   reason="human review, approval and squash merge of $url"
   if [[ "$behind" != 0 ]]; then
     reason="$reason; it is $behind validated non-releasable commit(s) behind main: update its branch in GitHub before merging"
+  fi
+}
+
+# open_release_pr_status judges the open Release PR(s) for `status` and for
+# `status --tag` of a stable release not merged yet: more than one is
+# ambiguous, exactly one is checked by release_pr_facts. One path, so the two
+# never decide differently about the same Release PR.
+open_release_pr_status() {
+  state=release_pr_open
+  if (($(jq 'length' <<<"$open") > 1)); then
+    next=blocked; reason='more than one open Release PR'
+  else
+    release_pr_facts
   fi
 }
 
@@ -351,14 +448,13 @@ status() {
       [[ -n "$tag" ]] || { next=blocked; reason='merged Release PR has no readable manifest version'; }
     elif await_run release_pr_starting "$start_workflow"; then
       :
-    elif (($(jq 'length' <<<"$open") > 1)); then
-      state=release_pr_open; next=blocked; reason='more than one open Release PR'
-    elif (($(jq 'length' <<<"$open") == 1)); then
-      state=release_pr_open
-      release_pr_facts
+    elif (($(jq 'length' <<<"$open") > 0)); then
+      open_release_pr_status
     else
       state=no_release_in_progress
       if ! plan_facts; then
+        next=blocked
+      elif ! previous_release_facts; then
         next=blocked
       elif [[ $(value plan.releasable "$out") != true ]]; then
         next=none; reason="no releasable commit since $(value plan.previous_tag "$out"); merges integrate code, nothing to release"
@@ -385,9 +481,14 @@ status() {
       if [[ "$channel" == stable ]]; then
         revision=$(release_commit_for "$version")
         if [[ -z "$revision" ]]; then
-          if jq -e --arg v "$version" 'any(.[]; .title | contains($v))' <<<"$open" >/dev/null; then
-            state=release_pr_open; next=review_release_pr; reason="the Release PR for $version must be reviewed and merged first"
+          # Not merged yet: only an open Release PR of exactly this version
+          # counts, judged by the same path as `status`.
+          if await_run release_pr_starting "$start_workflow"; then
+            :
+          elif jq -e --arg title "chore(main): release $version" 'any(.[]; .title == $title)' <<<"$open" >/dev/null; then
+            open_release_pr_status
           else
+            state=no_release_in_progress
             next=blocked; reason="no Release PR prepares $version; start a release with release.sh start"
           fi
         fi
@@ -565,24 +666,18 @@ case "$command" in
     peeled=$(git -C "$repository_root" ls-remote --tags origin "refs/tags/$tag^{}" | awk '{print $1}')
     [[ -n "$peeled" ]] && tag_sha=$peeled
     published_body=$(gh api "repos/$repository/releases/tags/$tag" | jq -r '.body // ""') || fail 'cannot read published recovery provenance'
-    if [[ -z "$corrections_revision" ]] && grep -q '^- Recovery corrections ' <<<"$published_body"; then
-      [[ $(grep -c '^- Recovery corrections revision:' <<<"$published_body") == 1 && $(grep -c '^- Recovery corrections SHA-256:' <<<"$published_body") == 1 ]] || fail 'ambiguous recovery provenance'
-      corrections_revision=$(sed -nE 's/^- Recovery corrections revision: `([0-9a-f]{40})`$/\1/p' <<<"$published_body")
-      corrections_digest=$(sed -nE 's/^- Recovery corrections SHA-256: `([0-9a-f]{64})`$/\1/p' <<<"$published_body")
-      [[ "$corrections_revision" =~ ^[0-9a-f]{40}$ && "$corrections_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'malformed recovery provenance'
-      export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
+    if [[ -z "$corrections_revision" ]]; then
+      published_recovery_pins "$published_body" || fail "$reason"
+      if [[ -n "$pins_revision" ]]; then
+        corrections_revision=$pins_revision
+        corrections_digest=$pins_digest
+        export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
+      fi
     fi
     if [[ -n "$corrections_revision" ]]; then
-      git -C "$repository_root" rev-list --first-parent origin/main >"$temporary/recovery-main"
-      grep -Fxq "$corrections_revision" "$temporary/recovery-main" || fail 'published correction revision is not on first-parent main'
-      git -C "$repository_root" merge-base --is-ancestor "$tag_sha" "$corrections_revision" || fail 'published correction revision does not descend from source'
-      git clone --quiet --no-hardlinks "$repository_root" "$temporary/control"
-      git -C "$temporary/control" checkout --quiet --detach "$corrections_revision"
-      git -C "$temporary/control" fetch --quiet "$repository_root" '+refs/remotes/origin/main:refs/remotes/origin/main'
+      pinned_control "$temporary/control" "$tag" "$tag_sha" "$corrections_revision" "$corrections_digest" || fail "published $reason"
       scripts=$temporary/control/scripts
       repository_root=$temporary/control
-      source "$scripts/release-recovery.sh"
-      recovery_validate "$tag" "$tag_sha"
     fi
     "$scripts/release-preflight.sh" --tag "$tag" --revision "$tag_sha" --main-ref origin/main >"$temporary/preflight"
     "$scripts/publish-release.sh" --check --repo "$repository" --tag "$tag" --revision "$tag_sha" \

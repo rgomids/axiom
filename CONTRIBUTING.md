@@ -439,8 +439,10 @@ or merge never runs it. Before that dispatch,
 [`scripts/release-plan.sh`](scripts/release-plan.sh) validates every
 first-parent commit since the last release commit: a Conventional Commit
 subject and declared (or reviewed, committed) delivery metadata. It also
-requires the previous release to be published at its release commit and the
-planned tag to be absent and newer than every stable tag. One inconsistent
+requires the tag of the previous release at its release commit and the
+planned tag to be absent and newer than every stable tag; `release.sh` also
+requires that previous release to be a published (non-draft) GitHub Release
+bound to that tag and commit, so a tag alone never lets a new release start. One inconsistent
 commit stops the release, for example
 `release_error: ... commit <sha> has no delivery metadata`, before any Release
 PR, artifact, tag or release exists. The workflow requires `main` to still be
@@ -451,7 +453,9 @@ Please, which proposes the version, groups the commits into a new
 PR gets its required checks only when it records the planned version and is
 built on the validated SHA (or an ancestor of it). It is configured with
 `skip-github-release`: it never creates tags or releases. While the Release
-PR is open, `status` re-validates the current `main`: an inconsistent commit
+PR is open, `status` (and `status --tag vX.Y.Z`, which considers only the
+Release PR of exactly that version) re-validates the current `main`: an
+inconsistent commit
 blocks it, a releasable commit merged after it was built reports
 `refresh_release_pr` (`$axiom-release` re-validates and refreshes it), and
 validated hidden commits only need the branch update that the ruleset

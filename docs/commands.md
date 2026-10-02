@@ -555,7 +555,7 @@ open and merged-unpublished Release PRs, the release plan), `state` and
 
 | `state` | `next_action` | Meaning |
 |---|---|---|
-| `no_release_in_progress` | `none`, `start_release` or `blocked` | nothing releasable; the plan passed; or the plan refused (`reason`) |
+| `no_release_in_progress` | `none`, `start_release` or `blocked` | nothing releasable; the plan passed; or the plan or the previous-release check refused (`reason`) |
 | `release_pr_starting` | `await_run` | a Release Please run is in flight |
 | `release_pr_open` | `review_release_pr`, `refresh_release_pr` or `blocked` | human review and merge (after a branch update when only validated hidden commits are behind); a releasable commit or another planned version since it was built; or `main` no longer validates, is red, or the planned tag has a release |
 | `release_pr_merged` / `release_candidate` | `prepare` or `blocked` | build and verify the exact set of the release commit (or RC revision) |
@@ -565,7 +565,9 @@ open and merged-unpublished Release PRs, the release plan), `state` and
 
 A stable tag resolves to its release commit (the first-parent `main` commit
 whose manifest introduced the version); a release candidate defaults to
-`origin/main`. Preparation is offered only when required CI on the revision is
+`origin/main`. Before that commit exists, `status --tag vX.Y.Z` considers only
+the open Release PR titled exactly `chore(main): release X.Y.Z` (never
+`X.Y.Z0`) and reaches the same decision as `status` for it. Preparation is offered only when required CI on the revision is
 green, the `release` environment requires a reviewer and the release range
 resolves its Issue set. `status` tries the three newest unexpired prepared
 artifacts of the tag from `main` and uses the first that verifies at the
@@ -582,10 +584,16 @@ Start a release (preflight, then Release Please; no tag, release or artifact):
 
 `release-plan.sh` is Git-only: for every first-parent commit since the last
 release commit it requires a Conventional Commit subject and declared or
-reviewed delivery metadata, requires the previous release to be published at
-that commit, refuses an existing or older planned tag, and prints
+reviewed delivery metadata, requires the tag of the previous release at that
+commit, refuses an existing or older planned tag, and prints
 `planned_version`, `planned_tag`, the bump, one `commit=` line per commit,
-`change.N` lines and the delivered Issues. `start` requires `next_action` to be
+`change.N` lines and the delivered Issues. Being Git-only, it does not see
+GitHub Releases: `release.sh` reads the previous release with
+`publish-release.sh --check` (and the ADR-0010 pins it records) and reports
+`previous_release_state`; anything but `published` (a tag without its GitHub
+Release, a draft, a release bound to another tag or commit) blocks
+`start_release`, `refresh_release_pr` and `review_release_pr`, and makes a
+nothing-to-release `status` report `blocked` instead of `none`. `start` requires `next_action` to be
 `start_release` or `refresh_release_pr`, dispatches `release-please.yml` with
 `planned_version` and the exact `main` SHA, waits, and stops at
 `release_pr=<url>` with `next_action=review_release_pr`. It refuses when the
