@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/rgomids/axiom/compare/v0.2.1...v0.3.0) (2026-10-02)
+
+
+### Features
+
+* **site:** add bootstrap landing page ([#158](https://github.com/rgomids/axiom/issues/158)) ([30deb51](https://github.com/rgomids/axiom/commit/30deb513dfaaa8ec93e224efee76981a33a05bad))
+
+
+### Bug Fixes
+
+* **ci:** pin Pages artifact upload action ([#159](https://github.com/rgomids/axiom/issues/159)) ([142618f](https://github.com/rgomids/axiom/commit/142618fb385691172d48de18d508b3e55a1f9c54))
+* **install:** resolve forward-transition policy (I153-T01) ([#161](https://github.com/rgomids/axiom/issues/161)) ([90cfcdd](https://github.com/rgomids/axiom/commit/90cfcdd6d3df9f1bdc6049c3f825c2f67b7e3025))
+
 ## [0.2.1](https://github.com/rgomids/axiom/compare/v0.2.0...v0.2.1) (2026-10-01)
 
 
