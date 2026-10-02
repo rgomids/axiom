@@ -92,6 +92,11 @@ digest() {
   fi
 }
 
+if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}${AXIOM_RELEASE_CORRECTIONS_DIGEST:-}" ]]; then
+  source "$repository_root/scripts/release-recovery.sh"
+  recovery_validate "$tag" "$revision" >"$temporary/recovery" || exit 1
+fi
+
 # --- Local verified set -----------------------------------------------------
 # The uploaded bytes must be exactly the bytes verify-release-artifacts.sh
 # accepted: its Evidence names every archive digest and the SHA256SUMS digest.
@@ -99,6 +104,7 @@ local_set=false
 if [[ "$check" == false || -n "$directory" ]]; then
   [[ "$directory" == /* && -d "$directory" && ! -L "$directory" ]] || fail 'absolute artifact directory required'
   [[ -f "$evidence" && -f "$notes" ]] || fail 'verification evidence and notes files required'
+  if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then recovery_check_notes "$notes"; fi
   grep -Fxq "version=$version" "$evidence" || fail 'evidence does not name this version'
   grep -Fxq "revision=$revision" "$evidence" || fail 'evidence does not name this revision'
   grep -Fxq 'publication=none' "$evidence" && grep -Fxq 'result=pass' "$evidence" || fail 'evidence is not a passing verification'
@@ -162,6 +168,18 @@ asset_sha256() {
 # check_published JSON verifies a non-draft release without modifying it.
 check_published() {
   local release=$1 sums_asset names
+  printf '%s' "$(jq -r '.body // ""' <<<"$release")" >"$temporary/published-notes"
+  if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then
+    recovery_check_notes "$temporary/published-notes"
+    if [[ "$local_set" == true ]]; then
+      [[ $(cat "$temporary/published-notes") == $(cat "$notes") ]] || fail 'published recovery notes differ from prepared notes'
+    else
+      "$repository_root/scripts/release-notes.sh" --tag "$tag" --revision "$revision" --repo "$repository" >"$temporary/recovery-notes"
+      [[ $(cat "$temporary/published-notes") == $(cat "$temporary/recovery-notes") ]] || fail 'published recovery notes differ from pinned inputs'
+    fi
+  elif grep -q '^- Recovery corrections ' "$temporary/published-notes"; then
+    fail 'published recovery release requires its exact correction pins'
+  fi
   [[ $(jq -r '.prerelease' <<<"$release") == "$prerelease" ]] || fail 'published release has the wrong prerelease flag'
   [[ "$tag_commit" == "$revision" ]] || fail 'published release tag does not point at the revision'
   sums_asset=$(jq -c '[.assets[] | select(.name == "SHA256SUMS")] | if length == 1 then .[0] else empty end' <<<"$release")
@@ -321,7 +339,7 @@ fi
 # authority binds to; any change requires a new review.
 write_envelope() {
   local name sum
-  printf 'envelopeVersion=2\n'
+  if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then printf 'envelopeVersion=3\n'; else printf 'envelopeVersion=2\n'; fi
   printf 'repository=%s\n' "$repository"
   printf 'tag=%s\n' "$tag"
   printf 'version=%s\n' "$version"
@@ -330,6 +348,7 @@ write_envelope() {
   printf 'revision=%s\n' "$revision"
   printf 'make_latest=%s\n' "$make_latest"
   printf 'prepared_run=%s\n' "$prepared_run"
+  if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then cat "$temporary/recovery"; fi
   printf 'release_notes_sha256=%s\n' "$(digest "$notes")"
   printf 'sha256sums_sha256=%s\n' "$(awk '$1 == "SHA256SUMS" {print $2}' "$temporary/expected")"
   while read -r name sum _; do

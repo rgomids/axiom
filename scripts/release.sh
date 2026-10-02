@@ -33,6 +33,8 @@ tag=
 revision=
 preview_digest=
 prepared_run=
+corrections_revision=
+corrections_digest=
 authorized=false
 download=false
 while (($#)); do
@@ -41,6 +43,8 @@ while (($#)); do
     --revision) revision=${2:-}; shift 2 ;;
     --preview-digest) preview_digest=${2:-}; shift 2 ;;
     --prepared-run) prepared_run=${2:-}; shift 2 ;;
+    --corrections-revision) corrections_revision=${2:-}; shift 2 ;;
+    --corrections-digest) corrections_digest=${2:-}; shift 2 ;;
     --authorize-publication) authorized=true; shift ;;
     --download) download=true; shift ;;
     *) printf 'release_error: invalid argument\n' >&2; exit 1 ;;
@@ -51,6 +55,12 @@ fail() {
   printf 'release_error: %s\n' "$1" >&2
   exit 1
 }
+
+export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision
+export AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
+if [[ -n "$corrections_revision$corrections_digest" ]]; then
+  [[ "$corrections_revision" =~ ^[0-9a-f]{40}$ && "$corrections_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'recovery requires full --corrections-revision and --corrections-digest'
+fi
 
 temporary=$(mktemp -d)
 trap 'rm -rf -- "$temporary"' EXIT
@@ -134,7 +144,7 @@ prepared_envelope() {
   fi
   origin_url=$(git -C "$repository_root" remote get-url origin)
   git clone --quiet --no-hardlinks "$repository_root" "$clone"
-  git -C "$clone" checkout --quiet --detach "$revision"
+  git -C "$clone" checkout --quiet --detach "${corrections_revision:-$revision}"
   git -C "$clone" fetch --quiet "$repository_root" "+refs/remotes/origin/main:refs/remotes/origin/main"
   if ! "$clone/scripts/verify-prepared-release.sh" --tag "$tag" --revision "$revision" --prepared "$dir" \
     --repo "$repository" --run "$prepared_run" --remote "$origin_url" >"$temporary/prepared-facts" 2>"$temporary/prepared-error"; then
@@ -232,6 +242,11 @@ status() {
     if ! "$scripts/release-preflight.sh" --tag "$tag" --revision "$revision" --main-ref origin/main >"$temporary/preflight" 2>"$temporary/preflight-error"; then
       next=blocked; reason=$(sed 's/^release_preflight_error: //' "$temporary/preflight-error" | head -n 1)
     else
+      if [[ -n "$corrections_revision" ]]; then
+        source "$scripts/release-recovery.sh"
+        recovery_validate "$tag" "$revision" >>"$out" || fail 'invalid pinned correction recovery'
+        [[ $(ci_state "$corrections_revision") == success ]] || fail 'required CI on correction revision is not successful'
+      fi
       local ci
       ci=$(ci_state "$revision")
       printf 'revision_ci=%s\n' "$ci" >>"$out"
@@ -283,8 +298,9 @@ case "$command" in
       || { cat "$temporary/status"; fail "preparation is not the next step: $(tr '\n' ' ' <<<"$status_line")"; }
     revision=$(value revision "$temporary/status")
     dispatched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    gh workflow run "$prepare_workflow" --repo "$repository" --ref main -f "tag=$tag" -f "revision=$revision" >/dev/null \
-      || fail 'preparation dispatch failed'
+    dispatch_args=(workflow run "$prepare_workflow" --repo "$repository" --ref main -f "tag=$tag" -f "revision=$revision")
+    if [[ -n "$corrections_revision" ]]; then dispatch_args+=(-f "corrections_revision=$corrections_revision" -f "corrections_digest=$corrections_digest"); fi
+    gh "${dispatch_args[@]}" >/dev/null || fail 'preparation dispatch failed'
     printf 'effect=workflow_dispatched workflow=%s tag=%s revision=%s publication=none\n' "$prepare_workflow" "$tag" "$revision"
     run=$(find_run "$prepare_workflow" "$dispatched_at")
     [[ -n "$run" ]] || fail 'cannot find the preparation run'
@@ -307,8 +323,10 @@ case "$command" in
     grep -Fxq "preview_digest=$preview_digest" "$temporary/status" \
       || fail "preview changed; review and authorize again (current $(grep '^preview_digest=' "$temporary/status"))"
     dispatched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    gh workflow run "$workflow" --repo "$repository" --ref main -f "tag=$tag" -f "revision=$revision" \
-      -f "prepared_run=$prepared_run" -f "preview_digest=$preview_digest" >/dev/null || fail 'workflow dispatch failed'
+    dispatch_args=(workflow run "$workflow" --repo "$repository" --ref main -f "tag=$tag" -f "revision=$revision"
+      -f "prepared_run=$prepared_run" -f "preview_digest=$preview_digest")
+    if [[ -n "$corrections_revision" ]]; then dispatch_args+=(-f "corrections_revision=$corrections_revision" -f "corrections_digest=$corrections_digest"); fi
+    gh "${dispatch_args[@]}" >/dev/null || fail 'workflow dispatch failed'
     printf 'effect=workflow_dispatched workflow=%s tag=%s revision=%s prepared_run=%s preview_digest=%s\n' \
       "$workflow" "$tag" "$revision" "$prepared_run" "$preview_digest"
     run=$(find_run "$workflow" "$dispatched_at")
@@ -326,6 +344,26 @@ case "$command" in
     [[ -n "$tag_sha" ]] || fail "tag $tag is not published"
     peeled=$(git -C "$repository_root" ls-remote --tags origin "refs/tags/$tag^{}" | awk '{print $1}')
     [[ -n "$peeled" ]] && tag_sha=$peeled
+    published_body=$(gh api "repos/$repository/releases/tags/$tag" | jq -r '.body // ""') || fail 'cannot read published recovery provenance'
+    if [[ -z "$corrections_revision" ]] && grep -q '^- Recovery corrections ' <<<"$published_body"; then
+      [[ $(grep -c '^- Recovery corrections revision:' <<<"$published_body") == 1 && $(grep -c '^- Recovery corrections SHA-256:' <<<"$published_body") == 1 ]] || fail 'ambiguous recovery provenance'
+      corrections_revision=$(sed -nE 's/^- Recovery corrections revision: `([0-9a-f]{40})`$/\1/p' <<<"$published_body")
+      corrections_digest=$(sed -nE 's/^- Recovery corrections SHA-256: `([0-9a-f]{64})`$/\1/p' <<<"$published_body")
+      [[ "$corrections_revision" =~ ^[0-9a-f]{40}$ && "$corrections_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'malformed recovery provenance'
+      export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
+    fi
+    if [[ -n "$corrections_revision" ]]; then
+      git -C "$repository_root" rev-list --first-parent origin/main >"$temporary/recovery-main"
+      grep -Fxq "$corrections_revision" "$temporary/recovery-main" || fail 'published correction revision is not on first-parent main'
+      git -C "$repository_root" merge-base --is-ancestor "$tag_sha" "$corrections_revision" || fail 'published correction revision does not descend from source'
+      git clone --quiet --no-hardlinks "$repository_root" "$temporary/control"
+      git -C "$temporary/control" checkout --quiet --detach "$corrections_revision"
+      git -C "$temporary/control" fetch --quiet "$repository_root" '+refs/remotes/origin/main:refs/remotes/origin/main'
+      scripts=$temporary/control/scripts
+      repository_root=$temporary/control
+      source "$scripts/release-recovery.sh"
+      recovery_validate "$tag" "$tag_sha"
+    fi
     "$scripts/release-preflight.sh" --tag "$tag" --revision "$tag_sha" --main-ref origin/main >"$temporary/preflight"
     "$scripts/publish-release.sh" --check --repo "$repository" --tag "$tag" --revision "$tag_sha" \
       --make-latest "$(value make_latest "$temporary/preflight")" >"$temporary/remote"

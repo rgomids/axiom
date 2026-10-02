@@ -231,6 +231,11 @@ case "$method $path" in
       jq --argjson id "$id" '.assets |= map(select(.id != $id))' "$f" >"$f.new" && mv "$f.new" "$f"
     done
     rm -f "$s/assets/$id" ;;
+  "GET releases/tags/"*)
+    requested_tag=${path#releases/tags/}
+    matched=$(all_releases | jq -c --arg tag "$requested_tag" '[.[] | select(.tag_name == $tag)] | .[0] // empty')
+    [[ -n "$matched" ]] || not_found
+    printf '%s\n' "$matched" ;;
   "GET releases/"*)
     id=${path#releases/}
     [[ -f $(release_file "$id") ]] || not_found
@@ -390,7 +395,7 @@ git -C "$fixture" config user.email release-test@example.invalid
 git -C "$fixture" config user.name 'Release Test'
 git -C "$fixture" config commit.gpgsign false
 mkdir -p "$fixture/scripts" "$fixture/.github/rulesets"
-for script in release-tag-version.sh release-preflight.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh; do
+for script in release-tag-version.sh release-preflight.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh release-corrections.sh release-recovery.sh; do
   cp "$repository_root/scripts/$script" "$fixture/scripts/$script"
 done
 cp "$repository_root/.github/rulesets/main.json" "$fixture/.github/rulesets/main.json"
@@ -1601,6 +1606,163 @@ skill=$repository_root/.agents/skills/axiom-release/SKILL.md
 check 'axiom-release skill exists and is routed' bash -c "grep -Fxq 'name: axiom-release' '$skill' && grep -Fq '.agents/skills/axiom-release/SKILL.md' '$repository_root/AGENTS.md'"
 check 'skill publishes only through release.sh after human authorization' bash -c "grep -Fq 'scripts/release.sh publish' '$skill' && grep -Fq -- '--authorize-publication' '$skill' && ! grep -Eiq 'gh release (create|upload|edit|delete)|git tag|git push .*--tags|pending_deployments|--force' '$skill'"
 check 'skill is not a product Runtime skill' bash -c "[[ ! -e '$repository_root/internal/codexruntime/skills/axiom-release' ]]"
+
+# --- Pinned recovery: original artifacts, independent append-only metadata ---
+# Everything here stays inside the local Git/fake GitHub fixtures.
+check 'recovery workflows keep source checkout and pin separate control checkout' bash -c "
+  for w in '$workflows/release-artifacts.yml' '$workflows/publish-release.yml'; do
+    grep -Fq 'ref: \${{ inputs.corrections_revision }}' \"\$w\" &&
+      grep -Fxq '          path: source' \"\$w\" &&
+      grep -Fxq '          path: control' \"\$w\" &&
+      grep -Fq 'rev-list --first-parent origin/main' \"\$w\" &&
+      grep -Fq 'AXIOM_RELEASE_CORRECTIONS_DIGEST=' \"\$w\" || exit 1;
+  done"
+rfix=$temporary/recovery-fixture
+rremote=$temporary/recovery-remote.git
+git init -q --bare "$rremote"
+git init -q -b main "$rfix"
+git -C "$rfix" config user.email release-test@example.invalid
+git -C "$rfix" config user.name 'Release Test'
+git -C "$rfix" config commit.gpgsign false
+mkdir -p "$rfix/scripts" "$rfix/.github/rulesets"
+cp "$fixture"/scripts/*.sh "$rfix/scripts/"
+cp "$repository_root/.github/rulesets/main.json" "$rfix/.github/rulesets/main.json"
+rcommit() {
+  git -C "$rfix" add -A
+  printf '%s\n\n%b' "$1" "${2:-}" | git -C "$rfix" commit -q --allow-empty -F -
+  git -C "$rfix" rev-parse HEAD
+}
+printf '{".":"0.2.1"}\n' >"$rfix/.release-please-manifest.json"
+printf '# Changelog\n' >"$rfix/CHANGELOG.md"
+jq -n '{schemaVersion: 2, owner: "rgomids", number: 7, projectId: "PVT_7", title: "Axiom Delivery", projection: "disabled", migrationStatuses: ["Legacy Done"]}' >"$rfix/.github/delivery-project.json"
+rbase=$(rcommit 'chore(main): release 0.2.1')
+rfeat=$(rcommit 'feat(site): add landing page' 'Related-Issues: #86\nCompletes-Issues: #86\n')
+rdocs=$(rcommit 'docs: reconcile forward compatibility contract for #153')
+printf '{".":"0.3.0"}\n' >"$rfix/.release-please-manifest.json"
+printf '# Changelog\n\n## [0.3.0](https://github.com/rgomids/axiom/compare/v0.2.1...v0.3.0) (2026-10-02)\n\n### Features\n\n* **site:** add landing page\n' >"$rfix/CHANGELOG.md"
+rsource=$(rcommit 'chore(main): release 0.3.0 (#160)')
+printf '%s related=153 completes=none\n' "$rdocs" >"$rfix/.github/delivery-corrections.txt"
+# Deliberately make the control artifact verifier unusable: verification must
+# select the original source verifier. Control Project changes must be ignored.
+printf '#!/usr/bin/env bash\necho "wrong control artifact verifier" >&2\nexit 91\n' >"$rfix/scripts/verify-release-artifacts.sh"
+jq '.projection = "enabled"' "$rfix/.github/delivery-project.json" >"$temporary/rproject"
+cp "$temporary/rproject" "$rfix/.github/delivery-project.json"
+rcontrol=$(rcommit 'fix(release): reviewed metadata recovery' 'Related-Issues: #153\nCompletes-Issues: none\n')
+git -C "$rfix" remote add origin "$rremote"
+git -C "$rfix" push -q origin main
+git -C "$rfix" fetch -q origin
+export AXIOM_RELEASE_CORRECTIONS_REVISION=$rcontrol
+export AXIOM_RELEASE_CORRECTIONS_DIGEST=$(digest "$rfix/.github/delivery-corrections.txt")
+reset_github
+issue 86 'Landing page'
+printf '{"protection_rules":[{"type":"required_reviewers"}]}\n' >"$state/environment.json"
+green "$rsource"
+green "$rcontrol"
+printf '[{"number":160,"url":"https://github.com/rgomids/axiom/pull/160","title":"chore(main): release 0.3.0","mergeCommit":{"oid":"%s"}}]\n' "$rsource" >"$state/pr-merged.json"
+"$rfix/scripts/delivery-issues.sh" release --tag v0.3.0 --revision "$rsource" >"$temporary/rissues"
+check 'recovery metadata preserves exactly the original completed Issue set' bash -c "grep -Fxq issues=86 '$temporary/rissues' && ! grep -Fxq issues=153 '$temporary/rissues'"
+"$rfix/scripts/delivery-github.sh" state --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" >"$temporary/rstate"
+check 'recovery keeps original Project authority despite changed control config' grep -Fq 'projection=disabled' "$temporary/rstate"
+make_set "$temporary/rset" 0.3.0 "$rsource" original-source-bytes
+"$rfix/scripts/release-notes.sh" --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" >"$temporary/rset/notes.md"
+rprepared=$state/runs/6161/axiom-release-v0.3.0
+mkdir -p "$rprepared"
+cp -R "$temporary/rset/artifacts" "$rprepared/artifacts"
+cp "$temporary/rset/evidence.txt" "$rprepared/release-evidence.txt"
+cp "$temporary/rset/notes.md" "$rprepared/release-notes.md"
+"$rfix/scripts/release-corrections.sh" --source-revision "$rsource" --corrections-revision "$rcontrol" \
+  --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$rprepared/release-recovery.txt"
+printf '{"path":".github/workflows/release-artifacts.yml","event":"workflow_dispatch","head_branch":"main","status":"completed","conclusion":"success"}\n' >"$state/runs/6161.json"
+check 'prepared recovery verifies original source artifacts using original verifier' \
+  "$rfix/scripts/verify-prepared-release.sh" --tag v0.3.0 --revision "$rsource" --prepared "$rprepared" --repo rgomids/axiom --run 6161
+printf 'corrupt\n' >>"$rprepared/release-recovery.txt"
+expect_failure 'prepared recovery metadata drift refuses' 'metadata differs' \
+  "$rfix/scripts/verify-prepared-release.sh" --tag v0.3.0 --revision "$rsource" --prepared "$rprepared" --repo rgomids/axiom --run 6161
+sed '$d' "$rprepared/release-recovery.txt" >"$temporary/rmetadata"
+cp "$temporary/rmetadata" "$rprepared/release-recovery.txt"
+printf 'changed notes\n' >>"$rprepared/release-notes.md"
+expect_failure 'prepared recovery notes drift refuses' 'release notes differ' \
+  "$rfix/scripts/verify-prepared-release.sh" --tag v0.3.0 --revision "$rsource" --prepared "$rprepared" --repo rgomids/axiom --run 6161
+cp "$temporary/rset/notes.md" "$rprepared/release-notes.md"
+expect_failure 'recovery cannot apply to release candidates' 'stable-only' \
+  "$rfix/scripts/release-notes.sh" --tag v0.3.0-rc.1 --revision "$rsource" --repo rgomids/axiom
+saved_fixture=$fixture
+fixture=$rfix
+envelope "$temporary/rset" --tag v0.3.0 --revision "$rsource" --make-latest true >"$temporary/renvelope"
+check 'recovery envelope binds correction revision and committed-file digest' bash -c "grep -Fxq corrections_revision=$rcontrol '$temporary/renvelope' && grep -Fxq corrections_sha256=$AXIOM_RELEASE_CORRECTIONS_DIGEST '$temporary/renvelope' && grep -Fxq revision=$rsource '$temporary/renvelope'"
+release status --tag v0.3.0 --revision "$rsource" --prepared-run 6161 \
+  --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$temporary/rstatus"
+check 'release status selects pinned control while retaining original release source' bash -c "grep -Fxq next_action=authorize_publication '$temporary/rstatus' && grep -Fxq preview.corrections_revision=$rcontrol '$temporary/rstatus' && grep -Fxq preview.revision=$rsource '$temporary/rstatus'"
+# Same correction bytes at a different reviewed commit remain different
+# authority: source archive bytes stay fixed, while control pin changes digest.
+ralt=$(rcommit 'docs: another reviewed control revision')
+git -C "$rfix" push -q origin main
+git -C "$rfix" fetch -q origin
+green "$ralt"
+export AXIOM_RELEASE_CORRECTIONS_REVISION=$ralt
+expect_failure 'a different valid control SHA rejects earlier prepared notes' 'pins differ' \
+  envelope "$temporary/rset" --tag v0.3.0 --revision "$rsource" --make-latest true
+"$rfix/scripts/release-notes.sh" --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" >"$temporary/rset/notes.md"
+envelope "$temporary/rset" --tag v0.3.0 --revision "$rsource" --make-latest true >"$temporary/raltenvelope"
+check 'different control SHA changes authority despite identical correction file and archives' test \
+  "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/renvelope")" != \
+  "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/raltenvelope")"
+export AXIOM_RELEASE_CORRECTIONS_REVISION=$rcontrol
+"$rfix/scripts/release-notes.sh" --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" >"$temporary/rset/notes.md"
+mkdir -p "$state/runs/5151"
+cp -R "$rprepared" "$state/runs/5151/axiom-release-v0.3.0"
+cp "$state/runs/6161.json" "$state/runs/5151.json"
+release prepare --tag v0.3.0 --revision "$rsource" --corrections-revision "$rcontrol" \
+  --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$temporary/rprepare"
+check 'prepare dispatch propagates exact recovery pins with no publication' bash -c "grep '^workflow run release-artifacts.yml' '$state/ledger' | grep -Fq 'corrections_revision=$rcontrol' && grep '^workflow run release-artifacts.yml' '$state/ledger' | grep -Fq 'corrections_digest=$AXIOM_RELEASE_CORRECTIONS_DIGEST' && ! grep -q '^POST release' '$state/ledger'"
+rpreview=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/rstatus")
+release publish --tag v0.3.0 --revision "$rsource" --prepared-run 6161 \
+  --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" \
+  --preview-digest "$rpreview" --authorize-publication >"$temporary/rdispatch"
+check 'authorized publish dispatch propagates exact recovery pins' bash -c "grep '^workflow run publish-release.yml' '$state/ledger' | grep -Fq 'corrections_revision=$rcontrol' && grep '^workflow run publish-release.yml' '$state/ledger' | grep -Fq 'corrections_digest=$AXIOM_RELEASE_CORRECTIONS_DIGEST'"
+publish "$temporary/rset" --tag v0.3.0 --revision "$rsource" --make-latest true >"$temporary/rpublished"
+check 'recovery publication delivers only feature Issue in fake GitHub' bash -c "grep -Fxq result=pass '$temporary/rpublished' && [[ \$(jq -r .state '$state/issues/86.json') == closed ]] && ! grep -Eq '^(ISSUE|COMMENT).*153' '$state/ledger'"
+"$rfix/scripts/delivery-github.sh" verify --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" >"$temporary/rverified"
+check 'recovery delivered Issue verification passes against pinned inputs' grep -Fxq delivery=verified "$temporary/rverified"
+# Real tag operations below are confined to the synthetic local bare remote.
+git -C "$rfix" push -q origin "$rsource:refs/tags/v0.3.0"
+release verify --tag v0.3.0 --download >"$temporary/rdownload"
+check 'download verification discovers published pins and verifies original source bytes' bash -c "grep -Fxq artifacts_verified=pass '$temporary/rdownload' && grep -Fxq result=pass '$temporary/rdownload' && grep -Fxq corrections_revision=$rcontrol '$temporary/rdownload'"
+export AXIOM_RELEASE_CORRECTIONS_REVISION=$ralt
+expect_failure 'published recovery refuses changed correction pins' 'pins differ' \
+  "$rfix/scripts/publish-release.sh" --check --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" --make-latest true
+unset AXIOM_RELEASE_CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST
+# Ordinary post-release sync must resolve the immutable release commit using
+# published pins, without adopting those pins for unrelated commit parsing.
+export AXIOM_DELIVERY_PROJECT_TOKEN=$FAKE_PROJECT_TOKEN
+stage_project 'Legacy Done'
+rrecord=$state/releases/$(release_json v0.3.0 | jq -r .id).json
+cp "$rrecord" "$temporary/rrecord-original.json"
+reject_historical_sync() {
+  local label=$1 filter=$2 before
+  jq "$filter" "$temporary/rrecord-original.json" >"$rrecord"
+  before=$(mutations)
+  if "$rfix/scripts/delivery-github.sh" sync --repo rgomids/axiom --from "$rbase" --to "$ralt" \
+    >"$temporary/historical-out" 2>"$temporary/historical-error"; then
+    check "$label" false
+  else
+    check "$label" test "$(mutations)" == "$before"
+  fi
+  cp "$temporary/rrecord-original.json" "$rrecord"
+}
+reject_historical_sync 'historical recovery refuses draft provenance before any effects' '.draft = true'
+reject_historical_sync 'historical recovery refuses prerelease provenance before any effects' '.prerelease = true'
+reject_historical_sync 'historical recovery refuses another source revision before any effects' '.target_commitish = "0000000000000000000000000000000000000000"'
+reject_historical_sync 'historical recovery refuses duplicate pins before any effects' '.body += "\n- Recovery corrections revision: `0000000000000000000000000000000000000000`"'
+reject_historical_sync 'historical recovery refuses malformed pins before any effects' '.body |= sub("Recovery corrections SHA-256: `[0-9a-f]{64}`"; "Recovery corrections SHA-256: `bad`")'
+check 'ordinary sync resolves published recovery and repairs released Project projection' \
+  "$rfix/scripts/delivery-github.sh" sync --repo rgomids/axiom --from "$rbase" --to "$ralt"
+check 'historical recovery reconciliation projects only the published completed Issue' bash -c "
+  [[ '$(item 86)' == 'Released|v0.3.0' ]] && [[ \$(jq -r .state '$state/issues/86.json') == closed ]] &&
+  ! grep -Eq '^(ISSUE|COMMENT|PROJECT).*153' '$state/ledger'"
+unset AXIOM_DELIVERY_PROJECT_TOKEN
+fixture=$saved_fixture
+unset AXIOM_RELEASE_CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST
 
 if ((failures > 0)); then
   printf 'FAIL: %s release flow check(s) failed\n' "$failures" >&2

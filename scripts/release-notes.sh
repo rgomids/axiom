@@ -27,6 +27,11 @@ fail() {
   exit 1
 }
 
+if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}${AXIOM_RELEASE_CORRECTIONS_DIGEST:-}" ]]; then
+  source "$repository_root/scripts/release-recovery.sh"
+  recovery_validate "$tag" "$revision" >/dev/null || exit 1
+fi
+
 tag_facts=$("$repository_root/scripts/release-tag-version.sh" "$tag") || exit 1
 version=$(awk -F= '$1 == "version" {print $2}' <<<"$tag_facts")
 channel=$(awk -F= '$1 == "channel" {print $2}' <<<"$tag_facts")
@@ -64,6 +69,7 @@ fi
 
 printf '\n---\n\n'
 printf -- '- Source revision: `%s`\n' "$revision"
+if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then recovery_note_lines; fi
 printf -- '- Channel: %s\n' "$([[ "$channel" == rc ]] && printf 'release candidate (prerelease)' || printf 'stable')"
 printf -- '- Assets: `SHA256SUMS` and one `axiom-%s-<row>.tar.gz` archive per supported row\n' "$version"
 printf '\nInstall exactly this release:\n\n'

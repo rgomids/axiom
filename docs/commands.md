@@ -527,6 +527,14 @@ The process, versioning and authority rules are in
 | `.github/workflows/delivery-metadata.yml` | PR opened, edited, reopened or synchronized (not Release PRs); dispatch by `release-please.yml` on the Release PR branch | validates `Related-Issues`/`Completes-Issues` and refuses closing keywords; on dispatch passes only for the bot-authored Release PR head (`delivery-github.sh release-pr-head`); no token write, no secret |
 | `.github/workflows/delivery-sync.yml` | push to `main` | merge-time delivery projection: completing PRs move Issues to `Awaiting Release` (Issues stay open; one closed by GitHub at exactly that merge is reopened); a release commit records `Target Release`; with projection enabled, released Issues are reconciled to `Released` |
 
+For an unpublished stable release whose immutable source lacks delivery
+metadata, opt-in `--corrections-revision <full-main-sha>` and
+`--corrections-digest <committed-file-sha256>` select the additional pinned
+input for `status`, `prepare` and `publish`. The same pins are required across
+phases; `verify --download` reads and validates published provenance. See
+[recovery contract and commands](development/release-recovery.md). No source
+revision, archive inventory or publication authority changes.
+
 Discover the state and the next step (read-only apart from `git fetch` of
 `main`):
 

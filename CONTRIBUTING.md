@@ -302,8 +302,13 @@ fix is a reviewed line in
 [`.github/delivery-corrections.txt`](.github/delivery-corrections.txt) of the
 form `<full-sha> related=<n,m|none> completes=<n,m|none>`, with its reason
 recorded above it. The file is read as committed at the revision being
-resolved, so a correction counts only for releases whose release commit
-contains it. History is never rewritten.
+resolved, so by default a correction counts only for releases whose release
+commit contains it. History is never rewritten. An unpublished stable release
+may opt into [pinned metadata recovery](docs/development/release-recovery.md)
+under ADR-0010: a reviewed correction/control SHA and the committed file digest
+are additional immutable inputs, bound into the preparation and publication
+envelope. Source revision, archives, changelog, range and Project configuration
+remain those of the original release commit. No floating-ref fallback exists.
 
 ### Migration boundary (v0.2.0)
 
