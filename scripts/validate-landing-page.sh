@@ -23,8 +23,9 @@ skip() {
 ROOT="$(cd "$TARGET" && pwd -P)"
 SITE="$ROOT/site"
 RAW_BASE="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets"
-LOGO_HERO="$RAW_BASE/axiom-logo-black.png"      # hero image and social card
-LOGO_BRAND="$RAW_BASE/axiom-logo-white.png"     # header mark, transparent
+LOGO_HERO="$RAW_BASE/axiom-logo-black.png"      # Open Graph and Twitter card
+LOGO_BRAND="$RAW_BASE/axiom-logo-white.png"     # hero and logo hub, transparent
+LOGO_HEADER="$RAW_BASE/axiom-logo-github.png"   # header mark, rounded app tile
 LOGO_ICON="$RAW_BASE/axiom-logo-app-black.png"  # favicon and Apple Touch icon
 PUBLIC_URL="https://rgomids.github.io/axiom/"
 
@@ -33,15 +34,15 @@ PUBLIC_URL="https://rgomids.github.io/axiom/"
 site_files=(
   "index.html"
   "styles.css"
-  "ocean.js"
   "lang.js"
 )
 
-# Removed with the dark-only deep-sea landing page: app.js carried the theme
-# toggle, rain.js the Matrix background. Neither may come back unnoticed.
+# Retired files: app.js carried the theme toggle, rain.js the Matrix background,
+# ocean.js the scroll-driven tentacles. None may come back unnoticed.
 retired_files=(
   "app.js"
   "rain.js"
+  "ocean.js"
 )
 
 for relative in "${site_files[@]}"; do
@@ -60,6 +61,7 @@ canonical_assets=(
   "docs/assets/axiom-logo-black.png"
   "docs/assets/axiom-logo-white.png"
   "docs/assets/axiom-logo-app-black.png"
+  "docs/assets/axiom-logo-github.png"
 )
 
 for relative in "${canonical_assets[@]}"; do
@@ -120,14 +122,14 @@ expected_refs=(
   "<link rel=\"icon\" href=\"$LOGO_ICON\" type=\"image/png\">"
   "<link rel=\"apple-touch-icon\" href=\"$LOGO_ICON\">"
   "src=\"$LOGO_BRAND\""
-  "src=\"$LOGO_HERO\""
+  "src=\"$LOGO_HEADER\""
 )
 
 for reference in "${expected_refs[@]}"; do
   grep -Fq -- "$reference" "$SITE/index.html" \
     || fail "canonical asset reference is missing from site/index.html: $reference"
 done
-pass "favicon, Apple Touch icon, Open Graph, Twitter, header and hero use canonical raw URLs"
+pass "favicon, Apple Touch icon, Open Graph, Twitter, header, hero and logo hub use canonical raw URLs"
 
 # Declared width/height must match the canonical PNGs, or the reserved box has
 # the wrong aspect ratio and the hero shifts once the remote image arrives.
@@ -139,18 +141,19 @@ import sys
 root = sys.argv[1]
 html = open(root + "/site/index.html", encoding="utf-8").read()
 
-for name in ("axiom-logo-white.png", "axiom-logo-black.png"):
+for name in ("axiom-logo-white.png", "axiom-logo-github.png"):
     with open(root + "/docs/assets/" + name, "rb") as handle:
         width, height = struct.unpack(">II", handle.read(24)[16:24])
     pattern = r'src="[^"]*%s"[^>]*width="(\d+)" height="(\d+)"' % re.escape(name)
-    match = re.search(pattern, html)
-    if match is None:
+    matches = re.findall(pattern, html)
+    if not matches:
         raise SystemExit("no <img> declares dimensions for " + name)
-    if (int(match.group(1)), int(match.group(2))) != (width, height):
-        raise SystemExit(
-            "%s declares %sx%s but the canonical asset is %dx%d"
-            % (name, match.group(1), match.group(2), width, height)
-        )
+    for declared in matches:
+        if (int(declared[0]), int(declared[1])) != (width, height):
+            raise SystemExit(
+                "%s declares %sx%s but the canonical asset is %dx%d"
+                % (name, declared[0], declared[1], width, height)
+            )
 PYEOF
 pass "declared image dimensions match the canonical assets in docs/assets/"
 
@@ -216,9 +219,9 @@ def contrast(a, b):
 
 pairs = [
     (fg, bg)
-    for fg in ("text", "text-muted", "text-faint", "accent", "accent-strong", "amber")
+    for fg in ("text", "text-muted", "text-faint", "accent", "accent-strong", "teal", "success", "gold")
     for bg in ("bg", "bg-raised", "surface", "surface-hover")
-] + [("accent-ink", "accent"), ("accent-ink", "accent-strong")]
+] + [("accent-ink", "accent"), ("accent-ink", "accent-strong"), ("accent-ink", "teal")]
 
 for fg, bg in pairs:
     if fg not in tokens or bg not in tokens:
@@ -231,34 +234,26 @@ pass "every text token reaches WCAG AA contrast on every background and surface 
 
 # --- Motion -------------------------------------------------------------------
 
-# The page has no autonomous animation at all: the deep sea is suggested by
-# static light and by the scroll position, never by something moving on its own.
+# The page has no autonomous animation at all: depth comes from static light,
+# never from something moving on its own.
 grep -Fq -- '@media (prefers-reduced-motion: reduce)' "$SITE/styles.css" \
   || fail "styles.css has no prefers-reduced-motion treatment"
 if grep -rqE '@keyframes|animation(-name)?:' "$SITE"; then
   fail "site/ declares an animation; the landing page has none"
 fi
-if grep -rqE 'setInterval|requestAnimationFrame\(function|\.animate\(' "$SITE"; then
-  fail "site/ drives motion from script; only the scroll position may move the page"
+if grep -rqE 'setInterval|requestAnimationFrame|\.animate\(' "$SITE"; then
+  fail "site/ drives motion from script"
 fi
 pass "no animation: no keyframes, no script-driven motion, reduced motion honoured"
 
-# --- Deep-sea background ------------------------------------------------------
+# --- Retired background effects ----------------------------------------------
 
-# The Matrix rain was replaced by scroll-driven tentacles. The bubbles that
-# briefly stood in for it were removed too, on purpose.
-if grep -rqi "matrix\|rain-drop\|rain-glyph\|bubble" "$SITE"; then
+# The Matrix rain, the bubbles and the scroll-driven tentacles were all retired;
+# the background is static light only.
+if grep -rqi "matrix\|rain-drop\|rain-glyph\|bubble\|tentacle" "$SITE"; then
   fail "site/ still carries a retired background effect"
 fi
-grep -Fq -- '--tentacle-reveal' "$SITE/ocean.js" \
-  || fail "ocean.js does not drive the tentacles from the scroll position"
-grep -Fq -- '--tentacle-reveal' "$SITE/styles.css" \
-  || fail "styles.css does not consume the tentacle scroll position"
-grep -Fq -- 'class="tentacle tentacle-left"' "$SITE/index.html" \
-  || fail "the left tentacle is missing from index.html"
-grep -Fq -- 'class="tentacle tentacle-right"' "$SITE/index.html" \
-  || fail "the right tentacle is missing from index.html"
-pass "the background is the two tentacles, revealed by scrolling"
+pass "no retired background effect: the background is static light only"
 
 # --- Language switch ----------------------------------------------------------
 
@@ -343,7 +338,7 @@ fi
 if [[ "${AXIOM_LANDING_PAGE_REMOTE:-0}" != "1" ]]; then
   skip "remote asset checks disabled; set AXIOM_LANDING_PAGE_REMOTE=1 to enable"
 else
-  for url in "$LOGO_HERO" "$LOGO_BRAND" "$LOGO_ICON"; do
+  for url in "$LOGO_HERO" "$LOGO_BRAND" "$LOGO_HEADER" "$LOGO_ICON"; do
     curl -fsSI -o /dev/null --max-time 20 "$url" \
       || fail "canonical asset URL did not answer successfully: $url"
   done
