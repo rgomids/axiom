@@ -569,30 +569,6 @@ code {
   .section { padding: 112px 0; }
 }
 
-/* --- What it is: watermark ---
-   The dark artwork is already faded and transparent; it sits behind the
-   heading and never takes clicks. Raise opacity here to make it stronger. */
-.section-watermark { position: relative; overflow: hidden; }
-.section-watermark > .shell { position: relative; }
-.section-watermark > .shell > :not(.watermark) { position: relative; z-index: 1; }
-
-.watermark {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  z-index: 0;
-  width: min(1100px, 150%);
-  max-width: none;
-  transform: translateX(-50%);
-  opacity: 0.4;
-  pointer-events: none;
-  user-select: none;
-}
-
-@media (min-width: 760px) {
-  .watermark { top: -40px; }
-}
-
 /* --- What it is: joined cards --- */
 .joined {
   display: grid;

@@ -23,7 +23,7 @@ skip() {
 ROOT="$(cd "$TARGET" && pwd -P)"
 SITE="$ROOT/site"
 RAW_BASE="https://raw.githubusercontent.com/rgomids/axiom/main/docs/assets"
-LOGO_HERO="$RAW_BASE/axiom-logo-black.png"      # Open Graph, Twitter card and section watermark
+LOGO_HERO="$RAW_BASE/axiom-logo-black.png"      # Open Graph and Twitter card
 LOGO_BRAND="$RAW_BASE/axiom-logo-white.png"     # hero logo, transparent
 LOGO_HEADER="$RAW_BASE/axiom-logo-github.png"   # header mark, rounded app tile
 LOGO_ICON="$RAW_BASE/axiom-logo-app-black.png"  # favicon and Apple Touch icon
@@ -123,14 +123,13 @@ expected_refs=(
   "<link rel=\"apple-touch-icon\" href=\"$LOGO_ICON\">"
   "src=\"$LOGO_BRAND\""
   "src=\"$LOGO_HEADER\""
-  "src=\"$LOGO_HERO\""
 )
 
 for reference in "${expected_refs[@]}"; do
   grep -Fq -- "$reference" "$SITE/index.html" \
     || fail "canonical asset reference is missing from site/index.html: $reference"
 done
-pass "favicon, Apple Touch icon, Open Graph, Twitter, header, hero and watermark use canonical raw URLs"
+pass "favicon, Apple Touch icon, Open Graph, Twitter, header and hero use canonical raw URLs"
 
 # Declared width/height must match the canonical PNGs, or the reserved box has
 # the wrong aspect ratio and the hero shifts once the remote image arrives.
@@ -142,7 +141,7 @@ import sys
 root = sys.argv[1]
 html = open(root + "/site/index.html", encoding="utf-8").read()
 
-for name in ("axiom-logo-white.png", "axiom-logo-github.png", "axiom-logo-black.png"):
+for name in ("axiom-logo-white.png", "axiom-logo-github.png"):
     with open(root + "/docs/assets/" + name, "rb") as handle:
         width, height = struct.unpack(">II", handle.read(24)[16:24])
     pattern = r'src="[^"]*%s"[^>]*width="(\d+)" height="(\d+)"' % re.escape(name)
