@@ -73,9 +73,22 @@ No **Windows 10 (1809+) ou Windows 11, amd64**, use PowerShell 5.1 ou superior
 de 64 bits. Não é necessário WSL, Bash, Go nem executar como administrador:
 
 ```powershell
+Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression
+$env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
+```
+
+Para instalar uma release Windows exata, use um comando PowerShell:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.1.0
+```
+
+Se precisar inspecionar ou reter o bootstrap antes de executá-lo, baixe-o
+primeiro:
+
+```powershell
 Invoke-WebRequest https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 -OutFile install-axiom.ps1
 .\install-axiom.ps1
-$env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 ```
 
 O instalador verifica o checksum da release Windows e instala `axiom.exe` em

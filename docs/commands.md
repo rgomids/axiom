@@ -466,11 +466,23 @@ Windows reads the same `.tar.gz` release format as the POSIX rows. No WSL,
 administrator session, Bash, or Go installation is needed by end users.
 
 ```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 -OutFile install-axiom.ps1
-.\install-axiom.ps1
+Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression
 $env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 axiom version
 axiom first-run
+```
+
+To select an exact release in one PowerShell command:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.1.0-rc.2
+```
+
+Download-then-run remains available when retaining the bootstrap is useful:
+
+```powershell
+Invoke-WebRequest https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 -OutFile install-axiom.ps1
+.\install-axiom.ps1
 ```
 
 `-Channel stable` is the default. `-Version` accepts an exact published
