@@ -123,6 +123,10 @@ feat(cli)!: rename the configure command
 
 Because PRs are squash-merged, **the PR title becomes the commit on `main`**
 and must follow this format; the squash body may carry footers.
+The `delivery-metadata` check validates the title on PR opens, edits and
+updates, using the validator from the base revision. Require this check in
+the repository ruleset; a passing check cannot establish whether the chosen
+type describes the change correctly.
 
 Versions come from Release Please's default versioning strategy as pinned by
 [`release-please.yml`](.github/workflows/release-please.yml)

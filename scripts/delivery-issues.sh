@@ -7,8 +7,9 @@
 #       Parse one squash commit message or PR body (stdin by default).
 #       Prints metadata=declared|undeclared, related=, completes=.
 #   delivery-issues.sh check-pr --body FILE --title FILE
-#       A PR must declare valid metadata and must not use GitHub closing
-#       keywords (they close Issues at merge time, before release).
+#       A PR must have a Conventional Commit title, declare valid metadata,
+#       and avoid GitHub closing keywords (they close Issues at merge time,
+#       before release).
 #   delivery-issues.sh commits --from SHA --to SHA
 #       One line per first-parent commit in FROM..TO (merge-time sync).
 #   delivery-issues.sh release --tag vX.Y.Z --revision SHA
@@ -243,6 +244,12 @@ case "$mode" in
     ;;
   check-pr)
     [[ -f "$body" && -f "$title" ]] || fail 'check-pr requires --body FILE and --title FILE'
+    # The title becomes the squash subject. Reject unsupported types and
+    # malformed subjects before Release Please can silently omit a change.
+    subject=$(cat "$title")
+    conventional_re='^(feat|fix|docs|test|refactor|perf|build|ci|chore|security|revert)(\([^()[:space:]]+\))?!?: [^[:space:]].*$'
+    [[ "$subject" != *$'\n'* && "$subject" != *$'\r'* && "$subject" =~ $conventional_re ]] \
+      || fail 'PR title must follow Conventional Commits: type(scope): description (see CONTRIBUTING.md)'
     # GitHub closes an Issue when a closing keyword reaches the default
     # branch (PR description or squash commit message). Delivery closes
     # Issues only at release publication, so these keywords are refused

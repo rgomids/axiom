@@ -140,6 +140,15 @@ expect_failure 'closing keyword inside code is refused too' 'GitHub closing keyw
 check 'words containing keywords are not keywords' pr_check 'feat: prefixes and closeness' \
   'Related-Issues: #1\nCompletes-Issues: none\n\nThe prefix #1 and enclosed #2 and unresolved #3 stay open.\n'
 
+# PR titles become squash subjects and must be parseable by Release Please.
+for title in 'feat: add page' 'feat(site): add page' 'fix!: reject old state' 'security(fs)!: tighten boundary' 'chore(main): release 0.3.0' 'revert: restore page'; do
+  check "conventional title '$title' passes" pr_check "$title" 'Related-Issues: none\nCompletes-Issues: none\n'
+done
+for title in 'Docs/86 added landing page' 'Feat(site): add page' 'feature: add page' 'feat: ' 'feat(site) add page' 'feat(): add page' 'feat: add page\nfix: another subject'; do
+  expect_failure "nonconventional title '$title' refused" 'Conventional Commits' \
+    pr_check "$title" 'Related-Issues: none\nCompletes-Issues: none\n'
+done
+
 # --- 3. Fixture history: partial and completing PRs across releases ---------------------
 fixture=$temporary/fixture
 git init -q -b main "$fixture"

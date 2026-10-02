@@ -1,5 +1,6 @@
 name: Delivery metadata
-# Validates the explicit Issue relationship of a Pull Request:
+# Validates the Conventional Commit title and explicit Issue relationship
+# of a Pull Request:
 # "Related-Issues:" and "Completes-Issues:" lines in its description, which
 # the squash merge carries into the commit on main. GitHub closing keywords
 # are refused: Issues close only when a stable release that delivers them is
@@ -78,7 +79,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
-      - name: Validate Related-Issues and Completes-Issues
+      - name: Validate title, Related-Issues and Completes-Issues
         if: github.event_name == 'pull_request'
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
