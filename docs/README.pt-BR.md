@@ -293,7 +293,24 @@ archives e fluxos de dogfooding.
 docs/      Produto, arquitetura, specifications, decisões e pesquisa
 internal/  Implementação Go e testes
 scripts/   Ferramentas de repositório, segurança, release e validação
+site/      Landing page pública publicada no GitHub Pages
 ```
+
+## Site
+
+A landing page pública é publicada a partir de `site/` em
+<https://rgomids.github.io/axiom/> pelo `.github/workflows/deploy-landpage.yml`,
+que envia esse diretório sem alterações a cada push na `main`.
+
+Para trabalhar nela localmente:
+
+```bash
+python3 -m http.server 8000 --directory site
+```
+
+Depois abra <http://localhost:8000/>. Os assets de identidade são carregados da
+localização canônica em `docs/assets/` por URLs raw absolutas, então nunca são
+copiados para `site/`.
 
 ## Como contribuir
 

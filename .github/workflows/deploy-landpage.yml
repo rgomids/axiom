@@ -1,0 +1,73 @@
+# Validates the landing page in site/ and publishes it to GitHub Pages.
+# Pull requests only run the validation. Publication runs only on main (push or
+# manual dispatch) and only after validation passes, so the deployment is
+# observable only after merge. The deploy job can write Pages and mint an OIDC
+# token, which is why every Action is pinned to a commit SHA.
+name: Deploy landing page to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/assets/**'
+      - 'scripts/validate-landing-page.sh'
+      - '.github/workflows/deploy-landpage.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'docs/assets/**'
+      - 'scripts/validate-landing-page.sh'
+      - '.github/workflows/deploy-landpage.yml'
+  workflow_dispatch:
+
+# Read-only by default; only the deploy job is granted Pages permissions.
+permissions:
+  contents: read
+
+# Let an in-flight publication finish; superseded queued runs are dropped.
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      # Fails closed on missing files, non-canonical assets, contrast, motion,
+      # translations and documented URLs. Remote asset checks stay off: assets
+      # added in a pull request only reach main's raw URLs after merge.
+      - name: Validate landing page
+        run: ./scripts/validate-landing-page.sh .
+
+  deploy:
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      # Identity assets stay only in docs/assets/ and are loaded by the page
+      # through absolute raw.githubusercontent.com URLs. Nothing is copied into
+      # site/: the artifact is exactly the versioned content of site/.
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: ./site
+
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
