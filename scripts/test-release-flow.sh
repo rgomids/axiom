@@ -1409,7 +1409,7 @@ unset AXIOM_DELIVERY_PROJECT_TOKEN
 # --- 4. release.sh: prepare, envelope and authority boundary ---------------------------------------
 release() { (cd "$fixture" && "$fixture/scripts/release.sh" "$@"); }
 green() {
-  printf '{"check_runs":[{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1"},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1"},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1"}]}\n' >"$state/checks-$1.json"
+  printf '{"check_runs":[{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1"},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1"},{"name":"verify (windows)","status":"completed","conclusion":"success","started_at":"1"},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1"}]}\n' >"$state/checks-$1.json"
 }
 # stage_prepared_run ID TAG REVISION SALT [WORKFLOW] places a prepared set, as
 # release-artifacts.yml retains it, behind the fake `gh run download`.
@@ -1574,8 +1574,8 @@ while IFS= read -r line; do
 done < <(grep -hE '^\s+(- )?uses:' "$workflows"/*.yml)
 check 'every action is pinned by SHA' "$pinned"
 check 'checkouts never persist credentials' bash -c "[[ \$(grep -c 'actions/checkout@' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') == \$(grep -c 'persist-credentials: false' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') ]]"
-ci_contexts=$(printf 'delivery-metadata\nrelease-contract\nverify (linux)\nverify (macos)\n')
-check 'ruleset requires exactly the CI job checks and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
+ci_contexts=$(printf 'delivery-metadata\nrelease-contract\nverify (linux)\nverify (macos)\nverify (windows)\n')
+check 'ruleset requires exactly the CI job checks and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '          - platform: windows' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
 # Every required context must exist on the Release PR head, where Release
 # Please events start no pull_request run: its workflows are dispatched there.
 check 'every required context is produced on the Release PR path' bash -c "
