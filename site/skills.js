@@ -56,7 +56,7 @@
   }
 
   Array.prototype.forEach.call(document.querySelectorAll('.copy-btn'), function (button) {
-    var label = button.querySelector('span');
+    var label = button.querySelector('.sr-only');
 
     button.addEventListener('click', function () {
       var original = label.textContent;
