@@ -291,7 +291,24 @@ archive, and dogfooding workflows.
 docs/      Product, architecture, specifications, decisions, and research
 internal/  Go implementation and tests
 scripts/   Repository, security, release, and validation tooling
+site/      Public landing page published to GitHub Pages
 ```
+
+## Website
+
+The public landing page is published from `site/` to
+<https://rgomids.github.io/axiom/> by `.github/workflows/deploy-landpage.yml`,
+which uploads that directory verbatim on every push to `main`.
+
+To work on it locally:
+
+```bash
+python3 -m http.server 8000 --directory site
+```
+
+Then open <http://localhost:8000/>. The identity assets are loaded from their
+canonical location under `docs/assets/` through absolute raw URLs, so they are
+never copied into `site/`.
 
 ## Contributing
 
