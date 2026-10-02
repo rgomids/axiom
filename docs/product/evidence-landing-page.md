@@ -297,6 +297,19 @@ CTAs become full width, and the tentacles narrow and fade. On desktop the status
 section keeps *Available* on the left with *In progress* and *Future work* stacked
 on the right.
 
+#### Maintainer screenshots — 2026-10-01
+
+Captured by the maintainer in Chrome at a 1876 px wide desktop viewport, serving
+`site/` locally. The browser toolbar was cropped out and metadata stripped; the
+page content is unedited. They are review Evidence only and are not published by
+the Pages workflow.
+
+![Header and hero](evidence-landing-page/desktop-hero.png)
+
+![What is Axiom and Why Axiom, with the side tentacles](evidence-landing-page/desktop-what-and-why.png)
+
+![How it works and Project status](evidence-landing-page/desktop-how-and-status.png)
+
 ### Supply chain
 
 `.github/workflows/deploy-landpage.yml` holds `pages: write` and
