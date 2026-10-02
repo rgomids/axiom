@@ -21,6 +21,15 @@ on:
         required: true
         type: string
 
+      corrections_revision:
+        description: Optional full SHA on main containing reviewed recovery corrections and release control scripts
+        required: false
+        type: string
+      corrections_digest:
+        description: SHA-256 of committed delivery-corrections.txt at corrections_revision
+        required: false
+        type: string
+
 permissions:
   contents: read
   # Stable notes list the delivered Issues with their titles.
@@ -60,11 +69,39 @@ jobs:
           ref: ${{ env.RELEASE_REVISION }}
           fetch-depth: 0
           persist-credentials: false
+          path: source
+      - name: Checkout pinned recovery control
+        if: inputs.corrections_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.corrections_revision }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: control
+      - name: Select release control scripts
+        env:
+          CORRECTIONS_REVISION: ${{ inputs.corrections_revision }}
+          CORRECTIONS_DIGEST: ${{ inputs.corrections_digest }}
+        run: |
+          scripts="$GITHUB_WORKSPACE/source/scripts"
+          if [[ -n "$CORRECTIONS_REVISION$CORRECTIONS_DIGEST" ]]; then
+            [[ "$CORRECTIONS_REVISION" =~ ^[0-9a-f]{40}$ && "$CORRECTIONS_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+            [[ $(git -C "$GITHUB_WORKSPACE/control" rev-parse HEAD) == "$CORRECTIONS_REVISION" ]]
+            git -C "$GITHUB_WORKSPACE/control" rev-list --first-parent origin/main | grep -Fx "$CORRECTIONS_REVISION" >/dev/null
+            git -C "$GITHUB_WORKSPACE/control" merge-base --is-ancestor "$(git -C "$GITHUB_WORKSPACE/source" rev-parse HEAD)" "$CORRECTIONS_REVISION"
+            scripts="$GITHUB_WORKSPACE/control/scripts"
+          fi
+          {
+            printf 'RELEASE_CONTROL_SCRIPTS=%s\n' "$scripts"
+            printf 'AXIOM_RELEASE_CORRECTIONS_REVISION=%s\n' "$CORRECTIONS_REVISION"
+            printf 'AXIOM_RELEASE_CORRECTIONS_DIGEST=%s\n' "$CORRECTIONS_DIGEST"
+          } >>"$GITHUB_ENV"
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version-file: source/go.mod
           cache: false
       - name: Preflight exact tag and revision
+        working-directory: source
         run: |
           [[ $(git rev-parse --verify HEAD) == "$RELEASE_REVISION" ]]
           [[ -z $(git status --porcelain --untracked-files=normal) ]]
@@ -74,16 +111,24 @@ jobs:
           version=$(awk -F= '$1 == "version" {print $2}' "$out/preflight.txt")
           printf 'RELEASE_VERSION=%s\n' "$version" >>"$GITHUB_ENV"
       - name: Verify module sources
+        working-directory: source
         run: go mod verify
       - name: Build supported release archives
+        working-directory: source
         run: ./scripts/build-release-archives.sh --version "$RELEASE_VERSION" --output "$RUNNER_TEMP/axiom-release/artifacts"
       - name: Verify complete artifact set and render notes
         env:
           GH_TOKEN: ${{ github.token }}
+        working-directory: source
         run: |
           out="$RUNNER_TEMP/axiom-release"
+          if [[ -n "$AXIOM_RELEASE_CORRECTIONS_REVISION" ]]; then
+            "$RELEASE_CONTROL_SCRIPTS/release-corrections.sh" --source-revision "$RELEASE_REVISION" \
+              --corrections-revision "$AXIOM_RELEASE_CORRECTIONS_REVISION" \
+              --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$out/release-recovery.txt"
+          fi
           ./scripts/verify-release-artifacts.sh --dir "$out/artifacts" --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" >"$out/release-evidence.txt"
-          ./scripts/release-notes.sh --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" --repo "$GITHUB_REPOSITORY" >"$out/release-notes.md"
+          "$RELEASE_CONTROL_SCRIPTS/release-notes.sh" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" --repo "$GITHUB_REPOSITORY" >"$out/release-notes.md"
           {
             printf 'tag=%s\n' "$RELEASE_TAG"
             printf 'revision=%s\n' "$RELEASE_REVISION"

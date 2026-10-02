@@ -171,8 +171,14 @@ commit_line() {
 # load_corrections REV reads .github/delivery-corrections.txt as committed at
 # REV, so an Issue set depends only on that revision.
 load_corrections() {
+  if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}${AXIOM_RELEASE_CORRECTIONS_DIGEST:-}" ]]; then
+    [[ "$mode" == release ]] || fail 'recovery corrections are only valid for release resolution'
+    source "$repository_root/scripts/release-recovery.sh"
+    recovery_validate "$tag" "$1" "$temporary/corrections" >/dev/null || exit 1
+  else
   git -C "$repository_root" show "$1:.github/delivery-corrections.txt" >"$temporary/corrections" 2>/dev/null \
     || : >"$temporary/corrections"
+  fi
 }
 
 full_sha() {

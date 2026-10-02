@@ -25,6 +25,18 @@ report its message; do not work around it.
 - `vX.Y.Z-rc.N`: conduct that release candidate (default revision: `origin/main`);
 - `vX.Y.Z`: conduct that stable release (revision: its merged Release PR commit).
 
+## Unpublished stable metadata recovery
+
+Only after a human explicitly selects this recovery, use the reviewed merged
+correction/control SHA and committed `.github/delivery-corrections.txt` SHA-256
+as `--corrections-revision` and `--corrections-digest` on status, prepare and
+publish. Both are additional immutable inputs; keep the original release
+revision. See `docs/development/release-recovery.md` and ADR-0010.
+Show both pins with every other preview field before publication authority.
+Never infer a recovery revision, read worktree corrections, change the source
+SHA or omit pins between phases. Published verify discovers and validates
+provenance from release notes. Preparation still needs no publication authority.
+
 ## Procedure
 
 1. From the repository root, run `scripts/release.sh status [--tag <tag>]`.

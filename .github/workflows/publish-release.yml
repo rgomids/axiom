@@ -32,6 +32,15 @@ on:
         required: true
         type: string
 
+      corrections_revision:
+        description: Optional full SHA on main containing reviewed recovery corrections and release control scripts
+        required: false
+        type: string
+      corrections_digest:
+        description: SHA-256 of committed delivery-corrections.txt at corrections_revision
+        required: false
+        type: string
+
 permissions: {}
 
 defaults:
@@ -69,9 +78,36 @@ jobs:
           ref: ${{ inputs.revision }}
           fetch-depth: 0
           persist-credentials: false
+          path: source
+      - name: Checkout pinned recovery control
+        if: inputs.corrections_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.corrections_revision }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: control
+      - name: Select release control scripts
+        env:
+          CORRECTIONS_REVISION: ${{ inputs.corrections_revision }}
+          CORRECTIONS_DIGEST: ${{ inputs.corrections_digest }}
+        run: |
+          scripts="$GITHUB_WORKSPACE/source/scripts"
+          if [[ -n "$CORRECTIONS_REVISION$CORRECTIONS_DIGEST" ]]; then
+            [[ "$CORRECTIONS_REVISION" =~ ^[0-9a-f]{40}$ && "$CORRECTIONS_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+            [[ $(git -C "$GITHUB_WORKSPACE/control" rev-parse HEAD) == "$CORRECTIONS_REVISION" ]]
+            git -C "$GITHUB_WORKSPACE/control" rev-list --first-parent origin/main | grep -Fx "$CORRECTIONS_REVISION" >/dev/null
+            git -C "$GITHUB_WORKSPACE/control" merge-base --is-ancestor "$(git -C "$GITHUB_WORKSPACE/source" rev-parse HEAD)" "$CORRECTIONS_REVISION"
+            scripts="$GITHUB_WORKSPACE/control/scripts"
+          fi
+          {
+            printf 'RELEASE_CONTROL_SCRIPTS=%s\n' "$scripts"
+            printf 'AXIOM_RELEASE_CORRECTIONS_REVISION=%s\n' "$CORRECTIONS_REVISION"
+            printf 'AXIOM_RELEASE_CORRECTIONS_DIGEST=%s\n' "$CORRECTIONS_DIGEST"
+          } >>"$GITHUB_ENV"
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version-file: source/go.mod
           cache: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -85,9 +121,10 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_REVISION: ${{ inputs.revision }}
           PREPARED_RUN: ${{ inputs.prepared_run }}
+        working-directory: source
         run: |
           [[ $(git rev-parse --verify HEAD) == "$RELEASE_REVISION" ]]
-          ./scripts/verify-prepared-release.sh --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" \
+          "$RELEASE_CONTROL_SCRIPTS/verify-prepared-release.sh" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" \
             --prepared "$RUNNER_TEMP/prepared" --repo "$GITHUB_REPOSITORY" --run "$PREPARED_RUN" | tee -a "$GITHUB_STEP_SUMMARY"
 
   publish:
@@ -106,9 +143,36 @@ jobs:
           ref: ${{ inputs.revision }}
           fetch-depth: 0
           persist-credentials: false
+          path: source
+      - name: Checkout pinned recovery control
+        if: inputs.corrections_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.corrections_revision }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: control
+      - name: Select release control scripts
+        env:
+          CORRECTIONS_REVISION: ${{ inputs.corrections_revision }}
+          CORRECTIONS_DIGEST: ${{ inputs.corrections_digest }}
+        run: |
+          scripts="$GITHUB_WORKSPACE/source/scripts"
+          if [[ -n "$CORRECTIONS_REVISION$CORRECTIONS_DIGEST" ]]; then
+            [[ "$CORRECTIONS_REVISION" =~ ^[0-9a-f]{40}$ && "$CORRECTIONS_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+            [[ $(git -C "$GITHUB_WORKSPACE/control" rev-parse HEAD) == "$CORRECTIONS_REVISION" ]]
+            git -C "$GITHUB_WORKSPACE/control" rev-list --first-parent origin/main | grep -Fx "$CORRECTIONS_REVISION" >/dev/null
+            git -C "$GITHUB_WORKSPACE/control" merge-base --is-ancestor "$(git -C "$GITHUB_WORKSPACE/source" rev-parse HEAD)" "$CORRECTIONS_REVISION"
+            scripts="$GITHUB_WORKSPACE/control/scripts"
+          fi
+          {
+            printf 'RELEASE_CONTROL_SCRIPTS=%s\n' "$scripts"
+            printf 'AXIOM_RELEASE_CORRECTIONS_REVISION=%s\n' "$CORRECTIONS_REVISION"
+            printf 'AXIOM_RELEASE_CORRECTIONS_DIGEST=%s\n' "$CORRECTIONS_DIGEST"
+          } >>"$GITHUB_ENV"
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version-file: source/go.mod
           cache: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
@@ -118,6 +182,7 @@ jobs:
           github-token: ${{ github.token }}
       - name: Read the delivery projection of the revision
         id: delivery
+        working-directory: source
         run: |
           projection=disabled
           if [[ -f .github/delivery-project.json ]] && jq -e '.projection == "enabled"' .github/delivery-project.json >/dev/null; then
@@ -136,17 +201,18 @@ jobs:
           # and only when .github/delivery-project.json at the revision sets
           # "projection": "enabled". Issues use GITHUB_TOKEN.
           AXIOM_DELIVERY_PROJECT_TOKEN: ${{ steps.delivery.outputs.projection == 'enabled' && secrets.AXIOM_DELIVERY_PROJECT_TOKEN || '' }}
+        working-directory: source
         run: |
           [[ $(git rev-parse --verify HEAD) == "$RELEASE_REVISION" ]]
           prepared="$RUNNER_TEMP/prepared"
           # Main, tags and the prepared set may have changed since preflight.
-          ./scripts/verify-prepared-release.sh --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" \
+          "$RELEASE_CONTROL_SCRIPTS/verify-prepared-release.sh" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" \
             --prepared "$prepared" --repo "$GITHUB_REPOSITORY" --run "$PREPARED_RUN" >"$RUNNER_TEMP/prepared.txt"
           make_latest=$(awk -F= '$1 == "make_latest" {print $2}' "$RUNNER_TEMP/prepared.txt")
           # publish-release.sh recomputes the envelope from these exact files and
           # the current remote state and refuses before any effect unless it
           # equals the authorized preview_digest.
-          ./scripts/publish-release.sh --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" \
+          "$RELEASE_CONTROL_SCRIPTS/publish-release.sh" --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" \
             --make-latest "$make_latest" --prepared-run "$PREPARED_RUN" --dir "$prepared/artifacts" \
             --evidence "$prepared/release-evidence.txt" --notes "$prepared/release-notes.md" \
             --authorized-digest "$PREVIEW_DIGEST" | tee "$RUNNER_TEMP/publication.txt"

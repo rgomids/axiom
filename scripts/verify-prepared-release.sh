@@ -62,7 +62,20 @@ trap 'rm -rf -- "$temporary"' EXIT
   >"$temporary/preflight" || exit 1
 version=$(awk -F= '$1 == "version" {print $2}' "$temporary/preflight")
 
-"$repository_root/scripts/verify-release-artifacts.sh" --dir "$prepared/artifacts" --version "$version" --revision "$revision" \
+artifact_verifier=$repository_root/scripts/verify-release-artifacts.sh
+if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}${AXIOM_RELEASE_CORRECTIONS_DIGEST:-}" ]]; then
+  source "$repository_root/scripts/release-recovery.sh"
+  recovery_validate "$tag" "$revision" >"$temporary/recovery" || exit 1
+  [[ -f "$prepared/release-recovery.txt" && ! -L "$prepared/release-recovery.txt" ]] || fail 'prepared recovery metadata missing'
+  cmp -s "$temporary/recovery" "$prepared/release-recovery.txt" || fail 'prepared recovery metadata differs from explicit pins'
+  git clone --quiet --no-hardlinks "$repository_root" "$temporary/source"
+  git -C "$temporary/source" checkout --quiet --detach "$revision"
+  artifact_verifier=$temporary/source/scripts/verify-release-artifacts.sh
+elif [[ -e "$prepared/release-recovery.txt" ]]; then
+  fail 'prepared recovery metadata requires explicit correction pins'
+fi
+
+"$artifact_verifier" --dir "$prepared/artifacts" --version "$version" --revision "$revision" \
   >"$temporary/evidence" || fail 'prepared artifacts fail verification at this revision'
 normalize() { sed -E 's/ version_smoke=[a-z_]+$//' "$1"; }
 cmp -s <(normalize "$prepared/release-evidence.txt") <(normalize "$temporary/evidence") \

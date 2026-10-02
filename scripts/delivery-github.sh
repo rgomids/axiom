@@ -102,6 +102,14 @@ project_enabled=false
 migration_statuses=
 read_project_config() {
   local config=$repository_root/.github/delivery-project.json
+  if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}${AXIOM_RELEASE_CORRECTIONS_DIGEST:-}" ]]; then
+    source "$repository_root/scripts/release-recovery.sh"
+    recovery_validate "$tag" "$revision" >/dev/null || exit 1
+    config=$temporary/source-project.json
+    if ! git -C "$repository_root" show "$revision:.github/delivery-project.json" >"$config"; then
+      fail 'cannot read original source delivery Project configuration'
+    fi
+  fi
   if [[ ! -f "$config" ]]; then
     return
   fi
@@ -381,6 +389,33 @@ write_state() {
   done
 }
 
+# Historical sync may discover recovery pins only from an already published
+# release. Keep them in a subprocess: commits mode and publication authority
+# must never inherit discovered inputs.
+historical_release_issues() (
+  local historical_tag=$1 historical_source=$2 record pins_revision pins_digest
+  unset AXIOM_RELEASE_CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST
+  record=$(gh api "repos/$repository/releases/tags/$historical_tag" 2>/dev/null) || record=
+  if [[ -z "$record" ]] || ! jq -r '.body // ""' <<<"$record" | grep '^- Recovery corrections ' >/dev/null; then
+    "$repository_root/scripts/delivery-issues.sh" release --tag "$historical_tag" --revision "$historical_source"
+    return $?
+  fi
+  [[ $(jq -r '.draft' <<<"$record") == false \
+    && $(jq -r '.prerelease' <<<"$record") == false \
+    && $(jq -r '.tag_name' <<<"$record") == "$historical_tag" \
+    && $(jq -r '.target_commitish' <<<"$record") == "$historical_source" ]] || return 1
+  printf '%s\n' "$(jq -r '.body // ""' <<<"$record")" >"$temporary/historical-notes"
+  [[ $(grep -c '^- Recovery corrections revision:' "$temporary/historical-notes") == 1 \
+    && $(grep -c '^- Recovery corrections SHA-256:' "$temporary/historical-notes") == 1 ]] || return 1
+  pins_revision=$(sed -n 's/^- Recovery corrections revision: `\([0-9a-f]\{40\}\)`$/\1/p' "$temporary/historical-notes")
+  pins_digest=$(sed -n 's/^- Recovery corrections SHA-256: `\([0-9a-f]\{64\}\)`$/\1/p' "$temporary/historical-notes")
+  [[ -n "$pins_revision" && -n "$pins_digest" ]] || return 1
+  export AXIOM_RELEASE_CORRECTIONS_REVISION=$pins_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$pins_digest
+  source "$repository_root/scripts/release-recovery.sh"
+  recovery_validate "$historical_tag" "$historical_source" >/dev/null || return 1
+  "$repository_root/scripts/delivery-issues.sh" release --tag "$historical_tag" --revision "$historical_source"
+)
+
 # reconcile_releases TO repairs the Project projection of Issues released by
 # every stable release since the v0.2.0 boundary on the first-parent history
 # of TO. The Issue and its release record are canonical; the Project is a
@@ -405,7 +440,7 @@ reconcile_releases() {
     # A release whose Issue set cannot be resolved (for example an
     # undeclared commit merged above the boundary) cannot be published and
     # cannot be repaired: it is reported, never allowed to stop later syncs.
-    if ! "$repository_root/scripts/delivery-issues.sh" release --tag "v$version" --revision "$sha" \
+    if ! historical_release_issues "v$version" "$sha" \
       >"$temporary/reconcile-release" 2>"$temporary/reconcile-error"; then
       printf 'reconcile_skipped_release=v%s reason=unresolvable\n' "$version"
       printf '::warning::release v%s cannot be resolved for Project reconciliation: %s\n' "$version" "$(head -n 1 "$temporary/reconcile-error")"
@@ -589,7 +624,7 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
       completes=$(sed -E 's/.* completes=([^ ]+)$/\1/' <<<"$line")
       targets=none
       if [[ "$release" != none ]]; then
-        "$repository_root/scripts/delivery-issues.sh" release --tag "v$release" --revision "$sha" >"$temporary/release-$sha" || exit 1
+        historical_release_issues "v$release" "$sha" >"$temporary/release-$sha" || exit 1
         targets=$(value issues "$temporary/release-$sha")
       fi
       : >"$temporary/entries"
