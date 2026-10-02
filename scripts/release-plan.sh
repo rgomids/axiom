@@ -154,9 +154,13 @@ while IFS= read -r line; do
   fi
   visible=false
   [[ "$type" =~ $visible_re ]] && visible=true
+  commit_releasable=false
   if [[ "$visible" == true || "$breaking" == true || "$forced" != none ]]; then
     releasable=true
-    printf '%s\n' "$(printf '%s' "$subject" | tr -d '\000-\037\177')" >>"$temporary/changes"
+    commit_releasable=true
+    # Subjects are shown to the human: drop control and bidi override bytes.
+    printf '%s\n' "$(printf '%s' "$subject" | tr -d '\000-\037\177' \
+      | LC_ALL=C sed -e $'s/\xe2\x80[\xaa-\xae]//g' -e $'s/\xe2\x81[\xa6-\xa9]//g')" >>"$temporary/changes"
   fi
   if [[ "$breaking" == true ]]; then
     ((rank < 3)) && rank=3
@@ -165,8 +169,8 @@ while IFS= read -r line; do
   else
     ((rank < 1)) && rank=1
   fi
-  printf 'commit=%s pr=%s type=%s breaking=%s visible=%s metadata=%s completes=%s\n' \
-    "$sha" "$pr" "$type" "$breaking" "$visible" "$metadata" "$completes" >>"$temporary/commits"
+  printf 'commit=%s pr=%s type=%s breaking=%s visible=%s releasable=%s metadata=%s completes=%s\n' \
+    "$sha" "$pr" "$type" "$breaking" "$visible" "$commit_releasable" "$metadata" "$completes" >>"$temporary/commits"
   if [[ "$completes" != none ]]; then
     tr ',' '\n' <<<"$completes" >>"$temporary/delivered"
   fi

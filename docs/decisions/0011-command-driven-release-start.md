@@ -24,9 +24,11 @@ Merges integrate code. `$axiom-release` starts releases.
 - `release-please.yml` has no `push` trigger. It runs only on
   `workflow_dispatch` from `main`, with the planned version and the exact
   `main` SHA as inputs. It re-runs the release plan on that SHA and refuses
-  before Release Please runs if the SHA, the plan or the planned version
-  differ. After Release Please, it dispatches the required checks only for a
-  Release PR whose title records the planned version.
+  before Release Please runs if `main` moved by dispatch time, or if the plan
+  or the planned version differ. Release Please reads `main` when it runs, so
+  the required checks are then dispatched only for a Release PR whose title
+  records the planned version and whose base is the validated SHA or an
+  ancestor of it; any other Release PR cannot be merged.
 - `scripts/release-plan.sh` is the deterministic, Git-only preflight of a new
   release. For the first-parent commits since the last release commit on
   `main` it requires a Conventional Commit subject and declared (or reviewed,
@@ -38,7 +40,8 @@ Merges integrate code. `$axiom-release` starts releases.
 - `scripts/release.sh start` runs that preflight plus the remote facts
   (required CI on `main`, no in-flight run, no GitHub Release for the planned
   tag), then dispatches `release-please.yml`, waits, and reports the Release PR
-  whose version must equal the plan. It never approves or merges it.
+  whose version must equal the plan. The same checks gate a refresh. It never
+  approves or merges it.
 - `scripts/release.sh status` is a state machine
   (`state=` + `next_action=`) that discovers the release in progress from
   GitHub and Git: no release, Release PR open (stale when `main` moved or the
@@ -66,13 +69,17 @@ Merges integrate code. `$axiom-release` starts releases.
 
 ## Consequences
 
-- A Release PR exists only between a maintainer's start and its merge. Its
-  version can go stale when `main` moves; `status` reports
-  `refresh_release_pr` and `start` re-validates and refreshes it.
+- A Release PR exists only between a maintainer's start and its merge.
+  `status` re-plans the current `main` on every run: a releasable commit
+  merged after the Release PR was built reports `refresh_release_pr` (and
+  `start` re-validates and refreshes it); validated hidden commits only need
+  the branch update that the strict ruleset requires before merge, because
+  Release Please keeps an unchanged Release PR as is.
 - The release plan duplicates the documented Release Please bump table. A
-  divergence (for example a commit-override footer) is caught by the version
-  check in the workflow and in `start`; nothing is merged or published on a
-  mismatch.
+  divergence (for example a commit override in a merged PR body, or extra
+  conventional commits in a squash body) is invisible to Git. The Release PR
+  may then already be written, but it gets no required checks and `start`
+  fails closed; nothing is merged or published on a mismatch.
 - Delivery metadata gaps are fixed before the release by a normal reviewed PR
   that appends a correction to `.github/delivery-corrections.txt`; the release
   commit then contains it. ADR-0010 recovery remains for historical or

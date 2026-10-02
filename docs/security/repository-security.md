@@ -178,15 +178,19 @@ Trade-offs registrados:
   `release-please.yml` não tem gatilho `push`: só roda por `workflow_dispatch`
   a partir de `main`, disparado por `scripts/release.sh start` com a
   credencial `gh` do mantenedor e os inputs `planned_version` e `main`. O job
-  recusa antes do Release Please se `main` mudou desde o plano, se o
-  `release-plan.sh` recusar algum commit ou se a versão planejada divergir.
+  recusa antes do Release Please se `main` mudou desde o plano (no momento do
+  dispatch), se o `release-plan.sh` recusar algum commit ou se a versão
+  planejada divergir. Como o Release Please lê `main` quando roda, os checks
+  obrigatórios só são disparados se a base do Release PR for o SHA validado
+  ou um ancestral dele.
   Os inputs só chegam ao shell por variáveis de ambiente, com formato
   validado (`MAJOR.MINOR.PATCH`, SHA de 40 caracteres).
 - PRs e pushes feitos com `GITHUB_TOKEN` não disparam outros workflows; por
   isso `release-please.yml` dispara `ci.yml` e `delivery-metadata.yml` por
   `workflow_dispatch` na branch do Release PR, sem PAT nem secret, e só
-  quando o título do Release PR registra a versão planejada; um Release PR
-  com outra versão fica sem os checks obrigatórios e não pode ser mergeado.
+  quando o título do Release PR registra a versão planejada e a base foi
+  validada; um Release PR com outra versão ou base fica sem os checks
+  obrigatórios e não pode ser mergeado.
   Se isso falhar, `$axiom-release` (`release.sh start`, com
   `next_action=refresh_release_pr`) valida de novo e dispara outra vez;
   fechar e reabrir o Release PR também dispara a CI.

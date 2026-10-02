@@ -230,8 +230,10 @@ plan_facts() {
 # discover_prepared_run sets prepared_run to the newest unexpired prepared
 # artifact of $tag whose set verifies at $revision and yields an envelope.
 discover_prepared_run() {
-  local listing id
+  local listing id rejected=0
   listing=$(gh api "repos/$repository/actions/artifacts?name=axiom-release-$tag&per_page=100") || fail 'cannot list prepared artifacts'
+  # Candidates from main only; verify-prepared-release.sh then requires a
+  # successful release-artifacts.yml dispatch and the exact revision.
   while IFS= read -r id; do
     [[ "$id" =~ ^[0-9]+$ ]] || continue
     prepared_run=$id
@@ -239,9 +241,14 @@ discover_prepared_run() {
       printf 'prepared_run=%s\nprepared_run_source=discovered\n' "$prepared_run" >>"$temporary/status"
       return 0
     fi
-  done < <(jq -r --arg name "axiom-release-$tag" '[.artifacts[]? | select(.name == $name and .expired == false)]
+    rejected=$((rejected + 1))
+    printf 'prepared_run_rejected.%s=%s\n' "$id" "$reason" >>"$temporary/status"
+  done < <(jq -r --arg name "axiom-release-$tag" '[.artifacts[]? | select(.name == $name and .expired == false
+      and (.workflow_run.head_branch // "main") == "main")]
     | sort_by(.created_at) | reverse | .[:3][] | .workflow_run.id' <<<"$listing")
   prepared_run=
+  reason=
+  ((rejected == 0)) || reason="$rejected prepared run(s) rejected (prepared_run_rejected.*); "
   return 1
 }
 
@@ -249,7 +256,7 @@ discover_prepared_run() {
 # current main: it is ready for review only when main still validates, plans
 # the same version and the PR is not behind main.
 release_pr_facts() {
-  local pr url version head behind
+  local pr url version head behind base refresh sha
   pr=$(jq -c '.[0]' <<<"$open")
   url=$(jq -r '.url' <<<"$pr")
   head=$(jq -r '.headRefOid // empty' <<<"$pr")
@@ -263,22 +270,42 @@ release_pr_facts() {
     next=blocked; reason="$reason; fix it on main, then run release.sh start to refresh the Release PR"
     return
   fi
-  if [[ $(value planned_version "$temporary/status") != "$version" ]]; then
-    next=refresh_release_pr
-    reason="the Release PR records $version but main now plans $(value planned_version "$temporary/status"); run release.sh start to refresh it"
+  # Release Please builds the Release PR as one commit on top of main.
+  base=$(gh api "repos/$repository/commits/$head" | jq -r 'if (.parents | length) == 1 then .parents[0].sha else empty end') \
+    || fail 'cannot read the Release PR head commit'
+  printf 'release_pr_base=%s\n' "${base:-unknown}" >>"$temporary/status"
+  if [[ ! "$base" =~ ^[0-9a-f]{40}$ ]] || ! git -C "$repository_root" merge-base --is-ancestor "$base" "$main" 2>/dev/null; then
+    next=blocked; reason="the Release PR $url is not one commit on top of main history; close it and start again"
     return
   fi
-  behind=$(gh api "repos/$repository/compare/$main...$head" | jq -r '.behind_by') || fail 'cannot compare the Release PR with main'
-  [[ "$behind" =~ ^[0-9]+$ ]] || fail 'cannot compare the Release PR with main'
+  # Commits merged after the Release PR was built. The plan above already
+  # validated them; a releasable one changes the changelog, so Release
+  # Please must refresh the PR. Hidden ones leave it unchanged (Release
+  # Please keeps an unchanged PR as is), so the branch is only updated.
+  behind=$(git -C "$repository_root" rev-list --first-parent --count "$base..$main")
   printf 'release_pr_behind_main=%s\n' "$behind" >>"$temporary/status"
-  if [[ "$behind" != 0 ]]; then
-    next=refresh_release_pr
-    reason="main advanced since the Release PR was built; run release.sh start to re-validate and refresh it"
+  refresh=false
+  [[ $(value planned_version "$temporary/status") == "$version" ]] || refresh=true
+  while IFS= read -r sha; do
+    grep -Eq "^plan\.commit=$sha .* releasable=true " "$temporary/status" && refresh=true
+  done < <(git -C "$repository_root" rev-list --first-parent "$base..$main")
+  if [[ "$refresh" == true ]]; then
+    if [[ $(value main_ci "$temporary/status") != success ]]; then
+      next=blocked; reason="required CI on main $main is $(value main_ci "$temporary/status"); the Release PR must be refreshed once it is green"
+    elif github_release_exists "$(value planned_tag "$temporary/status")"; then
+      next=blocked; reason="a GitHub Release already uses $(value planned_tag "$temporary/status"); resolve it before refreshing the Release PR"
+    else
+      next=refresh_release_pr
+      reason="main changed the release since the Release PR was built (it records $version, main plans $(value planned_version "$temporary/status")); run release.sh start to re-validate and refresh it"
+    fi
     return
   fi
   printf 'release_pr_ci=%s\n' "$(ci_state "$head")" >>"$temporary/status"
   next=review_release_pr
   reason="human review, approval and squash merge of $url"
+  if [[ "$behind" != 0 ]]; then
+    reason="$reason; it is $behind validated non-releasable commit(s) behind main: update its branch in GitHub before merging"
+  fi
 }
 
 # status writes key=value facts and the next step to $temporary/status.
@@ -405,6 +432,9 @@ status() {
           # The Issue set is resolved again at preparation; refusing here
           # avoids dispatching a preparation that must fail.
           next=blocked; reason=$(sed 's/^delivery_metadata_error: //' "$temporary/delivery-error" | head -n 1)
+          # The release commit already exists, so a correction on main cannot
+          # enter it: only the explicit ADR-0010 recovery applies.
+          [[ -n "$corrections_revision" ]] || reason="$reason; this release commit already exists: see docs/development/release-recovery.md"
         elif await_run preparing "$prepare_workflow"; then
           :
         elif [[ -n "$prepared_run" ]]; then
@@ -424,7 +454,7 @@ status() {
           grep '^preview_digest=' "$temporary/envelope" >>"$out"
         else
           next=prepare
-          reason="build and verify the exact set first: release.sh prepare (no publication)"
+          reason="${reason}build and verify the exact set first: release.sh prepare (no publication)"
         fi
       fi
     fi
@@ -571,11 +601,15 @@ case "$command" in
     # identical SHA256SUMS and identical notes mean identical published bytes.
     if [[ -z "$prepared_run" ]]; then
       prepared_run=$(gh api "repos/$repository/actions/artifacts?name=axiom-release-$tag&per_page=100" \
-        | jq -r --arg name "axiom-release-$tag" '[.artifacts[]? | select(.name == $name and .expired == false)]
+        | jq -r --arg name "axiom-release-$tag" '[.artifacts[]? | select(.name == $name and .expired == false
+            and (.workflow_run.head_branch // "main") == "main")]
           | sort_by(.created_at) | last | .workflow_run.id // empty') || fail 'cannot list prepared artifacts'
     fi
     if [[ -n "$prepared_run" ]]; then
       [[ "$prepared_run" =~ ^[0-9]+$ ]] || fail 'prepared run id must be numeric'
+      gh api "repos/$repository/actions/runs/$prepared_run" | jq -e '.path == ".github/workflows/release-artifacts.yml"
+        and .event == "workflow_dispatch" and .head_branch == "main" and .conclusion == "success"' >/dev/null \
+        || fail "run $prepared_run is not a successful release-artifacts.yml dispatch from main"
       mkdir "$temporary/prepared-set" "$temporary/published-sums"
       gh run download "$prepared_run" --repo "$repository" --name "axiom-release-$tag" --dir "$temporary/prepared-set" >/dev/null \
         || fail "cannot download axiom-release-$tag from run $prepared_run"
@@ -583,7 +617,7 @@ case "$command" in
         || fail 'cannot download the published SHA256SUMS'
       cmp -s "$temporary/prepared-set/artifacts/SHA256SUMS" "$temporary/published-sums/SHA256SUMS" \
         || fail "published assets differ from the prepared set of run $prepared_run"
-      [[ "$published_body" == $(cat "$temporary/prepared-set/release-notes.md") ]] \
+      [[ "$published_body" == "$(cat "$temporary/prepared-set/release-notes.md")" ]] \
         || fail "published release notes differ from the prepared set of run $prepared_run"
       printf 'prepared_run=%s\nprepared_match=pass\n' "$prepared_run"
     else

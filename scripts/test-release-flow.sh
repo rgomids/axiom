@@ -305,6 +305,9 @@ case "$method $path" in
     sha=${sha%%/*}
     cat "$s/checks-$sha.json" 2>/dev/null || printf '{"check_runs":[]}\n' ;;
   "GET commits/"*"/pulls") cat "$s/pulls.json" 2>/dev/null || printf '[]\n' ;;
+  "GET commits/"*)
+    [[ -f "$s/commit-${path#commits/}.json" ]] || not_found
+    cat "$s/commit-${path#commits/}.json" ;;
   "GET pulls?"*)
     head=${path#*head=}
     head=${head%%&*}
@@ -371,8 +374,6 @@ case "$method $path" in
     name=${name%%&*}
     jq --arg n "$name" '{artifacts: [(.artifacts // [])[] | select(.name == $n)]}' "$s/artifacts.json" 2>/dev/null \
       || printf '{"artifacts":[]}\n' ;;
-  "GET compare/"*)
-    cat "$s/compare.json" 2>/dev/null || printf '{"behind_by":0,"ahead_by":1}\n' ;;
   "GET actions/runs/"*)
     [[ -f "$s/runs/${path#actions/runs/}.json" ]] || not_found
     cat "$s/runs/${path#actions/runs/}.json" ;;
@@ -1878,9 +1879,12 @@ rm "$state/inflight-release-please.yml.json"
 check 'refused starts dispatched nothing' test "$(grep -c '^workflow' "$state/ledger" || true)" == 0
 expect_failure 'start takes no version or revision from the operator' 'start takes no options' release start --tag v0.9.0
 spr_head=$(printf 'e%.0s' {1..40})
+release_pr_head() { printf '{"sha":"%s","parents":[{"sha":"%s"}]}\n' "$spr_head" "$1" >"$state/commit-$spr_head.json"; }
 cat >"$state/dispatch-effect-release-please.yml" <<EFFECT
 printf '[{"number":7,"url":"https://github.com/rgomids/axiom/pull/7","title":"chore(main): release 0.2.0","headRefOid":"$spr_head"}]\n' >"$state/pr-open.json"
+printf '{"sha":"$spr_head","parents":[{"sha":"%s"}]}\n' "\$(git -C '$sfix' rev-parse HEAD)" >"$state/commit-$spr_head.json"
 EFFECT
+cp "$state/dispatch-effect-release-please.yml" "$temporary/release-please-effect"
 green "$spr_head"
 release start >"$temporary/sstart"
 check 'start dispatches Release Please once with the planned version and exact main' bash -c "[[ \$(grep -c '^workflow run release-please.yml' '$state/ledger') == 1 ]] && grep -Fq 'planned_version=0.2.0' '$state/ledger' && grep -Fq 'main=$sfeat' '$state/ledger' && ! grep -q '^workflow run release-artifacts' '$state/ledger'"
@@ -1894,15 +1898,32 @@ expect_failure 'open Release PR: prepare is refused' 'preparation is not the nex
 release status --tag v0.2.0 >"$temporary/sstatus"
 check 'open Release PR: a stable status asks for review, not preparation' bash -c "grep -Fxq next_action=review_release_pr '$temporary/sstatus' && ! grep -q '^preview_digest=' '$temporary/sstatus'"
 check 'open Release PR: no preparation was dispatched' bash -c "! grep -q '^workflow run release-artifacts' '$state/ledger'"
-printf '{"behind_by":1,"ahead_by":1}\n' >"$state/compare.json"
+sdocs=$(scommit 'docs(cli): explain feature (#3)' "$meta")
+git -C "$sfix" push -q origin main
+green "$sdocs"
 release status >"$temporary/sstatus"
-check 'a Release PR behind main must be refreshed before review' bash -c "grep -Fxq next_action=refresh_release_pr '$temporary/sstatus' && grep -Fq 'main advanced' '$temporary/sstatus'"
+check 'a Release PR behind main by validated hidden commits stays reviewable (branch update only)' bash -c "grep -Fxq next_action=review_release_pr '$temporary/sstatus' && grep -Fxq release_pr_behind_main=1 '$temporary/sstatus' && grep -Fq 'update its branch' '$temporary/sstatus'"
+sfix2=$(scommit 'fix(cli): repair feature (#4)' "$meta")
+git -C "$sfix" push -q origin main
+green "$sfix2"
+release status >"$temporary/sstatus"
+check 'a releasable commit merged after the Release PR requires a refresh' bash -c "grep -Fxq next_action=refresh_release_pr '$temporary/sstatus' && grep -Fq 'main changed the release' '$temporary/sstatus'"
+rm "$state/checks-$sfix2.json"
+release status >"$temporary/sstatus"
+check 'a refresh is not offered on a red main' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'must be refreshed once it is green' '$temporary/sstatus'"
+green "$sfix2"
+cp "$temporary/release-please-effect" "$state/dispatch-effect-release-please.yml"
 release start >"$temporary/sstart" 2>&1 || true
-check 'start refreshes a stale Release PR after a new preflight' test "$(grep -c '^workflow run release-please.yml' "$state/ledger")" == 2
-rm "$state/compare.json"
+rm "$state/dispatch-effect-release-please.yml"
+check 'start refreshes a stale Release PR after a new preflight' bash -c "[[ \$(grep -c '^workflow run release-please.yml' '$state/ledger') == 2 ]] && grep -Fq 'main=$sfix2' '$state/ledger'"
+release status >"$temporary/sstatus"
+check 'the refreshed Release PR is reviewable again' grep -Fxq next_action=review_release_pr "$temporary/sstatus"
+git -C "$sfix" reset -q --hard "$sfeat"
+git -C "$sfix" push -q -f origin main
+release_pr_head "$sfeat"
 printf '[{"number":7,"url":"https://github.com/rgomids/axiom/pull/7","title":"chore(main): release 0.9.0","headRefOid":"%s"}]\n' "$spr_head" >"$state/pr-open.json"
 release status >"$temporary/sstatus"
-check 'a Release PR version different from the plan is never offered for review' bash -c "grep -Fxq next_action=refresh_release_pr '$temporary/sstatus' && grep -Fq 'records 0.9.0 but main now plans 0.2.0' '$temporary/sstatus'"
+check 'a Release PR version different from the plan is never offered for review' bash -c "grep -Fxq next_action=refresh_release_pr '$temporary/sstatus' && grep -Fq 'it records 0.9.0, main plans 0.2.0' '$temporary/sstatus'"
 printf '[{"number":7,"url":"https://github.com/rgomids/axiom/pull/7","title":"chore(main): release 0.2.0","headRefOid":"%s"}]\n' "$spr_head" >"$state/pr-open.json"
 sbad=$(scommit 'fix(cli): merged without metadata (#4)')
 git -C "$sfix" push -q origin main
@@ -1922,7 +1943,7 @@ expect_failure 'a Release PR whose version differs from the plan fails start clo
 rm "$state/dispatch-effect-release-please.yml" "$state/pr-open.json"
 
 # Human merge: the merged Release PR is discovered; prepare uses its commit.
-printf '# Changelog\n\n## [0.2.0](https://github.com/rgomids/axiom/compare/v0.1.0...v0.2.0) (2026-10-02)\n\n### Features\n\n* **cli:** add feature\n\n## [0.1.0](https://github.com/rgomids/axiom/compare/v0.0.0...v0.1.0) (2026-10-01)\n\n* first\n' >"$sfix/CHANGELOG.md"
+printf '# Changelog\n\n## [0.2.0](https://github.com/rgomids/axiom/compare/v0.1.0...v0.2.0) (2026-10-02)\n\n### Features\n\n* **cli:** add feature ([#2](https://github.com/rgomids/axiom/issues/2)) [0.2.0]\n\n## [0.1.0](https://github.com/rgomids/axiom/compare/v0.0.0...v0.1.0) (2026-10-01)\n\n* first\n' >"$sfix/CHANGELOG.md"
 srel=$(scommit 'chore(main): release 0.2.0 (#7)' '' 0.2.0)
 git -C "$sfix" push -q origin main
 green "$srel"

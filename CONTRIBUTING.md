@@ -444,14 +444,18 @@ planned tag to be absent and newer than every stable tag. One inconsistent
 commit stops the release, for example
 `release_error: ... commit <sha> has no delivery metadata`, before any Release
 PR, artifact, tag or release exists. The workflow requires `main` to still be
-the planned SHA, re-runs the plan on it, then runs Release Please, which
-proposes the version, groups the commits into a new `CHANGELOG.md` section and
-updates [`.release-please-manifest.json`](.release-please-manifest.json). The
-Release PR must record the planned version. It is configured with
-`skip-github-release`: it never creates tags or releases. If `main` moves or
-the plan changes while the Release PR is open, `status` reports
-`refresh_release_pr` and `$axiom-release` re-validates and refreshes it before
-review.
+the planned SHA at dispatch time, re-runs the plan on it, then runs Release
+Please, which proposes the version, groups the commits into a new
+`CHANGELOG.md` section and updates
+[`.release-please-manifest.json`](.release-please-manifest.json). The Release
+PR gets its required checks only when it records the planned version and is
+built on the validated SHA (or an ancestor of it). It is configured with
+`skip-github-release`: it never creates tags or releases. While the Release
+PR is open, `status` re-validates the current `main`: an inconsistent commit
+blocks it, a releasable commit merged after it was built reports
+`refresh_release_pr` (`$axiom-release` re-validates and refreshes it), and
+validated hidden commits only need the branch update that the ruleset
+requires before merge.
 
 Merging the Release PR is a normal reviewed squash merge. It records the
 versioned state on `main` (that squash commit is the *release commit*) and

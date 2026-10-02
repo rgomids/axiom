@@ -5,8 +5,11 @@ name: Release PR
 # workflow has no push trigger and runs only when `scripts/release.sh start`
 # dispatches it from main with the planned version and the exact main SHA its
 # preflight validated. It re-runs that preflight (release-plan.sh) on the
-# same SHA and refuses before Release Please runs if main moved, a commit is
-# inconsistent or the plan differs. It never creates tags or GitHub Releases
+# same SHA and refuses before Release Please runs if main moved by dispatch
+# time, a commit is inconsistent or the plan differs. Release Please reads main
+# when it runs, so the required checks are dispatched only for a Release PR
+# that records the planned version and is built on the validated SHA (or an
+# ancestor of it). It never creates tags or GitHub Releases
 # (skip-github-release); merging the Release PR only records the versioned
 # state. Publication is the separately authorized publish-release.yml.
 
@@ -65,7 +68,8 @@ jobs:
         env:
           PLANNED_VERSION: ${{ inputs.planned_version }}
         run: |
-          ./scripts/release-plan.sh --main-ref HEAD | tee "$RUNNER_TEMP/plan.txt" >>"$GITHUB_STEP_SUMMARY"
+          ./scripts/release-plan.sh --main-ref HEAD >"$RUNNER_TEMP/plan.txt"
+          { printf '```text\n'; cat "$RUNNER_TEMP/plan.txt"; printf '```\n'; } >>"$GITHUB_STEP_SUMMARY"
           grep -Fxq 'releasable=true' "$RUNNER_TEMP/plan.txt"
           grep -Fxq "planned_version=$PLANNED_VERSION" "$RUNNER_TEMP/plan.txt"
       - name: Create or update the Release PR
@@ -78,4 +82,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PLANNED_VERSION: ${{ inputs.planned_version }}
-        run: ./scripts/release-pr-checks.sh dispatch "$GITHUB_REPOSITORY" "$PLANNED_VERSION"
+          PLANNED_MAIN: ${{ inputs.main }}
+        run: ./scripts/release-pr-checks.sh dispatch "$GITHUB_REPOSITORY" "$PLANNED_VERSION" "$PLANNED_MAIN"
