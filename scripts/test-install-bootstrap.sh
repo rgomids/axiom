@@ -579,6 +579,31 @@ step interrupted-upgrade-resumes bash -eo pipefail -c '
   run_bootstrap "$home" --version v1.1.0
   grep -Fxq "install_status=unchanged" "$temporary/stdout"
 '
+# Persisted state goes through the candidate's centralized forward-transition
+# policy. Historical POC state selects a transition this release cannot run yet:
+# refused before any effect, with a product next step and no manual
+# compatibility command journey.
+home=$(new_home historical-poc-state)
+export home repository_root
+step historical-poc-state-refused-before-mutation bash -eo pipefail -c '
+  run_bootstrap "$home" --version v1.0.0
+  case "$(uname -s)" in
+    Darwin) state_root="$home/Library/Application Support/Lingo" ;;
+    *) state_root="$home/.local/state/lingo" ;;
+  esac
+  fixture="$repository_root/internal/compatibility/testdata/poc-v0.1.0-poc.1"
+  mkdir -p "$state_root" "$home/.axiom/projects"
+  cp -R "$fixture/state/." "$state_root"
+  cp -R "$fixture/projects/." "$home/.axiom/projects"
+  find "$state_root" "$home/.axiom" -type d -exec chmod 700 {} +
+  find "$state_root" "$home/.axiom" -type f -exec chmod 600 {} +
+  refused "$home" "owned upgrade refused: Upgrade blocked before any effect: state_transition_unavailable" --version v1.1.0
+  grep -Fq "install_next: Existing Axiom state needs an automatic transition" "$temporary/stderr"
+  ! grep -Fqi "compatibility inspect" "$temporary/stderr"
+  ! grep -Fqi "compatibility backup" "$temporary/stderr"
+  ! grep -Fqi "compatibility export" "$temporary/stderr"
+  [[ $(installed_version "$home") == 1.0.0 ]]
+'
 home=$(new_home interrupted-install)
 export home
 step interrupted-first-install-requires-recovery bash -eo pipefail -c '

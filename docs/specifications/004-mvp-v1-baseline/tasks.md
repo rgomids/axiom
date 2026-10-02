@@ -16,6 +16,10 @@ observations remain historical. T24 and human acceptance stay separately gated.
 2026-10-01. The issue-scoped I153-T01–I153-T03 decomposition below is proposed
 for review and does not authorize implementation, migration effects, release,
 merge, or Issue closure.**
+**I153-T01 implementation: explicitly authorized by human instruction on
+2026-10-02 for I153-T01 only, and delivered by PR #161. I153-T02 and I153-T03
+remain not started and separately gated. Merge, release, and Issue #153 closure
+remain separately gated.**
 **Issue #132 Tasks amendment (`I132-T01`–`I132-T03`): Approved — human approval
 recorded on 2026-09-30. The same explicit human instruction authorizes starting
 `I132-T01` implementation only. `I132-T02`/`I132-T03` remain separately gated.
@@ -1810,6 +1814,10 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
     compatibility inspect/backup/export orchestration.
 - **Exclusions:** automatic downgrade, arbitrary historical migration, in-place
   POC workflow/Execution migration, new source-of-truth or ownership semantics.
+- **Status:** implementation explicitly authorized on 2026-10-02 and delivered by
+  PR #161 (pending review/merge). RecognizedPOC resolves to
+  preserve_rebuild_reconfigure and stops before mutation with
+  `state_transition_unavailable` until I153-T02 delivers its executor.
 
 ### I153-T02 — RecognizedPOC preserve, clean rebuild, and reconfiguration
 

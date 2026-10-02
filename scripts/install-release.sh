@@ -311,10 +311,12 @@ prepare_directory "$binary_root"
 # The protected owned upgrade is the verified candidate's own `axiom upgrade`:
 # a read-only preview, then apply under that exact preview digest. It takes
 # the installation lock itself and re-validates ownership, receipt, version
-# order, state compatibility, space and skills under it, so this installer
-# releases its lock first and never writes owned state on this path. Any
-# refusal leaves the installation unchanged; a later failure is reported as
-# the upgrade path's resumable partial state.
+# order, the persisted-state forward-transition policy, space and skills under
+# it, so this installer releases its lock first and never writes owned state on
+# this path. This script only presents the upgrade's own result and next step;
+# it never decides state compatibility. Any refusal leaves the installation
+# unchanged; a later failure is reported as the upgrade path's resumable
+# partial state.
 owned_upgrade() {
   local preview="$temporary/upgrade-preview.json" applied="$temporary/upgrade-apply.json" preview_digest status
   local arguments=(--json upgrade --archive "$archive" --checksums "$checksums" --bin-dir "$binary_root" --receipt-dir "$receipt_root")
@@ -325,6 +327,7 @@ owned_upgrade() {
   preview_digest=$(sed -n 's/.*"references":\["upgrade:\([0-9a-f]\{64\}\)"\].*/\1/p' "$preview")
   if [[ "$status" != success || ! "$preview_digest" =~ ^[0-9a-f]{64}$ ]]; then
     printf 'install_error: owned upgrade refused: %s\n' "$(upgrade_result "$preview")" >&2
+    printf 'install_next: %s\n' "$(upgrade_next "$preview")" >&2
     exit 1
   fi
   (cd / && "$bundle/axiom" "${arguments[@]}" --preview-digest "$preview_digest" --authorize-local) >"$applied" 2>/dev/null || true
@@ -353,9 +356,10 @@ upgrade_result() {
   printf '%s' "${result:-unavailable}"
 }
 
+# Only the top-level next step, never a nested effect's "next" revision.
 upgrade_next() {
   local next
-  next=$(sed -n 's/.*"next":"\([^"]*\)".*/\1/p' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9 :;,._`-')
+  next=$(sed -n 's/^{"status":"[a-z_]*","result":"[^"]*"\(,"references":\[[^]]*\]\)\{0,1\},"next":"\([^"]*\)".*/\2/p' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9 :;,._`-')
   printf '%s' "${next:-unavailable}"
 }
 

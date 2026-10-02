@@ -670,7 +670,7 @@ func TestUpgradeRefusalsHaveZeroEffects(t *testing.T) {
 			}
 			writeFile(t, filepath.Join(workflows, "main-7.json"), wire, 0o600)
 			return i.candidate(t, newBundle("1.1.0", []byte("new\n")))
-		}, "state_incompatible"},
+		}, "state_transition_unavailable"},
 		{"pre-axiom lingo receipt destination", func(t *testing.T, i *installation) Candidate {
 			path := filepath.Join(i.target.ReceiptDir, receiptName)
 			wire := strings.Replace(read(t, path), "destination="+filepath.Join(i.target.BinaryDir, binaryName)+"\n", "destination="+filepath.Join(i.target.BinaryDir, "lingo")+"\n", 1)
