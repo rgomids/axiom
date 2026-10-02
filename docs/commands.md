@@ -1066,7 +1066,19 @@ axiom --json upgrade \
 The archive is verified exactly as the installer does before anything else.
 Preflight requires the exact approved host row, an unmodified owned binary and
 receipt, a newer version (downgrade and divergent same-version replacement are
-refused), `absent_v1` or `valid_v1` state, and observed free space. The binary
+refused), a supported persisted-state transition, and observed free space.
+Ownership and persisted-state compatibility are evaluated separately: the
+inspected state resolves through one compatibility policy to exactly one
+`transition.strategy` (`direct`, `migrate`, `preserve_rebuild_reconfigure`, or
+`refuse`), bound into the preview digest with the state digest. The stable
+window is exactly persisted-state v1 (`direct`); absent state is also `direct`.
+Recognized historical POC state selects `preserve_rebuild_reconfigure`, which
+this release does not execute yet, so it stops before any effect with
+`state_transition_unavailable`. Other state is refused before any effect as
+`state_unsupported` (newer or outside the window), `state_unsafe` (foreign,
+modified, ambiguous, corrupt, or unsafe), or `state_recovery_required`
+(interrupted operation). Each refusal's next step is a product action, not a
+manual compatibility command sequence. The binary
 and then the receipt are published and re-read as separate confirmed effects;
 `installedAt` is preserved. A later failure is `partial`: the installer's
 `.axiom-install-operation` marker records the exact archive, so only the same

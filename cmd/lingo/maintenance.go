@@ -340,8 +340,14 @@ func upgradeCategory(err error) string {
 
 func upgradeNext(category string) string {
 	switch category {
-	case "state_incompatible":
-		return "Run `axiom compatibility inspect`; only absent_v1 or valid_v1 state can be upgraded"
+	case "state_transition_unavailable":
+		return "Existing Axiom state needs an automatic transition this release does not perform yet; nothing was changed, so keep the installed version until a release provides it"
+	case "state_unsupported":
+		return "Existing Axiom state uses a format this release does not support, newer or outside its compatibility window; nothing was changed, so use a release that supports it"
+	case "state_unsafe", "state_inspection_failed":
+		return "Existing Axiom state is unrecognized, modified, ambiguous, or unsafe; nothing was changed, so preserve it for operator review"
+	case "state_recovery_required":
+		return "An interrupted Axiom operation left state that must be recovered first; nothing was changed, so run `axiom recovery inspect`"
 	case "recovery_required", "installation_busy_or_interrupted":
 		return "Resume with the same archive, or inspect the receipt directory for another operation"
 	case "downgrade_refused", "divergent_equivalent_version":
