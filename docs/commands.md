@@ -1158,7 +1158,10 @@ axiom --json compatibility inspect
 The closed classifications are `absent_v1`, `valid_v1`, `recognized_poc`,
 `malformed`, `unsupported_older`, `unsupported_newer`, and `recovery_required`.
 Recognition of historical `v0.1.0-poc.1` state requires the complete positive
-POC workflow signature; mixed POC/v1, partial, unknown, unsafe (link, mode,
+POC workflow signature. That signature beside v1-only state (written by a v1
+release that already operated over the root) is `valid_v1` with reason
+`v1_state_with_preserved_poc_history`: the POC records stay in place, untouched,
+and are never read or promoted. Partial, unknown, unsafe (link, mode,
 ownership, ACL, type, size), and uncertain state is preserved for review and is
 never reported as absent. Only Axiom-owned skill names in the shared skill root
 are inspected. The report contains categories, kinds, owned relative names, and
@@ -1238,7 +1241,8 @@ Ownership and persisted-state compatibility are evaluated separately: the
 inspected state resolves through one compatibility policy to exactly one
 `transition.strategy` (`direct`, `migrate`, `preserve_rebuild_reconfigure`, or
 `refuse`), bound into the preview digest with the state digest. The stable
-window is exactly persisted-state v1 (`direct`); absent state is also `direct`.
+window is exactly persisted-state v1 (`direct`); absent state is also `direct`,
+and so is v1 state beside preserved POC workflow history.
 Recognized historical POC state selects `preserve_rebuild_reconfigure`, which
 this release does not execute yet, so it stops before any effect with
 `state_transition_unavailable`. Other state is refused before any effect as

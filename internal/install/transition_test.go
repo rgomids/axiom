@@ -125,10 +125,10 @@ func TestUpgradeResolvesForwardTransitionPolicy(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
-		{"ambiguous mixed POC and v1", "1.1.0", func(i installation, t *testing.T) {
+		{"v1 with preserved POC history", "1.1.0", func(i installation, t *testing.T) {
 			i.withPOCState(t)
 			createV1Artifact(t, i.target.State.State)
-		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
+		}, compatibility.ValidV1, compatibility.StrategyDirect, ""},
 		{"corrupt record", "1.1.0", func(i installation, t *testing.T) {
 			i.withV1State(t)
 			writeFile(t, i.workItem(), []byte("{\"formatVersion\":1,"), 0o600)
@@ -398,5 +398,30 @@ func TestUpgradeResumeKeepsResumeWhenStateInspectionFails(t *testing.T) {
 	}
 	if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
 		t.Fatal("failed inspection changed installation or state")
+	}
+}
+
+// A v1 release that already wrote v1-only state beside the complete POC
+// workflow signature upgrades directly; the POC history is preserved untouched.
+func TestUpgradeOverV1WithPOCHistoryPreservesWorkflowsUntouched(t *testing.T) {
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	installed.withPOCState(t)
+	createV1Artifact(t, installed.target.State.State)
+	workflows := filepath.Join(installed.target.State.State, "workflows")
+	before := snapshot(t, workflows)
+	service := NewService()
+	preview, err := service.Preview(context.Background(), installed.target, installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n"))))
+	if err != nil || preview.Transition.Strategy != compatibility.StrategyDirect {
+		t.Fatalf("preview=%+v err=%v", preview.Transition, err)
+	}
+	authority, err := Authorize(preview, preview.Digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result, err := service.Apply(context.Background(), preview, authority); err != nil || result.Status != "success" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	if after := snapshot(t, workflows); after != before {
+		t.Fatal("upgrade changed preserved POC workflow history")
 	}
 }

@@ -151,10 +151,10 @@ func TestClassificationMatrix(t *testing.T) {
 			createArtifact(t, roots.State)
 			return roots
 		}, ValidV1, "v1_readable_state"},
-		{"mixed POC and v1", func(t *testing.T, roots Roots) Roots {
+		{"v1 with preserved POC history", func(t *testing.T, roots Roots) Roots {
 			createArtifact(t, roots.State)
 			return roots
-		}, Malformed, "mixed_poc_and_v1_state"},
+		}, ValidV1, "v1_state_with_preserved_poc_history"},
 		{"partial POC workflow", func(t *testing.T, roots Roots) Roots {
 			path := filepath.Join(roots.State, "workflows", pocProjectID, "main-7.json")
 			rewrite(t, path, strings.Replace(read(t, path), `"gate":"plan"`, `"gate":"planning"`, 1))

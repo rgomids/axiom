@@ -82,6 +82,27 @@ without accepting implicit in-place migration of historical workflow truth:
 
 This reconciliation authorizes the compatibility-policy direction only. It does
 not authorize implementation, destructive mutation, release, or merge.
+
+## Upgrade-over-earlier-state amendment — 2026-10-03
+
+A v0.4.0 upgrade refused owned state written by earlier stable releases as
+`state_unsafe`. The human decision recorded on 2026-10-03 sets the governing
+rule: **a newer release MUST NOT refuse persisted state that an earlier Axiom
+release legitimately wrote.** It applies two consequences:
+
+- every file, directory, and kind a v1 writer produces MUST be classified as
+  supported v1 state, enforced by executable guards and an append-only frozen
+  stable corpus (see `.agents/policies/quality.md`);
+- a root holding the complete historical POC workflow signature beside
+  v1-only state (state a v1 release already wrote while operating over that
+  root) resolves as `valid_v1` with reason
+  `v1_state_with_preserved_poc_history` and the `direct` strategy. The POC
+  workflow records stay preserved in place, untouched; v1 never reads them, and
+  they are not migrated or promoted to canonical Execution/workflow truth.
+
+POC-only state keeps the Issue #153 transition. Partial POC signatures and
+foreign, modified, unsafe, corrupt, unsupported-newer, out-of-window, and
+interrupted state still fail closed.
 ## Status and authority
 
 **Approved — human approval recorded on 2026-09-20.**
@@ -794,6 +815,10 @@ MUST NOT claim authorship over the transported content.
   supported reconfiguration strategy when all policy, safety, and exact-authority
   preconditions are satisfied; otherwise it MUST refuse before mutation. Historical
   POC Execution/workflow truth MUST NOT silently become current canonical truth.
+  Per the 2026-10-03 amendment, a newer release MUST NOT refuse state an earlier
+  release legitimately wrote: the complete POC workflow signature beside v1-only
+  state resolves as `valid_v1` (`direct`), with the POC records preserved
+  untouched and never read or promoted.
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.
