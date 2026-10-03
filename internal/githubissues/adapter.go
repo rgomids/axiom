@@ -74,6 +74,21 @@ func (a Adapter) Render(draft workitem.Draft, _ workitem.DraftTarget, correlatio
 	fmt.Fprintf(&body, "<!-- axiom:work-item-draft:%s -->\n", correlation)
 	fmt.Fprintf(&body, "<!-- axiom:provenance:%s:%s:%s:%s -->\n\n", source.Product(), source.Version(), source.Revision(), source.SourceState())
 	body.WriteString("_Axiom-authored structure; section content retains declared authorship._\n")
+	if !draft.Type.Valid() {
+		return workitem.ProviderDocument{}, errors.New("missing item type")
+	}
+	fmt.Fprintf(&body, "\nWork Item type: `%s`\n", draft.Type)
+	if draft.Type == workitem.Story {
+		if draft.Beneficiary == nil || draft.Value == nil {
+			return workitem.ProviderDocument{}, errors.New("missing story value")
+		}
+		for _, value := range []*workitem.DraftSection{draft.Beneficiary, draft.Value} {
+			fmt.Fprintf(&body, "\n## Story %s\n\nAuthorship: `%s`\n\n", value.Name, value.Authorship)
+			for _, line := range strings.Split(value.Content, "\n") {
+				fmt.Fprintf(&body, "    %s\n", line)
+			}
+		}
+	}
 	for _, current := range draft.Sections {
 		fmt.Fprintf(&body, "\n## %s\n\nAuthorship: `%s`\n\n", heading(current.Name), current.Authorship)
 		for _, line := range strings.Split(current.Content, "\n") {
@@ -92,7 +107,31 @@ func (a Adapter) Create(parent context.Context, request workitem.CreateRequest) 
 	if !a.ValidResource(request.Resource) || len(request.Correlation) != 64 || request.Document.Title == "" || request.Document.Body == "" || len(request.Document.Body) > bodyLimit {
 		return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse, EffectNotCommitted: true}
 	}
-	payload, err := json.Marshal(map[string]string{"title": request.Document.Title, "body": request.Document.Body})
+	metadata, err := decodeCreateMetadata(request.Document.Metadata)
+	if err != nil {
+		return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse, EffectNotCommitted: true}
+	}
+	if len(metadata.Labels) != 0 {
+		available, err := a.creationLabels(parent, request.Resource)
+		if err != nil {
+			// This read precedes POST, so failure is known to have no effect.
+			var provider *workitem.ProviderError
+			if errors.As(err, &provider) {
+				copied := *provider
+				copied.EffectNotCommitted = true
+				err = &copied
+			}
+			return workitem.External{}, err
+		}
+		if !labelsExist(metadata.Labels, available) {
+			return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderClassificationUnsupported, EffectNotCommitted: true}
+		}
+	}
+	payload, err := json.Marshal(struct {
+		Title  string   `json:"title"`
+		Body   string   `json:"body"`
+		Labels []string `json:"labels,omitempty"`
+	}{request.Document.Title, request.Document.Body, metadata.Labels})
 	if err != nil {
 		return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse, EffectNotCommitted: true}
 	}
@@ -105,6 +144,22 @@ func (a Adapter) Create(parent context.Context, request workitem.CreateRequest) 
 		return workitem.External{}, err
 	}
 	external, err := decodeIssue(request.Resource, "", output)
+	if err == nil && len(metadata.Labels) != 0 {
+		var response struct {
+			Labels []struct {
+				Name string `json:"name"`
+			} `json:"labels"`
+		}
+		if json.Unmarshal(output, &response) != nil {
+			external.MetadataIncomplete = true
+		} else {
+			applied := make([]string, 0, len(response.Labels))
+			for _, label := range response.Labels {
+				applied = append(applied, label.Name)
+			}
+			external.MetadataIncomplete = !labelsExist(metadata.Labels, applied)
+		}
+	}
 	if err != nil {
 		var provider *workitem.ProviderError
 		if errors.As(err, &provider) {

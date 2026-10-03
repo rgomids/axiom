@@ -242,3 +242,9 @@ and final MVP acceptance remain separately gated. Accepted operational Slice
 trackers are #75–#79 for S1–S5, #94 for S6, and #80 for S7. Issue #97 is the
 approved S8 scope tracker; #81 is the S9 tracker with the 2026-09-27
 product-scope expansion recorded.
+
+## Work Item classification amendment
+
+Issue [#136](https://github.com/rgomids/axiom/issues/136) adds the bounded
+[creation classification contract](004-mvp-v1-baseline/work-item-classification.md).
+Implementation and local validation do not establish human acceptance or release.

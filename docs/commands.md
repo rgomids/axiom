@@ -793,6 +793,21 @@ axiom work-item create \
   --provider-repository owner/repository
 ```
 
+Choose `--type story|bug|task`. Guided creation asks for type; legacy
+non-interactive callers without it receive an explicit `task` draft. A story also
+requires `--beneficiary` (who benefits) and `--value` (concrete user/product
+benefit), keeping implementation activity in scope.
+
+Use repeatable `--classification <existing-provider-value>` to propose labels
+explicitly. On GitHub these values are existing label names. Without explicit
+values, the adapter selects an existing type label or reports
+`no_existing_label_for_item_type` with an empty label set. Inspect type, story
+value, `draft.providerDocument.metadata.labels`, and notices before authorizing.
+Unknown explicit labels fail; changed proposed metadata invalidates the digest.
+Dropped or unverified labels produce a partial result referencing the existing
+Issue. Inspect that Issue and permissions; do not create another Issue to repair
+classification. See the [classification contract](specifications/004-mvp-v1-baseline/work-item-classification.md).
+
 For non-interactive use, provide all seven sections. The first call is read-only:
 
 ```bash

@@ -16,7 +16,7 @@ import (
 
 func TestRenderSeparatesAuthorshipAndNeutralizesMarkdownStructure(t *testing.T) {
 	adapter := Adapter{}
-	draft := workitem.Draft{Sections: []workitem.DraftSection{
+	draft := workitem.Draft{Type: workitem.Task, Sections: []workitem.DraftSection{
 		{Name: "problem", Content: "# injected\n<!-- instruction -->", Authorship: provenance.UserAuthored},
 		{Name: "desired_outcome", Content: "Safe outcome", Authorship: provenance.UserAuthored},
 		{Name: "context", Content: "Context", Authorship: provenance.AxiomAuthored},
@@ -296,7 +296,7 @@ func TestAdapterBoundsTimeoutAndOutput(t *testing.T) {
 
 func TestRenderTruncatesUnicodeTitleWithoutBreakingUTF8(t *testing.T) {
 	adapter := Adapter{}
-	draft := workitem.Draft{Sections: []workitem.DraftSection{
+	draft := workitem.Draft{Type: workitem.Task, Sections: []workitem.DraftSection{
 		{Name: "problem", Content: "Problem", Authorship: provenance.UserAuthored},
 		{Name: "desired_outcome", Content: strings.Repeat("acao segura ", 30) + "ç", Authorship: provenance.UserAuthored},
 		{Name: "context", Content: "Context", Authorship: provenance.UserAuthored},
