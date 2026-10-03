@@ -1556,21 +1556,31 @@ check 'hidden changelog types are exactly the documented non-triggers' test "$(j
 check 'CONTRIBUTING documents the pinned Release Please semantics' bash -c "grep -Fq 'release-please 17.6.0' '$repository_root/CONTRIBUTING.md' && grep -Fq '| \`feat\` | minor | minor |' '$repository_root/CONTRIBUTING.md' && grep -Fq 'hidden in the changelog, not non-releasable' '$repository_root/CONTRIBUTING.md' && grep -Fq 'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0' '$workflows/release-please.yml'"
 check 'merges never start a release: the Release PR workflow runs on explicit dispatch only' test "$(triggers "$workflows/release-please.yml")" == workflow_dispatch
 check 'publication runs only on explicit dispatch' test "$(triggers "$workflows/publish-release.yml")" == workflow_dispatch
-check 'publication token is scoped to the gated publish job' bash -c "grep -Fxq 'permissions: {}' '$workflows/publish-release.yml' && [[ \$(grep -c 'contents: write' '$workflows/publish-release.yml') == 1 ]] && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fxq '    environment: release' && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'contents: write'"
+check 'built-in publication token is read-only and publication stays gated' bash -c "grep -Fxq 'permissions: {}' '$workflows/publish-release.yml' && ! grep -Eq '^      [a-z-]+: write$' '$workflows/publish-release.yml' && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fxq '    environment: release' && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'contents: read'"
 check 'publication requires dispatch from main and a verified preflight' bash -c "grep -Fq 'refs/heads/main' '$workflows/publish-release.yml' && grep -Fxq '    needs: preflight' '$workflows/publish-release.yml'"
 check 'publication never rebuilds: it consumes the prepared run artifact' bash -c "! grep -Eq 'build-release-archives|upload-artifact' '$workflows/publish-release.yml' && [[ \$(grep -c 'run-id: \${{ inputs.prepared_run }}' '$workflows/publish-release.yml') == 2 ]] && [[ \$(grep -c 'verify-prepared-release.sh' '$workflows/publish-release.yml') == 2 ]]"
 check 'publication is bound to the authorized envelope digest' bash -c "grep -Fq -- '--authorized-digest \"\$PREVIEW_DIGEST\"' '$workflows/publish-release.yml' && grep -Fq 'PREVIEW_DIGEST: \${{ inputs.preview_digest }}' '$workflows/publish-release.yml'"
 check 'preparation builds, verifies and retains the exact set without publishing' bash -c "grep -Fq build-release-archives.sh '$workflows/release-artifacts.yml' && grep -Fq verify-release-artifacts.sh '$workflows/release-artifacts.yml' && grep -Fq release-notes.sh '$workflows/release-artifacts.yml' && grep -Fq 'name: axiom-release-\${{ env.RELEASE_TAG }}' '$workflows/release-artifacts.yml' && ! grep -Eiq 'contents: write|gh release|git tag|git push|publish-release' '$workflows/release-artifacts.yml'"
-# The only secret is the delivery Project credential, and only inside jobs
-# gated by an environment: the approved publish job and the Project sync job.
-check 'only the delivery Project secret is used, only in environment-gated jobs' bash -c "
-  [[ \$(grep -ho 'secrets\.[A-Za-z0-9_]*' $workflows/*.yml | LC_ALL=C sort -u) == secrets.AXIOM_DELIVERY_PROJECT_TOKEN ]] &&
+# Publication and Project credentials stay inside environment-gated jobs.
+check 'only approved secrets are used, only in environment-gated jobs' bash -c "
+  [[ \$(grep -ho 'secrets\.[A-Za-z0-9_]*' $workflows/*.yml | LC_ALL=C sort -u | paste -sd, -) == secrets.AXIOM_DELIVERY_PROJECT_TOKEN,secrets.AXIOM_RELEASE_PUBLISH_TOKEN ]] &&
   [[ \$(grep -l 'secrets\.' $workflows/*.yml | xargs -n1 basename | LC_ALL=C sort | paste -sd, -) == delivery-sync.yml,publish-release.yml ]] &&
-  [[ \$(grep -c 'secrets\.' '$workflows/publish-release.yml') == 1 && \$(grep -c 'secrets\.' '$workflows/delivery-sync.yml') == 1 ]] &&
+  [[ \$(grep -c 'secrets\.' '$workflows/publish-release.yml') == 2 && \$(grep -c 'secrets\.' '$workflows/delivery-sync.yml') == 1 ]] &&
   sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
   sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fxq '    environment: delivery' &&
   sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
   ! sed -n '/^  sync:/,/^  sync-project:/p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.'"
+check 'dedicated publication credential stays out of preflight and checkout' bash -c "
+  ! sed -n '/^  preflight:/,/^  publish:/p' '$workflows/publish-release.yml' | grep -Fq 'secrets.' &&
+  [[ \$(grep -c 'secrets.AXIOM_RELEASE_PUBLISH_TOKEN' '$workflows/publish-release.yml') == 1 ]] &&
+  sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'GH_TOKEN: \${{ secrets.AXIOM_RELEASE_PUBLISH_TOKEN }}' &&
+  ! grep -Eq 'github-token:.*secrets\.|token:.*secrets\.' '$workflows/publish-release.yml'"
+publication_first_command=$(awk '/name: Re-verify, match the authorized envelope, then publish/{step=1} step && /run: \|/{getline; print; exit}' "$workflows/publish-release.yml")
+check 'missing-token guard is the first publication command' grep -Fq '[[ -n "$GH_TOKEN" ]]' <<<"$publication_first_command"
+publication_guard=$(grep -F '[[ -n "$GH_TOKEN" ]]' "$workflows/publish-release.yml" || true)
+expect_failure 'missing publication credential refuses before any script executes' 'AXIOM_RELEASE_PUBLISH_TOKEN is unavailable' \
+  env GH_TOKEN= bash -c "$publication_guard"
+check 'configured publication credential passes the guard' env GH_TOKEN=fixture-publication-token bash -c "$publication_guard"
 check 'delivery workflows: PR metadata check has no token or secret, sync runs only on main pushes' bash -c "
   [[ \$(sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-metadata.yml' | grep -E '^  [a-z_]+:' | tr -d ' :' | paste -sd, -) == pull_request,workflow_dispatch ]] &&
   grep -Fxq 'permissions: {}' '$workflows/delivery-metadata.yml' && ! grep -Eq 'write|secrets\.|pull_request_target' '$workflows/delivery-metadata.yml' &&
