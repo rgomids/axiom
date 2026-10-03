@@ -3,7 +3,7 @@
 # Merges integrate code; `start` starts releases (ADR-0011).
 #
 #   release.sh status  [--tag vX.Y.Z[-rc.N]] [--revision SHA] [--prepared-run ID]
-#   release.sh start
+#   release.sh start [--repair-revision SHA]
 #   release.sh prepare [--tag TAG] [--revision SHA]
 #   release.sh publish --preview-digest DIGEST --authorize-publication [--tag TAG] [--revision SHA] [--prepared-run ID]
 #   release.sh verify  [--tag TAG] [--prepared-run ID] [--download]
@@ -51,6 +51,7 @@ preview_digest=
 prepared_run=
 corrections_revision=
 corrections_digest=
+repair_revision=
 authorized=false
 download=false
 while (($#)); do
@@ -61,6 +62,7 @@ while (($#)); do
     --prepared-run) prepared_run=${2:-}; shift 2 ;;
     --corrections-revision) corrections_revision=${2:-}; shift 2 ;;
     --corrections-digest) corrections_digest=${2:-}; shift 2 ;;
+    --repair-revision) repair_revision=${2:-}; shift 2 ;;
     --authorize-publication) authorized=true; shift ;;
     --download) download=true; shift ;;
     *) printf 'release_error: invalid argument\n' >&2; exit 1 ;;
@@ -76,6 +78,15 @@ export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision
 export AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
 if [[ -n "$corrections_revision$corrections_digest" ]]; then
   [[ "$corrections_revision" =~ ^[0-9a-f]{40}$ && "$corrections_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'recovery requires full --corrections-revision and --corrections-digest'
+fi
+
+export AXIOM_RELEASE_REPAIR_REVISION=$repair_revision
+if [[ -n "$repair_revision" ]]; then
+  [[ "$repair_revision" =~ ^[0-9a-f]{40}$ ]] || fail 'repair requires full --repair-revision'
+  [[ "$command" == status || "$command" == publish || "$command" == verify || "$command" == start ]] || fail 'repair is not allowed during preparation'
+  if [[ "$command" == publish || ( "$command" == status && -n "$tag" ) ]]; then
+    [[ -n "$tag" && -n "$corrections_revision" ]] || fail 'repair status/publish requires explicit tag and original correction pins'
+  fi
 fi
 
 temporary=$(mktemp -d)
@@ -159,7 +170,7 @@ prepared_envelope() {
   fi
   origin_url=$(git -C "$repository_root" remote get-url origin)
   git clone --quiet --no-hardlinks "$repository_root" "$clone"
-  git -C "$clone" checkout --quiet --detach "${corrections_revision:-$revision}"
+  git -C "$clone" checkout --quiet --detach "${repair_revision:-${corrections_revision:-$revision}}"
   git -C "$clone" fetch --quiet "$repository_root" "+refs/remotes/origin/main:refs/remotes/origin/main"
   if ! "$clone/scripts/verify-prepared-release.sh" --tag "$tag" --revision "$revision" --prepared "$dir" \
     --repo "$repository" --run "$prepared_run" --remote "$origin_url" >"$temporary/prepared-facts" 2>"$temporary/prepared-error"; then
@@ -256,6 +267,26 @@ pinned_control() {
   ) || { reason='correction pins do not validate at the correction revision'; return 1; }
 }
 
+# Validate original provenance first, then the independently authorized repair
+# code. No scripts from an unchecked revision execute.
+pinned_repair() {
+  local dir=$1 repair_tag=$2 source=$3 control=$4 control_digest=$5 repair=$6
+  pinned_control "$dir-original" "$repair_tag" "$source" "$control" "$control_digest" >/dev/null || return 1
+  grep -Fxq "$repair" < <(git -C "$repository_root" rev-list --first-parent origin/main) \
+    || { reason='repair revision is not on first-parent main'; return 1; }
+  git -C "$repository_root" merge-base --is-ancestor "$control" "$repair" \
+    && [[ "$repair" != "$control" && $(ci_state "$repair") == success ]] \
+    || { reason='repair revision must descend from correction revision and have successful CI'; return 1; }
+  rm -rf -- "$dir"
+  { git clone --quiet --no-hardlinks "$repository_root" "$dir" \
+    && git -C "$dir" checkout --quiet --detach "$repair" \
+    && git -C "$dir" fetch --quiet "$repository_root" '+refs/remotes/origin/main:refs/remotes/origin/main'; } 2>/dev/null \
+    || { reason='cannot check out repair revision'; return 1; }
+  AXIOM_RELEASE_CORRECTIONS_REVISION=$control AXIOM_RELEASE_CORRECTIONS_DIGEST=$control_digest \
+    "$dir/scripts/release-repair.sh" --repo "$repository" --tag "$repair_tag" --revision "$source" --repair-revision "$repair" \
+    || { reason='repair provenance or published release does not validate'; return 1; }
+}
+
 # published_recovery_pins BODY sets pins_revision and pins_digest to the
 # ADR-0010 correction pins a published release records in its notes, or
 # empties both when it records none. Ambiguous or malformed pins set reason
@@ -290,7 +321,13 @@ previous_release_facts() {
   if [[ -n "$pins_revision" ]]; then
     pinned_control "$temporary/previous-control" "$previous_tag" "$previous_commit" "$pins_revision" "$pins_digest" \
       >/dev/null 2>"$temporary/previous-error" || { reason="previous release $previous_tag: published $reason"; return 1; }
-    check_scripts=$temporary/previous-control/scripts
+    if [[ -n "$repair_revision" ]]; then
+      pinned_repair "$temporary/previous-repair" "$previous_tag" "$previous_commit" "$pins_revision" "$pins_digest" "$repair_revision" \
+        >/dev/null 2>"$temporary/previous-error" || { reason="previous release $previous_tag: $reason"; return 1; }
+      check_scripts=$temporary/previous-repair/scripts
+    else
+      check_scripts=$temporary/previous-control/scripts
+    fi
   fi
   if ! AXIOM_RELEASE_CORRECTIONS_REVISION=$pins_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$pins_digest \
     "$check_scripts/publish-release.sh" --check --repo "$repository" --tag "$previous_tag" --revision "$previous_commit" \
@@ -500,6 +537,14 @@ status() {
 
   if [[ -n "$tag" && -z "${next:-}" ]]; then
     printf 'tag=%s\nrevision=%s\n' "$tag" "$revision" >>"$out"
+    if [[ -n "$repair_revision" ]]; then
+      if pinned_repair "$temporary/repair" "$tag" "$revision" "$corrections_revision" "$corrections_digest" "$repair_revision" >>"$out"; then
+        scripts=$temporary/repair/scripts
+      else
+        printf 'state=blocked\nnext_action=blocked\nreason=%s\n' "$reason"
+        return
+      fi
+    fi
     if ! "$scripts/release-preflight.sh" --tag "$tag" --revision "$revision" --main-ref origin/main >"$temporary/preflight" 2>"$temporary/preflight-error"; then
       next=blocked; reason=$(sed 's/^release_preflight_error: //' "$temporary/preflight-error" | head -n 1)
     else
@@ -522,6 +567,19 @@ status() {
         grep -E '^(publication_state|release_id)=' "$temporary/remote" >>"$out"
         if [[ $(value publication_state "$temporary/remote") == published ]]; then
           state=published; next=verify_published; reason='already published; run release.sh verify'
+          if [[ -n "$repair_revision" ]]; then
+            printf 'prepared_run=%s\n' "$prepared_run" >>"$out"
+            if prepared_envelope; then
+              grep -v '^preview_digest=' "$temporary/envelope" | sed 's/^/preview./' >>"$out"
+              grep '^preview_digest=' "$temporary/envelope" >>"$out"
+              if grep -Eq '^effect\.(issue\.[0-9]+|release_pr_label)=' "$temporary/envelope" \
+                && ! grep -Fxq 'effect=none' "$temporary/envelope"; then
+                next=authorize_publication; reason='authorize only remaining delivery/label effects of the published release'
+              fi
+            else
+              next=blocked
+            fi
+          fi
         elif await_run publishing "$workflow"; then
           :
         elif [[ "$ci" != success ]]; then
@@ -574,7 +632,7 @@ case "$command" in
     ;;
   start)
     [[ -z "$tag$revision$prepared_run$preview_digest$corrections_revision" && "$authorized" == false && "$download" == false ]] \
-      || fail 'start takes no options: the release plan decides the version'
+      || fail 'start takes only optional --repair-revision: the release plan decides the version'
     status_line=$(status)
     grep -Eq '^next_action=(start_release|refresh_release_pr)$' <<<"$status_line" \
       || { cat "$temporary/status"; fail "starting a release is not the next step: $(tr '\n' ' ' <<<"$status_line")"; }
@@ -642,6 +700,7 @@ case "$command" in
     dispatch_args=(workflow run "$workflow" --repo "$repository" --ref main -f "tag=$tag" -f "revision=$revision"
       -f "prepared_run=$prepared_run" -f "preview_digest=$preview_digest")
     if [[ -n "$corrections_revision" ]]; then dispatch_args+=(-f "corrections_revision=$corrections_revision" -f "corrections_digest=$corrections_digest"); fi
+    if [[ -n "$repair_revision" ]]; then dispatch_args+=(-f "repair_revision=$repair_revision"); fi
     gh "${dispatch_args[@]}" >/dev/null || fail 'workflow dispatch failed'
     printf 'effect=workflow_dispatched workflow=%s tag=%s revision=%s prepared_run=%s preview_digest=%s\n' \
       "$workflow" "$tag" "$revision" "$prepared_run" "$preview_digest"
@@ -676,8 +735,14 @@ case "$command" in
     fi
     if [[ -n "$corrections_revision" ]]; then
       pinned_control "$temporary/control" "$tag" "$tag_sha" "$corrections_revision" "$corrections_digest" || fail "published $reason"
-      scripts=$temporary/control/scripts
-      repository_root=$temporary/control
+      if [[ -n "$repair_revision" ]]; then
+        pinned_repair "$temporary/repair" "$tag" "$tag_sha" "$corrections_revision" "$corrections_digest" "$repair_revision" || fail "published $reason"
+        scripts=$temporary/repair/scripts
+        repository_root=$temporary/repair
+      else
+        scripts=$temporary/control/scripts
+        repository_root=$temporary/control
+      fi
     fi
     "$scripts/release-preflight.sh" --tag "$tag" --revision "$tag_sha" --main-ref origin/main >"$temporary/preflight"
     "$scripts/publish-release.sh" --check --repo "$repository" --tag "$tag" --revision "$tag_sha" \

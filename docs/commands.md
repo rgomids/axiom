@@ -720,6 +720,23 @@ configuration, and the workflows' triggers, permissions and pins:
 ./scripts/test-release-flow.sh
 ```
 
+Run the focused recovery-notes regression without GitHub: identical Markdown
+must compare literally, and changed notes must refuse even when they match a
+Bash glob pattern. The full suite above also runs this check and covers
+publication/download with Markdown links in recovered release notes.
+
+```bash
+./scripts/test-release-notes-comparison.sh
+```
+
+Published immutable recovery releases may opt in to `--repair-revision <full SHA>`
+for `status`, `verify` and `publish`, preserving the original metadata pins and
+prepared run. Envelope v4 binds the additional reviewed execution SHA and only
+remaining delivery/label effects; new human authority remains required. The
+option is forbidden on `prepare`. `start --repair-revision <SHA>` applies only
+to read-only validation of the recovered previous release. See the
+[published repair guide](development/release-recovery.md#published-release-control-code-repair).
+
 ## CLI output and help
 
 Direct Lingo use defaults to a concise human status. Skills and scripts use the

@@ -97,6 +97,13 @@ if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}${AXIOM_RELEASE_CORRECTIONS_DIG
   recovery_validate "$tag" "$revision" >"$temporary/recovery" || exit 1
 fi
 
+# Repair never introduces or modifies a release: classify published provenance
+# before any possible effect, using the selected reviewed repair checkout.
+if [[ -n "${AXIOM_RELEASE_REPAIR_REVISION:-}" ]]; then
+  "$repository_root/scripts/release-repair.sh" --repo "$repository" --tag "$tag" --revision "$revision" \
+    --repair-revision "$AXIOM_RELEASE_REPAIR_REVISION" >/dev/null || exit 1
+fi
+
 # --- Local verified set -----------------------------------------------------
 # The uploaded bytes must be exactly the bytes verify-release-artifacts.sh
 # accepted: its Evidence names every archive digest and the SHA256SUMS digest.
@@ -172,10 +179,10 @@ check_published() {
   if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then
     recovery_check_notes "$temporary/published-notes"
     if [[ "$local_set" == true ]]; then
-      [[ $(cat "$temporary/published-notes") == $(cat "$notes") ]] || fail 'published recovery notes differ from prepared notes'
+      [[ "$(cat "$temporary/published-notes")" == "$(cat "$notes")" ]] || fail 'published recovery notes differ from prepared notes'
     else
       "$repository_root/scripts/release-notes.sh" --tag "$tag" --revision "$revision" --repo "$repository" >"$temporary/recovery-notes"
-      [[ $(cat "$temporary/published-notes") == $(cat "$temporary/recovery-notes") ]] || fail 'published recovery notes differ from pinned inputs'
+      [[ "$(cat "$temporary/published-notes")" == "$(cat "$temporary/recovery-notes")" ]] || fail 'published recovery notes differ from pinned inputs'
     fi
   elif grep -q '^- Recovery corrections ' "$temporary/published-notes"; then
     fail 'published recovery release requires its exact correction pins'
@@ -241,10 +248,10 @@ resolve_release_pr() {
 # tagging. It acts only on the PR and label state bound by the envelope.
 label_release_pr() {
   if [[ "$release_pr_label_state" == pending ]]; then
-    gh api --method POST "repos/$repository/issues/$release_pr/labels" -f 'labels[]=autorelease: tagged' >/dev/null \
+    GH_TOKEN="${AXIOM_RELEASE_REPOSITORY_TOKEN:-${GH_TOKEN:-}}" gh api --method POST "repos/$repository/issues/$release_pr/labels" -f 'labels[]=autorelease: tagged' >/dev/null \
       || fail "cannot label Release PR #$release_pr"
     printf 'effect=release_pr_labeled pr=%s label=autorelease:tagged\n' "$release_pr"
-    gh api --method DELETE "repos/$repository/issues/$release_pr/labels/autorelease%3A%20pending" >/dev/null \
+    GH_TOKEN="${AXIOM_RELEASE_REPOSITORY_TOKEN:-${GH_TOKEN:-}}" gh api --method DELETE "repos/$repository/issues/$release_pr/labels/autorelease%3A%20pending" >/dev/null \
       || fail "cannot remove pending label from Release PR #$release_pr"
     printf 'effect=release_pr_unlabeled pr=%s label=autorelease:pending\n' "$release_pr"
   fi
@@ -329,7 +336,7 @@ if [[ "$check" == false ]]; then
   resolve_release_pr
   # Issue delivery is part of the authorized effect set; its state is read
   # here, with the rest of the remote state, before any effect.
-  "$repository_root/scripts/delivery-github.sh" state --repo "$repository" --tag "$tag" --revision "$revision" \
+  GH_TOKEN="${AXIOM_RELEASE_REPOSITORY_TOKEN:-${GH_TOKEN:-}}" "$repository_root/scripts/delivery-github.sh" state --repo "$repository" --tag "$tag" --revision "$revision" \
     >"$temporary/delivery" || fail 'cannot resolve the delivery state of this release'
 fi
 
@@ -339,7 +346,7 @@ fi
 # authority binds to; any change requires a new review.
 write_envelope() {
   local name sum
-  if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then printf 'envelopeVersion=3\n'; else printf 'envelopeVersion=2\n'; fi
+  if [[ -n "${AXIOM_RELEASE_REPAIR_REVISION:-}" ]]; then printf 'envelopeVersion=4\n'; elif [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then printf 'envelopeVersion=3\n'; else printf 'envelopeVersion=2\n'; fi
   printf 'repository=%s\n' "$repository"
   printf 'tag=%s\n' "$tag"
   printf 'version=%s\n' "$version"
@@ -349,6 +356,7 @@ write_envelope() {
   printf 'make_latest=%s\n' "$make_latest"
   printf 'prepared_run=%s\n' "$prepared_run"
   if [[ -n "${AXIOM_RELEASE_CORRECTIONS_REVISION:-}" ]]; then cat "$temporary/recovery"; fi
+  if [[ -n "${AXIOM_RELEASE_REPAIR_REVISION:-}" ]]; then printf 'repair_revision=%s\n' "$AXIOM_RELEASE_REPAIR_REVISION"; fi
   printf 'release_notes_sha256=%s\n' "$(digest "$notes")"
   printf 'sha256sums_sha256=%s\n' "$(awk '$1 == "SHA256SUMS" {print $2}' "$temporary/expected")"
   while read -r name sum _; do
@@ -382,6 +390,10 @@ write_envelope() {
   printf 'effect.release_pr_label=%s\n' "$([[ "$release_pr_label_state" == pending ]] && printf pending_to_tagged || printf none)"
 }
 
+if [[ -n "${AXIOM_RELEASE_REPAIR_REVISION:-}" && "$state" != published ]]; then
+  fail 'repair refuses a release that is no longer published'
+fi
+
 if [[ "$check" == false ]]; then
   write_envelope >"$temporary/envelope"
   preview=$(digest "$temporary/envelope")
@@ -394,14 +406,14 @@ if [[ "$check" == false ]]; then
     || fail "preview changed; review and authorize again (current preview_digest=$preview)"
   # A configured delivery Project that cannot be resolved fails here, before
   # the first effect.
-  "$repository_root/scripts/delivery-github.sh" preflight --repo "$repository" --tag "$tag" --revision "$revision" >/dev/null \
+  GH_TOKEN="${AXIOM_RELEASE_REPOSITORY_TOKEN:-${GH_TOKEN:-}}" "$repository_root/scripts/delivery-github.sh" preflight --repo "$repository" --tag "$tag" --revision "$revision" >/dev/null \
     || fail 'delivery preflight failed; nothing published'
 fi
 
 # deliver applies exactly the authorized delivery effects after the release
 # reads back published; a changed Issue state fails closed.
 deliver() {
-  "$repository_root/scripts/delivery-github.sh" release --repo "$repository" --tag "$tag" --revision "$revision" \
+  GH_TOKEN="${AXIOM_RELEASE_REPOSITORY_TOKEN:-${GH_TOKEN:-}}" "$repository_root/scripts/delivery-github.sh" release --repo "$repository" --tag "$tag" --revision "$revision" \
     --expect "$temporary/delivery" || fail 'delivery effects failed after publication; rerun status for a new envelope'
 }
 

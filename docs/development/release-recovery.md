@@ -81,3 +81,43 @@ record when auditing publication authority.
 - Prepared metadata and notes match explicit pins; envelope binds both pins.
 - Published read-back verifies notes, pins, tag, archive digests and Issue records.
 - No merge/publication/settings mutation occurs during implementation validation.
+
+## Published release control-code repair
+
+When a published recovery release has correct prepared bytes but its pinned
+control code has a verifier defect, use the explicit protocol of
+[ADR-0013](../decisions/0013-published-release-control-repair.md). Do not replace
+`corrections_revision` with the repair SHA: original metadata provenance stays
+in immutable notes. Select a separately reviewed/merged, full `repair_revision`
+with green CI, descending from the original correction revision.
+
+For v0.3.0, preserve source `b79d3bf8cbf21247ca30cae06ff000e7f89a5adf`, correction
+revision `db8ed3afc0538171552870712f8f97562feda016`, correction SHA-256
+`1b010c75404310279515ef25bc3e4a28139851c3c1a71167c5ad02e6fd303234` and prepared
+run `37123443272`. After human selection of the merged repair SHA:
+
+```bash
+repair_sha=<full-reviewed-merged-repair-sha>
+./scripts/release.sh status --tag v0.3.0 \
+  --revision b79d3bf8cbf21247ca30cae06ff000e7f89a5adf --prepared-run 37123443272 \
+  --corrections-revision db8ed3afc0538171552870712f8f97562feda016 \
+  --corrections-digest 1b010c75404310279515ef25bc3e4a28139851c3c1a71167c5ad02e6fd303234 \
+  --repair-revision "$repair_sha"
+```
+
+Show all envelope v4 fields and its new digest. Only after fresh human
+authorization use `publish` with these same options, `--preview-digest` and
+`--authorize-publication`. The gated job reconciles only pending Issue/Project
+records and the Release PR label; it never republishes or modifies the Release,
+notes, assets, tag or latest. If no effects remain, status requests verification.
+
+```bash
+./scripts/release.sh verify --tag v0.3.0 --prepared-run 37123443272 \
+  --repair-revision "$repair_sha" --download
+```
+
+Verification discovers original metadata pins from published notes, never the
+repair SHA. Preparation refuses a repair option. Starting the next version may
+explicitly use `./scripts/release.sh start --repair-revision "$repair_sha"` to
+verify this recovered previous release; the next version retains normal inputs.
+No failing verifier is automatically replaced by current main or worktree code.
