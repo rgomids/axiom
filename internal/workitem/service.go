@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -38,19 +39,21 @@ type Resolver interface {
 }
 
 type External struct {
-	ID    string `json:"id"`
-	URL   string `json:"url"`
-	State string `json:"state"`
+	ID                 string `json:"id"`
+	URL                string `json:"url"`
+	State              string `json:"state"`
+	MetadataIncomplete bool   `json:"metadataIncomplete,omitempty"`
 }
 
 type ProviderErrorKind string
 
 const (
-	ProviderUnavailable     ProviderErrorKind = "provider_unavailable"
-	ProviderUnauthenticated ProviderErrorKind = "provider_unauthenticated"
-	ProviderRateLimited     ProviderErrorKind = "provider_rate_limited"
-	ProviderInvalidResponse ProviderErrorKind = "provider_invalid_response"
-	ProviderAmbiguous       ProviderErrorKind = "provider_ambiguous"
+	ProviderUnavailable               ProviderErrorKind = "provider_unavailable"
+	ProviderUnauthenticated           ProviderErrorKind = "provider_unauthenticated"
+	ProviderRateLimited               ProviderErrorKind = "provider_rate_limited"
+	ProviderInvalidResponse           ProviderErrorKind = "provider_invalid_response"
+	ProviderAmbiguous                 ProviderErrorKind = "provider_ambiguous"
+	ProviderClassificationUnsupported ProviderErrorKind = "provider_classification_unsupported"
 )
 
 type ProviderError struct {
@@ -65,6 +68,19 @@ func (e *ProviderError) Error() string { return string(e.Kind) }
 type ProviderDocument struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
+	// Metadata is opaque to the domain; only its adapter interprets it.
+	Metadata json.RawMessage `json:"metadata,omitempty"`
+	Notices  []string        `json:"notices,omitempty"`
+}
+
+// DocumentClassifier resolves provider-neutral classification intentions into
+// adapter-owned metadata during the read-only preview.
+type DocumentClassifier interface {
+	ClassifyDocument(context.Context, Draft, DraftTarget, ProviderDocument, []string) (ProviderDocument, error)
+}
+
+type DocumentVerifier interface {
+	VerifyDocument(context.Context, CreateRequest, External) (bool, error)
 }
 
 type CreateRequest struct {
@@ -133,6 +149,9 @@ type SectionInput struct {
 }
 
 type DraftInput struct {
+	Type                                    Type
+	Beneficiary, Value                      SectionInput
+	Classification                          []string
 	Target                                  Target
 	Intent                                  string
 	Problem, DesiredOutcome, Context, Scope SectionInput
@@ -147,7 +166,11 @@ type DraftSection struct {
 }
 
 type Draft struct {
-	Sections []DraftSection `json:"sections"`
+	Type           Type           `json:"type"`
+	Classification []string       `json:"classification,omitempty"`
+	Beneficiary    *DraftSection  `json:"beneficiary,omitempty"`
+	Value          *DraftSection  `json:"value,omitempty"`
+	Sections       []DraftSection `json:"sections"`
 }
 
 type DraftTarget struct {
@@ -232,6 +255,19 @@ func (s Service) Prepare(ctx context.Context, input DraftInput) Result {
 	if err != nil {
 		return result(completion.ValidationFailure, "draft_invalid")
 	}
+	if classifier, ok := s.capability.(DocumentClassifier); ok {
+		document, err := classifier.ClassifyDocument(ctx, draft, target, preview.ProviderDocument, draft.Classification)
+		if err != nil {
+			return providerFailure(err, "provider_classification_failed")
+		}
+		preview.ProviderDocument = document
+	} else if len(draft.Classification) != 0 {
+		return result(completion.ValidationFailure, "provider_classification_unsupported")
+	} else {
+		preview.ProviderDocument.Notices = []string{"provider_classification_unsupported"}
+	}
+	preview.Digest = ""
+	preview.Digest = digestValue(preview)
 	return Result{Status: completion.Success, Category: "work_item_draft_ready", Draft: &preview}
 }
 
@@ -250,7 +286,12 @@ func (s Service) Create(ctx context.Context, input DraftInput, previewDigest str
 	}
 	attempt, attemptErr := s.store.LoadCreateAttempt(ctx, prepared.Draft.Target)
 	if attemptErr == nil {
-		return s.resumeCreate(ctx, *prepared.Draft, attempt)
+		resumed := s.resumeCreate(ctx, *prepared.Draft, attempt)
+		if attempt.State == CreateAttemptPending && attempt.Correlation != prepared.Draft.Correlation && resumed.Status == completion.Success {
+			resumed.Status, resumed.Category = completion.Partial, "provider_metadata_unverified"
+			return resumed
+		}
+		return s.verifyCreated(ctx, *prepared.Draft, resumed)
 	}
 	if !errors.Is(attemptErr, ErrNotFound) {
 		return createAttemptFailure(attemptErr)
@@ -260,7 +301,7 @@ func (s Service) Create(ctx context.Context, input DraftInput, previewDigest str
 		return reconciliation
 	}
 	if reconciled.ID != "" {
-		return s.persistConfirmed(ctx, prepared.Draft.Target, reconciled)
+		return s.verifyCreated(ctx, *prepared.Draft, s.persistConfirmed(ctx, prepared.Draft.Target, reconciled))
 	}
 	attempt = CreateAttempt{
 		Target: prepared.Draft.Target, Correlation: prepared.Draft.Correlation,
@@ -273,14 +314,32 @@ func (s Service) Create(ctx context.Context, input DraftInput, previewDigest str
 	if attemptErr != nil {
 		return createAttemptFailure(attemptErr)
 	}
-	return s.executeCreate(ctx, *prepared.Draft, attempt)
+	return s.verifyCreated(ctx, *prepared.Draft, s.executeCreate(ctx, *prepared.Draft, attempt))
+}
+
+func (s Service) verifyCreated(ctx context.Context, preview DraftPreview, created Result) Result {
+	verifier, ok := s.capability.(DocumentVerifier)
+	if !ok || created.Status != completion.Success {
+		return created
+	}
+	external := External{ID: created.Link.ExternalID, URL: created.Link.URL, State: created.Link.State}
+	verified, err := verifier.VerifyDocument(ctx, CreateRequest{Resource: preview.Target.Resource, Correlation: preview.Correlation, Document: preview.ProviderDocument}, external)
+	if err != nil {
+		created.Status, created.Category = completion.Partial, "provider_metadata_unverified"
+	} else if !verified {
+		created.Status, created.Category = completion.Partial, "provider_metadata_incomplete"
+	}
+	return created
 }
 
 func (s Service) resumeCreate(ctx context.Context, preview DraftPreview, attempt CreateAttempt) Result {
 	if attempt.State == CreateAttemptPending {
 		return s.reconcileAttempt(ctx, attempt)
 	}
-	if attempt.State == CreateAttemptConfirmed && attempt.Correlation == preview.Correlation && attempt.PreviewDigest == preview.Digest {
+	// Provider metadata can change the reviewed digest without changing delivery
+	// intent. Reuse the confirmed item and verify metadata; never create a second
+	// item merely because its inferred classification changed.
+	if attempt.State == CreateAttemptConfirmed && attempt.Correlation == preview.Correlation {
 		link, err := s.store.Load(ctx, attempt.Target.ProjectID, attempt.Target.RepositoryKey, attempt.Target.Provider, attempt.Target.Resource, attempt.ExternalID)
 		if err == nil {
 			return Result{Status: completion.Success, Category: "work_item_already_linked", Link: link}
@@ -351,6 +410,10 @@ func (s Service) persistAndConfirmAttempt(ctx context.Context, attempt CreateAtt
 	if err := s.store.SaveCreateAttempt(ctx, current); err != nil {
 		persisted.Status = completion.Partial
 		persisted.Category = "provider_confirmed_create_attempt_recovery_required"
+	}
+	if external.MetadataIncomplete && persisted.Status == completion.Success {
+		persisted.Status = completion.Partial
+		persisted.Category = "provider_metadata_incomplete"
 	}
 	return persisted
 }
@@ -592,6 +655,31 @@ func (s Service) persistLocal(ctx context.Context, link Link, providerConfirmed 
 }
 
 func normalizeDraft(input DraftInput) (Draft, []Question, string) {
+	itemType := input.Type
+	if itemType == "" {
+		itemType = Task
+	}
+	if !itemType.Valid() {
+		return Draft{}, nil, "invalid_work_item_type"
+	}
+	if len(input.Classification) > 16 {
+		return Draft{}, nil, "invalid_classification"
+	}
+	var classification []string
+	seen := make(map[string]bool, len(input.Classification))
+	for _, value := range input.Classification {
+		if !validDraftText(value) || len(value) > 256 {
+			return Draft{}, nil, "invalid_classification"
+		}
+		if looksSensitive(value) {
+			return Draft{}, nil, "secret_rejected"
+		}
+		if !seen[value] {
+			classification = append(classification, value)
+			seen[value] = true
+		}
+	}
+	sort.Strings(classification)
 	fields := []struct {
 		name, prompt string
 		input        SectionInput
@@ -607,9 +695,38 @@ func normalizeDraft(input DraftInput) (Draft, []Question, string) {
 	if fields[0].input.Supplied == "" && fields[0].input.Elaborated == "" {
 		fields[0].input.Supplied = input.Intent
 	}
-	draft := Draft{Sections: make([]DraftSection, 0, len(fields))}
+	draft := Draft{Type: itemType, Classification: classification, Sections: make([]DraftSection, 0, len(fields))}
 	questions := make([]Question, 0)
 	total := 0
+	if itemType == Story {
+		for _, field := range []struct {
+			name, prompt string
+			input        SectionInput
+			destination  **DraftSection
+		}{
+			{"beneficiary", "Who benefits from this story?", input.Beneficiary, &draft.Beneficiary},
+			{"value", "What concrete user/product benefit becomes possible (beyond implementation activity)?", input.Value, &draft.Value},
+		} {
+			content, authorship := field.input.Supplied, provenance.UserAuthored
+			if content == "" {
+				content, authorship = field.input.Elaborated, provenance.AxiomAuthored
+			}
+			if content == "" {
+				questions = append(questions, Question{field.name, field.prompt})
+				continue
+			}
+			if !validDraftText(content) {
+				return Draft{}, nil, "invalid_draft_input"
+			}
+			if looksSensitive(content) {
+				return Draft{}, nil, "secret_rejected"
+			}
+			total += len(content)
+			*field.destination = &DraftSection{Name: field.name, Content: content, Authorship: authorship}
+		}
+	} else if input.Beneficiary != (SectionInput{}) || input.Value != (SectionInput{}) {
+		return Draft{}, nil, "story_value_requires_story"
+	}
 	for _, field := range fields {
 		content := field.input.Supplied
 		authorship := provenance.UserAuthored

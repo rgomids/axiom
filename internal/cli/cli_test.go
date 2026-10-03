@@ -155,7 +155,7 @@ func TestRunInteractiveAsksOnlyMissingProvider(t *testing.T) {
 
 func TestRunInteractiveGuidesWorkItemCreateAndBindsExactPreview(t *testing.T) {
 	service := &guidedWorkItemService{completion: canonicalResult(t, completion.Success, []string{"operation:work_item_create"}, "Review result", completionProvenance(t))}
-	input := strings.NewReader("alpha\nmain\nowner/repo\nObserved problem\nSafe outcome\nRelevant context\nBounded scope\nPreserve authority\nNo workflow\nTests pass\nyes\n")
+	input := strings.NewReader("alpha\nmain\nowner/repo\nObserved problem\ntask\nSafe outcome\nRelevant context\nBounded scope\nPreserve authority\nNo workflow\nTests pass\nyes\n")
 	var output, prompts bytes.Buffer
 	code := RunInteractive(context.Background(), []string{"--json", "work-item", "create"}, service, completionProvenance(t), input, &output, &prompts)
 	if code != ExitSuccess || len(service.inputs) != 2 {
@@ -171,7 +171,7 @@ func TestRunInteractiveGuidesWorkItemCreateAndBindsExactPreview(t *testing.T) {
 
 func TestRunInteractiveWorkItemCancellationHasNoAuthority(t *testing.T) {
 	service := &guidedWorkItemService{completion: canonicalResult(t, completion.Success, []string{"operation:work_item_create"}, "Review result", completionProvenance(t))}
-	input := strings.NewReader("alpha\nmain\nowner/repo\nObserved problem\nSafe outcome\nRelevant context\nBounded scope\nPreserve authority\nNo workflow\nTests pass\nno\n")
+	input := strings.NewReader("alpha\nmain\nowner/repo\nObserved problem\ntask\nSafe outcome\nRelevant context\nBounded scope\nPreserve authority\nNo workflow\nTests pass\nno\n")
 	var output bytes.Buffer
 	if code := RunInteractive(context.Background(), []string{"--json", "work-item", "create"}, service, completionProvenance(t), input, &output, io.Discard); code != ExitSuccess {
 		t.Fatalf("exit=%d output=%q", code, output.String())

@@ -7,7 +7,24 @@ description: Create or select a GitHub-backed Axiom Work Item through Lingo.
 
 Collect the Project selector, Project repository key, explicit GitHub
 `owner/repository`, and these structured sections: problem, desired outcome,
-context, scope, constraints, non-goals, and acceptance expectations. Run
+context, scope, constraints, non-goals, and acceptance expectations. Collect or
+propose a Work Item type using delivery intent: `story` delivers a concrete
+user/product benefit, `bug` corrects observed faulty behavior, and `task` covers
+technical or operational activity. Supply the proposed type with `--type`.
+Do not silently turn implementation activity into a story. For a story, collect
+`--beneficiary` (who benefits) and `--value` (what concrete benefit becomes
+possible), keeping implementation details in scope. Ask for missing value or
+propose task when the conversation only describes implementation activity.
+
+Use repeatable `--classification` for explicitly requested provider
+classifications (GitHub label names), preserving them as user intent. Otherwise
+let Lingo infer a type label from the provider's existing catalog. Report
+`draft.providerDocument.metadata`, including the proposed labels, and notices
+alongside the type and story value in the complete final draft before authority.
+Unsupported explicit classifications must be corrected, never silently omitted;
+missing inferred labels are an explicit preview notice. Report partial results
+for unapplied or unverified metadata, keeping the existing Issue reference and
+never creating another Issue as a metadata repair. Run
 `axiom --json work-item create` with those facts first, without authority. Report
 the returned draft, target, effects, expected revision, and digest for review.
 

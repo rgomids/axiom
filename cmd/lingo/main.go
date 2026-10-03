@@ -664,6 +664,7 @@ func editSelectionFailure(category string) projectapp.EditFailure {
 
 func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItemInput) cli.Result {
 	draft := workitem.DraftInput{
+		Type: workitem.Type(input.Type), Beneficiary: workitem.SectionInput{Supplied: input.Beneficiary}, Value: workitem.SectionInput{Supplied: input.Value}, Classification: input.Classification,
 		Target: workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository},
 		Intent: input.Intent, Problem: workitem.SectionInput{Supplied: input.Problem}, DesiredOutcome: workitem.SectionInput{Supplied: input.DesiredOutcome},
 		Context: workitem.SectionInput{Supplied: input.Context}, Scope: workitem.SectionInput{Supplied: input.Scope}, Constraints: workitem.SectionInput{Supplied: input.Constraints},
@@ -891,6 +892,18 @@ func workItemResultText(result workitem.Result) (string, string) {
 		return "Work Item draft ready for review", "Repeat create with this preview digest and explicit external authority"
 	case "draft_incomplete":
 		return "Work Item intent is incomplete", "Provide answers only for the listed missing fields"
+	case "invalid_work_item_type":
+		return "Work Item type is invalid", "Choose story, bug, or task and review a new draft"
+	case "story_value_requires_story":
+		return "Story value requires the story type", "Choose story or omit the story-specific fields"
+	case "provider_classification_unsupported":
+		return "Provider classification is unsupported", "Select only existing provider classifications and review a new draft"
+	case "provider_classification_failed":
+		return "Provider classification could not be resolved", "Inspect provider availability before reviewing a new draft"
+	case "provider_metadata_incomplete":
+		return "Work Item created but provider classification was not applied", "Inspect the existing Issue and provider permissions; do not create another Issue"
+	case "provider_metadata_unverified":
+		return "Work Item linked but provider classification remains unverified", "Review the original draft and existing Issue; do not create another Issue"
 	case "draft_cancelled", "create_cancelled":
 		return "Work Item operation cancelled", "Resume with the same explicit inputs when ready"
 	case "work_item_selection_ready":

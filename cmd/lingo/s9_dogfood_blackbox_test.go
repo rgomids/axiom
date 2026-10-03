@@ -68,13 +68,18 @@ func runFakeGitHub(path string, args []string, stdin io.Reader, stdout io.Writer
 	case method == "GET" && endpoint == "search/issues":
 		response = map[string]any{"total_count": 0, "items": []any{}}
 	case method == "POST" && endpoint == "repos/owner/repo/issues":
+		var request struct{ Labels []string }
+		if json.Unmarshal(body, &request) != nil {
+			return 1
+		}
+		state.IssueLabels = append([]string(nil), request.Labels...)
 		state.IssueCreated = true
 		state.Mutations = append(state.Mutations, "create_issue")
-		response = map[string]any{"number": 7, "html_url": "https://github.com/owner/repo/issues/7", "state": "open"}
+		response = map[string]any{"number": 7, "html_url": "https://github.com/owner/repo/issues/7", "state": "open", "labels": names(state.IssueLabels)}
+	case method == "GET" && strings.HasPrefix(endpoint, "repos/owner/repo/labels?per_page=100"):
+		response = names(state.RepositoryLabels)
 	case !state.IssueCreated:
 		return 1
-	case method == "GET" && endpoint == "repos/owner/repo/labels?per_page=100":
-		response = names(state.RepositoryLabels)
 	case method == "POST" && endpoint == "repos/owner/repo/labels":
 		var label struct{ Name string }
 		if json.Unmarshal(body, &label) != nil || label.Name == "" {
@@ -207,9 +212,19 @@ func TestExecutableClaudeRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T
 	run(0, "success", "project", "configure", "--project-id", setup.Setup.ProjectID, "--slug", "configured", "--name", "Configured", "--repository", "main="+repository, "--work-item-provider", "github", "--preview-digest", setup.Setup.Digest, "--authorize-local")
 	draftArgs := []string{"work-item", "create", "--project", "configured", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Dogfood regression", "--desired-outcome", "First projection converges", "--context", "S9 dogfood", "--scope", "Bounded change", "--constraints", "Fail closed on drift", "--non-goals", "No release", "--acceptance", "Tests pass"}
 	draft := run(0, "success", draftArgs...)
+	// Classify the same delivery as a bug, review its concrete provider labels,
+	// and prove that preview performed no mutation.
+	draftArgs = append(draftArgs, "--type", "bug")
+	draft = run(0, "success", draftArgs...)
+	if draft.Draft == nil || draft.Draft.Draft.Type != "bug" || len(draft.Draft.ProviderDocument.Metadata.Labels) != 1 || draft.Draft.ProviderDocument.Metadata.Labels[0] != "bug" || len(readFake().Mutations) != 0 {
+		t.Fatalf("classification preview=%+v state=%+v", draft.Draft, readFake())
+	}
 	created := run(0, "success", append(draftArgs, "--preview-digest", draft.Draft.Digest, "--authorize-external")...)
 	if created.WorkItem == nil || created.WorkItem.ExternalID != "7" {
 		t.Fatalf("created Work Item = %+v", created.WorkItem)
+	}
+	if applied := readFake(); len(applied.IssueLabels) != 1 || applied.IssueLabels[0] != "bug" || len(applied.Mutations) != 1 {
+		t.Fatalf("creation classification=%+v", applied)
 	}
 	// A human adds a foreign label after creation; still no axiom:stage:*.
 	github := readFake()

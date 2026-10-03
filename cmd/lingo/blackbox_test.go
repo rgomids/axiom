@@ -121,6 +121,14 @@ type canonicalEvent struct {
 	} `json:"setup"`
 	Draft *struct {
 		Digest string `json:"digest"`
+		Draft  struct {
+			Type string `json:"type"`
+		} `json:"draft"`
+		ProviderDocument struct {
+			Metadata struct {
+				Labels []string `json:"labels"`
+			} `json:"metadata"`
+		} `json:"providerDocument"`
 	} `json:"draft"`
 	Selection *struct {
 		Digest string `json:"digest"`
@@ -387,6 +395,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	}
 	ghScript := `#!/bin/sh
 case "$*" in
+  *labels?per_page=100*) printf '%s\n' '[]' ;;
   *search/issues*) printf '%s\n' '{"total_count":0,"items":[]}' ;;
   *issues/7/comments*) printf '%s\n' '{"id":1}' ;;
   *PATCH*issues/7*) printf '%s\n' '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":"closed"}' ;;
