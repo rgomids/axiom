@@ -12,13 +12,17 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/detailartifact"
+	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 // InventoryKind is the read-only compatibility fact observed for one owned
@@ -33,6 +37,9 @@ const (
 	InventoryArtifact         InventoryKind = "artifact_object"
 	InventoryCleanupRecord    InventoryKind = "artifact_cleanup_record"
 	InventoryRetirementRecord InventoryKind = "artifact_retirement_record"
+	InventoryGraph            InventoryKind = "execution_graph"
+	InventoryCoordination     InventoryKind = "coordination_stream"
+	InventoryRuntimeProfile   InventoryKind = "runtime_profile_configuration"
 	InventoryPortableManifest InventoryKind = "portable_manifest"
 	InventoryPOCWorkflow      InventoryKind = "poc_workflow"
 	InventoryRecovery         InventoryKind = "recovery_state"
@@ -45,16 +52,24 @@ const (
 
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
-	return k == InventoryCreateAttempt || k == InventoryExecution || k == InventoryArtifact || k == InventoryCleanupRecord || k == InventoryRetirementRecord
-}
-
-// Supported reports kinds a v1 reader accepts or the POC signature recognizes.
-func (k InventoryKind) Supported() bool {
 	switch k {
-	case InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryPortableManifest, InventoryPOCWorkflow:
+	case InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile:
 		return true
 	}
 	return false
+}
+
+// v1Kinds are the canonical persisted-state v1 kinds. Every kind a v1 writer
+// can produce MUST be listed here so the compatibility guards require it to be
+// exercised by a writer and frozen in the stable corpus.
+var v1Kinds = []InventoryKind{InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryPortableManifest}
+
+// V1Kinds returns a copy of the canonical persisted-state v1 kinds.
+func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...) }
+
+// Supported reports kinds a v1 reader accepts or the POC signature recognizes.
+func (k InventoryKind) Supported() bool {
+	return k == InventoryPOCWorkflow || slices.Contains(v1Kinds, k)
 }
 
 type InventoryEntry struct {
@@ -80,6 +95,7 @@ var ErrInventoryBound = errors.New("inventory entry bound exceeded")
 
 var (
 	hexDigestName   = regexp.MustCompile(`^[0-9a-f]{64}\.json$`)
+	createAttemptRe = regexp.MustCompile(`^\.axiom-create-[0-9a-f]{64}\.json$`)
 	cleanupName     = regexp.MustCompile(`^cleanup-[0-9a-f]{32}\.json$`)
 	versionDirName  = regexp.MustCompile(`^v([0-9]{1,4})$`)
 	schemaVersionRe = regexp.MustCompile(`(?m)^schemaVersion:[ \t]*(-?[0-9]{1,6})[ \t]*$`)
@@ -141,6 +157,12 @@ func inspectInventory(ctx context.Context, path string, walk func(*inventoryWalk
 	return Inventory{Present: true, Entries: state.entries}, nil
 }
 
+// StateRootDirectories are the top-level state directories the inventory
+// classifies. Every directory a v1 store writes below the state root MUST be
+// listed here, or an upgrade would refuse state an earlier release produced;
+// TestEveryStateRootWriterDirectoryIsInventoried enforces that.
+var StateRootDirectories = []string{"artifacts", "coordination", "executions", "graphs", "projects", "runtime-profiles", "work-items", "workflows"}
+
 func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 	return eachName(w, root, ".", func(name string) error {
 		switch name {
@@ -172,6 +194,10 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 				return eachFile(w, items, id, relative, func(file, _ string) (InventoryKind, int) {
 					if protocolName(file) || strings.HasPrefix(file, ".lingo-work-item-") {
 						return InventoryRecovery, 0
+					}
+					// WorkItemStore persists create attempts under a hidden name.
+					if createAttemptRe.MatchString(file) {
+						return "", MaxRecordBytes
 					}
 					if !strings.HasSuffix(file, ".json") || strings.HasPrefix(file, ".") {
 						return InventoryUnknown, 0
@@ -212,6 +238,26 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 			})
 		case "artifacts":
 			return eachVersionDirectory(w, root, name, walkArtifactsV1)
+		case "graphs":
+			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
+				return eachDigestRecordDirectory(w, version, relative, func(wire []byte) InventoryKind {
+					if _, err := executiongraph.DecodeGraph(wire); err == nil {
+						return InventoryGraph
+					}
+					return versionedFailure(wire)
+				})
+			})
+		case "coordination":
+			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
+				return eachDigestRecordDirectory(w, version, relative, func(wire []byte) InventoryKind {
+					if _, err := coordination.DecodeStream(wire); err == nil {
+						return InventoryCoordination
+					}
+					return versionedFailure(wire)
+				})
+			})
+		case "runtime-profiles":
+			return eachVersionDirectory(w, root, name, walkRuntimeProfilesV1)
 		case "workflows":
 			return eachChildDirectory(w, root, name, func(workflows *os.Root, id, relative string) error {
 				if !validUUID(id) {
@@ -238,6 +284,52 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 			}
 			return w.add(name, InventoryUnknown, nil)
 		}
+	})
+}
+
+// eachDigestRecordDirectory walks <project>/<sha256>.json records, the layout
+// GraphStore and CoordinationStore publish below their version directory.
+func eachDigestRecordDirectory(w *inventoryWalk, version *os.Root, relative string, decode func([]byte) InventoryKind) error {
+	return eachName(w, version, relative, func(projectID string) error {
+		childRelative := relative + "/" + projectID
+		if protocolName(projectID) {
+			return w.add(childRelative, InventoryRecovery, nil)
+		}
+		if !validGraphToken(projectID) {
+			return w.add(childRelative, InventoryUnknown, nil)
+		}
+		return eachFile(w, version, projectID, childRelative, func(file, _ string) (InventoryKind, int) {
+			if protocolName(file) {
+				return InventoryRecovery, 0
+			}
+			if !hexDigestName.MatchString(file) {
+				return InventoryUnknown, 0
+			}
+			return "", MaxRecordBytes
+		}, decode)
+	})
+}
+
+func walkRuntimeProfilesV1(w *inventoryWalk, version *os.Root, relative string) error {
+	return eachName(w, version, relative, func(name string) error {
+		childRelative := relative + "/" + name
+		if protocolName(name) {
+			return w.add(childRelative, InventoryRecovery, nil)
+		}
+		if name != "configuration.json" {
+			return w.add(childRelative, InventoryUnknown, nil)
+		}
+		if info, err := version.Lstat(name); err != nil || !info.Mode().IsRegular() {
+			return w.add(childRelative, InventoryUnsafe, nil)
+		}
+		wire, err := readPrivateFileBounded(version, name, MaxRecordBytes)
+		if err != nil {
+			return w.add(childRelative, InventoryUnsafe, nil)
+		}
+		if _, err := runtimeprofile.Decode(wire); err == nil {
+			return w.add(childRelative, InventoryRuntimeProfile, wire)
+		}
+		return w.add(childRelative, versionedFailure(wire), wire)
 	})
 }
 
