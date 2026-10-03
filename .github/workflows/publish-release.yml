@@ -133,9 +133,7 @@ jobs:
     timeout-minutes: 20
     environment: release
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+      contents: read
       actions: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -191,7 +189,9 @@ jobs:
           printf 'projection=%s\n' "$projection" >>"$GITHUB_OUTPUT"
       - name: Re-verify, match the authorized envelope, then publish
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Environment-scoped fine-grained PAT: historical source workflows
+          # differ from main, requiring Workflows: write unavailable to GITHUB_TOKEN.
+          GH_TOKEN: ${{ secrets.AXIOM_RELEASE_PUBLISH_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_REVISION: ${{ inputs.revision }}
           PREPARED_RUN: ${{ inputs.prepared_run }}
@@ -199,10 +199,11 @@ jobs:
           # Classic PAT (project scope) for the user-owned delivery Project;
           # a release environment secret, used only for Projects v2 GraphQL
           # and only when .github/delivery-project.json at the revision sets
-          # "projection": "enabled". Issues use GITHUB_TOKEN.
+          # "projection": "enabled". Repository effects use the publication PAT.
           AXIOM_DELIVERY_PROJECT_TOKEN: ${{ steps.delivery.outputs.projection == 'enabled' && secrets.AXIOM_DELIVERY_PROJECT_TOKEN || '' }}
         working-directory: source
         run: |
+          [[ -n "$GH_TOKEN" ]] || { printf 'release_publish_error: AXIOM_RELEASE_PUBLISH_TOKEN is unavailable\n' >&2; exit 1; }
           [[ $(git rev-parse --verify HEAD) == "$RELEASE_REVISION" ]]
           prepared="$RUNNER_TEMP/prepared"
           # Main, tags and the prepared set may have changed since preflight.

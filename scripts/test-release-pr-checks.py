@@ -14,16 +14,20 @@ PR = dict(number=146, state='open', user={'login': 'github-actions[bot]'},
           base={'ref': 'main', 'repo': {'full_name': 'rgomids/axiom'}},
           head={'ref': 'release-please--branches--main', 'sha': SHA,
                 'repo': {'full_name': 'rgomids/axiom'}},
-          labels=[{'name': 'autorelease: pending'}])
+          labels=[{'name': 'autorelease: pending'}], title='chore(main): release 0.4.0')
+VERSION = '0.4.0'
+MAIN = 'c' * 40
 
 
 class ReleaseChecks(unittest.TestCase):
-    def run_case(self, prs, ref_sha=SHA, current=None, api_error=False, runs=1, dispatch_error=False, drift_after_ci=False):
+    def run_case(self, prs, ref_sha=SHA, current=None, api_error=False, runs=1, dispatch_error=False, drift_after_ci=False,
+                 args=('dispatch', 'rgomids/axiom', VERSION, MAIN), compare='identical', parents=(MAIN,)):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / 'fixture').write_text(json.dumps(dict(prs=prs, ref_sha=ref_sha,
                 current=current if current is not None else (prs[0] if prs else {}),
-                api_error=api_error, dispatch_error=dispatch_error, drift_after_ci=drift_after_ci)))
+                api_error=api_error, dispatch_error=dispatch_error, drift_after_ci=drift_after_ci,
+                compare=compare, parents=list(parents))))
             (root / 'gh').write_text('''#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
@@ -37,13 +41,15 @@ if f['api_error']: sys.exit(1)
 p=a[-1]
 if '?' in p: value=[f['prs']]
 elif '/git/ref/' in p: value={'ref':'refs/heads/release-please--branches--main','object':{'type':'commit','sha':f['ref_sha']}}
+elif '/compare/' in p: value={'status':f['compare']}
+elif '/commits/' in p: value={'sha':p.rsplit('/',1)[1],'parents':[{'sha':x} for x in f['parents']]}
 else:
     value=f['current']
     if f['drift_after_ci'] and (r/'effects').exists(): value['head']['sha']='b'*40
 print(json.dumps(value))
 ''')
             (root / 'gh').chmod(0o755)
-            results = [subprocess.run([str(SCRIPT), 'dispatch', 'rgomids/axiom'],
+            results = [subprocess.run([str(SCRIPT), *args],
                 env={**os.environ, 'PATH': f'{root}:{os.environ["PATH"]}',
                      'FIXTURE_ROOT': str(root)}, capture_output=True, text=True)
                 for _ in range(runs)]
@@ -60,10 +66,40 @@ print(json.dumps(value))
                 self.assertEqual([json.loads(e)[2] for e in effects], ['ci.yml', 'delivery-metadata.yml'])
 
     def test_none_explicit(self):
-        results, effects = self.run_case([])
+        results, effects = self.run_case([], args=('resolve', 'rgomids/axiom'))
         self.assertEqual(results[0].returncode, 0)
         self.assertIn('no_open_release_pr', results[0].stdout)
         self.assertEqual(effects, [])
+
+    def test_planned_dispatch_requires_a_release_pr(self):
+        # A dispatch from release.sh start must have produced the Release PR.
+        self.assert_closed([])
+
+    def test_planned_version_mismatch_gets_no_checks(self):
+        # A Release PR whose version differs from the validated plan gets no
+        # required checks, so it cannot be merged.
+        for version in ('0.3.1', '1.0.0'):
+            with self.subTest(version=version):
+                self.assert_closed([PR], args=('dispatch', 'rgomids/axiom', version, MAIN))
+
+    def test_base_must_be_validated_main(self):
+        # Release Please reads main when it runs: a Release PR built on a
+        # commit merged after the plan gets no required checks.
+        for compare in ('ahead', 'diverged'):
+            with self.subTest(compare=compare):
+                self.assert_closed([PR], compare=compare)
+        self.assert_closed([PR], parents=())
+        self.assert_closed([PR], parents=(MAIN, 'd' * 40))
+        results, effects = self.run_case([PR], compare='behind')
+        self.assertEqual(results[0].returncode, 0, results[0].stderr)
+        self.assertEqual(len(effects), 2)
+
+    def test_dispatch_requires_planned_version(self):
+        for args in (('dispatch', 'rgomids/axiom'), ('dispatch', 'rgomids/axiom', 'v0.4.0', MAIN),
+                     ('dispatch', 'rgomids/axiom', '0.4.0; true', MAIN), ('dispatch', 'rgomids/axiom', VERSION),
+                     ('dispatch', 'rgomids/axiom', VERSION, 'main')):
+            with self.subTest(args=args):
+                self.assert_closed([PR], args=args)
 
     def test_ambiguous(self):
         self.assert_closed([PR, PR])
@@ -115,7 +151,7 @@ print(json.dumps(value))
         workflow = SCRIPT.parent.parent / '.github/workflows/release-please.yml'
         text = workflow.read_text()
         self.assertNotIn('prs_created', text)
-        self.assertIn('./scripts/release-pr-checks.sh dispatch', text)
+        self.assertIn('./scripts/release-pr-checks.sh dispatch "$GITHUB_REPOSITORY" "$PLANNED_VERSION" "$PLANNED_MAIN"', text)
 
 
 if __name__ == '__main__':

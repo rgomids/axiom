@@ -93,6 +93,9 @@ case "${1:-}" in
     exit 0 ;;
   workflow)
     log "workflow ${*:2}"
+    # A dispatched workflow's remote outcome (for example Release Please
+    # opening the Release PR) is staged by the test as an effect script.
+    if [[ -f "$s/dispatch-effect-$3" ]]; then bash "$s/dispatch-effect-$3"; fi
     exit 0 ;;
   run)
     sub=$2
@@ -110,9 +113,12 @@ case "${1:-}" in
     done
     case "$sub" in
       list)
+        # inflight-WORKFLOW.json stages a run that has not completed.
+        if [[ -f "$s/inflight-$workflow.json" ]]; then cat "$s/inflight-$workflow.json"; exit 0; fi
         id=4242
         [[ "$workflow" == release-artifacts.yml ]] && id=5151
-        printf '[{"databaseId":%s,"url":"https://github.com/%s/actions/runs/%s","createdAt":"%s"}]\n' "$id" "$repo" "$id" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" ;;
+        [[ "$workflow" == release-please.yml ]] && id=3131
+        printf '[{"databaseId":%s,"url":"https://github.com/%s/actions/runs/%s","createdAt":"%s","status":"completed"}]\n' "$id" "$repo" "$id" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" ;;
       watch) log "run watch $id" ;;
       download)
         [[ -d "$s/runs/$id/$name" ]] || not_found
@@ -299,6 +305,9 @@ case "$method $path" in
     sha=${sha%%/*}
     cat "$s/checks-$sha.json" 2>/dev/null || printf '{"check_runs":[]}\n' ;;
   "GET commits/"*"/pulls") cat "$s/pulls.json" 2>/dev/null || printf '[]\n' ;;
+  "GET commits/"*)
+    [[ -f "$s/commit-${path#commits/}.json" ]] || not_found
+    cat "$s/commit-${path#commits/}.json" ;;
   "GET pulls?"*)
     head=${path#*head=}
     head=${head%%&*}
@@ -360,6 +369,11 @@ case "$method $path" in
     number=${number%%/*}
     log "LABEL remove $number ${path##*/}"
     jq --argjson n "$number" '(.[] | select(.number == $n) | .labels) |= map(select(.name != "autorelease: pending"))' "$s/pulls.json" >"$s/pulls.new" && mv "$s/pulls.new" "$s/pulls.json" ;;
+  "GET actions/artifacts?name="*)
+    name=${path#actions/artifacts?name=}
+    name=${name%%&*}
+    jq --arg n "$name" '{artifacts: [(.artifacts // [])[] | select(.name == $n)]}' "$s/artifacts.json" 2>/dev/null \
+      || printf '{"artifacts":[]}\n' ;;
   "GET actions/runs/"*)
     [[ -f "$s/runs/${path#actions/runs/}.json" ]] || not_found
     cat "$s/runs/${path#actions/runs/}.json" ;;
@@ -395,7 +409,7 @@ git -C "$fixture" config user.email release-test@example.invalid
 git -C "$fixture" config user.name 'Release Test'
 git -C "$fixture" config commit.gpgsign false
 mkdir -p "$fixture/scripts" "$fixture/.github/rulesets"
-for script in release-tag-version.sh release-preflight.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh release-corrections.sh release-recovery.sh; do
+for script in release-tag-version.sh release-preflight.sh release-plan.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh release-corrections.sh release-recovery.sh; do
   cp "$repository_root/scripts/$script" "$fixture/scripts/$script"
 done
 cp "$repository_root/.github/rulesets/main.json" "$fixture/.github/rulesets/main.json"
@@ -1437,11 +1451,7 @@ green "$c3"
 green "$c4"
 
 release status >"$temporary/status"
-check 'no Release PR: nothing to publish' grep -Fxq next_action=none "$temporary/status"
-printf '[{"number":8,"url":"https://github.com/rgomids/axiom/pull/8","title":"chore(main): release 0.1.0"}]\n' >"$state/pr-open.json"
-release status >"$temporary/status"
-check 'open Release PR needs human review and merge' grep -Fxq next_action=review_release_pr "$temporary/status"
-rm "$state/pr-open.json"
+check 'no Release PR while main records an unpublished release: no new release starts' bash -c "grep -Fxq state=no_release_in_progress '$temporary/status' && grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'release v0.1.0 is recorded on main but not published' '$temporary/status'"
 printf '[{"number":8,"url":"https://github.com/rgomids/axiom/pull/8","title":"chore(main): release 0.1.0","mergeCommit":{"oid":"%s"}}]\n' "$c3" >"$state/pr-merged.json"
 release status >"$temporary/status"
 check 'merged Release PR resolves the stable tag and asks to prepare its release commit' bash -c "grep -Fxq tag=v0.1.0 '$temporary/status' && grep -Fxq revision=$c3 '$temporary/status' && grep -Fxq next_action=prepare '$temporary/status'"
@@ -1468,7 +1478,7 @@ check 'the envelope of a prepared run is deterministic' grep -Fxq "preview_diges
 : >"$state/ledger"
 expect_failure 'publish without authorization is refused' 'requires explicit human authorization' \
   release publish --tag v0.1.0-rc.1 --revision "$c4" --prepared-run 5151 --preview-digest "$digest_value"
-expect_failure 'publish without the prepared run is refused' 'requires the --prepared-run' \
+expect_failure 'publish without a given or discoverable prepared run is refused' 'publication is not the next step' \
   release publish --tag v0.1.0-rc.1 --revision "$c4" --preview-digest "$digest_value" --authorize-publication
 expect_failure 'publish without the preview digest is refused' 'preview-digest' \
   release publish --tag v0.1.0-rc.1 --revision "$c4" --prepared-run 5151 --authorize-publication
@@ -1544,23 +1554,33 @@ check 'Release Please uses its default versioning with pre-1.0 bumps as document
 check 'visible changelog types are exactly the documented release triggers' test "$(jq -r '.packages["."]["changelog-sections"][] | select(.hidden != true) | .type' "$config" | paste -sd, -)" == feat,fix,security,perf,revert
 check 'hidden changelog types are exactly the documented non-triggers' test "$(jq -r '.packages["."]["changelog-sections"][] | select(.hidden == true) | .type' "$config" | paste -sd, -)" == docs,test,refactor,build,ci,chore
 check 'CONTRIBUTING documents the pinned Release Please semantics' bash -c "grep -Fq 'release-please 17.6.0' '$repository_root/CONTRIBUTING.md' && grep -Fq '| \`feat\` | minor | minor |' '$repository_root/CONTRIBUTING.md' && grep -Fq 'hidden in the changelog, not non-releasable' '$repository_root/CONTRIBUTING.md' && grep -Fq 'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0' '$workflows/release-please.yml'"
-check 'Release PR workflow runs on main pushes and dispatch only' test "$(triggers "$workflows/release-please.yml")" == push,workflow_dispatch
+check 'merges never start a release: the Release PR workflow runs on explicit dispatch only' test "$(triggers "$workflows/release-please.yml")" == workflow_dispatch
 check 'publication runs only on explicit dispatch' test "$(triggers "$workflows/publish-release.yml")" == workflow_dispatch
-check 'publication token is scoped to the gated publish job' bash -c "grep -Fxq 'permissions: {}' '$workflows/publish-release.yml' && [[ \$(grep -c 'contents: write' '$workflows/publish-release.yml') == 1 ]] && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fxq '    environment: release' && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'contents: write'"
+check 'built-in publication token is read-only and publication stays gated' bash -c "grep -Fxq 'permissions: {}' '$workflows/publish-release.yml' && ! grep -Eq '^      [a-z-]+: write$' '$workflows/publish-release.yml' && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fxq '    environment: release' && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'contents: read'"
 check 'publication requires dispatch from main and a verified preflight' bash -c "grep -Fq 'refs/heads/main' '$workflows/publish-release.yml' && grep -Fxq '    needs: preflight' '$workflows/publish-release.yml'"
 check 'publication never rebuilds: it consumes the prepared run artifact' bash -c "! grep -Eq 'build-release-archives|upload-artifact' '$workflows/publish-release.yml' && [[ \$(grep -c 'run-id: \${{ inputs.prepared_run }}' '$workflows/publish-release.yml') == 2 ]] && [[ \$(grep -c 'verify-prepared-release.sh' '$workflows/publish-release.yml') == 2 ]]"
 check 'publication is bound to the authorized envelope digest' bash -c "grep -Fq -- '--authorized-digest \"\$PREVIEW_DIGEST\"' '$workflows/publish-release.yml' && grep -Fq 'PREVIEW_DIGEST: \${{ inputs.preview_digest }}' '$workflows/publish-release.yml'"
 check 'preparation builds, verifies and retains the exact set without publishing' bash -c "grep -Fq build-release-archives.sh '$workflows/release-artifacts.yml' && grep -Fq verify-release-artifacts.sh '$workflows/release-artifacts.yml' && grep -Fq release-notes.sh '$workflows/release-artifacts.yml' && grep -Fq 'name: axiom-release-\${{ env.RELEASE_TAG }}' '$workflows/release-artifacts.yml' && ! grep -Eiq 'contents: write|gh release|git tag|git push|publish-release' '$workflows/release-artifacts.yml'"
-# The only secret is the delivery Project credential, and only inside jobs
-# gated by an environment: the approved publish job and the Project sync job.
-check 'only the delivery Project secret is used, only in environment-gated jobs' bash -c "
-  [[ \$(grep -ho 'secrets\.[A-Za-z0-9_]*' $workflows/*.yml | LC_ALL=C sort -u) == secrets.AXIOM_DELIVERY_PROJECT_TOKEN ]] &&
+# Publication and Project credentials stay inside environment-gated jobs.
+check 'only approved secrets are used, only in environment-gated jobs' bash -c "
+  [[ \$(grep -ho 'secrets\.[A-Za-z0-9_]*' $workflows/*.yml | LC_ALL=C sort -u | paste -sd, -) == secrets.AXIOM_DELIVERY_PROJECT_TOKEN,secrets.AXIOM_RELEASE_PUBLISH_TOKEN ]] &&
   [[ \$(grep -l 'secrets\.' $workflows/*.yml | xargs -n1 basename | LC_ALL=C sort | paste -sd, -) == delivery-sync.yml,publish-release.yml ]] &&
-  [[ \$(grep -c 'secrets\.' '$workflows/publish-release.yml') == 1 && \$(grep -c 'secrets\.' '$workflows/delivery-sync.yml') == 1 ]] &&
+  [[ \$(grep -c 'secrets\.' '$workflows/publish-release.yml') == 2 && \$(grep -c 'secrets\.' '$workflows/delivery-sync.yml') == 1 ]] &&
   sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
   sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fxq '    environment: delivery' &&
   sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
   ! sed -n '/^  sync:/,/^  sync-project:/p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.'"
+check 'dedicated publication credential stays out of preflight and checkout' bash -c "
+  ! sed -n '/^  preflight:/,/^  publish:/p' '$workflows/publish-release.yml' | grep -Fq 'secrets.' &&
+  [[ \$(grep -c 'secrets.AXIOM_RELEASE_PUBLISH_TOKEN' '$workflows/publish-release.yml') == 1 ]] &&
+  sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'GH_TOKEN: \${{ secrets.AXIOM_RELEASE_PUBLISH_TOKEN }}' &&
+  ! grep -Eq 'github-token:.*secrets\.|token:.*secrets\.' '$workflows/publish-release.yml'"
+publication_first_command=$(awk '/name: Re-verify, match the authorized envelope, then publish/{step=1} step && /run: \|/{getline; print; exit}' "$workflows/publish-release.yml")
+check 'missing-token guard is the first publication command' grep -Fq '[[ -n "$GH_TOKEN" ]]' <<<"$publication_first_command"
+publication_guard=$(grep -F '[[ -n "$GH_TOKEN" ]]' "$workflows/publish-release.yml" || true)
+expect_failure 'missing publication credential refuses before any script executes' 'AXIOM_RELEASE_PUBLISH_TOKEN is unavailable' \
+  env GH_TOKEN= bash -c "$publication_guard"
+check 'configured publication credential passes the guard' env GH_TOKEN=fixture-publication-token bash -c "$publication_guard"
 check 'delivery workflows: PR metadata check has no token or secret, sync runs only on main pushes' bash -c "
   [[ \$(sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-metadata.yml' | grep -E '^  [a-z_]+:' | tr -d ' :' | paste -sd, -) == pull_request,workflow_dispatch ]] &&
   grep -Fxq 'permissions: {}' '$workflows/delivery-metadata.yml' && ! grep -Eq 'write|secrets\.|pull_request_target' '$workflows/delivery-metadata.yml' &&
@@ -1761,8 +1781,368 @@ check 'historical recovery reconciliation projects only the published completed 
   [[ '$(item 86)' == 'Released|v0.3.0' ]] && [[ \$(jq -r .state '$state/issues/86.json') == closed ]] &&
   ! grep -Eq '^(ISSUE|COMMENT|PROJECT).*153' '$state/ledger'"
 unset AXIOM_DELIVERY_PROJECT_TOKEN
+# A release published through the recovery is a valid previous release: the
+# next start checks it with the pins it records, as verify does.
+rm -f "$state/pr-merged.json"
+printf '%s related=none completes=none\n' "$ralt" >>"$rfix/.github/delivery-corrections.txt"
+rcommit 'docs(delivery): record reviewed correction (#171)' 'Related-Issues: none\nCompletes-Issues: none\n' >/dev/null
+# Notes generated later differ; the recovery release keeps its control notes.
+printf "printf 'Later notes format.\\\\n'\n" >>"$rfix/scripts/release-notes.sh"
+rcommit 'docs(release): change the notes format (#173)' 'Related-Issues: none\nCompletes-Issues: none\n' >/dev/null
+rnext=$(rcommit 'fix(cli): repair after recovery (#172)' 'Related-Issues: none\nCompletes-Issues: none\n')
+git -C "$rfix" push -q origin main
+green "$rnext"
+release status >"$temporary/rnext"
+check 'a recovery-published previous release allows the next start' bash -c "grep -Fxq next_action=start_release '$temporary/rnext' && grep -Fxq previous_release_state=published '$temporary/rnext' && grep -Fxq planned_tag=v0.3.1 '$temporary/rnext'"
+jq '.body |= sub("Recovery corrections SHA-256: `[0-9a-f]{64}`"; "Recovery corrections SHA-256: `bad`")' "$temporary/rrecord-original.json" >"$rrecord"
+release status >"$temporary/rnext"
+check 'malformed recovery pins on the previous release block the next start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'previous release v0.3.0: malformed recovery provenance' '$temporary/rnext'"
+jq --arg r "$(printf '1%.0s' {1..40})" '.body |= sub("Recovery corrections revision: `[0-9a-f]{40}`"; "Recovery corrections revision: `\($r)`")' "$temporary/rrecord-original.json" >"$rrecord"
+release status >"$temporary/rnext"
+check 'a previous release pinning a control revision off main runs none of its scripts and blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'published correction revision is not on first-parent main' '$temporary/rnext'"
+jq --arg r "$rbase" '.body |= sub("Recovery corrections revision: `[0-9a-f]{40}`"; "Recovery corrections revision: `\($r)`")' "$temporary/rrecord-original.json" >"$rrecord"
+release status >"$temporary/rnext"
+check 'a previous release pinning a control revision older than its source blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'correction revision does not descend from source' '$temporary/rnext'"
+jq --arg r "$rsource" '.body |= sub("Recovery corrections revision: `[0-9a-f]{40}`"; "Recovery corrections revision: `\($r)`")' "$temporary/rrecord-original.json" >"$rrecord"
+release status >"$temporary/rnext"
+check 'a previous release pinning its own release commit as control blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'correction pins do not validate at the correction revision' '$temporary/rnext'"
+jq '.body |= sub("- Recovery corrections revision: `[0-9a-f]{40}`\n"; "")' "$temporary/rrecord-original.json" >"$rrecord"
+release status >"$temporary/rnext"
+check 'a recovery previous release without its revision pin blocks the next start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'previous release v0.3.0' '$temporary/rnext'"
+cp "$temporary/rrecord-original.json" "$rrecord"
 fixture=$saved_fixture
 unset AXIOM_RELEASE_CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST
+
+# --- 6. Release Flow v2: merges integrate code, `start` starts releases (ADR-0011) ---
+# A fixture main with delivery metadata and a published v0.1.0. Release Please
+# itself is the fake dispatch effect that opens the Release PR.
+sfix=$temporary/start-fixture
+sremote=$temporary/start-remote.git
+git init -q --bare "$sremote"
+git init -q -b main "$sfix"
+git -C "$sfix" config user.email release-test@example.invalid
+git -C "$sfix" config user.name 'Release Test'
+git -C "$sfix" config commit.gpgsign false
+mkdir -p "$sfix/scripts" "$sfix/.github/rulesets"
+cp "$saved_fixture"/scripts/*.sh "$sfix/scripts/"
+cp "$repository_root/.github/rulesets/main.json" "$sfix/.github/rulesets/main.json"
+git -C "$sfix" remote add origin "$sremote"
+scommit() {
+  [[ -z "${3:-}" ]] || printf '{\n  ".": "%s"\n}\n' "$3" >"$sfix/.release-please-manifest.json"
+  git -C "$sfix" add -A
+  printf '%s\n\n%b' "$1" "${2:-}" | git -C "$sfix" commit -q --allow-empty -F -
+  git -C "$sfix" rev-parse HEAD
+}
+meta='Related-Issues: none\nCompletes-Issues: none\n'
+printf '# Changelog\n\n## [0.1.0](https://github.com/rgomids/axiom/compare/v0.0.0...v0.1.0) (2026-10-01)\n\n* first\n' >"$sfix/CHANGELOG.md"
+s0=$(scommit 'chore(main): release 0.1.0 (#1)' '' 0.1.0)
+git -C "$sfix" push -q origin main
+git -C "$sfix" push -q origin "$s0:refs/tags/v0.1.0"
+# stage_published ID TAG REVISION stages, in the fake GitHub, the published
+# release of TAG at REVISION (non-draft, SHA256SUMS plus one archive) and
+# its tag, as publish-release.sh leaves them.
+stage_published() {
+  local id=$1 tag=$2 rev=$3 archive=$(($1 * 10)) sums=$(($1 * 10 + 1))
+  printf 'archive of %s\n' "$tag" >"$state/assets/$archive"
+  printf '%s  axiom-%s-linux-amd64.tar.gz\n' "$(digest "$state/assets/$archive")" "${tag#v}" >"$state/assets/$sums"
+  jq -n --argjson id "$id" --arg tag "$tag" --arg rev "$rev" --argjson a "$archive" --argjson s "$sums" \
+    --arg ad "sha256:$(digest "$state/assets/$archive")" --arg sd "sha256:$(digest "$state/assets/$sums")" --arg an "axiom-${tag#v}-linux-amd64.tar.gz" \
+    '{id: $id, tag_name: $tag, name: $tag, target_commitish: $rev, draft: false, prerelease: false, immutable: true, body: "notes",
+      assets: [{id: $s, name: "SHA256SUMS", state: "uploaded", digest: $sd}, {id: $a, name: $an, state: "uploaded", digest: $ad}]}' \
+    >"$state/releases/$id.json"
+  printf '%s %s\n' "$tag" "$rev" >>"$state/tags"
+}
+splan() { (cd "$sfix" && "$sfix/scripts/release-plan.sh" --main-ref HEAD); }
+# plan_case NAME SUBJECT BODY: one commit on top of s0, then the plan of it.
+plan_case() {
+  git -C "$sfix" checkout -q -B "case-$1" "$s0"
+  scommit "$2" "$3" >/dev/null
+  splan
+}
+planned() { awk -F= '$1 == "planned_version" {print $2}' <<<"$1"; }
+
+# Versioning (0.x, bump-minor-pre-major).
+check 'plan: hidden types alone are not releasable' bash -c "[[ \$(git -C '$sfix' checkout -q -B case-docs '$s0' && cd '$sfix' && printf x >d && git add -A && printf 'docs: explain\n\n$meta' | git commit -q -F - && ./scripts/release-plan.sh --main-ref HEAD | grep -E '^(releasable|planned_version)=' | paste -sd, -) == releasable=false,planned_version=none ]]"
+check 'plan: fix -> patch' test "$(planned "$(plan_case fix 'fix(cli): repair (#2)' "$meta")")" == 0.1.1
+check 'plan: feat -> minor' test "$(planned "$(plan_case feat 'feat(cli): add (#2)' "$meta")")" == 0.2.0
+check 'plan: breaking feat! -> minor while 0.x' test "$(planned "$(plan_case bang 'feat(cli)!: rename (#2)' "$meta")")" == 0.2.0
+out=$(plan_case footer 'refactor(core): split (#2)' "BREAKING CHANGE: layout moved\n\n$meta")
+check 'plan: a BREAKING CHANGE footer makes a hidden type releasable (minor while 0.x)' bash -c "[[ '$(planned "$out")' == 0.2.0 ]] && grep -Fxq releasable=true <<<'$out'"
+check 'plan: Release-As forces the version' test "$(planned "$(plan_case as 'chore: prepare 0.5.0 (#2)' "Release-As: 0.5.0\n\n$meta")")" == 0.5.0
+# Versioning from 1.0.0: breaking -> major.
+git -C "$sfix" checkout -q -B case-one "$s0"
+s1=$(scommit 'chore(main): release 1.2.3 (#5)' '' 1.2.3)
+git -C "$sfix" push -q origin "$s1:refs/tags/v1.2.3"
+one_case() { git -C "$sfix" checkout -q -B "one-$1" "$s1"; scommit "$2" "$meta" >/dev/null; splan; }
+check 'plan from 1.x: breaking -> major' test "$(planned "$(one_case bang 'fix(cli)!: drop flag (#6)')")" == 2.0.0
+check 'plan from 1.x: feat -> minor' test "$(planned "$(one_case feat 'feat(cli): add (#6)')")" == 1.3.0
+check 'plan from 1.x: fix -> patch' test "$(planned "$(one_case fix 'fix(cli): repair (#6)')")" == 1.2.4
+git -C "$sfix" push -q origin :refs/tags/v1.2.3
+# Refusals: one inconsistent commit stops the plan.
+git -C "$sfix" checkout -q -B case-undeclared "$s0"
+bad=$(scommit 'fix(cli): repair without metadata (#2)')
+expect_failure 'plan: a commit without delivery metadata stops the release' "commit $bad has no delivery metadata" splan
+printf '# reviewed: PR #2 predates its metadata\n%s related=none completes=none\n' "$bad" >"$sfix/.github/delivery-corrections.txt"
+scommit 'docs(delivery): record reviewed correction (#3)' "$meta" >/dev/null
+check 'plan: a reviewed correction merged to main repairs it before any Release PR' test "$(planned "$(splan)")" == 0.1.1
+git -C "$sfix" checkout -q -B case-nonconventional "$s0"
+odd=$(scommit 'Update stuff (#2)' "$meta")
+expect_failure 'plan: a nonconventional subject stops the release' "commit $odd subject is not a Conventional Commit" splan
+git -C "$sfix" checkout -q -B case-malformed "$s0"
+scommit 'fix(cli): repair (#2)' 'Related-Issues: #4\nCompletes-Issues: #5\n' >/dev/null
+expect_failure 'plan: malformed delivery metadata stops the release' 'must also be listed in Related-Issues' splan
+git -C "$sfix" checkout -q -B case-unpublished "$s0"
+scommit 'chore(main): release 0.2.0 (#2)' '' 0.2.0 >/dev/null
+scommit 'fix(cli): repair (#3)' "$meta" >/dev/null
+expect_failure 'plan: the previous release must be published first' 'release v0.2.0 is recorded on main but not published' splan
+git -C "$sfix" checkout -q -B case-tag "$s0"
+scommit 'fix(cli): repair (#2)' "$meta" >/dev/null
+git -C "$sfix" push -q origin "$s0:refs/tags/v0.1.1"
+expect_failure 'plan: an existing planned tag is a conflict' 'tag v0.1.1 already exists' splan
+git -C "$sfix" push -q origin :refs/tags/v0.1.1
+grammar() { grep -E "^ *conventional_re='" "$repository_root/scripts/$1" | sed 's/^ *//'; }
+same_grammar() { [[ $(grammar release-plan.sh | wc -l | tr -d ' ') == 1 && "$(grammar release-plan.sh)" == "$(grammar delivery-issues.sh)" ]]; }
+check 'the plan and the PR title check share one Conventional Commit grammar' same_grammar
+
+# Start: status -> preflight -> dispatch Release Please -> Release PR -> stop.
+git -C "$sfix" checkout -q main
+printf 'feature\n' >"$sfix/feature.txt"
+sfeat=$(scommit 'feat(cli): add feature (#2)' 'Related-Issues: #5\nCompletes-Issues: #5\n')
+git -C "$sfix" push -q origin main
+fixture=$sfix
+reset_github
+issue 5 'Feature'
+printf '{"protection_rules":[{"type":"required_reviewers"}]}\n' >"$state/environment.json"
+green "$sfeat"
+# The previous release must be published on GitHub, not only tagged: the plan
+# is Git-only, release.sh checks the remote publication state. Any dispatch
+# would open a Release PR through this effect.
+printf 'printf %s >"%s/pr-open.json"\n' "'[{\"number\":7,\"url\":\"https://github.com/rgomids/axiom/pull/7\",\"title\":\"chore(main): release 0.2.0\",\"headRefOid\":\"x\"}]'" "$state" \
+  >"$state/dispatch-effect-release-please.yml"
+release status >"$temporary/sstatus"
+check 'previous tag without its GitHub Release: start_release is not offered' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fxq previous_release_state=absent '$temporary/sstatus' && grep -Fq 'previous release v0.1.0 has its tag but its GitHub Release is missing' '$temporary/sstatus'"
+expect_failure 'previous tag without its GitHub Release: start is refused' 'GitHub Release is missing' release start
+check 'previous tag without its GitHub Release: no dispatch, no Release PR' bash -c "! grep -q '^workflow' '$state/ledger' && [[ ! -e '$state/pr-open.json' ]]"
+stage_published 50 v0.1.0 "$s0"
+jq '.draft = true' "$state/releases/50.json" >"$temporary/srel50" && cp "$temporary/srel50" "$state/releases/50.json"
+release status >"$temporary/sstatus"
+check 'previous GitHub Release still a draft: start_release is not offered' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fxq previous_release_state=draft '$temporary/sstatus' && grep -Fq 'GitHub Release is draft' '$temporary/sstatus'"
+expect_failure 'previous GitHub Release still a draft: start is refused' 'GitHub Release is draft' release start
+jq --arg c "$sfeat" '.draft = false | .target_commitish = $c' "$state/releases/50.json" >"$temporary/srel50" && cp "$temporary/srel50" "$state/releases/50.json"
+release status >"$temporary/sstatus"
+check 'previous GitHub Release at another revision: start_release is not offered' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'previous release v0.1.0 is not consistently published' '$temporary/sstatus' && grep -Fq \"release targets '$sfeat'\" '$temporary/sstatus'"
+expect_failure 'previous GitHub Release at another revision: start is refused' 'not consistently published' release start
+jq '.target_commitish = "'"$s0"'" | .tag_name = "v0.1.0-other"' "$state/releases/50.json" >"$temporary/srel50" && cp "$temporary/srel50" "$state/releases/50.json"
+release status >"$temporary/sstatus"
+check 'previous GitHub Release bound to another tag: start_release is not offered' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'previous release v0.1.0 is not consistently published' '$temporary/sstatus'"
+check 'refused previous-release states dispatched nothing and opened no Release PR' bash -c "! grep -q '^workflow' '$state/ledger' && [[ ! -e '$state/pr-open.json' ]]"
+rm "$state/dispatch-effect-release-please.yml" "$state/releases/50.json"
+: >"$state/tags"
+stage_published 50 v0.1.0 "$s0"
+release status >"$temporary/sstatus"
+check 'no release in progress: status plans the next release without effects' bash -c "grep -Fxq state=no_release_in_progress '$temporary/sstatus' && grep -Fxq next_action=start_release '$temporary/sstatus' && grep -Fxq planned_version=0.2.0 '$temporary/sstatus' && grep -Fxq planned_tag=v0.2.0 '$temporary/sstatus' && grep -Fxq plan.issues=5 '$temporary/sstatus' && [[ \$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|workflow)' '$state/ledger' || true) == 0 ]]"
+check 'start_release is offered only over a published previous GitHub Release' grep -Fxq previous_release_state=published "$temporary/sstatus"
+rm "$state/checks-$sfeat.json"
+release status >"$temporary/sstatus"
+check 'red or missing CI on main blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'required CI on main' '$temporary/sstatus'"
+green "$sfeat"
+printf '{"id":900,"tag_name":"v0.2.0","name":"v0.2.0","draft":true,"prerelease":false,"target_commitish":"%s","assets":[]}\n' "$sfeat" >"$state/releases/900.json"
+release status >"$temporary/sstatus"
+check 'a GitHub Release already using the planned tag blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'already uses v0.2.0' '$temporary/sstatus'"
+rm "$state/releases/900.json"
+printf '[{"databaseId":3030,"url":"https://github.com/rgomids/axiom/actions/runs/3030","createdAt":"2026-10-02T00:00:00Z","status":"in_progress"}]\n' >"$state/inflight-release-please.yml.json"
+release status >"$temporary/sstatus"
+check 'an in-flight Release Please run is reported, never dispatched again' bash -c "grep -Fxq state=release_pr_starting '$temporary/sstatus' && grep -Fxq next_action=await_run '$temporary/sstatus' && grep -Fxq run_id=3030 '$temporary/sstatus'"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'status --tag also waits for an in-flight Release Please run' bash -c "grep -Fxq state=release_pr_starting '$temporary/sstatus' && grep -Fxq next_action=await_run '$temporary/sstatus' && grep -Fxq run_id=3030 '$temporary/sstatus'"
+expect_failure 'start is refused while Release Please runs' 'starting a release is not the next step' release start
+rm "$state/inflight-release-please.yml.json"
+check 'refused starts dispatched nothing' test "$(grep -c '^workflow' "$state/ledger" || true)" == 0
+expect_failure 'start takes no version or revision from the operator' 'start takes no options' release start --tag v0.9.0
+spr_head=$(printf 'e%.0s' {1..40})
+release_pr_head() { printf '{"sha":"%s","parents":[{"sha":"%s"}]}\n' "$spr_head" "$1" >"$state/commit-$spr_head.json"; }
+cat >"$state/dispatch-effect-release-please.yml" <<EFFECT
+printf '[{"number":7,"url":"https://github.com/rgomids/axiom/pull/7","title":"chore(main): release 0.2.0","headRefOid":"$spr_head"}]\n' >"$state/pr-open.json"
+printf '{"sha":"$spr_head","parents":[{"sha":"%s"}]}\n' "\$(git -C '$sfix' rev-parse HEAD)" >"$state/commit-$spr_head.json"
+EFFECT
+cp "$state/dispatch-effect-release-please.yml" "$temporary/release-please-effect"
+green "$spr_head"
+release start >"$temporary/sstart"
+check 'start dispatches Release Please once with the planned version and exact main' bash -c "[[ \$(grep -c '^workflow run release-please.yml' '$state/ledger') == 1 ]] && grep -Fq 'planned_version=0.2.0' '$state/ledger' && grep -Fq 'main=$sfeat' '$state/ledger' && ! grep -q '^workflow run release-artifacts' '$state/ledger'"
+check 'start stops at the Release PR with its URL, planned version and tag' bash -c "grep -Fxq release_pr=https://github.com/rgomids/axiom/pull/7 '$temporary/sstart' && grep -Fxq planned_version=0.2.0 '$temporary/sstart' && grep -Fxq planned_tag=v0.2.0 '$temporary/sstart' && grep -Fxq state=release_pr_open '$temporary/sstart' && grep -Fxq next_action=review_release_pr '$temporary/sstart'"
+check 'start creates no tag, release, asset or label' bash -c "[[ $(release_effects) == 0 ]] && [[ -z \$(git -C '$sremote' tag -l v0.2.0) ]]"
+rm "$state/dispatch-effect-release-please.yml"
+expect_failure 'start again with an open Release PR is refused (idempotent)' 'starting a release is not the next step' release start
+check 'repeated start never duplicates the dispatch' test "$(grep -c '^workflow run release-please.yml' "$state/ledger")" == 1
+# Gate 1: an open Release PR is human authority; nothing is prepared.
+expect_failure 'open Release PR: prepare is refused' 'preparation is not the next step' release prepare
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'open Release PR: a stable status asks for review, not preparation' bash -c "grep -Fxq next_action=review_release_pr '$temporary/sstatus' && ! grep -q '^preview_digest=' '$temporary/sstatus'"
+check 'open Release PR: no preparation was dispatched' bash -c "! grep -q '^workflow run release-artifacts' '$state/ledger'"
+# status and status --tag judge one Release PR by one path (release_pr_facts).
+decision() { grep -E '^(state|next_action|reason|release_pr|release_pr_version|release_pr_behind_main)=' "$1"; }
+same_decision() {
+  release status >"$temporary/sstatus"
+  release status --tag "$1" >"$temporary/sstatus-tag"
+  [[ "$(decision "$temporary/sstatus")" == "$(decision "$temporary/sstatus-tag")" ]]
+}
+check 'open Release PR: status --tag reaches the same decision as status' same_decision v0.2.0
+cp "$state/pr-open.json" "$temporary/spr-open"
+jq '.[0].title = "chore(main): release 0.2.10"' "$temporary/spr-open" >"$state/pr-open.json"
+release status --tag v0.2.1 >"$temporary/sstatus"
+check 'status --tag v0.2.1 never accepts the Release PR of 0.2.10' bash -c "grep -Fxq state=no_release_in_progress '$temporary/sstatus' && grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'no Release PR prepares 0.2.1' '$temporary/sstatus' && ! grep -q '^release_pr=' '$temporary/sstatus'"
+jq '.[0].title = "chore(main): release 0.2.1"' "$temporary/spr-open" >"$state/pr-open.json"
+release status --tag v0.2.10 >"$temporary/sstatus"
+check 'status --tag v0.2.10 never accepts the Release PR of 0.2.1' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'no Release PR prepares 0.2.10' '$temporary/sstatus'"
+jq '.[0].title = "chore(main): release 0.2.0 (extra)"' "$temporary/spr-open" >"$state/pr-open.json"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'status --tag needs the exact Release PR title, not a substring' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'no Release PR prepares 0.2.0' '$temporary/sstatus'"
+jq '. + [.[0] | .number = 9 | .url = "https://github.com/rgomids/axiom/pull/9" | .title = "chore(main): release 0.2.10"]' "$temporary/spr-open" >"$state/pr-open.json"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'status --tag is blocked like status when more than one Release PR is open' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'more than one open Release PR' '$temporary/sstatus'"
+cp "$temporary/spr-open" "$state/pr-open.json"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'status --tag checks the open Release PR against the plan of main' bash -c "grep -Fxq next_action=review_release_pr '$temporary/sstatus' && grep -Fxq release_pr_version=0.2.0 '$temporary/sstatus' && grep -Fxq planned_version=0.2.0 '$temporary/sstatus' && grep -Fxq release_pr_base=$sfeat '$temporary/sstatus' && grep -Fxq previous_release_state=published '$temporary/sstatus'"
+cp "$state/releases/50.json" "$temporary/srel50"
+rm "$state/releases/50.json"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'an open Release PR is not offered for review while the previous release is unpublished' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'GitHub Release is missing' '$temporary/sstatus'"
+check 'the unpublished previous release blocks status and status --tag alike' same_decision v0.2.0
+cp "$temporary/srel50" "$state/releases/50.json"
+sdocs=$(scommit 'docs(cli): explain feature (#3)' "$meta")
+git -C "$sfix" push -q origin main
+green "$sdocs"
+release status >"$temporary/sstatus"
+check 'a Release PR behind main by validated hidden commits stays reviewable (branch update only)' bash -c "grep -Fxq next_action=review_release_pr '$temporary/sstatus' && grep -Fxq release_pr_behind_main=1 '$temporary/sstatus' && grep -Fq 'update its branch' '$temporary/sstatus'"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'status --tag: hidden-only commits after the Release PR keep it reviewable (branch update only)' bash -c "grep -Fxq next_action=review_release_pr '$temporary/sstatus' && grep -Fxq release_pr_behind_main=1 '$temporary/sstatus' && grep -Fq 'update its branch' '$temporary/sstatus'"
+check 'status --tag and status agree on hidden-only commits' same_decision v0.2.0
+sfix2=$(scommit 'fix(cli): repair feature (#4)' "$meta")
+git -C "$sfix" push -q origin main
+green "$sfix2"
+release status >"$temporary/sstatus"
+check 'a releasable commit merged after the Release PR requires a refresh' bash -c "grep -Fxq next_action=refresh_release_pr '$temporary/sstatus' && grep -Fq 'main changed the release' '$temporary/sstatus'"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'status --tag: a releasable commit after the Release PR requires a refresh, never a review' bash -c "grep -Fxq next_action=refresh_release_pr '$temporary/sstatus' && ! grep -Fxq next_action=review_release_pr '$temporary/sstatus'"
+check 'status --tag and status agree on a stale Release PR' same_decision v0.2.0
+rm "$state/checks-$sfix2.json"
+release status >"$temporary/sstatus"
+check 'a refresh is not offered on a red main' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'must be refreshed once it is green' '$temporary/sstatus'"
+release status --tag v0.2.0 >"$temporary/sstatus"
+check 'status --tag: a stale Release PR on a red main is blocked, never reviewed' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'must be refreshed once it is green' '$temporary/sstatus'"
+green "$sfix2"
+cp "$temporary/release-please-effect" "$state/dispatch-effect-release-please.yml"
+release start >"$temporary/sstart" 2>&1 || true
+rm "$state/dispatch-effect-release-please.yml"
+check 'start refreshes a stale Release PR after a new preflight' bash -c "[[ \$(grep -c '^workflow run release-please.yml' '$state/ledger') == 2 ]] && grep -Fq 'main=$sfix2' '$state/ledger'"
+release status >"$temporary/sstatus"
+check 'the refreshed Release PR is reviewable again' grep -Fxq next_action=review_release_pr "$temporary/sstatus"
+git -C "$sfix" reset -q --hard "$sfeat"
+git -C "$sfix" push -q -f origin main
+release_pr_head "$sfeat"
+printf '[{"number":7,"url":"https://github.com/rgomids/axiom/pull/7","title":"chore(main): release 0.9.0","headRefOid":"%s"}]\n' "$spr_head" >"$state/pr-open.json"
+release status >"$temporary/sstatus"
+check 'a Release PR version different from the plan is never offered for review' bash -c "grep -Fxq next_action=refresh_release_pr '$temporary/sstatus' && grep -Fq 'it records 0.9.0, main plans 0.2.0' '$temporary/sstatus'"
+check 'status --tag of that Release PR version agrees with status' same_decision v0.9.0
+printf '[{"number":7,"url":"https://github.com/rgomids/axiom/pull/7","title":"chore(main): release 0.2.0","headRefOid":"%s"}]\n' "$spr_head" >"$state/pr-open.json"
+sbad=$(scommit 'fix(cli): merged without metadata (#4)')
+git -C "$sfix" push -q origin main
+release status >"$temporary/sstatus"
+check 'an inconsistent commit merged after the Release PR blocks its review' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'commit $sbad has no delivery metadata' '$temporary/sstatus'"
+rm "$state/pr-open.json"
+: >"$state/ledger"
+release status >"$temporary/sstatus"
+expect_failure 'invalid metadata: start fails in preflight' "commit $sbad has no delivery metadata" release start
+check 'invalid metadata: no Release PR, artifact, tag or release' bash -c "[[ \$(grep -Ec '^(workflow|POST|PATCH|DELETE|UPLOAD|LABEL)' '$state/ledger' || true) == 0 ]] && [[ ! -e '$state/pr-open.json' ]] && [[ -z \$(git -C '$sremote' tag -l 'v0.2*') ]] && [[ \$(ls '$state/releases') == 50.json ]]"
+git -C "$sfix" reset -q --hard "$sfeat"
+git -C "$sfix" push -q -f origin main
+cat >"$state/dispatch-effect-release-please.yml" <<EFFECT
+printf '[{"number":7,"url":"https://github.com/rgomids/axiom/pull/7","title":"chore(main): release 0.3.0","headRefOid":"$spr_head"}]\n' >"$state/pr-open.json"
+EFFECT
+expect_failure 'a Release PR whose version differs from the plan fails start closed' 'the Release PR is not ready for review' release start
+rm "$state/dispatch-effect-release-please.yml" "$state/pr-open.json"
+
+# Human merge: the merged Release PR is discovered; prepare uses its commit.
+printf '# Changelog\n\n## [0.2.0](https://github.com/rgomids/axiom/compare/v0.1.0...v0.2.0) (2026-10-02)\n\n### Features\n\n* **cli:** add feature ([#2](https://github.com/rgomids/axiom/issues/2)) [0.2.0]\n\n## [0.1.0](https://github.com/rgomids/axiom/compare/v0.0.0...v0.1.0) (2026-10-01)\n\n* first\n' >"$sfix/CHANGELOG.md"
+srel=$(scommit 'chore(main): release 0.2.0 (#7)' '' 0.2.0)
+git -C "$sfix" push -q origin main
+green "$srel"
+printf '[{"number":7,"url":"https://github.com/rgomids/axiom/pull/7","title":"chore(main): release 0.2.0","mergeCommit":{"oid":"%s"}}]\n' "$srel" >"$state/pr-merged.json"
+printf '[{"number":7,"merged_at":"2026-10-02T00:00:00Z","labels":[{"name":"autorelease: pending"}]}]\n' >"$state/pulls.json"
+: >"$state/ledger"
+release status >"$temporary/sstatus"
+check 'merged Release PR: the release commit is discovered without operator SHAs' bash -c "grep -Fxq state=release_pr_merged '$temporary/sstatus' && grep -Fxq tag=v0.2.0 '$temporary/sstatus' && grep -Fxq revision=$srel '$temporary/sstatus' && grep -Fxq next_action=prepare '$temporary/sstatus'"
+check 'a new start is refused while a merged release awaits publication' bash -c "! (cd '$sfix' && ./scripts/release.sh start) 2>/dev/null"
+stage_prepared_run 5151 v0.2.0 "$srel" first
+release prepare >"$temporary/sprepare"
+check 'prepare dispatches the exact release commit and nothing else' bash -c "[[ \$(grep -c '^workflow run release-artifacts.yml' '$state/ledger') == 1 ]] && grep -Fq 'tag=v0.2.0 -f revision=$srel' '$state/ledger' && [[ \$(grep -c '^workflow' '$state/ledger') == 1 ]]"
+check 'prepare creates no tag or release' bash -c "[[ $(release_effects) == 0 ]] && [[ -z \$(git -C '$sremote' tag -l v0.2.0) ]] && [[ \$(ls '$state/releases') == 50.json ]]"
+check 'prepare stops at the authority boundary with the complete envelope' bash -c "grep -Fxq state=awaiting_publication_authority '$temporary/sprepare' && grep -Fxq next_action=authorize_publication '$temporary/sprepare' && grep -Fxq preview.revision=$srel '$temporary/sprepare' && grep -Fxq preview.tag=v0.2.0 '$temporary/sprepare' && grep -Fxq preview.make_latest=true '$temporary/sprepare' && grep -Fxq preview.prepared_run=5151 '$temporary/sprepare' && grep -Fxq preview.delivery_issues=5 '$temporary/sprepare' && grep -q '^preview.effect.tag=create_at_revision' '$temporary/sprepare' && grep -Eq '^preview_digest=[0-9a-f]{64}$' '$temporary/sprepare'"
+sdigest=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/sprepare")
+# Continuation: a later $axiom-release finds the prepared run by itself.
+printf '{"artifacts":[{"name":"axiom-release-v0.2.0","expired":false,"created_at":"2026-10-02T01:00:00Z","workflow_run":{"id":5151}}]}\n' >"$state/artifacts.json"
+release status >"$temporary/sstatus"
+check 'status rediscovers the verified prepared run and the same envelope' bash -c "grep -Fxq prepared_run_source=discovered '$temporary/sstatus' && grep -Fxq preview_digest=$sdigest '$temporary/sstatus'"
+expect_failure 'prepare again is refused once a verified set exists (no duplicate build)' 'preparation is not the next step' release prepare
+: >"$state/ledger"
+expect_failure 'no authorization: zero effects' 'requires explicit human authorization' release publish --preview-digest "$sdigest"
+expect_failure 'stale authority: an old digest is refused' 'preview changed; review and authorize again' \
+  release publish --preview-digest "$(printf 'b%.0s' {1..64})" --authorize-publication
+stage_prepared_run 5151 v0.2.0 "$srel" drifted
+expect_failure 'drift: a changed prepared set invalidates the authorized digest' 'preview changed; review and authorize again' \
+  release publish --preview-digest "$sdigest" --authorize-publication
+stage_prepared_run 5151 v0.2.0 "$srel" first
+stage_prepared_run 6262 v0.2.0 "$srel" first
+expect_failure 'the digest binds the prepared run: another run with the same bytes is refused' 'preview changed; review and authorize again' \
+  release publish --preview-digest "$sdigest" --prepared-run 6262 --authorize-publication
+expect_failure 'a given revision must equal the envelope one' 'differs from the envelope' \
+  release publish --preview-digest "$sdigest" --revision "$sfeat" --authorize-publication
+check 'refused publications had zero effects' test "$(mutations)" == 0
+printf '[{"databaseId":4040,"url":"https://github.com/rgomids/axiom/actions/runs/4040","createdAt":"2026-10-02T00:00:00Z","status":"waiting"}]\n' >"$state/inflight-publish-release.yml.json"
+release status >"$temporary/sstatus"
+check 'a publication waiting for environment approval is reported, never redispatched' bash -c "grep -Fxq state=publishing '$temporary/sstatus' && grep -Fxq next_action=await_run '$temporary/sstatus' && grep -Fxq run_status=waiting '$temporary/sstatus'"
+expect_failure 'publish is refused while a publication run is in flight' 'publication is not the next step' \
+  release publish --preview-digest "$sdigest" --authorize-publication
+rm "$state/inflight-publish-release.yml.json"
+release publish --preview-digest "$sdigest" --authorize-publication >"$temporary/sdispatch"
+check 'the authorized digest alone dispatches the discovered exact envelope once' bash -c "[[ \$(grep -c '^workflow run publish-release.yml' '$state/ledger') == 1 ]] && grep -Fq 'tag=v0.2.0 -f revision=$srel -f prepared_run=5151 -f preview_digest=$sdigest' '$state/ledger' && [[ \$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL)' '$state/ledger' || true) == 0 ]]"
+
+# Publication (the workflow's publish-release.sh on the prepared bytes), then verify.
+sprep=$state/runs/5151/axiom-release-v0.2.0
+spub=("$sfix/scripts/publish-release.sh" --repo rgomids/axiom --tag v0.2.0 --revision "$srel" --make-latest true --prepared-run 5151
+  --dir "$sprep/artifacts" --evidence "$sprep/release-evidence.txt" --notes "$sprep/release-notes.md")
+"${spub[@]}" --authorized-digest "$("${spub[@]}" --envelope | awk -F= '$1 == "preview_digest" {print $2}')" >/dev/null
+git -C "$sfix" push -q origin "$srel:refs/tags/v0.2.0"
+release status >"$temporary/sstatus"
+check 'published: status routes to verification' bash -c "grep -Fxq state=published '$temporary/sstatus' && grep -Fxq next_action=verify_published '$temporary/sstatus'"
+release verify --download >"$temporary/sverify"
+check 'verify reads back tag, revision, assets, latest and the prepared bytes' bash -c "grep -Fxq publication_state=published '$temporary/sverify' && grep -Fxq latest=v0.2.0 '$temporary/sverify' && grep -Fxq artifacts_verified=pass '$temporary/sverify' && grep -Fxq prepared_match=pass '$temporary/sverify' && grep -Fxq result=pass '$temporary/sverify'"
+stage_prepared_run 5151 v0.2.0 "$srel" other-bytes
+expect_failure 'verify fails when the published assets differ from the prepared set' 'published assets differ from the prepared set' release verify
+stage_prepared_run 5151 v0.2.0 "$srel" first
+sasset=$(jq -r 'select(.tag_name == "v0.2.0") | .assets[] | select(.name | endswith("linux-amd64.tar.gz")) | .id' "$state"/releases/*.json)
+cp "$state/assets/$sasset" "$temporary/sasset"
+printf 'tampered\n' >>"$state/assets/$sasset"
+expect_failure 'verify fails when a published asset differs' 'checksum mismatch' release verify --download
+cp "$temporary/sasset" "$state/assets/$sasset"
+srelease_file=$(grep -l '"v0.2.0"' "$state"/releases/*.json)
+cp "$srelease_file" "$temporary/srelease.json"
+jq --arg c "$sfeat" '.target_commitish = $c' "$temporary/srelease.json" >"$srelease_file"
+expect_failure 'verify fails when the release revision differs' "release targets '$sfeat'" release verify
+cp "$temporary/srelease.json" "$srelease_file"
+git -C "$sfix" push -q -f origin "$sfeat:refs/tags/v0.2.0"
+expect_failure 'verify fails when the tag points elsewhere' 'release_preflight_error' release verify
+git -C "$sfix" push -q -f origin "$srel:refs/tags/v0.2.0"
+check 'verify passes again on the consistent release' bash -c "cd '$sfix' && ./scripts/release.sh verify | grep -Fxq result=pass"
+fixture=$saved_fixture
+
+# Static: the skill orchestrates the new contract.
+check 'skill starts releases through release.sh start and never merges' bash -c "grep -Fq 'scripts/release.sh start' '$skill' && grep -Fq 'Merges integrate code' '$skill' && ! grep -Eiq 'gh pr (merge|review)' '$skill'"
+check 'release-please.yml re-runs the plan on the planned main before Release Please' bash -c "
+  w='$workflows/release-please.yml'
+  [[ \$(grep -n 'release-plan.sh --main-ref HEAD' \"\$w\" | cut -d: -f1) -lt \$(grep -n 'googleapis/release-please-action@' \"\$w\" | cut -d: -f1) ]] &&
+  grep -Fq 'ref: \${{ inputs.main }}' \"\$w\" && grep -Fq '[[ \"\$DISPATCH_REF\" == refs/heads/main ]]' \"\$w\" &&
+  grep -Fq 'PLANNED_VERSION: \${{ inputs.planned_version }}' \"\$w\" && ! grep -Fq '\${{ inputs.planned_version }}\"' \"\$w\""
 
 if ((failures > 0)); then
   printf 'FAIL: %s release flow check(s) failed\n' "$failures" >&2
