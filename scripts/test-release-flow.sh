@@ -1758,15 +1758,15 @@ jq '.rules |= map(if .type == "required_status_checks" then .parameters.required
 # Negative policies are immutable ancestor pins too; malformed trailing rules
 # must not authorize CI using the valid rows jq emitted before its error.
 printf '{"rules":[]}\n' >"$rfix/.github/rulesets/main.json"
-rcontrol_empty_policy=$(rcommit 'test: empty historical correction CI policy')
+rcontrol_empty_policy=$(rcommit 'test: empty historical correction CI policy' 'Related-Issues: none\nCompletes-Issues: none\n')
 jq '.rules += [{type: "required_status_checks", parameters: {required_status_checks: null}}]' \
   "$temporary/historical-ruleset" >"$rfix/.github/rulesets/main.json"
-rcontrol_partial_policy=$(rcommit 'test: partially malformed historical correction CI policy')
+rcontrol_partial_policy=$(rcommit 'test: partially malformed historical correction CI policy' 'Related-Issues: none\nCompletes-Issues: none\n')
 printf 'invalid json\n' >"$rfix/.github/rulesets/main.json"
-rcontrol_malformed_policy=$(rcommit 'test: malformed historical correction CI JSON')
+rcontrol_malformed_policy=$(rcommit 'test: malformed historical correction CI JSON' 'Related-Issues: none\nCompletes-Issues: none\n')
 jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks |= map(.integration_id = "15368") else . end)' \
   "$temporary/historical-ruleset" >"$rfix/.github/rulesets/main.json"
-rcontrol_unbound_policy=$(rcommit 'test: invalid historical correction integration binding')
+rcontrol_unbound_policy=$(rcommit 'test: invalid historical correction integration binding' 'Related-Issues: none\nCompletes-Issues: none\n')
 cp "$temporary/historical-ruleset" "$rfix/.github/rulesets/main.json"
 rcontrol=$(rcommit 'fix(release): reviewed metadata recovery' 'Related-Issues: #153\nCompletes-Issues: none\n')
 cp "$repository_root/scripts/publish-release.sh" "$rfix/scripts/publish-release.sh"
