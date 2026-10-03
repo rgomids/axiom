@@ -23,11 +23,12 @@ Use an expiring, repository-scoped fine-grained PAT stored as
 only to `GH_TOKEN` in the publication script step, after the human environment
 gate. Missing secret refuses before scripts run, with no token fallback.
 
-The PAT needs Contents write and Workflows write for release publication,
-Issues write and Pull requests write for the existing envelope's repository
-effects, and Actions read for prepared-run verification. Preflight, artifact
-download and checkout retain read-only `GITHUB_TOKEN`; checkouts never persist
-credentials.
+The PAT needs Contents write and Workflows write for release publication
+and Actions read for prepared-run verification. As amended by ADR-0013, Issue
+records and PR labels use the job's `GITHUB_TOKEN` with Issues write and Pull
+requests write, preserving the trusted `github-actions[bot]` record author.
+Preflight, artifact download and checkout retain read-only permissions;
+checkouts never persist credentials.
 The Project token retains its independent GraphQL-only role.
 
 This changes authentication, not publication authority. Source revision,

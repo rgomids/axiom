@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/rgomids/axiom/internal/testfs"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -226,7 +227,7 @@ func TestUnsafeFilesystemFactsFailClosed(t *testing.T) {
 		mutate func(*testing.T, Roots)
 	}{
 		{"symlink entry", func(t *testing.T, roots Roots) {
-			if err := os.Symlink(t.TempDir(), filepath.Join(roots.State, "work-items", pocProjectID, "link.json")); err != nil {
+			if err := testfs.Symlink(t, t.TempDir(), filepath.Join(roots.State, "work-items", pocProjectID, "link.json")); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -246,7 +247,7 @@ func TestUnsafeFilesystemFactsFailClosed(t *testing.T) {
 			writePrivate(t, filepath.Join(roots.State, "work-items", pocProjectID, "large.json"), make([]byte, local.MaxRecordBytes+1))
 		}},
 		{"non-regular entry", func(t *testing.T, roots Roots) {
-			if err := syscall.Mkfifo(filepath.Join(roots.State, "work-items", pocProjectID, "pipe.json"), 0o600); err != nil {
+			if err := makeFIFO(filepath.Join(roots.State, "work-items", pocProjectID, "pipe.json")); err != nil {
 				t.Skipf("fifo unavailable: %v", err)
 			}
 		}},
@@ -455,7 +456,7 @@ func assertPrivateTree(t *testing.T, root string, files int) {
 		if err != nil {
 			return err
 		}
-		if entry.IsDir() && info.Mode().Perm() != 0o700 || !entry.IsDir() && info.Mode().Perm() != 0o600 || info.Mode()&os.ModeSymlink != 0 {
+		if entry.IsDir() && !testfs.PrivateMode(path, 0o700) || !entry.IsDir() && !testfs.PrivateMode(path, 0o600) || info.Mode()&os.ModeSymlink != 0 {
 			t.Fatalf("unsafe transfer mode %s for %s", info.Mode(), path)
 		}
 		if !entry.IsDir() {
@@ -510,7 +511,7 @@ func removeAll(t *testing.T, path string) {
 
 func chmod(t *testing.T, path string, mode os.FileMode) {
 	t.Helper()
-	if err := os.Chmod(path, mode); err != nil {
+	if err := testfs.SharedMode(path, mode); err != nil {
 		t.Fatal(err)
 	}
 }

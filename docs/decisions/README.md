@@ -14,6 +14,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 - [ADR-0008 — Minimal machine-local Execution record](0008-minimal-machine-local-execution-record.md) — **Accepted, 2026-09-20**; bounded sequential workflow authority, revisioned transitions, resume and cross-boundary correlation without defining a general Execution graph.
 - [ADR-0009 — Parent/child Execution Graph](0009-parent-child-execution-graph.md) — **Accepted, 2026-09-26**; revisioned DAG, lineage, authority, isolation, integration, structured coordination and cross-Runtime Evidence. S8/T30–T36 implementation was authorized on 2026-09-27 (Issue #97 comment #5852650410); the real T36 Runtime run remains separately gated.
 
+- [ADR-0010 — Windows native filesystem boundary](0010-windows-native-filesystem-boundary.md) — **Accepted for the requested implementation, 2026-09-30**; native Windows security boundary. Upstream acceptance remains subject to PR review; release publication requires separate authority.
+
 ## Candidate assessment
 
 | Candidate | Current classification | ADR now? |
@@ -45,3 +47,5 @@ ADR-0010 defines opt-in [pinned release metadata recovery](0010-pinned-release-c
 ADR-0011 makes the [release start command-driven](0011-command-driven-release-start.md): merges integrate code, `$axiom-release` starts releases after a preflight of the whole release range.
 
 ADR-0012 proposes the [environment-scoped publication credential](0012-release-publication-credential.md) required for preserved historical release sources.
+
+ADR-0013 proposes [explicit published-release control-code repair](0013-published-release-control-repair.md), preserving original metadata pins and binding a separate execution SHA.

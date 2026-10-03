@@ -344,7 +344,9 @@ case "$method $path" in
     log "COMMENT $number $(jq -r '.body | split("\n")[0]' "$input")"
     mkdir -p "$s/comments"
     [[ -f "$s/comments/$number.json" ]] || printf '[]' >"$s/comments/$number.json"
-    jq --slurpfile c "$input" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '. + [{id: (length + 1), user: {login: "github-actions[bot]"}, created_at: $at, body: $c[0].body}]' \
+    comment_login='github-actions[bot]'
+    if [[ -n "${FAKE_PUBLICATION_TOKEN:-}" && "${GH_TOKEN:-}" == "$FAKE_PUBLICATION_TOKEN" ]]; then comment_login=rgomids; fi
+    jq --slurpfile c "$input" --arg login "$comment_login" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '. + [{id: (length + 1), user: {login: $login}, created_at: $at, body: $c[0].body}]' \
       "$s/comments/$number.json" >"$s/comments/$number.new" && mv "$s/comments/$number.new" "$s/comments/$number.json"
     printf '{"id":1}\n' ;;
   "PATCH issues/"*)
@@ -409,7 +411,7 @@ git -C "$fixture" config user.email release-test@example.invalid
 git -C "$fixture" config user.name 'Release Test'
 git -C "$fixture" config commit.gpgsign false
 mkdir -p "$fixture/scripts" "$fixture/.github/rulesets"
-for script in release-tag-version.sh release-preflight.sh release-plan.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh release-corrections.sh release-recovery.sh; do
+for script in release-tag-version.sh release-preflight.sh release-plan.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh release-corrections.sh release-recovery.sh release-repair.sh; do
   cp "$repository_root/scripts/$script" "$fixture/scripts/$script"
 done
 cp "$repository_root/.github/rulesets/main.json" "$fixture/.github/rulesets/main.json"
@@ -516,7 +518,7 @@ make_set() {
   : >"$dir/sums"
   {
     printf 'evidenceVersion=1\nproduct=Axiom\nversion=%s\nrevision=%s\n' "$version" "$rev"
-    for row in macos-27-arm64 linux-amd64 linux-arm64; do
+    for row in macos-27-arm64 linux-amd64 linux-arm64 windows-amd64; do
       printf '%s %s %s\n' "$version" "$row" "$salt" >"$dir/artifacts/axiom-$version-$row.tar.gz"
       printf '%s  %s\n' "$(digest "$dir/artifacts/axiom-$version-$row.tar.gz")" "axiom-$version-$row.tar.gz" >>"$dir/sums"
     done
@@ -567,7 +569,7 @@ done
 for f in "$temporary/env-a/artifacts"/axiom-*; do
   check "envelope states $(basename "$f") and its SHA-256" grep -Fxq "artifact.$(basename "$f")=$(digest "$f")" "$temporary/env"
 done
-check 'envelope lists exactly three artifacts' test "$(grep -c '^artifact\.' "$temporary/env")" == 3
+check 'envelope lists exactly four artifacts' test "$(grep -c '^artifact\.' "$temporary/env")" == 4
 grep -v '^preview_digest=' "$temporary/env" >"$temporary/env-body"
 check 'preview_digest is the SHA-256 of the envelope' grep -Fxq "preview_digest=$(digest "$temporary/env-body")" "$temporary/env"
 digest_a=$(envelope_digest "$temporary/env-a" --tag v0.1.0-rc.1 --revision "$c2" --make-latest false)
@@ -612,7 +614,7 @@ check 'RC publishes as prerelease' bash -c "grep -Fxq publication=published '$te
 check 'RC is not latest' bash -c "[[ ! -s '$state/latest' ]] && grep -Fxq latest=none '$temporary/pub'"
 check 'tag created only at publication, at the revision' grep -Fxq "v0.1.0-rc.1 $c2" "$state/tags"
 check 'draft created before any upload, published last' bash -c "head -n 1 '$state/ledger' | grep -q '^POST release v0.1.0-rc.1 draft=true prerelease=true' && grep -E '^(PATCH|UPLOAD)' '$state/ledger' | tail -n 1 | grep -q '\"draft\":false'"
-check 'exactly four assets uploaded' bash -c "[[ \$(grep -c '^UPLOAD' '$state/ledger') == 4 ]]"
+check 'exactly five assets uploaded' bash -c "[[ \$(grep -c '^UPLOAD' '$state/ledger') == 5 ]]"
 check 'RC does not touch Release PR labels' bash -c "grep -Fxq release_pr=not_applicable '$temporary/pub' && ! grep -q '^LABEL' '$state/ledger'"
 
 before=$(mutations)
@@ -621,7 +623,7 @@ publish "$temporary/rc-rebuild" --tag v0.1.0-rc.1 --revision "$c2" --make-latest
 check 'rerun after publication converges without effects' bash -c "grep -Fxq publication=already_published '$temporary/pub' && [[ $(mutations) == $before ]]"
 check 'no duplicate release after rerun' bash -c "[[ \$(jq -s '[.[] | select(.tag_name == \"v0.1.0-rc.1\")] | length' $state/releases/*.json) == 1 ]]"
 
-asset=$(release_json v0.1.0-rc.1 | jq -r '.assets[] | select(.name | endswith("amd64.tar.gz")) | .id')
+asset=$(release_json v0.1.0-rc.1 | jq -r '.assets[] | select(.name | endswith("linux-amd64.tar.gz")) | .id')
 printf 'tampered\n' >>"$state/assets/$asset"
 f=$(grep -l '"v0.1.0-rc.1"' "$state"/releases/*.json)
 jq --argjson id "$asset" '(.assets[] | select(.id == $id) | .digest) = null' "$f" >"$f.new" && mv "$f.new" "$f"
@@ -807,7 +809,7 @@ for attempt in 1 2; do
   fi
 done
 check 'incident: check classifies the orphan, never absent' bash -c "grep -Fxq publication_state=orphan_conflict '$temporary/check-1' && ! grep -Fxq publication_state=absent '$temporary/check-1' && grep -Fxq release_id=399339376 '$temporary/check-1' && grep -Fxq orphan_tag_name=untagged-898fac51a51187009dea '$temporary/check-1' && grep -Fxq result=conflict '$temporary/check-1'"
-check 'incident: orphan Evidence names its revision, flags and four asset digests' bash -c "grep -Fxq orphan_target=$c2 '$temporary/check-1' && grep -Fxq orphan_draft=false '$temporary/check-1' && grep -Fxq orphan_immutable=true '$temporary/check-1' && [[ \$(grep -c '^orphan_asset\\.' '$temporary/check-1') == 4 ]] && grep -Fxq 'orphan_asset.SHA256SUMS=$(digest "$temporary/id/artifacts/SHA256SUMS")' '$temporary/check-1'"
+check 'incident: orphan Evidence names its revision, flags and five asset digests' bash -c "grep -Fxq orphan_target=$c2 '$temporary/check-1' && grep -Fxq orphan_draft=false '$temporary/check-1' && grep -Fxq orphan_immutable=true '$temporary/check-1' && [[ \$(grep -c '^orphan_asset\\.' '$temporary/check-1') == 5 ]] && grep -Fxq 'orphan_asset.SHA256SUMS=$(digest "$temporary/id/artifacts/SHA256SUMS")' '$temporary/check-1'"
 check 'incident: orphan classification is deterministic' cmp -s "$temporary/check-1" "$temporary/check-2"
 expect_failure 'incident: no envelope while the orphan exists' 'orphan_conflict: release 399339376' envelope "$temporary/id" "${rc2[@]}"
 expect_failure 'incident: no publication while the orphan exists' 'orphan_conflict: release 399339376' \
@@ -1428,7 +1430,7 @@ unset AXIOM_DELIVERY_PROJECT_TOKEN
 # --- 4. release.sh: prepare, envelope and authority boundary ---------------------------------------
 release() { (cd "$fixture" && "$fixture/scripts/release.sh" "$@"); }
 green() {
-  printf '{"check_runs":[{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1"},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1"},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1"}]}\n' >"$state/checks-$1.json"
+  printf '{"check_runs":[{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (windows)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}}]}\n' >"$state/checks-$1.json"
 }
 # stage_prepared_run ID TAG REVISION SALT [WORKFLOW] places a prepared set, as
 # release-artifacts.yml retains it, behind the fake `gh run download`.
@@ -1470,7 +1472,7 @@ check 'prepare stops at the authority boundary' bash -c "grep -Fxq next_action=a
 for key in tag=v0.1.0-rc.1 "revision=$c4" channel=rc prerelease=true make_latest=false prepared_run=5151 publication_state=absent; do
   check "prepared envelope states $key" grep -Fxq "preview.$key" "$temporary/prepare"
 done
-check 'prepared envelope states notes, SHA256SUMS and every artifact digest' bash -c "grep -Eq '^preview\\.release_notes_sha256=[0-9a-f]{64}$' '$temporary/prepare' && grep -Eq '^preview\\.sha256sums_sha256=[0-9a-f]{64}$' '$temporary/prepare' && [[ \$(grep -Ec '^preview\\.artifact\\.axiom-0\\.1\\.0-rc\\.1-[a-z0-9.-]+\\.tar\\.gz=[0-9a-f]{64}$' '$temporary/prepare') == 3 ]]"
+check 'prepared envelope states notes, SHA256SUMS and every artifact digest' bash -c "grep -Eq '^preview\\.release_notes_sha256=[0-9a-f]{64}$' '$temporary/prepare' && grep -Eq '^preview\\.sha256sums_sha256=[0-9a-f]{64}$' '$temporary/prepare' && [[ \$(grep -Ec '^preview\\.artifact\\.axiom-0\\.1\\.0-rc\\.1-[a-z0-9.-]+\\.tar\\.gz=[0-9a-f]{64}$' '$temporary/prepare') == 4 ]]"
 digest_value=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/prepare")
 release status --tag v0.1.0-rc.1 --prepared-run 5151 >"$temporary/status"
 check 'the envelope of a prepared run is deterministic' grep -Fxq "preview_digest=$digest_value" "$temporary/status"
@@ -1524,6 +1526,8 @@ release status --tag v0.1.0-rc.1 >"$temporary/status"
 check 'published release routes to verification' grep -Fxq next_action=verify_published "$temporary/status"
 release verify --tag v0.1.0-rc.1 >"$temporary/verify"
 check 'verify confirms the published prerelease' bash -c "grep -Fxq publication_state=published '$temporary/verify' && grep -Fxq latest=none '$temporary/verify' && grep -Fxq result=pass '$temporary/verify'"
+expect_failure 'verify never ignores an explicit repair of a release without recovery provenance' 'repair revision requires a published recovery release' \
+  release verify --tag v0.1.0-rc.1 --repair-revision "$c4"
 remote_untag v0.1.0-rc.1
 make_set "$temporary/orphan" 0.1.0-rc.2 "$c4" orphan
 orphan_release 399339376 v0.1.0-rc.2 "$c4" "$temporary/orphan"
@@ -1556,7 +1560,17 @@ check 'hidden changelog types are exactly the documented non-triggers' test "$(j
 check 'CONTRIBUTING documents the pinned Release Please semantics' bash -c "grep -Fq 'release-please 17.6.0' '$repository_root/CONTRIBUTING.md' && grep -Fq '| \`feat\` | minor | minor |' '$repository_root/CONTRIBUTING.md' && grep -Fq 'hidden in the changelog, not non-releasable' '$repository_root/CONTRIBUTING.md' && grep -Fq 'googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0' '$workflows/release-please.yml'"
 check 'merges never start a release: the Release PR workflow runs on explicit dispatch only' test "$(triggers "$workflows/release-please.yml")" == workflow_dispatch
 check 'publication runs only on explicit dispatch' test "$(triggers "$workflows/publish-release.yml")" == workflow_dispatch
-check 'built-in publication token is read-only and publication stays gated' bash -c "grep -Fxq 'permissions: {}' '$workflows/publish-release.yml' && ! grep -Eq '^      [a-z-]+: write$' '$workflows/publish-release.yml' && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fxq '    environment: release' && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'contents: read'"
+check 'built-in publication token has only reads plus gated Issue/PR effects' bash -c "grep -Fxq 'permissions: {}' '$workflows/publish-release.yml' && ! grep -Fq 'contents: write' '$workflows/publish-release.yml' && [[ \$(grep -c '^      issues: write$' '$workflows/publish-release.yml') == 1 ]] && [[ \$(grep -c '^      pull-requests: write$' '$workflows/publish-release.yml') == 1 ]] && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fxq '    environment: release'"
+# job_permissions FILE JOB prints that job's token permissions, comma-joined.
+job_permissions() {
+  awk -v job="  $2:" '$0 == job {j = 1; next} j && /^  [A-Za-z0-9_-]+:$/ {exit}
+    j && $0 == "    permissions:" {p = 1; next} p && /^      #/ {next}
+    p && /^      [a-z-]+: (read|write)$/ {sub(/^ +/, ""); print; next} p {p = 0}' "$1" | paste -sd, -
+}
+check 'both jobs that run release-repair.sh read Check Runs, with no other permission added' bash -c "
+  [[ '$(job_permissions "$workflows/publish-release.yml" preflight)' == 'contents: read,actions: read,checks: read,issues: read' ]] &&
+  [[ '$(job_permissions "$workflows/publish-release.yml" publish)' == 'contents: read,actions: read,checks: read,issues: write,pull-requests: write' ]] &&
+  [[ \$(grep -c 'repair/scripts/release-repair.sh\"' '$workflows/publish-release.yml') == 2 ]] && ! grep -Eq 'checks: write' '$workflows/publish-release.yml'"
 check 'publication requires dispatch from main and a verified preflight' bash -c "grep -Fq 'refs/heads/main' '$workflows/publish-release.yml' && grep -Fxq '    needs: preflight' '$workflows/publish-release.yml'"
 check 'publication never rebuilds: it consumes the prepared run artifact' bash -c "! grep -Eq 'build-release-archives|upload-artifact' '$workflows/publish-release.yml' && [[ \$(grep -c 'run-id: \${{ inputs.prepared_run }}' '$workflows/publish-release.yml') == 2 ]] && [[ \$(grep -c 'verify-prepared-release.sh' '$workflows/publish-release.yml') == 2 ]]"
 check 'publication is bound to the authorized envelope digest' bash -c "grep -Fq -- '--authorized-digest \"\$PREVIEW_DIGEST\"' '$workflows/publish-release.yml' && grep -Fq 'PREVIEW_DIGEST: \${{ inputs.preview_digest }}' '$workflows/publish-release.yml'"
@@ -1577,6 +1591,12 @@ check 'dedicated publication credential stays out of preflight and checkout' bas
   ! grep -Eq 'github-token:.*secrets\.|token:.*secrets\.' '$workflows/publish-release.yml'"
 publication_first_command=$(awk '/name: Re-verify, match the authorized envelope, then publish/{step=1} step && /run: \|/{getline; print; exit}' "$workflows/publish-release.yml")
 check 'missing-token guard is the first publication command' grep -Fq '[[ -n "$GH_TOKEN" ]]' <<<"$publication_first_command"
+repository_guard=$(grep -F '[[ -n "$AXIOM_RELEASE_REPOSITORY_TOKEN" ]]' "$workflows/publish-release.yml" || true)
+expect_failure 'missing repository token refuses before publishing or human-authored delivery' 'repository token is unavailable' \
+  env AXIOM_RELEASE_REPOSITORY_TOKEN= bash -c "$repository_guard"
+check 'workflow passes repository token only in protected publication step' bash -c "
+  [[ \$(grep -c 'AXIOM_RELEASE_REPOSITORY_TOKEN: \${{ github.token }}' '$workflows/publish-release.yml') == 1 ]] &&
+  ! sed -n '/^  preflight:/,/^  publish:/p' '$workflows/publish-release.yml' | grep -Fq 'AXIOM_RELEASE_REPOSITORY_TOKEN'"
 publication_guard=$(grep -F '[[ -n "$GH_TOKEN" ]]' "$workflows/publish-release.yml" || true)
 expect_failure 'missing publication credential refuses before any script executes' 'AXIOM_RELEASE_PUBLISH_TOKEN is unavailable' \
   env GH_TOKEN= bash -c "$publication_guard"
@@ -1599,8 +1619,8 @@ while IFS= read -r line; do
 done < <(grep -hE '^\s+(- )?uses:' "$workflows"/*.yml)
 check 'every action is pinned by SHA' "$pinned"
 check 'checkouts never persist credentials' bash -c "[[ \$(grep -c 'actions/checkout@' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') == \$(grep -c 'persist-credentials: false' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') ]]"
-ci_contexts=$(printf 'delivery-metadata\nrelease-contract\nverify (linux)\nverify (macos)\n')
-check 'ruleset requires exactly the CI job checks and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
+ci_contexts=$(printf 'delivery-metadata\nrelease-contract\nverify (linux)\nverify (macos)\nverify (windows)\n')
+check 'ruleset requires exactly the CI job checks and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && grep -Fxq '          - platform: windows' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
 # Every required context must exist on the Release PR head, where Release
 # Please events start no pull_request run: its workflows are dispatched there.
 check 'every required context is produced on the Release PR path' bash -c "
@@ -1626,6 +1646,8 @@ skill=$repository_root/.agents/skills/axiom-release/SKILL.md
 check 'axiom-release skill exists and is routed' bash -c "grep -Fxq 'name: axiom-release' '$skill' && grep -Fq '.agents/skills/axiom-release/SKILL.md' '$repository_root/AGENTS.md'"
 check 'skill publishes only through release.sh after human authorization' bash -c "grep -Fq 'scripts/release.sh publish' '$skill' && grep -Fq -- '--authorize-publication' '$skill' && ! grep -Eiq 'gh release (create|upload|edit|delete)|git tag|git push .*--tags|pending_deployments|--force' '$skill'"
 check 'skill is not a product Runtime skill' bash -c "[[ ! -e '$repository_root/internal/codexruntime/skills/axiom-release' ]]"
+
+check 'recovery notes compare Markdown literally and refuse drift' "$repository_root/scripts/test-release-notes-comparison.sh"
 
 # --- Pinned recovery: original artifacts, independent append-only metadata ---
 # Everything here stays inside the local Git/fake GitHub fixtures.
@@ -1659,7 +1681,7 @@ rbase=$(rcommit 'chore(main): release 0.2.1')
 rfeat=$(rcommit 'feat(site): add landing page' 'Related-Issues: #86\nCompletes-Issues: #86\n')
 rdocs=$(rcommit 'docs: reconcile forward compatibility contract for #153')
 printf '{".":"0.3.0"}\n' >"$rfix/.release-please-manifest.json"
-printf '# Changelog\n\n## [0.3.0](https://github.com/rgomids/axiom/compare/v0.2.1...v0.3.0) (2026-10-02)\n\n### Features\n\n* **site:** add landing page\n' >"$rfix/CHANGELOG.md"
+printf '# Changelog\n\n## [0.3.0](https://github.com/rgomids/axiom/compare/v0.2.1...v0.3.0) (2026-10-02)\n\n### Features\n\n* **site:** add landing page [#158](https://example.invalid/158) with [literal] glob text\n' >"$rfix/CHANGELOG.md"
 rsource=$(rcommit 'chore(main): release 0.3.0 (#160)')
 printf '%s related=153 completes=none\n' "$rdocs" >"$rfix/.github/delivery-corrections.txt"
 # Deliberately make the control artifact verifier unusable: verification must
@@ -1667,7 +1689,18 @@ printf '%s related=153 completes=none\n' "$rdocs" >"$rfix/.github/delivery-corre
 printf '#!/usr/bin/env bash\necho "wrong control artifact verifier" >&2\nexit 91\n' >"$rfix/scripts/verify-release-artifacts.sh"
 jq '.projection = "enabled"' "$rfix/.github/delivery-project.json" >"$temporary/rproject"
 cp "$temporary/rproject" "$rfix/.github/delivery-project.json"
+# Preserve an actually broken immutable control revision, as in v0.3.0.
+python3 - "$rfix/scripts/publish-release.sh" <<'PYFIX'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]);s=p.read_text()
+s=s.replace('"$(cat "$temporary/published-notes")" == "$(cat "$notes")"', '$(cat "$temporary/published-notes") == $(cat "$notes")')
+s=s.replace('"$(cat "$temporary/published-notes")" == "$(cat "$temporary/recovery-notes")"', '$(cat "$temporary/published-notes") == $(cat "$temporary/recovery-notes")')
+p.write_text(s)
+PYFIX
 rcontrol=$(rcommit 'fix(release): reviewed metadata recovery' 'Related-Issues: #153\nCompletes-Issues: none\n')
+cp "$repository_root/scripts/publish-release.sh" "$rfix/scripts/publish-release.sh"
+rrepair=$(rcommit 'fix(release): literal recovery notes with explicit published repair' 'Related-Issues: none\nCompletes-Issues: none\n')
 git -C "$rfix" remote add origin "$rremote"
 git -C "$rfix" push -q origin main
 git -C "$rfix" fetch -q origin
@@ -1678,6 +1711,7 @@ issue 86 'Landing page'
 printf '{"protection_rules":[{"type":"required_reviewers"}]}\n' >"$state/environment.json"
 green "$rsource"
 green "$rcontrol"
+green "$rrepair"
 printf '[{"number":160,"url":"https://github.com/rgomids/axiom/pull/160","title":"chore(main): release 0.3.0","mergeCommit":{"oid":"%s"}}]\n' "$rsource" >"$state/pr-merged.json"
 "$rfix/scripts/delivery-issues.sh" release --tag v0.3.0 --revision "$rsource" >"$temporary/rissues"
 check 'recovery metadata preserves exactly the original completed Issue set' bash -c "grep -Fxq issues=86 '$temporary/rissues' && ! grep -Fxq issues=153 '$temporary/rissues'"
@@ -1746,8 +1780,234 @@ check 'recovery publication delivers only feature Issue in fake GitHub' bash -c 
 check 'recovery delivered Issue verification passes against pinned inputs' grep -Fxq delivery=verified "$temporary/rverified"
 # Real tag operations below are confined to the synthetic local bare remote.
 git -C "$rfix" push -q origin "$rsource:refs/tags/v0.3.0"
-release verify --tag v0.3.0 --download >"$temporary/rdownload"
+# The original pinned verifier still fails; never fall back silently.
+expect_failure 'legacy pinned recovery verifier refuses Markdown notes' 'published recovery notes differ' \
+  release verify --tag v0.3.0 --download
+rpublished_record=$state/releases/$(release_json v0.3.0 | jq -r .id).json
+jq '.immutable = true' "$rpublished_record" >"$temporary/rimmutable"
+cp "$temporary/rimmutable" "$rpublished_record"
+release verify --tag v0.3.0 --download --repair-revision "$rrepair" >"$temporary/rdownload"
 check 'download verification discovers published pins and verifies original source bytes' bash -c "grep -Fxq artifacts_verified=pass '$temporary/rdownload' && grep -Fxq result=pass '$temporary/rdownload' && grep -Fxq corrections_revision=$rcontrol '$temporary/rdownload'"
+
+# Model the partial production failure: release bytes exist, Issue record and
+# Release PR handoff have not happened. Only fixture provider data is changed.
+printf '[]\n' >"$state/comments/86.json"
+printf '[{"number":160,"merged_at":"2026-10-02T00:00:00Z","labels":[{"name":"autorelease: pending"}]}]\n' >"$state/pulls.json"
+rrepair_args=(--tag v0.3.0 --revision "$rsource" --prepared-run 6161 --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" --repair-revision "$rrepair")
+release status "${rrepair_args[@]}" >"$temporary/rrepair-status"
+check 'repair envelope binds new execution SHA and original provenance, only remaining effects' bash -c "
+  grep -Fxq next_action=authorize_publication '$temporary/rrepair-status' &&
+  grep -Fxq preview.envelopeVersion=4 '$temporary/rrepair-status' &&
+  grep -Fxq preview.repair_revision=$rrepair '$temporary/rrepair-status' &&
+  grep -Fxq preview.corrections_revision=$rcontrol '$temporary/rrepair-status' &&
+  grep -Fxq preview.effect.issue.86=comment '$temporary/rrepair-status' &&
+  grep -Fxq preview.effect.release_pr_label=pending_to_tagged '$temporary/rrepair-status' &&
+  ! grep -Eq '^preview.effect.(release|assets|publish|tag|latest)=' '$temporary/rrepair-status'"
+rrepair_preview=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/rrepair-status")
+before=$(mutations)
+expect_failure 'repair cannot dispatch with the old publication digest' 'preview changed' \
+  release publish "${rrepair_args[@]}" --preview-digest "$rpreview" --authorize-publication
+check 'stale repair authority created no effects' test "$(mutations)" == "$before"
+release publish "${rrepair_args[@]}" --preview-digest "$rrepair_preview" --authorize-publication >"$temporary/rrepair-dispatch"
+check 'authorized repair dispatch retains prepared run and all three pins' bash -c "grep '^workflow run publish-release.yml' '$state/ledger' | tail -n 1 | grep -Fq repair_revision=$rrepair && grep -Fxq run_id=4242 '$temporary/rrepair-dispatch'"
+rrun=$temporary/explicit-repair-checkout
+git clone -q --no-hardlinks "$rfix" "$rrun"
+git -C "$rrun" checkout -q --detach "$rrepair"
+# Compare the whole immutable release JSON as well as archive/notes digests.
+cp "$rpublished_record" "$temporary/rpublished-before-repair.json"
+before_release=$(grep -Ec '^(POST release|PATCH release|DELETE release|UPLOAD)' "$state/ledger" || true)
+GH_TOKEN=fixture-publication-token FAKE_PUBLICATION_TOKEN=fixture-publication-token AXIOM_RELEASE_REPOSITORY_TOKEN=fixture-repository-token AXIOM_RELEASE_REPAIR_REVISION=$rrepair "$rrun/scripts/publish-release.sh" --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" \
+  --make-latest true --prepared-run 6161 --dir "$temporary/rset/artifacts" --evidence "$temporary/rset/evidence.txt" \
+  --notes "$temporary/rset/notes.md" --authorized-digest "$rrepair_preview" >"$temporary/rrepaired"
+check 'repair makes no release/tag/asset write and preserves published JSON' bash -c "cmp -s '$rpublished_record' '$temporary/rpublished-before-repair.json' && [[ \$(grep -Ec '^(POST release|PATCH release|DELETE release|UPLOAD)' '$state/ledger' || true) == $before_release ]] && grep -Fxq publication=already_published '$temporary/rrepaired'"
+check 'publication PAT never authors delivery records; repository token retains bot identity' jq -e 'length == 1 and .[0].user.login == "github-actions[bot]"' "$state/comments/86.json"
+release status "${rrepair_args[@]}" >"$temporary/rrepair-done"
+check 'completed repair converges to verification without remaining effects' bash -c "grep -Fxq next_action=verify_published '$temporary/rrepair-done' && grep -Fxq preview.effect=none '$temporary/rrepair-done'"
+# Draft or changed provenance must refuse before any effect.
+for filter in '.draft = true' '.immutable = false' '.prerelease = true' '.target_commitish = "0000000000000000000000000000000000000000"' '.body += "\n- Recovery corrections revision: `0000000000000000000000000000000000000000`"' '.body += "\ndrift"' '.assets[0].digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"'; do
+  jq "$filter" "$temporary/rpublished-before-repair.json" >"$rpublished_record"
+  before=$(mutations)
+  release status "${rrepair_args[@]}" >"$temporary/rrepair-refused" 2>"$temporary/rrepair-error"
+  check 'repair refuses changed publication/provenance without effects' bash -c "grep -Fxq next_action=blocked '$temporary/rrepair-refused' && [[ \$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL|COMMENT|ISSUE|PROJECT|workflow)' '$state/ledger' || true) == $before ]]"
+done
+cp "$temporary/rpublished-before-repair.json" "$rpublished_record"
+cp "$state/checks-$rrepair.json" "$temporary/rrepair-green"
+printf '{"check_runs":[]}\n' >"$state/checks-$rrepair.json"
+release status "${rrepair_args[@]}" >"$temporary/rrepair-red-ci" 2>"$temporary/rrepair-error"
+check 'missing repair CI refuses without fallback' grep -Fxq next_action=blocked "$temporary/rrepair-red-ci"
+# Required checks bind the ruleset context to its integration_id, not the name:
+# both the release.sh gate before any repair code runs and release-repair.sh,
+# which the workflow executes, classify the same Check Runs alike.
+repair_ci() {
+  jq "$2" "$temporary/rrepair-green" >"$state/checks-$rrepair.json"
+  release status "${rrepair_args[@]}" >"$temporary/rrepair-ci" 2>"$temporary/rrepair-error" || true
+  grep -Fxq "next_action=$1" "$temporary/rrepair-ci" || return 1
+  if "$rrun/scripts/release-repair.sh" --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" --repair-revision "$rrepair" \
+    >/dev/null 2>"$temporary/rrepair-error"; then
+    [[ "$1" != blocked ]]
+  else
+    [[ "$1" == blocked ]] && grep -Fq 'have successful CI' "$temporary/rrepair-ci" &&
+      grep -Fq 'required CI on repair revision is not successful' "$temporary/rrepair-error"
+  fi
+}
+check 'same-named repair CI from another integration refuses' repair_ci blocked '.check_runs |= map(.app.id = 1)'
+check 'repair CI without an integration refuses' repair_ci blocked '.check_runs |= map(del(.app))'
+check 'a newer failing run of the required integration refuses despite a newer foreign success' repair_ci blocked \
+  '.check_runs += ([.check_runs[] | .conclusion = "failure" | .started_at = "2"] + [.check_runs[] | .app.id = 1 | .started_at = "3"])'
+check 'a newer foreign failing run cannot mask the required integration success' repair_ci verify_published \
+  '.check_runs += [.check_runs[] | .app.id = 1 | .conclusion = "failure" | .started_at = "2"]'
+# Attempts are ordered by Check Run id, as in the workflow gate: a newer
+# attempt may still be queued with no start time, or start before an older one.
+ids='.check_runs |= (to_entries | map(.value + {id: (.key + 1)}))'
+check 'a newer queued required run with no start time refuses despite an older success' repair_ci blocked \
+  "$ids | .check_runs += [.check_runs[] | .id += 100 | .status = \"queued\" | .conclusion = null | .started_at = null]"
+check 'the highest Check Run id wins over a later start time (newest failure)' repair_ci blocked \
+  "$ids | .check_runs += [.check_runs[] | .id += 100 | .conclusion = \"failure\" | .started_at = \"0\"]"
+check 'the highest Check Run id wins over a later start time (newest success)' repair_ci verify_published \
+  "$ids | .check_runs |= map(.id += 100 | .started_at = \"0\") | .check_runs += [.check_runs[] | .id -= 100 | .conclusion = \"failure\" | .started_at = \"9\"]"
+check 'a newer failing attempt refuses despite an earlier required success' repair_ci blocked \
+  "$ids | .check_runs += [.check_runs[] | .id += 100 | .conclusion = \"failure\"]"
+check 'a newer foreign success cannot replace a failing required integration' repair_ci blocked \
+  "$ids | .check_runs |= map(.conclusion = \"failure\") | .check_runs += [.check_runs[] | .id += 100 | .app.id = 1 | .conclusion = \"success\"]"
+check 'a newer foreign queued or failing attempt cannot invalidate a required success' repair_ci verify_published \
+  "$ids | .check_runs += ([.check_runs[] | .id += 100 | .app.id = 1 | .status = \"queued\" | .conclusion = null | .started_at = null] + [.check_runs[] | .id += 200 | .app.id = 1 | .conclusion = \"failure\"])"
+# An empty or unreadable required-check policy authorizes no repair in either
+# script; each reads the ruleset of the checkout it runs from.
+repair_policy() {
+  local status=$fixture/.github/rulesets/main.json repair=$rrun/.github/rulesets/main.json result=0
+  cp "$status" "$temporary/rpolicy-status"
+  cp "$repair" "$temporary/rpolicy-repair"
+  printf '%s' "$1" >"$status"
+  printf '%s' "$1" >"$repair"
+  repair_ci blocked '.' || result=1
+  cp "$temporary/rpolicy-status" "$status"
+  cp "$temporary/rpolicy-repair" "$repair"
+  return "$result"
+}
+check 'an empty required-check policy refuses repair' repair_policy '{"rules":[]}'
+check 'a policy with only PR checks refuses repair' repair_policy \
+  '{"rules":[{"type":"required_status_checks","parameters":{"required_status_checks":[{"context":"delivery-metadata","integration_id":15368}]}}]}'
+check 'a malformed required-check policy refuses repair' repair_policy 'invalid json'
+check 'restored policy and CI permit repair again' repair_ci verify_published '.'
+# Execute the actual workflow selection blocks, not release-repair.sh's
+# internal checks. An adversarial repair entrypoint marks execution and tries
+# a remote effect via fake gh. Its checkout also removes required checks:
+# only the immutable workflow revision's ruleset may authorize it.
+boundary=$temporary/repair-boundary
+mkdir -p "$boundary"
+for entry in source control repair; do
+  git clone -q --no-hardlinks "$rfix" "$boundary/$entry"
+done
+git -C "$boundary/source" checkout -q --detach "$rsource"
+git -C "$boundary/control" checkout -q --detach "$rcontrol"
+git -C "$boundary/repair" checkout -q --detach "$rrepair"
+printf '{"rules":[]}\n' >"$boundary/repair/.github/rulesets/main.json"
+cat >"$boundary/repair/scripts/release-repair.sh" <<'PROBE'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'executed\n' >>"$GITHUB_WORKSPACE/repair-executed"
+gh workflow run repair-probe.yml --repo "$GITHUB_REPOSITORY"
+PROBE
+python3 - "$workflows/publish-release.yml" "$boundary" <<'PYBOUNDARY'
+from pathlib import Path
+import sys
+text = Path(sys.argv[1]).read_text()
+blocks = []
+# The workflow uses literal Bash run blocks at this indentation. Extract the
+# entire selector unchanged so moving the gate after execution breaks tests.
+for step in text.split('      - name: Select release control scripts\n')[1:]:
+    assert 'WORKFLOW_REVISION: ${{ github.sha }}' in step.split('        run: |\n', 1)[0], 'policy must bind to trusted dispatch SHA'
+    body = step.split('        run: |\n', 1)[1]
+    lines = []
+    for line in body.splitlines():
+        if line and not line.startswith('          '):
+            break
+        lines.append(line[10:])
+    blocks.append('\n'.join(lines) + '\n')
+assert len(blocks) == 2, 'both preflight and publish must be tested'
+for job, block in zip(('preflight', 'publish'), blocks):
+    Path(sys.argv[2], job + '.sh').write_text(block)
+PYBOUNDARY
+workflow_repair_gate() {
+  local job=$1 expected=$2 filter=$3 workflow_revision=${4:-$rcontrol} result=0 before
+  jq "$filter" "$temporary/rrepair-green" >"$state/checks-$rrepair.json"
+  rm -f "$boundary/repair-executed" "$boundary/env"
+  before=$(mutations)
+  GITHUB_WORKSPACE=$boundary GITHUB_REPOSITORY=rgomids/axiom GITHUB_ENV=$boundary/env \
+    WORKFLOW_REVISION=$workflow_revision CORRECTIONS_REVISION=$rcontrol \
+    CORRECTIONS_DIGEST=$AXIOM_RELEASE_CORRECTIONS_DIGEST REPAIR_REVISION=$rrepair \
+    RELEASE_TAG=v0.3.0 RELEASE_REVISION=$rsource \
+    bash -eo pipefail "$boundary/$job.sh" >"$boundary/output" 2>"$boundary/error" || result=$?
+  if [[ "$expected" == allow ]]; then
+    [[ "$result" == 0 && -f "$boundary/repair-executed" ]] &&
+      [[ $(mutations) == $((before + 1)) ]] &&
+      grep -Fxq "RELEASE_CONTROL_SCRIPTS=$boundary/repair/scripts" "$boundary/env"
+  else
+    [[ "$result" != 0 && ! -e "$boundary/repair-executed" && ! -e "$boundary/env" ]] &&
+      [[ $(mutations) == "$before" ]]
+  fi
+}
+# Trust-policy failures must also fail closed, including jq parsing failures.
+git -C "$boundary/repair" config user.email release-test@example.invalid
+git -C "$boundary/repair" config user.name 'Release Test'
+git -C "$boundary/repair" config commit.gpgsign false
+jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks |= map(del(.integration_id)) else . end)' \
+  "$rfix/.github/rulesets/main.json" >"$boundary/repair/.github/rulesets/main.json"
+git -C "$boundary/repair" add .github/rulesets/main.json
+git -C "$boundary/repair" commit -q -m 'test: ruleset without integration binding'
+boundary_unbound=$(git -C "$boundary/repair" rev-parse HEAD)
+printf '{"rules":[]}\n' >"$boundary/repair/.github/rulesets/main.json"
+git -C "$boundary/repair" add .github/rulesets/main.json
+git -C "$boundary/repair" commit -q -m 'test: empty ruleset'
+boundary_empty=$(git -C "$boundary/repair" rev-parse HEAD)
+printf 'invalid json\n' >"$boundary/repair/.github/rulesets/main.json"
+git -C "$boundary/repair" add .github/rulesets/main.json
+git -C "$boundary/repair" commit -q -m 'test: malformed ruleset'
+boundary_malformed=$(git -C "$boundary/repair" rev-parse HEAD)
+git -C "$boundary/repair" checkout -q --detach "$rrepair"
+# Keep the adversarial worktree policy separate from trusted committed policy.
+printf '{"rules":[]}\n' >"$boundary/repair/.github/rulesets/main.json"
+for job in preflight publish; do
+  check "$job: trusted green CI permits first repair execution" workflow_repair_gate "$job" allow '.'
+  check "$job: missing required CI prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs = []'
+  check "$job: failed CI prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs[0].conclusion = "failure"'
+  check "$job: wrong integration prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs |= map(.app.id = 1)'
+  check "$job: unbound Check Runs prevent repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs |= map(del(.app))'
+  check "$job: pending CI prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs[0].status = "in_progress"'
+  check "$job: newer queued run with no start time prevents execution and effects" workflow_repair_gate "$job" deny \
+    '.check_runs += [.check_runs[] | .id = 100 | .status = "queued" | .started_at = null]'
+  check "$job: newest Check Run id wins despite older start time" workflow_repair_gate "$job" deny \
+    '.check_runs += [.check_runs[] | .id = 100 | .conclusion = "failure" | .started_at = "0"]'
+  check "$job: cancelled CI prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs[0].conclusion = "cancelled"'
+  check "$job: latest bound failure wins over older and foreign success" workflow_repair_gate "$job" deny \
+    '.check_runs += ([.check_runs[] | .conclusion = "failure" | .started_at = "2"] + [.check_runs[] | .app.id = 1 | .started_at = "3"])'
+  check "$job: foreign failure cannot veto latest bound success" workflow_repair_gate "$job" allow \
+    '.check_runs += [.check_runs[] | .app.id = 1 | .conclusion = "failure" | .started_at = "2"]'
+  check "$job: required policy without binding fails closed" workflow_repair_gate "$job" deny '.' "$boundary_unbound"
+  check "$job: empty required policy fails closed" workflow_repair_gate "$job" deny '.' "$boundary_empty"
+  check "$job: malformed required policy fails closed" workflow_repair_gate "$job" deny '.' "$boundary_malformed"
+  check "$job: unavailable trusted revision fails closed" workflow_repair_gate "$job" deny '.' "$(printf '1%.0s' {1..40})"
+  FAKE_GH_FAIL_ON=check-runs check "$job: unreadable CI fails closed before repair" workflow_repair_gate "$job" deny '.'
+  rm -f "$boundary/repair-executed" "$boundary/env"
+  before=$(mutations)
+  check "$job: no repair preserves pinned control without requesting repair CI" \
+    env FAKE_GH_FAIL_ON=check-runs GITHUB_WORKSPACE="$boundary" GITHUB_REPOSITORY=rgomids/axiom \
+    GITHUB_ENV="$boundary/env" WORKFLOW_REVISION="$rcontrol" CORRECTIONS_REVISION="$rcontrol" \
+    CORRECTIONS_DIGEST="$AXIOM_RELEASE_CORRECTIONS_DIGEST" REPAIR_REVISION= \
+    RELEASE_TAG=v0.3.0 RELEASE_REVISION="$rsource" bash -eo pipefail "$boundary/$job.sh"
+  check "$job: no repair executes no repair code or remote effect" bash -c "
+    [[ ! -e '$boundary/repair-executed' && $(mutations) == $before ]] &&
+    grep -Fxq RELEASE_CONTROL_SCRIPTS=$boundary/control/scripts '$boundary/env'"
+done
+cp "$temporary/rrepair-green" "$state/checks-$rrepair.json"
+release status "${rrepair_args[@]}" --repair-revision "$(printf '1%.0s' {1..40})" >"$temporary/rrepair-off-main" 2>"$temporary/rrepair-error"
+check 'unknown repair revision refuses before running any repair script' grep -Fxq next_action=blocked "$temporary/rrepair-off-main"
+release status "${rrepair_args[@]}" --repair-revision "$rcontrol" >"$temporary/rrepair-old" 2>"$temporary/rrepair-error"
+check 'original control cannot be silently reclassified as repair' grep -Fxq next_action=blocked "$temporary/rrepair-old"
+expect_failure 'floating repair ref refuses' 'repair requires full' \
+  release status "${rrepair_args[@]}" --repair-revision main
+expect_failure 'repair is never allowed for preparation' 'repair is not allowed during preparation' \
+  release prepare "${rrepair_args[@]}"
 export AXIOM_RELEASE_CORRECTIONS_REVISION=$ralt
 expect_failure 'published recovery refuses changed correction pins' 'pins differ' \
   "$rfix/scripts/publish-release.sh" --check --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" --make-latest true
@@ -1792,22 +2052,22 @@ rcommit 'docs(release): change the notes format (#173)' 'Related-Issues: none\nC
 rnext=$(rcommit 'fix(cli): repair after recovery (#172)' 'Related-Issues: none\nCompletes-Issues: none\n')
 git -C "$rfix" push -q origin main
 green "$rnext"
-release status >"$temporary/rnext"
+release status --repair-revision "$rrepair" >"$temporary/rnext"
 check 'a recovery-published previous release allows the next start' bash -c "grep -Fxq next_action=start_release '$temporary/rnext' && grep -Fxq previous_release_state=published '$temporary/rnext' && grep -Fxq planned_tag=v0.3.1 '$temporary/rnext'"
 jq '.body |= sub("Recovery corrections SHA-256: `[0-9a-f]{64}`"; "Recovery corrections SHA-256: `bad`")' "$temporary/rrecord-original.json" >"$rrecord"
-release status >"$temporary/rnext"
+release status --repair-revision "$rrepair" >"$temporary/rnext"
 check 'malformed recovery pins on the previous release block the next start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'previous release v0.3.0: malformed recovery provenance' '$temporary/rnext'"
 jq --arg r "$(printf '1%.0s' {1..40})" '.body |= sub("Recovery corrections revision: `[0-9a-f]{40}`"; "Recovery corrections revision: `\($r)`")' "$temporary/rrecord-original.json" >"$rrecord"
-release status >"$temporary/rnext"
+release status --repair-revision "$rrepair" >"$temporary/rnext"
 check 'a previous release pinning a control revision off main runs none of its scripts and blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'published correction revision is not on first-parent main' '$temporary/rnext'"
 jq --arg r "$rbase" '.body |= sub("Recovery corrections revision: `[0-9a-f]{40}`"; "Recovery corrections revision: `\($r)`")' "$temporary/rrecord-original.json" >"$rrecord"
-release status >"$temporary/rnext"
+release status --repair-revision "$rrepair" >"$temporary/rnext"
 check 'a previous release pinning a control revision older than its source blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'correction revision does not descend from source' '$temporary/rnext'"
 jq --arg r "$rsource" '.body |= sub("Recovery corrections revision: `[0-9a-f]{40}`"; "Recovery corrections revision: `\($r)`")' "$temporary/rrecord-original.json" >"$rrecord"
-release status >"$temporary/rnext"
+release status --repair-revision "$rrepair" >"$temporary/rnext"
 check 'a previous release pinning its own release commit as control blocks the start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'correction pins do not validate at the correction revision' '$temporary/rnext'"
 jq '.body |= sub("- Recovery corrections revision: `[0-9a-f]{40}`\n"; "")' "$temporary/rrecord-original.json" >"$rrecord"
-release status >"$temporary/rnext"
+release status --repair-revision "$rrepair" >"$temporary/rnext"
 check 'a recovery previous release without its revision pin blocks the next start' bash -c "grep -Fxq next_action=blocked '$temporary/rnext' && grep -Fq 'previous release v0.3.0' '$temporary/rnext'"
 cp "$temporary/rrecord-original.json" "$rrecord"
 fixture=$saved_fixture
@@ -1956,9 +2216,15 @@ check 'an in-flight Release Please run is reported, never dispatched again' bash
 release status --tag v0.2.0 >"$temporary/sstatus"
 check 'status --tag also waits for an in-flight Release Please run' bash -c "grep -Fxq state=release_pr_starting '$temporary/sstatus' && grep -Fxq next_action=await_run '$temporary/sstatus' && grep -Fxq run_id=3030 '$temporary/sstatus'"
 expect_failure 'start is refused while Release Please runs' 'starting a release is not the next step' release start
+release status --repair-revision "$sfeat" >"$temporary/sstatus"
+check 'a path that never validates a recovery release refuses an explicit repair instead of ignoring it' bash -c "grep -Fxq state=release_pr_starting '$temporary/sstatus' && grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fxq 'reason=repair revision requires a published recovery release' '$temporary/sstatus'"
 rm "$state/inflight-release-please.yml.json"
+release status --repair-revision "$sfeat" >"$temporary/sstatus"
+check 'status never ignores an explicit repair when the previous release has no recovery provenance' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fxq 'reason=repair revision requires a published recovery release' '$temporary/sstatus'"
+expect_failure 'start never falls back to the normal flow when an explicit repair does not apply' 'repair revision requires a published recovery release' \
+  release start --repair-revision "$sfeat"
 check 'refused starts dispatched nothing' test "$(grep -c '^workflow' "$state/ledger" || true)" == 0
-expect_failure 'start takes no version or revision from the operator' 'start takes no options' release start --tag v0.9.0
+expect_failure 'start takes no version or revision from the operator' 'start takes only optional --repair-revision' release start --tag v0.9.0
 spr_head=$(printf 'e%.0s' {1..40})
 release_pr_head() { printf '{"sha":"%s","parents":[{"sha":"%s"}]}\n' "$spr_head" "$1" >"$state/commit-$spr_head.json"; }
 cat >"$state/dispatch-effect-release-please.yml" <<EFFECT

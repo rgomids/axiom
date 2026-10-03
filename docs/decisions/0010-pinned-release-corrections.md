@@ -54,3 +54,10 @@ published notes drift is reported during re-verification.
 Revisit if release notes need detached signatures or a broader cancellation
 protocol. This ADR introduces neither product Runtime behavior nor human
 acceptance of an Axiom release.
+
+## Published control-code repair amendment
+
+[ADR-0013](0013-published-release-control-repair.md) proposes an explicit,
+additional execution pin for repairing verifier defects after publication.
+It preserves every original metadata pin and immutable release byte; ordinary
+ADR-0010 execution still uses its original control revision without fallback.

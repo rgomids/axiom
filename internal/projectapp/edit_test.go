@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/testfs"
 )
 
 const editProjectID = "123e4567-e89b-42d3-a456-426614174000"
@@ -101,14 +102,14 @@ func newEditFixture(t *testing.T) *editFixture {
 		t.Fatal(snapshotIssues)
 	}
 	record := projectapp.LocalRecordState{
-		ProjectID: editProjectID, ObservedSlug: "sample", SourceLocation: "/portable/sample",
+		ProjectID: editProjectID, ObservedSlug: "sample", SourceLocation: testfs.Path("/portable/sample"),
 		PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests(),
 		Repositories: []projectapp.RepositoryBinding{
-			{RepositoryKey: "api", ExplicitPath: "/work/api", CanonicalIdentity: "fs:/work/api", Observation: projectapp.Observation{Availability: projectapp.Available, Basis: projectapp.PresentMetadata, ObservedAt: observedAt}},
-			{RepositoryKey: "web", ExplicitPath: "/work/web-broken", CanonicalIdentity: "fs:/work/web-broken", Observation: projectapp.Observation{Availability: projectapp.Unavailable, Basis: projectapp.MissingMetadata, ObservedAt: observedAt}},
+			{RepositoryKey: "api", ExplicitPath: testfs.Path("/work/api"), CanonicalIdentity: "fs:" + testfs.Path("/work/api"), Observation: projectapp.Observation{Availability: projectapp.Available, Basis: projectapp.PresentMetadata, ObservedAt: observedAt}},
+			{RepositoryKey: "web", ExplicitPath: testfs.Path("/work/web-broken"), CanonicalIdentity: "fs:" + testfs.Path("/work/web-broken"), Observation: projectapp.Observation{Availability: projectapp.Unavailable, Basis: projectapp.MissingMetadata, ObservedAt: observedAt}},
 		},
 		Credentials: []projectapp.CredentialBinding{{ReferenceKey: "chat-token", SourceKind: "keychain", ItemReference: "axiom/chat-item"}},
-		Runtime:     projectapp.RuntimeBinding{RuntimeID: "codex", ExplicitPath: "/opt/runtime-secret-location", Observation: projectapp.Observation{Availability: projectapp.Available, Basis: projectapp.PresentMetadata, ObservedAt: observedAt}},
+		Runtime:     projectapp.RuntimeBinding{RuntimeID: "codex", ExplicitPath: testfs.Path("/opt/runtime-secret-location"), Observation: projectapp.Observation{Availability: projectapp.Available, Basis: projectapp.PresentMetadata, ObservedAt: observedAt}},
 		Attempt:     projectapp.AttemptMetadata{Correlation: "attempt-correlation-marker", At: observedAt},
 	}
 	localWire, localIssues := localCodecFixture{}.EncodeLocal(record)
@@ -119,7 +120,7 @@ func newEditFixture(t *testing.T) *editFixture {
 	portableDigest, _ := snapshot.Revision().Digest()
 	return &editFixture{selection: projectapp.EditSelection{
 		Portable: snapshot, Local: record, LocalWire: localWire,
-		PortableDestination: "/portable/sample", LocalDestination: "/state/projects/" + editProjectID,
+		PortableDestination: testfs.Path("/portable/sample"), LocalDestination: testfs.Path("/state/projects/" + editProjectID),
 		PortableRevision: hex.EncodeToString(portableDigest[:]), LocalRevision: hex.EncodeToString(localDigest[:]),
 	}}
 }
@@ -268,7 +269,7 @@ func (f *editFixture) replacePortable(t *testing.T, state project.State) {
 func TestEditRepositoryAddUpdateRemoveByStableKey(t *testing.T) {
 	f := newEditFixture(t)
 	proposal := mustPreview(t, f, projectapp.EditIntent{
-		RepositoryUpserts:  []projectapp.RepositoryUpsert{{Key: "web", Path: "/work/web-fixed"}, {Key: "docs", Path: "/work/docs/"}},
+		RepositoryUpserts:  []projectapp.RepositoryUpsert{{Key: "web", Path: testfs.Path("/work/web-fixed")}, {Key: "docs", Path: testfs.Path("/work/docs") + "/"}},
 		RepositoryRemovals: []string{"api"},
 	})
 	repositories, _ := proposal.Project().State().Repositories.Value()
@@ -279,7 +280,7 @@ func TestEditRepositoryAddUpdateRemoveByStableKey(t *testing.T) {
 		t.Fatal("update invented a portable remote")
 	}
 	bindings := proposal.Local().Repositories
-	if len(bindings) != 2 || bindings[0].RepositoryKey != "docs" || bindings[0].ExplicitPath != "/work/docs" || bindings[1].RepositoryKey != "web" || bindings[1].ExplicitPath != "/work/web-fixed" || bindings[1].CanonicalIdentity != "fs:/work/web-fixed" {
+	if len(bindings) != 2 || bindings[0].RepositoryKey != "docs" || bindings[0].ExplicitPath != testfs.Path("/work/docs") || bindings[1].RepositoryKey != "web" || bindings[1].ExplicitPath != testfs.Path("/work/web-fixed") || bindings[1].CanonicalIdentity != "fs:"+testfs.Path("/work/web-fixed") {
 		t.Fatalf("local bindings = %+v", bindings)
 	}
 	want := []string{
@@ -308,12 +309,12 @@ func TestEditRepositoryUpdatePreservesPortableFieldsAndOmittedBindings(t *testin
 	checkouts := &checkoutFixture{}
 	proposal, failure := projectapp.PreviewEdit(context.Background(), projectapp.EditPorts{Source: f, Checkouts: checkouts, Manifest: manifest.Codec{}, Local: localCodecFixture{}}, projectapp.EditIntent{
 		Selector:          "sample",
-		RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: "/work/api-moved"}},
+		RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: testfs.Path("/work/api-moved")}},
 	})
 	if failure != projectapp.EditOK {
 		t.Fatal(failure)
 	}
-	if !reflect.DeepEqual(checkouts.observed, []string{"/work/api-moved"}) {
+	if !reflect.DeepEqual(checkouts.observed, []string{testfs.Path("/work/api-moved")}) {
 		t.Fatalf("observed paths = %v; only explicitly supplied paths may be inspected", checkouts.observed)
 	}
 	if !proposal.Project().Equivalent(f.selection.Portable.Project()) || effectCodes(proposal.Preview().Effects)[0] != "local:update_local_record" {
@@ -331,7 +332,7 @@ func TestEditRepositoryUpdatePreservesPortableFieldsAndOmittedBindings(t *testin
 
 func TestEditPreservesUnrelatedPortableAndLocalFields(t *testing.T) {
 	f := newEditFixture(t)
-	proposal := mustPreview(t, f, projectapp.EditIntent{Name: set("Renamed"), RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "docs", Path: "/work/docs"}}})
+	proposal := mustPreview(t, f, projectapp.EditIntent{Name: set("Renamed"), RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "docs", Path: testfs.Path("/work/docs")}}})
 	before, after := f.selection.Portable.Project().State(), proposal.Project().State()
 	for name, pair := range map[string][2]any{
 		"runtime":              {before.Runtime, after.Runtime},
@@ -361,11 +362,11 @@ func TestEditPreservesUnrelatedPortableAndLocalFields(t *testing.T) {
 func TestEditRejectsConflictingAndUnknownRepositoryOperations(t *testing.T) {
 	f := newEditFixture(t)
 	for name, intent := range map[string]projectapp.EditIntent{
-		"upsert and remove same key": {RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: "/work/api"}}, RepositoryRemovals: []string{"api"}},
-		"duplicate upsert":           {RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: "/work/a"}, {Key: "api", Path: "/work/b"}}},
+		"upsert and remove same key": {RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: testfs.Path("/work/api")}}, RepositoryRemovals: []string{"api"}},
+		"duplicate upsert":           {RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: testfs.Path("/work/a")}, {Key: "api", Path: testfs.Path("/work/b")}}},
 		"duplicate removal":          {RepositoryRemovals: []string{"web", "web"}},
 		"relative path":              {RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "api", Path: "work/api"}}},
-		"invalid key":                {RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "API", Path: "/work/api"}}},
+		"invalid key":                {RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "API", Path: testfs.Path("/work/api")}}},
 		"empty name":                 {Name: set("")},
 		"invalid provider":           {WorkItemProvider: set("Git Hub")},
 	} {
@@ -379,15 +380,15 @@ func TestEditRejectsConflictingAndUnknownRepositoryOperations(t *testing.T) {
 	if _, failure := f.preview(t, projectapp.EditIntent{RepositoryRemovals: []string{"unknown"}}); failure != projectapp.EditUnknownRepository {
 		t.Fatalf("unknown removal failure = %d", failure)
 	}
-	if _, failure := f.preview(t, projectapp.EditIntent{RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "docs", Path: "/work/missing"}}}); failure != projectapp.EditRepositoryUnavailable {
+	if _, failure := f.preview(t, projectapp.EditIntent{RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "docs", Path: testfs.Path("/work/missing")}}}); failure != projectapp.EditRepositoryUnavailable {
 		t.Fatalf("unavailable path failure = %d", failure)
 	}
 }
 
 func TestEditIsDeterministicAcrossOperationOrderAndSelector(t *testing.T) {
 	f := newEditFixture(t)
-	first := mustPreview(t, f, projectapp.EditIntent{Selector: "sample", RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "zeta", Path: "/work/zeta"}, {Key: "alpha", Path: "/work/alpha"}}, RepositoryRemovals: []string{"web", "api"}})
-	second := mustPreview(t, f, projectapp.EditIntent{Selector: editProjectID, RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "alpha", Path: "/work/alpha"}, {Key: "zeta", Path: "/work/zeta"}}, RepositoryRemovals: []string{"api", "web"}})
+	first := mustPreview(t, f, projectapp.EditIntent{Selector: "sample", RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "zeta", Path: testfs.Path("/work/zeta")}, {Key: "alpha", Path: testfs.Path("/work/alpha")}}, RepositoryRemovals: []string{"web", "api"}})
+	second := mustPreview(t, f, projectapp.EditIntent{Selector: editProjectID, RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "alpha", Path: testfs.Path("/work/alpha")}, {Key: "zeta", Path: testfs.Path("/work/zeta")}}, RepositoryRemovals: []string{"api", "web"}})
 	if !reflect.DeepEqual(first.Preview(), second.Preview()) || string(first.Manifest()) != string(second.Manifest()) || string(first.LocalWire()) != string(second.LocalWire()) {
 		t.Fatal("equivalent intent through slug and UUID produced different candidates")
 	}
@@ -401,7 +402,7 @@ func TestEditIsDeterministicAcrossOperationOrderAndSelector(t *testing.T) {
 	if first.Preview().Digest == "" || first.Preview().Digest != second.Preview().Digest {
 		t.Fatal("digest is not deterministic for equivalent intent")
 	}
-	again := mustPreview(t, f, projectapp.EditIntent{Selector: "sample", RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "zeta", Path: "/work/zeta"}, {Key: "alpha", Path: "/work/alpha"}}, RepositoryRemovals: []string{"web", "api"}})
+	again := mustPreview(t, f, projectapp.EditIntent{Selector: "sample", RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "zeta", Path: testfs.Path("/work/zeta")}, {Key: "alpha", Path: testfs.Path("/work/alpha")}}, RepositoryRemovals: []string{"web", "api"}})
 	if again.Preview().Digest != first.Preview().Digest {
 		t.Fatal("digest is not stable across repeated previews")
 	}
@@ -426,12 +427,12 @@ func TestEditDigestBindsEveryEnvelopeComponent(t *testing.T) {
 		intent projectapp.EditIntent
 	}{
 		"portable candidate": {intent: projectapp.EditIntent{Name: set("Other")}},
-		"local binding":      {intent: projectapp.EditIntent{Name: set("Renamed"), RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "web", Path: "/work/web-fixed"}}}},
+		"local binding":      {intent: projectapp.EditIntent{Name: set("Renamed"), RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "web", Path: testfs.Path("/work/web-fixed")}}}},
 		"local destination": {intent: intent, mutate: func(_ *testing.T, f *editFixture) {
-			f.selection.LocalDestination = "/other-state/projects/" + editProjectID
+			f.selection.LocalDestination = testfs.Path("/other-state/projects/" + editProjectID)
 		}},
 		"portable destination": {intent: intent, mutate: func(t *testing.T, f *editFixture) {
-			f.selection.PortableDestination, f.selection.Local.SourceLocation = "/elsewhere/sample", "/elsewhere/sample"
+			f.selection.PortableDestination, f.selection.Local.SourceLocation = testfs.Path("/elsewhere/sample"), testfs.Path("/elsewhere/sample")
 			reencode(t, f)
 		}},
 		"hidden credential reference": {intent: intent, mutate: func(t *testing.T, f *editFixture) {
@@ -439,7 +440,7 @@ func TestEditDigestBindsEveryEnvelopeComponent(t *testing.T) {
 			reencode(t, f)
 		}},
 		"hidden runtime binding": {intent: intent, mutate: func(t *testing.T, f *editFixture) {
-			f.selection.Local.Runtime.ExplicitPath = "/opt/other-runtime"
+			f.selection.Local.Runtime.ExplicitPath = testfs.Path("/opt/other-runtime")
 			reencode(t, f)
 		}},
 		"hidden preserved binding observation": {intent: intent, mutate: func(t *testing.T, f *editFixture) {
@@ -463,7 +464,7 @@ func TestEditPreviewIsCompleteSafeAndDigestBindsInternalLocalCandidate(t *testin
 	f := newEditFixture(t)
 	proposal := mustPreview(t, f, projectapp.EditIntent{RepositoryRemovals: []string{"web"}})
 	preview := proposal.Preview()
-	if preview.Mode != projectapp.EditMode || preview.ProjectID != editProjectID || preview.PortableDestination != "/portable/sample" || preview.LocalDestination != "/state/projects/"+editProjectID || preview.PortableRevision != f.selection.PortableRevision || preview.LocalRevision != f.selection.LocalRevision {
+	if preview.Mode != projectapp.EditMode || preview.ProjectID != editProjectID || preview.PortableDestination != testfs.Path("/portable/sample") || preview.LocalDestination != testfs.Path("/state/projects/"+editProjectID) || preview.PortableRevision != f.selection.PortableRevision || preview.LocalRevision != f.selection.LocalRevision {
 		t.Fatalf("preview identity/destinations/observations = %+v", preview)
 	}
 	if preview.PortableManifest != string(proposal.Manifest()) {
@@ -474,19 +475,21 @@ func TestEditPreviewIsCompleteSafeAndDigestBindsInternalLocalCandidate(t *testin
 			t.Fatalf("complete portable result missing %q:\n%s", expected, preview.PortableManifest)
 		}
 	}
-	if strings.Contains(preview.PortableManifest, "key: web") || strings.Contains(preview.PortableManifest, "/work/") {
+	if strings.Contains(preview.PortableManifest, "key: web") || strings.Contains(preview.PortableManifest, testfs.Path("/work/")) {
 		t.Fatal("portable candidate kept removed association or leaked local paths")
 	}
 	wire, err := json.Marshal(preview)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, hidden := range []string{"axiom/chat-item", "/opt/runtime-secret-location", "attempt-correlation-marker", "/work/api", "observedAt", "availability", "present_metadata"} {
-		if strings.Contains(string(wire), hidden) {
+	for _, hidden := range []string{"axiom/chat-item", testfs.Path("/opt/runtime-secret-location"), "attempt-correlation-marker", testfs.Path("/work/api"), "observedAt", "availability", "present_metadata"} {
+		encoded, _ := json.Marshal(hidden)
+		if strings.Contains(string(wire), string(encoded[1:len(encoded)-1])) {
 			t.Fatalf("user-visible preview exposed unrelated local metadata %q: %s", hidden, wire)
 		}
 	}
-	if !strings.Contains(string(wire), "/work/web-broken") {
+	removedPath, _ := json.Marshal(testfs.Path("/work/web-broken"))
+	if !strings.Contains(string(wire), string(removedPath)) {
 		t.Fatal("removed binding path is not reviewable")
 	}
 	if !strings.Contains(string(proposal.LocalWire()), "axiom/chat-item") || !strings.Contains(string(proposal.LocalWire()), "attempt-correlation-marker") {
@@ -524,7 +527,7 @@ func TestEditFailsClosedOnSelectionAndIncoherentState(t *testing.T) {
 		"stale local portable revision": func(s *projectapp.EditSelection) {
 			s.Local.PortableRevision = projectapp.RecordedPortableRevision([32]byte{9})
 		},
-		"source not the read destination": func(s *projectapp.EditSelection) { s.Local.SourceLocation = "/elsewhere/sample" },
+		"source not the read destination": func(s *projectapp.EditSelection) { s.Local.SourceLocation = testfs.Path("/elsewhere/sample") },
 		"slug drift":                      func(s *projectapp.EditSelection) { s.Local.ObservedSlug = "other" },
 		"local revision":                  func(s *projectapp.EditSelection) { s.LocalRevision = "0000" },
 		"binding key drift":               func(s *projectapp.EditSelection) { s.Local.Repositories = s.Local.Repositories[:1] },

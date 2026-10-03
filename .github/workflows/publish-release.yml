@@ -41,6 +41,11 @@ on:
         required: false
         type: string
 
+      repair_revision:
+        description: Optional reviewed full SHA for verification and remaining effects of an immutable published recovery release
+        required: false
+        type: string
+
 permissions: {}
 
 defaults:
@@ -58,6 +63,8 @@ jobs:
     permissions:
       contents: read
       actions: read
+      # The trusted workflow gate reads Check Runs before repair code executes.
+      checks: read
       issues: read
     steps:
       - name: Require dispatch from main and well-formed inputs
@@ -87,10 +94,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           path: control
+      - name: Checkout explicit published-release repair
+        if: inputs.repair_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.repair_revision }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: repair
       - name: Select release control scripts
         env:
           CORRECTIONS_REVISION: ${{ inputs.corrections_revision }}
           CORRECTIONS_DIGEST: ${{ inputs.corrections_digest }}
+          REPAIR_REVISION: ${{ inputs.repair_revision }}
+          WORKFLOW_REVISION: ${{ github.sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_REVISION: ${{ inputs.revision }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           scripts="$GITHUB_WORKSPACE/source/scripts"
           if [[ -n "$CORRECTIONS_REVISION$CORRECTIONS_DIGEST" ]]; then
@@ -100,7 +120,38 @@ jobs:
             git -C "$GITHUB_WORKSPACE/control" merge-base --is-ancestor "$(git -C "$GITHUB_WORKSPACE/source" rev-parse HEAD)" "$CORRECTIONS_REVISION"
             scripts="$GITHUB_WORKSPACE/control/scripts"
           fi
+          if [[ -n "$REPAIR_REVISION" ]]; then
+            [[ "$REPAIR_REVISION" =~ ^[0-9a-f]{40}$ && -n "$CORRECTIONS_REVISION" ]]
+            [[ $(git -C "$GITHUB_WORKSPACE/repair" rev-parse HEAD) == "$REPAIR_REVISION" ]]
+            git -C "$GITHUB_WORKSPACE/repair" rev-list --first-parent origin/main | grep -Fx "$REPAIR_REVISION" >/dev/null
+            git -C "$GITHUB_WORKSPACE/repair" merge-base --is-ancestor "$CORRECTIONS_REVISION" "$REPAIR_REVISION"
+            [[ "$REPAIR_REVISION" != "$CORRECTIONS_REVISION" ]]
+            # First trust gate belongs to this main-dispatched workflow. Read
+            # policy at its immutable SHA, never from the repair worktree; no
+            # repair script or local action may execute until this gate passes.
+            ruleset=$(git -C "$GITHUB_WORKSPACE/repair" show "$WORKFLOW_REVISION:.github/rulesets/main.json")
+            checks=$(gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$REPAIR_REVISION/check-runs?per_page=100" | jq -s '[.[].check_runs[]]')
+            # delivery-metadata is PR-only; merged main commits have no run.
+            # Check Run id orders attempts even while started_at is null.
+            jq -e --argjson ruleset "$ruleset" '
+              . as $runs |
+              [$ruleset.rules[] | select(.type == "required_status_checks") |
+                .parameters.required_status_checks[] | select(.context != "delivery-metadata")] as $required |
+              ($required | length > 0) and all($required[];
+                . as $check |
+                ($check.context | type == "string" and length > 0) and
+                ($check.integration_id | type == "number") and
+                ([$runs[] | select(.name == $check.context and .app.id == $check.integration_id)] |
+                  sort_by(.id, .started_at) | last |
+                  .status == "completed" and .conclusion == "success"))
+            ' <<<"$checks" >/dev/null || { printf 'release_repair_error: required CI on repair revision is not successful\n' >&2; exit 1; }
+            AXIOM_RELEASE_CORRECTIONS_REVISION=$CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST=$CORRECTIONS_DIGEST \
+              "$GITHUB_WORKSPACE/repair/scripts/release-repair.sh" --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+              --revision "$RELEASE_REVISION" --repair-revision "$REPAIR_REVISION"
+            scripts="$GITHUB_WORKSPACE/repair/scripts"
+          fi
           {
+            printf 'AXIOM_RELEASE_REPAIR_REVISION=%s\n' "$REPAIR_REVISION"
             printf 'RELEASE_CONTROL_SCRIPTS=%s\n' "$scripts"
             printf 'AXIOM_RELEASE_CORRECTIONS_REVISION=%s\n' "$CORRECTIONS_REVISION"
             printf 'AXIOM_RELEASE_CORRECTIONS_DIGEST=%s\n' "$CORRECTIONS_DIGEST"
@@ -135,6 +186,9 @@ jobs:
     permissions:
       contents: read
       actions: read
+      checks: read
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -150,10 +204,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           path: control
+      - name: Checkout explicit published-release repair
+        if: inputs.repair_revision != ''
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.repair_revision }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: repair
       - name: Select release control scripts
         env:
           CORRECTIONS_REVISION: ${{ inputs.corrections_revision }}
           CORRECTIONS_DIGEST: ${{ inputs.corrections_digest }}
+          REPAIR_REVISION: ${{ inputs.repair_revision }}
+          WORKFLOW_REVISION: ${{ github.sha }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_REVISION: ${{ inputs.revision }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           scripts="$GITHUB_WORKSPACE/source/scripts"
           if [[ -n "$CORRECTIONS_REVISION$CORRECTIONS_DIGEST" ]]; then
@@ -163,7 +230,38 @@ jobs:
             git -C "$GITHUB_WORKSPACE/control" merge-base --is-ancestor "$(git -C "$GITHUB_WORKSPACE/source" rev-parse HEAD)" "$CORRECTIONS_REVISION"
             scripts="$GITHUB_WORKSPACE/control/scripts"
           fi
+          if [[ -n "$REPAIR_REVISION" ]]; then
+            [[ "$REPAIR_REVISION" =~ ^[0-9a-f]{40}$ && -n "$CORRECTIONS_REVISION" ]]
+            [[ $(git -C "$GITHUB_WORKSPACE/repair" rev-parse HEAD) == "$REPAIR_REVISION" ]]
+            git -C "$GITHUB_WORKSPACE/repair" rev-list --first-parent origin/main | grep -Fx "$REPAIR_REVISION" >/dev/null
+            git -C "$GITHUB_WORKSPACE/repair" merge-base --is-ancestor "$CORRECTIONS_REVISION" "$REPAIR_REVISION"
+            [[ "$REPAIR_REVISION" != "$CORRECTIONS_REVISION" ]]
+            # First trust gate belongs to this main-dispatched workflow. Read
+            # policy at its immutable SHA, never from the repair worktree; no
+            # repair script or local action may execute until this gate passes.
+            ruleset=$(git -C "$GITHUB_WORKSPACE/repair" show "$WORKFLOW_REVISION:.github/rulesets/main.json")
+            checks=$(gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$REPAIR_REVISION/check-runs?per_page=100" | jq -s '[.[].check_runs[]]')
+            # delivery-metadata is PR-only; merged main commits have no run.
+            # Check Run id orders attempts even while started_at is null.
+            jq -e --argjson ruleset "$ruleset" '
+              . as $runs |
+              [$ruleset.rules[] | select(.type == "required_status_checks") |
+                .parameters.required_status_checks[] | select(.context != "delivery-metadata")] as $required |
+              ($required | length > 0) and all($required[];
+                . as $check |
+                ($check.context | type == "string" and length > 0) and
+                ($check.integration_id | type == "number") and
+                ([$runs[] | select(.name == $check.context and .app.id == $check.integration_id)] |
+                  sort_by(.id, .started_at) | last |
+                  .status == "completed" and .conclusion == "success"))
+            ' <<<"$checks" >/dev/null || { printf 'release_repair_error: required CI on repair revision is not successful\n' >&2; exit 1; }
+            AXIOM_RELEASE_CORRECTIONS_REVISION=$CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST=$CORRECTIONS_DIGEST \
+              "$GITHUB_WORKSPACE/repair/scripts/release-repair.sh" --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+              --revision "$RELEASE_REVISION" --repair-revision "$REPAIR_REVISION"
+            scripts="$GITHUB_WORKSPACE/repair/scripts"
+          fi
           {
+            printf 'AXIOM_RELEASE_REPAIR_REVISION=%s\n' "$REPAIR_REVISION"
             printf 'RELEASE_CONTROL_SCRIPTS=%s\n' "$scripts"
             printf 'AXIOM_RELEASE_CORRECTIONS_REVISION=%s\n' "$CORRECTIONS_REVISION"
             printf 'AXIOM_RELEASE_CORRECTIONS_DIGEST=%s\n' "$CORRECTIONS_DIGEST"
@@ -192,6 +290,8 @@ jobs:
           # Environment-scoped fine-grained PAT: historical source workflows
           # differ from main, requiring Workflows: write unavailable to GITHUB_TOKEN.
           GH_TOKEN: ${{ secrets.AXIOM_RELEASE_PUBLISH_TOKEN }}
+          # Preserve workflow-bot authorship for Issue records and PR labels.
+          AXIOM_RELEASE_REPOSITORY_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_REVISION: ${{ inputs.revision }}
           PREPARED_RUN: ${{ inputs.prepared_run }}
@@ -199,11 +299,12 @@ jobs:
           # Classic PAT (project scope) for the user-owned delivery Project;
           # a release environment secret, used only for Projects v2 GraphQL
           # and only when .github/delivery-project.json at the revision sets
-          # "projection": "enabled". Repository effects use the publication PAT.
+          # "projection": "enabled". Repository effects use GITHUB_TOKEN.
           AXIOM_DELIVERY_PROJECT_TOKEN: ${{ steps.delivery.outputs.projection == 'enabled' && secrets.AXIOM_DELIVERY_PROJECT_TOKEN || '' }}
         working-directory: source
         run: |
           [[ -n "$GH_TOKEN" ]] || { printf 'release_publish_error: AXIOM_RELEASE_PUBLISH_TOKEN is unavailable\n' >&2; exit 1; }
+          [[ -n "$AXIOM_RELEASE_REPOSITORY_TOKEN" ]] || { printf 'release_publish_error: repository token is unavailable\n' >&2; exit 1; }
           [[ $(git rev-parse --verify HEAD) == "$RELEASE_REVISION" ]]
           prepared="$RUNNER_TEMP/prepared"
           # Main, tags and the prepared set may have changed since preflight.

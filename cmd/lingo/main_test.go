@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -171,7 +172,8 @@ func TestConfigurePublishesPortableKeysAndLocalPathsThenResolves(t *testing.T) {
 		t.Fatalf("records = %v, %v", records, err)
 	}
 	recordBytes, err := os.ReadFile(records[0])
-	if err != nil || !bytes.Contains(recordBytes, []byte(repository)) {
+	repositoryJSON, _ := json.Marshal(repository)
+	if err != nil || !bytes.Contains(recordBytes, repositoryJSON) {
 		t.Fatalf("local repository binding absent: %s, %v", recordBytes, err)
 	}
 }
@@ -310,7 +312,9 @@ func TestConfigurePreviewIsReadOnlyAndAuthorityBindsExactDigest(t *testing.T) {
 		t.Fatalf("local records = %v, %v", records, err)
 	}
 	recordBytes, err := os.ReadFile(records[0])
-	if err != nil || !bytes.Contains(recordBytes, []byte(api)) || !bytes.Contains(recordBytes, []byte(web)) {
+	apiJSON, _ := json.Marshal(api)
+	webJSON, _ := json.Marshal(web)
+	if err != nil || !bytes.Contains(recordBytes, apiJSON) || !bytes.Contains(recordBytes, webJSON) {
 		t.Fatalf("independent bindings missing: %v, %s", err, recordBytes)
 	}
 	old, err := os.Getwd()
@@ -372,7 +376,7 @@ func TestConfigureReportsCommittedPortableStateWhenLocalPublicationFails(t *test
 	service := compose().(lifecycleService)
 	preview := previewProject(t, service, "configured", "Configured", "main="+repository, "github")
 	service.beforeLocalPublication = func() {
-		if err := os.Symlink(t.TempDir(), state); err != nil {
+		if err := testfs.Symlink(t, t.TempDir(), state); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -530,9 +534,9 @@ func TestWorkflowPartialRendersCommittedExternalState(t *testing.T) {
 }
 
 func TestStateRootOverride(t *testing.T) {
-	t.Setenv("LINGO_STATE_ROOT", "/tmp/lingo-state/../lingo-state")
+	t.Setenv("LINGO_STATE_ROOT", testfs.Path("/tmp/lingo-state")+"/../lingo-state")
 	got, err := stateRoot()
-	if err != nil || got != "/tmp/lingo-state" {
+	if err != nil || got != testfs.Path("/tmp/lingo-state") {
 		t.Fatalf("stateRoot override = %q, %v", got, err)
 	}
 }
@@ -567,7 +571,7 @@ func TestCompositionRejectsSymlinkAliasBeforeCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 	alias := filepath.Join(t.TempDir(), "alias")
-	if err := os.Symlink(root, alias); err != nil {
+	if err := testfs.Symlink(t, root, alias); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
@@ -582,6 +586,7 @@ func TestCompositionRejectsSymlinkAliasBeforeCreation(t *testing.T) {
 }
 
 func TestInstallRejectsUnsafeSourceWithoutChangingPermissions(t *testing.T) {
+	testfs.POSIXModes(t)
 	root := filepath.Join(t.TempDir(), "projects")
 	state := filepath.Join(t.TempDir(), "state")
 	t.Setenv("LINGO_PROJECTS_ROOT", root)
@@ -619,7 +624,7 @@ func TestInstallRejectsSymlinkRecordWithoutWritingOutside(t *testing.T) {
 	if err := os.Remove(records[0]); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(outside, records[0]); err != nil {
+	if err := testfs.Symlink(t, outside, records[0]); err != nil {
 		t.Fatal(err)
 	}
 	runCLI(t, service, []string{"project", "install", "--source", source}, cli.ExitFailure, "invalid_existing_local_state")
