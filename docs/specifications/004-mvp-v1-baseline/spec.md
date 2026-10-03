@@ -82,6 +82,44 @@ without accepting implicit in-place migration of historical workflow truth:
 
 This reconciliation authorizes the compatibility-policy direction only. It does
 not authorize implementation, destructive mutation, release, or merge.
+
+## Upgrade-over-earlier-state amendment — 2026-10-03
+
+A v0.4.0 upgrade refused owned state written by earlier stable releases as
+`state_unsafe`. The human decision recorded on 2026-10-03 (rgomids/axiom#173)
+sets the governing rule: **a newer release MUST NOT refuse persisted state that
+an earlier Axiom release legitimately wrote.** For a state root holding the
+complete historical POC workflow signature beside state that a stable v1
+release legitimately wrote (v1-only state):
+
+- the root resolves as `valid_v1` with reason
+  `v1_state_with_preserved_poc_history` and the default `direct` strategy;
+- the historical `workflows/` records stay preserved in place; the normal v1
+  runtime path does not read them, and they are not migrated or promoted to
+  current canonical Execution/workflow truth;
+- a normal `direct` upgrade leaves the `workflows/` tree unchanged (paths,
+  bytes, and modes).
+
+POC-only state keeps the Issue #153 **preserve -> clean rebuild -> supported
+reconfiguration** transition. Partial, foreign, modified, unsafe, corrupt,
+ambiguous, interrupted, unsupported-newer, out-of-window, and otherwise
+unsupported state, including any of these beside POC history and v1 state,
+still fails closed.
+
+**Optional explicit migration (not delivered).** Moving preserved POC workflow
+history into the current model is allowed only as a separate capability that
+the user explicitly requests, never as part of the default upgrade. It MUST
+preview what it consumes and produces before any effect, require exact
+authority, preserve the historical source, never overwrite canonical state,
+refuse any record whose mapping cannot be proven, be deterministic and
+idempotent, apply atomically or leave no partial canonical state, and record
+Evidence. The current domain model does not define that mapping: POC records
+lack the Work Item provider/resource that address a v1 Execution, the v1
+`intake` stage, transition timestamps, request digests, typed references, and
+build provenance. A mapping therefore needs its own product/architecture
+decision; Issue #175 tracks it. Until then historical POC workflow truth stays
+inert, consistent with FR-026.
+
 ## Status and authority
 
 **Approved — human approval recorded on 2026-09-20.**
@@ -794,6 +832,11 @@ MUST NOT claim authorship over the transported content.
   supported reconfiguration strategy when all policy, safety, and exact-authority
   preconditions are satisfied; otherwise it MUST refuse before mutation. Historical
   POC Execution/workflow truth MUST NOT silently become current canonical truth.
+  Per the 2026-10-03 amendment, a newer release MUST NOT refuse state an earlier
+  release legitimately wrote: the complete POC workflow signature beside v1-only
+  state resolves as `valid_v1` (`direct`), with the POC records preserved
+  untouched and never read, migrated, or promoted. Any migration of that history
+  is a separate, explicitly requested capability (Issue #175).
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.

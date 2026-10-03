@@ -3,6 +3,7 @@ package install
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -57,6 +58,18 @@ func (i installation) withV1State(t *testing.T) {
 	if err := os.RemoveAll(filepath.Join(i.target.State.State, "workflows")); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// withPOCAndV1State is the complete POC workflow signature beside v1-only
+// state that a v1 release wrote while operating over the same root.
+func (i installation) withPOCAndV1State(t *testing.T) {
+	t.Helper()
+	i.withPOCState(t)
+	createV1Artifact(t, i.target.State.State)
+}
+
+func (i installation) pocWorkflow() string {
+	return filepath.Join(i.target.State.State, "workflows", pocProjectID, "main-7.json")
 }
 
 func (i installation) workItem() string {
@@ -125,10 +138,33 @@ func TestUpgradeResolvesForwardTransitionPolicy(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
-		{"ambiguous mixed POC and v1", "1.1.0", func(i installation, t *testing.T) {
-			i.withPOCState(t)
-			createV1Artifact(t, i.target.State.State)
+		{"v1 with preserved POC history", "1.1.0", installation.withPOCAndV1State, compatibility.ValidV1, compatibility.StrategyDirect, ""},
+		{"partial POC history beside v1", "1.1.0", func(i installation, t *testing.T) {
+			i.withPOCAndV1State(t)
+			replaceIn(t, i.pocWorkflow(), `"gate":"plan"`, `"gate":"planning"`)
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
+		{"modified POC history beside v1", "1.1.0", func(i installation, t *testing.T) {
+			i.withPOCAndV1State(t)
+			replaceIn(t, i.pocWorkflow(), `{"formatVersion":1,`, `{"formatVersion":1,"operatorNote":"edited",`)
+		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
+		{"unsafe POC history beside v1", "1.1.0", func(i installation, t *testing.T) {
+			i.withPOCAndV1State(t)
+			if err := testfs.SharedMode(i.pocWorkflow(), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
+		{"foreign entry beside POC history and v1", "1.1.0", func(i installation, t *testing.T) {
+			i.withPOCAndV1State(t)
+			writeFile(t, filepath.Join(i.target.State.State, "notes.txt"), []byte("foreign\n"), 0o600)
+		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
+		{"unsupported newer beside POC history and v1", "1.1.0", func(i installation, t *testing.T) {
+			i.withPOCAndV1State(t)
+			replaceIn(t, i.workItem(), `"formatVersion":1`, `"formatVersion":2`)
+		}, compatibility.UnsupportedNewer, compatibility.StrategyRefuse, "state_unsupported"},
+		{"interrupted beside POC history and v1", "1.1.0", func(i installation, t *testing.T) {
+			i.withPOCAndV1State(t)
+			writeFile(t, filepath.Join(i.target.State.State, "workflows", pocProjectID, ".axiom-recovery-0001"), []byte("interrupted\n"), 0o600)
+		}, compatibility.RecoveryRequired, compatibility.StrategyRefuse, "state_recovery_required"},
 		{"corrupt record", "1.1.0", func(i installation, t *testing.T) {
 			i.withV1State(t)
 			writeFile(t, i.workItem(), []byte("{\"formatVersion\":1,"), 0o600)
@@ -399,4 +435,64 @@ func TestUpgradeResumeKeepsResumeWhenStateInspectionFails(t *testing.T) {
 	if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
 		t.Fatal("failed inspection changed installation or state")
 	}
+}
+
+// A v1 release that already wrote v1-only state beside the complete POC
+// workflow signature upgrades directly; the POC history is preserved untouched
+// (paths, bytes, modes and modification times), including on an idempotent
+// rerun of the same release.
+func TestUpgradeOverV1WithPOCHistoryPreservesWorkflowsUntouched(t *testing.T) {
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	installed.withPOCAndV1State(t)
+	workflows := filepath.Join(installed.target.State.State, "workflows")
+	before, beforeTimes := snapshot(t, workflows), modificationTimes(t, workflows)
+	unchanged := func(step string) {
+		t.Helper()
+		if snapshot(t, workflows) != before {
+			t.Fatalf("%s changed preserved POC workflow paths, bytes or modes", step)
+		}
+		if times := modificationTimes(t, workflows); times != beforeTimes {
+			t.Fatalf("%s touched preserved POC workflow history:\n%s\nwant\n%s", step, times, beforeTimes)
+		}
+	}
+	service := NewService()
+	next := newBundle("1.1.0", []byte("new-binary\n"))
+	preview, err := service.Preview(context.Background(), installed.target, installed.candidate(t, next))
+	if err != nil || preview.Transition.Strategy != compatibility.StrategyDirect || preview.State != compatibility.ValidV1 {
+		t.Fatalf("preview=%+v state=%s err=%v", preview.Transition, preview.State, err)
+	}
+	unchanged("preview")
+	authority, err := Authorize(preview, preview.Digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result, err := service.Apply(context.Background(), preview, authority); err != nil || result.Status != "success" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	if read(t, filepath.Join(installed.target.BinaryDir, binaryName)) != "new-binary\n" {
+		t.Fatal("direct strategy did not upgrade the binary")
+	}
+	unchanged("apply")
+	rerun, err := service.Preview(context.Background(), installed.target, installed.candidate(t, next))
+	if err != nil || len(rerun.Effects) != 0 || rerun.Transition.Strategy != compatibility.StrategyDirect {
+		t.Fatalf("rerun of the same release is not a no-op: preview=%+v err=%v", rerun, err)
+	}
+	unchanged("rerun")
+}
+
+func modificationTimes(t *testing.T, root string) string {
+	t.Helper()
+	var builder strings.Builder
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		relative, _ := filepath.Rel(root, path)
+		fmt.Fprintf(&builder, "%s %d\n", relative, info.ModTime().UnixNano())
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return builder.String()
 }
