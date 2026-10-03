@@ -1321,6 +1321,59 @@ check 'reconciliation and undeclared-commit enforcement share the v0.2.0 boundar
   grep -Fxq 'legacy_boundary=0.2.0' '$repository_root/scripts/delivery-issues.sh' &&
   grep -Fq 'exit !(a[1] > 0 || a[2] >= 2)' '$repository_root/scripts/delivery-github.sh'"
 
+# An immutable completion mistakenly names a PR. A committed correction must
+# repair the automatic sync window and later pushes without hiding valid Issues.
+saved_delivery_fixture=$dfix
+dfix=$temporary/corrected-delivery-fixture
+git init -q -b main "$dfix"
+git -C "$dfix" config user.email release-test@example.invalid
+git -C "$dfix" config user.name 'Release Test'
+git -C "$dfix" config commit.gpgsign false
+mkdir -p "$dfix/scripts" "$dfix/.github"
+cp "$saved_delivery_fixture"/scripts/*.sh "$dfix/scripts/"
+project_config disabled
+correction_base=$(dcommit 'chore(main): release 0.3.0 (#100)' '' 0.3.0)
+valid_completion=$(dcommit 'feat: valid delivery (#101)' 'Related-Issues: #20\nCompletes-Issues: #20\n')
+invalid_completion=$(dcommit 'feat: native Windows support (#149)' 'Related-Issues: #128\nCompletes-Issues: #128\n')
+git -C "$dfix" show -s --format=%B "$invalid_completion" >"$temporary/immutable-message"
+reset_github
+issue 20 'Valid delivery'
+printf '{"number":128,"node_id":"PR_128","state":"closed","pull_request":{}}\n' >"$state/issues/128.json"
+expect_failure 'sync refuses a PR reference before applying any Issue effects' \
+  '#128 is a pull request, not an Issue' dgh sync --to "$invalid_completion"
+check 'invalid sync applies no partial delivery effects' test "$(mutations)" == 0
+printf '# Reviewed correction: #128 is a superseded PR, not an Issue.\n%s related=none completes=none\n' \
+  "$invalid_completion" >"$dfix/.github/delivery-corrections.txt"
+expect_failure 'sync ignores an uncommitted correction' \
+  '#128 is a pull request, not an Issue' dgh sync --to "$invalid_completion"
+corrected_head=$(dcommit 'fix(delivery): correct immutable PR reference (#150)' 'Related-Issues: none\nCompletes-Issues: none\n')
+"$dfix/scripts/delivery-issues.sh" commits --from "$correction_base" --to "$corrected_head" >"$temporary/corrected-commits"
+check 'merge-time resolver replaces both mistaken Issue sets' grep -Fxq \
+  "commit=$invalid_completion pr=149 release=none metadata=corrected related=none completes=none" "$temporary/corrected-commits"
+check 'corrected commit resolution is deterministic' \
+  cmp -s "$temporary/corrected-commits" <("$dfix/scripts/delivery-issues.sh" commits --from "$correction_base" --to "$corrected_head")
+dgh sync --to "$corrected_head" >"$temporary/sync"
+check 'corrected sync converges and preserves the valid completion' bash -c "
+  grep -Fxq delivery=synced '$temporary/sync' && grep -Fxq range_from=$correction_base '$temporary/sync' &&
+  grep -Fxq 'effect=issue_commented issue=20 marker=completed commit=$valid_completion' '$temporary/sync' &&
+  ! grep -Eq '^(COMMENT|ISSUE) 128 ' '$state/ledger'"
+before=$(mutations)
+dgh sync --to "$corrected_head" >"$temporary/sync"
+check 'corrected sync rerun is idempotent' test "$(mutations)" == "$before"
+later_push=$(dcommit 'chore: later push (#151)' 'Related-Issues: none\nCompletes-Issues: none\n')
+dgh sync --to "$later_push" >"$temporary/sync"
+check 'later push rescans the same window without repeating the failure or effects' bash -c "
+  grep -Fxq delivery=synced '$temporary/sync' && grep -Fxq range_from=$correction_base '$temporary/sync' &&
+  [[ $(mutations) == $before ]]"
+corrected_release=$(dcommit 'chore(main): release 0.4.0 (#152)' '' 0.4.0)
+"$dfix/scripts/delivery-issues.sh" release --tag v0.4.0 --revision "$corrected_release" >"$temporary/corrected-release"
+check 'next stable release delivers only the valid Issue' grep -Fxq issues=20 "$temporary/corrected-release"
+check 'historical commit message stays unchanged' \
+  cmp -s "$temporary/immutable-message" <(git -C "$dfix" show -s --format=%B "$invalid_completion")
+expect_failure 'historical revision still refuses the PR without its later correction' \
+  '#128 is a pull request, not an Issue' dgh sync --to "$invalid_completion"
+dfix=$saved_delivery_fixture
+
 # v0.2.0 migration boundary: two reviewed legacy records for Issues already
 # closed by keywords. The notes list both; publication records them and never
 # closes them again; #132 stays out.
