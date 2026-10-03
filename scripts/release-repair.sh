@@ -41,12 +41,17 @@ source "$repository_root/scripts/release-recovery.sh"
 recovery_validate "$tag" "$revision" >/dev/null || fail 'original recovery pins do not validate'
 checks=$(gh api "repos/$repository/commits/$repair_revision/check-runs?per_page=100") || fail 'cannot read repair CI'
 # A required check binds a context to the integration the ruleset names; a
-# same-named Check Run from any other app is not that check.
+# same-named Check Run from any other app is not that check. As in
+# publish-release.yml, Check Run id orders attempts even while started_at is
+# null, and a policy with no required check authorizes nothing.
+required=0
 while IFS=$'\t' read -r context integration; do
   [[ "$context" == delivery-metadata ]] && continue
+  required=$((required + 1))
   [[ "$integration" =~ ^[0-9]+$ ]] || fail 'required check lacks an integration binding'
-  jq -e --arg name "$context" --argjson app "$integration" '[.check_runs[] | select(.name == $name and .app.id == $app)] | sort_by(.started_at) | last | .status == "completed" and .conclusion == "success"' <<<"$checks" >/dev/null || fail 'required CI on repair revision is not successful'
+  jq -e --arg name "$context" --argjson app "$integration" '[.check_runs[] | select(.name == $name and .app.id == $app)] | sort_by(.id, .started_at) | last | .status == "completed" and .conclusion == "success"' <<<"$checks" >/dev/null || fail 'required CI on repair revision is not successful'
 done < <(jq -r '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[] | [.context, (.integration_id // "" | tostring)] | @tsv' "$repository_root/.github/rulesets/main.json")
+[[ "$required" != 0 ]] || fail 'required CI on repair revision is not successful'
 record=$(gh api "repos/$repository/releases/tags/$tag") || fail 'repair requires an already published recovery release'
 jq -e --arg tag "$tag" --arg source "$revision" '.tag_name == $tag and .target_commitish == $source and .draft == false and .prerelease == false and .immutable == true' <<<"$record" >/dev/null || fail 'repair requires an immutable published stable release at the original source'
 jq -j '.body // ""' <<<"$record" >"$temporary/notes"

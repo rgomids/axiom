@@ -115,15 +115,18 @@ repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) 
 # Request-only check (it validates the PR description before merge), so it
 # never runs on a main commit and is not a CI state of the release revision.
 # ci_state SHA bound also requires each Check Run to come from the integration
-# the ruleset names (ADR-0013 repair); a check without that binding fails.
+# the ruleset names (ADR-0013 repair); a check without that binding fails, as
+# does a policy with no required check. Like publish-release.yml, it orders
+# attempts by Check Run id, which exists even while started_at is null.
 ci_state() {
-  local runs name integration conclusion result=success
+  local runs name integration conclusion result=success required=0
   runs=$(gh api "repos/$repository/commits/$1/check-runs?per_page=100") || { printf 'unknown'; return; }
   while IFS=$'\t' read -r name integration; do
     [[ "$name" == delivery-metadata ]] && continue
+    required=$((required + 1))
     if [[ "${2:-}" == bound && ! "$integration" =~ ^[0-9]+$ ]]; then result=failure; continue; fi
     conclusion=$(jq -r --arg name "$name" --arg app "${2:+$integration}" \
-      '[.check_runs[] | select(.name == $name and ($app == "" or (.app.id | tostring) == $app))] | sort_by(.started_at) | last | if . == null then "missing" elif .status != "completed" then "pending" else .conclusion end' <<<"$runs")
+      '[.check_runs[] | select(.name == $name and ($app == "" or (.app.id | tostring) == $app))] | sort_by(if $app == "" then .started_at else [.id, .started_at] end) | last | if . == null then "missing" elif .status != "completed" then "pending" else .conclusion end' <<<"$runs")
     case "$conclusion" in
       success) ;;
       pending) [[ "$result" == success ]] && result=pending ;;
@@ -132,6 +135,7 @@ ci_state() {
     esac
   done < <(jq -r '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[] | [.context, (.integration_id // "" | tostring)] | @tsv' \
     "$repository_root/.github/rulesets/main.json")
+  [[ "${2:-}" == bound && "$required" == 0 ]] && result=failure
   printf '%s' "$result"
 }
 

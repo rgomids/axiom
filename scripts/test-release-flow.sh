@@ -1856,6 +1856,39 @@ check 'a newer failing run of the required integration refuses despite a newer f
   '.check_runs += ([.check_runs[] | .conclusion = "failure" | .started_at = "2"] + [.check_runs[] | .app.id = 1 | .started_at = "3"])'
 check 'a newer foreign failing run cannot mask the required integration success' repair_ci verify_published \
   '.check_runs += [.check_runs[] | .app.id = 1 | .conclusion = "failure" | .started_at = "2"]'
+# Attempts are ordered by Check Run id, as in the workflow gate: a newer
+# attempt may still be queued with no start time, or start before an older one.
+ids='.check_runs |= (to_entries | map(.value + {id: (.key + 1)}))'
+check 'a newer queued required run with no start time refuses despite an older success' repair_ci blocked \
+  "$ids | .check_runs += [.check_runs[] | .id += 100 | .status = \"queued\" | .conclusion = null | .started_at = null]"
+check 'the highest Check Run id wins over a later start time (newest failure)' repair_ci blocked \
+  "$ids | .check_runs += [.check_runs[] | .id += 100 | .conclusion = \"failure\" | .started_at = \"0\"]"
+check 'the highest Check Run id wins over a later start time (newest success)' repair_ci verify_published \
+  "$ids | .check_runs |= map(.id += 100 | .started_at = \"0\") | .check_runs += [.check_runs[] | .id -= 100 | .conclusion = \"failure\" | .started_at = \"9\"]"
+check 'a newer failing attempt refuses despite an earlier required success' repair_ci blocked \
+  "$ids | .check_runs += [.check_runs[] | .id += 100 | .conclusion = \"failure\"]"
+check 'a newer foreign success cannot replace a failing required integration' repair_ci blocked \
+  "$ids | .check_runs |= map(.conclusion = \"failure\") | .check_runs += [.check_runs[] | .id += 100 | .app.id = 1 | .conclusion = \"success\"]"
+check 'a newer foreign queued or failing attempt cannot invalidate a required success' repair_ci verify_published \
+  "$ids | .check_runs += ([.check_runs[] | .id += 100 | .app.id = 1 | .status = \"queued\" | .conclusion = null | .started_at = null] + [.check_runs[] | .id += 200 | .app.id = 1 | .conclusion = \"failure\"])"
+# An empty or unreadable required-check policy authorizes no repair in either
+# script; each reads the ruleset of the checkout it runs from.
+repair_policy() {
+  local status=$fixture/.github/rulesets/main.json repair=$rrun/.github/rulesets/main.json result=0
+  cp "$status" "$temporary/rpolicy-status"
+  cp "$repair" "$temporary/rpolicy-repair"
+  printf '%s' "$1" >"$status"
+  printf '%s' "$1" >"$repair"
+  repair_ci blocked '.' || result=1
+  cp "$temporary/rpolicy-status" "$status"
+  cp "$temporary/rpolicy-repair" "$repair"
+  return "$result"
+}
+check 'an empty required-check policy refuses repair' repair_policy '{"rules":[]}'
+check 'a policy with only PR checks refuses repair' repair_policy \
+  '{"rules":[{"type":"required_status_checks","parameters":{"required_status_checks":[{"context":"delivery-metadata","integration_id":15368}]}}]}'
+check 'a malformed required-check policy refuses repair' repair_policy 'invalid json'
+check 'restored policy and CI permit repair again' repair_ci verify_published '.'
 # Execute the actual workflow selection blocks, not release-repair.sh's
 # internal checks. An adversarial repair entrypoint marks execution and tries
 # a remote effect via fake gh. Its checkout also removes required checks:
