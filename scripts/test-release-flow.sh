@@ -1751,8 +1751,26 @@ s=s.replace('"$(cat "$temporary/published-notes")" == "$(cat "$notes")"', '$(cat
 s=s.replace('"$(cat "$temporary/published-notes")" == "$(cat "$temporary/recovery-notes")"', '$(cat "$temporary/published-notes") == $(cat "$temporary/recovery-notes")')
 p.write_text(s)
 PYFIX
+# The original correction predates Windows CI; the executable repair must
+# satisfy the evolved current policy, without inventing historical check runs.
+jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks |= map(select(.context != "verify (windows)")) else . end)' \
+  "$rfix/.github/rulesets/main.json" >"$temporary/historical-ruleset"
+# Negative policies are immutable ancestor pins too; malformed trailing rules
+# must not authorize CI using the valid rows jq emitted before its error.
+printf '{"rules":[]}\n' >"$rfix/.github/rulesets/main.json"
+rcontrol_empty_policy=$(rcommit 'test: empty historical correction CI policy')
+jq '.rules += [{type: "required_status_checks", parameters: {required_status_checks: null}}]' \
+  "$temporary/historical-ruleset" >"$rfix/.github/rulesets/main.json"
+rcontrol_partial_policy=$(rcommit 'test: partially malformed historical correction CI policy')
+printf 'invalid json\n' >"$rfix/.github/rulesets/main.json"
+rcontrol_malformed_policy=$(rcommit 'test: malformed historical correction CI JSON')
+jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks |= map(.integration_id = "15368") else . end)' \
+  "$temporary/historical-ruleset" >"$rfix/.github/rulesets/main.json"
+rcontrol_unbound_policy=$(rcommit 'test: invalid historical correction integration binding')
+cp "$temporary/historical-ruleset" "$rfix/.github/rulesets/main.json"
 rcontrol=$(rcommit 'fix(release): reviewed metadata recovery' 'Related-Issues: #153\nCompletes-Issues: none\n')
 cp "$repository_root/scripts/publish-release.sh" "$rfix/scripts/publish-release.sh"
+cp "$repository_root/.github/rulesets/main.json" "$rfix/.github/rulesets/main.json"
 rrepair=$(rcommit 'fix(release): literal recovery notes with explicit published repair' 'Related-Issues: none\nCompletes-Issues: none\n')
 git -C "$rfix" remote add origin "$rremote"
 git -C "$rfix" push -q origin main
@@ -1847,7 +1865,68 @@ check 'download verification discovers published pins and verifies original sour
 printf '[]\n' >"$state/comments/86.json"
 printf '[{"number":160,"merged_at":"2026-10-02T00:00:00Z","labels":[{"name":"autorelease: pending"}]}]\n' >"$state/pulls.json"
 rrepair_args=(--tag v0.3.0 --revision "$rsource" --prepared-run 6161 --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" --repair-revision "$rrepair")
+# Published repair validates historical metadata with the policy at its pin.
+# Its current execution policy must still require Windows and every other check.
+jq '.check_runs |= map(select(.name != "verify (windows)"))' "$state/checks-$rcontrol.json" >"$temporary/rcontrol-historical-green"
+cp "$temporary/rcontrol-historical-green" "$state/checks-$rcontrol.json"
+expect_failure 'ordinary recovery still requires the current CI policy' 'required CI on correction revision is not successful' \
+  release status --tag v0.3.0 --revision "$rsource" --prepared-run 6161 \
+  --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST"
+historical_correction_ci() {
+  local before result=0
+  before=$(mutations)
+  jq "$1" "$temporary/rcontrol-historical-green" >"$state/checks-$rcontrol.json"
+  release status "${rrepair_args[@]}" >"$temporary/rhistorical-ci" 2>"$temporary/rhistorical-error" || result=$?
+  cp "$temporary/rcontrol-historical-green" "$state/checks-$rcontrol.json"
+  [[ "$result" != 0 && $(mutations) == "$before" ]] &&
+    grep -Fq 'required CI on correction revision is not successful' "$temporary/rhistorical-error"
+}
+check 'missing historical required CI refuses repair' historical_correction_ci \
+  '.check_runs |= map(select(.name != "verify (linux)"))'
+check 'failing historical required CI refuses repair' historical_correction_ci \
+  '.check_runs |= map(if .name == "verify (linux)" then .conclusion = "failure" else . end)'
+check 'historical CI from another app refuses repair' historical_correction_ci \
+  '.check_runs |= map(if .name == "verify (linux)" then .app.id = 1 else . end)'
+cp "$state/checks-$rrepair.json" "$temporary/rrepair-current-green"
+current_windows_ci() {
+  local before result=0
+  before=$(mutations)
+  jq "$1" "$temporary/rrepair-current-green" >"$state/checks-$rrepair.json"
+  release status "${rrepair_args[@]}" >"$temporary/rcurrent-ci" 2>"$temporary/rcurrent-error" || result=$?
+  cp "$temporary/rrepair-current-green" "$state/checks-$rrepair.json"
+  [[ "$result" == 0 && $(mutations) == "$before" ]] &&
+    grep -Fxq next_action=blocked "$temporary/rcurrent-ci" &&
+    grep -Fq 'repair revision must descend from correction revision and have successful CI' "$temporary/rcurrent-ci"
+}
+check 'current repair still refuses missing Windows CI after policy evolution' current_windows_ci \
+  '.check_runs |= map(select(.name != "verify (windows)"))'
+check 'current repair still refuses failing Windows CI after policy evolution' current_windows_ci \
+  '.check_runs |= map(if .name == "verify (windows)" then .conclusion = "failure" else . end)'
+historical_policy_refuses() {
+  local pin=$1 message=$2 before result=0
+  before=$(mutations)
+  green "$pin"
+  cp "$rpublished_record" "$temporary/rhistorical-record"
+  jq --arg original "$rcontrol" --arg pin "$pin" '.body |= (split($original) | join($pin))' \
+    "$temporary/rhistorical-record" >"$rpublished_record"
+  release status "${rrepair_args[@]}" --corrections-revision "$pin" \
+    >"$temporary/rhistorical-policy" 2>"$temporary/rhistorical-policy-error" || result=$?
+  cp "$temporary/rhistorical-record" "$rpublished_record"
+  [[ "$result" != 0 && $(mutations) == "$before" ]] &&
+    grep -Fq "$message" "$temporary/rhistorical-policy-error"
+}
+check 'empty pinned historical policy authorizes no repair' historical_policy_refuses \
+  "$rcontrol_empty_policy" 'required CI on correction revision is not successful'
+check 'partially malformed pinned historical policy refuses before consuming valid CI rows' historical_policy_refuses \
+  "$rcontrol_partial_policy" 'pinned correction CI policy is malformed'
+check 'malformed pinned historical JSON refuses repair' historical_policy_refuses \
+  "$rcontrol_malformed_policy" 'pinned correction CI policy is malformed'
+check 'non-numeric pinned historical integration binding refuses repair' historical_policy_refuses \
+  "$rcontrol_unbound_policy" 'pinned correction CI policy is malformed'
 release status "${rrepair_args[@]}" >"$temporary/rrepair-status"
+check 'published repair accepts the pinned historical CI policy after current policy evolves' \
+  grep -Fxq next_action=authorize_publication "$temporary/rrepair-status"
+
 check 'repair envelope binds new execution SHA and original provenance, only remaining effects' bash -c "
   grep -Fxq next_action=authorize_publication '$temporary/rrepair-status' &&
   grep -Fxq preview.envelopeVersion=4 '$temporary/rrepair-status' &&
