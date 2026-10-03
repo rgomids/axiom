@@ -118,6 +118,8 @@ repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) 
 # the ruleset names (ADR-0013 repair); a check without that binding fails, as
 # does a policy with no required check. Like publish-release.yml, it orders
 # attempts by Check Run id, which exists even while started_at is null.
+# The optional third argument is an internal policy file; only published repair
+# uses it, to validate immutable correction metadata against its pinned policy.
 ci_state() {
   local runs name integration conclusion result=success required=0
   runs=$(gh api "repos/$repository/commits/$1/check-runs?per_page=100") || { printf 'unknown'; return; }
@@ -134,7 +136,7 @@ ci_state() {
       *) result=failure ;;
     esac
   done < <(jq -r '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[] | [.context, (.integration_id // "" | tostring)] | @tsv' \
-    "$repository_root/.github/rulesets/main.json")
+    "${3:-$repository_root/.github/rulesets/main.json}")
   [[ "${2:-}" == bound && "$required" == 0 ]] && result=failure
   printf '%s' "$result"
 }
@@ -562,7 +564,30 @@ status() {
       if [[ -n "$corrections_revision" ]]; then
         source "$scripts/release-recovery.sh"
         recovery_validate "$tag" "$revision" >>"$out" || fail 'invalid pinned correction recovery'
-        [[ $(ci_state "$corrections_revision") == success ]] || fail 'required CI on correction revision is not successful'
+        local correction_ci_args=("$corrections_revision")
+        if [[ "$repair_applied" == true ]]; then
+          # Repair code already passed the current execution policy. Original
+          # corrections remain immutable metadata: later CI additions cannot
+          # manufacture historical runs, nor may current worktree policy stand
+          # in for the rules committed with that metadata pin.
+          git -C "$repository_root" show "$corrections_revision:.github/rulesets/main.json" >"$temporary/correction-policy.json" \
+            || fail 'pinned correction CI policy is unavailable'
+          # Validate the complete document before ci_state reads any rows;
+          # process substitution alone cannot propagate a later jq failure.
+          jq -se 'length == 1 and (.[0] |
+            type == "object" and (.rules | type == "array") and
+            all(.rules[]; type == "object" and
+              if .type == "required_status_checks" then
+                (.parameters | type == "object") and
+                (.parameters.required_status_checks | type == "array" and
+                  all(.[]; type == "object" and
+                    (.context | type == "string" and length > 0) and
+                    (.integration_id | type == "number" and . > 0 and . == floor)))
+              else true end))' "$temporary/correction-policy.json" >/dev/null \
+            || fail 'pinned correction CI policy is malformed'
+          correction_ci_args+=(bound "$temporary/correction-policy.json")
+        fi
+        [[ $(ci_state "${correction_ci_args[@]}") == success ]] || fail 'required CI on correction revision is not successful'
       fi
       local ci
       ci=$(ci_state "$revision")

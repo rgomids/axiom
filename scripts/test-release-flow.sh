@@ -1321,6 +1321,59 @@ check 'reconciliation and undeclared-commit enforcement share the v0.2.0 boundar
   grep -Fxq 'legacy_boundary=0.2.0' '$repository_root/scripts/delivery-issues.sh' &&
   grep -Fq 'exit !(a[1] > 0 || a[2] >= 2)' '$repository_root/scripts/delivery-github.sh'"
 
+# An immutable completion mistakenly names a PR. A committed correction must
+# repair the automatic sync window and later pushes without hiding valid Issues.
+saved_delivery_fixture=$dfix
+dfix=$temporary/corrected-delivery-fixture
+git init -q -b main "$dfix"
+git -C "$dfix" config user.email release-test@example.invalid
+git -C "$dfix" config user.name 'Release Test'
+git -C "$dfix" config commit.gpgsign false
+mkdir -p "$dfix/scripts" "$dfix/.github"
+cp "$saved_delivery_fixture"/scripts/*.sh "$dfix/scripts/"
+project_config disabled
+correction_base=$(dcommit 'chore(main): release 0.3.0 (#100)' '' 0.3.0)
+valid_completion=$(dcommit 'feat: valid delivery (#101)' 'Related-Issues: #20\nCompletes-Issues: #20\n')
+invalid_completion=$(dcommit 'feat: native Windows support (#149)' 'Related-Issues: #128\nCompletes-Issues: #128\n')
+git -C "$dfix" show -s --format=%B "$invalid_completion" >"$temporary/immutable-message"
+reset_github
+issue 20 'Valid delivery'
+printf '{"number":128,"node_id":"PR_128","state":"closed","pull_request":{}}\n' >"$state/issues/128.json"
+expect_failure 'sync refuses a PR reference before applying any Issue effects' \
+  '#128 is a pull request, not an Issue' dgh sync --to "$invalid_completion"
+check 'invalid sync applies no partial delivery effects' test "$(mutations)" == 0
+printf '# Reviewed correction: #128 is a superseded PR, not an Issue.\n%s related=none completes=none\n' \
+  "$invalid_completion" >"$dfix/.github/delivery-corrections.txt"
+expect_failure 'sync ignores an uncommitted correction' \
+  '#128 is a pull request, not an Issue' dgh sync --to "$invalid_completion"
+corrected_head=$(dcommit 'fix(delivery): correct immutable PR reference (#150)' 'Related-Issues: none\nCompletes-Issues: none\n')
+"$dfix/scripts/delivery-issues.sh" commits --from "$correction_base" --to "$corrected_head" >"$temporary/corrected-commits"
+check 'merge-time resolver replaces both mistaken Issue sets' grep -Fxq \
+  "commit=$invalid_completion pr=149 release=none metadata=corrected related=none completes=none" "$temporary/corrected-commits"
+check 'corrected commit resolution is deterministic' \
+  cmp -s "$temporary/corrected-commits" <("$dfix/scripts/delivery-issues.sh" commits --from "$correction_base" --to "$corrected_head")
+dgh sync --to "$corrected_head" >"$temporary/sync"
+check 'corrected sync converges and preserves the valid completion' bash -c "
+  grep -Fxq delivery=synced '$temporary/sync' && grep -Fxq range_from=$correction_base '$temporary/sync' &&
+  grep -Fxq 'effect=issue_commented issue=20 marker=completed commit=$valid_completion' '$temporary/sync' &&
+  ! grep -Eq '^(COMMENT|ISSUE) 128 ' '$state/ledger'"
+before=$(mutations)
+dgh sync --to "$corrected_head" >"$temporary/sync"
+check 'corrected sync rerun is idempotent' test "$(mutations)" == "$before"
+later_push=$(dcommit 'chore: later push (#151)' 'Related-Issues: none\nCompletes-Issues: none\n')
+dgh sync --to "$later_push" >"$temporary/sync"
+check 'later push rescans the same window without repeating the failure or effects' bash -c "
+  grep -Fxq delivery=synced '$temporary/sync' && grep -Fxq range_from=$correction_base '$temporary/sync' &&
+  [[ $(mutations) == $before ]]"
+corrected_release=$(dcommit 'chore(main): release 0.4.0 (#152)' '' 0.4.0)
+"$dfix/scripts/delivery-issues.sh" release --tag v0.4.0 --revision "$corrected_release" >"$temporary/corrected-release"
+check 'next stable release delivers only the valid Issue' grep -Fxq issues=20 "$temporary/corrected-release"
+check 'historical commit message stays unchanged' \
+  cmp -s "$temporary/immutable-message" <(git -C "$dfix" show -s --format=%B "$invalid_completion")
+expect_failure 'historical revision still refuses the PR without its later correction' \
+  '#128 is a pull request, not an Issue' dgh sync --to "$invalid_completion"
+dfix=$saved_delivery_fixture
+
 # v0.2.0 migration boundary: two reviewed legacy records for Issues already
 # closed by keywords. The notes list both; publication records them and never
 # closes them again; #132 stays out.
@@ -1698,8 +1751,26 @@ s=s.replace('"$(cat "$temporary/published-notes")" == "$(cat "$notes")"', '$(cat
 s=s.replace('"$(cat "$temporary/published-notes")" == "$(cat "$temporary/recovery-notes")"', '$(cat "$temporary/published-notes") == $(cat "$temporary/recovery-notes")')
 p.write_text(s)
 PYFIX
+# The original correction predates Windows CI; the executable repair must
+# satisfy the evolved current policy, without inventing historical check runs.
+jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks |= map(select(.context != "verify (windows)")) else . end)' \
+  "$rfix/.github/rulesets/main.json" >"$temporary/historical-ruleset"
+# Negative policies are immutable ancestor pins too; malformed trailing rules
+# must not authorize CI using the valid rows jq emitted before its error.
+printf '{"rules":[]}\n' >"$rfix/.github/rulesets/main.json"
+rcontrol_empty_policy=$(rcommit 'test: empty historical correction CI policy' 'Related-Issues: none\nCompletes-Issues: none\n')
+jq '.rules += [{type: "required_status_checks", parameters: {required_status_checks: null}}]' \
+  "$temporary/historical-ruleset" >"$rfix/.github/rulesets/main.json"
+rcontrol_partial_policy=$(rcommit 'test: partially malformed historical correction CI policy' 'Related-Issues: none\nCompletes-Issues: none\n')
+printf 'invalid json\n' >"$rfix/.github/rulesets/main.json"
+rcontrol_malformed_policy=$(rcommit 'test: malformed historical correction CI JSON' 'Related-Issues: none\nCompletes-Issues: none\n')
+jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks |= map(.integration_id = "15368") else . end)' \
+  "$temporary/historical-ruleset" >"$rfix/.github/rulesets/main.json"
+rcontrol_unbound_policy=$(rcommit 'test: invalid historical correction integration binding' 'Related-Issues: none\nCompletes-Issues: none\n')
+cp "$temporary/historical-ruleset" "$rfix/.github/rulesets/main.json"
 rcontrol=$(rcommit 'fix(release): reviewed metadata recovery' 'Related-Issues: #153\nCompletes-Issues: none\n')
 cp "$repository_root/scripts/publish-release.sh" "$rfix/scripts/publish-release.sh"
+cp "$repository_root/.github/rulesets/main.json" "$rfix/.github/rulesets/main.json"
 rrepair=$(rcommit 'fix(release): literal recovery notes with explicit published repair' 'Related-Issues: none\nCompletes-Issues: none\n')
 git -C "$rfix" remote add origin "$rremote"
 git -C "$rfix" push -q origin main
@@ -1794,7 +1865,68 @@ check 'download verification discovers published pins and verifies original sour
 printf '[]\n' >"$state/comments/86.json"
 printf '[{"number":160,"merged_at":"2026-10-02T00:00:00Z","labels":[{"name":"autorelease: pending"}]}]\n' >"$state/pulls.json"
 rrepair_args=(--tag v0.3.0 --revision "$rsource" --prepared-run 6161 --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" --repair-revision "$rrepair")
+# Published repair validates historical metadata with the policy at its pin.
+# Its current execution policy must still require Windows and every other check.
+jq '.check_runs |= map(select(.name != "verify (windows)"))' "$state/checks-$rcontrol.json" >"$temporary/rcontrol-historical-green"
+cp "$temporary/rcontrol-historical-green" "$state/checks-$rcontrol.json"
+expect_failure 'ordinary recovery still requires the current CI policy' 'required CI on correction revision is not successful' \
+  release status --tag v0.3.0 --revision "$rsource" --prepared-run 6161 \
+  --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST"
+historical_correction_ci() {
+  local before result=0
+  before=$(mutations)
+  jq "$1" "$temporary/rcontrol-historical-green" >"$state/checks-$rcontrol.json"
+  release status "${rrepair_args[@]}" >"$temporary/rhistorical-ci" 2>"$temporary/rhistorical-error" || result=$?
+  cp "$temporary/rcontrol-historical-green" "$state/checks-$rcontrol.json"
+  [[ "$result" != 0 && $(mutations) == "$before" ]] &&
+    grep -Fq 'required CI on correction revision is not successful' "$temporary/rhistorical-error"
+}
+check 'missing historical required CI refuses repair' historical_correction_ci \
+  '.check_runs |= map(select(.name != "verify (linux)"))'
+check 'failing historical required CI refuses repair' historical_correction_ci \
+  '.check_runs |= map(if .name == "verify (linux)" then .conclusion = "failure" else . end)'
+check 'historical CI from another app refuses repair' historical_correction_ci \
+  '.check_runs |= map(if .name == "verify (linux)" then .app.id = 1 else . end)'
+cp "$state/checks-$rrepair.json" "$temporary/rrepair-current-green"
+current_windows_ci() {
+  local before result=0
+  before=$(mutations)
+  jq "$1" "$temporary/rrepair-current-green" >"$state/checks-$rrepair.json"
+  release status "${rrepair_args[@]}" >"$temporary/rcurrent-ci" 2>"$temporary/rcurrent-error" || result=$?
+  cp "$temporary/rrepair-current-green" "$state/checks-$rrepair.json"
+  [[ "$result" == 0 && $(mutations) == "$before" ]] &&
+    grep -Fxq next_action=blocked "$temporary/rcurrent-ci" &&
+    grep -Fq 'repair revision must descend from correction revision and have successful CI' "$temporary/rcurrent-ci"
+}
+check 'current repair still refuses missing Windows CI after policy evolution' current_windows_ci \
+  '.check_runs |= map(select(.name != "verify (windows)"))'
+check 'current repair still refuses failing Windows CI after policy evolution' current_windows_ci \
+  '.check_runs |= map(if .name == "verify (windows)" then .conclusion = "failure" else . end)'
+historical_policy_refuses() {
+  local pin=$1 message=$2 before result=0
+  before=$(mutations)
+  green "$pin"
+  cp "$rpublished_record" "$temporary/rhistorical-record"
+  jq --arg original "$rcontrol" --arg pin "$pin" '.body |= (split($original) | join($pin))' \
+    "$temporary/rhistorical-record" >"$rpublished_record"
+  release status "${rrepair_args[@]}" --corrections-revision "$pin" \
+    >"$temporary/rhistorical-policy" 2>"$temporary/rhistorical-policy-error" || result=$?
+  cp "$temporary/rhistorical-record" "$rpublished_record"
+  [[ "$result" != 0 && $(mutations) == "$before" ]] &&
+    grep -Fq "$message" "$temporary/rhistorical-policy-error"
+}
+check 'empty pinned historical policy authorizes no repair' historical_policy_refuses \
+  "$rcontrol_empty_policy" 'required CI on correction revision is not successful'
+check 'partially malformed pinned historical policy refuses before consuming valid CI rows' historical_policy_refuses \
+  "$rcontrol_partial_policy" 'pinned correction CI policy is malformed'
+check 'malformed pinned historical JSON refuses repair' historical_policy_refuses \
+  "$rcontrol_malformed_policy" 'pinned correction CI policy is malformed'
+check 'non-numeric pinned historical integration binding refuses repair' historical_policy_refuses \
+  "$rcontrol_unbound_policy" 'pinned correction CI policy is malformed'
 release status "${rrepair_args[@]}" >"$temporary/rrepair-status"
+check 'published repair accepts the pinned historical CI policy after current policy evolves' \
+  grep -Fxq next_action=authorize_publication "$temporary/rrepair-status"
+
 check 'repair envelope binds new execution SHA and original provenance, only remaining effects' bash -c "
   grep -Fxq next_action=authorize_publication '$temporary/rrepair-status' &&
   grep -Fxq preview.envelopeVersion=4 '$temporary/rrepair-status' &&

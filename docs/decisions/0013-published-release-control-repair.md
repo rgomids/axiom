@@ -34,6 +34,11 @@ a Check Run counts only when both its name and its app match the context and
 `integration_id` of the versioned ruleset.
 Only a clean checkout at that exact SHA executes repair code. Original pins
 are independently validated through the original pinned recovery protocol.
+For explicit published repair, the original correction's CI is checked against
+the ruleset committed at that immutable correction SHA, with nonempty required
+checks and their integration bindings. Later platform checks apply to the
+executing repair revision under the current policy, not retroactively to the
+original metadata pin. Ordinary recovery retains its existing CI policy.
 The published release must retain those pins, be immutable/non-draft/stable,
 and target the original source. The selected code still performs the original
 notes, asset, checksum, tag, latest and delivery checks; there is no bypass.

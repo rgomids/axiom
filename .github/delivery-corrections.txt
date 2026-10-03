@@ -25,3 +25,9 @@ fc6cdf4749943df93ec4d91c473fe5152f4bc186 related=147 completes=147
 # implementation or Issue completion is claimed. Review/approval of this
 # correction remains pending; merging the reviewed correction records it.
 684b5aca88b1176d317fa86aa223b6bc654e4519 related=153 completes=none
+
+# PR #149 implements Specification 005 and supersedes the closed, unmerged
+# PR #128; #128 is not an Issue. The specification, implementation evidence
+# and repository Issue inventory identify no Native Windows Support Issue.
+# Remove the mistaken Issue relationship without rewriting the squash.
+4dbdba2a43844aa615f340e79b829956ee5880f4 related=none completes=none
