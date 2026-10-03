@@ -206,7 +206,8 @@ Trade-offs registrados:
 - A autorização de publicação vale para um publication envelope exato
   (bytes preparados e verificados, notes, revisão, `latest`, estado remoto);
   `publish-release.yml` usa `actions: read` para baixar o artifact preparado
-  daquela execução, não recompila, e recusa antes de qualquer efeito se o
+  daquela execução (e `checks: read` só para ler os Check Runs exigidos de um
+  `repair_revision` explícito, ADR-0013), não recompila, e recusa antes de qualquer efeito se o
   envelope recalculado divergir. O artifact preparado expira em 30 dias;
   depois disso, prepare de novo e autorize o novo envelope.
 

@@ -1430,7 +1430,7 @@ unset AXIOM_DELIVERY_PROJECT_TOKEN
 # --- 4. release.sh: prepare, envelope and authority boundary ---------------------------------------
 release() { (cd "$fixture" && "$fixture/scripts/release.sh" "$@"); }
 green() {
-  printf '{"check_runs":[{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1"},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1"},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1"}]}\n' >"$state/checks-$1.json"
+  printf '{"check_runs":[{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}}]}\n' >"$state/checks-$1.json"
 }
 # stage_prepared_run ID TAG REVISION SALT [WORKFLOW] places a prepared set, as
 # release-artifacts.yml retains it, behind the fake `gh run download`.
@@ -1526,6 +1526,8 @@ release status --tag v0.1.0-rc.1 >"$temporary/status"
 check 'published release routes to verification' grep -Fxq next_action=verify_published "$temporary/status"
 release verify --tag v0.1.0-rc.1 >"$temporary/verify"
 check 'verify confirms the published prerelease' bash -c "grep -Fxq publication_state=published '$temporary/verify' && grep -Fxq latest=none '$temporary/verify' && grep -Fxq result=pass '$temporary/verify'"
+expect_failure 'verify never ignores an explicit repair of a release without recovery provenance' 'repair revision requires a published recovery release' \
+  release verify --tag v0.1.0-rc.1 --repair-revision "$c4"
 remote_untag v0.1.0-rc.1
 make_set "$temporary/orphan" 0.1.0-rc.2 "$c4" orphan
 orphan_release 399339376 v0.1.0-rc.2 "$c4" "$temporary/orphan"
@@ -1559,6 +1561,16 @@ check 'CONTRIBUTING documents the pinned Release Please semantics' bash -c "grep
 check 'merges never start a release: the Release PR workflow runs on explicit dispatch only' test "$(triggers "$workflows/release-please.yml")" == workflow_dispatch
 check 'publication runs only on explicit dispatch' test "$(triggers "$workflows/publish-release.yml")" == workflow_dispatch
 check 'built-in publication token has only reads plus gated Issue/PR effects' bash -c "grep -Fxq 'permissions: {}' '$workflows/publish-release.yml' && ! grep -Fq 'contents: write' '$workflows/publish-release.yml' && [[ \$(grep -c '^      issues: write$' '$workflows/publish-release.yml') == 1 ]] && [[ \$(grep -c '^      pull-requests: write$' '$workflows/publish-release.yml') == 1 ]] && sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fxq '    environment: release'"
+# job_permissions FILE JOB prints that job's token permissions, comma-joined.
+job_permissions() {
+  awk -v job="  $2:" '$0 == job {j = 1; next} j && /^  [A-Za-z0-9_-]+:$/ {exit}
+    j && $0 == "    permissions:" {p = 1; next} p && /^      #/ {next}
+    p && /^      [a-z-]+: (read|write)$/ {sub(/^ +/, ""); print; next} p {p = 0}' "$1" | paste -sd, -
+}
+check 'both jobs that run release-repair.sh read Check Runs, with no other permission added' bash -c "
+  [[ '$(job_permissions "$workflows/publish-release.yml" preflight)' == 'contents: read,actions: read,checks: read,issues: read' ]] &&
+  [[ '$(job_permissions "$workflows/publish-release.yml" publish)' == 'contents: read,actions: read,checks: read,issues: write,pull-requests: write' ]] &&
+  [[ \$(grep -c 'repair/scripts/release-repair.sh\"' '$workflows/publish-release.yml') == 2 ]] && ! grep -Eq 'checks: write' '$workflows/publish-release.yml'"
 check 'publication requires dispatch from main and a verified preflight' bash -c "grep -Fq 'refs/heads/main' '$workflows/publish-release.yml' && grep -Fxq '    needs: preflight' '$workflows/publish-release.yml'"
 check 'publication never rebuilds: it consumes the prepared run artifact' bash -c "! grep -Eq 'build-release-archives|upload-artifact' '$workflows/publish-release.yml' && [[ \$(grep -c 'run-id: \${{ inputs.prepared_run }}' '$workflows/publish-release.yml') == 2 ]] && [[ \$(grep -c 'verify-prepared-release.sh' '$workflows/publish-release.yml') == 2 ]]"
 check 'publication is bound to the authorized envelope digest' bash -c "grep -Fq -- '--authorized-digest \"\$PREVIEW_DIGEST\"' '$workflows/publish-release.yml' && grep -Fq 'PREVIEW_DIGEST: \${{ inputs.preview_digest }}' '$workflows/publish-release.yml'"
@@ -1823,6 +1835,27 @@ cp "$state/checks-$rrepair.json" "$temporary/rrepair-green"
 printf '{"check_runs":[]}\n' >"$state/checks-$rrepair.json"
 release status "${rrepair_args[@]}" >"$temporary/rrepair-red-ci" 2>"$temporary/rrepair-error"
 check 'missing repair CI refuses without fallback' grep -Fxq next_action=blocked "$temporary/rrepair-red-ci"
+# Required checks bind the ruleset context to its integration_id, not the name:
+# both the release.sh gate before any repair code runs and release-repair.sh,
+# which the workflow executes, classify the same Check Runs alike.
+repair_ci() {
+  jq "$2" "$temporary/rrepair-green" >"$state/checks-$rrepair.json"
+  release status "${rrepair_args[@]}" >"$temporary/rrepair-ci" 2>"$temporary/rrepair-error" || true
+  grep -Fxq "next_action=$1" "$temporary/rrepair-ci" || return 1
+  if "$rrun/scripts/release-repair.sh" --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" --repair-revision "$rrepair" \
+    >/dev/null 2>"$temporary/rrepair-error"; then
+    [[ "$1" != blocked ]]
+  else
+    [[ "$1" == blocked ]] && grep -Fq 'have successful CI' "$temporary/rrepair-ci" &&
+      grep -Fq 'required CI on repair revision is not successful' "$temporary/rrepair-error"
+  fi
+}
+check 'same-named repair CI from another integration refuses' repair_ci blocked '.check_runs |= map(.app.id = 1)'
+check 'repair CI without an integration refuses' repair_ci blocked '.check_runs |= map(del(.app))'
+check 'a newer failing run of the required integration refuses despite a newer foreign success' repair_ci blocked \
+  '.check_runs += ([.check_runs[] | .conclusion = "failure" | .started_at = "2"] + [.check_runs[] | .app.id = 1 | .started_at = "3"])'
+check 'a newer foreign failing run cannot mask the required integration success' repair_ci verify_published \
+  '.check_runs += [.check_runs[] | .app.id = 1 | .conclusion = "failure" | .started_at = "2"]'
 cp "$temporary/rrepair-green" "$state/checks-$rrepair.json"
 release status "${rrepair_args[@]}" --repair-revision "$(printf '1%.0s' {1..40})" >"$temporary/rrepair-off-main" 2>"$temporary/rrepair-error"
 check 'unknown repair revision refuses before running any repair script' grep -Fxq next_action=blocked "$temporary/rrepair-off-main"
@@ -2040,7 +2073,13 @@ check 'an in-flight Release Please run is reported, never dispatched again' bash
 release status --tag v0.2.0 >"$temporary/sstatus"
 check 'status --tag also waits for an in-flight Release Please run' bash -c "grep -Fxq state=release_pr_starting '$temporary/sstatus' && grep -Fxq next_action=await_run '$temporary/sstatus' && grep -Fxq run_id=3030 '$temporary/sstatus'"
 expect_failure 'start is refused while Release Please runs' 'starting a release is not the next step' release start
+release status --repair-revision "$sfeat" >"$temporary/sstatus"
+check 'a path that never validates a recovery release refuses an explicit repair instead of ignoring it' bash -c "grep -Fxq state=release_pr_starting '$temporary/sstatus' && grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fxq 'reason=repair revision requires a published recovery release' '$temporary/sstatus'"
 rm "$state/inflight-release-please.yml.json"
+release status --repair-revision "$sfeat" >"$temporary/sstatus"
+check 'status never ignores an explicit repair when the previous release has no recovery provenance' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fxq 'reason=repair revision requires a published recovery release' '$temporary/sstatus'"
+expect_failure 'start never falls back to the normal flow when an explicit repair does not apply' 'repair revision requires a published recovery release' \
+  release start --repair-revision "$sfeat"
 check 'refused starts dispatched nothing' test "$(grep -c '^workflow' "$state/ledger" || true)" == 0
 expect_failure 'start takes no version or revision from the operator' 'start takes only optional --repair-revision' release start --tag v0.9.0
 spr_head=$(printf 'e%.0s' {1..40})

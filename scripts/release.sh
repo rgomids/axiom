@@ -52,6 +52,7 @@ prepared_run=
 corrections_revision=
 corrections_digest=
 repair_revision=
+repair_applied=false
 authorized=false
 download=false
 while (($#)); do
@@ -113,20 +114,23 @@ repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) 
 # checks named by the versioned main ruleset. delivery-metadata is a Pull
 # Request-only check (it validates the PR description before merge), so it
 # never runs on a main commit and is not a CI state of the release revision.
+# ci_state SHA bound also requires each Check Run to come from the integration
+# the ruleset names (ADR-0013 repair); a check without that binding fails.
 ci_state() {
-  local runs name conclusion result=success
+  local runs name integration conclusion result=success
   runs=$(gh api "repos/$repository/commits/$1/check-runs?per_page=100") || { printf 'unknown'; return; }
-  while IFS= read -r name; do
+  while IFS=$'\t' read -r name integration; do
     [[ "$name" == delivery-metadata ]] && continue
-    conclusion=$(jq -r --arg name "$name" \
-      '[.check_runs[] | select(.name == $name)] | sort_by(.started_at) | last | if . == null then "missing" elif .status != "completed" then "pending" else .conclusion end' <<<"$runs")
+    if [[ "${2:-}" == bound && ! "$integration" =~ ^[0-9]+$ ]]; then result=failure; continue; fi
+    conclusion=$(jq -r --arg name "$name" --arg app "${2:+$integration}" \
+      '[.check_runs[] | select(.name == $name and ($app == "" or (.app.id | tostring) == $app))] | sort_by(.started_at) | last | if . == null then "missing" elif .status != "completed" then "pending" else .conclusion end' <<<"$runs")
     case "$conclusion" in
       success) ;;
       pending) [[ "$result" == success ]] && result=pending ;;
       missing) [[ "$result" == success || "$result" == pending ]] && result=missing ;;
       *) result=failure ;;
     esac
-  done < <(jq -r '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context' \
+  done < <(jq -r '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[] | [.context, (.integration_id // "" | tostring)] | @tsv' \
     "$repository_root/.github/rulesets/main.json")
   printf '%s' "$result"
 }
@@ -275,7 +279,7 @@ pinned_repair() {
   grep -Fxq "$repair" < <(git -C "$repository_root" rev-list --first-parent origin/main) \
     || { reason='repair revision is not on first-parent main'; return 1; }
   git -C "$repository_root" merge-base --is-ancestor "$control" "$repair" \
-    && [[ "$repair" != "$control" && $(ci_state "$repair") == success ]] \
+    && [[ "$repair" != "$control" && $(ci_state "$repair" bound) == success ]] \
     || { reason='repair revision must descend from correction revision and have successful CI'; return 1; }
   rm -rf -- "$dir"
   { git clone --quiet --no-hardlinks "$repository_root" "$dir" \
@@ -318,6 +322,7 @@ previous_release_facts() {
   # classifies it (absent, or a recovery release without its pins).
   body=$(gh api "repos/$repository/releases/tags/$previous_tag" 2>/dev/null | jq -r '.body // ""') || body=
   published_recovery_pins "$body" || { reason="previous release $previous_tag: $reason"; return 1; }
+  [[ -z "$repair_revision" || -n "$pins_revision" ]] || { reason='repair revision requires a published recovery release'; return 1; }
   if [[ -n "$pins_revision" ]]; then
     pinned_control "$temporary/previous-control" "$previous_tag" "$previous_commit" "$pins_revision" "$pins_digest" \
       >/dev/null 2>"$temporary/previous-error" || { reason="previous release $previous_tag: published $reason"; return 1; }
@@ -325,6 +330,7 @@ previous_release_facts() {
       pinned_repair "$temporary/previous-repair" "$previous_tag" "$previous_commit" "$pins_revision" "$pins_digest" "$repair_revision" \
         >/dev/null 2>"$temporary/previous-error" || { reason="previous release $previous_tag: $reason"; return 1; }
       check_scripts=$temporary/previous-repair/scripts
+      repair_applied=true
     else
       check_scripts=$temporary/previous-control/scripts
     fi
@@ -540,6 +546,7 @@ status() {
     if [[ -n "$repair_revision" ]]; then
       if pinned_repair "$temporary/repair" "$tag" "$revision" "$corrections_revision" "$corrections_digest" "$repair_revision" >>"$out"; then
         scripts=$temporary/repair/scripts
+        repair_applied=true
       else
         printf 'state=blocked\nnext_action=blocked\nreason=%s\n' "$reason"
         return
@@ -617,6 +624,11 @@ status() {
         fi
       fi
     fi
+  fi
+  # An explicit repair revision is never ignored: a path that did not validate
+  # a published recovery release through it fails closed.
+  if [[ -n "$repair_revision" && "$repair_applied" != true && "$next" != blocked ]]; then
+    next=blocked; reason='repair revision requires a published recovery release'
   fi
   printf 'state=%s\n' "${state:-unknown}"
   printf 'next_action=%s\n' "$next"
@@ -733,6 +745,7 @@ case "$command" in
         export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
       fi
     fi
+    [[ -z "$repair_revision" || -n "$corrections_revision" ]] || fail 'repair revision requires a published recovery release'
     if [[ -n "$corrections_revision" ]]; then
       pinned_control "$temporary/control" "$tag" "$tag_sha" "$corrections_revision" "$corrections_digest" || fail "published $reason"
       if [[ -n "$repair_revision" ]]; then

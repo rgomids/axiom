@@ -63,6 +63,8 @@ jobs:
     permissions:
       contents: read
       actions: read
+      # release-repair.sh reads required Check Runs of an explicit repair_revision.
+      checks: read
       issues: read
     steps:
       - name: Require dispatch from main and well-formed inputs
@@ -163,6 +165,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      checks: read
       issues: write
       pull-requests: write
     steps:

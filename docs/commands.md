@@ -734,7 +734,9 @@ for `status`, `verify` and `publish`, preserving the original metadata pins and
 prepared run. Envelope v4 binds the additional reviewed execution SHA and only
 remaining delivery/label effects; new human authority remains required. The
 option is forbidden on `prepare`. `start --repair-revision <SHA>` applies only
-to read-only validation of the recovered previous release. See the
+to read-only validation of the recovered previous release. An explicit repair
+SHA that does not apply to a published recovery release refuses; it never falls
+back to the normal flow. See the
 [published repair guide](development/release-recovery.md#published-release-control-code-repair).
 
 ## CLI output and help

@@ -29,7 +29,9 @@ correction revision, correction digest, prepared run, notes, archives and tag.
 The additional SHA identifies execution code, not corrected release metadata.
 
 The repair revision must be a distinct descendant of the original correction
-revision, belong to first-parent main and have every required CI check green.
+revision, belong to first-parent main and have every required CI check green;
+a Check Run counts only when both its name and its app match the context and
+`integration_id` of the versioned ruleset.
 Only a clean checkout at that exact SHA executes repair code. Original pins
 are independently validated through the original pinned recovery protocol.
 The published release must retain those pins, be immutable/non-draft/stable,
@@ -50,7 +52,10 @@ read original pins from published notes, as before; it never discovers a repair
 SHA. `start --repair-revision` may use that code only to verify the recovered
 previous release before starting a new version. It does not alter the next
 release's source or preparation/publication inputs. No default path adopts a
-repair revision or falls back from a failing pinned verifier.
+repair revision or falls back from a failing pinned verifier. An explicit repair
+SHA is never ignored: when the target (or, for `start`, previous) release has no
+published recovery provenance, the command refuses instead of continuing on the
+normal path.
 
 ## Alternatives considered
 
@@ -74,7 +79,8 @@ API calls use the PAT; Issue records and PR labels use the protected job's
 `GITHUB_TOKEN`, passed as `AXIOM_RELEASE_REPOSITORY_TOKEN`, with Issues write
 and Pull requests write. Delivery trusts `github-actions[bot]` records, so PAT
 authorship would invalidate recording and idempotency. The workflow refuses
-either missing credential before scripts execute. Local tests prove that a broken original
+either missing credential before scripts execute. Both workflow jobs add only
+`checks: read`, which reading the repair revision's Check Runs requires. Local tests prove that a broken original
 verifier still fails by default, repaired verification requires opt-in,
 provenance/CI drift refuses and completion makes no release or asset write.
 Remote permission checks and human acceptance remain separate evidence.

@@ -48,6 +48,8 @@ effects; show every field and obtain new human envelope authority before
 `verify --repair-revision <SHA> --download`; verify reads original published
 pins, never discovers repair code. `start --repair-revision <SHA>` may explicitly
 verify a repaired previous release before starting a new normal version.
+A repair SHA that does not apply to a published recovery release is refused,
+never ignored; report the refusal instead of retrying without it.
 Never infer or reuse a repair selection for another release without authority.
 
 ## Procedure

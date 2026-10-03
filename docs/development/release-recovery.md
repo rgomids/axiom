@@ -89,7 +89,11 @@ control code has a verifier defect, use the explicit protocol of
 [ADR-0013](../decisions/0013-published-release-control-repair.md). Do not replace
 `corrections_revision` with the repair SHA: original metadata provenance stays
 in immutable notes. Select a separately reviewed/merged, full `repair_revision`
-with green CI, descending from the original correction revision.
+with green CI, descending from the original correction revision. Each required
+check must come from the integration (`integration_id`) that
+`.github/rulesets/main.json` names; a same-named run from another app does not
+count. An explicit `--repair-revision` is never ignored: `status`, `start` and
+`verify` refuse it unless the release it applies to is a published recovery.
 
 For v0.3.0, preserve source `b79d3bf8cbf21247ca30cae06ff000e7f89a5adf`, correction
 revision `db8ed3afc0538171552870712f8f97562feda016`, correction SHA-256
