@@ -13,10 +13,32 @@ import (
 	"github.com/rgomids/axiom/internal/local"
 )
 
-// stableCorpus is persisted state written by released v1 writers. It is
-// append-only: a newer release must keep resolving it to a direct upgrade,
-// so state an earlier release wrote can never block installation.
+// stableCorpus is persisted state written by released v1 writers, one
+// complete snapshot per release representation below snapshots/<release>. It
+// is append-only: a newer release must keep resolving every snapshot to a
+// direct upgrade, so state an earlier release wrote can never block
+// installation, even when a later release writes different bytes at the same
+// logical path.
 const stableCorpus = "testdata/stable-v1"
+
+func stableSnapshots(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(stableCorpus, "snapshots"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	labels := []string{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			t.Fatalf("unexpected corpus entry snapshots/%s", entry.Name())
+		}
+		labels = append(labels, entry.Name())
+	}
+	if len(labels) == 0 {
+		t.Fatal("stable corpus has no snapshot")
+	}
+	return labels
+}
 
 func TestStableCorpusIsAppendOnly(t *testing.T) {
 	file, err := os.Open(filepath.Join(stableCorpus, "MANIFEST"))
@@ -28,8 +50,8 @@ func TestStableCorpusIsAppendOnly(t *testing.T) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		digest, relative, ok := strings.Cut(scanner.Text(), "  ")
-		if !ok {
-			t.Fatalf("malformed MANIFEST line %q", scanner.Text())
+		if !ok || !strings.HasPrefix(relative, "snapshots/") || listed[relative] {
+			t.Fatalf("malformed or duplicate MANIFEST line %q", scanner.Text())
 		}
 		wire, err := os.ReadFile(filepath.Join(stableCorpus, filepath.FromSlash(relative)))
 		if err != nil {
@@ -44,36 +66,36 @@ func TestStableCorpusIsAppendOnly(t *testing.T) {
 	if err := scanner.Err(); err != nil {
 		t.Fatal(err)
 	}
-	for _, tree := range []string{"projects", "state"} {
-		err := filepath.WalkDir(filepath.Join(stableCorpus, tree), func(path string, entry fs.DirEntry, err error) error {
-			if err != nil || entry.IsDir() {
-				return err
-			}
-			relative, _ := filepath.Rel(stableCorpus, path)
-			if !listed[filepath.ToSlash(relative)] {
-				t.Errorf("corpus file %s is not in MANIFEST; add files only through the freeze generator", relative)
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
+	err = filepath.WalkDir(filepath.Join(stableCorpus, "snapshots"), func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
 		}
+		relative, _ := filepath.Rel(stableCorpus, path)
+		if !listed[filepath.ToSlash(relative)] {
+			t.Errorf("corpus file %s is not in MANIFEST; add files only through the freeze generator", relative)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestStableCorpusResolvesToDirectUpgrade(t *testing.T) {
-	roots := copyCorpus(t, stableCorpus, "projects", "state")
-	report := inspect(t, roots)
-	if report.Classification != ValidV1 {
-		t.Fatalf("released v1 state classified %s/%s: findings=%+v", report.Classification, report.Reason, report.Findings)
-	}
-	decision := Resolve(Owned, report)
-	if decision.Strategy != StrategyDirect || decision.Outcome != OutcomeCompatible {
-		t.Fatalf("released v1 state does not upgrade directly: %+v", decision)
-	}
 	observed := map[local.InventoryKind]bool{}
-	for _, object := range report.objects {
-		observed[object.Kind] = true
+	for _, label := range stableSnapshots(t) {
+		roots := copyCorpus(t, filepath.Join(stableCorpus, "snapshots", label), "projects", "state")
+		report := inspect(t, roots)
+		if report.Classification != ValidV1 {
+			t.Fatalf("released v1 snapshot %s classified %s/%s: findings=%+v", label, report.Classification, report.Reason, report.Findings)
+		}
+		decision := Resolve(Owned, report)
+		if decision.Strategy != StrategyDirect || decision.Outcome != OutcomeCompatible {
+			t.Fatalf("released v1 snapshot %s does not upgrade directly: %+v", label, decision)
+		}
+		for _, object := range report.objects {
+			observed[object.Kind] = true
+		}
 	}
 	for _, kind := range local.V1Kinds() {
 		if !observed[kind] {

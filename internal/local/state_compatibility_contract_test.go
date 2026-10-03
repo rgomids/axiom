@@ -9,8 +9,10 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -143,12 +145,19 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 	if !slices.Equal(written, expected) {
 		t.Errorf("writers produced top-level directories %v, want every v1 directory %v", written, expected)
 	}
-	if os.Getenv(freezeCorpusEnv) != "" {
+	if label := os.Getenv(freezeCorpusEnv); label != "" {
 		corpus := filepath.Join("..", "compatibility", "testdata", "stable-v1")
 		// Every t.TempDir of this test shares one parent; normalize all of them.
 		machine := filepath.Dir(t.TempDir())
-		freezeCorpus(t, portable, filepath.Join(corpus, "projects"), corpus, "projects", machine)
-		freezeCorpus(t, state, filepath.Join(corpus, "state"), corpus, "state", machine)
+		frozen, err := freezeSnapshot(corpus, label, map[string]string{"projects": portable, "state": state}, machine)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if frozen {
+			t.Logf("froze snapshot %s; commit it with MANIFEST", label)
+		} else {
+			t.Logf("writer output is already preserved byte-for-byte by an existing snapshot; nothing frozen")
+		}
 	}
 }
 
@@ -230,49 +239,170 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 // machine-specific path.
 const corpusMachineRoot = "/axiom-corpus"
 
-// freezeCorpus adds writer output to the stable corpus without ever replacing
-// a frozen file: released state must stay readable exactly as it was written.
-func freezeCorpus(t *testing.T, from, to, corpus, tree, machine string) {
-	t.Helper()
+// corpusSnapshotLabel names the release whose writers produced a snapshot.
+var corpusSnapshotLabel = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`)
+
+// freezeSnapshot preserves writer output as a complete, release-labelled
+// snapshot below <corpus>/snapshots/<label>. Snapshots are append-only: a
+// frozen file or label is never replaced, and a representation that differs
+// from every frozen snapshot, even at an identical logical path, is always
+// added as a new snapshot instead of being skipped. Output identical to an
+// existing snapshot is not duplicated; it reports false.
+func freezeSnapshot(corpus, label string, trees map[string]string, machine string) (bool, error) {
+	if !corpusSnapshotLabel.MatchString(label) {
+		return false, fmt.Errorf("%s=%q: want the release whose writers produced the state, for example v0.4.0", freezeCorpusEnv, label)
+	}
+	output := map[string]string{}
+	wires := map[string][]byte{}
+	names := make([]string, 0, len(trees))
+	for tree := range trees {
+		names = append(names, tree)
+	}
+	sort.Strings(names)
+	for _, tree := range names {
+		from := trees[tree]
+		err := filepath.WalkDir(from, func(path string, entry fs.DirEntry, err error) error {
+			if err != nil || entry.IsDir() {
+				return err
+			}
+			relative, _ := filepath.Rel(from, path)
+			wire, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			wire = []byte(strings.ReplaceAll(string(wire), machine, corpusMachineRoot))
+			logical := tree + "/" + filepath.ToSlash(relative)
+			digest := sha256.Sum256(wire)
+			output[logical] = hex.EncodeToString(digest[:])
+			wires[logical] = wire
+			return nil
+		})
+		if err != nil {
+			return false, err
+		}
+	}
 	manifestPath := filepath.Join(corpus, "MANIFEST")
 	existing, err := os.ReadFile(manifestPath)
 	if err != nil && !os.IsNotExist(err) {
-		t.Fatal(err)
+		return false, err
 	}
-	lines := strings.Split(strings.TrimSpace(string(existing)), "\n")
-	if len(existing) == 0 {
-		lines = nil
-	}
-	err = filepath.WalkDir(from, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
-			return err
+	lines := []string{}
+	snapshots := map[string]map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(string(existing)), "\n") {
+		if line == "" {
+			continue
 		}
-		relative, _ := filepath.Rel(from, path)
-		wire, err := os.ReadFile(path)
+		digest, path, ok := strings.Cut(line, "  ")
+		parts := strings.SplitN(path, "/", 3)
+		if !ok || len(parts) != 3 || parts[0] != "snapshots" {
+			return false, fmt.Errorf("malformed MANIFEST line %q", line)
+		}
+		if snapshots[parts[1]] == nil {
+			snapshots[parts[1]] = map[string]string{}
+		}
+		snapshots[parts[1]][parts[2]] = digest
+		lines = append(lines, line)
+	}
+	for _, frozen := range snapshots {
+		if maps.Equal(frozen, output) {
+			return false, nil
+		}
+	}
+	destination := filepath.Join(corpus, "snapshots", label)
+	if _, err := os.Lstat(destination); err == nil || snapshots[label] != nil {
+		return false, fmt.Errorf("snapshot %s is already frozen with a different representation; freeze this output under a new release label", label)
+	}
+	logicals := make([]string, 0, len(output))
+	for logical := range output {
+		logicals = append(logicals, logical)
+	}
+	sort.Strings(logicals)
+	for _, logical := range logicals {
+		path := filepath.Join(destination, filepath.FromSlash(logical))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return false, err
+		}
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 		if err != nil {
-			return err
+			return false, err
 		}
-		wire = []byte(strings.ReplaceAll(string(wire), machine, corpusMachineRoot))
-		destination := filepath.Join(to, relative)
-		// A frozen file is never replaced, even when a newer writer differs.
-		if _, err := os.Lstat(destination); err == nil {
-			return nil
+		_, err = file.Write(wires[logical])
+		if closeErr := file.Close(); err == nil {
+			err = closeErr
 		}
-		if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
-			return err
+		if err != nil {
+			return false, err
 		}
-		if err := os.WriteFile(destination, wire, 0o644); err != nil {
-			return err
+		lines = append(lines, fmt.Sprintf("%s  snapshots/%s/%s", output[logical], label, logical))
+	}
+	sort.Slice(lines, func(i, j int) bool { return lines[i][66:] < lines[j][66:] })
+	return true, os.WriteFile(manifestPath, []byte(strings.Join(lines, "\n")+"\n"), 0o644)
+}
+
+// A release that writes different bytes at a logical path an earlier release
+// already used must add a snapshot, never skip, replace or hide the earlier
+// representation.
+func TestFreezeSnapshotPreservesEveryRepresentation(t *testing.T) {
+	corpus := t.TempDir()
+	output := filepath.Join(t.TempDir(), "state")
+	record := filepath.Join(output, "graphs", "v1", "p", "record.json")
+	write := func(content string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(record), 0o700); err != nil {
+			t.Fatal(err)
 		}
-		digest := sha256.Sum256(wire)
-		lines = append(lines, fmt.Sprintf("%s  %s", hex.EncodeToString(digest[:]), filepath.ToSlash(filepath.Join(tree, relative))))
-		return nil
-	})
+		if err := os.WriteFile(record, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	freeze := func(label string) (bool, error) {
+		return freezeSnapshot(corpus, label, map[string]string{"state": output}, "/unused-machine-root")
+	}
+	read := func(label string) string {
+		t.Helper()
+		wire, err := os.ReadFile(filepath.Join(corpus, "snapshots", label, "state", "graphs", "v1", "p", "record.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(wire)
+	}
+
+	write("representation-x")
+	if frozen, err := freeze("v1.0.0"); err != nil || !frozen {
+		t.Fatalf("first freeze = %v, %v", frozen, err)
+	}
+	if frozen, err := freeze("v1.0.1"); err != nil || frozen {
+		t.Fatalf("identical output must not add a snapshot: %v, %v", frozen, err)
+	}
+	if _, err := os.Lstat(filepath.Join(corpus, "snapshots", "v1.0.1")); !os.IsNotExist(err) {
+		t.Fatalf("identical output created a snapshot: %v", err)
+	}
+
+	write("representation-y")
+	if _, err := freeze("v1.0.0"); err == nil {
+		t.Fatal("a different representation replaced a frozen release snapshot")
+	}
+	if frozen, err := freeze("v1.1.0"); err != nil || !frozen {
+		t.Fatalf("different representation at the same logical path was not preserved: %v, %v", frozen, err)
+	}
+	if read("v1.0.0") != "representation-x" || read("v1.1.0") != "representation-y" {
+		t.Fatalf("snapshots = %q, %q", read("v1.0.0"), read("v1.1.0"))
+	}
+	manifest, err := os.ReadFile(filepath.Join(corpus, "MANIFEST"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	sort.Slice(lines, func(i, j int) bool { return lines[i][66:] < lines[j][66:] })
-	if err := os.WriteFile(manifestPath, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
-		t.Fatal(err)
+	for _, label := range []string{"v1.0.0", "v1.1.0"} {
+		if !strings.Contains(string(manifest), "  snapshots/"+label+"/state/graphs/v1/p/record.json\n") {
+			t.Errorf("MANIFEST does not list %s representation:\n%s", label, manifest)
+		}
+	}
+
+	write("representation-x")
+	if frozen, err := freeze("v1.2.0"); err != nil || frozen {
+		t.Fatalf("output identical to an older snapshot must not be duplicated: %v, %v", frozen, err)
+	}
+	if _, err := freeze("1.2.0"); err == nil {
+		t.Fatal("a snapshot label that does not name a release was accepted")
 	}
 }

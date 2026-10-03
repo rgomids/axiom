@@ -43,14 +43,20 @@ legitimately wrote. Three executable guards enforce it; do not weaken them:
   (`StateRootDirectories`).
 - `TestEveryV1WriterIsRecognizedByInventory` (`internal/local`): every v1 kind
   (`V1Kinds`) is produced by a real store write and read back as supported.
+- `TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation` and
+  `TestEverySupportedRecordLoadsThroughItsCanonicalStore` (`internal/local`):
+  a record is supported only at the location its store addresses it by, and
+  every supported record loads through that store from its own identity.
 - `TestStableCorpusResolvesToDirectUpgrade` and `TestStableCorpusIsAppendOnly`
-  (`internal/compatibility`): the frozen corpus in
-  `internal/compatibility/testdata/stable-v1` keeps resolving to a `direct`
-  upgrade and is never edited or pruned.
+  (`internal/compatibility`): every release snapshot in
+  `internal/compatibility/testdata/stable-v1/snapshots` keeps resolving to a
+  `direct` upgrade and is never edited or pruned.
 
-When a change adds a persisted file, directory, or kind, extend the inventory,
-exercise the writer in `writeEveryV1Kind`, and append it to the corpus with
-`AXIOM_FREEZE_STATE_CORPUS=1 go test ./internal/local -run
-TestEveryV1WriterIsRecognizedByInventory` before release. A new persisted
-format follows FR-026 instead: declare its compatibility window and forward
-path, and add its own frozen corpus.
+When a change adds or changes a persisted file, directory, kind, or encoding,
+extend the inventory, exercise the writer in `writeEveryV1Kind`, and freeze it
+before release with `AXIOM_FREEZE_STATE_CORPUS=<release> go test
+./internal/local -run TestEveryV1WriterIsRecognizedByInventory`. Output that
+differs from every frozen snapshot, even at an existing logical path, becomes a
+new `snapshots/<release>` snapshot; identical output is not duplicated. A new
+persisted format follows FR-026 instead: declare its compatibility window and
+forward path, and add its own frozen corpus.

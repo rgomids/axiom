@@ -35,7 +35,7 @@ func (s GraphStore) Create(ctx context.Context, graph executiongraph.Graph) erro
 	if err != nil {
 		return err
 	}
-	root, graphs, version, project, err := s.openProject(graph.Children[0].Envelope.Scope.ProjectID, true)
+	root, graphs, version, project, err := s.openProject(graphProjectID(graph), true)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (s GraphStore) Save(ctx context.Context, graph executiongraph.Graph) (execu
 	if err != nil || graph.StorageRevision == ([sha256.Size]byte{}) {
 		return graph, executiongraph.ErrInvalidGraph
 	}
-	root, graphs, version, project, err := s.openProject(graph.Children[0].Envelope.Scope.ProjectID, false)
+	root, graphs, version, project, err := s.openProject(graphProjectID(graph), false)
 	if err != nil {
 		return graph, err
 	}
@@ -112,7 +112,7 @@ func (s GraphStore) Load(ctx context.Context, projectID, parentID string) (execu
 		return executiongraph.Graph{}, err
 	}
 	graph, err := executiongraph.DecodeGraph(wire)
-	if err != nil || graph.Parent.ExecutionID != parentID || graph.Children[0].Envelope.Scope.ProjectID != projectID {
+	if err != nil || !graphStoredAt(graph, projectID, graphName(parentID)) {
 		return executiongraph.Graph{}, ErrUnsafe
 	}
 	graph.StorageRevision = sha256.Sum256(wire)
@@ -149,6 +149,19 @@ func (s GraphStore) openProject(projectID string, create bool) (*os.Root, *os.Ro
 		return nil, nil, nil, nil, err
 	}
 	return root, graphs, version, project, nil
+}
+
+// graphProjectID is the Project that owns a graph; ValidGraph keeps every
+// child in that Project.
+func graphProjectID(graph executiongraph.Graph) string {
+	return graph.Children[0].Envelope.Scope.ProjectID
+}
+
+// graphStoredAt reports whether a decoded graph is the record GraphStore
+// addresses at graphs/v1/<projectID>/<name>: its Project owns the directory
+// and its parent identity names the file.
+func graphStoredAt(graph executiongraph.Graph, projectID, name string) bool {
+	return validGraphAddress(projectID, graph.Parent.ExecutionID) && graphProjectID(graph) == projectID && graphName(graph.Parent.ExecutionID) == name
 }
 
 func graphName(parentID string) string {

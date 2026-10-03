@@ -105,6 +105,15 @@ type inventoryWalk struct {
 	ctx     context.Context
 	entries []InventoryEntry
 	count   int
+	// graphChildren and streams bind coordination streams, which carry no
+	// Project, to the graph that owns their parent; see bindCoordination.
+	graphChildren map[string]map[string]bool
+	streams       []coordinationOwner
+}
+
+type coordinationOwner struct {
+	entry                      int
+	projectID, parentID, child string
 }
 
 func (w *inventoryWalk) add(relative string, kind InventoryKind, wire []byte) error {
@@ -164,6 +173,14 @@ func inspectInventory(ctx context.Context, path string, walk func(*inventoryWalk
 var StateRootDirectories = []string{"artifacts", "coordination", "executions", "graphs", "projects", "runtime-profiles", "work-items", "workflows"}
 
 func walkStateRoot(w *inventoryWalk, root *os.Root) error {
+	if err := walkStateRootEntries(w, root); err != nil {
+		return err
+	}
+	w.bindCoordination()
+	return nil
+}
+
+func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 	return eachName(w, root, ".", func(name string) error {
 		switch name {
 		case "projects":
@@ -179,7 +196,7 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 						return InventoryUnknown, 0
 					}
 					return "", MaxRecordBytes
-				}, func(wire []byte) InventoryKind {
+				}, func(_ string, wire []byte) InventoryKind {
 					if _, issues := DecodeRecord(wire); len(issues) == 0 {
 						return InventoryInstallation
 					}
@@ -203,12 +220,12 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 						return InventoryUnknown, 0
 					}
 					return "", MaxRecordBytes
-				}, func(wire []byte) InventoryKind {
+				}, func(file string, wire []byte) InventoryKind {
+					if createAttemptRe.MatchString(file) {
+						return classifyCreateAttempt(id, file, wire)
+					}
 					if _, err := decodeWorkItem(wire); err == nil {
 						return InventoryWorkItem
-					}
-					if _, err := decodeCreateAttempt(wire); err == nil {
-						return InventoryCreateAttempt
 					}
 					return versionedFailure(wire)
 				})
@@ -228,7 +245,7 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 							return InventoryUnknown, 0
 						}
 						return "", MaxRecordBytes
-					}, func(wire []byte) InventoryKind {
+					}, func(_ string, wire []byte) InventoryKind {
 						if _, err := decodeExecution(wire); err == nil {
 							return InventoryExecution
 						}
@@ -240,21 +257,11 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 			return eachVersionDirectory(w, root, name, walkArtifactsV1)
 		case "graphs":
 			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
-				return eachDigestRecordDirectory(w, version, relative, func(wire []byte) InventoryKind {
-					if _, err := executiongraph.DecodeGraph(wire); err == nil {
-						return InventoryGraph
-					}
-					return versionedFailure(wire)
-				})
+				return eachDigestRecordDirectory(w, version, relative, w.classifyGraph)
 			})
 		case "coordination":
 			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
-				return eachDigestRecordDirectory(w, version, relative, func(wire []byte) InventoryKind {
-					if _, err := coordination.DecodeStream(wire); err == nil {
-						return InventoryCoordination
-					}
-					return versionedFailure(wire)
-				})
+				return eachDigestRecordDirectory(w, version, relative, w.classifyCoordination)
 			})
 		case "runtime-profiles":
 			return eachVersionDirectory(w, root, name, walkRuntimeProfilesV1)
@@ -271,7 +278,7 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 						return InventoryUnknown, 0
 					}
 					return "", MaxRecordBytes
-				}, func(wire []byte) InventoryKind {
+				}, func(_ string, wire []byte) InventoryKind {
 					if validPOCWorkflow(wire) {
 						return InventoryPOCWorkflow
 					}
@@ -289,7 +296,7 @@ func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 
 // eachDigestRecordDirectory walks <project>/<sha256>.json records, the layout
 // GraphStore and CoordinationStore publish below their version directory.
-func eachDigestRecordDirectory(w *inventoryWalk, version *os.Root, relative string, decode func([]byte) InventoryKind) error {
+func eachDigestRecordDirectory(w *inventoryWalk, version *os.Root, relative string, decode func(projectID, file string, wire []byte) InventoryKind) error {
 	return eachName(w, version, relative, func(projectID string) error {
 		childRelative := relative + "/" + projectID
 		if protocolName(projectID) {
@@ -306,8 +313,71 @@ func eachDigestRecordDirectory(w *inventoryWalk, version *os.Root, relative stri
 				return InventoryUnknown, 0
 			}
 			return "", MaxRecordBytes
-		}, decode)
+		}, func(file string, wire []byte) InventoryKind {
+			return decode(projectID, file, wire)
+		})
 	})
+}
+
+// The classifiers below accept a record only at the location its store
+// addresses it by, recomputed with the store's own naming: a valid payload
+// renamed or moved to another syntactically valid location fails closed,
+// because the canonical store lookup could never load it there.
+
+func classifyCreateAttempt(projectID, file string, wire []byte) InventoryKind {
+	attempt, err := decodeCreateAttempt(wire)
+	if err != nil {
+		return versionedFailure(wire)
+	}
+	if attempt.Target.ProjectID != projectID || createAttemptName(attempt.Target) != file {
+		return InventoryMalformed
+	}
+	return InventoryCreateAttempt
+}
+
+func (w *inventoryWalk) classifyGraph(projectID, file string, wire []byte) InventoryKind {
+	graph, err := executiongraph.DecodeGraph(wire)
+	if err != nil {
+		return versionedFailure(wire)
+	}
+	if !graphStoredAt(graph, projectID, file) {
+		return InventoryMalformed
+	}
+	children := map[string]bool{}
+	for _, child := range graph.Children {
+		children[child.ExecutionID] = true
+	}
+	if w.graphChildren == nil {
+		w.graphChildren = map[string]map[string]bool{}
+	}
+	w.graphChildren[projectID+"\x00"+graph.Parent.ExecutionID] = children
+	return InventoryGraph
+}
+
+func (w *inventoryWalk) classifyCoordination(projectID, file string, wire []byte) InventoryKind {
+	stream, err := coordination.DecodeStream(wire)
+	if err != nil {
+		return versionedFailure(wire)
+	}
+	if coordinationName(stream.ParentID, stream.ChildID) != file {
+		return InventoryMalformed
+	}
+	// add appends this entry next; bindCoordination checks its Project.
+	w.streams = append(w.streams, coordinationOwner{entry: len(w.entries), projectID: projectID, parentID: stream.ParentID, child: stream.ChildID})
+	return InventoryCoordination
+}
+
+// bindCoordination proves the Project of each coordination stream. A stream
+// carries only its parent and child Execution IDs, and coordination lineage
+// is bound to the graph that owns them (evidence-s8), so a stream is
+// supported only beside a supported graph of the same Project whose parent
+// and child it names. CoordinationStore is opened with that graph's Project.
+func (w *inventoryWalk) bindCoordination() {
+	for _, stream := range w.streams {
+		if !w.graphChildren[stream.projectID+"\x00"+stream.parentID][stream.child] {
+			w.entries[stream.entry].Kind = InventoryMalformed
+		}
+	}
 }
 
 func walkRuntimeProfilesV1(w *inventoryWalk, version *os.Root, relative string) error {
@@ -370,7 +440,7 @@ func walkArtifactsV1(w *inventoryWalk, version *os.Root, relative string) error 
 					return InventoryUnknown, 0
 				}
 				return "", detailartifact.MaxCleanupRecord
-			}, func(wire []byte) InventoryKind {
+			}, func(_ string, wire []byte) InventoryKind {
 				if _, err := decodeCleanupRecord(wire); err == nil {
 					return InventoryCleanupRecord
 				}
@@ -385,7 +455,7 @@ func walkArtifactsV1(w *inventoryWalk, version *os.Root, relative string) error 
 					return InventoryUnknown, 0
 				}
 				return "", detailartifact.MaxRetirementRecord
-			}, func(wire []byte) InventoryKind {
+			}, func(_ string, wire []byte) InventoryKind {
 				if _, err := decodeRetirementRecord(wire); err == nil {
 					return InventoryRetirementRecord
 				}
@@ -450,7 +520,7 @@ func walkPortableRoot(w *inventoryWalk, root *os.Root) error {
 				return InventoryUnknown, 0
 			}
 			return "", MaxRecordBytes
-		}, func(wire []byte) InventoryKind {
+		}, func(_ string, wire []byte) InventoryKind {
 			if _, issues := manifest.Decode(wire); len(issues) == 0 {
 				return InventoryPortableManifest
 			}
@@ -547,7 +617,11 @@ func eachVersionDirectory(w *inventoryWalk, parent *os.Root, name string, walkV1
 	})
 }
 
-func eachFile(w *inventoryWalk, parent *os.Root, name, relative string, rule fileRule, decode func([]byte) InventoryKind) error {
+// fileDecoder classifies bounded content; it receives the entry name so a
+// record is only supported at the canonical name its store would address.
+type fileDecoder func(file string, wire []byte) InventoryKind
+
+func eachFile(w *inventoryWalk, parent *os.Root, name, relative string, rule fileRule, decode fileDecoder) error {
 	directory, err := existingPrivateChild(parent, name)
 	if err != nil {
 		return w.add(relative, InventoryUnsafe, nil)
@@ -568,7 +642,7 @@ func eachFile(w *inventoryWalk, parent *os.Root, name, relative string, rule fil
 		if err != nil {
 			return w.add(fileRelative, InventoryUnsafe, nil)
 		}
-		return w.add(fileRelative, decode(wire), wire)
+		return w.add(fileRelative, decode(file, wire), wire)
 	})
 }
 
