@@ -1856,6 +1856,116 @@ check 'a newer failing run of the required integration refuses despite a newer f
   '.check_runs += ([.check_runs[] | .conclusion = "failure" | .started_at = "2"] + [.check_runs[] | .app.id = 1 | .started_at = "3"])'
 check 'a newer foreign failing run cannot mask the required integration success' repair_ci verify_published \
   '.check_runs += [.check_runs[] | .app.id = 1 | .conclusion = "failure" | .started_at = "2"]'
+# Execute the actual workflow selection blocks, not release-repair.sh's
+# internal checks. An adversarial repair entrypoint marks execution and tries
+# a remote effect via fake gh. Its checkout also removes required checks:
+# only the immutable workflow revision's ruleset may authorize it.
+boundary=$temporary/repair-boundary
+mkdir -p "$boundary"
+for entry in source control repair; do
+  git clone -q --no-hardlinks "$rfix" "$boundary/$entry"
+done
+git -C "$boundary/source" checkout -q --detach "$rsource"
+git -C "$boundary/control" checkout -q --detach "$rcontrol"
+git -C "$boundary/repair" checkout -q --detach "$rrepair"
+printf '{"rules":[]}\n' >"$boundary/repair/.github/rulesets/main.json"
+cat >"$boundary/repair/scripts/release-repair.sh" <<'PROBE'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'executed\n' >>"$GITHUB_WORKSPACE/repair-executed"
+gh workflow run repair-probe.yml --repo "$GITHUB_REPOSITORY"
+PROBE
+python3 - "$workflows/publish-release.yml" "$boundary" <<'PYBOUNDARY'
+from pathlib import Path
+import sys
+text = Path(sys.argv[1]).read_text()
+blocks = []
+# The workflow uses literal Bash run blocks at this indentation. Extract the
+# entire selector unchanged so moving the gate after execution breaks tests.
+for step in text.split('      - name: Select release control scripts\n')[1:]:
+    assert 'WORKFLOW_REVISION: ${{ github.sha }}' in step.split('        run: |\n', 1)[0], 'policy must bind to trusted dispatch SHA'
+    body = step.split('        run: |\n', 1)[1]
+    lines = []
+    for line in body.splitlines():
+        if line and not line.startswith('          '):
+            break
+        lines.append(line[10:])
+    blocks.append('\n'.join(lines) + '\n')
+assert len(blocks) == 2, 'both preflight and publish must be tested'
+for job, block in zip(('preflight', 'publish'), blocks):
+    Path(sys.argv[2], job + '.sh').write_text(block)
+PYBOUNDARY
+workflow_repair_gate() {
+  local job=$1 expected=$2 filter=$3 workflow_revision=${4:-$rcontrol} result=0 before
+  jq "$filter" "$temporary/rrepair-green" >"$state/checks-$rrepair.json"
+  rm -f "$boundary/repair-executed" "$boundary/env"
+  before=$(mutations)
+  GITHUB_WORKSPACE=$boundary GITHUB_REPOSITORY=rgomids/axiom GITHUB_ENV=$boundary/env \
+    WORKFLOW_REVISION=$workflow_revision CORRECTIONS_REVISION=$rcontrol \
+    CORRECTIONS_DIGEST=$AXIOM_RELEASE_CORRECTIONS_DIGEST REPAIR_REVISION=$rrepair \
+    RELEASE_TAG=v0.3.0 RELEASE_REVISION=$rsource \
+    bash -eo pipefail "$boundary/$job.sh" >"$boundary/output" 2>"$boundary/error" || result=$?
+  if [[ "$expected" == allow ]]; then
+    [[ "$result" == 0 && -f "$boundary/repair-executed" ]] &&
+      [[ $(mutations) == $((before + 1)) ]] &&
+      grep -Fxq "RELEASE_CONTROL_SCRIPTS=$boundary/repair/scripts" "$boundary/env"
+  else
+    [[ "$result" != 0 && ! -e "$boundary/repair-executed" && ! -e "$boundary/env" ]] &&
+      [[ $(mutations) == "$before" ]]
+  fi
+}
+# Trust-policy failures must also fail closed, including jq parsing failures.
+git -C "$boundary/repair" config user.email release-test@example.invalid
+git -C "$boundary/repair" config user.name 'Release Test'
+git -C "$boundary/repair" config commit.gpgsign false
+jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks |= map(del(.integration_id)) else . end)' \
+  "$rfix/.github/rulesets/main.json" >"$boundary/repair/.github/rulesets/main.json"
+git -C "$boundary/repair" add .github/rulesets/main.json
+git -C "$boundary/repair" commit -q -m 'test: ruleset without integration binding'
+boundary_unbound=$(git -C "$boundary/repair" rev-parse HEAD)
+printf '{"rules":[]}\n' >"$boundary/repair/.github/rulesets/main.json"
+git -C "$boundary/repair" add .github/rulesets/main.json
+git -C "$boundary/repair" commit -q -m 'test: empty ruleset'
+boundary_empty=$(git -C "$boundary/repair" rev-parse HEAD)
+printf 'invalid json\n' >"$boundary/repair/.github/rulesets/main.json"
+git -C "$boundary/repair" add .github/rulesets/main.json
+git -C "$boundary/repair" commit -q -m 'test: malformed ruleset'
+boundary_malformed=$(git -C "$boundary/repair" rev-parse HEAD)
+git -C "$boundary/repair" checkout -q --detach "$rrepair"
+# Keep the adversarial worktree policy separate from trusted committed policy.
+printf '{"rules":[]}\n' >"$boundary/repair/.github/rulesets/main.json"
+for job in preflight publish; do
+  check "$job: trusted green CI permits first repair execution" workflow_repair_gate "$job" allow '.'
+  check "$job: missing required CI prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs = []'
+  check "$job: failed CI prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs[0].conclusion = "failure"'
+  check "$job: wrong integration prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs |= map(.app.id = 1)'
+  check "$job: unbound Check Runs prevent repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs |= map(del(.app))'
+  check "$job: pending CI prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs[0].status = "in_progress"'
+  check "$job: newer queued run with no start time prevents execution and effects" workflow_repair_gate "$job" deny \
+    '.check_runs += [.check_runs[] | .id = 100 | .status = "queued" | .started_at = null]'
+  check "$job: newest Check Run id wins despite older start time" workflow_repair_gate "$job" deny \
+    '.check_runs += [.check_runs[] | .id = 100 | .conclusion = "failure" | .started_at = "0"]'
+  check "$job: cancelled CI prevents repair execution and all effects" workflow_repair_gate "$job" deny '.check_runs[0].conclusion = "cancelled"'
+  check "$job: latest bound failure wins over older and foreign success" workflow_repair_gate "$job" deny \
+    '.check_runs += ([.check_runs[] | .conclusion = "failure" | .started_at = "2"] + [.check_runs[] | .app.id = 1 | .started_at = "3"])'
+  check "$job: foreign failure cannot veto latest bound success" workflow_repair_gate "$job" allow \
+    '.check_runs += [.check_runs[] | .app.id = 1 | .conclusion = "failure" | .started_at = "2"]'
+  check "$job: required policy without binding fails closed" workflow_repair_gate "$job" deny '.' "$boundary_unbound"
+  check "$job: empty required policy fails closed" workflow_repair_gate "$job" deny '.' "$boundary_empty"
+  check "$job: malformed required policy fails closed" workflow_repair_gate "$job" deny '.' "$boundary_malformed"
+  check "$job: unavailable trusted revision fails closed" workflow_repair_gate "$job" deny '.' "$(printf '1%.0s' {1..40})"
+  FAKE_GH_FAIL_ON=check-runs check "$job: unreadable CI fails closed before repair" workflow_repair_gate "$job" deny '.'
+  rm -f "$boundary/repair-executed" "$boundary/env"
+  before=$(mutations)
+  check "$job: no repair preserves pinned control without requesting repair CI" \
+    env FAKE_GH_FAIL_ON=check-runs GITHUB_WORKSPACE="$boundary" GITHUB_REPOSITORY=rgomids/axiom \
+    GITHUB_ENV="$boundary/env" WORKFLOW_REVISION="$rcontrol" CORRECTIONS_REVISION="$rcontrol" \
+    CORRECTIONS_DIGEST="$AXIOM_RELEASE_CORRECTIONS_DIGEST" REPAIR_REVISION= \
+    RELEASE_TAG=v0.3.0 RELEASE_REVISION="$rsource" bash -eo pipefail "$boundary/$job.sh"
+  check "$job: no repair executes no repair code or remote effect" bash -c "
+    [[ ! -e '$boundary/repair-executed' && $(mutations) == $before ]] &&
+    grep -Fxq RELEASE_CONTROL_SCRIPTS=$boundary/control/scripts '$boundary/env'"
+done
 cp "$temporary/rrepair-green" "$state/checks-$rrepair.json"
 release status "${rrepair_args[@]}" --repair-revision "$(printf '1%.0s' {1..40})" >"$temporary/rrepair-off-main" 2>"$temporary/rrepair-error"
 check 'unknown repair revision refuses before running any repair script' grep -Fxq next_action=blocked "$temporary/rrepair-off-main"

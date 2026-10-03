@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Read-only validation of explicitly pinned control-code repair for an already
 # published immutable recovery release. Original correction provenance stays fixed.
+# Caller must gate required CI with trusted code before executing this file;
+# the CI check here is defense in depth, not authorization to execute itself.
 set -euo pipefail
 umask 077
 repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)

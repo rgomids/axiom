@@ -63,7 +63,7 @@ jobs:
     permissions:
       contents: read
       actions: read
-      # release-repair.sh reads required Check Runs of an explicit repair_revision.
+      # The trusted workflow gate reads Check Runs before repair code executes.
       checks: read
       issues: read
     steps:
@@ -107,6 +107,7 @@ jobs:
           CORRECTIONS_REVISION: ${{ inputs.corrections_revision }}
           CORRECTIONS_DIGEST: ${{ inputs.corrections_digest }}
           REPAIR_REVISION: ${{ inputs.repair_revision }}
+          WORKFLOW_REVISION: ${{ github.sha }}
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_REVISION: ${{ inputs.revision }}
           GH_TOKEN: ${{ github.token }}
@@ -124,6 +125,26 @@ jobs:
             [[ $(git -C "$GITHUB_WORKSPACE/repair" rev-parse HEAD) == "$REPAIR_REVISION" ]]
             git -C "$GITHUB_WORKSPACE/repair" rev-list --first-parent origin/main | grep -Fx "$REPAIR_REVISION" >/dev/null
             git -C "$GITHUB_WORKSPACE/repair" merge-base --is-ancestor "$CORRECTIONS_REVISION" "$REPAIR_REVISION"
+            [[ "$REPAIR_REVISION" != "$CORRECTIONS_REVISION" ]]
+            # First trust gate belongs to this main-dispatched workflow. Read
+            # policy at its immutable SHA, never from the repair worktree; no
+            # repair script or local action may execute until this gate passes.
+            ruleset=$(git -C "$GITHUB_WORKSPACE/repair" show "$WORKFLOW_REVISION:.github/rulesets/main.json")
+            checks=$(gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$REPAIR_REVISION/check-runs?per_page=100" | jq -s '[.[].check_runs[]]')
+            # delivery-metadata is PR-only; merged main commits have no run.
+            # Check Run id orders attempts even while started_at is null.
+            jq -e --argjson ruleset "$ruleset" '
+              . as $runs |
+              [$ruleset.rules[] | select(.type == "required_status_checks") |
+                .parameters.required_status_checks[] | select(.context != "delivery-metadata")] as $required |
+              ($required | length > 0) and all($required[];
+                . as $check |
+                ($check.context | type == "string" and length > 0) and
+                ($check.integration_id | type == "number") and
+                ([$runs[] | select(.name == $check.context and .app.id == $check.integration_id)] |
+                  sort_by(.id, .started_at) | last |
+                  .status == "completed" and .conclusion == "success"))
+            ' <<<"$checks" >/dev/null || { printf 'release_repair_error: required CI on repair revision is not successful\n' >&2; exit 1; }
             AXIOM_RELEASE_CORRECTIONS_REVISION=$CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST=$CORRECTIONS_DIGEST \
               "$GITHUB_WORKSPACE/repair/scripts/release-repair.sh" --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
               --revision "$RELEASE_REVISION" --repair-revision "$REPAIR_REVISION"
@@ -196,6 +217,7 @@ jobs:
           CORRECTIONS_REVISION: ${{ inputs.corrections_revision }}
           CORRECTIONS_DIGEST: ${{ inputs.corrections_digest }}
           REPAIR_REVISION: ${{ inputs.repair_revision }}
+          WORKFLOW_REVISION: ${{ github.sha }}
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_REVISION: ${{ inputs.revision }}
           GH_TOKEN: ${{ github.token }}
@@ -213,6 +235,26 @@ jobs:
             [[ $(git -C "$GITHUB_WORKSPACE/repair" rev-parse HEAD) == "$REPAIR_REVISION" ]]
             git -C "$GITHUB_WORKSPACE/repair" rev-list --first-parent origin/main | grep -Fx "$REPAIR_REVISION" >/dev/null
             git -C "$GITHUB_WORKSPACE/repair" merge-base --is-ancestor "$CORRECTIONS_REVISION" "$REPAIR_REVISION"
+            [[ "$REPAIR_REVISION" != "$CORRECTIONS_REVISION" ]]
+            # First trust gate belongs to this main-dispatched workflow. Read
+            # policy at its immutable SHA, never from the repair worktree; no
+            # repair script or local action may execute until this gate passes.
+            ruleset=$(git -C "$GITHUB_WORKSPACE/repair" show "$WORKFLOW_REVISION:.github/rulesets/main.json")
+            checks=$(gh api --paginate "repos/$GITHUB_REPOSITORY/commits/$REPAIR_REVISION/check-runs?per_page=100" | jq -s '[.[].check_runs[]]')
+            # delivery-metadata is PR-only; merged main commits have no run.
+            # Check Run id orders attempts even while started_at is null.
+            jq -e --argjson ruleset "$ruleset" '
+              . as $runs |
+              [$ruleset.rules[] | select(.type == "required_status_checks") |
+                .parameters.required_status_checks[] | select(.context != "delivery-metadata")] as $required |
+              ($required | length > 0) and all($required[];
+                . as $check |
+                ($check.context | type == "string" and length > 0) and
+                ($check.integration_id | type == "number") and
+                ([$runs[] | select(.name == $check.context and .app.id == $check.integration_id)] |
+                  sort_by(.id, .started_at) | last |
+                  .status == "completed" and .conclusion == "success"))
+            ' <<<"$checks" >/dev/null || { printf 'release_repair_error: required CI on repair revision is not successful\n' >&2; exit 1; }
             AXIOM_RELEASE_CORRECTIONS_REVISION=$CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST=$CORRECTIONS_DIGEST \
               "$GITHUB_WORKSPACE/repair/scripts/release-repair.sh" --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
               --revision "$RELEASE_REVISION" --repair-revision "$REPAIR_REVISION"
