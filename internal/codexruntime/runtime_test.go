@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/rgomids/axiom/internal/testfs"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -522,11 +523,12 @@ func TestInstallProcessHelper(t *testing.T) {
 }
 
 func TestInstallAndInspectRejectUnsafeRootPermissions(t *testing.T) {
+	testfs.POSIXModes(t)
 	root := filepath.Join(t.TempDir(), "skills")
 	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(root, 0o770); err != nil {
+	if err := testfs.SharedMode(root, 0o770); err != nil {
 		t.Fatal(err)
 	}
 	service, err := New(root)
@@ -548,6 +550,7 @@ func TestInstallAndInspectRejectUnsafeRootPermissions(t *testing.T) {
 // The skill root belongs to the Runtime and is commonly 0755. Only modes that
 // let group or other mutate it are refused; Axiom's own entries stay private.
 func TestSkillRootAcceptsModesWithoutGroupOrOtherWrite(t *testing.T) {
+	testfs.POSIXModes(t)
 	for _, test := range []struct {
 		mode os.FileMode
 		safe bool
@@ -617,7 +620,7 @@ func TestSkillRootRefusesSymlinkedRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := filepath.Join(t.TempDir(), "skills")
-	if err := os.Symlink(target, root); err != nil {
+	if err := testfs.Symlink(t, target, root); err != nil {
 		t.Fatal(err)
 	}
 	service, err := NewClaude(root)
@@ -682,6 +685,7 @@ func TestInspectRejectsHardLinkedOwnedSkill(t *testing.T) {
 }
 
 func TestInspectRejectsUnsafeSkillPermissions(t *testing.T) {
+	testfs.POSIXModes(t)
 	root := filepath.Join(t.TempDir(), "skills")
 	service, err := New(root)
 	if err != nil {
@@ -708,7 +712,7 @@ func TestInstallRejectsSymlinkSkill(t *testing.T) {
 		t.Fatal(err)
 	}
 	outside := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(root, "axiom-project-configure")); err != nil {
+	if err := testfs.Symlink(t, outside, filepath.Join(root, "axiom-project-configure")); err != nil {
 		t.Fatal(err)
 	}
 	service, err := New(root)

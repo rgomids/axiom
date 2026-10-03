@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/testfs"
+
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
@@ -258,12 +260,12 @@ func TestWorkItemResolverFailsClosedOnUnavailableOrUnsafeRecordedSource(t *testi
 			if err := os.Rename(source, source+"-real"); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(source+"-real", source); err != nil {
+			if err := testfs.Symlink(t, source+"-real", source); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		"shared source permissions": {"invalid_project_capability_state", func(t *testing.T, _ workItemSourceEnvironment, source string) {
-			if err := os.Chmod(source, 0o755); err != nil {
+			if err := testfs.SharedMode(source, 0o755); err != nil {
 				t.Fatal(err)
 			}
 		}},

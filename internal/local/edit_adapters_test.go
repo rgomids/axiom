@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/rgomids/axiom/internal/testfs"
 )
 
 const recordedSourceManifest = "schemaVersion: 1\nproject:\n  id: 123e4567-e89b-42d3-a456-426614174000\n  slug: sample\n  name: Sample\n"
@@ -57,18 +59,18 @@ func TestInspectRecordedSourceRejectsUnsafeOrMissingSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	link := filepath.Join(privateTestRoot(t), "link")
-	if err := os.Symlink(valid, link); err != nil {
+	if err := testfs.Symlink(t, valid, link); err != nil {
 		t.Fatal(err)
 	}
 	ancestorLink := filepath.Join(privateTestRoot(t), "ancestor")
-	if err := os.Symlink(filepath.Dir(valid), ancestorLink); err != nil {
+	if err := testfs.Symlink(t, filepath.Dir(valid), ancestorLink); err != nil {
 		t.Fatal(err)
 	}
 	shared := privateTestRoot(t)
 	if err := os.WriteFile(filepath.Join(shared, manifestName), []byte(recordedSourceManifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chmod(shared, 0o755); err != nil {
+	if err := testfs.SharedMode(shared, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	extra := privateTestRoot(t)
