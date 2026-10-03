@@ -29,6 +29,9 @@ depend on the interview/body-formatting follow-ups.
   names from the observed catalog and does not infer area or lifecycle labels
   from arbitrary prose. No suitable label produces an empty reviewed label set
   and `no_existing_label_for_item_type` notice.
+- Classification values are validated, deduplicated, and sorted before entering
+  the draft or computing recovery identity. The adapter receives this same
+  canonical list; input ordering and duplicates do not create a new identity.
 - Type, story value, and explicit classification intent participate in recovery
   identity. The complete adapter document, selected labels and notices
   participate in the final preview digest. Changed proposals require review.

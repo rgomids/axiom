@@ -74,3 +74,21 @@ revision are preserved; the replacement six-skill manifest is pinned separately.
 The full race suite, static/build/dependency checks, repository validation,
 bounded smoke test and both release-contract scripts were repeated on this base.
 The smoke test reported six installed skills and `result: pass`.
+
+## Review correction — 2026-10-03
+
+The [Major review finding](https://github.com/rgomids/axiom/pull/165#issuecomment-5968743463)
+identified noncanonical classification intent in recovery identity. Values now
+follow validation, deduplication and sorting before entering Draft.Classification,
+correlation and provider classification. Caller-owned input is not mutated.
+
+`TestEquivalentClassificationsKeepIdentityAndCreateOnlyOnce` reproduced the
+failure before the correction. After it, the three reviewed input variants
+produce the same canonical draft, adapter input, correlation and authority digest;
+repeated authorized creation retains the existing Issue and `provider.creates == 1`.
+
+The full Go race suite, static/build/dependency checks, repository validator,
+bounded smoke test and diff checks were rerun for this correction. No dependency,
+permission, skill text or unrelated release behavior changed. Maintainer re-review
+remains pending; the previous local no-blocking-finding statement predates this
+external finding and does not supersede it.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -47,12 +48,14 @@ func TestTypesAndStoryDeliveryValue(t *testing.T) {
 
 type classifiedCapability struct {
 	*fakeCapability
-	metadata  json.RawMessage
-	verified  bool
-	verifyErr error
+	metadata        json.RawMessage
+	verified        bool
+	verifyErr       error
+	classifications []string
 }
 
-func (p *classifiedCapability) ClassifyDocument(_ context.Context, _ Draft, _ DraftTarget, document ProviderDocument, _ []string) (ProviderDocument, error) {
+func (p *classifiedCapability) ClassifyDocument(_ context.Context, _ Draft, _ DraftTarget, document ProviderDocument, explicit []string) (ProviderDocument, error) {
+	p.classifications = append([]string(nil), explicit...)
 	document.Metadata = append(json.RawMessage(nil), p.metadata...)
 	return document, nil
 }
@@ -163,5 +166,37 @@ func TestStoryValueAndClassificationsUseDraftSecurityLimits(t *testing.T) {
 	input.Value = SectionInput{Supplied: "Beneficial outcome"}
 	if result := testService(&fakeCapability{}, newFakeStore()).Prepare(context.Background(), input); result.Category != "story_value_requires_story" {
 		t.Fatalf("result=%+v", result)
+	}
+}
+
+func TestEquivalentClassificationsKeepIdentityAndCreateOnlyOnce(t *testing.T) {
+	provider := &classifiedCapability{fakeCapability: &fakeCapability{}, metadata: json.RawMessage(`{"classification":["area:cli","bug"]}`), verified: true}
+	service := New(fakeResolver{}, provider, provider, newFakeStore(), testProvenance())
+	variants := [][]string{{"bug", "area:cli"}, {"area:cli", "bug"}, {"bug", "area:cli", "bug"}}
+	canonical := []string{"area:cli", "bug"}
+	var correlation, digest string
+	for _, values := range variants {
+		input := completeDraft()
+		input.Classification = append([]string(nil), values...)
+		preview := service.Prepare(context.Background(), input)
+		if preview.Status != completion.Success || preview.Draft == nil {
+			t.Fatalf("preview=%+v", preview)
+		}
+		if correlation == "" {
+			correlation, digest = preview.Draft.Correlation, preview.Draft.Digest
+		}
+		if preview.Draft.Correlation != correlation || preview.Draft.Digest != digest {
+			t.Fatalf("equivalent input %v changed identity or authority digest", values)
+		}
+		if !reflect.DeepEqual(preview.Draft.Draft.Classification, canonical) || !reflect.DeepEqual(provider.classifications, canonical) {
+			t.Fatalf("draft=%v adapter=%v", preview.Draft.Draft.Classification, provider.classifications)
+		}
+		if !reflect.DeepEqual(input.Classification, values) {
+			t.Fatal("normalization mutated caller input")
+		}
+		created := service.Create(context.Background(), input, digest, true)
+		if created.Status != completion.Success || created.Link.ExternalID != "7" || provider.creates != 1 {
+			t.Fatalf("input=%v result=%+v creates=%d", values, created, provider.creates)
+		}
 	}
 }

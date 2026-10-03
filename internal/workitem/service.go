@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -255,12 +256,12 @@ func (s Service) Prepare(ctx context.Context, input DraftInput) Result {
 		return result(completion.ValidationFailure, "draft_invalid")
 	}
 	if classifier, ok := s.capability.(DocumentClassifier); ok {
-		document, err := classifier.ClassifyDocument(ctx, draft, target, preview.ProviderDocument, input.Classification)
+		document, err := classifier.ClassifyDocument(ctx, draft, target, preview.ProviderDocument, draft.Classification)
 		if err != nil {
 			return providerFailure(err, "provider_classification_failed")
 		}
 		preview.ProviderDocument = document
-	} else if len(input.Classification) != 0 {
+	} else if len(draft.Classification) != 0 {
 		return result(completion.ValidationFailure, "provider_classification_unsupported")
 	} else {
 		preview.ProviderDocument.Notices = []string{"provider_classification_unsupported"}
@@ -664,6 +665,8 @@ func normalizeDraft(input DraftInput) (Draft, []Question, string) {
 	if len(input.Classification) > 16 {
 		return Draft{}, nil, "invalid_classification"
 	}
+	var classification []string
+	seen := make(map[string]bool, len(input.Classification))
 	for _, value := range input.Classification {
 		if !validDraftText(value) || len(value) > 256 {
 			return Draft{}, nil, "invalid_classification"
@@ -671,7 +674,12 @@ func normalizeDraft(input DraftInput) (Draft, []Question, string) {
 		if looksSensitive(value) {
 			return Draft{}, nil, "secret_rejected"
 		}
+		if !seen[value] {
+			classification = append(classification, value)
+			seen[value] = true
+		}
 	}
+	sort.Strings(classification)
 	fields := []struct {
 		name, prompt string
 		input        SectionInput
@@ -687,7 +695,7 @@ func normalizeDraft(input DraftInput) (Draft, []Question, string) {
 	if fields[0].input.Supplied == "" && fields[0].input.Elaborated == "" {
 		fields[0].input.Supplied = input.Intent
 	}
-	draft := Draft{Type: itemType, Classification: append([]string(nil), input.Classification...), Sections: make([]DraftSection, 0, len(fields))}
+	draft := Draft{Type: itemType, Classification: classification, Sections: make([]DraftSection, 0, len(fields))}
 	questions := make([]Question, 0)
 	total := 0
 	if itemType == Story {
