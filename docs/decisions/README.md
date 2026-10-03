@@ -45,3 +45,5 @@ ADR-0010 defines opt-in [pinned release metadata recovery](0010-pinned-release-c
 ADR-0011 makes the [release start command-driven](0011-command-driven-release-start.md): merges integrate code, `$axiom-release` starts releases after a preflight of the whole release range.
 
 ADR-0012 proposes the [environment-scoped publication credential](0012-release-publication-credential.md) required for preserved historical release sources.
+
+ADR-0013 proposes [explicit published-release control-code repair](0013-published-release-control-repair.md), preserving original metadata pins and binding a separate execution SHA.

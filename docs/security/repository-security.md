@@ -206,7 +206,8 @@ Trade-offs registrados:
 - A autorização de publicação vale para um publication envelope exato
   (bytes preparados e verificados, notes, revisão, `latest`, estado remoto);
   `publish-release.yml` usa `actions: read` para baixar o artifact preparado
-  daquela execução, não recompila, e recusa antes de qualquer efeito se o
+  daquela execução (e `checks: read` só para ler os Check Runs exigidos de um
+  `repair_revision` explícito, ADR-0013), não recompila, e recusa antes de qualquer efeito se o
   envelope recalculado divergir. O artifact preparado expira em 30 dias;
   depois disso, prepare de novo e autorize o novo envelope.
 
@@ -219,14 +220,17 @@ e nenhum checkout persiste a credencial dedicada.
 
 Crie um fine-grained PAT com resource owner `rgomids`, acesso somente ao
 repositório `axiom` e expiração curta (por exemplo, 30 dias). Permissões:
-`Contents: write`, `Workflows: write`, `Issues: write`, `Pull requests: write`
-e `Actions: read`. Metadata read é automática. Salve o valor em Settings →
+`Contents: write`, `Workflows: write` e `Actions: read`. Metadata read é automática. Salve o valor em Settings →
 Environments → release → Environment secrets como `AXIOM_RELEASE_PUBLISH_TOKEN`;
 nunca no Git, nos logs ou na conversa. Rotação/renovação é responsabilidade do
 mantenedor, sem alteração automática de secrets pelo agente.
 
-O PAT atende tanto à publicação quanto aos efeitos de repositório já listados
-no envelope (Issues e labels de PR). O token do Project continua separado.
+O PAT atende à API de Release. Issues e labels de PR usam `GITHUB_TOKEN`,
+passado como `AXIOM_RELEASE_REPOSITORY_TOKEN` somente no step protegido, com
+`issues: write` e `pull-requests: write`. Isso preserva a autoria confiável
+`github-actions[bot]` dos registros de delivery e sua idempotência. Sem esse
+token, o workflow também recusa antes dos scripts. O token do Project continua
+separado.
 Não altere revisão original, recovery pins, artifacts ou proteções para
 contornar falha de credencial. Depois de qualquer falha, execute `status` com
 os mesmos pins/prepared run e obtenha nova autorização antes de publicar.
@@ -250,10 +254,10 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
 | `delivery-metadata.yml` | `pull_request` (inclusive forks); `workflow_dispatch` pelo `release-please.yml` | `GITHUB_TOKEN` com `contents: read` e `pull-requests: read`; sem secrets | nenhum: valida título e corpo com o validador da revisão base e recusa `closingIssuesReferences` |
 | `delivery-sync.yml` `sync` | `push` em `main`, com `"projection": "disabled"` | `GITHUB_TOKEN` `issues: write`, `pull-requests: read` (só para ler o closer de uma Issue fechada no merge) | comentário limitado e idempotente nas Issues completadas; reabertura de uma Issue fechada pelo GitHub exatamente nesse merge, com registro limitado |
 | `delivery-sync.yml` `sync-project` | `push` em `main`, só com `"projection": "enabled"` | `GITHUB_TOKEN` (Issues, `pull-requests: read`), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `delivery` (somente GraphQL do Project) | também Status `Awaiting Release` e `Target Release`; reconciliação para `Released` de Issues com registro de release |
-| `publish-release.yml` `publish` | dispatch autorizado, environment `release` aprovado | `AXIOM_RELEASE_PUBLISH_TOKEN` (publicação, Issues e labels de PR), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `release` (somente GraphQL do Project) | só os efeitos de Issue do envelope autorizado, depois do read-back |
+| `publish-release.yml` `publish` | dispatch autorizado, environment `release` aprovado | `AXIOM_RELEASE_PUBLISH_TOKEN` (API de Release), `GITHUB_TOKEN` (Issues e labels de PR), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `release` (somente GraphQL do Project) | só os efeitos de Issue do envelope autorizado, depois do read-back |
 
-- Separação: operações de repositório usam `GITHUB_TOKEN`, exceto no step
-  protegido de publicação, que usa `AXIOM_RELEASE_PUBLISH_TOKEN`. O PAT do
+- Separação: operações de Issue e PR usam `GITHUB_TOKEN`; a API de Release
+  usa `AXIOM_RELEASE_PUBLISH_TOKEN` somente no step protegido. O PAT do
   Project só é usado por
   `delivery-github.sh` em chamadas GraphQL de Projects v2, onde o
   `GITHUB_TOKEN` não chega (`project_gh`), e só com `"projection": "enabled"`.

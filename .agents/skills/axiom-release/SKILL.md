@@ -32,6 +32,26 @@ step carries them to the next.
 - `vX.Y.Z-rc.N`: conduct that release candidate (default revision: `origin/main`);
 - `vX.Y.Z`: conduct that stable release (revision: its merged Release PR commit).
 
+## Published control-code repair
+
+Only after a human selects a reviewed/merged `repair_revision` with green CI,
+use `--repair-revision <full SHA>` under ADR-0013 for an already published
+immutable recovery release. Keep original source, correction revision/digest
+and prepared run. This is a separate execution pin; never replace metadata
+pins, edit immutable notes, or fall back to current main. Preparation refuses
+repair. See `docs/development/release-recovery.md`.
+
+For `status`/`publish`, supply original pins and prepared run explicitly.
+Envelope v4 includes `repair_revision` and only outstanding delivery/label
+effects; show every field and obtain new human envelope authority before
+`publish`. The same environment gate applies. When no effects remain, use
+`verify --repair-revision <SHA> --download`; verify reads original published
+pins, never discovers repair code. `start --repair-revision <SHA>` may explicitly
+verify a repaired previous release before starting a new normal version.
+A repair SHA that does not apply to a published recovery release is refused,
+never ignored; report the refusal instead of retrying without it.
+Never infer or reuse a repair selection for another release without authority.
+
 ## Procedure
 
 1. From the repository root, run `scripts/release.sh status [--tag <tag>]`.
