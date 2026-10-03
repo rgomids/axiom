@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.0](https://github.com/rgomids/axiom/compare/v0.3.0...v0.4.0) (2026-10-03)
+
+
+### Features
+
+* add native Windows support and PowerShell installation ([#149](https://github.com/rgomids/axiom/issues/149)) ([4dbdba2](https://github.com/rgomids/axiom/commit/4dbdba2a43844aa615f340e79b829956ee5880f4))
+* **workitem:** classify drafts and apply reviewed labels ([#165](https://github.com/rgomids/axiom/issues/165)) ([42f30cd](https://github.com/rgomids/axiom/commit/42f30cd6eeae8d684af04f0dab46fa4018d39823))
+
+
+### Bug Fixes
+
+* **ci:** restore delivery sync and pinned recovery checks ([#170](https://github.com/rgomids/axiom/issues/170)) ([58dcc39](https://github.com/rgomids/axiom/commit/58dcc3908fb607925fc2d9f1dee69d0243efe0ec))
+* **release:** pin explicit repair of published recovery ([#167](https://github.com/rgomids/axiom/issues/167)) ([33d1220](https://github.com/rgomids/axiom/commit/33d1220e14c55c2291d75e50122e23152b702031))
+* **release:** recover immutable source with pinned delivery corrections ([#163](https://github.com/rgomids/axiom/issues/163)) ([db8ed3a](https://github.com/rgomids/axiom/commit/db8ed3afc0538171552870712f8f97562feda016))
+* **release:** use protected publication credential ([#166](https://github.com/rgomids/axiom/issues/166)) ([cf0e408](https://github.com/rgomids/axiom/commit/cf0e40886151175d8d75301c91e82c79223cbf32))
+
 ## [0.3.0](https://github.com/rgomids/axiom/compare/v0.2.1...v0.3.0) (2026-10-02)
 
 
