@@ -84,10 +84,12 @@ Para a cadeia de release, mantenha também:
 - Actions somente pinadas por SHA completo (`sha_pinning_required`);
 - releases imutáveis (tags e assets de releases publicadas não mudam);
 - workflows com `permissions` mínimas e `persist-credentials: false`;
-- nenhum secret de repositório: CI, Release PR e publicação usam o
-  `GITHUB_TOKEN` de cada job. A única exceção é o secret de environment
-  `AXIOM_DELIVERY_PROJECT_TOKEN` do [delivery tracking](#delivery-tracking),
-  presente somente nos environments `release` e `delivery`.
+- nenhum secret de repositório: CI, Release PR e preflight usam o
+  `GITHUB_TOKEN` de cada job. O job protegido de publicação usa o secret
+  `AXIOM_RELEASE_PUBLISH_TOKEN` somente no environment `release`, conforme
+  [ADR-0012](../decisions/0012-release-publication-credential.md).
+  `AXIOM_DELIVERY_PROJECT_TOKEN` do [delivery tracking](#delivery-tracking)
+  permanece somente nos environments `release` e `delivery`.
 
 ## Release and branch protection
 
@@ -173,12 +175,27 @@ Trade-offs registrados:
   abrir o Release PR, e também permite que workflows aprovem PRs. O ruleset
   continua exigindo code owner review de `@rgomids`, que uma aprovação do
   GitHub Actions não satisfaz; nenhum workflow deste repositório aprova PRs.
+- Merges integram código; `$axiom-release` inicia releases
+  ([ADR-0011](../decisions/0011-command-driven-release-start.md)).
+  `release-please.yml` não tem gatilho `push`: só roda por `workflow_dispatch`
+  a partir de `main`, disparado por `scripts/release.sh start` com a
+  credencial `gh` do mantenedor e os inputs `planned_version` e `main`. O job
+  recusa antes do Release Please se `main` mudou desde o plano (no momento do
+  dispatch), se o `release-plan.sh` recusar algum commit ou se a versão
+  planejada divergir. Como o Release Please lê `main` quando roda, os checks
+  obrigatórios só são disparados se a base do Release PR for o SHA validado
+  ou um ancestral dele.
+  Os inputs só chegam ao shell por variáveis de ambiente, com formato
+  validado (`MAJOR.MINOR.PATCH`, SHA de 40 caracteres).
 - PRs e pushes feitos com `GITHUB_TOKEN` não disparam outros workflows; por
   isso `release-please.yml` dispara `ci.yml` e `delivery-metadata.yml` por
-  `workflow_dispatch` na branch do Release PR, sem PAT nem secret. Se isso
-  falhar, fechar e reabrir o Release PR também dispara a CI (o
-  `delivery-metadata` por `pull_request` é pulado para o Release PR, mas o
-  próximo push do Release Please o dispara de novo por dispatch).
+  `workflow_dispatch` na branch do Release PR, sem PAT nem secret, e só
+  quando o título do Release PR registra a versão planejada e a base foi
+  validada; um Release PR com outra versão ou base fica sem os checks
+  obrigatórios e não pode ser mergeado.
+  Se isso falhar, `$axiom-release` (`release.sh start`, com
+  `next_action=refresh_release_pr`) valida de novo e dispara outra vez;
+  fechar e reabrir o Release PR também dispara a CI.
 - Com um único mantenedor, o próprio autor não pode aprovar seu PR; o bypass
   em modo `pull_request` permite o merge auditado pelo PR, mas nunca push
   direto em `main`. Release PRs (autor `github-actions`) recebem aprovação
@@ -193,6 +210,31 @@ Trade-offs registrados:
   envelope recalculado divergir. O artifact preparado expira em 30 dias;
   depois disso, prepare de novo e autorize o novo envelope.
 
+## Publication credential
+
+O job `publish` exige `AXIOM_RELEASE_PUBLISH_TOKEN` no environment `release`.
+Sem esse secret, recusa antes de executar os scripts; não há fallback para
+`GITHUB_TOKEN`. Preflight e download do artifact continuam com `GITHUB_TOKEN`,
+e nenhum checkout persiste a credencial dedicada.
+
+Crie um fine-grained PAT com resource owner `rgomids`, acesso somente ao
+repositório `axiom` e expiração curta (por exemplo, 30 dias). Permissões:
+`Contents: write`, `Workflows: write`, `Issues: write`, `Pull requests: write`
+e `Actions: read`. Metadata read é automática. Salve o valor em Settings →
+Environments → release → Environment secrets como `AXIOM_RELEASE_PUBLISH_TOKEN`;
+nunca no Git, nos logs ou na conversa. Rotação/renovação é responsabilidade do
+mantenedor, sem alteração automática de secrets pelo agente.
+
+O PAT atende tanto à publicação quanto aos efeitos de repositório já listados
+no envelope (Issues e labels de PR). O token do Project continua separado.
+Não altere revisão original, recovery pins, artifacts ou proteções para
+contornar falha de credencial. Depois de qualquer falha, execute `status` com
+os mesmos pins/prepared run e obtenha nova autorização antes de publicar.
+
+GitHub exige autorização para modificar workflows quando a revisão alvo tem
+workflows diferentes da branch padrão; `GITHUB_TOKEN` não oferece essa
+permissão. Veja [Create a release](https://docs.github.com/en/rest/releases/releases#create-a-release).
+
 ## Delivery tracking
 
 O processo está em [CONTRIBUTING.md](../../CONTRIBUTING.md#delivery-tracking).
@@ -204,13 +246,15 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
 
 | Workflow / job | Gatilho | Credencial | Efeitos |
 |---|---|---|---|
+| `release-please.yml` | somente `workflow_dispatch` de `main` por `release.sh start` (nunca `push`) | `GITHUB_TOKEN` com `contents`, `pull-requests`, `issues` e `actions: write`; sem secrets | re-executa o plano no SHA planejado; abre ou atualiza o Release PR; dispara os checks obrigatórios só para a versão planejada; nunca cria tag nem release |
 | `delivery-metadata.yml` | `pull_request` (inclusive forks); `workflow_dispatch` pelo `release-please.yml` | `GITHUB_TOKEN` com `contents: read` e `pull-requests: read`; sem secrets | nenhum: valida título e corpo com o validador da revisão base e recusa `closingIssuesReferences` |
 | `delivery-sync.yml` `sync` | `push` em `main`, com `"projection": "disabled"` | `GITHUB_TOKEN` `issues: write`, `pull-requests: read` (só para ler o closer de uma Issue fechada no merge) | comentário limitado e idempotente nas Issues completadas; reabertura de uma Issue fechada pelo GitHub exatamente nesse merge, com registro limitado |
 | `delivery-sync.yml` `sync-project` | `push` em `main`, só com `"projection": "enabled"` | `GITHUB_TOKEN` (Issues, `pull-requests: read`), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `delivery` (somente GraphQL do Project) | também Status `Awaiting Release` e `Target Release`; reconciliação para `Released` de Issues com registro de release |
-| `publish-release.yml` `publish` | dispatch autorizado, environment `release` aprovado | `GITHUB_TOKEN` `issues: write` (comentário e fechamento), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `release` (somente GraphQL do Project) | só os efeitos de Issue do envelope autorizado, depois do read-back |
+| `publish-release.yml` `publish` | dispatch autorizado, environment `release` aprovado | `AXIOM_RELEASE_PUBLISH_TOKEN` (publicação, Issues e labels de PR), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `release` (somente GraphQL do Project) | só os efeitos de Issue do envelope autorizado, depois do read-back |
 
-- Separação: tudo o que é do repositório (ler Issues e comentários, comentar,
-  fechar) usa o `GITHUB_TOKEN` do job. O PAT só é usado por
+- Separação: operações de repositório usam `GITHUB_TOKEN`, exceto no step
+  protegido de publicação, que usa `AXIOM_RELEASE_PUBLISH_TOKEN`. O PAT do
+  Project só é usado por
   `delivery-github.sh` em chamadas GraphQL de Projects v2, onde o
   `GITHUB_TOKEN` não chega (`project_gh`), e só com `"projection": "enabled"`.
   Ele nunca é impresso nem gravado em arquivos ou Evidence. Em

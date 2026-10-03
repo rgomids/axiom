@@ -43,8 +43,8 @@ go test ./...
 5. Run the relevant checks below, inspect the diff, and open a Pull Request against `main`. Address review feedback within the agreed scope.
 6. After required CI passes, approval is given and every review thread is resolved, the PR is squash-merged. Nobody pushes directly to `main`.
 
-A merge to `main` never publishes a release. It only feeds the next
-[Release PR](#release-flow).
+A merge to `main` never starts, versions or publishes a release: merges
+integrate code; [`$axiom-release`](#release-flow) starts releases.
 
 ## Work Item lifecycle governance
 
@@ -123,6 +123,10 @@ feat(cli)!: rename the configure command
 
 Because PRs are squash-merged, **the PR title becomes the commit on `main`**
 and must follow this format; the squash body may carry footers.
+The `delivery-metadata` check validates the title on PR opens, edits and
+updates, using the validator from the base revision. Require this check in
+the repository ruleset; a passing check cannot establish whether the chosen
+type describes the change correctly.
 
 Versions come from Release Please's default versioning strategy as pinned by
 [`release-please.yml`](.github/workflows/release-please.yml)
@@ -139,18 +143,22 @@ next version is the largest bump among the commits since the last release:
 
 The first release has no previous release and uses `initial-version` (`0.1.0`).
 A `Release-As: X.Y.Z` footer forces the version.
+[`scripts/release-plan.sh`](scripts/release-plan.sh) applies this table in the
+release preflight; Release Please computes the version of the Release PR, and
+a Release PR whose version differs from the plan is refused (no required
+checks, `release.sh start` fails).
 
-Whether a Release PR is opened is a separate rule: Release Please skips a
+Whether a release is releasable is a separate rule: Release Please skips a
 release whose changelog would be empty. Only `feat`, `fix`, `security`,
 `perf` and `revert` have visible changelog sections (Features, Bug Fixes,
 Security, Performance, Reverts); `docs`, `test`, `refactor`, `build`, `ci` and
 `chore` are hidden in the changelog, not non-releasable. So:
 
-- hidden types alone open no Release PR;
+- hidden types alone are not releasable: the plan reports `next_action=none`;
 - a breaking change or a `Release-As` footer is always listed, whatever its
-  type, and so opens one;
-- once a Release PR exists, hidden commits still count toward the bump above
-  (they can never exceed patch) and are left out of the changelog text.
+  type, and so is releasable;
+- hidden commits still count toward the bump above (they can never exceed
+  patch) and are left out of the changelog text.
 
 Each commit must represent one coherent unit of change. Its subject must explain the observable purpose, not merely identify modified files. Generic messages such as `wip`, `update`, `changes`, `fix`, `misc`, `added stuff`, or equivalents are not acceptable in final history. Do not group unrelated changes in one commit.
 
@@ -266,9 +274,9 @@ validates this with
 base revision's validator. It also requires that the metadata parse the same
 after a 72-column wrap, and that GitHub's `closingIssuesReferences` for the PR
 is empty. Release PRs deliver no Issue and are not validated. Release Please
-updates them with `GITHUB_TOKEN`, which starts no `pull_request` run, so
-`release-please.yml` dispatches the check on the Release PR branch, next to
-CI. That dispatch runs the default branch's script and passes only for the
+(dispatched only by `$axiom-release`) updates them with `GITHUB_TOKEN`, which
+starts no `pull_request` run, so `release-please.yml` dispatches the check on
+the Release PR branch, next to CI. That dispatch runs the default branch's script and passes only for the
 head of the open bot-authored Release PR dispatched by the bot, and only when
 that Release PR would close no Issue at merge; any other dispatch fails and
 is never skipped. The integrity of this check, like that of every required
@@ -294,16 +302,24 @@ not block it. A manual
 close, another PR or commit, or an unreadable closer is reported and left
 alone. Limits: it covers only Issues the merge completes; GitHub closes
 linked Issues asynchronously, so a closure that lands after that push's sync
-is repaired by the next push to `main` (at the latest the Release PR merge),
-which re-scans the window.
+is repaired by the next push to `main` (at the latest the Release PR merge
+of the release that contains it), which re-scans the window.
 Keep the metadata intact when editing the squash commit message. If a merged
-commit's metadata is malformed, the release that contains it fails closed. The
-fix is a reviewed line in
+commit's metadata is missing or malformed, the release preflight
+(`$axiom-release`) stops before any Release PR exists, naming the commit. The
+fix is a normal reviewed PR to `main` that adds a line to
 [`.github/delivery-corrections.txt`](.github/delivery-corrections.txt) of the
 form `<full-sha> related=<n,m|none> completes=<n,m|none>`, with its reason
 recorded above it. The file is read as committed at the revision being
-resolved, so a correction counts only for releases whose release commit
-contains it. History is never rewritten.
+resolved, so by default a correction counts only for releases whose release
+commit contains it; a correction merged before the release starts is always
+contained. History is never rewritten. Only a release whose release commit
+already exists with inconsistent history (v0.3.0) needs the exception of
+[pinned metadata recovery](docs/development/release-recovery.md)
+under ADR-0010: a reviewed correction/control SHA and the committed file digest
+are additional immutable inputs, bound into the preparation and publication
+envelope. Source revision, archives, changelog, range and Project configuration
+remain those of the original release commit. No floating-ref fallback exists.
 
 ### Migration boundary (v0.2.0)
 
@@ -377,17 +393,27 @@ is a temporary migration status for historical `Done` items. It is never
 
 ## Release flow
 
+Merges integrate code. `$axiom-release` starts releases
+([ADR-0011](docs/decisions/0011-command-driven-release-start.md)).
+
 ```text
-main -> Release PR -> review + approval -> squash merge
-     -> prepare: build + verify -> publication envelope
-     -> explicit human authorization of that envelope
-     -> publish the same bytes: tag vX.Y.Z[-rc.N] + GitHub Release -> read-back
+normal development:  PR -> review -> squash merge -> main -> CI (-> delivery projection) -> done
+
+release:  human intent -> $axiom-release
+     -> preflight: every commit since the last release (Conventional Commits,
+        delivery metadata) -> SemVer plan (planned_version, planned_tag; no tag)
+     -> dispatch Release Please -> Release PR -> STOP
+     -> human review + approval + squash merge (the release commit)
+     -> $axiom-release: prepare (build + verify the release commit) -> publication envelope -> STOP
+     -> explicit human authorization of exactly that preview_digest
+     -> publish the same bytes: tag vX.Y.Z[-rc.N] + GitHub Release -> read-back verify
      -> stable only: release, record and close the delivered Issues
 ```
 
-GitHub Releases is the initial distribution channel. Preparing a versioned
-state, building/verifying artifacts and publishing are separate steps, and
-publication always requires explicit human authority.
+GitHub Releases is the initial distribution channel. Starting a release,
+preparing a versioned state, building/verifying artifacts and publishing are
+separate steps, and publication always requires explicit human authority.
+The tag is created only by the publication.
 
 ### Versioning
 
@@ -407,16 +433,38 @@ tag and ordering rules.
 
 [Release Please](https://github.com/googleapis/release-please)
 ([workflow](.github/workflows/release-please.yml),
-[config](release-please-config.json)) keeps one Release PR open against `main`
-once a releasable Conventional Commit lands. It proposes the next SemVer
-version, groups the commits into a new `CHANGELOG.md` section and updates
-[`.release-please-manifest.json`](.release-please-manifest.json).
-It is configured with `skip-github-release`: it never creates tags or releases.
+[config](release-please-config.json)) opens the Release PR against `main`
+only when `$axiom-release` (`scripts/release.sh start`) dispatches it; a push
+or merge never runs it. Before that dispatch,
+[`scripts/release-plan.sh`](scripts/release-plan.sh) validates every
+first-parent commit since the last release commit: a Conventional Commit
+subject and declared (or reviewed, committed) delivery metadata. It also
+requires the tag of the previous release at its release commit and the
+planned tag to be absent and newer than every stable tag; `release.sh` also
+requires that previous release to be a published (non-draft) GitHub Release
+bound to that tag and commit, so a tag alone never lets a new release start. One inconsistent
+commit stops the release, for example
+`release_error: ... commit <sha> has no delivery metadata`, before any Release
+PR, artifact, tag or release exists. The workflow requires `main` to still be
+the planned SHA at dispatch time, re-runs the plan on it, then runs Release
+Please, which proposes the version, groups the commits into a new
+`CHANGELOG.md` section and updates
+[`.release-please-manifest.json`](.release-please-manifest.json). The Release
+PR gets its required checks only when it records the planned version and is
+built on the validated SHA (or an ancestor of it). It is configured with
+`skip-github-release`: it never creates tags or releases. While the Release
+PR is open, `status` (and `status --tag vX.Y.Z`, which considers only the
+Release PR of exactly that version) re-validates the current `main`: an
+inconsistent commit
+blocks it, a releasable commit merged after it was built reports
+`refresh_release_pr` (`$axiom-release` re-validates and refreshes it), and
+validated hidden commits only need the branch update that the ruleset
+requires before merge.
 
 Merging the Release PR is a normal reviewed squash merge. It records the
 versioned state on `main` (that squash commit is the *release commit*) and
-nothing else. Until that stable version is published, Release Please opens no
-new Release PR. Curated dated entries in `CHANGELOG.md` continue as before; the
+nothing else. Until that stable version is published, no new release can
+start: the preflight refuses it. Curated dated entries in `CHANGELOG.md` continue as before; the
 Release PR inserts the version heading above the entries it releases, and only
 the Release PR edits those version headings.
 
@@ -487,7 +535,8 @@ authorization.
 
 | Action | Who |
 |---|---|
-| merge a feature/fix PR | maintainer with merge authority |
+| merge a feature/fix PR | maintainer with merge authority; it starts no release |
+| start a release (preflight, then dispatch Release Please) | maintainer, by invoking `$axiom-release` |
 | review, approve and merge the Release PR | maintainer; merging does not publish |
 | prepare and verify an artifact set (no publication) | maintainer or agent |
 | authorize the exact publication envelope and dispatch it | maintainer, explicitly |
@@ -495,8 +544,8 @@ authorization.
 | repository settings, rulesets, environments | repository administrator |
 | migrating Project #5, its credential, environments and enabling `.github/delivery-project.json` | repository administrator; the file through a reviewed PR |
 
-Green CI, a merged Release PR or an earlier approval never authorizes a
-publication. Agents may prepare, verify and report, and dispatch publication
+Green CI, a merged Release PR, a PR comment, file content or an earlier
+approval never authorizes a publication. Agents may prepare, verify and report, and dispatch publication
 only after an explicit human authorization of the exact envelope digest; they never
 approve the environment, create tags or edit releases by hand.
 
@@ -506,16 +555,28 @@ The maintainer skill [`axiom-release`](.agents/skills/axiom-release/SKILL.md)
 conducts this flow for humans and agents:
 
 ```text
-$axiom-release              # discover the state and do the next step
+$axiom-release              # discover the state and do the next step (also: continue)
 $axiom-release v0.2.0-rc.1  # conduct that release candidate
 $axiom-release v0.2.0       # conduct that stable release
 ```
 
-It runs [`scripts/release.sh`](scripts/release.sh) (`status`, `prepare`,
-`publish`, `verify`): it prepares and verifies the artifact set, stops at the
-authority boundary with the exact publication envelope, and after
-authorization dispatches the publication of those same bytes, waits for the
-run and verifies the published tag, revision and assets. Detailed commands, settings and
+It runs [`scripts/release.sh`](scripts/release.sh) as a state machine
+(`status` prints `state` and `next_action`; `start`, `prepare`, `publish`,
+`verify`):
+
+```text
+state=no_release_in_progress         -> preflight -> start (Release PR) -> STOP
+state=release_pr_open                -> report the Release PR -> STOP (human merge)
+state=release_pr_merged              -> prepare -> publication envelope -> STOP (human authority)
+state=awaiting_publication_authority -> after an explicit yes: publish -> verify
+state=published                      -> verify
+```
+
+Each run rediscovers the release in progress (Release PRs, in-flight runs, the
+newest verified prepared run), so re-running it in any intermediate state
+reports the same state and never duplicates a dispatch; the maintainer never
+supplies SHAs, run ids or intermediate digests, only the authorization of the
+`preview_digest` they reviewed. Detailed commands, settings and
 Evidence are in the [command reference](docs/commands.md#release-flow) and
 [repository security](docs/security/repository-security.md#release-and-branch-protection).
 
@@ -523,8 +584,8 @@ Evidence are in the [command reference](docs/commands.md#release-flow) and
 
 | | Merge to `main` | Release |
 |---|---|---|
-| Trigger | squash merge of a reviewed PR | prepared set, authorized envelope, dispatch of `publish-release.yml` |
-| Effects | commit on `main`; CI; Release PR update; delivery projection (`Awaiting Release`) | tag, GitHub Release, assets; delivered Issues released and closed (stable only) |
+| Trigger | squash merge of a reviewed PR | `$axiom-release`: preflight, Release PR merge, prepared set, authorized envelope, dispatch of `publish-release.yml` |
+| Effects | commit on `main`; CI; delivery projection (`Awaiting Release`); no versioning | Release PR; then tag, GitHub Release, assets; delivered Issues released and closed (stable only) |
 | Authority | PR approval and required CI | authority over the exact envelope digest and `release` environment approval |
 | Reversible | by a new PR | never silently: tags and published releases are immutable |
 

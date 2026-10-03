@@ -140,6 +140,15 @@ expect_failure 'closing keyword inside code is refused too' 'GitHub closing keyw
 check 'words containing keywords are not keywords' pr_check 'feat: prefixes and closeness' \
   'Related-Issues: #1\nCompletes-Issues: none\n\nThe prefix #1 and enclosed #2 and unresolved #3 stay open.\n'
 
+# PR titles become squash subjects and must be parseable by Release Please.
+for title in 'feat: add page' 'feat(site): add page' 'fix!: reject old state' 'security(fs)!: tighten boundary' 'chore(main): release 0.3.0' 'revert: restore page'; do
+  check "conventional title '$title' passes" pr_check "$title" 'Related-Issues: none\nCompletes-Issues: none\n'
+done
+for title in 'Docs/86 added landing page' 'Feat(site): add page' 'feature: add page' 'feat: ' 'feat(site) add page' 'feat(): add page' 'feat: add page\nfix: another subject'; do
+  expect_failure "nonconventional title '$title' refused" 'Conventional Commits' \
+    pr_check "$title" 'Related-Issues: none\nCompletes-Issues: none\n'
+done
+
 # --- 3. Fixture history: partial and completing PRs across releases ---------------------
 fixture=$temporary/fixture
 git init -q -b main "$fixture"
@@ -320,10 +329,13 @@ corrections=$repository_root/.github/delivery-corrections.txt
 check 'every reviewed correction names a commit of main history' bash -c "
   grep -Ev '^(#|$)' '$corrections' | while read -r sha _; do git -C '$repository_root' cat-file -e \"\$sha^{commit}\" || exit 1; done"
 check 'the v0.2.0 legacy reconciliations are exactly #143 -> #129 and #148 -> #147; #132 is not completed' bash -c "
-  [[ \$(grep -Evc '^(#|$)' '$corrections') == 2 ]] &&
+  [[ \$(grep -Evc '^(#|$)' '$corrections') == 3 ]] &&
   grep -Fxq 'f04dbf38db4cb609256ede47e5fbcbe7a16c6487 related=129 completes=129' '$corrections' &&
   grep -Fxq 'fc6cdf4749943df93ec4d91c473fe5152f4bc186 related=147 completes=147' '$corrections' &&
   ! grep -Ev '^#' '$corrections' | grep -q '132'"
+
+check 'PR #157 restores related #153 without claiming completion' grep -Fxq \
+  '684b5aca88b1176d317fa86aa223b6bc654e4519 related=153 completes=none' "$corrections"
 
 if ((failures > 0)); then
   printf 'FAIL: %s delivery check(s) failed\n' "$failures" >&2

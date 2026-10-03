@@ -56,7 +56,8 @@ type Error struct{ Category string }
 func (e *Error) Error() string { return "upgrade: " + e.Category }
 
 // Target names the explicit owned roots. Axiom skill files under SkillsRoot
-// are replaced only when owned; State is inspected read-only and never written.
+// are replaced only when owned; State is inspected read-only and never written
+// by the direct strategy, the only one this release executes.
 type Target struct {
 	BinaryDir  string
 	ReceiptDir string
@@ -81,6 +82,7 @@ type Preview struct {
 	Leftovers      []string                     `json:"leftovers"`
 	State          compatibility.Classification `json:"stateClassification"`
 	StateDigest    string                       `json:"stateDigest"`
+	Transition     compatibility.Decision       `json:"transition"`
 	Skills         string                       `json:"skills"`
 	RequiredBytes  int64                        `json:"requiredBytes"`
 	AvailableBytes uint64                       `json:"availableBytes"`
@@ -203,11 +205,15 @@ func (s Service) previewIn(ctx context.Context, target Target, candidate Candida
 	}
 	state, err := compatibility.Inspect(ctx, target.State)
 	if err != nil {
-		return Preview{}, &Error{Category: "state_inspection_failed"}
+		// Keep Resume visible: an earlier interrupted run may have published effects.
+		return preview, &Error{Category: "state_inspection_failed"}
 	}
 	preview.State, preview.StateDigest = state.Classification, state.Digest
-	if state.Classification != compatibility.AbsentV1 && state.Classification != compatibility.ValidV1 {
-		return preview, &Error{Category: "state_incompatible"}
+	// The receipt and the unmodified binary above establish ownership; the
+	// policy resolves persisted-state compatibility as an independent input.
+	preview.Transition = compatibility.Resolve(compatibility.Owned, state)
+	if err := dispatchTransition(preview.Transition); err != nil {
+		return preview, err
 	}
 	if currentDigest != candidateDigest {
 		preview.Effects = append(preview.Effects, Effect{Kind: "binary", Target: destination, Expected: currentDigest, Next: candidateDigest})
@@ -260,6 +266,26 @@ func (s Service) previewIn(ctx context.Context, target Target, candidate Candida
 	return preview, nil
 }
 
+// dispatchTransition is the single orchestration point for the strategy the
+// compatibility policy selected. Only direct has an executor in this release:
+// a supported automatic transition without one, and every refusal, stops here
+// before any installation effect is planned or authorized.
+func dispatchTransition(decision compatibility.Decision) error {
+	switch decision.Strategy {
+	case compatibility.StrategyDirect:
+		return nil
+	case compatibility.StrategyMigrate, compatibility.StrategyPreserveRebuildReconfigure:
+		return &Error{Category: "state_transition_unavailable"}
+	}
+	switch decision.Outcome {
+	case compatibility.OutcomeUnsupported:
+		return &Error{Category: "state_unsupported"}
+	case compatibility.OutcomeRecoveryRequired:
+		return &Error{Category: "state_recovery_required"}
+	}
+	return &Error{Category: "state_unsafe"}
+}
+
 func previewDigest(preview Preview) string {
 	wire, _ := json.Marshal(struct {
 		Source, Target, Archive string
@@ -268,7 +294,8 @@ func previewDigest(preview Preview) string {
 		Leftovers               []string
 		State                   compatibility.Classification
 		StateDigest, Skills     string
-	}{preview.SourceVersion, preview.TargetVersion, preview.ArchiveSHA256, preview.Resume, preview.Effects, preview.Leftovers, preview.State, preview.StateDigest, preview.Skills})
+		Transition              compatibility.Decision
+	}{preview.SourceVersion, preview.TargetVersion, preview.ArchiveSHA256, preview.Resume, preview.Effects, preview.Leftovers, preview.State, preview.StateDigest, preview.Skills, preview.Transition})
 	return digest(wire)
 }
 
@@ -426,7 +453,7 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 	}
 	_ = receiptDir.Sync()
 	final, err := compatibility.Inspect(ctx, current.target.State)
-	if err != nil || final.Classification != compatibility.AbsentV1 && final.Classification != compatibility.ValidV1 {
+	if err != nil || compatibility.Resolve(compatibility.Owned, final).Strategy != compatibility.StrategyDirect {
 		return partial(result), &Error{Category: "final_verification_failed"}
 	}
 	verified, err := planSkills(ctx, current.target.SkillsRoot, current.candidate, "", nil, false, skillSession)

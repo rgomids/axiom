@@ -18,3 +18,10 @@ f04dbf38db4cb609256ede47e5fbcbe7a16c6487 related=129 completes=129
 # Issue #147 (resolve portable Project from recorded SourceLocation): PR #148
 # states "Closes #147"; merged as fc6cdf4.
 fc6cdf4749943df93ec4d91c473fe5152f4bc186 related=147 completes=147
+
+# Proposed for human review: PR #157 reconciled only Specification 004, Plan
+# and Tasks for #153. Its PR body declares Related-Issues: #153 and
+# Completes-Issues: none; the immutable squash omitted both lines. No
+# implementation or Issue completion is claimed. Review/approval of this
+# correction remains pending; merging the reviewed correction records it.
+684b5aca88b1176d317fa86aa223b6bc654e4519 related=153 completes=none

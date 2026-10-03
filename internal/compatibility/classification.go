@@ -1,5 +1,6 @@
 // Package compatibility owns read-only classification of persisted Axiom
-// state and the separately authorized preservation of recognized POC state.
+// state, the deterministic forward-transition policy over that classification,
+// and the separately authorized preservation of recognized POC state.
 package compatibility
 
 import (
