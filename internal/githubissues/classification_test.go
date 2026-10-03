@@ -11,11 +11,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/testfs"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
 func classificationAdapter(t *testing.T, catalog, issue string) (Adapter, string, string, string) {
 	t.Helper()
+	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh, labels, response, log, payload := filepath.Join(directory, "gh"), filepath.Join(directory, "labels"), filepath.Join(directory, "issue"), filepath.Join(directory, "log"), filepath.Join(directory, "payload")
 	for path, content := range map[string]string{labels: catalog, response: issue, gh: `#!/bin/sh
