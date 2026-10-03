@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
 # Maintainer release orchestration used by the $axiom-release skill.
+# Merges integrate code; `start` starts releases (ADR-0011).
 #
 #   release.sh status  [--tag vX.Y.Z[-rc.N]] [--revision SHA] [--prepared-run ID]
-#   release.sh prepare --tag TAG [--revision SHA]
-#   release.sh publish --tag TAG --revision SHA --prepared-run ID --preview-digest DIGEST --authorize-publication
-#   release.sh verify  --tag TAG [--download]
+#   release.sh start
+#   release.sh prepare [--tag TAG] [--revision SHA]
+#   release.sh publish --preview-digest DIGEST --authorize-publication [--tag TAG] [--revision SHA] [--prepared-run ID]
+#   release.sh verify  [--tag TAG] [--prepared-run ID] [--download]
 #
+# STATUS is a state machine: it prints state= and next_action=, discovering
+# the release in progress (open or merged Release PR, in-flight runs, the
+# newest verified prepared run) so no SHA, run id or intermediate digest has
+# to be supplied by hand.
+# START runs the release plan (release-plan.sh: every commit since the last
+# release has a Conventional Commit subject and delivery metadata; SemVer
+# plan) and the remote facts (among them: the previous release the plan
+# builds on is a published GitHub Release at its tag and release commit),
+# then dispatches release-please.yml with the
+# planned version and the exact main SHA, waits, and reports the Release PR,
+# whose version must equal the plan. It never approves or merges it.
 # PREPARE: `prepare` dispatches release-artifacts.yml (read-only token; it
 # builds, verifies and retains the exact artifact set, and publishes nothing),
 # waits for it, then prints the publication envelope of that prepared set.
@@ -15,10 +28,12 @@
 # --authorize-publication and a DIGEST equal to the envelope recomputed now;
 # the workflow recomputes it again from the same prepared bytes before the
 # first effect. status and verify are read-only apart from `git fetch` of main
-# and temporary files. This script never creates tags or releases itself and
-# never approves the `release` environment.
-# Release rules live in release-preflight.sh, publish-release.sh and the
-# workflows; this script only gathers facts and chooses the next step.
+# and temporary files. This script never creates tags or releases itself,
+# never approves or merges a Release PR and never approves the `release`
+# environment.
+# Release rules live in release-plan.sh, release-preflight.sh,
+# publish-release.sh and the workflows; this script only gathers facts and
+# chooses the next step.
 set -euo pipefail
 
 umask 077
@@ -27,6 +42,7 @@ repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 scripts=$repository_root/scripts
 workflow=publish-release.yml
 prepare_workflow=release-artifacts.yml
+start_workflow=release-please.yml
 command=${1:-}
 [[ -n "$command" ]] && shift
 tag=
@@ -137,7 +153,6 @@ prepared_envelope() {
   [[ "$prepared_run" =~ ^[0-9]+$ ]] || { reason='prepared run id must be numeric'; return 1; }
   rm -rf -- "$dir" "$clone"
   mkdir "$dir"
-  printf 'prepared_run=%s\n' "$prepared_run" >>"$temporary/status"
   if ! gh run download "$prepared_run" --repo "$repository" --name "axiom-release-$tag" --dir "$dir" >/dev/null 2>&1; then
     reason="cannot download axiom-release-$tag from run $prepared_run"
     return 1
@@ -172,9 +187,229 @@ find_run() {
   printf '%s' "$run"
 }
 
+# inflight_run WORKFLOW prints the newest run of WORKFLOW that has not
+# completed (queued, waiting for an environment approval, running), as JSON,
+# or nothing. A run that cannot be listed fails closed.
+inflight_run() {
+  local runs
+  runs=$(gh run list --repo "$repository" --workflow "$1" --limit 20 --json databaseId,status,url,createdAt) \
+    || fail "cannot list $1 runs"
+  jq -c '[.[] | select(.status != "completed")] | sort_by(.createdAt) | last // empty' <<<"$runs"
+}
+
+# await_run STATE WORKFLOW sets state, next and reason when WORKFLOW has a run
+# in flight; re-running status then only reports it, never dispatches again.
+await_run() {
+  local run
+  run=$(inflight_run "$2")
+  [[ -n "$run" ]] || return 1
+  state=$1
+  next=await_run
+  printf 'run_id=%s\nrun_url=%s\nrun_status=%s\n' "$(jq -r '.databaseId' <<<"$run")" "$(jq -r '.url' <<<"$run")" \
+    "$(jq -r '.status' <<<"$run")" >>"$temporary/status"
+  reason="$2 run $(jq -r '.databaseId' <<<"$run") is $(jq -r '.status' <<<"$run"); wait for it (a publish run waits for the human release environment approval), then run status again"
+}
+
+# github_release_exists TAG succeeds when any GitHub Release (draft included)
+# uses TAG as its tag or name.
+github_release_exists() {
+  local releases
+  releases=$(gh api --paginate "repos/$repository/releases?per_page=100" | jq -s 'add // []') || fail 'cannot list releases'
+  jq -e --arg tag "$1" 'any(.[]; .tag_name == $tag or .name == $tag)' <<<"$releases" >/dev/null
+}
+
+# plan_facts runs release-plan.sh on origin/main into $temporary/plan and
+# copies its facts into the status. On refusal it sets reason and fails.
+plan_facts() {
+  if ! "$scripts/release-plan.sh" --main-ref origin/main >"$temporary/plan" 2>"$temporary/plan-error"; then
+    reason=$(sed 's/^release_plan_error: //' "$temporary/plan-error" | head -n 1)
+    return 1
+  fi
+  grep -E '^(planned_version|planned_tag)=' "$temporary/plan" >>"$temporary/status"
+  grep -Ev '^(planVersion|result|planned_version|planned_tag|main)=' "$temporary/plan" | sed 's/^/plan./' >>"$temporary/status"
+}
+
+# pinned_control DIR TAG SOURCE REVISION DIGEST is the one entry to the
+# ADR-0010 control revision of a published recovery release. In this script
+# it requires REVISION on first-parent main and descending from SOURCE (the
+# release commit of TAG); only then it checks REVISION out into DIR (with
+# origin/main) and validates the pins with that revision's recovery protocol,
+# printing its facts. On refusal it sets reason and fails; no script of an
+# unchecked revision runs.
+pinned_control() {
+  local dir=$1 control_tag=$2 source=$3 control=$4 control_digest=$5
+  grep -Fxq "$control" < <(git -C "$repository_root" rev-list --first-parent origin/main) \
+    || { reason='correction revision is not on first-parent main'; return 1; }
+  git -C "$repository_root" merge-base --is-ancestor "$source" "$control" 2>/dev/null \
+    || { reason='correction revision does not descend from source'; return 1; }
+  rm -rf -- "$dir"
+  { git clone --quiet --no-hardlinks "$repository_root" "$dir" \
+    && git -C "$dir" checkout --quiet --detach "$control" \
+    && git -C "$dir" fetch --quiet "$repository_root" '+refs/remotes/origin/main:refs/remotes/origin/main'; } 2>/dev/null \
+    && [[ $(git -C "$dir" rev-parse HEAD) == "$control" && -f "$dir/scripts/release-recovery.sh" ]] \
+    || { reason='correction revision has no recovery protocol to check out'; return 1; }
+  (
+    repository_root=$dir
+    export AXIOM_RELEASE_CORRECTIONS_REVISION=$control AXIOM_RELEASE_CORRECTIONS_DIGEST=$control_digest
+    source "$dir/scripts/release-recovery.sh"
+    recovery_validate "$control_tag" "$source"
+  ) || { reason='correction pins do not validate at the correction revision'; return 1; }
+}
+
+# published_recovery_pins BODY sets pins_revision and pins_digest to the
+# ADR-0010 correction pins a published release records in its notes, or
+# empties both when it records none. Ambiguous or malformed pins set reason
+# and fail.
+published_recovery_pins() {
+  pins_revision=
+  pins_digest=
+  grep -q '^- Recovery corrections ' <<<"$1" || return 0
+  [[ $(grep -c '^- Recovery corrections revision:' <<<"$1") == 1 && $(grep -c '^- Recovery corrections SHA-256:' <<<"$1") == 1 ]] \
+    || { reason='ambiguous recovery provenance'; return 1; }
+  pins_revision=$(sed -nE 's/^- Recovery corrections revision: `([0-9a-f]{40})`$/\1/p' <<<"$1")
+  pins_digest=$(sed -nE 's/^- Recovery corrections SHA-256: `([0-9a-f]{64})`$/\1/p' <<<"$1")
+  [[ "$pins_revision" =~ ^[0-9a-f]{40}$ && "$pins_digest" =~ ^[0-9a-f]{64}$ ]] || { reason='malformed recovery provenance'; return 1; }
+}
+
+# previous_release_facts proves on GitHub what release-plan.sh, being
+# Git-only, proves only for the tag: the release the plan builds on
+# (plan.previous_tag at plan.previous_release_commit) is published as a
+# non-draft GitHub Release bound to that tag and commit. It is the remote
+# publication state of publish-release.sh --check, the one status and verify
+# use. A recovery release (ADR-0010) is checked like verify checks it: its
+# recorded pins through pinned_control, then the scripts of that control
+# revision. Latest is not part of it. On refusal it sets reason and fails.
+previous_release_facts() {
+  local previous_tag previous_commit previous_state body check_scripts=$scripts
+  previous_tag=$(value plan.previous_tag "$temporary/status")
+  previous_commit=$(value plan.previous_release_commit "$temporary/status")
+  # A missing or unreadable release leaves no pins; the check below then
+  # classifies it (absent, or a recovery release without its pins).
+  body=$(gh api "repos/$repository/releases/tags/$previous_tag" 2>/dev/null | jq -r '.body // ""') || body=
+  published_recovery_pins "$body" || { reason="previous release $previous_tag: $reason"; return 1; }
+  if [[ -n "$pins_revision" ]]; then
+    pinned_control "$temporary/previous-control" "$previous_tag" "$previous_commit" "$pins_revision" "$pins_digest" \
+      >/dev/null 2>"$temporary/previous-error" || { reason="previous release $previous_tag: published $reason"; return 1; }
+    check_scripts=$temporary/previous-control/scripts
+  fi
+  if ! AXIOM_RELEASE_CORRECTIONS_REVISION=$pins_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$pins_digest \
+    "$check_scripts/publish-release.sh" --check --repo "$repository" --tag "$previous_tag" --revision "$previous_commit" \
+    --make-latest false >"$temporary/previous" 2>"$temporary/previous-error"; then
+    printf 'previous_release_state=%s\n' "$(value publication_state "$temporary/previous")" >>"$temporary/status"
+    reason="previous release $previous_tag is not consistently published: $(sed 's/^[a-z_]*_error: //' "$temporary/previous-error" | head -n 1); resolve it with \$axiom-release (release.sh status --tag $previous_tag) first"
+    return 1
+  fi
+  previous_state=$(value publication_state "$temporary/previous")
+  printf 'previous_release_state=%s\n' "$previous_state" >>"$temporary/status"
+  if [[ "$previous_state" != published ]]; then
+    reason="previous release $previous_tag has its tag but its GitHub Release is ${previous_state/absent/missing}; finish it with \$axiom-release (release.sh status --tag $previous_tag) first"
+    return 1
+  fi
+}
+
+# discover_prepared_run sets prepared_run to the newest unexpired prepared
+# artifact of $tag whose set verifies at $revision and yields an envelope.
+discover_prepared_run() {
+  local listing id rejected=0
+  listing=$(gh api "repos/$repository/actions/artifacts?name=axiom-release-$tag&per_page=100") || fail 'cannot list prepared artifacts'
+  # Candidates from main only; verify-prepared-release.sh then requires a
+  # successful release-artifacts.yml dispatch and the exact revision.
+  while IFS= read -r id; do
+    [[ "$id" =~ ^[0-9]+$ ]] || continue
+    prepared_run=$id
+    if prepared_envelope; then
+      printf 'prepared_run=%s\nprepared_run_source=discovered\n' "$prepared_run" >>"$temporary/status"
+      return 0
+    fi
+    rejected=$((rejected + 1))
+    printf 'prepared_run_rejected.%s=%s\n' "$id" "$reason" >>"$temporary/status"
+  done < <(jq -r --arg name "axiom-release-$tag" '[.artifacts[]? | select(.name == $name and .expired == false
+      and (.workflow_run.head_branch // "main") == "main")]
+    | sort_by(.created_at) | reverse | .[:3][] | .workflow_run.id' <<<"$listing")
+  prepared_run=
+  reason=
+  ((rejected == 0)) || reason="$rejected prepared run(s) rejected (prepared_run_rejected.*); "
+  return 1
+}
+
+# release_pr_facts reports the one open Release PR against the plan of the
+# current main: it is ready for review only when main still validates, plans
+# the same version and the PR is not behind main.
+release_pr_facts() {
+  local pr url version head behind base refresh sha
+  pr=$(jq -c '.[0]' <<<"$open")
+  url=$(jq -r '.url' <<<"$pr")
+  head=$(jq -r '.headRefOid // empty' <<<"$pr")
+  version=$(jq -r '.title' <<<"$pr" | sed -nE 's/^chore\(main\): release ((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$/\1/p')
+  printf 'release_pr=%s\nrelease_pr_version=%s\nrelease_pr_head=%s\n' "$url" "${version:-unknown}" "${head:-unknown}" >>"$temporary/status"
+  if [[ -z "$version" || ! "$head" =~ ^[0-9a-f]{40}$ ]]; then
+    next=blocked; reason="the open Release PR $url has no readable version or head"
+    return
+  fi
+  if ! plan_facts; then
+    next=blocked; reason="$reason; fix it on main, then run release.sh start to refresh the Release PR"
+    return
+  fi
+  if ! previous_release_facts; then
+    next=blocked
+    return
+  fi
+  # Release Please builds the Release PR as one commit on top of main.
+  base=$(gh api "repos/$repository/commits/$head" | jq -r 'if (.parents | length) == 1 then .parents[0].sha else empty end') \
+    || fail 'cannot read the Release PR head commit'
+  printf 'release_pr_base=%s\n' "${base:-unknown}" >>"$temporary/status"
+  if [[ ! "$base" =~ ^[0-9a-f]{40}$ ]] || ! git -C "$repository_root" merge-base --is-ancestor "$base" "$main" 2>/dev/null; then
+    next=blocked; reason="the Release PR $url is not one commit on top of main history; close it and start again"
+    return
+  fi
+  # Commits merged after the Release PR was built. The plan above already
+  # validated them; a releasable one changes the changelog, so Release
+  # Please must refresh the PR. Hidden ones leave it unchanged (Release
+  # Please keeps an unchanged PR as is), so the branch is only updated.
+  behind=$(git -C "$repository_root" rev-list --first-parent --count "$base..$main")
+  printf 'release_pr_behind_main=%s\n' "$behind" >>"$temporary/status"
+  refresh=false
+  [[ $(value planned_version "$temporary/status") == "$version" ]] || refresh=true
+  while IFS= read -r sha; do
+    grep -Eq "^plan\.commit=$sha .* releasable=true " "$temporary/status" && refresh=true
+  done < <(git -C "$repository_root" rev-list --first-parent "$base..$main")
+  if [[ "$refresh" == true ]]; then
+    if [[ $(value main_ci "$temporary/status") != success ]]; then
+      next=blocked; reason="required CI on main $main is $(value main_ci "$temporary/status"); the Release PR must be refreshed once it is green"
+    elif github_release_exists "$(value planned_tag "$temporary/status")"; then
+      next=blocked; reason="a GitHub Release already uses $(value planned_tag "$temporary/status"); resolve it before refreshing the Release PR"
+    else
+      next=refresh_release_pr
+      reason="main changed the release since the Release PR was built (it records $version, main plans $(value planned_version "$temporary/status")); run release.sh start to re-validate and refresh it"
+    fi
+    return
+  fi
+  printf 'release_pr_ci=%s\n' "$(ci_state "$head")" >>"$temporary/status"
+  next=review_release_pr
+  reason="human review, approval and squash merge of $url"
+  if [[ "$behind" != 0 ]]; then
+    reason="$reason; it is $behind validated non-releasable commit(s) behind main: update its branch in GitHub before merging"
+  fi
+}
+
+# open_release_pr_status judges the open Release PR(s) for `status` and for
+# `status --tag` of a stable release not merged yet: more than one is
+# ambiguous, exactly one is checked by release_pr_facts. One path, so the two
+# never decide differently about the same Release PR.
+open_release_pr_status() {
+  state=release_pr_open
+  if (($(jq 'length' <<<"$open") > 1)); then
+    next=blocked; reason='more than one open Release PR'
+  else
+    release_pr_facts
+  fi
+}
+
 # status writes key=value facts and the next step to $temporary/status.
 status() {
-  local out=$temporary/status next reason='' main head branch worktree open merged
+  local out=$temporary/status reason='' head branch worktree merged
+  next=
+  state=
   : >"$out"
   git -C "$repository_root" fetch --quiet origin main || fail 'cannot fetch origin main'
   main=$(git -C "$repository_root" rev-parse --verify origin/main)
@@ -182,12 +417,12 @@ status() {
   branch=$(git -C "$repository_root" branch --show-current)
   worktree=clean
   [[ -z $(git -C "$repository_root" status --porcelain --untracked-files=normal) ]] || worktree=dirty
-  open=$(gh pr list --repo "$repository" --state open --label 'autorelease: pending' --json number,url,title --limit 10) \
+  open=$(gh pr list --repo "$repository" --state open --label 'autorelease: pending' --json number,url,title,headRefOid --limit 10) \
     || fail 'cannot list open Release PRs'
   merged=$(gh pr list --repo "$repository" --state merged --label 'autorelease: pending' --json number,url,title,mergeCommit --limit 10) \
     || fail 'cannot list merged Release PRs'
   {
-    printf 'statusVersion=1\n'
+    printf 'statusVersion=2\n'
     printf 'repository=%s\n' "$repository"
     printf 'root=%s\n' "$repository_root"
     printf 'branch=%s\n' "${branch:-detached}"
@@ -202,17 +437,35 @@ status() {
 
   if [[ -z "$tag" ]]; then
     if (($(jq 'length' <<<"$merged") > 1)); then
-      next=blocked; reason='more than one merged Release PR awaits publication'
+      state=release_pr_merged; next=blocked; reason='more than one merged Release PR awaits publication'
     elif (($(jq 'length' <<<"$merged") == 1)); then
+      state=release_pr_merged
       revision=$(jq -r '.[0].mergeCommit.oid' <<<"$merged")
       local manifest
       manifest=$(git -C "$repository_root" show "$revision:.release-please-manifest.json" 2>/dev/null | tr -d ' \t\r\n' | sed -n 's/^{"\.":"\([0-9.]*\)"}$/\1/p')
       [[ -n "$manifest" ]] && tag=v$manifest
+      printf 'release_pr=%s\n' "$(jq -r '.[0].url' <<<"$merged")" >>"$out"
       [[ -n "$tag" ]] || { next=blocked; reason='merged Release PR has no readable manifest version'; }
+    elif await_run release_pr_starting "$start_workflow"; then
+      :
     elif (($(jq 'length' <<<"$open") > 0)); then
-      next=review_release_pr; reason="human review, approval and squash merge of $(jq -r '.[0].url' <<<"$open")"
+      open_release_pr_status
     else
-      next=none; reason='no Release PR yet; Release Please opens one after a user-facing commit reaches main'
+      state=no_release_in_progress
+      if ! plan_facts; then
+        next=blocked
+      elif ! previous_release_facts; then
+        next=blocked
+      elif [[ $(value plan.releasable "$out") != true ]]; then
+        next=none; reason="no releasable commit since $(value plan.previous_tag "$out"); merges integrate code, nothing to release"
+      elif [[ $(value main_ci "$out") != success ]]; then
+        next=blocked; reason="required CI on main $main is $(value main_ci "$out")"
+      elif github_release_exists "$(value planned_tag "$out")"; then
+        next=blocked; reason="a GitHub Release already uses $(value planned_tag "$out"); resolve it before starting"
+      else
+        next=start_release
+        reason="preflight passed for $(value planned_tag "$out"); start it with release.sh start (dispatches Release Please; no tag, release or artifact)"
+      fi
     fi
   fi
 
@@ -221,14 +474,22 @@ status() {
     facts=$("$scripts/release-tag-version.sh" "$tag") || fail "invalid tag: $tag"
     version=$(awk -F= '$1 == "version" {print $2}' <<<"$facts")
     channel=$(awk -F= '$1 == "channel" {print $2}' <<<"$facts")
+    if [[ -z "$state" ]]; then
+      if [[ "$channel" == stable ]]; then state=release_pr_merged; else state=release_candidate; fi
+    fi
     if [[ -z "$revision" ]]; then
       if [[ "$channel" == stable ]]; then
         revision=$(release_commit_for "$version")
         if [[ -z "$revision" ]]; then
-          if jq -e --arg v "$version" 'any(.[]; .title | contains($v))' <<<"$open" >/dev/null; then
-            next=review_release_pr; reason="the Release PR for $version must be reviewed and merged first"
+          # Not merged yet: only an open Release PR of exactly this version
+          # counts, judged by the same path as `status`.
+          if await_run release_pr_starting "$start_workflow"; then
+            :
+          elif jq -e --arg title "chore(main): release $version" 'any(.[]; .title == $title)' <<<"$open" >/dev/null; then
+            open_release_pr_status
           else
-            next=blocked; reason="no Release PR prepares $version; use a Release-As: $version commit footer or wait for Release Please"
+            state=no_release_in_progress
+            next=blocked; reason="no Release PR prepares $version; start a release with release.sh start"
           fi
         fi
       else
@@ -260,25 +521,46 @@ status() {
       else
         grep -E '^(publication_state|release_id)=' "$temporary/remote" >>"$out"
         if [[ $(value publication_state "$temporary/remote") == published ]]; then
-          next=verify_published; reason='already published; run release.sh verify'
+          state=published; next=verify_published; reason='already published; run release.sh verify'
+        elif await_run publishing "$workflow"; then
+          :
         elif [[ "$ci" != success ]]; then
           next=blocked; reason="required CI on $revision is $ci"
         elif [[ $(release_environment) != protected ]]; then
           next=blocked; reason='the release environment is missing or has no required reviewers (docs/security/repository-security.md)'
-        elif [[ -z "$prepared_run" ]]; then
-          next=prepare
-          reason="build and verify the exact set first: release.sh prepare --tag $tag --revision $revision (no publication)"
-        elif prepared_envelope; then
-          next=authorize_publication
+        elif [[ "$channel" == stable ]] && ! "$scripts/delivery-issues.sh" release --tag "$tag" --revision "$revision" \
+          >/dev/null 2>"$temporary/delivery-error"; then
+          # The Issue set is resolved again at preparation; refusing here
+          # avoids dispatching a preparation that must fail.
+          next=blocked; reason=$(sed 's/^delivery_metadata_error: //' "$temporary/delivery-error" | head -n 1)
+          # The release commit already exists, so a correction on main cannot
+          # enter it: only the explicit ADR-0010 recovery applies.
+          [[ -n "$corrections_revision" ]] || reason="$reason; this release commit already exists: see docs/development/release-recovery.md"
+        elif await_run preparing "$prepare_workflow"; then
+          :
+        elif [[ -n "$prepared_run" ]]; then
+          printf 'prepared_run=%s\n' "$prepared_run" >>"$out"
+          if prepared_envelope; then
+            state=awaiting_publication_authority; next=authorize_publication
+            reason='human authorization required for the exact publication envelope below'
+            grep -v '^preview_digest=' "$temporary/envelope" | sed 's/^/preview./' >>"$out"
+            grep '^preview_digest=' "$temporary/envelope" >>"$out"
+          else
+            next=blocked
+          fi
+        elif discover_prepared_run; then
+          state=awaiting_publication_authority; next=authorize_publication
           reason='human authorization required for the exact publication envelope below'
           grep -v '^preview_digest=' "$temporary/envelope" | sed 's/^/preview./' >>"$out"
           grep '^preview_digest=' "$temporary/envelope" >>"$out"
         else
-          next=blocked
+          next=prepare
+          reason="${reason}build and verify the exact set first: release.sh prepare (no publication)"
         fi
       fi
     fi
   fi
+  printf 'state=%s\n' "${state:-unknown}"
   printf 'next_action=%s\n' "$next"
   [[ -n "$reason" ]] && printf 'reason=%s\n' "$reason"
   true
@@ -290,12 +572,38 @@ case "$command" in
     cat "$temporary/status"
     printf '%s\n' "$status_line"
     ;;
+  start)
+    [[ -z "$tag$revision$prepared_run$preview_digest$corrections_revision" && "$authorized" == false && "$download" == false ]] \
+      || fail 'start takes no options: the release plan decides the version'
+    status_line=$(status)
+    grep -Eq '^next_action=(start_release|refresh_release_pr)$' <<<"$status_line" \
+      || { cat "$temporary/status"; fail "starting a release is not the next step: $(tr '\n' ' ' <<<"$status_line")"; }
+    planned=$(value planned_version "$temporary/status")
+    main=$(value main "$temporary/status")
+    [[ "$planned" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ && "$main" =~ ^[0-9a-f]{40}$ ]] || fail 'release plan has no planned version'
+    dispatched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    gh workflow run "$start_workflow" --repo "$repository" --ref main -f "planned_version=$planned" -f "main=$main" >/dev/null \
+      || fail 'Release Please dispatch failed'
+    printf 'effect=workflow_dispatched workflow=%s planned_version=%s main=%s tag=none release=none\n' "$start_workflow" "$planned" "$main"
+    run=$(find_run "$start_workflow" "$dispatched_at")
+    [[ -n "$run" ]] || fail 'cannot find the Release Please run'
+    printf 'release_pr_run_url=%s\n' "$(jq -r '.url' <<<"$run")"
+    gh run watch "$(jq -r '.databaseId' <<<"$run")" --repo "$repository" --exit-status >/dev/null \
+      || fail "Release Please run $(jq -r '.databaseId' <<<"$run") failed; nothing was merged, tagged or published"
+    status_line=$(status)
+    cat "$temporary/status"
+    printf '%s\n' "$status_line"
+    grep -Fxq 'next_action=review_release_pr' <<<"$status_line" \
+      || fail "the Release PR is not ready for review: $(tr '\n' ' ' <<<"$status_line")"
+    [[ $(value release_pr_version "$temporary/status") == "$planned" ]] \
+      || fail "the Release PR version differs from the planned $planned"
+    ;;
   prepare)
-    [[ -n "$tag" ]] || fail 'prepare requires --tag'
     [[ -z "$prepared_run" ]] || fail 'prepare starts a new preparation; use status --prepared-run for an existing one'
     status_line=$(status)
     grep -Fxq 'next_action=prepare' <<<"$status_line" \
       || { cat "$temporary/status"; fail "preparation is not the next step: $(tr '\n' ' ' <<<"$status_line")"; }
+    tag=$(value tag "$temporary/status")
     revision=$(value revision "$temporary/status")
     dispatched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     dispatch_args=(workflow run "$prepare_workflow" --repo "$repository" --ref main -f "tag=$tag" -f "revision=$revision")
@@ -312,14 +620,22 @@ case "$command" in
     printf '%s\n' "$status_line"
     ;;
   publish)
-    [[ -n "$tag" && "$revision" =~ ^[0-9a-f]{40}$ ]] || fail 'publish requires --tag and a full --revision'
     [[ "$authorized" == true ]] \
       || fail 'publication requires explicit human authorization (--authorize-publication) for the reviewed envelope; nothing was dispatched'
     [[ "$preview_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'publish requires the --preview-digest of the authorized envelope'
-    [[ "$prepared_run" =~ ^[0-9]+$ ]] || fail 'publish requires the --prepared-run of the authorized envelope'
+    [[ -z "$revision" || "$revision" =~ ^[0-9a-f]{40}$ ]] || fail 'publish requires a full --revision when one is given'
+    [[ -z "$prepared_run" || "$prepared_run" =~ ^[0-9]+$ ]] || fail 'publish requires a numeric --prepared-run when one is given'
     status_line=$(status)
     grep -Fxq 'next_action=authorize_publication' <<<"$status_line" \
       || fail "publication is not the next step: $(tr '\n' ' ' <<<"$status_line")"
+    # The digest binds tag, revision and prepared run; given values must also
+    # equal the ones the envelope was computed from.
+    for field in tag revision prepared_run; do
+      given=${!field}
+      current=$(value "$field" "$temporary/status")
+      [[ -z "$given" || "$given" == "$current" ]] || fail "publish --${field//_/-} $given differs from the envelope ($current)"
+      printf -v "$field" '%s' "$current"
+    done
     grep -Fxq "preview_digest=$preview_digest" "$temporary/status" \
       || fail "preview changed; review and authorize again (current $(grep '^preview_digest=' "$temporary/status"))"
     dispatched_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -338,31 +654,30 @@ case "$command" in
     printf 'next_action=human_approves_release_environment_then_watch\n'
     ;;
   verify)
-    [[ -n "$tag" ]] || fail 'verify requires --tag'
     git -C "$repository_root" fetch --quiet origin main || fail 'cannot fetch origin main'
+    if [[ -z "$tag" ]]; then
+      # Default: the stable version main records (the latest release commit).
+      manifest=$(git -C "$repository_root" show origin/main:.release-please-manifest.json | tr -d ' \t\r\n' | sed -n 's/^{"\.":"\([0-9.]*\)"}$/\1/p')
+      [[ -n "$manifest" ]] || fail 'verify cannot resolve the release version from main'
+      tag=v$manifest
+    fi
     tag_sha=$(git -C "$repository_root" ls-remote --tags origin "refs/tags/$tag^{}" "refs/tags/$tag" | awk 'NR == 1 {print $1}')
     [[ -n "$tag_sha" ]] || fail "tag $tag is not published"
     peeled=$(git -C "$repository_root" ls-remote --tags origin "refs/tags/$tag^{}" | awk '{print $1}')
     [[ -n "$peeled" ]] && tag_sha=$peeled
     published_body=$(gh api "repos/$repository/releases/tags/$tag" | jq -r '.body // ""') || fail 'cannot read published recovery provenance'
-    if [[ -z "$corrections_revision" ]] && grep -q '^- Recovery corrections ' <<<"$published_body"; then
-      [[ $(grep -c '^- Recovery corrections revision:' <<<"$published_body") == 1 && $(grep -c '^- Recovery corrections SHA-256:' <<<"$published_body") == 1 ]] || fail 'ambiguous recovery provenance'
-      corrections_revision=$(sed -nE 's/^- Recovery corrections revision: `([0-9a-f]{40})`$/\1/p' <<<"$published_body")
-      corrections_digest=$(sed -nE 's/^- Recovery corrections SHA-256: `([0-9a-f]{64})`$/\1/p' <<<"$published_body")
-      [[ "$corrections_revision" =~ ^[0-9a-f]{40}$ && "$corrections_digest" =~ ^[0-9a-f]{64}$ ]] || fail 'malformed recovery provenance'
-      export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
+    if [[ -z "$corrections_revision" ]]; then
+      published_recovery_pins "$published_body" || fail "$reason"
+      if [[ -n "$pins_revision" ]]; then
+        corrections_revision=$pins_revision
+        corrections_digest=$pins_digest
+        export AXIOM_RELEASE_CORRECTIONS_REVISION=$corrections_revision AXIOM_RELEASE_CORRECTIONS_DIGEST=$corrections_digest
+      fi
     fi
     if [[ -n "$corrections_revision" ]]; then
-      git -C "$repository_root" rev-list --first-parent origin/main >"$temporary/recovery-main"
-      grep -Fxq "$corrections_revision" "$temporary/recovery-main" || fail 'published correction revision is not on first-parent main'
-      git -C "$repository_root" merge-base --is-ancestor "$tag_sha" "$corrections_revision" || fail 'published correction revision does not descend from source'
-      git clone --quiet --no-hardlinks "$repository_root" "$temporary/control"
-      git -C "$temporary/control" checkout --quiet --detach "$corrections_revision"
-      git -C "$temporary/control" fetch --quiet "$repository_root" '+refs/remotes/origin/main:refs/remotes/origin/main'
+      pinned_control "$temporary/control" "$tag" "$tag_sha" "$corrections_revision" "$corrections_digest" || fail "published $reason"
       scripts=$temporary/control/scripts
       repository_root=$temporary/control
-      source "$scripts/release-recovery.sh"
-      recovery_validate "$tag" "$tag_sha"
     fi
     "$scripts/release-preflight.sh" --tag "$tag" --revision "$tag_sha" --main-ref origin/main >"$temporary/preflight"
     "$scripts/publish-release.sh" --check --repo "$repository" --tag "$tag" --revision "$tag_sha" \
@@ -376,6 +691,33 @@ case "$command" in
     fi
     grep -v '^result=' "$temporary/remote"
     printf 'latest=%s\n' "${latest:-none}"
+    # Bind the published bytes to the prepared set the envelope authorized:
+    # --check already matched every asset to the published SHA256SUMS, so an
+    # identical SHA256SUMS and identical notes mean identical published bytes.
+    if [[ -z "$prepared_run" ]]; then
+      prepared_run=$(gh api "repos/$repository/actions/artifacts?name=axiom-release-$tag&per_page=100" \
+        | jq -r --arg name "axiom-release-$tag" '[.artifacts[]? | select(.name == $name and .expired == false
+            and (.workflow_run.head_branch // "main") == "main")]
+          | sort_by(.created_at) | last | .workflow_run.id // empty') || fail 'cannot list prepared artifacts'
+    fi
+    if [[ -n "$prepared_run" ]]; then
+      [[ "$prepared_run" =~ ^[0-9]+$ ]] || fail 'prepared run id must be numeric'
+      gh api "repos/$repository/actions/runs/$prepared_run" | jq -e '.path == ".github/workflows/release-artifacts.yml"
+        and .event == "workflow_dispatch" and .head_branch == "main" and .conclusion == "success"' >/dev/null \
+        || fail "run $prepared_run is not a successful release-artifacts.yml dispatch from main"
+      mkdir "$temporary/prepared-set" "$temporary/published-sums"
+      gh run download "$prepared_run" --repo "$repository" --name "axiom-release-$tag" --dir "$temporary/prepared-set" >/dev/null \
+        || fail "cannot download axiom-release-$tag from run $prepared_run"
+      gh release download "$tag" --repo "$repository" --pattern SHA256SUMS --dir "$temporary/published-sums" >/dev/null \
+        || fail 'cannot download the published SHA256SUMS'
+      cmp -s "$temporary/prepared-set/artifacts/SHA256SUMS" "$temporary/published-sums/SHA256SUMS" \
+        || fail "published assets differ from the prepared set of run $prepared_run"
+      [[ "$published_body" == "$(cat "$temporary/prepared-set/release-notes.md")" ]] \
+        || fail "published release notes differ from the prepared set of run $prepared_run"
+      printf 'prepared_run=%s\nprepared_match=pass\n' "$prepared_run"
+    else
+      printf 'prepared_match=not_checked\n'
+    fi
     if [[ "$download" == true ]]; then
       mkdir "$temporary/artifacts"
       gh release download "$tag" --repo "$repository" --dir "$temporary/artifacts" >/dev/null || fail 'cannot download release assets'
@@ -392,6 +734,6 @@ case "$command" in
     printf 'result=pass\n'
     ;;
   *)
-    fail 'usage: release.sh status|prepare|publish|verify [options]'
+    fail 'usage: release.sh status|start|prepare|publish|verify [options]'
     ;;
 esac

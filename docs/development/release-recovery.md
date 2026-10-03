@@ -3,6 +3,13 @@
 Maintainer control-plane recovery; ADR-0010. It does not change product Runtime
 contracts, source revision, release version or archive provenance.
 
+This is an exception, not the release path. Since ADR-0011, `$axiom-release`
+validates the delivery metadata and Conventional Commit subject of every
+commit in the range before the Release PR exists, and a gap is fixed by a
+normal reviewed correction on `main` before the release starts. Recovery stays
+only for a release commit that already exists with inconsistent history
+(v0.3.0) or a partially published state.
+
 ## Contract and authority
 
 The maintainer explicitly authorized implementation on 2026-10-02. Review and

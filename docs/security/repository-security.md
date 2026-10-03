@@ -173,12 +173,27 @@ Trade-offs registrados:
   abrir o Release PR, e também permite que workflows aprovem PRs. O ruleset
   continua exigindo code owner review de `@rgomids`, que uma aprovação do
   GitHub Actions não satisfaz; nenhum workflow deste repositório aprova PRs.
+- Merges integram código; `$axiom-release` inicia releases
+  ([ADR-0011](../decisions/0011-command-driven-release-start.md)).
+  `release-please.yml` não tem gatilho `push`: só roda por `workflow_dispatch`
+  a partir de `main`, disparado por `scripts/release.sh start` com a
+  credencial `gh` do mantenedor e os inputs `planned_version` e `main`. O job
+  recusa antes do Release Please se `main` mudou desde o plano (no momento do
+  dispatch), se o `release-plan.sh` recusar algum commit ou se a versão
+  planejada divergir. Como o Release Please lê `main` quando roda, os checks
+  obrigatórios só são disparados se a base do Release PR for o SHA validado
+  ou um ancestral dele.
+  Os inputs só chegam ao shell por variáveis de ambiente, com formato
+  validado (`MAJOR.MINOR.PATCH`, SHA de 40 caracteres).
 - PRs e pushes feitos com `GITHUB_TOKEN` não disparam outros workflows; por
   isso `release-please.yml` dispara `ci.yml` e `delivery-metadata.yml` por
-  `workflow_dispatch` na branch do Release PR, sem PAT nem secret. Se isso
-  falhar, fechar e reabrir o Release PR também dispara a CI (o
-  `delivery-metadata` por `pull_request` é pulado para o Release PR, mas o
-  próximo push do Release Please o dispara de novo por dispatch).
+  `workflow_dispatch` na branch do Release PR, sem PAT nem secret, e só
+  quando o título do Release PR registra a versão planejada e a base foi
+  validada; um Release PR com outra versão ou base fica sem os checks
+  obrigatórios e não pode ser mergeado.
+  Se isso falhar, `$axiom-release` (`release.sh start`, com
+  `next_action=refresh_release_pr`) valida de novo e dispara outra vez;
+  fechar e reabrir o Release PR também dispara a CI.
 - Com um único mantenedor, o próprio autor não pode aprovar seu PR; o bypass
   em modo `pull_request` permite o merge auditado pelo PR, mas nunca push
   direto em `main`. Release PRs (autor `github-actions`) recebem aprovação
@@ -204,6 +219,7 @@ secrets ou rulesets sem autoridade humana explícita para a mutação exata.
 
 | Workflow / job | Gatilho | Credencial | Efeitos |
 |---|---|---|---|
+| `release-please.yml` | somente `workflow_dispatch` de `main` por `release.sh start` (nunca `push`) | `GITHUB_TOKEN` com `contents`, `pull-requests`, `issues` e `actions: write`; sem secrets | re-executa o plano no SHA planejado; abre ou atualiza o Release PR; dispara os checks obrigatórios só para a versão planejada; nunca cria tag nem release |
 | `delivery-metadata.yml` | `pull_request` (inclusive forks); `workflow_dispatch` pelo `release-please.yml` | `GITHUB_TOKEN` com `contents: read` e `pull-requests: read`; sem secrets | nenhum: valida título e corpo com o validador da revisão base e recusa `closingIssuesReferences` |
 | `delivery-sync.yml` `sync` | `push` em `main`, com `"projection": "disabled"` | `GITHUB_TOKEN` `issues: write`, `pull-requests: read` (só para ler o closer de uma Issue fechada no merge) | comentário limitado e idempotente nas Issues completadas; reabertura de uma Issue fechada pelo GitHub exatamente nesse merge, com registro limitado |
 | `delivery-sync.yml` `sync-project` | `push` em `main`, só com `"projection": "enabled"` | `GITHUB_TOKEN` (Issues, `pull-requests: read`), mais `AXIOM_DELIVERY_PROJECT_TOKEN` do environment `delivery` (somente GraphQL do Project) | também Status `Awaiting Release` e `Target Release`; reconciliação para `Released` de Issues com registro de release |
