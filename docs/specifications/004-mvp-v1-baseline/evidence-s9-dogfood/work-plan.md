@@ -35,12 +35,12 @@ left unchanged to keep the change minimal.
 ## Plan and tasks
 
 1. Deterministic transformation with standard-library Python
-   ([transform_logo.py](transform_logo.py)): flood-fill near-white pixels
+   ([transform_logo.py](https://github.com/rgomids/axiom/blob/fbbdd37285e3175d6cbf10f0a13e88a2191e6cd9/docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/transform_logo.py)): flood-fill near-white pixels
    (minimum channel ≥ 200) connected to the image border, make them
    transparent, and un-mix a 3-pixel anti-aliased ring against the icon body
    colour so the outline keeps its colour with fractional alpha. No new
    dependency (Pillow/ImageMagick are not installed on the host).
-2. Validate with [validate_logo.py](validate_logo.py): PNG CRC/decode, RGBA,
+2. Validate with [validate_logo.py](https://github.com/rgomids/axiom/blob/fbbdd37285e3175d6cbf10f0a13e88a2191e6cd9/docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/validate_logo.py): PNG CRC/decode, RGBA,
    dimensions, transparent corners, unchanged interior and opaque pixels,
    composite over white reproducing the source.
 3. Run repository validators, review the diff, open the PR, wait for CI, review,
@@ -57,3 +57,8 @@ PR and its merge when gates are green, closing this Issue after real integration
 and a final Evidence/reconciliation PR left for human review. Not authorized:
 Codex, release promotion or new release, secrets/credentials, infrastructure,
 other Issues, retroactive Evidence changes, and human acceptance of S9.
+
+> Annotation (2026-10-04, rgomids/axiom#168 T05): both one-off helpers were
+> retired from the active tree after their output was replayed unchanged; the
+> links above pin their source at `fbbdd37285e3175d6cbf10f0a13e88a2191e6cd9`.
+> The logo assets and [png-validation.json](png-validation.json) are retained.
