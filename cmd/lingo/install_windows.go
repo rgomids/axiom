@@ -46,17 +46,5 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 	skills := codexSkillsRoot()
 	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: skills, State: compatibility.Roots{Projects: projects, State: state, Skills: skills}, Self: selfBuild()}
 	status, err := install.InstallRelease(context.Background(), target, candidate)
-	if status != "" {
-		fmt.Fprintf(out, "install_status=%s\n", status)
-	}
-	if status == "partial" {
-		message, next := upgradeSkillReceiptPartial(install.Result{SkillReceipt: strings.TrimPrefix(upgradeCategory(err), "skill_receipt_")})
-		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: %s\ninstall_next: %s\n", message, next)
-		return true, 1
-	}
-	if err != nil {
-		return fail(err)
-	}
-	fmt.Fprintf(out, "installed_binary=%s\npath_notice: add %s to your PATH, then run axiom first-run\n", filepath.Join(target.BinaryDir, "axiom.exe"), target.BinaryDir)
-	return true, 0
+	return windowsInstallReleaseResult(status, err, target, out, stderr)
 }
