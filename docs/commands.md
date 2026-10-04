@@ -84,11 +84,20 @@ go mod verify
 go test -fuzz=FuzzRecordRoundTrip -fuzztime=20s -parallel=2 ./internal/local
 go test -fuzz=FuzzDecodeSafeRoundTrip -fuzztime=30s -parallel=2 ./internal/manifest
 go test -run '^$' -bench=BenchmarkHostileBounds -benchtime=1x -benchmem ./internal/manifest
-go run ./scripts/check-project-domain.go
+go run ./scripts/check-architecture.go domain
 bash scripts/test-check-project-domain.sh
-go run ./scripts/check-projectapp.go
+go run ./scripts/check-architecture.go application
 bash scripts/test-check-projectapp.sh
 ```
+
+`scripts/check-architecture.go` é ferramenta de verificação do repositório, não
+capacidade do produto: um único motor AST aplica a política independente do
+perfil `domain` (`internal/project`) ou `application` (`internal/projectapp`);
+perfil ausente, desconhecido ou extra é recusado com mensagem de uso e código 2
+(`go run` relata `exit status 2` e sai com 1). Evidence
+histórica cita os checkers anteriores
+[`check-project-domain.go`](https://github.com/rgomids/axiom/blob/2e23c9c4655a55f2e6b9e7e94e266173afea3b1c/scripts/check-project-domain.go) e
+[`check-projectapp.go`](https://github.com/rgomids/axiom/blob/2e23c9c4655a55f2e6b9e7e94e266173afea3b1c/scripts/check-projectapp.go).
 
 O checker AST inspeciona imports/símbolos puros e helpers dos testes fora da suíte
 de domínio. O runner Go e ferramentas de verificação fazem I/O de compilação e

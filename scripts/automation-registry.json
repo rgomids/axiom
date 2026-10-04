@@ -400,6 +400,40 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/check-architecture.go",
+      "kind": "script",
+      "owner": "architecture-verification",
+      "purpose": "Shared AST engine that parses one product layer's sources and rejects non-allowlisted imports and symbols, test-only imports in production files, test I/O helpers and compiler directives under that layer's independent policy profile: domain (internal/project) or application (internal/projectapp).",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run (go run ./scripts/check-architecture.go domain|application from the repository root) whenever domain or application code or its tests change; built by its fixture tests.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-check-project-domain.sh",
+        "scripts/test-check-projectapp.sh"
+      ],
+      "inputs": "One profile argument (domain or application); reads internal/project/*.go or internal/projectapp/*.go relative to the current directory.",
+      "outputs": "'PASS: <n> <domain|application> source/test files...' on stdout and exit 0; 'FAIL: <reason>' on stderr and exit 1; missing, unknown or extra arguments print usage on stderr and exit 2 (go run reports 'exit status 2' and exits 1).",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [
+        "scripts/test-check-project-domain.sh",
+        "scripts/test-check-projectapp.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/check-automation-registry.py",
       "kind": "script",
       "owner": "repository-validation",
@@ -473,70 +507,6 @@
       "evidence": null,
       "compatibility": [],
       "removal_condition": null
-    },
-    {
-      "path": "scripts/check-project-domain.go",
-      "kind": "script",
-      "owner": "architecture-verification",
-      "purpose": "Parse internal/project sources and reject non-allowlisted imports, symbols, test I/O helpers and compiler directives to keep the domain pure.",
-      "lifecycle": "durable",
-      "disposition": "merge",
-      "disposition_ref": "#168 T08",
-      "runtime": [
-        "go"
-      ],
-      "scope": [
-        "maintainer",
-        "test"
-      ],
-      "trigger": "Manual run (go run ./scripts/check-project-domain.go from the repository root) whenever domain code or its tests change; built by its fixture test.",
-      "replay_reason": null,
-      "callers": [
-        "scripts/test-check-project-domain.sh"
-      ],
-      "inputs": "No arguments; reads internal/project/*.go relative to the current directory.",
-      "outputs": "'PASS: <n> domain source/test files...' on stdout and exit 0; 'FAIL: <reason>' on stderr and exit 1.",
-      "local_effects": "none",
-      "network_effects": "none",
-      "authority": "none; read-only local checks",
-      "tests": [
-        "scripts/test-check-project-domain.sh"
-      ],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": "Retire as a standalone file once #168 T08 consolidates the shared AST checker engine while keeping the independent domain policy table and fixtures."
-    },
-    {
-      "path": "scripts/check-projectapp.go",
-      "kind": "script",
-      "owner": "architecture-verification",
-      "purpose": "Parse internal/projectapp sources and reject non-allowlisted imports and symbols, test I/O helpers and compiler directives to keep the application layer pure.",
-      "lifecycle": "durable",
-      "disposition": "merge",
-      "disposition_ref": "#168 T08",
-      "runtime": [
-        "go"
-      ],
-      "scope": [
-        "maintainer",
-        "test"
-      ],
-      "trigger": "Manual run (go run ./scripts/check-projectapp.go from the repository root) whenever application code or its tests change; built by its fixture test.",
-      "replay_reason": null,
-      "callers": [
-        "scripts/test-check-projectapp.sh"
-      ],
-      "inputs": "No arguments; reads internal/projectapp/*.go relative to the current directory.",
-      "outputs": "'PASS: <n> application source/test files...' on stdout and exit 0; 'FAIL: <reason>' on stderr and exit 1.",
-      "local_effects": "none",
-      "network_effects": "none",
-      "authority": "none; read-only local checks",
-      "tests": [
-        "scripts/test-check-projectapp.sh"
-      ],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": "Retire as a standalone file once #168 T08 consolidates the shared AST checker engine while keeping the independent application policy table and fixtures."
     },
     {
       "path": "scripts/check-sensitive-files.sh",
@@ -1415,7 +1385,7 @@
       "path": "scripts/test-check-project-domain.sh",
       "kind": "script",
       "owner": "architecture-verification",
-      "purpose": "Build check-project-domain.go and run it against one pure and seven forbidden fixture sources.",
+      "purpose": "Build check-architecture.go and run its domain profile against pure, forbidden and production/test-exception fixture sources; prove domain-only allowances are rejected by the application profile and invalid profiles are refused.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -1444,7 +1414,7 @@
       "path": "scripts/test-check-projectapp.sh",
       "kind": "script",
       "owner": "architecture-verification",
-      "purpose": "Build check-projectapp.go and run it against positive and forbidden application-layer fixture sources.",
+      "purpose": "Build check-architecture.go and run its application profile against positive, forbidden and production/test-exception fixture sources; prove application-only allowances are rejected by the domain profile and invalid profiles are refused.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
