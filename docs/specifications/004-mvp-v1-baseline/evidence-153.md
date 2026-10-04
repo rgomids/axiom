@@ -162,3 +162,33 @@ An inconsistent activated retirement count discovered during review was fixed
 and receives its own regression above. Windows presentation was reviewed
 independently. No remaining finding in CR-001–CR-004 was identified by that
 review; remote CI and human re-review remain separate evidence/gates.
+
+### Correction validation
+
+Final executable correction source:
+`ae11becf1c4d361201d542a6ab610ec035108906` (following correction commit
+`9e22f0c047cc79d606d56dffd945dddff47d239e`). Later Evidence-only edits do
+not change that executable source. Results below are newly executed, not copied
+from historical Evidence.
+
+| Check | Result |
+|---|---|
+| `gofmt -l .` | exit 0, empty |
+| `go test ./...` | exit 0 |
+| `go test -race ./...` | exit 0 |
+| `go test ./internal/compatibility ./internal/install ./internal/local ./cmd/lingo -count=1` | exit 0 on final executable source |
+| `go vet ./...`; `go build ./...`; `go mod verify` | exit 0; all modules verified |
+| `./scripts/validate-repository.sh .` | exit 0; runtime behavioral scenarios explicitly skipped by this validator, not claimed |
+| `./scripts/test-release-flow.sh` | exit 0; release preflight, state machine, authority and workflow contracts pass |
+| `./scripts/test-install-bootstrap.sh` | exit 0 at the initial correction source; includes POC transition and interrupted-upgrade resume |
+| Windows test cross-compilation of `internal/install` and `cmd/lingo`; `GOOS=windows go vet ./internal/local ./internal/compatibility ./internal/install ./cmd/lingo` | exit 0; native Windows execution not performed locally |
+| `./scripts/build-release-archives.sh --version 0.4.2-review.188.1 --output <private temporary candidate>` | exit 0, clean correction source `ae11bec` |
+| `./scripts/test-upgrade-journeys.sh --candidate <0.4.2-review.188.1> --previous <v0.4.1> --previous <v0.1.1> --poc-binary <historical POC build>` | exit 0, 43 checks, `failures=0 result=pass`; isolated local homes, release facades and cached public assets; no release publication |
+| `gitleaks dir . --no-banner --redact`; staged Gitleaks and sensitive-file checks before correction commits | exit 0, no leaks |
+| `git diff --check` | exit 0 |
+
+CI for the final pushed PR head remains separate from these local results.
+Required contexts remain unchanged: verify Linux/macOS/Windows, release-contract,
+delivery-metadata and upgrade-journeys Linux/macOS. Historical cross-filesystem,
+full-volume and real Runtime results above were not rerun by this correction
+validation and are not claimed as new Evidence.
