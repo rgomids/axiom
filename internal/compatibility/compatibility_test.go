@@ -28,19 +28,24 @@ const (
 	contentSentinel = "axiom-s7-content-sentinel"
 )
 
-// copyFixture reproduces the historical tree with the private modes the POC
-// wrote; Git does not preserve file modes.
 func copyFixture(t *testing.T, trees ...string) Roots {
+	t.Helper()
+	return copyCorpus(t, pocFixture, trees...)
+}
+
+// copyCorpus reproduces a fixture tree with the private modes Axiom writes;
+// Git does not preserve file modes.
+func copyCorpus(t *testing.T, fixture string, trees ...string) Roots {
 	t.Helper()
 	base := privateDir(t, t.TempDir(), "roots")
 	roots := Roots{}
 	for _, tree := range trees {
 		target := filepath.Join(base, tree)
-		err := filepath.WalkDir(filepath.Join(pocFixture, tree), func(path string, entry fs.DirEntry, err error) error {
+		err := filepath.WalkDir(filepath.Join(fixture, tree), func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			relative, _ := filepath.Rel(filepath.Join(pocFixture, tree), path)
+			relative, _ := filepath.Rel(filepath.Join(fixture, tree), path)
 			destination := filepath.Join(target, relative)
 			if entry.IsDir() {
 				return os.Mkdir(destination, 0o700)

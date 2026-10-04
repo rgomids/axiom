@@ -1,0 +1,6 @@
+format=persisted-state-v1
+layout=snapshots/<release>/{projects,state}; one complete root per distinct release representation
+first-frozen=v0.4.0
+snapshot.v0.4.0.revision=fbbdd37285e3175d6cbf10f0a13e88a2191e6cd9
+generator=internal/local TestEveryV1WriterIsRecognizedByInventory with AXIOM_FREEZE_STATE_CORPUS=<release>
+rule=append-only; frozen snapshots, files and MANIFEST lines are never edited or removed; output identical to a frozen snapshot is not duplicated; different output at an existing logical path is frozen as a new snapshot
