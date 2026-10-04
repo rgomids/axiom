@@ -19,7 +19,7 @@ set -eu
 umask 077
 
 repository_url=https://github.com/rgomids/axiom
-supported_rows='macOS 27.0/arm64, Linux/amd64, Linux/arm64'
+supported_rows='macOS/arm64, Linux/amd64, Linux/arm64'
 banner_printed=false
 
 if [ -t 2 ] && [ -z "${NO_COLOR+x}" ] && [ -n "${TERM:-}" ] && [ "${TERM:-}" != dumb ]; then
@@ -233,15 +233,15 @@ fi
 valid_directory "$binary_root" || fail '--bin-dir must be an absolute canonical path without newlines or ='
 valid_directory "$receipt_root" || fail '--receipt-dir must be an absolute canonical path without newlines or ='
 
-# Exact supported host row; anything else stops before any download.
+# Supported OS family and architecture; anything else stops before any
+# download. The OS version is never an eligibility filter.
 system=$(uname -s)
 machine=$(uname -m)
 row=
 case "$system:$machine" in
   Darwin:arm64)
-    if command -v sw_vers >/dev/null 2>&1 && [ "$(sw_vers -productVersion 2>/dev/null)" = 27.0 ]; then
-      row=macos-27-arm64
-    fi
+    # Any macOS version runs the darwin/arm64 build.
+    row=macos-27-arm64
     ;;
   Linux:x86_64|Linux:aarch64)
     # Any Linux distribution runs the static linux build.
@@ -251,7 +251,7 @@ case "$system:$machine" in
     esac
     ;;
 esac
-[ -n "$row" ] || fail "unsupported host $system/$machine; supported rows are exactly $supported_rows"
+[ -n "$row" ] || fail "unsupported host $system/$machine; supported hosts are $supported_rows"
 info "checking required tools for $row"
 
 for tool in curl tar bash awk grep mktemp; do

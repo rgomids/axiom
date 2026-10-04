@@ -14,9 +14,11 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 - [ADR-0008 — Minimal machine-local Execution record](0008-minimal-machine-local-execution-record.md) — **Accepted, 2026-09-20**; bounded sequential workflow authority, revisioned transitions, resume and cross-boundary correlation without defining a general Execution graph.
 - [ADR-0009 — Parent/child Execution Graph](0009-parent-child-execution-graph.md) — **Accepted, 2026-09-26**; revisioned DAG, lineage, authority, isolation, integration, structured coordination and cross-Runtime Evidence. S8/T30–T36 implementation was authorized on 2026-09-27 (Issue #97 comment #5852650410); the real T36 Runtime run remains separately gated.
 
-- [ADR-0010 — Windows native filesystem boundary](0010-windows-native-filesystem-boundary.md) — **Accepted for the requested implementation, 2026-09-30**; native Windows security boundary. Upstream acceptance remains subject to PR review; release publication requires separate authority.
+- [ADR-0010 — Windows native filesystem boundary](0010-windows-native-filesystem-boundary.md) — **Accepted for the requested implementation, 2026-09-30**; native Windows security boundary. Upstream acceptance remains subject to PR review; release publication requires separate authority. Its OS-version bound ("Windows 10 (1809+) and Windows 11") is superseded by ADR-0015 and preserved struck through.
 
 - [ADR-0014 — Canonical maintainer skills with runtime-native discovery](0014-canonical-maintainer-skills-runtime-discovery.md) — **Accepted, 2026-10-03** (human decision in Issue #174); `.agents/skills/*` is the canonical runtime-neutral maintainer-skill source, `.claude/skills/*` are closed-allowlist discovery symlinks; supersedes only the repository bootstrap-policy fragment that rejected every `.claude/` entry, not an ADR.
+
+- [ADR-0015 — Installer host eligibility is OS-family and architecture based](0015-installer-host-eligibility-os-family-architecture.md) — **Accepted, 2026-10-04** (human decision in Issue #183); installer eligibility is OS family, architecture and real prerequisites, never the numeric OS version; installation eligibility, support commitment (vendor-maintained OS versions) and acceptance Evidence are separate; `macos-27-*` is legacy row naming. Supersedes only the OS-version fragment of ADR-0010.
 
 ## Candidate assessment
 

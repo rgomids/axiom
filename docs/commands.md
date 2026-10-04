@@ -381,10 +381,16 @@ The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
 no migration from such an installation is performed.
 
-Supported archive rows are macOS 27.0/arm64, Linux amd64/arm64, and Windows amd64. The Linux
-archives (`linux-amd64`, `linux-arm64`) are static builds installed on any
-Linux distribution and version. Other macOS versions,
-operating systems, and architectures fail closed. Install the
+Supported archive rows are macOS arm64, Linux amd64/arm64, and Windows amd64.
+Installer eligibility is the OS family and architecture, plus real tool
+prerequisites; the numeric OS version is not an installation filter. The
+`macos-27-arm64` name is legacy release-row naming, not a version requirement,
+and the Linux archives (`linux-amd64`, `linux-arm64`) are static builds for any
+Linux distribution. Other operating systems and architectures fail closed.
+Eligibility is not a support commitment: maintenance covers vendor-maintained
+OS versions, and exact validated environments are recorded as Evidence
+([ADR-0015](decisions/0015-installer-host-eligibility-os-family-architecture.md),
+[Specification 006](specifications/006-installer-host-eligibility/spec.md)). Install the
 archive matching the current host into explicit user-owned destinations:
 
 ```bash
@@ -463,8 +469,9 @@ Selection:
   selector, is an input error with no effect.
 - `--channel` and `--version` are mutually exclusive and fail before any effect.
 
-The bootstrap detects the supported row (macOS 27.0/arm64, or any Linux on
-x86_64/aarch64 mapped to the `linux-amd64`/`linux-arm64` archive) before any
+The bootstrap detects the eligible row (macOS on arm64 mapped to the
+`macos-27-arm64` archive, or Linux on x86_64/aarch64 mapped to the
+`linux-amd64`/`linux-arm64` archive; the OS version is not consulted) before any
 download, fetches the release
 `SHA256SUMS` and the row's archive over HTTPS only, and verifies the digest
 before reading the archive. It then requires the bundle's `install.sh` and
@@ -499,13 +506,17 @@ Test the matrix with a fake `curl` and local release fixtures (no live GitHub):
 
 Selector, host and input refusals run on any host. Install, reinstall, upgrade,
 downgrade, foreign/modified/unsafe state, concurrency, interruption and network
-cases need a supported row (any Linux x86_64/aarch64 qualifies) and exit `78`
-elsewhere. Linux distribution and version are not installer filters.
+cases need a supported row (any macOS arm64 or Linux x86_64/aarch64 qualifies)
+and exit `78` elsewhere. OS version and Linux distribution are not installer
+filters.
 
 ## Windows native installation
 
-Windows 10 version 1809 or later and Windows 11 are supported on amd64, with
-local NTFS storage and 64-bit PowerShell 5.1+. The native `tar.exe` supplied by
+Installer eligibility on Windows is a client edition on amd64 with 64-bit
+PowerShell 5.1+ and the Windows-supplied `tar.exe`; local NTFS storage is the
+supported filesystem. The numeric Windows version is not an installation
+filter, and Windows Server is refused. Maintenance covers vendor-maintained
+Windows client versions. The native `tar.exe` supplied by
 Windows reads the same `.tar.gz` release format as the POSIX rows. No WSL,
 administrator session, Bash, or Go installation is needed by end users.
 

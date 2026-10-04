@@ -87,29 +87,18 @@ if [[ -n "$host_bundle" ]]; then
 fi
 
 native=
-host_candidate=
 case "$(uname -s):$(uname -m)" in
   Darwin:arm64)
-    host_candidate="$temporary/release/axiom-0.0.0-s2-test-macos-27-arm64.tar.gz"
-    [[ $(sw_vers -productVersion 2>/dev/null) == 27.0 ]] && native=$host_candidate
+    native="$temporary/release/axiom-0.0.0-s2-test-macos-27-arm64.tar.gz"
     ;;
   Linux:x86_64)
-    host_candidate="$temporary/release/axiom-0.0.0-s2-test-linux-amd64.tar.gz"
-    native=$host_candidate
+    native="$temporary/release/axiom-0.0.0-s2-test-linux-amd64.tar.gz"
     ;;
   Linux:aarch64)
-    host_candidate="$temporary/release/axiom-0.0.0-s2-test-linux-arm64.tar.gz"
-    native=$host_candidate
+    native="$temporary/release/axiom-0.0.0-s2-test-linux-arm64.tar.gz"
     ;;
 esac
 
-if [[ -n "$host_candidate" && -z "$native" ]]; then
-  if "$repository_root/scripts/install-release.sh" --archive "$host_candidate" --checksums "$temporary/release/SHA256SUMS" --bin-dir "$temporary/unsupported-bin" --receipt-dir "$temporary/unsupported-receipt" >/dev/null 2>"$temporary/unsupported.stderr"; then
-    exit 1
-  fi
-  grep -Fq 'exact approved OS, version, distribution, and architecture required' "$temporary/unsupported.stderr"
-  [[ ! -e "$temporary/unsupported-bin/axiom" ]]
-fi
 
 if [[ -n "$native" ]]; then
   "$repository_root/scripts/install-release.sh" --archive "$native" --checksums "$temporary/release/SHA256SUMS" --bin-dir "$temporary/bin" --receipt-dir "$temporary/receipt" | grep -Fq 'install_status=installed'
@@ -218,14 +207,16 @@ if [[ -n "$native" ]]; then
   grep -Fxq 'unknown=value' "$temporary/schema-receipt/installation.receipt"
 
   if [[ $(uname -s) == Darwin ]]; then
-    mkdir -p "$temporary/wrong-version-tools"
-    printf '%s\n' '#!/bin/sh' "printf '%s\\n' '27.1'" >"$temporary/wrong-version-tools/sw_vers"
-    chmod 700 "$temporary/wrong-version-tools/sw_vers"
-    if PATH="$temporary/wrong-version-tools:$PATH" "$repository_root/scripts/install-release.sh" --archive "$native" --checksums "$temporary/release/SHA256SUMS" --bin-dir "$temporary/wrong-version-bin" --receipt-dir "$temporary/wrong-version-receipt" >/dev/null 2>"$temporary/wrong-version.stderr"; then
-      exit 1
-    fi
-    grep -Fq 'exact approved OS, version, distribution, and architecture required' "$temporary/wrong-version.stderr"
-    [[ ! -e "$temporary/wrong-version-bin/axiom" ]]
+    # Issue #183: any macOS version installs the darwin/arm64 row, and the
+    # verified installer never runs sw_vers (the shim records any invocation).
+    for macos_version in 27.0.1 27.1 28.0; do
+      version_tools="$temporary/macos-version-tools-$macos_version"
+      mkdir -p "$version_tools"
+      printf '%s\n' '#!/bin/sh' ": >'$version_tools/sw_vers.invoked'" "printf '%s\\n' '$macos_version'" >"$version_tools/sw_vers"
+      chmod 700 "$version_tools/sw_vers"
+      PATH="$version_tools:$PATH" "$repository_root/scripts/install-release.sh" --archive "$native" --checksums "$temporary/release/SHA256SUMS" --bin-dir "$temporary/macos-$macos_version-bin" --receipt-dir "$temporary/macos-$macos_version-receipt" | grep -Fq 'install_status=installed'
+      [[ -x "$temporary/macos-$macos_version-bin/axiom" && ! -e "$version_tools/sw_vers.invoked" ]]
+    done
   fi
 
   mkdir -p "$temporary/foreign-bin"
@@ -243,9 +234,10 @@ if [[ -n "$native" ]]; then
   [[ ! -e "$temporary/tampered-bin/axiom" ]]
 
   wrong_platform=$(find "$temporary/release" -name '*.tar.gz' -type f ! -path "$native" | LC_ALL=C sort | head -n 1)
-  if "$repository_root/scripts/install-release.sh" --archive "$wrong_platform" --checksums "$temporary/release/SHA256SUMS" --bin-dir "$temporary/wrong-bin" --receipt-dir "$temporary/wrong-receipt" >/dev/null 2>&1; then
+  if "$repository_root/scripts/install-release.sh" --archive "$wrong_platform" --checksums "$temporary/release/SHA256SUMS" --bin-dir "$temporary/wrong-bin" --receipt-dir "$temporary/wrong-receipt" >/dev/null 2>"$temporary/wrong.stderr"; then
     exit 1
   fi
+  grep -Fq 'supported OS family and architecture required' "$temporary/wrong.stderr"
   [[ ! -e "$temporary/wrong-bin/axiom" ]]
 
   mkdir -p "$temporary/real-bin"

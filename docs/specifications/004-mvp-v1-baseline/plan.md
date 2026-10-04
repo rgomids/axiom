@@ -5,8 +5,12 @@
 [Specification platform reconciliation](spec.md#platform-reconciliation--2026-09-28)
 supersedes Ubuntu-specific support wording with Linux. Architecture,
 filesystem/security invariants and native Evidence obligations remain unchanged;
-macOS retains the current executable 27.0/arm64 constraint. Dated historical
+~~macOS retains the current executable 27.0/arm64 constraint.~~ Dated historical
 observations remain historical. T24 and human acceptance stay separately gated.
+
+> Superseded by [Specification 006 — Installer Host Eligibility and Platform Support Policy](../006-installer-host-eligibility/spec.md), approved 2026-10-04.
+> The text above is preserved for historical traceability. See the referenced
+> Specification for the current contract.
 
 ## Issue #153 forward-compatibility Plan amendment — 2026-10-01
 
@@ -765,9 +769,15 @@ initial native acceptance rows are:
 
 | Supported OS | Product architecture | Supported local filesystem for acceptance | Executable release constraint |
 |---|---|---|---|
-| macOS | `arm64` | local APFS, default case-insensitive format | Current installer requires macOS 27.0; archive metadata `macos-27` |
+| macOS | `arm64` | local APFS, default case-insensitive format | ~~Current installer requires macOS 27.0~~ (superseded, see note); archive metadata `macos-27` |
 | Linux | `amd64` | local ext4 | Static Linux build; distribution/version is not an installer filter |
 | Linux | `arm64` | local ext4 | Static Linux build; distribution/version is not an installer filter |
+
+> Superseded by [Specification 006 — Installer Host Eligibility and Platform Support Policy](../006-installer-host-eligibility/spec.md), approved 2026-10-04.
+> The struck macOS table cell is preserved for historical traceability; archive
+> metadata `macos-27` remains legacy release-row naming without a version gate
+> ([ADR-0015](../../decisions/0015-installer-host-eligibility-os-family-architecture.md#artifact-naming)).
+> See the referenced Specification for the current contract.
 
 Every Evidence record includes exact OS/distribution/version, build/kernel,
 image, architecture and filesystem observations. Every native acceptance row

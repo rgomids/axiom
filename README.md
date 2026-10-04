@@ -53,9 +53,13 @@ your host, verifies its SHA-256 checksum before extracting anything, and
 installs `axiom` into `$HOME/.local/bin`. It never uses `sudo`, edits shell
 profiles, installs Runtimes, or touches credentials.
 
-Supported POSIX hosts: macOS 27.0 on arm64 and Linux on amd64 or arm64. Other
-hosts are refused before any download. The installer needs `curl`, `tar`,
-`bash`, `awk`, `grep`, `mktemp`, and `sha256sum` or `shasum`.
+Installer eligibility on POSIX is based on OS family and architecture: macOS on
+arm64, and Linux on amd64 or arm64. The numeric OS version is not an
+installation filter. Other hosts are refused before any download. The installer
+needs `curl`, `tar`, `bash`, `awk`, `grep`, `mktemp`, and `sha256sum` or
+`shasum`. Axiom's maintenance commitment covers vendor-maintained OS versions,
+and exact validated environments are recorded as Evidence
+([ADR-0015](docs/decisions/0015-installer-host-eligibility-os-family-architecture.md)).
 
 If the final summary shows `PATH setup required`, put the binary directory on `PATH`:
 
@@ -69,8 +73,9 @@ To install an exact release instead, pass `--version`:
 curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh -s -- --version v0.1.0
 ```
 
-On **Windows 10 (1809+) or Windows 11, amd64**, use 64-bit PowerShell 5.1 or
-later. No WSL, Bash, Go toolchain, or administrator privileges are required:
+On a **Windows client edition, amd64** (Windows Server is not supported), use
+64-bit PowerShell 5.1 or later; the numeric Windows version is not an
+installation filter. No WSL, Bash, Go toolchain, or administrator privileges are required:
 
 ```powershell
 Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression

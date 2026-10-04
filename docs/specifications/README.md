@@ -5,6 +5,16 @@ plans. Approval gates remain separate: an approved Specification permits plannin
 implementation requires an approved Plan/Tasks and explicit authorization for the
 bounded delivery unit. Technical merge does not imply human acceptance or next-Task authority.
 
+## 006 — Installer Host Eligibility and Platform Support Policy
+
+[Specification](006-installer-host-eligibility/spec.md): **Approved, 2026-10-04**
+(Issue #183, [ADR-0015](../decisions/0015-installer-host-eligibility-os-family-architecture.md)).
+Installer eligibility is OS family, architecture and real prerequisites, never the
+numeric OS version; support lifecycle and Evidence are separate. Implemented by the
+bounded #183 hotfix (PR #184); no separate Plan/Tasks. Superseded OS-version
+fragments of ADR-0010 and Specifications 004/005 are preserved struck through and
+annotated. Merge, human acceptance and release publication remain separate decisions.
+
 ## 005 — Native Windows Support
 
 [Specification](005-windows-native-support/spec.md),

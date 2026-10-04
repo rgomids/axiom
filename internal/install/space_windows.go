@@ -8,13 +8,14 @@ import (
 const binaryName = "axiom.exe"
 
 func supportedWindowsHost() bool {
-	version := windows.RtlGetVersion()
-	return supportedWindowsVersion(version.MajorVersion, version.BuildNumber, version.ProductType)
+	return supportedWindowsProduct(windows.RtlGetVersion().ProductType)
 }
 
-func supportedWindowsVersion(major, build uint32, productType byte) bool {
-	// VER_NT_WORKSTATION excludes domain controllers and Windows Server.
-	return major == 10 && build >= 17763 && productType == 1
+// supportedWindowsProduct accepts Windows client editions regardless of the
+// numeric OS version. VER_NT_WORKSTATION excludes domain controllers and
+// Windows Server.
+func supportedWindowsProduct(productType byte) bool {
+	return productType == 1
 }
 
 func statfsAvailable(path string) (uint64, error) { return windowsfs.Available(path) }
