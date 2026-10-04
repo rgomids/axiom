@@ -201,8 +201,11 @@ func (o observation) report() Report {
 		report.Classification, report.Reason = Malformed, "unrecognized_or_unsafe_content"
 		report.Next = []string{"Preserve state for operator review; do not overwrite, migrate, or clean it"}
 	case pocWorkflow && v1Only:
-		report.Classification, report.Reason = Malformed, "mixed_poc_and_v1_state"
-		report.Next = []string{"Preserve the mixed POC and v1 state for operator review; no automatic separation is supported"}
+		// A v1 release already operated over this root and wrote v1-only state
+		// beside the complete POC workflow signature. v1 never reads workflows/,
+		// so those records stay preserved in place and are not promoted.
+		report.Classification, report.Reason = ValidV1, "v1_state_with_preserved_poc_history"
+		report.Next = []string{"Continue with v1 operations", "Historical POC workflow records are preserved untouched; they are never read, migrated, or promoted to v1 state"}
 	case pocWorkflow:
 		report.Classification, report.Reason = RecognizedPOC, "complete_poc_workflow_signature"
 		report.POCTag, report.POCRevision = HistoricalPOCTag, HistoricalPOCRevision

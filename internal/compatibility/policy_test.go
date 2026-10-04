@@ -45,7 +45,7 @@ func TestTransitionPolicyMatrix(t *testing.T) {
 		{"foreign installation with recognized POC", Foreign, policyReport(RecognizedPOC, "complete_poc_workflow_signature"), StrategyRefuse, OutcomeUnsafe, "installation_not_owned"},
 		{"unset ownership", "", policyReport(ValidV1, "v1_readable_state"), StrategyRefuse, OutcomeUnsafe, "installation_not_owned"},
 		{"modified or corrupt state", Owned, policyReport(Malformed, "unrecognized_or_unsafe_content"), StrategyRefuse, OutcomeUnsafe, "unrecognized_ambiguous_or_unsafe_state"},
-		{"ambiguous mixed POC and v1", Owned, policyReport(Malformed, "mixed_poc_and_v1_state"), StrategyRefuse, OutcomeUnsafe, "unrecognized_ambiguous_or_unsafe_state"},
+		{"v1 with preserved POC history", Owned, policyReport(ValidV1, "v1_state_with_preserved_poc_history"), StrategyDirect, OutcomeCompatible, "stable_format_v1"},
 		{"bounded inspection", Owned, policyReport(Malformed, "entry_bound_exceeded"), StrategyRefuse, OutcomeUnsafe, "unrecognized_ambiguous_or_unsafe_state"},
 		{"unsupported newer", Owned, policyReport(UnsupportedNewer, "newer_format_version"), StrategyRefuse, OutcomeUnsupported, "newer_state_format"},
 		{"out of window older", Owned, policyReport(UnsupportedOlder, "older_format_version"), StrategyRefuse, OutcomeUnsupported, "state_format_outside_window"},

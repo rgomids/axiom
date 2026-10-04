@@ -156,10 +156,45 @@ func TestClassificationMatrix(t *testing.T) {
 			createArtifact(t, roots.State)
 			return roots
 		}, ValidV1, "v1_readable_state"},
-		{"mixed POC and v1", func(t *testing.T, roots Roots) Roots {
+		{"v1 with preserved POC history", func(t *testing.T, roots Roots) Roots {
 			createArtifact(t, roots.State)
 			return roots
-		}, Malformed, "mixed_poc_and_v1_state"},
+		}, ValidV1, "v1_state_with_preserved_poc_history"},
+		// The preserved-POC-history rule is exact: POC history beside v1-only
+		// state is valid only when every other fail-closed rule also passes.
+		{"partial POC workflow beside v1", func(t *testing.T, roots Roots) Roots {
+			createArtifact(t, roots.State)
+			path := filepath.Join(roots.State, "workflows", pocProjectID, "main-7.json")
+			rewrite(t, path, strings.Replace(read(t, path), `"gate":"plan"`, `"gate":"planning"`, 1))
+			return roots
+		}, Malformed, "unrecognized_or_unsafe_content"},
+		{"modified POC workflow beside v1", func(t *testing.T, roots Roots) Roots {
+			createArtifact(t, roots.State)
+			path := filepath.Join(roots.State, "workflows", pocProjectID, "main-7.json")
+			rewrite(t, path, strings.Replace(read(t, path), `{"formatVersion":1,`, `{"formatVersion":1,"operatorNote":"edited",`, 1))
+			return roots
+		}, Malformed, "unrecognized_or_unsafe_content"},
+		{"corrupt POC workflow beside v1", func(t *testing.T, roots Roots) Roots {
+			createArtifact(t, roots.State)
+			rewrite(t, filepath.Join(roots.State, "workflows", pocProjectID, "main-7.json"), `{"formatVersion":1,`)
+			return roots
+		}, Malformed, "unrecognized_or_unsafe_content"},
+		{"foreign entry beside POC history and v1", func(t *testing.T, roots Roots) Roots {
+			createArtifact(t, roots.State)
+			writePrivate(t, filepath.Join(roots.State, "workflows", pocProjectID, "notes.txt"), []byte("foreign\n"))
+			return roots
+		}, Malformed, "unrecognized_or_unsafe_content"},
+		{"newer record beside POC history and v1", func(t *testing.T, roots Roots) Roots {
+			createArtifact(t, roots.State)
+			path := filepath.Join(roots.State, "work-items", pocProjectID, "main-7.json")
+			rewrite(t, path, strings.Replace(read(t, path), `"formatVersion":1`, `"formatVersion":2`, 1))
+			return roots
+		}, UnsupportedNewer, "newer_format_version"},
+		{"interrupted state beside POC history and v1", func(t *testing.T, roots Roots) Roots {
+			createArtifact(t, roots.State)
+			writePrivate(t, filepath.Join(roots.State, "workflows", pocProjectID, ".axiom-recovery-0001"), []byte(contentSentinel))
+			return roots
+		}, RecoveryRequired, "interrupted_protocol_state"},
 		{"partial POC workflow", func(t *testing.T, roots Roots) Roots {
 			path := filepath.Join(roots.State, "workflows", pocProjectID, "main-7.json")
 			rewrite(t, path, strings.Replace(read(t, path), `"gate":"plan"`, `"gate":"planning"`, 1))
