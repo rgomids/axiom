@@ -691,3 +691,186 @@ func TestRecognizedPOCResumeAfterActivationVerifiesOnlyTheArchive(t *testing.T) 
 		})
 	}
 }
+
+// Confirmed retirement is positive marker truth, not inferred from absence.
+func TestRecognizedPOCResumeRequiresExactActiveInventory(t *testing.T) {
+	for _, name := range []string{"portable absent", "installation absent", "unconfirmed absent", "confirmed absent", "new object", "modified object"} {
+		t.Run(name, func(t *testing.T) {
+			installed := pocInstallation(t)
+			candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+			preview, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			service := Service{afterEffect: func(label string) error {
+				if strings.HasPrefix(label, "retire:state/work-items/") {
+					return errors.New("stop after confirmed retirement")
+				}
+				return nil
+			}}
+			result, err := applyPreview(t, service, preview)
+			if err == nil || result.Status != "partial" {
+				t.Fatalf("result=%+v err=%v", result, err)
+			}
+			portable := filepath.Join(installed.target.State.Projects, "poc-fixture", "axiom.yaml")
+			record := filepath.Join(installed.target.State.State, "projects", pocProjectID, "installation.json")
+			switch name {
+			case "portable absent":
+				err = os.Remove(portable)
+			case "installation absent":
+				err = os.Remove(record)
+			case "unconfirmed absent":
+				err = os.Remove(installed.pocWorkflow())
+			case "confirmed absent":
+				for _, effect := range preview.Effects {
+					if effect.Kind == "retire" && strings.HasPrefix(effect.Name, "state/work-items/") {
+						if _, e := os.Stat(effect.Target); !os.IsNotExist(e) {
+							t.Fatalf("confirmed object still present: %v", e)
+						}
+					}
+				}
+			case "new object":
+				createV1Artifact(t, installed.target.State.State)
+			case "modified object":
+				writeFile(t, portable, append([]byte(read(t, portable)), '\n'), 0o600)
+			}
+			if err != nil && name != "confirmed absent" && name != "new object" && name != "modified object" {
+				t.Fatal(err)
+			}
+			before := snapshot(t, filepath.Dir(installed.target.ReceiptDir))
+			resume, resumeErr := NewService().Preview(context.Background(), installed.target, candidate)
+			if name == "confirmed absent" {
+				if resumeErr != nil {
+					t.Fatal(resumeErr)
+				}
+				if result, err := applyPreview(t, NewService(), resume); err != nil || result.Status != "success" {
+					t.Fatalf("result=%+v err=%v", result, err)
+				}
+			} else {
+				if resumeErr == nil || resume.Digest != "" {
+					t.Fatalf("unproved state accepted: %+v %v", resume, resumeErr)
+				}
+				if snapshot(t, filepath.Dir(installed.target.ReceiptDir)) != before {
+					t.Fatal("refused resume mutated installation")
+				}
+			}
+		})
+	}
+}
+
+func TestRecognizedPOCResumeRejectsSemanticManifestTampering(t *testing.T) {
+	mutations := map[string]func(*compatibility.PreservationManifest){
+		"pocTag":      func(m *compatibility.PreservationManifest) { m.POCTag = "v0.1.0-poc.2" },
+		"pocRevision": func(m *compatibility.PreservationManifest) { m.POCRevision = strings.Repeat("a", 40) },
+		"retired":     func(m *compatibility.PreservationManifest) { m.Retired = []string{} },
+		"kept":        func(m *compatibility.PreservationManifest) { m.Kept = []string{} },
+	}
+	for name, mutate := range mutations {
+		t.Run(name, func(t *testing.T) {
+			installed := pocInstallation(t)
+			candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+			preview, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			interrupted := Service{afterEffect: func(label string) error {
+				if label == "preservation_manifest" {
+					return errors.New("stop before first retirement")
+				}
+				return nil
+			}}
+			if _, err := applyPreview(t, interrupted, preview); err == nil {
+				t.Fatal("interruption missing")
+			}
+			archive := installed.archivePath(t)
+			document := readManifest(t, archive)
+			mutate(&document)
+			rewriteManifest(t, archive, document)
+			resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err == nil || resume.Digest != "" {
+				t.Fatalf("tamper accepted: %+v %v", resume, err)
+			}
+			for _, effect := range preview.Effects {
+				if effect.Kind == "retire" {
+					if _, err := os.Stat(effect.Target); err != nil {
+						t.Fatalf("retired despite tampering: %v", err)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRecognizedPOCResumeRejectsAmbiguousMarkers(t *testing.T) {
+	for _, name := range []string{"old transition format", "negative progress", "oversized progress", "missing progress", "unknown field", "duplicate empty field", "activation without manifest"} {
+		t.Run(name, func(t *testing.T) {
+			installed := pocInstallation(t)
+			candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+			preview, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			stop := Service{afterEffect: func(label string) error {
+				if label == "preservation_manifest" {
+					return errors.New("stop")
+				}
+				return nil
+			}}
+			if _, err := applyPreview(t, stop, preview); err == nil {
+				t.Fatal("interruption missing")
+			}
+			path := filepath.Join(installed.target.ReceiptDir, markerName)
+			wire := read(t, path)
+			switch name {
+			case "old transition format":
+				wire = strings.Replace(wire, "formatVersion=2", "formatVersion=1", 1)
+			case "negative progress":
+				wire = strings.Replace(wire, "transitionRetired=0", "transitionRetired=-1", 1)
+			case "oversized progress":
+				wire = strings.Replace(wire, "transitionRetired=0", "transitionRetired=999999", 1)
+			case "missing progress":
+				wire = strings.Replace(wire, "transitionRetired=0\n", "", 1)
+			case "unknown field":
+				wire += "unknown=value\n"
+			case "duplicate empty field":
+				wire += "transitionManifest=\ntransitionManifest=\n"
+			case "activation without manifest":
+				wire = strings.Replace(wire, "transitionActivated=false", "transitionActivated=true", 1)
+			}
+			writeFile(t, path, []byte(wire), 0o600)
+			resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err == nil || resume.Digest != "" {
+				t.Fatalf("ambiguous marker accepted: %+v %v", resume, err)
+			}
+		})
+	}
+}
+
+func TestRecognizedPOCActivatedResumeRequiresCompleteRetirementProgress(t *testing.T) {
+	for _, count := range []string{"0", "1", "999"} {
+		t.Run(count, func(t *testing.T) {
+			installed := pocInstallation(t)
+			candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+			preview, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			interrupted := Service{afterEffect: func(label string) error {
+				if strings.HasPrefix(label, "retire:state/workflows/") {
+					return errors.New("stop after activation")
+				}
+				return nil
+			}}
+			if _, err := applyPreview(t, interrupted, preview); err == nil {
+				t.Fatal("interruption missing")
+			}
+			path := filepath.Join(installed.target.ReceiptDir, markerName)
+			wire := strings.Replace(read(t, path), "transitionRetired=2", "transitionRetired="+count, 1)
+			writeFile(t, path, []byte(wire), 0o600)
+			resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if category(err) != "recovery_required" || resume.Digest != "" {
+				t.Fatalf("inconsistent activation accepted: %+v %v", resume, err)
+			}
+		})
+	}
+}

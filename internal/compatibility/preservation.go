@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -77,17 +78,18 @@ type PreservationManifest struct {
 // TransitionPlan is the read-only plan for one RecognizedPOC transition. It
 // carries exact objects only; it grants no authority.
 type TransitionPlan struct {
-	SourceDigest    string
-	ArchiveRoot     string
-	Archive         string
-	Preserve        []Object
-	Copy            []Object
-	ManifestPresent bool
-	Manifest        []byte
-	Retire          []Object
-	Keep            []Object
-	Leftovers       []string
-	RequiredBytes   int64
+	SourceDigest         string
+	ConfirmedRetirements int
+	ArchiveRoot          string
+	Archive              string
+	Preserve             []Object
+	Copy                 []Object
+	ManifestPresent      bool
+	Manifest             []byte
+	Retire               []Object
+	Keep                 []Object
+	Leftovers            []string
+	RequiredBytes        int64
 }
 
 // ArchivePath is the operation's archive directory.
@@ -149,7 +151,7 @@ func preservedObjects(objects []Object) []Object {
 // resumeManifest is the digest of the final manifest the interrupted
 // operation verified and recorded before its first retirement ("" if it
 // retired nothing): a present manifest must be byte-for-byte that one.
-func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveRoot, resumeArchive, resumeManifest string) (TransitionPlan, error) {
+func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveRoot, resumeArchive, resumeManifest string, confirmedRetirements int) (TransitionPlan, error) {
 	if err := ctx.Err(); err != nil {
 		return TransitionPlan{}, err
 	}
@@ -170,7 +172,7 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 	} else if !os.IsNotExist(err) {
 		return TransitionPlan{}, ErrPreservationTarget
 	}
-	plan := TransitionPlan{ArchiveRoot: canonical, Copy: []Object{}, Retire: []Object{}, Keep: []Object{}, Leftovers: []string{}}
+	plan := TransitionPlan{ConfirmedRetirements: confirmedRetirements, ArchiveRoot: canonical, Copy: []Object{}, Retire: []Object{}, Keep: []Object{}, Leftovers: []string{}}
 	switch {
 	case resumeArchive == "":
 		if report.Classification != RecognizedPOC || !historicalPOCPreconditions(report) {
@@ -204,6 +206,10 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 			return TransitionPlan{}, ErrPreservationConflict
 		}
 		plan.Preserve, plan.ManifestPresent, plan.Manifest = document.Objects, true, archive.manifestWire
+		expected, err := plan.manifestWire()
+		if err != nil || !bytes.Equal(expected, archive.manifestWire) {
+			return TransitionPlan{}, ErrPreservationConflict
+		}
 		if resumeManifest != "" && digestHex(archive.manifestWire) != resumeManifest {
 			return TransitionPlan{}, ErrPreservationConflict
 		}
@@ -223,18 +229,14 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 			// Retirement started only under a recorded verified manifest.
 			return TransitionPlan{}, ErrPreservationConflict
 		}
-		// Every object still active must be exactly a preserved object: a new
-		// or changed object is not covered by this preservation.
-		preserved := objectSet(plan.Preserve)
-		for _, object := range preservedObjects(report.objects) {
-			if !preserved[objectKey(object)] {
-				return TransitionPlan{}, ErrPreservationSource
-			}
+		if err := verifyActiveInventory(plan, report.objects); err != nil {
+			return TransitionPlan{}, err
 		}
+
 	} else {
 		// Nothing may have been retired before the final manifest, so the
 		// source must still be exactly the inventory the archive is named for.
-		if report.Digest != plan.SourceDigest || report.Classification != RecognizedPOC || !historicalPOCPreconditions(report) {
+		if confirmedRetirements != 0 || report.Digest != plan.SourceDigest || report.Classification != RecognizedPOC || !historicalPOCPreconditions(report) {
 			return TransitionPlan{}, ErrPreservationSource
 		}
 		plan.Preserve = preservedObjects(report.objects)
@@ -280,6 +282,32 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 	return plan, nil
 }
 
+// verifyActiveInventory requires positive progress truth: kept and pending
+// objects remain exact; only a deterministic confirmed retirement prefix is absent.
+func verifyActiveInventory(plan TransitionPlan, objects []Object) error {
+	retired := []Object{}
+	for _, object := range plan.Preserve {
+		if retiredKind(object.Kind) {
+			retired = append(retired, object)
+		}
+	}
+	sort.Slice(retired, func(i, j int) bool { return retireOrder(retired[i]) < retireOrder(retired[j]) })
+	if plan.ConfirmedRetirements < 0 || plan.ConfirmedRetirements > len(retired) {
+		return ErrPreservationConflict
+	}
+	confirmed := objectSet(retired[:plan.ConfirmedRetirements])
+	expected := []Object{}
+	for _, object := range plan.Preserve {
+		if !confirmed[objectKey(object)] {
+			expected = append(expected, object)
+		}
+	}
+	if !sameObjects(expected, preservedObjects(objects)) {
+		return ErrPreservationSource
+	}
+	return nil
+}
+
 // retireOrder retires Work Item links before workflow records, so an
 // interrupted retirement keeps the complete POC signature until the last
 // workflow record goes and the root never looks like v1 state with a
@@ -293,6 +321,20 @@ func retireOrder(object Object) string {
 }
 
 func (p TransitionPlan) manifestWire() ([]byte, error) {
+	if !digestName.MatchString(p.SourceDigest) || len(p.Preserve) == 0 {
+		return nil, ErrPreservationConflict
+	}
+	seen := map[string]bool{}
+	for _, object := range p.Preserve {
+		key := object.Category + "/" + object.Relative
+		_, clean := cleanRelative(object.Relative)
+		validKind := object.Category == CategoryState && (retiredKind(object.Kind) || object.Kind == local.InventoryInstallation) || object.Category == CategoryProjects && object.Kind == local.InventoryPortableManifest
+		if !clean || !validKind || !digestName.MatchString(object.Digest) || object.Bytes <= 0 || object.Bytes > maxTransferFile || seen[key] {
+			return nil, ErrPreservationConflict
+		}
+		seen[key] = true
+	}
+
 	document := PreservationManifest{FormatVersion: 1, Kind: preservationKind, Policy: PreservationPolicy, POCTag: HistoricalPOCTag, POCRevision: HistoricalPOCRevision, SourceDigest: p.SourceDigest, Objects: sortedObjects(p.Preserve), Retired: []string{}, Kept: []string{}}
 	for _, object := range p.Preserve {
 		key := object.Category + "/" + object.Relative
@@ -316,7 +358,7 @@ func (p TransitionPlan) manifestWire() ([]byte, error) {
 // manifestDigest: the manifest bytes, every listed object, and nothing else.
 // Active state is not compared: once activated it is ordinary v1 state that
 // may legitimately change.
-func VerifyArchive(roots Roots, archiveRoot, archive, manifestDigest string) (string, error) {
+func VerifyArchive(roots Roots, archiveRoot, archive, manifestDigest string, confirmedRetirements int) (string, error) {
 	if err := checkArchiveRoot(archiveRoot, roots); err != nil {
 		return "", err
 	}
@@ -330,6 +372,20 @@ func VerifyArchive(roots Roots, archiveRoot, archive, manifestDigest string) (st
 		return "", err
 	}
 	if observed.manifest == nil || digestHex(observed.manifestWire) != manifestDigest || len(observed.leftovers) != 0 || observed.manifest.SourceDigest != strings.TrimPrefix(archive, archivePrefix) {
+		return "", ErrPreservationConflict
+	}
+	plan := TransitionPlan{SourceDigest: observed.manifest.SourceDigest, Preserve: observed.manifest.Objects}
+	canonicalManifest, err := plan.manifestWire()
+	if err != nil || !bytes.Equal(canonicalManifest, observed.manifestWire) {
+		return "", ErrPreservationConflict
+	}
+	retired := 0
+	for _, object := range plan.Preserve {
+		if retiredKind(object.Kind) {
+			retired++
+		}
+	}
+	if confirmedRetirements != retired {
 		return "", ErrPreservationConflict
 	}
 	if err := verifyArchiveObjects(path, observed.manifest.Objects, observed); err != nil {
@@ -433,13 +489,11 @@ func VerifyPreservation(ctx context.Context, roots Roots, plan TransitionPlan) e
 	if document.SourceDigest != plan.SourceDigest || document.Policy != PreservationPolicy || !sameObjects(document.Objects, plan.Preserve) {
 		return ErrPreservationConflict
 	}
-	if !plan.ManifestPresent {
-		// Freshly written: the manifest must be exactly the plan's inventory.
-		expected, err := plan.manifestWire()
-		if err != nil || !bytes.Equal(expected, archive.manifestWire) {
-			return ErrPreservationConflict
-		}
+	expected, err := plan.manifestWire()
+	if err != nil || !bytes.Equal(expected, archive.manifestWire) {
+		return ErrPreservationConflict
 	}
+
 	if err := verifyArchiveObjects(plan.ArchivePath(), document.Objects, archive); err != nil {
 		return err
 	}
@@ -447,19 +501,12 @@ func VerifyPreservation(ctx context.Context, roots Roots, plan TransitionPlan) e
 	if err != nil {
 		return ErrPreservationSource
 	}
-	preserved := objectSet(document.Objects)
-	for _, object := range preservedObjects(report.objects) {
-		if !preserved[objectKey(object)] {
-			return ErrPreservationSource
-		}
-	}
-	return nil
+	return verifyActiveInventory(plan, report.objects)
 }
 
-// RetireObject removes one historical object from the active state root after
-// CompletePreservation succeeded, through an anchored owned directory, only
-// while it still has its preserved digest. Its now-empty parent directories
-// inside the state root are removed too.
+// RetireObject removes one preserved historical generation under the same
+// broad-to-narrow coordination used by local writers. Empty containers are
+// pruned while those locks remain held.
 func RetireObject(ctx context.Context, roots Roots, object Object) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -471,41 +518,9 @@ func RetireObject(ctx context.Context, roots Roots, object Object) error {
 	if !ok {
 		return ErrPreservationSource
 	}
-	parent := filepath.Join(roots.State, filepath.Dir(relative))
-	directory, err := local.OpenOwnedDirectory(parent)
-	if err != nil {
-		return ErrPreservationSource
-	}
-	name := filepath.Base(relative)
-	wire, err := directory.ReadFile(name, maxTransferFile)
-	if err != nil || digestHex(wire) != object.Digest || int64(len(wire)) != object.Bytes {
-		directory.Close()
-		return ErrPreservationSource
-	}
-	if err := directory.StillAtPath(); err != nil {
-		directory.Close()
-		return err
-	}
-	removeErr := directory.Remove(name)
-	syncErr := directory.Sync()
-	entries, readErr := directory.ReadDir()
-	directory.Close()
-	if err := errors.Join(removeErr, syncErr); err != nil {
-		return err
-	}
-	// Prune now-empty containers, deepest first, never the state root itself.
-	for current := filepath.Dir(relative); readErr == nil && len(entries) == 0 && current != "."; current = filepath.Dir(current) {
-		container, err := local.OpenOwnedDirectory(filepath.Join(roots.State, filepath.Dir(current)))
-		if err != nil {
-			return nil
-		}
-		removeErr := container.Remove(filepath.Base(current))
-		_ = container.Sync()
-		entries, readErr = container.ReadDir()
-		container.Close()
-		if removeErr != nil {
-			return nil
-		}
+	entry := local.InventoryEntry{Relative: filepath.ToSlash(relative), Kind: object.Kind, Digest: object.Digest, Bytes: object.Bytes}
+	if err := local.RetireHistoricalStateObject(ctx, roots.State, entry); err != nil {
+		return errors.Join(ErrPreservationSource, err)
 	}
 	return nil
 }
@@ -549,7 +564,7 @@ func readArchive(path string) (archiveObservation, error) {
 			var document PreservationManifest
 			decoder := json.NewDecoder(bytes.NewReader(wire))
 			decoder.DisallowUnknownFields()
-			if decoder.Decode(&document) != nil || document.FormatVersion != 1 || document.Kind != preservationKind || len(document.Objects) == 0 {
+			if decoder.Decode(&document) != nil || decoder.Decode(new(any)) != io.EOF || document.FormatVersion != 1 || document.Kind != preservationKind || len(document.Objects) == 0 {
 				return observed, ErrPreservationConflict
 			}
 			observed.manifest, observed.manifestWire = &document, wire

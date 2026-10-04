@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/rgomids/axiom/internal/codexruntime"
@@ -120,30 +121,32 @@ type Effect struct {
 }
 
 type Preview struct {
-	SourceVersion  string                       `json:"sourceVersion"`
-	TargetVersion  string                       `json:"targetVersion"`
-	ArchiveSHA256  string                       `json:"archiveSha256"`
-	Resume         bool                         `json:"resume"`
-	Effects        []Effect                     `json:"effects"`
-	Leftovers      []string                     `json:"leftovers"`
-	State          compatibility.Classification `json:"stateClassification"`
-	StateDigest    string                       `json:"stateDigest"`
-	Transition     compatibility.Decision       `json:"transition"`
-	Skills         string                       `json:"skills"`
-	Preservation   string                       `json:"preservation,omitempty"`
-	RequiredBytes  int64                        `json:"requiredBytes"`
-	AvailableBytes uint64                       `json:"availableBytes"`
-	Digest         string                       `json:"digest"`
-	target         Target
-	candidate      Candidate
-	currentReceipt []byte
-	nextReceipt    []byte
-	skillReceipt   []byte
-	receiptState   string
-	markerSkills   map[string]string
-	markerArchive  string
-	markerManifest string
-	transition     *compatibility.TransitionPlan
+	SourceVersion   string                       `json:"sourceVersion"`
+	TargetVersion   string                       `json:"targetVersion"`
+	ArchiveSHA256   string                       `json:"archiveSha256"`
+	Resume          bool                         `json:"resume"`
+	Effects         []Effect                     `json:"effects"`
+	Leftovers       []string                     `json:"leftovers"`
+	State           compatibility.Classification `json:"stateClassification"`
+	StateDigest     string                       `json:"stateDigest"`
+	Transition      compatibility.Decision       `json:"transition"`
+	Skills          string                       `json:"skills"`
+	Preservation    string                       `json:"preservation,omitempty"`
+	RequiredBytes   int64                        `json:"requiredBytes"`
+	AvailableBytes  uint64                       `json:"availableBytes"`
+	Digest          string                       `json:"digest"`
+	target          Target
+	candidate       Candidate
+	currentReceipt  []byte
+	nextReceipt     []byte
+	skillReceipt    []byte
+	receiptState    string
+	markerSkills    map[string]string
+	markerArchive   string
+	markerManifest  string
+	markerRetired   int
+	markerActivated bool
+	transition      *compatibility.TransitionPlan
 }
 
 type Authority struct{ digest string }
@@ -228,6 +231,8 @@ func (s Service) previewIn(ctx context.Context, target Target, candidate Candida
 		preview.markerSkills = recordedSkills(marker)
 		preview.markerArchive = marker["transitionArchive"]
 		preview.markerManifest = marker["transitionManifest"]
+		preview.markerRetired, _ = strconv.Atoi(marker["transitionRetired"])
+		preview.markerActivated = marker["transitionActivated"] == "true"
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Preview{}, &Error{Category: "recovery_required"}
 	}
@@ -355,43 +360,50 @@ func planTransition(ctx context.Context, target Target, state compatibility.Repo
 		if preview.markerArchive == "" {
 			return nil, nil
 		}
+		if !preview.markerActivated {
+			break
+		}
 		// The interrupted operation already activated the rebuilt state; its
 		// archive must still be exactly the verified preservation it recorded.
-		path, err := compatibility.VerifyArchive(target.State, target.Archive, preview.markerArchive, preview.markerManifest)
+		path, err := compatibility.VerifyArchive(target.State, target.Archive, preview.markerArchive, preview.markerManifest, preview.markerRetired)
 		if err != nil {
 			return nil, &Error{Category: "recovery_required"}
 		}
 		preview.Preservation = path
 		return nil, nil
 	case compatibility.StrategyPreserveRebuildReconfigure:
-		// A resumed operation that was not authorized as a transition never
-		// starts one; it stops for recovery with its marker intact.
-		if target.Archive == "" || preview.Resume && preview.markerArchive == "" {
-			return nil, &Error{Category: "state_transition_unavailable"}
+		if preview.markerActivated {
+			return nil, &Error{Category: "recovery_required"}
 		}
-		plan, err := compatibility.PlanPOCTransition(ctx, target.State, state, target.Archive, preview.markerArchive, preview.markerManifest)
-		switch {
-		case errors.Is(err, compatibility.ErrPreservationTarget):
-			return nil, &Error{Category: "preservation_target_unsafe"}
-		case errors.Is(err, compatibility.ErrPreservationConflict):
-			return nil, &Error{Category: "preservation_conflict"}
-		case err != nil:
-			return nil, &Error{Category: "state_changed"}
-		}
-		effects := []Effect{}
-		for _, object := range plan.Copy {
-			effects = append(effects, Effect{Kind: "preserve", Name: object.Category + "/" + object.Relative, Target: plan.ObjectPath(object), Expected: absentRevision, Next: object.Digest})
-		}
-		if !plan.ManifestPresent {
-			effects = append(effects, Effect{Kind: "preservation_manifest", Target: plan.ManifestPath(), Expected: absentRevision, Next: plan.ManifestDigest()})
-		}
-		for _, object := range plan.Retire {
-			effects = append(effects, Effect{Kind: "retire", Name: object.Category + "/" + object.Relative, Target: filepath.Join(target.State.State, filepath.FromSlash(object.Relative)), Expected: object.Digest, Next: absentRevision})
-		}
-		preview.transition, preview.Preservation = &plan, plan.ArchivePath()
-		return effects, nil
+	default:
+		return nil, refusal(decision)
 	}
-	return nil, refusal(decision)
+	// A resumed operation that was not authorized as a transition never
+	// starts one; it stops for recovery with its marker intact.
+	if target.Archive == "" || preview.Resume && preview.markerArchive == "" {
+		return nil, &Error{Category: "state_transition_unavailable"}
+	}
+	plan, err := compatibility.PlanPOCTransition(ctx, target.State, state, target.Archive, preview.markerArchive, preview.markerManifest, preview.markerRetired)
+	switch {
+	case errors.Is(err, compatibility.ErrPreservationTarget):
+		return nil, &Error{Category: "preservation_target_unsafe"}
+	case errors.Is(err, compatibility.ErrPreservationConflict):
+		return nil, &Error{Category: "preservation_conflict"}
+	case err != nil:
+		return nil, &Error{Category: "state_changed"}
+	}
+	effects := []Effect{}
+	for _, object := range plan.Copy {
+		effects = append(effects, Effect{Kind: "preserve", Name: object.Category + "/" + object.Relative, Target: plan.ObjectPath(object), Expected: absentRevision, Next: object.Digest})
+	}
+	if !plan.ManifestPresent {
+		effects = append(effects, Effect{Kind: "preservation_manifest", Target: plan.ManifestPath(), Expected: absentRevision, Next: plan.ManifestDigest()})
+	}
+	for _, object := range plan.Retire {
+		effects = append(effects, Effect{Kind: "retire", Name: object.Category + "/" + object.Relative, Target: filepath.Join(target.State.State, filepath.FromSlash(object.Relative)), Expected: object.Digest, Next: absentRevision})
+	}
+	preview.transition, preview.Preservation = &plan, plan.ArchivePath()
+	return effects, nil
 }
 
 // refusal maps a refused or unexecutable decision to its product category.
@@ -418,7 +430,9 @@ func previewDigest(preview Preview) string {
 		StateDigest, Skills     string
 		Transition              compatibility.Decision
 		Preservation            string
-	}{preview.SourceVersion, preview.TargetVersion, preview.ArchiveSHA256, preview.Resume, preview.Effects, preview.Leftovers, preview.State, preview.StateDigest, preview.Skills, preview.Transition, preview.Preservation})
+		Retired                 int
+		Activated               bool
+	}{preview.SourceVersion, preview.TargetVersion, preview.ArchiveSHA256, preview.Resume, preview.Effects, preview.Leftovers, preview.State, preview.StateDigest, preview.Skills, preview.Transition, preview.Preservation, preview.markerRetired, preview.markerActivated})
 	return digest(wire)
 }
 
@@ -501,6 +515,7 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 	result.Status = "failure"
 	recorded := current.markerSkills
 	archive, manifest := current.markerArchive, current.markerManifest
+	retired, activated := current.markerRetired, current.markerActivated
 	if !current.Resume {
 		recorded = map[string]string{}
 		for _, effect := range current.Effects {
@@ -511,7 +526,7 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 		if current.transition != nil {
 			archive = current.transition.Archive
 		}
-		if err := writeMarker(receiptDir, current.candidate.ArchiveSHA256, "prepare", true, recorded, archive, ""); err != nil {
+		if err := writeMarker(receiptDir, current.candidate.ArchiveSHA256, "prepare", true, recorded, archive, "", retired, activated); err != nil {
 			if errors.Is(err, local.ErrReplaced) {
 				return result, &Error{Category: "target_changed"}
 			}
@@ -528,6 +543,15 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			if strings.HasPrefix(leftover, plan.ArchivePath()+string(filepath.Separator)) {
 				_ = compatibility.RemoveArchiveLeftover(*plan, leftover)
 			}
+		}
+	}
+	if current.transition != nil && !hasTransitionEffect(current.Effects) && !activated {
+		if compatibility.VerifyPreservation(ctx, current.target.State, *current.transition) != nil || verifyActivated(ctx, current.target.State) != nil {
+			return partial(result), &Error{Category: "preservation_unverified"}
+		}
+		activated = true
+		if writeMarker(receiptDir, current.candidate.ArchiveSHA256, "prepare", false, recorded, archive, manifest, retired, activated) != nil {
+			return partial(result), &Error{Category: "marker_unavailable"}
 		}
 	}
 	retirementVerified := false
@@ -574,7 +598,7 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 				if hasConfirmed(result, "binary") || strings.Contains(markerStage(receiptDir), "binary_committed") {
 					stage = "binary_committed"
 				}
-				if writeMarker(receiptDir, current.candidate.ArchiveSHA256, stage, false, recorded, archive, manifest) != nil {
+				if writeMarker(receiptDir, current.candidate.ArchiveSHA256, stage, false, recorded, archive, manifest, retired, activated) != nil {
 					err = &Error{Category: "marker_unavailable"}
 					break
 				}
@@ -610,16 +634,31 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			return partial(result), err
 		}
 		result.Ledger = append(result.Ledger, LedgerEntry{Kind: effect.Kind, Name: effect.Name, Target: effect.Target, Revision: effect.Next, Confirmed: true})
+		if effect.Kind == "retire" {
+			retired++
+			current.transition.ConfirmedRetirements = retired
+			if err := writeMarker(receiptDir, current.candidate.ArchiveSHA256, "prepare", false, recorded, archive, manifest, retired, activated); err != nil {
+				return partial(result), &Error{Category: "marker_unavailable"}
+			}
+		}
+
 		if effect.Kind == "binary" {
-			if err := writeMarker(receiptDir, current.candidate.ArchiveSHA256, "binary_committed", false, recorded, archive, manifest); errors.Is(err, local.ErrReplaced) {
+			if err := writeMarker(receiptDir, current.candidate.ArchiveSHA256, "binary_committed", false, recorded, archive, manifest, retired, activated); errors.Is(err, local.ErrReplaced) {
 				return partial(result), &Error{Category: "target_changed"}
 			} else if err != nil {
 				return partial(result), &Error{Category: "marker_unavailable"}
 			}
 		}
 		if transitionPending && isTransitionEffect(effect.Kind) && effect == current.Effects[lastTransitionEffect(current.Effects)] {
+			if compatibility.VerifyPreservation(ctx, current.target.State, *current.transition) != nil {
+				return partial(result), &Error{Category: "preservation_unverified"}
+			}
 			if err := verifyActivated(ctx, current.target.State); err != nil {
 				return partial(result), err
+			}
+			activated = true
+			if err := writeMarker(receiptDir, current.candidate.ArchiveSHA256, "prepare", false, recorded, archive, manifest, retired, activated); err != nil {
+				return partial(result), &Error{Category: "marker_unavailable"}
 			}
 			transitionPending = false
 		}
@@ -960,6 +999,7 @@ func parseReceipt(wire []byte) (map[string]string, error) {
 	if values["formatVersion"] != "1" || values["product"] != "Axiom" || !digestPattern.MatchString(values["sha256"]) || !semverPattern.MatchString(values["version"]) || !installedPattern.MatchString(values["installedAt"]) {
 		return nil, errors.New("unsupported receipt")
 	}
+
 	return values, nil
 }
 
@@ -983,7 +1023,10 @@ func readMarkerIn(directory local.AnchoredDirectory) (map[string]string, error) 
 	values := map[string]string{}
 	for _, line := range strings.Split(strings.TrimSuffix(string(wire), "\n"), "\n") {
 		key, value, ok := strings.Cut(line, "=")
-		if !ok || values[key] != "" {
+		if _, duplicate := values[key]; !ok || duplicate {
+			return nil, errors.New("marker schema")
+		}
+		if !strings.HasPrefix(key, "skill.") && !slices.Contains([]string{"formatVersion", "stage", "archiveSha256", "operation", "transitionArchive", "transitionManifest", "transitionRetired", "transitionActivated"}, key) {
 			return nil, errors.New("marker schema")
 		}
 		if name, isSkill := strings.CutPrefix(key, "skill."); isSkill && (!slices.Contains(skillNames, name) || value != absentRevision && !digestPattern.MatchString(value)) {
@@ -991,13 +1034,21 @@ func readMarkerIn(directory local.AnchoredDirectory) (map[string]string, error) 
 		}
 		values[key] = value
 	}
-	if values["formatVersion"] != "1" || !digestPattern.MatchString(values["archiveSha256"]) || values["stage"] != "prepare" && values["stage"] != "binary_committed" {
+	if (values["formatVersion"] != "1" && values["formatVersion"] != "2") || !digestPattern.MatchString(values["archiveSha256"]) || values["stage"] != "prepare" && values["stage"] != "binary_committed" {
 		return nil, errors.New("marker schema")
 	}
 	if archive, ok := values["transitionArchive"]; ok && !compatibility.ValidArchiveName(archive) {
 		return nil, errors.New("marker schema")
 	}
 	if manifest, ok := values["transitionManifest"]; ok && (!digestPattern.MatchString(manifest) || values["transitionArchive"] == "") {
+		return nil, errors.New("marker schema")
+	}
+	if values["transitionArchive"] != "" {
+		count, err := strconv.Atoi(values["transitionRetired"])
+		if values["formatVersion"] != "2" || err != nil || count < 0 || strconv.Itoa(count) != values["transitionRetired"] || (values["transitionActivated"] != "true" && values["transitionActivated"] != "false") || (count > 0 || values["transitionActivated"] == "true") && values["transitionManifest"] == "" {
+			return nil, errors.New("marker schema")
+		}
+	} else if values["formatVersion"] != "1" || values["transitionRetired"] != "" || values["transitionActivated"] != "" {
 		return nil, errors.New("marker schema")
 	}
 	return values, nil
@@ -1022,13 +1073,18 @@ func recordedSkills(marker map[string]string) map[string]string {
 // writeMarker publishes the operation marker inside receiptDir, the same
 // anchored directory object Apply validated once and holds open for the rest
 // of the call, never by re-deriving ReceiptDir's pathname.
-func writeMarker(receiptDir local.AnchoredDirectory, archive, stage string, create bool, skills map[string]string, transitionArchive, transitionManifest string) error {
+func writeMarker(receiptDir local.AnchoredDirectory, archive, stage string, create bool, skills map[string]string, transitionArchive, transitionManifest string, retired int, activated bool) error {
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "formatVersion=1\nstage=%s\narchiveSha256=%s\noperation=upgrade\n", stage, archive)
+	version := 1
+	if transitionArchive != "" {
+		version = 2
+	}
+	fmt.Fprintf(&builder, "formatVersion=%d\nstage=%s\narchiveSha256=%s\noperation=upgrade\n", version, stage, archive)
 	if transitionArchive != "" {
 		// The RecognizedPOC archive this operation preserves into: a resume
 		// continues from that archive's verified truth, never a second one.
 		builder.WriteString("transitionArchive=" + transitionArchive + "\n")
+		fmt.Fprintf(&builder, "transitionRetired=%d\ntransitionActivated=%t\n", retired, activated)
 	}
 	if transitionManifest != "" {
 		builder.WriteString("transitionManifest=" + transitionManifest + "\n")

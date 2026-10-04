@@ -117,3 +117,47 @@ All on this branch, clean worktree:
 | `test-s7-security.sh` | `failures=0 result=pass` |
 | `test-s7-native.sh` with a disclosed `sw_vers` shim reporting 27.0 (its historical row gate; host is 27.0.1) | `failures=0 result=pass` |
 | `gitleaks git` over the branch | no leaks |
+
+## PR #188 technical review corrections — 2026-10-04
+
+New Evidence against reviewed head `e0464be593a4d7610bb7b3b4d100a77d9a99d02f`.
+Historical results above remain unchanged. Corrections preserve accepted
+ADR-0017, ADR-0005 and ADR-0007; no POC history is activated, and no Issue
+closure, merge, release or remote ruleset mutation is performed.
+
+Executed locally on macOS 27.0.1 / arm64 / Go 1.26.1:
+`go test ./internal/install ./internal/compatibility ./internal/local ./cmd/lingo
+-run 'Test(RecognizedPOC|Preservation|HistoricalRetirement|WindowsInstallRelease)'
+-count=1` — exit 0.
+
+| Finding / regression | New proof |
+|---|---|
+| CR-001: `TestHistoricalRetirementCoordinatesConcurrentWorkItemWriter`, `TestHistoricalRetirementConflictsWithWorkItemPublicationInProgress`, `TestHistoricalRetirementCannotRemoveConfirmedWorkItemRevision` | Deterministic pre-commit channel barriers exercise both lock acquisition orders using the real WorkItem store. Retirement-held coordination refuses the writer; writer-held coordination refuses retirement and the successful new generation remains readable. A previously confirmed changed revision also refuses stale retirement. |
+| CR-001: `TestHistoricalRetirementRejectsLeafAndParentReplacement` | Same-byte replacement of a leaf and replacement of its parent at the controlled commit boundary refuse removal; replacement bytes remain. |
+| CR-002: `TestRecognizedPOCResumeRequiresExactActiveInventory` | After confirmed Work Item retirement, removal of portable `axiom.yaml`, installation record or pending workflow refuses resume; new or modified active objects refuse. Only previously confirmed absence resumes successfully. |
+| CR-002: `TestRecognizedPOCResumeRejectsAmbiguousMarkers`, `TestRecognizedPOCActivatedResumeRequiresCompleteRetirementProgress` | Old transition format, missing/negative/excessive progress, duplicate/unknown fields and activation without manifest refuse; activated progress must exactly equal the archive's retirement cardinality. |
+| CR-002: existing `TestRecognizedPOCInterruptionAtEachBoundaryResumes` and `TestRecognizedPOCResumeAfterActivationVerifiesOnlyTheArchive` re-executed | All five supported interruption boundaries still resume; ordinary v1 changes after explicit activation remain allowed, while archive tampering refuses. |
+| CR-003: `TestRecognizedPOCResumeRejectsSemanticManifestTampering` | After manifest publication and before first retirement, independent tampering of POC tag, POC revision, retired set and kept set refuses preview with every retirement target still present. |
+| CR-003: `TestPreservationManifestRejectsAdditionalJSON` | A second JSON value or trailing non-JSON content refuses; canonical re-encoding additionally binds every policy field and derived set and rejects unknown fields. |
+| CR-004: `TestWindowsInstallReleasePreservationOutput` | Exact Windows output contains preserved path then upgraded status for a successful transition; ordinary upgrades, fresh installs and unchanged results retain their output without a preservation line. |
+
+The Windows-only `TestWindowsInstallReleasePropagatesRecognizedPOCPreservation`
+exercises the complete backend transition and archive-path return. Local Windows
+cross-compilation verifies buildability; native execution belongs to the new
+head's `verify (windows)` CI job.
+
+Recovery implementation: transition marker format 2 binds archive/manifest,
+confirmed deterministic retirement prefix and explicit activation. Before
+activation, kept and pending objects must be present and byte-exact. A deletion
+without durable progress confirmation is ambiguous and refuses automatic resume;
+absence alone never authorizes recovery. After activation, complete progress and
+the canonical archive still verify, while active v1 state can evolve normally.
+Retirement reuses local store locks (state -> family -> Project), held through
+exact-generation checks, deletion and confined empty-container cleanup.
+
+Directed adversarial re-review checked ownership, expected revisions, process
+coordination, preview digest binding, recovery truth and interruption boundaries.
+An inconsistent activated retirement count discovered during review was fixed
+and receives its own regression above. Windows presentation was reviewed
+independently. No remaining finding in CR-001–CR-004 was identified by that
+review; remote CI and human re-review remain separate evidence/gates.

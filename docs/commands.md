@@ -1348,8 +1348,24 @@ The installer prints `install_preserved=<archive>` on success. The archive is
 historical material only: it is never read as active state, never promoted to
 an Execution, and never deleted by an upgrade; remove it yourself only when
 you no longer need it. Every boundary is resumable with the same archive under
-fresh exact authority (the marker records the archive and, after the first
-retirement, the verified manifest digest); a changed source, an archive that
+fresh exact authority. Transition markers use `formatVersion=2` and record
+`transitionArchive`, the verified `transitionManifest` before retirement,
+`transitionRetired` (the confirmed prefix of Work Item links followed by
+workflow records, each ordered by category/path), and `transitionActivated`.
+Every confirmed retirement updates the marker before the next effect. Until
+activation is explicitly recorded, kept objects and pending retirements must
+remain present and byte-exact; only that confirmed prefix may be absent.
+Activation requires complete retirement progress, exact kept objects and a
+`direct` rebuilt root. Afterwards normal v1 writes are permitted, while the
+recorded archive and complete retirement count still verify. Unknown fields,
+duplicate fields, incompatible transition markers (including version 1), and
+contradictory progress require recovery. If interruption occurs after deletion
+but before its marker confirmation, absence is unproved and automatic resume
+refuses; preserve the archive and marker for operator review. Retirement uses
+the same state -> family -> Project locks as local writers and revalidates the
+exact generation while holding them. Existing manifests must equal the
+canonical policy encoding, including POC identity and derived kept/retired
+sets; extra JSON is refused. A changed source, an archive that
 does not correspond, an unsafe or overlapping archive location, or missing
 space stops with no further retirement (`state_changed`,
 `preservation_conflict`, `preservation_target_unsafe`, `insufficient_space`).

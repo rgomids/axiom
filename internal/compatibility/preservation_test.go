@@ -19,7 +19,7 @@ func preservationRoots(t *testing.T) (Roots, string) {
 
 func planFor(t *testing.T, roots Roots, archive, resumeArchive, resumeManifest string) TransitionPlan {
 	t.Helper()
-	plan, err := PlanPOCTransition(context.Background(), roots, inspect(t, roots), archive, resumeArchive, resumeManifest)
+	plan, err := PlanPOCTransition(context.Background(), roots, inspect(t, roots), archive, resumeArchive, resumeManifest, 0)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}
@@ -151,16 +151,37 @@ func TestResumeAfterRetirementRequiresTheRecordedManifest(t *testing.T) {
 	if err := RetireObject(context.Background(), roots, plan.Retire[0]); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := PlanPOCTransition(context.Background(), roots, inspect(t, roots), archive, plan.Archive, ""); !errors.Is(err, ErrPreservationConflict) {
+	if _, err := PlanPOCTransition(context.Background(), roots, inspect(t, roots), archive, plan.Archive, "", 1); !errors.Is(err, ErrPreservationConflict) {
 		t.Fatalf("resume without recorded manifest: %v", err)
 	}
-	resumed := planFor(t, roots, archive, plan.Archive, plan.ManifestDigest())
+	resumed, err := PlanPOCTransition(context.Background(), roots, inspect(t, roots), archive, plan.Archive, plan.ManifestDigest(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(resumed.Retire) != 1 || len(resumed.Copy) != 0 || !resumed.ManifestPresent {
 		t.Fatalf("resumed plan = %+v", resumed)
 	}
 	manifest := filepath.Join(plan.ArchivePath(), preservationManifest)
 	writePrivate(t, manifest, append([]byte(read(t, manifest)), '\n'))
-	if _, err := PlanPOCTransition(context.Background(), roots, inspect(t, roots), archive, plan.Archive, plan.ManifestDigest()); !errors.Is(err, ErrPreservationConflict) {
+	if _, err := PlanPOCTransition(context.Background(), roots, inspect(t, roots), archive, plan.Archive, plan.ManifestDigest(), 1); !errors.Is(err, ErrPreservationConflict) {
 		t.Fatalf("replaced manifest: %v", err)
+	}
+}
+
+func TestPreservationManifestRejectsAdditionalJSON(t *testing.T) {
+	for _, extra := range []string{"{}", "true", "garbage"} {
+		t.Run(extra, func(t *testing.T) {
+			roots, archive := preservationRoots(t)
+			plan := planFor(t, roots, archive, "", "")
+			preserveAll(t, roots, plan)
+			if err := CompletePreservation(context.Background(), roots, plan); err != nil {
+				t.Fatal(err)
+			}
+			path := plan.ManifestPath()
+			writePrivate(t, path, append([]byte(read(t, path)), []byte(extra)...))
+			if _, err := PlanPOCTransition(context.Background(), roots, inspect(t, roots), archive, plan.Archive, "", 0); !errors.Is(err, ErrPreservationConflict) {
+				t.Fatalf("trailing JSON accepted: %v", err)
+			}
+		})
 	}
 }
