@@ -79,6 +79,7 @@ new_home() {
     '  *POST*repos/owner/repo/issues*) cat >/dev/null; echo "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\",\"labels\":[]}" ;;' \
     '  *repos/owner/repo/labels*) echo "[]" ;;' \
     '  *issues/7/comments*) echo "[]" ;;' \
+    '  *issues/42*) echo "{\"number\":42,\"html_url\":\"https://github.com/owner/repo/issues/42\",\"state\":\"open\",\"labels\":[]}" ;;' \
     '  *issues/7*) echo "{\"number\":7,\"html_url\":\"https://github.com/owner/repo/issues/7\",\"state\":\"open\",\"labels\":[]}" ;;' \
     '  "issue create"*) echo https://github.com/owner/repo/issues/7 ;;' \
     '  "issue view"*) echo "{\"Number\":7,\"URL\":\"https://github.com/owner/repo/issues/7\",\"State\":\"OPEN\"}" ;;' \
@@ -214,6 +215,26 @@ if [[ -n "$poc_binary" ]]; then
   check poc-creates-state seed_poc
   check install-previous install_release "${previous[0]}"
   check previous-classifies-recognized-poc test "$(classification)" = recognized_poc
+  # CR-005: select writes a legitimate v1 link without a create attempt,
+  # leaving the POC classification intact. Use the installed release's CLI.
+  select_v1_link() {
+    local selection_digest
+    (cd "$H/cwd" && axiom --json work-item select --project poc-project --repository main --provider-repository owner/repo --number 42) >"$work/selection-preview.json"
+    selection_digest=$(sed -n 's/.*"digest":"\([^"]*\)".*/\1/p' "$work/selection-preview.json")
+    (cd "$H/cwd" && axiom --json work-item select --project poc-project --repository main --provider-repository owner/repo --number 42 --preview-digest "$selection_digest" --authorize-local) >"$work/selection.json"
+    grep -q '"status":"success"' "$work/selection.json"
+  }
+  check previous-selects-v1-link select_v1_link
+  check selected-link-still-recognized-poc test "$(classification)" = recognized_poc
+  selected_file=$(python3 - "$STATE" <<'PYTHON'
+import json, pathlib, sys
+matches = [p for p in pathlib.Path(sys.argv[1], "work-items").rglob("*.json")
+           if json.loads(p.read_text()).get("number") == 42]
+assert len(matches) == 1
+print(matches[0])
+PYTHON
+  )
+  selected_digest=$(digest "$selected_file")
   inventory="$work/poc-inventory"
   for category in state projects; do
     root=$STATE; [[ $category == projects ]] && root=$PROJECTS
@@ -239,6 +260,19 @@ PY
   check workflow-history-preserved test -f "$archive/objects/$workflow_digest"
   check workflow-history-not-active test ! -e "$STATE/workflows"
   check rebuilt-state-valid-v1 test "$(classification)" = valid_v1
+  check selected-link-byte-identical test "$(digest "$selected_file")" = "$selected_digest"
+  selected_link_loads() {
+    (cd "$H/cwd" && axiom --json work-item show --project poc-project --repository main --provider-repository owner/repo --number 42) >"$work/selected-link.json"
+    grep -q '"status":"success"' "$work/selected-link.json"
+  }
+  check selected-link-loads selected_link_loads
+  check selected-link-manifest-kept python3 - "$archive/manifest.json" "$STATE" "$selected_file" <<'PYTHON'
+import json, pathlib, sys
+manifest = json.load(open(sys.argv[1]))
+key = "state/" + pathlib.Path(sys.argv[3]).relative_to(sys.argv[2]).as_posix()
+assert key in manifest["kept"] and key not in manifest["retired"]
+assert len(manifest["retired"]) == 2
+PYTHON
   check project-reconfigured bash -c 'cd "$HOME/cwd" && axiom project list | grep -q "project: poc-project"'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   archive_before=$(tree_digest "$archive")

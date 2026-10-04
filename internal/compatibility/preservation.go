@@ -29,10 +29,12 @@ import (
 //
 // Rebuild retires, from the active state root, exactly the historical POC
 // workflow material (workflow records and the Work Item links the POC
-// workflow created). What stays active is only what the current contract
-// already validates: installation records (DecodeRecord) and portable
-// manifests (manifest.Decode), so the rebuilt root is canonical v1 state that
-// holds supported Project intent and associations and no POC workflow truth.
+// workflow created). What stays active is what the current contract
+// already validates: unrelated Work Item links, installation records
+// (DecodeRecord) and portable manifests (manifest.Decode), so the rebuilt root
+// is canonical v1 state that
+// holds supported Project intent, associations and unrelated current Work Item
+// links, without POC workflow truth.
 
 // PreservationPolicy names the exact object-set rule this release applies.
 const PreservationPolicy = "recognized-poc-preservation/v1"
@@ -90,6 +92,7 @@ type TransitionPlan struct {
 	Keep                 []Object
 	Leftovers            []string
 	RequiredBytes        int64
+	historical           []Object // complete original retirement set, including confirmed objects
 }
 
 // ArchivePath is the operation's archive directory.
@@ -111,9 +114,9 @@ func ArchiveName(sourceDigest string) string { return archivePrefix + sourceDige
 // ValidArchiveName reports a well-formed archive identity.
 func ValidArchiveName(name string) bool { return archiveNamePattern.MatchString(name) }
 
-// retiredKind reports historical POC workflow material: workflow records and
-// the Work Item links the POC workflow created.
-func retiredKind(kind local.InventoryKind) bool {
+// retirementCandidate reports kinds that may hold historical material.
+// Work Item membership is proved separately from persisted identity.
+func retirementCandidate(kind local.InventoryKind) bool {
 	return kind == local.InventoryPOCWorkflow || kind == local.InventoryWorkItem
 }
 
@@ -184,18 +187,6 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 	default:
 		return TransitionPlan{}, ErrPreservationConflict
 	}
-	for _, object := range report.objects {
-		switch {
-		case retiredKind(object.Kind):
-			plan.Retire = append(plan.Retire, object)
-		case keptKind(object.Kind), skillKind(object.Kind):
-			plan.Keep = append(plan.Keep, object)
-		default:
-			// RecognizedPOC and the rebuilt v1 root hold only these kinds; any
-			// other object is not covered by the preservation policy.
-			return TransitionPlan{}, ErrPreservationSource
-		}
-	}
 	archive, err := readArchive(plan.ArchivePath())
 	if err != nil {
 		return TransitionPlan{}, err
@@ -206,6 +197,10 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 			return TransitionPlan{}, ErrPreservationConflict
 		}
 		plan.Preserve, plan.ManifestPresent, plan.Manifest = document.Objects, true, archive.manifestWire
+		plan.historical, err = historicalRetirementSet(plan.Preserve, archiveObjectReader(plan.ArchivePath()))
+		if err != nil {
+			return TransitionPlan{}, ErrPreservationConflict
+		}
 		expected, err := plan.manifestWire()
 		if err != nil || !bytes.Equal(expected, archive.manifestWire) {
 			return TransitionPlan{}, ErrPreservationConflict
@@ -240,6 +235,12 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 			return TransitionPlan{}, ErrPreservationSource
 		}
 		plan.Preserve = preservedObjects(report.objects)
+		plan.historical, err = historicalRetirementSet(plan.Preserve, func(object Object) ([]byte, error) {
+			return readSourceObject(roots, object)
+		})
+		if err != nil {
+			return TransitionPlan{}, ErrPreservationSource
+		}
 		if len(plan.Preserve) == 0 {
 			return TransitionPlan{}, ErrPreservationSource
 		}
@@ -278,6 +279,17 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 		plan.Manifest = wire
 		plan.RequiredBytes += int64(len(wire))
 	}
+	historical := objectSet(plan.historical)
+	for _, object := range report.objects {
+		switch {
+		case historical[objectKey(object)]:
+			plan.Retire = append(plan.Retire, object)
+		case keptKind(object.Kind), object.Kind == local.InventoryWorkItem, skillKind(object.Kind):
+			plan.Keep = append(plan.Keep, object)
+		default:
+			return TransitionPlan{}, ErrPreservationSource
+		}
+	}
 	sort.Slice(plan.Retire, func(i, j int) bool { return retireOrder(plan.Retire[i]) < retireOrder(plan.Retire[j]) })
 	return plan, nil
 }
@@ -285,12 +297,7 @@ func PlanPOCTransition(ctx context.Context, roots Roots, report Report, archiveR
 // verifyActiveInventory requires positive progress truth: kept and pending
 // objects remain exact; only a deterministic confirmed retirement prefix is absent.
 func verifyActiveInventory(plan TransitionPlan, objects []Object) error {
-	retired := []Object{}
-	for _, object := range plan.Preserve {
-		if retiredKind(object.Kind) {
-			retired = append(retired, object)
-		}
-	}
+	retired := append([]Object(nil), plan.historical...)
 	sort.Slice(retired, func(i, j int) bool { return retireOrder(retired[i]) < retireOrder(retired[j]) })
 	if plan.ConfirmedRetirements < 0 || plan.ConfirmedRetirements > len(retired) {
 		return ErrPreservationConflict
@@ -328,7 +335,7 @@ func (p TransitionPlan) manifestWire() ([]byte, error) {
 	for _, object := range p.Preserve {
 		key := object.Category + "/" + object.Relative
 		_, clean := cleanRelative(object.Relative)
-		validKind := object.Category == CategoryState && (retiredKind(object.Kind) || object.Kind == local.InventoryInstallation) || object.Category == CategoryProjects && object.Kind == local.InventoryPortableManifest
+		validKind := object.Category == CategoryState && (retirementCandidate(object.Kind) || object.Kind == local.InventoryInstallation) || object.Category == CategoryProjects && object.Kind == local.InventoryPortableManifest
 		if !clean || !validKind || !digestName.MatchString(object.Digest) || object.Bytes <= 0 || object.Bytes > maxTransferFile || seen[key] {
 			return nil, ErrPreservationConflict
 		}
@@ -336,9 +343,10 @@ func (p TransitionPlan) manifestWire() ([]byte, error) {
 	}
 
 	document := PreservationManifest{FormatVersion: 1, Kind: preservationKind, Policy: PreservationPolicy, POCTag: HistoricalPOCTag, POCRevision: HistoricalPOCRevision, SourceDigest: p.SourceDigest, Objects: sortedObjects(p.Preserve), Retired: []string{}, Kept: []string{}}
+	historical := objectSet(p.historical)
 	for _, object := range p.Preserve {
 		key := object.Category + "/" + object.Relative
-		if retiredKind(object.Kind) {
+		if historical[objectKey(object)] {
 			document.Retired = append(document.Retired, key)
 		} else {
 			document.Kept = append(document.Kept, key)
@@ -375,16 +383,15 @@ func VerifyArchive(roots Roots, archiveRoot, archive, manifestDigest string, con
 		return "", ErrPreservationConflict
 	}
 	plan := TransitionPlan{SourceDigest: observed.manifest.SourceDigest, Preserve: observed.manifest.Objects}
+	plan.historical, err = historicalRetirementSet(plan.Preserve, archiveObjectReader(path))
+	if err != nil {
+		return "", ErrPreservationConflict
+	}
 	canonicalManifest, err := plan.manifestWire()
 	if err != nil || !bytes.Equal(canonicalManifest, observed.manifestWire) {
 		return "", ErrPreservationConflict
 	}
-	retired := 0
-	for _, object := range plan.Preserve {
-		if retiredKind(object.Kind) {
-			retired++
-		}
-	}
+	retired := len(plan.historical)
 	if confirmedRetirements != retired {
 		return "", ErrPreservationConflict
 	}
@@ -511,7 +518,7 @@ func RetireObject(ctx context.Context, roots Roots, object Object) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if object.Category != CategoryState || !retiredKind(object.Kind) || roots.State == "" {
+	if object.Category != CategoryState || !retirementCandidate(object.Kind) || roots.State == "" {
 		return ErrPreservationSource
 	}
 	relative, ok := cleanRelative(object.Relative)
