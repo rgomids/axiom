@@ -222,6 +222,12 @@ func emitBootstrapCompletion(writer io.Writer, mode outputMode, result completio
 			for _, skill := range runtime.Skills {
 				fmt.Fprintf(&extra, "  skill: %s sha256=%s state=%s\n", skill.Name, skill.SHA256, skill.State)
 			}
+			if runtime.Receipt != "" && runtime.Receipt != "current" {
+				fmt.Fprintf(&extra, "  receipt: state=%s\n", runtime.Receipt)
+			}
+			for _, conflict := range runtime.Conflicts {
+				extra.WriteString("  " + conflictLine(conflict))
+			}
 		}
 		content = append(content, extra.Bytes()...)
 	} else {
@@ -247,6 +253,22 @@ func emitRuntimeHuman(writer io.Writer, runtime RuntimeView) {
 	for _, skill := range runtime.Skills {
 		fmt.Fprintf(writer, "skill: %s sha256=%s state=%s\n", skill.Name, skill.SHA256, skill.State)
 	}
+	if runtime.Receipt != "" {
+		fmt.Fprintf(writer, "receipt: state=%s\n", runtime.Receipt)
+	}
+	for _, conflict := range runtime.Conflicts {
+		io.WriteString(writer, conflictLine(conflict))
+	}
+}
+
+// conflictLine renders one preserved artifact relative to the Runtime skill
+// root; Axiom never overwrites it.
+func conflictLine(conflict RuntimeConflictView) string {
+	line := "conflict: artifact=" + conflict.Artifact + " state=" + conflict.State
+	if conflict.SHA256 != "" {
+		line += " sha256=" + conflict.SHA256
+	}
+	return line + " preserved=true\n"
 }
 
 func emitSetupCompletion(writer io.Writer, mode outputMode, result completion.Result, setup projectapp.SetupPreview) int {

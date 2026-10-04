@@ -31,12 +31,36 @@ type UpgradeSkill struct {
 	Leftovers []string
 }
 
+// SkillSetReceiptName is the Codex skill-set receipt inside the skill root.
+const SkillSetReceiptName = receiptName
+
 // UpgradeInventory is the skill state an upgrade plans against. Configured is
 // false only when no Axiom skill directory and no skill-set receipt exist.
+// ReceiptSHA256 is the present receipt's digest ("unsafe" for anything that
+// is not a bounded private regular file); ReceiptOwned reports that it is this
+// binary's receipt or a receipt an earlier Axiom revision wrote. Leftovers are
+// interrupted receipt stages directly inside the skill root.
 type UpgradeInventory struct {
-	Configured bool
-	Receipt    bool
-	Skills     []UpgradeSkill
+	Configured    bool
+	Receipt       bool
+	ReceiptSHA256 string
+	ReceiptOwned  bool
+	Leftovers     []string
+	Skills        []UpgradeSkill
+}
+
+// CurrentReceipt is the Codex skill-set receipt of the skill set embedded in
+// this binary, derived from this binary's own runtime constants.
+func CurrentReceipt() ([]byte, error) { return receiptBytes() }
+
+// EmbeddedSkillDigests reports the SKILL.md digest of every skill this binary
+// publishes.
+func EmbeddedSkillDigests() (map[string]string, error) {
+	revision, err := currentRevision()
+	if err != nil {
+		return nil, err
+	}
+	return revision.skills, nil
 }
 
 // InspectUpgrade reads the Axiom skill directories without creating the root,
@@ -61,8 +85,29 @@ func (s Service) InspectUpgrade(ctx context.Context) (UpgradeInventory, error) {
 	}
 	if _, err := os.Lstat(filepath.Join(s.root, receiptName)); err == nil {
 		inventory.Receipt, inventory.Configured = true, true
+		inventory.ReceiptSHA256 = "unsafe"
+		if privateRegularFile(filepath.Join(s.root, receiptName)) {
+			if content, ok := readBoundedSkill(filepath.Join(s.root, receiptName)); ok {
+				current, err := s.integration.receipt(s.root)
+				inventory.ReceiptSHA256 = digestOf(content)
+				inventory.ReceiptOwned = err == nil && string(current) == string(content) || s.integration.matchesLegacyReceipt(s.root)
+			}
+		}
 	} else if !os.IsNotExist(err) {
 		return UpgradeInventory{}, ErrUpgradeConflict
+	}
+	entries, err := os.ReadDir(s.root)
+	if err != nil {
+		return UpgradeInventory{}, ErrUpgradeConflict
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), UpgradeStagePrefix) {
+			path := filepath.Join(s.root, entry.Name())
+			if !privateRegularFile(path) {
+				return UpgradeInventory{}, ErrUpgradeConflict
+			}
+			inventory.Leftovers = append(inventory.Leftovers, path)
+		}
 	}
 	for _, name := range skillNames {
 		skill, err := s.inspectUpgradeSkill(name)
@@ -197,8 +242,30 @@ func (u *UpgradeSession) Inspect(ctx context.Context) (UpgradeInventory, error) 
 	}
 	if _, err := u.root.Lstat(receiptName); err == nil {
 		inventory.Receipt, inventory.Configured = true, true
+		inventory.ReceiptSHA256 = currentReceiptDigestIn(u.root)
+		if inventory.ReceiptSHA256 != "unsafe" {
+			current, err := u.integration.receipt(u.rootPath)
+			inventory.ReceiptOwned = err == nil && digestOf(current) == inventory.ReceiptSHA256 || u.integration.matchesLegacyReceiptIn(u.root, u.rootPath)
+		}
 	} else if !os.IsNotExist(err) {
 		return inventory, ErrUpgradeConflict
+	}
+	directory, err := u.root.Open(".")
+	if err != nil {
+		return inventory, ErrUpgradeConflict
+	}
+	entries, err := directory.ReadDir(-1)
+	directory.Close()
+	if err != nil {
+		return inventory, ErrUpgradeConflict
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), UpgradeStagePrefix) {
+			if _, ok := privateRegularFileIn(u.root, entry.Name()); !ok {
+				return inventory, ErrUpgradeConflict
+			}
+			inventory.Leftovers = append(inventory.Leftovers, filepath.Join(u.rootPath, entry.Name()))
+		}
 	}
 	for _, name := range skillNames {
 		skill := UpgradeSkill{Name: name}
@@ -373,6 +440,105 @@ func (u *UpgradeSession) PublishSkill(name string, content []byte, expected stri
 		return errors.New("skill publication uncertain")
 	}
 	return nil
+}
+
+// RemoveRootLeftover removes a stray interrupted receipt stage directly inside
+// the skill root, through this session's anchored skill-root handle.
+func (u *UpgradeSession) RemoveRootLeftover(leftoverName string) error {
+	if filepath.Base(leftoverName) != leftoverName || !strings.HasPrefix(leftoverName, UpgradeStagePrefix) {
+		return ErrUpgradeConflict
+	}
+	if err := u.StillAtPath(); err != nil {
+		return err
+	}
+	if _, ok := privateRegularFileIn(u.root, leftoverName); !ok {
+		return ErrUpgradeConflict
+	}
+	if err := u.root.Remove(leftoverName); err != nil {
+		return err
+	}
+	syncRootObject(u.root)
+	return u.StillAtPath()
+}
+
+// PublishReceipt replaces the skill-set receipt whose digest is expected (""
+// for absent) with content, entirely through this session's anchored
+// skill-root handle. A present receipt is replaced only while it is still this
+// binary's receipt or one an earlier Axiom revision wrote, so a receipt Axiom
+// cannot recognize is never overwritten. The stage is private and named with
+// UpgradeStagePrefix so an interruption leaves a recoverable leftover.
+func (u *UpgradeSession) PublishReceipt(content []byte, expected string) error {
+	if len(content) == 0 || len(content) > maxUpgradeSkillBytes {
+		return ErrUpgradeConflict
+	}
+	next := digestOf(content)
+	owned := func() bool {
+		current, err := u.integration.receipt(u.rootPath)
+		return err == nil && matchesPrivateFileIn(u.root, receiptName, current) || u.integration.matchesLegacyReceiptIn(u.root, u.rootPath)
+	}
+	if err := u.StillAtPath(); err != nil {
+		return err
+	}
+	if currentReceiptDigestIn(u.root) != expected || expected != "" && !owned() {
+		return ErrUpgradeConflict
+	}
+	var entropy [8]byte
+	if _, err := rand.Read(entropy[:]); err != nil {
+		return err
+	}
+	stage := UpgradeStagePrefix + "receipt." + hex.EncodeToString(entropy[:])
+	file, err := u.root.OpenFile(stage, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = u.root.Remove(stage)
+		}
+	}()
+	written, writeErr := file.Write(content)
+	chmodErr := file.Chmod(0o600)
+	syncErr := file.Sync()
+	closeErr := file.Close()
+	if err := errors.Join(writeErr, chmodErr, syncErr, closeErr); err != nil || written != len(content) {
+		return errors.New("receipt stage write failed")
+	}
+	if staged, ok := privateRegularFileIn(u.root, stage); !ok || digestOf(staged) != next {
+		return errors.New("receipt stage verification failed")
+	}
+	if currentReceiptDigestIn(u.root) != expected || expected != "" && !owned() {
+		return ErrUpgradeConflict
+	}
+	if err := u.StillAtPath(); err != nil {
+		return err
+	}
+	if err := u.root.Rename(stage, receiptName); err != nil {
+		return err
+	}
+	committed = true
+	syncRootObject(u.root)
+	if currentReceiptDigestIn(u.root) != next || u.StillAtPath() != nil {
+		return errors.New("receipt publication uncertain")
+	}
+	return nil
+}
+
+// currentReceiptDigestIn is "" for an absent receipt and "unsafe" for
+// anything that is not a bounded private regular file.
+func currentReceiptDigestIn(root *os.Root) string {
+	info, err := root.Lstat(receiptName)
+	if os.IsNotExist(err) {
+		return ""
+	}
+	if err != nil || !info.Mode().IsRegular() || info.Size() > maxUpgradeSkillBytes {
+		return "unsafe"
+	}
+	content, ok := privateRegularFileIn(root, receiptName)
+	if !ok || len(content) > maxUpgradeSkillBytes {
+		return "unsafe"
+	}
+	return digestOf(content)
 }
 
 // currentSkillDigestIn is "" for an absent SKILL.md and "unsafe" for anything

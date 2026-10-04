@@ -3,9 +3,7 @@ package codexruntime
 
 import (
 	"context"
-	"crypto/sha256"
 	"embed"
-	"encoding/hex"
 	"errors"
 	"io"
 	"io/fs"
@@ -61,9 +59,40 @@ const (
 	Failed       Status = "failed"
 )
 
+// SkillState classifies one Axiom skill name in a Runtime skill root:
+//
+//   - missing: no entry;
+//   - equivalent: exactly this binary's skill;
+//   - owned_older: an earlier Axiom revision, replaced on install;
+//   - modified: content no Axiom revision published, under a name that the
+//     root's recognized Axiom receipt says Axiom installed there (the user
+//     edited an Axiom skill);
+//   - foreign: content no Axiom revision published, without that attestation;
+//   - unsafe: not a private directory holding exactly one private regular
+//     SKILL.md (symlink, extra entries, permissions, ACL).
+//
+// Only missing and owned_older are ever written; modified, foreign and unsafe
+// are preserved and reported as Conflicts.
 type SkillState struct {
 	Name, Digest, State string
 }
+
+// Conflict names one preserved artifact, relative to the Runtime skill root,
+// that blocks convergence, with its classification and, for content, its
+// digest. Artifact never carries absolute paths or file content.
+type Conflict struct {
+	Artifact, State, Digest string
+}
+
+// Receipt states: absent, current, legacy (an earlier Axiom revision's
+// receipt for this root), unrecognized (not a receipt Axiom wrote), unsafe.
+const (
+	ReceiptAbsent       = "absent"
+	ReceiptCurrent      = "current"
+	ReceiptLegacy       = "legacy"
+	ReceiptUnrecognized = "unrecognized"
+	ReceiptUnsafe       = "unsafe"
+)
 
 type Result struct {
 	Status              Status
@@ -71,6 +100,8 @@ type Result struct {
 	SkillSetVersion     string
 	BinaryCompatibility string
 	Skills              []SkillState
+	Receipt             string
+	Conflicts           []Conflict
 }
 
 type Service struct {
@@ -245,21 +276,22 @@ func (s Service) Inspect(ctx context.Context) Result {
 }
 
 func (s Service) inspectResult(status Status, category string) Result {
-	result := Result{Status: status, Category: category, SkillSetVersion: SkillSetVersion, BinaryCompatibility: s.binaryCompatibility, Skills: make([]SkillState, 0, len(skillNames))}
-	for _, name := range skillNames {
-		content, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
-		digest := sha256.Sum256(content)
-		state := "missing"
-		if matchesInstalled(s.root, name, content) {
-			state = "equivalent"
-		} else if s.integration.matchesLegacyInstalled(s.root, name) {
-			state = "owned_older"
-		} else if _, err := os.Lstat(filepath.Join(s.root, name)); err == nil {
-			state = "modified_or_foreign"
-		}
-		result.Skills = append(result.Skills, SkillState{Name: name, Digest: hex.EncodeToString(digest[:]), State: state})
+	result := Result{Status: status, Category: category, SkillSetVersion: SkillSetVersion, BinaryCompatibility: s.binaryCompatibility}
+	receiptPath := filepath.Join(s.root, receiptName)
+	_, err := os.Lstat(receiptPath)
+	var wire []byte
+	safe := false
+	if err == nil && privateRegularFile(receiptPath) {
+		wire, safe = readBoundedSkill(receiptPath)
 	}
-	return result
+	receipt, attested := s.integration.receiptState(s.root, err == nil, safe, wire)
+	return s.integration.classify(result, receipt, attested, func(name string) (bool, []byte, bool) {
+		if _, err := os.Lstat(filepath.Join(s.root, name)); err != nil {
+			return !os.IsNotExist(err), nil, false
+		}
+		content, ok := singleSkillContent(filepath.Join(s.root, name))
+		return true, content, ok
+	})
 }
 
 func matchesSkillIn(root *os.Root, name string, content []byte) bool {
@@ -272,20 +304,88 @@ func matchesSkillIn(root *os.Root, name string, content []byte) bool {
 }
 
 func (s Service) inspectResultIn(root *os.Root, status Status, category string) Result {
-	result := Result{Status: status, Category: category, SkillSetVersion: SkillSetVersion, BinaryCompatibility: s.binaryCompatibility, Skills: make([]SkillState, 0, len(skillNames))}
+	result := Result{Status: status, Category: category, SkillSetVersion: SkillSetVersion, BinaryCompatibility: s.binaryCompatibility}
+	_, err := root.Lstat(receiptName)
+	wire, safe := []byte(nil), false
+	if err == nil {
+		wire, safe = privateRegularFileIn(root, receiptName)
+	}
+	receipt, attested := s.integration.receiptState(s.root, err == nil, safe, wire)
+	return s.integration.classify(result, receipt, attested, func(name string) (bool, []byte, bool) {
+		if _, err := root.Lstat(name); err != nil {
+			return !os.IsNotExist(err), nil, false
+		}
+		child, err := privateChild(root, name)
+		if err != nil {
+			return true, nil, false
+		}
+		defer child.Close()
+		content, ok := singleSkillContentIn(child)
+		return true, content, ok
+	})
+}
+
+// receiptState classifies the receipt bytes found in the root at rootPath and
+// returns the skill names it attests Axiom installed there: those of this
+// binary's revision or of the earlier Axiom revision whose receipt it is.
+func (i integration) receiptState(rootPath string, present, safe bool, wire []byte) (string, map[string]bool) {
+	switch {
+	case !present:
+		return ReceiptAbsent, nil
+	case !safe:
+		return ReceiptUnsafe, nil
+	}
+	if revision, err := currentRevision(); err == nil {
+		if current, err := i.receiptFor(rootPath, revision); err == nil && string(current) == string(wire) {
+			return ReceiptCurrent, revision.nameSet()
+		}
+	}
+	for _, legacy := range i.legacyReceipts {
+		if string(legacy) == string(wire) {
+			names := map[string]bool{}
+			for name := range i.legacySkills {
+				names[name] = true
+			}
+			return ReceiptLegacy, names
+		}
+	}
+	for _, revision := range sharedSkillHistory {
+		if earlier, err := i.receiptFor(rootPath, revision); err == nil && string(earlier) == string(wire) {
+			return ReceiptLegacy, revision.nameSet()
+		}
+	}
+	return ReceiptUnrecognized, nil
+}
+
+// classify fills result with every skill's state and the conflicts that
+// block convergence. observe reports whether an entry exists for name and, if
+// it is a safe single-SKILL.md skill directory, its content.
+func (i integration) classify(result Result, receipt string, attested map[string]bool, observe func(string) (bool, []byte, bool)) Result {
+	result.Receipt = receipt
+	result.Skills = make([]SkillState, 0, len(skillNames))
+	result.Conflicts = []Conflict{}
+	if receipt == ReceiptUnrecognized || receipt == ReceiptUnsafe {
+		result.Conflicts = append(result.Conflicts, Conflict{Artifact: receiptName, State: "receipt_" + receipt})
+	}
 	for _, name := range skillNames {
 		content, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		exists, installed, ok := observe(name)
 		state := "missing"
-		if _, err := root.Lstat(name); err == nil {
-			state = "modified_or_foreign"
-		}
-		if child, err := privateChild(root, name); err == nil {
-			if matchesInstalledIn(child, content) {
-				state = "equivalent"
-			} else if s.integration.matchesLegacyInstalledIn(child, name) {
-				state = "owned_older"
+		switch {
+		case !exists:
+		case !ok:
+			state = "unsafe"
+			result.Conflicts = append(result.Conflicts, Conflict{Artifact: name, State: state})
+		case string(installed) == string(content):
+			state = "equivalent"
+		case i.knownDigest(name, digestOf(installed)):
+			state = "owned_older"
+		default:
+			state = "foreign"
+			if attested[name] {
+				state = "modified"
 			}
-			child.Close()
+			result.Conflicts = append(result.Conflicts, Conflict{Artifact: name + "/SKILL.md", State: state, Digest: digestOf(installed)})
 		}
 		result.Skills = append(result.Skills, SkillState{Name: name, Digest: digestOf(content), State: state})
 	}

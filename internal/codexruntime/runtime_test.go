@@ -649,8 +649,8 @@ func TestInstallRefusesConflictAndRollsBackCurrentAttempt(t *testing.T) {
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {
 		t.Fatalf("install = %#v", got)
-	} else if len(got.Skills) != len(skillNames) || got.Skills[3].State != "modified_or_foreign" {
-		t.Fatalf("conflict detail = %#v", got.Skills)
+	} else if len(got.Skills) != len(skillNames) || got.Skills[3].State != "foreign" || len(got.Conflicts) != 1 || got.Conflicts[0] != (Conflict{Artifact: "axiom-work-item-create/SKILL.md", State: "foreign", Digest: digestOf([]byte("unowned"))}) {
+		t.Fatalf("conflict detail = %#v / %#v", got.Skills, got.Conflicts)
 	}
 	for _, name := range []string{"axiom-project-configure", "axiom-project-show"} {
 		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
@@ -676,7 +676,7 @@ func TestInspectRejectsHardLinkedOwnedSkill(t *testing.T) {
 	if err := os.Link(path, filepath.Join(t.TempDir(), "skill-copy")); err != nil {
 		t.Fatal(err)
 	}
-	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[2].State != "modified_or_foreign" {
+	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[2].State != "unsafe" || len(got.Conflicts) != 1 || got.Conflicts[0].Artifact != "axiom-project-show" {
 		t.Fatalf("hard link inspection = %#v", got)
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {
@@ -698,7 +698,7 @@ func TestInspectRejectsUnsafeSkillPermissions(t *testing.T) {
 	if err := os.Chmod(directory, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[2].State != "modified_or_foreign" {
+	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[2].State != "unsafe" {
 		t.Fatalf("permission inspection = %#v", got)
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {

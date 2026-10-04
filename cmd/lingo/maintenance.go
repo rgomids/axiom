@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/compatibility"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/detailartifact"
@@ -293,7 +294,7 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 	if err != nil {
 		return s.maintenanceResult(completion.Facts{ValidationFailed: true}, "Upgrade candidate failed verification: "+upgradeCategory(err), nil, "Use the exact published archive and SHA256SUMS", nil)
 	}
-	target := install.Target{BinaryDir: filepath.Clean(input.BinaryDir), ReceiptDir: filepath.Clean(input.ReceiptDir), SkillsRoot: s.skillsRoot, State: compatibility.Roots{Projects: s.projectsRoot, State: s.stateRoot}}
+	target := install.Target{BinaryDir: filepath.Clean(input.BinaryDir), ReceiptDir: filepath.Clean(input.ReceiptDir), SkillsRoot: s.skillsRoot, State: compatibility.Roots{Projects: s.projectsRoot, State: s.stateRoot}, Self: selfBuild()}
 	service := install.NewService()
 	preview, err := service.Preview(ctx, target, candidate)
 	if err != nil {
@@ -322,7 +323,8 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 	case err == nil && result.Status == "success":
 		return s.maintenanceResult(completion.Facts{Completed: true}, "Upgrade confirmed", references, "Run `axiom version` to verify the upgraded binary", view)
 	case err == nil:
-		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Binary, receipt, and Codex skill files upgraded; the Codex skill-set receipt was not refreshed", references, "Run `axiom first-run` with the upgraded binary to refresh the skill-set receipt and converge every detected Runtime, or `axiom runtime codex install` when Codex is not on PATH", view)
+		message, next := upgradeSkillReceiptPartial(result)
+		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, message, references, next, view)
 	case len(result.Ledger) > 0:
 		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Upgrade partially applied: "+upgradeCategory(err), references, "Repeat `axiom upgrade` with the same archive to preview the resumable remaining effects", view)
 	case upgradeCategory(err) == "authority_denied":
@@ -339,6 +341,19 @@ func upgradeBlocked(preview install.Preview, category string) (string, string) {
 		return "Upgrade blocked before any further effect: " + category, "An interrupted upgrade to this archive is pending and existing Axiom state now blocks it; preserve the installation and state for operator review"
 	}
 	return "Upgrade blocked before any effect: " + category, upgradeNext(category)
+}
+
+// upgradeSkillReceiptPartial explains a confirmed upgrade whose Codex
+// skill-set receipt is not current: either the running binary could not prove
+// it is the candidate release (refresh_required), or the receipt in the skill
+// root is not one Axiom wrote and was preserved (conflict).
+func upgradeSkillReceiptPartial(result install.Result) (string, string) {
+	if result.SkillReceipt == install.SkillReceiptConflict {
+		return "Binary, receipt, and Codex skill files upgraded; the Codex skill-set receipt " + codexruntime.SkillSetReceiptName + " in the Codex skill root was not written by Axiom and was preserved",
+			"Review that file with `axiom runtime codex status`; if it is not yours, move it aside, then run `axiom first-run`"
+	}
+	return "Binary, receipt, and Codex skill files upgraded; the Codex skill-set receipt was not refreshed because this upgrade did not run as the candidate release",
+		"Run `axiom first-run` with the upgraded binary to refresh the skill-set receipt and converge every detected Runtime, or `axiom runtime codex install` when Codex is not on PATH"
 }
 
 func upgradeCategory(err error) string {
