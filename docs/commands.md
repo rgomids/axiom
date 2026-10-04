@@ -1319,8 +1319,43 @@ window is exactly persisted-state v1 (`direct`); absent state is also `direct`,
 and so is v1 state beside preserved POC workflow history, which the upgrade
 leaves unchanged.
 Recognized historical POC state selects `preserve_rebuild_reconfigure`, which
-this release does not execute yet, so it stops before any effect with
-`state_transition_unavailable`. Other state is refused before any effect as
+the upgrade executes before any installation effect (Issue #153):
+
+1. **Preserve.** Every inventoried object of the Projects and State roots is
+   copied into an Axiom-owned machine-local archive,
+   `<archive root>/recognized-poc-<source digest>/`, as
+   `objects/<sha256>` (content-addressed, `0600` in `0700` directories), each
+   re-read and verified from the destination. The archive root is `archive`
+   beside the installation receipt directory (`~/.local/state/axiom/archive`
+   for the default installer), or `AXIOM_ARCHIVE_ROOT` when set to an absolute
+   path; it must be private, owned by you and outside every Project, State and
+   Skills root, and may be on another filesystem (copy and verify, never a
+   cross-filesystem rename).
+2. **Prove.** `manifest.json` is written last and lists `policy`
+   (`recognized-poc-preservation/v1`), `sourceDigest`, and every object's
+   `category`, `relative`, `kind`, `sha256` and `bytes`, plus the `retired` and
+   `kept` sets. Nothing is retired until the manifest equals the revalidated
+   inventory, every listed object verifies, and the archive holds nothing
+   else; the verified manifest digest is then bound to the operation marker.
+3. **Rebuild and reconfigure.** Only historical workflow material is retired
+   from active state: `workflows/` records and the Work Item links the POC
+   workflow created. Installation records and portable `axiom.yaml`
+   manifests, which the current contract already validates, stay in place, so
+   the Project remains configured. The rebuilt root must resolve `direct`
+   (`valid_v1`) before the binary is replaced.
+
+The installer prints `install_preserved=<archive>` on success. The archive is
+historical material only: it is never read as active state, never promoted to
+an Execution, and never deleted by an upgrade; remove it yourself only when
+you no longer need it. Every boundary is resumable with the same archive under
+fresh exact authority (the marker records the archive and, after the first
+retirement, the verified manifest digest); a changed source, an archive that
+does not correspond, an unsafe or overlapping archive location, or missing
+space stops with no further retirement (`state_changed`,
+`preservation_conflict`, `preservation_target_unsafe`, `insufficient_space`).
+An equivalent rerun after success is a no-op. A caller without an archive
+location, or a resumed upgrade that was not authorized as a transition, stops
+before any effect with `state_transition_unavailable`. Other state is refused before any effect as
 `state_unsupported` (newer or outside the window), `state_unsafe` (foreign,
 modified, ambiguous, corrupt, or unsafe), or `state_recovery_required`
 (interrupted operation). Each refusal's next step is a product action, not a

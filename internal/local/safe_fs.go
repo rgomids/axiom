@@ -463,6 +463,12 @@ func (d AnchoredDirectory) Remove(name string) error {
 // directory entry.
 func (d AnchoredDirectory) Sync() error { return syncRoot(d.root) }
 
+// CanonicalPath resolves path's existing prefix through trusted system
+// aliases only (root-owned symlinks such as macOS /var -> /private/var),
+// reattaching any missing suffix literally. Other symlinks are kept and
+// refused later by the anchored open.
+func CanonicalPath(path string) (string, error) { return trustedCanonical(path) }
+
 // RootsOverlap resolves trusted system aliases before any root is created.
 func RootsOverlap(first, second string) (bool, error) {
 	a, err := trustedCanonical(first)

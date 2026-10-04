@@ -210,10 +210,9 @@ func (o observation) report() Report {
 		report.Classification, report.Reason = RecognizedPOC, "complete_poc_workflow_signature"
 		report.POCTag, report.POCRevision = HistoricalPOCTag, HistoricalPOCRevision
 		report.Next = []string{
-			"POC state is preserved; it is never migrated in place and POC workflow history does not become v1 state",
-			"Optional local preservation: `axiom compatibility backup --target <absent-directory>` and authorize the exact preview digest",
-			"Optional portable intent: `axiom compatibility export --target <absent-directory>` and authorize the exact preview digest",
-			"Configure clean v1 state in a separate LINGO_STATE_ROOT and run `axiom project configure` explicitly",
+			"Rerun the canonical installer (or `axiom upgrade`) for a newer release: it preserves this POC state in the Axiom archive, keeps the validated Project configuration and retires POC workflow history from active state automatically",
+			"POC workflow history is never migrated in place and never becomes current v1 state",
+			"Optional manual copies: `axiom compatibility backup` or `axiom compatibility export` with an exact preview digest",
 		}
 	case supported || skillState == codexruntime.SkillSetCurrent || skillState == codexruntime.SkillSetUpgradable:
 		report.Classification, report.Reason = ValidV1, "v1_readable_state"

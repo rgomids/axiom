@@ -22,8 +22,10 @@ for review and does not authorize implementation, migration effects, release,
 merge, or Issue closure.**
 **I153-T01 implementation: explicitly authorized by human instruction on
 2026-10-02 for I153-T01 only, and delivered by PR #161. I153-T02 and I153-T03
-remain not started and separately gated. Merge, release, and Issue #153 closure
-remain separately gated.**
+implementation: explicitly authorized by human instruction on 2026-10-04
+("implemente o que ainda estiver faltando" for Issue #153); implemented
+pending review (ADR-0017, [Issue #153 Evidence](evidence-153.md)). Merge,
+release, and Issue #153 closure remain separately gated.**
 **Issue #132 Tasks amendment (`I132-T01`–`I132-T03`): Approved — human approval
 recorded on 2026-09-30. The same explicit human instruction authorizes starting
 `I132-T01` implementation only. `I132-T02`/`I132-T03` remain separately gated.
@@ -1819,9 +1821,8 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
 - **Exclusions:** automatic downgrade, arbitrary historical migration, in-place
   POC workflow/Execution migration, new source-of-truth or ownership semantics.
 - **Status:** implementation explicitly authorized on 2026-10-02 and delivered by
-  PR #161 (pending review/merge). RecognizedPOC resolves to
-  preserve_rebuild_reconfigure and stops before mutation with
-  `state_transition_unavailable` until I153-T02 delivers its executor.
+  PR #161. Until I153-T02 delivered its executor, RecognizedPOC stopped before
+  mutation with `state_transition_unavailable`; it now runs the transition.
 
 ### I153-T02 — RecognizedPOC preserve, clean rebuild, and reconfiguration
 
@@ -1901,6 +1902,10 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
   removal is a separate explicit reference-aware cleanup action under existing
   safety/recovery contracts.
 
+- **Status:** implemented 2026-10-04 under explicit human authorization,
+  pending review ([ADR-0017](../../decisions/0017-recognized-poc-preservation-archive.md),
+  [Issue #153 Evidence](evidence-153.md)).
+
 ### I153-T03 — Upgrade regression, Evidence, and reconciliation
 
 - **Objective:** Prove the supported forward-upgrade contract end to end and
@@ -1938,6 +1943,10 @@ behavior without renumbering or rewriting the historical T01–T40 DAG.
     recovery records and final validation are retained without secrets/raw chat.
 - **Exclusions:** release publication, stable promotion, Issue closure, unrelated
   compatibility expansion.
+- **Status:** implemented 2026-10-04 under explicit human authorization,
+  pending review: `scripts/test-upgrade-journeys.sh` and the CI
+  `upgrade-journeys (linux|macos)` job; Evidence in
+  [evidence-153.md](evidence-153.md).
 
 ### Issue #153 acceptance traceability
 

@@ -597,12 +597,13 @@ step interrupted-upgrade-resumes bash -eo pipefail -c '
   grep -Fxq "install_status=unchanged" "$temporary/stdout"
 '
 # Persisted state goes through the candidate's centralized forward-transition
-# policy. Historical POC state selects a transition this release cannot run yet:
-# refused before any effect, with a product next step and no manual
-# compatibility command journey.
+# policy. Historical POC state selects the RecognizedPOC transition (#153):
+# the public bootstrap preserves it in the Axiom archive, retires the POC
+# workflow history, keeps the Project and upgrades, without any manual
+# compatibility command journey; a rerun is unchanged.
 home=$(new_home historical-poc-state)
 export home repository_root
-step historical-poc-state-refused-before-mutation bash -eo pipefail -c '
+step historical-poc-state-preserved-rebuilt-and-upgraded bash -eo pipefail -c '
   run_bootstrap "$home" --version v1.0.0
   case "$(uname -s)" in
     Darwin) state_root="$home/Library/Application Support/Lingo" ;;
@@ -614,12 +615,19 @@ step historical-poc-state-refused-before-mutation bash -eo pipefail -c '
   cp -R "$fixture/projects/." "$home/.axiom/projects"
   find "$state_root" "$home/.axiom" -type d -exec chmod 700 {} +
   find "$state_root" "$home/.axiom" -type f -exec chmod 600 {} +
-  refused "$home" "owned upgrade refused: Upgrade blocked before any effect: state_transition_unavailable" --version v1.1.0
-  grep -Fq "install_next: Existing Axiom state needs an automatic transition" "$temporary/stderr"
+  workflow=$(cd "$state_root" && find workflows -type f)
+  run_bootstrap "$home" --version v1.1.0
+  grep -Fxq "install_status=upgraded" "$temporary/stdout"
+  archive=$(sed -n "s/^install_preserved=//p" "$temporary/stdout")
+  [[ "$archive" == "$home/.local/state/axiom/archive/recognized-poc-"* && -f "$archive/manifest.json" ]]
+  [[ ! -e "$state_root/workflows" && ! -e "$state_root/work-items" ]]
+  if command -v sha256sum >/dev/null 2>&1; then sum=$(sha256sum "$fixture/state/$workflow"); else sum=$(shasum -a 256 "$fixture/state/$workflow"); fi
+  cmp -s "$fixture/state/$workflow" "$archive/objects/${sum%% *}"
+  cmp -s "$fixture/projects/poc-fixture/axiom.yaml" "$home/.axiom/projects/poc-fixture/axiom.yaml"
   ! grep -Fqi "compatibility inspect" "$temporary/stderr"
-  ! grep -Fqi "compatibility backup" "$temporary/stderr"
-  ! grep -Fqi "compatibility export" "$temporary/stderr"
-  [[ $(installed_version "$home") == 1.0.0 ]]
+  [[ $(installed_version "$home") == 1.1.0 ]]
+  run_bootstrap "$home" --version v1.1.0
+  grep -Fxq "install_status=unchanged" "$temporary/stdout"
 '
 home=$(new_home interrupted-install)
 export home

@@ -44,7 +44,7 @@
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "owner": "ci",
-      "purpose": "Required product checks on every pull request and main push: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job.",
+      "purpose": "Required product checks on every pull request and main push: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job; plus the upgrade-journeys acceptance job (not a required check).",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -63,7 +63,7 @@
       "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos/windows plus release-contract job",
       "outputs": "Required check contexts verify (linux|macos|windows) and release-contract; step failures fail the run",
       "local_effects": "runner workspace only",
-      "network_effects": "GitHub Actions checkout and setup-go; Go module download",
+      "network_effects": "GitHub Actions checkout and setup-go; Go module download; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1 from github.com release downloads",
       "authority": "contents: read token only; no secrets, no publication path",
       "tests": [
         "scripts/test-release-flow.sh"
@@ -1968,6 +1968,37 @@
       "authority": "none; read-only local checks",
       "tests": [],
       "evidence": "Requirement-tagged security case lines consumed by the S7/S9 acceptance Evidence.",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-upgrade-journeys.sh",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Release upgrade acceptance (Issues #153, #186): installs real earlier releases into isolated homes, creates non-empty state with their own commands (plus the frozen stable-v1 corpus) or historical POC state, upgrades through the candidate archive's own bundle facade, and asserts version, state, Runtime convergence, RecognizedPOC preservation and idempotent rerun.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "every CI upgrade-journeys run on linux and macos; maintainers before a release with locally built candidate archives",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "--candidate ABS_DIR (SHA256SUMS + archives of the candidate), --previous ABS_DIR (repeatable; first is release N), optional --poc-binary ABS_FILE (lingo built from v0.1.0-poc.1); reads internal/compatibility/testdata/stable-v1",
+      "outputs": "journey=<name> step=<step> result=pass|fail lines, failures=<n>, result=pass|fail; exit 1 on any failure, 78 on an unsupported host row, 2 on invalid input",
+      "local_effects": "temporary isolated HOME directories only, removed on exit; fake codex/claude/gh/git and a sw_vers shim for pre-ADR-0015 bundles on PATH",
+      "network_effects": "none (fake Providers; archives are passed in by the caller)",
+      "authority": "none; never touches the real home, credentials or a Provider",
+      "tests": [],
+      "evidence": "Prints per-step pass/fail lines; CI appends them to the job summary",
       "compatibility": [],
       "removal_condition": null
     },
