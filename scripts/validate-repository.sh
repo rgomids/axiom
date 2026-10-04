@@ -92,6 +92,7 @@ fi
 "$ROOT/scripts/validate-agent-package.sh" --maintainer-harness "$ROOT"
 "$ROOT/scripts/test-validate-agent-package.sh"
 "$ROOT/scripts/test-check-claude-bootstrap.sh"
+"$ROOT/scripts/test-maintainer-agent.sh"
 "$ROOT/scripts/test-check-sensitive-files.sh"
 "$ROOT/scripts/check-sensitive-files.sh" "$ROOT"
 git -C "$ROOT" diff --check
