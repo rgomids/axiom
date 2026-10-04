@@ -1700,8 +1700,6 @@ check 'axiom-release skill exists and is routed' bash -c "grep -Fxq 'name: axiom
 check 'skill publishes only through release.sh after human authorization' bash -c "grep -Fq 'scripts/release.sh publish' '$skill' && grep -Fq -- '--authorize-publication' '$skill' && ! grep -Eiq 'gh release (create|upload|edit|delete)|git tag|git push .*--tags|pending_deployments|--force' '$skill'"
 check 'skill is not a product Runtime skill' bash -c "[[ ! -e '$repository_root/internal/codexruntime/skills/axiom-release' ]]"
 
-check 'recovery notes compare Markdown literally and refuse drift' "$repository_root/scripts/test-release-notes-comparison.sh"
-
 # --- Pinned recovery: original artifacts, independent append-only metadata ---
 # Everything here stays inside the local Git/fake GitHub fixtures.
 check 'recovery workflows keep source checkout and pin separate control checkout' bash -c "
@@ -1734,7 +1732,7 @@ rbase=$(rcommit 'chore(main): release 0.2.1')
 rfeat=$(rcommit 'feat(site): add landing page' 'Related-Issues: #86\nCompletes-Issues: #86\n')
 rdocs=$(rcommit 'docs: reconcile forward compatibility contract for #153')
 printf '{".":"0.3.0"}\n' >"$rfix/.release-please-manifest.json"
-printf '# Changelog\n\n## [0.3.0](https://github.com/rgomids/axiom/compare/v0.2.1...v0.3.0) (2026-10-02)\n\n### Features\n\n* **site:** add landing page [#158](https://example.invalid/158) with [literal] glob text\n' >"$rfix/CHANGELOG.md"
+printf '# Changelog\n\n## [0.3.0](https://github.com/rgomids/axiom/compare/v0.2.1...v0.3.0) (2026-10-02)\n\n### Features\n\n* **site:** add landing page [#158](https://example.invalid/158) with [literal] glob text, *, ? and \\ backslash\n' >"$rfix/CHANGELOG.md"
 rsource=$(rcommit 'chore(main): release 0.3.0 (#160)')
 printf '%s related=153 completes=none\n' "$rdocs" >"$rfix/.github/delivery-corrections.txt"
 # Deliberately make the control artifact verifier unusable: verification must
@@ -1859,6 +1857,46 @@ jq '.immutable = true' "$rpublished_record" >"$temporary/rimmutable"
 cp "$temporary/rimmutable" "$rpublished_record"
 release verify --tag v0.3.0 --download --repair-revision "$rrepair" >"$temporary/rdownload"
 check 'download verification discovers published pins and verifies original source bytes' bash -c "grep -Fxq artifacts_verified=pass '$temporary/rdownload' && grep -Fxq result=pass '$temporary/rdownload' && grep -Fxq corrections_revision=$rcontrol '$temporary/rdownload'"
+
+# Recovery notes equality is literal on both read-back paths of the published
+# release: against the prepared notes (local set) and against notes the pinned
+# inputs regenerate (no local set). The fixture notes carry a Markdown link,
+# bracket expressions, '*', '?' and a backslash; only the published body varies.
+rnotes_check=("$rfix/scripts/publish-release.sh" --check --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" --make-latest true)
+rnotes_local=(--dir "$temporary/rset/artifacts" --evidence "$temporary/rset/evidence.txt" --notes "$temporary/rset/notes.md")
+cp "$rpublished_record" "$temporary/rnotes-record.json"
+rnotes_body() { jq "$1" "$temporary/rnotes-record.json" >"$rpublished_record"; }
+# glob_case TEXT_FILE PATTERN_FILE: TEXT differs literally from PATTERN, yet
+# an unquoted Bash comparison would accept it: the defect this case guards.
+glob_case() {
+  local text pattern
+  text=$(cat "$1")
+  pattern=$(cat "$2")
+  # shellcheck disable=SC2053 # deliberately a pattern match
+  [[ "$text" != "$pattern" && $text == $pattern ]]
+}
+jq -r .body "$temporary/rnotes-record.json" >"$temporary/rnotes-published"
+check 'recovery notes fixture carries a Markdown link and glob metacharacters' bash -c "
+  grep -Fq '[#158](https://example.invalid/158)' '$temporary/rnotes-published' &&
+  grep -Fq '[literal] glob text, *, ? and \\ backslash' '$temporary/rnotes-published'"
+check 'identical Markdown recovery notes pass against prepared notes' "${rnotes_check[@]}" "${rnotes_local[@]}"
+check 'identical Markdown recovery notes pass against pinned inputs' "${rnotes_check[@]}"
+rnotes_body '.body += "\nchanged"'
+expect_failure 'changed published recovery notes refuse against prepared notes' 'published recovery notes differ from prepared notes' \
+  "${rnotes_check[@]}" "${rnotes_local[@]}"
+expect_failure 'changed published recovery notes refuse against pinned inputs' 'published recovery notes differ from pinned inputs' \
+  "${rnotes_check[@]}"
+# Collapse each bracket expression to its first member and drop backslashes:
+# different text that the original notes match as a Bash pattern.
+rnotes_body '.body |= (gsub("\\[(?<c>[^\\]])[^\\]]*\\]"; "\(.c)") | gsub("\\\\"; ""))'
+jq -r .body "$rpublished_record" >"$temporary/rnotes-glob"
+check 'glob-case notes differ literally but match the prepared notes as a pattern' \
+  glob_case "$temporary/rnotes-glob" "$temporary/rset/notes.md"
+expect_failure 'different notes matching a glob pattern refuse against prepared notes' 'published recovery notes differ from prepared notes' \
+  "${rnotes_check[@]}" "${rnotes_local[@]}"
+expect_failure 'different notes matching a glob pattern refuse against pinned inputs' 'published recovery notes differ from pinned inputs' \
+  "${rnotes_check[@]}"
+cp "$temporary/rnotes-record.json" "$rpublished_record"
 
 # Model the partial production failure: release bytes exist, Issue record and
 # Release PR handoff have not happened. Only fixture provider data is changed.

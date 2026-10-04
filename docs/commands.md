@@ -814,14 +814,10 @@ configuration, and the workflows' triggers, permissions and pins:
 ./scripts/test-release-flow.sh
 ```
 
-Run the focused recovery-notes regression without GitHub: identical Markdown
-must compare literally, and changed notes must refuse even when they match a
-Bash glob pattern. The full suite above also runs this check and covers
-publication/download with Markdown links in recovered release notes.
-
-```bash
-./scripts/test-release-notes-comparison.sh
-```
+The same suite covers recovered release notes: published notes with Markdown
+links and glob characters compare literally against both the prepared notes and
+the notes regenerated from the pinned inputs, and changed notes refuse even
+when they match a Bash glob pattern.
 
 Published immutable recovery releases may opt in to `--repair-revision <full SHA>`
 for `status`, `verify` and `publish`, preserving the original metadata pins and

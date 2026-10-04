@@ -1751,40 +1751,6 @@
       "removal_condition": null
     },
     {
-      "path": "scripts/test-release-notes-comparison.sh",
-      "kind": "script",
-      "owner": "release",
-      "purpose": "Exercises the recovery notes comparison lines of publish-release.sh to prove Markdown and glob characters compare literally and drift is refused.",
-      "lifecycle": "durable",
-      "disposition": "replace",
-      "disposition_ref": "#168 T07",
-      "runtime": [
-        "bash"
-      ],
-      "scope": [
-        "test"
-      ],
-      "trigger": "Run as a check inside test-release-flow.sh on every CI release-contract job run",
-      "replay_reason": null,
-      "callers": [
-        "scripts/test-release-flow.sh"
-      ],
-      "inputs": "none; extracts two comparison lines from scripts/publish-release.sh and evals them",
-      "outputs": "ok: lines; non-zero exit when a comparison accepts changed notes",
-      "local_effects": "temporary directories only",
-      "network_effects": "none",
-      "authority": "none",
-      "tests": [],
-      "evidence": null,
-      "compatibility": [
-        {
-          "relation": "extracts comparison lines from",
-          "path": "scripts/publish-release.sh"
-        }
-      ],
-      "removal_condition": "Remove after behavioral recovery-notes cases (Markdown/glob/different-note) exist in the release-flow fixture harness, replacing source extraction and eval (#168 T07)"
-    },
-    {
       "path": "scripts/test-release-pipeline.sh",
       "kind": "script",
       "owner": "release",
