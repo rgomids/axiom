@@ -111,3 +111,35 @@ All on this branch, clean worktree:
   locally. Windows `fresh_windows_test.go` compiles (`GOOS=windows go vet`).
 - Upgrading from published releases is a manual matrix here; the automated
   published-release upgrade acceptance is delivered with Issue #153 I153-T03.
+
+## CR-001 — Windows partial diagnostics (2026-10-04)
+
+The Windows facade previously treated every `partial` as a skill-set receipt
+failure. It now uses `errors.As` and explicitly accepts only
+`skill_receipt_refresh_required` and `skill_receipt_conflict`. Other errors
+retain the generic error path, original cause, `install_status=partial` and
+exit 1, without a false `axiom first-run` recommendation. POSIX is unchanged.
+The Windows result presentation is extracted unchanged in shape into a
+platform-independent helper so every CI host exercises this boundary.
+
+`TestWindowsInstallReleasePartialCause` covers both supported receipt causes,
+a wrapped typed error, marker failures, target changes, cancellation and an
+unknown receipt category. Before the correction, extracting the exact result
+handling from `4d2bc6a` without changing its logic made the non-receipt cases
+fail with the false receipt diagnosis; after the category guard they pass.
+
+Native Windows regressions also exercise real installer mechanics:
+`TestWindowsInstallReleaseReceiptPartialCategories` checks receipt-only
+partials, and `TestWindowsUpgradePartialPreservesNonReceiptCauseAndLedger`
+uses the existing after-effect seam to replace the fixture marker with a
+nonempty directory. Final cleanup returns `marker_cleanup_failed` with two
+confirmed ledger entries and the candidate binary on disk; recovery preserves
+a non-receipt error. Presentation coverage checks that same cleanup category.
+
+Local checks: `go test ./...`, `go test -race ./...`, `go vet ./...`,
+`go build ./...`, `go mod verify`, `gofmt -l .` (empty), repository validator,
+`git diff --check` and Gitleaks passed. Windows packages were cross-compiled
+and vetted; cross-compilation does not execute Windows tests. A temporary Go
+overlay also exercised the Windows installer sources/tests on macOS, resolving
+the fixture temp path and applying private POSIX permissions only in that
+uncommitted overlay. Native Windows verification belongs to the final-head CI.

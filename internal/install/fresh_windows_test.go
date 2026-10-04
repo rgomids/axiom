@@ -3,18 +3,24 @@ package install
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/compatibility"
 	"github.com/rgomids/axiom/internal/local"
 )
 
 func windowsCandidate(t *testing.T, version string) Candidate {
 	t.Helper()
-	b := newBundle(version, []byte("Windows binary "+version))
+	return windowsBundleCandidate(t, newBundle(version, []byte("Windows binary "+version)))
+}
+
+func windowsBundleCandidate(t *testing.T, b *bundle) Candidate {
+	t.Helper()
 	metadata := string(b.contents()["release-metadata.txt"])
 	metadata = strings.NewReplacer("platform=macos-27", "platform=windows", "goos=darwin", "goos=windows", "architecture=arm64", "architecture=amd64").Replace(metadata)
 	b.files["release-metadata.txt"] = []byte(metadata)
@@ -107,5 +113,102 @@ func TestWindowsFreshInstallFinalizesExactInterruptedReceipt(t *testing.T) {
 	root.Close()
 	if status, err := InstallRelease(context.Background(), target, candidate); err != nil || status != "installed" {
 		t.Fatalf("resume: %s %v", status, err)
+	}
+}
+
+func TestWindowsUpgradePartialPreservesNonReceiptCauseAndLedger(t *testing.T) {
+	target := windowsTarget(t)
+	if status, err := InstallRelease(context.Background(), target, windowsCandidate(t, "1.0.0")); err != nil || status != "installed" {
+		t.Fatalf("fresh: %s %v", status, err)
+	}
+	candidate := windowsCandidate(t, "1.1.0")
+	service := NewService()
+	preview, err := service.Preview(context.Background(), target, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authority, err := Authorize(preview, preview.Digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.afterEffect = func(kind string) error {
+		if kind == "binary" {
+			// Replace only this fixture's marker with a nonempty directory
+			// so final cleanup fails after confirmed binary and receipt effects.
+			marker := filepath.Join(target.ReceiptDir, markerName)
+			if err := os.Remove(marker); err != nil {
+				return err
+			}
+			if err := os.Mkdir(marker, 0o700); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(marker, "blocker"), []byte("fixture"), 0o600)
+		}
+		return nil
+	}
+	result, err := service.Apply(context.Background(), preview, authority)
+	if category(err) != "marker_cleanup_failed" || result.Status != "partial" || result.SkillReceipt != "" || len(result.Ledger) != 2 {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	for _, entry := range result.Ledger {
+		if !entry.Confirmed {
+			t.Fatalf("unconfirmed ledger: %+v", result.Ledger)
+		}
+	}
+	wire, readErr := os.ReadFile(filepath.Join(target.BinaryDir, binaryName))
+	if readErr != nil || !bytes.Equal(wire, candidate.Binary) {
+		t.Fatalf("binary: %v", readErr)
+	}
+	// InstallRelease must preserve a real service error rather than synthesize
+	// a skill-receipt error. This interrupted marker remains recovery evidence.
+	_, err = InstallRelease(context.Background(), target, candidate)
+	var installErr *Error
+	if !errors.As(err, &installErr) || strings.HasPrefix(installErr.Category, "skill_receipt_") {
+		t.Fatalf("recovery cause lost: %v", err)
+	}
+}
+
+func TestWindowsInstallReleaseReceiptPartialCategories(t *testing.T) {
+	for _, receipt := range []string{SkillReceiptRefreshRequired, SkillReceiptConflict} {
+		t.Run(receipt, func(t *testing.T) {
+			target := windowsTarget(t)
+			first := windowsCandidate(t, "1.0.0")
+			if _, err := InstallRelease(context.Background(), target, first); err != nil {
+				t.Fatal(err)
+			}
+			target.SkillsRoot = filepath.Join(filepath.Dir(target.ReceiptDir), "skills")
+			root, err := local.CreateOwnedDirectory(target.SkillsRoot)
+			if err != nil {
+				t.Fatal(err)
+			}
+			root.Close()
+			for name, wire := range first.SkillFiles {
+				directory, err := local.CreateOwnedDirectory(filepath.Join(target.SkillsRoot, name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				err = directory.CreateExclusive("SKILL.md", wire, 0o600)
+				directory.Close()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if receipt == SkillReceiptConflict {
+				writeFile(t, filepath.Join(target.SkillsRoot, codexruntime.SkillSetReceiptName), []byte("foreign receipt\n"), 0o600)
+			}
+			next := windowsCandidate(t, "1.1.0")
+			if receipt == SkillReceiptConflict {
+				next = windowsBundleCandidate(t, selfBundle(t, "1.1.0"))
+				target.Self = selfBuildFor("1.1.0")
+			}
+			status, err := InstallRelease(context.Background(), target, next)
+			if status != "partial" || category(err) != "skill_receipt_"+receipt {
+				t.Fatalf("status=%s err=%v", status, err)
+			}
+			wire, readErr := os.ReadFile(filepath.Join(target.BinaryDir, binaryName))
+			if readErr != nil || !bytes.Equal(wire, next.Binary) {
+				t.Fatalf("binary: %v", readErr)
+			}
+		})
 	}
 }
