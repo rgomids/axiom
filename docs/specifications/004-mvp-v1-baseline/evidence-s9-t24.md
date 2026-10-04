@@ -67,8 +67,8 @@ remain unobserved in this checkpoint.
 
 ## Harness and first authority envelope
 
-Added [test-s9-rc-acceptance.sh](../../../scripts/test-s9-rc-acceptance.sh)
-and its [collector](../../../scripts/s9-rc-evidence.py). The collector is
+Added [test-s9-rc-acceptance.sh](https://github.com/rgomids/axiom/blob/9c0c5fa94d7805914000b2e3a3481bd923080e56/scripts/test-s9-rc-acceptance.sh)
+and its [collector](https://github.com/rgomids/axiom/blob/9c0c5fa94d7805914000b2e3a3481bd923080e56/scripts/s9-rc-evidence.py). The collector is
 maintainer tooling, bound to this exact candidate. Default mode writes a private
 plan, envelope, manifest and acceptance checkpoint without starting subprocesses.
 It never marks T24/T25 complete. Failed actions retain their exit, bounded output,

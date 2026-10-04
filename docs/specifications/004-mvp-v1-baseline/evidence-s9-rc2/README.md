@@ -78,15 +78,24 @@ the repository yet; it belongs to the release flow's own Evidence.
 | Single stage (install, version, first-run neither, reinstall) | **Extended** to the full local matrix (below) |
 | `rc.1` plan/envelope `5807ece1…` and earlier plan dirs | **Superseded, preserved**; cannot authorize the new collector (collector bytes are hash-bound) |
 | [coverage.json](../evidence-s9-rc/coverage.json) (190 rows) | **Reusable as the row list**; its candidate binding is `rc.1`, so every row still needs `rc.2` Evidence. Not rewritten |
-| T36 lab runner (`axiom-e2e-lab/artifacts/runner/main.go`, SHA-256 `7761179b…c467`, outside the repo) | **Structure reused**: ported into the reviewable [s9-graph-runner.go](../../../../scripts/s9-graph-runner.go); T36 Evidence itself is another revision and is not reused |
+| T36 lab runner (`axiom-e2e-lab/artifacts/runner/main.go`, SHA-256 `7761179b…c467`, outside the repo) | **Structure reused**: ported into the reviewable [s9-graph-runner.go](https://github.com/rgomids/axiom/blob/6388f424220fc26ce8970eb08c107904db565b50/scripts/s9-graph-runner.go); T36 Evidence itself is another revision and is not reused |
 | `rc.1` dogfood (Issue #117 / PR #118) | Context only; it proved the `rc.1` defects and does not count for `rc.2` |
 | Finding: `test-s7-native.sh` required `ubuntu:26.04:ext4` | **Fixed** (tooling): any Linux on native ext4, distribution recorded, not filtered (Specification platform reconciliation) |
 | Finding: primary checkout `.claude` directory fails repository validation | Not re-observed in this worktree; unchanged |
 
 ## Harness (maintainer tooling; no product code changed)
 
-- [s9-rc-evidence.py](../../../../scripts/s9-rc-evidence.py) (via
-  [test-s9-rc-acceptance.sh](../../../../scripts/test-s9-rc-acceptance.sh)):
+> **Relocation note (Issue #168; added after this record, not part of it).**
+> Paths and commands in this record are historical. Tooling links point at
+> merge commit `6388f42`, whose tooling bytes equal the final recorded
+> `toolingRevision` `62bb91c` (each D run's own revision is in `execution/`);
+> replay uses the pinned revision. Current maintainer tooling lives in
+> `scripts/acceptance/` with byte-identical executor and collector, so the B–F
+> `toolingSHA256` bindings still hold. The `test-s9-rc-acceptance.sh` alias was
+> removed: invoke `python3 scripts/acceptance/s9-rc-evidence.py` directly.
+
+- [s9-rc-evidence.py](https://github.com/rgomids/axiom/blob/6388f424220fc26ce8970eb08c107904db565b50/scripts/s9-rc-evidence.py) (via
+  [test-s9-rc-acceptance.sh](https://github.com/rgomids/axiom/blob/6388f424220fc26ce8970eb08c107904db565b50/scripts/test-s9-rc-acceptance.sh)):
   `--version vX.Y.Z-rc.N` exact pin only (floating/channel values refused),
   `--candidate`/`--prior-candidate` descriptors, every process materialized in
   the envelope as ordered steps. Stage A covers: native filesystem fact
@@ -99,7 +108,7 @@ the repository yet; it belongs to the release flow's own Evidence.
   with unchanged inventory, **owned upgrade** `rc.1 → rc.2` and **downgrade
   refusal**. Runtime executables are placed on a private PATH by symlink for
   detection and never executed (first-run resolves PATH only).
-- [s9-rc-envelope.py](../../../../scripts/s9-rc-envelope.py): executes exactly one
+- [s9-rc-envelope.py](https://github.com/rgomids/axiom/blob/6388f424220fc26ce8970eb08c107904db565b50/scripts/s9-rc-envelope.py): executes exactly one
   phase of a reviewed envelope when the authorized envelope digest matches, the
   executor/collector bytes match the envelope, and the human supplies exactly
   the parameters that phase declares (preview digests, Issue number, revisions).
@@ -107,7 +116,7 @@ the repository yet; it belongs to the release flow's own Evidence.
   automatic attempt; a later attempt requires the failed ledger and is refused
   while any declared external effect is `unknown` (timeout/capture failure).
   Never marks T24/T25 complete; human decision stays PENDING.
-- [s9-graph-runner.go](../../../../scripts/s9-graph-runner.go) (`//go:build ignore`):
+- [s9-graph-runner.go](https://github.com/rgomids/axiom/blob/6388f424220fc26ce8970eb08c107904db565b50/scripts/s9-graph-runner.go) (`//go:build ignore`):
   the published CLI has no Execution Graph surface (T36 finding 6), so T24 drives
   `internal/graphapplication` exactly as T36 did, built only from a checkout whose
   `cmd/ internal/ go.mod go.sum` equal `859969a` (checked in D1). Modes
