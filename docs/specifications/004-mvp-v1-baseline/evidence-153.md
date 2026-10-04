@@ -192,3 +192,107 @@ Required contexts remain unchanged: verify Linux/macOS/Windows, release-contract
 delivery-metadata and upgrade-journeys Linux/macOS. Historical cross-filesystem,
 full-volume and real Runtime results above were not rerun by this correction
 validation and are not claimed as new Evidence.
+
+## CR-005 — identity-aware POC Work Item retirement (2026-10-04)
+
+New executable correction source:
+`a72f5f069873898cb668c3b987a9b54e365661b0`. Subsequent test/journey refinement
+and this Evidence preserve that production implementation. Previous reviewed PR
+head: `ad87fe6398ce9d47808042006e8f7fd96a18f545`.
+
+The frozen POC workflow persists Project ID, repository key and Work Item
+number, but no provider/resource. Local decoding exposes these validated facts
+and binds workflow/link payloads to their real store locations. Compatibility
+policy requires exactly one validated link with that complete historical
+reference. Zero matches, multiple provider resources or conflicting locations
+refuse with `state_changed` before preservation/retirement. Archive identity
+failures refuse with `preservation_conflict`. No timestamp, filename heuristic,
+create-attempt inference or general classification change is used.
+
+The original retirement set is calculated from source bytes before copying,
+and recalculated from verified archived bytes during resume and final archive
+verification. Canonical manifest generation and exact active inventory use that
+same set; confirmed progress covers only historical objects. All other validated
+Work Item links are kept, without changing coordination, pruning or marker v2.
+
+### New deterministic regressions
+
+All five tests below were executed in `internal/install`:
+
+- `TestRecognizedPOCUpgradeKeepsUnrelatedWorkItemLinks`: real
+  `WorkItemStore.Save` writes #42 in the same Project/repository as POC #7,
+  without a create attempt. Classification remains `RecognizedPOC` before
+  preview/authorize/apply. Only workflow/link #7 retire; #42 stays byte-exact,
+  `WorkItemStore.Load` succeeds, and the nonempty `work-items/<project>`
+  directory survives cleanup. Final classification is `ValidV1`. Every original
+  object remains in the verified archive; retired/kept arrays exactly match
+  policy. Its second variant adds workflow #8 and a real #8 link: both historical
+  pairs retire while #42 stays. The frozen store supports multiple workflows
+  addressed by repository key/number; no single-workflow restriction is invented.
+- `TestRecognizedPOCUpgradeRefusesUnprovedWorkItemMembership`: workflow #7
+  with only unrelated #42 refuses with no effects and unchanged active bytes;
+  two #7 links across provider resources also refuse without mutation.
+- `TestRecognizedPOCUpgradeRefusesIdentityLocationMismatch`: decodable workflow
+  and link payloads under wrong filenames or Project directories cannot authorize
+  retirement; all four cases leave the complete installation snapshot unchanged.
+- `TestRecognizedPOCResumeRefusesMissingKeptWorkItemLink`: after the first
+  confirmed historical retirement, disappearance of kept #42 blocks resume;
+  no further retirement or installation effect occurs.
+- `TestRecognizedPOCResumeRefusesKeptWorkItemReclassifiedAsRetired`: swapping
+  #42 from kept to retired and #7 from retired to kept in the archived manifest
+  fails canonical verification before retirement; #42 remains active.
+
+Baseline refutation used `go test -overlay <temporary-overlay.json>
+./internal/install -run 'TestRecognizedPOC(UpgradeKeepsUnrelatedWorkItemLinks|
+UpgradeRefusesUnprovedWorkItemMembership|ResumeRefusesMissingKeptWorkItemLink|
+UpgradeRefusesIdentityLocationMismatch|ResumeRefusesKeptWorkItemReclassifiedAsRetired)$'
+-count=1`, replacing only `preservation.go` with the previous reviewed head's
+version. Baseline failed: it retired #42, accepted missing/ambiguous membership
+and misplaced payloads, and removed #42 before the interrupted resume. The
+manifest-swap test's later stronger precondition was not part of that baseline
+capture. The final tests pass without the overlay.
+
+### Published-version journey
+
+The updated `scripts/test-upgrade-journeys.sh` ran actual historical POC source
+through published v0.4.1 to candidate `0.4.2-review.188.2`, plus the existing v1
+and v0.1.1 skill-convergence journeys: **48 passing checks, failures=0**.
+Providers and Runtime executables remain deterministic stand-ins; no external
+GitHub operation or release publication occurs.
+
+v0.4.1 cannot publish an edit adding a capability to the capability-free POC
+Project. Therefore the CLI journey creates a separate v1 Project in the same
+state root, selects #42 through real `work-item select` preview/authority, and
+proves classification stays `RecognizedPOC`. Candidate upgrade proves #42's exact
+bytes, `work-item show`, manifest kept membership, two historical retirements,
+valid v1 active state, complete archive and unchanged idempotent rerun. The
+stricter same-Project/repository case is proved by the real-store Go regression
+above, rather than fabricating an unsupported old CLI edit.
+
+### CR-005 local validation
+
+| Check | Result |
+|---|---|
+| `gofmt -l .` | exit 0, empty |
+| `go test ./...` | exit 0, including final #42-only regression refinement |
+| `go test -race ./...` | exit 0, including final regression refinement |
+| `go test ./internal/compatibility ./internal/install ./internal/local ./internal/workitem -count=1` | exit 0 |
+| `go test ./internal/local ./internal/compatibility ./internal/install ./cmd/lingo -run 'HistoricalRetirement\|RecognizedPOC\|Preservation\|WindowsInstallRelease' -count=1` | exit 0; affected CR-001–CR-004 locking, exact inventory, canonical manifest and Windows installer regressions reexecuted |
+| `go test ./internal/install -run TestRecognizedPOCUpgradeRefusesUnprovedWorkItemMembership -count=1` | exit 0 after explicitly adding #42-only case |
+| `go vet ./...`; `go build ./...`; `go mod verify` | exit 0, all modules verified |
+| `./scripts/validate-repository.sh .` | exit 0; real Runtime behavioral scenarios explicitly skipped, not claimed |
+| `./scripts/test-release-flow.sh` | exit 0; preflight, state machine, authority and workflow contracts pass |
+| `./scripts/test-install-bootstrap.sh` | exit 0 on committed correction source `a72f5f0`; failures=0; POC transition, concurrent install and interrupted-upgrade resume pass |
+| `bash -n scripts/test-upgrade-journeys.sh` | exit 0 |
+| `./scripts/build-release-archives.sh --version 0.4.2-review.188.2 --output <private temporary candidate>` | exit 0 on clean source `a72f5f0` |
+| `./scripts/test-upgrade-journeys.sh --candidate <0.4.2-review.188.2> --previous <v0.4.1> --previous <v0.1.1> --poc-binary <historical POC build>` | exit 0; 48 passing checks, failures=0, with final journey refinement |
+| `gitleaks dir . --no-banner --redact`; staged Gitleaks and sensitive-file checks before the executable correction commit | exit 0, no leaks |
+| `git diff --check` | exit 0 |
+
+Delegation isolated regression implementation and independent adversarial review;
+main session integrated and validated results. Review identified one missing
+#42-only test precondition, corrected and reexecuted above; no remaining
+production finding was identified. Final pushed-head CI and human re-review
+remain separate gates. This correction does not claim new native Windows,
+real Provider/Runtime, full-volume or cross-filesystem Evidence beyond the
+checks actually executed here.

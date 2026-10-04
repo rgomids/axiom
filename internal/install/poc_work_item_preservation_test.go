@@ -181,6 +181,7 @@ func TestRecognizedPOCUpgradeRefusesUnprovedWorkItemMembership(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			installed := pocInstallation(t)
 			if name == "missing matching link" {
+				saveTransitionLink(t, installed, 42, "owner/repo")
 				if err := os.Remove(installed.workItem()); err != nil {
 					t.Fatal(err)
 				}

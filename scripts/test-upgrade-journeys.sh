@@ -215,13 +215,24 @@ if [[ -n "$poc_binary" ]]; then
   check poc-creates-state seed_poc
   check install-previous install_release "${previous[0]}"
   check previous-classifies-recognized-poc test "$(classification)" = recognized_poc
+  # N cannot publish edits to the capability-free historical Project.
+  # Configure a separate v1 Project in the same state root through N.
+  configure_v1_provider() {
+    local configuration_digest configuration_id
+    (cd "$H/cwd" && axiom --json project configure --slug v1-selected --name "V1 Selected" --repository "main=$H/repo" --work-item-provider github) >"$work/provider-preview.json"
+    configuration_id=$(sed -n 's/.*"projectId":"\([^"]*\)".*/\1/p' "$work/provider-preview.json")
+    configuration_digest=$(sed -n 's/.*"digest":"\([^"]*\)".*/\1/p' "$work/provider-preview.json")
+    (cd "$H/cwd" && axiom --json project configure --project-id "$configuration_id" --slug v1-selected --name "V1 Selected" --repository "main=$H/repo" --work-item-provider github --preview-digest "$configuration_digest" --authorize-local) >"$work/provider.json"
+    grep -q '"status":"success"' "$work/provider.json" || { cat "$work/provider-preview.json" "$work/provider.json"; return 1; }
+  }
+  check previous-configures-v1-provider configure_v1_provider
   # CR-005: select writes a legitimate v1 link without a create attempt,
   # leaving the POC classification intact. Use the installed release's CLI.
   select_v1_link() {
     local selection_digest
-    (cd "$H/cwd" && axiom --json work-item select --project poc-project --repository main --provider-repository owner/repo --number 42) >"$work/selection-preview.json"
+    (cd "$H/cwd" && axiom --json work-item select --project v1-selected --repository main --provider-repository owner/repo --number 42) >"$work/selection-preview.json"
     selection_digest=$(sed -n 's/.*"digest":"\([^"]*\)".*/\1/p' "$work/selection-preview.json")
-    (cd "$H/cwd" && axiom --json work-item select --project poc-project --repository main --provider-repository owner/repo --number 42 --preview-digest "$selection_digest" --authorize-local) >"$work/selection.json"
+    (cd "$H/cwd" && axiom --json work-item select --project v1-selected --repository main --provider-repository owner/repo --number 42 --preview-digest "$selection_digest" --authorize-local) >"$work/selection.json"
     grep -q '"status":"success"' "$work/selection.json"
   }
   check previous-selects-v1-link select_v1_link
@@ -262,7 +273,7 @@ PY
   check rebuilt-state-valid-v1 test "$(classification)" = valid_v1
   check selected-link-byte-identical test "$(digest "$selected_file")" = "$selected_digest"
   selected_link_loads() {
-    (cd "$H/cwd" && axiom --json work-item show --project poc-project --repository main --provider-repository owner/repo --number 42) >"$work/selected-link.json"
+    (cd "$H/cwd" && axiom --json work-item show --project v1-selected --repository main --provider-repository owner/repo --number 42) >"$work/selected-link.json"
     grep -q '"status":"success"' "$work/selected-link.json"
   }
   check selected-link-loads selected_link_loads
