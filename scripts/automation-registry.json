@@ -1,0 +1,2381 @@
+{
+  "schema_version": 1,
+  "policy": ".agents/policies/repository-automation.md",
+  "capabilities": {
+    "agent-factory": "Generated agent package validation and runtime skill contracts.",
+    "architecture-verification": "Go dependency-boundary checkers for product layers.",
+    "ci": "Required-check workflow orchestration.",
+    "cli-e2e": "Isolated end-to-end dogfooding of the public CLI.",
+    "compatibility": "Persisted-state and historical fixture reproduction.",
+    "delivery": "GitHub delivery metadata and Issue/Project projection.",
+    "installation": "Bootstrap, release installers and source installation.",
+    "maintainer-acceptance": "S7/S9 acceptance tooling and historical acceptance Evidence companions.",
+    "maintainer-harness": "Maintainer bootstrap, Claude skill adapters and cross-runtime maintainer parity (ADR-0014).",
+    "release": "Release planning, preparation, publication and recovery.",
+    "repository-validation": "Aggregate repository and harness checks, including automation governance.",
+    "security": "Sensitive-file and secret scanning.",
+    "site": "Landing page validation and deployment."
+  },
+  "excluded_scopes": [
+    {
+      "path": "cmd/",
+      "extensions": [
+        ".go"
+      ],
+      "reason": "Lingo CLI product code, governed by Go build/test, Specifications and ADRs rather than as repository automation."
+    },
+    {
+      "path": "internal/",
+      "extensions": [
+        ".go"
+      ],
+      "reason": "Axiom product packages and their tests, governed by Go build/test, Specifications and ADRs rather than as repository automation."
+    },
+    {
+      "path": "site/",
+      "extensions": [
+        ".js"
+      ],
+      "reason": "Landing page browser JavaScript loaded by site/index.html; site code validated by scripts/validate-landing-page.sh."
+    }
+  ],
+  "entries": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "kind": "workflow",
+      "owner": "ci",
+      "purpose": "Required product checks on every pull request and main push: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "pull_request, push to main, and workflow_dispatch (dispatched by release-pr-checks.sh for the Release PR branch)",
+      "replay_reason": null,
+      "callers": [
+        "scripts/release-pr-checks.sh"
+      ],
+      "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos/windows plus release-contract job",
+      "outputs": "Required check contexts verify (linux|macos|windows) and release-contract; step failures fail the run",
+      "local_effects": "runner workspace only",
+      "network_effects": "GitHub Actions checkout and setup-go; Go module download",
+      "authority": "contents: read token only; no secrets, no publication path",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/delivery-metadata.yml",
+      "kind": "workflow",
+      "owner": "delivery",
+      "purpose": "Validate PR title and Related-Issues/Completes-Issues metadata, refuse GitHub closing links, and accept only the bot-authored Release PR head on dispatch.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "pull_request opened/edited/reopened/synchronize; workflow_dispatch for the Release PR branch",
+      "replay_reason": null,
+      "callers": [
+        "scripts/release-pr-checks.sh"
+      ],
+      "inputs": "PR title/body via env vars, base-revision checkout, dispatch branch/sha/actor",
+      "outputs": "delivery-metadata check pass/fail; step summary; failure on invalid metadata or closing links",
+      "local_effects": "runner workspace only",
+      "network_effects": "GitHub API via gh/GraphQL (read-only: pulls, closingIssuesReferences)",
+      "authority": "permissions contents: read, pull-requests: read; no secrets; validator script taken from base/default branch",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/delivery-sync.yml",
+      "kind": "workflow",
+      "owner": "delivery",
+      "purpose": "Project merged deliveries onto Issues (and the delivery Project when enabled) after each push to main.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "push to main",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "push event after-SHA; .github/delivery-project.json projection flag; secret AXIOM_DELIVERY_PROJECT_TOKEN in the sync-project job",
+      "outputs": "Issue comments, Project Status/Target Release updates, premature-closure reopen; step summary",
+      "local_effects": "runner workspace only",
+      "network_effects": "GitHub API writes via gh (Issue comments, Issue reopen; Project v2 GraphQL when projection enabled)",
+      "authority": "permissions contents: read, issues: write, pull-requests: read; sync-project job uses environment delivery and the Project token secret",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "reads delivery Project binding",
+          "path": ".github/delivery-project.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/deploy-landpage.yml",
+      "kind": "workflow",
+      "owner": "site",
+      "purpose": "Validate the landing page in site/ and publish it to GitHub Pages after validation on main.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "push to main, pull_request, or workflow_dispatch; pushes and PRs filtered to site/, docs/assets/, validate-landing-page.sh and this workflow",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "site/ tree; docs/assets; GitHub event",
+      "outputs": "Validation result; Pages artifact and deployment on main (not on pull requests)",
+      "local_effects": "runner workspace only (artifact tar in RUNNER_TEMP)",
+      "network_effects": "GitHub Actions checkout/configure-pages/upload-artifact/deploy-pages; Pages deployment",
+      "authority": "contents: read; deploy job adds pages: write and id-token: write in environment github-pages; actions pinned to SHAs",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/publish-release.yml",
+      "kind": "workflow",
+      "owner": "release",
+      "purpose": "PUBLISH phase: re-verifies the prepared artifact at the revision, matches the authorized envelope digest and creates the tag and GitHub Release; the only workflow that does.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "workflow_dispatch from main, dispatched by release.sh publish with tag, revision, prepared run and authorized preview_digest",
+      "replay_reason": null,
+      "callers": [
+        "scripts/release.sh"
+      ],
+      "inputs": "workflow_dispatch inputs tag, revision, prepared_run, preview_digest, optional corrections_revision, corrections_digest, repair_revision; downloads artifact axiom-release-<tag>",
+      "outputs": "GitHub Release with tag, draft/assets/publication effects, Issue and Release PR effects; publication envelope in the step summary",
+      "local_effects": "none on the runner beyond checkouts and temporary files",
+      "network_effects": "GitHub API writes via publish-release.sh: tag, Release, assets, Release PR label, delivery Issue/Project effects; reads check runs and artifacts",
+      "authority": "publish job waits for the protected release environment; secrets AXIOM_RELEASE_PUBLISH_TOKEN and optional AXIOM_DELIVERY_PROJECT_TOKEN; GITHUB_TOKEN limited to contents/actions/checks read, issues and pull-requests write",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Consumes prepared artifact axiom-release-<tag> of the prepared run; writes publication.txt to the step summary",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/release-artifacts.yml",
+      "kind": "workflow",
+      "owner": "release",
+      "purpose": "PREPARE phase: builds, verifies and renders notes for the complete artifact set from one preflighted revision and retains it as the workflow artifact axiom-release-<tag>.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "workflow_dispatch from main, dispatched by release.sh prepare with tag and revision (optional pinned correction inputs)",
+      "replay_reason": null,
+      "callers": [
+        "scripts/release.sh"
+      ],
+      "inputs": "workflow_dispatch inputs tag, revision, optional corrections_revision, corrections_digest; checks out source (and control) revisions",
+      "outputs": "Uploaded artifact axiom-release-<tag> (archives, SHA256SUMS, preflight.txt, release-evidence.txt, release-notes.md, prepare-metadata.txt, optional release-recovery.txt), 30-day retention",
+      "local_effects": "none on the runner beyond checkouts and temporary files",
+      "network_effects": "GitHub API read-only (Issue titles, artifact upload); Go module download and verification",
+      "authority": "GITHUB_TOKEN read-only (contents: read, issues: read); never creates tags or Releases",
+      "tests": [
+        "scripts/test-release-flow.sh",
+        "scripts/test-release-pipeline.sh"
+      ],
+      "evidence": "Produces the prepared release artifact consumed by release.sh and publish-release.yml",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/release-please.yml",
+      "kind": "workflow",
+      "owner": "release",
+      "purpose": "Command-driven Release PR: re-runs the release plan on the planned main SHA, runs Release Please without creating Releases and dispatches required checks on the Release PR.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "workflow_dispatch from main, dispatched by release.sh start with planned_version and the validated main SHA",
+      "replay_reason": null,
+      "callers": [
+        "scripts/release.sh"
+      ],
+      "inputs": "workflow_dispatch inputs planned_version, main; release-please-config.json, .release-please-manifest.json",
+      "outputs": "Created or updated Release PR (CHANGELOG.md and manifest); plan Evidence in the step summary; dispatched ci.yml and delivery-metadata.yml runs",
+      "local_effects": "none on the runner beyond checkouts and temporary files",
+      "network_effects": "GitHub API writes via Release Please (Release PR branch, PR, labels) and gh workflow run; no tags or Releases (skip-github-release)",
+      "authority": "dispatch from main with planned main SHA; GITHUB_TOKEN with contents, pull-requests, issues and actions write",
+      "tests": [
+        "scripts/test-release-flow.sh",
+        "scripts/test-release-pr-checks.py"
+      ],
+      "evidence": "Writes release-plan Evidence to the step summary",
+      "compatibility": [
+        {
+          "relation": "reads Release Please configuration",
+          "path": "release-please-config.json"
+        },
+        {
+          "relation": "reads Release Please manifest",
+          "path": ".release-please-manifest.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/transform_logo.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Deterministically make the light exterior of the app-icon PNG transparent using only the standard library.",
+      "lifecycle": "historical-replay",
+      "disposition": "delete",
+      "disposition_ref": "#168 T05",
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "historical"
+      ],
+      "trigger": null,
+      "replay_reason": "Reproduces the completed rgomids/axiom#117 documentation logo alpha transformation described in the S9 dogfood work plan.",
+      "callers": [],
+      "inputs": "Arguments: source 8-bit RGB PNG and target RGBA PNG path.",
+      "outputs": "Writes the target RGBA PNG; no stdout contract.",
+      "local_effects": "Writes the target PNG path given as the second argument",
+      "network_effects": "none",
+      "authority": "none; local file transformation",
+      "tests": [],
+      "evidence": "Reproduces the logo transformation recorded in docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/work-plan.md.",
+      "compatibility": [
+        {
+          "relation": "documents the Work Item and transformation plan it reproduces",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/work-plan.md"
+        },
+        {
+          "relation": "transformation source image",
+          "path": "docs/assets/axiom-logo-app-black.png"
+        },
+        {
+          "relation": "transformation target image",
+          "path": "docs/assets/axiom-logo-github.png"
+        }
+      ],
+      "removal_condition": "Delete in #168 T05 after live helper references in work-plan.md are replaced with baseline commit source links; the logo assets and png-validation.json are preserved."
+    },
+    {
+      "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/validate_logo.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Validate the transformed logo PNG against its source (CRC, RGBA, dimensions, transparent corners, unchanged opaque pixels) and print one JSON report.",
+      "lifecycle": "historical-replay",
+      "disposition": "delete",
+      "disposition_ref": "#168 T05",
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "historical"
+      ],
+      "trigger": null,
+      "replay_reason": "Reproduces the completed rgomids/axiom#117 logo validation report retained as png-validation.json.",
+      "callers": [],
+      "inputs": "Arguments: source RGB PNG and result RGBA PNG path.",
+      "outputs": "One JSON report on stdout; exit 1 when any check fails.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [],
+      "evidence": "Output corresponds to the retained report docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/png-validation.json.",
+      "compatibility": [
+        {
+          "relation": "retained validation report it reproduces",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/png-validation.json"
+        },
+        {
+          "relation": "documents the Work Item and validation plan",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/work-plan.md"
+        },
+        {
+          "relation": "validation source image",
+          "path": "docs/assets/axiom-logo-app-black.png"
+        },
+        {
+          "relation": "validation result image",
+          "path": "docs/assets/axiom-logo-github.png"
+        }
+      ],
+      "removal_condition": "Delete in #168 T05 after live helper references in work-plan.md are replaced with baseline commit source links; the logo assets and png-validation.json are preserved."
+    },
+    {
+      "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc/audit.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Structural checkpoint audit of the retained S9 coverage matrix: identifier coverage, Task DAG consistency and local link paths.",
+      "lifecycle": "historical-replay",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "historical"
+      ],
+      "trigger": null,
+      "replay_reason": "Reproduces the structural checkpoint audit (coverage identifiers, Task DAG, local link paths) of the retained S9 checkpoint Evidence; kept labeled historical, not a current generic coverage gate.",
+      "callers": [],
+      "inputs": "No arguments; reads evidence-s9-rc/coverage.json, tasks.md, evidence-s9.md and evidence-s9-t24.md beside it.",
+      "outputs": "One JSON result line on stdout (coverage rows, task count, edges, links checked) or an assertion failure.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [],
+      "evidence": "Reproduces the structural audit of the retained S9 checkpoint Evidence under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc.",
+      "compatibility": [
+        {
+          "relation": "reads the retained coverage matrix",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc/coverage.json"
+        },
+        {
+          "relation": "reads the S9 task table and dependency graph",
+          "path": "docs/specifications/004-mvp-v1-baseline/tasks.md"
+        },
+        {
+          "relation": "checks local links of the S9 evidence summary",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9.md"
+        },
+        {
+          "relation": "checks local links of the S9 T24 evidence",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-t24.md"
+        }
+      ],
+      "removal_condition": "Remove when the retained S9 checkpoint Evidence under evidence-s9-rc no longer needs its structural audit reproduced."
+    },
+    {
+      "path": "scripts/build-release-archives.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Builds the four supported cross-platform release archives, per-bundle manifests and SHA256SUMS from the clean checked-out source revision.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Every release preparation run (release-artifacts.yml, via release.sh prepare); also archive and installer tests",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-artifacts.yml",
+        "scripts/test-install-bootstrap.sh",
+        "scripts/test-release-archives.sh",
+        "scripts/test-release-pipeline.sh",
+        "scripts/test-s7-native.sh"
+      ],
+      "inputs": "--version X.Y.Z[-pre] (required), --output ABS_DIR (required, empty or new), --development (allows dirty source); reads git HEAD and status, LICENSE, scripts/install-release.{sh,ps1}, internal/codexruntime/skills",
+      "outputs": "stdout release_build_success: <output>; stderr release_build_error and exit 1 on invalid input; writes four axiom-<version>-<platform>-<arch>.tar.gz archives and SHA256SUMS under --output",
+      "local_effects": "Creates and writes the --output directory (must be empty); temporary work directory removed on exit",
+      "network_effects": "none by the script itself (go build may use the module cache or proxy)",
+      "authority": "none; local build only, release builds refuse a dirty source unless --development",
+      "tests": [
+        "scripts/test-release-archives.sh",
+        "scripts/test-release-pipeline.sh"
+      ],
+      "evidence": "Produces the archive set and SHA256SUMS later verified by verify-release-artifacts.sh and retained as the prepared release artifact",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/check-automation-registry.py",
+      "kind": "script",
+      "owner": "repository-validation",
+      "purpose": "Validate that every governed automation surface is registered in scripts/automation-registry.json and that entries satisfy the repository automation policy schema.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Every repository validation via validate-repository.sh (CI repository checks on linux and macos, maintainer validation before a change is complete).",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-check-automation-registry.py",
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "Optional ROOT directory (default .); reads scripts/automation-registry.json and the git listing of tracked and untracked non-ignored files.",
+      "outputs": "PASS line on stdout; one FAIL line per violation on stderr; exit 0 when valid, 1 on violations, 2 on usage error.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks; never executes registered automation or evaluates registry values",
+      "tests": [
+        "scripts/test-check-automation-registry.py"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "enforces the structural rules of",
+          "path": ".agents/policies/repository-automation.md"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/check-claude-bootstrap.sh",
+      "kind": "script",
+      "owner": "maintainer-harness",
+      "purpose": "Closed check that CLAUDE.md is exactly '@AGENTS.md', that no other Claude artifact exists and, with --skill-adapters, that .claude/skills holds only relative symlinks to canonical .agents/skills.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Every repository validation and every generated-package validation (via validate-repository.sh and validate-agent-package.sh) and the maintainer-agent structural evaluation.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/maintainer-agent-eval.py",
+        "scripts/validate-agent-package.sh",
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "Optional --skill-adapters flag and target directory (default .); reads CLAUDE.md, AGENTS.md, .claude/ and .agents/skills.",
+      "outputs": "Exit 0 silently on success; 'FAIL: <reason>' on stderr and exit 1.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [
+        "scripts/test-check-claude-bootstrap.sh",
+        "scripts/test_maintainer_agent_eval.py"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/check-project-domain.go",
+      "kind": "script",
+      "owner": "architecture-verification",
+      "purpose": "Parse internal/project sources and reject non-allowlisted imports, symbols, test I/O helpers and compiler directives to keep the domain pure.",
+      "lifecycle": "durable",
+      "disposition": "merge",
+      "disposition_ref": "#168 T08",
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run (go run ./scripts/check-project-domain.go from the repository root) whenever domain code or its tests change; built by its fixture test.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-check-project-domain.sh"
+      ],
+      "inputs": "No arguments; reads internal/project/*.go relative to the current directory.",
+      "outputs": "'PASS: <n> domain source/test files...' on stdout and exit 0; 'FAIL: <reason>' on stderr and exit 1.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [
+        "scripts/test-check-project-domain.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": "Retire as a standalone file once #168 T08 consolidates the shared AST checker engine while keeping the independent domain policy table and fixtures."
+    },
+    {
+      "path": "scripts/check-projectapp.go",
+      "kind": "script",
+      "owner": "architecture-verification",
+      "purpose": "Parse internal/projectapp sources and reject non-allowlisted imports and symbols, test I/O helpers and compiler directives to keep the application layer pure.",
+      "lifecycle": "durable",
+      "disposition": "merge",
+      "disposition_ref": "#168 T08",
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run (go run ./scripts/check-projectapp.go from the repository root) whenever application code or its tests change; built by its fixture test.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-check-projectapp.sh"
+      ],
+      "inputs": "No arguments; reads internal/projectapp/*.go relative to the current directory.",
+      "outputs": "'PASS: <n> application source/test files...' on stdout and exit 0; 'FAIL: <reason>' on stderr and exit 1.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [
+        "scripts/test-check-projectapp.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": "Retire as a standalone file once #168 T08 consolidates the shared AST checker engine while keeping the independent application policy table and fixtures."
+    },
+    {
+      "path": "scripts/check-sensitive-files.sh",
+      "kind": "script",
+      "owner": "security",
+      "purpose": "Reject forbidden sensitive file paths and high-confidence secret patterns (private keys, GitHub tokens, AWS access keys) in the worktree, the staged index or a plain directory.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Every repository validation (validate-repository.sh), every generated-package validation (validate-agent-package.sh) and pre-commit use via --staged.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-s7-security.sh",
+        "scripts/validate-agent-package.sh",
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "Optional --staged or --directory flag and a target directory (default .); reads git index or files under the target.",
+      "outputs": "'PASS: sensitive-file checks passed (<mode>)' on stdout and exit 0; ERROR lines then 'FAIL: ...' on stderr and exit 1.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [
+        "scripts/test-check-sensitive-files.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/delivery-github.sh",
+      "kind": "script",
+      "owner": "delivery",
+      "purpose": "GitHub delivery projection of Issue metadata: read-only state/preflight/verify/titles/release-pr-head plus release and sync modes that comment, close/reopen Issues and set Project fields.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "every push to main (delivery-sync.yml sync), every Release PR dispatch (delivery-metadata.yml), and stable release publication/verification/notes",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/delivery-metadata.yml",
+        ".github/workflows/delivery-sync.yml",
+        "scripts/publish-release.sh",
+        "scripts/release-notes.sh",
+        "scripts/release.sh"
+      ],
+      "inputs": "mode state|preflight|release|verify|titles|release-pr-head|sync; --repo/--tag/--revision/--expect/--from/--to/--branch/--sha/--actor; .github/delivery-project.json; env GH_TOKEN, AXIOM_DELIVERY_PROJECT_TOKEN, optional AXIOM_RELEASE_CORRECTIONS_*",
+      "outputs": "effect= lines and delivery state to stdout; delivery_github_error to stderr and exit 1 on failure; tokens never printed",
+      "local_effects": "temporary directories only",
+      "network_effects": "GitHub REST/GraphQL via gh: reads Issues, comments, PRs, releases; writes Issue comments (POST), Issue close/reopen (PATCH), Project v2 fields (separate token)",
+      "authority": "caller gh credentials with issues: write for comments and closure; AXIOM_DELIVERY_PROJECT_TOKEN only when delivery-project.json projection is enabled; read-only modes need read access",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "reads delivery Project binding",
+          "path": ".github/delivery-project.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/delivery-issues.sh",
+      "kind": "script",
+      "owner": "delivery",
+      "purpose": "Parse Related-Issues/Completes-Issues metadata, check PRs, list per-commit delivery lines and resolve the Issue set of a stable release from Git history.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "every PR metadata check, merge-time sync, release planning, and stable release resolution",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/delivery-metadata.yml",
+        "scripts/delivery-github.sh",
+        "scripts/release-plan.sh",
+        "scripts/release.sh",
+        "scripts/test-delivery.sh",
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "mode parse|check-pr|commits|release; --file/--body/--title/--from/--to/--tag/--revision; local Git history; .github/delivery-corrections.txt at the resolved revision",
+      "outputs": "metadata=/related=/completes= lines or one line per commit to stdout; delivery_metadata_error to stderr and exit 1",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; local read-only Git inspection",
+      "tests": [
+        "scripts/test-delivery.sh",
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "reads reviewed delivery corrections",
+          "path": ".github/delivery-corrections.txt"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/dogfood-poc.sh",
+      "kind": "script",
+      "owner": "cli-e2e",
+      "purpose": "Isolated end-to-end lifecycle of the source-installed public CLI against fake gh and temporary roots, emitting an axiom_e2e_dogfood pass record.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "every CI verify run on linux and macos (Bounded dogfooding smoke test step)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; builds the checkout through install-axiom.sh and sets LINGO_PROJECTS_ROOT, LINGO_STATE_ROOT, AXIOM_CODEX_SKILLS_ROOT, AXIOM_GH_BIN to temporary paths",
+      "outputs": "JSON evidence record on stdout (evidence=axiom_e2e_dogfood, result=pass); any failed assertion exits non-zero",
+      "local_effects": "temporary directories only",
+      "network_effects": "none (fake gh binary; go build may use the local module cache)",
+      "authority": "none; no real provider or user state is touched",
+      "tests": [],
+      "evidence": "Prints a one-line axiom_e2e_dogfood JSON record to stdout; does not write files",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/generate-poc-fixture.sh",
+      "kind": "script",
+      "owner": "compatibility",
+      "purpose": "Regenerate the historical v0.1.0-poc.1 compatibility fixture by building the pinned tag source and running it with deterministic fake git/gh.",
+      "lifecycle": "historical-replay",
+      "disposition": "move",
+      "disposition_ref": "#168 T06",
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "historical"
+      ],
+      "trigger": null,
+      "replay_reason": "Reproduces the pinned v0.1.0-poc.1 persisted-state fixture (revision 242d67c4) consumed by compatibility, install and runtime tests; kept so the fixture stays rebuildable from its tag.",
+      "callers": [],
+      "inputs": "local git tag v0.1.0-poc.1 (must resolve to the pinned revision); go toolchain; no arguments",
+      "outputs": "Rewrites internal/compatibility/testdata/poc-v0.1.0-poc.1 (projects, state, skills, PROVENANCE) and lists its files to stdout",
+      "local_effects": "deletes and recreates internal/compatibility/testdata/poc-v0.1.0-poc.1; temporary directories otherwise",
+      "network_effects": "none (go build may use the local module cache)",
+      "authority": "none; maintainer manual run, no flag or credential required",
+      "tests": [
+        "internal/compatibility"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "pinned historical POC source revision (tag v0.1.0-poc.1)",
+          "revision": "242d67c4cf2d4c3efe534dd894cb56a05558e139"
+        },
+        {
+          "relation": "writes provenance record",
+          "path": "internal/compatibility/testdata/poc-v0.1.0-poc.1/PROVENANCE"
+        }
+      ],
+      "removal_condition": "Relocate beside compatibility test support (#168 T06); remove only when the v0.1.0-poc.1 fixture is no longer a supported compatibility input."
+    },
+    {
+      "path": "scripts/install-axiom.sh",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Build the current checkout and install it as axiom with a development ownership receipt (idempotent, refuses unowned or modified destinations).",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "contributor installs a development build from a checkout; also run by dogfood-poc.sh on every CI verify (linux/macos)",
+      "replay_reason": null,
+      "callers": [
+        "scripts/dogfood-poc.sh",
+        "scripts/test-install-axiom.sh"
+      ],
+      "inputs": "env AXIOM_BIN_DIR (default $HOME/.local/bin), AXIOM_INSTALL_STATE_ROOT (default XDG state dir/axiom/install); repository Git state",
+      "outputs": "JSON axiom_install result line on stdout (installed|unchanged); PATH notice on stderr; install_error and exit 1 on refusal",
+      "local_effects": "creates 0700 bin and state dirs; writes $AXIOM_BIN_DIR/axiom and axiom.receipt; does not edit PATH or shell profiles",
+      "network_effects": "none (go build may use the local module cache)",
+      "authority": "none; writes only under the user-chosen install and state directories",
+      "tests": [
+        "scripts/test-install-axiom.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/install-release.ps1",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Windows release-bundle entrypoint, shipped as install.ps1 in the archive, mapping native parameters to the bundled axiom.exe install-release command.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "powershell"
+      ],
+      "scope": [
+        "public"
+      ],
+      "trigger": "packaged into every Windows release archive as install.ps1; run by users or by the bootstrap installer on install",
+      "replay_reason": null,
+      "callers": [
+        "scripts/build-release-archives.sh",
+        "scripts/verify-release-artifacts.sh",
+        "scripts/test-windows-install.ps1"
+      ],
+      "inputs": "-Archive, -Checksums (required), -BinDir and -ReceiptDir (default under LOCALAPPDATA\\Axiom); sibling axiom.exe",
+      "outputs": "Output of axiom.exe install-release; throws on non-zero exit",
+      "local_effects": "installs axiom.exe and receipt under the chosen BinDir/ReceiptDir via the Go installer",
+      "network_effects": "none",
+      "authority": "current user; explicit archive and checksums; no elevation",
+      "tests": [
+        "scripts/test-windows-install.ps1"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/install-release.sh",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Verify a release archive against SHA256SUMS and the host row, then fresh-install axiom with ownership receipt or delegate an owned upgrade; shipped as install.sh in the archive.",
+      "lifecycle": "durable",
+      "disposition": "move",
+      "disposition_ref": "#168 T12",
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "public"
+      ],
+      "trigger": "packaged into every POSIX release archive as install.sh; run by install.sh on every bootstrap install and directly by users or tests",
+      "replay_reason": null,
+      "callers": [
+        "scripts/build-release-archives.sh",
+        "scripts/verify-release-artifacts.sh",
+        "scripts/test-release-archives.sh"
+      ],
+      "inputs": "--archive, --checksums, --bin-dir, --receipt-dir (all absolute); env AXIOM_INSTALL_TEST_FAIL_STAGE test seam",
+      "outputs": "install_status=installed|unchanged|upgraded lines on stdout; install_error/install_next on stderr; non-zero exit on refusal or partial state",
+      "local_effects": "creates 0700 bin/receipt dirs, lock and operation marker; writes bin-dir/axiom and installation.receipt; runs the bundled axiom upgrade for owned installs; temp dir removed",
+      "network_effects": "none",
+      "authority": "current user; refuses unsupported host row, checksum mismatch, symlinked, group/world-writable or foreign-owned destinations; upgrade runs with --authorize-local",
+      "tests": [
+        "scripts/test-release-archives.sh",
+        "scripts/test-install-bootstrap.sh",
+        "scripts/test-s7-native.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": "Move durable POSIX install behavior into the internal/install owner and keep the archive install.sh as a thin facade (#168 T12); requires Plan/contract review."
+    },
+    {
+      "path": "scripts/install.ps1",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Windows remote bootstrap: resolve a stable or exact release, download and verify the archive, then run the bundled axiom.exe install-release from private staging.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "powershell"
+      ],
+      "scope": [
+        "public"
+      ],
+      "trigger": "users run it via Invoke-RestMethod from the raw main URL to install or upgrade Axiom on Windows",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "-Version vX.Y.Z[-rc.N], -Channel stable, -BinDir, -ReceiptDir (defaults under LOCALAPPDATA\\Axiom); env USERPROFILE, PROCESSOR_ARCHITECTURE",
+      "outputs": "Output of axiom.exe install-release; throws on unsupported host, bad selector, checksum or archive failure",
+      "local_effects": "private ACL-protected staging dir under USERPROFILE (removed); installs axiom.exe and receipt under BinDir/ReceiptDir via the Go installer; no PATH or global ACL changes",
+      "network_effects": "HTTPS only (redirects revalidated) to api.github.com latest release and github.com release assets",
+      "authority": "current user; no elevation; archive digest must match published SHA256SUMS",
+      "tests": [
+        "scripts/test-windows-bootstrap.ps1",
+        "scripts/test-windows-install.ps1"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/install.sh",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "POSIX remote bootstrap: resolve a stable release or exact version, download and checksum-verify the host archive, then run the bundle's release installer.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "posix-sh",
+        "bash"
+      ],
+      "scope": [
+        "public"
+      ],
+      "trigger": "users pipe it from the raw main URL (curl | sh) to install or upgrade Axiom",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "--channel stable | --version vX.Y.Z[-rc.N], --bin-dir, --receipt-dir (default $HOME/.local/bin and XDG state); env HOME, XDG_STATE_HOME, NO_COLOR",
+      "outputs": "install_* key=value lines on stdout; progress, summary and install_error on stderr; PATH instruction when needed; non-zero exit on failure",
+      "local_effects": "private temp dir removed on exit; installation effects (bin dir, receipt) are performed by the bundled installer; no sudo, PATH or profile edits",
+      "network_effects": "HTTPS-only curl downloads from github.com (releases/latest redirect, SHA256SUMS, release archive)",
+      "authority": "current user; no sudo; archive must match published SHA256SUMS and bundle manifest before execution",
+      "tests": [
+        "scripts/test-install-bootstrap.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/maintainer-agent-eval.py",
+      "kind": "script",
+      "owner": "maintainer-harness",
+      "purpose": "Cross-runtime maintainer-agent evaluation: deterministic structural checks of canonical skills and Claude/Codex adapters, plus optional runtime behavioral scenarios.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Every repository validation via test-maintainer-agent.sh; manual maintainer runs with --runtime claude/codex to verify cross-runtime parity.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-maintainer-agent.sh",
+        "scripts/test_maintainer_agent_eval.py"
+      ],
+      "inputs": "--root, --runtime (claude|codex, repeatable), --scenario, --require-runtimes, --evidence PATH; env AXIOM_MAINTAINER_EVAL_TIMEOUT (default 600s); reads AGENTS.md, .agents/skills, .claude/skills.",
+      "outputs": "PASS/FAIL/SKIP/UNVERIFIED lines on stdout/stderr; exit 1 on failure (or unverified with --require-runtimes); optional JSON report at --evidence.",
+      "local_effects": "temporary directories only; writes the JSON report only when --evidence is given",
+      "network_effects": "none by default; with --runtime the claude/codex CLIs run read-only and may contact their model providers",
+      "authority": "none for structural checks; runtime scenarios use the invoking user's existing claude/codex CLI authentication",
+      "tests": [
+        "scripts/test-maintainer-agent.sh",
+        "scripts/test_maintainer_agent_eval.py"
+      ],
+      "evidence": "Optional JSON report written to the --evidence path; none by default.",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/publish-release.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Publishes one prepared, verified artifact set as a GitHub Release (--check, --envelope or authorized publication), binding every effect to an authorized envelope digest.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every release publication (publish-release.yml) and every release.sh status/publish/verify preview of publication state",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/publish-release.yml",
+        "scripts/release.sh",
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "--repo OWNER/NAME --tag --revision --make-latest [--dir --evidence --notes --prepared-run --authorized-digest | --check | --envelope]; env AXIOM_RELEASE_RETRY_DELAY, AXIOM_RELEASE_CORRECTIONS_*, AXIOM_RELEASE_REPAIR_REVISION, GH_TOKEN, AXIOM_RELEASE_REPOSITORY_TOKEN, AXIOM_DELIVERY_PROJECT_TOKEN",
+      "outputs": "stdout key=value envelope with preview_digest and effect.* lines (envelope/check) or effect= lines, publication=published and result=pass (publish); stderr release_publish_error, exit 1",
+      "local_effects": "temporary directories only",
+      "network_effects": "GitHub API via gh: reads releases, tags, assets, PRs; publish mode creates/patches the draft release, deletes and uploads draft assets, publishes, relabels the Release PR and runs delivery-github.sh Issue/Project effects",
+      "authority": "gh credentials of the caller; publication needs --authorized-digest equal to the envelope recomputed here; in the workflow GH_TOKEN is AXIOM_RELEASE_PUBLISH_TOKEN inside the protected release environment",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Consumes release-evidence.txt (verify-release-artifacts.sh) and release-notes.md of the prepared run; emits the publication envelope and effect= records",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release-corrections.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Resolves and validates an explicitly pinned, append-only delivery-corrections input against the original release range using Git reads only.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Release preparation and recovery runs that pin correction inputs (release-artifacts.yml, release-recovery.sh via release.sh/publish-release.sh)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-artifacts.yml",
+        "scripts/release-recovery.sh",
+        "scripts/test-release-corrections.py",
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "--source-revision SHA, --corrections-revision SHA, --corrections-digest SHA256 (all required), [--main-ref REF default origin/main], [--file-output ABS_FILE]; reads Git objects and .github/delivery-corrections.txt at the pinned revision",
+      "outputs": "stdout corrections_revision= and corrections_sha256=; stderr release_corrections_error and exit 1; optionally copies the pinned corrections file to --file-output",
+      "local_effects": "Writes --file-output when given; otherwise temporary directories only",
+      "network_effects": "none",
+      "authority": "none; read-only Git checks of pinned revisions",
+      "tests": [
+        "scripts/test-release-corrections.py",
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Emits release-recovery.txt content (pinned revision and digest) that the prepared run retains and verify-prepared-release.sh compares",
+      "compatibility": [
+        {
+          "relation": "reads pinned corrections input",
+          "path": ".github/delivery-corrections.txt"
+        },
+        {
+          "relation": "derives release range from manifest",
+          "path": ".release-please-manifest.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release-notes.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Prints the deterministic GitHub Release body for one tag and revision: Release Please changelog section, delivered Issues, provenance and install command.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every release preparation run (release-artifacts.yml) and every prepared-set verification (verify-prepared-release.sh), plus recovery publication checks",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-artifacts.yml",
+        "scripts/publish-release.sh",
+        "scripts/test-release-flow.sh",
+        "scripts/verify-prepared-release.sh"
+      ],
+      "inputs": "--tag --revision --repo OWNER/NAME; env AXIOM_RELEASE_CORRECTIONS_REVISION/DIGEST for recovery; reads CHANGELOG.md at the revision",
+      "outputs": "stdout release notes Markdown; stderr release_notes_error and exit 1",
+      "local_effects": "none",
+      "network_effects": "GitHub API via delivery-github.sh titles (read-only Issue titles) for stable releases",
+      "authority": "none beyond a read token (issues: read in the workflow)",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Produces release-notes.md retained in the prepared run and recompared at publication",
+      "compatibility": [
+        {
+          "relation": "reads Release Please section from",
+          "path": "CHANGELOG.md"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release-plan.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Preflights a new stable release before any Release PR: validates the commit range, delivery metadata and SemVer plan and prints the planned version.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every release start (release.sh start) and the Release PR workflow re-run on the planned main SHA",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-please.yml",
+        "scripts/release.sh",
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "[--main-ref REF default origin/main] [--remote NAME default origin]; reads Git history, .release-please-manifest.json, delivery metadata via delivery-issues.sh",
+      "outputs": "stdout closed key=value Evidence ending result=pass (releasable, planned_version, issues, change.N); stderr release_plan_error and exit 1",
+      "local_effects": "temporary directories only",
+      "network_effects": "git ls-remote --tags against the remote (read-only)",
+      "authority": "none; read-only Git checks",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Plan Evidence written to the Release PR workflow step summary",
+      "compatibility": [
+        {
+          "relation": "reads previous release boundary from",
+          "path": ".release-please-manifest.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release-pr-checks.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Resolves the bot Release PR and, for the planned version and validated main, dispatches the required CI and delivery-metadata workflows on its branch.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "Every Release PR workflow run (release-please.yml) after Release Please runs",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-please.yml",
+        "scripts/test-release-pr-checks.py"
+      ],
+      "inputs": "mode resolve|dispatch, REPO (must be rgomids/axiom), [VERSION], MAIN SHA (dispatch); needs gh in PATH with GH_TOKEN",
+      "outputs": "stdout release_pr=, release_pr_base=, release_pr_checks=no_open_release_pr|dispatched; stderr release_pr_checks_error and exit 1",
+      "local_effects": "temporary directories only",
+      "network_effects": "GitHub API via gh reads (pulls, refs, compare); dispatch mode runs gh workflow run for ci.yml and delivery-metadata.yml on the Release PR branch",
+      "authority": "GITHUB_TOKEN with actions: write in release-please.yml; dispatch only for the exact planned head",
+      "tests": [
+        "scripts/test-release-flow.sh",
+        "scripts/test-release-pr-checks.py"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release-preflight.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Decides from Git facts whether one tag may be published from one exact revision, covering stable and release-candidate rules, and prints closed Evidence.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every release preparation, status, publish and prepared-set verification (release-artifacts.yml, release.sh, verify-prepared-release.sh)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-artifacts.yml",
+        "scripts/release.sh",
+        "scripts/test-release-flow.sh",
+        "scripts/verify-prepared-release.sh"
+      ],
+      "inputs": "--tag --revision [--main-ref default origin/main] [--remote default origin]; reads Git history, manifest and remote tags",
+      "outputs": "stdout key=value Evidence (version, channel, make_latest, tag_state, ...) ending result=pass; stderr release_preflight_error and exit 1",
+      "local_effects": "none",
+      "network_effects": "git ls-remote --tags against the remote (read-only)",
+      "authority": "none; read-only, never creates tags, releases or refs",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Produces preflight.txt retained in the prepared release artifact",
+      "compatibility": [
+        {
+          "relation": "reads release boundary from",
+          "path": ".release-please-manifest.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release-recovery.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Sourced library of the explicit recovery protocol: validates pinned correction inputs and renders and checks recovery provenance lines in release notes.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Sourced whenever a release run carries explicit correction pins (release.sh, notes, publication, repair and delivery scripts)",
+      "replay_reason": null,
+      "callers": [
+        "scripts/delivery-github.sh",
+        "scripts/delivery-issues.sh",
+        "scripts/publish-release.sh",
+        "scripts/release-notes.sh",
+        "scripts/release-repair.sh",
+        "scripts/release.sh",
+        "scripts/verify-prepared-release.sh"
+      ],
+      "inputs": "Sourced, not executed; caller must define repository_root and fail(); env AXIOM_RELEASE_CORRECTIONS_REVISION and AXIOM_RELEASE_CORRECTIONS_DIGEST",
+      "outputs": "Defines recovery_validate, recovery_note_lines and recovery_check_notes; no standalone output; failures go through the caller's fail()",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; pins are explicit inputs, never a floating-ref fallback",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Produces recovery pin provenance lines compared with published and prepared release notes",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release-repair.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Validates a separately pinned control-code repair revision for an already published immutable recovery release, keeping original correction provenance fixed.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Release publication and status runs that carry --repair-revision (publish-release.yml jobs, release.sh, publish-release.sh)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/publish-release.yml",
+        "scripts/publish-release.sh",
+        "scripts/release.sh",
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "--repo --tag --revision --repair-revision; env AXIOM_RELEASE_CORRECTIONS_REVISION and DIGEST required; reads .github/rulesets/main.json",
+      "outputs": "stdout repair_revision=<sha>; stderr release_repair_error and exit 1",
+      "local_effects": "temporary directories only",
+      "network_effects": "GitHub API via gh reads (check runs of the repair revision, published release by tag)",
+      "authority": "read token with checks: read; the caller must gate required CI with trusted code before executing this file",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Consumes published release notes recovery provenance; emits repair_revision",
+      "compatibility": [
+        {
+          "relation": "reads required-check policy from",
+          "path": ".github/rulesets/main.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release-tag-version.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Maps one public release tag (vX.Y.Z or vX.Y.Z-rc.N) to its semantic version and channel.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Every release script that validates a tag (preflight, notes, publish, release.sh, delivery-issues.sh)",
+      "replay_reason": null,
+      "callers": [
+        "scripts/delivery-issues.sh",
+        "scripts/publish-release.sh",
+        "scripts/release-notes.sh",
+        "scripts/release-preflight.sh",
+        "scripts/release.sh",
+        "scripts/test-release-pipeline.sh"
+      ],
+      "inputs": "exactly one tag argument",
+      "outputs": "stdout tag=, version=, channel=stable|rc; stderr release_tag_error and exit 1",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; pure parser",
+      "tests": [
+        "scripts/test-delivery.sh",
+        "scripts/test-release-pipeline.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/release.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Maintainer release orchestration state machine (status, start, prepare, publish, verify) that gathers facts and dispatches the release workflows behind explicit human gates.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Maintainer runs it for every release through the axiom-release skill (status, start, prepare, publish, verify)",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "subcommand status|start|prepare|publish|verify; --tag --revision --preview-digest --prepared-run --corrections-revision --corrections-digest --repair-revision --authorize-publication --download; requires gh and jq",
+      "outputs": "stdout state=, next_action=, envelope and preview_digest, result=pass; stderr release_error and exit 1",
+      "local_effects": "git fetch of origin main in the local checkout; temporary clones and downloaded prepared sets removed on exit",
+      "network_effects": "GitHub via gh: reads releases, runs, PRs, checks, environment; gh workflow run dispatches release-please.yml (start), release-artifacts.yml (prepare), publish-release.yml (publish); gh run watch and download",
+      "authority": "gh login able to dispatch workflows; publish needs --authorize-publication and a --preview-digest equal to the envelope recomputed now; never creates tags or releases, merges or approves the Release PR or the release environment",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Consumes prepared release artifact and publication envelope; prints preview_digest for human authorization",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/s9-graph-runner.go",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Maintainer acceptance adapter that drives the Execution Graph through internal/graphapplication (prepare, run, question/answer/wait-answer) for exact-candidate acceptance.",
+      "lifecycle": "durable",
+      "disposition": "move",
+      "disposition_ref": "#168 T09",
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual maintainer exact-candidate acceptance run, built from a checkout whose product tree equals the RC revision and run under an envelope phase.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Mode (prepare|run|question|answer|wait-answer) with --spec (absolute reviewed JSON), --project-id, --parent, --run-envelope-sha256, --retry-child.",
+      "outputs": "Evidence JSON records written once (O_EXCL) under the spec EvidenceRoot; errors as 't24-graph-runner: ...' on stderr and exit 1.",
+      "local_effects": "Writes Evidence under the spec EvidenceRoot, persists Execution Graph/Runtime state under the spec StateRoot and uses child git worktrees under WorkspaceRoot; never pushes or deletes",
+      "network_effects": "none directly; dispatched codex/claude Runtime CLIs may contact their model providers; no Provider writes",
+      "authority": "human-authorized run envelope SHA-256 (--run-envelope-sha256) for the run mode; reviewed spec file",
+      "tests": [],
+      "evidence": "Execution Graph Evidence records under the spec EvidenceRoot, consumed by the acceptance Evidence under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2.",
+      "compatibility": [],
+      "removal_condition": "Move to the reviewed maintainer-acceptance tool boundary under #168 T09 without exposing it as a product CLI, preserving historical descriptors, digests and revision replay."
+    },
+    {
+      "path": "scripts/s9-rc-envelope.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Execute exactly one reviewed phase of an authority envelope after verifying the human-approved envelope digest, candidate binding and attempt ledger.",
+      "lifecycle": "durable",
+      "disposition": "move",
+      "disposition_ref": "#168 T09",
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual maintainer exact-candidate acceptance run, one invocation per reviewed envelope phase.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "--envelope, --candidate, --phase, --evidence-dir, --plan, --approved-envelope-sha256, --approve NAME=VALUE, --attempt, --previous-attempt-dir; imports s9-rc-evidence.py.",
+      "outputs": "Phase result line on stdout and exit 0; --plan prints the envelope digest as JSON; failures on stderr; Evidence directory with manifest.json and artifacts/.",
+      "local_effects": "Creates a new 0700 Evidence directory; runs the envelope's reviewed argv steps with explicit environments and declared effects",
+      "network_effects": "none by itself; reviewed steps may declare external effects recorded in the ledger",
+      "authority": "human-authorized envelope SHA-256 (--approved-envelope-sha256) and approved parameters per phase; none for --plan",
+      "tests": [
+        "scripts/test_s9_rc_envelope.py"
+      ],
+      "evidence": "manifest.json and retained step output under the --evidence-dir, bound to the envelope digest.",
+      "compatibility": [],
+      "removal_condition": "Move with its tests to the reviewed maintainer-acceptance tool boundary under #168 T09, preserving historical envelope schemas, digests and revision replay."
+    },
+    {
+      "path": "scripts/s9-rc-evidence.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Collect bounded, descriptor-bound local RC install and first-run stages; plan-only by default, never full acceptance.",
+      "lifecycle": "durable",
+      "disposition": "move",
+      "disposition_ref": "#168 T09",
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual maintainer exact-candidate acceptance run for a release candidate (plan, then separately authorized --execute-install).",
+      "replay_reason": null,
+      "callers": [
+        "scripts/s9-rc-envelope.py",
+        "scripts/test-s9-rc-acceptance.sh"
+      ],
+      "inputs": "--version, --candidate, --prior-candidate, --evidence-dir, --execute-install, --approved-envelope-sha256; reads the reviewed candidate descriptor JSON.",
+      "outputs": "Evidence directory with envelope.json, manifest.json and acceptance.md; errors via argparse/stderr; non-zero exit on failure.",
+      "local_effects": "Creates a 0700 Evidence directory; with --execute-install installs into isolated HOME directories under it, never executing Runtime CLIs",
+      "network_effects": "none in plan-only mode; --execute-install uses curl over HTTPS to api.github.com and raw.githubusercontent.com for rgomids/axiom release metadata and installer",
+      "authority": "--execute-install requires the human-approved SHA-256 of the exact plan envelope",
+      "tests": [
+        "scripts/test_s9_rc_evidence.py"
+      ],
+      "evidence": "envelope.json, manifest.json and acceptance.md under the --evidence-dir; consumes the reviewed candidate descriptor.",
+      "compatibility": [],
+      "removal_condition": "Move to the reviewed maintainer-acceptance tool boundary under #168 T09, preserving historical descriptors, digests and revision replay."
+    },
+    {
+      "path": "scripts/test-check-automation-registry.py",
+      "kind": "script",
+      "owner": "repository-validation",
+      "purpose": "Offline black-box tests of check-automation-registry.py against valid and invalid fixture registries in temporary Git repositories.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation via validate-repository.sh, and when the registry checker changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "none",
+      "outputs": "PASS line on stdout; unittest failure report on stderr and exit 1 on failure.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-check-claude-bootstrap.sh",
+      "kind": "script",
+      "owner": "maintainer-harness",
+      "purpose": "Negative and positive fixtures for the Claude bootstrap and skill-adapter check, plus assertions that both repository validators delegate to it.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation run via validate-repository.sh, and when the bootstrap policy or checker changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "No arguments; builds throwaway directories and reads validate-repository.sh and validate-agent-package.sh as text.",
+      "outputs": "'PASS: Claude bootstrap check behavior is valid (<n> cases)' and exit 0, or 'FAIL: <case>' on stderr and exit 1.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-check-project-domain.sh",
+      "kind": "script",
+      "owner": "architecture-verification",
+      "purpose": "Build check-project-domain.go and run it against one pure and seven forbidden fixture sources.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run (bash scripts/test-check-project-domain.sh) when the domain boundary policy or checker changes.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; sets GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off.",
+      "outputs": "PASS line and exit 0, or 'FAIL: ...' on stderr and exit 1.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none (GOPROXY=off)",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-check-projectapp.sh",
+      "kind": "script",
+      "owner": "architecture-verification",
+      "purpose": "Build check-projectapp.go and run it against positive and forbidden application-layer fixture sources.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run (bash scripts/test-check-projectapp.sh) when the application boundary policy or checker changes.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; sets GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off.",
+      "outputs": "PASS line and exit 0, or 'FAIL: ...' on stderr and exit 1.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none (GOPROXY=off)",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-check-sensitive-files.sh",
+      "kind": "script",
+      "owner": "security",
+      "purpose": "Regression tests for check-sensitive-files.sh: allowed .env.example, rejected env/key/token content, staged-index versus worktree truth, and directory mode without Git.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation run via validate-repository.sh, and when the scanner changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "No arguments; builds throwaway git repositories and directories.",
+      "outputs": "'PASS: sensitive-file checker behavior is valid' and exit 0, or 'FAIL: <case>' on stderr and exit 1.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-codex-skills.sh",
+      "kind": "script",
+      "owner": "agent-factory",
+      "purpose": "Run the optional upstream Codex skill validator on internal/codexruntime/skills and the Go runtime-contract tests.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual run when Codex runtime skills or the delegation surface change.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Env CODEX_SKILL_VALIDATOR (default ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py) and CODEX_SKILL_PYTHON (default python3); run from the repository root.",
+      "outputs": "WARN on stderr when the optional validator or PyYAML is missing; PASS line on stdout; non-zero exit on failure.",
+      "local_effects": "Go build/test cache only",
+      "network_effects": "none declared by the script; go test may fetch modules if the cache is cold",
+      "authority": "none; local read-only checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-delivery.sh",
+      "kind": "script",
+      "owner": "delivery",
+      "purpose": "Contract tests for delivery-issues.sh grammar, PR check, merge-time lines, legacy boundary and release Issue sets using fixture Git repositories.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "every CI release-contract job run",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; reads delivery-issues.sh, .github/delivery-corrections.txt and delivery-project.json",
+      "outputs": "ok:/FAIL: lines; PASS summary and exit 0, or failure count and exit 1",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local checks only",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "asserts reviewed delivery corrections",
+          "path": ".github/delivery-corrections.txt"
+        },
+        {
+          "relation": "asserts delivery Project binding has no credentials",
+          "path": ".github/delivery-project.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-install-axiom.sh",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Test install-axiom.sh PATH notice, provenance, idempotence, tamper/unowned conflict and dirty-source metadata in an isolated destination.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "maintainer runs it manually when the source installer changes; no tracked workflow or script invokes it",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "none; sets AXIOM_BIN_DIR and AXIOM_INSTALL_STATE_ROOT to temporary paths",
+      "outputs": "PASS line and exit 0, otherwise silent exit 1 at the failed assertion",
+      "local_effects": "temporary directories and a transient dirty-probe file in the repository root (removed on exit)",
+      "network_effects": "none (go build may use the local module cache)",
+      "authority": "none; no real install directory is touched",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-install-bootstrap.sh",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Fake-network contract matrix for install.sh covering selectors, host rows, refusals, install, reinstall, upgrade and recovery with archives built from the committed HEAD.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "posix-sh"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "maintainer runs it manually when the bootstrap changes; no tracked workflow or script invokes it",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "env BOOTSTRAP_SHELL (default sh); committed repository HEAD cloned and built via build-release-archives.sh; POC fixture",
+      "outputs": "case=... result= lines; result=pass exit 0, result=fail exit 1, exit 78 when the host row is unsupported",
+      "local_effects": "temporary directories only; fake curl on a temporary PATH",
+      "network_effects": "none (fake curl serves local fixtures)",
+      "authority": "none; no live GitHub content is read",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "uses historical POC fixture for upgrade-from-POC case",
+          "path": "internal/compatibility/testdata/poc-v0.1.0-poc.1"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-maintainer-agent.sh",
+      "kind": "script",
+      "owner": "maintainer-harness",
+      "purpose": "Run the offline maintainer-evaluation unit tests then the maintainer-agent evaluation, forwarding arguments such as --runtime and --require-runtimes.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation run via validate-repository.sh; manual cross-runtime runs with --runtime claude --runtime codex.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "Optional arguments forwarded to maintainer-agent-eval.py (--runtime, --require-runtimes, ...).",
+      "outputs": "PASS line then the evaluation's PASS/SKIP/UNVERIFIED output; exit non-zero on failure.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none without --runtime; with --runtime the claude/codex CLIs may contact their model providers",
+      "authority": "none; read-only checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-release-archives.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Tests archive contents, provenance and native install integrity of builder output, including the install-release.sh protection matrix on the host platform.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "test"
+      ],
+      "trigger": "Run by the S7 native acceptance script and manually when archive or installer behavior changes",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-s7-native.sh"
+      ],
+      "inputs": "none; builds archives from the repository checkout (go toolchain required)",
+      "outputs": "exit 0 on success, non-zero on first failed assertion; no header contract declared by the script",
+      "local_effects": "temporary directories only",
+      "network_effects": "none by the script (go build may use the module cache or proxy)",
+      "authority": "none; local checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-release-corrections.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Offline integration tests for pinned, append-only release correction inputs against release-corrections.sh in temporary Git repositories.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3",
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every CI release-contract job run (ci.yml)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; copies release-corrections.sh into temporary Git fixtures",
+      "outputs": "unittest results; non-zero exit on failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-release-flow.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Release flow contract tests for preflight, notes, publication, the release.sh authority boundary, recovery and the static shape of release workflows, using a fake gh and local Git fixtures.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every CI release-contract job run (ci.yml)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; stateful fake gh on PATH backed by local JSON, local fixture repository and bare remote",
+      "outputs": "ok:/FAIL: lines per check; non-zero exit when any check fails",
+      "local_effects": "temporary directories only",
+      "network_effects": "none; no network, tag, release or repository mutation",
+      "authority": "none",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-release-notes-comparison.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Exercises the recovery notes comparison lines of publish-release.sh to prove Markdown and glob characters compare literally and drift is refused.",
+      "lifecycle": "durable",
+      "disposition": "replace",
+      "disposition_ref": "#168 T07",
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "test"
+      ],
+      "trigger": "Run as a check inside test-release-flow.sh on every CI release-contract job run",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "none; extracts two comparison lines from scripts/publish-release.sh and evals them",
+      "outputs": "ok: lines; non-zero exit when a comparison accepts changed notes",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "extracts comparison lines from",
+          "path": "scripts/publish-release.sh"
+        }
+      ],
+      "removal_condition": "Remove after behavioral recovery-notes cases (Markdown/glob/different-note) exist in the release-flow fixture harness, replacing source extraction and eval (#168 T07)"
+    },
+    {
+      "path": "scripts/test-release-pipeline.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Tests the release artifact pipeline: tag-to-version contract, clean-revision build, verifier rejection cases and the no-publication workflow shape.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every CI release-contract job run (ci.yml)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; builds and verifies in a clean clone of committed HEAD (go toolchain required)",
+      "outputs": "exit 0 on success; FAIL: messages on stderr and non-zero exit on failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none; no network, tag, release or repository mutation",
+      "authority": "none",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-release-pr-checks.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Offline regression tests for Release PR identity, drift and dispatch fencing in release-pr-checks.sh using an isolated fake gh.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3",
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every CI release-contract job run (ci.yml)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; fake gh executable on PATH with fixture JSON; reads release-please.yml text",
+      "outputs": "unittest results; non-zero exit on failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-s7-native.sh",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Run exact-target native filesystem, install and upgrade acceptance on an approved release row, using isolated temporary roots.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual native acceptance and recovery runs on supported rows (macOS 27.0 arm64 APFS, Linux ext4).",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Optional env AXIOM_NATIVE_CANDIDATE_REVISION; run from a checkout of the candidate; runs go test, test-release-archives.sh and build-release-archives.sh.",
+      "outputs": "key=value step lines on stdout; exit 78 for unsupported rows or a candidate product-tree mismatch (blocked), non-zero on failure.",
+      "local_effects": "temporary directories only (plus Go build cache)",
+      "network_effects": "none declared by the script; go test may fetch modules if the cache is cold",
+      "authority": "none; runs only against isolated temporary roots",
+      "tests": [],
+      "evidence": "Native Evidence step lines consumed by the S7/S9 acceptance Evidence.",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-s7-security.sh",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Run requirement-tagged security and bounded-I/O Go test groups, failing when a named test no longer exists, plus race, sensitive-file and optional gitleaks checks.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual security acceptance runs before releases and when security-relevant code changes.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; runs from the repository root using go test, check-sensitive-files.sh and gitleaks when installed.",
+      "outputs": "key=value case lines on stdout; 'result=pass' and exit 0, or 'result=fail' and exit 1.",
+      "local_effects": "none beyond Go build/test cache",
+      "network_effects": "none declared by the script; go test may fetch modules if the cache is cold",
+      "authority": "none; read-only local checks",
+      "tests": [],
+      "evidence": "Requirement-tagged security case lines consumed by the S7/S9 acceptance Evidence.",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-s9-rc-acceptance.sh",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Four-line alias that forwards all arguments to s9-rc-evidence.py.",
+      "lifecycle": "durable",
+      "disposition": "merge",
+      "disposition_ref": "#168 T10",
+      "runtime": [
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual maintainer invocation of the documented historical alias for the RC evidence collector.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "All arguments forwarded to s9-rc-evidence.py.",
+      "outputs": "Identical to s9-rc-evidence.py (exec).",
+      "local_effects": "Same as s9-rc-evidence.py (Evidence directory under --evidence-dir)",
+      "network_effects": "Same as s9-rc-evidence.py (none in plan-only mode)",
+      "authority": "Same as s9-rc-evidence.py (approved envelope SHA-256 for --execute-install)",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": "Remove once #168 T10 folds the alias into the canonical collector invocation and the old command migration is documented."
+    },
+    {
+      "path": "scripts/test-validate-agent-package.sh",
+      "kind": "script",
+      "owner": "agent-factory",
+      "purpose": "Black-box regression tests for validate-agent-package.sh covering regular packages, CLAUDE.md pointer rules, symlinks and secrets.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation run via validate-repository.sh, and when the package validator changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "No arguments; builds throwaway package directories.",
+      "outputs": "PASS line and exit 0, or 'FAIL: <case>' on stderr and exit 1.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-windows-bootstrap.ps1",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Execute install.ps1 with an in-memory HTTP transport and injected host data to test its refusal contract (HTTP, selectors, size, unsupported host).",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "powershell"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "every CI verify run on windows (Windows bootstrap refusal contract step)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; reads install.ps1 source and replaces its HttpClient construction with a test client",
+      "outputs": "Throws on any contract failure; pass output on success",
+      "local_effects": "temporary directory under USERPROFILE (removed); USERPROFILE and architecture env vars temporarily changed and restored",
+      "network_effects": "none (in-memory transport)",
+      "authority": "none",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-windows-install.ps1",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Offline Windows native installer contract: builds a test bundle and exercises install-release.ps1 install, checksum refusal, in-use upgrade and bootstrap selector rejection.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "powershell",
+        "go"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "every CI verify run on windows (Native Windows installer contract step)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "none; builds cmd/lingo with go and tar.exe archives; sets LINGO_* and AXIOM_CODEX_SKILLS_ROOT to temporary paths",
+      "outputs": "windows_install_contract=pass on success; throws on failure",
+      "local_effects": "temporary directory under TEMP (removed); process env vars restored",
+      "network_effects": "none (go build may use the local module cache)",
+      "authority": "none; no release or user installation touched",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test_maintainer_agent_eval.py",
+      "kind": "script",
+      "owner": "maintainer-harness",
+      "purpose": "Offline unit tests of the maintainer evaluation invariants, answer parsing and status handling; no runtime is invoked.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation run via test-maintainer-agent.sh, and when maintainer-agent-eval.py changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-maintainer-agent.sh"
+      ],
+      "inputs": "No arguments; imports maintainer-agent-eval.py and copies .agents, .claude, AGENTS.md, CLAUDE.md and check-claude-bootstrap.sh into temp fixtures.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test_s9_rc_envelope.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Offline tests of s9-rc-envelope.py covering committed envelopes, authority, timeout, output-cap and attempt-ledger safety.",
+      "lifecycle": "durable",
+      "disposition": "move",
+      "disposition_ref": "#168 T09",
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run whenever the S9 acceptance tools change.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; imports s9-rc-envelope.py and reads the committed rc2 candidate descriptor and envelopes.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": "Reads docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json and envelopes; establishes no acceptance Evidence.",
+      "compatibility": [
+        {
+          "relation": "reads the committed rc2 candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
+        }
+      ],
+      "removal_condition": "Move with its owning acceptance tool under #168 T09, preserving relative imports and pinned candidate fixtures."
+    },
+    {
+      "path": "scripts/test_s9_rc_evidence.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Offline safety tests of s9-rc-evidence.py: descriptor binding, refusals, plan-only behaviour and execution gating with pinned RC fixtures.",
+      "lifecycle": "durable",
+      "disposition": "move",
+      "disposition_ref": "#168 T09",
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run whenever the S9 acceptance tools change.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; imports s9-rc-evidence.py and reads the committed rc1/rc2 candidate descriptors.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": "Reads descriptors under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2; establishes no acceptance Evidence.",
+      "compatibility": [
+        {
+          "relation": "pinned v0.1.2-rc.2 candidate sourceRevision",
+          "revision": "859969a07f3807822580431a05b6c78b07691fb1"
+        },
+        {
+          "relation": "pinned v0.1.2-rc.1 prior candidate sourceRevision",
+          "revision": "f73d6d0c951dd40c5cc97c3794ad7ee5607092b5"
+        },
+        {
+          "relation": "reads the committed rc2 candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
+        },
+        {
+          "relation": "reads the committed rc1 prior candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/prior-candidate-v0.1.2-rc.1.json"
+        }
+      ],
+      "removal_condition": "Move with its owning acceptance tool under #168 T09, preserving relative imports and pinned candidate fixtures."
+    },
+    {
+      "path": "scripts/validate-agent-package.sh",
+      "kind": "script",
+      "owner": "agent-factory",
+      "purpose": "Validate a generated Codex agent package (or, with --maintainer-harness, this repository's harness): AGENTS.md, symlink policy, Claude artifacts, sensitive files, placeholders and skill layout.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Every repository validation (--maintainer-harness) and every generated package validation by the Agent Factory.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "Optional --maintainer-harness flag and package directory (default .); reads AGENTS.md and .agents/.",
+      "outputs": "'PASS: ...' on stdout and exit 0; 'FAIL: ...' on stderr and exit 1; 'WARN:' for empty directories.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [
+        "scripts/test-validate-agent-package.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/validate-landing-page.sh",
+      "kind": "script",
+      "owner": "site",
+      "purpose": "Reproducible acceptance checks for the public landing page: published files, asset hygiene, image dimensions, WCAG contrast, motion, translations, install commands and local HTTP serving.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "every PR and main run of deploy-landpage.yml touching the site paths, before any Pages deployment",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/deploy-landpage.yml"
+      ],
+      "inputs": "optional target directory (default .); env AXIOM_LANDING_PAGE_REMOTE=1 enables remote asset checks, AXIOM_LANDING_PAGE_PORT; reads site/, docs/assets, README.md and Git-tracked files",
+      "outputs": "PASS/SKIP lines; FAIL on stderr and exit 1 at the first failed check",
+      "local_effects": "temporary loopback python3 http.server on 127.0.0.1 (stopped on exit); no files written",
+      "network_effects": "loopback HTTP to 127.0.0.1; HTTPS HEAD requests to raw.githubusercontent.com only when AXIOM_LANDING_PAGE_REMOTE=1",
+      "authority": "none; read-only checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/validate-repository.sh",
+      "kind": "script",
+      "owner": "repository-validation",
+      "purpose": "Aggregate repository bootstrap check: required files, .gitignore patterns, README links, Claude bootstrap, harness and sensitive-file validators, and git diff --check.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every CI repository-check run on linux and macos (ci.yml 'Repository checks') and maintainer validation before a change is complete.",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "Optional $1 target directory (default .); reads required docs, .gitignore, README.md and delegates to child scripts.",
+      "outputs": "PASS line on stdout and exit 0, or 'FAIL: <reason>' on stderr and exit 1; child scripts print their own PASS/FAIL.",
+      "local_effects": "temporary directories only (via child test scripts)",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [
+        "scripts/test-check-claude-bootstrap.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/verify-prepared-release.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Revalidates a downloaded prepared release set (workflow run, preflight, artifact verification, notes equality) before preview or publication.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every release status preview and twice per publication run (publish-release.yml preflight and publish jobs, release.sh)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/publish-release.yml",
+        "scripts/release.sh",
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "--tag --revision --prepared ABS_DIR --repo OWNER/NAME [--run ID] [--main-ref] [--remote]; env AXIOM_RELEASE_CORRECTIONS_*; reads release-evidence.txt, release-notes.md, artifacts/",
+      "outputs": "stdout preflight facts, prepared_run= and prepared=verified; stderr prepared_release_error and exit 1",
+      "local_effects": "temporary directories only",
+      "network_effects": "GitHub API via gh (read-only run metadata) and git ls-remote --tags via release-preflight.sh",
+      "authority": "none; read-only (needs a read token for run metadata)",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "Consumes release-evidence.txt, release-notes.md and release-recovery.txt of the prepared artifact",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/verify-release-artifacts.sh",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Verifies one complete four-archive release artifact set against the exact clean checked-out source revision and prints closed Evidence.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every release preparation run (release-artifacts.yml) and prepared-set re-verification (verify-prepared-release.sh, release.sh verify)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-artifacts.yml",
+        "scripts/release.sh",
+        "scripts/test-release-pipeline.sh",
+        "scripts/verify-prepared-release.sh"
+      ],
+      "inputs": "--dir ABS_DIR --version X.Y.Z --revision SHA; requires clean checkout at the revision and a go toolchain",
+      "outputs": "stdout archive= lines, publication=none and result=pass; stderr release_verify_error and exit 1",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; read-only, never publishes",
+      "tests": [
+        "scripts/test-release-pipeline.sh"
+      ],
+      "evidence": "Produces release-evidence.txt retained in the prepared artifact and required by publish-release.sh",
+      "compatibility": [],
+      "removal_condition": null
+    }
+  ]
+}

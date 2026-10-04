@@ -23,6 +23,8 @@ required_files=(
   "docs/README.pt-BR.md"
   "SECURITY.md"
   ".agents/policies/security.md"
+  ".agents/policies/repository-automation.md"
+  "scripts/automation-registry.json"
   "docs/product/README.md"
   "docs/architecture/README.md"
   "docs/decisions/README.md"
@@ -93,6 +95,8 @@ fi
 "$ROOT/scripts/test-validate-agent-package.sh"
 "$ROOT/scripts/test-check-claude-bootstrap.sh"
 "$ROOT/scripts/test-maintainer-agent.sh"
+python3 "$ROOT/scripts/test-check-automation-registry.py"
+python3 "$ROOT/scripts/check-automation-registry.py" "$ROOT"
 "$ROOT/scripts/test-check-sensitive-files.sh"
 "$ROOT/scripts/check-sensitive-files.sh" "$ROOT"
 git -C "$ROOT" diff --check
