@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# --maintainer-harness validates this repository's own maintainer harness:
+# the Claude skill-discovery adapters approved by ADR-0014 are its only
+# allowed symlinks. Generated Codex packages use the default mode, which keeps
+# rejecting every symlink and every .claude/ entry.
+MAINTAINER_HARNESS=0
+if [[ "${1:-}" == "--maintainer-harness" ]]; then
+  MAINTAINER_HARNESS=1
+  shift
+fi
 TARGET="${1:-.}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
@@ -20,13 +29,23 @@ pass() {
 [[ -d "$TARGET" ]] || fail "target directory does not exist: $TARGET"
 [[ -f "$TARGET/AGENTS.md" ]] || fail "AGENTS.md is required"
 
-if find "$TARGET" -path "$TARGET/.git" -prune -o -type l -print -quit | grep -q .; then
-  fail "symlinks are not allowed in Codex packages"
-fi
+if [[ "$MAINTAINER_HARNESS" == 1 ]]; then
+  # The closed check runs first, so every entry under .claude/skills/ is an
+  # approved adapter before it is exempted from the symlink rule.
+  "$SCRIPT_DIR/check-claude-bootstrap.sh" --skill-adapters "$TARGET" \
+    || fail "unapproved Claude artifacts in the maintainer harness"
+  if find "$TARGET" -path "$TARGET/.git" -prune -o -type l ! -path "$TARGET/.claude/skills/*" -print -quit | grep -q .; then
+    fail "only approved Claude skill adapters may be symlinks"
+  fi
+else
+  if find "$TARGET" -path "$TARGET/.git" -prune -o -type l -print -quit | grep -q .; then
+    fail "symlinks are not allowed in Codex packages"
+  fi
 
-# Only the approved root bootstrap CLAUDE.md ("@AGENTS.md") is tolerated;
-# the Codex renderer never emits it. Any other Claude artifact fails.
-"$SCRIPT_DIR/check-claude-bootstrap.sh" "$TARGET" || fail "Claude artifacts found in Codex package"
+  # Only the approved root bootstrap CLAUDE.md ("@AGENTS.md") is tolerated;
+  # the Codex renderer never emits it. Any other Claude artifact fails.
+  "$SCRIPT_DIR/check-claude-bootstrap.sh" "$TARGET" || fail "Claude artifacts found in Codex package"
+fi
 
 "$SCRIPT_DIR/check-sensitive-files.sh" --directory "$TARGET"
 
@@ -45,4 +64,8 @@ if [[ -d "$TARGET/.agents/skills" ]]; then
   done < <(find "$TARGET/.agents/skills" -mindepth 1 -maxdepth 1 -type d)
 fi
 
-pass "Codex agent package structure looks valid"
+if [[ "$MAINTAINER_HARNESS" == 1 ]]; then
+  pass "maintainer harness structure looks valid"
+else
+  pass "Codex agent package structure looks valid"
+fi
