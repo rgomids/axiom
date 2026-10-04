@@ -254,7 +254,7 @@ executable is never run. A Runtime whose executable is not on this process's
 `PATH` is reported absent (with `configurationWithoutExecutable` when its
 configuration directory exists); put it on `PATH` and rerun, or use the
 per-Runtime command below. For every Runtime found it installs or upgrades the
-five Axiom-owned user-global skills, then reports every supported Runtime:
+six Axiom-owned user-global skills, then reports every supported Runtime:
 
 ```bash
 axiom first-run
@@ -376,7 +376,7 @@ absolute output directory. It emits four checksummed archives plus
 Each archive holds one bundle directory with the canonical public executable
 `axiom` (`axiom.exe` on Windows), `LICENSE`, the release installer `install.sh`
 (`install.ps1` on Windows), `release-metadata.txt`,
-`skills-manifest.txt`, the five Codex skills, and a complete `MANIFEST.sha256`.
+`skills-manifest.txt`, the six Codex skills, and a complete `MANIFEST.sha256`.
 The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom`
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
 no migration from such an installation is performed.
