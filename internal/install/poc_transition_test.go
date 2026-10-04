@@ -874,3 +874,25 @@ func TestRecognizedPOCActivatedResumeRequiresCompleteRetirementProgress(t *testi
 		})
 	}
 }
+
+func TestRecognizedPOCRevalidatesKeptObjectsBeforeNextRetirement(t *testing.T) {
+	installed := pocInstallation(t)
+	candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
+	preview, err := NewService().Preview(context.Background(), installed.target, candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := Service{afterEffect: func(label string) error {
+		if strings.HasPrefix(label, "retire:state/work-items/") {
+			return os.Remove(filepath.Join(installed.target.State.Projects, "poc-fixture", "axiom.yaml"))
+		}
+		return nil
+	}}
+	result, err := applyPreview(t, service, preview)
+	if result.Status != "partial" || category(err) != "preservation_unverified" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	if _, err := os.Stat(installed.pocWorkflow()); err != nil {
+		t.Fatalf("pending workflow retired after kept-object loss: %v", err)
+	}
+}

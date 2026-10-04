@@ -554,7 +554,6 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			return partial(result), &Error{Category: "marker_unavailable"}
 		}
 	}
-	retirementVerified := false
 	transitionPending := current.transition != nil && hasTransitionEffect(current.Effects)
 	for _, effect := range current.Effects {
 		if err := ctx.Err(); err != nil {
@@ -579,16 +578,12 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			if compatibility.CompletePreservation(ctx, current.target.State, *current.transition) != nil {
 				err = &Error{Category: "preservation_unverified"}
 			}
-			retirementVerified = err == nil
 		case "retire":
 			// Retirement requires the complete correspondence proof in this
 			// same operation, including when resuming after the manifest.
-			if !retirementVerified {
-				if compatibility.VerifyPreservation(ctx, current.target.State, *current.transition) != nil {
-					err = &Error{Category: "preservation_unverified"}
-					break
-				}
-				retirementVerified = true
+			if compatibility.VerifyPreservation(ctx, current.target.State, *current.transition) != nil {
+				err = &Error{Category: "preservation_unverified"}
+				break
 			}
 			// The verified manifest is bound to the operation before the
 			// first retirement, so a resume can never accept another one.
