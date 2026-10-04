@@ -2,10 +2,14 @@
 # Regenerates the historical POC compatibility fixture by building and
 # running the merged v0.1.0-poc.1 source with deterministic fake git/gh
 # executables. Nothing touches real user state or any Provider.
+#
+# Lives in testdata beside the fixture it rewrites (ignored by the Go
+# toolchain); run it from anywhere as
+#   internal/compatibility/testdata/generate-poc-fixture.sh
 set -euo pipefail
 umask 077
 
-repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd -P)
 tag=v0.1.0-poc.1
 expected_revision=242d67c4cf2d4c3efe534dd894cb56a05558e139
 fixture="$repository_root/internal/compatibility/testdata/poc-$tag"
@@ -58,7 +62,7 @@ done < <(grep -rlF "$base" "$fixture" || true)
 {
   printf 'tag=%s\n' "$tag"
   printf 'revision=%s\n' "$expected_revision"
-  printf 'generator=scripts/generate-poc-fixture.sh\n'
+  printf 'generator=internal/compatibility/testdata/generate-poc-fixture.sh\n'
   printf 'go=%s\n' "$(go env GOVERSION)"
   printf 'normalized_prefix=%s\n' "$neutral_base"
 } >"$fixture/PROVENANCE"

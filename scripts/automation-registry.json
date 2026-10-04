@@ -322,6 +322,46 @@
       "removal_condition": "Remove when the retained S9 checkpoint Evidence under evidence-s9-rc no longer needs its structural audit reproduced."
     },
     {
+      "path": "internal/compatibility/testdata/generate-poc-fixture.sh",
+      "kind": "script",
+      "owner": "compatibility",
+      "purpose": "Regenerate the historical v0.1.0-poc.1 compatibility fixture by building the pinned tag source and running it with deterministic fake git/gh.",
+      "lifecycle": "historical-replay",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "historical"
+      ],
+      "trigger": null,
+      "replay_reason": "Reproduces the pinned v0.1.0-poc.1 persisted-state fixture (revision 242d67c4) consumed by compatibility, install and runtime tests; kept so the fixture stays rebuildable from its tag.",
+      "callers": [],
+      "inputs": "local git tag v0.1.0-poc.1 (must resolve to the pinned revision); go toolchain; no arguments",
+      "outputs": "Rewrites internal/compatibility/testdata/poc-v0.1.0-poc.1 (projects, state, skills, PROVENANCE) and lists its files to stdout",
+      "local_effects": "deletes and recreates internal/compatibility/testdata/poc-v0.1.0-poc.1; temporary directories otherwise",
+      "network_effects": "none (go build may use the local module cache)",
+      "authority": "none; maintainer manual run, no flag or credential required",
+      "tests": [
+        "internal/compatibility"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "pinned historical POC source revision (tag v0.1.0-poc.1)",
+          "revision": "242d67c4cf2d4c3efe534dd894cb56a05558e139"
+        },
+        {
+          "relation": "writes provenance record",
+          "path": "internal/compatibility/testdata/poc-v0.1.0-poc.1/PROVENANCE"
+        }
+      ],
+      "removal_condition": "Remove only when the v0.1.0-poc.1 fixture is no longer a supported compatibility input."
+    },
+    {
       "path": "scripts/build-release-archives.sh",
       "kind": "script",
       "owner": "release",
@@ -646,46 +686,6 @@
       "evidence": "Prints a one-line axiom_e2e_dogfood JSON record to stdout; does not write files",
       "compatibility": [],
       "removal_condition": null
-    },
-    {
-      "path": "scripts/generate-poc-fixture.sh",
-      "kind": "script",
-      "owner": "compatibility",
-      "purpose": "Regenerate the historical v0.1.0-poc.1 compatibility fixture by building the pinned tag source and running it with deterministic fake git/gh.",
-      "lifecycle": "historical-replay",
-      "disposition": "move",
-      "disposition_ref": "#168 T06",
-      "runtime": [
-        "bash",
-        "go"
-      ],
-      "scope": [
-        "maintainer",
-        "historical"
-      ],
-      "trigger": null,
-      "replay_reason": "Reproduces the pinned v0.1.0-poc.1 persisted-state fixture (revision 242d67c4) consumed by compatibility, install and runtime tests; kept so the fixture stays rebuildable from its tag.",
-      "callers": [],
-      "inputs": "local git tag v0.1.0-poc.1 (must resolve to the pinned revision); go toolchain; no arguments",
-      "outputs": "Rewrites internal/compatibility/testdata/poc-v0.1.0-poc.1 (projects, state, skills, PROVENANCE) and lists its files to stdout",
-      "local_effects": "deletes and recreates internal/compatibility/testdata/poc-v0.1.0-poc.1; temporary directories otherwise",
-      "network_effects": "none (go build may use the local module cache)",
-      "authority": "none; maintainer manual run, no flag or credential required",
-      "tests": [
-        "internal/compatibility"
-      ],
-      "evidence": null,
-      "compatibility": [
-        {
-          "relation": "pinned historical POC source revision (tag v0.1.0-poc.1)",
-          "revision": "242d67c4cf2d4c3efe534dd894cb56a05558e139"
-        },
-        {
-          "relation": "writes provenance record",
-          "path": "internal/compatibility/testdata/poc-v0.1.0-poc.1/PROVENANCE"
-        }
-      ],
-      "removal_condition": "Relocate beside compatibility test support (#168 T06); remove only when the v0.1.0-poc.1 fixture is no longer a supported compatibility input."
     },
     {
       "path": "scripts/install-axiom.sh",
