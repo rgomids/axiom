@@ -9,7 +9,10 @@ Axiom is intended to become a development control plane that helps humans and AI
 You have two simultaneous responsibilities:
 
 1. evolve the Axiom product safely and incrementally;
-2. use Axiom's emerging concepts to generate and validate other Codex agent harnesses.
+2. use Axiom's emerging concepts to generate and validate other agent harnesses
+   (today the Agent Factory renders Codex packages only; see "Agent factory rule").
+
+Both responsibilities apply equally in every supported maintainer runtime.
 
 Do not treat Axiom as a generic chatbot or prompt collection.
 
@@ -51,7 +54,7 @@ For non-trivial changes:
 4. define or update the specification;
 5. plan the technical change;
 6. identify architectural decisions;
-7. decompose work when useful;
+7. decompose work when useful (delegate only when it has net value);
 8. implement the smallest scoped unit;
 9. run deterministic validation;
 10. perform engineering/security review proportional to risk;
@@ -62,13 +65,17 @@ Use the skills below instead of reproducing long procedures in this file.
 
 ## Skill routing
 
+Maintainer skills live in `.agents/skills/<skill>/SKILL.md`, their canonical
+runtime-neutral source (ADR-0014).
+
 - Product/project evolution → `.agents/skills/axiom-govern-project/SKILL.md`
 - Spec-Driven Development → `.agents/skills/axiom-sdd/SKILL.md`
 - Architecture/ADR decisions → `.agents/skills/axiom-architecture-decision/SKILL.md`
 - Implementation → `.agents/skills/axiom-implement/SKILL.md`
 - Review and validation → `.agents/skills/axiom-review/SKILL.md`
 - Documentation reconciliation → `.agents/skills/axiom-document/SKILL.md`
-- Generate another Codex agent/harness → `.agents/skills/axiom-agent-factory/SKILL.md`
+- Orchestration / delegation of substantial work → `.agents/skills/axiom-orchestrate/SKILL.md`
+- Generate another agent harness (Codex renderer) → `.agents/skills/axiom-agent-factory/SKILL.md`
 - Release / publication → `.agents/skills/axiom-release/SKILL.md`
 
 Load only the skill(s) required for the current task.
@@ -120,7 +127,7 @@ Repository hygiene:
 - do not create speculative abstractions with no validated requirement;
 - do not adopt experimental dependencies as architecture by implication;
 - do not mark hypotheses as accepted decisions;
-- do not add runtime-specific instruction files beyond the approved bootstrap below.
+- do not add runtime-specific instruction files or configuration beyond the approved bootstrap and skill-discovery adapters below.
 
 ## Maintainer runtimes
 
@@ -128,11 +135,23 @@ Codex and Claude are both valid maintainer runtimes for this repository. This
 file, with the policies and skills it routes to, is the single canonical agent
 policy for both; neither runtime has its own rules.
 
-A runtime-specific bootstrap file may exist only when a runtime cannot consume
-`AGENTS.md` directly, and only to point at it. The approved bootstrap is the
-root `CLAUDE.md` whose entire content is `@AGENTS.md`. Any other content,
-target, location, or runtime configuration (for example `.claude/`) requires an
-explicit recorded decision; the repository validators reject it.
+Runtime-specific artifacts may only point at the canonical sources, never add
+rules ([ADR-0014](docs/decisions/0014-canonical-maintainer-skills-runtime-discovery.md)):
+
+- `CLAUDE.md` at the root, whose entire content is `@AGENTS.md`, because Claude
+  Code does not read `AGENTS.md` directly;
+- `.claude/skills/<skill>`, one relative symlink per canonical skill to
+  `../../.agents/skills/<skill>`, so Claude Code discovers `/<skill>` natively
+  as Codex discovers `$<skill>`. Both invocations load the same `SKILL.md`.
+
+Anything else (other `.claude/` content such as settings, agents, commands or
+hooks; copied skills; other content, targets or locations) requires an explicit
+recorded decision; the repository validators reject it with a closed allowlist.
+
+Maintainer runtime support is not Agent Factory renderer support: Claude can
+maintain Axiom while the only implemented and validated renderer is Codex.
+Renderer targets are capability-gated and claimed only once implemented and
+validated.
 
 Maintainer runtime support is not Axiom product multi-runtime orchestration
 (Runtime/model resolution, Execution Graph, multi-agent execution), which
@@ -147,12 +166,12 @@ When generating agents, separate:
 need
 → normalized blueprint
 → artifact plan
-→ Codex renderer
+→ runtime renderer (implemented: Codex)
 → validation
 → package
 ```
 
-The blueprint must remain as vendor-neutral as practical. Codex-specific paths and formats belong to the renderer.
+The blueprint must remain as vendor-neutral as practical. Codex-specific paths and formats belong to the renderer. Generated packages follow `.agents/policies/agent-generation.md`, not the maintainer adapters above.
 
 ## Communication
 

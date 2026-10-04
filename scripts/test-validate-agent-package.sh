@@ -96,4 +96,27 @@ if "$VALIDATOR" "$KEY_CONTENT_PACKAGE" >/dev/null 2>&1; then
   fail "package containing private-key content should fail validation"
 fi
 
+# --maintainer-harness: only ADR-0014 Claude skill adapters may be symlinks.
+HARNESS_PACKAGE="$TEST_ROOT/harness"
+new_package "$HARNESS_PACKAGE"
+printf '@AGENTS.md\n' > "$HARNESS_PACKAGE/CLAUDE.md"
+mkdir -p "$HARNESS_PACKAGE/.claude/skills"
+ln -s ../../.agents/skills/example "$HARNESS_PACKAGE/.claude/skills/example"
+"$VALIDATOR" --maintainer-harness "$HARNESS_PACKAGE" >/dev/null 2>&1 \
+  || fail "maintainer harness with approved Claude adapters should pass validation"
+if "$VALIDATOR" "$HARNESS_PACKAGE" >/dev/null 2>&1; then
+  fail "Claude adapters should fail validation of a generated Codex package"
+fi
+
+ln -s AGENTS.md "$HARNESS_PACKAGE/POLICY.md"
+if "$VALIDATOR" --maintainer-harness "$HARNESS_PACKAGE" >/dev/null 2>&1; then
+  fail "maintainer harness with a symlink outside the adapters should fail validation"
+fi
+rm "$HARNESS_PACKAGE/POLICY.md"
+
+printf '{}\n' > "$HARNESS_PACKAGE/.claude/settings.json"
+if "$VALIDATOR" --maintainer-harness "$HARNESS_PACKAGE" >/dev/null 2>&1; then
+  fail "maintainer harness with Claude settings should fail validation"
+fi
+
 printf 'PASS: agent-package validator behavior is valid\n'

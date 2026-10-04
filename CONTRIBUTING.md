@@ -552,7 +552,10 @@ approve the environment, create tags or edit releases by hand.
 ### `$axiom-release`
 
 The maintainer skill [`axiom-release`](.agents/skills/axiom-release/SKILL.md)
-conducts this flow for humans and agents:
+conducts this flow for humans and agents. Codex invokes it as `$axiom-release`
+and Claude Code as `/axiom-release` (same arguments); both load the same
+canonical `SKILL.md`
+([ADR-0014](docs/decisions/0014-canonical-maintainer-skills-runtime-discovery.md)):
 
 ```text
 $axiom-release              # discover the state and do the next step (also: continue)
@@ -590,5 +593,11 @@ Evidence are in the [command reference](docs/commands.md#release-flow) and
 | Reversible | by a new PR | never silently: tags and published releases are immutable |
 
 ## AI-assisted contributions
+
+Codex and Claude Code are both supported maintainer runtimes. They follow the
+same canonical policy ([AGENTS.md](AGENTS.md)) and the same maintainer skills
+in `.agents/skills/`, which Claude Code discovers through the
+`.claude/skills/` symlinks; see the [agent harness](docs/agent-harness.md#maintainer-runtimes-and-canonical-skills).
+Do not add other Claude- or Codex-specific configuration; validators reject it.
 
 AI-assisted contributions are allowed. The human contributor remains responsible for every submission and must verify code, licenses, sources, and claims. Prompts or raw model outputs do not replace Evidence. Do not submit private content or material whose licensing does not permit its inclusion.

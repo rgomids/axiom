@@ -1,11 +1,13 @@
 ---
 name: axiom-release
-description: Start and conduct an Axiom release — discover its state, run the release preflight and start the Release PR, prepare and verify the exact artifact set after the human merge, stop for human authority over its publication envelope, dispatch the gated publish workflow, and verify the published tag, SHA and assets. Invoke as `$axiom-release`, `$axiom-release continue` or `$axiom-release vX.Y.Z[-rc.N]`.
+description: Start and conduct an Axiom release — discover its state, run the release preflight and start the Release PR, prepare and verify the exact artifact set after the human merge, stop for human authority over its publication envelope, dispatch the gated publish workflow, and verify the published tag, SHA and assets. Invoke as `$axiom-release` (Codex) or `/axiom-release` (Claude Code), optionally with `continue` or `vX.Y.Z[-rc.N]`.
 ---
 
 # Axiom Release
 
 Maintainer skill for this repository. It is not an Axiom product Runtime skill.
+Codex invokes it as `$axiom-release` and Claude Code as `/axiom-release`; both
+load this file (ADR-0014). Examples below use `$axiom-release`.
 Merges integrate code. `$axiom-release` starts releases (ADR-0011): no merge,
 green CI or earlier run starts, merges or publishes one.
 

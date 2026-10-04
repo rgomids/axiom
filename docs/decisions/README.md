@@ -16,11 +16,13 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 - [ADR-0010 — Windows native filesystem boundary](0010-windows-native-filesystem-boundary.md) — **Accepted for the requested implementation, 2026-09-30**; native Windows security boundary. Upstream acceptance remains subject to PR review; release publication requires separate authority.
 
+- [ADR-0014 — Canonical maintainer skills with runtime-native discovery](0014-canonical-maintainer-skills-runtime-discovery.md) — **Accepted, 2026-10-03** (human decision in Issue #174); `.agents/skills/*` is the canonical runtime-neutral maintainer-skill source, `.claude/skills/*` are closed-allowlist discovery symlinks; supersedes only the repository bootstrap-policy fragment that rejected every `.claude/` entry, not an ADR.
+
 ## Candidate assessment
 
 | Candidate | Current classification | ADR now? |
 |---|---|---|
-| Codex-first harness | Accepted bounded product scope for current harness; not a permanent single-runtime commitment. | No. Existing scope is explicit and reversible. |
+| Codex-first harness | Accepted bounded scope for the Agent Factory renderer (Codex only); maintainers may use Codex or Claude. | No for the renderer. Maintainer skill discovery across runtimes is Accepted in ADR-0014. |
 | Go for future CLI | Go foundations implemented; CLI framework and distribution remain undecided. | Later, with an approved CLI specification and alternatives evidence. |
 | Provider abstraction | Accepted boundary principle; concrete ports and adapters remain open. | Later, when a specified integration creates a durable contract. |
 | Local versus remote control-plane topology | Local Lingo direction accepted; remote and hybrid alternatives remain revisit paths. | Accepted in ADR-0003; detailed behavior still requires Specification evidence. |
