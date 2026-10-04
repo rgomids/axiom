@@ -7,7 +7,7 @@
 // exactly as the T36 operator did. Build it only from a checkout whose product
 // tree equals the exact RC revision (the envelope checks this first):
 //
-//	go build -o <lab>/bin/t24-graph-runner ./scripts/s9-graph-runner.go
+//	go build -o <lab>/bin/t24-graph-runner ./scripts/acceptance/s9-graph-runner.go
 //
 // Modes, each bound to one reviewed spec file (JSON) and run under its own
 // envelope phase:

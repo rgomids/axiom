@@ -12,7 +12,7 @@ from unittest.mock import patch
 spec = importlib.util.spec_from_file_location("executor", Path(__file__).with_name("s9-rc-envelope.py"))
 executor = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(executor)
-CANDIDATE = (Path(__file__).resolve().parents[1]
+CANDIDATE = (Path(__file__).resolve().parents[2]
              / "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json")
 
 

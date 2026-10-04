@@ -19,7 +19,7 @@ DESCRIPTORS = {
     "v0.1.2-rc.2": ("859969a07f3807822580431a05b6c78b07691fb1", 399403900),
     "v0.1.2-rc.1": ("f73d6d0c951dd40c5cc97c3794ad7ee5607092b5", 398805148),
 }
-EVIDENCE = Path(__file__).resolve().parents[1] / "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2"
+EVIDENCE = Path(__file__).resolve().parents[2] / "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2"
 CANDIDATE = EVIDENCE / "candidate-v0.1.2-rc.2.json"
 PRIOR = EVIDENCE / "prior-candidate-v0.1.2-rc.1.json"
 TAG = "v0.1.2-rc.2"

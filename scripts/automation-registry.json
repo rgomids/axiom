@@ -406,6 +406,198 @@
       "removal_condition": "Remove when the retained S9 checkpoint Evidence under evidence-s9-rc no longer needs its structural audit reproduced."
     },
     {
+      "path": "scripts/acceptance/s9-graph-runner.go",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Maintainer acceptance adapter that drives the Execution Graph through internal/graphapplication (prepare, run, question/answer/wait-answer) for exact-candidate acceptance.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual maintainer exact-candidate acceptance run, built (go build ./scripts/acceptance/s9-graph-runner.go) from a checkout whose product tree equals the RC revision and run under an envelope phase.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Mode (prepare|run|question|answer|wait-answer) with --spec (absolute reviewed JSON), --project-id, --parent, --run-envelope-sha256, --retry-child.",
+      "outputs": "Evidence JSON records written once (O_EXCL) under the spec EvidenceRoot; errors as 't24-graph-runner: ...' on stderr and exit 1.",
+      "local_effects": "Writes Evidence under the spec EvidenceRoot, persists Execution Graph/Runtime state under the spec StateRoot and uses child git worktrees under WorkspaceRoot; never pushes or deletes",
+      "network_effects": "none directly; dispatched codex/claude Runtime CLIs may contact their model providers; no Provider writes",
+      "authority": "human-authorized run envelope SHA-256 (--run-envelope-sha256) for the run mode; reviewed spec file",
+      "tests": [],
+      "evidence": "Execution Graph Evidence records under the spec EvidenceRoot, consumed by the acceptance Evidence under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2.",
+      "compatibility": [
+        {
+          "relation": "historical rc2 envelope D builds ./scripts/s9-graph-runner.go inside a tooling checkout at its human-approved toolingRevision; replay uses that pinned revision, whose source equals this merge commit for runs 02/03",
+          "revision": "6388f424220fc26ce8970eb08c107904db565b50"
+        },
+        {
+          "relation": "retained rc2 envelope D and graph specs that record the historical runner path",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/envelopes"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/acceptance/s9-rc-envelope.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Execute exactly one reviewed phase of an authority envelope after verifying the human-approved envelope digest, candidate binding and attempt ledger.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual maintainer exact-candidate acceptance run, one invocation per reviewed envelope phase.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "--envelope, --candidate, --phase, --evidence-dir, --plan, --approved-envelope-sha256, --approve NAME=VALUE, --attempt, --previous-attempt-dir; imports s9-rc-evidence.py.",
+      "outputs": "Phase result line on stdout and exit 0; --plan prints the envelope digest as JSON; failures on stderr; Evidence directory with manifest.json and artifacts/.",
+      "local_effects": "Creates a new 0700 Evidence directory; runs the envelope's reviewed argv steps with explicit environments and declared effects",
+      "network_effects": "none by itself; reviewed steps may declare external effects recorded in the ledger",
+      "authority": "human-authorized envelope SHA-256 (--approved-envelope-sha256) and approved parameters per phase; none for --plan",
+      "tests": [
+        "scripts/acceptance/test_s9_rc_envelope.py"
+      ],
+      "evidence": "manifest.json and retained step output under the --evidence-dir, bound to the envelope digest.",
+      "compatibility": [
+        {
+          "relation": "bytes are bound by toolingSHA256 in the retained rc2 envelopes B-F (keyed by file name); any content change invalidates them, so historical replay then uses this revision",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/envelopes"
+        },
+        {
+          "relation": "historical execution source at the pre-#168 path scripts/s9-rc-envelope.py",
+          "revision": "6388f424220fc26ce8970eb08c107904db565b50"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/acceptance/s9-rc-evidence.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Collect bounded, descriptor-bound local RC install and first-run stages; plan-only by default, never full acceptance.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual maintainer exact-candidate acceptance run for a release candidate (python3 scripts/acceptance/s9-rc-evidence.py: plan, then separately authorized --execute-install).",
+      "replay_reason": null,
+      "callers": [
+        "scripts/acceptance/s9-rc-envelope.py"
+      ],
+      "inputs": "--version, --candidate, --prior-candidate, --evidence-dir, --execute-install, --approved-envelope-sha256; reads the reviewed candidate descriptor JSON.",
+      "outputs": "Evidence directory with envelope.json, manifest.json and acceptance.md; errors via argparse/stderr; non-zero exit on failure.",
+      "local_effects": "Creates a 0700 Evidence directory; with --execute-install installs into isolated HOME directories under it, never executing Runtime CLIs",
+      "network_effects": "none in plan-only mode; --execute-install uses curl over HTTPS to api.github.com and raw.githubusercontent.com for rgomids/axiom release metadata and installer",
+      "authority": "--execute-install requires the human-approved SHA-256 of the exact plan envelope",
+      "tests": [
+        "scripts/acceptance/test_s9_rc_evidence.py"
+      ],
+      "evidence": "envelope.json, manifest.json and acceptance.md under the --evidence-dir; consumes the reviewed candidate descriptor.",
+      "compatibility": [
+        {
+          "relation": "bytes are bound by toolingSHA256 in the retained rc2 envelopes B-F (keyed by file name); any content change invalidates them, so historical replay then uses this revision",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/envelopes"
+        },
+        {
+          "relation": "historical execution source at the pre-#168 path scripts/s9-rc-evidence.py",
+          "revision": "6388f424220fc26ce8970eb08c107904db565b50"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/acceptance/test_s9_rc_envelope.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Offline tests of s9-rc-envelope.py covering committed envelopes, authority, timeout, output-cap and attempt-ledger safety.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run whenever the S9 acceptance tools change.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; imports s9-rc-envelope.py and reads the committed rc2 candidate descriptor and envelopes.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": "Reads docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json and envelopes; establishes no acceptance Evidence.",
+      "compatibility": [
+        {
+          "relation": "reads the committed rc2 candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/acceptance/test_s9_rc_evidence.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Offline safety tests of s9-rc-evidence.py: descriptor binding, refusals, plan-only behaviour and execution gating with pinned RC fixtures.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run whenever the S9 acceptance tools change.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; imports s9-rc-evidence.py and reads the committed rc1/rc2 candidate descriptors.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": "Reads descriptors under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2; establishes no acceptance Evidence.",
+      "compatibility": [
+        {
+          "relation": "pinned v0.1.2-rc.2 candidate sourceRevision",
+          "revision": "859969a07f3807822580431a05b6c78b07691fb1"
+        },
+        {
+          "relation": "pinned v0.1.2-rc.1 prior candidate sourceRevision",
+          "revision": "f73d6d0c951dd40c5cc97c3794ad7ee5607092b5"
+        },
+        {
+          "relation": "reads the committed rc2 candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
+        },
+        {
+          "relation": "reads the committed rc1 prior candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/prior-candidate-v0.1.2-rc.1.json"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/build-release-archives.sh",
       "kind": "script",
       "owner": "release",
@@ -1348,93 +1540,6 @@
       "removal_condition": null
     },
     {
-      "path": "scripts/s9-graph-runner.go",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Maintainer acceptance adapter that drives the Execution Graph through internal/graphapplication (prepare, run, question/answer/wait-answer) for exact-candidate acceptance.",
-      "lifecycle": "durable",
-      "disposition": "move",
-      "disposition_ref": "#168 T09",
-      "runtime": [
-        "go"
-      ],
-      "scope": [
-        "maintainer"
-      ],
-      "trigger": "Manual maintainer exact-candidate acceptance run, built from a checkout whose product tree equals the RC revision and run under an envelope phase.",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "Mode (prepare|run|question|answer|wait-answer) with --spec (absolute reviewed JSON), --project-id, --parent, --run-envelope-sha256, --retry-child.",
-      "outputs": "Evidence JSON records written once (O_EXCL) under the spec EvidenceRoot; errors as 't24-graph-runner: ...' on stderr and exit 1.",
-      "local_effects": "Writes Evidence under the spec EvidenceRoot, persists Execution Graph/Runtime state under the spec StateRoot and uses child git worktrees under WorkspaceRoot; never pushes or deletes",
-      "network_effects": "none directly; dispatched codex/claude Runtime CLIs may contact their model providers; no Provider writes",
-      "authority": "human-authorized run envelope SHA-256 (--run-envelope-sha256) for the run mode; reviewed spec file",
-      "tests": [],
-      "evidence": "Execution Graph Evidence records under the spec EvidenceRoot, consumed by the acceptance Evidence under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2.",
-      "compatibility": [],
-      "removal_condition": "Move to the reviewed maintainer-acceptance tool boundary under #168 T09 without exposing it as a product CLI, preserving historical descriptors, digests and revision replay."
-    },
-    {
-      "path": "scripts/s9-rc-envelope.py",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Execute exactly one reviewed phase of an authority envelope after verifying the human-approved envelope digest, candidate binding and attempt ledger.",
-      "lifecycle": "durable",
-      "disposition": "move",
-      "disposition_ref": "#168 T09",
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "maintainer"
-      ],
-      "trigger": "Manual maintainer exact-candidate acceptance run, one invocation per reviewed envelope phase.",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "--envelope, --candidate, --phase, --evidence-dir, --plan, --approved-envelope-sha256, --approve NAME=VALUE, --attempt, --previous-attempt-dir; imports s9-rc-evidence.py.",
-      "outputs": "Phase result line on stdout and exit 0; --plan prints the envelope digest as JSON; failures on stderr; Evidence directory with manifest.json and artifacts/.",
-      "local_effects": "Creates a new 0700 Evidence directory; runs the envelope's reviewed argv steps with explicit environments and declared effects",
-      "network_effects": "none by itself; reviewed steps may declare external effects recorded in the ledger",
-      "authority": "human-authorized envelope SHA-256 (--approved-envelope-sha256) and approved parameters per phase; none for --plan",
-      "tests": [
-        "scripts/test_s9_rc_envelope.py"
-      ],
-      "evidence": "manifest.json and retained step output under the --evidence-dir, bound to the envelope digest.",
-      "compatibility": [],
-      "removal_condition": "Move with its tests to the reviewed maintainer-acceptance tool boundary under #168 T09, preserving historical envelope schemas, digests and revision replay."
-    },
-    {
-      "path": "scripts/s9-rc-evidence.py",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Collect bounded, descriptor-bound local RC install and first-run stages; plan-only by default, never full acceptance.",
-      "lifecycle": "durable",
-      "disposition": "move",
-      "disposition_ref": "#168 T09",
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "maintainer"
-      ],
-      "trigger": "Manual maintainer exact-candidate acceptance run for a release candidate (plan, then separately authorized --execute-install).",
-      "replay_reason": null,
-      "callers": [
-        "scripts/s9-rc-envelope.py"
-      ],
-      "inputs": "--version, --candidate, --prior-candidate, --evidence-dir, --execute-install, --approved-envelope-sha256; reads the reviewed candidate descriptor JSON.",
-      "outputs": "Evidence directory with envelope.json, manifest.json and acceptance.md; errors via argparse/stderr; non-zero exit on failure.",
-      "local_effects": "Creates a 0700 Evidence directory; with --execute-install installs into isolated HOME directories under it, never executing Runtime CLIs",
-      "network_effects": "none in plan-only mode; --execute-install uses curl over HTTPS to api.github.com and raw.githubusercontent.com for rgomids/axiom release metadata and installer",
-      "authority": "--execute-install requires the human-approved SHA-256 of the exact plan envelope",
-      "tests": [
-        "scripts/test_s9_rc_evidence.py"
-      ],
-      "evidence": "envelope.json, manifest.json and acceptance.md under the --evidence-dir; consumes the reviewed candidate descriptor.",
-      "compatibility": [],
-      "removal_condition": "Move to the reviewed maintainer-acceptance tool boundary under #168 T09, preserving historical descriptors, digests and revision replay."
-    },
-    {
       "path": "scripts/test-check-automation-registry.py",
       "kind": "script",
       "owner": "repository-validation",
@@ -2104,84 +2209,6 @@
       "evidence": null,
       "compatibility": [],
       "removal_condition": null
-    },
-    {
-      "path": "scripts/test_s9_rc_envelope.py",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Offline tests of s9-rc-envelope.py covering committed envelopes, authority, timeout, output-cap and attempt-ledger safety.",
-      "lifecycle": "durable",
-      "disposition": "move",
-      "disposition_ref": "#168 T09",
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "maintainer",
-        "test"
-      ],
-      "trigger": "Manual run whenever the S9 acceptance tools change.",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "No arguments; imports s9-rc-envelope.py and reads the committed rc2 candidate descriptor and envelopes.",
-      "outputs": "unittest output and exit code.",
-      "local_effects": "temporary directories only",
-      "network_effects": "none",
-      "authority": "none; local fixture checks",
-      "tests": [],
-      "evidence": "Reads docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json and envelopes; establishes no acceptance Evidence.",
-      "compatibility": [
-        {
-          "relation": "reads the committed rc2 candidate descriptor",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
-        }
-      ],
-      "removal_condition": "Move with its owning acceptance tool under #168 T09, preserving relative imports and pinned candidate fixtures."
-    },
-    {
-      "path": "scripts/test_s9_rc_evidence.py",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Offline safety tests of s9-rc-evidence.py: descriptor binding, refusals, plan-only behaviour and execution gating with pinned RC fixtures.",
-      "lifecycle": "durable",
-      "disposition": "move",
-      "disposition_ref": "#168 T09",
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "maintainer",
-        "test"
-      ],
-      "trigger": "Manual run whenever the S9 acceptance tools change.",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "No arguments; imports s9-rc-evidence.py and reads the committed rc1/rc2 candidate descriptors.",
-      "outputs": "unittest output and exit code.",
-      "local_effects": "temporary directories only",
-      "network_effects": "none",
-      "authority": "none; local fixture checks",
-      "tests": [],
-      "evidence": "Reads descriptors under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2; establishes no acceptance Evidence.",
-      "compatibility": [
-        {
-          "relation": "pinned v0.1.2-rc.2 candidate sourceRevision",
-          "revision": "859969a07f3807822580431a05b6c78b07691fb1"
-        },
-        {
-          "relation": "pinned v0.1.2-rc.1 prior candidate sourceRevision",
-          "revision": "f73d6d0c951dd40c5cc97c3794ad7ee5607092b5"
-        },
-        {
-          "relation": "reads the committed rc2 candidate descriptor",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
-        },
-        {
-          "relation": "reads the committed rc1 prior candidate descriptor",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/prior-candidate-v0.1.2-rc.1.json"
-        }
-      ],
-      "removal_condition": "Move with its owning acceptance tool under #168 T09, preserving relative imports and pinned candidate fixtures."
     },
     {
       "path": "scripts/validate-agent-package.sh",
