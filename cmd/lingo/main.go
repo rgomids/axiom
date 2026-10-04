@@ -678,9 +678,9 @@ func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItem
 	draft := workitem.DraftInput{
 		Type: workitem.Type(input.Type), Beneficiary: workitem.SectionInput{Supplied: input.Beneficiary}, Value: workitem.SectionInput{Supplied: input.Value}, Classification: input.Classification,
 		Target: workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository},
-		Intent: input.Intent, Problem: workitem.SectionInput{Supplied: input.Problem}, DesiredOutcome: workitem.SectionInput{Supplied: input.DesiredOutcome},
-		Context: workitem.SectionInput{Supplied: input.Context}, Scope: workitem.SectionInput{Supplied: input.Scope}, Constraints: workitem.SectionInput{Supplied: input.Constraints},
-		NonGoals: workitem.SectionInput{Supplied: input.NonGoals}, Acceptance: workitem.SectionInput{Supplied: input.Acceptance}, Cancelled: input.Cancelled,
+		Intent: input.Intent, Problem: workitem.SectionInput{Supplied: input.Problem, Elaborated: input.ElaboratedSections["problem"]}, DesiredOutcome: workitem.SectionInput{Supplied: input.DesiredOutcome, Elaborated: input.ElaboratedSections["desired_outcome"]},
+		Context: workitem.SectionInput{Supplied: input.Context, Elaborated: input.ElaboratedSections["context"]}, Scope: workitem.SectionInput{Supplied: input.Scope, Elaborated: input.ElaboratedSections["scope"]}, Constraints: workitem.SectionInput{Supplied: input.Constraints, Elaborated: input.ElaboratedSections["constraints"]},
+		NonGoals: workitem.SectionInput{Supplied: input.NonGoals, Elaborated: input.ElaboratedSections["non_goals"]}, Acceptance: workitem.SectionInput{Supplied: input.Acceptance, Elaborated: input.ElaboratedSections["acceptance_expectations"]}, Cancelled: input.Cancelled,
 	}
 	if !input.AuthorizeExternal && input.PreviewDigest == "" {
 		return workItemResult(s.workItems.Prepare(ctx, draft), s.provenance)
