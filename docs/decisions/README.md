@@ -22,7 +22,7 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 - [ADR-0016 — The owned upgrade publishes the candidate's Codex skill-set receipt when it runs as the candidate](0016-candidate-derived-skill-set-receipt.md) — **Accepted, 2026-10-04** (human decision; Issue #186); the upgrade derives the Codex skill-set receipt from the running binary only when its clean release provenance and embedded skills equal the verified candidate, as a separate authorized effect over an absent or Axiom-recognized receipt; replaces the interim S7/T20 `refresh_required` limitation without rewriting its Evidence.
 
-- [ADR-0017 — RecognizedPOC preservation archive and transition protocol](0017-recognized-poc-preservation-archive.md) — **Proposed, 2026-10-04** (Issue #153); content-addressed Axiom-owned archive beside the receipt directory (or `AXIOM_ARCHIVE_ROOT`), manifest written last, complete inventory correspondence bound to the operation marker before retirement, only POC workflow records and their Work Item links retired, never deleted by an upgrade.
+- [ADR-0017 — RecognizedPOC preservation archive and transition protocol](0017-recognized-poc-preservation-archive.md) — **Accepted, 2026-10-04** (human decision; Issue #153); content-addressed Axiom-owned archive beside the receipt directory (or `AXIOM_ARCHIVE_ROOT`), manifest written last, complete inventory correspondence bound to the operation marker before retirement, only POC workflow records and their Work Item links retired, never deleted by an upgrade.
 
 ## Candidate assessment
 

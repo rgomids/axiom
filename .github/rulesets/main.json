@@ -41,7 +41,9 @@
           { "context": "verify (macos)", "integration_id": 15368 },
           { "context": "verify (windows)", "integration_id": 15368 },
           { "context": "release-contract", "integration_id": 15368 },
-          { "context": "delivery-metadata", "integration_id": 15368 }
+          { "context": "delivery-metadata", "integration_id": 15368 },
+          { "context": "upgrade-journeys (linux)", "integration_id": 15368 },
+          { "context": "upgrade-journeys (macos)", "integration_id": 15368 }
         ]
       }
     },

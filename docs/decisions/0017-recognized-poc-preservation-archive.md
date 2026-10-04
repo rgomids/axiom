@@ -2,9 +2,14 @@
 
 ## Status
 
+Status: Accepted
+Accepted: 2026-10-04
+
 Proposed on 2026-10-04 for
 [Issue #153](https://github.com/rgomids/axiom/issues/153) (I153-T02/I153-T03).
-Becomes Accepted when the human reviewer merges the PR that introduces it.
+Accepted by explicit human decision on the same date, including archival
+of POC Work Item links and later re-selection through the current model.
+PR review and merge remain separate gates.
 It implements, and does not change, the human decisions recorded on
 2026-10-01 (Issue #153, Specification 004 FR-026–FR-028, Plan §21). ADR-0005
 and ADR-0007 continue to govern filesystem safety, authority and recovery.

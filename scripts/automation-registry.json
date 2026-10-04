@@ -44,7 +44,7 @@
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "owner": "ci",
-      "purpose": "Required product checks on every pull request and main push: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job; plus the upgrade-journeys acceptance job (not a required check).",
+      "purpose": "Required product checks on every pull request and main push: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job; plus the required upgrade-journeys acceptance jobs on linux and macos (versioned policy; remote application follows merge to main and administrative read-back).",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
