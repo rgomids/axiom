@@ -1420,8 +1420,7 @@
       "trigger": "Manual maintainer exact-candidate acceptance run for a release candidate (plan, then separately authorized --execute-install).",
       "replay_reason": null,
       "callers": [
-        "scripts/s9-rc-envelope.py",
-        "scripts/test-s9-rc-acceptance.sh"
+        "scripts/s9-rc-envelope.py"
       ],
       "inputs": "--version, --candidate, --prior-candidate, --evidence-dir, --execute-install, --approved-envelope-sha256; reads the reviewed candidate descriptor JSON.",
       "outputs": "Evidence directory with envelope.json, manifest.json and acceptance.md; errors via argparse/stderr; non-zero exit on failure.",
@@ -1984,34 +1983,6 @@
       "evidence": "Requirement-tagged security case lines consumed by the S7/S9 acceptance Evidence.",
       "compatibility": [],
       "removal_condition": null
-    },
-    {
-      "path": "scripts/test-s9-rc-acceptance.sh",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Four-line alias that forwards all arguments to s9-rc-evidence.py.",
-      "lifecycle": "durable",
-      "disposition": "merge",
-      "disposition_ref": "#168 T10",
-      "runtime": [
-        "bash",
-        "python3"
-      ],
-      "scope": [
-        "maintainer"
-      ],
-      "trigger": "Manual maintainer invocation of the documented historical alias for the RC evidence collector.",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "All arguments forwarded to s9-rc-evidence.py.",
-      "outputs": "Identical to s9-rc-evidence.py (exec).",
-      "local_effects": "Same as s9-rc-evidence.py (Evidence directory under --evidence-dir)",
-      "network_effects": "Same as s9-rc-evidence.py (none in plan-only mode)",
-      "authority": "Same as s9-rc-evidence.py (approved envelope SHA-256 for --execute-install)",
-      "tests": [],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": "Remove once #168 T10 folds the alias into the canonical collector invocation and the old command migration is documented."
     },
     {
       "path": "scripts/test-validate-agent-package.sh",

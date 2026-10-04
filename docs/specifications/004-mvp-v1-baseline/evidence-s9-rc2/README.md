@@ -85,8 +85,16 @@ the repository yet; it belongs to the release flow's own Evidence.
 
 ## Harness (maintainer tooling; no product code changed)
 
+> **Relocation note (Issue #168; added after this record, not part of it).**
+> Links to tooling the repository no longer carries at its original path point
+> at merge commit `6388f42`, whose tooling bytes equal the final recorded
+> `toolingRevision` `62bb91c` (each D run's own revision is in `execution/`).
+> Replay of these envelopes uses that pinned revision. The
+> `test-s9-rc-acceptance.sh` alias was later removed: current tooling invokes
+> the collector directly with `python3 scripts/s9-rc-evidence.py`.
+
 - [s9-rc-evidence.py](../../../../scripts/s9-rc-evidence.py) (via
-  [test-s9-rc-acceptance.sh](../../../../scripts/test-s9-rc-acceptance.sh)):
+  [test-s9-rc-acceptance.sh](https://github.com/rgomids/axiom/blob/6388f424220fc26ce8970eb08c107904db565b50/scripts/test-s9-rc-acceptance.sh)):
   `--version vX.Y.Z-rc.N` exact pin only (floating/channel values refused),
   `--candidate`/`--prior-candidate` descriptors, every process materialized in
   the envelope as ordered steps. Stage A covers: native filesystem fact
