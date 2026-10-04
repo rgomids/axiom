@@ -2,10 +2,13 @@
 
 ## Status
 
+Status: Accepted
+Accepted: 2026-10-04
+
 Proposed on 2026-10-04 for
-[Issue #186](https://github.com/rgomids/axiom/issues/186). Becomes Accepted
-when the human reviewer merges the PR that introduces it. It replaces the
-interim S7 limitation recorded as
+[Issue #186](https://github.com/rgomids/axiom/issues/186); accepted by explicit
+human decision on the same date. PR review and merge remain separate gates.
+It replaces the interim S7 limitation recorded as
 [T20 — Codex skill-set receipt after an upgrade](../specifications/004-mvp-v1-baseline/evidence-s7.md#t20--codex-skill-set-receipt-after-an-upgrade);
 that historical Evidence is not rewritten.
 

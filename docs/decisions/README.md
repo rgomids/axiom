@@ -20,7 +20,7 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 - [ADR-0015 — Installer host eligibility is OS-family and architecture based](0015-installer-host-eligibility-os-family-architecture.md) — **Accepted, 2026-10-04** (human decision in Issue #183); installer eligibility is OS family, architecture and real prerequisites, never the numeric OS version; installation eligibility, support commitment (vendor-maintained OS versions) and acceptance Evidence are separate; `macos-27-*` is legacy row naming. Supersedes only the OS-version fragment of ADR-0010.
 
-- [ADR-0016 — The owned upgrade publishes the candidate's Codex skill-set receipt when it runs as the candidate](0016-candidate-derived-skill-set-receipt.md) — **Proposed, 2026-10-04** (Issue #186); the upgrade derives the Codex skill-set receipt from the running binary only when its clean release provenance and embedded skills equal the verified candidate, as a separate authorized effect over an absent or Axiom-recognized receipt; replaces the interim S7/T20 `refresh_required` limitation without rewriting its Evidence.
+- [ADR-0016 — The owned upgrade publishes the candidate's Codex skill-set receipt when it runs as the candidate](0016-candidate-derived-skill-set-receipt.md) — **Accepted, 2026-10-04** (human decision; Issue #186); the upgrade derives the Codex skill-set receipt from the running binary only when its clean release provenance and embedded skills equal the verified candidate, as a separate authorized effect over an absent or Axiom-recognized receipt; replaces the interim S7/T20 `refresh_required` limitation without rewriting its Evidence.
 
 ## Candidate assessment
 
