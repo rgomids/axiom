@@ -278,90 +278,6 @@
       "removal_condition": null
     },
     {
-      "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/transform_logo.py",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Deterministically make the light exterior of the app-icon PNG transparent using only the standard library.",
-      "lifecycle": "historical-replay",
-      "disposition": "delete",
-      "disposition_ref": "#168 T05",
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "historical"
-      ],
-      "trigger": null,
-      "replay_reason": "Reproduces the completed rgomids/axiom#117 documentation logo alpha transformation described in the S9 dogfood work plan.",
-      "callers": [],
-      "inputs": "Arguments: source 8-bit RGB PNG and target RGBA PNG path.",
-      "outputs": "Writes the target RGBA PNG; no stdout contract.",
-      "local_effects": "Writes the target PNG path given as the second argument",
-      "network_effects": "none",
-      "authority": "none; local file transformation",
-      "tests": [],
-      "evidence": "Reproduces the logo transformation recorded in docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/work-plan.md.",
-      "compatibility": [
-        {
-          "relation": "documents the Work Item and transformation plan it reproduces",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/work-plan.md"
-        },
-        {
-          "relation": "transformation source image",
-          "path": "docs/assets/axiom-logo-app-black.png"
-        },
-        {
-          "relation": "transformation target image",
-          "path": "docs/assets/axiom-logo-github.png"
-        }
-      ],
-      "removal_condition": "Delete in #168 T05 after live helper references in work-plan.md are replaced with baseline commit source links; the logo assets and png-validation.json are preserved."
-    },
-    {
-      "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/validate_logo.py",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Validate the transformed logo PNG against its source (CRC, RGBA, dimensions, transparent corners, unchanged opaque pixels) and print one JSON report.",
-      "lifecycle": "historical-replay",
-      "disposition": "delete",
-      "disposition_ref": "#168 T05",
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "historical"
-      ],
-      "trigger": null,
-      "replay_reason": "Reproduces the completed rgomids/axiom#117 logo validation report retained as png-validation.json.",
-      "callers": [],
-      "inputs": "Arguments: source RGB PNG and result RGBA PNG path.",
-      "outputs": "One JSON report on stdout; exit 1 when any check fails.",
-      "local_effects": "none",
-      "network_effects": "none",
-      "authority": "none; read-only local checks",
-      "tests": [],
-      "evidence": "Output corresponds to the retained report docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/png-validation.json.",
-      "compatibility": [
-        {
-          "relation": "retained validation report it reproduces",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/png-validation.json"
-        },
-        {
-          "relation": "documents the Work Item and validation plan",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-dogfood/work-plan.md"
-        },
-        {
-          "relation": "validation source image",
-          "path": "docs/assets/axiom-logo-app-black.png"
-        },
-        {
-          "relation": "validation result image",
-          "path": "docs/assets/axiom-logo-github.png"
-        }
-      ],
-      "removal_condition": "Delete in #168 T05 after live helper references in work-plan.md are replaced with baseline commit source links; the logo assets and png-validation.json are preserved."
-    },
-    {
       "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc/audit.py",
       "kind": "script",
       "owner": "maintainer-acceptance",
@@ -404,6 +320,46 @@
         }
       ],
       "removal_condition": "Remove when the retained S9 checkpoint Evidence under evidence-s9-rc no longer needs its structural audit reproduced."
+    },
+    {
+      "path": "internal/compatibility/testdata/generate-poc-fixture.sh",
+      "kind": "script",
+      "owner": "compatibility",
+      "purpose": "Regenerate the historical v0.1.0-poc.1 compatibility fixture by building the pinned tag source and running it with deterministic fake git/gh.",
+      "lifecycle": "historical-replay",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "historical"
+      ],
+      "trigger": null,
+      "replay_reason": "Reproduces the pinned v0.1.0-poc.1 persisted-state fixture (revision 242d67c4) consumed by compatibility, install and runtime tests; kept so the fixture stays rebuildable from its tag.",
+      "callers": [],
+      "inputs": "local git tag v0.1.0-poc.1 (must resolve to the pinned revision); go toolchain; no arguments",
+      "outputs": "Rewrites internal/compatibility/testdata/poc-v0.1.0-poc.1 (projects, state, skills, PROVENANCE) and lists its files to stdout",
+      "local_effects": "deletes and recreates internal/compatibility/testdata/poc-v0.1.0-poc.1; temporary directories otherwise",
+      "network_effects": "none (go build may use the local module cache)",
+      "authority": "none; maintainer manual run, no flag or credential required",
+      "tests": [
+        "internal/compatibility"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "pinned historical POC source revision (tag v0.1.0-poc.1)",
+          "revision": "242d67c4cf2d4c3efe534dd894cb56a05558e139"
+        },
+        {
+          "relation": "writes provenance record",
+          "path": "internal/compatibility/testdata/poc-v0.1.0-poc.1/PROVENANCE"
+        }
+      ],
+      "removal_condition": "Remove only when the v0.1.0-poc.1 fixture is no longer a supported compatibility input."
     },
     {
       "path": "scripts/acceptance/s9-graph-runner.go",
@@ -636,6 +592,40 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/check-architecture.go",
+      "kind": "script",
+      "owner": "architecture-verification",
+      "purpose": "Shared AST engine that parses one product layer's sources and rejects non-allowlisted imports and symbols, test-only imports in production files, test I/O helpers and compiler directives under that layer's independent policy profile: domain (internal/project) or application (internal/projectapp).",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run (go run ./scripts/check-architecture.go domain|application from the repository root) whenever domain or application code or its tests change; built by its fixture tests.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-check-project-domain.sh",
+        "scripts/test-check-projectapp.sh"
+      ],
+      "inputs": "One profile argument (domain or application); reads internal/project/*.go or internal/projectapp/*.go relative to the current directory.",
+      "outputs": "'PASS: <n> <domain|application> source/test files...' on stdout and exit 0; 'FAIL: <reason>' on stderr and exit 1; missing, unknown or extra arguments print usage on stderr and exit 2 (go run reports 'exit status 2' and exits 1).",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks",
+      "tests": [
+        "scripts/test-check-project-domain.sh",
+        "scripts/test-check-projectapp.sh"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/check-automation-registry.py",
       "kind": "script",
       "owner": "repository-validation",
@@ -709,70 +699,6 @@
       "evidence": null,
       "compatibility": [],
       "removal_condition": null
-    },
-    {
-      "path": "scripts/check-project-domain.go",
-      "kind": "script",
-      "owner": "architecture-verification",
-      "purpose": "Parse internal/project sources and reject non-allowlisted imports, symbols, test I/O helpers and compiler directives to keep the domain pure.",
-      "lifecycle": "durable",
-      "disposition": "merge",
-      "disposition_ref": "#168 T08",
-      "runtime": [
-        "go"
-      ],
-      "scope": [
-        "maintainer",
-        "test"
-      ],
-      "trigger": "Manual run (go run ./scripts/check-project-domain.go from the repository root) whenever domain code or its tests change; built by its fixture test.",
-      "replay_reason": null,
-      "callers": [
-        "scripts/test-check-project-domain.sh"
-      ],
-      "inputs": "No arguments; reads internal/project/*.go relative to the current directory.",
-      "outputs": "'PASS: <n> domain source/test files...' on stdout and exit 0; 'FAIL: <reason>' on stderr and exit 1.",
-      "local_effects": "none",
-      "network_effects": "none",
-      "authority": "none; read-only local checks",
-      "tests": [
-        "scripts/test-check-project-domain.sh"
-      ],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": "Retire as a standalone file once #168 T08 consolidates the shared AST checker engine while keeping the independent domain policy table and fixtures."
-    },
-    {
-      "path": "scripts/check-projectapp.go",
-      "kind": "script",
-      "owner": "architecture-verification",
-      "purpose": "Parse internal/projectapp sources and reject non-allowlisted imports and symbols, test I/O helpers and compiler directives to keep the application layer pure.",
-      "lifecycle": "durable",
-      "disposition": "merge",
-      "disposition_ref": "#168 T08",
-      "runtime": [
-        "go"
-      ],
-      "scope": [
-        "maintainer",
-        "test"
-      ],
-      "trigger": "Manual run (go run ./scripts/check-projectapp.go from the repository root) whenever application code or its tests change; built by its fixture test.",
-      "replay_reason": null,
-      "callers": [
-        "scripts/test-check-projectapp.sh"
-      ],
-      "inputs": "No arguments; reads internal/projectapp/*.go relative to the current directory.",
-      "outputs": "'PASS: <n> application source/test files...' on stdout and exit 0; 'FAIL: <reason>' on stderr and exit 1.",
-      "local_effects": "none",
-      "network_effects": "none",
-      "authority": "none; read-only local checks",
-      "tests": [
-        "scripts/test-check-projectapp.sh"
-      ],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": "Retire as a standalone file once #168 T08 consolidates the shared AST checker engine while keeping the independent application policy table and fixtures."
     },
     {
       "path": "scripts/check-sensitive-files.sh",
@@ -922,46 +848,6 @@
       "evidence": "Prints a one-line axiom_e2e_dogfood JSON record to stdout; does not write files",
       "compatibility": [],
       "removal_condition": null
-    },
-    {
-      "path": "scripts/generate-poc-fixture.sh",
-      "kind": "script",
-      "owner": "compatibility",
-      "purpose": "Regenerate the historical v0.1.0-poc.1 compatibility fixture by building the pinned tag source and running it with deterministic fake git/gh.",
-      "lifecycle": "historical-replay",
-      "disposition": "move",
-      "disposition_ref": "#168 T06",
-      "runtime": [
-        "bash",
-        "go"
-      ],
-      "scope": [
-        "maintainer",
-        "historical"
-      ],
-      "trigger": null,
-      "replay_reason": "Reproduces the pinned v0.1.0-poc.1 persisted-state fixture (revision 242d67c4) consumed by compatibility, install and runtime tests; kept so the fixture stays rebuildable from its tag.",
-      "callers": [],
-      "inputs": "local git tag v0.1.0-poc.1 (must resolve to the pinned revision); go toolchain; no arguments",
-      "outputs": "Rewrites internal/compatibility/testdata/poc-v0.1.0-poc.1 (projects, state, skills, PROVENANCE) and lists its files to stdout",
-      "local_effects": "deletes and recreates internal/compatibility/testdata/poc-v0.1.0-poc.1; temporary directories otherwise",
-      "network_effects": "none (go build may use the local module cache)",
-      "authority": "none; maintainer manual run, no flag or credential required",
-      "tests": [
-        "internal/compatibility"
-      ],
-      "evidence": null,
-      "compatibility": [
-        {
-          "relation": "pinned historical POC source revision (tag v0.1.0-poc.1)",
-          "revision": "242d67c4cf2d4c3efe534dd894cb56a05558e139"
-        },
-        {
-          "relation": "writes provenance record",
-          "path": "internal/compatibility/testdata/poc-v0.1.0-poc.1/PROVENANCE"
-        }
-      ],
-      "removal_condition": "Relocate beside compatibility test support (#168 T06); remove only when the v0.1.0-poc.1 fixture is no longer a supported compatibility input."
     },
     {
       "path": "scripts/install-axiom.sh",
@@ -1603,7 +1489,7 @@
       "path": "scripts/test-check-project-domain.sh",
       "kind": "script",
       "owner": "architecture-verification",
-      "purpose": "Build check-project-domain.go and run it against one pure and seven forbidden fixture sources.",
+      "purpose": "Build check-architecture.go and run its domain profile against pure, forbidden and production/test-exception fixture sources; prove domain-only allowances are rejected by the application profile and invalid profiles are refused.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -1632,7 +1518,7 @@
       "path": "scripts/test-check-projectapp.sh",
       "kind": "script",
       "owner": "architecture-verification",
-      "purpose": "Build check-projectapp.go and run it against positive and forbidden application-layer fixture sources.",
+      "purpose": "Build check-architecture.go and run its application profile against positive, forbidden and production/test-exception fixture sources; prove application-only allowances are rejected by the domain profile and invalid profiles are refused.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -1937,40 +1823,6 @@
       "evidence": null,
       "compatibility": [],
       "removal_condition": null
-    },
-    {
-      "path": "scripts/test-release-notes-comparison.sh",
-      "kind": "script",
-      "owner": "release",
-      "purpose": "Exercises the recovery notes comparison lines of publish-release.sh to prove Markdown and glob characters compare literally and drift is refused.",
-      "lifecycle": "durable",
-      "disposition": "replace",
-      "disposition_ref": "#168 T07",
-      "runtime": [
-        "bash"
-      ],
-      "scope": [
-        "test"
-      ],
-      "trigger": "Run as a check inside test-release-flow.sh on every CI release-contract job run",
-      "replay_reason": null,
-      "callers": [
-        "scripts/test-release-flow.sh"
-      ],
-      "inputs": "none; extracts two comparison lines from scripts/publish-release.sh and evals them",
-      "outputs": "ok: lines; non-zero exit when a comparison accepts changed notes",
-      "local_effects": "temporary directories only",
-      "network_effects": "none",
-      "authority": "none",
-      "tests": [],
-      "evidence": null,
-      "compatibility": [
-        {
-          "relation": "extracts comparison lines from",
-          "path": "scripts/publish-release.sh"
-        }
-      ],
-      "removal_condition": "Remove after behavioral recovery-notes cases (Markdown/glob/different-note) exist in the release-flow fixture harness, replacing source extraction and eval (#168 T07)"
     },
     {
       "path": "scripts/test-release-pipeline.sh",
