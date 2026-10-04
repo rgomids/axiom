@@ -1322,114 +1322,6 @@
       "removal_condition": "Move to the reviewed maintainer-acceptance tool boundary under #168 T09, preserving historical descriptors, digests and revision replay."
     },
     {
-      "path": "scripts/test_maintainer_agent_eval.py",
-      "kind": "script",
-      "owner": "maintainer-harness",
-      "purpose": "Offline unit tests of the maintainer evaluation invariants, answer parsing and status handling; no runtime is invoked.",
-      "lifecycle": "durable",
-      "disposition": "keep",
-      "disposition_ref": null,
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "ci",
-        "test"
-      ],
-      "trigger": "Every repository validation run via test-maintainer-agent.sh, and when maintainer-agent-eval.py changes.",
-      "replay_reason": null,
-      "callers": [
-        "scripts/test-maintainer-agent.sh"
-      ],
-      "inputs": "No arguments; imports maintainer-agent-eval.py and copies .agents, .claude, AGENTS.md, CLAUDE.md and check-claude-bootstrap.sh into temp fixtures.",
-      "outputs": "unittest output and exit code.",
-      "local_effects": "temporary directories only",
-      "network_effects": "none",
-      "authority": "none; local fixture checks",
-      "tests": [],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": null
-    },
-    {
-      "path": "scripts/test_s9_rc_envelope.py",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Offline tests of s9-rc-envelope.py covering committed envelopes, authority, timeout, output-cap and attempt-ledger safety.",
-      "lifecycle": "durable",
-      "disposition": "move",
-      "disposition_ref": "#168 T09",
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "maintainer",
-        "test"
-      ],
-      "trigger": "Manual run whenever the S9 acceptance tools change.",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "No arguments; imports s9-rc-envelope.py and reads the committed rc2 candidate descriptor and envelopes.",
-      "outputs": "unittest output and exit code.",
-      "local_effects": "temporary directories only",
-      "network_effects": "none",
-      "authority": "none; local fixture checks",
-      "tests": [],
-      "evidence": "Reads docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json and envelopes; establishes no acceptance Evidence.",
-      "compatibility": [
-        {
-          "relation": "reads the committed rc2 candidate descriptor",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
-        }
-      ],
-      "removal_condition": "Move with its owning acceptance tool under #168 T09, preserving relative imports and pinned candidate fixtures."
-    },
-    {
-      "path": "scripts/test_s9_rc_evidence.py",
-      "kind": "script",
-      "owner": "maintainer-acceptance",
-      "purpose": "Offline safety tests of s9-rc-evidence.py: descriptor binding, refusals, plan-only behaviour and execution gating with pinned RC fixtures.",
-      "lifecycle": "durable",
-      "disposition": "move",
-      "disposition_ref": "#168 T09",
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "maintainer",
-        "test"
-      ],
-      "trigger": "Manual run whenever the S9 acceptance tools change.",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "No arguments; imports s9-rc-evidence.py and reads the committed rc1/rc2 candidate descriptors.",
-      "outputs": "unittest output and exit code.",
-      "local_effects": "temporary directories only",
-      "network_effects": "none",
-      "authority": "none; local fixture checks",
-      "tests": [],
-      "evidence": "Reads descriptors under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2; establishes no acceptance Evidence.",
-      "compatibility": [
-        {
-          "relation": "pinned v0.1.2-rc.2 candidate sourceRevision",
-          "revision": "859969a07f3807822580431a05b6c78b07691fb1"
-        },
-        {
-          "relation": "pinned v0.1.2-rc.1 prior candidate sourceRevision",
-          "revision": "f73d6d0c951dd40c5cc97c3794ad7ee5607092b5"
-        },
-        {
-          "relation": "reads the committed rc2 candidate descriptor",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
-        },
-        {
-          "relation": "reads the committed rc1 prior candidate descriptor",
-          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/prior-candidate-v0.1.2-rc.1.json"
-        }
-      ],
-      "removal_condition": "Move with its owning acceptance tool under #168 T09, preserving relative imports and pinned candidate fixtures."
-    },
-    {
       "path": "scripts/test-check-automation-registry.py",
       "kind": "script",
       "owner": "repository-validation",
@@ -2063,6 +1955,114 @@
       "evidence": null,
       "compatibility": [],
       "removal_condition": null
+    },
+    {
+      "path": "scripts/test_maintainer_agent_eval.py",
+      "kind": "script",
+      "owner": "maintainer-harness",
+      "purpose": "Offline unit tests of the maintainer evaluation invariants, answer parsing and status handling; no runtime is invoked.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation run via test-maintainer-agent.sh, and when maintainer-agent-eval.py changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-maintainer-agent.sh"
+      ],
+      "inputs": "No arguments; imports maintainer-agent-eval.py and copies .agents, .claude, AGENTS.md, CLAUDE.md and check-claude-bootstrap.sh into temp fixtures.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test_s9_rc_envelope.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Offline tests of s9-rc-envelope.py covering committed envelopes, authority, timeout, output-cap and attempt-ledger safety.",
+      "lifecycle": "durable",
+      "disposition": "move",
+      "disposition_ref": "#168 T09",
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run whenever the S9 acceptance tools change.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; imports s9-rc-envelope.py and reads the committed rc2 candidate descriptor and envelopes.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": "Reads docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json and envelopes; establishes no acceptance Evidence.",
+      "compatibility": [
+        {
+          "relation": "reads the committed rc2 candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
+        }
+      ],
+      "removal_condition": "Move with its owning acceptance tool under #168 T09, preserving relative imports and pinned candidate fixtures."
+    },
+    {
+      "path": "scripts/test_s9_rc_evidence.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Offline safety tests of s9-rc-evidence.py: descriptor binding, refusals, plan-only behaviour and execution gating with pinned RC fixtures.",
+      "lifecycle": "durable",
+      "disposition": "move",
+      "disposition_ref": "#168 T09",
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual run whenever the S9 acceptance tools change.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; imports s9-rc-evidence.py and reads the committed rc1/rc2 candidate descriptors.",
+      "outputs": "unittest output and exit code.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": "Reads descriptors under docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2; establishes no acceptance Evidence.",
+      "compatibility": [
+        {
+          "relation": "pinned v0.1.2-rc.2 candidate sourceRevision",
+          "revision": "859969a07f3807822580431a05b6c78b07691fb1"
+        },
+        {
+          "relation": "pinned v0.1.2-rc.1 prior candidate sourceRevision",
+          "revision": "f73d6d0c951dd40c5cc97c3794ad7ee5607092b5"
+        },
+        {
+          "relation": "reads the committed rc2 candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/candidate-v0.1.2-rc.2.json"
+        },
+        {
+          "relation": "reads the committed rc1 prior candidate descriptor",
+          "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/prior-candidate-v0.1.2-rc.1.json"
+        }
+      ],
+      "removal_condition": "Move with its owning acceptance tool under #168 T09, preserving relative imports and pinned candidate fixtures."
     },
     {
       "path": "scripts/validate-agent-package.sh",
