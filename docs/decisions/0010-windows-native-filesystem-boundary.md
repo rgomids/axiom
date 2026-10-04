@@ -18,8 +18,14 @@ Add a Windows-specific filesystem adapter for supported local mutation paths. It
 will use Windows handles and security descriptors to prove the authorized object,
 reject reparse points and uncertain DACL/owner state, and maintain explicit lock,
 staging, commit, and recovery behavior. Windows support is limited to local NTFS
-user storage on Windows 10 (1809+) and Windows 11 amd64 until native Evidence
+user storage on ~~Windows 10 (1809+) and Windows 11~~ amd64 until native Evidence
 expands that matrix.
+
+> Superseded by [ADR-0015 — Installer host eligibility is OS-family and architecture based](0015-installer-host-eligibility-os-family-architecture.md#decision), accepted 2026-10-04.
+> Only the struck OS-version bound is superseded; the local NTFS user storage and
+> amd64 boundary remains in force, and Windows Server stays unsupported. This
+> historical text is preserved for decision traceability. See the referenced ADR
+> for the current host-eligibility rule.
 
 Private objects require the current token's ownership identity and reject access by
 other untrusted principals; SYSTEM, Administrators and TrustedInstaller remain

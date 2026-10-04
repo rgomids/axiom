@@ -53,10 +53,14 @@ host, verifica o checksum SHA-256 antes de extrair qualquer coisa e instala o
 `axiom` em `$HOME/.local/bin`. Ele nunca usa `sudo`, não edita perfis de shell,
 não instala Runtimes e não toca em credenciais.
 
-Hosts POSIX suportados: macOS em arm64 e Linux em amd64 ou arm64. A versão do
-sistema operacional não é um filtro de instalação. Outros hosts são recusados
-antes de qualquer download. O instalador precisa de `curl`,
-`tar`, `bash`, `awk`, `grep`, `mktemp` e `sha256sum` ou `shasum`.
+A elegibilidade do instalador em POSIX é baseada na família do sistema
+operacional e na arquitetura: macOS em arm64 e Linux em amd64 ou arm64. A versão
+numérica do sistema operacional não é um filtro de instalação. Outros hosts são
+recusados antes de qualquer download. O instalador precisa de `curl`, `tar`,
+`bash`, `awk`, `grep`, `mktemp` e `sha256sum` ou `shasum`. O compromisso de
+manutenção do Axiom cobre versões de sistema operacional mantidas pelo
+fornecedor, e os ambientes validados exatos são registrados como Evidence
+([ADR-0015](decisions/0015-installer-host-eligibility-os-family-architecture.md)).
 
 Se ele exibir um `path_notice`, coloque o diretório do binário no `PATH`:
 
@@ -70,8 +74,9 @@ Para instalar uma release exata, use `--version`:
 curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh -s -- --version v0.1.0
 ```
 
-No **Windows 10 (1809+) ou Windows 11, amd64**, use PowerShell 5.1 ou superior
-de 64 bits. Não é necessário WSL, Bash, Go nem executar como administrador:
+Em uma **edição cliente do Windows, amd64** (Windows Server não é suportado),
+use PowerShell 5.1 ou superior de 64 bits; a versão numérica do Windows não é um
+filtro de instalação. Não é necessário WSL, Bash, Go nem executar como administrador:
 
 ```powershell
 Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression

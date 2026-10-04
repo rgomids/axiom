@@ -10,9 +10,15 @@ Ubuntu/version filter. This reconciles the already implemented Linux contract,
 without changing architecture, filesystem/security invariants or native Evidence
 obligations. Earlier Ubuntu-specific support wording is superseded; dated
 observations and research remain historical, not current product requirements.
-The macOS installer still requires 27.0/arm64 and archive metadata `macos-27`;
-generic OS naming does not remove that executable compatibility constraint.
+~~The macOS installer still requires 27.0/arm64~~ and archive metadata `macos-27`;
+~~generic OS naming does not remove that executable compatibility constraint.~~
 T24, Runtime execution and human acceptance remain separately gated.
+
+> Superseded by [Specification 006 — Installer Host Eligibility and Platform Support Policy](../006-installer-host-eligibility/spec.md), approved 2026-10-04.
+> The macOS OS-version requirement is superseded; archive metadata `macos-27`
+> remains as legacy release-row naming with no version gate
+> ([ADR-0015](../../decisions/0015-installer-host-eligibility-os-family-architecture.md#artifact-naming)). Historical requirement preserved for
+> traceability. See the referenced Specification for the current contract.
 
 ## S9 dogfood defect reconciliation — 2026-09-29
 

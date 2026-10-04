@@ -18,10 +18,16 @@ potentially unsafe state-management path.
 
 ## Outcome
 
-Windows 10 version 1809 or later on amd64 can install one checksummed native Axiom release,
+~~Windows 10 version 1809 or later~~ on amd64 can install one checksummed native Axiom release,
 run `axiom.exe`, use `first-run`, and use the same local workflows as the
 supported POSIX rows without weakening the repository's fail-closed local-state
 contract.
+
+> Superseded by [Specification 006 — Installer Host Eligibility and Platform Support Policy](../006-installer-host-eligibility/spec.md), approved 2026-10-04.
+> Only the struck OS-version bound is superseded: a Windows client edition on
+> amd64 with 64-bit PowerShell is eligible regardless of numeric version, and
+> Windows Server remains out of scope. Historical requirement preserved for
+> traceability. See the referenced Specification for the current contract.
 
 ## Scope and non-goals
 

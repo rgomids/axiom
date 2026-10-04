@@ -5,8 +5,12 @@
 [Specification platform reconciliation](spec.md#platform-reconciliation--2026-09-28)
 supersedes Ubuntu-specific support wording with Linux. Architecture,
 filesystem/security invariants and native Evidence obligations remain unchanged;
-macOS retains the current executable 27.0/arm64 constraint. Dated historical
+~~macOS retains the current executable 27.0/arm64 constraint.~~ Dated historical
 observations remain historical. T24 and human acceptance stay separately gated.
+
+> Superseded by [Specification 006 — Installer Host Eligibility and Platform Support Policy](../006-installer-host-eligibility/spec.md), approved 2026-10-04.
+> The text above is preserved for historical traceability. See the referenced
+> Specification for the current contract.
 
 ## Status and authority
 
