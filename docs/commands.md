@@ -272,10 +272,32 @@ revision for that Runtime is upgraded. Every skill set published through the
 shared Runtime integration (from this release on) is a known revision for every
 Runtime, so after `axiom upgrade` changes the skill text, the next `first-run`
 upgrades Claude as well as Codex; older Codex-only revisions are never adopted
-in a Claude root. Unknown, foreign, or modified content is preserved and fails
+in a Claude root. A receipt is recognized when it is byte-for-byte the receipt
+this binary or an earlier Axiom revision wrote for that root, serialized with
+that revision's own skill set (so receipts from releases that predate a skill
+stay recognized). Unknown, foreign, or modified content is preserved and fails
 that Runtime (`<runtime>_skill_conflict`); the receipt never authorizes
 overwriting changed content, and no skill is replaced beside a receipt that is
-not this Runtime's current or earlier Axiom receipt for that root. The skill root belongs to the Runtime, which commonly creates
+not this Runtime's current or earlier Axiom receipt for that root.
+
+Each skill is reported as `missing`, `equivalent` (this binary's text),
+`owned_older` (an earlier Axiom revision; replaced), `modified` (unknown
+content under a name the root's recognized Axiom receipt says Axiom installed:
+an edited Axiom skill), `foreign` (unknown content without that attestation),
+or `unsafe` (not a private directory holding exactly one private regular
+`SKILL.md`). The receipt is reported as `absent`, `current`, `legacy`,
+`unrecognized` or `unsafe`. Every artifact that blocks convergence is listed,
+relative to the Runtime skill root, never overwritten:
+
+```text
+runtime: claude present=true state=failed reason=claude_skill_conflict
+  receipt: state=legacy
+  conflict: artifact=axiom-work-item-run/SKILL.md state=modified sha256=<digest> preserved=true
+```
+
+JSON carries the same facts as `receipt` and `conflicts[]` (`artifact`,
+`state`, `sha256`). Keep the artifact, or move it aside if it is not yours,
+then run `axiom first-run` again. The skill root belongs to the Runtime, which commonly creates
 it `0755`: it must be a real directory (not a symlink) owned by you, not
 writable by group or other, and without extended ACL, otherwise that Runtime
 fails (`<runtime>_skill_root_unavailable`) without changes. So `0700`, `0750`
@@ -1308,11 +1330,19 @@ and then the receipt are published and re-read as separate confirmed effects;
 `.axiom-install-operation` marker records the exact archive, so only the same
 archive can resume (through `axiom upgrade` or the release installer), and any
 other install is refused in the meantime. The upgrade publishes skill files
-only to the Codex root. If installed Codex skills do not match the new version
-the result is `partial` and the next action is `axiom first-run` with the
-upgraded binary (or `axiom runtime codex install` when Codex is not on `PATH`):
-it refreshes the Codex skill-set receipt and converges every other detected
-Runtime, such as Claude, from an earlier Axiom-owned revision to the new one.
+only to the Codex root, followed by the Codex skill-set receipt when the
+running binary is the candidate release: its build provenance (clean release,
+version and revision) equals the candidate's checksum-verified metadata and it
+embeds exactly the candidate's skill files, which is always the case for the
+release installer. The receipt is replaced only when absent or recognized as
+Axiom's, as its own authorized effect after every skill file, and an
+interruption resumes like any other effect. An upgrade not run as the
+candidate (for example an older binary given a newer archive) cannot derive
+the candidate's receipt: it ends `partial` with `skillReceipt=refresh_required`,
+and an unrecognized receipt is preserved with `skillReceipt=conflict`; the
+diagnostic names the next action. In every case `axiom first-run` with the
+upgraded binary converges every other detected Runtime, such as Claude, from an
+earlier Axiom-owned revision to the new one.
 There is no automatic update, rollback, or cross-root transaction.
 
 Release PR check resolution (read-only):

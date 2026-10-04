@@ -44,10 +44,15 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 		return fail(err)
 	}
 	skills := codexSkillsRoot()
-	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: skills, State: compatibility.Roots{Projects: projects, State: state, Skills: skills}}
+	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: skills, State: compatibility.Roots{Projects: projects, State: state, Skills: skills}, Self: selfBuild()}
 	status, err := install.InstallRelease(context.Background(), target, candidate)
 	if status != "" {
 		fmt.Fprintf(out, "install_status=%s\n", status)
+	}
+	if status == "partial" {
+		message, next := upgradeSkillReceiptPartial(install.Result{SkillReceipt: strings.TrimPrefix(upgradeCategory(err), "skill_receipt_")}, target.SkillsRoot)
+		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: %s\ninstall_next: %s\n", message, next)
+		return true, 1
 	}
 	if err != nil {
 		return fail(err)

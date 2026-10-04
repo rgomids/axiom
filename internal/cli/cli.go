@@ -155,22 +155,34 @@ type RuntimeSkillView struct {
 	SHA256 string `json:"sha256"`
 	State  string `json:"state"`
 }
+
+// RuntimeConflictView names one preserved artifact, relative to the Runtime
+// skill root, that blocks convergence.
+type RuntimeConflictView struct {
+	Artifact string `json:"artifact"`
+	State    string `json:"state"`
+	SHA256   string `json:"sha256,omitempty"`
+}
 type RuntimeView struct {
-	SkillSetVersion     string             `json:"skillSetVersion"`
-	BinaryCompatibility string             `json:"binaryCompatibility"`
-	Skills              []RuntimeSkillView `json:"skills"`
+	SkillSetVersion     string                `json:"skillSetVersion"`
+	BinaryCompatibility string                `json:"binaryCompatibility"`
+	Skills              []RuntimeSkillView    `json:"skills"`
+	Receipt             string                `json:"receipt,omitempty"`
+	Conflicts           []RuntimeConflictView `json:"conflicts,omitempty"`
 }
 
 // RuntimeBootstrapView is one supported Runtime in a first-run report.
 type RuntimeBootstrapView struct {
-	Runtime                        string             `json:"runtime"`
-	Executable                     string             `json:"executable"`
-	Present                        bool               `json:"present"`
-	ConfigurationWithoutExecutable bool               `json:"configurationWithoutExecutable"`
-	State                          string             `json:"state"`
-	Reason                         string             `json:"reason"`
-	SkillSetVersion                string             `json:"skillSetVersion,omitempty"`
-	Skills                         []RuntimeSkillView `json:"skills,omitempty"`
+	Runtime                        string                `json:"runtime"`
+	Executable                     string                `json:"executable"`
+	Present                        bool                  `json:"present"`
+	ConfigurationWithoutExecutable bool                  `json:"configurationWithoutExecutable"`
+	State                          string                `json:"state"`
+	Reason                         string                `json:"reason"`
+	SkillSetVersion                string                `json:"skillSetVersion,omitempty"`
+	Skills                         []RuntimeSkillView    `json:"skills,omitempty"`
+	Receipt                        string                `json:"receipt,omitempty"`
+	Conflicts                      []RuntimeConflictView `json:"conflicts,omitempty"`
 }
 
 // BootstrapView reports every supported Runtime after first run.

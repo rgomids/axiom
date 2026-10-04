@@ -1,0 +1,11 @@
+formatVersion=1
+runtime=claude
+skillsRoot={{ROOT}}
+skillSetVersion=2
+binaryCompatibility=2
+manifestSha256=98c861ec8f4448f5e63299d576a11fd41c6cf3f8d43270bb060bd77e9ba327ec
+skill.axiom-project-configure=b0d16b482ca3a08c20f8c5d7154573db825a563f458b3bf5284570fa263e4ad3
+skill.axiom-project-show=048975860d658e8134eb498c7cd5158104338a2629dd8a8cda4a2ecb0bb99c09
+skill.axiom-work-item-create=85e4f4badff647a337acf59e96d07909c9a3c47ce5e8df65fac08395c8aac8c4
+skill.axiom-work-item-run=f0fd487fbbfcfb87bee9906244fb1fedbc0dd5bcbd1fb01594dc3df0c8e5e897
+skill.axiom-work-item-status=6a139090ff66759b64e630181373c32ff51ad2672d90d26184b6f81e9879b7d9

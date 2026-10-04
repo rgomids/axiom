@@ -47,7 +47,7 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 	// inspect these roots or infer authority from the current working directory.
 	projects, projectsErr := projectsRoot()
 	state, stateErr := stateRoot()
-	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: codexSkillsRoot(), State: compatibility.Roots{Projects: projects, State: state}}
+	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: codexSkillsRoot(), State: compatibility.Roots{Projects: projects, State: state}, Self: selfBuild()}
 	result := install.InstallReleasePOSIX(context.Background(), target, candidate, os.Getenv("AXIOM_INSTALL_TEST_FAIL_STAGE"), func() error {
 		if projectsErr != nil {
 			return projectsErr
@@ -75,7 +75,8 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 		return true, 0
 	case result.UpgradeError == nil:
 		fmt.Fprintln(out, "install_status=partial")
-		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: Binary, receipt, and Codex skill files upgraded; the Codex skill-set receipt was not refreshed\ninstall_next: Run `axiom first-run` with the upgraded binary to refresh the skill-set receipt and converge every detected Runtime, or `axiom runtime codex install` when Codex is not on PATH\n")
+		message, next := upgradeSkillReceiptPartial(result.UpgradeResult, target.SkillsRoot)
+		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: %s\ninstall_next: %s\n", installDiagnostic(message), installDiagnostic(next))
 	case len(result.UpgradeResult.Ledger) > 0:
 		fmt.Fprintln(out, "install_status=partial")
 		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: Upgrade partially applied: %s\ninstall_next: Repeat `axiom upgrade` with the same archive to preview the resumable remaining effects\n", category)

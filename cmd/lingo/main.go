@@ -14,6 +14,7 @@ import (
 	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/githubissues"
+	"github.com/rgomids/axiom/internal/install"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -82,6 +83,14 @@ func currentProvenance() provenance.Value {
 		return unknownProvenance()
 	}
 	return value
+}
+
+// selfBuild is this binary's release identity exactly as injected at build
+// time. The installer compares it with the verified candidate's metadata; it
+// never grants ownership of anything.
+func selfBuild() install.Build {
+	release, err := strconv.ParseBool(buildRelease)
+	return install.Build{Release: err == nil && release, Version: buildVersion, Revision: buildRevision, SourceState: buildSourceState}
 }
 
 func unknownProvenance() provenance.Value {
@@ -295,9 +304,12 @@ func runtimeResult(result codexruntime.Result) cli.Result {
 }
 
 func runtimeView(result codexruntime.Result) *cli.RuntimeView {
-	view := &cli.RuntimeView{SkillSetVersion: result.SkillSetVersion, BinaryCompatibility: result.BinaryCompatibility, Skills: make([]cli.RuntimeSkillView, 0, len(result.Skills))}
+	view := &cli.RuntimeView{SkillSetVersion: result.SkillSetVersion, BinaryCompatibility: result.BinaryCompatibility, Skills: make([]cli.RuntimeSkillView, 0, len(result.Skills)), Receipt: result.Receipt}
 	for _, skill := range result.Skills {
 		view.Skills = append(view.Skills, cli.RuntimeSkillView{Name: skill.Name, SHA256: skill.Digest, State: skill.State})
+	}
+	for _, conflict := range result.Conflicts {
+		view.Conflicts = append(view.Conflicts, cli.RuntimeConflictView{Artifact: conflict.Artifact, State: conflict.State, SHA256: conflict.Digest})
 	}
 	return view
 }

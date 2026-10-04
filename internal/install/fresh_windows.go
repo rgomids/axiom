@@ -48,6 +48,11 @@ func InstallRelease(ctx context.Context, target Target, candidate Candidate) (st
 			return "", err
 		}
 		result, err := service.Apply(ctx, preview, authority)
+		if err == nil && result.Status == "partial" {
+			// Confirmed effects with a Codex skill-set receipt that is not
+			// current are partial truth, never a successful exit.
+			return result.Status, &Error{Category: "skill_receipt_" + result.SkillReceipt}
+		}
 		return result.Status, err
 	} else if err != nil && !os.IsNotExist(err) {
 		return "", err

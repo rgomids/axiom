@@ -36,12 +36,17 @@ const (
 	SkillsPublish       = "publish"
 )
 
-// The Codex skill-set receipt is derived from the running binary's runtime
-// constants, which release archive format 1 does not carry for the candidate.
-// The upgrade therefore never writes it and reports when it must be refreshed.
+// The Codex skill-set receipt is derived from a binary's runtime constants,
+// which release archive format 1 does not carry for the candidate. When the
+// running binary proves it is the candidate release (Target.Self), the
+// receipt is this binary's own and the upgrade publishes it as an authorized
+// effect (issue #186). Otherwise it is never written and the result reports
+// that it must be refreshed by the upgraded binary.
 const (
 	SkillReceiptUnchanged       = "unchanged"
+	SkillReceiptCurrent         = "current"
 	SkillReceiptRefreshRequired = "refresh_required"
+	SkillReceiptConflict        = "conflict"
 )
 
 var (
@@ -58,11 +63,48 @@ func (e *Error) Error() string { return "upgrade: " + e.Category }
 // Target names the explicit owned roots. Axiom skill files under SkillsRoot
 // are replaced only when owned; State is inspected read-only and never written
 // by the direct strategy, the only one this release executes.
+//
+// Self is the running binary's release identity. It never grants ownership;
+// it only decides whether this binary may derive the candidate's Codex
+// skill-set receipt from its own runtime constants.
 type Target struct {
 	BinaryDir  string
 	ReceiptDir string
 	SkillsRoot string
 	State      compatibility.Roots
+	Self       Build
+}
+
+// Build is a binary's release provenance as recorded by its build.
+type Build struct {
+	Release     bool
+	Version     string
+	Revision    string
+	SourceState string
+}
+
+// isCandidate reports that the running binary is the verified candidate
+// release: the same clean release version and revision as the candidate's
+// checksum-verified metadata, embedding exactly the candidate's skill files.
+// Only then is this binary's skill-set receipt the candidate's receipt.
+func (b Build) isCandidate(candidate Candidate) bool {
+	values := candidate.Values
+	if !b.Release || b.SourceState != "clean" || b.Version == "" || b.Revision == "" || values == nil {
+		return false
+	}
+	if values["release"] != "true" || values["sourceState"] != b.SourceState || values["version"] != b.Version || candidate.Version != b.Version || values["revision"] != b.Revision {
+		return false
+	}
+	embedded, err := codexruntime.EmbeddedSkillDigests()
+	if err != nil || len(embedded) != len(candidate.Skills) {
+		return false
+	}
+	for name, sha := range embedded {
+		if candidate.Skills[name] != sha || digest(candidate.SkillFiles[name]) != sha {
+			return false
+		}
+	}
+	return true
 }
 
 type Effect struct {
@@ -91,6 +133,8 @@ type Preview struct {
 	candidate      Candidate
 	currentReceipt []byte
 	nextReceipt    []byte
+	skillReceipt   []byte
+	receiptState   string
 	markerSkills   map[string]string
 }
 
@@ -223,10 +267,17 @@ func (s Service) previewIn(ctx context.Context, target Target, candidate Candida
 		preview.Effects = append(preview.Effects, Effect{Kind: "receipt", Target: filepath.Join(target.ReceiptDir, receiptName), Expected: digest(currentReceipt), Next: digest(preview.nextReceipt)})
 		preview.RequiredBytes += int64(len(preview.nextReceipt))
 	}
-	skills, err := planSkills(ctx, target.SkillsRoot, candidate, values["skillManifestSha256"], preview.markerSkills, preview.Resume, session)
+	var selfReceipt []byte
+	if target.Self.isCandidate(candidate) {
+		if selfReceipt, err = codexruntime.CurrentReceipt(); err != nil {
+			return preview, &Error{Category: "invalid_candidate"}
+		}
+	}
+	skills, err := planSkills(ctx, target.SkillsRoot, candidate, values["skillManifestSha256"], preview.markerSkills, preview.Resume, session, selfReceipt)
 	if err != nil {
 		return preview, err
 	}
+	preview.skillReceipt, preview.receiptState = selfReceipt, skills.receipt
 	preview.Skills = skills.state
 	preview.Effects = append(preview.Effects, skills.effects...)
 	if preview.Resume {
@@ -409,6 +460,14 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			if skillSession.PublishSkill(effect.Name, current.candidate.SkillFiles[effect.Name], expected) != nil {
 				err = &Error{Category: "skill_publication_failed"}
 			}
+		case "skill_receipt":
+			expected := effect.Expected
+			if expected == absentRevision {
+				expected = ""
+			}
+			if digest(current.skillReceipt) != effect.Next || skillSession.PublishReceipt(current.skillReceipt, expected) != nil {
+				err = &Error{Category: "skill_publication_failed"}
+			}
 		default:
 			err = &Error{Category: "invalid_effect"}
 		}
@@ -439,6 +498,8 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			_ = binaryDir.Remove(filepath.Base(leftover))
 		case parent == current.target.ReceiptDir:
 			_ = receiptDir.Remove(filepath.Base(leftover))
+		case skillSession != nil && parent == current.target.SkillsRoot:
+			_ = skillSession.RemoveRootLeftover(filepath.Base(leftover))
 		case skillSession != nil && filepath.Dir(parent) == current.target.SkillsRoot:
 			_ = skillSession.RemoveSkillLeftover(filepath.Base(parent), filepath.Base(leftover))
 		}
@@ -456,7 +517,7 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 	if err != nil || compatibility.Resolve(compatibility.Owned, final).Strategy != compatibility.StrategyDirect {
 		return partial(result), &Error{Category: "final_verification_failed"}
 	}
-	verified, err := planSkills(ctx, current.target.SkillsRoot, current.candidate, "", nil, false, skillSession)
+	verified, err := planSkills(ctx, current.target.SkillsRoot, current.candidate, "", nil, false, skillSession, current.skillReceipt)
 	if err != nil || len(verified.effects) != 0 || len(verified.leftovers) != 0 {
 		return partial(result), &Error{Category: "final_verification_failed"}
 	}
@@ -464,20 +525,28 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 		return partial(result), &Error{Category: "final_verification_failed"}
 	}
 	result.Skills, result.Status = verified.state, "success"
-	if verified.state != SkillsNotConfigured {
+	switch {
+	case verified.state == SkillsNotConfigured:
+	case verified.receipt == SkillReceiptCurrent:
+		// This binary is the candidate: its receipt now describes exactly the
+		// published skill files.
+		result.SkillReceipt = SkillReceiptCurrent
+	case verified.receipt == SkillReceiptConflict:
+		// A receipt Axiom cannot recognize is preserved, never overwritten.
+		result.SkillReceipt, result.Status = SkillReceiptConflict, "partial"
+	case len(recorded) != 0:
 		// Skill files changed by this operation, including an interrupted
 		// earlier run, leave the skill-set receipt for the upgraded binary.
+		result.SkillReceipt, result.Status = SkillReceiptRefreshRequired, "partial"
+	default:
 		result.SkillReceipt = SkillReceiptUnchanged
-		if len(recorded) != 0 {
-			result.SkillReceipt, result.Status = SkillReceiptRefreshRequired, "partial"
-		}
 	}
 	return result, nil
 }
 
 func touchesSkills(preview Preview) bool {
 	for _, effect := range preview.Effects {
-		if effect.Kind == "skill" {
+		if effect.Kind == "skill" || effect.Kind == "skill_receipt" {
 			return true
 		}
 	}
@@ -544,6 +613,7 @@ const absentRevision = "absent"
 
 type skillPlan struct {
 	state     string
+	receipt   string
 	effects   []Effect
 	leftovers []string
 	bytes     int64
@@ -553,7 +623,12 @@ type skillPlan struct {
 // present skill may be replaced only when owned: its whole set matches the
 // installation receipt's skill manifest, it is known to this binary, or a
 // resumed operation recorded it as the authorized expected revision.
-func planSkills(ctx context.Context, root string, candidate Candidate, installedManifest string, recorded map[string]string, resume bool, session *codexruntime.UpgradeSession) (skillPlan, error) {
+//
+// selfReceipt, when present, is the candidate's skill-set receipt (the running
+// binary is the candidate). It is planned after every skill file, so a
+// published receipt always describes skill files already in place, and only
+// over an absent receipt or one Axiom recognizes as its own.
+func planSkills(ctx context.Context, root string, candidate Candidate, installedManifest string, recorded map[string]string, resume bool, session *codexruntime.UpgradeSession, selfReceipt []byte) (skillPlan, error) {
 	plan := skillPlan{state: SkillsNotConfigured, effects: []Effect{}, leftovers: []string{}}
 	if root == "" {
 		return plan, nil
@@ -577,6 +652,10 @@ func planSkills(ctx context.Context, root string, candidate Candidate, installed
 		return plan, nil
 	}
 	setOwned := installedManifest != "" && installedSkillManifest(inventory) == installedManifest
+	if len(inventory.Leftovers) != 0 && !resume {
+		return plan, &Error{Category: "recovery_required"}
+	}
+	plan.leftovers = append(plan.leftovers, inventory.Leftovers...)
 	for _, skill := range inventory.Skills {
 		if len(skill.Leftovers) != 0 && !resume {
 			return plan, &Error{Category: "recovery_required"}
@@ -607,6 +686,22 @@ func planSkills(ctx context.Context, root string, candidate Candidate, installed
 	if len(plan.effects) != 0 {
 		plan.state = SkillsPublish
 	}
+	if len(selfReceipt) != 0 {
+		current, next := absentRevision, digest(selfReceipt)
+		if inventory.Receipt {
+			current = inventory.ReceiptSHA256
+		}
+		switch {
+		case current == next:
+			plan.receipt = SkillReceiptCurrent
+		case inventory.Receipt && !inventory.ReceiptOwned:
+			plan.receipt = SkillReceiptConflict
+		default:
+			plan.receipt = SkillReceiptCurrent
+			plan.effects = append(plan.effects, Effect{Kind: "skill_receipt", Target: filepath.Join(root, codexruntime.SkillSetReceiptName), Expected: current, Next: next})
+			plan.bytes += int64(len(selfReceipt))
+		}
+	}
 	return plan, nil
 }
 
@@ -616,11 +711,18 @@ func planSkills(ctx context.Context, root string, candidate Candidate, installed
 func installedSkillManifest(inventory codexruntime.UpgradeInventory) string {
 	var builder strings.Builder
 	builder.WriteString("formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n")
+	present := 0
 	for _, skill := range inventory.Skills {
+		// A release that predates a skill never listed it, so an absent skill
+		// is omitted rather than invalidating the whole recorded set.
 		if skill.SHA256 == "" {
-			return ""
+			continue
 		}
+		present++
 		builder.WriteString("skill." + skill.Name + "=" + skill.SHA256 + "\n")
+	}
+	if present == 0 {
+		return ""
 	}
 	return digest([]byte(builder.String()))
 }

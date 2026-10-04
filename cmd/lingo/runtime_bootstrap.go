@@ -60,6 +60,10 @@ func (s lifecycleService) RuntimeClaudeStatus(ctx context.Context) cli.Result {
 	return runtimeStatus(service.Inspect(ctx), "Claude", "claude", s.provenance)
 }
 
+// firstRunConflictNext is the deterministic next step for a Runtime whose
+// integration is blocked by preserved artifacts listed as conflict lines.
+const firstRunConflictNext = "Review each reported conflict artifact in that Runtime's skill root; Axiom preserves it and never overwrites it. Keep it, or move it aside if it is not yours, then run axiom first-run again"
+
 // FirstRun discovers Codex and Claude by executable and converges Axiom's
 // user-global integration for each one present. Absence is a valid state.
 func (s lifecycleService) FirstRun(ctx context.Context) cli.Result {
@@ -86,9 +90,9 @@ func (s lifecycleService) FirstRun(ctx context.Context) cli.Result {
 	case report.Failed() == 0:
 		response = canonicalCompletion(completion.Facts{Completed: true}, "Axiom integration is configured for every detected Runtime", references, "Run project configure with explicit Project inputs", s.provenance)
 	case report.Failed() < report.Detected():
-		response = canonicalCompletion(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Axiom integration is configured for some detected Runtimes", references, "Resolve the reported Runtime integration conflict, then run axiom first-run again", s.provenance)
+		response = canonicalCompletion(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Axiom integration is configured for some detected Runtimes", references, firstRunConflictNext, s.provenance)
 	default:
-		response = canonicalCompletion(completion.Facts{Failed: true}, "Axiom integration could not be configured for any detected Runtime", references, "Resolve the reported Runtime integration conflict, then run axiom first-run again", s.provenance)
+		response = canonicalCompletion(completion.Facts{Failed: true}, "Axiom integration could not be configured for any detected Runtime", references, firstRunConflictNext, s.provenance)
 	}
 	response.Bootstrap = &view
 	return response
@@ -100,7 +104,7 @@ func bootstrapView(report runtimebootstrap.Report) cli.BootstrapView {
 		entry := cli.RuntimeBootstrapView{Runtime: runtime.ID, Executable: runtime.Executable, Present: runtime.Present, ConfigurationWithoutExecutable: runtime.ConfigurationWithoutExecutable, State: string(runtime.State), Reason: runtime.Category}
 		if runtime.Result != nil {
 			skills := runtimeView(*runtime.Result)
-			entry.SkillSetVersion, entry.Skills = skills.SkillSetVersion, skills.Skills
+			entry.SkillSetVersion, entry.Skills, entry.Receipt, entry.Conflicts = skills.SkillSetVersion, skills.Skills, skills.Receipt, skills.Conflicts
 		}
 		view.Runtimes = append(view.Runtimes, entry)
 	}

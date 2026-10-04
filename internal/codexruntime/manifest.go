@@ -85,12 +85,27 @@ func currentRevision() (skillSetRevision, error) {
 	return revision, nil
 }
 
-func (r skillSetRevision) manifest() Manifest {
+// names lists the revision's own skills in canonical (sorted) order, which is
+// the order every release wrote them in.
+func (r skillSetRevision) names() []string {
 	names := make([]string, 0, len(r.skills))
 	for name := range r.skills {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	return names
+}
+
+func (r skillSetRevision) nameSet() map[string]bool {
+	names := make(map[string]bool, len(r.skills))
+	for name := range r.skills {
+		names[name] = true
+	}
+	return names
+}
+
+func (r skillSetRevision) manifest() Manifest {
+	names := r.names()
 	manifest := Manifest{FormatVersion: 1, SkillSetVersion: r.skillSetVersion, BinaryCompatibility: r.binaryCompatibility, Skills: make([]SkillDigest, 0, len(names))}
 	for _, name := range names {
 		manifest.Skills = append(manifest.Skills, SkillDigest{Name: name, SHA256: r.skills[name]})

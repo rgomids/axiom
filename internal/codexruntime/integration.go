@@ -120,7 +120,10 @@ func (i integration) receiptRecognizedIn(root *os.Root, rootPath string) bool {
 }
 
 // claudeReceiptBytes records the Runtime, the skill root the set was
-// published to, and each skill's identity and digest. It records ownership
+// published to, and each skill's identity and digest. The skill lines are
+// exactly the revision's own skills: a revision published before a skill
+// existed never recorded that skill, so serializing it with this binary's
+// skill names would describe a receipt no release wrote (issue #186). It records ownership
 // facts only; it never authorizes replacing content that is not a known
 // Axiom revision.
 func claudeReceiptBytes(root string, revision skillSetRevision) ([]byte, error) {
@@ -133,7 +136,7 @@ func claudeReceiptBytes(root string, revision skillSetRevision) ([]byte, error) 
 	}
 	var builder strings.Builder
 	builder.WriteString("formatVersion=1\nruntime=claude\nskillsRoot=" + root + "\nskillSetVersion=" + revision.skillSetVersion + "\nbinaryCompatibility=" + revision.binaryCompatibility + "\nmanifestSha256=" + digest + "\n")
-	for _, name := range skillNames {
+	for _, name := range revision.names() {
 		builder.WriteString("skill." + name + "=" + revision.skills[name] + "\n")
 	}
 	return []byte(builder.String()), nil
