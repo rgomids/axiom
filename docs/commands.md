@@ -395,6 +395,14 @@ archive matching the current host into explicit user-owned destinations:
   --receipt-dir /absolute/user-owned/state
 ```
 
+POSIX installation requires a private executable temporary workspace. The
+release facade respects `TMPDIR` (or the system default when unset), verifies
+the archive and bundle before executing its candidate, and checks execution
+before creating installation roots or publishing persistent installation state.
+An unsafe workspace or one that does not permit execution fails explicitly;
+select a safe executable `TMPDIR` and retry. The facade owns bootstrap integrity
+and transport; `internal/install` owns the POSIX installation lifecycle.
+
 The install is checksum-first. An existing receipt root is Axiom-owned state and
 must be owned by the current user, mode `0700`, and free of extended ACLs. An
 existing binary root may be a shared user directory such as `~/.local/bin`: it

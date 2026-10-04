@@ -66,24 +66,93 @@ if [[ "$actual" != "$expected" ]]; then
   exit 1
 fi
 
-temporary=$(mktemp -d)
-stage=
-receipt_stage=
-operation_marker=
-lock_directory=
-binary_committed=false
-cleanup() {
-  [[ -z "$stage" ]] || rm -f -- "$stage"
-  [[ -z "$receipt_stage" ]] || rm -f -- "$receipt_stage"
-  if [[ "$binary_committed" == false && -n "$operation_marker" ]]; then rm -f -- "$operation_marker"; fi
-  [[ -z "$lock_directory" ]] || rmdir "$lock_directory" 2>/dev/null || true
-  rm -rf -- "$temporary"
+file_owner() {
+  if [[ $(uname -s) == Darwin ]]; then stat -f %u "$1"; else stat -c %u "$1"; fi
 }
+
+file_mode() {
+  if [[ $(uname -s) == Darwin ]]; then stat -f %Lp "$1"; else stat -c %a "$1"; fi
+}
+
+private_acl() {
+  local path=$1 mode
+  case "$(uname -s)" in
+    Darwin)
+      [[ $(LC_ALL=C ls -lde "$path" | wc -l | tr -d ' ') == 1 ]]
+      ;;
+    Linux)
+      mode=$(LC_ALL=C ls -ld "$path" | awk '{print $1}') || return 1
+      [[ "$mode" =~ ^[-d][rwx-]{9}$ ]]
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+private_directory() {
+  local directory=$1
+  [[ -d "$directory" && ! -L "$directory" && $(file_owner "$directory") == "$(id -u)" && $(file_mode "$directory") == 700 ]] || return 1
+  private_acl "$directory"
+}
+
+safe_components() {
+  local current=$1
+  while [[ "$current" != / ]]; do
+    [[ ! -L "$current" || $(file_owner "$current") == 0 ]] || return 1
+    current=$(dirname "$current")
+  done
+}
+
+# has_sticky_bit reports whether $1 carries the sticky bit (mode &01000).
+# file_mode/stat's %Lp on macOS omits it, so it is checked separately.
+has_sticky_bit() {
+  [[ -n "$(find "$1" -maxdepth 0 -perm -1000 2>/dev/null)" ]]
+}
+
+# Temporary workspace containers must prevent replacement by other principals.
+# Root/current-user ownership and sticky-bit semantics match ADR-0005.
+ancestor_safe() {
+  local directory=$1 owner mode
+  owner=$(file_owner "$directory") || return 1
+  [[ "$owner" == 0 || "$owner" == "$(id -u)" ]] || return 1
+  mode=$(file_mode "$directory") || return 1
+  [[ "$mode" =~ ^[0-7]{3,4}$ ]] || return 1
+  if (( (8#$mode & 8#022) != 0 )); then
+    has_sticky_bit "$directory" || return 1
+  fi
+  return 0
+}
+
+# Inspect existing containers up to the filesystem root before using storage.
+ancestors_safe() {
+  local current
+  current=$(dirname "$1")
+  while true; do
+    # A missing ancestor will be created by mkdir -p (owned by the current
+    # user); only an existing ancestor's real ownership/mode is evaluated.
+    if [[ -e "$current" ]]; then
+      ancestor_safe "$current" || return 1
+    fi
+    [[ "$current" == / ]] && break
+    current=$(dirname "$current")
+  done
+}
+
+temporary=$(mktemp -d)
+cleanup() { rm -rf -- "$temporary"; }
 trap cleanup EXIT
+safe_components "$temporary" || { printf 'install_error: unsafe temporary workspace path\n' >&2; exit 1; }
+temporary=$(cd "$temporary" && pwd -P)
+private_directory "$temporary" && ancestors_safe "$temporary" || {
+  printf 'install_error: unsafe temporary workspace ownership, permissions, ACL, or type\n' >&2
+  exit 1
+}
 staged_archive="$temporary/release.tar.gz"
 cp -- "$archive" "$staged_archive"
 chmod 600 "$staged_archive"
 [[ $(digest "$staged_archive") == "$actual" ]] || { printf 'install_error: archive changed during staging\n' >&2; exit 1; }
+# Bind delegation to these verified bytes, not to mutable caller inputs.
+staged_checksums="$temporary/SHA256SUMS"
+printf '%s  release.tar.gz\n' "$actual" >"$staged_checksums"
 
 while IFS= read -r entry; do
   case "$entry" in /*|../*|*/../*|*/..|*\\*) printf 'install_error: unsafe archive path\n' >&2; exit 1 ;; esac
@@ -154,319 +223,14 @@ if ! host_matches_release_row "$release_platform" "$platform" "$architecture"; t
   exit 1
 fi
 
-file_owner() {
-  if [[ $(uname -s) == Darwin ]]; then stat -f %u "$1"; else stat -c %u "$1"; fi
-}
-
-file_links() {
-  if [[ $(uname -s) == Darwin ]]; then stat -f %l "$1"; else stat -c %h "$1"; fi
-}
-
-file_mode() {
-  if [[ $(uname -s) == Darwin ]]; then stat -f %Lp "$1"; else stat -c %a "$1"; fi
-}
-
-private_acl() {
-  local path=$1 mode
-  case "$(uname -s)" in
-    Darwin)
-      [[ $(LC_ALL=C ls -lde "$path" | wc -l | tr -d ' ') == 1 ]]
-      ;;
-    Linux)
-      mode=$(LC_ALL=C ls -ld "$path" | awk '{print $1}') || return 1
-      [[ "$mode" =~ ^[-d][rwx-]{9}$ ]]
-      ;;
-    *) return 1 ;;
-  esac
-}
-
-private_directory() {
-  local directory=$1
-  [[ -d "$directory" && ! -L "$directory" && $(file_owner "$directory") == "$(id -u)" && $(file_mode "$directory") == 700 ]] || return 1
-  private_acl "$directory"
-}
-
-# The binary root may be a pre-existing user directory such as ~/.local/bin,
-# commonly 0755. It holds only the owner-only binary Axiom publishes, so the
-# unsafe condition is mutation by another principal: it must be a real
-# user-owned directory without group or other write and without extended ACL.
-# The receipt root is Axiom-owned state and stays private_directory.
-publication_directory() {
-  local directory=$1 mode
-  [[ -d "$directory" && ! -L "$directory" && $(file_owner "$directory") == "$(id -u)" ]] || return 1
-  mode=$(file_mode "$directory") || return 1
-  [[ "$mode" =~ ^[0-7]{3,4}$ ]] || return 1
-  (( (8#$mode & 8#022) == 0 )) || return 1
-  private_acl "$directory"
-}
-
-# destination_directory applies the rule of the given root.
-destination_directory() {
-  if [[ "$1" == "$binary_root" && "$binary_root" != "$receipt_root" ]]; then
-    publication_directory "$1"
-  else
-    private_directory "$1"
-  fi
-}
-
-safe_components() {
-  local current=$1
-  while [[ "$current" != / ]]; do
-    [[ ! -L "$current" ]] || return 1
-    current=$(dirname "$current")
-  done
-}
-
-# has_sticky_bit reports whether $1 carries the sticky bit (mode &01000).
-# file_mode/stat's %Lp on macOS omits it, so it is checked separately.
-has_sticky_bit() {
-  [[ -n "$(find "$1" -maxdepth 0 -perm -1000 2>/dev/null)" ]]
-}
-
-# ancestor_safe accepts a directory that CONTAINS a later path component
-# (binary_root or receipt_root, or one more level up) only when no principal
-# other than root or the current user can replace, rename, or remove that
-# entry: the container is owned by root or by the current user, and disallows
-# group/other write unless the sticky bit restricts removal/rename of
-# existing entries to each entry's own owner (ADR-0005 property 3, controlled
-# ancestor replacement). This mirrors the Go anchoredRoot/ancestorSafe rule.
-# Symlinks in the chain are already rejected by safe_components; read/execute
-# access by others is never evaluated here, only write/replace. A bare "/"
-# and ordinary system directories such as /Users or /home are root-owned
-# without group/other write and pass without a special case. /tmp-style
-# 1777 directories pass because of the sticky bit, not because they are
-# root-owned: a hypothetical root-owned 0777 directory WITHOUT sticky is
-# still refused, since without sticky any principal could replace an entry
-# inside it regardless of who owns the container.
-ancestor_safe() {
-  local directory=$1 owner mode
-  owner=$(file_owner "$directory") || return 1
-  [[ "$owner" == 0 || "$owner" == "$(id -u)" ]] || return 1
-  mode=$(file_mode "$directory") || return 1
-  [[ "$mode" =~ ^[0-7]{3,4}$ ]] || return 1
-  if (( (8#$mode & 8#022) != 0 )); then
-    has_sticky_bit "$directory" || return 1
-  fi
-  return 0
-}
-
-# ancestors_safe validates every container from $1's parent up to "/". It
-# does not evaluate $1 itself; destination_directory already applies the
-# stricter, specific rule for the binary or receipt root itself. Shell has no
-# equivalent of an anchored file descriptor, so this narrows but cannot close
-# the gap between this check and the later mutation the way the Go upgrade
-# path's anchored directories do; see the accompanying Evidence note.
-ancestors_safe() {
-  local current
-  current=$(dirname "$1")
-  while true; do
-    # A missing ancestor will be created by mkdir -p (owned by the current
-    # user); only an existing ancestor's real ownership/mode is evaluated.
-    if [[ -e "$current" ]]; then
-      ancestor_safe "$current" || return 1
-    fi
-    [[ "$current" == / ]] && break
-    current=$(dirname "$current")
-  done
-}
-
-# Refusals that need no lock are decided read-only, before any directory is
-# created: symlinked or unsafe existing roots, and a binary without receipt
-# or interrupted-operation marker.
-for directory in "$binary_root" "$receipt_root"; do
-  safe_components "$directory" || { printf 'install_error: symlink destination refused\n' >&2; exit 1; }
-  ancestors_safe "$directory" || { printf 'install_error: unsafe destination ownership, permissions, ACL, or type\n' >&2; exit 1; }
-  if [[ -e "$directory" ]]; then
-    destination_directory "$directory" || { printf 'install_error: unsafe destination ownership, permissions, ACL, or type\n' >&2; exit 1; }
-  fi
-done
-if [[ -e "$binary_root/axiom" || -L "$binary_root/axiom" ]] && [[ ! -e "$receipt_root/installation.receipt" && ! -L "$receipt_root/installation.receipt" ]] \
-  && [[ ! -e "$receipt_root/.axiom-install-operation" && ! -L "$receipt_root/.axiom-install-operation" ]]; then
-  printf 'install_error: foreign binary preserved\n' >&2
+# Execute only the fully verified candidate, before any persistent effect.
+chmod 700 "$bundle/axiom"
+if ! (cd / && "$bundle/axiom" version) >/dev/null 2>&1; then
+  printf 'install_error: temporary workspace does not permit execution; choose an executable TMPDIR\n' >&2
   exit 1
 fi
-
-prepare_directory() {
-  local directory=$1
-  ancestors_safe "$directory" || { printf 'install_error: unsafe destination ownership, permissions, ACL, or type\n' >&2; exit 1; }
-  if [[ ! -e "$directory" ]]; then
-    mkdir -p -- "$directory"
-    chmod 700 "$directory"
-  fi
-  safe_components "$directory" || { printf 'install_error: symlink destination refused\n' >&2; exit 1; }
-  destination_directory "$directory" || { printf 'install_error: unsafe destination ownership, permissions, ACL, or type\n' >&2; exit 1; }
-}
-
-# The lock lives in the receipt root; the binary root is created only while
-# holding it, so a concurrent installer refuses without any effect.
-prepare_directory "$receipt_root"
-lock_directory="$receipt_root/.axiom-install.lock"
-if ! mkdir "$lock_directory" 2>/dev/null; then
-  lock_directory=
-  printf 'install_error: concurrent installation refused\n' >&2
-  exit 1
-fi
-prepare_directory "$binary_root"
-
-# The protected owned upgrade is the verified candidate's own `axiom upgrade`:
-# a read-only preview, then apply under that exact preview digest. It takes
-# the installation lock itself and re-validates ownership, receipt, version
-# order, the persisted-state forward-transition policy, space and skills under
-# it, so this installer releases its lock first and never writes owned state on
-# this path. This script only presents the upgrade's own result and next step;
-# it never decides state compatibility. Any refusal leaves the installation
-# unchanged; a later failure is reported as the upgrade path's resumable
-# partial state.
-owned_upgrade() {
-  local preview="$temporary/upgrade-preview.json" applied="$temporary/upgrade-apply.json" preview_digest status
-  local arguments=(--json upgrade --archive "$archive" --checksums "$checksums" --bin-dir "$binary_root" --receipt-dir "$receipt_root")
-  rmdir "$lock_directory"
-  lock_directory=
-  (cd / && "$bundle/axiom" "${arguments[@]}") >"$preview" 2>/dev/null || true
-  status=$(sed -n 's/^{"status":"\([a-z_]*\)".*/\1/p' "$preview")
-  preview_digest=$(sed -n 's/.*"references":\["upgrade:\([0-9a-f]\{64\}\)"\].*/\1/p' "$preview")
-  if [[ "$status" != success || ! "$preview_digest" =~ ^[0-9a-f]{64}$ ]]; then
-    printf 'install_error: owned upgrade refused: %s\n' "$(upgrade_result "$preview")" >&2
-    printf 'install_next: %s\n' "$(upgrade_next "$preview")" >&2
-    exit 1
-  fi
-  (cd / && "$bundle/axiom" "${arguments[@]}" --preview-digest "$preview_digest" --authorize-local) >"$applied" 2>/dev/null || true
-  status=$(sed -n 's/^{"status":"\([a-z_]*\)".*/\1/p' "$applied")
-  case "$status" in
-    success)
-      printf 'install_status=upgraded\n'
-      exit 0
-      ;;
-    partial)
-      printf 'install_status=partial\n'
-      printf 'install_error: owned upgrade partially applied: %s\n' "$(upgrade_result "$applied")" >&2
-      printf 'install_next: %s\n' "$(upgrade_next "$applied")" >&2
-      exit 1
-      ;;
-    *)
-      printf 'install_error: owned upgrade failed: %s\n' "$(upgrade_result "$applied")" >&2
-      exit 1
-      ;;
-  esac
-}
-
-upgrade_result() {
-  local result
-  result=$(sed -n 's/^{"status":"[a-z_]*","result":"\([^"]*\)".*/\1/p' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9 :;,._`-')
-  printf '%s' "${result:-unavailable}"
-}
-
-# Only the top-level next step, never a nested effect's "next" revision.
-upgrade_next() {
-  local next
-  next=$(sed -n 's/^{"status":"[a-z_]*","result":"[^"]*"\(,"references":\[[^]]*\]\)\{0,1\},"next":"\([^"]*\)".*/\2/p' "$1" | LC_ALL=C tr -cd 'A-Za-z0-9 :;,._`-')
-  printf '%s' "${next:-unavailable}"
-}
-
-operation_path="$receipt_root/.axiom-install-operation"
-if [[ -e "$operation_path" || -L "$operation_path" ]]; then
-  # Only an interrupted owned upgrade to this exact archive is resumable, and
-  # only through the protected upgrade path; everything else stays preserved.
-  if [[ -f "$operation_path" && ! -L "$operation_path" ]] && grep -Fxq 'operation=upgrade' "$operation_path" && grep -Fxq "archiveSha256=$actual" "$operation_path"; then
-    owned_upgrade
-  fi
-  printf 'install_error: recovery_required\n' >&2
-  exit 1
-fi
-
-destination="$binary_root/axiom"
-receipt="$receipt_root/installation.receipt"
-new_checksum=$(digest "$bundle/axiom")
-expected_receipt="$temporary/expected.receipt"
-
-valid_receipt_schema() {
-  local path=$1 installed_at
-  local fields='formatVersion destination sha256 product version revision sourceState release platform goos architecture skillSetVersion archiveSha256 skillManifestSha256 installedAt'
-  [[ $(wc -l <"$path" | tr -d ' ') == 15 ]] || return 1
-  for field in $fields; do
-    [[ $(grep -c "^${field}=" "$path") == 1 ]] || return 1
-  done
-  awk -F= '$1 != "formatVersion" && $1 != "destination" && $1 != "sha256" && $1 != "product" && $1 != "version" && $1 != "revision" && $1 != "sourceState" && $1 != "release" && $1 != "platform" && $1 != "goos" && $1 != "architecture" && $1 != "skillSetVersion" && $1 != "archiveSha256" && $1 != "skillManifestSha256" && $1 != "installedAt" {exit 1}' "$path" || return 1
-  installed_at=$(awk -F= '$1 == "installedAt" {print $2}' "$path")
-  [[ "$installed_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
-}
-
-write_expected_receipt() {
-  local installed_at=$1
-  {
-    printf 'formatVersion=1\n'
-    printf 'destination=%s\n' "$destination"
-    printf 'sha256=%s\n' "$new_checksum"
-    awk -F= '$1 != "formatVersion" {print}' "$bundle/release-metadata.txt"
-    printf 'archiveSha256=%s\n' "$actual"
-    printf 'skillManifestSha256=%s\n' "$(digest "$bundle/skills-manifest.txt")"
-    printf 'installedAt=%s\n' "$installed_at"
-  } >"$expected_receipt"
-}
-
-if [[ -e "$destination" || -L "$destination" ]]; then
-  [[ -f "$destination" && ! -L "$destination" ]] || { printf 'install_error: unsafe binary destination\n' >&2; exit 1; }
-  [[ -f "$receipt" && ! -L "$receipt" ]] || { printf 'install_error: foreign binary preserved\n' >&2; exit 1; }
-  [[ $(file_owner "$destination") == "$(id -u)" && $(file_owner "$receipt") == "$(id -u)" ]] || { printf 'install_error: unowned installation preserved\n' >&2; exit 1; }
-  [[ $(file_mode "$destination") == 700 && $(file_mode "$receipt") == 600 ]] || { printf 'install_error: unsafe installation permissions\n' >&2; exit 1; }
-  private_acl "$destination" && private_acl "$receipt" || { printf 'install_error: unsafe installation ACL\n' >&2; exit 1; }
-  valid_receipt_schema "$receipt" || { printf 'install_error: invalid receipt schema preserved\n' >&2; exit 1; }
-  write_expected_receipt "$(awk -F= '$1 == "installedAt" {print $2}' "$receipt")"
-  recorded_checksum=$(awk -F= '$1 == "sha256" {print $2}' "$receipt")
-  [[ $(file_links "$destination") == 1 && $(file_links "$receipt") == 1 ]] || { printf 'install_error: hard-linked installation preserved\n' >&2; exit 1; }
-  [[ "$recorded_checksum" == "$(digest "$destination")" ]] || { printf 'install_error: modified binary preserved\n' >&2; exit 1; }
-  if [[ "$recorded_checksum" == "$new_checksum" ]]; then
-    cmp -s "$receipt" "$expected_receipt" || { printf 'install_error: divergent receipt preserved\n' >&2; exit 1; }
-    printf 'install_status=unchanged\n'
-    exit 0
-  fi
-  owned_upgrade
-fi
-if [[ -e "$receipt" || -L "$receipt" ]]; then
-  printf 'install_error: foreign receipt preserved\n' >&2
-  exit 1
-fi
-write_expected_receipt "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-
-operation_marker="$receipt_root/.axiom-install-operation"
-( set -o noclobber; printf 'formatVersion=1\nstage=prepare\narchiveSha256=%s\n' "$actual" >"$operation_marker" ) 2>/dev/null || { printf 'install_error: recovery_required\n' >&2; exit 1; }
-chmod 600 "$operation_marker"
-if [[ ${AXIOM_INSTALL_TEST_FAIL_STAGE:-} == before_binary ]]; then
-  printf 'install_error: injected pre-commit interruption\n' >&2
-  exit 75
-fi
-
-stage=$(mktemp "$binary_root/.axiom-binary-stage.XXXXXX")
-cp "$bundle/axiom" "$stage"
-chmod 700 "$stage"
-[[ $(digest "$stage") == "$new_checksum" ]] || { printf 'install_error: staged binary mismatch\n' >&2; exit 1; }
-mv -n -- "$stage" "$destination"
-if [[ -e "$stage" ]]; then
-  printf 'install_error: binary publication conflict\n' >&2
-  exit 1
-fi
-stage=
-[[ -f "$destination" && ! -L "$destination" && $(digest "$destination") == "$new_checksum" ]] || { printf 'install_error: binary publication uncertain\n' >&2; exit 1; }
-[[ $(file_links "$destination") == 1 ]] || { printf 'install_error: binary publication uncertain\n' >&2; exit 1; }
-binary_committed=true
-printf 'formatVersion=1\nstage=binary_committed\narchiveSha256=%s\n' "$actual" >"$operation_marker"
-chmod 600 "$operation_marker"
-if [[ ${AXIOM_INSTALL_TEST_FAIL_STAGE:-} == after_binary ]]; then
-  printf 'install_status=partial\n' >&2
-  exit 75
-fi
-
-receipt_stage=$(mktemp "$receipt_root/.axiom-install-receipt.XXXXXX")
-cp "$expected_receipt" "$receipt_stage"
-chmod 600 "$receipt_stage"
-mv -n -- "$receipt_stage" "$receipt"
-if [[ -e "$receipt_stage" ]]; then
-  printf 'install_status=partial\n' >&2
-  exit 1
-fi
-receipt_stage=
-[[ -f "$receipt" && ! -L "$receipt" ]] || { printf 'install_status=partial\n' >&2; exit 1; }
-cmp -s "$receipt" "$expected_receipt" || { printf 'install_status=partial\n' >&2; exit 1; }
-rm -f -- "$operation_marker"
-operation_marker=
-printf 'install_status=installed\n'
+set +e
+(cd / && "$bundle/axiom" install-release --archive "$staged_archive" --checksums "$staged_checksums" --bin-dir "$binary_root" --receipt-dir "$receipt_root")
+status=$?
+set -e
+exit "$status"
