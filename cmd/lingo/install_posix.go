@@ -75,7 +75,7 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 		return true, 0
 	case result.UpgradeError == nil:
 		fmt.Fprintln(out, "install_status=partial")
-		message, next := upgradeSkillReceiptPartial(result.UpgradeResult, target.SkillsRoot)
+		message, next := upgradeSkillReceiptPartial(result.UpgradeResult)
 		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: %s\ninstall_next: %s\n", installDiagnostic(message), installDiagnostic(next))
 	case len(result.UpgradeResult.Ledger) > 0:
 		fmt.Fprintln(out, "install_status=partial")

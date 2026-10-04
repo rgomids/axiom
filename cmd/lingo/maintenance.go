@@ -323,7 +323,7 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 	case err == nil && result.Status == "success":
 		return s.maintenanceResult(completion.Facts{Completed: true}, "Upgrade confirmed", references, "Run `axiom version` to verify the upgraded binary", view)
 	case err == nil:
-		message, next := upgradeSkillReceiptPartial(result, target.SkillsRoot)
+		message, next := upgradeSkillReceiptPartial(result)
 		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, message, references, next, view)
 	case len(result.Ledger) > 0:
 		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Upgrade partially applied: "+upgradeCategory(err), references, "Repeat `axiom upgrade` with the same archive to preview the resumable remaining effects", view)
@@ -347,10 +347,10 @@ func upgradeBlocked(preview install.Preview, category string) (string, string) {
 // skill-set receipt is not current: either the running binary could not prove
 // it is the candidate release (refresh_required), or the receipt in the skill
 // root is not one Axiom wrote and was preserved (conflict).
-func upgradeSkillReceiptPartial(result install.Result, skillsRoot string) (string, string) {
+func upgradeSkillReceiptPartial(result install.Result) (string, string) {
 	if result.SkillReceipt == install.SkillReceiptConflict {
-		return "Binary, receipt, and Codex skill files upgraded; the Codex skill-set receipt " + filepath.Join(skillsRoot, codexruntime.SkillSetReceiptName) + " was not written by Axiom and was preserved",
-			"Review that file; if it is not yours, move it aside and run `axiom runtime codex install`, then `axiom first-run`"
+		return "Binary, receipt, and Codex skill files upgraded; the Codex skill-set receipt " + codexruntime.SkillSetReceiptName + " in the Codex skill root was not written by Axiom and was preserved",
+			"Review that file with `axiom runtime codex status`; if it is not yours, move it aside, then run `axiom first-run`"
 	}
 	return "Binary, receipt, and Codex skill files upgraded; the Codex skill-set receipt was not refreshed because this upgrade did not run as the candidate release",
 		"Run `axiom first-run` with the upgraded binary to refresh the skill-set receipt and converge every detected Runtime, or `axiom runtime codex install` when Codex is not on PATH"
