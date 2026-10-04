@@ -40,9 +40,8 @@ host_matches_release_row() {
   host_architecture=$(uname -m) || return 1
   case "$release_platform:$release_goos:$release_architecture" in
     macos-27:darwin:arm64)
-      [[ "$host_system:$host_architecture" == Darwin:arm64 ]] || return 1
-      command -v sw_vers >/dev/null 2>&1 || return 1
-      [[ $(sw_vers -productVersion 2>/dev/null) == 27.0 ]]
+      # Any macOS version runs the darwin/arm64 build.
+      [[ "$host_system:$host_architecture" == Darwin:arm64 ]]
       ;;
     linux:linux:amd64)
       [[ "$host_system:$host_architecture" == Linux:x86_64 ]]
@@ -219,7 +218,7 @@ platform=$(awk -F= '$1 == "goos" {print $2}' "$metadata")
 architecture=$(awk -F= '$1 == "architecture" {print $2}' "$metadata")
 release_platform=$(awk -F= '$1 == "platform" {print $2}' "$metadata")
 if ! host_matches_release_row "$release_platform" "$platform" "$architecture"; then
-  printf 'install_error: unsupported host for release row %s/%s; exact approved OS, version, distribution, and architecture required\n' "$release_platform" "$architecture" >&2
+  printf 'install_error: unsupported host for release row %s/%s; supported OS family and architecture required\n' "$release_platform" "$architecture" >&2
   exit 1
 fi
 

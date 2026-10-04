@@ -172,7 +172,7 @@ step unsupported-architecture bash -eo pipefail -c 'EXTRA_PATH="$temporary/arch-
 # --- Supported row required from here on.
 row=
 case "$(uname -s):$(uname -m)" in
-  Darwin:arm64) [[ $(sw_vers -productVersion 2>/dev/null) == 27.0 ]] && row=macos-27-arm64 ;;
+  Darwin:arm64) row=macos-27-arm64 ;;
   Linux:x86_64|Linux:aarch64)
     row=linux-amd64
     [[ $(uname -m) == aarch64 ]] && row=linux-arm64
@@ -229,12 +229,29 @@ for selection in macos-27-arm64:Darwin:arm64 linux-amd64:Linux:x86_64 linux-arm6
   shim="$temporary/row-tools-$selected_row"
   mkdir -p "$shim"
   printf '#!/bin/sh\ncase "$1" in -s) echo %s ;; -m) echo %s ;; *) echo %s ;; esac\n' "$selected_system" "$selected_machine" "$selected_system" >"$shim/uname"
-  printf '#!/bin/sh\n[ "$1" = -productVersion ] && echo 27.0\n' >"$shim/sw_vers"
-  chmod 700 "$shim/uname" "$shim/sw_vers"
+  chmod 700 "$shim/uname"
   export shim selected_row
   step "row-selection:$selected_row" bash -eo pipefail -c '
     EXTRA_PATH="$shim" refused "$(mktemp -d "$temporary/homes/row.XXXXXX")" "has no published asset axiom-2.0.0-$selected_row.tar.gz" --version v2.0.0
     printf "https://github.com/rgomids/axiom/releases/download/v2.0.0/SHA256SUMS\nhttps://github.com/rgomids/axiom/releases/download/v2.0.0/axiom-2.0.0-%s.tar.gz\n" "$selected_row" | cmp -s - "$temporary/ledger"
+  '
+done
+
+# Issue #183: macOS eligibility is the OS family and architecture only. Any
+# reported version selects the darwin/arm64 row, and sw_vers is never run: the
+# shim records any invocation, so even its absence cannot affect eligibility.
+for macos_version in 27.0 27.0.1 27.1 28.0; do
+  shim="$temporary/macos-version-tools-$macos_version"
+  mkdir -p "$shim"
+  printf '#!/bin/sh\ncase "$1" in -s) echo Darwin ;; -m) echo arm64 ;; *) echo Darwin ;; esac\n' >"$shim/uname"
+  printf '#!/bin/sh\n: >"%s/sw_vers.invoked"\n[ "$1" = -productVersion ] && echo %s\n' "$shim" "$macos_version" >"$shim/sw_vers"
+  chmod 700 "$shim/uname" "$shim/sw_vers"
+  export shim
+  step "macos-version-agnostic:$macos_version" bash -eo pipefail -c '
+    EXTRA_PATH="$shim" refused "$(mktemp -d "$temporary/homes/macos.XXXXXX")" "has no published asset axiom-2.0.0-macos-27-arm64.tar.gz" --version v2.0.0
+    grep -Fq "host macos-27-arm64 is supported" "$temporary/stderr"
+    printf "https://github.com/rgomids/axiom/releases/download/v2.0.0/SHA256SUMS\nhttps://github.com/rgomids/axiom/releases/download/v2.0.0/axiom-2.0.0-macos-27-arm64.tar.gz\n" | cmp -s - "$temporary/ledger"
+    [[ ! -e "$shim/sw_vers.invoked" ]]
   '
 done
 

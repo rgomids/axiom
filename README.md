@@ -53,8 +53,9 @@ your host, verifies its SHA-256 checksum before extracting anything, and
 installs `axiom` into `$HOME/.local/bin`. It never uses `sudo`, edits shell
 profiles, installs Runtimes, or touches credentials.
 
-Supported POSIX hosts: macOS 27.0 on arm64 and Linux on amd64 or arm64. Other
-hosts are refused before any download. The installer needs `curl`, `tar`,
+Supported POSIX hosts: macOS on arm64 and Linux on amd64 or arm64. The OS
+version is not an installation filter. Other hosts are refused before any
+download. The installer needs `curl`, `tar`,
 `bash`, `awk`, `grep`, `mktemp`, and `sha256sum` or `shasum`.
 
 If the final summary shows `PATH setup required`, put the binary directory on `PATH`:

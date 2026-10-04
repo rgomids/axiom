@@ -22,7 +22,6 @@ digest() {
 }
 
 # Select the fixture row using the actual OS, so stat retains its native ABI.
-# Darwin's approved version is a fixture value, never native platform Evidence.
 case "$(uname -s):$(uname -m)" in
   Darwin:arm64) platform=macos-27; goos=darwin; architecture=arm64; system=Darwin; machine=arm64 ;;
   Linux:x86_64) platform=linux; goos=linux; architecture=amd64; system=Linux; machine=x86_64 ;;
@@ -33,8 +32,14 @@ cat >"$tools/uname" <<EOF
 #!/bin/sh
 case "\$1" in -s) printf '%s\n' '$system' ;; -m) printf '%s\n' '$machine' ;; *) exit 1 ;; esac
 EOF
-printf '#!/bin/sh\nprintf "27.0\\n"\n' >"$tools/sw_vers"
-chmod 700 "$tools/uname" "$tools/sw_vers"
+# Issue #183: the facade never consults the macOS version. This sw_vers shim
+# reports a fixture version and records any invocation.
+write_sw_vers() {
+  printf '#!/bin/sh\n: >"%s/sw_vers.invoked"\nprintf "%%s\\n" %s\n' "$temporary" "$1" >"$tools/sw_vers"
+  chmod 700 "$tools/sw_vers"
+}
+write_sw_vers 27.0
+chmod 700 "$tools/uname"
 real_mktemp=$(command -v mktemp)
 cat >"$tools/mktemp" <<'EOF'
 #!/bin/sh
@@ -276,6 +281,16 @@ step() {
   fi
 }
 
+macos_version_agnostic() {
+  local version=$1 case_root="$temporary/macos-version-$1"
+  mkdir -p "$case_root/tmp"
+  write_sw_vers "$version"
+  run_facade "$case_root" "$case_root/tmp"
+  [[ "$result" == 0 ]]
+  delegation_matches "$case_root"
+  [[ ! -e "$temporary/sw_vers.invoked" ]]
+}
+
 printf 'suite=posix-facade-offline-fixtures scope=bootstrap-only\n'
 step custom-tmpdir-private-cleaned custom_tmpdir
 step missing-tmpdir-fallback missing_tmpdir
@@ -291,5 +306,11 @@ if [[ $(id -u) == 0 ]]; then
 else
   step controlled-workspace-user-symlink-refused unsafe_workspace symlink
 fi
+if [[ "$platform" == macos-27 ]]; then
+  for macos_version in 27.0.1 27.1 28.0; do
+    step "macos-version-agnostic:$macos_version" macos_version_agnostic "$macos_version"
+  done
+fi
+step sw-vers-never-invoked test ! -e "$temporary/sw_vers.invoked"
 printf 'failures=%d\n' "$failures"
 [[ "$failures" == 0 ]]

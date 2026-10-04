@@ -45,7 +45,8 @@ $savedArch = $env:PROCESSOR_ARCHITECTURE
 $savedWow = $env:PROCESSOR_ARCHITEW6432
 $savedProfile = $env:USERPROFILE
 $script:productType = 1
-function Get-CimInstance { param($ClassName) [pscustomobject]@{ProductType=$script:productType;Version='10.0.22621'} }
+$script:osVersion = '10.0.22621'
+function Get-CimInstance { param($ClassName) [pscustomobject]@{ProductType=$script:productType;Version=$script:osVersion} }
 
 # Build tiny tar.gz fixtures without invoking any executable from the archive.
 function New-ArchiveBytes([string[]]$Names) {
@@ -121,8 +122,20 @@ try {
     $env:PROCESSOR_ARCHITECTURE = 'ARM64'
     Assert-Refusal 'architecture' 'Windows amd64' (New-Object BootstrapTransport)
     $env:PROCESSOR_ARCHITECTURE = 'AMD64'
+    # Issue #183: the numeric OS version never decides eligibility. A client
+    # host of any version passes host checks and reaches the network stage.
+    foreach ($clientVersion in @('10.0.17134','10.0.17763','10.0.26100','10.1.0','11.0.0','6.3.9600')) {
+        $script:osVersion = $clientVersion
+        $transport = New-Object BootstrapTransport
+        $transport.Redirect = 'http://example.invalid/release'
+        Assert-Refusal "client-version-$clientVersion" 'Only HTTPS' $transport
+        if ($transport.Requests.Count -ne 1) { throw "client-version-${clientVersion}: host check refused before network" }
+    }
+    $script:osVersion = '10.0.22621'
     $script:productType = 3
     Assert-Refusal 'server' 'Windows Server is unsupported' (New-Object BootstrapTransport)
+    $script:osVersion = '10.0.17134'
+    Assert-Refusal 'server-old-version' 'Windows Server is unsupported' (New-Object BootstrapTransport)
     Write-Output 'windows_bootstrap_contract=pass'
 } finally {
     $env:PROCESSOR_ARCHITECTURE = $savedArch; $env:PROCESSOR_ARCHITEW6432 = $savedWow

@@ -17,12 +17,12 @@ if ($env:PROCESSOR_ARCHITEW6432) { $architecture = $env:PROCESSOR_ARCHITEW6432 }
 if ($env:OS -ne 'Windows_NT' -or $architecture -ne 'AMD64' -or -not [Environment]::Is64BitProcess) {
     throw 'Windows amd64 and 64-bit PowerShell are required.'
 }
-$hostVersion = Get-CimInstance Win32_OperatingSystem
-if ($hostVersion.ProductType -ne 1 -or [version]$hostVersion.Version -lt [version]'10.0.17763' -or ([version]$hostVersion.Version).Major -ne 10) {
-    throw 'Windows 10 version 1809 or later, or Windows 11, is required; Windows Server is unsupported.'
+# Eligibility is the Windows client edition, never the numeric OS version.
+if ((Get-CimInstance Win32_OperatingSystem).ProductType -ne 1) {
+    throw 'A Windows client edition is required; Windows Server is unsupported.'
 }
 if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
-    throw 'The Windows tar.exe utility is required (Windows 10 version 1809 or later).'
+    throw 'The Windows tar.exe utility is required.'
 }
 foreach ($path in @($BinDir, $ReceiptDir)) {
     if ($path -notmatch '^[A-Za-z]:\\' -or $path -match '[\r\n=]') {

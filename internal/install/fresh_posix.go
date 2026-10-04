@@ -43,7 +43,7 @@ func InstallReleasePOSIX(ctx context.Context, target Target, candidate Candidate
 	}
 	row := candidate.Values["platform"] + ":" + candidate.Values["goos"] + ":" + candidate.Values["architecture"]
 	if hostRow() != row {
-		return installRefusal("unsupported host for release row " + candidate.Values["platform"] + "/" + candidate.Values["architecture"] + "; exact approved OS, version, distribution, and architecture required")
+		return installRefusal("unsupported host for release row " + candidate.Values["platform"] + "/" + candidate.Values["architecture"] + "; supported OS family and architecture required")
 	}
 	for _, root := range []string{target.BinaryDir, target.ReceiptDir} {
 		if !filepath.IsAbs(root) || root == "/" {

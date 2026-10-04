@@ -366,7 +366,7 @@ func upgradeNext(category string) string {
 	case "owned_receipt_required", "receipt_invalid", "binary_modified", "unsafe_binary", "unsafe_target":
 		return "Only an unmodified owned release installation can be upgraded; preserve it for review"
 	case "unsupported_host":
-		return "Use the archive for this exact approved OS, version, and architecture"
+		return "Use the archive for this host's supported OS family and architecture"
 	case "insufficient_space":
 		return "Free space in the binary directory and Codex skill root, then preview again"
 	case "skill_conflict":
