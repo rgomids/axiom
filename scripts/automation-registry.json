@@ -920,10 +920,10 @@
       "path": "scripts/install-release.sh",
       "kind": "script",
       "owner": "installation",
-      "purpose": "Verify a release archive against SHA256SUMS and the host row, then fresh-install axiom with ownership receipt or delegate an owned upgrade; shipped as install.sh in the archive.",
+      "purpose": "Verify archive and bundle integrity and host row, execute a verified candidate from a private executable workspace, and delegate POSIX lifecycle to internal/install; shipped as install.sh.",
       "lifecycle": "durable",
-      "disposition": "move",
-      "disposition_ref": "#168 T12",
+      "disposition": "keep",
+      "disposition_ref": null,
       "runtime": [
         "bash"
       ],
@@ -937,19 +937,22 @@
         "scripts/verify-release-artifacts.sh",
         "scripts/test-release-archives.sh"
       ],
-      "inputs": "--archive, --checksums, --bin-dir, --receipt-dir (all absolute); env AXIOM_INSTALL_TEST_FAIL_STAGE test seam",
+      "inputs": "--archive, --checksums, --bin-dir, --receipt-dir (absolute); TMPDIR or system temporary default; AXIOM_INSTALL_TEST_FAIL_STAGE test seam",
       "outputs": "install_status=installed|unchanged|upgraded lines on stdout; install_error/install_next on stderr; non-zero exit on refusal or partial state",
-      "local_effects": "creates 0700 bin/receipt dirs, lock and operation marker; writes bin-dir/axiom and installation.receipt; runs the bundled axiom upgrade for owned installs; temp dir removed",
+      "local_effects": "Private temporary workspace removed on exit; verified candidate owns bin/receipt roots, lock, operation marker, binary and receipt publication and protected upgrade",
       "network_effects": "none",
       "authority": "current user; refuses unsupported host row, checksum mismatch, symlinked, group/world-writable or foreign-owned destinations; upgrade runs with --authorize-local",
       "tests": [
         "scripts/test-release-archives.sh",
         "scripts/test-install-bootstrap.sh",
-        "scripts/test-s7-native.sh"
+        "scripts/test-s7-native.sh",
+        "scripts/test-install-posix-facade.sh",
+        "internal/install",
+        "internal/local"
       ],
       "evidence": null,
       "compatibility": [],
-      "removal_condition": "Move durable POSIX install behavior into the internal/install owner and keep the archive install.sh as a thin facade (#168 T12); requires Plan/contract review."
+      "removal_condition": null
     },
     {
       "path": "scripts/install.ps1",
@@ -1700,6 +1703,33 @@
           "path": "internal/compatibility/testdata/poc-v0.1.0-poc.1"
         }
       ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-install-posix-facade.sh",
+      "kind": "script",
+      "owner": "installation",
+      "purpose": "Offline verified-candidate fixtures test POSIX facade temp safety, execution refusal, integrity ordering, argument and exit delegation.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash"
+      ],
+      "scope": [
+        "test"
+      ],
+      "trigger": "Run manually when POSIX bootstrap or executable temporary workspace behavior changes",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "none; offline archive fixtures and controlled host command fixtures, no native product acceptance",
+      "outputs": "bounded case results and non-zero on assertion failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
       "removal_condition": null
     },
     {
