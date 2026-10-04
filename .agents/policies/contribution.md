@@ -53,6 +53,21 @@ after explicit authorization.
 When opening a Pull Request, use the repository template and replace every
 placeholder with truthful content or an objective not-applicable explanation.
 
+## Repository automation
+
+Follow the [repository automation policy](repository-automation.md):
+
+- create a versioned script or workflow only for a recurring or reproducible
+  operation (CI/CD, release, install/bootstrap, deterministic validation,
+  reproducible Evidence, tests/fixtures, a documented recurring workflow, or an
+  explicitly required historical replay);
+- run one-off investigation, migration, repair, transformation, collection or
+  intermediate-generation helpers outside the tracked tree, keep only the
+  sanitized result and Evidence, and discard the helper;
+- register every durable automation surface you add, move or remove in
+  [`scripts/automation-registry.json`](../../scripts/automation-registry.json)
+  in the same change; `./scripts/validate-repository.sh .` fails otherwise.
+
 ## Prohibited behavior
 
 The agent must not:
@@ -62,6 +77,7 @@ The agent must not:
 - use generic final commit messages such as `update`, `changes`, `fix`, or
   `wip`;
 - include unrelated changes;
+- commit an ephemeral helper as durable repository automation;
 - treat green CI as sufficient Evidence;
 - treat technical merge as human acceptance;
 - advance or accept a Work Item from Provider labels, Issue/PR state, or green CI;

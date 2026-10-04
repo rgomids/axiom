@@ -179,6 +179,8 @@ go mod verify
 git diff --check
 ```
 
+Repository validation also enforces the [repository automation policy](.agents/policies/repository-automation.md): every durable script or workflow must be registered in [`scripts/automation-registry.json`](scripts/automation-registry.json), and one-off helpers stay out of the tracked tree.
+
 Before every commit, inspect staged paths and content and run `./scripts/check-sensitive-files.sh --staged .`. Follow [repository security](docs/security/repository-security.md), including the dedicated secret scanner when available. Report unavailable checks explicitly. Harness and documentation checks do not prove unimplemented product behavior.
 
 ### Required CI

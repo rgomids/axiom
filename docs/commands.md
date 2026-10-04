@@ -131,6 +131,33 @@ Teste o comportamento do validador de pacotes, inclusive rejeição de symlinks 
 ./scripts/test-validate-agent-package.sh
 ```
 
+## Automation governance
+
+A [política de automação do repositório](../.agents/policies/repository-automation.md)
+define automação durável versus helpers efêmeros. Todo script, programa ou
+workflow governado precisa de uma entrada em
+[`scripts/automation-registry.json`](../scripts/automation-registry.json); o
+`validate-repository.sh` executa as duas verificações abaixo.
+
+Valide o registry contra a árvore atual (arquivos versionados e não ignorados):
+
+```bash
+python3 scripts/check-automation-registry.py .
+```
+
+Teste o comportamento do validador com fixtures offline (registry válido,
+helper não registrado, path ausente, owner/purpose ausentes, lifecycle
+inválido, registro duplicado, caller pendente, pin de compatibilidade inválido
+e declaração durable/ephemeral inválida):
+
+```bash
+python3 scripts/test-check-automation-registry.py
+```
+
+A verificação é estrutural e offline: não executa automação registrada, não
+consulta a rede e não decide reutilização, ownership correto, linguagem ou
+frequência real de execução, que pertencem à revisão de engenharia.
+
 ## Security validation
 
 Teste o checker local:

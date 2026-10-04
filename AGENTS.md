@@ -97,6 +97,9 @@ Policies:
 - `.agents/policies/security.md`
 - `.agents/policies/documentation.md`
 - `.agents/policies/agent-generation.md`
+- `.agents/policies/repository-automation.md` (durable vs ephemeral
+  automation; every durable script or workflow is registered in
+  `scripts/automation-registry.json`)
 
 ## Definition of Done
 
