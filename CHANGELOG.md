@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1](https://github.com/rgomids/axiom/compare/v0.4.0...v0.4.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **compatibility:** accept every v1 state the stores write ([#172](https://github.com/rgomids/axiom/issues/172)) ([aa67e50](https://github.com/rgomids/axiom/commit/aa67e50fef92dae16c595e7fefb8d03e7b59cc2e))
+* **compatibility:** upgrade v1 state beside preserved POC history ([#173](https://github.com/rgomids/axiom/issues/173)) ([d6c4d79](https://github.com/rgomids/axiom/commit/d6c4d79cf9704dd58deb11acd6ba6cdb76d492b0))
+* **install:** remove OS-version gates from host eligibility ([#184](https://github.com/rgomids/axiom/issues/184)) ([7cc4328](https://github.com/rgomids/axiom/commit/7cc432888bafce0e9b57be45b1449e8130141f4b))
+
 ## [0.4.0](https://github.com/rgomids/axiom/compare/v0.3.0...v0.4.0) (2026-10-03)
 
 
