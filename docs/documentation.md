@@ -60,6 +60,8 @@ Use Diátaxis only to classify Tutorial, How-to, Reference, and Explanation cont
 - A technical merge does not establish human acceptance. Acceptance does not automatically authorize the next Task.
 - Current consolidated Specification status belongs in [the Specifications index](specifications/README.md). Detailed approval and acceptance records remain with the relevant artifacts; secondary documents link to them rather than copy current status.
 - ADRs preserve decision context and history; they are not operational dashboards.
+- ADR lifecycle statuses are `Proposed`, `Accepted`, `Superseded`, and `Rejected`. Partial supersession is not a status: the earlier ADR keeps `Accepted`, annotates the superseded fragment in place, and adds a `Partially superseded by` note to the [ADR index](decisions/README.md#index). Only full replacement uses `Superseded`. The superseding ADR links back in a `## Supersedes` section.
+- [ADR-0018](decisions/0018-adr-evolution-and-supersession-governance.md) defines this convention. `scripts/check-adr-governance.py` enforces its structure; whether a change semantically contradicts an accepted ADR remains a review responsibility.
 - Historical snapshots must carry a date and an explicit statement that they do not represent current state.
 
 ## Update triggers

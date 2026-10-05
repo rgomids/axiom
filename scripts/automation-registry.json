@@ -592,6 +592,45 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/check-adr-governance.py",
+      "kind": "script",
+      "owner": "repository-validation",
+      "purpose": "Validate the structural ADR evolution and supersession contract of ADR-0018: lifecycle statuses, canonical partial- and full-supersession syntax, existing, accepted and non-self-referential targets, path-based ADR identity, reciprocal Supersedes backlinks and ADR index reconciliation. It never decides semantic architectural conflict.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Every repository validation via validate-repository.sh (CI repository checks on linux and macos, maintainer validation before a change is complete).",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-check-adr-governance.py",
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "Optional ROOT directory (default .); reads docs/decisions/*.md and docs/decisions/README.md (regular UTF-8 files up to 1 MiB, symlinks refused).",
+      "outputs": "PASS line on stdout; one bounded FAIL line per violation on stderr (at most 50 plus a remainder count); exit 0 when valid, 1 on violations, 2 on usage error.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only local checks; never evaluates ADR content",
+      "tests": [
+        "scripts/test-check-adr-governance.py"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "enforces the structural rules of",
+          "path": "docs/decisions/0018-adr-evolution-and-supersession-governance.md"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/check-architecture.go",
       "kind": "script",
       "owner": "architecture-verification",
@@ -1425,6 +1464,36 @@
         "scripts/test-release-flow.sh"
       ],
       "evidence": "Consumes prepared release artifact and publication envelope; prints preview_digest for human authorization",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-check-adr-governance.py",
+      "kind": "script",
+      "owner": "repository-validation",
+      "purpose": "Offline black-box tests of check-adr-governance.py against valid and single-invariant-mutated ADR fixtures in temporary directories, plus the real ADR set and the ADR-0010/ADR-0015 baseline.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation via validate-repository.sh, and when the ADR governance checker or ADR-0018 changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "none; reads the repository docs/decisions for the baseline cases",
+      "outputs": "PASS line on stdout; unittest failure report on stderr and exit 1 on failure.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
       "compatibility": [],
       "removal_condition": null
     },
