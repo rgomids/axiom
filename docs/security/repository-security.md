@@ -125,7 +125,7 @@ Payloads, hashes e ledger estão naquele Evidence.
 
 | Controle | Observado | Desejado |
 |---|---|---|
-| Ruleset `default` (id `22828068`) em `main` | deletion, non_fast_forward, PR com 1 aprovação, code owner review, resolução de threads, merge `merge`+`squash`, code_quality; **sem required status checks**; bypass `RepositoryRole` id 2 em modo `always` | igual, mais required checks `verify (linux)`, `verify (macos)`, `release-contract` e, desde o contrato de delivery, `delivery-metadata` (GitHub Actions, strict), merge somente `squash`, bypass somente via PR (`pull_request`) |
+| Ruleset `default` (id `22828068`) em `main` | deletion, non_fast_forward, PR com 1 aprovação, code owner review, resolução de threads, merge `merge`+`squash`, code_quality; **sem required status checks**; bypass `RepositoryRole` id 2 em modo `always` | igual, mais required checks `verify (linux)`, `verify (macos)`, `verify (windows)`, `release-contract`, `delivery-metadata`, `upgrade-journeys (linux)` e `upgrade-journeys (macos)` (GitHub Actions, integration id `15368`, strict), merge somente `squash`, bypass somente via PR (`pull_request`) |
 | `CODEOWNERS` | ausente (code owner review sem owners) | `* @rgomids` (adicionado neste repositório) |
 | Métodos de merge | merge commit, squash e rebase habilitados; branch não removida após merge | somente squash, título = título do PR, remover branch após merge |
 | Actions | qualquer action; SHA pinning não exigido; `GITHUB_TOKEN` read; Actions não criam PRs | SHA pinning exigido; Actions podem criar PRs (Release Please) |
@@ -133,6 +133,30 @@ Payloads, hashes e ledger estão naquele Evidence.
 | Ruleset de tags | ausente | `release-tags`: tags `v*` não podem ser movidas nem removidas |
 | Environment `release` | ausente | revisor obrigatório, somente a partir de `main` |
 | Releases/tags | `v0.1.0-poc.1` (prerelease histórica, fora da política SemVer, ignorada) | — |
+
+### Upgrade Journeys: decisão de governança de 2026-10-04
+
+Os dois checks `upgrade-journeys (linux)` e `upgrade-journeys (macos)` são
+obrigatórios no estado versionado, por decisão humana. A lista desejada contém
+os sete checks da tabela, todos vinculados ao GitHub Actions (`15368`), com
+`strict_required_status_checks_policy = true`. Isso não afirma aplicação remota.
+
+Sequência: **estado versionado → merge em main → aplicação administrativa
+remota → read-back**. Para esta mudança, primeiro revisar/mergear #187,
+atualizar #188 contra `main`, retarget para `main`, executar CI novamente e
+revisar/mergear #188. Só depois aplicar o payload de `main`, com autoridade
+administrativa explícita, sem alterar outras proteções:
+
+```bash
+gh api --method PUT repos/rgomids/axiom/rulesets/22828068 --input .github/rulesets/main.json
+gh api repos/rgomids/axiom/rulesets/22828068 \
+  --jq '.rules[] | select(.type == "required_status_checks")'
+```
+
+O read-back deve provar os sete checks, seus integration ids e strict policy;
+compare também o payload completo normalizado para detectar qualquer outra
+mudança de proteção. Prepare a próxima stable release somente após essa
+verificação. Observações e Evidence anteriores continuam históricas.
 
 ### Aplicação (administrador)
 

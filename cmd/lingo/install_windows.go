@@ -44,7 +44,7 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 		return fail(err)
 	}
 	skills := codexSkillsRoot()
-	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: skills, State: compatibility.Roots{Projects: projects, State: state, Skills: skills}, Self: selfBuild()}
-	status, err := install.InstallRelease(context.Background(), target, candidate)
-	return windowsInstallReleaseResult(status, err, target, out, stderr)
+	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: skills, State: compatibility.Roots{Projects: projects, State: state, Skills: skills}, Self: selfBuild(), Archive: archiveRoot(values["--receipt-dir"])}
+	result, err := install.InstallRelease(context.Background(), target, candidate)
+	return windowsInstallReleaseResult(result, err, target, out, stderr)
 }

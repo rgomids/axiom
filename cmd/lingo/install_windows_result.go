@@ -11,8 +11,13 @@ import (
 
 // windowsInstallReleaseResult presents the Windows installer's status and cause.
 // Kept platform independent so its diagnostics can be checked on every host.
-func windowsInstallReleaseResult(status string, err error, target install.Target, out, stderr io.Writer) (bool, int) {
+func windowsInstallReleaseResult(result install.Result, err error, target install.Target, out, stderr io.Writer) (bool, int) {
 	fail := func(err error) (bool, int) { fmt.Fprintf(stderr, "install_error: %v\n", err); return true, 1 }
+	status := result.Status
+	if err == nil && status == "success" && result.Preservation != "" {
+		fmt.Fprintf(out, "install_preserved=%s\n", result.Preservation)
+		status = "upgraded"
+	}
 	if status != "" {
 		fmt.Fprintf(out, "install_status=%s\n", status)
 	}

@@ -93,6 +93,24 @@ func selfBuild() install.Build {
 	return install.Build{Release: err == nil && release, Version: buildVersion, Revision: buildRevision, SourceState: buildSourceState}
 }
 
+// archiveRoot is the Axiom-owned machine-local preservation namespace for the
+// RecognizedPOC transition: AXIOM_ARCHIVE_ROOT when set to an absolute path,
+// otherwise "archive" beside the installation receipt directory, which is
+// Axiom-owned state outside every Project, State and Skills root. A relative
+// override disables the transition (empty) instead of guessing.
+func archiveRoot(receiptDir string) string {
+	if override, set := os.LookupEnv("AXIOM_ARCHIVE_ROOT"); set {
+		if !filepath.IsAbs(override) {
+			return ""
+		}
+		return filepath.Clean(override)
+	}
+	if !filepath.IsAbs(receiptDir) {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(filepath.Clean(receiptDir)), "archive")
+}
+
 func unknownProvenance() provenance.Value {
 	value, _ := provenance.FromBuild(provenance.Build{Version: provenance.Development, Revision: provenance.Unavailable, SourceState: provenance.Unknown}, nil)
 	return value

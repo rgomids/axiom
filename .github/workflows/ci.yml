@@ -97,3 +97,59 @@ jobs:
         run: python3 scripts/test-release-corrections.py
       - name: Release PR check dispatch regressions
         run: python3 scripts/test-release-pr-checks.py
+
+  upgrade-journeys:
+    # Issues #153/#186: real N -> candidate owned upgrades with non-empty state,
+    # from the latest published stable release (N), the oldest stable release
+    # with an installation receipt and historical POC state, through the
+    # candidate archive's own installer. Downloads public release assets only.
+    name: upgrade-journeys (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-24.04
+            row: linux-amd64
+          - platform: macos
+            runner: macos-15
+            row: macos-27-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build the candidate release archives
+        run: ./scripts/build-release-archives.sh --version "9999.0.0-acceptance.${GITHUB_RUN_NUMBER}" --output "$RUNNER_TEMP/candidate"
+      - name: Fetch published earlier releases
+        env:
+          ROW: ${{ matrix.row }}
+        run: |
+          # Tags exist only for published releases; N is the newest stable one.
+          latest=$(git for-each-ref --format='%(refname:short)' 'refs/tags/v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          for tag in "$latest" v0.1.1; do
+            dir="$RUNNER_TEMP/previous-$tag"
+            mkdir -p "$dir"
+            version=${tag#v}
+            for asset in SHA256SUMS "axiom-$version-$ROW.tar.gz"; do
+              curl -fsSL --retry 4 -o "$dir/$asset" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$asset"
+            done
+            printf 'PREVIOUS_%s=%s\n' "${tag//./_}" "$dir" >>"$GITHUB_ENV"
+          done
+          printf 'PREVIOUS_LATEST=%s\n' "$RUNNER_TEMP/previous-$latest" >>"$GITHUB_ENV"
+      - name: Build the historical POC binary
+        run: |
+          mkdir -p "$RUNNER_TEMP/poc"
+          git archive v0.1.0-poc.1 | tar -x -C "$RUNNER_TEMP/poc"
+          (cd "$RUNNER_TEMP/poc" && go build -trimpath -o "$RUNNER_TEMP/poc-lingo" ./cmd/lingo)
+      - name: Upgrade journeys
+        run: |
+          ./scripts/test-upgrade-journeys.sh --candidate "$RUNNER_TEMP/candidate" \
+            --previous "$PREVIOUS_LATEST" --previous "$PREVIOUS_v0_1_1" \
+            --poc-binary "$RUNNER_TEMP/poc-lingo" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -45,19 +45,19 @@ func windowsTarget(t *testing.T) Target {
 func TestWindowsFreshInstallReinstallAndUpgrade(t *testing.T) {
 	target := windowsTarget(t)
 	first := windowsCandidate(t, "1.0.0")
-	if status, err := InstallRelease(context.Background(), target, first); err != nil || status != "installed" {
-		t.Fatalf("fresh: %s %v", status, err)
+	if result, err := InstallRelease(context.Background(), target, first); err != nil || result.Status != "installed" {
+		t.Fatalf("fresh: %s %v", result.Status, err)
 	}
 	before, err := os.ReadFile(filepath.Join(target.ReceiptDir, receiptName))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status, err := InstallRelease(context.Background(), target, first); err != nil || status != "unchanged" {
-		t.Fatalf("repeat: %s %v", status, err)
+	if result, err := InstallRelease(context.Background(), target, first); err != nil || result.Status != "unchanged" {
+		t.Fatalf("repeat: %s %v", result.Status, err)
 	}
 	next := windowsCandidate(t, "1.1.0")
-	if status, err := InstallRelease(context.Background(), target, next); err != nil {
-		t.Fatalf("upgrade: %s %v", status, err)
+	if result, err := InstallRelease(context.Background(), target, next); err != nil || result.Status != "success" || result.Preservation != "" {
+		t.Fatalf("upgrade: %s %v", result.Status, err)
 	}
 	after, err := os.ReadFile(filepath.Join(target.ReceiptDir, receiptName))
 	if err != nil {
@@ -74,6 +74,26 @@ func TestWindowsFreshInstallReinstallAndUpgrade(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(target.ReceiptDir, markerName)); !os.IsNotExist(err) {
 		t.Fatalf("marker remains: %v", err)
+	}
+}
+
+func TestWindowsInstallReleasePropagatesRecognizedPOCPreservation(t *testing.T) {
+	target := windowsTarget(t)
+	first := windowsCandidate(t, "1.0.0")
+	if _, err := InstallRelease(context.Background(), target, first); err != nil {
+		t.Fatal(err)
+	}
+	installed := installation{target: target}
+	installed.withPOCState(t)
+	target.Archive = filepath.Join(filepath.Dir(target.ReceiptDir), "archive")
+	installed.target = target
+	next := windowsCandidate(t, "1.1.0")
+	result, err := InstallRelease(context.Background(), target, next)
+	if err != nil || result.Status != "success" || result.Preservation != installed.archivePath(t) {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	if _, err := os.Stat(filepath.Join(result.Preservation, "manifest.json")); err != nil {
+		t.Fatalf("preservation manifest: %v", err)
 	}
 }
 
@@ -111,15 +131,15 @@ func TestWindowsFreshInstallFinalizesExactInterruptedReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	root.Close()
-	if status, err := InstallRelease(context.Background(), target, candidate); err != nil || status != "installed" {
-		t.Fatalf("resume: %s %v", status, err)
+	if result, err := InstallRelease(context.Background(), target, candidate); err != nil || result.Status != "installed" {
+		t.Fatalf("resume: %s %v", result.Status, err)
 	}
 }
 
 func TestWindowsUpgradePartialPreservesNonReceiptCauseAndLedger(t *testing.T) {
 	target := windowsTarget(t)
-	if status, err := InstallRelease(context.Background(), target, windowsCandidate(t, "1.0.0")); err != nil || status != "installed" {
-		t.Fatalf("fresh: %s %v", status, err)
+	if result, err := InstallRelease(context.Background(), target, windowsCandidate(t, "1.0.0")); err != nil || result.Status != "installed" {
+		t.Fatalf("fresh: %s %v", result.Status, err)
 	}
 	candidate := windowsCandidate(t, "1.1.0")
 	service := NewService()
@@ -201,9 +221,9 @@ func TestWindowsInstallReleaseReceiptPartialCategories(t *testing.T) {
 				next = windowsBundleCandidate(t, selfBundle(t, "1.1.0"))
 				target.Self = selfBuildFor("1.1.0")
 			}
-			status, err := InstallRelease(context.Background(), target, next)
-			if status != "partial" || category(err) != "skill_receipt_"+receipt {
-				t.Fatalf("status=%s err=%v", status, err)
+			result, err := InstallRelease(context.Background(), target, next)
+			if result.Status != "partial" || category(err) != "skill_receipt_"+receipt {
+				t.Fatalf("status=%s err=%v", result.Status, err)
 			}
 			wire, readErr := os.ReadFile(filepath.Join(target.BinaryDir, binaryName))
 			if readErr != nil || !bytes.Equal(wire, next.Binary) {

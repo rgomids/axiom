@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -28,7 +29,7 @@ func TestWindowsInstallReleasePartialCause(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var out, stderr bytes.Buffer
-			handled, code := windowsInstallReleaseResult("partial", tc.err, install.Target{}, &out, &stderr)
+			handled, code := windowsInstallReleaseResult(install.Result{Status: "partial"}, tc.err, install.Target{}, &out, &stderr)
 			if !handled || code != 1 || out.String() != "install_status=partial\n" {
 				t.Fatalf("handled=%v code=%d stdout=%q", handled, code, out.String())
 			}
@@ -38,6 +39,29 @@ func TestWindowsInstallReleasePartialCause(t *testing.T) {
 			}
 			if !tc.receipt && (strings.Contains(diagnostic, "Codex skill-set receipt") || strings.Contains(diagnostic, "axiom first-run")) {
 				t.Fatalf("unrelated partial misdiagnosed: %q", diagnostic)
+			}
+		})
+	}
+}
+
+func TestWindowsInstallReleasePreservationOutput(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		result install.Result
+		output string
+	}{
+		{"recognized_poc", install.Result{Status: "success", Preservation: "C:/Axiom archive/recognized-poc-digest"}, "install_preserved=C:/Axiom archive/recognized-poc-digest\ninstall_status=upgraded\n"},
+		{"ordinary_upgrade", install.Result{Status: "success"}, "install_status=success\n"},
+		{"fresh_install", install.Result{Status: "installed"}, "install_status=installed\n"},
+		{"unchanged", install.Result{Status: "unchanged"}, "install_status=unchanged\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out, stderr bytes.Buffer
+			target := install.Target{BinaryDir: "bin"}
+			handled, code := windowsInstallReleaseResult(tc.result, nil, target, &out, &stderr)
+			want := tc.output + "installed_binary=" + filepath.Join("bin", "axiom.exe") + "\npath_notice: add bin to your PATH, then run axiom first-run\n"
+			if !handled || code != 0 || out.String() != want || stderr.Len() != 0 {
+				t.Fatalf("handled=%v code=%d stdout=%q stderr=%q", handled, code, out.String(), stderr.String())
 			}
 		})
 	}
