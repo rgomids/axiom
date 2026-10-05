@@ -1,13 +1,63 @@
 package local
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"golang.org/x/sys/windows"
 )
+
+func TestWindowsStorageDiagnosticPreservesPathRuleAndSentinel(t *testing.T) {
+	for _, private := range []bool{false, true} {
+		t.Run(fmt.Sprint(private), func(t *testing.T) {
+			parent := t.TempDir()
+			path := filepath.Join(parent, "owned")
+			directory, err := CreateOwnedDirectory(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			directory.Close()
+			rejectedPath, target, rule := parent, filepath.Join(path, "missing"), "ancestors must prevent replacement"
+			if private {
+				rejectedPath, target, rule = path, path, "private objects must not grant access"
+			}
+			windowsTestACL(t, rejectedPath, "(A;;FA;;;WD)")
+			directory, err = CreateOwnedDirectory(target)
+			if err == nil {
+				directory.Close()
+				t.Fatal("accepted unsafe storage")
+			}
+			if !errors.Is(err, ErrUnsafe) || !strings.Contains(err.Error(), rule) || !strings.Contains(err.Error(), "sid=S-1-1-0") {
+				t.Fatalf("lost diagnostic: %v", err)
+			}
+			// The handle resolves a long path even when TEMP uses an 8.3
+			// alias (as on hosted Windows runners). Check object identity,
+			// not spelling, while still rejecting a diagnostic for a parent.
+			_, quotedPath, found := strings.Cut(err.Error(), "path=")
+			quotedPath, _, hasRule := strings.Cut(quotedPath, " rule=")
+			reportedPath, parseErr := strconv.Unquote(quotedPath)
+			if !found || !hasRule || parseErr != nil {
+				t.Fatalf("missing quoted diagnostic path: %v", err)
+			}
+			reportedInfo, statErr := os.Stat(reportedPath)
+			expectedInfo, expectedErr := os.Stat(rejectedPath)
+			if statErr != nil || expectedErr != nil || !os.SameFile(reportedInfo, expectedInfo) {
+				t.Fatalf("diagnostic path %q does not identify %q: %v / %v", reportedPath, rejectedPath, statErr, expectedErr)
+			}
+			if !private {
+				if _, err := os.Stat(target); !os.IsNotExist(err) {
+					t.Fatalf("created target under unsafe ancestor: %v", err)
+				}
+			}
+		})
+	}
+}
 
 func TestWindowsPrivatePublicationAndLock(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "private")

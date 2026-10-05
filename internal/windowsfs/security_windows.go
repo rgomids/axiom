@@ -49,20 +49,30 @@ func currentOwner(owner, user *windows.SID) bool {
 // SYSTEM remain trusted, like root on POSIX. Unknown ACE types fail closed.
 // Ancestors may grant read/create access, but never replacement of children.
 func Check(file *os.File, private bool) error {
+	refuse := func(rule string) error {
+		// os.Root-relative File.Name can describe the parent rather than the
+		// opened child. Resolve diagnostics from the same handle we checked.
+		path := file.Name()
+		buffer := make([]uint16, 32768)
+		if n, err := windows.GetFinalPathNameByHandle(windows.Handle(file.Fd()), &buffer[0], uint32(len(buffer)), 0); err == nil && n < uint32(len(buffer)) {
+			path = strings.TrimPrefix(windows.UTF16ToString(buffer[:n]), `\\?\`)
+		}
+		return fmt.Errorf("%w: path=%q rule=%s", ErrUnsafe, path, rule)
+	}
 	h := windows.Handle(file.Fd())
 	var info windows.ByHandleFileInformation
 	if err := windows.GetFileInformationByHandle(h, &info); err != nil {
 		return err
 	}
 	if info.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-		return ErrUnsafe
+		return refuse("reparse points are not allowed")
 	}
 	if info.FileAttributes&windows.FILE_ATTRIBUTE_DIRECTORY == 0 && info.NumberOfLinks != 1 {
-		return ErrUnsafe
+		return refuse("regular files must have exactly one link")
 	}
 	sd, err := windows.GetSecurityInfo(h, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION|windows.DACL_SECURITY_INFORMATION)
 	if err != nil || sd == nil || !sd.IsValid() {
-		return ErrUnsafe
+		return refuse("a valid readable security descriptor is required")
 	}
 	user, err := windows.GetCurrentProcessToken().GetTokenUser()
 	if err != nil {
@@ -70,16 +80,16 @@ func Check(file *os.File, private bool) error {
 	}
 	owner, _, err := sd.Owner()
 	if err != nil || owner == nil || (!currentOwner(owner, user.User.Sid) && (private || !privileged(owner))) {
-		return ErrUnsafe
+		return refuse("private objects require the current token owner; ancestors require a trusted owner")
 	}
 	acl, _, err := sd.DACL()
 	if err != nil || acl == nil {
-		return ErrUnsafe
+		return refuse("an explicit readable DACL is required")
 	}
 	for i := uint32(0); i < uint32(acl.AceCount); i++ {
 		var ace *windows.ACCESS_ALLOWED_ACE
 		if windows.GetAce(acl, i, &ace) != nil || ace == nil {
-			return ErrUnsafe
+			return refuse("DACL entries must be readable")
 		}
 		if ace.Header.AceFlags&windows.INHERIT_ONLY_ACE != 0 {
 			continue
@@ -88,11 +98,11 @@ func Check(file *os.File, private bool) error {
 			continue
 		}
 		if ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
-			return ErrUnsafe
+			return refuse("unsupported DACL entry type")
 		}
 		sid := (*windows.SID)(unsafe.Pointer(&ace.SidStart))
 		if !sid.IsValid() {
-			return ErrUnsafe
+			return refuse("DACL entries must have valid SIDs")
 		}
 		if sid.Equals(user.User.Sid) || privileged(sid) {
 			continue
@@ -102,7 +112,11 @@ func Check(file *os.File, private bool) error {
 			mask |= windows.FILE_READ_DATA | windows.FILE_WRITE_DATA | windows.FILE_APPEND_DATA | windows.FILE_READ_EA | windows.FILE_WRITE_EA | windows.FILE_WRITE_ATTRIBUTES | windows.FILE_EXECUTE | windows.GENERIC_READ | windows.GENERIC_EXECUTE
 		}
 		if uint32(ace.Mask)&mask != 0 {
-			return ErrUnsafe
+			rule := "ancestors must prevent replacement by untrusted principals"
+			if private {
+				rule = "private objects must not grant access to untrusted principals"
+			}
+			return refuse(fmt.Sprintf("%s (sid=%s mask=0x%08x)", rule, sid.String(), uint32(ace.Mask)))
 		}
 	}
 	return nil
@@ -124,10 +138,13 @@ func ValidComponent(part string) bool {
 // Canonical rejects namespaces, UNC/network paths, alternate streams, ambiguous
 // Win32 names and all reparse points, including junctions and mount points.
 func Canonical(path string) (string, error) {
+	refuse := func(path, rule string) (string, error) {
+		return "", fmt.Errorf("%w: path=%q rule=%s", ErrUnsafe, path, rule)
+	}
 	clean := filepath.Clean(path)
 	volume := filepath.VolumeName(clean)
 	if len(volume) != 2 || volume[1] != ':' || !filepath.IsAbs(clean) || strings.HasPrefix(clean, `\\`) {
-		return "", ErrUnsafe
+		return refuse(path, "an absolute local drive path without a device namespace is required")
 	}
 	current := volume + `\`
 	volumePath, err := windows.UTF16PtrFromString(current)
@@ -136,20 +153,20 @@ func Canonical(path string) (string, error) {
 	}
 	var filesystem [32]uint16
 	if windows.GetDriveType(volumePath) != windows.DRIVE_FIXED {
-		return "", ErrUnsafe
+		return refuse(current, "a fixed local drive is required")
 	}
 	if err := windows.GetVolumeInformation(volumePath, nil, 0, nil, nil, nil, &filesystem[0], uint32(len(filesystem))); err != nil {
 		return "", err
 	}
 	if windows.UTF16ToString(filesystem[:]) != "NTFS" {
-		return "", ErrUnsafe
+		return refuse(current, "NTFS storage is required")
 	}
 	for _, part := range strings.Split(strings.TrimPrefix(clean, current), `\`) {
 		if part == "" {
 			continue
 		}
 		if !ValidComponent(part) {
-			return "", ErrUnsafe
+			return refuse(filepath.Join(current, part), "ambiguous names and alternate data streams are not allowed")
 		}
 		current = filepath.Join(current, part)
 		name, err := windows.UTF16PtrFromString(current)
@@ -161,7 +178,7 @@ func Canonical(path string) (string, error) {
 			continue
 		}
 		if err != nil || attrs&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-			return "", ErrUnsafe
+			return refuse(current, "path components must be inspectable and must not be reparse points")
 		}
 	}
 	return clean, nil

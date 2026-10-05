@@ -2,6 +2,7 @@ package local
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -22,24 +23,27 @@ func volumeRoot(path string) string                      { return filepath.Volum
 func trustedCanonical(path string) (string, error) {
 	canonical, err := windowsfs.Canonical(path)
 	if errors.Is(err, windowsfs.ErrUnsafe) {
-		return "", ErrUnsafe
+		return "", fmt.Errorf("%w: %w", ErrUnsafe, err)
 	}
 	return canonical, err
 }
 func checkPrivateACL(file *os.File) error {
-	if windowsfs.Check(file, true) != nil {
-		return ErrUnsafe
+	if err := windowsfs.Check(file, true); err != nil {
+		return fmt.Errorf("%w: %w", ErrUnsafe, err)
 	}
 	return nil
 }
 func singleLink(file *os.File, _ os.FileInfo) bool { return windowsfs.Check(file, true) == nil }
-func safeAncestor(root *os.Root, _ os.FileInfo) bool {
+func checkAncestor(root *os.Root, _ os.FileInfo) error {
 	f, e := root.Open(".")
 	if e != nil {
-		return false
+		return fmt.Errorf("%w: %w", ErrUnsafe, e)
 	}
 	defer f.Close()
-	return windowsfs.Check(f, false) == nil
+	if err := windowsfs.Check(f, false); err != nil {
+		return fmt.Errorf("%w: %w", ErrUnsafe, err)
+	}
+	return nil
 }
 func mkdirPrivate(root *os.Root, name string) error { return windowsfs.Mkdir(root, name) }
 func availableBytes(file *os.File) (uint64, error)  { return windowsfs.Available(file.Name()) }

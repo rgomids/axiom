@@ -19,8 +19,13 @@ func volumeRoot(string) string { return string(filepath.Separator) }
 func forbiddenPermissions(info os.FileInfo, mask os.FileMode) bool {
 	return info.Mode().Perm()&mask != 0
 }
-func safeAncestor(_ *os.Root, info os.FileInfo) bool { return ancestorSafe(info) }
-func mkdirPrivate(root *os.Root, name string) error  { return root.Mkdir(name, 0o700) }
+func checkAncestor(_ *os.Root, info os.FileInfo) error {
+	if !ancestorSafe(info) {
+		return ErrUnsafe
+	}
+	return nil
+}
+func mkdirPrivate(root *os.Root, name string) error { return root.Mkdir(name, 0o700) }
 func singleLink(_ *os.File, info os.FileInfo) bool {
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	return ok && stat.Nlink == 1
