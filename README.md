@@ -78,14 +78,14 @@ On a **Windows client edition, amd64** (Windows Server is not supported), use
 installation filter. No WSL, Bash, Go toolchain, or administrator privileges are required:
 
 ```powershell
-Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
 $env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 ```
 
 To install an exact Windows release, use one PowerShell command:
 
 ```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.1.0
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.4.2
 ```
 
 If you need to inspect or retain the bootstrap before running it, download it
@@ -112,6 +112,24 @@ to `%LOCALAPPDATA%\Axiom\state`; Runtime skills stay in the user-global roots
 listed below. Organization application-control and PowerShell policies still
 apply; the installer does not bypass them. See the
 [Windows installation reference](docs/commands.md#windows-native-installation).
+
+If installation reports `unsafe project storage`, the selected location did not
+pass the filesystem security checks, which also inspect ancestor directories.
+Choose another local NTFS location with safe ownership and permissions. For
+example, use new installation directories beneath your user profile:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) `
+  -BinDir "$env:USERPROFILE\AxiomInstall\bin" `
+  -ReceiptDir "$env:USERPROFILE\AxiomInstall\install"
+$env:PATH = "$env:USERPROFILE\AxiomInstall\bin;$env:PATH"
+```
+
+This location must pass the same checks; it is not guaranteed to be eligible on
+every machine. Match the session `PATH` command to the selected binary directory.
+These options do not relocate state or Runtime skills. Reinstallation or upgrade
+can also refuse unsafe local compatibility state (`upgrade: state_unsafe`). Verify the executable
+before running `first-run`, which separately installs or upgrades user-global skills.
 
 ### 2. Verify
 

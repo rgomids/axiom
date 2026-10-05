@@ -79,14 +79,14 @@ use PowerShell 5.1 ou superior de 64 bits; a versão numérica do Windows não �
 filtro de instalação. Não é necessário WSL, Bash, Go nem executar como administrador:
 
 ```powershell
-Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
 $env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 ```
 
 Para instalar uma release Windows exata, use um comando PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.1.0
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.4.2
 ```
 
 Se precisar inspecionar ou reter o bootstrap antes de executá-lo, baixe-o
@@ -112,6 +112,26 @@ local fica em `%LOCALAPPDATA%\Axiom\state`; as skills dos Runtimes continuam nas
 raízes do usuário descritas abaixo. Políticas de execução do PowerShell e de
 controle de aplicativos da organização continuam valendo, sem bypass.
 Consulte a [referência de instalação Windows](commands.md#windows-native-installation).
+
+Se a instalação informar `unsafe project storage`, o local escolhido não passou
+nas verificações de segurança do filesystem, que também inspecionam os diretórios
+ancestrais. Escolha outro local NTFS com ownership e permissões seguros. Por
+exemplo, use novos diretórios de instalação dentro do seu perfil de usuário:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) `
+  -BinDir "$env:USERPROFILE\AxiomInstall\bin" `
+  -ReceiptDir "$env:USERPROFILE\AxiomInstall\install"
+$env:PATH = "$env:USERPROFILE\AxiomInstall\bin;$env:PATH"
+```
+
+Esse local deve passar nas mesmas verificações; sua elegibilidade não é garantida
+em toda máquina. Ajuste o comando de `PATH` da sessão ao diretório do binário
+escolhido. Essas opções não mudam o local do estado nem das skills dos Runtimes.
+Uma reinstalação ou upgrade também pode recusar estado local de compatibilidade inseguro
+(`upgrade: state_unsafe`).
+Verifique o executável antes de rodar `first-run`, que instala ou atualiza as
+skills globais do usuário em uma etapa separada.
 
 ### 2. Verifique
 
