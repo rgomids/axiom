@@ -42,7 +42,7 @@ function Install-TestBundle($Bundle) {
 }
 New-Item -ItemType Directory -Path $work | Out-Null
 $savedEnvironment = @{}
-foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) {
+foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT','LOCALAPPDATA')) {
     $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name,'Process')
     [Environment]::SetEnvironmentVariable($name,(Join-Path $work $name),'Process')
 }
@@ -72,6 +72,50 @@ try {
         exit 0
     }
     Install-TestBundle $first
+    # The default paths are tested under an isolated LOCALAPPDATA with safe
+    # ancestors. Never change permissions on the real user's AppData directory.
+    & (Join-Path $first.Root 'install.ps1') -Archive $first.Archive -Checksums $first.Checksums
+    Assert-NativeExit 'Default Windows paths'
+    if (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'Axiom\bin\axiom.exe')) -or
+        -not (Test-Path (Join-Path $env:LOCALAPPDATA 'Axiom\install\installation.receipt'))) { throw 'Default installation missing.' }
+    Write-Output 'windows_default_paths=pass'
+
+    $unsafe = Join-Path $work 'unsafe ancestor'
+    New-Item -ItemType Directory -Path $unsafe | Out-Null
+    $acl = Get-Acl -LiteralPath $unsafe
+    $everyone = New-Object Security.Principal.SecurityIdentifier('S-1-1-0')
+    $rule = New-Object Security.AccessControl.FileSystemAccessRule($everyone,'DeleteSubdirectoriesAndFiles','None','None','Allow')
+    $acl.AddAccessRule($rule)
+    Set-Acl -LiteralPath $unsafe -AclObject $acl
+    $beforeACL = (Get-Acl -LiteralPath $unsafe).Sddl
+    $savedPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir (Join-Path $unsafe 'bin') --receipt-dir (Join-Path $unsafe 'receipts') 2>&1
+    } finally { $ErrorActionPreference = $savedPreference }
+    if ($LASTEXITCODE -eq 0 -or ($output -join "`n") -notmatch 'rule=ancestors must prevent replacement' -or
+        ($output -join "`n") -notmatch 'unsafe ancestor' -or ($output -join "`n") -notmatch 'install_next:.*-BinDir.*-ReceiptDir' -or
+        (Test-Path (Join-Path $unsafe 'receipts')) -or (Test-Path (Join-Path $unsafe 'bin')) -or
+        (Get-Acl -LiteralPath $unsafe).Sddl -cne $beforeACL) { throw "Unsafe ancestor diagnostic/preservation failed: $output" }
+    Write-Output 'windows_storage_diagnostic=pass'
+    # Existing owned installs must retain the same actionable cause through
+    # the upgrade preview, while preserving the receipt and executable.
+    $defaultBin = Join-Path $env:LOCALAPPDATA 'Axiom\bin'
+    $defaultReceipt = Join-Path $env:LOCALAPPDATA 'Axiom\install'
+    $beforeBinary = (Get-FileHash (Join-Path $defaultBin 'axiom.exe')).Hash
+    $beforeReceipt = (Get-FileHash (Join-Path $defaultReceipt 'installation.receipt')).Hash
+    $acl = Get-Acl -LiteralPath $env:LOCALAPPDATA
+    $acl.AddAccessRule($rule)
+    Set-Acl -LiteralPath $env:LOCALAPPDATA -AclObject $acl
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt 2>&1
+    } finally { $ErrorActionPreference = $savedPreference }
+    if ($LASTEXITCODE -eq 0 -or ($output -join "`n") -notmatch 'install_storage:.*LOCALAPPDATA.*rule=ancestors' -or
+        ($output -join "`n") -notmatch 'upgrade: unsafe_target' -or
+        (Get-FileHash (Join-Path $defaultBin 'axiom.exe')).Hash -cne $beforeBinary -or
+        (Get-FileHash (Join-Path $defaultReceipt 'installation.receipt')).Hash -cne $beforeReceipt) { throw "Upgrade storage diagnostic/preservation failed: $output" }
+    Write-Output 'windows_upgrade_storage_diagnostic=pass'
     $receiptFile = Join-Path $receipt 'installation.receipt'
     $before = [IO.File]::ReadAllText($receiptFile)
     Install-TestBundle $first

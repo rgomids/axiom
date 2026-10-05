@@ -1,4 +1,7 @@
 #requires -Version 5.1
+# Invoke-Expression otherwise binds parameters in the caller's scope, including
+# validating an omitted Channel as an empty string. Always use a child scope.
+& {
 [CmdletBinding()]
 param(
     [string]$Version,
@@ -166,3 +169,4 @@ try {
     # This exact UUID-named staging directory was created by this invocation.
     if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
 }
+} @args

@@ -3,7 +3,9 @@
 # is injected only in this test; production exposes no support-policy override.
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Net.Http
-Add-Type -ReferencedAssemblies System.Net.Http -TypeDefinition @'
+$references = @('System.Net.Http')
+if ($PSVersionTable.PSEdition -eq 'Core') { $references += @('System.Collections','System.Runtime','System.Net.Primitives') }
+Add-Type -ReferencedAssemblies $references -TypeDefinition @'
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -92,6 +94,24 @@ try {
     # Keep production staging and cleanup inside this isolated test profile.
     $env:USERPROFILE = $work
     $env:PROCESSOR_ARCHITECTURE = 'AMD64'; $env:PROCESSOR_ARCHITEW6432 = ''
+    # Issue #189: exercise IEX itself, including a caller variable that is not
+    # a valid selector. A parameter declaration in IEX's caller scope failed
+    # even without a pre-existing Channel. No network or mutation is needed.
+    $script:productType = 3
+    foreach ($callerChannel in @('', 'caller-value')) {
+        $Channel = $callerChannel
+        $message = ''
+        try { $source | Invoke-Expression } catch { $message = $_.Exception.Message }
+        if ($message -notmatch 'Windows Server is unsupported' -or $Channel -cne $callerChannel) {
+            throw "IEX child scope regression: $message"
+        }
+    }
+    Remove-Variable Channel
+    $message = ''
+    try { $source | Invoke-Expression } catch { $message = $_.Exception.Message }
+    if ($message -notmatch 'Windows Server is unsupported') { throw "IEX omitted Channel regression: $message" }
+    $script:productType = 1
+    Write-Output 'bootstrap_iex_scope=pass'
     $transport = New-Object BootstrapTransport
     $transport.Redirect = 'http://example.invalid/release'
     Assert-Refusal 'https-downgrade' 'Only HTTPS' $transport

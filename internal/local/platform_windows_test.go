@@ -1,13 +1,48 @@
 package local
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"golang.org/x/sys/windows"
 )
+
+func TestWindowsStorageDiagnosticPreservesPathRuleAndSentinel(t *testing.T) {
+	for _, private := range []bool{false, true} {
+		t.Run(fmt.Sprint(private), func(t *testing.T) {
+			parent := t.TempDir()
+			path := filepath.Join(parent, "owned")
+			directory, err := CreateOwnedDirectory(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			directory.Close()
+			rejectedPath, target, rule := parent, filepath.Join(path, "missing"), "ancestors must prevent replacement"
+			if private {
+				rejectedPath, target, rule = path, path, "private objects must not grant access"
+			}
+			windowsTestACL(t, rejectedPath, "(A;;FA;;;WD)")
+			directory, err = CreateOwnedDirectory(target)
+			if err == nil {
+				directory.Close()
+				t.Fatal("accepted unsafe storage")
+			}
+			if !errors.Is(err, ErrUnsafe) || !strings.Contains(err.Error(), fmt.Sprintf("path=%q", rejectedPath)) || !strings.Contains(err.Error(), rule) || !strings.Contains(err.Error(), "sid=S-1-1-0") {
+				t.Fatalf("lost diagnostic: %v", err)
+			}
+			if !private {
+				if _, err := os.Stat(target); !os.IsNotExist(err) {
+					t.Fatalf("created target under unsafe ancestor: %v", err)
+				}
+			}
+		})
+	}
+}
 
 func TestWindowsPrivatePublicationAndLock(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "private")
