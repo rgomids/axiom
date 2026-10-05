@@ -37,101 +37,25 @@ evidências de aceite.
 
 ## Primeiros passos
 
-Usar o Axiom não exige clone, toolchain Go nem build. Para trabalhar no próprio
-Axiom, consulte [Desenvolvimento do Axiom](#desenvolvimento-do-axiom).
+Usar o Axiom não exige clone, Go nem build.
 
 ### 1. Instale
 
-No **Linux ou macOS**:
+Instale a **release estável mais recente** no **Linux ou macOS**:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh
 ```
 
-O instalador resolve a release estável mais recente, baixa o archive do seu
-host, verifica o checksum SHA-256 antes de extrair qualquer coisa e instala o
-`axiom` em `$HOME/.local/bin`. Ele nunca usa `sudo`, não edita perfis de shell,
-não instala Runtimes e não toca em credenciais.
-
-A elegibilidade do instalador em POSIX é baseada na família do sistema
-operacional e na arquitetura: macOS em arm64 e Linux em amd64 ou arm64. A versão
-numérica do sistema operacional não é um filtro de instalação. Outros hosts são
-recusados antes de qualquer download. O instalador precisa de `curl`, `tar`,
-`bash`, `awk`, `grep`, `mktemp` e `sha256sum` ou `shasum`. O compromisso de
-manutenção do Axiom cobre versões de sistema operacional mantidas pelo
-fornecedor, e os ambientes validados exatos são registrados como Evidence
-([ADR-0015](decisions/0015-installer-host-eligibility-os-family-architecture.md)).
-
-Se ele exibir um `path_notice`, coloque o diretório do binário no `PATH`:
-
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-Para instalar uma release exata, use `--version`:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh -s -- --version v0.1.0
-```
-
-Em uma **edição cliente do Windows, amd64** (Windows Server não é suportado),
-use PowerShell 5.1 ou superior de 64 bits; a versão numérica do Windows não é um
-filtro de instalação. Não é necessário WSL, Bash, Go nem executar como administrador:
+No **Windows** (PowerShell 64 bits):
 
 ```powershell
 & ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
 $env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 ```
 
-Para instalar uma release Windows exata, use um comando PowerShell:
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.4.2
-```
-
-Se precisar inspecionar ou reter o bootstrap antes de executá-lo, baixe-o
-primeiro:
-
-```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 -OutFile install-axiom.ps1
-.\install-axiom.ps1
-```
-
-O instalador verifica o checksum da release Windows e instala `axiom.exe` em
-`%LOCALAPPDATA%\Axiom\bin`, com recibo em `%LOCALAPPDATA%\Axiom\install`.
-O comando de `PATH` acima vale só para o terminal atual; o instalador não altera
-perfis nem o `PATH` persistente. Use `-Version` com uma tag publicada exata,
-ou `-BinDir` e `-ReceiptDir` para escolher diretórios locais absolutos.
-Executá-lo novamente atualiza uma instalação pertencente ao Axiom; binários
-desconhecidos ou modificados são preservados. Feche processos Axiom antes do
-upgrade. Releases antigas sem artefato Windows não podem ser instaladas nele.
-
-O armazenamento deve ser NTFS local. Caminhos de rede, junctions/reparse points
-e diretórios acessíveis a outras contas não confiáveis são recusados. O estado
-local fica em `%LOCALAPPDATA%\Axiom\state`; as skills dos Runtimes continuam nas
-raízes do usuário descritas abaixo. Políticas de execução do PowerShell e de
-controle de aplicativos da organização continuam valendo, sem bypass.
-Consulte a [referência de instalação Windows](commands.md#windows-native-installation).
-
-Se a instalação informar `unsafe project storage`, o local escolhido não passou
-nas verificações de segurança do filesystem, que também inspecionam os diretórios
-ancestrais. Escolha outro local NTFS com ownership e permissões seguros. Por
-exemplo, use novos diretórios de instalação dentro do seu perfil de usuário:
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) `
-  -BinDir "$env:USERPROFILE\AxiomInstall\bin" `
-  -ReceiptDir "$env:USERPROFILE\AxiomInstall\install"
-$env:PATH = "$env:USERPROFILE\AxiomInstall\bin;$env:PATH"
-```
-
-Esse local deve passar nas mesmas verificações; sua elegibilidade não é garantida
-em toda máquina. Ajuste o comando de `PATH` da sessão ao diretório do binário
-escolhido. Essas opções não mudam o local do estado nem das skills dos Runtimes.
-Uma reinstalação ou upgrade também pode recusar estado local de compatibilidade inseguro
-(`upgrade: state_unsafe`).
-Verifique o executável antes de rodar `first-run`, que instala ou atualiza as
-skills globais do usuário em uma etapa separada.
+Pré-requisitos, plataformas, PATH, atualização e diagnóstico:
+[guia de instalação](installation.md).
 
 ### 2. Verifique
 
@@ -140,105 +64,39 @@ axiom version
 axiom help
 ```
 
-`axiom version` informa a versão e a revisão instaladas; `axiom help` lista os
-comandos disponíveis.
-
 ### 3. Execute o first-run
 
 ```bash
 axiom first-run
 ```
 
-O `first-run` procura os Runtimes suportados pelos executáveis no seu `PATH` e
-instala ou atualiza as skills globais de usuário do Axiom para cada um
-encontrado. Pode ser executado de novo com segurança. Quando nenhum Runtime é
-encontrado, ele informa isso e termina com sucesso; instale o Runtime por conta
-própria, garanta que ele esteja no `PATH` e execute o `first-run` novamente. Ele
-nunca instala um Runtime, não faz login, não lê nem altera credenciais e não
-infere um Project.
+Configura as skills globais do Axiom para Codex e Claude encontrados no `PATH`.
+Não instala Runtimes nem autentica você. Sem Runtime, termina com sucesso;
+instale um separadamente e repita quando necessário.
 
-| Runtime | Detectado por | Skills instaladas em |
-|---|---|---|
-| Codex | `codex` no `PATH` | `$HOME/.agents/skills` |
-| Claude | `claude` no `PATH` | `<CLAUDE_CONFIG_DIR ou ~/.claude>/skills` |
+### 4. Primeiro fluxo
 
-Inspecione uma integração com `axiom runtime codex status` ou
-`axiom runtime claude status`.
-
-### 4. Skills disponíveis
-
-Depois do `first-run`, estas skills ficam disponíveis em cada Runtime
-configurado:
-
-| Skill | Use para |
-|---|---|
-| `axiom-project-configure` | Configurar um Project e suas associações locais de Repository. |
-| `axiom-project-list` | Listar Projects configurados a partir de qualquer diretório. |
-| `axiom-project-show` | Inspecionar ou resolver um Project configurado a partir de qualquer diretório. |
-| `axiom-work-item-create` | Criar ou selecionar um Work Item baseado no GitHub. |
-| `axiom-work-item-run` | Iniciar ou retomar o workflow delimitado de entrega de um Work Item. |
-| `axiom-work-item-status` | Inspecionar o status do workflow e a Evidence de um Work Item. |
-
-Invoque-as pelo nome:
-
-```text
-Codex:  $axiom-project-configure
-Claude: /axiom-project-configure
-```
-
-Cada skill chama a CLI `axiom`, que mantém a validação e a authority sobre toda
-mudança local ou externa.
-
-### 5. Primeiro fluxo
-
-```text
-instalar o Axiom → axiom version → axiom first-run
-  → configurar um Project → inspecionar o Project
-  → criar um Work Item → iniciar e acompanhar seu workflow
-```
-
-O mesmo caminho pela CLI. `project configure` e `work-item create` são guiados:
-pedem os valores que faltam, mostram um preview exato da mudança e não gravam
-nada até você responder `yes`.
+Configure um Project, inspecione-o, crie um Work Item e inicie seu workflow:
 
 ```bash
-# Configure um Project: slug, nome, Repository chave=path-absoluto, provider
 axiom project configure
-
-# Liste os Projects configurados a partir de qualquer diretório
 axiom project list
-
-# Inspecione-o a partir de qualquer diretório
 axiom project show --selector my-project
-
-# Crie um Work Item como GitHub Issue (usa sua sessão autenticada do gh CLI)
 axiom work-item create --project my-project --repository main \
   --provider-repository owner/repository
-
-# Inicie o workflow da Issue #123 e confira seu status
 axiom workflow start --project my-project --repository main --number 123
 axiom workflow status --project my-project --repository main --number 123
 ```
 
-Substitua `my-project`, `main`, `owner/repository` e `123` pelos seus valores.
-GitHub Issues é hoje o único Work Item provider; o Axiom usa a sessão existente
-do [GitHub CLI](https://cli.github.com/) e nunca armazena essa credencial.
+Substitua `my-project`, `main`, `owner/repository` e `123` pelos valores
+configurados e pelo número da Issue criada. Configure o provider GitHub no
+Project; operações de Work Item exigem [GitHub CLI](https://cli.github.com/)
+autenticado. Os comandos guiados de configuração e criação mostram um preview
+e pedem confirmação antes de gravar.
 
-### 6. Próximos passos
-
-- [Referência de comandos](commands.md): todos os comandos, incluindo
-  [first-run](commands.md#first-run-and-runtime-integrations),
-  [opções de instalação](commands.md#install-a-published-release-s9t39),
-  [Projects](commands.md#configure-a-project),
-  [Work Items](commands.md#github-work-items) e o
-  [workflow](commands.md#execute-the-bounded-workflow).
-- [Visão geral da arquitetura](architecture/README.md) e
-  [modelo conceitual](architecture/conceptual-model.md).
-- [Specifications](specifications/README.md) para escopo detalhado e estado de
-  aceite.
-- [Roadmap](product/roadmap.md) para a direção do produto.
-- [Desenvolvimento do Axiom](#desenvolvimento-do-axiom) para compilar, testar ou
-  contribuir.
+Também é possível usar skills: `$axiom-project-configure` no Codex ou
+`/axiom-project-configure` no Claude. Consulte [skills e Runtimes](commands.md#first-run-and-runtime-integrations)
+e [referência de comandos](commands.md) para detalhes.
 
 ## Como o Axiom funciona
 
@@ -258,24 +116,28 @@ julgamento humano.
 
 ## Estado do projeto
 
-Axiom está em desenvolvimento ativo. Este repositório oferece atualmente:
+Axiom está em desenvolvimento ativo. Disponibilidade publicada e aceite humano
+são decisões distintas.
 
-- um harness Codex-first com policies, skills, templates e validação
-  determinística;
-- uma implementação Go testada para regras de Project, estado portátil e local,
-  instalação do Codex Runtime, GitHub Work Items e um workflow Lingo persistente
-  e delimitado;
-- contratos canônicos de conclusão e proveniência, detail artifacts limitados e
-  fundamentos fail-closed para publicação e recuperação local;
-- Specifications, decisões de arquitetura e Evidence de implementação
-  versionadas.
+- **Release estável mais recente:** [GitHub Releases](https://github.com/rgomids/axiom/releases/latest).
+  A baseline publicada v0.4.2 inclui as capacidades abaixo; o instalador resolve
+  a latest stable automaticamente.
+- **Disponível hoje / stable:** distribuição verificada por checksum para Linux,
+  macOS e Windows; configuração guiada, listagem e resolução de Projects;
+  criação e classificação de Work Items GitHub; bootstrap Codex/Claude;
+  workflow persistente, Evidence, recuperação e upgrades de instalações próprias.
+  Inclui fundamentos de multi-runtime e execução multi-agent delimitada com
+  Execution Graph; [Evidence S8](specifications/004-mvp-v1-baseline/evidence-s8.md)
+  registra escopo e limites, sem estabelecer aceite humano do MVP completo.
+- **Na main:** entrevista de criação de Work Item a partir de intenção mínima,
+  com elaboração conversacional pela skill de Runtime e perguntas simples no CLI.
+  Essa evolução ainda não faz parte da baseline v0.4.2.
+- **Roadmap / futuro:** outros Runtimes/adapters, orquestração dinâmica ou
+  distribuída e governança de orçamento de tokens/custo exigem especificação
+  e autorização próprias.
 
-As limitações atuais incluem duas integrações de Runtime suportadas (Codex e
-Claude, configuradas por `axiom first-run`), um Work Item provider (GitHub
-Issues) e um workflow sequencial executado por um único agente. O
-[roadmap](product/roadmap.md) descreve a direção. O
-[índice de Specifications](specifications/README.md) é responsável pelo
-estado detalhado de escopo, aprovação, implementação e aceite.
+Consulte [Changelog](../CHANGELOG.md), [Specifications](specifications/README.md)
+e [Roadmap](product/roadmap.md) para histórico, Evidence, aceite e direção.
 
 ## Conceitos centrais
 
@@ -299,7 +161,7 @@ e Provider permanecem na borda.
 ```mermaid
 flowchart TB
     H["Pessoas"] -->|intenção e aprovações| A["Axiom"]
-    R["Codex Runtime / Agent"] -->|skills finas| L["Lingo"]
+    R["Codex / Claude Runtime / Agent"] -->|skills finas| L["Lingo"]
     L -->|workflow da aplicação| A
     A -->|associações do Project| G["Repositórios independentes"]
     L -->|adapter delimitado| P["GitHub Issues"]
@@ -313,7 +175,7 @@ Consulte a [visão geral da arquitetura](architecture/README.md), o
 
 | Tema | Comece aqui |
 |---|---|
-| Uso do Axiom | [Primeiros passos](#primeiros-passos) · [Referência de comandos](commands.md) |
+| Uso do Axiom | [Primeiros passos](#primeiros-passos) · [Instalação](installation.md) · [Referência de comandos](commands.md) |
 | Produto | [Product Foundation](product/foundation.md) · [Roadmap](product/roadmap.md) |
 | Governança | [Governança de documentação](documentation.md) · [Constitution](product/constitution.md) |
 | Arquitetura | [Visão geral](architecture/README.md) · [ADRs](decisions/README.md) |
@@ -331,52 +193,23 @@ implementação. Discovery não implica aprovação.
 
 ## Desenvolvimento do Axiom
 
-Esta seção é para trabalhar no próprio Axiom; ela não é necessária para usá-lo.
-Requisitos: Git, Bash, utilitários POSIX padrão e Go 1.26 ou posterior. O
-primeiro comando Go pode baixar a dependência fixada em `go.mod`.
+Para trabalhar no próprio Axiom: Git, Bash, utilitários POSIX e Go 1.26+.
 
 ```bash
 git clone https://github.com/rgomids/axiom.git
 cd axiom
 ./scripts/install-axiom.sh
-export PATH="$HOME/.local/bin:$PATH"
-axiom version
-axiom first-run
 ./scripts/validate-repository.sh .
 go test ./...
 ```
 
-`./scripts/install-axiom.sh` instala um build de desenvolvimento a partir do
-checkout e nunca edita perfis de shell. Consulte o
-[guia Getting Started de desenvolvimento](development/getting-started.md) para
-configuração e a [referência de comandos](commands.md) para validação, build,
-archives e fluxos de dogfooding.
-
-## Estrutura do repositório
-
-```text
-.agents/   Harness Codex: contexto, policies, skills e templates
-docs/      Produto, arquitetura, specifications, decisões e pesquisa
-internal/  Implementação Go e testes
-scripts/   Ferramentas de repositório, segurança, release e validação
-site/      Landing page pública publicada no GitHub Pages
-```
+O script instala um build de desenvolvimento do checkout. Consulte
+[setup de desenvolvimento](development/getting-started.md) e
+[referência de comandos](commands.md) para build, Windows e dogfooding.
 
 ## Site
 
-A landing page pública é publicada a partir de `site/` em
-<https://rgomids.github.io/axiom/> pelo `.github/workflows/deploy-landpage.yml`,
-que envia esse diretório sem alterações a cada push na `main`.
-
-Para trabalhar nela localmente:
-
-```bash
-python3 -m http.server 8000 --directory site
-```
-
-Depois abra <http://localhost:8000/>. Os assets de identidade são carregados da
-localização canônica em `docs/assets/` por URLs raw absolutas, então nunca são
-copiados para `site/`.
+Conheça também o [site do Axiom](https://rgomids.github.io/axiom/).
 
 ## Como contribuir
 
