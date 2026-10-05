@@ -728,6 +728,9 @@ func normalizeDraft(input DraftInput) (Draft, []Question, string) {
 		return Draft{}, nil, "story_value_requires_story"
 	}
 	for _, field := range fields {
+		if field.input.Supplied != "" && field.input.Elaborated != "" {
+			return Draft{}, nil, "invalid_draft_input"
+		}
 		content := field.input.Supplied
 		authorship := provenance.UserAuthored
 		if content == "" {
