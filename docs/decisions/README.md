@@ -14,7 +14,11 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 - [ADR-0008 — Minimal machine-local Execution record](0008-minimal-machine-local-execution-record.md) — **Accepted, 2026-09-20**; bounded sequential workflow authority, revisioned transitions, resume and cross-boundary correlation without defining a general Execution graph.
 - [ADR-0009 — Parent/child Execution Graph](0009-parent-child-execution-graph.md) — **Accepted, 2026-09-26**; revisioned DAG, lineage, authority, isolation, integration, structured coordination and cross-Runtime Evidence. S8/T30–T36 implementation was authorized on 2026-09-27 (Issue #97 comment #5852650410); the real T36 Runtime run remains separately gated.
 
-- [ADR-0010 — Windows native filesystem boundary](0010-windows-native-filesystem-boundary.md) — **Accepted for the requested implementation, 2026-09-30**; native Windows security boundary. Upstream acceptance remains subject to PR review; release publication requires separate authority. Its OS-version bound ("Windows 10 (1809+) and Windows 11") is superseded by ADR-0015 and preserved struck through.
+- [ADR-0010 — Windows native filesystem boundary](0010-windows-native-filesystem-boundary.md) — **Accepted for the requested implementation, 2026-09-30**; native Windows security boundary. Upstream acceptance remains subject to PR review; release publication requires separate authority. Partially superseded by [ADR-0015](0015-installer-host-eligibility-os-family-architecture.md): its OS-version bound ("Windows 10 (1809+) and Windows 11") is preserved struck through and annotated in place; the rest remains in force.
+- [ADR-0010 — Pinned metadata recovery for an unpublished release](0010-pinned-release-corrections.md) — Accepted direction, 2026-10-02; opt-in pinned release metadata recovery, preserving original source provenance and human publication gates. Implementation review, merge and publication remain separately gated.
+- [ADR-0011 — Command-driven release start](0011-command-driven-release-start.md) — Proposed for human review, 2026-10-02 (its Status records that merging it with its implementation accepts it); merges integrate code, `$axiom-release` starts releases after a preflight of the whole release range.
+- [ADR-0012 — Environment-scoped release publication credential](0012-release-publication-credential.md) — Proposed for human review, 2026-10-03 (its Status records that merge accepts the repository change); the environment-scoped publication credential required for preserved historical release sources.
+- [ADR-0013 — Explicit control-code repair of a published recovery release](0013-published-release-control-repair.md) — Proposed for human review, 2026-10-03 (its Status records that merge accepts the repository change); explicit published-release control-code repair, preserving original metadata pins and binding a separate execution SHA.
 
 - [ADR-0014 — Canonical maintainer skills with runtime-native discovery](0014-canonical-maintainer-skills-runtime-discovery.md) — **Accepted, 2026-10-03** (human decision in Issue #174); `.agents/skills/*` is the canonical runtime-neutral maintainer-skill source, `.claude/skills/*` are closed-allowlist discovery symlinks; supersedes only the repository bootstrap-policy fragment that rejected every `.claude/` entry, not an ADR.
 
@@ -23,6 +27,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 - [ADR-0016 — The owned upgrade publishes the candidate's Codex skill-set receipt when it runs as the candidate](0016-candidate-derived-skill-set-receipt.md) — **Accepted, 2026-10-04** (human decision; Issue #186); the upgrade derives the Codex skill-set receipt from the running binary only when its clean release provenance and embedded skills equal the verified candidate, as a separate authorized effect over an absent or Axiom-recognized receipt; replaces the interim S7/T20 `refresh_required` limitation without rewriting its Evidence.
 
 - [ADR-0017 — RecognizedPOC preservation archive and transition protocol](0017-recognized-poc-preservation-archive.md) — **Accepted, 2026-10-04** (human decision; Issue #153); content-addressed Axiom-owned archive beside the receipt directory (or `AXIOM_ARCHIVE_ROOT`), manifest written last, complete inventory correspondence bound to the operation marker before retirement, only POC workflow records and their Work Item links retired, never deleted by an upgrade.
+
+- [ADR-0018 — ADR evolution and supersession governance](0018-adr-evolution-and-supersession-governance.md) — **Accepted, 2026-10-05** (human decision in Issue #169); partial supersession keeps `Accepted` with a canonical in-place annotation and a `Partially superseded by` index note (not a lifecycle status); full supersession uses `Superseded`; superseding ADRs link back in `## Supersedes`; `scripts/check-adr-governance.py` validates structure, review owns semantic conflicts.
 
 ## Candidate assessment
 
@@ -47,13 +53,6 @@ ADRs futuros devem registrar, no mínimo:
 - alternativas consideradas;
 - consequências e trade-offs;
 - evidências ou specifications relacionadas.
+- `## Supersedes`, quando substituir total ou parcialmente outro ADR, conforme [ADR-0018](0018-adr-evolution-and-supersession-governance.md).
 
 Hipóteses de pesquisa não são decisões. Não crie um ADR apenas para preencher a árvore documental.
-
-ADR-0010 defines opt-in [pinned release metadata recovery](0010-pinned-release-corrections.md), preserving original source provenance and human publication gates.
-
-ADR-0011 makes the [release start command-driven](0011-command-driven-release-start.md): merges integrate code, `$axiom-release` starts releases after a preflight of the whole release range.
-
-ADR-0012 proposes the [environment-scoped publication credential](0012-release-publication-credential.md) required for preserved historical release sources.
-
-ADR-0013 proposes [explicit published-release control-code repair](0013-published-release-control-repair.md), preserving original metadata pins and binding a separate execution SHA.
