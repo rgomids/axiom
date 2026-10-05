@@ -5,9 +5,38 @@ description: Create or select a GitHub-backed Axiom Work Item through Lingo.
 
 # Create Axiom Work Item
 
-Collect the Project selector, Project repository key, explicit GitHub
-`owner/repository`, and these structured sections: problem, desired outcome,
-context, scope, constraints, non-goals, and acceptance expectations. Collect or
+Start from whatever intent the user provides, including one short problem
+statement. Do not ask the user to fill a schema or repeat information already
+present. Reuse supplied facts across the canonical sections. Preserve their
+wording as user-authored; record paraphrases, synthesis, and inferred content
+as Axiom-authored elaboration, even when the user later approves it.
+
+Conduct a focused conversation in the user's language. First extract the
+problem, desired outcome, context, scope, constraints, non-goals, and acceptance
+expectations already present. Ask only for material gaps or ambiguity, using
+plain questions such as "What should work differently when this is fixed?",
+"Where does this happen?", or "How could we check that it is solved?". Explain
+a section through its practical meaning when needed. Ask a small related group
+of questions at a time and incorporate each answer before asking again.
+
+Propose safe draft content when reasonable, identifying assumptions for review.
+For example, focus scope on the stated problem; say that no additional context,
+constraints, or exclusions were supplied when that is all that is known. Do not
+invent environments, actors, deadlines, technical solutions, commitments, or
+acceptance evidence. If an unknown would materially change delivery or safety,
+ask instead of filling it with boilerplate. Derive concrete acceptance checks
+from the agreed observable outcome; do not substitute "tests pass" for product
+acceptance. Keep unresolved material questions out of a supposedly final draft.
+
+Collect only missing target facts: the Project selector, Project repository key,
+and explicit GitHub `owner/repository`. Do not infer the target from the Runtime
+working directory. Build all seven canonical sections, useful as upstream
+Specification input: explain the problem, observable outcome, relevant context,
+bounded scope, preserved constraints, explicit exclusions, and verifiable
+acceptance expectations. Information acquisition does not depend on body
+presentation, Work Item type, label inference, or workflow-run follow-ups.
+
+Collect or
 propose a Work Item type using delivery intent: `story` delivers a concrete
 user/product benefit, `bug` corrects observed faulty behavior, and `task` covers
 technical or operational activity. Supply the proposed type with `--type`.
@@ -24,9 +53,26 @@ alongside the type and story value in the complete final draft before authority.
 Unsupported explicit classifications must be corrected, never silently omitted;
 missing inferred labels are an explicit preview notice. Report partial results
 for unapplied or unverified metadata, keeping the existing Issue reference and
-never creating another Issue as a metadata repair. Run
-`axiom --json work-item create` with those facts first, without authority. Report
-the returned draft, target, effects, expected revision, and digest for review.
+never creating another Issue as a metadata repair.
+
+Pass verbatim user facts through `--intent`, `--problem`, `--desired-outcome`,
+`--context`, `--scope`, `--constraints`, `--non-goals`, and `--acceptance` as
+appropriate. Pass each synthesized or inferred section through repeatable
+`--elaborated-section <name>=<content>`, using canonical names `problem`,
+`desired_outcome`, `context`, `scope`, `constraints`, `non_goals`, and
+`acceptance_expectations`. Use one source per section; combine facts and inference
+in an elaborated section rather than misattribute the combination to the user.
+Keep the original short statement in `--intent`; when elaborating the problem,
+include that statement verbatim in the proposed problem section too. Quote values safely;
+never turn user text into executable shell syntax.
+
+Run `axiom --json work-item create` with those facts first, without authority.
+Use Lingo's returned missing questions to refine the conversation; do not ask
+for known information again. Present the complete returned final draft, its
+authorship and assumptions, target, effects, expected revision, and digest for
+human validation before creating the external Issue. Invite corrections and
+produce a fresh preview when any fact changes. Draft review is not mutation
+authority; require explicit authority for the exact preview.
 
 Only after the human grants authority for that exact preview, repeat the same
 facts with `--preview-digest <digest> --authorize-external`. Changed facts require

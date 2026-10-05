@@ -268,3 +268,7 @@ product-scope expansion recorded.
 Issue [#136](https://github.com/rgomids/axiom/issues/136) adds the bounded
 [creation classification contract](004-mvp-v1-baseline/work-item-classification.md).
 Implementation and local validation do not establish human acceptance or release.
+
+The #134 minimal-intent capture follow-up is documented in
+[Work Item interview](004-mvp-v1-baseline/work-item-interview.md), including
+its independent scope, authorship transport, and acceptance scenarios.

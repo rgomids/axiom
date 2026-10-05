@@ -93,6 +93,7 @@ type ConfigureInput struct {
 type WorkItemInput struct {
 	Type, Beneficiary, Value                 string
 	Classification                           []string
+	ElaboratedSections                       map[string]string
 	Project, Repository, WorkItem            string
 	Provider, ProviderRepository, ExternalID string
 	Intent, Problem, DesiredOutcome, Context string
@@ -435,6 +436,7 @@ const (
 type requestInput struct {
 	itemType, beneficiary, value             string
 	classification                           repositoryFlags
+	elaboratedSections                       elaboratedSectionFlags
 	slug                                     string
 	name                                     string
 	projectID                                string
@@ -698,6 +700,7 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
 	set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
 	if operation == workItemCreateAction {
+		set.Var(&values.elaboratedSections, "elaborated-section", "")
 		set.StringVar(&values.intent, "intent", "", "")
 		set.StringVar(&values.itemType, "type", "", "")
 		set.StringVar(&values.beneficiary, "beneficiary", "", "")
@@ -716,7 +719,7 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 	if operation == workItemCommentAction {
 		set.StringVar(&values.message, "message", "", "")
 	}
-	if invalidFlagSyntax(set, args, map[string]bool{"classification": true}) {
+	if invalidFlagSyntax(set, args, map[string]bool{"classification": true, "elaborated-section": true}) {
 		return requestInput{}, false
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && (values.providerRepository != "" || values.number != 0) {
@@ -904,7 +907,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		if input.workItem != "" && !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
-		value := WorkItemInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Intent: input.intent, Problem: input.problem, DesiredOutcome: input.desiredOutcome, Context: input.context, Scope: input.scope, Constraints: input.constraints, NonGoals: input.nonGoals, Acceptance: input.acceptance, Message: input.message, PreviewDigest: input.previewDigest, Number: input.number, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal}
+		value := WorkItemInput{ElaboratedSections: input.elaboratedSections, Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Intent: input.intent, Problem: input.problem, DesiredOutcome: input.desiredOutcome, Context: input.context, Scope: input.scope, Constraints: input.constraints, NonGoals: input.nonGoals, Acceptance: input.acceptance, Message: input.message, PreviewDigest: input.previewDigest, Number: input.number, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal}
 		value.Type, value.Beneficiary, value.Value = input.itemType, input.beneficiary, input.value
 		value.Classification = append([]string(nil), input.classification...)
 		if input.workItem == "" {
@@ -1056,9 +1059,22 @@ func parseRepositories(values []string) ([]RepositoryInput, bool) {
 }
 
 func completeWorkItemCreate(values requestInput) bool {
-	return values.project != "" && values.repository != "" && values.providerRepository != "" &&
-		(values.intent != "" || values.problem != "") && values.desiredOutcome != "" && values.context != "" &&
-		values.scope != "" && values.constraints != "" && values.nonGoals != "" && values.acceptance != ""
+	if values.project == "" || values.repository == "" || values.providerRepository == "" {
+		return false
+	}
+	for name, supplied := range map[string]string{
+		"problem": values.problem, "desired_outcome": values.desiredOutcome,
+		"context": values.context, "scope": values.scope, "constraints": values.constraints,
+		"non_goals": values.nonGoals, "acceptance_expectations": values.acceptance,
+	} {
+		if name == "problem" && values.intent != "" {
+			continue
+		}
+		if supplied == "" && values.elaboratedSections[name] == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func runInteractiveSelectors(ctx context.Context, mode outputMode, operation action, values requestInput, service Service, source provenance.Value, input io.Reader, stdout, prompts io.Writer) int {
@@ -1113,7 +1129,7 @@ func runInteractiveWorkItemCreate(ctx context.Context, mode outputMode, values r
 		}
 		*field.value = value
 	}
-	if values.intent == "" && values.problem == "" {
+	if values.intent == "" && values.problem == "" && values.elaboratedSections["problem"] == "" {
 		value, ok := readPromptLine(scanner, prompts, "Intent or problem: ", true)
 		if !ok {
 			return emitResponse(stdout, mode, workItemCreateAction, service.WorkItemCreate(ctx, WorkItemInput{Project: values.project, Repository: values.repository, ProviderRepository: values.providerRepository, Cancelled: true}))
@@ -1131,23 +1147,27 @@ func runInteractiveWorkItemCreate(ctx context.Context, mode outputMode, values r
 		}
 	}
 	sections := []struct {
-		value  *string
-		prompt string
+		value        *string
+		name, prompt string
 	}{
-		{&values.desiredOutcome, "Desired outcome: "}, {&values.context, "Context: "}, {&values.scope, "Scope: "},
-		{&values.constraints, "Constraints: "}, {&values.nonGoals, "Non-goals: "}, {&values.acceptance, "Acceptance expectations: "},
+		{&values.desiredOutcome, "desired_outcome", "What should work differently when this is solved? "},
+		{&values.context, "context", "Where or when does this happen? Include relevant background (or say none): "},
+		{&values.scope, "scope", "What should this change cover? "},
+		{&values.constraints, "constraints", "What limits or existing behavior must we preserve (or say none)? "},
+		{&values.nonGoals, "non_goals", "What should we explicitly leave out (or say none)? "},
+		{&values.acceptance, "acceptance_expectations", "How could we check that the problem is solved? "},
 	}
 	if values.itemType == "story" {
 		sections = append(sections, struct {
-			value  *string
-			prompt string
-		}{&values.beneficiary, "Who benefits from this story? "}, struct {
-			value  *string
-			prompt string
-		}{&values.value, "Concrete user/product benefit beyond implementation: "})
+			value        *string
+			name, prompt string
+		}{&values.beneficiary, "beneficiary", "Who benefits from this story? "}, struct {
+			value        *string
+			name, prompt string
+		}{&values.value, "value", "Concrete user/product benefit beyond implementation: "})
 	}
 	for _, field := range sections {
-		if *field.value != "" {
+		if *field.value != "" || values.elaboratedSections[field.name] != "" {
 			continue
 		}
 		value, ok := readPromptLine(scanner, prompts, field.prompt, true)
@@ -1182,7 +1202,8 @@ func workItemInput(values requestInput, cancelled bool) WorkItemInput {
 	return WorkItemInput{
 		Type: values.itemType, Beneficiary: values.beneficiary, Value: values.value, Classification: append([]string(nil), values.classification...),
 		Project: values.project, Repository: values.repository, ProviderRepository: values.providerRepository,
-		Intent: values.intent, Problem: values.problem, DesiredOutcome: values.desiredOutcome, Context: values.context,
+		ElaboratedSections: values.elaboratedSections,
+		Intent:             values.intent, Problem: values.problem, DesiredOutcome: values.desiredOutcome, Context: values.context,
 		Scope: values.scope, Constraints: values.constraints, NonGoals: values.nonGoals, Acceptance: values.acceptance,
 		PreviewDigest: values.previewDigest, AuthorizeExternal: values.authorizeExternal, Cancelled: cancelled,
 	}
