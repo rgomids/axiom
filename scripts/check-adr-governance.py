@@ -41,10 +41,14 @@ DATE = r"(?P<date>\d{4}-\d{2}-\d{2})"
 ANNOTATION = re.compile(rf"^[ \t]*> Superseded by {TARGET}, accepted {DATE}\.$")
 FULL_STATUS = re.compile(rf"^Superseded by {TARGET}, accepted {DATE}\.$")
 ENTRY = re.compile(r"^- \[(?P<label>[^\]]+)\]\((?P<target>[^)\s]+)\) — (?P<rest>\S.*)$")
-INDEX_FULL = re.compile(r"^(?:\*\*)?Superseded by \[[^\]]+\]\((?P<target>[^)\s]+)\)")
+INDEX_FULL = re.compile(r"^(?:\*\*)?Superseded by \[(?P<label>[^\]]+)\]\((?P<target>[^)\s]+)\)")
 INDEX_LINK = r"\[(?P<label{n}>[^\]]+)\]\((?P<target{n}>[^)\s]+)\)"
 PARTIAL_CLAUSE = re.compile(r"Partially superseded by ((?:\[[^\]]+\]\([^)\s]+\))(?:(?:, | and )\[[^\]]+\]\([^)\s]+\))*)")
 CLAUSE_LINK = re.compile(r"\[(?P<label>[^\]]+)\]\((?P<target>[^)\s]+)\)")
+ISO_DATE = re.compile(r"(?<![\d-])\d{4}-\d{2}-\d{2}(?![\d-])")
+STATUS_LABEL = re.compile(r"^(?:\*\*)?Status:[ \t]*Accepted(?:\*\*)?$")
+ACCEPTED_LABEL = re.compile(r"^Accepted:[ \t]*(\d{4}-\d{2}-\d{2})$")
+SENTENCE_END = re.compile(r"\.(?:\*\*)?(?:\s|$)")
 
 failures: list[str] = []
 
@@ -62,6 +66,11 @@ def slug(text: str) -> str:
     """GitHub-style heading anchor."""
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text).strip().lower()
     return re.sub(r"[^\w\- ]", "", text).replace(" ", "-")
+
+
+def lifecycle_word(line: str) -> str:
+    text = re.sub(r"^(?:\*\*)?(?:Status:[ \t]*)?(?:\*\*)?", "", line.strip())
+    return re.match(r"[A-Za-z]*", text).group(0)
 
 
 def split_target(target: str) -> tuple[str, str | None]:
@@ -134,6 +143,8 @@ class ADR(Doc):
         self.status = None
         self.status_line = None
         self.full = None
+        self.acceptance_date = None
+        self.acceptance_problem = "it is not Accepted or Superseded"
         self.annotations: list[tuple[int, re.Match]] = []
         first = next((n for n, line in enumerate(self.raw, 1) if line.strip()), None)
         match = TITLE.match(self.raw[first - 1]) if first else None
@@ -171,8 +182,7 @@ class ADR(Doc):
             return
         self.status_line = body[0]
         line = self.raw[body[0] - 1].strip()
-        text = re.sub(r"^(?:\*\*)?(?:Status:[ \t]*)?(?:\*\*)?", "", line)
-        word = re.match(r"[A-Za-z]*", text).group(0)
+        word = lifecycle_word(line)
         if word not in STATUSES:
             hint = "; partial supersession keeps 'Accepted' (ADR-0018)" if word.lower() == "partially" else ""
             fail(self.where, body[0], f"lifecycle status '{clip(word or line)}' is not one of "
@@ -186,9 +196,42 @@ class ADR(Doc):
             else:
                 fail(self.where, body[0], f"full supersession status '{clip(line)}' must be exactly "
                      "'Superseded by [ADR-NNNN — <title>](NNNN-<slug>.md), accepted YYYY-MM-DD.' (ADR-0018)")
+        self.parse_acceptance()
 
-    def status_text(self) -> str:
-        return "\n".join(self.raw[n - 1] for n in self.section("Status"))
+    def parse_acceptance(self):
+        """Acceptance date per ADR-0018: the acceptance statement of an Accepted ADR is the first
+        paragraph of its Status; a Superseded ADR preserves it as the paragraph after its status line.
+        The date is the single 'Accepted: YYYY-MM-DD' value under 'Status: Accepted', otherwise the
+        single distinct date in the statement's first sentence. Anything else is undeterminable."""
+        paragraphs: list[list[str]] = []
+        previous = None
+        for number in self.section("Status"):
+            line = self.raw[number - 1].strip()
+            if not line:
+                previous = None
+                continue
+            if previous is None:
+                paragraphs.append([])
+            paragraphs[-1].append(line)
+            previous = number
+        index = {"Accepted": 0, "Superseded": 1}.get(self.status)
+        if index is None:
+            return
+        if len(paragraphs) <= index or lifecycle_word(paragraphs[index][0]) != "Accepted":
+            self.acceptance_problem = ("no preserved 'Accepted' statement in the paragraph after its "
+                                       "'Superseded by' line (found 0)")
+            return
+        lines = paragraphs[index]
+        if STATUS_LABEL.match(lines[0]):
+            dates = {m.group(1) for m in map(ACCEPTED_LABEL.match, lines[1:]) if m}
+            where = "'Accepted: YYYY-MM-DD' line under 'Status: Accepted'"
+        else:
+            dates = set(ISO_DATE.findall(SENTENCE_END.split(" ".join(lines), maxsplit=1)[0]))
+            where = "first sentence of its acceptance statement"
+        if len(dates) == 1:
+            self.acceptance_date = dates.pop()
+        else:
+            self.acceptance_problem = f"the {where} must give exactly one YYYY-MM-DD date (found {len(dates)})"
 
 
 def check_anchor(doc: Doc, number: int, target: ADR, anchor: str | None) -> None:
@@ -196,8 +239,12 @@ def check_anchor(doc: Doc, number: int, target: ADR, anchor: str | None) -> None
         fail(doc.where, number, f"anchor '#{clip(anchor)}' does not match a heading in {target.name}")
 
 
-def check_reference(adr: ADR, number: int, match: re.Match, adrs: dict[str, ADR], kind: str) -> ADR | None:
+def check_reference(adr: ADR, number: int, match: re.Match, adrs: dict[str, ADR], kind: str,
+                    anchored: bool = True) -> ADR | None:
     path, anchor = split_target(match.group("target"))
+    if anchor is not None and not anchored:
+        fail(adr.where, number, f"{kind} target '{clip(match.group('target'))}' must be the ADR file without an anchor")
+        anchor = None
     if not ADR_FILE.match(path):
         fail(adr.where, number, f"{kind} target '{clip(match.group('target'))}' must be a sibling ADR filename")
         return None
@@ -215,15 +262,19 @@ def check_reference(adr: ADR, number: int, match: re.Match, adrs: dict[str, ADR]
     date = match.group("date")
     try:
         datetime.date.fromisoformat(date)
+        valid_date = True
     except ValueError:
+        valid_date = False
         fail(adr.where, number, f"{kind} date {date} is not a valid date")
-    else:
-        if date not in target.status_text():
-            fail(adr.where, number, f"{kind} date {date} is not the acceptance date recorded in the "
-                 f"'## Status' section of {path}")
     if target.status is not None and target.status not in SUPERSEDING_STATUSES:
         fail(adr.where, number, f"{kind} target {path} has status '{target.status}'; only an Accepted ADR "
              "supersedes another one")
+    elif target.status is not None and valid_date:
+        if target.acceptance_date is None:
+            fail(adr.where, number, f"cannot determine the acceptance date of {path}: {target.acceptance_problem}")
+        elif date != target.acceptance_date:
+            fail(adr.where, number, f"{kind} date {date} is not the acceptance date {target.acceptance_date} "
+                 f"of {path}")
     if not any(adr_link(link) == adr.name for _, link in target.links(target.section("Supersedes"))):
         fail(adr.where, number, f"missing backlink: {path} has no '## Supersedes' section linking {adr.name}")
     return target
@@ -242,7 +293,7 @@ def check_adrs(adrs: dict[str, ADR]) -> None:
             if name is not None and name not in adrs and number not in reported:
                 fail(adr.where, number, f"link '{clip(link)}' references nonexistent ADR {name}")
         if adr.full:
-            check_reference(adr, adr.full[0], adr.full[1], adrs, "full supersession")
+            check_reference(adr, adr.full[0], adr.full[1], adrs, "full supersession", anchored=False)
         if adr.annotations and adr.status not in SUPERSEDING_STATUSES | {None}:
             fail(adr.where, adr.annotations[0][0], f"a '{adr.status}' ADR cannot carry supersession "
                  "annotations; only an Accepted or Superseded ADR can")
@@ -309,9 +360,16 @@ def check_index(index: Doc, adrs: dict[str, ADR]) -> None:
         if adr.full:
             match = INDEX_FULL.match(rest)
             superseding = split_target(adr.full[1].group("target"))[0]
-            if not match or split_target(match.group("target"))[0] != superseding:
+            if not match:
                 fail(index.where, number, f"index entry for superseded {path} must start its status with "
                      f"'Superseded by [ADR-NNNN]({superseding})'")
+            else:
+                if match.group("target") != superseding:
+                    fail(index.where, number, f"index entry for superseded {path} must link exactly '{superseding}' "
+                         f"without an anchor, found '{clip(match.group('target'))}'")
+                if match.group("label") != f"ADR-{superseding[:4]}":
+                    fail(index.where, number, f"index entry for superseded {path}: label "
+                         f"'{clip(match.group('label'))}' must be 'ADR-{superseding[:4]}'")
         expected = {split_target(m.group("target"))[0] for _, m in adr.annotations} & set(adrs) - {path}
         claimed: set[str] = set()
         note = INLINE_CODE.sub("", rest)
@@ -321,7 +379,10 @@ def check_index(index: Doc, adrs: dict[str, ADR]) -> None:
                  "'Partially superseded by [ADR-NNNN](NNNN-<slug>.md)' (ADR-0018)")
         for clause in clauses:
             for link in CLAUSE_LINK.finditer(clause.group(1)):
-                target = split_target(link.group("target"))[0]
+                target, anchor = split_target(link.group("target"))
+                if anchor is not None:
+                    fail(index.where, number, f"partial-supersession note link '{clip(link.group('target'))}' must "
+                         "be the ADR file without an anchor")
                 if link.group("label") != f"ADR-{target[:4]}":
                     fail(index.where, number, f"partial-supersession note label '{clip(link.group('label'))}' must "
                          f"be 'ADR-{target[:4]}'")

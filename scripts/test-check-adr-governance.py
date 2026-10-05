@@ -287,11 +287,80 @@ class ADRGovernanceTests(unittest.TestCase):
 
     def test_date_must_be_target_acceptance_date(self):
         self.edit("0001-alpha.md", "accepted 2026-02-01.", "accepted 2026-02-02.")
-        self.assert_fails("date 2026-02-02 is not the acceptance date recorded in the '## Status' section of 0002-beta.md")
+        self.assert_fails("annotation date 2026-02-02 is not the acceptance date 2026-02-01 of 0002-beta.md")
 
     def test_date_must_be_valid(self):
         self.edit("0001-alpha.md", "accepted 2026-02-01.", "accepted 2026-02-30.")
         self.assert_fails("date 2026-02-30 is not a valid date")
+
+    def test_other_status_date_is_not_the_acceptance_date(self):
+        """CR-001: a date elsewhere in the target's Status is not its acceptance date."""
+        self.edit("0002-beta.md", "**Accepted** on 2026-02-01.\n",
+                  "**Accepted** on 2026-02-01.\nOriginally proposed on 2026-01-15.\n")
+        self.edit("0001-alpha.md", "accepted 2026-02-01.", "accepted 2026-01-15.")
+        self.assert_fails("partial-supersession annotation date 2026-01-15 is not the acceptance date 2026-02-01 "
+                          "of 0002-beta.md")
+
+    def test_full_supersession_date_must_be_acceptance_date(self):
+        self.edit("0004-delta.md", "Accepted: 2026-04-01\n", "Accepted: 2026-04-01\nProposed: 2026-03-20\n")
+        self.edit("0003-gamma.md", "accepted 2026-04-01.", "accepted 2026-03-20.")
+        self.assert_fails("full supersession date 2026-03-20 is not the acceptance date 2026-04-01 of 0004-delta.md")
+
+    def test_supported_acceptance_statements_parse(self):
+        for statement in (
+            "Accepted on 2026-02-01.",
+            "**Accepted** on 2026-02-01.\nOriginally proposed on 2026-01-15.",
+            "**Accepted — human approval recorded on 2026-02-01.**",
+            "**Accepted for the requested implementation** on 2026-02-01. Review stays separate.",
+            "Accepted direction — explicit human authorization to implement the proposed\nrecovery recorded on 2026-02-01.",
+            "Accepted on 2026-02-01 by the decision in\n[Issue #1](https://example.invalid/1) (\"Human decision\nrecorded — 2026-02-01\").",
+            "Status: Accepted\nAccepted: 2026-02-01",
+            "Status: Accepted\nAccepted: 2026-02-01\nProposed: 2026-01-15",
+        ):
+            with self.subTest(statement=statement):
+                self.tearDown()
+                self.setUp()
+                self.edit("0002-beta.md", "**Accepted** on 2026-02-01.", statement)
+                self.assert_passes()
+
+    def test_undeterminable_acceptance_date_fails(self):
+        sentence = "the first sentence of its acceptance statement must give exactly one YYYY-MM-DD date"
+        labelled = "the 'Accepted: YYYY-MM-DD' line under 'Status: Accepted' must give exactly one YYYY-MM-DD date"
+        for statement, reason in (
+            ("Accepted after review.\nRecorded on 2026-02-01.", f"{sentence} (found 0)"),
+            ("Accepted on 2026-02-01 after the 2026-01-15 proposal.", f"{sentence} (found 2)"),
+            ("Status: Accepted\nProposed: 2026-02-01", f"{labelled} (found 0)"),
+        ):
+            with self.subTest(statement=statement):
+                self.tearDown()
+                self.setUp()
+                self.edit("0002-beta.md", "**Accepted** on 2026-02-01.", statement)
+                self.assert_fails(f"cannot determine the acceptance date of 0002-beta.md: {reason}")
+
+    def test_superseded_target_uses_preserved_acceptance_date(self):
+        """A Superseded target's acceptance date is its preserved statement, not the 'Superseded by' date."""
+        for date, valid in (("2026-03-01", True), ("2026-04-01", False), ("2026-03-01", None)):
+            with self.subTest(date=date, valid=valid):
+                self.tearDown()
+                self.setUp()
+                if valid is None:
+                    self.edit("0003-gamma.md", "Accepted on 2026-03-01.", "Previously accepted on 2026-03-01.")
+                self.append("0007-eta-two.md",
+                            f"\n> Superseded by [ADR-0003 — Gamma](0003-gamma.md), accepted {date}.\n")
+                self.append("0003-gamma.md", "\n## Supersedes\n\n- [ADR-0007](0007-eta-two.md), fragment.\n")
+                self.edit("README.md", "— Accepted, 2026-07-02.",
+                          "— Accepted, 2026-07-02; Partially superseded by [ADR-0003](0003-gamma.md).")
+                if valid:
+                    self.assert_passes()
+                elif valid is None:
+                    self.assert_fails("cannot determine the acceptance date of 0003-gamma.md: no preserved 'Accepted' "
+                                      "statement in the paragraph after its 'Superseded by' line")
+                else:
+                    self.assert_fails("date 2026-04-01 is not the acceptance date 2026-03-01 of 0003-gamma.md")
+
+    def test_full_supersession_target_rejects_anchor(self):
+        self.edit("0003-gamma.md", "](0004-delta.md), accepted", "](0004-delta.md#decision), accepted")
+        self.assert_fails("full supersession target '0004-delta.md#decision' must be the ADR file without an anchor")
 
     def test_target_must_be_accepted(self):
         self.edit("0002-beta.md", "**Accepted** on 2026-02-01.", "Proposed on 2026-02-01.")
@@ -360,6 +429,20 @@ class ADRGovernanceTests(unittest.TestCase):
         self.assert_fails("index entry for superseded 0003-gamma.md must start its status with "
                           "'Superseded by [ADR-NNNN](0004-delta.md)'")
 
+    def test_superseded_index_entry_label_must_be_number(self):
+        self.edit("README.md", "— Superseded by [ADR-0004](0004-delta.md)", "— Superseded by [ADR-0005](0004-delta.md)")
+        self.assert_fails("index entry for superseded 0003-gamma.md: label 'ADR-0005' must be 'ADR-0004'")
+
+    def test_superseded_index_entry_rejects_anchor(self):
+        self.edit("README.md", "— Superseded by [ADR-0004](0004-delta.md)", "— Superseded by [ADR-0004](0004-delta.md#decision)")
+        self.assert_fails("index entry for superseded 0003-gamma.md must link exactly '0004-delta.md' without an "
+                          "anchor, found '0004-delta.md#decision'")
+
+    def test_superseded_index_entry_rejects_other_path(self):
+        self.edit("README.md", "— Superseded by [ADR-0004](0004-delta.md)", "— Superseded by [ADR-0004](./0004-delta.md)")
+        self.assert_fails("index entry for superseded 0003-gamma.md must link exactly '0004-delta.md' without an "
+                          "anchor, found './0004-delta.md'")
+
     # Index reconciliation.
 
     def test_index_status_divergence_fails(self):
@@ -399,6 +482,11 @@ class ADRGovernanceTests(unittest.TestCase):
     def test_index_partial_note_label_must_be_number(self):
         self.edit("README.md", "Partially superseded by [ADR-0002](0002-beta.md)", "Partially superseded by [Beta](0002-beta.md)")
         self.assert_fails("partial-supersession note label 'Beta' must be 'ADR-0002'")
+
+    def test_index_partial_note_rejects_anchor(self):
+        self.edit("README.md", "Partially superseded by [ADR-0002](0002-beta.md)",
+                  "Partially superseded by [ADR-0002](0002-beta.md#decision)")
+        self.assert_fails("partial-supersession note link '0002-beta.md#decision' must be the ADR file without an anchor")
 
     def test_missing_index_section_fails(self):
         self.edit("README.md", "## Index", "## List")

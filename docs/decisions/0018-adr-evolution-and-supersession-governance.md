@@ -89,8 +89,7 @@ The annotation is a blockquote whose first line is exactly:
   anchor is optional and, when present, names a heading of that ADR,
   preferably the section that owns the current rule.
 - The link label is the superseding ADR's H1 title without `# `.
-- The date is the superseding ADR's acceptance date as recorded in its
-  `## Status` section.
+- The date is the superseding ADR's acceptance date (see below).
 - Further `>` lines may state the exact scope: what is superseded, what
   remains in force, and that the text is preserved for traceability.
 
@@ -114,7 +113,17 @@ its text and the first line of its `## Status` section becomes exactly:
 Superseded by [ADR-NNNN — <exact title of the superseding ADR>](NNNN-<slug>.md), accepted YYYY-MM-DD.
 ```
 
-The original status text stays below that line as history.
+The link targets the ADR file itself, without an anchor. The original status
+text stays below that line, as its own paragraph, as history.
+
+**Acceptance date.** The acceptance statement of an ADR is the first paragraph
+of its `## Status` section, or, for a `Superseded` ADR, the preserved paragraph
+immediately after its `Superseded by` line; it starts with `Accepted`. Its
+acceptance date is the single `Accepted: YYYY-MM-DD` value when the statement
+starts with `Status: Accepted`, and otherwise the single distinct
+`YYYY-MM-DD` date in the statement's first sentence. Other dates in the Status
+section are never acceptance dates. An ADR whose acceptance date cannot be
+determined this way cannot serve as a supersession target.
 
 ### 5. Backlink
 
@@ -130,7 +139,8 @@ Links to non-ADR artifacts (for example Specifications) may also appear there.
 An ADR is identified by its file path under `docs/decisions/`, never only by
 its number: two accepted ADRs share the prefix `0010`. Its H1 title is
 `# ADR-NNNN — <title>`, where `NNNN` is the filename prefix and the title is
-unique. Labels in annotations and in the index must match that title.
+unique. Labels of annotations, of the `Superseded by` status line and of
+index entries must match that title.
 
 ### 7. Index
 
@@ -147,6 +157,8 @@ The [ADR index](README.md#index) lists every ADR exactly once as:
   note, not a lifecycle status.
 - A fully superseded ADR's entry starts its status text with
   `Superseded by [ADR-MMMM](MMMM-<slug>.md)`.
+- Links in these notes are labelled exactly `ADR-MMMM` and target the ADR
+  file without an anchor.
 
 ### 8. Structural validation versus semantic review
 
