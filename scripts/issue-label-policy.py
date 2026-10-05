@@ -98,7 +98,7 @@ def form_value(body, heading):
     lines = (body or "").replace("\r\n", "\n").split("\n")
     target = "### " + heading
     for index, line in enumerate(lines):
-        if line.strip() != target:
+        if line.rstrip() != target:  # form headings start at column 0
             continue
         value = []
         for following in lines[index + 1:]:
@@ -108,6 +108,17 @@ def form_value(body, heading):
         text = "\n".join(value).strip()
         return None if text in ("", NO_RESPONSE) else text
     return None
+
+
+def form_choices(answer):
+    """Options of a multi-select answer, whether GitHub renders them separated by
+    commas, by lines or as a bullet list. Canonical options contain none of these
+    separators (enforced by the tests), so splitting can never cut an option."""
+    choices = []
+    for line in answer.split("\n"):
+        line = re.sub(r"^\s*[-*]\s+", "", line)
+        choices += [part.strip() for part in line.split(",") if part.strip()]
+    return choices
 
 
 def code(text):
@@ -159,7 +170,7 @@ def plan(issue, action):
     # platform: optional; seeded from the form only when the Issue is opened.
     platform_answer = form_value(body, PLATFORM_HEADING)
     if action == "opened" and platform_answer is not None:
-        choices = [choice.strip() for choice in platform_answer.split(",") if choice.strip()]
+        choices = form_choices(platform_answer)
         unknown = [choice for choice in choices if choice not in FORM_PLATFORMS and choice != NOT_PLATFORM_SPECIFIC]
         if unknown:
             notices.append(f"Platform answer {code(platform_answer[:80])} has non-canonical options; no platform applied.")

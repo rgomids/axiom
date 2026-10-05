@@ -44,7 +44,14 @@ replaces a label, and reports any other violation (missing or conflicting
 type, conflicting status, missing area, non-canonical or retired labels such
 as `scope:mvp`, `slice:*`, `bug` or `enhancement`) in one comment that it edits
 as the Issue changes. Platform answers are applied once, when the Issue is
-opened. The rules and the canonical catalog (names, colors, descriptions) live
+opened.
+
+Work Items created with `axiom work-item create` follow the same taxonomy:
+declare both families explicitly with `--classification type:<type>
+--classification area:<area>` (for example `type:story` and `area:cli`); the
+policy then adds `status:planned`. Axiom never infers an area, and explicit
+classification replaces type inference, so omitting either value leaves a
+reported violation. The rules and the canonical catalog (names, colors, descriptions) live
 in [`scripts/issue-label-policy.py`](scripts/issue-label-policy.py); a change
 to it on `main` creates or normalizes the catalog labels, and never deletes
 one.

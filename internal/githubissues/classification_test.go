@@ -213,3 +213,50 @@ func TestStoryDocumentContainsReviewedTypeBeneficiaryAndValue(t *testing.T) {
 		t.Fatal("unsupported type rendered")
 	}
 }
+
+// Issue label taxonomy contract (PR #195): on a repository whose catalog governs type,
+// area and status label families, `work-item create --classification
+// type:<type> --classification area:<area>` sends exactly one type and one area
+// label. The repository Issue label policy then adds status:planned
+// (scripts/test-issue-label-policy.py AxiomAuthoredTest). Area is never
+// inferred: without explicit area intent no area label is proposed.
+func TestExplicitClassificationMeetsIssueLabelTaxonomy(t *testing.T) {
+	catalog := `[{"name":"type:epic"},{"name":"type:story"},{"name":"type:task"},{"name":"type:bug"},{"name":"type:research"},` +
+		`{"name":"area:cli"},{"name":"area:work-item"},{"name":"area:installer"},` +
+		`{"name":"status:planned"},{"name":"status:active"},{"name":"status:blocked"},{"name":"platform:windows"},{"name":"axiom:stage:specifying"}]`
+	adapter, _, _, _ := classificationAdapter(t, catalog, classifiedIssue)
+	family := func(labels []string, prefix string) []string {
+		var selected []string
+		for _, label := range labels {
+			if strings.HasPrefix(label, prefix) {
+				selected = append(selected, label)
+			}
+		}
+		return selected
+	}
+	classify := func(kind workitem.Type, explicit []string) []string {
+		t.Helper()
+		document, err := adapter.ClassifyDocument(context.Background(), workitem.Draft{Type: kind}, workitem.DraftTarget{Resource: "owner/repo"}, workitem.ProviderDocument{}, explicit)
+		if err != nil {
+			t.Fatalf("%s: %v", kind, err)
+		}
+		metadata, err := decodeCreateMetadata(document.Metadata)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return metadata.Labels
+	}
+	for _, test := range []struct {
+		kind workitem.Type
+		area string
+	}{{workitem.Story, "area:work-item"}, {workitem.Task, "area:cli"}, {workitem.Bug, "area:installer"}} {
+		labels := classify(test.kind, []string{"type:" + string(test.kind), test.area})
+		if !reflect.DeepEqual(family(labels, "type:"), []string{"type:" + string(test.kind)}) || !reflect.DeepEqual(family(labels, "area:"), []string{test.area}) ||
+			len(family(labels, "status:")) != 0 || len(family(labels, "axiom:")) != 0 || len(labels) != 2 {
+			t.Fatalf("%s labels=%v", test.kind, labels)
+		}
+		if inferred := classify(test.kind, nil); !reflect.DeepEqual(inferred, []string{"type:" + string(test.kind)}) {
+			t.Fatalf("%s inferred=%v", test.kind, inferred)
+		}
+	}
+}

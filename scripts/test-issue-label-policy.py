@@ -88,6 +88,17 @@ class PlanTest(unittest.TestCase):
         result = policy.plan(issue(["type:bug", "status:planned", "area:cli"], body), "unlabeled")
         self.assertEqual(result["add"], [])
 
+    def test_multi_select_rendering_variants(self):
+        # GitHub documents `multiple` but not the rendered separator; accept the
+        # plausible renderings and never apply a label from an unknown token.
+        for answer in ("Windows, macOS", "Windows,macOS", "Windows\nmacOS", "- Windows\n- macOS", "* Windows\r\n* macOS"):
+            result = policy.plan(issue(["type:bug", "status:planned", "area:cli"], render([("Platform", answer)])), "opened")
+            self.assertEqual(result["add"], ["platform:windows", "platform:macos"], repr(answer))
+        for answer in ("Windows; macOS", "Windows and macOS", "windows"):
+            result = policy.plan(issue(["type:bug", "status:planned", "area:cli"], render([("Platform", answer)])), "opened")
+            self.assertEqual(result["add"], [], repr(answer))
+            self.assertEqual(len(result["notices"]), 1, repr(answer))
+
     def test_not_platform_specific(self):
         alone = policy.plan(issue(["type:bug", "status:planned", "area:cli"], render([("Platform", "Not platform-specific")])), "opened")
         self.assertEqual((alone["add"], alone["notices"]), ([], []))
@@ -170,6 +181,39 @@ class PlanTest(unittest.TestCase):
         self.assertIn("`type:'x'`", report)
 
 
+def axiom_body(item_type, extra=""):
+    """Body shaped like internal/githubissues Adapter.Render: markers, type line
+    and `##` sections whose content is indented, never `### ` form headings."""
+    sections = "".join(f"\n## {name}\n\nAuthorship: `user_authored`\n\n    {name} content{extra}\n" for name in ("Problem", "Desired outcome", "Context", "Scope", "Constraints", "Non-goals", "Acceptance expectations"))
+    return ("<!-- axiom:work-item-draft:" + "a" * 64 + " -->\n<!-- axiom:provenance:axiom:v0.4.2:" + "b" * 40 + ":clean -->\n\n"
+            "_Axiom-authored structure; section content retains declared authorship._\n\nWork Item type: `" + item_type + "`\n" + sections)
+
+
+class AxiomAuthoredTest(unittest.TestCase):
+    """Contract with `axiom work-item create`: on this repository it passes
+    --classification type:<type> --classification area:<area>; the GitHub adapter
+    sends exactly those existing labels (TestExplicitClassificationMeetsIssueLabelTaxonomy)."""
+
+    def final_labels(self, labels, body):
+        result = policy.plan(issue(labels, body), "opened")
+        return sorted(set(labels) | set(result["add"])), result
+
+    def test_story_task_bug_converge_with_issue_forms(self):
+        for item_type, area in (("story", "area:work-item"), ("task", "area:cli"), ("bug", "area:installer")):
+            final, result = self.final_labels(sorted(["type:" + item_type, area]), axiom_body(item_type))
+            self.assertEqual(result["violations"], [], item_type)
+            self.assertEqual([label for label in final if label.startswith("type:")], ["type:" + item_type])
+            self.assertEqual([label for label in final if label.startswith("status:")], ["status:planned"])
+            self.assertEqual([label for label in final if label.startswith("area:")], [area])
+
+    def test_missing_area_is_reported_never_invented(self):
+        body = axiom_body("story", extra="\n    ### Area\n\n    Runtime")
+        final, result = self.final_labels(["type:story"], body)
+        self.assertEqual(final, ["status:planned", "type:story"])
+        self.assertEqual(result["notices"], [])
+        self.assertTrue(any("Missing `area:*`" in violation for violation in result["violations"]))
+
+
 class CatalogTest(unittest.TestCase):
     def test_catalog_shape(self):
         families = {"type": 5, "area": 9, "status": 3, "platform": 3}
@@ -224,6 +268,9 @@ class FormsTest(unittest.TestCase):
                 self.assertIs(platform[0], fields[2], name)
                 self.assertEqual(platform[0]["label"], policy.PLATFORM_HEADING, name)
                 self.assertEqual(platform[0]["options"], [policy.NOT_PLATFORM_SPECIFIC] + list(policy.FORM_PLATFORMS), name)
+            for field in fields:
+                for option in field["options"] if field["id"] in ("area", "platform") else []:
+                    self.assertFalse(re.search(r"[,\n]|^[-*] ", option), (name, option))
             ids = [field["id"] for field in fields if field["id"]]
             self.assertEqual(len(ids), len(set(ids)), name)
             self.assertIn("confirmations", ids, name)
@@ -255,6 +302,25 @@ class WorkflowTest(unittest.TestCase):
         self.assertEqual(re.findall(r"(?m)^      (\w[\w-]*): (\w+)$", text.split("permissions: {}", 1)[1]).count(("issues", "write")), 3)
         self.assertNotIn("DELETE", text)
         self.assertIn("persist-credentials: false", text)
+
+    def test_dispatch_on_another_branch_never_runs_unmerged_planner_with_write(self):
+        text = read(WORKFLOW)
+        jobs = re.split(r"(?m)^  (?=[a-z]+:$)", text.split("\njobs:\n", 1)[1])[1:]
+        self.assertEqual([job.split(":", 1)[0] for job in jobs], ["seed", "enforce", "catalog"])
+        self.assertRegex(text, r"(?m)^  workflow_dispatch:\n\n")  # no inputs: nothing selects code or targets
+        for job in jobs:
+            checkouts = re.findall(r"(?m)^      - uses: actions/checkout@\S+ # v4\n        with:\n((?:          .+\n)+)", job)
+            self.assertEqual(len(checkouts), 1, job[:20])
+            self.assertIn("          ref: ${{ github.event.repository.default_branch }}\n", checkouts[0])
+            self.assertIn("issues: write", job)
+            self.assertNotIn("github.head_ref", job)
+            self.assertNotIn("github.sha", job)
+            self.assertEqual(job.count("scripts/issue-label-policy.py"), 1, job[:20])
+        catalog = jobs[2]
+        self.assertIn("github.event_name == 'workflow_dispatch'", catalog)
+        self.assertIn("&& github.ref == format('refs/heads/{0}', github.event.repository.default_branch)", catalog)
+        for job in jobs[:2]:
+            self.assertIn("github.event_name == 'issues'", job.split("\n", 2)[1])
 
 
 class CommandLineTest(unittest.TestCase):
