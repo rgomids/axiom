@@ -1,0 +1,148 @@
+name: Issue label policy
+# Keeps open Issues on the approved label taxonomy (CONTRIBUTING.md, "Issue
+# labels"). The rules live in scripts/issue-label-policy.py, a pure planner;
+# this workflow only reads GitHub state, runs the planner and applies its plan.
+#
+# - seed (Issue opened): applies the labels the Issue Form answers map to
+#   (area, platforms) plus status:planned when no status exists. It has no
+#   concurrency group, so a later event can never cancel it.
+# - enforce (opened, reopened, labeled, unlabeled): re-reads the Issue, fills
+#   only an empty status (status:planned) or area (from the form answer), and
+#   reports every remaining violation in one bounded, edited-in-place comment.
+#   It never removes or replaces a label and ignores axiom:* entirely: that
+#   namespace is system-managed by Axiom's workflow projection.
+# - catalog (push to main changing the policy, or manual dispatch): creates
+#   missing canonical labels and normalizes their color and description.
+#   It never deletes a label and never touches a non-canonical one.
+#
+# Writes use GITHUB_TOKEN, whose events start no workflow run, so the policy
+# cannot trigger itself. Issue text is untrusted: it reaches the planner only
+# as a file fetched from the API, never through shell interpolation, and
+# labels are only ever chosen from the planner's closed canonical catalog.
+# Runs the trusted default-branch revision; no secrets.
+
+on:
+  issues:
+    types: [opened, reopened, labeled, unlabeled]
+  push:
+    branches:
+      - main
+    paths:
+      - scripts/issue-label-policy.py
+  workflow_dispatch:
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  seed:
+    if: ${{ github.event_name == 'issues' && github.event.action == 'opened' && !github.event.issue.pull_request }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Apply Issue Form classification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          [[ "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER" >"$RUNNER_TEMP/issue.json"
+          python3 scripts/issue-label-policy.py plan --issue "$RUNNER_TEMP/issue.json" --action opened >"$RUNNER_TEMP/plan.json"
+          if jq -e '.skip == null and (.add | length) > 0' "$RUNNER_TEMP/plan.json" >/dev/null; then
+            jq '{labels: .add}' "$RUNNER_TEMP/plan.json" \
+              | gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER/labels" --input - >/dev/null
+          fi
+          jq -r '"skip=\(.skip // "none")", "added=\(.add | join(","))", (.notices[] | "notice=\(.)")' "$RUNNER_TEMP/plan.json" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+  enforce:
+    if: ${{ github.event_name == 'issues' && !github.event.issue.pull_request }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # One run per Issue at a time; a burst of label events collapses into the
+    # newest pending run, which reads the final state.
+    concurrency:
+      group: issue-label-policy-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Normalize and report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_ACTION: ${{ github.event.action }}
+        run: |
+          [[ "$ISSUE_NUMBER" =~ ^[0-9]+$ ]]
+          issue="repos/$GITHUB_REPOSITORY/issues/$ISSUE_NUMBER"
+          gh api "$issue" >"$RUNNER_TEMP/issue.json"
+          python3 scripts/issue-label-policy.py plan --issue "$RUNNER_TEMP/issue.json" --action "$ISSUE_ACTION" >"$RUNNER_TEMP/plan.json"
+          if jq -e '.skip != null' "$RUNNER_TEMP/plan.json" >/dev/null; then
+            jq -r '"skip=\(.skip)"' "$RUNNER_TEMP/plan.json" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if jq -e '(.add | length) > 0' "$RUNNER_TEMP/plan.json" >/dev/null; then
+            jq '{labels: .add}' "$RUNNER_TEMP/plan.json" | gh api --method POST "$issue/labels" --input - >/dev/null
+          fi
+          # The policy's own comment: latest github-actions[bot] comment with the marker.
+          gh api --paginate "$issue/comments?per_page=100" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- issue-label-policy -->"))) | {id, body}' \
+            | jq -s 'last // {}' >"$RUNNER_TEMP/comment.json"
+          comment_id=$(jq -r '.id // empty' "$RUNNER_TEMP/comment.json")
+          [[ -z "$comment_id" || "$comment_id" =~ ^[0-9]+$ ]]
+          if jq -e --slurpfile current "$RUNNER_TEMP/comment.json" '$current[0].body == .report' "$RUNNER_TEMP/plan.json" >/dev/null; then
+            : # report unchanged
+          elif [[ -n "$comment_id" ]]; then
+            jq '{body: .report}' "$RUNNER_TEMP/plan.json" \
+              | gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" --input - >/dev/null
+          elif jq -e '(.violations | length) > 0' "$RUNNER_TEMP/plan.json" >/dev/null; then
+            jq '{body: .report}' "$RUNNER_TEMP/plan.json" | gh api --method POST "$issue/comments" --input - >/dev/null
+          fi
+          jq -r '"added=\(.add | join(","))", (.violations[] | "violation=\(.)"), (.notices[] | "notice=\(.)")' "$RUNNER_TEMP/plan.json" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+  catalog:
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: issue-label-catalog
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Create and normalize canonical labels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/labels?per_page=100" --jq '.[]' | jq -s . >"$RUNNER_TEMP/labels.json"
+          python3 scripts/issue-label-policy.py catalog-plan --labels "$RUNNER_TEMP/labels.json" >"$RUNNER_TEMP/catalog.json"
+          jq -c '.[]' "$RUNNER_TEMP/catalog.json" | while IFS= read -r operation; do
+            name=$(jq -r '.name' <<<"$operation")
+            if [[ $(jq -r '.method' <<<"$operation") == create ]]; then
+              jq '{name, color, description}' <<<"$operation" \
+                | gh api --method POST "repos/$GITHUB_REPOSITORY/labels" --input - >/dev/null
+            else
+              jq '{color, description}' <<<"$operation" \
+                | gh api --method PATCH "repos/$GITHUB_REPOSITORY/labels/$(jq -rn --arg n "$name" '$n | @uri')" --input - >/dev/null
+            fi
+            printf '%s=%s\n' "$(jq -r '.method' <<<"$operation")" "$name" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+          printf 'catalog_operations=%s\n' "$(jq 'length' "$RUNNER_TEMP/catalog.json")" | tee -a "$GITHUB_STEP_SUMMARY"

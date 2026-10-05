@@ -97,6 +97,7 @@ fi
 "$ROOT/scripts/test-maintainer-agent.sh"
 python3 "$ROOT/scripts/test-check-automation-registry.py"
 python3 "$ROOT/scripts/check-automation-registry.py" "$ROOT"
+python3 "$ROOT/scripts/test-issue-label-policy.py"
 "$ROOT/scripts/test-check-sensitive-files.sh"
 "$ROOT/scripts/check-sensitive-files.sh" "$ROOT"
 git -C "$ROOT" diff --check

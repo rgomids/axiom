@@ -17,6 +17,38 @@ not implementation authorization.
 - Never include secrets, credentials, or private data in Issues, commits, PRs, or evidence. Sanitize reproductions and logs.
 - Report vulnerabilities through the private process in [SECURITY.md](SECURITY.md), never in a public Issue. See [SUPPORT.md](SUPPORT.md) for other requests.
 
+## Issue labels
+
+Open Issues use one label taxonomy. Release or phase is never a label.
+
+| Label | Meaning | Rule for an open Issue |
+|---|---|---|
+| `type:*` (`epic`, `story`, `task`, `bug`, `research`) | nature of the Work Item | exactly one |
+| `area:*` (`cli`, `skills`, `work-item`, `workflow`, `runtime`, `execution`, `installer`, `ci-cd`, `governance`) | primary area | one; a second only when it improves classification; an Epic may have none |
+| `status:*` (`planned`, `active`, `blocked`) | editorial backlog state | exactly one; closing the Issue means done |
+| `platform:*` (`windows`, `linux`, `macos`) | platform restriction or impact | optional, any number |
+| `axiom:*` | reserved for Axiom | never edited by hand |
+| milestone | release or phase | e.g. `MVP` |
+
+`axiom:*` labels are system-managed and must not be manually repurposed: they
+are Axiom's projection of workflow state (see
+[Work Item lifecycle governance](#work-item-lifecycle-governance)).
+
+Open Issues through the [Issue Forms](.github/ISSUE_TEMPLATE/) (Bug, Story,
+Task, Research); blank Issues are disabled. Epics are created deliberately by
+maintainers, without a form. Each form applies its `type:*` and
+`status:planned`; [`issue-label-policy.yml`](.github/workflows/issue-label-policy.yml)
+maps the selected Area and Platform answers to labels. It fills only an empty
+`status:*` (`status:planned`) or `area:*` (the form answer), never removes or
+replaces a label, and reports any other violation (missing or conflicting
+type, conflicting status, missing area, non-canonical or retired labels such
+as `scope:mvp`, `slice:*`, `bug` or `enhancement`) in one comment that it edits
+as the Issue changes. Platform answers are applied once, when the Issue is
+opened. The rules and the canonical catalog (names, colors, descriptions) live
+in [`scripts/issue-label-policy.py`](scripts/issue-label-policy.py); a change
+to it on `main` creates or normalizes the catalog labels, and never deletes
+one.
+
 ## Development flow
 
 Axiom uses [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow).

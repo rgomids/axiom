@@ -1,11 +1,45 @@
-name: Bug report
-description: Report a reproducible problem in an available Axiom artifact.
+name: Bug
+description: Report a reproducible defect or incorrect observable behavior in an available Axiom artifact.
+labels:
+  - type:bug
+  - status:planned
 body:
   - type: markdown
     attributes:
       value: |
-        Do not include secrets, credentials, private data, or unsanitized logs.
-        Report suspected vulnerabilities privately using [SECURITY.md](https://github.com/rgomids/axiom/blob/main/SECURITY.md), never through this form.
+        An Issue does not represent approval, change the roadmap, or authorize implementation.
+        Issue labels, status, closure, PR merge, and green CI do not advance canonical Axiom workflow state or establish human acceptance.
+        Do not include secrets, credentials, private data, or unsanitized logs. Report suspected vulnerabilities privately using [SECURITY.md](https://github.com/rgomids/axiom/blob/main/SECURITY.md), never through this form.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Primary area. Maintainers may add a second area only when it improves classification.
+      options:
+        - CLI
+        - Skills
+        - Work Item
+        - Workflow
+        - Runtime
+        - Execution
+        - Installer
+        - CI/CD
+        - Governance
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Select every affected platform, or "Not platform-specific".
+      multiple: true
+      options:
+        - Not platform-specific
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: true
   - type: textarea
     id: description
     attributes:
