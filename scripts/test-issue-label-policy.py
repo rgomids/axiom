@@ -16,6 +16,7 @@ TEMPLATES = os.path.join(ROOT, ".github", "ISSUE_TEMPLATE")
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "issue-label-policy.yml")
 FORMS = {"bug.yml": "type:bug", "story.yml": "type:story", "task.yml": "type:task", "research.yml": "type:research"}
 
+sys.dont_write_bytecode = True
 spec = importlib.util.spec_from_file_location("issue_label_policy", SCRIPT)
 policy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(policy)
