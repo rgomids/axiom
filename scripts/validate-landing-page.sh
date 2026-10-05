@@ -189,7 +189,7 @@ pass "canonical URL, Open Graph and Twitter metadata are present"
 # --- Installer parity ---------------------------------------------------------
 
 posix_install='curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh'
-windows_install='Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression'
+windows_install='&amp; ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))'
 windows_path='$env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"'
 
 grep -Fq -- "$posix_install" "$SITE/index.html" \
@@ -198,7 +198,7 @@ grep -Fq -- "$windows_install" "$SITE/index.html" \
   || fail "landing page does not publish the native PowerShell installer command"
 grep -Fq -- "$windows_path" "$SITE/index.html" \
   || fail "landing page does not explain the current-session Windows PATH command"
-grep -Fq -- 'Windows 10 (1809+) or Windows 11, amd64' "$SITE/index.html" \
+grep -Fq -- 'Windows client edition, amd64: 64-bit PowerShell 5.1+' "$SITE/index.html" \
   || fail "landing page does not state the supported Windows host row"
 pass "landing page presents equivalent POSIX and native PowerShell installation paths"
 

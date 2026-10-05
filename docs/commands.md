@@ -543,16 +543,16 @@ Windows reads the same `.tar.gz` release format as the POSIX rows. No WSL,
 administrator session, Bash, or Go installation is needed by end users.
 
 ```powershell
-Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
 $env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 axiom version
-axiom first-run
+axiom help
 ```
 
 To select an exact release in one PowerShell command:
 
 ```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.1.0-rc.2
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.4.2
 ```
 
 Download-then-run remains available when retaining the bootstrap is useful:
@@ -570,6 +570,44 @@ Only releases containing `axiom-<version>-windows-amd64.tar.gz` can be selected.
 changes execution policy, or changes credentials. Machine-local state defaults
 to `%LOCALAPPDATA%\Axiom\state`; `LINGO_STATE_ROOT` remains an explicit override.
 Portable Project locations and Runtime skill roots retain their existing rules.
+
+If the installer reports `unsafe project storage`, the selected storage did not
+pass the filesystem security checks. Permissions allowing untrusted accounts to
+modify the location, unsafe ownership, unsupported storage, or reparse points
+can cause refusal. Ancestor directories are also checked. Existing directories
+are not automatically re-permissioned.
+
+Choose another eligible local NTFS location instead of disabling the checks or
+broadly changing profile permissions. For example, use new directories beneath
+your user profile:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) `
+  -BinDir "$env:USERPROFILE\AxiomInstall\bin" `
+  -ReceiptDir "$env:USERPROFILE\AxiomInstall\install"
+$env:PATH = "$env:USERPROFILE\AxiomInstall\bin;$env:PATH"
+axiom version
+axiom help
+```
+
+The alternative and its ancestors must pass the same checks; it is not guaranteed
+to work on every machine. The session-only `PATH` must match `-BinDir`.
+`-BinDir` and `-ReceiptDir` do not relocate state or Runtime skills, so commands
+using those locations can still refuse unsafe storage after binary installation.
+Reinstallation or upgrade can also report `upgrade: state_unsafe` when inspecting
+local compatibility state, including Project, state, and skill roots. Changing
+`LINGO_STATE_ROOT` alone is not a guaranteed remedy: it selects only a separate
+absolute state directory, which must also satisfy the filesystem boundary.
+
+After verifying the executable, run the separate Runtime integration step:
+
+```powershell
+axiom first-run
+```
+
+This installs or upgrades user-global skills for detected Runtimes. See
+[first-run and Runtime integrations](#first-run-and-runtime-integrations) for
+its effects and diagnostics; binary installation alone does not validate them.
 
 For an offline installation, verify the downloaded archive against the release's
 `SHA256SUMS`, extract it into private local storage, and invoke the bundle's
