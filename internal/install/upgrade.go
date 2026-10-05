@@ -56,10 +56,15 @@ var (
 )
 
 // Error carries a fixed presentation-safe category; it never wraps paths or
-// operating-system text for display.
-type Error struct{ Category string }
+// operating-system text for display. The native installer can explicitly
+// inspect its cause to report actionable filesystem diagnostics.
+type Error struct {
+	Category string
+	cause    error
+}
 
 func (e *Error) Error() string { return "upgrade: " + e.Category }
+func (e *Error) Unwrap() error { return e.cause }
 
 // Target names the explicit owned roots. Axiom skill files under SkillsRoot
 // are replaced only when owned; State is inspected read-only and never written
@@ -184,12 +189,12 @@ func (s Service) Preview(ctx context.Context, target Target, candidate Candidate
 func (s Service) preview(ctx context.Context, target Target, candidate Candidate, lockHeld bool) (Preview, error) {
 	receiptDir, err := local.OpenOwnedDirectory(target.ReceiptDir)
 	if err != nil {
-		return Preview{}, &Error{Category: "unsafe_target"}
+		return Preview{}, &Error{Category: "unsafe_target", cause: err}
 	}
 	defer receiptDir.Close()
 	binaryDir, err := local.OpenPublicationDirectory(target.BinaryDir)
 	if err != nil {
-		return Preview{}, &Error{Category: "unsafe_target"}
+		return Preview{}, &Error{Category: "unsafe_target", cause: err}
 	}
 	defer binaryDir.Close()
 	return s.previewIn(ctx, target, candidate, lockHeld, receiptDir, binaryDir, nil)

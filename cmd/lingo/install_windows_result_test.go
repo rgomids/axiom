@@ -9,7 +9,19 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/install"
+	"github.com/rgomids/axiom/internal/local"
 )
+
+func TestWindowsInstallStorageGuidance(t *testing.T) {
+	var out, stderr bytes.Buffer
+	err := fmt.Errorf("%w: path=example rule=untrusted access", local.ErrUnsafe)
+	_, code := windowsInstallReleaseResult(install.Result{}, err, install.Target{}, &out, &stderr)
+	for _, want := range []string{"path=example", "rule=untrusted access", "-BinDir", "-ReceiptDir", "NTFS", "Existing ACLs are never changed"} {
+		if code != 1 || out.Len() != 0 || !strings.Contains(stderr.String(), want) {
+			t.Fatalf("missing %q: %s", want, stderr.String())
+		}
+	}
+}
 
 func TestWindowsInstallReleasePartialCause(t *testing.T) {
 	for _, tc := range []struct {

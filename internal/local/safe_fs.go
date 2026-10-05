@@ -88,9 +88,9 @@ func anchoredRoot(canonical string, create bool) (*os.Root, []os.FileInfo, error
 	}
 	var identity []os.FileInfo
 	for _, part := range pathComponents(canonical) {
-		if !safeAncestor(root, container) {
+		if err := checkAncestor(root, container); err != nil {
 			root.Close()
-			return nil, nil, ErrUnsafe
+			return nil, nil, err
 		}
 		if create {
 			if err := mkdirPrivate(root, part); err != nil && !os.IsExist(err) {

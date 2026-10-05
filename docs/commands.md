@@ -577,6 +577,17 @@ modify the location, unsafe ownership, unsupported storage, or reparse points
 can cause refusal. Ancestor directories are also checked. Existing directories
 are not automatically re-permissioned.
 
+The source installer now isolates its parameters in a child PowerShell scope,
+including when invoked through `Invoke-Expression`; the explicit scriptblock
+command above remains recommended. Native binaries built with the issue #189
+fix report `path=... rule=...` for filesystem refusals and `install_next:` with
+storage guidance. Reinstallations retain the upgrade category and additionally
+report `install_storage:`. Published v0.4.2 binaries predate these diagnostics.
+An ACL on an ancestor such as `AppData` can prevent installation even when
+the final directory is private. Do not remove capability SIDs or broaden ACLs
+just to make installation pass; select an eligible location instead. See
+[issue #189 validation and limitations](specifications/004-mvp-v1-baseline/evidence-issue-189.md).
+
 Choose another eligible local NTFS location instead of disabling the checks or
 broadly changing profile permissions. For example, use new directories beneath
 your user profile:

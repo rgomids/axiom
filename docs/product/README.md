@@ -55,5 +55,5 @@ Contexto resumido para agentes: [../../.agents/context/axiom-product.md](../../.
 
 - [Landing page](https://rgomids.github.io/axiom/) — página pública versionada em
   `site/`, publicada no GitHub Pages. Instruções de desenvolvimento local no
-  [README](../../README.md#website); registro reproduzível em
+  [guia de desenvolvimento](../development/getting-started.md#website-development); registro reproduzível em
   [Evidence da landing page](evidence-landing-page.md).

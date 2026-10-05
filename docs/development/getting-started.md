@@ -76,3 +76,17 @@ Execute também os checks locais de segurança:
 Siga [../security/repository-security.md](../security/repository-security.md). No mínimo, revise todo o diff staged, execute o checker com `--staged`, valide o harness e confirme que nenhum dado privado de providers foi incorporado.
 
 Lista consolidada de comandos: [../commands.md](../commands.md).
+
+## Website development
+
+A landing page pública está em `site/`. Para inspecioná-la localmente:
+
+```bash
+python3 -m http.server 8000 --directory site
+```
+
+Abra <http://localhost:8000/>. O workflow
+[deploy-landpage.yml](../../.github/workflows/deploy-landpage.yml) publica esse
+diretório no GitHub Pages. Assets de identidade vêm de `docs/assets/` por URLs
+raw absolutas, sem cópias em `site/`. Consulte
+[Evidence da landing page](../product/evidence-landing-page.md) para validação.

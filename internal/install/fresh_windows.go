@@ -21,7 +21,10 @@ func InstallRelease(ctx context.Context, target Target, candidate Candidate) (Re
 		return Result{}, &Error{Category: "unsupported_host"}
 	}
 	overlap, err := local.RootsOverlap(target.BinaryDir, target.ReceiptDir)
-	if err != nil || overlap {
+	if err != nil {
+		return Result{}, err
+	}
+	if overlap {
 		return Result{}, &Error{Category: "invalid_target"}
 	}
 	if len(candidate.Binary) == 0 || !digestPattern.MatchString(candidate.ArchiveSHA256) {

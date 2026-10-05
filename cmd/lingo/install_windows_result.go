@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/rgomids/axiom/internal/install"
+	"github.com/rgomids/axiom/internal/local"
 )
 
 // windowsInstallReleaseResult presents the Windows installer's status and cause.
@@ -34,6 +35,12 @@ func windowsInstallReleaseResult(result install.Result, err error, target instal
 		return true, 1
 	}
 	if err != nil {
+		if errors.Is(err, local.ErrUnsafe) {
+			if errors.As(err, &installErr) && errors.Unwrap(installErr) != nil {
+				fmt.Fprintf(stderr, "install_storage: %v\n", errors.Unwrap(installErr))
+			}
+			fmt.Fprintln(stderr, "install_next: choose private local NTFS directories with -BinDir and -ReceiptDir (for example beneath USERPROFILE); all ancestors must have trusted owners and prevent replacement by untrusted principals. Existing ACLs are never changed.")
+		}
 		return fail(err)
 	}
 	fmt.Fprintf(out, "installed_binary=%s\npath_notice: add %s to your PATH, then run axiom first-run\n", filepath.Join(target.BinaryDir, "axiom.exe"), target.BinaryDir)

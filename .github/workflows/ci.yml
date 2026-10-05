@@ -73,6 +73,10 @@ jobs:
         if: matrix.platform == 'windows'
         shell: powershell
         run: ./scripts/test-windows-bootstrap.ps1
+      - name: PowerShell 7 bootstrap scope and refusal contract
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./scripts/test-windows-bootstrap.ps1
 
   release-contract:
     name: release-contract
