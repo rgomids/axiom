@@ -107,6 +107,15 @@ was identified in the scoped diff; the environment limits below remain explicit.
 
 ## Verification limits
 
+PR #193's first Windows CI run passed the installer package but failed the new
+local diagnostic test: it compared the handle-resolved long path with the input
+path as text. Reproduced locally by setting TEMP/TMP to an NTFS 8.3 alias; both
+ancestor and private-object cases failed with otherwise correct diagnostics.
+The assertion now parses the quoted path and uses `os.SameFile` to verify the
+reported object, retaining checks for the rule, SID, sentinel and no mutation.
+The focused regression passes with short-path TEMP/TMP, and the Windows local
+package regressions pass with long-path TEMP/TMP. Production checks are unchanged.
+
 - The complete `go test ./... -timeout 10m` run failed only at
   `TestUpgradeResolvesForwardTransitionPolicy/unsafe_symlink_entry`: Windows
   denied the privilege required to create its symlink fixture. No policy or

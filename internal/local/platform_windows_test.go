@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -32,8 +33,22 @@ func TestWindowsStorageDiagnosticPreservesPathRuleAndSentinel(t *testing.T) {
 				directory.Close()
 				t.Fatal("accepted unsafe storage")
 			}
-			if !errors.Is(err, ErrUnsafe) || !strings.Contains(err.Error(), fmt.Sprintf("path=%q", rejectedPath)) || !strings.Contains(err.Error(), rule) || !strings.Contains(err.Error(), "sid=S-1-1-0") {
+			if !errors.Is(err, ErrUnsafe) || !strings.Contains(err.Error(), rule) || !strings.Contains(err.Error(), "sid=S-1-1-0") {
 				t.Fatalf("lost diagnostic: %v", err)
+			}
+			// The handle resolves a long path even when TEMP uses an 8.3
+			// alias (as on hosted Windows runners). Check object identity,
+			// not spelling, while still rejecting a diagnostic for a parent.
+			_, quotedPath, found := strings.Cut(err.Error(), "path=")
+			quotedPath, _, hasRule := strings.Cut(quotedPath, " rule=")
+			reportedPath, parseErr := strconv.Unquote(quotedPath)
+			if !found || !hasRule || parseErr != nil {
+				t.Fatalf("missing quoted diagnostic path: %v", err)
+			}
+			reportedInfo, statErr := os.Stat(reportedPath)
+			expectedInfo, expectedErr := os.Stat(rejectedPath)
+			if statErr != nil || expectedErr != nil || !os.SameFile(reportedInfo, expectedInfo) {
+				t.Fatalf("diagnostic path %q does not identify %q: %v / %v", reportedPath, rejectedPath, statErr, expectedErr)
 			}
 			if !private {
 				if _, err := os.Stat(target); !os.IsNotExist(err) {
