@@ -410,3 +410,37 @@ func testProvenance() provenance.Value {
 	value, _ := provenance.FromBuild(provenance.Build{Version: provenance.Development, Revision: "abc123def456", SourceState: provenance.Clean}, nil)
 	return value
 }
+
+func TestElaboratedInterviewDraftRetainsAuthorityAndInputValidation(t *testing.T) {
+	provider := &fakeCapability{}
+	store := newFakeStore()
+	service := testService(provider, store)
+	input := completeDraft()
+	input.Context = SectionInput{Elaborated: "No additional context supplied"}
+	input.Scope = SectionInput{Elaborated: "Restore the reported behavior only"}
+	preview := service.Prepare(context.Background(), input)
+	if preview.Draft == nil {
+		t.Fatalf("preview=%#v", preview)
+	}
+	revised := input
+	revised.Scope.Elaborated = "Restore the reported behavior without changing persistence"
+	if got := service.Create(context.Background(), revised, preview.Draft.Digest, true); got.Status != completion.DeniedAuthority || provider.creates != 0 || store.saves != 0 {
+		t.Fatalf("stale result=%#v", got)
+	}
+	for _, content := range []string{"token=SYNTHETIC_REJECTED", strings.Repeat("x", maxFieldBytes+1), "bad\x00value"} {
+		invalid := input
+		invalid.Context.Elaborated = content
+		if got := service.Prepare(context.Background(), invalid); got.Status != completion.ValidationFailure || got.Draft != nil {
+			t.Fatalf("invalid result=%#v", got)
+		}
+	}
+	invalid := input
+	invalid.Context.Supplied = "User context must not shadow an elaboration"
+	if got := service.Prepare(context.Background(), invalid); got.Category != "invalid_draft_input" {
+		t.Fatalf("conflict result=%#v", got)
+	}
+	created := service.Create(context.Background(), input, preview.Draft.Digest, true)
+	if created.Status != completion.Success || provider.creates != 1 || store.saves != 1 {
+		t.Fatalf("authorized create=%#v provider=%+v", created, provider)
+	}
+}
