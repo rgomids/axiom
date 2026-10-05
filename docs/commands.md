@@ -1074,6 +1074,17 @@ Dropped or unverified labels produce a partial result referencing the existing
 Issue. Inspect that Issue and permissions; do not create another Issue to repair
 classification. See the [classification contract](specifications/004-mvp-v1-baseline/work-item-classification.md).
 
+The Runtime skill `axiom-work-item-create` accepts a short problem statement,
+extracts facts already provided, and asks conversationally only for material
+missing information. You do not need to know the section schema. The Runtime
+proposes safe assumptions explicitly and presents a complete Lingo preview for
+review before requesting authority to create the Issue. Corrections require a
+new preview; draft approval alone does not authorize external mutation.
+
+The terminal CLI uses plain questions for missing sections; it does not perform
+natural-language inference. For conversational extraction and synthesis, invoke
+the Runtime skill. Both paths preserve the same seven-section draft contract.
+
 For non-interactive use, provide all seven sections. The first call is read-only:
 
 ```bash
@@ -1108,6 +1119,29 @@ axiom --json work-item create \
   --preview-digest "$PREVIEW_DIGEST" \
   --authorize-external
 ```
+
+Runtime-authored proposals use repeatable `--elaborated-section name=content`,
+where `name` is `problem`, `desired_outcome`, `context`, `scope`, `constraints`,
+`non_goals`, or `acceptance_expectations`. For example:
+
+```bash
+axiom --json work-item create \
+  --project my-project --repository main --provider-repository owner/repository \
+  --intent "Export fails when multiple rows are selected" \
+  --desired-outcome "Export all selected rows" \
+  --elaborated-section "context=No additional environment information supplied" \
+  --elaborated-section "scope=Restore export of multiple selected rows" \
+  --elaborated-section "constraints=Preserve unrelated behavior; no additional limits supplied" \
+  --elaborated-section "non_goals=No unrelated export features" \
+  --acceptance "Select two rows, export, and verify both in the saved file"
+```
+
+Ordinary section flags preserve verbatim user text as user-authored; elaborated
+sections retain Axiom authorship after review. If a section combines extracted
+facts with synthesis or paraphrase, transport the combination as elaboration.
+Duplicate, unknown, empty, or simultaneously supplied/elaborated sections are
+rejected. Incomplete JSON requests return missing questions without creating
+anything. Reviewed fields and their authorship are bound to the preview digest.
 
 `--intent` may supply the problem section when `--problem` is absent. Changed
 facts invalidate the digest. Authentication comes only from the existing `gh`
