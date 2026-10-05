@@ -183,14 +183,14 @@
       "scope": [
         "ci"
       ],
-      "trigger": "issues opened/reopened/labeled/unlabeled; push to main changing scripts/issue-label-policy.py; workflow_dispatch",
+      "trigger": "issues opened/reopened/labeled/unlabeled; push to main changing scripts/issue-label-policy.py; workflow_dispatch on the default branch only (other branches are refused)",
       "replay_reason": null,
       "callers": [],
       "inputs": "Issue number and action from the event; the Issue, its comments and the repository labels read through the GitHub API into files; default-branch checkout",
       "outputs": "step summary lines added=, violation=, notice=, skip=, create=/update=, catalog_operations=; failure only on API or planner errors",
       "local_effects": "runner workspace only",
       "network_effects": "GitHub API via gh: reads the Issue, its comments and labels; adds canonical labels to the Issue; creates or edits the single policy comment; creates or updates canonical repository labels",
-      "authority": "GITHUB_TOKEN with contents: read and issues: write per job; no secrets; never deletes or removes labels; axiom:* untouched",
+      "authority": "GITHUB_TOKEN with contents: read and issues: write per job; every job checks out the default branch; no secrets; never deletes or removes labels; never edits Issue state; axiom:* untouched",
       "tests": [
         "scripts/test-issue-label-policy.py"
       ],
