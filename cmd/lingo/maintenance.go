@@ -294,7 +294,7 @@ func (s lifecycleService) Upgrade(ctx context.Context, input cli.MaintenanceInpu
 	if err != nil {
 		return s.maintenanceResult(completion.Facts{ValidationFailed: true}, "Upgrade candidate failed verification: "+upgradeCategory(err), nil, "Use the exact published archive and SHA256SUMS", nil)
 	}
-	target := install.Target{BinaryDir: filepath.Clean(input.BinaryDir), ReceiptDir: filepath.Clean(input.ReceiptDir), SkillsRoot: s.skillsRoot, State: compatibility.Roots{Projects: s.projectsRoot, State: s.stateRoot}, Self: selfBuild()}
+	target := install.Target{BinaryDir: filepath.Clean(input.BinaryDir), ReceiptDir: filepath.Clean(input.ReceiptDir), SkillsRoot: s.skillsRoot, State: compatibility.Roots{Projects: s.projectsRoot, State: s.stateRoot}, Self: selfBuild(), Archive: archiveRoot(filepath.Clean(input.ReceiptDir))}
 	service := install.NewService()
 	preview, err := service.Preview(ctx, target, candidate)
 	if err != nil {
@@ -356,6 +356,17 @@ func upgradeSkillReceiptPartial(result install.Result) (string, string) {
 		"Run `axiom first-run` with the upgraded binary to refresh the skill-set receipt and converge every detected Runtime, or `axiom runtime codex install` when Codex is not on PATH"
 }
 
+// upgradeResumeNext is the next step after confirmed effects stopped short.
+func upgradeResumeNext(category string) string {
+	switch category {
+	case "preservation_failed", "preservation_unverified":
+		return "Historical state is still active and unchanged; free space or fix the archive location if needed, then rerun the installer with the same release to resume"
+	case "retirement_failed", "state_transition_incomplete":
+		return "Historical state is preserved in the Axiom archive and partly retired; rerun the installer with the same release to resume"
+	}
+	return "Rerun the installer (or `axiom upgrade`) with the same release to resume the remaining effects"
+}
+
 func upgradeCategory(err error) string {
 	var upgradeErr *install.Error
 	if errors.As(err, &upgradeErr) {
@@ -367,7 +378,13 @@ func upgradeCategory(err error) string {
 func upgradeNext(category string) string {
 	switch category {
 	case "state_transition_unavailable":
-		return "Existing Axiom state needs an automatic transition this release does not perform yet; nothing was changed, so keep the installed version until a release provides it"
+		return "Existing historical Axiom state needs its automatic preservation and rebuild, which cannot run in this upgrade (no archive location, or an interrupted upgrade that was not authorized as one); nothing more was changed, so rerun the installer"
+	case "preservation_target_unsafe":
+		return "The Axiom archive location for preserving historical state is unsafe, not owned by you, or overlaps active state; nothing was changed, so fix its permissions or set AXIOM_ARCHIVE_ROOT to a private absolute directory and rerun"
+	case "preservation_conflict":
+		return "The Axiom archive for this historical state holds content that does not match it; nothing was retired, so preserve the archive for review and rerun only after it is moved aside"
+	case "state_changed":
+		return "Historical Axiom state changed after it was preserved; nothing more was retired, so preserve the state and archive for review"
 	case "state_unsupported":
 		return "Existing Axiom state uses a format this release does not support, newer or outside its compatibility window; nothing was changed, so use a release that supports it"
 	case "state_unsafe", "state_inspection_failed":
@@ -383,7 +400,7 @@ func upgradeNext(category string) string {
 	case "unsupported_host":
 		return "Use the archive for this host's supported OS family and architecture"
 	case "insufficient_space":
-		return "Free space in the binary directory and Codex skill root, then preview again"
+		return "Free space in the binary directory, the Codex skill root and the Axiom archive location, then preview again"
 	case "skill_conflict":
 		return "Axiom skills in the Codex skill root are modified or not owned; preserve them for review"
 	case "skill_set_busy_or_interrupted":

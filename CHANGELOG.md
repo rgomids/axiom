@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/rgomids/axiom/compare/v0.4.1...v0.4.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **install:** run the RecognizedPOC transition and prove N -&gt; N+1 upgrades ([#153](https://github.com/rgomids/axiom/issues/153)) ([8a55bfb](https://github.com/rgomids/axiom/commit/8a55bfbef3a3efeee62c8ea52427380271efcda8))
+* **runtime:** converge skill-set receipts across upgrades ([#186](https://github.com/rgomids/axiom/issues/186)) ([#187](https://github.com/rgomids/axiom/issues/187)) ([453144f](https://github.com/rgomids/axiom/commit/453144fdd46ae6b390cb04c8e57adc6636060d30))
+
 ## [0.4.1](https://github.com/rgomids/axiom/compare/v0.4.0...v0.4.1) (2026-10-04)
 
 

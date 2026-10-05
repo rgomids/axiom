@@ -543,16 +543,16 @@ Windows reads the same `.tar.gz` release format as the POSIX rows. No WSL,
 administrator session, Bash, or Go installation is needed by end users.
 
 ```powershell
-Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 | Invoke-Expression
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
 $env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 axiom version
-axiom first-run
+axiom help
 ```
 
 To select an exact release in one PowerShell command:
 
 ```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.1.0-rc.2
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.4.2
 ```
 
 Download-then-run remains available when retaining the bootstrap is useful:
@@ -570,6 +570,44 @@ Only releases containing `axiom-<version>-windows-amd64.tar.gz` can be selected.
 changes execution policy, or changes credentials. Machine-local state defaults
 to `%LOCALAPPDATA%\Axiom\state`; `LINGO_STATE_ROOT` remains an explicit override.
 Portable Project locations and Runtime skill roots retain their existing rules.
+
+If the installer reports `unsafe project storage`, the selected storage did not
+pass the filesystem security checks. Permissions allowing untrusted accounts to
+modify the location, unsafe ownership, unsupported storage, or reparse points
+can cause refusal. Ancestor directories are also checked. Existing directories
+are not automatically re-permissioned.
+
+Choose another eligible local NTFS location instead of disabling the checks or
+broadly changing profile permissions. For example, use new directories beneath
+your user profile:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) `
+  -BinDir "$env:USERPROFILE\AxiomInstall\bin" `
+  -ReceiptDir "$env:USERPROFILE\AxiomInstall\install"
+$env:PATH = "$env:USERPROFILE\AxiomInstall\bin;$env:PATH"
+axiom version
+axiom help
+```
+
+The alternative and its ancestors must pass the same checks; it is not guaranteed
+to work on every machine. The session-only `PATH` must match `-BinDir`.
+`-BinDir` and `-ReceiptDir` do not relocate state or Runtime skills, so commands
+using those locations can still refuse unsafe storage after binary installation.
+Reinstallation or upgrade can also report `upgrade: state_unsafe` when inspecting
+local compatibility state, including Project, state, and skill roots. Changing
+`LINGO_STATE_ROOT` alone is not a guaranteed remedy: it selects only a separate
+absolute state directory, which must also satisfy the filesystem boundary.
+
+After verifying the executable, run the separate Runtime integration step:
+
+```powershell
+axiom first-run
+```
+
+This installs or upgrades user-global skills for detected Runtimes. See
+[first-run and Runtime integrations](#first-run-and-runtime-integrations) for
+its effects and diagnostics; binary installation alone does not validate them.
 
 For an offline installation, verify the downloaded archive against the release's
 `SHA256SUMS`, extract it into private local storage, and invoke the bundle's
@@ -1353,8 +1391,59 @@ window is exactly persisted-state v1 (`direct`); absent state is also `direct`,
 and so is v1 state beside preserved POC workflow history, which the upgrade
 leaves unchanged.
 Recognized historical POC state selects `preserve_rebuild_reconfigure`, which
-this release does not execute yet, so it stops before any effect with
-`state_transition_unavailable`. Other state is refused before any effect as
+the upgrade executes before any installation effect (Issue #153):
+
+1. **Preserve.** Every inventoried object of the Projects and State roots is
+   copied into an Axiom-owned machine-local archive,
+   `<archive root>/recognized-poc-<source digest>/`, as
+   `objects/<sha256>` (content-addressed, `0600` in `0700` directories), each
+   re-read and verified from the destination. The archive root is `archive`
+   beside the installation receipt directory (`~/.local/state/axiom/archive`
+   for the default installer), or `AXIOM_ARCHIVE_ROOT` when set to an absolute
+   path; it must be private, owned by you and outside every Project, State and
+   Skills root, and may be on another filesystem (copy and verify, never a
+   cross-filesystem rename).
+2. **Prove.** `manifest.json` is written last and lists `policy`
+   (`recognized-poc-preservation/v1`), `sourceDigest`, and every object's
+   `category`, `relative`, `kind`, `sha256` and `bytes`, plus the `retired` and
+   `kept` sets. Nothing is retired until the manifest equals the revalidated
+   inventory, every listed object verifies, and the archive holds nothing
+   else; the verified manifest digest is then bound to the operation marker.
+3. **Rebuild and reconfigure.** Only historical workflow material is retired
+   from active state: `workflows/` records and the Work Item links the POC
+   workflow created. Installation records and portable `axiom.yaml`
+   manifests, which the current contract already validates, stay in place, so
+   the Project remains configured. The rebuilt root must resolve `direct`
+   (`valid_v1`) before the binary is replaced.
+
+The installer prints `install_preserved=<archive>` on success. The archive is
+historical material only: it is never read as active state, never promoted to
+an Execution, and never deleted by an upgrade; remove it yourself only when
+you no longer need it. Every boundary is resumable with the same archive under
+fresh exact authority. Transition markers use `formatVersion=2` and record
+`transitionArchive`, the verified `transitionManifest` before retirement,
+`transitionRetired` (the confirmed prefix of Work Item links followed by
+workflow records, each ordered by category/path), and `transitionActivated`.
+Every confirmed retirement updates the marker before the next effect. Until
+activation is explicitly recorded, kept objects and pending retirements must
+remain present and byte-exact; only that confirmed prefix may be absent.
+Activation requires complete retirement progress, exact kept objects and a
+`direct` rebuilt root. Afterwards normal v1 writes are permitted, while the
+recorded archive and complete retirement count still verify. Unknown fields,
+duplicate fields, incompatible transition markers (including version 1), and
+contradictory progress require recovery. If interruption occurs after deletion
+but before its marker confirmation, absence is unproved and automatic resume
+refuses; preserve the archive and marker for operator review. Retirement uses
+the same state -> family -> Project locks as local writers and revalidates the
+exact generation while holding them. Existing manifests must equal the
+canonical policy encoding, including POC identity and derived kept/retired
+sets; extra JSON is refused. A changed source, an archive that
+does not correspond, an unsafe or overlapping archive location, or missing
+space stops with no further retirement (`state_changed`,
+`preservation_conflict`, `preservation_target_unsafe`, `insufficient_space`).
+An equivalent rerun after success is a no-op. A caller without an archive
+location, or a resumed upgrade that was not authorized as a transition, stops
+before any effect with `state_transition_unavailable`. Other state is refused before any effect as
 `state_unsupported` (newer or outside the window), `state_unsafe` (foreign,
 modified, ambiguous, corrupt, or unsafe), or `state_recovery_required`
 (interrupted operation). Each refusal's next step is a product action, not a

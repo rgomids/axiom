@@ -47,7 +47,7 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 	// inspect these roots or infer authority from the current working directory.
 	projects, projectsErr := projectsRoot()
 	state, stateErr := stateRoot()
-	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: codexSkillsRoot(), State: compatibility.Roots{Projects: projects, State: state}, Self: selfBuild()}
+	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: codexSkillsRoot(), State: compatibility.Roots{Projects: projects, State: state}, Self: selfBuild(), Archive: archiveRoot(values["--receipt-dir"])}
 	result := install.InstallReleasePOSIX(context.Background(), target, candidate, os.Getenv("AXIOM_INSTALL_TEST_FAIL_STAGE"), func() error {
 		if projectsErr != nil {
 			return projectsErr
@@ -71,6 +71,9 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 	}
 	switch {
 	case result.UpgradeError == nil && result.UpgradeResult.Status == "success":
+		if result.UpgradeResult.Preservation != "" {
+			fmt.Fprintf(out, "install_preserved=%s\n", result.UpgradeResult.Preservation)
+		}
 		fmt.Fprintln(out, "install_status=upgraded")
 		return true, 0
 	case result.UpgradeError == nil:
@@ -79,7 +82,7 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: %s\ninstall_next: %s\n", installDiagnostic(message), installDiagnostic(next))
 	case len(result.UpgradeResult.Ledger) > 0:
 		fmt.Fprintln(out, "install_status=partial")
-		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: Upgrade partially applied: %s\ninstall_next: Repeat `axiom upgrade` with the same archive to preview the resumable remaining effects\n", category)
+		fmt.Fprintf(stderr, "install_error: owned upgrade partially applied: Upgrade partially applied: %s\ninstall_next: %s\n", category, installDiagnostic(upgradeResumeNext(category)))
 	case category == "authority_denied":
 		fmt.Fprintln(stderr, "install_error: owned upgrade failed: Upgrade state changed after review")
 	default:
