@@ -6,20 +6,20 @@
   "subject": {
     "kind": "rebuilt",
     "tag": null,
-    "version": "9999.0.0-acceptance.1",
-    "revision": "f4819ccd178b",
-    "sha256sums_sha256": "eb1cb75a78498f8a42a1aa854acb3ad48aa24ce68466fd3c9d877c477ebb6b7b",
+    "version": "9999.0.0-acceptance.3",
+    "revision": "0fed16168960",
+    "sha256sums_sha256": "e45185ddac67542aff98329f471e42a5cc8d49921896fbfbacb4be6a484820b3",
     "artifacts": [
       {
-        "name": "axiom-9999.0.0-acceptance.1-macos-27-arm64.tar.gz",
-        "sha256": "3f2dde516730a25f42cd75c0ecf416040eda0c7414282e2ba5a5a9bfc5c1aadc"
+        "name": "axiom-9999.0.0-acceptance.3-macos-27-arm64.tar.gz",
+        "sha256": "e3772682b442997058b1fbbf9b5fa43b0861d826fad657371d301c2bec5b0e8c"
       }
     ],
     "artifact_id": null,
     "artifact_digest": null
   },
   "run": {
-    "attempt_id": "3c06716f-6202-475b-9390-b20ca00e4877",
+    "attempt_id": "ab71b97c-276e-4b46-9b37-95be23a763bc",
     "ci": null
   },
   "environment": {
@@ -103,8 +103,8 @@
       "{evidence}"
     ],
     "repository": {
-      "revision": "f4819ccd178b1e0222b0e6cccbd5c77900f9d1f5",
-      "state": "dirty"
+      "revision": "0fed1616896058b2503858048d60e39996306a5c",
+      "state": "clean"
     }
   },
   "journeys": [
@@ -131,8 +131,8 @@
         "after": "valid_v1"
       },
       "preservation_manifest_sha256": null,
-      "started_at": "2026-10-06T15:17:36Z",
-      "finished_at": "2026-10-06T15:17:40Z",
+      "started_at": "2026-10-06T15:34:09Z",
+      "finished_at": "2026-10-06T15:34:13Z",
       "steps": [
         {
           "id": "install-previous",
@@ -140,7 +140,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 0
+          "duration_ms": 1000
         },
         {
           "id": "first-run-previous",
@@ -156,7 +156,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 0
+          "duration_ms": 1000
         },
         {
           "id": "previous-reads-seeded-state-as-v1",
@@ -295,8 +295,8 @@
         "after": null
       },
       "preservation_manifest_sha256": null,
-      "started_at": "2026-10-06T15:17:40Z",
-      "finished_at": "2026-10-06T15:17:43Z",
+      "started_at": "2026-10-06T15:34:13Z",
+      "finished_at": "2026-10-06T15:34:16Z",
       "steps": [
         {
           "id": "install-previous",
@@ -387,9 +387,9 @@
         "before": "recognized_poc",
         "after": "valid_v1"
       },
-      "preservation_manifest_sha256": "e4d95a37bc4ceb2e0d1dda1c22967e3dbdcfcc06df9cd93fcecc5f833c1a3c7c",
-      "started_at": "2026-10-06T15:17:43Z",
-      "finished_at": "2026-10-06T15:17:46Z",
+      "preservation_manifest_sha256": "099d3a4fcbbfec5119854a55b7083582e4ff8b6bfcb4e64021840fd9d8678234",
+      "started_at": "2026-10-06T15:34:16Z",
+      "finished_at": "2026-10-06T15:34:19Z",
       "steps": [
         {
           "id": "poc-creates-state",
@@ -405,7 +405,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "previous-classifies-recognized-poc",
@@ -541,7 +541,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "first-run",
@@ -557,7 +557,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 0
+          "duration_ms": 1000
         },
         {
           "id": "rerun-unchanged",
@@ -592,6 +592,6 @@
       "not_applicable": 0
     }
   },
-  "started_at": "2026-10-06T15:17:36Z",
-  "finished_at": "2026-10-06T15:17:46Z"
+  "started_at": "2026-10-06T15:34:09Z",
+  "finished_at": "2026-10-06T15:34:19Z"
 }
