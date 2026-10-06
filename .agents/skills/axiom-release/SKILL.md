@@ -116,7 +116,11 @@ Never infer or reuse a repair selection for another release without authority.
      and `effect.issue.N`);
    - the listed `effect.*` lines.
 
-   For a stable release, say which Issues will be released and closed after
+   For a stable release, first confirm that passing release-candidate
+   acceptance Evidence exists and is bound to exactly these artifact digests
+   (Specification 004 FR-069, ADR-0019; manual until automated). If it is
+   missing, failing or for other digests, report that and stop without asking
+   for authorization. Then say which Issues will be released and closed after
    publication. Offer to show `release-notes.md`. Ask the user to authorize
    publication of exactly `preview_digest=<digest>`, and stop. Continue only
    after an explicit yes in the conversation, given after the user has seen

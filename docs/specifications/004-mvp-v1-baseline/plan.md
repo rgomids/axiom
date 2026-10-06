@@ -818,6 +818,13 @@ this Plan. Future exact-target runs may use the preview labels above, explicit
 self-hosted/native environments, or later GA labels; missing exact target Evidence
 remains an explicit release blocker rather than a reason to weaken product support.
 
+> Scoped by [Specification 004 — Release-candidate acceptance and supported upgrade sources](spec.md#release-candidate-acceptance-and-supported-upgrade-sources) and [ADR-0019](../../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md#decision), accepted 2026-10-06.
+> The native-Evidence statements above govern the MVP clean-environment RC
+> acceptance (T23–T25). For every later stable release, the release-blocking
+> acceptance runs on the prepared bytes, on a host of each row's OS family and
+> architecture (FR-071). Windows client amd64 uses the bounded Windows Server
+> proxy (FR-072). OS version stays Evidence, not eligibility (ADR-0015).
+
 Assumptions: intended local user owns managed roots; required regular-file,
 directory-handle, identity, link-count, rename, restrictive mode/ACL, and advisory
 process-lock semantics are available; staging and canonical target share one local
@@ -1160,7 +1167,10 @@ failure, confirmed Provider effect plus local failure, filesystem
 
 Controlled fakes prove deterministic failure and non-effects. At least one bounded
 real journey using Codex and Claude and one explicitly
-authorized real GitHub journey are required before final acceptance. Evidence
+authorized real GitHub journey are required before final acceptance.
+(This governs the final MVP acceptance. For each later stable release, real
+Runtime/Provider acceptance blocks only a release that changes that contract;
+see Specification 004 FR-076 and ADR-0019.) Evidence
 records candidate identity,
 environment, commands, exit codes, hashes/references, side effects, exclusions,
 unexecuted cases, and limitations. Automation prepares the report; only a human

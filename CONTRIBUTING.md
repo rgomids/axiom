@@ -516,6 +516,7 @@ Publication is split in two phases with human authority between them:
 ```text
 PREPARE  release-artifacts.yml: preflight -> build -> verify -> notes -> retained workflow artifact
          release.sh: re-verify that artifact at the revision -> publication envelope + preview_digest
+ACCEPT   stable only: release-candidate acceptance on those exact prepared bytes (manual until automated)
 AUTHORITY  a maintainer authorizes that exact preview_digest
 PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authorized digest
          -> draft -> upload -> read-back -> publish -> read-back -> delivered Issues (stable)
@@ -557,6 +558,24 @@ PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authoriz
    the next envelope lists only the remaining effects and needs a new
    authorization. A release candidate's envelope says
    `delivery_issues=not_applicable`.
+
+**Release-candidate acceptance.** A stable release is published only from a
+prepared set that passed release-candidate acceptance on those exact bytes
+([Specification 004 FR-068–FR-076](docs/specifications/004-mvp-v1-baseline/spec.md#release-candidate-acceptance-and-supported-upgrade-sources),
+[ADR-0019](docs/decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md)).
+That acceptance covers:
+- fresh install, first run, a representative Project and workflow;
+- upgrade from N, from each persisted-generation baseline and from declared
+  historical formats, with non-empty state;
+- reinstall no-op and downgrade refusal.
+
+It runs on every release row. For Windows it runs on the bounded Windows Server
+proxy, which covers identity, provenance, direct `axiom.exe` behaviour and the
+installers' fail-closed Server refusal. The proxy claims no Windows client
+install, upgrade or reinstall. Until automated acceptance exists, the maintainer performs it
+manually on the downloaded prepared set and records Evidence bound to its
+exact digests, before authorizing the envelope. Acceptance Evidence is not
+publication authority.
 
 A stable release must be published from its release commit. A release
 candidate may be published from any `main` revision that does not record a
