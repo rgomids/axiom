@@ -928,7 +928,7 @@
       "path": "scripts/gate-evidence.py",
       "kind": "script",
       "owner": "release",
-      "purpose": "axiom-gate-evidence/v1 (Issue #234; Specification 004 FR-075/AC-56; ADR-0019): deterministic offline validator of the closed scripts/schemas/axiom-gate-evidence-v1.schema.json plus its cross-field rules, and the upgrade-journey emitter that builds, validates and atomically writes one bounded, secret-free Evidence document per attempt.",
+      "purpose": "axiom-gate-evidence/v1 (Issue #234; Specification 004 FR-075/AC-56; ADR-0019): deterministic offline validator of the closed scripts/schemas/axiom-gate-evidence-v1.schema.json plus its cross-field rules, and the upgrade-journey emitter that builds, validates and atomically writes one bounded, secret-free Evidence document per attempt. It carries the failure category the harness observed (never inferred), refuses incomplete step records, and binds an archive only when its SHA256SUMS lists that digest.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -946,7 +946,7 @@
         "scripts/test-upgrade-journeys.sh",
         "scripts/test-gate-evidence.py"
       ],
-      "inputs": "validate FILE...; upgrade-journeys --records FILE (the harness's tab-separated step records) --output ABS_FILE --row ROW --candidate DIR [--previous DIR ...] [--poc-binary FILE] --fixture ID=RELATIVE_PATH plus run timing, termination and exit status; reads archives read-only and an allowlist of host and GitHub Actions facts",
+      "inputs": "validate FILE...; upgrade-journeys --records FILE (the harness's tab-separated step records) --output ABS_FILE --row ROW --candidate DIR [--previous DIR ...] [--poc-binary FILE] --fixture ID=RELATIVE_PATH plus --attempt-id (created by the caller at attempt start), --record-count, run timing, termination and exit status; reads archives read-only and an allowlist of host and GitHub Actions facts",
       "outputs": "validate: gate_evidence=valid lines; upgrade-journeys: one JSON document at --output and evidence_sha256=<hex> on stdout; exit 1 invalid, 2 usage, 3 insufficient subject state",
       "local_effects": "writes only the --output file (atomic replace), refused inside the subject, upgrade sources or repository",
       "network_effects": "none",
@@ -2224,8 +2224,8 @@
       "callers": [
         ".github/workflows/ci.yml"
       ],
-      "inputs": "--candidate ABS_DIR (SHA256SUMS + archives of the candidate), --previous ABS_DIR (repeatable; first is release N), optional --poc-binary ABS_FILE (lingo built from v0.1.0-poc.1); reads internal/compatibility/testdata/stable-v1; optional --evidence ABS_FILE (requires python3; outside the candidate, previous releases and repository)",
-      "outputs": "journey=<name> step=<step> result=pass|fail lines, failures=<n>, result=pass|fail; with --evidence an axiom-gate-evidence/v1 document and one evidence_sha256=<hex> (or evidence=unavailable) line; exit 1 on any failure, 78 on an unsupported host row, 2 on invalid input, 70 when a passing run cannot write its Evidence; otherwise the original status is kept",
+      "inputs": "--candidate ABS_DIR (SHA256SUMS + archives of the candidate), --previous ABS_DIR (repeatable; first is release N), optional --poc-binary ABS_FILE (lingo built from v0.1.0-poc.1); reads internal/compatibility/testdata/stable-v1; optional --evidence ABS_FILE (requires python3; must not exist yet; outside the candidate, previous releases and repository)",
+      "outputs": "journey=<name> step=<step> result=pass|fail lines, failures=<n>, result=pass|fail; with --evidence an axiom-gate-evidence/v1 document and one evidence_sha256=<hex> (or evidence=unavailable) line; exit 1 on any failure, 78 on an unsupported host row, 2 on invalid input, 70 when a passing run cannot write its Evidence (including a lost step record); otherwise the original status is kept",
       "local_effects": "temporary isolated HOME directories only, removed on exit; fake codex/claude/gh/git and a sw_vers shim for pre-ADR-0015 bundles on PATH; with --evidence, the Evidence file",
       "network_effects": "none (fake Providers; archives are passed in by the caller)",
       "authority": "none; never touches the real home, credentials or a Provider",

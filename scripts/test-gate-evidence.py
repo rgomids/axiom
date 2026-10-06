@@ -48,7 +48,8 @@ def not_applicable_step():
 
 class Fixtures(unittest.TestCase):
     def test_representative_documents_are_valid(self):
-        for name in ("pass.json", "fail-assertion.json", "fail-aborted.json", "fail-interrupted.json"):
+        for name in ("pass.json", "fail-assertion.json", "fail-input-defect.json", "fail-aborted.json",
+                     "fail-interrupted.json"):
             with self.subTest(name=name), open(os.path.join(FIXTURES, name), "rb") as handle:
                 evidence.validate_bytes(handle.read(), SCHEMA)
 
@@ -58,6 +59,10 @@ class Fixtures(unittest.TestCase):
         failed = fixture("fail-assertion.json")["result"]
         self.assertEqual((failed["status"], failed["termination"], failed["exit_code"], failed["failure_categories"]),
                          ("fail", "completed", 1, ["product"]))
+        undetermined = fixture("fail-input-defect.json")
+        self.assertEqual((undetermined["result"]["status"], undetermined["result"]["failure_categories"]), ("fail", []))
+        self.assertEqual([step["failure_category"] for journey in undetermined["journeys"] for step in journey["steps"]
+                          if step["result"] == "fail"], [None])
         aborted = fixture("fail-aborted.json")
         self.assertEqual(aborted["result"]["termination"], "aborted")
         self.assertFalse(aborted["journeys"][-1]["completed"])

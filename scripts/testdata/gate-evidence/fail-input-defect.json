@@ -6,20 +6,20 @@
   "subject": {
     "kind": "rebuilt",
     "tag": null,
-    "version": "9999.0.0-defect.2",
-    "revision": "622e3626de22",
-    "sha256sums_sha256": "d665e39af7a71c270f5521740021f3fafb086a3903c71f74c77ad3760f5633c0",
+    "version": "0.5.0",
+    "revision": "5ad602c2327b",
+    "sha256sums_sha256": "ff93ed162c8a7d1e5cb4691d285d13852477923c4e9f4379982d79f41de107c9",
     "artifacts": [
       {
-        "name": "axiom-9999.0.0-defect.2-macos-27-arm64.tar.gz",
-        "sha256": "2d523025db8e6651a1444ef6b1785308dcd7c41304a64af474daa713b2243b3f"
+        "name": "axiom-0.5.0-macos-27-arm64.tar.gz",
+        "sha256": "0fb2aa27c645c8bfbf699214f7eb20b60d1f4f3087c437f87a8fc6e2a67716eb"
       }
     ],
     "artifact_id": null,
     "artifact_digest": null
   },
   "run": {
-    "attempt_id": "5596d855-3edf-426e-abe1-37ddf38656f4",
+    "attempt_id": "cf4f233f-11d3-4daf-ba55-ff9ff25902cc",
     "ci": null
   },
   "environment": {
@@ -101,8 +101,8 @@
         "after": "valid_v1"
       },
       "preservation_manifest_sha256": null,
-      "started_at": "2026-10-06T17:34:24Z",
-      "finished_at": "2026-10-06T17:34:28Z",
+      "started_at": "2026-10-06T17:34:28Z",
+      "finished_at": "2026-10-06T17:34:31Z",
       "steps": [
         {
           "id": "install-previous",
@@ -142,12 +142,12 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "upgrade-status",
           "result": "fail",
-          "failure_category": "product",
+          "failure_category": null,
           "reason": null,
           "governing_reference": null,
           "duration_ms": 0
@@ -230,7 +230,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "rerun-unchanged",
@@ -248,9 +248,7 @@
     "termination": "completed",
     "exit_code": 1,
     "signal": null,
-    "failure_categories": [
-      "product"
-    ],
+    "failure_categories": [],
     "counts": {
       "journeys": 1,
       "steps": 17,
@@ -259,6 +257,6 @@
       "not_applicable": 0
     }
   },
-  "started_at": "2026-10-06T17:34:24Z",
-  "finished_at": "2026-10-06T17:34:28Z"
+  "started_at": "2026-10-06T17:34:28Z",
+  "finished_at": "2026-10-06T17:34:31Z"
 }

@@ -6,20 +6,20 @@
   "subject": {
     "kind": "rebuilt",
     "tag": null,
-    "version": "9999.0.0-acceptance.3",
-    "revision": "0fed16168960",
-    "sha256sums_sha256": "e45185ddac67542aff98329f471e42a5cc8d49921896fbfbacb4be6a484820b3",
+    "version": "9999.0.0-acceptance.7",
+    "revision": "6c255bac4359",
+    "sha256sums_sha256": "1413c083bf76975000478747575569d4588f9965590ff6b3cd6cd992ed52fb0e",
     "artifacts": [
       {
-        "name": "axiom-9999.0.0-acceptance.3-macos-27-arm64.tar.gz",
-        "sha256": "e3772682b442997058b1fbbf9b5fa43b0861d826fad657371d301c2bec5b0e8c"
+        "name": "axiom-9999.0.0-acceptance.7-macos-27-arm64.tar.gz",
+        "sha256": "3687ba83d465dd8f4fcfe4978ab4139428d87805438efe70ee3292321361b4bb"
       }
     ],
     "artifact_id": null,
     "artifact_digest": null
   },
   "run": {
-    "attempt_id": "ab71b97c-276e-4b46-9b37-95be23a763bc",
+    "attempt_id": "9e46b696-1ce8-4809-a891-03ac2eef2a6e",
     "ci": null
   },
   "environment": {
@@ -103,7 +103,7 @@
       "{evidence}"
     ],
     "repository": {
-      "revision": "0fed1616896058b2503858048d60e39996306a5c",
+      "revision": "6c255bac4359bbaf96160f59ad7f0f3f5ecf9a4f",
       "state": "clean"
     }
   },
@@ -131,8 +131,8 @@
         "after": "valid_v1"
       },
       "preservation_manifest_sha256": null,
-      "started_at": "2026-10-06T15:34:09Z",
-      "finished_at": "2026-10-06T15:34:13Z",
+      "started_at": "2026-10-06T17:34:14Z",
+      "finished_at": "2026-10-06T17:34:17Z",
       "steps": [
         {
           "id": "install-previous",
@@ -156,7 +156,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "previous-reads-seeded-state-as-v1",
@@ -172,7 +172,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "upgrade-status",
@@ -260,7 +260,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "rerun-unchanged",
@@ -295,8 +295,8 @@
         "after": null
       },
       "preservation_manifest_sha256": null,
-      "started_at": "2026-10-06T15:34:13Z",
-      "finished_at": "2026-10-06T15:34:16Z",
+      "started_at": "2026-10-06T17:34:17Z",
+      "finished_at": "2026-10-06T17:34:20Z",
       "steps": [
         {
           "id": "install-previous",
@@ -312,7 +312,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 0
+          "duration_ms": 1000
         },
         {
           "id": "upgrade",
@@ -320,7 +320,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "upgrade-status",
@@ -352,7 +352,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 0
+          "duration_ms": 1000
         },
         {
           "id": "rerun-unchanged",
@@ -360,7 +360,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         }
       ]
     },
@@ -387,9 +387,9 @@
         "before": "recognized_poc",
         "after": "valid_v1"
       },
-      "preservation_manifest_sha256": "099d3a4fcbbfec5119854a55b7083582e4ff8b6bfcb4e64021840fd9d8678234",
-      "started_at": "2026-10-06T15:34:16Z",
-      "finished_at": "2026-10-06T15:34:19Z",
+      "preservation_manifest_sha256": "17ac87c9239cfc5c36230815e7a920bbab4949adfe415bc1c4b15f6af6d0f9c2",
+      "started_at": "2026-10-06T17:34:20Z",
+      "finished_at": "2026-10-06T17:34:24Z",
       "steps": [
         {
           "id": "poc-creates-state",
@@ -405,7 +405,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 0
+          "duration_ms": 1000
         },
         {
           "id": "previous-classifies-recognized-poc",
@@ -445,7 +445,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 1000
+          "duration_ms": 0
         },
         {
           "id": "upgrade-status",
@@ -477,7 +477,7 @@
           "failure_category": null,
           "reason": null,
           "governing_reference": null,
-          "duration_ms": 0
+          "duration_ms": 1000
         },
         {
           "id": "archived-objects-verify",
@@ -592,6 +592,6 @@
       "not_applicable": 0
     }
   },
-  "started_at": "2026-10-06T15:34:09Z",
-  "finished_at": "2026-10-06T15:34:19Z"
+  "started_at": "2026-10-06T17:34:14Z",
+  "finished_at": "2026-10-06T17:34:24Z"
 }
