@@ -25,6 +25,7 @@ evidence = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(evidence)
 SCHEMA = evidence.Schema.load()
 SHA = "a" * 64
+ATTEMPT = "3c06716f-6202-475b-9390-b20ca00e4877"
 
 
 def fixture(name):
@@ -138,12 +139,16 @@ class Schema(unittest.TestCase):
                 document["result"]["failure_categories"] = [category]
                 self.assertEqual(errors(document), [])
 
-    def test_failed_step_needs_category_and_pass_forbids_one(self):
+    def test_unobservable_failure_cause_stays_null_and_pass_forbids_a_category(self):
         document = fixture("fail-assertion.json")
         step = next(s for s in document["journeys"][0]["steps"] if s["result"] == "fail")
         step["failure_category"] = None
-        self.assertTrue(errors(document))
+        document["result"]["failure_categories"] = []
+        self.assertEqual(errors(document), [])
         self.rejected(lambda d: d["journeys"][0]["steps"][0].update(failure_category="product"))
+
+    def test_a_completed_failure_needs_a_failed_step_or_category(self):
+        self.rejected(lambda d: d["result"].update(status="fail", exit_code=1), "needs a failed step or a failure category")
 
     def test_malformed_digests_are_rejected(self):
         for value in ("A" * 64, "a" * 63, "a" * 65, "sha256:" + "a" * 64, "g" * 64, ""):
@@ -237,6 +242,34 @@ class Schema(unittest.TestCase):
         self.rejected(lambda d: d["journeys"][0]["source"].update(path=["previous-1", "previous-1"]))
         self.rejected(lambda d: d["inputs"]["command"].extend(["--previous", "{previous-9}"]), "bound to nothing")
 
+    def test_subject_carries_the_row_archive(self):
+        self.rejected(lambda d: d["subject"]["artifacts"][0].update(name="axiom-1.0.0-linux-amd64.tar.gz"),
+                      "no archive of the row")
+
+    def test_pass_binds_every_used_upgrade_source(self):
+        used = next(index for index, source in enumerate(self.document["inputs"]["upgrade_sources"])
+                    if source["kind"] == "release")
+        poc = next(index for index, source in enumerate(self.document["inputs"]["upgrade_sources"])
+                   if source["kind"] == "historical_build")
+        wrong_row = {"name": "axiom-0.5.0-linux-amd64.tar.gz", "sha256": SHA}
+        for label, mutate, expected in (
+                ("sums", lambda d: d["inputs"]["upgrade_sources"][used].update(sha256sums_sha256=None), "SHA256SUMS digest"),
+                ("artifacts", lambda d: d["inputs"]["upgrade_sources"][used].update(artifacts=[]), "row archive digest"),
+                ("other row", lambda d: d["inputs"]["upgrade_sources"][used].update(artifacts=[wrong_row]), "row archive digest"),
+                ("historical", lambda d: d["inputs"]["upgrade_sources"][poc].update(artifacts=[]), "executed binary")):
+            with self.subTest(label=label):
+                self.rejected(mutate, expected)
+        self.rejected(lambda d: d["inputs"]["upgrade_sources"][used]["artifacts"][0].update(sha256="A" * 64))
+
+    def test_unused_or_failed_sources_may_stay_partial(self):
+        document = copy.deepcopy(self.document)
+        document["inputs"]["upgrade_sources"].append({"id": "previous-9", "kind": "release", "version": None, "tag": None,
+                                                      "sha256sums_sha256": None, "artifacts": []})
+        self.assertEqual(errors(document), [])
+        failing = fixture("fail-assertion.json")
+        failing["inputs"]["upgrade_sources"][0].update(sha256sums_sha256=None, artifacts=[])
+        self.assertEqual(errors(failing), [])
+
     def test_bounded_collections(self):
         self.rejected(lambda d: d["journeys"][0]["steps"].extend(copy.deepcopy(d["journeys"][0]["steps"][0])
                                                                  for _ in range(64)))
@@ -285,8 +318,6 @@ class Schema(unittest.TestCase):
         self.rejected(lambda d: d["result"].update(termination="aborted"))
         self.rejected(lambda d: d["result"].update(exit_code=1))
         self.rejected(lambda d: d["result"].update(signal="TERM"))
-        self.rejected(lambda d: d["result"].update(status="fail", exit_code=1),
-                      "a completed failing run needs a failure category")
         self.rejected(lambda d: d["journeys"][0].update(completed=False, finished_at=None))
         self.rejected(lambda d: d["journeys"][0]["steps"][0].update(result="fail", failure_category="product"),
                       "pass needs")
@@ -368,9 +399,10 @@ class Emitter(unittest.TestCase):
     def directory(self, name, version, revision):
         path = os.path.join(self.root, name)
         os.mkdir(path)
-        archive(path, f"axiom-{version}-linux-amd64.tar.gz", {"version": version, "revision": revision})
+        name = f"axiom-{version}-linux-amd64.tar.gz"
+        digest = evidence.sha256_file(archive(path, name, {"version": version, "revision": revision}))
         with open(os.path.join(path, "SHA256SUMS"), "w", encoding="utf-8") as handle:
-            handle.write(f"{SHA}  axiom-{version}-linux-amd64.tar.gz\n")
+            handle.write(f"{digest}  {name}\n")
         return path
 
     def inventory(self):
@@ -383,18 +415,24 @@ class Emitter(unittest.TestCase):
         found[self.poc] = evidence.sha256_file(self.poc)
         return found
 
-    def write_records(self, lines):
+    def write_records(self, lines, skip=()):
+        """Numbered like the harness; records whose number is in skip are lost."""
+        self.record_count = len(lines)
         with open(self.records, "w", encoding="utf-8") as handle:
-            handle.write("".join("\t".join(fields) + "\n" for fields in lines))
+            handle.write("".join("\t".join((str(number), *fields)) + "\n"
+                                 for number, fields in enumerate(lines, start=1) if number not in skip))
 
-    def emit(self, *, exit_code=0, termination="completed", signal="", output=None, env=None, extra=()):
+    def emit(self, *, exit_code=0, termination="completed", signal="", output=None, env=None, extra=(),
+             attempt=ATTEMPT, record_count=None):
         command = [sys.executable, SCRIPT, "upgrade-journeys", "--records", self.records,
                    "--output", output or self.output, "--row", "linux-amd64", "--candidate", self.candidate,
                    "--previous", self.previous[0], "--previous", self.previous[1], "--poc-binary", self.poc,
                    "--fixture", "corpus=testdata/corpus", "--started-at", "2026-10-06T10:00:00Z",
                    "--finished-at", "2026-10-06T10:05:00Z", "--exit-code", str(exit_code),
                    "--termination", termination, "--bash-version", "5.2.37(1)-release",
-                   "--clock-resolution-ms", "1", "--work-dir", self.root, "--repository", self.repository, *extra]
+                   "--clock-resolution-ms", "1", "--work-dir", self.root, "--repository", self.repository,
+                   "--attempt-id", attempt, "--record-count", str(self.record_count if record_count is None else record_count),
+                   *extra]
         if signal:
             command += ["--signal", signal]
         environment = {key: value for key, value in os.environ.items() if not key.startswith(("GITHUB_", "RUNNER_"))}
@@ -409,16 +447,16 @@ class Emitter(unittest.TestCase):
     def passing_records(self):
         return [
             ("journey", "v1-state", "n", "previous-1", "-", "2026-10-06T10:00:01Z"),
-            ("step", "v1-state", "install-previous", "pass", "1200"),
+            ("step", "v1-state", "install-previous", "pass", "1200", "-"),
             ("observe", "v1-state", "classification_before", "valid_v1"),
-            ("step", "v1-state", "upgrade", "pass", "800"),
+            ("step", "v1-state", "upgrade", "pass", "800", "-"),
             ("observe", "v1-state", "installer_upgrade", "upgraded"),
             ("observe", "v1-state", "classification_after", "valid_v1"),
             ("observe", "v1-state", "installer_rerun", "unchanged"),
             ("journey_end", "v1-state", "2026-10-06T10:02:00Z"),
             ("journey", "recognized-poc", "historical_format", "poc-binary,previous-1", "recognized-poc",
              "2026-10-06T10:02:00Z"),
-            ("step", "recognized-poc", "upgrade", "pass", "900"),
+            ("step", "recognized-poc", "upgrade", "pass", "900", "-"),
             ("observe", "recognized-poc", "preservation_manifest_sha256", SHA),
             ("journey_end", "recognized-poc", "2026-10-06T10:04:00Z"),
         ]
@@ -472,9 +510,24 @@ class Emitter(unittest.TestCase):
         self.assertIsNone(document["run"]["ci"]["repository"])
         self.assertIsNone(document["environment"]["runner"]["image_os"])
 
-    def test_assertion_failure_is_product_and_keeps_exit_status(self):
+    def test_observed_failure_category_is_carried_not_inferred(self):
+        for category in ("-", "product", "test_defect", "infrastructure", "external_dependency", "timeout"):
+            with self.subTest(category=category):
+                records = self.passing_records()
+                records[3] = ("step", "v1-state", "upgrade", "fail", "800", category)
+                self.write_records(records)
+                completed = self.emit(exit_code=1)
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                document, _ = self.document()
+                expected = None if category == "-" else category
+                self.assertEqual(document["journeys"][0]["steps"][1]["failure_category"], expected)
+                self.assertEqual(document["result"]["failure_categories"], [expected] if expected else [])
+                self.assertEqual(document["result"]["status"], "fail")
+                os.unlink(self.output)
+
+    def test_observed_product_failure_keeps_exit_status(self):
         records = self.passing_records()
-        records[3] = ("step", "v1-state", "upgrade", "fail", "800")
+        records[3] = ("step", "v1-state", "upgrade", "fail", "800", "product")
         records[5] = ("observe", "v1-state", "classification_after", "invalid value with spaces")
         self.write_records(records)
         completed = self.emit(exit_code=1)
@@ -488,7 +541,9 @@ class Emitter(unittest.TestCase):
         self.assertIsNone(document["journeys"][0]["classification"]["after"])
 
     def test_abort_marks_the_open_journey_incomplete(self):
-        self.write_records(self.passing_records()[:4])
+        records = self.passing_records()[:4]
+        records[1] = ("step", "v1-state", "install-previous", "fail", "1200", "-")
+        self.write_records(records)
         completed = self.emit(exit_code=127, termination="aborted")
         self.assertEqual(completed.returncode, 0, completed.stderr)
         document, _ = self.document()
@@ -511,11 +566,76 @@ class Emitter(unittest.TestCase):
         document, _ = self.document()
         self.assertEqual((document["journeys"], document["result"]["status"]), ([], "fail"))
 
+    def test_lost_or_reordered_records_refuse_the_document(self):
+        for label, skip, count in (("intermediate", (4,), None), ("last", (12,), None), ("none written", (), 13)):
+            with self.subTest(label=label):
+                self.write_records(self.passing_records(), skip=skip)
+                completed = self.emit(record_count=count)
+                self.assertEqual(completed.returncode, 1)
+                self.assertIn("evidence capture incomplete", completed.stderr)
+                self.assertFalse(os.path.exists(self.output))
+
+    def test_reordered_records_with_a_complete_count_are_refused(self):
+        self.write_records(self.passing_records())
+        with open(self.records, encoding="utf-8") as handle:
+            lines = handle.readlines()
+        lines[2], lines[3] = lines[3], lines[2]
+        with open(self.records, "w", encoding="utf-8") as handle:
+            handle.writelines(lines)
+        completed = self.emit()
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("record 3 is missing or out of order", completed.stderr)
+        self.assertFalse(os.path.exists(self.output))
+
+    def test_attempt_identity_is_an_input_and_reemission_is_deterministic(self):
+        self.write_records(self.passing_records())
+        first = self.emit()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        _, text = self.document()
+        second_output = os.path.join(self.output_directory, "again.json")
+        second = self.emit(output=second_output)
+        self.assertEqual(second.returncode, 0, second.stderr)
+        with open(second_output, encoding="utf-8") as handle:
+            self.assertEqual(handle.read(), text)
+        self.assertEqual(first.stdout, second.stdout)
+        self.assertEqual(json.loads(text)["run"]["attempt_id"], ATTEMPT)
+
+    def test_invalid_attempt_identity_is_refused(self):
+        self.write_records(self.passing_records())
+        for attempt in ("", "not-a-uuid", ATTEMPT.upper(), "3c06716f-6202-175b-9390-b20ca00e4877", ATTEMPT + "\n"):
+            with self.subTest(attempt=attempt):
+                completed = self.emit(attempt=attempt)
+                self.assertEqual(completed.returncode, 1)
+                self.assertIn("--attempt-id must be a lowercase UUIDv4", completed.stderr)
+                self.assertFalse(os.path.exists(self.output))
+
+    def test_source_archive_absent_from_its_sha256sums_is_unbound(self):
+        with open(os.path.join(self.previous[0], "SHA256SUMS"), "w", encoding="utf-8") as handle:
+            handle.write(f"{SHA}  axiom-0.5.0-linux-amd64.tar.gz\n")
+        self.write_records(self.passing_records())
+        completed = self.emit()
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("row archive digest", completed.stderr)
+        self.assertFalse(os.path.exists(self.output))
+        records = self.passing_records()
+        records[3] = ("step", "v1-state", "upgrade", "fail", "800", "-")
+        self.write_records(records)
+        completed = self.emit(exit_code=1)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        document, _ = self.document()
+        self.assertEqual(document["inputs"]["upgrade_sources"][0]["artifacts"], [])
+
+    def test_subject_archive_absent_from_its_sha256sums_is_insufficient(self):
+        with open(os.path.join(self.candidate, "SHA256SUMS"), "w", encoding="utf-8") as handle:
+            handle.write(f"{SHA}  axiom-9999.0.0-acceptance.7-linux-amd64.tar.gz\n")
+        self.write_records(self.passing_records())
+        self.assertEqual(self.emit().returncode, 3)
+
     def test_inconsistent_state_is_refused_not_written(self):
         self.write_records(self.passing_records())
         completed = self.emit(exit_code=1)
         self.assertEqual(completed.returncode, 1)
-        self.assertIn("needs a failure category", completed.stderr)
+        self.assertIn("needs a failed step or a failure category", completed.stderr)
         self.assertFalse(os.path.exists(self.output))
 
     def test_missing_subject_is_insufficient_state(self):
@@ -536,10 +656,15 @@ class Emitter(unittest.TestCase):
         self.assertIsNone(document["journeys"][0]["installer"]["upgrade"])
 
     def test_malformed_records_are_refused(self):
-        for records in ([("step", "unknown", "x", "pass", "1")],
-                        [("journey", "j", "n", "previous-1", "-", "2026-10-06T10:00:01Z"), ("step", "j", "x", "maybe", "1")],
-                        [("journey", "j", "n", "previous-1", "-", "2026-10-06T10:00:01Z"), ("observe", "j", "stdout", "x")],
-                        [("journey", "j", "n", "previous-9", "-", "2026-10-06T10:00:01Z"), ("step", "j", "x", "pass", "1"),
+        journey = ("journey", "j", "n", "previous-1", "-", "2026-10-06T10:00:01Z")
+        for records in ([("step", "unknown", "x", "pass", "1", "-")],
+                        [journey, ("step", "j", "x", "maybe", "1", "-")],
+                        [journey, ("step", "j", "x", "fail", "1", "flaky")],
+                        [journey, ("step", "j", "x", "fail", "1", "")],
+                        [journey, ("step", "j", "x", "pass", "1", "product")],
+                        [journey, ("step", "j", "x", "fail", "1")],
+                        [journey, ("observe", "j", "stdout", "x")],
+                        [("journey", "j", "n", "previous-9", "-", "2026-10-06T10:00:01Z"), ("step", "j", "x", "pass", "1", "-"),
                          ("journey_end", "j", "2026-10-06T10:00:02Z")]):
             with self.subTest(records=records):
                 self.write_records(records)
@@ -569,6 +694,73 @@ class Emitter(unittest.TestCase):
                 self.assertEqual(command.returncode, 1)
 
 
+def capture_block():
+    """The harness's own Evidence capture functions, verbatim."""
+    with open(HARNESS, encoding="utf-8") as handle:
+        text = handle.read()
+    begin = text.index("# --- evidence capture: begin")
+    return text[begin:text.index("# --- evidence capture: end", begin)]
+
+
+class Capture(Emitter):
+    """Drives the harness capture block (record, check, cleanup, emit_evidence)."""
+
+    def run_block(self, body):
+        work = os.path.join(self.root, "work")
+        os.mkdir(work)
+        script = f"""set -euo pipefail
+{capture_block()}
+evidence={self.output!r} work={work!r} evidence_python={sys.executable!r} repository_root={ROOT!r}
+row=linux-amd64 candidate={self.candidate!r} previous=({self.previous[0]!r}) poc_binary=
+stable_corpus=internal/compatibility/testdata/stable-v1/snapshots/v0.4.0
+original_home=$HOME original_path=$PATH termination= signal= record_count=0 capture_lost=0
+attempt_id={ATTEMPT} started_at=$(utc_now) failures=0 journey=journey journey_id= clock_resolution_ms=1000
+exec 8>&1 9>&2
+trap cleanup EXIT
+records="$work/evidence.records"
+lose() {{ mv "$records" "$work/kept"; mkdir "$records"; }}
+restore() {{ rmdir "$records"; mv "$work/kept" "$records"; }}
+begin_journey v1-state n previous-1 -
+{body}
+end_journey
+termination=completed
+[[ $failures -eq 0 ]] || exit 1
+"""
+        environment = {key: value for key, value in os.environ.items() if not key.startswith(("GITHUB_", "RUNNER_"))}
+        return subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=environment, check=False)
+
+    def test_intact_capture_writes_evidence_for_the_attempt(self):
+        completed = self.run_block("check a true\ncheck_observed upgraded b true\ncheck c true")
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assertRegex(completed.stdout, r"evidence_sha256=[0-9a-f]{64}\n$")
+        document, _ = self.document()
+        self.assertEqual(document["run"]["attempt_id"], ATTEMPT)
+        self.assertEqual([step["id"] for step in document["journeys"][0]["steps"]], ["a", "b", "c"])
+
+    def test_record_loss_in_a_passing_run_fails_closed(self):
+        completed = self.run_block("check a true\nlose\ncheck b true\nrestore\ncheck c true")
+        self.assertEqual(completed.returncode, 70, completed.stdout + completed.stderr)
+        self.assertIn("evidence=unavailable", completed.stdout)
+        self.assertIn("capture incomplete: 1 of 5 Evidence records not written", completed.stdout)
+        self.assertIn("journey=journey step=b result=pass", completed.stdout)
+        self.assertFalse(os.path.exists(self.output))
+        self.assertEqual(os.listdir(self.output_directory), [])
+
+    def test_record_loss_in_a_failing_run_keeps_the_original_failure(self):
+        completed = self.run_block("check a true\nlose\ncheck_observed unchanged b false\nrestore\ncheck c true")
+        self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
+        self.assertIn("journey=journey step=b result=fail", completed.stdout)
+        self.assertIn("capture incomplete", completed.stdout)
+        self.assertFalse(os.path.exists(self.output))
+
+    def test_failure_categories_come_from_the_step_declaration(self):
+        completed = self.run_block("check a false\ncheck_observed unchanged b false\ncheck_observed '' c false")
+        self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
+        document, _ = self.document()
+        self.assertEqual([step["failure_category"] for step in document["journeys"][0]["steps"]], [None, "product", None])
+        self.assertEqual(document["result"]["failure_categories"], ["product"])
+
+
 class Harness(unittest.TestCase):
     def run_harness(self, *arguments):
         return subprocess.run(["bash", HARNESS, *arguments], capture_output=True, text=True, check=False)
@@ -582,7 +774,9 @@ class Harness(unittest.TestCase):
             previous = os.path.join(temporary, "previous")
             os.mkdir(candidate)
             os.mkdir(previous)
-            for target in ("relative.json", os.path.join(temporary, "missing", "e.json"), temporary,
+            existing = os.path.join(temporary, "existing.json")
+            open(existing, "w", encoding="utf-8").close()
+            for target in ("relative.json", os.path.join(temporary, "missing", "e.json"), temporary, existing,
                            os.path.join(candidate, "e.json"), os.path.join(previous, "e.json"),
                            os.path.join(ROOT, "e.json")):
                 with self.subTest(target=target):

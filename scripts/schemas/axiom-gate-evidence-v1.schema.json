@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/rgomids/axiom/blob/main/scripts/schemas/axiom-gate-evidence-v1.schema.json",
   "title": "axiom-gate-evidence/v1",
-  "description": "Release-gate Evidence (Specification 004 FR-075/AC-56, ADR-0019, Issue #234). One document records one attempt of one gate suite on one release row. Every object is closed and every property is required; a fact the emitter cannot observe is null, never invented. Cross-field rules that JSON Schema cannot express (counts, journey/step consistency, references, timestamp order, string safety, size) are enforced by scripts/gate-evidence.py validate.",
+  "description": "Release-gate Evidence (Specification 004 FR-075/AC-56, ADR-0019, Issue #234). One document records one attempt of one gate suite on one release row. Every object is closed and every property is required; a fact the emitter cannot observe is null, never invented. Cross-field rules that JSON Schema cannot express (counts, journey/step consistency, references, the row archive of the subject, digest binding of every upgrade source a passing run used, timestamp order, string safety, size) are enforced by scripts/gate-evidence.py validate.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "gate", "suite", "row", "subject", "run", "environment", "inputs", "journeys", "result", "started_at", "finished_at"],
@@ -77,7 +77,7 @@
       "additionalProperties": false,
       "required": ["attempt_id", "ci"],
       "properties": {
-        "attempt_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Unique identity of this attempt, local or CI. A retry is a new attempt and a new document."},
+        "attempt_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Identity of this attempt, created once when the attempt starts, local or CI; re-emitting the same attempt keeps it. A retry is a new attempt and a new document."},
         "ci": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/ci"}], "description": "null for local execution; GitHub Actions identity is never required."}
       }
     },
@@ -180,13 +180,13 @@
       "properties": {
         "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
         "result": {"enum": ["pass", "fail", "not_applicable"]},
-        "failure_category": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/failure_category"}]},
+        "failure_category": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/failure_category"}], "description": "Category the harness observed for a failed step, declared where the step runs; null when its cause is not observable. `product` means the subject itself produced a definite observation that contradicts its contract. Never inferred by the emitter."},
         "reason": {"$ref": "#/$defs/nullable_reason"},
         "governing_reference": {"$ref": "#/$defs/nullable_reference"},
         "duration_ms": {"type": ["integer", "null"], "minimum": 0, "maximum": 86400000}
       },
       "allOf": [
-        {"if": {"properties": {"result": {"const": "fail"}}}, "then": {"properties": {"failure_category": {"$ref": "#/$defs/failure_category"}, "reason": {"type": "null"}, "governing_reference": {"type": "null"}}}},
+        {"if": {"properties": {"result": {"const": "fail"}}}, "then": {"properties": {"reason": {"type": "null"}, "governing_reference": {"type": "null"}}}},
         {"if": {"properties": {"result": {"const": "pass"}}}, "then": {"properties": {"failure_category": {"type": "null"}, "reason": {"type": "null"}, "governing_reference": {"type": "null"}}}},
         {"if": {"properties": {"result": {"const": "not_applicable"}}}, "then": {"properties": {"failure_category": {"type": "null"}, "reason": {"type": "string"}, "governing_reference": {"type": "string"}, "duration_ms": {"type": "null"}}}}
       ]
@@ -251,7 +251,7 @@
         "termination": {"enum": ["completed", "aborted", "interrupted"], "description": "completed: the suite reached its verdict; aborted: it stopped on an error outside any assertion; interrupted: it received a signal. aborted and interrupted are always fail and are not attributed to a category the emitter cannot observe."},
         "exit_code": {"type": "integer", "minimum": 0, "maximum": 255},
         "signal": {"enum": ["HUP", "INT", "TERM", null]},
-        "failure_categories": {"type": "array", "maxItems": 5, "uniqueItems": true, "items": {"$ref": "#/$defs/failure_category"}},
+        "failure_categories": {"type": "array", "maxItems": 5, "uniqueItems": true, "items": {"$ref": "#/$defs/failure_category"}, "description": "Sorted categories observed for this attempt; failed steps whose cause was not observable add none."},
         "counts": {
           "type": "object",
           "additionalProperties": false,

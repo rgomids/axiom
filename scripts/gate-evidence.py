@@ -7,6 +7,7 @@ upgrade journeys (Issue #234; Specification 004 FR-075/AC-56; ADR-0019).
       --row ROW --candidate DIR [--previous DIR ...] [--poc-binary FILE] \
       --fixture ID=RELATIVE_PATH ... --started-at TS --finished-at TS \
       --exit-code N --termination completed|aborted|interrupted [--signal NAME] \
+      --attempt-id UUID --record-count N \
       --bash-version V --clock-resolution-ms 1|1000 --work-dir DIR --repository DIR
 
 Validation is deterministic and offline. The closed JSON Schema
@@ -16,6 +17,9 @@ the cross-field rules JSON Schema cannot express. The emitter reads only the
 harness's step records, the subject and source archives (read-only), the
 fixture trees and a fixed allowlist of host and CI facts. It never reads logs,
 never dumps the environment, and prints only the written document's digest.
+It never infers a failure category: it carries the one the harness observed
+for each step, or null. It refuses incomplete step records and binds an
+upgrade-source or subject artifact only when its SHA256SUMS lists that digest.
 
 Exit status: 0 valid or written; 1 invalid document or emitter error; 2 usage;
 3 not enough subject state to produce a document.
@@ -34,7 +38,6 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import uuid
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCHEMA_PATH = os.path.join(ROOT, "scripts", "schemas", "axiom-gate-evidence-v1.schema.json")
@@ -47,10 +50,6 @@ TIMESTAMP_FORMATS = ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S.%fZ")
 GATE = "merge-regression"
 SUITE = "upgrade-journeys"
 SCRIPT = "scripts/test-upgrade-journeys.sh"
-# A failed harness assertion is a deterministic observation, so it is recorded
-# as `product`: never a retryable category (Research #154). Re-attributing it to
-# `test_defect` is a triage decision recorded by a new attempt, not here.
-ASSERTION_FAILURE_CATEGORY = "product"
 OBSERVATIONS = {
     "installer_upgrade": ("installer", "upgrade"),
     "installer_rerun": ("installer", "rerun"),
@@ -296,6 +295,8 @@ def semantic_errors(document):
             found.append(f"{path}: identifiers are not unique")
 
     unique([item["name"] for item in document["subject"]["artifacts"]], "$.subject.artifacts")
+    if not any(_row_archive(item["name"], document["row"]) for item in document["subject"]["artifacts"]):
+        found.append("$.subject.artifacts: no archive of the row under test")
     sources = [item["id"] for item in document["inputs"]["upgrade_sources"]]
     unique(sources, "$.inputs.upgrade_sources")
     unique([item["id"] for item in document["inputs"]["fixtures"]], "$.inputs.fixtures")
@@ -326,7 +327,7 @@ def semantic_errors(document):
         results = [step["result"] for step in journey["steps"]]
         for step in journey["steps"]:
             totals[step["result"]] += 1
-            if step["result"] == "fail":
+            if step["result"] == "fail" and step["failure_category"] is not None:
                 failed_categories.add(step["failure_category"])
         if journey["result"] == "pass" and (not journey["completed"] or "pass" not in results or "fail" in results):
             found.append(f"{where}.result: pass needs a completed journey with passing and no failing steps")
@@ -359,10 +360,34 @@ def semantic_errors(document):
         found.append("$.result.status: pass contradicts a failed or incomplete journey")
     if result["status"] == "pass" and not totals["pass"]:
         found.append("$.result.status: pass needs at least one passing step; not_applicable is never a pass")
-    if result["status"] == "fail" and not categories and result["termination"] == "completed":
-        found.append("$.result.status: a completed failing run needs a failure category")
+    if result["status"] == "fail" and not categories and not totals["fail"] and result["termination"] == "completed":
+        found.append("$.result.status: a completed failing run needs a failed step or a failure category")
+    if result["status"] == "pass":
+        found += _unbound_sources(document)
     if result["termination"] != "completed" and result["status"] != "fail":
         found.append("$.result.status: an aborted or interrupted run is a failure")
+    return found
+
+
+def _row_archive(name, row):
+    return name.startswith("axiom-") and name.endswith((f"-{row}.tar.gz", f"-{row}.zip"))
+
+
+def _unbound_sources(document):
+    """A passing run is bound to the exact bytes of every source it used."""
+    used = {source for journey in document["journeys"] for source in journey["source"]["path"]}
+    found = []
+    for index, source in enumerate(document["inputs"]["upgrade_sources"]):
+        if source["id"] not in used:
+            continue
+        where = f"$.inputs.upgrade_sources[{index}]"
+        if source["kind"] == "release":
+            if source["sha256sums_sha256"] is None:
+                found.append(f"{where}.sha256sums_sha256: a used release source of a pass needs its SHA256SUMS digest")
+            if not any(_row_archive(item["name"], document["row"]) for item in source["artifacts"]):
+                found.append(f"{where}.artifacts: a used release source of a pass needs its row archive digest")
+        elif not source["artifacts"]:
+            found.append(f"{where}.artifacts: a used historical build of a pass needs the digest of the executed binary")
     return found
 
 
@@ -417,6 +442,20 @@ def row_archive(directory, row):
     return os.path.join(directory, names[0]) if len(names) == 1 else None
 
 
+def listed_digests(sums):
+    """name -> digest from a sha256sum-format SHA256SUMS file."""
+    listed = {}
+    try:
+        with open(sums, encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                match = re.match(r"^([0-9a-f]{64}) [ *](.+)$", line.rstrip("\n"))
+                if match:
+                    listed[match.group(2)] = match.group(1)
+    except OSError:
+        pass
+    return listed
+
+
 def archive_metadata(archive):
     """Reads release-metadata.txt from the archive without extracting it."""
     try:
@@ -442,11 +481,15 @@ class Builder:
         subschema = definition if isinstance(definition, dict) else self.schema.definition(definition)
         return value if value is not None and self.schema.accepts(value, subschema) else None
 
-    def artifact(self, path):
+    def artifact(self, path, sums=None):
+        """The artifact's digest; with sums, only when SHA256SUMS lists exactly that digest."""
         name = os.path.basename(path)
         if not self.schema.accepts(name, self.schema.definition("artifact")["properties"]["name"]):
             return None
-        return {"name": name, "sha256": sha256_file(path)}
+        digest = sha256_file(path)
+        if sums is not None and listed_digests(sums).get(name) != digest:
+            return None
+        return {"name": name, "sha256": digest}
 
     def subject(self):
         candidate = self.arguments.candidate
@@ -457,9 +500,9 @@ class Builder:
         metadata = archive_metadata(archive)
         version = self.observed(metadata.get("version"), "version")
         revision = self.observed(metadata.get("revision"), self.schema.definition("subject")["properties"]["revision"])
-        artifact = self.artifact(archive)
+        artifact = self.artifact(archive, sums)
         if version is None or revision is None or artifact is None:
-            raise Insufficient("candidate release metadata is missing or malformed")
+            raise Insufficient("candidate release metadata is missing or malformed, or its archive is not in SHA256SUMS")
         return {
             "kind": "rebuilt",
             "tag": None,
@@ -476,7 +519,7 @@ class Builder:
         for index, directory in enumerate(self.arguments.previous, start=1):
             archive = row_archive(directory, self.arguments.row)
             sums = os.path.join(directory, "SHA256SUMS")
-            artifact = self.artifact(archive) if archive else None
+            artifact = self.artifact(archive, sums) if archive else None
             sources.append({
                 "id": f"previous-{index}",
                 "kind": "release",
@@ -540,8 +583,13 @@ class Builder:
 
     def records(self):
         journeys, order = {}, []
+        categories = set(self.schema.definition("failure_category")["enum"])
+        number = 0
         with open(self.arguments.records, encoding="utf-8") as handle:
             for number, line in enumerate(handle, start=1):
+                sequence, _, line = line.partition("\t")
+                if sequence != str(number):
+                    raise Invalid(f"evidence capture incomplete: record {number} is missing or out of order")
                 fields = line.rstrip("\n").split("\t", 3 if line.startswith("observe\t") else -1)
                 kind = fields[0]
                 if kind == "journey" and len(fields) == 6:
@@ -568,12 +616,14 @@ class Builder:
                 journey = journeys.get(fields[1]) if len(fields) > 1 else None
                 if journey is None:
                     raise Invalid(f"records:{number}: unknown or missing journey")
-                if kind == "step" and len(fields) == 5 and fields[3] in ("pass", "fail") and fields[4].isdigit():
-                    failed = fields[3] == "fail"
+                if kind == "step" and len(fields) == 6 and fields[4].isdigit() and (
+                        (fields[3] == "pass" and fields[5] == "-")
+                        or (fields[3] == "fail" and (fields[5] == "-" or fields[5] in categories))):
                     journey["steps"].append({
                         "id": fields[2],
                         "result": fields[3],
-                        "failure_category": ASSERTION_FAILURE_CATEGORY if failed else None,
+                        # Only the category the harness observed; never inferred here.
+                        "failure_category": None if fields[5] == "-" else fields[5],
                         "reason": None,
                         "governing_reference": None,
                         "duration_ms": int(fields[4]),
@@ -590,6 +640,8 @@ class Builder:
                     journey["finished_at"] = fields[2]
                 else:
                     raise Invalid(f"records:{number}: malformed record")
+        if number != self.arguments.record_count:
+            raise Invalid(f"evidence capture incomplete: {number} of {self.arguments.record_count} records")
         for identifier in order:
             journey = journeys[identifier]
             results = {step["result"] for step in journey["steps"]}
@@ -602,13 +654,15 @@ class Builder:
         steps = [step for journey in journeys for step in journey["steps"]]
         failed = [step for step in steps if step["result"] == "fail"]
         status = "pass" if arguments.termination == "completed" and arguments.exit_code == 0 and not failed else "fail"
+        if not self.schema.accepts(arguments.attempt_id, self.schema.definition("run")["properties"]["attempt_id"]):
+            raise Invalid("--attempt-id must be a lowercase UUIDv4")
         return {
             "schema": SCHEMA_ID,
             "gate": GATE,
             "suite": SUITE,
             "row": arguments.row,
             "subject": self.subject(),
-            "run": {"attempt_id": str(uuid.uuid4()), "ci": ci_identity(self)},
+            "run": {"attempt_id": arguments.attempt_id, "ci": ci_identity(self)},
             "environment": environment(self),
             "inputs": {
                 "upgrade_sources": self.upgrade_sources(),
@@ -622,7 +676,7 @@ class Builder:
                 "termination": arguments.termination,
                 "exit_code": arguments.exit_code,
                 "signal": arguments.signal or None,
-                "failure_categories": sorted({step["failure_category"] for step in failed}),
+                "failure_categories": sorted({step["failure_category"] for step in failed} - {None}),
                 "counts": {
                     "journeys": len(journeys),
                     "steps": len(steps),
@@ -795,6 +849,8 @@ def parse(argv):
     emit.add_argument("--exit-code", required=True, type=int)
     emit.add_argument("--termination", required=True, choices=["completed", "aborted", "interrupted"])
     emit.add_argument("--signal", default="", choices=["", "HUP", "INT", "TERM"])
+    emit.add_argument("--attempt-id", required=True)
+    emit.add_argument("--record-count", required=True, type=int)
     emit.add_argument("--bash-version", default="")
     emit.add_argument("--clock-resolution-ms", required=True, type=int, choices=[1, 1000])
     emit.add_argument("--work-dir", required=True)

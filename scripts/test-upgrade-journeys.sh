@@ -20,9 +20,11 @@
 # document (scripts/schemas/axiom-gate-evidence-v1.schema.json) for the
 # rebuilt candidate, built by scripts/gate-evidence.py from the step records
 # below and validated before it is written. It is written on pass and on
-# failure, aborts and interrupts whenever the candidate can be identified;
-# the console only gains its digest. The original exit status is kept; a
-# passing run whose Evidence cannot be written exits 70.
+# failure, aborts and interrupts whenever the candidate can be identified and
+# every step record was captured; the console only gains its digest. The
+# original exit status is kept; a passing run whose Evidence cannot be written
+# exits 70. The --evidence path must not exist yet, so no earlier document can
+# stand in for this attempt.
 set -euo pipefail
 umask 077
 
@@ -46,6 +48,7 @@ if [[ -n "$evidence" ]]; then
   # Evidence never lands inside the subject, a source or the repository.
   evidence_parent=$(cd "$(dirname "$evidence")" 2>/dev/null && pwd -P) || evidence_parent=
   [[ "$evidence" == /* && -n "$evidence_parent" && ! -d "$evidence" ]] || { printf 'upgrade_journey_error: --evidence must be an absolute file in an existing directory\n' >&2; exit 2; }
+  [[ ! -e "$evidence" && ! -L "$evidence" ]] || { printf 'upgrade_journey_error: --evidence must not exist yet\n' >&2; exit 2; }
   for input in "$candidate" "${previous[@]}" "$repository_root"; do
     input=$(cd "$input" 2>/dev/null && pwd -P) || continue
     case "$evidence_parent/" in "$input"/*) printf 'upgrade_journey_error: --evidence must be outside the candidate, previous releases and repository\n' >&2; exit 2 ;; esac
@@ -62,11 +65,8 @@ case "$(uname -s):$(uname -m)" in
 esac
 
 original_home=$HOME original_path=$PATH
+# --- evidence capture: begin (exercised directly by scripts/test-gate-evidence.py)
 utc_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
-started_at=$(utc_now)
-work=$(mktemp -d)
-work=$(cd "$work" && pwd -P)
-termination= signal=
 cleanup() {
   local status=$?
   trap - EXIT
@@ -76,6 +76,69 @@ cleanup() {
   chmod -R u+w "$work" 2>/dev/null; rm -rf -- "$work"
   exit "$status"
 }
+now_ms() {
+  if [[ $clock_resolution_ms -eq 1 ]]; then local now=${EPOCHREALTIME/[.,]/}; printf '%s\n' $((10#$now / 1000)); else printf '%s000\n' "$(date +%s)"; fi
+}
+# Step records for the Evidence emitter: numbered, tab-separated, fixed
+# vocabulary, never command output. A failed append never changes a journey's
+# outcome, but it compromises the capture: the attempt then has no Evidence.
+record() {
+  [[ -n "$evidence" ]] || return 0
+  record_count=$((record_count + 1))
+  (IFS=$'\t'; printf '%s\t%s\n' "$record_count" "$*") >>"$work/evidence.records" 2>/dev/null || capture_lost=$((capture_lost + 1))
+}
+observe() { local value=${2%%$'\n'*}; record observe "$journey_id" "$1" "${value//$'\t'/ }"; }
+end_journey() { [[ -z "$journey_id" ]] || record journey_end "$journey_id" "$(utc_now)"; journey_id=; }
+# begin_journey ID ROLE SOURCES GENERATION: closes the previous journey.
+begin_journey() { end_journey; journey_id=$1; record journey "$1" "$2" "$3" "$4" "$(utc_now)"; }
+pass() { printf 'journey=%s step=%s result=pass\n' "$journey" "$1"; record step "$journey_id" "$1" pass $(($(now_ms) - $2)) -; }
+# fail STEP STARTED CATEGORY: CATEGORY is the observed failure category, or -.
+fail() { printf 'journey=%s step=%s result=fail\n' "$journey" "$1"; failures=$((failures + 1)); record step "$journey_id" "$1" fail $(($(now_ms) - $2)) "$3"; }
+run_check() { local category=$1 step=$2 started; shift 2; started=$(now_ms); if "$@" >"$work/last.out" 2>&1; then pass "$step" "$started"; else fail "$step" "$started" "$category"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
+# check STEP CMD...: the cause of a failure is not observable here, so its
+# failure category stays undetermined (null in the Evidence).
+check() { run_check - "$@"; }
+# check_observed OBSERVED STEP CMD...: STEP compares OBSERVED, a value the
+# candidate itself produced, with its contract. A definite OBSERVED that
+# contradicts it is a `product` failure; an empty one stays undetermined.
+check_observed() { local category=-; [[ -z "$1" ]] || category=product; shift; run_check "$category" "$@"; }
+
+# emit_evidence STATUS: builds, validates and writes the Evidence document with
+# the caller's own HOME and PATH (never the isolated homes or their shims).
+emit_evidence() {
+  local status=$1 state=aborted arguments=() directory
+  if [[ $capture_lost -ne 0 ]]; then
+    printf 'evidence=unavailable\n  capture incomplete: %s of %s Evidence records not written\n' "$capture_lost" "$record_count"
+    return 1
+  fi
+  if [[ -n "$signal" ]]; then state=interrupted; elif [[ "$termination" == completed ]]; then state=completed; fi
+  for directory in "${previous[@]}"; do arguments+=(--previous "$directory"); done
+  [[ -z "$poc_binary" ]] || arguments+=(--poc-binary "$poc_binary")
+  [[ -n "$signal" ]] && arguments+=(--signal "$signal")
+  touch "$work/evidence.records"
+  if HOME=$original_home PATH=$original_path "$evidence_python" "$repository_root/scripts/gate-evidence.py" upgrade-journeys \
+    --records "$work/evidence.records" --output "$evidence" --row "$row" --candidate "$candidate" \
+    --fixture "stable-v1-v0.4.0=$stable_corpus" --started-at "$started_at" --finished-at "$(utc_now)" \
+    --exit-code "$status" --termination "$state" --bash-version "$BASH_VERSION" \
+    --attempt-id "$attempt_id" --record-count "$record_count" \
+    --clock-resolution-ms "$clock_resolution_ms" --work-dir "$work" --repository "$repository_root" \
+    "${arguments[@]}" >"$work/evidence.out" 2>"$work/evidence.err"; then
+    cat "$work/evidence.out" || true
+  else
+    printf 'evidence=unavailable\n'
+    sed 's/^/  /' "$work/evidence.err" | head -5
+    return 1
+  fi
+}
+# --- evidence capture: end
+
+termination= signal= record_count=0 capture_lost=0 attempt_id=
+# The attempt identity exists before anything runs; every record and any
+# re-emission of this attempt carry it.
+[[ -z "$evidence" ]] || attempt_id=$("$evidence_python" -c 'import uuid; print(uuid.uuid4())')
+started_at=$(utc_now)
+work=$(mktemp -d)
+work=$(cd "$work" && pwd -P)
 trap cleanup EXIT
 if [[ -n "$evidence" ]]; then
   # Original streams for the Evidence summary; they stay open in check() because
@@ -88,43 +151,6 @@ fi
 failures=0
 journey= journey_id=
 if [[ -n "${EPOCHREALTIME:-}" ]]; then clock_resolution_ms=1; else clock_resolution_ms=1000; fi
-now_ms() {
-  if [[ $clock_resolution_ms -eq 1 ]]; then local now=${EPOCHREALTIME/[.,]/}; printf '%s\n' $((10#$now / 1000)); else printf '%s000\n' "$(date +%s)"; fi
-}
-# Step records for the Evidence emitter: tab-separated, fixed vocabulary, never
-# command output.
-# A failed append only loses Evidence; it never changes a journey's outcome.
-record() { [[ -z "$evidence" ]] || (IFS=$'\t'; printf '%s\n' "$*") >>"$work/evidence.records" 2>/dev/null || true; }
-observe() { local value=${2%%$'\n'*}; record observe "$journey_id" "$1" "${value//$'\t'/ }"; }
-end_journey() { [[ -z "$journey_id" ]] || record journey_end "$journey_id" "$(utc_now)"; journey_id=; }
-# begin_journey ID ROLE SOURCES GENERATION: closes the previous journey.
-begin_journey() { end_journey; journey_id=$1; record journey "$1" "$2" "$3" "$4" "$(utc_now)"; }
-pass() { printf 'journey=%s step=%s result=pass\n' "$journey" "$1"; record step "$journey_id" "$1" pass $(($(now_ms) - $2)); }
-fail() { printf 'journey=%s step=%s result=fail\n' "$journey" "$1"; failures=$((failures + 1)); record step "$journey_id" "$1" fail $(($(now_ms) - $2)); }
-check() { local step=$1 started; shift; started=$(now_ms); if "$@" >"$work/last.out" 2>&1; then pass "$step" "$started"; else fail "$step" "$started"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
-
-# emit_evidence STATUS: builds, validates and writes the Evidence document with
-# the caller's own HOME and PATH (never the isolated homes or their shims).
-emit_evidence() {
-  local status=$1 state=aborted arguments=() directory
-  if [[ -n "$signal" ]]; then state=interrupted; elif [[ "$termination" == completed ]]; then state=completed; fi
-  for directory in "${previous[@]}"; do arguments+=(--previous "$directory"); done
-  [[ -z "$poc_binary" ]] || arguments+=(--poc-binary "$poc_binary")
-  [[ -n "$signal" ]] && arguments+=(--signal "$signal")
-  touch "$work/evidence.records"
-  if HOME=$original_home PATH=$original_path "$evidence_python" "$repository_root/scripts/gate-evidence.py" upgrade-journeys \
-    --records "$work/evidence.records" --output "$evidence" --row "$row" --candidate "$candidate" \
-    --fixture "stable-v1-v0.4.0=$stable_corpus" --started-at "$started_at" --finished-at "$(utc_now)" \
-    --exit-code "$status" --termination "$state" --bash-version "$BASH_VERSION" \
-    --clock-resolution-ms "$clock_resolution_ms" --work-dir "$work" --repository "$repository_root" \
-    "${arguments[@]}" >"$work/evidence.out" 2>"$work/evidence.err"; then
-    cat "$work/evidence.out" || true
-  else
-    printf 'evidence=unavailable\n'
-    sed 's/^/  /' "$work/evidence.err" | head -5
-    return 1
-  fi
-}
 
 digest() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'; else shasum -a 256 "$1" | awk '{print $1}'; fi
@@ -248,13 +274,17 @@ observe classification_before "$classification_before"
 state_before=$(tree_digest "$STATE")
 portable_before=$(tree_digest "$PROJECTS")
 check upgrade install_release "$candidate"
-observe installer_upgrade "$(installer_status)"
-check upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
-check version test "$(version_of)" = "$candidate_version"
-check state-bytes-unchanged test "$(tree_digest "$STATE")" = "$state_before"
-check portable-bytes-unchanged test "$(tree_digest "$PROJECTS")" = "$portable_before"
+upgrade_status=$(installer_status) || true
+observe installer_upgrade "$upgrade_status"
+check_observed "$upgrade_status" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+version_after=$(version_of) || true
+check_observed "$version_after" version test "$version_after" = "$candidate_version"
+state_after=$(tree_digest "$STATE") || true
+check_observed "$state_after" state-bytes-unchanged test "$state_after" = "$state_before"
+portable_after=$(tree_digest "$PROJECTS") || true
+check_observed "$portable_after" portable-bytes-unchanged test "$portable_after" = "$portable_before"
 classification_after=$(classification) || true
-check state-valid-v1 test "$classification_after" = valid_v1
+check_observed "$classification_after" state-valid-v1 test "$classification_after" = valid_v1
 observe classification_after "$classification_after"
 check project-readable bash -c 'cd "$HOME/cwd" && axiom --json project show --selector journey | grep -q "\"status\":\"success\""'
 check execution-readable bash -c "cd \"\$HOME/cwd\" && axiom --json workflow status --project journey --repository main --number 7 | grep -q '$execution_id'"
@@ -262,8 +292,9 @@ check codex-ready bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
 check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
 check first-run-no-op bash -c 'cd "$HOME/cwd" && axiom first-run | grep -q "runtime: claude present=true state=already_configured" && axiom first-run | grep -q "runtime: codex present=true state=already_configured"'
 check rerun-installer install_release "$candidate"
-observe installer_rerun "$(installer_status)"
-check rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
+rerun_status=$(installer_status) || true
+observe installer_rerun "$rerun_status"
+check_observed "$rerun_status" rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
 printf 'journey=%s from=%s to=%s\n' "$journey" "$previous_version" "$candidate_version"
 
 # Journey 2: every further earlier release -> candidate (skill and receipt
@@ -276,8 +307,9 @@ for index in "${!previous[@]}"; do
   check install-previous install_release "${previous[$index]}"
   check first-run-previous bash -c 'cd "$HOME/cwd" && axiom first-run'
   check upgrade install_release "$candidate"
-  observe installer_upgrade "$(installer_status)"
-  check upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+  upgrade_status=$(installer_status) || true
+  observe installer_upgrade "$upgrade_status"
+  check_observed "$upgrade_status" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
   check codex-ready-without-first-run bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   check claude-ready bash -c 'cd "$HOME/cwd" && axiom runtime claude status'
@@ -346,8 +378,9 @@ PYTHON
   workflow_file=$(cd "$STATE" && find workflows -type f | head -1)
   workflow_digest=$(digest "$STATE/$workflow_file")
   check upgrade install_release "$candidate"
-  observe installer_upgrade "$(installer_status)"
-  check upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+  upgrade_status=$(installer_status) || true
+  observe installer_upgrade "$upgrade_status"
+  check_observed "$upgrade_status" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
   archive=$(sed -n 's/^install_preserved=//p' "$work/install.out")
   check archive-reported test -n "$archive"
   if [[ -n "$evidence" && -n "$archive" && -f "$archive/manifest.json" ]]; then observe preservation_manifest_sha256 "$(digest "$archive/manifest.json")"; fi
@@ -365,9 +398,10 @@ PY
   check workflow-history-preserved test -f "$archive/objects/$workflow_digest"
   check workflow-history-not-active test ! -e "$STATE/workflows"
   classification_after=$(classification) || true
-  check rebuilt-state-valid-v1 test "$classification_after" = valid_v1
+  check_observed "$classification_after" rebuilt-state-valid-v1 test "$classification_after" = valid_v1
   observe classification_after "$classification_after"
-  check selected-link-byte-identical test "$(digest "$selected_file")" = "$selected_digest"
+  selected_after=$(digest "$selected_file") || true
+  check_observed "$selected_after" selected-link-byte-identical test "$selected_after" = "$selected_digest"
   selected_link_loads() {
     (cd "$H/cwd" && axiom --json work-item show --project v1-selected --repository main --provider-repository owner/repo --number 42) >"$work/selected-link.json"
     grep -q '"status":"success"' "$work/selected-link.json"
@@ -384,9 +418,11 @@ PYTHON
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   archive_before=$(tree_digest "$archive")
   check rerun-installer install_release "$candidate"
-  observe installer_rerun "$(installer_status)"
-  check rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
-  check archive-retained-unchanged test "$(tree_digest "$archive")" = "$archive_before"
+  rerun_status=$(installer_status) || true
+  observe installer_rerun "$rerun_status"
+  check_observed "$rerun_status" rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
+  archive_after=$(tree_digest "$archive") || true
+  check_observed "$archive_after" archive-retained-unchanged test "$archive_after" = "$archive_before"
 fi
 
 end_journey
