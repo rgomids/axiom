@@ -1,0 +1,321 @@
+{
+  "schema": "axiom-gate-evidence/v1",
+  "gate": "merge-regression",
+  "suite": "upgrade-journeys",
+  "row": "macos-27-arm64",
+  "subject": {
+    "kind": "rebuilt",
+    "tag": null,
+    "version": "9999.0.0-acceptance.1",
+    "revision": "f4819ccd178b",
+    "sha256sums_sha256": "eb1cb75a78498f8a42a1aa854acb3ad48aa24ce68466fd3c9d877c477ebb6b7b",
+    "artifacts": [
+      {
+        "name": "axiom-9999.0.0-acceptance.1-macos-27-arm64.tar.gz",
+        "sha256": "3f2dde516730a25f42cd75c0ecf416040eda0c7414282e2ba5a5a9bfc5c1aadc"
+      }
+    ],
+    "artifact_id": null,
+    "artifact_digest": null
+  },
+  "run": {
+    "attempt_id": "bc479339-5dfc-4e07-900a-7846923f4426",
+    "ci": null
+  },
+  "environment": {
+    "mode": "native",
+    "os": {
+      "family": "darwin",
+      "kernel_release": "27.0.0",
+      "distribution": "macos",
+      "version": "27.0.1"
+    },
+    "architecture": "arm64",
+    "filesystem": "apfs",
+    "runner": null,
+    "go_version": "go1.26.1",
+    "runtime": {
+      "bash": "3.2.57(1)-release",
+      "python": "3.14.4",
+      "clock_resolution_ms": 1000
+    }
+  },
+  "inputs": {
+    "upgrade_sources": [
+      {
+        "id": "previous-1",
+        "kind": "release",
+        "version": "0.5.0",
+        "tag": null,
+        "sha256sums_sha256": "ff93ed162c8a7d1e5cb4691d285d13852477923c4e9f4379982d79f41de107c9",
+        "artifacts": [
+          {
+            "name": "axiom-0.5.0-macos-27-arm64.tar.gz",
+            "sha256": "0fb2aa27c645c8bfbf699214f7eb20b60d1f4f3087c437f87a8fc6e2a67716eb"
+          }
+        ]
+      },
+      {
+        "id": "previous-2",
+        "kind": "release",
+        "version": "0.1.1",
+        "tag": null,
+        "sha256sums_sha256": "1b27ca9c0042f51f34cf4166e2074a6a47a72a70afbd77b3e3d5d9d395399701",
+        "artifacts": [
+          {
+            "name": "axiom-0.1.1-macos-27-arm64.tar.gz",
+            "sha256": "512bd6bb663c991781345c671efb9c955ec4c9ad0c235086796c71fbee0143a5"
+          }
+        ]
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "stable-v1-v0.4.0",
+        "path": "internal/compatibility/testdata/stable-v1/snapshots/v0.4.0",
+        "tree_sha256": "28196fa69f16eedea29c2eaf313ec61b14ee5143eb31e9cbf88018105aff2ba1"
+      }
+    ],
+    "command": [
+      "scripts/test-upgrade-journeys.sh",
+      "--candidate",
+      "{candidate}",
+      "--previous",
+      "{previous-1}",
+      "--previous",
+      "{previous-2}",
+      "--evidence",
+      "{evidence}"
+    ],
+    "repository": {
+      "revision": "f4819ccd178b1e0222b0e6cccbd5c77900f9d1f5",
+      "state": "dirty"
+    }
+  },
+  "journeys": [
+    {
+      "id": "v1-state",
+      "source": {
+        "role": "n",
+        "path": [
+          "previous-1"
+        ],
+        "generation": null,
+        "baseline": null
+      },
+      "completed": true,
+      "result": "pass",
+      "reason": null,
+      "governing_reference": null,
+      "installer": {
+        "upgrade": "upgraded",
+        "rerun": "unchanged"
+      },
+      "classification": {
+        "before": "valid_v1",
+        "after": "valid_v1"
+      },
+      "preservation_manifest_sha256": null,
+      "started_at": "2026-10-06T15:19:37Z",
+      "finished_at": "2026-10-06T15:19:41Z",
+      "steps": [
+        {
+          "id": "install-previous",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "first-run-previous",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "seed-state-with-previous",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 1000
+        },
+        {
+          "id": "previous-reads-seeded-state-as-v1",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "upgrade",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 1000
+        },
+        {
+          "id": "upgrade-status",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "version",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "state-bytes-unchanged",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "portable-bytes-unchanged",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "state-valid-v1",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "project-readable",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "execution-readable",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "codex-ready",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "first-run",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "first-run-no-op",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "rerun-installer",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 1000
+        },
+        {
+          "id": "rerun-unchanged",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        }
+      ]
+    },
+    {
+      "id": "skills-1",
+      "source": {
+        "role": "earlier_release",
+        "path": [
+          "previous-2"
+        ],
+        "generation": null,
+        "baseline": null
+      },
+      "completed": false,
+      "result": "fail",
+      "reason": null,
+      "governing_reference": null,
+      "installer": {
+        "upgrade": null,
+        "rerun": null
+      },
+      "classification": {
+        "before": null,
+        "after": null
+      },
+      "preservation_manifest_sha256": null,
+      "started_at": "2026-10-06T15:19:41Z",
+      "finished_at": null,
+      "steps": [
+        {
+          "id": "install-previous",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 1000
+        },
+        {
+          "id": "first-run-previous",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        }
+      ]
+    }
+  ],
+  "result": {
+    "status": "fail",
+    "termination": "interrupted",
+    "exit_code": 143,
+    "signal": "TERM",
+    "failure_categories": [],
+    "counts": {
+      "journeys": 2,
+      "steps": 19,
+      "passed": 19,
+      "failed": 0,
+      "not_applicable": 0
+    }
+  },
+  "started_at": "2026-10-06T15:19:37Z",
+  "finished_at": "2026-10-06T15:19:43Z"
+}

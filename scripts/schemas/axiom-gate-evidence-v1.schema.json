@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rgomids/axiom/blob/main/scripts/schemas/axiom-gate-evidence-v1.schema.json",
+  "title": "axiom-gate-evidence/v1",
+  "description": "Release-gate Evidence (Specification 004 FR-075/AC-56, ADR-0019, Issue #234). One document records one attempt of one gate suite on one release row. Every object is closed and every property is required; a fact the emitter cannot observe is null, never invented. Cross-field rules that JSON Schema cannot express (counts, journey/step consistency, references, timestamp order, string safety, size) are enforced by scripts/gate-evidence.py validate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "gate", "suite", "row", "subject", "run", "environment", "inputs", "journeys", "result", "started_at", "finished_at"],
+  "properties": {
+    "schema": {"const": "axiom-gate-evidence/v1"},
+    "gate": {"$ref": "#/$defs/identifier", "description": "Decision point the suite serves, for example merge-regression or candidate-acceptance."},
+    "suite": {"$ref": "#/$defs/identifier", "description": "Suite that produced the document, for example upgrade-journeys."},
+    "row": {"enum": ["linux-amd64", "linux-arm64", "macos-27-arm64", "windows-amd64"]},
+    "subject": {"$ref": "#/$defs/subject"},
+    "run": {"$ref": "#/$defs/run"},
+    "environment": {"$ref": "#/$defs/environment"},
+    "inputs": {"$ref": "#/$defs/inputs"},
+    "journeys": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/journey"}},
+    "result": {"$ref": "#/$defs/result"},
+    "started_at": {"$ref": "#/$defs/timestamp"},
+    "finished_at": {"$ref": "#/$defs/timestamp"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+    "nullable_identifier": {"type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nullable_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$", "description": "UTC, RFC 3339 with the Z designator."},
+    "nullable_timestamp": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,6})?Z$"},
+    "version": {"type": "string", "maxLength": 128, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"},
+    "nullable_version": {"type": ["string", "null"], "maxLength": 128, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"},
+    "nullable_tag": {"type": ["string", "null"], "maxLength": 129, "pattern": "^v(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"},
+    "nullable_fact": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$", "description": "A short observed host or runner fact; never free text."},
+    "failure_category": {"enum": ["product", "test_defect", "infrastructure", "external_dependency", "timeout"], "description": "Research #154 failure vocabulary. Closed; a new category needs a new schema version."},
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sha256"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$", "description": "File name only, never a path."},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "tag", "version", "revision", "sha256sums_sha256", "artifacts", "artifact_id", "artifact_digest"],
+      "properties": {
+        "kind": {"enum": ["prepared", "published", "rebuilt"], "description": "prepared: the immutable prepared candidate set (ADR-0019); published: a published release; rebuilt: a candidate rebuilt from source, never a substitute for prepared Evidence."},
+        "tag": {"$ref": "#/$defs/nullable_tag"},
+        "version": {"$ref": "#/$defs/version"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{12}([0-9a-f]{28})?$", "description": "Source revision embedded in the subject (12 or 40 hexadecimal characters)."},
+        "sha256sums_sha256": {"$ref": "#/$defs/sha256"},
+        "artifacts": {"type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/artifact"}, "description": "Every artifact under test, with the digest of its exact bytes."},
+        "artifact_id": {"type": ["string", "null"], "pattern": "^[0-9]{1,20}$", "description": "CI artifact id of the set, when the subject was consumed from one."},
+        "artifact_digest": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$", "description": "CI artifact digest of the set, when available."}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"enum": ["prepared", "published"]}}}, "then": {"properties": {"tag": {"type": "string"}}}}
+      ]
+    },
+    "ci": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "repository", "workflow_ref", "run_id", "run_attempt", "job"],
+      "properties": {
+        "provider": {"const": "github-actions"},
+        "repository": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$"},
+        "workflow_ref": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}/\\.github/workflows/[A-Za-z0-9_.-]{1,100}\\.ya?ml@refs/[A-Za-z0-9_./-]{1,200}$"},
+        "run_id": {"type": ["string", "null"], "pattern": "^[0-9]{1,20}$"},
+        "run_attempt": {"type": ["integer", "null"], "minimum": 1, "maximum": 1000},
+        "job": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9_-]{1,100}$"}
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_id", "ci"],
+      "properties": {
+        "attempt_id": {"type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Unique identity of this attempt, local or CI. A retry is a new attempt and a new document."},
+        "ci": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/ci"}], "description": "null for local execution; GitHub Actions identity is never required."}
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "label", "image_os", "image_version"],
+      "properties": {
+        "environment": {"enum": ["github-hosted", "self-hosted", null]},
+        "label": {"$ref": "#/$defs/nullable_fact"},
+        "image_os": {"$ref": "#/$defs/nullable_fact"},
+        "image_version": {"$ref": "#/$defs/nullable_fact"}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "os", "architecture", "filesystem", "runner", "go_version", "runtime"],
+      "properties": {
+        "mode": {"enum": ["native", "bounded_proxy"], "description": "FR-075: native row host or the FR-072 bounded proxy."},
+        "os": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["family", "kernel_release", "distribution", "version"],
+          "properties": {
+            "family": {"enum": ["darwin", "linux", "windows"]},
+            "kernel_release": {"$ref": "#/$defs/nullable_fact"},
+            "distribution": {"type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$"},
+            "version": {"$ref": "#/$defs/nullable_fact"}
+          }
+        },
+        "architecture": {"enum": ["amd64", "arm64"]},
+        "filesystem": {"type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9._-]{0,31}$", "description": "Type of the filesystem holding the isolated test homes."},
+        "runner": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/runner"}], "description": "Hosted runner facts; null outside CI."},
+        "go_version": {"type": ["string", "null"], "pattern": "^go[0-9]+\\.[0-9]+(\\.[0-9]+)?([a-z0-9.+-]{0,32})?$"},
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bash", "python", "clock_resolution_ms"],
+          "properties": {
+            "bash": {"type": ["string", "null"], "pattern": "^[0-9][0-9A-Za-z.()_-]{0,47}$"},
+            "python": {"$ref": "#/$defs/nullable_fact"},
+            "clock_resolution_ms": {"enum": [1, 1000], "description": "Resolution of step durations."}
+          }
+        }
+      }
+    },
+    "upgrade_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "version", "tag", "sha256sums_sha256", "artifacts"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "kind": {"enum": ["release", "historical_build"], "description": "release: a release artifact set; historical_build: a binary built from a historical source revision (for example the RecognizedPOC lingo)."},
+        "version": {"$ref": "#/$defs/nullable_version"},
+        "tag": {"$ref": "#/$defs/nullable_tag"},
+        "sha256sums_sha256": {"$ref": "#/$defs/nullable_sha256"},
+        "artifacts": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"$ref": "#/$defs/artifact"}}
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "tree_sha256"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9_][A-Za-z0-9._-]{0,63}){0,15}$", "description": "Repository-relative path; never absolute."},
+        "tree_sha256": {"$ref": "#/$defs/sha256", "description": "SHA-256 of the sha256sum-format listing (\"<sha256>  <relative path>\\n\", sorted by path) of every regular file under path."}
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["upgrade_sources", "fixtures", "command", "repository"],
+      "properties": {
+        "upgrade_sources": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/upgrade_source"}},
+        "fixtures": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/fixture"}},
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {"type": "string", "pattern": "^(scripts/[a-z0-9-]{1,64}\\.(sh|py|ps1)|--[a-z][a-z-]{0,31}|\\{[a-z][a-z0-9-]{0,31}\\})$"},
+          "description": "Exact invocation with every path replaced by a {placeholder} bound to subject or inputs ids; never raw paths or values."
+        },
+        "repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["revision", "state"],
+          "properties": {
+            "revision": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$", "description": "Revision of the checkout that supplied the harness and fixtures."},
+            "state": {"enum": ["clean", "dirty", null]}
+          }
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "result", "failure_category", "reason", "governing_reference", "duration_ms"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+        "result": {"enum": ["pass", "fail", "not_applicable"]},
+        "failure_category": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/failure_category"}]},
+        "reason": {"$ref": "#/$defs/nullable_reason"},
+        "governing_reference": {"$ref": "#/$defs/nullable_reference"},
+        "duration_ms": {"type": ["integer", "null"], "minimum": 0, "maximum": 86400000}
+      },
+      "allOf": [
+        {"if": {"properties": {"result": {"const": "fail"}}}, "then": {"properties": {"failure_category": {"$ref": "#/$defs/failure_category"}, "reason": {"type": "null"}, "governing_reference": {"type": "null"}}}},
+        {"if": {"properties": {"result": {"const": "pass"}}}, "then": {"properties": {"failure_category": {"type": "null"}, "reason": {"type": "null"}, "governing_reference": {"type": "null"}}}},
+        {"if": {"properties": {"result": {"const": "not_applicable"}}}, "then": {"properties": {"failure_category": {"type": "null"}, "reason": {"type": "string"}, "governing_reference": {"type": "string"}, "duration_ms": {"type": "null"}}}}
+      ]
+    },
+    "nullable_reason": {"type": ["string", "null"], "minLength": 8, "maxLength": 240, "pattern": "^[A-Za-z0-9][A-Za-z0-9 .,:;()/'_-]*$", "description": "Governing reason of a not_applicable result; one bounded sentence, never a log."},
+    "nullable_reference": {"type": ["string", "null"], "pattern": "^(FR-[0-9]{3}|AC-[0-9]{2,3}|ADR-[0-9]{4}|NFR-[0-9]{2,3})$", "description": "Product-contract clause that forbids the step."},
+    "journey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "completed", "result", "reason", "governing_reference", "installer", "classification", "preservation_manifest_sha256", "started_at", "finished_at", "steps"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["role", "path", "generation", "baseline"],
+          "properties": {
+            "role": {"enum": ["n", "earlier_release", "historical_format"], "description": "FR-074 source role: N, another earlier release, or a declared historical format."},
+            "path": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/identifier"}, "description": "Ordered inputs.upgrade_sources ids the journey upgrades through before the subject."},
+            "generation": {"$ref": "#/$defs/nullable_identifier", "description": "Declared persisted generation or historical format, when known."},
+            "baseline": {"$ref": "#/$defs/nullable_tag", "description": "Declared baseline release of that generation, when known."}
+          }
+        },
+        "completed": {"type": "boolean"},
+        "result": {"enum": ["pass", "fail", "not_applicable"]},
+        "reason": {"$ref": "#/$defs/nullable_reason"},
+        "governing_reference": {"$ref": "#/$defs/nullable_reference"},
+        "installer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["upgrade", "rerun"],
+          "properties": {
+            "upgrade": {"type": ["string", "null"], "pattern": "^[a-z][a-z_]{0,31}$", "description": "install_status category reported by the subject's installer on upgrade."},
+            "rerun": {"type": ["string", "null"], "pattern": "^[a-z][a-z_]{0,31}$", "description": "install_status category reported on the idempotent rerun."}
+          }
+        },
+        "classification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["before", "after"],
+          "properties": {
+            "before": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,31}$"},
+            "after": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9_]{0,31}$"}
+          }
+        },
+        "preservation_manifest_sha256": {"$ref": "#/$defs/nullable_sha256"},
+        "started_at": {"$ref": "#/$defs/timestamp"},
+        "finished_at": {"$ref": "#/$defs/nullable_timestamp"},
+        "steps": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/step"}}
+      },
+      "allOf": [
+        {"if": {"properties": {"result": {"const": "not_applicable"}}}, "then": {"properties": {"reason": {"type": "string"}, "governing_reference": {"type": "string"}}}, "else": {"properties": {"reason": {"type": "null"}, "governing_reference": {"type": "null"}}}},
+        {"if": {"properties": {"completed": {"const": false}}}, "then": {"properties": {"result": {"const": "fail"}, "finished_at": {"type": "null"}}}, "else": {"properties": {"finished_at": {"type": "string"}}}}
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "termination", "exit_code", "signal", "failure_categories", "counts"],
+      "properties": {
+        "status": {"enum": ["pass", "fail"]},
+        "termination": {"enum": ["completed", "aborted", "interrupted"], "description": "completed: the suite reached its verdict; aborted: it stopped on an error outside any assertion; interrupted: it received a signal. aborted and interrupted are always fail and are not attributed to a category the emitter cannot observe."},
+        "exit_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "signal": {"enum": ["HUP", "INT", "TERM", null]},
+        "failure_categories": {"type": "array", "maxItems": 5, "uniqueItems": true, "items": {"$ref": "#/$defs/failure_category"}},
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["journeys", "steps", "passed", "failed", "not_applicable"],
+          "properties": {
+            "journeys": {"type": "integer", "minimum": 0, "maximum": 16},
+            "steps": {"type": "integer", "minimum": 0, "maximum": 1024},
+            "passed": {"type": "integer", "minimum": 0, "maximum": 1024},
+            "failed": {"type": "integer", "minimum": 0, "maximum": 1024},
+            "not_applicable": {"type": "integer", "minimum": 0, "maximum": 1024}
+          }
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "pass"}}}, "then": {"properties": {"termination": {"const": "completed"}, "exit_code": {"const": 0}, "failure_categories": {"maxItems": 0}, "counts": {"properties": {"failed": {"const": 0}}}}}},
+        {"if": {"properties": {"status": {"const": "fail"}}}, "then": {"properties": {"exit_code": {"minimum": 1}}}},
+        {"if": {"properties": {"termination": {"const": "interrupted"}}}, "then": {"properties": {"signal": {"enum": ["HUP", "INT", "TERM"]}}}, "else": {"properties": {"signal": {"const": null}}}}
+      ]
+    }
+  }
+}

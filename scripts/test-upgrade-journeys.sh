@@ -6,7 +6,7 @@
 # idempotent rerun.
 #
 #   scripts/test-upgrade-journeys.sh --candidate ABS_DIR --previous ABS_DIR \
-#     [--previous ABS_DIR ...] [--poc-binary ABS_FILE]
+#     [--previous ABS_DIR ...] [--poc-binary ABS_FILE] [--evidence ABS_FILE]
 #
 # --candidate and each --previous hold one release's SHA256SUMS and archives
 # (as build-release-archives.sh or `gh release download` produce them). The
@@ -15,23 +15,44 @@
 # --poc-binary (a lingo built from tag v0.1.0-poc.1), the RecognizedPOC
 # journey upgrades historical POC state through N to the candidate.
 # Nothing touches the real home, Providers, or the network.
+#
+# With --evidence (Issue #234), the run also writes an axiom-gate-evidence/v1
+# document (scripts/schemas/axiom-gate-evidence-v1.schema.json) for the
+# rebuilt candidate, built by scripts/gate-evidence.py from the step records
+# below and validated before it is written. It is written on pass and on
+# failure, aborts and interrupts whenever the candidate can be identified;
+# the console only gains its digest. The original exit status is kept; a
+# passing run whose Evidence cannot be written exits 70.
 set -euo pipefail
 umask 077
 
 repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 candidate=
 poc_binary=
+evidence=
 previous=()
 while (($#)); do
   case "$1" in
     --candidate) candidate=${2:-}; shift 2 ;;
     --previous) previous+=("${2:-}"); shift 2 ;;
     --poc-binary) poc_binary=${2:-}; shift 2 ;;
+    --evidence) evidence=${2:-}; shift 2 ;;
     *) printf 'upgrade_journey_error: invalid argument\n' >&2; exit 2 ;;
   esac
 done
 [[ "$candidate" == /* && ${#previous[@]} -ge 1 ]] || { printf 'upgrade_journey_error: --candidate and --previous absolute directories required\n' >&2; exit 2; }
 [[ -z "$poc_binary" || "$poc_binary" == /* ]] || { printf 'upgrade_journey_error: --poc-binary must be absolute\n' >&2; exit 2; }
+if [[ -n "$evidence" ]]; then
+  # Evidence never lands inside the subject, a source or the repository.
+  evidence_parent=$(cd "$(dirname "$evidence")" 2>/dev/null && pwd -P) || evidence_parent=
+  [[ "$evidence" == /* && -n "$evidence_parent" && ! -d "$evidence" ]] || { printf 'upgrade_journey_error: --evidence must be an absolute file in an existing directory\n' >&2; exit 2; }
+  for input in "$candidate" "${previous[@]}" "$repository_root"; do
+    input=$(cd "$input" 2>/dev/null && pwd -P) || continue
+    case "$evidence_parent/" in "$input"/*) printf 'upgrade_journey_error: --evidence must be outside the candidate, previous releases and repository\n' >&2; exit 2 ;; esac
+  done
+  evidence_python=$(command -v python3) || { printf 'upgrade_journey_error: --evidence requires python3\n' >&2; exit 2; }
+fi
+stable_corpus=internal/compatibility/testdata/stable-v1/snapshots/v0.4.0
 
 case "$(uname -s):$(uname -m)" in
   Darwin:arm64) row=macos-27-arm64 ;;
@@ -40,13 +61,67 @@ case "$(uname -s):$(uname -m)" in
   *) printf 'upgrade_journey_row=unsupported\nresult=blocked\n'; exit 78 ;;
 esac
 
+original_home=$HOME original_path=$PATH
+utc_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+started_at=$(utc_now)
 work=$(mktemp -d)
 work=$(cd "$work" && pwd -P)
-trap 'chmod -R u+w "$work" 2>/dev/null; rm -rf -- "$work"' EXIT
+termination= signal=
+cleanup() {
+  local status=$?
+  trap - EXIT
+  # A signal deferred inside check() runs here with its redirections still
+  # active; the Evidence summary goes to the original streams.
+  [[ -z "$evidence" ]] || { exec 1>&8 2>&9; emit_evidence "$status"; } || [[ $status -ne 0 ]] || status=70
+  chmod -R u+w "$work" 2>/dev/null; rm -rf -- "$work"
+  exit "$status"
+}
+trap cleanup EXIT
+if [[ -n "$evidence" ]]; then
+  exec 8>&1 9>&2
+  trap 'signal=HUP; exit 129' HUP
+  trap 'signal=INT; exit 130' INT
+  trap 'signal=TERM; exit 143' TERM
+fi
 failures=0
-pass() { printf 'journey=%s step=%s result=pass\n' "$journey" "$1"; }
-fail() { printf 'journey=%s step=%s result=fail\n' "$journey" "$1"; failures=$((failures + 1)); }
-check() { local step=$1; shift; if "$@" >"$work/last.out" 2>&1; then pass "$step"; else fail "$step"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
+journey= journey_id=
+if [[ -n "${EPOCHREALTIME:-}" ]]; then clock_resolution_ms=1; else clock_resolution_ms=1000; fi
+now_ms() {
+  if [[ $clock_resolution_ms -eq 1 ]]; then local now=${EPOCHREALTIME/[.,]/}; printf '%s\n' $((10#$now / 1000)); else printf '%s000\n' "$(date +%s)"; fi
+}
+# Step records for the Evidence emitter: tab-separated, fixed vocabulary, never
+# command output.
+record() { [[ -z "$evidence" ]] || (IFS=$'\t'; printf '%s\n' "$*") >>"$work/evidence.records"; }
+observe() { record observe "$journey_id" "$1" "$2"; }
+end_journey() { [[ -z "$journey_id" ]] || record journey_end "$journey_id" "$(utc_now)"; journey_id=; }
+# begin_journey ID ROLE SOURCES GENERATION: closes the previous journey.
+begin_journey() { end_journey; journey_id=$1; record journey "$1" "$2" "$3" "$4" "$(utc_now)"; }
+pass() { printf 'journey=%s step=%s result=pass\n' "$journey" "$1"; record step "$journey_id" "$1" pass $(($(now_ms) - $2)); }
+fail() { printf 'journey=%s step=%s result=fail\n' "$journey" "$1"; failures=$((failures + 1)); record step "$journey_id" "$1" fail $(($(now_ms) - $2)); }
+check() { local step=$1 started; shift; started=$(now_ms); if "$@" >"$work/last.out" 2>&1; then pass "$step" "$started"; else fail "$step" "$started"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
+
+# emit_evidence STATUS: builds, validates and writes the Evidence document with
+# the caller's own HOME and PATH (never the isolated homes or their shims).
+emit_evidence() {
+  local status=$1 state=aborted arguments=() directory
+  if [[ -n "$signal" ]]; then state=interrupted; elif [[ "$termination" == completed ]]; then state=completed; fi
+  for directory in "${previous[@]}"; do arguments+=(--previous "$directory"); done
+  [[ -z "$poc_binary" ]] || arguments+=(--poc-binary "$poc_binary")
+  [[ -n "$signal" ]] && arguments+=(--signal "$signal")
+  touch "$work/evidence.records"
+  if HOME=$original_home PATH=$original_path "$evidence_python" "$repository_root/scripts/gate-evidence.py" upgrade-journeys \
+    --records "$work/evidence.records" --output "$evidence" --row "$row" --candidate "$candidate" \
+    --fixture "stable-v1-v0.4.0=$stable_corpus" --started-at "$started_at" --finished-at "$(utc_now)" \
+    --exit-code "$status" --termination "$state" --bash-version "$BASH_VERSION" \
+    --clock-resolution-ms "$clock_resolution_ms" --work-dir "$work" --repository "$repository_root" \
+    "${arguments[@]}" >"$work/evidence.out" 2>"$work/evidence.err"; then
+    cat "$work/evidence.out"
+  else
+    printf 'evidence=unavailable\n'
+    sed 's/^/  /' "$work/evidence.err" | head -5
+    return 1
+  fi
+}
 
 digest() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'; else shasum -a 256 "$1" | awk '{print $1}'; fi
@@ -112,6 +187,7 @@ tree_digest() {
 }
 
 version_of() { "$H/.local/bin/axiom" version | sed -n 's/^provenance: Axiom \([^ ]*\) .*/\1/p'; }
+installer_status() { sed -n 's/^install_status=//p' "$work/install.out" | head -1; }
 
 candidate_bundle=$(release_bundle "$candidate")
 candidate_version=$(sed -n 's/^version=//p' "$candidate_bundle/release-metadata.txt")
@@ -146,7 +222,7 @@ seed_v1_state() {
     grep -q '"status":"success"' "$work/advance.json"
     revision=$((revision + 1))
   done
-  local corpus="$repository_root/internal/compatibility/testdata/stable-v1/snapshots/v0.4.0"
+  local corpus="$repository_root/$stable_corpus"
   (cd "$corpus/state" && find . -type d -print) | while IFS= read -r directory; do mkdir -p "$STATE/$directory"; chmod 700 "$STATE/$directory"; done
   (cd "$corpus/state" && find . -type f -print) | while IFS= read -r file; do cp "$corpus/state/$file" "$STATE/$file"; chmod 600 "$STATE/$file"; done
   mkdir -p "$PROJECTS/sample" && chmod 700 "$PROJECTS/sample"
@@ -157,26 +233,33 @@ classification() { (cd "$H/cwd" && axiom --json compatibility inspect) | sed -n 
 
 # Journey 1: release N with non-empty v1 state -> candidate (direct).
 journey=v1-state-$(basename "${previous[0]}")
+begin_journey v1-state n previous-1 -
 new_home v1
 check install-previous install_release "${previous[0]}"
 previous_version=$(version_of)
 check first-run-previous bash -c 'cd "$HOME/cwd" && axiom first-run'
 check seed-state-with-previous seed_v1_state
-check previous-reads-seeded-state-as-v1 test "$(classification)" = valid_v1
+classification_before=$(classification) || true
+check previous-reads-seeded-state-as-v1 test "$classification_before" = valid_v1
+observe classification_before "$classification_before"
 state_before=$(tree_digest "$STATE")
 portable_before=$(tree_digest "$PROJECTS")
 check upgrade install_release "$candidate"
+observe installer_upgrade "$(installer_status)"
 check upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
 check version test "$(version_of)" = "$candidate_version"
 check state-bytes-unchanged test "$(tree_digest "$STATE")" = "$state_before"
 check portable-bytes-unchanged test "$(tree_digest "$PROJECTS")" = "$portable_before"
-check state-valid-v1 test "$(classification)" = valid_v1
+classification_after=$(classification) || true
+check state-valid-v1 test "$classification_after" = valid_v1
+observe classification_after "$classification_after"
 check project-readable bash -c 'cd "$HOME/cwd" && axiom --json project show --selector journey | grep -q "\"status\":\"success\""'
 check execution-readable bash -c "cd \"\$HOME/cwd\" && axiom --json workflow status --project journey --repository main --number 7 | grep -q '$execution_id'"
 check codex-ready bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
 check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
 check first-run-no-op bash -c 'cd "$HOME/cwd" && axiom first-run | grep -q "runtime: claude present=true state=already_configured" && axiom first-run | grep -q "runtime: codex present=true state=already_configured"'
 check rerun-installer install_release "$candidate"
+observe installer_rerun "$(installer_status)"
 check rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
 printf 'journey=%s from=%s to=%s\n' "$journey" "$previous_version" "$candidate_version"
 
@@ -185,21 +268,25 @@ printf 'journey=%s from=%s to=%s\n' "$journey" "$previous_version" "$candidate_v
 for index in "${!previous[@]}"; do
   [[ $index -eq 0 ]] && continue
   journey=skills-$(basename "${previous[$index]}")
+  begin_journey "skills-$index" earlier_release "previous-$((index + 1))" -
   new_home "skills-$index"
   check install-previous install_release "${previous[$index]}"
   check first-run-previous bash -c 'cd "$HOME/cwd" && axiom first-run'
   check upgrade install_release "$candidate"
+  observe installer_upgrade "$(installer_status)"
   check upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
   check codex-ready-without-first-run bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   check claude-ready bash -c 'cd "$HOME/cwd" && axiom runtime claude status'
   check rerun-unchanged bash -c "$(declare -f install_release release_bundle); row=$row work=$work H=$H; install_release '$candidate' && grep -qx install_status=unchanged '$work/install.out'"
+  observe installer_rerun "$(installer_status)"
 done
 
 # Journey 3: historical POC state -> N -> candidate (RecognizedPOC
 # preserve -> clean rebuild -> supported reconfiguration).
 if [[ -n "$poc_binary" ]]; then
   journey=recognized-poc
+  begin_journey recognized-poc historical_format poc-binary,previous-1 recognized-poc
   new_home poc
   poc() { (cd "$H/cwd" && "$poc_binary" --json "$@") >/dev/null; }
   seed_poc() {
@@ -236,7 +323,9 @@ if [[ -n "$poc_binary" ]]; then
     grep -q '"status":"success"' "$work/selection.json"
   }
   check previous-selects-v1-link select_v1_link
-  check selected-link-still-recognized-poc test "$(classification)" = recognized_poc
+  classification_before=$(classification) || true
+  check selected-link-still-recognized-poc test "$classification_before" = recognized_poc
+  observe classification_before "$classification_before"
   selected_file=$(python3 - "$STATE" <<'PYTHON'
 import json, pathlib, sys
 matches = [p for p in pathlib.Path(sys.argv[1], "work-items").rglob("*.json")
@@ -254,9 +343,11 @@ PYTHON
   workflow_file=$(cd "$STATE" && find workflows -type f | head -1)
   workflow_digest=$(digest "$STATE/$workflow_file")
   check upgrade install_release "$candidate"
+  observe installer_upgrade "$(installer_status)"
   check upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
   archive=$(sed -n 's/^install_preserved=//p' "$work/install.out")
   check archive-reported test -n "$archive"
+  if [[ -n "$evidence" && -n "$archive" && -f "$archive/manifest.json" ]]; then observe preservation_manifest_sha256 "$(digest "$archive/manifest.json")"; fi
   check archive-outside-active-roots bash -c "case '$archive' in '$STATE'*|'$PROJECTS'*) exit 1 ;; esac"
   manifest_inventory() {
     python3 - "$archive/manifest.json" <<'PY'
@@ -270,7 +361,9 @@ PY
   check archived-objects-verify bash -c "while read -r path sha bytes; do test \"\$($(declare -f digest); digest '$archive/objects/'\$sha)\" = \"\$sha\" || exit 1; done <'$inventory'"
   check workflow-history-preserved test -f "$archive/objects/$workflow_digest"
   check workflow-history-not-active test ! -e "$STATE/workflows"
-  check rebuilt-state-valid-v1 test "$(classification)" = valid_v1
+  classification_after=$(classification) || true
+  check rebuilt-state-valid-v1 test "$classification_after" = valid_v1
+  observe classification_after "$classification_after"
   check selected-link-byte-identical test "$(digest "$selected_file")" = "$selected_digest"
   selected_link_loads() {
     (cd "$H/cwd" && axiom --json work-item show --project v1-selected --repository main --provider-repository owner/repo --number 42) >"$work/selected-link.json"
@@ -288,10 +381,13 @@ PYTHON
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   archive_before=$(tree_digest "$archive")
   check rerun-installer install_release "$candidate"
+  observe installer_rerun "$(installer_status)"
   check rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
   check archive-retained-unchanged test "$(tree_digest "$archive")" = "$archive_before"
 fi
 
+end_journey
+termination=completed
 printf 'failures=%s\n' "$failures"
 if [[ $failures -ne 0 ]]; then
   printf 'result=fail\n'
