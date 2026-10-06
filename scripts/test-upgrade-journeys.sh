@@ -87,21 +87,24 @@ record() {
   record_count=$((record_count + 1))
   (IFS=$'\t'; printf '%s\t%s\n' "$record_count" "$*") >>"$work/evidence.records" 2>/dev/null || capture_lost=$((capture_lost + 1))
 }
-observe() { local value=${2%%$'\n'*}; record observe "$journey_id" "$1" "${value//$'\t'/ }"; }
+observe() { local value=${2%%$'\n'*}; value=${value//$'\t'/ }; record observe "$journey_id" "$1" "${value//$'\r'/ }"; }
 end_journey() { [[ -z "$journey_id" ]] || record journey_end "$journey_id" "$(utc_now)"; journey_id=; }
 # begin_journey ID ROLE SOURCES GENERATION: closes the previous journey.
-begin_journey() { end_journey; journey_id=$1; record journey "$1" "$2" "$3" "$4" "$(utc_now)"; }
+begin_journey() { end_journey; journey_id=$1 journey_failures=0; record journey "$1" "$2" "$3" "$4" "$(utc_now)"; }
 pass() { printf 'journey=%s step=%s result=pass\n' "$journey" "$1"; record step "$journey_id" "$1" pass $(($(now_ms) - $2)) -; }
 # fail STEP STARTED CATEGORY: CATEGORY is the observed failure category, or -.
-fail() { printf 'journey=%s step=%s result=fail\n' "$journey" "$1"; failures=$((failures + 1)); record step "$journey_id" "$1" fail $(($(now_ms) - $2)) "$3"; }
+fail() { printf 'journey=%s step=%s result=fail\n' "$journey" "$1"; failures=$((failures + 1)) journey_failures=$((journey_failures + 1)); record step "$journey_id" "$1" fail $(($(now_ms) - $2)) "$3"; }
 run_check() { local category=$1 step=$2 started; shift 2; started=$(now_ms); if "$@" >"$work/last.out" 2>&1; then pass "$step" "$started"; else fail "$step" "$started" "$category"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
 # check STEP CMD...: the cause of a failure is not observable here, so its
 # failure category stays undetermined (null in the Evidence).
 check() { run_check - "$@"; }
-# check_observed OBSERVED STEP CMD...: STEP compares OBSERVED, a value the
-# candidate itself produced, with its contract. A definite OBSERVED that
-# contradicts it is a `product` failure; an empty one stays undetermined.
-check_observed() { local category=-; [[ -z "$1" ]] || category=product; shift; run_check "$category" "$@"; }
+# check_observed OBSERVED STEP CMD...: STEP compares a value the candidate
+# produced after the upgrade with its contract. Its failure is `product` only
+# when every earlier step of the journey passed (setup and the upgrade itself
+# succeeded) and OBSERVED is that value, read by a command that succeeded on
+# its own; callers pass an empty OBSERVED otherwise, and then, as after any
+# earlier failure, the category stays undetermined.
+check_observed() { local category=-; [[ -z "$1" || $journey_failures -ne 0 ]] || category=product; shift; run_check "$category" "$@"; }
 
 # emit_evidence STATUS: builds, validates and writes the Evidence document with
 # the caller's own HOME and PATH (never the isolated homes or their shims).
@@ -133,8 +136,8 @@ emit_evidence() {
 # --- evidence capture: end
 
 termination= signal= record_count=0 capture_lost=0 attempt_id=
-# The attempt identity exists before anything runs; every record and any
-# re-emission of this attempt carry it.
+# The attempt identity exists before anything runs; every record belongs to it
+# and re-emitting this attempt keeps it.
 if [[ -n "$evidence" ]]; then
   attempt_id=$("$evidence_python" -c 'import uuid; print(uuid.uuid4())') || { printf 'upgrade_journey_error: cannot create the Evidence attempt identity\n' >&2; exit 2; }
 fi
@@ -150,7 +153,7 @@ if [[ -n "$evidence" ]]; then
   trap 'signal=INT; exit 130' INT
   trap 'signal=TERM; exit 143' TERM
 fi
-failures=0
+failures=0 journey_failures=0
 journey= journey_id=
 if [[ -n "${EPOCHREALTIME:-}" ]]; then clock_resolution_ms=1; else clock_resolution_ms=1000; fi
 
@@ -217,8 +220,16 @@ tree_digest() {
   (cd "$1" && find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do printf '%s %s\n' "$file" "$(digest "$file")"; done) | digest /dev/stdin
 }
 
+# strict_tree_digest DIR: tree_digest's value, or a failure when any file
+# cannot be read; used only to decide whether an observation is definite.
+strict_tree_digest() {
+  (cd "$1" && find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do sum=$(digest "$file") || exit 1; printf '%s %s\n' "$file" "$sum"; done) | digest /dev/stdin
+}
+
 version_of() { "$H/.local/bin/axiom" version | sed -n 's/^provenance: Axiom \([^ ]*\) .*/\1/p'; }
 installer_status() { sed -n 's/^install_status=//p' "$work/install.out" | head -1; }
+# definite_status STATUS: STATUS when it is a completed installer outcome.
+definite_status() { case "$1" in installed|upgraded|unchanged) printf '%s\n' "$1" ;; esac; }
 
 candidate_bundle=$(release_bundle "$candidate")
 candidate_version=$(sed -n 's/^version=//p' "$candidate_bundle/release-metadata.txt")
@@ -278,15 +289,17 @@ portable_before=$(tree_digest "$PROJECTS")
 check upgrade install_release "$candidate"
 upgrade_status=$(installer_status) || true
 observe installer_upgrade "$upgrade_status"
-check_observed "$upgrade_status" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
-version_after=$(version_of) || true
-check_observed "$version_after" version test "$version_after" = "$candidate_version"
+check_observed "$(definite_status "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+version_after=$(version_of) && seen=$version_after || seen=
+check_observed "$seen" version test "$version_after" = "$candidate_version"
 state_after=$(tree_digest "$STATE") || true
-check_observed "$state_after" state-bytes-unchanged test "$state_after" = "$state_before"
+seen=$(strict_tree_digest "$STATE") || seen=
+check_observed "$seen" state-bytes-unchanged test "$state_after" = "$state_before"
 portable_after=$(tree_digest "$PROJECTS") || true
-check_observed "$portable_after" portable-bytes-unchanged test "$portable_after" = "$portable_before"
-classification_after=$(classification) || true
-check_observed "$classification_after" state-valid-v1 test "$classification_after" = valid_v1
+seen=$(strict_tree_digest "$PROJECTS") || seen=
+check_observed "$seen" portable-bytes-unchanged test "$portable_after" = "$portable_before"
+classification_after=$(classification) && seen=$classification_after || seen=
+check_observed "$seen" state-valid-v1 test "$classification_after" = valid_v1
 observe classification_after "$classification_after"
 check project-readable bash -c 'cd "$HOME/cwd" && axiom --json project show --selector journey | grep -q "\"status\":\"success\""'
 check execution-readable bash -c "cd \"\$HOME/cwd\" && axiom --json workflow status --project journey --repository main --number 7 | grep -q '$execution_id'"
@@ -296,7 +309,7 @@ check first-run-no-op bash -c 'cd "$HOME/cwd" && axiom first-run | grep -q "runt
 check rerun-installer install_release "$candidate"
 rerun_status=$(installer_status) || true
 observe installer_rerun "$rerun_status"
-check_observed "$rerun_status" rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
+check_observed "$(definite_status "$rerun_status")" rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
 printf 'journey=%s from=%s to=%s\n' "$journey" "$previous_version" "$candidate_version"
 
 # Journey 2: every further earlier release -> candidate (skill and receipt
@@ -311,7 +324,7 @@ for index in "${!previous[@]}"; do
   check upgrade install_release "$candidate"
   upgrade_status=$(installer_status) || true
   observe installer_upgrade "$upgrade_status"
-  check_observed "$upgrade_status" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+  check_observed "$(definite_status "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
   check codex-ready-without-first-run bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   check claude-ready bash -c 'cd "$HOME/cwd" && axiom runtime claude status'
@@ -382,7 +395,7 @@ PYTHON
   check upgrade install_release "$candidate"
   upgrade_status=$(installer_status) || true
   observe installer_upgrade "$upgrade_status"
-  check_observed "$upgrade_status" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+  check_observed "$(definite_status "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
   archive=$(sed -n 's/^install_preserved=//p' "$work/install.out")
   check archive-reported test -n "$archive"
   if [[ -n "$evidence" && -n "$archive" && -f "$archive/manifest.json" ]]; then observe preservation_manifest_sha256 "$(digest "$archive/manifest.json")"; fi
@@ -399,11 +412,11 @@ PY
   check archived-objects-verify bash -c "while read -r path sha bytes; do test \"\$($(declare -f digest); digest '$archive/objects/'\$sha)\" = \"\$sha\" || exit 1; done <'$inventory'"
   check workflow-history-preserved test -f "$archive/objects/$workflow_digest"
   check workflow-history-not-active test ! -e "$STATE/workflows"
-  classification_after=$(classification) || true
-  check_observed "$classification_after" rebuilt-state-valid-v1 test "$classification_after" = valid_v1
+  classification_after=$(classification) && seen=$classification_after || seen=
+  check_observed "$seen" rebuilt-state-valid-v1 test "$classification_after" = valid_v1
   observe classification_after "$classification_after"
-  selected_after=$(digest "$selected_file") || true
-  check_observed "$selected_after" selected-link-byte-identical test "$selected_after" = "$selected_digest"
+  selected_after=$(digest "$selected_file") && seen=$selected_after || seen=
+  check_observed "$seen" selected-link-byte-identical test "$selected_after" = "$selected_digest"
   selected_link_loads() {
     (cd "$H/cwd" && axiom --json work-item show --project v1-selected --repository main --provider-repository owner/repo --number 42) >"$work/selected-link.json"
     grep -q '"status":"success"' "$work/selected-link.json"
@@ -422,9 +435,10 @@ PYTHON
   check rerun-installer install_release "$candidate"
   rerun_status=$(installer_status) || true
   observe installer_rerun "$rerun_status"
-  check_observed "$rerun_status" rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
+  check_observed "$(definite_status "$rerun_status")" rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
   archive_after=$(tree_digest "$archive") || true
-  check_observed "$archive_after" archive-retained-unchanged test "$archive_after" = "$archive_before"
+  seen=$(strict_tree_digest "$archive") || seen=
+  check_observed "$seen" archive-retained-unchanged test "$archive_after" = "$archive_before"
 fi
 
 end_journey

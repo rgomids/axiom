@@ -448,9 +448,11 @@ def listed_digests(sums):
     try:
         with open(sums, encoding="utf-8", errors="replace") as handle:
             for line in handle:
-                match = re.match(r"^([0-9a-f]{64}) [ *](.+)$", line.rstrip("\n"))
+                # The installer's own form: "<sha256>  <name>"; a repeated name binds nothing.
+                match = re.match(r"^([0-9a-f]{64})  ([^ *].*)$", line.rstrip("\n"))
                 if match:
-                    listed[match.group(2)] = match.group(1)
+                    name = match.group(2)
+                    listed[name] = None if name in listed else match.group(1)
     except OSError:
         pass
     return listed
@@ -585,7 +587,7 @@ class Builder:
         journeys, order = {}, []
         categories = set(self.schema.definition("failure_category")["enum"])
         number = 0
-        with open(self.arguments.records, encoding="utf-8") as handle:
+        with open(self.arguments.records, encoding="utf-8", newline="\n") as handle:
             for number, line in enumerate(handle, start=1):
                 sequence, _, line = line.partition("\t")
                 if sequence != str(number):
@@ -811,11 +813,12 @@ def write_document(document, output, schema):
     try:
         with os.fdopen(handle, "wb") as stream:
             stream.write(data)
-        os.replace(temporary, output)
-    except BaseException:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
-        raise
+        # Atomic and never over an existing document: a link fails if output exists.
+        os.link(temporary, output)
+    except FileExistsError as error:
+        raise Invalid("--output already exists") from error
+    finally:
+        os.unlink(temporary)
     return hashlib.sha256(data).hexdigest()
 
 
@@ -872,7 +875,7 @@ def main(argv=None):
     except Insufficient as error:
         print(f"gate_evidence_error: insufficient state: {error}", file=sys.stderr)
         return 3
-    except (Invalid, SchemaError, OSError) as error:
+    except (Invalid, SchemaError, OSError, UnicodeDecodeError) as error:
         print(f"gate_evidence_error: {error}", file=sys.stderr)
         return 1
     return 0

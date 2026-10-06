@@ -625,6 +625,47 @@ class Emitter(unittest.TestCase):
         document, _ = self.document()
         self.assertEqual(document["inputs"]["upgrade_sources"][0]["artifacts"], [])
 
+    def test_sha256sums_binding_matches_the_installer(self):
+        name = "axiom-0.5.0-linux-amd64.tar.gz"
+        digest = evidence.sha256_file(os.path.join(self.previous[0], name))
+        for listing in (f"{digest} *{name}\n", f"{digest}  {name}\n{digest}  {name}\n", f"{digest} {name}\n"):
+            with self.subTest(listing=listing):
+                with open(os.path.join(self.previous[0], "SHA256SUMS"), "w", encoding="utf-8") as handle:
+                    handle.write(listing)
+                self.write_records(self.passing_records())
+                completed = self.emit()
+                self.assertEqual(completed.returncode, 1)
+                self.assertIn("row archive digest", completed.stderr)
+
+    def test_existing_output_is_never_replaced(self):
+        with open(self.output, "w", encoding="utf-8") as handle:
+            handle.write("earlier")
+        self.write_records(self.passing_records())
+        completed = self.emit()
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("already exists", completed.stderr)
+        with open(self.output, encoding="utf-8") as handle:
+            self.assertEqual(handle.read(), "earlier")
+        self.assertEqual(sorted(os.listdir(self.output_directory)), ["gate-evidence.json"])
+
+    def test_undecodable_records_are_refused_cleanly(self):
+        self.write_records(self.passing_records())
+        with open(self.records, "ab") as handle:
+            handle.write(b"13\tobserve\tv1-state\tinstaller_rerun\t\xff\n")
+        completed = self.emit(record_count=13)
+        self.assertEqual(completed.returncode, 1)
+        self.assertIn("gate_evidence_error", completed.stderr)
+        self.assertNotIn("Traceback", completed.stderr)
+
+    def test_carriage_return_in_an_observed_value_is_not_a_record_break(self):
+        records = self.passing_records()
+        records[4] = ("observe", "v1-state", "installer_upgrade", "upgraded\rx")
+        self.write_records(records)
+        completed = self.emit()
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        document, _ = self.document()
+        self.assertIsNone(document["journeys"][0]["installer"]["upgrade"])
+
     def test_subject_archive_absent_from_its_sha256sums_is_insufficient(self):
         with open(os.path.join(self.candidate, "SHA256SUMS"), "w", encoding="utf-8") as handle:
             handle.write(f"{SHA}  axiom-9999.0.0-acceptance.7-linux-amd64.tar.gz\n")
@@ -706,8 +747,7 @@ class Capture(Emitter):
     """Drives the harness capture block (record, check, cleanup, emit_evidence)."""
 
     def run_block(self, body):
-        work = os.path.join(self.root, "work")
-        os.mkdir(work)
+        work = tempfile.mkdtemp(dir=self.root)
         script = f"""set -euo pipefail
 {capture_block()}
 evidence={self.output!r} work={work!r} evidence_python={sys.executable!r} repository_root={ROOT!r}
@@ -753,12 +793,68 @@ termination=completed
         self.assertIn("capture incomplete", completed.stdout)
         self.assertFalse(os.path.exists(self.output))
 
-    def test_failure_categories_come_from_the_step_declaration(self):
-        completed = self.run_block("check a false\ncheck_observed unchanged b false\ncheck_observed '' c false")
+    def categories(self, body):
+        completed = self.run_block(body)
         self.assertEqual(completed.returncode, 1, completed.stdout + completed.stderr)
         document, _ = self.document()
-        self.assertEqual([step["failure_category"] for step in document["journeys"][0]["steps"]], [None, "product", None])
-        self.assertEqual(document["result"]["failure_categories"], ["product"])
+        os.unlink(self.output)
+        return ([step["failure_category"] for step in document["journeys"][0]["steps"]],
+                document["result"]["failure_categories"])
+
+    def test_definite_candidate_observation_after_clean_steps_is_product(self):
+        self.assertEqual(self.categories("check a true\ncheck_observed unchanged b false"), ([None, "product"], ["product"]))
+
+    def test_unobservable_causes_stay_undetermined(self):
+        self.assertEqual(self.categories("check a false"), ([None], []))
+        self.assertEqual(self.categories("check_observed '' b false"), ([None], []))
+
+    def test_an_earlier_failure_makes_later_observations_undetermined(self):
+        # e.g. a failed upgrade leaves the previous binary answering the version probe
+        self.assertEqual(self.categories("check upgrade false\ncheck_observed 0.5.0 version false"), ([None, None], []))
+
+    def test_observed_values_cannot_break_a_record(self):
+        completed = self.run_block("check a true\nobserve installer_upgrade $'upgraded\\r7\\tstep\\nx'")
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        document, _ = self.document()
+        self.assertIsNone(document["journeys"][0]["installer"]["upgrade"])
+
+
+def harness_function(name):
+    """One function definition from the harness, verbatim."""
+    with open(HARNESS, encoding="utf-8") as handle:
+        text = handle.read()
+    start = text.index(f"\n{name}() {{") + 1
+    end = text.index("\n}\n", start) + 3 if not text[start:text.index("\n", start)].rstrip().endswith("}") \
+        else text.index("\n", start) + 1
+    return text[start:end]
+
+
+class ObservationHelpers(unittest.TestCase):
+    def run_functions(self, body):
+        script = "set -euo pipefail\n" + "".join(harness_function(name) for name in
+                                                  ("digest", "tree_digest", "strict_tree_digest", "definite_status")) + body
+        return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+
+    def test_only_completed_installer_outcomes_are_definite(self):
+        completed = self.run_functions("for s in installed upgraded unchanged partial success ''; do printf '[%s]' \"$(definite_status \"$s\")\"; done")
+        self.assertEqual(completed.stdout, "[installed][upgraded][unchanged][][][]")
+
+    @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root reads unreadable files")
+    def test_strict_tree_digest_fails_where_tree_digest_still_answers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ("a", "b"):
+                with open(os.path.join(directory, name), "w", encoding="utf-8") as handle:
+                    handle.write(name)
+            same = self.run_functions(f"[[ $(tree_digest {directory!r}) == $(strict_tree_digest {directory!r}) ]]")
+            self.assertEqual(same.returncode, 0, same.stderr)
+            os.chmod(os.path.join(directory, "b"), 0)
+            try:
+                loose = self.run_functions(f"tree_digest {directory!r}")
+                strict = self.run_functions(f"strict_tree_digest {directory!r}")
+            finally:
+                os.chmod(os.path.join(directory, "b"), 0o600)
+            self.assertRegex(loose.stdout, r"^[0-9a-f]{64}\n$")
+            self.assertNotEqual(strict.returncode, 0)
 
 
 class Harness(unittest.TestCase):
