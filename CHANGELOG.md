@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/rgomids/axiom/compare/v0.4.2...v0.5.0) (2026-10-06)
+
+
+### Features
+
+* **workitem:** guide creation interviews from minimal intent ([#190](https://github.com/rgomids/axiom/issues/190)) ([e241b19](https://github.com/rgomids/axiom/commit/e241b1953005e9dc5d2c00a1a311dbf2389407fe))
+
+
+### Bug Fixes
+
+* **windows:** isolate installer scope and explain storage refusals ([#193](https://github.com/rgomids/axiom/issues/193)) ([4d34472](https://github.com/rgomids/axiom/commit/4d34472a24d31e1bdf7797e12d45e8ca657d36e1))
+
 ## [0.4.2](https://github.com/rgomids/axiom/compare/v0.4.1...v0.4.2) (2026-10-05)
 
 
