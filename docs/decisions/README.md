@@ -30,6 +30,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 - [ADR-0018 — ADR evolution and supersession governance](0018-adr-evolution-and-supersession-governance.md) — **Accepted, 2026-10-05** (human decision in Issue #169); partial supersession keeps `Accepted` with a canonical in-place annotation and a `Partially superseded by` index note (not a lifecycle status); full supersession uses `Superseded`; superseding ADRs link back in `## Supersedes`; `scripts/check-adr-governance.py` validates structure, review owns semantic conflicts.
 
+- [ADR-0019 — Release candidate acceptance on prepared bytes and generation-based upgrade sources](0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md) — **Accepted, 2026-10-06** (human decisions in the #154 Research and Issue #227); stable releases publish only prepared immutable bytes that passed release-candidate acceptance (validated bytes == publishable bytes, no rebuild); supported upgrade sources are N plus one baseline per persisted generation plus declared historical formats, retired only by compatibility-window decision; hosted Windows Server is a bounded release-blocking proxy (no Server support); real Runtime/Provider acceptance blocks only contract-changing releases. Acceptance placement is left to the implementation Slice.
+
 ## Candidate assessment
 
 | Candidate | Current classification | ADR now? |
