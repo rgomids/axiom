@@ -60,3 +60,11 @@ differs from every frozen snapshot, even at an existing logical path, becomes a
 new `snapshots/<release>` snapshot; identical output is not duplicated. A new
 persisted format follows FR-026 instead: declare its compatibility window and
 forward path, and add its own frozen corpus.
+
+The declared persisted-generation baselines of Specification 004
+FR-073/FR-074 (ADR-0019) are drawn from these frozen corpora and the published
+releases they come from. Snapshots stay append-only as above. A change
+that introduces a new persisted generation (state, portable configuration,
+installation receipt or Runtime skill-set receipt) declares it before the
+release that first ships it. Removing a declared baseline needs an explicit
+compatibility-window decision, never a routine edit.
