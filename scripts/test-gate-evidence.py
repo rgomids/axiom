@@ -839,8 +839,18 @@ class ObservationCallSites(unittest.TestCase):
     )
     SEEN = (
         re.compile(r'^\s*[a-z_]+=\$\((version_of|classification|digest "\$selected_file")\) && seen=\$[a-z_]+ \|\| seen=$'),
-        re.compile(r'^\s*seen=\$\(tree_observation "\$[a-z_]+_baseline" "\$[A-Za-z_]+"\) \|\| seen=$'),
+        re.compile(r'^\s*seen=\$\(tree_observation "\$([a-z]+)_baseline" "\$\1_after" "\$[A-Za-z_]+"\) \|\| seen=$'),
     )
+    BASELINE = re.compile(r'^\s*([a-z]+)_baseline=\$\(strict_tree_digest "\$[A-Za-z_]+"\) && '
+                          r'\[\[ "\$\1_baseline" == "\$\1_before" \]\] \|\| \1_baseline=$')
+
+    def test_strict_baselines_equal_the_compared_baselines(self):
+        with open(HARNESS, encoding="utf-8") as handle:
+            lines = [line for line in handle.read().splitlines() if re.match(r"^\s*[a-z]+_baseline=", line)]
+        self.assertEqual(len(lines), 3)
+        for line in lines:
+            with self.subTest(line=line.strip()):
+                self.assertRegex(line, self.BASELINE)
 
     def test_check_observed_call_sites(self):
         with open(HARNESS, encoding="utf-8") as handle:
@@ -901,10 +911,12 @@ class ObservationHelpers(unittest.TestCase):
                 os.chmod(os.path.join(directory, "b"), 0o600)
             self.assertRegex(loose.stdout, r"^[0-9a-f]{64}\n$")
             self.assertNotEqual(strict.returncode, 0)
-            baseline = self.run_functions(f"printf '[%s]' \"$(tree_observation '' {directory!r})\"")
-            self.assertEqual(baseline.stdout, "[]")
-            clean = self.run_functions(f"printf '%s' \"$(tree_observation {SHA} {directory!r})\"")
-            self.assertRegex(clean.stdout, r"^[0-9a-f]{64}$")
+            actual = self.run_functions(f"strict_tree_digest {directory!r}").stdout.strip()
+            for baseline, after, expected in (("", actual, ""), (SHA, SHA, ""), (SHA, actual, actual)):
+                with self.subTest(baseline=baseline[:4], after=after[:4]):
+                    observed = self.run_functions(
+                        f"printf '[%s]' \"$(tree_observation '{baseline}' '{after}' {directory!r})\"")
+                    self.assertEqual(observed.stdout, f"[{expected}]")
 
 
 class Harness(unittest.TestCase):

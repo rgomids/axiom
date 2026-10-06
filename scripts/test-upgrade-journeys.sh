@@ -226,9 +226,11 @@ strict_tree_digest() {
   (cd "$1" && find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do sum=$(digest "$file") || exit 1; printf '%s %s\n' "$file" "$sum"; done) | digest /dev/stdin
 }
 
-# tree_observation BASELINE DIR: DIR's strict digest as a definite observation,
-# only when the strict BASELINE was read completely too.
-tree_observation() { [[ -n "$1" ]] && strict_tree_digest "$2"; }
+# tree_observation BASELINE AFTER DIR: AFTER as a definite observation of DIR,
+# only when BASELINE is a strict read equal to the compared baseline (callers
+# pass empty otherwise) and a strict read of DIR equals AFTER, so the values
+# compared are exactly what was read completely on both sides.
+tree_observation() { local strict; [[ -n "$1" ]] && strict=$(strict_tree_digest "$3") && [[ "$strict" == "$2" ]] && printf '%s\n' "$strict"; }
 
 version_of() { "$H/.local/bin/axiom" version | sed -n 's/^provenance: Axiom \([^ ]*\) .*/\1/p'; }
 installer_status() { sed -n 's/^install_status=//p' "$work/install.out" | head -1; }
@@ -297,8 +299,8 @@ state_before=$(tree_digest "$STATE")
 portable_before=$(tree_digest "$PROJECTS")
 # Strict baselines: a comparison is a definite observation only when both
 # sides were read completely (tree_observation).
-state_baseline=$(strict_tree_digest "$STATE") || state_baseline=
-portable_baseline=$(strict_tree_digest "$PROJECTS") || portable_baseline=
+state_baseline=$(strict_tree_digest "$STATE") && [[ "$state_baseline" == "$state_before" ]] || state_baseline=
+portable_baseline=$(strict_tree_digest "$PROJECTS") && [[ "$portable_baseline" == "$portable_before" ]] || portable_baseline=
 check upgrade install_release "$candidate"
 upgrade_status=$(installer_status) || true
 observe installer_upgrade "$upgrade_status"
@@ -306,10 +308,10 @@ check_observed "$(upgrade_observation "${previous[0]}" "$upgrade_status")" upgra
 version_after=$(version_of) && seen=$version_after || seen=
 check_observed "$seen" version test "$version_after" = "$candidate_version"
 state_after=$(tree_digest "$STATE") || true
-seen=$(tree_observation "$state_baseline" "$STATE") || seen=
+seen=$(tree_observation "$state_baseline" "$state_after" "$STATE") || seen=
 check_observed "$seen" state-bytes-unchanged test "$state_after" = "$state_before"
 portable_after=$(tree_digest "$PROJECTS") || true
-seen=$(tree_observation "$portable_baseline" "$PROJECTS") || seen=
+seen=$(tree_observation "$portable_baseline" "$portable_after" "$PROJECTS") || seen=
 check_observed "$seen" portable-bytes-unchanged test "$portable_after" = "$portable_before"
 classification_after=$(classification) && seen=$classification_after || seen=
 check_observed "$seen" state-valid-v1 test "$classification_after" = valid_v1
@@ -445,13 +447,13 @@ PYTHON
   check project-reconfigured bash -c 'cd "$HOME/cwd" && axiom project list | grep -q "project: poc-project"'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   archive_before=$(tree_digest "$archive")
-  archive_baseline=$(strict_tree_digest "$archive") || archive_baseline=
+  archive_baseline=$(strict_tree_digest "$archive") && [[ "$archive_baseline" == "$archive_before" ]] || archive_baseline=
   check rerun-installer install_release "$candidate"
   rerun_status=$(installer_status) || true
   observe installer_rerun "$rerun_status"
   check_observed "$(definite_status "$rerun_status")" rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
   archive_after=$(tree_digest "$archive") || true
-  seen=$(tree_observation "$archive_baseline" "$archive") || seen=
+  seen=$(tree_observation "$archive_baseline" "$archive_after" "$archive") || seen=
   check_observed "$seen" archive-retained-unchanged test "$archive_after" = "$archive_before"
 fi
 
