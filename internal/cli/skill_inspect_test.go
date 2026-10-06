@@ -72,6 +72,42 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 	return skillArgument{}
 }
 
+// Pin the public command inventory to the workflows exposed by the thin skills.
+// Do not derive expectations from skillOperations: an extra mapping is a regression.
+func TestSkillDiscoveryExactCommands(t *testing.T) {
+	expected := map[string][]string{
+		"axiom-project-configure": {"axiom project configure"},
+		"axiom-project-list":      {"axiom project list"},
+		"axiom-project-show":      {"axiom project show"},
+		"axiom-work-item-create":  {"axiom work-item create", "axiom work-item select"},
+		"axiom-work-item-run":     {"axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow status", "axiom workflow evidence", "axiom workflow reconcile"},
+		"axiom-work-item-status":  {"axiom workflow status", "axiom workflow evidence"},
+	}
+	manifest, err := codexruntime.CurrentManifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(expected) != len(manifest.Skills) {
+		t.Fatal("skill inventory changed; reconcile exact command expectations")
+	}
+	for _, skill := range manifest.Skills {
+		t.Run(skill.Name, func(t *testing.T) {
+			want, exists := expected[skill.Name]
+			if !exists {
+				t.Fatalf("missing command expectation for %s", skill.Name)
+			}
+			got := discoverForTest(t, skill.Name)
+			commands := make([]string, 0, len(got.Commands))
+			for _, command := range got.Commands {
+				commands = append(commands, command.Command)
+			}
+			if !reflect.DeepEqual(commands, want) {
+				t.Fatalf("commands=%v, want=%v", commands, want)
+			}
+		})
+	}
+}
+
 func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 	show := discoverForTest(t, "axiom-project-show").Commands[0]
 	selector := findArgument(t, show, "--selector")

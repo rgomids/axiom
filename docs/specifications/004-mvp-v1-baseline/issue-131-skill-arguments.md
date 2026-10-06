@@ -161,3 +161,27 @@ implementation brief; it is not a rewritten Issue criterion.
 No unresolved blocker, critical or major finding was identified in this scoped
 review. Human review/acceptance, merge and release remain separate; the Issue
 must not be closed by this implementation record.
+
+### PR review follow-up — CR-001 (2026-10-06)
+
+The Issue has no comments. The PR's approved review on head `5971f88` records one
+minor contract finding, [CR-001](https://github.com/rgomids/axiom/pull/221#discussion_r4190489074):
+`axiom-project-show` advertised `project resolve` although its executable
+instructions delegate only to `project show`. The finding was still present at
+that head despite the earlier Windows validation corrections.
+
+The minimal correction removes `resolveAction` from this skill's discovery
+mapping. The CLI's independent `project resolve` command remains available;
+the product skill contract and embedded skill bytes do not change.
+`TestSkillDiscoveryExactCommands` now pins the exact public command list for all
+six embedded product skills, independently of the implementation mapping. It
+failed on the pre-fix code with the unwanted resolve command and passed after
+the mapping correction. It uses the public inspection boundary, which also
+asserts no stdin consumption, prompts or service dispatch.
+
+Verification: native Windows `go test ./internal/cli -count=1` and
+`go test ./cmd/lingo -run '^TestExecutableSkillDiscoveryWithoutStateOrWorkflow$'
+-count=1` passed. Linux `go vet ./...`, `go build ./...`, `go mod verify` and
+`./scripts/validate-repository.sh .` passed. Linux `go test -race ./... -count=1`
+also passed across all packages. No domain, authority, storage, Runtime or ADR boundary was
+changed. Review of this correction found no remaining blocking finding.

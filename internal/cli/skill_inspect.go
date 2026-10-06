@@ -39,7 +39,7 @@ func skillOperations(name string) []action {
 	case "axiom-project-list":
 		return []action{listAction}
 	case "axiom-project-show":
-		return []action{showAction, resolveAction}
+		return []action{showAction}
 	case "axiom-work-item-create":
 		return []action{workItemCreateAction, workItemSelectAction}
 	case "axiom-work-item-run":
