@@ -1364,8 +1364,11 @@ outcomes and Evidence; it does not prescribe workflows, jobs, runners or tools.
   - the overall `pass`/`fail` result and its attempt identity.
 
   It is retained at least until the publication it supports completes, and it
-  contains no secrets (Non-functional requirements). The concrete schema
-  belongs to a later Slice; until it exists, any record with these properties
+  contains no secrets (Non-functional requirements). The concrete schema is
+  `axiom-gate-evidence/v1`
+  ([schema](../../../scripts/schemas/axiom-gate-evidence-v1.schema.json),
+  validated by `scripts/gate-evidence.py`, Issue #234). Until
+  release-candidate acceptance emits it, any record with these properties
   satisfies this requirement.
 - **FR-076 Real Runtime/Provider acceptance and supplemental Evidence:**
   deterministic fake and contract validation is the ordinary protection of
