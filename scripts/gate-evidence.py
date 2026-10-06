@@ -135,6 +135,13 @@ def _is_type(value, name):
     return isinstance(value, dict)
 
 
+def _pattern(source):
+    """ECMA-262 semantics for a final `$`: end of input, never before a newline."""
+    if source.endswith("$") and not source.endswith("\\$"):
+        source = source[:-1] + r"\Z"
+    return re.compile(source)
+
+
 class Schema:
     def __init__(self, document):
         self.root = document
@@ -157,7 +164,7 @@ class Schema:
                 if name not in TYPES:
                     raise SchemaError(f"{where}: unsupported type {name!r}")
         if "pattern" in schema:
-            re.compile(schema["pattern"])
+            _pattern(schema["pattern"])
         if "additionalProperties" in schema and schema["additionalProperties"] is not False:
             raise SchemaError(f"{where}: only additionalProperties: false is supported")
         if "$ref" in schema:
@@ -205,7 +212,7 @@ class Schema:
                 found.append(f"{path}: shorter than {schema['minLength']}")
             if "maxLength" in schema and len(value) > schema["maxLength"]:
                 found.append(f"{path}: longer than {schema['maxLength']}")
-            if "pattern" in schema and not re.search(schema["pattern"], value):
+            if "pattern" in schema and not _pattern(schema["pattern"]).search(value):
                 found.append(f"{path}: does not match the required format")
         if _is_type(value, "integer"):
             if "minimum" in schema and value < schema["minimum"]:
@@ -293,6 +300,9 @@ def semantic_errors(document):
     unique(sources, "$.inputs.upgrade_sources")
     unique([item["id"] for item in document["inputs"]["fixtures"]], "$.inputs.fixtures")
     unique([item["id"] for item in document["journeys"]], "$.journeys")
+    for placeholder in document["inputs"]["command"]:
+        if placeholder.startswith("{") and placeholder[1:-1] not in ("candidate", "evidence", *sources):
+            found.append(f"$.inputs.command: placeholder {placeholder} is bound to nothing")
 
     totals = {"pass": 0, "fail": 0, "not_applicable": 0}
     failed_categories = set()
@@ -347,6 +357,8 @@ def semantic_errors(document):
         found.append(f"$.result.failure_categories: missing {sorted(missing)} of failed steps")
     if result["status"] == "pass" and (failed_journeys or result["termination"] != "completed"):
         found.append("$.result.status: pass contradicts a failed or incomplete journey")
+    if result["status"] == "pass" and not totals["pass"]:
+        found.append("$.result.status: pass needs at least one passing step; not_applicable is never a pass")
     if result["status"] == "fail" and not categories and result["termination"] == "completed":
         found.append("$.result.status: a completed failing run needs a failure category")
     if result["termination"] != "completed" and result["status"] != "fail":
@@ -530,7 +542,7 @@ class Builder:
         journeys, order = {}, []
         with open(self.arguments.records, encoding="utf-8") as handle:
             for number, line in enumerate(handle, start=1):
-                fields = line.rstrip("\n").split("\t")
+                fields = line.rstrip("\n").split("\t", 3 if line.startswith("observe\t") else -1)
                 kind = fields[0]
                 if kind == "journey" and len(fields) == 6:
                     _, identifier, role, path, generation, started_at = fields

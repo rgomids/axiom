@@ -91,14 +91,15 @@ now_ms() {
 }
 # Step records for the Evidence emitter: tab-separated, fixed vocabulary, never
 # command output.
-record() { [[ -z "$evidence" ]] || (IFS=$'\t'; printf '%s\n' "$*") >>"$work/evidence.records"; }
-observe() { record observe "$journey_id" "$1" "$2"; }
+# A failed append only loses Evidence; it never changes a journey's outcome.
+record() { [[ -z "$evidence" ]] || (IFS=$'\t'; printf '%s\n' "$*") >>"$work/evidence.records" 2>/dev/null || true; }
+observe() { local value=${2%%$'\n'*}; record observe "$journey_id" "$1" "${value//$'\t'/ }"; }
 end_journey() { [[ -z "$journey_id" ]] || record journey_end "$journey_id" "$(utc_now)"; journey_id=; }
 # begin_journey ID ROLE SOURCES GENERATION: closes the previous journey.
 begin_journey() { end_journey; journey_id=$1; record journey "$1" "$2" "$3" "$4" "$(utc_now)"; }
 pass() { printf 'journey=%s step=%s result=pass\n' "$journey" "$1"; record step "$journey_id" "$1" pass $(($(now_ms) - $2)); }
 fail() { printf 'journey=%s step=%s result=fail\n' "$journey" "$1"; failures=$((failures + 1)); record step "$journey_id" "$1" fail $(($(now_ms) - $2)); }
-check() { local step=$1 started; shift; started=$(now_ms); if "$@" >"$work/last.out" 2>&1; then pass "$step" "$started"; else fail "$step" "$started"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
+check() { local step=$1 started; shift; started=$(now_ms); if "$@" >"$work/last.out" 2>&1 8>&- 9>&-; then pass "$step" "$started"; else fail "$step" "$started"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
 
 # emit_evidence STATUS: builds, validates and writes the Evidence document with
 # the caller's own HOME and PATH (never the isolated homes or their shims).
@@ -115,7 +116,7 @@ emit_evidence() {
     --exit-code "$status" --termination "$state" --bash-version "$BASH_VERSION" \
     --clock-resolution-ms "$clock_resolution_ms" --work-dir "$work" --repository "$repository_root" \
     "${arguments[@]}" >"$work/evidence.out" 2>"$work/evidence.err"; then
-    cat "$work/evidence.out"
+    cat "$work/evidence.out" || true
   else
     printf 'evidence=unavailable\n'
     sed 's/^/  /' "$work/evidence.err" | head -5

@@ -201,8 +201,11 @@ class Schema(unittest.TestCase):
 
     def test_strings_are_bounded_and_single_line(self):
         self.rejected(lambda d: d["journeys"][0].update(id="v1\nstate"))
-        # A pattern's trailing $ tolerates a final newline; the string rule does not.
-        self.rejected(lambda d: d["journeys"][0]["classification"].update(after="valid_v1\n"), "control character")
+        self.rejected(lambda d: d["journeys"][0]["classification"].update(after="valid_v1\n"))
+        # Defence in depth behind the patterns: no string may carry a control character.
+        document = copy.deepcopy(self.document)
+        document["journeys"][0]["classification"]["after"] = "valid_v1\r"
+        self.assertTrue(any("control character" in error for error in evidence.semantic_errors(document)))
         self.rejected(lambda d: d["environment"].update(go_version="go1.26.1\tlocal"))
         reason = copy.deepcopy(self.document)
         reason["journeys"][0]["steps"].append(not_applicable_step())
@@ -214,6 +217,25 @@ class Schema(unittest.TestCase):
             with self.subTest(value=value):
                 self.rejected(lambda d, v=value: d["inputs"]["command"].append(v))
         self.rejected(lambda d: d["inputs"]["fixtures"][0].update(path="/abs/path"))
+
+    def test_vacuous_pass_is_rejected(self):
+        self.rejected(lambda d: (d.update(journeys=[]), d["result"]["counts"].update(journeys=0, steps=0, passed=0)),
+                      "at least one passing step")
+        document = copy.deepcopy(self.document)
+        journey = document["journeys"][0]
+        journey.update(result="not_applicable", reason="The bounded proxy installs nothing on this host",
+                       governing_reference="FR-072", steps=[not_applicable_step()])
+        document["journeys"] = [journey]
+        document["result"]["counts"] = {"journeys": 1, "steps": 1, "passed": 0, "failed": 0, "not_applicable": 1}
+        self.assertTrue(any("at least one passing step" in error for error in errors(document)))
+
+    def test_patterns_anchor_at_end_of_input(self):
+        self.assertFalse(SCHEMA.accepts(SHA + "\n", SCHEMA.definition("sha256")))
+        self.assertFalse(SCHEMA.accepts("ubuntu24\n", SCHEMA.definition("nullable_fact")))
+
+    def test_journey_sources_and_command_placeholders_are_bound(self):
+        self.rejected(lambda d: d["journeys"][0]["source"].update(path=["previous-1", "previous-1"]))
+        self.rejected(lambda d: d["inputs"]["command"].extend(["--previous", "{previous-9}"]), "bound to nothing")
 
     def test_bounded_collections(self):
         self.rejected(lambda d: d["journeys"][0]["steps"].extend(copy.deepcopy(d["journeys"][0]["steps"][0])
@@ -503,6 +525,15 @@ class Emitter(unittest.TestCase):
         self.assertEqual(completed.returncode, 3)
         self.assertIn("insufficient state", completed.stderr)
         self.assertFalse(os.path.exists(self.output))
+
+    def test_unsafe_observed_values_become_null(self):
+        records = self.passing_records()
+        records[4] = ("observe", "v1-state", "installer_upgrade", "upgraded\textra")
+        self.write_records(records)
+        completed = self.emit()
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        document, _ = self.document()
+        self.assertIsNone(document["journeys"][0]["installer"]["upgrade"])
 
     def test_malformed_records_are_refused(self):
         for records in ([("step", "unknown", "x", "pass", "1")],
