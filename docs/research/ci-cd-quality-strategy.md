@@ -12,8 +12,8 @@ checkpoints.
 This document is a recommendation. It changes no workflow, test, script,
 ruleset, release or product code, and it is not an ADR. Every statement about
 the current state is marked by its source; inferences are labelled
-**(inference)**. Decisions that need a human are listed in
-[Open human decisions](#open-human-decisions).
+**(inference)**. Human decisions are recorded in
+[Accepted human decisions](#accepted-human-decisions).
 
 Revision 2 (2026-10-06) adds [Structural quality](#structural-quality) in
 response to the [PR #226 review](https://github.com/rgomids/axiom/pull/226).
@@ -441,7 +441,7 @@ Release toolchain (fact):
 | **errcheck** | Absent; not measured | F34: ignored errors on effectful calls | **High for Axiom specifically.** Correctness and durability depend on `Close`/`Sync`/`Rename`/`Remove` results in `local`, `install`, `compatibility` and `codexruntime` | Medium (estimate): `fmt.Fprint*` to stdout/stderr, deferred `Close` on read-only files. Needs an exclusion list | Seconds | Deterministic, but its *relevance* is heuristic | **PR-S** first; **PR-B** for critical packages once the baseline is clean | **Adopt, promoted in stages.** Blocking first where durability is a product contract. Not duplicated by `go vet` or staticcheck. |
 | **Dead code** | Absent | F35 | Medium. Unused helpers in security- and durability-relevant code deserve review; e.g. unused `syncDirectory`/`syncPath` *may* indicate an intended durability call that is missing (**inference, to verify in the slice**) | `U1000`: low. Whole-program `deadcode`: high (graph/acceptance code with no CLI surface, platform files) | Included in staticcheck; `deadcode` ~4 s | `U1000` deterministic; reachability heuristic | `U1000` via staticcheck **PR-B**; `deadcode` **Sched** report | **Adopt `U1000` only as a gate.** Keep reachability as a scheduled report, triaged by a human. |
 | **Duplication** | Absent; not measured | F38: divergent copies | Low. Known duplication is deliberate (POSIX/Windows platform pairs; workflow job-isolation blocks in `publish-release.yml`) | High | Seconds–minute | Heuristic | **Sched** report, optional | **Do not gate.** Optional scheduled report; adopt only if a divergence defect is observed. |
-| **govulncheck** | Absent. Dependabot covers module advisories without reachability (V17). Nothing covers the standard library or toolchain | F36 | **High.** Every published binary embeds the standard library. Axiom's security boundary relies heavily on standard-library filesystem and archive APIs, and the release toolchain is pinned to a single patch version | Low: symbol-level reachability reports only called vulnerable code | ~6 s source mode; seconds per binary | Deterministic for a given database snapshot. The result changes when the external database changes (F31-like) | **PR-B** only when a PR changes `go.mod`/`go.sum`/toolchain (otherwise **PR-S**); **Sched** daily on `main`; **Prep-B** in binary mode on the **prepared binaries (P)** with an explicit human waiver path recorded in the envelope | **Adopt.** Pair it with a toolchain patch policy (a `toolchain` directive or explicit patch bumps) so fixes are reachable. Route scheduled results per SECURITY.md (see [Open human decisions](#open-human-decisions)). |
+| **govulncheck** | Absent. Dependabot covers module advisories without reachability (V17). Nothing covers the standard library or toolchain | F36 | **High.** Every published binary embeds the standard library. Axiom's security boundary relies heavily on standard-library filesystem and archive APIs, and the release toolchain is pinned to a single patch version | Low: symbol-level reachability reports only called vulnerable code | ~6 s source mode; seconds per binary | Deterministic for a given database snapshot. The result changes when the external database changes (F31-like) | **PR-B** only when a PR changes `go.mod`/`go.sum`/toolchain (otherwise **PR-S**); **Sched** daily on `main`; **Prep-B** in binary mode on the **prepared binaries (P)** with an explicit human waiver path recorded in the envelope | **Adopt.** Pair it with a toolchain patch policy (a `toolchain` directive or explicit patch bumps) so fixes are reachable. All public scan surfaces emit only PASS/FAIL; advisory IDs, reachability and remediation details follow the private SECURITY.md flow (see [Accepted human decisions](#accepted-human-decisions)). |
 | **Formatting / import hygiene** | Not enforced in CI; clean today by convention | F32 | Medium. Zero-FP checks that keep reviews focused; `go mod tidy` protects module integrity | gofmt and tidy: none. goimports: 38 files of grouping churn with no defect value | Seconds | Deterministic | **PR-B** for `gofmt -l` and `go mod tidy -diff` | **Adopt `gofmt` and `tidy` as blocking.** **Do not adopt goimports grouping as a gate** (churn without a defect); revisit only as a one-time formatting change. |
 | **Mutation testing** | Absent; not measured | F37: tests that execute code without detecting changes in it | **High for a small critical core**: compatibility classification/transition policy, upgrade policy, manifest parser, release preflight rules. Low elsewhere | Medium (equivalent mutants need triage) | Minutes to hours per package (estimate): far too slow for PRs | Heuristic (score) on top of deterministic execution | **Sched** (weekly) on selected packages; manual before changing a critical policy | **Adopt later, scheduled and scoped.** Surviving mutants become test Issues. Never a PR gate or a global score. Tool choice is an unadopted hypothesis. |
 
@@ -820,7 +820,7 @@ research.** Each needs its own Issue and the normal SDD flow.
 | 13 | **Sandbox Provider acceptance** (GitHub sandbox repo, scoped secret) | 1, 11 | G10 (Provider) | M |
 | 14 | Optional: **artifact attestation** of P at prepare, verified in accept and publish | 4 | Provenance hardening | S |
 | 15 | **Formatting and module hygiene gate**: `gofmt -l` and `go mod tidy -diff` in a PR `structure` job; required context | — | G12 | S |
-| 16 | **Toolchain patch policy and govulncheck**: `toolchain`/patch-bump policy; PR gate when `go.mod`/`go.sum`/toolchain change (signal otherwise); daily scheduled scan on `main`; `-mode=binary` on P at prepare with a human waiver recorded in the envelope | 2; [decision 4](#open-human-decisions) | G13 | M |
+| 16 | **Toolchain patch policy and govulncheck**: `toolchain`/patch-bump policy; PR gate when `go.mod`/`go.sum`/toolchain change (signal otherwise); daily scheduled scan on `main`; `-mode=binary` on P at prepare; public output is sanitized to PASS/FAIL and details follow the private security flow; any human waiver is recorded in the envelope only as a sanitized decision/reference | 2 | G13 | M |
 | 17 | **Curated staticcheck as a blocking gate**: pinned version aligned with the toolchain; `SA*` + `U1000` blocking, `ST*` signal; one-time baseline fix of the 12 findings, with justified suppressions for the 2 false positives; `GOOS` passes for platform files. Includes checking whether the unused sync helpers indicate a missing durability call (a separate product Issue if so) | 15 (shares the job) | G14 | S |
 | 18 | **errcheck staged promotion**: signal with an exclusion list, then blocking for `local`, `install`, `compatibility` and `codexruntime` | 11, 17 | G15 | S–M |
 | 19 | **Coverage signal**: per-package and diff coverage on critical packages in the job summary; later black-box/E2E coverage via `go build -cover` and `GOCOVERDIR`; no threshold | 2 | G16 | M |
@@ -863,50 +863,34 @@ automatically.
   if they are noisy. Mitigation: report deltas only, on critical packages,
   in a short summary.
 - **Vulnerability results in public logs.** Public CI output of
-  vulnerability scans can disclose reachability for released binaries
-  (see decision 4).
+  vulnerability scans can disclose reachability for released binaries.
+  Mitigation: the accepted decision requires PASS/FAIL-only public output and
+  private routing of advisory and reachability details.
 - **Process load.** More Evidence and gates add review surface for one
   maintainer. Keep the Evidence bounded and machine-checked rather than
   human-read.
 
-## Open human decisions
+## Accepted human decisions
 
-Only blocking decisions are listed.
+The maintainer accepted the following decisions on 2026-10-06. They are no longer open Research questions and should be encoded by the next Specification/ADR and implementation slices.
 
-1. **Supported upgrade sources** (blocks slices 1, 4 and 6). Adopt the
-   generation-based policy: N plus one baseline per shipped generation plus
-   declared historical formats, retired only by an explicit window
-   decision. Alternatives:
-   - every stable release, which is a growing matrix;
-   - N only, which would have missed #153 and #186.
-
-   Recommendation: generation-based. It is hard to change later because it
-   becomes a public support promise.
-2. **Windows client amd64 release Evidence** (blocks slice 9's gate
-   semantics). Options:
-   - (a) the Server proxy is release-blocking, and native client Evidence is
-     supplemental and manual per minor release;
-   - (b) a self-hosted Windows client runner;
-   - (c) human-attested native client Evidence required per stable release.
-
-   Recommendation: (a) now, revisited if a client-only defect appears.
-3. **Whether real Runtime/Provider acceptance can block a release**
-   (blocks slice 13). Recommendation: blocking only for releases whose
-   delivered Issues change that Integration or Runtime contract; otherwise
-   supplemental.
-4. **How vulnerability-scan results are surfaced in this public repository**
-   (blocks slice 16). CI logs and job summaries are public. SECURITY.md
-   forbids publishing unpatched vulnerabilities. Options:
-   - (a) PR and prepare gates print advisory IDs publicly. The advisories
-     are already public, and the gates block *before* a vulnerable change
-     merges or a release publishes. Scheduled scans of `main` emit only
-     pass/fail publicly and route details privately (for example a private
-     security advisory draft).
-   - (b) Every scan emits only pass/fail publicly.
-   - (c) Every scan is fully public.
-
-   Recommendation: (a). It is hard to change later only in the sense that
-   published logs cannot be recalled.
+1. **Supported upgrade sources — ACCEPTED.** Use the generation-based
+   policy: N plus one baseline per shipped generation plus declared historical
+   formats. A baseline is retired only by an explicit compatibility-window
+   decision. This is the contract slices 1, 4 and 6 should encode.
+2. **Windows client amd64 release Evidence — ACCEPTED.** The hosted Windows
+   Server proxy is release-blocking. Native Windows client Evidence is
+   supplemental rather than a stable-release blocker. Revisit this stance if a
+   client-only defect demonstrates that the proxy is insufficient.
+3. **Real Runtime/Provider acceptance — ACCEPTED.** Real acceptance blocks a
+   release only when that release changes the affected Integration or Runtime
+   contract. Otherwise it remains supplemental Evidence.
+4. **Public vulnerability-scan output — ACCEPTED.** Public CI and job
+   summaries expose only `PASS`/`FAIL`. Advisory IDs, reachable symbols,
+   affected artifacts and remediation details are routed through the private
+   security-reporting flow required by `SECURITY.md`. Any release waiver is
+   recorded publicly only as a sanitized decision/reference, without unpatched
+   vulnerability details.
 
 Third-party structural tools (staticcheck, errcheck, a mutation tool) stay
 hypotheses until each slice approves its adoption (AGENTS.md). Approving
