@@ -1,0 +1,129 @@
+{
+  "schema": "axiom-gate-evidence/v1",
+  "gate": "merge-regression",
+  "suite": "upgrade-journeys",
+  "row": "macos-27-arm64",
+  "subject": {
+    "kind": "rebuilt",
+    "tag": null,
+    "version": "9999.0.0-acceptance.7",
+    "revision": "6c255bac4359",
+    "sha256sums_sha256": "1413c083bf76975000478747575569d4588f9965590ff6b3cd6cd992ed52fb0e",
+    "artifacts": [
+      {
+        "name": "axiom-9999.0.0-acceptance.7-macos-27-arm64.tar.gz",
+        "sha256": "3687ba83d465dd8f4fcfe4978ab4139428d87805438efe70ee3292321361b4bb"
+      }
+    ],
+    "artifact_id": null,
+    "artifact_digest": null
+  },
+  "run": {
+    "attempt_id": "c9b0087d-ed41-414e-a5f5-55dfee1839bd",
+    "ci": null
+  },
+  "environment": {
+    "mode": "native",
+    "os": {
+      "family": "darwin",
+      "kernel_release": "27.0.0",
+      "distribution": "macos",
+      "version": "27.0.1"
+    },
+    "architecture": "arm64",
+    "filesystem": "apfs",
+    "runner": null,
+    "go_version": "go1.26.1",
+    "runtime": {
+      "bash": "3.2.57(1)-release",
+      "python": "3.14.4",
+      "clock_resolution_ms": 1000
+    }
+  },
+  "inputs": {
+    "upgrade_sources": [
+      {
+        "id": "previous-1",
+        "kind": "release",
+        "version": null,
+        "tag": null,
+        "sha256sums_sha256": "ff93ed162c8a7d1e5cb4691d285d13852477923c4e9f4379982d79f41de107c9",
+        "artifacts": []
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "stable-v1-v0.4.0",
+        "path": "internal/compatibility/testdata/stable-v1/snapshots/v0.4.0",
+        "tree_sha256": "28196fa69f16eedea29c2eaf313ec61b14ee5143eb31e9cbf88018105aff2ba1"
+      }
+    ],
+    "command": [
+      "scripts/test-upgrade-journeys.sh",
+      "--candidate",
+      "{candidate}",
+      "--previous",
+      "{previous-1}",
+      "--evidence",
+      "{evidence}"
+    ],
+    "repository": {
+      "revision": "6c255bac4359bbaf96160f59ad7f0f3f5ecf9a4f",
+      "state": "clean"
+    }
+  },
+  "journeys": [
+    {
+      "id": "v1-state",
+      "source": {
+        "role": "n",
+        "path": [
+          "previous-1"
+        ],
+        "generation": null,
+        "baseline": null
+      },
+      "completed": false,
+      "result": "fail",
+      "reason": null,
+      "governing_reference": null,
+      "installer": {
+        "upgrade": null,
+        "rerun": null
+      },
+      "classification": {
+        "before": null,
+        "after": null
+      },
+      "preservation_manifest_sha256": null,
+      "started_at": "2026-10-06T17:34:42Z",
+      "finished_at": null,
+      "steps": [
+        {
+          "id": "install-previous",
+          "result": "fail",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        }
+      ]
+    }
+  ],
+  "result": {
+    "status": "fail",
+    "termination": "aborted",
+    "exit_code": 127,
+    "signal": null,
+    "failure_categories": [],
+    "counts": {
+      "journeys": 1,
+      "steps": 1,
+      "passed": 0,
+      "failed": 1,
+      "not_applicable": 0
+    }
+  },
+  "started_at": "2026-10-06T17:34:42Z",
+  "finished_at": "2026-10-06T17:34:42Z"
+}

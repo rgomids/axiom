@@ -153,7 +153,11 @@ jobs:
           git archive v0.1.0-poc.1 | tar -x -C "$RUNNER_TEMP/poc"
           (cd "$RUNNER_TEMP/poc" && go build -trimpath -o "$RUNNER_TEMP/poc-lingo" ./cmd/lingo)
       - name: Upgrade journeys
+        env:
+          # Issue #234: the run also emits axiom-gate-evidence/v1; retaining it
+          # belongs to the candidate-acceptance slices.
+          AXIOM_EVIDENCE_RUNNER_LABEL: ${{ matrix.runner }}
         run: |
           ./scripts/test-upgrade-journeys.sh --candidate "$RUNNER_TEMP/candidate" \
             --previous "$PREVIOUS_LATEST" --previous "$PREVIOUS_v0_1_1" \
-            --poc-binary "$RUNNER_TEMP/poc-lingo" | tee -a "$GITHUB_STEP_SUMMARY"
+            --poc-binary "$RUNNER_TEMP/poc-lingo" --evidence "$RUNNER_TEMP/gate-evidence.json" | tee -a "$GITHUB_STEP_SUMMARY"
