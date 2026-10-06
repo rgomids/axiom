@@ -78,6 +78,8 @@ cleanup() {
 }
 trap cleanup EXIT
 if [[ -n "$evidence" ]]; then
+  # Original streams for the Evidence summary; they stay open in check() because
+  # a deferred signal runs cleanup inside its redirections.
   exec 8>&1 9>&2
   trap 'signal=HUP; exit 129' HUP
   trap 'signal=INT; exit 130' INT
@@ -99,7 +101,7 @@ end_journey() { [[ -z "$journey_id" ]] || record journey_end "$journey_id" "$(ut
 begin_journey() { end_journey; journey_id=$1; record journey "$1" "$2" "$3" "$4" "$(utc_now)"; }
 pass() { printf 'journey=%s step=%s result=pass\n' "$journey" "$1"; record step "$journey_id" "$1" pass $(($(now_ms) - $2)); }
 fail() { printf 'journey=%s step=%s result=fail\n' "$journey" "$1"; failures=$((failures + 1)); record step "$journey_id" "$1" fail $(($(now_ms) - $2)); }
-check() { local step=$1 started; shift; started=$(now_ms); if "$@" >"$work/last.out" 2>&1 8>&- 9>&-; then pass "$step" "$started"; else fail "$step" "$started"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
+check() { local step=$1 started; shift; started=$(now_ms); if "$@" >"$work/last.out" 2>&1; then pass "$step" "$started"; else fail "$step" "$started"; sed 's/^/  /' "$work/last.out" | head -20; fi; }
 
 # emit_evidence STATUS: builds, validates and writes the Evidence document with
 # the caller's own HOME and PATH (never the isolated homes or their shims).
