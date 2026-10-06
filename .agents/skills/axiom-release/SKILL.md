@@ -111,6 +111,8 @@ Never infer or reuse a repair selection for another release without authority.
    - tag, revision, channel, prerelease and `make_latest`;
    - the prepared run and the release notes and `SHA256SUMS` digests;
    - every artifact with its SHA-256;
+   - for a stable release, each `acceptance.<row>` SHA-256 of the prepared
+     run's release-candidate acceptance Evidence;
    - the remote state;
    - the delivered Issues (`delivery_issues`, each `delivery_issue.N` state
      and `effect.issue.N`);
@@ -118,7 +120,9 @@ Never infer or reuse a repair selection for another release without authority.
 
    For a stable release, first confirm that passing release-candidate
    acceptance Evidence exists and is bound to exactly these artifact digests
-   (Specification 004 FR-069, ADR-0019; manual until automated). If it is
+   (Specification 004 FR-069, ADR-0019). Linux amd64 and macOS arm64 are
+   automated: the envelope exists only if `publish-release.sh` verified their
+   Evidence. Linux arm64 and the Windows proxy stay manual until automated. If it is
    missing, failing or for other digests, report that and stop without asking
    for authorization. Then say which Issues will be released and closed after
    publication. Offer to show `release-notes.md`. Ask the user to authorize

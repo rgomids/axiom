@@ -22,8 +22,9 @@
 # PREPARE: `prepare` dispatches release-artifacts.yml (read-only token; it
 # builds, verifies and retains the exact artifact set, and publishes nothing),
 # waits for it, then prints the publication envelope of that prepared set.
-# status with --prepared-run downloads the prepared set, re-verifies it in a
-# clean clone of the revision and prints the envelope and its preview_digest.
+# status with --prepared-run downloads the prepared set and its per-row
+# release-candidate acceptance Evidence, re-verifies them in a clean clone of
+# the revision and prints the envelope and its preview_digest.
 # PUBLISH: `publish` dispatches publish-release.yml only with
 # --authorize-publication and a DIGEST equal to the envelope recomputed now;
 # the workflow recomputes it again from the same prepared bytes before the
@@ -166,14 +167,15 @@ release_commit_for() {
   done < <(git -C "$repository_root" log --first-parent --format=%H origin/main -- .release-please-manifest.json)
 }
 
-# prepared_envelope downloads the prepared set of $prepared_run, verifies it
-# in a clean clone of $revision with that revision's scripts, and writes the
-# publication envelope to $temporary/envelope. On refusal it sets reason.
+# prepared_envelope downloads the prepared set of $prepared_run and its
+# release-candidate acceptance Evidence, verifies them in a clean clone of
+# $revision with that revision's scripts, and writes the publication envelope
+# to $temporary/envelope. On refusal it sets reason.
 prepared_envelope() {
-  local dir=$temporary/prepared clone=$temporary/source origin_url
+  local dir=$temporary/prepared clone=$temporary/source acceptance=$temporary/acceptance origin_url row
   [[ "$prepared_run" =~ ^[0-9]+$ ]] || { reason='prepared run id must be numeric'; return 1; }
-  rm -rf -- "$dir" "$clone"
-  mkdir "$dir"
+  rm -rf -- "$dir" "$clone" "$acceptance"
+  mkdir "$dir" "$acceptance"
   if ! gh run download "$prepared_run" --repo "$repository" --name "axiom-release-$tag" --dir "$dir" >/dev/null 2>&1; then
     reason="cannot download axiom-release-$tag from run $prepared_run"
     return 1
@@ -187,10 +189,22 @@ prepared_envelope() {
     reason=$(sed -E 's/^[a-z_]+_error: //' "$temporary/prepared-error" | head -n 1)
     return 1
   fi
+  # One Evidence artifact per blocking row; an absent one stays absent and
+  # publish-release.sh refuses it unless the release is already published.
+  if ! "$clone/scripts/verify-release-acceptance.py" rows >"$temporary/acceptance-rows" 2>/dev/null; then
+    reason='the release scripts of this revision predate release-candidate acceptance'
+    return 1
+  fi
+  while IFS= read -r row; do
+    mkdir "$acceptance/$row"
+    gh run download "$prepared_run" --repo "$repository" --name "axiom-acceptance-$tag-$row" --dir "$acceptance/$row" >/dev/null 2>&1 \
+      || rm -rf -- "$acceptance/$row"
+  done <"$temporary/acceptance-rows"
   if ! "$clone/scripts/publish-release.sh" --envelope --repo "$repository" --tag "$tag" --revision "$revision" \
     --make-latest "$(value make_latest "$temporary/prepared-facts")" --prepared-run "$prepared_run" --dir "$dir/artifacts" \
-    --evidence "$dir/release-evidence.txt" --notes "$dir/release-notes.md" >"$temporary/envelope" 2>"$temporary/envelope-error"; then
-    reason=$(sed 's/^release_publish_error: //' "$temporary/envelope-error" | head -n 1)
+    --evidence "$dir/release-evidence.txt" --notes "$dir/release-notes.md" --acceptance "$acceptance" \
+    >"$temporary/envelope" 2>"$temporary/envelope-error"; then
+    reason=$(sed -E 's/^[a-z_]+_error: //' "$temporary/envelope-error" | head -n 1)
     return 1
   fi
 }

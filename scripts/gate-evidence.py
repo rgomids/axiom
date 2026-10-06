@@ -5,6 +5,7 @@ upgrade journeys (Issue #234; Specification 004 FR-075/AC-56; ADR-0019).
     scripts/gate-evidence.py validate FILE...
     scripts/gate-evidence.py upgrade-journeys --records FILE --output ABS_FILE \
       --row ROW --candidate DIR [--previous DIR ...] [--poc-binary FILE] \
+      [--gate merge-regression|candidate-acceptance] \
       --fixture ID=RELATIVE_PATH ... --started-at TS --finished-at TS \
       --exit-code N --termination completed|aborted|interrupted [--signal NAME] \
       --attempt-id UUID --record-count N \
@@ -20,6 +21,8 @@ never dumps the environment, and prints only the written document's digest.
 It never infers a failure category: it carries the one the harness observed
 for each step, or null. It refuses incomplete step records and binds an
 upgrade-source or subject artifact only when its SHA256SUMS lists that digest.
+The gate is merge-regression unless the caller names candidate-acceptance
+(Issue #238), which only a verified prepared subject may carry.
 
 Exit status: 0 valid or written; 1 invalid document or emitter error; 2 usage;
 3 not enough subject state to produce a document.
@@ -49,6 +52,10 @@ CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 TIMESTAMP_FORMATS = ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S.%fZ")
 
 GATE = "merge-regression"
+# Release-candidate acceptance (Issue #238): release-critical Evidence about the
+# prepared candidate set; never a rebuilt or published subject.
+ACCEPTANCE_GATE = "candidate-acceptance"
+GATES = (GATE, ACCEPTANCE_GATE)
 SUITE = "upgrade-journeys"
 SCRIPT = "scripts/test-upgrade-journeys.sh"
 OBSERVATIONS = {
@@ -302,6 +309,10 @@ def semantic_errors(document):
     unique(sources, "$.inputs.upgrade_sources")
     unique([item["id"] for item in document["inputs"]["fixtures"]], "$.inputs.fixtures")
     unique([item["id"] for item in document["journeys"]], "$.journeys")
+    if document["gate"] == ACCEPTANCE_GATE and document["subject"]["kind"] != "prepared":
+        found.append("$.gate: candidate-acceptance Evidence needs a prepared subject")
+    if (document["gate"] == ACCEPTANCE_GATE) != ("--candidate-acceptance" in document["inputs"]["command"]):
+        found.append("$.inputs.command: --candidate-acceptance must match the candidate-acceptance gate")
     subject_placeholders = ("subject-row", "subject-tag", "subject-revision", "subject-sha256sums") if document["subject"]["kind"] == "prepared" else ()
     for placeholder in document["inputs"]["command"]:
         if placeholder.startswith("{") and placeholder[1:-1] not in ("candidate", "evidence", *sources, *subject_placeholders):
@@ -587,6 +598,8 @@ class Builder:
             command = [SCRIPT, "--prepared-set", "{candidate}", "--row", "{subject-row}",
                        "--tag", "{subject-tag}", "--revision", "{subject-revision}",
                        "--sha256sums-sha256", "{subject-sha256sums}"]
+            if self.gate() == ACCEPTANCE_GATE:
+                command += ["--candidate-acceptance"]
         else:
             command = [SCRIPT, "--candidate", "{candidate}"]
         for index in range(1, len(self.arguments.previous) + 1):
@@ -594,6 +607,9 @@ class Builder:
         if self.arguments.poc_binary:
             command += ["--poc-binary", "{poc-binary}"]
         return command + ["--evidence", "{evidence}"]
+
+    def gate(self):
+        return getattr(self.arguments, "gate", GATE)
 
     def repository(self):
         def git(*arguments):
@@ -689,7 +705,7 @@ class Builder:
             raise Invalid("--attempt-id must be a lowercase UUIDv4")
         return {
             "schema": SCHEMA_ID,
-            "gate": GATE,
+            "gate": self.gate(),
             "suite": SUITE,
             "row": arguments.row,
             "subject": self.subject(),
@@ -860,6 +876,8 @@ def upgrade_journeys(arguments):
     for directory in [arguments.candidate, *arguments.previous, arguments.repository]:
         if _inside(os.path.dirname(output), directory):
             raise Invalid("--output must be outside the subject, upgrade sources and repository")
+    if arguments.gate == ACCEPTANCE_GATE and not arguments.prepared_identity:
+        raise Invalid("candidate-acceptance Evidence needs a verified prepared subject")
     schema = Schema.load()
     document = Builder(arguments, schema).build()
     print(f"evidence_sha256={write_document(document, output, schema)}")
@@ -875,6 +893,7 @@ def parse(argv):
     emit.add_argument("--output", required=True)
     emit.add_argument("--row", required=True, choices=["linux-amd64", "linux-arm64", "macos-27-arm64"])
     emit.add_argument("--candidate", required=True)
+    emit.add_argument("--gate", default=GATE, choices=GATES)
     emit.add_argument("--prepared-identity", default="")
     emit.add_argument("--prepared-tag", default="")
     emit.add_argument("--prepared-revision", default="")

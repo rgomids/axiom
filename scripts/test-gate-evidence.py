@@ -331,6 +331,22 @@ class Schema(unittest.TestCase):
                                            artifact_digest="sha256:" + SHA)
                 self.assertEqual(errors(document), [])
 
+    def test_candidate_acceptance_is_only_about_a_prepared_subject(self):
+        accepted = fixture("pass-prepared.json")
+        accepted["gate"] = "candidate-acceptance"
+        accepted["inputs"]["command"].insert(-2, "--candidate-acceptance")
+        self.assertEqual(errors(accepted), [])
+        unflagged = fixture("pass-prepared.json")
+        unflagged["gate"] = "candidate-acceptance"
+        self.assertIn("$.inputs.command: --candidate-acceptance must match the candidate-acceptance gate", errors(unflagged))
+        flagged = fixture("pass-prepared.json")
+        flagged["inputs"]["command"].insert(-2, "--candidate-acceptance")
+        self.assertIn("$.inputs.command: --candidate-acceptance must match the candidate-acceptance gate", errors(flagged))
+        rebuilt = fixture("pass.json")
+        rebuilt["gate"] = "candidate-acceptance"
+        rebuilt["inputs"]["command"].insert(-2, "--candidate-acceptance")
+        self.assertIn("$.gate: candidate-acceptance Evidence needs a prepared subject", errors(rebuilt))
+
     def test_result_consistency(self):
         self.rejected(lambda d: d["result"]["counts"].update(steps=1), "counts.steps")
         self.rejected(lambda d: d["result"].update(failure_categories=["product"]))
@@ -502,6 +518,14 @@ class Emitter(unittest.TestCase):
         self.assertEqual((poc["source"]["path"], poc["preservation_manifest_sha256"]), (["poc-binary", "previous-1"], SHA))
         self.assertEqual(document["journeys"][0]["installer"], {"upgrade": "upgraded", "rerun": "unchanged"})
         self.assertIsNone(document["run"]["ci"])
+
+    def test_candidate_acceptance_gate_refuses_a_rebuilt_subject(self):
+        self.write_records(self.passing_records())
+        completed = self.emit(extra=("--gate", "candidate-acceptance"))
+        self.assertEqual(completed.returncode, 1, completed.stderr)
+        self.assertIn("candidate-acceptance Evidence needs a verified prepared subject", completed.stderr)
+        self.assertFalse(os.path.exists(self.output))
+        self.assertEqual(self.emit(extra=("--gate", "release")).returncode, 2)
 
     def test_evidence_is_secret_free_and_path_free(self):
         self.write_records(self.passing_records())

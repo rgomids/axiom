@@ -8,6 +8,16 @@
 #   (default)   publication, only with --authorized-digest equal to the
 #               envelope recomputed here, immediately before the first effect.
 #
+# Release-candidate acceptance (Issue #238, ADR-0019): --envelope and
+# publication take --acceptance, the directory of the prepared run's
+# acceptance Evidence. For a stable release that does not already read back
+# published (bytes left to publish), verify-release-acceptance.py must accept
+# that Evidence as passing and bound to exactly this tag, revision, prepared
+# run and verified set, and the envelope binds the SHA-256 of every Evidence
+# document; missing, failing or mismatched Evidence refuses before any effect
+# (FR-069/AC-51). A release candidate states acceptance=not_required_rc.
+# Acceptance only produces Evidence: it never publishes or authorizes.
+#
 # Publication order: classify the remote state -> create or reuse one draft
 # bound to the exact revision -> replace mismatched draft assets and upload
 # missing ones -> read back every asset digest -> publish once -> read back
@@ -35,6 +45,7 @@ make_latest=
 directory=
 evidence=
 notes=
+acceptance=
 prepared_run=
 authorized_digest=
 check=false
@@ -48,6 +59,7 @@ while (($#)); do
     --dir) directory=${2:-}; shift 2 ;;
     --evidence) evidence=${2:-}; shift 2 ;;
     --notes) notes=${2:-}; shift 2 ;;
+    --acceptance) acceptance=${2:-}; shift 2 ;;
     --prepared-run) prepared_run=${2:-}; shift 2 ;;
     --authorized-digest) authorized_digest=${2:-}; shift 2 ;;
     --check) check=true; shift ;;
@@ -77,6 +89,9 @@ if [[ "$check" == false ]]; then
     [[ "$authorized_digest" =~ ^[0-9a-f]{64}$ ]] \
       || fail 'publication requires --authorized-digest: the preview_digest a human authorized'
   fi
+  [[ "$acceptance" == /* && ! -L "$acceptance" ]] \
+    || fail 'publication requires --acceptance: the absolute acceptance Evidence directory of the prepared run'
+  command -v python3 >/dev/null 2>&1 || fail 'python3 is required'
 fi
 command -v gh >/dev/null 2>&1 || fail 'gh is required'
 command -v jq >/dev/null 2>&1 || fail 'jq is required'
@@ -332,6 +347,27 @@ if ((count == 1)); then
   fi
 fi
 
+# Release-candidate acceptance of the exact verified set, read before any
+# effect. A published release has no bytes left to publish (check_published
+# matched them to this set), so it needs no new acceptance; FR-069 makes it
+# blocking for stable releases only.
+if [[ "$check" == false ]]; then
+  if [[ "$state" == published ]]; then
+    printf 'acceptance=already_published\n' >"$temporary/acceptance"
+  elif [[ "$channel" == rc ]]; then
+    printf 'acceptance=not_required_rc\n' >"$temporary/acceptance"
+  else
+    [[ -d "$acceptance" ]] || fail 'release-candidate acceptance Evidence is missing; nothing published'
+    python3 "$repository_root/scripts/verify-release-acceptance.py" verify \
+      --acceptance "$(cd "$acceptance" && pwd -P)" --artifacts "$(cd "$directory" && pwd -P)" \
+      --tag "$tag" --revision "$revision" --repo "$repository" --prepared-run "$prepared_run" >"$temporary/acceptance" \
+      || fail 'release-candidate acceptance Evidence is missing, failing or not bound to these bytes; nothing published'
+    [[ $(awk -F= '$1 == "acceptance_sha256sums" {print $2}' "$temporary/acceptance") == \
+       $(awk '$1 == "SHA256SUMS" {print $2}' "$temporary/expected") ]] \
+      || fail 'acceptance Evidence binds another SHA256SUMS than the verified set; nothing published'
+  fi
+fi
+
 if [[ "$check" == false ]]; then
   resolve_release_pr
   # Issue delivery is part of the authorized effect set; its state is read
@@ -362,6 +398,7 @@ write_envelope() {
   while read -r name sum _; do
     [[ "$name" == SHA256SUMS ]] || printf 'artifact.%s=%s\n' "$name" "$sum"
   done <"$temporary/expected"
+  grep -v '^acceptance_sha256sums=' "$temporary/acceptance"
   printf 'publication_state=%s\n' "$state"
   printf 'tag_state=%s\n' "$([[ -n "$tag_commit" ]] && printf present || printf absent)"
   printf 'release_id=%s\n' "$([[ -n "$release" ]] && jq -r '.id' <<<"$release" || printf none)"
