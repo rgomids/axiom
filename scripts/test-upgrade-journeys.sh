@@ -226,10 +226,19 @@ strict_tree_digest() {
   (cd "$1" && find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do sum=$(digest "$file") || exit 1; printf '%s %s\n' "$file" "$sum"; done) | digest /dev/stdin
 }
 
+# tree_observation BASELINE DIR: DIR's strict digest as a definite observation,
+# only when the strict BASELINE was read completely too.
+tree_observation() { [[ -n "$1" ]] && strict_tree_digest "$2"; }
+
 version_of() { "$H/.local/bin/axiom" version | sed -n 's/^provenance: Axiom \([^ ]*\) .*/\1/p'; }
 installer_status() { sed -n 's/^install_status=//p' "$work/install.out" | head -1; }
 # definite_status STATUS: STATUS when it is a completed installer outcome.
 definite_status() { case "$1" in installed|upgraded|unchanged) printf '%s\n' "$1" ;; esac; }
+source_version() { local bundle; bundle=$(release_bundle "$1") && sed -n 's/^version=//p' "$bundle/release-metadata.txt"; }
+# upgrade_observation SOURCE_DIR STATUS: STATUS as a definite observation of an
+# upgrade from SOURCE_DIR; empty when that source carries the candidate's own
+# version, which makes the expected `upgraded` an input defect, not a product one.
+upgrade_observation() { local from; from=$(source_version "$1") || from=; [[ -n "$from" && "$from" != "$candidate_version" ]] && definite_status "$2"; }
 
 candidate_bundle=$(release_bundle "$candidate")
 candidate_version=$(sed -n 's/^version=//p' "$candidate_bundle/release-metadata.txt")
@@ -286,17 +295,21 @@ check previous-reads-seeded-state-as-v1 test "$classification_before" = valid_v1
 observe classification_before "$classification_before"
 state_before=$(tree_digest "$STATE")
 portable_before=$(tree_digest "$PROJECTS")
+# Strict baselines: a comparison is a definite observation only when both
+# sides were read completely (tree_observation).
+state_baseline=$(strict_tree_digest "$STATE") || state_baseline=
+portable_baseline=$(strict_tree_digest "$PROJECTS") || portable_baseline=
 check upgrade install_release "$candidate"
 upgrade_status=$(installer_status) || true
 observe installer_upgrade "$upgrade_status"
-check_observed "$(definite_status "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+check_observed "$(upgrade_observation "${previous[0]}" "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
 version_after=$(version_of) && seen=$version_after || seen=
 check_observed "$seen" version test "$version_after" = "$candidate_version"
 state_after=$(tree_digest "$STATE") || true
-seen=$(strict_tree_digest "$STATE") || seen=
+seen=$(tree_observation "$state_baseline" "$STATE") || seen=
 check_observed "$seen" state-bytes-unchanged test "$state_after" = "$state_before"
 portable_after=$(tree_digest "$PROJECTS") || true
-seen=$(strict_tree_digest "$PROJECTS") || seen=
+seen=$(tree_observation "$portable_baseline" "$PROJECTS") || seen=
 check_observed "$seen" portable-bytes-unchanged test "$portable_after" = "$portable_before"
 classification_after=$(classification) && seen=$classification_after || seen=
 check_observed "$seen" state-valid-v1 test "$classification_after" = valid_v1
@@ -324,7 +337,7 @@ for index in "${!previous[@]}"; do
   check upgrade install_release "$candidate"
   upgrade_status=$(installer_status) || true
   observe installer_upgrade "$upgrade_status"
-  check_observed "$(definite_status "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+  check_observed "$(upgrade_observation "${previous[$index]}" "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
   check codex-ready-without-first-run bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   check claude-ready bash -c 'cd "$HOME/cwd" && axiom runtime claude status'
@@ -395,7 +408,7 @@ PYTHON
   check upgrade install_release "$candidate"
   upgrade_status=$(installer_status) || true
   observe installer_upgrade "$upgrade_status"
-  check_observed "$(definite_status "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
+  check_observed "$(upgrade_observation "${previous[0]}" "$upgrade_status")" upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
   archive=$(sed -n 's/^install_preserved=//p' "$work/install.out")
   check archive-reported test -n "$archive"
   if [[ -n "$evidence" && -n "$archive" && -f "$archive/manifest.json" ]]; then observe preservation_manifest_sha256 "$(digest "$archive/manifest.json")"; fi
@@ -432,12 +445,13 @@ PYTHON
   check project-reconfigured bash -c 'cd "$HOME/cwd" && axiom project list | grep -q "project: poc-project"'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   archive_before=$(tree_digest "$archive")
+  archive_baseline=$(strict_tree_digest "$archive") || archive_baseline=
   check rerun-installer install_release "$candidate"
   rerun_status=$(installer_status) || true
   observe installer_rerun "$rerun_status"
   check_observed "$(definite_status "$rerun_status")" rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
   archive_after=$(tree_digest "$archive") || true
-  seen=$(strict_tree_digest "$archive") || seen=
+  seen=$(tree_observation "$archive_baseline" "$archive") || seen=
   check_observed "$seen" archive-retained-unchanged test "$archive_after" = "$archive_before"
 fi
 

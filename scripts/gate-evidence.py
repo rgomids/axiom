@@ -817,6 +817,8 @@ def write_document(document, output, schema):
         os.link(temporary, output)
     except FileExistsError as error:
         raise Invalid("--output already exists") from error
+    except OSError as error:
+        raise Invalid(f"cannot create --output without replacing anything ({error.strerror})") from error
     finally:
         os.unlink(temporary)
     return hashlib.sha256(data).hexdigest()

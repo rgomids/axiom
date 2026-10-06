@@ -8,6 +8,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tarfile
@@ -829,11 +830,56 @@ def harness_function(name):
     return text[start:end]
 
 
+class ObservationCallSites(unittest.TestCase):
+    """Every `product` attribution in the harness goes through an approved observation."""
+
+    APPROVED = (
+        re.compile(r'^"\$\(upgrade_observation "\$\{previous\[(0|\$index)\]\}" "\$upgrade_status"\)"$'),
+        re.compile(r'^"\$\(definite_status "\$rerun_status"\)"$'),
+    )
+    SEEN = (
+        re.compile(r'^\s*[a-z_]+=\$\((version_of|classification|digest "\$selected_file")\) && seen=\$[a-z_]+ \|\| seen=$'),
+        re.compile(r'^\s*seen=\$\(tree_observation "\$[a-z_]+_baseline" "\$[A-Za-z_]+"\) \|\| seen=$'),
+    )
+
+    def test_check_observed_call_sites(self):
+        with open(HARNESS, encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+        calls = [(index, line) for index, line in enumerate(lines)
+                 if re.match(r"^\s*check_observed ", line)]
+        self.assertGreaterEqual(len(calls), 11)
+        for index, line in calls:
+            with self.subTest(line=line.strip()):
+                argument = re.match(r'^\s*check_observed ("\$\(.*?\)"|"\$seen") ', line).group(1)
+                if argument == '"$seen"':
+                    self.assertTrue(any(pattern.match(lines[index - 1]) for pattern in self.SEEN), lines[index - 1])
+                else:
+                    self.assertTrue(any(pattern.match(argument) for pattern in self.APPROVED), argument)
+
+
 class ObservationHelpers(unittest.TestCase):
-    def run_functions(self, body):
-        script = "set -euo pipefail\n" + "".join(harness_function(name) for name in
-                                                  ("digest", "tree_digest", "strict_tree_digest", "definite_status")) + body
+    FUNCTIONS = ("digest", "tree_digest", "strict_tree_digest", "tree_observation", "definite_status",
+                 "release_bundle", "source_version", "upgrade_observation")
+
+    def run_functions(self, body, prelude=""):
+        script = "set -euo pipefail\n" + "".join(harness_function(name) for name in self.FUNCTIONS) + prelude + body
         return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False)
+
+    def test_an_upgrade_from_the_candidates_own_version_is_an_input_defect(self):
+        with tempfile.TemporaryDirectory() as root:
+            source = os.path.join(root, "source")
+            os.mkdir(source)
+            archive(source, "axiom-0.5.0-linux-amd64.tar.gz", {"version": "0.5.0"})
+            prelude = f"row=linux-amd64 work={os.path.join(root, 'work')!r}\n"
+            for candidate, status, expected in (("9.9.9", "unchanged", "unchanged"), ("9.9.9", "partial", ""),
+                                                ("0.5.0", "unchanged", ""), ("0.5.0", "upgraded", "")):
+                with self.subTest(candidate=candidate, status=status):
+                    completed = self.run_functions(
+                        f"candidate_version={candidate}; printf '[%s]' \"$(upgrade_observation {source!r} {status})\"", prelude)
+                    self.assertEqual(completed.stdout, f"[{expected}]", completed.stderr)
+            missing = self.run_functions(
+                f"candidate_version=9.9.9; printf '[%s]' \"$(upgrade_observation {root!r}/absent unchanged)\"", prelude)
+            self.assertEqual(missing.stdout, "[]")
 
     def test_only_completed_installer_outcomes_are_definite(self):
         completed = self.run_functions("for s in installed upgraded unchanged partial success ''; do printf '[%s]' \"$(definite_status \"$s\")\"; done")
@@ -855,6 +901,10 @@ class ObservationHelpers(unittest.TestCase):
                 os.chmod(os.path.join(directory, "b"), 0o600)
             self.assertRegex(loose.stdout, r"^[0-9a-f]{64}\n$")
             self.assertNotEqual(strict.returncode, 0)
+            baseline = self.run_functions(f"printf '[%s]' \"$(tree_observation '' {directory!r})\"")
+            self.assertEqual(baseline.stdout, "[]")
+            clean = self.run_functions(f"printf '%s' \"$(tree_observation {SHA} {directory!r})\"")
+            self.assertRegex(clean.stdout, r"^[0-9a-f]{64}$")
 
 
 class Harness(unittest.TestCase):
