@@ -1629,14 +1629,22 @@ check 'publication never rebuilds: it consumes the prepared run artifact' bash -
 check 'publication is bound to the authorized envelope digest' bash -c "grep -Fq -- '--authorized-digest \"\$PREVIEW_DIGEST\"' '$workflows/publish-release.yml' && grep -Fq 'PREVIEW_DIGEST: \${{ inputs.preview_digest }}' '$workflows/publish-release.yml'"
 check 'preparation builds, verifies and retains the exact set without publishing' bash -c "grep -Fq build-release-archives.sh '$workflows/release-artifacts.yml' && grep -Fq verify-release-artifacts.sh '$workflows/release-artifacts.yml' && grep -Fq release-notes.sh '$workflows/release-artifacts.yml' && grep -Fq 'name: axiom-release-\${{ env.RELEASE_TAG }}' '$workflows/release-artifacts.yml' && ! grep -Eiq 'contents: write|gh release|git tag|git push|publish-release' '$workflows/release-artifacts.yml'"
 # Publication and Project credentials stay inside environment-gated jobs.
+# secret_refs prints every secrets context reference (`secrets.NAME`, or
+# `secrets[` for bracket access, which is never approved). Pure YAML comment
+# lines are prose and are skipped unless they hold an expression: GitHub also
+# evaluates `${{ }}` inside comment lines of run scripts.
+secret_refs() { awk '!/^[[:space:]]*#/ || /\$\{\{/' "$@" | grep -o 'secrets\(\.[A-Za-z0-9_]*\|\[\)' || true; }
+export -f secret_refs
+check 'secret references ignore comment prose, never expressions or bracket access' bash -c "
+  [[ \$(printf '%s\n' '# runs with no secrets.' '  A: \${{ secrets.ONE }}' '          # \${{ secrets.TWO }}' '  B: \${{ secrets[\"THREE\"] }}' | secret_refs | paste -sd, -) == 'secrets.ONE,secrets.TWO,secrets[' ]]"
 check 'only approved secrets are used, only in environment-gated jobs' bash -c "
-  [[ \$(grep -ho 'secrets\.[A-Za-z0-9_]*' $workflows/*.yml | LC_ALL=C sort -u | paste -sd, -) == secrets.AXIOM_DELIVERY_PROJECT_TOKEN,secrets.AXIOM_RELEASE_PUBLISH_TOKEN ]] &&
-  [[ \$(grep -l 'secrets\.' $workflows/*.yml | xargs -n1 basename | LC_ALL=C sort | paste -sd, -) == delivery-sync.yml,publish-release.yml ]] &&
-  [[ \$(grep -c 'secrets\.' '$workflows/publish-release.yml') == 2 && \$(grep -c 'secrets\.' '$workflows/delivery-sync.yml') == 1 ]] &&
-  sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
+  [[ \$(secret_refs $workflows/*.yml | LC_ALL=C sort -u | paste -sd, -) == secrets.AXIOM_DELIVERY_PROJECT_TOKEN,secrets.AXIOM_RELEASE_PUBLISH_TOKEN ]] &&
+  [[ \$(for w in $workflows/*.yml; do [[ -n \$(secret_refs \"\$w\") ]] && basename \"\$w\"; done | LC_ALL=C sort | paste -sd, -) == delivery-sync.yml,publish-release.yml ]] &&
+  [[ \$(secret_refs '$workflows/publish-release.yml' | wc -l) -eq 2 && \$(secret_refs '$workflows/delivery-sync.yml' | wc -l) -eq 1 ]] &&
+  sed -n '/^  publish:/,\$p' '$workflows/publish-release.yml' | secret_refs | grep -Fxq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
   sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fxq '    environment: delivery' &&
-  sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
-  ! sed -n '/^  sync:/,/^  sync-project:/p' '$workflows/delivery-sync.yml' | grep -Fq 'secrets.'"
+  sed -n '/^  sync-project:/,\$p' '$workflows/delivery-sync.yml' | secret_refs | grep -Fxq 'secrets.AXIOM_DELIVERY_PROJECT_TOKEN' &&
+  [[ -z \$(sed -n '/^  sync:/,/^  sync-project:/p' '$workflows/delivery-sync.yml' | secret_refs) ]]"
 check 'dedicated publication credential stays out of preflight and checkout' bash -c "
   ! sed -n '/^  preflight:/,/^  publish:/p' '$workflows/publish-release.yml' | grep -Fq 'secrets.' &&
   [[ \$(grep -c 'secrets.AXIOM_RELEASE_PUBLISH_TOKEN' '$workflows/publish-release.yml') == 1 ]] &&
@@ -1663,9 +1671,22 @@ check 'delivery workflows: PR metadata check has no token or secret, sync runs o
   [[ \$(sed -n '/^on:/,/^[a-z]/p' '$workflows/delivery-sync.yml' | grep -E '^  [a-z_]+:' | tr -d ' :') == push ]] &&
   sed -n '/^  push:/,/^[a-z]/p' '$workflows/delivery-sync.yml' | grep -Fxq '      - main' &&
   grep -Fxq 'permissions: {}' '$workflows/delivery-sync.yml' && ! grep -Eq 'contents: write|pull_request' '$workflows/delivery-sync.yml'"
+# Triggers are allowlisted per workflow. Only the Issue label policy reacts to
+# Issue events, for exactly its four event types; it may only add labels, write
+# its own comment and maintain the label catalog, never edit an Issue itself.
 check 'Issue closure is a publication effect: no workflow closes Issues on merge or release events' bash -c "
-  for w in $workflows/*.yml; do sed -n '/^on:/,/^[a-z]/p' \"\$w\"; done | grep -E '^  [a-z_]+:' | tr -d ' :' | grep -Eqv '^(pull_request|push|workflow_dispatch)$' && exit 1;
-  ! grep -Eq 'state=closed|state_reason' $workflows/*.yml"
+  for w in $workflows/*.yml; do
+    case \$(basename \"\$w\") in
+      issue-label-policy.yml) allowed='issues|push|workflow_dispatch' ;;
+      *) allowed='pull_request|push|workflow_dispatch' ;;
+    esac
+    sed -n '/^on:/,/^[a-z]/p' \"\$w\" | grep -E '^  [a-z_]+:' | tr -d ' :' | grep -Eqv \"^(\$allowed)\$\" && exit 1
+  done
+  policy='$workflows/issue-label-policy.yml'
+  [[ \$(sed -n '/^on:/,/^[a-z]/p' \"\$policy\" | grep -A1 -Fx '  issues:' | tail -n1) == '    types: [opened, reopened, labeled, unlabeled]' ]] || exit 1
+  [[ \$(grep -Ec -- '--method|-X ' \"\$policy\") -eq \$(grep -Ec -- '--method (POST \"[^\"]*/(labels|comments)\"|PATCH \"[^\"]*/(issues/comments/\\\$comment_id|labels/[^\"]*)\") --input -' \"\$policy\") ]] || exit 1
+  ! grep -Eq 'gh (issue|pr) ' \"\$policy\" &&
+  ! grep -Eq 'state=closed|state_reason|\"state\"' $workflows/*.yml"
 pinned=true
 while IFS= read -r line; do
   [[ "$line" =~ uses:\ [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}\ \#\ v[0-9.]+$ ]] || { printf 'unpinned: %s\n' "$line" >&2; pinned=false; }

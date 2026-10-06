@@ -1,0 +1,116 @@
+name: Story
+description: Propose a user-facing outcome or value; not only a technical activity.
+labels:
+  - type:story
+  - status:planned
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An Issue does not represent approval, change the roadmap, or authorize implementation.
+        Issue labels, status, closure, PR merge, and green CI do not advance canonical Axiom workflow state or establish human acceptance.
+        Do not include secrets, credentials, private data, or unsanitized logs. Report suspected vulnerabilities privately using [SECURITY.md](https://github.com/rgomids/axiom/blob/main/SECURITY.md), never through this form.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Primary area. Maintainers may add a second area only when it improves classification.
+      options:
+        - CLI
+        - Skills
+        - Work Item
+        - Workflow
+        - Runtime
+        - Execution
+        - Installer
+        - CI/CD
+        - Governance
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Select every affected platform, or "Not platform-specific".
+      multiple: true
+      options:
+        - Not platform-specific
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+    validations:
+      required: true
+  - type: textarea
+    id: user
+    attributes:
+      label: Affected user
+      description: Describe the user role or use case without identifying private individuals.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome and value
+      description: What changes for the affected user, and why it matters.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Current behavior and related Specifications, ADRs, or contracts when applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: What should remain outside this proposal?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance expectations
+      description: Observable conditions that would show the outcome is delivered.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or supporting context
+      description: Public or sanitized Evidence when pertinent. State if none is available.
+    validations:
+      required: false
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Willingness to contribute
+      description: This answer does not grant implementation authority.
+      options:
+        - I can help discuss or validate the proposal.
+        - I can contribute implementation after explicit authorization.
+        - I am sharing the proposal only.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing Issues for duplicates.
+          required: true
+        - label: I removed secrets, credentials, private data, and sensitive vulnerability details.
+          required: true

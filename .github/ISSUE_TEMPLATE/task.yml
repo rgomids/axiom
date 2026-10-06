@@ -1,0 +1,98 @@
+name: Task
+description: Describe a bounded technical activity with a concrete, verifiable result.
+labels:
+  - type:task
+  - status:planned
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An Issue does not represent approval, change the roadmap, or authorize implementation.
+        Issue labels, status, closure, PR merge, and green CI do not advance canonical Axiom workflow state or establish human acceptance.
+        Do not include secrets, credentials, private data, or unsanitized logs. Report suspected vulnerabilities privately using [SECURITY.md](https://github.com/rgomids/axiom/blob/main/SECURITY.md), never through this form.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Primary area. Maintainers may add a second area only when it improves classification.
+      options:
+        - CLI
+        - Skills
+        - Work Item
+        - Workflow
+        - Runtime
+        - Execution
+        - Installer
+        - CI/CD
+        - Governance
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Select every affected platform, or "Not platform-specific".
+      multiple: true
+      options:
+        - Not platform-specific
+        - Windows
+        - Linux
+        - macOS
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why the task is needed; related Issues, Specifications, ADRs, or contracts.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in scope and what explicitly is not.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: completion
+    attributes:
+      label: Completion criteria
+      description: Verifiable conditions that close the task.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Blocking Issues, decisions, or external conditions, if any.
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Expected Evidence
+      description: Checks, outputs, or artifacts that should demonstrate completion, when pertinent.
+    validations:
+      required: false
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing Issues for duplicates.
+          required: true
+        - label: I removed secrets, credentials, private data, and sensitive vulnerability details.
+          required: true

@@ -168,6 +168,42 @@
       "removal_condition": null
     },
     {
+      "path": ".github/workflows/issue-label-policy.yml",
+      "kind": "workflow",
+      "owner": "delivery",
+      "purpose": "Apply the Issue label taxonomy: seed area/platform/status from Issue Form answers, report type/status/area violations in one edited-in-place comment, and create or normalize the canonical label catalog. Never removes labels and ignores axiom:*.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "issues opened/reopened/labeled/unlabeled; push to main changing scripts/issue-label-policy.py; workflow_dispatch on the default branch only (other branches are refused)",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Issue number and action from the event; the Issue, its comments and the repository labels read through the GitHub API into files; default-branch checkout",
+      "outputs": "step summary lines added=, violation=, notice=, skip=, create=/update=, catalog_operations=; failure only on API or planner errors",
+      "local_effects": "runner workspace only",
+      "network_effects": "GitHub API via gh: reads the Issue, its comments and labels; adds canonical labels to the Issue; creates or edits the single policy comment; creates or updates canonical repository labels",
+      "authority": "GITHUB_TOKEN with contents: read and issues: write per job; every job checks out the default branch; no secrets; never deletes or removes labels; never edits Issue state; axiom:* untouched",
+      "tests": [
+        "scripts/test-issue-label-policy.py"
+      ],
+      "evidence": null,
+      "compatibility": [
+        {
+          "relation": "implements the Issue label taxonomy of",
+          "path": "CONTRIBUTING.md"
+        }
+      ],
+      "removal_condition": null
+    },
+    {
       "path": ".github/workflows/publish-release.yml",
       "kind": "workflow",
       "owner": "release",
@@ -1054,6 +1090,39 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/issue-label-policy.py",
+      "kind": "script",
+      "owner": "delivery",
+      "purpose": "Pure, offline planner of the Issue label policy: canonical catalog, Issue Form answer mapping, label additions, violations and the policy comment; catalog create/update plan.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every issue-label-policy.yml run; maintainers may run it locally on exported Issue JSON.",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/issue-label-policy.yml",
+        "scripts/test-issue-label-policy.py"
+      ],
+      "inputs": "plan --issue FILE --action ACTION (REST Issue JSON); catalog-plan --labels FILE (REST label list JSON)",
+      "outputs": "JSON plan on stdout (add, violations, notices, report, skip) or catalog operations (create/update only); exit 2 on usage error",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "none; read-only planner; never decides removals",
+      "tests": [
+        "scripts/test-issue-label-policy.py"
+      ],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/maintainer-agent-eval.py",
       "kind": "script",
       "owner": "maintainer-harness",
@@ -1793,6 +1862,36 @@
       "callers": [],
       "inputs": "none; offline archive fixtures and controlled host command fixtures, no native product acceptance",
       "outputs": "bounded case results and non-zero on assertion failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-issue-label-policy.py",
+      "kind": "script",
+      "owner": "delivery",
+      "purpose": "Offline tests of issue-label-policy.py and its contract with the Issue Forms and issue-label-policy.yml.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation via validate-repository.sh, and when the policy, forms or workflow change.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "none; reads the planner, .github/ISSUE_TEMPLATE and the workflow text",
+      "outputs": "PASS line on stdout; unittest failure report on stderr and exit 1 on failure.",
       "local_effects": "temporary directories only",
       "network_effects": "none",
       "authority": "none; local checks",
