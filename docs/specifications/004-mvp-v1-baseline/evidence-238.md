@@ -68,7 +68,7 @@ after merge, together with CI-produced macOS Evidence.
 
 ## Deterministic negative coverage
 
-- **`scripts/test-verify-release-acceptance.py`** (25 tests) covers:
+- **`scripts/test-verify-release-acceptance.py`** (26 tests) covers:
   - the happy path and determinism;
   - missing, empty and absent Evidence;
   - failing, malformed, schema-invalid and oversized Evidence;
@@ -78,7 +78,7 @@ after merge, together with CI-produced macOS Evidence.
   - divergent SHA256SUMS or artifact digests;
   - substituted and incomplete prepared sets;
   - rebuilt and `merge-regression` Evidence;
-  - rows sharing one attempt;
+  - a reduced upgrade matrix and rows sharing one attempt;
   - links;
   - strict identity arguments;
   - input immutability.

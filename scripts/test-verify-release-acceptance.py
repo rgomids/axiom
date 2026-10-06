@@ -181,6 +181,7 @@ class Verifier(unittest.TestCase):
         self.assertEqual(completed.stdout.splitlines(), [
             f"acceptance.linux-amd64={sha256(self.data['linux-amd64'])}",
             f"acceptance.macos-27-arm64={sha256(self.data['macos-27-arm64'])}",
+            "acceptance_manual_transition=linux-arm64,windows-amd64",
             f"acceptance_sha256sums={sums}"])
         self.assertEqual(inventory(self.artifacts, self.acceptance), before, "verification never modifies its inputs")
 
@@ -338,6 +339,17 @@ class Verifier(unittest.TestCase):
             document["environment"].update(change)
             self.replace("linux-amd64", document)
             self.refused("was not observed on a native linux-amd64 host")
+
+    def test_a_reduced_upgrade_matrix_is_refused(self):
+        document = self.document()
+        poc = next(journey for journey in document["journeys"] if journey["source"]["role"] == "historical_format")
+        document["journeys"].remove(poc)
+        counts = document["result"]["counts"]
+        counts["journeys"] -= 1
+        counts["steps"] -= len(poc["steps"])
+        counts["passed"] -= len(poc["steps"])
+        self.replace("linux-amd64", document)
+        self.refused("does not cover the required upgrade matrix")
 
     def test_rows_sharing_one_attempt_are_refused(self):
         document = self.document("macos-27-arm64")

@@ -589,7 +589,12 @@ Until a row's acceptance is automated (Linux arm64, the Windows proxy), the
 maintainer performs it manually on the downloaded prepared set and records
 Evidence bound to its exact digests, before authorizing the envelope.
 Acceptance Evidence is not publication authority. A release candidate is not
-gated by acceptance (FR-069 covers stable releases).
+gated by acceptance (FR-069 covers stable releases). A stable envelope also
+names the rows still under the manual transition
+(`acceptance_manual_transition`). Publication now takes the acceptance Evidence
+of the prepared run, so a release revision whose scripts predate Issue #238
+needs reviewed control scripts (`corrections_revision`) or a repair revision
+to be published or converged.
 
 For the native macOS arm64 / Linux rows, Slice 3 provides the shared upgrade
 journey harness on a complete downloaded prepared set:

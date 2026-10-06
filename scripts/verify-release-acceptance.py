@@ -22,6 +22,7 @@ this repository's release-artifacts.yml dispatch from main wrote in run
 lists, each matching its digest. Prints, for the publication envelope:
 
     acceptance.<row>=<SHA-256 of the exact Evidence bytes>   (sorted by row)
+    acceptance_manual_transition=<rows still under the manual transition>
     acceptance_sha256sums=<SHA-256 of the SHA256SUMS the Evidence binds>
 
 Any missing, failing, malformed, foreign or mismatched input prints
@@ -45,6 +46,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROWS = {"linux-amd64": ("linux", "amd64"), "macos-27-arm64": ("darwin", "arm64")}
 EVIDENCE = "gate-evidence.json"
 JOB = "accept"
+# The upgrade matrix every blocking row must have passed (FR-070.7, FR-074):
+# N, an earlier release baseline and the declared historical format. The
+# generation registry (Slice 6) replaces this minimum with declared baselines.
+REQUIRED_ROLES = {"n", "earlier_release", "historical_format"}
+# Rows that FR-069 covers but that have no automated acceptance yet; they stay
+# under the Specification 004 manual transition and are named in the envelope.
+MANUAL_ROWS = ("linux-arm64", "windows-amd64")
 WORKFLOW = ".github/workflows/release-artifacts.yml@refs/heads/main"
 TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?")
 DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
@@ -170,6 +178,8 @@ def check_document(row, data, expected):
     result = document["result"]
     require(result["status"] == "pass" and result["termination"] == "completed" and result["exit_code"] == 0
             and result["counts"]["failed"] == 0, f"{where} does not pass")
+    passed = {journey["source"]["role"] for journey in document["journeys"] if journey["result"] == "pass"}
+    require(REQUIRED_ROLES <= passed, f"{where} does not cover the required upgrade matrix")
     subject = document["subject"]
     require(subject["kind"] == "prepared", f"{where} is about a {subject['kind']} candidate, not the prepared set")
     require(subject["tag"] == expected["tag"] and subject["version"] == expected["version"],
@@ -207,6 +217,7 @@ def verify(arguments):
     require(prepared_set(arguments.artifacts, version) == (sums, archives), "prepared artifacts changed during verification")
     for row, data in sorted(documents.items()):
         print(f"acceptance.{row}={hashlib.sha256(data).hexdigest()}")
+    print(f"acceptance_manual_transition={','.join(MANUAL_ROWS)}")
     print(f"acceptance_sha256sums={sums}")
 
 

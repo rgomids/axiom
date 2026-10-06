@@ -227,10 +227,12 @@ jobs:
         env:
           ROW: ${{ matrix.row }}
         run: |
-          # Public release assets only. N is the newest published stable release;
-          # the candidate itself is never one of its sources.
-          latest=$(git for-each-ref --format='%(refname:short)' 'refs/tags/v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
-          [[ -n "$latest" && "$latest" != "$PREPARED_TAG" ]]
+          # Public release assets only. N is the newest stable tag other than
+          # the candidate (a tag exists only for a published release; an
+          # unpublished one fails the download closed).
+          latest=$(git for-each-ref --format='%(refname:short)' 'refs/tags/v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | grep -vxF "$PREPARED_TAG" | sort -V | tail -n 1)
+          [[ -n "$latest" ]]
           for tag in "$latest" v0.1.1; do
             dir="$RUNNER_TEMP/previous-$tag"
             mkdir -p "$dir"
@@ -268,8 +270,9 @@ jobs:
       - name: Validate the acceptance Evidence
         run: python3 scripts/gate-evidence.py validate "$RUNNER_TEMP/acceptance/gate-evidence.json"
       - name: Retain the acceptance Evidence
-        # Failing Evidence is retained too; a rerun cannot replace it, because
-        # an artifact name is used once per run (retry policy: Slice 11).
+        # Failing Evidence is retained too, under a name used once per run, and
+        # a failed attempt fails the run that publication requires to have
+        # succeeded. Retry policy belongs to Slice 11.
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
