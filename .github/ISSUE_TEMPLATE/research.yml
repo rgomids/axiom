@@ -1,0 +1,85 @@
+name: Research
+description: Ask a question whose answer is needed before a decision or implementation.
+labels:
+  - type:research
+  - status:planned
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An Issue does not represent approval, change the roadmap, or authorize implementation.
+        Issue labels, status, closure, PR merge, and green CI do not advance canonical Axiom workflow state or establish human acceptance.
+        Do not include secrets, credentials, private data, or unsanitized logs. Report suspected vulnerabilities privately using [SECURITY.md](https://github.com/rgomids/axiom/blob/main/SECURITY.md), never through this form.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Primary area. Maintainers may add a second area only when it improves classification.
+      options:
+        - CLI
+        - Skills
+        - Work Item
+        - Workflow
+        - Runtime
+        - Execution
+        - Installer
+        - CI/CD
+        - Governance
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: The question this research must answer.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why the answer is needed
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Current state and related Specifications, ADRs, research notes, or contracts.
+    validations:
+      required: true
+  - type: textarea
+    id: hypotheses
+    attributes:
+      label: Known alternatives or hypotheses
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Comparison criteria
+      description: How alternatives will be compared (for example security, cost, maintenance, compatibility).
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected result
+      description: The form of the answer, such as a recommendation, prototype, or Evidence summary.
+    validations:
+      required: true
+  - type: textarea
+    id: unblocks
+    attributes:
+      label: Decision or artifact unblocked
+      description: The decision, ADR, Specification, or work this research unblocks.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing Issues for duplicates.
+          required: true
+        - label: I removed secrets, credentials, private data, and sensitive vulnerability details.
+          required: true
