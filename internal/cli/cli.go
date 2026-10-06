@@ -251,6 +251,9 @@ func Run(ctx context.Context, args []string, service Service, source provenance.
 // RunInteractive adds the bounded prompt path used by `project configure` and
 // selects human or machine-readable presentation without changing application behavior.
 func RunInteractive(ctx context.Context, args []string, service Service, source provenance.Value, stdin io.Reader, stdout, stderr io.Writer) int {
+	if handled, code := InspectSkill(args, source, stdout); handled {
+		return code
+	}
 	mode, args := parseOutputMode(args)
 	if service == nil {
 		return emit(stdout, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
@@ -340,6 +343,9 @@ func emitParserFailure(writer io.Writer, mode outputMode, operation action, issu
 }
 
 func parserFailureText(operation action, issue string) (string, string) {
+	if operation == skillInspectAction {
+		return "Skill inspection input is invalid", "Run skill inspect with one exact embedded skill name and no workflow arguments"
+	}
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
 	}
@@ -523,7 +529,7 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if operation == installAction && values.source == "" {
 		return operation, values, category("missing_required_input")
 	}
-	if (operation == resolveAction || operation == showAction) && values.selector == "" {
+	if (operation == resolveAction || operation == showAction) && missingRequiredInputs(operation, values) {
 		return operation, values, category("missing_required_input")
 	}
 	if operation == configureAction {
@@ -545,7 +551,7 @@ func selectorRequestIssue(operation action, values requestInput) string {
 	if values.workItem != "" && (values.number != 0 || values.providerRepository != "") {
 		return "invalid_input"
 	}
-	if values.project == "" || values.repository == "" {
+	if missingRequiredInputs(operation, values, "project", "repository") {
 		return "missing_required_input"
 	}
 	if knownWorkItem(operation) {
@@ -553,12 +559,12 @@ func selectorRequestIssue(operation action, values requestInput) string {
 			if values.workItem != "" {
 				return "invalid_input"
 			}
-			if values.providerRepository == "" {
+			if missingRequiredInputs(operation, values, "provider-repository") {
 				return "missing_required_input"
 			}
 			return ""
 		}
-		if values.workItem == "" && values.number <= 0 {
+		if missingRequiredInputs(operation, values, "number") {
 			return "missing_required_input"
 		}
 		if values.workItem != "" {
@@ -566,15 +572,15 @@ func selectorRequestIssue(operation action, values requestInput) string {
 				return "invalid_input"
 			}
 		}
-		if operation == workItemSelectAction && values.workItem == "" && values.providerRepository == "" {
+		if missingRequiredInputs(operation, values, "provider-repository") {
 			return "missing_required_input"
 		}
-		if operation == workItemCommentAction && values.message == "" {
+		if missingRequiredInputs(operation, values, "message") {
 			return "missing_required_input"
 		}
 		return ""
 	}
-	if values.workItem == "" && values.number <= 0 {
+	if missingRequiredInputs(operation, values, "number") {
 		return "missing_required_input"
 	}
 	if values.workItem != "" {
@@ -584,48 +590,52 @@ func selectorRequestIssue(operation action, values requestInput) string {
 		if operation == workflowStartAction && values.execution != "" {
 			return "invalid_input"
 		}
-		if operation != workflowStartAction && values.execution == "" {
+		if missingRequiredInputs(operation, values, "execution") {
 			return "missing_required_input"
 		}
 	}
-	needsRevision := operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction
-	if needsRevision && values.expectedRevision == 0 || operation == workflowAdvanceAction && (values.gate == "" || values.outcome == "") {
+	if missingRequiredInputs(operation, values, "expected-revision", "gate", "outcome") {
 		return "missing_required_input"
 	}
-	if operation == workflowFactAction && (values.fact == "" || values.reference == "") {
+	if missingRequiredInputs(operation, values, "fact", "reference") {
 		return "missing_required_input"
 	}
 	return ""
 }
 
-func flags(operation action, args []string) (requestInput, bool) {
+func projectFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
-	var values requestInput
 	if operation != listAction {
-		set.StringVar(&values.slug, "slug", "", "")
+		set.StringVar(&values.slug, "slug", "", "Project slug (CREATE only for configure); `<slug>`.")
 	}
 	if operation == initAction || operation == updateAction {
-		set.StringVar(&values.name, "name", "", "")
+		set.StringVar(&values.name, "name", "", "Project display name; `<text>`.")
 	}
 	if operation == installAction {
-		set.StringVar(&values.source, "source", "", "")
+		set.StringVar(&values.source, "source", "", "Project manifest source; `<path>`.")
 	}
 	if operation == resolveAction || operation == showAction {
-		set.StringVar(&values.selector, "selector", "", "")
+		set.StringVar(&values.selector, "selector", "", "Configured Project identity; `<uuid-or-slug>`.")
 	}
 	if operation == configureAction {
-		set.StringVar(&values.projectID, "project-id", "", "")
-		set.StringVar(&values.name, "name", "", "")
-		set.Var(&values.repositories, "repository", "")
-		set.StringVar(&values.workItemProvider, "work-item-provider", "", "")
-		set.StringVar(&values.previewDigest, "preview-digest", "", "")
-		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
-		set.StringVar(&values.project, "project", "", "")
-		set.BoolVar(&values.removeWorkItemProvider, "remove-work-item-provider", false, "")
-		set.Var(&values.removeRepositories, "remove-repository", "")
+		set.StringVar(&values.projectID, "project-id", "", "Optional Project UUID for creation; `<uuid>`. Rejected in edit mode.")
+		set.StringVar(&values.name, "name", "", "Project display name; `<text>`.")
+		set.Var(&values.repositories, "repository", "Add or update Repository; `<key>=<absolute-path>`. Conflicts with removing the same key.")
+		set.StringVar(&values.workItemProvider, "work-item-provider", "", "Work Item provider; `<provider-id>`. CREATE also accepts none; edit uses --remove-work-item-provider.")
+		set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication; rejected for Project edit.")
+		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
+		set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`. For configure selects preview-only edit mode.")
+		set.BoolVar(&values.removeWorkItemProvider, "remove-work-item-provider", false, "Remove the existing provider in edit mode; conflicts with --work-item-provider.")
+		set.Var(&values.removeRepositories, "remove-repository", "Remove a Repository in edit mode; `<key>`. Conflicts with adding the same key.")
 	}
-	if invalidFlagSyntax(set, args, map[string]bool{"repository": true, "remove-repository": true}) {
+	return set
+}
+
+func flags(operation action, args []string) (requestInput, bool) {
+	var values requestInput
+	set := projectFlagSet(operation, &values)
+	if invalidFlagSyntax(set, args, repeatableFlags(set)) {
 		return requestInput{}, false
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
@@ -655,7 +665,7 @@ func configureRequestIssue(values requestInput) string {
 		if values.removeWorkItemProvider || len(values.removeRepositories) != 0 {
 			return "invalid_input"
 		}
-		if values.slug == "" || values.name == "" || len(values.repositories) == 0 {
+		if missingRequiredInputs(configureAction, values) {
 			return "missing_required_input"
 		}
 		return ""
@@ -688,38 +698,43 @@ func configureRequestIssue(values requestInput) string {
 	return ""
 }
 
-func workItemFlags(operation action, args []string) (requestInput, bool) {
+func workItemFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
-	var values requestInput
-	set.StringVar(&values.project, "project", "", "")
-	set.StringVar(&values.repository, "repository", "", "")
-	set.StringVar(&values.providerRepository, "provider-repository", "", "")
-	set.StringVar(&values.workItem, "work-item", "", "")
-	set.StringVar(&values.previewDigest, "preview-digest", "", "")
-	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
-	set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
+	set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
+	set.StringVar(&values.repository, "repository", "", "Project-scoped Repository selector; `<key>`.")
+	set.StringVar(&values.providerRepository, "provider-repository", "", "Explicit provider target; `<owner/repository>`. Conflicts with --work-item.")
+	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>`. Alternative to --number; rejected by create.")
+	set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication.")
+	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "Explicit authority for the exact reviewed Provider effect; boolean.")
+	set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
 	if operation == workItemCreateAction {
-		set.Var(&values.elaboratedSections, "elaborated-section", "")
-		set.StringVar(&values.intent, "intent", "", "")
-		set.StringVar(&values.itemType, "type", "", "")
-		set.StringVar(&values.beneficiary, "beneficiary", "", "")
-		set.StringVar(&values.value, "value", "", "")
-		set.Var(&values.classification, "classification", "")
-		set.StringVar(&values.problem, "problem", "", "")
-		set.StringVar(&values.desiredOutcome, "desired-outcome", "", "")
-		set.StringVar(&values.context, "context", "", "")
-		set.StringVar(&values.scope, "scope", "", "")
-		set.StringVar(&values.constraints, "constraints", "", "")
-		set.StringVar(&values.nonGoals, "non-goals", "", "")
-		set.StringVar(&values.acceptance, "acceptance", "", "")
+		set.Var(&values.elaboratedSections, "elaborated-section", "Axiom-authored section; `<name>=<content>`. Names: problem, desired_outcome, context, scope, constraints, non_goals, acceptance_expectations. Conflicts with a verbatim value for that section.")
+		set.StringVar(&values.intent, "intent", "", "Original user intent; `<text>`. May supply the initial problem for guided elaboration.")
+		set.StringVar(&values.itemType, "type", "", "Work Item delivery type; `<story|bug|task>`. Domain requires a type before publication.")
+		set.StringVar(&values.beneficiary, "beneficiary", "", "Who benefits from a story; `<text>`. Domain requires this for story publication.")
+		set.StringVar(&values.value, "value", "", "Concrete story benefit; `<text>`. Domain requires this for story publication.")
+		set.Var(&values.classification, "classification", "Explicit provider classification; `<label>`. Validated against the provider catalog.")
+		set.StringVar(&values.problem, "problem", "", "Verbatim problem section; `<text>`. Content gaps are gathered before publication.")
+		set.StringVar(&values.desiredOutcome, "desired-outcome", "", "Verbatim desired outcome; `<text>`. Content gaps are gathered before publication.")
+		set.StringVar(&values.context, "context", "", "Verbatim relevant context; `<text>`. Content gaps are gathered before publication.")
+		set.StringVar(&values.scope, "scope", "", "Verbatim bounded scope; `<text>`. Content gaps are gathered before publication.")
+		set.StringVar(&values.constraints, "constraints", "", "Verbatim constraints; `<text>`. Content gaps are gathered before publication.")
+		set.StringVar(&values.nonGoals, "non-goals", "", "Verbatim exclusions; `<text>`. Content gaps are gathered before publication.")
+		set.StringVar(&values.acceptance, "acceptance", "", "Verbatim acceptance expectations; `<text>`. Content gaps are gathered before publication.")
 	} else {
-		set.IntVar(&values.number, "number", 0, "")
+		set.IntVar(&values.number, "number", 0, "Legacy Work Item number; `<positive-integer>`. Alternative to --work-item.")
 	}
 	if operation == workItemCommentAction {
-		set.StringVar(&values.message, "message", "", "")
+		set.StringVar(&values.message, "message", "", "Provider comment; `<text>`.")
 	}
-	if invalidFlagSyntax(set, args, map[string]bool{"classification": true, "elaborated-section": true}) {
+	return set
+}
+
+func workItemFlags(operation action, args []string) (requestInput, bool) {
+	var values requestInput
+	set := workItemFlagSet(operation, &values)
+	if invalidFlagSyntax(set, args, repeatableFlags(set)) {
 		return requestInput{}, false
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && (values.providerRepository != "" || values.number != 0) {
@@ -732,37 +747,42 @@ func knownWorkItem(operation action) bool {
 	return operation == workItemCreateAction || operation == workItemSelectAction || operation == workItemShowAction || operation == workItemCommentAction || operation == workItemCompleteAction
 }
 
-func workflowFlags(operation action, args []string) (requestInput, bool) {
+func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
-	var values requestInput
-	set.StringVar(&values.project, "project", "", "")
-	set.StringVar(&values.repository, "repository", "", "")
-	set.StringVar(&values.workItem, "work-item", "", "")
-	set.StringVar(&values.execution, "execution", "", "")
-	set.IntVar(&values.number, "number", 0, "")
+	set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
+	set.StringVar(&values.repository, "repository", "", "Project-scoped Repository selector; `<key>`.")
+	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>`. Alternative to --number; rejected by create.")
+	set.StringVar(&values.execution, "execution", "", "Exact Execution identity; `<execution-id>`. Required with --work-item except start; start rejects that combination.")
+	set.IntVar(&values.number, "number", 0, "Legacy Work Item number; `<positive-integer>`. Alternative to --work-item.")
 	if operation == workflowStartAction {
-		set.StringVar(&values.runtime, "runtime", "", "")
+		set.StringVar(&values.runtime, "runtime", "", "Execution Runtime; `<codex|claude>`. CLI default codex; skills forward their actual Runtime.")
 	}
 	if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {
-		set.Uint64Var(&values.expectedRevision, "expected-revision", 0, "")
+		set.Uint64Var(&values.expectedRevision, "expected-revision", 0, "Exact current Execution revision; `<positive-integer>`.")
 	}
 	if operation == workflowReconcileAction {
-		set.StringVar(&values.previewDigest, "preview-digest", "", "")
-		set.BoolVar(&values.authorizeExternal, "authorize-external", false, "")
+		set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication.")
+		set.BoolVar(&values.authorizeExternal, "authorize-external", false, "Explicit authority for the exact reviewed Provider effect; boolean.")
 	}
 	if operation == workflowAdvanceAction {
-		set.StringVar(&values.gate, "gate", "", "")
-		set.StringVar(&values.outcome, "outcome", "", "")
-		set.StringVar(&values.reference, "reference", "", "")
-		set.StringVar(&values.next, "next", "", "")
+		set.StringVar(&values.gate, "gate", "", "Target workflow gate; `<gate>`. Validated against the current Execution.")
+		set.StringVar(&values.outcome, "outcome", "", "Workflow outcome; `<outcome>`. Validated against the gate.")
+		set.StringVar(&values.reference, "reference", "", "Evidence reference; `<reference>`. Validated by the workflow.")
+		set.StringVar(&values.next, "next", "", "Next action; `<text>`.")
 	}
 	if operation == workflowFactAction {
-		set.StringVar(&values.fact, "fact", "", "")
-		set.BoolVar(&values.active, "active", false, "")
-		set.StringVar(&values.reference, "reference", "", "")
-		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "")
+		set.StringVar(&values.fact, "fact", "", "Workflow fact; `<fact>`. Validated by the workflow.")
+		set.BoolVar(&values.active, "active", false, "Whether the fact is active; boolean.")
+		set.StringVar(&values.reference, "reference", "", "Evidence reference; `<reference>`. Validated by the workflow.")
+		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
 	}
+	return set
+}
+
+func workflowFlags(operation action, args []string) (requestInput, bool) {
+	var values requestInput
+	set := workflowFlagSet(operation, &values)
 	if invalidFlagSyntax(set, args, nil) {
 		return requestInput{}, false
 	}

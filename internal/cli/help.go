@@ -9,6 +9,7 @@ Usage:
   axiom help
 
 Commands:
+  skill inspect <skill-name>
   first-run
   runtime codex install|status
   runtime claude install|status

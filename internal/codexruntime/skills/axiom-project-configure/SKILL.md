@@ -5,6 +5,13 @@ description: Configure an Axiom Project and its local repository associations th
 
 # Configure Axiom Project
 
+To inspect accepted arguments before starting this workflow, run
+`axiom --json skill inspect axiom-project-configure` and report its
+`skill` payload. Inspection requests stop there: do not collect inputs or execute
+any command below. The binary owns argument names, descriptions, required and
+conditional inputs, and accepted forms; do not maintain a separate argument list.
+For workflow invocation, preserve the guided behavior below.
+
 Collect any missing Project identity/name, repository associations, and explicit
 Work Item Provider declaration. Run `axiom --json project configure --slug
 <slug> --name <name> --repository <key>=<absolute-working-copy-path>

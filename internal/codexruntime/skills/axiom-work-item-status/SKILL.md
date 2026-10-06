@@ -5,6 +5,13 @@ description: Inspect Axiom Work Item workflow status and Evidence through Lingo.
 
 # Show Axiom Work Item Status
 
+To inspect accepted arguments before starting this workflow, run
+`axiom --json skill inspect axiom-work-item-status` and report its
+`skill` payload. Inspection requests stop there: do not collect inputs or execute
+any command below. The binary owns argument names, descriptions, required and
+conditional inputs, and accepted forms; do not maintain a separate argument list.
+For workflow invocation, preserve the guided behavior below.
+
 Collect only missing Project, Project-scoped Repository, exact Work Item, and
 Execution selectors. Run `axiom --json workflow status` and, when requested,
 `axiom --json workflow evidence` with `--project <uuid-or-slug> --repository

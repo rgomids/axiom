@@ -2,6 +2,32 @@
 
 Execute estes comandos na raiz do repositório.
 
+## Inspect skill arguments
+
+```bash
+axiom skill inspect axiom-project-show
+axiom --json skill inspect axiom-work-item-run
+```
+
+Use the exact name of one of the six product skills shown by `axiom help`.
+Inspection describes the skill embedded in this binary without executing it,
+reading Project/Provider/Runtime state, prompting, or granting authority. It also
+works before `first-run`. It does not inspect repository maintainer skills.
+
+JSON preserves canonical completion fields and adds `skill.name` and
+`skill.commands[]`. Each command includes its CLI spelling and `arguments[]`:
+`name`, `required`, optional `requiredWhen`, `description`, `acceptedForms`,
+`repeatable`. `required: true` means required for a noninteractive CLI request;
+`requiredWhen` states a conditional requirement; otherwise the input is optional
+at that boundary. Domain validation may require additional content before a
+mutation, as stated in descriptions. Fully guided skill invocation still accepts
+missing inputs and asks for them. No workflow argument belongs on `skill inspect`.
+
+Both discovery and parsing use the same flag registrations and presence rules.
+Unknown/duplicate/conflicting invocation inputs retain their validation errors;
+inspection neither validates live domain state nor authorizes any effect.
+See the [contract and evidence](specifications/004-mvp-v1-baseline/issue-131-skill-arguments.md).
+
 ## Lingo Project lifecycle
 
 O lifecycle portátil básico é local. Comandos separados de Runtime/Work Item

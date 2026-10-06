@@ -5,6 +5,13 @@ description: Start or resume the bounded Axiom delivery workflow for a configure
 
 # Run Axiom Work Item
 
+To inspect accepted arguments before starting this workflow, run
+`axiom --json skill inspect axiom-work-item-run` and report its
+`skill` payload. Inspection requests stop there: do not collect inputs or execute
+any command below. The binary owns argument names, descriptions, required and
+conditional inputs, and accepted forms; do not maintain a separate argument list.
+For workflow invocation, preserve the guided behavior below.
+
 Collect only missing Project, Project-scoped Repository, exact Work Item, and
 applicable Execution selectors. Use `--project <uuid-or-slug> --repository <key>
 --work-item github:<owner>/<repository>#<number>`. `workflow start` omits
