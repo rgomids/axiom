@@ -53,6 +53,45 @@ Execute também os checks locais de segurança:
 ./scripts/check-sensitive-files.sh .
 ```
 
+## Native Windows test storage
+
+Os testes de filesystem verificam o diretório temporário **e seus ancestrais**.
+Se o `TEMP` estiver sob um diretório que permite substituição por outros
+principals, uma pasta privada dentro dele não basta: a recusa de segurança é
+esperada. Isso pode aparecer como `codex_skill_root_unavailable` ou falha de
+publicação de Project. Não afrouxe a validação nem altere ACLs de diretórios
+existentes para fazer os testes passarem.
+
+Use uma nova pasta privada sob um ancestral confiável, em NTFS local. O exemplo
+abaixo usa o perfil do usuário; esse caminho também precisa satisfazer o contrato
+de ancestrais. As variáveis mudam apenas durante o teste e são restauradas mesmo
+em caso de falha. A pasta criada fica disponível para inspeção posterior.
+
+```powershell
+$validationRoot = Join-Path $env:USERPROFILE ("axiom-validation-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $validationRoot -ErrorAction Stop | Out-Null
+$validationAcl = Get-Acl -LiteralPath $validationRoot
+$validationAcl.SetAccessRuleProtection($true, $false)
+$validationUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$validationRule = [System.Security.AccessControl.FileSystemAccessRule]::new(
+    $validationUser, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
+$validationAcl.AddAccessRule($validationRule)
+Set-Acl -LiteralPath $validationRoot -AclObject $validationAcl -ErrorAction Stop
+$savedTemp, $savedTmp = $env:TEMP, $env:TMP
+try {
+    $env:TEMP = $validationRoot
+    $env:TMP = $validationRoot
+    go test ./... -count=1 -timeout=10m
+    if ($LASTEXITCODE -ne 0) { throw "Go tests failed: exit $LASTEXITCODE" }
+} finally {
+    $env:TEMP, $env:TMP = $savedTemp, $savedTmp
+}
+```
+
+Testes que precisam criar symlinks usam `testfs.Symlink`: sem o privilégio
+necessário no Windows, o cenário é reportado como SKIP. Isso não dispensa a
+execução da recusa em um host com suporte e não altera permissões da máquina.
+
 ## Work with Codex
 
 1. Execute `./scripts/install-axiom.sh`.

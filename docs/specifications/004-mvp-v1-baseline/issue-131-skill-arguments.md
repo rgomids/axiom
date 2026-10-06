@@ -84,16 +84,47 @@ was needed for these checks.
 | `./scripts/dogfood-poc.sh` | PASS, Linux, `globalSkillCount=6`, `workflow=completed`, `result=pass`. |
 | `git diff --check` | PASS. |
 
-Native Windows's broad affected-package run failed in existing filesystem
-publication/ownership tests (including `codex_skill_root_unavailable` and
-`Portable Project publication failed`); retrying with a private temporary root
-did not resolve them. Both `TestInstallRefusesRootReplacedBeforeAnyChange` and
-`TestExecutableGuidedProjectConfiguration` reproduce the same failures on the
-unmodified base `e28dc51`. This change does not claim to fix or validate those
-Windows filesystem paths. The new inspection boundary passes natively without
-requiring those paths. macOS and live Codex/Claude conversational behavior were
-not exercised locally; no claim of external host acceptance is made. The optional
-`gitleaks` executable was unavailable; repository sensitive-file scans passed.
+The initial native Windows broad run failed in filesystem ownership/publication
+checks. A retry that protected only the final temporary directory still failed;
+two representative failures also reproduced on unmodified base `e28dc51`.
+Follow-up diagnosis checked every ancestor with the existing Windows filesystem
+validator: the default temporary path has ancestors granting replacement access
+to principals outside Axiom's trust contract. The refusal was correct, not a
+parser or discovery regression.
+
+Using a new user-private test directory directly beneath a validated user-profile
+ancestor resolved the affected-package failures. Only this newly created test
+directory's ACL was restricted; existing machine ACLs and production security
+checks were not changed. The reproducible session-scoped TEMP/TMP procedure is
+in [Native Windows test storage](../../development/getting-started.md#native-windows-test-storage).
+
+`go test ./internal/cli ./internal/codexruntime ./cmd/lingo -count=1` now passes
+natively on Windows, including installation and real guided publication.
+[CI run 37393378171](https://github.com/rgomids/axiom/actions/runs/37393378171)
+on implementation commit `d706299` passed verification on Linux, macOS and
+Windows, release-contract and both upgrade journeys. CodeQL and delivery metadata
+also passed. These results supersede the initial unresolved-Windows limitation;
+they do not establish human acceptance.
+
+The subsequent full native suite exposed one additional fixture defect:
+`TestUpgradeResolvesForwardTransitionPolicy/unsafe_symlink_entry` called
+`os.Symlink` directly, unlike the neighboring host-aware tests. It now uses the
+existing `testfs.Symlink` helper: missing Windows symlink privilege is an explicit
+SKIP, all other errors still fail, and the refusal assertion still executes when
+creation is supported. The focused test passed on both hosts; the symlink case
+executed and passed on Linux and was explicitly skipped on this Windows token.
+After this fixture correction, `go test ./... -count=1 -timeout=10m` passed
+natively on Windows with the validated TEMP/TMP root. The unsupported local
+symlink scenario remains explicitly skipped, rather than being reported as
+executed coverage. Repository validation, documented PowerShell syntax and
+`git diff --check` also passed.
+No privilege was granted and no production check was changed. This bounded test
+portability correction was authorized by the user's follow-up to resolve the
+reported validation points before proceeding.
+
+Live Codex/Claude conversational behavior was not exercised; the optional external
+Codex Python validator and `gitleaks` were unavailable. Go skill-contract validation
+and repository sensitive-file scans passed. No external host acceptance is claimed.
 
 ### Acceptance matrix
 
