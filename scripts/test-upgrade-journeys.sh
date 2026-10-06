@@ -135,7 +135,9 @@ emit_evidence() {
 termination= signal= record_count=0 capture_lost=0 attempt_id=
 # The attempt identity exists before anything runs; every record and any
 # re-emission of this attempt carry it.
-[[ -z "$evidence" ]] || attempt_id=$("$evidence_python" -c 'import uuid; print(uuid.uuid4())')
+if [[ -n "$evidence" ]]; then
+  attempt_id=$("$evidence_python" -c 'import uuid; print(uuid.uuid4())') || { printf 'upgrade_journey_error: cannot create the Evidence attempt identity\n' >&2; exit 2; }
+fi
 started_at=$(utc_now)
 work=$(mktemp -d)
 work=$(cd "$work" && pwd -P)
