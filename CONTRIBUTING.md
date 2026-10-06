@@ -577,6 +577,35 @@ manually on the downloaded prepared set and records Evidence bound to its
 exact digests, before authorizing the envelope. Acceptance Evidence is not
 publication authority.
 
+For the native macOS arm64 / Linux rows, Slice 3 provides the shared upgrade
+journey harness on a complete downloaded prepared set:
+
+```bash
+./scripts/test-upgrade-journeys.sh --prepared-set /absolute/prepared \
+  --tag vVERSION --revision FULL_SOURCE_SHA --row HOST_ROW \
+  --sha256sums-sha256 EXPECTED_SHA256SUMS_DIGEST \
+  --previous /absolute/published-N --previous /absolute/published-baseline \
+  --poc-binary /absolute/poc-lingo --evidence /absolute/evidence/prepared.json
+```
+
+Use physical absolute input paths; symlink ancestors are rejected.
+Obtain the expected identity and checksum-file digest from the preparation
+record, independently of the downloaded directory. The harness snapshots the
+closed four-row set into private temporary storage, verifies its digests,
+metadata, manifests, embedded provenance and exact clean local source revision
+before executing the selected native row, then rechecks materialized bytes
+before emitting `axiom-gate-evidence/v1` with `subject.kind = prepared`.
+The local repository must contain that source commit; no build or network
+request occurs. The complete set is bound in `subject.artifacts`; unavailable
+provider artifact id/digest remain `null`. Invocation placeholders
+`{subject-row}`, `{subject-tag}`, `{subject-revision}` and
+`{subject-sha256sums}` refer to those document fields. Prepared input, earlier
+releases and fixtures are read-only inputs; extraction and installs use only
+temporary homes. `--candidate` retains rebuilt PR regression behavior.
+This supplies upgrade Evidence only: release-boundary acceptance wiring and
+publication-envelope binding remain Slice 4; Windows proxy acceptance remains
+a separate slice.
+
 A stable release must be published from its release commit. A release
 candidate may be published from any `main` revision that does not record a
 newer version (typically `main` before the Release PR, or the release commit

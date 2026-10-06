@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -301,8 +302,9 @@ def semantic_errors(document):
     unique(sources, "$.inputs.upgrade_sources")
     unique([item["id"] for item in document["inputs"]["fixtures"]], "$.inputs.fixtures")
     unique([item["id"] for item in document["journeys"]], "$.journeys")
+    subject_placeholders = ("subject-row", "subject-tag", "subject-revision", "subject-sha256sums") if document["subject"]["kind"] == "prepared" else ()
     for placeholder in document["inputs"]["command"]:
-        if placeholder.startswith("{") and placeholder[1:-1] not in ("candidate", "evidence", *sources):
+        if placeholder.startswith("{") and placeholder[1:-1] not in ("candidate", "evidence", *sources, *subject_placeholders):
             found.append(f"$.inputs.command: placeholder {placeholder} is bound to nothing")
 
     totals = {"pass": 0, "fail": 0, "not_applicable": 0}
@@ -495,6 +497,28 @@ class Builder:
 
     def subject(self):
         candidate = self.arguments.candidate
+        if self.arguments.prepared_identity:
+            sys.dont_write_bytecode = True
+            spec = importlib.util.spec_from_file_location("prepared_upgrade_candidate", os.path.join(ROOT, "scripts", "prepared-upgrade-candidate.py"))
+            helper = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(helper)
+            try:
+                identity = helper.verify_materialized(self.arguments.prepared_identity, self.arguments.row, self.arguments.prepared_sha256sums)
+            except (ValueError, OSError) as error:
+                raise Invalid("prepared materialization integrity failed") from error
+            if (identity["row"] != self.arguments.row or identity["tag"] != self.arguments.prepared_tag
+                    or identity["revision"] != self.arguments.prepared_revision
+                    or identity["sha256sums_sha256"] != self.arguments.prepared_sha256sums
+                    or os.path.realpath(candidate) != identity["artifacts_directory"]):
+                raise Invalid("prepared identity differs from the verified execution inputs")
+            return {
+                "kind": "prepared", "tag": identity["tag"], "version": identity["version"],
+                "revision": identity["revision"], "sha256sums_sha256": identity["sha256sums_sha256"],
+                "artifacts": [{"name": name, "sha256": value} for name, value in sorted(identity["archives"].items())],
+                "artifact_id": None, "artifact_digest": None,
+            }
+        if self.arguments.prepared_tag or self.arguments.prepared_revision or self.arguments.prepared_sha256sums:
+            raise Invalid("prepared identity requires a verified materialization")
         archive = row_archive(candidate, self.arguments.row)
         sums = os.path.join(candidate, "SHA256SUMS")
         if archive is None or not os.path.isfile(sums):
@@ -559,7 +583,12 @@ class Builder:
         return fixtures
 
     def command(self):
-        command = [SCRIPT, "--candidate", "{candidate}"]
+        if self.arguments.prepared_identity:
+            command = [SCRIPT, "--prepared-set", "{candidate}", "--row", "{subject-row}",
+                       "--tag", "{subject-tag}", "--revision", "{subject-revision}",
+                       "--sha256sums-sha256", "{subject-sha256sums}"]
+        else:
+            command = [SCRIPT, "--candidate", "{candidate}"]
         for index in range(1, len(self.arguments.previous) + 1):
             command += ["--previous", f"{{previous-{index}}}"]
         if self.arguments.poc_binary:
@@ -846,6 +875,10 @@ def parse(argv):
     emit.add_argument("--output", required=True)
     emit.add_argument("--row", required=True, choices=["linux-amd64", "linux-arm64", "macos-27-arm64"])
     emit.add_argument("--candidate", required=True)
+    emit.add_argument("--prepared-identity", default="")
+    emit.add_argument("--prepared-tag", default="")
+    emit.add_argument("--prepared-revision", default="")
+    emit.add_argument("--prepared-sha256sums", default="")
     emit.add_argument("--previous", action="append", default=[])
     emit.add_argument("--poc-binary", default="")
     emit.add_argument("--fixture", action="append", default=[])

@@ -1367,7 +1367,10 @@ outcomes and Evidence; it does not prescribe workflows, jobs, runners or tools.
   contains no secrets (Non-functional requirements). The concrete schema is
   `axiom-gate-evidence/v1`
   ([schema](../../../scripts/schemas/axiom-gate-evidence-v1.schema.json),
-  validated by `scripts/gate-evidence.py`, Issue #234). Until
+  validated by `scripts/gate-evidence.py`, Issue #234). Issue #236 adds
+  native-row upgrade-journey emission on verified prepared bytes, with
+  `subject.kind = prepared`; it does not wire release-boundary acceptance or
+  Evidence retention/envelope binding (Slice 4). Until
   release-candidate acceptance emits it, any record with these properties
   satisfies this requirement.
 - **FR-076 Real Runtime/Provider acceptance and supplemental Evidence:**

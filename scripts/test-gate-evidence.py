@@ -49,7 +49,7 @@ def not_applicable_step():
 class Fixtures(unittest.TestCase):
     def test_representative_documents_are_valid(self):
         for name in ("pass.json", "fail-assertion.json", "fail-input-defect.json", "fail-aborted.json",
-                     "fail-interrupted.json"):
+                     "fail-interrupted.json", "pass-prepared.json", "fail-prepared-input-defect.json"):
             with self.subTest(name=name), open(os.path.join(FIXTURES, name), "rb") as handle:
                 evidence.validate_bytes(handle.read(), SCHEMA)
 
@@ -69,6 +69,19 @@ class Fixtures(unittest.TestCase):
         interrupted = fixture("fail-interrupted.json")["result"]
         self.assertEqual((interrupted["termination"], interrupted["signal"], interrupted["exit_code"]),
                          ("interrupted", "TERM", 143))
+
+    def test_prepared_fixtures_bind_complete_set_and_preserve_failure(self):
+        for name, status, exit_code in (("pass-prepared.json", "pass", 0),
+                                       ("fail-prepared-input-defect.json", "fail", 1)):
+            document = fixture(name)
+            self.assertEqual(document["subject"]["kind"], "prepared")
+            self.assertEqual(len(document["subject"]["artifacts"]), 4)
+            self.assertEqual(document["subject"]["tag"], "v" + document["subject"]["version"])
+            self.assertEqual(len(document["subject"]["revision"]), 40)
+            self.assertEqual(document["result"]["status"], status)
+            self.assertEqual(document["result"]["exit_code"], exit_code)
+            self.assertEqual(document["result"]["failure_categories"], [])
+            self.assertIn("--prepared-set", document["inputs"]["command"])
 
     def test_fixtures_are_local_rebuilt_candidates(self):
         for name in ("pass.json", "fail-assertion.json"):
@@ -896,6 +909,28 @@ class ObservationHelpers(unittest.TestCase):
                 f"candidate_version=9.9.9; printf '[%s]' \"$(upgrade_observation {root!r}/absent unchanged)\"", prelude)
             self.assertEqual(missing.stdout, "[]")
 
+    def test_prepared_rerun_uses_verified_bundle_even_with_earlier_bundle_cached(self):
+        with tempfile.TemporaryDirectory() as root:
+            candidate = os.path.join(root, "candidate")
+            prepared = os.path.join(root, "prepared")
+            previous = os.path.join(root, "previous")
+            for directory in (candidate, prepared, previous):
+                os.mkdir(directory)
+            open(os.path.join(candidate, "axiom-1.0.0-linux-amd64.tar.gz"), "w").close()
+            for directory, label in ((prepared, "prepared"), (previous, "wrong")):
+                with open(os.path.join(directory, "install.sh"), "w") as stream:
+                    stream.write(f"#!/bin/sh\necho {label} > \"$MARKER\"\necho install_status=unchanged\n")
+            environment = dict(os.environ, prepared_set=candidate, candidate=candidate,
+                               candidate_bundle=prepared, earlier_bundle=previous, work=root, H=root,
+                               row="linux-amd64", MARKER=os.path.join(root, "marker"))
+            script = ("set -euo pipefail\n" + harness_function("install_release")
+                      + harness_function("rerun_release") + 'release_bundle() { echo "$earlier_bundle"; }\n'
+                      + 'rerun_release "$candidate"')
+            completed = subprocess.run(["bash", "-c", script], env=environment, capture_output=True, text=True)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            with open(environment["MARKER"]) as stream:
+                self.assertEqual(stream.read().strip(), "prepared")
+
     def test_only_completed_installer_outcomes_are_definite(self):
         completed = self.run_functions("for s in installed upgraded unchanged partial success ''; do printf '[%s]' \"$(definite_status \"$s\")\"; done")
         self.assertEqual(completed.stdout, "[installed][upgraded][unchanged][][][]")
@@ -925,6 +960,15 @@ class ObservationHelpers(unittest.TestCase):
 
 
 class Harness(unittest.TestCase):
+    def test_prepared_flags_cannot_label_a_rebuilt_candidate(self):
+        for arguments in (("--candidate", "/candidate", "--tag", "v1.2.3"),
+                          ("--prepared-set", "/prepared", "--candidate", "/candidate"),
+                          ("--prepared-set", "/prepared", "--tag", "v1.2.3")):
+            with self.subTest(arguments=arguments):
+                completed = self.run_harness(*arguments, "--previous", "/previous")
+                self.assertEqual(completed.returncode, 2)
+                self.assertNotIn("suite=", completed.stdout)
+
     def run_harness(self, *arguments):
         return subprocess.run(["bash", HARNESS, *arguments], capture_output=True, text=True, check=False)
 

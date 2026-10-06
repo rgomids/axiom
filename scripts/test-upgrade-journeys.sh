@@ -8,6 +8,12 @@
 #   scripts/test-upgrade-journeys.sh --candidate ABS_DIR --previous ABS_DIR \
 #     [--previous ABS_DIR ...] [--poc-binary ABS_FILE] [--evidence ABS_FILE]
 #
+# Prepared mode (Issue #236): replace --candidate with
+#   --prepared-set ABS_DIR --tag vVERSION --revision FULL_SHA --row HOST_ROW
+#   --sha256sums-sha256 EXPECTED_SHA256
+# It snapshots the complete release set into private storage, verifies against
+# a clean local source checkout without rebuilding or executing during validation,
+# then uses only the verified materialization. Evidence records kind=prepared.
 # --candidate and each --previous hold one release's SHA256SUMS and archives
 # (as build-release-archives.sh or `gh release download` produce them). The
 # first --previous is release N and runs the full v1 journey; every further
@@ -18,7 +24,7 @@
 #
 # With --evidence (Issue #234), the run also writes an axiom-gate-evidence/v1
 # document (scripts/schemas/axiom-gate-evidence-v1.schema.json) for the
-# rebuilt candidate, built by scripts/gate-evidence.py from the step records
+# resolved candidate, built by scripts/gate-evidence.py from the step records
 # below and validated before it is written. It is written on pass and on
 # failure, aborts and interrupts whenever the candidate can be identified and
 # every step record was captured; the console only gains its digest. The
@@ -30,19 +36,33 @@ umask 077
 
 repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 candidate=
+prepared_set= prepared_tag= prepared_revision= prepared_sums= requested_row= prepared_identity=
+prepared_ready=false
 poc_binary=
 evidence=
 previous=()
 while (($#)); do
   case "$1" in
     --candidate) candidate=${2:-}; shift 2 ;;
+    --prepared-set) prepared_set=${2:-}; shift 2 ;;
+    --tag) prepared_tag=${2:-}; shift 2 ;;
+    --revision) prepared_revision=${2:-}; shift 2 ;;
+    --sha256sums-sha256) prepared_sums=${2:-}; shift 2 ;;
+    --row) requested_row=${2:-}; shift 2 ;;
     --previous) previous+=("${2:-}"); shift 2 ;;
     --poc-binary) poc_binary=${2:-}; shift 2 ;;
     --evidence) evidence=${2:-}; shift 2 ;;
     *) printf 'upgrade_journey_error: invalid argument\n' >&2; exit 2 ;;
   esac
 done
-[[ "$candidate" == /* && ${#previous[@]} -ge 1 ]] || { printf 'upgrade_journey_error: --candidate and --previous absolute directories required\n' >&2; exit 2; }
+if [[ -n "$prepared_set" ]]; then
+  [[ -z "$candidate" && "$prepared_set" == /* && -n "$prepared_tag" && -n "$prepared_revision" && -n "$prepared_sums" && -n "$requested_row" ]] || { printf 'upgrade_journey_error: prepared mode requires exclusive --prepared-set plus --tag, --revision, --sha256sums-sha256 and --row\n' >&2; exit 2; }
+  candidate=$prepared_set
+  evidence_python=$(command -v python3) || exit 2
+else
+  [[ -z "$prepared_tag$prepared_revision$prepared_sums$requested_row" ]] || { printf 'upgrade_journey_error: prepared identity flags require --prepared-set\n' >&2; exit 2; }
+fi
+[[ "$candidate" == /* && ${#previous[@]} -ge 1 ]] || { printf 'upgrade_journey_error: candidate and previous absolute directories required\n' >&2; exit 2; }
 [[ -z "$poc_binary" || "$poc_binary" == /* ]] || { printf 'upgrade_journey_error: --poc-binary must be absolute\n' >&2; exit 2; }
 if [[ -n "$evidence" ]]; then
   # Evidence never lands inside the subject, a source or the repository.
@@ -64,6 +84,7 @@ case "$(uname -s):$(uname -m)" in
   *) printf 'upgrade_journey_row=unsupported\nresult=blocked\n'; exit 78 ;;
 esac
 
+[[ -z "$requested_row" || "$requested_row" == "$row" ]] || { printf 'upgrade_journey_error: --row must match the native host row\n' >&2; exit 2; }
 original_home=$HOME original_path=$PATH
 # --- evidence capture: begin (exercised directly by scripts/test-gate-evidence.py)
 utc_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -110,6 +131,10 @@ check_observed() { local category=-; [[ -z "$1" || $journey_failures -ne 0 ]] ||
 # the caller's own HOME and PATH (never the isolated homes or their shims).
 emit_evidence() {
   local status=$1 state=aborted arguments=() directory
+  if [[ -n "${prepared_set:-}" ]]; then
+    [[ "$prepared_ready" == true ]] || { printf 'evidence=unavailable\n'; return 1; }
+    arguments+=(--prepared-identity "$prepared_identity" --prepared-tag "$prepared_tag" --prepared-revision "$prepared_revision" --prepared-sha256sums "$prepared_sums")
+  fi
   if [[ $capture_lost -ne 0 ]]; then
     printf 'evidence=unavailable\n  capture incomplete: %s of %s Evidence records not written\n' "$capture_lost" "$record_count"
     return 1
@@ -163,10 +188,24 @@ digest() {
 
 # release_bundle DIR: extracts the host row archive once and prints the bundle.
 release_bundle() {
-  local dir=$1 archive name
+  local dir=$1 archive name source_key base
   archive=$(find "$dir" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1)
   [[ -n "$archive" ]] || { printf 'upgrade_journey_error: no %s archive in %s\n' "$row" "$dir" >&2; return 1; }
   name=$(basename "$archive" .tar.gz)
+  if [[ -n "${prepared_set:-}" ]]; then
+    # A historical archive cannot traverse into the prepared materialization.
+    # Cache by source directory identity, never by a shared version basename.
+    source_key=$(printf '%s' "$dir" | digest /dev/stdin)
+    base="$work/source-bundles/$source_key"
+    if [[ ! -d "$base/$name" ]]; then
+      mkdir -p "$base"
+      HOME=$original_home PATH=$original_path "$evidence_python" "$repository_root/scripts/prepared-upgrade-candidate.py" \
+        --extract-source "$dir" --row "$row" --output "$base"
+    else
+      printf '%s\n' "$base/$name"
+    fi
+    return
+  fi
   if [[ ! -d "$work/bundles/$name" ]]; then
     mkdir -p "$work/bundles"
     tar -xzf "$archive" -C "$work/bundles"
@@ -210,11 +249,14 @@ new_home() {
 # install_release DIR: the release's own bundle facade into ~/.local.
 install_release() {
   local bundle archive
-  bundle=$(release_bundle "$1")
+  if [[ -n "$prepared_set" && "$1" == "$candidate" ]]; then bundle=$candidate_bundle; else bundle=$(release_bundle "$1"); fi
   archive=$(find "$1" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1)
   (cd / && bash "$bundle/install.sh" --archive "$archive" --checksums "$1/SHA256SUMS" \
     --bin-dir "$H/.local/bin" --receipt-dir "$H/.local/state/axiom/install") >"$work/install.out" 2>"$work/install.err"
 }
+
+# Keep the prepared binding in this process for the idempotence check too.
+rerun_release() { install_release "$1" && grep -qx install_status=unchanged "$work/install.out"; }
 
 tree_digest() {
   (cd "$1" && find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do printf '%s %s\n' "$file" "$(digest "$file")"; done) | digest /dev/stdin
@@ -242,7 +284,28 @@ source_version() { local bundle; bundle=$(release_bundle "$1") && sed -n 's/^ver
 # version, which makes the expected `upgraded` an input defect, not a product one.
 upgrade_observation() { local from; from=$(source_version "$1") || from=; [[ -n "$from" && "$from" != "$candidate_version" ]] && definite_status "$2"; }
 
-candidate_bundle=$(release_bundle "$candidate")
+if [[ -n "$prepared_set" ]]; then
+  # Clean source identity is separate from the harness checkout. Never rebuild.
+  [[ "$prepared_revision" =~ ^[0-9a-f]{40}$ ]] || { printf 'upgrade_journey_error: full prepared revision required\n' >&2; exit 2; }
+  git clone --quiet --shared --no-checkout "$repository_root" "$work/source"
+  git -C "$work/source" -c advice.detachedHead=false checkout --quiet --detach "$prepared_revision"
+  mkdir "$work/prepared"
+  HOME=$original_home PATH=$original_path "$evidence_python" "$repository_root/scripts/prepared-upgrade-candidate.py" \
+    --prepared-set "$prepared_set" --output "$work/prepared" --tag "$prepared_tag" \
+    --revision "$prepared_revision" --row "$row" --sha256sums-sha256 "$prepared_sums" \
+    --source-root "$work/source" >"$work/prepared.out"
+  candidate="$work/prepared/artifacts"
+  prepared_identity="$work/prepared/identity.json"
+  candidate_bundle="$work/prepared/bundle"
+  prepared_ready=true
+  # Structural verification finished; probe the exact materialized executable.
+  mkdir "$work/provenance-home"
+  (cd / && HOME="$work/provenance-home" "$candidate_bundle/axiom" --json version) >"$work/prepared-version.json"
+  "$evidence_python" -c 'import json,sys; p=json.load(open(sys.argv[1]))["provenance"]; assert p == {"product":"Axiom", "version":sys.argv[2], "revision":sys.argv[3][:12], "sourceState":"clean"}' \
+    "$work/prepared-version.json" "${prepared_tag#v}" "$prepared_revision"
+else
+  candidate_bundle=$(release_bundle "$candidate")
+fi
 candidate_version=$(sed -n 's/^version=//p' "$candidate_bundle/release-metadata.txt")
 printf 'suite=upgrade-journeys\nrow=%s\ncandidate=%s\n' "$row" "$candidate_version"
 
@@ -343,7 +406,7 @@ for index in "${!previous[@]}"; do
   check codex-ready-without-first-run bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   check claude-ready bash -c 'cd "$HOME/cwd" && axiom runtime claude status'
-  check rerun-unchanged bash -c "$(declare -f install_release release_bundle); row=$row work=$work H=$H; install_release '$candidate' && grep -qx install_status=unchanged '$work/install.out'"
+  check rerun-unchanged rerun_release "$candidate"
   observe installer_rerun "$(installer_status)"
 done
 
