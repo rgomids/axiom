@@ -131,3 +131,39 @@ Archive-2 rendered its historical Mermaid; Archive-6 rendered both historical
 diagrams. All four Mermaid blocks produced diagram output in the public browser.
 This public browser check supplements static and Git read-back checks;
 it does not establish exhaustive visual or external-link validation.
+
+## CI metadata correction and English Wiki — 2026-10-05
+
+The first PR description omitted the required `Related-Issues` and
+`Completes-Issues` fields. The failed `delivery-metadata` run was
+`37396375584`; its log reported those missing fields. The description was
+reconciled with the repository PR template, using `none` for both fields:
+no Issue is associated with this migration, and no Issue is completed.
+`./scripts/delivery-issues.sh check-pr --title <title-file> --body <body-file>`
+returned `metadata=declared`, `related=none`, `completes=none`.
+The corrected remote metadata run `37396800181` passed on the original PR head.
+No workflow, validator behavior, required check or protection was weakened.
+
+The user also requested translation of the entire Wiki into English. All
+18 content pages and `_Sidebar.md` were translated, including historical prose,
+headings, list/table labels and Mermaid display labels. Historical facts and
+warnings remain historical; this translation does not resolve the four source
+review items or establish full Notion retirement.
+
+- Translation commit: `c705142a44f8e6849ef39d1e944860ac0ad80e16`.
+- Concurrent remote commit `3db4778ef0d000a492494ec98413d86433b6c75c` added
+  an English `_Footer.md` logo. It was preserved unchanged.
+- Published integrated Wiki head: `455b74cbea228d370edb52ba5d38fb757fb41186`.
+
+Validation compared all 20 Markdown files with remote pre-translation state:
+19 translated files and one unchanged English footer. Link destinations,
+inline technical literals, executable fenced code, historical warnings/dates
+and Mermaid identifiers/edges were preserved. Text-only diagram structure was
+checked; diagram display labels were translated. No Portuguese prose was found
+by the residual-language scan or manual review. All 18 content pages remain
+reachable from Home, with 20 repository destinations validated. Staged
+sensitive-file checks, Gitleaks and whitespace checks passed for the Wiki.
+
+Publication used a normal push after incorporating the concurrent footer;
+remote fetch and full-tree comparison confirmed the published candidate.
+Public Home and sidebar rendered in English with the 18-page count.
