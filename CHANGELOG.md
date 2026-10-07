@@ -23,6 +23,23 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.7.0](https://github.com/rgomids/axiom/compare/v0.6.0...v0.7.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **project:** enforce explicit runtime and model policy ([#249](https://github.com/rgomids/axiom/issues/249))
+
+### Features
+
+* **project:** enforce explicit runtime and model policy ([#249](https://github.com/rgomids/axiom/issues/249)) ([b6c48d1](https://github.com/rgomids/axiom/commit/b6c48d19d77ec3dac74b890d03c5cfcccdfd186f))
+* **runtime:** consolidate domain-oriented skill surfaces ([#252](https://github.com/rgomids/axiom/issues/252)) ([5e40e10](https://github.com/rgomids/axiom/commit/5e40e1071c6d982e6d32a9bb38a303a8b7c254b4))
+
+
+### Reverts
+
+* **ci:** withdraw stable release-candidate acceptance gate ([#250](https://github.com/rgomids/axiom/issues/250)) ([20cf386](https://github.com/rgomids/axiom/commit/20cf386d08dc389f3663745ec0dd3ee4e7d5d3a5))
+
 ## [0.6.0](https://github.com/rgomids/axiom/compare/v0.5.0...v0.6.0) (2026-10-07)
 
 
