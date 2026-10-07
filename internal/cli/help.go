@@ -22,7 +22,11 @@ Commands:
   recovery inspect|apply
   upgrade --archive <path> --checksums <path> --bin-dir <dir> --receipt-dir <dir>
 
-Stable Codex skill mapping:
+Stable Runtime skill mapping:
+  $axiom-project           -> domain operations configure|list|show
+  $axiom-work-item         -> domain operations create|run|status
+
+Compatibility Runtime skill mapping:
   $axiom-project-configure -> axiom --json project configure
   $axiom-project-list      -> axiom --json project list
   $axiom-project-show      -> axiom --json project show
