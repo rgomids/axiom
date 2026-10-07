@@ -9,81 +9,92 @@ alone is not treated as execution/publication authority.
 
 ## Identity and reproducibility
 
-Base HEAD: `cfd688d8ec63aa9c4fc51777bd84d6445b519279`.
-Pre-publication validation snapshot:
-Local branch: `agent/project-runtime-policy-140`; implementation is an uncommitted
-reviewable working-tree change, not a published revision. No local commits, push,
-PR, merge, Issue closure, Runtime authentication or release publication performed.
-Local test platform: `darwin/arm64`, Go module's existing Go 1.26 toolchain.
+This Evidence describes the PR #249 review-correction head, not the first
+published head. The first head `c43ca6b8bec909cd1524a25d7e59f08814c31152`
+(base `21bd37fc58397cb1cfcd49894915f8c4eb378fa9`) received REQUEST_CHANGES with
+findings CR-001..CR-003; its local snapshot and CI results are superseded and are
+not proof of the corrected head.
 
-The 45 changed Go/manifest fixture files have aggregate SHA-256
-`f3dddf9f74ea6dd88dcf6191f56214b8cce034d1b7d23f02f052eb0587407849`.
-Reproduce from the base checkout and this complete working-tree patch: take the
-sorted union of `git diff --name-only cfd688d8ec63aa9c4fc51777bd84d6445b519279`
-and `git ls-files --others --exclude-standard`,
-retain `internal/` or `cmd/` paths ending in `.go` or `.yaml`, and hash the
-concatenation of each UTF-8 path, NUL, and its binary SHA-256. This binds code and
-fixtures without importing raw tool/chat output into Evidence.
+- Base: `main` at `641901dcc2ec5eb681f45f6d6f7b07d50705f7a8`, merged into the PR
+  branch by `7d33cc4` (history preserved, no rebase or force-push; only
+  `CHANGELOG.md` conflicted, resolved by keeping `main`'s 0.6.0 section and this
+  Unreleased entry).
+- Implementation under test: `fccea0eb5e2b474bb99d6c71fe21bd16542613fd` (commits `b365624` and `fccea0e`: code, tests, skill, dogfood
+  and docs). The commit that adds this Evidence changes only this file.
+- Platform of the local runs below: `darwin/arm64`, Go 1.26 toolchain. Remote CI
+  for Linux, macOS and Windows belongs to the PR head and is reported there.
+
+No merge, Issue closure, tag, release, credential change or Runtime
+authentication was performed.
 
 ## Task results
 
 | Task | Implemented behavior / executable Evidence |
 |---|---|
-| T140-01 | [Closed v2 contract](runtime-policy-v2.md), Specification/Plan amendment; v1 semantics preserved |
+| T140-01 | [Closed v2 contract](runtime-policy-v2.md), Specification/Plan amendment; v1 semantics preserved; authoritative observation, concrete binding and production authoring path documented |
 | T140-02 | Project State/Intent, strict version-gated codec, v2 fixtures/goldens and reference/declaration/canonical tests |
-| T140-03 | `runtimeapplication` intersects portable policy, local allowlists/model/configuration and requirements; delegates selection to the existing resolver |
-| T140-04 | Safe preview binds Project/configuration/observations by digests, records configuration/observation revisions, and returns explicit blockers |
-| T140-05 | Production graph composition requires per-child previews; exact child/model binding and freshness checked before credentials/attempts/processes |
-| T140-06 | `runtime profile preview`, human/JSON rendering and workflow-start preview token; truthful CLI argument discovery; Codex default removed |
-| T140-07 | Focused, full Go, race, static/build/module, repository and secret checks below |
-| T140-08 | This Evidence, contract, commands, architecture, changelog and Specifications index reconciliation |
+| T140-03 | `runtimeapplication` intersects portable policy, local allowlists/model/configuration and requirements with observations Lingo derives itself (`runtimeadapter.ExecutableObserver`); delegates selection to the existing resolver |
+| T140-04 | Safe preview binds Project/configuration/observation digests, revisions and `choice.executableDigest`; explicit blockers |
+| T140-05 | Dispatch re-observes and checks the exact preview, then the concrete binding (Runtime, Model Profile, model, credential reference, executable identity) before credentials, attempts and processes |
+| T140-06 | `runtime profile preview`, workflow-start preview token, `project install --repository`; no observation input; Codex default removed; embedded `axiom-work-item-run` teaches the reviewed protocol |
+| T140-07 | Focused, full Go, race, static/build/module, repository, dogfood and secret checks below |
+| T140-08 | This Evidence, contract, commands, architecture, help, changelog and Specifications index reconciliation |
+
+## Review findings
+
+| Finding | Status at `fccea0eb5e2b474bb99d6c71fe21bd16542613fd` | Evidence |
+|---|---|---|
+| CR-001 workflow-start consumers | Resolved | `scripts/dogfood-poc.sh` installs an authored v2 policy, proves `policy_unconfigured`/unobserved-Claude/unprovable-capability blocks, previews, blocks a replaced executable as `stale_preview`, then starts with the reviewed digest; `axiom-work-item-run` teaches preview → `previewDigest` → `--runtime-preview`, never defaults to Codex and preserves `runtimeResolution`/`previewDigest`; `TestExecutableRuntimeAndFirstProjectionOfCreatedWorkItem/{codex,claude}` executes the protocol parsed from the installed skill; `TestWorkItemRunSkillTeachesReviewedRuntimePreview`; payload contract test |
+| CR-002 observation bound to dispatch target | Resolved | `--observations` removed; `TestExecutableIdentityBindsPathAndContent`, `TestExecutableObserverProvesOnlyWhatLingoVerifies`, `runtimeapplication.TestExecutableObserverBindsReviewedRuntime`, `cmd/lingo` `TestRuntimePolicyPreviewReadsRecordedSourceAndMachineState`, `TestRuntimePolicyProvesOnlyLingoVerifiedFacts`, `TestWorkflowStartRequiresReviewedFreshPolicy`; dispatch scenarios below |
+| CR-003 credential bound to invocation | Resolved | `graphapplication.TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects/{codex,claude}/credential_reference_differs_from_reviewed_configuration`, `TestPolicyInvocationResolvesOnlyTheReviewedCredentialReference`, environment overrides in `TestPolicyInvocationRejectsMissingMismatchedAndOverrideBindings` |
+
+`TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects` runs, for Codex
+and Claude, credential B against reviewed credential A, executable replaced after
+preview, executable removed after preview, a command profile naming another
+same-basename executable, and Runtime unavailable after preview. Each asserts
+zero credential resolver calls, zero attempt allocations, zero attempts, an
+unchanged persisted graph and no process-start marker. Removing the credential or
+executable guard makes the four binding scenarios fail (checked locally).
 
 ## Acceptance proof
 
 | Required proof | Tests / source |
 |---|---|
 | One or multiple portable Runtimes/Profiles; duplicate IDs, dangling refs, invalid preferences rejected | `internal/project/runtime_policy_test.go`: `TestRuntimePolicyValidation`, `TestRuntimePolicyVersionGates`, `TestRuntimePolicyBounds` |
-| Strict new-version shape, presence distinctions, safe canonical round trip | `internal/manifest/runtime_policy_test.go`: `TestV2VersionBoundary`, `TestV2RejectsMalformedPolicy`, `TestV2DeclarationStatesIndependentRoundTrip`, security/boundary tests; v1 goldens unchanged |
-| Legacy v1 read/execute projection stays explicit without rewriting | `runtimeapplication.TestLegacyV1ProjectionNeverRewritesProject`; existing v1 codec tests and frozen stable compatibility corpus |
-| Both Codex and Claude explicitly allowed | `runtimeapplication.TestProjectResolutionBothExplicitRuntimes`; `graphapplication.TestPolicyInvocationChecksExactSelectionBeforeCredentials`; `TestProductionDispatchUsesPreviewedModelBothAdapters` |
-| Missing/unconfigured/incompatible/unavailable/unproven/ambiguous state blocks with no fallback | `runtimeapplication.TestProjectResolutionBlocksWithoutFallback`, `TestProjectPreferenceAndExplicitNarrowing`; resolver regressions |
-| Exact preview used at process dispatch | Production dispatch test creates isolated synthetic Go executables named Codex/Claude, verifies adapter argv/model, executes OSProcessRunner and reads persisted successful attempts |
-| Configuration/Project/observation drift blocks | `TestPreviewRejectsContentAndRevisionDrift`; `TestProductionDispatchStalePolicyHasNoAttemptsOrCredentials`; zero credential calls, allocations, attempts and persistence changes |
-| Runtime model overrides/fallback cannot bypass reviewed model | `TestAlternateModelSelectionRejectedBeforeCredentials`; explicit denial of model/config/profile/agent/fallback/session override flags |
-| Choice/blocker inspectable, deterministic, bounded and safe | `cli.TestRuntimeResolutionCompletionHumanAndJSON`, `TestRuntimeResolutionCompletionRejectsOversizedOutput`; source/inventory/workflow tests in `cmd/lingo/runtime_policy_test.go` |
-| Observation JSON cannot widen state via duplicate/case/Unicode aliases | `TestRuntimeObservationInventoryRejectsUntrustedData`, including `installed` versus Unicode long-s alias; canonical keys only |
-| Runtime-independent Execution contracts preserved | Full existing executiongraph/coordination/workflow/gitworkspace tests; persisted graph/ledger formats unchanged |
+| Strict new-version shape, presence distinctions, safe canonical round trip | `internal/manifest/runtime_policy_test.go`; v1 goldens unchanged |
+| Legacy v1 read/execute projection stays explicit without rewriting | `runtimeapplication.TestLegacyV1ProjectionNeverRewritesProject`; frozen stable compatibility corpus |
+| Production authoring path for a policy | `TestProjectInstallBindsEveryDeclaredRepository`, `TestAuthoredPolicyPreviewThenStartBothRuntimes/{codex,claude}`; dogfood |
+| Both Codex and Claude explicitly allowed | `runtimeapplication.TestProjectResolutionBothExplicitRuntimes`; graph tests per adapter; black-box journey per Runtime |
+| Missing/unconfigured/incompatible/unavailable/unproven/ambiguous state blocks with no fallback | `TestProjectResolutionBlocksWithoutFallback`, `TestWorkflowStartNeverFallsBackToCodex`, `TestRuntimePolicyProvesOnlyLingoVerifiedFacts`; dogfood blocks |
+| Exact preview used at process dispatch | `TestProductionDispatchUsesPreviewedModelBothAdapters` (synthetic executables, OSProcessRunner, persisted attempts) |
+| Configuration/Project/observation/executable/credential drift blocks with zero effects | `TestPreviewRejectsContentAndRevisionDrift`, `TestProductionDispatchStalePolicyHasNoAttemptsOrCredentials`, `TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects` |
+| Runtime model/credential overrides cannot bypass the reviewed binding | `TestAlternateModelSelectionRejectedBeforeCredentials`; environment cases in `TestPolicyInvocationRejectsMissingMismatchedAndOverrideBindings` |
+| Choice/blocker inspectable, deterministic, bounded and safe | `cli.TestRuntimeResolutionCompletionHumanAndJSON`, `TestRuntimeResolutionCompletionRejectsOversizedOutput`; no credential reference, executable path or state path in output (cmd/lingo tests, dogfood) |
+| Runtime-independent Execution contracts preserved | Full executiongraph/coordination/workflow/gitworkspace tests; persisted graph/ledger formats unchanged |
 
 Preview is read-only and grants no new effect authority. Workflow start without a
 review token returns preview only; a token requires fresh checks before ledger
-creation. Production graph invocation also checks the corresponding child scope,
-role, complexity, capability set and existing resolution revisions. Global local
-preferences cannot synthesize Project preferences. Explicit Runtime input narrows
-candidates; unavailable preferred profiles cannot fall back to another model.
+creation. Explicit Runtime input narrows candidates; unavailable preferred
+profiles cannot fall back to another model.
 
 ## Validation
 
-All commands below were executed locally; each final run exited 0:
+Executed locally on `fccea0eb5e2b474bb99d6c71fe21bd16542613fd`; every command exited 0:
 
 - `go test ./internal/project ./internal/manifest`
-- `go test ./internal/runtimeapplication ./internal/graphapplication ./internal/runtimeprofile ./internal/runtimeadapter`
-- `go test ./internal/compatibility ./internal/runtimeapplication ./internal/runtimeprofile`
-- `go test ./internal/cli ./cmd/lingo`
+- `go test ./internal/runtimeprofile ./internal/runtimeapplication ./internal/runtimeadapter ./internal/graphapplication`
+- `go test ./internal/cli ./internal/codexruntime ./cmd/lingo`
 - `go test ./... -timeout 10m`
 - `go test -race ./... -timeout 10m`
-- `go vet ./...`
-- `go build ./...`
-- `go mod verify`
+- `go vet ./...`, `go build ./...`, `go mod verify`
 - `./scripts/validate-repository.sh .`
-- `gitleaks dir . --no-banner --redact`
+- `./scripts/dogfood-poc.sh` (`"runtimeId":"codex"`, `"workflow":"completed"`, `"result":"pass"`)
+- `gitleaks dir . --no-banner --redact` (no leaks found)
 - `git diff --check`
 
-An early full run found historical fixtures assuming implicit Codex and schema 2
-as unsupported. Fixtures now declare explicit policy/observations and unsupported
-schema tests use version 3; no frozen stable corpus was changed. Independent
-engineering/security review found two blocking issues: adapter fallback-model
-arguments and Unicode JSON key aliasing. Both were corrected and regression-tested.
-The local review identified no remaining blocking finding after remediation.
+Embedded skill text changed, so the replaced shared revision was appended to the
+installer history and the new embedded manifest digest pinned; published
+receipts and historical snapshots are unchanged.
 
 ## Compatibility and architectural checks
 
@@ -102,23 +113,38 @@ release-acceptance obligations; this local implementation creates no release.
 
 ## Limits and remaining human actions
 
-- Concrete adapter/process coverage uses synthetic executables and isolated Git
-  worktrees. No actual Codex/Claude model, credential or Provider run is claimed.
-- CLI reads an explicitly supplied operator inventory, not live vendor capability
-  discovery. It detects changes to that inventory; it cannot prove unreported
-  machine changes. Programmatic dispatch sources must observe current machine
-  state on each check. Observation timestamps alone do not constitute revisions.
-- Native Linux/Windows runs and remote CI were not executed in this local macOS
-  validation. Existing platform-specific coverage runs locally where supported.
-- Embedded Runtime skills/receipts and installation/bootstrap formats remain
-  unchanged; binary argument discovery advertises the new required policy inputs.
-- Human review/acceptance, commit if desired, push/PR and any later release need
-  separate authority. Issue #140 remains open; no successor work is authorized.
+- Observation revisions equal the local configuration revision; machine changes
+  are visible only through `observationDigest` and `executableDigest`.
+- Lingo proves only `axiom-skills`. Capabilities such as `go` or
+  `repository-write` have no Lingo-verifiable source and block; this is the
+  intended fail-closed outcome, not a missing feature of the resolver.
+- Executable identity covers the resolved file (path and content), not
+  interpreters or libraries it loads (for example an npm shim's package). A
+  replacement between the final identity check and process start is not
+  detected. Version stays unknown because Lingo never runs the Runtime.
+- Graph dispatch takes its observer from programmatic composition (trusted
+  code); the dispatch guard nevertheless re-verifies the executable identity and
+  credential reference itself. The environment check is a denylist of known
+  credential/selector keys; an explicitly configured `HOME` (or platform
+  equivalent) still exposes the Runtime's own ambient login, which Lingo neither
+  reads nor binds. No `cmd/lingo` path composes graph dispatch yet, so the
+  dispatch guard is exercised by tests and acceptance tooling only.
+- `executableDigest` hides the path but lets someone who knows a candidate path
+  and binary confirm it; identity hashing reads the whole file on each check.
+- `project install --repository` records bindings without a preview/digest, like
+  the existing `install`; editing an installed manifest blocks resolution
+  (`policy_unavailable`) and has no re-adoption path in this slice.
+- `scripts/acceptance/s9-graph-runner.go` (`//go:build ignore`, maintainer
+  acceptance tooling) still composes `NewLocalService` without a policy and was
+  not migrated; it fails closed if built.
+- Concrete adapter coverage uses synthetic executables; no actual Codex/Claude
+  model, credential or Provider run is claimed.
+- Human review/acceptance, merge and any release need separate authority.
+  Issue #140 remains open.
 
-## Subsequent publication authority
+## Publication authority
 
-After the local validation snapshot, the human requested creation of the PR.
-That request authorizes the necessary commit, branch push and PR creation only.
-It does not authorize merge, Issue closure, human acceptance or release. Published
-commit/head and remote CI status belong to the PR; the local test snapshot above
-remains historical Evidence rather than a claim that remote CI already passed.
+The original PR creation was explicitly requested by the human. This correction
+round was authorized to edit the PR branch, run local validation, commit and push
+to the existing branch only. It does not authorize merge, Issue closure, human
+acceptance, tag or release.
