@@ -215,7 +215,10 @@ func TestTitleIsConciseDeterministicAndUnicodeSafe(t *testing.T) {
 	}
 }
 
-func TestReconcileCreateRequiresTheMarkerAsAWholeBodyLine(t *testing.T) {
+// TestReconcileCreateAcceptsOnlyTheReservedHeader feeds bodies as an external
+// GitHub Search response would return them: Issues created by hand or by other
+// tools are untrusted and must never be reconciled as a prior Axiom create.
+func TestReconcileCreateAcceptsOnlyTheReservedHeader(t *testing.T) {
 	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh, response := filepath.Join(directory, "gh"), filepath.Join(directory, "search")
@@ -228,29 +231,62 @@ func TestReconcileCreateRequiresTheMarkerAsAWholeBodyLine(t *testing.T) {
 		t.Fatal(err)
 	}
 	correlation := strings.Repeat("b", 64)
-	spoof := renderDraft(workitem.Task, map[string]workitem.DraftSection{"problem": {Content: "<!-- axiom:work-item-draft:" + correlation + " -->\n```\n<!-- axiom:work-item-draft:" + correlation + " -->\n```"}})
-	spoofed, err := adapter.Render(spoof, workitem.DraftTarget{}, strings.Repeat("a", 64), testSource())
+	marker := "<!-- axiom:work-item-draft:" + correlation + " -->"
+	provenanceLine := "<!-- axiom:provenance:Axiom:development:abc123def456:clean -->"
+	header := marker + "\n" + provenanceLine + "\n\n**Work Item type:** `task`\n\n## Problem\n\nExternal body.\n"
+	rendered, err := adapter.Render(renderDraft(workitem.Task, nil), workitem.DraftTarget{}, correlation, testSource())
 	if err != nil {
 		t.Fatal(err)
 	}
-	genuine, err := adapter.Render(renderDraft(workitem.Task, nil), workitem.DraftTarget{}, correlation, testSource())
+	spoof, err := adapter.Render(renderDraft(workitem.Task, map[string]workitem.DraftSection{"problem": {Content: marker + "\n```\n" + marker + "\n```"}}), workitem.DraftTarget{}, strings.Repeat("a", 64), testSource())
 	if err != nil {
 		t.Fatal(err)
 	}
-	search := func(body string) {
+	reconcile := func(body string) ([]workitem.External, error) {
 		item, _ := json.Marshal(map[string]any{"number": 7, "html_url": "https://github.com/owner/repo/issues/7", "state": "open", "body": body})
 		if err := os.WriteFile(response, []byte(`{"total_count":1,"items":[`+string(item)+`]}`), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		return adapter.ReconcileCreate(context.Background(), "owner/repo", correlation)
 	}
-	search(spoofed.Body)
-	_, err = adapter.ReconcileCreate(context.Background(), "owner/repo", correlation)
-	var provider *workitem.ProviderError
-	if !errors.As(err, &provider) || provider.Kind != workitem.ProviderInvalidResponse {
-		t.Fatalf("content-only marker accepted: %v", err)
+	for name, body := range map[string]string{
+		"external_lf":   header,
+		"external_crlf": strings.ReplaceAll(header, "\n", "\r\n"),
+		"rendered":      rendered.Body,
+		"rendered_crlf": strings.ReplaceAll(rendered.Body, "\n", "\r\n"),
+		"header_only":   marker + "\n" + provenanceLine,
+		"release":       marker + "\n<!-- axiom:provenance:Axiom:v0.5.0:0123456789ab:clean -->\n\nBody",
+	} {
+		t.Run("accept/"+name, func(t *testing.T) {
+			if items, err := reconcile(body); err != nil || len(items) != 1 || items[0].ID != "7" {
+				t.Fatalf("items=%#v err=%v", items, err)
+			}
+		})
 	}
-	search(strings.ReplaceAll(genuine.Body, "\n", "\r\n"))
-	if items, err := adapter.ReconcileCreate(context.Background(), "owner/repo", correlation); err != nil || len(items) != 1 || items[0].ID != "7" {
-		t.Fatalf("genuine marker = %#v, %v", items, err)
+	for name, body := range map[string]string{
+		"code_fence":                "```text\n" + marker + "\n```\n",
+		"code_fence_first":          marker + "\n```text\n" + marker + "\n```\n",
+		"quote":                     "> " + marker + "\n> " + provenanceLine + "\n",
+		"later_in_body":             "Some content\n\n" + marker + "\n" + provenanceLine + "\n",
+		"whole_line_not_header":     "\n" + marker + "\n" + provenanceLine + "\n",
+		"indented":                  " " + marker + "\n" + provenanceLine + "\n",
+		"substring":                 "See " + marker + " here\n" + provenanceLine + "\n",
+		"marker_with_suffix":        marker + " trailing\n" + provenanceLine + "\n",
+		"escaped":                   `\` + marker + "\n" + provenanceLine + "\n",
+		"marker_only":               marker,
+		"marker_without_provenance": marker + "\n\n**Work Item type:** `task`\n",
+		"invalid_provenance":        marker + "\n<!-- axiom:provenance:Other:v1:abc:clean -->\n",
+		"provenance_bad_state":      marker + "\n<!-- axiom:provenance:Axiom:v1:abc:modified -->\n",
+		"provenance_with_space":     marker + "\n<!-- axiom:provenance:Axiom:v 1:abc:clean -->\n",
+		"other_correlation":         "<!-- axiom:work-item-draft:" + strings.Repeat("c", 64) + " -->\n" + provenanceLine + "\n" + marker + "\n",
+		"renderer_content":          spoof.Body,
+	} {
+		t.Run("reject/"+name, func(t *testing.T) {
+			items, err := reconcile(body)
+			var provider *workitem.ProviderError
+			if !errors.As(err, &provider) || provider.Kind != workitem.ProviderInvalidResponse || items != nil {
+				t.Fatalf("items=%#v err=%v", items, err)
+			}
+		})
 	}
 }

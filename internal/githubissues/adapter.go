@@ -182,7 +182,7 @@ func (a Adapter) ReconcileCreate(ctx context.Context, repository, correlation st
 		var inspected struct {
 			Body string `json:"body"`
 		}
-		if err := json.Unmarshal(raw, &inspected); err != nil || !hasMarkerLine(inspected.Body, "<!-- "+marker+" -->") {
+		if err := json.Unmarshal(raw, &inspected); err != nil || !hasReservedHeader(inspected.Body, "<!-- "+marker+" -->") {
 			return nil, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
 		}
 		item, err := decodeIssue(repository, "", raw)
@@ -500,16 +500,16 @@ func validIssue(repository string, external workitem.External) bool {
 	return external.URL == "https://github.com/"+repository+"/issues/"+external.ID && (external.State == "OPEN" || external.State == "CLOSED")
 }
 
-// hasMarkerLine accepts a correlation marker only as a whole body line. Render
-// never lets section content produce such a line, so quoted or code content
-// that merely contains the marker cannot satisfy reconciliation.
-func hasMarkerLine(body, marker string) bool {
-	for _, line := range strings.Split(body, "\n") {
-		if strings.TrimSuffix(line, "\r") == marker {
-			return true
-		}
-	}
-	return false
+// provenanceMarker matches the reserved second header line Render writes.
+var provenanceMarker = regexp.MustCompile(`^<!-- axiom:provenance:Axiom:\S+:(?:clean|dirty|unknown) -->$`)
+
+// hasReservedHeader accepts the correlation marker only in the reserved header
+// Render writes: line 1 is the exact marker and line 2 a provenance marker.
+// Search results are untrusted, so the marker anywhere else in a body (fenced,
+// quoted, escaped or later) never satisfies reconciliation.
+func hasReservedHeader(body, marker string) bool {
+	lines := strings.SplitN(body, "\n", 3)
+	return len(lines) >= 2 && strings.TrimSuffix(lines[0], "\r") == marker && provenanceMarker.MatchString(strings.TrimSuffix(lines[1], "\r"))
 }
 
 func section(draft workitem.Draft, name string) string {
