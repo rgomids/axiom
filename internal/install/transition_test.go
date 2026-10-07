@@ -128,7 +128,7 @@ func TestUpgradeResolvesForwardTransitionPolicy(t *testing.T) {
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
 		{"unsafe symlink entry", "1.1.0", func(i installation, t *testing.T) {
 			i.withV1State(t)
-			if err := os.Symlink(t.TempDir(), filepath.Join(i.target.State.State, "work-items", pocProjectID, "link.json")); err != nil {
+			if err := testfs.Symlink(t, t.TempDir(), filepath.Join(i.target.State.State, "work-items", pocProjectID, "link.json")); err != nil {
 				t.Fatal(err)
 			}
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},

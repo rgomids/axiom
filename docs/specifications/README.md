@@ -283,3 +283,6 @@ Implementation and local validation do not establish human acceptance or release
 The #134 minimal-intent capture follow-up is documented in
 [Work Item interview](004-mvp-v1-baseline/work-item-interview.md), including
 its independent scope, authorship transport, and acceptance scenarios.
+
+The #131 additive [skill argument inspection contract](004-mvp-v1-baseline/issue-131-skill-arguments.md)
+reuses CLI declarations and keeps discovery separate from guided execution.

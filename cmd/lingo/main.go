@@ -35,6 +35,9 @@ func main() {
 		os.Exit(code)
 	}
 	source := currentProvenance()
+	if handled, code := cli.InspectSkill(os.Args[1:], source, os.Stdout); handled {
+		os.Exit(code)
+	}
 	if format, ok := versionFormat(os.Args[1:]); ok {
 		os.Exit(writeVersion(os.Stdout, format, source))
 	}

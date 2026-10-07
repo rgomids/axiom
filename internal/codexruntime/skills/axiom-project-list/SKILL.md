@@ -5,6 +5,13 @@ description: List configured Axiom Projects through Lingo from any working direc
 
 # List Axiom Projects
 
+To inspect accepted arguments before starting this workflow, run
+`axiom --json skill inspect axiom-project-list` and report its
+`skill` payload. Inspection requests stop there: do not collect inputs or execute
+any command below. The binary owns argument names, descriptions, required and
+conditional inputs, and accepted forms; do not maintain a separate argument list.
+For workflow invocation, preserve the guided behavior below.
+
 Run `axiom --json project list` and report the returned `projects` collection.
 Never enumerate filesystem state, infer Project identity from the Runtime current
 working directory, or resolve Projects independently.
