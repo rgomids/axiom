@@ -23,6 +23,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.8.0](https://github.com/rgomids/axiom/compare/v0.7.0...v0.8.0) (2026-10-07)
+
+
+### Features
+
+* **project:** bootstrap v3 context registry and operation readiness ([#257](https://github.com/rgomids/axiom/issues/257)) ([9436c9a](https://github.com/rgomids/axiom/commit/9436c9ad8fc0e44855240c206b56f8ce299f6da1))
+
 ## [0.7.0](https://github.com/rgomids/axiom/compare/v0.6.0...v0.7.0) (2026-10-07)
 
 
