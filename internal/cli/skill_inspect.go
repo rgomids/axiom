@@ -25,29 +25,72 @@ type skillCommand struct {
 	Arguments []skillArgument `json:"arguments"`
 }
 
-type skillInspection struct {
-	Name     string         `json:"name"`
-	Commands []skillCommand `json:"commands"`
+type skillOperation struct {
+	Name      string   `json:"name"`
+	Commands  []string `json:"commands"`
+	Authority string   `json:"authority"`
+	Example   string   `json:"example"`
 }
 
-// These are the existing thin-skill delegations, not a second argument registry.
-// Inventory and inspection pointers are checked against the skill bundle.
-func skillOperations(name string) []action {
+type skillInspection struct {
+	Name       string           `json:"name"`
+	Operations []skillOperation `json:"operations"`
+	Commands   []skillCommand   `json:"commands"`
+}
+
+type skillOperationSpec struct {
+	name      string
+	actions   []action
+	authority string
+	example   string
+}
+
+// These are thin Runtime-to-Lingo delegations, not a second argument registry.
+// Argument metadata still comes from each executable command's real FlagSet.
+func skillOperationSpecs(name string) []skillOperationSpec {
 	switch name {
+	case "axiom-project":
+		return []skillOperationSpec{
+			{name: "configure", actions: []action{configureAction}, authority: "local mutation; exact preview digest plus --authorize-local", example: "axiom-project configure"},
+			{name: "list", actions: []action{listAction}, authority: "read-only", example: "axiom-project list"},
+			{name: "show", actions: []action{showAction}, authority: "read-only", example: "axiom-project show <project-selector>"},
+		}
+	case "axiom-work-item":
+		return []skillOperationSpec{
+			{name: "create", actions: []action{workItemCreateAction, workItemSelectAction}, authority: "external create requires exact preview digest plus --authorize-external; selecting an existing item requires --authorize-local", example: "axiom-work-item create"},
+			{name: "run", actions: []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowReconcileAction}, authority: "workflow transitions preserve existing revision gates; local workflow facts require --authorize-local", example: "axiom-work-item run"},
+			{name: "status", actions: []action{workflowStatusAction, workflowEvidenceAction}, authority: "read-only", example: "axiom-work-item status"},
+		}
 	case "axiom-project-configure":
-		return []action{configureAction}
+		return []skillOperationSpec{{name: "configure", actions: []action{configureAction}, authority: "local mutation; exact preview digest plus --authorize-local", example: "axiom-project-configure"}}
 	case "axiom-project-list":
-		return []action{listAction}
+		return []skillOperationSpec{{name: "list", actions: []action{listAction}, authority: "read-only", example: "axiom-project-list"}}
 	case "axiom-project-show":
-		return []action{showAction}
+		return []skillOperationSpec{{name: "show", actions: []action{showAction}, authority: "read-only", example: "axiom-project-show <project-selector>"}}
 	case "axiom-work-item-create":
-		return []action{workItemCreateAction, workItemSelectAction}
+		return []skillOperationSpec{{name: "create", actions: []action{workItemCreateAction, workItemSelectAction}, authority: "external create requires exact preview digest plus --authorize-external; selecting an existing item requires --authorize-local", example: "axiom-work-item-create"}}
 	case "axiom-work-item-run":
-		return []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction}
+		return []skillOperationSpec{{name: "run", actions: []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction}, authority: "workflow transitions preserve existing revision gates; local workflow facts require --authorize-local", example: "axiom-work-item-run"}}
 	case "axiom-work-item-status":
-		return []action{workflowStatusAction, workflowEvidenceAction}
+		return []skillOperationSpec{{name: "status", actions: []action{workflowStatusAction, workflowEvidenceAction}, authority: "read-only", example: "axiom-work-item-status"}}
 	}
 	return nil
+}
+
+func skillOperations(name string) []action {
+	specs := skillOperationSpecs(name)
+	seen := map[action]bool{}
+	operations := make([]action, 0)
+	for _, spec := range specs {
+		for _, operation := range spec.actions {
+			if seen[operation] {
+				continue
+			}
+			seen[operation] = true
+			operations = append(operations, operation)
+		}
+	}
+	return operations
 }
 
 func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
@@ -75,7 +118,14 @@ func inspectSkill(name string) (skillInspection, bool) {
 	if len(operations) == 0 {
 		return skillInspection{}, false
 	}
-	result := skillInspection{Name: name, Commands: make([]skillCommand, 0, len(operations))}
+	result := skillInspection{Name: name, Operations: []skillOperation{}, Commands: make([]skillCommand, 0, len(operations))}
+	for _, spec := range skillOperationSpecs(name) {
+		item := skillOperation{Name: spec.name, Authority: spec.authority, Example: spec.example, Commands: make([]string, 0, len(spec.actions))}
+		for _, operation := range spec.actions {
+			item.Commands = append(item.Commands, skillCommandName(operation))
+		}
+		result.Operations = append(result.Operations, item)
+	}
 	for _, operation := range operations {
 		var values requestInput
 		set := skillFlagSet(operation, &values)
@@ -133,6 +183,9 @@ func InspectSkill(args []string, source provenance.Value, output io.Writer) (boo
 		var text strings.Builder
 		text.Write(renderCompletionHuman(result))
 		fmt.Fprintf(&text, "skill: %s\nRequired inputs apply to noninteractive requests; guided invocation remains available.\n", skill.Name)
+		for _, operation := range skill.Operations {
+			fmt.Fprintf(&text, "operation %s\n  authority: %s\n  example: %s\n  commands: %s\n", operation.Name, operation.Authority, operation.Example, strings.Join(operation.Commands, "; "))
+		}
 		for _, command := range skill.Commands {
 			fmt.Fprintln(&text, command.Command)
 			if len(command.Arguments) == 0 {
