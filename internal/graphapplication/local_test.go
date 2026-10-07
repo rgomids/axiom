@@ -23,6 +23,7 @@ func TestNewLocalServiceWiresConcreteRuntimeAdapter(t *testing.T) {
 	root := canonicalTempDir(t)
 	repository, revision := initRepository(t, filepath.Join(root, "repository"))
 	graph := buildGraph(t, filepath.Join(root, "workspaces"))
+	policy, previews, _ := policyFixture(t, &graph, "codex")
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +35,7 @@ func TestNewLocalServiceWiresConcreteRuntimeAdapter(t *testing.T) {
 	store := &memoryGraphStore{wire: mustEncodeGraph(t, graph)}
 	service, err := NewLocalService(context.Background(), LocalConfiguration{
 		Repository: repository, WorkspaceRoot: filepath.Join(root, "workspaces"), BaseRevision: revision,
-		Graph: graph, GraphStore: store, RuntimeProfiles: profiles,
+		Graph: graph, GraphStore: store, RuntimeProfiles: profiles, RuntimePolicy: policy, RuntimePreviews: previews,
 		Validators: []gitworkspace.ValidationCommand{{Reference: "git-diff-check", Argv: []string{gitPath, "diff", "--check"}, Env: []string{"LC_ALL=C"}, OutputMax: 4096}},
 	})
 	if err != nil || service == nil {

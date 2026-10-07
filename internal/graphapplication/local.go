@@ -10,6 +10,7 @@ import (
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 )
 
 var ErrInvalidComposition = errors.New("invalid local graph execution composition")
@@ -19,6 +20,8 @@ type LocalConfiguration struct {
 	Graph                                   executiongraph.Graph
 	GraphStore                              executiongraph.GraphAttemptStore
 	RuntimeProfiles                         []runtimeadapter.CommandProfile
+	RuntimePolicy                           *runtimeapplication.Service
+	RuntimePreviews                         map[string]runtimeapplication.Preview
 	Credentials                             runtimeadapter.CredentialResolver
 	Validators                              []gitworkspace.ValidationCommand
 	AllocateAttemptID                       func() (string, error)
@@ -37,11 +40,18 @@ type LocalService struct {
 }
 
 func NewLocalService(ctx context.Context, configuration LocalConfiguration) (*LocalService, error) {
+	if configuration.RuntimePolicy == nil || len(configuration.RuntimePreviews) != len(configuration.Graph.Children) {
+		return nil, ErrInvalidComposition
+	}
 	invocations, err := runtimeadapter.NewInvocationResolver(configuration.RuntimeProfiles, configuration.Credentials)
 	if err != nil {
 		return nil, err
 	}
-	return newLocalService(ctx, configuration, invocations)
+	guard, err := newPolicyInvocations(configuration, invocations)
+	if err != nil {
+		return nil, err
+	}
+	return newLocalService(ctx, configuration, guard)
 }
 
 func newLocalService(ctx context.Context, configuration LocalConfiguration, invocations executiongraph.InvocationResolver) (*LocalService, error) {

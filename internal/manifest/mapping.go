@@ -46,6 +46,8 @@ func toDomain(d manifestDTO) project.State {
 	return project.State{SchemaVersion: d.SchemaVersion, ID: d.Project.ID, Slug: d.Project.Slug, Name: d.Project.Name,
 		Repositories:         toDeclaration(d.Repositories, list(toRepository)),
 		Runtime:              toDeclaration(d.Runtime, toRuntime),
+		Runtimes:             toDeclaration(d.Runtimes, list(toRuntime)),
+		RuntimePreferences:   toDeclaration(d.RuntimePreferences, list(toPreference)),
 		Providers:            toDeclaration(d.Providers, list(toProvider)),
 		Integrations:         toDeclaration(d.Integrations, list(toIntegration)),
 		ModelProfiles:        toDeclaration(d.ModelProfiles, list(toProfile)),
@@ -111,6 +113,8 @@ func fromDomain(d project.State) manifestDTO {
 	return manifestDTO{SchemaVersion: d.SchemaVersion, Project: identityDTO{d.ID, d.Slug, d.Name},
 		Repositories:         fromDeclaration(d.Repositories, list(fromRepository)),
 		Runtime:              fromDeclaration(d.Runtime, fromRuntime),
+		Runtimes:             fromDeclaration(d.Runtimes, list(fromRuntime)),
+		RuntimePreferences:   fromDeclaration(d.RuntimePreferences, list(fromPreference)),
 		Providers:            fromDeclaration(d.Providers, list(fromProvider)),
 		Integrations:         fromDeclaration(d.Integrations, list(fromIntegration)),
 		ModelProfiles:        fromDeclaration(d.ModelProfiles, list(fromProfile)),
@@ -170,4 +174,11 @@ func fromCredential(d project.CredentialReference) credentialDTO {
 		Key:        d.Key,
 		SourceHint: fromText(d.SourceHint),
 	}
+}
+
+func toPreference(d preferenceDTO) project.RuntimePreference {
+	return project.RuntimePreference{Role: d.Role, Complexity: d.Complexity, ModelProfileRef: d.ModelProfileRef}
+}
+func fromPreference(d project.RuntimePreference) preferenceDTO {
+	return preferenceDTO{Role: d.Role, Complexity: d.Complexity, ModelProfileRef: d.ModelProfileRef}
 }

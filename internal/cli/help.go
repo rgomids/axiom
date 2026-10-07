@@ -14,6 +14,8 @@ Commands:
   runtime codex install|status
   runtime claude install|status
   runtime profile validate
+  runtime profile preview --project <uuid-or-slug> --role <token> --complexity <token>
+    --capabilities <comma-list> --observations <absolute-inventory.json> [--runtime codex|claude]
   project configure|list|show|resolve|init|validate|reopen|update|install
   work-item create|select|show|comment|complete
   workflow start|advance|fact|resume|status|evidence|reconcile
@@ -62,7 +64,14 @@ Strict selector vocabulary:
   --repository <project-scoped-key>
   --work-item github:<owner>/<repository>#<number>
   --execution <execution-id> (all workflow operations except start)
-  --runtime codex|claude (workflow start only; default codex; kept by the Execution)
+  --runtime codex|claude (optional policy constraint for workflow start)
+  --role <token> --complexity <token> --capabilities <comma-list>
+  --observations <absolute-inventory.json> (workflow start policy inputs)
+  --runtime-preview <digest> (start only after exact preview and fresh validation)
+
+Workflow start without --runtime-preview previews only. No Runtime is assumed.
+The observation inventory is explicitly supplied by the operator; existing
+observations must establish installed/available Runtime and proven capabilities.
 
 Fully specified selectors require no prompt. Missing selectors may be prompted;
 unknown, duplicate, conflicting, or ambiguous selectors fail validation without

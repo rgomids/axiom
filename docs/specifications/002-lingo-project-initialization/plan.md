@@ -1096,3 +1096,9 @@ These checks provide documentation/repository Evidence only, not Lingo acceptanc
 
 **Historical gate before PR #5 approval — 2026-09-14:** Plan: Approved. [Tasks](tasks.md): In review.
 Implementation: Not authorized. **Ready for human Tasks review.**
+
+## Issue #140 — versioned Runtime/Profile policy
+
+The additive [Runtime/Profile v2 contract](runtime-policy-v2.md) governs the next
+portable manifest version and execution projection. Historical v1 sections above
+remain v1 contracts; v2 support does not reinterpret or rewrite v1 Projects.

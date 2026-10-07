@@ -19,6 +19,7 @@ type shape struct {
 	unconfigured bool
 	literal      string
 	security     string
+	maxItems     int
 }
 
 func object(fields ...field) *shape             { return &shape{tag: "!!map", fields: fields} }
@@ -102,6 +103,9 @@ func validateObject(n *yaml.Node, s *shape, path string) []project.Issue {
 	return nil
 }
 func validateSequence(n *yaml.Node, s *shape, path string) []project.Issue {
+	if s.maxItems != 0 && len(n.Content) > s.maxItems {
+		return problem(path, "collection_limit")
+	}
 	for i, child := range n.Content {
 		if issues := validateShape(child, s.item, fmt.Sprintf("%s[%d]", path, i)); len(issues) != 0 {
 			return issues

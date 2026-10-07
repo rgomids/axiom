@@ -77,6 +77,11 @@ Issue #94's cross-Specification clarification was explicitly approved on
 separately versioned policy-document contract is now part of the approved amendment
 and does not change the delivered Specification 002 manifest baseline.
 
+Issue #140 adds the version-gated [Runtime/Profile policy v2 contract](002-lingo-project-initialization/runtime-policy-v2.md)
+and [local implementation Evidence](002-lingo-project-initialization/evidence-issue-140.md).
+V1 remains supported without automatic rewrite; implementation does not imply human
+acceptance, Issue closure or publication.
+
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
 [T02](002-lingo-project-initialization/evidence-t02.md),

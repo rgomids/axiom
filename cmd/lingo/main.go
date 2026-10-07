@@ -19,6 +19,7 @@ import (
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
@@ -214,6 +215,8 @@ func stateRoot() (string, error) {
 }
 
 type lifecycleService struct {
+	// RuntimePolicySource allows composition tests to inject fresh snapshots.
+	RuntimePolicySource    runtimeapplication.Source
 	lifecycle              projectapp.Lifecycle
 	portable               local.PortableStore
 	installation           local.InstallationStore
@@ -753,6 +756,25 @@ func workflowTarget(input cli.WorkflowInput) workflow.Target {
 }
 
 func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	policyInput := cli.RuntimeProfilePreviewInput{Project: input.Project, Role: input.Role, Complexity: input.Complexity, Capabilities: input.Capabilities, Runtime: input.Runtime, Observations: input.Observations}
+	preview, policy, err := s.runtimePolicyPreview(ctx, policyInput)
+	if err != nil {
+		return s.runtimeResolutionResult(preview, false)
+	}
+	if input.RuntimePreview == "" {
+		return s.runtimeResolutionResult(preview, true)
+	}
+	if input.RuntimePreview != preview.Digest() {
+		return s.runtimePolicyFailure("stale_preview")
+	}
+	choice, err := policy.Check(ctx, preview)
+	if err != nil {
+		return s.runtimePolicyFailure("stale_preview")
+	}
+	if input.Runtime != "" && input.Runtime != choice.RuntimeID {
+		return s.runtimePolicyFailure("runtime_mismatch")
+	}
+	input.Runtime = choice.RuntimeID
 	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {

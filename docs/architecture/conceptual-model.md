@@ -358,6 +358,14 @@ Agent Planning and orchestration is recorded in
 [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md). Detailed
 contracts remain subject to Specification.
 
+The implemented [Project Runtime/Profile policy](../specifications/002-lingo-project-initialization/runtime-policy-v2.md)
+composes portable Project intent with local configuration and Runtime observations
+at `internal/runtimeapplication`. It delegates selection to `runtimeprofile`;
+CLI renders the preview, and `graphapplication` revalidates that exact choice
+before concrete adapter dispatch. Portable schema v1 remains readable; v2 adds
+Runtime allowlists and role/complexity preferences. Neither schema grants local
+credential access or creates a vendor default.
+
 ## Strategic upstream boundary
 
 [ADR-0002](../decisions/0002-axiom-speckit-relationship.md) establishes that

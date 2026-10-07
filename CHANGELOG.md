@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Project Runtime/Profile policy v2, explicit legacy-v1 projection, inspectable
+  pre-execution selection and stale-decision blocking ([#140](https://github.com/rgomids/axiom/issues/140)).
+
+### Breaking changes
+
+- Workflow start requires explicit policy requirements, local observations and a
+  reviewed resolution digest; omitted Runtime no longer defaults to Codex.
+
 ## [0.5.0](https://github.com/rgomids/axiom/compare/v0.4.2...v0.5.0) (2026-10-06)
 
 

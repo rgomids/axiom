@@ -240,7 +240,10 @@ func TestExecutableClaudeRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T
 		t.Fatalf("invalid Runtime selector created Executions: %v", records)
 	}
 
-	started := run(0, "success", append(append([]string{"workflow", "start"}, selector...), "--runtime", "claude")...)
+	policyFlags := installTestRuntimePolicy(t, state, setup.Setup.ProjectID, "claude")
+	startArgs := append(append(append([]string{"workflow", "start"}, selector...), policyFlags...), "--runtime", "claude")
+	runtimePreview := run(0, "success", startArgs...)
+	started := run(0, "success", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
 	if started.Workflow == nil || started.Workflow.RuntimeID != "claude" || started.Workflow.Revision != 1 {
 		t.Fatalf("started = %+v", started.Workflow)
 	}

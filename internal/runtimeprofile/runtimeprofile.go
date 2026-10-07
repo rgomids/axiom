@@ -231,6 +231,7 @@ func Digest(cfg Configuration) (string, error) {
 	normalized := cfg
 	normalized.Runtimes = sortedRuntimes(cfg.Runtimes)
 	normalized.ModelProfiles = append([]ModelProfile(nil), cfg.ModelProfiles...)
+	normalized.Preferences = append([]Preference(nil), cfg.Preferences...)
 	sort.Slice(normalized.ModelProfiles, func(i, j int) bool { return normalized.ModelProfiles[i].ID < normalized.ModelProfiles[j].ID })
 	for index := range normalized.Runtimes {
 		normalized.Runtimes[index].AllowlistedProfileIDs = sortedStrings(normalized.Runtimes[index].AllowlistedProfileIDs)

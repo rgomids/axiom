@@ -22,6 +22,17 @@ func sensitiveParameterV1(name string) bool {
 	return false
 }
 func safeValue(value, kind string) bool {
+	if kind == "token" {
+		if len(value) == 0 || len(value) > 256 {
+			return false
+		}
+		for _, c := range value {
+			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_' || c == '.') {
+				return false
+			}
+		}
+		return true
+	}
 	if kind == "remote" {
 		return safeURL(value)
 	}

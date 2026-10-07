@@ -31,6 +31,7 @@ type Repository struct {
 	Remote Declaration[string]
 }
 type Runtime struct{ ID string }
+type RuntimePreference struct{ Role, Complexity, ModelProfileRef string }
 type Provider struct{ Key, ID string }
 type Transport struct {
 	ID        string
@@ -64,6 +65,8 @@ type State struct {
 	ID, Slug, Name       string
 	Repositories         Declaration[[]Repository]
 	Runtime              Declaration[Runtime]
+	Runtimes             Declaration[[]Runtime]
+	RuntimePreferences   Declaration[[]RuntimePreference]
 	Providers            Declaration[[]Provider]
 	Integrations         Declaration[[]Integration]
 	ModelProfiles        Declaration[[]ModelProfile]
@@ -115,6 +118,8 @@ type Intent struct {
 	Slug, Name           Change[string]
 	Repositories         Change[Declaration[[]Repository]]
 	Runtime              Change[Declaration[Runtime]]
+	Runtimes             Change[Declaration[[]Runtime]]
+	RuntimePreferences   Change[Declaration[[]RuntimePreference]]
 	Providers            Change[Declaration[[]Provider]]
 	Integrations         Change[Declaration[[]Integration]]
 	ModelProfiles        Change[Declaration[[]ModelProfile]]
@@ -134,6 +139,8 @@ func (p Project) Propose(intent Intent) (Project, []Issue) {
 	apply(&s.Name, intent.Name)
 	apply(&s.Repositories, intent.Repositories)
 	apply(&s.Runtime, intent.Runtime)
+	apply(&s.Runtimes, intent.Runtimes)
+	apply(&s.RuntimePreferences, intent.RuntimePreferences)
 	apply(&s.Providers, intent.Providers)
 	apply(&s.Integrations, intent.Integrations)
 	apply(&s.ModelProfiles, intent.ModelProfiles)
