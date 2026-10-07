@@ -103,36 +103,7 @@ Never infer or reuse a repair selection for another release without authority.
      no tag or release) for the exact release commit, waits for it,
      re-verifies the prepared artifact set in a clean checkout of the revision
      and prints the publication envelope. Preparation needs no publication
-     authority. A stable release then stops at `accept_manually`.
-   - `accept_manually` (`state=awaiting_manual_acceptance`): the prepared run
-     passed its automated acceptance (Linux amd64, macOS arm64), but a stable
-     envelope needs Evidence for every release row (Specification 004 FR-069).
-     Linux arm64 and the Windows bounded proxy are still manual. Tell the user
-     that each one is a manual release-candidate acceptance of the downloaded
-     prepared set of `prepared_run`
-     (`gh run download <prepared_run> --name axiom-release-<tag>`). Each must
-     produce one passing `axiom-gate-evidence/v1` document for that row, with
-     `subject.kind=prepared` and bound to that tag, revision, `SHA256SUMS` and
-     archive digests:
-     - Linux arm64: on a native Linux arm64 host, the same
-       `scripts/test-upgrade-journeys.sh --prepared-set ... --candidate-acceptance`
-       invocation as the `accept` job of `release-artifacts.yml`, with
-       `--row linux-arm64` (`environment.mode=native`).
-     - Windows amd64: the FR-072 bounded proxy on hosted Windows Server
-       (`environment.mode=bounded_proxy`, suite `windows-bounded-proxy`). Its
-       one journey passes `artifact-identity`, `provenance`, `direct-cli` and
-       `installer-server-refusal`, and records `fresh-install`,
-       `owned-upgrade` and `reinstall` as `not_applicable` under FR-072. It
-       reports no installer outcome and claims no Windows client install,
-       upgrade or reinstall, nor Windows Server support. No tool emits this
-       document yet (the Windows proxy Slice). Until one does, the maintainer
-       records it from their own proxy run, and stable publication waits for
-       it.
-
-     The documents go in one directory as `<row>/gate-evidence.json`. Never
-     write, edit or "pass" a document yourself, and never accept a statement
-     that acceptance passed in its place. Then run `scripts/release.sh status`
-     with `--manual-acceptance <absolute dir>`. Stop.
+     authority. Continue with step 3.
    - `authorize_publication` (`state=awaiting_publication_authority`): go to step 3.
    - `verify_published` (`state=published`): go to step 5.
 3. **Authority boundary.** Show every `preview.*` line of the publication
@@ -140,23 +111,12 @@ Never infer or reuse a repair selection for another release without authority.
    - tag, revision, channel, prerelease and `make_latest`;
    - the prepared run and the release notes and `SHA256SUMS` digests;
    - every artifact with its SHA-256;
-   - for a stable release, the `acceptance.<row>` SHA-256 of the
-     release-candidate acceptance Evidence of all four release rows: the
-     prepared run's automated rows and the given manual rows;
    - the remote state;
    - the delivered Issues (`delivery_issues`, each `delivery_issue.N` state
      and `effect.issue.N`);
    - the listed `effect.*` lines.
 
-   For a stable release, first confirm that passing release-candidate
-   acceptance Evidence exists and is bound to exactly these artifact digests
-   (Specification 004 FR-069, ADR-0019). The envelope exists only if
-   `publish-release.sh` verified the Evidence of all four rows. Linux amd64 and
-   macOS arm64 come from the prepared run. Linux arm64 and the Windows proxy
-   come from `--manual-acceptance`; `acceptance_manual_transition` only names
-   them and never replaces their Evidence. If any Evidence is missing, failing
-   or for other digests, report that and stop without asking for
-   authorization. Then say which Issues will be released and closed after
+   For a stable release, say which Issues will be released and closed after
    publication. Offer to show `release-notes.md`. Ask the user to authorize
    publication of exactly `preview_digest=<digest>`, and stop. Continue only
    after an explicit yes in the conversation, given after the user has seen
@@ -165,12 +125,9 @@ Never infer or reuse a repair selection for another release without authority.
    or a previous run of this skill.
 4. After that yes, run
    `scripts/release.sh publish --preview-digest <digest> --authorize-publication`
-   (add `--tag <tag>` for an RC; for a stable release add the same
-   `--manual-acceptance <absolute dir>`). It rediscovers the release, recomputes the
+   (add `--tag <tag>` for an RC). It rediscovers the release, recomputes the
    envelope and refuses with `preview changed; review and authorize again` if
-   anything differs. Changed, removed or other manual Evidence is such a
-   difference. The dispatch carries the exact manual Evidence bytes of the
-   envelope, and the workflow verifies all four rows again before any effect. In that case, return to step 3 with the new envelope.
+   anything differs. In that case, return to step 3 with the new envelope.
    Give the user the run URL. Tell them the `publish` job waits for their
    approval of the `release` environment in GitHub, and never approve it
    yourself. Watch with `gh run watch <run_id> --repo <repository> --exit-status`.
