@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0](https://github.com/rgomids/axiom/compare/v0.5.0...v0.6.0) (2026-10-07)
+
+
+### Features
+
+* **ci:** accept stable release candidates on prepared bytes ([#239](https://github.com/rgomids/axiom/issues/239)) ([072b798](https://github.com/rgomids/axiom/commit/072b7982f849630f6039b58d94a2b1ea4924a9c8))
+* **ci:** add axiom-gate-evidence/v1 schema and upgrade-journey emitter ([#235](https://github.com/rgomids/axiom/issues/235)) ([9aa63e4](https://github.com/rgomids/axiom/commit/9aa63e4316d96303cfbdcc28466043b3b2d15e43))
+* **ci:** prepared-set upgrade-journey harness ([07c9722](https://github.com/rgomids/axiom/commit/07c9722f193bf4de5ea9b6189cc4dfa6c7031e20))
+* **cli:** expose skill arguments without workflow execution ([#221](https://github.com/rgomids/axiom/issues/221)) ([cfd688d](https://github.com/rgomids/axiom/commit/cfd688d8ec63aa9c4fc51777bd84d6445b519279))
+* **work-item:** render generated Issues as concise native Markdown ([#246](https://github.com/rgomids/axiom/issues/246)) ([21bd37f](https://github.com/rgomids/axiom/commit/21bd37fc58397cb1cfcd49894915f8c4eb378fa9))
+
+
+### Bug Fixes
+
+* **site:** eliminate DOM XSS in language switching ([#240](https://github.com/rgomids/axiom/issues/240)) ([21d17a9](https://github.com/rgomids/axiom/commit/21d17a93fadfcb8784056310021f30dc80524bfd))
+
 ## [0.5.0](https://github.com/rgomids/axiom/compare/v0.4.2...v0.5.0) (2026-10-06)
 
 
