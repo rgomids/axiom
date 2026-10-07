@@ -149,6 +149,8 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		{"axiom-work-item-create", []string{"draft", "selection", "workItem"}},
 		{"axiom-work-item-run", []string{"workflow", "projection"}},
 		{"axiom-work-item-status", []string{"workflow", "projection"}},
+		{"axiom-project", []string{"setup", "edit", "projects", "project"}},
+		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection"}},
 	}
 	fixture := []byte(`{
 		"status":"top-status",
@@ -158,6 +160,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		"details":"top-details",
 		"provenance":{"product":"Axiom","revision":"top-revision"},
 		"setup":{"status":"setup-status","details":"setup-details","digest":"setup-digest","effects":["write project"]},
+		"edit":{"mode":"edit","details":"edit-details","digest":"edit-digest","effects":["remove repository"]},
 		"projects":[{"id":"123e4567-e89b-42d3-a456-426614174000","slug":"alpha","name":"Alpha"}],
 		"project":{"result":"project-result","details":"project-details","slug":"alpha","repositories":[{"key":"main"}]},
 		"draft":{"next":"draft-next","details":"draft-details","digest":"draft-digest","target":{"provider":"github"},"effects":["create issue"]},
@@ -195,7 +198,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 					t.Fatalf("operation payload %s was not preserved separately", field)
 				}
 			}
-			if bytes.Contains(canonicalOutput["details"], []byte("setup-details")) || bytes.Contains(canonicalOutput["details"], []byte("draft-details")) || bytes.Contains(canonicalOutput["details"], []byte("workflow-details")) {
+			if bytes.Contains(canonicalOutput["details"], []byte("setup-details")) || bytes.Contains(canonicalOutput["details"], []byte("edit-details")) || bytes.Contains(canonicalOutput["details"], []byte("draft-details")) || bytes.Contains(canonicalOutput["details"], []byte("workflow-details")) {
 				t.Fatalf("operation payload leaked into canonical details: %s", canonicalOutput["details"])
 			}
 			minimal := selectJSONFields(map[string]json.RawMessage{"status": json.RawMessage(`"success"`)}, contract.canonical)

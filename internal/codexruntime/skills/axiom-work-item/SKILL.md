@@ -11,13 +11,24 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, and executable command
 metadata; do not maintain a second argument registry in this skill.
 
-Supported domain operations are `create`, `run`, and `status`.
+Supported domain operations are `create`, `run`, and `status`. Any other
+operation, such as `update`, `close`, or `delete`, is unsupported: report that it
+is not available and do not run a Lingo command for it.
 
-## Operation resolution
+## Operation routing
+
+| Operation | Mode | Lingo command | Effect | Authority | Semantic resolution |
+|---|---|---|---|---|---|
+| `create` | new | `axiom --json work-item create` | external mutation | preview first; create only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous create intent |
+| `create` | existing | `axiom --json work-item select` | local mutation | preview first; link only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous select intent |
+| `run` | transition | `axiom --json workflow start`, `axiom --json workflow advance`, `axiom --json workflow resume` | local mutation | Lingo enforces the exact Execution revision and gate rules; no explicit authority input | only for unambiguous run intent |
+| `run` | fact | `axiom --json workflow fact` | local mutation | only with `--authorize-local` and the exact Execution revision | only for unambiguous run intent |
+| `run` | reconcile | `axiom --json workflow reconcile` | external mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous run intent |
+| `status` | - | `axiom --json workflow status`, `axiom --json workflow evidence` | read-only | none | allowed |
 
 When the user supplies an explicit supported operation, use it exactly and route
-directly to the corresponding Lingo/application commands. Do not perform semantic
-classification for an explicit operation.
+directly to its Lingo commands. Do not perform semantic classification for an
+explicit operation.
 
 When no operation is explicit, resolve intent only among `create`, `run`, and
 `status`:
@@ -29,9 +40,10 @@ When no operation is explicit, resolve intent only among `create`, `run`, and
 - choose `status` when the user only wants workflow status or Evidence.
 
 If the intent is unknown or materially ambiguous, ask one bounded clarification
-or fail safely. Never silently resolve ambiguous intent to `create` or another
-mutating path. Semantic resolution selects only the domain operation; it never
-grants external/local authority, invents selectors, or changes workflow state.
+or fail safely. Never silently resolve ambiguous intent to `create`, `run`, or
+another mutating path. Semantic resolution selects only the domain operation; it
+never grants external/local authority, supplies `--authorize-external` or
+`--authorize-local`, invents selectors, or changes workflow state.
 
 ## create
 
@@ -64,8 +76,6 @@ For an existing provider Work Item, use an exact selector such as
 Never call GitHub directly, retry an ambiguous create blindly, or treat linkage
 as human acceptance.
 
-Operation-specific payloads: `draft`, `selection`, `workItem`.
-
 ## run
 
 Collect only missing Project, Project-scoped Repository, exact Work Item, and
@@ -76,6 +86,11 @@ Start through `axiom --json workflow start`, passing `--runtime codex` or
 `--runtime claude` for the Runtime executing this skill. Resume/advance/status/
 evidence/reconcile calls forward the exact `--execution <id>` returned by Lingo
 and never pass `--runtime` again.
+
+Reconcile through `axiom --json workflow reconcile` with the exact Execution
+revision; present the returned preview and repeat with its
+`--preview-digest <digest> --authorize-external` only after explicit authority
+for that exact preview.
 
 Follow `currentGate` returned by Lingo. Advance only through
 `axiom --json workflow advance` with the required revision, outcome, and
@@ -89,8 +104,6 @@ fact from GitHub, CI, merge, review, Issue state, or conversation. Human
 acceptance additionally requires terminal canonical completion and an explicit
 human decision.
 
-Operation-specific payloads: `workflow`, `projection`.
-
 ## status
 
 Collect only missing Project, Project-scoped Repository, exact Work Item, and
@@ -101,18 +114,19 @@ This operation is read-only. Never infer selectors from CWD, Git, Provider,
 Runtime chat, or global discovery, and never classify workflow state
 independently.
 
-Operation-specific payloads: `workflow`, `projection`.
-
 ## Shared invariants
 
 Invoke only `axiom --json` for executable behavior. Unknown, duplicate, and
 conflicting inputs go to Lingo validation. Runtime skill text is a presentation
 and routing surface, not the workflow or domain source of truth.
 
-Canonical completion fields are `status`, `result`, `references`, `next`,
-`details`, and `provenance`. Copy them only from Lingo's top-level JSON
-object. Omit absent canonical fields. Never derive, synthesize, or reinterpret a
-canonical field from an operation-specific payload. Preserve operation-specific payloads in their
-original semantics and JSON position.
+Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
+Operation-specific payloads preserved separately: `draft`, `selection`, `workItem`, `workflow`, `projection`
+
+Copy canonical completion fields only from Lingo's top-level JSON object. Omit
+absent canonical fields. Never derive, synthesize, or reinterpret a canonical
+field from an operation-specific payload. Preserve each operation-specific
+payload in its original Lingo semantics and JSON position; do not extract,
+duplicate, rename, or relocate it.
 
 Resolving an operation never grants Provider or local mutation authority.
