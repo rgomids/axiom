@@ -153,6 +153,20 @@ seed_v1_state() {
   cp "$corpus/projects/sample/axiom.yaml" "$PROJECTS/sample/axiom.yaml" && chmod 600 "$PROJECTS/sample/axiom.yaml"
 }
 
+# skills_converged: both Runtime roots hold exactly the candidate's skill
+# files, the canonical domain skills plus the compatibility ones, byte for byte.
+skills_converged() {
+  local root skill expected actual
+  expected=$(cd "$candidate_bundle/skills" && find . -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)
+  for root in "$H/.agents/skills" "$H/.claude/skills"; do
+    actual=$(cd "$root" && find . -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)
+    [[ "$actual" == "$expected" ]] || return 1
+    for skill in "$candidate_bundle"/skills/*; do
+      cmp -s "$skill/SKILL.md" "$root/$(basename "$skill")/SKILL.md" || return 1
+    done
+  done
+}
+
 classification() { (cd "$H/cwd" && axiom --json compatibility inspect) | sed -n 's/.*"classification":"\([^"]*\)".*/\1/p' | head -1; }
 
 # Journey 1: release N with non-empty v1 state -> candidate (direct).
@@ -176,6 +190,7 @@ check execution-readable bash -c "cd \"\$HOME/cwd\" && axiom --json workflow sta
 check codex-ready bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
 check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
 check first-run-no-op bash -c 'cd "$HOME/cwd" && axiom first-run | grep -q "runtime: claude present=true state=already_configured" && axiom first-run | grep -q "runtime: codex present=true state=already_configured"'
+check skills-converged skills_converged
 check rerun-installer install_release "$candidate"
 check rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
 printf 'journey=%s from=%s to=%s\n' "$journey" "$previous_version" "$candidate_version"
@@ -193,6 +208,7 @@ for index in "${!previous[@]}"; do
   check codex-ready-without-first-run bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   check claude-ready bash -c 'cd "$HOME/cwd" && axiom runtime claude status'
+  check skills-converged skills_converged
   check rerun-unchanged bash -c "$(declare -f install_release release_bundle); row=$row work=$work H=$H; install_release '$candidate' && grep -qx install_status=unchanged '$work/install.out'"
 done
 

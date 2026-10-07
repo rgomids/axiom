@@ -11,7 +11,7 @@ func TestHelpMapsEveryCodexSkillToPublicAxiomExecutable(t *testing.T) {
 	if code := Help(&output); code != ExitSuccess {
 		t.Fatalf("help code = %d", code)
 	}
-	for _, expected := range []string{"$axiom-project-configure", "$axiom-project-list", "$axiom-project-show", "$axiom-work-item-create", "$axiom-work-item-run", "$axiom-work-item-status", "axiom --json", "axiom [--human|--json] <command>", "--authorize-external"} {
+	for _, expected := range []string{"$axiom-project", "$axiom-work-item", "$axiom-project-configure", "$axiom-project-list", "$axiom-project-show", "$axiom-work-item-create", "$axiom-work-item-run", "$axiom-work-item-status", "axiom --json", "axiom [--human|--json] <command>", "--authorize-external"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("help missing %q: %s", expected, output.String())
 		}

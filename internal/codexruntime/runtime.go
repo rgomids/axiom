@@ -25,6 +25,8 @@ var skillNames = []string{
 	"axiom-work-item-create",
 	"axiom-work-item-run",
 	"axiom-work-item-status",
+	"axiom-project",
+	"axiom-work-item",
 }
 
 var legacySkillDigests = map[string][]string{

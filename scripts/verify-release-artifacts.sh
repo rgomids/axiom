@@ -41,7 +41,9 @@ digest() {
 }
 
 rows='macos-27:darwin:arm64 linux:linux:amd64 linux:linux:arm64 windows:windows:amd64'
-skill_names='axiom-project-configure axiom-project-list axiom-project-show axiom-work-item-create axiom-work-item-run axiom-work-item-status'
+# The closed skill set is exactly the source revision's embedded skills
+# (internal/codexruntime/skills), which this checkout is verified to be.
+skill_names=$(cd "$repository_root/internal/codexruntime/skills" && for skill in */; do printf '%s ' "${skill%/}"; done)
 temporary=$(mktemp -d)
 trap 'rm -rf -- "$temporary"' EXIT
 
