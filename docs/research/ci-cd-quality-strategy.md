@@ -892,24 +892,6 @@ The maintainer accepted the following decisions on 2026-10-06. They are no longe
    recorded publicly only as a sanitized decision/reference, without unpatched
    vulnerability details.
 
-**Follow-up (2026-10-06, [#227](https://github.com/rgomids/axiom/issues/227#issuecomment-6009062641)).**
-The Windows Server proxy is **bounded**. Production installers keep refusing
-Windows Server (Specification 006 FR-E03), so the proxy covers only:
-- identity and provenance;
-- direct prepared `axiom.exe` CLI behaviour;
-- the fail-closed Server refusal of the prepared installers.
-
-It does not cover a Windows client install, upgrade or reinstall of the
-prepared bytes. The following are therefore superseded for the proxy:
-- the environment-matrix entry "accept (proxy, incl. `install.ps1` upgrade
-  from N)";
-- the G7 target;
-- the Slice 9 `install.ps1` upgrade journey on `windows-2022` in PR and
-  prepare. Slice 1 encodes
-these decisions in
-[Specification 004](../specifications/004-mvp-v1-baseline/spec.md#release-candidate-acceptance-and-supported-upgrade-sources)
-and [ADR-0019](../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md).
-
 Third-party structural tools (staticcheck, errcheck, a mutation tool) stay
 hypotheses until each slice approves its adoption (AGENTS.md). Approving
 them is a normal slice review, not a blocking decision for this research.
