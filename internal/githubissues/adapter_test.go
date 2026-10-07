@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflow"
@@ -30,7 +31,7 @@ func TestRenderSeparatesAuthorshipAndNeutralizesMarkdownStructure(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"<!-- axiom:work-item-draft:", "Authorship: `user`", "Authorship: `axiom`", "    # injected", "    <!-- instruction -->"} {
+	for _, expected := range []string{"<!-- axiom:work-item-draft:", "\n\\# injected\n\\<!-- instruction -->\n", "_User-authored: Problem, Desired outcome, Scope, Constraints, Non-goals, Acceptance expectations. Axiom-authored: Context._"} {
 		if !strings.Contains(document.Body, expected) {
 			t.Fatalf("body missing %q:\n%s", expected, document.Body)
 		}
@@ -315,7 +316,7 @@ func TestRenderTruncatesUnicodeTitleWithoutBreakingUTF8(t *testing.T) {
 		{Name: "acceptance_expectations", Content: "Acceptance", Authorship: provenance.UserAuthored},
 	}}
 	document, err := adapter.Render(draft, workitem.DraftTarget{}, strings.Repeat("a", 64), testSource())
-	if err != nil || !strings.HasSuffix(document.Title, "...") || strings.ContainsRune(document.Title, '\ufffd') {
+	if err != nil || !strings.HasSuffix(document.Title, "…") || utf8.RuneCountInString(document.Title) > titleLimit || strings.ContainsRune(document.Title, '\ufffd') {
 		t.Fatalf("title=%q err=%v", document.Title, err)
 	}
 }
