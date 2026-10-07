@@ -12,12 +12,14 @@ on:
       - 'site/**'
       - 'docs/assets/**'
       - 'scripts/validate-landing-page.sh'
+      - 'scripts/test-site-language.py'
       - '.github/workflows/deploy-landpage.yml'
   pull_request:
     paths:
       - 'site/**'
       - 'docs/assets/**'
       - 'scripts/validate-landing-page.sh'
+      - 'scripts/test-site-language.py'
       - '.github/workflows/deploy-landpage.yml'
   workflow_dispatch:
 
@@ -43,6 +45,15 @@ jobs:
       # added in a pull request only reach main's raw URLs after merge.
       - name: Validate landing page
         run: ./scripts/validate-landing-page.sh .
+
+      - name: Install browser test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/site-tests"
+          "$RUNNER_TEMP/site-tests/bin/python" -m pip install playwright==1.63.0
+          "$RUNNER_TEMP/site-tests/bin/python" -m playwright install --with-deps chromium
+
+      - name: Test language switching and DOM XSS regression
+        run: '"$RUNNER_TEMP/site-tests/bin/python" scripts/test-site-language.py .'
 
   deploy:
     needs: validate
