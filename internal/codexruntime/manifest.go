@@ -88,6 +88,17 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item-run":     "3856374198506e8d6628dc76dda6058229382346115dca3a838a9bfb439f60d9",
 		"axiom-work-item-status":  "6a139090ff66759b64e630181373c32ff51ad2672d90d26184b6f81e9879b7d9",
 	}},
+	// Six-skill revision immediately before domain-oriented Runtime surfaces
+	// (#229). The operation-specific skills stay compatible in the next
+	// revision, but this receipt must remain recognized during upgrade.
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project-configure": "ec1a0556f930eb05cd52d1902c0d8cb5a30c1890b34e6f375015879f0a949dea",
+		"axiom-project-list":      "46960de54c14f904a915ccd7d3ab74284f70a37516a4d87648ec323d96d62045",
+		"axiom-project-show":      "4c7ef9c089696d35e455ffe964d37c58e71c34bac1f28d0c464dc5d5989cbbf2",
+		"axiom-work-item-create":  "c64fb39d06fa59876f0f0cdc487bbcfac91fb7748c77d3e38fa59fb455dab2c0",
+		"axiom-work-item-run":     "2e402473610b4945ca075892587cbf879f259410e62493ce72e2ad3bd638b3e3",
+		"axiom-work-item-status":  "d7316123e5ec5aec11fdc5f1a6c12da0974d18047c96f8b1195941a0bb6956bc",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.
