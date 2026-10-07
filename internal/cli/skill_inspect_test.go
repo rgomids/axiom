@@ -76,9 +76,11 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 // Do not derive expectations from skillOperations: an extra mapping is a regression.
 func TestSkillDiscoveryExactCommands(t *testing.T) {
 	expected := map[string][]string{
+		"axiom-project":           {"axiom project configure", "axiom project list", "axiom project show"},
 		"axiom-project-configure": {"axiom project configure"},
 		"axiom-project-list":      {"axiom project list"},
 		"axiom-project-show":      {"axiom project show"},
+		"axiom-work-item":         {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence"},
 		"axiom-work-item-create":  {"axiom work-item create", "axiom work-item select"},
 		"axiom-work-item-run":     {"axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow status", "axiom workflow evidence", "axiom workflow reconcile"},
 		"axiom-work-item-status":  {"axiom workflow status", "axiom workflow evidence"},
@@ -105,6 +107,35 @@ func TestSkillDiscoveryExactCommands(t *testing.T) {
 				t.Fatalf("commands=%v, want=%v", commands, want)
 			}
 		})
+	}
+}
+
+func TestSkillDiscoveryDomainOperationsExposeAuthorityAndExamples(t *testing.T) {
+	project := discoverForTest(t, "axiom-project")
+	if len(project.Operations) != 3 {
+		t.Fatalf("project operations=%+v", project.Operations)
+	}
+	if project.Operations[0].Name != "configure" || project.Operations[0].Authority == "" || project.Operations[0].Example == "" {
+		t.Fatalf("project configure metadata=%+v", project.Operations[0])
+	}
+	if project.Operations[1].Name != "list" || project.Operations[2].Name != "show" {
+		t.Fatalf("project operation order=%+v", project.Operations)
+	}
+
+	workItem := discoverForTest(t, "axiom-work-item")
+	if len(workItem.Operations) != 3 {
+		t.Fatalf("work item operations=%+v", workItem.Operations)
+	}
+	for i, name := range []string{"create", "run", "status"} {
+		if workItem.Operations[i].Name != name || workItem.Operations[i].Authority == "" || workItem.Operations[i].Example == "" || len(workItem.Operations[i].Commands) == 0 {
+			t.Fatalf("work item %s metadata=%+v", name, workItem.Operations[i])
+		}
+	}
+	if !strings.Contains(workItem.Operations[0].Authority, "--authorize-external") {
+		t.Fatalf("create authority=%q", workItem.Operations[0].Authority)
+	}
+	if workItem.Operations[2].Authority != "read-only" {
+		t.Fatalf("status authority=%q", workItem.Operations[2].Authority)
 	}
 }
 
