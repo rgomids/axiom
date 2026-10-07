@@ -10,6 +10,7 @@ import (
 	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -45,7 +46,8 @@ func (b *bundle) contents() map[string][]byte {
 		"release-metadata.txt": []byte(fmt.Sprintf("formatVersion=1\nproduct=Axiom\nversion=%s\nrevision=123456789abc\nsourceState=clean\nrelease=true\nplatform=macos-27\ngoos=darwin\narchitecture=arm64\nskillSetVersion=1\n", b.version)),
 	}
 	manifest := "formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n"
-	for _, name := range skillNames {
+	// build-release-archives.sh lists skills in sorted directory order.
+	for _, name := range slices.Sorted(slices.Values(skillNames)) {
 		files["skills/"+name+"/SKILL.md"] = b.skills[name]
 		manifest += "skill." + name + "=" + digest(b.skills[name]) + "\n"
 	}

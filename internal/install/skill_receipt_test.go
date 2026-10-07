@@ -197,7 +197,9 @@ func TestUpgradeCandidateIdentityRequiresEmbeddedSkills(t *testing.T) {
 }
 
 func TestUpgradeAsCandidateResumesAfterInterruptionAroundReceipt(t *testing.T) {
-	for _, stop := range []string{"skill:axiom-work-item-status", "skill_receipt"} {
+	// Interrupt after the last skill file (the receipt is still unpublished)
+	// and after the receipt itself.
+	for _, stop := range []string{"skill:" + skillNames[len(skillNames)-1], "skill_receipt"} {
 		t.Run(stop, func(t *testing.T) {
 			installed, root, candidate, preview := upgradeAsCandidate(t, publishedCodexReceipt(t, "v0.1.1"))
 			interrupted := Service{afterEffect: func(label string) error {
@@ -241,7 +243,7 @@ func TestUpgradeAsCandidateResumesAfterInterruptionAroundReceipt(t *testing.T) {
 func TestUpgradeReceiptStageLeftoverIsRecoveredOnlyWithMarker(t *testing.T) {
 	installed, root, candidate, preview := upgradeAsCandidate(t, publishedCodexReceipt(t, "v0.1.1"))
 	interrupted := Service{afterEffect: func(label string) error {
-		if label == "skill:axiom-work-item-status" {
+		if label == "skill:"+skillNames[len(skillNames)-1] {
 			// A crash during receipt staging leaves its private stage behind.
 			writeFile(t, filepath.Join(root, codexruntime.UpgradeStagePrefix+"receipt.crashed"), []byte("partial"), 0o600)
 			return errors.New("injected interruption")
