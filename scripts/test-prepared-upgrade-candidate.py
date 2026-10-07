@@ -360,6 +360,14 @@ class PreparedCandidateTests(unittest.TestCase):
         with self.assertRaises(GATE.Invalid):
             GATE.Builder(self.gate_arguments(), None).subject()
 
+    def test_gate_command_records_candidate_acceptance_only_for_that_gate(self):
+        arguments = self.gate_arguments()
+        arguments.previous, arguments.poc_binary = [], ""
+        self.assertNotIn("--candidate-acceptance", GATE.Builder(arguments, None).command())
+        arguments.gate = "candidate-acceptance"
+        command = GATE.Builder(arguments, None).command()
+        self.assertEqual(command[command.index("{subject-sha256sums}") + 1], "--candidate-acceptance")
+
     def test_gate_rejects_prepared_claims_without_identity(self):
         arguments = self.gate_arguments()
         arguments.prepared_identity = ""
