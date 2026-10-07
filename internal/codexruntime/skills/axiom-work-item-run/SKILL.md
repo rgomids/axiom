@@ -1,6 +1,6 @@
 ---
 name: axiom-work-item-run
-description: Start or resume the bounded Axiom delivery workflow for a configured Work Item through Lingo.
+description: Start, advance, authorize, resume or reconcile a configured Work Item workflow through Lingo.
 ---
 
 # Run Axiom Work Item
@@ -19,9 +19,44 @@ applicable Execution selectors. Use `--project <uuid-or-slug> --repository <key>
 Runtime executing this skill; never guess it from installed executables. Every
 resume, advance, status, evidence, or reconcile call forwards the exact
 `--execution <id>` returned by Lingo and never passes `--runtime`: the Execution
-keeps the Runtime recorded at start. Follow `currentGate` returned by
-Lingo. Advance through `axiom --json workflow advance` with its required revision,
-outcome, and repository-relative artifact reference.
+keeps the Runtime recorded at start.
+
+## Explicit operations and gate progression
+
+Supported operation inputs are `start`, `advance`, `fact`, `resume`, and
+`reconcile`; forward an explicit operation deterministically to the same
+`axiom --json workflow <operation>` command. When the user requests delivery,
+start/resume the exact workflow and follow Lingo's returned `workflow.gateAction`
+and `workflow.gateCommand` argument array. Do not ask the user to say an internal
+gate name or a magic phrase to continue.
+
+- An action with `automatic: true` runs `workflow advance --automatic` using the
+  exact returned selectors and revision. Intake currently is the only gate whose
+  prerequisites Lingo can evaluate automatically. Do this during an authorized
+  workflow run without a conversational confirmation.
+- Other `advance` actions require actual work and its observed `pass` or `fail`
+  result, plus applicable validated Evidence. Fill command placeholders with
+  observed inputs; never treat a file digest as proof that its contents passed.
+- A `fact` action requires the exact decision/condition and reference. Present
+  that explicit action when missing human authority or input is required. Set
+  `--authorize-local` only for an explicitly authorized decision, never because
+  the returned command includes it. Clearing a condition requires Evidence that
+  it was resolved; never clear it merely to make the workflow progress.
+- A `resume` action uses the exact committed revision. Re-read status after each
+  result; stop on a denied/failed operation, report it, and preserve local truth.
+
+Examples (supply exact selectors on every command):
+
+```text
+axiom --json workflow advance <selectors> --expected-revision <revision> --automatic
+axiom --json workflow advance <selectors> --expected-revision <revision> --gate <currentGate> --outcome <pass-or-fail> --reference <kind>:<path>:<sha256>
+axiom --json workflow fact <selectors> --expected-revision <revision> --fact planning-authority --active --reference specification:<path>:<sha256> --authorize-local
+```
+
+`--automatic` cannot be combined with gate, outcome, reference or next inputs.
+Do not synthesize gate policies in this skill. The existing run entrypoint stays
+compatible until the domain-oriented Work Item surface (#229) adopts these same
+application operations; no per-gate skills are introduced.
 
 Record planning authority, implementation authority, review start, human
 acceptance, or an auxiliary condition only through `axiom --json workflow fact`

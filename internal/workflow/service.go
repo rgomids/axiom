@@ -393,6 +393,14 @@ func (s Service) Transition(ctx context.Context, target Target, input Transition
 	if input.Stage != state.Stage {
 		return result(ValidationFailed, "workflow_stage_conflict", state)
 	}
+	if input.Outcome == OutcomePassed {
+		if lifecycle.Conditions.NeedsDecision || lifecycle.Conditions.NeedsApproval {
+			return result(Denied, "workflow_action_required", state)
+		}
+		if action := NextGateAction(state); action != nil && action.Operation == "fact" {
+			return result(Denied, "workflow_authority_required", state)
+		}
+	}
 	for _, reference := range input.References {
 		if s.references == nil || s.references.Validate(ctx, state.ExecutionID, repository.Path, reference) != nil {
 			return result(ValidationFailed, "workflow_reference_unavailable", state)

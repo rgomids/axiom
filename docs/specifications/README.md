@@ -286,3 +286,8 @@ its independent scope, authorship transport, and acceptance scenarios.
 
 The #131 additive [skill argument inspection contract](004-mvp-v1-baseline/issue-131-skill-arguments.md)
 reuses CLI declarations and keeps discovery separate from guided execution.
+
+The #138 [explicit workflow gate contract](004-mvp-v1-baseline/workflow-gates.md)
+defines automatic Intake, derived action guidance, explicit authority and shared
+CLI/Runtime progression. The compatible run skill remains until #229 consolidates
+the domain surface; the epic's final delivery sequence still applies.
