@@ -15,11 +15,19 @@ release-artifacts.yml (stable tag, one run)
                  --candidate-acceptance with the pinned identity -> inventory unchanged
                  -> artifact axiom-acceptance-<tag>-<row> (gate-evidence.json)
   acceptance-evidence
-                 verify-release-acceptance.py for this run id
-release.sh status / publish-release.yml
+                 verify-release-acceptance.py --automated-only for this run id
+manual transition (maintainer, on the downloaded prepared set)
+  linux-arm64 (native) / windows-amd64 (FR-072 bounded proxy)
+                 -> <dir>/<row>/gate-evidence.json
+release.sh status --manual-acceptance <dir>
+  pack <dir> once -> unpack next to the run's automated Evidence
   verify-prepared-release.sh (run succeeded, set re-verified at the revision)
-  publish-release.sh: verify-release-acceptance.py -> envelope binds
-  acceptance.<row>=<Evidence SHA-256> -> envelope == human-authorized digest -> effects
+  publish-release.sh: verify-release-acceptance.py (all four rows) -> envelope binds
+  acceptance.<row>=<Evidence SHA-256> for every row -> preview_digest
+release.sh publish --manual-acceptance <dir> -> dispatch manual_acceptance=<packed line>
+publish-release.yml
+  run's automated Evidence + unpacked manual_acceptance -> publish-release.sh
+  verifies all four rows again -> envelope == human-authorized digest -> effects
 ```
 
 - **Placement:** ADR-0019 Alternative D. Acceptance runs inside the
@@ -35,16 +43,55 @@ release.sh status / publish-release.yml
   replace recorded Evidence; retry policy belongs to Slice 11.
 
 `verify-release-acceptance.py` reads each document once, from exactly
-`<row>/gate-evidence.json` for every blocking row, without following links. It
+`<row>/gate-evidence.json` for every release row, without following links. It
 refuses anything other than valid `axiom-gate-evidence/v1` with:
 
-- gate `candidate-acceptance` and suite `upgrade-journeys`;
+- gate `candidate-acceptance`;
 - `pass`, `completed`, exit 0;
-- the row, on a native host of that row's OS family and architecture;
+- the row;
 - a `prepared` subject with exactly the tag, version, full revision,
   SHA256SUMS digest and archive digests of the closed prepared set;
-- `run.ci` of this repository's `release-artifacts.yml` on `main`, job
-  `accept`, run id equal to the prepared run.
+- distinct attempts across rows.
+
+The rest depends on the row:
+
+| Row | Producer | Environment | Further checks |
+|---|---|---|---|
+| `linux-amd64`, `macos-27-arm64` | `accept` job of the prepared run | `native`, the row's OS family and architecture | suite `upgrade-journeys` and its upgrade matrix; `run.ci` of this repository's `release-artifacts.yml` on `main`, job `accept`, run id equal to the prepared run |
+| `linux-arm64` | maintainer (manual transition) | `native`, Linux arm64 | suite `upgrade-journeys` and its upgrade matrix |
+| `windows-amd64` | maintainer (manual transition) | `bounded_proxy`, Windows amd64 (FR-072) | suite `windows-bounded-proxy`; one journey whose only steps are the passing `artifact-identity`, `provenance`, `direct-cli`, `installer-server-refusal` and the FR-072 `not_applicable` `fresh-install`, `owned-upgrade`, `reinstall`; no installer outcome |
+
+A manual row's `run.ci` is null or a run of this repository other than the
+prepared run's `accept` job.
+
+**Residual:** no tool emits the Windows proxy document yet. That emitter
+belongs to the Windows proxy Slice. Until it exists, a maintainer records the
+document from their own hosted Windows Server proxy run, and no stable release
+can be published without it. Linux arm64 Evidence comes from the existing
+harness (`--row linux-arm64`) on a native host.
+
+### Manual Evidence transport (CR-001)
+
+The workflow dispatch is the only channel into `publish-release.yml`. A
+maintainer workstation cannot add a workflow artifact to the completed
+prepared run. The manual documents therefore travel as the
+`manual_acceptance` dispatch input:
+
+- `pack` writes one line: `axiom-manual-acceptance-v1:` followed by the base64
+  of a deterministic gzip of length-framed rows. It is at most 60,000
+  characters, under the 65,535-character dispatch payload.
+- `release.sh` packs the given directory once. The envelope is computed from
+  the bytes that line carries, and `publish` dispatches that same line.
+- In the workflow, the input reaches the shell only through an environment
+  variable. The revision's verifier unpacks it next to the run's automated
+  Evidence:
+  - strict prefix, base64 and framing;
+  - bounded inflation;
+  - exactly the two manual rows, in order;
+  - exclusive creation, without following links.
+- The line is never trusted. The envelope binds each document's SHA-256, and
+  publication re-verifies all four rows before any effect. A missing, changed
+  or foreign manual document changes or refuses the envelope.
 
 ## Local executable Evidence (macOS arm64, 2026-10-06)
 
@@ -68,7 +115,7 @@ after merge, together with CI-produced macOS Evidence.
 
 ## Deterministic negative coverage
 
-- **`scripts/test-verify-release-acceptance.py`** (26 tests) covers:
+- **`scripts/test-verify-release-acceptance.py`** (48 tests) covers:
   - the happy path and determinism;
   - missing, empty and absent Evidence;
   - failing, malformed, schema-invalid and oversized Evidence;
@@ -81,7 +128,32 @@ after merge, together with CI-produced macOS Evidence.
   - a reduced upgrade matrix and rows sharing one attempt;
   - links;
   - strict identity arguments;
-  - input immutability.
+  - input immutability;
+  - for each manual row (CR-001), Evidence that is:
+    - missing (one or both rows);
+    - failing or malformed;
+    - for another row, tag/version, revision, SHA256SUMS, artifact digest
+      or prepared candidate;
+    - rebuilt-candidate Evidence;
+    - from the wrong environment: Windows not `bounded_proxy`, Linux arm64
+      not `native`;
+    - a Windows proxy reporting an installer outcome, or outside its closed
+      FR-072 step set (the reviewed attack: relabelled native
+      upgrade-journeys Evidence), or without its passing observations;
+    - a manual row claiming the prepared run's `accept` job or another
+      repository;
+    - Linux arm64 with a reduced upgrade matrix;
+    - reusing another row's attempt;
+    - reached through links;
+  - automated failures are reported before pending manual Evidence;
+  - `--automated-only` never prints an envelope binding;
+  - the transport:
+    - byte-exact, deterministic round trip;
+    - the dispatch size bound;
+    - malformed, reordered, foreign, truncated, oversized and
+      inflation-bomb bundles;
+    - no reuse or following of existing entries;
+    - a forged line still refused by `verify`.
 - **`scripts/test-release-flow.sh`** proves `publish-release.sh` refusals in
   both envelope and authorized-publication mode, with zero publication
   effects:
@@ -102,13 +174,38 @@ after merge, together with CI-produced macOS Evidence.
     another run's Evidence;
   - the workflow downloads only the prepared run's Evidence before the
     publication step and never reruns acceptance.
+
+  For the manual rows (CR-001), envelope and authorized publication refuse
+  each of the following, with zero publication effects:
+  - for each of Linux arm64 and the Windows proxy, Evidence that is missing,
+    failing or malformed, or that is for another tag/version, revision,
+    SHA256SUMS, artifact digest or prepared candidate;
+  - Linux arm64 Evidence in the Windows row;
+  - Windows Evidence that is not the bounded proxy, or that claims a client
+    install;
+  - Linux arm64 Evidence that is not native;
+  - automated Evidence alone, even with `acceptance_manual_transition`.
+
+  The envelope binds all four rows. At the `release.sh` and workflow
+  boundary:
+  - a stable `prepare` stops at `accept_manually`, with no envelope;
+  - `publish` without the manual Evidence, or with replaced, removed or
+    other-candidate manual Evidence, is refused before dispatch;
+  - the dispatch carries exactly the packed line of the envelope;
+  - a discovered run whose given manual Evidence is refused is `blocked`,
+    never re-prepared;
+  - the publish job refuses a missing, other or other-candidate bundle with
+    zero effects;
+  - all four valid documents publish under the authorized digest;
+  - a release-candidate dispatch carries no manual Evidence.
 - **`scripts/test-release-pipeline.sh`** pins the workflow contract:
   - stable-only blocking rows equal to the verifier's;
   - one prepared-mode harness call with the full pin;
   - no rebuild, other run or overwrite;
   - the inventory check;
   - Evidence retained apart from logs;
-  - the binding job for its own run id.
+  - the binding job for its own run id, with `--automated-only`;
+  - no publication path that accepts automated Evidence alone.
 - **`scripts/test-gate-evidence.py` and `scripts/test-prepared-upgrade-candidate.py`**
   check that the `candidate-acceptance` gate exists only for a verified
   prepared subject and matches the recorded command.

@@ -2,10 +2,11 @@
 # Maintainer release orchestration used by the $axiom-release skill.
 # Merges integrate code; `start` starts releases (ADR-0011).
 #
-#   release.sh status  [--tag vX.Y.Z[-rc.N]] [--revision SHA] [--prepared-run ID]
+#   release.sh status  [--tag vX.Y.Z[-rc.N]] [--revision SHA] [--prepared-run ID] [--manual-acceptance ABS_DIR]
 #   release.sh start [--repair-revision SHA]
 #   release.sh prepare [--tag TAG] [--revision SHA]
 #   release.sh publish --preview-digest DIGEST --authorize-publication [--tag TAG] [--revision SHA] [--prepared-run ID]
+#                      [--manual-acceptance ABS_DIR]
 #   release.sh verify  [--tag TAG] [--prepared-run ID] [--download]
 #
 # STATUS is a state machine: it prints state= and next_action=, discovering
@@ -25,6 +26,14 @@
 # status with --prepared-run downloads the prepared set and its per-row
 # release-candidate acceptance Evidence, re-verifies them in a clean clone of
 # the revision and prints the envelope and its preview_digest.
+# MANUAL ACCEPTANCE: a stable envelope binds the acceptance Evidence of every
+# release row. The rows still under the manual transition (Linux arm64, the
+# Windows bounded proxy) have no Evidence in the prepared run: until it is
+# given, status stops at next_action=accept_manually. --manual-acceptance
+# names the directory holding `<row>/gate-evidence.json` of each of them; it
+# is packed once (verify-release-acceptance.py pack), the envelope is computed
+# from those exact bytes, and `publish` dispatches that same packed line as
+# the manual_acceptance input, so the workflow verifies the bytes authorized.
 # PUBLISH: `publish` dispatches publish-release.yml only with
 # --authorize-publication and a DIGEST equal to the envelope recomputed now;
 # the workflow recomputes it again from the same prepared bytes before the
@@ -54,6 +63,9 @@ corrections_revision=
 corrections_digest=
 repair_revision=
 repair_applied=false
+manual_acceptance=
+manual_pending=false
+manual_rejected=false
 authorized=false
 download=false
 while (($#)); do
@@ -65,6 +77,7 @@ while (($#)); do
     --corrections-revision) corrections_revision=${2:-}; shift 2 ;;
     --corrections-digest) corrections_digest=${2:-}; shift 2 ;;
     --repair-revision) repair_revision=${2:-}; shift 2 ;;
+    --manual-acceptance) manual_acceptance=${2:-}; shift 2 ;;
     --authorize-publication) authorized=true; shift ;;
     --download) download=true; shift ;;
     *) printf 'release_error: invalid argument\n' >&2; exit 1 ;;
@@ -93,6 +106,17 @@ fi
 
 temporary=$(mktemp -d)
 trap 'rm -rf -- "$temporary"' EXIT
+
+# The manual Evidence is read once, here; every envelope of this invocation
+# and the publication dispatch use exactly these packed bytes.
+: >"$temporary/manual-acceptance"
+if [[ -n "$manual_acceptance" ]]; then
+  [[ "$command" == status || "$command" == publish ]] || fail '--manual-acceptance applies to status and publish only'
+  [[ "$manual_acceptance" == /* && -d "$manual_acceptance" && ! -L "$manual_acceptance" ]] \
+    || fail '--manual-acceptance must be an absolute directory'
+  python3 "$scripts/verify-release-acceptance.py" pack --manual "$(cd "$manual_acceptance" && pwd -P)" >"$temporary/manual-acceptance" \
+    2>"$temporary/manual-error" || fail "$(sed -E 's/^[a-z_]+_error: //' "$temporary/manual-error" | head -n 1)"
+fi
 
 digest_stdin() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -173,6 +197,8 @@ release_commit_for() {
 # to $temporary/envelope. On refusal it sets reason.
 prepared_envelope() {
   local dir=$temporary/prepared clone=$temporary/source acceptance=$temporary/acceptance origin_url row
+  manual_pending=false
+  manual_rejected=false
   [[ "$prepared_run" =~ ^[0-9]+$ ]] || { reason='prepared run id must be numeric'; return 1; }
   rm -rf -- "$dir" "$clone" "$acceptance"
   mkdir "$dir" "$acceptance"
@@ -200,13 +226,35 @@ prepared_envelope() {
     gh run download "$prepared_run" --repo "$repository" --name "axiom-acceptance-$tag-$row" --dir "$acceptance/$row" >/dev/null 2>&1 \
       || rm -rf -- "$acceptance/$row"
   done <"$temporary/acceptance-rows"
+  # The manual-transition rows' Evidence, written back byte for byte by the
+  # revision's own verifier; the envelope then binds its digests.
+  if [[ -s "$temporary/manual-acceptance" ]] && ! "$clone/scripts/verify-release-acceptance.py" unpack \
+    --bundle "$(cd "$temporary" && pwd -P)/manual-acceptance" --into "$(cd "$acceptance" && pwd -P)" \
+    >/dev/null 2>"$temporary/manual-error"; then
+    reason=$(sed -E 's/^[a-z_]+_error: //' "$temporary/manual-error" | head -n 1)
+    manual_rejected=true
+    return 1
+  fi
   if ! "$clone/scripts/publish-release.sh" --envelope --repo "$repository" --tag "$tag" --revision "$revision" \
     --make-latest "$(value make_latest "$temporary/prepared-facts")" --prepared-run "$prepared_run" --dir "$dir/artifacts" \
     --evidence "$dir/release-evidence.txt" --notes "$dir/release-notes.md" --acceptance "$acceptance" \
     >"$temporary/envelope" 2>"$temporary/envelope-error"; then
     reason=$(sed -E 's/^[a-z_]+_error: //' "$temporary/envelope-error" | head -n 1)
+    # Everything else verified; only the manual rows' Evidence is absent.
+    [[ "$reason" == 'missing manual acceptance Evidence for row '* ]] && manual_pending=true
+    # The automated rows verified first; the given manual Evidence is what
+    # failed. That is the operator's to fix, never a reason to re-prepare.
+    [[ -s "$temporary/manual-acceptance" && "$reason" =~ ^acceptance\ Evidence\ of\ row\ (linux-arm64|windows-amd64)\  ]] \
+      && manual_rejected=true
     return 1
   fi
+}
+
+# awaiting_manual_acceptance reports a verified prepared run whose envelope
+# waits only for the manual-transition rows' Evidence. It is not authorizable.
+awaiting_manual_acceptance() {
+  state=awaiting_manual_acceptance; next=accept_manually
+  reason="$reason; accept the downloaded prepared set of run $prepared_run on those rows, then rerun status with --manual-acceptance DIR"
 }
 
 # find_run WORKFLOW SINCE prints the newest dispatch run of WORKFLOW created
@@ -380,7 +428,7 @@ discover_prepared_run() {
   while IFS= read -r id; do
     [[ "$id" =~ ^[0-9]+$ ]] || continue
     prepared_run=$id
-    if prepared_envelope; then
+    if prepared_envelope || [[ "$manual_pending" == true || "$manual_rejected" == true ]]; then
       printf 'prepared_run=%s\nprepared_run_source=discovered\n' "$prepared_run" >>"$temporary/status"
       return 0
     fi
@@ -653,14 +701,22 @@ status() {
             reason='human authorization required for the exact publication envelope below'
             grep -v '^preview_digest=' "$temporary/envelope" | sed 's/^/preview./' >>"$out"
             grep '^preview_digest=' "$temporary/envelope" >>"$out"
+          elif [[ "$manual_pending" == true ]]; then
+            awaiting_manual_acceptance
           else
             next=blocked
           fi
         elif discover_prepared_run; then
-          state=awaiting_publication_authority; next=authorize_publication
-          reason='human authorization required for the exact publication envelope below'
-          grep -v '^preview_digest=' "$temporary/envelope" | sed 's/^/preview./' >>"$out"
-          grep '^preview_digest=' "$temporary/envelope" >>"$out"
+          if [[ "$manual_pending" == true ]]; then
+            awaiting_manual_acceptance
+          elif [[ "$manual_rejected" == true ]]; then
+            next=blocked; reason="the given manual acceptance Evidence is refused: $reason"
+          else
+            state=awaiting_publication_authority; next=authorize_publication
+            reason='human authorization required for the exact publication envelope below'
+            grep -v '^preview_digest=' "$temporary/envelope" | sed 's/^/preview./' >>"$out"
+            grep '^preview_digest=' "$temporary/envelope" >>"$out"
+          fi
         else
           next=prepare
           reason="${reason}build and verify the exact set first: release.sh prepare (no publication)"
@@ -756,6 +812,12 @@ case "$command" in
       -f "prepared_run=$prepared_run" -f "preview_digest=$preview_digest")
     if [[ -n "$corrections_revision" ]]; then dispatch_args+=(-f "corrections_revision=$corrections_revision" -f "corrections_digest=$corrections_digest"); fi
     if [[ -n "$repair_revision" ]]; then dispatch_args+=(-f "repair_revision=$repair_revision"); fi
+    # The exact packed manual Evidence whose digests the authorized envelope
+    # binds; only an envelope that binds manual rows carries it.
+    if grep -q '^preview\.acceptance_manual_transition=' "$temporary/status"; then
+      [[ -s "$temporary/manual-acceptance" ]] || fail 'the authorized envelope binds manual acceptance Evidence that was not given'
+      dispatch_args+=(-f "manual_acceptance=$(cat "$temporary/manual-acceptance")")
+    fi
     gh "${dispatch_args[@]}" >/dev/null || fail 'workflow dispatch failed'
     printf 'effect=workflow_dispatched workflow=%s tag=%s revision=%s prepared_run=%s preview_digest=%s\n' \
       "$workflow" "$tag" "$revision" "$prepared_run" "$preview_digest"

@@ -14,7 +14,8 @@
 # It snapshots the complete release set into private storage, verifies against
 # a clean local source checkout without rebuilding or executing during validation,
 # then uses only the verified materialization. Evidence records kind=prepared.
-# --candidate-acceptance (Issue #238; release-artifacts.yml only) requires
+# --candidate-acceptance (Issue #238: release-artifacts.yml, and the manual
+# Linux arm64 acceptance of the Specification 004 transition) requires
 # --evidence and records the Evidence gate as candidate-acceptance instead of
 # merge-regression; it changes nothing else in the run.
 # --candidate and each --previous hold one release's SHA256SUMS and archives

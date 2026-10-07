@@ -196,6 +196,11 @@ absent 'upload-artifact' "$binding" 'the binding job writes artifacts'
 grep -Fxq '    needs: [prepare, accept]' <<<"$binding"
 grep -Fq './scripts/verify-release-acceptance.py verify --acceptance "$acceptance" --artifacts "$RUNNER_TEMP/prepared/artifacts"' <<<"$binding"
 grep -Fq -- '--repo "$GITHUB_REPOSITORY" --prepared-run "$GITHUB_RUN_ID"' <<<"$binding"
+# Inside the prepared run the manual-transition rows have no Evidence yet:
+# the run checks only its automated rows, and that output is never an
+# envelope (publication requires every release row; CR-001).
+grep -Fq -- '--automated-only | tee -a "$GITHUB_STEP_SUMMARY"' <<<"$binding"
+absent 'automated-only' "$(cat "$repository_root/scripts/publish-release.sh" "$repository_root/scripts/release.sh" "$repository_root/.github/workflows/publish-release.yml")" 'publication accepts automated Evidence alone'
 # The harness refuses to label a non-prepared or Evidence-less run as acceptance.
 harness=$repository_root/scripts/test-upgrade-journeys.sh
 expect_failure 'acceptance without a prepared set' 'prepared identity flags require --prepared-set' \

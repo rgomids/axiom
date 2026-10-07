@@ -282,9 +282,11 @@ jobs:
           retention-days: 30
 
   acceptance-evidence:
-    # Verifies, within this run, exactly what publication will verify: every
-    # blocking row retained passing Evidence bound to the prepared set of this
-    # run. Prints the Evidence digests the publication envelope binds.
+    # Verifies, within this run, what publication will verify of the automated
+    # rows: each retained passing Evidence bound to the prepared set of this
+    # run. The manual-transition rows (Linux arm64, the Windows bounded proxy)
+    # are accepted later on the downloaded set, and publication requires and
+    # binds their Evidence too; --automated-only never yields an envelope.
     needs: [prepare, accept]
     if: needs.prepare.outputs.channel == 'stable'
     runs-on: ubuntu-24.04
@@ -321,4 +323,4 @@ jobs:
           done
           ./scripts/verify-release-acceptance.py verify --acceptance "$acceptance" --artifacts "$RUNNER_TEMP/prepared/artifacts" \
             --tag "$PREPARED_TAG" --revision "$PREPARED_REVISION" --repo "$GITHUB_REPOSITORY" --prepared-run "$GITHUB_RUN_ID" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+            --automated-only | tee -a "$GITHUB_STEP_SUMMARY"

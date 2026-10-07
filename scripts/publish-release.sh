@@ -9,12 +9,14 @@
 #               envelope recomputed here, immediately before the first effect.
 #
 # Release-candidate acceptance (Issue #238, ADR-0019): --envelope and
-# publication take --acceptance, the directory of the prepared run's
-# acceptance Evidence. For a stable release that does not already read back
-# published (bytes left to publish), verify-release-acceptance.py must accept
-# that Evidence as passing and bound to exactly this tag, revision, prepared
-# run and verified set, and the envelope binds the SHA-256 of every Evidence
-# document; missing, failing or mismatched Evidence refuses before any effect
+# publication take --acceptance, the directory holding the acceptance Evidence
+# of every release row: the prepared run's automated rows and the
+# manual-transition rows (Linux arm64, the Windows bounded proxy). For a
+# stable release that does not already read back published (bytes left to
+# publish), verify-release-acceptance.py must accept every row's Evidence as
+# passing and bound to exactly this tag, revision, prepared run and verified
+# set, and the envelope binds the SHA-256 of every Evidence document; missing,
+# failing or mismatched Evidence of any row refuses before any effect
 # (FR-069/AC-51). A release candidate states acceptance=not_required_rc.
 # Acceptance only produces Evidence: it never publishes or authorizes.
 #
@@ -90,7 +92,7 @@ if [[ "$check" == false ]]; then
       || fail 'publication requires --authorized-digest: the preview_digest a human authorized'
   fi
   [[ "$acceptance" == /* && ! -L "$acceptance" ]] \
-    || fail 'publication requires --acceptance: the absolute acceptance Evidence directory of the prepared run'
+    || fail 'publication requires --acceptance: the absolute acceptance Evidence directory of every release row'
   command -v python3 >/dev/null 2>&1 || fail 'python3 is required'
 fi
 command -v gh >/dev/null 2>&1 || fail 'gh is required'
