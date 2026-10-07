@@ -27,7 +27,7 @@ const (
 	maxSetupRepositoryCount   = 32
 	maxSetupDestinationBytes  = 4096
 	maxSetupRevisionBytes     = 128
-	maxBusinessContextBytes   = 4096
+	maxBusinessContextBytes   = project.MaxBusinessContextBytes
 	maxSetupRuntimeSelections = 8
 	maxSetupProfiles          = 32
 	maxSetupPreferences       = 32
@@ -625,9 +625,15 @@ func setupContext(input SetupInput, state *project.State, preview *SetupPreview)
 	if input.BusinessContext == "" && len(input.ContextSources) == 0 && len(input.Glossary) == 0 {
 		return nil
 	}
+	// Validate every prose value before adding any context to preview/state.
+	for _, entry := range input.Glossary {
+		if !project.PortableContextValue(entry.Term, project.MaxGlossaryTermBytes, false) || !project.PortableContextValue(entry.Definition, project.MaxGlossaryDefinitionLen, true) {
+			return setupIssue(InvalidContextInput)
+		}
+	}
 	context := project.BusinessContext{}
 	if input.BusinessContext != "" {
-		if !project.ContextValue(input.BusinessContext, maxBusinessContextBytes, true) {
+		if !project.PortableContextValue(input.BusinessContext, maxBusinessContextBytes, true) {
 			return setupIssue(InvalidContextInput)
 		}
 		context.Text = project.Configured(input.BusinessContext)

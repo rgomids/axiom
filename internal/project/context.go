@@ -6,10 +6,13 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/rgomids/axiom/internal/portableconfig"
 )
 
 // Schema v3 context bounds (Issue #231 contract §1).
 const (
+	MaxBusinessContextBytes  = 4096
 	MaxTechnologyFacts       = 64
 	MaxDocumentationSources  = 64
 	MaxContextSourceRefs     = 64
@@ -102,6 +105,9 @@ func (v *validation) contextAdditions(d Declaration[BusinessContext], sources ma
 	if d.form != Present {
 		return
 	}
+	if d.value.Text.form == Present && !PortableContextValue(d.value.Text.value, MaxBusinessContextBytes, true) {
+		v.add("businessContext.text", "invalid_value")
+	}
 	refs, glossary := d.value.SourceRefs, d.value.Glossary
 	if refs.form == NotConfigured {
 		v.add("businessContext.sourceRefs", "invalid_declaration")
@@ -130,10 +136,10 @@ func (v *validation) contextAdditions(d Declaration[BusinessContext], sources ma
 	for i, entry := range glossary.value {
 		field := fmt.Sprintf("businessContext.glossary[%d]", i)
 		v.contextKey(field+".key", entry.Key, keys)
-		if !ContextValue(entry.Term, MaxGlossaryTermBytes, false) {
+		if !PortableContextValue(entry.Term, MaxGlossaryTermBytes, false) {
 			v.add(field+".term", "invalid_value")
 		}
-		if !ContextValue(entry.Definition, MaxGlossaryDefinitionLen, true) {
+		if !PortableContextValue(entry.Definition, MaxGlossaryDefinitionLen, true) {
 			v.add(field+".definition", "invalid_value")
 		}
 	}
@@ -163,4 +169,10 @@ func RepositoryRelativePath(value string) bool {
 		}
 	}
 	return true
+}
+
+// PortableContextValue combines the context text contract with shared structural
+// safety. Schema v3 uses this policy; legacy context validation stays unchanged.
+func PortableContextValue(value string, limit int, multiline bool) bool {
+	return ContextValue(value, limit, multiline) && portableconfig.SafeProse(value)
 }

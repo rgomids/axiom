@@ -54,16 +54,22 @@ func versionThree() *shape {
 	token := &shape{tag: "!!str", security: "token"}
 	identifier := &shape{tag: "!!str", security: "identifier"}
 	logical := &shape{tag: "!!str", security: "logical"}
-	plain := &shape{tag: "!!str"}
+	prose := &shape{tag: "!!str", security: "prose"}
 	for i, f := range s.fields {
 		switch f.name {
 		case "schemaVersion":
 			s.fields[i].shape.literal = "3"
 		case "businessContext":
 			context := *f.shape
-			context.fields = append(append([]field(nil), context.fields...),
+			context.fields = append([]field(nil), context.fields...)
+			for j, field := range context.fields {
+				if field.name == "text" {
+					context.fields[j].shape = prose
+				}
+			}
+			context.fields = append(context.fields,
 				optionalField("sourceRefs", boundedSequence(token, 64)),
-				optionalField("glossary", boundedSequence(object(required("key", token), required("term", plain), required("definition", plain)), 128)),
+				optionalField("glossary", boundedSequence(object(required("key", token), required("term", prose), required("definition", prose)), 128)),
 			)
 			s.fields[i].shape = &context
 		}

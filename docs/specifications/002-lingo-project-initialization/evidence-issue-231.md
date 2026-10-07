@@ -28,7 +28,7 @@ Implementation does not imply human acceptance or Issue closure.
 | Bootstrap from local repository locations without CWD identity | `TestBootstrapFromExplicitRepositoriesResolvesAmbiguityAndSeparatesLocalState` (CWD set to another checkout whose remote never appears); `TestDocumentationResolverRepositorySources` (CWD not a fallback) |
 | Candidate remotes discovered, never silently canonical when ambiguous | `projectdiscovery` repository tests (aliases collapse, HTTPS≠SSH, `origin` sorted second and not preferred, include/insteadOf/continuation → incomplete); `TestBootstrapRemoteDiscoveryRules`; black-box refusal of a blocked publish even with digest + authority |
 | Work Item capability/provider configured during setup | `TestBootstrapPreviewIsDeterministicAndBounded`, `TestSetupProposalCapabilityAndEffectsAreExplicit` (ready/missing/unsupported) |
-| Portable config has no absolute paths or secrets | manifest v3 security tests (`technology path/secret/file`, `source absolute/traversal/secret path`); black-box manifest scan for workspace paths, notes path/content, CWD remote, `codex` |
+| Portable config has no absolute paths or secrets | `TestV3RejectsMalformedContext` (`technology path/secret/file`, `source absolute/traversal/secret path`); `TestV3PortableProse` (business text, glossary term and definition: secret/path/file/escaping/sensitive URL rejection, safe prose round-trip); `TestBootstrapRejectsUnsafePortableProse` (`InvalidContextInput`, zero proposal/preview/manifest and no publication storage calls); black-box manifest scan for workspace paths, notes path/content, CWD remote, `codex` |
 | Technology context deterministic, reviewable, editable | `projectdiscovery` technology tests (bounds, links ignored, depth, conflicts, determinism, no `os/exec`/`net`/`syscall` import guard); `TestBootstrapTechnologyProposalsAreEditable` (Evidence per Repository, remove/replace, digest covers edits) |
 | Documentation sources registered and resolved without re-entry | `TestBootstrapDocumentationContextAndGlossary`; black-box: local binding in installation format 2 and `project validate` resolving both sources; stale replacement warning |
 | Business context and glossary persisted as bounded context | `TestSchemaV3RejectsInvalidContext`, `TestV3CollectionBounds`, `v3-configured` golden; black-box manifest contains `glossary:` |
@@ -125,3 +125,70 @@ decode as malformed rather than newer
 | `./scripts/validate-repository.sh .` | pass; runtime behavioral scenarios skipped (not requested; UNVERIFIED) |
 | `git diff --check` | clean |
 | `gitleaks dir . --no-banner --redact` | no leaks found |
+
+## CR-001 correction (PR #257)
+
+The initial Evidence and review above are historical. CR-001 showed that plain
+v3 business/glossary strings bypassed structural portable safety despite their
+text bounds. `internal/portableconfig` now owns the existing scalar policy and
+sensitive-name classifier without YAML/domain/application dependencies. The
+codec retains that exact scalar policy for v1/v2; only v3 prose opts into
+`SafeProse`. `project.PortableContextValue` combines the existing UTF-8, bounds,
+whitespace and control-character rules with that shared policy. Bootstrap checks
+all three fields before putting context in preview/state; domain validation
+also rejects direct v3 construction, and the v3 shape protects decode/encode.
+No sensitive-name list was duplicated.
+
+`TestV3PortableProse` covers `businessContext.text`, `glossary.term` and
+`glossary.definition`: token/password/api-key assignments, POSIX/Windows paths,
+`file:` references, nested URI escaping, sensitive URL queries and unsafe values
+embedded in prose. Normal prose, multiword terms, ordinary URLs and literal
+percent signs round-trip; text/definitions accept multiline. Direct unsafe v3
+state fails `project.New` and produces no encoded manifest.
+`TestBootstrapRejectsUnsafePortableProse` proves `InvalidContextInput`, an invalid
+and nonpublishable proposal, a zero `SetupPreview`, nil `Manifest`, and zero
+storage calls from `PublishConfigured` with the rejected Project.
+`TestPortableProseStructuralSafety` additionally covers JSON/whitespace-separated
+assignments, URL passwords, encoded sensitive query names, rooted assignments,
+UNC/home paths, encoded controls and excessive nested escaping.
+`TestBootstrapAcceptsPortableProse` verifies exact multiline business/definition
+text and multiword terms in preview and an equivalent manifest round-trip.
+`TestOlderSchemaProseCompatibility` keeps previously accepted v1/v2 text readable
+and round-trippable; existing fixture/golden tests verify unchanged older bytes.
+
+Independent correction review reproduced Markdown-wrapped secrets/paths and
+sensitive query parameters hidden after commas; regressions now reject them at
+both codec/bootstrap boundaries. A further review found rooted colon assignments
+and safe URL fragments misread as paths; the policy now inspects colon/equal
+suffixes and checks complete URLs before tokenizing only surrounding prose.
+Adjacent prose after Markdown links is retained and inspected; regression cases
+cover a secret/path immediately after a link without whitespace.
+The architecture profiles were stale at the original PR head (pure v3 symbols
+missing); their explicit allowlists were reconciled. Local variable selectors
+are distinguished from imported package selectors, with positive/negative
+fixtures preserving enforcement.
+
+### Correction validation (macOS darwin/arm64, Go 1.26.0, 2026-10-07)
+
+| Command | Result |
+| --- | --- |
+| `go test ./... -timeout 10m` | PASS |
+| `go test -race ./... -timeout 10m` | PASS |
+| `go vet ./...` | PASS |
+| `go build ./...` | PASS |
+| `GOOS=linux go build ./...` | PASS (cross-compile only) |
+| `GOOS=windows go build ./...` | PASS (cross-compile only) |
+| `go mod verify` | PASS |
+| `./scripts/validate-repository.sh .` | PASS; optional live Runtime behavioral scenarios SKIPPED/UNVERIFIED |
+| `./scripts/dogfood-poc.sh` | PASS; no dogfood source changes |
+| `go run ./scripts/check-architecture.go domain` | PASS |
+| `go run ./scripts/check-architecture.go application` | PASS |
+| `bash scripts/test-check-project-domain.sh` | PASS with Go 1.26.0 GOROOT/bin in PATH and matching GOROOT |
+| `./scripts/check-sensitive-files.sh .` | PASS |
+| `./scripts/check-sensitive-files.sh --staged .` | PASS |
+| `gitleaks dir . --no-banner --redact` | PASS |
+| `git diff --check` | PASS |
+
+Fresh-context review reproduced and drove the boundary regressions described
+above; no blocking security finding remained after correction. Live Provider
+and Runtime behavior and Linux/Windows execution remain UNVERIFIED.

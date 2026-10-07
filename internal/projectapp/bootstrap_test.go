@@ -1,7 +1,9 @@
 package projectapp_test
 
 import (
+	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -273,5 +275,66 @@ func TestBootstrapPreviewIsDeterministicAndBounded(t *testing.T) {
 	input.WorkItemProvider = "linear"
 	if unsupported := prepare(t, input); unsupported.Preview().Capability.Readiness != projectapp.CapabilityUnsupported || !unsupported.Publishable() {
 		t.Fatal("unsupported Provider must be declared truthfully and remain publishable")
+	}
+}
+
+func TestBootstrapRejectsUnsafePortableProse(t *testing.T) {
+	for _, field := range []string{"text", "term", "definition"} {
+		for _, value := range []string{"[Docs](https://example.com);password=synthetic", "[Docs](https://example.com),/home/user/private", "path:/home/user/private", "location:~/private", `Read path:C:\Users\user\private`, "Use `token=synthetic`", "See `/home/user/private`", "See `file:/private/document`", "Use **password=synthetic**", "See https://example.com/docs?q=a,b&token=synthetic", "See https://example.com/docs?q=a;b&token=synthetic", "token=synthetic", "password=synthetic", "api_key=synthetic", "/Users/user/private", "/home/user/private", `C:\Users\user\private`, "file:/private/document", "file:///tmp/document", "%252Fhome%252Fuser", "https://example.com?token=synthetic"} {
+			t.Run(field+"/"+value, func(t *testing.T) {
+				input := bootstrapInput(projectapp.SetupRepository{Key: "core", Path: "/w/core", Revision: "r"})
+				if field == "text" {
+					input.BusinessContext = value
+				} else {
+					entry := project.GlossaryEntry{Key: "work-item", Term: "Work Item", Definition: "A bounded unit of work."}
+					if field == "term" {
+						entry.Term = value
+					} else {
+						entry.Definition = value
+					}
+					input.Glossary = []project.GlossaryEntry{entry}
+				}
+				proposal, issues := projectapp.PrepareSetup(manifest.Codec{}, input, bootstrapObservation)
+				if len(issues) != 1 || issues[0].Code != projectapp.InvalidContextInput {
+					t.Fatalf("want InvalidContextInput: %v", issues)
+				}
+				if proposal.Valid() || proposal.Publishable() || proposal.Manifest() != nil || !reflect.DeepEqual(proposal.Preview(), projectapp.SetupPreview{}) {
+					t.Fatal("rejected context left portable proposal state")
+				}
+				store := &prosePublicationSpy{}
+				lifecycle := projectapp.NewLifecycle(store, manifest.Codec{}, &fakeEntropy{})
+				result := lifecycle.PublishConfigured(context.Background(), proposal.Project())
+				if result.Status != projectapp.LifecycleFailed || store.calls != 0 {
+					t.Fatal("rejected context reached storage")
+				}
+			})
+		}
+	}
+}
+
+type prosePublicationSpy struct{ calls int }
+
+func (s *prosePublicationSpy) Read(context.Context, string) ([]byte, error) {
+	s.calls++
+	return nil, projectapp.ErrNotFound
+}
+func (s *prosePublicationSpy) Create(context.Context, string, []byte) error { s.calls++; return nil }
+func (s *prosePublicationSpy) Update(context.Context, string, []byte, []byte) error {
+	s.calls++
+	return nil
+}
+
+func TestBootstrapAcceptsPortableProse(t *testing.T) {
+	input := bootstrapInput(projectapp.SetupRepository{Key: "core", Path: "/w/core", Revision: "r"})
+	input.BusinessContext = "The checkout domain handles orders.\nRefunds belong to the payments context."
+	input.Glossary = []project.GlossaryEntry{{Key: "work-item", Term: "Work Item", Definition: "A bounded unit of work.\nSee https://example.com/docs?q=a,b&next=/orders"}}
+	proposal := prepare(t, input)
+	preview := proposal.Preview().BusinessContext
+	if !proposal.Publishable() || preview.Text != input.BusinessContext || !reflect.DeepEqual(preview.Glossary, input.Glossary) {
+		t.Fatal("normal prose changed in bootstrap preview")
+	}
+	decoded, issues := manifest.Decode(proposal.Manifest())
+	if len(issues) != 0 || !decoded.Equivalent(proposal.Project()) {
+		t.Fatal("normal prose failed portable round trip")
 	}
 }

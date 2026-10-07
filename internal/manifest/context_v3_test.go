@@ -121,3 +121,77 @@ func TestV1AndV2BytesUnchangedByV3(t *testing.T) {
 		}
 	}
 }
+
+// CR-001: each prose boundary shares the same portable security contract.
+func TestV3PortableProse(t *testing.T) {
+	unsafe := []string{"[Docs](https://example.com);password=synthetic", "[Docs](https://example.com),/home/user/private", "path:/home/user/private", "location:~/private", `Read path:C:\Users\user\private`, "Use `token=synthetic`", "See `/home/user/private`", "See `file:/private/document`", "Use **password=synthetic**", "See https://example.com/docs?q=a,b&token=synthetic", "See https://example.com/docs?q=a;b&token=synthetic", "token=synthetic", "password=synthetic", "api_key=synthetic", "/Users/user/private", "/home/user/private", `C:\Users\user\private`, "file:/private/document", "file:///tmp/document", "%252Fhome%252Fuser%252Fprivate", "https://example.com/doc?access_token=synthetic", "See /home/user/private", "Read file:/private/document", "Use token = synthetic", "Text\ntoken=synthetic"}
+	for _, field := range []string{"text", "term", "definition"} {
+		for _, value := range unsafe {
+			t.Run(field+"/"+value, func(t *testing.T) {
+				context := fmt.Sprintf("businessContext: {text: %q}\n", value)
+				if field != "text" {
+					term, definition := "Work Item", "A bounded unit of work tracked by the Project."
+					if field == "term" {
+						term = value
+					} else {
+						definition = value
+					}
+					context = fmt.Sprintf("businessContext: {glossary: [{key: work-item, term: %q, definition: %q}]}\n", term, definition)
+				}
+				reject(t, minimalV3+context)
+				s := decode(t, minimalV3).State()
+				business := project.BusinessContext{Text: project.Configured(value)}
+				if field != "text" {
+					entry := project.GlossaryEntry{Key: "work-item", Term: "Work Item", Definition: "A bounded unit of work."}
+					if field == "term" {
+						entry.Term = value
+					} else {
+						entry.Definition = value
+					}
+					business = project.BusinessContext{Glossary: project.Configured([]project.GlossaryEntry{entry})}
+				}
+				s.BusinessContext = project.Configured(business)
+				p, issues := project.New(s)
+				if len(issues) == 0 {
+					t.Fatal("unsafe prose entered domain")
+				}
+				if output, issues := manifest.Encode(p); output != nil || len(issues) == 0 {
+					t.Fatal("unsafe domain input produced manifest")
+				}
+			})
+		}
+		valid := []string{"The checkout domain handles orders and payments.", "Work Item", "See https://example.com/docs?lang=en", "See https://example.com/docs?q=a,b&next=/orders", "Progress is 20% complete."}
+		if field != "term" {
+			valid = append(valid, "The checkout domain handles orders.\nRefunds belong to the payments context.")
+		}
+		for _, value := range valid {
+			t.Run(field+"/valid/"+value, func(t *testing.T) {
+				context := fmt.Sprintf("businessContext: {text: %q}\n", value)
+				if field != "text" {
+					term, definition := "Work Item", "A bounded unit of work."
+					if field == "term" {
+						term = value
+					} else {
+						definition = value
+					}
+					context = fmt.Sprintf("businessContext: {glossary: [{key: work-item, term: %q, definition: %q}]}\n", term, definition)
+				}
+				p := decode(t, minimalV3+context)
+				if !p.Equivalent(decode(t, string(encode(t, p)))) {
+					t.Fatal("prose changed on round trip")
+				}
+			})
+		}
+	}
+}
+
+func TestOlderSchemaProseCompatibility(t *testing.T) {
+	for _, source := range []string{minimal, minimalV2} {
+		for _, value := range []string{"token=synthetic", "/home/user/private", "file:/private/document"} {
+			p := decode(t, source+fmt.Sprintf("businessContext: {text: %q}\n", value))
+			if !p.Equivalent(decode(t, string(encode(t, p)))) {
+				t.Fatal("legacy prose changed")
+			}
+		}
+	}
+}
