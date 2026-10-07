@@ -15,8 +15,9 @@ import (
 func TestManifestProductionDependencyBoundary(t *testing.T) {
 	allowed := map[string]bool{
 		"bytes": true, "io": true, "unicode/utf8": true, "fmt": true, "net/url": true, "strings": true, "unicode": true,
-		"github.com/rgomids/axiom/internal/project":    true,
-		"github.com/rgomids/axiom/internal/projectapp": true, "go.yaml.in/yaml/v3": true,
+		"github.com/rgomids/axiom/internal/project":        true,
+		"github.com/rgomids/axiom/internal/portableconfig": true,
+		"github.com/rgomids/axiom/internal/projectapp":     true, "go.yaml.in/yaml/v3": true,
 	}
 	files, err := os.ReadDir(".")
 	if err != nil {

@@ -368,6 +368,17 @@ delegates selection to `runtimeprofile`; CLI renders the preview, and
 Runtime allowlists and role/complexity preferences. Neither schema grants local
 credential access or creates a vendor default.
 
+[Project bootstrap v3](../specifications/002-lingo-project-initialization/project-bootstrap-v3.md)
+(Issue #231) adds portable schema 3 context (technology facts, typed
+documentation sources, Business Context source references and glossary) with
+local-file documentation bindings kept in the installation record. Read-only
+discovery (`projectdiscovery`) proposes Repository remotes and technology facts
+from explicit locations only. `projectapp` owns the single operation-scoped
+readiness evaluator (`ProjectReadiness`, capability → Integration → Provider via
+`ResolveCapability`, Runtime availability via `runtimeapplication`); `project
+validate`, Work Item operations and workflow start/resume consume it. Readiness
+is not authority.
+
 ## Strategic upstream boundary
 
 [ADR-0002](../decisions/0002-axiom-speckit-relationship.md) establishes that

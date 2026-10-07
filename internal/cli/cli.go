@@ -93,7 +93,23 @@ type ConfigureInput struct {
 	WorkItemProviderSupplied bool
 	RemoveWorkItemProvider   bool
 	RemoveRepositories       []string
+	// Issue #231 CREATE bootstrap intent; syntax is split here, every rule
+	// (ambiguity, local candidates, bounds) belongs to the application.
+	RepositoryRemotes  map[string]string
+	Runtimes           []string
+	ModelProfiles      []string
+	RuntimePreferences []RuntimePreferenceInput
+	Technology         []KeyValueInput
+	RemoveTechnology   []string
+	Documentation      []DocumentationInput
+	BusinessContext    string
+	ContextSources     []string
+	Glossary           []GlossaryInput
 }
+type RuntimePreferenceInput struct{ Role, Complexity, ModelProfile string }
+type KeyValueInput struct{ Key, Value string }
+type DocumentationInput struct{ Key, Kind, Repository, Path string }
+type GlossaryInput struct{ Key, Term, Definition string }
 type WorkItemInput struct {
 	Type, Beneficiary, Value                 string
 	Classification                           []string
@@ -147,13 +163,17 @@ type Result struct {
 	Setup             *projectapp.SetupPreview
 	Edit              *projectapp.EditPreview
 	RuntimeResolution *runtimeapplication.Preview
-	PreviewDigest     string
-	Runtime           *RuntimeView
-	Bootstrap         *BootstrapView
-	Draft             *workitem.DraftPreview
-	Selection         *workitem.SelectionPreview
-	Questions         []workitem.Question
-	Projection        *workflow.ProjectionPreview
+	// Readiness is the canonical Project readiness report (project validate);
+	// Preflight is the operation projection that blocked an effect.
+	Readiness     *projectapp.ReadinessReport
+	Preflight     *projectapp.OperationReadiness
+	PreviewDigest string
+	Runtime       *RuntimeView
+	Bootstrap     *BootstrapView
+	Draft         *workitem.DraftPreview
+	Selection     *workitem.SelectionPreview
+	Questions     []workitem.Question
+	Projection    *workflow.ProjectionPreview
 	// Maintenance is a bounded, content-free view for compatibility,
 	// cleanup, recovery, and upgrade previews and results.
 	Maintenance any
@@ -404,6 +424,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.RuntimeResolution != nil {
 			return emitRuntimeResolutionCompletion(writer, mode, *response.Completion, response)
 		}
+		if response.Readiness != nil || response.Preflight != nil {
+			return emitReadinessCompletion(writer, mode, *response.Completion, response)
+		}
 		if response.Project != nil {
 			return emitProjectCompletion(writer, mode, *response.Completion, *response.Project)
 		}
@@ -475,6 +498,12 @@ type requestInput struct {
 	selector                                 string
 	repositories                             repositoryFlags
 	removeRepositories                       repositoryFlags
+	repositoryRemotes, runtimes              repositoryFlags
+	modelProfiles, runtimePreferences        repositoryFlags
+	technology, removeTechnology             repositoryFlags
+	documentation, contextSources, glossary  repositoryFlags
+	businessContext                          string
+	bootstrapSupplied                        bool
 	workItemProvider                         string
 	removeWorkItemProvider                   bool
 	projectSupplied, slugSupplied            bool
@@ -659,6 +688,16 @@ func projectFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`. For configure selects preview-only edit mode.")
 		set.BoolVar(&values.removeWorkItemProvider, "remove-work-item-provider", false, "Remove the existing provider in edit mode; conflicts with --work-item-provider.")
 		set.Var(&values.removeRepositories, "remove-repository", "Remove a Repository in edit mode; `<key>`. Conflicts with adding the same key.")
+		set.Var(&values.repositoryRemotes, "repository-remote", "CREATE: explicit remote identity; `<key>=<locator>` or `<key>=none`. Required when discovered remotes are ambiguous.")
+		set.Var(&values.runtimes, "runtime", "CREATE: allowed Runtime; `<runtime-id>`. Must be locally configured; never defaulted.")
+		set.Var(&values.modelProfiles, "model-profile", "CREATE: allowed Model Profile; `<profile-key>`. Copied from local configuration of an allowed Runtime.")
+		set.Var(&values.runtimePreferences, "runtime-preference", "CREATE: Runtime preference; `<role>/<complexity>=<profile-key>`.")
+		set.Var(&values.technology, "technology", "CREATE: add or replace a technology fact; `<key>=<value>`.")
+		set.Var(&values.removeTechnology, "remove-technology", "CREATE: drop a detected technology fact; `<key>`.")
+		set.Var(&values.documentation, "documentation", "CREATE: documentation source; `<key>=repository:<repository-key>/<relative-path>` or `<key>=local-file:<absolute-path>`.")
+		set.StringVar(&values.businessContext, "business-context", "", "CREATE: bounded business context; `<text>`.")
+		set.Var(&values.contextSources, "context-source", "CREATE: business context documentation reference; `<documentation-key>`.")
+		set.Var(&values.glossary, "glossary", "CREATE: glossary entry; `<key>=<term>:<definition>`.")
 	}
 	return set
 }
@@ -684,6 +723,8 @@ func flags(operation action, args []string) (requestInput, bool) {
 			values.providerSupplied = true
 		case "project-id", "preview-digest", "authorize-local":
 			values.replaySupplied = true
+		case "repository-remote", "runtime", "model-profile", "runtime-preference", "technology", "remove-technology", "documentation", "business-context", "context-source", "glossary":
+			values.bootstrapSupplied = true
 		}
 	})
 	return values, true
@@ -696,6 +737,9 @@ func configureRequestIssue(values requestInput) string {
 		if values.removeWorkItemProvider || len(values.removeRepositories) != 0 {
 			return "invalid_input"
 		}
+		if _, ok := createConfigureInput(values); !ok {
+			return "invalid_input"
+		}
 		if missingRequiredInputs(configureAction, values) {
 			return "missing_required_input"
 		}
@@ -705,6 +749,10 @@ func configureRequestIssue(values requestInput) string {
 	// here, before any selector resolution or state read.
 	if values.replaySupplied {
 		return "unsupported_edit_authority"
+	}
+	// Bootstrap intent is CREATE-only; post-create lifecycle belongs to #230.
+	if values.bootstrapSupplied {
+		return "invalid_input"
 	}
 	// EDIT: rename is out of scope, the CREATE-only `none` alias is not a
 	// removal spelling, and set/remove of one target cannot be combined.
@@ -940,23 +988,23 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 	case listAction:
 		return service.List(ctx)
 	case configureAction:
+		if !input.projectSupplied {
+			configuration, ok := createConfigureInput(input)
+			if !ok {
+				return Result{Status: Failed, Category: "invalid_input"}
+			}
+			return service.Configure(ctx, configuration)
+		}
 		repositories, ok := parseRepositories(input.repositories)
 		if !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
-		if input.projectSupplied {
-			return service.Configure(ctx, ConfigureInput{
-				ProjectID: input.projectID, Project: input.project, Name: input.name, NameSupplied: input.nameSupplied,
-				WorkItemProvider: input.workItemProvider, WorkItemProviderSupplied: input.providerSupplied, RemoveWorkItemProvider: input.removeWorkItemProvider,
-				Repositories: repositories, RemoveRepositories: append([]string(nil), input.removeRepositories...),
-				PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal,
-			})
-		}
-		provider := input.workItemProvider
-		if provider == "none" {
-			provider = ""
-		}
-		return service.Configure(ctx, ConfigureInput{ProjectID: input.projectID, Slug: input.slug, Name: input.name, Repositories: repositories, WorkItemProvider: provider, PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal})
+		return service.Configure(ctx, ConfigureInput{
+			ProjectID: input.projectID, Project: input.project, Name: input.name, NameSupplied: input.nameSupplied,
+			WorkItemProvider: input.workItemProvider, WorkItemProviderSupplied: input.providerSupplied, RemoveWorkItemProvider: input.removeWorkItemProvider,
+			Repositories: repositories, RemoveRepositories: append([]string(nil), input.removeRepositories...),
+			PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal,
+		})
 	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction:
 		provider, resource, externalID, ok := parseWorkItemSelector(input.workItem)
 		if input.workItem != "" && !ok {
@@ -1271,16 +1319,16 @@ func runInteractiveConfiguration(ctx context.Context, mode outputMode, args []st
 	if !ok {
 		return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "invalid_input"})
 	}
-	repositories, ok := parseRepositories(values.repositories)
+	initial, ok := createConfigureInput(values)
 	if !ok {
 		return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "invalid_input"})
 	}
+	// An explicit `none` was supplied; the prompt asks only for missing intent.
+	if values.workItemProvider == "none" {
+		initial.WorkItemProvider = "none"
+	}
 	scanner := bufio.NewScanner(input)
-	configuration, ok := promptConfiguration(scanner, prompts, ConfigureInput{
-		ProjectID: values.projectID, Slug: values.slug, Name: values.name,
-		Repositories: repositories, WorkItemProvider: values.workItemProvider,
-		PreviewDigest: values.previewDigest, AuthorizeLocal: values.authorizeLocal,
-	})
+	configuration, ok := promptConfiguration(scanner, prompts, initial)
 	if !ok {
 		return emit(stdout, mode, event{Operation: configureAction, Status: Failed, Category: "missing_required_input"})
 	}
@@ -1288,6 +1336,11 @@ func runInteractiveConfiguration(ctx context.Context, mode outputMode, args []st
 		return emitResponse(stdout, mode, configureAction, service.Configure(ctx, configuration))
 	}
 	preview := service.Configure(ctx, configuration)
+	// Guided bootstrap asks only for unresolved intent: an ambiguous remote is
+	// resolved by an explicit operator choice, then the proposal is rebuilt.
+	if preview.Setup != nil && chooseAmbiguousRemotes(scanner, prompts, *preview.Setup, &configuration) {
+		preview = service.Configure(ctx, configuration)
+	}
 	if preview.Setup == nil || preview.Completion == nil || preview.Completion.Status() != completion.Success {
 		return emitResponse(stdout, mode, configureAction, preview)
 	}
@@ -1306,6 +1359,38 @@ func runInteractiveConfiguration(ctx context.Context, mode outputMode, args []st
 	configuration.PreviewDigest = preview.Setup.Digest
 	configuration.AuthorizeLocal = true
 	return emitResponse(stdout, mode, configureAction, service.Configure(ctx, configuration))
+}
+
+func chooseAmbiguousRemotes(scanner *bufio.Scanner, prompts io.Writer, setup projectapp.SetupPreview, configuration *ConfigureInput) bool {
+	chosen := false
+	for _, blocker := range setup.Blockers {
+		if blocker.Code != projectapp.BlockerRemoteAmbiguous {
+			continue
+		}
+		for _, repository := range setup.Repositories {
+			if repository.Key != blocker.Subject || repository.Remote == nil {
+				continue
+			}
+			for index, candidate := range repository.Remote.Candidates {
+				if prompts != nil {
+					_, _ = io.WriteString(prompts, strconv.Itoa(index+1)+") "+candidate.Locator+"\n")
+				}
+			}
+			answer, ok := readPromptLine(scanner, prompts, "Remote for "+repository.Key+" (number, locator, or none): ", true)
+			if !ok {
+				return chosen
+			}
+			if number, err := strconv.Atoi(answer); err == nil && number >= 1 && number <= len(repository.Remote.Candidates) {
+				answer = repository.Remote.Candidates[number-1].Locator
+			}
+			if configuration.RepositoryRemotes == nil {
+				configuration.RepositoryRemotes = map[string]string{}
+			}
+			configuration.RepositoryRemotes[repository.Key] = answer
+			chosen = true
+		}
+	}
+	return chosen
 }
 
 func promptConfiguration(scanner *bufio.Scanner, prompts io.Writer, current ConfigureInput) (ConfigureInput, bool) {
@@ -1331,7 +1416,7 @@ func promptConfiguration(scanner *bufio.Scanner, prompts io.Writer, current Conf
 			if value == "" {
 				break
 			}
-			repositories, valid := parseRepositories([]string{value})
+			repositories, valid := parseBootstrapRepositories([]string{value})
 			if !valid {
 				return ConfigureInput{}, false
 			}

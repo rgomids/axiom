@@ -67,7 +67,7 @@ func TestMinimalAndConfiguredProject(t *testing.T) {
 	valid(t, s) // Friendly names are not a uniqueness constraint.
 	for _, edit := range []func(*project.State){
 		func(s *project.State) { s.SchemaVersion = 0 },
-		func(s *project.State) { s.SchemaVersion = 3 },
+		func(s *project.State) { s.SchemaVersion = 4 },
 		func(s *project.State) { s.ID = "" },
 		func(s *project.State) { s.Slug = "" },
 		func(s *project.State) { s.Name = " \t\n" },

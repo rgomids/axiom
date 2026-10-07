@@ -56,15 +56,17 @@ var domainPolicy = policy{
 	label: "domain",
 	dir:   "internal/project",
 	allowed: map[string]string{
-		"fmt":       "Sprintf",
-		"reflect":   "DeepEqual",
-		"regexp":    "MustCompile",
-		"sort":      "Slice SliceStable",
-		"strings":   "TrimSpace HasPrefix ContainsAny Split ContainsRune IndexFunc Contains Index IndexAny LastIndex ToLower EqualFold IndexByte Count TrimSuffix Repeat",
-		"net/url":   "Parse URL",
-		"net/netip": "ParseAddr",
-		"unicode":   "IsSpace IsControl",
-		"testing":   "T",
+		"github.com/rgomids/axiom/internal/portableconfig": "SafeProse",
+		"fmt":          "Sprint Sprintf",
+		"reflect":      "DeepEqual",
+		"regexp":       "MustCompile",
+		"sort":         "Slice SliceStable Strings",
+		"strings":      "TrimSpace HasPrefix ContainsAny Split ContainsRune IndexFunc Contains Index IndexAny LastIndex ToLower EqualFold IndexByte Count TrimSuffix Repeat",
+		"net/url":      "Parse URL",
+		"net/netip":    "ParseAddr",
+		"unicode":      "IsSpace IsControl",
+		"unicode/utf8": "ValidString RuneError",
+		"testing":      "T",
 	},
 	testSelfImport:     "github.com/rgomids/axiom/internal/project",
 	testOnlyImports:    []string{"testing"},
@@ -81,14 +83,14 @@ var applicationPolicy = policy{
 	label: "application",
 	dir:   "internal/projectapp",
 	allowed: map[string]string{
-		"context":         "Context Background WithCancel Canceled",
+		"context":         "Context Background WithCancel Canceled DeadlineExceeded",
 		"crypto/sha256":   "Sum256",
 		"encoding/binary": "BigEndian",
 		"encoding/hex":    "EncodeToString",
 		"encoding/json":   "Marshal",
 		"errors":          "Is New",
-		"sort":            "Slice",
-		"strings":         "ContainsAny HasPrefix Split Contains",
+		"sort":            "Slice SliceStable Strings",
+		"strings":         "ContainsAny HasPrefix Split Contains Join TrimSpace IndexFunc Repeat Trim",
 		"sync":            "Mutex",
 		"sync/atomic":     "Bool",
 		"path/filepath":   "Clean IsAbs",
@@ -96,11 +98,14 @@ var applicationPolicy = policy{
 		"reflect":         "DeepEqual",
 		"testing":         "T",
 		"unicode/utf8":    "ValidString",
-		"github.com/rgomids/axiom/internal/project":  "Project State Issue New Configured BusinessContext Declaration Repository Provider Runtime Integration ModelProfile CredentialReference Intent Set ValidSlug Absent NotConfigured Unconfigured",
-		"github.com/rgomids/axiom/internal/manifest": "Codec",
+		"unicode":         "IsControl",
+		"regexp":          "MustCompile",
+		"github.com/rgomids/axiom/internal/project":  "ContextValue DocumentationSource GlossaryEntry LocalFileSource MaxDocumentationSources MaxGlossaryDefinitionLen MaxGlossaryTermBytes MaxTechnologyFacts MaxTechnologyValueBytes NormalizeLocator Present RepositoryRelativePath RepositorySource RuntimePolicyDeclared RuntimePreference TechnologyFact ValidContextKey PortableContextValue MaxBusinessContextBytes Project State Issue New Configured BusinessContext Declaration Repository Provider Runtime Integration ModelProfile CredentialReference Intent Set ValidSlug Absent NotConfigured Unconfigured",
+		"github.com/rgomids/axiom/internal/manifest": "Codec Decode",
+		"github.com/rgomids/axiom/internal/testfs":   "Path",
 	},
 	testSelfImport:     "github.com/rgomids/axiom/internal/projectapp",
-	testOnlyImports:    []string{"testing", "reflect", "sync", "github.com/rgomids/axiom/internal/manifest"},
+	testOnlyImports:    []string{"testing", "reflect", "sync", "github.com/rgomids/axiom/internal/manifest", "github.com/rgomids/axiom/internal/testfs"},
 	testOnlyMessage:    "test-only helper imported by production application",
 	forbiddenSelectors: []string{"TempDir", "Setenv", "Chdir", "Output", "Attr"},
 }
@@ -181,7 +186,7 @@ func check(p policy, path string) {
 			fail(p.label + " test I/O helper forbidden")
 		}
 		identifier, ok := selector.X.(*ast.Ident)
-		if !ok {
+		if !ok || identifier.Obj != nil {
 			return true
 		}
 		name, imported := imports[identifier.Name]

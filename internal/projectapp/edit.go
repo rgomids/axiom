@@ -52,12 +52,14 @@ type LocalRecordState struct {
 	Credentials                             []CredentialBinding
 	Runtime                                 RuntimeBinding
 	Attempt                                 AttemptMetadata
+	Documentation                           []DocumentationBinding
 }
 
 func cloneLocalRecord(s LocalRecordState) LocalRecordState {
 	s.ArtifactDigests = append([]ArtifactDigest(nil), s.ArtifactDigests...)
 	s.Repositories = append([]RepositoryBinding(nil), s.Repositories...)
 	s.Credentials = append([]CredentialBinding(nil), s.Credentials...)
+	s.Documentation = append([]DocumentationBinding(nil), s.Documentation...)
 	return s
 }
 
@@ -525,52 +527,29 @@ func portableRepositoryEffects(current, candidate project.Project) []EditEffect 
 	return effects
 }
 
-// workItemCapability reports readiness by the same contract Work Item
-// execution enforces, so a preserved incomplete declaration is never shown
-// as ready: a github work-items Provider without its declaring Integration is
-// missing the capability.
+// workItemCapability reports readiness by the canonical capability mapping
+// that readiness and Work Item execution enforce, so a preserved incomplete
+// declaration is never shown as ready. A declared work-items Provider without
+// its declaring Integration is still named for review.
 func workItemCapability(state project.State) SetupCapabilityPreview {
-	capability := SetupCapabilityPreview{Capability: WorkItemCapability, Readiness: CapabilityMissing}
-	providers, _ := state.Providers.Value()
-	for _, provider := range providers {
-		if provider.Key != workItemsKey {
-			continue
-		}
-		capability.Provider = provider.ID
-		capability.Readiness = CapabilityUnsupported
-		if provider.ID == "github" {
-			capability.Readiness = CapabilityMissing
-			if GitHubWorkItemCapability(state) {
-				capability.Readiness = CapabilityReady
+	resolution := ResolveCapability(state, WorkItemCapability, SupportedProviders)
+	capability := SetupCapabilityPreview{Capability: WorkItemCapability, Provider: resolution.Provider, Readiness: resolution.Readiness}
+	if capability.Provider == "" {
+		providers, _ := state.Providers.Value()
+		for _, provider := range providers {
+			if provider.Key == workItemsKey {
+				capability.Provider = provider.ID
 			}
 		}
 	}
 	return capability
 }
 
-// GitHubWorkItemCapability is the Work Item capability contract: the
-// work-items Provider is github and the work-items Integration references it
-// and declares the work-item capability.
+// GitHubWorkItemCapability reports whether the canonical capability mapping
+// resolves the work-item capability to the supported GitHub implementation.
 func GitHubWorkItemCapability(state project.State) bool {
-	providers, _ := state.Providers.Value()
-	providerReady := false
-	for _, provider := range providers {
-		if provider.Key == workItemsKey && provider.ID == "github" {
-			providerReady = true
-		}
-	}
-	if !providerReady {
-		return false
-	}
-	integrations, _ := state.Integrations.Value()
-	for _, integration := range integrations {
-		provider, configured := integration.ProviderRef.Value()
-		capabilities, declared := integration.Capabilities.Value()
-		if integration.Key == workItemsKey && configured && provider == workItemsKey && declared && containsText(capabilities, WorkItemCapability) {
-			return true
-		}
-	}
-	return false
+	resolution := ResolveCapability(state, WorkItemCapability, SupportedProviders)
+	return resolution.Readiness == CapabilityReady && resolution.Provider == "github"
 }
 
 // editEnvelope binds mode, identity, destinations, exact observations, the

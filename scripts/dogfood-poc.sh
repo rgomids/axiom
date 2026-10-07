@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+
+# Print script source only: never expand arguments or dump temporary outputs.
+trap 'failure_code=$?; printf "dogfood failure: line=%s command=%q exit_code=%s\n" "$LINENO" "$BASH_COMMAND" "$failure_code" >&2' ERR
 
 umask 077
 
@@ -237,7 +240,7 @@ axiom --json "${draft_args[@]}" --preview-digest "$work_item_digest" \
   --authorize-external >"$temporary/work-item.json"
 assert_canonical "$temporary/work-item.json" success "GitHub Work Item linked"
 grep -Fq '"externalId":"7"' "$temporary/work-item.json"
-# Lingo observes Runtimes itself, so starts run with the isolated Runtime PATH:
+# Lingo observes Runtimes itself, so start/resume use the isolated Runtime PATH:
 # only the codex stub (never executed) and the Codex skills installed above are
 # visible; the host's real Codex or Claude never is. The fake Provider needs
 # only sed and cat.
@@ -381,7 +384,7 @@ if axiom --json workflow advance --project dogfood-project --repository main --n
 fi
 assert_canonical "$temporary/workflow-interrupted.json" interrupted "Execution remains at the current workflow stage"
 revision=$((revision + 1))
-axiom --json workflow resume --project dogfood-project --repository main --number 7 \
+observed_axiom workflow resume --project dogfood-project --repository main --number 7 \
   --expected-revision "$revision" >"$temporary/workflow-resume.json"
 assert_canonical "$temporary/workflow-resume.json" success "Execution workflow operation completed"
 revision=$((revision + 1))

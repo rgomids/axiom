@@ -1,4 +1,4 @@
-// Package manifest implements the bounded, strict portable axiom.yaml v1/v2 codec.
+// Package manifest implements the bounded, strict portable axiom.yaml v1/v2/v3 codec.
 // All operations are in memory. It performs no I/O or credential resolution.
 package manifest
 

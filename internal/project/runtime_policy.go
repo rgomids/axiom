@@ -17,7 +17,7 @@ func (v *validation) runtimePolicy(s State) {
 		}
 		return
 	}
-	if s.SchemaVersion != 2 {
+	if !MultiRuntimeSchema(s.SchemaVersion) {
 		return
 	}
 	if s.Runtime.form != Absent {
@@ -70,7 +70,7 @@ func declaredRuntime(s State, id string) bool {
 	if s.SchemaVersion == 1 {
 		return s.Runtime.form == Present && s.Runtime.value.ID == id
 	}
-	if s.SchemaVersion == 2 && s.Runtimes.form == Present {
+	if MultiRuntimeSchema(s.SchemaVersion) && s.Runtimes.form == Present {
 		for _, runtime := range s.Runtimes.value {
 			if runtime.ID == id {
 				return true
@@ -78,4 +78,33 @@ func declaredRuntime(s State, id string) bool {
 		}
 	}
 	return false
+}
+
+// MultiRuntimeSchema reports versions carrying the #140 Runtime policy with
+// exactly v2 semantics. Schema v3 adds context fields and changes none of it.
+func MultiRuntimeSchema(version int) bool { return version == 2 || version == 3 }
+
+// AllowedRuntimes returns the portable Runtime allowlist for any supported
+// schema: v1's singular Runtime or the v2/v3 Runtime collection.
+func AllowedRuntimes(s State) []string {
+	allowed := []string{}
+	if s.SchemaVersion == 1 {
+		if runtime, ok := s.Runtime.Value(); ok {
+			allowed = append(allowed, runtime.ID)
+		}
+	} else if MultiRuntimeSchema(s.SchemaVersion) {
+		runtimes, _ := s.Runtimes.Value()
+		for _, runtime := range runtimes {
+			allowed = append(allowed, runtime.ID)
+		}
+	}
+	return allowed
+}
+
+// RuntimePolicyDeclared is the portable half of #140 execution policy: an
+// allowed Runtime, at least one Model Profile declaration and no unresolved
+// preference intent. It observes nothing machine-local and selects nothing.
+func RuntimePolicyDeclared(s State) bool {
+	profiles, ok := s.ModelProfiles.Value()
+	return s.RuntimePreferences.Form() != NotConfigured && len(AllowedRuntimes(s)) != 0 && ok && len(profiles) != 0
 }

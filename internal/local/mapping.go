@@ -127,3 +127,25 @@ func fromDTO(d recordDTO) (RecordState, []Issue) {
 	}
 	return s, nil
 }
+
+func toDocumentationDTO(bindings []projectapp.DocumentationBinding) []documentationDTO {
+	out := make([]documentationDTO, 0, len(bindings))
+	for _, b := range bindings {
+		out = append(out, documentationDTO{b.SourceKey, b.ExplicitPath, b.CanonicalIdentity, observationToDTO(b.Observation)})
+	}
+	return out
+}
+func fromDocumentationDTO(bindings []documentationDTO) ([]projectapp.DocumentationBinding, []Issue) {
+	if len(bindings) == 0 {
+		return nil, nil
+	}
+	out := make([]projectapp.DocumentationBinding, 0, len(bindings))
+	for _, b := range bindings {
+		o, ok := fromObservation(b.Observation)
+		if !ok {
+			return nil, problem("installation.documentationBindings", "invalid_observation")
+		}
+		out = append(out, projectapp.DocumentationBinding{SourceKey: b.SourceKey, ExplicitPath: b.ExplicitPath, CanonicalIdentity: b.CanonicalIdentity, Observation: o})
+	}
+	return out, nil
+}

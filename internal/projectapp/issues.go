@@ -42,10 +42,16 @@ const (
 	ScannerUnavailable
 	ScannerFinding
 	ScannerFailed
+	// Issue #231 bootstrap input codes.
+	InvalidRepositoryInput
+	InvalidRuntimePolicyInput
+	InvalidTechnologyInput
+	InvalidDocumentationInput
+	InvalidContextInput
 )
 
 func (c Code) String() string {
-	names := [...]string{"invalid_snapshot", "invalid_preview", "missing_authority", "revoked_authority", "stale_authority", "revision_mismatch", "wrong_operation", "cancelled", "store_failure", "concurrent_mutation", "recovery_required", "scanner_unavailable", "scanner_finding", "scanner_failed"}
+	names := [...]string{"invalid_snapshot", "invalid_preview", "missing_authority", "revoked_authority", "stale_authority", "revision_mismatch", "wrong_operation", "cancelled", "store_failure", "concurrent_mutation", "recovery_required", "scanner_unavailable", "scanner_finding", "scanner_failed", "invalid_repository_input", "invalid_runtime_policy_input", "invalid_technology_input", "invalid_documentation_input", "invalid_context_input"}
 	if int(c) >= len(names) {
 		return "invalid_issue"
 	}

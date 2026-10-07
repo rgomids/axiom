@@ -579,7 +579,13 @@ func TestEditPreviewCapabilityFollowsExecutionContract(t *testing.T) {
 				t.Fatal("execution contract accepted an incomplete declaration")
 			}
 			renamed := mustPreview(t, f, projectapp.EditIntent{Name: set("Renamed")})
-			if capability := renamed.Preview().Capability; capability.Provider != "github" || capability.Readiness != projectapp.CapabilityMissing {
+			// The canonical mapping (shared with readiness) follows the declared
+			// providerRef: work-item mapped to the chat Provider is unsupported.
+			wantProvider, wantReadiness := "github", projectapp.CapabilityMissing
+			if name == "different providerRef" {
+				wantProvider, wantReadiness = "slack", projectapp.CapabilityUnsupported
+			}
+			if capability := renamed.Preview().Capability; capability.Provider != wantProvider || capability.Readiness != wantReadiness {
 				t.Fatalf("name-only edit capability = %+v", capability)
 			}
 			repaired := mustPreview(t, f, projectapp.EditIntent{WorkItemProvider: set("github")})

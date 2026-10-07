@@ -40,7 +40,13 @@ func installTestRuntimePolicy(t *testing.T, stateRoot, id, runtimeID string) []s
 		t.Fatal(manifestIssues)
 	}
 	state := value.State()
-	state.Runtime = project.Configured(project.Runtime{ID: runtimeID})
+	// Authored policy follows the Project's own schema: v1 singular Runtime,
+	// v2/v3 (including bootstrap-created Projects) the Runtime allowlist.
+	if state.SchemaVersion == 1 {
+		state.Runtime = project.Configured(project.Runtime{ID: runtimeID})
+	} else {
+		state.Runtimes = project.Configured([]project.Runtime{{ID: runtimeID}})
+	}
 	state.ModelProfiles = project.Configured([]project.ModelProfile{{Key: "worker", RuntimeRef: project.Configured(runtimeID), Model: project.Configured("approved-model")}})
 	value, manifestIssues = project.New(state)
 	if len(manifestIssues) != 0 {

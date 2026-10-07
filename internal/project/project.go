@@ -52,6 +52,27 @@ type ModelProfile struct {
 type BusinessContext struct {
 	Text      Declaration[string]
 	Documents Declaration[[]string]
+	// SourceRefs and Glossary exist only in schema v3.
+	SourceRefs Declaration[[]string]
+	Glossary   Declaration[[]GlossaryEntry]
+}
+type GlossaryEntry struct{ Key, Term, Definition string }
+
+// TechnologyFact is confirmed portable context; detection provenance is not stored.
+type TechnologyFact struct{ Key, Value string }
+
+// Documentation source kinds closed by schema v3.
+const (
+	RepositorySource = "repository"
+	LocalFileSource  = "local-file"
+)
+
+// DocumentationSource is a logical reference. A local-file source carries no
+// location: its absolute path exists only in machine-local installation state.
+type DocumentationSource struct {
+	Key, Kind     string
+	RepositoryRef Declaration[string]
+	Path          Declaration[string]
 }
 type CredentialReference struct {
 	Key        string
@@ -73,6 +94,8 @@ type State struct {
 	BusinessContext      Declaration[BusinessContext]
 	CredentialReferences Declaration[[]CredentialReference]
 	Policies             Declaration[[]string]
+	TechnologyContext    Declaration[[]TechnologyFact]
+	DocumentationSources Declaration[[]DocumentationSource]
 }
 
 // Project owns an immutable validated snapshot. Its zero value is invalid.
@@ -126,6 +149,8 @@ type Intent struct {
 	BusinessContext      Change[Declaration[BusinessContext]]
 	CredentialReferences Change[Declaration[[]CredentialReference]]
 	Policies             Change[Declaration[[]string]]
+	TechnologyContext    Change[Declaration[[]TechnologyFact]]
+	DocumentationSources Change[Declaration[[]DocumentationSource]]
 }
 
 // Propose materializes and validates the entire result, including retained refs.
@@ -147,6 +172,8 @@ func (p Project) Propose(intent Intent) (Project, []Issue) {
 	apply(&s.BusinessContext, intent.BusinessContext)
 	apply(&s.CredentialReferences, intent.CredentialReferences)
 	apply(&s.Policies, intent.Policies)
+	apply(&s.TechnologyContext, intent.TechnologyContext)
+	apply(&s.DocumentationSources, intent.DocumentationSources)
 	return New(s)
 }
 

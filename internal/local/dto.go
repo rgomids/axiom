@@ -15,6 +15,19 @@ type recordDTO struct {
 	Runtime          *runtimeDTO     `json:"runtime,omitempty"`
 	Attempt          *attemptDTO     `json:"attempt,omitempty"`
 }
+
+// recordV2DTO is format 2: format 1 plus required nonempty documentation
+// bindings. Embedding keeps both formats' common fields in one definition.
+type recordV2DTO struct {
+	recordDTO
+	DocumentationBindings []documentationDTO `json:"documentationBindings"`
+}
+type documentationDTO struct {
+	SourceKey         string         `json:"sourceKey"`
+	ExplicitPath      string         `json:"explicitPath"`
+	CanonicalIdentity string         `json:"canonicalIdentity"`
+	Observation       observationDTO `json:"observation"`
+}
 type digestDTO struct {
 	Name   string `json:"name"`
 	Digest string `json:"digest"`

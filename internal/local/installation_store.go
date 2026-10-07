@@ -110,6 +110,13 @@ func (s InstallationStore) Install(ctx context.Context, source string) Installat
 // InstallWithBindings publishes the same strict local record as Install while
 // requiring an exact local path binding for every portable Repository key.
 func (s InstallationStore) InstallWithBindings(ctx context.Context, source string, bindings []projectapp.RepositoryBinding) InstallationResult {
+	return s.InstallWithContext(ctx, source, bindings, nil)
+}
+
+// InstallWithContext additionally records machine-local documentation
+// bindings (Issue #231). Each must name a declared portable local-file source;
+// unbound sources are allowed and surface as readiness warnings.
+func (s InstallationStore) InstallWithContext(ctx context.Context, source string, bindings []projectapp.RepositoryBinding, documentation []projectapp.DocumentationBinding) InstallationResult {
 	snapshot, result := portableSnapshot(ctx, source)
 	if result.Status == InstallationFailed {
 		return result
@@ -117,8 +124,11 @@ func (s InstallationStore) InstallWithBindings(ctx context.Context, source strin
 	if !bindingsMatchProject(snapshot.Project(), bindings) {
 		return failedInstallation("invalid_repository_bindings")
 	}
+	if !DocumentationBindingsMatchProject(snapshot.Project(), documentation) {
+		return failedInstallation("invalid_documentation_bindings")
+	}
 	source = filepath.Clean(source)
-	record, issues := NewRecord(RecordState{ProjectID: snapshot.Project().State().ID, ObservedSlug: snapshot.Project().State().Slug, SourceLocation: source, PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests(), Repositories: bindings})
+	record, issues := NewRecord(RecordState{ProjectID: snapshot.Project().State().ID, ObservedSlug: snapshot.Project().State().Slug, SourceLocation: source, PortableRevision: snapshot.Revision(), ArtifactDigests: snapshot.Digests(), Repositories: bindings, Documentation: documentation})
 	if len(issues) != 0 {
 		return failedInstallation("invalid_local_state")
 	}
@@ -237,6 +247,25 @@ func (s InstallationStore) InstallWithBindings(ctx context.Context, source strin
 		}
 		return InstallationResult{Status: InstallationApplied, Category: "installed"}
 	})
+}
+
+// DocumentationBindingsMatchProject accepts bindings only for declared
+// local-file sources, each at most once.
+func DocumentationBindingsMatchProject(p project.Project, bindings []projectapp.DocumentationBinding) bool {
+	declared := map[string]bool{}
+	sources, _ := p.State().DocumentationSources.Value()
+	for _, source := range sources {
+		if source.Kind == project.LocalFileSource {
+			declared[source.Key] = true
+		}
+	}
+	for _, binding := range bindings {
+		if !declared[binding.SourceKey] {
+			return false
+		}
+		delete(declared, binding.SourceKey)
+	}
+	return true
 }
 
 func bindingsMatchProject(p project.Project, bindings []projectapp.RepositoryBinding) bool {

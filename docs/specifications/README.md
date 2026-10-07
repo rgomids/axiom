@@ -82,6 +82,11 @@ and [local implementation Evidence](002-lingo-project-initialization/evidence-is
 V1 remains supported without automatic rewrite; implementation does not imply human
 acceptance, Issue closure or publication.
 
+Issue #231 adds the [Project bootstrap v3 and readiness contract](002-lingo-project-initialization/project-bootstrap-v3.md)
+and [local implementation Evidence](002-lingo-project-initialization/evidence-issue-231.md):
+portable schema 3 context, local documentation bindings, guided bootstrap and
+operation-scoped readiness. V1/v2 remain supported without rewrite.
+
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
 [T02](002-lingo-project-initialization/evidence-t02.md),
