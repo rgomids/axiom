@@ -21,7 +21,7 @@ is not available and do not run a Lingo command for it.
 |---|---|---|---|---|---|
 | `create` | new | `axiom --json work-item create` | external mutation | preview first; create only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous create intent |
 | `create` | existing | `axiom --json work-item select` | local mutation | preview first; link only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous select intent |
-| `run` | transition | `axiom --json workflow start`, `axiom --json workflow advance`, `axiom --json workflow resume` | local mutation | Lingo enforces the exact Execution revision and gate rules; no explicit authority input | only for unambiguous run intent |
+| `run` | transition | `axiom --json workflow start`, `axiom --json workflow advance`, `axiom --json workflow resume` | local mutation | `workflow start` previews the Runtime/Profile resolution first and starts only with the exact `--runtime-preview`; Lingo enforces the exact Execution revision and gate rules | only for unambiguous run intent |
 | `run` | fact | `axiom --json workflow fact` | local mutation | only with `--authorize-local` and the exact Execution revision | only for unambiguous run intent |
 | `run` | reconcile | `axiom --json workflow reconcile` | external mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous run intent |
 | `status` | - | `axiom --json workflow status`, `axiom --json workflow evidence` | read-only | none | allowed |
@@ -82,10 +82,28 @@ Collect only missing Project, Project-scoped Repository, exact Work Item, and
 applicable Execution selectors. Use
 `--project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>`.
 
-Start through `axiom --json workflow start`, passing `--runtime codex` or
-`--runtime claude` for the Runtime executing this skill. Resume/advance/status/
-evidence/reconcile calls forward the exact `--execution <id>` returned by Lingo
-and never pass `--runtime` again.
+Starting is a reviewed two-step protocol; the first call only previews:
+
+```text
+axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>
+axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime> --runtime-preview <previewDigest>
+axiom --json workflow status <selectors> --execution <executionId>
+```
+
+Collect role, complexity, and comma-separated capabilities from the user or the
+approved Plan; never invent them. `<runtime>` is `codex` or `claude`, naming the
+Runtime executing this skill, which narrows the Project policy and never widens
+it. Never default to Codex or infer a Runtime from installed executables. Lingo
+observes Runtimes itself: never supply, invent, or claim an observation, version,
+or proven capability. Preserve and report the first call's `runtimeResolution`
+and `previewDigest`. A blocker stops the workflow. Otherwise show the selected
+Runtime, Model Profile, model, and revisions and wait for an explicit decision;
+only then repeat the identical inputs with `--runtime-preview <previewDigest>`.
+Never edit a digest or reuse one after a blocker: `stale_preview` requires a
+fresh preview. The Execution's Runtime is the selected
+`runtimeResolution.choice.runtimeId`. Resume/advance/status/evidence/reconcile
+calls forward the exact `--execution <id>` returned by Lingo and never pass
+`--runtime`, policy inputs, or `--runtime-preview` again.
 
 Reconcile through `axiom --json workflow reconcile` with the exact Execution
 revision; present the returned preview and repeat with its
@@ -121,7 +139,7 @@ conflicting inputs go to Lingo validation. Runtime skill text is a presentation
 and routing surface, not the workflow or domain source of truth.
 
 Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
-Operation-specific payloads preserved separately: `draft`, `selection`, `workItem`, `workflow`, `projection`
+Operation-specific payloads preserved separately: `draft`, `selection`, `workItem`, `workflow`, `projection`, `runtimeResolution`, `previewDigest`
 
 Copy canonical completion fields only from Lingo's top-level JSON object. Omit
 absent canonical fields. Never derive, synthesize, or reinterpret a canonical

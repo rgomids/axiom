@@ -100,9 +100,9 @@ var (
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
 		example: "axiom --json work-item select --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
 	workflowTransitionMode = skillModeSpec{name: "transition", effect: effectLocalMutation, actions: []action{workflowStartAction, workflowAdvanceAction, workflowResumeAction},
-		authority:       "Lingo enforces the exact Execution revision and gate rules; no explicit authority input",
+		authority:       "workflow start previews the Runtime/Profile resolution first and starts only with the exact --runtime-preview; Lingo enforces the exact Execution revision and gate rules",
 		authorityInputs: []string{}, rejectedInputs: []string{},
-		example: "axiom --json workflow start --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --runtime <codex|claude>"}
+		example: "axiom --json workflow start --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <codex|claude>"}
 	workflowFactMode = skillModeSpec{name: "fact", effect: effectLocalMutation, actions: []action{workflowFactAction},
 		authority:       "records a workflow fact only with --authorize-local and the exact Execution revision",
 		authorityInputs: []string{"--authorize-local"}, rejectedInputs: []string{},

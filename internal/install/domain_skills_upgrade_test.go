@@ -15,7 +15,8 @@ import (
 
 // Issue #229: v0.6.0 was the last release whose archive carried six skills.
 // An owned upgrade from such an installation to the eight-skill candidate
-// keeps the six compatibility skills, creates the two domain skills, and
+// keeps the compatibility skills, replaces only the owned axiom-work-item-run
+// text whose start protocol #140 changed, creates the two domain skills, and
 // never adopts content Axiom did not publish.
 
 const v060SkillManifestSHA256 = "d7190ebb175652c1080288a2f293a1ba70d101d7874880c6eca91b1092dedc3a"
@@ -51,6 +52,9 @@ func installSixSkillRelease(t *testing.T) (installation, string) {
 	previous := &bundle{version: "0.6.0", binary: []byte("binary 0.6.0\n"), skills: map[string][]byte{}}
 	for _, name := range sixReleaseSkills {
 		previous.skills[name] = self.skills[name]
+		if name == changedCompatibilitySkill {
+			previous.skills[name] = v060Skill(t, name)
+		}
 	}
 	lines, _, err := parseMetadata(newBundle("0.6.0", nil).contents()["release-metadata.txt"])
 	if err != nil {
@@ -68,6 +72,19 @@ func installSixSkillRelease(t *testing.T) (installation, string) {
 	return installed, root
 }
 
+// changedCompatibilitySkill is the only six-release skill whose embedded text
+// differs from what v0.6.0 published.
+const changedCompatibilitySkill = "axiom-work-item-run"
+
+func v060Skill(t *testing.T, name string) []byte {
+	t.Helper()
+	wire, err := os.ReadFile(filepath.Join("..", "codexruntime", "testdata", "published-skills", "v0.6.0", name, "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return wire
+}
+
 func TestUpgradeFromSixSkillReleaseAddsOnlyDomainSkills(t *testing.T) {
 	installed, root := installSixSkillRelease(t)
 	candidate := installed.candidate(t, selfBundle(t, "1.1.0"))
@@ -78,11 +95,12 @@ func TestUpgradeFromSixSkillReleaseAddsOnlyDomainSkills(t *testing.T) {
 	kinds := []string{}
 	for _, effect := range preview.Effects {
 		kinds = append(kinds, strings.TrimSuffix(effect.Kind+":"+effect.Name, ":"))
-		if effect.Kind == "skill" && (!slices.Contains(domainSkillNames, effect.Name) || effect.Expected != absentRevision) {
+		replacesChanged := effect.Name == changedCompatibilitySkill && effect.Expected == digest(v060Skill(t, changedCompatibilitySkill))
+		if effect.Kind == "skill" && !replacesChanged && (!slices.Contains(domainSkillNames, effect.Name) || effect.Expected != absentRevision) {
 			t.Fatalf("upgrade touches compatibility skill or replaces content: %+v", effect)
 		}
 	}
-	if want := []string{"binary", "receipt", "skill:axiom-project", "skill:axiom-work-item", "skill_receipt"}; !slices.Equal(kinds, want) {
+	if want := []string{"binary", "receipt", "skill:axiom-work-item-run", "skill:axiom-project", "skill:axiom-work-item", "skill_receipt"}; !slices.Equal(kinds, want) {
 		t.Fatalf("effects=%v want %v", kinds, want)
 	}
 	if last := preview.Effects[len(preview.Effects)-1]; last.Expected != digest(publishedCodexReceipt(t, "v0.6.0")) {

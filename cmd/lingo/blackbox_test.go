@@ -108,10 +108,20 @@ type cliEvent struct {
 }
 
 type canonicalEvent struct {
-	Status     string   `json:"status"`
-	Result     string   `json:"result"`
-	References []string `json:"references"`
-	Provenance struct {
+	RuntimeResolution *struct {
+		Choice *struct {
+			RuntimeID        string `json:"runtimeId"`
+			ExecutableDigest string `json:"executableDigest"`
+		} `json:"choice"`
+		Blocker *struct {
+			Code string `json:"code"`
+		} `json:"blocker"`
+	} `json:"runtimeResolution"`
+	PreviewDigest string   `json:"previewDigest"`
+	Status        string   `json:"status"`
+	Result        string   `json:"result"`
+	References    []string `json:"references"`
+	Provenance    struct {
 		Product, Version, Revision, SourceState string
 	} `json:"provenance"`
 	Setup struct {
@@ -481,10 +491,17 @@ exit 0
 		t.Fatalf("selected item = %+v", selected.WorkItem)
 	}
 	runCanonical(0, "success", "Historical Work Item comment completed", "work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence", "--authorize-external")
-	started := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "start", "--project", "configured", "--repository", "main", "--number", "7")
-	// No --runtime keeps the historical Codex default.
+	policyFlags := installTestRuntimePolicy(t, state, preview.Setup.ProjectID, "codex")
+	startArgs := append([]string{"workflow", "start", "--project", "configured", "--repository", "main", "--number", "7"}, policyFlags...)
+	runtimePreview := runCanonical(0, "success", "Project Runtime resolution preview ready", startArgs...)
+	started := runCanonical(0, "success", "Execution workflow operation completed", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
+	// Omitted --runtime resolves Codex from the explicitly configured policy and
+	// the codex executable plus verified skills observed on this PATH.
 	if started.Workflow == nil || started.Workflow.ExecutionID == "" || started.Workflow.CurrentGate != "intake" || started.Workflow.Revision != 1 || started.Workflow.RuntimeID != "codex" {
 		t.Fatalf("started workflow = %+v", started.Workflow)
+	}
+	if _, err := os.Lstat(executed); !os.IsNotExist(err) {
+		t.Fatal("Runtime observation executed the Runtime")
 	}
 	exactWorkItem := "github:owner/repo#7"
 	runCanonical(0, "success", "Work Item link loaded", "work-item", "show", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem)

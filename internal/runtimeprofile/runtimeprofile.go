@@ -68,12 +68,15 @@ type Configuration struct {
 	Preferences   []Preference   `json:"preferences,omitempty"`
 }
 
+// Observation.ExecutableDigest is a presentation-safe identity of the concrete
+// executable observed for the Runtime; it never contains a path.
 type Observation struct {
 	RuntimeID        string                      `json:"runtimeId"`
 	Adapter          string                      `json:"adapter"`
 	Installed        bool                        `json:"installed"`
 	Available        bool                        `json:"available"`
 	Version          string                      `json:"version,omitempty"`
+	ExecutableDigest string                      `json:"executableDigest,omitempty"`
 	Revision         uint64                      `json:"revision"`
 	ObservedAt       time.Time                   `json:"observedAt"`
 	CapabilityStatus map[string]CapabilityStatus `json:"capabilityStatus"`
@@ -97,6 +100,7 @@ type Choice struct {
 	Model                 string   `json:"model"`
 	Capabilities          []string `json:"capabilities"`
 	RuntimeVersion        string   `json:"runtimeVersion,omitempty"`
+	ExecutableDigest      string   `json:"executableDigest,omitempty"`
 	ConfigurationRevision uint64   `json:"configurationRevision"`
 	ObservationRevision   uint64   `json:"observationRevision"`
 }
@@ -149,7 +153,7 @@ func (r Resolver) Resolve(ctx context.Context, cfg Configuration, request Reques
 			candidates = append(candidates, Choice{
 				RuntimeID: runtime.ID, Adapter: runtime.Adapter, ModelProfileID: profile.ID,
 				Model: profile.Model, Capabilities: sortedStrings(request.Capabilities), RuntimeVersion: observation.Version,
-				ConfigurationRevision: cfg.Revision, ObservationRevision: observation.Revision,
+				ExecutableDigest: observation.ExecutableDigest, ConfigurationRevision: cfg.Revision, ObservationRevision: observation.Revision,
 			})
 		}
 	}
@@ -231,6 +235,7 @@ func Digest(cfg Configuration) (string, error) {
 	normalized := cfg
 	normalized.Runtimes = sortedRuntimes(cfg.Runtimes)
 	normalized.ModelProfiles = append([]ModelProfile(nil), cfg.ModelProfiles...)
+	normalized.Preferences = append([]Preference(nil), cfg.Preferences...)
 	sort.Slice(normalized.ModelProfiles, func(i, j int) bool { return normalized.ModelProfiles[i].ID < normalized.ModelProfiles[j].ID })
 	for index := range normalized.Runtimes {
 		normalized.Runtimes[index].AllowlistedProfileIDs = sortedStrings(normalized.Runtimes[index].AllowlistedProfileIDs)

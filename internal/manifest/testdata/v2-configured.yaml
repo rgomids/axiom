@@ -1,0 +1,24 @@
+schemaVersion: 2
+project: {id: 12345678-1234-4abc-8def-123456789abc, slug: sample, name: Sample}
+runtimes:
+  - id: codex
+  - id: claude
+modelProfiles:
+  - key: worker
+    runtimeRef: codex
+    model: Opaque/Model
+  - key: later
+    state: unconfigured
+  - key: careful
+    runtimeRef: claude
+    model: Approved Model
+runtimePreferences:
+  - role: review
+    complexity: high
+    modelProfileRef: careful
+  - role: implementation
+    complexity: low
+    modelProfileRef: worker
+  - role: implementation
+    complexity: high
+    modelProfileRef: careful

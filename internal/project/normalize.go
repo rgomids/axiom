@@ -19,6 +19,8 @@ func cloneState(s State) State {
 		s.Integrations.value[i].Capabilities = cloneList(s.Integrations.value[i].Capabilities)
 	}
 	s.ModelProfiles = cloneList(s.ModelProfiles)
+	s.Runtimes = cloneList(s.Runtimes)
+	s.RuntimePreferences = cloneList(s.RuntimePreferences)
 	s.CredentialReferences = cloneList(s.CredentialReferences)
 	s.Policies = cloneList(s.Policies)
 	s.BusinessContext.value.Documents = cloneList(s.BusinessContext.value.Documents)
@@ -32,6 +34,14 @@ func normalize(s *State) {
 	sort.Slice(s.Repositories.value, func(i, j int) bool { return s.Repositories.value[i].Key < s.Repositories.value[j].Key })
 	sort.Slice(s.Providers.value, func(i, j int) bool { return s.Providers.value[i].Key < s.Providers.value[j].Key })
 	sort.Slice(s.Integrations.value, func(i, j int) bool { return s.Integrations.value[i].Key < s.Integrations.value[j].Key })
+	sort.Slice(s.Runtimes.value, func(i, j int) bool { return s.Runtimes.value[i].ID < s.Runtimes.value[j].ID })
+	sort.Slice(s.RuntimePreferences.value, func(i, j int) bool {
+		a, b := s.RuntimePreferences.value[i], s.RuntimePreferences.value[j]
+		if a.Role != b.Role {
+			return a.Role < b.Role
+		}
+		return a.Complexity < b.Complexity
+	})
 	sort.Slice(s.ModelProfiles.value, func(i, j int) bool { return s.ModelProfiles.value[i].Key < s.ModelProfiles.value[j].Key })
 	sort.Slice(s.CredentialReferences.value, func(i, j int) bool { return s.CredentialReferences.value[i].Key < s.CredentialReferences.value[j].Key })
 }

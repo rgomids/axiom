@@ -98,14 +98,14 @@ func TestStrictProjectConfigurePreservesRepeatableRepository(t *testing.T) {
 }
 
 func TestWorkflowStartRuntimeSelector(t *testing.T) {
-	base := []string{"workflow", "start", "--project", "sample", "--repository", "main", "--number", "7"}
+	base := []string{"workflow", "start", "--project", "sample", "--repository", "main", "--number", "7", "--role", "implementation", "--complexity", "high", "--capabilities", "code"}
 	for name, test := range map[string]struct {
 		args []string
 		want string
 	}{
-		"claude":             {[]string{"--runtime", "claude"}, "workflow-start:sample:main:7:claude"},
-		"codex":              {[]string{"--runtime=codex"}, "workflow-start:sample:main:7:codex"},
-		"historical default": {nil, "workflow-start:sample:main:7:codex"},
+		"claude":                   {[]string{"--runtime", "claude"}, "workflow-start:sample:main:7:claude"},
+		"codex":                    {[]string{"--runtime=codex"}, "workflow-start:sample:main:7:codex"},
+		"policy resolved omission": {nil, "workflow-start:sample:main:7:"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			var output bytes.Buffer

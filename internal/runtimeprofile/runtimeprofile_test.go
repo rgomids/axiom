@@ -129,3 +129,18 @@ func testConfiguration() Configuration {
 func testObservation(runtimeID, adapter string, available bool) Observation {
 	return Observation{RuntimeID: runtimeID, Adapter: adapter, Installed: true, Available: available, Version: "test", Revision: 7, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: map[string]CapabilityStatus{"go": CapabilityProven, "repository-write": CapabilityProven}}
 }
+
+func TestDigestDoesNotMutateCallerPreferences(t *testing.T) {
+	cfg := testConfiguration()
+	cfg.Preferences = []Preference{
+		{Role: "z-review", Complexity: "high", ModelProfileID: cfg.ModelProfiles[0].ID},
+		{Role: "a-implementation", Complexity: "high", ModelProfileID: cfg.ModelProfiles[0].ID},
+	}
+	before := append([]Preference(nil), cfg.Preferences...)
+	if _, err := Digest(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, cfg.Preferences) {
+		t.Fatal("read-only digest changed preferences")
+	}
+}

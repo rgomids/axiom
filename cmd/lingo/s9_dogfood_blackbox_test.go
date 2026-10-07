@@ -144,7 +144,16 @@ func runFakeGitHub(path string, args []string, stdin io.Reader, stdout io.Writer
 // conducted by Claude was persisted as codex, and `work-item create` →
 // `workflow start` → first transition → `workflow reconcile` required
 // recovery because the new Issue carried no axiom:stage:* marker.
-func TestExecutableClaudeRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T) {
+// Both concrete Runtimes start only through the protocol the installed Work
+// Item skills teach, on the Runtime Lingo itself observes.
+func TestExecutableRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T) {
+	for _, runtimeID := range []string{"claude", "codex"} {
+		t.Run(runtimeID, func(t *testing.T) { executableRuntimeJourney(t, runtimeID) })
+	}
+}
+
+func executableRuntimeJourney(t *testing.T, runtimeID string) {
+	other := map[string]string{"claude": "codex", "codex": "claude"}[runtimeID]
 	binary := filepath.Join(t.TempDir(), testExecutableName("axiom"))
 	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build executable: %v: %s", err, output)
@@ -178,7 +187,8 @@ func TestExecutableClaudeRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T
 	if err := os.Mkdir(repository, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	environment := append(os.Environ(), "HOME="+t.TempDir(), "PATH="+t.TempDir(), "CLAUDE_CONFIG_DIR=", "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+statePath)
+	runtimeBin := t.TempDir()
+	environment := append(os.Environ(), "HOME="+t.TempDir(), "PATH="+runtimeBin, "CLAUDE_CONFIG_DIR=", "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+statePath)
 	type event struct {
 		canonicalEvent
 		Workflow *struct {
@@ -240,9 +250,48 @@ func TestExecutableClaudeRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T
 		t.Fatalf("invalid Runtime selector created Executions: %v", records)
 	}
 
-	started := run(0, "success", append(append([]string{"workflow", "start"}, selector...), "--runtime", "claude")...)
-	if started.Workflow == nil || started.Workflow.RuntimeID != "claude" || started.Workflow.Revision != 1 {
+	installTestRuntimePolicy(t, state, setup.Setup.ProjectID, runtimeID)
+	// Claude follows the operation-specific skill, Codex the domain skill.
+	protocol := workItemRunStartProtocol(t, map[string]string{"claude": "axiom-work-item-run", "codex": "axiom-work-item"}[runtimeID])
+	values := map[string]string{"role": "implementation", "complexity": "high", "capabilities": "axiom-skills", "runtime": runtimeID}
+	previewArgs := expandProtocol(t, protocol[0], selector, values)
+	// Lingo observes the Runtime itself: without its executable and verified
+	// Axiom skill integration the reviewed policy cannot resolve.
+	run(1, "validation_failure", previewArgs...)
+	executed := filepath.Join(t.TempDir(), runtimeID+"-executed")
+	if err := os.WriteFile(filepath.Join(runtimeBin, testExecutableName(runtimeID)), []byte("#!/bin/sh\ntouch "+executed+"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	run(1, "validation_failure", previewArgs...)
+	run(0, "success", "runtime", runtimeID, "install")
+	// The other Runtime is neither allowed by the Project nor observed here.
+	values["runtime"] = other
+	if denied := run(1, "validation_failure", expandProtocol(t, protocol[0], selector, values)...); denied.RuntimeResolution == nil || denied.RuntimeResolution.Choice != nil {
+		t.Fatalf("other Runtime resolved: %+v", denied.RuntimeResolution)
+	}
+	values["runtime"] = runtimeID
+	runtimePreview := run(0, "success", previewArgs...)
+	if runtimePreview.RuntimeResolution == nil || runtimePreview.RuntimeResolution.Choice == nil || runtimePreview.RuntimeResolution.Choice.RuntimeID != runtimeID || runtimePreview.RuntimeResolution.Choice.ExecutableDigest == "" || runtimePreview.PreviewDigest == "" || runtimePreview.Workflow != nil {
+		t.Fatalf("preview = %+v", runtimePreview)
+	}
+	if records, _ := filepath.Glob(executions); len(records) != 0 {
+		t.Fatalf("preview created Executions: %v", records)
+	}
+	values["previewDigest"] = strings.Repeat("0", 64)
+	if stale := run(1, "validation_failure", expandProtocol(t, protocol[1], selector, values)...); stale.RuntimeResolution == nil || stale.RuntimeResolution.Blocker == nil || stale.RuntimeResolution.Blocker.Code != "stale_preview" {
+		t.Fatalf("unreviewed digest = %+v", stale.RuntimeResolution)
+	}
+	values["previewDigest"] = runtimePreview.PreviewDigest
+	started := run(0, "success", expandProtocol(t, protocol[1], selector, values)...)
+	if started.Workflow == nil || started.Workflow.RuntimeID != runtimePreview.RuntimeResolution.Choice.RuntimeID || started.Workflow.Revision != 1 {
 		t.Fatalf("started = %+v", started.Workflow)
+	}
+	values["executionId"] = started.Workflow.ExecutionID
+	if status := run(0, "success", expandProtocol(t, protocol[2], selector, values)...); status.Workflow == nil || status.Workflow.ExecutionID != started.Workflow.ExecutionID || status.Workflow.RuntimeID != runtimeID {
+		t.Fatalf("protocol status = %+v", status.Workflow)
+	}
+	if _, err := os.Lstat(executed); !os.IsNotExist(err) {
+		t.Fatal("workflow start executed the Runtime")
 	}
 	execution := append(append([]string{}, selector...), "--execution", started.Workflow.ExecutionID)
 	records, err := filepath.Glob(executions)
@@ -250,27 +299,27 @@ func TestExecutableClaudeRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T
 		t.Fatalf("Execution records = %v, %v", records, err)
 	}
 	persisted, err := os.ReadFile(records[0])
-	if err != nil || !strings.Contains(string(persisted), `"runtimeId":"claude"`) {
-		t.Fatalf("persisted Execution does not carry Claude: %s %v", persisted, err)
+	if err != nil || !strings.Contains(string(persisted), `"runtimeId":"`+runtimeID+`"`) {
+		t.Fatalf("persisted Execution does not carry %s: %s %v", runtimeID, persisted, err)
 	}
 	// The Runtime of an existing Execution cannot be switched or re-selected.
-	run(1, "validation_failure", append(append([]string{"workflow", "start"}, selector...), "--runtime", "codex")...)
+	run(1, "validation_failure", append(append([]string{"workflow", "start"}, selector...), "--runtime", other)...)
 	run(1, "validation_failure", append([]string{"workflow", "start"}, selector...)...)
-	run(1, "validation_failure", append(append([]string{"workflow", "status"}, execution...), "--runtime", "codex")...)
+	run(1, "validation_failure", append(append([]string{"workflow", "status"}, execution...), "--runtime", other)...)
 	if unchanged, _ := os.ReadFile(records[0]); !bytes.Equal(unchanged, persisted) {
 		t.Fatal("Runtime conflict changed the persisted Execution")
 	}
-	if status := run(0, "success", append([]string{"workflow", "status"}, execution...)...); status.Workflow.RuntimeID != "claude" {
+	if status := run(0, "success", append([]string{"workflow", "status"}, execution...)...); status.Workflow.RuntimeID != runtimeID {
 		t.Fatalf("status Runtime = %q", status.Workflow.RuntimeID)
 	}
 
 	advanced := run(0, "success", append(append([]string{"workflow", "advance"}, execution...), "--expected-revision", "1", "--gate", "intake", "--outcome", "pass")...)
-	if advanced.Workflow.RuntimeID != "claude" || advanced.Workflow.Revision != 2 {
+	if advanced.Workflow.RuntimeID != runtimeID || advanced.Workflow.Revision != 2 {
 		t.Fatalf("advanced = %+v", advanced.Workflow)
 	}
 	reconcile := append(append([]string{"workflow", "reconcile"}, execution...), "--expected-revision", "2")
 	preview := run(0, "success", reconcile...)
-	if preview.Projection == nil || preview.Workflow.RuntimeID != "claude" {
+	if preview.Projection == nil || preview.Workflow.RuntimeID != runtimeID {
 		t.Fatalf("preview = %+v", preview)
 	}
 	var kinds []string
@@ -287,7 +336,7 @@ func TestExecutableClaudeRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T
 
 	authorized := append(append([]string{}, reconcile...), "--preview-digest", preview.Projection.Digest, "--authorize-external")
 	applied := run(0, "success", authorized...)
-	if applied.Workflow.RuntimeID != "claude" {
+	if applied.Workflow.RuntimeID != runtimeID {
 		t.Fatalf("applied = %+v", applied.Workflow)
 	}
 	github = readFake()

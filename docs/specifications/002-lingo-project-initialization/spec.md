@@ -676,3 +676,9 @@ in the [Specification index](../README.md#002--lingo-project-initialization).
 H13 authorizes no new implementation unit. Deferred mechanisms and remaining
 Evidence obligations stay in the
 [Plan](plan.md#remaining-review-concerns-and-deferred-design).
+
+## Issue #140 — versioned Runtime/Profile policy
+
+The additive [Runtime/Profile v2 contract](runtime-policy-v2.md) governs the next
+portable manifest version and execution projection. Historical v1 sections above
+remain v1 contracts; v2 support does not reinterpret or rewrite v1 Projects.

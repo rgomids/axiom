@@ -52,7 +52,7 @@ func reject(t *testing.T, source string) {
 func TestSchemaVersion(t *testing.T) {
 	decode(t, minimal)
 	reject(t, strings.Replace(minimal, "schemaVersion: 1\n", "", 1))
-	for _, version := range []string{"0", "2", `"1"`, "true", "null", "1.0", "1e0", "999", "99999999999999999999999999", "01", "0x1", "+1", "1_0"} {
+	for _, version := range []string{"0", "3", `"1"`, "true", "null", "1.0", "1e0", "999", "99999999999999999999999999", "01", "0x1", "+1", "1_0"} {
 		t.Run(version, func(t *testing.T) {
 			reject(t, strings.Replace(minimal, "schemaVersion: 1", "schemaVersion: "+version, 1))
 		})
@@ -87,7 +87,7 @@ func TestYAMLAbuse(t *testing.T) {
 	}
 }
 func TestGoldenRoundTrip(t *testing.T) {
-	for _, name := range []string{"minimal", "configured", "unconfigured", "empty"} {
+	for _, name := range []string{"minimal", "configured", "unconfigured", "empty", "v2-minimal", "v2-configured", "v2-unconfigured", "v2-empty"} {
 		t.Run(name, func(t *testing.T) {
 			input, err := os.ReadFile("testdata/" + name + ".yaml")
 			if err != nil {

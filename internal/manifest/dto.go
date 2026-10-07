@@ -41,9 +41,11 @@ type manifestDTO struct {
 	Project              identityDTO                `yaml:"project"`
 	Repositories         optional[[]repositoryDTO]  `yaml:"repositories,omitempty"`
 	Runtime              optional[runtimeDTO]       `yaml:"runtime,omitempty"`
+	Runtimes             optional[[]runtimeDTO]     `yaml:"runtimes,omitempty"`
 	Providers            optional[[]providerDTO]    `yaml:"providers,omitempty"`
 	Integrations         optional[[]integrationDTO] `yaml:"integrations,omitempty"`
 	ModelProfiles        optional[[]profileDTO]     `yaml:"modelProfiles,omitempty"`
+	RuntimePreferences   optional[[]preferenceDTO]  `yaml:"runtimePreferences,omitempty"`
 	BusinessContext      optional[contextDTO]       `yaml:"businessContext,omitempty"`
 	CredentialReferences optional[[]credentialDTO]  `yaml:"credentialReferences,omitempty"`
 	Policies             optional[[]string]         `yaml:"policies,omitempty"`
@@ -59,6 +61,11 @@ type repositoryDTO struct {
 }
 type runtimeDTO struct {
 	ID string `yaml:"id"`
+}
+type preferenceDTO struct {
+	Role            string `yaml:"role"`
+	Complexity      string `yaml:"complexity"`
+	ModelProfileRef string `yaml:"modelProfileRef"`
 }
 type providerDTO struct {
 	Key string `yaml:"key"`

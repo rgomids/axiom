@@ -42,11 +42,12 @@ func (v *validation) key(field, key string, seen map[string]bool) {
 
 func validate(s State) []Issue {
 	v := &validation{}
-	if s.SchemaVersion != 1 {
+	if s.SchemaVersion != 1 && s.SchemaVersion != 2 {
 		v.add("schemaVersion", "unsupported_schema")
 	}
 	v.issues = append(v.issues, ValidateIdentity(s.ID, s.Slug)...)
 	v.required("project.name", s.Name)
+	v.runtimePolicy(s)
 	v.repositories(s.Repositories)
 	if s.Runtime.form == Present {
 		v.required("runtime.id", s.Runtime.value.ID)
@@ -155,11 +156,11 @@ func (v *validation) integration(field string, in Integration, keys, providers, 
 func (v *validation) profiles(s State) {
 	keys := map[string]bool{}
 	for i, profile := range s.ModelProfiles.value {
-		v.profile(fmt.Sprintf("modelProfiles[%d]", i), profile, keys, s.Runtime)
+		v.profile(fmt.Sprintf("modelProfiles[%d]", i), profile, keys, declaredRuntime(s, profile.RuntimeRef.value))
 	}
 }
 
-func (v *validation) profile(field string, p ModelProfile, keys map[string]bool, runtime Declaration[Runtime]) {
+func (v *validation) profile(field string, p ModelProfile, keys map[string]bool, runtimeExists bool) {
 	v.key(field+".key", p.Key, keys)
 	if p.State.form == Present {
 		v.add(field+".state", "invalid_declaration")
@@ -173,7 +174,7 @@ func (v *validation) profile(field string, p ModelProfile, keys map[string]bool,
 	if p.RuntimeRef.form != Present || p.Model.form != Present {
 		v.add(field, "invalid_profile")
 	}
-	v.reference(field+".runtimeRef", p.RuntimeRef, runtime.form == Present && runtime.value.ID == p.RuntimeRef.value)
+	v.reference(field+".runtimeRef", p.RuntimeRef, runtimeExists)
 	v.optionalString(field+".model", p.Model, false)
 }
 

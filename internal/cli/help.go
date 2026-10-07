@@ -14,6 +14,8 @@ Commands:
   runtime codex install|status
   runtime claude install|status
   runtime profile validate
+  runtime profile preview --project <uuid-or-slug> --role <token> --complexity <token>
+    --capabilities <comma-list> [--runtime codex|claude]
   project configure|list|show|resolve|init|validate|reopen|update|install
   work-item create|select|show|comment|complete
   workflow start|advance|fact|resume|status|evidence|reconcile
@@ -61,12 +63,23 @@ Omitted values are preserved. Edit rejects --slug (rename) and, because edit
 publication is not available, --project-id, --preview-digest and
 --authorize-local.
 
+project install --source <dir> records an authored manifest, such as one that
+declares a Runtime/Profile policy; each Repository it declares needs exactly one
+--repository <key>=<absolute-path>.
+
 Strict selector vocabulary:
   --project <project-uuid-or-slug>
   --repository <project-scoped-key>
   --work-item github:<owner>/<repository>#<number>
   --execution <execution-id> (all workflow operations except start)
-  --runtime codex|claude (workflow start only; default codex; kept by the Execution)
+  --runtime codex|claude (optional policy constraint for workflow start)
+  --role <token> --complexity <token> --capabilities <comma-list> (workflow start policy inputs)
+  --runtime-preview <digest> (start only after exact preview and fresh validation)
+
+Workflow start without --runtime-preview previews only. No Runtime is assumed.
+Lingo observes each configured Runtime itself: its executable on PATH (identity
+only, never run) and Axiom's skill integration, the only capability it proves
+(axiom-skills). Any other required capability stays unproven and blocks.
 
 Fully specified selectors require no prompt. Missing selectors may be prompted;
 unknown, duplicate, conflicting, or ambiguous selectors fail validation without

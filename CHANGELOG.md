@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Project Runtime/Profile policy v2, explicit legacy-v1 projection, inspectable
+  pre-execution selection and stale-decision blocking ([#140](https://github.com/rgomids/axiom/issues/140)).
+- Lingo observes Runtimes itself: executable identity without running it, and
+  `axiom-skills` as the only capability it proves. Dispatch blocks unless the
+  command profile matches the reviewed credential reference and executable.
+- `axiom-work-item-run` and `axiom-work-item` teach the reviewed preview →
+  `previewDigest` → `--runtime-preview` start; an owned v0.6.0
+  `axiom-work-item-run` is replaced in place on upgrade.
+- `project install --source` accepts `--repository <key>=<absolute-path>` so an
+  authored manifest that declares Repositories and a Runtime/Profile policy can
+  be installed.
+
+### Breaking changes
+
+- Workflow start requires explicit role, complexity and capabilities and a
+  reviewed resolution digest; omitted Runtime no longer defaults to Codex.
+  Projects created by `project configure` carry no policy and block until an
+  authored policy is installed.
+
 ## [0.6.0](https://github.com/rgomids/axiom/compare/v0.5.0...v0.6.0) (2026-10-07)
 
 

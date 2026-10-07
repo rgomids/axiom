@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
@@ -72,7 +73,10 @@ type UpdateInput struct {
 	Slug string
 	Name string
 }
-type InstallInput struct{ Source string }
+type InstallInput struct {
+	Source       string
+	Repositories []RepositoryInput
+}
 type ResolveInput struct{ Selector string }
 type RepositoryInput struct{ Key, Path string }
 type ConfigureInput struct {
@@ -108,6 +112,8 @@ type WorkflowInput struct {
 	ExternalID, Execution, Gate, Outcome, Reference, Next       string
 	Fact                                                        string
 	Runtime                                                     string
+	Role, Complexity, RuntimePreview                            string
+	Capabilities                                                []string
 	Number                                                      int
 	ExpectedRevision                                            uint64
 	PreviewDigest                                               string
@@ -131,21 +137,23 @@ const (
 // must not return raw paths, input values, parser output, or operating-system
 // error strings for this surface.
 type Result struct {
-	Status     Status
-	Category   string
-	Project    *ProjectView
-	Projects   []ProjectListView
-	WorkItem   *WorkItemView
-	Workflow   *WorkflowView
-	Completion *completion.Result
-	Setup      *projectapp.SetupPreview
-	Edit       *projectapp.EditPreview
-	Runtime    *RuntimeView
-	Bootstrap  *BootstrapView
-	Draft      *workitem.DraftPreview
-	Selection  *workitem.SelectionPreview
-	Questions  []workitem.Question
-	Projection *workflow.ProjectionPreview
+	Status            Status
+	Category          string
+	Project           *ProjectView
+	Projects          []ProjectListView
+	WorkItem          *WorkItemView
+	Workflow          *WorkflowView
+	Completion        *completion.Result
+	Setup             *projectapp.SetupPreview
+	Edit              *projectapp.EditPreview
+	RuntimeResolution *runtimeapplication.Preview
+	PreviewDigest     string
+	Runtime           *RuntimeView
+	Bootstrap         *BootstrapView
+	Draft             *workitem.DraftPreview
+	Selection         *workitem.SelectionPreview
+	Questions         []workitem.Question
+	Projection        *workflow.ProjectionPreview
 	// Maintenance is a bounded, content-free view for compatibility,
 	// cleanup, recovery, and upgrade previews and results.
 	Maintenance any
@@ -258,6 +266,17 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if service == nil {
 		return emit(stdout, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
 	}
+	if len(args) >= 3 && args[0] == "runtime" && args[1] == "profile" && args[2] == "preview" {
+		input, ok := runtimePreviewFlags(args[3:])
+		if !ok {
+			return emitParserFailure(stdout, mode, runtimeProfilePreviewAction, "invalid_input", source)
+		}
+		profiles, ok := service.(RuntimeProfilePreviewService)
+		if !ok {
+			return emit(stdout, mode, event{Operation: runtimeProfilePreviewAction, Status: Failed, Category: "application_unavailable"})
+		}
+		return emitResponse(stdout, mode, runtimeProfilePreviewAction, profiles.RuntimeProfilePreview(ctx, input))
+	}
 	if len(args) >= 3 && args[0] == "runtime" && args[1] == "profile" && args[2] == "validate" {
 		if len(args) != 3 {
 			return emitParserFailure(stdout, mode, runtimeProfileValidateAction, "invalid_input", source)
@@ -346,6 +365,9 @@ func parserFailureText(operation action, issue string) (string, string) {
 	if operation == skillInspectAction {
 		return "Skill inspection input is invalid", "Run skill inspect with one exact embedded skill name and no workflow arguments"
 	}
+	if operation == runtimeProfilePreviewAction {
+		return "Runtime profile preview input is invalid", "Provide explicit Project, role, complexity and capabilities"
+	}
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
 	}
@@ -379,6 +401,9 @@ func selectorAction(operation action) bool {
 
 func emitResponse(writer io.Writer, mode outputMode, operation action, response Result) int {
 	if response.Completion != nil {
+		if response.RuntimeResolution != nil {
+			return emitRuntimeResolutionCompletion(writer, mode, *response.Completion, response)
+		}
 		if response.Project != nil {
 			return emitProjectCompletion(writer, mode, *response.Completion, *response.Project)
 		}
@@ -463,6 +488,8 @@ type requestInput struct {
 	message                                  string
 	gate, outcome, reference, next, fact     string
 	runtime                                  string
+	role, complexity, capabilities           string
+	runtimePreview                           string
 	number                                   int
 	expectedRevision                         uint64
 	authorizeExternal                        bool
@@ -583,6 +610,9 @@ func selectorRequestIssue(operation action, values requestInput) string {
 	if missingRequiredInputs(operation, values, "number") {
 		return "missing_required_input"
 	}
+	if operation == workflowStartAction && missingRequiredInputs(operation, values, "role", "complexity", "capabilities") {
+		return "missing_required_input"
+	}
 	if values.workItem != "" {
 		if _, _, _, ok := parseWorkItemSelector(values.workItem); !ok {
 			return "invalid_input"
@@ -614,6 +644,7 @@ func projectFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	}
 	if operation == installAction {
 		set.StringVar(&values.source, "source", "", "Project manifest source; `<path>`.")
+		set.Var(&values.repositories, "repository", "Bind each Repository the manifest declares; `<key>=<absolute-path>`.")
 	}
 	if operation == resolveAction || operation == showAction {
 		set.StringVar(&values.selector, "selector", "", "Configured Project identity; `<uuid-or-slug>`.")
@@ -756,7 +787,9 @@ func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set.StringVar(&values.execution, "execution", "", "Exact Execution identity; `<execution-id>`. Required with --work-item except start; start rejects that combination.")
 	set.IntVar(&values.number, "number", 0, "Legacy Work Item number; `<positive-integer>`. Alternative to --work-item.")
 	if operation == workflowStartAction {
-		set.StringVar(&values.runtime, "runtime", "", "Execution Runtime; `<codex|claude>`. CLI default codex; skills forward their actual Runtime.")
+		set.StringVar(&values.runtime, "runtime", "", "Optional Runtime constraint; `<codex|claude>`. Portable policy resolves omitted Runtime.")
+		runtimeRequestFlags(set, &values.role, &values.complexity, &values.capabilities)
+		set.StringVar(&values.runtimePreview, "runtime-preview", "", "Exact reviewed Runtime resolution digest; `<digest>`. Omission previews without starting.")
 	}
 	if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {
 		set.Uint64Var(&values.expectedRevision, "expected-revision", 0, "Exact current Execution revision; `<positive-integer>`.")
@@ -790,12 +823,10 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 		return requestInput{}, false
 	}
 	if operation == workflowStartAction {
-		// Only Start selects the Runtime; later operations use the one persisted
-		// in the Execution. Absence keeps the historical Codex default.
-		if !flagSupplied(args, "--runtime") {
-			values.runtime = "codex"
+		if flagSupplied(args, "--runtime") && !workflow.SupportedRuntime(values.runtime) {
+			return requestInput{}, false
 		}
-		if !workflow.SupportedRuntime(values.runtime) {
+		if values.runtimePreview != "" && !validPreviewDigest(values.runtimePreview) {
 			return requestInput{}, false
 		}
 	}
@@ -897,7 +928,11 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 	case updateAction:
 		return service.Update(ctx, UpdateInput{Slug: input.slug, Name: input.name})
 	case installAction:
-		return service.Install(ctx, InstallInput{Source: input.source})
+		repositories, ok := parseRepositories(input.repositories)
+		if !ok {
+			return Result{Status: Failed, Category: "invalid_input"}
+		}
+		return service.Install(ctx, InstallInput{Source: input.source, Repositories: repositories})
 	case resolveAction:
 		return service.Resolve(ctx, ResolveInput{Selector: input.selector})
 	case showAction:
@@ -951,7 +986,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		if input.workItem != "" && !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
-		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, Fact: input.fact, Active: input.active, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal, Runtime: input.runtime}
+		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, Fact: input.fact, Active: input.active, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal, Runtime: input.runtime, Role: input.role, Complexity: input.complexity, Capabilities: strings.Split(input.capabilities, ","), RuntimePreview: input.runtimePreview}
 		switch operation {
 		case workflowStartAction:
 			return service.WorkflowStart(ctx, value)
@@ -987,15 +1022,17 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 }
 
 type event struct {
-	Operation  action                      `json:"operation"`
-	Status     Status                      `json:"status"`
-	Category   string                      `json:"category"`
-	Project    *ProjectView                `json:"project,omitempty"`
-	WorkItem   *WorkItemView               `json:"workItem,omitempty"`
-	Workflow   *WorkflowView               `json:"workflow,omitempty"`
-	Setup      *projectapp.SetupPreview    `json:"setup,omitempty"`
-	Runtime    *RuntimeView                `json:"runtime,omitempty"`
-	Projection *workflow.ProjectionPreview `json:"projection,omitempty"`
+	Operation         action                      `json:"operation"`
+	Status            Status                      `json:"status"`
+	Category          string                      `json:"category"`
+	Project           *ProjectView                `json:"project,omitempty"`
+	WorkItem          *WorkItemView               `json:"workItem,omitempty"`
+	Workflow          *WorkflowView               `json:"workflow,omitempty"`
+	Setup             *projectapp.SetupPreview    `json:"setup,omitempty"`
+	Runtime           *RuntimeView                `json:"runtime,omitempty"`
+	RuntimeResolution *runtimeapplication.Preview `json:"runtimeResolution,omitempty"`
+	PreviewDigest     string                      `json:"previewDigest,omitempty"`
+	Projection        *workflow.ProjectionPreview `json:"projection,omitempty"`
 }
 
 type outputMode string
@@ -1016,7 +1053,7 @@ func parseOutputMode(args []string) (outputMode, []string) {
 }
 
 func eventFrom(operation action, result Result) event {
-	return event{Operation: operation, Status: result.Status, Category: result.Category, Project: result.Project, WorkItem: result.WorkItem, Workflow: result.Workflow, Setup: result.Setup, Runtime: result.Runtime, Projection: result.Projection}
+	return event{Operation: operation, Status: result.Status, Category: result.Category, Project: result.Project, WorkItem: result.WorkItem, Workflow: result.Workflow, Setup: result.Setup, Runtime: result.Runtime, RuntimeResolution: result.RuntimeResolution, PreviewDigest: result.PreviewDigest, Projection: result.Projection}
 }
 
 func emit(writer io.Writer, mode outputMode, value event) int {

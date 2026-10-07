@@ -11,19 +11,26 @@ import (
 
 // Issue #229 added the canonical axiom-project and axiom-work-item skills
 // after v0.6.0, the last release that published six skills. A Codex or Claude
-// root a six-skill release configured must converge additively: the six
-// compatibility skills stay, the two domain skills are created, the receipt is
-// replaced, and content Axiom never published is never overwritten.
+// root a six-skill release configured must converge: the six compatibility
+// skills stay, except an owned one whose contract later changed (#140 changed
+// axiom-work-item-run's start protocol), which is replaced by the embedded text;
+// the two domain skills are created, the receipt is replaced, and content Axiom
+// never published is never overwritten.
 
 var domainSkills = []string{"axiom-project", "axiom-work-item"}
 
-// sixSkillRevision is the v0.6.0 skill set: the last sharedSkillHistory
-// revision, pinned against the receipts v0.6.0 really wrote.
+// sixSkillRevision is the v0.6.0 skill set: the last six-skill
+// sharedSkillHistory revision, pinned against the receipts v0.6.0 really wrote.
 func sixSkillRevision(t *testing.T) skillSetRevision {
 	t.Helper()
-	revision := sharedSkillHistory[len(sharedSkillHistory)-1]
+	var revision skillSetRevision
+	for _, candidate := range sharedSkillHistory {
+		if len(candidate.skills) == 6 {
+			revision = candidate
+		}
+	}
 	if len(revision.skills) != 6 {
-		t.Fatalf("last shared revision has %d skills", len(revision.skills))
+		t.Fatal("no six-skill shared revision")
 	}
 	for _, name := range domainSkills {
 		if _, ok := revision.skills[name]; ok {
@@ -39,9 +46,9 @@ func seedSixSkillRoot(t *testing.T, service Service, root string) {
 	t.Helper()
 	revision := sixSkillRevision(t)
 	for name, digest := range revision.skills {
-		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
-		if err != nil || digestOf(content) != digest {
-			t.Fatalf("%s compatibility text drifted from v0.6.0: %v", name, err)
+		content := v060SkillText(t, name)
+		if digestOf(content) != digest {
+			t.Fatalf("%s compatibility text drifted from v0.6.0", name)
 		}
 		if err := os.Mkdir(filepath.Join(root, name), 0o700); err != nil {
 			t.Fatal(err)
@@ -57,6 +64,35 @@ func seedSixSkillRoot(t *testing.T, service Service, root string) {
 	if err := os.WriteFile(filepath.Join(root, receiptName), receipt, 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// v060SkillText is the exact text v0.6.0 published: the embedded text while it
+// is unchanged, otherwise the bytes preserved from the v0.6.0 tag.
+func v060SkillText(t *testing.T, name string) []byte {
+	t.Helper()
+	if embeddedChanged(t, name) {
+		content, err := os.ReadFile(filepath.Join("testdata", "published-skills", "v0.6.0", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return content
+	}
+	content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return content
+}
+
+// embeddedChanged reports whether this binary replaced the text v0.6.0
+// published for a compatibility skill: #140 changed axiom-work-item-run.
+func embeddedChanged(t *testing.T, name string) bool {
+	t.Helper()
+	content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return digestOf(content) != sixSkillRevision(t).skills[name]
 }
 
 func runtimeServices(t *testing.T) []func(string) (Service, error) {
@@ -81,6 +117,8 @@ func TestSixSkillRootConvergesAdditivelyToDomainSkills(t *testing.T) {
 				want := "equivalent"
 				if slices.Contains(domainSkills, skill.Name) {
 					want = "missing"
+				} else if embeddedChanged(t, skill.Name) {
+					want = "owned_older"
 				}
 				if skill.State != want {
 					t.Fatalf("%s state=%s want %s", skill.Name, skill.State, want)
@@ -92,9 +130,16 @@ func TestSixSkillRootConvergesAdditivelyToDomainSkills(t *testing.T) {
 				compatibility[name] = string(wire)
 			}
 			installOrFail(t, service, Applied)
+			// Unchanged compatibility skills keep their bytes; an owned one whose
+			// contract changed is replaced by exactly the embedded text.
 			for name, content := range compatibility {
-				if wire, _ := os.ReadFile(filepath.Join(root, name, "SKILL.md")); string(wire) != content {
-					t.Fatalf("compatibility skill %s changed", name)
+				wire, _ := os.ReadFile(filepath.Join(root, name, "SKILL.md"))
+				if embeddedChanged(t, name) {
+					embedded, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+					content = string(embedded)
+				}
+				if string(wire) != content {
+					t.Fatalf("compatibility skill %s = unexpected bytes", name)
 				}
 			}
 			if got := service.Inspect(context.Background()); got.Status != Ready || got.Receipt != ReceiptCurrent || len(got.Skills) != len(skillNames) {

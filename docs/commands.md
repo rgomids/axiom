@@ -72,7 +72,8 @@ interrupção/cancelamento. `init` é create/no-op/conflito: não
 renomeia nem atualiza um Project existente; use `update` para alterar o nome.
 
 `install` grava o record local estrito em `<state-root>/projects/<project-id>/installation.json`;
-não altera o manifest de origem. O store portátil básico aceita somente Project
+não altera o manifest de origem. Um manifest que declara Repositories exige um
+`--repository <key>=<absolute-path>` exato para cada key declarada. O store portátil básico aceita somente Project
 mínimo de um único `axiom.yaml` e recusa symlinks, artefatos extras e roots
 relativos. Bindings, Runtime Codex, GitHub Work Items e workflow usam
 stores/adapters separados; rename e documentos opcionais completos continuam
@@ -86,7 +87,10 @@ Execute o dogfooding reproduzível deste incremento em roots temporários:
 
 O script exige Go 1.26, Bash, `find`, `wc`, `tr`, `grep`, `sed`, `awk` e
 `shasum`. Ele instala Lingo em um PATH isolado, inicia fora do Project, instala e
-verifica as seis skills, configura/resolve Project, usa um Provider GitHub fake
+verifica as seis skills, configura/resolve Project, instala um Project com
+policy Runtime/Profile autorada, prova bloqueios sem fallback para Codex, revisa o
+preview Runtime observado pelo próprio Lingo (inclusive drift do executável) e só
+então inicia com `--runtime-preview`, usa um Provider GitHub fake
 limitado, executa todos os gates, cobre interrupção/retomada e completa o Work
 Item somente com authority explícita. A saída final é Evidence JSON versionada
 com hashes SHA-256. Instalação usa publicação sem substituição; resíduos de
@@ -405,6 +409,56 @@ AXIOM_CODEX_SKILLS_ROOT=/absolute/test/root axiom runtime codex install
 CLAUDE_CONFIG_DIR=/absolute/test/claude axiom runtime claude install
 ./scripts/test-codex-skills.sh
 ```
+
+## Preview Project Runtime/Profile selection
+
+The [portable v2 policy contract](specifications/002-lingo-project-initialization/runtime-policy-v2.md)
+keeps Project allowlists and preferences separate from machine-local configuration.
+V1 Projects remain readable as explicit single-Runtime policies and are never
+rewritten. No missing configuration selects Codex.
+
+`project configure` publishes Projects without a policy. Declare it in an
+authored `axiom.yaml` (`runtimes`, `modelProfiles`, optional `runtimePreferences`)
+and record that manifest with an exact binding for each declared Repository:
+
+```bash
+axiom --json project install --source /absolute/authored/project \
+  --repository main=/absolute/path/to/working-copy
+```
+
+The machine-local Runtime Profile configuration (`runtime profile validate`)
+supplies enabled adapters, profile capability/complexity constraints and logical
+credential references. Then preview:
+
+```bash
+axiom --json runtime profile preview \
+  --project <project-uuid-or-slug> \
+  --role implementation --complexity high --capabilities axiom-skills
+```
+
+`--runtime codex|claude` optionally narrows the Project policy. There is no
+observation input: Lingo observes each configured Runtime itself, on every
+preview and check. It resolves the executable from `PATH` without running it and
+binds its identity (`executableDigest`, a digest of the resolved path and
+content). It leaves the version unknown and proves only `axiom-skills`, when that
+Runtime's Axiom skill integration inspects Ready. Any other required capability
+stays unproven and blocks (`no_allowed_match`). Lingo does not probe or
+authenticate vendors. Output includes requirements, Runtime/Profile/model,
+`executableDigest`, revisions, content digests and `previewDigest`, or one bounded
+blocker category. Credential references, environment and raw adapter errors never
+enter output; executable paths appear only inside `executableDigest`. Human and JSON modes show the same decision.
+
+Repeat the policy inputs on `workflow start`. Without `--runtime-preview`, it
+returns preview only. With the exact reviewed `previewDigest`, it re-reads and
+re-observes everything before creating the workflow ledger; a removed or replaced
+executable, lost skill integration or changed policy/configuration returns
+`stale_preview`. An explicit Runtime cannot widen the Project allowlist. Process
+execution through `graphapplication.NewLocalService` additionally requires
+per-child previews and, before adapter credentials and process dispatch, requires
+each command profile to match the reviewed binding: Runtime, Model Profile, model,
+credential reference and current executable identity. Changed input blocks;
+request a fresh preview. Neither preview nor ledger creation grants Provider,
+merge, publication or release authority.
 
 ## Validate the Runtime Profile store
 
@@ -999,7 +1053,8 @@ axiom --json workflow start \
   --project <project-uuid-or-slug> \
   --repository <project-scoped-key> \
   --work-item 'github:<owner>/<repository>#<number>' \
-  --runtime <codex|claude>
+  --role implementation --complexity high --capabilities axiom-skills \
+  --runtime-preview <reviewed-preview-digest>
 
 axiom --json workflow status \
   --project <project-uuid-or-slug> \
@@ -1235,19 +1290,20 @@ and must not be treated as workflow progress or human acceptance.
 
 ## Execute the bounded workflow
 
-Start one workflow from an already linked Work Item, naming the Runtime that
-conducts it:
+Start one workflow from an already linked Work Item after inspecting its
+Project Runtime/Profile preview:
 
 ```bash
-axiom workflow start --project my-project --repository main --number 123 --runtime claude
+axiom workflow start --project my-project --repository main --number 123 \
+  --role implementation --complexity high --capabilities axiom-skills \
+  --runtime-preview <reviewed-preview-digest> --runtime claude
 axiom workflow status --project my-project --repository main --number 123
 ```
 
-`--runtime` accepts exactly `codex` or `claude` and is accepted only by
-`workflow start`. It is explicit caller input; Lingo never infers it from
-installed executables or the parent process. Omitting it keeps the historical
-`codex` default. An unsupported value fails validation before any Execution is
-created. The Execution persists the selected Runtime as its truth: status,
+`--runtime` accepts exactly `codex` or `claude` on preview and `workflow start`.
+It narrows the policy; omitted Runtime requires a unique Project-authorized
+resolution. Lingo never infers a default from installed executables or the parent
+process. Missing/incompatible/ambiguous policy blocks before Execution creation. The Execution persists the selected Runtime as its truth: status,
 advance, fact, evidence, reconcile, and resume use the recorded Runtime and reject
 `--runtime`, and a later `workflow start` naming a different Runtime for the same
 Work Item returns `validation_failure` without changing the Execution.

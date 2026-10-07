@@ -336,7 +336,7 @@ var mutatingRequests = map[string][]string{
 	"configure/edit":     {"project", "configure", "--project", "alpha", "--name", "Renamed"},
 	"work-item create":   {"work-item", "create", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Fix it"},
 	"work-item select":   {"work-item", "select", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-	"workflow start":     {"workflow", "start", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--runtime", "claude"},
+	"workflow start":     {"workflow", "start", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills", "--runtime", "claude"},
 	"workflow advance":   {"workflow", "advance", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3", "--gate", "specification", "--outcome", "pass", "--reference", "evidence:spec.md:abc"},
 	"workflow resume":    {"workflow", "resume", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3"},
 	"workflow fact":      {"workflow", "fact", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3", "--fact", "review_started", "--active", "--reference", "evidence:review.md:abc"},
