@@ -70,8 +70,8 @@ Operation-specific payload: `project`.
 
 Canonical completion fields are `status`, `result`, `references`, `next`,
 `details`, and `provenance`. Copy them only from Lingo's top-level JSON
-object. Omit absent canonical fields and never derive them from an
-operation-specific payload.
+object. Omit absent canonical fields. Never derive, synthesize, or reinterpret a
+canonical field from an operation-specific payload.
 
 Preserve `setup`, `projects`, and `project` payloads in their original Lingo
 semantics and JSON position. Skill text grants no local or Provider authority.
