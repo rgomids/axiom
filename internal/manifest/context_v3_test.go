@@ -124,7 +124,38 @@ func TestV1AndV2BytesUnchangedByV3(t *testing.T) {
 
 // CR-001: each prose boundary shares the same portable security contract.
 func TestV3PortableProse(t *testing.T) {
-	unsafe := []string{"[Docs](https://example.com);password=synthetic", "[Docs](https://example.com),/home/user/private", "path:/home/user/private", "location:~/private", `Read path:C:\Users\user\private`, "Use `token=synthetic`", "See `/home/user/private`", "See `file:/private/document`", "Use **password=synthetic**", "See https://example.com/docs?q=a,b&token=synthetic", "See https://example.com/docs?q=a;b&token=synthetic", "token=synthetic", "password=synthetic", "api_key=synthetic", "/Users/user/private", "/home/user/private", `C:\Users\user\private`, "file:/private/document", "file:///tmp/document", "%252Fhome%252Fuser%252Fprivate", "https://example.com/doc?access_token=synthetic", "See /home/user/private", "Read file:/private/document", "Use token = synthetic", "Text\ntoken=synthetic"}
+	unsafe := []string{
+		"https://example.com,**password**=synthetic",
+		"https://example.com;**token=synthetic**",
+		"ssh://**token**=synthetic@example.com/repo",
+		"https://example.com,foo=bar&password=synthetic",
+		"https://example.com,__api_key__=synthetic",
+		"https://example.com,**/home/user/private**",
+		"https://example.com;**/home/user/private**",
+		"https://example.com,__/home/user/private__",
+		"https://example.com,path=/home/user/private",
+		"https://example.com,password=synthetic",
+		"https://example.com;password=synthetic",
+		"https://example.com,token=synthetic",
+		"https://example.com;token=synthetic",
+		"https://example.com,api_key=synthetic",
+		"https://example.com;api_key=synthetic",
+		"https://example.com,client_secret=synthetic",
+		"https://example.com;authorization=synthetic",
+		"https://example.com,PASSWORD=synthetic",
+		"https://example.com;Api_Key=synthetic",
+		"https://example.com,Access_Token=synthetic",
+		"https://example.com,password:synthetic",
+		"https://example.com,foo=bar,password=synthetic",
+		"https://example.com%2Cpassword%3Dsynthetic",
+		"https://example.com,%70assword=synthetic",
+		"https://example.com%252Cpassword%253Dsynthetic",
+		"https://example.com,/home/user/private",
+		"https://example.com;/home/user/private",
+		"[docs](https://example.com),password=synthetic",
+		"https://example.com,token=synthetic/docs?lang=en",
+		"ssh://token=synthetic@example.com/repo", "[Docs](https://example.com);password=synthetic", "[Docs](https://example.com),/home/user/private", "path:/home/user/private", "location:~/private", `Read path:C:\Users\user\private`, "Use `token=synthetic`", "See `/home/user/private`", "See `file:/private/document`", "Use **password=synthetic**", "See https://example.com/docs?q=a,b&token=synthetic", "See https://example.com/docs?q=a;b&token=synthetic", "token=synthetic", "password=synthetic", "api_key=synthetic", "/Users/user/private", "/home/user/private", `C:\Users\user\private`, "file:/private/document", "file:///tmp/document", "%252Fhome%252Fuser%252Fprivate", "https://example.com/doc?access_token=synthetic", "See /home/user/private", "Read file:/private/document", "Use token = synthetic", "Text\ntoken=synthetic",
+	}
 	for _, field := range []string{"text", "term", "definition"} {
 		for _, value := range unsafe {
 			t.Run(field+"/"+value, func(t *testing.T) {
@@ -187,7 +218,7 @@ func TestV3PortableProse(t *testing.T) {
 
 func TestOlderSchemaProseCompatibility(t *testing.T) {
 	for _, source := range []string{minimal, minimalV2} {
-		for _, value := range []string{"token=synthetic", "/home/user/private", "file:/private/document"} {
+		for _, value := range []string{"token=synthetic", "/home/user/private", "file:/private/document", "https://example.com,password=synthetic", "https://example.com;api_key=synthetic"} {
 			p := decode(t, source+fmt.Sprintf("businessContext: {text: %q}\n", value))
 			if !p.Equivalent(decode(t, string(encode(t, p)))) {
 				t.Fatal("legacy prose changed")

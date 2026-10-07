@@ -156,6 +156,52 @@ func safeURL(raw string) bool {
 	return true
 }
 
+// safeProseURL adds v3 prose safety without changing the legacy scalar URL
+// contract. Inspect authority sub-delimiters only after parsing: path/query
+// commas and semicolons retain their URL meaning.
+func safeProseURL(raw string) bool {
+	if !safeURL(raw) {
+		return false
+	}
+	if !strings.Contains(raw, "://") {
+		return true
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	authority := u.Host
+	if u.User != nil {
+		authority = u.User.Username() + "@" + authority
+	}
+	parts := strings.FieldsFunc(authority, func(r rune) bool {
+		return proseDelimiter(r) || r == '&' || r == '@'
+	})
+	if !safeProseParts(parts) {
+		return false
+	}
+	// A delimiter at the end of the authority may swallow adjacent rooted
+	// prose as the parsed URL path. Ordinary URL paths have no such delimiter.
+	authorityEnd := strings.TrimRight(u.Host, "\"'`*{}[]()<>_")
+	if strings.HasSuffix(authorityEnd, ",") || strings.HasSuffix(authorityEnd, ";") || strings.HasSuffix(authorityEnd, "=") {
+		return !machinePath(u.Path)
+	}
+	return true
+}
+
+func unsafeProseReference(value string) bool {
+	for {
+		if machinePath(value) || referencePayload(value) {
+			return true
+		}
+		separator := strings.IndexAny(value, ":=")
+		if separator < 0 {
+			return false
+		}
+		value = value[separator+1:]
+	}
+}
+
 // SafeProse checks human text without imposing identifier syntax. Inspect each
 // word/reference and adjacent assignment syntax, including references embedded
 // in prose. Newlines are allowed here; callers own text bounds and formatting.
@@ -195,31 +241,29 @@ func safeProseSyntax(value string) bool {
 			}
 			end := proseURLEnd(word, start)
 			reference := strings.TrimRight(word[start:end], "\"'`*{}[](),;<>.")
-			if !safeURL(reference) {
+			if !safeProseURL(reference) {
 				return false
 			}
 			word = word[:start] + " " + word[end:]
 		}
 		parts = append(parts, strings.FieldsFunc(word, func(r rune) bool {
-			return unicode.IsSpace(r) || strings.ContainsRune("\"'`*{}[](),;<>", r)
+			return proseDelimiter(r)
 		})...)
 	}
+	return safeProseParts(parts)
+}
+
+func proseDelimiter(r rune) bool {
+	return unicode.IsSpace(r) || strings.ContainsRune("\"'`*{}[](),;<>", r)
+}
+
+func safeProseParts(parts []string) bool {
 	for i, part := range parts {
 		part = strings.Trim(part, "_")
-		if machinePath(part) || referencePayload(part) || !safeURL(part) {
+		if unsafeProseReference(part) || !safeURL(part) {
 			return false
 		}
 		// Whitespace/punctuation around a structural assignment does not hide it.
-		for rest := part; ; {
-			if machinePath(rest) || referencePayload(rest) {
-				return false
-			}
-			separator := strings.IndexAny(rest, ":=")
-			if separator < 0 {
-				break
-			}
-			rest = rest[separator+1:]
-		}
 		name := strings.TrimRight(part, ":=")
 		if sensitiveParameterV1(name) && (name != part || i+1 < len(parts) && strings.HasPrefix(parts[i+1], "=") || i+1 < len(parts) && strings.HasPrefix(parts[i+1], ":")) {
 			return false

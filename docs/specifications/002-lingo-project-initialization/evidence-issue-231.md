@@ -192,3 +192,69 @@ fixtures preserving enforcement.
 Fresh-context review reproduced and drove the boundary regressions described
 above; no blocking security finding remained after correction. Live Provider
 and Runtime behavior and Linux/Windows execution remain UNVERIFIED.
+
+## CR-002 correction (PR #257)
+
+`net/url` accepts comma, semicolon and equals in a host/reg-name. The previous
+prose URL extraction validated and consumed the entire token before inspecting
+its surrounding assignments, so host-valid delimiters could hide sensitive
+assignments. `safeProseURL` now checks parsed authority components with the shared
+`referencePayload` / `sensitiveParameterV1` classifier before consumption. It also
+rejects a rooted prose suffix swallowed as a URL path after an authority comma
+or semicolon, including Markdown-wrapped suffixes and rooted assignments.
+The check is scoped to v3 prose; legacy scalar `safeURL` behavior
+is unchanged. URL path/query punctuation remains governed by URL syntax, and
+Markdown/quote boundaries continue to retain adjacent prose for inspection.
+The package remains pure, with only standard-library dependencies.
+
+`TestPortableProseStructuralSafety` rejects comma/semicolon assignments for
+password, token, api_key, client_secret and authorization, case variants
+PASSWORD/Api_Key/Access_Token, colon assignments, multiple assignments, URI and
+nested escaping, SSH userinfo assignments, rooted authority suffixes and
+Markdown/quoted adjacent assignments. Fresh-context attack review reproduced
+Markdown-wrapped authority assignments and rooted suffixes; those cases now
+have permanent regressions in all three boundary tests. Authority and prose
+share punctuation, adjacent-assignment and suffix inspection. It retains
+ordinary URL paths/queries,
+encoded spaces, Markdown links, non-sensitive authority assignments, SSH git
+userinfo, IPv6 hosts and ordinary prose mentioning password/token.
+`TestV3PortableProse` applies the bypass matrix to businessContext.text,
+glossary.term and glossary.definition at decode and direct domain/encode
+boundaries. `TestBootstrapRejectsUnsafePortableProse` applies that matrix to
+SetupInput business/glossary fields and proves InvalidContextInput, zero preview,
+nil manifest, a nonpublishable proposal and zero storage calls.
+`TestOlderSchemaProseCompatibility` now explicitly round-trips these host-shaped
+payloads in v1/v2 business text, preserving the historical contract. Existing
+goldens remain part of full-suite validation. CR-001 validation and the dogfood
+Runtime-unavailable resume/zero-mutation regression are preserved.
+
+Before implementation, the new targeted regression run failed on the vulnerable
+head; after implementation, all three affected packages passed uncached.
+
+
+### CR-002 validation (macOS darwin/arm64, Go 1.26.1, 2026-10-07)
+
+| Command | Result |
+| --- | --- |
+| `go test ./... -timeout 10m` | PASS |
+| `go test -race ./... -timeout 10m` | PASS |
+| `go vet ./...` | PASS |
+| `go build ./...` | PASS |
+| `GOOS=linux go build ./...` | PASS |
+| `GOOS=windows go build ./...` | PASS |
+| `go mod verify` | PASS |
+| `./scripts/validate-repository.sh .` | PASS |
+| `./scripts/dogfood-poc.sh` | PASS |
+| `go run ./scripts/check-architecture.go domain` | PASS |
+| `go run ./scripts/check-architecture.go application` | PASS |
+| `bash scripts/test-check-project-domain.sh` | PASS |
+| `./scripts/check-sensitive-files.sh .` | PASS |
+| `gitleaks dir . --no-banner --redact` | PASS |
+| `git diff --check` | PASS |
+
+Linux/Windows builds are cross-compilation only. Optional live Runtime behavior
+remains SKIPPED/UNVERIFIED; dogfood uses controlled Provider/Runtime stubs.
+Final fresh-context security review found no blocking finding after the
+adversarial regressions above were incorporated. Delegation was limited to
+independent security review; implementation and validation stayed with the
+Orchestrator.
