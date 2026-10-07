@@ -280,3 +280,9 @@ its independent scope, authorship transport, and acceptance scenarios.
 
 The #131 additive [skill argument inspection contract](004-mvp-v1-baseline/issue-131-skill-arguments.md)
 reuses CLI declarations and keeps discovery separate from guided execution.
+
+Issue [#230](https://github.com/rgomids/axiom/issues/230) freezes its
+[resource lifecycle capability matrix](004-mvp-v1-baseline/issue-230-resource-lifecycle-matrix.md)
+(I230-T01). It records current vs approved target lifecycle, ownership, effect
+and authority for Project, Repository association, Work Item, Execution and
+Integration. It delivers no behavior and does not authorize I230-T02 or later Tasks.
