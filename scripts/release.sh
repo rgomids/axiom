@@ -120,7 +120,36 @@ repository=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) 
 # attempts by Check Run id, which exists even while started_at is null.
 # The optional third argument is an internal policy file; only published repair
 # uses it, to validate immutable correction metadata against its pinned policy.
+#
+# ci.yml runs on pull requests (and on dispatch), not on push to main. The
+# strict required-checks policy merges a PR only when its head is up to date
+# with main, so its merge commit has the head's exact tree. An unbound state
+# with no runs on SHA therefore falls back to the required checks of the head
+# of the one merged PR whose merge commit is SHA, only when both trees are
+# equal. A bound state (repair) still requires runs on SHA itself.
 ci_state() {
+  local result head
+  result=$(ci_runs_state "$@")
+  if [[ "$result" == missing && -z "${2:-}" ]] && head=$(merged_pr_head "$1"); then
+    result=$(ci_runs_state "$head")
+  fi
+  printf '%s' "$result"
+}
+
+# merged_pr_head SHA prints the head SHA of the merged PR whose merge commit is
+# SHA when its tree equals SHA's tree, and fails otherwise.
+merged_pr_head() {
+  local head tree
+  head=$(gh api "repos/$repository/commits/$1/pulls" 2>/dev/null | jq -r --arg sha "$1" \
+    '[.[] | select(.merged_at != null and .merge_commit_sha == $sha)] | if length == 1 then .[0].head.sha else empty end') || return 1
+  [[ "$head" =~ ^[0-9a-f]{40}$ ]] || return 1
+  tree=$(gh api "repos/$repository/commits/$1" 2>/dev/null | jq -r '.commit.tree.sha // empty') || return 1
+  [[ "$tree" =~ ^[0-9a-f]{40}$ ]] || return 1
+  [[ $(gh api "repos/$repository/commits/$head" 2>/dev/null | jq -r '.commit.tree.sha // empty') == "$tree" ]] || return 1
+  printf '%s' "$head"
+}
+
+ci_runs_state() {
   local runs name integration conclusion result=success required=0
   runs=$(gh api "repos/$repository/commits/$1/check-runs?per_page=100") || { printf 'unknown'; return; }
   while IFS=$'\t' read -r name integration; do

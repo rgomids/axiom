@@ -741,7 +741,7 @@ The process, versioning and authority rules are in
 
 | Workflow | Trigger | Effect |
 |---|---|---|
-| `.github/workflows/ci.yml` | every PR, push to `main`, dispatch | required checks only; read-only token |
+| `.github/workflows/ci.yml` | every PR and dispatch; not on push to `main` | required checks only; read-only token; `release.sh` resolves a `main` commit's CI from the head of its merged PR when both trees are equal |
 | `.github/workflows/release-please.yml` | manual dispatch from `main` by `release.sh start` with `planned_version` and `main` (never a push) | requires `main` to still be the planned SHA at dispatch, re-runs `release-plan.sh` on it, then opens/updates the Release PR (`CHANGELOG.md`, `.release-please-manifest.json`); dispatches CI and `delivery-metadata` on the Release PR branch only when the PR records the planned version and its base is the validated SHA or an ancestor; never tags or releases |
 | `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag` and `revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; read-only token; never publishes |
 | `.github/workflows/publish-release.yml` | manual dispatch from `main` with `tag`, `revision`, `prepared_run`, `preview_digest` | PUBLISH: re-verifies that prepared artifact, requires its envelope digest to equal `preview_digest`, then draft, upload, read-back, publish and, for a stable release, the envelope's Issue effects; `publish` job gated by the `release` environment; never rebuilds |
