@@ -70,38 +70,28 @@ func (a Adapter) Render(draft workitem.Draft, _ workitem.DraftTarget, correlatio
 	if outcome == "" {
 		return workitem.ProviderDocument{}, errors.New("missing outcome")
 	}
-	title := "Axiom: " + oneLine(outcome, 180)
-	var body strings.Builder
-	fmt.Fprintf(&body, "<!-- axiom:work-item-draft:%s -->\n", correlation)
-	fmt.Fprintf(&body, "<!-- axiom:provenance:%s:%s:%s:%s -->\n\n", source.Product(), source.Version(), source.Revision(), source.SourceState())
-	body.WriteString("_Axiom-authored structure; section content retains declared authorship._\n")
 	if !draft.Type.Valid() {
 		return workitem.ProviderDocument{}, errors.New("missing item type")
 	}
-	fmt.Fprintf(&body, "\nWork Item type: `%s`\n", draft.Type)
+	sections := draft.Sections
 	if draft.Type == workitem.Story {
 		if draft.Beneficiary == nil || draft.Value == nil {
 			return workitem.ProviderDocument{}, errors.New("missing story value")
 		}
-		for _, value := range []*workitem.DraftSection{draft.Beneficiary, draft.Value} {
-			fmt.Fprintf(&body, "\n## Story %s\n\nAuthorship: `%s`\n\n", value.Name, value.Authorship)
-			for _, line := range strings.Split(value.Content, "\n") {
-				fmt.Fprintf(&body, "    %s\n", line)
-			}
-		}
+		sections = append([]workitem.DraftSection{*draft.Beneficiary, *draft.Value}, draft.Sections...)
 	}
-	for _, current := range draft.Sections {
-		fmt.Fprintf(&body, "\n## %s\n\nAuthorship: `%s`\n\n", heading(current.Name), current.Authorship)
-		for _, line := range strings.Split(current.Content, "\n") {
-			body.WriteString("    ")
-			body.WriteString(line)
-			body.WriteByte('\n')
-		}
+	var body strings.Builder
+	fmt.Fprintf(&body, "<!-- axiom:work-item-draft:%s -->\n", correlation)
+	fmt.Fprintf(&body, "<!-- axiom:provenance:%s:%s:%s:%s -->\n\n", source.Product(), source.Version(), source.Revision(), source.SourceState())
+	fmt.Fprintf(&body, "**Work Item type:** `%s`\n", draft.Type)
+	for _, current := range sections {
+		fmt.Fprintf(&body, "\n## %s\n\n%s", displayName(current.Name), sectionMarkdown(current.Content))
 	}
+	body.WriteString("\n" + provenanceFooter(source, sections))
 	if body.Len() > bodyLimit {
 		return workitem.ProviderDocument{}, errors.New("provider body exceeds limit")
 	}
-	return workitem.ProviderDocument{Title: title, Body: body.String()}, nil
+	return workitem.ProviderDocument{Title: title(outcome), Body: body.String()}, nil
 }
 
 func (a Adapter) Create(parent context.Context, request workitem.CreateRequest) (workitem.External, error) {
@@ -192,7 +182,7 @@ func (a Adapter) ReconcileCreate(ctx context.Context, repository, correlation st
 		var inspected struct {
 			Body string `json:"body"`
 		}
-		if err := json.Unmarshal(raw, &inspected); err != nil || !strings.Contains(inspected.Body, "<!-- "+marker+" -->") {
+		if err := json.Unmarshal(raw, &inspected); err != nil || !hasReservedHeader(inspected.Body, "<!-- "+marker+" -->") {
 			return nil, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
 		}
 		item, err := decodeIssue(repository, "", raw)
@@ -510,6 +500,18 @@ func validIssue(repository string, external workitem.External) bool {
 	return external.URL == "https://github.com/"+repository+"/issues/"+external.ID && (external.State == "OPEN" || external.State == "CLOSED")
 }
 
+// provenanceMarker matches the reserved second header line Render writes.
+var provenanceMarker = regexp.MustCompile(`^<!-- axiom:provenance:Axiom:\S+:(?:clean|dirty|unknown) -->$`)
+
+// hasReservedHeader accepts the correlation marker only in the reserved header
+// Render writes: line 1 is the exact marker and line 2 a provenance marker.
+// Search results are untrusted, so the marker anywhere else in a body (fenced,
+// quoted, escaped or later) never satisfies reconciliation.
+func hasReservedHeader(body, marker string) bool {
+	lines := strings.SplitN(body, "\n", 3)
+	return len(lines) >= 2 && strings.TrimSuffix(lines[0], "\r") == marker && provenanceMarker.MatchString(strings.TrimSuffix(lines[1], "\r"))
+}
+
 func section(draft workitem.Draft, name string) string {
 	for _, current := range draft.Sections {
 		if current.Name == name {
@@ -517,15 +519,6 @@ func section(draft workitem.Draft, name string) string {
 		}
 	}
 	return ""
-}
-
-func oneLine(value string, limit int) string {
-	value = strings.Join(strings.Fields(value), " ")
-	runes := []rune(value)
-	if len(runes) <= limit {
-		return value
-	}
-	return strings.TrimSpace(string(runes[:limit-3])) + "..."
 }
 
 func heading(value string) string {
