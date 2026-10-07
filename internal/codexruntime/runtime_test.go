@@ -149,6 +149,8 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		{"axiom-work-item-create", []string{"draft", "selection", "workItem"}},
 		{"axiom-work-item-run", []string{"workflow", "projection", "runtimeResolution", "previewDigest"}},
 		{"axiom-work-item-status", []string{"workflow", "projection"}},
+		{"axiom-project", []string{"setup", "edit", "projects", "project"}},
+		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "runtimeResolution", "previewDigest"}},
 	}
 	fixture := []byte(`{
 		"status":"top-status",
@@ -158,6 +160,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		"details":"top-details",
 		"provenance":{"product":"Axiom","revision":"top-revision"},
 		"setup":{"status":"setup-status","details":"setup-details","digest":"setup-digest","effects":["write project"]},
+		"edit":{"mode":"edit","details":"edit-details","digest":"edit-digest","effects":["remove repository"]},
 		"projects":[{"id":"123e4567-e89b-42d3-a456-426614174000","slug":"alpha","name":"Alpha"}],
 		"project":{"result":"project-result","details":"project-details","slug":"alpha","repositories":[{"key":"main"}]},
 		"draft":{"next":"draft-next","details":"draft-details","digest":"draft-digest","target":{"provider":"github"},"effects":["create issue"]},
@@ -197,7 +200,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 					t.Fatalf("operation payload %s was not preserved separately", field)
 				}
 			}
-			if bytes.Contains(canonicalOutput["details"], []byte("setup-details")) || bytes.Contains(canonicalOutput["details"], []byte("draft-details")) || bytes.Contains(canonicalOutput["details"], []byte("workflow-details")) || bytes.Contains(canonicalOutput["details"], []byte("resolution-details")) {
+			if bytes.Contains(canonicalOutput["details"], []byte("setup-details")) || bytes.Contains(canonicalOutput["details"], []byte("edit-details")) || bytes.Contains(canonicalOutput["details"], []byte("draft-details")) || bytes.Contains(canonicalOutput["details"], []byte("workflow-details")) || bytes.Contains(canonicalOutput["details"], []byte("resolution-details")) {
 				t.Fatalf("operation payload leaked into canonical details: %s", canonicalOutput["details"])
 			}
 			minimal := selectJSONFields(map[string]json.RawMessage{"status": json.RawMessage(`"success"`)}, contract.canonical)
@@ -821,11 +824,17 @@ func TestClaudeIntegrationUpgradesOnlyRegisteredClaudeHistory(t *testing.T) {
 // Issue #140 replaced the selector-only start: the skill must teach the
 // reviewed preview, forward every policy input and never default a Runtime.
 func TestWorkItemRunSkillTeachesReviewedRuntimePreview(t *testing.T) {
-	content, err := fs.ReadFile(skillFiles, "skills/axiom-work-item-run/SKILL.md")
-	if err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"axiom-work-item-run", "axiom-work-item"} {
+		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertReviewedRuntimePreview(t, name, string(content))
 	}
-	text := string(content)
+}
+
+func assertReviewedRuntimePreview(t *testing.T, name, text string) {
+	t.Helper()
 	for _, required := range []string{
 		"axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>\n",
 		"--runtime <runtime> --runtime-preview <previewDigest>\n",
@@ -834,12 +843,12 @@ func TestWorkItemRunSkillTeachesReviewedRuntimePreview(t *testing.T) {
 		"Never default to Codex", "never supply, invent, or claim an observation",
 	} {
 		if !strings.Contains(text, required) {
-			t.Fatalf("axiom-work-item-run missing %q", required)
+			t.Fatalf("%s missing %q", name, required)
 		}
 	}
 	for _, forbidden := range []string{"--observations", "default codex", "historical Codex default", "passes `--runtime codex` or `--runtime claude`"} {
 		if strings.Contains(text, forbidden) {
-			t.Fatalf("axiom-work-item-run still teaches %q", forbidden)
+			t.Fatalf("%s still teaches %q", name, forbidden)
 		}
 	}
 }

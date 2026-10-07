@@ -10,11 +10,12 @@ import (
 	"github.com/rgomids/axiom/internal/codexruntime"
 )
 
-// workItemRunStartProtocol reads the start protocol that the installed
-// axiom-work-item-run skill prescribes: the fenced command block it teaches.
+// workItemRunStartProtocol reads the start protocol that an installed Work Item
+// skill (axiom-work-item-run or axiom-work-item) prescribes: the fenced command
+// block it teaches.
 // Black-box tests execute those exact templates, so the skill text and the
 // binary contract cannot drift apart.
-func workItemRunStartProtocol(t *testing.T) [][]string {
+func workItemRunStartProtocol(t *testing.T, skill string) [][]string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "skills")
 	service, err := codexruntime.New(root)
@@ -24,7 +25,7 @@ func workItemRunStartProtocol(t *testing.T) [][]string {
 	if result := service.Install(context.Background()); result.Status != codexruntime.Applied {
 		t.Fatalf("install skills: %+v", result)
 	}
-	content, err := os.ReadFile(filepath.Join(root, "axiom-work-item-run", "SKILL.md"))
+	content, err := os.ReadFile(filepath.Join(root, skill, "SKILL.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

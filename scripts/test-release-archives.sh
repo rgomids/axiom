@@ -63,7 +63,7 @@ while read -r hash archive; do
   if grep -Eq '/lingo$' <<<"$listing"; then exit 1; fi
   [[ $(tar -tvzf "$temporary/release/$archive" | awk -v exe="/$executable" 'substr($NF,length($NF)-length(exe)+1)==exe {print substr($1,1,4)}') == -rwx ]]
   grep -Eq "^[0-9a-f]{64}  ${executable//./\\.}$" <(tar -xOzf "$temporary/release/$archive" "${archive%.tar.gz}/MANIFEST.sha256")
-  [[ $(grep -c '/skills/.*/SKILL.md' <<<"$listing") == 6 ]]
+  [[ $(grep -c '/skills/.*/SKILL.md' <<<"$listing") == 8 ]]
 done <"$temporary/release/SHA256SUMS"
 
 # A release build from a clean clone of this revision carries exact version
@@ -109,7 +109,7 @@ if [[ -n "$native" ]]; then
     exit 1
   fi
   grep -Fq '"status":"validation_failure"' "$temporary/first-run.json"
-  [[ $(grep -o '"state":"missing"' "$temporary/first-run.json" | wc -l | tr -d ' ') == 6 ]]
+  [[ $(grep -o '"state":"missing"' "$temporary/first-run.json" | wc -l | tr -d ' ') == 8 ]]
   mkdir -p "$temporary/native-bundle"
   tar -xzf "$native" -C "$temporary/native-bundle"
   archived_skills_manifest=$(find "$temporary/native-bundle" -name skills-manifest.txt -type f)
@@ -123,7 +123,7 @@ if [[ -n "$native" ]]; then
         ;;
     esac
   done <"$archived_skills_manifest"
-  [[ "$skill_count" == 6 ]]
+  [[ "$skill_count" == 8 ]]
 
   # T40: the installed axiom first-run configures every detected Runtime from
   # an isolated PATH/HOME; the fake Runtimes are resolved, never executed.
@@ -148,8 +148,8 @@ if [[ -n "$native" ]]; then
 
   AXIOM_CODEX_SKILLS_ROOT="$temporary/runtime-skills" "$temporary/bin/axiom" --json runtime codex install >"$temporary/runtime-install.json"
   grep -Fq '"status":"success","category":"codex_configured"' "$temporary/runtime-install.json"
-  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-install.json" | wc -l | tr -d ' ') == 6 ]]
-  [[ $(find "$temporary/runtime-skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') == 6 ]]
+  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-install.json" | wc -l | tr -d ' ') == 8 ]]
+  [[ $(find "$temporary/runtime-skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ') == 8 ]]
   while IFS='=' read -r key hash; do
     case "$key" in
       skill.*)
@@ -163,12 +163,12 @@ if [[ -n "$native" ]]; then
 
   AXIOM_CODEX_SKILLS_ROOT="$temporary/runtime-skills" "$temporary/bin/axiom" --json runtime codex status >"$temporary/runtime-status.json"
   grep -Fq '"status":"success","result":"Lingo and Codex skills are compatible"' "$temporary/runtime-status.json"
-  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-status.json" | wc -l | tr -d ' ') == 6 ]]
+  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-status.json" | wc -l | tr -d ' ') == 8 ]]
 
   runtime_before=$(find "$temporary/runtime-skills" -type f -print | LC_ALL=C sort | while IFS= read -r file; do printf '%s  %s\n' "$(digest_file "$file")" "${file#"$temporary/runtime-skills/"}"; done)
   AXIOM_CODEX_SKILLS_ROOT="$temporary/runtime-skills" "$temporary/bin/axiom" --json runtime codex install >"$temporary/runtime-reinstall.json"
   grep -Fq '"status":"success","category":"codex_already_configured"' "$temporary/runtime-reinstall.json"
-  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-reinstall.json" | wc -l | tr -d ' ') == 6 ]]
+  [[ $(grep -o '"state":"equivalent"' "$temporary/runtime-reinstall.json" | wc -l | tr -d ' ') == 8 ]]
   runtime_after=$(find "$temporary/runtime-skills" -type f -print | LC_ALL=C sort | while IFS= read -r file; do printf '%s  %s\n' "$(digest_file "$file")" "${file#"$temporary/runtime-skills/"}"; done)
   [[ "$runtime_after" == "$runtime_before" ]]
 

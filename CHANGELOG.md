@@ -9,6 +9,9 @@
 - Lingo observes Runtimes itself: executable identity without running it, and
   `axiom-skills` as the only capability it proves. Dispatch blocks unless the
   command profile matches the reviewed credential reference and executable.
+- `axiom-work-item-run` and `axiom-work-item` teach the reviewed preview →
+  `previewDigest` → `--runtime-preview` start; an owned v0.6.0
+  `axiom-work-item-run` is replaced in place on upgrade.
 - `project install --source` accepts `--repository <key>=<absolute-path>` so an
   authored manifest that declares Repositories and a Runtime/Profile policy can
   be installed.

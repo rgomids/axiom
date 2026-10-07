@@ -144,8 +144,8 @@ func runFakeGitHub(path string, args []string, stdin io.Reader, stdout io.Writer
 // conducted by Claude was persisted as codex, and `work-item create` →
 // `workflow start` → first transition → `workflow reconcile` required
 // recovery because the new Issue carried no axiom:stage:* marker.
-// Both concrete Runtimes start only through the protocol the installed
-// axiom-work-item-run skill teaches, on the Runtime Lingo itself observes.
+// Both concrete Runtimes start only through the protocol the installed Work
+// Item skills teach, on the Runtime Lingo itself observes.
 func TestExecutableRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T) {
 	for _, runtimeID := range []string{"claude", "codex"} {
 		t.Run(runtimeID, func(t *testing.T) { executableRuntimeJourney(t, runtimeID) })
@@ -251,7 +251,8 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 	}
 
 	installTestRuntimePolicy(t, state, setup.Setup.ProjectID, runtimeID)
-	protocol := workItemRunStartProtocol(t)
+	// Claude follows the operation-specific skill, Codex the domain skill.
+	protocol := workItemRunStartProtocol(t, map[string]string{"claude": "axiom-work-item-run", "codex": "axiom-work-item"}[runtimeID])
 	values := map[string]string{"role": "implementation", "complexity": "high", "capabilities": "axiom-skills", "runtime": runtimeID}
 	previewArgs := expandProtocol(t, protocol[0], selector, values)
 	// Lingo observes the Runtime itself: without its executable and verified

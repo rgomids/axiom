@@ -76,9 +76,11 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 // Do not derive expectations from skillOperations: an extra mapping is a regression.
 func TestSkillDiscoveryExactCommands(t *testing.T) {
 	expected := map[string][]string{
+		"axiom-project":           {"axiom project configure", "axiom project list", "axiom project show"},
 		"axiom-project-configure": {"axiom project configure"},
 		"axiom-project-list":      {"axiom project list"},
 		"axiom-project-show":      {"axiom project show"},
+		"axiom-work-item":         {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence"},
 		"axiom-work-item-create":  {"axiom work-item create", "axiom work-item select"},
 		"axiom-work-item-run":     {"axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow status", "axiom workflow evidence", "axiom workflow reconcile"},
 		"axiom-work-item-status":  {"axiom workflow status", "axiom workflow evidence"},
