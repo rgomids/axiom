@@ -15,12 +15,14 @@ published head. The first head `c43ca6b8bec909cd1524a25d7e59f08814c31152`
 findings CR-001..CR-003; its local snapshot and CI results are superseded and are
 not proof of the corrected head.
 
-- Base: `main` at `641901dcc2ec5eb681f45f6d6f7b07d50705f7a8`, merged into the PR
-  branch by `7d33cc4` (history preserved, no rebase or force-push; only
-  `CHANGELOG.md` conflicted, resolved by keeping `main`'s 0.6.0 section and this
-  Unreleased entry).
-- Implementation under test: `fccea0eb5e2b474bb99d6c71fe21bd16542613fd` (commits `b365624` and `fccea0e`: code, tests, skill, dogfood
-  and docs). The commit that adds this Evidence changes only this file.
+- Base: `main` at `5e40e1071c6d982e6d32a9bb38a303a8b7c254b4`. `main` was merged
+  twice, preserving history with no rebase or force-push: `7d33cc4` brought
+  `641901d` (only `CHANGELOG.md` conflicted: `main`'s 0.6.0 section kept above
+  this Unreleased entry), and `a6bc0df` brought #252 (domain skills; the skill
+  history conflicts are resolved as described under CR-001).
+- Implementation under test: `a6bc0df6c10c9434b560d22b87de0abe3259ca5b`
+  (correction commits `b365624` and `fccea0e` plus the #252 merge adaptations).
+  The commit that adds this Evidence update changes only this file.
 - Platform of the local runs below: `darwin/arm64`, Go 1.26 toolchain. Remote CI
   for Linux, macOS and Windows belongs to the PR head and is reported there.
 
@@ -42,9 +44,9 @@ authentication was performed.
 
 ## Review findings
 
-| Finding | Status at `fccea0eb5e2b474bb99d6c71fe21bd16542613fd` | Evidence |
+| Finding | Status at `a6bc0df6c10c9434b560d22b87de0abe3259ca5b` | Evidence |
 |---|---|---|
-| CR-001 workflow-start consumers | Resolved | `scripts/dogfood-poc.sh` installs an authored v2 policy, proves `policy_unconfigured`/unobserved-Claude/unprovable-capability blocks, previews, blocks a replaced executable as `stale_preview`, then starts with the reviewed digest; `axiom-work-item-run` teaches preview → `previewDigest` → `--runtime-preview`, never defaults to Codex and preserves `runtimeResolution`/`previewDigest`; `TestExecutableRuntimeAndFirstProjectionOfCreatedWorkItem/{codex,claude}` executes the protocol parsed from the installed skill; `TestWorkItemRunSkillTeachesReviewedRuntimePreview`; payload contract test |
+| CR-001 workflow-start consumers | Resolved | `scripts/dogfood-poc.sh` installs an authored v2 policy, proves `policy_unconfigured`/unobserved-Claude/unprovable-capability blocks, previews, blocks a replaced executable as `stale_preview`, then starts with the reviewed digest; `axiom-work-item-run` teaches preview → `previewDigest` → `--runtime-preview`, never defaults to Codex and preserves `runtimeResolution`/`previewDigest`; the #252 domain skill `axiom-work-item` and its routing metadata teach the same protocol; `TestExecutableRuntimeAndFirstProjectionOfCreatedWorkItem/{claude,codex}` executes the protocol parsed from the installed `axiom-work-item-run` (Claude) and `axiom-work-item` (Codex); `TestWorkItemRunSkillTeachesReviewedRuntimePreview`; payload contract test |
 | CR-002 observation bound to dispatch target | Resolved | `--observations` removed; `TestExecutableIdentityBindsPathAndContent`, `TestExecutableObserverProvesOnlyWhatLingoVerifies`, `runtimeapplication.TestExecutableObserverBindsReviewedRuntime`, `cmd/lingo` `TestRuntimePolicyPreviewReadsRecordedSourceAndMachineState`, `TestRuntimePolicyProvesOnlyLingoVerifiedFacts`, `TestWorkflowStartRequiresReviewedFreshPolicy`; dispatch scenarios below |
 | CR-003 credential bound to invocation | Resolved | `graphapplication.TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects/{codex,claude}/credential_reference_differs_from_reviewed_configuration`, `TestPolicyInvocationResolvesOnlyTheReviewedCredentialReference`, environment overrides in `TestPolicyInvocationRejectsMissingMismatchedAndOverrideBindings` |
 
@@ -79,7 +81,7 @@ profiles cannot fall back to another model.
 
 ## Validation
 
-Executed locally on `fccea0eb5e2b474bb99d6c71fe21bd16542613fd`; every command exited 0:
+Executed locally on `a6bc0df6c10c9434b560d22b87de0abe3259ca5b`; every command exited 0:
 
 - `go test ./internal/project ./internal/manifest`
 - `go test ./internal/runtimeprofile ./internal/runtimeapplication ./internal/runtimeadapter ./internal/graphapplication`
@@ -88,12 +90,17 @@ Executed locally on `fccea0eb5e2b474bb99d6c71fe21bd16542613fd`; every command ex
 - `go test -race ./... -timeout 10m`
 - `go vet ./...`, `go build ./...`, `go mod verify`
 - `./scripts/validate-repository.sh .`
-- `./scripts/dogfood-poc.sh` (`"runtimeId":"codex"`, `"workflow":"completed"`, `"result":"pass"`)
+- `./scripts/dogfood-poc.sh` (`"globalSkillCount":8`, `"runtimeId":"codex"`, `"workflow":"completed"`, `"result":"pass"`)
 - `gitleaks dir . --no-banner --redact` (no leaks found)
 - `git diff --check`
 
-Embedded skill text changed, so the replaced shared revision was appended to the
-installer history and the new embedded manifest digest pinned; published
+Embedded skill text changed, so the replaced eight-skill revision was appended
+to the installer history and the new embedded manifest digest pinned. Because
+#252 kept the six v0.6.0 skills byte-identical but CR-001 must change
+`axiom-work-item-run`, an owned v0.6.0 copy of that skill is now replaced in
+place on upgrade (`TestSixSkillRootConvergesAdditivelyToDomainSkills`,
+`TestUpgradeFromSixSkillReleaseAddsOnlyDomainSkills`); the v0.6.0 bytes used by
+those tests come from the `v0.6.0` tag and match the published digest. Published
 receipts and historical snapshots are unchanged.
 
 ## Compatibility and architectural checks
