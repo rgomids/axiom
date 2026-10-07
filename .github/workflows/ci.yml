@@ -1,15 +1,16 @@
 name: CI
-# Required product checks for every pull request and every push to main. Job
-# names are the stable required-check contexts in .github/rulesets/main.json.
-# workflow_dispatch exists only so the Release Please workflow can run CI on
-# its Release PR branch (events created with GITHUB_TOKEN start no other
-# workflow runs). Read-only token; this workflow never publishes anything.
+# Required product checks for every pull request. Job names are the stable
+# required-check contexts in .github/rulesets/main.json. It does not run again
+# on push to main: the strict required-checks policy merges a PR only when its
+# head is up to date with main, so the merge commit has the tree that already
+# passed, and release.sh resolves a main commit's CI from that PR head.
+# workflow_dispatch lets the Release Please workflow run CI on its Release PR
+# branch (events created with GITHUB_TOKEN start no other workflow runs) and
+# lets a maintainer run CI on a main commit that has no merged PR.
+# Read-only token; this workflow never publishes anything.
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:

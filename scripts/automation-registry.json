@@ -55,7 +55,7 @@
       "scope": [
         "ci"
       ],
-      "trigger": "pull_request, push to main, and workflow_dispatch (dispatched by release-pr-checks.sh for the Release PR branch)",
+      "trigger": "pull_request and workflow_dispatch (dispatched by release-pr-checks.sh for the Release PR branch, or by a maintainer for a main commit without a merged PR); not on push to main",
       "replay_reason": null,
       "callers": [
         "scripts/release-pr-checks.sh"

@@ -1783,6 +1783,26 @@ printf '{"protection_rules":[{"type":"required_reviewers"}]}\n' >"$state/environ
 rm "$state/checks-$c4.json"
 release status --tag v0.1.0-rc.1 >"$temporary/status"
 check 'missing CI blocks publication' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'required CI' '$temporary/status'"
+# ci.yml runs on PRs only: a main commit with no runs takes the required
+# checks of its merged PR head, only when both trees are equal.
+pr_head=$(printf 'a%.0s' {1..40})
+[[ ! -e "$state/commit-$c4.json" && ! -e "$state/commit-$pr_head.json" ]]
+cp "$state/pulls.json" "$temporary/pulls.before-head" 2>/dev/null || : >"$temporary/pulls.before-head"
+jq -n --arg m "$c4" --arg h "$pr_head" '[{number: 90, merged_at: "2026-10-01T00:00:00Z", merge_commit_sha: $m, head: {sha: $h}, labels: []}]' >"$state/pulls.json"
+printf '{"sha":"%s","commit":{"tree":{"sha":"%s"}}}\n' "$c4" "$(printf 'b%.0s' {1..40})" >"$state/commit-$c4.json"
+printf '{"sha":"%s","commit":{"tree":{"sha":"%s"}}}\n' "$pr_head" "$(printf 'b%.0s' {1..40})" >"$state/commit-$pr_head.json"
+green "$pr_head"
+release status --tag v0.1.0-rc.1 >"$temporary/status"
+check 'a main commit takes the CI of its merged PR head with the same tree' bash -c "grep -Fxq revision_ci=success '$temporary/status' && ! grep -Fq 'required CI' '$temporary/status'"
+printf '{"sha":"%s","commit":{"tree":{"sha":"%s"}}}\n' "$pr_head" "$(printf 'c%.0s' {1..40})" >"$state/commit-$pr_head.json"
+release status --tag v0.1.0-rc.1 >"$temporary/status"
+check 'a merged PR head with another tree does not stand for the commit' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'required CI' '$temporary/status'"
+printf '{"sha":"%s","commit":{"tree":{"sha":"%s"}}}\n' "$pr_head" "$(printf 'b%.0s' {1..40})" >"$state/commit-$pr_head.json"
+jq '.[0].merge_commit_sha = "other"' "$state/pulls.json" >"$state/pulls.new" && mv "$state/pulls.new" "$state/pulls.json"
+release status --tag v0.1.0-rc.1 >"$temporary/status"
+check 'a PR merged as another commit does not stand for the commit' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'required CI' '$temporary/status'"
+if [[ -s "$temporary/pulls.before-head" ]]; then cp "$temporary/pulls.before-head" "$state/pulls.json"; else rm -f "$state/pulls.json"; fi
+rm -f "$state/commit-$c4.json" "$state/commit-$pr_head.json" "$state/checks-$pr_head.json"
 green "$c4"
 check 'refusals caused no remote effect' test "$(mutations)" == 0
 release publish --tag v0.1.0-rc.1 --revision "$c4" --prepared-run 5151 --preview-digest "$digest_value" --authorize-publication >"$temporary/dispatch"
@@ -1825,8 +1845,7 @@ rm "$fixture/dirty.txt"
 # --- 5. Workflow and skill static contracts ------------------------------------------------------
 workflows=$repository_root/.github/workflows
 triggers() { sed -n '/^on:/,/^[a-z]/p' "$1" | grep -E '^  [a-z_]+:' | tr -d ' :' | LC_ALL=C sort | paste -sd, -; }
-check 'CI runs on pull requests, pushes to main and dispatch only' test "$(triggers "$workflows/ci.yml")" == pull_request,push,workflow_dispatch
-check 'CI push trigger is main only' bash -c "sed -n '/^  push:/,/^  [a-z]/p' '$workflows/ci.yml' | grep -Fxq '      - main'"
+check 'CI runs on pull requests and dispatch only, never again on push to main' test "$(triggers "$workflows/ci.yml")" == pull_request,workflow_dispatch
 check 'CI has a read-only token and no publication path' bash -c "grep -A1 '^permissions:' '$workflows/ci.yml' | tail -n 1 | grep -Fxq '  contents: read' && ! grep -Eiq 'contents: write|gh release|git tag|git push|publish-release|secrets\\.|id-token' '$workflows/ci.yml'"
 check 'Release PR workflow never creates tags or releases' bash -c "grep -Fxq '          skip-github-release: true' '$workflows/release-please.yml' && [[ \$(jq -r '.\"skip-github-release\"' '$repository_root/release-please-config.json') == true ]] && ! grep -Eiq 'gh release|git tag|git push|softprops|secrets\\.' '$workflows/release-please.yml'"
 config=$repository_root/release-please-config.json
