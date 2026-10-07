@@ -39,7 +39,7 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
   workflow. It is not a general runtime/provider/orchestration platform. See
   [Specification 003 Evidence](../specifications/003-e2e-codex-poc/final-report.md).
 - The current agent factory describes `intake -> normalized blueprint -> artifact plan -> Codex renderer -> validation -> package`.
-- Notion contains discovery material, accepted-decision summaries, and explicitly classified proposals/open questions.
+- Public discovery belongs in the [GitHub Wiki](https://github.com/rgomids/axiom/wiki); approved technical decisions remain in Specifications and ADRs. Migration sources and unresolved classifications do not establish current product facts.
 
 ### Requirements
 
@@ -99,5 +99,5 @@ Assumptions are temporary inputs used to continue safely. They must be visible, 
 | [Constitution](constitution.md) | Governance | Normative principles. |
 | Approved specifications and ADRs | Product/architecture authority | Requirements and accepted decisions. |
 | `.agents/context/` and current docs | Durable working context | Requirements, principles or hypotheses according to explicit labels. |
-| [Notion discovery](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979) | Discovery source | Mixed input; never automatic approval or publication authority. |
+| [GitHub Wiki](https://github.com/rgomids/axiom/wiki) | Public product discovery | Explicitly classified input; never automatic approval or publication authority. |
 | Historical harness proposal | Historical evidence | Requirements source only after current validation. |

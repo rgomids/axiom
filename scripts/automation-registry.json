@@ -207,7 +207,7 @@
       "path": ".github/workflows/publish-release.yml",
       "kind": "workflow",
       "owner": "release",
-      "purpose": "PUBLISH phase: re-verifies the prepared artifact at the revision, matches the authorized envelope digest and creates the tag and GitHub Release; the only workflow that does.",
+      "purpose": "PUBLISH phase: re-verifies the prepared artifact at the revision, verifies the release-candidate acceptance Evidence of every release row (Issue #238: the prepared run's automated rows and the dispatched manual-transition rows), matches the authorized envelope digest and creates the tag and GitHub Release; the only workflow that does.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -224,7 +224,7 @@
       "callers": [
         "scripts/release.sh"
       ],
-      "inputs": "workflow_dispatch inputs tag, revision, prepared_run, preview_digest, optional corrections_revision, corrections_digest, repair_revision; downloads artifact axiom-release-<tag>",
+      "inputs": "workflow_dispatch inputs tag, revision, prepared_run, preview_digest, optional manual_acceptance (stable: the packed Linux arm64 and Windows proxy Evidence, unpacked by verify-release-acceptance.py), corrections_revision, corrections_digest, repair_revision; downloads artifact axiom-release-<tag> and the per-row acceptance Evidence artifacts axiom-acceptance-<tag>-<row> of the same prepared run",
       "outputs": "GitHub Release with tag, draft/assets/publication effects, Issue and Release PR effects; publication envelope in the step summary",
       "local_effects": "none on the runner beyond checkouts and temporary files",
       "network_effects": "GitHub API writes via publish-release.sh: tag, Release, assets, Release PR label, delivery Issue/Project effects; reads check runs and artifacts",
@@ -232,7 +232,7 @@
       "tests": [
         "scripts/test-release-flow.sh"
       ],
-      "evidence": "Consumes prepared artifact axiom-release-<tag> of the prepared run; writes publication.txt to the step summary",
+      "evidence": "Consumes prepared artifact axiom-release-<tag>, the acceptance Evidence of the prepared run and the dispatched manual acceptance Evidence (never reruns acceptance); writes publication.txt to the step summary",
       "compatibility": [],
       "removal_condition": null
     },
@@ -240,7 +240,7 @@
       "path": ".github/workflows/release-artifacts.yml",
       "kind": "workflow",
       "owner": "release",
-      "purpose": "PREPARE phase: builds, verifies and renders notes for the complete artifact set from one preflighted revision and retains it as the workflow artifact axiom-release-<tag>.",
+      "purpose": "PREPARE phase: builds, verifies and renders notes for the complete artifact set from one preflighted revision and retains it as the workflow artifact axiom-release-<tag>; then runs blocking release-candidate acceptance (Issue #238) on exactly those bytes on native Linux amd64 and macOS arm64 hosts and verifies the automated rows' acceptance Evidence binding (--automated-only; publication additionally requires the manual-transition rows).",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -258,15 +258,15 @@
         "scripts/release.sh"
       ],
       "inputs": "workflow_dispatch inputs tag, revision, optional corrections_revision, corrections_digest; checks out source (and control) revisions",
-      "outputs": "Uploaded artifact axiom-release-<tag> (archives, SHA256SUMS, preflight.txt, release-evidence.txt, release-notes.md, prepare-metadata.txt, optional release-recovery.txt), 30-day retention",
+      "outputs": "Uploaded artifact axiom-release-<tag> (archives, SHA256SUMS, preflight.txt, release-evidence.txt, release-notes.md, prepare-metadata.txt, optional release-recovery.txt) and one artifact axiom-acceptance-<tag>-<row> per blocking row holding its axiom-gate-evidence/v1 gate-evidence.json (retained on failure too), 30-day retention; acceptance Evidence digests in the step summary",
       "local_effects": "none on the runner beyond checkouts and temporary files",
-      "network_effects": "GitHub API read-only (Issue titles, artifact upload); Go module download and verification",
+      "network_effects": "GitHub API read-only (Issue titles, artifact upload and download within the run); Go module download and verification; unauthenticated public release-asset downloads of earlier releases as upgrade sources",
       "authority": "GITHUB_TOKEN read-only (contents: read, issues: read); never creates tags or Releases",
       "tests": [
         "scripts/test-release-flow.sh",
         "scripts/test-release-pipeline.sh"
       ],
-      "evidence": "Produces the prepared release artifact consumed by release.sh and publish-release.yml",
+      "evidence": "Produces the prepared release artifact and its release-candidate acceptance Evidence consumed by release.sh and publish-release.yml; acceptance grants no publication authority",
       "compatibility": [],
       "removal_condition": null
     },
@@ -925,6 +925,41 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/gate-evidence.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "axiom-gate-evidence/v1 (Issue #234; Specification 004 FR-075/AC-56; ADR-0019): deterministic offline validator of the closed scripts/schemas/axiom-gate-evidence-v1.schema.json plus its cross-field rules, and the upgrade-journey emitter that builds, validates and atomically writes one bounded, secret-free Evidence document per attempt. It carries the failure category the harness observed (never inferred), refuses incomplete step records, and binds an archive only when its SHA256SUMS lists that digest.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "test-upgrade-journeys.sh --evidence (every CI upgrade-journeys run); maintainers validating an Evidence document",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-upgrade-journeys.sh",
+        "scripts/test-gate-evidence.py",
+        "scripts/verify-release-acceptance.py"
+      ],
+      "inputs": "validate FILE...; upgrade-journeys --records FILE (the harness's tab-separated step records) --output ABS_FILE --row ROW --candidate DIR [--previous DIR ...] [--poc-binary FILE] --fixture ID=RELATIVE_PATH plus --attempt-id (created by the caller at attempt start), --record-count, run timing, termination and exit status; reads archives read-only and an allowlist of host and GitHub Actions facts; prepared materialization identity and caller-pinned tag/revision/SHA256SUMS; verifies materialization before emitting kind=prepared; --gate merge-regression|candidate-acceptance (candidate-acceptance only with a verified prepared subject)",
+      "outputs": "validate: gate_evidence=valid lines; upgrade-journeys: one JSON document at --output and evidence_sha256=<hex> on stdout; exit 1 invalid, 2 usage, 3 insufficient subject state",
+      "local_effects": "writes only the --output file (atomic replace), refused inside the subject, upgrade sources or repository",
+      "network_effects": "none",
+      "authority": "none; never reads logs, credentials or the full environment, never mutates candidate artifacts or fixtures",
+      "tests": [
+        "scripts/test-gate-evidence.py"
+      ],
+      "evidence": "The axiom-gate-evidence/v1 document itself; raw logs are never part of it",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/install-axiom.sh",
       "kind": "script",
       "owner": "installation",
@@ -1158,6 +1193,40 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/prepared-upgrade-candidate.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Snapshot and verify the existing complete prepared release set and selected native-row materialization, pinning expected identity and digests before any execution.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Prepared upgrade journeys and Evidence integrity verification.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-upgrade-journeys.sh",
+        "scripts/gate-evidence.py",
+        "scripts/test-prepared-upgrade-candidate.py"
+      ],
+      "inputs": "Complete prepared set, expected tag/revision/row/SHA256SUMS digest and exact clean local source checkout.; --extract-source snapshots one uniquely selected historical row for safe extraction in prepared mode",
+      "outputs": "Verified private snapshot, selected bundle and internal digest identity; exit nonzero on invalid input. Source-extraction mode prints the private extracted bundle path.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local checks",
+      "tests": [
+        "scripts/test-prepared-upgrade-candidate.py"
+      ],
+      "evidence": "Digest-bound internal identity consumed by gate-evidence.py.",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/publish-release.sh",
       "kind": "script",
       "owner": "release",
@@ -1179,7 +1248,7 @@
         "scripts/release.sh",
         "scripts/test-release-flow.sh"
       ],
-      "inputs": "--repo OWNER/NAME --tag --revision --make-latest [--dir --evidence --notes --prepared-run --authorized-digest | --check | --envelope]; env AXIOM_RELEASE_RETRY_DELAY, AXIOM_RELEASE_CORRECTIONS_*, AXIOM_RELEASE_REPAIR_REVISION, GH_TOKEN, AXIOM_RELEASE_REPOSITORY_TOKEN, AXIOM_DELIVERY_PROJECT_TOKEN",
+      "inputs": "--repo OWNER/NAME --tag --revision --make-latest [--dir --evidence --notes --acceptance --prepared-run --authorized-digest | --check | --envelope]; env AXIOM_RELEASE_RETRY_DELAY, AXIOM_RELEASE_CORRECTIONS_*, AXIOM_RELEASE_REPAIR_REVISION, GH_TOKEN, AXIOM_RELEASE_REPOSITORY_TOKEN, AXIOM_DELIVERY_PROJECT_TOKEN; python3 for acceptance verification",
       "outputs": "stdout key=value envelope with preview_digest and effect.* lines (envelope/check) or effect= lines, publication=published and result=pass (publish); stderr release_publish_error, exit 1",
       "local_effects": "temporary directories only",
       "network_effects": "GitHub API via gh: reads releases, tags, assets, PRs; publish mode creates/patches the draft release, deletes and uploads draft assets, publishes, relabels the Release PR and runs delivery-github.sh Issue/Project effects",
@@ -1187,7 +1256,7 @@
       "tests": [
         "scripts/test-release-flow.sh"
       ],
-      "evidence": "Consumes release-evidence.txt (verify-release-artifacts.sh) and release-notes.md of the prepared run; emits the publication envelope and effect= records",
+      "evidence": "Consumes release-evidence.txt (verify-release-artifacts.sh), release-notes.md and the release-candidate acceptance Evidence of every release row (verify-release-acceptance.py, required for a stable release unless it already reads back published); the envelope binds the SHA-256 of each acceptance Evidence document; emits the publication envelope and effect= records",
       "compatibility": [],
       "removal_condition": null
     },
@@ -1524,15 +1593,15 @@
       "callers": [
         "scripts/test-release-flow.sh"
       ],
-      "inputs": "subcommand status|start|prepare|publish|verify; --tag --revision --preview-digest --prepared-run --corrections-revision --corrections-digest --repair-revision --authorize-publication --download; requires gh and jq",
+      "inputs": "subcommand status|start|prepare|publish|verify; --tag --revision --preview-digest --prepared-run --corrections-revision --corrections-digest --repair-revision --manual-acceptance ABS_DIR (status and publish: <row>/gate-evidence.json of the manual-transition rows) --authorize-publication --download; requires gh, jq and python3",
       "outputs": "stdout state=, next_action=, envelope and preview_digest, result=pass; stderr release_error and exit 1",
       "local_effects": "git fetch of origin main in the local checkout; temporary clones and downloaded prepared sets removed on exit",
-      "network_effects": "GitHub via gh: reads releases, runs, PRs, checks, environment; gh workflow run dispatches release-please.yml (start), release-artifacts.yml (prepare), publish-release.yml (publish); gh run watch and download",
+      "network_effects": "GitHub via gh: reads releases, runs, PRs, checks, environment; gh workflow run dispatches release-please.yml (start), release-artifacts.yml (prepare), publish-release.yml (publish, with the packed manual acceptance Evidence the envelope binds); gh run watch and download (prepared set and its per-row acceptance Evidence)",
       "authority": "gh login able to dispatch workflows; publish needs --authorize-publication and a --preview-digest equal to the envelope recomputed now; never creates tags or releases, merges or approves the Release PR or the release environment",
       "tests": [
         "scripts/test-release-flow.sh"
       ],
-      "evidence": "Consumes prepared release artifact and publication envelope; prints preview_digest for human authorization",
+      "evidence": "Consumes prepared release artifact, its acceptance Evidence, the maintainer's manual acceptance Evidence and the publication envelope; prints preview_digest for human authorization",
       "compatibility": [],
       "removal_condition": null
     },
@@ -1782,6 +1851,36 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/test-gate-evidence.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Offline tests of axiom-gate-evidence/v1: the closed schema, representative pass/failure fixtures, validation failure modes, the emitter's pass, failure, abort and interrupt Evidence, secret and path exclusion, input immutability, and the harness --evidence argument contract.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation via validate-repository.sh, and when the schema, emitter or upgrade-journey harness change.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "none; reads the schema, scripts/testdata/gate-evidence and synthetic archives",
+      "outputs": "unittest report; exit 1 on failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/test-install-axiom.sh",
       "kind": "script",
       "owner": "installation",
@@ -1926,6 +2025,36 @@
       "local_effects": "temporary directories only",
       "network_effects": "none without --runtime; with --runtime the claude/codex CLIs may contact their model providers",
       "authority": "none; read-only checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-prepared-upgrade-candidate.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Offline prepared snapshot, closed-set, identity, digest, archive/path and post-materialization substitution regression tests.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation and when prepared upgrade identity changes.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh"
+      ],
+      "inputs": "Synthetic prepared sets; no network or credentials.",
+      "outputs": "unittest report; exit nonzero on failure.",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none; local checks",
       "tests": [],
       "evidence": null,
       "compatibility": [],
@@ -2155,18 +2284,22 @@
         "maintainer",
         "test"
       ],
-      "trigger": "every CI upgrade-journeys run on linux and macos; maintainers before a release with locally built candidate archives",
+      "trigger": "every CI upgrade-journeys run on linux and macos; release-candidate acceptance of every prepared release set (release-artifacts.yml accept jobs); maintainers before a release with locally built candidate archives",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/ci.yml",
+        ".github/workflows/release-artifacts.yml"
       ],
-      "inputs": "--candidate ABS_DIR (SHA256SUMS + archives of the candidate), --previous ABS_DIR (repeatable; first is release N), optional --poc-binary ABS_FILE (lingo built from v0.1.0-poc.1); reads internal/compatibility/testdata/stable-v1",
-      "outputs": "journey=<name> step=<step> result=pass|fail lines, failures=<n>, result=pass|fail; exit 1 on any failure, 78 on an unsupported host row, 2 on invalid input",
-      "local_effects": "temporary isolated HOME directories only, removed on exit; fake codex/claude/gh/git and a sw_vers shim for pre-ADR-0015 bundles on PATH",
+      "inputs": "--candidate ABS_DIR (SHA256SUMS + archives of the candidate), --previous ABS_DIR (repeatable; first is release N), optional --poc-binary ABS_FILE (lingo built from v0.1.0-poc.1); reads internal/compatibility/testdata/stable-v1; optional --evidence ABS_FILE (requires python3; must not exist yet; outside the candidate, previous releases and repository); exclusive prepared mode: --prepared-set ABS_DIR --tag vVERSION --revision FULL_SHA --row HOST_ROW --sha256sums-sha256 EXPECTED_SHA256 (python3 and local source commit required); prepared mode only: --candidate-acceptance (requires --evidence) labels the Evidence gate candidate-acceptance",
+      "outputs": "journey=<name> step=<step> result=pass|fail lines, failures=<n>, result=pass|fail; with --evidence an axiom-gate-evidence/v1 document and one evidence_sha256=<hex> (or evidence=unavailable) line; exit 1 on any failure, 78 on an unsupported host row, 2 on invalid input, 70 when a passing run cannot write its Evidence (including a lost step record); otherwise the original status is kept",
+      "local_effects": "temporary isolated HOME directories only, removed on exit; fake codex/claude/gh/git and a sw_vers shim for pre-ADR-0015 bundles on PATH; with --evidence, the Evidence file",
       "network_effects": "none (fake Providers; archives are passed in by the caller)",
       "authority": "none; never touches the real home, credentials or a Provider",
-      "tests": [],
-      "evidence": "Prints per-step pass/fail lines; CI appends them to the job summary",
+      "tests": [
+        "scripts/test-gate-evidence.py",
+        "scripts/test-prepared-upgrade-candidate.py"
+      ],
+      "evidence": "Prints per-step pass/fail lines (CI appends them to the job summary); with --evidence, bounded axiom-gate-evidence/v1 JSON derived from the executed steps",
       "compatibility": [],
       "removal_condition": null
     },
@@ -2195,6 +2328,37 @@
       "local_effects": "temporary directories only",
       "network_effects": "none",
       "authority": "none; local fixture checks",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-verify-release-acceptance.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Offline tests of verify-release-acceptance.py: happy path over all four release rows, missing, failing, malformed, oversized, foreign row/tag/version/revision/run/repository/workflow/job, divergent SHA256SUMS or artifact digests, substituted or incomplete prepared sets, rebuilt and merge-regression Evidence, manual-row environment contracts (Linux arm64 native, Windows bounded proxy without installer outcomes), the manual Evidence transport (pack/unpack), links and input immutability; write-evidence stages synthetic acceptance Evidence for test-release-flow.sh.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every repository validation via validate-repository.sh, and when acceptance verification, the Evidence schema or the release workflows change.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/validate-repository.sh",
+        "scripts/test-release-flow.sh"
+      ],
+      "inputs": "none for the tests; write-evidence --output --row --artifacts --tag --revision --run [--status]; reads scripts/testdata/gate-evidence/pass-prepared.json and release-artifacts.yml",
+      "outputs": "unittest report; exit 1 on failure; write-evidence writes one document and prints evidence_sha256",
+      "local_effects": "temporary directories only; write-evidence writes only its --output file",
+      "network_effects": "none",
+      "authority": "none; local checks",
       "tests": [],
       "evidence": null,
       "compatibility": [],
@@ -2422,6 +2586,46 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/verify-release-acceptance.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Release-candidate acceptance verification (Issue #238; Specification 004 FR-068/FR-069/FR-072/FR-075, AC-50/AC-51/AC-55/AC-56; ADR-0019): lists the automated and manual-transition release rows and verifies, read-only and offline, passing candidate-acceptance axiom-gate-evidence/v1 for every release row, bound to exactly the tag, version, full revision, SHA256SUMS and archive digests of the prepared set and to each row's environment contract (automated rows: native and the accept job of that prepared run; Linux arm64: native; Windows amd64: FR-072 bounded proxy); prints the per-row Evidence SHA-256 the publication envelope binds; packs and unpacks the manual rows' exact Evidence bytes for the publication dispatch.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Every release preparation (release-artifacts.yml acceptance-evidence job) and every publication envelope or publication of a release that is not yet published (publish-release.sh via publish-release.yml and release.sh)",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-artifacts.yml",
+        ".github/workflows/publish-release.yml",
+        "scripts/publish-release.sh",
+        "scripts/release.sh",
+        "scripts/test-verify-release-acceptance.py",
+        "scripts/test-release-flow.sh",
+        "scripts/test-release-pipeline.sh"
+      ],
+      "inputs": "rows; manual-rows; verify --acceptance ABS_DIR (exactly <row>/gate-evidence.json per release row) --artifacts ABS_DIR (SHA256SUMS plus its archives) --tag --revision --repo OWNER/NAME --prepared-run RUN_ID [--automated-only]; pack --manual ABS_DIR; unpack --bundle ABS_FILE --into ABS_DIR; imports gate-evidence.py",
+      "outputs": "rows/manual-rows: one row per line; verify: acceptance.<row>=<sha256> lines, acceptance_manual_transition (or acceptance_manual_pending with --automated-only) and acceptance_sha256sums=<sha256>; pack: one bounded line; unpack: manual_acceptance.<row>=<sha256> lines; stderr release_acceptance_error and exit 1 on any missing, failing, malformed or mismatched input; exit 2 usage",
+      "local_effects": "reads files without following links; unpack creates <row>/gate-evidence.json exclusively in the given directory",
+      "network_effects": "none",
+      "authority": "none; produces no Evidence and grants no publication authority",
+      "tests": [
+        "scripts/test-verify-release-acceptance.py",
+        "scripts/test-release-flow.sh",
+        "scripts/test-release-pipeline.sh"
+      ],
+      "evidence": "Prints the acceptance Evidence digests bound into the publication envelope",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/verify-release-artifacts.sh",
       "kind": "script",
       "owner": "release",
@@ -2444,13 +2648,14 @@
         "scripts/test-release-pipeline.sh",
         "scripts/verify-prepared-release.sh"
       ],
-      "inputs": "--dir ABS_DIR --version X.Y.Z --revision SHA; requires clean checkout at the revision and a go toolchain",
+      "inputs": "--dir ABS_DIR --version X.Y.Z --revision SHA; requires clean checkout at the revision and a go toolchain; optional --source-root ABS clean exact-revision source checkout; --skip-executable-smoke validates provenance without executing candidate bytes",
       "outputs": "stdout archive= lines, publication=none and result=pass; stderr release_verify_error and exit 1",
       "local_effects": "temporary directories only",
       "network_effects": "none",
       "authority": "none; read-only, never publishes",
       "tests": [
-        "scripts/test-release-pipeline.sh"
+        "scripts/test-release-pipeline.sh",
+        "scripts/test-prepared-upgrade-candidate.py"
       ],
       "evidence": "Produces release-evidence.txt retained in the prepared artifact and required by publish-release.sh",
       "compatibility": [],

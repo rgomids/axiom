@@ -126,6 +126,39 @@ build provenance. A mapping therefore needs its own product/architecture
 decision; Issue #175 tracks it. Until then historical POC workflow truth stays
 inert, consistent with FR-026.
 
+## Release-candidate acceptance amendment — 2026-10-06
+
+Issue [#227](https://github.com/rgomids/axiom/issues/227), derived from the
+CI/CD quality [Research](../../research/ci-cd-quality-strategy.md) of
+Issue [#154](https://github.com/rgomids/axiom/issues/154) (PR #226), encodes
+the human decisions accepted on 2026-10-06 in the Research
+[Accepted human decisions](../../research/ci-cd-quality-strategy.md#accepted-human-decisions)
+and in [#227](https://github.com/rgomids/axiom/issues/227#issuecomment-6009062641):
+
+- a stable release is published only from prepared immutable bytes that passed
+  release-candidate acceptance: **Build Once -> Validate Same Bytes -> Publish
+  Same Bytes**;
+- supported upgrade sources are generation-based: N, one baseline per shipped
+  persisted generation and explicitly declared historical formats; a baseline
+  is retired only by an explicit compatibility-window decision;
+- hosted Windows Server is a bounded release-blocking proxy for the Windows
+  client amd64 row, never a Windows Server support claim; native Windows client
+  Evidence is supplemental;
+- real Runtime/Provider acceptance blocks a release only when that release
+  changes the affected Integration or Runtime contract;
+- public CI vulnerability-scan output is `PASS`/`FAIL` only.
+
+The contract is
+[Release-candidate acceptance and supported upgrade sources](#release-candidate-acceptance-and-supported-upgrade-sources)
+(FR-068–FR-076, AC-50–AC-57); its architecture is
+[ADR-0019](../../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md).
+It partially supersedes the HD-4 "generic N-1" exclusion (annotated in place)
+and scopes the MVP release-candidate acceptance Evidence below without
+weakening it. The normative release contract becomes effective when the #227
+Specification/ADR pull request is accepted and merged to `main`. It authorizes
+no workflow, installer, product code, Windows Server support, production
+eligibility bypass or release publication.
+
 ## Status and authority
 
 **Approved — human approval recorded on 2026-09-20.**
@@ -150,6 +183,14 @@ a stable idempotent remote installer with safe owned upgrade, Codex + Claude
 first-run bootstrap, and Axiom dogfooding through its own S8 orchestration path.
 This scope decision does not by itself authorize S9 implementation, prerelease
 publication, Runtime/Provider effects, or final MVP acceptance.**
+
+**Issue #227 release-candidate acceptance amendment: its policy decisions were
+accepted by explicit human decision on 2026-10-06 (Research #154 and
+Issue #227). This text is proposed for human review in the #227 pull request;
+review confirms that it encodes those decisions. It becomes the effective
+release contract when that pull request is accepted and merged. No Plan, Tasks
+or implementation is authorized by it; the later CI/CD Slices carry their own
+gates.**
 
 Tracked by [#62](https://github.com/rgomids/axiom/issues/62) under the
 [MVP tracker #15](https://github.com/rgomids/axiom/issues/15). Human approval of
@@ -1095,6 +1136,311 @@ Plan/release declaration before distribution.
   global skill/configuration root. Project-local Runtime skill installation is
   not a fallback for missing or unsafe global state.
 
+## Release-candidate acceptance and supported upgrade sources
+
+Issue #227 amendment, effective as stated in the
+[2026-10-06 amendment](#release-candidate-acceptance-amendment--2026-10-06).
+Architecture:
+[ADR-0019](../../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md).
+
+**Scope.** This section governs the publication of every stable release
+(`vMAJOR.MINOR.PATCH`). It adds no requirement to publishing a release
+candidate (prerelease). It does not replace or weaken the MVP release-candidate
+acceptance (J10, AC-21–AC-24, AC-48, Required acceptance Evidence, Plan §13
+and T23–T25), which remains the contract for the final MVP acceptance
+decision and is not a gate for every later release. It describes observable
+outcomes and Evidence; it does not prescribe workflows, jobs, runners or tools.
+
+**Terms.**
+
+- **Prepared candidate set:** the closed, immutable set of release files
+  (archives, checksums, manifests, metadata and notes) that release
+  preparation produces once from one clean release revision (FR-063). Its bytes
+  are the bytes eligible for publication.
+- **Release-candidate acceptance:** behavioural validation whose subject is
+  the prepared candidate set itself.
+- **Rebuilt candidate:** any artifact built again from the same or equivalent
+  source, including the regression candidates of pull-request and `main`
+  checks. It is never the prepared candidate set, even when the build is
+  reproducible, because the version string and archive metadata differ.
+- **Release row:** a supported OS-family/architecture row of
+  [Specification 006](../006-installer-host-eligibility/spec.md#observable-behavior).
+
+### Candidate identity and the release boundary
+
+- **FR-068 Build once, validate and publish the same bytes:** the prepared
+  candidate set is built once. Release-candidate acceptance consumes those
+  bytes, and publication publishes exactly those bytes. Publication MUST NOT
+  rebuild, re-package or regenerate any artifact. The invariant is:
+
+  ```text
+  validated candidate bytes == publishable candidate bytes
+  ```
+
+  Any difference in revision, preparation or bytes makes a new candidate that
+  needs its own acceptance. Evidence about a rebuilt candidate, including
+  passing pull-request or `main` regression checks, MUST NOT substitute for
+  Evidence about the prepared candidate set.
+- **FR-069 Release boundary:** a stable release MUST NOT be published until
+  release-candidate acceptance has passed for the exact prepared candidate set
+  on every release row (FR-071, FR-072). Before any publication effect,
+  publication MUST verify that passing release-critical Evidence (FR-075)
+  exists and is bound to the digests of the exact files being published.
+  Missing, failing, incomplete or mismatched Evidence refuses publication with
+  zero publication effects. The human publication authority is given over a
+  candidate whose acceptance outcome is bound to it. Acceptance never grants
+  publication authority, and preparation stays separate from that authority
+  (FR-063). Acceptance MUST NOT modify the prepared candidate set; it only
+  produces Evidence.
+- **FR-070 Minimum candidate acceptance:** for each release row, acceptance
+  uses that row's prepared artifact and observes at least:
+  1. **artifact identity:** the digest of every file under test equals the
+     prepared checksums;
+  2. **provenance:** the binary reports the candidate's real release version,
+     exact source revision and clean build state, never a synthetic version;
+  3. **fresh install:** the row's verified installer shipped in the prepared
+     artifact (the installation stage of FR-031/FR-064) installs that artifact
+     into a clean, isolated environment with no earlier Axiom state. Remote
+     bootstrap resolution of a published release cannot apply before
+     publication and is outside this gate;
+  4. **first run:** explicit first-run guidance and Runtime-integration
+     discovery (FR-035, FR-066) behave as specified;
+  5. **representative Project configuration:** a representative Project is
+     configured and validated;
+  6. **representative Work Item and workflow:** a representative Work Item and
+     workflow complete through deterministic Runtime/Provider doubles, unless
+     FR-076 requires a real observation;
+  7. **supported upgrade matrix:** every supported upgrade source (FR-074),
+     holding representative non-empty persisted state that the source
+     produced (or its frozen corpus), upgrades through the candidate's
+     canonical upgrade path to the expected forward strategy (FR-026–FR-028,
+     FR-065);
+  8. **usability after upgrade:** after each upgrade, the installation
+     reaches the expected post-state of the declared forward strategy. For a
+     preserve plus rebuild/reconfiguration source, that means preserved
+     history and a rebuilt, reconfigured Project, with no promoted historical
+     truth. The state that the strategy keeps current (Project, Work Item,
+     workflow, Runtime integration) is readable and usable, and first run is a
+     no-op;
+  9. **reinstall:** installing the same version again converges as an
+     idempotent no-op that leaves owned content unchanged (FR-034, FR-065);
+  10. **downgrade and refusal:** an older version over the candidate
+      installation is refused with zero installation effects (FR-029,
+      FR-065). Out-of-policy state still fails closed;
+  11. **Evidence:** release-critical Evidence (FR-075) binds every result to
+      the exact bytes tested.
+
+  A step that the product contract forbids on a row's acceptance host is
+  recorded as `not_applicable` with its governing reason (FR-072). It is
+  never recorded as passed.
+
+### Platform rows
+
+- **FR-071 Row coverage:** release-candidate acceptance runs, for each release
+  row, on a host of that row's OS family and architecture, hosted or operated.
+  Cross-compilation or a header check alone is not acceptance. OS version,
+  distribution, filesystem and runner image are recorded as Evidence facts.
+  They are not eligibility (Specification 006), and runner labels are not part
+  of this contract.
+- **FR-072 Windows client amd64 bounded proxy:** no hosted Windows client amd64
+  host exists. Hosted Windows Server is the **bounded release-blocking proxy**
+  for this row. It is an Evidence environment, not a supported installation
+  host. Specification 006 FR-E03/AC-E04 and ADR-0015 are unchanged: production
+  installers MUST still refuse Windows Server, and no acceptance-only
+  production override exists. On the exact prepared Windows bytes, the
+  blocking proxy MUST cover:
+  - artifact identity and digest binding;
+  - version and revision provenance;
+  - direct prepared `axiom.exe` CLI behaviour that does not require treating
+    Windows Server as a supported client host;
+  - the real prepared installers' Windows Server refusal path, proving
+    fail-closed refusal with zero installation effects.
+
+  The proxy MUST NOT claim to prove fresh install, owned upgrade or reinstall
+  of the prepared Windows artifact on a supported Windows client. On the
+  proxy, the FR-070 steps apply as follows:
+  - steps 1, 2 and 11 apply;
+  - steps 4–6 apply only where they run through the prepared `axiom.exe`
+    directly, without installation;
+  - steps 3, 7, 8 and 9 are `not_applicable`;
+  - step 10 is replaced by the fail-closed Server refusal of the prepared
+    installers;
+  - any other step that cannot run without treating Windows Server as
+    supported is `not_applicable` with that reason. Windows-specific install,
+  upgrade and reinstall mechanics remain merge-blocking through the
+  deterministic source-level test seam. Native Windows client amd64 Evidence is
+  supplemental (FR-076). The absence of blocking client-installer Evidence on
+  the exact bytes is an explicit residual risk. Revisit this rule if a concrete
+  client-only or Windows install-path divergence is found.
+
+### Supported upgrade sources
+
+- **FR-073 Persisted generation:** a persisted generation is a distinct shape
+  of Axiom-owned persisted content that a published release writes and that a
+  later upgrade must recognize and converge. Shape covers the format version,
+  record kinds, encodings and layout of:
+  - persisted state and portable configuration (FR-026);
+  - installation receipts;
+  - Runtime skill-set receipts and the Axiom-owned skill set they record
+    (FR-036, ADR-0016).
+
+  A release identity or version string alone does not create a generation. A
+  generation exists from the publication of the first stable release that
+  writes it. A change that makes a candidate write a shape no declared
+  generation represents introduces a new generation.
+- **FR-074 Supported upgrade sources:** the supported upgrade sources of a
+  stable candidate are:
+  1. **N**, the latest published stable release that the candidate
+     supersedes. N is a mandatory source, and the generation N writes stays
+     inside the candidate's compatibility window;
+  2. **one declared baseline per supported persisted generation**. A baseline
+     is an immutable published release that writes the generation, together
+     with representative non-empty persisted state it produced or a frozen
+     corpus of that state (append-only, `.agents/policies/quality.md`). One
+     baseline per generation suffices. Other releases of the same generation
+     are not required sources;
+  3. **each explicitly declared historical format**, with its declared
+     transition. Today that is RecognizedPOC (`v0.1.0-poc.1`, preserve ->
+     clean rebuild -> supported reconfiguration, ADR-0017). Prerelease,
+     release-candidate and POC releases are not required matrix sources
+     unless declared. State they wrote in the shape of a declared generation
+     is covered by that generation. The FR-026 rule that a newer release MUST
+     NOT refuse state an earlier release legitimately wrote is unchanged.
+
+  The declaration is versioned in the repository and reviewed like the other
+  release contracts. For each generation it names the generation, its
+  baseline, the representative state and the expected forward strategy
+  (FR-065: direct, bounded migration, preserve plus
+  rebuild/reconfiguration). A candidate that writes a shape no declared
+  generation represents MUST fail acceptance. The declaration SHOULD also be
+  machine-checkable, so that a change introducing an undeclared generation is
+  detected before merge.
+  - **New generation:** a change that introduces a generation MUST, before the
+    candidate that first ships it passes acceptance, declare:
+    - the new generation;
+    - the earlier generations retained in its compatibility window, with one
+      forward path each (FR-026);
+    - that the first stable release writing it becomes its baseline once
+      published.
+
+    The declaration SHOULD be in the same change.
+  - **Compatibility windows:** every generation a candidate supports has a
+    declared baseline. That includes every persisted-state format inside the
+    FR-026 stable compatibility window and every supported receipt shape.
+    Every declared historical format has its declared transition. A
+    compatibility-window decision is the recorded decision that removes a
+    generation from that supported set.
+  - **Retirement:** a supported generation's baseline is retired only by an
+    explicit, recorded compatibility-window decision. That decision names the
+    generation, the first release that no longer supports it, and the outcome
+    for hosts that still hold it: fail closed as out-of-window with actionable
+    diagnostics (FR-026, FR-065). Pruning a baseline, test, fixture or corpus is
+    never a retirement. The generation written by N cannot be retired by the
+    candidate that supersedes N. The invariant is:
+
+    ```text
+    a supported persisted generation cannot silently disappear from the upgrade contract
+    ```
+
+  - **Historical sweep:** a scheduled sweep MAY use every published stable
+    release as an upgrade source. It is non-blocking. Each finding becomes a
+    defect or a newly declared generation and baseline. The sweep does not
+    replace the blocking supported-source matrix, and the matrix does not
+    promise upgrade from every historical release.
+
+### Evidence, disclosure and integrations
+
+- **FR-075 Release-critical Evidence:** acceptance produces bounded,
+  structured, machine-checkable Evidence. Raw logs are never its only form.
+  Each record identifies:
+  - its subject: the prepared candidate set, tag and version, source
+    revision, checksums digest and the digest of every artifact under test;
+  - the release row and whether the environment is native or the bounded
+    proxy;
+  - environment facts: OS version, distribution, architecture, filesystem
+    and runner image when hosted;
+  - the upgrade sources and the digests of their artifacts and fixtures;
+  - each FR-070 result, including `not_applicable` with its reason;
+  - the overall `pass`/`fail` result and its attempt identity.
+
+  It is retained at least until the publication it supports completes, and it
+  contains no secrets (Non-functional requirements). The concrete schema is
+  `axiom-gate-evidence/v1`
+  ([schema](../../../scripts/schemas/axiom-gate-evidence-v1.schema.json),
+  validated by `scripts/gate-evidence.py`, Issue #234). Issue #236 adds
+  native-row upgrade-journey emission on verified prepared bytes, with
+  `subject.kind = prepared`. Issue #238 (Slice 4) wires it into the release
+  boundary: for a stable tag, the preparation run itself (ADR-0019
+  Alternative D) runs blocking `candidate-acceptance` on the prepared bytes on
+  native Linux amd64 and macOS arm64 hosts, retains each document as its own
+  workflow artifact, and the publication envelope binds the SHA-256 of each
+  document, which `scripts/verify-release-acceptance.py` verifies before any
+  publication effect. For a row without automated acceptance yet, any record
+  with these properties satisfies this requirement. The envelope binds it the
+  same way, and publication verifies it the same way (Transition below).
+- **FR-076 Real Runtime/Provider acceptance and supplemental Evidence:**
+  deterministic fake and contract validation is the ordinary protection of
+  Runtime and Provider integrations. Real Runtime or Provider acceptance is
+  release-blocking only for a release that changes that Integration or Runtime
+  contract. Whether it does is determined from the delivered changes and
+  recorded, with its basis, in the release-critical Evidence. Otherwise real
+  integration Evidence is supplemental. Real runs keep the existing authority,
+  secret, cost and quota boundaries: they are explicitly authorized, never
+  expose credentials, and never run from untrusted pull-request content.
+
+  Supplemental Evidence never becomes release-blocking automatically: native
+  Windows client Evidence, real Runtime/Provider Evidence outside the case
+  above, other distributions and OS versions, and the historical sweep all stay
+  supplemental. Promoting any of it requires an explicit change to this
+  contract.
+
+  **Vulnerability-scan disclosure:** any vulnerability scan on a public CI
+  surface (logs, job summaries, check output, retained public artifacts)
+  exposes only `PASS` or `FAIL`. Advisory identifiers, reachable symbols,
+  affected artifacts and remediation details follow the private
+  [SECURITY.md](../../../SECURITY.md) flow. A release waiver is recorded
+  publicly only as a sanitized decision reference.
+
+**Transition.** Until automated release-candidate acceptance exists for a
+release row, a manual release-candidate acceptance over the downloaded prepared
+candidate set, with Evidence bound to its exact digests, satisfies
+FR-069–FR-075 for that row. For Windows it follows the FR-072 bounded proxy
+scope. Automated acceptance exists for Linux amd64 and macOS arm64
+(Issue #238); Linux arm64 and the Windows bounded proxy stay under this
+transition until their own Slices. Only who produces the Evidence differs:
+automated rows produce it in the preparation run, and manual-transition rows
+produce it by hand on the downloaded set. Both are required. Each row's
+Evidence is verified against the same prepared candidate and bound by digest
+into the human-authorized publication envelope before stable publication.
+Naming a row as manual never replaces its Evidence. For the Windows proxy, a
+record holds exactly the FR-072 observations. They pass, while install, owned
+upgrade and reinstall are `not_applicable`. Until its Slice provides an
+emitter, a maintainer records it by hand. A stable release cannot be published
+without it.
+
+The initial generation declaration (FR-074) MUST exist before the first stable
+candidate accepted under this contract. It starts from the sources that the
+merge-blocking upgrade journeys exercise today:
+- N with state that N wrote, plus the frozen stable v1 corpus;
+- v0.1.1, for the pre-#186 Runtime skill-set receipt shape;
+- RecognizedPOC.
+
+Any other shipped generation found while declaring is added before that
+acceptance.
+
+### Acceptance criteria for this amendment
+
+| ID | Observable acceptance |
+|---|---|
+| AC-50 | The bytes published for a stable release equal, digest for digest, the prepared candidate set that passed acceptance; publication performs no rebuild, and any byte or revision difference requires a new acceptance. |
+| AC-51 | Publishing a stable release with missing, failing, incomplete or digest-mismatched release-candidate Evidence is refused before any publication effect; acceptance never grants publication authority. |
+| AC-52 | For every release row, acceptance on the prepared artifact observes identity, real-version provenance, fresh install, first run, Project configuration, Work Item/workflow, the supported upgrade matrix, post-upgrade usability, idempotent reinstall and downgrade refusal, or records a contract-justified `not_applicable`. |
+| AC-53 | The upgrade matrix includes N, one baseline per supported persisted generation with representative non-empty state, and every declared historical format; rebuilt-candidate Evidence is not accepted in its place. |
+| AC-54 | A candidate that writes an undeclared persisted generation cannot pass acceptance; a generation leaves the supported sources only through a recorded compatibility-window decision, and never the generation written by N. |
+| AC-55 | Windows proxy Evidence is labelled as the bounded proxy, covers identity, provenance, direct CLI behaviour and fail-closed Server refusal with zero effects, and claims no Windows client install, upgrade or reinstall; production installers still refuse Windows Server. |
+| AC-56 | Release-critical Evidence is bounded, structured and bound to the exact artifact digests, tag/version, revision and row; public vulnerability-scan output shows only `PASS`/`FAIL`. |
+| AC-57 | Real Runtime/Provider acceptance blocks only a release recorded as changing that Integration or Runtime contract; otherwise it, like other supplemental Evidence, does not block publication. |
+
 ## Failure cases and invariants
 
 The MVP MUST handle at least:
@@ -1314,6 +1660,14 @@ Axiom state. Controlled fakes MAY prove deterministic external failures, but the
 supported Provider/Runtime journey requires a bounded real integration observation
 before final acceptance. Every external mutation remains explicitly authorized.
 
+This Evidence list governs the MVP release-candidate acceptance and final MVP
+acceptance decision. Per-release acceptance of each later stable release is
+defined by
+[Release-candidate acceptance and supported upgrade sources](#release-candidate-acceptance-and-supported-upgrade-sources)
+(FR-068–FR-076). There, real Runtime/Provider observations block only a
+release that changes that contract (FR-076), and Windows follows the bounded
+proxy (FR-072). Neither rule weakens this list for the MVP acceptance.
+
 ## Delivery dependencies
 
 ```text
@@ -1379,9 +1733,9 @@ Issue #81, with release candidates selected only by exact
 
 | Classification | This Specification |
 |---|---|
-| Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above, including FR-038–FR-061/AC-25–AC-43 from the approved S8 amendment and the 2026-09-27 S9 product-scope direction FR-062–FR-067/AC-44–AC-49 proposed for canonical amendment approval. |
+| Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above, including FR-038–FR-061/AC-25–AC-43 from the approved S8 amendment and the 2026-09-27 S9 product-scope direction FR-062–FR-067/AC-44–AC-49 proposed for canonical amendment approval, and the Issue #227 release-candidate acceptance amendment FR-068–FR-076/AC-50–AC-57. |
 | Implementation detail deferred to Plan | CLI framework, concrete Go packages/interfaces, exact JSON schema, prompt UI, filesystem syscalls, migration algorithm, installer implementation, artifact filename rendering, lifecycle/graph-record encoding, scheduler mechanism, concrete Runtime adapters, concrete model names and metadata-policy schema. GitHub label spelling is fixed only for the Issue #94 adapter projection. |
-| Human decisions recorded | HD-1 through HD-4 and complete original Specification approval were recorded on 2026-09-20. ADR-0005/0006 directly formalize HD-3/HD-2. The Issue #94 amendment, FR-038–FR-044, AC-25–AC-31, S6 placement, and Specification 002 policy-reference clarification were explicitly approved on 2026-09-24. On 2026-09-26 human review approved FR-045–FR-061, AC-32–AC-43, ADR-0009, the amended Plan/Tasks, Codex plus Claude as concrete S8 acceptance paths, observational-only usage/cost telemetry, and the local T36 authority boundary. Implementation was separately gated at that time; S8/T30–T36 implementation was authorized on 2026-09-27 (Issue #97 comment #5852650410). The real T36 Runtime run later received its own exact authority, was executed, and produced `real_run_recorded` Evidence. The technical outcome is S8 ready for human review; human acceptance and S9 remain separate. On 2026-09-27 the human also recorded the S9 product direction: public `axiom` CLI, automated native release artifacts, stable idempotent remote install/owned upgrade, Codex+Claude first-run bootstrap and self-hosted Axiom dogfooding. The canonical S9 Plan/Tasks amendment remains subject to review before implementation. The PR #104 review on 2026-09-27 fixed the bootstrap source at `scripts/install.sh` and made Axiom Runtime skills user-global (Claude under `<CLAUDE_CONFIG_DIR or ~/.claude>/skills/<name>/SKILL.md`). Issue #81 records the release-selection and version policy; on 2026-09-28 the human narrowed release-candidate selection to exact `--version vX.Y.Z-rc.N` pins without a required floating RC selector. |
+| Human decisions recorded | HD-1 through HD-4 and complete original Specification approval were recorded on 2026-09-20. ADR-0005/0006 directly formalize HD-3/HD-2. The Issue #94 amendment, FR-038–FR-044, AC-25–AC-31, S6 placement, and Specification 002 policy-reference clarification were explicitly approved on 2026-09-24. On 2026-09-26 human review approved FR-045–FR-061, AC-32–AC-43, ADR-0009, the amended Plan/Tasks, Codex plus Claude as concrete S8 acceptance paths, observational-only usage/cost telemetry, and the local T36 authority boundary. Implementation was separately gated at that time; S8/T30–T36 implementation was authorized on 2026-09-27 (Issue #97 comment #5852650410). The real T36 Runtime run later received its own exact authority, was executed, and produced `real_run_recorded` Evidence. The technical outcome is S8 ready for human review; human acceptance and S9 remain separate. On 2026-09-27 the human also recorded the S9 product direction: public `axiom` CLI, automated native release artifacts, stable idempotent remote install/owned upgrade, Codex+Claude first-run bootstrap and self-hosted Axiom dogfooding. The canonical S9 Plan/Tasks amendment remains subject to review before implementation. The PR #104 review on 2026-09-27 fixed the bootstrap source at `scripts/install.sh` and made Axiom Runtime skills user-global (Claude under `<CLAUDE_CONFIG_DIR or ~/.claude>/skills/<name>/SKILL.md`). Issue #81 records the release-selection and version policy; on 2026-09-28 the human narrowed release-candidate selection to exact `--version vX.Y.Z-rc.N` pins without a required floating RC selector. On 2026-10-06 the human accepted the #154 Research decisions on generation-based upgrade sources, the Windows Server proxy, Runtime/Provider blocking and vulnerability disclosure. In Issue #227 the human bounded the Windows proxy scope and set the effective date; these are encoded by FR-068–FR-076 and ADR-0019. |
 
 ## Human decisions recorded — 2026-09-20
 
@@ -1453,8 +1807,14 @@ preserves backup/export where applicable, followed by explicit export/reconfigur
 In-place migration from the POC remains unsupported unless a later bounded
 compatibility/ADR decision proves it safe and explicitly authorizes it. Unknown
 newer formats fail closed; unsupported older formats are diagnosed explicitly; no
-migration or downgrade is silent; no generic N-1 or arbitrary historical
+migration or downgrade is silent; no ~~generic N-1 or~~ arbitrary historical
 compatibility is promised.
+
+> Superseded by [Specification 004 — Release-candidate acceptance and supported upgrade sources](#release-candidate-acceptance-and-supported-upgrade-sources) and [ADR-0019](../../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md#decision), accepted 2026-10-06.
+> Only the struck "generic N-1" exclusion is superseded. N, the stable release a
+> candidate supersedes, and one baseline per supported persisted generation
+> are supported upgrade sources (FR-074). Arbitrary historical compatibility is
+> still not promised. Historical text preserved for traceability.
 
 **Issue #153 reconciliation — 2026-10-01:** HD-4 remains the historical
 baseline and its prohibition on implicit in-place POC migration remains in force.
@@ -1520,6 +1880,22 @@ transition history, identity, or authority is introduced. Stop and reassess an A
 if implementation instead requires a second workflow authority, portable/shared
 Execution state, Provider-owned gates, a generic metadata/custom-field schema, or
 silent reconstruction of local truth.
+
+### Issue #227 ADR assessment
+
+[ADR-0019](../../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md)
+is required. Three choices are durable and cross-cutting:
+- the release boundary (acceptance on the prepared immutable bytes, with no
+  rebuild before publication);
+- the generation-based supported-source policy;
+- the bounded Windows proxy and Runtime/Provider blocking rules.
+
+They constrain every later CI/CD Slice and the release authority flow. The ADR
+records the accepted decisions only. The concrete placement of acceptance (for
+example, inside the prepare run or in a separate workflow bound to the
+publication envelope) is left to the implementation Slice, within the ADR's
+invariants. Existing ADR-0011, ADR-0012, ADR-0015, ADR-0016 and ADR-0017 remain
+unchanged.
 
 ### Issue #97 ADR assessment
 

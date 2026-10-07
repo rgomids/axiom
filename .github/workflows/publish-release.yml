@@ -6,7 +6,14 @@ name: Publish release
 # that run, re-verifies it at the revision, recomputes the publication
 # envelope and stops unless its digest equals the authorized one. The publish
 # job also waits for approval of the protected `release` environment.
-# Order: verify prepared set -> envelope == authorized digest -> delivery
+# A stable envelope binds the digest of the release-candidate acceptance
+# Evidence of every release row (Issue #238): the automated rows' documents
+# retained by that same prepared run, and the manual-transition rows'
+# documents (Linux arm64, the Windows bounded proxy), which arrive as the
+# manual_acceptance input exactly as release.sh packed them for the
+# authorized envelope. publish-release.sh verifies all of them as passing and
+# bound to these exact bytes, and never reruns acceptance in its place.
+# Order: verify prepared set -> acceptance Evidence -> envelope == authorized digest -> delivery
 # preflight -> draft -> assets -> read-back -> publish -> read-back -> the
 # envelope's Issue effects (release record, Project status, closure) for a
 # stable release. Reruns converge; conflicts and changed previews fail closed
@@ -30,6 +37,10 @@ on:
       preview_digest:
         description: preview_digest of the publication envelope a human authorized
         required: true
+        type: string
+      manual_acceptance:
+        description: Stable only. Manual-transition acceptance Evidence packed by release.sh (verify-release-acceptance.py pack); bound by digest in the envelope
+        required: false
         type: string
 
       corrections_revision:
@@ -285,6 +296,32 @@ jobs:
             projection=enabled
           fi
           printf 'projection=%s\n' "$projection" >>"$GITHUB_OUTPUT"
+      - name: Download the acceptance Evidence of the prepared run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PREPARED_RUN: ${{ inputs.prepared_run }}
+          MANUAL_ACCEPTANCE: ${{ inputs.manual_acceptance }}
+        run: |
+          # Only the prepared run's own Evidence for the automated rows, and
+          # the dispatched manual Evidence for the others. An absent document
+          # stays absent: publish-release.sh then refuses a stable release
+          # before any effect, unless it already reads back published.
+          acceptance="$RUNNER_TEMP/acceptance"
+          mkdir "$acceptance"
+          "$RELEASE_CONTROL_SCRIPTS/verify-release-acceptance.py" rows >"$RUNNER_TEMP/acceptance-rows"
+          while IFS= read -r row; do
+            mkdir "$acceptance/$row"
+            gh run download "$PREPARED_RUN" --repo "$GITHUB_REPOSITORY" --name "axiom-acceptance-$RELEASE_TAG-$row" \
+              --dir "$acceptance/$row" || rm -rf -- "$acceptance/$row"
+          done <"$RUNNER_TEMP/acceptance-rows"
+          # Transport only: the envelope binds each document's digest, and a
+          # malformed bundle fails this step before any effect.
+          if [[ -n "$MANUAL_ACCEPTANCE" ]]; then
+            printf '%s' "$MANUAL_ACCEPTANCE" >"$RUNNER_TEMP/manual-acceptance"
+            "$RELEASE_CONTROL_SCRIPTS/verify-release-acceptance.py" unpack --bundle "$RUNNER_TEMP/manual-acceptance" \
+              --into "$acceptance" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Re-verify, match the authorized envelope, then publish
         env:
           # Environment-scoped fine-grained PAT: historical source workflows
@@ -317,5 +354,5 @@ jobs:
           "$RELEASE_CONTROL_SCRIPTS/publish-release.sh" --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" \
             --make-latest "$make_latest" --prepared-run "$PREPARED_RUN" --dir "$prepared/artifacts" \
             --evidence "$prepared/release-evidence.txt" --notes "$prepared/release-notes.md" \
-            --authorized-digest "$PREVIEW_DIGEST" | tee "$RUNNER_TEMP/publication.txt"
+            --acceptance "$RUNNER_TEMP/acceptance" --authorized-digest "$PREVIEW_DIGEST" | tee "$RUNNER_TEMP/publication.txt"
           cat "$RUNNER_TEMP/publication.txt" >>"$GITHUB_STEP_SUMMARY"

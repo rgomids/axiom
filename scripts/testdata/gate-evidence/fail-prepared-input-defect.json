@@ -1,0 +1,282 @@
+{
+  "schema": "axiom-gate-evidence/v1",
+  "gate": "merge-regression",
+  "suite": "upgrade-journeys",
+  "row": "macos-27-arm64",
+  "subject": {
+    "kind": "prepared",
+    "tag": "v9999.0.0-prepared.1",
+    "version": "9999.0.0-prepared.1",
+    "revision": "9aa63e4316d96303cfbdcc28466043b3b2d15e43",
+    "sha256sums_sha256": "0b9fa39066f9918ba7162bccc8cbb17a665dda2919a67cb7db1a302a6750c48c",
+    "artifacts": [
+      {
+        "name": "axiom-9999.0.0-prepared.1-linux-amd64.tar.gz",
+        "sha256": "642218ff35fc03c27f85d012bc656085110a8b7e1a6b60e9d2fda871eba24fcb"
+      },
+      {
+        "name": "axiom-9999.0.0-prepared.1-linux-arm64.tar.gz",
+        "sha256": "f542f42cf985c629d58013f00c7db26317176714895e78e15dcbbcc348328cf0"
+      },
+      {
+        "name": "axiom-9999.0.0-prepared.1-macos-27-arm64.tar.gz",
+        "sha256": "bb7b73661ffb7d48508a4f19644eda2461728f8d3e6a9e8cf79385cac91c251f"
+      },
+      {
+        "name": "axiom-9999.0.0-prepared.1-windows-amd64.tar.gz",
+        "sha256": "dcc6a0960b1ceb94b24bef29efbd07b52ca781d4c0b21fda11b479cc16009726"
+      }
+    ],
+    "artifact_id": null,
+    "artifact_digest": null
+  },
+  "run": {
+    "attempt_id": "00bc9c24-7cae-482d-a198-b0f18b03fa77",
+    "ci": null
+  },
+  "environment": {
+    "mode": "native",
+    "os": {
+      "family": "darwin",
+      "kernel_release": "27.0.0",
+      "distribution": "macos",
+      "version": "27.0.1"
+    },
+    "architecture": "arm64",
+    "filesystem": "apfs",
+    "runner": null,
+    "go_version": "go1.26.1",
+    "runtime": {
+      "bash": "3.2.57(1)-release",
+      "python": "3.14.4",
+      "clock_resolution_ms": 1000
+    }
+  },
+  "inputs": {
+    "upgrade_sources": [
+      {
+        "id": "previous-1",
+        "kind": "release",
+        "version": "9999.0.0-prepared.1",
+        "tag": null,
+        "sha256sums_sha256": "0b9fa39066f9918ba7162bccc8cbb17a665dda2919a67cb7db1a302a6750c48c",
+        "artifacts": [
+          {
+            "name": "axiom-9999.0.0-prepared.1-macos-27-arm64.tar.gz",
+            "sha256": "bb7b73661ffb7d48508a4f19644eda2461728f8d3e6a9e8cf79385cac91c251f"
+          }
+        ]
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "stable-v1-v0.4.0",
+        "path": "internal/compatibility/testdata/stable-v1/snapshots/v0.4.0",
+        "tree_sha256": "28196fa69f16eedea29c2eaf313ec61b14ee5143eb31e9cbf88018105aff2ba1"
+      }
+    ],
+    "command": [
+      "scripts/test-upgrade-journeys.sh",
+      "--prepared-set",
+      "{candidate}",
+      "--row",
+      "{subject-row}",
+      "--tag",
+      "{subject-tag}",
+      "--revision",
+      "{subject-revision}",
+      "--sha256sums-sha256",
+      "{subject-sha256sums}",
+      "--previous",
+      "{previous-1}",
+      "--evidence",
+      "{evidence}"
+    ],
+    "repository": {
+      "revision": "9aa63e4316d96303cfbdcc28466043b3b2d15e43",
+      "state": "dirty"
+    }
+  },
+  "journeys": [
+    {
+      "id": "v1-state",
+      "source": {
+        "role": "n",
+        "path": [
+          "previous-1"
+        ],
+        "generation": null,
+        "baseline": null
+      },
+      "completed": true,
+      "result": "fail",
+      "reason": null,
+      "governing_reference": null,
+      "installer": {
+        "upgrade": "unchanged",
+        "rerun": "unchanged"
+      },
+      "classification": {
+        "before": "valid_v1",
+        "after": "valid_v1"
+      },
+      "preservation_manifest_sha256": null,
+      "started_at": "2026-10-06T19:36:51Z",
+      "finished_at": "2026-10-06T19:36:55Z",
+      "steps": [
+        {
+          "id": "install-previous",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 1000
+        },
+        {
+          "id": "first-run-previous",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "seed-state-with-previous",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 1000
+        },
+        {
+          "id": "previous-reads-seeded-state-as-v1",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "upgrade",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 1000
+        },
+        {
+          "id": "upgrade-status",
+          "result": "fail",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "version",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "state-bytes-unchanged",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "portable-bytes-unchanged",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "state-valid-v1",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "project-readable",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "execution-readable",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "codex-ready",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "first-run",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "first-run-no-op",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        },
+        {
+          "id": "rerun-installer",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 1000
+        },
+        {
+          "id": "rerun-unchanged",
+          "result": "pass",
+          "failure_category": null,
+          "reason": null,
+          "governing_reference": null,
+          "duration_ms": 0
+        }
+      ]
+    }
+  ],
+  "result": {
+    "status": "fail",
+    "termination": "completed",
+    "exit_code": 1,
+    "signal": null,
+    "failure_categories": [],
+    "counts": {
+      "journeys": 1,
+      "steps": 17,
+      "passed": 16,
+      "failed": 1,
+      "not_applicable": 0
+    }
+  },
+  "started_at": "2026-10-06T19:36:50Z",
+  "finished_at": "2026-10-06T19:36:55Z"
+}

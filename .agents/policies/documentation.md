@@ -6,7 +6,7 @@ Before reconciling documents, consult [Documentation Governance v1](../../docs/d
 
 ## Authority and anti-drift
 
-- Notion owns product discovery; Specifications, architecture, and ADRs own technical contracts and decisions. Secondary sources summarize and link.
+- GitHub Wiki owns public product discovery and user-oriented documentation; Specifications, architecture, and ADRs in the repository own technical contracts and decisions. Code-coupled references remain versioned; secondary sources summarize and link.
 - Keep operational tracking in Issues/Projects when adopted, or existing Task/PR records until then. Never copy Task/PR status into Product Foundation or Roadmap; link to the Specifications index for consolidated lifecycle state.
 - Preserve approved decisions and dated history. Merge does not mean human acceptance; acceptance does not authorize the next Task.
 - Agent context must not override canonical artifacts. Hypotheses must remain distinct from accepted decisions.
@@ -34,7 +34,7 @@ These rules apply to the Axiom repository agent through the
 | Change | Expected documentation |
 |---|---|
 | internal bug fix, no contract impact | task/evidence; durable docs only if needed |
-| business-rule change | Specification and Evidence; Notion if product discovery changes |
+| business-rule change | Specification and Evidence; Wiki if public product discovery changes |
 | new integration/boundary | architecture; possibly ADR |
 | public API incompatibility | spec + architecture + migration/ADR as applicable |
 | infrastructure behavior | operational/architecture docs |

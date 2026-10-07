@@ -186,10 +186,11 @@ Consulte a [visão geral da arquitetura](architecture/README.md), o
 | Segurança | [Política de segurança](../SECURITY.md) · [Segurança do repositório](security/repository-security.md) |
 | Histórico | [Changelog](../CHANGELOG.md) |
 
-O [discovery no Notion](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979)
-fornece contexto de discovery de produto e pesquisa. Artefatos versionados do
-repositório são responsáveis por contratos técnicos, decisões e Evidence de
-implementação. Discovery não implica aprovação.
+A [GitHub Wiki](https://github.com/rgomids/axiom/wiki) reúne documentação pública
+de produto, conceitos e navegação orientada ao usuário. Artefatos versionados
+do repositório são responsáveis por contratos técnicos, decisões, Evidence de
+implementação e referências que precisam evoluir com o código. Discovery não
+implica aprovação.
 
 ## Desenvolvimento do Axiom
 

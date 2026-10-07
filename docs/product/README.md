@@ -28,8 +28,8 @@ Decisão e trade-offs: [ADR-0001](../decisions/0001-project-is-not-repository.md
 
 ## Documentation authority
 
-- **Notion:** visão de produto, discovery, fluxos e hipóteses em
-  [Notion discovery](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979).
+- **GitHub Wiki:** documentação pública de produto, conceitos, discovery e guias em
+  [Axiom Wiki](https://github.com/rgomids/axiom/wiki).
   Conteúdo externo não implica aprovação ou permissão de publicação; confirme
   classificação antes de incorporá-lo ao repositório público.
 - **GitHub / repositório versionado:** verdade técnica em Specifications, ADRs,
@@ -45,7 +45,7 @@ Contexto resumido para agentes: [../../.agents/context/axiom-product.md](../../.
 - [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md)
   — primeiro slice em implementação incremental: init mínimo, update explícito,
   reabertura e instalação local. Consulte o [lifecycle atual](../specifications/README.md#002--lingo-project-initialization);
-  a CLI ainda não está disponível.
+  disponibilidade e primeiros passos estão no [README](../../README.md#getting-started).
 - [Specification 001 — Codex Agent Harness Generation](../specifications/001-codex-agent-harness-generation/spec.md)
   — Proposed, voltada ao harness.
 - [Dogfooding 001 — Go Pull Request Review Agent](dogfooding/001-go-pr-review-agent.md)

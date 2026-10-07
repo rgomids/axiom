@@ -74,16 +74,18 @@ for pattern in "${required_ignores[@]}"; do
     || fail "required .gitignore pattern is missing: $pattern"
 done
 
-notion_url="https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979"
+wiki_url="https://github.com/rgomids/axiom/wiki"
 
-grep -Fq -- "$notion_url" "$ROOT/README.md" \
-  || fail "Notion source is missing from README.md"
+grep -Fq -- "$wiki_url" "$ROOT/README.md" \
+  || fail "Wiki source is missing from README.md"
+grep -Fq -- "$wiki_url" "$ROOT/docs/README.pt-BR.md" \
+  || fail "Wiki source is missing from docs/README.pt-BR.md"
 grep -Fq -- 'href="docs/README.pt-BR.md"' "$ROOT/README.md" \
   || fail "README.md is missing the Brazilian Portuguese navigation link"
 grep -Fq -- 'href="../README.md"' "$ROOT/docs/README.pt-BR.md" \
   || fail "docs/README.pt-BR.md is missing the English navigation link"
-grep -Fq -- "$notion_url" "$ROOT/docs/product/README.md" \
-  || fail "Notion source is missing from docs/product/README.md"
+grep -Fq -- "$wiki_url" "$ROOT/docs/product/README.md" \
+  || fail "Wiki source is missing from docs/product/README.md"
 
 "$ROOT/scripts/check-claude-bootstrap.sh" --skill-adapters "$ROOT"
 
@@ -98,6 +100,9 @@ fi
 python3 "$ROOT/scripts/test-check-automation-registry.py"
 python3 "$ROOT/scripts/check-automation-registry.py" "$ROOT"
 python3 "$ROOT/scripts/test-issue-label-policy.py"
+python3 "$ROOT/scripts/test-gate-evidence.py"
+python3 "$ROOT/scripts/test-prepared-upgrade-candidate.py"
+python3 "$ROOT/scripts/test-verify-release-acceptance.py"
 python3 "$ROOT/scripts/test-check-adr-governance.py"
 python3 "$ROOT/scripts/check-adr-governance.py" "$ROOT"
 "$ROOT/scripts/test-check-sensitive-files.sh"
