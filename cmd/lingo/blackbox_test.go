@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"os/exec"
@@ -108,6 +109,7 @@ type cliEvent struct {
 }
 
 type canonicalEvent struct {
+	Preflight         *projectapp.OperationReadiness `json:"preflight"`
 	RuntimeResolution *struct {
 		Choice *struct {
 			RuntimeID        string `json:"runtimeId"`
@@ -568,6 +570,19 @@ exit 0
 	if interrupted.Workflow == nil || interrupted.Workflow.Status != "interrupted" || interrupted.Workflow.CurrentGate != "implementation" || interrupted.Workflow.Revision != revision {
 		t.Fatalf("workflow payload = %+v", interrupted.Workflow)
 	}
+	// Resume must observe the configured Runtime before mutating an interrupted
+	// Execution. Hide PATH while retaining its policy and installed skills.
+	observedEnvironment := environment
+	environment = append(append([]string(nil), environment...), "PATH="+t.TempDir())
+	beforeResume := snapshotTrees(t, portable, state, skills, repository, home)
+	blockedResume := runCanonical(1, "validation_failure", "Project is not ready for Execution", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
+	if blockedResume.Preflight == nil || len(blockedResume.Preflight.Blockers) != 1 || blockedResume.Preflight.Blockers[0].Code != "runtime_resolution_blocked" || blockedResume.Preflight.Blockers[0].Detail != "runtime_unavailable" {
+		t.Fatalf("resume preflight = %+v", blockedResume.Preflight)
+	}
+	if after := snapshotTrees(t, portable, state, skills, repository, home); !bytes.Equal(beforeResume, after) {
+		t.Fatal("blocked resume changed local state")
+	}
+	environment = observedEnvironment
 	resumed := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
 	revision++
 	if resumed.Workflow == nil || resumed.Workflow.Status != "active" || resumed.Workflow.Revision != revision {
