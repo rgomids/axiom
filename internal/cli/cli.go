@@ -73,7 +73,10 @@ type UpdateInput struct {
 	Slug string
 	Name string
 }
-type InstallInput struct{ Source string }
+type InstallInput struct {
+	Source       string
+	Repositories []RepositoryInput
+}
 type ResolveInput struct{ Selector string }
 type RepositoryInput struct{ Key, Path string }
 type ConfigureInput struct {
@@ -109,7 +112,7 @@ type WorkflowInput struct {
 	ExternalID, Execution, Gate, Outcome, Reference, Next       string
 	Fact                                                        string
 	Runtime                                                     string
-	Role, Complexity, Observations, RuntimePreview              string
+	Role, Complexity, RuntimePreview                            string
 	Capabilities                                                []string
 	Number                                                      int
 	ExpectedRevision                                            uint64
@@ -363,7 +366,7 @@ func parserFailureText(operation action, issue string) (string, string) {
 		return "Skill inspection input is invalid", "Run skill inspect with one exact embedded skill name and no workflow arguments"
 	}
 	if operation == runtimeProfilePreviewAction {
-		return "Runtime profile preview input is invalid", "Provide explicit Project, role, complexity, capabilities and observation inventory"
+		return "Runtime profile preview input is invalid", "Provide explicit Project, role, complexity and capabilities"
 	}
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
@@ -462,35 +465,36 @@ const (
 )
 
 type requestInput struct {
-	itemType, beneficiary, value                                 string
-	classification                                               repositoryFlags
-	elaboratedSections                                           elaboratedSectionFlags
-	slug                                                         string
-	name                                                         string
-	projectID                                                    string
-	source                                                       string
-	selector                                                     string
-	repositories                                                 repositoryFlags
-	removeRepositories                                           repositoryFlags
-	workItemProvider                                             string
-	removeWorkItemProvider                                       bool
-	projectSupplied, slugSupplied                                bool
-	nameSupplied, providerSupplied                               bool
-	replaySupplied                                               bool
-	previewDigest                                                string
-	project, repository, workItem, execution                     string
-	providerRepository                                           string
-	intent, problem, desiredOutcome, context                     string
-	scope, constraints, nonGoals, acceptance                     string
-	message                                                      string
-	gate, outcome, reference, next, fact                         string
-	runtime                                                      string
-	role, complexity, capabilities, observations, runtimePreview string
-	number                                                       int
-	expectedRevision                                             uint64
-	authorizeExternal                                            bool
-	authorizeLocal                                               bool
-	active                                                       bool
+	itemType, beneficiary, value             string
+	classification                           repositoryFlags
+	elaboratedSections                       elaboratedSectionFlags
+	slug                                     string
+	name                                     string
+	projectID                                string
+	source                                   string
+	selector                                 string
+	repositories                             repositoryFlags
+	removeRepositories                       repositoryFlags
+	workItemProvider                         string
+	removeWorkItemProvider                   bool
+	projectSupplied, slugSupplied            bool
+	nameSupplied, providerSupplied           bool
+	replaySupplied                           bool
+	previewDigest                            string
+	project, repository, workItem, execution string
+	providerRepository                       string
+	intent, problem, desiredOutcome, context string
+	scope, constraints, nonGoals, acceptance string
+	message                                  string
+	gate, outcome, reference, next, fact     string
+	runtime                                  string
+	role, complexity, capabilities           string
+	runtimePreview                           string
+	number                                   int
+	expectedRevision                         uint64
+	authorizeExternal                        bool
+	authorizeLocal                           bool
+	active                                   bool
 }
 
 func request(args []string, service Service) (action, requestInput, *string) {
@@ -606,7 +610,7 @@ func selectorRequestIssue(operation action, values requestInput) string {
 	if missingRequiredInputs(operation, values, "number") {
 		return "missing_required_input"
 	}
-	if operation == workflowStartAction && missingRequiredInputs(operation, values, "role", "complexity", "capabilities", "observations") {
+	if operation == workflowStartAction && missingRequiredInputs(operation, values, "role", "complexity", "capabilities") {
 		return "missing_required_input"
 	}
 	if values.workItem != "" {
@@ -640,6 +644,7 @@ func projectFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	}
 	if operation == installAction {
 		set.StringVar(&values.source, "source", "", "Project manifest source; `<path>`.")
+		set.Var(&values.repositories, "repository", "Bind each Repository the manifest declares; `<key>=<absolute-path>`.")
 	}
 	if operation == resolveAction || operation == showAction {
 		set.StringVar(&values.selector, "selector", "", "Configured Project identity; `<uuid-or-slug>`.")
@@ -783,7 +788,7 @@ func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set.IntVar(&values.number, "number", 0, "Legacy Work Item number; `<positive-integer>`. Alternative to --work-item.")
 	if operation == workflowStartAction {
 		set.StringVar(&values.runtime, "runtime", "", "Optional Runtime constraint; `<codex|claude>`. Portable policy resolves omitted Runtime.")
-		runtimeRequestFlags(set, &values.role, &values.complexity, &values.capabilities, &values.observations)
+		runtimeRequestFlags(set, &values.role, &values.complexity, &values.capabilities)
 		set.StringVar(&values.runtimePreview, "runtime-preview", "", "Exact reviewed Runtime resolution digest; `<digest>`. Omission previews without starting.")
 	}
 	if operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowReconcileAction {
@@ -923,7 +928,11 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 	case updateAction:
 		return service.Update(ctx, UpdateInput{Slug: input.slug, Name: input.name})
 	case installAction:
-		return service.Install(ctx, InstallInput{Source: input.source})
+		repositories, ok := parseRepositories(input.repositories)
+		if !ok {
+			return Result{Status: Failed, Category: "invalid_input"}
+		}
+		return service.Install(ctx, InstallInput{Source: input.source, Repositories: repositories})
 	case resolveAction:
 		return service.Resolve(ctx, ResolveInput{Selector: input.selector})
 	case showAction:
@@ -977,7 +986,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		if input.workItem != "" && !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
-		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, Fact: input.fact, Active: input.active, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal, Runtime: input.runtime, Role: input.role, Complexity: input.complexity, Capabilities: strings.Split(input.capabilities, ","), Observations: input.observations, RuntimePreview: input.runtimePreview}
+		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, Fact: input.fact, Active: input.active, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal, Runtime: input.runtime, Role: input.role, Complexity: input.complexity, Capabilities: strings.Split(input.capabilities, ","), RuntimePreview: input.runtimePreview}
 		switch operation {
 		case workflowStartAction:
 			return service.WorkflowStart(ctx, value)

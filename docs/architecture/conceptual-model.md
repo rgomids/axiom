@@ -360,9 +360,11 @@ contracts remain subject to Specification.
 
 The implemented [Project Runtime/Profile policy](../specifications/002-lingo-project-initialization/runtime-policy-v2.md)
 composes portable Project intent with local configuration and Runtime observations
-at `internal/runtimeapplication`. It delegates selection to `runtimeprofile`;
-CLI renders the preview, and `graphapplication` revalidates that exact choice
-before concrete adapter dispatch. Portable schema v1 remains readable; v2 adds
+at `internal/runtimeapplication`. Lingo derives those observations itself from the
+executable it would dispatch and Axiom's skill integration (`runtimeadapter`). It
+delegates selection to `runtimeprofile`; CLI renders the preview, and
+`graphapplication` revalidates that exact choice and its concrete binding
+(credential reference and executable identity) before adapter dispatch. Portable schema v1 remains readable; v2 adds
 Runtime allowlists and role/complexity preferences. Neither schema grants local
 credential access or creates a vendor default.
 

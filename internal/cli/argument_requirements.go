@@ -48,7 +48,6 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 			inputRequirement{name: "role", required: true, missing: v.role == ""},
 			inputRequirement{name: "complexity", required: true, missing: v.complexity == ""},
 			inputRequirement{name: "capabilities", required: true, missing: v.capabilities == ""},
-			inputRequirement{name: "observations", required: true, missing: v.observations == ""},
 			inputRequirement{name: "runtime-preview", when: "creating Execution after review", missing: v.runtimePreview == ""},
 		)
 	}

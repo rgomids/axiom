@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -99,7 +98,7 @@ func TestStrictProjectConfigurePreservesRepeatableRepository(t *testing.T) {
 }
 
 func TestWorkflowStartRuntimeSelector(t *testing.T) {
-	base := []string{"workflow", "start", "--project", "sample", "--repository", "main", "--number", "7", "--role", "implementation", "--complexity", "high", "--capabilities", "code", "--observations", filepath.Join(t.TempDir(), "observations.json")}
+	base := []string{"workflow", "start", "--project", "sample", "--repository", "main", "--number", "7", "--role", "implementation", "--complexity", "high", "--capabilities", "code"}
 	for name, test := range map[string]struct {
 		args []string
 		want string

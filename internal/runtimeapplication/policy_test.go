@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/rgomids/axiom/internal/project"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
@@ -73,9 +76,12 @@ func TestProjectResolutionBothExplicitRuntimes(t *testing.T) {
 			if err != nil || !reflect.DeepEqual(again, preview) {
 				t.Fatal("nondeterministic preview")
 			}
-			choice, err := service.Check(context.Background(), preview)
-			if err != nil || !reflect.DeepEqual(choice, *preview.Choice) {
+			binding, err := service.Check(context.Background(), preview)
+			if err != nil || !reflect.DeepEqual(binding.Choice, *preview.Choice) || binding.CredentialReference != "env:PRIVATE_TEST_REFERENCE" {
 				t.Fatal("preview mismatch", err)
+			}
+			if wire, _ := json.Marshal(binding); strings.Contains(string(wire), "PRIVATE") {
+				t.Fatal("binding serialized its credential reference")
 			}
 			if strings.Contains(preview.Digest(), "PRIVATE") || strings.Contains(wireString(preview), "PRIVATE") {
 				t.Fatal("credential leak")
@@ -243,5 +249,72 @@ func TestInvalidRequestDoesNotReflectRejectedText(t *testing.T) {
 	p, err := New(s).Preview(context.Background(), "PRIVATE_SECRET", r)
 	if err == nil || s.loads != 0 || strings.Contains(wireString(p), "PRIVATE") {
 		t.Fatal(p, err)
+	}
+}
+
+type integrationFake bool
+
+func (i integrationFake) IntegrationReady(context.Context) bool { return bool(i) }
+
+// The production observer is the only machine-local source: removing or
+// replacing the reviewed executable after preview blocks Check, and only
+// Axiom's own skill integration can make a capability proven.
+func TestExecutableObserverBindsReviewedRuntime(t *testing.T) {
+	for _, id := range []string{"codex", "claude"} {
+		t.Run(id, func(t *testing.T) {
+			source, _ := setup(t, id)
+			source.snapshot.Configuration.ModelProfiles[0].Capabilities = []string{runtimeadapter.IntegrationCapability, "go"}
+			executable := filepath.Join(t.TempDir(), id)
+			writeExecutable(t, executable, "original")
+			ready := integrationFake(true)
+			observe := func() {
+				observer, err := runtimeadapter.NewExecutableObserver(7, time.Now(), []runtimeadapter.ObservedRuntime{{ID: id, Executable: executable, Integration: ready}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				source.snapshot.Observer = observer
+			}
+			observe()
+			service := New(source)
+			proven := Request{Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+			preview, err := service.Preview(context.Background(), projectID, proven)
+			if err != nil || preview.Choice == nil || preview.Choice.ExecutableDigest == "" || preview.Choice.RuntimeVersion != "" {
+				t.Fatalf("preview=%+v err=%v", preview, err)
+			}
+			if strings.Contains(wireString(preview), executable) {
+				t.Fatal("preview exposed the executable path")
+			}
+			if unproven, err := service.Preview(context.Background(), projectID, request()); err == nil || unproven.Blocker.Code != "no_allowed_match" {
+				t.Fatalf("unprovable capability resolved: %+v", unproven)
+			}
+			if _, err := service.Check(context.Background(), preview); err != nil {
+				t.Fatalf("unchanged machine state rejected: %v", err)
+			}
+			writeExecutable(t, executable, "replaced")
+			observe()
+			if _, err := service.Check(context.Background(), preview); !errors.Is(err, ErrStale) {
+				t.Fatalf("replaced executable accepted: %v", err)
+			}
+			if err := os.Remove(executable); err != nil {
+				t.Fatal(err)
+			}
+			observe()
+			if _, err := service.Check(context.Background(), preview); !errors.Is(err, ErrStale) {
+				t.Fatalf("removed executable accepted: %v", err)
+			}
+			writeExecutable(t, executable, "original")
+			ready = false
+			observe()
+			if _, err := service.Check(context.Background(), preview); !errors.Is(err, ErrStale) {
+				t.Fatalf("unverified integration accepted: %v", err)
+			}
+		})
+	}
+}
+
+func writeExecutable(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n# "+content+"\nexit 99\n"), 0o700); err != nil {
+		t.Fatal(err)
 	}
 }

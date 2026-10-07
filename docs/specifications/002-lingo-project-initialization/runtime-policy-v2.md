@@ -89,7 +89,7 @@ Preview includes Project ID, requirements, choice/model/version, configuration a
 observation revisions, Project/configuration/observation digests and blocker code.
 Digests bind actual snapshots as well as revision counters. Dispatch re-reads
 Project/local configuration and observations before invocation, validates exact
-preview equality, and checks the concrete command binding's model agrees. Drift
+preview equality, and checks the concrete command binding described below. Drift
 blocks and requires fresh preview; dispatch cannot silently choose another profile.
 Preview performs no Runtime dispatch and grants no external mutation authority.
 Output excludes credential references, environment values and raw adapter errors.
@@ -114,9 +114,56 @@ and freeze representative nonempty v2 content. Existing published baselines and
 stable-v1 corpora remain supported and append-only. This implementation does not
 perform release acceptance, tag creation or publication.
 
-The CLI observation file is explicitly supplied machine-local operator inventory
-using the existing Observation contract, not a new Axiom store or a claim that
-Lingo independently proved capabilities. File reads are bounded and closed-schema;
-future checks re-read the file. Programmatic execution sources must provide current
-Runtime observations on every check. Recorded observations cannot prove changes
-outside their observation source; live Runtime/provider acceptance remains separate.
+## Authoritative Runtime observation and concrete binding
+
+Lingo derives every Runtime observation itself, afresh on each preview and check.
+No flag, file or caller-supplied inventory can claim installation, availability,
+version or capability proof. For each Runtime in the local configuration the
+production observer, `runtimeadapter.ExecutableObserver`:
+
+- resolves the adapter executable from `PATH` as first-run discovers it and never
+  runs it;
+- reports installed and available only when that resolves to a regular file with
+  an executable mode, recording `executableDigest`: SHA-256 over the resolved path
+  and the SHA-256 of the content. The path itself never leaves the process;
+- leaves the version unknown, because Lingo neither executes nor authenticates a
+  Runtime;
+- proves exactly one capability, `axiom-skills`, when that Runtime's Axiom skill
+  integration inspects Ready (the read-only check behind `runtime <id> status`).
+  Every other capability stays unproven, so a request needing it blocks with
+  `no_allowed_match`; local profiles can only satisfy what Lingo can prove.
+
+The observation revision is the local configuration revision. The preview's
+`observationDigest` and `choice.executableDigest` bind the observed identity and
+capability status, so a removed, replaced or re-pointed executable, or a lost
+skill integration, changes the next observation and `Check` fails as stale.
+
+Graph dispatch (`graphapplication.NewLocalService`) receives its observer through
+programmatic composition, which remains trusted code. Independently of that
+observer, `Check` returns the internal `runtimeapplication.Binding` derived from
+the configuration whose digest the reviewed preview carries, and the dispatch
+guard requires the command profile to match it exactly: Runtime, Model Profile,
+model, credential reference, and a current identity of the profile's executable
+equal to the reviewed `executableDigest`. Composition rejects command-profile
+arguments and environment that would select another model, configuration,
+session, provider or credential source. Any divergence or drift blocks before
+credential resolution, attempt allocation, process start or persisted graph
+change. The credential reference never enters preview output.
+
+Residual limits: the identity covers the executable file, not interpreters or
+libraries it loads; a replacement between the final identity check and process
+start is not detected; an explicitly configured `HOME` still exposes the Runtime's
+own ambient login, which Lingo neither reads nor binds. Live Runtime/provider
+acceptance remains separate.
+
+## Production authoring path
+
+`project configure` still publishes Projects without a Runtime/Profile policy.
+An operator declares the portable policy in an authored `axiom.yaml` and records
+it with `project install --source <dir> --repository <key>=<absolute-path>`, one
+exact binding per declared Repository. The machine-local Runtime Profile
+configuration remains operator configuration under the protected state root and
+is checked by `runtime profile validate`. Editing an installed manifest changes
+its portable revision, so resolution blocks with `policy_unavailable`; no
+re-adoption path exists in this slice; Project bootstrap (#231) and Project edit
+publication remain separate scope.

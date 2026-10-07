@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"io"
-	"path/filepath"
 	"strings"
 
 	"github.com/rgomids/axiom/internal/runtimeapplication"
@@ -15,19 +14,18 @@ import (
 const runtimeProfilePreviewAction action = "runtime_profile_preview"
 
 type RuntimeProfilePreviewInput struct {
-	Project, Role, Complexity, Runtime, Observations string
-	Capabilities                                     []string
+	Project, Role, Complexity, Runtime string
+	Capabilities                       []string
 }
 
 type RuntimeProfilePreviewService interface {
 	RuntimeProfilePreview(context.Context, RuntimeProfilePreviewInput) Result
 }
 
-func runtimeRequestFlags(set *flag.FlagSet, role, complexity, capabilities, observations *string) {
+func runtimeRequestFlags(set *flag.FlagSet, role, complexity, capabilities *string) {
 	set.StringVar(role, "role", "", "Logical role; `<token>`.")
 	set.StringVar(complexity, "complexity", "", "Required complexity; `<token>`.")
 	set.StringVar(capabilities, "capabilities", "", "Required proven capabilities; `<comma-list>`.")
-	set.StringVar(observations, "observations", "", "Operator-supplied existing observation inventory; `<absolute-path>`.")
 }
 
 func runtimePreviewFlags(args []string) (RuntimeProfilePreviewInput, bool) {
@@ -37,7 +35,7 @@ func runtimePreviewFlags(args []string) (RuntimeProfilePreviewInput, bool) {
 	set.SetOutput(io.Discard)
 	set.StringVar(&input.Project, "project", "", "")
 	set.StringVar(&input.Runtime, "runtime", "", "")
-	runtimeRequestFlags(set, &input.Role, &input.Complexity, &capabilities, &input.Observations)
+	runtimeRequestFlags(set, &input.Role, &input.Complexity, &capabilities)
 	if invalidFlagSyntax(set, args, nil) {
 		return RuntimeProfilePreviewInput{}, false
 	}
@@ -53,7 +51,7 @@ func runtimePreviewFlags(args []string) (RuntimeProfilePreviewInput, bool) {
 
 // ValidRuntimePreviewInput bounds input before it reaches the policy source.
 func ValidRuntimePreviewInput(input RuntimeProfilePreviewInput) bool {
-	if input.Project == "" || len(input.Project) > 256 || !filepath.IsAbs(input.Observations) || len(input.Observations) > 4096 || !previewToken(input.Role) || !previewToken(input.Complexity) || input.Runtime != "" && !workflow.SupportedRuntime(input.Runtime) || len(input.Capabilities) == 0 || len(input.Capabilities) > 32 {
+	if input.Project == "" || len(input.Project) > 256 || !previewToken(input.Role) || !previewToken(input.Complexity) || input.Runtime != "" && !workflow.SupportedRuntime(input.Runtime) || len(input.Capabilities) == 0 || len(input.Capabilities) > 32 {
 		return false
 	}
 	seen := map[string]bool{}

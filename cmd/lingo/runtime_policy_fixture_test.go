@@ -2,16 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
 
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
@@ -73,18 +74,44 @@ func installTestRuntimePolicy(t *testing.T, stateRoot, id, runtimeID string) []s
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1, Runtimes: []runtimeprofile.Runtime{{ID: runtimeID, Adapter: runtimeID, Enabled: true, AllowlistedProfileIDs: []string{"worker"}, CredentialReference: "private-test-reference"}}, ModelProfiles: []runtimeprofile.ModelProfile{{ID: "worker", RuntimeID: runtimeID, Model: "approved-model", Capabilities: []string{"code"}, Complexities: []string{"high"}}}}
+	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1, Runtimes: []runtimeprofile.Runtime{{ID: runtimeID, Adapter: runtimeID, Enabled: true, AllowlistedProfileIDs: []string{"worker"}, CredentialReference: "private-test-reference"}}, ModelProfiles: []runtimeprofile.ModelProfile{{ID: "worker", RuntimeID: runtimeID, Model: "approved-model", Capabilities: []string{runtimeadapter.IntegrationCapability}, Complexities: []string{"high"}}}}
 	if err := store.Create(context.Background(), cfg); err != nil {
 		t.Fatal(err)
 	}
-	observations := []runtimeprofile.Observation{{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, Version: "1.0", Revision: 1, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"code": runtimeprofile.CapabilityProven}}}
-	wire, err = json.Marshal(observations)
+	// Observations are never supplied: Lingo reads the executable and the
+	// Axiom skill integration that the caller's environment exposes.
+	return []string{"--role", "implementation", "--complexity", "high", "--capabilities", runtimeadapter.IntegrationCapability}
+}
+
+// testRuntime gives an in-process service one observable Runtime: a stub
+// executable that is never run and a verified Axiom skill integration.
+func testRuntime(t *testing.T, service lifecycleService, runtimeID string) (lifecycleService, string) {
+	t.Helper()
+	executable := filepath.Join(t.TempDir(), runtimeID)
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\nexit 99\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	skills := filepath.Join(t.TempDir(), "skills")
+	integration, err := codexruntime.New(skills)
+	if runtimeID == "claude" {
+		integration, err = codexruntime.NewClaude(skills)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	observationPath := filepath.Join(t.TempDir(), "observations.json")
-	if err := os.WriteFile(observationPath, wire, 0600); err != nil {
-		t.Fatal(err)
+	if result := integration.Install(context.Background()); result.Status != codexruntime.Applied {
+		t.Fatalf("install %s skills: %+v", runtimeID, result)
 	}
-	return []string{"--role", "implementation", "--complexity", "high", "--capabilities", "code", "--observations", observationPath}
+	service.runtimes.lookPath = func(name string) (string, error) {
+		if name == runtimeID {
+			return executable, nil
+		}
+		return "", exec.ErrNotFound
+	}
+	if runtimeID == "claude" {
+		service.runtimes.claudeSkillsRoot, service.runtimes.claudeSkillsError = skills, nil
+	} else {
+		service.codex = integration
+	}
+	return service, executable
 }

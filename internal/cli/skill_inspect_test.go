@@ -7,7 +7,6 @@ import (
 	"flag"
 	"io"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -128,7 +127,7 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 		t.Fatalf("boolean=%+v", boolean)
 	}
 	start := discoverForTest(t, "axiom-work-item-run").Commands[0]
-	for _, name := range []string{"role", "complexity", "capabilities", "observations"} {
+	for _, name := range []string{"role", "complexity", "capabilities"} {
 		arg := findArgument(t, start, "--"+name)
 		if !arg.Required || arg.RequiredWhen != "" {
 			t.Fatalf("policy requirement=%+v", arg)
@@ -192,9 +191,6 @@ func TestSkillDiscoveryMatchesParserAndAcceptedForms(t *testing.T) {
 					case int, uint64:
 						value = "7"
 					}
-					if f.Name == "observations" {
-						value = filepath.Join(t.TempDir(), "observations.json")
-					}
 					if f.Name == "runtime-preview" {
 						value = strings.Repeat("a", 64)
 					}
@@ -242,7 +238,7 @@ func TestSkillDiscoveryRequirementsMatchRequests(t *testing.T) {
 		{"axiom-project-show", 0, []string{"--selector", "alpha"}},
 		{"axiom-project-configure", 0, []string{"--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}},
 		{"axiom-work-item-create", 0, []string{"--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo"}},
-		{"axiom-work-item-run", 0, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "code", "--observations", filepath.Join(t.TempDir(), "observations.json")}},
+		{"axiom-work-item-run", 0, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "code"}},
 		{"axiom-work-item-run", 1, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--gate", "review", "--outcome", "passed"}},
 		{"axiom-work-item-create", 1, []string{"--project", "alpha", "--repository", "main", "--number", "7", "--provider-repository", "owner/repo"}},
 		{"axiom-work-item-run", 2, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--fact", "review_started", "--reference", "docs/review.md"}},

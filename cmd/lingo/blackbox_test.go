@@ -108,6 +108,15 @@ type cliEvent struct {
 }
 
 type canonicalEvent struct {
+	RuntimeResolution *struct {
+		Choice *struct {
+			RuntimeID        string `json:"runtimeId"`
+			ExecutableDigest string `json:"executableDigest"`
+		} `json:"choice"`
+		Blocker *struct {
+			Code string `json:"code"`
+		} `json:"blocker"`
+	} `json:"runtimeResolution"`
 	PreviewDigest string   `json:"previewDigest"`
 	Status        string   `json:"status"`
 	Result        string   `json:"result"`
@@ -486,9 +495,13 @@ exit 0
 	startArgs := append([]string{"workflow", "start", "--project", "configured", "--repository", "main", "--number", "7"}, policyFlags...)
 	runtimePreview := runCanonical(0, "success", "Project Runtime resolution preview ready", startArgs...)
 	started := runCanonical(0, "success", "Execution workflow operation completed", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
-	// Omitted --runtime resolves Codex from the explicitly configured policy.
+	// Omitted --runtime resolves Codex from the explicitly configured policy and
+	// the codex executable plus verified skills observed on this PATH.
 	if started.Workflow == nil || started.Workflow.ExecutionID == "" || started.Workflow.CurrentGate != "intake" || started.Workflow.Revision != 1 || started.Workflow.RuntimeID != "codex" {
 		t.Fatalf("started workflow = %+v", started.Workflow)
+	}
+	if _, err := os.Lstat(executed); !os.IsNotExist(err) {
+		t.Fatal("Runtime observation executed the Runtime")
 	}
 	exactWorkItem := "github:owner/repo#7"
 	runCanonical(0, "success", "Work Item link loaded", "work-item", "show", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem)

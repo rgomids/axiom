@@ -25,14 +25,16 @@ func (s *policySource) Load(context.Context, string) (runtimeapplication.Snapsho
 	return s.snapshot, nil
 }
 
-func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID string) (*runtimeapplication.Service, map[string]runtimeapplication.Preview, *policySource) {
+// policyFixture reviews previews against the real executable that the command
+// profiles name and the credential reference the local configuration binds.
+func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID, executable, credential string) (*runtimeapplication.Service, map[string]runtimeapplication.Preview, *policySource) {
 	t.Helper()
 	const projectID = "12345678-1234-4abc-8def-123456789abc"
 	state := project.State{SchemaVersion: 2, ID: projectID, Slug: "sample", Name: "Sample", Runtimes: project.Configured([]project.Runtime{{ID: runtimeID}})}
 	portableProfiles := []project.ModelProfile{}
 	preferences := []project.RuntimePreference{}
 	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1}
-	runtime := runtimeprofile.Runtime{ID: runtimeID, Adapter: runtimeID, Enabled: true}
+	runtime := runtimeprofile.Runtime{ID: runtimeID, Adapter: runtimeID, Enabled: true, CredentialReference: credential}
 	for i := range graph.Children {
 		child := &graph.Children[i]
 		child.Envelope.Scope.ProjectID = projectID
@@ -50,7 +52,11 @@ func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID string) 
 		t.Fatal(issues)
 	}
 	cfg.Runtimes = []runtimeprofile.Runtime{runtime}
-	inventory, err := runtimeadapter.NewInventory([]runtimeprofile.Observation{{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, Revision: 1, ObservedAt: time.Unix(10, 0).UTC(), CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"go": runtimeprofile.CapabilityProven}}})
+	identity, err := runtimeadapter.ExecutableIdentity(executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inventory, err := runtimeadapter.NewInventory([]runtimeprofile.Observation{{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, ExecutableDigest: identity, Revision: 1, ObservedAt: time.Unix(10, 0).UTC(), CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"go": runtimeprofile.CapabilityProven}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,6 +74,20 @@ func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID string) 
 	return &policy, previews, source
 }
 
+// stubRuntime writes an executable that would leave a marker if it ever ran.
+func stubRuntime(t *testing.T, directory, runtimeID string) (string, string) {
+	t.Helper()
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(directory, runtimeID)
+	marker := filepath.Join(directory, runtimeID+"-started")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\ntouch "+marker+"\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return executable, marker
+}
+
 type countedCredentials struct{ calls int }
 
 func (c *countedCredentials) ResolveEnvironment(context.Context, string) ([]string, error) {
@@ -79,11 +99,12 @@ func TestPolicyInvocationChecksExactSelectionBeforeCredentials(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		t.Run(runtimeID, func(t *testing.T) {
 			graph := buildGraph(t, canonicalTempDir(t))
-			policy, previews, source := policyFixture(t, &graph, runtimeID)
+			executable, _ := stubRuntime(t, t.TempDir(), runtimeID)
+			policy, previews, source := policyFixture(t, &graph, runtimeID, executable, "synthetic:credential")
 			credentials := &countedCredentials{}
 			profiles := []runtimeadapter.CommandProfile{}
 			for _, child := range graph.Children {
-				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: filepath.Join(child.Envelope.Workspace, runtimeID), Model: "local-test-profile", CredentialReference: "synthetic:credential", OutputMax: 4096})
+				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", CredentialReference: "synthetic:credential", OutputMax: 4096})
 			}
 			adapter, err := runtimeadapter.NewInvocationResolver(profiles, credentials)
 			if err != nil {
@@ -139,10 +160,11 @@ func TestPolicyInvocationChecksExactSelectionBeforeCredentials(t *testing.T) {
 
 func TestPolicyInvocationRejectsMissingMismatchedAndOverrideBindings(t *testing.T) {
 	graph := buildGraph(t, canonicalTempDir(t))
-	policy, previews, _ := policyFixture(t, &graph, "codex")
+	executable, _ := stubRuntime(t, t.TempDir(), "codex")
+	policy, previews, _ := policyFixture(t, &graph, "codex", executable, "")
 	profiles := []runtimeadapter.CommandProfile{}
 	for _, child := range graph.Children {
-		profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: "codex", ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: filepath.Join(child.Envelope.Workspace, "codex"), Model: "local-test-profile", OutputMax: 4096})
+		profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: "codex", ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", OutputMax: 4096})
 	}
 	for _, mutation := range []func(*LocalConfiguration){
 		func(c *LocalConfiguration) { c.RuntimePreviews = nil },
@@ -155,6 +177,19 @@ func TestPolicyInvocationRejectsMissingMismatchedAndOverrideBindings(t *testing.
 		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Arguments = []string{"--settings=other.json"} },
 		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Arguments = []string{"resume"} },
 		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Arguments = []string{"--"} },
+		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Environment = []string{"OPENAI_API_KEY=other"} },
+		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Environment = []string{"ANTHROPIC_MODEL=other"} },
+		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Environment = []string{"codex_home=/other"} },
+		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Environment = []string{"CLAUDE_CONFIG_DIR=/other"} },
+		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Environment = []string{"GH_TOKEN=other"} },
+		func(c *LocalConfiguration) { c.RuntimeProfiles[0].Environment = []string{"AWS_PROFILE=other"} },
+		func(c *LocalConfiguration) {
+			preview := c.RuntimePreviews[c.Graph.Children[0].ExecutionID]
+			choice := *preview.Choice
+			choice.ExecutableDigest = ""
+			preview.Choice = &choice
+			c.RuntimePreviews = map[string]runtimeapplication.Preview{c.Graph.Children[0].ExecutionID: preview, c.Graph.Children[1].ExecutionID: c.RuntimePreviews[c.Graph.Children[1].ExecutionID], c.Graph.Children[2].ExecutionID: c.RuntimePreviews[c.Graph.Children[2].ExecutionID]}
+		},
 	} {
 		cfg := LocalConfiguration{Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: append([]runtimeadapter.CommandProfile(nil), profiles...)}
 		mutation(&cfg)
@@ -185,11 +220,12 @@ func TestAlternateModelSelectionRejectedBeforeCredentials(t *testing.T) {
 	} {
 		t.Run(runtimeID, func(t *testing.T) {
 			graph := buildGraph(t, canonicalTempDir(t))
-			policy, previews, _ := policyFixture(t, &graph, runtimeID)
+			executable, _ := stubRuntime(t, t.TempDir(), runtimeID)
+			policy, previews, _ := policyFixture(t, &graph, runtimeID, executable, "synthetic:credential")
 			credentials := &countedCredentials{}
 			profiles := []runtimeadapter.CommandProfile{}
 			for _, child := range graph.Children {
-				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: filepath.Join(child.Envelope.Workspace, runtimeID), Model: "local-test-profile", CredentialReference: "synthetic:credential", OutputMax: 4096})
+				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", CredentialReference: "synthetic:credential", OutputMax: 4096})
 			}
 			for _, option := range options {
 				for _, arguments := range [][]string{{option, "other-model"}, {option + "=other-model"}} {
@@ -217,11 +253,12 @@ func TestProductionDispatchStalePolicyHasNoAttemptsOrCredentials(t *testing.T) {
 			root := canonicalTempDir(t)
 			repository, revision := initRepository(t, filepath.Join(root, "repository"))
 			graph := buildGraph(t, filepath.Join(root, "workspaces"))
-			policy, previews, source := policyFixture(t, &graph, runtimeID)
+			executable, marker := stubRuntime(t, filepath.Join(root, "bin"), runtimeID)
+			policy, previews, source := policyFixture(t, &graph, runtimeID, executable, "synthetic:credential")
 			credentials := &countedCredentials{}
 			profiles := []runtimeadapter.CommandProfile{}
 			for _, child := range graph.Children {
-				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: filepath.Join(root, runtimeID), Model: "local-test-profile", CredentialReference: "synthetic:credential", OutputMax: 4096})
+				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", CredentialReference: "synthetic:credential", OutputMax: 4096})
 			}
 			gitPath, err := exec.LookPath("git")
 			if err != nil {
@@ -254,6 +291,9 @@ func TestProductionDispatchStalePolicyHasNoAttemptsOrCredentials(t *testing.T) {
 			}
 			if len(result.Blocked) != len(graph.Children) {
 				t.Fatalf("blocked=%v", result.Blocked)
+			}
+			if _, err := os.Lstat(marker); !os.IsNotExist(err) {
+				t.Fatal("stale dispatch started the Runtime process")
 			}
 		})
 	}
@@ -289,7 +329,7 @@ func main() {
 			caseRoot := filepath.Join(root, runtimeID+"-case")
 			repository, revision := initRepository(t, filepath.Join(caseRoot, "repository"))
 			graph := buildGraph(t, filepath.Join(caseRoot, "workspaces"))
-			policy, previews, _ := policyFixture(t, &graph, runtimeID)
+			policy, previews, _ := policyFixture(t, &graph, runtimeID, executable, "")
 			profiles := []runtimeadapter.CommandProfile{}
 			for _, child := range graph.Children {
 				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", OutputMax: 4096})
@@ -345,5 +385,132 @@ func main() {
 				}
 			}
 		})
+	}
+}
+
+// CR-002/CR-003: the reviewed preview binds the concrete executable and the
+// configured credential reference. Any divergence between that binding and the
+// command profile, or any Runtime drift after preview, blocks before credential
+// resolution, attempt allocation, process start or persisted graph change.
+func TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects(t *testing.T) {
+	scenarios := []struct {
+		name   string
+		mutate func(t *testing.T, executable string, profiles []runtimeadapter.CommandProfile, source *policySource) []string
+	}{
+		{"credential reference differs from reviewed configuration", func(_ *testing.T, _ string, profiles []runtimeadapter.CommandProfile, _ *policySource) []string {
+			for index := range profiles {
+				profiles[index].CredentialReference = "synthetic:credential-b"
+			}
+			return nil
+		}},
+		{"executable replaced after preview", func(t *testing.T, executable string, _ []runtimeadapter.CommandProfile, _ *policySource) []string {
+			if err := os.WriteFile(executable, []byte("#!/bin/sh\n# replaced\n"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}},
+		{"executable removed after preview", func(t *testing.T, executable string, _ []runtimeadapter.CommandProfile, _ *policySource) []string {
+			if err := os.Remove(executable); err != nil {
+				t.Fatal(err)
+			}
+			return nil
+		}},
+		{"command profile names another executable", func(t *testing.T, executable string, profiles []runtimeadapter.CommandProfile, _ *policySource) []string {
+			other, marker := stubRuntime(t, filepath.Join(filepath.Dir(executable), "other"), filepath.Base(executable))
+			for index := range profiles {
+				profiles[index].Executable = other
+			}
+			return []string{marker}
+		}},
+		{"Runtime unavailable after preview", func(t *testing.T, _ string, _ []runtimeadapter.CommandProfile, source *policySource) []string {
+			observation, err := source.snapshot.Observer.Observe(context.Background(), source.snapshot.Configuration.Runtimes[0].ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			observation.Available = false
+			inventory, err := runtimeadapter.NewInventory([]runtimeprofile.Observation{observation})
+			if err != nil {
+				t.Fatal(err)
+			}
+			source.snapshot.Observer = inventory
+			return nil
+		}},
+	}
+	for _, runtimeID := range []string{"codex", "claude"} {
+		for _, scenario := range scenarios {
+			t.Run(runtimeID+"/"+scenario.name, func(t *testing.T) {
+				root := canonicalTempDir(t)
+				repository, revision := initRepository(t, filepath.Join(root, "repository"))
+				graph := buildGraph(t, filepath.Join(root, "workspaces"))
+				executable, marker := stubRuntime(t, filepath.Join(root, "bin"), runtimeID)
+				policy, previews, source := policyFixture(t, &graph, runtimeID, executable, "synthetic:credential-a")
+				profiles := []runtimeadapter.CommandProfile{}
+				for _, child := range graph.Children {
+					profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", CredentialReference: "synthetic:credential-a", OutputMax: 4096})
+				}
+				markers := append([]string{marker}, scenario.mutate(t, executable, profiles, source)...)
+				gitPath, err := exec.LookPath("git")
+				if err != nil {
+					t.Fatal(err)
+				}
+				credentials := &countedCredentials{}
+				store := &memoryGraphStore{wire: mustEncodeGraph(t, graph)}
+				before := string(store.wire)
+				allocations := 0
+				service, err := NewLocalService(context.Background(), LocalConfiguration{
+					Repository: repository, WorkspaceRoot: filepath.Join(root, "workspaces"), BaseRevision: revision,
+					Graph: graph, GraphStore: store, RuntimeProfiles: profiles, Credentials: credentials, RuntimePolicy: policy, RuntimePreviews: previews,
+					Validators:        []gitworkspace.ValidationCommand{{Reference: "diff-check", Argv: []string{gitPath, "diff", "--check"}, OutputMax: 4096}},
+					AllocateAttemptID: func() (string, error) { allocations++; return "attempt-1", nil },
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := service.PrepareWorkspaces(context.Background()); err != nil {
+					t.Fatal(err)
+				}
+				result, err := service.DispatchReady(context.Background(), nil, false)
+				if err != nil || len(result.Records) != 0 || allocations != 0 || credentials.calls != 0 || string(store.wire) != before || len(result.Blocked) != len(graph.Children) {
+					t.Fatalf("records=%v blocked=%v allocations=%d credentials=%d persistedChanged=%t err=%v", result.Records, result.Blocked, allocations, credentials.calls, string(store.wire) != before, err)
+				}
+				for _, child := range result.Graph.Children {
+					if len(child.Attempts) != 0 {
+						t.Fatal("blocked dispatch created attempts")
+					}
+				}
+				for _, marker := range markers {
+					if _, err := os.Lstat(marker); !os.IsNotExist(err) {
+						t.Fatal("blocked dispatch started a Runtime process")
+					}
+				}
+			})
+		}
+	}
+}
+
+// The reviewed binding itself still dispatches, so the blocks above come from
+// divergence rather than a guard that rejects every credential reference.
+func TestPolicyInvocationResolvesOnlyTheReviewedCredentialReference(t *testing.T) {
+	graph := buildGraph(t, canonicalTempDir(t))
+	executable, _ := stubRuntime(t, t.TempDir(), "claude")
+	policy, previews, _ := policyFixture(t, &graph, "claude", executable, "synthetic:credential-a")
+	for reference, want := range map[string]int{"synthetic:credential-a": 1, "synthetic:credential-b": 0, "": 0} {
+		credentials := &countedCredentials{}
+		profiles := []runtimeadapter.CommandProfile{}
+		for _, child := range graph.Children {
+			profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: "claude", ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", CredentialReference: reference, OutputMax: 4096})
+		}
+		adapter, err := runtimeadapter.NewInvocationResolver(profiles, credentials)
+		if err != nil {
+			t.Fatal(err)
+		}
+		guard, err := newPolicyInvocations(LocalConfiguration{Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: profiles}, adapter)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = guard.ResolveInvocation(context.Background(), graph.Children[0])
+		if (err == nil) != (want == 1) || credentials.calls != want {
+			t.Fatalf("reference=%q err=%v credentials=%d", reference, err, credentials.calls)
+		}
 	}
 }

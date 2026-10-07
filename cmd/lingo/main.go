@@ -368,8 +368,25 @@ func (s lifecycleService) Reopen(ctx context.Context, input cli.ProjectInput) cl
 func (s lifecycleService) Update(ctx context.Context, input cli.UpdateInput) cli.Result {
 	return cliResult(s.lifecycle.Update(ctx, projectapp.UpdateRequest{Slug: input.Slug, Name: input.Name}))
 }
+
+// Install records an operator-authored manifest. A manifest that declares
+// Repositories installs only with an exact binding for each declared key.
 func (s lifecycleService) Install(ctx context.Context, input cli.InstallInput) cli.Result {
-	result := s.installation.Install(ctx, input.Source)
+	bindings := make([]projectapp.RepositoryBinding, 0, len(input.Repositories))
+	seen := map[string]bool{}
+	for _, repository := range input.Repositories {
+		if !filepath.IsAbs(repository.Path) || seen[repository.Key] {
+			return cli.Result{Status: cli.Failed, Category: "invalid_repository_bindings"}
+		}
+		seen[repository.Key] = true
+		path := filepath.Clean(repository.Path)
+		identity, err := local.DirectoryIdentity(path)
+		if err != nil {
+			return cli.Result{Status: cli.Failed, Category: "invalid_repository_bindings"}
+		}
+		bindings = append(bindings, projectapp.RepositoryBinding{RepositoryKey: repository.Key, ExplicitPath: path, CanonicalIdentity: identity, Observation: projectapp.Observation{Availability: projectapp.Unverified, Basis: projectapp.NotChecked}})
+	}
+	result := s.installation.InstallWithBindings(ctx, input.Source, bindings)
 	status := cli.Failed
 	if result.Status == local.InstallationApplied || result.Status == local.InstallationUnchanged {
 		status = cli.Succeeded
@@ -756,7 +773,7 @@ func workflowTarget(input cli.WorkflowInput) workflow.Target {
 }
 
 func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	policyInput := cli.RuntimeProfilePreviewInput{Project: input.Project, Role: input.Role, Complexity: input.Complexity, Capabilities: input.Capabilities, Runtime: input.Runtime, Observations: input.Observations}
+	policyInput := cli.RuntimeProfilePreviewInput{Project: input.Project, Role: input.Role, Complexity: input.Complexity, Capabilities: input.Capabilities, Runtime: input.Runtime}
 	preview, policy, err := s.runtimePolicyPreview(ctx, policyInput)
 	if err != nil {
 		return s.runtimeResolutionResult(preview, false)
@@ -767,14 +784,14 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 	if input.RuntimePreview != preview.Digest() {
 		return s.runtimePolicyFailure("stale_preview")
 	}
-	choice, err := policy.Check(ctx, preview)
+	binding, err := policy.Check(ctx, preview)
 	if err != nil {
 		return s.runtimePolicyFailure("stale_preview")
 	}
-	if input.Runtime != "" && input.Runtime != choice.RuntimeID {
+	if input.Runtime != "" && input.Runtime != binding.Choice.RuntimeID {
 		return s.runtimePolicyFailure("runtime_mismatch")
 	}
-	input.Runtime = choice.RuntimeID
+	input.Runtime = binding.Choice.RuntimeID
 	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {

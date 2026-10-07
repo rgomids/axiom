@@ -12,8 +12,9 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// policyInvocations checks the exact reviewed selection before the adapter may
-// resolve credentials. It never substitutes another runtime or model.
+// policyInvocations checks the exact reviewed selection and its concrete
+// binding before the adapter may resolve credentials. It never substitutes
+// another runtime, model, credential reference or executable.
 type policyInvocations struct {
 	policy      *runtimeapplication.Service
 	previews    map[string]runtimeapplication.Preview
@@ -24,7 +25,7 @@ type policyInvocations struct {
 func newPolicyInvocations(cfg LocalConfiguration, invocations executiongraph.InvocationResolver) (policyInvocations, error) {
 	guard := policyInvocations{policy: cfg.RuntimePolicy, previews: make(map[string]runtimeapplication.Preview), profiles: make(map[string]runtimeadapter.CommandProfile), invocations: invocations}
 	for _, profile := range cfg.RuntimeProfiles {
-		if !selectionSafeArguments(profile.RuntimeID, profile.Arguments) {
+		if !selectionSafeArguments(profile.RuntimeID, profile.Arguments) || !selectionSafeEnvironment(profile.Environment) {
 			return policyInvocations{}, ErrInvalidComposition
 		}
 		guard.profiles[profile.RuntimeID+"\x00"+profile.ModelProfileID] = profile
@@ -49,21 +50,43 @@ func (g policyInvocations) ResolveInvocation(ctx context.Context, child executio
 	if !ok || !matchesChild(preview, child) {
 		return executiongraph.Invocation{}, ErrInvalidComposition
 	}
-	choice, err := g.policy.Check(ctx, preview)
+	binding, err := g.policy.Check(ctx, preview)
 	if err != nil {
 		return executiongraph.Invocation{}, err
 	}
 	checked := preview
-	checked.Choice = &choice
-	if !matchesChild(checked, child) || !g.matchesProfile(choice) {
+	checked.Choice = &binding.Choice
+	if !matchesChild(checked, child) {
 		return executiongraph.Invocation{}, ErrInvalidComposition
+	}
+	if err := g.matchesBinding(binding); err != nil {
+		return executiongraph.Invocation{}, err
 	}
 	return g.invocations.ResolveInvocation(ctx, child)
 }
 
 func (g policyInvocations) matchesProfile(choice runtimeprofile.Choice) bool {
 	profile, ok := g.profiles[choice.RuntimeID+"\x00"+choice.ModelProfileID]
-	return ok && profile.Model == choice.Model
+	return ok && profile.RuntimeID == choice.Adapter && profile.Model == choice.Model && choice.ExecutableDigest != ""
+}
+
+// matchesBinding requires the command profile to be the reviewed concrete
+// binding: same Runtime, profile, model and credential reference, and an
+// executable whose current identity is the one observed for the preview.
+func (g policyInvocations) matchesBinding(binding runtimeapplication.Binding) error {
+	choice := binding.Choice
+	if !g.matchesProfile(choice) {
+		return ErrInvalidComposition
+	}
+	profile := g.profiles[choice.RuntimeID+"\x00"+choice.ModelProfileID]
+	if profile.CredentialReference != binding.CredentialReference {
+		return ErrInvalidComposition
+	}
+	identity, err := runtimeadapter.ExecutableIdentity(profile.Executable)
+	if err != nil || identity != choice.ExecutableDigest {
+		return runtimeapplication.ErrStale
+	}
+	return nil
 }
 
 func matchesChild(preview runtimeapplication.Preview, child executiongraph.ChildExecution) bool {
@@ -83,6 +106,28 @@ func sameCapabilities(a, b []string) bool {
 	slices.Sort(a)
 	slices.Sort(b)
 	return slices.Equal(a, b)
+}
+
+// Reject environment that selects another credential, provider, model or
+// Runtime configuration root; credentials arrive only through the reviewed
+// reference. Ambient logins under an explicitly configured HOME remain the
+// Runtime's own and are outside this binding.
+func selectionSafeEnvironment(environment []string) bool {
+	for _, entry := range environment {
+		key, _, _ := strings.Cut(entry, "=")
+		key = strings.ToUpper(key)
+		for _, fragment := range []string{"API_KEY", "APIKEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "AUTH"} {
+			if strings.Contains(key, fragment) {
+				return false
+			}
+		}
+		for _, prefix := range []string{"ANTHROPIC_", "OPENAI_", "CODEX_", "CLAUDE_", "AWS_", "AZURE_", "GOOGLE_", "GCLOUD_", "VERTEX", "BEDROCK"} {
+			if strings.HasPrefix(key, prefix) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Keep ordinary adapter arguments while rejecting alternate selection paths.

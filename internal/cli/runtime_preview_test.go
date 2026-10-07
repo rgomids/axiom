@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -27,13 +26,13 @@ func (s *policyRecordingService) RuntimeProfilePreview(_ context.Context, input 
 }
 
 func TestRuntimePreviewStrictReadOnlySurface(t *testing.T) {
-	base := []string{"runtime", "profile", "preview", "--project", "sample", "--role", "implementation", "--complexity", "high", "--capabilities", "code,review", "--observations", filepath.Join(t.TempDir(), "inventory.json")}
+	base := []string{"runtime", "profile", "preview", "--project", "sample", "--role", "implementation", "--complexity", "high", "--capabilities", "code,review"}
 	service := &policyRecordingService{result: Result{Status: Succeeded, Category: "preview"}}
 	var output bytes.Buffer
 	if code := Run(context.Background(), base, service, completionProvenance(t), &output); code != 0 || service.calls != 1 || service.input.Runtime != "" || len(service.input.Capabilities) != 2 {
 		t.Fatalf("code=%d service=%+v", code, service)
 	}
-	for _, extra := range [][]string{{"--authorize-local"}, {"--preview-digest", "private-input"}, {"--runtime", ""}, {"--runtime", "other"}, {"--role", "private-input"}, {"-runtime", "claude"}, {"--observations", "relative.json"}, {"--"}, {"private-input"}} {
+	for _, extra := range [][]string{{"--authorize-local"}, {"--preview-digest", "private-input"}, {"--runtime", ""}, {"--runtime", "other"}, {"--role", "private-input"}, {"-runtime", "claude"}, {"--observations", "/absolute/inventory.json"}, {"--"}, {"private-input"}} {
 		service.calls = 0
 		output.Reset()
 		code := Run(context.Background(), append(append([]string{}, base...), extra...), service, completionProvenance(t), &output)
@@ -41,7 +40,7 @@ func TestRuntimePreviewStrictReadOnlySurface(t *testing.T) {
 			t.Fatalf("args=%v code=%d calls=%d output=%s", extra, code, service.calls, &output)
 		}
 	}
-	for _, name := range []string{"role", "complexity", "capabilities", "observations", "project"} {
+	for _, name := range []string{"role", "complexity", "capabilities", "project"} {
 		args := append([]string{}, base...)
 		for index, value := range args {
 			if value == "--"+name {
@@ -91,13 +90,18 @@ func TestRuntimeResolutionCompletionRejectsOversizedOutput(t *testing.T) {
 }
 
 func TestWorkflowStartForwardsExplicitPolicyInputs(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "observations.json")
 	digest := strings.Repeat("a", 64)
-	values, ok := workflowFlags(workflowStartAction, []string{"--project", "sample", "--repository", "main", "--number", "7", "--role", "implementation", "--complexity", "high", "--capabilities", "code,review", "--observations", path, "--runtime-preview", digest})
-	if !ok || values.runtime != "" || values.role != "implementation" || values.complexity != "high" || values.capabilities != "code,review" || values.observations != path || values.runtimePreview != digest {
+	start := []string{"--project", "sample", "--repository", "main", "--number", "7", "--role", "implementation", "--complexity", "high", "--capabilities", "code,review"}
+	values, ok := workflowFlags(workflowStartAction, append(append([]string{}, start...), "--runtime-preview", digest))
+	if !ok || values.runtime != "" || values.role != "implementation" || values.complexity != "high" || values.capabilities != "code,review" || values.runtimePreview != digest {
 		t.Fatalf("ok=%v values=%+v", ok, values)
 	}
-	for _, name := range []string{"role", "complexity", "capabilities", "observations", "runtime-preview"} {
+	// Runtime observations are Lingo's own machine-local reads; no caller
+	// inventory, path or claimed proof is accepted on the command line.
+	if _, ok := workflowFlags(workflowStartAction, append(append([]string{}, start...), "--observations", "/absolute/inventory.json")); ok {
+		t.Fatal("workflow start accepted a caller-supplied observation inventory")
+	}
+	for _, name := range []string{"role", "complexity", "capabilities", "runtime-preview"} {
 		assertStrictParserFailure(t, []string{"workflow", "start", "--" + name, "first", "--" + name, "second"})
 	}
 }

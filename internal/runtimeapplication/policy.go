@@ -56,40 +56,53 @@ type Service struct{ source Source }
 func New(source Source) Service { return Service{source: source} }
 
 func (s Service) Preview(ctx context.Context, projectID string, request Request) (Preview, error) {
+	result, _, err := s.preview(ctx, projectID, request)
+	return result, err
+}
+
+// Binding is the concrete dispatch binding that Check re-derives from the same
+// snapshot that reproduced the reviewed preview. It is internal: Preview and
+// output carry only the configuration digest, never the credential reference.
+type Binding struct {
+	Choice              runtimeprofile.Choice
+	CredentialReference string `json:"-"`
+}
+
+func (s Service) preview(ctx context.Context, projectID string, request Request) (Preview, runtimeprofile.Configuration, error) {
 	result := Preview{}
 	if !validRequest(request) || len(project.ValidateIdentity(projectID, "preview")) != 0 {
-		return deny(result, "invalid_request")
+		return denyWith(result, "invalid_request")
 	}
 	result.ProjectID = projectID
 	request.Capabilities = append([]string(nil), request.Capabilities...)
 	sort.Strings(request.Capabilities)
 	result.Request = request
 	if s.source == nil {
-		return deny(result, "inventory_unavailable")
+		return denyWith(result, "inventory_unavailable")
 	}
 	snapshot, err := s.source.Load(ctx, projectID)
 	if err != nil {
-		return deny(result, "policy_unavailable")
+		return denyWith(result, "policy_unavailable")
 	}
 	if snapshot.Project.State().ID != projectID {
-		return deny(result, "invalid_project")
+		return denyWith(result, "invalid_project")
 	}
 	wire, issues := manifest.Encode(snapshot.Project)
 	if len(issues) != 0 {
-		return deny(result, "invalid_project")
+		return denyWith(result, "invalid_project")
 	}
 	result.ProjectDigest = digest(wire)
 	result.ConfigurationDigest, err = runtimeprofile.Digest(snapshot.Configuration)
 	if err != nil {
-		return deny(result, "invalid_configuration")
+		return denyWith(result, "invalid_configuration")
 	}
 	result.ConfigurationRevision = snapshot.Configuration.Revision
 	cfg, code := projectConfiguration(snapshot.Project.State(), snapshot.Configuration, request)
 	if code != "" {
-		return deny(result, code)
+		return denyWith(result, code)
 	}
 	if snapshot.Observer == nil {
-		return deny(result, "inventory_unavailable")
+		return denyWith(result, "inventory_unavailable")
 	}
 	result.ObservationRevisions = map[string]uint64{}
 	captured := capture{observations: map[string]runtimeprofile.Observation{}}
@@ -101,7 +114,7 @@ func (s Service) Preview(ctx context.Context, projectID string, request Request)
 		}
 		// Raw version text never crosses the presentation boundary.
 		if !safeObservation(observation) {
-			return deny(result, "invalid_observation")
+			return denyWith(result, "invalid_observation")
 		}
 		result.ObservationRevisions[runtime.ID] = observation.Revision
 		captured.observations[runtime.ID] = observation
@@ -115,36 +128,46 @@ func (s Service) Preview(ctx context.Context, projectID string, request Request)
 	sort.Slice(observed, func(i, j int) bool { return observed[i].RuntimeID < observed[j].RuntimeID })
 	observationWire, marshalErr := json.Marshal(observed)
 	if marshalErr != nil {
-		return deny(result, "invalid_observation")
+		return denyWith(result, "invalid_observation")
 	}
 	result.ObservationDigest = digest(observationWire)
 	resolution, err := runtimeprofile.NewResolver(captured).Resolve(ctx, cfg, runtimeprofile.Request{
 		ConfigurationRevision: cfg.Revision, Role: request.Role, Complexity: request.Complexity, Capabilities: request.Capabilities,
 	})
 	if err != nil {
-		return deny(result, resolution.Blocker.Code)
+		return denyWith(result, resolution.Blocker.Code)
 	}
 	result.Choice = resolution.Choice
-	return result, nil
+	return result, snapshot.Configuration, nil
 }
 
 // Check re-reads all inputs and accepts only the exact previewed decision.
-// It never substitutes a newly resolved choice on drift.
-func (s Service) Check(ctx context.Context, expected Preview) (runtimeprofile.Choice, error) {
+// It never substitutes a newly resolved choice on drift. The returned binding
+// comes from the configuration whose digest the reviewed preview carries.
+func (s Service) Check(ctx context.Context, expected Preview) (Binding, error) {
 	if expected.Choice == nil || expected.Blocker != nil {
-		return runtimeprofile.Choice{}, ErrBlocked
+		return Binding{}, ErrBlocked
 	}
-	current, err := s.Preview(ctx, expected.ProjectID, expected.Request)
+	current, cfg, err := s.preview(ctx, expected.ProjectID, expected.Request)
 	if err != nil || !reflect.DeepEqual(current, expected) {
-		return runtimeprofile.Choice{}, ErrStale
+		return Binding{}, ErrStale
 	}
 	choice := *expected.Choice
 	choice.Capabilities = append([]string(nil), choice.Capabilities...)
-	return choice, nil
+	for _, runtime := range cfg.Runtimes {
+		if runtime.ID == choice.RuntimeID && runtime.Adapter == choice.Adapter {
+			return Binding{Choice: choice, CredentialReference: runtime.CredentialReference}, nil
+		}
+	}
+	return Binding{}, ErrStale
 }
 
 // Digest is an operator review token, not authority for external effects.
 func (p Preview) Digest() string { wire, _ := json.Marshal(p); return digest(wire) }
+func denyWith(p Preview, code string) (Preview, runtimeprofile.Configuration, error) {
+	p, err := deny(p, code)
+	return p, runtimeprofile.Configuration{}, err
+}
 func deny(p Preview, code string) (Preview, error) {
 	p.Choice = nil
 	p.Blocker = &runtimeprofile.Blocker{Code: code}

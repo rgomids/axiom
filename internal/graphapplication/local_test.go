@@ -23,14 +23,15 @@ func TestNewLocalServiceWiresConcreteRuntimeAdapter(t *testing.T) {
 	root := canonicalTempDir(t)
 	repository, revision := initRepository(t, filepath.Join(root, "repository"))
 	graph := buildGraph(t, filepath.Join(root, "workspaces"))
-	policy, previews, _ := policyFixture(t, &graph, "codex")
+	executable, _ := stubRuntime(t, filepath.Join(root, "bin"), "codex")
+	policy, previews, _ := policyFixture(t, &graph, "codex", executable, "")
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		t.Fatal(err)
 	}
 	profiles := make([]runtimeadapter.CommandProfile, 0, len(graph.Children))
 	for _, child := range graph.Children {
-		profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: "codex", ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: filepath.Join(root, "codex"), Model: "local-test-profile", OutputMax: 4096})
+		profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: "codex", ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", OutputMax: 4096})
 	}
 	store := &memoryGraphStore{wire: mustEncodeGraph(t, graph)}
 	service, err := NewLocalService(context.Background(), LocalConfiguration{
