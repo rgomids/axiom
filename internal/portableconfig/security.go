@@ -156,37 +156,68 @@ func safeURL(raw string) bool {
 	return true
 }
 
-// safeProseURL adds v3 prose safety without changing the legacy scalar URL
+// safeProseURLParts adds v3 prose safety without changing the legacy scalar URL
 // contract. Inspect authority sub-delimiters only after parsing: path/query
 // commas and semicolons retain their URL meaning.
-func safeProseURL(raw string) bool {
+func safeProseURLParts(raw string) ([]string, bool) {
 	if !safeURL(raw) {
-		return false
+		return nil, false
 	}
 	if !strings.Contains(raw, "://") {
-		return true
+		return nil, true
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return false
+		return nil, false
 	}
 	authority := u.Host
 	if u.User != nil {
 		authority = u.User.Username() + "@" + authority
 	}
-	parts := strings.FieldsFunc(authority, func(r rune) bool {
-		return proseDelimiter(r) || r == '&' || r == '@'
-	})
+	parts := strings.FieldsFunc(authority, authorityProseDelimiter)
 	if !safeProseParts(parts) {
-		return false
+		return nil, false
+	}
+	// A drive prefix can remain in the authority while its rooted suffix is
+	// parsed as a URL path. Inspect assignment suffixes without treating IPv6
+	// colons or an ordinary host/path join as machine-local prose.
+	if len(parts) > 0 && u.Path != "" {
+		for suffix := parts[len(parts)-1]; ; {
+			candidate := strings.Trim(suffix, "_")
+			if driveReference(candidate) && machinePath(candidate+u.Path) {
+				return nil, false
+			}
+			separator := strings.IndexAny(suffix, ":=")
+			if separator < 0 {
+				break
+			}
+			suffix = suffix[separator+1:]
+		}
 	}
 	// A delimiter at the end of the authority may swallow adjacent rooted
 	// prose as the parsed URL path. Ordinary URL paths have no such delimiter.
-	authorityEnd := strings.TrimRight(u.Host, "\"'`*{}[]()<>_")
-	if strings.HasSuffix(authorityEnd, ",") || strings.HasSuffix(authorityEnd, ";") || strings.HasSuffix(authorityEnd, "=") {
-		return !machinePath(u.Path)
+	authorityEnd := strings.TrimRight(u.Host, "\"`{}[]<>_")
+	if len(authorityEnd) > 0 && authoritySubDelimiter(rune(authorityEnd[len(authorityEnd)-1])) {
+		if machinePath(u.Path) {
+			return nil, false
+		}
 	}
-	return true
+	return parts, true
+}
+
+// authoritySubDelimiter is the RFC 3986 sub-delims grammar. A terminal
+// sub-delimiter before a rooted path can mark adjacent prose, so it cannot
+// authorize consumption of that path as part of a v3 prose URL.
+func authoritySubDelimiter(r rune) bool {
+	return strings.ContainsRune("!$&'()*+,;=", r)
+}
+
+// authorityProseDelimiter adds authority boundaries to prose punctuation and
+// the userinfo separator. Keep '=' and ':' inside parts: referencePayload and
+// unsafeProseReference need them to inspect assignments and their suffixes.
+// '=' is a sub-delimiter for path transitions, but an assignment operator here.
+func authorityProseDelimiter(r rune) bool {
+	return proseDelimiter(r) || r == '@' || r != '=' && authoritySubDelimiter(r)
 }
 
 func unsafeProseReference(value string) bool {
@@ -227,7 +258,8 @@ func safeProseSyntax(value string) bool {
 		return false
 	}
 	// Check full URLs before punctuation can split their query parameters.
-	// After inspection, tokenize only their surrounding prose, not URL syntax.
+	// After inspection, retain authority parts with surrounding prose; path and
+	// query syntax remain consumed as URL syntax.
 	parts := []string{}
 	for _, word := range strings.Fields(value) {
 		for {
@@ -241,10 +273,13 @@ func safeProseSyntax(value string) bool {
 			}
 			end := proseURLEnd(word, start)
 			reference := strings.TrimRight(word[start:end], "\"'`*{}[](),;<>.")
-			if !safeProseURL(reference) {
+			authorityParts, safe := safeProseURLParts(reference)
+			if !safe {
 				return false
 			}
-			word = word[:start] + " " + word[end:]
+			// Retain authority tokens so an adjacent prose operator cannot
+			// lose its sensitive key when the URL is consumed.
+			word = word[:start] + " " + strings.Join(authorityParts, " ") + " " + word[end:]
 		}
 		parts = append(parts, strings.FieldsFunc(word, func(r rune) bool {
 			return proseDelimiter(r)
@@ -265,7 +300,12 @@ func safeProseParts(parts []string) bool {
 		}
 		// Whitespace/punctuation around a structural assignment does not hide it.
 		name := strings.TrimRight(part, ":=")
-		if sensitiveParameterV1(name) && (name != part || i+1 < len(parts) && strings.HasPrefix(parts[i+1], "=") || i+1 < len(parts) && strings.HasPrefix(parts[i+1], ":")) {
+		assignment := name != part
+		// A non-sensitive assignment can contain the next sensitive key.
+		if separator := strings.LastIndexAny(name, ":="); separator >= 0 {
+			name = strings.Trim(name[separator+1:], "_")
+		}
+		if sensitiveParameterV1(name) && (assignment || i+1 < len(parts) && strings.HasPrefix(parts[i+1], "=") || i+1 < len(parts) && strings.HasPrefix(parts[i+1], ":")) {
 			return false
 		}
 	}

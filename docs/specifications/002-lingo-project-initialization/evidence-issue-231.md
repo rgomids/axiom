@@ -258,3 +258,75 @@ Final fresh-context security review found no blocking finding after the
 adversarial regressions above were incorporated. Delegation was limited to
 independent security review; implementation and validation stayed with the
 Orchestrator.
+
+### CR-002 authority grammar completion (2026-10-07)
+
+The earlier CR-002 correction at `df9481c2eb34d8f2ff75d1aa6c983990df876189`
+covered only part of the authority boundary class. `authoritySubDelimiter`
+now centrally defines the complete RFC 3986 sub-delims set (`!$&'()*+,;=`).
+`authorityProseDelimiter` combines that grammar with prose wrappers and the
+userinfo separator. `=` remains an assignment operator and `:` remains intact
+for `referencePayload` / `unsafeProseReference`; no sensitive-name list or
+classifier was duplicated. Path/query punctuation is still consumed using URL
+syntax rather than split as authority prose.
+
+All eleven sub-delimiters are boundaries for rooted authority-to-path
+transitions. Drive prefixes split between authority and URL path are also
+checked together, preserving ordinary host/port and IPv6 syntax. Authority
+parts remain in surrounding prose inspection so whitespace, Markdown or quotes
+cannot detach a sensitive key from its adjacent assignment operator. A bare
+mention of a sensitive key still remains valid without an assignment.
+
+Concrete regression evidence:
+
+- `TestPortableProseStructuralSafety`: all eleven delimiters with sensitive
+  assignments, SSH userinfo, Unix rooted paths and Windows drive/path
+  transitions; required case variants; percent and nested percent encodings;
+  multiple assignments; adjacent operators with whitespace, Markdown and
+  quotes. Ordinary documentation URLs, path/query punctuation, non-sensitive
+  authority assignments, SSH git userinfo, IPv6 and bare key mentions pass.
+- `TestV3PortableProse`: the same rejection matrix at all three boundaries
+  (`businessContext.text`, `glossary[].term`, `glossary[].definition`), with
+  decode rejection and direct domain/encode rejection. Required valid URLs
+  round-trip through all three boundaries.
+- `TestBootstrapRejectsUnsafePortableProse`: the same matrix proves
+  `InvalidContextInput`, zero preview, nil manifest, nonpublishable proposal
+  and zero storage calls for all three context fields.
+- `TestOlderSchemaProseCompatibility`: original and newly covered authority
+  payloads continue to round-trip unchanged in schema v1/v2. Scalar `safeURL`
+  and historical goldens remain unchanged; strengthened policy is prose v3.
+
+New tests first reproduced failures against the previous head. Independent
+fresh-context security review then reproduced adjacent-operator and Windows
+rooted-path bypasses; both classes gained permanent regressions and fixes.
+Implementation and integration remain with the Orchestrator; delegation is
+limited to independent security attack/re-review with inherited model/effort.
+
+Final independent re-review identified no blocking finding after 462 bounded
+adversarial combinations and nested-encoding checks. Earlier attack review
+also checked 1,584 delimiter/key/operator/wrapper combinations. These are
+local structural checks, not a claim of exhaustive proof or remote CI success.
+
+#### Completion validation (macOS darwin/arm64, Go 1.26.1)
+
+| Command | Result |
+| --- | --- |
+| `go test ./... -timeout 10m` | PASS |
+| `go test -race ./... -timeout 10m` | PASS |
+| `go vet ./...` | PASS |
+| `go build ./...` | PASS |
+| `GOOS=linux go build ./...` | PASS |
+| `GOOS=windows go build ./...` | PASS |
+| `go mod verify` | PASS |
+| `./scripts/validate-repository.sh .` | PASS |
+| `./scripts/dogfood-poc.sh` | PASS |
+| `go run ./scripts/check-architecture.go domain` | PASS |
+| `go run ./scripts/check-architecture.go application` | PASS |
+| `bash scripts/test-check-project-domain.sh` | PASS |
+| `./scripts/check-sensitive-files.sh .` | PASS |
+| `gitleaks dir . --no-banner --redact` | PASS |
+| `git diff --check` | PASS |
+
+Linux/Windows results are cross-compilation only. Dogfood uses controlled
+Provider/Runtime stubs; optional real Runtime scenarios remain SKIPPED/UNVERIFIED.
+Remote CI and human re-review are separate from these local results.

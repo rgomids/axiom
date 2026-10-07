@@ -125,6 +125,82 @@ func TestV1AndV2BytesUnchangedByV3(t *testing.T) {
 // CR-001: each prose boundary shares the same portable security contract.
 func TestV3PortableProse(t *testing.T) {
 	unsafe := []string{
+		"https://example.com!password =synthetic",
+		"https://example.com$password =synthetic",
+		"https://example.com&password =synthetic",
+		"https://example.com'password =synthetic",
+		"https://example.com(password =synthetic",
+		"https://example.com)password =synthetic",
+		"https://example.com*password =synthetic",
+		"https://example.com+password =synthetic",
+		"https://example.com,password =synthetic",
+		"https://example.com;password =synthetic",
+		"https://example.com=password =synthetic",
+		"https://example.com$token : synthetic",
+		"[docs](https://example.com!password)=synthetic",
+		"\"https://example.com!password\"=synthetic",
+		"https://example.com+**api_key** = synthetic",
+		"https://example.com!__C:/private__",
+		"https://example.com!foo=__C:/private__",
+		"https://example.com!C:/private",
+		"https://example.com$C:/private",
+		"https://example.com&C:/private",
+		"https://example.com'C:/private",
+		"https://example.com(C:/private",
+		"https://example.com)C:/private",
+		"https://example.com*C:/private",
+		"https://example.com+C:/private",
+		"https://example.com,C:/private",
+		"https://example.com;C:/private",
+		"https://example.com=C:/private",
+		"https://example.com!password=synthetic",
+		"https://example.com!/home/user/private",
+		"ssh://!token=synthetic@example.com/repo",
+		"https://example.com$password=synthetic",
+		"https://example.com$/home/user/private",
+		"ssh://$token=synthetic@example.com/repo",
+		"https://example.com&password=synthetic",
+		"https://example.com&/home/user/private",
+		"ssh://&token=synthetic@example.com/repo",
+		"https://example.com'password=synthetic",
+		"https://example.com'/home/user/private",
+		"ssh://'token=synthetic@example.com/repo",
+		"https://example.com(password=synthetic",
+		"https://example.com(/home/user/private",
+		"ssh://(token=synthetic@example.com/repo",
+		"https://example.com)password=synthetic",
+		"https://example.com)/home/user/private",
+		"ssh://)token=synthetic@example.com/repo",
+		"https://example.com*password=synthetic",
+		"https://example.com*/home/user/private",
+		"ssh://*token=synthetic@example.com/repo",
+		"https://example.com+password=synthetic",
+		"https://example.com+/home/user/private",
+		"ssh://+token=synthetic@example.com/repo",
+		"https://example.com,password=synthetic",
+		"https://example.com,/home/user/private",
+		"ssh://,token=synthetic@example.com/repo",
+		"https://example.com;password=synthetic",
+		"https://example.com;/home/user/private",
+		"ssh://;token=synthetic@example.com/repo",
+		"https://example.com=password=synthetic",
+		"https://example.com=/home/user/private",
+		"ssh://=token=synthetic@example.com/repo",
+		"https://example.com$api_key=synthetic",
+		"https://example.com+token=synthetic",
+		"https://example.com!PASSWORD=synthetic",
+		"https://example.com$Access_Token=synthetic",
+		"https://example.com$token=synthetic",
+		"https://example.com+api_key=synthetic",
+		"https://example.com!foo=bar$password=synthetic",
+		"https://example.com%21password%3Dsynthetic",
+		"https://example.com%2521password%253Dsynthetic",
+		"ssh://%2Btoken%3Dsynthetic@example.com/repo",
+		"ssh://%252Btoken%253Dsynthetic@example.com/repo",
+		"[docs](https://example.com!password=synthetic)",
+		"\"https://example.com$token=synthetic\"",
+		"https://example.com!**password**=synthetic",
+		"https://example.com!**/home/user/private**",
 		"https://example.com,**password**=synthetic",
 		"https://example.com;**token=synthetic**",
 		"ssh://**token**=synthetic@example.com/repo",
@@ -191,7 +267,7 @@ func TestV3PortableProse(t *testing.T) {
 				}
 			})
 		}
-		valid := []string{"The checkout domain handles orders and payments.", "Work Item", "See https://example.com/docs?lang=en", "See https://example.com/docs?q=a,b&next=/orders", "Progress is 20% complete."}
+		valid := []string{"https://example.com/docs", "https://example.com/docs?q=a,b&lang=en", "https://example.com/a;/b", "https://example.com,view=full", "https://example.com;lang=en", "ssh://git@example.com/repo", "https://[::1]/docs", "The checkout domain handles orders and payments.", "Work Item", "See https://example.com/docs?lang=en", "See https://example.com/docs?q=a,b&next=/orders", "Progress is 20% complete."}
 		if field != "term" {
 			valid = append(valid, "The checkout domain handles orders.\nRefunds belong to the payments context.")
 		}
@@ -218,7 +294,7 @@ func TestV3PortableProse(t *testing.T) {
 
 func TestOlderSchemaProseCompatibility(t *testing.T) {
 	for _, source := range []string{minimal, minimalV2} {
-		for _, value := range []string{"token=synthetic", "/home/user/private", "file:/private/document", "https://example.com,password=synthetic", "https://example.com;api_key=synthetic"} {
+		for _, value := range []string{"token=synthetic", "/home/user/private", "file:/private/document", "https://example.com,password=synthetic", "https://example.com;api_key=synthetic", "https://example.com!password=synthetic", "https://example.com$api_key=synthetic", "https://example.com+token=synthetic", "ssh://+token=synthetic@example.com/repo", "https://example.com&/home/user/private"} {
 			p := decode(t, source+fmt.Sprintf("businessContext: {text: %q}\n", value))
 			if !p.Equivalent(decode(t, string(encode(t, p)))) {
 				t.Fatal("legacy prose changed")
