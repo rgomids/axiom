@@ -423,8 +423,8 @@ Runtime's Axiom skill integration inspects Ready. Any other required capability
 stays unproven and blocks (`no_allowed_match`). Lingo does not probe or
 authenticate vendors. Output includes requirements, Runtime/Profile/model,
 `executableDigest`, revisions, content digests and `previewDigest`, or one bounded
-blocker category. Credential references, executable paths, environment and raw
-adapter errors never enter output. Human and JSON modes show the same decision.
+blocker category. Credential references, environment and raw adapter errors never
+enter output; executable paths appear only inside `executableDigest`. Human and JSON modes show the same decision.
 
 Repeat the policy inputs on `workflow start`. Without `--runtime-preview`, it
 returns preview only. With the exact reviewed `previewDigest`, it re-reads and

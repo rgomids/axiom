@@ -269,13 +269,16 @@ assert_runtime_blocked() {
   assert_no_execution
 }
 policy_inputs=(--role implementation --complexity high --capabilities axiom-skills)
-start_args=(workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}")
+# As the axiom-work-item-run skill prescribes, --runtime names the Runtime that
+# conducts the workflow; it narrows the policy and never widens it.
+start_args=(workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime codex)
 
 # No configured policy, no explicitly allowed-and-observed Runtime and no
 # capability Lingo cannot prove ever falls back to Codex.
 assert_runtime_blocked unconfigured policy_unconfigured \
   workflow start --project dogfood-configured --repository main --number 7 "${policy_inputs[@]}"
-assert_runtime_blocked claude-unobserved no_allowed_match "${start_args[@]}" --runtime claude
+assert_runtime_blocked claude-unobserved no_allowed_match \
+  workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime claude
 assert_runtime_blocked unprovable no_allowed_match \
   workflow start --project dogfood-project --repository main --number 7 \
   --role implementation --complexity high --capabilities go
@@ -297,9 +300,15 @@ cp -- "$runtime_bin/codex" "$temporary/codex-reviewed"
 printf '%s\n' '# replaced after review' >>"$runtime_bin/codex"
 assert_runtime_blocked replaced stale_preview "${start_args[@]}" --runtime-preview "$runtime_preview"
 cp -- "$temporary/codex-reviewed" "$runtime_bin/codex"
+# A blocker means a fresh preview; the restored executable reproduces the
+# reviewed identity, so the decision and its digest are the same.
+observed_axiom "${start_args[@]}" >"$temporary/workflow-runtime-repreview.json"
+assert_canonical "$temporary/workflow-runtime-repreview.json" success "Project Runtime resolution preview ready"
+fresh_preview=$(sed -n 's/.*"previewDigest":"\([0-9a-f]*\)".*/\1/p' "$temporary/workflow-runtime-repreview.json")
+[[ "$fresh_preview" == "$runtime_preview" ]]
 
 # 3. The exact reviewed decision, revalidated now, creates the Execution.
-observed_axiom "${start_args[@]}" --runtime-preview "$runtime_preview" >"$temporary/workflow-start.json"
+observed_axiom "${start_args[@]}" --runtime-preview "$fresh_preview" >"$temporary/workflow-start.json"
 assert_canonical "$temporary/workflow-start.json" success "Execution workflow operation completed"
 grep -Fq '"runtimeId":"codex"' "$temporary/workflow-start.json"
 execution_id=$(sed -n 's/.*"executionId":"\([^"]*\)".*/\1/p' "$temporary/workflow-start.json")

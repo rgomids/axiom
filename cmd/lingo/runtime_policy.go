@@ -88,7 +88,8 @@ func (r runtimeObservationSources) observer(cfg runtimeprofile.Configuration) (r
 	runtimes := make([]runtimeadapter.ObservedRuntime, 0, len(cfg.Runtimes))
 	for _, runtime := range cfg.Runtimes {
 		observed := runtimeadapter.ObservedRuntime{ID: runtime.ID}
-		if r.lookPath != nil {
+		// A disabled Runtime is never a candidate; it is not inspected either.
+		if r.lookPath != nil && runtime.Enabled {
 			if path, err := r.lookPath(runtime.Adapter); err == nil && filepath.IsAbs(path) {
 				observed.Executable = path
 			}

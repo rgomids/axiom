@@ -121,11 +121,12 @@ No flag, file or caller-supplied inventory can claim installation, availability,
 version or capability proof. For each Runtime in the local configuration the
 production observer, `runtimeadapter.ExecutableObserver`:
 
-- resolves the adapter executable from `PATH` as first-run discovers it and never
-  runs it;
+- resolves the adapter executable of each enabled Runtime from `PATH` as
+  first-run discovers it and never runs it;
 - reports installed and available only when that resolves to a regular file with
   an executable mode, recording `executableDigest`: SHA-256 over the resolved path
-  and the SHA-256 of the content. The path itself never leaves the process;
+  and the SHA-256 of the content. The path itself is never emitted, though
+  someone who already knows a candidate path and binary can confirm it;
 - leaves the version unknown, because Lingo neither executes nor authenticates a
   Runtime;
 - proves exactly one capability, `axiom-skills`, when that Runtime's Axiom skill
@@ -133,7 +134,8 @@ production observer, `runtimeadapter.ExecutableObserver`:
   Every other capability stays unproven, so a request needing it blocks with
   `no_allowed_match`; local profiles can only satisfy what Lingo can prove.
 
-The observation revision is the local configuration revision. The preview's
+The observation revision is the local configuration revision, so machine changes
+show in the digests, not in that counter. The preview's
 `observationDigest` and `choice.executableDigest` bind the observed identity and
 capability status, so a removed, replaced or re-pointed executable, or a lost
 skill integration, changes the next observation and `Check` fails as stale.
@@ -145,8 +147,9 @@ the configuration whose digest the reviewed preview carries, and the dispatch
 guard requires the command profile to match it exactly: Runtime, Model Profile,
 model, credential reference, and a current identity of the profile's executable
 equal to the reviewed `executableDigest`. Composition rejects command-profile
-arguments and environment that would select another model, configuration,
-session, provider or credential source. Any divergence or drift blocks before
+arguments that select another model, configuration or session, and environment
+keys carrying credentials or provider, model or Runtime configuration selectors
+(a denylist of known keys, not a sandbox of the child environment). Any divergence or drift blocks before
 credential resolution, attempt allocation, process start or persisted graph
 change. The credential reference never enters preview output.
 
