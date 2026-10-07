@@ -1369,10 +1369,15 @@ outcomes and Evidence; it does not prescribe workflows, jobs, runners or tools.
   ([schema](../../../scripts/schemas/axiom-gate-evidence-v1.schema.json),
   validated by `scripts/gate-evidence.py`, Issue #234). Issue #236 adds
   native-row upgrade-journey emission on verified prepared bytes, with
-  `subject.kind = prepared`; it does not wire release-boundary acceptance or
-  Evidence retention/envelope binding (Slice 4). Until
-  release-candidate acceptance emits it, any record with these properties
-  satisfies this requirement.
+  `subject.kind = prepared`. Issue #238 (Slice 4) wires it into the release
+  boundary: for a stable tag, the preparation run itself (ADR-0019
+  Alternative D) runs blocking `candidate-acceptance` on the prepared bytes on
+  native Linux amd64 and macOS arm64 hosts, retains each document as its own
+  workflow artifact, and the publication envelope binds the SHA-256 of each
+  document, which `scripts/verify-release-acceptance.py` verifies before any
+  publication effect. For a row without automated acceptance yet, any record
+  with these properties satisfies this requirement. The envelope binds it the
+  same way, and publication verifies it the same way (Transition below).
 - **FR-076 Real Runtime/Provider acceptance and supplemental Evidence:**
   deterministic fake and contract validation is the ordinary protection of
   Runtime and Provider integrations. Real Runtime or Provider acceptance is
@@ -1396,10 +1401,22 @@ outcomes and Evidence; it does not prescribe workflows, jobs, runners or tools.
   [SECURITY.md](../../../SECURITY.md) flow. A release waiver is recorded
   publicly only as a sanitized decision reference.
 
-**Transition.** Until automated release-candidate acceptance exists, a manual
-release-candidate acceptance over the downloaded prepared candidate set, with
-Evidence bound to its exact digests, satisfies FR-069–FR-075. For Windows it
-follows the FR-072 bounded proxy scope.
+**Transition.** Until automated release-candidate acceptance exists for a
+release row, a manual release-candidate acceptance over the downloaded prepared
+candidate set, with Evidence bound to its exact digests, satisfies
+FR-069–FR-075 for that row. For Windows it follows the FR-072 bounded proxy
+scope. Automated acceptance exists for Linux amd64 and macOS arm64
+(Issue #238); Linux arm64 and the Windows bounded proxy stay under this
+transition until their own Slices. Only who produces the Evidence differs:
+automated rows produce it in the preparation run, and manual-transition rows
+produce it by hand on the downloaded set. Both are required. Each row's
+Evidence is verified against the same prepared candidate and bound by digest
+into the human-authorized publication envelope before stable publication.
+Naming a row as manual never replaces its Evidence. For the Windows proxy, a
+record holds exactly the FR-072 observations. They pass, while install, owned
+upgrade and reinstall are `not_applicable`. Until its Slice provides an
+emitter, a maintainer records it by hand. A stable release cannot be published
+without it.
 
 The initial generation declaration (FR-074) MUST exist before the first stable
 candidate accepted under this contract. It starts from the sources that the

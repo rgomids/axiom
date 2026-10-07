@@ -717,8 +717,8 @@ The process, versioning and authority rules are in
 |---|---|---|
 | `.github/workflows/ci.yml` | every PR, push to `main`, dispatch | required checks only; read-only token |
 | `.github/workflows/release-please.yml` | manual dispatch from `main` by `release.sh start` with `planned_version` and `main` (never a push) | requires `main` to still be the planned SHA at dispatch, re-runs `release-plan.sh` on it, then opens/updates the Release PR (`CHANGELOG.md`, `.release-please-manifest.json`); dispatches CI and `delivery-metadata` on the Release PR branch only when the PR records the planned version and its base is the validated SHA or an ancestor; never tags or releases |
-| `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag` and `revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; read-only token; never publishes |
-| `.github/workflows/publish-release.yml` | manual dispatch from `main` with `tag`, `revision`, `prepared_run`, `preview_digest` | PUBLISH: re-verifies that prepared artifact, requires its envelope digest to equal `preview_digest`, then draft, upload, read-back, publish and, for a stable release, the envelope's Issue effects; `publish` job gated by the `release` environment; never rebuilds |
+| `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag` and `revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; for a stable tag, blocking release-candidate acceptance of those bytes on native Linux amd64 and macOS arm64 (`axiom-acceptance-<tag>-<row>` Evidence artifacts); read-only token; never publishes |
+| `.github/workflows/publish-release.yml` | manual dispatch from `main` with `tag`, `revision`, `prepared_run`, `preview_digest` and, for a stable release, `manual_acceptance` (the packed Linux arm64 and Windows proxy Evidence) | PUBLISH: re-verifies that prepared artifact and, for a stable release, the acceptance Evidence of all four release rows, requires its envelope digest to equal `preview_digest`, then draft, upload, read-back, publish and, for a stable release, the envelope's Issue effects; `publish` job gated by the `release` environment; never rebuilds |
 | `.github/workflows/delivery-metadata.yml` | PR opened, edited, reopened or synchronized (not Release PRs); dispatch by `release-please.yml` on the Release PR branch | validates the Conventional Commit title and `Related-Issues`/`Completes-Issues`, and refuses closing keywords; on dispatch passes only for the bot-authored Release PR head (`delivery-github.sh release-pr-head`); no token write, no secret |
 | `.github/workflows/delivery-sync.yml` | push to `main` | merge-time delivery projection: completing PRs move Issues to `Awaiting Release` (Issues stay open; one closed by GitHub at exactly that merge is reopened); a release commit records `Target Release`; with projection enabled, released Issues are reconciled to `Released` |
 
@@ -807,17 +807,31 @@ Prepare, then review the envelope:
 prints the result of `status --prepared-run`: the prepared artifact is
 downloaded, re-verified with `verify-prepared-release.sh` in a clean clone at the
 revision, and its publication envelope is printed as `preview.*` lines with
-`preview_digest`, the SHA-256 of the envelope. Only after explicit human
-authorization of that digest:
+`preview_digest`, the SHA-256 of the envelope.
+
+A stable release first stops at `next_action=accept_manually`. The envelope
+binds the acceptance Evidence of all four release rows, and the
+manual-transition rows (Linux arm64, the Windows bounded proxy) have no
+Evidence in the prepared run. Accept the downloaded prepared set on those
+rows, place each passing document as `<dir>/<row>/gate-evidence.json`, and
+pass the directory:
 
 ```bash
-./scripts/release.sh publish --preview-digest <preview_digest> --authorize-publication
+./scripts/release.sh status --prepared-run <run_id> --manual-acceptance /abs/manual-acceptance
+```
+
+Only after explicit human authorization of that digest:
+
+```bash
+./scripts/release.sh publish --preview-digest <preview_digest> --authorize-publication --manual-acceptance /abs/manual-acceptance
 ./scripts/release.sh publish --tag v0.1.0-rc.1 --preview-digest <preview_digest> --authorize-publication
 gh run watch <run_id> --repo rgomids/axiom --exit-status
 ```
 
-The digest binds the tag, revision and prepared run; `--tag`, `--revision`
-and `--prepared-run` are optional and, when given, must equal the envelope's.
+The digest binds the tag, revision, prepared run and every acceptance Evidence
+digest; `--tag`, `--revision` and `--prepared-run` are optional and, when
+given, must equal the envelope's. `publish` dispatches the manual Evidence
+exactly as packed for the envelope (`manual_acceptance`).
 
 Without `--authorize-publication`, or when the envelope recomputed now differs
 from `--preview-digest`, nothing is dispatched (`preview changed; review and
@@ -846,7 +860,10 @@ Building blocks, each read-only unless stated:
 ./scripts/publish-release.sh --check --repo rgomids/axiom --tag v0.1.0 --revision <full-sha> --make-latest true
 ./scripts/publish-release.sh --envelope --repo rgomids/axiom --tag v0.1.0 --revision <full-sha> --make-latest true \
   --prepared-run <run_id> --dir /abs/prepared/artifacts --evidence /abs/prepared/release-evidence.txt \
-  --notes /abs/prepared/release-notes.md
+  --notes /abs/prepared/release-notes.md --acceptance /abs/acceptance
+./scripts/verify-release-acceptance.py verify --acceptance /abs/acceptance --artifacts /abs/prepared/artifacts \
+  --tag v0.1.0 --revision <full-sha> --repo rgomids/axiom --prepared-run <run_id>
+./scripts/verify-release-acceptance.py pack --manual /abs/manual-acceptance
 ```
 
 `release-preflight.sh` requires a full revision on the first-parent history of

@@ -10,10 +10,14 @@
 #
 # Prepared mode (Issue #236): replace --candidate with
 #   --prepared-set ABS_DIR --tag vVERSION --revision FULL_SHA --row HOST_ROW
-#   --sha256sums-sha256 EXPECTED_SHA256
+#   --sha256sums-sha256 EXPECTED_SHA256 [--candidate-acceptance]
 # It snapshots the complete release set into private storage, verifies against
 # a clean local source checkout without rebuilding or executing during validation,
 # then uses only the verified materialization. Evidence records kind=prepared.
+# --candidate-acceptance (Issue #238: release-artifacts.yml, and the manual
+# Linux arm64 acceptance of the Specification 004 transition) requires
+# --evidence and records the Evidence gate as candidate-acceptance instead of
+# merge-regression; it changes nothing else in the run.
 # --candidate and each --previous hold one release's SHA256SUMS and archives
 # (as build-release-archives.sh or `gh release download` produce them). The
 # first --previous is release N and runs the full v1 journey; every further
@@ -38,6 +42,7 @@ repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 candidate=
 prepared_set= prepared_tag= prepared_revision= prepared_sums= requested_row= prepared_identity=
 prepared_ready=false
+candidate_acceptance=false
 poc_binary=
 evidence=
 previous=()
@@ -49,6 +54,7 @@ while (($#)); do
     --revision) prepared_revision=${2:-}; shift 2 ;;
     --sha256sums-sha256) prepared_sums=${2:-}; shift 2 ;;
     --row) requested_row=${2:-}; shift 2 ;;
+    --candidate-acceptance) candidate_acceptance=true; shift ;;
     --previous) previous+=("${2:-}"); shift 2 ;;
     --poc-binary) poc_binary=${2:-}; shift 2 ;;
     --evidence) evidence=${2:-}; shift 2 ;;
@@ -60,8 +66,9 @@ if [[ -n "$prepared_set" ]]; then
   candidate=$prepared_set
   evidence_python=$(command -v python3) || exit 2
 else
-  [[ -z "$prepared_tag$prepared_revision$prepared_sums$requested_row" ]] || { printf 'upgrade_journey_error: prepared identity flags require --prepared-set\n' >&2; exit 2; }
+  [[ -z "$prepared_tag$prepared_revision$prepared_sums$requested_row" && "$candidate_acceptance" == false ]] || { printf 'upgrade_journey_error: prepared identity flags require --prepared-set\n' >&2; exit 2; }
 fi
+[[ "$candidate_acceptance" == false || -n "$evidence" ]] || { printf 'upgrade_journey_error: --candidate-acceptance requires --evidence\n' >&2; exit 2; }
 [[ "$candidate" == /* && ${#previous[@]} -ge 1 ]] || { printf 'upgrade_journey_error: candidate and previous absolute directories required\n' >&2; exit 2; }
 [[ -z "$poc_binary" || "$poc_binary" == /* ]] || { printf 'upgrade_journey_error: --poc-binary must be absolute\n' >&2; exit 2; }
 if [[ -n "$evidence" ]]; then
@@ -133,6 +140,7 @@ emit_evidence() {
   local status=$1 state=aborted arguments=() directory
   if [[ -n "${prepared_set:-}" ]]; then
     [[ "$prepared_ready" == true ]] || { printf 'evidence=unavailable\n'; return 1; }
+    [[ "$candidate_acceptance" == false ]] || arguments+=(--gate candidate-acceptance)
     arguments+=(--prepared-identity "$prepared_identity" --prepared-tag "$prepared_tag" --prepared-revision "$prepared_revision" --prepared-sha256sums "$prepared_sums")
   fi
   if [[ $capture_lost -ne 0 ]]; then
