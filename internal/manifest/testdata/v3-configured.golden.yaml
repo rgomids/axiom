@@ -1,0 +1,55 @@
+schemaVersion: 3
+project:
+  id: 12345678-1234-4abc-8def-123456789abc
+  slug: sample
+  name: Sample
+repositories:
+  - key: core
+    remote: https://github.com/example/core.git
+  - key: web
+runtimes:
+  - id: claude
+providers:
+  - key: work-items
+    id: github
+integrations:
+  - key: work-items
+    providerRef: work-items
+    capabilities:
+      - work-item
+modelProfiles:
+  - key: careful
+    runtimeRef: claude
+    model: Approved Model
+runtimePreferences:
+  - role: implementation
+    complexity: high
+    modelProfileRef: careful
+businessContext:
+  text: Bounded product context.
+  documents:
+    - context/legacy.md
+  sourceRefs:
+    - architecture
+    - product-notes
+  glossary:
+    - key: execution
+      term: Execution
+      definition: One delivery run.
+    - key: work-item
+      term: Work Item
+      definition: |-
+        A bounded unit of engineering intent.
+        Tracked by Axiom.
+technologyContext:
+  - key: infrastructure.terraform
+    value: terraform
+  - key: language.go
+    value: go
+documentationSources:
+  - key: architecture
+    kind: repository
+    repositoryRef: core
+    path: docs/architecture
+  - key: product-notes
+    kind: local-file

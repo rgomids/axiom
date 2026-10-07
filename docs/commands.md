@@ -417,9 +417,11 @@ keeps Project allowlists and preferences separate from machine-local configurati
 V1 Projects remain readable as explicit single-Runtime policies and are never
 rewritten. No missing configuration selects Codex.
 
-`project configure` publishes Projects without a policy. Declare it in an
-authored `axiom.yaml` (`runtimes`, `modelProfiles`, optional `runtimePreferences`)
-and record that manifest with an exact binding for each declared Repository:
+`project configure` CREATE can author the policy from local candidates
+(`--runtime`, `--model-profile`, `--runtime-preference`; see Guided bootstrap).
+Alternatively, declare it in an authored `axiom.yaml` (`runtimes`,
+`modelProfiles`, optional `runtimePreferences`) and record that manifest with an
+exact binding for each declared Repository:
 
 ```bash
 axiom --json project install --source /absolute/authored/project \
@@ -1152,7 +1154,62 @@ enter portable state; absolute paths and observed revisions remain only in
 protected machine-local state and the review preview. Replaced bindings or changed
 state invalidate authority. Guided mode previews the same normalized proposal and
 asks before publication. Codex uses the same command through
-`$axiom-project-configure`; neither path infers identity from CWD or Git.
+`$axiom-project-configure`; neither path infers identity from CWD.
+
+### Guided bootstrap (Issue #231)
+
+CREATE publishes portable schema 3 per the
+[bootstrap v3 contract](specifications/002-lingo-project-initialization/project-bootstrap-v3.md).
+For each explicit `--repository` (a bare absolute path gets a derived key
+proposal), Lingo reads only that location's Git metadata (`.git`, `config`) and
+file names: no Git process, fetch, network, CWD or parent walk. Remote names have
+no priority (`origin` is not special); aliases of one locator collapse. Two or
+more distinct locators, or Git configuration Lingo cannot fully read, block
+publication until an explicit choice:
+
+```bash
+axiom --json project configure --slug my-project --name "My Project" \
+  --repository core=/absolute/core --repository /absolute/web \
+  --repository-remote core=https://github.com/acme/core.git \
+  --work-item-provider github \
+  --runtime claude --model-profile careful \
+  --runtime-preference implementation/high=careful \
+  --technology cloud.aws=aws --remove-technology package-manager.npm \
+  --documentation architecture=repository:core/docs/architecture \
+  --documentation notes=local-file:/absolute/notes/product.md \
+  --business-context "Bounded product context" --context-source architecture \
+  --glossary "work-item=Work Item:A bounded unit of engineering intent"
+```
+
+The preview lists Repository remotes and candidates, local Runtime candidates
+(from the machine-local Runtime Profile configuration; nothing is defaulted),
+detected technology facts with repository-relative Evidence (file names only;
+conflicting package managers are flagged), documentation sources, glossary,
+authority expectations and `blockers`. Runtime/profile/preference flags author the
+#140 policy without editing `axiom.yaml`; omit them and Execution readiness reports
+`runtime_policy_unavailable`. A `local-file` source stores only its key in
+`axiom.yaml`; its absolute path and file identity are written to the
+installation record (format 2), never its content. All CREATE-only flags are
+rejected with `--project` (post-create lifecycle is #230).
+
+## Validate Project readiness
+
+```bash
+axiom --json project validate --slug my-project
+```
+
+Structural validation is unchanged (`Project is valid` / `Project state is
+invalid`). A valid Project also returns a read-only `readiness` report:
+Repository bindings, capability → Integration → Provider mapping, credential
+binding presence (never values), the #140 Runtime availability, documentation
+resolution (no paths or content), context counts, authority expectations, and
+`operations` for `work-item` and `execution` with exact blockers. `effective` is
+`ready`, `partial` (some operations ready) or `blocked`. Documentation and context
+gaps are warnings and never block. Work Item operations and `workflow resume`
+fail before any effect with the same blocker code as `category` plus a
+`preflight` payload; `workflow start` enforces the shared and Work Item blockers
+the same way and its Runtime requirement through the reviewed Runtime preview.
+Readiness never grants authority.
 
 ## GitHub Work Items
 

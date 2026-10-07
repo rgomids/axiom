@@ -21,6 +21,8 @@ type RecordState struct {
 	Credentials                             []projectapp.CredentialBinding
 	Runtime                                 projectapp.RuntimeBinding
 	Attempt                                 projectapp.AttemptMetadata
+	// Documentation exists only in local format 2 (Issue #231).
+	Documentation []projectapp.DocumentationBinding
 }
 
 // Record is sealed after complete validation. Its zero value is unusable.
@@ -34,6 +36,7 @@ func clone(s RecordState) RecordState {
 	s.ArtifactDigests = slices.Clone(s.ArtifactDigests)
 	s.Repositories = slices.Clone(s.Repositories)
 	s.Credentials = slices.Clone(s.Credentials)
+	s.Documentation = slices.Clone(s.Documentation)
 	return s
 }
 func (r Record) State() RecordState { return clone(r.state) }

@@ -52,7 +52,16 @@ Use --json for machine-readable output. Default and --human output are readable
 status summaries. Mutation authority remains explicit through
 --authorize-external or --authorize-local.
 
-project configure without --project creates a new Project; an already
+project configure without --project bootstraps a new schema v3 Project from
+explicit Repository locations (--repository <key>=<absolute-path> or a bare
+absolute path). Lingo reads each location's Git metadata and file names only:
+no Git process, network, CWD, or remote-name priority (origin is not special).
+Ambiguous remotes block until --repository-remote <key>=<locator>|none.
+Optional CREATE intent: --runtime/--model-profile (local candidates only, never
+defaulted), --runtime-preference <role>/<complexity>=<profile>, --technology
+<key>=<value>, --remove-technology <key>, --documentation <key>=repository:<repo>/
+<path>|local-file:<absolute-path>, --business-context, --context-source,
+--glossary <key>=<term>:<definition>. An already
 configured slug or --project-id fails without changes. project configure
 --project <project-uuid-or-slug> previews an edit of an existing Project and
 never writes:
@@ -62,6 +71,12 @@ never writes:
 Omitted values are preserved. Edit rejects --slug (rename) and, because edit
 publication is not available, --project-id, --preview-digest and
 --authorize-local.
+
+project validate --slug <slug> checks the portable Project and reports
+read-only operation readiness (work-item, execution): ready, partial or
+blocked, with exact blocker and warning codes. Work Item operations and
+workflow start/resume enforce the same blockers before any effect; readiness
+never grants authority.
 
 project install --source <dir> records an authored manifest, such as one that
 declares a Runtime/Profile policy; each Repository it declares needs exactly one

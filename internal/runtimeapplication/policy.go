@@ -162,6 +162,45 @@ func (s Service) Check(ctx context.Context, expected Preview) (Binding, error) {
 	return Binding{}, ErrStale
 }
 
+// Availability is the request-independent readiness projection of the same
+// portable/local intersection Preview uses (Issue #231). It selects nothing:
+// "" means at least one allowed, enabled Runtime with an allowed profile is
+// currently observed installed and available. Otherwise it returns the #140
+// blocker code (policy_unconfigured, no_allowed_match, runtime_unavailable, ...).
+// Role-specific preferences and capabilities are checked only by Preview.
+func (s Service) Availability(ctx context.Context, projectID string) string {
+	if len(project.ValidateIdentity(projectID, "preview")) != 0 {
+		return "invalid_request"
+	}
+	if s.source == nil {
+		return "inventory_unavailable"
+	}
+	snapshot, err := s.source.Load(ctx, projectID)
+	if err != nil {
+		return "policy_unavailable"
+	}
+	if snapshot.Project.State().ID != projectID {
+		return "invalid_project"
+	}
+	cfg, code := projectConfiguration(snapshot.Project.State(), snapshot.Configuration, Request{})
+	if code != "" {
+		return code
+	}
+	if snapshot.Observer == nil {
+		return "inventory_unavailable"
+	}
+	for _, runtime := range cfg.Runtimes {
+		if !runtime.Enabled {
+			continue
+		}
+		observation, err := snapshot.Observer.Observe(ctx, runtime.ID)
+		if err == nil && observation.Installed && observation.Available {
+			return ""
+		}
+	}
+	return "runtime_unavailable"
+}
+
 // Digest is an operator review token, not authority for external effects.
 func (p Preview) Digest() string { wire, _ := json.Marshal(p); return digest(wire) }
 func denyWith(p Preview, code string) (Preview, runtimeprofile.Configuration, error) {
@@ -188,30 +227,17 @@ func (c capture) Observe(_ context.Context, id string) (runtimeprofile.Observati
 }
 
 func projectConfiguration(state project.State, local runtimeprofile.Configuration, request Request) (runtimeprofile.Configuration, string) {
-	if state.RuntimePreferences.Form() == project.NotConfigured {
+	if state.SchemaVersion != 1 && !project.MultiRuntimeSchema(state.SchemaVersion) {
+		return runtimeprofile.Configuration{}, "invalid_project"
+	}
+	if !project.RuntimePolicyDeclared(state) {
 		return runtimeprofile.Configuration{}, "policy_unconfigured"
 	}
 	allowed := map[string]bool{}
-	if state.SchemaVersion == 1 {
-		if runtime, ok := state.Runtime.Value(); ok {
-			allowed[runtime.ID] = true
-		}
-	} else if state.SchemaVersion == 2 {
-		if runtimes, ok := state.Runtimes.Value(); ok {
-			for _, runtime := range runtimes {
-				allowed[runtime.ID] = true
-			}
-		}
-	} else {
-		return runtimeprofile.Configuration{}, "invalid_project"
+	for _, id := range project.AllowedRuntimes(state) {
+		allowed[id] = true
 	}
-	if len(allowed) == 0 {
-		return runtimeprofile.Configuration{}, "policy_unconfigured"
-	}
-	portableProfiles, ok := state.ModelProfiles.Value()
-	if !ok || len(portableProfiles) == 0 {
-		return runtimeprofile.Configuration{}, "policy_unconfigured"
-	}
+	portableProfiles, _ := state.ModelProfiles.Value()
 	profiles := map[string]project.ModelProfile{}
 	for _, profile := range portableProfiles {
 		if profile.State.Form() != project.NotConfigured {

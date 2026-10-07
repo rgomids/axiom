@@ -1102,3 +1102,12 @@ Implementation: Not authorized. **Ready for human Tasks review.**
 The additive [Runtime/Profile v2 contract](runtime-policy-v2.md) governs the next
 portable manifest version and execution projection. Historical v1 sections above
 remain v1 contracts; v2 support does not reinterpret or rewrite v1 Projects.
+
+## Issue #231 — Project bootstrap v3, context registry and readiness
+
+The additive [bootstrap v3 contract](project-bootstrap-v3.md) governs portable
+schema 3 (technology context, typed documentation sources, Business Context
+source references and glossary), the machine-local documentation-binding record
+format, guided `project configure` CREATE bootstrap, and the canonical
+operation-scoped Project readiness evaluator used before Work Item and Execution
+effects. v1 and v2 remain supported unchanged and are never rewritten.

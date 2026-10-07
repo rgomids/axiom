@@ -43,6 +43,9 @@ func validateState(s RecordState) []Issue {
 	if issues := validateCredentials(s.Credentials); len(issues) > 0 {
 		return issues
 	}
+	if issues := validateDocumentation(s.Documentation); len(issues) > 0 {
+		return issues
+	}
 	if s.Runtime != (projectapp.RuntimeBinding{}) && (!logicalReference(s.Runtime.RuntimeID) || !optionalLocation(s.Runtime.ExplicitPath) || !validObservation(s.Runtime.Observation)) {
 		return problem("installation.runtime", "invalid_metadata")
 	}
@@ -71,6 +74,41 @@ func validateCredentials(bindings []projectapp.CredentialBinding) []Issue {
 	}
 	return nil
 }
+
+// MaxDocumentationBindings matches the portable documentation source bound.
+const MaxDocumentationBindings = project.MaxDocumentationSources
+
+func validateDocumentation(bindings []projectapp.DocumentationBinding) []Issue {
+	if len(bindings) > MaxDocumentationBindings {
+		return problem("installation.documentationBindings", "collection_limit")
+	}
+	keys := map[string]bool{}
+	for i, b := range bindings {
+		if !project.ValidContextKey(b.SourceKey) || keys[b.SourceKey] || !localLocation(b.ExplicitPath) || !absoluteLocation(b.ExplicitPath) || !fileIdentity(b.CanonicalIdentity) || !validObservation(b.Observation) {
+			return problem(fmt.Sprintf("installation.documentationBindings[%d]", i), "invalid_metadata")
+		}
+		keys[b.SourceKey] = true
+	}
+	return nil
+}
+
+// absoluteLocation is lexical and OS-independent: rooted POSIX, drive-rooted
+// or UNC Windows spellings. Physical validation belongs to the observer.
+func absoluteLocation(s string) bool {
+	if strings.HasPrefix(s, "/") || strings.HasPrefix(s, `\\`) {
+		return true
+	}
+	return len(s) >= 3 && (s[0] >= 'A' && s[0] <= 'Z' || s[0] >= 'a' && s[0] <= 'z') && s[1] == ':' && (s[2] == '\\' || s[2] == '/')
+}
+
+func fileIdentity(s string) bool {
+	digest, ok := strings.CutPrefix(s, "file:")
+	if !ok || len(digest) != 64 {
+		return false
+	}
+	return strings.Trim(digest, "0123456789abcdef") == ""
+}
+
 func validObservation(o projectapp.Observation) bool {
 	return availabilityName(o.Availability) != "" && basisName(o.Basis) != "" && validTime(o.ObservedAt)
 }

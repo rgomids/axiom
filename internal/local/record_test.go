@@ -39,11 +39,12 @@ func rejected(t *testing.T, b []byte) []local.Issue {
 
 func TestVersionMatrix(t *testing.T) {
 	b := fixture(t, "minimal")
-	for _, v := range []string{"null", "true", "false", `"1"`, "1.5", "1.0", "1e0", "0", "-1", "2", "999999999999999999999999"} {
+	for _, v := range []string{"null", "true", "false", `"1"`, "1.5", "1.0", "1e0", "0", "-1", "2", "3", "999999999999999999999999"} {
 		t.Run(v, func(t *testing.T) {
 			issues := rejected(t, bytes.Replace(b, []byte(`"formatVersion": 1`), []byte(`"formatVersion": `+v), 1))
 			want := "invalid_local_state"
-			if v == "0" || v == "-1" || v == "2" || strings.HasPrefix(v, "999") {
+			// Format 2 is supported but requires documentation bindings.
+			if v == "0" || v == "-1" || v == "3" || strings.HasPrefix(v, "999") {
 				want = "unsupported_local_format"
 			}
 			if issues[0].Category() != want {

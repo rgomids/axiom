@@ -285,6 +285,33 @@ func emitSetupCompletion(writer io.Writer, mode outputMode, result completion.Re
 		fmt.Fprintf(&extra, "capability: %s provider=%s readiness=%s\n", setup.Capability.Capability, setup.Capability.Provider, setup.Capability.Readiness)
 		for _, repository := range setup.Repositories {
 			fmt.Fprintf(&extra, "repository: %s local=%q revision=%s\n", repository.Key, repository.LocalPath, repository.LocalRevision)
+			if remote := repository.Remote; remote != nil {
+				fmt.Fprintf(&extra, "  remote: status=%s selected=%q source=%s unsupported=%d\n", remote.Status, remote.Locator, remote.Source, remote.Unsupported)
+				for _, candidate := range remote.Candidates {
+					fmt.Fprintf(&extra, "  candidate: %q names=%v\n", candidate.Locator, candidate.Names)
+				}
+			}
+		}
+		fmt.Fprintf(&extra, "runtime-policy: %s runtimes=%v\n", setup.RuntimePolicy.Status, setup.RuntimePolicy.Runtimes)
+		for _, candidate := range setup.RuntimePolicy.Candidates {
+			for _, profile := range candidate.Profiles {
+				fmt.Fprintf(&extra, "  runtime-candidate: %s profile=%s model=%q\n", candidate.ID, profile.Key, profile.Model)
+			}
+		}
+		for _, fact := range setup.Technology {
+			fmt.Fprintf(&extra, "technology: %s=%q source=%s conflict=%s\n", fact.Key, fact.Value, fact.Source, fact.Conflict)
+			for _, evidence := range fact.Evidence {
+				fmt.Fprintf(&extra, "  evidence: %s:%s count=%d\n", evidence.Repository, evidence.Path, evidence.Count)
+			}
+		}
+		for _, source := range setup.Documentation {
+			fmt.Fprintf(&extra, "documentation: %s kind=%s repository=%s path=%q local=%q\n", source.Key, source.Kind, source.RepositoryRef, source.Path, source.LocalPath)
+		}
+		for _, entry := range setup.BusinessContext.Glossary {
+			fmt.Fprintf(&extra, "glossary: %s term=%q\n", entry.Key, entry.Term)
+		}
+		for _, blocker := range setup.Blockers {
+			fmt.Fprintf(&extra, "blocker: %s %s\n", blocker.Code, blocker.Subject)
 		}
 		for _, effect := range setup.Effects {
 			fmt.Fprintf(&extra, "effect: %s\n", effect)

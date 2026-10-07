@@ -161,6 +161,10 @@ acceptance remains separate.
 
 ## Production authoring path
 
+Superseded for CREATE by Issue #231: `project configure` can author this policy
+from local candidates (see [bootstrap v3](project-bootstrap-v3.md)); schema 3
+retains these v2 semantics. The historical #140 text follows.
+
 `project configure` still publishes Projects without a Runtime/Profile policy.
 An operator declares the portable policy in an authored `axiom.yaml` and records
 it with `project install --source <dir> --repository <key>=<absolute-path>`, one

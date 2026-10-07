@@ -42,7 +42,7 @@ func (v *validation) key(field, key string, seen map[string]bool) {
 
 func validate(s State) []Issue {
 	v := &validation{}
-	if s.SchemaVersion != 1 && s.SchemaVersion != 2 {
+	if s.SchemaVersion < 1 || s.SchemaVersion > 3 {
 		v.add("schemaVersion", "unsupported_schema")
 	}
 	v.issues = append(v.issues, ValidateIdentity(s.ID, s.Slug)...)
@@ -58,6 +58,7 @@ func validate(s State) []Issue {
 	v.profiles(s)
 	v.context(s.BusinessContext)
 	v.documents("policies", s.Policies.value)
+	v.contextRegistry(s)
 	sort.SliceStable(v.issues, func(i, j int) bool {
 		if v.issues[i].Field != v.issues[j].Field {
 			return v.issues[i].Field < v.issues[j].Field

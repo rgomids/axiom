@@ -24,6 +24,10 @@ func cloneState(s State) State {
 	s.CredentialReferences = cloneList(s.CredentialReferences)
 	s.Policies = cloneList(s.Policies)
 	s.BusinessContext.value.Documents = cloneList(s.BusinessContext.value.Documents)
+	s.BusinessContext.value.SourceRefs = cloneList(s.BusinessContext.value.SourceRefs)
+	s.BusinessContext.value.Glossary = cloneList(s.BusinessContext.value.Glossary)
+	s.TechnologyContext = cloneList(s.TechnologyContext)
+	s.DocumentationSources = cloneList(s.DocumentationSources)
 	return s
 }
 
@@ -44,6 +48,13 @@ func normalize(s *State) {
 	})
 	sort.Slice(s.ModelProfiles.value, func(i, j int) bool { return s.ModelProfiles.value[i].Key < s.ModelProfiles.value[j].Key })
 	sort.Slice(s.CredentialReferences.value, func(i, j int) bool { return s.CredentialReferences.value[i].Key < s.CredentialReferences.value[j].Key })
+	// Schema v3 context collections are sets; ordering never selects anything.
+	sort.Slice(s.TechnologyContext.value, func(i, j int) bool { return s.TechnologyContext.value[i].Key < s.TechnologyContext.value[j].Key })
+	sort.Slice(s.DocumentationSources.value, func(i, j int) bool { return s.DocumentationSources.value[i].Key < s.DocumentationSources.value[j].Key })
+	sort.Strings(s.BusinessContext.value.SourceRefs.value)
+	sort.Slice(s.BusinessContext.value.Glossary.value, func(i, j int) bool {
+		return s.BusinessContext.value.Glossary.value[i].Key < s.BusinessContext.value.Glossary.value[j].Key
+	})
 }
 
 func normalizeRepository(r *Repository) {
