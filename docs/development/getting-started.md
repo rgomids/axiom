@@ -85,6 +85,21 @@ A landing page pública está em `site/`. Para inspecioná-la localmente:
 python3 -m http.server 8000 --directory site
 ```
 
+Para validar a troca de idioma e a regressão de DOM XSS em Chromium, use
+dependências somente de teste em um ambiente virtual fora do repositório:
+
+```bash
+python3 -m venv /tmp/axiom-site-tests
+/tmp/axiom-site-tests/bin/python -m pip install playwright==1.63.0
+/tmp/axiom-site-tests/bin/python -m playwright install chromium
+/tmp/axiom-site-tests/bin/python scripts/test-site-language.py .
+```
+
+No Windows, use o executável `Scripts/python.exe` do ambiente virtual. Os
+testes atendem as requisições do navegador com arquivos locais ou as bloqueiam;
+não acessam o site público. Traduções usam `data-pt` e `textContent`; links e
+formatação ficam no HTML estático, sem interpretar atributos como HTML.
+
 Abra <http://localhost:8000/>. O workflow
 [deploy-landpage.yml](../../.github/workflows/deploy-landpage.yml) publica esse
 diretório no GitHub Pages. Assets de identidade vêm de `docs/assets/` por URLs

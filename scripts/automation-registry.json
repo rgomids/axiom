@@ -154,15 +154,17 @@
       "scope": [
         "ci"
       ],
-      "trigger": "push to main, pull_request, or workflow_dispatch; pushes and PRs filtered to site/, docs/assets/, validate-landing-page.sh and this workflow",
+      "trigger": "push to main, pull_request, or workflow_dispatch; pushes and PRs filtered to site/, docs/assets/, validate-landing-page.sh, test-site-language.py and this workflow",
       "replay_reason": null,
       "callers": [],
       "inputs": "site/ tree; docs/assets; GitHub event",
       "outputs": "Validation result; Pages artifact and deployment on main (not on pull requests)",
       "local_effects": "runner workspace only (artifact tar in RUNNER_TEMP)",
-      "network_effects": "GitHub Actions checkout/configure-pages/upload-artifact/deploy-pages; Pages deployment",
+      "network_effects": "GitHub Actions checkout/configure-pages/upload-artifact/deploy-pages; Pages deployment; test-only PyPI Playwright package and Chromium dependencies downloaded before offline browser tests",
       "authority": "contents: read; deploy job adds pages: write and id-token: write in environment github-pages; actions pinned to SHAs",
-      "tests": [],
+      "tests": [
+        "scripts/test-site-language.py"
+      ],
       "evidence": null,
       "compatibility": [],
       "removal_condition": null
@@ -2265,6 +2267,37 @@
       "authority": "none; read-only local checks",
       "tests": [],
       "evidence": "Requirement-tagged security case lines consumed by the S7/S9 acceptance Evidence.",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-site-language.py",
+      "kind": "script",
+      "owner": "site",
+      "purpose": "Offline Chromium language-switch regression checks: text-only translations, malicious attribute payloads, markup preservation, keyboard behavior and blocked storage.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test",
+        "maintainer"
+      ],
+      "trigger": "site validation on pull requests and main; manual regression check",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/deploy-landpage.yml"
+      ],
+      "inputs": "optional repository root; test-only playwright==1.63.0 and installed Chromium",
+      "outputs": "unittest results; nonzero exit on regression",
+      "local_effects": "temporary isolated headless Chromium contexts; no repository writes",
+      "network_effects": "none; browser requests served from local site files or aborted",
+      "authority": "none; read-only checks",
+      "tests": [],
+      "evidence": null,
       "compatibility": [],
       "removal_condition": null
     },

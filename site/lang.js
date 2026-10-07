@@ -1,9 +1,9 @@
 /* Axiom — language menu (English / Portuguese).
 
    The page is written in English. Every translatable element carries the
-   Portuguese version next to it, in `data-pt` for plain text or `data-pt-html`
-   when the string wraps inline markup. The first switch stores the English
-   original in the matching `data-en` attribute, so switching back needs no
+   Portuguese text next to it in `data-pt`. Inline markup stays in the page;
+   translation values are always assigned as text, never parsed as HTML. The
+   first switch stores the English original in `data-en`, so switching back needs no
    second copy of the page.
 
    The globe button (#lang-toggle) opens a menu of flags; picking one applies
@@ -25,11 +25,11 @@
   var options = Array.prototype.slice.call(list.querySelectorAll('.lang-option'));
   var hints = { en: 'Language', pt: 'Idioma' };
 
-  function swap(element, plain) {
-    var back = plain ? 'data-en' : 'data-en-html';
+  function swap(element) {
+    var back = 'data-en';
 
     if (!element.hasAttribute(back)) {
-      element.setAttribute(back, plain ? element.textContent : element.innerHTML);
+      element.setAttribute(back, element.textContent);
     }
   }
 
@@ -38,14 +38,8 @@
 
     var plain = document.querySelectorAll('[data-pt]');
     for (i = 0; i < plain.length; i++) {
-      swap(plain[i], true);
+      swap(plain[i]);
       plain[i].textContent = plain[i].getAttribute(lang === 'pt' ? 'data-pt' : 'data-en');
-    }
-
-    var rich = document.querySelectorAll('[data-pt-html]');
-    for (i = 0; i < rich.length; i++) {
-      swap(rich[i], false);
-      rich[i].innerHTML = rich[i].getAttribute(lang === 'pt' ? 'data-pt-html' : 'data-en-html');
     }
 
     root.setAttribute('lang', lang === 'pt' ? 'pt-BR' : 'en');

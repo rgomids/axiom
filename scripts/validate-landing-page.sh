@@ -338,11 +338,17 @@ import sys
 html = open(sys.argv[1] + "/index.html", encoding="utf-8").read()
 
 plain = len(re.findall(r'\sdata-pt="', html))
-rich = len(re.findall(r'\sdata-pt-html="', html))
-if plain + rich < 40:
-    raise SystemExit("only %d translated strings found; expected the whole page" % (plain + rich))
+if plain < 40:
+    raise SystemExit("only %d translated strings found; expected the whole page" % plain)
 
-# data-en / data-en-html are filled in by lang.js at runtime. Authoring one by
+# Translation data must stay text. Markup belongs to the static document.
+if re.search(r'\sdata-(pt|en)-html=', html):
+    raise SystemExit("HTML translation attributes reintroduce the unsafe translation boundary")
+script = open(sys.argv[1] + "/lang.js", encoding="utf-8").read()
+if re.search(r'innerHTML|outerHTML|insertAdjacentHTML|document\.write', script):
+    raise SystemExit("language switching must not parse translation strings as HTML")
+
+# data-en is filled in by lang.js at runtime. Authoring one by
 # hand would silently win over the page's own English text.
 if re.search(r'\sdata-en(-html)?="', html):
     raise SystemExit("index.html hardcodes data-en; the English text is the page itself")
@@ -358,9 +364,9 @@ pass "every visible string has an English and a Portuguese version"
 
 grep -Fq -- "$PUBLIC_URL" "$ROOT/README.md" \
   || fail "the public Pages URL is not documented in README.md"
-grep -Fq -- "python3 -m http.server 8000 --directory site" "$ROOT/README.md" \
-  || fail "local development instructions are not documented in README.md"
-pass "README.md documents the public URL and the local development command"
+grep -Fq -- "python3 -m http.server 8000 --directory site" "$ROOT/docs/development/getting-started.md" \
+  || fail "local development instructions are not documented in docs/development/getting-started.md"
+pass "README.md documents the public URL; the development guide documents local serving"
 
 # --- Local serving ------------------------------------------------------------
 
