@@ -281,6 +281,23 @@ func TestBootstrapPreviewIsDeterministicAndBounded(t *testing.T) {
 func TestBootstrapRejectsUnsafePortableProse(t *testing.T) {
 	for _, field := range []string{"text", "term", "definition"} {
 		for _, value := range []string{
+			"password=synthetic",
+			"See token=synthetic",
+			"https://example.com/token=synthetic",
+			"https://example.com/path/api_key=synthetic/more",
+			"https://example.com#password=synthetic",
+			"https://example.com/docs?token=synthetic",
+			"[docs](https://example.com#client_secret=synthetic)",
+			"\"https://example.com/token=synthetic\"",
+			"https://example.com/%74oken%3Dsynthetic",
+			"https://example.com/%2574oken%253Dsynthetic",
+			"https://example.com/path/PASSWORD : synthetic",
+			"https://example.com#Access_Token = synthetic",
+			"https://example.com/path/Api-Key=synthetic",
+			"password: synthetic",
+			"token : synthetic",
+			"password = synthetic",
+
 			"https://example.com!password =synthetic",
 			"https://example.com$password =synthetic",
 			"https://example.com&password =synthetic",
@@ -443,5 +460,38 @@ func TestBootstrapAcceptsPortableProse(t *testing.T) {
 	decoded, issues := manifest.Decode(proposal.Manifest())
 	if len(issues) != 0 || !decoded.Equivalent(proposal.Project()) {
 		t.Fatal("normal prose failed portable round trip")
+	}
+}
+
+func TestBootstrapAcceptsBenignSecurityProse(t *testing.T) {
+	for _, field := range []string{"text", "term", "definition"} {
+		for _, value := range []string{"https://example.com/token/#:~:text=foo", "The password policy protects users.", "The token identifies a request.", "Authentication tokens expire after 15 minutes.", "See https://example.com/password-policy", "https://example.com/docs#token-authentication"} {
+			t.Run(field+"/"+value, func(t *testing.T) {
+				input := bootstrapInput(projectapp.SetupRepository{Key: "core", Path: "/w/core", Revision: "r"})
+				if field == "text" {
+					input.BusinessContext = value
+				} else {
+					entry := project.GlossaryEntry{Key: "work-item", Term: "Work Item", Definition: "A bounded unit of work."}
+					if field == "term" {
+						entry.Term = value
+					} else {
+						entry.Definition = value
+					}
+					input.Glossary = []project.GlossaryEntry{entry}
+				}
+				proposal := prepare(t, input)
+				if !proposal.Publishable() {
+					t.Fatal("benign prose blocked publication")
+				}
+				preview := proposal.Preview().BusinessContext
+				if field == "text" && preview.Text != input.BusinessContext || field != "text" && !reflect.DeepEqual(preview.Glossary, input.Glossary) {
+					t.Fatal("benign prose changed in preview")
+				}
+				decoded, issues := manifest.Decode(proposal.Manifest())
+				if len(issues) != 0 || !decoded.Equivalent(proposal.Project()) {
+					t.Fatal("benign prose failed portable round trip")
+				}
+			})
+		}
 	}
 }

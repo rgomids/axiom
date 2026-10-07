@@ -7,6 +7,23 @@ import (
 
 func TestPortableProseStructuralSafety(t *testing.T) {
 	for _, value := range []string{
+		"password=synthetic",
+		"See token=synthetic",
+		"https://example.com/token=synthetic",
+		"https://example.com/path/api_key=synthetic/more",
+		"https://example.com#password=synthetic",
+		"https://example.com/docs?token=synthetic",
+		"[docs](https://example.com#client_secret=synthetic)",
+		"\"https://example.com/token=synthetic\"",
+		"https://example.com/%74oken%3Dsynthetic",
+		"https://example.com/%2574oken%253Dsynthetic",
+		"https://example.com/path/PASSWORD : synthetic",
+		"https://example.com#Access_Token = synthetic",
+		"https://example.com/path/Api-Key=synthetic",
+		"password: synthetic",
+		"token : synthetic",
+		"password = synthetic",
+
 		"https://example.com!password =synthetic",
 		"https://example.com$password =synthetic",
 		"https://example.com&password =synthetic",
@@ -128,6 +145,7 @@ func TestPortableProseStructuralSafety(t *testing.T) {
 		})
 	}
 	for _, value := range []string{
+		"https://example.com/token/#:~:text=foo",
 		"https://example.com!password", "https://example.com=password", "https://example.com/docs", "A bounded unit of work tracked by the Project.", "Orders.\nRefunds belong to payments.",
 		"See https://example.com/docs?lang=en&view=full", "See https://example.com/docs?q=a,b&lang=en", "Read [docs](https://example.com/docs?lang=en).", "See https://example.com/docs?next=/orders", "https://example.com/a,/b", "https://example.com/a;/b", "Read [docs](https://example.com/a_(b))", "[A](https://example.com),[B](https://example.org)", "See https://example.com/a%20b",
 		"https://example.com,view=full", "https://example.com;lang=en", "ssh://git@example.com/repo", "https://[::1]/docs", "20% complete, 100% useful", "The password policy protects users.", "The token identifies a request.",

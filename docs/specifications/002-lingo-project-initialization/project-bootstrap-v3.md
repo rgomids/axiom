@@ -126,6 +126,13 @@ Transport.
   1–2048 bytes, no control character other than line feed. Neither is
   `unconfigured`-capable; `[]` is explicit emptiness.
 
+Business text, glossary terms and definitions obey the existing portable safety
+rule. Sensitive structural assignments (`password=…`, `token: …`, and the existing
+normalized name families) are inspected across the complete input, independently
+of URL component parsing, including bounded nested percent escaping and Markdown
+wrappers. Names in ordinary prose (`password policy`, `token identifies a request`)
+and ordinary URL paths/anchors are allowed when no assignment is present.
+
 ### Canonical encoding
 
 Collections added by v3 are sets: `technologyContext`, `documentationSources`,

@@ -330,3 +330,109 @@ local structural checks, not a claim of exhaustive proof or remote CI success.
 Linux/Windows results are cross-compilation only. Dogfood uses controlled
 Provider/Runtime stubs; optional real Runtime scenarios remain SKIPPED/UNVERIFIED.
 Remote CI and human re-review are separate from these local results.
+
+## CR-002 responsibility separation (2026-10-07)
+
+Previous head: `e7c5752fb568aef12d718bdbfe479a936bfe3e8d`. Earlier CR-002
+corrections and validation above remain historical. Architecture classification:
+**internal refactor preserving existing contract**. ADR-0001/0004/0005/0007 remain
+unchanged: portable/local separation, schema evolution, filesystem threat model
+and publication authority are preserved. No new ADR, persisted format, CLI or
+readiness contract. The v3 Specification clarifies the existing no-secret rule.
+
+Root cause: URL-token consumption removed components before the structural
+secret policy inspected them. Authority-specific repairs left path/fragment
+assignments reachable. New regression cases reproduced those failures at
+portableconfig, manifest and bootstrap boundaries before implementation.
+
+Responsibilities now separate inside the pure `internal/portableconfig` package:
+
+- `secret_policy.go` owns the existing sensitive-name taxonomy, historical scalar
+  assignment helper and independent `ContainsSecretBearingValue`. The policy
+  inspects complete original prose and each bounded percent-decoded layer; it
+  does not consume `url.URL` components. Name comparison retains case folding
+  and dash/underscore normalization. A sensitive name followed by `:`/`=` is
+  unsafe, including an empty payload as in the previous fail-closed policy;
+  ordinary words are allowed. Whitespace and prose/Markdown wrappers may connect
+  name/operator; reference separators terminate that association.
+- `safeProseStructure` owns UTF-8/control checks, machine paths and references;
+  `safeProseURL` retains structural URL/machine-reference checks. Historical
+  `safeURL` userinfo/query checks and scalar behavior remain unchanged.
+- `SafeProse` composes the policies through shared bounded normalization. Each
+  full layer reaches secret inspection **before** URL extraction. Neither URL
+  consumption nor Markdown splitting defines the secret scanner's input. The
+  normalization budget is unchanged (four times original input bytes), and
+  exhaustion fails closed. No duplicate decoding pass or sensitive-name list.
+
+Removed complexity: authority parts no longer return to surrounding prose;
+`safeProseParts` no longer interprets sensitive assignments; machine-reference
+suffix inspection no longer doubles as secret detection. Authority delimiter and
+rooted-path checks remain because they protect legitimate structural boundaries.
+No network, environment credentials, arbitrary file reads, new dependencies or
+runtime Gitleaks integration were added.
+
+Regression Evidence:
+
+- `TestContainsSecretBearingValue`: focused input/expected/reason matrix for
+  plain/whitespace/colon assignments, normalization, all URL components, userinfo,
+  Markdown/quotes, percent/nested/assembled escapes, multiple assignments,
+  normalization exhaustion and benign prose/URLs.
+- `TestSecretPolicyAcrossReferenceWrappers`: existing sensitive-name families
+  across prose and reference wrappers; `TestProsePolicyComposition` independently
+  checks structural acceptance versus secret rejection and structural refusals.
+- `TestPortableProseStructuralSafety`: direct `SafeProse` regressions, retaining
+  prior machine-path, file-reference and URL authority coverage.
+- `TestV3PortableProse`: text, glossary term and definition each reject unsafe
+  decode/domain/encode state and round-trip legitimate prose/URLs unchanged.
+- `TestBootstrapRejectsUnsafePortableProse`: the same three fields yield
+  `InvalidContextInput`, zero preview, nil manifest, invalid/nonpublishable
+  proposal and zero publication storage calls.
+- `TestBootstrapAcceptsBenignSecurityProse`: those three fields keep valid
+  previews, publishability and portable round-trips. Existing multiline checks
+  remain. `TestOlderSchemaProseCompatibility` adds path/fragment/nested-escape
+  cases without changing v1/v2 semantics or goldens;
+  `TestHistoricalScalarURLPolicy` protects scalar URL behavior explicitly.
+
+Orchestrator owns implementation/integration/validation/documentation. Delegation
+was limited to one independent fresh-context security review with inherited
+model/effort and read-only authority. That review found a false positive: scanning
+across `/`/`#` linked a path named `token` to a fragment operator. The general
+name/operator association rule was narrowed to prose wrappers; text fragments and
+empty-key queries now remain valid, with permanent policy and real-boundary
+regressions. Final independent review reported no blocking finding after 144
+bounded adversarial combinations and additional encoding/path/benign probes.
+This is evidence for declared structural assignments, not a general claim that
+all credential patterns are impossible.
+
+### Final local validation
+
+Validation uses macOS darwin/arm64, Go 1.26.0. The first unaligned invocation of
+`bash scripts/test-check-project-domain.sh` failed because its
+`GOTOOLCHAIN=local` selected Homebrew Go 1.24.5; setting only PATH then exposed an
+inherited Go 1.26.1 GOROOT mismatch. Aligning both GOROOT and PATH to Go 1.26.0
+passed; no repository workaround or installed-toolchain modification was made.
+Linux/Windows builds prove cross-compilation only. Repository validation skips
+optional real Runtime behavioral scenarios (SKIPPED/UNVERIFIED); dogfood uses
+controlled Provider/Runtime stubs. Remote CI and human re-review are separate.
+
+| Command | Result |
+| --- | --- |
+| `go test ./... -timeout 10m` | PASS |
+| `go test -race ./... -timeout 10m` | PASS |
+| `go vet ./...` | PASS |
+| `go build ./...` | PASS |
+| `GOOS=linux go build ./...` | PASS |
+| `GOOS=windows go build ./...` | PASS |
+| `go mod verify` | PASS |
+| `./scripts/validate-repository.sh .` | PASS |
+| `./scripts/dogfood-poc.sh` | PASS |
+| `go run ./scripts/check-architecture.go domain` | PASS |
+| `go run ./scripts/check-architecture.go application` | PASS |
+| `bash scripts/test-check-project-domain.sh` | PASS |
+| `./scripts/check-sensitive-files.sh .` | PASS |
+| `git diff --check` | PASS |
+| `gitleaks dir . --no-banner --redact` | PASS |
+
+Remote CI on previous head `e7c5752` was re-read as PASS. CI for this correction
+is PENDING until its commit is pushed and the exact new head is checked; earlier
+CI is not evidence for the corrected bytes. Human re-review remains pending.

@@ -1,4 +1,4 @@
-// Package portableconfig defines pure structural safety for portable Project values.
+// Package portableconfig defines pure deterministic safety for portable Project values.
 // It has no codec, filesystem, provider or runtime dependency.
 package portableconfig
 
@@ -6,23 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
-
-// sensitiveParameterV1 is a fixed structural policy, not a secret-value scanner.
-// Percent decoding is done once using URL query syntax; key comparison folds case
-// and removes '-'/'_' to cover explicitly documented spelling families.
-func sensitiveParameterV1(name string) bool {
-	name = strings.ToLower(name)
-	name = strings.NewReplacer("-", "", "_", "").Replace(name)
-	switch name {
-	case "token", "accesstoken", "refreshtoken", "idtoken", "authtoken", "oauthtoken",
-		"password", "passwd", "pwd", "apikey", "key", "secret", "clientsecret",
-		"signature", "sig", "credential", "authorization", "auth",
-		"xamzsignature", "xamzcredential", "xamzsecuritytoken", "xgoogsignature", "xgoogcredential":
-		return true
-	}
-	return false
-}
 
 // SafeValue preserves the portable scalar policy used by every manifest version.
 func SafeValue(value, kind string) bool {
@@ -83,10 +68,6 @@ func safeReferenceSyntax(value, kind string) bool {
 		return false
 	}
 	return safeURL(value)
-}
-func referencePayload(value string) bool {
-	separator := strings.IndexAny(value, ":=")
-	return separator >= 0 && sensitiveParameterV1(strings.TrimSpace(value[:separator]))
 }
 
 // Slash-separated namespaces remain valid logical names. Dot path components
@@ -156,19 +137,18 @@ func safeURL(raw string) bool {
 	return true
 }
 
-// safeProseURLParts adds v3 prose safety without changing the legacy scalar URL
-// contract. Inspect authority sub-delimiters only after parsing: path/query
-// commas and semicolons retain their URL meaning.
-func safeProseURLParts(raw string) ([]string, bool) {
+// safeProseURL adds v3 machine-reference checks without changing the legacy
+// scalar URL contract. Secret inspection receives the full input separately.
+func safeProseURL(raw string) bool {
 	if !safeURL(raw) {
-		return nil, false
+		return false
 	}
 	if !strings.Contains(raw, "://") {
-		return nil, true
+		return true
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return nil, false
+		return false
 	}
 	authority := u.Host
 	if u.User != nil {
@@ -176,7 +156,7 @@ func safeProseURLParts(raw string) ([]string, bool) {
 	}
 	parts := strings.FieldsFunc(authority, authorityProseDelimiter)
 	if !safeProseParts(parts) {
-		return nil, false
+		return false
 	}
 	// A drive prefix can remain in the authority while its rooted suffix is
 	// parsed as a URL path. Inspect assignment suffixes without treating IPv6
@@ -185,7 +165,7 @@ func safeProseURLParts(raw string) ([]string, bool) {
 		for suffix := parts[len(parts)-1]; ; {
 			candidate := strings.Trim(suffix, "_")
 			if driveReference(candidate) && machinePath(candidate+u.Path) {
-				return nil, false
+				return false
 			}
 			separator := strings.IndexAny(suffix, ":=")
 			if separator < 0 {
@@ -199,10 +179,10 @@ func safeProseURLParts(raw string) ([]string, bool) {
 	authorityEnd := strings.TrimRight(u.Host, "\"`{}[]<>_")
 	if len(authorityEnd) > 0 && authoritySubDelimiter(rune(authorityEnd[len(authorityEnd)-1])) {
 		if machinePath(u.Path) {
-			return nil, false
+			return false
 		}
 	}
-	return parts, true
+	return true
 }
 
 // authoritySubDelimiter is the RFC 3986 sub-delims grammar. A terminal
@@ -213,16 +193,16 @@ func authoritySubDelimiter(r rune) bool {
 }
 
 // authorityProseDelimiter adds authority boundaries to prose punctuation and
-// the userinfo separator. Keep '=' and ':' inside parts: referencePayload and
-// unsafeProseReference need them to inspect assignments and their suffixes.
-// '=' is a sub-delimiter for path transitions, but an assignment operator here.
+// the userinfo separator. Keep '=' and ':' inside parts so machine-reference
+// suffixes remain inspectable.
+// '=' is a sub-delimiter for path transitions, but a suffix boundary here.
 func authorityProseDelimiter(r rune) bool {
 	return proseDelimiter(r) || r == '@' || r != '=' && authoritySubDelimiter(r)
 }
 
 func unsafeProseReference(value string) bool {
 	for {
-		if machinePath(value) || referencePayload(value) {
+		if machinePath(value) {
 			return true
 		}
 		separator := strings.IndexAny(value, ":=")
@@ -233,15 +213,22 @@ func unsafeProseReference(value string) bool {
 	}
 }
 
-// SafeProse checks human text without imposing identifier syntax. Inspect each
-// word/reference and adjacent assignment syntax, including references embedded
-// in prose. Newlines are allowed here; callers own text bounds and formatting.
-// URI escapes are inspected with the same bounded budget as scalar references.
-// Literal percent signs remain valid prose; only complete URI escapes decode.
+// SafeProse composes independent secret and structural policies for v3 prose.
+// Every escape layer is inspected in full before URL/reference parsing can
+// consume any portion. Callers retain ownership of bounds and line formatting.
 func SafeProse(value string) bool {
+	return inspectProse(value, func(layer string) bool {
+		return !secretBearingAssignment(layer) && safeProseStructure(layer)
+	})
+}
+
+// inspectProse shares bounded normalization between the independent policies.
+// Literal percent signs remain prose; only complete URI escapes decode. Budget
+// exhaustion fails closed, including when the secret policy is used in isolation.
+func inspectProse(value string, safeLayer func(string) bool) bool {
 	budget := 4 * len(value)
 	for {
-		if len(value) > budget || !safeProseSyntax(value) {
+		if len(value) > budget || !safeLayer(value) {
 			return false
 		}
 		budget -= len(value)
@@ -253,13 +240,16 @@ func SafeProse(value string) bool {
 	}
 }
 
-func safeProseSyntax(value string) bool {
+func safeProseStructure(value string) bool {
+	if !utf8.ValidString(value) {
+		return false
+	}
 	if strings.IndexFunc(value, func(r rune) bool { return unicode.IsControl(r) && r != '\n' }) >= 0 {
 		return false
 	}
 	// Check full URLs before punctuation can split their query parameters.
-	// After inspection, retain authority parts with surrounding prose; path and
-	// query syntax remain consumed as URL syntax.
+	// Secrets have already been inspected independently across the full layer.
+	// Only structural URL/reference validation may consume references here.
 	parts := []string{}
 	for _, word := range strings.Fields(value) {
 		for {
@@ -273,13 +263,10 @@ func safeProseSyntax(value string) bool {
 			}
 			end := proseURLEnd(word, start)
 			reference := strings.TrimRight(word[start:end], "\"'`*{}[](),;<>.")
-			authorityParts, safe := safeProseURLParts(reference)
-			if !safe {
+			if !safeProseURL(reference) {
 				return false
 			}
-			// Retain authority tokens so an adjacent prose operator cannot
-			// lose its sensitive key when the URL is consumed.
-			word = word[:start] + " " + strings.Join(authorityParts, " ") + " " + word[end:]
+			word = word[:start] + " " + word[end:]
 		}
 		parts = append(parts, strings.FieldsFunc(word, func(r rune) bool {
 			return proseDelimiter(r)
@@ -293,19 +280,9 @@ func proseDelimiter(r rune) bool {
 }
 
 func safeProseParts(parts []string) bool {
-	for i, part := range parts {
+	for _, part := range parts {
 		part = strings.Trim(part, "_")
 		if unsafeProseReference(part) || !safeURL(part) {
-			return false
-		}
-		// Whitespace/punctuation around a structural assignment does not hide it.
-		name := strings.TrimRight(part, ":=")
-		assignment := name != part
-		// A non-sensitive assignment can contain the next sensitive key.
-		if separator := strings.LastIndexAny(name, ":="); separator >= 0 {
-			name = strings.Trim(name[separator+1:], "_")
-		}
-		if sensitiveParameterV1(name) && (assignment || i+1 < len(parts) && strings.HasPrefix(parts[i+1], "=") || i+1 < len(parts) && strings.HasPrefix(parts[i+1], ":")) {
 			return false
 		}
 	}
