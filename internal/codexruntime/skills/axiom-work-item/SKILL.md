@@ -111,8 +111,8 @@ and routing surface, not the workflow or domain source of truth.
 
 Canonical completion fields are `status`, `result`, `references`, `next`,
 `details`, and `provenance`. Copy them only from Lingo's top-level JSON
-object. Omit absent canonical fields and never derive them from an
-operation-specific payload. Preserve operation-specific payloads in their
+object. Omit absent canonical fields. Never derive, synthesize, or reinterpret a
+canonical field from an operation-specific payload. Preserve operation-specific payloads in their
 original semantics and JSON position.
 
 Resolving an operation never grants Provider or local mutation authority.
