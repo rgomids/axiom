@@ -5,17 +5,29 @@ Execute estes comandos na raiz do repositório.
 ## Inspect skill arguments
 
 ```bash
+axiom skill inspect axiom-project
+axiom --json skill inspect axiom-work-item
 axiom skill inspect axiom-project-show
-axiom --json skill inspect axiom-work-item-run
 ```
 
-Use the exact name of one of the six product skills shown by `axiom help`.
+Use the exact name of one of the eight product skills shown by `axiom help`:
+the canonical domain skills `axiom-project` and `axiom-work-item`, or one of
+the six operation-specific compatibility skills.
 Inspection describes the skill embedded in this binary without executing it,
 reading Project/Provider/Runtime state, prompting, or granting authority. It also
 works before `first-run`. It does not inspect repository maintainer skills.
 
-JSON preserves canonical completion fields and adds `skill.name` and
-`skill.commands[]`. Each command includes its CLI spelling and `arguments[]`:
+JSON preserves canonical completion fields and adds `skill.name`,
+`skill.operations[]` and `skill.commands[]`. Each operation has a `name`, its
+`commands`, and one or more `modes`: the distinct authority paths of that
+operation (for example Project `configure` `create` versus preview-only `edit`,
+or Work Item `run` `transition`, `fact` and `reconcile`). A mode states its
+`commands`, optional explicit `selector`, `effect` (`read-only`,
+`preview-only`, `local-mutation` or `external-mutation`), `authority`,
+`authorityInputs`, `rejectedInputs`, `semanticResolution` (`allowed` for
+read-only modes, otherwise `unambiguous-only`) and an `example`. Compatibility
+skills report the same modes as their canonical operation. The metadata
+describes, and never grants, authority. Each command includes its CLI spelling and `arguments[]`:
 `name`, `required`, optional `requiredWhen`, `description`, `acceptedForms`,
 `repeatable`. `required: true` means required for a noninteractive CLI request;
 `requiredWhen` states a conditional requirement; otherwise the input is optional
@@ -367,6 +379,8 @@ Codex standalone skill names accept lowercase letters, digits and hyphens, so
 the requested semantic `axiom:<skill>` names are invoked as:
 
 ```text
+$axiom-project
+$axiom-work-item
 $axiom-project-configure
 $axiom-project-list
 $axiom-project-show
@@ -375,8 +389,16 @@ $axiom-work-item-run
 $axiom-work-item-status
 ```
 
-Claude invokes the same skills as `/axiom-project-configure` and so on, or
-selects them from their descriptions. For isolated validation:
+`$axiom-project` and `$axiom-work-item` are the canonical domain surfaces
+(Issue #229): an explicit operation (`configure|list|show`,
+`create|run|status`) routes directly to its Lingo command; without one the
+Runtime may resolve natural-language intent only among those operations, asks
+one bounded clarification when intent is ambiguous, and never resolves
+ambiguity to a mutating operation or supplies authority. The six
+operation-specific skills remain installed as compatibility entrypoints
+([Issue #229 Evidence](specifications/004-mvp-v1-baseline/evidence-229.md)).
+Claude invokes the same skills as `/axiom-project`, `/axiom-project-configure`
+and so on, or selects them from their descriptions. For isolated validation:
 
 ```bash
 AXIOM_CODEX_SKILLS_ROOT=/absolute/test/root axiom runtime codex install
@@ -424,7 +446,10 @@ absolute output directory. It emits four checksummed archives plus
 Each archive holds one bundle directory with the canonical public executable
 `axiom` (`axiom.exe` on Windows), `LICENSE`, the release installer `install.sh`
 (`install.ps1` on Windows), `release-metadata.txt`,
-`skills-manifest.txt`, the six Codex skills, and a complete `MANIFEST.sha256`.
+`skills-manifest.txt`, the eight Runtime skills, and a complete `MANIFEST.sha256`.
+Upgrading an installation from a release that carried fewer skills (six
+through v0.6.x) creates only the added skills and leaves the existing
+Axiom-owned skills in place; foreign or modified skill content is refused.
 The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom`
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
 no migration from such an installation is performed.
@@ -997,6 +1022,8 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
+| `$axiom-project` | `configure` / `list` / `show` → the three Project rows below |
+| `$axiom-work-item` | `create` / `run` / `status` → the three Work Item rows below |
 | `$axiom-project-configure` | `axiom --json project configure` |
 | `$axiom-project-list` | `axiom --json project list` |
 | `$axiom-project-show` | `axiom --json project show --selector ...` |
