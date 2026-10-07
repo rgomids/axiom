@@ -268,17 +268,6 @@ trackers are #75–#79 for S1–S5, #94 for S6, and #80 for S7. Issue #97 is the
 approved S8 scope tracker; #81 is the S9 tracker with the 2026-09-27
 product-scope expansion recorded.
 
-## Release-candidate acceptance amendment
-
-Issue [#227](https://github.com/rgomids/axiom/issues/227) amends Specification 004
-with [Release-candidate acceptance and supported upgrade sources](004-mvp-v1-baseline/spec.md#release-candidate-acceptance-and-supported-upgrade-sources)
-(FR-068–FR-076, AC-50–AC-57) and
-[ADR-0019](../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md).
-The policy decisions were accepted on 2026-10-06 (Research #154, Issue #227).
-The text is proposed for human review in its pull request and becomes the
-effective release contract when that pull request is accepted and merged. No
-Plan, Tasks, CI or product implementation is authorized by it.
-
 ## Work Item classification amendment
 
 Issue [#136](https://github.com/rgomids/axiom/issues/136) adds the bounded

@@ -182,11 +182,14 @@ class PlanTest(unittest.TestCase):
 
 
 def axiom_body(item_type, extra=""):
-    """Body shaped like internal/githubissues Adapter.Render: markers, type line
-    and `##` sections whose content is indented, never `### ` form headings."""
-    sections = "".join(f"\n## {name}\n\nAuthorship: `user_authored`\n\n    {name} content{extra}\n" for name in ("Problem", "Desired outcome", "Context", "Scope", "Constraints", "Non-goals", "Acceptance expectations"))
-    return ("<!-- axiom:work-item-draft:" + "a" * 64 + " -->\n<!-- axiom:provenance:axiom:v0.4.2:" + "b" * 40 + ":clean -->\n\n"
-            "_Axiom-authored structure; section content retains declared authorship._\n\nWork Item type: `" + item_type + "`\n" + sections)
+    """Body shaped like internal/githubissues Adapter.Render: markers, type line,
+    `##` sections of native Markdown whose content can never produce a column-0
+    heading (headings are escaped, fenced code is indented), and a footer."""
+    sections = "".join(f"\n## {name}\n\n{name} content{extra}\n" for name in ("Problem", "Desired outcome", "Context", "Scope", "Constraints", "Non-goals", "Acceptance expectations"))
+    return ("<!-- axiom:work-item-draft:" + "a" * 64 + " -->\n<!-- axiom:provenance:Axiom:v0.4.2:" + "b" * 40 + ":clean -->\n\n"
+            "**Work Item type:** `" + item_type + "`\n" + sections +
+            "\n---\n\n_Structure authored by Axiom `v0.4.2` (revision `" + "b" * 40 + "`, clean source); section content keeps its declared authorship._\n"
+            "_All section content is user-authored._\n")
 
 
 class AxiomAuthoredTest(unittest.TestCase):
@@ -207,11 +210,11 @@ class AxiomAuthoredTest(unittest.TestCase):
             self.assertEqual([label for label in final if label.startswith("area:")], [area])
 
     def test_missing_area_is_reported_never_invented(self):
-        body = axiom_body("story", extra="\n    ### Area\n\n    Runtime")
-        final, result = self.final_labels(["type:story"], body)
-        self.assertEqual(final, ["status:planned", "type:story"])
-        self.assertEqual(result["notices"], [])
-        self.assertTrue(any("Missing `area:*`" in violation for violation in result["violations"]))
+        for extra in ("\n\n\\### Area\n\nRuntime", "\n\n ```\n ### Area\n\n Runtime\n ```"):
+            final, result = self.final_labels(["type:story"], axiom_body("story", extra=extra))
+            self.assertEqual(final, ["status:planned", "type:story"], extra)
+            self.assertEqual(result["notices"], [], extra)
+            self.assertTrue(any("Missing `area:*`" in violation for violation in result["violations"]), extra)
 
 
 class CatalogTest(unittest.TestCase):

@@ -329,7 +329,7 @@ corrections=$repository_root/.github/delivery-corrections.txt
 check 'every reviewed correction names a commit of main history' bash -c "
   grep -Ev '^(#|$)' '$corrections' | while read -r sha _; do git -C '$repository_root' cat-file -e \"\$sha^{commit}\" || exit 1; done"
 check 'the v0.2.0 legacy reconciliations are exactly #143 -> #129 and #148 -> #147; #132 is not completed' bash -c "
-  [[ \$(grep -Evc '^(#|$)' '$corrections') == 4 ]] &&
+  [[ \$(grep -Evc '^(#|$)' '$corrections') == 8 ]] &&
   grep -Fxq 'f04dbf38db4cb609256ede47e5fbcbe7a16c6487 related=129 completes=129' '$corrections' &&
   grep -Fxq 'fc6cdf4749943df93ec4d91c473fe5152f4bc186 related=147 completes=147' '$corrections' &&
   ! grep -Ev '^#' '$corrections' | grep -q '132'"
@@ -339,6 +339,12 @@ check 'PR #157 restores related #153 without claiming completion' grep -Fxq \
 
 check 'PR #149 supersedes PR #128 without claiming an Issue relationship' grep -Fxq \
   '4dbdba2a43844aa615f340e79b829956ee5880f4 related=none completes=none' "$corrections"
+
+check 'reverted CI/CD Slices 1-4 deliver none of #227, #234, #236, #238 in v0.6.0' bash -c "
+  grep -Fxq 'f4819ccd178b1e0222b0e6cccbd5c77900f9d1f5 related=154,227 completes=none' '$corrections' &&
+  grep -Fxq '9aa63e4316d96303cfbdcc28466043b3b2d15e43 related=234 completes=none' '$corrections' &&
+  grep -Fxq '07c9722f193bf4de5ea9b6189cc4dfa6c7031e20 related=236 completes=none' '$corrections' &&
+  grep -Fxq '072b7982f849630f6039b58d94a2b1ea4924a9c8 related=238 completes=none' '$corrections'"
 
 if ((failures > 0)); then
   printf 'FAIL: %s delivery check(s) failed\n' "$failures" >&2
