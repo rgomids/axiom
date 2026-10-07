@@ -414,14 +414,6 @@ mkdir -p "$fixture/scripts" "$fixture/.github/rulesets"
 for script in release-tag-version.sh release-preflight.sh release-plan.sh release-notes.sh publish-release.sh release.sh verify-prepared-release.sh delivery-issues.sh delivery-github.sh release-corrections.sh release-recovery.sh release-repair.sh; do
   cp "$repository_root/scripts/$script" "$fixture/scripts/$script"
 done
-# Release-candidate acceptance verification (Issue #238) and its Evidence schema.
-mkdir -p "$fixture/scripts/schemas"
-cp "$repository_root/scripts/verify-release-acceptance.py" "$repository_root/scripts/gate-evidence.py" "$fixture/scripts/"
-cp "$repository_root/scripts/schemas/axiom-gate-evidence-v1.schema.json" "$fixture/scripts/schemas/"
-# Automated rows come from the prepared run; manual-transition rows from the
-# maintainer (--manual-acceptance). A stable envelope needs both (CR-001).
-acceptance_rows=$(python3 "$repository_root/scripts/verify-release-acceptance.py" rows | paste -sd' ' -)
-manual_rows=$(python3 "$repository_root/scripts/verify-release-acceptance.py" manual-rows | paste -sd' ' -)
 cp "$repository_root/.github/rulesets/main.json" "$fixture/.github/rulesets/main.json"
 # Stub of verify-release-artifacts.sh for synthetic sets: same Evidence shape,
 # same revision and checksum refusals. The real verifier is covered by
@@ -517,38 +509,10 @@ cmp -s "$temporary/notes-rc" <(notes --tag v0.1.0-rc.1 --revision "$c2") && chec
 expect_failure 'stable notes without a changelog section' 'no Release Please section' notes --tag v0.1.0 --revision "$c2"
 
 # --- 3. Publication state machine ------------------------------------------------------------
-# write_acceptance DIR VERSION REVISION RUN ARTIFACTS writes, under DIR, the
-# passing release-candidate acceptance Evidence of every release row for
-# ARTIFACTS: the automated rows as prepared run RUN retains them (Issue #238)
-# and the manual-transition rows as a maintainer records them (CR-001).
-write_acceptance() {
-  local dir=$1 row
-  rm -rf -- "$dir"
-  for row in $acceptance_rows $manual_rows; do write_row "$dir" "$row" "${@:2}"; done
-}
-# write_row DIR ROW VERSION REVISION RUN ARTIFACTS [--status fail] replaces the
-# Evidence of one row under DIR.
-write_row() {
-  local dir=$1 row=$2 version=$3 rev=$4 run=$5 artifacts=$6
-  rm -rf -- "${dir:?}/$row"
-  mkdir -p "$dir/$row"
-  python3 "$repository_root/scripts/test-verify-release-acceptance.py" write-evidence --output "$dir/$row/gate-evidence.json" \
-    --row "$row" --artifacts "$artifacts" --tag "v$version" --revision "$rev" --run "$run" "${@:7}" >/dev/null
-}
-# manual_of DIR prints DIR-manual: only the manual-transition rows of DIR, the
-# layout a maintainer passes as release.sh --manual-acceptance.
-manual_of() {
-  local row
-  rm -rf -- "$1-manual"
-  mkdir -p "$1-manual"
-  for row in $manual_rows; do cp -R "$1/$row" "$1-manual/$row"; done
-  printf '%s\n' "$1-manual"
-}
-# make_set DIR VERSION REVISION SALT [RUN] writes a synthetic artifact set, the
-# verification Evidence publish-release.sh requires and the acceptance
-# Evidence of prepared run RUN (default 11).
+# make_set DIR VERSION REVISION SALT writes a synthetic artifact set and the
+# verification Evidence publish-release.sh requires.
 make_set() {
-  local dir=$1 version=$2 rev=$3 salt=$4 run=${5:-11} row
+  local dir=$1 version=$2 rev=$3 salt=$4 row
   rm -rf -- "$dir"
   mkdir -p "$dir/artifacts"
   : >"$dir/sums"
@@ -567,14 +531,13 @@ make_set() {
     printf 'publication=none\nresult=pass\n'
   } >"$dir/evidence.txt"
   printf 'notes for %s\n' "$version" >"$dir/notes.md"
-  write_acceptance "$dir/acceptance" "$version" "$rev" "$run" "$dir/artifacts"
 }
 # envelope DIR ARGS prints the publication envelope of a set (read-only).
 envelope() {
   local dir=$1
   shift
   "$fixture/scripts/publish-release.sh" --envelope --repo rgomids/axiom --prepared-run 11 --dir "$dir/artifacts" \
-    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" --acceptance "$dir/acceptance" "$@"
+    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" "$@"
 }
 envelope_digest() { envelope "$@" | awk -F= '$1 == "preview_digest" {print $2}'; }
 # publish_raw DIR ARGS publishes with whatever --authorized-digest ARGS carry.
@@ -582,7 +545,7 @@ publish_raw() {
   local dir=$1
   shift
   "$fixture/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$dir/artifacts" \
-    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" --acceptance "$dir/acceptance" "$@"
+    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" "$@"
 }
 # publish DIR ARGS authorizes exactly the current envelope, then publishes.
 publish() {
@@ -619,9 +582,8 @@ printf 'edited\n' >>"$temporary/env-notes/notes.md"
 check 'changed release notes change the digest' test "$digest_a" != "$(envelope_digest "$temporary/env-notes" --tag v0.1.0-rc.1 --revision "$c2" --make-latest false)"
 make_set "$temporary/env-c" 0.1.0-rc.1 "$c4" first
 check 'another revision changes the digest' test "$digest_a" != "$(envelope_digest "$temporary/env-c" --tag v0.1.0-rc.1 --revision "$c4" --make-latest false)"
-write_acceptance "$temporary/env-a-run-12" 0.1.0-rc.1 "$c2" 12 "$temporary/env-a/artifacts"
 other_run=$("$fixture/scripts/publish-release.sh" --envelope --repo rgomids/axiom --prepared-run 12 --dir "$temporary/env-a/artifacts" \
-  --evidence "$temporary/env-a/evidence.txt" --notes "$temporary/env-a/notes.md" --acceptance "$temporary/env-a-run-12" --tag v0.1.0-rc.1 --revision "$c2" --make-latest false \
+  --evidence "$temporary/env-a/evidence.txt" --notes "$temporary/env-a/notes.md" --tag v0.1.0-rc.1 --revision "$c2" --make-latest false \
   | awk -F= '$1 == "preview_digest" {print $2}')
 check 'another prepared run changes the digest' test "$digest_a" != "$other_run"
 check 'envelope made no GitHub effect' test "$(mutations)" == 0
@@ -642,173 +604,6 @@ envelope "$temporary/env-a" --tag v0.1.0-rc.1 --revision "$c2" --make-latest fal
 check 'published envelope has no effects' bash -c "grep -Fxq publication_state=published '$temporary/env' && grep -Fxq effect=none '$temporary/env'"
 publish "$temporary/env-a" --tag v0.1.0-rc.1 --revision "$c2" --make-latest false >"$temporary/pub"
 check 'authorized rerun of a published release converges' bash -c "grep -Fxq publication=already_published '$temporary/pub' && [[ $(mutations) == $before ]]"
-check 'published envelope needs no new acceptance' grep -Fxq acceptance=already_published "$temporary/env"
-
-# Release-candidate acceptance (Issue #238): the envelope binds the exact
-# Evidence bytes of every blocking row of the prepared run; missing, failing,
-# malformed, foreign or mismatched Evidence refuses before any effect.
-# Publication verifies Evidence; it never reruns acceptance or rebuilds.
-reset_github
-make_set "$temporary/acc-rc" 0.1.0-rc.1 "$c2" first
-rm -rf -- "$temporary/acc-rc/acceptance"
-envelope "$temporary/acc-rc" --tag v0.1.0-rc.1 --revision "$c2" --make-latest false >"$temporary/acc-rc-env"
-check 'a release candidate needs no acceptance Evidence (FR-069 is stable only)' bash -c "
-  grep -Fxq acceptance=not_required_rc '$temporary/acc-rc-env' && ! grep -q '^acceptance\.' '$temporary/acc-rc-env'"
-printf '[{"number":7,"merged_at":"2026-10-01T00:00:00Z","labels":[{"name":"autorelease: pending"}]}]\n' >"$state/pulls.json"
-acc=(--tag v0.1.0 --revision "$c3" --make-latest true)
-make_set "$temporary/acc" 0.1.0 "$c3" first
-inventory() { (cd "$1" && find . -print | LC_ALL=C sort && find . -type f -exec shasum -a 256 {} + | LC_ALL=C sort); }
-inventory "$temporary/acc" >"$temporary/acc-inventory"
-envelope "$temporary/acc" "${acc[@]}" >"$temporary/acc-env"
-for row in $acceptance_rows $manual_rows; do
-  check "envelope binds the SHA-256 of the $row acceptance Evidence" \
-    grep -Fxq "acceptance.$row=$(digest "$temporary/acc/acceptance/$row/gate-evidence.json")" "$temporary/acc-env"
-done
-check 'envelope binds exactly the four release rows' test "$(grep -c '^acceptance\.' "$temporary/acc-env")" == 4
-check 'the manual transition is named, never a substitute for Evidence' grep -Fxq acceptance_manual_transition=linux-arm64,windows-amd64 "$temporary/acc-env"
-acc_digest=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/acc-env")
-# acceptance_case NAME LABEL PATTERN: a copy of the accepted set whose
-# acceptance Evidence the caller mutates under $temporary/NAME.
-acceptance_case() { rm -rf -- "$temporary/$1"; cp -R "$temporary/acc" "$temporary/$1"; }
-# refused_both NAME LABEL PATTERN: the envelope and an authorized publication of
-# set NAME are both refused with PATTERN, with zero GitHub effects.
-refused_both() {
-  local before
-  before=$(mutations)
-  expect_failure "envelope refuses $2" "$3" envelope "$temporary/$1" "${acc[@]}"
-  expect_failure "publication refuses $2" "$3" publish_raw "$temporary/$1" "${acc[@]}" --authorized-digest "$acc_digest"
-  check "refused $2 made zero publication effects" test "$(mutations)" == "$before"
-}
-acceptance_case acc-missing
-rm -rf -- "$temporary/acc-missing/acceptance/linux-amd64"
-refused_both acc-missing 'missing row Evidence' 'missing acceptance Evidence for row linux-amd64'
-acceptance_case acc-absent
-rm -rf -- "$temporary/acc-absent/acceptance"
-refused_both acc-absent 'an absent Evidence directory' 'acceptance Evidence is missing; nothing published'
-expect_failure 'publication refuses without the acceptance argument' 'publication requires --acceptance' \
-  "$fixture/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$temporary/acc/artifacts" \
-  --evidence "$temporary/acc/evidence.txt" --notes "$temporary/acc/notes.md" "${acc[@]}" --authorized-digest "$acc_digest"
-acceptance_case acc-fail
-write_acceptance "$temporary/acc-fail/acceptance" 0.1.0 "$c3" 11 "$temporary/acc-fail/artifacts" --status fail
-refused_both acc-fail 'failing Evidence' 'does not pass'
-acceptance_case acc-malformed
-printf '{"schema": "axiom-gate-evidence/v1"' >"$temporary/acc-malformed/acceptance/macos-27-arm64/gate-evidence.json"
-refused_both acc-malformed 'malformed Evidence' 'is not valid axiom-gate-evidence/v1'
-acceptance_case acc-row
-cp "$temporary/acc/acceptance/linux-amd64/gate-evidence.json" "$temporary/acc-row/acceptance/macos-27-arm64/gate-evidence.json"
-refused_both acc-row 'Evidence of another row' 'names row linux-amd64'
-acceptance_case acc-tag
-write_acceptance "$temporary/acc-tag/acceptance" 0.1.0-rc.2 "$c3" 11 "$temporary/acc-tag/artifacts"
-refused_both acc-tag 'Evidence of another tag and version' 'is about another tag or version'
-acceptance_case acc-revision
-write_acceptance "$temporary/acc-revision/acceptance" 0.1.0 "$c4" 11 "$temporary/acc-revision/artifacts"
-refused_both acc-revision 'Evidence of another revision' 'is about another revision'
-acceptance_case acc-run
-write_acceptance "$temporary/acc-run/acceptance" 0.1.0 "$c3" 12 "$temporary/acc-run/artifacts"
-refused_both acc-run 'Evidence of another prepared run' 'was not produced by the acceptance job of prepared run 11'
-acceptance_case acc-sums
-make_set "$temporary/acc-other" 0.1.0 "$c3" second
-rm -rf -- "$temporary/acc-sums/acceptance"
-cp -R "$temporary/acc-other/acceptance" "$temporary/acc-sums/acceptance"
-refused_both acc-sums 'Evidence binding another SHA256SUMS' 'binds another SHA256SUMS'
-acceptance_case acc-digest
-jq '.subject.artifacts[0].sha256 = "0000000000000000000000000000000000000000000000000000000000000000"' \
-  "$temporary/acc/acceptance/linux-amd64/gate-evidence.json" >"$temporary/acc-digest/acceptance/linux-amd64/gate-evidence.json"
-refused_both acc-digest 'Evidence binding another artifact digest' 'binds other artifact digests'
-acceptance_case acc-rebuilt
-jq '.subject.kind = "rebuilt"' "$temporary/acc/acceptance/linux-amd64/gate-evidence.json" \
-  >"$temporary/acc-rebuilt/acceptance/linux-amd64/gate-evidence.json"
-refused_both acc-rebuilt 'rebuilt-candidate Evidence' 'is not valid axiom-gate-evidence/v1'
-# Prepared bytes replaced after acceptance: a self-consistent substituted set
-# (verification Evidence included) keeps the original acceptance Evidence.
-make_set "$temporary/acc-substituted" 0.1.0 "$c3" substituted
-rm -rf -- "$temporary/acc-substituted/acceptance"
-cp -R "$temporary/acc/acceptance" "$temporary/acc-substituted/acceptance"
-refused_both acc-substituted 'prepared bytes replaced after acceptance' 'binds another SHA256SUMS'
-acceptance_case acc-incomplete
-rm "$temporary/acc-incomplete/artifacts/axiom-0.1.0-windows-amd64.tar.gz"
-refused_both acc-incomplete 'an incomplete candidate' 'not exactly the verified set'
-# CR-001: the manual-transition rows (Linux arm64 native, Windows bounded
-# proxy) are release rows too. Their Evidence is required, verified against
-# the same candidate and bound like the automated rows'.
-for row in $manual_rows; do
-  acceptance_case "acc-no-$row"
-  rm -rf -- "$temporary/acc-no-$row/acceptance/$row"
-  refused_both "acc-no-$row" "missing $row Evidence" "missing manual acceptance Evidence for row $row"
-  acceptance_case "acc-fail-$row"
-  write_row "$temporary/acc-fail-$row/acceptance" "$row" 0.1.0 "$c3" 11 "$temporary/acc-fail-$row/artifacts" --status fail
-  refused_both "acc-fail-$row" "failing $row Evidence" "acceptance Evidence of row $row does not pass"
-  acceptance_case "acc-malformed-$row"
-  printf 'manual acceptance passed\n' >"$temporary/acc-malformed-$row/acceptance/$row/gate-evidence.json"
-  refused_both "acc-malformed-$row" "malformed $row Evidence" "acceptance Evidence of row $row is not valid axiom-gate-evidence/v1"
-  acceptance_case "acc-tag-$row"
-  write_row "$temporary/acc-tag-$row/acceptance" "$row" 0.1.0-rc.2 "$c3" 11 "$temporary/acc-tag-$row/artifacts"
-  refused_both "acc-tag-$row" "$row Evidence of another tag and version" "acceptance Evidence of row $row is about another tag or version"
-  acceptance_case "acc-revision-$row"
-  write_row "$temporary/acc-revision-$row/acceptance" "$row" 0.1.0 "$c4" 11 "$temporary/acc-revision-$row/artifacts"
-  refused_both "acc-revision-$row" "$row Evidence of another revision" "acceptance Evidence of row $row is about another revision"
-  acceptance_case "acc-sums-$row"
-  jq '.subject.sha256sums_sha256 = "0000000000000000000000000000000000000000000000000000000000000000"' \
-    "$temporary/acc/acceptance/$row/gate-evidence.json" >"$temporary/acc-sums-$row/acceptance/$row/gate-evidence.json"
-  refused_both "acc-sums-$row" "$row Evidence binding another SHA256SUMS" "acceptance Evidence of row $row binds another SHA256SUMS"
-  acceptance_case "acc-digest-$row"
-  jq '.subject.artifacts[-1].sha256 = "0000000000000000000000000000000000000000000000000000000000000000"' \
-    "$temporary/acc/acceptance/$row/gate-evidence.json" >"$temporary/acc-digest-$row/acceptance/$row/gate-evidence.json"
-  refused_both "acc-digest-$row" "$row Evidence binding another artifact digest" "acceptance Evidence of row $row binds other artifact digests"
-  acceptance_case "acc-candidate-$row"
-  cp "$temporary/acc-other/acceptance/$row/gate-evidence.json" "$temporary/acc-candidate-$row/acceptance/$row/gate-evidence.json"
-  refused_both "acc-candidate-$row" "$row Evidence of another prepared candidate" "acceptance Evidence of row $row binds another SHA256SUMS"
-done
-acceptance_case acc-manual-row
-cp "$temporary/acc/acceptance/linux-arm64/gate-evidence.json" "$temporary/acc-manual-row/acceptance/windows-amd64/gate-evidence.json"
-refused_both acc-manual-row 'Linux arm64 Evidence as the Windows row' 'acceptance Evidence of row windows-amd64 names row linux-arm64'
-acceptance_case acc-windows-native
-jq '.environment.mode = "native"' "$temporary/acc/acceptance/windows-amd64/gate-evidence.json" \
-  >"$temporary/acc-windows-native/acceptance/windows-amd64/gate-evidence.json"
-refused_both acc-windows-native 'Windows Evidence that is not the bounded proxy' 'was not observed on a bounded proxy windows-amd64 host'
-acceptance_case acc-windows-install
-jq '.journeys[0].installer.upgrade = "upgraded"' "$temporary/acc/acceptance/windows-amd64/gate-evidence.json" \
-  >"$temporary/acc-windows-install/acceptance/windows-amd64/gate-evidence.json"
-refused_both acc-windows-install 'a Windows proxy claiming a client install' 'claims a Windows client install, upgrade or reinstall'
-acceptance_case acc-arm-proxy
-jq '.environment.mode = "bounded_proxy"' "$temporary/acc/acceptance/linux-arm64/gate-evidence.json" \
-  >"$temporary/acc-arm-proxy/acceptance/linux-arm64/gate-evidence.json"
-refused_both acc-arm-proxy 'Linux arm64 Evidence that is not native' 'was not observed on a native linux-arm64 host'
-# Manual Evidence replaced after the preview: equivalent passing bytes are
-# still other bytes, so the digest changes and the old authority is stale.
-acceptance_case acc-manual-replaced
-jq -c . "$temporary/acc/acceptance/windows-amd64/gate-evidence.json" >"$temporary/acc-manual-replaced/acceptance/windows-amd64/gate-evidence.json"
-envelope "$temporary/acc-manual-replaced" "${acc[@]}" >"$temporary/acc-manual-replaced-env"
-check 'replaced manual Evidence changes its binding and the preview digest' bash -c "
-  ! grep -Fxq 'preview_digest=$acc_digest' '$temporary/acc-manual-replaced-env' &&
-  grep -Fxq acceptance.windows-amd64=$(digest "$temporary/acc-manual-replaced/acceptance/windows-amd64/gate-evidence.json") '$temporary/acc-manual-replaced-env'"
-before=$(mutations)
-expect_failure 'publication refuses manual Evidence replaced after authorization' 'preview changed; review and authorize again' \
-  publish_raw "$temporary/acc-manual-replaced" "${acc[@]}" --authorized-digest "$acc_digest"
-check 'replaced manual Evidence made zero publication effects' test "$(mutations)" == "$before"
-# Automated Evidence alone, with the transition line, is not an envelope.
-acceptance_case acc-automated-only
-rm -rf -- "$temporary/acc-automated-only/acceptance/linux-arm64" "$temporary/acc-automated-only/acceptance/windows-amd64"
-refused_both acc-automated-only 'automated Evidence without the manual rows' 'missing manual acceptance Evidence for row linux-arm64, windows-amd64'
-# Different Evidence bytes, even passing and equivalent, are not the
-# authorized ones: the envelope digest changes and old authority is stale.
-acceptance_case acc-rebound
-jq -c . "$temporary/acc/acceptance/macos-27-arm64/gate-evidence.json" >"$temporary/acc-rebound/acceptance/macos-27-arm64/gate-evidence.json"
-envelope "$temporary/acc-rebound" "${acc[@]}" >"$temporary/acc-rebound-env"
-check 'other passing Evidence bytes change the binding and the preview digest' bash -c "
-  ! grep -Fxq 'preview_digest=$acc_digest' '$temporary/acc-rebound-env' &&
-  grep -Fxq acceptance.macos-27-arm64=$(digest "$temporary/acc-rebound/acceptance/macos-27-arm64/gate-evidence.json") '$temporary/acc-rebound-env'"
-before=$(mutations)
-expect_failure 'publication refuses Evidence whose digest differs from the authorized envelope' 'preview changed; review and authorize again' \
-  publish_raw "$temporary/acc-rebound" "${acc[@]}" --authorized-digest "$acc_digest"
-check 'an Evidence/envelope mismatch made zero publication effects' test "$(mutations)" == "$before"
-check 'refusals left the accepted set and its Evidence byte-identical' cmp -s "$temporary/acc-inventory" <(inventory "$temporary/acc")
-publish_raw "$temporary/acc" "${acc[@]}" --authorized-digest "$acc_digest" >"$temporary/acc-pub"
-check 'the authorized accepted candidate publishes exactly its bytes' bash -c "grep -Fxq publication=published '$temporary/acc-pub' &&
-  [[ \$(jq -r '.assets[] | \"\(.name)=\(.digest | sub(\"^sha256:\"; \"\"))\"' $state/releases/*.json | LC_ALL=C sort | paste -sd, -) == \
-     \$(grep -E '^(artifact\.|sha256sums_sha256=)' '$temporary/acc-env' | sed -E 's/^artifact\.//; s/^sha256sums_sha256=/SHA256SUMS=/' | LC_ALL=C sort | paste -sd, -) ]]"
-check 'publication left the accepted set and its Evidence byte-identical' cmp -s "$temporary/acc-inventory" <(inventory "$temporary/acc")
-check 'publication never reruns acceptance or rebuilds' bash -c "! grep -Eq 'test-upgrade-journeys|prepared-upgrade-candidate|build-release-archives' '$fixture/scripts/publish-release.sh'"
 
 reset_github
 make_set "$temporary/rc" 0.1.0-rc.1 "$c2" first
@@ -919,7 +714,6 @@ cp "$temporary/stable-rebuild/sums" "$temporary/stable-rebuild/artifacts/SHA256S
   awk '{printf "archive=%s sha256=%s\n", $2, $1}' "$temporary/stable-rebuild/sums"
   printf 'publication=none\nresult=pass\n'
 } >"$temporary/stable-rebuild/evidence.txt"
-write_acceptance "$temporary/stable-rebuild/acceptance" 0.1.0 "$c3" 11 "$temporary/stable-rebuild/artifacts"
 : >"$state/ledger"
 FAKE_GH_IMMUTABLE=1 publish "$temporary/stable-rebuild" --tag v0.1.0 --revision "$c3" --make-latest true >"$temporary/pub"
 check 'rerun keeps identical draft assets' grep -Fxq 'draft_asset_kept=axiom-0.1.0-linux-amd64.tar.gz' "$temporary/pub"
@@ -1070,7 +864,7 @@ git -C "$dfix" config user.email release-test@example.invalid
 git -C "$dfix" config user.name 'Release Test'
 git -C "$dfix" config commit.gpgsign false
 mkdir -p "$dfix/scripts" "$dfix/.github"
-cp -R "$fixture/scripts/." "$dfix/scripts/"
+cp "$fixture"/scripts/*.sh "$dfix/scripts/"
 dcommit() {
   [[ -z "${3:-}" ]] || printf '{\n  ".": "%s"\n}\n' "$3" >"$dfix/.release-please-manifest.json"
   git -C "$dfix" add -A
@@ -1164,13 +958,13 @@ denvelope() {
   local dir=$1
   shift
   "$dfix/scripts/publish-release.sh" --envelope --repo rgomids/axiom --prepared-run 11 --dir "$dir/artifacts" \
-    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" --acceptance "$dir/acceptance" "$@"
+    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" "$@"
 }
 dpublish_raw() {
   local dir=$1
   shift
   "$dfix/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$dir/artifacts" \
-    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" --acceptance "$dir/acceptance" "$@"
+    --evidence "$dir/evidence.txt" --notes "$dir/notes.md" "$@"
 }
 dpublish() {
   local dir=$1
@@ -1191,20 +985,19 @@ for line in envelopeVersion=2 'delivery_project=users/rgomids/projects/7 project
   check "stable envelope states $line" grep -Fxq -- "$line" "$temporary/denv"
 done
 env -u AXIOM_DELIVERY_PROJECT_TOKEN "$dfix/scripts/publish-release.sh" --envelope --repo rgomids/axiom --prepared-run 11 \
-  --dir "$temporary/dset/artifacts" --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" \
-  --acceptance "$temporary/dset/acceptance" "${stable[@]}" >"$temporary/denv-notoken"
+  --dir "$temporary/dset/artifacts" --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" "${stable[@]}" >"$temporary/denv-notoken"
 check 'computing the envelope needs no Project credential and makes no effect' cmp -s "$temporary/denv" "$temporary/denv-notoken"
 check 'the envelope made no effect' bash -c "[[ $(mutations) == 0 ]] && ! grep -q '^PROJECT' '$state/ledger'"
 ddigest=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/denv")
 issue 22 'Help text' closed completed
-check 'a changed Issue state changes the preview digest' bash -c "! denvelope_out=\$('$dfix/scripts/publish-release.sh' --envelope --repo rgomids/axiom --prepared-run 11 --dir '$temporary/dset/artifacts' --evidence '$temporary/dset/evidence.txt' --notes '$temporary/dset/notes.md' --acceptance '$temporary/dset/acceptance' ${stable[*]} | grep -Fx preview_digest=$ddigest)"
+check 'a changed Issue state changes the preview digest' bash -c "! denvelope_out=\$('$dfix/scripts/publish-release.sh' --envelope --repo rgomids/axiom --prepared-run 11 --dir '$temporary/dset/artifacts' --evidence '$temporary/dset/evidence.txt' --notes '$temporary/dset/notes.md' ${stable[*]} | grep -Fx preview_digest=$ddigest)"
 expect_failure 'authority over another Issue state is stale' 'preview changed; review and authorize again' \
   dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
 check 'stale delivery authority made no effect' test "$(mutations)" == 0
 issue 22 'Help text'
 expect_failure 'configured Project without credential fails before any publication effect' 'AXIOM_DELIVERY_PROJECT_TOKEN is unavailable' \
   env -u AXIOM_DELIVERY_PROJECT_TOKEN "$dfix/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$temporary/dset/artifacts" \
-  --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" --acceptance "$temporary/dset/acceptance" "${stable[@]}" --authorized-digest "$ddigest"
+  --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" "${stable[@]}" --authorized-digest "$ddigest"
 stage_project Blocked
 expect_failure 'Project Status drift fails before any publication effect' 'Project Status must contain' \
   dpublish_raw "$temporary/dset" "${stable[@]}" --authorized-digest "$ddigest"
@@ -1289,7 +1082,7 @@ denvelope "$temporary/dset" "${stable[@]}" >"$temporary/denv"
 check 'disabled projection: envelope names the Project and omits Project effects' bash -c "
   grep -Fxq 'delivery_project=users/rgomids/projects/7 projection=disabled' '$temporary/denv' && grep -Fxq effect.issue.20=comment,close '$temporary/denv'"
 env -u AXIOM_DELIVERY_PROJECT_TOKEN "$dfix/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$temporary/dset/artifacts" \
-  --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" --acceptance "$temporary/dset/acceptance" "${stable[@]}" \
+  --evidence "$temporary/dset/evidence.txt" --notes "$temporary/dset/notes.md" "${stable[@]}" \
   --authorized-digest "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/denv")" >"$temporary/dpub"
 check 'disabled projection: Issues released and closed without any Project call' bash -c "
   grep -Fxq 'delivery=released issues=20,21,22' '$temporary/dpub' && ! grep -q '^PROJECT' '$state/ledger' && [[ \$(jq -r .state '$state/issues/20.json') == closed ]]"
@@ -1537,7 +1330,7 @@ git -C "$dfix" config user.email release-test@example.invalid
 git -C "$dfix" config user.name 'Release Test'
 git -C "$dfix" config commit.gpgsign false
 mkdir -p "$dfix/scripts" "$dfix/.github"
-cp -R "$saved_delivery_fixture/scripts/." "$dfix/scripts/"
+cp "$saved_delivery_fixture"/scripts/*.sh "$dfix/scripts/"
 project_config disabled
 correction_base=$(dcommit 'chore(main): release 0.3.0 (#100)' '' 0.3.0)
 valid_completion=$(dcommit 'feat: valid delivery (#101)' 'Related-Issues: #20\nCompletes-Issues: #20\n')
@@ -1590,7 +1383,7 @@ git -C "$lfix" config user.email release-test@example.invalid
 git -C "$lfix" config user.name 'Release Test'
 git -C "$lfix" config commit.gpgsign false
 mkdir -p "$lfix/scripts" "$lfix/.github"
-cp -R "$dfix/scripts/." "$lfix/scripts/"
+cp "$dfix"/scripts/*.sh "$lfix/scripts/"
 lcommit() {
   [[ -z "${3:-}" ]] || printf '{\n  ".": "%s"\n}\n' "$3" >"$lfix/.release-please-manifest.json"
   git -C "$lfix" add -A
@@ -1622,8 +1415,7 @@ make_set "$temporary/lset" 0.2.0 "$lrel" legacy
 cp "$temporary/lnotes" "$temporary/lset/notes.md"
 lenvelope() {
   "$lfix/scripts/publish-release.sh" --envelope --repo rgomids/axiom --prepared-run 11 --dir "$temporary/lset/artifacts" \
-    --evidence "$temporary/lset/evidence.txt" --notes "$temporary/lset/notes.md" --acceptance "$temporary/lset/acceptance" \
-    --tag v0.2.0 --revision "$lrel" --make-latest true
+    --evidence "$temporary/lset/evidence.txt" --notes "$temporary/lset/notes.md" --tag v0.2.0 --revision "$lrel" --make-latest true
 }
 lenvelope >"$temporary/lenv"
 for line in delivery_issues=129,147 'delivery_issue.129=closed_unrecorded delivered_by=#143' effect.issue.129=comment,project \
@@ -1631,8 +1423,8 @@ for line in delivery_issues=129,147 'delivery_issue.129=closed_unrecorded delive
   check "boundary envelope states $line" grep -Fxq -- "$line" "$temporary/lenv"
 done
 "$lfix/scripts/publish-release.sh" --repo rgomids/axiom --prepared-run 11 --dir "$temporary/lset/artifacts" \
-  --evidence "$temporary/lset/evidence.txt" --notes "$temporary/lset/notes.md" --acceptance "$temporary/lset/acceptance" \
-  --tag v0.2.0 --revision "$lrel" --make-latest true --authorized-digest "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/lenv")" >"$temporary/lpub"
+  --evidence "$temporary/lset/evidence.txt" --notes "$temporary/lset/notes.md" --tag v0.2.0 --revision "$lrel" --make-latest true \
+  --authorized-digest "$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/lenv")" >"$temporary/lpub"
 check 'boundary publication records #129 and #147 once, Released vX.Y.Z, never re-closes' bash -c "
   grep -Fxq 'delivery=released issues=129,147' '$temporary/lpub' &&
   [[ \$(grep -c '^COMMENT 129 ' '$state/ledger') == 1 && \$(grep -c '^COMMENT 147 ' '$state/ledger') == 1 ]] &&
@@ -1693,26 +1485,13 @@ release() { (cd "$fixture" && "$fixture/scripts/release.sh" "$@"); }
 green() {
   printf '{"check_runs":[{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (windows)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"upgrade-journeys (linux)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"upgrade-journeys (macos)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}}]}\n' >"$state/checks-$1.json"
 }
-# stage_run_acceptance ID TAG ACCEPTANCE_DIR places acceptance Evidence, as
-# release-artifacts.yml retains it per row, behind the fake `gh run download`.
-stage_run_acceptance() {
-  local id=$1 tag=$2 dir=$3 row
-  for row in $acceptance_rows; do
-    rm -rf -- "$state/runs/$id/axiom-acceptance-$tag-$row"
-    mkdir -p "$state/runs/$id/axiom-acceptance-$tag-$row"
-    cp "$dir/$row/gate-evidence.json" "$state/runs/$id/axiom-acceptance-$tag-$row/gate-evidence.json"
-  done
-}
-# stage_prepared_run ID TAG REVISION SALT [WORKFLOW] places a prepared set and
-# its acceptance Evidence, as release-artifacts.yml retains them, behind the
-# fake `gh run download`.
+# stage_prepared_run ID TAG REVISION SALT [WORKFLOW] places a prepared set, as
+# release-artifacts.yml retains it, behind the fake `gh run download`.
 stage_prepared_run() {
   local id=$1 tag=$2 rev=$3 salt=$4 path=${5:-.github/workflows/release-artifacts.yml} root
   root=$state/runs/$id/axiom-release-$tag
   rm -rf -- "$state/runs/$id"
-  make_set "$temporary/run-$id" "${tag#v}" "$rev" "$salt" "$id"
-  stage_run_acceptance "$id" "$tag" "$temporary/run-$id/acceptance"
-  manual_of "$temporary/run-$id/acceptance" >/dev/null
+  make_set "$temporary/run-$id" "${tag#v}" "$rev" "$salt"
   mkdir -p "$root"
   cp -R "$temporary/run-$id/artifacts" "$root/artifacts"
   cp "$temporary/run-$id/evidence.txt" "$root/release-evidence.txt"
@@ -1775,7 +1554,6 @@ stage_prepared_run 8181 v0.1.0-rc.1 "$c4" first
 printf 'edited\n' >>"$state/runs/8181/axiom-release-v0.1.0-rc.1/release-notes.md"
 release status --tag v0.1.0-rc.1 --prepared-run 8181 >"$temporary/status"
 check 'prepared notes must be the revision notes' grep -Fq 'release notes differ' "$temporary/status"
-check 'a release candidate envelope states that no acceptance is required' grep -Fxq preview.acceptance=not_required_rc "$temporary/prepare"
 rm "$state/environment.json"
 expect_failure 'unprotected release environment blocks publication' 'publication is not the next step' \
   release publish --tag v0.1.0-rc.1 --revision "$c4" --prepared-run 5151 --preview-digest "$digest_value" --authorize-publication
@@ -1808,7 +1586,6 @@ check 'refusals caused no remote effect' test "$(mutations)" == 0
 release publish --tag v0.1.0-rc.1 --revision "$c4" --prepared-run 5151 --preview-digest "$digest_value" --authorize-publication >"$temporary/dispatch"
 check 'the exact authorized envelope dispatches publication once' bash -c "[[ \$(grep -c '^workflow run publish-release.yml' '$state/ledger') == 1 ]] && grep -Fq 'prepared_run=5151' '$state/ledger' && grep -Fq 'preview_digest=$digest_value' '$state/ledger' && grep -Fq 'revision=$c4' '$state/ledger' && grep -Fxq run_id=4242 '$temporary/dispatch'"
 check 'release.sh itself never touches releases, tags or assets' test "$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL)' "$state/ledger" || true)" == 0
-check 'a release candidate dispatch carries no manual acceptance Evidence' bash -c "! grep -q 'manual_acceptance=' '$state/ledger'"
 release status --tag v0.2.0 >"$temporary/status"
 check 'stable without a Release PR is blocked' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'no Release PR prepares 0.2.0' '$temporary/status'"
 release status --tag v0.1.0-rc.1 --revision "$side" >"$temporary/status"
@@ -1869,36 +1646,6 @@ check 'both jobs that run release-repair.sh read Check Runs, with no other permi
 check 'publication requires dispatch from main and a verified preflight' bash -c "grep -Fq 'refs/heads/main' '$workflows/publish-release.yml' && grep -Fxq '    needs: preflight' '$workflows/publish-release.yml'"
 check 'publication never rebuilds: it consumes the prepared run artifact' bash -c "! grep -Eq 'build-release-archives|upload-artifact' '$workflows/publish-release.yml' && [[ \$(grep -c 'run-id: \${{ inputs.prepared_run }}' '$workflows/publish-release.yml') == 2 ]] && [[ \$(grep -c 'verify-prepared-release.sh' '$workflows/publish-release.yml') == 2 ]]"
 check 'publication is bound to the authorized envelope digest' bash -c "grep -Fq -- '--authorized-digest \"\$PREVIEW_DIGEST\"' '$workflows/publish-release.yml' && grep -Fq 'PREVIEW_DIGEST: \${{ inputs.preview_digest }}' '$workflows/publish-release.yml'"
-# publication_acceptance_contract: publication downloads only the prepared
-# run's own per-row acceptance Evidence, before the publication step, hands it
-# to publish-release.sh, and never reruns acceptance or rebuilds (Issue #238).
-publication_acceptance_contract() {
-  local w=$workflows/publish-release.yml download publish
-  download=$(grep -n 'name: Download the acceptance Evidence of the prepared run' "$w" | cut -d: -f1)
-  publish=$(grep -n 'name: Re-verify, match the authorized envelope, then publish' "$w" | cut -d: -f1)
-  [[ -n "$download" && -n "$publish" && "$download" -lt "$publish" ]] &&
-    sed -n '/^  publish:/,$p' "$w" | grep -Fq 'gh run download "$PREPARED_RUN" --repo "$GITHUB_REPOSITORY" --name "axiom-acceptance-$RELEASE_TAG-$row"' &&
-    grep -Fq '"$RELEASE_CONTROL_SCRIPTS/verify-release-acceptance.py" rows' "$w" &&
-    grep -Fq -- '--acceptance "$RUNNER_TEMP/acceptance" --authorized-digest "$PREVIEW_DIGEST"' "$w" &&
-    [[ $(grep -c 'axiom-acceptance-' "$w") == 1 ]] &&
-    ! grep -Eq 'test-upgrade-journeys|prepared-upgrade-candidate|build-release-archives|upload-artifact|overwrite' "$w"
-}
-check 'publication verifies the prepared run acceptance Evidence before any effect and never reruns acceptance' publication_acceptance_contract
-# manual_acceptance_contract: the manual rows' Evidence reaches the publish job
-# only as the dispatched input, through an environment variable (never
-# interpolated into the script), and is unpacked by the revision's verifier
-# into the same directory, before the publication step (CR-001).
-manual_acceptance_contract() {
-  local w=$workflows/publish-release.yml step
-  step=$(sed -n '/name: Download the acceptance Evidence of the prepared run/,/name: Re-verify, match the authorized envelope, then publish/p' "$w")
-  grep -Fq 'MANUAL_ACCEPTANCE: ${{ inputs.manual_acceptance }}' <<<"$step" &&
-    grep -Fq '"$RELEASE_CONTROL_SCRIPTS/verify-release-acceptance.py" unpack --bundle "$RUNNER_TEMP/manual-acceptance"' <<<"$step" &&
-    grep -Fq -- '--into "$acceptance"' <<<"$step" &&
-    [[ $(grep -c 'inputs.manual_acceptance' "$w") == 1 ]] &&
-    ! grep -q 'manual_acceptance }}"' "$w" &&
-    sed -n '/^on:/,/^permissions:/p' "$w" | grep -Fxq '      manual_acceptance:'
-}
-check 'publication receives manual Evidence only as the dispatched, digest-bound input' manual_acceptance_contract
 check 'preparation builds, verifies and retains the exact set without publishing' bash -c "grep -Fq build-release-archives.sh '$workflows/release-artifacts.yml' && grep -Fq verify-release-artifacts.sh '$workflows/release-artifacts.yml' && grep -Fq release-notes.sh '$workflows/release-artifacts.yml' && grep -Fq 'name: axiom-release-\${{ env.RELEASE_TAG }}' '$workflows/release-artifacts.yml' && ! grep -Eiq 'contents: write|gh release|git tag|git push|publish-release' '$workflows/release-artifacts.yml'"
 # Publication and Project credentials stay inside environment-gated jobs.
 # secret_refs prints every secrets context reference (`secrets.NAME`, or
@@ -2011,7 +1758,7 @@ git -C "$rfix" config user.email release-test@example.invalid
 git -C "$rfix" config user.name 'Release Test'
 git -C "$rfix" config commit.gpgsign false
 mkdir -p "$rfix/scripts" "$rfix/.github/rulesets"
-cp -R "$fixture/scripts/." "$rfix/scripts/"
+cp "$fixture"/scripts/*.sh "$rfix/scripts/"
 cp "$repository_root/.github/rulesets/main.json" "$rfix/.github/rulesets/main.json"
 rcommit() {
   git -C "$rfix" add -A
@@ -2089,8 +1836,6 @@ cp "$temporary/rset/notes.md" "$rprepared/release-notes.md"
 "$rfix/scripts/release-corrections.sh" --source-revision "$rsource" --corrections-revision "$rcontrol" \
   --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$rprepared/release-recovery.txt"
 printf '{"path":".github/workflows/release-artifacts.yml","event":"workflow_dispatch","head_branch":"main","status":"completed","conclusion":"success"}\n' >"$state/runs/6161.json"
-write_acceptance "$temporary/rset-run-6161" 0.3.0 "$rsource" 6161 "$temporary/rset/artifacts"
-stage_run_acceptance 6161 v0.3.0 "$temporary/rset-run-6161"
 check 'prepared recovery verifies original source artifacts using original verifier' \
   "$rfix/scripts/verify-prepared-release.sh" --tag v0.3.0 --revision "$rsource" --prepared "$rprepared" --repo rgomids/axiom --run 6161
 printf 'corrupt\n' >>"$rprepared/release-recovery.txt"
@@ -2108,9 +1853,8 @@ saved_fixture=$fixture
 fixture=$rfix
 envelope "$temporary/rset" --tag v0.3.0 --revision "$rsource" --make-latest true >"$temporary/renvelope"
 check 'recovery envelope binds correction revision and committed-file digest' bash -c "grep -Fxq corrections_revision=$rcontrol '$temporary/renvelope' && grep -Fxq corrections_sha256=$AXIOM_RELEASE_CORRECTIONS_DIGEST '$temporary/renvelope' && grep -Fxq revision=$rsource '$temporary/renvelope'"
-rmanual=$(manual_of "$temporary/rset-run-6161")
 release status --tag v0.3.0 --revision "$rsource" --prepared-run 6161 \
-  --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" --manual-acceptance "$rmanual" >"$temporary/rstatus"
+  --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$temporary/rstatus"
 check 'release status selects pinned control while retaining original release source' bash -c "grep -Fxq next_action=authorize_publication '$temporary/rstatus' && grep -Fxq preview.corrections_revision=$rcontrol '$temporary/rstatus' && grep -Fxq preview.revision=$rsource '$temporary/rstatus'"
 # Same correction bytes at a different reviewed commit remain different
 # authority: source archive bytes stay fixed, while control pin changes digest.
@@ -2131,15 +1875,13 @@ export AXIOM_RELEASE_CORRECTIONS_REVISION=$rcontrol
 mkdir -p "$state/runs/5151"
 cp -R "$rprepared" "$state/runs/5151/axiom-release-v0.3.0"
 cp "$state/runs/6161.json" "$state/runs/5151.json"
-write_acceptance "$temporary/rset-run-5151" 0.3.0 "$rsource" 5151 "$temporary/rset/artifacts"
-stage_run_acceptance 5151 v0.3.0 "$temporary/rset-run-5151"
 release prepare --tag v0.3.0 --revision "$rsource" --corrections-revision "$rcontrol" \
   --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" >"$temporary/rprepare"
 check 'prepare dispatch propagates exact recovery pins with no publication' bash -c "grep '^workflow run release-artifacts.yml' '$state/ledger' | grep -Fq 'corrections_revision=$rcontrol' && grep '^workflow run release-artifacts.yml' '$state/ledger' | grep -Fq 'corrections_digest=$AXIOM_RELEASE_CORRECTIONS_DIGEST' && ! grep -q '^POST release' '$state/ledger'"
 rpreview=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/rstatus")
 release publish --tag v0.3.0 --revision "$rsource" --prepared-run 6161 \
   --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" \
-  --preview-digest "$rpreview" --authorize-publication --manual-acceptance "$rmanual" >"$temporary/rdispatch"
+  --preview-digest "$rpreview" --authorize-publication >"$temporary/rdispatch"
 check 'authorized publish dispatch propagates exact recovery pins' bash -c "grep '^workflow run publish-release.yml' '$state/ledger' | grep -Fq 'corrections_revision=$rcontrol' && grep '^workflow run publish-release.yml' '$state/ledger' | grep -Fq 'corrections_digest=$AXIOM_RELEASE_CORRECTIONS_DIGEST'"
 publish "$temporary/rset" --tag v0.3.0 --revision "$rsource" --make-latest true >"$temporary/rpublished"
 check 'recovery publication delivers only feature Issue in fake GitHub' bash -c "grep -Fxq result=pass '$temporary/rpublished' && [[ \$(jq -r .state '$state/issues/86.json') == closed ]] && ! grep -Eq '^(ISSUE|COMMENT).*153' '$state/ledger'"
@@ -2294,7 +2036,7 @@ cp "$rpublished_record" "$temporary/rpublished-before-repair.json"
 before_release=$(grep -Ec '^(POST release|PATCH release|DELETE release|UPLOAD)' "$state/ledger" || true)
 GH_TOKEN=fixture-publication-token FAKE_PUBLICATION_TOKEN=fixture-publication-token AXIOM_RELEASE_REPOSITORY_TOKEN=fixture-repository-token AXIOM_RELEASE_REPAIR_REVISION=$rrepair "$rrun/scripts/publish-release.sh" --repo rgomids/axiom --tag v0.3.0 --revision "$rsource" \
   --make-latest true --prepared-run 6161 --dir "$temporary/rset/artifacts" --evidence "$temporary/rset/evidence.txt" \
-  --notes "$temporary/rset/notes.md" --acceptance "$temporary/rset/acceptance" --authorized-digest "$rrepair_preview" >"$temporary/rrepaired"
+  --notes "$temporary/rset/notes.md" --authorized-digest "$rrepair_preview" >"$temporary/rrepaired"
 check 'repair makes no release/tag/asset write and preserves published JSON' bash -c "cmp -s '$rpublished_record' '$temporary/rpublished-before-repair.json' && [[ \$(grep -Ec '^(POST release|PATCH release|DELETE release|UPLOAD)' '$state/ledger' || true) == $before_release ]] && grep -Fxq publication=already_published '$temporary/rrepaired'"
 check 'publication PAT never authors delivery records; repository token retains bot identity' jq -e 'length == 1 and .[0].user.login == "github-actions[bot]"' "$state/comments/86.json"
 release status "${rrepair_args[@]}" >"$temporary/rrepair-done"
@@ -2560,7 +2302,7 @@ git -C "$sfix" config user.email release-test@example.invalid
 git -C "$sfix" config user.name 'Release Test'
 git -C "$sfix" config commit.gpgsign false
 mkdir -p "$sfix/scripts" "$sfix/.github/rulesets"
-cp -R "$saved_fixture/scripts/." "$sfix/scripts/"
+cp "$saved_fixture"/scripts/*.sh "$sfix/scripts/"
 cp "$repository_root/.github/rulesets/main.json" "$sfix/.github/rulesets/main.json"
 git -C "$sfix" remote add origin "$sremote"
 scommit() {
@@ -2819,111 +2561,41 @@ stage_prepared_run 5151 v0.2.0 "$srel" first
 release prepare >"$temporary/sprepare"
 check 'prepare dispatches the exact release commit and nothing else' bash -c "[[ \$(grep -c '^workflow run release-artifacts.yml' '$state/ledger') == 1 ]] && grep -Fq 'tag=v0.2.0 -f revision=$srel' '$state/ledger' && [[ \$(grep -c '^workflow' '$state/ledger') == 1 ]]"
 check 'prepare creates no tag or release' bash -c "[[ $(release_effects) == 0 ]] && [[ -z \$(git -C '$sremote' tag -l v0.2.0) ]] && [[ \$(ls '$state/releases') == 50.json ]]"
-smanual=$temporary/run-5151/acceptance-manual
-check 'prepare stops before authority while the manual rows have no Evidence' bash -c "grep -Fxq state=awaiting_manual_acceptance '$temporary/sprepare' && grep -Fxq next_action=accept_manually '$temporary/sprepare' && grep -Fxq prepared_run=5151 '$temporary/sprepare' && grep -Fq 'reason=missing manual acceptance Evidence for row linux-arm64, windows-amd64' '$temporary/sprepare' && ! grep -q '^preview_digest=' '$temporary/sprepare' && ! grep -q '^preview\.' '$temporary/sprepare'"
-expect_failure 'no envelope without manual Evidence: publication is not the next step' 'publication is not the next step' \
-  release publish --preview-digest "$(printf 'a%.0s' {1..64})" --authorize-publication
-release status --prepared-run 5151 --manual-acceptance "$smanual" >"$temporary/sprepare"
 check 'prepare stops at the authority boundary with the complete envelope' bash -c "grep -Fxq state=awaiting_publication_authority '$temporary/sprepare' && grep -Fxq next_action=authorize_publication '$temporary/sprepare' && grep -Fxq preview.revision=$srel '$temporary/sprepare' && grep -Fxq preview.tag=v0.2.0 '$temporary/sprepare' && grep -Fxq preview.make_latest=true '$temporary/sprepare' && grep -Fxq preview.prepared_run=5151 '$temporary/sprepare' && grep -Fxq preview.delivery_issues=5 '$temporary/sprepare' && grep -q '^preview.effect.tag=create_at_revision' '$temporary/sprepare' && grep -Eq '^preview_digest=[0-9a-f]{64}$' '$temporary/sprepare'"
 sdigest=$(awk -F= '$1 == "preview_digest" {print $2}' "$temporary/sprepare")
 # Continuation: a later $axiom-release finds the prepared run by itself.
 printf '{"artifacts":[{"name":"axiom-release-v0.2.0","expired":false,"created_at":"2026-10-02T01:00:00Z","workflow_run":{"id":5151}}]}\n' >"$state/artifacts.json"
-release status --manual-acceptance "$smanual" >"$temporary/sstatus"
-check 'status rediscovers the verified prepared run and the same envelope' bash -c "grep -Fxq prepared_run_source=discovered '$temporary/sstatus' && grep -Fxq preview_digest=$sdigest '$temporary/sstatus'"
 release status >"$temporary/sstatus"
-check 'without manual Evidence a rediscovered run awaits manual acceptance' bash -c "grep -Fxq prepared_run_source=discovered '$temporary/sstatus' && grep -Fxq next_action=accept_manually '$temporary/sstatus' && ! grep -q '^preview_digest=' '$temporary/sstatus'"
+check 'status rediscovers the verified prepared run and the same envelope' bash -c "grep -Fxq prepared_run_source=discovered '$temporary/sstatus' && grep -Fxq preview_digest=$sdigest '$temporary/sstatus'"
 expect_failure 'prepare again is refused once a verified set exists (no duplicate build)' 'preparation is not the next step' release prepare
 : >"$state/ledger"
 expect_failure 'no authorization: zero effects' 'requires explicit human authorization' release publish --preview-digest "$sdigest"
 expect_failure 'stale authority: an old digest is refused' 'preview changed; review and authorize again' \
-  release publish --preview-digest "$(printf 'b%.0s' {1..64})" --authorize-publication --manual-acceptance "$smanual"
+  release publish --preview-digest "$(printf 'b%.0s' {1..64})" --authorize-publication
 stage_prepared_run 5151 v0.2.0 "$srel" drifted
 expect_failure 'drift: a changed prepared set invalidates the authorized digest' 'preview changed; review and authorize again' \
-  release publish --preview-digest "$sdigest" --authorize-publication --manual-acceptance "$smanual"
-stage_prepared_run 5151 v0.2.0 "$srel" first
-# CR-001 at the dispatch boundary: the authorized digest binds the manual
-# Evidence bytes given to release.sh.
-expect_failure 'publish without the manual Evidence of the authorized envelope is refused' 'publication is not the next step' \
   release publish --preview-digest "$sdigest" --authorize-publication
-rm -rf -- "$temporary/smanual-replaced"
-cp -R "$smanual" "$temporary/smanual-replaced"
-jq -c . "$smanual/linux-arm64/gate-evidence.json" >"$temporary/smanual-replaced/linux-arm64/gate-evidence.json"
-expect_failure 'manual Evidence replaced after authorization changes the preview' 'preview changed; review and authorize again' \
-  release publish --preview-digest "$sdigest" --authorize-publication --manual-acceptance "$temporary/smanual-replaced"
-rm -rf -- "$temporary/smanual-replaced/windows-amd64"
-expect_failure 'manual Evidence removed after authorization is refused before dispatch' 'missing manual acceptance Evidence for row windows-amd64' \
-  release publish --preview-digest "$sdigest" --authorize-publication --manual-acceptance "$temporary/smanual-replaced"
-stage_prepared_run 5252 v0.2.0 "$srel" other-candidate
-expect_failure 'manual Evidence of another candidate is refused' 'publication is not the next step' \
-  release publish --preview-digest "$sdigest" --authorize-publication --manual-acceptance "$temporary/run-5252/acceptance-manual"
-release status --prepared-run 5151 --manual-acceptance "$temporary/run-5252/acceptance-manual" >"$temporary/sstatus"
-check 'status reports manual Evidence of another candidate as blocked' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'binds another SHA256SUMS' '$temporary/sstatus' && ! grep -q '^preview_digest=' '$temporary/sstatus'"
-release status --manual-acceptance "$temporary/run-5252/acceptance-manual" >"$temporary/sstatus"
-check 'a discovered run with refused manual Evidence is blocked, never re-prepared' bash -c "grep -Fxq prepared_run_source=discovered '$temporary/sstatus' && grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'reason=the given manual acceptance Evidence is refused: acceptance Evidence of row linux-arm64 binds another SHA256SUMS' '$temporary/sstatus' && ! grep -q '^preview_digest=' '$temporary/sstatus'"
-check 'refused manual Evidence dispatched nothing' bash -c "! grep -q '^workflow run publish-release' '$state/ledger'"
-check 'the stable prepared envelope binds the acceptance Evidence of its own run' bash -c "
-  for row in $acceptance_rows; do grep -Fxq preview.acceptance.\$row=\$(shasum -a 256 '$state/runs/5151/axiom-acceptance-v0.2.0-'\$row/gate-evidence.json | cut -d' ' -f1) '$temporary/sprepare' || exit 1; done"
-check 'the stable prepared envelope binds the given manual Evidence of every manual row' bash -c "
-  for row in $manual_rows; do grep -Fxq preview.acceptance.\$row=\$(shasum -a 256 '$smanual/'\$row/gate-evidence.json | cut -d' ' -f1) '$temporary/sprepare' || exit 1; done
-  [[ \$(grep -c '^preview\.acceptance\.' '$temporary/sprepare') == 4 ]]"
-stage_prepared_run 7272 v0.2.0 "$srel" first
-rm -rf -- "$state/runs/7272/axiom-acceptance-v0.2.0-macos-27-arm64"
-release status --prepared-run 7272 >"$temporary/sstatus"
-check 'a stable prepared run without blocking acceptance Evidence is refused' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'reason=missing acceptance Evidence for row macos-27-arm64' '$temporary/sstatus' && ! grep -q '^preview_digest=' '$temporary/sstatus'"
-stage_prepared_run 7373 v0.2.0 "$srel" first
-cp "$state/runs/5151/axiom-acceptance-v0.2.0-linux-amd64/gate-evidence.json" "$state/runs/7373/axiom-acceptance-v0.2.0-linux-amd64/gate-evidence.json"
-release status --prepared-run 7373 >"$temporary/sstatus"
-check 'Evidence of another prepared run with the same bytes is refused' bash -c "grep -Fxq next_action=blocked '$temporary/sstatus' && grep -Fq 'not produced by the acceptance job of prepared run 7373' '$temporary/sstatus'"
-expect_failure 'a stable prepared run without acceptance Evidence cannot be published' 'publication is not the next step' \
-  release publish --preview-digest "$sdigest" --prepared-run 7272 --authorize-publication
+stage_prepared_run 5151 v0.2.0 "$srel" first
 stage_prepared_run 6262 v0.2.0 "$srel" first
 expect_failure 'the digest binds the prepared run: another run with the same bytes is refused' 'preview changed; review and authorize again' \
-  release publish --preview-digest "$sdigest" --prepared-run 6262 --authorize-publication --manual-acceptance "$temporary/run-6262/acceptance-manual"
+  release publish --preview-digest "$sdigest" --prepared-run 6262 --authorize-publication
 expect_failure 'a given revision must equal the envelope one' 'differs from the envelope' \
-  release publish --preview-digest "$sdigest" --revision "$sfeat" --authorize-publication --manual-acceptance "$smanual"
+  release publish --preview-digest "$sdigest" --revision "$sfeat" --authorize-publication
 check 'refused publications had zero effects' test "$(mutations)" == 0
 printf '[{"databaseId":4040,"url":"https://github.com/rgomids/axiom/actions/runs/4040","createdAt":"2026-10-02T00:00:00Z","status":"waiting"}]\n' >"$state/inflight-publish-release.yml.json"
 release status >"$temporary/sstatus"
 check 'a publication waiting for environment approval is reported, never redispatched' bash -c "grep -Fxq state=publishing '$temporary/sstatus' && grep -Fxq next_action=await_run '$temporary/sstatus' && grep -Fxq run_status=waiting '$temporary/sstatus'"
 expect_failure 'publish is refused while a publication run is in flight' 'publication is not the next step' \
-  release publish --preview-digest "$sdigest" --authorize-publication --manual-acceptance "$smanual"
+  release publish --preview-digest "$sdigest" --authorize-publication
 rm "$state/inflight-publish-release.yml.json"
-release publish --preview-digest "$sdigest" --authorize-publication --manual-acceptance "$smanual" >"$temporary/sdispatch"
+release publish --preview-digest "$sdigest" --authorize-publication >"$temporary/sdispatch"
 check 'the authorized digest alone dispatches the discovered exact envelope once' bash -c "[[ \$(grep -c '^workflow run publish-release.yml' '$state/ledger') == 1 ]] && grep -Fq 'tag=v0.2.0 -f revision=$srel -f prepared_run=5151 -f preview_digest=$sdigest' '$state/ledger' && [[ \$(grep -Ec '^(POST|PATCH|DELETE|UPLOAD|LABEL)' '$state/ledger' || true) == 0 ]]"
-check 'the dispatch carries the exact packed manual Evidence of the envelope' bash -c "
-  grep '^workflow run publish-release.yml' '$state/ledger' | grep -o 'manual_acceptance=[^ ]*' | cut -d= -f2- >'$temporary/sbundle' &&
-  [[ \$(cat '$temporary/sbundle') == \$(python3 '$sfix/scripts/verify-release-acceptance.py' pack --manual '$smanual') ]]"
 
-# Publication as publish-release.yml performs it: the prepared run's automated
-# Evidence plus the dispatched manual bundle, unpacked by the revision's
-# verifier, recompute the authorized envelope before any effect.
+# Publication (the workflow's publish-release.sh on the prepared bytes), then verify.
 sprep=$state/runs/5151/axiom-release-v0.2.0
-# workflow_acceptance NAME [BUNDLE]: the acceptance directory the publish job
-# builds from the prepared run and the manual_acceptance input.
-workflow_acceptance() {
-  local dir=$temporary/$1 row
-  rm -rf -- "$dir"
-  mkdir "$dir"
-  for row in $acceptance_rows; do cp -R "$state/runs/5151/axiom-acceptance-v0.2.0-$row" "$dir/$row"; done
-  if [[ -n "${2:-}" ]]; then
-    python3 "$sfix/scripts/verify-release-acceptance.py" unpack --bundle "$2" --into "$(cd "$dir" && pwd -P)" >/dev/null
-  fi
-  printf '%s\n' "$dir"
-}
 spub=("$sfix/scripts/publish-release.sh" --repo rgomids/axiom --tag v0.2.0 --revision "$srel" --make-latest true --prepared-run 5151
   --dir "$sprep/artifacts" --evidence "$sprep/release-evidence.txt" --notes "$sprep/release-notes.md")
-before=$(mutations)
-expect_failure 'the publish job without the manual input refuses before any effect' 'missing manual acceptance Evidence for row linux-arm64, windows-amd64' \
-  "${spub[@]}" --acceptance "$(workflow_acceptance swf-none)" --authorized-digest "$sdigest"
-python3 "$sfix/scripts/verify-release-acceptance.py" pack --manual "$temporary/run-6262/acceptance-manual" >"$temporary/sbundle-other"
-expect_failure 'the publish job with other manual Evidence refuses the authorized digest' 'preview changed; review and authorize again' \
-  "${spub[@]}" --acceptance "$(workflow_acceptance swf-other "$temporary/sbundle-other")" --authorized-digest "$sdigest"
-python3 "$sfix/scripts/verify-release-acceptance.py" pack --manual "$temporary/run-5252/acceptance-manual" >"$temporary/sbundle-candidate"
-expect_failure 'the publish job with manual Evidence of another candidate refuses' 'binds another SHA256SUMS' \
-  "${spub[@]}" --acceptance "$(workflow_acceptance swf-candidate "$temporary/sbundle-candidate")" --authorized-digest "$sdigest"
-check 'refused publish jobs made zero publication effects' test "$(mutations)" == "$before"
-"${spub[@]}" --acceptance "$(workflow_acceptance swf "$temporary/sbundle")" --authorized-digest "$sdigest" >"$temporary/spublished"
-check 'all four valid Evidence documents publish under the authorized digest' grep -Fxq publication=published "$temporary/spublished"
+"${spub[@]}" --authorized-digest "$("${spub[@]}" --envelope | awk -F= '$1 == "preview_digest" {print $2}')" >/dev/null
 git -C "$sfix" push -q origin "$srel:refs/tags/v0.2.0"
 release status >"$temporary/sstatus"
 check 'published: status routes to verification' bash -c "grep -Fxq state=published '$temporary/sstatus' && grep -Fxq next_action=verify_published '$temporary/sstatus'"

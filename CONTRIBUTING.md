@@ -515,11 +515,9 @@ Publication is split in two phases with human authority between them:
 
 ```text
 PREPARE  release-artifacts.yml: preflight -> build -> verify -> notes -> retained workflow artifact
-ACCEPT   stable only, same run: accept-linux-amd64, accept-macos-arm64 on those exact bytes
-         -> one axiom-gate-evidence/v1 artifact per row -> binding verified (acceptance-evidence)
-         release.sh: re-verify artifact and Evidence at the revision -> publication envelope + preview_digest
+         release.sh: re-verify that artifact at the revision -> publication envelope + preview_digest
 AUTHORITY  a maintainer authorizes that exact preview_digest
-PUBLISH  publish-release.yml: same artifact and Evidence -> re-verify -> envelope == authorized digest
+PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authorized digest
          -> draft -> upload -> read-back -> publish -> read-back -> delivered Issues (stable)
 ```
 
@@ -529,34 +527,20 @@ PUBLISH  publish-release.yml: same artifact and Evidence -> re-verify -> envelop
    clean checkout, verifies it with `verify-release-artifacts.sh` (closed
    artifact set, `SHA256SUMS`, provenance, exact revision), renders the release
    notes and retains exactly those files as the workflow artifact
-   `axiom-release-<tag>`. For a stable tag, the same run then accepts those
-   exact bytes natively (`accept-linux-amd64`, `accept-macos-arm64`: the
-   prepared-set upgrade journeys, never a rebuild), retains each row's
-   `axiom-gate-evidence/v1` document as the artifact
-   `axiom-acceptance-<tag>-<row>`, and fails unless every row passes and
-   [`verify-release-acceptance.py`](scripts/verify-release-acceptance.py)
-   binds the Evidence to the prepared set. It has a read-only token and
-   publishes nothing.
-2. `scripts/release.sh` downloads that artifact and its acceptance Evidence, re-verifies it with
+   `axiom-release-<tag>`. It has a read-only token and publishes nothing.
+2. `scripts/release.sh` downloads that artifact, re-verifies it with
    [`verify-prepared-release.sh`](scripts/verify-prepared-release.sh) in a clean
    checkout of the revision, and prints the **publication envelope**: repository,
    tag, version, channel, prerelease, revision, `make_latest`, prepared run,
-   release-notes and `SHA256SUMS` digests, each artifact with its SHA-256, for
-   a stable release the SHA-256 of the acceptance Evidence of all four release
-   rows (`acceptance.<row>`), the relevant remote state and the external
-   effects. Its SHA-256 is the `preview_digest`. A stable envelope exists only
-   once the manual rows' Evidence is given (`--manual-acceptance`); until then
-   `status` stops at `accept_manually`.
+   release-notes and `SHA256SUMS` digests, each artifact with its SHA-256, the
+   relevant remote state and the external effects. Its SHA-256 is the
+   `preview_digest`.
 3. A maintainer authorizes that `preview_digest`.
 4. [`publish-release.yml`](.github/workflows/publish-release.yml), dispatched
    from `main` with the tag, revision, prepared run and authorized digest, waits
    for approval of the protected `release` environment, downloads the same
-   artifact and the acceptance Evidence of the same prepared run, unpacks the
-   dispatched manual Evidence (`manual_acceptance`, the exact bytes the
-   envelope binds), re-verifies all of it (missing, failing or mismatched
-   Evidence of any row refuses a stable release; it never reruns acceptance),
-   and recomputes the envelope from those bytes and the
-   current remote state. If anything differs (an artifact, Evidence, a digest, the notes,
+   artifact, re-verifies it, and recomputes the envelope from those bytes and the
+   current remote state. If anything differs (an artifact, a digest, the notes,
    the revision, the `latest` decision, the remote state), it stops with
    `preview changed; review and authorize again` before any effect. Otherwise it
    creates or reconciles one **draft** bound to the revision, uploads exactly the
@@ -573,72 +557,6 @@ PUBLISH  publish-release.yml: same artifact and Evidence -> re-verify -> envelop
    the next envelope lists only the remaining effects and needs a new
    authorization. A release candidate's envelope says
    `delivery_issues=not_applicable`.
-
-**Release-candidate acceptance.** A stable release is published only from a
-prepared set that passed release-candidate acceptance on those exact bytes
-([Specification 004 FR-068–FR-076](docs/specifications/004-mvp-v1-baseline/spec.md#release-candidate-acceptance-and-supported-upgrade-sources),
-[ADR-0019](docs/decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md)).
-That acceptance covers:
-- fresh install, first run, a representative Project and workflow;
-- upgrade from N, from each persisted-generation baseline and from declared
-  historical formats, with non-empty state;
-- reinstall no-op and downgrade refusal.
-
-It runs on every release row. For Windows it runs on the bounded Windows Server
-proxy, which covers identity, provenance, direct `axiom.exe` behaviour and the
-installers' fail-closed Server refusal. The proxy claims no Windows client
-install, upgrade or reinstall. The native Linux amd64 and macOS arm64 rows are
-automated in the preparation run (Issue #238) and bound into the envelope.
-Until a row's acceptance is automated (Linux arm64, the Windows proxy), the
-maintainer performs it manually on the downloaded prepared set. The result is
-one passing `axiom-gate-evidence/v1` document per row (`subject.kind=prepared`,
-the exact tag, revision, `SHA256SUMS` and archive digests). Linux arm64 is
-`native`; Windows is `bounded_proxy` (suite `windows-bounded-proxy`): only
-the FR-072 observations pass, install, owned upgrade and reinstall are
-`not_applicable`, and it reports no installer outcome. No tool emits the
-Windows document yet, so the maintainer records it from their proxy run;
-without it no stable release can be published. Pass
-the documents as `<dir>/<row>/gate-evidence.json` with
-`scripts/release.sh status --manual-acceptance <dir>`, and again to `publish`.
-They are verified, bound by digest into the envelope and verified again by
-the publication workflow, exactly like the automated rows' Evidence.
-Acceptance Evidence is not publication authority. A release candidate is not
-gated by acceptance (FR-069 covers stable releases). A stable envelope also
-names the rows still under the manual transition
-(`acceptance_manual_transition`). That line is information, never a
-substitute for their Evidence. Publication now takes the acceptance Evidence
-of the prepared run, so a release revision whose scripts predate Issue #238
-needs reviewed control scripts (`corrections_revision`) or a repair revision
-to be published or converged.
-
-For the native macOS arm64 / Linux rows, Slice 3 provides the shared upgrade
-journey harness on a complete downloaded prepared set:
-
-```bash
-./scripts/test-upgrade-journeys.sh --prepared-set /absolute/prepared \
-  --tag vVERSION --revision FULL_SOURCE_SHA --row HOST_ROW \
-  --sha256sums-sha256 EXPECTED_SHA256SUMS_DIGEST \
-  --previous /absolute/published-N --previous /absolute/published-baseline \
-  --poc-binary /absolute/poc-lingo --evidence /absolute/evidence/prepared.json
-```
-
-Use physical absolute input paths; symlink ancestors are rejected.
-Obtain the expected identity and checksum-file digest from the preparation
-record, independently of the downloaded directory. The harness snapshots the
-closed four-row set into private temporary storage, verifies its digests,
-metadata, manifests, embedded provenance and exact clean local source revision
-before executing the selected native row, then rechecks materialized bytes
-before emitting `axiom-gate-evidence/v1` with `subject.kind = prepared`.
-The local repository must contain that source commit; no build or network
-request occurs. The complete set is bound in `subject.artifacts`; unavailable
-provider artifact id/digest remain `null`. Invocation placeholders
-`{subject-row}`, `{subject-tag}`, `{subject-revision}` and
-`{subject-sha256sums}` refer to those document fields. Prepared input, earlier
-releases and fixtures are read-only inputs; extraction and installs use only
-temporary homes. `--candidate` retains rebuilt PR regression behavior.
-The preparation run invokes the same harness with `--candidate-acceptance`,
-which labels the Evidence gate `candidate-acceptance`; publication accepts no
-other gate. Windows proxy and Linux arm64 acceptance remain separate slices.
 
 A stable release must be published from its release commit. A release
 candidate may be published from any `main` revision that does not record a
