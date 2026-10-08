@@ -26,6 +26,19 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.10.0](https://github.com/rgomids/axiom/compare/v0.9.0...v0.10.0) (2026-10-08)
+
+
+### Features
+
+* **lifecycle:** complete MVP resource lifecycle ([#230](https://github.com/rgomids/axiom/issues/230)) ([#268](https://github.com/rgomids/axiom/issues/268)) ([bc624c5](https://github.com/rgomids/axiom/commit/bc624c5e1e7e2828b2c9b2f8c7e6bcbb6f6562ae))
+* **workflow:** bind reviewed starts to validated Work Item targets ([#267](https://github.com/rgomids/axiom/issues/267)) ([ca7a339](https://github.com/rgomids/axiom/commit/ca7a3392a549c57793db0916a3aadc8b0d9c0e17))
+
+
+### Bug Fixes
+
+* **installer:** configure default Windows onboarding with approved repairs ([#266](https://github.com/rgomids/axiom/issues/266)) ([ce1450a](https://github.com/rgomids/axiom/commit/ce1450a7b0781e213092623d5abe1e684719f7fb))
+
 ## [0.9.0](https://github.com/rgomids/axiom/compare/v0.8.0...v0.9.0) (2026-10-08)
 
 
