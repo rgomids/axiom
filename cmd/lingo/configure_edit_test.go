@@ -244,7 +244,9 @@ func TestEditPreviewRepairsBrokenBindingWithoutAvailabilityGate(t *testing.T) {
 	if err := os.Remove(env.web); err != nil {
 		t.Fatal(err)
 	}
-	runCanonicalCLI(t, env.service, []string{"project", "show", "--selector", "sample"}, cli.ExitFailure, "retryable_failure", "Project repository is unavailable")
+	if shown := showProjectEvent(t, env.service, "sample"); shown.Project.Repository("web").Availability != "unavailable" || shown.Project.Repository("api").Availability != "available" {
+		t.Fatalf("show with a broken binding = %+v", shown.Project)
+	}
 	removed, _ := env.runEdit(t, cli.ExitSuccess, "success", "Project edit preview ready", "--project", "sample", "--remove-repository", "web")
 	if got := effectList(removed.Edit.Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_repository:web", "local:update_local_record", "local:remove_local_binding:web"}) {
 		t.Fatalf("broken binding removal effects = %v", got)
@@ -477,8 +479,11 @@ func TestEditFailsClosedOnUnsafeOrIncoherentRecordedSource(t *testing.T) {
 func TestEditFailsClosedOnStalePortableLocalRelationship(t *testing.T) {
 	env := newEditEnvironment(t)
 	// The legacy update changes only the portable manifest, leaving the local
-	// record's recorded portable revision stale.
-	runCLI(t, env.service, []string{"project", "update", "--slug", "sample", "--name", "Changed"}, cli.ExitSuccess, "applied")
+	// record's recorded portable revision stale. The CLI now refuses it for an
+	// installed Project, so the stale relationship is produced at the use case.
+	if result := env.service.(lifecycleService).lifecycle.Update(context.Background(), projectapp.UpdateRequest{Slug: "sample", Name: "Changed"}); result.Status != projectapp.LifecycleApplied {
+		t.Fatalf("direct portable update = %+v", result)
+	}
 	env.runEdit(t, cli.ExitFailure, "failure", "Selected Project state is not safe to edit", "--project", "sample", "--name", "Renamed")
 }
 

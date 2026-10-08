@@ -52,6 +52,21 @@ func (s InstallationStore) Resolve(ctx context.Context, selector string) Resolut
 	return result
 }
 
+// SelectForInspection is Resolve without per-Repository binding validation:
+// it applies the exact selection and the Project source rule only, so an
+// inspection can report each Repository's availability instead of failing the
+// whole Project on one broken binding (Issue #230).
+func (s InstallationStore) SelectForInspection(ctx context.Context, selector string) ResolutionResult {
+	result := s.Select(ctx, selector)
+	if result.Status != ResolutionFound {
+		return result
+	}
+	if !availableDirectory(result.Project.Source) {
+		return failedResolution("project_source_unavailable")
+	}
+	return result
+}
+
 // Select performs the same exact UUID/slug selection as Resolve without
 // checking per-binding availability, so an edit can repair or remove a broken
 // binding. Callers remain responsible for source confinement and safe loading.

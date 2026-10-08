@@ -175,7 +175,10 @@ type Result struct {
 	Operational *projectapp.OperationalPreview
 	// Integrations is the #230 Integration inventory, show or static
 	// validation report (integration list|show|validate).
-	Integrations  *projectapp.IntegrationReport
+	Integrations *projectapp.IntegrationReport
+	// ProjectState is the machine-local operational status reported beside a
+	// selector-based Project validation.
+	ProjectState  *ProjectStateView
 	PreviewDigest string
 	Runtime       *RuntimeView
 	Bootstrap     *BootstrapView
@@ -233,17 +236,23 @@ type BootstrapView struct {
 type RepositoryView struct {
 	Key  string `json:"key"`
 	Path string `json:"path"`
+	// Availability is reported by project show only: available or unavailable.
+	Availability string `json:"availability,omitempty"`
 }
 type ProjectView struct {
 	ID           string           `json:"id"`
 	Slug         string           `json:"slug"`
 	Source       string           `json:"source"`
 	Repositories []RepositoryView `json:"repositories"`
+	// State is the machine-local operational status (project show only).
+	State *ProjectStateView `json:"state,omitempty"`
 }
 type ProjectListView struct {
 	ID   string `json:"id"`
 	Slug string `json:"slug"`
 	Name string `json:"name"`
+	// Status is active, archived, invalid or recovery_required.
+	Status string `json:"status,omitempty"`
 }
 type WorkItemView struct {
 	ProjectID     string `json:"projectId"`
@@ -324,6 +333,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	if operation, rest, ok := integrationAction(args); ok {
 		return runIntegration(ctx, mode, operation, rest, service, source, stdout)
+	}
+	if handled, code := runProjectLifecycle(ctx, mode, args, service, source, stdout); handled {
+		return code
 	}
 	if len(args) >= 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
 		values, ok := flags(configureAction, args[2:])

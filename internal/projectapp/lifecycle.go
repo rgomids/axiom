@@ -234,6 +234,35 @@ func (l Lifecycle) Update(ctx context.Context, request UpdateRequest) LifecycleR
 	return result(l.store.Update(ctx, request.Slug, manifest, encoded))
 }
 
+// ExplicitEditRequired is the stable category of a legacy by-slug update that
+// would desynchronize an installed Project (Issue #230).
+const ExplicitEditRequired = "explicit_edit_required"
+
+// UpdateUninstalled is the legacy POC update restricted to Projects that have
+// no installation on this machine. Writing portable state by slug leaves an
+// installed Project's installation record stale (readiness installation_stale),
+// so an installed, or ambiguously installed, slug is refused with zero writes
+// and the explicit EDIT path is named by the caller. Unreadable local state
+// fails closed.
+func (l Lifecycle) UpdateUninstalled(ctx context.Context, selection AdmissionSelector, request UpdateRequest) LifecycleResult {
+	if l.invalid() || selection == nil {
+		return failed("application_unavailable")
+	}
+	if !project.ValidSlug(request.Slug) || request.Name == "" {
+		return failed("invalid_input")
+	}
+	_, category := selection.SelectProjectID(ctx, request.Slug)
+	switch category {
+	case "project_not_found":
+		return l.Update(ctx, request)
+	case "", "project_ambiguous":
+		return failed(ExplicitEditRequired)
+	case "cancelled":
+		return LifecycleResult{Status: LifecycleCancelled, Category: "cancelled"}
+	}
+	return failed(category)
+}
+
 func (l Lifecycle) invalid() bool { return l.store == nil || l.codec == nil || l.ids == nil }
 
 func minimal(p project.Project) bool {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -19,6 +20,7 @@ type readinessCompletionEvent struct {
 	Readiness *projectapp.ReadinessReport    `json:"readiness,omitempty"`
 	Preflight *projectapp.OperationReadiness `json:"preflight,omitempty"`
 	Admission *projectapp.AdmissionDecision  `json:"admission,omitempty"`
+	State     *ProjectStateView              `json:"state,omitempty"`
 }
 
 func emitReadinessCompletion(writer io.Writer, mode outputMode, result completion.Result, response Result) int {
@@ -48,6 +50,9 @@ func emitReadinessCompletion(writer io.Writer, mode outputMode, result completio
 				fmt.Fprintf(&extra, "warning: %s %s\n", warning.Code, warning.Subject)
 			}
 		}
+		if state := response.ProjectState; state != nil {
+			renderProjectState(&extra, "project-state", state)
+		}
 		if response.Preflight != nil {
 			renderOperation(&extra, *response.Preflight)
 		}
@@ -57,7 +62,7 @@ func emitReadinessCompletion(writer io.Writer, mode outputMode, result completio
 		content = append(content, extra.Bytes()...)
 	} else {
 		base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-		wire, err := json.Marshal(readinessCompletionEvent{completionEvent: base, Readiness: response.Readiness, Preflight: response.Preflight, Admission: response.Admission})
+		wire, err := json.Marshal(readinessCompletionEvent{completionEvent: base, Readiness: response.Readiness, Preflight: response.Preflight, Admission: response.Admission, State: response.ProjectState})
 		if err != nil {
 			return ExitFailure
 		}
@@ -77,4 +82,12 @@ func renderOperation(output *bytes.Buffer, operation projectapp.OperationReadine
 	for _, blocker := range operation.Blockers {
 		fmt.Fprintf(output, "blocker: %s %s %s\n", blocker.Code, blocker.Subject, blocker.Detail)
 	}
+}
+
+func renderProjectState(output *bytes.Buffer, label string, state *ProjectStateView) {
+	fmt.Fprintf(output, "%s: %s", label, state.Status)
+	if state.Operational != nil {
+		fmt.Fprintf(output, " disabled=[%s]", strings.Join(state.Operational.DisabledIntegrations, ","))
+	}
+	output.WriteString("\n")
 }
