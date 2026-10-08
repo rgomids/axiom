@@ -107,3 +107,22 @@ share gate guidance while preserving reviewed Runtime/Profile start and Project
 readiness. Gate fixtures seed an existing Execution; runtime-policy tests retain
 coverage of production start authorization. Both skills have argument-discovery
 coverage, and previous skill receipts remain recognized during upgrade.
+
+Verification of integrated commit `2794fd5` in a native Linux checkout:
+
+- `go test -race ./...`, `go vet ./...`, `go build ./...` and
+  `go mod verify`: passed.
+- Windows amd64 and Darwin arm64 cross-compilation: passed.
+- Domain and application architecture profiles: passed. The application-profile
+  limitation recorded for the initial base no longer applies.
+- Repository validation: passed. Real installed Runtime behavioral scenarios
+  remain explicitly unverified.
+- Bounded fake-Provider dogfood: passed with eight global skills, reviewed
+  Runtime/Profile preview, completed workflow and revision 17.
+- Staged sensitive-file checks and diff whitespace checks: passed.
+
+The second review rechecked all five acceptance criteria, domain/alias command
+convergence, explicit authority, negative paths, receipt ownership, documentation
+and the diff against main. No new blocking finding remains. Remote CI for the
+updated head is separate evidence and must be observed on the PR; these checks
+neither grant human acceptance nor authorize release publication.
