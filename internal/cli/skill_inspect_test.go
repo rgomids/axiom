@@ -113,7 +113,7 @@ func TestSkillDiscoveryExactCommands(t *testing.T) {
 func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 	show := discoverForTest(t, "axiom-project-show").Commands[0]
 	selector := findArgument(t, show, "--selector")
-	if !selector.Required || selector.RequiredWhen != "" || !strings.Contains(selector.Description, "Project identity") || !reflect.DeepEqual(selector.AcceptedForms, []string{"--selector <uuid-or-slug>", "--selector=<uuid-or-slug>"}) {
+	if selector.Required || selector.RequiredWhen != "no effective Project context is available" || !strings.Contains(selector.Description, "Project identity") || !reflect.DeepEqual(selector.AcceptedForms, []string{"--selector <uuid-or-slug>", "--selector=<uuid-or-slug>"}) {
 		t.Fatalf("selector=%+v", selector)
 	}
 	if arg := findArgument(t, show, "--slug"); arg.Required || arg.RequiredWhen != "" {

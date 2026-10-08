@@ -188,7 +188,10 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 		t.Fatal(err)
 	}
 	runtimeBin := t.TempDir()
-	environment := append(os.Environ(), "HOME="+t.TempDir(), "PATH="+runtimeBin, "CLAUDE_CONFIG_DIR=", "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+statePath)
+	// os.UserHomeDir reads USERPROFILE on Windows and HOME on POSIX. Isolate
+	// both so a host Claude installation cannot satisfy this fixture's policy.
+	home := t.TempDir()
+	environment := append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "PATH="+runtimeBin, "CLAUDE_CONFIG_DIR=", "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+statePath)
 	type event struct {
 		canonicalEvent
 		Workflow *struct {

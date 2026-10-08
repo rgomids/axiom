@@ -94,14 +94,14 @@ func TestDocumentationResolverLocalFileBindings(t *testing.T) {
 		t.Fatalf("unbound %s", got)
 	}
 	// Replacing the file changes its identity: stale, never silently accepted.
-	if err := os.Remove(file); err != nil {
+	// Keep the original object alive so the filesystem cannot reuse its inode.
+	if err := os.Rename(file, file+".original"); err != nil {
 		t.Fatal(err)
 	}
 	if got := resolve(&binding); got != projectapp.DocumentationMissing {
 		t.Fatalf("missing %s", got)
 	}
 	keep := filepath.Join(dir, "keep.md")
-	mustWrite(t, keep)
 	mustWrite(t, file)
 	if got := resolve(&binding); got != projectapp.DocumentationStale {
 		t.Fatalf("replaced %s", got)
@@ -113,6 +113,7 @@ func TestDocumentationResolverLocalFileBindings(t *testing.T) {
 		t.Fatal("relative path accepted")
 	}
 	if runtime.GOOS != "windows" {
+		mustWrite(t, keep)
 		link := filepath.Join(dir, "link.md")
 		if err := os.Symlink(keep, link); err != nil {
 			t.Fatal(err)

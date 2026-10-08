@@ -4,7 +4,7 @@
 |---|---|
 | Issue | [#230](https://github.com/rgomids/axiom/issues/230) (Epic [#15](https://github.com/rgomids/axiom/issues/15)) |
 | Tasks | I230-T02–I230-T08 (I230-T01 delivered by PR #254) |
-| Base | `main` at `e47890731e8dd070baa5397b643a9ca6c07f5629` (v0.8.0) |
+| Base | `main` at `e47890731e8dd070baa5397b643a9ca6c07f5629` (v0.8.0); `main` at `b69fa83` (v0.9.0: #247, #259) merged in before review; validation re-run on the merge |
 | Branch | `feat/230-resource-lifecycle` |
 | Contract | [Lifecycle matrix](issue-230-resource-lifecycle-matrix.md) (frozen v1 plus §9 delivery reconciliation); [Specification 004](spec.md) FR-068–FR-084, AC-50–AC-61, J11–J16 |
 | Status | Technically complete, pending human review. Not merged, not released, not accepted. |

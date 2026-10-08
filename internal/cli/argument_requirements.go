@@ -17,7 +17,7 @@ type inputRequirement struct {
 
 func skillRequirements(operation action, v requestInput) []inputRequirement {
 	if operation == showAction || operation == resolveAction {
-		return []inputRequirement{{name: "selector", required: true, missing: v.selector == ""}}
+		return []inputRequirement{{name: "selector", when: "no effective Project context is available", applies: true, missing: v.selector == ""}}
 	}
 	if operation == configureAction {
 		return []inputRequirement{
@@ -39,7 +39,7 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 		return []inputRequirement{{name: "project", required: true, missing: v.project == ""}}
 	}
 	rules := []inputRequirement{
-		{name: "project", required: true, missing: v.project == ""},
+		{name: "project", when: "no effective Project context is available", applies: true, missing: v.project == ""},
 		{name: "repository", required: true, missing: v.repository == ""},
 	}
 	if operation == workItemCreateAction {
@@ -67,7 +67,9 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 		rules = append(rules, inputRequirement{name: "expected-revision", required: true, missing: v.expectedRevision == 0})
 	}
 	if operation == workflowAdvanceAction {
-		rules = append(rules, inputRequirement{name: "gate", required: true, missing: v.gate == ""}, inputRequirement{name: "outcome", required: true, missing: v.outcome == ""})
+		rules = append(rules,
+			inputRequirement{"gate", false, "--automatic is false or absent", !v.automatic, v.gate == ""},
+			inputRequirement{"outcome", false, "--automatic is false or absent", !v.automatic, v.outcome == ""})
 	}
 	if operation == workflowFactAction {
 		rules = append(rules, inputRequirement{name: "fact", required: true, missing: v.fact == ""}, inputRequirement{name: "reference", required: true, missing: v.reference == ""})

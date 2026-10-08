@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -240,6 +241,13 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err := profiles.Create(context.Background(), runtimeConfiguration(1)); err != nil {
 		t.Fatal(err)
 	}
+	contexts, err := NewInstallationStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := contexts.WriteProjectContext(context.Background(), "", validExecution().ProjectID); err != nil {
+		t.Fatal(err)
+	}
 	return portable, state
 }
 
@@ -279,6 +287,9 @@ func freezeSnapshot(corpus, label string, trees map[string]string, machine strin
 			if err != nil {
 				return err
 			}
+			// JSON escapes Windows backslashes; normalize that representation too.
+			escapedMachine, _ := json.Marshal(machine)
+			wire = []byte(strings.ReplaceAll(string(wire), string(escapedMachine[1:len(escapedMachine)-1]), corpusMachineRoot))
 			wire = []byte(strings.ReplaceAll(string(wire), machine, corpusMachineRoot))
 			logical := tree + "/" + filepath.ToSlash(relative)
 			digest := sha256.Sum256(wire)
@@ -413,5 +424,27 @@ func TestFreezeSnapshotPreservesEveryRepresentation(t *testing.T) {
 	}
 	if _, err := freeze("1.2.0"); err == nil {
 		t.Fatal("a snapshot label that does not name a release was accepted")
+	}
+}
+
+func TestFreezeSnapshotNormalizesWindowsJSONPaths(t *testing.T) {
+	source, corpus := t.TempDir(), filepath.Join(t.TempDir(), "corpus")
+	machine := `C:\synthetic-machine`
+	wire, err := json.Marshal(map[string]string{"location": machine + `\owned`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "fixture.json"), append(wire, '\n'), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := freezeSnapshot(corpus, "v0.8.1-issue233", map[string]string{"state": source}, machine); err != nil {
+		t.Fatal(err)
+	}
+	normalized, err := os.ReadFile(filepath.Join(corpus, "snapshots", "v0.8.1-issue233", "state", "fixture.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(normalized), corpusMachineRoot) || strings.Contains(string(normalized), "synthetic-machine") {
+		t.Fatalf("machine path retained: %s", normalized)
 	}
 }
