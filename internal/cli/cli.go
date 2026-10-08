@@ -313,6 +313,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		}
 		return emitResponse(stdout, mode, runtimeProfileValidateAction, profiles.RuntimeProfileValidate(ctx))
 	}
+	if handled, code := runWorkflowList(ctx, args, service, source, mode, stdout); handled {
+		return code
+	}
 	if operation, rest, ok := maintenanceAction(args); ok {
 		return runMaintenance(ctx, mode, operation, rest, service, source, stdout)
 	}
