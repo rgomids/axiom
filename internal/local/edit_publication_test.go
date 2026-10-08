@@ -398,3 +398,38 @@ func TestEditRecoveryStateCodecIsStrict(t *testing.T) {
 		t.Fatal("state whose next local wire does not match its revision was encoded")
 	}
 }
+
+// Review B-1: finalizing publishes content, so a chain that is no longer the
+// canonical one at the commit point publishes nothing and keeps the state.
+func TestEditRecoveryFinalizeRefusesReplacedChain(t *testing.T) {
+	f := newEditPublicationFixture(t)
+	request := f.request(t, "Renamed")
+	f.publisher(func(stage EditStage) error {
+		if stage == EditStagePortableCommitted {
+			return errors.New("injected")
+		}
+		return nil
+	}).PublishEdit(context.Background(), request)
+	plan := singlePlan(t, f.roots())
+	root, err := existingPrivateRoot(f.roots().State)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	chain := []*os.Root{root}
+	for _, part := range splitDirectory(plan.Directory) {
+		next, err := existingPrivateChild(chain[len(chain)-1], part)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer next.Close()
+		chain = append(chain, next)
+	}
+	result, err := applyEditRecovery(context.Background(), chain, plan, func() error { return ErrUnsafe })
+	if err == nil || len(result.Published) != 0 || len(result.Removed) != 0 {
+		t.Fatalf("replaced chain result = %+v err=%v", result, err)
+	}
+	if !bytes.Equal(fileBytes(t, f.recordPath()), request.LocalExpected) || len(f.editStates(t)) != 1 {
+		t.Fatal("replaced chain published or retired recovery state")
+	}
+}

@@ -539,7 +539,21 @@ func ApplyRecovery(ctx context.Context, roots RecoveryRoots, plan RecoveryPlan, 
 		return RecoveryResult{}, err
 	}
 	if current.Protocol == protocolProjectEdit {
-		return applyEditRecovery(ctx, chain, current)
+		// Finalizing publishes content, so the opened chain must still be the
+		// one visible at its canonical path at the commit point.
+		paths := []string{filepath.Clean(path)}
+		for _, part := range splitDirectory(plan.Directory) {
+			paths = append(paths, filepath.Join(paths[len(paths)-1], part))
+		}
+		stillCanonical := func() error {
+			for index, opened := range chain {
+				if err := stillAtPath(opened, paths[index]); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		return applyEditRecovery(ctx, chain, current, stillCanonical)
 	}
 	result := RecoveryResult{Action: plan.Action, Removed: []string{}}
 	if plan.Action == RestorePrior {

@@ -132,7 +132,7 @@ func observeEditPortable(projectsRoot string, state editRecoveryState) (Recovery
 
 // applyEditRecovery runs under the exclusive installation chain locks after
 // the fresh plan was proven identical to the authorized one.
-func applyEditRecovery(ctx context.Context, chain []*os.Root, plan RecoveryPlan) (RecoveryResult, error) {
+func applyEditRecovery(ctx context.Context, chain []*os.Root, plan RecoveryPlan, stillCanonical func() error) (RecoveryResult, error) {
 	result := RecoveryResult{Action: plan.Action, Removed: []string{}}
 	target := chain[len(chain)-1]
 	state, err := readEditRecoveryState(target, plan.Marker)
@@ -146,7 +146,7 @@ func applyEditRecovery(ctx context.Context, chain []*os.Root, plan RecoveryPlan)
 			if err != nil || hexDigest(current) != state.PriorLocalRevision {
 				return result, ErrConflict
 			}
-			if err := publishFile(ctx, target, installationRecord, current, state.NextLocalRecord, false, publicationHooks{}); err != nil {
+			if err := publishFile(ctx, target, installationRecord, current, state.NextLocalRecord, false, publicationHooks{beforeCommit: stillCanonical}); err != nil {
 				var publication *PublicationError
 				if errors.As(err, &publication) && publication.EffectCommitted() {
 					result.Published = append(result.Published, installationRecord)
@@ -158,6 +158,9 @@ func applyEditRecovery(ctx context.Context, chain []*os.Root, plan RecoveryPlan)
 			}
 			result.Published = append(result.Published, installationRecord)
 		}
+	}
+	if err := stillCanonical(); err != nil {
+		return result, ErrRecoveryRequired
 	}
 	if err := removeProtocolState(target, plan.Marker, publicationHooks{}); err != nil {
 		return result, ErrRecoveryRequired

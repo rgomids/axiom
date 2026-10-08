@@ -102,7 +102,7 @@ var workItemLifecycleTexts = map[string][2]string{
 	"invalid_work_item_title":         {"Work Item change input is invalid", "Provide bounded single-line text without control characters or surrounding whitespace"},
 	"invalid_work_item_comment":       {"Work Item comment is invalid", "Provide bounded text without control characters or surrounding whitespace"},
 	"work_item_document_unrecognized": {"Current Issue body does not have the Axiom section structure", "Update only the title, or edit the Issue in the Provider; nothing was changed"},
-	"provider_mutation_failed":        {"Provider change did not complete", "Preview again to observe current Provider state before retrying"},
+	"provider_mutation_failed":        {"Provider change did not complete", "Preview again to observe current Provider state; if the Provider already shows the change, refresh the link with work-item select"},
 	"provider_comment_ambiguous":      {"Provider comment outcome is uncertain", "Inspect the Issue comments before retrying; a retry may duplicate the comment"},
 	"work_item_change_cancelled":      {"Work Item operation cancelled", "Preview again when ready; no Provider change was issued"},
 	"work_item_list_exceeds_limit":    {"Too many linked Work Items to list at once", "Filter with --repository"},
@@ -110,7 +110,7 @@ var workItemLifecycleTexts = map[string][2]string{
 
 func workItemLifecycleText(result workitem.Result) (string, string, bool) {
 	if result.Change != nil && strings.HasPrefix(result.Category, "provider_confirmed_local_") || result.Category == "local_link_committed_recovery_required" && result.Change != nil {
-		return "Provider change confirmed but the local Work Item link was not updated", "Do not repeat the Provider change; inspect local state with recovery inspect, then preview again", true
+		return "Provider change confirmed but the local Work Item link was not updated", "Do not repeat the Provider change; run recovery inspect if it reports state, then refresh the link with work-item select", true
 	}
 	text, ok := workItemLifecycleTexts[result.Category]
 	return text[0], text[1], ok
