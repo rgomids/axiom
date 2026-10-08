@@ -275,6 +275,23 @@ A technical merge does not establish human acceptance. Acceptance does not autom
 
 Accepted submissions are licensed under [Apache-2.0](LICENSE), unless explicitly stated otherwise. Contributors must hold the rights necessary to submit their content; identify any different licensing explicitly for review.
 
+## Product planning and GitHub issue tracking
+
+Axiom's Linear team `AXM` owns **product** planning (epics, user-facing
+outcomes, priorities, target dates and milestones). GitHub Issues retain
+**technical** Work Items (including bugs, implementation tasks, research and
+engineering epics); Specifications, ADRs, implementation, Evidence and releases
+remain versioned in the repository. A Linear card may map to several GitHub
+Issues; GitHub-only engineering work does not require a Linear copy.
+
+Follow the [Linear and GitHub issue tracking policy](docs/development/linear-github-issue-tracking.md)
+when creating or connecting work. For PRs that advance a mapped Linear card,
+include a relation-only reference such as `Relates to AXM-123` in addition to
+the **required** GitHub `Related-Issues` / `Completes-Issues` metadata described
+below. This reference links a PR without authorizing status changes or Issue
+closure. Do not assume the integration is enabled; setup and automation must be
+separately reviewed and verified.
+
 ## Delivery tracking
 
 Issues stay open until the functionality they describe is published in a
