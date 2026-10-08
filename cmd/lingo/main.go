@@ -638,9 +638,6 @@ func (s lifecycleService) configureEdit(ctx context.Context, input cli.Configure
 	if input.Slug != "" {
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit input is invalid", nil, "Remove --slug; Project rename is not supported", s.provenance)
 	}
-	if input.ProjectID != "" || input.PreviewDigest != "" || input.AuthorizeLocal {
-		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit publication is not available", nil, "Remove --project-id, --preview-digest, and --authorize-local; edit only previews", s.provenance)
-	}
 	intent := projectapp.EditIntent{
 		Selector:               input.Project,
 		Name:                   projectapp.OptionalText{Supplied: input.NameSupplied, Value: input.Name},
@@ -650,6 +647,23 @@ func (s lifecycleService) configureEdit(ctx context.Context, input cli.Configure
 	}
 	for _, repository := range input.Repositories {
 		intent.RepositoryUpserts = append(intent.RepositoryUpserts, projectapp.RepositoryUpsert{Key: repository.Key, Path: repository.Path})
+	}
+	return s.projectEdit(ctx, intent, editReplay{ProjectID: input.ProjectID, PreviewDigest: input.PreviewDigest, AuthorizeLocal: input.AuthorizeLocal})
+}
+
+// editReplay carries the exact-authority replay inputs of a reviewed EDIT
+// preview. Every Project-owned edit (configure --project, Repository
+// association maintenance, Integration remove) enters through projectEdit.
+type editReplay struct {
+	ProjectID, PreviewDigest string
+	AuthorizeLocal           bool
+}
+
+func (r editReplay) supplied() bool { return r.ProjectID != "" || r.PreviewDigest != "" || r.AuthorizeLocal }
+
+func (s lifecycleService) projectEdit(ctx context.Context, intent projectapp.EditIntent, replay editReplay) cli.Result {
+	if replay.supplied() {
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit publication is not available", nil, "Remove --project-id, --preview-digest, and --authorize-local; edit only previews", s.provenance)
 	}
 	ports := projectapp.EditPorts{
 		Source:    editSource{installation: s.installation, portable: s.portable, stateRoot: s.stateRoot},
