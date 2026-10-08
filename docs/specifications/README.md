@@ -302,3 +302,12 @@ Issue [#230](https://github.com/rgomids/axiom/issues/230) freezes its
 (I230-T01). It records current vs approved target lifecycle, ownership, effect
 and authority for Project, Repository association, Work Item, Execution and
 Integration. It delivers no behavior and does not authorize I230-T02 or later Tasks.
+
+## Safe Work Item Execution Targeting — Issue #137
+
+The approved [Specification/Plan/Tasks amendment](004-mvp-v1-baseline/issue-137-execution-targeting.md)
+implements explicit Work Item selection, #233 effective Project resolution,
+validated target disclosure and target-bound reviewed workflow start.
+[Implementation Evidence](004-mvp-v1-baseline/evidence-issue-137.md) records local
+validation and limitations; engineering review and human acceptance remain separate
+from merge, publication and Issue closure.

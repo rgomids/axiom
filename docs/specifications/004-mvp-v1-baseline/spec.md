@@ -1619,3 +1619,12 @@ This decision authorizes Specification/Plan/Tasks reconciliation only. It does
 not authorize implementation, migration effects, release publication, merge, or
 Issue closure. The reconciled Plan/Tasks remain reviewable artifacts before
 implementation authority is granted.
+
+### Issue #137 execution-targeting amendment — 2026-10-08
+
+[Safe Work Item Execution Targeting](issue-137-execution-targeting.md) records the
+approved bounded Specification/Plan/Tasks: explicit Work Item, effective Project
+precedence from #233, Project-scoped linkage validation, target disclosure and
+target-bound reviewed start. Existing Execution v1, Runtime policy, Provider and
+authority contracts remain intact. [Evidence](evidence-issue-137.md) maps the
+implementation and validation separately from human acceptance.

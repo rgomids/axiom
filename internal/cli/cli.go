@@ -165,6 +165,7 @@ type Result struct {
 	Setup             *projectapp.SetupPreview
 	Edit              *projectapp.EditPreview
 	RuntimeResolution *runtimeapplication.Preview
+	ExecutionTarget   *ExecutionTargetView
 	// Readiness is the canonical Project readiness report (project validate);
 	// Preflight is the operation projection that blocked an effect.
 	Readiness     *projectapp.ReadinessReport
@@ -304,7 +305,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 			return emitResponse(stdout, mode, "project_context", response)
 		}
 		var failure *Result
-		args, failure = effectiveProjectArgs(ctx, args, contextual)
+		ctx, args, failure = effectiveProjectArgs(ctx, args, contextual)
 		if failure != nil {
 			return emitResponse(stdout, mode, "project_context", *failure)
 		}

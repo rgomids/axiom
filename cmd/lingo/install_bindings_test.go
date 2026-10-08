@@ -115,6 +115,7 @@ func TestAuthoredPolicyPreviewThenStartBothRuntimes(t *testing.T) {
 			}
 			// Only one Runtime is observable; the other declared one is absent.
 			service, _ := testRuntime(t, env.service.(lifecycleService), runtimeID)
+			saveTargetLink(t, env.state, "123e4567-e89b-42d3-a456-426614174000", "7", "owner/repo")
 			input := cli.WorkflowInput{Project: "authored", Repository: "main", Number: 7, Role: "review", Complexity: "low", Capabilities: []string{runtimeadapter.IntegrationCapability}}
 			preview := service.WorkflowStart(context.Background(), input)
 			if preview.RuntimeResolution == nil || preview.RuntimeResolution.Choice == nil || preview.RuntimeResolution.Choice.RuntimeID != runtimeID || preview.RuntimeResolution.Choice.ModelProfileID != profile || preview.Workflow != nil || preview.PreviewDigest == "" {
@@ -122,9 +123,8 @@ func TestAuthoredPolicyPreviewThenStartBothRuntimes(t *testing.T) {
 			}
 			input.RuntimePreview = preview.PreviewDigest
 			started := service.WorkflowStart(context.Background(), input)
-			// No Work Item is linked here, so the workflow ledger refuses after the
-			// reviewed policy passed: the failure is not a Runtime resolution one.
-			if started.RuntimeResolution != nil {
+			// The linked target and reviewed policy produce the selected Runtime.
+			if started.RuntimeResolution != nil || started.Workflow == nil || started.Workflow.RuntimeID != runtimeID {
 				t.Fatalf("reviewed start still blocked by policy: %+v", started.RuntimeResolution)
 			}
 		})

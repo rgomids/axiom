@@ -276,6 +276,17 @@ policy_inputs=(--role implementation --complexity high --capabilities axiom-skil
 # conducts the workflow; it narrows the policy and never widens it.
 start_args=(workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime codex)
 
+# Target validation now precedes Runtime policy review (#137). Link the explicit
+# synthetic issue into this second Project before testing its absent policy;
+# otherwise the test would stop at work_item_not_linked instead of policy.
+selection_args=(work-item select --project dogfood-configured --repository main --provider-repository owner/repo --number 7)
+axiom --json "${selection_args[@]}" >"$temporary/unconfigured-selection-preview.json"
+assert_canonical "$temporary/unconfigured-selection-preview.json" success "GitHub Work Item selection ready for review"
+selection_digest=$(sed -n 's/.*"digest":"\([0-9a-f]*\)".*/\1/p' "$temporary/unconfigured-selection-preview.json")
+[[ ${#selection_digest} == 64 ]]
+axiom --json "${selection_args[@]}" --preview-digest "$selection_digest" --authorize-local >"$temporary/unconfigured-selection.json"
+assert_canonical "$temporary/unconfigured-selection.json" success "GitHub Work Item linked"
+
 # No configured policy, no explicitly allowed-and-observed Runtime and no
 # capability Lingo cannot prove ever falls back to Codex.
 assert_runtime_blocked unconfigured policy_unconfigured \
