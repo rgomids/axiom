@@ -169,7 +169,10 @@ type Result struct {
 	Preflight *projectapp.OperationReadiness
 	// Admission is the #230 central admission decision that denied an
 	// operation before its readiness and effects.
-	Admission     *projectapp.AdmissionDecision
+	Admission *projectapp.AdmissionDecision
+	// Operational is the #230 machine-local operational-state preview of a
+	// Project archive/reactivate or Integration disable/enable request.
+	Operational   *projectapp.OperationalPreview
 	PreviewDigest string
 	Runtime       *RuntimeView
 	Bootstrap     *BootstrapView
@@ -426,6 +429,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 	if response.Completion != nil {
 		if response.RuntimeResolution != nil {
 			return emitRuntimeResolutionCompletion(writer, mode, *response.Completion, response)
+		}
+		if response.Operational != nil {
+			return emitOperationalCompletion(writer, mode, *response.Completion, response)
 		}
 		if response.Readiness != nil || response.Preflight != nil || response.Admission != nil {
 			return emitReadinessCompletion(writer, mode, *response.Completion, response)
