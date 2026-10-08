@@ -9,8 +9,8 @@ application gate guidance, the shared CLI adapter and the compatible Runtime run
 skill; no new per-gate skills, state format or Provider mutation is introduced.
 
 The domain surface from [#229](https://github.com/rgomids/axiom/issues/229)
-now routes the "axiom-work-item" run operation to the same gate commands as
-the compatible "axiom-work-item-run" alias. Both preserve the reviewed
+now routes the `axiom-work-item` run operation to the same gate commands as
+the compatible `axiom-work-item-run` alias. Both preserve the reviewed
 Runtime/Profile start protocol introduced by #140 and bootstrap readiness from
 #231. Gate guidance applies after an authorized Execution start.
 
@@ -98,12 +98,11 @@ Provider authority. It added strict rejection of empty conflicting automatic
 arguments, a test executing every returned command through the journey, and
 discovery/parser convergence for the conditional automatic-mode arguments.
 No new blocking correctness/security finding remains in this bounded scope.
-Final domain-skill integration after #229, remote CI, native Windows/macOS test
-execution and real installed Runtime behavior remain unverified or pending.
+At this initial revision, domain-skill integration and remote CI were pending.
 
 ## Main integration — 2026-10-07
 
-Updated against "e478907" (main, v0.8.0). Domain and compatible run skills
+Updated against `e478907` (main, v0.8.0). Domain and compatible run skills
 share gate guidance while preserving reviewed Runtime/Profile start and Project
 readiness. Gate fixtures seed an existing Execution; runtime-policy tests retain
 coverage of production start authorization. Both skills have argument-discovery
