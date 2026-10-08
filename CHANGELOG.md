@@ -4,6 +4,9 @@
 
 ### Features
 
+- Effective Project context with a persistent local default, isolated session
+  override, explicit-selector precedence and fixed Execution binding (#233).
+
 - Project Runtime/Profile policy v2, explicit legacy-v1 projection, inspectable
   pre-execution selection and stale-decision blocking ([#140](https://github.com/rgomids/axiom/issues/140)).
 - Lingo observes Runtimes itself: executable identity without running it, and

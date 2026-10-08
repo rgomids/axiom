@@ -17,7 +17,7 @@ type inputRequirement struct {
 
 func skillRequirements(operation action, v requestInput) []inputRequirement {
 	if operation == showAction || operation == resolveAction {
-		return []inputRequirement{{name: "selector", required: true, missing: v.selector == ""}}
+		return []inputRequirement{{name: "selector", when: "no effective Project context is available", applies: true, missing: v.selector == ""}}
 	}
 	if operation == configureAction {
 		return []inputRequirement{
@@ -30,7 +30,7 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 		return nil
 	}
 	rules := []inputRequirement{
-		{name: "project", required: true, missing: v.project == ""},
+		{name: "project", when: "no effective Project context is available", applies: true, missing: v.project == ""},
 		{name: "repository", required: true, missing: v.repository == ""},
 	}
 	if operation == workItemCreateAction {

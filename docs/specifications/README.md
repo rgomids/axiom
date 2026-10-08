@@ -31,6 +31,12 @@ release publication remain separate decisions.
 
 ## 002 — Lingo Project Initialization
 
+[Effective Project context (#233)](002-lingo-project-initialization/effective-project-context.md)
+records local default/session selection and Execution binding;
+[Evidence](002-lingo-project-initialization/evidence-issue-233.md) maps the
+acceptance criteria to tests. Implementation is local and reviewable; human
+acceptance, merge and release remain separate.
+
 First active vertical slice, in incremental implementation. Current lifecycle,
 reconciled on 2026-09-18 against versioned artifacts, merged PRs and POC issues:
 

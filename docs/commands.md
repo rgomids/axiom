@@ -1,5 +1,39 @@
 # Project Commands
 
+## Effective Project context
+
+Project inspection, Work Item, Runtime preview and workflow operations resolve
+an omitted Project as session override, then persistent local default. An
+explicit selector always wins and never writes preferences. A stale winning
+selector fails instead of inferring a Project from CWD or Git.
+
+```bash
+axiom --json project context default-set --selector my-project --authorize-local
+axiom --json project context show
+axiom --json --session codex-session-42 project context session-set --selector other-project --authorize-local
+axiom --json --session codex-session-42 project context show
+axiom --json --session codex-session-42 project show
+axiom --json --session codex-session-42 project show --selector my-project
+axiom --json --session codex-session-42 project context session-end --authorize-local
+axiom --json project context default-clear --authorize-local
+```
+
+Use a different caller-provided ID for every new Runtime session. IDs contain
+1–128 ASCII letters, digits, hyphens or underscores. Without `--session`, the
+operation uses only the local default or explicit selector. `session-clear`
+also resets an override. `session-end` clears Axiom's selection, without ending
+the Runtime conversation. New sessions inherit the local default. Preferences
+hold UUIDs in native machine/user-local state, outside portable configuration.
+
+`context show` exposes `effective`, `source`, `default` and `session`; use
+`--selector` to inspect an explicit effective choice. A workflow's Execution
+captures its original Project UUID. After changing context, name that original
+Project explicitly when inspecting/resuming the Execution. All existing
+readiness, preview and mutation-authority requirements continue to apply.
+
+See the [contract and plan](specifications/002-lingo-project-initialization/effective-project-context.md)
+and [validation Evidence](specifications/002-lingo-project-initialization/evidence-issue-233.md).
+
 Execute estes comandos na raiz do repositório.
 
 ## Inspect skill arguments
