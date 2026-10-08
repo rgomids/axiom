@@ -286,14 +286,21 @@ func completeDraft() DraftInput {
 	}
 }
 
-type fakeResolver struct{ provider string }
+type fakeResolver struct {
+	provider     string
+	repositories []Repository
+}
 
 func (r fakeResolver) Resolve(context.Context, string) (Project, string) {
 	provider := r.provider
 	if provider == "" {
 		provider = "github"
 	}
-	return Project{ID: "123e4567-e89b-42d3-a456-426614174000", Provider: provider, Repositories: []Repository{{Key: "main", Path: "/unused"}}}, ""
+	repositories := r.repositories
+	if repositories == nil {
+		repositories = []Repository{{Key: "main", Path: "/unused"}}
+	}
+	return Project{ID: "123e4567-e89b-42d3-a456-426614174000", Provider: provider, Repositories: repositories}, ""
 }
 
 type fakeCapability struct {

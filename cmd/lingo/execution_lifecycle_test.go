@@ -89,6 +89,17 @@ func TestWorkflowListEnumeratesDeterministicallyAndFilters(t *testing.T) {
 	if len(again.Executions) != 3 {
 		t.Fatalf("filtered = %+v", again)
 	}
+	// A record of another Repository key sorts first unfiltered and is
+	// excluded by the main filter.
+	seedExecution(t, env, "api", "1", "018f4a44-7c31-7dd4-9d00-000000000004")
+	seeded = snapshotTrees(t, env.root, env.state, env.workspace)
+	_, all := runList(t, env)
+	if len(all.Executions) != 4 || all.Executions[0].RepositoryKey != "api" || all.Executions[1].RepositoryKey != "main" {
+		t.Fatalf("cross-repository order = %+v", all.Executions)
+	}
+	if _, main := runList(t, env, "--repository", "main"); len(main.Executions) != 3 || main.Executions[0].RepositoryKey != "main" {
+		t.Fatalf("main filter = %+v", main.Executions)
+	}
 	service := env.service.(lifecycleService)
 	unknown := service.WorkflowList(context.Background(), cli.ExecutionListInput{Project: "guarded", Repository: "nope"})
 	if unknown.Listed || unknown.Result.Category != "repository_not_configured" {

@@ -203,3 +203,13 @@ func TestAdmissionDenialIsTheSameThroughTheCLIEntrypoint(t *testing.T) {
 		t.Fatal("CLI denial invoked the Provider")
 	}
 }
+
+// Positive control for the Provider spy: an admitted, authorized Provider
+// operation does reach the stub, so every zero-call assertion above can fail.
+func TestProviderSpyRecordsAdmittedProviderCalls(t *testing.T) {
+	env := newAdmissionEnv(t)
+	env.service.(lifecycleService).WorkItemSelect(context.Background(), cli.WorkItemInput{Project: "guarded", Repository: "main", ProviderRepository: "owner/repo", Number: 1})
+	if !env.providerCalled() {
+		t.Fatal("admitted Work Item select never reached the Provider spy")
+	}
+}

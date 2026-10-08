@@ -141,6 +141,33 @@ func TestListEnumeratesLocalLinksOnlyInDeterministicOrder(t *testing.T) {
 	}
 }
 
+func TestListFiltersByRepositoryAndOrdersAcrossRepositories(t *testing.T) {
+	provider, store := &fakeCapability{}, newFakeStore()
+	seedLink(store, "main", "owner/repo", "1", OpenState)
+	seedLink(store, "api", "owner/api", "9", OpenState)
+	seedLink(store, "api", "owner/api", "10", OpenState)
+	service := New(fakeResolver{repositories: []Repository{{Key: "main", Path: "/unused"}, {Key: "api", Path: "/unused"}}}, provider, provider, store, testProvenance())
+	keys := func(result Result) []string {
+		values := []string{}
+		for _, link := range result.Links {
+			values = append(values, link.RepositoryKey+"#"+link.ExternalID)
+		}
+		return values
+	}
+	if all := service.List(context.Background(), ListTarget{ProjectSelector: "sample"}); !reflect.DeepEqual(keys(all), []string{"api#9", "api#10", "main#1"}) {
+		t.Fatalf("unfiltered order = %v", keys(all))
+	}
+	if filtered := service.List(context.Background(), ListTarget{ProjectSelector: "sample", RepositoryKey: "main"}); !reflect.DeepEqual(keys(filtered), []string{"main#1"}) {
+		t.Fatalf("filtered = %v", keys(filtered))
+	}
+	if filtered := service.List(context.Background(), ListTarget{ProjectSelector: "sample", RepositoryKey: "api"}); !reflect.DeepEqual(keys(filtered), []string{"api#9", "api#10"}) {
+		t.Fatalf("filtered api = %v", keys(filtered))
+	}
+	if providerCalls(provider) != 0 {
+		t.Fatal("list called the Provider")
+	}
+}
+
 func TestUpdatePreviewsCurrentProviderDocumentAndRequiresReviewedAuthority(t *testing.T) {
 	provider, store := &fakeCapability{}, newFakeStore()
 	seedLink(store, "main", "owner/repo", "7", OpenState)
