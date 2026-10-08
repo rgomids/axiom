@@ -114,6 +114,7 @@ Run on 2026-10-08, macOS darwin/arm64, Go 1.26.1, at the PR head:
 | Runtime skills | `bash scripts/test-codex-skills.sh` | 0 |
 | Whitespace | `git diff --check e478907 HEAD` | 0 |
 | Secrets | `gitleaks dir .` | 0 |
+| After merging v0.9.0 | gofmt, native and Windows build, vet, `go test ./...`, `go test -race ./...`, `validate-repository.sh` | 0 |
 
 Not executed: Windows/Linux test runs, real GitHub, real Codex/Claude Runtime.
 
