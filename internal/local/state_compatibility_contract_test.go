@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
@@ -127,7 +128,7 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 			observed[entry.Kind] = true
 		}
 	}
-	for _, kind := range V1Kinds() {
+	for _, kind := range append(V1Kinds(), AdditiveKinds()...) {
 		if !observed[kind] {
 			t.Errorf("v1 kind %s is not produced by any writer in writeEveryV1Kind: exercise its store here", kind)
 		}
@@ -186,6 +187,14 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	}
 	if got := installations.Install(context.Background(), source); got.Status != InstallationApplied {
 		t.Fatalf("install = %+v", got)
+	}
+	operational, err := NewOperationalStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archivedState := projectapp.OperationalState{ProjectStatus: projectapp.ProjectArchived, DisabledIntegrations: []string{"work-items"}}
+	if err := operational.CommitOperational(context.Background(), "123e4567-e89b-42d3-a456-426614174000", projectapp.OperationalRevisionAbsent, archivedState); err != nil {
+		t.Fatal(err)
 	}
 
 	workItems, err := NewWorkItemStore(state)

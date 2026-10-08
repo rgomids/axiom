@@ -41,6 +41,7 @@ const (
 	InventoryCoordination     InventoryKind = "coordination_stream"
 	InventoryRuntimeProfile   InventoryKind = "runtime_profile_configuration"
 	InventoryPortableManifest InventoryKind = "portable_manifest"
+	InventoryOperational      InventoryKind = "project_operational_state"
 	InventoryPOCWorkflow      InventoryKind = "poc_workflow"
 	InventoryRecovery         InventoryKind = "recovery_state"
 	InventoryNewer            InventoryKind = "unsupported_newer"
@@ -53,7 +54,7 @@ const (
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile:
+	case InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryOperational:
 		return true
 	}
 	return false
@@ -67,9 +68,20 @@ var v1Kinds = []InventoryKind{InventoryInstallation, InventoryWorkItem, Inventor
 // V1Kinds returns a copy of the canonical persisted-state v1 kinds.
 func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...) }
 
+// additiveKinds are v1 state-root records introduced after the latest frozen
+// stable corpus snapshot. They are supported and writer-tested like v1Kinds,
+// but FR-026 assigns their freeze to release acceptance: the first stable
+// release shipping one declares it and freezes it with
+// AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds.
+var additiveKinds = []InventoryKind{InventoryOperational}
+
+// AdditiveKinds returns a copy of the supported kinds awaiting their first
+// stable-corpus freeze.
+func AdditiveKinds() []InventoryKind { return append([]InventoryKind(nil), additiveKinds...) }
+
 // Supported reports kinds a v1 reader accepts or the POC signature recognizes.
 func (k InventoryKind) Supported() bool {
-	return k == InventoryPOCWorkflow || slices.Contains(v1Kinds, k)
+	return k == InventoryPOCWorkflow || slices.Contains(v1Kinds, k) || slices.Contains(additiveKinds, k)
 }
 
 type InventoryEntry struct {
@@ -189,14 +201,23 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 					return w.add(relative, InventoryUnknown, nil)
 				}
 				return eachFile(w, projects, id, relative, func(file, fileRelative string) (InventoryKind, int) {
-					if strings.HasPrefix(file, ".lingo-install-") || strings.HasPrefix(file, ".lingo-attempt-install-") {
+					if strings.HasPrefix(file, ".lingo-install-") || strings.HasPrefix(file, ".lingo-attempt-install-") || protocolName(file) {
 						return InventoryRecovery, 0
+					}
+					if file == operationalRecordName {
+						return "", maxOperationalRecordBytes
 					}
 					if file != "installation.json" {
 						return InventoryUnknown, 0
 					}
 					return "", MaxRecordBytes
-				}, func(_ string, wire []byte) InventoryKind {
+				}, func(file string, wire []byte) InventoryKind {
+					if file == operationalRecordName {
+						if projectID, _, err := DecodeOperational(wire); err == nil && projectID == id {
+							return InventoryOperational
+						}
+						return versionedFailureWithin(wire, OperationalFormatVersion)
+					}
 					if _, issues := DecodeRecord(wire); len(issues) == 0 {
 						return InventoryInstallation
 					}
