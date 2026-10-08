@@ -155,12 +155,12 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	}
 	github, githubErr := githubissues.New(os.Getenv("AXIOM_GH_BIN"))
 	var capability workitem.Capability
-	var legacy workitem.LegacyProjection
+	var lifecycle workitem.Lifecycle
 	if githubErr == nil {
 		capability = github
-		legacy = github
+		lifecycle = github
 	}
-	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, capability, legacy, workItems, source)
+	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, capability, lifecycle, workItems, source)
 	workflows, err := local.NewWorkflowStore(state)
 	if err != nil {
 		return cli.NewUnavailableService(source)
@@ -791,7 +791,7 @@ func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkIte
 	if input.Provider != "" && input.Provider != "github" {
 		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
 	}
-	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.Message, input.AuthorizeExternal), s.provenance)
+	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.Message, input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
 	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemComplete); blocked != nil {
@@ -800,7 +800,8 @@ func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkIt
 	if input.Provider != "" && input.Provider != "github" {
 		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
 	}
-	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.AuthorizeExternal), s.provenance)
+	// complete is the CLI compatibility spelling of close (#230 F-01).
+	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 
 func workItemExternalID(input cli.WorkItemInput) string {
@@ -1002,6 +1003,7 @@ func workItemResult(result workitem.Result, source provenance.Value) cli.Result 
 	response.Category = result.Category
 	response.Draft = result.Draft
 	response.Selection = result.Selection
+	response.WorkItemChange = result.Change
 	response.Questions = result.Questions
 	if result.Link.ExternalID != "" {
 		response.WorkItem = &cli.WorkItemView{ProjectID: result.Link.ProjectID, RepositoryKey: result.Link.RepositoryKey, Provider: result.Link.Provider, Resource: result.Link.Resource, ExternalID: result.Link.ExternalID, URL: result.Link.URL, State: result.Link.State}
@@ -1029,6 +1031,9 @@ func factsForCompletionStatus(status completion.Status) completion.Facts {
 }
 
 func workItemResultText(result workitem.Result) (string, string) {
+	if message, next, ok := workItemLifecycleText(result); ok {
+		return message, next
+	}
 	switch result.Category {
 	case "work_item_draft_ready":
 		return "Work Item draft ready for review", "Repeat create with this preview digest and explicit external authority"
@@ -1056,10 +1061,6 @@ func workItemResultText(result workitem.Result) (string, string) {
 		return "GitHub Work Item linked", "Inspect the local Work Item link before starting later workflow work"
 	case "work_item_loaded":
 		return "Work Item link loaded", "Use only separately authorized later operations"
-	case "work_item_commented":
-		return "Historical Work Item comment completed", "Treat this as POC behavior until the later Slice replaces it"
-	case "work_item_completed":
-		return "Historical Work Item completion completed", "Treat this as POC behavior until the later Slice replaces it"
 	case "provider_create_ambiguous":
 		return "GitHub create result is ambiguous", "Repeat the same reviewed draft to reconcile only; Axiom will not create again while the durable attempt is pending"
 	case "provider_rate_limited", "provider_unavailable":
