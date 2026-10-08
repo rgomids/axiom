@@ -751,6 +751,12 @@ local compatibility state, including Project, state, and skill roots. Changing
 `LINGO_STATE_ROOT` alone is not a guaranteed remedy: it selects only a separate
 absolute state directory, which must also satisfy the filesystem boundary.
 
+For a complete block that selects fresh binary, receipt, Project, state and
+Codex skill paths together, see the
+[isolated Windows fresh-install test](installation.md#isolated-windows-fresh-install-test).
+This is binary installation validation; the custom Codex skill root does not
+provide automatic Runtime skill discovery.
+
 After verifying the executable, run the separate Runtime integration step:
 
 ```powershell

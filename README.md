@@ -54,6 +54,11 @@ On **Windows** (64-bit PowerShell):
 $env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 ```
 
+On Windows, the default directories and their ancestors must pass Axiom's
+permission checks. If installation fails with `unsafe project storage` or
+`upgrade: state_unsafe`, see the [isolated fresh-install test](docs/installation.md#isolated-windows-fresh-install-test).
+Changing only the binary directory does not relocate state or Runtime skills.
+
 For prerequisites, platforms, PATH, upgrades, and diagnostics, see the
 [installation guide](docs/installation.md).
 

@@ -140,6 +140,47 @@ checks; they are not guaranteed eligible on every machine. Binary and receipt
 options do not relocate Project state or Runtime skills. `LINGO_STATE_ROOT`
 selects a separate absolute state root, subject to its own safety checks.
 
+## Isolated Windows fresh-install test
+
+Use this diagnostic test when the default Windows paths fail permission checks.
+It selects new binary, receipt, state, Project and Codex skill locations without
+deleting existing installations or changing their ACLs. Run the complete block
+in one PowerShell window, from any working directory:
+
+```powershell
+$axiomRoot = Join-Path $env:USERPROFILE ('AxiomFresh-' + [guid]::NewGuid().ToString('N'))
+$env:LINGO_PROJECTS_ROOT = "$axiomRoot\projects"
+$env:LINGO_STATE_ROOT = "$axiomRoot\state"
+$env:AXIOM_CODEX_SKILLS_ROOT = "$axiomRoot\skills"
+$axiomDestinations = @{
+    BinDir = "$axiomRoot\bin"
+    ReceiptDir = "$axiomRoot\install"
+}
+$axiomInstaller = Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1
+& ([scriptblock]::Create($axiomInstaller)) @axiomDestinations
+if ($LASTEXITCODE -ne 0) { throw 'Installation failed; stop before verification.' }
+$env:PATH = "$axiomRoot\bin;$env:PATH"
+& "$axiomRoot\bin\axiom.exe" version
+```
+
+Success verifies binary installation and version reporting only. These locations
+and their ancestors must still pass the same filesystem checks. The variables
+and PATH apply only to this window; a new window returns to the configured
+defaults. Reuse the same destinations to test reinstall; running this block
+again creates another fresh installation.
+
+The Codex skill override is for isolated validation: Codex does not automatically
+discover skills at this custom location. This test does not configure Claude's
+skill root or validate either Runtime integration. For normal use, resolve the
+reported safety issue in the standard Runtime roots before running
+[`first-run`](#runtime-bootstrap). Do not copy skills into a rejected root or
+remove security checks to make integration succeed.
+
+On Windows, path names are case-insensitive: `$env:USERPROFILE\Axiom` can be
+the same directory as an `axiom` repository checkout. Keep installation targets
+separate from source repositories. The version command is `axiom version`;
+`axiom --version` is not supported.
+
 ## Upgrade / reinstall
 
 Rerun the installer to converge an Axiom-owned installation to latest stable.
