@@ -39,9 +39,18 @@ fresh preview. The Execution's Runtime is the selected
 `workflow start` omits `--execution`. Every resume, advance, status, evidence, or
 reconcile call forwards the exact `--execution <id>` returned by Lingo and never
 passes `--runtime`, policy inputs, or `--runtime-preview`: the Execution keeps
-the Runtime recorded at start. Follow `currentGate` returned by Lingo. Advance
-through `axiom --json workflow advance` with its required revision, outcome, and
-repository-relative artifact reference.
+the Runtime recorded at start. Follow `workflow.gateAction` and
+`workflow.gateCommand` with the exact returned selectors and revision, as in the
+domain `axiom-work-item` run operation. Automatic Intake uses
+`workflow advance --automatic` during the authorized run without asking for a
+gate phrase or another conversational confirmation. Never combine it with gate,
+outcome, reference or next inputs. Other advances require actual authorized work,
+its observed pass/fail result and applicable Evidence; an artifact digest alone
+does not prove correctness. Fact actions require an explicit decision, validated
+reference and local authority; the returned `--authorize-local` grants none.
+Resolve conditions before explicitly clearing them. Re-read status after each
+result and stop on denial/failure. These actions do not replace the mandatory
+reviewed Runtime/Profile start preview above.
 
 Record planning authority, implementation authority, review start, human
 acceptance, or an auxiliary condition only through `axiom --json workflow fact`

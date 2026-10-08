@@ -58,7 +58,9 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 		rules = append(rules, inputRequirement{name: "expected-revision", required: true, missing: v.expectedRevision == 0})
 	}
 	if operation == workflowAdvanceAction {
-		rules = append(rules, inputRequirement{name: "gate", required: true, missing: v.gate == ""}, inputRequirement{name: "outcome", required: true, missing: v.outcome == ""})
+		rules = append(rules,
+			inputRequirement{"gate", false, "--automatic is false or absent", !v.automatic, v.gate == ""},
+			inputRequirement{"outcome", false, "--automatic is false or absent", !v.automatic, v.outcome == ""})
 	}
 	if operation == workflowFactAction {
 		rules = append(rules, inputRequirement{name: "fact", required: true, missing: v.fact == ""}, inputRequirement{name: "reference", required: true, missing: v.reference == ""})

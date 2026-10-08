@@ -110,9 +110,27 @@ revision; present the returned preview and repeat with its
 `--preview-digest <digest> --authorize-external` only after explicit authority
 for that exact preview.
 
-Follow `currentGate` returned by Lingo. Advance only through
-`axiom --json workflow advance` with the required revision, outcome, and
-repository-relative artifact reference.
+After the reviewed start, follow Lingo's `workflow.gateAction` and
+`workflow.gateCommand` argument array using the exact returned selectors and
+revision. Do not ask the user to name an internal gate or say a magic phrase.
+
+- An action with `automatic: true` runs `workflow advance --automatic` during
+  the authorized run without another conversational confirmation. Intake is
+  currently the only gate Lingo can evaluate automatically. Do not combine
+  automatic mode with gate, outcome, reference or next inputs.
+- Other advance actions require actual authorized work and its observed `pass`
+  or `fail` result with applicable validated Evidence. Fill command placeholders
+  from observations; a file digest alone does not prove correctness.
+- Fact actions identify explicit authority or a condition to resolve. Present
+  the missing decision/input and record it only with validated references and
+  explicit local authority. A returned `--authorize-local` grants no authority.
+  Never clear conditions merely to make the workflow progress.
+- Resume uses the exact committed revision. Re-read status after each result;
+  stop and report denied/failed operations without inferring progression.
+
+Gate policies remain in Lingo; the domain skill and compatible run alias route
+to the same operations. The reviewed Runtime/Profile start protocol above remains
+mandatory before these actions.
 
 Record planning authority, implementation authority, review start, human
 acceptance, or auxiliary conditions only through

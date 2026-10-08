@@ -1379,6 +1379,33 @@ axiom workflow advance --project my-project --repository main --number 123 \
 
 Gate order: `intake`, `specification`, `clarification`, `plan`, `tasks`,
 `implementation`, `review`, `evidence`, `reconciliation`, `completion`.
+
+`workflow status` and workflow results include `workflow.gateAction` and
+`workflow.gateCommand`. The latter is an argument array containing exact persisted
+selectors and revision, with placeholders for inputs that still need Evidence.
+Use it through the CLI or the Runtime run skill without any special conversational
+phrase. A fact command's `--authorize-local` is an authority requirement, not a
+grant supplied by the command itself. Resolve a reported condition before
+recording its explicit clear action.
+
+Intake is deterministic: the application already validates the linked Work Item
+and Execution scope. During an authorized workflow run, the Runtime follows the
+automatic action without asking the user to advance Intake:
+
+```bash
+axiom --json workflow advance --project my-project --repository main \
+  --work-item github:owner/repository#123 --execution <execution-id> \
+  --expected-revision 1 --automatic
+```
+
+Automatic mode cannot combine with `--gate`, `--outcome`, `--reference` or
+`--next`. It commits one canonical transition and stops at any non-deterministic
+gate. Technical gates require observed work/results; authority gates use explicit
+`workflow fact`. Status is read-only. Blocked, needs-decision, needs-approval,
+stale revisions, missing authority and invalid references do not advance a gate.
+An interrupted Execution requires `workflow resume` before further progression.
+See [the gate contract](specifications/004-mvp-v1-baseline/workflow-gates.md).
+
 References use `evidence:<repository-relative-path>:<sha256>` or
 `artifact:<artifact-id>:<sha256>`; lifecycle boundary facts additionally accept
 the closed `specification`, `decision`, `plan`, `tasks`, and `pull_request`
