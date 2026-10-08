@@ -2,6 +2,7 @@ package compatibility
 
 import (
 	"bufio"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io/fs"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/local"
+	"github.com/rgomids/axiom/internal/projectapp"
 )
 
 // stableCorpus is persisted state written by released v1 writers, one
@@ -97,9 +99,40 @@ func TestStableCorpusResolvesToDirectUpgrade(t *testing.T) {
 			observed[object.Kind] = true
 		}
 	}
-	for _, kind := range local.V1Kinds() {
+	for _, kind := range append(local.V1Kinds(), local.AdditiveKinds()...) {
 		if !observed[kind] {
 			t.Errorf("v1 kind %s is missing from the stable corpus: run the freeze generator (see PROVENANCE) before releasing", kind)
 		}
+	}
+}
+
+// This is the exact historical v0.10.0 writer output, reconstructed from the
+// published tag. Classification alone must not mask a semantic reader change.
+func TestV0100OperationalStateRemainsReadable(t *testing.T) {
+	roots := copyCorpus(t, filepath.Join(stableCorpus, "snapshots", "v0.10.0"), "projects", "state")
+	store, err := local.NewOperationalStore(roots.State)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := store.InspectOperational(context.Background(), "123e4567-e89b-42d3-a456-426614174000")
+	if err != nil || observed.State.ProjectStatus != projectapp.ProjectArchived || len(observed.State.DisabledIntegrations) != 1 || observed.State.DisabledIntegrations[0] != "work-items" {
+		t.Fatalf("historical operational state = %+v, %v", observed, err)
+	}
+}
+
+// Preparing release artifacts must run the frozen writer/reader contract before
+// building. Clearing the generator variable prevents release preparation from
+// silently blessing newly generated state instead of validating frozen bytes.
+func TestReleasePreparationEnforcesStableCorpus(t *testing.T) {
+	wire, err := os.ReadFile("../../.github/workflows/release-artifacts.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(wire)
+	guard := "run: AXIOM_FREEZE_STATE_CORPUS= go test ./internal/local ./internal/compatibility -count=1"
+	position := strings.Index(text, guard)
+	build := strings.Index(text, "name: Build supported release archives")
+	if position < 0 || build < 0 || position >= build {
+		t.Fatal("release preparation must validate the frozen compatibility corpus before building")
 	}
 }

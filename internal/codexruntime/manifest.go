@@ -167,6 +167,17 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item-status":  "a370f1b6c48c822b0003679264bee581484cfd4b8a7fd94263e93b280937e223",
 		"axiom-work-item":         "5c471c81c8e2cf5103ab551f07de8238616937fe9d9f6e00472792a82c2ee878",
 	}},
+	// Eight-skill v0.10.0 revision, retired by the pre-MVP two-skill decision.
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project":           "5c9b14767e39800e030dedddd115a0281dafc01161e8914ff53eaeb53d0ee3f1",
+		"axiom-project-configure": "ec1a0556f930eb05cd52d1902c0d8cb5a30c1890b34e6f375015879f0a949dea",
+		"axiom-project-list":      "46960de54c14f904a915ccd7d3ab74284f70a37516a4d87648ec323d96d62045",
+		"axiom-project-show":      "4c7ef9c089696d35e455ffe964d37c58e71c34bac1f28d0c464dc5d5989cbbf2",
+		"axiom-work-item":         "084c35caf16a4a0e3f1f84209c808454a26474b6a2507103008830de05ce0a8a",
+		"axiom-work-item-create":  "c64fb39d06fa59876f0f0cdc487bbcfac91fb7748c77d3e38fa59fb455dab2c0",
+		"axiom-work-item-run":     "862bad903caec3048ea82e8096d48323ca98106464319605ee921b83b572bfbf",
+		"axiom-work-item-status":  "a370f1b6c48c822b0003679264bee581484cfd4b8a7fd94263e93b280937e223",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

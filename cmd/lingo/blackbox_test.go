@@ -397,7 +397,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		t.Fatal("first-run touched the absent Claude configuration")
 	}
 	installed, err := filepath.Glob(filepath.Join(skills, "axiom-*", "SKILL.md"))
-	if err != nil || len(installed) != 8 {
+	if err != nil || len(installed) != 2 {
 		t.Fatalf("installed Codex skills = %v, %v", installed, err)
 	}
 	repository := filepath.Join(t.TempDir(), "configured-repository")

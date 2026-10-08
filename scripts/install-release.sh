@@ -196,13 +196,13 @@ source_state=$(awk -F= '$1 == "sourceState" {print $2}' "$metadata")
 [[ "$release" == false || "$release" == true && "$source_state" == clean ]] || { printf 'install_error: unsupported release metadata\n' >&2; exit 1; }
 
 skills_manifest="$bundle/skills-manifest.txt"
-[[ $(wc -l <"$skills_manifest" | tr -d ' ') == 11 ]] || { printf 'install_error: skill manifest schema mismatch\n' >&2; exit 1; }
+[[ $(wc -l <"$skills_manifest" | tr -d ' ') == 5 ]] || { printf 'install_error: skill manifest schema mismatch\n' >&2; exit 1; }
 for field in formatVersion skillSetVersion binaryCompatibility; do
   [[ $(grep -c "^${field}=" "$skills_manifest") == 1 ]] || { printf 'install_error: skill manifest schema mismatch\n' >&2; exit 1; }
 done
 [[ $(awk -F= '$1 == "formatVersion" {print $2}' "$skills_manifest") == 1 && $(awk -F= '$1 == "skillSetVersion" {print $2}' "$skills_manifest") == 1 && $(awk -F= '$1 == "binaryCompatibility" {print $2}' "$skills_manifest") == 1 ]] || { printf 'install_error: unsupported skill manifest\n' >&2; exit 1; }
-[[ $(grep -c '^skill\.[a-z0-9-]*=[0-9a-f]\{64\}$' "$skills_manifest") == 8 ]] || { printf 'install_error: skill manifest schema mismatch\n' >&2; exit 1; }
-for name in axiom-project axiom-project-configure axiom-project-list axiom-project-show axiom-work-item axiom-work-item-create axiom-work-item-run axiom-work-item-status; do
+[[ $(grep -c '^skill\.[a-z0-9-]*=[0-9a-f]\{64\}$' "$skills_manifest") == 2 ]] || { printf 'install_error: skill manifest schema mismatch\n' >&2; exit 1; }
+for name in axiom-project axiom-work-item; do
   [[ $(grep -c "^skill\.${name}=" "$skills_manifest") == 1 ]] || { printf 'install_error: skill manifest schema mismatch\n' >&2; exit 1; }
 done
 while IFS='=' read -r key hash; do

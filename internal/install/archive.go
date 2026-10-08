@@ -29,18 +29,10 @@ var (
 	semverPattern   = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
 	revisionPattern = regexp.MustCompile(`^[0-9a-f]{12}$`)
 	metadataFields  = []string{"formatVersion", "product", "version", "revision", "sourceState", "release", "platform", "goos", "architecture", "skillSetVersion"}
-	// skillNames is the closed skill set a candidate archive carries: exactly
-	// the skills this binary embeds, in its Runtime inventory order. Earlier
-	// releases carried a prefix of it (five skills through v0.1.2, six through
-	// v0.6.x); their installations stay recognized because the installed
-	// manifest is reconstructed only from the skills actually present
-	// (installedSkillManifest) and codexruntime keeps every published skill-set
-	// revision. A new skill is appended; none is ever renamed or dropped.
-	skillNames = []string{
-		"axiom-project-configure", "axiom-project-list", "axiom-project-show",
-		"axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status",
-		"axiom-project", "axiom-work-item",
-	}
+	// skillNames is the closed current archive inventory. Earlier five-, six-,
+	// and eight-skill sets remain ownership history, never active entrypoints.
+	// Their manifests are reconstructed from present historical skills only.
+	skillNames = []string{"axiom-project", "axiom-work-item"}
 )
 
 // Candidate is a verified release bundle held in memory. Nothing from the
@@ -280,3 +272,5 @@ func digest(wire []byte) string {
 	sum := sha256.Sum256(wire)
 	return hex.EncodeToString(sum[:])
 }
+
+var retiredSkillNames = []string{"axiom-project-configure", "axiom-project-list", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status"}

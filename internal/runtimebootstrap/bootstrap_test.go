@@ -16,7 +16,7 @@ import (
 	"github.com/rgomids/axiom/internal/codexruntime"
 )
 
-var skillNames = []string{"axiom-project-configure", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status"}
+var skillNames = []string{"axiom-project", "axiom-work-item"}
 
 type machine struct {
 	home        string
@@ -122,6 +122,19 @@ func assertConfigured(t *testing.T, root string) {
 		if err != nil || !strings.Contains(string(content), "name: "+name) || !strings.Contains(string(content), "axiom --json") {
 			t.Fatalf("%s not installed in %s: %v", name, root, err)
 		}
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "axiom-") {
+			count++
+		}
+	}
+	if count != len(skillNames) {
+		t.Fatalf("Axiom directory count = %d, want %d", count, len(skillNames))
 	}
 	if _, err := os.Stat(filepath.Join(root, ".axiom-skill-set.receipt")); err != nil {
 		t.Fatalf("receipt missing in %s: %v", root, err)
@@ -303,7 +316,7 @@ func TestModifiedOwnedSkillIsNotRepairedDespiteReceipt(t *testing.T) {
 		t.Fatalf("install = %+v", got)
 	}
 	skills := filepath.Join(m.claudeRoot, "skills")
-	path := skillFile(skills, "axiom-project-configure")
+	path := skillFile(skills, "axiom-project")
 	content, _ := os.ReadFile(path)
 	if err := os.WriteFile(path, append(content, []byte("user edit\n")...), 0o600); err != nil {
 		t.Fatal(err)
@@ -374,7 +387,7 @@ func TestPartialPriorOwnedInstallConverges(t *testing.T) {
 	}
 	claudeSkills := filepath.Join(m.claudeRoot, "skills")
 	// One owned skill removed, and an install interrupted before its receipt.
-	if err := os.RemoveAll(filepath.Join(claudeSkills, "axiom-work-item-create")); err != nil {
+	if err := os.RemoveAll(filepath.Join(claudeSkills, "axiom-work-item")); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(filepath.Join(m.codexSkills, ".axiom-skill-set.receipt")); err != nil {

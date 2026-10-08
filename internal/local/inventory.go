@@ -64,7 +64,7 @@ func (k InventoryKind) V1Only() bool {
 // v1Kinds are the canonical persisted-state v1 kinds. Every kind a v1 writer
 // can produce MUST be listed here so the compatibility guards require it to be
 // exercised by a writer and frozen in the stable corpus.
-var v1Kinds = []InventoryKind{InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryPortableManifest, InventoryProjectContext}
+var v1Kinds = []InventoryKind{InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryPortableManifest, InventoryProjectContext, InventoryOperational}
 
 // V1Kinds returns a copy of the canonical persisted-state v1 kinds.
 func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...) }
@@ -73,8 +73,10 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // stable corpus snapshot. They are supported and writer-tested like v1Kinds,
 // but FR-026 assigns their freeze to release acceptance: the first stable
 // release shipping one declares it and freezes it with
-// AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds.
-var additiveKinds = []InventoryKind{InventoryOperational}
+// AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
+// guard includes additive kinds too: release acceptance cannot silently skip
+// their historical compatibility coverage.
+var additiveKinds = []InventoryKind{}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.

@@ -1,5 +1,11 @@
 # Issue #230 Evidence — User-managed resource lifecycle
 
+> Historical Evidence: this records the original delivered revision. The
+> 2026-10-08 [canonical consolidation decision](issue-230-canonical-consolidation.md)
+> supersedes retention of operation-specific Runtime entrypoints; earlier
+> tests and observations below remain historical, not current acceptance.
+
+
 | Field | Value |
 |---|---|
 | Issue | [#230](https://github.com/rgomids/axiom/issues/230) (Epic [#15](https://github.com/rgomids/axiom/issues/15)) |

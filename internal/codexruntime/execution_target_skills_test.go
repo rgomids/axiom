@@ -18,8 +18,6 @@ func TestWorkItemRunExecutionTargetParity(t *testing.T) {
 		return string(content)
 	}
 	domain := read("axiom-work-item")
-	alias := read("axiom-work-item-run")
-	start := "Require an explicit exact Work Item on every invocation."
 	section := func(text, begin, end string) string {
 		t.Helper()
 		_, remainder, ok := strings.Cut(text, begin)
@@ -33,10 +31,6 @@ func TestWorkItemRunExecutionTargetParity(t *testing.T) {
 		return block
 	}
 	block := section(domain, "## run\n\n", "\n## status")
-	aliasBlock := section(alias, start, "\nInvoke only")
-	if strings.TrimSpace(block) != strings.TrimSpace(start+aliasBlock) {
-		t.Fatal("domain run and compatibility alias disagree")
-	}
 	assertReviewedRuntimePreview(t, "shared run", block)
 	for _, required := range []string{
 		"Project is optional", "explicit > session > default", "`--session <id>`",

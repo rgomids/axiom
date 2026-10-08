@@ -36,14 +36,6 @@ Stable Runtime skill mapping:
   $axiom-work-item         -> domain operations create|run|status|list|show|
                               update|comment|close|reopen
 
-Compatibility Runtime skill mapping:
-  $axiom-project-configure -> axiom --json project configure
-  $axiom-project-list      -> axiom --json project list
-  $axiom-project-show      -> axiom --json project show
-  $axiom-work-item-create  -> axiom --json work-item create|select
-  $axiom-work-item-run     -> axiom --json workflow start|advance|fact|resume|reconcile
-  $axiom-work-item-status  -> axiom --json workflow status|evidence|list
-
 first-run finds Codex and Claude by their executables on PATH and installs or
 upgrades Axiom's user-global skills for each one found (Codex:
 $HOME/.agents/skills; Claude: <CLAUDE_CONFIG_DIR or ~/.claude>/skills). It never

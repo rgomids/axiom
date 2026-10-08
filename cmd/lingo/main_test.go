@@ -429,10 +429,10 @@ func TestFirstRunReportsMissingReadyAndIncompatibleSkillStates(t *testing.T) {
 	t.Setenv("AXIOM_CODEX_SKILLS_ROOT", skills)
 	service := compose().(lifecycleService)
 	missing := service.RuntimeCodexStatus(context.Background())
-	if missing.Completion == nil || missing.Completion.Status() != completion.ValidationFailure || missing.Runtime == nil || len(missing.Runtime.Skills) != 8 || missing.Runtime.Skills[0].State != "missing" {
+	if missing.Completion == nil || missing.Completion.Status() != completion.ValidationFailure || missing.Runtime == nil || len(missing.Runtime.Skills) != 2 || missing.Runtime.Skills[0].State != "missing" {
 		t.Fatalf("missing first run = %#v", missing)
 	}
-	if installed := service.RuntimeCodexInstall(context.Background()); installed.Status != cli.Succeeded || installed.Runtime == nil || len(installed.Runtime.Skills) != 8 {
+	if installed := service.RuntimeCodexInstall(context.Background()); installed.Status != cli.Succeeded || installed.Runtime == nil || len(installed.Runtime.Skills) != 2 {
 		t.Fatalf("skill install = %#v", installed)
 	}
 	ready := service.RuntimeCodexStatus(context.Background())

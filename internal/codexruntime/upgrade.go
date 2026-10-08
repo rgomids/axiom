@@ -73,7 +73,7 @@ func (s Service) InspectUpgrade(ctx context.Context) (UpgradeInventory, error) {
 	}
 	inventory := UpgradeInventory{Skills: make([]UpgradeSkill, 0, len(skillNames))}
 	if _, err := os.Lstat(s.root); os.IsNotExist(err) {
-		for _, name := range skillNames {
+		for _, name := range ownershipSkillNames() {
 			inventory.Skills = append(inventory.Skills, UpgradeSkill{Name: name})
 		}
 		return inventory, nil
@@ -109,7 +109,7 @@ func (s Service) InspectUpgrade(ctx context.Context) (UpgradeInventory, error) {
 			inventory.Leftovers = append(inventory.Leftovers, path)
 		}
 	}
-	for _, name := range skillNames {
+	for _, name := range ownershipSkillNames() {
 		skill, err := s.inspectUpgradeSkill(name)
 		if err != nil {
 			return UpgradeInventory{}, err
@@ -149,6 +149,13 @@ func (s Service) inspectUpgradeSkill(name string) (UpgradeSkill, error) {
 			skill.Leftovers = append(skill.Leftovers, path)
 		default:
 			return UpgradeSkill{}, ErrUpgradeConflict
+		}
+	}
+	if len(entries) == 0 && slices.Contains(retiredSkillNames, name) {
+		root, identity, err := anchoredRoot(s.root, false)
+		if err == nil {
+			skill.Owned = identity.verify(root) == nil && s.integration.retiredOwnedIn(root, s.root, name)
+			root.Close()
 		}
 	}
 	return skill, nil
@@ -267,7 +274,7 @@ func (u *UpgradeSession) Inspect(ctx context.Context) (UpgradeInventory, error) 
 			inventory.Leftovers = append(inventory.Leftovers, filepath.Join(u.rootPath, entry.Name()))
 		}
 	}
-	for _, name := range skillNames {
+	for _, name := range ownershipSkillNames() {
 		skill := UpgradeSkill{Name: name}
 		if _, err := u.root.Lstat(name); os.IsNotExist(err) {
 			inventory.Skills = append(inventory.Skills, skill)
@@ -320,6 +327,9 @@ func (u *UpgradeSession) inspectSkillIn(child *os.Root, name string) (UpgradeSki
 			return skill, ErrUpgradeConflict
 		}
 	}
+	if len(entries) == 0 && slices.Contains(retiredSkillNames, name) {
+		skill.Owned = u.integration.retiredOwnedIn(u.root, u.rootPath, name)
+	}
 	return skill, nil
 }
 
@@ -369,7 +379,7 @@ func (u *UpgradeSession) RemoveSkillLeftover(name, leftoverName string) error {
 // publication to be confirmed.
 func (u *UpgradeSession) PublishSkill(name string, content []byte, expected string) error {
 	known := false
-	for _, candidate := range skillNames {
+	for _, candidate := range ownershipSkillNames() {
 		known = known || candidate == name
 	}
 	if !known || len(content) == 0 || len(content) > maxUpgradeSkillBytes {

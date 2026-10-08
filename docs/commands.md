@@ -41,12 +41,10 @@ Execute estes comandos na raiz do repositório.
 ```bash
 axiom skill inspect axiom-project
 axiom --json skill inspect axiom-work-item
-axiom skill inspect axiom-project-show
 ```
 
-Use the exact name of one of the eight product skills shown by `axiom help`:
-the canonical domain skills `axiom-project` and `axiom-work-item`, or one of
-the six operation-specific compatibility skills.
+Use exactly `axiom-project` or `axiom-work-item`, the two product skills
+shown by `axiom help`.
 Inspection describes the skill embedded in this binary without executing it,
 reading Project/Provider/Runtime state, prompting, or granting authority. It also
 works before `first-run`. It does not inspect repository maintainer skills.
@@ -60,8 +58,7 @@ and `reconcile`). A mode states its
 `commands`, optional explicit `selector`, `effect` (`read-only`,
 `preview-only`, `local-mutation` or `external-mutation`), `authority`,
 `authorityInputs`, `rejectedInputs`, `semanticResolution` (`allowed` for
-read-only modes, otherwise `unambiguous-only`) and an `example`. Compatibility
-skills report the same modes as their canonical operation. The metadata
+read-only modes, otherwise `unambiguous-only`) and an `example`. The metadata
 describes, and never grants, authority. Each command includes its CLI spelling and `arguments[]`:
 `name`, `required`, optional `requiredWhen`, `description`, `acceptedForms`,
 `repeatable`. `required: true` means required for a noninteractive CLI request;
@@ -335,7 +332,7 @@ executable is never run. A Runtime whose executable is not on this process's
 `PATH` is reported absent (with `configurationWithoutExecutable` when its
 configuration directory exists); put it on `PATH` and rerun, or use the
 per-Runtime command below. For every Runtime found it installs or upgrades the
-six Axiom-owned user-global skills, then reports every supported Runtime:
+two canonical Axiom-owned user-global skills, then reports every supported Runtime:
 
 ```bash
 axiom first-run
@@ -424,24 +421,22 @@ the requested semantic `axiom:<skill>` names are invoked as:
 ```text
 $axiom-project
 $axiom-work-item
-$axiom-project-configure
-$axiom-project-list
-$axiom-project-show
-$axiom-work-item-create
-$axiom-work-item-run
-$axiom-work-item-status
 ```
 
-`$axiom-project` and `$axiom-work-item` are the canonical domain surfaces
-(Issue #229): an explicit operation (`configure|list|show`,
-`create|run|status`) routes directly to its Lingo command; without one the
-Runtime may resolve natural-language intent only among those operations, asks
-one bounded clarification when intent is ambiguous, and never resolves
-ambiguity to a mutating operation or supplies authority. The six
-operation-specific skills remain installed as compatibility entrypoints
-([Issue #229 Evidence](specifications/004-mvp-v1-baseline/evidence-229.md)).
-Claude invokes the same skills as `/axiom-project`, `/axiom-project-configure`
-and so on, or selects them from their descriptions. For isolated validation:
+`$axiom-project` and `$axiom-work-item` are the only product Runtime skills.
+Explicit operations route directly to Lingo; natural-language intent selects
+only supported operations. Ambiguity requires clarification; interpretation
+never supplies authority. Inspect the current binary for operation/mode,
+argument and effect contracts. Claude invokes `/axiom-project` and
+`/axiom-work-item`, or selects them from their descriptions.
+
+Releases through v0.10.0 distributed operation-specific skills (six before
+#229, eight after it). The pre-MVP decision now removes these active entrypoints.
+Installation verifies historical ownership before retiring them; modified,
+foreign, linked or unrecognized content conflicts and is preserved. Receipts
+and digests retained internally are migration proofs, not discoverable skills.
+See [consolidation contract](specifications/004-mvp-v1-baseline/issue-230-canonical-consolidation.md).
+For isolated validation:
 
 ```bash
 AXIOM_CODEX_SKILLS_ROOT=/absolute/test/root axiom runtime codex install
@@ -541,10 +536,10 @@ absolute output directory. It emits four checksummed archives plus
 Each archive holds one bundle directory with the canonical public executable
 `axiom` (`axiom.exe` on Windows), `LICENSE`, the release installer `install.sh`
 (`install.ps1` on Windows), `release-metadata.txt`,
-`skills-manifest.txt`, the eight Runtime skills, and a complete `MANIFEST.sha256`.
-Upgrading an installation from a release that carried fewer skills (six
-through v0.6.x) creates only the added skills and leaves the existing
-Axiom-owned skills in place; foreign or modified skill content is refused.
+`skills-manifest.txt`, the two canonical Runtime skills, and a complete `MANIFEST.sha256`.
+Upgrading a recognized six- or eight-skill installation retires verified
+Axiom-owned legacy entries and converges to the two canonical skills. Foreign,
+modified, linked or unrecognized content is preserved and reported as conflict.
 The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom`
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
 no migration from such an installation is performed.
@@ -1140,14 +1135,8 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
-| `$axiom-project` | `configure` / `list` / `show` → the three Project rows below; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
-| `$axiom-work-item` | `create` / `run` / `status` → the three Work Item rows below (`status` mode `list` → `workflow list`); `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
-| `$axiom-project-configure` | `axiom --json project configure` |
-| `$axiom-project-list` | `axiom --json project list` |
-| `$axiom-project-show` | `axiom --json project show --selector ...` |
-| `$axiom-work-item-create` | `axiom --json work-item create\|select ...` |
-| `$axiom-work-item-run` | `axiom --json workflow start\|advance\|fact\|resume\|reconcile ...` |
-| `$axiom-work-item-status` | `axiom --json workflow status\|evidence\|list ...` |
+| `$axiom-project` | `configure` → `project configure`, `list` → `project list`, `show` → `project show`; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
+| `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`); `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
 repository resolution, workflow ordering, and external-mutation authority.
@@ -1220,7 +1209,7 @@ enter portable state; absolute paths and observed revisions remain only in
 protected machine-local state and the review preview. Replaced bindings or changed
 state invalidate authority. Guided mode previews the same normalized proposal and
 asks before publication. Codex uses the same command through
-`$axiom-project-configure`; neither path infers identity from CWD.
+`$axiom-project`; neither path infers identity from CWD.
 
 ### Guided bootstrap (Issue #231)
 
@@ -1423,7 +1412,7 @@ Dropped or unverified labels produce a partial result referencing the existing
 Issue. Inspect that Issue and permissions; do not create another Issue to repair
 classification. See the [classification contract](specifications/004-mvp-v1-baseline/work-item-classification.md).
 
-The Runtime skill `axiom-work-item-create` accepts a short problem statement,
+The canonical Runtime skill `axiom-work-item` accepts a short problem statement,
 extracts facts already provided, and asks conversationally only for material
 missing information. You do not need to know the section schema. The Runtime
 proposes safe assumptions explicitly and presents a complete Lingo preview for

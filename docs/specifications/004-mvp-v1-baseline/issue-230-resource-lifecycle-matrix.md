@@ -448,3 +448,89 @@ boundary:
 | Integration remove (F-04) | Uses the EDIT replay tuple (`--project-id`, `--preview-digest`, `--authorize-local`) |
 | Work Item comment/complete (F-01) | Reviewed digest + `--authorize-external`; `complete` calls `Close` |
 | Execution list (§4) | `axiom-work-item` / `status` / mode `list`; `workflow cancel` stays `invalid_command` (F-02) |
+
+
+## 10. Canonical Runtime consolidation (pre-MVP human decision)
+
+The approved two-skill decision supersedes #229's eight installed entrypoints.
+Sections 0–8 remain the frozen baseline; §9 records its delivered lifecycle.
+The current routing catalog below is mechanically checked against
+`internal/cli/skill_inspect.go` and both canonical routing tables by
+`TestCanonicalRoutingContract`. CLI FlagSets remain the argument registry;
+existing parser and application tests enforce request and effect boundaries.
+Removing aliases removes no lifecycle CLI command or application operation.
+
+<!-- canonical-runtime-catalog:start -->
+| Skill | Operation | Mode | Commands | Effect | Authority inputs |
+|---|---|---|---|---|---|
+| axiom-project | configure | create | axiom project configure | local-mutation | --preview-digest --authorize-local |
+| axiom-project | configure | edit | axiom project configure | local-mutation | --project-id --preview-digest --authorize-local |
+| axiom-project | list | default | axiom project list | read-only |  |
+| axiom-project | show | default | axiom project show | read-only |  |
+| axiom-project | validate | default | axiom project validate | read-only |  |
+| axiom-project | archive | default | axiom project archive | local-mutation | --preview-digest --authorize-local |
+| axiom-project | reactivate | default | axiom project reactivate | local-mutation | --preview-digest --authorize-local |
+| axiom-project | integration | list | axiom integration list | read-only |  |
+| axiom-project | integration | show | axiom integration show | read-only |  |
+| axiom-project | integration | validate | axiom integration validate | read-only |  |
+| axiom-project | integration | disable | axiom integration disable | local-mutation | --preview-digest --authorize-local |
+| axiom-project | integration | enable | axiom integration enable | local-mutation | --preview-digest --authorize-local |
+| axiom-project | integration | remove | axiom integration remove | local-mutation | --project-id --preview-digest --authorize-local |
+| axiom-work-item | create | new | axiom work-item create | external-mutation | --preview-digest --authorize-external |
+| axiom-work-item | create | existing | axiom work-item select | local-mutation | --preview-digest --authorize-local |
+| axiom-work-item | run | transition | axiom workflow start; axiom workflow advance; axiom workflow resume | local-mutation |  |
+| axiom-work-item | run | fact | axiom workflow fact | local-mutation | --authorize-local |
+| axiom-work-item | run | reconcile | axiom workflow reconcile | external-mutation | --preview-digest --authorize-external |
+| axiom-work-item | status | default | axiom workflow status; axiom workflow evidence | read-only |  |
+| axiom-work-item | status | list | axiom workflow list | read-only |  |
+| axiom-work-item | list | default | axiom work-item list | read-only |  |
+| axiom-work-item | show | default | axiom work-item show | read-only |  |
+| axiom-work-item | update | default | axiom work-item update | external-mutation | --preview-digest --authorize-external |
+| axiom-work-item | comment | default | axiom work-item comment | external-mutation | --preview-digest --authorize-external |
+| axiom-work-item | close | default | axiom work-item close | external-mutation | --preview-digest --authorize-external |
+| axiom-work-item | reopen | default | axiom work-item reopen | external-mutation | --preview-digest --authorize-external |
+<!-- canonical-runtime-catalog:end -->
+
+Natural-language operation selection carries no authority. Clear Portuguese
+verbs count as explicit domain intent without requiring an English CLI token.
+Ambiguous resource, operation, target, or effect requires clarification; no
+mutation flags are inferred. `continue` reads status before choosing Lingo's
+applicable action. Unsupported deletion, cancellation, credential revocation,
+and history rewriting remain refused.
+
+### Natural-language acceptance cases
+
+These are expected Runtime decisions, not proof of native semantic acceptance.
+The argument examples collect missing values from the user or `skill inspect`;
+they do not duplicate optional argument registries. Every executable route uses
+`axiom --json`. `P` means the exact Project selector; `W` means explicit
+`--project P --repository K --work-item github:OWNER/REPO#N`; `E` adds
+`--execution ID` from persisted Execution identity. No selector is invented.
+
+| Intent | Skill / operation / mode | CLI route and inputs | Authority |
+|---|---|---|---|
+| Liste meus projetos. | axiom-project / list / default | `project list` | read-only; none |
+| Mostre o projeto X. | axiom-project / show / default | `project show --selector X` | read-only; none |
+| Valide a configuração desse projeto. | axiom-project / validate / default | `project validate --project P` | read-only; collect missing P |
+| Adicione este repositório ao projeto. | axiom-project / configure / edit | `project configure --project P --repository K=ABSOLUTE_PATH` | preview; exact Project ID + digest + explicit local authority |
+| Arquive o projeto X. | axiom-project / archive / default | `project archive --project X` | preview; exact digest + explicit local authority |
+| Reative o projeto X. | axiom-project / reactivate / default | `project reactivate --project X` | preview; exact digest + explicit local authority |
+| Desabilite a integração work-items. | axiom-project / integration / disable | `integration disable --project P --integration work-items` | preview; exact digest + explicit local authority; collect P |
+| Mostre as integrações configuradas. | axiom-project / integration / list | `integration list --project P` | read-only; collect P |
+| Crie uma issue para este problema. | axiom-work-item / create / new | `work-item create --project P --repository K --provider-repository OWNER/REPO --intent TEXT` plus required draft facts from inspection | preview; exact digest + explicit external authority |
+| Liste os Work Items do projeto. | axiom-work-item / list / default | `work-item list --project P` | read-only; none |
+| Atualize o título dessa issue. | axiom-work-item / update / default | `work-item update W --title TEXT` | preview; exact digest + explicit external authority |
+| Comente na issue. | axiom-work-item / comment / default | `work-item comment W --message TEXT` | preview; exact digest + explicit external authority |
+| Feche a issue. | axiom-work-item / close / default | `work-item close W` | preview; exact digest + explicit external authority |
+| Reabra a issue. | axiom-work-item / reopen / default | `work-item reopen W` | preview; exact digest + explicit external authority |
+| Liste as execuções. | axiom-work-item / status / list | `workflow list --project P` | read-only; none |
+| Mostre o status da execução. | axiom-work-item / status / default | `workflow status E` | read-only; none |
+| Continue a execução. | axiom-work-item / run / transition | `workflow status E` first; `workflow resume E --expected-revision R` only when applicable, otherwise returned gate command | authorized run; exact persisted revision and gate authority; clarification if absent |
+| Mostre as evidências. | axiom-work-item / status / default | `workflow evidence E` | read-only; none |
+
+"Organize este projeto", "finish this", and "clean up" do not identify a
+reviewable mutation. Clarify intent and target; never translate them into
+archive, detach, remove, close, reconcile, or cancellation. A clearly unsupported
+request returns unsupported without any CLI effect. Native Codex/Claude routing
+and real GitHub acceptance remain pending until isolated, explicitly authorized
+acceptance runs establish those observations.

@@ -524,7 +524,7 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 	if !current.Resume {
 		recorded = map[string]string{}
 		for _, effect := range current.Effects {
-			if effect.Kind == "skill" {
+			if effect.Kind == "skill" || effect.Kind == "skill_retire" {
 				recorded[effect.Name] = effect.Expected
 			}
 		}
@@ -611,6 +611,10 @@ func (s Service) Apply(ctx context.Context, preview Preview, authority Authority
 			err = publishEffect(binaryDir, binaryName, binaryStage, current.candidate.Binary, effect, 0o700, maxBinaryBytes)
 		case "receipt":
 			err = publishEffect(receiptDir, receiptName, receiptStage, current.nextReceipt, effect, 0o600, maxReceiptBytes)
+		case "skill_retire":
+			if skillSession.RemoveRetiredSkill(effect.Name, effect.Expected) != nil {
+				err = &Error{Category: "skill_retirement_failed"}
+			}
 		case "skill":
 			expected := effect.Expected
 			if expected == absentRevision {
@@ -782,7 +786,7 @@ func existingAncestor(path string) string {
 
 func touchesSkills(preview Preview) bool {
 	for _, effect := range preview.Effects {
-		if effect.Kind == "skill" || effect.Kind == "skill_receipt" {
+		if effect.Kind == "skill" || effect.Kind == "skill_receipt" || effect.Kind == "skill_retire" {
 			return true
 		}
 	}
@@ -902,6 +906,19 @@ func planSkills(ctx context.Context, root string, candidate Candidate, installed
 			current = absentRevision
 		}
 		next, content := candidate.Skills[skill.Name], candidate.SkillFiles[skill.Name]
+		if next == "" {
+			if expected, ok := recorded[skill.Name]; ok && current != expected && current != absentRevision {
+				return plan, &Error{Category: "recovery_required"}
+			}
+			if !skill.Directory {
+				continue
+			}
+			if inventory.Receipt && !inventory.ReceiptOwned || !skill.Owned {
+				return plan, &Error{Category: "skill_conflict"}
+			}
+			plan.effects = append(plan.effects, Effect{Kind: "skill_retire", Name: skill.Name, Target: filepath.Join(root, skill.Name), Expected: current, Next: absentRevision})
+			continue
+		}
 		if next == "" || digest(content) != next {
 			return plan, &Error{Category: "invalid_candidate"}
 		}
@@ -1034,7 +1051,7 @@ func readMarkerIn(directory local.AnchoredDirectory) (map[string]string, error) 
 		if !strings.HasPrefix(key, "skill.") && !slices.Contains([]string{"formatVersion", "stage", "archiveSha256", "operation", "transitionArchive", "transitionManifest", "transitionRetired", "transitionActivated"}, key) {
 			return nil, errors.New("marker schema")
 		}
-		if name, isSkill := strings.CutPrefix(key, "skill."); isSkill && (!slices.Contains(skillNames, name) || value != absentRevision && !digestPattern.MatchString(value)) {
+		if name, isSkill := strings.CutPrefix(key, "skill."); isSkill && (!slices.Contains(append(skillNames, retiredSkillNames...), name) || value != absentRevision && !digestPattern.MatchString(value)) {
 			return nil, errors.New("marker schema")
 		}
 		values[key] = value
@@ -1094,7 +1111,7 @@ func writeMarker(receiptDir local.AnchoredDirectory, archive, stage string, crea
 	if transitionManifest != "" {
 		builder.WriteString("transitionManifest=" + transitionManifest + "\n")
 	}
-	for _, name := range skillNames {
+	for _, name := range append(skillNames, retiredSkillNames...) {
 		if expected, ok := skills[name]; ok {
 			builder.WriteString("skill." + name + "=" + expected + "\n")
 		}

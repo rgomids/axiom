@@ -76,14 +76,8 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 // Do not derive expectations from skillOperations: an extra mapping is a regression.
 func TestSkillDiscoveryExactCommands(t *testing.T) {
 	expected := map[string][]string{
-		"axiom-project":           {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
-		"axiom-project-configure": {"axiom project configure"},
-		"axiom-project-list":      {"axiom project list"},
-		"axiom-project-show":      {"axiom project show"},
-		"axiom-work-item":         {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
-		"axiom-work-item-create":  {"axiom work-item create", "axiom work-item select"},
-		"axiom-work-item-run":     {"axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow status", "axiom workflow evidence", "axiom workflow reconcile"},
-		"axiom-work-item-status":  {"axiom workflow status", "axiom workflow evidence", "axiom workflow list"},
+		"axiom-project":   {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
+		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
 	}
 	manifest, err := codexruntime.CurrentManifest()
 	if err != nil {
@@ -111,7 +105,7 @@ func TestSkillDiscoveryExactCommands(t *testing.T) {
 }
 
 func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
-	show := discoverForTest(t, "axiom-project-show").Commands[0]
+	show := discoveryCommand(t, "axiom-project", "axiom project show")
 	selector := findArgument(t, show, "--selector")
 	if selector.Required || selector.RequiredWhen != "no effective Project context is available" || !strings.Contains(selector.Description, "Project identity") || !reflect.DeepEqual(selector.AcceptedForms, []string{"--selector <uuid-or-slug>", "--selector=<uuid-or-slug>"}) {
 		t.Fatalf("selector=%+v", selector)
@@ -119,7 +113,7 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 	if arg := findArgument(t, show, "--slug"); arg.Required || arg.RequiredWhen != "" {
 		t.Fatalf("optional=%+v", arg)
 	}
-	configure := discoverForTest(t, "axiom-project-configure").Commands[0]
+	configure := discoveryCommand(t, "axiom-project", "axiom project configure")
 	repository := findArgument(t, configure, "--repository")
 	if repository.Required || repository.RequiredWhen != "creating (no --project)" || !repository.Repeatable {
 		t.Fatalf("conditional=%+v", repository)
@@ -128,7 +122,7 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 	if !reflect.DeepEqual(boolean.AcceptedForms, []string{"--authorize-local", "--authorize-local=<boolean>"}) {
 		t.Fatalf("boolean=%+v", boolean)
 	}
-	start := discoverForTest(t, "axiom-work-item-run").Commands[0]
+	start := discoveryCommand(t, "axiom-work-item", "axiom workflow start")
 	for _, name := range []string{"role", "complexity", "capabilities"} {
 		arg := findArgument(t, start, "--"+name)
 		if !arg.Required || arg.RequiredWhen != "" {
@@ -139,7 +133,7 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 	if reviewed.Required || reviewed.RequiredWhen != "creating Execution after review" {
 		t.Fatalf("reviewed preview requirement=%+v", reviewed)
 	}
-	list := discoverForTest(t, "axiom-project-list").Commands[0]
+	list := discoveryCommand(t, "axiom-project", "axiom project list")
 	if archived := findArgument(t, list, "--include-archived"); len(list.Arguments) != 1 || archived.Required || archived.RequiredWhen != "" {
 		t.Fatalf("list inputs=%+v", list)
 	}
@@ -273,15 +267,15 @@ func TestSkillDiscoveryRequirementsMatchRequests(t *testing.T) {
 		index int
 		args  []string
 	}{
-		{"axiom-project-show", 0, []string{"--selector", "alpha"}},
-		{"axiom-project-configure", 0, []string{"--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}},
-		{"axiom-work-item-create", 0, []string{"--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo"}},
-		{"axiom-work-item-run", 0, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "code"}},
-		{"axiom-work-item-run", 1, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--gate", "review", "--outcome", "passed"}},
-		{"axiom-work-item-create", 1, []string{"--project", "alpha", "--repository", "main", "--number", "7", "--provider-repository", "owner/repo"}},
-		{"axiom-work-item-run", 2, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--fact", "review_started", "--reference", "docs/review.md"}},
-		{"axiom-work-item-run", 3, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1"}},
-		{"axiom-work-item-status", 0, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution"}},
+		{"axiom-project", 2, []string{"--selector", "alpha"}},
+		{"axiom-project", 0, []string{"--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}},
+		{"axiom-work-item", 0, []string{"--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo"}},
+		{"axiom-work-item", 2, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "code"}},
+		{"axiom-work-item", 3, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--gate", "review", "--outcome", "passed"}},
+		{"axiom-work-item", 1, []string{"--project", "alpha", "--repository", "main", "--number", "7", "--provider-repository", "owner/repo"}},
+		{"axiom-work-item", 4, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--fact", "review_started", "--reference", "docs/review.md"}},
+		{"axiom-work-item", 5, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1"}},
+		{"axiom-work-item", 7, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution"}},
 	}
 	for _, tc := range cases {
 		cmd := discoverForTest(t, tc.skill).Commands[tc.index]
@@ -321,7 +315,7 @@ func TestSkillDiscoveryRejectsInvalidRequestsAndWorkflowConflicts(t *testing.T) 
 			t.Fatalf("%v: code=%d output=%s", args, code, output.String())
 		}
 	}
-	discoverForTest(t, "axiom-work-item-run")
+	discoverForTest(t, "axiom-work-item")
 	for _, args := range [][]string{
 		{"workflow", "start", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--number", "7"},
 		{"work-item", "select", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--provider-repository", "owner/repo"},
@@ -333,7 +327,7 @@ func TestSkillDiscoveryRejectsInvalidRequestsAndWorkflowConflicts(t *testing.T) 
 }
 
 func TestSkillDiscoveryPreservesFullyGuidedInvocation(t *testing.T) {
-	discoverForTest(t, "axiom-project-configure")
+	discoverForTest(t, "axiom-project")
 	service := &recordingService{}
 	var output, prompts bytes.Buffer
 	input := strings.NewReader("alpha\nAlpha\nmain=/tmp/alpha\n\nnone\n")
@@ -345,12 +339,12 @@ func TestSkillDiscoveryPreservesFullyGuidedInvocation(t *testing.T) {
 
 func TestSkillDiscoveryHumanAndWriterFailure(t *testing.T) {
 	var output bytes.Buffer
-	handled, code := InspectSkill([]string{"skill", "inspect", "axiom-project-show"}, completionProvenance(t), &output)
+	handled, code := InspectSkill([]string{"skill", "inspect", "axiom-project"}, completionProvenance(t), &output)
 	if !handled || code != ExitSuccess || !strings.Contains(output.String(), "--selector (required") || !strings.Contains(output.String(), "--slug (optional") {
 		t.Fatalf("human output=%s", output.String())
 	}
 	for _, writer := range []io.Writer{nil, shortInspectionWriter{}} {
-		_, code := InspectSkill([]string{"skill", "inspect", "axiom-project-show"}, completionProvenance(t), writer)
+		_, code := InspectSkill([]string{"skill", "inspect", "axiom-project"}, completionProvenance(t), writer)
 		if code != ExitFailure {
 			t.Fatal("output failure reported success")
 		}
@@ -368,4 +362,25 @@ func withSelectors(args []string, name, value string) []string {
 		return append([]string{}, args...)
 	}
 	return append([]string{name, value}, args...)
+}
+
+func discoveryCommand(t *testing.T, skill, command string) skillCommand {
+	t.Helper()
+	for _, candidate := range discoverForTest(t, skill).Commands {
+		if candidate.Command == command {
+			return candidate
+		}
+	}
+	t.Fatalf("missing command %s", command)
+	return skillCommand{}
+}
+
+func TestRetiredSkillsFailClosed(t *testing.T) {
+	for _, name := range []string{"axiom-project-configure", "axiom-project-list", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status"} {
+		var output bytes.Buffer
+		_, code := InspectSkill([]string{"--json", "skill", "inspect", name}, completionProvenance(t), &output)
+		if code != ExitFailure {
+			t.Fatalf("retired skill accepted: %s", name)
+		}
+	}
 }

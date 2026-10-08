@@ -99,8 +99,8 @@ in the Project; Work Item operations require an authenticated
 [GitHub CLI](https://cli.github.com/). Guided configuration and creation show a
 preview and ask for confirmation before writing.
 
-You can also invoke skills: `$axiom-project-configure` in Codex or
-`/axiom-project-configure` in Claude. See [skills and Runtimes](docs/commands.md#first-run-and-runtime-integrations)
+You can also invoke skills: `$axiom-project` in Codex or
+`/axiom-project` in Claude. See [skills and Runtimes](docs/commands.md#first-run-and-runtime-integrations)
 and the [command reference](docs/commands.md) for details.
 
 ## How Axiom works

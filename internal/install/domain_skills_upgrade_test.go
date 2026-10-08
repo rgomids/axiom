@@ -13,16 +13,13 @@ import (
 	"github.com/rgomids/axiom/internal/compatibility"
 )
 
-// Issue #229: v0.6.0 was the last release whose archive carried six skills.
-// An owned upgrade from such an installation to the eight-skill candidate
-// keeps the compatibility skills, replaces only the owned axiom-work-item-run
-// text whose start protocol #140 changed, creates the two domain skills, and
-// never adopts content Axiom did not publish.
+// Historical six-skill release installations converge to the two-skill
+// candidate, with digest-bound retirement and no adoption of modified content.
 
 const v060SkillManifestSHA256 = "d7190ebb175652c1080288a2f293a1ba70d101d7874880c6eca91b1092dedc3a"
 
 var (
-	sixReleaseSkills = skillNames[:6]
+	sixReleaseSkills = retiredSkillNames
 	domainSkillNames = []string{"axiom-project", "axiom-work-item"}
 )
 
@@ -48,13 +45,9 @@ func installSixSkillRelease(t *testing.T) (installation, string) {
 	t.Helper()
 	t.Cleanup(func() { hostRow = defaultHostRow })
 	hostRow = func() string { return testRow }
-	self := selfBundle(t, "0.6.0")
 	previous := &bundle{version: "0.6.0", binary: []byte("binary 0.6.0\n"), skills: map[string][]byte{}}
 	for _, name := range sixReleaseSkills {
-		previous.skills[name] = self.skills[name]
-		if slices.Contains(changedCompatibilitySkills, name) {
-			previous.skills[name] = v060Skill(t, name)
-		}
+		previous.skills[name] = v060Skill(t, name)
 	}
 	lines, _, err := parseMetadata(newBundle("0.6.0", nil).contents()["release-metadata.txt"])
 	if err != nil {
@@ -92,16 +85,12 @@ func TestUpgradeFromSixSkillReleaseAddsOnlyDomainSkills(t *testing.T) {
 	if err != nil || preview.Skills != SkillsPublish || preview.SourceVersion != "0.6.0" {
 		t.Fatalf("preview=%+v err=%v", preview, err)
 	}
-	kinds := []string{}
+	kinds := map[string]int{}
 	for _, effect := range preview.Effects {
-		kinds = append(kinds, strings.TrimSuffix(effect.Kind+":"+effect.Name, ":"))
-		replacesChanged := slices.Contains(changedCompatibilitySkills, effect.Name) && effect.Expected == digest(v060Skill(t, effect.Name))
-		if effect.Kind == "skill" && !replacesChanged && (!slices.Contains(domainSkillNames, effect.Name) || effect.Expected != absentRevision) {
-			t.Fatalf("upgrade touches compatibility skill or replaces content: %+v", effect)
-		}
+		kinds[effect.Kind]++
 	}
-	if want := []string{"binary", "receipt", "skill:axiom-work-item-run", "skill:axiom-work-item-status", "skill:axiom-project", "skill:axiom-work-item", "skill_receipt"}; !slices.Equal(kinds, want) {
-		t.Fatalf("effects=%v want %v", kinds, want)
+	if kinds["skill_retire"] != 6 || kinds["skill"] != 2 {
+		t.Fatalf("effects=%+v", preview.Effects)
 	}
 	if last := preview.Effects[len(preview.Effects)-1]; last.Expected != digest(publishedCodexReceipt(t, "v0.6.0")) {
 		t.Fatalf("receipt effect=%+v", last)
@@ -182,24 +171,21 @@ func TestUpgradeFromSixSkillReleaseNeverAdoptsForeignOrModifiedSkills(t *testing
 	}
 }
 
-// An installed eight-skill set reconstructs the manifest that
+// An installed canonical skill set reconstructs the manifest that
 // build-release-archives.sh writes (sorted), so the next upgrade still
 // recognizes the whole set as owned.
 func TestInstalledSkillManifestUsesReleaseOrderForDomainSkills(t *testing.T) {
 	self := selfBundle(t, "1.1.0")
 	inventory := codexruntime.UpgradeInventory{Configured: true}
 	release := "formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n"
-	for _, name := range skillNames {
+	for _, name := range []string{"axiom-work-item", "axiom-project"} {
 		inventory.Skills = append(inventory.Skills, codexruntime.UpgradeSkill{Name: name, SHA256: digest(self.skills[name])})
 	}
 	for _, name := range slices.Sorted(slices.Values(skillNames)) {
 		release += "skill." + name + "=" + digest(self.skills[name]) + "\n"
 	}
-	if slices.IsSorted(skillNames) {
-		t.Fatal("inventory order no longer differs from release order; this test no longer guards anything")
-	}
 	if got := installedSkillManifest(inventory); got != digest([]byte(release)) {
-		t.Fatalf("eight-skill manifest digest = %s, release manifest %s", got, digest([]byte(release)))
+		t.Fatalf("canonical manifest digest = %s, release manifest %s", got, digest([]byte(release)))
 	}
 }
 
@@ -218,6 +204,65 @@ func TestArchiveSkillSetIsTheEmbeddedSkillSet(t *testing.T) {
 		}
 	}
 	if !slices.Equal(sixReleaseSkills, []string{"axiom-project-configure", "axiom-project-list", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status"}) {
-		t.Fatalf("published skills are no longer a prefix of the archive set: %v", skillNames)
+		t.Fatalf("historical published skill inventory changed: %v", skillNames)
+	}
+}
+
+func TestUpgradeRetirementResumesAfterEveryRemovedEntry(t *testing.T) {
+	for _, stop := range retiredSkillNames {
+		t.Run(stop, func(t *testing.T) {
+			installed, root := installSixSkillRelease(t)
+			candidate := installed.candidate(t, selfBundle(t, "1.1.0"))
+			preview, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			authority, _ := Authorize(preview, preview.Digest)
+			interrupted := Service{afterEffect: func(label string) error {
+				if label == "skill_retire:"+stop {
+					return errors.New("injected retirement interruption")
+				}
+				return nil
+			}}
+			if result, err := interrupted.Apply(context.Background(), preview, authority); err == nil || result.Status != "partial" {
+				t.Fatalf("result=%+v err=%v", result, err)
+			}
+			resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil || !resume.Resume {
+				t.Fatalf("resume=%+v err=%v", resume, err)
+			}
+			authority, _ = Authorize(resume, resume.Digest)
+			if result, err := NewService().Apply(context.Background(), resume, authority); err != nil || result.Status != "success" {
+				t.Fatalf("result=%+v err=%v", result, err)
+			}
+			for _, name := range retiredSkillNames {
+				if _, err := os.Lstat(filepath.Join(root, name)); !os.IsNotExist(err) {
+					t.Fatalf("%s still present", name)
+				}
+			}
+		})
+	}
+}
+
+func TestUpgradeRefusesUnattestedEmptyLegacyDirectory(t *testing.T) {
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	current := selfBundle(t, "1.0.0")
+	root := installed.withSkillsRoot(t, current.skills)
+	receipt, err := codexruntime.CurrentReceipt()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(root, codexruntime.SkillSetReceiptName), receipt, 0600)
+	if err := os.Mkdir(filepath.Join(root, retiredSkillNames[0]), 0700); err != nil {
+		t.Fatal(err)
+	}
+	installed.target.Self = selfBuildFor("1.1.0")
+	_, err = NewService().Preview(context.Background(), installed.target, installed.candidate(t, selfBundle(t, "1.1.0")))
+	var failure *Error
+	if !errors.As(err, &failure) || failure.Category != "skill_conflict" {
+		t.Fatalf("err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, retiredSkillNames[0])); err != nil {
+		t.Fatal("unowned directory changed")
 	}
 }

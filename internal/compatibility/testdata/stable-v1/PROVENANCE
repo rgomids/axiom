@@ -6,3 +6,8 @@ snapshot.v0.8.1-issue233.base=e47890731e8d
 snapshot.v0.4.0.revision=fbbdd37285e3175d6cbf10f0a13e88a2191e6cd9
 generator=internal/local TestEveryV1WriterIsRecognizedByInventory with AXIOM_FREEZE_STATE_CORPUS=<release>
 rule=append-only; frozen snapshots, files and MANIFEST lines are never edited or removed; output identical to a frozen snapshot is not duplicated; different output at an existing logical path is frozen as a new snapshot
+snapshot.v0.10.0.revision=c7260797aad7865419f555eea94a2eef7ae78285
+snapshot.v0.10.0.status=retrospective reproducible historical baseline; not evidence captured during release publication
+snapshot.v0.10.0.generator=git archive v0.10.0 into isolated temporary checkout; AXIOM_FREEZE_STATE_CORPUS=v0.10.0 go test ./internal/local -run '^TestEveryV1WriterIsRecognizedByInventory$' -count=1 -v
+snapshot.v0.10.0.isolation=temporary HOME, LINGO_PROJECTS_ROOT, LINGO_STATE_ROOT, CODEX_HOME and CLAUDE_CONFIG_DIR; writer test uses private temporary roots and normalizes machine paths to /axiom-corpus
+snapshot.v0.10.0.scope=exact tag writers, including operational.json; no future implementation copied into historical checkout; published tag unchanged

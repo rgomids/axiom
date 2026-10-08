@@ -344,7 +344,7 @@ func TestUpgradeReplacesKnownLegacySkillsAndCreatesMissingOnes(t *testing.T) {
 	root := installed.withSkillsRoot(t, legacy)
 	next := newBundle("1.1.0", []byte("new-binary\n"))
 	preview, err := NewService().Preview(context.Background(), installed.target, installed.candidate(t, next))
-	if err != nil || len(preview.Effects) != 2+len(skillNames) || preview.Effects[len(preview.Effects)-1].Expected != absentRevision {
+	if err != nil || len(preview.Effects) != 2+len(skillNames)+4 {
 		t.Fatalf("preview=%+v err=%v", preview, err)
 	}
 	authority, _ := Authorize(preview, preview.Digest)
@@ -363,16 +363,16 @@ func TestUpgradeSkillConflictsHaveZeroEffects(t *testing.T) {
 			writeFile(t, filepath.Join(root, skillNames[0], "notes.md"), []byte("x\n"), 0o600)
 		},
 		"permissive skill file": func(t *testing.T, root string) {
-			if err := testfs.SharedMode(filepath.Join(root, skillNames[2], "SKILL.md"), 0o644); err != nil {
+			if err := testfs.SharedMode(filepath.Join(root, skillNames[1], "SKILL.md"), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		},
 		"symlinked skill directory": func(t *testing.T, root string) {
 			outside := t.TempDir()
-			if err := testfs.RenameOrSkipPinned(t, filepath.Join(root, skillNames[3]), filepath.Join(outside, "moved")); err != nil {
+			if err := testfs.RenameOrSkipPinned(t, filepath.Join(root, skillNames[1]), filepath.Join(outside, "moved")); err != nil {
 				t.Fatal(err)
 			}
-			if err := testfs.Symlink(t, filepath.Join(outside, "moved"), filepath.Join(root, skillNames[3])); err != nil {
+			if err := testfs.Symlink(t, filepath.Join(outside, "moved"), filepath.Join(root, skillNames[1])); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -433,7 +433,7 @@ func TestUpgradeSkillStaleAuthorityAndConcurrentInstallHaveZeroEffects(t *testin
 	if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
 		t.Fatal("concurrent skill install changed state")
 	}
-	writeFile(t, filepath.Join(root, skillNames[4], "SKILL.md"), next(current.skills[skillNames[4]]), 0o600)
+	writeFile(t, filepath.Join(root, skillNames[1], "SKILL.md"), next(current.skills[skillNames[1]]), 0o600)
 	if result, err := service.Apply(context.Background(), preview, authority); category(err) != "authority_denied" || len(result.Ledger) != 0 {
 		t.Fatalf("stale skill authority result=%+v err=%v", result, err)
 	}
@@ -533,7 +533,7 @@ func TestUpgradeResumeRefusesSkillChangedAfterInterruption(t *testing.T) {
 	if _, err := service.Apply(context.Background(), preview, authority); err == nil {
 		t.Fatal("interruption not reported")
 	}
-	writeFile(t, filepath.Join(root, skillNames[3], "SKILL.md"), []byte("operator edit\n"), 0o600)
+	writeFile(t, filepath.Join(root, skillNames[1], "SKILL.md"), []byte("operator edit\n"), 0o600)
 	before := snapshot(t, filepath.Dir(installed.target.BinaryDir))
 	if _, err := NewService().Preview(context.Background(), installed.target, candidate); category(err) != "recovery_required" {
 		t.Fatalf("changed skill resumed: %v", err)
