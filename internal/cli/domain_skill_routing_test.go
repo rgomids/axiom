@@ -395,8 +395,11 @@ func TestRoutingAloneNeverGrantsAuthority(t *testing.T) {
 	}
 }
 
-// CR-002: Project edit is preview-only. Every input the edit mode advertises
-// as rejected fails before the application, with the documented category.
+// CR-002 as amended by I230-T03: Project edit publication requires the
+// complete replay tuple. Each advertised replay input supplied alone is a
+// partial tuple and fails before the application. The skill metadata and
+// text below are owned by I230-T08 and still describe the preview-only
+// contract until that task reconciles them.
 func TestProjectEditModeRejectsEveryAdvertisedPublicationInput(t *testing.T) {
 	edit := modeByName(t, discoverForTest(t, "axiom-project"), "configure", "edit")
 	create := modeByName(t, discoverForTest(t, "axiom-project"), "configure", "create")
@@ -419,7 +422,7 @@ func TestProjectEditModeRejectsEveryAdvertisedPublicationInput(t *testing.T) {
 		if err := json.Unmarshal(output.Bytes(), &event); err != nil {
 			t.Fatal(err)
 		}
-		if code != ExitFailure || len(service.inputs) != 0 || event.Status != completion.ValidationFailure || event.Result != "Project edit publication is not available" {
+		if code != ExitFailure || len(service.inputs) != 0 || event.Status != completion.ValidationFailure || event.Result != "Project edit authority is incomplete" {
 			t.Fatalf("%s: code=%d inputs=%d output=%s", input, code, len(service.inputs), output.String())
 		}
 	}

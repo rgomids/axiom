@@ -377,13 +377,7 @@ func TestIntegrationRemoveWorkItemsPreviewIsCompleteAndZeroWrite(t *testing.T) {
 		t.Fatalf("remove preview changed local eligibility: %+v", list.Integrations)
 	}
 
-	// Publication belongs to the Project edit engine: replay inputs are refused
-	// by the same seam and nothing is written.
 	zeroWrites(t, env, func() {
-		replay, _ := runIntegrationCLI(t, env.service, cli.ExitFailure, "remove", "--project", "guarded", "--integration", "work-items", "--project-id", env.projectID, "--preview-digest", preview.Edit.Digest, "--authorize-local")
-		if replay.Result != "Project edit publication is not available" {
-			t.Fatalf("replay = %+v", replay)
-		}
 		unknown, _ := runIntegrationCLI(t, env.service, cli.ExitFailure, "remove", "--project", "guarded", "--integration", "ghost")
 		if unknown.Category != projectapp.IntegrationNotFound || unknown.Status != string(completion.ValidationFailure) {
 			t.Fatalf("unknown remove = %+v", unknown)
@@ -396,6 +390,32 @@ func TestIntegrationRemoveWorkItemsPreviewIsCompleteAndZeroWrite(t *testing.T) {
 			t.Fatalf("missing Project = %+v", missing)
 		}
 	})
+
+	// Publication goes through the single Project edit engine: the exact
+	// reviewed replay removes only the portable declaration.
+	operationalPath := filepath.Join(env.state, "projects", env.projectID, "operational.json")
+	operationalBefore, err := os.ReadFile(operationalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, _ := runIntegrationCLI(t, env.service, cli.ExitSuccess, "remove", "--project", "guarded", "--integration", "work-items", "--project-id", env.projectID, "--preview-digest", preview.Edit.Digest, "--authorize-local")
+	if replay.Result != "Project edit published" {
+		t.Fatalf("replay = %+v", replay)
+	}
+	manifest, err := os.ReadFile(filepath.Join(env.root, "guarded", "axiom.yaml"))
+	if err != nil || strings.Contains(string(manifest), "work-items") {
+		t.Fatalf("portable declaration not removed: %s %v", manifest, err)
+	}
+	if after, err := os.ReadFile(operationalPath); err != nil || !bytes.Equal(after, operationalBefore) {
+		t.Fatal("remove changed machine-local operational state")
+	}
+	if env.providerCalled() {
+		t.Fatal("remove invoked the Provider")
+	}
+	// The stale local disable entry is reported, inert, and clearable (F-04).
+	if list, _ := runIntegrationCLI(t, env.service, cli.ExitSuccess, "list", "--project", "guarded"); list.Integrations == nil || !reflect.DeepEqual(list.Integrations.StaleDisabled, []string{"work-items"}) {
+		t.Fatalf("stale disable entry = %+v", list.Integrations)
+	}
 }
 
 const multiIntegrationManifest = `schemaVersion: 2

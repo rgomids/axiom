@@ -13,7 +13,8 @@ import (
 
 // Issue #132 EDIT preview (I132-T01). Presentation captures presence only; this
 // file owns selection orchestration, partial-intent merge, and complete
-// portable/local candidate construction. It has no write capability.
+// portable/local candidate construction. It has no write capability; reviewed
+// publication of the same candidate lives in edit_publish.go (I230-T03).
 
 const (
 	CreateMode = "create"
@@ -31,7 +32,7 @@ type OptionalText struct {
 type RepositoryUpsert struct{ Key, Path string }
 
 // EditIntent is partial explicit intent. Omission always means preservation.
-// It carries no replay or authority input: EDIT publication is not delivered.
+// It carries no replay or authority input; EditAuthority carries that apart.
 type EditIntent struct {
 	Selector               string
 	Name                   OptionalText
@@ -95,6 +96,9 @@ const (
 	EditCancelled
 	EditUnavailable
 	EditUnknownIntegration
+	// EditIncompleteAuthority is a partial replay tuple: any of Project ID,
+	// preview digest or local authority without the others.
+	EditIncompleteAuthority
 )
 
 // EditSource resolves an exact UUID/slug selector and loads its coherent
@@ -169,6 +173,11 @@ type EditProposal struct {
 	local     LocalRecordState
 	localWire []byte
 	preview   EditPreview
+	// Exact observations the candidate was built from: the CAS preconditions
+	// of an authorized publication of this proposal.
+	observedManifest  []byte
+	observedLocalWire []byte
+	portableChanged   bool
 }
 
 func (p EditProposal) Project() project.Project { return p.project }
@@ -285,6 +294,7 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 		effects = append(effects, EditEffect{Scope: LocalScope, Code: "update_local_record"})
 	}
 	effects = append(effects, bindingEffects...)
+	effects = append(effects, preservedHistoryEffects(intent.RepositoryRemovals)...)
 	state := candidate.State()
 	preview := EditPreview{
 		Mode: EditMode, ProjectID: state.ID, Slug: state.Slug, Name: state.Name,
@@ -293,7 +303,25 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 		PortableRevision: selection.PortableRevision, LocalRevision: selection.LocalRevision, Effects: effects,
 	}
 	preview.Digest = editEnvelopeDigest(preview, manifest, localWire)
-	return EditProposal{project: candidate, manifest: manifest, local: localCandidate, localWire: localWire, preview: preview}, EditOK
+	return EditProposal{project: candidate, manifest: manifest, local: localCandidate, localWire: localWire, preview: preview,
+		observedManifest: selection.Portable.Manifest(), observedLocalWire: append([]byte(nil), selection.LocalWire...), portableChanged: portableChanged}, EditOK
+}
+
+// PreserveRepositoryHistory discloses that detaching a Repository key keeps
+// every machine-local Work Item link and Execution addressed by that key
+// (#230 F-03). Nothing is deleted; the records are unreachable for evolution
+// until the same key is attached again. It never touches the working copy or
+// any remote.
+const PreserveRepositoryHistory = "preserve_repository_history"
+
+func preservedHistoryEffects(removals []string) []EditEffect {
+	keys := append([]string(nil), removals...)
+	sort.Strings(keys)
+	effects := make([]EditEffect, 0, len(keys))
+	for _, key := range keys {
+		effects = append(effects, EditEffect{Scope: LocalScope, Code: PreserveRepositoryHistory, Key: key})
+	}
+	return effects
 }
 
 // coherentSelection fails closed on stale or conflicting portable/local

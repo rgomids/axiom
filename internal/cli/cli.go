@@ -378,7 +378,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
-		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) || *result == "unsupported_edit_authority" {
+		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) || *result == "incomplete_edit_authority" {
 			return emitParserFailure(stdout, mode, operation, *result, source)
 		}
 		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
@@ -423,8 +423,8 @@ func parserFailureText(operation action, issue string) (string, string) {
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
 	}
-	if issue == "unsupported_edit_authority" {
-		return "Project edit publication is not available", "Remove --project-id, --preview-digest, and --authorize-local; edit only previews"
+	if issue == "incomplete_edit_authority" {
+		return "Project edit authority is incomplete", "Supply --project-id, --preview-digest, and --authorize-local together from the reviewed preview, or omit all three to preview"
 	}
 	if issue == "invalid_input" && (operation == showAction || operation == resolveAction || operation == configureAction) {
 		return "Explicit selector input is invalid", "Remove unknown, duplicate, or conflicting inputs and retry"
@@ -724,11 +724,11 @@ func projectFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		set.StringVar(&values.selector, "selector", "", "Configured Project identity; `<uuid-or-slug>`.")
 	}
 	if operation == configureAction {
-		set.StringVar(&values.projectID, "project-id", "", "Optional Project UUID for creation; `<uuid>`. Rejected in edit mode.")
+		set.StringVar(&values.projectID, "project-id", "", "Project UUID; `<uuid>`. Optional for creation; for an edit, the reviewed Project ID required with --preview-digest and --authorize-local.")
 		set.StringVar(&values.name, "name", "", "Project display name; `<text>`.")
 		set.Var(&values.repositories, "repository", "Add or update Repository; `<key>=<absolute-path>`. Conflicts with removing the same key.")
 		set.StringVar(&values.workItemProvider, "work-item-provider", "", "Work Item provider; `<provider-id>`. CREATE also accepts none; edit uses --remove-work-item-provider.")
-		set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication; rejected for Project edit.")
+		set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication.")
 		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
 		set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`. For configure selects preview-only edit mode.")
 		set.BoolVar(&values.removeWorkItemProvider, "remove-work-item-provider", false, "Remove the existing provider in edit mode; conflicts with --work-item-provider.")
@@ -790,10 +790,10 @@ func configureRequestIssue(values requestInput) string {
 		}
 		return ""
 	}
-	// EDIT replay/publication is not delivered (I132-T02), so its inputs fail
-	// here, before any selector resolution or state read.
-	if values.replaySupplied {
-		return "unsupported_edit_authority"
+	// EDIT replay is the complete reviewed tuple; a partial tuple fails here,
+	// before any selector resolution or state read (I230-T03).
+	if values.replaySupplied && (values.projectID == "" || values.previewDigest == "" || !values.authorizeLocal) {
+		return "incomplete_edit_authority"
 	}
 	// Bootstrap intent is CREATE-only; post-create lifecycle belongs to #230.
 	if values.bootstrapSupplied {
