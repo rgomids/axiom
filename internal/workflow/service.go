@@ -29,9 +29,10 @@ const (
 )
 
 var (
-	ErrNotFound         = errors.New("execution not found")
-	ErrConflict         = errors.New("execution conflict")
-	ErrRecoveryRequired = errors.New("execution recovery required")
+	ErrNotFound          = errors.New("execution not found")
+	ErrConflict          = errors.New("execution conflict")
+	ErrRecoveryRequired  = errors.New("execution recovery required")
+	ErrWorkItemAmbiguous = errors.New("work item linkage ambiguous")
 )
 
 type Stage string
@@ -226,6 +227,8 @@ type Target struct {
 	ProjectSelector, RepositoryKey               string
 	WorkItemProvider, WorkItemResource, WorkItem string
 	ExecutionID, RuntimeID                       string
+	// ReviewedTarget is an optional read-only preflight snapshot, never persisted.
+	ReviewedTarget *ResolvedTarget
 }
 type TransitionInput struct {
 	ExpectedRevision uint64
@@ -279,6 +282,9 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 	project, repository, item, failed := s.resolve(ctx, target)
 	if failed.Category != "" {
 		return failed
+	}
+	if target.ReviewedTarget != nil && *target.ReviewedTarget != (ResolvedTarget{ProjectID: project.ID, Repository: repository, WorkItem: item}) {
+		return result(ValidationFailed, "stale_execution_target", State{})
 	}
 	existing, err := s.store.Load(ctx, project.ID, repository.Key, item)
 	if err == nil {
@@ -584,25 +590,36 @@ func (s Service) Project(ctx context.Context, target Target, expectedRevision ui
 }
 
 func (s Service) resolve(ctx context.Context, target Target) (Project, Repository, WorkItem, Result) {
-	if s.resolver == nil || s.workItems == nil || s.store == nil || !s.source.Valid() || !validText(target.ProjectSelector) || !validText(target.RepositoryKey) || !validText(target.WorkItem) || target.RuntimeID != "" && !validText(target.RuntimeID) {
+	if s.resolver == nil || s.workItems == nil || s.store == nil || !s.source.Valid() || !validText(target.ProjectSelector) || !validText(target.RepositoryKey) || !validWorkItemSelector(target.WorkItem) || target.RuntimeID != "" && !validText(target.RuntimeID) {
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "invalid_execution_input", State{})
 	}
 	project, category := s.resolver.Resolve(ctx, target.ProjectSelector)
 	if category != "" {
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, category, State{})
 	}
+	if !validText(project.ID) {
+		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "invalid_execution_input", State{})
+	}
 	var repository Repository
 	for _, candidate := range project.Repositories {
 		if candidate.Key == target.RepositoryKey {
+			if repository.Key != "" {
+				return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "repository_ambiguous", State{})
+			}
 			repository = candidate
-			break
 		}
 	}
 	if repository.Key == "" {
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "repository_not_configured", State{})
 	}
-	item, err := s.workItems.Load(ctx, target.ProjectSelector, target.RepositoryKey, target.WorkItemProvider, target.WorkItemResource, target.WorkItem)
-	if err != nil || !validWorkItem(item) {
+	item, err := s.workItems.Load(ctx, project.ID, target.RepositoryKey, target.WorkItemProvider, target.WorkItemResource, target.WorkItem)
+	if errors.Is(err, ErrRecoveryRequired) {
+		return Project{}, Repository{}, WorkItem{}, result(Failed, "recovery_required", State{})
+	}
+	if errors.Is(err, ErrWorkItemAmbiguous) {
+		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "work_item_ambiguous", State{})
+	}
+	if err != nil || !validWorkItem(item) || item.ExternalID != target.WorkItem || target.WorkItemProvider != "" && item.Provider != target.WorkItemProvider || target.WorkItemResource != "" && item.Resource != target.WorkItemResource {
 		return Project{}, Repository{}, WorkItem{}, result(ValidationFailed, "work_item_not_linked", State{})
 	}
 	return project, repository, item, Result{}
