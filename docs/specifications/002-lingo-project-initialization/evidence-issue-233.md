@@ -51,7 +51,7 @@ Runtime session isolation is exercised through the shared CLI/application
 contract using distinct Codex/Claude session IDs. Real interactive Runtime
 shutdown automation and cross-platform execution are not claimed.
 
-## PR #259 review correction — CR-001
+## PR #259 review correction - CR-001
 
 The original no-path assertion examined raw JSON for every CLI response. That
 incorrectly rejected the existing `project show` source/repository path contract
