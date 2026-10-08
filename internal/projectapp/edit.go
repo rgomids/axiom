@@ -215,7 +215,9 @@ func ValidateEditIntent(intent EditIntent) EditFailure {
 	}
 	integrations := map[string]bool{}
 	for _, key := range intent.IntegrationRemovals {
-		if !boundedSetupKey(key) || !ValidIntegrationKey(key) || integrations[key] {
+		// The portable token grammar a manifest accepts for Integration keys,
+		// so every declarable key can be removed.
+		if !ValidIntegrationKey(key) || integrations[key] {
 			return EditInvalidIntent
 		}
 		integrations[key] = true

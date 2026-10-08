@@ -182,6 +182,18 @@ func TestRemovingWorkItemsIntegrationRemovesItsPairedProvider(t *testing.T) {
 	}
 }
 
+func TestEveryDeclarableIntegrationKeyIsRemovable(t *testing.T) {
+	// Portable Integration keys use the token grammar ([a-z0-9._-]), wider
+	// than the setup key grammar; removal must accept every declarable key.
+	intent := projectapp.EditIntent{Selector: "sample", IntegrationRemovals: []string{"chat_v2.bot"}}
+	if failure := projectapp.ValidateEditIntent(intent); failure != projectapp.EditOK {
+		t.Fatalf("declarable key rejected: %v", failure)
+	}
+	if _, failure := newEditFixture(t).preview(t, intent); failure != projectapp.EditUnknownIntegration {
+		t.Fatalf("undeclared token key = %v", failure)
+	}
+}
+
 func TestRemovingIntegrationFailsClosed(t *testing.T) {
 	f := newEditFixture(t)
 	if _, failure := f.preview(t, projectapp.EditIntent{IntegrationRemovals: []string{"nope"}}); failure != projectapp.EditUnknownIntegration {
