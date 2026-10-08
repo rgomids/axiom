@@ -227,3 +227,33 @@ checkpoint/handoff authority statements above are historical. Merge, release,
 real Runtime/Provider effects, Issue closure and human acceptance remain outside
 this authorization. Clean committed-candidate checks are reported separately in
 the PR; native acceptance remains pending.
+
+## Clean committed-candidate validation — 2026-10-08
+
+Implementation commit: `36a02744f409141753812598146a084a2245cc7b` on
+`fix/230-canonical-runtime-skills`. The subsequent Evidence-only commit records
+these observations; it changes no implementation or test contract. No release
+was published, no real Runtime/Provider was invoked, and no user root changed.
+
+- `./scripts/test-release-pipeline.sh`: PASS, explicitly reported
+  `tested_revision=36a02744f409141753812598146a084a2245cc7b`; clean clone,
+  four native archives, closed verification, exact native smoke, archive content
+  rerun equivalence and no-publication workflow.
+- `./scripts/build-release-archives.sh --version 9999.0.0-acceptance.2
+  --output <isolated-clean-artifacts>`: PASS, clean source and release build
+  provenance bound to this commit. The synthetic version identifies a local
+  test candidate, not a published release.
+- `./scripts/test-upgrade-journeys.sh --candidate <isolated-clean-artifacts>
+  --previous <checksum-verified-v0.10.0> --previous
+  <checksum-verified-v0.6.0>`: PASS, `failures=0`, `result=pass`. Published
+  v0.10.0 seeded nonempty Project, Work Item and Execution state; candidate
+  upgrade preserved portable/state bytes, read the Project/Execution, converged
+  both skill roots to the two canonical bytes and reran unchanged. Published
+  v0.6.0 also upgraded and converged both roots, with rerun unchanged.
+
+This resolves the clean release-pipeline and full binary-upgrade-journey
+pending entries in the earlier checkpoint and AC-08 ledger. POC coverage remains
+provided by automated preservation/install tests; no POC binary argument was
+supplied to this clean journey run. Real Codex/Claude semantic selection and
+isolated GitHub Provider acceptance remain pending explicit authority. Remote
+CI is a separate observation recorded by the PR, not inferred from local PASS.
