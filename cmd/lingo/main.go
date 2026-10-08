@@ -403,6 +403,14 @@ func (s lifecycleService) Install(ctx context.Context, input cli.InstallInput) c
 	return cli.Result{Status: status, Category: result.Category}
 }
 func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) cli.Result {
+	if input.Selector == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Selector = id
+	}
+
 	result := s.installation.Resolve(ctx, input.Selector)
 	status := cli.Failed
 	if result.Status == local.ResolutionFound {
@@ -416,6 +424,14 @@ func (s lifecycleService) Resolve(ctx context.Context, input cli.ResolveInput) c
 }
 
 func (s lifecycleService) Show(ctx context.Context, input cli.ResolveInput) cli.Result {
+	if input.Selector == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Selector = id
+	}
+
 	result := s.installation.Resolve(ctx, input.Selector)
 	if result.Status != local.ResolutionFound {
 		return projectShowFailure(result.Category, s.provenance)
@@ -747,6 +763,14 @@ func editSelectionFailure(category string) projectapp.EditFailure {
 }
 
 func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
 		return *blocked
 	}
@@ -763,6 +787,14 @@ func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItem
 	return workItemResult(s.workItems.Create(ctx, draft, input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
 		return *blocked
 	}
@@ -776,6 +808,14 @@ func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItem
 	return workItemResult(s.workItems.Select(ctx, target, workItemExternalID(input), input.PreviewDigest, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
 		return *blocked
 	}
@@ -785,6 +825,14 @@ func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemIn
 	return workItemResult(s.workItems.Show(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input)), s.provenance)
 }
 func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
 		return *blocked
 	}
@@ -794,6 +842,14 @@ func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkIte
 	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.Message, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
 		return *blocked
 	}
@@ -819,6 +875,14 @@ func workflowTarget(input cli.WorkflowInput) workflow.Target {
 }
 
 func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	// Start enforces the shared and Work Item requirements here; its Runtime
 	// requirement is the #140 request-specific projection (reviewed preview
 	// plus fresh Check) below, so Runtimes are not observed twice.
@@ -847,6 +911,14 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	references, ok := workflowReferences(input.Reference)
 	if !ok {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
@@ -854,6 +926,14 @@ func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.Workflo
 	return workflowResult(s.workflows.Transition(ctx, workflowTarget(input), workflow.TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: workflow.Stage(input.Gate), Outcome: workflow.Outcome(input.Outcome), References: references, Next: input.Next}), s.provenance)
 }
 func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	references, ok := workflowReferences(input.Reference)
 	if !ok || len(references) != 1 {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
@@ -874,15 +954,39 @@ func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowIn
 	return workflowResult(s.workflows.RecordLifecycleFact(ctx, workflowTarget(input), workflow.LifecycleFactInput{ExpectedRevision: input.ExpectedRevision, Kind: kind, Active: input.Active, Reference: references[0]}, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	if blocked := s.preflight(ctx, input.Project, projectapp.OperationExecution); blocked != nil {
 		return *blocked
 	}
 	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 }
 func (s lifecycleService) WorkflowStatus(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	return workflowResult(s.workflows.Status(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	result := s.workflows.Status(ctx, workflowTarget(input))
 	if result.Status == workflow.Succeeded {
 		result.Category = "workflow_evidence_ready"
@@ -891,6 +995,14 @@ func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.Workfl
 }
 
 func (s lifecycleService) WorkflowReconcile(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
+
 	if !input.AuthorizeExternal {
 		return workflowResult(s.workflows.PrepareProjection(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 	}

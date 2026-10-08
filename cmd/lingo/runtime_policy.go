@@ -124,6 +124,13 @@ func (s lifecycleService) runtimePolicyPreview(ctx context.Context, input cli.Ru
 }
 
 func (s lifecycleService) RuntimeProfilePreview(ctx context.Context, input cli.RuntimeProfilePreviewInput) cli.Result {
+	if input.Project == "" {
+		id, failure := s.EffectiveProject(ctx, "")
+		if id == "" {
+			return failure
+		}
+		input.Project = id
+	}
 	preview, _, err := s.runtimePolicyPreview(ctx, input)
 	return s.runtimeResolutionResult(preview, err == nil)
 }

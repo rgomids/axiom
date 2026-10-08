@@ -6,6 +6,7 @@ const helpText = `Axiom — Lingo local control plane
 
 Usage:
   axiom [--human|--json] <command>
+  axiom [--human|--json] [--session <id>] <command>
   axiom help
 
 Commands:
@@ -17,6 +18,9 @@ Commands:
   runtime profile preview --project <uuid-or-slug> --role <token> --complexity <token>
     --capabilities <comma-list> [--runtime codex|claude]
   project configure|list|show|resolve|init|validate|reopen|update|install
+  project context show [--selector <uuid-or-slug>]
+  project context default-set|session-set --selector <uuid-or-slug> --authorize-local
+  project context default-clear|session-clear|session-end --authorize-local
   work-item create|select|show|comment|complete
   workflow start|advance|fact|resume|status|evidence|reconcile
   compatibility inspect|backup|export

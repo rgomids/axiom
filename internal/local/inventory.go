@@ -40,6 +40,7 @@ const (
 	InventoryGraph            InventoryKind = "execution_graph"
 	InventoryCoordination     InventoryKind = "coordination_stream"
 	InventoryRuntimeProfile   InventoryKind = "runtime_profile_configuration"
+	InventoryProjectContext   InventoryKind = "project_context_preference"
 	InventoryPortableManifest InventoryKind = "portable_manifest"
 	InventoryPOCWorkflow      InventoryKind = "poc_workflow"
 	InventoryRecovery         InventoryKind = "recovery_state"
@@ -53,7 +54,7 @@ const (
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile:
+	case InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext:
 		return true
 	}
 	return false
@@ -62,7 +63,7 @@ func (k InventoryKind) V1Only() bool {
 // v1Kinds are the canonical persisted-state v1 kinds. Every kind a v1 writer
 // can produce MUST be listed here so the compatibility guards require it to be
 // exercised by a writer and frozen in the stable corpus.
-var v1Kinds = []InventoryKind{InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryPortableManifest}
+var v1Kinds = []InventoryKind{InventoryInstallation, InventoryWorkItem, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryPortableManifest, InventoryProjectContext}
 
 // V1Kinds returns a copy of the canonical persisted-state v1 kinds.
 func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...) }
@@ -170,7 +171,7 @@ func inspectInventory(ctx context.Context, path string, walk func(*inventoryWalk
 // classifies. Every directory a v1 store writes below the state root MUST be
 // listed here, or an upgrade would refuse state an earlier release produced;
 // TestEveryStateRootWriterDirectoryIsInventoried enforces that.
-var StateRootDirectories = []string{"artifacts", "coordination", "executions", "graphs", "projects", "runtime-profiles", "work-items", "workflows"}
+var StateRootDirectories = []string{"artifacts", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "work-items", "workflows"}
 
 func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 	if err := walkStateRootEntries(w, root); err != nil {
@@ -265,6 +266,8 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 			})
 		case "runtime-profiles":
 			return eachVersionDirectory(w, root, name, walkRuntimeProfilesV1)
+		case "project-context":
+			return eachVersionDirectory(w, root, name, walkProjectContextV1)
 		case "workflows":
 			return eachChildDirectory(w, root, name, func(workflows *os.Root, id, relative string) error {
 				if !validUUID(id) {

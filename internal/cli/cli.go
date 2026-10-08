@@ -160,6 +160,7 @@ type Result struct {
 	WorkItem          *WorkItemView
 	Workflow          *WorkflowView
 	Completion        *completion.Result
+	Context           *projectapp.EffectiveContext
 	Setup             *projectapp.SetupPreview
 	Edit              *projectapp.EditPreview
 	RuntimeResolution *runtimeapplication.Preview
@@ -283,8 +284,27 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		return code
 	}
 	mode, args := parseOutputMode(args)
+	var sessionOK bool
+	ctx, args, sessionOK = projectSessionArgs(ctx, args)
+	if !sessionOK {
+		return emitParserFailure(stdout, mode, "project_context", "invalid_input", source)
+	}
 	if service == nil {
 		return emit(stdout, mode, event{Operation: "unknown", Status: Failed, Category: "application_unavailable"})
+	}
+	if contextual, ok := service.(ProjectContextService); ok {
+		if len(args) >= 2 && args[0] == "project" && args[1] == "context" {
+			response := runProjectContext(ctx, args[2:], contextual)
+			if response.Completion == nil && response.Category == "invalid_input" {
+				return emitParserFailure(stdout, mode, "project_context", "invalid_input", source)
+			}
+			return emitResponse(stdout, mode, "project_context", response)
+		}
+		var failure *Result
+		args, failure = effectiveProjectArgs(ctx, args, contextual)
+		if failure != nil {
+			return emitResponse(stdout, mode, "project_context", *failure)
+		}
 	}
 	if len(args) >= 3 && args[0] == "runtime" && args[1] == "profile" && args[2] == "preview" {
 		input, ok := runtimePreviewFlags(args[3:])
@@ -420,6 +440,9 @@ func selectorAction(operation action) bool {
 }
 
 func emitResponse(writer io.Writer, mode outputMode, operation action, response Result) int {
+	if response.Completion != nil && response.Context != nil {
+		return emitContextCompletion(writer, mode, *response.Completion, *response.Context)
+	}
 	if response.Completion != nil {
 		if response.RuntimeResolution != nil {
 			return emitRuntimeResolutionCompletion(writer, mode, *response.Completion, response)
