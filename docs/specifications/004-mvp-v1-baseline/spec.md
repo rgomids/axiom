@@ -1802,3 +1802,12 @@ local validation, one pull request and Issue metadata synchronization. That
 authority excludes merge, release, Issue/Epic closure, human acceptance, real
 Provider mutation, credential revocation and any new destructive, ownership or
 Provider-authority semantic.
+
+### Issue #137 execution-targeting amendment — 2026-10-08
+
+[Safe Work Item Execution Targeting](issue-137-execution-targeting.md) records the
+approved bounded Specification/Plan/Tasks: explicit Work Item, effective Project
+precedence from #233, Project-scoped linkage validation, target disclosure and
+target-bound reviewed start. Existing Execution v1, Runtime policy, Provider and
+authority contracts remain intact. [Evidence](evidence-issue-137.md) maps the
+implementation and validation separately from human acceptance.

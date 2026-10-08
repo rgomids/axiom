@@ -302,7 +302,13 @@ func (w workflowWorkItems) Load(ctx context.Context, project, repository, provid
 		return workflow.WorkItem{}, workitem.ErrNotFound
 	}
 	result := w.service.Show(ctx, workitem.Target{ProjectSelector: project, RepositoryKey: repository, ProviderResource: resource}, selector)
-	if result.Status != workitem.Succeeded {
+	if result.Category == "recovery_required" {
+		return workflow.WorkItem{}, workflow.ErrRecoveryRequired
+	}
+	if result.Category == "work_item_ambiguous" {
+		return workflow.WorkItem{}, workflow.ErrWorkItemAmbiguous
+	}
+	if result.Status != workitem.Succeeded || result.Link.ProjectID != project || result.Link.RepositoryKey != repository {
 		return workflow.WorkItem{}, workitem.ErrNotFound
 	}
 	return workflow.WorkItem{Provider: result.Link.Provider, Resource: result.Link.Resource, ExternalID: result.Link.ExternalID, URL: result.Link.URL, State: result.Link.State}, nil
@@ -913,48 +919,12 @@ func workItemExternalID(input cli.WorkItemInput) string {
 
 func workflowTarget(input cli.WorkflowInput) workflow.Target {
 	externalID := input.ExternalID
-	if externalID == "" {
+	if externalID == "" && input.Number > 0 {
 		externalID = strconv.Itoa(input.Number)
 	}
 	return workflow.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, WorkItemProvider: input.Provider, WorkItemResource: input.ProviderRepository, WorkItem: externalID, ExecutionID: input.Execution, RuntimeID: input.Runtime}
 }
 
-func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	if input.Project == "" {
-		id, failure := s.EffectiveProject(ctx, "")
-		if id == "" {
-			return failure
-		}
-		input.Project = id
-	}
-
-	// Start enforces the shared and Work Item requirements here; its Runtime
-	// requirement is the #140 request-specific projection (reviewed preview
-	// plus fresh Check) below, so Runtimes are not observed twice.
-	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionStart); blocked != nil {
-		return *blocked
-	}
-	policyInput := cli.RuntimeProfilePreviewInput{Project: input.Project, Role: input.Role, Complexity: input.Complexity, Capabilities: input.Capabilities, Runtime: input.Runtime}
-	preview, policy, err := s.runtimePolicyPreview(ctx, policyInput)
-	if err != nil {
-		return s.runtimeResolutionResult(preview, false)
-	}
-	if input.RuntimePreview == "" {
-		return s.runtimeResolutionResult(preview, true)
-	}
-	if input.RuntimePreview != preview.Digest() {
-		return s.runtimePolicyFailure("stale_preview")
-	}
-	binding, err := policy.Check(ctx, preview)
-	if err != nil {
-		return s.runtimePolicyFailure("stale_preview")
-	}
-	if input.Runtime != "" && input.Runtime != binding.Choice.RuntimeID {
-		return s.runtimePolicyFailure("runtime_mismatch")
-	}
-	input.Runtime = binding.Choice.RuntimeID
-	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)), s.provenance)
-}
 func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {
 	if input.Project == "" {
 		id, failure := s.EffectiveProject(ctx, "")
@@ -1164,6 +1134,10 @@ func workflowResultReferences(result workflow.Result) []string {
 	return refs
 }
 func workflowResultNext(result workflow.Result) string {
+	switch result.Category {
+	case "invalid_execution_input", "repository_not_configured", "repository_ambiguous", "work_item_not_linked", "work_item_ambiguous", "execution_selector_conflict", "execution_scope_conflict", "stale_execution_target":
+		return "Inspect Project context and the exact linked Work Item, Repository and Execution selectors; correct the target before retrying"
+	}
 	if result.Category == "workflow_action_required" || result.Category == "workflow_authority_required" {
 		return "Inspect workflow.gateAction; supply the observed result or record the explicit authority before advancing"
 	}

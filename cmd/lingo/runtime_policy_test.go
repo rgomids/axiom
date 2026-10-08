@@ -131,7 +131,7 @@ func (s *changingRuntimePolicySource) Load(context.Context, string) (runtimeappl
 
 func TestWorkflowStartRequiresReviewedFreshPolicy(t *testing.T) {
 	env := newWorkItemSourceEnvironment(t)
-	env.installOutsideRoot(t, portableManifest(t, workItemSourceProjectID, "external", "External", true))
+	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, executable := testRuntime(t, env.service.(lifecycleService), "codex")
 	input := cli.WorkflowInput{Project: workItemSourceProjectID, Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
@@ -197,7 +197,7 @@ func TestWorkflowStartRequiresReviewedFreshPolicy(t *testing.T) {
 // without an explicit Runtime, and nothing selects Codex by default.
 func TestWorkflowStartNeverFallsBackToCodex(t *testing.T) {
 	env := newWorkItemSourceEnvironment(t)
-	env.installOutsideRoot(t, portableManifest(t, workItemSourceProjectID, "external", "External", true))
+	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "claude")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
