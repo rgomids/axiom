@@ -98,13 +98,46 @@ Profile configuration and the Provider stub.
 
 ## 6. Validation
 
-| Check | Command | Result |
+Run on 2026-10-08, macOS darwin/arm64, Go 1.26.1, at the PR head:
+
+| Check | Command | Exit |
 |---|---|---|
-| Formatting | `gofmt -l cmd internal` | VALIDATION_PENDING |
+| Formatting | `gofmt -l cmd internal` (empty) | 0 |
+| Build | `go build ./...`; `GOOS=windows go build ./...`; `GOOS=linux go build ./...` | 0 |
+| Static | `go vet ./...` | 0 |
+| Modules | `go mod verify` | 0 |
+| Tests | `go test ./... -count=1` | 0 |
+| Race | `go test -race ./... -count=1` | 0 |
+| Repository | `./scripts/validate-repository.sh .` | 0 |
+| Sensitive files | `./scripts/check-sensitive-files.sh .` | 0 |
+| ADR governance | `python3 scripts/check-adr-governance.py .` | 0 |
+| Runtime skills | `bash scripts/test-codex-skills.sh` | 0 |
+| Whitespace | `git diff --check e478907 HEAD` | 0 |
+| Secrets | `gitleaks dir .` | 0 |
+
+Not executed: Windows/Linux test runs, real GitHub, real Codex/Claude Runtime.
 
 ## 7. Independent review
 
-REVIEW_PENDING
+Three independent read-only reviewers (architecture/contracts,
+security/state integrity, test/acceptance) reviewed `e478907..HEAD`. None
+reported a Blocker.
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| A-1 Integration remove preview did not name retained Provider/Credential declarations (F-04) | Major | Fixed: `preserve_portable_provider` / `preserve_portable_credential` effects, digest-bound, tested |
+| C-1 `--repository` filter assertions could not fail | Major | Fixed: cross-repository Work Item and Execution list tests |
+| A-3 Work Item and Execution list treated detached keys differently | Minor | Fixed: both hide preserved history of a detached key until re-attach |
+| A-4 Routing rows omitted `--integration <key>`; skill restated domain rules | Minor | Fixed |
+| A-6 Comment replay posts again | Minor | Documented (skill, docs); no fence added |
+| A-2 / B-2 No-op or partial close/reopen leaves a stale link | Minor | Next actions name `work-item select`, which refreshes the link under reviewed local authority; no new local-only effect |
+| B-1 EDIT recovery finalize lacked the canonical-chain check | Minor | Fixed, tested (`TestEditRecoveryFinalizeRefusesReplacedChain`) |
+| C-2 No `workflow.Service.List` unit test | Minor | Fixed (`TestListDiscoversExecutionsAndFailsClosed`) |
+| C-3 No positive control for the Provider spy | Minor | Fixed (`TestProviderSpyRecordsAdmittedProviderCalls`) |
+| A-5 Show/validate view assembly in `cmd/lingo` | Minor | Open: presentation assembly kept in composition; rules (status, availability probe) come from projectapp/local |
+| C-4 Matrix document not tied to code by a test | Minor | Open: matrix reviewed manually; operation catalog is tested |
+| C-5 `workflow list` human/oversize output untested | Minor | Open |
+| A-7, C-6, C-7 | Nit | Catalog annotated; static ambiguity rules are the pre-existing pattern; reopen partial shares close's tested path |
 
 ## 8. Behavior changes and limitations
 
