@@ -291,6 +291,7 @@ func TestEditRepositoryAddUpdateRemoveByStableKey(t *testing.T) {
 		"local:remove_local_binding:api",
 		"local:add_local_binding:docs",
 		"local:update_local_binding:web",
+		"local:preserve_repository_history:api",
 	}
 	if got := effectCodes(proposal.Preview().Effects); !reflect.DeepEqual(got, want) {
 		t.Fatalf("effects = %v", got)
@@ -495,7 +496,7 @@ func TestEditPreviewIsCompleteSafeAndDigestBindsInternalLocalCandidate(t *testin
 	if !strings.Contains(string(proposal.LocalWire()), "axiom/chat-item") || !strings.Contains(string(proposal.LocalWire()), "attempt-correlation-marker") {
 		t.Fatal("internal local candidate lost hidden metadata")
 	}
-	want := []string{"portable:update_portable_project", "portable:remove_portable_repository:web", "local:update_local_record", "local:remove_local_binding:web"}
+	want := []string{"portable:update_portable_project", "portable:remove_portable_repository:web", "local:update_local_record", "local:remove_local_binding:web", "local:preserve_repository_history:web"}
 	if got := effectCodes(preview.Effects); !reflect.DeepEqual(got, want) {
 		t.Fatalf("removal effects = %v", got)
 	}

@@ -667,8 +667,10 @@ func eachFile(w *inventoryWalk, parent *os.Root, name, relative string, rule fil
 	})
 }
 
+// protocolName recognizes owned ADR-0007 protocol state, including the
+// cross-store Project edit recovery state (I230-T03).
 func protocolName(name string) bool {
-	return strings.HasPrefix(name, ".axiom-stage-") || strings.HasPrefix(name, ".axiom-recovery-")
+	return strings.HasPrefix(name, ".axiom-stage-") || strings.HasPrefix(name, ".axiom-recovery-") || strings.HasPrefix(name, editRecoveryPrefix)
 }
 
 func validUUID(value string) bool { return len(project.ValidateIdentity(value, "inventory")) == 0 }

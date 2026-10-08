@@ -236,6 +236,9 @@ type lifecycleService struct {
 	runtimes               runtimeRoots
 	provenance             provenance.Value
 	beforeLocalPublication func()
+	// editFault is a deterministic test hook for the cross-store EDIT
+	// publication stages.
+	editFault func(local.EditStage) error
 }
 
 type workItemResolver struct {
@@ -632,8 +635,9 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 	return result
 }
 
-// configureEdit exposes only the zero-write EDIT preview. No EDIT publication
-// or replay path exists, so replay/authority inputs fail before any read.
+// configureEdit translates presence-captured EDIT input into partial intent
+// plus the exact replay tuple; every merge and authority rule is applied by
+// projectapp through projectEdit.
 func (s lifecycleService) configureEdit(ctx context.Context, input cli.ConfigureInput) cli.Result {
 	if input.Slug != "" {
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit input is invalid", nil, "Remove --slug; Project rename is not supported", s.provenance)
@@ -659,28 +663,67 @@ type editReplay struct {
 	AuthorizeLocal           bool
 }
 
-func (r editReplay) supplied() bool {
-	return r.ProjectID != "" || r.PreviewDigest != "" || r.AuthorizeLocal
+func (r editReplay) authority() projectapp.EditAuthority {
+	return projectapp.EditAuthority{ProjectID: r.ProjectID, PreviewDigest: r.PreviewDigest, AuthorizeLocal: r.AuthorizeLocal}
 }
 
+// projectEdit previews, or with the complete replay tuple publishes, one
+// Project-owned EDIT. A partial replay tuple fails before any read; the
+// candidate is always rebuilt from fresh observations.
 func (s lifecycleService) projectEdit(ctx context.Context, intent projectapp.EditIntent, replay editReplay) cli.Result {
-	if replay.supplied() {
-		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit publication is not available", nil, "Remove --project-id, --preview-digest, and --authorize-local; edit only previews", s.provenance)
+	authority := replay.authority()
+	if failure := projectapp.ValidateEditAuthority(authority); failure != projectapp.EditOK {
+		return editFailure(failure, s.provenance)
+	}
+	if blocked := s.gate(ctx, intent.Selector, projectapp.AdmitProjectEdit); blocked != nil {
+		return *blocked
 	}
 	ports := projectapp.EditPorts{
 		Source:    editSource{installation: s.installation, portable: s.portable, stateRoot: s.stateRoot},
 		Checkouts: local.DirectoryObserver{}, Manifest: manifest.Codec{}, Local: local.RecordCodec{},
 	}
-	proposal, failure := projectapp.PreviewEdit(ctx, ports, intent)
-	if failure != projectapp.EditOK {
-		return editFailure(failure, s.provenance)
+	publisher := local.ProjectEditPublisher{Installation: s.installation, Portable: s.portable, Fault: s.editFault}
+	outcome := projectapp.ApplyEdit(ctx, ports, publisher, intent, authority)
+	if outcome.Outcome == projectapp.EditRejected {
+		return editFailure(outcome.Failure, s.provenance)
 	}
-	preview := proposal.Preview()
-	next := "Review the complete preview; edit publication is not available in this build"
-	if len(preview.Effects) == 0 {
-		next = "No change is required"
+	preview := outcome.Proposal.Preview()
+	references := []string{"project:" + preview.ProjectID}
+	var result cli.Result
+	switch outcome.Outcome {
+	case projectapp.EditPreviewed:
+		next := "Review the complete preview, then repeat the same edit with --project-id " + preview.ProjectID + " --preview-digest " + preview.Digest + " --authorize-local"
+		if len(preview.Effects) == 0 {
+			next = "No change is required"
+		}
+		result = canonicalCompletion(completion.Facts{Completed: true}, "Project edit preview ready", references, next, s.provenance)
+	case projectapp.EditDenied:
+		result = canonicalCompletion(completion.Facts{AuthorityDenied: true}, "Project edit authority is missing or stale", nil, "Review the current preview and authorize its exact Project ID and digest", s.provenance)
+	case projectapp.EditUnchanged:
+		result = canonicalCompletion(completion.Facts{Completed: true}, "Project edit already matches the authorized preview", references, "No publication is required", s.provenance)
+	case projectapp.EditPublished:
+		result = canonicalCompletion(completion.Facts{Completed: true}, "Project edit published", references, "Inspect the published configuration with project show", s.provenance)
+	case projectapp.EditConflicted:
+		result = canonicalCompletion(completion.Facts{AuthorityDenied: true}, "Project state changed before publication", nil, "Review a fresh preview and authorize its exact digest", s.provenance)
+	case projectapp.EditPartial:
+		message := "Portable Project edit published; local publication did not complete"
+		if outcome.Publication.LocalCommitted {
+			message = "Project edit published; its recovery state was not retired"
+		}
+		result = canonicalCompletion(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, message, append(references, "portable:"+preview.PortableDestination), "Run `axiom recovery inspect` and apply the reviewed plan before any further edit", s.provenance)
+	case projectapp.EditRecovery:
+		if outcome.Publication.LocalCommitted {
+			result = canonicalCompletion(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Project edit published; its recovery state was not retired", references, "Run `axiom recovery inspect` and apply the reviewed plan before any further edit", s.provenance)
+			break
+		}
+		result = canonicalCompletion(completion.Facts{Failed: true}, "Project edit requires recovery", nil, "Run `axiom recovery inspect` and apply the reviewed plan, then preview again", s.provenance)
+	default:
+		if outcome.Publication.Category == "unsupported_portable_source" {
+			result = canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project source is outside the Lingo projects root; edit publication is not supported", nil, "Edit the Project at its recorded source, or configure it under the Lingo projects root", s.provenance)
+			break
+		}
+		result = canonicalCompletion(completion.Facts{Failed: true}, "Project edit publication failed", nil, "Review current state and prepare a fresh preview", s.provenance)
 	}
-	result := canonicalCompletion(completion.Facts{Completed: true}, "Project edit preview ready", []string{"project:" + preview.ProjectID}, next, s.provenance)
 	result.Edit = &preview
 	return result
 }
@@ -707,6 +750,8 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 		facts, message, next = completion.Facts{WasInterrupted: true}, "Project edit preview was cancelled", "Retry the edit preview"
 	case projectapp.EditUnavailable:
 		facts, message, next = completion.Facts{Failed: true}, "Project edit is unavailable", "Review application availability before retrying"
+	case projectapp.EditIncompleteAuthority:
+		message, next = "Project edit authority is incomplete", "Supply --project-id, --preview-digest, and --authorize-local together from the reviewed preview, or omit all three to preview"
 	}
 	return canonicalCompletion(facts, message, nil, next, source)
 }
