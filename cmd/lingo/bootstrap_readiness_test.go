@@ -181,10 +181,10 @@ func TestBootstrapFromExplicitRepositoriesResolvesAmbiguityAndSeparatesLocalStat
 		}
 	}
 	// A replaced local document warns without blocking unrelated operations.
-	if err := os.Remove(notesPath); err != nil {
+	// Keep the original object alive so the filesystem cannot reuse its inode.
+	if err := os.Rename(notesPath, notesPath+".original"); err != nil {
 		t.Fatal(err)
 	}
-	writeTree(t, filepath.Join(env.workspace, "other"), map[string]string{"x.md": "x"})
 	writeTree(t, notes, map[string]string{"product.md": "replacement"})
 	stale, _ := runEvent(t, env.service, cli.ExitSuccess, "project", "validate", "--slug", "multi")
 	if !strings.Contains(blockerCodes(stale.Readiness.Warnings), "documentation_stale:notes") || !stale.Readiness.Operation(projectapp.OperationWorkItem).Ready() {
