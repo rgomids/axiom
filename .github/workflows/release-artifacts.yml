@@ -47,6 +47,8 @@ jobs:
   prepare:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      version: ${{ steps.preflight.outputs.version }}
     steps:
       - name: Require dispatch from main
         env:
@@ -101,6 +103,7 @@ jobs:
           go-version-file: source/go.mod
           cache: false
       - name: Preflight exact tag and revision
+        id: preflight
         working-directory: source
         run: |
           [[ $(git rev-parse --verify HEAD) == "$RELEASE_REVISION" ]]
@@ -110,6 +113,7 @@ jobs:
           ./scripts/release-preflight.sh --tag "$RELEASE_TAG" --revision "$RELEASE_REVISION" --main-ref origin/main >"$out/preflight.txt"
           version=$(awk -F= '$1 == "version" {print $2}' "$out/preflight.txt")
           printf 'RELEASE_VERSION=%s\n' "$version" >>"$GITHUB_ENV"
+          printf 'version=%s\n' "$version" >>"$GITHUB_OUTPUT"
       - name: Verify module sources
         working-directory: source
         run: go mod verify
@@ -139,10 +143,59 @@ jobs:
           } >"$out/prepare-metadata.txt"
           [[ -z $(git status --porcelain --untracked-files=normal) ]]
           cat "$out/release-evidence.txt" >>"$GITHUB_STEP_SUMMARY"
+      - name: Smoke exact prepared Linux artifact
+        working-directory: source
+        run: |
+          python3 "$RELEASE_CONTROL_SCRIPTS/smoke-prepared-artifact.py" --dir "$RUNNER_TEMP/axiom-release/artifacts" \
+            --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" --row linux-amd64 \
+            >"$RUNNER_TEMP/smoke-linux-amd64.json"
+      - name: Retain Linux smoke summary
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: axiom-release-smoke-linux-amd64
+          path: ${{ runner.temp }}/smoke-linux-amd64.json
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Retain the prepared set
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: axiom-release-${{ env.RELEASE_TAG }}
           path: ${{ runner.temp }}/axiom-release
           if-no-files-found: error
+          retention-days: 30
+
+  smoke-macos:
+    # macos-15 is the existing supported hosted arm64 environment. Legacy
+    # artifact naming macos-27 does not require numeric OS version 27.
+    needs: prepare
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.corrections_revision || inputs.revision }}
+          persist-credentials: false
+      - name: Download already-prepared bytes
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: axiom-release-${{ env.RELEASE_TAG }}
+          path: ${{ runner.temp }}/prepared
+      - name: Smoke exact prepared macOS artifact
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RELEASE_REVISION: ${{ inputs.revision }}
+        run: |
+          python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
+            --version "$RELEASE_VERSION" --revision "$RELEASE_REVISION" --row macos-27-arm64 \
+            >"$RUNNER_TEMP/smoke-macos-27-arm64.json"
+      - name: Retain macOS smoke summary
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: axiom-release-smoke-macos-27-arm64
+          path: ${{ runner.temp }}/smoke-macos-27-arm64.json
+          if-no-files-found: ignore
           retention-days: 30

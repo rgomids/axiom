@@ -514,7 +514,7 @@ the Release PR edits those version headings.
 Publication is split in two phases with human authority between them:
 
 ```text
-PREPARE  release-artifacts.yml: preflight -> build -> verify -> notes -> retained workflow artifact
+PREPARE  release-artifacts.yml: preflight -> build -> verify -> notes -> exact-byte smoke + retained workflow artifact
          release.sh: re-verify that artifact at the revision -> publication envelope + preview_digest
 AUTHORITY  a maintainer authorizes that exact preview_digest
 PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authorized digest
@@ -526,8 +526,12 @@ PUBLISH  publish-release.yml: same artifact -> re-verify -> envelope == authoriz
    `release-preflight.sh`, builds the set with `build-release-archives.sh` from a
    clean checkout, verifies it with `verify-release-artifacts.sh` (closed
    artifact set, `SHA256SUMS`, provenance, exact revision), renders the release
-   notes and retains exactly those files as the workflow artifact
-   `axiom-release-<tag>`. It has a read-only token and publishes nothing.
+   notes, runs a bounded exact-byte Linux smoke and retains exactly those files
+   as the workflow artifact `axiom-release-<tag>`. A dependent macOS job downloads
+   the same set and runs the native arm64 smoke. Either smoke failing fails
+   preparation; JSON summaries are retained separately with the run. See the
+   [smoke contract and residual risks](docs/development/prepared-artifact-smoke.md).
+   It has a read-only token and publishes nothing.
 2. `scripts/release.sh` downloads that artifact, re-verifies it with
    [`verify-prepared-release.sh`](scripts/verify-prepared-release.sh) in a clean
    checkout of the revision, and prints the **publication envelope**: repository,
