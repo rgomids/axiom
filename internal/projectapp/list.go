@@ -36,7 +36,14 @@ const (
 
 type ProjectSummary struct {
 	ID, Slug, Name string
+	// Status is the machine-local discoverable status (Issue #230). It is empty
+	// only when the catalog has no operational-state reader.
+	Status ProjectStatus
 }
+
+// ProjectListOptions selects the listing. The default excludes archived
+// Projects; invalid and recovery_required Projects are never hidden.
+type ProjectListOptions struct{ IncludeArchived bool }
 
 type ProjectListResult struct {
 	Status   ProjectListStatus
@@ -49,13 +56,26 @@ type ProjectListResult struct {
 type ProjectCatalog struct {
 	installed   InstalledProjectReader
 	definitions InstalledProjectDefinitionReader
+	operational OperationalStore
+}
+
+// WithOperationalState returns a catalog that also reports each Project's
+// machine-local status and hides archived Projects unless asked.
+func (c ProjectCatalog) WithOperationalState(store OperationalStore) ProjectCatalog {
+	c.operational = store
+	return c
 }
 
 func NewProjectCatalog(installed InstalledProjectReader, definitions InstalledProjectDefinitionReader) ProjectCatalog {
 	return ProjectCatalog{installed: installed, definitions: definitions}
 }
 
+// List lists Projects with the default options (archived excluded).
 func (c ProjectCatalog) List(ctx context.Context) ProjectListResult {
+	return c.ListProjects(ctx, ProjectListOptions{})
+}
+
+func (c ProjectCatalog) ListProjects(ctx context.Context, options ProjectListOptions) ProjectListResult {
 	if c.installed == nil || c.definitions == nil {
 		return failedProjectList("application_unavailable")
 	}
@@ -72,13 +92,27 @@ func (c ProjectCatalog) List(ctx context.Context) ProjectListResult {
 		if err := ctx.Err(); err != nil {
 			return cancelledProjectList()
 		}
+		status := ProjectStatus("")
+		if c.operational != nil {
+			state, category := InspectProjectState(ctx, c.operational, record.ID)
+			if category == OperationalCancelled {
+				return cancelledProjectList()
+			}
+			if category != "" {
+				return failedProjectList("storage_failure")
+			}
+			status = state.Status
+			if status == ProjectArchived && !options.IncludeArchived {
+				continue
+			}
+		}
 		definition, err := c.definitions.ReadInstalledProject(ctx, record)
 		if errors.Is(err, ErrProjectDefinitionUnavailable) {
 			textBytes += len(record.ID) + len(record.Slug)
 			if textBytes > maxProjectListTextBytes {
 				return failedProjectList("invalid_project_state")
 			}
-			projects = append(projects, ProjectSummary{ID: record.ID, Slug: record.Slug})
+			projects = append(projects, ProjectSummary{ID: record.ID, Slug: record.Slug, Status: status})
 			continue
 		}
 		if err != nil {
@@ -95,7 +129,7 @@ func (c ProjectCatalog) List(ctx context.Context) ProjectListResult {
 		if textBytes > maxProjectListTextBytes {
 			return failedProjectList("invalid_project_state")
 		}
-		projects = append(projects, ProjectSummary{ID: record.ID, Slug: record.Slug, Name: state.Name})
+		projects = append(projects, ProjectSummary{ID: record.ID, Slug: record.Slug, Name: state.Name, Status: status})
 	}
 	sort.Slice(projects, func(i, j int) bool {
 		if projects[i].Slug != projects[j].Slug {

@@ -114,18 +114,22 @@ func TestConfigureEditRejectsConflictsBeforeDispatch(t *testing.T) {
 	}
 }
 
-// EDIT publication/replay is I132-T02: its inputs fail during presence capture,
-// so the service (selector resolution, source and local reads) is never invoked.
-func TestConfigureEditRejectsReplayInputsBeforeDispatch(t *testing.T) {
+// EDIT replay is the complete reviewed tuple (I230-T03). A partial tuple fails
+// during presence capture, so the service (selector resolution, source and
+// local reads) is never invoked.
+func TestConfigureEditRejectsPartialReplayBeforeDispatch(t *testing.T) {
 	const id = "123e4567-e89b-42d3-a456-426614174000"
 	for name, args := range map[string][]string{
-		"preview digest":           {"--project", "sample", "--name", "Renamed", "--preview-digest", "edit-digest"},
-		"authorize local":          {"--project", "sample", "--name", "Renamed", "--authorize-local"},
-		"digest and authority":     {"--project", "sample", "--name", "Renamed", "--preview-digest", "edit-digest", "--authorize-local"},
-		"complete replay tuple":    {"--project", "sample", "--project-id", id, "--preview-digest", "edit-digest", "--authorize-local"},
-		"replay-only project id":   {"--project", "sample", "--project-id", id},
-		"empty digest is supplied": {"--project", "sample", "--preview-digest="},
-		"explicit false authority": {"--project", "sample", "--authorize-local=false"},
+		"preview digest":             {"--project", "sample", "--name", "Renamed", "--preview-digest", "edit-digest"},
+		"authorize local":            {"--project", "sample", "--name", "Renamed", "--authorize-local"},
+		"digest and authority":       {"--project", "sample", "--name", "Renamed", "--preview-digest", "edit-digest", "--authorize-local"},
+		"replay-only project id":     {"--project", "sample", "--project-id", id},
+		"identity and digest only":   {"--project", "sample", "--project-id", id, "--preview-digest", "edit-digest"},
+		"identity and authority":     {"--project", "sample", "--project-id", id, "--authorize-local"},
+		"empty digest is supplied":   {"--project", "sample", "--preview-digest="},
+		"explicit false authority":   {"--project", "sample", "--authorize-local=false"},
+		"tuple with false authority": {"--project", "sample", "--project-id", id, "--preview-digest", "edit-digest", "--authorize-local=false"},
+		"tuple with empty digest":    {"--project", "sample", "--project-id", id, "--preview-digest=", "--authorize-local"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			for _, interactive := range []bool{false, true} {
@@ -146,11 +150,27 @@ func TestConfigureEditRejectsReplayInputsBeforeDispatch(t *testing.T) {
 				if err := json.Unmarshal(output.Bytes(), &event); err != nil {
 					t.Fatalf("interactive=%v: %v: %s", interactive, err, output.String())
 				}
-				if code != ExitFailure || len(service.inputs) != 0 || service.call != "" || prompts.Len() != 0 || event.Status != completion.ValidationFailure || event.Result != "Project edit publication is not available" || strings.Contains(output.String(), `"edit"`) {
+				if code != ExitFailure || len(service.inputs) != 0 || service.call != "" || prompts.Len() != 0 || event.Status != completion.ValidationFailure || event.Result != "Project edit authority is incomplete" || strings.Contains(output.String(), `"edit"`) {
 					t.Fatalf("interactive=%v: exit=%d inputs=%d call=%q prompts=%q output=%s", interactive, code, len(service.inputs), service.call, prompts.String(), output.String())
 				}
 			}
 		})
+	}
+}
+
+// The complete replay tuple reaches the application unchanged; authority is
+// decided there against a freshly rebuilt preview, never by the parser.
+func TestConfigureEditDispatchesCompleteReplayTuple(t *testing.T) {
+	const id = "123e4567-e89b-42d3-a456-426614174000"
+	service := newEditRecordingService(t)
+	var output bytes.Buffer
+	args := []string{"project", "configure", "--project", "sample", "--remove-repository", "api", "--project-id", id, "--preview-digest", "edit-digest", "--authorize-local"}
+	if code := Run(context.Background(), args, service, completionProvenance(t), &output); code != ExitSuccess || len(service.inputs) != 1 {
+		t.Fatalf("exit=%d inputs=%d output=%s", code, len(service.inputs), output.String())
+	}
+	want := ConfigureInput{Project: "sample", Repositories: []RepositoryInput{}, RemoveRepositories: []string{"api"}, ProjectID: id, PreviewDigest: "edit-digest", AuthorizeLocal: true}
+	if !reflect.DeepEqual(service.inputs[0], want) {
+		t.Fatalf("replay input=%#v", service.inputs[0])
 	}
 }
 
@@ -200,10 +220,10 @@ func TestConfigureEditRendersCompletePreviewCanonically(t *testing.T) {
 	}
 }
 
-func TestHelpDocumentsEditPreviewFlags(t *testing.T) {
+func TestHelpDocumentsEditAndLifecycleFlags(t *testing.T) {
 	var output bytes.Buffer
 	Help(&output)
-	for _, expected := range []string{"--project <project-uuid-or-slug> previews an edit", "--remove-work-item-provider", "--remove-repository <key>", "already\nconfigured slug or --project-id fails", "Edit rejects --slug (rename)", "--project-id, --preview-digest and\n--authorize-local"} {
+	for _, expected := range []string{"--project <project-uuid-or-slug> previews an edit", "--remove-work-item-provider", "--remove-repository <key>", "already\nconfigured slug or --project-id fails", "Edit rejects --slug (rename)", "returned --project-id, --preview-digest\nand --authorize-local", "a partial replay tuple is refused", "project archive|reactivate", "integration list|show|validate|disable|enable|remove", "Execution cancellation is not\nsupported"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("help missing %q", expected)
 		}

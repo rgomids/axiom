@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -127,6 +128,71 @@ func (s WorkItemStore) Load(ctx context.Context, projectID, repositoryKey, provi
 		return findWorkItem(projectRoot, projectID, repositoryKey, externalID)
 	}
 	return loadExactWorkItem(projectRoot, projectID, repositoryKey, provider, resource, externalID)
+}
+
+// List enumerates every Work Item link of one Project under a shared lock.
+// A missing Project directory has no links. Create-attempt fences are not
+// links and are skipped; interrupted protocol state requires recovery, and
+// any corrupt, foreign or misnamed entry fails the whole enumeration closed.
+func (s WorkItemStore) List(ctx context.Context, projectID string) ([]workitem.Link, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if len(project.ValidateIdentity(projectID, "work-item")) != 0 {
+		return nil, ErrUnsafe
+	}
+	root, items, projectRoot, err := s.openProject(projectID, false)
+	if errors.Is(err, ErrNotFound) {
+		return []workitem.Link{}, nil
+	}
+	if err != nil {
+		return nil, workItemStoreError(err)
+	}
+	defer root.Close()
+	defer items.Close()
+	defer projectRoot.Close()
+	locks, err := lockRoots(false, root, items, projectRoot)
+	if err != nil {
+		return nil, workItemStoreError(err)
+	}
+	defer closeFiles(locks)
+	names, err := readDirectoryNamesBounded(projectRoot, maxLocalDirectoryEntries)
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(names)
+	links := make([]workitem.Link, 0, len(names))
+	identities := make(map[string]bool, len(names))
+	for _, name := range names {
+		if protocolName(name) || strings.HasPrefix(name, ".lingo-work-item-") {
+			return nil, workItemStoreError(ErrRecoveryRequired)
+		}
+		if createAttemptRe.MatchString(name) {
+			continue
+		}
+		if strings.HasPrefix(name, ".") || !strings.HasSuffix(name, ".json") {
+			return nil, ErrUnsafe
+		}
+		wire, err := readPrivateFileBounded(projectRoot, name, MaxRecordBytes)
+		if err != nil {
+			return nil, err
+		}
+		link, err := decodeWorkItem(wire)
+		if err != nil {
+			return nil, err
+		}
+		if link.ProjectID != projectID || name != workItemName(link.RepositoryKey, link.Provider, link.Resource, link.ExternalID) && name != legacyWorkItemName(link.RepositoryKey, link.ExternalID) {
+			return nil, ErrUnsafe
+		}
+		identity := link.RepositoryKey + "\x00" + link.Provider + "\x00" + link.Resource + "\x00" + link.ExternalID
+		if identities[identity] {
+			return nil, workItemStoreError(ErrConflict)
+		}
+		identities[identity] = true
+		link.Revision = sha256.Sum256(wire)
+		links = append(links, link)
+	}
+	return links, nil
 }
 
 func (s WorkItemStore) SaveCreateAttempt(ctx context.Context, attempt workitem.CreateAttempt) error {

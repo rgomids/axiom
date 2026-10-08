@@ -100,13 +100,6 @@ type Capability interface {
 	Read(context.Context, string, string) (External, error)
 }
 
-// LegacyProjection preserves historical POC-only workflow behavior. Slice 3
-// never calls these methods or treats them as its contract.
-type LegacyProjection interface {
-	Comment(context.Context, string, string, string) error
-	Close(context.Context, string, string) (External, error)
-}
-
 type Link struct {
 	ProjectID, RepositoryKey       string
 	Provider, Resource, ExternalID string
@@ -138,6 +131,9 @@ type Store interface {
 	Load(context.Context, string, string, string, string, string) (Link, error)
 	SaveCreateAttempt(context.Context, CreateAttempt) error
 	LoadCreateAttempt(context.Context, DraftTarget) (CreateAttempt, error)
+	// List enumerates every local link of one Project. Create-attempt fences
+	// are not links; corrupt, foreign or interrupted state fails closed.
+	List(context.Context, string) ([]Link, error)
 }
 
 type Target struct {
@@ -213,6 +209,8 @@ type Result struct {
 	Link      Link
 	Draft     *DraftPreview
 	Selection *SelectionPreview
+	Change    *ChangePreview
+	Links     []Link
 	Questions []Question
 }
 
@@ -224,13 +222,13 @@ const (
 type Service struct {
 	resolver   Resolver
 	capability Capability
-	legacy     LegacyProjection
+	lifecycle  Lifecycle
 	store      Store
 	source     provenance.Value
 }
 
-func New(resolver Resolver, capability Capability, legacy LegacyProjection, store Store, source provenance.Value) Service {
-	return Service{resolver: resolver, capability: capability, legacy: legacy, store: store, source: source}
+func New(resolver Resolver, capability Capability, lifecycle Lifecycle, store Store, source provenance.Value) Service {
+	return Service{resolver: resolver, capability: capability, lifecycle: lifecycle, store: store, source: source}
 }
 
 func (s Service) Prepare(ctx context.Context, input DraftInput) Result {
@@ -515,42 +513,6 @@ func (s Service) resolveLinked(ctx context.Context, input Target) (Project, stri
 		}
 	}
 	return Project{}, "", result(completion.ValidationFailure, "repository_not_configured")
-}
-
-// Comment and Complete remain only for historical POC workflow compatibility.
-func (s Service) Comment(ctx context.Context, target Target, selector, message string, authorized bool) Result {
-	if !authorized {
-		return result(completion.DeniedAuthority, "external_mutation_denied")
-	}
-	shown := s.Show(ctx, target, selector)
-	if shown.Status != completion.Success || s.legacy == nil {
-		return shown
-	}
-	if err := s.legacy.Comment(ctx, shown.Link.Resource, selector, message); err != nil {
-		return result(completion.Failure, "github_mutation_failed")
-	}
-	shown.Category = "work_item_commented"
-	return shown
-}
-
-func (s Service) Complete(ctx context.Context, target Target, selector string, authorized bool) Result {
-	if !authorized {
-		return result(completion.DeniedAuthority, "external_mutation_denied")
-	}
-	shown := s.Show(ctx, target, selector)
-	if shown.Status != completion.Success || s.legacy == nil {
-		return shown
-	}
-	external, err := s.legacy.Close(ctx, shown.Link.Resource, selector)
-	if err != nil {
-		return result(completion.Failure, "github_mutation_failed")
-	}
-	link := linkFrom(DraftTarget{ProjectID: shown.Link.ProjectID, RepositoryKey: shown.Link.RepositoryKey, Provider: shown.Link.Provider, Resource: shown.Link.Resource}, external, shown.Link.Revision)
-	persisted := s.persistLocal(ctx, link, true)
-	if persisted.Status == completion.Success {
-		persisted.Category = "work_item_completed"
-	}
-	return persisted
 }
 
 func (s Service) resolve(ctx context.Context, input Target) (Project, DraftTarget, Result) {

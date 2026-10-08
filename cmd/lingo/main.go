@@ -155,12 +155,12 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	}
 	github, githubErr := githubissues.New(os.Getenv("AXIOM_GH_BIN"))
 	var capability workitem.Capability
-	var legacy workitem.LegacyProjection
+	var lifecycle workitem.Lifecycle
 	if githubErr == nil {
 		capability = github
-		legacy = github
+		lifecycle = github
 	}
-	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, capability, legacy, workItems, source)
+	workItemService := workitem.New(workItemResolver{installation: installation, portable: store}, capability, lifecycle, workItems, source)
 	workflows, err := local.NewWorkflowStore(state)
 	if err != nil {
 		return cli.NewUnavailableService(source)
@@ -170,8 +170,12 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 		return cli.NewUnavailableService(source)
 	}
 	references := local.NewWorkflowReferenceValidator(artifacts)
+	operational, err := local.NewOperationalStore(state)
+	if err != nil {
+		return cli.NewUnavailableService(source)
+	}
 	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil)
-	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, projectCatalog: projectapp.NewProjectCatalog(installation, installation), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
+	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, operational: operational, projectCatalog: projectapp.NewProjectCatalog(installation, installation).WithOperationalState(operational), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
 }
 
 func codexSkillsRoot() string {
@@ -221,6 +225,7 @@ type lifecycleService struct {
 	lifecycle              projectapp.Lifecycle
 	portable               local.PortableStore
 	installation           local.InstallationStore
+	operational            local.OperationalStore
 	projectCatalog         projectapp.ProjectCatalog
 	codex                  codexruntime.Service
 	workItems              workitem.Service
@@ -231,6 +236,9 @@ type lifecycleService struct {
 	runtimes               runtimeRoots
 	provenance             provenance.Value
 	beforeLocalPublication func()
+	// editFault is a deterministic test hook for the cross-store EDIT
+	// publication stages.
+	editFault func(local.EditStage) error
 }
 
 type workItemResolver struct {
@@ -381,7 +389,13 @@ func (s lifecycleService) Reopen(ctx context.Context, input cli.ProjectInput) cl
 	return cli.Result{Status: cli.Succeeded, Category: localResult.Category}
 }
 func (s lifecycleService) Update(ctx context.Context, input cli.UpdateInput) cli.Result {
-	return cliResult(s.lifecycle.Update(ctx, projectapp.UpdateRequest{Slug: input.Slug, Name: input.Name}))
+	// Issue #230: the legacy by-slug update would leave an installed Project's
+	// installation record stale, so it is refused for installed Projects.
+	result := s.lifecycle.UpdateUninstalled(ctx, local.ReadinessProjects{Installation: s.installation, Portable: s.portable}, projectapp.UpdateRequest{Slug: input.Slug, Name: input.Name})
+	if result.Category == projectapp.ExplicitEditRequired {
+		return s.explicitEditRequired()
+	}
+	return cliResult(result)
 }
 
 // Install records an operator-authored manifest. A manifest that declares
@@ -437,45 +451,11 @@ func (s lifecycleService) Show(ctx context.Context, input cli.ResolveInput) cli.
 		}
 		input.Selector = id
 	}
-
-	result := s.installation.Resolve(ctx, input.Selector)
-	if result.Status != local.ResolutionFound {
-		return projectShowFailure(result.Category, s.provenance)
-	}
-	references := []string{"project:" + result.Project.ID}
-	for _, repository := range result.Project.Repositories {
-		references = append(references, "repository:"+repository.Key)
-	}
-	response := canonicalCompletion(completion.Facts{Completed: true}, "Project resolved", references, "", s.provenance)
-	response.Project = projectView(result.Project)
-	return response
+	return s.showProject(ctx, input.Selector)
 }
 
 func (s lifecycleService) List(ctx context.Context) cli.Result {
-	result := s.projectCatalog.List(ctx)
-	switch result.Status {
-	case projectapp.ProjectListSucceeded:
-		message := "Configured Projects listed"
-		if len(result.Projects) == 0 {
-			message = "No configured Projects"
-		}
-		response := canonicalCompletion(completion.Facts{Completed: true}, message, nil, "", s.provenance)
-		response.Projects = make([]cli.ProjectListView, 0, len(result.Projects))
-		for _, configured := range result.Projects {
-			response.Projects = append(response.Projects, cli.ProjectListView{ID: configured.ID, Slug: configured.Slug, Name: configured.Name})
-		}
-		return response
-	case projectapp.ProjectListCancelled:
-		return canonicalCompletion(completion.Facts{WasInterrupted: true}, "Project listing was interrupted", nil, "Retry Project listing", s.provenance)
-	default:
-		if result.Category == "invalid_existing_local_state" || result.Category == "invalid_project_state" {
-			return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Configured Project state is invalid", nil, "Repair protected Project state before retrying listing", s.provenance)
-		}
-		if result.Category == "recovery_required" {
-			return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Configured Project state requires recovery", nil, "Review preserved local recovery state before retrying listing", s.provenance)
-		}
-		return canonicalCompletion(completion.Facts{Failed: true}, "Project listing failed", nil, "Inspect local storage and application availability before retrying", s.provenance)
-	}
+	return s.listProjects(ctx, projectapp.ProjectListOptions{})
 }
 
 func projectShowFailure(category string, source provenance.Value) cli.Result {
@@ -649,14 +629,12 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 	return result
 }
 
-// configureEdit exposes only the zero-write EDIT preview. No EDIT publication
-// or replay path exists, so replay/authority inputs fail before any read.
+// configureEdit translates presence-captured EDIT input into partial intent
+// plus the exact replay tuple; every merge and authority rule is applied by
+// projectapp through projectEdit.
 func (s lifecycleService) configureEdit(ctx context.Context, input cli.ConfigureInput) cli.Result {
 	if input.Slug != "" {
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit input is invalid", nil, "Remove --slug; Project rename is not supported", s.provenance)
-	}
-	if input.ProjectID != "" || input.PreviewDigest != "" || input.AuthorizeLocal {
-		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project edit publication is not available", nil, "Remove --project-id, --preview-digest, and --authorize-local; edit only previews", s.provenance)
 	}
 	intent := projectapp.EditIntent{
 		Selector:               input.Project,
@@ -668,20 +646,78 @@ func (s lifecycleService) configureEdit(ctx context.Context, input cli.Configure
 	for _, repository := range input.Repositories {
 		intent.RepositoryUpserts = append(intent.RepositoryUpserts, projectapp.RepositoryUpsert{Key: repository.Key, Path: repository.Path})
 	}
+	return s.projectEdit(ctx, intent, editReplay{ProjectID: input.ProjectID, PreviewDigest: input.PreviewDigest, AuthorizeLocal: input.AuthorizeLocal})
+}
+
+// editReplay carries the exact-authority replay inputs of a reviewed EDIT
+// preview. Every Project-owned edit (configure --project, Repository
+// association maintenance, Integration remove) enters through projectEdit.
+type editReplay struct {
+	ProjectID, PreviewDigest string
+	AuthorizeLocal           bool
+}
+
+func (r editReplay) authority() projectapp.EditAuthority {
+	return projectapp.EditAuthority{ProjectID: r.ProjectID, PreviewDigest: r.PreviewDigest, AuthorizeLocal: r.AuthorizeLocal}
+}
+
+// projectEdit previews, or with the complete replay tuple publishes, one
+// Project-owned EDIT. A partial replay tuple fails before any read; the
+// candidate is always rebuilt from fresh observations.
+func (s lifecycleService) projectEdit(ctx context.Context, intent projectapp.EditIntent, replay editReplay) cli.Result {
+	authority := replay.authority()
+	if failure := projectapp.ValidateEditAuthority(authority); failure != projectapp.EditOK {
+		return editFailure(failure, s.provenance)
+	}
+	if blocked := s.gate(ctx, intent.Selector, projectapp.AdmitProjectEdit); blocked != nil {
+		return *blocked
+	}
 	ports := projectapp.EditPorts{
 		Source:    editSource{installation: s.installation, portable: s.portable, stateRoot: s.stateRoot},
 		Checkouts: local.DirectoryObserver{}, Manifest: manifest.Codec{}, Local: local.RecordCodec{},
 	}
-	proposal, failure := projectapp.PreviewEdit(ctx, ports, intent)
-	if failure != projectapp.EditOK {
-		return editFailure(failure, s.provenance)
+	publisher := local.ProjectEditPublisher{Installation: s.installation, Portable: s.portable, Fault: s.editFault}
+	outcome := projectapp.ApplyEdit(ctx, ports, publisher, intent, authority)
+	if outcome.Outcome == projectapp.EditRejected {
+		return editFailure(outcome.Failure, s.provenance)
 	}
-	preview := proposal.Preview()
-	next := "Review the complete preview; edit publication is not available in this build"
-	if len(preview.Effects) == 0 {
-		next = "No change is required"
+	preview := outcome.Proposal.Preview()
+	references := []string{"project:" + preview.ProjectID}
+	var result cli.Result
+	switch outcome.Outcome {
+	case projectapp.EditPreviewed:
+		next := "Review the complete preview, then repeat the same edit with --project-id " + preview.ProjectID + " --preview-digest " + preview.Digest + " --authorize-local"
+		if len(preview.Effects) == 0 {
+			next = "No change is required"
+		}
+		result = canonicalCompletion(completion.Facts{Completed: true}, "Project edit preview ready", references, next, s.provenance)
+	case projectapp.EditDenied:
+		result = canonicalCompletion(completion.Facts{AuthorityDenied: true}, "Project edit authority is missing or stale", nil, "Review the current preview and authorize its exact Project ID and digest", s.provenance)
+	case projectapp.EditUnchanged:
+		result = canonicalCompletion(completion.Facts{Completed: true}, "Project edit already matches the authorized preview", references, "No publication is required", s.provenance)
+	case projectapp.EditPublished:
+		result = canonicalCompletion(completion.Facts{Completed: true}, "Project edit published", references, "Inspect the published configuration with project show", s.provenance)
+	case projectapp.EditConflicted:
+		result = canonicalCompletion(completion.Facts{AuthorityDenied: true}, "Project state changed before publication", nil, "Review a fresh preview and authorize its exact digest", s.provenance)
+	case projectapp.EditPartial:
+		message := "Portable Project edit published; local publication did not complete"
+		if outcome.Publication.LocalCommitted {
+			message = "Project edit published; its recovery state was not retired"
+		}
+		result = canonicalCompletion(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, message, append(references, "portable:"+preview.PortableDestination), "Run `axiom recovery inspect` and apply the reviewed plan before any further edit", s.provenance)
+	case projectapp.EditRecovery:
+		if outcome.Publication.LocalCommitted {
+			result = canonicalCompletion(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Project edit published; its recovery state was not retired", references, "Run `axiom recovery inspect` and apply the reviewed plan before any further edit", s.provenance)
+			break
+		}
+		result = canonicalCompletion(completion.Facts{Failed: true}, "Project edit requires recovery", nil, "Run `axiom recovery inspect` and apply the reviewed plan, then preview again", s.provenance)
+	default:
+		if outcome.Publication.Category == "unsupported_portable_source" {
+			result = canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project source is outside the Lingo projects root; edit publication is not supported", nil, "Edit the Project at its recorded source, or configure it under the Lingo projects root", s.provenance)
+			break
+		}
+		result = canonicalCompletion(completion.Facts{Failed: true}, "Project edit publication failed", nil, "Review current state and prepare a fresh preview", s.provenance)
 	}
-	result := canonicalCompletion(completion.Facts{Completed: true}, "Project edit preview ready", []string{"project:" + preview.ProjectID}, next, s.provenance)
 	result.Edit = &preview
 	return result
 }
@@ -696,6 +732,8 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 		message, next = "Project selector is ambiguous", "Select the Project by its UUID"
 	case projectapp.EditUnknownRepository:
 		message, next = "Repository to remove is not configured", "Remove only configured Repository keys"
+	case projectapp.EditUnknownIntegration:
+		message, next = "Integration to remove is not declared", "Remove only declared Integration keys; run integration list"
 	case projectapp.EditRepositoryUnavailable:
 		message, next = "Repository path is unavailable", "Provide an existing absolute non-link Repository path"
 	case projectapp.EditCandidateInvalid:
@@ -708,8 +746,14 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 		facts, message, next = completion.Facts{WasInterrupted: true}, "Project edit preview was cancelled", "Retry the edit preview"
 	case projectapp.EditUnavailable:
 		facts, message, next = completion.Facts{Failed: true}, "Project edit is unavailable", "Review application availability before retrying"
+	case projectapp.EditIncompleteAuthority:
+		message, next = "Project edit authority is incomplete", "Supply --project-id, --preview-digest, and --authorize-local together from the reviewed preview, or omit all three to preview"
 	}
-	return canonicalCompletion(facts, message, nil, next, source)
+	result := canonicalCompletion(facts, message, nil, next, source)
+	if failure == projectapp.EditUnknownIntegration {
+		result.Category = projectapp.IntegrationNotFound
+	}
+	return result
 }
 
 // editSource selects exactly one installed Project and loads its protected
@@ -777,7 +821,7 @@ func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItem
 		input.Project = id
 	}
 
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemCreate); blocked != nil {
 		return *blocked
 	}
 	draft := workitem.DraftInput{
@@ -801,7 +845,7 @@ func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItem
 		input.Project = id
 	}
 
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemSelect); blocked != nil {
 		return *blocked
 	}
 	if input.Provider != "" && input.Provider != "github" {
@@ -822,7 +866,7 @@ func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemIn
 		input.Project = id
 	}
 
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemShow); blocked != nil {
 		return *blocked
 	}
 	if input.Provider != "" && input.Provider != "github" {
@@ -839,13 +883,13 @@ func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkIte
 		input.Project = id
 	}
 
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemComment); blocked != nil {
 		return *blocked
 	}
 	if input.Provider != "" && input.Provider != "github" {
 		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
 	}
-	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.Message, input.AuthorizeExternal), s.provenance)
+	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.Message, input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
 	if input.Project == "" {
@@ -856,13 +900,14 @@ func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkIt
 		input.Project = id
 	}
 
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemComplete); blocked != nil {
 		return *blocked
 	}
 	if input.Provider != "" && input.Provider != "github" {
 		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
 	}
-	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.AuthorizeExternal), s.provenance)
+	// complete is the CLI compatibility spelling of close (#230 F-01).
+	return workItemResult(s.workItems.Complete(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 
 func workItemExternalID(input cli.WorkItemInput) string {
@@ -889,6 +934,9 @@ func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.Workflo
 		input.Project = id
 	}
 
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionAdvance); blocked != nil {
+		return *blocked
+	}
 	if input.Automatic {
 		if input.Gate != "" || input.Outcome != "" || input.Reference != "" || input.Next != "" {
 			return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_transition"}, s.provenance)
@@ -910,6 +958,9 @@ func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowIn
 		input.Project = id
 	}
 
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionFact); blocked != nil {
+		return *blocked
+	}
 	references, ok := workflowReferences(input.Reference)
 	if !ok || len(references) != 1 {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
@@ -938,7 +989,7 @@ func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.Workflow
 		input.Project = id
 	}
 
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationExecution); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionResume); blocked != nil {
 		return *blocked
 	}
 	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
@@ -952,6 +1003,9 @@ func (s lifecycleService) WorkflowStatus(ctx context.Context, input cli.Workflow
 		input.Project = id
 	}
 
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionStatus); blocked != nil {
+		return *blocked
+	}
 	return workflowResult(s.workflows.Status(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.WorkflowInput) cli.Result {
@@ -963,6 +1017,9 @@ func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.Workfl
 		input.Project = id
 	}
 
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionEvidence); blocked != nil {
+		return *blocked
+	}
 	result := s.workflows.Status(ctx, workflowTarget(input))
 	if result.Status == workflow.Succeeded {
 		result.Category = "workflow_evidence_ready"
@@ -979,6 +1036,9 @@ func (s lifecycleService) WorkflowReconcile(ctx context.Context, input cli.Workf
 		input.Project = id
 	}
 
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionReconcile); blocked != nil {
+		return *blocked
+	}
 	if !input.AuthorizeExternal {
 		return workflowResult(s.workflows.PrepareProjection(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 	}
@@ -1107,6 +1167,7 @@ func workItemResult(result workitem.Result, source provenance.Value) cli.Result 
 	response.Category = result.Category
 	response.Draft = result.Draft
 	response.Selection = result.Selection
+	response.WorkItemChange = result.Change
 	response.Questions = result.Questions
 	if result.Link.ExternalID != "" {
 		response.WorkItem = &cli.WorkItemView{ProjectID: result.Link.ProjectID, RepositoryKey: result.Link.RepositoryKey, Provider: result.Link.Provider, Resource: result.Link.Resource, ExternalID: result.Link.ExternalID, URL: result.Link.URL, State: result.Link.State}
@@ -1134,6 +1195,9 @@ func factsForCompletionStatus(status completion.Status) completion.Facts {
 }
 
 func workItemResultText(result workitem.Result) (string, string) {
+	if message, next, ok := workItemLifecycleText(result); ok {
+		return message, next
+	}
 	switch result.Category {
 	case "work_item_draft_ready":
 		return "Work Item draft ready for review", "Repeat create with this preview digest and explicit external authority"
@@ -1161,10 +1225,6 @@ func workItemResultText(result workitem.Result) (string, string) {
 		return "GitHub Work Item linked", "Inspect the local Work Item link before starting later workflow work"
 	case "work_item_loaded":
 		return "Work Item link loaded", "Use only separately authorized later operations"
-	case "work_item_commented":
-		return "Historical Work Item comment completed", "Treat this as POC behavior until the later Slice replaces it"
-	case "work_item_completed":
-		return "Historical Work Item completion completed", "Treat this as POC behavior until the later Slice replaces it"
 	case "provider_create_ambiguous":
 		return "GitHub create result is ambiguous", "Repeat the same reviewed draft to reconcile only; Axiom will not create again while the durable attempt is pending"
 	case "provider_rate_limited", "provider_unavailable":

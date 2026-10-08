@@ -173,6 +173,7 @@ func TestEditPreviewRepositoryAndProviderSemanticsOverRealStores(t *testing.T) {
 	want := []string{
 		"portable:update_portable_project", "portable:remove_portable_repository:api", "portable:add_portable_repository:docs",
 		"local:update_local_record", "local:remove_local_binding:api", "local:add_local_binding:docs", "local:update_local_binding:web",
+		"local:preserve_repository_history:api",
 	}
 	if got := effectList(event.Edit.Effects); !reflect.DeepEqual(got, want) {
 		t.Fatalf("effects = %v", got)
@@ -244,9 +245,11 @@ func TestEditPreviewRepairsBrokenBindingWithoutAvailabilityGate(t *testing.T) {
 	if err := os.Remove(env.web); err != nil {
 		t.Fatal(err)
 	}
-	runCanonicalCLI(t, env.service, []string{"project", "show", "--selector", "sample"}, cli.ExitFailure, "retryable_failure", "Project repository is unavailable")
+	if shown := showProjectEvent(t, env.service, "sample"); shown.Project.Repository("web").Availability != "unavailable" || shown.Project.Repository("api").Availability != "available" {
+		t.Fatalf("show with a broken binding = %+v", shown.Project)
+	}
 	removed, _ := env.runEdit(t, cli.ExitSuccess, "success", "Project edit preview ready", "--project", "sample", "--remove-repository", "web")
-	if got := effectList(removed.Edit.Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_repository:web", "local:update_local_record", "local:remove_local_binding:web"}) {
+	if got := effectList(removed.Edit.Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_repository:web", "local:update_local_record", "local:remove_local_binding:web", "local:preserve_repository_history:web"}) {
 		t.Fatalf("broken binding removal effects = %v", got)
 	}
 	replacement := filepath.Join(t.TempDir(), "web-replacement")
@@ -303,23 +306,23 @@ func TestEditPreviewHidesUnrelatedLocalMetadataButBindsIt(t *testing.T) {
 	}
 }
 
-// EDIT replay/publication is I132-T02. Its inputs are rejected before any
-// selector resolution or portable/local read, and no preview is built.
-func TestEditReplayInputsFailBeforeAnyStateRead(t *testing.T) {
+// A partial EDIT replay tuple is rejected before any selector resolution or
+// portable/local read, and no preview is built (I230-T03).
+func TestEditPartialReplayInputsFailBeforeAnyStateRead(t *testing.T) {
 	env := newEditEnvironment(t)
 	preview, _ := env.runEdit(t, cli.ExitSuccess, "success", "Project edit preview ready", "--project", "sample", "--name", "Renamed")
 	for name, replay := range map[string][]string{
-		"preview digest":        {"--preview-digest", preview.Edit.Digest},
-		"authorize local":       {"--authorize-local"},
-		"digest and authority":  {"--preview-digest", preview.Edit.Digest, "--authorize-local"},
-		"complete replay tuple": {"--project-id", env.projectID, "--preview-digest", preview.Edit.Digest, "--authorize-local"},
-		"replay-only identity":  {"--project-id", env.projectID},
+		"preview digest":       {"--preview-digest", preview.Edit.Digest},
+		"authorize local":      {"--authorize-local"},
+		"digest and authority": {"--preview-digest", preview.Edit.Digest, "--authorize-local"},
+		"identity and digest":  {"--project-id", env.projectID, "--preview-digest", preview.Edit.Digest},
+		"replay-only identity": {"--project-id", env.projectID},
 	} {
 		t.Run(name, func(t *testing.T) {
 			args := append([]string{"--project", "sample", "--name", "Renamed"}, replay...)
-			event, output := env.runEdit(t, cli.ExitFailure, "validation_failure", "Project edit publication is not available", args...)
+			event, output := env.runEdit(t, cli.ExitFailure, "validation_failure", "Project edit authority is incomplete", args...)
 			if strings.Contains(output, `"edit"`) || event.Edit.Digest != "" {
-				t.Fatalf("replay input built a preview: %s", output)
+				t.Fatalf("partial replay built a preview: %s", output)
 			}
 		})
 	}
@@ -338,7 +341,7 @@ func TestEditReplayInputsFailBeforeAnyStateRead(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if result.Completion == nil || result.Completion.Result().String() != "Project edit publication is not available" || result.Edit != nil {
+	if result.Completion == nil || result.Completion.Result().String() != "Project edit authority is incomplete" || result.Edit != nil {
 		t.Fatalf("service replay guard = %+v", result)
 	}
 	if after := snapshotTrees(t, env.root, env.state); !bytes.Equal(before, after) {
@@ -477,8 +480,11 @@ func TestEditFailsClosedOnUnsafeOrIncoherentRecordedSource(t *testing.T) {
 func TestEditFailsClosedOnStalePortableLocalRelationship(t *testing.T) {
 	env := newEditEnvironment(t)
 	// The legacy update changes only the portable manifest, leaving the local
-	// record's recorded portable revision stale.
-	runCLI(t, env.service, []string{"project", "update", "--slug", "sample", "--name", "Changed"}, cli.ExitSuccess, "applied")
+	// record's recorded portable revision stale. The CLI now refuses it for an
+	// installed Project, so the stale relationship is produced at the use case.
+	if result := env.service.(lifecycleService).lifecycle.Update(context.Background(), projectapp.UpdateRequest{Slug: "sample", Name: "Changed"}); result.Status != projectapp.LifecycleApplied {
+		t.Fatalf("direct portable update = %+v", result)
+	}
 	env.runEdit(t, cli.ExitFailure, "failure", "Selected Project state is not safe to edit", "--project", "sample", "--name", "Renamed")
 }
 

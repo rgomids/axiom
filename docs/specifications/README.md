@@ -301,7 +301,10 @@ Issue [#230](https://github.com/rgomids/axiom/issues/230) freezes its
 [resource lifecycle capability matrix](004-mvp-v1-baseline/issue-230-resource-lifecycle-matrix.md)
 (I230-T01). It records current vs approved target lifecycle, ownership, effect
 and authority for Project, Repository association, Work Item, Execution and
-Integration. It delivers no behavior and does not authorize I230-T02 or later Tasks.
+Integration. I230-T02–I230-T08 implement it under the 2026-10-07 maintainer
+authority; [Evidence](004-mvp-v1-baseline/evidence-230.md) maps FR-068–FR-084 and
+AC-50–AC-61 to tests. The I132-T02 authorized EDIT publication is delivered as
+part of I230-T03. Technical completion is not human acceptance or release.
 
 ## Safe Work Item Execution Targeting — Issue #137
 

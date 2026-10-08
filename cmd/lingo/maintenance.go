@@ -272,7 +272,7 @@ func (s lifecycleService) RecoveryApply(ctx context.Context, input cli.Maintenan
 		return s.maintenanceResult(completion.Facts{Completed: true}, "Recovery applied: "+string(result.Action), []string{"recovery-plan:" + selected.Digest}, "Run `axiom recovery inspect` to confirm no interrupted state remains", view)
 	case errors.Is(err, local.ErrConflict):
 		return s.maintenanceResult(completion.Facts{AuthorityDenied: true}, "Recovery state changed or is locked", nil, "Run `axiom recovery inspect` and review a fresh plan", nil)
-	case len(result.Removed) > 0:
+	case len(result.Removed) > 0 || len(result.Published) > 0:
 		return s.maintenanceResult(completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Recovery partially applied; state remains recovery_required", []string{"recovery-plan:" + selected.Digest}, "Run `axiom recovery inspect`; residual protocol objects are preserved", view)
 	default:
 		return s.maintenanceResult(completion.Facts{Failed: true}, "Recovery failed before any effect", nil, "Run `axiom recovery inspect`; state is preserved", view)
