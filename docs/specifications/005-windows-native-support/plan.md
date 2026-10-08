@@ -20,13 +20,6 @@ Specification 005 and ADR-0010. Upstream review remains the PR acceptance gate.
 4. Extend release checks and CI with a Windows amd64 compile/test job and a
    release-artifact contract row. Native Windows acceptance runs are required
    before a release claims Windows support.
-
-   > Reconciled by [Specification 004 — Release-candidate acceptance and supported upgrade sources](../004-mvp-v1-baseline/spec.md#release-candidate-acceptance-and-supported-upgrade-sources) and [ADR-0019](../../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md#decision), accepted 2026-10-06.
-   > This requirement is support-enablement and MVP acceptance Evidence for the
-   > Windows row. It is not a mandatory native-client gate for every later
-   > release. Per-release blocking Evidence for Windows client amd64 is the
-   > bounded hosted Windows Server proxy (FR-072), and native Windows client
-   > Evidence is supplemental. Text preserved for traceability.
 5. Update both README variants and command reference to describe the integrated
    post-merge interface, as explicitly requested. Record validation limitations
    separately; do not imply an unpublished artifact exists in older releases.

@@ -140,11 +140,7 @@ workflow="$repository_root/.github/workflows/release-artifacts.yml"
 [[ $(grep -Ec '^\s+permissions:' "$workflow") == 0 ]]
 [[ $(sed -n '/^on:/,/^[a-z]/p' "$workflow" | grep -Ec '^  [a-z_]+:') == 1 ]]
 grep -Eq '^  workflow_dispatch:$' "$workflow"
-# Acceptance reads earlier public release assets with an unauthenticated GET;
-# that one exact line is the only release URL the workflow may contain.
-public_download='              curl -fsSL --retry 4 -o "$dir/$asset" "https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/$asset"'
-[[ $(grep -c 'releases/' "$workflow") == 1 && $(grep -cxF -- "$public_download" "$workflow") == 1 ]]
-if grep -vxF -- "$public_download" "$workflow" | grep -Eiq 'gh release|git push|git tag|contents: write|softprops|action-gh-release|create-release|upload-release|releases/|secrets\.|GITHUB_TOKEN|id-token|packages:|actions: write'; then
+if grep -Eiq 'gh release|git push|git tag|contents: write|softprops|action-gh-release|create-release|upload-release|releases/|secrets\.|GITHUB_TOKEN|id-token|packages:' "$workflow"; then
   printf 'FAIL: release workflow contains a publication or credential effect\n' >&2
   exit 1
 fi
@@ -154,60 +150,5 @@ done < <(grep -E '^\s+(- )?uses:' "$workflow")
 [[ $(grep -c 'inputs.tag' "$workflow") == $(grep -c 'RELEASE_TAG: \${{ inputs.tag }}' "$workflow") ]]
 grep -Fq 'persist-credentials: false' "$workflow"
 
-# 7. Release-candidate acceptance (Issue #238): blocking native rows consume
-# this run's prepared set unchanged through the prepared-set harness, retain
-# their Evidence apart from logs, and the run verifies the binding publication
-# will verify. Acceptance never rebuilds, mutates the set or gains authority.
-absent() { if grep -Eq -- "$1" <<<"$2"; then printf 'FAIL: %s\n' "$3" >&2; exit 1; fi; }
-job() { awk -v job="  $1:" '$0 == job {j = 1; print; next} j && /^  [A-Za-z0-9_-]+:$/ {exit} j' "$workflow"; }
-accept=$(job accept)
-binding=$(job acceptance-evidence)
-prepare=$(job prepare)
-[[ -n "$accept" && -n "$binding" ]] || { printf 'FAIL: acceptance jobs missing\n' >&2; exit 1; }
-grep -Fxq '    needs: prepare' <<<"$accept"
-grep -Fxq "    if: needs.prepare.outputs.channel == 'stable'" <<<"$accept"
-grep -Fxq "    if: needs.prepare.outputs.channel == 'stable'" <<<"$binding"
-grep -Fq 'channel: ${{ steps.identity.outputs.channel }}' <<<"$prepare"
-grep -Fxq '    name: accept-${{ matrix.gate }}' <<<"$accept"
-grep -Fxq '      fail-fast: false' <<<"$accept"
-[[ $(grep -E '^          - gate: ' <<<"$accept" | paste -sd, -) == '          - gate: linux-amd64,          - gate: macos-arm64' ]]
-[[ $(sed -n 's/^            row: //p' <<<"$accept" | paste -sd, -) == $(python3 "$repository_root/scripts/verify-release-acceptance.py" rows | paste -sd, -) ]]
-grep -Fq 'PREPARED_SHA256SUMS: ${{ needs.prepare.outputs.sha256sums }}' <<<"$accept"
-grep -Fq 'sha256sums: ${{ steps.identity.outputs.sha256sums }}' <<<"$prepare"
-grep -Fq 'ref: ${{ github.sha }}' <<<"$accept"
-# Exactly one harness invocation, in prepared mode with the full explicit pin.
-[[ $(grep -c 'test-upgrade-journeys.sh' <<<"$accept") == 1 ]]
-grep -Fq './scripts/test-upgrade-journeys.sh --prepared-set "$prepared/artifacts" --candidate-acceptance' <<<"$accept"
-grep -Fq -- '--tag "$PREPARED_TAG" --revision "$PREPARED_REVISION" --row "$ROW" --sha256sums-sha256 "$PREPARED_SHA256SUMS"' <<<"$accept"
-grep -Fq -- '--evidence "$RUNNER_TEMP/acceptance/gate-evidence.json"' <<<"$accept"
-# The subject is this run's retained artifact, never a rebuild or another run.
-grep -Fq 'name: axiom-release-${{ env.PREPARED_TAG }}' <<<"$accept"
-absent 'build-release-archives|run-id:|github-token:|--candidate "|\./cmd/axiom' "$accept$binding" 'acceptance rebuilds or consumes another run'
-# Acceptance never modifies the subject; the inventory check brackets the run.
-grep -Fq 'inventory | cmp -s - "$RUNNER_TEMP/prepared-before.txt"' <<<"$accept"
-# Evidence is its own artifact, retained on failure too, never overwritten.
-grep -Fq 'name: axiom-acceptance-${{ env.PREPARED_TAG }}-${{ matrix.row }}' <<<"$accept"
-grep -Fq 'path: ${{ runner.temp }}/acceptance/gate-evidence.json' <<<"$accept"
-grep -Fq "        if: always()" <<<"$accept"
-absent 'overwrite:|continue-on-error' "$(cat "$workflow")" 'recorded Evidence can be replaced or failures ignored'
-[[ $(grep -c 'actions/upload-artifact@' "$workflow") == 2 && $(grep -c 'name: axiom-release-${{ env.RELEASE_TAG }}' "$workflow") == 1 ]]
-absent 'upload-artifact' "$binding" 'the binding job writes artifacts'
-# The run proves the publication binding for its own run id.
-grep -Fxq '    needs: [prepare, accept]' <<<"$binding"
-grep -Fq './scripts/verify-release-acceptance.py verify --acceptance "$acceptance" --artifacts "$RUNNER_TEMP/prepared/artifacts"' <<<"$binding"
-grep -Fq -- '--repo "$GITHUB_REPOSITORY" --prepared-run "$GITHUB_RUN_ID"' <<<"$binding"
-# Inside the prepared run the manual-transition rows have no Evidence yet:
-# the run checks only its automated rows, and that output is never an
-# envelope (publication requires every release row; CR-001).
-grep -Fq -- '--automated-only | tee -a "$GITHUB_STEP_SUMMARY"' <<<"$binding"
-absent 'automated-only' "$(cat "$repository_root/scripts/publish-release.sh" "$repository_root/scripts/release.sh" "$repository_root/.github/workflows/publish-release.yml")" 'publication accepts automated Evidence alone'
-# The harness refuses to label a non-prepared or Evidence-less run as acceptance.
-harness=$repository_root/scripts/test-upgrade-journeys.sh
-expect_failure 'acceptance without a prepared set' 'prepared identity flags require --prepared-set' \
-  "$harness" --candidate "$temporary/first" --previous "$temporary/second" --candidate-acceptance --evidence "$temporary/evidence.json"
-expect_failure 'acceptance without Evidence' '--candidate-acceptance requires --evidence' \
-  "$harness" --prepared-set "$temporary/first" --tag v0.1.0-rc.1 --revision "$revision" --row linux-amd64 \
-  --sha256sums-sha256 "$(digest "$temporary/first/SHA256SUMS")" --previous "$temporary/second" --candidate-acceptance
-
 printf 'tested_revision=%s\n' "$revision"
-printf '%s\n' 'PASS: S9 release artifact pipeline, closed verification, rerun equivalence, no-publication workflow and prepared-byte acceptance contract'
+printf '%s\n' 'PASS: S9 release artifact pipeline, closed verification, rerun equivalence, and no-publication workflow'

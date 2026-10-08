@@ -46,12 +46,16 @@ func toDomain(d manifestDTO) project.State {
 	return project.State{SchemaVersion: d.SchemaVersion, ID: d.Project.ID, Slug: d.Project.Slug, Name: d.Project.Name,
 		Repositories:         toDeclaration(d.Repositories, list(toRepository)),
 		Runtime:              toDeclaration(d.Runtime, toRuntime),
+		Runtimes:             toDeclaration(d.Runtimes, list(toRuntime)),
+		RuntimePreferences:   toDeclaration(d.RuntimePreferences, list(toPreference)),
 		Providers:            toDeclaration(d.Providers, list(toProvider)),
 		Integrations:         toDeclaration(d.Integrations, list(toIntegration)),
 		ModelProfiles:        toDeclaration(d.ModelProfiles, list(toProfile)),
 		BusinessContext:      toDeclaration(d.BusinessContext, toContext),
 		CredentialReferences: toDeclaration(d.CredentialReferences, list(toCredential)),
 		Policies:             toDeclaration(d.Policies, same[[]string]),
+		TechnologyContext:    toDeclaration(d.TechnologyContext, list(toTechnology)),
+		DocumentationSources: toDeclaration(d.DocumentationSources, list(toSource)),
 	}
 }
 func toRepository(d repositoryDTO) project.Repository {
@@ -96,8 +100,10 @@ func toProfile(d profileDTO) project.ModelProfile {
 }
 func toContext(d contextDTO) project.BusinessContext {
 	return project.BusinessContext{
-		Text:      toText(d.Text),
-		Documents: toDeclaration(d.Documents, same[[]string]),
+		Text:       toText(d.Text),
+		Documents:  toDeclaration(d.Documents, same[[]string]),
+		SourceRefs: toDeclaration(d.SourceRefs, same[[]string]),
+		Glossary:   toDeclaration(d.Glossary, list(toGlossary)),
 	}
 }
 func toCredential(d credentialDTO) project.CredentialReference {
@@ -111,12 +117,16 @@ func fromDomain(d project.State) manifestDTO {
 	return manifestDTO{SchemaVersion: d.SchemaVersion, Project: identityDTO{d.ID, d.Slug, d.Name},
 		Repositories:         fromDeclaration(d.Repositories, list(fromRepository)),
 		Runtime:              fromDeclaration(d.Runtime, fromRuntime),
+		Runtimes:             fromDeclaration(d.Runtimes, list(fromRuntime)),
+		RuntimePreferences:   fromDeclaration(d.RuntimePreferences, list(fromPreference)),
 		Providers:            fromDeclaration(d.Providers, list(fromProvider)),
 		Integrations:         fromDeclaration(d.Integrations, list(fromIntegration)),
 		ModelProfiles:        fromDeclaration(d.ModelProfiles, list(fromProfile)),
 		BusinessContext:      fromDeclaration(d.BusinessContext, fromContext),
 		CredentialReferences: fromDeclaration(d.CredentialReferences, list(fromCredential)),
 		Policies:             fromDeclaration(d.Policies, same[[]string]),
+		TechnologyContext:    fromDeclaration(d.TechnologyContext, list(fromTechnology)),
+		DocumentationSources: fromDeclaration(d.DocumentationSources, list(fromSource)),
 	}
 }
 func fromRepository(d project.Repository) repositoryDTO {
@@ -161,8 +171,10 @@ func fromProfile(d project.ModelProfile) profileDTO {
 }
 func fromContext(d project.BusinessContext) contextDTO {
 	return contextDTO{
-		Text:      fromText(d.Text),
-		Documents: fromDeclaration(d.Documents, same[[]string]),
+		Text:       fromText(d.Text),
+		Documents:  fromDeclaration(d.Documents, same[[]string]),
+		SourceRefs: fromDeclaration(d.SourceRefs, same[[]string]),
+		Glossary:   fromDeclaration(d.Glossary, list(fromGlossary)),
 	}
 }
 func fromCredential(d project.CredentialReference) credentialDTO {
@@ -170,4 +182,30 @@ func fromCredential(d project.CredentialReference) credentialDTO {
 		Key:        d.Key,
 		SourceHint: fromText(d.SourceHint),
 	}
+}
+
+func toPreference(d preferenceDTO) project.RuntimePreference {
+	return project.RuntimePreference{Role: d.Role, Complexity: d.Complexity, ModelProfileRef: d.ModelProfileRef}
+}
+func fromPreference(d project.RuntimePreference) preferenceDTO {
+	return preferenceDTO{Role: d.Role, Complexity: d.Complexity, ModelProfileRef: d.ModelProfileRef}
+}
+
+func toTechnology(d technologyDTO) project.TechnologyFact {
+	return project.TechnologyFact{Key: d.Key, Value: d.Value}
+}
+func fromTechnology(d project.TechnologyFact) technologyDTO {
+	return technologyDTO{Key: d.Key, Value: d.Value}
+}
+func toSource(d sourceDTO) project.DocumentationSource {
+	return project.DocumentationSource{Key: d.Key, Kind: d.Kind, RepositoryRef: toText(d.RepositoryRef), Path: toText(d.Path)}
+}
+func fromSource(d project.DocumentationSource) sourceDTO {
+	return sourceDTO{Key: d.Key, Kind: d.Kind, RepositoryRef: fromText(d.RepositoryRef), Path: fromText(d.Path)}
+}
+func toGlossary(d glossaryDTO) project.GlossaryEntry {
+	return project.GlossaryEntry{Key: d.Key, Term: d.Term, Definition: d.Definition}
+}
+func fromGlossary(d project.GlossaryEntry) glossaryDTO {
+	return glossaryDTO{Key: d.Key, Term: d.Term, Definition: d.Definition}
 }

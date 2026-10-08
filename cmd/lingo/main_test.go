@@ -401,7 +401,9 @@ func TestWorkItemJourneyRequiresReadyConfiguredCapability(t *testing.T) {
 			service := compose()
 			configureProject(t, service, "capability", "Capability", "main="+repository, provider)
 			result := service.WorkItemCreate(context.Background(), cli.WorkItemInput{Project: "capability", Repository: "main", ProviderRepository: "owner/repo", Intent: "Blocked", AuthorizeExternal: true})
-			if result.Completion == nil || result.Completion.Status() != completion.ValidationFailure || result.Category != "work_item_capability_unavailable" {
+			want := map[string]string{"": "capability_mapping_missing", "linear": "provider_unsupported"}[provider]
+			// The preflight reports the exact readiness blocker before any effect.
+			if result.Completion == nil || result.Completion.Status() != completion.ValidationFailure || result.Category != want || result.Preflight == nil || result.Preflight.Blockers[0].Code != want {
 				t.Fatalf("provider %q work item result = %#v", provider, result)
 			}
 		})
@@ -417,10 +419,10 @@ func TestFirstRunReportsMissingReadyAndIncompatibleSkillStates(t *testing.T) {
 	t.Setenv("AXIOM_CODEX_SKILLS_ROOT", skills)
 	service := compose().(lifecycleService)
 	missing := service.RuntimeCodexStatus(context.Background())
-	if missing.Completion == nil || missing.Completion.Status() != completion.ValidationFailure || missing.Runtime == nil || len(missing.Runtime.Skills) != 6 || missing.Runtime.Skills[0].State != "missing" {
+	if missing.Completion == nil || missing.Completion.Status() != completion.ValidationFailure || missing.Runtime == nil || len(missing.Runtime.Skills) != 8 || missing.Runtime.Skills[0].State != "missing" {
 		t.Fatalf("missing first run = %#v", missing)
 	}
-	if installed := service.RuntimeCodexInstall(context.Background()); installed.Status != cli.Succeeded || installed.Runtime == nil || len(installed.Runtime.Skills) != 6 {
+	if installed := service.RuntimeCodexInstall(context.Background()); installed.Status != cli.Succeeded || installed.Runtime == nil || len(installed.Runtime.Skills) != 8 {
 		t.Fatalf("skill install = %#v", installed)
 	}
 	ready := service.RuntimeCodexStatus(context.Background())

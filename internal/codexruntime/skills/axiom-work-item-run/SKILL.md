@@ -1,6 +1,6 @@
 ---
 name: axiom-work-item-run
-description: Start, advance, authorize, resume or reconcile a configured Work Item workflow through Lingo.
+description: Start or resume the bounded Axiom delivery workflow for a configured Work Item through Lingo.
 ---
 
 # Run Axiom Work Item
@@ -14,49 +14,43 @@ For workflow invocation, preserve the guided behavior below.
 
 Collect only missing Project, Project-scoped Repository, exact Work Item, and
 applicable Execution selectors. Use `--project <uuid-or-slug> --repository <key>
---work-item github:<owner>/<repository>#<number>`. `workflow start` omits
-`--execution` and passes `--runtime codex` or `--runtime claude`, naming the
-Runtime executing this skill; never guess it from installed executables. Every
-resume, advance, status, evidence, or reconcile call forwards the exact
-`--execution <id>` returned by Lingo and never passes `--runtime`: the Execution
-keeps the Runtime recorded at start.
+--work-item github:<owner>/<repository>#<number>`.
 
-## Explicit operations and gate progression
-
-Supported operation inputs are `start`, `advance`, `fact`, `resume`, and
-`reconcile`; forward an explicit operation deterministically to the same
-`axiom --json workflow <operation>` command. When the user requests delivery,
-start/resume the exact workflow and follow Lingo's returned `workflow.gateAction`
-and `workflow.gateCommand` argument array. Do not ask the user to say an internal
-gate name or a magic phrase to continue.
-
-- An action with `automatic: true` runs `workflow advance --automatic` using the
-  exact returned selectors and revision. Intake currently is the only gate whose
-  prerequisites Lingo can evaluate automatically. Do this during an authorized
-  workflow run without a conversational confirmation.
-- Other `advance` actions require actual work and its observed `pass` or `fail`
-  result, plus applicable validated Evidence. Fill command placeholders with
-  observed inputs; never treat a file digest as proof that its contents passed.
-- A `fact` action requires the exact decision/condition and reference. Present
-  that explicit action when missing human authority or input is required. Set
-  `--authorize-local` only for an explicitly authorized decision, never because
-  the returned command includes it. Clearing a condition requires Evidence that
-  it was resolved; never clear it merely to make the workflow progress.
-- A `resume` action uses the exact committed revision. Re-read status after each
-  result; stop on a denied/failed operation, report it, and preserve local truth.
-
-Examples (supply exact selectors on every command):
+Starting is a reviewed two-step protocol; the first call only previews:
 
 ```text
-axiom --json workflow advance <selectors> --expected-revision <revision> --automatic
-axiom --json workflow advance <selectors> --expected-revision <revision> --gate <currentGate> --outcome <pass-or-fail> --reference <kind>:<path>:<sha256>
-axiom --json workflow fact <selectors> --expected-revision <revision> --fact planning-authority --active --reference specification:<path>:<sha256> --authorize-local
+axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>
+axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime> --runtime-preview <previewDigest>
+axiom --json workflow status <selectors> --execution <executionId>
 ```
 
-`--automatic` cannot be combined with gate, outcome, reference or next inputs.
-Do not synthesize gate policies in this skill. The existing run entrypoint stays
-compatible until the domain-oriented Work Item surface (#229) adopts these same
-application operations; no per-gate skills are introduced.
+Collect role, complexity, and comma-separated capabilities from the user or the
+approved Plan; never invent them. `<runtime>` is `codex` or `claude`, naming the
+Runtime executing this skill, which narrows the Project policy and never widens
+it. Never default to Codex or infer a Runtime from installed executables. Lingo
+observes Runtimes itself: never supply, invent, or claim an observation, version,
+or proven capability. Preserve and report the first call's `runtimeResolution`
+and `previewDigest`. A blocker stops the workflow. Otherwise show the selected
+Runtime, Model Profile, model, and revisions and wait for an explicit decision;
+only then repeat the identical inputs with `--runtime-preview <previewDigest>`.
+Never edit a digest or reuse one after a blocker: `stale_preview` requires a
+fresh preview. The Execution's Runtime is the selected
+`runtimeResolution.choice.runtimeId`.
+`workflow start` omits `--execution`. Every resume, advance, status, evidence, or
+reconcile call forwards the exact `--execution <id>` returned by Lingo and never
+passes `--runtime`, policy inputs, or `--runtime-preview`: the Execution keeps
+the Runtime recorded at start. Follow `workflow.gateAction` and
+`workflow.gateCommand` with the exact returned selectors and revision, as in the
+domain `axiom-work-item` run operation. Automatic Intake uses
+`workflow advance --automatic` during the authorized run without asking for a
+gate phrase or another conversational confirmation. Never combine it with gate,
+outcome, reference or next inputs. Other advances require actual authorized work,
+its observed pass/fail result and applicable Evidence; an artifact digest alone
+does not prove correctness. Fact actions require an explicit decision, validated
+reference and local authority; the returned `--authorize-local` grants none.
+Resolve conditions before explicitly clearing them. Re-read status after each
+result and stop on denial/failure. These actions do not replace the mandatory
+reviewed Runtime/Profile start preview above.
 
 Record planning authority, implementation authority, review start, human
 acceptance, or an auxiliary condition only through `axiom --json workflow fact`
@@ -70,14 +64,15 @@ workflow transition, authority, persistence, recovery, provenance, or status.
 Unknown, duplicate, and conflicting inputs go to Lingo validation.
 
 Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
-Operation-specific payloads preserved separately: `workflow`, `projection`
+Operation-specific payloads preserved separately: `workflow`, `projection`, `runtimeResolution`, `previewDigest`
 
 Copy canonical completion fields only from Lingo's top-level JSON object. Omit
 canonical fields absent from that object. Never derive, synthesize, or reinterpret
-a canonical field from `workflow`, `projection`, or another operation-specific
-payload. Preserve and report returned workflow or projection payloads separately
-according to their original operational semantics, including Execution identity,
-current gate, revision, transitions, and applicable Evidence or projection data.
+a canonical field from `workflow`, `projection`, `runtimeResolution`, or another
+operation-specific payload. Preserve and report returned workflow, projection, or
+Runtime resolution payloads separately according to their original operational
+semantics, including Execution identity, current gate, revision, transitions,
+selected Runtime/Profile, blocker, and applicable Evidence or projection data.
 Keep `lifecycleStage` and auxiliary conditions as derived workflow output; never
 reinterpret them as an independently writable lifecycle.
 Never reinterpret an operation-specific payload as `details` or another canonical

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"os/exec"
@@ -108,10 +109,21 @@ type cliEvent struct {
 }
 
 type canonicalEvent struct {
-	Status     string   `json:"status"`
-	Result     string   `json:"result"`
-	References []string `json:"references"`
-	Provenance struct {
+	Preflight         *projectapp.OperationReadiness `json:"preflight"`
+	RuntimeResolution *struct {
+		Choice *struct {
+			RuntimeID        string `json:"runtimeId"`
+			ExecutableDigest string `json:"executableDigest"`
+		} `json:"choice"`
+		Blocker *struct {
+			Code string `json:"code"`
+		} `json:"blocker"`
+	} `json:"runtimeResolution"`
+	PreviewDigest string   `json:"previewDigest"`
+	Status        string   `json:"status"`
+	Result        string   `json:"result"`
+	References    []string `json:"references"`
+	Provenance    struct {
 		Product, Version, Revision, SourceState string
 	} `json:"provenance"`
 	Setup struct {
@@ -373,7 +385,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		t.Fatal("first-run touched the absent Claude configuration")
 	}
 	installed, err := filepath.Glob(filepath.Join(skills, "axiom-*", "SKILL.md"))
-	if err != nil || len(installed) != 6 {
+	if err != nil || len(installed) != 8 {
 		t.Fatalf("installed Codex skills = %v, %v", installed, err)
 	}
 	repository := filepath.Join(t.TempDir(), "configured-repository")
@@ -481,10 +493,17 @@ exit 0
 		t.Fatalf("selected item = %+v", selected.WorkItem)
 	}
 	runCanonical(0, "success", "Historical Work Item comment completed", "work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence", "--authorize-external")
-	started := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "start", "--project", "configured", "--repository", "main", "--number", "7")
-	// No --runtime keeps the historical Codex default.
+	policyFlags := installTestRuntimePolicy(t, state, preview.Setup.ProjectID, "codex")
+	startArgs := append([]string{"workflow", "start", "--project", "configured", "--repository", "main", "--number", "7"}, policyFlags...)
+	runtimePreview := runCanonical(0, "success", "Project Runtime resolution preview ready", startArgs...)
+	started := runCanonical(0, "success", "Execution workflow operation completed", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
+	// Omitted --runtime resolves Codex from the explicitly configured policy and
+	// the codex executable plus verified skills observed on this PATH.
 	if started.Workflow == nil || started.Workflow.ExecutionID == "" || started.Workflow.CurrentGate != "intake" || started.Workflow.Revision != 1 || started.Workflow.RuntimeID != "codex" {
 		t.Fatalf("started workflow = %+v", started.Workflow)
+	}
+	if _, err := os.Lstat(executed); !os.IsNotExist(err) {
+		t.Fatal("Runtime observation executed the Runtime")
 	}
 	exactWorkItem := "github:owner/repo#7"
 	runCanonical(0, "success", "Work Item link loaded", "work-item", "show", "--project", preview.Setup.ProjectID, "--repository", "main", "--work-item", exactWorkItem)
@@ -551,6 +570,19 @@ exit 0
 	if interrupted.Workflow == nil || interrupted.Workflow.Status != "interrupted" || interrupted.Workflow.CurrentGate != "implementation" || interrupted.Workflow.Revision != revision {
 		t.Fatalf("workflow payload = %+v", interrupted.Workflow)
 	}
+	// Resume must observe the configured Runtime before mutating an interrupted
+	// Execution. Hide PATH while retaining its policy and installed skills.
+	observedEnvironment := environment
+	environment = append(append([]string(nil), environment...), "PATH="+t.TempDir())
+	beforeResume := snapshotTrees(t, portable, state, skills, repository, home)
+	blockedResume := runCanonical(1, "validation_failure", "Project is not ready for Execution", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
+	if blockedResume.Preflight == nil || len(blockedResume.Preflight.Blockers) != 1 || blockedResume.Preflight.Blockers[0].Code != "runtime_resolution_blocked" || blockedResume.Preflight.Blockers[0].Detail != "runtime_unavailable" {
+		t.Fatalf("resume preflight = %+v", blockedResume.Preflight)
+	}
+	if after := snapshotTrees(t, portable, state, skills, repository, home); !bytes.Equal(beforeResume, after) {
+		t.Fatal("blocked resume changed local state")
+	}
+	environment = observedEnvironment
 	resumed := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
 	revision++
 	if resumed.Workflow == nil || resumed.Workflow.Status != "active" || resumed.Workflow.Revision != revision {

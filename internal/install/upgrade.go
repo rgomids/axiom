@@ -943,12 +943,17 @@ func planSkills(ctx context.Context, root string, candidate Candidate, installed
 
 // installedSkillManifest reconstructs the release skill manifest that
 // build-release-archives.sh writes for the observed skill digests, so its
-// digest can be compared with the installation receipt.
+// digest can be compared with the installation receipt. That script lists
+// skills in sorted directory order, which differs from the Runtime inventory
+// order once a skill name sorts before an earlier one (axiom-project, #229).
 func installedSkillManifest(inventory codexruntime.UpgradeInventory) string {
 	var builder strings.Builder
 	builder.WriteString("formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n")
 	present := 0
-	for _, skill := range inventory.Skills {
+	skills := slices.SortedFunc(slices.Values(inventory.Skills), func(left, right codexruntime.UpgradeSkill) int {
+		return strings.Compare(left.Name, right.Name)
+	})
+	for _, skill := range skills {
 		// A release that predates a skill never listed it, so an absent skill
 		// is omitted rather than invalidating the whole recorded set.
 		if skill.SHA256 == "" {

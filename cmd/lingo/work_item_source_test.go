@@ -182,7 +182,8 @@ func TestWorkItemResolverNeverAcceptsShadowCopyAtProjectsRoot(t *testing.T) {
 				}
 				return
 			}
-			if category != "work_item_capability_unavailable" || preview != "work_item_capability_unavailable" {
+			// The resolver and the readiness preflight both judge the recorded source.
+			if category != "work_item_capability_unavailable" || preview != "capability_mapping_missing" {
 				t.Fatalf("shadow copy replaced recorded source: resolve=%q preview=%q", category, preview)
 			}
 		})

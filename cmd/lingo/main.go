@@ -17,8 +17,10 @@ import (
 	"github.com/rgomids/axiom/internal/install"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
+	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
 )
@@ -214,6 +216,8 @@ func stateRoot() (string, error) {
 }
 
 type lifecycleService struct {
+	// RuntimePolicySource allows composition tests to inject fresh snapshots.
+	RuntimePolicySource    runtimeapplication.Source
 	lifecycle              projectapp.Lifecycle
 	portable               local.PortableStore
 	installation           local.InstallationStore
@@ -260,10 +264,13 @@ func (r workItemResolver) Resolve(ctx context.Context, selector string) (workite
 	if state.ID != resolved.Project.ID || state.Slug != resolved.Project.Slug || portable.Snapshot.Revision() != resolved.Project.PortableRevision {
 		return workitem.Project{}, "invalid_project_capability_state"
 	}
-	if !projectapp.GitHubWorkItemCapability(state) {
+	// Same capability mapping algorithm as readiness; GitHub is the only
+	// implemented Work Item Provider in this build.
+	capability := projectapp.ResolveCapability(state, projectapp.WorkItemCapability, projectapp.SupportedProviders)
+	if capability.Readiness != projectapp.CapabilityReady {
 		return workitem.Project{}, "work_item_capability_unavailable"
 	}
-	project := workitem.Project{ID: resolved.Project.ID, Provider: "github", Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}
+	project := workitem.Project{ID: resolved.Project.ID, Provider: capability.Provider, Repositories: make([]workitem.Repository, 0, len(resolved.Project.Repositories))}
 	for _, repository := range resolved.Project.Repositories {
 		project.Repositories = append(project.Repositories, workitem.Repository{Key: repository.Key, Path: repository.Path})
 	}
@@ -341,7 +348,12 @@ func (s lifecycleService) Init(ctx context.Context, input cli.InitInput) cli.Res
 func (s lifecycleService) Validate(ctx context.Context, input cli.ProjectInput) cli.Result {
 	result := s.lifecycle.Validate(ctx, projectapp.ProjectRequest{Slug: input.Slug})
 	if result.Status == projectapp.LifecycleApplied || result.Status == projectapp.LifecycleUnchanged {
-		return canonicalCompletion(completion.Facts{Completed: true}, "Project is valid", nil, "", s.provenance)
+		// Structural validity is not readiness: report what each supported
+		// operation can do on this machine (Issue #231). Read-only.
+		response := canonicalCompletion(completion.Facts{Completed: true}, "Project is valid", nil, "", s.provenance)
+		report := s.readiness().Evaluate(ctx, input.Slug)
+		response.Readiness = &report
+		return response
 	}
 	if result.Status == projectapp.LifecycleCancelled {
 		return canonicalCompletion(completion.Facts{WasInterrupted: true}, "Project validation was interrupted", nil, "Retry Project validation", s.provenance)
@@ -365,8 +377,25 @@ func (s lifecycleService) Reopen(ctx context.Context, input cli.ProjectInput) cl
 func (s lifecycleService) Update(ctx context.Context, input cli.UpdateInput) cli.Result {
 	return cliResult(s.lifecycle.Update(ctx, projectapp.UpdateRequest{Slug: input.Slug, Name: input.Name}))
 }
+
+// Install records an operator-authored manifest. A manifest that declares
+// Repositories installs only with an exact binding for each declared key.
 func (s lifecycleService) Install(ctx context.Context, input cli.InstallInput) cli.Result {
-	result := s.installation.Install(ctx, input.Source)
+	bindings := make([]projectapp.RepositoryBinding, 0, len(input.Repositories))
+	seen := map[string]bool{}
+	for _, repository := range input.Repositories {
+		if !filepath.IsAbs(repository.Path) || seen[repository.Key] {
+			return cli.Result{Status: cli.Failed, Category: "invalid_repository_bindings"}
+		}
+		seen[repository.Key] = true
+		path := filepath.Clean(repository.Path)
+		identity, err := local.DirectoryIdentity(path)
+		if err != nil {
+			return cli.Result{Status: cli.Failed, Category: "invalid_repository_bindings"}
+		}
+		bindings = append(bindings, projectapp.RepositoryBinding{RepositoryKey: repository.Key, ExplicitPath: path, CanonicalIdentity: identity, Observation: projectapp.Observation{Availability: projectapp.Unverified, Basis: projectapp.NotChecked}})
+	}
+	result := s.installation.InstallWithBindings(ctx, input.Source, bindings)
 	status := cli.Failed
 	if result.Status == local.InstallationApplied || result.Status == local.InstallationUnchanged {
 		status = cli.Succeeded
@@ -466,12 +495,14 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 	}
 	repositories := make([]projectapp.SetupRepository, 0, len(input.Repositories))
 	for _, repository := range input.Repositories {
-		cleanPath := filepath.Clean(repository.Path)
-		identity, err := local.DirectoryIdentity(cleanPath)
+		path := cleanPath(repository.Path)
+		identity, err := local.DirectoryIdentity(path)
 		if err != nil {
 			return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project setup input is invalid", nil, "Provide an existing absolute non-link Repository path", s.provenance)
 		}
-		repositories = append(repositories, projectapp.SetupRepository{Key: repository.Key, Path: cleanPath, Revision: identity})
+		// Discovery reads only this explicit location: no CWD, no parent walk,
+		// no Git process, no network.
+		repositories = append(repositories, projectapp.SetupRepository{Key: repository.Key, Path: path, Revision: identity, Discovery: discoverRepository(path)})
 	}
 	portableObservation, err := s.portable.Inspect(ctx, input.Slug)
 	if err != nil && !errors.Is(err, projectapp.ErrNotFound) {
@@ -505,16 +536,28 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 		PortableRevision:    portableObservation.Revision,
 		LocalRevision:       localObservation.Revision,
 	}
-	setupInput := projectapp.SetupInput{ProjectID: projectID, Slug: input.Slug, Name: input.Name, Repositories: repositories, WorkItemProvider: input.WorkItemProvider}
+	setupInput := projectapp.SetupInput{ProjectID: projectID, Slug: input.Slug, Name: input.Name, Repositories: repositories, WorkItemProvider: input.WorkItemProvider,
+		RepositoryRemotes: input.RepositoryRemotes, RuntimeCandidates: runtimeCandidates(ctx, s.stateRoot), Runtimes: input.Runtimes, ModelProfiles: input.ModelProfiles,
+		RemoveTechnology: input.RemoveTechnology, Documentation: documentationInputs(input), BusinessContext: input.BusinessContext, ContextSources: input.ContextSources}
+	for _, preference := range input.RuntimePreferences {
+		setupInput.RuntimePreferences = append(setupInput.RuntimePreferences, projectapp.SetupPreference{Role: preference.Role, Complexity: preference.Complexity, ModelProfile: preference.ModelProfile})
+	}
+	for _, fact := range input.Technology {
+		setupInput.Technology = append(setupInput.Technology, project.TechnologyFact{Key: fact.Key, Value: fact.Value})
+	}
+	for _, entry := range input.Glossary {
+		setupInput.Glossary = append(setupInput.Glossary, project.GlossaryEntry{Key: entry.Key, Term: entry.Term, Definition: entry.Definition})
+	}
 	proposal, issues := projectapp.PrepareSetup(manifest.Codec{}, setupInput, observation)
 	if len(issues) != 0 {
-		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project setup input is invalid", nil, "Correct Project identity, repositories, or capability declaration", s.provenance)
+		message, next := setupIssueText(issues)
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, message, nil, next, s.provenance)
 	}
 	desiredSnapshot, snapshotIssues := projectapp.ReadSnapshot(manifest.Codec{}, proposal.Manifest(), nil)
 	if len(snapshotIssues) != 0 {
 		return canonicalCompletion(completion.Facts{Failed: true}, "Project setup proposal could not be encoded", nil, "Review application availability before retrying", s.provenance)
 	}
-	desiredRecord, recordIssues := local.NewRecord(local.RecordState{ProjectID: projectID, ObservedSlug: input.Slug, SourceLocation: filepath.Join(s.projectsRoot, input.Slug), PortableRevision: desiredSnapshot.Revision(), ArtifactDigests: desiredSnapshot.Digests(), Repositories: proposal.Bindings()})
+	desiredRecord, recordIssues := local.NewRecord(local.RecordState{ProjectID: projectID, ObservedSlug: input.Slug, SourceLocation: filepath.Join(s.projectsRoot, input.Slug), PortableRevision: desiredSnapshot.Revision(), ArtifactDigests: desiredSnapshot.Digests(), Repositories: proposal.Bindings(), Documentation: proposal.DocumentationBindings()})
 	if len(recordIssues) != 0 {
 		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Local Project proposal is invalid", nil, "Correct Repository bindings and retry", s.provenance)
 	}
@@ -524,10 +567,18 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 	preview := proposal.Preview()
 	if !input.AuthorizeLocal {
 		next := "Review preview, then repeat with --project-id, --preview-digest, and --authorize-local"
-		if len(preview.Effects) == 0 {
+		if len(preview.Blockers) != 0 {
+			next = "Resolve the reported bootstrap blockers (for example --repository-remote <key>=<locator|none>) and preview again"
+		} else if len(preview.Effects) == 0 {
 			next = "No publication is required"
 		}
 		result := canonicalCompletion(completion.Facts{Completed: true}, "Project setup preview ready", []string{"project:" + projectID}, next, s.provenance)
+		result.Setup = &preview
+		return result
+	}
+	// Bootstrap blockers are unresolved intent: no authority can publish them.
+	if !proposal.Publishable() {
+		result := canonicalCompletion(completion.Facts{ValidationFailed: true}, "Project bootstrap has unresolved blockers", nil, "Resolve the reported bootstrap blockers and preview again", s.provenance)
 		result.Setup = &preview
 		return result
 	}
@@ -549,7 +600,7 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 	if s.beforeLocalPublication != nil {
 		s.beforeLocalPublication()
 	}
-	localResult := s.installation.InstallWithBindings(ctx, filepath.Join(s.projectsRoot, input.Slug), proposal.Bindings())
+	localResult := s.installation.InstallWithContext(ctx, filepath.Join(s.projectsRoot, input.Slug), proposal.Bindings(), proposal.DocumentationBindings())
 	if localResult.Status != local.InstallationApplied && localResult.Status != local.InstallationUnchanged {
 		facts := completion.Facts{Failed: true}
 		references := []string(nil)
@@ -696,6 +747,9 @@ func editSelectionFailure(category string) projectapp.EditFailure {
 }
 
 func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+		return *blocked
+	}
 	draft := workitem.DraftInput{
 		Type: workitem.Type(input.Type), Beneficiary: workitem.SectionInput{Supplied: input.Beneficiary}, Value: workitem.SectionInput{Supplied: input.Value}, Classification: input.Classification,
 		Target: workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository},
@@ -709,6 +763,9 @@ func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItem
 	return workItemResult(s.workItems.Create(ctx, draft, input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+		return *blocked
+	}
 	if input.Provider != "" && input.Provider != "github" {
 		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
 	}
@@ -719,18 +776,27 @@ func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItem
 	return workItemResult(s.workItems.Select(ctx, target, workItemExternalID(input), input.PreviewDigest, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+		return *blocked
+	}
 	if input.Provider != "" && input.Provider != "github" {
 		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
 	}
 	return workItemResult(s.workItems.Show(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input)), s.provenance)
 }
 func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+		return *blocked
+	}
 	if input.Provider != "" && input.Provider != "github" {
 		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
 	}
 	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.Message, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
+	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+		return *blocked
+	}
 	if input.Provider != "" && input.Provider != "github" {
 		return workItemResult(workitem.Result{Status: completion.ValidationFailure, Category: "invalid_work_item_input"}, s.provenance)
 	}
@@ -753,6 +819,31 @@ func workflowTarget(input cli.WorkflowInput) workflow.Target {
 }
 
 func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	// Start enforces the shared and Work Item requirements here; its Runtime
+	// requirement is the #140 request-specific projection (reviewed preview
+	// plus fresh Check) below, so Runtimes are not observed twice.
+	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+		return *blocked
+	}
+	policyInput := cli.RuntimeProfilePreviewInput{Project: input.Project, Role: input.Role, Complexity: input.Complexity, Capabilities: input.Capabilities, Runtime: input.Runtime}
+	preview, policy, err := s.runtimePolicyPreview(ctx, policyInput)
+	if err != nil {
+		return s.runtimeResolutionResult(preview, false)
+	}
+	if input.RuntimePreview == "" {
+		return s.runtimeResolutionResult(preview, true)
+	}
+	if input.RuntimePreview != preview.Digest() {
+		return s.runtimePolicyFailure("stale_preview")
+	}
+	binding, err := policy.Check(ctx, preview)
+	if err != nil {
+		return s.runtimePolicyFailure("stale_preview")
+	}
+	if input.Runtime != "" && input.Runtime != binding.Choice.RuntimeID {
+		return s.runtimePolicyFailure("runtime_mismatch")
+	}
+	input.Runtime = binding.Choice.RuntimeID
 	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {
@@ -789,6 +880,9 @@ func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowIn
 	return workflowResult(s.workflows.RecordLifecycleFact(ctx, workflowTarget(input), workflow.LifecycleFactInput{ExpectedRevision: input.ExpectedRevision, Kind: kind, Active: input.Active, Reference: references[0]}, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if blocked := s.preflight(ctx, input.Project, projectapp.OperationExecution); blocked != nil {
+		return *blocked
+	}
 	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 }
 func (s lifecycleService) WorkflowStatus(ctx context.Context, input cli.WorkflowInput) cli.Result {

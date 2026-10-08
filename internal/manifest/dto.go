@@ -41,12 +41,31 @@ type manifestDTO struct {
 	Project              identityDTO                `yaml:"project"`
 	Repositories         optional[[]repositoryDTO]  `yaml:"repositories,omitempty"`
 	Runtime              optional[runtimeDTO]       `yaml:"runtime,omitempty"`
+	Runtimes             optional[[]runtimeDTO]     `yaml:"runtimes,omitempty"`
 	Providers            optional[[]providerDTO]    `yaml:"providers,omitempty"`
 	Integrations         optional[[]integrationDTO] `yaml:"integrations,omitempty"`
 	ModelProfiles        optional[[]profileDTO]     `yaml:"modelProfiles,omitempty"`
+	RuntimePreferences   optional[[]preferenceDTO]  `yaml:"runtimePreferences,omitempty"`
 	BusinessContext      optional[contextDTO]       `yaml:"businessContext,omitempty"`
 	CredentialReferences optional[[]credentialDTO]  `yaml:"credentialReferences,omitempty"`
 	Policies             optional[[]string]         `yaml:"policies,omitempty"`
+	TechnologyContext    optional[[]technologyDTO]  `yaml:"technologyContext,omitempty"`
+	DocumentationSources optional[[]sourceDTO]      `yaml:"documentationSources,omitempty"`
+}
+type technologyDTO struct {
+	Key   string `yaml:"key"`
+	Value string `yaml:"value"`
+}
+type sourceDTO struct {
+	Key           string `yaml:"key"`
+	Kind          string `yaml:"kind"`
+	RepositoryRef text   `yaml:"repositoryRef,omitempty"`
+	Path          text   `yaml:"path,omitempty"`
+}
+type glossaryDTO struct {
+	Key        string `yaml:"key"`
+	Term       string `yaml:"term"`
+	Definition string `yaml:"definition"`
 }
 type identityDTO struct {
 	ID   string `yaml:"id"`
@@ -59,6 +78,11 @@ type repositoryDTO struct {
 }
 type runtimeDTO struct {
 	ID string `yaml:"id"`
+}
+type preferenceDTO struct {
+	Role            string `yaml:"role"`
+	Complexity      string `yaml:"complexity"`
+	ModelProfileRef string `yaml:"modelProfileRef"`
 }
 type providerDTO struct {
 	Key string `yaml:"key"`
@@ -82,8 +106,10 @@ type profileDTO struct {
 	Model      text             `yaml:"model,omitempty"`
 }
 type contextDTO struct {
-	Text      text               `yaml:"text,omitempty"`
-	Documents optional[[]string] `yaml:"documents,omitempty"`
+	Text       text                    `yaml:"text,omitempty"`
+	Documents  optional[[]string]      `yaml:"documents,omitempty"`
+	SourceRefs optional[[]string]      `yaml:"sourceRefs,omitempty"`
+	Glossary   optional[[]glossaryDTO] `yaml:"glossary,omitempty"`
 }
 type credentialDTO struct {
 	Key        string `yaml:"key"`

@@ -76,9 +76,11 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 // Do not derive expectations from skillOperations: an extra mapping is a regression.
 func TestSkillDiscoveryExactCommands(t *testing.T) {
 	expected := map[string][]string{
+		"axiom-project":           {"axiom project configure", "axiom project list", "axiom project show"},
 		"axiom-project-configure": {"axiom project configure"},
 		"axiom-project-list":      {"axiom project list"},
 		"axiom-project-show":      {"axiom project show"},
+		"axiom-work-item":         {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence"},
 		"axiom-work-item-create":  {"axiom work-item create", "axiom work-item select"},
 		"axiom-work-item-run":     {"axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow status", "axiom workflow evidence", "axiom workflow reconcile"},
 		"axiom-work-item-status":  {"axiom workflow status", "axiom workflow evidence"},
@@ -125,6 +127,17 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 	boolean := findArgument(t, configure, "--authorize-local")
 	if !reflect.DeepEqual(boolean.AcceptedForms, []string{"--authorize-local", "--authorize-local=<boolean>"}) {
 		t.Fatalf("boolean=%+v", boolean)
+	}
+	start := discoverForTest(t, "axiom-work-item-run").Commands[0]
+	for _, name := range []string{"role", "complexity", "capabilities"} {
+		arg := findArgument(t, start, "--"+name)
+		if !arg.Required || arg.RequiredWhen != "" {
+			t.Fatalf("policy requirement=%+v", arg)
+		}
+	}
+	reviewed := findArgument(t, start, "--runtime-preview")
+	if reviewed.Required || reviewed.RequiredWhen != "creating Execution after review" {
+		t.Fatalf("reviewed preview requirement=%+v", reviewed)
 	}
 	list := discoverForTest(t, "axiom-project-list").Commands[0]
 	if list.Arguments == nil || len(list.Arguments) != 0 {
@@ -180,6 +193,9 @@ func TestSkillDiscoveryMatchesParserAndAcceptedForms(t *testing.T) {
 					case int, uint64:
 						value = "7"
 					}
+					if f.Name == "runtime-preview" {
+						value = strings.Repeat("a", 64)
+					}
 					if f.Name == "runtime" {
 						value = "claude"
 					}
@@ -224,7 +240,7 @@ func TestSkillDiscoveryRequirementsMatchRequests(t *testing.T) {
 		{"axiom-project-show", 0, []string{"--selector", "alpha"}},
 		{"axiom-project-configure", 0, []string{"--slug", "alpha", "--name", "Alpha", "--repository", "main=/tmp/alpha"}},
 		{"axiom-work-item-create", 0, []string{"--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo"}},
-		{"axiom-work-item-run", 0, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"}},
+		{"axiom-work-item-run", 0, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "code"}},
 		{"axiom-work-item-run", 1, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--gate", "review", "--outcome", "passed"}},
 		{"axiom-work-item-create", 1, []string{"--project", "alpha", "--repository", "main", "--number", "7", "--provider-repository", "owner/repo"}},
 		{"axiom-work-item-run", 2, []string{"--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "execution", "--expected-revision", "1", "--fact", "review_started", "--reference", "docs/review.md"}},

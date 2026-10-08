@@ -43,6 +43,14 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 	if operation == workItemCommentAction {
 		rules = append(rules, inputRequirement{name: "message", required: true, missing: v.message == ""})
 	}
+	if operation == workflowStartAction {
+		rules = append(rules,
+			inputRequirement{name: "role", required: true, missing: v.role == ""},
+			inputRequirement{name: "complexity", required: true, missing: v.complexity == ""},
+			inputRequirement{name: "capabilities", required: true, missing: v.capabilities == ""},
+			inputRequirement{name: "runtime-preview", when: "creating Execution after review", missing: v.runtimePreview == ""},
+		)
+	}
 	if knownWorkflow(operation) && operation != workflowStartAction {
 		rules = append(rules, inputRequirement{"execution", false, "using --work-item", v.workItem != "", v.execution == ""})
 	}

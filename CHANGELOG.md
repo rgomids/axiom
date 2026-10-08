@@ -1,5 +1,68 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Project Runtime/Profile policy v2, explicit legacy-v1 projection, inspectable
+  pre-execution selection and stale-decision blocking ([#140](https://github.com/rgomids/axiom/issues/140)).
+- Lingo observes Runtimes itself: executable identity without running it, and
+  `axiom-skills` as the only capability it proves. Dispatch blocks unless the
+  command profile matches the reviewed credential reference and executable.
+- `axiom-work-item-run` and `axiom-work-item` teach the reviewed preview →
+  `previewDigest` → `--runtime-preview` start; an owned v0.6.0
+  `axiom-work-item-run` is replaced in place on upgrade.
+- `project install --source` accepts `--repository <key>=<absolute-path>` so an
+  authored manifest that declares Repositories and a Runtime/Profile policy can
+  be installed.
+
+### Breaking changes
+
+- Workflow start requires explicit role, complexity and capabilities and a
+  reviewed resolution digest; omitted Runtime no longer defaults to Codex.
+  Projects created by `project configure` carry no policy and block until an
+  authored policy is installed.
+
+## [0.8.0](https://github.com/rgomids/axiom/compare/v0.7.0...v0.8.0) (2026-10-07)
+
+
+### Features
+
+* **project:** bootstrap v3 context registry and operation readiness ([#257](https://github.com/rgomids/axiom/issues/257)) ([9436c9a](https://github.com/rgomids/axiom/commit/9436c9ad8fc0e44855240c206b56f8ce299f6da1))
+
+## [0.7.0](https://github.com/rgomids/axiom/compare/v0.6.0...v0.7.0) (2026-10-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **project:** enforce explicit runtime and model policy ([#249](https://github.com/rgomids/axiom/issues/249))
+
+### Features
+
+* **project:** enforce explicit runtime and model policy ([#249](https://github.com/rgomids/axiom/issues/249)) ([b6c48d1](https://github.com/rgomids/axiom/commit/b6c48d19d77ec3dac74b890d03c5cfcccdfd186f))
+* **runtime:** consolidate domain-oriented skill surfaces ([#252](https://github.com/rgomids/axiom/issues/252)) ([5e40e10](https://github.com/rgomids/axiom/commit/5e40e1071c6d982e6d32a9bb38a303a8b7c254b4))
+
+
+### Reverts
+
+* **ci:** withdraw stable release-candidate acceptance gate ([#250](https://github.com/rgomids/axiom/issues/250)) ([20cf386](https://github.com/rgomids/axiom/commit/20cf386d08dc389f3663745ec0dd3ee4e7d5d3a5))
+
+## [0.6.0](https://github.com/rgomids/axiom/compare/v0.5.0...v0.6.0) (2026-10-07)
+
+
+### Features
+
+* **ci:** accept stable release candidates on prepared bytes ([#239](https://github.com/rgomids/axiom/issues/239)) ([072b798](https://github.com/rgomids/axiom/commit/072b7982f849630f6039b58d94a2b1ea4924a9c8))
+* **ci:** add axiom-gate-evidence/v1 schema and upgrade-journey emitter ([#235](https://github.com/rgomids/axiom/issues/235)) ([9aa63e4](https://github.com/rgomids/axiom/commit/9aa63e4316d96303cfbdcc28466043b3b2d15e43))
+* **ci:** prepared-set upgrade-journey harness ([07c9722](https://github.com/rgomids/axiom/commit/07c9722f193bf4de5ea9b6189cc4dfa6c7031e20))
+* **cli:** expose skill arguments without workflow execution ([#221](https://github.com/rgomids/axiom/issues/221)) ([cfd688d](https://github.com/rgomids/axiom/commit/cfd688d8ec63aa9c4fc51777bd84d6445b519279))
+* **work-item:** render generated Issues as concise native Markdown ([#246](https://github.com/rgomids/axiom/issues/246)) ([21bd37f](https://github.com/rgomids/axiom/commit/21bd37fc58397cb1cfcd49894915f8c4eb378fa9))
+
+
+### Bug Fixes
+
+* **site:** eliminate DOM XSS in language switching ([#240](https://github.com/rgomids/axiom/issues/240)) ([21d17a9](https://github.com/rgomids/axiom/commit/21d17a93fadfcb8784056310021f30dc80524bfd))
+
 ## [0.5.0](https://github.com/rgomids/axiom/compare/v0.4.2...v0.5.0) (2026-10-06)
 
 

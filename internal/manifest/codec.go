@@ -1,4 +1,4 @@
-// Package manifest implements the bounded, strict portable axiom.yaml v1 codec.
+// Package manifest implements the bounded, strict portable axiom.yaml v1/v2/v3 codec.
 // All operations are in memory. It performs no I/O or credential resolution.
 package manifest
 
@@ -27,7 +27,7 @@ func Decode(input []byte) (project.Project, []project.Issue) {
 	if len(issues) != 0 {
 		return project.Project{}, issues
 	}
-	if issues = validateShape(n, versionOne(), "manifest"); len(issues) != 0 {
+	if issues = validateShape(n, versionShape(n), "manifest"); len(issues) != 0 {
 		return project.Project{}, issues
 	}
 	var dto manifestDTO

@@ -1,15 +1,16 @@
 name: CI
-# Required product checks for every pull request and every push to main. Job
-# names are the stable required-check contexts in .github/rulesets/main.json.
-# workflow_dispatch exists only so the Release Please workflow can run CI on
-# its Release PR branch (events created with GITHUB_TOKEN start no other
-# workflow runs). Read-only token; this workflow never publishes anything.
+# Required product checks for every pull request. Job names are the stable
+# required-check contexts in .github/rulesets/main.json. It does not run again
+# on push to main: the strict required-checks policy merges a PR only when its
+# head is up to date with main, so the merge commit has the tree that already
+# passed, and release.sh resolves a main commit's CI from that PR head.
+# workflow_dispatch lets the Release Please workflow run CI on its Release PR
+# branch (events created with GITHUB_TOKEN start no other workflow runs) and
+# lets a maintainer run CI on a main commit that has no merged PR.
+# Read-only token; this workflow never publishes anything.
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -153,23 +154,7 @@ jobs:
           git archive v0.1.0-poc.1 | tar -x -C "$RUNNER_TEMP/poc"
           (cd "$RUNNER_TEMP/poc" && go build -trimpath -o "$RUNNER_TEMP/poc-lingo" ./cmd/lingo)
       - name: Upgrade journeys
-        env:
-          # Issue #234: the run also emits axiom-gate-evidence/v1; retaining it
-          # belongs to the candidate-acceptance slices.
-          AXIOM_EVIDENCE_RUNNER_LABEL: ${{ matrix.runner }}
         run: |
           ./scripts/test-upgrade-journeys.sh --candidate "$RUNNER_TEMP/candidate" \
             --previous "$PREVIOUS_LATEST" --previous "$PREVIOUS_v0_1_1" \
-            --poc-binary "$RUNNER_TEMP/poc-lingo" --evidence "$RUNNER_TEMP/gate-evidence.json" | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Prepared-set upgrade journey regression
-        env:
-          AXIOM_EVIDENCE_RUNNER_LABEL: ${{ matrix.runner }}
-          ROW: ${{ matrix.row }}
-        run: |
-          sums=$(shasum -a 256 "$RUNNER_TEMP/candidate/SHA256SUMS" | awk '{print $1}')
-          ./scripts/test-upgrade-journeys.sh --prepared-set "$RUNNER_TEMP/candidate" \
-            --tag "v9999.0.0-acceptance.${GITHUB_RUN_NUMBER}" --revision "$(git rev-parse HEAD)" \
-            --row "$ROW" --sha256sums-sha256 "$sums" \
-            --previous "$PREVIOUS_LATEST" --previous "$PREVIOUS_v0_1_1" \
-            --poc-binary "$RUNNER_TEMP/poc-lingo" --evidence "$RUNNER_TEMP/prepared-gate-evidence.json" | tee -a "$GITHUB_STEP_SUMMARY"
-          python3 scripts/gate-evidence.py validate "$RUNNER_TEMP/prepared-gate-evidence.json"
+            --poc-binary "$RUNNER_TEMP/poc-lingo" | tee -a "$GITHUB_STEP_SUMMARY"

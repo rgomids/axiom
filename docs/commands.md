@@ -5,17 +5,29 @@ Execute estes comandos na raiz do repositório.
 ## Inspect skill arguments
 
 ```bash
+axiom skill inspect axiom-project
+axiom --json skill inspect axiom-work-item
 axiom skill inspect axiom-project-show
-axiom --json skill inspect axiom-work-item-run
 ```
 
-Use the exact name of one of the six product skills shown by `axiom help`.
+Use the exact name of one of the eight product skills shown by `axiom help`:
+the canonical domain skills `axiom-project` and `axiom-work-item`, or one of
+the six operation-specific compatibility skills.
 Inspection describes the skill embedded in this binary without executing it,
 reading Project/Provider/Runtime state, prompting, or granting authority. It also
 works before `first-run`. It does not inspect repository maintainer skills.
 
-JSON preserves canonical completion fields and adds `skill.name` and
-`skill.commands[]`. Each command includes its CLI spelling and `arguments[]`:
+JSON preserves canonical completion fields and adds `skill.name`,
+`skill.operations[]` and `skill.commands[]`. Each operation has a `name`, its
+`commands`, and one or more `modes`: the distinct authority paths of that
+operation (for example Project `configure` `create` versus preview-only `edit`,
+or Work Item `run` `transition`, `fact` and `reconcile`). A mode states its
+`commands`, optional explicit `selector`, `effect` (`read-only`,
+`preview-only`, `local-mutation` or `external-mutation`), `authority`,
+`authorityInputs`, `rejectedInputs`, `semanticResolution` (`allowed` for
+read-only modes, otherwise `unambiguous-only`) and an `example`. Compatibility
+skills report the same modes as their canonical operation. The metadata
+describes, and never grants, authority. Each command includes its CLI spelling and `arguments[]`:
 `name`, `required`, optional `requiredWhen`, `description`, `acceptedForms`,
 `repeatable`. `required: true` means required for a noninteractive CLI request;
 `requiredWhen` states a conditional requirement; otherwise the input is optional
@@ -60,7 +72,8 @@ interrupção/cancelamento. `init` é create/no-op/conflito: não
 renomeia nem atualiza um Project existente; use `update` para alterar o nome.
 
 `install` grava o record local estrito em `<state-root>/projects/<project-id>/installation.json`;
-não altera o manifest de origem. O store portátil básico aceita somente Project
+não altera o manifest de origem. Um manifest que declara Repositories exige um
+`--repository <key>=<absolute-path>` exato para cada key declarada. O store portátil básico aceita somente Project
 mínimo de um único `axiom.yaml` e recusa symlinks, artefatos extras e roots
 relativos. Bindings, Runtime Codex, GitHub Work Items e workflow usam
 stores/adapters separados; rename e documentos opcionais completos continuam
@@ -74,7 +87,10 @@ Execute o dogfooding reproduzível deste incremento em roots temporários:
 
 O script exige Go 1.26, Bash, `find`, `wc`, `tr`, `grep`, `sed`, `awk` e
 `shasum`. Ele instala Lingo em um PATH isolado, inicia fora do Project, instala e
-verifica as seis skills, configura/resolve Project, usa um Provider GitHub fake
+verifica as seis skills, configura/resolve Project, instala um Project com
+policy Runtime/Profile autorada, prova bloqueios sem fallback para Codex, revisa o
+preview Runtime observado pelo próprio Lingo (inclusive drift do executável) e só
+então inicia com `--runtime-preview`, usa um Provider GitHub fake
 limitado, executa todos os gates, cobre interrupção/retomada e completa o Work
 Item somente com authority explícita. A saída final é Evidence JSON versionada
 com hashes SHA-256. Instalação usa publicação sem substituição; resíduos de
@@ -367,6 +383,8 @@ Codex standalone skill names accept lowercase letters, digits and hyphens, so
 the requested semantic `axiom:<skill>` names are invoked as:
 
 ```text
+$axiom-project
+$axiom-work-item
 $axiom-project-configure
 $axiom-project-list
 $axiom-project-show
@@ -375,14 +393,74 @@ $axiom-work-item-run
 $axiom-work-item-status
 ```
 
-Claude invokes the same skills as `/axiom-project-configure` and so on, or
-selects them from their descriptions. For isolated validation:
+`$axiom-project` and `$axiom-work-item` are the canonical domain surfaces
+(Issue #229): an explicit operation (`configure|list|show`,
+`create|run|status`) routes directly to its Lingo command; without one the
+Runtime may resolve natural-language intent only among those operations, asks
+one bounded clarification when intent is ambiguous, and never resolves
+ambiguity to a mutating operation or supplies authority. The six
+operation-specific skills remain installed as compatibility entrypoints
+([Issue #229 Evidence](specifications/004-mvp-v1-baseline/evidence-229.md)).
+Claude invokes the same skills as `/axiom-project`, `/axiom-project-configure`
+and so on, or selects them from their descriptions. For isolated validation:
 
 ```bash
 AXIOM_CODEX_SKILLS_ROOT=/absolute/test/root axiom runtime codex install
 CLAUDE_CONFIG_DIR=/absolute/test/claude axiom runtime claude install
 ./scripts/test-codex-skills.sh
 ```
+
+## Preview Project Runtime/Profile selection
+
+The [portable v2 policy contract](specifications/002-lingo-project-initialization/runtime-policy-v2.md)
+keeps Project allowlists and preferences separate from machine-local configuration.
+V1 Projects remain readable as explicit single-Runtime policies and are never
+rewritten. No missing configuration selects Codex.
+
+`project configure` CREATE can author the policy from local candidates
+(`--runtime`, `--model-profile`, `--runtime-preference`; see Guided bootstrap).
+Alternatively, declare it in an authored `axiom.yaml` (`runtimes`,
+`modelProfiles`, optional `runtimePreferences`) and record that manifest with an
+exact binding for each declared Repository:
+
+```bash
+axiom --json project install --source /absolute/authored/project \
+  --repository main=/absolute/path/to/working-copy
+```
+
+The machine-local Runtime Profile configuration (`runtime profile validate`)
+supplies enabled adapters, profile capability/complexity constraints and logical
+credential references. Then preview:
+
+```bash
+axiom --json runtime profile preview \
+  --project <project-uuid-or-slug> \
+  --role implementation --complexity high --capabilities axiom-skills
+```
+
+`--runtime codex|claude` optionally narrows the Project policy. There is no
+observation input: Lingo observes each configured Runtime itself, on every
+preview and check. It resolves the executable from `PATH` without running it and
+binds its identity (`executableDigest`, a digest of the resolved path and
+content). It leaves the version unknown and proves only `axiom-skills`, when that
+Runtime's Axiom skill integration inspects Ready. Any other required capability
+stays unproven and blocks (`no_allowed_match`). Lingo does not probe or
+authenticate vendors. Output includes requirements, Runtime/Profile/model,
+`executableDigest`, revisions, content digests and `previewDigest`, or one bounded
+blocker category. Credential references, environment and raw adapter errors never
+enter output; executable paths appear only inside `executableDigest`. Human and JSON modes show the same decision.
+
+Repeat the policy inputs on `workflow start`. Without `--runtime-preview`, it
+returns preview only. With the exact reviewed `previewDigest`, it re-reads and
+re-observes everything before creating the workflow ledger; a removed or replaced
+executable, lost skill integration or changed policy/configuration returns
+`stale_preview`. An explicit Runtime cannot widen the Project allowlist. Process
+execution through `graphapplication.NewLocalService` additionally requires
+per-child previews and, before adapter credentials and process dispatch, requires
+each command profile to match the reviewed binding: Runtime, Model Profile, model,
+credential reference and current executable identity. Changed input blocks;
+request a fresh preview. Neither preview nor ledger creation grants Provider,
+merge, publication or release authority.
 
 ## Validate the Runtime Profile store
 
@@ -424,7 +502,10 @@ absolute output directory. It emits four checksummed archives plus
 Each archive holds one bundle directory with the canonical public executable
 `axiom` (`axiom.exe` on Windows), `LICENSE`, the release installer `install.sh`
 (`install.ps1` on Windows), `release-metadata.txt`,
-`skills-manifest.txt`, the six Codex skills, and a complete `MANIFEST.sha256`.
+`skills-manifest.txt`, the eight Runtime skills, and a complete `MANIFEST.sha256`.
+Upgrading an installation from a release that carried fewer skills (six
+through v0.6.x) creates only the added skills and leaves the existing
+Axiom-owned skills in place; foreign or modified skill content is refused.
 The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom`
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
 no migration from such an installation is performed.
@@ -741,10 +822,10 @@ The process, versioning and authority rules are in
 
 | Workflow | Trigger | Effect |
 |---|---|---|
-| `.github/workflows/ci.yml` | every PR, push to `main`, dispatch | required checks only; read-only token |
+| `.github/workflows/ci.yml` | every PR and dispatch; not on push to `main` | required checks only; read-only token; `release.sh` resolves a `main` commit's CI from the head of its merged PR when both trees are equal |
 | `.github/workflows/release-please.yml` | manual dispatch from `main` by `release.sh start` with `planned_version` and `main` (never a push) | requires `main` to still be the planned SHA at dispatch, re-runs `release-plan.sh` on it, then opens/updates the Release PR (`CHANGELOG.md`, `.release-please-manifest.json`); dispatches CI and `delivery-metadata` on the Release PR branch only when the PR records the planned version and its base is the validated SHA or an ancestor; never tags or releases |
-| `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag` and `revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; for a stable tag, blocking release-candidate acceptance of those bytes on native Linux amd64 and macOS arm64 (`axiom-acceptance-<tag>-<row>` Evidence artifacts); read-only token; never publishes |
-| `.github/workflows/publish-release.yml` | manual dispatch from `main` with `tag`, `revision`, `prepared_run`, `preview_digest` and, for a stable release, `manual_acceptance` (the packed Linux arm64 and Windows proxy Evidence) | PUBLISH: re-verifies that prepared artifact and, for a stable release, the acceptance Evidence of all four release rows, requires its envelope digest to equal `preview_digest`, then draft, upload, read-back, publish and, for a stable release, the envelope's Issue effects; `publish` job gated by the `release` environment; never rebuilds |
+| `.github/workflows/release-artifacts.yml` | manual dispatch from `main` with `tag` and `revision` | PREPARE: preflight, build, verify, notes; retains the exact set as workflow artifact `axiom-release-<tag>`; read-only token; never publishes |
+| `.github/workflows/publish-release.yml` | manual dispatch from `main` with `tag`, `revision`, `prepared_run`, `preview_digest` | PUBLISH: re-verifies that prepared artifact, requires its envelope digest to equal `preview_digest`, then draft, upload, read-back, publish and, for a stable release, the envelope's Issue effects; `publish` job gated by the `release` environment; never rebuilds |
 | `.github/workflows/delivery-metadata.yml` | PR opened, edited, reopened or synchronized (not Release PRs); dispatch by `release-please.yml` on the Release PR branch | validates the Conventional Commit title and `Related-Issues`/`Completes-Issues`, and refuses closing keywords; on dispatch passes only for the bot-authored Release PR head (`delivery-github.sh release-pr-head`); no token write, no secret |
 | `.github/workflows/delivery-sync.yml` | push to `main` | merge-time delivery projection: completing PRs move Issues to `Awaiting Release` (Issues stay open; one closed by GitHub at exactly that merge is reopened); a release commit records `Target Release`; with projection enabled, released Issues are reconciled to `Released` |
 
@@ -833,31 +914,17 @@ Prepare, then review the envelope:
 prints the result of `status --prepared-run`: the prepared artifact is
 downloaded, re-verified with `verify-prepared-release.sh` in a clean clone at the
 revision, and its publication envelope is printed as `preview.*` lines with
-`preview_digest`, the SHA-256 of the envelope.
-
-A stable release first stops at `next_action=accept_manually`. The envelope
-binds the acceptance Evidence of all four release rows, and the
-manual-transition rows (Linux arm64, the Windows bounded proxy) have no
-Evidence in the prepared run. Accept the downloaded prepared set on those
-rows, place each passing document as `<dir>/<row>/gate-evidence.json`, and
-pass the directory:
+`preview_digest`, the SHA-256 of the envelope. Only after explicit human
+authorization of that digest:
 
 ```bash
-./scripts/release.sh status --prepared-run <run_id> --manual-acceptance /abs/manual-acceptance
-```
-
-Only after explicit human authorization of that digest:
-
-```bash
-./scripts/release.sh publish --preview-digest <preview_digest> --authorize-publication --manual-acceptance /abs/manual-acceptance
+./scripts/release.sh publish --preview-digest <preview_digest> --authorize-publication
 ./scripts/release.sh publish --tag v0.1.0-rc.1 --preview-digest <preview_digest> --authorize-publication
 gh run watch <run_id> --repo rgomids/axiom --exit-status
 ```
 
-The digest binds the tag, revision, prepared run and every acceptance Evidence
-digest; `--tag`, `--revision` and `--prepared-run` are optional and, when
-given, must equal the envelope's. `publish` dispatches the manual Evidence
-exactly as packed for the envelope (`manual_acceptance`).
+The digest binds the tag, revision and prepared run; `--tag`, `--revision`
+and `--prepared-run` are optional and, when given, must equal the envelope's.
 
 Without `--authorize-publication`, or when the envelope recomputed now differs
 from `--preview-digest`, nothing is dispatched (`preview changed; review and
@@ -886,10 +953,7 @@ Building blocks, each read-only unless stated:
 ./scripts/publish-release.sh --check --repo rgomids/axiom --tag v0.1.0 --revision <full-sha> --make-latest true
 ./scripts/publish-release.sh --envelope --repo rgomids/axiom --tag v0.1.0 --revision <full-sha> --make-latest true \
   --prepared-run <run_id> --dir /abs/prepared/artifacts --evidence /abs/prepared/release-evidence.txt \
-  --notes /abs/prepared/release-notes.md --acceptance /abs/acceptance
-./scripts/verify-release-acceptance.py verify --acceptance /abs/acceptance --artifacts /abs/prepared/artifacts \
-  --tag v0.1.0 --revision <full-sha> --repo rgomids/axiom --prepared-run <run_id>
-./scripts/verify-release-acceptance.py pack --manual /abs/manual-acceptance
+  --notes /abs/prepared/release-notes.md
 ```
 
 `release-preflight.sh` requires a full revision on the first-parent history of
@@ -991,7 +1055,8 @@ axiom --json workflow start \
   --project <project-uuid-or-slug> \
   --repository <project-scoped-key> \
   --work-item 'github:<owner>/<repository>#<number>' \
-  --runtime <codex|claude>
+  --role implementation --complexity high --capabilities axiom-skills \
+  --runtime-preview <reviewed-preview-digest>
 
 axiom --json workflow status \
   --project <project-uuid-or-slug> \
@@ -1014,6 +1079,8 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
+| `$axiom-project` | `configure` / `list` / `show` → the three Project rows below |
+| `$axiom-work-item` | `create` / `run` / `status` → the three Work Item rows below |
 | `$axiom-project-configure` | `axiom --json project configure` |
 | `$axiom-project-list` | `axiom --json project list` |
 | `$axiom-project-show` | `axiom --json project show --selector ...` |
@@ -1087,7 +1154,62 @@ enter portable state; absolute paths and observed revisions remain only in
 protected machine-local state and the review preview. Replaced bindings or changed
 state invalidate authority. Guided mode previews the same normalized proposal and
 asks before publication. Codex uses the same command through
-`$axiom-project-configure`; neither path infers identity from CWD or Git.
+`$axiom-project-configure`; neither path infers identity from CWD.
+
+### Guided bootstrap (Issue #231)
+
+CREATE publishes portable schema 3 per the
+[bootstrap v3 contract](specifications/002-lingo-project-initialization/project-bootstrap-v3.md).
+For each explicit `--repository` (a bare absolute path gets a derived key
+proposal), Lingo reads only that location's Git metadata (`.git`, `config`) and
+file names: no Git process, fetch, network, CWD or parent walk. Remote names have
+no priority (`origin` is not special); aliases of one locator collapse. Two or
+more distinct locators, or Git configuration Lingo cannot fully read, block
+publication until an explicit choice:
+
+```bash
+axiom --json project configure --slug my-project --name "My Project" \
+  --repository core=/absolute/core --repository /absolute/web \
+  --repository-remote core=https://github.com/acme/core.git \
+  --work-item-provider github \
+  --runtime claude --model-profile careful \
+  --runtime-preference implementation/high=careful \
+  --technology cloud.aws=aws --remove-technology package-manager.npm \
+  --documentation architecture=repository:core/docs/architecture \
+  --documentation notes=local-file:/absolute/notes/product.md \
+  --business-context "Bounded product context" --context-source architecture \
+  --glossary "work-item=Work Item:A bounded unit of engineering intent"
+```
+
+The preview lists Repository remotes and candidates, local Runtime candidates
+(from the machine-local Runtime Profile configuration; nothing is defaulted),
+detected technology facts with repository-relative Evidence (file names only;
+conflicting package managers are flagged), documentation sources, glossary,
+authority expectations and `blockers`. Runtime/profile/preference flags author the
+#140 policy without editing `axiom.yaml`; omit them and Execution readiness reports
+`runtime_policy_unavailable`. A `local-file` source stores only its key in
+`axiom.yaml`; its absolute path and file identity are written to the
+installation record (format 2), never its content. All CREATE-only flags are
+rejected with `--project` (post-create lifecycle is #230).
+
+## Validate Project readiness
+
+```bash
+axiom --json project validate --slug my-project
+```
+
+Structural validation is unchanged (`Project is valid` / `Project state is
+invalid`). A valid Project also returns a read-only `readiness` report:
+Repository bindings, capability → Integration → Provider mapping, credential
+binding presence (never values), the #140 Runtime availability, documentation
+resolution (no paths or content), context counts, authority expectations, and
+`operations` for `work-item` and `execution` with exact blockers. `effective` is
+`ready`, `partial` (some operations ready) or `blocked`. Documentation and context
+gaps are warnings and never block. Work Item operations and `workflow resume`
+fail before any effect with the same blocker code as `category` plus a
+`preflight` payload; `workflow start` enforces the shared and Work Item blockers
+the same way and its Runtime requirement through the reviewed Runtime preview.
+Readiness never grants authority.
 
 ## GitHub Work Items
 
@@ -1225,19 +1347,20 @@ and must not be treated as workflow progress or human acceptance.
 
 ## Execute the bounded workflow
 
-Start one workflow from an already linked Work Item, naming the Runtime that
-conducts it:
+Start one workflow from an already linked Work Item after inspecting its
+Project Runtime/Profile preview:
 
 ```bash
-axiom workflow start --project my-project --repository main --number 123 --runtime claude
+axiom workflow start --project my-project --repository main --number 123 \
+  --role implementation --complexity high --capabilities axiom-skills \
+  --runtime-preview <reviewed-preview-digest> --runtime claude
 axiom workflow status --project my-project --repository main --number 123
 ```
 
-`--runtime` accepts exactly `codex` or `claude` and is accepted only by
-`workflow start`. It is explicit caller input; Lingo never infers it from
-installed executables or the parent process. Omitting it keeps the historical
-`codex` default. An unsupported value fails validation before any Execution is
-created. The Execution persists the selected Runtime as its truth: status,
+`--runtime` accepts exactly `codex` or `claude` on preview and `workflow start`.
+It narrows the policy; omitted Runtime requires a unique Project-authorized
+resolution. Lingo never infers a default from installed executables or the parent
+process. Missing/incompatible/ambiguous policy blocks before Execution creation. The Execution persists the selected Runtime as its truth: status,
 advance, fact, evidence, reconcile, and resume use the recorded Runtime and reject
 `--runtime`, and a later `workflow start` naming a different Runtime for the same
 Work Item returns `validation_failure` without changing the Execution.

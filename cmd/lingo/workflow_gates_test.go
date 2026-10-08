@@ -25,14 +25,19 @@ func gateService(t *testing.T) (lifecycleService, *gateStore) {
 	return lifecycleService{workflows: s, provenance: source}, store
 }
 
+// Seed an existing Execution; runtime policy tests cover reviewed start.
+func startGateFixture(service lifecycleService, input cli.WorkflowInput) cli.Result {
+	return workflowResult(service.workflows.Start(context.Background(), workflowTarget(input)), service.provenance)
+}
+
 func TestWorkflowGateCommandConvergesAcrossCLIAndRuntime(t *testing.T) {
 	for _, runtime := range []string{"codex", "claude"} {
 		t.Run(runtime, func(t *testing.T) {
 			cliService, cliStore := gateService(t)
 			runtimeService, runtimeStore := gateService(t)
 			input := cli.WorkflowInput{Project: "sample", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: runtime}
-			started := cliService.WorkflowStart(context.Background(), input)
-			runtimeService.WorkflowStart(context.Background(), input)
+			started := startGateFixture(cliService, input)
+			startGateFixture(runtimeService, input)
 			if started.Workflow.GateAction == nil || !started.Workflow.GateAction.Automatic || len(started.Workflow.GateCommand) == 0 {
 				t.Fatalf("start = %#v", started)
 			}
@@ -97,7 +102,7 @@ func (gateReferences) Validate(context.Context, string, string, workflow.Referen
 func TestReturnedGateCommandsCarryWholeJourneyAndRequireAuthority(t *testing.T) {
 	service, store := gateService(t)
 	input := cli.WorkflowInput{Project: "sample", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: "codex"}
-	result := service.WorkflowStart(context.Background(), input)
+	result := startGateFixture(service, input)
 	for step := 0; step < 20; step++ {
 		action := result.Workflow.GateAction
 		if action == nil {

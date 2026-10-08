@@ -23,18 +23,20 @@ func TestNewLocalServiceWiresConcreteRuntimeAdapter(t *testing.T) {
 	root := canonicalTempDir(t)
 	repository, revision := initRepository(t, filepath.Join(root, "repository"))
 	graph := buildGraph(t, filepath.Join(root, "workspaces"))
+	executable, _ := stubRuntime(t, filepath.Join(root, "bin"), "codex")
+	policy, previews, _ := policyFixture(t, &graph, "codex", executable, "")
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		t.Fatal(err)
 	}
 	profiles := make([]runtimeadapter.CommandProfile, 0, len(graph.Children))
 	for _, child := range graph.Children {
-		profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: "codex", ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: filepath.Join(root, "codex"), Model: "local-test-profile", OutputMax: 4096})
+		profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: "codex", ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", OutputMax: 4096})
 	}
 	store := &memoryGraphStore{wire: mustEncodeGraph(t, graph)}
 	service, err := NewLocalService(context.Background(), LocalConfiguration{
 		Repository: repository, WorkspaceRoot: filepath.Join(root, "workspaces"), BaseRevision: revision,
-		Graph: graph, GraphStore: store, RuntimeProfiles: profiles,
+		Graph: graph, GraphStore: store, RuntimeProfiles: profiles, RuntimePolicy: policy, RuntimePreviews: previews,
 		Validators: []gitworkspace.ValidationCommand{{Reference: "git-diff-check", Argv: []string{gitPath, "diff", "--check"}, Env: []string{"LC_ALL=C"}, OutputMax: 4096}},
 	})
 	if err != nil || service == nil {

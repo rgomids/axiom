@@ -25,6 +25,8 @@ type ResolvedProject struct {
 	ID, Slug, Source string
 	PortableRevision projectapp.PortableRevision
 	Repositories     []ResolvedRepository
+	// Local is the complete observed record behind this resolution.
+	Local projectapp.LocalRecordState
 }
 
 type ResolvedRepository struct {
@@ -129,7 +131,7 @@ func readResolvedProject(projects *os.Root, name string) (ResolvedProject, strin
 	if name != state.ProjectID {
 		return ResolvedProject{}, "invalid_existing_local_state"
 	}
-	result := ResolvedProject{ID: state.ProjectID, Slug: state.ObservedSlug, Source: state.SourceLocation, PortableRevision: state.PortableRevision}
+	result := ResolvedProject{ID: state.ProjectID, Slug: state.ObservedSlug, Source: state.SourceLocation, PortableRevision: state.PortableRevision, Local: ApplicationRecord(record)}
 	result.Repositories = make([]ResolvedRepository, 0, len(state.Repositories))
 	for _, binding := range state.Repositories {
 		result.Repositories = append(result.Repositories, ResolvedRepository{Key: binding.RepositoryKey, Path: binding.ExplicitPath, CanonicalIdentity: binding.CanonicalIdentity})

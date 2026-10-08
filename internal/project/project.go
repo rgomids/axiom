@@ -31,6 +31,7 @@ type Repository struct {
 	Remote Declaration[string]
 }
 type Runtime struct{ ID string }
+type RuntimePreference struct{ Role, Complexity, ModelProfileRef string }
 type Provider struct{ Key, ID string }
 type Transport struct {
 	ID        string
@@ -51,6 +52,27 @@ type ModelProfile struct {
 type BusinessContext struct {
 	Text      Declaration[string]
 	Documents Declaration[[]string]
+	// SourceRefs and Glossary exist only in schema v3.
+	SourceRefs Declaration[[]string]
+	Glossary   Declaration[[]GlossaryEntry]
+}
+type GlossaryEntry struct{ Key, Term, Definition string }
+
+// TechnologyFact is confirmed portable context; detection provenance is not stored.
+type TechnologyFact struct{ Key, Value string }
+
+// Documentation source kinds closed by schema v3.
+const (
+	RepositorySource = "repository"
+	LocalFileSource  = "local-file"
+)
+
+// DocumentationSource is a logical reference. A local-file source carries no
+// location: its absolute path exists only in machine-local installation state.
+type DocumentationSource struct {
+	Key, Kind     string
+	RepositoryRef Declaration[string]
+	Path          Declaration[string]
 }
 type CredentialReference struct {
 	Key        string
@@ -64,12 +86,16 @@ type State struct {
 	ID, Slug, Name       string
 	Repositories         Declaration[[]Repository]
 	Runtime              Declaration[Runtime]
+	Runtimes             Declaration[[]Runtime]
+	RuntimePreferences   Declaration[[]RuntimePreference]
 	Providers            Declaration[[]Provider]
 	Integrations         Declaration[[]Integration]
 	ModelProfiles        Declaration[[]ModelProfile]
 	BusinessContext      Declaration[BusinessContext]
 	CredentialReferences Declaration[[]CredentialReference]
 	Policies             Declaration[[]string]
+	TechnologyContext    Declaration[[]TechnologyFact]
+	DocumentationSources Declaration[[]DocumentationSource]
 }
 
 // Project owns an immutable validated snapshot. Its zero value is invalid.
@@ -115,12 +141,16 @@ type Intent struct {
 	Slug, Name           Change[string]
 	Repositories         Change[Declaration[[]Repository]]
 	Runtime              Change[Declaration[Runtime]]
+	Runtimes             Change[Declaration[[]Runtime]]
+	RuntimePreferences   Change[Declaration[[]RuntimePreference]]
 	Providers            Change[Declaration[[]Provider]]
 	Integrations         Change[Declaration[[]Integration]]
 	ModelProfiles        Change[Declaration[[]ModelProfile]]
 	BusinessContext      Change[Declaration[BusinessContext]]
 	CredentialReferences Change[Declaration[[]CredentialReference]]
 	Policies             Change[Declaration[[]string]]
+	TechnologyContext    Change[Declaration[[]TechnologyFact]]
+	DocumentationSources Change[Declaration[[]DocumentationSource]]
 }
 
 // Propose materializes and validates the entire result, including retained refs.
@@ -134,12 +164,16 @@ func (p Project) Propose(intent Intent) (Project, []Issue) {
 	apply(&s.Name, intent.Name)
 	apply(&s.Repositories, intent.Repositories)
 	apply(&s.Runtime, intent.Runtime)
+	apply(&s.Runtimes, intent.Runtimes)
+	apply(&s.RuntimePreferences, intent.RuntimePreferences)
 	apply(&s.Providers, intent.Providers)
 	apply(&s.Integrations, intent.Integrations)
 	apply(&s.ModelProfiles, intent.ModelProfiles)
 	apply(&s.BusinessContext, intent.BusinessContext)
 	apply(&s.CredentialReferences, intent.CredentialReferences)
 	apply(&s.Policies, intent.Policies)
+	apply(&s.TechnologyContext, intent.TechnologyContext)
+	apply(&s.DocumentationSources, intent.DocumentationSources)
 	return New(s)
 }
 

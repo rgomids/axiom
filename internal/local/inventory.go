@@ -200,7 +200,7 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 					if _, issues := DecodeRecord(wire); len(issues) == 0 {
 						return InventoryInstallation
 					}
-					return versionedFailure(wire)
+					return versionedFailureWithin(wire, InstallationFormatVersion)
 				})
 			})
 		case "work-items":
@@ -532,7 +532,7 @@ func walkPortableRoot(w *inventoryWalk, root *os.Root) error {
 			switch {
 			case err != nil:
 				return InventoryMalformed
-			case version > 1:
+			case version > 3: // portable schemas 1-3 are supported (Issue #231)
 				return InventoryNewer
 			case version < 1:
 				return InventoryOlder
@@ -654,7 +654,13 @@ func validUUID(value string) bool { return len(project.ValidateIdentity(value, "
 
 // versionedFailure separates newer/older declared formats from malformed data
 // without trusting any other field of a record that failed its decoder.
-func versionedFailure(wire []byte) InventoryKind {
+func versionedFailure(wire []byte) InventoryKind { return versionedFailureWithin(wire, 1) }
+
+// InstallationFormatVersion is the newest installation record format; format 1
+// remains supported with direct compatibility (Issue #231).
+const InstallationFormatVersion = 2
+
+func versionedFailureWithin(wire []byte, newest int) InventoryKind {
 	var probe struct {
 		FormatVersion *int `json:"formatVersion"`
 	}
@@ -662,7 +668,7 @@ func versionedFailure(wire []byte) InventoryKind {
 		return InventoryMalformed
 	}
 	switch {
-	case *probe.FormatVersion > 1:
+	case *probe.FormatVersion > newest:
 		return InventoryNewer
 	case *probe.FormatVersion < 1:
 		return InventoryOlder

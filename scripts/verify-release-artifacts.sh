@@ -11,15 +11,11 @@ repository_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 directory=
 version=
 revision=
-source_root=$repository_root
-skip_executable_smoke=false
 while (($#)); do
   case "$1" in
     --dir) directory=${2:-}; shift 2 ;;
     --version) version=${2:-}; shift 2 ;;
     --revision) revision=${2:-}; shift 2 ;;
-    --source-root) source_root=${2:-}; shift 2 ;;
-    --skip-executable-smoke) skip_executable_smoke=true; shift ;;
     *) printf 'release_verify_error: invalid argument\n' >&2; exit 1 ;;
   esac
 done
@@ -32,9 +28,8 @@ fail() {
 [[ "$directory" == /* && -d "$directory" && ! -L "$directory" ]] || fail 'absolute artifact directory required'
 [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]] || fail 'exact semantic version required'
 [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || fail 'full source revision required'
-[[ "$source_root" == /* && -d "$source_root" && ! -L "$source_root" ]] || fail 'absolute source checkout required'
-[[ $(git -C "$source_root" rev-parse --verify HEAD) == "$revision" ]] || fail 'checkout is not the artifact source revision'
-[[ -z $(git -C "$source_root" status --porcelain --untracked-files=normal) ]] || fail 'checkout is not clean'
+[[ $(git -C "$repository_root" rev-parse --verify HEAD) == "$revision" ]] || fail 'checkout is not the artifact source revision'
+[[ -z $(git -C "$repository_root" status --porcelain --untracked-files=normal) ]] || fail 'checkout is not clean'
 command -v go >/dev/null 2>&1 || fail 'go toolchain required to read embedded build information'
 
 digest() {
@@ -46,7 +41,9 @@ digest() {
 }
 
 rows='macos-27:darwin:arm64 linux:linux:amd64 linux:linux:arm64 windows:windows:amd64'
-skill_names='axiom-project-configure axiom-project-list axiom-project-show axiom-work-item-create axiom-work-item-run axiom-work-item-status'
+# The closed skill set is exactly the source revision's embedded skills
+# (internal/codexruntime/skills), which this checkout is verified to be.
+skill_names=$(cd "$repository_root/internal/codexruntime/skills" && for skill in */; do printf '%s ' "${skill%/}"; done)
 temporary=$(mktemp -d)
 trap 'rm -rf -- "$temporary"' EXIT
 
@@ -125,11 +122,11 @@ for row in $rows; do
     "$version" "${revision:0:12}" "$platform" "$goos" "$architecture" >"$temporary/expected-metadata"
   cmp -s "$temporary/expected-metadata" "$root/release-metadata.txt" || fail "release metadata does not match version/revision/row: $bundle"
 
-  cmp -s "$source_root/LICENSE" "$root/LICENSE" || fail "LICENSE differs from source: $bundle"
-  cmp -s "$source_root/scripts/$installer_source" "$root/$installer" || fail "installer differs from source: $bundle"
+  cmp -s "$repository_root/LICENSE" "$root/LICENSE" || fail "LICENSE differs from source: $bundle"
+  cmp -s "$repository_root/scripts/$installer_source" "$root/$installer" || fail "installer differs from source: $bundle"
   (
     printf 'formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n'
-    for skill in "$source_root"/internal/codexruntime/skills/*; do
+    for skill in "$repository_root"/internal/codexruntime/skills/*; do
       name=$(basename "$skill")
       cmp -s "$skill/SKILL.md" "$root/skills/$name/SKILL.md" || exit 1
       printf 'skill.%s=%s\n' "$name" "$(digest "$skill/SKILL.md")"
@@ -157,9 +154,7 @@ for row in $rows; do
 
   # The executable for this host's row reports its exact provenance.
   smoke=not_host_architecture
-  if [[ "$skip_executable_smoke" == true ]]; then
-    smoke=not_requested
-  elif [[ $(go env GOHOSTOS):$(go env GOHOSTARCH) == "$goos:$architecture" ]]; then
+  if [[ $(go env GOHOSTOS):$(go env GOHOSTARCH) == "$goos:$architecture" ]]; then
     (cd / && "$root/$executable" --json version) >"$temporary/version.json" || fail "axiom version failed: $bundle"
     grep -Fq '"status":"success","result":"Axiom build information","provenance":{"product":"Axiom","version":"'"$version"'","revision":"'"${revision:0:12}"'","sourceState":"clean"}' "$temporary/version.json" \
       || fail "axiom version provenance mismatch: $bundle"
@@ -171,4 +166,4 @@ for row in $rows; do
 done
 
 printf 'publication=none\n'
-if [[ "$skip_executable_smoke" == true ]]; then printf 'result=structural_pass\n'; else printf 'result=pass\n'; fi
+printf 'result=pass\n'

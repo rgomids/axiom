@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+
+# Print script source only: never expand arguments or dump temporary outputs.
+trap 'failure_code=$?; printf "dogfood failure: line=%s command=%q exit_code=%s\n" "$LINENO" "$BASH_COMMAND" "$failure_code" >&2' ERR
 
 umask 077
 
@@ -106,11 +109,11 @@ if [[ -n $(find "$runtime_home" -mindepth 1 -print -quit) ]]; then
   exit 1
 fi
 skill_count=$(find "$skills_root" -name SKILL.md -type f | wc -l | tr -d ' ')
-if [[ "$skill_count" != 6 ]]; then
+if [[ "$skill_count" != 8 ]]; then
   exit 1
 fi
 axiom help >"$temporary/help.txt"
-for skill in axiom-project-configure axiom-project-list axiom-project-show axiom-work-item-create axiom-work-item-run axiom-work-item-status; do
+for skill in axiom-project axiom-project-configure axiom-project-list axiom-project-show axiom-work-item axiom-work-item-create axiom-work-item-run axiom-work-item-status; do
   grep -q "\$${skill}" "$temporary/help.txt"
 done
 rm -- "$skills_root/axiom-work-item-status/SKILL.md"
@@ -144,31 +147,81 @@ export AXIOM_GH_BIN="$gh_binary"
 export AXIOM_FAKE_PROVIDER_LABEL="$provider_label"
 export AXIOM_FAKE_PROVIDER_COMMENT="$provider_comment"
 
-axiom --json project configure --slug dogfood-project --name "Dogfood Project" \
-  --repository "main=$repository" --work-item-provider github >"$temporary/project-preview.json"
+# project configure publishes Projects without a Runtime/Profile policy; this
+# one proves the guided setup and, later, that workflow start never falls back.
+configured_repository="$temporary/configured-repository"
+mkdir -p "$configured_repository"
+axiom --json project configure --slug dogfood-configured --name "Dogfood Configured" \
+  --repository "main=$configured_repository" --work-item-provider github >"$temporary/project-preview.json"
 assert_canonical "$temporary/project-preview.json" success "Project setup preview ready"
 project_id=$(sed -n 's/.*"projectId":"\([^"]*\)".*/\1/p' "$temporary/project-preview.json")
 preview_digest=$(sed -n 's/.*"digest":"\([^"]*\)".*/\1/p' "$temporary/project-preview.json")
 [[ -n "$project_id" && -n "$preview_digest" ]]
-axiom --json project configure --project-id "$project_id" --slug dogfood-project \
-  --name "Dogfood Project" --repository "main=$repository" \
+axiom --json project configure --project-id "$project_id" --slug dogfood-configured \
+  --name "Dogfood Configured" --repository "main=$configured_repository" \
   --work-item-provider github --preview-digest "$preview_digest" --authorize-local \
   >"$temporary/project-configure.json"
 assert_canonical "$temporary/project-configure.json" success "Project setup published"
-axiom --json project show --selector dogfood-project >"$temporary/project-show.json"
+axiom --json project show --selector dogfood-configured >"$temporary/project-show.json"
 assert_canonical "$temporary/project-show.json" success "Project resolved"
 grep -Fq '"references":["project:' "$temporary/project-show.json"
 grep -Fq '"repository:main"' "$temporary/project-show.json"
 grep -Fq '"project":{"id":"' "$temporary/project-show.json"
-grep -Fq '"repositories":[{"key":"main","path":"'"$repository"'"}]' "$temporary/project-show.json"
+grep -Fq '"repositories":[{"key":"main","path":"'"$configured_repository"'"}]' "$temporary/project-show.json"
 run_canonical_failure project-not-found validation_failure "Project was not found" \
   "Provide an existing Project UUID or slug" project show --selector missing-project
-mv -- "$repository" "$temporary/moved-repository"
+mv -- "$configured_repository" "$temporary/moved-repository"
 run_canonical_failure repository-unavailable retryable_failure \
   "Project repository is unavailable" \
   "Restore the configured repository binding and retry inspection" \
-  project show --selector dogfood-project
-mv -- "$temporary/moved-repository" "$repository"
+  project show --selector dogfood-configured
+mv -- "$temporary/moved-repository" "$configured_repository"
+
+# The delivery Project carries an operator-authored portable Runtime/Profile
+# policy: both concrete Runtimes are allowed and nothing is a default. Install
+# records it only with an exact binding for every declared Repository.
+authored="$temporary/authored/dogfood-project"
+mkdir -p "$authored"
+cat >"$authored/axiom.yaml" <<'MANIFEST'
+schemaVersion: 2
+project:
+  id: 5f0c7a52-1b7e-4c1d-9a3e-0d6f2b8c4e19
+  slug: dogfood-project
+  name: Dogfood Project
+repositories:
+  - key: main
+providers:
+  - key: work-items
+    id: github
+integrations:
+  - key: work-items
+    providerRef: work-items
+    capabilities:
+      - work-item
+runtimes:
+  - id: claude
+  - id: codex
+modelProfiles:
+  - key: careful
+    runtimeRef: claude
+    model: approved-claude-model
+  - key: worker
+    runtimeRef: codex
+    model: approved-codex-model
+MANIFEST
+run_failure invalid_repository_bindings project install --source "$authored"
+run_success installed "$temporary/project-install.json" project install --source "$authored" \
+  --repository "main=$repository"
+axiom --json project show --selector dogfood-project >"$temporary/project-authored.json"
+assert_canonical "$temporary/project-authored.json" success "Project resolved"
+
+# Machine-local Runtime Profile configuration stays outside portable intent.
+# Profiles may only need what Lingo can prove itself: axiom-skills.
+mkdir -p "$state_root/runtime-profiles/v1"
+printf '%s\n' '{"formatVersion":1,"revision":1,"runtimes":[{"id":"claude","adapter":"claude","enabled":true,"allowlistedProfileIds":["careful"]},{"id":"codex","adapter":"codex","enabled":true,"allowlistedProfileIds":["worker"]}],"modelProfiles":[{"id":"careful","runtimeId":"claude","model":"approved-claude-model","capabilities":["axiom-skills"],"complexities":["high"]},{"id":"worker","runtimeId":"codex","model":"approved-codex-model","capabilities":["axiom-skills"],"complexities":["high"]}]}' \
+  >"$state_root/runtime-profiles/v1/configuration.json"
+axiom --json runtime profile validate >"$temporary/runtime-profile-validate.json"
+assert_canonical "$temporary/runtime-profile-validate.json" success "Runtime profile configuration is valid"
 
 draft_args=(work-item create --project dogfood-project --repository main \
   --provider-repository owner/repo --intent "Dogfood delivery is blocked" \
@@ -187,9 +240,80 @@ axiom --json "${draft_args[@]}" --preview-digest "$work_item_digest" \
   --authorize-external >"$temporary/work-item.json"
 assert_canonical "$temporary/work-item.json" success "GitHub Work Item linked"
 grep -Fq '"externalId":"7"' "$temporary/work-item.json"
-axiom --json workflow start --project dogfood-project --repository main --number 7 \
-  >"$temporary/workflow-start.json"
+# Lingo observes Runtimes itself, so start/resume use the isolated Runtime PATH:
+# only the codex stub (never executed) and the Codex skills installed above are
+# visible; the host's real Codex or Claude never is. The fake Provider needs
+# only sed and cat.
+tool_bin="$temporary/tool-bin"
+mkdir -p "$tool_bin"
+ln -s "$(command -v sed)" "$tool_bin/sed"
+ln -s "$(command -v cat)" "$tool_bin/cat"
+observed_axiom() {
+  env -u CLAUDE_CONFIG_DIR HOME="$runtime_home" PATH="$runtime_bin:$binary_root:$tool_bin" axiom --json "$@"
+}
+assert_no_execution() {
+  if [[ -d "$state_root/executions" && -n $(find "$state_root/executions" -name '*.json' -type f -print -quit) ]]; then
+    exit 1
+  fi
+}
+assert_runtime_blocked() {
+  local label=$1
+  local code=$2
+  shift 2
+  local output="$temporary/runtime-blocked-$label.json"
+  if observed_axiom "$@" >"$output"; then
+    exit 1
+  fi
+  assert_canonical "$output" validation_failure "Project Runtime policy resolution blocked"
+  grep -Fq '"blocker":{"code":"'"$code"'"' "$output"
+  if grep -Fq '"choice":' "$output"; then
+    exit 1
+  fi
+  assert_no_execution
+}
+policy_inputs=(--role implementation --complexity high --capabilities axiom-skills)
+# As the axiom-work-item-run skill prescribes, --runtime names the Runtime that
+# conducts the workflow; it narrows the policy and never widens it.
+start_args=(workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime codex)
+
+# No configured policy, no explicitly allowed-and-observed Runtime and no
+# capability Lingo cannot prove ever falls back to Codex.
+assert_runtime_blocked unconfigured policy_unconfigured \
+  workflow start --project dogfood-configured --repository main --number 7 "${policy_inputs[@]}"
+assert_runtime_blocked claude-unobserved no_allowed_match \
+  workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime claude
+assert_runtime_blocked unprovable no_allowed_match \
+  workflow start --project dogfood-project --repository main --number 7 \
+  --role implementation --complexity high --capabilities go
+
+# 1. Preview: the first start only reviews the decision.
+observed_axiom "${start_args[@]}" >"$temporary/workflow-runtime-preview.json"
+assert_canonical "$temporary/workflow-runtime-preview.json" success "Project Runtime resolution preview ready"
+grep -Fq '"choice":{"runtimeId":"codex","adapter":"codex","modelProfileId":"worker","model":"approved-codex-model","capabilities":["axiom-skills"],"executableDigest":"' "$temporary/workflow-runtime-preview.json"
+grep -Fq '"projectId":"5f0c7a52-1b7e-4c1d-9a3e-0d6f2b8c4e19"' "$temporary/workflow-runtime-preview.json"
+if grep -Fq "$temporary" "$temporary/workflow-runtime-preview.json" || grep -Fq '"workflow":' "$temporary/workflow-runtime-preview.json"; then
+  exit 1
+fi
+runtime_preview=$(sed -n 's/.*"previewDigest":"\([0-9a-f]*\)".*/\1/p' "$temporary/workflow-runtime-preview.json")
+[[ ${#runtime_preview} == 64 ]]
+assert_no_execution
+
+# 2. A Runtime executable replaced after review no longer matches the digest.
+cp -- "$runtime_bin/codex" "$temporary/codex-reviewed"
+printf '%s\n' '# replaced after review' >>"$runtime_bin/codex"
+assert_runtime_blocked replaced stale_preview "${start_args[@]}" --runtime-preview "$runtime_preview"
+cp -- "$temporary/codex-reviewed" "$runtime_bin/codex"
+# A blocker means a fresh preview; the restored executable reproduces the
+# reviewed identity, so the decision and its digest are the same.
+observed_axiom "${start_args[@]}" >"$temporary/workflow-runtime-repreview.json"
+assert_canonical "$temporary/workflow-runtime-repreview.json" success "Project Runtime resolution preview ready"
+fresh_preview=$(sed -n 's/.*"previewDigest":"\([0-9a-f]*\)".*/\1/p' "$temporary/workflow-runtime-repreview.json")
+[[ "$fresh_preview" == "$runtime_preview" ]]
+
+# 3. The exact reviewed decision, revalidated now, creates the Execution.
+observed_axiom "${start_args[@]}" --runtime-preview "$fresh_preview" >"$temporary/workflow-start.json"
 assert_canonical "$temporary/workflow-start.json" success "Execution workflow operation completed"
+grep -Fq '"runtimeId":"codex"' "$temporary/workflow-start.json"
 execution_id=$(sed -n 's/.*"executionId":"\([^"]*\)".*/\1/p' "$temporary/workflow-start.json")
 [[ -n "$execution_id" ]]
 revision=1
@@ -260,7 +384,7 @@ if axiom --json workflow advance --project dogfood-project --repository main --n
 fi
 assert_canonical "$temporary/workflow-interrupted.json" interrupted "Execution remains at the current workflow stage"
 revision=$((revision + 1))
-axiom --json workflow resume --project dogfood-project --repository main --number 7 \
+observed_axiom workflow resume --project dogfood-project --repository main --number 7 \
   --expected-revision "$revision" >"$temporary/workflow-resume.json"
 assert_canonical "$temporary/workflow-resume.json" success "Execution workflow operation completed"
 revision=$((revision + 1))
@@ -313,5 +437,5 @@ if [[ "$workflow_count" != 1 ]]; then
   exit 1
 fi
 workflow_sha=$(shasum -a 256 "$workflow_record" | awk '{print $1}')
-printf '{"evidenceVersion":1,"evidence":"axiom_e2e_dogfood","cwdIndependent":true,"globalSkillCount":%s,"workItem":7,"executionId":"%s","revision":%s,"workflow":"completed","projectionKey":"%s","projectionDigest":"%s","binarySha256":"%s","workflowSha256":"%s","result":"pass"}\n' \
-  "$skill_count" "$execution_id" "$revision" "$projection_key" "$projection_digest" "$binary_sha" "$workflow_sha"
+printf '{"evidenceVersion":1,"evidence":"axiom_e2e_dogfood","cwdIndependent":true,"globalSkillCount":%s,"workItem":7,"executionId":"%s","runtimeId":"codex","runtimePreviewDigest":"%s","revision":%s,"workflow":"completed","projectionKey":"%s","projectionDigest":"%s","binarySha256":"%s","workflowSha256":"%s","result":"pass"}\n' \
+  "$skill_count" "$execution_id" "$runtime_preview" "$revision" "$projection_key" "$projection_digest" "$binary_sha" "$workflow_sha"

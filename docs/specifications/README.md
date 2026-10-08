@@ -77,6 +77,16 @@ Issue #94's cross-Specification clarification was explicitly approved on
 separately versioned policy-document contract is now part of the approved amendment
 and does not change the delivered Specification 002 manifest baseline.
 
+Issue #140 adds the version-gated [Runtime/Profile policy v2 contract](002-lingo-project-initialization/runtime-policy-v2.md)
+and [local implementation Evidence](002-lingo-project-initialization/evidence-issue-140.md).
+V1 remains supported without automatic rewrite; implementation does not imply human
+acceptance, Issue closure or publication.
+
+Issue #231 adds the [Project bootstrap v3 and readiness contract](002-lingo-project-initialization/project-bootstrap-v3.md)
+and [local implementation Evidence](002-lingo-project-initialization/evidence-issue-231.md):
+portable schema 3 context, local documentation bindings, guided bootstrap and
+operation-scoped readiness. V1/v2 remain supported without rewrite.
+
 Implementation Evidence:
 [T01](002-lingo-project-initialization/evidence-t01.md),
 [T02](002-lingo-project-initialization/evidence-t02.md),
@@ -263,17 +273,6 @@ trackers are #75–#79 for S1–S5, #94 for S6, and #80 for S7. Issue #97 is the
 approved S8 scope tracker; #81 is the S9 tracker with the 2026-09-27
 product-scope expansion recorded.
 
-## Release-candidate acceptance amendment
-
-Issue [#227](https://github.com/rgomids/axiom/issues/227) amends Specification 004
-with [Release-candidate acceptance and supported upgrade sources](004-mvp-v1-baseline/spec.md#release-candidate-acceptance-and-supported-upgrade-sources)
-(FR-068–FR-076, AC-50–AC-57) and
-[ADR-0019](../decisions/0019-release-candidate-acceptance-prepared-bytes-generation-upgrade-sources.md).
-The policy decisions were accepted on 2026-10-06 (Research #154, Issue #227).
-The text is proposed for human review in its pull request and becomes the
-effective release contract when that pull request is accepted and merged. No
-Plan, Tasks, CI or product implementation is authorized by it.
-
 ## Work Item classification amendment
 
 Issue [#136](https://github.com/rgomids/axiom/issues/136) adds the bounded
@@ -289,5 +288,11 @@ reuses CLI declarations and keeps discovery separate from guided execution.
 
 The #138 [explicit workflow gate contract](004-mvp-v1-baseline/workflow-gates.md)
 defines automatic Intake, derived action guidance, explicit authority and shared
-CLI/Runtime progression. The compatible run skill remains until #229 consolidates
-the domain surface; the epic's final delivery sequence still applies.
+CLI/Runtime progression through the domain Work Item skill and compatible run
+alias. Runtime/Profile start preview remains required.
+
+Issue [#230](https://github.com/rgomids/axiom/issues/230) freezes its
+[resource lifecycle capability matrix](004-mvp-v1-baseline/issue-230-resource-lifecycle-matrix.md)
+(I230-T01). It records current vs approved target lifecycle, ownership, effect
+and authority for Project, Repository association, Work Item, Execution and
+Integration. It delivers no behavior and does not authorize I230-T02 or later Tasks.

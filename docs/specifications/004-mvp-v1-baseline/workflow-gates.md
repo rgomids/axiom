@@ -8,18 +8,18 @@ and the existing ten gates remain the source of truth. This follow-up changes
 application gate guidance, the shared CLI adapter and the compatible Runtime run
 skill; no new per-gate skills, state format or Provider mutation is introduced.
 
-The MVP epic places final domain-skill convergence after
-[#229](https://github.com/rgomids/axiom/issues/229), which remains open. This
-implementation retains `axiom-work-item-run` as the compatibility surface. The
-future domain skill must route to these same application operations. It does
-not claim completion of #229 or waive the epic's delivery sequencing.
+The domain surface from [#229](https://github.com/rgomids/axiom/issues/229)
+now routes the "axiom-work-item" run operation to the same gate commands as
+the compatible "axiom-work-item-run" alias. Both preserve the reviewed
+Runtime/Profile start protocol introduced by #140 and bootstrap readiness from
+#231. Gate guidance applies after an authorized Execution start.
 
 ## Behavior
 
 - Status and workflow results expose `workflow.gateAction` and an argument-array
   `workflow.gateCommand` with exact persisted selectors and revision. Reading
   status never mutates state. Command placeholders require actual inputs.
-- Read-only `skill inspect axiom-work-item-run` discovers `--automatic`; gate
+- Read-only `skill inspect axiom-work-item` and its compatible run alias discover `--automatic`; gate
   and outcome are required only when automatic mode is false or absent. The
   inspection requirements and executable parser share the same declarations.
 - `workflow advance --automatic` evaluates Intake only. Its prerequisites are
@@ -100,3 +100,11 @@ discovery/parser convergence for the conditional automatic-mode arguments.
 No new blocking correctness/security finding remains in this bounded scope.
 Final domain-skill integration after #229, remote CI, native Windows/macOS test
 execution and real installed Runtime behavior remain unverified or pending.
+
+## Main integration — 2026-10-07
+
+Updated against "e478907" (main, v0.8.0). Domain and compatible run skills
+share gate guidance while preserving reviewed Runtime/Profile start and Project
+readiness. Gate fixtures seed an existing Execution; runtime-policy tests retain
+coverage of production start authorization. Both skills have argument-discovery
+coverage, and previous skill receipts remain recognized during upgrade.

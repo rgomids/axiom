@@ -25,7 +25,7 @@ func TestAutomaticGateCLIForwardsExactInputAndRejectsConflicts(t *testing.T) {
 	if code := Run(context.Background(), base, service, completionProvenance(t), &output); code != ExitSuccess {
 		t.Fatalf("code=%d output=%s", code, &output)
 	}
-	want := WorkflowInput{Automatic: true, Project: "sample", Repository: "main", WorkItem: "github:owner/repo#7", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Execution: "018f4a44-7c31-7dd4-9d00-111111111111", ExpectedRevision: 1}
+	want := WorkflowInput{Capabilities: []string{""}, Automatic: true, Project: "sample", Repository: "main", WorkItem: "github:owner/repo#7", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Execution: "018f4a44-7c31-7dd4-9d00-111111111111", ExpectedRevision: 1}
 	if !reflect.DeepEqual(service.input, want) {
 		t.Fatalf("input = %#v", service.input)
 	}
@@ -40,7 +40,13 @@ func TestAutomaticGateCLIForwardsExactInputAndRejectsConflicts(t *testing.T) {
 }
 
 func TestWorkflowGateArgumentDiscoveryMatchesAutomaticAndExplicitModes(t *testing.T) {
-	inspection, ok := inspectSkill("axiom-work-item-run")
+	for _, name := range []string{"axiom-work-item", "axiom-work-item-run"} {
+		t.Run(name, func(t *testing.T) { testGateDiscovery(t, name) })
+	}
+}
+
+func testGateDiscovery(t *testing.T, name string) {
+	inspection, ok := inspectSkill(name)
 	if !ok {
 		t.Fatal("run skill is undiscoverable")
 	}

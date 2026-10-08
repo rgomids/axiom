@@ -147,8 +147,10 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		{"axiom-project-list", []string{"projects"}},
 		{"axiom-project-show", []string{"project"}},
 		{"axiom-work-item-create", []string{"draft", "selection", "workItem"}},
-		{"axiom-work-item-run", []string{"workflow", "projection"}},
+		{"axiom-work-item-run", []string{"workflow", "projection", "runtimeResolution", "previewDigest"}},
 		{"axiom-work-item-status", []string{"workflow", "projection"}},
+		{"axiom-project", []string{"setup", "edit", "projects", "project"}},
+		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "runtimeResolution", "previewDigest"}},
 	}
 	fixture := []byte(`{
 		"status":"top-status",
@@ -158,13 +160,16 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		"details":"top-details",
 		"provenance":{"product":"Axiom","revision":"top-revision"},
 		"setup":{"status":"setup-status","details":"setup-details","digest":"setup-digest","effects":["write project"]},
+		"edit":{"mode":"edit","details":"edit-details","digest":"edit-digest","effects":["remove repository"]},
 		"projects":[{"id":"123e4567-e89b-42d3-a456-426614174000","slug":"alpha","name":"Alpha"}],
 		"project":{"result":"project-result","details":"project-details","slug":"alpha","repositories":[{"key":"main"}]},
 		"draft":{"next":"draft-next","details":"draft-details","digest":"draft-digest","target":{"provider":"github"},"effects":["create issue"]},
 		"selection":{"references":["selection-reference"],"digest":"selection-digest"},
 		"workItem":{"status":"work-item-status","details":"work-item-details","externalId":"7"},
 		"workflow":{"status":"workflow-payload-status","details":"workflow-details","executionId":"execution-7","currentGate":"review","revision":4},
-		"projection":{"provenance":{"revision":"projection-revision"},"digest":"projection-digest"}
+		"projection":{"provenance":{"revision":"projection-revision"},"digest":"projection-digest"},
+		"runtimeResolution":{"projectId":"123e4567-e89b-42d3-a456-426614174000","choice":{"runtimeId":"claude","modelProfileId":"careful"},"blocker":{"code":"resolution-details"}},
+		"previewDigest":"runtime-preview-digest"
 	}`)
 	var event map[string]json.RawMessage
 	if err := json.Unmarshal(fixture, &event); err != nil {
@@ -195,7 +200,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 					t.Fatalf("operation payload %s was not preserved separately", field)
 				}
 			}
-			if bytes.Contains(canonicalOutput["details"], []byte("setup-details")) || bytes.Contains(canonicalOutput["details"], []byte("draft-details")) || bytes.Contains(canonicalOutput["details"], []byte("workflow-details")) {
+			if bytes.Contains(canonicalOutput["details"], []byte("setup-details")) || bytes.Contains(canonicalOutput["details"], []byte("edit-details")) || bytes.Contains(canonicalOutput["details"], []byte("draft-details")) || bytes.Contains(canonicalOutput["details"], []byte("workflow-details")) || bytes.Contains(canonicalOutput["details"], []byte("resolution-details")) {
 				t.Fatalf("operation payload leaked into canonical details: %s", canonicalOutput["details"])
 			}
 			minimal := selectJSONFields(map[string]json.RawMessage{"status": json.RawMessage(`"success"`)}, contract.canonical)
@@ -813,5 +818,37 @@ func TestClaudeIntegrationUpgradesOnlyRegisteredClaudeHistory(t *testing.T) {
 	}
 	if codexReceipt, _ := receiptBytes(); string(codexReceipt) == string(receipt) {
 		t.Fatal("Claude receipt is indistinguishable from the Codex receipt")
+	}
+}
+
+// Issue #140 replaced the selector-only start: the skill must teach the
+// reviewed preview, forward every policy input and never default a Runtime.
+func TestWorkItemRunSkillTeachesReviewedRuntimePreview(t *testing.T) {
+	for _, name := range []string{"axiom-work-item-run", "axiom-work-item"} {
+		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertReviewedRuntimePreview(t, name, string(content))
+	}
+}
+
+func assertReviewedRuntimePreview(t *testing.T, name, text string) {
+	t.Helper()
+	for _, required := range []string{
+		"axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>\n",
+		"--runtime <runtime> --runtime-preview <previewDigest>\n",
+		"axiom --json workflow status <selectors> --execution <executionId>\n",
+		"`runtimeResolution`", "`previewDigest`", "`stale_preview`", "runtimeResolution.choice.runtimeId",
+		"Never default to Codex", "never supply, invent, or claim an observation",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("%s missing %q", name, required)
+		}
+	}
+	for _, forbidden := range []string{"--observations", "default codex", "historical Codex default", "passes `--runtime codex` or `--runtime claude`"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("%s still teaches %q", name, forbidden)
+		}
 	}
 }

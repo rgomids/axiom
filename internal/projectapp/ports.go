@@ -89,6 +89,13 @@ type RepositoryBinding struct {
 	RepositoryKey, ExplicitPath, CanonicalIdentity string
 	Observation                                    Observation
 }
+
+// DocumentationBinding resolves one portable local-file documentation source
+// on this machine. It names a file; no document body or content digest has a slot.
+type DocumentationBinding struct {
+	SourceKey, ExplicitPath, CanonicalIdentity string
+	Observation                                Observation
+}
 type RuntimeBinding struct {
 	RuntimeID, ExplicitPath string
 	Observation             Observation
@@ -108,6 +115,7 @@ type LocalState struct {
 	Credentials      []CredentialBinding
 	Runtime          RuntimeBinding
 	Attempt          AttemptMetadata
+	Documentation    []DocumentationBinding
 }
 type LocalSnapshot struct {
 	id, slug string
@@ -126,6 +134,7 @@ func cloneLocal(s LocalState) LocalState {
 	s.ArtifactDigests = append([]ArtifactDigest(nil), s.ArtifactDigests...)
 	s.Repositories = append([]RepositoryBinding(nil), s.Repositories...)
 	s.Credentials = append([]CredentialBinding(nil), s.Credentials...)
+	s.Documentation = append([]DocumentationBinding(nil), s.Documentation...)
 	return s
 }
 func (s LocalSnapshot) State() LocalState { return cloneLocal(s.state) }

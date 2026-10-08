@@ -195,7 +195,7 @@ done
 skill_args=(upgrade --archive "$new_archive" --checksums "$temporary/r110/SHA256SUMS" --bin-dir "$bin3" --receipt-dir "$receipts3")
 AXIOM_CODEX_SKILLS_ROOT="$skills3" "$bin3/axiom" --json "${skill_args[@]}" >"$temporary/skills.json" 2>/dev/null
 skill_digest=$(sed -n 's/.*"references":\["upgrade:\([0-9a-f]\{64\}\)"\].*/\1/p' "$temporary/skills.json")
-step skills-preview-six-effects bash -c "[[ \$(grep -o '\"kind\":\"skill\"' '$temporary/skills.json' | wc -l | tr -d ' ') == 6 ]]"
+step skills-preview-eight-effects bash -c "[[ \$(grep -o '\"kind\":\"skill\"' '$temporary/skills.json' | wc -l | tr -d ' ') == 8 ]]"
 step skills-apply-partial-receipt-refresh bash -c "AXIOM_CODEX_SKILLS_ROOT='$skills3' '$bin3/axiom' --json ${skill_args[*]} --preview-digest '$skill_digest' --authorize-local | grep -q '\"skillReceipt\":\"refresh_required\"'"
 mkdir -p "$temporary/extract110" && tar -xzf "$new_archive" -C "$temporary/extract110"
 step skills-published-match-candidate bash -c "for skill in '$temporary'/extract110/*/skills/*; do cmp -s \"\$skill/SKILL.md\" '$skills3/'\$(basename \"\$skill\")/SKILL.md || exit 1; done"

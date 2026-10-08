@@ -31,3 +31,13 @@ fc6cdf4749943df93ec4d91c473fe5152f4bc186 related=147 completes=147
 # and repository Issue inventory identify no Native Windows Support Issue.
 # Remove the mistaken Issue relationship without rewriting the squash.
 4dbdba2a43844aa615f340e79b829956ee5880f4 related=none completes=none
+
+# CI/CD Slices 1-4 (Epic #241) are reverted on main after the v0.6.0 release
+# commit: the maintainer withdrew the stable release-candidate acceptance
+# contract (Specification 004 FR-068-FR-075, ADR-0019) on 2026-10-07. These
+# commits stay in the v0.6.0 source, but none of them delivers its Issue;
+# #227, #234, #236 and #238 remain open and are not closed by v0.6.0.
+f4819ccd178b1e0222b0e6cccbd5c77900f9d1f5 related=154,227 completes=none
+9aa63e4316d96303cfbdcc28466043b3b2d15e43 related=234 completes=none
+07c9722f193bf4de5ea9b6189cc4dfa6c7031e20 related=236 completes=none
+072b7982f849630f6039b58d94a2b1ea4924a9c8 related=238 completes=none

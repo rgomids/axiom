@@ -203,7 +203,7 @@ func TestStoryDocumentContainsReviewedTypeBeneficiaryAndValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"Work Item type: `story`", "## Story beneficiary", "    Maintainers", "## Story value", "    Prioritize work by meaningful delivery outcome"} {
+	for _, expected := range []string{"**Work Item type:** `story`", "## Story beneficiary\n\nMaintainers\n", "## Story value\n\nPrioritize work by meaningful delivery outcome\n"} {
 		if !strings.Contains(document.Body, expected) {
 			t.Fatalf("missing %q body=%s", expected, document.Body)
 		}

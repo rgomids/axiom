@@ -63,3 +63,7 @@ check_usage projectapp
 check_usage domain application
 
 printf 'PASS: domain profile keeps production/test exceptions; its allowances are rejected by the application profile; missing, unknown and extra profiles are refused with usage\n'
+
+check_case pass 'package project; import "strings"; var _ = strings.TrimSpace; func f() { strings := struct { Text string }{}; _ = strings.Text }'
+check_case fail 'package project; import "strings"; var _ = strings.ToUpper'
+printf 'PASS: local names that shadow imports are not mistaken for qualified package symbols; package calls remain checked\n'

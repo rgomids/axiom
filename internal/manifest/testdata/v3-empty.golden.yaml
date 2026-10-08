@@ -1,0 +1,13 @@
+schemaVersion: 3
+project:
+  id: 12345678-1234-4abc-8def-123456789abc
+  slug: sample
+  name: Sample
+runtimes: []
+modelProfiles: []
+runtimePreferences: []
+businessContext:
+  sourceRefs: []
+  glossary: []
+technologyContext: []
+documentationSources: []
