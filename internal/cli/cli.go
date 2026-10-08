@@ -124,6 +124,7 @@ type WorkItemInput struct {
 	Cancelled                                bool
 }
 type WorkflowInput struct {
+	Automatic                                                   bool
 	Project, Repository, WorkItem, Provider, ProviderRepository string
 	ExternalID, Execution, Gate, Outcome, Reference, Next       string
 	Fact                                                        string
@@ -254,19 +255,21 @@ type WorkflowStepView struct {
 	CommittedAt string `json:"committedAt"`
 }
 type WorkflowView struct {
-	ExecutionID     string             `json:"executionId"`
-	WorkflowVersion string             `json:"workflowVersion"`
-	Status          string             `json:"status"`
-	CurrentGate     string             `json:"currentGate"`
-	LifecycleStage  string             `json:"lifecycleStage,omitempty"`
-	Blocked         bool               `json:"blocked,omitempty"`
-	NeedsDecision   bool               `json:"needsDecision,omitempty"`
-	NeedsApproval   bool               `json:"needsApproval,omitempty"`
-	Revision        uint64             `json:"revision"`
-	RepositoryKey   string             `json:"repositoryKey"`
-	WorkItem        WorkItemView       `json:"workItem"`
-	RuntimeID       string             `json:"runtimeId"`
-	Transitions     []WorkflowStepView `json:"transitions"`
+	GateAction      *workflow.GateAction `json:"gateAction,omitempty"`
+	GateCommand     []string             `json:"gateCommand,omitempty"`
+	ExecutionID     string               `json:"executionId"`
+	WorkflowVersion string               `json:"workflowVersion"`
+	Status          string               `json:"status"`
+	CurrentGate     string               `json:"currentGate"`
+	LifecycleStage  string               `json:"lifecycleStage,omitempty"`
+	Blocked         bool                 `json:"blocked,omitempty"`
+	NeedsDecision   bool                 `json:"needsDecision,omitempty"`
+	NeedsApproval   bool                 `json:"needsApproval,omitempty"`
+	Revision        uint64               `json:"revision"`
+	RepositoryKey   string               `json:"repositoryKey"`
+	WorkItem        WorkItemView         `json:"workItem"`
+	RuntimeID       string               `json:"runtimeId"`
+	Transitions     []WorkflowStepView   `json:"transitions"`
 }
 
 // Run parses one CLI action, delegates it, and emits one safe structured event.
@@ -511,6 +514,7 @@ const (
 )
 
 type requestInput struct {
+	automatic                                bool
 	itemType, beneficiary, value             string
 	classification                           repositoryFlags
 	elaboratedSections                       elaboratedSectionFlags
@@ -678,6 +682,9 @@ func selectorRequestIssue(operation action, values requestInput) string {
 	}
 	if missingRequiredInputs(operation, values, "expected-revision", "gate", "outcome") {
 		return "missing_required_input"
+	}
+	if operation == workflowAdvanceAction && values.automatic && (values.gate != "" || values.outcome != "" || values.reference != "" || values.next != "") {
+		return "invalid_input"
 	}
 	if missingRequiredInputs(operation, values, "fact", "reference") {
 		return "missing_required_input"
@@ -870,6 +877,7 @@ func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		set.BoolVar(&values.authorizeExternal, "authorize-external", false, "Explicit authority for the exact reviewed Provider effect; boolean.")
 	}
 	if operation == workflowAdvanceAction {
+		set.BoolVar(&values.automatic, "automatic", false, "Evaluate deterministic Intake only; boolean. Cannot combine with --gate, --outcome, --reference or --next.")
 		set.StringVar(&values.gate, "gate", "", "Target workflow gate; `<gate>`. Validated against the current Execution.")
 		set.StringVar(&values.outcome, "outcome", "", "Workflow outcome; `<outcome>`. Validated against the gate.")
 		set.StringVar(&values.reference, "reference", "", "Evidence reference; `<reference>`. Validated by the workflow.")
@@ -892,6 +900,13 @@ func workflowFlags(operation action, args []string) (requestInput, bool) {
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 || values.workItem != "" && values.number != 0 {
 		return requestInput{}, false
+	}
+	if values.automatic {
+		for _, name := range []string{"--gate", "--outcome", "--reference", "--next"} {
+			if flagSupplied(args, name) {
+				return requestInput{}, false
+			}
+		}
 	}
 	if operation == workflowStartAction {
 		if flagSupplied(args, "--runtime") && !workflow.SupportedRuntime(values.runtime) {
@@ -1058,6 +1073,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 			return Result{Status: Failed, Category: "invalid_input"}
 		}
 		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, Fact: input.fact, Active: input.active, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal, Runtime: input.runtime, Role: input.role, Complexity: input.complexity, Capabilities: strings.Split(input.capabilities, ","), RuntimePreview: input.runtimePreview}
+		value.Automatic = input.automatic
 		switch operation {
 		case workflowStartAction:
 			return service.WorkflowStart(ctx, value)

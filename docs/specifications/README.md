@@ -292,6 +292,11 @@ its independent scope, authorship transport, and acceptance scenarios.
 The #131 additive [skill argument inspection contract](004-mvp-v1-baseline/issue-131-skill-arguments.md)
 reuses CLI declarations and keeps discovery separate from guided execution.
 
+The #138 [explicit workflow gate contract](004-mvp-v1-baseline/workflow-gates.md)
+defines automatic Intake, derived action guidance, explicit authority and shared
+CLI/Runtime progression through the domain Work Item skill and compatible run
+alias. Runtime/Profile start preview remains required.
+
 Issue [#230](https://github.com/rgomids/axiom/issues/230) freezes its
 [resource lifecycle capability matrix](004-mvp-v1-baseline/issue-230-resource-lifecycle-matrix.md)
 (I230-T01). It records current vs approved target lifecycle, ownership, effect

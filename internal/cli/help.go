@@ -37,7 +37,7 @@ Compatibility Runtime skill mapping:
   $axiom-project-list      -> axiom --json project list
   $axiom-project-show      -> axiom --json project show
   $axiom-work-item-create  -> axiom --json work-item create|select
-  $axiom-work-item-run     -> axiom --json workflow start|advance|resume|reconcile
+  $axiom-work-item-run     -> axiom --json workflow start|advance|fact|resume|reconcile
   $axiom-work-item-status  -> axiom --json workflow status|evidence
 
 first-run finds Codex and Claude by their executables on PATH and installs or
@@ -103,6 +103,17 @@ only, never run) and Axiom's skill integration, the only capability it proves
 Fully specified selectors require no prompt. Missing selectors may be prompted;
 unknown, duplicate, conflicting, or ambiguous selectors fail validation without
 CWD, Git, Provider, or Runtime fallback.
+
+Workflow gates:
+  workflow status reports workflow.gateAction and workflow.gateCommand.
+  workflow advance --expected-revision <revision> --automatic
+    evaluates Intake only; cannot combine with --gate/--outcome/--reference/--next.
+  workflow advance --expected-revision <revision> --gate <gate> --outcome pass|fail
+    records observed technical results; never infers human approval.
+  workflow fact --expected-revision <revision> --fact <fact> --active
+    --reference <kind>:<reference>:<sha256> --authorize-local
+    records explicit planning/implementation authority or human acceptance.
+  Always pass exact Project, Repository, Work Item and Execution selectors.
 `
 
 func Help(writer io.Writer) int {

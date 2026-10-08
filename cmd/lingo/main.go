@@ -919,6 +919,12 @@ func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.Workflo
 		input.Project = id
 	}
 
+	if input.Automatic {
+		if input.Gate != "" || input.Outcome != "" || input.Reference != "" || input.Next != "" {
+			return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_transition"}, s.provenance)
+		}
+		return workflowResult(s.workflows.AdvanceAutomatic(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
+	}
 	references, ok := workflowReferences(input.Reference)
 	if !ok {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
@@ -1037,11 +1043,36 @@ func workflowResult(result workflow.Result, source provenance.Value) cli.Result 
 			view.Transitions = append(view.Transitions, cli.WorkflowStepView{Revision: step.Revision, From: string(step.From), To: string(step.To), Outcome: string(step.Outcome), CommittedAt: step.CommittedAt.Format("2006-01-02T15:04:05.999999999Z07:00")})
 		}
 		response.Workflow = view
+		view.GateAction = workflow.NextGateAction(result.State)
+		view.GateCommand = workflowGateCommand(result.State, view.GateAction)
 	}
 	return response
 }
 
+// Arguments are returned separately so Runtimes need not parse a shell string.
+// Placeholders require actual observed Evidence; the command grants no authority.
+func workflowGateCommand(state workflow.State, action *workflow.GateAction) []string {
+	if action == nil {
+		return nil
+	}
+	args := []string{"axiom", "--json", "workflow", action.Operation, "--project", state.ProjectID, "--repository", state.RepositoryKey, "--work-item", state.WorkItem.Provider + ":" + state.WorkItem.Resource + "#" + state.WorkItem.ExternalID, "--execution", state.ExecutionID, "--expected-revision", strconv.FormatUint(state.Revision, 10)}
+	switch action.Operation {
+	case "advance":
+		if action.Automatic {
+			args = append(args, "--automatic")
+		} else {
+			args = append(args, "--gate", string(action.Gate), "--outcome", "<pass-or-fail>", "--reference", "<kind>:<reference>:<sha256>")
+		}
+	case "fact":
+		args = append(args, "--fact", strings.ReplaceAll(string(action.Fact), "_", "-"), "--active="+strconv.FormatBool(action.Active), "--reference", "<kind>:<reference>:<sha256>", "--authorize-local")
+	}
+	return args
+}
+
 func workflowResultText(result workflow.Result) string {
+	if result.Category == "workflow_action_required" || result.Category == "workflow_authority_required" {
+		return "Execution requires the explicit action reported in workflow.gateAction"
+	}
 	if result.Category == "workflow_cancelled" {
 		return "Execution workflow operation was cancelled"
 	}
@@ -1073,6 +1104,9 @@ func workflowResultReferences(result workflow.Result) []string {
 	return refs
 }
 func workflowResultNext(result workflow.Result) string {
+	if result.Category == "workflow_action_required" || result.Category == "workflow_authority_required" {
+		return "Inspect workflow.gateAction; supply the observed result or record the explicit authority before advancing"
+	}
 	if result.Category == "workflow_cancelled" {
 		return "Read current Execution status before retrying"
 	}
