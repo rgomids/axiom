@@ -659,7 +659,9 @@ type editReplay struct {
 	AuthorizeLocal           bool
 }
 
-func (r editReplay) supplied() bool { return r.ProjectID != "" || r.PreviewDigest != "" || r.AuthorizeLocal }
+func (r editReplay) supplied() bool {
+	return r.ProjectID != "" || r.PreviewDigest != "" || r.AuthorizeLocal
+}
 
 func (s lifecycleService) projectEdit(ctx context.Context, intent projectapp.EditIntent, replay editReplay) cli.Result {
 	if replay.supplied() {
