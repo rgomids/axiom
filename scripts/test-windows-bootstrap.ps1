@@ -34,7 +34,57 @@ public class BootstrapTransport : HttpMessageHandler {
 $source = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'install.ps1'))
 $construction = '$client = New-Object System.Net.Http.HttpClient($handler)'
 if (-not $source.Contains($construction)) { throw 'Bootstrap transport seam changed.' }
-$bootstrap = [scriptblock]::Create($source.Replace($construction, '$client = $testClient'))
+# Replace registry and broadcast boundaries as well: tests never write the
+# real user's environment or notify other applications.
+class BootstrapUserEnvironment {
+    [object]$Value = '%SystemRoot%\System32;C:\Existing;;'
+    [Microsoft.Win32.RegistryValueKind]$Kind = [Microsoft.Win32.RegistryValueKind]::ExpandString
+    [int]$Writes = 0
+    [int]$Reads = 0
+    [bool]$Race = $false
+    [object] GetValue([string]$name,[object]$fallback,[Microsoft.Win32.RegistryValueOptions]$options) {
+        $this.Reads++
+        if ($this.Race -and $this.Reads -eq 2) { $this.Value = 'C:\Concurrent' }
+        return $this.Value
+    }
+    [Microsoft.Win32.RegistryValueKind] GetValueKind([string]$name) { return $this.Kind }
+    [void] SetValue([string]$name,[object]$value,[Microsoft.Win32.RegistryValueKind]$kind) { $this.Value=$value; $this.Kind=$kind; $this.Writes++ }
+    [void] Dispose() {}
+}
+$testUserEnvironment = [BootstrapUserEnvironment]::new()
+$registryConstruction = "[Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')"
+if (-not $source.Contains($registryConstruction)) { throw 'Bootstrap user environment seam changed.' }
+$testSource = $source.Replace($construction, '$client = $testClient').Replace($registryConstruction, '$testUserEnvironment').Replace('[AxiomEnvironmentNotification]::Notify()', '# Test: no global environment broadcast')
+$bootstrap = [scriptblock]::Create($testSource)
+# Exercise registry refusal boundaries independently of release transport.
+$tokens=$null; $parseErrors=$null
+$ast=[Management.Automation.Language.Parser]::ParseInput($testSource,[ref]$tokens,[ref]$parseErrors)
+if ($parseErrors.Count) { throw 'Bootstrap parse failure.' }
+$pathFunction=$ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Update-AxiomUserPath' },$true)
+. ([scriptblock]::Create($pathFunction.Extent.Text))
+foreach ($case in @('missing','expanded-duplicate','unsupported','length','race')) {
+    $testUserEnvironment=[BootstrapUserEnvironment]::new()
+    $directory='C:\Axiom\bin'
+    switch ($case) {
+        missing { $testUserEnvironment.Value=$null }
+        expanded-duplicate { $directory=Join-Path $env:USERPROFILE 'Axiom\bin'; $testUserEnvironment.Value='%USERPROFILE%\Axiom\bin' }
+        unsupported { $testUserEnvironment.Kind=[Microsoft.Win32.RegistryValueKind]::MultiString; $testUserEnvironment.Value=@('C:\Existing') }
+        length { $testUserEnvironment.Value='x'*32766 }
+        race { $testUserEnvironment.Race=$true }
+    }
+    $message=''
+    try { Update-AxiomUserPath $directory } catch { $message=$_.Exception.Message }
+    if ($case -eq 'missing') {
+        if ($message -or $testUserEnvironment.Value -cne $directory -or $testUserEnvironment.Writes -ne 1) { throw 'Missing user PATH setup failed.' }
+    } elseif ($case -eq 'expanded-duplicate') {
+        if ($message -or $testUserEnvironment.Writes) { throw 'Expandable PATH entry was duplicated.' }
+    } else {
+        if (-not $message -or $testUserEnvironment.Writes) { throw "User PATH refusal failed: $case" }
+        if ($case -eq 'race' -and $testUserEnvironment.Value -cne 'C:\Concurrent') { throw 'Concurrent user PATH was overwritten.' }
+    }
+}
+$testUserEnvironment=[BootstrapUserEnvironment]::new()
+Write-Output 'windows_user_path_boundaries=pass'
 $testRoot = $env:USERPROFILE
 $work = Join-Path $testRoot ('axiom-bootstrap-test-' + [guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($work) | Out-Null
@@ -46,6 +96,10 @@ $utf8 = New-Object Text.UTF8Encoding($false)
 $savedArch = $env:PROCESSOR_ARCHITECTURE
 $savedWow = $env:PROCESSOR_ARCHITEW6432
 $savedProfile = $env:USERPROFILE
+$onboardingEnvironment = @{}
+foreach ($name in @('LOCALAPPDATA','LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT','CLAUDE_CONFIG_DIR','PATH')) {
+    $onboardingEnvironment[$name] = [Environment]::GetEnvironmentVariable($name,'Process')
+}
 $script:productType = 1
 $script:osVersion = '10.0.22621'
 function Get-CimInstance { param($ClassName) [pscustomobject]@{ProductType=$script:productType;Version=$script:osVersion} }
@@ -156,10 +210,67 @@ try {
     Assert-Refusal 'server' 'Windows Server is unsupported' (New-Object BootstrapTransport)
     $script:osVersion = '10.0.17134'
     Assert-Refusal 'server-old-version' 'Windows Server is unsupported' (New-Object BootstrapTransport)
+    # Positive transport test uses a real verified native bundle, with only
+    # HTTP and host-metadata lookup replaced. Never install into the host profile.
+    if ((CimCmdlets\Get-CimInstance Win32_OperatingSystem).ProductType -eq 1) {
+        $script:productType = 1
+        $repository = Split-Path $PSScriptRoot -Parent
+        $bundleName = 'axiom-1.0.0-windows-amd64'
+        $bundleRoot = Join-Path $work $bundleName
+        New-Item -ItemType Directory -Path $bundleRoot | Out-Null
+        Push-Location $repository
+        try {
+            & go build -trimpath -ldflags '-X main.buildVersion=1.0.0 -X main.buildRevision=123456789abc -X main.buildSourceState=clean -X main.buildRelease=true' -o (Join-Path $bundleRoot 'axiom.exe') ./cmd/lingo
+            if ($LASTEXITCODE -ne 0) { throw 'Positive bootstrap fixture build failed.' }
+        } finally { Pop-Location }
+        Copy-Item -LiteralPath (Join-Path $repository 'LICENSE') -Destination $bundleRoot
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'install-release.ps1') -Destination (Join-Path $bundleRoot 'install.ps1')
+        Copy-Item -LiteralPath (Join-Path $repository 'internal\codexruntime\skills') -Destination $bundleRoot -Recurse
+        $skillManifest = "formatVersion=1`nskillSetVersion=1`nbinaryCompatibility=1`n"
+        foreach ($skill in (Get-ChildItem -LiteralPath (Join-Path $bundleRoot 'skills') -Directory | Sort-Object Name)) {
+            $skillManifest += "skill.$($skill.Name)=$((Get-FileHash -LiteralPath (Join-Path $skill.FullName 'SKILL.md')).Hash.ToLowerInvariant())`n"
+        }
+        [IO.File]::WriteAllText((Join-Path $bundleRoot 'skills-manifest.txt'),$skillManifest,$utf8)
+        [IO.File]::WriteAllText((Join-Path $bundleRoot 'release-metadata.txt'),"formatVersion=1`nproduct=Axiom`nversion=1.0.0`nrevision=123456789abc`nsourceState=clean`nrelease=true`nplatform=windows`ngoos=windows`narchitecture=amd64`nskillSetVersion=1`n",$utf8)
+        $manifest = ''
+        foreach ($file in (Get-ChildItem -LiteralPath $bundleRoot -Recurse -File | Sort-Object FullName)) {
+            $manifest += "$((Get-FileHash -LiteralPath $file.FullName).Hash.ToLowerInvariant())  $($file.FullName.Substring($bundleRoot.Length+1).Replace('\','/'))`n"
+        }
+        [IO.File]::WriteAllText((Join-Path $bundleRoot 'MANIFEST.sha256'),$manifest,$utf8)
+        $archivePath = Join-Path $work $asset
+        & tar.exe -czf $archivePath -C $work $bundleName
+        if ($LASTEXITCODE -ne 0) { throw 'Positive bootstrap archive failed.' }
+        $archiveHash = (Get-FileHash -LiteralPath $archivePath).Hash.ToLowerInvariant()
+        $env:LOCALAPPDATA = Join-Path $work 'AppData\Local'
+        $env:CLAUDE_CONFIG_DIR = $null
+        foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) { [Environment]::SetEnvironmentVariable($name,$null,'Process') }
+        $runtimeBin = Join-Path $work 'runtime-bin'
+        New-Item -ItemType Directory -Path $runtimeBin | Out-Null
+        [IO.File]::WriteAllText((Join-Path $runtimeBin 'codex.cmd'),'@echo must-not-execute',$utf8)
+        [IO.File]::WriteAllText((Join-Path $runtimeBin 'claude.cmd'),'@echo must-not-execute',$utf8)
+        $env:PATH = "$runtimeBin;$env:PATH"
+        foreach ($run in @(1,2)) {
+            $transport = New-Object BootstrapTransport
+            $transport.Files['https://api.github.com/repos/rgomids/axiom/releases/latest'] = $utf8.GetBytes('{"tag_name":"v1.0.0","draft":false,"prerelease":false}')
+            $transport.Files[$base+'SHA256SUMS'] = $utf8.GetBytes("$archiveHash  $asset`n")
+            $transport.Files[$base+$asset] = [IO.File]::ReadAllBytes($archivePath)
+            $testClient = New-Object Net.Http.HttpClient($transport)
+            $result = & $bootstrap
+            if (($result -join "`n") -notmatch 'onboarding_status=ready' -or
+                -not (Test-Path -LiteralPath (Join-Path $work '.agents\skills\axiom-project\SKILL.md')) -or
+                -not (Test-Path -LiteralPath (Join-Path $work '.claude\skills\axiom-project\SKILL.md')) -or
+                (Get-Command axiom -ErrorAction Stop).Source -ine (Join-Path $work '.axiom\windows\bin\axiom.exe')) { throw "Default bootstrap did not complete: $result" }
+        }
+        $expectedUserPath = '%SystemRoot%\System32;C:\Existing;;' + (Join-Path $work '.axiom\windows\bin')
+        if ($testUserEnvironment.Value -cne $expectedUserPath -or $testUserEnvironment.Writes -ne 1 -or
+            $testUserEnvironment.Kind -ne [Microsoft.Win32.RegistryValueKind]::ExpandString) { throw 'User PATH preservation/idempotence failed.' }
+        Write-Output 'windows_bootstrap_default_onboarding=pass; automatic_first_run=pass; session_path=pass; user_path=pass; reinstall=pass'
+    } else { Write-Output 'windows_bootstrap_default_onboarding=skip; native Windows client required' }
     Write-Output 'windows_bootstrap_contract=pass'
 } finally {
     $env:PROCESSOR_ARCHITECTURE = $savedArch; $env:PROCESSOR_ARCHITEW6432 = $savedWow
     $env:USERPROFILE = $savedProfile
+    foreach ($name in $onboardingEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name,$onboardingEnvironment[$name],'Process') }
     if (-not [IO.Path]::GetFullPath($work).StartsWith([IO.Path]::GetFullPath($testRoot) + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Test cleanup escaped its root.' }
     Remove-Item -LiteralPath $work -Recurse -Force
 }

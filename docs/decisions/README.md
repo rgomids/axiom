@@ -30,6 +30,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 - [ADR-0018 — ADR evolution and supersession governance](0018-adr-evolution-and-supersession-governance.md) — **Accepted, 2026-10-05** (human decision in Issue #169); partial supersession keeps `Accepted` with a canonical in-place annotation and a `Partially superseded by` index note (not a lifecycle status); full supersession uses `Superseded`; superseding ADRs link back in `## Supersedes`; `scripts/check-adr-governance.py` validates structure, review owns semantic conflicts.
 
+- [ADR-0019 — Windows default onboarding and consent-gated permission repair](0019-windows-default-onboarding-and-permission-repair.md) — **Accepted for the requested implementation, 2026-10-08**; private profile storage for fresh installations, preserved legacy locations, and exact-authority Runtime directory repair with backup and recovery. Extends the Windows boundary without trusting extra principals; merge and release remain separate.
+
 ## Candidate assessment
 
 | Candidate | Current classification | ADR now? |

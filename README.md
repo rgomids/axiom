@@ -51,13 +51,13 @@ On **Windows** (64-bit PowerShell):
 
 ```powershell
 & ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
-$env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 ```
 
-On Windows, the default directories and their ancestors must pass Axiom's
-permission checks. If installation fails with `unsafe project storage` or
-`upgrade: state_unsafe`, see the [isolated fresh-install test](docs/installation.md#isolated-windows-fresh-install-test).
-Changing only the binary directory does not relocate state or Runtime skills.
+The Windows bootstrap verifies the installed binary, configures detected Runtime
+skills and updates this terminal's PATH and the persistent user PATH. Fresh installs use private profile
+storage. If existing standard Runtime directories need permission repair, it
+shows the exact changes and asks for approval before applying them. See
+[Windows onboarding and recovery](docs/installation.md#windows).
 
 For prerequisites, platforms, PATH, upgrades, and diagnostics, see the
 [installation guide](docs/installation.md).

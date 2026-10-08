@@ -685,7 +685,6 @@ administrator session, Bash, or Go installation is needed by end users.
 
 ```powershell
 & ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
-$env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 axiom version
 axiom help
 ```
@@ -706,11 +705,25 @@ Invoke-WebRequest https://raw.githubusercontent.com/rgomids/axiom/main/scripts/i
 `-Channel stable` is the default. `-Version` accepts an exact published
 `vMAJOR.MINOR.PATCH[-rc.N]` tag and cannot be combined with `-Channel`.
 Only releases containing `axiom-<version>-windows-amd64.tar.gz` can be selected.
-`-BinDir` and `-ReceiptDir` override `%LOCALAPPDATA%\Axiom\bin` and
-`%LOCALAPPDATA%\Axiom\install`. The installer never persists `PATH`, elevates,
-changes execution policy, or changes credentials. Machine-local state defaults
-to `%LOCALAPPDATA%\Axiom\state`; `LINGO_STATE_ROOT` remains an explicit override.
+`-BinDir` and `-ReceiptDir` override the fresh defaults
+`%USERPROFILE%\.axiom\windows\bin` and `%USERPROFILE%\.axiom\windows\install`.
+Existing default binary/receipt locations under LocalAppData are retained.
+The online bootstrap verifies the installed version, runs `first-run`, and adds
+the selected binary directory to this terminal's PATH and persistent user PATH.
+Existing raw entries and registry type are preserved; duplicates are avoided.
+`-SessionOnly` disables user PATH persistence for temporary installs. The bootstrap
+never changes system PATH, elevates, changes execution policy, or changes credentials. Fresh state defaults
+to `%USERPROFILE%\.axiom\windows\state`; existing LocalAppData state remains in
+place. `LINGO_STATE_ROOT` remains an explicit override.
 Portable Project locations and Runtime skill roots retain their existing rules.
+
+Preflight can offer a bounded permission repair for the standard Runtime
+directories, with an exact preview/digest, explicit consent and private backup.
+It does not automatically rewrite ACLs or relocate Runtime skill discovery.
+Use `-SkipRuntimeSetup` for deliberate binary-only validation. The repair and
+automatic onboarding behavior require a native release containing ADR-0019;
+older exact-version binaries retain their earlier behavior. See
+[Windows onboarding and recovery](installation.md#windows).
 
 If the installer reports `unsafe project storage`, the selected storage did not
 pass the filesystem security checks. Permissions allowing untrusted accounts to
@@ -757,7 +770,8 @@ Codex skill paths together, see the
 This is binary installation validation; the custom Codex skill root does not
 provide automatic Runtime skill discovery.
 
-After verifying the executable, run the separate Runtime integration step:
+The online bootstrap performs Runtime integration automatically. After an
+offline/binary-only installation, or to retry a preserved integration conflict:
 
 ```powershell
 axiom first-run

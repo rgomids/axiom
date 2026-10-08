@@ -15,7 +15,7 @@ func TestNativeStateRoot(t *testing.T) {
 		{"Linux XDG", "linux", "/home/test", "/state/custom", "/state/custom/lingo", false},
 		{"Linux fallback", "linux", "/home/test", "", "/home/test/.local/state/lingo", false},
 		{"Linux relative XDG", "linux", "/home/test", "relative/state", "/home/test/.local/state/lingo", false},
-		{"Windows fallback", "windows", "/home/test", "", "/home/test/AppData/Local/Axiom/state", false},
+		{"Windows fallback", "windows", "/home/test", "", "/home/test/.axiom/windows/state", false},
 		{"unsupported platform", "plan9", "/home/test", "", "", true},
 		{"relative home", "linux", "relative/home", "", "", true},
 	}
