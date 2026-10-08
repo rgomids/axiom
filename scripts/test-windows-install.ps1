@@ -103,9 +103,8 @@ try {
         $preview = 'no' | & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt 2>&1
     } finally { $ErrorActionPreference = $savedPreference }
     if ($LASTEXITCODE -eq 0 -or (Test-Path -LiteralPath $defaultBin)) { throw 'Declined repair published an installation.' }
-    $digestMatch = [regex]::Match(($preview -join "`n"),'Type REPAIR ([a-f0-9]{64})')
-    if (-not $digestMatch.Success) { throw "Missing bounded repair preview: $preview" }
-    "REPAIR $($digestMatch.Groups[1].Value)" | & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt
+    if (($preview -join "`n") -notmatch '\[S/n\]' -or ($preview -join "`n") -match 'permission_before=|permission_after=|Type REPAIR') { throw "Unexpected permission prompt: $preview" }
+    's' | & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt
     Assert-NativeExit 'Approved default onboarding repair'
     if ((Get-Acl -LiteralPath $other).Sddl -cne $otherBefore -or
         (Get-Acl -LiteralPath $env:LOCALAPPDATA).Sddl -cne $appDataBefore -or

@@ -70,8 +70,11 @@ location; existing LocalAppData state is also preserved. Unsafe legacy storage
 is reported for operator review, never silently abandoned or migrated.
 
 When standard Runtime directories fail the permission checks, the verified
-installer previews each changed directory and its ACL, then asks you to type
-`REPAIR <digest>` for that exact plan. Declining leaves the ACLs and binary
+installer lists the affected directories, explains the access restriction and
+backup, then asks `Permitir o ajuste e continuar? [S/n]`. Enter or `S` approves
+that displayed plan; `N` cancels. `D` shows the technical ACL and digest details
+before asking again. Missing input cancels, so unattended input never approves
+the default. Declining leaves the ACLs and binary
 unmodified. Repair only removes rejected permissions from untrusted allow ACEs
 on the necessary current-owned `.agents`/`.claude` parents and their `skills`
 directories. It preserves owner/group, trusted/deny ACEs and existing children;

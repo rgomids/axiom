@@ -19,7 +19,7 @@ boundary, with a real checksummed native bundle and real `first-run` execution.
 |---|---|
 | `go test ./... -timeout 5m` | Passed on native Windows after the recovery correction; all packages passed. |
 | `go test ./internal/windowsfs -count=1` | Passed: exact authority, no effects on backup failure, bounded targets, drift refusal, recovery, no descendant propagation and rollback after a later object drifts. |
-| `go test ./cmd/lingo -run WindowsOnboarding -count=1` | Passed: denied repair publishes nothing; approved repair prepares standard roots and a backup; repeat requires no repair. |
+| `go test ./cmd/lingo -run WindowsOnboarding -count=1` | Passed: simple Portuguese confirmation; Enter/Sim approval, denial, EOF/incomplete-input cancellation, optional diagnostics and suppressed prompt on repeat. Approved repair prepares standard roots and a backup; denial publishes nothing. |
 | `scripts/test-windows-install.ps1` | Passed: checksum refusal, isolated install, unsafe AppData left intact, standard Codex root repair with consent, unrelated skill ACL/content preservation, version, first-run, default reinstall, unsafe storage diagnostics, locked binary refusal and upgrade. |
 | `scripts/test-windows-bootstrap.ps1` | Passed: production default command without root overrides, automatic first-run, standard Codex and Claude discovery, session PATH, persistent user PATH and reinstall. Registry cases cover missing PATH, expandable duplicate, unsupported type, length limit and concurrent change. Raw placeholders, separators and registry kind are preserved; reinstall writes only once. |
 | Linux/darwin amd64 `go build ./cmd/lingo` | Passed cross-compilation; native Unix behavior still requires platform CI. |

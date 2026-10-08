@@ -68,13 +68,16 @@ func TestWindowsOnboardingDeclinedRepairPublishesNothing(t *testing.T) {
 }
 
 func TestWindowsOnboardingApprovedRepairPreparesStandardRoots(t *testing.T) {
-	target, digest, other := onboardingFixture(t)
+	target, _, other := onboardingFixture(t)
 	var output bytes.Buffer
-	if err := prepareWindowsOnboarding(target, strings.NewReader("REPAIR "+digest+"\n"), &output); err != nil {
+	if err := prepareWindowsOnboarding(target, strings.NewReader("s\n"), &output); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(output.String(), "permission_repair=verified") || !strings.Contains(output.String(), "permission_backup=") {
 		t.Fatal("missing repair result")
+	}
+	if strings.Contains(output.String(), "permission_before=") || strings.Contains(output.String(), "permission_plan=") || strings.Contains(output.String(), "Type REPAIR") {
+		t.Fatal("default prompt exposed technical repair details")
 	}
 	for _, path := range []string{target.BinaryDir, target.ReceiptDir, target.State.Projects, target.State.State, target.SkillsRoot} {
 		if info, err := os.Stat(path); err != nil || !info.IsDir() {
@@ -85,7 +88,43 @@ func TestWindowsOnboardingApprovedRepairPreparesStandardRoots(t *testing.T) {
 		t.Fatal("unrelated content changed")
 	}
 	output.Reset()
-	if err := prepareWindowsOnboarding(target, strings.NewReader(""), &output); err != nil || strings.Contains(output.String(), "REPAIR ") {
+	if err := prepareWindowsOnboarding(target, strings.NewReader(""), &output); err != nil || strings.Contains(output.String(), "[S/n]") {
 		t.Fatalf("not idempotent: %v %s", err, output.String())
+	}
+}
+
+func TestWindowsOnboardingPromptConsentAndOptionalDetails(t *testing.T) {
+	for _, test := range []struct {
+		name, input      string
+		approve, details bool
+	}{
+		{"enter", "\n", true, false},
+		{"sim", "Sim\n", true, false},
+		{"no-input", "", false, false},
+		{"incomplete-input", "s", false, false},
+		{"decline", "n\n", false, false},
+		{"unrecognized", "talvez\n", false, false},
+		{"details-then-approve", "d\ns\n", true, true},
+		{"details-then-eof", "d\n", false, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			target, digest, _ := onboardingFixture(t)
+			var output bytes.Buffer
+			err := prepareWindowsOnboarding(target, strings.NewReader(test.input), &output)
+			if (err == nil) != test.approve {
+				t.Fatalf("consent: %v", err)
+			}
+			if strings.Contains(output.String(), "permission_plan="+digest) != test.details {
+				t.Fatal("diagnostic details did not follow explicit request")
+			}
+			if !strings.Contains(output.String(), "backup") || !strings.Contains(output.String(), target.SkillsRoot) {
+				t.Fatal("missing consent context")
+			}
+			if !test.approve {
+				if _, err := os.Lstat(target.BinaryDir); !os.IsNotExist(err) {
+					t.Fatal("cancellation created installation")
+				}
+			}
+		})
 	}
 }

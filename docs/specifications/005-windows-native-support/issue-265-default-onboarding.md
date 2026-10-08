@@ -44,6 +44,11 @@ skills for installed supported Runtimes through an explicit onboarding step.
 
 ## Permission-repair decision
 
+The requester also approved a simple Portuguese `[S/n]` confirmation showing
+affected paths, access restriction and backup. Technical ACL/digest details are
+optional (`D`); the approved plan remains bound and revalidated internally.
+EOF cancels rather than accepting a default in unattended execution.
+
 Option A (selected, 2026-10-08): preflight and request authorization for a bounded ACL
 repair when existing Runtime roots fail. Ordinary safe profiles install without
 the prompt. This preserves control of other tools' storage but adds one decision

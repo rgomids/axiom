@@ -36,14 +36,32 @@ func prepareWindowsOnboarding(target install.Target, input io.Reader, output io.
 	}
 	defer plan.Close()
 	if len(plan.Changes) != 0 {
-		fmt.Fprintln(output, "permission_repair: existing Runtime directories failed permission checks. Only the listed directories will change; existing child objects are preserved.")
+		fmt.Fprintln(output, "O Axiom precisa ajustar as permissões destas pastas para instalar suas skills:")
 		for _, change := range plan.Changes {
-			fmt.Fprintf(output, "permission_target=%s\npermission_before=%s\npermission_after=%s\n", change.Path, change.Before, change.After)
+			fmt.Fprintf(output, "  - %s\n", change.Path)
 		}
-		fmt.Fprintf(output, "Type REPAIR %s to authorize this exact repair (anything else cancels):\n", plan.Digest)
-		line, err := bufio.NewReader(io.LimitReader(input, 256)).ReadString('\n')
-		if (err != nil && err != io.EOF) || strings.TrimSpace(line) != "REPAIR "+plan.Digest {
-			return fmt.Errorf("permission_repair_declined: no ACL changes or binary publication")
+		fmt.Fprintln(output, "O ajuste restringe o acesso de outras contas a essas pastas. Suas skills existentes serão preservadas.")
+		fmt.Fprintln(output, "Será criado um backup das permissões atuais para desfazer o ajuste, se necessário.")
+		reader := bufio.NewReader(io.LimitReader(input, 2048))
+		for {
+			fmt.Fprintln(output, "Permitir o ajuste e continuar? [S/n] (D: detalhes)")
+			line, err := reader.ReadString('\n')
+			// EOF is cancellation, never unattended approval of the default.
+			if err != nil {
+				return fmt.Errorf("permission_repair_declined: instalação cancelada; nenhuma permissão ou binário foi alterado")
+			}
+			answer := strings.ToLower(strings.TrimSpace(line))
+			if answer == "d" {
+				for _, change := range plan.Changes {
+					fmt.Fprintf(output, "permission_target=%s\npermission_before=%s\npermission_after=%s\n", change.Path, change.Before, change.After)
+				}
+				fmt.Fprintf(output, "permission_plan=%s\n", plan.Digest)
+				continue
+			}
+			if answer == "" || answer == "s" || answer == "sim" || answer == "y" || answer == "yes" {
+				break
+			}
+			return fmt.Errorf("permission_repair_declined: instalação cancelada; nenhuma permissão ou binário foi alterado")
 		}
 		backupPath := filepath.Join(home, ".axiom", "windows", "permission-backups")
 		backup, err := local.CreateOwnedDirectory(backupPath)

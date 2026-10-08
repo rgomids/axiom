@@ -35,6 +35,10 @@ Nonstandard overrides and unsafe ancestors outside that allowlist are refused.
 
 Every repair requires an exact preview digest, owner/object identity and ACL
 revalidation, durable private backup before effects, and postcondition checks.
+The installer presents affected paths, the access restriction and backup in a
+plain-language `[S/n]` confirmation. Consent binds internally to the pinned
+plan; users need not copy a digest. `D` reveals technical details on request.
+EOF cancels; Enter approves only when a complete response line was supplied.
 No consent, no repair. Updates operate on pinned handles without descendant
 propagation. Failure attempts rollback; the saved backup remains available for
 explicit recovery. Recovery refuses replaced objects or later ACL changes.

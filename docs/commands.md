@@ -718,7 +718,9 @@ place. `LINGO_STATE_ROOT` remains an explicit override.
 Portable Project locations and Runtime skill roots retain their existing rules.
 
 Preflight can offer a bounded permission repair for the standard Runtime
-directories, with an exact preview/digest, explicit consent and private backup.
+directories, listing the affected paths, access restriction and private backup.
+The simple `[S/n]` confirmation approves the internally pinned exact plan;
+`D` shows ACL/digest diagnostics on request. EOF cancels without effects.
 It does not automatically rewrite ACLs or relocate Runtime skill discovery.
 Use `-SkipRuntimeSetup` for deliberate binary-only validation. The repair and
 automatic onboarding behavior require a native release containing ADR-0019;
