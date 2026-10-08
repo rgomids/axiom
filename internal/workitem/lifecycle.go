@@ -282,14 +282,19 @@ func (s Service) setState(ctx context.Context, operation ChangeOperation, target
 	}
 	if external.State != desired {
 		preview.Effects = []string{"set_provider_work_item_state", "update_local_work_item_link"}
+	} else if link.State != desired {
+		preview.Effects = []string{"update_local_work_item_link"}
 	}
 	return s.applyChange(ctx, link, &preview, previewDigest, authorized, noop, func() Result {
-		changed, err := s.lifecycle.SetState(ctx, link.Resource, link.ExternalID, desired)
-		if err != nil {
-			return providerFailure(err, "provider_mutation_failed")
-		}
-		if !s.capability.ValidExternal(link.Resource, link.ExternalID, changed) || changed.State != desired {
-			return result(completion.Failure, "invalid_provider_response")
+		changed := external
+		if external.State != desired {
+			changed, err = s.lifecycle.SetState(ctx, link.Resource, link.ExternalID, desired)
+			if err != nil {
+				return providerFailure(err, "provider_mutation_failed")
+			}
+			if !s.capability.ValidExternal(link.Resource, link.ExternalID, changed) || changed.State != desired {
+				return result(completion.Failure, "invalid_provider_response")
+			}
 		}
 		next := linkFrom(DraftTarget{ProjectID: link.ProjectID, RepositoryKey: link.RepositoryKey, Provider: link.Provider, Resource: link.Resource}, changed, link.Revision)
 		persisted := s.persistLocal(ctx, next, true)

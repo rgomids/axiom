@@ -82,9 +82,32 @@ func TestOperationalRoundTripIsStrictAndCanonical(t *testing.T) {
 	if !observation.Exists || observation.Revision != hex.EncodeToString(digest[:]) || !observation.State.Equal(next) {
 		t.Fatalf("observation = %+v", observation)
 	}
-	info, err := os.Lstat(operationalPath(state))
-	if err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("record mode = %v err=%v", info, err)
+	if !testfs.PrivateMode(operationalPath(state), 0o600) {
+		t.Fatal("operational record must have private permissions")
+	}
+}
+
+func TestOperationalRejectsSharedRecordPermissions(t *testing.T) {
+	state, store := installedOperationalFixture(t)
+	if err := store.CommitOperational(context.Background(), operationalProjectID, projectapp.OperationalRevisionAbsent, archived()); err != nil {
+		t.Fatal(err)
+	}
+	observation, err := store.InspectOperational(context.Background(), operationalProjectID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := operationalPath(state)
+	if err := testfs.SharedMode(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if testfs.PrivateMode(path, 0o600) {
+		t.Fatal("shared operational record passed private permission check")
+	}
+	if _, err := store.InspectOperational(context.Background(), operationalProjectID); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("inspect shared record error = %v", err)
+	}
+	if err := store.CommitOperational(context.Background(), operationalProjectID, observation.Revision, projectapp.DefaultOperationalState()); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("commit shared record error = %v", err)
 	}
 }
 

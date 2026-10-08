@@ -158,3 +158,34 @@ reported a Blocker.
   with `recovery_required` (existing all-or-nothing selection).
 - *Not validated:* real GitHub, real Codex/Claude Runtime invocation, Windows
   and Linux execution (Windows build only), release acceptance.
+
+
+## 9. PR #268 review corrections (2026-10-08)
+
+Corrections against reviewed head `aad2508a65f198d4662bbfd2a1cf10bbb6330492`;
+preceding review and validation tables remain historical Evidence.
+
+- Smoke: the old repository JSON assertion failed at line 170. Structural JSON
+  checks now cover `available`, `unavailable` and restored `available`; each
+  `project show` succeeds and preserves the configured repository identity/path.
+- Operational store: replace the POSIX-only round-trip assertion with the existing
+  platform-aware `testfs.PrivateMode`. POSIX still requires mode 0600; Windows
+  verifies owner and private DACL through `windowsfs.Check`. A shared-file
+  regression checks refusal of both inspection and commit. Production security
+  mechanisms are unchanged.
+- Close/reopen: regression tests failed before correction when the Provider was
+  already in the desired state but the local link was stale. Preview now names
+  `update_local_work_item_link`; replay still requires the exact digest and
+  existing explicit authority, and retains local revision CAS. No Provider
+  mutation occurs during repair. Both states aligned remain a no-op.
+- Regressions cover close/reopen authority denial, changed local revision, local
+  conflict, and recovery after Provider success followed by local failure.
+
+Validation on the local macOS host: `go test ./internal/local -run TestOperational
+-count=1`, `go test ./internal/workitem -count=1`, `./scripts/dogfood-poc.sh`,
+`go vet ./...`, `go build ./...`, `go mod verify`, and
+`./scripts/validate-repository.sh .`, `go test -race ./...`, and
+`go test -race ./internal/workitem ./internal/local -count=1` passed. Native
+Windows/Linux execution is
+left to the correction PR CI; no real Provider/Runtime invocation or human
+acceptance is claimed.
