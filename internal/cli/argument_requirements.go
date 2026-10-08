@@ -29,6 +29,9 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 	if !knownWorkItem(operation) && !knownWorkflow(operation) {
 		return nil
 	}
+	if operation == workItemListAction {
+		return []inputRequirement{{name: "project", required: true, missing: v.project == ""}}
+	}
 	rules := []inputRequirement{
 		{name: "project", required: true, missing: v.project == ""},
 		{name: "repository", required: true, missing: v.repository == ""},

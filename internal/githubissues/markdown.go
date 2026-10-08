@@ -201,22 +201,33 @@ func isASCIIPunctuation(value byte) bool {
 // provenanceFooter states provenance and per-section authorship once, after
 // all section content, instead of repeating it inside every section.
 func provenanceFooter(source provenance.Value, sections []workitem.DraftSection) string {
-	var user, axiom []string
+	names := make([]string, 0, len(sections))
+	authorship := make(map[string]provenance.Authorship, len(sections))
 	for _, current := range sections {
-		if current.Authorship == provenance.AxiomAuthored {
-			axiom = append(axiom, displayName(current.Name))
+		names = append(names, displayName(current.Name))
+		authorship[displayName(current.Name)] = current.Authorship
+	}
+	return "---\n\n_Structure authored by " + source.Product() + " `" + source.Version() + "` (revision `" + source.Revision() + "`, " + string(source.SourceState()) + " source); section content keeps its declared authorship._\n" + authorshipStatement(names, authorship) + "\n"
+}
+
+// authorshipStatement is the single footer statement of per-section
+// authorship, in document order; ReviseDocument re-renders it the same way.
+func authorshipStatement(names []string, authorship map[string]provenance.Authorship) string {
+	var user, axiom []string
+	for _, name := range names {
+		if authorship[name] == provenance.AxiomAuthored {
+			axiom = append(axiom, name)
 		} else {
-			user = append(user, displayName(current.Name))
+			user = append(user, name)
 		}
 	}
-	authorship := "_All section content is user-authored._"
 	switch {
 	case len(user) == 0:
-		authorship = "_All section content is Axiom-authored._"
+		return "_All section content is Axiom-authored._"
 	case len(axiom) != 0:
-		authorship = "_User-authored: " + strings.Join(user, ", ") + ". Axiom-authored: " + strings.Join(axiom, ", ") + "._"
+		return "_User-authored: " + strings.Join(user, ", ") + ". Axiom-authored: " + strings.Join(axiom, ", ") + "._"
 	}
-	return "---\n\n_Structure authored by " + source.Product() + " `" + source.Version() + "` (revision `" + source.Revision() + "`, " + string(source.SourceState()) + " source); section content keeps its declared authorship._\n" + authorship + "\n"
+	return "_All section content is user-authored._"
 }
 
 func displayName(name string) string {

@@ -119,6 +119,7 @@ type WorkItemInput struct {
 	Intent, Problem, DesiredOutcome, Context string
 	Scope, Constraints, NonGoals, Acceptance string
 	Message, PreviewDigest                   string
+	Title                                    string
 	Number                                   int
 	AuthorizeExternal, AuthorizeLocal        bool
 	Cancelled                                bool
@@ -179,7 +180,11 @@ type Result struct {
 	Draft         *workitem.DraftPreview
 	Selection     *workitem.SelectionPreview
 	Questions     []workitem.Question
-	Projection    *workflow.ProjectionPreview
+	// WorkItemChange is the reviewed Work Item lifecycle preview (#230);
+	// WorkItems is the local-link enumeration of work-item list.
+	WorkItemChange *workitem.ChangePreview
+	WorkItems      []WorkItemView
+	Projection     *workflow.ProjectionPreview
 	// Maintenance is a bounded, content-free view for compatibility,
 	// cleanup, recovery, and upgrade previews and results.
 	Maintenance any
@@ -338,7 +343,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if len(args) >= 2 && args[0] == "work-item" && args[1] != "create" && stdin != nil {
 		operation := action("work_item_" + args[1])
 		values, ok := workItemFlags(operation, args[2:])
-		if knownWorkItem(operation) && ok && values.number == 0 && (values.project == "" || values.repository == "" || values.workItem == "") {
+		if knownWorkItem(operation) && operation != workItemListAction && ok && values.number == 0 && (values.project == "" || values.repository == "" || values.workItem == "") {
 			return runInteractiveSelectors(ctx, mode, operation, values, service, source, stdin, stdout, stderr)
 		}
 	}
@@ -454,6 +459,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.Bootstrap != nil {
 			return emitBootstrapCompletion(writer, mode, *response.Completion, *response.Bootstrap)
 		}
+		if response.WorkItemChange != nil || response.WorkItems != nil {
+			return emitWorkItemLifecycleCompletion(writer, mode, *response.Completion, response)
+		}
 		if response.Draft != nil || response.Selection != nil || response.WorkItem != nil || len(response.Questions) != 0 {
 			return emitWorkItemCompletion(writer, mode, *response.Completion, response)
 		}
@@ -482,6 +490,10 @@ const (
 	workItemShowAction      action = "work_item_show"
 	workItemCommentAction   action = "work_item_comment"
 	workItemCompleteAction  action = "work_item_complete"
+	workItemListAction      action = "work_item_list"
+	workItemUpdateAction    action = "work_item_update"
+	workItemCloseAction     action = "work_item_close"
+	workItemReopenAction    action = "work_item_reopen"
 	workflowStartAction     action = "workflow_start"
 	workflowAdvanceAction   action = "workflow_advance"
 	workflowFactAction      action = "workflow_fact"
@@ -523,7 +535,7 @@ type requestInput struct {
 	providerRepository                       string
 	intent, problem, desiredOutcome, context string
 	scope, constraints, nonGoals, acceptance string
-	message                                  string
+	message, title                           string
 	gate, outcome, reference, next, fact     string
 	runtime                                  string
 	role, complexity, capabilities           string
@@ -620,6 +632,9 @@ func selectorRequestIssue(operation action, values requestInput) string {
 		return "missing_required_input"
 	}
 	if knownWorkItem(operation) {
+		if operation == workItemListAction {
+			return ""
+		}
 		if operation == workItemCreateAction {
 			if values.workItem != "" {
 				return "invalid_input"
@@ -790,12 +805,19 @@ func workItemFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
+	if operation == workItemListAction {
+		set.StringVar(&values.repository, "repository", "", "Optional Project-scoped Repository filter; `<key>`.")
+		return set
+	}
 	set.StringVar(&values.repository, "repository", "", "Project-scoped Repository selector; `<key>`.")
 	set.StringVar(&values.providerRepository, "provider-repository", "", "Explicit provider target; `<owner/repository>`. Conflicts with --work-item.")
 	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>`. Alternative to --number; rejected by create.")
 	set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication.")
 	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "Explicit authority for the exact reviewed Provider effect; boolean.")
 	set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
+	if operation == workItemUpdateAction {
+		workItemUpdateFlags(set, values)
+	}
 	if operation == workItemCreateAction {
 		set.Var(&values.elaboratedSections, "elaborated-section", "Axiom-authored section; `<name>=<content>`. Names: problem, desired_outcome, context, scope, constraints, non_goals, acceptance_expectations. Conflicts with a verbatim value for that section.")
 		set.StringVar(&values.intent, "intent", "", "Original user intent; `<text>`. May supply the initial problem for guided elaboration.")
@@ -832,7 +854,7 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 }
 
 func knownWorkItem(operation action) bool {
-	return operation == workItemCreateAction || operation == workItemSelectAction || operation == workItemShowAction || operation == workItemCommentAction || operation == workItemCompleteAction
+	return operation == workItemCreateAction || operation == workItemSelectAction || operation == workItemShowAction || operation == workItemCommentAction || operation == workItemCompleteAction || workItemLifecycleAction(operation)
 }
 
 func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
@@ -1014,7 +1036,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 			Repositories: repositories, RemoveRepositories: append([]string(nil), input.removeRepositories...),
 			PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal,
 		})
-	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction:
+	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction, workItemListAction, workItemUpdateAction, workItemCloseAction, workItemReopenAction:
 		provider, resource, externalID, ok := parseWorkItemSelector(input.workItem)
 		if input.workItem != "" && !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
@@ -1022,9 +1044,13 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		value := WorkItemInput{ElaboratedSections: input.elaboratedSections, Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Intent: input.intent, Problem: input.problem, DesiredOutcome: input.desiredOutcome, Context: input.context, Scope: input.scope, Constraints: input.constraints, NonGoals: input.nonGoals, Acceptance: input.acceptance, Message: input.message, PreviewDigest: input.previewDigest, Number: input.number, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal}
 		value.Type, value.Beneficiary, value.Value = input.itemType, input.beneficiary, input.value
 		value.Classification = append([]string(nil), input.classification...)
+		value.Title = input.title
 		if input.workItem == "" {
 			value.ProviderRepository = input.providerRepository
 			value.ExternalID = strconv.Itoa(input.number)
+		}
+		if workItemLifecycleAction(operation) {
+			return dispatchWorkItemLifecycle(ctx, operation, value, service)
 		}
 		switch operation {
 		case workItemCreateAction:
