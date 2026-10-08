@@ -39,6 +39,10 @@ type EditIntent struct {
 	RemoveWorkItemProvider bool
 	RepositoryUpserts      []RepositoryUpsert
 	RepositoryRemovals     []string
+	// IntegrationRemovals names declared Integration keys to remove from
+	// portable intent (Issue #230, C230-02). It never touches local state,
+	// credentials, Runtime/MCP configuration or Provider resources.
+	IntegrationRemovals []string
 }
 
 // LocalRecordState is the complete machine-local record content observed by the
@@ -90,6 +94,7 @@ const (
 	EditCandidateInvalid
 	EditCancelled
 	EditUnavailable
+	EditUnknownIntegration
 )
 
 // EditSource resolves an exact UUID/slug selector and loads its coherent
@@ -205,6 +210,16 @@ func ValidateEditIntent(intent EditIntent) EditFailure {
 		}
 		removed[key] = true
 	}
+	if len(intent.IntegrationRemovals) != 0 && (intent.WorkItemProvider.Supplied || intent.RemoveWorkItemProvider || len(intent.IntegrationRemovals) > MaxDisabledIntegrations) {
+		return EditInvalidIntent
+	}
+	integrations := map[string]bool{}
+	for _, key := range intent.IntegrationRemovals {
+		if !boundedSetupKey(key) || !ValidIntegrationKey(key) || integrations[key] {
+			return EditInvalidIntent
+		}
+		integrations[key] = true
+	}
 	return EditOK
 }
 
@@ -261,6 +276,9 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 		effects = append(effects, EditEffect{Scope: PortableScope, Code: "update_portable_project"})
 	}
 	effects = append(effects, portableRepositoryEffects(current, candidate)...)
+	if len(intent.IntegrationRemovals) != 0 {
+		effects = append(effects, portableIntegrationEffects(current, candidate)...)
+	}
 	if ObserveLocalRevision(localWire) != ObserveLocalRevision(selection.LocalWire) {
 		effects = append(effects, EditEffect{Scope: LocalScope, Code: "update_local_record"})
 	}
@@ -328,6 +346,16 @@ func proposePortable(current project.Project, intent EditIntent) (project.Projec
 		if providers, integrations, configured := removeWorkItemProvider(state); configured {
 			change.Providers, change.Integrations = project.Set(providers), project.Set(integrations)
 		}
+	}
+	if len(intent.IntegrationRemovals) != 0 {
+		providers, integrations, failure := removeIntegrations(state, intent.IntegrationRemovals)
+		if failure != EditOK {
+			return project.Project{}, failure
+		}
+		if providers != nil {
+			change.Providers = project.Set(*providers)
+		}
+		change.Integrations = project.Set(integrations)
 	}
 	if len(intent.RepositoryUpserts) != 0 || len(intent.RepositoryRemovals) != 0 {
 		repositories, _ := state.Repositories.Value()
@@ -424,6 +452,88 @@ func removeWorkItemProvider(state project.State) (project.Declaration[[]project.
 		integrationDeclaration = project.Configured(integrations)
 	}
 	return providerDeclaration, integrationDeclaration, configured
+}
+
+// removeIntegrations drops each named Integration declaration. Removing the
+// canonical work-items Integration also removes its paired providers[work-items]
+// exactly as removeWorkItemProvider does; every other Provider and Credential
+// declaration is retained. A key the Project does not declare fails, and the
+// caller validates the complete candidate so no reference can be left
+// dangling. The Provider declaration is returned only when it changes.
+func removeIntegrations(state project.State, keys []string) (*project.Declaration[[]project.Provider], project.Declaration[[]project.Integration], EditFailure) {
+	removing := map[string]bool{}
+	for _, key := range keys {
+		removing[key] = true
+	}
+	existing, _ := state.Integrations.Value()
+	kept := make([]project.Integration, 0, len(existing))
+	found := map[string]bool{}
+	for _, integration := range existing {
+		if removing[integration.Key] {
+			found[integration.Key] = true
+			continue
+		}
+		kept = append(kept, integration)
+	}
+	for _, key := range keys {
+		if !found[key] {
+			return nil, project.Declaration[[]project.Integration]{}, EditUnknownIntegration
+		}
+	}
+	integrations := project.Unconfigured[[]project.Integration]()
+	if len(kept) != 0 {
+		integrations = project.Configured(kept)
+	}
+	if !removing[workItemsKey] {
+		return nil, integrations, EditOK
+	}
+	current, _ := state.Providers.Value()
+	providers := make([]project.Provider, 0, len(current))
+	for _, provider := range current {
+		if provider.Key != workItemsKey {
+			providers = append(providers, provider)
+		}
+	}
+	declaration := project.Unconfigured[[]project.Provider]()
+	if len(providers) != 0 {
+		declaration = project.Configured(providers)
+	}
+	return &declaration, integrations, EditOK
+}
+
+// portableIntegrationEffects reports each removed Integration declaration and
+// the paired work-items Provider declaration, by key, in key order.
+func portableIntegrationEffects(current, candidate project.Project) []EditEffect {
+	effects := []EditEffect{}
+	before, after := current.State(), candidate.State()
+	prior, _ := before.Integrations.Value()
+	next, _ := after.Integrations.Value()
+	kept := map[string]bool{}
+	for _, integration := range next {
+		kept[integration.Key] = true
+	}
+	removed := []string{}
+	for _, integration := range prior {
+		if !kept[integration.Key] {
+			removed = append(removed, integration.Key)
+		}
+	}
+	sort.Strings(removed)
+	for _, key := range removed {
+		effects = append(effects, EditEffect{Scope: PortableScope, Code: "remove_portable_integration", Key: key})
+	}
+	priorProviders, _ := before.Providers.Value()
+	nextProviders, _ := after.Providers.Value()
+	keptProviders := map[string]bool{}
+	for _, provider := range nextProviders {
+		keptProviders[provider.Key] = true
+	}
+	for _, provider := range priorProviders {
+		if provider.Key == workItemsKey && !keptProviders[provider.Key] {
+			effects = append(effects, EditEffect{Scope: PortableScope, Code: "remove_portable_provider", Key: provider.Key})
+		}
+	}
+	return effects
 }
 
 func containsText(values []string, target string) bool {
