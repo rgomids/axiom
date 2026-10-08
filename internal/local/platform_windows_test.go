@@ -175,11 +175,36 @@ func TestWindowsRejectsJunctionAndAmbiguousPaths(t *testing.T) {
 	}
 }
 
-func TestWindowsStateRootUsesLocalAppData(t *testing.T) {
+func TestWindowsStateRootPreservesExistingLocalAppData(t *testing.T) {
 	home := t.TempDir()
 	appData := filepath.Join(t.TempDir(), "redirected")
+	if err := os.MkdirAll(filepath.Join(appData, "Axiom", "state"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	got, err := WindowsStateRoot(home, appData)
 	if err != nil || got != filepath.Join(appData, "Axiom", "state") {
 		t.Fatalf("state root: %s %v", got, err)
+	}
+}
+
+func TestWindowsFreshStateRootAvoidsAppData(t *testing.T) {
+	home := t.TempDir()
+	got, err := WindowsStateRoot(home, filepath.Join(home, "AppData", "Local"))
+	if err != nil || got != filepath.Join(home, ".axiom", "windows", "state") {
+		t.Fatalf("state root: %s %v", got, err)
+	}
+}
+
+func TestWindowsStateRootDoesNotSwitchBackToLaterLegacyState(t *testing.T) {
+	home := t.TempDir()
+	appData := filepath.Join(home, "AppData", "Local")
+	modern := filepath.Join(home, ".axiom", "windows", "state")
+	for _, path := range []string{modern, filepath.Join(appData, "Axiom", "state")} {
+		if err := os.MkdirAll(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, err := WindowsStateRoot(home, appData); err != nil || got != modern {
+		t.Fatalf("changed active default: %s %v", got, err)
 	}
 }

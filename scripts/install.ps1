@@ -6,12 +6,25 @@
 param(
     [string]$Version,
     [ValidateSet('stable')][string]$Channel,
-    [string]$BinDir = (Join-Path $env:LOCALAPPDATA 'Axiom\bin'),
-    [string]$ReceiptDir = (Join-Path $env:LOCALAPPDATA 'Axiom\install')
+    [string]$BinDir = (Join-Path $env:USERPROFILE '.axiom\windows\bin'),
+    [string]$ReceiptDir = (Join-Path $env:USERPROFILE '.axiom\windows\install'),
+    [switch]$SkipRuntimeSetup,
+    [switch]$SessionOnly
 )
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+# Keep an existing default installation at its recorded location. A fresh
+# installation avoids AppData ancestors without rewriting their permissions.
+$legacyBin = Join-Path $env:LOCALAPPDATA 'Axiom\bin'
+$legacyReceipt = Join-Path $env:LOCALAPPDATA 'Axiom\install'
+if (-not ((Test-Path -LiteralPath (Join-Path $env:USERPROFILE '.axiom\windows\bin\axiom.exe')) -or
+          (Test-Path -LiteralPath (Join-Path $env:USERPROFILE '.axiom\windows\install\installation.receipt'))) -and
+    ((Test-Path -LiteralPath (Join-Path $legacyBin 'axiom.exe')) -or
+     (Test-Path -LiteralPath (Join-Path $legacyReceipt 'installation.receipt')))) {
+    if (-not $PSBoundParameters.ContainsKey('BinDir')) { $BinDir = $legacyBin }
+    if (-not $PSBoundParameters.ContainsKey('ReceiptDir')) { $ReceiptDir = $legacyReceipt }
+}
 $tagPattern = '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-rc\.(0|[1-9][0-9]*))?$'
 if ($Version -and $Channel) { throw 'Choose -Version or -Channel, not both.' }
 if ($Version -and $Version -cnotmatch $tagPattern) { throw 'An exact vMAJOR.MINOR.PATCH[-rc.N] version is required.' }
@@ -28,9 +41,52 @@ if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
     throw 'The Windows tar.exe utility is required.'
 }
 foreach ($path in @($BinDir, $ReceiptDir)) {
-    if ($path -notmatch '^[A-Za-z]:\\' -or $path -match '[\r\n=]') {
+    if ($path -notmatch '^[A-Za-z]:\\' -or $path -match '[\r\n=;]') {
         throw 'Installation directories must be absolute local drive paths.'
     }
+}
+
+function Update-AxiomUserPath([string]$Directory) {
+    # Read raw registry text: preserve expandable entries and the existing kind.
+    # Only this user's PATH is touched, never the machine environment.
+    $userEnvironment = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Environment')
+    try {
+        $options = [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames
+        $original = $userEnvironment.GetValue('Path',$null,$options)
+        $kind = [Microsoft.Win32.RegistryValueKind]::ExpandString
+        if ($null -ne $original) {
+            $kind = $userEnvironment.GetValueKind('Path')
+            if ($original -isnot [string] -or $kind -notin @([Microsoft.Win32.RegistryValueKind]::String,[Microsoft.Win32.RegistryValueKind]::ExpandString)) {
+                throw 'User PATH has an unsupported registry value; it was preserved.'
+            }
+        }
+        foreach ($entry in @($original -split ';')) {
+            $expanded = [Environment]::ExpandEnvironmentVariables($entry.Trim().Trim('"')).TrimEnd('\')
+            if ($expanded -ieq $Directory.TrimEnd('\')) { return }
+        }
+        $updated = if ([string]::IsNullOrEmpty($original)) { $Directory } elseif ($original.EndsWith(';')) { $original + $Directory } else { $original + ';' + $Directory }
+        if ($updated.Length -ge 32767) { throw 'User PATH would exceed the Windows environment limit; it was preserved.' }
+        if ($userEnvironment.GetValue('Path',$null,$options) -cne $original) { throw 'User PATH changed during setup; retry without overwriting the new value.' }
+        $userEnvironment.SetValue('Path',$updated,$kind)
+        if ($userEnvironment.GetValue('Path',$null,$options) -cne $updated) { throw 'User PATH verification failed; inspect it before retrying.' }
+    } finally { $userEnvironment.Dispose() }
+    # Notify Explorer and other listeners so newly launched applications can
+    # pick up the user environment. Existing terminals keep their own snapshot.
+    if (-not ('AxiomEnvironmentNotification' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class AxiomEnvironmentNotification {
+    [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, IntPtr wparam, string lparam, uint flags, uint timeout, out UIntPtr result);
+    public static void Notify() {
+        UIntPtr result;
+        SendMessageTimeout(new IntPtr(0xffff), 0x001a, IntPtr.Zero, "Environment", 2, 1000, out result);
+    }
+}
+'@
+    }
+    [AxiomEnvironmentNotification]::Notify()
 }
 
 # Follow redirects explicitly so an HTTPS response can never downgrade to HTTP.
@@ -163,6 +219,24 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Could not extract the verified executable.' }
     & (Join-Path $work "$bundle\axiom.exe") install-release --archive $archive --checksums $sums --bin-dir $BinDir --receipt-dir $ReceiptDir
     if ($LASTEXITCODE -ne 0) { throw "Verified installer failed (exit $LASTEXITCODE)." }
+    $installed = Join-Path $BinDir 'axiom.exe'
+    & $installed version
+    if ($LASTEXITCODE -ne 0) { throw 'Installed executable verification failed.' }
+    if (-not $SkipRuntimeSetup) {
+        & $installed first-run
+        if ($LASTEXITCODE -ne 0) { throw 'Binary installed; Runtime setup failed. Resolve the reported conflict and run axiom first-run again.' }
+    }
+    if (-not $SessionOnly) {
+        try { Update-AxiomUserPath $BinDir }
+        catch { throw "Binary installed; user PATH setup failed: $($_.Exception.Message)" }
+        Write-Output "user_path=verified; directory=$BinDir"
+    }
+    # Make it usable immediately as well as in future user environments.
+    if (@($env:PATH -split ';' | Where-Object { $_.TrimEnd('\') -ieq $BinDir.TrimEnd('\') }).Count -eq 0) {
+        $env:PATH = "$BinDir;$env:PATH"
+    }
+    if ($SkipRuntimeSetup) { Write-Output "onboarding_status=binary_only; binary=$installed" }
+    else { Write-Output "onboarding_status=ready; binary=$installed" }
 } finally {
     $client.Dispose()
     $handler.Dispose()

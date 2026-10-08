@@ -51,8 +51,13 @@ On **Windows** (64-bit PowerShell):
 
 ```powershell
 & ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
-$env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
 ```
+
+The Windows bootstrap verifies the installed binary, configures detected Runtime
+skills and updates this terminal's PATH and the persistent user PATH. Fresh installs use private profile
+storage. If existing standard Runtime directories need permission repair, it
+shows the exact changes and asks for approval before applying them. See
+[Windows onboarding and recovery](docs/installation.md#windows).
 
 For prerequisites, platforms, PATH, upgrades, and diagnostics, see the
 [installation guide](docs/installation.md).

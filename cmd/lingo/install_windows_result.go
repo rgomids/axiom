@@ -39,7 +39,7 @@ func windowsInstallReleaseResult(result install.Result, err error, target instal
 			if errors.As(err, &installErr) && errors.Unwrap(installErr) != nil {
 				fmt.Fprintf(stderr, "install_storage: %v\n", errors.Unwrap(installErr))
 			}
-			fmt.Fprintln(stderr, "install_next: choose private local NTFS directories with -BinDir and -ReceiptDir (for example beneath USERPROFILE); all ancestors must have trusted owners and prevent replacement by untrusted principals. Existing ACLs are never changed.")
+			fmt.Fprintln(stderr, "install_next: choose private local NTFS directories with -BinDir and -ReceiptDir (for example beneath USERPROFILE); all ancestors must have trusted owners and prevent replacement by untrusted principals. Existing ACLs are never changed outside an explicitly approved standard Runtime directory repair.")
 		}
 		return fail(err)
 	}
