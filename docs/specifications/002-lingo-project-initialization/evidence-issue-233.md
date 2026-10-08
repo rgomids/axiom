@@ -50,3 +50,20 @@ not evidence of a published version. Earlier frozen snapshots are unchanged.
 Runtime session isolation is exercised through the shared CLI/application
 contract using distinct Codex/Claude session IDs. Real interactive Runtime
 shutdown automation and cross-platform execution are not claimed.
+
+## PR #259 review correction — CR-001
+
+The original no-path assertion examined raw JSON for every CLI response. That
+incorrectly rejected the existing `project show` source/repository path contract
+on Linux/macOS, while JSON escaping hid the same paths on Windows.
+
+The assertion now checks decoded values in the new `context` payload and the
+complete responses of `project context` commands (including mutations). Existing
+`project show` paths remain valid, with an explicit assertion that its source is
+preserved. A regression test covers both Windows and POSIX paths inside nested
+JSON, so escaping cannot conceal a disclosure.
+
+`go test ./cmd/lingo -run TestProjectContext -count=1 -timeout 5m` and
+`go vet ./cmd/lingo` passed locally. Cross-platform race validation is performed
+by the PR CI; its result must be checked on the correction's head before claiming
+that the Linux/macOS review requirement is satisfied.

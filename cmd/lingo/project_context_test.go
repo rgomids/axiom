@@ -27,8 +27,17 @@ func TestProjectContextCLIAndRuntimeSessions(t *testing.T) {
 		if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(out.String(), env.state) || strings.Contains(out.String(), source) {
-			t.Fatal("local path disclosed")
+		// Existing project views intentionally disclose their source/repository
+		// paths. Only the new context surface promises to omit local paths.
+		payload := result["context"]
+		for i := 0; i+1 < len(args); i++ {
+			if args[i] == "project" && args[i+1] == "context" {
+				payload = result
+				break
+			}
+		}
+		if contextPayloadContainsPath(payload, env.state, source) {
+			t.Fatal("local path disclosed in project context")
 		}
 		return result
 	}
@@ -43,7 +52,8 @@ func TestProjectContextCLIAndRuntimeSessions(t *testing.T) {
 	run(0, "project", "context", "default-set", "--selector", "external", "--authorize-local")
 	for _, prefix := range [][]string{nil, {"--session", "codex-one"}, {"--session", "claude-two"}} {
 		result := run(0, append(prefix, "project", "show")...)
-		if result["project"].(map[string]any)["id"] != workItemSourceProjectID {
+		project := result["project"].(map[string]any)
+		if project["id"] != workItemSourceProjectID || project["source"] != source {
 			t.Fatal(result)
 		}
 	}
@@ -103,5 +113,51 @@ func TestProjectContextFailsOnStalePortableRevision(t *testing.T) {
 	}
 	if after := snapshotTrees(t, env.root, env.state, env.elsewhere); !bytes.Equal(before, after) {
 		t.Fatal("stale context caused an effect")
+	}
+}
+
+// Inspect decoded strings so JSON escaping cannot hide Windows paths.
+func contextPayloadContainsPath(payload any, paths ...string) bool {
+	switch value := payload.(type) {
+	case string:
+		for _, path := range paths {
+			if strings.Contains(value, path) {
+				return true
+			}
+		}
+	case map[string]any:
+		for _, child := range value {
+			if contextPayloadContainsPath(child, paths...) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range value {
+			if contextPayloadContainsPath(child, paths...) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func TestProjectContextPathDisclosureCheckUsesDecodedStrings(t *testing.T) {
+	for _, path := range []string{`C:\Users\tester\axiom`, "/home/tester/axiom"} {
+		t.Run(path, func(t *testing.T) {
+			wire, err := json.Marshal(map[string]any{"context": map[string]any{"issue": []any{"source: " + path}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result map[string]any
+			if err := json.Unmarshal(wire, &result); err != nil {
+				t.Fatal(err)
+			}
+			if !contextPayloadContainsPath(result["context"], path) {
+				t.Fatal("decoded context path was missed")
+			}
+			if contextPayloadContainsPath(map[string]any{"effective": workItemSourceProjectID, "source": "default"}, path) {
+				t.Fatal("canonical context incorrectly reported a local path")
+			}
+		})
 	}
 }
