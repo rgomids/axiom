@@ -242,13 +242,14 @@
       "path": ".github/workflows/release-artifacts.yml",
       "kind": "workflow",
       "owner": "release",
-      "purpose": "PREPARE phase: builds, verifies and renders notes for the complete artifact set from one preflighted revision and retains it as the workflow artifact axiom-release-<tag>.",
+      "purpose": "PREPARE phase: builds once, verifies, renders notes and smokes the exact Linux amd64 and macOS arm64 artifacts; retains prepared bytes and separate smoke summaries.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
       "runtime": [
         "github-actions",
-        "bash"
+        "bash",
+        "python3"
       ],
       "scope": [
         "ci",
@@ -260,7 +261,7 @@
         "scripts/release.sh"
       ],
       "inputs": "workflow_dispatch inputs tag, revision, optional corrections_revision, corrections_digest; checks out source (and control) revisions",
-      "outputs": "Uploaded artifact axiom-release-<tag> (archives, SHA256SUMS, preflight.txt, release-evidence.txt, release-notes.md, prepare-metadata.txt, optional release-recovery.txt), 30-day retention",
+      "outputs": "Uploaded artifact axiom-release-<tag> (archives, SHA256SUMS, preflight.txt, release-evidence.txt, release-notes.md, prepare-metadata.txt, optional release-recovery.txt), 30-day retention; separate axiom-release-smoke-<row> JSON summaries with 30-day retention, including smoke failures",
       "local_effects": "none on the runner beyond checkouts and temporary files",
       "network_effects": "GitHub API read-only (Issue titles, artifact upload); Go module download and verification",
       "authority": "GITHUB_TOKEN read-only (contents: read, issues: read); never creates tags or Releases",
@@ -1539,6 +1540,40 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/smoke-prepared-artifact.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Executes an exact prepared native archive in isolated state with bounded lifecycle, unchanged input digests and JSON smoke summary.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Release preparation and release pipeline contract validation",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-artifacts.yml",
+        "scripts/test-release-pipeline.sh"
+      ],
+      "inputs": "--dir ABS_DIR --version X.Y.Z --revision SHA --row ROW",
+      "outputs": "single JSON smoke summary; non-zero exit on failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none",
+      "tests": [
+        "scripts/test-prepared-artifact-smoke.py",
+        "scripts/test-release-pipeline.sh"
+      ],
+      "evidence": "docs/development/prepared-artifact-smoke.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/test-check-adr-governance.py",
       "kind": "script",
       "owner": "repository-validation",
@@ -1930,6 +1965,36 @@
       "authority": "none; read-only checks",
       "tests": [],
       "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-prepared-artifact-smoke.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Offline prepared-artifact smoke refusal, isolation, mutation and timeout contracts.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "Every CI release-contract job through test-release-pipeline.sh",
+      "replay_reason": null,
+      "callers": [
+        "scripts/test-release-pipeline.sh"
+      ],
+      "inputs": "none; temporary archive fixtures",
+      "outputs": "unittest results; non-zero exit on failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none",
+      "tests": [],
+      "evidence": "docs/development/prepared-artifact-smoke.md",
       "compatibility": [],
       "removal_condition": null
     },

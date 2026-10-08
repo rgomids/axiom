@@ -69,6 +69,24 @@ for row in macos-27-arm64 linux-amd64 linux-arm64 windows-amd64; do
   grep -Eq "^archive=axiom-0\\.1\\.0-rc\\.1-$row\\.tar\\.gz sha256=[0-9a-f]{64} " "$temporary/evidence"
 done
 [[ $(grep -c '^archive=' "$temporary/evidence") == 4 ]]
+# Issue #244: execute the exact archives just built, without rebuilding in
+# smoke. The runtime provenance and persisted Project round-trip must pass.
+case "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" in
+  linux/amd64) smoke_row=linux-amd64 ;;
+  darwin/arm64) smoke_row=macos-27-arm64 ;;
+  *) smoke_row= ;;
+esac
+if [[ -n "$smoke_row" ]]; then
+  python3 "$repository_root/scripts/smoke-prepared-artifact.py" --dir "$temporary/first" \
+    --version 0.1.0-rc.1 --revision "$revision" --row "$smoke_row" >"$temporary/smoke.json"
+  python3 - "$temporary/smoke.json" <<'PYSMOKE'
+import json, sys
+summary = json.load(open(sys.argv[1]))
+assert summary['result'] == 'pass' and summary['inputsUnchanged'] is True
+assert 'project-configure-show-list' in summary['checks']
+assert len(summary['archiveSha256']) == len(summary['binarySha256']) == 64
+PYSMOKE
+fi
 case "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" in
   linux/amd64|linux/arm64|darwin/arm64) [[ $(grep -c 'version_smoke=pass' "$temporary/evidence") == 1 ]] ;;
 esac
@@ -149,6 +167,29 @@ while IFS= read -r line; do
 done < <(grep -E '^\s+(- )?uses:' "$workflow")
 [[ $(grep -c 'inputs.tag' "$workflow") == $(grep -c 'RELEASE_TAG: \${{ inputs.tag }}' "$workflow") ]]
 grep -Fq 'persist-credentials: false' "$workflow"
+python3 "$repository_root/scripts/test-prepared-artifact-smoke.py"
+
+# Build-once transfer boundary: Linux smoke precedes retention; macOS depends
+# on that retained set, downloads it and has no build/toolchain step.
+python3 - "$workflow" <<'PYWORKFLOW'
+import sys
+workflow = open(sys.argv[1]).read()
+prepare, macos = workflow.split('\n  smoke-macos:\n')
+assert prepare.count('run: ./scripts/build-release-archives.sh') == 1
+assert prepare.index('name: Smoke exact prepared Linux artifact') < prepare.index('name: Retain the prepared set')
+assert '    needs: prepare' in macos and '    runs-on: macos-15' in macos
+assert 'actions/download-artifact@' in macos
+assert 'name: axiom-release-${{ env.RELEASE_TAG }}' in macos
+assert 'ref: ${{ inputs.corrections_revision || inputs.revision }}' in macos
+assert '${{ needs.prepare.outputs.version }}' in macos
+assert '--dir "$RUNNER_TEMP/prepared/artifacts"' in macos
+assert 'build-release-archives' not in macos and 'setup-go' not in macos
+assert 'continue-on-error' not in workflow
+for section, row in ((prepare, 'linux-amd64'), (macos, 'macos-27-arm64')):
+    assert '--row ' + row in section
+    assert 'if: always()' in section
+    assert 'name: axiom-release-smoke-' + row in section
+PYWORKFLOW
 
 printf 'tested_revision=%s\n' "$revision"
 printf '%s\n' 'PASS: S9 release artifact pipeline, closed verification, rerun equivalence, and no-publication workflow'
