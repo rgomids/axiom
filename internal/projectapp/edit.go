@@ -13,7 +13,8 @@ import (
 
 // Issue #132 EDIT preview (I132-T01). Presentation captures presence only; this
 // file owns selection orchestration, partial-intent merge, and complete
-// portable/local candidate construction. It has no write capability.
+// portable/local candidate construction. It has no write capability; reviewed
+// publication of the same candidate lives in edit_publish.go (I230-T03).
 
 const (
 	CreateMode = "create"
@@ -31,7 +32,7 @@ type OptionalText struct {
 type RepositoryUpsert struct{ Key, Path string }
 
 // EditIntent is partial explicit intent. Omission always means preservation.
-// It carries no replay or authority input: EDIT publication is not delivered.
+// It carries no replay or authority input; EditAuthority carries that apart.
 type EditIntent struct {
 	Selector               string
 	Name                   OptionalText
@@ -39,6 +40,10 @@ type EditIntent struct {
 	RemoveWorkItemProvider bool
 	RepositoryUpserts      []RepositoryUpsert
 	RepositoryRemovals     []string
+	// IntegrationRemovals names declared Integration keys to remove from
+	// portable intent (Issue #230, C230-02). It never touches local state,
+	// credentials, Runtime/MCP configuration or Provider resources.
+	IntegrationRemovals []string
 }
 
 // LocalRecordState is the complete machine-local record content observed by the
@@ -90,6 +95,10 @@ const (
 	EditCandidateInvalid
 	EditCancelled
 	EditUnavailable
+	EditUnknownIntegration
+	// EditIncompleteAuthority is a partial replay tuple: any of Project ID,
+	// preview digest or local authority without the others.
+	EditIncompleteAuthority
 )
 
 // EditSource resolves an exact UUID/slug selector and loads its coherent
@@ -164,6 +173,11 @@ type EditProposal struct {
 	local     LocalRecordState
 	localWire []byte
 	preview   EditPreview
+	// Exact observations the candidate was built from: the CAS preconditions
+	// of an authorized publication of this proposal.
+	observedManifest  []byte
+	observedLocalWire []byte
+	portableChanged   bool
 }
 
 func (p EditProposal) Project() project.Project { return p.project }
@@ -204,6 +218,18 @@ func ValidateEditIntent(intent EditIntent) EditFailure {
 			return EditInvalidIntent
 		}
 		removed[key] = true
+	}
+	if len(intent.IntegrationRemovals) != 0 && (intent.WorkItemProvider.Supplied || intent.RemoveWorkItemProvider || len(intent.IntegrationRemovals) > MaxDisabledIntegrations) {
+		return EditInvalidIntent
+	}
+	integrations := map[string]bool{}
+	for _, key := range intent.IntegrationRemovals {
+		// The portable token grammar a manifest accepts for Integration keys,
+		// so every declarable key can be removed.
+		if !ValidIntegrationKey(key) || integrations[key] {
+			return EditInvalidIntent
+		}
+		integrations[key] = true
 	}
 	return EditOK
 }
@@ -261,10 +287,14 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 		effects = append(effects, EditEffect{Scope: PortableScope, Code: "update_portable_project"})
 	}
 	effects = append(effects, portableRepositoryEffects(current, candidate)...)
+	if len(intent.IntegrationRemovals) != 0 {
+		effects = append(effects, portableIntegrationEffects(current, candidate)...)
+	}
 	if ObserveLocalRevision(localWire) != ObserveLocalRevision(selection.LocalWire) {
 		effects = append(effects, EditEffect{Scope: LocalScope, Code: "update_local_record"})
 	}
 	effects = append(effects, bindingEffects...)
+	effects = append(effects, preservedHistoryEffects(intent.RepositoryRemovals)...)
 	state := candidate.State()
 	preview := EditPreview{
 		Mode: EditMode, ProjectID: state.ID, Slug: state.Slug, Name: state.Name,
@@ -273,7 +303,25 @@ func PreviewEdit(ctx context.Context, ports EditPorts, intent EditIntent) (EditP
 		PortableRevision: selection.PortableRevision, LocalRevision: selection.LocalRevision, Effects: effects,
 	}
 	preview.Digest = editEnvelopeDigest(preview, manifest, localWire)
-	return EditProposal{project: candidate, manifest: manifest, local: localCandidate, localWire: localWire, preview: preview}, EditOK
+	return EditProposal{project: candidate, manifest: manifest, local: localCandidate, localWire: localWire, preview: preview,
+		observedManifest: selection.Portable.Manifest(), observedLocalWire: append([]byte(nil), selection.LocalWire...), portableChanged: portableChanged}, EditOK
+}
+
+// PreserveRepositoryHistory discloses that detaching a Repository key keeps
+// every machine-local Work Item link and Execution addressed by that key
+// (#230 F-03). Nothing is deleted; the records are unreachable for evolution
+// until the same key is attached again. It never touches the working copy or
+// any remote.
+const PreserveRepositoryHistory = "preserve_repository_history"
+
+func preservedHistoryEffects(removals []string) []EditEffect {
+	keys := append([]string(nil), removals...)
+	sort.Strings(keys)
+	effects := make([]EditEffect, 0, len(keys))
+	for _, key := range keys {
+		effects = append(effects, EditEffect{Scope: LocalScope, Code: PreserveRepositoryHistory, Key: key})
+	}
+	return effects
 }
 
 // coherentSelection fails closed on stale or conflicting portable/local
@@ -328,6 +376,16 @@ func proposePortable(current project.Project, intent EditIntent) (project.Projec
 		if providers, integrations, configured := removeWorkItemProvider(state); configured {
 			change.Providers, change.Integrations = project.Set(providers), project.Set(integrations)
 		}
+	}
+	if len(intent.IntegrationRemovals) != 0 {
+		providers, integrations, failure := removeIntegrations(state, intent.IntegrationRemovals)
+		if failure != EditOK {
+			return project.Project{}, failure
+		}
+		if providers != nil {
+			change.Providers = project.Set(*providers)
+		}
+		change.Integrations = project.Set(integrations)
 	}
 	if len(intent.RepositoryUpserts) != 0 || len(intent.RepositoryRemovals) != 0 {
 		repositories, _ := state.Repositories.Value()
@@ -424,6 +482,118 @@ func removeWorkItemProvider(state project.State) (project.Declaration[[]project.
 		integrationDeclaration = project.Configured(integrations)
 	}
 	return providerDeclaration, integrationDeclaration, configured
+}
+
+// removeIntegrations drops each named Integration declaration. Removing the
+// canonical work-items Integration also removes its paired providers[work-items]
+// exactly as removeWorkItemProvider does; every other Provider and Credential
+// declaration is retained. A key the Project does not declare fails, and the
+// caller validates the complete candidate so no reference can be left
+// dangling. The Provider declaration is returned only when it changes.
+func removeIntegrations(state project.State, keys []string) (*project.Declaration[[]project.Provider], project.Declaration[[]project.Integration], EditFailure) {
+	removing := map[string]bool{}
+	for _, key := range keys {
+		removing[key] = true
+	}
+	existing, _ := state.Integrations.Value()
+	kept := make([]project.Integration, 0, len(existing))
+	found := map[string]bool{}
+	for _, integration := range existing {
+		if removing[integration.Key] {
+			found[integration.Key] = true
+			continue
+		}
+		kept = append(kept, integration)
+	}
+	for _, key := range keys {
+		if !found[key] {
+			return nil, project.Declaration[[]project.Integration]{}, EditUnknownIntegration
+		}
+	}
+	integrations := project.Unconfigured[[]project.Integration]()
+	if len(kept) != 0 {
+		integrations = project.Configured(kept)
+	}
+	if !removing[workItemsKey] {
+		return nil, integrations, EditOK
+	}
+	current, _ := state.Providers.Value()
+	providers := make([]project.Provider, 0, len(current))
+	for _, provider := range current {
+		if provider.Key != workItemsKey {
+			providers = append(providers, provider)
+		}
+	}
+	declaration := project.Unconfigured[[]project.Provider]()
+	if len(providers) != 0 {
+		declaration = project.Configured(providers)
+	}
+	return &declaration, integrations, EditOK
+}
+
+// portableIntegrationEffects reports each removed Integration declaration and
+// the paired work-items Provider declaration, by key, in key order.
+func portableIntegrationEffects(current, candidate project.Project) []EditEffect {
+	effects := []EditEffect{}
+	before, after := current.State(), candidate.State()
+	prior, _ := before.Integrations.Value()
+	next, _ := after.Integrations.Value()
+	kept := map[string]bool{}
+	for _, integration := range next {
+		kept[integration.Key] = true
+	}
+	removed := []string{}
+	for _, integration := range prior {
+		if !kept[integration.Key] {
+			removed = append(removed, integration.Key)
+		}
+	}
+	sort.Strings(removed)
+	for _, key := range removed {
+		effects = append(effects, EditEffect{Scope: PortableScope, Code: "remove_portable_integration", Key: key})
+	}
+	priorProviders, _ := before.Providers.Value()
+	nextProviders, _ := after.Providers.Value()
+	keptProviders := map[string]bool{}
+	for _, provider := range nextProviders {
+		keptProviders[provider.Key] = true
+	}
+	for _, provider := range priorProviders {
+		if provider.Key == workItemsKey && !keptProviders[provider.Key] {
+			effects = append(effects, EditEffect{Scope: PortableScope, Code: "remove_portable_provider", Key: provider.Key})
+		}
+	}
+	// F-04: name every dependent declaration a removed Integration referenced
+	// that stays declared, so the reviewed (and digest-bound) preview shows
+	// exactly what the removal leaves in place.
+	keptCredentials := map[string]bool{}
+	credentials, _ := after.CredentialReferences.Value()
+	for _, credential := range credentials {
+		keptCredentials[credential.Key] = true
+	}
+	preserved := map[EditEffect]bool{}
+	for _, integration := range prior {
+		if kept[integration.Key] {
+			continue
+		}
+		if ref, ok := integration.ProviderRef.Value(); ok && keptProviders[ref] {
+			preserved[EditEffect{Scope: PortableScope, Code: "preserve_portable_provider", Key: ref}] = true
+		}
+		if ref, ok := integration.CredentialRef.Value(); ok && keptCredentials[ref] {
+			preserved[EditEffect{Scope: PortableScope, Code: "preserve_portable_credential", Key: ref}] = true
+		}
+	}
+	ordered := make([]EditEffect, 0, len(preserved))
+	for effect := range preserved {
+		ordered = append(ordered, effect)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].Code != ordered[j].Code {
+			return ordered[i].Code < ordered[j].Code
+		}
+		return ordered[i].Key < ordered[j].Key
+	})
+	return append(effects, ordered...)
 }
 
 func containsText(values []string, target string) bool {

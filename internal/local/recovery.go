@@ -62,6 +62,9 @@ type RecoveryReport struct {
 type RecoveryResult struct {
 	Action  RecoveryAction `json:"action"`
 	Removed []string       `json:"removed"`
+	// Published names objects recovery published from positively identified
+	// recorded generations (Project edit finalization only).
+	Published []string `json:"published,omitempty"`
 }
 
 type RecoveryAuthority struct{ digest string }
@@ -71,6 +74,9 @@ const (
 	protocolDirectory = "directory"
 	protocolAttempt   = "attempt"
 	protocolUnknown   = "unknown"
+	// protocolProjectEdit is the cross-store Project edit recovery state
+	// (I230-T03): portable CAS then local CAS.
+	protocolProjectEdit = "project_edit"
 )
 
 // InspectRecovery is read-only. It lists recognized interrupted protocol
@@ -89,7 +95,7 @@ func InspectRecovery(ctx context.Context, roots RecoveryRoots) (RecoveryReport, 
 			return RecoveryReport{}, err
 		}
 		for _, directory := range directories {
-			plan, found, err := inspectRecoveryDirectory(ctx, scope.name, filepath.Clean(scope.path), directory, false)
+			plan, found, err := inspectRecoveryDirectory(ctx, scope.name, filepath.Clean(scope.path), directory, roots.Projects, false)
 			if err != nil {
 				return RecoveryReport{}, err
 			}
@@ -214,7 +220,7 @@ func validRecoveryDirectory(scope, directory string) bool {
 
 // inspectRecoveryDirectory opens the chain scope root -> directory and takes
 // the same top-down directory locks as the owning stores.
-func inspectRecoveryDirectory(ctx context.Context, scope, path, directory string, exclusive bool) (RecoveryPlan, bool, error) {
+func inspectRecoveryDirectory(ctx context.Context, scope, path, directory, projectsRoot string, exclusive bool) (RecoveryPlan, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return RecoveryPlan{}, false, err
 	}
@@ -243,14 +249,14 @@ func inspectRecoveryDirectory(ctx context.Context, scope, path, directory string
 		return RecoveryPlan{}, false, err
 	}
 	defer closeFiles(locks)
-	return planRecovery(chain[len(chain)-1], scope, directory)
+	return planRecovery(chain[len(chain)-1], scope, directory, projectsRoot)
 }
 
 func recoveryProtocolName(name string) bool {
 	return protocolName(name) || strings.HasPrefix(name, ".lingo-")
 }
 
-func planRecovery(target *os.Root, scope, directory string) (RecoveryPlan, bool, error) {
+func planRecovery(target *os.Root, scope, directory, projectsRoot string) (RecoveryPlan, bool, error) {
 	names, err := readDirectoryNamesBounded(target, maxLocalDirectoryEntries)
 	if err != nil {
 		return RecoveryPlan{}, false, ErrRecoveryRequired
@@ -281,6 +287,25 @@ func planRecovery(target *os.Root, scope, directory string) (RecoveryPlan, bool,
 		plan.Digest = recoveryDigest(plan)
 		return plan, true, nil
 	}
+	edits := make([]string, 0, 1)
+	for _, name := range protocol {
+		if editRecoveryStateName(name) {
+			edits = append(edits, name)
+		}
+	}
+	if len(edits) != 0 {
+		if scope != RecoveryScopeState || !installationDirectoryName(directory) || len(edits) != 1 {
+			return unknown("project edit recovery state is outside an installation directory or is not unique")
+		}
+		if len(markers) == 0 {
+			if len(protocol) != 1 {
+				return unknown("unrecognized protocol object accompanies the project edit recovery state")
+			}
+			return planEditRecovery(target, directory, edits[0], projectsRoot)
+		}
+		// A nested ADR-0007 file publication is classified first; the edit
+		// recovery state stays and is classified once that is resolved.
+	}
 	if len(markers) == 0 {
 		plan.Protocol = protocolAttempt
 		return unknown("interrupted attempt state lacks prior/new generation facts; preserved for operator review")
@@ -299,6 +324,9 @@ func planRecovery(target *os.Root, scope, directory string) (RecoveryPlan, bool,
 		plan.Protocol = protocolDirectory
 	}
 	allowed := map[string]bool{markers[0]: true, marker.Staging: true}
+	for _, name := range edits {
+		allowed[name] = true
+	}
 	updates := make([]RecoveryObject, 0)
 	for _, name := range protocol {
 		if allowed[name] {
@@ -500,7 +528,7 @@ func ApplyRecovery(ctx context.Context, roots RecoveryRoots, plan RecoveryPlan, 
 	}
 	defer closeFiles(locks)
 	target := chain[len(chain)-1]
-	current, found, err := planRecovery(target, plan.Scope, plan.Directory)
+	current, found, err := planRecovery(target, plan.Scope, plan.Directory, roots.Projects)
 	if err != nil {
 		return RecoveryResult{}, err
 	}
@@ -509,6 +537,23 @@ func ApplyRecovery(ctx context.Context, roots RecoveryRoots, plan RecoveryPlan, 
 	}
 	if err := ctx.Err(); err != nil {
 		return RecoveryResult{}, err
+	}
+	if current.Protocol == protocolProjectEdit {
+		// Finalizing publishes content, so the opened chain must still be the
+		// one visible at its canonical path at the commit point.
+		paths := []string{filepath.Clean(path)}
+		for _, part := range splitDirectory(plan.Directory) {
+			paths = append(paths, filepath.Join(paths[len(paths)-1], part))
+		}
+		stillCanonical := func() error {
+			for index, opened := range chain {
+				if err := stillAtPath(opened, paths[index]); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		return applyEditRecovery(ctx, chain, current, stillCanonical)
 	}
 	result := RecoveryResult{Action: plan.Action, Removed: []string{}}
 	if plan.Action == RestorePrior {

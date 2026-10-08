@@ -119,6 +119,7 @@ type WorkItemInput struct {
 	Intent, Problem, DesiredOutcome, Context string
 	Scope, Constraints, NonGoals, Acceptance string
 	Message, PreviewDigest                   string
+	Title                                    string
 	Number                                   int
 	AuthorizeExternal, AuthorizeLocal        bool
 	Cancelled                                bool
@@ -168,15 +169,31 @@ type Result struct {
 	ExecutionTarget   *ExecutionTargetView
 	// Readiness is the canonical Project readiness report (project validate);
 	// Preflight is the operation projection that blocked an effect.
-	Readiness     *projectapp.ReadinessReport
-	Preflight     *projectapp.OperationReadiness
+	Readiness *projectapp.ReadinessReport
+	Preflight *projectapp.OperationReadiness
+	// Admission is the #230 central admission decision that denied an
+	// operation before its readiness and effects.
+	Admission *projectapp.AdmissionDecision
+	// Operational is the #230 machine-local operational-state preview of a
+	// Project archive/reactivate or Integration disable/enable request.
+	Operational *projectapp.OperationalPreview
+	// Integrations is the #230 Integration inventory, show or static
+	// validation report (integration list|show|validate).
+	Integrations *projectapp.IntegrationReport
+	// ProjectState is the machine-local operational status reported beside a
+	// selector-based Project validation.
+	ProjectState  *ProjectStateView
 	PreviewDigest string
 	Runtime       *RuntimeView
 	Bootstrap     *BootstrapView
 	Draft         *workitem.DraftPreview
 	Selection     *workitem.SelectionPreview
 	Questions     []workitem.Question
-	Projection    *workflow.ProjectionPreview
+	// WorkItemChange is the reviewed Work Item lifecycle preview (#230);
+	// WorkItems is the local-link enumeration of work-item list.
+	WorkItemChange *workitem.ChangePreview
+	WorkItems      []WorkItemView
+	Projection     *workflow.ProjectionPreview
 	// Maintenance is a bounded, content-free view for compatibility,
 	// cleanup, recovery, and upgrade previews and results.
 	Maintenance any
@@ -227,17 +244,23 @@ type BootstrapView struct {
 type RepositoryView struct {
 	Key  string `json:"key"`
 	Path string `json:"path"`
+	// Availability is reported by project show only: available or unavailable.
+	Availability string `json:"availability,omitempty"`
 }
 type ProjectView struct {
 	ID           string           `json:"id"`
 	Slug         string           `json:"slug"`
 	Source       string           `json:"source"`
 	Repositories []RepositoryView `json:"repositories"`
+	// State is the machine-local operational status (project show only).
+	State *ProjectStateView `json:"state,omitempty"`
 }
 type ProjectListView struct {
 	ID   string `json:"id"`
 	Slug string `json:"slug"`
 	Name string `json:"name"`
+	// Status is active, archived, invalid or recovery_required.
+	Status string `json:"status,omitempty"`
 }
 type WorkItemView struct {
 	ProjectID     string `json:"projectId"`
@@ -331,8 +354,17 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		}
 		return emitResponse(stdout, mode, runtimeProfileValidateAction, profiles.RuntimeProfileValidate(ctx))
 	}
+	if handled, code := runWorkflowList(ctx, args, service, source, mode, stdout); handled {
+		return code
+	}
 	if operation, rest, ok := maintenanceAction(args); ok {
 		return runMaintenance(ctx, mode, operation, rest, service, source, stdout)
+	}
+	if operation, rest, ok := integrationAction(args); ok {
+		return runIntegration(ctx, mode, operation, rest, service, source, stdout)
+	}
+	if handled, code := runProjectLifecycle(ctx, mode, args, service, source, stdout); handled {
+		return code
 	}
 	if len(args) >= 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
 		values, ok := flags(configureAction, args[2:])
@@ -356,7 +388,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if len(args) >= 2 && args[0] == "work-item" && args[1] != "create" && stdin != nil {
 		operation := action("work_item_" + args[1])
 		values, ok := workItemFlags(operation, args[2:])
-		if knownWorkItem(operation) && ok && values.number == 0 && (values.project == "" || values.repository == "" || values.workItem == "") {
+		if knownWorkItem(operation) && operation != workItemListAction && ok && values.number == 0 && (values.project == "" || values.repository == "" || values.workItem == "") {
 			return runInteractiveSelectors(ctx, mode, operation, values, service, source, stdin, stdout, stderr)
 		}
 	}
@@ -370,7 +402,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	operation, input, result := request(args, service)
 	if result != nil {
-		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) || *result == "unsupported_edit_authority" {
+		if operation == validateAction || operation == showAction || selectorAction(operation) || *result == "invalid_input" && (operation == configureAction || operation == resolveAction) || *result == "incomplete_edit_authority" {
 			return emitParserFailure(stdout, mode, operation, *result, source)
 		}
 		return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: *result})
@@ -415,8 +447,8 @@ func parserFailureText(operation action, issue string) (string, string) {
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
 	}
-	if issue == "unsupported_edit_authority" {
-		return "Project edit publication is not available", "Remove --project-id, --preview-digest, and --authorize-local; edit only previews"
+	if issue == "incomplete_edit_authority" {
+		return "Project edit authority is incomplete", "Supply --project-id, --preview-digest, and --authorize-local together from the reviewed preview, or omit all three to preview"
 	}
 	if issue == "invalid_input" && (operation == showAction || operation == resolveAction || operation == configureAction) {
 		return "Explicit selector input is invalid", "Remove unknown, duplicate, or conflicting inputs and retry"
@@ -451,7 +483,10 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.RuntimeResolution != nil {
 			return emitRuntimeResolutionCompletion(writer, mode, *response.Completion, response)
 		}
-		if response.Readiness != nil || response.Preflight != nil {
+		if response.Operational != nil {
+			return emitOperationalCompletion(writer, mode, *response.Completion, response)
+		}
+		if response.Readiness != nil || response.Preflight != nil || response.Admission != nil {
 			return emitReadinessCompletion(writer, mode, *response.Completion, response)
 		}
 		if response.Project != nil {
@@ -471,6 +506,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		}
 		if response.Bootstrap != nil {
 			return emitBootstrapCompletion(writer, mode, *response.Completion, *response.Bootstrap)
+		}
+		if response.WorkItemChange != nil || response.WorkItems != nil {
+			return emitWorkItemLifecycleCompletion(writer, mode, *response.Completion, response)
 		}
 		if response.Draft != nil || response.Selection != nil || response.WorkItem != nil || len(response.Questions) != 0 {
 			return emitWorkItemCompletion(writer, mode, *response.Completion, response)
@@ -500,6 +538,10 @@ const (
 	workItemShowAction      action = "work_item_show"
 	workItemCommentAction   action = "work_item_comment"
 	workItemCompleteAction  action = "work_item_complete"
+	workItemListAction      action = "work_item_list"
+	workItemUpdateAction    action = "work_item_update"
+	workItemCloseAction     action = "work_item_close"
+	workItemReopenAction    action = "work_item_reopen"
 	workflowStartAction     action = "workflow_start"
 	workflowAdvanceAction   action = "workflow_advance"
 	workflowFactAction      action = "workflow_fact"
@@ -542,7 +584,7 @@ type requestInput struct {
 	providerRepository                       string
 	intent, problem, desiredOutcome, context string
 	scope, constraints, nonGoals, acceptance string
-	message                                  string
+	message, title                           string
 	gate, outcome, reference, next, fact     string
 	runtime                                  string
 	role, complexity, capabilities           string
@@ -639,6 +681,9 @@ func selectorRequestIssue(operation action, values requestInput) string {
 		return "missing_required_input"
 	}
 	if knownWorkItem(operation) {
+		if operation == workItemListAction {
+			return ""
+		}
 		if operation == workItemCreateAction {
 			if values.workItem != "" {
 				return "invalid_input"
@@ -710,11 +755,11 @@ func projectFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		set.StringVar(&values.selector, "selector", "", "Configured Project identity; `<uuid-or-slug>`.")
 	}
 	if operation == configureAction {
-		set.StringVar(&values.projectID, "project-id", "", "Optional Project UUID for creation; `<uuid>`. Rejected in edit mode.")
+		set.StringVar(&values.projectID, "project-id", "", "Project UUID; `<uuid>`. Optional for creation; for an edit, the reviewed Project ID required with --preview-digest and --authorize-local.")
 		set.StringVar(&values.name, "name", "", "Project display name; `<text>`.")
 		set.Var(&values.repositories, "repository", "Add or update Repository; `<key>=<absolute-path>`. Conflicts with removing the same key.")
 		set.StringVar(&values.workItemProvider, "work-item-provider", "", "Work Item provider; `<provider-id>`. CREATE also accepts none; edit uses --remove-work-item-provider.")
-		set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication; rejected for Project edit.")
+		set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication.")
 		set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
 		set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`. For configure selects preview-only edit mode.")
 		set.BoolVar(&values.removeWorkItemProvider, "remove-work-item-provider", false, "Remove the existing provider in edit mode; conflicts with --work-item-provider.")
@@ -776,10 +821,10 @@ func configureRequestIssue(values requestInput) string {
 		}
 		return ""
 	}
-	// EDIT replay/publication is not delivered (I132-T02), so its inputs fail
-	// here, before any selector resolution or state read.
-	if values.replaySupplied {
-		return "unsupported_edit_authority"
+	// EDIT replay is the complete reviewed tuple; a partial tuple fails here,
+	// before any selector resolution or state read (I230-T03).
+	if values.replaySupplied && (values.projectID == "" || values.previewDigest == "" || !values.authorizeLocal) {
+		return "incomplete_edit_authority"
 	}
 	// Bootstrap intent is CREATE-only; post-create lifecycle belongs to #230.
 	if values.bootstrapSupplied {
@@ -812,12 +857,19 @@ func workItemFlagSet(operation action, values *requestInput) *flag.FlagSet {
 	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 	set.SetOutput(io.Discard)
 	set.StringVar(&values.project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
+	if operation == workItemListAction {
+		set.StringVar(&values.repository, "repository", "", "Optional Project-scoped Repository filter; `<key>`.")
+		return set
+	}
 	set.StringVar(&values.repository, "repository", "", "Project-scoped Repository selector; `<key>`.")
 	set.StringVar(&values.providerRepository, "provider-repository", "", "Explicit provider target; `<owner/repository>`. Conflicts with --work-item.")
 	set.StringVar(&values.workItem, "work-item", "", "Exact existing Work Item; `github:<owner>/<repository>#<number>`. Alternative to --number; rejected by create.")
 	set.StringVar(&values.previewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required for authorized publication.")
 	set.BoolVar(&values.authorizeExternal, "authorize-external", false, "Explicit authority for the exact reviewed Provider effect; boolean.")
 	set.BoolVar(&values.authorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean. Never inferred by discovery.")
+	if operation == workItemUpdateAction {
+		workItemUpdateFlags(set, values)
+	}
 	if operation == workItemCreateAction {
 		set.Var(&values.elaboratedSections, "elaborated-section", "Axiom-authored section; `<name>=<content>`. Names: problem, desired_outcome, context, scope, constraints, non_goals, acceptance_expectations. Conflicts with a verbatim value for that section.")
 		set.StringVar(&values.intent, "intent", "", "Original user intent; `<text>`. May supply the initial problem for guided elaboration.")
@@ -854,7 +906,7 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 }
 
 func knownWorkItem(operation action) bool {
-	return operation == workItemCreateAction || operation == workItemSelectAction || operation == workItemShowAction || operation == workItemCommentAction || operation == workItemCompleteAction
+	return operation == workItemCreateAction || operation == workItemSelectAction || operation == workItemShowAction || operation == workItemCommentAction || operation == workItemCompleteAction || workItemLifecycleAction(operation)
 }
 
 func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
@@ -1044,7 +1096,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 			Repositories: repositories, RemoveRepositories: append([]string(nil), input.removeRepositories...),
 			PreviewDigest: input.previewDigest, AuthorizeLocal: input.authorizeLocal,
 		})
-	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction:
+	case workItemCreateAction, workItemSelectAction, workItemShowAction, workItemCommentAction, workItemCompleteAction, workItemListAction, workItemUpdateAction, workItemCloseAction, workItemReopenAction:
 		provider, resource, externalID, ok := parseWorkItemSelector(input.workItem)
 		if input.workItem != "" && !ok {
 			return Result{Status: Failed, Category: "invalid_input"}
@@ -1052,9 +1104,13 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		value := WorkItemInput{ElaboratedSections: input.elaboratedSections, Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Intent: input.intent, Problem: input.problem, DesiredOutcome: input.desiredOutcome, Context: input.context, Scope: input.scope, Constraints: input.constraints, NonGoals: input.nonGoals, Acceptance: input.acceptance, Message: input.message, PreviewDigest: input.previewDigest, Number: input.number, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal}
 		value.Type, value.Beneficiary, value.Value = input.itemType, input.beneficiary, input.value
 		value.Classification = append([]string(nil), input.classification...)
+		value.Title = input.title
 		if input.workItem == "" {
 			value.ProviderRepository = input.providerRepository
 			value.ExternalID = strconv.Itoa(input.number)
+		}
+		if workItemLifecycleAction(operation) {
+			return dispatchWorkItemLifecycle(ctx, operation, value, service)
 		}
 		switch operation {
 		case workItemCreateAction:

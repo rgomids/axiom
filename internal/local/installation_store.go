@@ -161,6 +161,11 @@ func (s InstallationStore) InstallWithContext(ctx context.Context, source string
 			}
 			return failedInstallation("storage_failure")
 		}
+		// Operational state without its installation record is orphaned; a new
+		// installation never adopts it (Issue #230).
+		if _, err := target.Lstat(operationalRecordName); !os.IsNotExist(err) {
+			return failedInstallation("invalid_existing_local_state")
+		}
 		again, result := portableSnapshot(ctx, source)
 		if result.Status == InstallationFailed || again.Revision() != snapshot.Revision() {
 			return failedInstallation("source_changed")
@@ -423,10 +428,11 @@ func installationDirectoryIssue(root *os.Root) string {
 		return "storage_failure"
 	}
 	for _, name := range names {
-		if strings.HasPrefix(name, ".lingo-install-") || strings.HasPrefix(name, ".lingo-attempt-install-") {
+		// protocolName covers the ADR-0007 publication of operational.json.
+		if strings.HasPrefix(name, ".lingo-install-") || strings.HasPrefix(name, ".lingo-attempt-install-") || protocolName(name) {
 			return "recovery_required"
 		}
-		if name != "installation.json" {
+		if name != "installation.json" && name != operationalRecordName {
 			return "invalid_existing_local_state"
 		}
 	}

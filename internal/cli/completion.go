@@ -408,8 +408,15 @@ func emitProjectCompletion(writer io.Writer, mode outputMode, result completion.
 		content := renderCompletionHuman(result)
 		var extra bytes.Buffer
 		fmt.Fprintf(&extra, "project: %s [%s] source=%s\n", project.Slug, project.ID, project.Source)
+		if project.State != nil {
+			renderProjectState(&extra, "state", project.State)
+		}
 		for _, repository := range project.Repositories {
-			fmt.Fprintf(&extra, "repository: %s path=%q\n", repository.Key, repository.Path)
+			fmt.Fprintf(&extra, "repository: %s path=%q", repository.Key, repository.Path)
+			if repository.Availability != "" {
+				fmt.Fprintf(&extra, " availability=%s", repository.Availability)
+			}
+			extra.WriteString("\n")
 		}
 		content = append(content, extra.Bytes()...)
 		if len(content) > MaxCompletionOutputBytes {
@@ -453,7 +460,11 @@ func emitProjectListCompletion(writer io.Writer, mode outputMode, result complet
 			if name == "" {
 				name = "<unavailable>"
 			}
-			fmt.Fprintf(&extra, "project: %s [%s] name=%q\n", project.Slug, project.ID, name)
+			fmt.Fprintf(&extra, "project: %s [%s] name=%q", project.Slug, project.ID, name)
+			if project.Status != "" {
+				fmt.Fprintf(&extra, " status=%s", project.Status)
+			}
+			extra.WriteString("\n")
 		}
 		content = append(content, extra.Bytes()...)
 	} else {

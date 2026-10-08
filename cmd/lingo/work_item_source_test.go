@@ -14,6 +14,7 @@ import (
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
+	"github.com/rgomids/axiom/internal/projectapp"
 )
 
 // Issue #147 Evidence: Work Item resolution reads an installed Project's
@@ -334,7 +335,9 @@ func TestWorkItemResolverKeepsDefaultRootSourceBehavior(t *testing.T) {
 	t.Run("stale recorded revision", func(t *testing.T) {
 		// The legacy update changes only the portable manifest, so the
 		// installation no longer validated the configuration it would read.
-		runCLI(t, env.service, []string{"project", "update", "--slug", "capability", "--name", "Changed"}, cli.ExitSuccess, "applied")
+		if result := env.service.(lifecycleService).lifecycle.Update(context.Background(), projectapp.UpdateRequest{Slug: "capability", Name: "Changed"}); result.Status != projectapp.LifecycleApplied {
+			t.Fatalf("direct portable update = %+v", result)
+		}
 		if category, _ := env.resolve(t, context.Background(), "capability"); category != "invalid_project_capability_state" {
 			t.Fatalf("stale default-root revision = %q", category)
 		}

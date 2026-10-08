@@ -11,9 +11,11 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, and executable command
 metadata; do not maintain a second argument registry in this skill.
 
-Supported domain operations are `create`, `run`, and `status`. Any other
-operation, such as `update`, `close`, or `delete`, is unsupported: report that it
-is not available and do not run a Lingo command for it.
+Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, and `reopen`.
+Any other operation, such as `delete` or Execution `cancel`, is unsupported:
+report that it is not available and do not run a Lingo command for it. Work
+Items are closed or reopened, never deleted; sequential Executions have no
+cancellation contract, and Execution history and Evidence are never edited.
 
 ## Operation routing
 
@@ -25,6 +27,13 @@ is not available and do not run a Lingo command for it.
 | `run` | fact | `axiom --json workflow fact` | local mutation | only with `--authorize-local` and the exact Execution revision | only for unambiguous run intent |
 | `run` | reconcile | `axiom --json workflow reconcile` | external mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous run intent |
 | `status` | - | `axiom --json workflow status`, `axiom --json workflow evidence` | read-only | none | allowed |
+| `status` | list | `axiom --json workflow list --project <uuid-or-slug>` | read-only | none | allowed |
+| `list` | - | `axiom --json work-item list --project <uuid-or-slug>` | read-only | none | allowed |
+| `show` | - | `axiom --json work-item show --project <uuid-or-slug>` | read-only | none | allowed |
+| `update` | - | `axiom --json work-item update --project <uuid-or-slug>` | external mutation | preview first; update only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous update intent |
+| `comment` | - | `axiom --json work-item comment --project <uuid-or-slug>` | external mutation | preview first; comment only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous comment intent |
+| `close` | - | `axiom --json work-item close --project <uuid-or-slug>` | external mutation | preview first; close only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous close intent |
+| `reopen` | - | `axiom --json work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
 
 When the user supplies an explicit supported operation, use it exactly and route
 directly to its Lingo commands. Do not perform semantic classification for an
@@ -38,6 +47,12 @@ When no operation is explicit, resolve intent only among `create`, `run`, and
 - choose `run` when the user wants to start, resume, advance, reconcile, or
   record an allowed workflow fact for an Execution;
 - choose `status` when the user only wants workflow status or Evidence.
+
+`list` (linked Work Items), `show`, and `status` mode `list` (Executions of a
+Project, when no Execution identity is known) may also be chosen when the user
+plainly asks to discover or inspect them. `update`, `comment`, `close`, and
+`reopen` run only when the user names that operation explicitly; ambiguous intent
+never selects them.
 
 If the intent is unknown or materially ambiguous, ask one bounded clarification
 or fail safely. Never silently resolve ambiguous intent to `create`, `run`, or
@@ -165,6 +180,37 @@ This operation is read-only. Never infer selectors from CWD, Git, Provider,
 Runtime chat, or global discovery, and never classify workflow state
 independently.
 
+To discover Executions without an opaque identity, run
+`axiom --json workflow list --project <uuid-or-slug>` (optionally
+`--repository <key>`) and report the returned `executions`.
+
+## list and show
+
+Run `axiom --json work-item list --project <uuid-or-slug>` (optionally
+`--repository <key>`) to discover Work Items linked to the Project; unlinked
+Provider Issues are not listed. Run `axiom --json work-item show` with the exact
+Project, Repository, and Work Item selectors for one link. Both are local and
+read-only.
+
+## update, comment, close, and reopen
+
+Collect only missing Project, Project-scoped Repository, and exact Work Item
+selectors. `update` changes only `--title` and the Axiom-authored sections;
+classification and type stay create-time. Run the command without authority
+first and present the returned preview, target, and effects. Repeat the same
+inputs with `--preview-digest <digest> --authorize-external` only after explicit
+authority for that exact preview. A Work Item already in the requested state is a
+no-op. A comment is not idempotent: a repeated authorized comment posts again,
+so inspect the Work Item before repeating one. Report partial Provider effects
+exactly as Lingo returns them; never retry an ambiguous mutation blindly. `work-item complete` remains a CLI
+compatibility spelling of close and is not routed here.
+
+## Archived Projects and disabled Integrations
+
+Lingo refuses operational evolution on an archived Project (`project_archived`)
+and any use of a locally disabled Integration (`integration_disabled`) before any
+effect. Report the refusal and its next action; never work around it.
+
 ## Shared invariants
 
 Invoke only `axiom --json` for executable behavior. Unknown, duplicate, and
@@ -172,7 +218,7 @@ conflicting inputs go to Lingo validation. Runtime skill text is a presentation
 and routing surface, not the workflow or domain source of truth.
 
 Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
-Operation-specific payloads preserved separately: `draft`, `selection`, `workItem`, `workflow`, `projection`, `executionTarget`, `runtimeResolution`, `previewDigest`
+Operation-specific payloads preserved separately: `draft`, `selection`, `workItem`, `workflow`, `projection`, `executionTarget`, `runtimeResolution`, `previewDigest`, `executions`, `workItems`, `change`, `admission`
 
 Copy canonical completion fields only from Lingo's top-level JSON object. Omit
 absent canonical fields. Never derive, synthesize, or reinterpret a canonical

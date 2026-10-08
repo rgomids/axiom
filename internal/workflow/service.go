@@ -222,6 +222,8 @@ type Result struct {
 	Category string
 	State    State
 	Preview  *ProjectionPreview
+	// Executions is set only by List: the deterministic Project summaries.
+	Executions []Summary
 }
 type Target struct {
 	ProjectSelector, RepositoryKey               string
@@ -326,6 +328,87 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 		return storeFailure(err)
 	}
 	return result(Succeeded, "execution_started", loaded)
+}
+
+// Lister is the optional read-only enumeration port of one Project's
+// Executions. A Store that cannot enumerate makes List fail closed.
+type Lister interface {
+	List(context.Context, string) ([]State, error)
+}
+
+// Summary is the read-only discovery projection of one Execution.
+type Summary struct {
+	ExecutionID    string
+	RepositoryKey  string
+	WorkItem       WorkItem
+	Status         ExecutionStatus
+	Stage          Stage
+	LifecycleStage WorkItemLifecycleStage
+	Revision       uint64
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+// List discovers the Executions of one Project without a known identity. It
+// is local and read-only: it never calls a Provider or the Work Item store.
+// Target carries only ProjectSelector and an optional RepositoryKey filter.
+func (s Service) List(ctx context.Context, target Target) Result {
+	if err := ctx.Err(); err != nil {
+		return result(Interrupted, "workflow_cancelled", State{})
+	}
+	lister, ok := s.store.(Lister)
+	if s.resolver == nil || s.store == nil || !ok || !validText(target.ProjectSelector) || target.RepositoryKey != "" && !validText(target.RepositoryKey) || target.ExecutionID != "" || target.WorkItem != "" {
+		return result(ValidationFailed, "invalid_execution_input", State{})
+	}
+	project, category := s.resolver.Resolve(ctx, target.ProjectSelector)
+	if category != "" {
+		return result(ValidationFailed, category, State{})
+	}
+	attached := map[string]bool{}
+	for _, candidate := range project.Repositories {
+		attached[candidate.Key] = true
+	}
+	if target.RepositoryKey != "" && !attached[target.RepositoryKey] {
+		return result(ValidationFailed, "repository_not_configured", State{})
+	}
+	states, err := lister.List(ctx, project.ID)
+	if err != nil {
+		return storeFailure(err)
+	}
+	summaries := make([]Summary, 0, len(states))
+	for _, state := range states {
+		if !ValidState(state) || state.ProjectID != project.ID {
+			return result(Failed, "recovery_required", State{})
+		}
+		lifecycle, err := DeriveLifecycle(state)
+		if err != nil {
+			return result(Failed, "recovery_required", State{})
+		}
+		// History of a detached Repository key stays preserved but is not
+		// listed until the key is re-attached (I230-T01 F-03), as Work Item
+		// list does.
+		if !attached[state.RepositoryKey] || target.RepositoryKey != "" && state.RepositoryKey != target.RepositoryKey {
+			continue
+		}
+		summaries = append(summaries, Summary{ExecutionID: state.ExecutionID, RepositoryKey: state.RepositoryKey, WorkItem: state.WorkItem, Status: state.Status, Stage: state.Stage, LifecycleStage: lifecycle.Stage, Revision: state.Revision, CreatedAt: state.CreatedAt, UpdatedAt: state.UpdatedAt})
+	}
+	sort.Slice(summaries, func(i, j int) bool {
+		a, b := summaries[i], summaries[j]
+		if a.RepositoryKey != b.RepositoryKey {
+			return a.RepositoryKey < b.RepositoryKey
+		}
+		if a.WorkItem.Provider != b.WorkItem.Provider {
+			return a.WorkItem.Provider < b.WorkItem.Provider
+		}
+		if a.WorkItem.Resource != b.WorkItem.Resource {
+			return a.WorkItem.Resource < b.WorkItem.Resource
+		}
+		if a.WorkItem.ExternalID != b.WorkItem.ExternalID {
+			return a.WorkItem.ExternalID < b.WorkItem.ExternalID
+		}
+		return a.ExecutionID < b.ExecutionID
+	})
+	return Result{Status: Succeeded, Category: "executions_listed", Executions: summaries}
 }
 
 func (s Service) Status(ctx context.Context, target Target) Result {

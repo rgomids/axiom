@@ -363,30 +363,6 @@ func projectionError(err error, mutation bool) error {
 	return &workflow.ProjectionError{Kind: kind, Retryable: provider.Retryable, Ambiguous: ambiguous, EffectNotCommitted: provider.EffectNotCommitted}
 }
 
-// Historical POC-only operations. S3 does not invoke them.
-func (a Adapter) Comment(ctx context.Context, repository, selector, message string) error {
-	number, parseErr := strconv.Atoi(selector)
-	if !a.ValidResource(repository) || parseErr != nil || number <= 0 || message == "" {
-		return &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
-	}
-	payload, _ := json.Marshal(map[string]string{"body": message})
-	_, err := a.run(ctx, payload, "api", "--method", "POST", "repos/"+repository+"/issues/"+strconv.Itoa(number)+"/comments", "--input", "-")
-	return err
-}
-
-func (a Adapter) Close(ctx context.Context, repository, selector string) (workitem.External, error) {
-	number, parseErr := strconv.Atoi(selector)
-	if !a.ValidResource(repository) || parseErr != nil || number <= 0 {
-		return workitem.External{}, &workitem.ProviderError{Kind: workitem.ProviderInvalidResponse}
-	}
-	payload, _ := json.Marshal(map[string]string{"state": "closed"})
-	output, err := a.run(ctx, payload, "api", "--method", "PATCH", "repos/"+repository+"/issues/"+strconv.Itoa(number), "--input", "-")
-	if err != nil {
-		return workitem.External{}, err
-	}
-	return decodeIssue(repository, selector, output)
-}
-
 func (a Adapter) run(parent context.Context, input []byte, arguments ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(parent, a.timeout)
 	defer cancel()

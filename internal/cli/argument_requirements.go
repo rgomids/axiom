@@ -26,8 +26,17 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 			{"repository", false, "creating (no --project)", !v.projectSupplied, len(v.repositories) == 0},
 		}
 	}
+	switch {
+	case operation == projectArchiveAction || operation == projectReactivateAction || operation == workflowListAction || operation == integrationListAction || operation == integrationValidateAction:
+		return []inputRequirement{{name: "project", required: true, missing: v.project == ""}}
+	case integrationOperation(operation):
+		return []inputRequirement{{name: "project", required: true, missing: v.project == ""}, {name: "integration", required: true, missing: true}}
+	}
 	if !knownWorkItem(operation) && !knownWorkflow(operation) {
 		return nil
+	}
+	if operation == workItemListAction {
+		return []inputRequirement{{name: "project", required: true, missing: v.project == ""}}
 	}
 	rules := []inputRequirement{
 		{name: "project", when: "no effective Project context is available", applies: true, missing: v.project == ""},

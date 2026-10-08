@@ -65,7 +65,7 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_execution_input"}, s.provenance)
 	}
 	input.Project = selection.Effective
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionStart); blocked != nil {
 		return *blocked
 	}
 	target, failed := s.workflows.ValidateTarget(ctx, workflowTarget(input))
@@ -99,6 +99,10 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 	fresh, category := s.projectContext().Effective(ctx, original)
 	if category != "" || fresh.Effective != selection.Effective || fresh.Source != selection.Source {
 		return s.runtimePolicyFailure("stale_preview")
+	}
+	// Recheck operational admission after policy observation, before effects.
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionStart); blocked != nil {
+		return *blocked
 	}
 	input.Runtime = binding.Choice.RuntimeID
 	startTarget := workflowTarget(input)

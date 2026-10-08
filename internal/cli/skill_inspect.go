@@ -83,14 +83,64 @@ var (
 		authority:       "preview first; publish only with the exact --preview-digest plus --authorize-local",
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
 		example: "axiom --json project configure --slug <slug> --name <name> --repository <key>=<absolute-path> --work-item-provider <provider>"}
-	projectEditMode = skillModeSpec{name: "edit", selector: "--project", effect: effectPreviewOnly, actions: []action{configureAction},
-		authority:       "preview only; publication is not available and the replay inputs fail with unsupported_edit_authority",
-		authorityInputs: []string{}, rejectedInputs: []string{"--project-id", "--preview-digest", "--authorize-local"},
+	projectEditMode = skillModeSpec{name: "edit", selector: "--project", effect: effectLocalMutation, actions: []action{configureAction},
+		authority:       "preview first; publish only with the returned --project-id, the exact --preview-digest plus --authorize-local; Repository attach/update/detach and provider changes use this mode",
+		authorityInputs: []string{"--project-id", "--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
 		example: "axiom --json project configure --project <uuid-or-slug> --name <name>"}
 	projectListMode = skillModeSpec{name: "default", effect: effectReadOnly, actions: []action{listAction}, authority: "none",
 		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json project list"}
 	projectShowMode = skillModeSpec{name: "default", selector: "--selector", effect: effectReadOnly, actions: []action{showAction}, authority: "none",
 		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json project show --selector <slug-or-id>"}
+	projectValidateMode = skillModeSpec{name: "default", selector: "--project", effect: effectReadOnly, actions: []action{validateAction}, authority: "none",
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json project validate --project <uuid-or-slug>"}
+	projectArchiveMode = skillModeSpec{name: "default", selector: "--project", effect: effectLocalMutation, actions: []action{projectArchiveAction},
+		authority:       "machine-local only; preview first; archive only with the exact --preview-digest plus --authorize-local",
+		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
+		example: "axiom --json project archive --project <uuid-or-slug>"}
+	projectReactivateMode = skillModeSpec{name: "default", selector: "--project", effect: effectLocalMutation, actions: []action{projectReactivateAction},
+		authority:       "machine-local only; preview first; reactivate only with the exact --preview-digest plus --authorize-local",
+		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
+		example: "axiom --json project reactivate --project <uuid-or-slug>"}
+	integrationListMode = skillModeSpec{name: "list", selector: "--project", effect: effectReadOnly, actions: []action{integrationListAction}, authority: "none",
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json integration list --project <uuid-or-slug>"}
+	integrationShowMode = skillModeSpec{name: "show", selector: "--project", effect: effectReadOnly, actions: []action{integrationShowAction}, authority: "none",
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json integration show --project <uuid-or-slug> --integration <key>"}
+	integrationValidateMode = skillModeSpec{name: "validate", selector: "--project", effect: effectReadOnly, actions: []action{integrationValidateAction}, authority: "none",
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json integration validate --project <uuid-or-slug>"}
+	integrationDisableMode = skillModeSpec{name: "disable", selector: "--project", effect: effectLocalMutation, actions: []action{integrationDisableAction},
+		authority:       "machine-local eligibility only; preview first; disable only with the exact --preview-digest plus --authorize-local; never revokes credentials or touches Providers",
+		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
+		example: "axiom --json integration disable --project <uuid-or-slug> --integration <key>"}
+	integrationEnableMode = skillModeSpec{name: "enable", selector: "--project", effect: effectLocalMutation, actions: []action{integrationEnableAction},
+		authority:       "machine-local eligibility only; preview first; enable only with the exact --preview-digest plus --authorize-local",
+		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
+		example: "axiom --json integration enable --project <uuid-or-slug> --integration <key>"}
+	integrationRemoveMode = skillModeSpec{name: "remove", selector: "--project", effect: effectLocalMutation, actions: []action{integrationRemoveAction},
+		authority:       "portable declaration only; preview first; remove only with the returned --project-id, the exact --preview-digest plus --authorize-local; no credential, MCP, Runtime or Provider cleanup",
+		authorityInputs: []string{"--project-id", "--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
+		example: "axiom --json integration remove --project <uuid-or-slug> --integration <key>"}
+	workItemListMode = skillModeSpec{name: "default", selector: "--project", effect: effectReadOnly, actions: []action{workItemListAction}, authority: "none",
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json work-item list --project <uuid-or-slug>"}
+	workItemShowMode = skillModeSpec{name: "default", selector: "--project", effect: effectReadOnly, actions: []action{workItemShowAction}, authority: "none",
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json work-item show --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
+	workItemUpdateMode = skillModeSpec{name: "default", selector: "--project", effect: effectExternalMutation, actions: []action{workItemUpdateAction},
+		authority:       "preview first; update the title or Axiom-authored sections only with the exact --preview-digest plus --authorize-external",
+		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
+		example: "axiom --json work-item update --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --title <text>"}
+	workItemCommentMode = skillModeSpec{name: "default", selector: "--project", effect: effectExternalMutation, actions: []action{workItemCommentAction},
+		authority:       "preview first; comment only with the exact --preview-digest plus --authorize-external",
+		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
+		example: "axiom --json work-item comment --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --message <text>"}
+	workItemCloseMode = skillModeSpec{name: "default", selector: "--project", effect: effectExternalMutation, actions: []action{workItemCloseAction},
+		authority:       "preview first; close only with the exact --preview-digest plus --authorize-external; never deletes the Provider Work Item",
+		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
+		example: "axiom --json work-item close --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
+	workItemReopenMode = skillModeSpec{name: "default", selector: "--project", effect: effectExternalMutation, actions: []action{workItemReopenAction},
+		authority:       "preview first; reopen only with the exact --preview-digest plus --authorize-external",
+		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
+		example: "axiom --json work-item reopen --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
+	executionListMode = skillModeSpec{name: "list", selector: "--project", effect: effectReadOnly, actions: []action{workflowListAction}, authority: "none",
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json workflow list --project <uuid-or-slug>"}
 	workItemNewMode = skillModeSpec{name: "new", effect: effectExternalMutation, actions: []action{workItemCreateAction},
 		authority:       "preview first; create only with the exact --preview-digest plus --authorize-external",
 		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
@@ -124,7 +174,21 @@ var (
 	workItemRun      = skillOperationSpec{name: "run",
 		actions: []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowReconcileAction},
 		modes:   []skillModeSpec{workflowTransitionMode, workflowFactMode, workflowReconcileMode}}
-	workItemStatus = skillOperationSpec{name: "status", actions: []action{workflowStatusAction, workflowEvidenceAction}, modes: []skillModeSpec{workItemStatusMode}}
+	workItemStatus = skillOperationSpec{name: "status", actions: []action{workflowStatusAction, workflowEvidenceAction, workflowListAction}, modes: []skillModeSpec{workItemStatusMode, executionListMode}}
+
+	// Issue #230 lifecycle operations.
+	projectValidate    = skillOperationSpec{name: "validate", actions: []action{validateAction}, modes: []skillModeSpec{projectValidateMode}}
+	projectArchive     = skillOperationSpec{name: "archive", actions: []action{projectArchiveAction}, modes: []skillModeSpec{projectArchiveMode}}
+	projectReactivate  = skillOperationSpec{name: "reactivate", actions: []action{projectReactivateAction}, modes: []skillModeSpec{projectReactivateMode}}
+	projectIntegration = skillOperationSpec{name: "integration",
+		actions: []action{integrationListAction, integrationShowAction, integrationValidateAction, integrationDisableAction, integrationEnableAction, integrationRemoveAction},
+		modes:   []skillModeSpec{integrationListMode, integrationShowMode, integrationValidateMode, integrationDisableMode, integrationEnableMode, integrationRemoveMode}}
+	workItemList    = skillOperationSpec{name: "list", actions: []action{workItemListAction}, modes: []skillModeSpec{workItemListMode}}
+	workItemShow    = skillOperationSpec{name: "show", actions: []action{workItemShowAction}, modes: []skillModeSpec{workItemShowMode}}
+	workItemUpdate  = skillOperationSpec{name: "update", actions: []action{workItemUpdateAction}, modes: []skillModeSpec{workItemUpdateMode}}
+	workItemComment = skillOperationSpec{name: "comment", actions: []action{workItemCommentAction}, modes: []skillModeSpec{workItemCommentMode}}
+	workItemClose   = skillOperationSpec{name: "close", actions: []action{workItemCloseAction}, modes: []skillModeSpec{workItemCloseMode}}
+	workItemReopen  = skillOperationSpec{name: "reopen", actions: []action{workItemReopenAction}, modes: []skillModeSpec{workItemReopenMode}}
 )
 
 // These are thin Runtime-to-Lingo delegations, not a second argument registry.
@@ -134,9 +198,9 @@ var (
 func skillOperationSpecs(name string) []skillOperationSpec {
 	switch name {
 	case "axiom-project":
-		return []skillOperationSpec{projectConfigure, projectList, projectShow}
+		return []skillOperationSpec{projectConfigure, projectList, projectShow, projectValidate, projectArchive, projectReactivate, projectIntegration}
 	case "axiom-work-item":
-		return []skillOperationSpec{workItemCreate, workItemRun, workItemStatus}
+		return []skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}
 	case "axiom-project-configure":
 		return []skillOperationSpec{projectConfigure}
 	case "axiom-project-list":
@@ -180,6 +244,19 @@ func skillOperations(name string) []action {
 }
 
 func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
+	switch operation {
+	case projectArchiveAction, projectReactivateAction:
+		return projectLifecycleFlagSet(operation, &ProjectLifecycleInput{})
+	case listAction:
+		return projectListFlagSet(&ProjectListInput{})
+	case validateAction:
+		return projectValidateFlagSet(new(string), &ProjectLifecycleInput{})
+	case workflowListAction:
+		return executionListFlagSet(&ExecutionListInput{})
+	}
+	if integrationOperation(operation) {
+		return integrationFlagSet(operation, &IntegrationInput{})
+	}
 	if knownWorkItem(operation) {
 		return workItemFlagSet(operation, values)
 	}
@@ -190,6 +267,14 @@ func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
 }
 
 func skillCommandName(operation action) string {
+	switch {
+	case operation == projectArchiveAction || operation == projectReactivateAction:
+		return "axiom project " + strings.TrimPrefix(string(operation), "project_")
+	case operation == workflowListAction:
+		return "axiom workflow list"
+	case integrationOperation(operation):
+		return "axiom integration " + strings.TrimPrefix(string(operation), "integration_")
+	}
 	if knownWorkItem(operation) {
 		return "axiom work-item " + strings.TrimPrefix(string(operation), "work_item_")
 	}
