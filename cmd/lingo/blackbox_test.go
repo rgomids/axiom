@@ -627,7 +627,12 @@ exit 0
 	if err != nil || len(records) != 3 {
 		t.Fatalf("local records = %v, %v", records, err)
 	}
-	run(0, "success", "applied", "project", "update", "--slug", "sample", "--name", "Changed")
+	// Issue #230: the by-slug update is refused for an installed Project, so the
+	// portable change that makes reopen require revalidation is an operator edit.
+	runCanonical(1, "validation_failure", "Installed Project cannot be updated by slug", "project", "update", "--slug", "sample", "--name", "Changed")
+	if err := os.WriteFile(filepath.Join(source, "axiom.yaml"), bytes.Replace(after, []byte("name: Sample"), []byte("name: Changed"), 1), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	run(1, "error", "local_state_revalidation_required", "project", "reopen", "--slug", "sample")
 	runCanonical(1, "validation_failure", "Project state is invalid", "project", "validate", "--slug", "missing")
 }

@@ -32,9 +32,14 @@ func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
 	runCLI(t, service, []string{"project", "init", "--slug", "sample", "--name", "Sample"}, cli.ExitSuccess, "applied")
 	runCanonicalCLI(t, service, []string{"project", "validate", "--slug", "sample"}, cli.ExitSuccess, "success", "Project is valid")
 	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened_without_local_state")
+	// The legacy update still serves a Project that is not installed (Issue #230).
+	runCLI(t, service, []string{"project", "update", "--slug", "sample", "--name", "Changed"}, cli.ExitSuccess, "applied")
 	beforeInstall, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(string(beforeInstall), "name: Changed") {
+		t.Fatalf("updated manifest does not contain new name: %q", beforeInstall)
 	}
 	runCLI(t, service, []string{"project", "install", "--source", filepath.Join(root, "sample")}, cli.ExitSuccess, "installed")
 	runCLI(t, service, []string{"project", "reopen", "--slug", "sample"}, cli.ExitSuccess, "reopened_with_local_state")
@@ -46,14 +51,15 @@ func TestComposedCLICompletesMinimalPortableLifecycle(t *testing.T) {
 	if err != nil || len(records) != 1 {
 		t.Fatalf("installation record paths = %v, %v", records, err)
 	}
-	runCLI(t, service, []string{"project", "update", "--slug", "sample", "--name", "Changed"}, cli.ExitSuccess, "applied")
-
-	manifest, err := os.ReadFile(filepath.Join(root, "sample", "axiom.yaml"))
-	if err != nil {
-		t.Fatal(err)
+	// An installed Project is edited explicitly: the legacy by-slug update would
+	// leave its installation record stale, so it refuses with zero writes.
+	before := snapshotTrees(t, root, state)
+	var refused bytes.Buffer
+	if code := cli.Run(context.Background(), []string{"project", "update", "--slug", "sample", "--name", "Again"}, service, currentProvenance(), &refused); code != cli.ExitFailure || !strings.Contains(refused.String(), `"details":"explicit_edit_required"`) || !strings.Contains(refused.String(), "project configure --project <slug> --name <name>") {
+		t.Fatalf("installed update: code=%d output=%s", code, refused.String())
 	}
-	if !strings.Contains(string(manifest), "name: Changed") {
-		t.Fatalf("updated manifest does not contain new name: %q", manifest)
+	if after := snapshotTrees(t, root, state); !bytes.Equal(before, after) {
+		t.Fatal("refused update changed state")
 	}
 }
 
@@ -332,7 +338,11 @@ func TestConfigurePreviewIsReadOnlyAndAuthorityBindsExactDigest(t *testing.T) {
 	if err := os.Mkdir(api, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	runCanonicalCLI(t, service, []string{"project", "show", "--selector", preview.ProjectID}, cli.ExitFailure, "retryable_failure", "Project repository is unavailable")
+	if shown := showProjectEvent(t, service, preview.ProjectID); shown.Project.Repository("api").Availability != "unavailable" || shown.Project.Repository("web").Availability != "available" {
+		t.Fatalf("show with a replaced binding = %+v", shown.Project)
+	}
+	// Strict resolution keeps failing closed on the same broken binding.
+	runCLI(t, service, []string{"project", "resolve", "--selector", preview.ProjectID}, cli.ExitFailure, "repository_unavailable")
 }
 
 func TestConfigureRefusesRepositoryReplacementAfterPreview(t *testing.T) {
