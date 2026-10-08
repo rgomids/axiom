@@ -1381,15 +1381,39 @@ and must not be treated as workflow progress or human acceptance.
 
 ## Execute the bounded workflow
 
-Start one workflow from an already linked Work Item after inspecting its
-Project Runtime/Profile preview:
+Start one workflow from an explicitly selected, already linked Work Item. Project
+is optional only when the effective context resolves, with precedence
+`explicit operation Project > session override > persistent local default > unresolved/fail closed`. An invalid
+winning selector never falls back to a lower tier or CWD/Git/chat context.
 
 ```bash
-axiom workflow start --project my-project --repository main --number 123 \
-  --role implementation --complexity high --capabilities axiom-skills \
-  --runtime-preview <reviewed-preview-digest> --runtime claude
+axiom --json workflow start --project my-project --repository main --number 123 \
+  --role implementation --complexity high --capabilities axiom-skills --runtime claude
+# Review executionTarget, runtimeResolution and previewDigest, then repeat:
+axiom --json workflow start --project my-project --repository main --number 123 \
+  --role implementation --complexity high --capabilities axiom-skills --runtime claude \
+  --runtime-preview <reviewed-start-preview-digest>
 axiom workflow status --project my-project --repository main --number 123
 ```
+
+Use `--work-item github:owner/repository#123` as the exact alternative to explicit
+`--number 123`; never combine them. Missing or malformed Work Item identity,
+unknown Repository, invalid linkage or conflicting Execution selectors fail
+before execution. Direct application calls enforce the same target validation.
+
+The first start call is read-only and exposes `executionTarget` (Project UUID,
+winning source, Repository key, Provider/resource, identifier and qualified Work
+Item) in JSON and human output. The start digest binds that validated target and
+its linkage/binding to the reviewed Runtime/Profile policy. Preserve the same
+selectors and `--session` during confirmation. Context, target, linkage, Repository
+binding or policy drift requires fresh review. A token returned by the standalone
+`runtime profile preview` cannot approve workflow start; older policy-only start
+tokens also require fresh review. The standalone preview API remains unchanged.
+
+After creation, `workflow.workItem` and `workflow.runtimeId` report persisted
+identity. Changing session/default preferences cannot retarget an existing
+Execution; use its original Project UUID and returned Work Item/Execution selectors
+for subsequent operations. See [the targeting contract](specifications/004-mvp-v1-baseline/issue-137-execution-targeting.md).
 
 `--runtime` accepts exactly `codex` or `claude` on preview and `workflow start`.
 It narrows the policy; omitted Runtime requires a unique Project-authorized

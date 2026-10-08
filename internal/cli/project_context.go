@@ -77,9 +77,9 @@ func runProjectContext(ctx context.Context, args []string, service ProjectContex
 
 // Supply the application's resolved identity to the existing typed parser and
 // interactive flows. Explicit flags are preserved, including invalid empties.
-func effectiveProjectArgs(ctx context.Context, args []string, service ProjectContextService) ([]string, *Result) {
+func effectiveProjectArgs(ctx context.Context, args []string, service ProjectContextService) (context.Context, []string, *Result) {
 	if len(args) < 2 {
-		return args, nil
+		return ctx, args, nil
 	}
 	flagName := ""
 	valid := true
@@ -97,13 +97,16 @@ func effectiveProjectArgs(ctx context.Context, args []string, service ProjectCon
 		flagName = "--project"
 	}
 	if flagName == "" || !valid || flagSupplied(args[2:], flagName) {
-		return args, nil
+		return ctx, args, nil
 	}
 	id, result := service.EffectiveProject(ctx, "")
 	if id == "" {
-		return args, &result
+		return ctx, args, &result
 	}
-	return append(append([]string(nil), args...), flagName, id), nil
+	if args[0] == "workflow" && args[1] == "start" {
+		ctx = context.WithValue(ctx, workflowProjectKey{}, id)
+	}
+	return ctx, append(append([]string(nil), args...), flagName, id), nil
 }
 
 func emitContextCompletion(writer io.Writer, mode outputMode, result completion.Result, view projectapp.EffectiveContext) int {
@@ -129,4 +132,15 @@ func emitContextCompletion(writer io.Writer, mode outputMode, result completion.
 		return ExitFailure
 	}
 	return completionExitCode(result.Status())
+}
+
+// Retain whether the CLI supplied a canonical UUID only to satisfy parser
+// requirements. The application must resolve the original winning context again.
+type workflowProjectKey struct{}
+
+func WorkflowProjectSelector(ctx context.Context, selector string) string {
+	if injected, ok := ctx.Value(workflowProjectKey{}).(string); ok && injected == selector {
+		return ""
+	}
+	return selector
 }
