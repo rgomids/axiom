@@ -73,20 +73,7 @@ func integrationAction(args []string) (action, []string, bool) {
 
 func integrationFlags(operation action, args []string) (IntegrationInput, bool) {
 	var input IntegrationInput
-	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
-	set.SetOutput(io.Discard)
-	set.StringVar(&input.Project, "project", "", "")
-	if operation != integrationListAction {
-		set.StringVar(&input.Integration, "integration", "", "")
-	}
-	mutating := operation == integrationDisableAction || operation == integrationEnableAction || operation == integrationRemoveAction
-	if mutating {
-		set.StringVar(&input.PreviewDigest, "preview-digest", "", "")
-		set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "")
-	}
-	if operation == integrationRemoveAction {
-		set.StringVar(&input.ProjectID, "project-id", "", "")
-	}
+	set := integrationFlagSet(operation, &input)
 	if invalidFlagSyntax(set, args, nil) {
 		return IntegrationInput{}, false
 	}
@@ -223,4 +210,35 @@ func emitIntegrationCompletion(writer io.Writer, mode outputMode, result complet
 		return ExitFailure
 	}
 	return completionExitCode(result.Status())
+}
+
+// integrationFlagSet is the single argument registry of the integration
+// group: the parser and `skill inspect` read the same set.
+func integrationFlagSet(operation action, input *IntegrationInput) *flag.FlagSet {
+	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	set.StringVar(&input.Project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
+	if operation != integrationListAction {
+		usage := "Declared Integration key; `<key>`."
+		if operation == integrationValidateAction {
+			usage = "Optional declared Integration key to validate; `<key>`."
+		}
+		set.StringVar(&input.Integration, "integration", "", usage)
+	}
+	if operation == integrationDisableAction || operation == integrationEnableAction || operation == integrationRemoveAction {
+		set.StringVar(&input.PreviewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required with --authorize-local.")
+		set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "Explicit authority for the exact reviewed effect; boolean. Never inferred by discovery.")
+	}
+	if operation == integrationRemoveAction {
+		set.StringVar(&input.ProjectID, "project-id", "", "Project UUID returned by the reviewed remove preview; `<uuid>`. Required for publication.")
+	}
+	return set
+}
+
+func integrationOperation(operation action) bool {
+	switch operation {
+	case integrationListAction, integrationShowAction, integrationValidateAction, integrationDisableAction, integrationEnableAction, integrationRemoveAction:
+		return true
+	}
+	return false
 }

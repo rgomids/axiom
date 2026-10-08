@@ -149,8 +149,8 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		{"axiom-work-item-create", []string{"draft", "selection", "workItem"}},
 		{"axiom-work-item-run", []string{"workflow", "projection", "runtimeResolution", "previewDigest"}},
 		{"axiom-work-item-status", []string{"workflow", "projection"}},
-		{"axiom-project", []string{"setup", "edit", "projects", "project"}},
-		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "runtimeResolution", "previewDigest"}},
+		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission"}},
+		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "runtimeResolution", "previewDigest", "executions", "workItems", "change", "admission"}},
 	}
 	fixture := []byte(`{
 		"status":"top-status",

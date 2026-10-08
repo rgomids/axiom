@@ -83,9 +83,7 @@ func runProjectLifecycle(ctx context.Context, mode outputMode, args []string, se
 			return false, 0
 		}
 		var input ProjectListInput
-		set := flag.NewFlagSet(string(listAction), flag.ContinueOnError)
-		set.SetOutput(io.Discard)
-		set.BoolVar(&input.IncludeArchived, "include-archived", false, "")
+		set := projectListFlagSet(&input)
 		if invalidFlagSyntax(set, rest, nil) || set.Parse(rest) != nil || set.NArg() != 0 {
 			return true, emitLifecycleParserFailure(stdout, mode, "Project listing", "invalid_input", source)
 		}
@@ -97,10 +95,7 @@ func runProjectLifecycle(ctx context.Context, mode outputMode, args []string, se
 	case "validate":
 		var slug string
 		var input ProjectLifecycleInput
-		set := flag.NewFlagSet(string(validateAction), flag.ContinueOnError)
-		set.SetOutput(io.Discard)
-		set.StringVar(&slug, "slug", "", "")
-		set.StringVar(&input.Project, "project", "", "")
+		set := projectValidateFlagSet(&slug, &input)
 		if invalidFlagSyntax(set, rest, nil) || set.Parse(rest) != nil || set.NArg() != 0 || input.Project == "" {
 			// Not a selector-based validation: the established parser decides.
 			return false, 0
@@ -122,11 +117,7 @@ func runProjectLifecycle(ctx context.Context, mode outputMode, args []string, se
 // is a valid request that the application previews or denies.
 func projectLifecycleFlags(operation action, args []string) (ProjectLifecycleInput, string) {
 	var input ProjectLifecycleInput
-	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
-	set.SetOutput(io.Discard)
-	set.StringVar(&input.Project, "project", "", "")
-	set.StringVar(&input.PreviewDigest, "preview-digest", "", "")
-	set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "")
+	set := projectLifecycleFlagSet(operation, &input)
 	if invalidFlagSyntax(set, args, nil) || set.Parse(args) != nil || set.NArg() != 0 {
 		return ProjectLifecycleInput{}, "invalid_input"
 	}
@@ -158,4 +149,31 @@ func emitLifecycleParserFailure(writer io.Writer, mode outputMode, noun, issue s
 		return ExitFailure
 	}
 	return emitCompletion(writer, mode, result)
+}
+
+// The flag sets below are the single argument registry of the #230 Project
+// lifecycle commands: the parsers and `skill inspect` read the same sets.
+
+func projectLifecycleFlagSet(operation action, input *ProjectLifecycleInput) *flag.FlagSet {
+	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	set.StringVar(&input.Project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
+	set.StringVar(&input.PreviewDigest, "preview-digest", "", "Exact reviewed preview digest; `<digest>`. Required with --authorize-local.")
+	set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "Explicit authority for the exact machine-local effect; boolean. Never inferred by discovery.")
+	return set
+}
+
+func projectListFlagSet(input *ProjectListInput) *flag.FlagSet {
+	set := flag.NewFlagSet(string(listAction), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	set.BoolVar(&input.IncludeArchived, "include-archived", false, "Also list Projects archived on this machine; boolean.")
+	return set
+}
+
+func projectValidateFlagSet(slug *string, input *ProjectLifecycleInput) *flag.FlagSet {
+	set := flag.NewFlagSet(string(validateAction), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	set.StringVar(slug, "slug", "", "Portable Project slug (historical form); `<slug>`. Conflicts with --project.")
+	set.StringVar(&input.Project, "project", "", "Installed Project identity, validated from its recorded source; `<uuid-or-slug>`.")
+	return set
 }

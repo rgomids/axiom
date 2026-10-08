@@ -83,10 +83,7 @@ func runWorkflowList(ctx context.Context, args []string, service Service, source
 // unknown, duplicate, single-hyphen and positional input is rejected.
 func executionListFlags(args []string) (ExecutionListInput, bool) {
 	var input ExecutionListInput
-	set := flag.NewFlagSet(string(workflowListAction), flag.ContinueOnError)
-	set.SetOutput(io.Discard)
-	set.StringVar(&input.Project, "project", "", "")
-	set.StringVar(&input.Repository, "repository", "", "")
+	set := executionListFlagSet(&input)
 	if invalidFlagSyntax(set, args, nil) {
 		return ExecutionListInput{}, false
 	}
@@ -146,4 +143,13 @@ func emitExecutionList(writer io.Writer, mode outputMode, result completion.Resu
 		return ExitFailure
 	}
 	return completionExitCode(result.Status())
+}
+
+// executionListFlagSet is the single argument registry of `workflow list`.
+func executionListFlagSet(input *ExecutionListInput) *flag.FlagSet {
+	set := flag.NewFlagSet(string(workflowListAction), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	set.StringVar(&input.Project, "project", "", "Configured Project identity; `<uuid-or-slug>`.")
+	set.StringVar(&input.Repository, "repository", "", "Optional Project-scoped Repository filter; `<key>`.")
+	return set
 }

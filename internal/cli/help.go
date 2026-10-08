@@ -16,17 +16,21 @@ Commands:
   runtime profile validate
   runtime profile preview --project <uuid-or-slug> --role <token> --complexity <token>
     --capabilities <comma-list> [--runtime codex|claude]
-  project configure|list|show|resolve|init|validate|reopen|update|install
-  work-item create|select|show|comment|complete
-  workflow start|advance|fact|resume|status|evidence|reconcile
+  project configure|list|show|resolve|validate|archive|reactivate
+  project init|reopen|update|install (historical)
+  integration list|show|validate|disable|enable|remove
+  work-item create|select|list|show|update|comment|close|reopen|complete
+  workflow start|advance|fact|resume|status|evidence|list|reconcile
   compatibility inspect|backup|export
   artifact cleanup|retire
   recovery inspect|apply
   upgrade --archive <path> --checksums <path> --bin-dir <dir> --receipt-dir <dir>
 
 Stable Runtime skill mapping:
-  $axiom-project           -> domain operations configure|list|show
-  $axiom-work-item         -> domain operations create|run|status
+  $axiom-project           -> domain operations configure|list|show|validate|
+                              archive|reactivate|integration
+  $axiom-work-item         -> domain operations create|run|status|list|show|
+                              update|comment|close|reopen
 
 Compatibility Runtime skill mapping:
   $axiom-project-configure -> axiom --json project configure
@@ -34,7 +38,7 @@ Compatibility Runtime skill mapping:
   $axiom-project-show      -> axiom --json project show
   $axiom-work-item-create  -> axiom --json work-item create|select
   $axiom-work-item-run     -> axiom --json workflow start|advance|resume|reconcile
-  $axiom-work-item-status  -> axiom --json workflow status|evidence
+  $axiom-work-item-status  -> axiom --json workflow status|evidence|list
 
 first-run finds Codex and Claude by their executables on PATH and installs or
 upgrades Axiom's user-global skills for each one found (Codex:
@@ -63,16 +67,25 @@ defaulted), --runtime-preference <role>/<complexity>=<profile>, --technology
 <path>|local-file:<absolute-path>, --business-context, --context-source,
 --glossary <key>=<term>:<definition>. An already
 configured slug or --project-id fails without changes. project configure
---project <project-uuid-or-slug> previews an edit of an existing Project and
-never writes:
+--project <project-uuid-or-slug> previews an edit of an existing Project:
   --name <name>, --work-item-provider <id> | --remove-work-item-provider
-  --repository <key>=<absolute-path> (repeatable add/update)
-  --remove-repository <key> (repeatable)
-Omitted values are preserved. Edit rejects --slug (rename) and, because edit
-publication is not available, --project-id, --preview-digest and
---authorize-local.
+  --repository <key>=<absolute-path> (repeatable attach/update)
+  --remove-repository <key> (repeatable detach; never deletes a working copy)
+Omitted values are preserved. Edit rejects --slug (rename). Publish the exact
+reviewed edit by repeating it with the returned --project-id, --preview-digest
+and --authorize-local; a partial replay tuple is refused.
 
-project validate --slug <slug> checks the portable Project and reports
+project archive|reactivate --project <uuid-or-slug> change only this machine's
+Project state (archive blocks operational work, never inspection or
+administration); project list hides archived Projects unless
+--include-archived. integration disable|enable change only this machine's use
+of a declared Integration; integration remove drops the portable declaration
+through the reviewed edit. None of them revokes credentials or touches a
+Provider. workflow list discovers Executions; Execution cancellation is not
+supported.
+
+project validate --slug <slug> (or --project <uuid-or-slug>, reading the
+installed Project's recorded source) checks the portable Project and reports
 read-only operation readiness (work-item, execution): ready, partial or
 blocked, with exact blocker and warning codes. Work Item operations and
 workflow start/resume enforce the same blockers before any effect; readiness
