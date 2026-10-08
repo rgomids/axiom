@@ -16,6 +16,8 @@ Collect only missing Project, Project-scoped Repository, exact Work Item, and
 Execution selectors. Run `axiom --json workflow status` and, when requested,
 `axiom --json workflow evidence` with `--project <uuid-or-slug> --repository
 <key> --work-item github:<owner>/<repository>#<number> --execution <id>`.
+When no Execution identity is known, run `axiom --json workflow list --project
+<uuid-or-slug>` (optionally `--repository <key>`) and report its `executions`.
 
 Never infer selectors from CWD, Git, Provider, Runtime chat, or global discovery.
 Never classify workflow state independently. Forward unknown, duplicate, or

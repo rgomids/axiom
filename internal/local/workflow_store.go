@@ -129,6 +129,61 @@ func (s WorkflowStore) Load(ctx context.Context, projectID, repositoryKey string
 	return state, nil
 }
 
+// List enumerates every Execution record of one Project under the same shared
+// lock as Load. Every entry is strictly decoded and must be addressed exactly
+// by its own identity; a protocol state, undecodable, foreign or misaddressed
+// record fails the whole listing closed. A Project with no records is empty.
+func (s WorkflowStore) List(ctx context.Context, projectID string) ([]workflow.State, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if len(project.ValidateIdentity(projectID, "execution")) != 0 {
+		return nil, workflowStoreError(ErrUnsafe)
+	}
+	root, executions, version, projectRoot, err := s.openProject(projectID, false)
+	if errors.Is(err, ErrNotFound) || os.IsNotExist(err) {
+		return []workflow.State{}, nil
+	}
+	if err != nil {
+		return nil, workflowStoreError(err)
+	}
+	defer root.Close()
+	defer executions.Close()
+	defer version.Close()
+	defer projectRoot.Close()
+	locks, err := lockRoots(false, root, executions, version, projectRoot)
+	if err != nil {
+		return nil, workflowStoreError(err)
+	}
+	defer closeFiles(locks)
+	if pending, err := protocolStatePresent(projectRoot); err != nil {
+		return nil, workflowStoreError(err)
+	} else if pending {
+		return nil, workflowStoreError(ErrRecoveryRequired)
+	}
+	names, err := childNames(projectRoot)
+	if err != nil {
+		return nil, workflowStoreError(err)
+	}
+	states := make([]workflow.State, 0, len(names))
+	for _, name := range names {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		wire, err := readPublishedFile(projectRoot, name)
+		if err != nil {
+			return nil, workflowStoreError(err)
+		}
+		state, err := decodeExecution(wire)
+		if err != nil || state.ProjectID != projectID || executionName(state.RepositoryKey, state.WorkItem) != name {
+			return nil, workflowStoreError(ErrUnsafe)
+		}
+		state.StorageRevision = sha256.Sum256(wire)
+		states = append(states, state)
+	}
+	return states, nil
+}
+
 func (s WorkflowStore) openProject(projectID string, create bool) (*os.Root, *os.Root, *os.Root, *os.Root, error) {
 	openRoot := existingPrivateRoot
 	openChild := existingPrivateChild

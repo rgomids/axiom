@@ -426,3 +426,25 @@ row before authorizing the dependent Task.
     code, not reproduced.
   - Whether S7 `artifact cleanup` can remove `executions/` records was not
     traced. It is outside #230 either way.
+
+## 9. Delivery reconciliation (I230-T02–I230-T08)
+
+The rows above stay frozen as approved. Implementation on branch
+`feat/230-resource-lifecycle` (base `e478907`, v0.8.0) delivers every *#230
+target* row; [Evidence](evidence-230.md) maps them to tests. Refinements made
+while implementing, none of which adds an ownership, destructive or authority
+boundary:
+
+| Row / item | Delivered refinement |
+|---|---|
+| Local operational state (§1, P230-02) | `operational.json` format 1 beside `installation.json`; additive v1 inventory kind whose stable-corpus freeze is owed at release acceptance (FR-026) |
+| Admission (§0) | One guard (`projectapp.AdmissionGuard`) composed before #231 readiness in one gate; an operation that uses a capability is checked against the Integration that actually provides it; capability blockers stay reported by readiness when the operation has a readiness requirement |
+| Execution reconcile | Now also requires an attributable Integration (it had no capability check, §5) |
+| Project show (§5) | Reports per-Repository `availability` instead of failing on one broken binding; `resolve` stays strict |
+| Project validate (§5) | `--project <selector>` validates the recorded source; `--slug` unchanged |
+| POC `project update` (§5) | Gap confirmed by test; refused with zero writes (`explicit_edit_required`) for installed Projects |
+| Edit publication (§3) | Portable then local CAS behind owned `.axiom-edit-*` recovery state, classified by `recovery inspect|apply`; limited to sources under the Lingo projects root |
+| Repository detach (F-03) | Preview effect `preserve_repository_history`; Work Item `list` hides links of a detached key |
+| Integration remove (F-04) | Uses the EDIT replay tuple (`--project-id`, `--preview-digest`, `--authorize-local`) |
+| Work Item comment/complete (F-01) | Reviewed digest + `--authorize-external`; `complete` calls `Close` |
+| Execution list (§4) | `axiom-work-item` / `status` / mode `list`; `workflow cancel` stays `invalid_command` (F-02) |

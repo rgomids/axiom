@@ -32,6 +32,7 @@ func TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation(t *testing.T) {
 		{"create attempt moved under another project", InventoryCreateAttempt, moveToProject(foreignProjectUUID)},
 		{"create attempt stored under a work item name", InventoryCreateAttempt, renameTo("main-attempt.json")},
 		{"work item stored under a create attempt name", InventoryWorkItem, renameTo(".axiom-create-" + strings.Repeat("d", 64) + ".json")},
+		{"operational state moved under another project", InventoryOperational, moveToProject(foreignProjectUUID)},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -151,12 +152,24 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			if _, err := store.Load(ctx); err != nil {
 				t.Errorf("supported runtime profile %s does not load canonically: %v", entry.Relative, err)
 			}
+		case InventoryOperational:
+			projectID, decoded, err := DecodeOperational(wire())
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, err := NewOperationalStore(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if observation, err := store.InspectOperational(ctx, projectID); err != nil || !observation.State.Equal(decoded) {
+				t.Errorf("supported operational state %s does not load canonically: %+v %v", entry.Relative, observation, err)
+			}
 		default:
 			continue
 		}
 		checked[entry.Kind] = true
 	}
-	for _, kind := range []InventoryKind{InventoryGraph, InventoryCoordination, InventoryCreateAttempt, InventoryRuntimeProfile} {
+	for _, kind := range []InventoryKind{InventoryGraph, InventoryCoordination, InventoryCreateAttempt, InventoryRuntimeProfile, InventoryOperational} {
 		if !checked[kind] {
 			t.Errorf("no supported %s record was loaded through its store", kind)
 		}

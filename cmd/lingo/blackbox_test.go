@@ -145,6 +145,14 @@ type canonicalEvent struct {
 	Selection *struct {
 		Digest string `json:"digest"`
 	} `json:"selection"`
+	Category string `json:"category"`
+	Change   *struct {
+		Digest  string   `json:"digest"`
+		Effects []string `json:"effects"`
+	} `json:"change"`
+	WorkItems *[]struct {
+		RepositoryKey, ExternalID, State string
+	} `json:"workItems"`
 	WorkItem *struct {
 		URL, State, ExternalID string
 	} `json:"workItem"`
@@ -175,6 +183,10 @@ func TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects(t *testing.T) {
 		{"work-item show", "project repository work-item"},
 		{"work-item comment", "project repository work-item"},
 		{"work-item complete", "project repository work-item"},
+		{"work-item list", "project repository"},
+		{"work-item update", "project repository work-item"},
+		{"work-item close", "project repository work-item"},
+		{"work-item reopen", "project repository work-item"},
 		{"workflow start", "project repository work-item execution"},
 		{"workflow advance", "project repository work-item execution"},
 		{"workflow resume", "project repository work-item execution"},
@@ -492,7 +504,21 @@ exit 0
 	if selected.WorkItem == nil || selected.WorkItem.ExternalID != "8" {
 		t.Fatalf("selected item = %+v", selected.WorkItem)
 	}
-	runCanonical(0, "success", "Historical Work Item comment completed", "work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence", "--authorize-external")
+	listed := runCanonical(0, "success", "Axiom-linked Work Items listed", "work-item", "list", "--project", "configured")
+	if listed.Category != "work_items_listed" || listed.WorkItems == nil || len(*listed.WorkItems) != 2 || (*listed.WorkItems)[0].ExternalID != "7" || (*listed.WorkItems)[1].ExternalID != "8" {
+		t.Fatalf("listed work items = %+v", listed.WorkItems)
+	}
+	commentArgs := []string{"work-item", "comment", "--project", "configured", "--repository", "main", "--number", "7", "--message", "Evidence"}
+	// #230 F-01: a single-step external authority is denied with the preview.
+	singleStep := runCanonical(1, "denied_authority", "Work Item authority denied", append(commentArgs, "--authorize-external")...)
+	if singleStep.Category != "external_authority_denied" || singleStep.Change == nil || singleStep.Change.Digest == "" {
+		t.Fatalf("single-step comment = %+v", singleStep)
+	}
+	commentPreview := runCanonical(0, "success", "Work Item change ready for review", commentArgs...)
+	if commentPreview.Change == nil || commentPreview.Change.Digest != singleStep.Change.Digest {
+		t.Fatalf("comment preview = %+v", commentPreview.Change)
+	}
+	runCanonical(0, "success", "Work Item comment added", append(commentArgs, "--preview-digest", commentPreview.Change.Digest, "--authorize-external")...)
 	policyFlags := installTestRuntimePolicy(t, state, preview.Setup.ProjectID, "codex")
 	startArgs := append([]string{"workflow", "start", "--project", "configured", "--repository", "main", "--number", "7"}, policyFlags...)
 	runtimePreview := runCanonical(0, "success", "Project Runtime resolution preview ready", startArgs...)
@@ -627,7 +653,12 @@ exit 0
 	if err != nil || len(records) != 3 {
 		t.Fatalf("local records = %v, %v", records, err)
 	}
-	run(0, "success", "applied", "project", "update", "--slug", "sample", "--name", "Changed")
+	// Issue #230: the by-slug update is refused for an installed Project, so the
+	// portable change that makes reopen require revalidation is an operator edit.
+	runCanonical(1, "validation_failure", "Installed Project cannot be updated by slug", "project", "update", "--slug", "sample", "--name", "Changed")
+	if err := os.WriteFile(filepath.Join(source, "axiom.yaml"), bytes.Replace(after, []byte("name: Sample"), []byte("name: Changed"), 1), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	run(1, "error", "local_state_revalidation_required", "project", "reopen", "--slug", "sample")
 	runCanonical(1, "validation_failure", "Project state is invalid", "project", "validate", "--slug", "missing")
 }

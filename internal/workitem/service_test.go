@@ -286,20 +286,32 @@ func completeDraft() DraftInput {
 	}
 }
 
-type fakeResolver struct{ provider string }
+type fakeResolver struct {
+	provider     string
+	repositories []Repository
+}
 
 func (r fakeResolver) Resolve(context.Context, string) (Project, string) {
 	provider := r.provider
 	if provider == "" {
 		provider = "github"
 	}
-	return Project{ID: "123e4567-e89b-42d3-a456-426614174000", Provider: provider, Repositories: []Repository{{Key: "main", Path: "/unused"}}}, ""
+	repositories := r.repositories
+	if repositories == nil {
+		repositories = []Repository{{Key: "main", Path: "/unused"}}
+	}
+	return Project{ID: "123e4567-e89b-42d3-a456-426614174000", Provider: provider, Repositories: repositories}, ""
 }
 
 type fakeCapability struct {
 	creates, reads, reconciles int
 	createErr                  error
 	reconcileSequence          [][]External
+	// Lifecycle fakes (lifecycle_test.go): current Provider state and document,
+	// injected failures and every recorded mutation call.
+	state, title, body   string
+	readErr, mutationErr error
+	mutations            []string
 }
 
 func (*fakeCapability) ProviderID() string              { return "github" }
@@ -328,11 +340,10 @@ func (p *fakeCapability) ReconcileCreate(context.Context, string, string) ([]Ext
 }
 func (p *fakeCapability) Read(context.Context, string, string) (External, error) {
 	p.reads++
-	return External{ID: "7", URL: "https://github.com/owner/repo/issues/7", State: "OPEN"}, nil
-}
-func (*fakeCapability) Comment(context.Context, string, string, string) error { return nil }
-func (*fakeCapability) Close(context.Context, string, string) (External, error) {
-	return External{ID: "7", URL: "https://github.com/owner/repo/issues/7", State: "CLOSED"}, nil
+	if p.readErr != nil {
+		return External{}, p.readErr
+	}
+	return p.current(), nil
 }
 
 type fakeStore struct {
@@ -340,6 +351,8 @@ type fakeStore struct {
 	attempts map[string]CreateAttempt
 	saves    int
 	failSave bool
+	saveErr  error
+	listErr  error
 }
 
 func newFakeStore() *fakeStore {
@@ -349,6 +362,9 @@ func (s *fakeStore) Save(_ context.Context, link Link) error {
 	s.saves++
 	if s.failSave {
 		return errors.New("controlled write failure")
+	}
+	if s.saveErr != nil {
+		return s.saveErr
 	}
 	key := link.Provider + ":" + link.Resource + ":" + link.ExternalID
 	if current, exists := s.links[key]; exists && link.Revision != current.Revision {
@@ -380,6 +396,13 @@ func (s *fakeStore) Load(_ context.Context, _, _, provider, resource, externalID
 		return Link{}, ErrNotFound
 	}
 	return link, nil
+}
+func (s *fakeStore) List(context.Context, string) ([]Link, error) {
+	links := make([]Link, 0, len(s.links))
+	for _, link := range s.links {
+		links = append(links, link)
+	}
+	return links, s.listErr
 }
 func (s *fakeStore) SaveCreateAttempt(_ context.Context, attempt CreateAttempt) error {
 	key := attempt.Target.Provider + ":" + attempt.Target.Resource

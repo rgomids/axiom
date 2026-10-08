@@ -132,7 +132,9 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item-run":     "df41a67f314560cd628b3d0aa50bbfad7f4164b2075368a895a5297549532cc7",
 		"axiom-work-item-status":  "d7316123e5ec5aec11fdc5f1a6c12da0974d18047c96f8b1195941a0bb6956bc",
 	}},
-	// Complete embedded revision before exact execution-target preview (#137).
+	// Eight-skill revision published by v0.9.0, replaced when the #230
+	// resource lifecycle operations changed axiom-project, axiom-work-item
+	// and axiom-work-item-status.
 	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
 		"axiom-project":           "0ce8ca0f82a468286b6937e5bd3a7ba2972e016722c0d6842eb7568ef0cba022",
 		"axiom-project-configure": "ec1a0556f930eb05cd52d1902c0d8cb5a30c1890b34e6f375015879f0a949dea",
@@ -142,6 +144,28 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item-create":  "c64fb39d06fa59876f0f0cdc487bbcfac91fb7748c77d3e38fa59fb455dab2c0",
 		"axiom-work-item-run":     "2afb4b64b4bda2042a3ab1dbad64d052e21f7535c7f110cf0254ce3e0f9f15a2",
 		"axiom-work-item-status":  "d7316123e5ec5aec11fdc5f1a6c12da0974d18047c96f8b1195941a0bb6956bc",
+	}},
+	// Complete execution targeting branch revision, retained for owned upgrades.
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project-configure": "ec1a0556f930eb05cd52d1902c0d8cb5a30c1890b34e6f375015879f0a949dea",
+		"axiom-project-list":      "46960de54c14f904a915ccd7d3ab74284f70a37516a4d87648ec323d96d62045",
+		"axiom-project-show":      "4c7ef9c089696d35e455ffe964d37c58e71c34bac1f28d0c464dc5d5989cbbf2",
+		"axiom-project":           "0ce8ca0f82a468286b6937e5bd3a7ba2972e016722c0d6842eb7568ef0cba022",
+		"axiom-work-item-create":  "c64fb39d06fa59876f0f0cdc487bbcfac91fb7748c77d3e38fa59fb455dab2c0",
+		"axiom-work-item-run":     "862bad903caec3048ea82e8096d48323ca98106464319605ee921b83b572bfbf",
+		"axiom-work-item-status":  "d7316123e5ec5aec11fdc5f1a6c12da0974d18047c96f8b1195941a0bb6956bc",
+		"axiom-work-item":         "0c657d63a6bbd31956b3fa85113a3da7dc50ef633b66d16696621b29e7d36374",
+	}},
+	// Complete resource lifecycle branch revision, retained for owned upgrades.
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project-configure": "ec1a0556f930eb05cd52d1902c0d8cb5a30c1890b34e6f375015879f0a949dea",
+		"axiom-project-list":      "46960de54c14f904a915ccd7d3ab74284f70a37516a4d87648ec323d96d62045",
+		"axiom-project-show":      "4c7ef9c089696d35e455ffe964d37c58e71c34bac1f28d0c464dc5d5989cbbf2",
+		"axiom-project":           "5c9b14767e39800e030dedddd115a0281dafc01161e8914ff53eaeb53d0ee3f1",
+		"axiom-work-item-create":  "c64fb39d06fa59876f0f0cdc487bbcfac91fb7748c77d3e38fa59fb455dab2c0",
+		"axiom-work-item-run":     "2afb4b64b4bda2042a3ab1dbad64d052e21f7535c7f110cf0254ce3e0f9f15a2",
+		"axiom-work-item-status":  "a370f1b6c48c822b0003679264bee581484cfd4b8a7fd94263e93b280937e223",
+		"axiom-work-item":         "5c471c81c8e2cf5103ab551f07de8238616937fe9d9f6e00472792a82c2ee878",
 	}},
 }
 

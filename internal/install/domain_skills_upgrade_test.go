@@ -52,7 +52,7 @@ func installSixSkillRelease(t *testing.T) (installation, string) {
 	previous := &bundle{version: "0.6.0", binary: []byte("binary 0.6.0\n"), skills: map[string][]byte{}}
 	for _, name := range sixReleaseSkills {
 		previous.skills[name] = self.skills[name]
-		if name == changedCompatibilitySkill {
+		if slices.Contains(changedCompatibilitySkills, name) {
 			previous.skills[name] = v060Skill(t, name)
 		}
 	}
@@ -72,9 +72,9 @@ func installSixSkillRelease(t *testing.T) (installation, string) {
 	return installed, root
 }
 
-// changedCompatibilitySkill is the only six-release skill whose embedded text
-// differs from what v0.6.0 published.
-const changedCompatibilitySkill = "axiom-work-item-run"
+// changedCompatibilitySkills are the six-release skills whose embedded text
+// differs from what v0.6.0 published (#140 changed run; #230 changed status).
+var changedCompatibilitySkills = []string{"axiom-work-item-run", "axiom-work-item-status"}
 
 func v060Skill(t *testing.T, name string) []byte {
 	t.Helper()
@@ -95,12 +95,12 @@ func TestUpgradeFromSixSkillReleaseAddsOnlyDomainSkills(t *testing.T) {
 	kinds := []string{}
 	for _, effect := range preview.Effects {
 		kinds = append(kinds, strings.TrimSuffix(effect.Kind+":"+effect.Name, ":"))
-		replacesChanged := effect.Name == changedCompatibilitySkill && effect.Expected == digest(v060Skill(t, changedCompatibilitySkill))
+		replacesChanged := slices.Contains(changedCompatibilitySkills, effect.Name) && effect.Expected == digest(v060Skill(t, effect.Name))
 		if effect.Kind == "skill" && !replacesChanged && (!slices.Contains(domainSkillNames, effect.Name) || effect.Expected != absentRevision) {
 			t.Fatalf("upgrade touches compatibility skill or replaces content: %+v", effect)
 		}
 	}
-	if want := []string{"binary", "receipt", "skill:axiom-work-item-run", "skill:axiom-project", "skill:axiom-work-item", "skill_receipt"}; !slices.Equal(kinds, want) {
+	if want := []string{"binary", "receipt", "skill:axiom-work-item-run", "skill:axiom-work-item-status", "skill:axiom-project", "skill:axiom-work-item", "skill_receipt"}; !slices.Equal(kinds, want) {
 		t.Fatalf("effects=%v want %v", kinds, want)
 	}
 	if last := preview.Effects[len(preview.Effects)-1]; last.Expected != digest(publishedCodexReceipt(t, "v0.6.0")) {

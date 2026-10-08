@@ -76,14 +76,14 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 // Do not derive expectations from skillOperations: an extra mapping is a regression.
 func TestSkillDiscoveryExactCommands(t *testing.T) {
 	expected := map[string][]string{
-		"axiom-project":           {"axiom project configure", "axiom project list", "axiom project show"},
+		"axiom-project":           {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
 		"axiom-project-configure": {"axiom project configure"},
 		"axiom-project-list":      {"axiom project list"},
 		"axiom-project-show":      {"axiom project show"},
-		"axiom-work-item":         {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence"},
+		"axiom-work-item":         {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
 		"axiom-work-item-create":  {"axiom work-item create", "axiom work-item select"},
 		"axiom-work-item-run":     {"axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow status", "axiom workflow evidence", "axiom workflow reconcile"},
-		"axiom-work-item-status":  {"axiom workflow status", "axiom workflow evidence"},
+		"axiom-work-item-status":  {"axiom workflow status", "axiom workflow evidence", "axiom workflow list"},
 	}
 	manifest, err := codexruntime.CurrentManifest()
 	if err != nil {
@@ -140,12 +140,48 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 		t.Fatalf("reviewed preview requirement=%+v", reviewed)
 	}
 	list := discoverForTest(t, "axiom-project-list").Commands[0]
-	if list.Arguments == nil || len(list.Arguments) != 0 {
-		t.Fatalf("zero inputs=%+v", list)
+	if archived := findArgument(t, list, "--include-archived"); len(list.Arguments) != 1 || archived.Required || archived.RequiredWhen != "" {
+		t.Fatalf("list inputs=%+v", list)
 	}
 }
 
 func parseSkillFlags(operation action, args []string) (requestInput, bool) {
+	// The #230 lifecycle commands have their own parsers; argument metadata
+	// must be accepted by exactly those parsers.
+	switch {
+	case operation == projectArchiveAction || operation == projectReactivateAction:
+		_, issue := projectLifecycleFlags(operation, args)
+		return requestInput{}, issue != "invalid_input"
+	case operation == listAction || operation == validateAction:
+		var slug string
+		var lifecycle ProjectLifecycleInput
+		var list ProjectListInput
+		set := projectListFlagSet(&list)
+		if operation == validateAction {
+			set = projectValidateFlagSet(&slug, &lifecycle)
+		}
+		return requestInput{}, !invalidFlagSyntax(set, args, nil) && set.Parse(args) == nil && set.NArg() == 0
+	case operation == workflowListAction:
+		_, ok := executionListFlags(withSelectors(args, "--project", "alpha"))
+		return requestInput{}, ok
+	case integrationOperation(operation):
+		args = withSelectors(args, "--project", "alpha")
+		if operation != integrationListAction && operation != integrationValidateAction {
+			args = withSelectors(args, "--integration", "work-items")
+		}
+		// The parser checks the digest shape; the advertised form uses a
+		// placeholder value.
+		for index := range args {
+			if args[index] == "example" && index > 0 && args[index-1] == "--preview-digest" {
+				args[index] = strings.Repeat("a", 64)
+			}
+			if args[index] == "--preview-digest=example" {
+				args[index] = "--preview-digest=" + strings.Repeat("a", 64)
+			}
+		}
+		_, ok := integrationFlags(operation, args)
+		return requestInput{}, ok
+	}
 	if knownWorkItem(operation) {
 		return workItemFlags(operation, args)
 	}
@@ -324,3 +360,12 @@ func TestSkillDiscoveryHumanAndWriterFailure(t *testing.T) {
 type shortInspectionWriter struct{}
 
 func (shortInspectionWriter) Write(p []byte) (int, error) { return len(p) - 1, nil }
+
+// withSelectors adds a required selector only when the form under test does
+// not already supply it, so duplicate detection stays observable.
+func withSelectors(args []string, name, value string) []string {
+	if flagSupplied(args, name) {
+		return append([]string{}, args...)
+	}
+	return append([]string{name, value}, args...)
+}

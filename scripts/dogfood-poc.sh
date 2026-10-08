@@ -62,6 +62,25 @@ assert_canonical() {
   fi
 }
 
+# Parse repository fields structurally, including paths requiring JSON escaping.
+assert_project_repository() {
+  python3 - "$1" "$project_id" "$configured_repository" "$2" <<'PYJSON'
+import json
+import sys
+
+output, project_id, path, availability = sys.argv[1:]
+with open(output, encoding="utf-8") as source:
+    document = json.load(source)
+assert document["status"] == "success"
+assert document["project"]["id"] == project_id
+assert document["project"]["repositories"] == [
+    {"key": "main", "path": path, "availability": availability}
+]
+assert "project:" + project_id in document["references"]
+assert "repository:main" in document["references"]
+PYJSON
+}
+
 run_canonical_failure() {
   local label=$1
   local status=$2
@@ -164,18 +183,17 @@ axiom --json project configure --project-id "$project_id" --slug dogfood-configu
 assert_canonical "$temporary/project-configure.json" success "Project setup published"
 axiom --json project show --selector dogfood-configured >"$temporary/project-show.json"
 assert_canonical "$temporary/project-show.json" success "Project resolved"
-grep -Fq '"references":["project:' "$temporary/project-show.json"
-grep -Fq '"repository:main"' "$temporary/project-show.json"
-grep -Fq '"project":{"id":"' "$temporary/project-show.json"
-grep -Fq '"repositories":[{"key":"main","path":"'"$configured_repository"'"}]' "$temporary/project-show.json"
+assert_project_repository "$temporary/project-show.json" available
 run_canonical_failure project-not-found validation_failure "Project was not found" \
   "Provide an existing Project UUID or slug" project show --selector missing-project
 mv -- "$configured_repository" "$temporary/moved-repository"
-run_canonical_failure repository-unavailable retryable_failure \
-  "Project repository is unavailable" \
-  "Restore the configured repository binding and retry inspection" \
-  project show --selector dogfood-configured
+axiom --json project show --selector dogfood-configured >"$temporary/project-unavailable.json"
+assert_canonical "$temporary/project-unavailable.json" success "Project resolved"
+assert_project_repository "$temporary/project-unavailable.json" unavailable
 mv -- "$temporary/moved-repository" "$configured_repository"
+axiom --json project show --selector dogfood-configured >"$temporary/project-restored.json"
+assert_canonical "$temporary/project-restored.json" success "Project resolved"
+assert_project_repository "$temporary/project-restored.json" available
 
 # The delivery Project carries an operator-authored portable Runtime/Profile
 # policy: both concrete Runtimes are allowed and nothing is a default. Install

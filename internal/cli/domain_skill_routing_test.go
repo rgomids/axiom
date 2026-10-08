@@ -266,12 +266,14 @@ func TestSemanticResolutionIsBoundedAndNeverMutatesOnAmbiguity(t *testing.T) {
 	rules := map[string][]string{
 		"axiom-project": {
 			"resolve intent only among `configure`, `list`,\nand `show`",
-			"Never turn ambiguous intent into a mutating `configure`\noperation.",
+			"Never turn ambiguous intent into a mutating `configure`\noperation, archive, reactivation, detach, disable, enable, or remove.",
+			"`archive`, `reactivate`, Repository detach, and the `integration`\nmodes `disable`, `enable`, and `remove` run only when the user names that\noperation explicitly.",
 			"it never grants\nauthority, supplies `--authorize-local`, invents selectors, or replaces Lingo\nvalidation.",
 		},
 		"axiom-work-item": {
 			"resolve intent only among `create`, `run`, and\n`status`",
 			"Never silently resolve ambiguous intent to `create`, `run`, or\nanother mutating path.",
+			"`update`, `comment`, `close`, and\n`reopen` run only when the user names that operation explicitly; ambiguous intent\nnever selects them.",
 			"never grants external/local authority, supplies `--authorize-external` or\n`--authorize-local`, invents selectors, or changes workflow state.",
 		},
 	}
@@ -328,20 +330,80 @@ func (p *authorityProbe) WorkflowResume(_ context.Context, input WorkflowInput) 
 func (p *authorityProbe) WorkflowReconcile(_ context.Context, input WorkflowInput) Result {
 	return p.record("workflow reconcile", input.AuthorizeLocal, input.AuthorizeExternal)
 }
+func (p *authorityProbe) WorkItemComment(_ context.Context, input WorkItemInput) Result {
+	return p.record("work-item comment", input.AuthorizeLocal, input.AuthorizeExternal)
+}
+
+// Issue #230 lifecycle entrypoints (optional services).
+func (p *authorityProbe) ProjectArchive(_ context.Context, input ProjectLifecycleInput) Result {
+	return p.record("project archive", input.AuthorizeLocal, false)
+}
+func (p *authorityProbe) ProjectReactivate(_ context.Context, input ProjectLifecycleInput) Result {
+	return p.record("project reactivate", input.AuthorizeLocal, false)
+}
+func (p *authorityProbe) ProjectListFiltered(context.Context, ProjectListInput) Result {
+	return p.record("project list", false, false)
+}
+func (p *authorityProbe) ProjectValidateInstalled(context.Context, ProjectLifecycleInput) Result {
+	return p.record("project validate", false, false)
+}
+func (p *authorityProbe) IntegrationList(context.Context, IntegrationInput) Result {
+	return p.record("integration list", false, false)
+}
+func (p *authorityProbe) IntegrationShow(context.Context, IntegrationInput) Result {
+	return p.record("integration show", false, false)
+}
+func (p *authorityProbe) IntegrationValidate(context.Context, IntegrationInput) Result {
+	return p.record("integration validate", false, false)
+}
+func (p *authorityProbe) IntegrationDisable(_ context.Context, input IntegrationInput) Result {
+	return p.record("integration disable", input.AuthorizeLocal, false)
+}
+func (p *authorityProbe) IntegrationEnable(_ context.Context, input IntegrationInput) Result {
+	return p.record("integration enable", input.AuthorizeLocal, false)
+}
+func (p *authorityProbe) IntegrationRemove(_ context.Context, input IntegrationInput) Result {
+	return p.record("integration remove", input.AuthorizeLocal, false)
+}
+func (p *authorityProbe) WorkItemList(context.Context, WorkItemInput) Result {
+	return p.record("work-item list", false, false)
+}
+func (p *authorityProbe) WorkItemUpdate(_ context.Context, input WorkItemInput) Result {
+	return p.record("work-item update", input.AuthorizeLocal, input.AuthorizeExternal)
+}
+func (p *authorityProbe) WorkItemClose(_ context.Context, input WorkItemInput) Result {
+	return p.record("work-item close", input.AuthorizeLocal, input.AuthorizeExternal)
+}
+func (p *authorityProbe) WorkItemReopen(_ context.Context, input WorkItemInput) Result {
+	return p.record("work-item reopen", input.AuthorizeLocal, input.AuthorizeExternal)
+}
 
 // mutatingRequests are the selector-complete requests a Runtime forms for
 // each mutating command after operation resolution, before any authority.
 var mutatingRequests = map[string][]string{
-	"configure/create":   {"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/work/main", "--work-item-provider", "github"},
-	"configure/edit":     {"project", "configure", "--project", "alpha", "--name", "Renamed"},
-	"work-item create":   {"work-item", "create", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Fix it"},
-	"work-item select":   {"work-item", "select", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-	"workflow start":     {"workflow", "start", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills", "--runtime", "claude"},
-	"workflow advance":   {"workflow", "advance", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3", "--gate", "specification", "--outcome", "pass", "--reference", "evidence:spec.md:abc"},
-	"workflow resume":    {"workflow", "resume", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3"},
-	"workflow fact":      {"workflow", "fact", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3", "--fact", "review_started", "--active", "--reference", "evidence:review.md:abc"},
-	"workflow reconcile": {"workflow", "reconcile", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3"},
+	"configure/create":    {"project", "configure", "--slug", "alpha", "--name", "Alpha", "--repository", "main=/work/main", "--work-item-provider", "github"},
+	"configure/edit":      {"project", "configure", "--project", "alpha", "--name", "Renamed"},
+	"work-item create":    {"work-item", "create", "--project", "alpha", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Fix it"},
+	"work-item select":    {"work-item", "select", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
+	"workflow start":      {"workflow", "start", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills", "--runtime", "claude"},
+	"workflow advance":    {"workflow", "advance", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3", "--gate", "specification", "--outcome", "pass", "--reference", "evidence:spec.md:abc"},
+	"workflow resume":     {"workflow", "resume", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3"},
+	"workflow fact":       {"workflow", "fact", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3", "--fact", "review_started", "--active", "--reference", "evidence:review.md:abc"},
+	"workflow reconcile":  {"workflow", "reconcile", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "3"},
+	"project archive":     {"project", "archive", "--project", "alpha"},
+	"project reactivate":  {"project", "reactivate", "--project", "alpha"},
+	"integration disable": {"integration", "disable", "--project", "alpha", "--integration", "work-items"},
+	"integration enable":  {"integration", "enable", "--project", "alpha", "--integration", "work-items"},
+	"integration remove":  {"integration", "remove", "--project", "alpha", "--integration", "work-items"},
+	"work-item update":    {"work-item", "update", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--title", "Renamed"},
+	"work-item comment":   {"work-item", "comment", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--message", "Note"},
+	"work-item close":     {"work-item", "close", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
+	"work-item reopen":    {"work-item", "reopen", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
 }
+
+// authorityValues are explicit, well-formed values for authority inputs that
+// take a value.
+var authorityValues = map[string]string{"--preview-digest": strings.Repeat("a", 64), "--project-id": "123e4567-e89b-42d3-a456-426614174000"}
 
 func routedRequest(t *testing.T, operation string, mode skillOperationMode, command string) []string {
 	t.Helper()
@@ -379,8 +441,8 @@ func TestRoutingAloneNeverGrantsAuthority(t *testing.T) {
 					authorized := append([]string{}, args...)
 					for _, input := range mode.AuthorityInputs {
 						authorized = append(authorized, input)
-						if input == "--preview-digest" {
-							authorized = append(authorized, "reviewed-digest")
+						if value, ok := authorityValues[input]; ok {
+							authorized = append(authorized, value)
 						}
 					}
 					probe = &authorityProbe{}
@@ -395,21 +457,21 @@ func TestRoutingAloneNeverGrantsAuthority(t *testing.T) {
 	}
 }
 
-// CR-002: Project edit is preview-only. Every input the edit mode advertises
-// as rejected fails before the application, with the documented category.
-func TestProjectEditModeRejectsEveryAdvertisedPublicationInput(t *testing.T) {
+// CR-002 as amended by #230: Project edit publication requires the complete
+// replay tuple. The full tuple reaches the application; each advertised
+// replay input supplied alone is a partial tuple and fails before it.
+func TestProjectEditPublicationRequiresTheCompleteReplayTuple(t *testing.T) {
 	edit := modeByName(t, discoverForTest(t, "axiom-project"), "configure", "edit")
 	create := modeByName(t, discoverForTest(t, "axiom-project"), "configure", "create")
-	if edit.Effect != effectPreviewOnly || len(edit.AuthorityInputs) != 0 || !reflect.DeepEqual(edit.RejectedInputs, []string{"--project-id", "--preview-digest", "--authorize-local"}) {
+	if edit.Effect != effectLocalMutation || !reflect.DeepEqual(edit.AuthorityInputs, []string{"--project-id", "--preview-digest", "--authorize-local"}) || len(edit.RejectedInputs) != 0 {
 		t.Fatalf("edit mode=%+v", edit)
 	}
 	if create.Effect != effectLocalMutation || !reflect.DeepEqual(create.AuthorityInputs, []string{"--preview-digest", "--authorize-local"}) || len(create.RejectedInputs) != 0 {
 		t.Fatalf("create mode=%+v", create)
 	}
-	values := map[string]string{"--project-id": "123e4567-e89b-42d3-a456-426614174000", "--preview-digest": "edit-digest"}
-	for _, input := range edit.RejectedInputs {
+	for _, input := range edit.AuthorityInputs {
 		args := []string{"project", "configure", "--project", "sample", "--name", "Renamed", input}
-		if value, ok := values[input]; ok {
+		if value, ok := authorityValues[input]; ok {
 			args = append(args, value)
 		}
 		service := newEditRecordingService(t)
@@ -419,20 +481,24 @@ func TestProjectEditModeRejectsEveryAdvertisedPublicationInput(t *testing.T) {
 		if err := json.Unmarshal(output.Bytes(), &event); err != nil {
 			t.Fatal(err)
 		}
-		if code != ExitFailure || len(service.inputs) != 0 || event.Status != completion.ValidationFailure || event.Result != "Project edit publication is not available" {
+		if code != ExitFailure || len(service.inputs) != 0 || event.Status != completion.ValidationFailure || event.Result != "Project edit authority is incomplete" {
 			t.Fatalf("%s: code=%d inputs=%d output=%s", input, code, len(service.inputs), output.String())
 		}
 	}
-	source := skillSource(t, "axiom-project")
-	for _, required := range []string{"Project\nedit is preview-only", "`unsupported_edit_authority`", "never report the change as applied"} {
-		if !strings.Contains(source, required) {
-			t.Fatalf("axiom-project edit contract missing %q", required)
-		}
+	full := []string{"project", "configure", "--project", "sample", "--name", "Renamed", "--project-id", authorityValues["--project-id"], "--preview-digest", authorityValues["--preview-digest"], "--authorize-local"}
+	service := newEditRecordingService(t)
+	var output bytes.Buffer
+	Run(context.Background(), full, service, completionProvenance(t), &output)
+	if len(service.inputs) != 1 || !service.inputs[0].AuthorizeLocal || service.inputs[0].ProjectID != authorityValues["--project-id"] {
+		t.Fatalf("complete tuple did not reach the application: %s", output.String())
 	}
+	source := skillSource(t, "axiom-project")
 	_, editSection, _ := strings.Cut(source, "### Edit an existing Project")
 	editSection, _, _ = strings.Cut(editSection, "\nUse guided")
-	if strings.Contains(editSection, "Publish only after") || strings.Contains(editSection, "repeating the same inputs") {
-		t.Fatalf("edit section promises publication: %s", editSection)
+	for _, required := range []string{"Publish only after the user approves that exact `edit` preview", "`--project-id`, `--preview-digest`,\nand `--authorize-local`", "never\ndeletes the working copy or a remote Repository"} {
+		if !strings.Contains(editSection, required) {
+			t.Fatalf("axiom-project edit contract missing %q", required)
+		}
 	}
 }
 
@@ -442,8 +508,11 @@ func TestUnsupportedDomainOperationsFailSafely(t *testing.T) {
 	for _, args := range [][]string{
 		{"project", "delete", "--selector", "alpha"},
 		{"project", "remove", "--selector", "alpha"},
-		{"work-item", "close", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
 		{"work-item", "delete", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
+		{"workflow", "cancel", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+		{"integration", "revoke", "--project", "alpha", "--integration", "work-items"},
+		{"integration", "delete", "--project", "alpha", "--integration", "work-items"},
+		{"repository", "detach", "--project", "alpha", "--repository", "main"},
 	} {
 		probe := &authorityProbe{}
 		var output bytes.Buffer
@@ -453,7 +522,9 @@ func TestUnsupportedDomainOperationsFailSafely(t *testing.T) {
 	}
 	for _, name := range canonicalDomainSkills {
 		for _, operation := range discoverForTest(t, name).Operations {
-			if slices.Contains([]string{"update", "remove", "delete", "close"}, operation.Name) {
+			// #230 adds resource-specific operations; generic deletion,
+			// cancellation and credential cleanup stay unsupported.
+			if slices.Contains([]string{"delete", "cancel", "uninstall", "revoke", "logout"}, operation.Name) {
 				t.Fatalf("%s exposes unsupported operation %s", name, operation.Name)
 			}
 		}

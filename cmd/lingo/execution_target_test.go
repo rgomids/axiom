@@ -406,3 +406,42 @@ func TestWorkflowStartRejectsTargetDriftDuringPolicyCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkflowStartRechecksAdmissionAfterPolicyCheck(t *testing.T) {
+	env := newWorkItemSourceEnvironment(t)
+	installLinkedTarget(t, env)
+	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
+	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	ctx := context.Background()
+	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
+	preview := service.WorkflowStart(ctx, input)
+	if preview.ExecutionTarget == nil || preview.PreviewDigest == "" {
+		t.Fatalf("preview = %+v", preview)
+	}
+	input.RuntimePreview = preview.PreviewDigest
+	var archived []byte
+	source := &targetDriftPolicySource{source: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: service.runtimeObservationSources()}}
+	source.drift = func() {
+		store, err := local.NewOperationalStore(env.state)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := projectapp.OperationalRequest{ProjectID: workItemSourceProjectID, Operation: projectapp.ArchiveProject}
+		preview := projectapp.ApplyOperational(ctx, store, request, "", false)
+		if preview.Preview == nil {
+			t.Fatalf("archive preview = %+v", preview)
+		}
+		if result := projectapp.ApplyOperational(ctx, store, request, preview.Preview.Digest, true); result.Status != projectapp.OperationalCommitted {
+			t.Fatalf("archive = %+v", result)
+		}
+		archived = snapshotTrees(t, env.root, env.state, env.elsewhere)
+	}
+	service.RuntimePolicySource = source
+	got := service.WorkflowStart(ctx, input)
+	if source.loads != 2 || got.Category != projectapp.AdmissionProjectArchived || got.Admission == nil || got.Workflow != nil {
+		t.Fatalf("archived Project reached execution: %+v, loads=%d", got, source.loads)
+	}
+	if !bytes.Equal(archived, snapshotTrees(t, env.root, env.state, env.elsewhere)) {
+		t.Fatal("denied start changed state")
+	}
+}

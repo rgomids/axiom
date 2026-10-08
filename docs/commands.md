@@ -54,8 +54,9 @@ works before `first-run`. It does not inspect repository maintainer skills.
 JSON preserves canonical completion fields and adds `skill.name`,
 `skill.operations[]` and `skill.commands[]`. Each operation has a `name`, its
 `commands`, and one or more `modes`: the distinct authority paths of that
-operation (for example Project `configure` `create` versus preview-only `edit`,
-or Work Item `run` `transition`, `fact` and `reconcile`). A mode states its
+operation (for example Project `configure` `create` versus `edit`, Project
+`integration` `list` versus `disable`, or Work Item `run` `transition`, `fact`
+and `reconcile`). A mode states its
 `commands`, optional explicit `selector`, `effect` (`read-only`,
 `preview-only`, `local-mutation` or `external-mutation`), `authority`,
 `authorityInputs`, `rejectedInputs`, `semanticResolution` (`allowed` for
@@ -96,6 +97,10 @@ go run ./cmd/lingo project reopen --slug sample
 go run ./cmd/lingo project install --source "$LINGO_PROJECTS_ROOT/sample"
 go run ./cmd/lingo project update --slug sample --name "Sample renamed"
 ```
+
+`project update` muda apenas Projects ainda não instalados nesta máquina. Para um
+Project instalado, ele recusa sem escrita (`explicit_edit_required`) porque deixaria o
+registro de instalação defasado; use `project configure --project <slug> --name`.
 
 Cada operação escreve resumo humano por padrão; prefixe o comando com `--json`
 para evento estruturado. `version`, `first-run`, `project configure`,
@@ -1113,14 +1118,14 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
-| `$axiom-project` | `configure` / `list` / `show` → the three Project rows below |
-| `$axiom-work-item` | `create` / `run` / `status` → the three Work Item rows below |
+| `$axiom-project` | `configure` / `list` / `show` → the three Project rows below; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
+| `$axiom-work-item` | `create` / `run` / `status` → the three Work Item rows below (`status` mode `list` → `workflow list`); `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 | `$axiom-project-configure` | `axiom --json project configure` |
 | `$axiom-project-list` | `axiom --json project list` |
 | `$axiom-project-show` | `axiom --json project show --selector ...` |
 | `$axiom-work-item-create` | `axiom --json work-item create\|select ...` |
 | `$axiom-work-item-run` | `axiom --json workflow start\|advance\|fact\|resume\|reconcile ...` |
-| `$axiom-work-item-status` | `axiom --json workflow status\|evidence ...` |
+| `$axiom-work-item-status` | `axiom --json workflow status\|evidence\|list ...` |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
 repository resolution, workflow ordering, and external-mutation authority.
@@ -1135,8 +1140,11 @@ axiom project list
 axiom --json project list
 ```
 
-JSON always contains a `projects` array with `id`, `slug`, and `name`; an empty
-installation returns `"projects": []`. When portable display metadata is
+JSON always contains a `projects` array with `id`, `slug`, `name`, and the
+machine-local `status` (`active`, `archived`, `invalid`, `recovery_required`); an
+empty installation returns `"projects": []`. Archived Projects are hidden unless
+`--include-archived` is given; an unreadable operational record is shown as
+`invalid`, never as `active`. When portable display metadata is
 temporarily unavailable, the configured Project remains present with an empty
 `name`. The concise listing never includes source or repository paths.
 
@@ -1149,7 +1157,9 @@ axiom project show --selector my-project
 
 Resolution reads protected machine-local state. It never searches the caller's
 current directory and fails explicitly for ambiguous Projects or unavailable
-portable/repository locations.
+portable/repository locations. `project show` reports each Repository's
+`availability` instead of failing on one broken binding, plus the Project's
+machine-local state; `project resolve` stays strict.
 
 ## Configure a Project
 
@@ -1230,7 +1240,12 @@ rejected with `--project` (post-create lifecycle is #230).
 
 ```bash
 axiom --json project validate --slug my-project
+axiom --json project validate --project <uuid-or-slug>
 ```
+
+`--project` validates an installed Project from the portable source its
+installation record names (never `<projects-root>/<slug>`) and adds its
+machine-local state.
 
 Structural validation is unchanged (`Project is valid` / `Project state is
 invalid`). A valid Project also returns a read-only `readiness` report:
@@ -1244,6 +1259,119 @@ fail before any effect with the same blocker code as `category` plus a
 `preflight` payload; `workflow start` enforces the shared and Work Item blockers
 the same way and its Runtime requirement through the reviewed Runtime preview.
 Readiness never grants authority.
+
+## Maintain resource lifecycle (Issue #230)
+
+Every user-managed MVP resource has its own lifecycle; there is no generic CRUD
+and no delete. The frozen
+[lifecycle matrix](specifications/004-mvp-v1-baseline/issue-230-resource-lifecycle-matrix.md)
+and [Evidence](specifications/004-mvp-v1-baseline/evidence-230.md) are the
+contract. Each mutation previews first; repeat the same command with the exact
+returned digest and the explicit authority flag to apply it. An equivalent
+request is a no-op that needs no authority.
+
+### Project edit and Repository associations
+
+```bash
+axiom --json project configure --project my-project --name "New name" \
+  --repository docs=/absolute/docs --remove-repository legacy
+# after review:
+axiom --json project configure --project my-project --name "New name" \
+  --repository docs=/absolute/docs --remove-repository legacy \
+  --project-id <id> --preview-digest <digest> --authorize-local
+```
+
+The preview is the complete resulting configuration; omitted values are
+preserved. `--repository` attaches or updates an association and
+`--remove-repository` detaches one: detach removes only the Axiom association and
+its local binding, never the working copy or a remote, and the preview names
+the preserved local Work Item/Execution history (`preserve_repository_history`).
+The replay needs all three of `--project-id`, `--preview-digest` and
+`--authorize-local` (`incomplete_edit_authority` otherwise); a stale preview or a
+concurrent change is denied with zero writes. Publication writes the portable
+manifest, then the installation record, behind owned recovery state: if it stops
+in between, Project reads fail with `recovery_required` until `axiom recovery
+inspect` / `apply` finalizes the confirmed portable change (it never rolls it
+back). Edit publication is limited to Projects whose recorded source is the Lingo
+projects root.
+
+### Project archive and reactivate
+
+```bash
+axiom --json project archive --project my-project
+axiom --json project archive --project my-project --preview-digest <digest> --authorize-local
+axiom --json project reactivate --project my-project --preview-digest <digest> --authorize-local
+```
+
+Archive is machine-local and reversible. It is stored in
+`<state-root>/projects/<project-id>/operational.json` (format 1; a missing record
+means active) and never changes `axiom.yaml`, another machine, Repositories,
+Work Items, Executions, Evidence or Providers. While archived, inspection and
+administration work (`project show|validate|configure --project`, `integration
+*`, `work-item list|show`, `workflow list|status|evidence`); operational
+evolution fails with `project_archived` before readiness or any effect,
+previews included: `work-item create|select|update|comment|close|reopen|complete`
+and `workflow start|advance|fact|resume|reconcile`.
+
+### Integrations
+
+```bash
+axiom --json integration list --project my-project
+axiom --json integration show --project my-project --integration work-items
+axiom --json integration validate --project my-project
+axiom --json integration disable --project my-project --integration work-items
+axiom --json integration enable --project my-project --integration work-items
+axiom --json integration remove --project my-project --integration work-items
+```
+
+`list`/`show`/`validate` read portable declarations and local eligibility only
+(no Provider call; credential references are named, never resolved).
+`disable`/`enable` change only whether this machine may use the Integration:
+every operation that would use it through a Provider or Transport fails with
+`integration_disabled`, while inspection and administration stay available.
+`remove` drops the portable declaration through the reviewed Project edit (same
+replay tuple); removing `work-items` also removes its paired Provider, and a
+removal that would leave a dangling reference fails. None of these revokes
+credentials, logs out, uninstalls MCP or Runtime configuration, or deletes
+Provider resources. A local disable entry for a key that is no longer declared is
+reported as `staleDisabled` and cleared only by `enable`. Updating the Work Item
+Provider remains `project configure --project <sel> --work-item-provider <id>`.
+
+### Work Items
+
+```bash
+axiom --json work-item list --project my-project [--repository main]
+axiom --json work-item update <selectors> --title "Clearer title" [--scope ...]
+axiom --json work-item comment <selectors> --message "Note"
+axiom --json work-item close <selectors>
+axiom --json work-item reopen <selectors>
+```
+
+`<selectors>` are `--project`, `--repository` and `--work-item
+github:<owner>/<repository>#<number>` (or `--number`). `list` shows Axiom-linked
+Work Items only, from local links. `update` changes only the title and the
+Axiom-authored sections; type and classification stay create-time. Every Provider
+mutation previews the current Issue first and needs the exact `--preview-digest`
+plus `--authorize-external`; closing a closed Issue or reopening an open one is a
+no-op when the local link agrees. A stale local link is repaired under the
+reviewed digest and authority without another Provider mutation. When the Issue
+changed state outside Axiom, `work-item select` can also refresh the local link
+under reviewed local authority. A comment is not
+idempotent: repeating an authorized comment posts it again. A confirmed Provider
+effect followed by a local failure is reported as `partial`; Axiom never claims
+rollback or repeats the mutation.
+`work-item delete` does not exist.
+
+### Executions
+
+```bash
+axiom --json workflow list --project my-project [--repository main]
+```
+
+`workflow list` discovers the Project's Executions without a known identity
+(read-only, deterministic order) and fails closed on damaged state. Sequential
+workflow Executions have no cancellation contract: `workflow cancel` is
+`invalid_command`, and history and Evidence are never edited or deleted.
 
 ## GitHub Work Items
 
@@ -1375,9 +1503,12 @@ resolved. Zero matches remain fail-closed without a time heuristic; one exact
 match is linked; multiple matches require operator review. Confirmed GitHub
 effect plus local failure is reported as canonical `partial` with the Issue
 reference. New local link filenames bind provider, resource, and external ID;
-existing v1 records remain readable through exact identity validation. Historical POC `comment` and
-`complete` commands remain compatibility surfaces only; they are not part of S3
-and must not be treated as workflow progress or human acceptance.
+existing v1 records remain readable through exact identity validation. `comment`
+and `complete` now follow the reviewed external-mutation contract of
+[Maintain resource lifecycle](#maintain-resource-lifecycle-issue-230): a single
+`--authorize-external` call returns `external_authority_denied` with the preview.
+`complete` is a compatibility spelling of `close`; neither is workflow progress or
+human acceptance.
 
 ## Execute the bounded workflow
 
