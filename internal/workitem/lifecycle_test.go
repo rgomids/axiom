@@ -267,6 +267,99 @@ func TestCloseAndReopenWhenAlreadyThereAreNoOpsWithoutMutation(t *testing.T) {
 	}
 }
 
+func TestCloseAndReopenRepairStaleLocalLinkWithoutProviderMutation(t *testing.T) {
+	for _, test := range []struct {
+		name, providerState, localState, category string
+		run                                       func(Service, string, bool) Result
+	}{
+		{"close", ClosedState, OpenState, "work_item_closed", func(s Service, digest string, authorized bool) Result {
+			return s.Close(context.Background(), lifecycleTarget(), "7", digest, authorized)
+		}},
+		{"reopen", OpenState, ClosedState, "work_item_reopened", func(s Service, digest string, authorized bool) Result {
+			return s.Reopen(context.Background(), lifecycleTarget(), "7", digest, authorized)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			provider, store := &fakeCapability{state: test.providerState}, newFakeStore()
+			seedLink(store, "main", "owner/repo", "7", test.localState)
+			service := testService(provider, store)
+			preview := test.run(service, "", false)
+			if preview.Category != "work_item_"+test.name+"_ready" || preview.Change == nil || !reflect.DeepEqual(preview.Change.Effects, []string{"update_local_work_item_link"}) || store.saves != 0 {
+				t.Fatalf("repair preview = %#v saves=%d", preview, store.saves)
+			}
+			if denied := test.run(service, "", true); denied.Category != "external_authority_denied" || store.saves != 0 {
+				t.Fatalf("unreviewed repair = %#v saves=%d", denied, store.saves)
+			}
+			if denied := test.run(service, preview.Change.Digest, false); denied.Category != "external_authority_denied" || store.saves != 0 {
+				t.Fatalf("unauthorized repair = %#v saves=%d", denied, store.saves)
+			}
+			if denied := test.run(service, "stale", true); denied.Category != "external_authority_denied" || store.saves != 0 {
+				t.Fatalf("stale repair = %#v saves=%d", denied, store.saves)
+			}
+			repaired := test.run(service, preview.Change.Digest, true)
+			if repaired.Status != completion.Success || repaired.Category != test.category || repaired.Link.State != test.providerState || store.links["github:owner/repo:7"].State != test.providerState || store.saves != 1 || len(provider.mutations) != 0 {
+				t.Fatalf("repair = %#v saves=%d mutations=%v", repaired, store.saves, provider.mutations)
+			}
+			if again := test.run(service, "", false); again.Status != completion.Success || len(again.Change.Effects) != 0 || store.saves != 1 {
+				t.Fatalf("converged = %#v saves=%d", again, store.saves)
+			}
+		})
+	}
+}
+
+func TestCloseAndReopenRepairLocalConflictDoesNotMutateProvider(t *testing.T) {
+	for _, test := range []struct {
+		name, providerState, localState string
+		run                             func(Service, string) Result
+	}{
+		{"close", ClosedState, OpenState, func(s Service, digest string) Result {
+			return s.Close(context.Background(), lifecycleTarget(), "7", digest, true)
+		}},
+		{"reopen", OpenState, ClosedState, func(s Service, digest string) Result {
+			return s.Reopen(context.Background(), lifecycleTarget(), "7", digest, true)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			provider, store := &fakeCapability{state: test.providerState}, newFakeStore()
+			seedLink(store, "main", "owner/repo", "7", test.localState)
+			service := testService(provider, store)
+			preview := test.run(service, "")
+			store.saveErr = ErrConflict
+			got := test.run(service, preview.Change.Digest)
+			if got.Status != completion.Partial || got.Category != "provider_confirmed_local_conflict" || got.Link.State != test.providerState || store.links["github:owner/repo:7"].State != test.localState || len(provider.mutations) != 0 {
+				t.Fatalf("repair conflict = %#v mutations=%v", got, provider.mutations)
+			}
+		})
+	}
+}
+
+func TestCloseAndReopenRepairRejectsChangedLocalRevision(t *testing.T) {
+	for _, test := range []struct {
+		name, providerState, localState string
+		run                             func(Service, string) Result
+	}{
+		{"close", ClosedState, OpenState, func(s Service, digest string) Result {
+			return s.Close(context.Background(), lifecycleTarget(), "7", digest, true)
+		}},
+		{"reopen", OpenState, ClosedState, func(s Service, digest string) Result {
+			return s.Reopen(context.Background(), lifecycleTarget(), "7", digest, true)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			provider, store := &fakeCapability{state: test.providerState}, newFakeStore()
+			seedLink(store, "main", "owner/repo", "7", test.localState)
+			service := testService(provider, store)
+			preview := test.run(service, "")
+			link := store.links["github:owner/repo:7"]
+			link.Revision = [32]byte{4}
+			store.links["github:owner/repo:7"] = link
+			if stale := test.run(service, preview.Change.Digest); stale.Category != "external_authority_denied" || store.saves != 0 || len(provider.mutations) != 0 {
+				t.Fatalf("stale repair = %#v saves=%d mutations=%v", stale, store.saves, provider.mutations)
+			}
+		})
+	}
+}
+
 func TestCloseAndReopenRequireReviewedAuthorityThenRecordLocalState(t *testing.T) {
 	provider, store := &fakeCapability{}, newFakeStore()
 	seedLink(store, "main", "owner/repo", "7", OpenState)
@@ -417,10 +510,39 @@ func TestProviderConfirmedCloseWithLocalFailureIsTruthfulPartial(t *testing.T) {
 		if got.Status != completion.Partial || got.Category != test.category || got.Link.State != ClosedState || got.Change == nil || !reflect.DeepEqual(provider.mutations, []string{"state:CLOSED"}) {
 			t.Fatalf("%s partial = %#v mutations=%v", test.name, got, provider.mutations)
 		}
-		// The Provider effect is never repeated: the next preview observes the
-		// closed Issue and is a no-op.
-		if again := service.Close(context.Background(), lifecycleTarget(), "7", preview.Change.Digest, true); again.Category != "work_item_already_closed" || len(provider.mutations) != 1 {
-			t.Fatalf("%s retry = %#v mutations=%v", test.name, again, provider.mutations)
+		// The Provider effect is never repeated. A fresh reviewed preview may
+		// repair the local link after the write fault is resolved.
+		repair := service.Close(context.Background(), lifecycleTarget(), "7", "", false)
+		if repair.Category != "work_item_close_ready" || repair.Change == nil || !reflect.DeepEqual(repair.Change.Effects, []string{"update_local_work_item_link"}) {
+			t.Fatalf("%s repair preview = %#v", test.name, repair)
 		}
+		if stale := service.Close(context.Background(), lifecycleTarget(), "7", preview.Change.Digest, true); stale.Category != "external_authority_denied" || len(provider.mutations) != 1 {
+			t.Fatalf("%s stale retry = %#v mutations=%v", test.name, stale, provider.mutations)
+		}
+		store.saveErr = nil
+		if again := service.Close(context.Background(), lifecycleTarget(), "7", repair.Change.Digest, true); again.Category != "work_item_closed" || store.links["github:owner/repo:7"].State != ClosedState || len(provider.mutations) != 1 {
+			t.Fatalf("%s repair = %#v mutations=%v", test.name, again, provider.mutations)
+		}
+	}
+}
+
+func TestProviderConfirmedReopenWithLocalFailureCanBeRepaired(t *testing.T) {
+	provider, store := &fakeCapability{state: ClosedState}, newFakeStore()
+	seedLink(store, "main", "owner/repo", "7", ClosedState)
+	service := testService(provider, store)
+	preview := service.Reopen(context.Background(), lifecycleTarget(), "7", "", false)
+	store.saveErr = errors.New("controlled write failure")
+	partial := service.Reopen(context.Background(), lifecycleTarget(), "7", preview.Change.Digest, true)
+	if partial.Status != completion.Partial || partial.Category != "provider_confirmed_local_failed" || partial.Link.State != OpenState || store.links["github:owner/repo:7"].State != ClosedState || !reflect.DeepEqual(provider.mutations, []string{"state:OPEN"}) {
+		t.Fatalf("reopen partial = %#v mutations=%v", partial, provider.mutations)
+	}
+	repair := service.Reopen(context.Background(), lifecycleTarget(), "7", "", false)
+	if repair.Category != "work_item_reopen_ready" || repair.Change == nil || !reflect.DeepEqual(repair.Change.Effects, []string{"update_local_work_item_link"}) {
+		t.Fatalf("reopen repair preview = %#v", repair)
+	}
+	store.saveErr = nil
+	reopened := service.Reopen(context.Background(), lifecycleTarget(), "7", repair.Change.Digest, true)
+	if reopened.Status != completion.Success || reopened.Category != "work_item_reopened" || store.links["github:owner/repo:7"].State != OpenState || !reflect.DeepEqual(provider.mutations, []string{"state:OPEN"}) {
+		t.Fatalf("reopen repair = %#v mutations=%v", reopened, provider.mutations)
 	}
 }
