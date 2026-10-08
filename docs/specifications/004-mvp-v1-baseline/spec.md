@@ -126,6 +126,45 @@ build provenance. A mapping therefore needs its own product/architecture
 decision; Issue #175 tracks it. Until then historical POC workflow truth stays
 inert, consistent with FR-026.
 
+## Issue #230 resource lifecycle amendment — 2026-10-07
+
+Issue [#230](https://github.com/rgomids/axiom/issues/230) amends this
+Specification with resource-specific lifecycle coverage for every MVP resource
+the user manages directly. The approved sources are the
+[Specification proposal](https://github.com/rgomids/axiom/issues/230#issuecomment-6042966439)
+(FR-068–FR-084, AC-50–AC-61, journeys J11–J16), the resolved
+[Clarification](https://github.com/rgomids/axiom/issues/230#issuecomment-6043928322),
+the [Plan](https://github.com/rgomids/axiom/issues/230#issuecomment-6043970620),
+the [Tasks](https://github.com/rgomids/axiom/issues/230#issuecomment-6044007476)
+and the frozen [lifecycle matrix](issue-230-resource-lifecycle-matrix.md)
+(I230-T01). Implementation of I230-T02–I230-T08 was authorized by the
+maintainer on 2026-10-07; [Evidence](evidence-230.md) records the result.
+
+Human decisions recorded on 2026-10-07:
+
+- **C230-01 — Project archive is machine-local.** The Project terminal semantic
+  is `archive`/`reactivate` (`active ⇄ archived`), stored only in this
+  machine's Project operational state. It never changes `axiom.yaml`, another
+  installation, Repositories, Work Items, Executions, Evidence or Providers.
+  `project list` hides archived Projects unless `--include-archived`. Archive
+  blocks operational evolution, not inspection or administrative maintenance.
+  Project delete stays outside #230.
+- **C230-02 — Integration has separate local and portable semantics.**
+  `disable`/`enable` control whether this machine may use a declared
+  Integration; `remove` drops the declaration from portable intent after
+  resolving dependent references explicitly. Neither revokes credentials,
+  logs out of a Provider, uninstalls MCP/Runtime configuration or deletes
+  Provider resources.
+- **Ownership:** archive and disable state belong to machine-local Project
+  operational state, a versioned record beside the installation record, which
+  is not extended.
+
+New persisted state: `<state-root>/projects/<project-id>/operational.json`
+format 1 is a new machine-local record (FR-026). A missing record means an
+active Project with no locally disabled Integration. It is supported and
+writer-tested as an additive v1 kind; the first stable release shipping it must
+declare it in release acceptance and freeze it into the stable corpus.
+
 ## Status and authority
 
 **Approved — human approval recorded on 2026-09-20.**
@@ -617,6 +656,54 @@ Provider projection, output/provenance, representative failure/recovery, support
 upgrade, Evidence, and documentation. Automated success prepares but never makes
 the final human acceptance decision.
 
+### J11 — Maintain a Project without internal-state editing
+
+The developer can discover a Project, inspect its current portable intent and
+applicable local state, validate it, apply a bounded update and review the exact
+resulting effects. Unspecified values remain unchanged. Conflicting or stale
+state fails before overwrite. Project retirement is the machine-local archive of
+C230-01: the user sees its exact effect before authorization, and it never
+deletes associated Repositories, Provider resources, credentials, Evidence or
+unrelated machine-local content.
+
+### J12 — Maintain Repository associations safely
+
+The developer can inspect a Project's Repository associations, attach another
+Repository, update supported association/local-binding data and detach an
+association. Detach removes the Axiom association only and never deletes the
+working copy, remote Repository or Provider resource.
+
+### J13 — Maintain a Work Item through domain semantics
+
+The developer can discover the supported Work Item, inspect it, update supported
+user-maintained fields, comment, and close/reopen it. The GitHub path uses
+GitHub's lifecycle semantics and never emulates a generic delete.
+
+### J14 — Inspect and control an Execution
+
+The developer can discover Executions without already knowing an opaque
+identifier, inspect status, result and Evidence references, and resume only when
+the current Execution state and workflow contract permit it. Sequential workflow
+Executions have no cancellation contract; cancellation is unsupported, never
+emulated. Execution history and canonical Evidence are not editable or
+deletable state.
+
+### J15 — Maintain applicable Integration configuration
+
+The developer can inspect and validate Integration configuration, update the
+supported declaration, disable or enable it on this machine, and remove its
+portable declaration, following C230-02. Portable configuration stores logical
+intent and references; machine-specific locations, observations and credential
+resolution remain local, and secrets never become portable values.
+
+### J16 — CLI/Runtime convergence
+
+Every lifecycle use case exposed through a canonical Runtime domain skill
+resolves to the same Lingo/application use case and canonical result semantics
+as the direct CLI path. An explicit operation dispatches deterministically.
+Semantic Runtime intent resolution may only select a declared supported
+operation and never grants authority.
+
 ## Functional requirements
 
 ### Project setup
@@ -1067,6 +1154,79 @@ Plan/release declaration before distribution.
   Integration/Reconciliation and structured Evidence rather than treating the
   Runtimes as unrelated direct-prompt development surfaces.
 
+### Resource lifecycle (Issue #230)
+
+- **FR-068 Lifecycle inventory:** a versioned lifecycle matrix MUST enumerate all
+  MVP user-managed resources, their supported operations, ownership boundary,
+  discovery selector, mutation class, terminal semantic and unsupported
+  operations.
+- **FR-069 Resource-specific lifecycle:** lifecycle operations MUST follow the
+  real domain/Provider semantic. Axiom MUST NOT manufacture generic
+  create/read/update/delete behavior where a resource is naturally closed,
+  reopened, detached, disabled, archived, cancelled or immutable.
+- **FR-070 Discovery before identity:** every user-managed resource that requires
+  an identifier for maintenance MUST provide a supported list/show/discovery
+  path sufficient to obtain that identifier without internal-state inspection.
+- **FR-071 Safe update semantics:** update/edit operations MUST preserve every
+  unspecified field/state value. Replacement semantics MUST be explicit. Partial
+  input MUST NOT silently clear existing configuration.
+- **FR-072 No-op and conflict behavior:** an equivalent update SHOULD produce a
+  deterministic no-op result. Stale revision, conflicting identity, incompatible
+  state or ambiguous target MUST fail before overwrite or external mutation.
+- **FR-073 Reviewed effects and authority:** every local destructive, external or
+  otherwise sensitive mutation MUST expose the intended effects and require
+  authority covering those exact effects. Read-only discovery does not grant
+  later mutation authority.
+- **FR-074 Terminal semantics:** remove/archive/close/reopen/detach/disable/cancel
+  behavior MUST be explicitly defined per resource. Unsupported terminal
+  operations MUST return a clear unsupported/validation result and MUST NOT be
+  emulated through lower-level Provider or filesystem actions.
+- **FR-075 Project lifecycle:** Project maintenance MUST be operable through
+  supported product surfaces without direct persisted-file editing while
+  preserving Project/Repository separation and portable/local state ownership.
+- **FR-076 Repository association lifecycle:** attach/update/detach MUST operate
+  on the Project association/binding contract only. Detach MUST NOT delete the
+  Repository working copy or Provider Repository.
+- **FR-077 Work Item lifecycle:** the supported GitHub path MUST expose the
+  applicable maintenance operations through provider-neutral application
+  behavior and GitHub-owned adapter effects. Provider deletion MUST NOT be
+  inferred from a domain operation that only supports close/reopen or detachment.
+- **FR-078 Execution lifecycle:** Execution discovery/status/resume/cancel MUST
+  preserve existing Execution identity, lineage, revision, workflow, authority,
+  cancellation and Evidence contracts. #230 MUST NOT introduce generic Execution
+  mutation or deletion.
+- **FR-079 Integration lifecycle:** applicable Integration configuration MUST be
+  inspectable and validatable. Updates MUST preserve portable intent/local
+  resolution/credential separation. Disable/remove MAY exist only where
+  ownership and recovery semantics are explicit.
+- **FR-080 CLI/Runtime convergence:** lifecycle operations exposed through
+  Runtime MUST use the canonical #229 domain-skill boundary and converge on the
+  same application use cases, validation, authority checks and semantic results
+  as CLI invocation.
+- **FR-081 Skill thinness:** Runtime skills MAY adapt explicit or bounded semantic
+  operation intent but MUST NOT own lifecycle rules, Provider semantics,
+  persistence rules, destructive policy or independent authority logic.
+- **FR-082 Portable/local/credential separation:** no lifecycle operation may move
+  secrets, absolute machine-specific paths, runtime observations or ephemeral
+  Execution data into portable Project intent.
+- **FR-083 Fail-closed unsupported behavior:** unknown resource, missing resource,
+  unsupported operation, Provider mismatch, unresolved mandatory capability,
+  contradictory state or ambiguous destructive intent MUST fail explicitly and
+  MUST NOT fall back to a different mutation.
+- **FR-084 Partial external effects:** if an external operation has confirmed
+  only part of its intended effect, Axiom MUST report the confirmed effects and
+  remaining recovery/retry boundary truthfully; it MUST NOT claim rollback or
+  repeat an ambiguous mutation automatically.
+
+The lifecycle contract distinguishes at least: target not found; identifier not
+uniquely resolvable; unsupported lifecycle operation; missing Provider or
+capability; Provider mismatch; stale or conflicting local revision; invalid
+portable/local state; denied or stale authority; destructive semantic not
+approved; transient Provider failure safe to retry; partial or ambiguous external
+effect requiring recovery; and a terminal operation requested from an
+incompatible resource state. None of these is converted into a different
+mutation to complete a request.
+
 ### S8/S9 security requirements
 
 - Credentials remain Runtime/Integration-owned machine-local references. A parent
@@ -1249,6 +1409,18 @@ Global invariants:
 | AC-47 | `axiom first-run` configures all supported Runtimes detected on the machine and truthfully covers Codex-only, Claude-only, Codex+Claude and no-Runtime cases without installing Runtimes or mutating credentials. |
 | AC-48 | The exact RC clean-environment journey uses the public `axiom` CLI and remote installer on every supported release row before Project/workflow/runtime acceptance, pinning the same immutable candidate with `--version vX.Y.Z-rc.N` and never a floating selector. |
 | AC-49 | At least one real Axiom engineering activity in S9 is coordinated through Axiom with Codex and Claude child Executions, Integration/Reconciliation and inspectable parent/child Evidence. |
+| AC-50 | A versioned lifecycle matrix classifies every MVP user-managed resource and records supported/unsupported operations, selectors, ownership, authority class and terminal semantics. |
+| AC-51 | A user can discover, inspect, validate and maintain Project state through supported surfaces without manually editing Axiom persisted files. |
+| AC-52 | Project updates preserve unspecified portable/local values, detect conflict/staleness and produce deterministic no-op behavior for equivalent state. |
+| AC-53 | Repository associations can be discovered, attached, inspected, updated where applicable and detached without deleting the working copy or Provider Repository. |
+| AC-54 | The supported GitHub Work Item path provides its applicable maintenance lifecycle, including discovery/show and valid close/reopen/comment/update semantics, without exposing or emulating generic Provider deletion. |
+| AC-55 | Executions are discoverable and inspectable without prior opaque-ID knowledge, and resume/cancel behavior reuses existing workflow/authority contracts without generic Execution mutation/deletion. |
+| AC-56 | Applicable Integration configuration can be inspected, validated and safely updated while credentials and machine-local resolution remain outside portable intent; disable/remove exists only where explicitly supported. |
+| AC-57 | Unsupported operation, missing target, Provider mismatch, stale conflict and ambiguous/destructive intent all fail explicitly before unintended mutation. |
+| AC-58 | Destructive/external operations expose reviewed effects and require exact authority; operation discovery or Runtime semantic routing never grants that authority. |
+| AC-59 | Direct CLI and canonical Runtime domain-skill invocations reach the same Lingo/application use case and produce equivalent canonical result semantics for the same lifecycle operation. |
+| AC-60 | Automated tests cover no-op, partial update preservation, missing resource, conflicting/stale state, unsupported operation, destructive denial, Provider mismatch and partial external-effect/recovery boundaries. |
+| AC-61 | Evidence includes lifecycle, CLI/Runtime and authority/effect matrices plus before/after fixtures, Provider adapter tests where applicable and persistence/recovery validation for local mutations. |
 
 ## Required acceptance Evidence
 
@@ -1379,7 +1551,7 @@ Issue #81, with release candidates selected only by exact
 
 | Classification | This Specification |
 |---|---|
-| Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above, including FR-038–FR-061/AC-25–AC-43 from the approved S8 amendment and the 2026-09-27 S9 product-scope direction FR-062–FR-067/AC-44–AC-49 proposed for canonical amendment approval. |
+| Requirement | Observable journeys, FR/AC contracts, failure states, invariants, Evidence, and preserved boundaries above, including FR-038–FR-061/AC-25–AC-43 from the approved S8 amendment, the 2026-09-27 S9 product-scope direction FR-062–FR-067/AC-44–AC-49 proposed for canonical amendment approval, and the approved Issue #230 resource lifecycle amendment FR-068–FR-084/AC-50–AC-61 (journeys J11–J16). |
 | Implementation detail deferred to Plan | CLI framework, concrete Go packages/interfaces, exact JSON schema, prompt UI, filesystem syscalls, migration algorithm, installer implementation, artifact filename rendering, lifecycle/graph-record encoding, scheduler mechanism, concrete Runtime adapters, concrete model names and metadata-policy schema. GitHub label spelling is fixed only for the Issue #94 adapter projection. |
 | Human decisions recorded | HD-1 through HD-4 and complete original Specification approval were recorded on 2026-09-20. ADR-0005/0006 directly formalize HD-3/HD-2. The Issue #94 amendment, FR-038–FR-044, AC-25–AC-31, S6 placement, and Specification 002 policy-reference clarification were explicitly approved on 2026-09-24. On 2026-09-26 human review approved FR-045–FR-061, AC-32–AC-43, ADR-0009, the amended Plan/Tasks, Codex plus Claude as concrete S8 acceptance paths, observational-only usage/cost telemetry, and the local T36 authority boundary. Implementation was separately gated at that time; S8/T30–T36 implementation was authorized on 2026-09-27 (Issue #97 comment #5852650410). The real T36 Runtime run later received its own exact authority, was executed, and produced `real_run_recorded` Evidence. The technical outcome is S8 ready for human review; human acceptance and S9 remain separate. On 2026-09-27 the human also recorded the S9 product direction: public `axiom` CLI, automated native release artifacts, stable idempotent remote install/owned upgrade, Codex+Claude first-run bootstrap and self-hosted Axiom dogfooding. The canonical S9 Plan/Tasks amendment remains subject to review before implementation. The PR #104 review on 2026-09-27 fixed the bootstrap source at `scripts/install.sh` and made Axiom Runtime skills user-global (Claude under `<CLAUDE_CONFIG_DIR or ~/.claude>/skills/<name>/SKILL.md`). Issue #81 records the release-selection and version policy; on 2026-09-28 the human narrowed release-candidate selection to exact `--version vX.Y.Z-rc.N` pins without a required floating RC selector. |
 
@@ -1619,3 +1791,14 @@ This decision authorizes Specification/Plan/Tasks reconciliation only. It does
 not authorize implementation, migration effects, release publication, merge, or
 Issue closure. The reconciled Plan/Tasks remain reviewable artifacts before
 implementation authority is granted.
+
+### Issue #230 resource lifecycle approval — 2026-10-07
+
+The human approved the #230 Specification amendment for planning, resolved
+C230-01 and C230-02, and approved the Plan and Tasks I230-T01–I230-T08 on
+2026-10-07. I230-T01 froze the [lifecycle matrix](issue-230-resource-lifecycle-matrix.md)
+(PR #254). The maintainer then authorized implementation of I230-T02–I230-T08,
+local validation, one pull request and Issue metadata synchronization. That
+authority excludes merge, release, Issue/Epic closure, human acceptance, real
+Provider mutation, credential revocation and any new destructive, ownership or
+Provider-authority semantic.
