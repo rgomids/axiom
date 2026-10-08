@@ -172,7 +172,10 @@ type Result struct {
 	Admission *projectapp.AdmissionDecision
 	// Operational is the #230 machine-local operational-state preview of a
 	// Project archive/reactivate or Integration disable/enable request.
-	Operational   *projectapp.OperationalPreview
+	Operational *projectapp.OperationalPreview
+	// Integrations is the #230 Integration inventory, show or static
+	// validation report (integration list|show|validate).
+	Integrations  *projectapp.IntegrationReport
 	PreviewDigest string
 	Runtime       *RuntimeView
 	Bootstrap     *BootstrapView
@@ -318,6 +321,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	if operation, rest, ok := maintenanceAction(args); ok {
 		return runMaintenance(ctx, mode, operation, rest, service, source, stdout)
+	}
+	if operation, rest, ok := integrationAction(args); ok {
+		return runIntegration(ctx, mode, operation, rest, service, source, stdout)
 	}
 	if len(args) >= 2 && args[0] == "project" && args[1] == "configure" && stdin != nil {
 		values, ok := flags(configureAction, args[2:])

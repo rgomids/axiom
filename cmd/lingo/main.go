@@ -695,6 +695,8 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 		message, next = "Project selector is ambiguous", "Select the Project by its UUID"
 	case projectapp.EditUnknownRepository:
 		message, next = "Repository to remove is not configured", "Remove only configured Repository keys"
+	case projectapp.EditUnknownIntegration:
+		message, next = "Integration to remove is not declared", "Remove only declared Integration keys; run integration list"
 	case projectapp.EditRepositoryUnavailable:
 		message, next = "Repository path is unavailable", "Provide an existing absolute non-link Repository path"
 	case projectapp.EditCandidateInvalid:
@@ -708,7 +710,11 @@ func editFailure(failure projectapp.EditFailure, source provenance.Value) cli.Re
 	case projectapp.EditUnavailable:
 		facts, message, next = completion.Facts{Failed: true}, "Project edit is unavailable", "Review application availability before retrying"
 	}
-	return canonicalCompletion(facts, message, nil, next, source)
+	result := canonicalCompletion(facts, message, nil, next, source)
+	if failure == projectapp.EditUnknownIntegration {
+		result.Category = projectapp.IntegrationNotFound
+	}
+	return result
 }
 
 // editSource selects exactly one installed Project and loads its protected
