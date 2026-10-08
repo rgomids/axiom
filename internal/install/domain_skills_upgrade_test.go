@@ -266,3 +266,95 @@ func TestUpgradeRefusesUnattestedEmptyLegacyDirectory(t *testing.T) {
 		t.Fatal("unowned directory changed")
 	}
 }
+
+// The Windows installer inspects the skill root as persisted state
+// (Target.State.Skills == SkillsRoot). A retirement interrupted between
+// removing SKILL.md and its directory must resume through Preview and Apply,
+// both when the historical receipt attests the name and when only the
+// retirement proof written before the first deletion does.
+func TestUpgradeResumesPartialRetirementWithWindowsStateWiring(t *testing.T) {
+	for _, proof := range []string{"receipt", "retirement-proof"} {
+		t.Run(proof, func(t *testing.T) {
+			installed, root := installSixSkillRelease(t)
+			installed.target.State.Skills = root
+			if proof == "retirement-proof" {
+				if err := os.Remove(filepath.Join(root, codexruntime.SkillSetReceiptName)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			candidate := installed.candidate(t, selfBundle(t, "1.1.0"))
+			preview, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil {
+				t.Fatalf("preview=%+v err=%v", preview, err)
+			}
+			authority, _ := Authorize(preview, preview.Digest)
+			interrupted := Service{afterEffect: func(label string) error {
+				if label == "skill_retire:"+retiredSkillNames[0] {
+					return errors.New("injected retirement interruption")
+				}
+				return nil
+			}}
+			if result, err := interrupted.Apply(context.Background(), preview, authority); err == nil || result.Status != "partial" {
+				t.Fatalf("result=%+v err=%v", result, err)
+			}
+			// The process stopped inside the next entry's removal, after its
+			// proof (when needed) and SKILL.md deletion, before the directory.
+			partial := retiredSkillNames[1]
+			content := read(t, filepath.Join(root, partial, "SKILL.md"))
+			if proof == "retirement-proof" {
+				writeFile(t, filepath.Join(root, codexruntime.UpgradeStagePrefix+"retire."+partial), []byte(content), 0o600)
+			}
+			if err := os.Remove(filepath.Join(root, partial, "SKILL.md")); err != nil {
+				t.Fatal(err)
+			}
+			resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil || !resume.Resume {
+				t.Fatalf("resume=%+v state=%s err=%v", resume, resume.State, err)
+			}
+			retire := false
+			for _, effect := range resume.Effects {
+				retire = retire || effect.Kind == "skill_retire" && effect.Name == partial
+			}
+			if !retire {
+				t.Fatalf("partial entry not retired: %+v", resume.Effects)
+			}
+			authority, _ = Authorize(resume, resume.Digest)
+			if result, err := NewService().Apply(context.Background(), resume, authority); err != nil || result.Status != "success" {
+				t.Fatalf("result=%+v err=%v", result, err)
+			}
+			entries, err := os.ReadDir(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, entry := range entries {
+				if slices.Contains(retiredSkillNames, entry.Name()) || strings.HasPrefix(entry.Name(), codexruntime.UpgradeStagePrefix) {
+					t.Fatalf("%s remains", entry.Name())
+				}
+			}
+			assertSkills(t, root, candidate.SkillFiles)
+			if again, err := NewService().Preview(context.Background(), installed.target, candidate); err != nil || len(again.Effects) != 0 || again.Resume {
+				t.Fatalf("after resume preview=%+v err=%v", again, err)
+			}
+		})
+	}
+}
+
+// With the same wiring, an empty retired directory that neither a receipt
+// nor a retirement proof attests remains refused and untouched.
+func TestUpgradeRefusesUnattestedEmptyDirectoryWithWindowsStateWiring(t *testing.T) {
+	installed, root := installSixSkillRelease(t)
+	installed.target.State.Skills = root
+	if err := os.Remove(filepath.Join(root, codexruntime.SkillSetReceiptName)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, retiredSkillNames[0], "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	before := snapshot(t, filepath.Dir(installed.target.BinaryDir))
+	if _, err := NewService().Preview(context.Background(), installed.target, installed.candidate(t, selfBundle(t, "1.1.0"))); err == nil {
+		t.Fatal("unattested empty directory accepted")
+	}
+	if after := snapshot(t, filepath.Dir(installed.target.BinaryDir)); after != before {
+		t.Fatal("refused upgrade changed state")
+	}
+}

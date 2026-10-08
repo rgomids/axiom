@@ -197,7 +197,7 @@ func (s Service) Install(ctx context.Context) Result {
 		if err := ctx.Err(); err != nil {
 			return s.inspectResultIn(root, Partial, s.integration.category("skill_install_partial"))
 		}
-		if _, err := root.Lstat(name); os.IsNotExist(err) {
+		if !retirementPendingIn(root, name) {
 			continue
 		}
 		if err := s.integration.removeRetiredIn(root, s.root, name, "", verify); err != nil {
@@ -296,7 +296,9 @@ func (s Service) Inspect(ctx context.Context) Result {
 		return s.inspectResult(Partial, s.integration.category("skill_receipt_incomplete"))
 	}
 	for _, name := range retiredSkillNames {
-		if _, err := os.Lstat(filepath.Join(s.root, name)); !os.IsNotExist(err) {
+		_, entry := os.Lstat(filepath.Join(s.root, name))
+		_, proof := os.Lstat(filepath.Join(s.root, retirementProofName(name)))
+		if !os.IsNotExist(entry) || !os.IsNotExist(proof) {
 			return s.inspectResult(Partial, s.integration.category("skill_retirement_required"))
 		}
 	}

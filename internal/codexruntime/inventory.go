@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 // SkillSetState is the read-only compatibility fact for Axiom-owned skills.
@@ -72,6 +73,9 @@ func (s Service) inventory(ctx context.Context, historical bool) (Inventory, err
 			content, ok := singleSkillContent(filepath.Join(s.root, name))
 			expected, readErr := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
 			switch {
+			case !ok && slices.Contains(retiredSkillNames, name) && s.retiredOwned(name):
+				// An attested removal interrupted after SKILL.md: owned, empty.
+				skill.State = "retiring"
 			case !ok:
 				skill.State, foreign = "foreign", true
 			case readErr == nil && string(content) == string(expected):
@@ -113,7 +117,7 @@ func (s Service) inventory(ctx context.Context, historical bool) (Inventory, err
 			continue
 		}
 		present++
-		if !s.integration.matchesLegacyInstalled(s.root, name) {
+		if !s.integration.matchesLegacyInstalled(s.root, name) && !s.retiredOwned(name) {
 			foreign = true
 		}
 	}
