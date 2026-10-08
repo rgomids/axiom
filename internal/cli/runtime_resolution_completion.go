@@ -11,6 +11,7 @@ import (
 type runtimeResolutionCompletionEvent struct {
 	completionEvent
 	RuntimeResolution runtimeapplication.Preview `json:"runtimeResolution"`
+	ExecutionTarget   *ExecutionTargetView       `json:"executionTarget,omitempty"`
 	PreviewDigest     string                     `json:"previewDigest"`
 }
 
@@ -19,7 +20,7 @@ func emitRuntimeResolutionCompletion(writer io.Writer, mode outputMode, result c
 		return ExitFailure
 	}
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-	value := runtimeResolutionCompletionEvent{completionEvent: base, RuntimeResolution: *response.RuntimeResolution, PreviewDigest: response.PreviewDigest}
+	value := runtimeResolutionCompletionEvent{completionEvent: base, RuntimeResolution: *response.RuntimeResolution, PreviewDigest: response.PreviewDigest, ExecutionTarget: response.ExecutionTarget}
 	content, err := json.Marshal(value)
 	if err != nil {
 		return ExitFailure
@@ -30,6 +31,15 @@ func emitRuntimeResolutionCompletion(writer io.Writer, mode outputMode, result c
 			return ExitFailure
 		}
 		content = renderCompletionHuman(result)
+		if value.ExecutionTarget != nil {
+			target, err := json.Marshal(value.ExecutionTarget)
+			if err != nil {
+				return ExitFailure
+			}
+			content = append(content, "executionTarget: "...)
+			content = append(content, target...)
+			content = append(content, '\n')
+		}
 		content = append(content, "runtimeResolution: "...)
 		content = append(content, extra...)
 		content = append(content, "\npreviewDigest: "...)
