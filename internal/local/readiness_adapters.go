@@ -152,3 +152,14 @@ func ObserveDocumentationFile(sourceKey, path string, observedAt func() projecta
 	}
 	return projectapp.DocumentationBinding{SourceKey: sourceKey, ExplicitPath: clean, CanonicalIdentity: identity, Observation: observedAt()}, true
 }
+
+// SelectProjectID applies the exact protected UUID/slug selection every
+// operation uses, without reading portable configuration (Issue #230
+// admission).
+func (r ReadinessProjects) SelectProjectID(ctx context.Context, selector string) (string, string) {
+	selected := r.Installation.Select(ctx, selector)
+	if selected.Status != ResolutionFound {
+		return "", selected.Category
+	}
+	return selected.Project.ID, ""
+}

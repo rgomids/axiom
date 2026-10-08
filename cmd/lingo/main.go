@@ -170,8 +170,12 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 		return cli.NewUnavailableService(source)
 	}
 	references := local.NewWorkflowReferenceValidator(artifacts)
+	operational, err := local.NewOperationalStore(state)
+	if err != nil {
+		return cli.NewUnavailableService(source)
+	}
 	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil)
-	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, projectCatalog: projectapp.NewProjectCatalog(installation, installation), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
+	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, operational: operational, projectCatalog: projectapp.NewProjectCatalog(installation, installation), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
 }
 
 func codexSkillsRoot() string {
@@ -221,6 +225,7 @@ type lifecycleService struct {
 	lifecycle              projectapp.Lifecycle
 	portable               local.PortableStore
 	installation           local.InstallationStore
+	operational            local.OperationalStore
 	projectCatalog         projectapp.ProjectCatalog
 	codex                  codexruntime.Service
 	workItems              workitem.Service
@@ -747,7 +752,7 @@ func editSelectionFailure(category string) projectapp.EditFailure {
 }
 
 func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemCreate); blocked != nil {
 		return *blocked
 	}
 	draft := workitem.DraftInput{
@@ -763,7 +768,7 @@ func (s lifecycleService) WorkItemCreate(ctx context.Context, input cli.WorkItem
 	return workItemResult(s.workItems.Create(ctx, draft, input.PreviewDigest, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemSelect); blocked != nil {
 		return *blocked
 	}
 	if input.Provider != "" && input.Provider != "github" {
@@ -776,7 +781,7 @@ func (s lifecycleService) WorkItemSelect(ctx context.Context, input cli.WorkItem
 	return workItemResult(s.workItems.Select(ctx, target, workItemExternalID(input), input.PreviewDigest, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemShow); blocked != nil {
 		return *blocked
 	}
 	if input.Provider != "" && input.Provider != "github" {
@@ -785,7 +790,7 @@ func (s lifecycleService) WorkItemShow(ctx context.Context, input cli.WorkItemIn
 	return workItemResult(s.workItems.Show(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input)), s.provenance)
 }
 func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemComment); blocked != nil {
 		return *blocked
 	}
 	if input.Provider != "" && input.Provider != "github" {
@@ -794,7 +799,7 @@ func (s lifecycleService) WorkItemComment(ctx context.Context, input cli.WorkIte
 	return workItemResult(s.workItems.Comment(ctx, workitem.Target{ProjectSelector: input.Project, RepositoryKey: input.Repository, ProviderResource: input.ProviderRepository}, workItemExternalID(input), input.Message, input.AuthorizeExternal), s.provenance)
 }
 func (s lifecycleService) WorkItemComplete(ctx context.Context, input cli.WorkItemInput) cli.Result {
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitWorkItemComplete); blocked != nil {
 		return *blocked
 	}
 	if input.Provider != "" && input.Provider != "github" {
@@ -822,7 +827,7 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 	// Start enforces the shared and Work Item requirements here; its Runtime
 	// requirement is the #140 request-specific projection (reviewed preview
 	// plus fresh Check) below, so Runtimes are not observed twice.
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationWorkItem); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionStart); blocked != nil {
 		return *blocked
 	}
 	policyInput := cli.RuntimeProfilePreviewInput{Project: input.Project, Role: input.Role, Complexity: input.Complexity, Capabilities: input.Capabilities, Runtime: input.Runtime}
@@ -847,6 +852,9 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 	return workflowResult(s.workflows.Start(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionAdvance); blocked != nil {
+		return *blocked
+	}
 	references, ok := workflowReferences(input.Reference)
 	if !ok {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
@@ -854,6 +862,9 @@ func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.Workflo
 	return workflowResult(s.workflows.Transition(ctx, workflowTarget(input), workflow.TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: workflow.Stage(input.Gate), Outcome: workflow.Outcome(input.Outcome), References: references, Next: input.Next}), s.provenance)
 }
 func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionFact); blocked != nil {
+		return *blocked
+	}
 	references, ok := workflowReferences(input.Reference)
 	if !ok || len(references) != 1 {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
@@ -874,15 +885,21 @@ func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowIn
 	return workflowResult(s.workflows.RecordLifecycleFact(ctx, workflowTarget(input), workflow.LifecycleFactInput{ExpectedRevision: input.ExpectedRevision, Kind: kind, Active: input.Active, Reference: references[0]}, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
-	if blocked := s.preflight(ctx, input.Project, projectapp.OperationExecution); blocked != nil {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionResume); blocked != nil {
 		return *blocked
 	}
 	return workflowResult(s.workflows.Resume(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 }
 func (s lifecycleService) WorkflowStatus(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionStatus); blocked != nil {
+		return *blocked
+	}
 	return workflowResult(s.workflows.Status(ctx, workflowTarget(input)), s.provenance)
 }
 func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionEvidence); blocked != nil {
+		return *blocked
+	}
 	result := s.workflows.Status(ctx, workflowTarget(input))
 	if result.Status == workflow.Succeeded {
 		result.Category = "workflow_evidence_ready"
@@ -891,6 +908,9 @@ func (s lifecycleService) WorkflowEvidence(ctx context.Context, input cli.Workfl
 }
 
 func (s lifecycleService) WorkflowReconcile(ctx context.Context, input cli.WorkflowInput) cli.Result {
+	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionReconcile); blocked != nil {
+		return *blocked
+	}
 	if !input.AuthorizeExternal {
 		return workflowResult(s.workflows.PrepareProjection(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
 	}

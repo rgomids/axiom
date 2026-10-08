@@ -11,12 +11,14 @@ import (
 )
 
 // Issue #231: presentation of the canonical readiness report and of the
-// operation preflight projection. No readiness rule lives here.
+// operation preflight projection; Issue #230 adds the admission decision of
+// the same pre-effect gate. No readiness or admission rule lives here.
 
 type readinessCompletionEvent struct {
 	completionEvent
 	Readiness *projectapp.ReadinessReport    `json:"readiness,omitempty"`
 	Preflight *projectapp.OperationReadiness `json:"preflight,omitempty"`
+	Admission *projectapp.AdmissionDecision  `json:"admission,omitempty"`
 }
 
 func emitReadinessCompletion(writer io.Writer, mode outputMode, result completion.Result, response Result) int {
@@ -49,10 +51,13 @@ func emitReadinessCompletion(writer io.Writer, mode outputMode, result completio
 		if response.Preflight != nil {
 			renderOperation(&extra, *response.Preflight)
 		}
+		if decision := response.Admission; decision != nil {
+			fmt.Fprintf(&extra, "admission: %s %s denied=%s %s\n", decision.Operation, decision.Class, decision.Code, decision.Integration)
+		}
 		content = append(content, extra.Bytes()...)
 	} else {
 		base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-		wire, err := json.Marshal(readinessCompletionEvent{completionEvent: base, Readiness: response.Readiness, Preflight: response.Preflight})
+		wire, err := json.Marshal(readinessCompletionEvent{completionEvent: base, Readiness: response.Readiness, Preflight: response.Preflight, Admission: response.Admission})
 		if err != nil {
 			return ExitFailure
 		}

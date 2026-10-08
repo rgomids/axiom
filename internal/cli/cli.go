@@ -165,8 +165,11 @@ type Result struct {
 	RuntimeResolution *runtimeapplication.Preview
 	// Readiness is the canonical Project readiness report (project validate);
 	// Preflight is the operation projection that blocked an effect.
-	Readiness     *projectapp.ReadinessReport
-	Preflight     *projectapp.OperationReadiness
+	Readiness *projectapp.ReadinessReport
+	Preflight *projectapp.OperationReadiness
+	// Admission is the #230 central admission decision that denied an
+	// operation before its readiness and effects.
+	Admission     *projectapp.AdmissionDecision
 	PreviewDigest string
 	Runtime       *RuntimeView
 	Bootstrap     *BootstrapView
@@ -424,7 +427,7 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 		if response.RuntimeResolution != nil {
 			return emitRuntimeResolutionCompletion(writer, mode, *response.Completion, response)
 		}
-		if response.Readiness != nil || response.Preflight != nil {
+		if response.Readiness != nil || response.Preflight != nil || response.Admission != nil {
 			return emitReadinessCompletion(writer, mode, *response.Completion, response)
 		}
 		if response.Project != nil {
