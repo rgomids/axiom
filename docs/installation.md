@@ -58,9 +58,51 @@ See [bootstrap reference](commands.md#install-a-published-release-s9t39).
 The bootstrap verifies the checksum and complete bundle before publishing
 `axiom.exe` and its installation receipt. Defaults:
 
-- Binary: `%LOCALAPPDATA%\Axiom\bin\axiom.exe`.
-- Receipt directory: `%LOCALAPPDATA%\Axiom\install`.
-- Machine-local state: `%LOCALAPPDATA%\Axiom\state`.
+- Fresh binary: `%USERPROFILE%\.axiom\windows\bin\axiom.exe`.
+- Fresh receipt directory: `%USERPROFILE%\.axiom\windows\install`.
+- Fresh machine-local state: `%USERPROFILE%\.axiom\windows\state`.
+
+The bootstrap checks the required storage roots, verifies `axiom version`, runs
+`first-run` for detected Runtimes and adds the binary directory to this terminal's
+PATH and the persistent user PATH. No environment overrides are required for a fresh default installation.
+An existing default binary/receipt under LocalAppData is retained at its old
+location; existing LocalAppData state is also preserved. Unsafe legacy storage
+is reported for operator review, never silently abandoned or migrated.
+
+When standard Runtime directories fail the permission checks, the verified
+installer lists the affected directories, explains the access restriction and
+backup, then asks `Permitir o ajuste e continuar? [S/n]`. Enter or `S` approves
+that displayed plan; `N` cancels. `D` shows the technical ACL and digest details
+before asking again. Missing input cancels, so unattended input never approves
+the default. Declining leaves the ACLs and binary
+unmodified. Repair only removes rejected permissions from untrusted allow ACEs
+on the necessary current-owned `.agents`/`.claude` parents and their `skills`
+directories. It preserves owner/group, trusted/deny ACEs and existing children;
+it never changes AppData or profile-wide permissions. The private backup path
+is printed before the first repair effect. Nonstandard roots, foreign owners,
+locked objects, unsupported filesystems and Runtime skill conflicts remain
+actionable failures.
+
+This onboarding contract requires a native release containing ADR-0019 support.
+Older exact-version Windows binaries retain their prior behavior; updating the
+bootstrap alone does not add repair support to an immutable old executable.
+
+To restore a repair's captured permissions, use its printed private backup path
+and the original approval digest:
+
+```powershell
+axiom windows-permissions restore --backup <absolute-json-path> --approve <digest>
+```
+
+Restoration refuses replaced objects or later permission changes. It restores
+the ACEs and DACL protection without propagating changes to children; Windows
+may clear the auto-inheritance bookkeeping bit. After restoring incompatible
+permissions, onboarding can require repair again. If repair failed before binary
+publication, use the verified executable from the same release's offline bundle
+for this recovery command.
+
+`-SkipRuntimeSetup` is an explicit binary-only test option. It skips `first-run`
+and reports `onboarding_status=binary_only`, rather than full setup success.
 
 To inspect or retain the bootstrap first:
 
@@ -74,7 +116,14 @@ installation and the exact filesystem boundary.
 
 ## PATH configuration
 
-The installers never change shell profiles or persistent `PATH`. If the summary
+The online Windows bootstrap adds its selected binary directory to the persistent
+user PATH after successful setup, preserving existing entries and registry type
+and avoiding duplicates. It also updates the current terminal's PATH. It never
+changes the system PATH. Use `-SessionOnly` for a deliberate temporary install.
+New terminals launched by refreshed applications inherit the user PATH; already
+running terminals retain their old environment.
+
+Offline Windows and Unix installers never change persistent PATH or shell profiles. If the summary
 reports `PATH setup required`, add the selected binary directory to the current
 session:
 
@@ -83,10 +132,12 @@ export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ```powershell
-$env:PATH = "$env:LOCALAPPDATA\Axiom\bin;$env:PATH"
+$env:PATH = "$env:USERPROFILE\.axiom\windows\bin;$env:PATH"
 ```
 
-Match these paths to your chosen installation directory. For persistence, add
+The Windows line above is for offline or deliberately session-only installation. Match
+these paths to your chosen installation directory, including retained legacy
+locations. For persistence, add
 that directory through your shell or Windows user environment configuration.
 Then verify the executable before Runtime bootstrap:
 
@@ -139,6 +190,47 @@ These examples must pass the same checks as defaults, including ancestor
 checks; they are not guaranteed eligible on every machine. Binary and receipt
 options do not relocate Project state or Runtime skills. `LINGO_STATE_ROOT`
 selects a separate absolute state root, subject to its own safety checks.
+
+## Isolated Windows fresh-install test
+
+Use this diagnostic test when the default Windows paths fail permission checks.
+It selects new binary, receipt, state, Project and Codex skill locations without
+deleting existing installations or changing their ACLs. Run the complete block
+in one PowerShell window, from any working directory:
+
+```powershell
+$axiomRoot = Join-Path $env:USERPROFILE ('AxiomFresh-' + [guid]::NewGuid().ToString('N'))
+$env:LINGO_PROJECTS_ROOT = "$axiomRoot\projects"
+$env:LINGO_STATE_ROOT = "$axiomRoot\state"
+$env:AXIOM_CODEX_SKILLS_ROOT = "$axiomRoot\skills"
+$axiomDestinations = @{
+    BinDir = "$axiomRoot\bin"
+    ReceiptDir = "$axiomRoot\install"
+}
+$axiomInstaller = Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1
+& ([scriptblock]::Create($axiomInstaller)) @axiomDestinations -SkipRuntimeSetup -SessionOnly
+if ($LASTEXITCODE -ne 0) { throw 'Installation failed; stop before verification.' }
+$env:PATH = "$axiomRoot\bin;$env:PATH"
+& "$axiomRoot\bin\axiom.exe" version
+```
+
+Success verifies binary installation and version reporting only. These locations
+and their ancestors must still pass the same filesystem checks. The variables
+and PATH apply only to this window; a new window returns to the configured
+defaults. Reuse the same destinations to test reinstall; running this block
+again creates another fresh installation.
+
+The Codex skill override is for isolated validation: Codex does not automatically
+discover skills at this custom location. This test does not configure Claude's
+skill root or validate either Runtime integration. For normal use, resolve the
+reported safety issue in the standard Runtime roots before running
+[`first-run`](#runtime-bootstrap). Do not copy skills into a rejected root or
+remove security checks to make integration succeed.
+
+On Windows, path names are case-insensitive: `$env:USERPROFILE\Axiom` can be
+the same directory as an `axiom` repository checkout. Keep installation targets
+separate from source repositories. The version command is `axiom version`;
+`axiom --version` is not supported.
 
 ## Upgrade / reinstall
 
@@ -204,6 +296,8 @@ storage has stricter requirements. On Windows storage must be local NTFS with
 safe owners/DACLs. Network/device paths, junctions and other reparse points are
 refused. Axiom does not weaken permissions to make an installation pass.
 
+Ordinary storage operations never rewrite existing ACLs. Windows onboarding has
+the separate exact-authority repair described above, with backup and recovery.
 Unknown or modified binaries, skills, receipts, and ambiguous compatibility
 state fail closed. Checksums do not grant authority to overwrite foreign data.
 See [repository security](security/repository-security.md) and the

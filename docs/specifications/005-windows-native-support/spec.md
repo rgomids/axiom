@@ -54,11 +54,19 @@ drives, and changing Portable Project Manifest content.
   verify the outer archive SHA-256 before extraction, and stop before install on
   ambiguity, mismatch, or unsupported host.
 - **FR-W03:** The bundle installer MUST install into an explicit user-local
-  binary directory (default `%LOCALAPPDATA%\\Axiom\\bin`) and receipt directory
-  (default `%LOCALAPPDATA%\\Axiom\\install`), never elevate privileges, edit
-  `PATH`, install Runtimes, or access credentials.
-- **FR-W04:** Machine-local state MUST default to `%LOCALAPPDATA%\\Axiom\\state`.
+  binary directory (fresh default `%USERPROFILE%\\.axiom\\windows\\bin`) and receipt directory
+  (fresh default `%USERPROFILE%\\.axiom\\windows\\install`), never elevate privileges,
+  install Runtimes, or access credentials. The online bootstrap adds its selected
+  binary directory to persistent user PATH after verified onboarding, as authorized
+  by the issue-265 amendment; system PATH remains unchanged.
+- **FR-W04:** Fresh machine-local state MUST default to `%USERPROFILE%\\.axiom\\windows\\state`; existing LocalAppData state remains in place.
   Portable manifests and their schema remain platform-neutral.
+
+  The original FR-W03/FR-W04 defaults were `%LOCALAPPDATA%\\Axiom\\{bin,install,state}`.
+  [Issue #265 amendment](issue-265-default-onboarding.md) and
+  [ADR-0019](../../decisions/0019-windows-default-onboarding-and-permission-repair.md)
+  record the authorized fresh-default change, preflight and explicit consent-gated
+  Runtime directory repair. Ordinary operations still preserve existing ACLs.
 - **FR-W05:** Before a Windows local mutation, Axiom MUST reject reparse points,
   unavailable owner or DACL information, non-user-owned roots, writable access by
   a non-owner principal, changed object identities, concurrent writers, and

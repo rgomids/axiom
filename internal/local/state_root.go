@@ -1,6 +1,9 @@
 package local
 
-import "path/filepath"
+import (
+	"os"
+	"path/filepath"
+)
 
 // NativeStateRoot resolves the approved platform directory without filesystem
 // effects. XDG_STATE_HOME is used only when it is an absolute Linux path.
@@ -17,20 +20,32 @@ func NativeStateRoot(goos, home, xdgStateHome string) (string, error) {
 		}
 		return filepath.Join(home, ".local", "state", "lingo"), nil
 	case "windows":
-		return filepath.Join(home, "AppData", "Local", "Axiom", "state"), nil
+		return filepath.Join(home, ".axiom", "windows", "state"), nil
 	default:
 		return "", ErrUnsafe
 	}
 }
 
-// WindowsStateRoot honors redirected LocalAppData explicitly, without storing
-// machine paths in portable Project manifests.
+// WindowsStateRoot keeps existing legacy state in place. Fresh installations
+// use private profile storage, independently of AppData ancestor permissions.
 func WindowsStateRoot(home, localAppData string) (string, error) {
-	if localAppData != "" {
-		if !filepath.IsAbs(localAppData) {
-			return "", ErrUnsafe
-		}
-		return filepath.Join(localAppData, "Axiom", "state"), nil
+	if !filepath.IsAbs(home) || (localAppData != "" && !filepath.IsAbs(localAppData)) {
+		return "", ErrUnsafe
 	}
-	return NativeStateRoot("windows", home, "")
+	if localAppData == "" {
+		localAppData = filepath.Join(home, "AppData", "Local")
+	}
+	modern := filepath.Join(home, ".axiom", "windows", "state")
+	if _, err := os.Lstat(modern); err == nil {
+		return modern, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	legacy := filepath.Join(localAppData, "Axiom", "state")
+	if _, err := os.Lstat(legacy); err == nil {
+		return legacy, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	return modern, nil
 }

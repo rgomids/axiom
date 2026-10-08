@@ -42,9 +42,9 @@ function Install-TestBundle($Bundle) {
 }
 New-Item -ItemType Directory -Path $work | Out-Null
 $savedEnvironment = @{}
-foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT','LOCALAPPDATA')) {
+foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT','LOCALAPPDATA','USERPROFILE','CLAUDE_CONFIG_DIR','PATH')) {
     $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name,'Process')
-    [Environment]::SetEnvironmentVariable($name,(Join-Path $work $name),'Process')
+    if ($name -ne 'PATH') { [Environment]::SetEnvironmentVariable($name,(Join-Path $work $name),'Process') }
 }
 Push-Location $repository
 try {
@@ -72,13 +72,62 @@ try {
         exit 0
     }
     Install-TestBundle $first
-    # The default paths are tested under an isolated LOCALAPPDATA with safe
-    # ancestors. Never change permissions on the real user's AppData directory.
+    # Full default flow in a synthetic profile: AppData is intentionally unsafe,
+    # Runtime roots require explicit repair, and unrelated skills are preserved.
+    $isolatedOverrides = @{}
+    foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) {
+        $isolatedOverrides[$name] = [Environment]::GetEnvironmentVariable($name,'Process')
+        [Environment]::SetEnvironmentVariable($name,$null,'Process')
+    }
+    New-Item -ItemType Directory -Path $env:USERPROFILE,$env:LOCALAPPDATA -Force | Out-Null
+    $everyone = New-Object Security.Principal.SecurityIdentifier('S-1-1-0')
+    $unsafeRule = New-Object Security.AccessControl.FileSystemAccessRule($everyone,'FullControl','ContainerInherit,ObjectInherit','None','Allow')
+    $appDataACL = Get-Acl -LiteralPath $env:LOCALAPPDATA
+    $appDataACL.AddAccessRule($unsafeRule)
+    Set-Acl -LiteralPath $env:LOCALAPPDATA -AclObject $appDataACL
+    $appDataBefore = (Get-Acl -LiteralPath $env:LOCALAPPDATA).Sddl
+    $skills = Join-Path $env:USERPROFILE '.agents\skills'
+    $other = Join-Path $skills 'unrelated\SKILL.md'
+    New-Item -ItemType Directory -Path (Split-Path $other -Parent) -Force | Out-Null
+    Write-TestFile $other 'unrelated skill preserved'
+    $agents = Join-Path $env:USERPROFILE '.agents'
+    $agentsACL = Get-Acl -LiteralPath $agents
+    $agentsACL.AddAccessRule($unsafeRule)
+    Set-Acl -LiteralPath $agents -AclObject $agentsACL
+    $otherBefore = (Get-Acl -LiteralPath $other).Sddl
+    $defaultBin = Join-Path $env:USERPROFILE '.axiom\windows\bin'
+    $defaultReceipt = Join-Path $env:USERPROFILE '.axiom\windows\install'
+    $savedPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $preview = 'no' | & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt 2>&1
+    } finally { $ErrorActionPreference = $savedPreference }
+    if ($LASTEXITCODE -eq 0 -or (Test-Path -LiteralPath $defaultBin)) { throw 'Declined repair published an installation.' }
+    if (($preview -join "`n") -notmatch '\[S/n\]' -or ($preview -join "`n") -match 'permission_before=|permission_after=|Type REPAIR') { throw "Unexpected permission prompt: $preview" }
+    's' | & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt
+    Assert-NativeExit 'Approved default onboarding repair'
+    if ((Get-Acl -LiteralPath $other).Sddl -cne $otherBefore -or
+        (Get-Acl -LiteralPath $env:LOCALAPPDATA).Sddl -cne $appDataBefore -or
+        [IO.File]::ReadAllText($other) -cne 'unrelated skill preserved') { throw 'Repair changed unrelated data or AppData.' }
+    $runtimeBin = Join-Path $work 'fake-runtime'
+    New-Item -ItemType Directory -Path $runtimeBin | Out-Null
+    Write-TestFile (Join-Path $runtimeBin 'codex.cmd') '@echo runtime-must-not-execute'
+    $env:PATH = "$runtimeBin;$env:PATH"
+    & (Join-Path $defaultBin 'axiom.exe') first-run
+    Assert-NativeExit 'Default Runtime setup'
+    if (-not (Test-Path -LiteralPath (Join-Path $skills 'axiom-project\SKILL.md'))) { throw 'Codex skill discovery path missing.' }
+    $beforeReinstall = (Get-FileHash -LiteralPath (Join-Path $defaultReceipt 'installation.receipt')).Hash
     & (Join-Path $first.Root 'install.ps1') -Archive $first.Archive -Checksums $first.Checksums
     Assert-NativeExit 'Default Windows paths'
-    if (-not (Test-Path (Join-Path $env:LOCALAPPDATA 'Axiom\bin\axiom.exe')) -or
-        -not (Test-Path (Join-Path $env:LOCALAPPDATA 'Axiom\install\installation.receipt'))) { throw 'Default installation missing.' }
+    if (-not (Test-Path (Join-Path $env:USERPROFILE '.axiom\windows\bin\axiom.exe')) -or
+        -not (Test-Path (Join-Path $env:USERPROFILE '.axiom\windows\install\installation.receipt'))) { throw 'Default installation missing.' }
     Write-Output 'windows_default_paths=pass'
+    if ((Get-FileHash -LiteralPath (Join-Path $defaultReceipt 'installation.receipt')).Hash -cne $beforeReinstall) { throw 'Default reinstall changed receipt.' }
+    & (Join-Path $defaultBin 'axiom.exe') version
+    Assert-NativeExit 'Default version command'
+    Write-Output 'windows_default_onboarding=pass; unsafe_appdata_preserved=pass; consent=pass; codex_discovery=pass; reinstall=pass'
+    foreach ($name in $isolatedOverrides.Keys) { [Environment]::SetEnvironmentVariable($name,$isolatedOverrides[$name],'Process') }
+    $env:PATH = $savedEnvironment['PATH']
 
     $unsafe = Join-Path $work 'unsafe ancestor'
     New-Item -ItemType Directory -Path $unsafe | Out-Null
@@ -100,19 +149,22 @@ try {
     Write-Output 'windows_storage_diagnostic=pass'
     # Existing owned installs must retain the same actionable cause through
     # the upgrade preview, while preserving the receipt and executable.
-    $defaultBin = Join-Path $env:LOCALAPPDATA 'Axiom\bin'
-    $defaultReceipt = Join-Path $env:LOCALAPPDATA 'Axiom\install'
+    $defaultBin = Join-Path $env:USERPROFILE '.axiom\windows\bin'
+    $defaultReceipt = Join-Path $env:USERPROFILE '.axiom\windows\install'
     $beforeBinary = (Get-FileHash (Join-Path $defaultBin 'axiom.exe')).Hash
     $beforeReceipt = (Get-FileHash (Join-Path $defaultReceipt 'installation.receipt')).Hash
-    $acl = Get-Acl -LiteralPath $env:LOCALAPPDATA
+    # This profile is a fixture created above, never the real user's profile.
+    $defaultParent = $env:USERPROFILE
+    $acl = New-Object Security.AccessControl.DirectorySecurity
+    $acl.SetSecurityDescriptorSddlForm((Get-Acl -LiteralPath $defaultParent).Sddl,[Security.AccessControl.AccessControlSections]::Access)
     $acl.AddAccessRule($rule)
-    Set-Acl -LiteralPath $env:LOCALAPPDATA -AclObject $acl
+    Set-Acl -LiteralPath $defaultParent -AclObject $acl
     try {
         $ErrorActionPreference = 'Continue'
         $output = & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt 2>&1
     } finally { $ErrorActionPreference = $savedPreference }
-    if ($LASTEXITCODE -eq 0 -or ($output -join "`n") -notmatch 'install_storage:.*LOCALAPPDATA.*rule=ancestors' -or
-        ($output -join "`n") -notmatch 'upgrade: unsafe_target' -or
+    if ($LASTEXITCODE -eq 0 -or ($output -join "`n") -notmatch 'rule=ancestors' -or
+        ($output -join "`n") -notmatch 'onboarding_root=' -or
         (Get-FileHash (Join-Path $defaultBin 'axiom.exe')).Hash -cne $beforeBinary -or
         (Get-FileHash (Join-Path $defaultReceipt 'installation.receipt')).Hash -cne $beforeReceipt) { throw "Upgrade storage diagnostic/preservation failed: $output" }
     Write-Output 'windows_upgrade_storage_diagnostic=pass'

@@ -4,14 +4,23 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/rgomids/axiom/internal/compatibility"
 	"github.com/rgomids/axiom/internal/install"
+	"golang.org/x/sys/windows"
 )
 
 func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
+	if len(args) > 0 && args[0] == "windows-permissions" {
+		if err := restoreWindowsPermissions(args, out); err != nil {
+			fmt.Fprintf(stderr, "permission_restore_error: %v\n", err)
+			return true, 1
+		}
+		return true, 0
+	}
 	if len(args) == 0 || args[0] != "install-release" {
 		return false, 0
 	}
@@ -45,6 +54,12 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 	}
 	skills := codexSkillsRoot()
 	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: skills, State: compatibility.Roots{Projects: projects, State: state, Skills: skills}, Self: selfBuild(), Archive: archiveRoot(values["--receipt-dir"])}
+	// Host/candidate eligibility must be established before onboarding effects.
+	if windows.RtlGetVersion().ProductType == 1 && candidate.Values["platform"] == "windows" && candidate.Values["goos"] == "windows" && candidate.Values["architecture"] == "amd64" {
+		if err := prepareWindowsOnboarding(target, os.Stdin, out); err != nil {
+			return windowsInstallReleaseResult(install.Result{}, err, target, out, stderr)
+		}
+	}
 	result, err := install.InstallRelease(context.Background(), target, candidate)
 	return windowsInstallReleaseResult(result, err, target, out, stderr)
 }

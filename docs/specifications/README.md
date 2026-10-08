@@ -17,6 +17,8 @@ annotated. Merge, human acceptance and release publication remain separate decis
 
 ## 005 — Native Windows Support
 
+[Default Windows onboarding amendment (#265)](005-windows-native-support/issue-265-default-onboarding.md): implementation requested 2026-10-08, with explicitly selected consent-gated directory repair. [ADR-0019](../decisions/0019-windows-default-onboarding-and-permission-repair.md) records fresh profile storage, legacy preservation and repair authority; executable Evidence and release remain separate.
+
 [Specification](005-windows-native-support/spec.md),
 [Plan](005-windows-native-support/plan.md), and
 [Tasks](005-windows-native-support/tasks.md): **Implementation authorized,
