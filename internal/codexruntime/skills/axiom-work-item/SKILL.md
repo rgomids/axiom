@@ -167,8 +167,9 @@ classification and type stay create-time. Run the command without authority
 first and present the returned preview, target, and effects. Repeat the same
 inputs with `--preview-digest <digest> --authorize-external` only after explicit
 authority for that exact preview. A Work Item already in the requested state is a
-no-op. Report partial Provider effects exactly as Lingo returns them; never
-retry an ambiguous mutation blindly. `work-item complete` remains a CLI
+no-op. A comment is not idempotent: a repeated authorized comment posts again,
+so inspect the Work Item before repeating one. Report partial Provider effects
+exactly as Lingo returns them; never retry an ambiguous mutation blindly. `work-item complete` remains a CLI
 compatibility spelling of close and is not routed here.
 
 ## Archived Projects and disabled Integrations

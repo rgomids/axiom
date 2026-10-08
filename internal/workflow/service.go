@@ -358,14 +358,12 @@ func (s Service) List(ctx context.Context, target Target) Result {
 	if category != "" {
 		return result(ValidationFailed, category, State{})
 	}
-	if target.RepositoryKey != "" {
-		configured := false
-		for _, candidate := range project.Repositories {
-			configured = configured || candidate.Key == target.RepositoryKey
-		}
-		if !configured {
-			return result(ValidationFailed, "repository_not_configured", State{})
-		}
+	attached := map[string]bool{}
+	for _, candidate := range project.Repositories {
+		attached[candidate.Key] = true
+	}
+	if target.RepositoryKey != "" && !attached[target.RepositoryKey] {
+		return result(ValidationFailed, "repository_not_configured", State{})
 	}
 	states, err := lister.List(ctx, project.ID)
 	if err != nil {
@@ -380,7 +378,10 @@ func (s Service) List(ctx context.Context, target Target) Result {
 		if err != nil {
 			return result(Failed, "recovery_required", State{})
 		}
-		if target.RepositoryKey != "" && state.RepositoryKey != target.RepositoryKey {
+		// History of a detached Repository key stays preserved but is not
+		// listed until the key is re-attached (I230-T01 F-03), as Work Item
+		// list does.
+		if !attached[state.RepositoryKey] || target.RepositoryKey != "" && state.RepositoryKey != target.RepositoryKey {
 			continue
 		}
 		summaries = append(summaries, Summary{ExecutionID: state.ExecutionID, RepositoryKey: state.RepositoryKey, WorkItem: state.WorkItem, Status: state.Status, Stage: state.Stage, LifecycleStage: lifecycle.Stage, Revision: state.Revision, CreatedAt: state.CreatedAt, UpdatedAt: state.UpdatedAt})

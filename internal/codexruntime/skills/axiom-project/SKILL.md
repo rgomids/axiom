@@ -29,11 +29,11 @@ it. Repository associations are Project-owned: attach, update, and detach use
 | `archive` | - | `axiom --json project archive --project <uuid-or-slug>` | local mutation | machine-local only; preview first; archive only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous archive intent |
 | `reactivate` | - | `axiom --json project reactivate --project <uuid-or-slug>` | local mutation | machine-local only; preview first; reactivate only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous reactivate intent |
 | `integration` | list | `axiom --json integration list --project <uuid-or-slug>` | read-only | none | allowed |
-| `integration` | show | `axiom --json integration show --project <uuid-or-slug>` | read-only | none | allowed |
+| `integration` | show | `axiom --json integration show --project <uuid-or-slug> --integration <key>` | read-only | none | allowed |
 | `integration` | validate | `axiom --json integration validate --project <uuid-or-slug>` | read-only | none | allowed |
-| `integration` | disable | `axiom --json integration disable --project <uuid-or-slug>` | local mutation | machine-local only; preview first; disable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous disable intent |
-| `integration` | enable | `axiom --json integration enable --project <uuid-or-slug>` | local mutation | machine-local only; preview first; enable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous enable intent |
-| `integration` | remove | `axiom --json integration remove --project <uuid-or-slug>` | local mutation | portable declaration only; preview first; remove only with the returned `--project-id`, the exact `--preview-digest` plus `--authorize-local` | only for unambiguous remove intent |
+| `integration` | disable | `axiom --json integration disable --project <uuid-or-slug> --integration <key>` | local mutation | machine-local only; preview first; disable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous disable intent |
+| `integration` | enable | `axiom --json integration enable --project <uuid-or-slug> --integration <key>` | local mutation | machine-local only; preview first; enable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous enable intent |
+| `integration` | remove | `axiom --json integration remove --project <uuid-or-slug> --integration <key>` | local mutation | portable declaration only; preview first; remove only with the returned `--project-id`, the exact `--preview-digest` plus `--authorize-local` | only for unambiguous remove intent |
 
 When the user supplies an explicit supported operation, use it exactly and route
 directly to its Lingo command. Do not classify or reinterpret an explicit
@@ -116,27 +116,14 @@ current working directory or resolve identity independently.
 Run `axiom --json project validate --project <uuid-or-slug>` and report the
 read-only `readiness` report and local state. Validation never grants authority.
 
-## archive and reactivate
+## archive, reactivate, and integration
 
-Archive removes the Project from this machine's active operational set; it is
-reversible with reactivate and allowed only on this machine. It never changes
-portable Project files, another machine, Repositories, Work Items, Executions,
-Evidence, or Providers, and it never deletes the Project. Run the command
-without authority first, report the returned `operational` preview, and repeat
-it with `--preview-digest <digest> --authorize-local` only after the user
-approves that exact preview. While archived, inspection and administration
-remain available and operational work is refused until reactivation.
-
-## integration
-
-`disable` and `enable` decide only whether this machine may use a declared
-Integration; `remove` drops the declaration from portable Project intent. None
-of them revokes credentials, logs out of a Provider, uninstalls MCP or Runtime
-configuration, or deletes Provider resources. Pass the declared key with
-`--integration <key>` for `show`, `disable`, `enable`, and `remove`. Preview
-first and repeat with the advertised authority inputs only after explicit user
-approval of that exact preview. Updating the Work Item Provider uses `configure`
-edit mode.
+Run each command without authority first, report the returned preview
+(`operational` for archive, reactivate, disable and enable; `edit` for
+`integration remove`), and repeat it with the advertised authority inputs only
+after the user approves that exact preview. The effect boundary of each mode is
+stated by `axiom --json skill inspect axiom-project`; Lingo enforces it. Updating
+the Work Item Provider uses `configure` edit mode.
 
 ## Result contract
 

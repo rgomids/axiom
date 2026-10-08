@@ -81,6 +81,11 @@ type AdmissionRule struct {
 	Readiness  ReadinessOperation
 }
 
+// admissionRules classifies every lifecycle operation of the frozen matrix.
+// Inspection and administrative rules without a capability are admitted
+// unconditionally; they are listed so the classification is complete and
+// reviewable, and the composition gate still calls Admit for every
+// entrypoint that has one. GrantsAuthority is constant false by contract.
 var admissionRules = map[AdmissionOperation]AdmissionRule{
 	AdmitProjectList:       {Class: AdmissionInspection},
 	AdmitProjectShow:       {Class: AdmissionInspection},

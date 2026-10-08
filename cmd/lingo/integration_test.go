@@ -508,7 +508,7 @@ func TestIntegrationRemoveNonCanonicalKeepsProviderAndCredentialDeclarations(t *
 	zeroWrites(t, env, func() {
 		preview, _ = runIntegrationCLI(t, env.service, cli.ExitSuccess, "remove", "--project", "multi", "--integration", "chat")
 	})
-	if got := effectList(preview.Edit.Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_integration:chat", "local:update_local_record"}) {
+	if got := effectList(preview.Edit.Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_integration:chat", "portable:preserve_portable_credential:chat-token", "portable:preserve_portable_provider:chat", "local:update_local_record"}) {
 		t.Fatalf("effects = %v", got)
 	}
 	manifest := preview.Edit.PortableManifest

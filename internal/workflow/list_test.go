@@ -44,6 +44,12 @@ func TestListDiscoversExecutionsAndFailsClosed(t *testing.T) {
 	if result := service.List(context.Background(), Target{ProjectSelector: "sample", RepositoryKey: "other"}); result.Category != "repository_not_configured" {
 		t.Fatalf("unknown repository = %+v", result)
 	}
+	detached := cloneState(store.state)
+	detached.RepositoryKey, detached.ExecutionID = "api", "018f4a44-7c31-7dd4-9d00-222222222222"
+	lister.states = []State{cloneState(store.state), detached}
+	if result := service.List(context.Background(), Target{ProjectSelector: "sample"}); len(result.Executions) != 1 || result.Executions[0].RepositoryKey != "main" {
+		t.Fatalf("detached key listed = %+v", result.Executions)
+	}
 	foreign := cloneState(store.state)
 	foreign.ProjectID = "223e4567-e89b-42d3-a456-426614174000"
 	lister.states = []State{foreign}

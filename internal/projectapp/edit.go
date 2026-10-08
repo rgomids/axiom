@@ -563,7 +563,37 @@ func portableIntegrationEffects(current, candidate project.Project) []EditEffect
 			effects = append(effects, EditEffect{Scope: PortableScope, Code: "remove_portable_provider", Key: provider.Key})
 		}
 	}
-	return effects
+	// F-04: name every dependent declaration a removed Integration referenced
+	// that stays declared, so the reviewed (and digest-bound) preview shows
+	// exactly what the removal leaves in place.
+	keptCredentials := map[string]bool{}
+	credentials, _ := after.CredentialReferences.Value()
+	for _, credential := range credentials {
+		keptCredentials[credential.Key] = true
+	}
+	preserved := map[EditEffect]bool{}
+	for _, integration := range prior {
+		if kept[integration.Key] {
+			continue
+		}
+		if ref, ok := integration.ProviderRef.Value(); ok && keptProviders[ref] {
+			preserved[EditEffect{Scope: PortableScope, Code: "preserve_portable_provider", Key: ref}] = true
+		}
+		if ref, ok := integration.CredentialRef.Value(); ok && keptCredentials[ref] {
+			preserved[EditEffect{Scope: PortableScope, Code: "preserve_portable_credential", Key: ref}] = true
+		}
+	}
+	ordered := make([]EditEffect, 0, len(preserved))
+	for effect := range preserved {
+		ordered = append(ordered, effect)
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].Code != ordered[j].Code {
+			return ordered[i].Code < ordered[j].Code
+		}
+		return ordered[i].Key < ordered[j].Key
+	})
+	return append(effects, ordered...)
 }
 
 func containsText(values []string, target string) bool {

@@ -1319,8 +1319,11 @@ Work Items only, from local links. `update` changes only the title and the
 Axiom-authored sections; type and classification stay create-time. Every Provider
 mutation previews the current Issue first and needs the exact `--preview-digest`
 plus `--authorize-external`; closing a closed Issue or reopening an open one is a
-no-op without a mutation. A confirmed Provider effect followed by a local failure
-is reported as `partial`; Axiom never claims rollback or repeats the mutation.
+no-op without a mutation; when the Issue changed state outside Axiom, `work-item
+select` refreshes the local link under reviewed local authority. A comment is not
+idempotent: repeating an authorized comment posts it again. A confirmed Provider
+effect followed by a local failure is reported as `partial`; Axiom never claims
+rollback or repeats the mutation.
 `work-item delete` does not exist.
 
 ### Executions

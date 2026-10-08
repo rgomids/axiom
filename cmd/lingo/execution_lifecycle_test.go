@@ -89,16 +89,12 @@ func TestWorkflowListEnumeratesDeterministicallyAndFilters(t *testing.T) {
 	if len(again.Executions) != 3 {
 		t.Fatalf("filtered = %+v", again)
 	}
-	// A record of another Repository key sorts first unfiltered and is
-	// excluded by the main filter.
+	// A preserved record of a detached (unattached) Repository key is not
+	// listed until the key is re-attached (F-03), as in work-item list.
 	seedExecution(t, env, "api", "1", "018f4a44-7c31-7dd4-9d00-000000000004")
 	seeded = snapshotTrees(t, env.root, env.state, env.workspace)
-	_, all := runList(t, env)
-	if len(all.Executions) != 4 || all.Executions[0].RepositoryKey != "api" || all.Executions[1].RepositoryKey != "main" {
-		t.Fatalf("cross-repository order = %+v", all.Executions)
-	}
-	if _, main := runList(t, env, "--repository", "main"); len(main.Executions) != 3 || main.Executions[0].RepositoryKey != "main" {
-		t.Fatalf("main filter = %+v", main.Executions)
+	if _, all := runList(t, env); len(all.Executions) != 3 || all.Executions[0].RepositoryKey != "main" {
+		t.Fatalf("detached history listed = %+v", all.Executions)
 	}
 	service := env.service.(lifecycleService)
 	unknown := service.WorkflowList(context.Background(), cli.ExecutionListInput{Project: "guarded", Repository: "nope"})

@@ -131,7 +131,7 @@ func contains(values []string, target string) bool {
 func TestRemovingNonCanonicalIntegrationKeepsProviderAndCredentialDeclarations(t *testing.T) {
 	f := newEditFixture(t)
 	proposal := mustPreview(t, f, projectapp.EditIntent{IntegrationRemovals: []string{"chat"}})
-	if got := effectCodes(proposal.Preview().Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_integration:chat", "local:update_local_record"}) {
+	if got := effectCodes(proposal.Preview().Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_integration:chat", "portable:preserve_portable_credential:chat-token", "portable:preserve_portable_provider:chat", "local:update_local_record"}) {
 		t.Fatalf("effects = %v", got)
 	}
 	state := proposal.Project().State()
@@ -177,7 +177,7 @@ func TestRemovingWorkItemsIntegrationRemovesItsPairedProvider(t *testing.T) {
 	if both.Project().State().Integrations.Form() != project.NotConfigured {
 		t.Fatalf("integrations form = %v", both.Project().State().Integrations.Form())
 	}
-	if got := effectCodes(both.Preview().Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_integration:chat", "portable:remove_portable_integration:work-items", "portable:remove_portable_provider:work-items", "local:update_local_record"}) {
+	if got := effectCodes(both.Preview().Effects); !reflect.DeepEqual(got, []string{"portable:update_portable_project", "portable:remove_portable_integration:chat", "portable:remove_portable_integration:work-items", "portable:remove_portable_provider:work-items", "portable:preserve_portable_credential:chat-token", "portable:preserve_portable_provider:chat", "local:update_local_record"}) {
 		t.Fatalf("effects = %v", got)
 	}
 }
