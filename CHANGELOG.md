@@ -26,6 +26,14 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.9.0](https://github.com/rgomids/axiom/compare/v0.8.0...v0.9.0) (2026-10-08)
+
+
+### Features
+
+* **project:** resolve effective Project from default, session and explicit context ([#259](https://github.com/rgomids/axiom/issues/259)) ([9fb85ec](https://github.com/rgomids/axiom/commit/9fb85ec43c92bd351689410b69992ddba562cd88))
+* **workflow:** expose explicit gate actions and automatic intake ([#247](https://github.com/rgomids/axiom/issues/247)) ([701b1a5](https://github.com/rgomids/axiom/commit/701b1a5799876f2c62afa5fce71d1b19b7701708))
+
 ## [0.8.0](https://github.com/rgomids/axiom/compare/v0.7.0...v0.8.0) (2026-10-07)
 
 
