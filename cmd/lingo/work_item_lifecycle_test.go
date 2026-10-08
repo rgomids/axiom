@@ -128,7 +128,7 @@ func TestWorkItemDeleteIsNotACommand(t *testing.T) {
 	}
 }
 
-type lifecycleEvent struct {
+type workItemLifecycleEvent struct {
 	Status   string `json:"status"`
 	Result   string `json:"result"`
 	Category string `json:"category"`
@@ -175,11 +175,11 @@ printf '{"number":7,"html_url":"https://github.com/owner/repo/issues/7","state":
 	env.service = compose()
 	repository := writeTree(t, filepath.Join(env.workspace, "main"), map[string]string{"README.md": "x"})
 	configureProject(t, env.service, "life", "Life", "main="+repository, "github")
-	run := func(wantCode int, args ...string) lifecycleEvent {
+	run := func(wantCode int, args ...string) workItemLifecycleEvent {
 		t.Helper()
 		var output bytes.Buffer
 		code := cli.Run(context.Background(), args, env.service, currentProvenance(), &output)
-		var event lifecycleEvent
+		var event workItemLifecycleEvent
 		if err := json.Unmarshal(output.Bytes(), &event); err != nil || code != wantCode {
 			t.Fatalf("%v: code=%d err=%v output=%s", args, code, err, output.String())
 		}
