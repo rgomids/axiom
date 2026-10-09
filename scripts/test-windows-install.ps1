@@ -98,8 +98,13 @@ try {
     $consent.RedirectStandardInput = $true
     $consent.RedirectStandardOutput = $true
     $consent.RedirectStandardError = $true
-    $process = [Diagnostics.Process]::Start($consent)
+    $savedInputEncoding = [Console]::InputEncoding
+    $process = $null
     try {
+        # Process creates its StreamWriter with Console.InputEncoding and can
+        # emit that encoding's BOM before BaseStream is accessed.
+        [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
+        $process = [Diagnostics.Process]::Start($consent)
         $stdout = $process.StandardOutput.ReadToEndAsync()
         $stderr = $process.StandardError.ReadToEndAsync()
         # Hosted PowerShell sets Console.InputEncoding to UTF-8 with a BOM.
@@ -112,7 +117,10 @@ try {
         Write-Output $stdout.Result
         Write-Output $stderr.Result
         $global:LASTEXITCODE = $process.ExitCode
-    } finally { $process.Dispose() }
+    } finally {
+        if ($process) { $process.Dispose() }
+        [Console]::InputEncoding = $savedInputEncoding
+    }
     Assert-NativeExit 'Approved default onboarding repair'
     if ((Get-Acl -LiteralPath $other).Sddl -cne $otherBefore -or
         (Get-Acl -LiteralPath $env:LOCALAPPDATA).Sddl -cne $appDataBefore -or

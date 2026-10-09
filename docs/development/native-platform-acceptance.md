@@ -18,8 +18,94 @@ locked binary refusal, permission repair, default paths and both PowerShell vers
 A genuine prior-supported-release Server upgrade is N/A for this first supported
 candidate; fixture upgrade does not substitute for historical release evidence.
 The POSIX installer interruption hook is N/A to Windows; Windows refused-install
-retry/recovery is covered by native regressions. Native execution results will be
-recorded after qualification. The earlier investigation/evidence below is historical.
+retry/recovery is covered by native regressions. Native execution results are recorded below. The earlier investigation/evidence below is historical.
+
+## Current verified coverage and traceability
+
+The explicit Server amendment is implemented and natively VERIFIED in
+[qualification 37968344761](https://github.com/rgomids/axiom/actions/runs/37968344761) at source/control revision
+`34c1f304222d3813576253c7968e6a7eaf5fe4c1`, version `9999.0.0-acceptance`.
+Later delivery changes affect only the native regression consent fixture and documentation.
+The [sanitized current reports](native-platform-acceptance-current-evidence.json)
+retain every scenario, actual environment, immutable identity and negative report.
+Raw diagnostics remain 30-day Actions artifacts; this snapshot is durable.
+
+| Platform | Coverage | Observed result / evidence |
+| --- | --- | --- |
+| Linux ARM64 | Full applicable lifecycle, 14 scenarios including genuine prior release upgrade | VERIFIED; [job 113948678593](https://github.com/rgomids/axiom/actions/runs/37968344761/job/113948678593), Ubuntu 24.04 ARM64, `aarch64` |
+| Windows Server AMD64 | Full applicable lifecycle, 14 scenarios | VERIFIED; [job 113948678477](https://github.com/rgomids/axiom/actions/runs/37968344761/job/113948678477), Windows Server 2022 build 20348, `AMD64`, actual `ProductType=3`, image `20261004.326.1` |
+| Linux AMD64 | Existing exact-artifact smoke | VERIFIED; [prepare job 113948304739](https://github.com/rgomids/axiom/actions/runs/37968344761/job/113948304739) |
+| macOS ARM64 | Existing exact-artifact smoke | VERIFIED; [job 113948678132](https://github.com/rgomids/axiom/actions/runs/37968344761/job/113948678132), macOS 15.7.9 ARM64 |
+| Windows workstation AMD64 | Hosted client execution | BLOCKED by eligible runner availability; Server evidence does not validate client |
+| Windows ARM64 / domain controller | Product support | NOT APPLICABLE; remains refused |
+
+| Requirement | Platform | Actual tests | Result / evidence |
+| --- | --- | --- | --- |
+| Fresh install and discovery | Linux ARM64, Server AMD64 | `fresh-install`, `discovery-provenance` | PASS; native jobs/reports above |
+| Representative CLI/configuration | Both activated rows | `configuration-cli`, real configure preview/apply, show/list/validate and version | PASS |
+| Upgrade/state compatibility | Linux ARM64 | `genuine-prior-upgrade-state-reinstall`, real published v0.10.0 | PASS |
+| Genuine prior supported upgrade | Server AMD64 | No prior supported Server release exists; [v0.10.0 host policy](https://github.com/rgomids/axiom/blob/v0.10.0/internal/install/space_windows.go) refuses Server | N/A for first supported candidate; fixtures do not substitute for this |
+| Reinstall/idempotence | Both activated rows | `reinstall-idempotent`, binary/receipt and persisted-state inventories, duplicate check | PASS |
+| Configuration/errors/recovery | Both activated rows | `invalid-arguments`, `missing-project`, `malformed-config-recovery`, `missing-config-recovery` | PASS |
+| Permission/path behavior | Both activated rows | `private-permissions`, paths with spaces, foreign binary and symlink/junction refusal | PASS |
+| Server-specific safe recovery | Server AMD64 | `invalid-receipt-recovery`, `unsafe-dacl-refusal-recovery`, compatibility inspect | PASS |
+| Interrupted installation | Linux ARM64 | `install-interruption-recovery` using the supported POSIX fault seam | PASS; Windows seam N/A, native refusal/retry covers recovery |
+| Corrupt-artifact negative paths | Both activated rows | `corrupt-artifact-refused`; required `rejection` jobs | PASS as controls; both required jobs really FAIL with checksum mismatch |
+| Strict release dependency | Both activated rows | `native-acceptance` required preparation dependency; failed preparation publication refusal contract; real failed jobs → skipped promotion | PASS; [observer 113951085317](https://github.com/rgomids/axiom/actions/runs/37968344761/job/113951085317) and [release contracts](https://github.com/rgomids/axiom/actions/runs/37968344761/job/113948304637) |
+| Existing smoke preservation | Linux AMD64, macOS ARM64 | Exact-byte native smoke and 10 offline smoke contracts | PASS |
+
+The qualification run is intentionally **FAILED** because the two required
+corruption controls fail. Positive acceptance, smoke and regression contracts pass;
+promotion is **SKIPPED**, and the propagation observer passes. No failure is masked.
+Production preparation calls this same reusable workflow without corruption control.
+`verify-prepared-release.sh` refuses failed preparation even with publication authority;
+the release-flow fixture records zero release effects. A live production preparation
+dispatch with these changes remains unverified until reviewed adoption on main.
+
+| Immutable subject | SHA-256 |
+| --- | --- |
+| Server candidate archive | `f630f1f17ca42f254717d6a342a1d45e3faccb223350a832ed8ba7977ae94131` |
+| Server candidate / installed executable | `32f29ddc46d55d201bdd5434f65ab8e99ee23c2023182b5579e916fca84e67f4` |
+| Linux ARM64 candidate archive | `712de3cd46993f36a76ee8d556b44667958524b5635b3d6b359e1cdb70583d9d` |
+| Linux ARM64 candidate / installed executable | `10274fbe0de6f4a307e8ba8ff8c043a2ea407449402acf62db1c0bc06339f039` |
+
+Relevant changes: `internal/install/space_windows.go`, its product-type tests,
+`cmd/lingo/install_windows.go`, both PowerShell host/installer regression scripts,
+`install.ps1`, shared native/smoke Python contracts, required reusable preparation
+workflow, non-publishing qualification, CI and automation registry. Installation and
+command guides, Specifications 005/006 and ADR-0021 reconcile the authorized support change.
+
+Local results: three native/archive/dependency contracts PASS; Windows product-type
+Go tests PASS; targeted Go vet PASS; native installer fixture (including a UTF-8-BOM
+host console) and PowerShell 5.1 bootstrap fixtures PASS; ADR structure and sensitive
+file scans PASS. The POSIX shell-fixture smoke test cannot execute its positive shell
+fixture on Windows; all 10 passed on hosted Linux. The ADR symlink regression cannot
+create a local Windows symlink without privilege; all 56 passed on hosted Linux.
+No local permission change or missing check is reported as a passing test.
+
+The native Windows Go suite, vet/build/module verification passed in
+[CI 37968346249](https://github.com/rgomids/axiom/actions/runs/37968346249).
+That run exposed a consent-fixture encoding defect; the corrected fixture is validated
+locally and required in the final [PR #288 checks](https://github.com/rgomids/axiom/pull/288/checks),
+including actual Server bootstrap execution under PowerShell 5.1 and 7.
+The GitHub-owned AI code-scanning request failed with HTTP 402/monthly quota exhausted;
+its completion is unverified and no purchase or security-setting change is authorized.
+
+### Approved criteria and Definition of Done audit
+
+Investigation, feasibility, full applicable activated lifecycle, actual hosted native
+execution, exact artifact identity, preserved smoke, positive/negative diagnostics,
+strict failure propagation and traceability are demonstrated above. GitHub-hosted
+runners only are used, with read-only acceptance authority and no new dependency or
+secret. Server support expansion has explicit maintainer authority in ADR-0021;
+the remaining original Gate decisions are preserved. Source regression checks remain
+mandatory in PR CI; review, merge and publication authority stay separate.
+
+Issue-level status remains **PARTIALLY COMPLETE**: the supported workstation row
+still lacks hosted native evidence and live production preparation with this change
+has not run. The requested Server functional acceptance itself is VERIFIED. Keep #256
+open; proposed follow-ups are eligible client AMD64 evidence, a genuine Server upgrade
+baseline after its first supported release, and post-adoption production preparation.
 
 ## Authority and design
 
@@ -148,7 +234,7 @@ is explicitly authorized. Future follow-up: activate Windows AMD64 client only
 when an eligible GitHub-hosted client/amd64 runner exists, and reconsider the
 fixed baseline when its compatibility/support contract changes.
 
-## Engineering report / Evidence snapshot — 2026-10-09
+## Historical initial Engineering report / Evidence snapshot — 2026-10-09
 
 Final qualification [run 37961209760](https://github.com/rgomids/axiom/actions/runs/37961209760)
 tested revision `e8157bc30383bc72ab27b934596dc2fb9d689d5f`, version
