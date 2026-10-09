@@ -49,6 +49,7 @@ jobs:
     timeout-minutes: 20
     outputs:
       version: ${{ steps.preflight.outputs.version }}
+      tag: ${{ steps.preflight.outputs.tag }}
     steps:
       - name: Require dispatch from main
         env:
@@ -114,6 +115,7 @@ jobs:
           version=$(awk -F= '$1 == "version" {print $2}' "$out/preflight.txt")
           printf 'RELEASE_VERSION=%s\n' "$version" >>"$GITHUB_ENV"
           printf 'version=%s\n' "$version" >>"$GITHUB_OUTPUT"
+          printf 'tag=%s\n' "$RELEASE_TAG" >>"$GITHUB_OUTPUT"
       - name: Verify module sources
         working-directory: source
         run: go mod verify
@@ -167,6 +169,15 @@ jobs:
           path: ${{ runner.temp }}/axiom-release
           if-no-files-found: error
           retention-days: 30
+
+  native-acceptance:
+    needs: prepare
+    uses: ./.github/workflows/native-artifact-acceptance.yml
+    with:
+      artifact: axiom-release-${{ needs.prepare.outputs.tag }}
+      version: ${{ needs.prepare.outputs.version }}
+      revision: ${{ inputs.revision }}
+      control_revision: ${{ inputs.corrections_revision || inputs.revision }}
 
   smoke-macos:
     # macos-15 is the existing supported hosted arm64 environment. Legacy

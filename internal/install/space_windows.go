@@ -11,11 +11,10 @@ func supportedWindowsHost() bool {
 	return supportedWindowsProduct(windows.RtlGetVersion().ProductType)
 }
 
-// supportedWindowsProduct accepts Windows client editions regardless of the
-// numeric OS version. VER_NT_WORKSTATION excludes domain controllers and
-// Windows Server.
+// supportedWindowsProduct accepts workstation and member Server regardless of
+// numeric OS version. Domain controllers and unknown products fail closed.
 func supportedWindowsProduct(productType byte) bool {
-	return productType == 1
+	return productType == 1 || productType == 3
 }
 
 func statfsAvailable(path string) (uint64, error) { return windowsfs.Available(path) }

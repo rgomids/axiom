@@ -2,7 +2,7 @@
 # Offline native installer contract. No release, network or user installation.
 $ErrorActionPreference = 'Stop'
 $repository = Split-Path $PSScriptRoot -Parent
-$work = Join-Path ([IO.Path]::GetTempPath()) ('axiom-windows-test-' + [guid]::NewGuid().ToString('N'))
+$work = Join-Path $env:USERPROFILE ('axiom-windows-test-' + [guid]::NewGuid().ToString('N'))
 $utf8 = New-Object Text.UTF8Encoding($false)
 function Write-TestFile([string]$Path,[string]$Content) { [IO.File]::WriteAllText($Path,$Content,$utf8) }
 function Assert-NativeExit([string]$Label) { if ($LASTEXITCODE -ne 0) { throw "$Label failed: $LASTEXITCODE" } }
@@ -56,28 +56,13 @@ try {
     $rejected = $false
     try { & (Join-Path $first.Root 'install.ps1') -Archive $first.Archive -Checksums $bad -BinDir $bin -ReceiptDir $receipt } catch { $rejected = $true }
     if (-not $rejected -or (Test-Path -LiteralPath $bin) -or (Test-Path -LiteralPath $receipt)) { throw 'Checksum refusal must have zero installation effects.' }
-    if ((Get-CimInstance Win32_OperatingSystem).ProductType -ne 1) {
-        # Windows PowerShell represents native stderr as error records; capture
-        # this expected failure without terminating before checking its exit code.
-        $savedPreference = $ErrorActionPreference
-        try {
-            $ErrorActionPreference = 'Continue'
-            $output = & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $bin --receipt-dir $receipt 2>&1
-        } finally { $ErrorActionPreference = $savedPreference }
-        if ($LASTEXITCODE -eq 0 -or ($output -join "`n") -notmatch 'unsupported_host' -or (Test-Path -LiteralPath $bin) -or (Test-Path -LiteralPath $receipt)) {
-            throw 'Windows Server must be refused without target mutation.'
-        }
-        Write-Output 'windows_server_refusal=pass; client_install_acceptance=not_run'
-        # The expected native refusal must not become the CI shell's exit code.
-        exit 0
-    }
     Install-TestBundle $first
     # Full default flow in a synthetic profile: AppData is intentionally unsafe,
     # Runtime roots require explicit repair, and unrelated skills are preserved.
     $isolatedOverrides = @{}
     foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) {
         $isolatedOverrides[$name] = [Environment]::GetEnvironmentVariable($name,'Process')
-        [Environment]::SetEnvironmentVariable($name,$null,'Process')
+        if (Test-Path -LiteralPath "Env:$name") { Remove-Item -LiteralPath "Env:$name" }
     }
     New-Item -ItemType Directory -Path $env:USERPROFILE,$env:LOCALAPPDATA -Force | Out-Null
     $everyone = New-Object Security.Principal.SecurityIdentifier('S-1-1-0')
@@ -104,7 +89,38 @@ try {
     } finally { $ErrorActionPreference = $savedPreference }
     if ($LASTEXITCODE -eq 0 -or (Test-Path -LiteralPath $defaultBin)) { throw 'Declined repair published an installation.' }
     if (($preview -join "`n") -notmatch '\[S/n\]' -or ($preview -join "`n") -match 'permission_before=|permission_after=|Type REPAIR') { throw "Unexpected permission prompt: $preview" }
-    's' | & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt
+    # Feed an exact newline through a redirected native handle. PowerShell 5.1
+    # pipeline input can close before the native consent reader consumes it.
+    $consent = New-Object Diagnostics.ProcessStartInfo
+    $consent.FileName = Join-Path $first.Root 'axiom.exe'
+    $consent.Arguments = (@('install-release','--archive',$first.Archive,'--checksums',$first.Checksums,'--bin-dir',$defaultBin,'--receipt-dir',$defaultReceipt) | ForEach-Object { '"' + $_ + '"' }) -join ' '
+    $consent.UseShellExecute = $false
+    $consent.RedirectStandardInput = $true
+    $consent.RedirectStandardOutput = $true
+    $consent.RedirectStandardError = $true
+    $savedInputEncoding = [Console]::InputEncoding
+    $process = $null
+    try {
+        # Process creates its StreamWriter with Console.InputEncoding and can
+        # emit that encoding's BOM before BaseStream is accessed.
+        [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
+        $process = [Diagnostics.Process]::Start($consent)
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        # Hosted PowerShell sets Console.InputEncoding to UTF-8 with a BOM.
+        # Write ASCII bytes directly so the consent answer is exactly "s\n".
+        $answer = [Text.Encoding]::ASCII.GetBytes("s`n")
+        $process.StandardInput.BaseStream.Write($answer, 0, $answer.Length)
+        $process.StandardInput.BaseStream.Flush()
+        $process.StandardInput.Close()
+        if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Consent fixture timed out.' }
+        Write-Output $stdout.Result
+        Write-Output $stderr.Result
+        $global:LASTEXITCODE = $process.ExitCode
+    } finally {
+        if ($process) { $process.Dispose() }
+        [Console]::InputEncoding = $savedInputEncoding
+    }
     Assert-NativeExit 'Approved default onboarding repair'
     if ((Get-Acl -LiteralPath $other).Sddl -cne $otherBefore -or
         (Get-Acl -LiteralPath $env:LOCALAPPDATA).Sddl -cne $appDataBefore -or
@@ -193,7 +209,11 @@ try {
     Write-Output 'windows_install_contract=pass'
 } finally {
     Pop-Location
-    foreach ($name in $savedEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name],'Process') }
+    foreach ($name in $savedEnvironment.Keys) {
+        if ($null -eq $savedEnvironment[$name]) {
+            if (Test-Path -LiteralPath "Env:$name") { Remove-Item -LiteralPath "Env:$name" }
+        } else { [Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name],'Process') }
+    }
     # Exact UUID directory created above; never delete a caller-supplied path.
     if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
 }

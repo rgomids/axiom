@@ -27,6 +27,9 @@ expands that matrix.
 > historical text is preserved for decision traceability. See the referenced ADR
 > for the current host-eligibility rule.
 
+> Superseded by [ADR-0021 — Windows Server AMD64 native acceptance](0021-windows-server-amd64-native-acceptance.md#decision), accepted 2026-10-09.
+> Only the Windows Server exclusion above is superseded; filesystem/security boundaries remain.
+
 Private objects require the current token's ownership identity and reject access by
 other untrusted principals; SYSTEM, Administrators and TrustedInstaller remain
 trusted like root on POSIX. Normally the owner is the user's SID; an elevated

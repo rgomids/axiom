@@ -9,7 +9,7 @@ func TestSupportedWindowsProduct(t *testing.T) {
 		want    bool
 	}{
 		{"client", 1, true},
-		{"server", 3, false},
+		{"server", 3, true},
 		{"domain controller", 2, false},
 		{"unknown product", 0, false},
 	} {

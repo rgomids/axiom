@@ -33,13 +33,48 @@ def inventory(root):
     return result
 
 
+def windows_archive_name(name):
+    reserved = {"CON", "PRN", "AUX", "NUL"} | {f"{p}{i}" for p in ("COM", "LPT") for i in range(1, 10)}
+    return all(not any(c in part for c in '<>:"|?*') and not part.endswith((".", " "))
+               and part.split(".")[0].upper() not in reserved for part in name.split("/"))
+
+
+def windows_environment(home, temporary):
+    """Only OS plumbing, never inherited credentials or Runtime discovery."""
+    system = os.environ["SystemRoot"]
+    return {"SystemRoot": system, "WINDIR": system, "OS": "Windows_NT",
+            "SystemDrive": Path(system).drive,
+            "USERPROFILE": str(home), "HOME": str(home), "APPDATA": str(home / "AppData/Roaming"),
+            "PROCESSOR_ARCHITECTURE": "AMD64", "PATHEXT": ".EXE;.CMD;.BAT",
+            "COMSPEC": str(Path(system) / "System32/cmd.exe"),
+            "LOCALAPPDATA": str(home / "AppData/Local"),
+            "TEMP": str(temporary), "TMP": str(temporary)}
+
+
+def windows_private_directory(path):
+    """Protect only the acceptance-created directory, never a host ancestor."""
+    powershell = Path(os.environ["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe"
+    code = ("$ErrorActionPreference='Stop'; $u=[Security.Principal.WindowsIdentity]::GetCurrent().User; "
+            "$a=Get-Acl -LiteralPath '" + str(path).replace("'", "''") + "'; "
+            "$a.SetAccessRuleProtection($true,$false); "
+            "foreach($r in @($a.Access)) { $a.RemoveAccessRuleSpecific($r) }; "
+            "foreach($s in @($u.Value,'S-1-5-18','S-1-5-32-544')) { "
+            "$sid=New-Object Security.Principal.SecurityIdentifier($s); "
+            "$a.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))) }; "
+            "$d=New-Object IO.DirectoryInfo('" + str(path).replace("'", "''") + "'); $d.SetAccessControl($a)")
+    subprocess.run([str(powershell), "-NoProfile", "-NonInteractive", "-Command", code],
+                   env=windows_environment(path, path), stdin=subprocess.DEVNULL,
+                   capture_output=True, timeout=60, check=True)
+
+
 def smoke(args, summary):
     if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?", args.version):
         raise ValueError("exact semantic version required")
     if not re.fullmatch(r"[0-9a-f]{40}", args.revision):
         raise ValueError("full source revision required")
     host = (platform.system(), platform.machine())
-    expected = {"linux-amd64": ("Linux", "x86_64"), "macos-27-arm64": ("Darwin", "arm64")}
+    expected = {"linux-amd64": ("Linux", "x86_64"), "linux-arm64": ("Linux", "aarch64"),
+                "macos-27-arm64": ("Darwin", "arm64"), "windows-amd64": ("Windows", "AMD64")}
     if host != expected[args.row]:
         raise ValueError("native host does not match requested row")
     root = Path(args.directory)
@@ -55,8 +90,11 @@ def smoke(args, summary):
     if checksums.count(f"{summary['archiveSha256']}  {archive.name}") != 1:
         raise ValueError("prepared archive checksum mismatch")
     try:
-        with tempfile.TemporaryDirectory(prefix="axiom-release-smoke-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="axiom-release-smoke-",
+                                         dir=os.environ["USERPROFILE"] if host[0] == "Windows" else None) as temporary:
             work = Path(temporary).resolve()
+            if host[0] == "Windows":
+                windows_private_directory(work)
             extracted = work / "extract"
             extracted.mkdir()
             with tarfile.open(archive, "r:gz") as source:
@@ -66,15 +104,17 @@ def smoke(args, summary):
                 names = set()
                 for member in members:
                     parts = member.name.split("/")
+                    entry_key = member.name.casefold() if host[0] == "Windows" else member.name
                     if (parts[0] != bundle or any(part in ("", ".", "..") for part in parts)
                             or "\\" in member.name or not (member.isfile() or member.isdir())
-                            or member.name in names):
+                            or entry_key in names
+                            or (host[0] == "Windows" and not windows_archive_name(member.name))):
                         raise ValueError("unsafe prepared archive entry")
-                    names.add(member.name)
+                    names.add(entry_key)
                 # Explicit validation above also works on hosted Python versions
                 # predating tarfile's extraction filter API.
                 source.extractall(extracted, members=members)
-            binary = extracted / bundle / "axiom"
+            binary = extracted / bundle / ("axiom.exe" if host[0] == "Windows" else "axiom")
             if not binary.is_file() or not os.access(binary, os.X_OK):
                 raise ValueError("prepared binary is not executable")
             summary["binarySha256"] = digest(binary)
@@ -93,6 +133,8 @@ def smoke(args, summary):
                 "AXIOM_GH_BIN": str(private / "bin" / "unavailable-gh"),
                 "LANG": "C", "LC_ALL": "C",
             }
+            if host[0] == "Windows":
+                environment.update(windows_environment(private / "home", private / "tmp"))
 
             def run(*command):
                 # File capture avoids unbounded memory and keeps raw CLI output
@@ -103,6 +145,12 @@ def smoke(args, summary):
                                                stdin=subprocess.DEVNULL, stdout=out, stderr=err,
                                                timeout=20, check=False)
                 if completed.returncode:
+                    if getattr(args, "log", None):
+                        with Path(args.log).open("a") as diagnostics:
+                            diagnostics.write(json.dumps({"command": list(command), "exit": completed.returncode}) + "\n")
+                            for stream in ("stdout", "stderr"):
+                                with (private / stream).open("rb") as captured:
+                                    diagnostics.write(captured.read(65536).decode(errors="replace") + "\n")
                     raise ValueError(f"CLI command failed: {' '.join(command[:2])}")
                 if (private / "stdout").stat().st_size > 65536:
                     raise ValueError("CLI output exceeds smoke bound")
@@ -145,7 +193,7 @@ def main():
     parser.add_argument("--dir", dest="directory", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
-    parser.add_argument("--row", choices=("linux-amd64", "macos-27-arm64"), required=True)
+    parser.add_argument("--row", choices=("linux-amd64", "linux-arm64", "macos-27-arm64", "windows-amd64"), required=True)
     args = parser.parse_args()
     summary = {
         "schema": "axiom-prepared-artifact-smoke/v1", "version": args.version,

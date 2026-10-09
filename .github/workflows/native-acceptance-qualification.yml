@@ -1,0 +1,135 @@
+name: Native acceptance qualification (no publication)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Release regression contracts
+        run: |
+          set -euo pipefail
+          ./scripts/test-release-pipeline.sh
+          ./scripts/test-release-flow.sh
+          ./scripts/validate-repository.sh .
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build once and run release regression contracts
+        run: |
+          set -euo pipefail
+          python3 scripts/test-prepared-artifact-smoke.py
+          python3 scripts/test-native-acceptance.py
+          ./scripts/build-release-archives.sh --version 9999.0.0-acceptance --output "$RUNNER_TEMP/prepared/artifacts"
+          python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
+            --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row linux-amd64
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-qualification-candidate
+          path: ${{ runner.temp }}/prepared
+          if-no-files-found: error
+          retention-days: 30
+  acceptance:
+    needs: prepare
+    uses: ./.github/workflows/native-artifact-acceptance.yml
+    with:
+      artifact: native-qualification-candidate
+      version: 9999.0.0-acceptance
+      revision: ${{ github.sha }}
+      control_revision: ${{ github.sha }}
+  smoke-macos:
+    needs: prepare
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-qualification-candidate
+          path: ${{ runner.temp }}/prepared
+      - name: Preserve native macOS smoke
+        run: |
+          python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
+            --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row macos-27-arm64 > "$RUNNER_TEMP/macos.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: native-qualification-macos-smoke
+          path: ${{ runner.temp }}/macos.json
+          if-no-files-found: error
+          retention-days: 30
+  rejection:
+    needs: prepare
+    uses: ./.github/workflows/native-artifact-acceptance.yml
+    with:
+      artifact: native-qualification-candidate
+      version: 9999.0.0-acceptance
+      revision: ${{ github.sha }}
+      control_revision: ${{ github.sha }}
+      reject_control: true
+  promotion:
+    needs: rejection
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Non-publishing promotion sentinel; must be skipped after rejection'
+  verify-propagation:
+    if: always()
+    needs: [acceptance, rejection, promotion, smoke-macos, release-contract]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-linux-arm64-rejection
+          path: ${{ runner.temp }}/rejection
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-windows-server-amd64-rejection
+          path: ${{ runner.temp }}/windows-rejection
+      - name: Assert successful acceptance and blocked promotion
+        env:
+          ACCEPTANCE: ${{ needs.acceptance.result }}
+          REJECTION: ${{ needs.rejection.result }}
+          PROMOTION: ${{ needs.promotion.result }}
+          MACOS: ${{ needs.smoke-macos.result }}
+          CONTRACT: ${{ needs.release-contract.result }}
+        run: |
+          set -euo pipefail
+          test "$ACCEPTANCE" = success
+          test "$REJECTION" = failure
+          test "$PROMOTION" = skipped
+          test "$MACOS" = success
+          test "$CONTRACT" = success
+          python3 - "$RUNNER_TEMP/rejection/native.json" "$RUNNER_TEMP/windows-rejection/native.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1]))
+          assert report['result'] == 'fail'
+          assert report['error'] == 'prepared archive checksum mismatch'
+          assert report['row'] == 'linux-arm64'
+          assert report['environment']['architecture'] == 'aarch64'
+          windows = json.load(open(sys.argv[2]))
+          assert windows['result'] == 'fail'
+          assert windows['error'] == 'prepared archive checksum mismatch'
+          assert windows['row'] == 'windows-amd64'
+          assert windows['environment']['os'] == 'Windows'
+          assert windows['environment']['architecture'] == 'AMD64'
+          PY
+          printf 'acceptance=%s rejection=%s promotion=%s\n' "$ACCEPTANCE" "$REJECTION" "$PROMOTION" >> "$GITHUB_STEP_SUMMARY"

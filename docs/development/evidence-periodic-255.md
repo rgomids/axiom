@@ -167,3 +167,18 @@ This is a correctly reported monitoring result, not an assertion that the source
 revision is vulnerability-free. GitHub's independent AI scan quota and the local
 Windows limitations above are also explicitly unresolved; successful deterministic
 CI and Linux monitoring evidence do not claim that the AI review succeeded.
+
+### Reconciliation with advancing main
+
+Before final delivery, `main` advanced to `fcf4f46` (Windows Server/native
+acceptance, #288). Merge conflicts were limited to the automation catalog and
+static release trigger allowlist. The catalog retains every upstream entry plus
+the four monitoring entries; the allowlist retains both the upstream native
+`workflow_call` exception and the periodic schedule/dispatch exception.
+
+After reconciliation: monitoring contracts PASS (39 + one Windows POSIX skip),
+automation coverage PASS (85 surfaces), ADR structure PASS (22 ADRs). A direct
+diff confirms the monitoring workflow/scripts/baseline/schema and all six Go
+suite packages are unchanged from the operationally tested code. ADR-0021's
+new native release requirement is preserved. The old-head documentation CI
+was cancelled as superseded; final-head normal CI evidence is recorded in PR #293.

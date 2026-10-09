@@ -9,6 +9,15 @@ The implementation is the bounded #183 hotfix in PR #184. There is no separate
 Plan or Tasks file: the work is a single installer-eligibility correction.
 Merge, human acceptance and release publication remain separate decisions.
 
+## Server support amendment — 2026-10-09
+
+The maintainer explicitly authorized Windows Server AMD64 support for Issue #256.
+[ADR-0021](../../decisions/0021-windows-server-amd64-native-acceptance.md#decision)
+supersedes the historical Server exclusions below. Workstation and member Server
+are eligible; domain controllers, unknown products and Windows ARM64 remain refused.
+The existing local NTFS security and publication authority contracts remain.
+Native Server evidence is tracked in the [acceptance report](../../development/native-platform-acceptance.md).
+
 ## Problem
 
 Exact OS-version gates prevented otherwise compatible supported hosts from

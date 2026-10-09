@@ -1546,6 +1546,14 @@ stage_prepared_run 5151 v0.1.0-rc.1 "$c4" first
 stage_prepared_run 6161 v0.1.0-rc.1 "$c4" first .github/workflows/other.yml
 release status --tag v0.1.0-rc.1 --prepared-run 6161 >"$temporary/status"
 check 'a set from another workflow is refused' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'not a successful release-artifacts.yml' '$temporary/status'"
+stage_prepared_run 6262 v0.1.0-rc.1 "$c4" first
+jq '.conclusion = "failure"' "$state/runs/6262.json" >"$temporary/failed-native-run.json"
+cp "$temporary/failed-native-run.json" "$state/runs/6262.json"
+release status --tag v0.1.0-rc.1 --prepared-run 6262 >"$temporary/status"
+check 'failed native acceptance preparation blocks promotion' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'not a successful release-artifacts.yml' '$temporary/status'"
+expect_failure 'even authorized publication refuses failed acceptance' 'publication is not the next step' \
+  release publish --tag v0.1.0-rc.1 --revision "$c4" --prepared-run 6262 --preview-digest "$digest_value" --authorize-publication
+check 'failed acceptance caused no release effect' test "$(release_effects)" == 0
 stage_prepared_run 7171 v0.1.0-rc.1 "$c4" first
 printf 'x\n' >>"$state/runs/7171/axiom-release-v0.1.0-rc.1/artifacts/axiom-0.1.0-rc.1-linux-amd64.tar.gz"
 release status --tag v0.1.0-rc.1 --prepared-run 7171 >"$temporary/status"
@@ -1700,6 +1708,7 @@ check 'Issue closure is a publication effect: no workflow closes Issues on merge
     case \$(basename \"\$w\") in
       issue-label-policy.yml) allowed='issues|push|workflow_dispatch' ;;
       periodic-monitoring.yml) allowed='schedule|workflow_dispatch' ;;
+      native-artifact-acceptance.yml) allowed='workflow_call' ;;
       *) allowed='pull_request|push|workflow_dispatch' ;;
     esac
     sed -n '/^on:/,/^[a-z]/p' \"\$w\" | grep -E '^  [a-z_]+:' | tr -d ' :' | grep -Eqv \"^(\$allowed)\$\" && exit 1
@@ -1711,6 +1720,7 @@ check 'Issue closure is a publication effect: no workflow closes Issues on merge
   ! grep -Eq 'state=closed|state_reason|\"state\"' $workflows/*.yml"
 pinned=true
 while IFS= read -r line; do
+  [[ "$line" == '    uses: ./.github/workflows/native-artifact-acceptance.yml' ]] && continue
   [[ "$line" =~ uses:\ [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}\ \#\ v[0-9.]+$ ]] || { printf 'unpinned: %s\n' "$line" >&2; pinned=false; }
 done < <(grep -hE '^\s+(- )?uses:' "$workflows"/*.yml)
 check 'every action is pinned by SHA' "$pinned"

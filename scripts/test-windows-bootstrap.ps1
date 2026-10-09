@@ -151,19 +151,19 @@ try {
     # Issue #189: exercise IEX itself, including a caller variable that is not
     # a valid selector. A parameter declaration in IEX's caller scope failed
     # even without a pre-existing Channel. No network or mutation is needed.
-    $script:productType = 3
+    $script:productType = 2
     foreach ($callerChannel in @('', 'caller-value')) {
         $Channel = $callerChannel
         $message = ''
         try { $source | Invoke-Expression } catch { $message = $_.Exception.Message }
-        if ($message -notmatch 'Windows Server is unsupported' -or $Channel -cne $callerChannel) {
+        if ($message -notmatch 'domain controllers and unknown product types are unsupported' -or $Channel -cne $callerChannel) {
             throw "IEX child scope regression: $message"
         }
     }
     Remove-Variable Channel
     $message = ''
     try { $source | Invoke-Expression } catch { $message = $_.Exception.Message }
-    if ($message -notmatch 'Windows Server is unsupported') { throw "IEX omitted Channel regression: $message" }
+    if ($message -notmatch 'domain controllers and unknown product types are unsupported') { throw "IEX omitted Channel regression: $message" }
     $script:productType = 1
     Write-Output 'bootstrap_iex_scope=pass'
     $transport = New-Object BootstrapTransport
@@ -207,13 +207,23 @@ try {
     }
     $script:osVersion = '10.0.22621'
     $script:productType = 3
-    Assert-Refusal 'server' 'Windows Server is unsupported' (New-Object BootstrapTransport)
-    $script:osVersion = '10.0.17134'
-    Assert-Refusal 'server-old-version' 'Windows Server is unsupported' (New-Object BootstrapTransport)
+    foreach ($serverVersion in @('10.0.20348','10.0.17763')) {
+        $script:osVersion = $serverVersion
+        $transport = New-Object BootstrapTransport
+        $transport.Redirect = 'http://example.invalid/release'
+        Assert-Refusal "server-version-$serverVersion" 'Only HTTPS' $transport
+        if ($transport.Requests.Count -ne 1) { throw 'Server refused before transport.' }
+    }
+    foreach ($unsupportedProduct in @(2,0)) {
+        $script:productType = $unsupportedProduct
+        $transport = New-Object BootstrapTransport
+        Assert-Refusal "unsupported-product-$unsupportedProduct" 'domain controllers and unknown product types are unsupported' $transport
+        if ($transport.Requests.Count -ne 0) { throw 'Unsupported product reached transport.' }
+    }
     # Positive transport test uses a real verified native bundle, with only
     # HTTP and host-metadata lookup replaced. Never install into the host profile.
-    if ((CimCmdlets\Get-CimInstance Win32_OperatingSystem).ProductType -eq 1) {
-        $script:productType = 1
+    if ((CimCmdlets\Get-CimInstance Win32_OperatingSystem).ProductType -in @(1,3)) {
+        $script:productType = (CimCmdlets\Get-CimInstance Win32_OperatingSystem).ProductType
         $repository = Split-Path $PSScriptRoot -Parent
         $bundleName = 'axiom-1.0.0-windows-amd64'
         $bundleRoot = Join-Path $work $bundleName
@@ -243,7 +253,11 @@ try {
         $archiveHash = (Get-FileHash -LiteralPath $archivePath).Hash.ToLowerInvariant()
         $env:LOCALAPPDATA = Join-Path $work 'AppData\Local'
         $env:CLAUDE_CONFIG_DIR = $null
-        foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) { [Environment]::SetEnvironmentVariable($name,$null,'Process') }
+        # Modern .NET keeps an empty variable when PowerShell binds $null to
+        # string. The CLI correctly refuses an explicitly empty state root.
+        foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) {
+            if (Test-Path -LiteralPath "Env:$name") { Remove-Item -LiteralPath "Env:$name" }
+        }
         $runtimeBin = Join-Path $work 'runtime-bin'
         New-Item -ItemType Directory -Path $runtimeBin | Out-Null
         [IO.File]::WriteAllText((Join-Path $runtimeBin 'codex.cmd'),'@echo must-not-execute',$utf8)
@@ -265,12 +279,16 @@ try {
         if ($testUserEnvironment.Value -cne $expectedUserPath -or $testUserEnvironment.Writes -ne 1 -or
             $testUserEnvironment.Kind -ne [Microsoft.Win32.RegistryValueKind]::ExpandString) { throw 'User PATH preservation/idempotence failed.' }
         Write-Output 'windows_bootstrap_default_onboarding=pass; automatic_first_run=pass; session_path=pass; user_path=pass; reinstall=pass'
-    } else { Write-Output 'windows_bootstrap_default_onboarding=skip; native Windows client required' }
+    } else { throw 'Native supported Windows host required for positive bootstrap acceptance.' }
     Write-Output 'windows_bootstrap_contract=pass'
 } finally {
     $env:PROCESSOR_ARCHITECTURE = $savedArch; $env:PROCESSOR_ARCHITEW6432 = $savedWow
     $env:USERPROFILE = $savedProfile
-    foreach ($name in $onboardingEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name,$onboardingEnvironment[$name],'Process') }
+    foreach ($name in $onboardingEnvironment.Keys) {
+        if ($null -eq $onboardingEnvironment[$name]) {
+            if (Test-Path -LiteralPath "Env:$name") { Remove-Item -LiteralPath "Env:$name" }
+        } else { [Environment]::SetEnvironmentVariable($name,$onboardingEnvironment[$name],'Process') }
+    }
     if (-not [IO.Path]::GetFullPath($work).StartsWith([IO.Path]::GetFullPath($testRoot) + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Test cleanup escaped its root.' }
     Remove-Item -LiteralPath $work -Recurse -Force
 }

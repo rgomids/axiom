@@ -55,7 +55,8 @@ func installReleaseCommand(args []string, out, stderr io.Writer) (bool, int) {
 	skills := codexSkillsRoot()
 	target := install.Target{BinaryDir: values["--bin-dir"], ReceiptDir: values["--receipt-dir"], SkillsRoot: skills, State: compatibility.Roots{Projects: projects, State: state, Skills: skills}, Self: selfBuild(), Archive: archiveRoot(values["--receipt-dir"])}
 	// Host/candidate eligibility must be established before onboarding effects.
-	if windows.RtlGetVersion().ProductType == 1 && candidate.Values["platform"] == "windows" && candidate.Values["goos"] == "windows" && candidate.Values["architecture"] == "amd64" {
+	productType := windows.RtlGetVersion().ProductType
+	if (productType == 1 || productType == 3) && candidate.Values["platform"] == "windows" && candidate.Values["goos"] == "windows" && candidate.Values["architecture"] == "amd64" {
 		if err := prepareWindowsOnboarding(target, os.Stdin, out); err != nil {
 			return windowsInstallReleaseResult(install.Result{}, err, target, out, stderr)
 		}

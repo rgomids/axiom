@@ -60,10 +60,13 @@ contracts remain unchanged.
 
 ## Residual risk
 
-Hosted execution proves this bounded lifecycle in the recorded environment,
-not every filesystem/install/upgrade journey. Linux arm64 and supported Windows
-client native acceptance are not activated here and do not block publication.
-Unavailable/manual rows remain residual risk under
+Hosted smoke proves this bounded lifecycle in the recorded environment,
+not every filesystem/install/upgrade journey. Issue #256 adds required Linux
+arm64 and explicitly authorized member Windows Server AMD64 installation lifecycle acceptance, described in
+[native platform acceptance](native-platform-acceptance.md). Supported Windows
+client native acceptance remains blocked by hosted runner eligibility and does
+not block publication.
+Unavailable rows remain residual risk under
 [#256](https://github.com/rgomids/axiom/issues/256), never simulated as PASS.
 Any future change of the automated runner set follows an explicit reviewed
 support/infrastructure change; a failed automated smoke cannot be waived as
