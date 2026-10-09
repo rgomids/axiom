@@ -69,7 +69,8 @@ def acceptance(args, report):
             candidate, archive, checksum, metadata = extract(roots[0], args.version, args.row, extracted)
             previous, prior_archive, prior_checksum, prior_metadata = extract(roots[1], "0.10.0", args.row, extracted)
             report["baseline"] = {"version": "0.10.0", "archiveSha256": prior_checksum,
-                                  "revision": prior_metadata["revision"]}
+                                  "revision": prior_metadata["revision"],
+                                  "binarySha256": smoke.digest(previous / "axiom")}
             report["archiveSha256"] = checksum
             log = Path(args.log)
             log.parent.mkdir(parents=True, exist_ok=True)
@@ -129,6 +130,9 @@ def acceptance(args, report):
                 def version(expected, revision):
                     require(cli("version")["provenance"] == {"product": "Axiom", "version": expected,
                             "revision": revision[:12], "sourceState": "clean"}, "installed provenance mismatch")
+                    expected_digest = (report["binarySha256"] if expected == args.version
+                                       else report["baseline"]["binarySha256"])
+                    require(smoke.digest(binary) == expected_digest, "installed binary differs from distribution")
 
                 scenario("fresh-install", lambda: require("install_status=installed" in install(candidate, archive), "fresh status"))
                 scenario("discovery-provenance", lambda: version(args.version, args.revision))
