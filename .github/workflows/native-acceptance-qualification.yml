@@ -1,0 +1,73 @@
+name: Native acceptance qualification (no publication)
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/256-native-acceptance]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Build once and run release regression contracts
+        run: |
+          set -euo pipefail
+          python3 scripts/test-prepared-artifact-smoke.py
+          python3 scripts/test-native-acceptance.py
+          ./scripts/test-release-pipeline.sh
+          ./scripts/test-release-flow.sh
+          ./scripts/build-release-archives.sh --version 9999.0.0-acceptance --output "$RUNNER_TEMP/prepared/artifacts"
+          python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
+            --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row linux-amd64
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-qualification-candidate
+          path: ${{ runner.temp }}/prepared
+          if-no-files-found: error
+          retention-days: 30
+  acceptance:
+    needs: prepare
+    uses: ./.github/workflows/native-artifact-acceptance.yml
+    with:
+      artifact: native-qualification-candidate
+      version: 9999.0.0-acceptance
+      revision: ${{ github.sha }}
+      control_revision: ${{ github.sha }}
+  rejection:
+    needs: prepare
+    uses: ./.github/workflows/native-artifact-acceptance.yml
+    with:
+      artifact: native-qualification-candidate
+      version: 9999.0.0-acceptance
+      revision: ${{ github.sha }}
+      control_revision: ${{ github.sha }}
+      reject_control: true
+  promotion:
+    needs: rejection
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Non-publishing promotion sentinel; must be skipped after rejection'
+  verify-propagation:
+    if: always()
+    needs: [acceptance, rejection, promotion]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Assert successful acceptance and blocked promotion
+        env:
+          ACCEPTANCE: ${{ needs.acceptance.result }}
+          REJECTION: ${{ needs.rejection.result }}
+          PROMOTION: ${{ needs.promotion.result }}
+        run: |
+          set -euo pipefail
+          test "$ACCEPTANCE" = success
+          test "$REJECTION" = failure
+          test "$PROMOTION" = skipped
+          printf 'acceptance=%s rejection=%s promotion=%s\n' "$ACCEPTANCE" "$REJECTION" "$PROMOTION" >> "$GITHUB_STEP_SUMMARY"

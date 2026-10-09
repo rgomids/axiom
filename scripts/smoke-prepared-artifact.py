@@ -39,7 +39,8 @@ def smoke(args, summary):
     if not re.fullmatch(r"[0-9a-f]{40}", args.revision):
         raise ValueError("full source revision required")
     host = (platform.system(), platform.machine())
-    expected = {"linux-amd64": ("Linux", "x86_64"), "macos-27-arm64": ("Darwin", "arm64")}
+    expected = {"linux-amd64": ("Linux", "x86_64"), "linux-arm64": ("Linux", "aarch64"),
+                "macos-27-arm64": ("Darwin", "arm64")}
     if host != expected[args.row]:
         raise ValueError("native host does not match requested row")
     root = Path(args.directory)
@@ -145,7 +146,7 @@ def main():
     parser.add_argument("--dir", dest="directory", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
-    parser.add_argument("--row", choices=("linux-amd64", "macos-27-arm64"), required=True)
+    parser.add_argument("--row", choices=("linux-amd64", "linux-arm64", "macos-27-arm64"), required=True)
     args = parser.parse_args()
     summary = {
         "schema": "axiom-prepared-artifact-smoke/v1", "version": args.version,

@@ -1,0 +1,67 @@
+name: Native artifact acceptance
+on:
+  workflow_call:
+    inputs:
+      artifact:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+      revision:
+        type: string
+        required: true
+      control_revision:
+        type: string
+        required: true
+      reject_control:
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.control_revision }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: ${{ runner.temp }}/prepared
+      - name: Acquire genuine supported baseline
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/previous"
+          for asset in SHA256SUMS axiom-0.10.0-linux-arm64.tar.gz; do
+            curl -fsSL --max-time 120 -o "$RUNNER_TEMP/previous/$asset" "https://github.com/$GITHUB_REPOSITORY/releases/download/v0.10.0/$asset"
+          done
+      - name: Controlled rejection in non-publishing qualification only
+        if: inputs.reject_control
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          printf 'corruption-control' >> "$RUNNER_TEMP/prepared/artifacts/axiom-$VERSION-linux-arm64.tar.gz"
+      - name: Native installation lifecycle on exact prepared bytes
+        env:
+          VERSION: ${{ inputs.version }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          python3 scripts/accept-native-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
+            --previous "$RUNNER_TEMP/previous" --version "$VERSION" --revision "$REVISION" \
+            --row linux-arm64 --log "$RUNNER_TEMP/native.log" > "$RUNNER_TEMP/native.json"
+      - name: Retain acceptance diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-linux-arm64-${{ inputs.reject_control && 'rejection' || 'acceptance' }}
+          path: |
+            ${{ runner.temp }}/native.json
+            ${{ runner.temp }}/native.log
+          if-no-files-found: error
+          retention-days: 30

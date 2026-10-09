@@ -168,6 +168,15 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  native-linux-arm64:
+    needs: prepare
+    uses: ./.github/workflows/native-artifact-acceptance.yml
+    with:
+      artifact: axiom-release-${{ inputs.tag }}
+      version: ${{ needs.prepare.outputs.version }}
+      revision: ${{ inputs.revision }}
+      control_revision: ${{ inputs.corrections_revision || inputs.revision }}
+
   smoke-macos:
     # macos-15 is the existing supported hosted arm64 environment. Legacy
     # artifact naming macos-27 does not require numeric OS version 27.
