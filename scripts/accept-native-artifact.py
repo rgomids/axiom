@@ -148,6 +148,8 @@ def acceptance(args, report):
                 def readable():
                     require(cli("project", "show", "--selector", "native")["project"]["slug"] == "native", "project unreadable")
                     require(any(p["slug"] == "native" for p in cli("project", "list")["projects"]), "project not listed")
+                    require(cli("project", "validate", "--project", "native")["readiness"]["structure"] == "valid",
+                            "project configuration not valid")
 
                 scenario("configuration-cli", lambda: (configure(), readable()))
                 state = smoke.inventory(home / "projects"), smoke.inventory(home / "state")
@@ -166,7 +168,7 @@ def acceptance(args, report):
                     saved = manifest.read_bytes()
                     manifest.write_text("invalid: [\n")
                     try:
-                        cli("project", "show", "--selector", "native", expected=None)
+                        cli("project", "validate", "--project", "native", expected=None)
                         require(manifest.read_text() == "invalid: [\n", "invalid state overwritten")
                     finally:
                         manifest.write_bytes(saved)
@@ -181,7 +183,7 @@ def acceptance(args, report):
                     saved = manifest.read_bytes()
                     manifest.unlink()
                     try:
-                        cli("project", "show", "--selector", "native", expected=None)
+                        cli("project", "validate", "--project", "native", expected=None)
                         require(not manifest.exists(), "missing config silently recreated")
                     finally:
                         manifest.write_bytes(saved)
