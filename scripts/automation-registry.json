@@ -361,6 +361,39 @@
       "removal_condition": "Remove when the retained S9 checkpoint Evidence under evidence-s9-rc no longer needs its structural audit reproduced."
     },
     {
+      "path": "docs/specifications/007-configurable-workflows/validate_examples.py",
+      "kind": "script",
+      "owner": "repository-validation",
+      "purpose": "Offline documentation-only workflow schema-subset, DAG, gate, reference and frozen digest fixture validation for Specification 007. Not a product compiler or dispatch path.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual validation whenever Specification 007 schema or example contracts change.",
+      "replay_reason": null,
+      "callers": [
+        "docs/specifications/007-configurable-workflows/spec.md",
+        "docs/specifications/007-configurable-workflows/evidence.md"
+      ],
+      "inputs": "Versioned workflow.schema.json, examples/*.json and example-digests.json beside the validator; no arguments, environment configuration or network.",
+      "outputs": "Bounded PASS/exception diagnostics and deterministic SHA-256 fixture digests; exit zero only when all checks pass.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "Read-only fixture validation; no credentials, Runtime dispatch, Provider effects or acceptance authority.",
+      "tests": [
+        "docs/specifications/007-configurable-workflows/validate_examples.py"
+      ],
+      "evidence": "docs/specifications/007-configurable-workflows/evidence.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "internal/compatibility/testdata/generate-poc-fixture.sh",
       "kind": "script",
       "owner": "compatibility",
