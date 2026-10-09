@@ -1546,6 +1546,14 @@ stage_prepared_run 5151 v0.1.0-rc.1 "$c4" first
 stage_prepared_run 6161 v0.1.0-rc.1 "$c4" first .github/workflows/other.yml
 release status --tag v0.1.0-rc.1 --prepared-run 6161 >"$temporary/status"
 check 'a set from another workflow is refused' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'not a successful release-artifacts.yml' '$temporary/status'"
+stage_prepared_run 6262 v0.1.0-rc.1 "$c4" first
+jq '.conclusion = "failure"' "$state/runs/6262.json" >"$temporary/failed-native-run.json"
+cp "$temporary/failed-native-run.json" "$state/runs/6262.json"
+release status --tag v0.1.0-rc.1 --prepared-run 6262 >"$temporary/status"
+check 'failed native acceptance preparation blocks promotion' bash -c "grep -Fxq next_action=blocked '$temporary/status' && grep -Fq 'not a successful release-artifacts.yml' '$temporary/status'"
+expect_failure 'even authorized publication refuses failed acceptance' 'publication is not the next step' \
+  release publish --tag v0.1.0-rc.1 --revision "$c4" --prepared-run 6262 --preview-digest "$digest_value" --authorize-publication
+check 'failed acceptance caused no release effect' test "$(release_effects)" == 0
 stage_prepared_run 7171 v0.1.0-rc.1 "$c4" first
 printf 'x\n' >>"$state/runs/7171/axiom-release-v0.1.0-rc.1/artifacts/axiom-0.1.0-rc.1-linux-amd64.tar.gz"
 release status --tag v0.1.0-rc.1 --prepared-run 7171 >"$temporary/status"

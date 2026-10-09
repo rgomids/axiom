@@ -121,6 +121,8 @@ jobs:
           cache: false
       - name: Release artifact pipeline contract
         run: ./scripts/test-release-pipeline.sh
+      - name: Native acceptance trust and release dependency contracts
+        run: python3 scripts/test-native-acceptance.py
       - name: Release flow and publication contract
         run: ./scripts/test-release-flow.sh
       - name: Delivery metadata and Issue release contract
