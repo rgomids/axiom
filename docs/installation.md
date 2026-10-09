@@ -11,9 +11,9 @@ full flags, output contracts, and maintenance operations.
 |---|---|---|
 | Linux | amd64 or arm64 | Safe local storage; POSIX utilities below |
 | macOS | arm64 | Safe local storage; POSIX utilities below |
-| Windows client edition | amd64 | Local NTFS, 64-bit PowerShell 5.1+, Windows-supplied `tar.exe` |
+| Windows workstation or member Server | amd64 | Local NTFS, 64-bit PowerShell 5.1+, Windows-supplied `tar.exe` |
 
-Windows Server and other OS/architecture combinations are refused. Numeric OS
+Domain controllers and other OS/architecture combinations are refused. Numeric OS
 versions are not installer eligibility filters. Maintenance covers
 vendor-maintained OS versions; validated environments remain recorded Evidence,
 not a promise for every host configuration. See

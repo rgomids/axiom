@@ -63,7 +63,7 @@ jobs:
           - platform: macos
             runner: macos-15
           - platform: windows
-            # Server is a regression host, not an approved installation row.
+            # Server AMD64 is a supported native installation and regression row.
             runner: windows-2022
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
@@ -121,6 +121,8 @@ jobs:
           cache: false
       - name: Release artifact pipeline contract
         run: ./scripts/test-release-pipeline.sh
+      - name: Native acceptance trust and release dependency contracts
+        run: python3 scripts/test-native-acceptance.py
       - name: Release flow and publication contract
         run: ./scripts/test-release-flow.sh
       - name: Delivery metadata and Issue release contract
