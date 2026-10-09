@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/rgomids/axiom/internal/testfs"
 	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -308,5 +309,50 @@ func sequenceAllocatorFrom(start uint64) func() (string, error) {
 	next.Store(start)
 	return func() (string, error) {
 		return fmt.Sprintf("00000000-0000-4000-8000-%012d", next.Add(1)), nil
+	}
+}
+
+type authBlockedFake struct{}
+
+func (authBlockedFake) ResolveInvocation(context.Context, ChildExecution) (Invocation, error) {
+	return Invocation{}, fmt.Errorf("%w: not_logged_in", ErrAuthenticationBlocked)
+}
+
+// #272: a refused authentication preflight blocks the child with its own
+// category before any attempt or process exists.
+func TestSchedulerBlocksAuthenticationBeforeAttempt(t *testing.T) {
+	graph := mustGraph(t)
+	runner := &concurrentRunner{started: make(chan struct{}, 1), release: make(chan struct{}, 1)}
+	result, err := NewScheduler(authBlockedFake{}, runner, workspaceFake{}, nil, sequenceAllocator(), time.Now).DispatchReady(context.Background(), DispatchRequest{Graph: graph})
+	if err != nil || len(result.Records) != 0 || runner.maximum.Load() != 0 || len(result.Blocked) == 0 {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	authenticationBlocked := 0
+	for id, category := range result.Blocked {
+		if category == "authentication_blocked" {
+			authenticationBlocked++
+		} else if category != "integration_pending" {
+			t.Fatalf("child %s blocked as %q", id, category)
+		}
+	}
+	if authenticationBlocked == 0 {
+		t.Fatalf("blocked=%v", result.Blocked)
+	}
+	for _, child := range result.Graph.Children {
+		if len(child.Attempts) != 0 {
+			t.Fatalf("attempt created for %s", child.ExecutionID)
+		}
+	}
+}
+
+func TestEffectiveEnvironmentMatchesProcessInheritance(t *testing.T) {
+	t.Setenv("AXM_EFFECTIVE_ENV_PROBE", "inherited")
+	inherited := strings.Join(EffectiveEnvironment(nil), "\n")
+	if !strings.Contains(inherited, "AXM_EFFECTIVE_ENV_PROBE=inherited") {
+		t.Fatal("empty invocation environment must report the inherited process environment")
+	}
+	explicit := EffectiveEnvironment([]string{"PATH=/usr/bin"})
+	if len(explicit) != 1 || explicit[0] != "PATH=/usr/bin" {
+		t.Fatalf("explicit environment=%v", explicit)
 	}
 }

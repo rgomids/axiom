@@ -313,6 +313,11 @@ defines automatic Intake, derived action guidance, explicit authority and shared
 CLI/Runtime progression through the domain Work Item skill and compatible run
 alias. Runtime/Profile start preview remains required.
 
+Issue [#272](https://github.com/rgomids/axiom/issues/272) (Linear AXM-4) defines the
+[CLI subscription authentication preflight](004-mvp-v1-baseline/issue-272-cli-subscription-auth-preflight.md)
+checked by `runtime <codex|claude> auth` and before each subscription-scenario
+child dispatch. Its real Codex/Claude probe remains pending separate authorization.
+
 Issue [#230](https://github.com/rgomids/axiom/issues/230) freezes its
 [resource lifecycle capability matrix](004-mvp-v1-baseline/issue-230-resource-lifecycle-matrix.md)
 (I230-T01). It records current vs approved target lifecycle, ownership, effect

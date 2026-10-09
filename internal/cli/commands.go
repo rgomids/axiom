@@ -31,8 +31,8 @@ func commandTree() commandDefinition {
 		leaf("first-run", "Install Axiom skills for detected Runtimes", firstRunAction),
 		group("skill", "Inspect embedded Runtime skills", leaf("inspect", "Discover skill arguments", skillInspectAction)),
 		group("runtime", "Manage Runtime integrations and profile policy",
-			group("codex", "Codex integration", leaf("install", "Install user-global skills", codexInstallAction), leaf("status", "Inspect integration", codexStatusAction)),
-			group("claude", "Claude integration", leaf("install", "Install user-global skills", claudeInstallAction), leaf("status", "Inspect integration", claudeStatusAction)),
+			group("codex", "Codex integration", leaf("install", "Install user-global skills", codexInstallAction), leaf("status", "Inspect integration", codexStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", codexAuthAction)),
+			group("claude", "Claude integration", leaf("install", "Install user-global skills", claudeInstallAction), leaf("status", "Inspect integration", claudeStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", claudeAuthAction)),
 			group("profile", "Inspect local profile policy", leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Preview Runtime resolution", runtimeProfilePreviewAction))),
 		group("project", "Configure and inspect Projects",
 			leaf("configure", "Preview CREATE or EDIT; publish with exact authority", configureAction),
@@ -133,7 +133,7 @@ func commandFlagSet(operation action) *flag.FlagSet {
 		return runtimePreviewFlagSet(&RuntimeProfilePreviewInput{}, new(string))
 	case maintenanceOperation(operation):
 		return maintenanceFlagSet(operation, &MaintenanceInput{})
-	case operation == firstRunAction || operation == codexInstallAction || operation == codexStatusAction || operation == claudeInstallAction || operation == claudeStatusAction || operation == runtimeProfileValidateAction || operation == skillInspectAction || operation == "help" || operation == "version":
+	case operation == firstRunAction || operation == codexInstallAction || operation == codexStatusAction || operation == claudeInstallAction || operation == claudeStatusAction || operation == codexAuthAction || operation == claudeAuthAction || operation == runtimeProfileValidateAction || operation == skillInspectAction || operation == "help" || operation == "version":
 		set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
 		set.SetOutput(io.Discard)
 		return set

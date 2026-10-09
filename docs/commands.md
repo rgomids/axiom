@@ -445,9 +445,25 @@ discovery:
 ```bash
 axiom runtime codex install
 axiom runtime codex status
+axiom runtime codex auth
 axiom runtime claude install
 axiom runtime claude status
+axiom runtime claude auth
 ```
+
+`runtime <codex|claude> auth` is the read-only CLI subscription authentication
+preflight ([#272 contract](specifications/004-mvp-v1-baseline/issue-272-cli-subscription-auth-preflight.md)).
+It runs only `<runtime> --version` and the vendor status command
+(`codex login status`, `claude auth status --json`) for the executable on `PATH`
+with this shell's environment, and inspects API-key, provider, helper and
+gateway overrides in that environment and in the Runtime configuration. It
+reports `subscription_observed`, `unproven`, `incompatible`, `unavailable` or
+`unsupported`, with the version, the observed method, the executable digest and
+override names only; it never logs in, refreshes, runs inference or reads
+credential values. Only `subscription_observed` succeeds, and it still reports
+`usability: unproven_until_real_dispatch`: a login status is not proof of a
+usable subscription or of billing. Graph dispatch configured for the
+subscription scenario repeats this check on each child's exact invocation.
 
 Codex standalone skill names accept lowercase letters, digits and hyphens, so
 the requested semantic `axiom:<skill>` names are invoked as:
@@ -526,7 +542,10 @@ executable, lost skill integration or changed policy/configuration returns
 execution through `graphapplication.NewLocalService` additionally requires
 per-child previews and, before adapter credentials and process dispatch, requires
 each command profile to match the reviewed binding: Runtime, Model Profile, model,
-credential reference and current executable identity. Changed input blocks;
+credential reference and current executable identity. With the subscription
+scenario enabled it then refuses any credential reference and re-runs the
+authentication preflight on the effective invocation (`authentication_blocked`).
+Changed input blocks;
 request a fresh preview. Neither preview nor ledger creation grants Provider,
 merge, publication or release authority.
 

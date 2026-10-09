@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -52,6 +53,12 @@ type Service interface {
 	WorkflowStatus(context.Context, WorkflowInput) Result
 	WorkflowEvidence(context.Context, WorkflowInput) Result
 	WorkflowReconcile(context.Context, WorkflowInput) Result
+}
+
+// RuntimeAuthService is optional: the read-only CLI subscription
+// authentication preflight of one Runtime (#272).
+type RuntimeAuthService interface {
+	RuntimeAuth(context.Context, string) Result
 }
 
 // RuntimeProfileService is optional so existing presentation services and mocks
@@ -167,6 +174,8 @@ type Result struct {
 	Edit              *projectapp.EditPreview
 	RuntimeResolution *runtimeapplication.Preview
 	ExecutionTarget   *ExecutionTargetView
+	// RuntimeAuth is the sanitized authentication preflight report.
+	RuntimeAuth *runtimeadapter.AuthReport
 	// Readiness is the canonical Project readiness report (project validate);
 	// Preflight is the operation projection that blocked an effect.
 	Readiness *projectapp.ReadinessReport
@@ -348,6 +357,20 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		}
 		return emitResponse(stdout, mode, runtimeProfilePreviewAction, profiles.RuntimeProfilePreview(ctx, input))
 	}
+	if commandMatches(args, codexAuthAction) || commandMatches(args, claudeAuthAction) {
+		operation, runtimeID := codexAuthAction, "codex"
+		if commandMatches(args, claudeAuthAction) {
+			operation, runtimeID = claudeAuthAction, "claude"
+		}
+		if len(args) != 3 {
+			return emitParserFailure(stdout, mode, operation, "invalid_input", source)
+		}
+		auth, ok := service.(RuntimeAuthService)
+		if !ok {
+			return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: "application_unavailable"})
+		}
+		return emitResponse(stdout, mode, operation, auth.RuntimeAuth(ctx, runtimeID))
+	}
 	if commandMatches(args, runtimeProfileValidateAction) {
 		if len(args) != 3 {
 			return emitParserFailure(stdout, mode, runtimeProfileValidateAction, "invalid_input", source)
@@ -454,6 +477,9 @@ func parserFailureText(operation action, issue string) (string, string) {
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
 	}
+	if operation == codexAuthAction || operation == claudeAuthAction {
+		return "Runtime authentication preflight input is invalid", "Run runtime codex auth or runtime claude auth without flags or arguments"
+	}
 	if issue == "incomplete_edit_authority" {
 		return "Project edit authority is incomplete", "Supply --project-id, --preview-digest, and --authorize-local together from the reviewed preview, or omit all three to preview"
 	}
@@ -489,6 +515,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 	if response.Completion != nil {
 		if response.RuntimeResolution != nil {
 			return emitRuntimeResolutionCompletion(writer, mode, *response.Completion, response)
+		}
+		if response.RuntimeAuth != nil {
+			return emitRuntimeAuthCompletion(writer, mode, *response.Completion, *response.RuntimeAuth)
 		}
 		if response.Operational != nil {
 			return emitOperationalCompletion(writer, mode, *response.Completion, response)
@@ -560,6 +589,8 @@ const (
 	codexStatusAction       action = "runtime_codex_status"
 	claudeInstallAction     action = "runtime_claude_install"
 	claudeStatusAction      action = "runtime_claude_status"
+	codexAuthAction         action = "runtime_codex_auth"
+	claudeAuthAction        action = "runtime_claude_auth"
 	firstRunAction          action = "first_run"
 )
 

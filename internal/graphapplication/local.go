@@ -23,8 +23,12 @@ type LocalConfiguration struct {
 	RuntimePolicy                           *runtimeapplication.Service
 	RuntimePreviews                         map[string]runtimeapplication.Preview
 	Credentials                             runtimeadapter.CredentialResolver
-	Validators                              []gitworkspace.ValidationCommand
-	AllocateAttemptID                       func() (string, error)
+	// SubscriptionAuth, when set, enforces the CLI subscription scenario
+	// (#272): every dispatch re-runs the authentication preflight on the
+	// effective child invocation and refuses credential references.
+	SubscriptionAuth  SubscriptionAuthenticator
+	Validators        []gitworkspace.ValidationCommand
+	AllocateAttemptID func() (string, error)
 }
 
 // LocalService is the application boundary used by the T36 operator. It keeps
@@ -37,6 +41,9 @@ type LocalService struct {
 	scheduler    executiongraph.Scheduler
 	integration  executiongraph.IntegrationService
 	coordination coordination.AcceptanceVerifier
+	// authentication is shared with the dispatch guard; nil without
+	// SubscriptionAuth.
+	authentication *authenticationLedger
 }
 
 func NewLocalService(ctx context.Context, configuration LocalConfiguration) (*LocalService, error) {
@@ -51,7 +58,12 @@ func NewLocalService(ctx context.Context, configuration LocalConfiguration) (*Lo
 	if err != nil {
 		return nil, err
 	}
-	return newLocalService(ctx, configuration, guard)
+	service, err := newLocalService(ctx, configuration, guard)
+	if err != nil {
+		return nil, err
+	}
+	service.authentication = guard.authentication
+	return service, nil
 }
 
 func newLocalService(ctx context.Context, configuration LocalConfiguration, invocations executiongraph.InvocationResolver) (*LocalService, error) {
@@ -124,6 +136,15 @@ func (s *LocalService) BuildEvidence(evidence executiongraph.Evidence) (executio
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return executiongraph.BuildEvidence(s.graph, evidence, s.coordination)
+}
+
+// AuthenticationEvidence returns the latest sanitized preflight report per
+// child dispatch boundary, ordered by child ExecutionID.
+func (s *LocalService) AuthenticationEvidence() []runtimeadapter.AuthReport {
+	if s.authentication == nil {
+		return nil
+	}
+	return s.authentication.reports()
 }
 
 func (s *LocalService) Graph() executiongraph.Graph {
