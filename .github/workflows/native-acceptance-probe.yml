@@ -1,0 +1,20 @@
+name: Native acceptance infrastructure probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - name: Verify native supported host
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Linux
+          test "$(uname -m)" = aarch64
+          . /etc/os-release
+          test "$ID" = ubuntu
+          test "$VERSION_ID" = 24.04
+          uname -a | tee -a "$GITHUB_STEP_SUMMARY"
+          cat /etc/os-release >> "$GITHUB_STEP_SUMMARY"
