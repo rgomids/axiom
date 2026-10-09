@@ -232,11 +232,11 @@ func TestWorkflowListHumanOutput(t *testing.T) {
 				identity := fmt.Sprintf("018f4a44-7c31-7dd4-9d00-%012d", index)
 				external := fmt.Sprint(index)
 				seedExecution(t, env, "main", external, identity)
-				expected = append(expected, "execution: "+identity+" repository=main work-item=github:owner/repo#"+external+" status=active gate=intake revision=1")
+				expected = append(expected, identity+" main github owner/repo "+external+" active intake 1")
 			}
 			sort.Slice(expected, func(i, j int) bool {
 				// External IDs, not numeric issue numbers, define the contract ordering.
-				extract := func(row string) string { return strings.Split(strings.Split(row, "#")[1], " ")[0] }
+				extract := func(row string) string { return strings.Fields(row)[4] }
 				return extract(expected[i]) < extract(expected[j])
 			})
 			before := snapshotTrees(t, env.root, env.state, env.workspace)
@@ -252,14 +252,20 @@ func TestWorkflowListHumanOutput(t *testing.T) {
 			if !strings.Contains(output, "Executions listed for the Project") {
 				t.Fatalf("completion absent: %s", output)
 			}
-			if count == 0 && !strings.Contains(output, "executions: none\n") {
+			if count == 0 && !strings.Contains(output, "- **executions:** _none_\n") {
 				t.Fatalf("empty marker absent: %s", output)
 			}
 			rows := []string{}
-			for _, line := range strings.Split(output, "\n") {
-				if strings.HasPrefix(line, "execution: ") {
-					rows = append(rows, line)
+			for _, block := range strings.Split(output, "\n- **[")[1:] {
+				field := func(name string) string {
+					_, value, _ := strings.Cut(block, "**"+name+":** `")
+					value, _, _ = strings.Cut(value, "`")
+					return value
 				}
+				_, ref, _ := strings.Cut(block, "- **workItem:** ")
+				ref, _, _ = strings.Cut(ref, "\n")
+				fields := strings.Fields(strings.NewReplacer("`", "", "provider ", "", "resource ", "", "externalId ", "", " · ", " ").Replace(ref))
+				rows = append(rows, strings.Join(append([]string{field("executionId"), field("repositoryKey")}, append(fields, field("status"), field("currentGate"), field("revision"))...), " "))
 			}
 			if strings.Join(rows, "\n") != strings.Join(expected, "\n") {
 				t.Fatalf("rows mismatch: got %d want %d", len(rows), count)

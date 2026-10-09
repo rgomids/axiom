@@ -327,6 +327,13 @@ authority; [Evidence](004-mvp-v1-baseline/evidence-230.md) maps FR-068–FR-084 
 AC-50–AC-61 to tests. The I132-T02 authorized EDIT publication is delivered as
 part of I230-T03. Technical completion is not human acceptance or release.
 
+Issue [#232](https://github.com/rgomids/axiom/issues/232) renders every canonical
+completion event as deterministic human-first Markdown by default, derived from
+the exact `--json` event, for the CLI and both Runtime skills (WF-013 rendering
+half). [Evidence](004-mvp-v1-baseline/evidence-232.md) maps its acceptance
+criteria to golden fixtures and tests; the real Runtime observation remains
+pending separate authorization.
+
 ## Safe Work Item Execution Targeting — Issue #137
 
 The approved [Specification/Plan/Tasks amendment](004-mvp-v1-baseline/issue-137-execution-targeting.md)

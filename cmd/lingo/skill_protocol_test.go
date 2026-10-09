@@ -38,10 +38,10 @@ func workItemRunStartProtocol(t *testing.T, skill string) [][]string {
 	protocol := [][]string{}
 	for _, line := range strings.Split(strings.TrimSpace(block), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) < 4 || fields[0] != "axiom" || fields[1] != "--json" {
-			t.Fatalf("protocol line %q is not an axiom --json command", line)
+		if len(fields) < 3 || fields[0] != "axiom" || strings.HasPrefix(fields[1], "--") {
+			t.Fatalf("protocol line %q is not a human-first axiom command", line)
 		}
-		protocol = append(protocol, fields[2:])
+		protocol = append(protocol, fields[1:])
 	}
 	if len(protocol) != 3 {
 		t.Fatalf("protocol = %v", protocol)

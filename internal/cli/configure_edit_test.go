@@ -213,7 +213,7 @@ func TestConfigureEditRendersCompletePreviewCanonically(t *testing.T) {
 	if code != ExitSuccess {
 		t.Fatalf("human exit=%d", code)
 	}
-	for _, expected := range []string{"status: success", "mode: edit", "preview-digest: edit-digest", "repository: api change=removed local=\"/work/api\"", "repository: web change=preserved\n", "effect: portable remove_portable_repository key=api", "effect: local remove_local_binding key=api", "portable-manifest:\n  schemaVersion: 1\n"} {
+	for _, expected := range []string{"### Succeeded (`success`)", "- **mode:** `edit`", "- **digest:** `edit-digest`", "key `api` · change `removed` · localPath `/work/api`", "key `web` · change `preserved`\n", "scope `portable` · code `remove_portable_repository` · key `api`", "scope `local` · code `remove_local_binding` · key `api`", "- **portableManifest:**\n\n  ```\n  schemaVersion: 1\n"} {
 		if !strings.Contains(human.String(), expected) {
 			t.Fatalf("human edit preview missing %q:\n%s", expected, human.String())
 		}

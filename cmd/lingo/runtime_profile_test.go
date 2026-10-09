@@ -81,7 +81,7 @@ func TestRuntimeProfileValidateConfiguration(t *testing.T) {
 					if err := json.Unmarshal(output.Bytes(), &event); err != nil || event.Status != wantStatus || event.Result != wantMessage {
 						t.Fatalf("event=%+v err=%v output=%s", event, err, &output)
 					}
-				} else if !strings.Contains(output.String(), "status: "+wantStatus) || !strings.Contains(output.String(), "result: "+wantMessage) {
+				} else if !strings.Contains(output.String(), "(`"+wantStatus+"`)") || !strings.Contains(output.String(), "\n"+wantMessage+"\n") {
 					t.Fatalf("output=%s", &output)
 				}
 				for _, hidden := range []string{base, "private-"} {

@@ -210,7 +210,7 @@ func TestProjectListRendersExplicitJSONCollectionAndHumanEmptyState(t *testing.T
 
 	emptyService := &canonicalRecordingService{Result: Result{Completion: &canonical, Projects: []ProjectListView{}}}
 	var human bytes.Buffer
-	if code := RunInteractive(context.Background(), []string{"project", "list"}, emptyService, completionProvenance(t), nil, &human, io.Discard); code != ExitSuccess || !strings.Contains(human.String(), "projects: none configured") {
+	if code := RunInteractive(context.Background(), []string{"project", "list"}, emptyService, completionProvenance(t), nil, &human, io.Discard); code != ExitSuccess || !strings.Contains(human.String(), "- **projects:** _none_") {
 		t.Fatalf("human empty exit=%d output=%q", code, human.String())
 	}
 	structured.Reset()
@@ -286,7 +286,7 @@ func TestCanonicalProjectParserFailuresDoNotCallApplicationServices(t *testing.T
 			if code != ExitFailure || service.call != "" {
 				t.Fatalf("human exit=%d application call=%q", code, service.call)
 			}
-			for _, expected := range []string{"status: validation_failure", "result: " + event.Result, "next: " + event.Next, "provenance: Axiom"} {
+			for _, expected := range []string{"### Validation failed (`validation_failure`)", "\n" + event.Result + "\n", "- **Next:** " + event.Next, "**Provenance:** product `Axiom`"} {
 				if !strings.Contains(human.String(), expected) {
 					t.Fatalf("human/JSON mismatch: %q absent from %q", expected, human.String())
 				}

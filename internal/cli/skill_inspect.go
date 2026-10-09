@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 	"strings"
 
@@ -82,88 +81,88 @@ var (
 	projectCreateMode = skillModeSpec{name: "create", effect: effectLocalMutation, actions: []action{configureAction},
 		authority:       "preview first; publish only with the exact --preview-digest plus --authorize-local",
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json project configure --slug <slug> --name <name> --repository <key>=<absolute-path> --work-item-provider <provider>"}
+		example: "axiom project configure --slug <slug> --name <name> --repository <key>=<absolute-path> --work-item-provider <provider>"}
 	projectEditMode = skillModeSpec{name: "edit", selector: "--project", effect: effectLocalMutation, actions: []action{configureAction},
 		authority:       "preview first; publish only with the returned --project-id, the exact --preview-digest plus --authorize-local; Repository attach/update/detach and provider changes use this mode",
 		authorityInputs: []string{"--project-id", "--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json project configure --project <uuid-or-slug> --name <name>"}
+		example: "axiom project configure --project <uuid-or-slug> --name <name>"}
 	projectListMode = skillModeSpec{name: "default", effect: effectReadOnly, actions: []action{listAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json project list"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom project list"}
 	projectShowMode = skillModeSpec{name: "default", selector: "--selector", effect: effectReadOnly, actions: []action{showAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json project show --selector <slug-or-id>"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom project show --selector <slug-or-id>"}
 	projectValidateMode = skillModeSpec{name: "default", selector: "--project", effect: effectReadOnly, actions: []action{validateAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json project validate --project <uuid-or-slug>"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom project validate --project <uuid-or-slug>"}
 	projectArchiveMode = skillModeSpec{name: "default", selector: "--project", effect: effectLocalMutation, actions: []action{projectArchiveAction},
 		authority:       "machine-local only; preview first; archive only with the exact --preview-digest plus --authorize-local",
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json project archive --project <uuid-or-slug>"}
+		example: "axiom project archive --project <uuid-or-slug>"}
 	projectReactivateMode = skillModeSpec{name: "default", selector: "--project", effect: effectLocalMutation, actions: []action{projectReactivateAction},
 		authority:       "machine-local only; preview first; reactivate only with the exact --preview-digest plus --authorize-local",
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json project reactivate --project <uuid-or-slug>"}
+		example: "axiom project reactivate --project <uuid-or-slug>"}
 	integrationListMode = skillModeSpec{name: "list", selector: "--project", effect: effectReadOnly, actions: []action{integrationListAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json integration list --project <uuid-or-slug>"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom integration list --project <uuid-or-slug>"}
 	integrationShowMode = skillModeSpec{name: "show", selector: "--project", effect: effectReadOnly, actions: []action{integrationShowAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json integration show --project <uuid-or-slug> --integration <key>"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom integration show --project <uuid-or-slug> --integration <key>"}
 	integrationValidateMode = skillModeSpec{name: "validate", selector: "--project", effect: effectReadOnly, actions: []action{integrationValidateAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json integration validate --project <uuid-or-slug>"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom integration validate --project <uuid-or-slug>"}
 	integrationDisableMode = skillModeSpec{name: "disable", selector: "--project", effect: effectLocalMutation, actions: []action{integrationDisableAction},
 		authority:       "machine-local eligibility only; preview first; disable only with the exact --preview-digest plus --authorize-local; never revokes credentials or touches Providers",
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json integration disable --project <uuid-or-slug> --integration <key>"}
+		example: "axiom integration disable --project <uuid-or-slug> --integration <key>"}
 	integrationEnableMode = skillModeSpec{name: "enable", selector: "--project", effect: effectLocalMutation, actions: []action{integrationEnableAction},
 		authority:       "machine-local eligibility only; preview first; enable only with the exact --preview-digest plus --authorize-local",
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json integration enable --project <uuid-or-slug> --integration <key>"}
+		example: "axiom integration enable --project <uuid-or-slug> --integration <key>"}
 	integrationRemoveMode = skillModeSpec{name: "remove", selector: "--project", effect: effectLocalMutation, actions: []action{integrationRemoveAction},
 		authority:       "portable declaration only; preview first; remove only with the returned --project-id, the exact --preview-digest plus --authorize-local; no credential, MCP, Runtime or Provider cleanup",
 		authorityInputs: []string{"--project-id", "--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json integration remove --project <uuid-or-slug> --integration <key>"}
+		example: "axiom integration remove --project <uuid-or-slug> --integration <key>"}
 	workItemListMode = skillModeSpec{name: "default", selector: "--project", effect: effectReadOnly, actions: []action{workItemListAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json work-item list --project <uuid-or-slug>"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom work-item list --project <uuid-or-slug>"}
 	workItemShowMode = skillModeSpec{name: "default", selector: "--project", effect: effectReadOnly, actions: []action{workItemShowAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json work-item show --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom work-item show --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
 	workItemUpdateMode = skillModeSpec{name: "default", selector: "--project", effect: effectExternalMutation, actions: []action{workItemUpdateAction},
 		authority:       "preview first; update the title or Axiom-authored sections only with the exact --preview-digest plus --authorize-external",
 		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
-		example: "axiom --json work-item update --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --title <text>"}
+		example: "axiom work-item update --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --title <text>"}
 	workItemCommentMode = skillModeSpec{name: "default", selector: "--project", effect: effectExternalMutation, actions: []action{workItemCommentAction},
 		authority:       "preview first; comment only with the exact --preview-digest plus --authorize-external",
 		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
-		example: "axiom --json work-item comment --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --message <text>"}
+		example: "axiom work-item comment --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --message <text>"}
 	workItemCloseMode = skillModeSpec{name: "default", selector: "--project", effect: effectExternalMutation, actions: []action{workItemCloseAction},
 		authority:       "preview first; close only with the exact --preview-digest plus --authorize-external; never deletes the Provider Work Item",
 		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
-		example: "axiom --json work-item close --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
+		example: "axiom work-item close --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
 	workItemReopenMode = skillModeSpec{name: "default", selector: "--project", effect: effectExternalMutation, actions: []action{workItemReopenAction},
 		authority:       "preview first; reopen only with the exact --preview-digest plus --authorize-external",
 		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
-		example: "axiom --json work-item reopen --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
+		example: "axiom work-item reopen --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
 	executionListMode = skillModeSpec{name: "list", selector: "--project", effect: effectReadOnly, actions: []action{workflowListAction}, authority: "none",
-		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom --json workflow list --project <uuid-or-slug>"}
+		authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom workflow list --project <uuid-or-slug>"}
 	workItemNewMode = skillModeSpec{name: "new", effect: effectExternalMutation, actions: []action{workItemCreateAction},
 		authority:       "preview first; create only with the exact --preview-digest plus --authorize-external",
 		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
-		example: "axiom --json work-item create --project <uuid-or-slug> --repository <key> --provider-repository <owner>/<repository>"}
+		example: "axiom work-item create --project <uuid-or-slug> --repository <key> --provider-repository <owner>/<repository>"}
 	workItemExistingMode = skillModeSpec{name: "existing", effect: effectLocalMutation, actions: []action{workItemSelectAction},
 		authority:       "preview first; link only with the exact --preview-digest plus --authorize-local",
 		authorityInputs: []string{"--preview-digest", "--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json work-item select --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
+		example: "axiom work-item select --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number>"}
 	workflowTransitionMode = skillModeSpec{name: "transition", effect: effectLocalMutation, actions: []action{workflowStartAction, workflowAdvanceAction, workflowResumeAction},
 		authority:       "workflow start previews the Runtime/Profile resolution first and starts only with the exact --runtime-preview; Lingo enforces the exact Execution revision and gate rules",
 		authorityInputs: []string{}, rejectedInputs: []string{},
-		example: "axiom --json workflow start --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <codex|claude>"}
+		example: "axiom workflow start --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <codex|claude>"}
 	workflowFactMode = skillModeSpec{name: "fact", effect: effectLocalMutation, actions: []action{workflowFactAction},
 		authority:       "records a workflow fact only with --authorize-local and the exact Execution revision",
 		authorityInputs: []string{"--authorize-local"}, rejectedInputs: []string{},
-		example: "axiom --json workflow fact --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision> --fact <fact> --active --reference <reference> --authorize-local"}
+		example: "axiom workflow fact --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision> --fact <fact> --active --reference <reference> --authorize-local"}
 	workflowReconcileMode = skillModeSpec{name: "reconcile", effect: effectExternalMutation, actions: []action{workflowReconcileAction},
 		authority:       "preview first; publish a Provider projection only with the exact --preview-digest plus --authorize-external",
 		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
-		example: "axiom --json workflow reconcile --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision>"}
+		example: "axiom workflow reconcile --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision>"}
 	workItemStatusMode = skillModeSpec{name: "default", effect: effectReadOnly, actions: []action{workflowStatusAction, workflowEvidenceAction}, authority: "none",
 		authorityInputs: []string{}, rejectedInputs: []string{},
-		example: "axiom --json workflow status --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id>"}
+		example: "axiom workflow status --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id>"}
 )
 
 var (
@@ -322,53 +321,16 @@ func InspectSkill(args []string, source provenance.Value, output io.Writer) (boo
 	if err != nil || output == nil {
 		return true, ExitFailure
 	}
-	var content []byte
-	if mode == jsonOutput {
-		base := completionEvent{Status: result.Status(), Result: result.Result().String(), Provenance: provenanceEvent{Product: source.Product(), Version: source.Version(), Revision: source.Revision(), SourceState: source.SourceState()}}
-		content, err = json.Marshal(struct {
-			completionEvent
-			Skill skillInspection `json:"skill"`
-		}{base, skill})
-		content = append(content, '\n')
-	} else {
-		var text strings.Builder
-		text.Write(renderCompletionHuman(result))
-		fmt.Fprintf(&text, "skill: %s\nRequired inputs apply to noninteractive requests; guided invocation remains available.\n", skill.Name)
-		for _, operation := range skill.Operations {
-			fmt.Fprintf(&text, "operation %s\n", operation.Name)
-			for _, mode := range operation.Modes {
-				fmt.Fprintf(&text, "  mode %s: effect=%s semantic=%s\n    authority: %s\n    example: %s\n    commands: %s\n", mode.Name, mode.Effect, mode.Semantic, mode.Authority, mode.Example, strings.Join(mode.Commands, "; "))
-				if len(mode.RejectedInputs) != 0 {
-					fmt.Fprintf(&text, "    rejected: %s\n", strings.Join(mode.RejectedInputs, " "))
-				}
-			}
-		}
-		for _, command := range skill.Commands {
-			fmt.Fprintln(&text, command.Command)
-			if len(command.Arguments) == 0 {
-				fmt.Fprintln(&text, "  No arguments.")
-			}
-			for _, arg := range command.Arguments {
-				requirement := "optional"
-				if arg.Required {
-					requirement = "required"
-				} else if arg.RequiredWhen != "" {
-					requirement = "required when " + arg.RequiredWhen
-				}
-				fmt.Fprintf(&text, "  %s (%s; repeatable=%t): %s\n    forms: %s\n", arg.Name, requirement, arg.Repeatable, arg.Description, strings.Join(arg.AcceptedForms, "; "))
-			}
-		}
-		content = []byte(text.String())
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), Provenance: provenanceEvent{Product: source.Product(), Version: source.Version(), Revision: source.Revision(), SourceState: source.SourceState()}}
+	wire, err := json.Marshal(struct {
+		completionEvent
+		Skill skillInspection `json:"skill"`
+	}{base, skill})
+	if err != nil {
+		return true, ExitFailure
 	}
 	// A multi-command skill can exceed the ordinary completion-only bound.
-	if err != nil || len(content) > 64*1024 {
-		return true, ExitFailure
-	}
-	n, err := output.Write(content)
-	if err != nil || n != len(content) {
-		return true, ExitFailure
-	}
-	return true, ExitSuccess
+	return true, presentEvent(output, mode, result.Status(), append(wire, '\n'), 64*1024)
 }
 
 const skillInspectAction action = "skill_inspect"

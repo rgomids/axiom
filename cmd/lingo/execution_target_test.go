@@ -167,7 +167,11 @@ func TestWorkflowStartEffectiveProjectSourcesAndDisclosure(t *testing.T) {
 			if code := cli.RunInteractive(ctx, call, service, currentProvenance(), nil, &out, nil); code != 0 {
 				t.Fatalf("code=%d output=%s", code, &out)
 			}
-			for _, want := range []string{"executionTarget", workItemSourceProjectID, `"projectSource":"` + source + `"`, "github:owner/repo#7"} {
+			projectSource := "- **projectSource:** `" + source + "`"
+			if jsonMode {
+				projectSource = `"projectSource":"` + source + `"`
+			}
+			for _, want := range []string{"executionTarget", workItemSourceProjectID, projectSource, "github:owner/repo#7"} {
 				if !strings.Contains(out.String(), want) {
 					t.Fatalf("missing %s: %s", want, &out)
 				}

@@ -6,7 +6,7 @@ description: Operate on Axiom Projects through one domain-oriented Runtime surfa
 # Axiom Project
 
 To inspect supported operations and accepted arguments before execution, run
-`axiom --json skill inspect axiom-project` and report its `skill` payload.
+`axiom skill inspect axiom-project` and present its `skill` payload.
 Inspection stops there: do not collect inputs or execute an operation. The binary
 owns argument names, requirements, accepted forms, authority metadata, and
 executable command metadata; do not maintain a second argument registry here.
@@ -21,19 +21,19 @@ it. Repository associations are Project-owned: attach, update, and detach use
 
 | Operation | Mode | Lingo command | Effect | Authority | Semantic resolution |
 |---|---|---|---|---|---|
-| `configure` | create | `axiom --json project configure` | local mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous create intent |
-| `configure` | edit | `axiom --json project configure --project <uuid-or-slug>` | local mutation | preview first; publish only with the returned `--project-id`, the exact `--preview-digest` plus `--authorize-local` | only for unambiguous change intent |
-| `list` | - | `axiom --json project list` | read-only | none | allowed |
-| `show` | - | `axiom --json project show --selector <slug-or-id>` | read-only | none | allowed |
-| `validate` | - | `axiom --json project validate --project <uuid-or-slug>` | read-only | none | allowed |
-| `archive` | - | `axiom --json project archive --project <uuid-or-slug>` | local mutation | machine-local only; preview first; archive only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous archive intent |
-| `reactivate` | - | `axiom --json project reactivate --project <uuid-or-slug>` | local mutation | machine-local only; preview first; reactivate only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous reactivate intent |
-| `integration` | list | `axiom --json integration list --project <uuid-or-slug>` | read-only | none | allowed |
-| `integration` | show | `axiom --json integration show --project <uuid-or-slug> --integration <key>` | read-only | none | allowed |
-| `integration` | validate | `axiom --json integration validate --project <uuid-or-slug>` | read-only | none | allowed |
-| `integration` | disable | `axiom --json integration disable --project <uuid-or-slug> --integration <key>` | local mutation | machine-local only; preview first; disable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous disable intent |
-| `integration` | enable | `axiom --json integration enable --project <uuid-or-slug> --integration <key>` | local mutation | machine-local only; preview first; enable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous enable intent |
-| `integration` | remove | `axiom --json integration remove --project <uuid-or-slug> --integration <key>` | local mutation | portable declaration only; preview first; remove only with the returned `--project-id`, the exact `--preview-digest` plus `--authorize-local` | only for unambiguous remove intent |
+| `configure` | create | `axiom project configure` | local mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous create intent |
+| `configure` | edit | `axiom project configure --project <uuid-or-slug>` | local mutation | preview first; publish only with the returned `--project-id`, the exact `--preview-digest` plus `--authorize-local` | only for unambiguous change intent |
+| `list` | - | `axiom project list` | read-only | none | allowed |
+| `show` | - | `axiom project show --selector <slug-or-id>` | read-only | none | allowed |
+| `validate` | - | `axiom project validate --project <uuid-or-slug>` | read-only | none | allowed |
+| `archive` | - | `axiom project archive --project <uuid-or-slug>` | local mutation | machine-local only; preview first; archive only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous archive intent |
+| `reactivate` | - | `axiom project reactivate --project <uuid-or-slug>` | local mutation | machine-local only; preview first; reactivate only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous reactivate intent |
+| `integration` | list | `axiom integration list --project <uuid-or-slug>` | read-only | none | allowed |
+| `integration` | show | `axiom integration show --project <uuid-or-slug> --integration <key>` | read-only | none | allowed |
+| `integration` | validate | `axiom integration validate --project <uuid-or-slug>` | read-only | none | allowed |
+| `integration` | disable | `axiom integration disable --project <uuid-or-slug> --integration <key>` | local mutation | machine-local only; preview first; disable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous disable intent |
+| `integration` | enable | `axiom integration enable --project <uuid-or-slug> --integration <key>` | local mutation | machine-local only; preview first; enable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous enable intent |
+| `integration` | remove | `axiom integration remove --project <uuid-or-slug> --integration <key>` | local mutation | portable declaration only; preview first; remove only with the returned `--project-id`, the exact `--preview-digest` plus `--authorize-local` | only for unambiguous remove intent |
 
 When the user supplies an explicit supported operation, use it exactly and route
 directly to its Lingo command. Do not classify or reinterpret an explicit
@@ -66,7 +66,7 @@ one. Never infer the mode or the Project from CWD, Git remotes, or chat history.
 ### Create a Project
 
 Collect only missing Project identity/name, repository associations, and explicit
-Work Item Provider declaration. Run `axiom --json project configure --slug
+Work Item Provider declaration. Run `axiom project configure --slug
 <slug> --name <name> --repository <key>=<absolute-working-copy-path>
 --work-item-provider <provider>` with each repository repeated, and report the
 read-only normalized `setup` preview. Publish only after the user approves that
@@ -76,7 +76,7 @@ preview.
 
 ### Edit an existing Project
 
-Run `axiom --json project configure --project <uuid-or-slug>` with only the
+Run `axiom project configure --project <uuid-or-slug>` with only the
 requested changes (`--name`, `--repository <key>=<absolute-path>` to attach or
 update a Repository association, `--remove-repository <key>` to detach one,
 `--work-item-provider <provider>`, or `--remove-work-item-provider`) and report
@@ -94,7 +94,7 @@ Lingo unchanged so deterministic validation owns the result.
 
 ## list
 
-Run `axiom --json project list` and report the returned `projects` collection
+Run `axiom project list` and report the returned `projects` collection
 with each Project's machine-local `status`. Archived Projects are hidden unless
 the user asks for them; then add `--include-archived`. Never enumerate filesystem
 state, infer Project identity from the Runtime current working directory, or
@@ -103,14 +103,14 @@ resolve Projects independently.
 ## show
 
 Collect a Project slug or ID only when absent. Run
-`axiom --json project show --selector <slug-or-id>` and report its structured
+`axiom project show --selector <slug-or-id>` and report its structured
 Project, repository associations with their availability, and local state.
 Preserve the supplied selector exactly. Never infer a repository from the Runtime
 current working directory or resolve identity independently.
 
 ## validate
 
-Run `axiom --json project validate --project <uuid-or-slug>` and report the
+Run `axiom project validate --project <uuid-or-slug>` and report the
 read-only `readiness` report and local state. Validation never grants authority.
 
 ## archive, reactivate, and integration
@@ -119,16 +119,28 @@ Run each command without authority first, report the returned preview
 (`operational` for archive, reactivate, disable and enable; `edit` for
 `integration remove`), and repeat it with the advertised authority inputs only
 after the user approves that exact preview. The effect boundary of each mode is
-stated by `axiom --json skill inspect axiom-project`; Lingo enforces it. Updating
+stated by `axiom skill inspect axiom-project`; Lingo enforces it. Updating
 the Work Item Provider uses `configure` edit mode.
 
 ## Result contract
 
+Invoke only `axiom` for executable behavior.
+
 Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
 Operation-specific payloads preserved separately: `setup`, `edit`, `projects`, `project`, `readiness`, `operational`, `integrations`, `admission`
 
-Copy canonical completion fields only from Lingo's top-level JSON object. Omit
-absent canonical fields. Never derive, synthesize, or reinterpret a canonical
-field from an operation-specific payload. Preserve each operation-specific
-payload in its original Lingo semantics and JSON position. Skill text grants no
-local or Provider authority.
+Lingo renders every result as deterministic Markdown derived from its canonical
+result. Present that Markdown exactly as returned: do not rewrite, summarize,
+reorder, or add result semantics, and never present an outcome as more
+successful than its canonical status. Read a value a follow-up command needs,
+such as a preview `digest`, `previewDigest`, `executionId`, or `revision`,
+exactly as printed in its labelled field. Run `axiom --json` only when the user
+explicitly asks for machine-readable output, and relay that JSON unchanged.
+A payload too large for a readable view is printed as its canonical JSON under
+a `(canonical JSON)` heading; present it as returned. Never repeat a command,
+least of all an authorized mutation, only to see its result again.
+
+Lingo prints the canonical completion fields in its summary and provenance
+footer, and each operation-specific payload under its own name in JSON order.
+Never derive, synthesize, or reinterpret a canonical field from an
+operation-specific payload. Skill text grants no local or Provider authority.
