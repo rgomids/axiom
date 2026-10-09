@@ -1,0 +1,112 @@
+name: Periodic monitoring
+
+# Deliberately absent from CI/release dependencies and required-check rulesets.
+on:
+  schedule:
+    - cron: '17 5 * * *'
+    - cron: '37 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      layer:
+        description: Analysis layer
+        type: choice
+        options: [daily, weekly]
+        default: daily
+      scenario:
+        description: Controlled fixtures are refused in the production repository
+        type: choice
+        options: [live, clean, drift, infrastructure, security]
+        default: live
+
+permissions:
+  contents: read
+
+# One cross-layer lock includes analysis and reporting, preventing duplicate
+# discovery/create races and stale recovery. Pending schedules may coalesce.
+concurrency:
+  group: periodic-monitoring-${{ github.repository }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  analysis:
+    name: periodic-analysis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      artifact: ${{ steps.upload.outcome }}
+      subject: ${{ steps.analyze.outputs.subject }}
+    env:
+      LAYER: ${{ inputs.layer || (github.event.schedule == '37 6 * * 1' && 'weekly' || 'daily') }}
+      SCENARIO: ${{ inputs.scenario || 'live' }}
+      GOTOOLCHAIN: local
+      GOWORK: 'off'
+      GOFLAGS: ''
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Production always observes main; sandbox can replay candidate code
+          # on a test branch without changing its default branch.
+          ref: ${{ github.repository == 'rgomids/axiom' && 'main' || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Offline monitoring contracts
+        if: always()
+        run: timeout 90s python3 scripts/test-periodic-monitoring.py
+      - name: Bounded analysis with sanitized evidence
+        id: analyze
+        if: always()
+        run: timeout 16m python3 scripts/periodic-monitor.py run --layer "$LAYER" --scenario "$SCENARIO" --output "$RUNNER_TEMP/periodic"
+      - name: Publish only bounded safe evidence
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: periodic-evidence
+          path: |
+            ${{ runner.temp }}/periodic/manifest.json
+            ${{ runner.temp }}/periodic/summary.md
+          if-no-files-found: error
+          retention-days: 14
+      - name: Evidence transport failure
+        if: always() && steps.upload.outcome != 'success'
+        run: |
+          echo 'Periodic: INCONCLUSIVE (artifact); reporting/recovery withheld.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+  incidents:
+    name: periodic-incidents
+    needs: analysis
+    if: always() && needs.analysis.outputs.artifact == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Bind reporting code/baseline to the exact analyzed main revision.
+          ref: ${{ needs.analysis.outputs.subject }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: periodic-evidence
+          path: ${{ runner.temp }}/periodic
+      - name: Reconcile monitoring-owned non-sensitive incidents
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAMESPACE: ${{ github.repository == 'rgomids/axiom' && 'production' || 'sandbox-255' }}
+        run: timeout 4m python3 scripts/periodic-incidents.py --manifest "$RUNNER_TEMP/periodic/manifest.json" --namespace "$NAMESPACE"
+      - name: Reporting failure
+        if: failure()
+        run: |
+          echo 'Periodic reporting: INCONCLUSIVE (artifact/permission/network); rerun after fixing transport; no recovery assumed.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1

@@ -1701,10 +1701,13 @@ check 'delivery workflows: PR metadata check has no token or secret, sync runs o
 # Triggers are allowlisted per workflow. Only the Issue label policy reacts to
 # Issue events, for exactly its four event types; it may only add labels, write
 # its own comment and maintain the label catalog, never edit an Issue itself.
+# Periodic maintenance (#255) resolves only its own monitoring incidents; it
+# never advances/closes delivery Work Items and runs only on schedule/dispatch.
 check 'Issue closure is a publication effect: no workflow closes Issues on merge or release events' bash -c "
   for w in $workflows/*.yml; do
     case \$(basename \"\$w\") in
       issue-label-policy.yml) allowed='issues|push|workflow_dispatch' ;;
+      periodic-monitoring.yml) allowed='schedule|workflow_dispatch' ;;
       native-artifact-acceptance.yml) allowed='workflow_call' ;;
       *) allowed='pull_request|push|workflow_dispatch' ;;
     esac

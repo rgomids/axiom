@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "govulncheck": "v1.8.0",
+  "tools": {
+    "gh": {
+      "version": "2.102.0",
+      "surfaces": [
+        {"id": "root", "args": ["--help"], "capabilities": ["api", "issue", "pr", "repo"]},
+        {"id": "api", "args": ["api", "--help"], "capabilities": ["--method", "--input", "--paginate", "--jq"]},
+        {"id": "issue", "args": ["issue", "--help"], "capabilities": ["create", "edit", "close", "reopen", "view"]}
+      ]
+    },
+    "codex": {
+      "version": "0.162.1",
+      "surfaces": [
+        {"id": "root", "args": ["--help"], "capabilities": ["exec", "login"]},
+        {"id": "exec", "args": ["exec", "--help"], "capabilities": ["--model", "--sandbox", "--json"]},
+        {"id": "login", "args": ["login", "--help"], "capabilities": ["status"]}
+      ]
+    },
+    "claude": {
+      "version": "2.1.296",
+      "surfaces": [
+        {"id": "root", "args": ["--help"], "capabilities": ["--print", "--model", "--output-format", "auth"]},
+        {"id": "auth", "args": ["auth", "--help"], "capabilities": ["status"]}
+      ]
+    }
+  }
+}
