@@ -65,10 +65,6 @@ func installSixSkillRelease(t *testing.T) (installation, string) {
 	return installed, root
 }
 
-// changedCompatibilitySkills are the six-release skills whose embedded text
-// differs from what v0.6.0 published (#140 changed run; #230 changed status).
-var changedCompatibilitySkills = []string{"axiom-work-item-run", "axiom-work-item-status"}
-
 func v060Skill(t *testing.T, name string) []byte {
 	t.Helper()
 	wire, err := os.ReadFile(filepath.Join("..", "codexruntime", "testdata", "published-skills", "v0.6.0", name, "SKILL.md"))
