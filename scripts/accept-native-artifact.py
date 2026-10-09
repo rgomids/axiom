@@ -150,6 +150,7 @@ def acceptance(args, report):
                 owned = smoke.digest(binary), smoke.inventory(receipt)
                 scenario("reinstall-idempotent", lambda: require("install_status=unchanged" in install(candidate, archive)
                          and owned == (smoke.digest(binary), smoke.inventory(receipt))
+                         and sorted(p.name for p in binary.parent.iterdir()) == ["axiom"]
                          and state == (smoke.inventory(home / "projects"), smoke.inventory(home / "state")), "reinstall changed state"))
                 scenario("invalid-arguments", lambda: cli("project", "show", "--unsupported", expected=None))
                 scenario("missing-project", lambda: cli("project", "show", "--selector", "absent", expected=None))
@@ -168,6 +169,22 @@ def acceptance(args, report):
                     readable()
 
                 scenario("malformed-config-recovery", malformed)
+
+                def missing_configuration():
+                    manifests = list((home / "projects").rglob("axiom.yaml"))
+                    require(len(manifests) == 1, "one project manifest required")
+                    manifest = manifests[0]
+                    saved = manifest.read_bytes()
+                    manifest.unlink()
+                    try:
+                        cli("project", "show", "--selector", "native", expected=None)
+                        require(not manifest.exists(), "missing config silently recreated")
+                    finally:
+                        manifest.write_bytes(saved)
+                        manifest.chmod(0o600)
+                    readable()
+
+                scenario("missing-config-recovery", missing_configuration)
                 bad = work / archive.name
                 shutil.copyfile(archive, bad)
                 with bad.open("ab") as stream:
@@ -206,14 +223,20 @@ def acceptance(args, report):
                     version("0.10.0", prior_metadata["revision"])
                     configure()
                     persisted = smoke.inventory(home / "projects"), smoke.inventory(home / "state")
+                    previous_owned = smoke.digest(binary), smoke.inventory(receipt)
+                    install(candidate, bad, target=home, expected=None)
+                    require(previous_owned == (smoke.digest(binary), smoke.inventory(receipt))
+                            and persisted == (smoke.inventory(home / "projects"), smoke.inventory(home / "state")),
+                            "failed upgrade changed previous installation or state")
+                    readable()
                     require("install_status=upgraded" in install(candidate, archive, target=home), "upgrade status")
                     version(args.version, args.revision)
                     require(persisted == (smoke.inventory(home / "projects"), smoke.inventory(home / "state")), "upgrade mutated persisted state")
                     readable()
                     require("install_status=unchanged" in install(candidate, archive, target=home), "upgrade reinstall status")
                     compatibility = cli("compatibility", "inspect")
-                    require(compatibility.get("compatibility", {}).get("classification") == "valid_v1"
-                            or '"valid_v1"' in json.dumps(compatibility), "state compatibility not valid_v1")
+                    require(compatibility.get("maintenance", {}).get("classification") == "valid_v1",
+                            "state compatibility not valid_v1")
 
                 scenario("genuine-prior-upgrade-state-reinstall", upgrade)
     finally:
@@ -244,7 +267,7 @@ def main():
                 "log must be outside immutable inputs")
         acceptance(args, report)
         report["result"] = "pass"
-    except (ValueError, OSError, KeyError, TypeError, tarfile.TarError, subprocess.TimeoutExpired) as error:
+    except (ValueError, OSError, KeyError, TypeError, AttributeError, tarfile.TarError, subprocess.TimeoutExpired) as error:
         report["error"] = str(error)
     print(json.dumps(report, sort_keys=True))
     return 0 if report["result"] == "pass" else 1

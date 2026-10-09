@@ -41,6 +41,29 @@ jobs:
       version: 9999.0.0-acceptance
       revision: ${{ github.sha }}
       control_revision: ${{ github.sha }}
+  smoke-macos:
+    needs: prepare
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-qualification-candidate
+          path: ${{ runner.temp }}/prepared
+      - name: Preserve native macOS smoke
+        run: |
+          python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
+            --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row macos-27-arm64 > "$RUNNER_TEMP/macos.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: native-qualification-macos-smoke
+          path: ${{ runner.temp }}/macos.json
+          if-no-files-found: error
+          retention-days: 30
   rejection:
     needs: prepare
     uses: ./.github/workflows/native-artifact-acceptance.yml
@@ -57,7 +80,7 @@ jobs:
       - run: echo 'Non-publishing promotion sentinel; must be skipped after rejection'
   verify-propagation:
     if: always()
-    needs: [acceptance, rejection, promotion]
+    needs: [acceptance, rejection, promotion, smoke-macos]
     runs-on: ubuntu-24.04
     steps:
       - name: Assert successful acceptance and blocked promotion
@@ -65,9 +88,11 @@ jobs:
           ACCEPTANCE: ${{ needs.acceptance.result }}
           REJECTION: ${{ needs.rejection.result }}
           PROMOTION: ${{ needs.promotion.result }}
+          MACOS: ${{ needs.smoke-macos.result }}
         run: |
           set -euo pipefail
           test "$ACCEPTANCE" = success
           test "$REJECTION" = failure
           test "$PROMOTION" = skipped
+          test "$MACOS" = success
           printf 'acceptance=%s rejection=%s promotion=%s\n' "$ACCEPTANCE" "$REJECTION" "$PROMOTION" >> "$GITHUB_STEP_SUMMARY"
