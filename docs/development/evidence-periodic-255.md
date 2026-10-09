@@ -7,9 +7,13 @@ Implementation: `feat/255-periodic-monitoring` in an isolated worktree.
 ## Local validation (2026-10-09)
 
 - `python scripts/test-periodic-monitoring.py`: 40 tests executed: 39 passed, one POSIX-only
-  process-group test skipped on Windows (to be executed on Linux).
+  process-group test skipped on Windows; all 40 pass on the final Linux Actions runner.
 - `python scripts/check-automation-registry.py .`: PASS, 81 governed surfaces.
 - `python scripts/check-adr-governance.py .`: PASS, 21 ADRs.
+- Go 1.26.0 `go mod tidy -diff` in an isolated, network-disabled module: clean
+  PASS; an intentionally unused local dependency FAIL; `go.mod` SHA-256 unchanged.
+  Reproduce with a minimal Go module/package, then add an unused `require` with
+  a local `replace` and rerun the same read-only command. No repository dependency changed.
 - Existing Go suites: first attempts found incomplete temporary Go installs;
   an official Go 1.26.0 archive was downloaded with its published SHA-256
   verified into isolated temporary storage. Tests execute with that toolchain.
@@ -75,6 +79,91 @@ The exact candidate definition was then restored; no filename alias was needed.
   first audit comment. Reporting now includes validated write responses when
   emitting audit comments; the added eventual-consistency regression test passes.
 
-Issue #255 remains incomplete until the corrected live layers and controlled
-create/update/recovery/recurrence matrix have operational evidence. No production
-monitoring incident has been created. Earlier failed runs remain failed Evidence.
+## Completed acceptance matrix
+
+The actual artifacts were downloaded with an exact two-member archive allowlist,
+size/link checks, then validated by the production semantic validator. The real
+reporter also validated each manifest against its checked-out subject SHA. Every
+run below passed offline contracts and its incident job; controlled failures
+correctly retain a failing workflow conclusion. Fixtures remain explicitly
+identified and do not substitute for live checks.
+
+| Scenario | Actions run | Observed incident state |
+|---|---|---|
+| New drift | [37996928972](https://github.com/joaby-oliveira/axiom/actions/runs/37996928972) | #1 open; occurrences 1 |
+| Repeated drift | [37997007645](https://github.com/joaby-oliveira/axiom/actions/runs/37997007645) | Same #1; occurrences 2; no duplicate |
+| First recovery | [37997084374](https://github.com/joaby-oliveira/axiom/actions/runs/37997084374) | #1 stays open; 1/2 confirmations |
+| Confirmed recovery | [37997140828](https://github.com/joaby-oliveira/axiom/actions/runs/37997140828) | #1 closed; 2/2 |
+| Recurrence | [37997216442](https://github.com/joaby-oliveira/axiom/actions/runs/37997216442) | Same #1 reopened; occurrences 3 |
+| Recovery after recurrence | [37997296000](https://github.com/joaby-oliveira/axiom/actions/runs/37997296000), [37997371862](https://github.com/joaby-oliveira/axiom/actions/runs/37997371862) | #1 open at 1/2, then closed at 2/2 |
+| Infrastructure | [37997446370](https://github.com/joaby-oliveira/axiom/actions/runs/37997446370) | Separate #2, explicitly INCONCLUSIVE/network; creation audit present |
+| Infrastructure recovery | [37997520852](https://github.com/joaby-oliveira/axiom/actions/runs/37997520852), [37997594663](https://github.com/joaby-oliveira/axiom/actions/runs/37997594663) | #2 open at 1/2, then closed at 2/2 |
+| Controlled security finding | [37997668213](https://github.com/joaby-oliveira/axiom/actions/runs/37997668213) | FAIL/vulnerability; no security issue or advisory content |
+| Controlled security clean | [37997747405](https://github.com/joaby-oliveira/axiom/actions/runs/37997747405) | PASS; no new issue |
+| Final live daily | [37997812275](https://github.com/joaby-oliveira/axiom/actions/runs/37997812275) | Tidy/integrity PASS; security FAIL/vulnerability; no public issue |
+| Final live weekly | [37997827935](https://github.com/joaby-oliveira/axiom/actions/runs/37997827935) | PASS, all CLI surfaces and 42/57/27 suite test outcomes |
+
+Incident histories: [sandbox #1](https://github.com/joaby-oliveira/axiom/issues/1)
+and [sandbox #2](https://github.com/joaby-oliveira/axiom/issues/2). Issues may be
+unavailable while the fork's original disabled-Issues setting is restored;
+the table and Actions evidence preserve the validation record.
+
+Final live runs observed `ee9f86563e3aba1eab755ddb81a7cc9ab727fd92`, whose
+workflow/scripts/tests/baseline are identical to implementation `933f07f`.
+Both dispatches were requested together: daily reporting completed at
+22:12:00 UTC; weekly analysis began at 22:12:03 UTC. This confirms cross-layer
+serialization including reporting. Repeated findings produced one tracked drift
+issue; offline race/uncertain-write fixtures additionally test retry discovery.
+The final runners passed all 40 offline tests, including the POSIX child-pipe case.
+Normal candidate CI [37996889323](https://github.com/rgomids/axiom/actions/runs/37996889323)
+passed all seven jobs. The live ruleset read-back retained the existing eight
+required contexts; no periodic context, workflow dependency or release gate was added.
+
+### Sanitized artifact example
+
+Excerpt of the actual final weekly manifest (not a complete replay manifest):
+
+```json
+{
+  "schema_version": 1,
+  "run_id": "37997827935",
+  "branch": "ci/255-periodic-sandbox",
+  "subject_sha": "ee9f86563e3aba1eab755ddb81a7cc9ab727fd92",
+  "layer": "weekly",
+  "scenario": "live",
+  "status": "PASS",
+  "checks": [{
+    "check": "cli", "component": "codex", "contract": "exec",
+    "tool_version": "0.162.1", "status": "PASS", "category": "none",
+    "baseline": {"--model": true, "--sandbox": true, "--json": true},
+    "observed": {"--model": true, "--sandbox": true, "--json": true}
+  }]
+}
+```
+
+Full artifacts include fingerprints, durations, reproduction commands and safe
+per-test records. Only `manifest.json`/`summary.md` are uploaded, retained 14 days.
+No raw advisory, installation, help or Go test output was imported into this ledger.
+
+### Cleanup, review and remaining authority
+
+Both sandbox incidents were automatically closed and the open-issue count was
+verified as zero before cleanup. The temporary remote branch was deleted, the
+created workflow disabled (`disabled_manually`), and the two labels created only
+for this validation removed. `has_issues` was restored to `false` and read back.
+The fork's default branch, protections, releases, credentials and Actions
+permission configuration were not modified. No production incident was created.
+
+Engineering/security review found no remaining blocking implementation finding:
+scope, least privilege, ownership, confidential output boundaries, timeout and
+recovery behavior were checked against D1–D5 and existing repository decisions.
+The operational acceptance matrix is complete; original failed runs remain failed.
+Human review/merge and the normal delivery/release closure remain separate authority.
+
+**Operational finding:** the live daily scan detected a vulnerability. Detailed
+triage must be rerun privately under `SECURITY.md`; public evidence deliberately
+contains only FAIL/category. No automatic upgrade or remediation was attempted.
+This is a correctly reported monitoring result, not an assertion that the source
+revision is vulnerability-free. GitHub's independent AI scan quota and the local
+Windows limitations above are also explicitly unresolved; successful deterministic
+CI and Linux monitoring evidence do not claim that the AI review succeeded.
