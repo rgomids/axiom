@@ -53,11 +53,11 @@ Execute também os checks locais de segurança:
 ./scripts/check-sensitive-files.sh .
 ```
 
-## Native Windows test storage
-
 Para os checks estruturais bloqueantes de PR (formatação, módulos e análise
 estática), veja [Go quality gate](go-quality.md), incluindo instalação da
 versão fixada e comandos de reprodução local.
+
+## Native Windows test storage
 
 Os testes de filesystem verificam o diretório temporário **e seus ancestrais**.
 Se o `TEMP` estiver sob um diretório que permite substituição por outros
