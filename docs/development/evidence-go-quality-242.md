@@ -66,6 +66,7 @@ modes and symlinks) and native Windows with Go 1.26.0. Results:
 | `go test ./... -timeout 10m` (native Windows) | PASS using a private temporary directory. |
 | `go vet ./...`, `go build ./...`, `go mod verify` | PASS. |
 | `GOOS=windows staticcheck -checks='SA1*,SA2*,SA3*,SA4*,SA5*,SA9*,U1000,-SA1019' ./...` | PASS after POSIX helper relocation. |
+| `./scripts/test-release-flow.sh` | PASS: full release preflight, publication/recovery authority and workflow contracts, including all three new Go quality refusal cases. |
 | `python3 scripts/test-release-pr-checks.py` | PASS: 14 tests. |
 | `python3 scripts/test-release-corrections.py` | PASS: 12 tests. |
 | `git diff --cached --check`, `check-sensitive-files.sh --staged .` | PASS. |
