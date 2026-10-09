@@ -141,7 +141,7 @@ class PlanTest(unittest.TestCase):
         result = policy.plan(issue(["type:bug", "type:task", "status:planned", "status:active", "area:cli"]), "labeled")
         self.assertEqual(result["add"], [])
         self.assertTrue(any("Conflicting types" in violation for violation in result["violations"]))
-        self.assertTrue(any("Conflicting statuses" in violation for violation in result["violations"]))
+        self.assertTrue(any("Conflicting legacy statuses" in violation for violation in result["violations"]))
 
     def test_missing_type_is_reported(self):
         result = policy.plan(issue(["status:planned", "area:cli"]), "opened")
