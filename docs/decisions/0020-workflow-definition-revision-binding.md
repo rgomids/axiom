@@ -2,9 +2,14 @@
 
 ## Status
 
-Proposed, 2026-10-08, for Issue #271 / Epic #15. Decision owner: Axiom maintainer.
-No human acceptance is recorded. Implementation consumers #273–#278 must not rely
-on this proposal before explicit acceptance of its exact reviewed revision.
+Accepted on 2026-10-09 by the Axiom maintainer, explicitly recorded in
+[Issue #271](https://github.com/rgomids/axiom/issues/271#issuecomment-6074127314).
+The accepted proposal is bound to reviewed main revision
+`998e763cf82c4cb443d0d4d0051c6e82bcdf8d72` (ADR blob
+`3f913ed027ec90546ca96d436d538335590e4279`) and Specification 007 blob
+`b68072e9909793f24786c343e4b9d3b83064b217`.
+Acceptance of these contracts does not itself authorize dependent implementation,
+Runtime dispatch, merge, publication or MVP acceptance.
 
 ## Context
 
@@ -16,10 +21,10 @@ and cross the architecture-policy ADR threshold.
 
 ## Decision
 
-Recommend Project-owned portable companion definitions, explicit version-gated
+Adopt Project-owned portable companion definitions, explicit version-gated
 Project selection, immutable revisions identified by validated JCS/SHA-256 content,
 and a complete machine-local snapshot pinned before new Execution admission.
-Recommend new linked Executions for human-rejected delivery rework. The complete
+Adopt new linked Executions for human-rejected delivery rework. The complete
 proposed behavior/DTOs/acceptance matrix live in
 [Specification 007](../specifications/007-configurable-workflows/spec.md).
 
@@ -51,10 +56,10 @@ under the Work Item domain surface.
 - ADR-0005/0006/0007 continue to own filesystem confinement, artifact retention and
   publication/recovery. This proposal cannot strengthen unsupported durability claims.
 
-This is an additive proposal, not supersession. It amends no accepted ADR text or
-historical Txx/Evidence. If human review selects a contradictory option, apply
-ADR-0018's accepted supersession process separately; do not annotate history while
-this decision is merely Proposed.
+This is an additive accepted decision, not supersession. It amends no earlier
+accepted ADR text or historical Txx/Evidence. Any later contradictory change
+requires a new explicitly accepted decision following ADR-0018; this acceptance
+does not retroactively alter existing ADRs.
 
 ## Alternatives considered
 
@@ -93,11 +98,14 @@ history and requiring fresh scope/revision/effect authority.
 
 ## Human decision and downstream gate
 
-Specification HD-001 (ownership), HD-003 (rework) and HD-004 (canonicalization)
-are pending. HD-002 (surface) is also explicitly reviewed with Specification 007.
-Record actor/date/exact reviewed revision/option/conditions before dependent
-implementation. PR merge, schema checks, Issue closure and model agreement are
-not decision evidence. #271 can provide a reviewable proposal without self-acceptance.
+Specification HD-001 (Project-owned companion definitions and local immutable
+snapshots), HD-002 (Project authoring + Work Item execution), HD-003 (new linked
+Execution on rejection) and HD-004 (RFC 8785 JCS + SHA-256) were expressly
+accepted without additional conditions by the Axiom maintainer on 2026-10-09.
+Authority and exact reviewed revision are recorded in
+[Issue #271](https://github.com/rgomids/axiom/issues/271#issuecomment-6074127314).
+Acceptance is separate from implementation authorization and operational Evidence;
+#273–#278 retain their individual gates and scope.
 
 ## Revisit when
 
