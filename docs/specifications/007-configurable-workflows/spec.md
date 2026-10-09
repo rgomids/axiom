@@ -2,15 +2,18 @@
 
 ## Status and delivery boundary
 
-Proposed, 2026-10-08. Owns the bounded contract requested by
-[#271](https://github.com/rgomids/axiom/issues/271) under
-[Epic #15](https://github.com/rgomids/axiom/issues/15). This documentation
-deliverable does not authorize implementation, Runtime dispatch, Provider effects,
-merge, release, Specification approval or ADR acceptance. The maintainer owns
-those decisions. [ADR-0020](../../decisions/0020-workflow-definition-revision-binding.md)
-is Proposed. Consumers MUST record human approval of this Specification and the
-required decision before relying on it, followed by their bounded implementation
-authority. Passing the fixture checks establishes document consistency only.
+Accepted on 2026-10-09 by the Axiom maintainer, with the exact reviewed
+Specification revision and HD-001–HD-004 approval recorded in
+[Issue #271](https://github.com/rgomids/axiom/issues/271#issuecomment-6074127314).
+The document originated on 2026-10-08 under
+[#271](https://github.com/rgomids/axiom/issues/271) and
+[Epic #15](https://github.com/rgomids/axiom/issues/15).
+[ADR-0020](../../decisions/0020-workflow-definition-revision-binding.md)
+is also accepted by that explicit human decision. This approval covers the
+versioned contract and reviewed decision options, not implementation, Runtime
+dispatch, Provider effects, merge, publication or MVP acceptance. Consumers
+still require bounded implementation authority and their own Evidence; passing
+fixture checks establishes document consistency only.
 
 Audit baseline: `c7260797aad7865419f555eea94a2eef7ae78285`; authoring inspection:
 `73dce6df0ab590b37df0e5a19b1483737bf1ca1e` (main). Existing
@@ -467,20 +470,27 @@ phase/checkpoint gates; no arbitrary jump into implementation. The explicit acti
 Work Item link changes only on confirmed new binding. Uncertain linkage blocks
 start. #277 owns decision/linking use cases; #274 owns immutable binding admission.
 
-## Open decisions — no implicit acceptance
+## Architectural decisions — explicit maintainer acceptance
 
 | Decision | Options and recommendation | Trade-offs | Human owner / affected Issues |
 |---|---|---|---|
-| HD-001 / ADR-0020 | Portable Project companion definitions + schema 4 selection + local snapshots (recommended); inline manifest; global mutable catalog; digest pointer only | Companion portability/reference upkeep vs inline size; snapshots cost storage but allow offline resume; global catalog adds authority; pointer only loses retained semantics | Axiom maintainer; #273/#274 and consumers #275–#278 |
-| HD-002 / public surface | Extend Project authoring + Work Item execution (recommended); dedicated workflow skill/CLI tree | Small existing entrypoints vs longer Project command tree; dedicated skill duplicates discovery/selection | Axiom maintainer approving this Specification; #273/#133/#232/#276 |
-| HD-003 / rework | New linked Execution (recommended); rewind old stages; mutate completed attempts | More records/repeated gates; preserves immutable provenance vs ambiguous rewind and lost evidence | Axiom maintainer approving ADR-0020 and this Specification; #274/#277/#278 |
-| HD-004 / canonical content | JCS + SHA-256 (recommended); exact source bytes; implementation-specific marshaler | Conformance work vs formatting-sensitive edits or cross-client drift; does not change legacy graph hashes | Axiom maintainer approving ADR-0020; #273/#274/#275 |
+| HD-001 / ADR-0020 | Portable Project companion definitions + schema 4 selection + local snapshots (accepted); inline manifest; global mutable catalog; digest pointer only | Companion portability/reference upkeep vs inline size; snapshots cost storage but allow offline resume; global catalog adds authority; pointer only loses retained semantics | Axiom maintainer; #273/#274 and consumers #275–#278 |
+| HD-002 / public surface | Extend Project authoring + Work Item execution (accepted); dedicated workflow skill/CLI tree | Small existing entrypoints vs longer Project command tree; dedicated skill duplicates discovery/selection | Axiom maintainer approving this Specification; #273/#133/#232/#276 |
+| HD-003 / rework | New linked Execution (accepted); rewind old stages; mutate completed attempts | More records/repeated gates; preserves immutable provenance vs ambiguous rewind and lost evidence | Axiom maintainer approving ADR-0020 and this Specification; #274/#277/#278 |
+| HD-004 / canonical content | JCS + SHA-256 (accepted); exact source bytes; implementation-specific marshaler | Conformance work vs formatting-sensitive edits or cross-client drift; does not change legacy graph hashes | Axiom maintainer approving ADR-0020; #273/#274/#275 |
 
 Record decision date, actor, exact artifact revision, accepted option and any
 conditions in a versioned decision record or linked explicit human review.
-The approval ledger is currently: HD-001–HD-004 **pending**, no acceptance evidence.
-If a recommendation is rejected, revise the proposal and affected fixtures before
-consumer implementation; do not reinterpret this unchecked ledger as approval.
+The approval ledger is **Accepted, 2026-10-09**: HD-001 (Project companion
+workflow definitions and snapshots), HD-002 (Project authoring / Work Item
+execution surface), HD-003 (new linked Execution for rework), HD-004 (JCS + SHA-256),
+all without added conditions, under the explicit maintainer decision in
+[Issue #271](https://github.com/rgomids/axiom/issues/271#issuecomment-6074127314).
+Reviewed source revision: `998e763cf82c4cb443d0d4d0051c6e82bcdf8d72`;
+Specification blob: `b68072e9909793f24786c343e4b9d3b83064b217`;
+ADR-0020 blob: `3f913ed027ec90546ca96d436d538335590e4279`.
+Future changes to these choices require a separate human decision. Completion of
+the documentation does not assert implementation or MVP acceptance.
 
 ## Epic capability and acceptance coverage
 
