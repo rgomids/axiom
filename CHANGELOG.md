@@ -26,6 +26,20 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.13.0](https://github.com/rgomids/axiom/compare/v0.12.0...v0.13.0) (2026-10-09)
+
+
+### Features
+
+* **cli:** render human-first canonical results ([#232](https://github.com/rgomids/axiom/issues/232), AXM-11) ([#291](https://github.com/rgomids/axiom/issues/291)) ([2d7a7cd](https://github.com/rgomids/axiom/commit/2d7a7cdf24feb4312321e44755657d4e0b11b246))
+* **windows:** add Server AMD64 support and native release acceptance ([#288](https://github.com/rgomids/axiom/issues/288)) ([fcf4f46](https://github.com/rgomids/axiom/commit/fcf4f46595122e3d3211f7c8edb4297c876c0d72))
+* **workflow:** author and select immutable Project revisions ([#294](https://github.com/rgomids/axiom/issues/294)) ([4d008f7](https://github.com/rgomids/axiom/commit/4d008f78d3e68eaa3fe74025115daf86dffa12de))
+
+
+### Bug Fixes
+
+* **governance:** retire automatic GitHub status labels for Linear-owned backlog ([#290](https://github.com/rgomids/axiom/issues/290)) ([5a1c818](https://github.com/rgomids/axiom/commit/5a1c81886f6f37a471c4950d10d1d132c0b48500))
+
 ## [0.12.0](https://github.com/rgomids/axiom/compare/v0.11.0...v0.12.0) (2026-10-09)
 
 
