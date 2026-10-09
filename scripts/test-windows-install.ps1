@@ -96,11 +96,21 @@ try {
     $consent.Arguments = (@('install-release','--archive',$first.Archive,'--checksums',$first.Checksums,'--bin-dir',$defaultBin,'--receipt-dir',$defaultReceipt) | ForEach-Object { '"' + $_ + '"' }) -join ' '
     $consent.UseShellExecute = $false
     $consent.RedirectStandardInput = $true
+    $consent.RedirectStandardOutput = $true
+    $consent.RedirectStandardError = $true
     $process = [Diagnostics.Process]::Start($consent)
     try {
-        $process.StandardInput.WriteLine('s')
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        # Hosted PowerShell sets Console.InputEncoding to UTF-8 with a BOM.
+        # Write ASCII bytes directly so the consent answer is exactly "s\n".
+        $answer = [Text.Encoding]::ASCII.GetBytes("s`n")
+        $process.StandardInput.BaseStream.Write($answer, 0, $answer.Length)
+        $process.StandardInput.BaseStream.Flush()
         $process.StandardInput.Close()
         if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Consent fixture timed out.' }
+        Write-Output $stdout.Result
+        Write-Output $stderr.Result
         $global:LASTEXITCODE = $process.ExitCode
     } finally { $process.Dispose() }
     Assert-NativeExit 'Approved default onboarding repair'

@@ -40,10 +40,12 @@ def extract(root, version, row, destination):
         names = set()
         for member in members:
             parts = member.name.split("/")
+            entry_key = member.name.casefold() if row == "windows-amd64" else member.name
             require(parts[0] == name and all(p not in ("", ".", "..") for p in parts)
                     and "\\" not in member.name and (member.isfile() or member.isdir())
-                    and member.name not in names, "unsafe archive entry")
-            names.add(member.name)
+                    and entry_key not in names
+                    and (row != "windows-amd64" or smoke.windows_archive_name(member.name)), "unsafe archive entry")
+            names.add(entry_key)
         source.extractall(destination, members=members)
     bundle = destination / name
     metadata = dict(line.split("=", 1) for line in (bundle / "release-metadata.txt").read_text().splitlines())

@@ -15,6 +15,24 @@ spec.loader.exec_module(native)
 
 
 class NativeContract(unittest.TestCase):
+    def test_windows_archive_aliases_refused_before_extraction(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            prefix = "axiom-0.10.0-windows-amd64"
+            archive = root / f"{prefix}.tar.gz"
+            for entries in (("file:stream",), ("NUL.txt",), ("file.",), ("file ",), ("file", "FILE")):
+                with self.subTest(entries=entries):
+                    with tarfile.open(archive, "w:gz") as tar:
+                        for name in entries:
+                            member = tarfile.TarInfo(f"{prefix}/{name}")
+                            member.size = 1
+                            tar.addfile(member, io.BytesIO(b"x"))
+                    (root / "SHA256SUMS").write_text(f"{native.smoke.digest(archive)}  {archive.name}\n")
+                    destination = root / "extract"
+                    with self.assertRaisesRegex(ValueError, "unsafe archive entry"):
+                        native.extract(root, "0.10.0", "windows-amd64", destination)
+                    self.assertFalse(destination.exists())
+
     def test_untrusted_baseline_archives(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

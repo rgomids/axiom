@@ -33,6 +33,12 @@ def inventory(root):
     return result
 
 
+def windows_archive_name(name):
+    reserved = {"CON", "PRN", "AUX", "NUL"} | {f"{p}{i}" for p in ("COM", "LPT") for i in range(1, 10)}
+    return all(not any(c in part for c in '<>:"|?*') and not part.endswith((".", " "))
+               and part.split(".")[0].upper() not in reserved for part in name.split("/"))
+
+
 def windows_environment(home, temporary):
     """Only OS plumbing, never inherited credentials or Runtime discovery."""
     system = os.environ["SystemRoot"]
@@ -98,11 +104,13 @@ def smoke(args, summary):
                 names = set()
                 for member in members:
                     parts = member.name.split("/")
+                    entry_key = member.name.casefold() if host[0] == "Windows" else member.name
                     if (parts[0] != bundle or any(part in ("", ".", "..") for part in parts)
                             or "\\" in member.name or not (member.isfile() or member.isdir())
-                            or member.name in names):
+                            or entry_key in names
+                            or (host[0] == "Windows" and not windows_archive_name(member.name))):
                         raise ValueError("unsafe prepared archive entry")
-                    names.add(member.name)
+                    names.add(entry_key)
                 # Explicit validation above also works on hosted Python versions
                 # predating tarfile's extraction filter API.
                 source.extractall(extracted, members=members)
