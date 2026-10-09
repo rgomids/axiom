@@ -36,12 +36,14 @@ var statusLabels = map[completion.Status]string{
 // every other top-level field is operation-specific payload.
 var canonicalFields = map[string]bool{"status": true, "result": true, "references": true, "next": true, "details": true, "provenance": true}
 
-// humanOutputLimit bounds a Markdown view of a canonical event whose JSON is
-// bounded by limit. A literal code span can nearly triple a value made of
-// backticks, so no fixed multiple bounds every payload view: a view beyond this
-// limit falls back to the canonical summary, which always fits because every
-// canonical completion field is bounded by internal/completion.
-func humanOutputLimit(limit int) int { return 2 * limit }
+// humanOutputLimit bounds the Markdown view of a canonical event whose JSON is
+// bounded by limit. Nested list structure has no fixed expansion bound, so a
+// readable view beyond this limit is replaced by the literal view: the same
+// summary with each payload as its exact canonical JSON. That view is at most
+// three times the JSON (only control runes escape, to six bytes each) plus the
+// summary, whose fields internal/completion bounds below 8 KiB, so it always
+// fits four times a bound of at least 16 KiB. Nothing is dropped or truncated.
+func humanOutputLimit(limit int) int { return 4 * limit }
 
 // presentEvent writes one canonical completion event: the canonical JSON wire
 // value with --json, or its Markdown rendering by default.
@@ -53,8 +55,6 @@ func presentEvent(writer io.Writer, mode outputMode, status completion.Status, w
 	if mode != jsonOutput {
 		rendered, err := renderMarkdown(wire)
 		if err == nil && len(rendered) > humanOutputLimit(limit) {
-			// The outcome and confirmed effects stay visible with the same exit
-			// code; only the payload view is withheld, and named.
 			rendered, err = renderMarkdownView(wire, false)
 		}
 		if err != nil || len(rendered) > humanOutputLimit(limit) {
@@ -157,9 +157,9 @@ func decodeNode(decoder *json.Decoder) (*jsonNode, error) {
 // its canonical order, and the provenance footer.
 func renderMarkdown(wire []byte) ([]byte, error) { return renderMarkdownView(wire, true) }
 
-// renderMarkdownView renders the payload fields, or only names them when the
-// payload is withheld from an oversized view.
-func renderMarkdownView(wire []byte, payload bool) ([]byte, error) {
+// renderMarkdownView renders the payload as readable lists, or, when readable
+// is false, as the literal view: each payload field as its exact canonical JSON.
+func renderMarkdownView(wire []byte, readable bool) ([]byte, error) {
 	root, err := decodeOrdered(wire)
 	if err != nil {
 		return nil, err
@@ -184,14 +184,14 @@ func renderMarkdownView(wire []byte, payload bool) ([]byte, error) {
 		writeField(&summary, "", "Details", details)
 	}
 	var sections bytes.Buffer
-	var withheld []string
+	if !readable {
+		if err := writeLiteralPayload(&sections, wire); err != nil {
+			return nil, err
+		}
+	}
 	for index, key := range root.keys {
 		value := root.children[index]
-		if canonicalFields[key] {
-			continue
-		}
-		if !payload {
-			withheld = append(withheld, codeSpan(key))
+		if canonicalFields[key] || !readable {
 			continue
 		}
 		if composite(value) {
@@ -200,9 +200,6 @@ func renderMarkdownView(wire []byte, payload bool) ([]byte, error) {
 			continue
 		}
 		writeField(&summary, "", key, value)
-	}
-	if len(withheld) != 0 {
-		fmt.Fprintf(&summary, "- **Payload withheld:** %s exceeds the human view bound; run the same command with `--json` for the complete canonical event\n", strings.Join(withheld, ", "))
 	}
 	if summary.Len() != 0 {
 		output.WriteString("\n")
@@ -235,6 +232,32 @@ func inlineObject(node *jsonNode) string {
 		fields[index] = markdownKey(node.keys[index]) + " " + inlineValue(child)
 	}
 	return strings.Join(fields, " · ")
+}
+
+// writeLiteralPayload prints each operation-specific field as its exact
+// canonical JSON. Encoded JSON has no line breaks and never starts with a
+// backtick, so a three-backtick fence always holds it.
+func writeLiteralPayload(output *bytes.Buffer, wire []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(wire))
+	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {
+		return errors.New("canonical completion event is not an object")
+	}
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		key, _ := token.(string)
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return err
+		}
+		if canonicalFields[key] {
+			continue
+		}
+		fmt.Fprintf(output, "\n#### %s (canonical JSON)\n\n```json\n%s\n```\n", markdownKey(key), escapeControls(string(value), false))
+	}
+	return nil
 }
 
 func composite(node *jsonNode) bool {
@@ -284,7 +307,7 @@ func writeItem(output *bytes.Buffer, indent, label string, node *jsonNode) {
 
 func writeBlock(output *bytes.Buffer, indent, text string) {
 	text = escapeControls(strings.ReplaceAll(text, "\r\n", "\n"), true)
-	fence := strings.Repeat("`", max(3, longestRun(text, '`')+1))
+	fence := strings.Repeat("`", max(3, longestFenceLine(text)+1))
 	fmt.Fprintf(output, "%s%s\n", indent, fence)
 	for _, line := range strings.Split(strings.TrimSuffix(text, "\n"), "\n") {
 		fmt.Fprintf(output, "%s%s\n", indent, line)
@@ -306,7 +329,7 @@ func inlineValue(node *jsonNode) string {
 // values cannot change the structure of the view.
 func codeSpan(text string) string {
 	text = escapeControls(text, false)
-	fence := strings.Repeat("`", longestRun(text, '`')+1)
+	fence := strings.Repeat("`", shortestAbsentRun(text))
 	if strings.HasPrefix(text, "`") || strings.HasSuffix(text, "`") || strings.HasPrefix(text, " ") || strings.HasSuffix(text, " ") {
 		return fence + " " + text + " " + fence
 	}
@@ -327,15 +350,36 @@ func markdownKey(key string) string {
 	return codeSpan(key)
 }
 
-func longestRun(text string, target rune) int {
-	longest, current := 0, 0
-	for _, value := range text {
-		if value == target {
+// shortestAbsentRun is the shortest backtick fence that no backtick run inside
+// text matches, so it delimits the span. Runs of every shorter length need at
+// least n(n-1)/2 backticks, so the fence stays near sqrt(2*len(text)).
+func shortestAbsentRun(text string) int {
+	runs := map[int]bool{}
+	current := 0
+	for _, value := range text + " " {
+		if value == '`' {
 			current++
-			longest = max(longest, current)
 			continue
 		}
+		runs[current] = true
 		current = 0
+	}
+	fence := 1
+	for runs[fence] {
+		fence++
+	}
+	return fence
+}
+
+// longestFenceLine is the longest line made only of backticks, the only
+// content that could close a fenced block.
+func longestFenceLine(text string) int {
+	longest := 0
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && strings.Trim(line, "`") == "" {
+			longest = max(longest, len(line))
+		}
 	}
 	return longest
 }

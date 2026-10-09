@@ -38,16 +38,21 @@ application use case
 - Provider-authored and local values render literally (code spans, fenced
   blocks for multi-line text); C0/C1 controls and bidirectional overrides are
   escaped, so a value cannot inject Markdown structure or terminal sequences.
-- Bounded, never truncated: the human view may use at most twice the JSON
-  bound of its emitter. A literal code span can nearly triple a value made of
-  backticks, so a view beyond that bound keeps the canonical summary (status,
-  result, next, references, details, provenance) with the same exit code and
-  names the withheld payload, pointing to `--json`
-  (`TestPresentationOversizedViewKeepsCanonicalOutcome`, from the #291 review
-  reproduction with a validated `PrepareSetup` preview). Every canonical field
-  is bounded, so the summary always fits
-  (`TestPresentationWorstCaseCanonicalSummaryFits`). Skills present that
-  summary and may repeat only a read-only or preview command with `--json`.
+- Bounded, never dropped or truncated. A code span uses the shortest backtick
+  fence that no run inside its value matches (at most about `sqrt(2n)`
+  backticks), so literal values stay near their JSON size. Nested list
+  structure has no fixed expansion bound, so a readable view beyond four times
+  the JSON bound is replaced by the literal view: the same summary and exit
+  code, with each payload field as its exact canonical JSON in a fenced block.
+  That view is at most three times the JSON plus a summary that
+  `internal/completion` bounds, so it always fits
+  (`TestPresentationWorstCaseLiteralViewFits`). The #291 review reproductions,
+  a validated `PrepareSetup` preview with backtick-run glossary definitions,
+  keep every field, including `effects` and `digest`, in the readable view for
+  preview and publication results
+  (`TestPresentationBacktickHeavyPreviewKeepsEveryField`), and the forced
+  literal view keeps every payload field
+  (`TestPresentationLiteralViewKeepsEveryPayloadField`).
 - Both Runtime skills (`axiom-project`, `axiom-work-item`) invoke the default
   human view, present Lingo's Markdown exactly as returned, read follow-up
   values (preview `digest`, `previewDigest`, `executionId`, `revision`) from

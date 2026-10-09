@@ -225,10 +225,9 @@ successful than its canonical status. Read a value a follow-up command needs,
 such as a preview `digest`, `previewDigest`, `executionId`, or `revision`,
 exactly as printed in its labelled field. Run `axiom --json` only when the user
 explicitly asks for machine-readable output, and relay that JSON unchanged.
-When Lingo reports `Payload withheld`, its summary still carries the canonical
-outcome: present it as returned. Only a read-only or preview command may be
-repeated with `--json` to read the withheld payload; never repeat an authorized
-mutation to see it.
+A payload too large for a readable view is printed as its canonical JSON under
+a `(canonical JSON)` heading; present it as returned. Never repeat a command,
+least of all an authorized mutation, only to see its result again.
 
 Lingo prints the canonical completion fields in its summary and provenance
 footer, and each operation-specific payload under its own name in JSON order.

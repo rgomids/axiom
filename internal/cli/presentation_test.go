@@ -112,44 +112,47 @@ func TestPresentationGoldenScenarios(t *testing.T) {
 // human view in its literal rendering.
 func TestPresentationPreservesEveryCanonicalValue(t *testing.T) {
 	for _, scenario := range presentationScenarios(t) {
-		wire := renderScenario(t, scenario, jsonOutput)
-		human := renderScenario(t, scenario, humanOutput)
-		root, err := decodeOrdered([]byte(wire))
-		if err != nil {
-			t.Fatal(err)
-		}
-		status := root.field("status").text
-		if !strings.Contains(human, "("+codeSpan(status)+")") {
-			t.Errorf("%s: canonical status %q absent", scenario.name, status)
-		}
-		var walk func(path string, node *jsonNode)
-		walk = func(path string, node *jsonNode) {
-			for index, child := range node.children {
-				childPath := path + "[" + strconv.Itoa(index) + "]"
-				if node.kind == jsonObject {
-					childPath = path + "." + node.keys[index]
-					if path != "" && !strings.Contains(human, markdownKey(node.keys[index])) {
-						t.Errorf("%s: key %s absent", scenario.name, childPath)
-					}
-				}
-				walk(childPath, child)
-			}
-			if node.kind == jsonObject || node.kind == jsonArray {
-				return
-			}
-			want := inlineValue(node)
-			switch {
-			case path == ".result" || path == ".next":
-				want = plainText(node.text)
-			case node.kind == jsonString && strings.ContainsAny(node.text, "\n\r"):
-				want = escapeControls(strings.Split(node.text, "\n")[0], true)
-			}
-			if !strings.Contains(human, want) {
-				t.Errorf("%s: value %s = %q absent from human view as %q", scenario.name, path, node.text, want)
-			}
-		}
-		walk("", root)
+		assertHumanPreservesEvent(t, scenario.name, renderScenario(t, scenario, jsonOutput), renderScenario(t, scenario, humanOutput))
 	}
+}
+
+func assertHumanPreservesEvent(t *testing.T, name, wire, human string) {
+	t.Helper()
+	root, err := decodeOrdered([]byte(wire))
+	if err != nil {
+		t.Fatal(err)
+	}
+	status := root.field("status").text
+	if !strings.Contains(human, "("+codeSpan(status)+")") {
+		t.Errorf("%s: canonical status %q absent", name, status)
+	}
+	var walk func(path string, node *jsonNode)
+	walk = func(path string, node *jsonNode) {
+		for index, child := range node.children {
+			childPath := path + "[" + strconv.Itoa(index) + "]"
+			if node.kind == jsonObject {
+				childPath = path + "." + node.keys[index]
+				if path != "" && !strings.Contains(human, markdownKey(node.keys[index])) {
+					t.Errorf("%s: key %s absent", name, childPath)
+				}
+			}
+			walk(childPath, child)
+		}
+		if node.kind == jsonObject || node.kind == jsonArray {
+			return
+		}
+		want := inlineValue(node)
+		switch {
+		case path == ".result" || path == ".next":
+			want = plainText(node.text)
+		case node.kind == jsonString && strings.ContainsAny(node.text, "\n\r"):
+			want = escapeControls(strings.Split(node.text, "\n")[0], true)
+		}
+		if !strings.Contains(human, want) {
+			t.Errorf("%s: value %s = %q absent from human view as %q", name, path, node.text, want)
+		}
+	}
+	walk("", root)
 }
 
 func TestPresentationIsDeterministicAndModeIndependentInOutcome(t *testing.T) {
@@ -254,9 +257,9 @@ func TestPresentationMakesNoModelOrRuntimeCall(t *testing.T) {
 }
 
 // Review of #291: a validated setup preview whose glossary definitions are
-// runs of backticks fits the JSON bound but nearly triples as code spans. The
-// human view must keep the outcome, exit code and confirmed references.
-func TestPresentationOversizedViewKeepsCanonicalOutcome(t *testing.T) {
+// runs of backticks must keep its outcome, effects and digest in both modes.
+// The shortest absent fence keeps such values near their JSON size.
+func TestPresentationBacktickHeavyPreviewKeepsEveryField(t *testing.T) {
 	glossary := make([]project.GlossaryEntry, 0, 6)
 	for index := range 6 {
 		glossary = append(glossary, project.GlossaryEntry{Key: "term-" + strconv.Itoa(index), Term: "Term " + strconv.Itoa(index), Definition: "x" + strings.Repeat("`", 2046) + "x"})
@@ -268,44 +271,84 @@ func TestPresentationOversizedViewKeepsCanonicalOutcome(t *testing.T) {
 	if len(issues) != 0 || !proposal.Valid() {
 		t.Fatalf("setup preview invalid: %v", issues)
 	}
-	result := presentationResult(t, completion.Facts{Completed: true}, "Project setup preview ready", []string{"project:123e4567-e89b-42d3-a456-426614174000"}, "Review preview", "")
-	var structured, human bytes.Buffer
-	jsonCode := emitSetupCompletion(&structured, jsonOutput, *result, proposal.Preview())
-	humanCode := emitSetupCompletion(&human, humanOutput, *result, proposal.Preview())
-	if jsonCode != ExitSuccess || humanCode != jsonCode {
-		t.Fatalf("exit JSON=%d human=%d", jsonCode, humanCode)
+	for _, statement := range []string{"Project setup preview ready", "Project setup published"} {
+		result := presentationResult(t, completion.Facts{Completed: true}, statement, []string{"project:123e4567-e89b-42d3-a456-426614174000"}, "Review preview", "")
+		var structured, human bytes.Buffer
+		jsonCode := emitSetupCompletion(&structured, jsonOutput, *result, proposal.Preview())
+		humanCode := emitSetupCompletion(&human, humanOutput, *result, proposal.Preview())
+		if jsonCode != ExitSuccess || humanCode != jsonCode {
+			t.Fatalf("exit JSON=%d human=%d", jsonCode, humanCode)
+		}
+		if human.Len() > structured.Len()+structured.Len()/4 {
+			t.Fatalf("human %d bytes for JSON %d bytes", human.Len(), structured.Len())
+		}
+		for _, want := range []string{"`publish_portable_project`", "`publish_local_bindings`", "- **digest:** `" + proposal.Preview().Digest + "`"} {
+			if !strings.Contains(human.String(), want) {
+				t.Fatalf("human view lacks %q", want)
+			}
+		}
+		assertHumanPreservesEvent(t, statement, structured.String(), human.String())
 	}
-	full, err := renderMarkdown(structured.Bytes())
-	if err != nil || len(full) <= humanOutputLimit(MaxCompletionOutputBytes) {
-		t.Fatalf("fixture no longer exceeds the human bound: %d bytes, %v", len(full), err)
+}
+
+// A readable view beyond its bound becomes the literal view: the same summary
+// and exit code, with every payload field as its exact canonical JSON.
+func TestPresentationLiteralViewKeepsEveryPayloadField(t *testing.T) {
+	items := make([]string, 4000)
+	for index := range items {
+		items[index] = `"a"`
 	}
-	for _, want := range []string{"### Succeeded (`success`)", "\nProject setup preview ready\n", "- **Next:** Review preview", "`project:123e4567-e89b-42d3-a456-426614174000`", "- **Payload withheld:** `setup` exceeds the human view bound; run the same command with `--json`", "**Provenance:** product `Axiom`"} {
+	nested := "[[[[[[[[[" + strings.Join(items, ",") + "]]]]]]]]]"
+	wire := []byte(`{"status":"partial","result":"Effect confirmed","references":["github:acme/app#42"],"next":"Reconcile","provenance":{"product":"Axiom","version":"development","revision":"abc","sourceState":"clean"},"category":"applied","deep":` + nested + `,"digest":"d1"}` + "\n")
+	readable, err := renderMarkdown(wire)
+	if err != nil || len(readable) <= humanOutputLimit(len(wire)) {
+		t.Fatalf("fixture does not exceed the readable bound: %d bytes, %v", len(readable), err)
+	}
+	var human bytes.Buffer
+	if code := presentEvent(&human, humanOutput, completion.Partial, wire, len(wire)); code != completionExitCode(completion.Partial) {
+		t.Fatalf("literal view exit %d", code)
+	}
+	for _, want := range []string{"### Partially completed — recovery required (`partial`)", "- **Next:** Reconcile", "`github:acme/app#42`", "**Provenance:** product `Axiom`"} {
 		if !strings.Contains(human.String(), want) {
-			t.Fatalf("summary view lacks %q:\n%s", want, human.String())
+			t.Fatalf("literal view lacks %q", want)
+		}
+	}
+	for key, raw := range map[string]string{"category": `"applied"`, "deep": nested, "digest": `"d1"`} {
+		if !strings.Contains(human.String(), "#### "+key+" (canonical JSON)\n\n```json\n"+raw+"\n```\n") {
+			t.Fatalf("literal view lacks canonical %s", key)
 		}
 	}
 }
 
-// The fallback summary always fits the smallest human bound: every canonical
-// field is bounded by internal/completion and provenance validation.
-func TestPresentationWorstCaseCanonicalSummaryFits(t *testing.T) {
+// The literal view fits humanOutputLimit for the smallest JSON bound: the
+// summary is bounded by internal/completion and the payload at most triples.
+func TestPresentationWorstCaseLiteralViewFits(t *testing.T) {
 	references := make([]string, 16)
 	for index := range references {
 		references[index] = "r" + strconv.Itoa(index) + strings.Repeat("`", 252) + "r"
 	}
 	text := strings.Repeat("`", 512)
 	result := presentationResult(t, completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, text, references, text, "d"+strings.Repeat("`", 254)+"d")
-	wire, err := renderCompletionJSON(*result)
+	summary, err := renderCompletionJSON(*result)
 	if err != nil {
 		t.Fatal(err)
 	}
-	summary, err := renderMarkdownView(wire, false)
-	if err != nil || len(summary) > humanOutputLimit(MaxCompletionOutputBytes) {
-		t.Fatalf("worst-case summary %d bytes exceeds %d: %v", len(summary), humanOutputLimit(MaxCompletionOutputBytes), err)
+	payload, err := json.Marshal(strings.Repeat("\u0085", (MaxCompletionOutputBytes-len(summary)-16)/2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := append(append(bytes.TrimSuffix(summary, []byte("}\n")), `,"x":`...), payload...)
+	wire = append(wire, "}\n"...)
+	if len(wire) > MaxCompletionOutputBytes {
+		t.Fatalf("fixture %d bytes exceeds the JSON bound", len(wire))
+	}
+	literal, err := renderMarkdownView(wire, false)
+	if err != nil || len(literal) > humanOutputLimit(MaxCompletionOutputBytes) {
+		t.Fatalf("worst-case literal view %d bytes exceeds %d: %v", len(literal), humanOutputLimit(MaxCompletionOutputBytes), err)
 	}
 	for _, reference := range references {
-		if !strings.Contains(string(summary), codeSpan(reference)) {
-			t.Fatal("worst-case summary dropped a confirmed reference")
+		if !strings.Contains(string(literal), codeSpan(reference)) {
+			t.Fatal("worst-case literal view dropped a confirmed reference")
 		}
 	}
 }

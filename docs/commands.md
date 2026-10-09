@@ -1156,12 +1156,12 @@ fields, one `#### <payload>` section per structured operation payload in JSON
 order, and a `Provenance` footer. Every JSON key and value appears in the human
 view; Provider-authored and local values are printed literally in code spans or
 fenced blocks, with terminal control and bidirectional-override characters
-escaped. Nothing is truncated. When a complete view would exceed its bound
-(twice the JSON bound, which a value made of backticks can exceed), the human
-view keeps the canonical summary (status, result, `Next`, `References`,
-`Details`, provenance) and the same exit code, names the withheld payload and
-points to `--json`; every canonical field is bounded, so the summary always
-fits. No model call formats a result. Scripts and automation
+escaped; a code span uses the shortest backtick fence absent from its value,
+so literal values stay near their JSON size. Nothing is dropped or truncated:
+if a readable view would exceed four times the JSON bound, the human view keeps
+the same summary and exit code and prints each payload as its exact canonical
+JSON in a fenced block under a `(canonical JSON)` heading, a view that provably
+fits that bound. No model call formats a result. Scripts and automation
 use the stable JSON surface by putting `--json` before the command; `--human`
 selects the default explicitly:
 
