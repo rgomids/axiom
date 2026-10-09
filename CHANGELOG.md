@@ -26,6 +26,17 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.11.0](https://github.com/rgomids/axiom/compare/v0.10.0...v0.11.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** consolidate the canonical two-skill surface ([#279](https://github.com/rgomids/axiom/issues/279))
+
+### Bug Fixes
+
+* **runtime:** consolidate the canonical two-skill surface ([#279](https://github.com/rgomids/axiom/issues/279)) ([be16d76](https://github.com/rgomids/axiom/commit/be16d76a63427afcd82c17d66a827e364177c162))
+
 ## [0.10.0](https://github.com/rgomids/axiom/compare/v0.9.0...v0.10.0) (2026-10-08)
 
 
