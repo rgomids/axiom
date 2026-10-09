@@ -83,6 +83,10 @@ jobs:
     needs: [acceptance, rejection, promotion, smoke-macos]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-linux-arm64-rejection
+          path: ${{ runner.temp }}/rejection
       - name: Assert successful acceptance and blocked promotion
         env:
           ACCEPTANCE: ${{ needs.acceptance.result }}
@@ -95,4 +99,12 @@ jobs:
           test "$REJECTION" = failure
           test "$PROMOTION" = skipped
           test "$MACOS" = success
+          python3 - "$RUNNER_TEMP/rejection/native.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1]))
+          assert report['result'] == 'fail'
+          assert report['error'] == 'prepared archive checksum mismatch'
+          assert report['row'] == 'linux-arm64'
+          assert report['environment']['architecture'] == 'aarch64'
+          PY
           printf 'acceptance=%s rejection=%s promotion=%s\n' "$ACCEPTANCE" "$REJECTION" "$PROMOTION" >> "$GITHUB_STEP_SUMMARY"
