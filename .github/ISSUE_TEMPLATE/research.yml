@@ -2,7 +2,6 @@ name: Research
 description: Ask a question whose answer is needed before a decision or implementation.
 labels:
   - type:research
-  - status:planned
 body:
   - type: markdown
     attributes:

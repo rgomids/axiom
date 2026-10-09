@@ -38,11 +38,12 @@ GitHub `status:*` labels.
 card is the operational source of truth for status, assignee, scheduling and
 blocking/unblocking. Related GitHub Issues retain technical history and links;
 their `status:*` labels or Project columns must not be used as a competing
-product backlog status or to unblock an AXM successor. Those GitHub metadata
-rules are **not removed by this documentation change**. Updating labels, Issue
-Forms, validators, harness instructions and automations requires a separate
-reviewed migration. GitHub-only technical work keeps its currently mandated
-metadata until then.
+product backlog status or to unblock an AXM successor. The companion label-policy migration makes `status:*` an **optional legacy**
+GitHub editorial field: Issue Forms and Actions no longer seed or require it.
+The existing mapped MVP Issues will have these labels removed only **after**
+the migration PR is merged and the new default-branch workflow is active.
+GitHub-only technical Issues keep existing labels unless separately reviewed.
+`type:*`, `area:*`, `platform:*` and Axiom-managed `axiom:*` are unaffected.
 
 ## Where a new request starts
 
@@ -128,9 +129,9 @@ Use Linear `Blocks` / `Blocked by` relationships for operational dependencies,
 including already mapped MVP activities. A completed predecessor should be
 reconciled against actual acceptance evidence before its successor is treated
 as unblocked. GitHub Issue relationships may remain as technical references,
-not as a second unblock mechanism. The GitHub `status:blocked` label remains
-an editorial GitHub state under the **current** repository policy; this stage
-does not alter labels or create an extra Linear workflow column.
+not as a second unblock mechanism. Legacy `status:blocked` is optional on
+GitHub-only technical Issues, not a replacement for Linear relations or an
+extra Linear workflow column.
 
 A PR opening, review approval, green CI or squash merge **never** proves a
 stable release or human acceptance. Per the repository's existing
