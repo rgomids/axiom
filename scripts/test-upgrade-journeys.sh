@@ -195,7 +195,7 @@ check project-readable bash -c 'cd "$HOME/cwd" && axiom --json project show --se
 check execution-readable bash -c "cd \"\$HOME/cwd\" && axiom --json workflow status --project journey --repository main --number 7 | grep -q '$execution_id'"
 check codex-ready bash -c 'cd "$HOME/cwd" && axiom runtime codex status'
 check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
-check first-run-no-op bash -c 'cd "$HOME/cwd" && axiom first-run | grep -q "runtime: claude present=true state=already_configured" && axiom first-run | grep -q "runtime: codex present=true state=already_configured"'
+check first-run-no-op bash -c 'cd "$HOME/cwd" && axiom --json first-run | python3 -c "import json, sys; runtimes = {r[\"runtime\"]: r for r in json.load(sys.stdin)[\"firstRun\"][\"runtimes\"]}; assert all(runtimes[n][\"present\"] and runtimes[n][\"state\"] == \"already_configured\" for n in (\"claude\", \"codex\"))"'
 check skills-converged skills_converged
 check rerun-installer install_release "$candidate"
 check rerun-unchanged grep -qx 'install_status=unchanged' "$work/install.out"
@@ -306,7 +306,7 @@ key = "state/" + pathlib.Path(sys.argv[3]).relative_to(sys.argv[2]).as_posix()
 assert key in manifest["kept"] and key not in manifest["retired"]
 assert len(manifest["retired"]) == 2
 PYTHON
-  check project-reconfigured bash -c 'cd "$HOME/cwd" && axiom project list | grep -q "project: poc-project"'
+  check project-reconfigured bash -c 'cd "$HOME/cwd" && axiom --json project list | grep -q "\"slug\":\"poc-project\""'
   check first-run bash -c 'cd "$HOME/cwd" && axiom first-run'
   archive_before=$(tree_digest "$archive")
   check rerun-installer install_release "$candidate"
