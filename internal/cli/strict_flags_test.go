@@ -88,7 +88,7 @@ func assertStrictParserFailure(t *testing.T, args []string) {
 		if err := json.Unmarshal(output.Bytes(), &event); err != nil {
 			t.Fatalf("interactive=%v: output=%s err=%v", interactive, output.String(), err)
 		}
-		if code != ExitFailure || service.call != "" || prompts.Len() != 0 || event.Status != completion.ValidationFailure || event.Result != "Explicit selector input is invalid" || event.Next != "Remove unknown, duplicate, or conflicting inputs and retry" {
+		if code != ExitFailure || service.call != "" || prompts.Len() != 0 || event.Status != completion.ValidationFailure || event.Result != "Explicit selector input is invalid" || event.Next != "Remove unknown, duplicate, or conflicting inputs and retry; see axiom "+strings.Join(args[:2], " ")+" --help" {
 			t.Fatalf("interactive=%v: exit=%d call=%q prompts=%q event=%+v", interactive, code, service.call, prompts.String(), event)
 		}
 	}

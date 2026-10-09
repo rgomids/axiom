@@ -33,6 +33,9 @@ var (
 )
 
 func main() {
+	if handled, code := cli.HandleHelp(os.Args[1:], currentProvenance(), os.Stdout); handled {
+		os.Exit(code)
+	}
 	if handled, code := installReleaseCommand(os.Args[1:], os.Stdout, os.Stderr); handled {
 		os.Exit(code)
 	}
@@ -43,23 +46,11 @@ func main() {
 	if format, ok := versionFormat(os.Args[1:]); ok {
 		os.Exit(writeVersion(os.Stdout, format, source))
 	}
-	if len(os.Args) == 2 && (os.Args[1] == "help" || os.Args[1] == "--help" || os.Args[1] == "-h") {
-		os.Exit(cli.Help(os.Stdout))
-	}
 	os.Exit(cli.RunInteractive(context.Background(), os.Args[1:], composeWithProvenance(source), source, os.Stdin, os.Stdout, os.Stderr))
 }
 
 func versionFormat(args []string) (cli.CompletionFormat, bool) {
-	if len(args) == 1 && args[0] == "version" {
-		return cli.CompletionHuman, true
-	}
-	if len(args) == 2 && args[1] == "version" && args[0] == "--json" {
-		return cli.CompletionJSON, true
-	}
-	if len(args) == 2 && args[1] == "version" && args[0] == "--human" {
-		return cli.CompletionHuman, true
-	}
-	return "", false
+	return cli.VersionFormat(args)
 }
 
 func writeVersion(output *os.File, format cli.CompletionFormat, source provenance.Value) int {

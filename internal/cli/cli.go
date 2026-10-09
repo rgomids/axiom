@@ -316,6 +316,10 @@ func Run(ctx context.Context, args []string, service Service, source provenance.
 // RunInteractive adds the bounded prompt path used by `project configure` and
 // selects human or machine-readable presentation without changing application behavior.
 func RunInteractive(ctx context.Context, args []string, service Service, source provenance.Value, stdin io.Reader, stdout, stderr io.Writer) int {
+	if handled, code := HandleHelp(args, source, stdout); handled {
+		return code
+	}
+	stdout = withHelpGuidance(stdout, args)
 	if handled, code := InspectSkill(args, source, stdout); handled {
 		return code
 	}
@@ -342,7 +346,7 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 			return emitResponse(stdout, mode, "project_context", *failure)
 		}
 	}
-	if len(args) >= 3 && args[0] == "runtime" && args[1] == "profile" && args[2] == "preview" {
+	if commandMatches(args, runtimeProfilePreviewAction) {
 		input, ok := runtimePreviewFlags(args[3:])
 		if !ok {
 			return emitParserFailure(stdout, mode, runtimeProfilePreviewAction, "invalid_input", source)
@@ -353,8 +357,11 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		}
 		return emitResponse(stdout, mode, runtimeProfilePreviewAction, profiles.RuntimeProfilePreview(ctx, input))
 	}
-	if len(args) >= 3 && args[0] == "runtime" && (args[1] == "codex" || args[1] == "claude") && args[2] == "auth" {
-		operation := action("runtime_" + args[1] + "_auth")
+	if commandMatches(args, codexAuthAction) || commandMatches(args, claudeAuthAction) {
+		operation, runtimeID := codexAuthAction, "codex"
+		if commandMatches(args, claudeAuthAction) {
+			operation, runtimeID = claudeAuthAction, "claude"
+		}
 		if len(args) != 3 {
 			return emitParserFailure(stdout, mode, operation, "invalid_input", source)
 		}
@@ -362,9 +369,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		if !ok {
 			return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: "application_unavailable"})
 		}
-		return emitResponse(stdout, mode, operation, auth.RuntimeAuth(ctx, args[1]))
+		return emitResponse(stdout, mode, operation, auth.RuntimeAuth(ctx, runtimeID))
 	}
-	if len(args) >= 3 && args[0] == "runtime" && args[1] == "profile" && args[2] == "validate" {
+	if commandMatches(args, runtimeProfileValidateAction) {
 		if len(args) != 3 {
 			return emitParserFailure(stdout, mode, runtimeProfileValidateAction, "invalid_input", source)
 		}
@@ -446,7 +453,7 @@ func emitParserFailure(writer io.Writer, mode outputMode, operation action, issu
 	if err != nil {
 		return ExitFailure
 	}
-	nextAction, err := provenance.NewText(next, provenance.AxiomAuthored)
+	nextAction, err := provenance.NewText(helpNext(writer, next), provenance.AxiomAuthored)
 	if err != nil {
 		return ExitFailure
 	}
@@ -458,6 +465,9 @@ func emitParserFailure(writer io.Writer, mode outputMode, operation action, issu
 }
 
 func parserFailureText(operation action, issue string) (string, string) {
+	if issue == "invalid_command" {
+		return "Command is invalid", "Choose a documented command"
+	}
 	if operation == skillInspectAction {
 		return "Skill inspection input is invalid", "Run skill inspect with one exact embedded skill name and no workflow arguments"
 	}
@@ -466,6 +476,9 @@ func parserFailureText(operation action, issue string) (string, string) {
 	}
 	if operation == runtimeProfileValidateAction {
 		return "Runtime profile validation input is invalid", "Run runtime profile validate without flags or arguments"
+	}
+	if operation == codexAuthAction || operation == claudeAuthAction {
+		return "Runtime authentication preflight input is invalid", "Run runtime codex auth or runtime claude auth without flags or arguments"
 	}
 	if issue == "incomplete_edit_authority" {
 		return "Project edit authority is incomplete", "Supply --project-id, --preview-digest, and --authorize-local together from the reviewed preview, or omit all three to preview"
@@ -576,6 +589,8 @@ const (
 	codexStatusAction       action = "runtime_codex_status"
 	claudeInstallAction     action = "runtime_claude_install"
 	claudeStatusAction      action = "runtime_claude_status"
+	codexAuthAction         action = "runtime_codex_auth"
+	claudeAuthAction        action = "runtime_claude_auth"
 	firstRunAction          action = "first_run"
 )
 
@@ -623,18 +638,22 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if service == nil {
 		return "unknown", requestInput{}, category("application_unavailable")
 	}
-	if len(args) == 1 && args[0] == "first-run" {
+	command, _, _, validCommand := resolveCommand(args)
+	if !validCommand {
+		return "unknown", requestInput{}, category("invalid_command")
+	}
+	if len(args) == 1 && command.operation == firstRunAction {
 		return firstRunAction, requestInput{}, nil
 	}
 	if len(args) == 3 && args[0] == "runtime" && (args[1] == "codex" || args[1] == "claude") {
-		operation := action("runtime_" + args[1] + "_" + args[2])
+		operation := command.operation
 		if operation == codexInstallAction || operation == codexStatusAction || operation == claudeInstallAction || operation == claudeStatusAction {
 			return operation, requestInput{}, nil
 		}
 		return "unknown", requestInput{}, category("invalid_command")
 	}
 	if len(args) >= 2 && args[0] == "work-item" {
-		operation := action("work_item_" + args[1])
+		operation := command.operation
 		if !knownWorkItem(operation) {
 			return "unknown", requestInput{}, category("invalid_command")
 		}
@@ -648,7 +667,7 @@ func request(args []string, service Service) (action, requestInput, *string) {
 		return operation, values, nil
 	}
 	if len(args) >= 2 && args[0] == "workflow" {
-		operation := action("workflow_" + args[1])
+		operation := command.operation
 		if !knownWorkflow(operation) {
 			return "unknown", requestInput{}, category("invalid_command")
 		}
@@ -664,7 +683,7 @@ func request(args []string, service Service) (action, requestInput, *string) {
 	if len(args) < 2 || args[0] != "project" {
 		return "unknown", requestInput{}, category("invalid_command")
 	}
-	operation := action(args[1])
+	operation := command.operation
 	if !known(operation) {
 		return "unknown", requestInput{}, category("invalid_command")
 	}
@@ -697,10 +716,14 @@ func request(args []string, service Service) (action, requestInput, *string) {
 }
 
 func selectorRequestIssue(operation action, values requestInput) string {
+	return selectorRequestIssueWithPresence(operation, values, true)
+}
+
+func selectorRequestIssueWithPresence(operation action, values requestInput, requireInputs bool) string {
 	if values.workItem != "" && (values.number != 0 || values.providerRepository != "") {
 		return "invalid_input"
 	}
-	if missingRequiredInputs(operation, values, "project", "repository") {
+	if requireInputs && missingRequiredInputs(operation, values, "project", "repository") {
 		return "missing_required_input"
 	}
 	if knownWorkItem(operation) {
@@ -711,12 +734,12 @@ func selectorRequestIssue(operation action, values requestInput) string {
 			if values.workItem != "" {
 				return "invalid_input"
 			}
-			if missingRequiredInputs(operation, values, "provider-repository") {
+			if requireInputs && missingRequiredInputs(operation, values, "provider-repository") {
 				return "missing_required_input"
 			}
 			return ""
 		}
-		if missingRequiredInputs(operation, values, "number") {
+		if requireInputs && missingRequiredInputs(operation, values, "number") {
 			return "missing_required_input"
 		}
 		if values.workItem != "" {
@@ -724,18 +747,18 @@ func selectorRequestIssue(operation action, values requestInput) string {
 				return "invalid_input"
 			}
 		}
-		if missingRequiredInputs(operation, values, "provider-repository") {
+		if requireInputs && missingRequiredInputs(operation, values, "provider-repository") {
 			return "missing_required_input"
 		}
-		if missingRequiredInputs(operation, values, "message") {
+		if requireInputs && missingRequiredInputs(operation, values, "message") {
 			return "missing_required_input"
 		}
 		return ""
 	}
-	if missingRequiredInputs(operation, values, "number") {
+	if requireInputs && missingRequiredInputs(operation, values, "number") {
 		return "missing_required_input"
 	}
-	if operation == workflowStartAction && missingRequiredInputs(operation, values, "role", "complexity", "capabilities") {
+	if requireInputs && operation == workflowStartAction && missingRequiredInputs(operation, values, "role", "complexity", "capabilities") {
 		return "missing_required_input"
 	}
 	if values.workItem != "" {
@@ -745,17 +768,17 @@ func selectorRequestIssue(operation action, values requestInput) string {
 		if operation == workflowStartAction && values.execution != "" {
 			return "invalid_input"
 		}
-		if missingRequiredInputs(operation, values, "execution") {
+		if requireInputs && missingRequiredInputs(operation, values, "execution") {
 			return "missing_required_input"
 		}
 	}
-	if missingRequiredInputs(operation, values, "expected-revision", "gate", "outcome") {
+	if requireInputs && missingRequiredInputs(operation, values, "expected-revision", "gate", "outcome") {
 		return "missing_required_input"
 	}
 	if operation == workflowAdvanceAction && values.automatic && (values.gate != "" || values.outcome != "" || values.reference != "" || values.next != "") {
 		return "invalid_input"
 	}
-	if missingRequiredInputs(operation, values, "fact", "reference") {
+	if requireInputs && missingRequiredInputs(operation, values, "fact", "reference") {
 		return "missing_required_input"
 	}
 	return ""
@@ -929,7 +952,7 @@ func workItemFlags(operation action, args []string) (requestInput, bool) {
 }
 
 func knownWorkItem(operation action) bool {
-	return operation == workItemCreateAction || operation == workItemSelectAction || operation == workItemShowAction || operation == workItemCommentAction || operation == workItemCompleteAction || workItemLifecycleAction(operation)
+	return operationInGroup(operation, "work-item")
 }
 
 func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
@@ -1060,11 +1083,11 @@ func validProviderResource(value string) bool {
 }
 
 func knownWorkflow(operation action) bool {
-	return operation == workflowStartAction || operation == workflowAdvanceAction || operation == workflowFactAction || operation == workflowResumeAction || operation == workflowStatusAction || operation == workflowEvidenceAction || operation == workflowReconcileAction
+	return operation != workflowListAction && operationInGroup(operation, "workflow")
 }
 
 func known(operation action) bool {
-	return operation == initAction || operation == validateAction || operation == reopenAction || operation == updateAction || operation == installAction || operation == resolveAction || operation == showAction || operation == listAction || operation == configureAction
+	return operation != projectArchiveAction && operation != projectReactivateAction && operationInGroup(operation, "project")
 }
 
 func dispatch(ctx context.Context, operation action, input requestInput, service Service) Result {
@@ -1189,6 +1212,7 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 }
 
 type event struct {
+	NextAction        string                      `json:"nextAction,omitempty"`
 	Operation         action                      `json:"operation"`
 	Status            Status                      `json:"status"`
 	Category          string                      `json:"category"`
@@ -1227,6 +1251,9 @@ func emit(writer io.Writer, mode outputMode, value event) int {
 	if writer == nil {
 		return ExitFailure
 	}
+	if value.Status == Failed && (value.Category == "invalid_command" || value.Category == "invalid_input" || value.Category == "missing_required_input") {
+		value.NextAction = helpNext(writer, "Review supported inputs")
+	}
 	if mode == jsonOutput {
 		_ = json.NewEncoder(writer).Encode(value)
 	} else {
@@ -1243,6 +1270,9 @@ func emit(writer io.Writer, mode outputMode, value event) int {
 
 func emitHuman(writer io.Writer, value event) {
 	_, _ = io.WriteString(writer, string(value.Status)+": "+value.Category+" ("+string(value.Operation)+")\n")
+	if value.NextAction != "" {
+		_, _ = io.WriteString(writer, "next: "+value.NextAction+"\n")
+	}
 	if value.Project != nil {
 		_, _ = io.WriteString(writer, "project "+value.Project.Slug+" ["+value.Project.ID+"]\n")
 		for _, repository := range value.Project.Repositories {

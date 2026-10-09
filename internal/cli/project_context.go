@@ -25,54 +25,63 @@ type ProjectContextInput struct {
 // A session identifier is supplied by the caller, never inferred from CWD,
 // process ID, a Runtime name, or conversation content.
 func projectSessionArgs(ctx context.Context, args []string) (context.Context, []string, bool) {
+	session, rest, ok := parseProjectSessionArgs(args)
+	if !ok || session == "" {
+		return ctx, rest, ok
+	}
+	return projectapp.WithProjectSession(ctx, session), rest, true
+}
+
+// parseProjectSessionArgs validates caller syntax without resolving local state.
+func parseProjectSessionArgs(args []string) (string, []string, bool) {
 	if len(args) == 0 {
-		return ctx, args, true
+		return "", args, true
 	}
 	session := ""
 	if args[0] == "--session" {
 		if len(args) < 3 {
-			return ctx, args, false
+			return "", args, false
 		}
 		session, args = args[1], args[2:]
 	} else if strings.HasPrefix(args[0], "--session=") {
 		session, args = strings.TrimPrefix(args[0], "--session="), args[1:]
 	} else {
-		return ctx, args, true
+		return "", args, true
 	}
-	if session == "" || !projectapp.ValidProjectSession(session) {
-		return ctx, args, false
-	}
-	return projectapp.WithProjectSession(ctx, session), args, true
+	return session, args, session != "" && projectapp.ValidProjectSession(session)
 }
 
 func runProjectContext(ctx context.Context, args []string, service ProjectContextService) Result {
-	if len(args) == 0 {
-		return Result{Status: Failed, Category: "invalid_input"}
-	}
-	input := ProjectContextInput{Action: args[0]}
-	switch input.Action {
-	case "show", "default-set", "default-clear", "session-set", "session-clear", "session-end":
-	default:
-		return Result{Status: Failed, Category: "invalid_input"}
-	}
-	set := flag.NewFlagSet("project context", flag.ContinueOnError)
-	set.SetOutput(io.Discard)
-	set.StringVar(&input.Selector, "selector", "", "Project UUID or slug")
-	set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "Authorize preference mutation")
-	if invalidFlagSyntax(set, args[1:], nil) {
-		return Result{Status: Failed, Category: "invalid_input"}
-	}
-	if err := set.Parse(args[1:]); err != nil || set.NArg() != 0 {
-		return Result{Status: Failed, Category: "invalid_input"}
-	}
-	isSet := input.Action == "default-set" || input.Action == "session-set"
-	if flagSupplied(args[1:], "--selector") && input.Selector == "" {
-		return Result{Status: Failed, Category: "invalid_input"}
-	}
-	if isSet && input.Selector == "" || !isSet && input.Action != "show" && input.Selector != "" || input.Action == "show" && input.AuthorizeLocal {
+	input, ok := projectContextFlags(args, true)
+	if !ok {
 		return Result{Status: Failed, Category: "invalid_input"}
 	}
 	return service.ProjectContext(ctx, input)
+}
+
+func projectContextFlags(args []string, requireInputs bool) (ProjectContextInput, bool) {
+	if len(args) == 0 {
+		return ProjectContextInput{}, false
+	}
+	input := ProjectContextInput{Action: args[0]}
+	if command, _, _, ok := resolveCommand([]string{"project", "context", input.Action}); !ok || command.operation == "" {
+		return ProjectContextInput{}, false
+	}
+	set := projectContextFlagSet(&input)
+	if invalidFlagSyntax(set, args[1:], nil) {
+		return ProjectContextInput{}, false
+	}
+	if err := set.Parse(args[1:]); err != nil || set.NArg() != 0 {
+		return ProjectContextInput{}, false
+	}
+	isSet := input.Action == "default-set" || input.Action == "session-set"
+	if flagSupplied(args[1:], "--selector") && input.Selector == "" {
+		return ProjectContextInput{}, false
+	}
+	if requireInputs && isSet && input.Selector == "" || !isSet && input.Action != "show" && input.Selector != "" || input.Action == "show" && input.AuthorizeLocal {
+		return ProjectContextInput{}, false
+	}
+	return input, true
 }
 
 // Supply the application's resolved identity to the existing typed parser and
@@ -143,4 +152,14 @@ func WorkflowProjectSelector(ctx context.Context, selector string) string {
 		return ""
 	}
 	return selector
+}
+
+func projectContextFlagSet(input *ProjectContextInput) *flag.FlagSet {
+	set := flag.NewFlagSet("project context", flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	if input.Action == "show" || input.Action == "default-set" || input.Action == "session-set" {
+		set.StringVar(&input.Selector, "selector", "", "Project identity; `<uuid-or-slug>`. Required for set; optional for show; rejected by clear/end.")
+	}
+	set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "Explicit authority for preference mutation; boolean. Must remain false for show.")
+	return set
 }

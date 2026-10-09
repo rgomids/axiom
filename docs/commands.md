@@ -1,5 +1,39 @@
 # Project Commands
 
+## Hierarchical CLI help
+
+```bash
+axiom --help
+axiom -h
+axiom help
+axiom project --help
+axiom project show -h
+axiom runtime profile preview --help
+axiom --json workflow start --help
+```
+
+Every public command group and leaf supports `--help` and `-h`. Root help lists
+public top-level surfaces; group help lists direct children; leaf help shows
+usage, required, conditional and optional inputs, repeatable flags and examples.
+Examples containing placeholders require real values before execution. On Windows,
+help also covers `windows-permissions restore`; its fixed-order recovery syntax
+remains unchanged.
+
+Help is deterministic human text, including when combined with `--json` or
+`--human`. It runs before application composition, Project/context resolution,
+Provider/Runtime access and mutation. A help-looking flag value (for example
+`--name --help`) remains data; tokens after `--` do not request help. Unknown
+command paths and supplied invalid leaf syntax remain failures and point to the
+closest valid help surface. Help does not require omitted mandatory inputs.
+Normal parser failures keep their status/category and include relevant help in
+structured guidance (`next`, or `nextAction` on historical event output).
+
+The command tree in `internal/cli/commands.go` serves routing and help. Help
+reads the same flag builders as execution and reuses presence requirements;
+domain validation, authority and workflow logic stay in their existing layers.
+Later command features extend this tree and their parser flag metadata together.
+See [GitHub #133 / Linear AXM-10 Evidence](development/evidence-issue-133.md).
+
 ## Effective Project context
 
 Project inspection, Work Item, Runtime preview and workflow operations resolve

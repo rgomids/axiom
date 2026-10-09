@@ -222,8 +222,8 @@ func TestConfigureEditRendersCompletePreviewCanonically(t *testing.T) {
 
 func TestHelpDocumentsEditAndLifecycleFlags(t *testing.T) {
 	var output bytes.Buffer
-	Help(&output)
-	for _, expected := range []string{"--project <project-uuid-or-slug> previews an edit", "--remove-work-item-provider", "--remove-repository <key>", "already\nconfigured slug or --project-id fails", "Edit rejects --slug (rename)", "returned --project-id, --preview-digest\nand --authorize-local", "a partial replay tuple is refused", "project archive|reactivate", "integration list|show|validate|disable|enable|remove", "Execution cancellation is not\nsupported"} {
+	HandleHelp([]string{"project", "configure", "--help"}, completionProvenance(t), &output)
+	for _, expected := range []string{"--project", "--remove-work-item-provider", "--remove-repository", "--project-id", "--preview-digest", "--authorize-local", "edit"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("help missing %q", expected)
 		}
