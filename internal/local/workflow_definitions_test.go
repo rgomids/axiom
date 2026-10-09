@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -251,5 +252,50 @@ func TestWorkflowIndexRejectsUnknownMissingAndCaseAliases(t *testing.T) {
 		if _, err := DecodeWorkflowIndex([]byte(invalid)); err == nil {
 			t.Fatal("non-closed index accepted")
 		}
+	}
+}
+
+func TestWorkflowPublicationAcceptsTrustedMacOSSourceAlias(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS trusted host alias")
+	}
+	ctx := context.Background()
+	f := newEditPublicationFixture(t)
+	if !strings.HasPrefix(f.source, "/private/var/") {
+		t.Skip("host does not expose /var alias")
+	}
+	observed, category := f.installation.Inspect(ctx, editTestProjectID)
+	if category != "" {
+		t.Fatal(category)
+	}
+	state := observed.Record.State()
+	state.SourceLocation = strings.TrimPrefix(f.source, "/private")
+	record, problems := NewRecord(state)
+	if len(problems) != 0 {
+		t.Fatal(problems)
+	}
+	localWire, problems := EncodeRecord(record)
+	if len(problems) != 0 {
+		t.Fatal(problems)
+	}
+	if err := os.WriteFile(f.recordPath(), localWire, 0600); err != nil {
+		t.Fatal(err)
+	}
+	wire, err := f.portable.Read(ctx, "sample")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := workflowdefinition.Builtin().Definition
+	d.WorkflowID = "custom"
+	doc, issues := workflowdefinition.Encode(d)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	idx, err := EncodeWorkflowIndex(WorkflowIndex{SchemaVersion: 1, Revisions: []WorkflowEntry{{WorkflowID: d.WorkflowID, Revision: 1, Digest: doc.Digest, State: "published"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.installation.PublishWorkflow(ctx, f.portable, editTestProjectID, "sample", localWire, wire, nil, &doc, idx); err != nil {
+		t.Fatalf("trusted macOS alias refused: %v", err)
 	}
 }

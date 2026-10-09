@@ -436,7 +436,13 @@ func (s InstallationStore) PublishWorkflow(ctx context.Context, portable Portabl
 		return ctx.Err()
 	}
 	record, _, issues := DecodeObservedRecord(expectedLocal, true)
-	if len(issues) != 0 || record.State().ProjectID != projectID || record.State().ObservedSlug != slug || record.State().SourceLocation != filepath.Join(portable.root, slug) {
+	if len(issues) != 0 || record.State().ProjectID != projectID || record.State().ObservedSlug != slug {
+		return ErrUnsafe
+	}
+	// macOS root-owned /var aliases are canonicalized by the existing platform
+	// boundary, just as in ProjectEditPublisher; never accept user-owned links.
+	source, err := trustedCanonical(record.State().SourceLocation)
+	if err != nil || source != filepath.Join(portable.root, slug) {
 		return ErrUnsafe
 	}
 	root, projects, target, err := openInstallationChain(s.root, projectID)

@@ -125,6 +125,10 @@ the storage policy. Cross-platform CI remains the native regression gate.
   Full storage/upgrade tests refused this host's temporary-directory ACLs
   (`unsafe_target` and private-directory checks). Native hosted regression CI
   must supply Windows/macOS evidence; no protection was weakened.
+- Initial hosted macOS execution exposed a lexical source-path comparison for
+  the trusted root-owned `/var` alias. Publication now reuses `trustedCanonical`
+  from the existing Project edit boundary; a native alias regression test was
+  added. User-owned links remain refused.
 - Staged sensitive-file scan and diff checks passed. Gitleaks was unavailable.
   Shared-skill behavior was checked deterministically; real Codex/Claude
   behavioral sessions and human operational acceptance remain unverified.
