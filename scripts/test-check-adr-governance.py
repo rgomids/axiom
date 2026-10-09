@@ -205,7 +205,8 @@ class ADRGovernanceTests(unittest.TestCase):
         shutil.copytree(REPOSITORY / D, self.root / D)
         self.edit("README.md", "Partially superseded by [ADR-0015]", "Superseded in part by [ADR-0015]")
         self.assert_fails("0010-windows-native-filesystem-boundary.md is partially superseded by "
-                          "0015-installer-host-eligibility-os-family-architecture.md but its index entry lacks")
+                          "0015-installer-host-eligibility-os-family-architecture.md")
+        self.assert_fails("but its index entry lacks 'Partially superseded by'")
 
     # Lifecycle status.
 

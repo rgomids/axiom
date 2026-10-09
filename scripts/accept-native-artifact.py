@@ -55,6 +55,9 @@ def extract(root, version, row, destination):
 def acceptance(args, report):
     windows = args.row == "windows-amd64"
     binary_name = "axiom.exe" if windows else "axiom"
+    # Python 3.13's Windows mode=0700 adds OWNER RIGHTS; inherit our protected
+    # native DACL instead. POSIX keeps its owner-only modes.
+    directory_mode = 0o777 if windows else 0o700
     expected_host = ("Windows", "AMD64") if windows else ("Linux", {"linux-arm64": "aarch64", "linux-amd64": "x86_64"}[args.row])
     require((platform.system(), platform.machine()) == expected_host,
             "native host does not match row")
@@ -66,8 +69,11 @@ def acceptance(args, report):
     try:
         # Preserve #244's exact provenance/lifecycle and input immutability checks.
         smoke.smoke(args, report)
-        with tempfile.TemporaryDirectory(prefix="axiom-native-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="axiom-native-",
+                                         dir=os.environ["USERPROFILE"] if windows else None) as temporary:
             work = Path(temporary).resolve()
+            if windows:
+                smoke.windows_private_directory(work)
             extracted = work / "bundles"
             extracted.mkdir()
             candidate, archive, checksum, metadata = extract(roots[0], args.version, args.row, extracted)
@@ -105,9 +111,9 @@ def acceptance(args, report):
 
                 def environment(name):
                     home = work / name
-                    home.mkdir(mode=0o700)
+                    home.mkdir(mode=directory_mode)
                     for directory in ("cwd", "repository with spaces", "tmp"):
-                        (home / directory).mkdir(mode=0o700)
+                        (home / directory).mkdir(mode=directory_mode)
                     environment = {"HOME": str(home), "USERPROFILE": str(home),
                                   "PATH": f"{home / 'bin'}:/usr/bin:/bin",
                                   "TMPDIR": str(home / "tmp"), "LANG": "C", "LC_ALL": "C",
@@ -237,8 +243,8 @@ def acceptance(args, report):
                 scenario("corrupt-artifact-refused", lambda: (install(candidate, bad, expected=None),
                          require(owned == (smoke.digest(binary), smoke.inventory(receipt)), "corruption mutated install")))
                 foreign = work / "foreign"
-                foreign.mkdir(mode=0o700)
-                (foreign / "bin").mkdir(mode=0o700)
+                foreign.mkdir(mode=directory_mode)
+                (foreign / "bin").mkdir(mode=directory_mode)
                 (foreign / "bin" / binary_name).write_text("foreign")
                 scenario("foreign-binary-preserved", lambda: (install(candidate, archive, target=foreign, expected=None),
                          require((foreign / "bin" / binary_name).read_text() == "foreign", "foreign binary overwritten")))
@@ -251,6 +257,40 @@ def acceptance(args, report):
                          require(owned == (smoke.digest(binary), smoke.inventory(receipt)), "symlink mutated install")))
 
                 if windows:
+                    def receipt_recovery():
+                        path = receipt / "installation.receipt"
+                        saved = path.read_bytes()
+                        path.write_text("invalid receipt\n")
+                        try:
+                            install(candidate, archive, expected=None)
+                            require(path.read_text() == "invalid receipt\n" and smoke.digest(binary) == owned[0],
+                                    "invalid receipt refusal mutated installation")
+                        finally:
+                            path.write_bytes(saved)
+                        require("install_status=unchanged" in install(candidate, archive), "receipt recovery failed")
+                        readable()
+                    scenario("invalid-receipt-recovery", receipt_recovery)
+
+                    def dacl_recovery():
+                        target = work / "unsafe permissions"
+                        target.mkdir()
+                        escaped = str(target).replace("'", "''")
+                        powershell("$a=Get-Acl -LiteralPath '" + escaped + "'; "
+                                   "$s=New-Object Security.Principal.SecurityIdentifier('S-1-1-0'); "
+                                   "$a.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($s,'DeleteSubdirectoriesAndFiles','None','None','Allow'))); "
+                                   "$d=New-Object IO.DirectoryInfo('" + escaped + "'); $d.SetAccessControl($a)")
+                        acl = powershell("(Get-Acl -LiteralPath '" + escaped + "').Sddl")
+                        install(candidate, archive, target=target, expected=None)
+                        require(not (target / "bin").exists() and not (target / "receipt").exists()
+                                and acl == powershell("(Get-Acl -LiteralPath '" + escaped + "').Sddl"),
+                                "unsafe ancestor was mutated")
+                        smoke.windows_private_directory(target)
+                        require("install_status=installed" in install(candidate, archive, target=target), "DACL recovery retry failed")
+                        require(smoke.digest(target / "bin" / binary_name) == report["binarySha256"], "recovery binary mismatch")
+                    scenario("unsafe-dacl-refusal-recovery", dacl_recovery)
+                    compatibility = cli("compatibility", "inspect")
+                    require(compatibility.get("maintenance", {}).get("classification") == "valid_v1",
+                            "Windows state compatibility not valid_v1")
                     readable()
                     require(smoke.digest(binary) == report["binarySha256"], "installed binary changed")
                     return
@@ -320,7 +360,7 @@ def main():
                 "log must be outside immutable inputs")
         acceptance(args, report)
         report["result"] = "pass"
-    except (ValueError, OSError, KeyError, TypeError, AttributeError, tarfile.TarError, subprocess.TimeoutExpired) as error:
+    except (ValueError, OSError, KeyError, TypeError, AttributeError, tarfile.TarError, subprocess.SubprocessError) as error:
         report["error"] = str(error)
     print(json.dumps(report, sort_keys=True))
     return 0 if report["result"] == "pass" else 1

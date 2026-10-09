@@ -2,7 +2,7 @@
 # Offline native installer contract. No release, network or user installation.
 $ErrorActionPreference = 'Stop'
 $repository = Split-Path $PSScriptRoot -Parent
-$work = Join-Path ([IO.Path]::GetTempPath()) ('axiom-windows-test-' + [guid]::NewGuid().ToString('N'))
+$work = Join-Path $env:USERPROFILE ('axiom-windows-test-' + [guid]::NewGuid().ToString('N'))
 $utf8 = New-Object Text.UTF8Encoding($false)
 function Write-TestFile([string]$Path,[string]$Content) { [IO.File]::WriteAllText($Path,$Content,$utf8) }
 function Assert-NativeExit([string]$Label) { if ($LASTEXITCODE -ne 0) { throw "$Label failed: $LASTEXITCODE" } }
@@ -89,7 +89,20 @@ try {
     } finally { $ErrorActionPreference = $savedPreference }
     if ($LASTEXITCODE -eq 0 -or (Test-Path -LiteralPath $defaultBin)) { throw 'Declined repair published an installation.' }
     if (($preview -join "`n") -notmatch '\[S/n\]' -or ($preview -join "`n") -match 'permission_before=|permission_after=|Type REPAIR') { throw "Unexpected permission prompt: $preview" }
-    's' | & (Join-Path $first.Root 'axiom.exe') install-release --archive $first.Archive --checksums $first.Checksums --bin-dir $defaultBin --receipt-dir $defaultReceipt
+    # Feed an exact newline through a redirected native handle. PowerShell 5.1
+    # pipeline input can close before the native consent reader consumes it.
+    $consent = New-Object Diagnostics.ProcessStartInfo
+    $consent.FileName = Join-Path $first.Root 'axiom.exe'
+    $consent.Arguments = (@('install-release','--archive',$first.Archive,'--checksums',$first.Checksums,'--bin-dir',$defaultBin,'--receipt-dir',$defaultReceipt) | ForEach-Object { '"' + $_ + '"' }) -join ' '
+    $consent.UseShellExecute = $false
+    $consent.RedirectStandardInput = $true
+    $process = [Diagnostics.Process]::Start($consent)
+    try {
+        $process.StandardInput.WriteLine('s')
+        $process.StandardInput.Close()
+        if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Consent fixture timed out.' }
+        $global:LASTEXITCODE = $process.ExitCode
+    } finally { $process.Dispose() }
     Assert-NativeExit 'Approved default onboarding repair'
     if ((Get-Acl -LiteralPath $other).Sddl -cne $otherBefore -or
         (Get-Acl -LiteralPath $env:LOCALAPPDATA).Sddl -cne $appDataBefore -or
