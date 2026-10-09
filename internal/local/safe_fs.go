@@ -722,10 +722,6 @@ func markAttempt(root *os.Root, prefix string) (string, error) {
 	return name, nil
 }
 
-func clearAttempt(root *os.Root, name string) error {
-	return removeProtocolState(root, name, publicationHooks{})
-}
-
 func lockRoots(exclusive bool, roots ...*os.Root) ([]*os.File, error) {
 	locks := make([]*os.File, 0, len(roots))
 	for _, root := range roots {

@@ -55,8 +55,13 @@ func TestParserContractScalarTyping(t *testing.T) {
 func TestParserContractStreamAndHostileBounds(t *testing.T) {
 	d := yaml.NewDecoder(strings.NewReader("a: b\n---\nc: d\n"))
 	var n yaml.Node
-	if d.Decode(&n) != nil || d.Decode(&n) != nil || d.Decode(&n) != io.EOF {
-		t.Fatal("stream boundary lost")
+	for index := 0; index < 2; index++ {
+		if err := d.Decode(&n); err != nil {
+			t.Fatalf("stream document %d: %v", index, err)
+		}
+	}
+	if err := d.Decode(&n); err != io.EOF {
+		t.Fatalf("stream boundary lost: %v", err)
 	}
 	// Dependency has hard flow/indent depth caps; node parsing does not expand aliases.
 	for _, s := range []string{strings.Repeat("[", 10001) + "x" + strings.Repeat("]", 10001), "a: *missing", "a: [unterminated"} {

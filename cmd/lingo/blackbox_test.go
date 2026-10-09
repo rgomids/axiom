@@ -629,7 +629,6 @@ exit 0
 		}
 	}
 	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "human-acceptance", "evidence")...)
-	revision++
 	runCanonical(0, "success", "Execution workflow operation completed", "workflow", "evidence", "--project", "configured", "--repository", "main", "--number", "7")
 	run(1, "error", "missing_required_input", "project", "init", "--slug", "sample")
 	run(0, "success", "applied", "project", "init", "--slug", "sample", "--name", "Sample")

@@ -246,10 +246,6 @@ func (s PortableStore) write(root *os.Root, name string, content []byte) error {
 	return writePrivateFile(root, name, content)
 }
 
-func (s PortableStore) clear(root *os.Root, name string) error {
-	return removeProtocolState(root, name, s.publicationHooks())
-}
-
 func (s PortableStore) withLock(slug string, create, exclusive bool, action func(*os.Root) error) error {
 	if !project.ValidSlug(slug) {
 		return ErrUnsafe

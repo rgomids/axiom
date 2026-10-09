@@ -125,7 +125,7 @@ Payloads, hashes e ledger estão naquele Evidence.
 
 | Controle | Observado | Desejado |
 |---|---|---|
-| Ruleset `default` (id `22828068`) em `main` | deletion, non_fast_forward, PR com 1 aprovação, code owner review, resolução de threads, merge `merge`+`squash`, code_quality; **sem required status checks**; bypass `RepositoryRole` id 2 em modo `always` | igual, mais required checks `verify (linux)`, `verify (macos)`, `verify (windows)`, `release-contract`, `delivery-metadata`, `upgrade-journeys (linux)` e `upgrade-journeys (macos)` (GitHub Actions, integration id `15368`, strict), merge somente `squash`, bypass somente via PR (`pull_request`) |
+| Ruleset `default` (id `22828068`) em `main` | deletion, non_fast_forward, PR com 1 aprovação, code owner review, resolução de threads, merge `merge`+`squash`, code_quality; **sem required status checks**; bypass `RepositoryRole` id 2 em modo `always` | igual, mais required checks `go-quality`, `verify (linux)`, `verify (macos)`, `verify (windows)`, `release-contract`, `delivery-metadata`, `upgrade-journeys (linux)` e `upgrade-journeys (macos)` (GitHub Actions, integration id `15368`, strict), merge somente `squash`, bypass somente via PR (`pull_request`) |
 | `CODEOWNERS` | ausente (code owner review sem owners) | `* @rgomids` (adicionado neste repositório) |
 | Métodos de merge | merge commit, squash e rebase habilitados; branch não removida após merge | somente squash, título = título do PR, remover branch após merge |
 | Actions | qualquer action; SHA pinning não exigido; `GITHUB_TOKEN` read; Actions não criam PRs | SHA pinning exigido; Actions podem criar PRs (Release Please) |
@@ -137,9 +137,15 @@ Payloads, hashes e ledger estão naquele Evidence.
 ### Upgrade Journeys: decisão de governança de 2026-10-04
 
 Os dois checks `upgrade-journeys (linux)` e `upgrade-journeys (macos)` são
-obrigatórios no estado versionado, por decisão humana. A lista desejada contém
-os sete checks da tabela, todos vinculados ao GitHub Actions (`15368`), com
+obrigatórios no estado versionado, por decisão humana. A lista proposta nessa
+decisão continha os sete checks anteriores a #242, todos vinculados ao GitHub Actions (`15368`), com
 `strict_required_status_checks_policy = true`. Isso não afirma aplicação remota.
+
+A issue #242 acrescenta `go-quality` como oitavo check no estado versionado.
+Veja [Go quality gate](../development/go-quality.md). O read-back de 2026-10-08
+confirmou os sete checks anteriores e a ausência de `go-quality`: a aplicação
+administrativa do novo contexto segue pendente, após merge e autorização
+explícita. A implementação local não altera a proteção remota.
 
 Sequência: **estado versionado → merge em main → aplicação administrativa
 remota → read-back**. Para esta mudança, primeiro revisar/mergear #187,

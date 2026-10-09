@@ -1025,15 +1025,6 @@ func parseReceipt(wire []byte) (map[string]string, error) {
 	return values, nil
 }
 
-func readMarker(directory string) (map[string]string, error) {
-	root, err := local.OpenOwnedDirectory(directory)
-	if err != nil {
-		return nil, err
-	}
-	defer root.Close()
-	return readMarkerIn(root)
-}
-
 func readMarkerIn(directory local.AnchoredDirectory) (map[string]string, error) {
 	if _, err := directory.Lstat(markerName); os.IsNotExist(err) {
 		return nil, os.ErrNotExist
@@ -1164,13 +1155,6 @@ func stageLeftoversIn(target Target, binaryDir, receiptDir local.AnchoredDirecto
 	}
 	sort.Strings(leftovers)
 	return leftovers
-}
-
-func syncDirectory(path string) {
-	if directory, err := os.Open(path); err == nil {
-		_ = directory.Sync()
-		_ = directory.Close()
-	}
 }
 
 // compareSemver implements SemVer 2.0.0 precedence; build metadata is ignored.
