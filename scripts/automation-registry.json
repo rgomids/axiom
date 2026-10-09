@@ -277,6 +277,38 @@
       "removal_condition": null
     },
     {
+      "path": ".github/workflows/periodic-monitoring.yml",
+      "kind": "workflow",
+      "owner": "ci",
+      "purpose": "Scheduled daily security/hygiene and weekly CLI/fixture compatibility, with isolated bounded incident reporting.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "daily/weekly schedule or explicit manual verification",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Layer, checked-out revision, versioned CLI baseline; incident reporting also accepts validated manifest and job-scoped GH_TOKEN",
+      "outputs": "Sanitized versioned manifest/summary and accurate pass/fail/inconclusive exit; offline tests assert contracts",
+      "local_effects": "runner temporary evidence only",
+      "network_effects": "Pinned CLI installation, Go modules/advisory database; incident handler uses GitHub Issues API",
+      "authority": "Read-only analysis; issues: write only in isolated incident job; controlled fixtures refused in production",
+      "tests": [
+        "scripts/test-periodic-monitoring.py"
+      ],
+      "evidence": "docs/development/evidence-periodic-255.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": ".github/workflows/publish-release.yml",
       "kind": "workflow",
       "owner": "release",
@@ -1335,6 +1367,73 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/periodic-incidents.py",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Validated idempotent monitoring incident reconciliation and confirmed recovery.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "daily/weekly schedule or explicit manual verification",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/periodic-monitoring.yml",
+        "scripts/test-periodic-monitoring.py"
+      ],
+      "inputs": "Validated same-run manifest, exact subject checkout, GH_TOKEN, fixed production/sandbox namespace",
+      "outputs": "Safe reconciliation count or classified failure; owned issue bodies and bounded audit comments",
+      "local_effects": "none",
+      "network_effects": "GitHub Issues list/create/update/close/reopen and bounded audit comments",
+      "authority": "Job-scoped issues: write; workflow-global concurrency lock; only bot-authored canonical monitoring records; no public security incidents",
+      "tests": [
+        "scripts/test-periodic-monitoring.py"
+      ],
+      "evidence": "docs/development/evidence-periodic-255.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/periodic-monitor.py",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Bounded credential-free periodic analysis and allowlisted public evidence.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "daily/weekly schedule or explicit manual verification",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/periodic-monitoring.yml",
+        "scripts/periodic-incidents.py",
+        "scripts/test-periodic-monitoring.py"
+      ],
+      "inputs": "Layer, checked-out revision, versioned CLI baseline; incident reporting also accepts validated manifest and job-scoped GH_TOKEN",
+      "outputs": "Sanitized versioned manifest/summary and accurate pass/fail/inconclusive exit; offline tests assert contracts",
+      "local_effects": "runner temporary evidence only",
+      "network_effects": "Pinned public CLI artifacts/npm packages, Go modules and advisory database; no provider/model requests",
+      "authority": "Read-only, no credentials; isolated temporary tool installations and evidence; fixtures require a non-production repository",
+      "tests": [
+        "scripts/test-periodic-monitoring.py"
+      ],
+      "evidence": "docs/development/evidence-periodic-255.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/publish-release.sh",
       "kind": "script",
       "owner": "release",
@@ -2207,6 +2306,38 @@
       "authority": "none",
       "tests": [],
       "evidence": "docs/development/native-platform-acceptance.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-periodic-monitoring.py",
+      "kind": "script",
+      "owner": "repository-validation",
+      "purpose": "Offline privacy, drift, process bounds, evidence and incident lifecycle acceptance.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "scheduled workflow offline contracts or documented local verification",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/periodic-monitoring.yml"
+      ],
+      "inputs": "Repository scripts, baseline, evidence schema and fake API/process fixtures; no credentials",
+      "outputs": "unittest pass/fail/skip counts and exit status",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "Offline deterministic validation; no provider writes",
+      "tests": [
+        "scripts/test-periodic-monitoring.py"
+      ],
+      "evidence": "docs/development/evidence-periodic-255.md",
       "compatibility": [],
       "removal_condition": null
     },
