@@ -6,7 +6,7 @@ Implementation: `feat/255-periodic-monitoring` in an isolated worktree.
 
 ## Local validation (2026-10-09)
 
-- `python scripts/test-periodic-monitoring.py`: 36 tests executed: 35 passed, one POSIX-only
+- `python scripts/test-periodic-monitoring.py`: 39 tests executed: 38 passed, one POSIX-only
   process-group test skipped on Windows (to be executed on Linux).
 - `python scripts/check-automation-registry.py .`: PASS, 81 governed surfaces.
 - `python scripts/check-adr-governance.py .`: PASS, 21 ADRs.
@@ -38,10 +38,32 @@ passed; Linux/macOS include native-symlink aggregate repository validation.
 The release-contract static trigger allowlist rejected the new `schedule`
 event. A narrowly named `periodic-monitoring.yml` exception now permits only
 schedule/dispatch, preserving the delivery closure and existing trigger guards.
-The updated head requires a new CI run; the earlier failure is not claimed as
-a pass. These normal PR runs are not D5 periodic-workflow/lifecycle proof.
+The corrected head's [run 37995147313](https://github.com/rgomids/axiom/actions/runs/37995147313)
+passed all seven CI jobs (including release-contract and Windows verify), plus
+delivery metadata. These normal PR runs are not D5 periodic-workflow/lifecycle
+proof. GitHub's independent AI scanning job hit a monthly model quota; no code
+finding or successful AI review is claimed.
 
-Pending a confirmed sandbox repository. No production monitoring incident has
-been created, no release/branch settings have changed, and no operational
-Actions run is claimed. Issue #255 remains incomplete until real clean and
-controlled failure/recovery runs and lifecycle evidence are recorded here.
+Human authority confirmed `joaby-oliveira/axiom` as the temporary sandbox.
+Its `main` and repository protections/releases/credentials were untouched.
+The fork had no registered workflows; a branch-only echo bootstrap registered
+the new workflow path ([37996172734](https://github.com/joaby-oliveira/axiom/actions/runs/37996172734)).
+The exact candidate definition was then restored; no filename alias was needed.
+
+- Controlled clean weekly [37996203214](https://github.com/joaby-oliveira/axiom/actions/runs/37996203214):
+  PASS, both jobs succeeded, all 36 then-current offline tests passed on Linux,
+  versioned safe artifact uploaded/downloaded, no unnecessary issue.
+- Live weekly [37996245268](https://github.com/joaby-oliveira/axiom/actions/runs/37996245268):
+  correctly failed and uploaded safe evidence. Operational testing exposed
+  gh's colon-free USAGE heading, Claude's inert npm wrapper when postinstall
+  is disabled, and normal adapter JSON exceeding the initial capture cap.
+  Fixes now recognize the semantic heading, use the pinned optional native ELF
+  directly without install scripts, and bound each pipe to 1 MiB.
+  Sandbox evidence now identifies its actual dispatched branch.
+- Reporting in that live failure returned HTTP 410: the fork's Issues feature
+  is disabled. No incident was created. Temporary enablement and restoration
+  require the requested explicit exception to the no-settings-change envelope.
+
+Issue #255 remains incomplete until the corrected live layers and controlled
+create/update/recovery/recurrence matrix have operational evidence. No production
+monitoring incident has been created. Earlier failed runs remain failed Evidence.

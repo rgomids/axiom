@@ -41,7 +41,10 @@ def validate(data, repository, run_id=None):
               'baseline_digest', 'status', 'checks'}
     if not isinstance(data, dict) or set(data) != fields or data['schema_version'] != 1:
         raise SafeError('invalid_evidence')
-    if data['repository'] != repository or data['workflow'] != 'periodic-monitoring' or data['branch'] != 'main':
+    if data['repository'] != repository or data['workflow'] != 'periodic-monitoring':
+        raise SafeError('invalid_subject')
+    branch = 'main' if repository == 'rgomids/axiom' else os.environ.get('GITHUB_REF_NAME', 'main')
+    if data['branch'] != branch or not re.fullmatch(r'[a-z0-9][a-z0-9/-]{0,100}', data['branch']):
         raise SafeError('invalid_subject')
     if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
         raise SafeError('invalid_subject')
@@ -249,7 +252,8 @@ class GitHub:
                 raise SafeError('output_limit')
             return json.loads(raw)
         except urllib.error.HTTPError as error:
-            raise SafeError('permission' if error.code in (401, 403) else 'reporting_api') from None
+            category = 'permission' if error.code in (401, 403) else ('issues_disabled' if error.code == 410 else 'reporting_api')
+            raise SafeError(category) from None
         except (urllib.error.URLError, TimeoutError, ValueError):
             raise SafeError('network') from None
 

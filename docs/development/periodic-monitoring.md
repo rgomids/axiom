@@ -46,7 +46,8 @@ version/help, never auth status/login, API requests, inference or provider
 mutations. npm installs ignore lifecycle scripts; GitHub CLI extraction verifies
 the release checksum, extracts just the expected regular binary and rejects
 unsafe paths/types. No repository dependency file or installed user tool is
-modified. npm optional binaries are used by the pinned packages.
+modified. The pinned Claude Linux x64 optional ELF binary is invoked directly, bypassing
+the inert npm wrapper stub without executing its postinstall script.
 
 Analysis has a 14-minute internal deadline, a 16-minute external command bound
 and a 20-minute job timeout. Each command has a 30-second default timeout;
@@ -103,7 +104,7 @@ and diagnostics references. Suites add safe per-test outcomes. Public fields
 are allowlisted; unknown fields, unsafe versions/snapshots/reproduction text,
 stale evidence and incorrect fingerprints are rejected before incident writes.
 
-Stdout and stderr each retain at most 256 KiB in RAM and continue draining excess
+Stdout and stderr each retain at most 1 MiB in RAM and continue draining excess
 to avoid deadlock; overflow is inconclusive. Raw content is never written to
 disk. `manifest.json` is capped at 256 KiB; `summary.md` is built from fixed
 columns. Only those two files are uploaded, with 14-day retention. Artifacts

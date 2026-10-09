@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = json.loads((ROOT / 'scripts/periodic-baseline.json').read_text())
 BASELINE_DIGEST = hashlib.sha256(json.dumps(BASELINE, sort_keys=True).encode()).hexdigest()
-OUTPUT_LIMIT = 256 * 1024
+OUTPUT_LIMIT = 1024 * 1024
 ARTIFACT_LIMIT = 256 * 1024
 DEADLINE = None
 CATEGORIES = {'none', 'vulnerability', 'dependency_drift', 'contract_drift',
@@ -149,7 +149,7 @@ def check_surface(tool, surface, response, version):
     observed = capabilities(response['out'], expected)
     category = response['category']
     if category == 'none':
-        category = 'malformed_output' if not response['out'].strip() or 'usage:' not in response['out'].lower() else (
+        category = 'malformed_output' if not response['out'].strip() or not re.search(r'\busage\b', response['out'], re.I) else (
             'none' if all(observed.values()) else 'contract_drift')
     return result('cli', tool, category, contract=surface['id'],
                   duration=response['duration'], version=version,
@@ -190,7 +190,22 @@ def install(tool, home, env):
         response = execute(['npm', 'install', '--prefix', str(home / 'npm'),
                             '--ignore-scripts', '--no-audit', '--no-fund',
                             package + '@' + BASELINE['tools'][tool]['version']], 180, env)
-        return str(home / 'npm/node_modules/.bin' / tool), response
+        binary = home / 'npm/node_modules/.bin' / tool
+        if tool == 'claude' and response['category'] == 'none':
+            # The current wrapper's postinstall replaces an inert .exe stub.
+            # Keep lifecycle scripts disabled; use the exact npm-integrity-
+            # verified Linux x64 optional binary directly on our runner row.
+            binary = home / 'npm/node_modules/@anthropic-ai/claude-code-linux-x64/claude'
+            try:
+                if binary.is_symlink() or not binary.is_file():
+                    raise ValueError('native binary absent')
+                with binary.open('rb') as stream:
+                    if stream.read(4) != b'\x7fELF':
+                        raise ValueError('native binary format')
+                binary.chmod(0o700)
+            except (OSError, ValueError):
+                response = dict(response, category='installation')
+        return str(binary), response
     started = time.monotonic()
     if DEADLINE is not None and DEADLINE - started < 65:
         return str(home / 'bin/gh'), {'category': 'timeout', 'duration': 0}
@@ -351,10 +366,13 @@ def manifest(layer, checks, scenario='live'):
         raise ValueError('invalid run identity')
     status = 'FAIL' if any(c['status'] == 'FAIL' for c in checks) else (
         'INCONCLUSIVE' if any(c['status'] == 'INCONCLUSIVE' for c in checks) else 'PASS')
+    branch = 'main' if repository == 'rgomids/axiom' else os.environ.get('GITHUB_REF_NAME', 'main')
+    if not re.fullmatch(r'[a-z0-9][a-z0-9/-]{0,100}', branch):
+        raise ValueError('invalid branch')
     return {'schema_version': 1, 'repository': repository, 'workflow': 'periodic-monitoring',
             'run_id': run_id, 'run_attempt': attempt,
             'run_url': f'https://github.com/{repository}/actions/runs/{run_id}',
-            'timestamp': datetime.now(timezone.utc).isoformat(), 'branch': 'main',
+            'timestamp': datetime.now(timezone.utc).isoformat(), 'branch': branch,
             'subject_sha': revision, 'layer': layer, 'scenario': scenario,
             'baseline_digest': BASELINE_DIGEST, 'status': status, 'checks': checks}
 

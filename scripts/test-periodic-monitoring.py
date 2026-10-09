@@ -75,7 +75,7 @@ class Checks(unittest.TestCase):
         self.assertLess(found['duration'], 8)
 
     def test_oversize_stdout_and_stderr(self):
-        found = monitor.execute([sys.executable, '-c', 'import sys;print("x"*600000);print("y"*600000,file=sys.stderr)'])
+        found = monitor.execute([sys.executable, '-c', 'import sys;print("x"*2000000);print("y"*2000000,file=sys.stderr)'])
         self.assertEqual(found['category'], 'output_limit')
         self.assertLessEqual(len(found['out']), monitor.OUTPUT_LIMIT)
         self.assertLessEqual(len(found['err']), monitor.OUTPUT_LIMIT)
@@ -101,6 +101,32 @@ class Checks(unittest.TestCase):
         row = monitor.check_surface('codex', surface, response('Usage: exec --models --sandbox --json'), '0.162.1')
         self.assertEqual(row['category'], 'contract_drift')
         self.assertFalse(row['observed']['--model'])
+
+    def test_gh_usage_heading_without_colon_passes(self):
+        surface = monitor.BASELINE['tools']['gh']['surfaces'][0]
+        row = monitor.check_surface('gh', surface, response('GitHub CLI\nUSAGE\n  gh <command>\napi issue pr repo'), '2.102.0')
+        self.assertEqual(row['status'], 'PASS')
+
+    def test_claude_uses_native_optional_binary_without_install_scripts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            binary = home / 'npm/node_modules/@anthropic-ai/claude-code-linux-x64/claude'
+            binary.parent.mkdir(parents=True)
+            binary.write_bytes(b'\x7fELF' + b'fixture')
+            with patch.object(monitor, 'execute', return_value=response()) as command:
+                path, found = monitor.install('claude', home, {})
+            self.assertEqual(path, str(binary))
+            self.assertEqual(found['category'], 'none')
+            self.assertIn('--ignore-scripts', command.call_args.args[0])
+            binary.write_bytes(b'inert stub')
+            with patch.object(monitor, 'execute', return_value=response()):
+                self.assertEqual(monitor.install('claude', home, {})[1]['category'], 'installation')
+
+    def test_sandbox_manifest_records_actual_branch(self):
+        with patch.dict(os.environ, {'GITHUB_REPOSITORY': REPO, 'GITHUB_REF_NAME': 'ci/255-periodic-sandbox'}):
+            data = monitor.manifest('weekly', [monitor.result('cli', 'codex', contract='exec')], 'clean')
+            self.assertEqual(data['branch'], 'ci/255-periodic-sandbox')
+            incidents.validate(data, REPO)
 
     def test_empty_malformed_and_nonzero_help(self):
         surface = monitor.BASELINE['tools']['codex']['surfaces'][1]
