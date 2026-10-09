@@ -298,7 +298,8 @@ func (s Service) Inspect(ctx context.Context) Result {
 	for _, name := range retiredSkillNames {
 		_, entry := os.Lstat(filepath.Join(s.root, name))
 		_, proof := os.Lstat(filepath.Join(s.root, retirementProofName(name)))
-		if !os.IsNotExist(entry) || !os.IsNotExist(proof) {
+		_, stage := os.Lstat(filepath.Join(s.root, retirementStageName(name)))
+		if !os.IsNotExist(entry) || !os.IsNotExist(proof) || !os.IsNotExist(stage) {
 			return s.inspectResult(Partial, s.integration.category("skill_retirement_required"))
 		}
 	}

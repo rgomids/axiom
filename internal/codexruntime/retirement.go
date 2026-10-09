@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 	"slices"
+
+	"github.com/rgomids/axiom/internal/local"
 )
 
 // retirementProofName is the private stage that carries a retired entry's
@@ -79,34 +81,114 @@ func retirementPendingIn(root *os.Root, name string) bool {
 	return !os.IsNotExist(entry) || !os.IsNotExist(proof)
 }
 
-// recordRetirementIn durably stores content, the verified SKILL.md bytes of
-// name, as its retirement proof. An existing proof is reused only when it is
-// exactly those bytes; anything else at that name is a conflict.
-func (i integration) recordRetirementIn(root *os.Root, name string, content []byte, verify func() error) error {
-	proof := retirementProofName(name)
-	if existing, ok := privateRegularFileIn(root, proof); ok {
-		if string(existing) != string(content) {
-			return ErrUpgradeConflict
-		}
-		return verify()
-	} else if _, err := root.Lstat(proof); !os.IsNotExist(err) {
+// retirementStageName is the private preparation of name's proof. It becomes
+// the proof only complete, synced and verified, through a no-replace rename.
+func retirementStageName(name string) string {
+	return UpgradeStagePrefix + "retire-stage." + name
+}
+
+// retirementStep is the fault-injection seam at each preparation boundary.
+func (i integration) retirementStep(step string) error {
+	if i.retirementFault == nil {
+		return nil
+	}
+	return i.retirementFault(step)
+}
+
+// removeInterruptedPreparationIn removes entry only when it is positively an
+// interrupted preparation of content: a private regular file whose bytes are
+// a prefix of content, the verified SKILL.md bytes still installed. Anything
+// else at entry is preserved and reported as a conflict.
+func removeInterruptedPreparationIn(root *os.Root, entry string, content []byte) error {
+	info, err := root.Lstat(entry)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil || !info.Mode().IsRegular() || info.Size() > int64(len(content)) {
 		return ErrUpgradeConflict
+	}
+	partial, ok := privateRegularFileIn(root, entry)
+	if !ok || len(partial) > len(content) || string(partial) != string(content[:len(partial)]) {
+		return ErrUpgradeConflict
+	}
+	if err := root.Remove(entry); err != nil {
+		return err
+	}
+	syncRootObject(root)
+	return nil
+}
+
+// recordRetirementIn durably publishes content, the verified SKILL.md bytes
+// of name, as its retirement proof. The bytes are prepared in a private stage,
+// synced and verified, then published without replacing any existing object,
+// so an interruption never leaves a partial proof at the proof name. An
+// existing proof is reused only when it is exactly those bytes. A stage, or a
+// proof an earlier revision wrote in place, holding a prefix of those bytes is
+// an interrupted preparation and is prepared again; anything else is a
+// conflict and is preserved.
+func (i integration) recordRetirementIn(root *os.Root, name string, content []byte, verify func() error) error {
+	proof, stage := retirementProofName(name), retirementStageName(name)
+	if err := verify(); err != nil {
+		return err
+	}
+	if err := removeInterruptedPreparationIn(root, stage, content); err != nil {
+		return err
+	}
+	if matchesPrivateFileIn(root, proof, content) {
+		return verify()
+	}
+	if err := removeInterruptedPreparationIn(root, proof, content); err != nil {
+		return err
+	}
+	file, err := root.OpenFile(stage, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return ErrUpgradeConflict
+	}
+	failed := func(cause error) error {
+		_ = file.Close()
+		_ = root.Remove(stage)
+		syncRootObject(root)
+		return cause
+	}
+	if err := i.retirementStep("created"); err != nil {
+		return failed(err)
+	}
+	if written, err := file.Write(content); err != nil || written != len(content) {
+		return failed(errors.New("skill retirement proof write failed"))
+	}
+	if err := i.retirementStep("written"); err != nil {
+		return failed(err)
+	}
+	syncErr := i.retirementStep("sync")
+	if syncErr == nil {
+		syncErr = file.Sync()
+	}
+	if syncErr != nil {
+		return failed(syncErr)
+	}
+	if err := file.Close(); err != nil {
+		_ = root.Remove(stage)
+		return err
+	}
+	syncRootObject(root)
+	if !matchesPrivateFileIn(root, stage, content) {
+		return ErrUpgradeConflict
+	}
+	if err := i.retirementStep("synced"); err != nil {
+		_ = removeInterruptedPreparationIn(root, stage, content)
+		return err
 	}
 	if err := verify(); err != nil {
 		return err
 	}
-	file, err := root.OpenFile(proof, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
+	if err := local.RenameNoReplace(root, stage, proof); err != nil {
+		_ = removeInterruptedPreparationIn(root, stage, content)
 		return ErrUpgradeConflict
 	}
-	written, writeErr := file.Write(content)
-	syncErr := file.Sync()
-	closeErr := file.Close()
-	if writeErr != nil || syncErr != nil || closeErr != nil || written != len(content) {
-		_ = root.Remove(proof)
-		return errors.New("skill retirement proof write failed")
-	}
 	syncRootObject(root)
+	if err := i.retirementStep("published"); err != nil {
+		return err
+	}
 	if !matchesPrivateFileIn(root, proof, content) {
 		return ErrUpgradeConflict
 	}

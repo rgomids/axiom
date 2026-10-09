@@ -358,3 +358,58 @@ func TestUpgradeRefusesUnattestedEmptyDirectoryWithWindowsStateWiring(t *testing
 		t.Fatal("refused upgrade changed state")
 	}
 }
+
+// An upgrade interrupted while preparing the next entry's proof leaves an
+// empty or truncated private stage; with the Windows wiring and without a
+// receipt, resume prepares it again and converges.
+func TestUpgradeResumesInterruptedProofPreparationWithWindowsStateWiring(t *testing.T) {
+	for _, size := range []string{"empty", "truncated"} {
+		t.Run(size, func(t *testing.T) {
+			installed, root := installSixSkillRelease(t)
+			installed.target.State.Skills = root
+			if err := os.Remove(filepath.Join(root, codexruntime.SkillSetReceiptName)); err != nil {
+				t.Fatal(err)
+			}
+			candidate := installed.candidate(t, selfBundle(t, "1.1.0"))
+			preview, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			authority, _ := Authorize(preview, preview.Digest)
+			interrupted := Service{afterEffect: func(label string) error {
+				if label == "skill_retire:"+retiredSkillNames[0] {
+					return errors.New("injected retirement interruption")
+				}
+				return nil
+			}}
+			if result, err := interrupted.Apply(context.Background(), preview, authority); err == nil || result.Status != "partial" {
+				t.Fatalf("result=%+v err=%v", result, err)
+			}
+			next := retiredSkillNames[1]
+			content := read(t, filepath.Join(root, next, "SKILL.md"))
+			partial := ""
+			if size == "truncated" {
+				partial = content[:len(content)/2]
+			}
+			writeFile(t, filepath.Join(root, codexruntime.UpgradeStagePrefix+"retire-stage."+next), []byte(partial), 0o600)
+			resume, err := NewService().Preview(context.Background(), installed.target, candidate)
+			if err != nil || !resume.Resume {
+				t.Fatalf("resume=%+v state=%s err=%v", resume, resume.State, err)
+			}
+			authority, _ = Authorize(resume, resume.Digest)
+			if result, err := NewService().Apply(context.Background(), resume, authority); err != nil || result.Status != "success" {
+				t.Fatalf("result=%+v err=%v", result, err)
+			}
+			entries, err := os.ReadDir(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, entry := range entries {
+				if slices.Contains(retiredSkillNames, entry.Name()) || strings.HasPrefix(entry.Name(), codexruntime.UpgradeStagePrefix) {
+					t.Fatalf("%s remains", entry.Name())
+				}
+			}
+			assertSkills(t, root, candidate.SkillFiles)
+		})
+	}
+}

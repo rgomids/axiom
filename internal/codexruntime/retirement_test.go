@@ -400,3 +400,291 @@ func TestUpgradeSessionResumesInterruptedRetirementWithoutReceipt(t *testing.T) 
 		})
 	}
 }
+
+type simulatedCrash struct{ step string }
+
+// installCrashingAt runs Install and stops the process abruptly, without any
+// cleanup, at the named proof preparation boundary.
+func installCrashingAt(t *testing.T, service Service, step string) {
+	t.Helper()
+	service.integration.retirementFault = func(current string) error {
+		if current == step {
+			panic(simulatedCrash{step})
+		}
+		return nil
+	}
+	defer func() {
+		if recovered := recover(); recovered != (simulatedCrash{step}) {
+			t.Fatalf("expected crash at %s, got %v", step, recovered)
+		}
+	}()
+	service.Install(context.Background())
+}
+
+func seedRetirementRoot(t *testing.T, service Service, root string, receipt bool) []byte {
+	t.Helper()
+	seedEightSkillRoot(t, service, root)
+	if !receipt {
+		if err := os.Remove(filepath.Join(root, receiptName)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	content, err := os.ReadFile(filepath.Join(root, retiredSkillNames[0], "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return content
+}
+
+func assertRetirementObjectsGone(t *testing.T, root string) {
+	t.Helper()
+	for _, name := range retiredSkillNames {
+		for _, entry := range []string{retirementProofName(name), retirementStageName(name)} {
+			if _, err := os.Lstat(filepath.Join(root, entry)); !os.IsNotExist(err) {
+				t.Fatalf("%s left after convergence: %v", entry, err)
+			}
+		}
+	}
+}
+
+// An abrupt stop at every proof preparation boundary never leaves a partial
+// proof at the proof name, keeps SKILL.md intact until the proof is
+// published, and converges on rerun, with or without the historical receipt.
+func TestRetirementProofPreparationInterruptionsConverge(t *testing.T) {
+	for _, receipt := range []bool{true, false} {
+		for _, step := range []string{"created", "written", "sync", "synced", "published"} {
+			for _, factory := range runtimeServices(t) {
+				root := privateSkillRoot(t)
+				service, _ := factory(root)
+				name := retiredSkillNames[0]
+				t.Run(service.Runtime()+map[bool]string{true: "/receipt/", false: "/no-receipt/"}[receipt]+step, func(t *testing.T) {
+					content := seedRetirementRoot(t, service, root, receipt)
+					installCrashingAt(t, service, step)
+					installed, err := os.ReadFile(filepath.Join(root, name, "SKILL.md"))
+					if err != nil || string(installed) != string(content) {
+						t.Fatalf("SKILL.md changed before proof publication: %v", err)
+					}
+					proof, err := os.ReadFile(filepath.Join(root, retirementProofName(name)))
+					switch {
+					case step == "published" && (err != nil || string(proof) != string(content)):
+						t.Fatalf("published proof=%q err=%v", proof, err)
+					case step != "published" && !os.IsNotExist(err):
+						t.Fatalf("unpublished preparation visible as proof: %q %v", proof, err)
+					}
+					if status := service.Inspect(context.Background()); status.Status == Ready {
+						t.Fatalf("interrupted preparation reported ready: %+v", status)
+					}
+					installOrFail(t, service, Applied)
+					assertRetirementObjectsGone(t, root)
+					assertOnlyCanonical(t, service, root)
+				})
+			}
+		}
+	}
+}
+
+// A stage or an in-place proof (written by the reviewed revision) that is
+// empty or truncated is an interrupted preparation of the intact, verified
+// SKILL.md bytes, and is prepared again.
+func TestRetirementRecoversEmptyOrTruncatedPreparation(t *testing.T) {
+	for _, receipt := range []bool{true, false} {
+		for _, entry := range []string{"stage", "proof"} {
+			for _, size := range []string{"empty", "truncated"} {
+				for _, factory := range runtimeServices(t) {
+					root := privateSkillRoot(t)
+					service, _ := factory(root)
+					name := retiredSkillNames[0]
+					t.Run(service.Runtime()+map[bool]string{true: "/receipt/", false: "/no-receipt/"}[receipt]+entry+"/"+size, func(t *testing.T) {
+						content := seedRetirementRoot(t, service, root, receipt)
+						partial := content[:0]
+						if size == "truncated" {
+							partial = content[:len(content)/2]
+						}
+						path := filepath.Join(root, map[string]string{"stage": retirementStageName(name), "proof": retirementProofName(name)}[entry])
+						if err := os.WriteFile(path, partial, 0600); err != nil {
+							t.Fatal(err)
+						}
+						installOrFail(t, service, Applied)
+						assertRetirementObjectsGone(t, root)
+						assertOnlyCanonical(t, service, root)
+					})
+				}
+			}
+		}
+	}
+}
+
+// Anything at the stage or proof name that is not a prefix of the verified
+// bytes, or not a private regular file, is preserved, never followed, and
+// blocks retirement; recognized historical content grants no authority over it.
+func TestRetirementPreservesForeignOrUnsafePreparationObjects(t *testing.T) {
+	for _, entry := range []string{"stage", "proof"} {
+		for _, kind := range []string{"foreign", "longer", "link", "directory", "shared"} {
+			for _, factory := range runtimeServices(t) {
+				root := privateSkillRoot(t)
+				service, _ := factory(root)
+				name := retiredSkillNames[0]
+				t.Run(service.Runtime()+"/"+entry+"/"+kind, func(t *testing.T) {
+					if kind == "shared" {
+						testfs.POSIXModes(t)
+					}
+					content := seedRetirementRoot(t, service, root, false)
+					skill := filepath.Join(root, name, "SKILL.md")
+					path := filepath.Join(root, map[string]string{"stage": retirementStageName(name), "proof": retirementProofName(name)}[entry])
+					var err error
+					switch kind {
+					case "foreign":
+						err = os.WriteFile(path, []byte("operator content\n"), 0600)
+					case "longer":
+						err = os.WriteFile(path, append(append([]byte{}, content...), "operator tail\n"...), 0600)
+					case "link":
+						err = testfs.Symlink(t, skill, path)
+					case "directory":
+						if err = os.Mkdir(path, 0700); err == nil {
+							err = os.WriteFile(filepath.Join(path, "notes"), []byte("operator content\n"), 0600)
+						}
+					case "shared":
+						if err = os.WriteFile(path, content[:len(content)/2], 0600); err == nil {
+							err = os.Chmod(path, 0644)
+						}
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					if info, err := os.Lstat(path); err != nil || kind == "link" && info.Mode()&os.ModeSymlink == 0 {
+						t.Fatalf("fixture not created: %v %v", info, err)
+					}
+					before := skillTree(t, root)
+					for range 2 {
+						if result := service.Install(context.Background()); result.Status == Applied || result.Status == Unchanged {
+							t.Fatalf("result=%+v", result)
+						}
+						if err := os.Remove(filepath.Join(root, installLockName)); err != nil && !os.IsNotExist(err) {
+							t.Fatal(err)
+						}
+						if skillTree(t, root) != before {
+							t.Fatal("foreign or unsafe object or retired skill changed")
+						}
+					}
+					if installed, err := os.ReadFile(skill); err != nil || string(installed) != string(content) {
+						t.Fatal("SKILL.md changed")
+					}
+				})
+			}
+		}
+	}
+}
+
+// Failures at sync and publication, and a change to the prepared object
+// between its verification and publication, never yield an accepted proof or
+// replace an existing object.
+func TestRetirementProofFailuresNeverPublishOrReplace(t *testing.T) {
+	for _, test := range []string{"sync-failure", "occupied", "changed"} {
+		for _, factory := range runtimeServices(t) {
+			root := privateSkillRoot(t)
+			service, _ := factory(root)
+			name := retiredSkillNames[0]
+			t.Run(service.Runtime()+"/"+test, func(t *testing.T) {
+				content := seedRetirementRoot(t, service, root, false)
+				proof, stage := filepath.Join(root, retirementProofName(name)), filepath.Join(root, retirementStageName(name))
+				service.integration.retirementFault = func(step string) error {
+					switch {
+					case test == "sync-failure" && step == "sync":
+						return errors.New("injected sync failure")
+					case test == "occupied" && step == "synced":
+						return os.WriteFile(proof, []byte("operator content\n"), 0600)
+					case test == "changed" && step == "synced":
+						return os.WriteFile(stage, []byte("operator edit\n"), 0600)
+					}
+					return nil
+				}
+				if result := service.Install(context.Background()); result.Status != Partial {
+					t.Fatalf("result=%+v", result)
+				}
+				if installed, err := os.ReadFile(filepath.Join(root, name, "SKILL.md")); err != nil || string(installed) != string(content) {
+					t.Fatal("SKILL.md changed without an accepted proof")
+				}
+				published, err := os.ReadFile(proof)
+				switch test {
+				case "sync-failure":
+					if !os.IsNotExist(err) {
+						t.Fatalf("proof published after failed sync: %q %v", published, err)
+					}
+					if _, err := os.Lstat(stage); !os.IsNotExist(err) {
+						t.Fatal("failed stage left behind")
+					}
+					service.integration.retirementFault = nil
+					installOrFail(t, service, Applied)
+					assertRetirementObjectsGone(t, root)
+					assertOnlyCanonical(t, service, root)
+					return
+				case "occupied":
+					if err != nil || string(published) != "operator content\n" {
+						t.Fatalf("existing proof replaced: %q %v", published, err)
+					}
+				case "changed":
+					if err != nil || string(published) != "operator edit\n" {
+						t.Fatalf("changed proof=%q %v", published, err)
+					}
+				}
+				service.integration.retirementFault = nil
+				if result := service.Install(context.Background()); result.Status != Partial {
+					t.Fatalf("rerun=%+v", result)
+				}
+				if again, err := os.ReadFile(proof); err != nil || string(again) != string(published) {
+					t.Fatal("conflicting proof changed on rerun")
+				}
+			})
+		}
+	}
+}
+
+// The upgrade session's retirement shares the preparation protocol and
+// converges after an abrupt stop at each boundary.
+func TestUpgradeSessionRetirementProofInterruptionsConverge(t *testing.T) {
+	for _, step := range []string{"created", "written", "synced", "published"} {
+		for _, factory := range runtimeServices(t) {
+			root := privateSkillRoot(t)
+			service, _ := factory(root)
+			name := retiredSkillNames[0]
+			t.Run(service.Runtime()+"/"+step, func(t *testing.T) {
+				seedRetirementRoot(t, service, root, false)
+				crashing := service
+				crashing.integration.retirementFault = func(current string) error {
+					if current == step {
+						panic(simulatedCrash{step})
+					}
+					return nil
+				}
+				func() {
+					session, err := crashing.LockForUpgrade()
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer session.Close()
+					defer func() {
+						if recovered := recover(); recovered != (simulatedCrash{step}) {
+							t.Fatalf("expected crash, got %v", recovered)
+						}
+					}()
+					_ = session.RemoveRetiredSkill(name, "")
+				}()
+				session, err := service.LockForUpgrade()
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer session.Close()
+				for range 2 {
+					if err := session.RemoveRetiredSkill(name, ""); err != nil {
+						t.Fatal(err)
+					}
+				}
+				for _, path := range []string{name, retirementProofName(name), retirementStageName(name)} {
+					if _, err := os.Lstat(filepath.Join(root, path)); !os.IsNotExist(err) {
+						t.Fatalf("%s remains: %v", path, err)
+					}
+				}
+			})
+		}
+	}
+}
