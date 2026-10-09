@@ -84,7 +84,7 @@ func TestReadinessRenderingIsBoundedAndStable(t *testing.T) {
 		}
 		for _, want := range map[string][]string{
 			"--json":  {`"readiness":{`, `"effective":"partial"`, `"code":"runtime_policy_unavailable"`},
-			"--human": {"readiness: partial structure=valid", "operation: execution blocked", "blocker: runtime_policy_unavailable", "warning: documentation_binding_missing notes"},
+			"--human": {"#### readiness", "- **effective:** `partial`", "- **structure:** `valid`", "- **operation:** `execution`", "- **status:** `blocked`", "code `runtime_policy_unavailable`", "code `documentation_binding_missing` · subject `notes`"},
 		}[mode] {
 			if !strings.Contains(output.String(), want) {
 				t.Fatalf("%s output lacks %q:\n%s", mode, want, output.String())

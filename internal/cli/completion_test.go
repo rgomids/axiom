@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,15 +41,17 @@ func TestCompletionGoldenMatrix(t *testing.T) {
 				t.Fatalf("JSON exit = %d, want %d", code, test.wantCode)
 			}
 
-			wantHuman := "status: " + string(test.status) + "\nresult: operation completed\n"
-			for _, reference := range test.references {
-				wantHuman += "reference: " + reference + "\n"
+			goldenPath := filepath.Join("testdata", "presentation", "completion-"+string(test.status)+".md")
+			if *updatePresentation {
+				if err := os.WriteFile(goldenPath, human.Bytes(), 0o644); err != nil {
+					t.Fatal(err)
+				}
 			}
-			if test.next != "" {
-				wantHuman += "next: " + test.next + "\n"
+			wantHuman, err := os.ReadFile(goldenPath)
+			if err != nil {
+				t.Fatal(err)
 			}
-			wantHuman += "provenance: Axiom development revision=abc123def456 source=clean\n"
-			if human.String() != wantHuman {
+			if human.String() != string(wantHuman) {
 				t.Fatalf("human output:\n%s\nwant:\n%s", human.String(), wantHuman)
 			}
 
@@ -113,7 +117,7 @@ func TestCompletionPreservesStableDetailReferenceAcrossRenderers(t *testing.T) {
 	for _, test := range []struct {
 		format CompletionFormat
 		want   string
-	}{{CompletionJSON, `"details":"artifact:123e4567-e89b-42d3-a456-426614174000"`}, {CompletionHuman, "details: artifact:123e4567-e89b-42d3-a456-426614174000"}} {
+	}{{CompletionJSON, `"details":"artifact:123e4567-e89b-42d3-a456-426614174000"`}, {CompletionHuman, "- **Details:** `artifact:123e4567-e89b-42d3-a456-426614174000`"}} {
 		var output bytes.Buffer
 		if code := WriteCompletion(&output, test.format, result); code != ExitSuccess || !strings.Contains(output.String(), test.want) {
 			t.Fatalf("%s code=%d output=%q", test.format, code, output.String())

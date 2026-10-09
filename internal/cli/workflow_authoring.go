@@ -81,18 +81,7 @@ func runProjectWorkflow(ctx context.Context, mode outputMode, args []string, ser
 	if e != nil {
 		return true, ExitFailure
 	}
-	if mode == humanOutput {
-		wire = append(renderCompletionHuman(c), append([]byte("workflow: "), wire...)...)
-	}
-	if len(wire) > 2<<20 {
-		return true, ExitFailure
-	}
-	wire = append(wire, '\n')
-	n, e := out.Write(wire)
-	if e != nil || n != len(wire) {
-		return true, ExitFailure
-	}
-	return true, completionExitCode(c.Status())
+	return true, presentEvent(out, mode, c.Status(), append(wire, '\n'), 2<<20)
 }
 func duplicateFlag(args []string) bool {
 	seen := map[string]bool{}
@@ -126,7 +115,7 @@ func workflowAuthoringSkillSpecs() []skillOperationSpec {
 			authority = "preview first; exact --expected-revision and --preview-digest plus --authorize-local"
 			inputs = []string{"--expected-revision", "--preview-digest", "--authorize-local"}
 		}
-		mode := skillModeSpec{name: "default", selector: "--project", effect: effect, authority: authority, actions: []action{act}, authorityInputs: inputs, rejectedInputs: []string{}, example: "axiom --json project workflow " + op + " --project <uuid-or-slug>"}
+		mode := skillModeSpec{name: "default", selector: "--project", effect: effect, authority: authority, actions: []action{act}, authorityInputs: inputs, rejectedInputs: []string{}, example: "axiom project workflow " + op + " --project <uuid-or-slug>"}
 		specs = append(specs, skillOperationSpec{name: "workflow." + op, actions: []action{act}, modes: []skillModeSpec{mode}})
 	}
 	return specs

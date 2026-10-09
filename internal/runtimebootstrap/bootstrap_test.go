@@ -119,7 +119,7 @@ func assertConfigured(t *testing.T, root string) {
 	t.Helper()
 	for _, name := range skillNames {
 		content, err := os.ReadFile(skillFile(root, name))
-		if err != nil || !strings.Contains(string(content), "name: "+name) || !strings.Contains(string(content), "axiom --json") {
+		if err != nil || !strings.Contains(string(content), "name: "+name) || !strings.Contains(string(content), "Invoke only `axiom`") {
 			t.Fatalf("%s not installed in %s: %v", name, root, err)
 		}
 	}

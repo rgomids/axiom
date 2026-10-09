@@ -79,9 +79,9 @@ func routingTable(t *testing.T, name string) []routingRow {
 		}
 		for _, item := range strings.Split(cells[2], ",") {
 			invocation := strings.Trim(strings.TrimSpace(item), "`")
-			rest, ok := strings.CutPrefix(invocation, "axiom --json ")
-			if !ok {
-				t.Fatalf("%s routes outside axiom --json: %s", name, invocation)
+			rest, ok := strings.CutPrefix(invocation, "axiom ")
+			if !ok || strings.HasPrefix(rest, "--json") {
+				t.Fatalf("%s routes outside human-first axiom: %s", name, invocation)
 			}
 			command, selector, _ := strings.Cut(rest, " --")
 			if selector != "" {
@@ -175,11 +175,11 @@ func TestSkillOperationMetadataMatchesExecutableParser(t *testing.T) {
 					inputs = append(inputs, mode.selector)
 				}
 				fields := strings.Fields(mode.example)
-				if len(fields) < 4 || fields[0] != "axiom" || fields[1] != "--json" || !slices.Contains(commandNames(mode.actions), exampleCommand(mode.example)) {
+				if len(fields) < 3 || fields[0] != "axiom" || !slices.Contains(commandNames(mode.actions), exampleCommand(mode.example)) {
 					t.Fatalf("%s/%s/%s example %q is not one of its commands", name, spec.name, mode.name, mode.example)
 				}
 				for _, field := range fields {
-					if strings.HasPrefix(field, "--") && field != "--json" {
+					if strings.HasPrefix(field, "--") {
 						inputs = append(inputs, field)
 					}
 				}
@@ -641,11 +641,11 @@ func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
 
 func exampleCommand(example string) string {
 	fields := strings.Fields(example)
-	end := 2
+	end := 1
 	for end < len(fields) && !strings.HasPrefix(fields[end], "--") {
 		end++
 	}
-	return "axiom " + strings.Join(fields[2:end], " ")
+	return strings.Join(fields[:end], " ")
 }
 
 func (p *authorityProbe) ProjectWorkflow(_ context.Context, input ProjectWorkflowInput) Result {

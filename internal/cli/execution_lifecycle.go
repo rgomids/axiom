@@ -1,11 +1,9 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 
 	"github.com/rgomids/axiom/internal/completion"
@@ -120,33 +118,12 @@ func emitExecutionList(writer io.Writer, mode outputMode, result completion.Resu
 	if writer == nil || !result.Valid() || executions == nil {
 		return ExitFailure
 	}
-	var content []byte
-	if mode == humanOutput {
-		content = renderCompletionHuman(result)
-		var extra bytes.Buffer
-		if len(executions) == 0 {
-			extra.WriteString("executions: none\n")
-		}
-		for _, item := range executions {
-			fmt.Fprintf(&extra, "execution: %s repository=%s work-item=%s:%s#%s status=%s gate=%s revision=%d\n", item.ExecutionID, item.RepositoryKey, item.WorkItem.Provider, item.WorkItem.Resource, item.WorkItem.ExternalID, item.Status, item.CurrentGate, item.Revision)
-		}
-		content = append(content, extra.Bytes()...)
-	} else {
-		base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-		encoded, err := json.Marshal(executionListCompletionEvent{completionEvent: base, Executions: executions})
-		if err != nil {
-			return ExitFailure
-		}
-		content = append(encoded, '\n')
-	}
-	if len(content) > maxExecutionListOutputBytes {
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	wire, err := json.Marshal(executionListCompletionEvent{completionEvent: base, Executions: executions})
+	if err != nil {
 		return ExitFailure
 	}
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), append(wire, '\n'), maxExecutionListOutputBytes)
 }
 
 // executionListFlagSet is the single argument registry of `workflow list`.

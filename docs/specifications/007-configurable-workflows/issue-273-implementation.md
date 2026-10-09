@@ -147,3 +147,14 @@ The schema forbids floats/null and checks bounds before canonicalization.
 No paid service, CLI login, runtime library or process execution is introduced.
 These are implementation choices under the accepted schema/JCS decision, not
 changes to ADR-0020 or to historical graph/proposal digests.
+
+## Integration with Issue #232
+
+Merge `2d7a7cd` from `main` to reconcile the human-first presentation contract.
+Workflow authoring now presents its exact canonical event through the shared
+Markdown/JSON renderer. Three-level routing metadata keeps the workflow family;
+its examples and embedded skill use human output by default. Both pre-integration
+skill sets remain owned for upgrades, alongside the combined embedded revision.
+`TestWorkflowAuthoringPresentsExactCanonicalEvent` covers successful previews,
+stale authority and partial publication without dropping workflow fields or
+repeating an operation for presentation.

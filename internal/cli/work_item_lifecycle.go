@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io"
 
 	"github.com/rgomids/axiom/internal/completion"
@@ -76,33 +75,9 @@ func emitWorkItemLifecycleCompletion(writer io.Writer, mode outputMode, result c
 	if response.WorkItems != nil {
 		value.WorkItems = &response.WorkItems
 	}
-	var content []byte
-	if mode == humanOutput {
-		content = renderCompletionHuman(result)
-		content = fmt.Appendf(content, "category: %s\n", response.Category)
-		for _, item := range response.WorkItems {
-			content = fmt.Appendf(content, "work-item %s [%s] repository-key=%s provider=%s resource=%s external-id=%s\n", item.URL, item.State, item.RepositoryKey, item.Provider, item.Resource, item.ExternalID)
-		}
-		if response.WorkItemChange != nil {
-			extra, err := marshalWorkItemValue(response.WorkItemChange, true)
-			if err != nil {
-				return ExitFailure
-			}
-			content = append(content, "preview: "...)
-			content = append(content, extra...)
-		}
-	} else {
-		wire, err := marshalWorkItemValue(value, false)
-		if err != nil {
-			return ExitFailure
-		}
-		content = wire
-	}
-	if len(content) > maxWorkItemPreviewOutputBytes {
+	wire, err := marshalWorkItemValue(value, false)
+	if err != nil {
 		return ExitFailure
 	}
-	if written, err := writer.Write(content); err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), wire, maxWorkItemPreviewOutputBytes)
 }

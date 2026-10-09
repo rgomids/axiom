@@ -12,11 +12,11 @@ import (
 
 func seedEightSkillRoot(t *testing.T, service Service, root string) {
 	t.Helper()
+	// The latest eight-skill revision is the v0.10.0 set the two-skill
+	// decision retired; later shared revisions are two-skill sets.
 	var revision skillSetRevision
-	for _, candidate := range sharedSkillHistory {
-		if len(candidate.skills) == 8 {
-			revision = candidate
-		}
+	for index := len(sharedSkillHistory) - 1; index >= 0 && len(revision.skills) != 8; index-- {
+		revision = sharedSkillHistory[index]
 	}
 	if len(revision.skills) != 8 {
 		t.Fatal("missing frozen eight-skill revision")

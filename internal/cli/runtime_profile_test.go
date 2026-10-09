@@ -50,7 +50,7 @@ func TestRuntimeProfileValidateRejectsAllExtraArguments(t *testing.T) {
 					if err := json.Unmarshal(output.Bytes(), &event); err != nil || event.Status != completion.ValidationFailure {
 						t.Fatalf("event=%+v err=%v", event, err)
 					}
-				} else if !strings.Contains(output.String(), "status: validation_failure") {
+				} else if !strings.Contains(output.String(), "### Validation failed (`validation_failure`)") {
 					t.Fatalf("output=%s", &output)
 				}
 			})

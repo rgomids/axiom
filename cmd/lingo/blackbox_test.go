@@ -55,7 +55,7 @@ func TestExecutableVersionHumanJSONAndBuildProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("human version: %v: %s", err, human)
 	}
-	for _, expected := range []string{"status: success", "result: Axiom build information", "provenance: Axiom 1.2.3 revision=abc123def456 source=clean"} {
+	for _, expected := range []string{"### Succeeded (`success`)", "\nAxiom build information\n", "**Provenance:** product `Axiom` · version `1.2.3` · revision `abc123def456` · sourceState `clean`"} {
 		if !bytes.Contains(human, []byte(expected)) {
 			t.Fatalf("human version missing %q: %s", expected, human)
 		}

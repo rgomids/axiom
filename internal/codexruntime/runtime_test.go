@@ -112,12 +112,12 @@ func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
 			t.Fatal(err)
 		}
 		text := string(content)
-		for _, required := range []string{"axiom --json", "`status`", "`result`", "`references`", "`next`", "`details`", "`provenance`"} {
+		for _, required := range []string{"Invoke only `axiom`", "`status`", "`result`", "`references`", "`next`", "`details`", "`provenance`"} {
 			if !strings.Contains(text, required) {
 				t.Fatalf("%s missing thin adapter contract %q", name, required)
 			}
 		}
-		for _, required := range []string{"top-level JSON object", "Never derive, synthesize, or reinterpret"} {
+		for _, required := range []string{"Present that Markdown exactly as returned", "never present an outcome as more\nsuccessful than its canonical status", "Run `axiom --json` only when the user\nexplicitly asks", "Never derive, synthesize, or reinterpret"} {
 			if !strings.Contains(text, required) {
 				t.Fatalf("%s missing exact canonical projection rule %q", name, required)
 			}
@@ -359,7 +359,7 @@ func TestEmbeddedSkillsUseSupportedNamesAndThinEntrypoints(t *testing.T) {
 			t.Fatal(err)
 		}
 		text := string(content)
-		if !strings.Contains(text, "name: "+name) || !strings.Contains(text, "axiom --json") {
+		if !strings.Contains(text, "name: "+name) || !strings.Contains(text, "Invoke only `axiom`") {
 			t.Fatalf("skill is not a named thin axiom entrypoint: %s", name)
 		}
 	}
@@ -833,9 +833,9 @@ func TestWorkItemRunSkillTeachesReviewedRuntimePreview(t *testing.T) {
 func assertReviewedRuntimePreview(t *testing.T, name, text string) {
 	t.Helper()
 	for _, required := range []string{
-		"axiom --json workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>\n",
+		"axiom workflow start <selectors> --role <role> --complexity <complexity> --capabilities <capabilities> --runtime <runtime>\n",
 		"--runtime <runtime> --runtime-preview <previewDigest>\n",
-		"axiom --json workflow status <selectors> --execution <executionId>\n",
+		"axiom workflow status <selectors> --execution <executionId>\n",
 		"`runtimeResolution`", "`previewDigest`", "`stale_preview`", "runtimeResolution.choice.runtimeId",
 		"Never default to Codex", "never supply, invent, or claim an observation",
 	} {

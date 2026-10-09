@@ -156,34 +156,11 @@ func emitMaintenanceCompletion(writer io.Writer, mode outputMode, result complet
 		return ExitFailure
 	}
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-	if mode == humanOutput {
-		content := renderCompletionHuman(result)
-		if view != nil {
-			extra, err := marshalWorkItemValue(view, true)
-			if err != nil {
-				return ExitFailure
-			}
-			content = append(content, "details:\n"...)
-			content = append(content, extra...)
-		}
-		if len(content) > maxWorkItemPreviewOutputBytes {
-			return ExitFailure
-		}
-		written, err := writer.Write(content)
-		if err != nil || written != len(content) {
-			return ExitFailure
-		}
-		return completionExitCode(result.Status())
-	}
-	content, err := marshalWorkItemValue(maintenanceCompletionEvent{completionEvent: base, Maintenance: view}, false)
+	wire, err := marshalWorkItemValue(maintenanceCompletionEvent{completionEvent: base, Maintenance: view}, false)
 	if err != nil {
 		return ExitFailure
 	}
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), wire, maxWorkItemPreviewOutputBytes)
 }
 
 func maintenanceFlagSet(operation action, input *MaintenanceInput) *flag.FlagSet {
