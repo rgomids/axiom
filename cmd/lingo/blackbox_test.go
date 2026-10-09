@@ -460,16 +460,26 @@ exit 0
 		_ = command.Wait()
 	}
 	statuses := map[string]int{}
+	slugConflicts := 0
 	for _, output := range outputs {
 		var event canonicalEvent
 		if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &event); err != nil {
 			t.Fatalf("concurrent setup output %q: %v", output.String(), err)
 		}
 		statuses[event.Status]++
+		// The second process may observe the winner before reaching apply.
+		// That is a known slug conflict, rather than stale apply authority.
+		if event.Status == "validation_failure" && event.Result == "Project slug is already configured" {
+			slugConflicts++
+		}
 	}
-	losers := statuses["denied_authority"] + statuses["failure"]
+	losers := statuses["denied_authority"] + statuses["failure"] + slugConflicts
 	if statuses["success"] != 1 || losers != 1 {
 		t.Fatalf("concurrent setup statuses = %v; outputs=%q / %q", statuses, outputs[0], outputs[1])
+	}
+	raced := runCanonical(0, "success", "Project resolved", "project", "show", "--selector", "race")
+	if len(raced.References) != 2 || raced.References[0] != "project:"+racePreview.Setup.ProjectID || raced.References[1] != "repository:main" {
+		t.Fatalf("concurrent setup changed reviewed identity or bindings: %+v", raced.References)
 	}
 	run(0, "success", "project_resolved", "project", "resolve", "--selector", "configured")
 	shown := runCanonical(0, "success", "Project resolved", "project", "show", "--selector", "configured")

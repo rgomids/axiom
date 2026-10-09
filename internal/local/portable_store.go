@@ -1,6 +1,7 @@
 package local
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -25,6 +26,9 @@ var (
 // PortableStore supports one validated manifest per Project. Operations stay
 // anchored to private directory objects and coordinate across processes.
 type PortableStore struct {
+	workflowExpectedIndex   *[]byte
+	workflowBeforeCommit    func() error
+	workflowFault           func(FaultStage) error
 	root                    string
 	beforeCreatePublication func()
 	afterCreatePublication  func()
@@ -215,6 +219,18 @@ func (s PortableStore) Update(ctx context.Context, slug string, expected, manife
 			return err
 		}
 		defer projectRoot.Close()
+		if s.workflowExpectedIndex != nil {
+			catalog, err := readWorkflowCatalog(projectRoot)
+			if err != nil {
+				return err
+			}
+			if !bytes.Equal(catalog.Wire, *s.workflowExpectedIndex) {
+				return ErrConflict
+			}
+		}
+		if err := validateNextWorkflowSelection(projectRoot, manifest); err != nil {
+			return err
+		}
 		hooks := s.publicationHooks()
 		hooks.afterStage = s.beforeUpdatePublication
 		hooks.beforeCommit = func() error {
@@ -303,14 +319,9 @@ func openManifestProject(root *os.Root, slug string) (*os.Root, error) {
 		}
 		return nil, ErrRecoveryRequired
 	}
-	entries, err := readDirectoryNamesBounded(projectRoot, 1)
-	if err != nil {
+	if err := validatePortableLayout(projectRoot); err != nil {
 		projectRoot.Close()
 		return nil, err
-	}
-	if len(entries) != 1 || entries[0] != manifestName {
-		projectRoot.Close()
-		return nil, ErrUnsafe
 	}
 	return projectRoot, nil
 }

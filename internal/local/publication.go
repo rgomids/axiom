@@ -57,6 +57,7 @@ type protocolMarker struct {
 }
 
 type publicationHooks struct {
+	contentLimit int
 	fault        func(FaultStage) error
 	remove       func(*os.Root, string) error
 	sync         func(*os.Root) error
@@ -248,6 +249,13 @@ func cleanupStagedFile(root *os.Root, stage string, hooks publicationHooks) erro
 }
 
 func publishFile(ctx context.Context, root *os.Root, name string, expected, next []byte, create bool, hooks publicationHooks) error {
+	limit := hooks.contentLimit
+	if limit == 0 {
+		limit = MaxRecordBytes
+	}
+	if len(next) == 0 || len(next) > limit || len(expected) > limit {
+		return ErrUnsafe
+	}
 	if err := hooks.at(FaultF0); err != nil {
 		return publicationFailure(FaultF0, false, err)
 	}
@@ -257,7 +265,7 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 		}
 		return ErrRecoveryRequired
 	}
-	current, readErr := readPrivateFile(root, name)
+	current, readErr := readPrivateFileBounded(root, name, limit)
 	if create {
 		if readErr == nil {
 			return ErrConflict
@@ -305,7 +313,10 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 		}
 		return publicationFailure(FaultF2, false, err)
 	}
-	if err := verifyPreparedFile(root, stage, next); err != nil {
+	if staged, err := readPrivateFileBounded(root, stage, limit); err != nil || !bytes.Equal(staged, next) {
+		if err == nil {
+			err = ErrUnsafe
+		}
 		return cleanupFailure(FaultF2, err, removeStage())
 	}
 	priorRevision := [32]byte{}
@@ -338,7 +349,7 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 		}
 	}
 	if !create {
-		observed, err := readPrivateFile(root, name)
+		observed, err := readPrivateFileBounded(root, name, limit)
 		if err != nil || !bytes.Equal(observed, expected) {
 			return cleanupFailure(FaultF3, ErrConflict, cleanup())
 		}
@@ -375,7 +386,7 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 	if err := hooks.at(FaultF6); err != nil {
 		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
 	}
-	confirmed, err := readPrivateFile(root, name)
+	confirmed, err := readPrivateFileBounded(root, name, limit)
 	if err != nil || !bytes.Equal(confirmed, next) {
 		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
 	}

@@ -79,6 +79,10 @@ func TestSkillDiscoveryExactCommands(t *testing.T) {
 		"axiom-project":   {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
 		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
 	}
+	for _, op := range []string{"list", "show", "create", "edit", "validate", "select", "remove", "recover"} {
+		expected["axiom-project"] = append(expected["axiom-project"], "axiom project workflow "+op)
+	}
+
 	manifest, err := codexruntime.CurrentManifest()
 	if err != nil {
 		t.Fatal(err)
@@ -140,6 +144,11 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 }
 
 func parseSkillFlags(operation action, args []string) (requestInput, bool) {
+	if strings.HasPrefix(string(operation), "project_workflow_") {
+		in := ProjectWorkflowInput{}
+		set := workflowAuthoringFlagSet(operation, &in)
+		return requestInput{}, set.Parse(args) == nil && set.NArg() == 0 && !duplicateFlag(args)
+	}
 	// The #230 lifecycle commands have their own parsers; argument metadata
 	// must be accepted by exactly those parsers.
 	switch {

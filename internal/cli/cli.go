@@ -205,7 +205,8 @@ type Result struct {
 	Projection     *workflow.ProjectionPreview
 	// Maintenance is a bounded, content-free view for compatibility,
 	// cleanup, recovery, and upgrade previews and results.
-	Maintenance any
+	Maintenance       any
+	WorkflowAuthoring *projectapp.WorkflowReport
 }
 
 type RuntimeSkillView struct {
@@ -389,6 +390,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	}
 	if operation, rest, ok := integrationAction(args); ok {
 		return runIntegration(ctx, mode, operation, rest, service, source, stdout)
+	}
+	if handled, code := runProjectWorkflow(ctx, mode, args, service, source, stdout); handled {
+		return code
 	}
 	if handled, code := runProjectLifecycle(ctx, mode, args, service, source, stdout); handled {
 		return code

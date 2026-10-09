@@ -128,8 +128,11 @@ human judgment.
 Each Project selects the workflow it follows: the default SDD workflow or a
 validated custom revision with its own stages, agents, Runtime choices and human
 gates. Every Execution stays pinned to the revision it started with, so editing
-a workflow never changes work in progress or history. Configurable workflows are
-the MVP in delivery; today Axiom runs one fixed, bounded sequential workflow.
+a workflow never changes work in progress or history. Definition authoring and
+explicit selection are available through `axiom project workflow`; see the
+[authoring commands](docs/commands.md#author-and-select-project-workflows).
+Configurable Execution binding and dispatch remain in delivery; today the
+execution surface runs the fixed, bounded sequential workflow.
 
 ## Project status
 

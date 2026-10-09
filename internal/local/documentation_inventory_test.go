@@ -25,8 +25,8 @@ func TestInstallationFormatClassification(t *testing.T) {
 	}
 }
 
-func TestPortableManifestVersionWindowIncludesSchemaThree(t *testing.T) {
-	for version, want := range map[string]InventoryKind{"3": InventoryMalformed, "2": InventoryMalformed, "4": InventoryNewer} {
+func TestPortableManifestVersionWindowIncludesSchemaFour(t *testing.T) {
+	for version, want := range map[string]InventoryKind{"3": InventoryMalformed, "2": InventoryMalformed, "4": InventoryMalformed, "5": InventoryNewer} {
 		root := t.TempDir()
 		if err := os.Chmod(root, 0o700); err != nil {
 			t.Fatal(err)

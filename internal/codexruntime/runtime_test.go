@@ -143,7 +143,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		name     string
 		payloads []string
 	}{
-		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission"}},
+		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission", "workflowAuthoring"}},
 		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "executionTarget", "runtimeResolution", "previewDigest", "executions", "workItems", "change", "admission"}},
 	}
 	fixture := []byte(`{
@@ -163,6 +163,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		"workflow":{"status":"workflow-payload-status","details":"workflow-details","executionId":"execution-7","currentGate":"review","revision":4},
 		"projection":{"provenance":{"revision":"projection-revision"},"digest":"projection-digest"},
 		"runtimeResolution":{"projectId":"123e4567-e89b-42d3-a456-426614174000","choice":{"runtimeId":"claude","modelProfileId":"careful"},"blocker":{"code":"resolution-details"}},
+		"workflowAuthoring":{"operation":"create","details":"authoring-details","previewDigest":"authoring-digest","effects":["publish immutable revision"]},
 		"previewDigest":"runtime-preview-digest"
 	}`)
 	var event map[string]json.RawMessage

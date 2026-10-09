@@ -196,7 +196,7 @@ var (
 func skillOperationSpecs(name string) []skillOperationSpec {
 	switch name {
 	case "axiom-project":
-		return []skillOperationSpec{projectConfigure, projectList, projectShow, projectValidate, projectArchive, projectReactivate, projectIntegration}
+		return append([]skillOperationSpec{projectConfigure, projectList, projectShow, projectValidate, projectArchive, projectReactivate, projectIntegration}, workflowAuthoringSkillSpecs()...)
 	case "axiom-work-item":
 		return []skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}
 
@@ -228,6 +228,9 @@ func skillOperations(name string) []action {
 }
 
 func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
+	if strings.HasPrefix(string(operation), "project_workflow_") {
+		return workflowAuthoringFlagSet(operation, &ProjectWorkflowInput{})
+	}
 	switch operation {
 	case projectArchiveAction, projectReactivateAction:
 		return projectLifecycleFlagSet(operation, &ProjectLifecycleInput{})

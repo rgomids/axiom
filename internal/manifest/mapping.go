@@ -43,7 +43,9 @@ func fromText(d project.Declaration[string]) text {
 }
 
 func toDomain(d manifestDTO) project.State {
-	return project.State{SchemaVersion: d.SchemaVersion, ID: d.Project.ID, Slug: d.Project.Slug, Name: d.Project.Name,
+	return project.State{WorkflowSelection: toDeclaration(d.WorkflowSelection, func(v selectionDTO) project.WorkflowSelection {
+		return project.WorkflowSelection{WorkflowID: v.WorkflowID, Revision: v.Revision, Digest: v.Digest, Source: v.Source}
+	}), SchemaVersion: d.SchemaVersion, ID: d.Project.ID, Slug: d.Project.Slug, Name: d.Project.Name,
 		Repositories:         toDeclaration(d.Repositories, list(toRepository)),
 		Runtime:              toDeclaration(d.Runtime, toRuntime),
 		Runtimes:             toDeclaration(d.Runtimes, list(toRuntime)),
@@ -114,7 +116,9 @@ func toCredential(d credentialDTO) project.CredentialReference {
 }
 
 func fromDomain(d project.State) manifestDTO {
-	return manifestDTO{SchemaVersion: d.SchemaVersion, Project: identityDTO{d.ID, d.Slug, d.Name},
+	return manifestDTO{WorkflowSelection: fromDeclaration(d.WorkflowSelection, func(v project.WorkflowSelection) selectionDTO {
+		return selectionDTO{WorkflowID: v.WorkflowID, Revision: v.Revision, Digest: v.Digest, Source: v.Source}
+	}), SchemaVersion: d.SchemaVersion, Project: identityDTO{d.ID, d.Slug, d.Name},
 		Repositories:         fromDeclaration(d.Repositories, list(fromRepository)),
 		Runtime:              fromDeclaration(d.Runtime, fromRuntime),
 		Runtimes:             fromDeclaration(d.Runtimes, list(fromRuntime)),

@@ -82,7 +82,7 @@ func declaredRuntime(s State, id string) bool {
 
 // MultiRuntimeSchema reports versions carrying the #140 Runtime policy with
 // exactly v2 semantics. Schema v3 adds context fields and changes none of it.
-func MultiRuntimeSchema(version int) bool { return version == 2 || version == 3 }
+func MultiRuntimeSchema(version int) bool { return version == 2 || version == 3 || version == 4 }
 
 // AllowedRuntimes returns the portable Runtime allowlist for any supported
 // schema: v1's singular Runtime or the v2/v3 Runtime collection.
