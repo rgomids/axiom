@@ -343,6 +343,17 @@ func (s PortableStore) PublishWorkflow(ctx context.Context, slug string, expecte
 				return ErrConflict
 			}
 		}
+		// Content must have its exact published assignment before any file effect.
+		// Otherwise a mismatched caller could create an unintended orphan.
+		if doc != nil {
+			indexed := false
+			for _, next := range idx.Revisions {
+				indexed = indexed || next.Ref() == doc.Ref("project") && next.State == "published"
+			}
+			if !indexed {
+				return ErrConflict
+			}
+		}
 		// Recheck selection under the same namespace lock as every selector writer.
 		candidate := catalog
 		candidate.Index = idx

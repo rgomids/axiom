@@ -158,3 +158,39 @@ skill sets remain owned for upgrades, alongside the combined embedded revision.
 `TestWorkflowAuthoringPresentsExactCanonicalEvent` covers successful previews,
 stale authority and partial publication without dropping workflow fields or
 repeating an operation for presentation.
+
+## PR #294 requested changes and implementation audit
+
+CR-001: `create` is restricted to new Project workflow identities. An existing
+published exact identity/content replay remains an unchanged no-op, as required
+by Specification 007. All new revisions of an assigned key require `edit` with
+the exact published prior identity/digest; retired assignments retain the key.
+`--from-default` always proposes revision 1 and never increments an existing key.
+Edit discovery metadata now advertises the prior-reference inputs.
+
+The audit covered the complete feature diff: definition/schema and JCS fixtures,
+Project/manifest compatibility, application authority and no-op rules, CLI and
+skill routing/presentation, local publication/recovery/inventory, compatibility
+corpus, dependencies and documentation. It found and corrected three additional
+boundary errors: partial completion lacked its confirmed workflow reference;
+storage could publish content absent from the proposed index; cancellation was
+classified as validation/storage failure rather than interruption. Storage now
+rejects an unindexed document before creating any companion directory or file.
+
+Regression evidence: `TestWorkflowCreateCannotEvolveExistingIdentity`,
+`TestWorkflowCreateFromDefaultNeverAllocatesAnotherRevision`,
+`TestWorkflowEditRequiresExactPublishedPrior`,
+`TestWorkflowCreateNewIdentityAndExactReplay`,
+`TestWorkflowPartialCompletionRetainsConfirmedReference`,
+`TestWorkflowPublicationRejectsUnindexedDocumentBeforeEffects`, and
+`TestWorkflowCancellationUsesInterruptedCompletion`. The native executable
+journey also checks rejected create-as-edit, missing prior and exact default
+replay. Review does not establish absence of all defects or external acceptance.
+
+Verification for this revision: the complete Ubuntu Go 1.26 race suite passed;
+after the final cancellation fix, all affected workflow/application/storage/CLI
+race tests and the executable journey passed again. Staticcheck v0.8.1, vet,
+build, module verification, repository governance, approved examples and legacy
+dogfood passed. The create-as-edit and unindexed-document tests both failed
+against the preceding implementations, then passed with these fixes. Hosted
+native checks and human re-review remain separate gates.

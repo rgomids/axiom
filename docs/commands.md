@@ -30,8 +30,11 @@ Apply its exact preview with the same authority tuple. Use `show` with an exact
 reference to inspect the complete definition; save your edited JSON as a new
 revision and use `validate --file <json>` followed by `edit --file <json>
 --workflow <id> --prior-revision <n> --prior-digest <sha256>`. `create --file`
-also imports a complete validated definition. Creating/editing never changes
-selection; run `select` explicitly for the new reference. All commands require
+imports a complete validated definition under a new workflow key. Existing keys
+require `edit` and its exact published prior reference; retired assignments also
+reserve the key. An exact published create replay is unchanged, and
+`--from-default` always proposes revision 1 rather than allocating an edit.
+Creating/editing never changes selection; run `select` explicitly for the new reference. All commands require
 `--project <uuid-or-slug>` and have `--help`; their argument/authority metadata
 is also exposed by `axiom --json skill inspect axiom-project`.
 

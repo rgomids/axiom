@@ -299,3 +299,21 @@ func TestWorkflowPublicationAcceptsTrustedMacOSSourceAlias(t *testing.T) {
 		t.Fatalf("trusted macOS alias refused: %v", err)
 	}
 }
+
+func TestWorkflowPublicationRejectsUnindexedDocumentBeforeEffects(t *testing.T) {
+	ctx := context.Background()
+	store, wire, doc, _ := workflowStoreFixture(t)
+	index, err := EncodeWorkflowIndex(WorkflowIndex{SchemaVersion: 1, Revisions: []WorkflowEntry{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.PublishWorkflow(ctx, "sample", wire, nil, &doc, index); !errors.Is(err, ErrConflict) {
+		t.Fatalf("unindexed document accepted: %v", err)
+	}
+	if _, err = os.Stat(filepath.Join(store.root, "sample", "workflows")); !os.IsNotExist(err) {
+		t.Fatalf("invalid publication produced filesystem effects: %v", err)
+	}
+	if current, err := store.Read(ctx, "sample"); err != nil || string(current) != string(wire) {
+		t.Fatalf("invalid publication altered readable Project: %v", err)
+	}
+}

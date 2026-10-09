@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
@@ -13,6 +14,7 @@ import (
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -34,6 +36,14 @@ func (s lifecycleService) ProjectWorkflow(ctx context.Context, input cli.Project
 		request.Definition = b
 	}
 	outcome := projectapp.ApplyWorkflow(ctx, workflowAuthoringAdapter{s}, request)
+	return workflowAuthoringCompletion(outcome, s.provenance)
+}
+
+func workflowAuthoringCompletion(outcome projectapp.WorkflowAuthoringResult, source provenance.Value) cli.Result {
+	var references []string
+	if ref := outcome.Report.Reference; ref != nil && ref.Valid() {
+		references = []string{"workflow:" + ref.WorkflowID + "/" + strconv.Itoa(ref.Revision) + ":" + ref.Digest}
+	}
 	facts := completion.Facts{ValidationFailed: true}
 	switch outcome.Category {
 	case "previewed", "listed", "inspected", "validated", "applied", "unchanged":
@@ -44,12 +54,14 @@ func (s lifecycleService) ProjectWorkflow(ctx context.Context, input cli.Project
 		facts = completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}
 	case "recovery_required":
 		facts = completion.Facts{Failed: true}
+	case "cancelled":
+		facts = completion.Facts{WasInterrupted: true}
 	}
 	next := "Inspect Project workflows; review the exact revision and digest before applying"
 	if outcome.Category == "recovery_required" || outcome.Category == "partial" {
 		next = "Run recovery inspect/apply for preserved file protocols; then project workflow recover with the exact orphan definition, review its preview and authorize it"
 	}
-	result := canonicalCompletion(facts, "Project workflow "+outcome.Category, nil, next, s.provenance)
+	result := canonicalCompletion(facts, "Project workflow "+outcome.Category, references, next, source)
 	result.Category = outcome.Category
 	result.WorkflowAuthoring = &outcome.Report
 	return result
@@ -99,6 +111,8 @@ func fmtDigest(d [32]byte) string {
 }
 func workflowStorageCategory(e error) string {
 	switch {
+	case errors.Is(e, context.Canceled), errors.Is(e, context.DeadlineExceeded):
+		return "cancelled"
 	case errors.Is(e, local.ErrConflict):
 		return "revision_conflict"
 	case errors.Is(e, local.ErrRecoveryRequired), errors.Is(e, local.ErrSimulatedInterruption):

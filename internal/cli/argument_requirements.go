@@ -29,6 +29,11 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 			rules = append(rules, inputRequirement{name: "file", when: "application: --from-default is absent"}, inputRequirement{name: "workflow", when: "application: --from-default is true"})
 		case "edit", "validate", "recover":
 			rules = append(rules, inputRequirement{name: "file", when: "application: complete definition is required"})
+			if op == "edit" {
+				for _, name := range []string{"workflow", "prior-revision", "prior-digest"} {
+					rules = append(rules, inputRequirement{name: name, when: "application: exact published prior revision is required"})
+				}
+			}
 		}
 		if op != "list" && op != "show" && op != "validate" {
 			for _, name := range []string{"expected-revision", "preview-digest", "authorize-local"} {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -9,7 +10,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -67,6 +70,7 @@ func TestExecutableWorkflowDefaultCustomEditSelectAndRetire(t *testing.T) {
 	preview = run("previewed", create...)
 	run("applied", authorize(preview, create)...)
 	r1 := *preview.Workflow.Reference
+	run("unchanged", create...)
 	selection := refArgs("select", r1)
 	preview = run("previewed", selection...)
 	run("applied", authorize(preview, selection)...)
@@ -92,6 +96,8 @@ func TestExecutableWorkflowDefaultCustomEditSelectAndRetire(t *testing.T) {
 		t.Fatal(e)
 	}
 	run("validated", "validate", "--file", file)
+	run("workflow_exists", "create", "--file", file)
+	run("prior_revision_required", "edit", "--workflow", r1.WorkflowID, "--file", file)
 	edit := []string{"edit", "--workflow", r1.WorkflowID, "--prior-revision", "1", "--prior-digest", r1.Digest, "--file", file}
 	preview = run("previewed", edit...)
 	r2 := *preview.Workflow.Reference
@@ -140,4 +146,35 @@ func TestExecutableWorkflowDefaultCustomEditSelectAndRetire(t *testing.T) {
 	run("applied", authorize(preview, selectDefault)...)
 	os.WriteFile(filepath.Join(env.state, "unknown-reference.json"), []byte(`{}`), 0o600)
 	run("reference_inventory_unknown", refArgs("remove", r2)...)
+}
+
+func TestWorkflowPartialCompletionRetainsConfirmedReference(t *testing.T) {
+	source, err := provenance.FromBuild(provenance.Build{SourceState: provenance.Unknown}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := workflowdefinition.Builtin().Ref("project")
+	outcome := projectapp.WorkflowAuthoringResult{Category: "partial", Report: projectapp.WorkflowReport{Reference: &ref}}
+	result := workflowAuthoringCompletion(outcome, source)
+	if result.Completion == nil || result.Completion.Status() != completion.Partial || result.Category != "partial" {
+		t.Fatalf("partial effect lost canonical completion: %+v", result)
+	}
+	refs := result.Completion.References()
+	if len(refs) != 1 || refs[0] != "workflow:"+ref.WorkflowID+"/1:"+ref.Digest || result.Completion.Next().Empty() {
+		t.Fatalf("partial result lost confirmed identity or recovery action: %+v", result.Completion)
+	}
+}
+
+func TestWorkflowCancellationUsesInterruptedCompletion(t *testing.T) {
+	source, err := provenance.FromBuild(provenance.Build{SourceState: provenance.Unknown}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cause := range []error{context.Canceled, context.DeadlineExceeded} {
+		category := workflowStorageCategory(cause)
+		result := workflowAuthoringCompletion(projectapp.WorkflowAuthoringResult{Category: category}, source)
+		if category != "cancelled" || result.Completion == nil || result.Completion.Status() != completion.Interrupted {
+			t.Fatalf("cancellation misclassified: %+v", result)
+		}
+	}
 }

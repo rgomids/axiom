@@ -3,6 +3,7 @@ package projectapp_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -125,5 +126,110 @@ func TestWorkflowProjectReferencesAndCapabilitiesFailBeforeApply(t *testing.T) {
 				t.Fatalf("invalid refs: %+v", out)
 			}
 		})
+	}
+}
+
+func TestWorkflowCreateCannotEvolveExistingIdentity(t *testing.T) {
+	for _, state := range []string{"published", "retired"} {
+		for _, authorized := range []bool{false, true} {
+			t.Run(state+"/authorize="+fmt.Sprint(authorized), func(t *testing.T) {
+				p, doc := workflowFixture(t)
+				p.observed.Catalog.Index.Revisions[0].State = state
+				d := doc.Definition
+				d.Revision = 3 // Gaps are valid only through an explicit edit.
+				next, issues := workflowdefinition.Encode(d)
+				if len(issues) > 0 {
+					t.Fatal(issues)
+				}
+				r := projectapp.WorkflowRequest{Operation: "create", Project: "sample", Definition: next.Canonical, AuthorizeLocal: authorized}
+				if out := projectapp.ApplyWorkflow(context.Background(), p, r); out.Category != "workflow_exists" || p.writes != 0 || out.Report.PreviewDigest != "" {
+					t.Fatalf("creation evolved %s identity: %+v, writes=%d", state, out, p.writes)
+				}
+			})
+		}
+	}
+}
+
+func TestWorkflowCreateFromDefaultNeverAllocatesAnotherRevision(t *testing.T) {
+	p, _ := workflowFixture(t)
+	d := workflowdefinition.Builtin().Definition
+	d.WorkflowID, d.Name = "custom", "custom"
+	doc, issues := workflowdefinition.Encode(d)
+	if len(issues) > 0 {
+		t.Fatal(issues)
+	}
+	p.observed.Catalog.Index.Revisions[0].Digest = doc.Digest
+	p.observed.Catalog.Documents["custom/1.json"] = doc
+	r := projectapp.WorkflowRequest{Operation: "create", Project: "sample", FromDefault: true, WorkflowID: "custom", AuthorizeLocal: true}
+	if out := projectapp.ApplyWorkflow(context.Background(), p, r); out.Category != "unchanged" || p.writes != 0 || out.Report.Reference.Revision != 1 {
+		t.Fatalf("default replay allocated a revision: %+v", out)
+	}
+	p.observed.Catalog.Index.Revisions[0].State = "retired"
+	if out := projectapp.ApplyWorkflow(context.Background(), p, r); out.Category != "revision_conflict" || p.writes != 0 {
+		t.Fatalf("retired default identity reused: %+v", out)
+	}
+}
+
+func TestWorkflowEditRequiresExactPublishedPrior(t *testing.T) {
+	for _, priorKind := range []string{"missing", "wrong-digest", "other-identity", "builtin", "retired", "valid"} {
+		t.Run(priorKind, func(t *testing.T) {
+			p, doc := workflowFixture(t)
+			d := doc.Definition
+			d.Revision = 3
+			next, issues := workflowdefinition.Encode(d)
+			if len(issues) > 0 {
+				t.Fatal(issues)
+			}
+			r := projectapp.WorkflowRequest{Operation: "edit", Project: "sample", Definition: next.Canonical, Prior: doc.Ref("project")}
+			switch priorKind {
+			case "missing":
+				r.Prior = workflowdefinition.Ref{}
+			case "wrong-digest":
+				r.Prior.Digest = strings.Repeat("0", 64)
+			case "other-identity":
+				r.Prior.WorkflowID = "other"
+			case "builtin":
+				r.Prior = workflowdefinition.Builtin().Ref("builtin")
+			case "retired":
+				p.observed.Catalog.Index.Revisions[0].State = "retired"
+			}
+			out := projectapp.ApplyWorkflow(context.Background(), p, r)
+			if priorKind != "valid" {
+				if out.Category != "prior_revision_required" || p.writes != 0 {
+					t.Fatal(out)
+				}
+				return
+			}
+			if out.Category != "previewed" || p.writes != 0 {
+				t.Fatal(out)
+			}
+			r.AuthorizeLocal, r.ExpectedRevision, r.PreviewDigest = true, p.observed.Selection.PortableRevision, out.Report.PreviewDigest
+			if out = projectapp.ApplyWorkflow(context.Background(), p, r); out.Category != "applied" || p.writes != 1 {
+				t.Fatal(out)
+			}
+		})
+	}
+}
+
+func TestWorkflowCreateNewIdentityAndExactReplay(t *testing.T) {
+	p, doc := workflowFixture(t)
+	r := projectapp.WorkflowRequest{Operation: "create", Project: "sample", Definition: doc.Canonical, AuthorizeLocal: true}
+	if out := projectapp.ApplyWorkflow(context.Background(), p, r); out.Category != "unchanged" || p.writes != 0 {
+		t.Fatal(out)
+	}
+	d := doc.Definition
+	d.WorkflowID, d.Revision = "new", 7 // Imported identities need not start at one.
+	next, issues := workflowdefinition.Encode(d)
+	if len(issues) > 0 {
+		t.Fatal(issues)
+	}
+	r = projectapp.WorkflowRequest{Operation: "create", Project: "sample", Definition: next.Canonical}
+	preview := projectapp.ApplyWorkflow(context.Background(), p, r)
+	if preview.Category != "previewed" || p.writes != 0 {
+		t.Fatal(preview)
+	}
+	r.AuthorizeLocal, r.ExpectedRevision, r.PreviewDigest = true, p.observed.Selection.PortableRevision, preview.Report.PreviewDigest
+	if out := projectapp.ApplyWorkflow(context.Background(), p, r); out.Category != "applied" || p.writes != 1 {
+		t.Fatal(out)
 	}
 }

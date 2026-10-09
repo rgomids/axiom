@@ -126,11 +126,6 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 			d.WorkflowID = r.WorkflowID
 			d.Name = r.WorkflowID
 			d.Revision = 1
-			for _, e := range catalog.Index.Revisions {
-				if e.WorkflowID == d.WorkflowID && e.Revision >= d.Revision {
-					d.Revision = e.Revision + 1
-				}
-			}
 			doc, issues = workflowdefinition.Encode(d)
 		} else {
 			doc, issues = workflowdefinition.Decode(r.Definition)
@@ -179,6 +174,11 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 				}
 				exists = true
 			}
+		}
+		// Creation cannot evolve an assigned identity, including retired history.
+		// An exact published replay remains a no-op under Specification 007.
+		if r.Operation == "create" && maxRevision > 0 && !exists {
+			return fail("workflow_exists")
 		}
 		if r.Operation == "edit" {
 			if _, ok := lookup(r.Prior); !ok || r.Prior.Source != "project" || r.Prior.WorkflowID != ref.WorkflowID {
