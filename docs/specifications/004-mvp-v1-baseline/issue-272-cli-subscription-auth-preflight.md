@@ -38,16 +38,24 @@ Order (first failure wins, fail closed):
    Duplicate keys are ambiguous.
 3. Configuration overrides — key names only, values never retained:
    Codex `<CODEX_HOME or HOME/.codex>/{config,managed_config}.toml`,
-   `<cwd>/.codex/config.toml` and `/etc/codex/{config,managed_config}.toml`
+   `<dir>/.codex/config.toml` for every project directory (below) and
+   `/etc/codex/{config,managed_config}.toml`
    (`model_provider` ≠ `openai`, any `model_providers`, any `*base_url`,
    `preferred_auth_method` ≠ `chatgpt`, `forced_login_method` ≠ `chatgpt`, and
    inline tables/arrays mentioning those keys);
    Claude `<CLAUDE_CONFIG_DIR or HOME/.claude>/settings.json`,
-   `<cwd>/.claude/settings.json`, `<cwd>/.claude/settings.local.json`, the
+   `<dir>/.claude/settings.json` and `<dir>/.claude/settings.local.json` for
+   every project directory, the
    platform managed settings and its `managed-settings.d/*.json` drop-ins (`apiKeyHelper`, `awsCredentialExport`,
    `awsAuthRefresh`, `gcpAuthRefresh`, `forceLoginMethod` ≠ `claudeai`, and the
-   environment names above under `env`). Unresolvable roots, unreadable or
-   unparseable files are `unproven`.
+   environment names above under `env`). Project directories are the working
+   directory and every ancestor (a superset of the repository root the vendor
+   resolves), plus the main checkout of any Git worktree among them (followed
+   through `.git` → `gitdir` → `commondir`), because Claude also loads
+   `settings.local.json` from there. TOML keys are decoded (bare, literal and
+   escaped basic quoted keys) before classification. Unresolvable roots or
+   worktree links, unreadable or unparseable files, undecodable keys,
+   unterminated strings and escapes inside inline tables are `unproven`.
 4. `<exe> --version` (validated version token required).
 5. Vendor status surface: `codex login status` (exact lines `Logged in using
    ChatGPT`, `Logged in using an API key…`, `Not logged in`) or
@@ -114,9 +122,9 @@ real Runtime probe.
   command dispatches graph children; only the historical S9 acceptance runner
   composes `LocalService`, and it does not enable it. Making it mandatory is a
   pending human decision.
-- Codex `config.toml` is scanned line by line (no TOML dependency adopted);
-  multi-line constructs are not interpreted beyond the listed keys, and
-  parent-directory project configs are not walked.
+- Codex `config.toml` is scanned line by line with decoded keys (no TOML
+  dependency adopted); multi-line strings are skipped and inline
+  tables/arrays are matched by key name only.
 - Not inspected: Claude `~/.claude.json` (account state), macOS MDM / Windows
   registry managed preferences, Codex `--profile`/`-c` (already rejected by the reviewed
   argument guard), credential stores, network gateways outside env/config.

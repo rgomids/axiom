@@ -377,3 +377,89 @@ func TestOSStatusRunnerUsesOnlyTheGivenEnvironment(t *testing.T) {
 		t.Fatal("relative executable started")
 	}
 }
+
+// Review of #284: quoted and escaped TOML keys are decoded before
+// classification; keys the scan cannot decode are unproven, never safe.
+func TestCodexConfigDecodesEscapedKeys(t *testing.T) {
+	status := func() *fakeStatus {
+		return &fakeStatus{version: ok("codex-cli 0.159.1"), status: ok("Logged in using ChatGPT")}
+	}
+	for name, tc := range map[string]struct {
+		content          string
+		want             AuthStatus
+		reason, override string
+	}{
+		"escaped provider key":   {"\"model_\\u0070rovider\" = \"proxy\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"escaped provider table": {"[\"model_\\u0070roviders\".proxy]\n\"base_\\u0075rl\" = \"https://gateway.invalid/v1\"\nenv_key = \"PROXY_KEY\"\n", AuthIncompatible, "configuration_override", "codex_config:user:base_url,codex_config:user:model_providers"},
+		"escaped array table":    {"[[ \"model_\\U00000070roviders\" ]]\n", AuthIncompatible, "configuration_override", "codex_config:user:model_providers"},
+		"literal quoted key":     {"'model_provider' = 'oss'\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"escaped openai value":   {"model_provider = \"opena\\u0069\"\n", AuthSubscriptionObserved, "", ""},
+		"escaped other value":    {"model_provider = \"ollam\\u0061\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"escaped inline table":   {"profiles = { fast = { \"model_\\u0070rovider\" = \"azure\" } }\n", AuthUnproven, "configuration_unreadable", ""},
+		"undecodable key":        {"\"model_\\eprovider\" = \"proxy\"\n", AuthUnproven, "configuration_unreadable", ""},
+		"unterminated key":       {"\"model_provider = \"proxy\"\n", AuthUnproven, "configuration_unreadable", ""},
+		"equals inside key":      {"\"a=b\".model_provider = \"oss\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"multiline string body":  {"instructions = \"\"\"\nnot a key: model_provider = \"azure\"\nfree text = here\n\"\"\"\nmodel = \"o4\"\n", AuthSubscriptionObserved, "", ""},
+		"compatible decoded":     {"\"model_provider\" = \"openai\" # default\n[profiles.fast]\nmodel = \"o4\"\n", AuthSubscriptionObserved, "", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fixture := newAuthFixture(t, "codex")
+			write(t, filepath.Join(fixture.home, ".codex", "config.toml"), tc.content)
+			report := check(t, "codex", fixture, status())
+			if report.Status != tc.want || report.Reason != tc.reason || strings.Join(report.Overrides, ",") != tc.override {
+				t.Fatalf("report=%+v", report)
+			}
+		})
+	}
+}
+
+// Review of #284: project settings are inspected in every directory the
+// vendor may load them from — ancestors of the working directory and the
+// main checkout of a Git worktree — not only in the working directory.
+func TestAuthPreflightInspectsAncestorAndWorktreeProjectSettings(t *testing.T) {
+	claudeStatus := func() *fakeStatus { return &fakeStatus{version: ok("2.1.295"), status: ok(claudeSubscription)} }
+	t.Run("repository root from subdirectory", func(t *testing.T) {
+		fixture := newAuthFixture(t, "claude")
+		write(t, filepath.Join(fixture.cwd, ".git", "HEAD"), "ref: refs/heads/main\n")
+		write(t, filepath.Join(fixture.cwd, ".claude", "settings.local.json"), `{"env":{"ANTHROPIC_API_KEY":"synthetic-fixture"}}`)
+		fixture.cwd = filepath.Join(fixture.cwd, "subdirectory")
+		if err := os.MkdirAll(fixture.cwd, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		report := check(t, "claude", fixture, claudeStatus())
+		if report.Status != AuthIncompatible || strings.Join(report.Overrides, ",") != "claude_settings:project_local:env:ANTHROPIC_API_KEY" {
+			t.Fatalf("report=%+v", report)
+		}
+	})
+	t.Run("main checkout of a worktree", func(t *testing.T) {
+		fixture := newAuthFixture(t, "claude")
+		root := filepath.Dir(fixture.home)
+		main := filepath.Join(root, "main-checkout")
+		write(t, filepath.Join(main, ".git", "worktrees", "feature", "commondir"), "../..\n")
+		write(t, filepath.Join(main, ".claude", "settings.local.json"), `{"apiKeyHelper":"/opt/helper"}`)
+		write(t, filepath.Join(fixture.cwd, ".git"), "gitdir: "+filepath.Join(main, ".git", "worktrees", "feature")+"\n")
+		report := check(t, "claude", fixture, claudeStatus())
+		if report.Status != AuthIncompatible || strings.Join(report.Overrides, ",") != "claude_settings:project_local:apiKeyHelper" {
+			t.Fatalf("report=%+v", report)
+		}
+	})
+	t.Run("codex parent project config", func(t *testing.T) {
+		fixture := newAuthFixture(t, "codex")
+		write(t, filepath.Join(fixture.cwd, ".codex", "config.toml"), "model_provider = \"oss\"\n")
+		fixture.cwd = filepath.Join(fixture.cwd, "nested", "deeper")
+		if err := os.MkdirAll(fixture.cwd, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		report := check(t, "codex", fixture, &fakeStatus{version: ok("codex-cli 0.159.1"), status: ok("Logged in using ChatGPT")})
+		if report.Status != AuthIncompatible || strings.Join(report.Overrides, ",") != "codex_config:project:model_provider" {
+			t.Fatalf("report=%+v", report)
+		}
+	})
+	t.Run("unparseable worktree link", func(t *testing.T) {
+		fixture := newAuthFixture(t, "claude")
+		write(t, filepath.Join(fixture.cwd, ".git"), "not a gitdir link\n")
+		if report := check(t, "claude", fixture, claudeStatus()); report.Status != AuthUnproven || report.Reason != "configuration_root_unresolved" {
+			t.Fatalf("report=%+v", report)
+		}
+	})
+}

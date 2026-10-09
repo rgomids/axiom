@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -324,12 +326,18 @@ func safeName(name string) string {
 	return name
 }
 
+type configurationFile struct{ scope, path string }
+
 func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[string]string, cwd string) ([]string, string) {
 	home := environment["HOME"]
 	if home == "" {
 		home = environment["USERPROFILE"]
 	}
-	var overrides []string
+	directories, ok := projectDirectories(cwd)
+	if !ok {
+		return nil, "configuration_root_unresolved"
+	}
+	var files []configurationFile
 	if runtimeID == "codex" {
 		root := environment["CODEX_HOME"]
 		if root == "" && filepath.IsAbs(home) {
@@ -338,44 +346,43 @@ func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[
 		if !filepath.IsAbs(root) {
 			return nil, "configuration_root_unresolved"
 		}
-		files := []struct{ scope, path string }{{"user", filepath.Join(root, "config.toml")}, {"managed", filepath.Join(root, "managed_config.toml")}, {"project", filepath.Join(cwd, ".codex", "config.toml")}}
-		for _, path := range p.managed.CodexConfig {
-			files = append(files, struct{ scope, path string }{"managed", path})
+		files = append(files, configurationFile{"user", filepath.Join(root, "config.toml")}, configurationFile{"managed", filepath.Join(root, "managed_config.toml")})
+		for _, directory := range directories {
+			files = append(files, configurationFile{"project", filepath.Join(directory, ".codex", "config.toml")})
 		}
-		for _, file := range files {
-			content, found, err := readBoundedFile(file.path)
+		for _, path := range p.managed.CodexConfig {
+			files = append(files, configurationFile{"managed", path})
+		}
+	} else {
+		root := environment["CLAUDE_CONFIG_DIR"]
+		if root == "" && filepath.IsAbs(home) {
+			root = filepath.Join(home, ".claude")
+		}
+		if !filepath.IsAbs(root) {
+			return nil, "configuration_root_unresolved"
+		}
+		files = append(files, configurationFile{"user", filepath.Join(root, "settings.json")})
+		for _, directory := range directories {
+			files = append(files, configurationFile{"project", filepath.Join(directory, ".claude", "settings.json")}, configurationFile{"project_local", filepath.Join(directory, ".claude", "settings.local.json")})
+		}
+		for _, path := range p.managed.ClaudeSettings {
+			files = append(files, configurationFile{"managed", path})
+			dropIns, err := filepath.Glob(filepath.Join(filepath.Dir(path), "managed-settings.d", "*.json"))
 			if err != nil {
 				return nil, "configuration_unreadable"
 			}
-			if found {
-				overrides = append(overrides, codexConfigOverrides(content, "codex_config:"+file.scope+":")...)
+			for _, dropIn := range dropIns {
+				files = append(files, configurationFile{"managed", dropIn})
 			}
 		}
-		return overrides, ""
 	}
-	root := environment["CLAUDE_CONFIG_DIR"]
-	if root == "" && filepath.IsAbs(home) {
-		root = filepath.Join(home, ".claude")
-	}
-	if !filepath.IsAbs(root) {
-		return nil, "configuration_root_unresolved"
-	}
-	files := []struct{ scope, path string }{
-		{"user", filepath.Join(root, "settings.json")},
-		{"project", filepath.Join(cwd, ".claude", "settings.json")},
-		{"project_local", filepath.Join(cwd, ".claude", "settings.local.json")},
-	}
-	for _, path := range p.managed.ClaudeSettings {
-		files = append(files, struct{ scope, path string }{"managed", path})
-		dropIns, err := filepath.Glob(filepath.Join(filepath.Dir(path), "managed-settings.d", "*.json"))
-		if err != nil {
-			return nil, "configuration_unreadable"
-		}
-		for _, dropIn := range dropIns {
-			files = append(files, struct{ scope, path string }{"managed", dropIn})
-		}
-	}
+	var overrides []string
+	seen := map[string]bool{}
 	for _, file := range files {
+		if seen[file.path] {
+			continue
+		}
+		seen[file.path] = true
 		content, found, err := readBoundedFile(file.path)
 		if err != nil {
 			return nil, "configuration_unreadable"
@@ -383,13 +390,97 @@ func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[
 		if !found {
 			continue
 		}
-		settings, ok := claudeSettingsOverrides(content, "claude_settings:"+file.scope+":")
+		var fileOverrides []string
+		if runtimeID == "codex" {
+			fileOverrides, ok = codexConfigOverrides(content, "codex_config:"+file.scope+":")
+		} else {
+			fileOverrides, ok = claudeSettingsOverrides(content, "claude_settings:"+file.scope+":")
+		}
 		if !ok {
 			return nil, "configuration_unreadable"
 		}
-		overrides = append(overrides, settings...)
+		overrides = append(overrides, fileOverrides...)
 	}
 	return overrides, ""
+}
+
+const maxProjectDepth = 128
+
+// projectDirectories returns every directory whose project configuration the
+// vendor CLI may load for cwd: cwd and each ancestor (a superset of the
+// repository root), plus the main checkout of any Git worktree among them,
+// whose local settings Claude also loads. An unparseable worktree link is
+// not ok: the resolution cannot be established.
+func projectDirectories(cwd string) ([]string, bool) {
+	var directories []string
+	seen := map[string]bool{}
+	add := func(directory string) {
+		if !seen[directory] {
+			seen[directory] = true
+			directories = append(directories, directory)
+		}
+	}
+	directory := filepath.Clean(cwd)
+	for depth := 0; depth < maxProjectDepth; depth++ {
+		add(directory)
+		main, ok := worktreeMainCheckout(directory)
+		if !ok {
+			return nil, false
+		}
+		if main != "" {
+			add(main)
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			return directories, true
+		}
+		directory = parent
+	}
+	return nil, false
+}
+
+// worktreeMainCheckout follows a `.git` file (`gitdir: <path>`) and its
+// `commondir` to the main checkout. A `.git` directory or no `.git` yields "".
+func worktreeMainCheckout(directory string) (string, bool) {
+	marker := filepath.Join(directory, ".git")
+	info, err := os.Lstat(marker)
+	if errors.Is(err, fs.ErrNotExist) || err == nil && info.IsDir() {
+		return "", true
+	}
+	if err != nil || !info.Mode().IsRegular() {
+		return "", false
+	}
+	content, _, err := readBoundedFile(marker)
+	if err != nil {
+		return "", false
+	}
+	gitdir, found := strings.CutPrefix(strings.TrimSpace(string(content)), "gitdir:")
+	if gitdir = strings.TrimSpace(gitdir); !found || gitdir == "" || strings.ContainsAny(gitdir, "\n\x00") {
+		return "", false
+	}
+	if !filepath.IsAbs(gitdir) {
+		gitdir = filepath.Join(directory, gitdir)
+	}
+	common := gitdir
+	commondir, found, err := readBoundedFile(filepath.Join(gitdir, "commondir"))
+	if err != nil {
+		return "", false
+	}
+	if found {
+		common = strings.TrimSpace(string(commondir))
+		if common == "" {
+			return "", false
+		}
+		if !filepath.IsAbs(common) {
+			common = filepath.Join(gitdir, common)
+		}
+	}
+	common = filepath.Clean(common)
+	if filepath.Base(common) != ".git" {
+		// A bare or separated Git directory has no checkout to inspect.
+		return "", true
+	}
+	return filepath.Dir(common), true
 }
 
 // readBoundedFile reads one regular configuration file, checking the opened
@@ -415,73 +506,214 @@ func readBoundedFile(path string) ([]byte, bool, error) {
 }
 
 // codexConfigOverrides is a conservative line scan of config.toml for the
-// keys that select another provider or the API-key login. It reports key
-// names only and never retains values.
-func codexConfigOverrides(content []byte, prefix string) []string {
+// keys that select another provider or the API-key login. Keys are decoded
+// (quoted and escaped forms included) before classification; a key the scan
+// cannot decode makes the file unrecognized (ok=false) instead of safe. It
+// reports key names only and never retains values.
+func codexConfigOverrides(content []byte, prefix string) ([]string, bool) {
 	var overrides []string
+	multiline := ""
 	for _, raw := range strings.Split(string(content), "\n") {
 		line := strings.TrimSpace(raw)
+		if multiline != "" {
+			if strings.Count(line, multiline)%2 == 1 {
+				multiline = ""
+			}
+			continue
+		}
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if strings.HasPrefix(line, "[") {
-			if first, _ := tomlKeySegments(strings.Trim(line, "[] \t")); first == "model_providers" {
+		if !strings.Contains(line, `"""`) && !strings.Contains(line, "'''") && indexOutsideQuotes(line, "\n") == -2 {
+			// An unterminated string is not valid TOML: do not guess.
+			return nil, false
+		}
+		if header, isHeader := tomlHeader(line); isHeader {
+			segments, ok := tomlKey(header)
+			if !ok {
+				return nil, false
+			}
+			if slices.Contains(segments, "model_providers") {
 				overrides = append(overrides, prefix+"model_providers")
 			}
 			continue
 		}
-		key, value, ok := strings.Cut(line, "=")
+		key, value, ok := tomlKeyValue(line)
 		if !ok {
 			continue
 		}
-		first, last := tomlKeySegments(key)
-		if inline := strings.TrimSpace(value); strings.HasPrefix(inline, "{") || strings.HasPrefix(inline, "[") {
-			// Inline tables/arrays are not interpreted: any watched key inside
-			// them is an override.
+		segments, ok := tomlKey(key)
+		if !ok {
+			return nil, false
+		}
+		last := segments[len(segments)-1]
+		value = strings.TrimSpace(value)
+		for _, delimiter := range []string{`"""`, "'''"} {
+			if strings.HasPrefix(value, delimiter) && strings.Count(value, delimiter)%2 == 1 {
+				multiline = delimiter
+			}
+		}
+		if strings.HasPrefix(value, "{") || strings.HasPrefix(value, "[") {
+			// Inline tables/arrays are not interpreted: an escape could hide a
+			// key, and any watched key inside them is an override.
+			if strings.Contains(value, "\\") {
+				return nil, false
+			}
 			for _, watched := range []string{"model_provider", "base_url", "preferred_auth_method", "forced_login_method"} {
-				if strings.Contains(inline, watched) {
+				if strings.Contains(value, watched) {
 					overrides = append(overrides, prefix+safeName(last))
 					break
 				}
 			}
 		}
-		value = tomlScalar(value)
+		scalar, decoded := tomlScalar(value)
 		switch {
 		case strings.HasSuffix(last, "base_url"):
 			overrides = append(overrides, prefix+safeName(last))
-		case first == "model_providers" || last == "model_providers":
+		case slices.Contains(segments, "model_providers"):
 			overrides = append(overrides, prefix+"model_providers")
-		case last == "model_provider" && value != "openai":
+		case last == "model_provider" && (!decoded || scalar != "openai"):
 			overrides = append(overrides, prefix+"model_provider")
-		case last == "preferred_auth_method" && value != "chatgpt":
+		case last == "preferred_auth_method" && (!decoded || scalar != "chatgpt"):
 			overrides = append(overrides, prefix+"preferred_auth_method")
-		case last == "forced_login_method" && value != "chatgpt":
+		case last == "forced_login_method" && (!decoded || scalar != "chatgpt"):
 			overrides = append(overrides, prefix+"forced_login_method")
 		}
 	}
-	return overrides
+	return overrides, true
 }
 
-func tomlKeySegments(key string) (string, string) {
-	parts := strings.Split(strings.TrimSpace(key), ".")
-	for index := range parts {
-		parts[index] = strings.Trim(strings.TrimSpace(parts[index]), `"'`)
+// tomlHeader recognizes `[table]` and `[[array]]` lines, returning the key.
+func tomlHeader(line string) (string, bool) {
+	if !strings.HasPrefix(line, "[") {
+		return "", false
 	}
-	return parts[0], parts[len(parts)-1]
+	open, close := "[", "]"
+	if strings.HasPrefix(line, "[[") {
+		open, close = "[[", "]]"
+	}
+	end := indexOutsideQuotes(line[len(open):], close)
+	if end < 0 { // -1 absent, -2 unterminated
+		return "", false
+	}
+	rest := strings.TrimSpace(line[len(open)+end+len(close):])
+	if rest != "" && !strings.HasPrefix(rest, "#") {
+		return "", false
+	}
+	return line[len(open) : len(open)+end], true
 }
 
-func tomlScalar(value string) string {
-	value = strings.TrimSpace(value)
-	for _, quote := range []string{`"`, `'`} {
-		if strings.HasPrefix(value, quote) {
-			if end := strings.Index(value[1:], quote); end >= 0 {
-				return value[1 : end+1]
-			}
-			return value
+func tomlKeyValue(line string) (string, string, bool) {
+	index := indexOutsideQuotes(line, "=")
+	if index < 0 {
+		return "", "", false
+	}
+	return line[:index], line[index+1:], true
+}
+
+// indexOutsideQuotes finds needle outside TOML basic and literal strings. It
+// returns -1 when absent and -2 when a string is left unterminated.
+func indexOutsideQuotes(value, needle string) int {
+	quote := byte(0)
+	for index := 0; index < len(value); index++ {
+		char := value[index]
+		switch {
+		case quote == '"' && char == '\\':
+			index++
+		case quote != 0 && char == quote:
+			quote = 0
+		case quote == 0 && (char == '"' || char == '\''):
+			quote = char
+		case quote == 0 && strings.HasPrefix(value[index:], needle):
+			return index
 		}
 	}
+	if quote != 0 {
+		return -2
+	}
+	return -1
+}
+
+// tomlKey decodes a dotted TOML key into its segments: bare, literal and
+// basic quoted segments, with escapes decoded. Anything else is not ok.
+func tomlKey(raw string) ([]string, bool) {
+	var segments []string
+	rest := strings.TrimSpace(raw)
+	for {
+		rest = strings.TrimLeft(rest, " \t")
+		if rest == "" {
+			return nil, false
+		}
+		var segment string
+		switch rest[0] {
+		case '"':
+			end := 1
+			for end < len(rest) && rest[end] != '"' {
+				if rest[end] == '\\' {
+					end++
+				}
+				end++
+			}
+			if end >= len(rest) {
+				return nil, false
+			}
+			decoded, err := strconv.Unquote(rest[:end+1])
+			if err != nil {
+				return nil, false
+			}
+			segment, rest = decoded, rest[end+1:]
+		case '\'':
+			end := strings.IndexByte(rest[1:], '\'')
+			if end < 0 {
+				return nil, false
+			}
+			segment, rest = rest[1:end+1], rest[end+2:]
+		default:
+			end := strings.IndexAny(rest, ". \t")
+			if end < 0 {
+				end = len(rest)
+			}
+			segment, rest = rest[:end], rest[end:]
+			if segment == "" || strings.IndexFunc(segment, func(char rune) bool {
+				return !(char >= 'A' && char <= 'Z' || char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '_' || char == '-')
+			}) >= 0 {
+				return nil, false
+			}
+		}
+		segments = append(segments, segment)
+		rest = strings.TrimLeft(rest, " \t")
+		if rest == "" {
+			return segments, true
+		}
+		if rest[0] != '.' {
+			return nil, false
+		}
+		rest = rest[1:]
+	}
+}
+
+// tomlScalar decodes a basic or literal string value; other values are
+// returned trimmed of a trailing comment. decoded is false when a quoted
+// value cannot be decoded.
+func tomlScalar(value string) (string, bool) {
+	value = strings.TrimSpace(value)
+	switch {
+	case strings.HasPrefix(value, `"`):
+		end := indexOutsideQuotes(value, "#")
+		if end < 0 {
+			end = len(value)
+		}
+		decoded, err := strconv.Unquote(strings.TrimSpace(value[:end]))
+		return decoded, err == nil
+	case strings.HasPrefix(value, "'"):
+		end := strings.IndexByte(value[1:], '\'')
+		if end < 0 {
+			return "", false
+		}
+		return value[1 : end+1], true
+	}
 	value, _, _ = strings.Cut(value, "#")
-	return strings.TrimSpace(value)
+	return strings.TrimSpace(value), true
 }
 
 // claudeSettingsOverrides reports settings that select API-key helpers,
