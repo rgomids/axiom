@@ -3,12 +3,11 @@ name: Issue label policy
 # labels"). The rules live in scripts/issue-label-policy.py, a pure planner;
 # this workflow only reads GitHub state, runs the planner and applies its plan.
 #
-# - seed (Issue opened): applies the labels the Issue Form answers map to
-#   (area, platforms) plus status:planned when no status exists. It has no
-#   concurrency group, so a later event can never cancel it.
+# - seed (Issue opened): applies area/platform labels from Issue Form answers.
+#   It has no concurrency group, so a later event can never cancel it.
 # - enforce (opened, reopened, labeled, unlabeled): re-reads the Issue, fills
-#   only an empty status (status:planned) or area (from the form answer), and
-#   reports every remaining violation in one bounded, edited-in-place comment.
+#   only an empty area (from the form answer), and reports every remaining
+#   violation in one bounded, edited-in-place comment.
 #   It never removes or replaces a label and ignores axiom:* entirely: that
 #   namespace is system-managed by Axiom's workflow projection.
 # - catalog (push to main changing the policy, or a manual dispatch on the
