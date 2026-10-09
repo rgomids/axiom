@@ -1,1 +1,103 @@
-{"archive": "axiom-9999.0.0-acceptance-linux-arm64.tar.gz", "archiveSha256": "c50cccbac335088c1888085e77064e171c9c29d47714051936dd34829f2f676c", "baseline": {"archiveSha256": "905b3f729a824d0c2e3530d638683209e1cc5d0011347b4c7182a518d5c854ba", "binarySha256": "9ee3aec3106b96cb86b44cc902cc19d121727fb92a40005f0d62482b0915be20", "revision": "c7260797aad7", "version": "0.10.0"}, "binarySha256": "1e950beb012353056f2ba97dddecc54c4b0cd36e1be91358e41e126feaceeeec", "checks": ["version-revision", "project-configure-show-list", "inputs-unchanged"], "environment": {"architecture": "aarch64", "os": "Linux", "platform": "Linux-6.17.0-1022-azure-aarch64-with-glibc2.39", "runnerImage": "ubuntu24-arm64", "runnerImageVersion": "20261004.142.1"}, "inputsUnchanged": true, "job": "linux-arm64", "result": "pass", "revision": "aa8b80a3d3c473087a60c38dfc5b7d4035d659ec", "row": "linux-arm64", "scenarios": [{"expected": "pass", "id": "fresh-install", "result": "pass"}, {"expected": "pass", "id": "discovery-provenance", "result": "pass"}, {"expected": "pass", "id": "private-permissions", "result": "pass"}, {"expected": "pass", "id": "configuration-cli", "result": "pass"}, {"expected": "pass", "id": "reinstall-idempotent", "result": "pass"}, {"expected": "pass", "id": "invalid-arguments", "result": "pass"}, {"expected": "pass", "id": "missing-project", "result": "pass"}, {"expected": "pass", "id": "malformed-config-recovery", "result": "pass"}, {"expected": "pass", "id": "missing-config-recovery", "result": "pass"}, {"expected": "pass", "id": "corrupt-artifact-refused", "result": "pass"}, {"expected": "pass", "id": "foreign-binary-preserved", "result": "pass"}, {"expected": "pass", "id": "symlink-destination-refused", "result": "pass"}, {"expected": "pass", "id": "install-interruption-recovery", "result": "pass"}, {"expected": "pass", "id": "genuine-prior-upgrade-state-reinstall", "result": "pass"}], "schema": "axiom-native-acceptance/v1", "version": "9999.0.0-acceptance", "workflowRun": "https://github.com/rgomids/axiom/actions/runs/37960660049"}
+{
+  "archive": "axiom-9999.0.0-acceptance-linux-arm64.tar.gz",
+  "archiveSha256": "d5dfe8c2353d7be25f687ac7df351195c72c89c0001fff9d8af863bca7f5f22d",
+  "baseline": {
+    "archiveSha256": "905b3f729a824d0c2e3530d638683209e1cc5d0011347b4c7182a518d5c854ba",
+    "binarySha256": "9ee3aec3106b96cb86b44cc902cc19d121727fb92a40005f0d62482b0915be20",
+    "revision": "c7260797aad7",
+    "version": "0.10.0"
+  },
+  "binarySha256": "5a9180f56c3baa66c9e3ba5f8f4b06d4ec6d36a9fe01bf0ee653ce1ed8b47292",
+  "checks": [
+    "version-revision",
+    "project-configure-show-list",
+    "inputs-unchanged"
+  ],
+  "environment": {
+    "architecture": "aarch64",
+    "os": "Linux",
+    "platform": "Linux-6.17.0-1022-azure-aarch64-with-glibc2.39",
+    "runnerImage": "ubuntu24-arm64",
+    "runnerImageVersion": "20261004.142.1"
+  },
+  "inputsUnchanged": true,
+  "job": "linux-arm64",
+  "result": "pass",
+  "revision": "e8157bc30383bc72ab27b934596dc2fb9d689d5f",
+  "row": "linux-arm64",
+  "scenarios": [
+    {
+      "expected": "pass",
+      "id": "fresh-install",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "discovery-provenance",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "private-permissions",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "configuration-cli",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "reinstall-idempotent",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "invalid-arguments",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "missing-project",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "malformed-config-recovery",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "missing-config-recovery",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "corrupt-artifact-refused",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "foreign-binary-preserved",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "symlink-destination-refused",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "install-interruption-recovery",
+      "result": "pass"
+    },
+    {
+      "expected": "pass",
+      "id": "genuine-prior-upgrade-state-reinstall",
+      "result": "pass"
+    }
+  ],
+  "schema": "axiom-native-acceptance/v1",
+  "version": "9999.0.0-acceptance",
+  "workflowRun": "https://github.com/rgomids/axiom/actions/runs/37961209760"
+}
