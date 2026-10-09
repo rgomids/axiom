@@ -1,6 +1,8 @@
 name: Native acceptance infrastructure probe
 on:
   workflow_dispatch:
+  push:
+    branches: [ci/256-native-acceptance]
 permissions:
   contents: read
 jobs:
