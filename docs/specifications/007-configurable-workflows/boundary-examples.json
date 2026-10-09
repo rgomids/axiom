@@ -1,0 +1,107 @@
+{
+  "fixtureOnly": true,
+  "projectSelectionR1": {
+    "schemaVersion": 4,
+    "workflowSelection": {
+      "workflowId": "reviewed-delivery",
+      "revision": 1,
+      "digest": "f7ab78754566924b25855512278b1a6e3f960ad0246ebd2d479cf07a6164de01",
+      "source": "project"
+    }
+  },
+  "projectSelectionR2": {
+    "schemaVersion": 4,
+    "workflowSelection": {
+      "workflowId": "reviewed-delivery",
+      "revision": 2,
+      "digest": "cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368",
+      "source": "project"
+    }
+  },
+  "executionABinding": {
+    "projectId": "project-fixture",
+    "workflowId": "reviewed-delivery",
+    "schemaVersion": 1,
+    "revision": 1,
+    "digest": "f7ab78754566924b25855512278b1a6e3f960ad0246ebd2d479cf07a6164de01",
+    "source": "project",
+    "snapshotRef": "artifact-fixture-r1",
+    "snapshotDigest": "f7ab78754566924b25855512278b1a6e3f960ad0246ebd2d479cf07a6164de01",
+    "selectionObservation": {
+      "kind": "project",
+      "id": "project-fixture",
+      "revision": 10,
+      "digest": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "boundAt": "2026-10-08T18:00:00Z"
+  },
+  "executionBBinding": {
+    "projectId": "project-fixture",
+    "workflowId": "reviewed-delivery",
+    "schemaVersion": 1,
+    "revision": 2,
+    "digest": "cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368",
+    "source": "project",
+    "snapshotRef": "artifact-fixture-r2",
+    "snapshotDigest": "cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368",
+    "selectionObservation": {
+      "kind": "project",
+      "id": "project-fixture",
+      "revision": 11,
+      "digest": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    "boundAt": "2026-10-08T18:01:00Z"
+  },
+  "issueDependencies": {
+    "271": [],
+    "272": [],
+    "230": [],
+    "273": [
+      "271"
+    ],
+    "274": [
+      "273"
+    ],
+    "275": [
+      "273"
+    ],
+    "276": [
+      "274",
+      "275",
+      "272",
+      "230"
+    ],
+    "277": [
+      "276"
+    ],
+    "133": [
+      "230"
+    ],
+    "232": [
+      "230"
+    ],
+    "278": [
+      "277",
+      "133",
+      "232",
+      "230"
+    ]
+  },
+  "portableIndex": {
+    "schemaVersion": 1,
+    "revisions": [
+      {
+        "workflowId": "reviewed-delivery",
+        "revision": 1,
+        "digest": "f7ab78754566924b25855512278b1a6e3f960ad0246ebd2d479cf07a6164de01",
+        "state": "published"
+      },
+      {
+        "workflowId": "reviewed-delivery",
+        "revision": 2,
+        "digest": "cea1c959e2d523f9ca5ae77e293da8a4db95936b8d8d789c8b06a3a576119368",
+        "state": "published"
+      }
+    ]
+  }
+}
