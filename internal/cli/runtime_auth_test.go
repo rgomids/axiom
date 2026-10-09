@@ -45,7 +45,7 @@ func TestRuntimeAuthDelegatesAndPresentsSanitizedReport(t *testing.T) {
 			t.Fatalf("code=%d event=%+v err=%v output=%s", code, event, err, &output)
 		}
 		output.Reset()
-		if RunInteractive(context.Background(), []string{"--human", "runtime", runtimeID, "auth"}, service, completionProvenance(t), strings.NewReader(""), &output, &bytes.Buffer{}); !strings.Contains(output.String(), `runtimeAuth: {"runtimeId":"`+runtimeID) {
+		if RunInteractive(context.Background(), []string{"--human", "runtime", runtimeID, "auth"}, service, completionProvenance(t), strings.NewReader(""), &output, &bytes.Buffer{}); !strings.Contains(output.String(), "#### runtimeAuth\n\n- **runtimeId:** `"+runtimeID+"`") {
 			t.Fatalf("human output=%s", &output)
 		}
 	}

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -41,18 +40,18 @@ type provenanceEvent struct {
 }
 
 func WriteCompletion(writer io.Writer, format CompletionFormat, result completion.Result) int {
-	if writer == nil || !result.Valid() {
+	if writer == nil || !result.Valid() || (format != CompletionHuman && format != CompletionJSON) {
 		return ExitFailure
 	}
-	content, err := renderCompletion(format, result)
-	if err != nil || len(content) > MaxCompletionOutputBytes {
+	wire, err := renderCompletionJSON(result)
+	if err != nil {
 		return ExitFailure
 	}
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
+	mode := humanOutput
+	if format == CompletionJSON {
+		mode = jsonOutput
 	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), wire, MaxCompletionOutputBytes)
 }
 
 func emitCompletion(writer io.Writer, mode outputMode, result completion.Result) int {
@@ -107,32 +106,11 @@ func emitWorkItemCompletion(writer io.Writer, mode outputMode, result completion
 	if len(response.Questions) != 0 {
 		value.Questions = response.Questions
 	}
-	if mode == humanOutput {
-		content := renderCompletionHuman(result)
-		extra, err := marshalWorkItemValue(value, true)
-		if err != nil {
-			return ExitFailure
-		}
-		content = append(content, "preview: "...)
-		content = append(content, extra...)
-		if len(content) > maxWorkItemPreviewOutputBytes {
-			return ExitFailure
-		}
-		written, err := writer.Write(content)
-		if err != nil || written != len(content) {
-			return ExitFailure
-		}
-		return completionExitCode(result.Status())
-	}
 	content, err := marshalWorkItemValue(value, false)
 	if err != nil {
 		return ExitFailure
 	}
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), content, maxWorkItemPreviewOutputBytes)
 }
 
 func emitWorkflowCompletion(writer io.Writer, mode outputMode, result completion.Result, response Result) int {
@@ -142,15 +120,10 @@ func emitWorkflowCompletion(writer io.Writer, mode outputMode, result completion
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
 	value := workflowCompletionEvent{completionEvent: base, Workflow: response.Workflow, Projection: response.Projection}
 	content, err := json.Marshal(value)
-	if err != nil || len(content)+1 > maxWorkItemPreviewOutputBytes {
+	if err != nil {
 		return ExitFailure
 	}
-	content = append(content, '\n')
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), append(content, '\n'), maxWorkItemPreviewOutputBytes)
 }
 
 func marshalWorkItemValue(value any, indented bool) ([]byte, error) {
@@ -173,31 +146,12 @@ func emitRuntimeCompletion(writer io.Writer, mode outputMode, result completion.
 	if writer == nil || !result.Valid() {
 		return ExitFailure
 	}
-	if mode == humanOutput {
-		content := renderCompletionHuman(result)
-		var extra bytes.Buffer
-		emitRuntimeHuman(&extra, runtime)
-		content = append(content, extra.Bytes()...)
-		if len(content) > MaxCompletionOutputBytes {
-			return ExitFailure
-		}
-		written, err := writer.Write(content)
-		if err != nil || written != len(content) {
-			return ExitFailure
-		}
-		return completionExitCode(result.Status())
-	}
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
 	content, err := json.Marshal(runtimeCompletionEvent{completionEvent: base, Runtime: runtime})
-	if err != nil || len(content)+1 > MaxCompletionOutputBytes {
+	if err != nil {
 		return ExitFailure
 	}
-	content = append(content, '\n')
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), append(content, '\n'), MaxCompletionOutputBytes)
 }
 
 type bootstrapCompletionEvent struct {
@@ -209,43 +163,12 @@ func emitBootstrapCompletion(writer io.Writer, mode outputMode, result completio
 	if writer == nil || !result.Valid() {
 		return ExitFailure
 	}
-	var content []byte
-	if mode == humanOutput {
-		content = renderCompletionHuman(result)
-		var extra bytes.Buffer
-		for _, runtime := range bootstrap.Runtimes {
-			fmt.Fprintf(&extra, "runtime: %s present=%t state=%s reason=%s", runtime.Runtime, runtime.Present, runtime.State, runtime.Reason)
-			if runtime.ConfigurationWithoutExecutable {
-				extra.WriteString(" note=configuration_without_executable")
-			}
-			extra.WriteString("\n")
-			for _, skill := range runtime.Skills {
-				fmt.Fprintf(&extra, "  skill: %s sha256=%s state=%s\n", skill.Name, skill.SHA256, skill.State)
-			}
-			if runtime.Receipt != "" && runtime.Receipt != "current" {
-				fmt.Fprintf(&extra, "  receipt: state=%s\n", runtime.Receipt)
-			}
-			for _, conflict := range runtime.Conflicts {
-				extra.WriteString("  " + conflictLine(conflict))
-			}
-		}
-		content = append(content, extra.Bytes()...)
-	} else {
-		base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-		encoded, err := json.Marshal(bootstrapCompletionEvent{completionEvent: base, FirstRun: bootstrap})
-		if err != nil {
-			return ExitFailure
-		}
-		content = append(encoded, '\n')
-	}
-	if len(content) > MaxCompletionOutputBytes {
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	encoded, err := json.Marshal(bootstrapCompletionEvent{completionEvent: base, FirstRun: bootstrap})
+	if err != nil {
 		return ExitFailure
 	}
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), append(encoded, '\n'), MaxCompletionOutputBytes)
 }
 
 func emitRuntimeHuman(writer io.Writer, runtime RuntimeView) {
@@ -275,68 +198,12 @@ func emitSetupCompletion(writer io.Writer, mode outputMode, result completion.Re
 	if writer == nil || !result.Valid() {
 		return ExitFailure
 	}
-	if mode == humanOutput {
-		content := renderCompletionHuman(result)
-		var extra bytes.Buffer
-		fmt.Fprintf(&extra, "preview-digest: %s\n", setup.Digest)
-		fmt.Fprintf(&extra, "project: %s [%s]\n", setup.Slug, setup.ProjectID)
-		fmt.Fprintf(&extra, "portable-destination: %s revision=%s\n", setup.PortableDestination, setup.PortableRevision)
-		fmt.Fprintf(&extra, "local-destination: %s revision=%s\n", setup.LocalDestination, setup.LocalRevision)
-		fmt.Fprintf(&extra, "capability: %s provider=%s readiness=%s\n", setup.Capability.Capability, setup.Capability.Provider, setup.Capability.Readiness)
-		for _, repository := range setup.Repositories {
-			fmt.Fprintf(&extra, "repository: %s local=%q revision=%s\n", repository.Key, repository.LocalPath, repository.LocalRevision)
-			if remote := repository.Remote; remote != nil {
-				fmt.Fprintf(&extra, "  remote: status=%s selected=%q source=%s unsupported=%d\n", remote.Status, remote.Locator, remote.Source, remote.Unsupported)
-				for _, candidate := range remote.Candidates {
-					fmt.Fprintf(&extra, "  candidate: %q names=%v\n", candidate.Locator, candidate.Names)
-				}
-			}
-		}
-		fmt.Fprintf(&extra, "runtime-policy: %s runtimes=%v\n", setup.RuntimePolicy.Status, setup.RuntimePolicy.Runtimes)
-		for _, candidate := range setup.RuntimePolicy.Candidates {
-			for _, profile := range candidate.Profiles {
-				fmt.Fprintf(&extra, "  runtime-candidate: %s profile=%s model=%q\n", candidate.ID, profile.Key, profile.Model)
-			}
-		}
-		for _, fact := range setup.Technology {
-			fmt.Fprintf(&extra, "technology: %s=%q source=%s conflict=%s\n", fact.Key, fact.Value, fact.Source, fact.Conflict)
-			for _, evidence := range fact.Evidence {
-				fmt.Fprintf(&extra, "  evidence: %s:%s count=%d\n", evidence.Repository, evidence.Path, evidence.Count)
-			}
-		}
-		for _, source := range setup.Documentation {
-			fmt.Fprintf(&extra, "documentation: %s kind=%s repository=%s path=%q local=%q\n", source.Key, source.Kind, source.RepositoryRef, source.Path, source.LocalPath)
-		}
-		for _, entry := range setup.BusinessContext.Glossary {
-			fmt.Fprintf(&extra, "glossary: %s term=%q\n", entry.Key, entry.Term)
-		}
-		for _, blocker := range setup.Blockers {
-			fmt.Fprintf(&extra, "blocker: %s %s\n", blocker.Code, blocker.Subject)
-		}
-		for _, effect := range setup.Effects {
-			fmt.Fprintf(&extra, "effect: %s\n", effect)
-		}
-		content = append(content, extra.Bytes()...)
-		if len(content) > MaxCompletionOutputBytes {
-			return ExitFailure
-		}
-		written, err := writer.Write(content)
-		if err != nil || written != len(content) {
-			return ExitFailure
-		}
-		return completionExitCode(result.Status())
-	}
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
 	content, err := json.Marshal(setupCompletionEvent{completionEvent: base, Setup: setup})
-	if err != nil || len(content)+1 > MaxCompletionOutputBytes {
+	if err != nil {
 		return ExitFailure
 	}
-	content = append(content, '\n')
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), append(content, '\n'), MaxCompletionOutputBytes)
 }
 
 type editCompletionEvent struct {
@@ -350,95 +217,24 @@ func emitEditCompletion(writer io.Writer, mode outputMode, result completion.Res
 	if writer == nil || !result.Valid() {
 		return ExitFailure
 	}
-	var content []byte
-	if mode == humanOutput {
-		content = renderCompletionHuman(result)
-		var extra bytes.Buffer
-		fmt.Fprintf(&extra, "mode: %s\n", edit.Mode)
-		fmt.Fprintf(&extra, "preview-digest: %s\n", edit.Digest)
-		fmt.Fprintf(&extra, "project: %s [%s] name=%q\n", edit.Slug, edit.ProjectID, edit.Name)
-		fmt.Fprintf(&extra, "portable-destination: %s revision=%s\n", edit.PortableDestination, edit.PortableRevision)
-		fmt.Fprintf(&extra, "local-destination: %s revision=%s\n", edit.LocalDestination, edit.LocalRevision)
-		fmt.Fprintf(&extra, "capability: %s provider=%s readiness=%s\n", edit.Capability.Capability, edit.Capability.Provider, edit.Capability.Readiness)
-		for _, repository := range edit.Repositories {
-			fmt.Fprintf(&extra, "repository: %s change=%s", repository.Key, repository.Change)
-			if repository.LocalPath != "" {
-				fmt.Fprintf(&extra, " local=%q", repository.LocalPath)
-			}
-			if repository.LocalRevision != "" {
-				fmt.Fprintf(&extra, " revision=%s", repository.LocalRevision)
-			}
-			extra.WriteString("\n")
-		}
-		for _, effect := range edit.Effects {
-			fmt.Fprintf(&extra, "effect: %s %s", effect.Scope, effect.Code)
-			if effect.Key != "" {
-				fmt.Fprintf(&extra, " key=%s", effect.Key)
-			}
-			extra.WriteString("\n")
-		}
-		extra.WriteString("portable-manifest:\n")
-		for _, line := range strings.Split(strings.TrimSuffix(edit.PortableManifest, "\n"), "\n") {
-			fmt.Fprintf(&extra, "  %s\n", line)
-		}
-		content = append(content, extra.Bytes()...)
-	} else {
-		base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-		encoded, err := marshalWorkItemValue(editCompletionEvent{completionEvent: base, Edit: edit}, false)
-		if err != nil {
-			return ExitFailure
-		}
-		content = encoded
-	}
-	if len(content) > maxWorkItemPreviewOutputBytes {
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	encoded, err := marshalWorkItemValue(editCompletionEvent{completionEvent: base, Edit: edit}, false)
+	if err != nil {
 		return ExitFailure
 	}
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), encoded, maxWorkItemPreviewOutputBytes)
 }
 
 func emitProjectCompletion(writer io.Writer, mode outputMode, result completion.Result, project ProjectView) int {
 	if writer == nil || !result.Valid() {
 		return ExitFailure
 	}
-	if mode == humanOutput {
-		content := renderCompletionHuman(result)
-		var extra bytes.Buffer
-		fmt.Fprintf(&extra, "project: %s [%s] source=%s\n", project.Slug, project.ID, project.Source)
-		if project.State != nil {
-			renderProjectState(&extra, "state", project.State)
-		}
-		for _, repository := range project.Repositories {
-			fmt.Fprintf(&extra, "repository: %s path=%q", repository.Key, repository.Path)
-			if repository.Availability != "" {
-				fmt.Fprintf(&extra, " availability=%s", repository.Availability)
-			}
-			extra.WriteString("\n")
-		}
-		content = append(content, extra.Bytes()...)
-		if len(content) > MaxCompletionOutputBytes {
-			return ExitFailure
-		}
-		written, err := writer.Write(content)
-		if err != nil || written != len(content) {
-			return ExitFailure
-		}
-		return completionExitCode(result.Status())
-	}
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
 	content, err := json.Marshal(projectCompletionEvent{completionEvent: base, Project: project})
-	if err != nil || len(content)+1 > MaxCompletionOutputBytes {
+	if err != nil {
 		return ExitFailure
 	}
-	content = append(content, '\n')
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), append(content, '\n'), MaxCompletionOutputBytes)
 }
 
 const maxProjectListOutputBytes = 2 * 1024 * 1024
@@ -448,50 +244,11 @@ func emitProjectListCompletion(writer io.Writer, mode outputMode, result complet
 		return ExitFailure
 	}
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-	var content []byte
-	if mode == humanOutput {
-		content = renderCompletionHuman(result)
-		var extra bytes.Buffer
-		if len(projects) == 0 {
-			extra.WriteString("projects: none configured\n")
-		}
-		for _, project := range projects {
-			name := project.Name
-			if name == "" {
-				name = "<unavailable>"
-			}
-			fmt.Fprintf(&extra, "project: %s [%s] name=%q", project.Slug, project.ID, name)
-			if project.Status != "" {
-				fmt.Fprintf(&extra, " status=%s", project.Status)
-			}
-			extra.WriteString("\n")
-		}
-		content = append(content, extra.Bytes()...)
-	} else {
-		encoded, err := json.Marshal(projectListCompletionEvent{completionEvent: base, Projects: projects})
-		if err != nil {
-			return ExitFailure
-		}
-		content = append(encoded, '\n')
-	}
-	if len(content) > maxProjectListOutputBytes {
+	encoded, err := json.Marshal(projectListCompletionEvent{completionEvent: base, Projects: projects})
+	if err != nil {
 		return ExitFailure
 	}
-	written, err := writer.Write(content)
-	if err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
-}
-
-func renderCompletion(format CompletionFormat, result completion.Result) ([]byte, error) {
-	if format == CompletionJSON {
-		return renderCompletionJSON(result)
-	}
-	if format == CompletionHuman {
-		return renderCompletionHuman(result), nil
-	}
-	return nil, errors.New("unsupported completion format")
+	return presentEvent(writer, mode, result.Status(), append(encoded, '\n'), maxProjectListOutputBytes)
 }
 
 func renderCompletionJSON(result completion.Result) ([]byte, error) {
@@ -515,23 +272,6 @@ func renderCompletionJSON(result completion.Result) ([]byte, error) {
 		return nil, err
 	}
 	return output.Bytes(), nil
-}
-
-func renderCompletionHuman(result completion.Result) []byte {
-	var output bytes.Buffer
-	fmt.Fprintf(&output, "status: %s\n", result.Status())
-	fmt.Fprintf(&output, "result: %s\n", result.Result().String())
-	for _, reference := range result.References() {
-		fmt.Fprintf(&output, "reference: %s\n", reference)
-	}
-	if !result.Next().Empty() {
-		fmt.Fprintf(&output, "next: %s\n", result.Next().String())
-	}
-	if result.Details() != "" {
-		fmt.Fprintf(&output, "details: %s\n", result.Details())
-	}
-	fmt.Fprintf(&output, "provenance: %s %s revision=%s source=%s\n", result.Provenance().Product(), result.Provenance().Version(), result.Provenance().Revision(), result.Provenance().SourceState())
-	return output.Bytes()
 }
 
 func completionExitCode(status completion.Status) int {

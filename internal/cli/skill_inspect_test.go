@@ -46,7 +46,7 @@ func TestSkillDiscoveryInventoryAndNoExecution(t *testing.T) {
 	for _, skill := range manifest.Skills {
 		t.Run(skill.Name, func(t *testing.T) {
 			source, err := os.ReadFile("../codexruntime/skills/" + skill.Name + "/SKILL.md")
-			if err != nil || !strings.Contains(string(source), "axiom --json skill inspect "+skill.Name) {
+			if err != nil || !strings.Contains(string(source), "`axiom skill inspect "+skill.Name+"`") {
 				t.Fatalf("missing thin inspection pointer: %s: %v", skill.Name, err)
 			}
 			got := discoverForTest(t, skill.Name)
@@ -340,7 +340,7 @@ func TestSkillDiscoveryPreservesFullyGuidedInvocation(t *testing.T) {
 func TestSkillDiscoveryHumanAndWriterFailure(t *testing.T) {
 	var output bytes.Buffer
 	handled, code := InspectSkill([]string{"skill", "inspect", "axiom-project"}, completionProvenance(t), &output)
-	if !handled || code != ExitSuccess || !strings.Contains(output.String(), "--selector (required") || !strings.Contains(output.String(), "--slug (optional") {
+	if !handled || code != ExitSuccess || !strings.Contains(output.String(), "#### skill") || !strings.Contains(output.String(), "`--selector`") || !strings.Contains(output.String(), "`--slug`") {
 		t.Fatalf("human output=%s", output.String())
 	}
 	for _, writer := range []io.Writer{nil, shortInspectionWriter{}} {

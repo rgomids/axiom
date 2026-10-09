@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 	"strings"
 
@@ -119,28 +118,18 @@ func effectiveProjectArgs(ctx context.Context, args []string, service ProjectCon
 }
 
 func emitContextCompletion(writer io.Writer, mode outputMode, result completion.Result, view projectapp.EffectiveContext) int {
+	if writer == nil || !result.Valid() {
+		return ExitFailure
+	}
 	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-	var content []byte
-	if mode == humanOutput {
-		content = append(renderCompletionHuman(result), []byte(fmt.Sprintf("context: source=%s effective=%s default=%s session=%s issue=%s\n", view.Source, view.Effective, view.Default, view.Session, view.Issue))...)
-	} else {
-		wire, err := json.Marshal(struct {
-			completionEvent
-			Context projectapp.EffectiveContext `json:"context"`
-		}{base, view})
-		if err != nil {
-			return ExitFailure
-		}
-		content = append(wire, '\n')
-	}
-	if len(content) > MaxCompletionOutputBytes {
+	wire, err := json.Marshal(struct {
+		completionEvent
+		Context projectapp.EffectiveContext `json:"context"`
+	}{base, view})
+	if err != nil {
 		return ExitFailure
 	}
-	n, err := writer.Write(content)
-	if err != nil || n != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), append(wire, '\n'), MaxCompletionOutputBytes)
 }
 
 // Retain whether the CLI supplied a canonical UUID only to satisfy parser

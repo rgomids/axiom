@@ -162,7 +162,7 @@ func TestIntegrationReportRendersJSONAndHumanWithoutLeakingMachineData(t *testin
 	if code := RunInteractive(context.Background(), []string{"--human", "integration", "validate", "--project", "sample"}, service, completionProvenance(t), nil, &output, &bytes.Buffer{}); code != ExitFailure {
 		t.Fatalf("human code=%d output=%s", code, &output)
 	}
-	for _, expected := range []string{"category: integration_invalid", "integration: chat local=disabled provider=slack providerRef=chat capabilities=[chat] transport=mcp credentialRef=chat-token", "stale-disabled: gone", "validation: invalid", "finding: error provider_unsupported integration=chat capability=chat"} {
+	for _, expected := range []string{"- **category:** `integration_invalid`", "- **key:** `chat`", "- **provider:** `slack`", "- **transport:** `mcp`", "- **credentialRef:** `chat-token`", "- **local:** `disabled`", "- **staleDisabled:**\n  - `gone`", "- **status:** `invalid`", "code `provider_unsupported` · severity `error` · integration `chat` · capability `chat`"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("%q absent from %s", expected, &output)
 		}
