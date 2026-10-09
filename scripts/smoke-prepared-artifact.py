@@ -33,6 +33,16 @@ def inventory(root):
     return result
 
 
+def windows_environment(home, temporary):
+    """Only OS plumbing, never inherited credentials or Runtime discovery."""
+    system = os.environ["SystemRoot"]
+    return {"SystemRoot": system, "WINDIR": system, "OS": "Windows_NT",
+            "PROCESSOR_ARCHITECTURE": "AMD64", "PATHEXT": ".EXE;.CMD;.BAT",
+            "COMSPEC": str(Path(system) / "System32/cmd.exe"),
+            "LOCALAPPDATA": str(home / "AppData/Local"),
+            "TEMP": str(temporary), "TMP": str(temporary)}
+
+
 def smoke(args, summary):
     if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?", args.version):
         raise ValueError("exact semantic version required")
@@ -40,7 +50,7 @@ def smoke(args, summary):
         raise ValueError("full source revision required")
     host = (platform.system(), platform.machine())
     expected = {"linux-amd64": ("Linux", "x86_64"), "linux-arm64": ("Linux", "aarch64"),
-                "macos-27-arm64": ("Darwin", "arm64")}
+                "macos-27-arm64": ("Darwin", "arm64"), "windows-amd64": ("Windows", "AMD64")}
     if host != expected[args.row]:
         raise ValueError("native host does not match requested row")
     root = Path(args.directory)
@@ -75,7 +85,7 @@ def smoke(args, summary):
                 # Explicit validation above also works on hosted Python versions
                 # predating tarfile's extraction filter API.
                 source.extractall(extracted, members=members)
-            binary = extracted / bundle / "axiom"
+            binary = extracted / bundle / ("axiom.exe" if host[0] == "Windows" else "axiom")
             if not binary.is_file() or not os.access(binary, os.X_OK):
                 raise ValueError("prepared binary is not executable")
             summary["binarySha256"] = digest(binary)
@@ -94,6 +104,8 @@ def smoke(args, summary):
                 "AXIOM_GH_BIN": str(private / "bin" / "unavailable-gh"),
                 "LANG": "C", "LC_ALL": "C",
             }
+            if host[0] == "Windows":
+                environment.update(windows_environment(private / "home", private / "tmp"))
 
             def run(*command):
                 # File capture avoids unbounded memory and keeps raw CLI output
@@ -146,7 +158,7 @@ def main():
     parser.add_argument("--dir", dest="directory", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
-    parser.add_argument("--row", choices=("linux-amd64", "linux-arm64", "macos-27-arm64"), required=True)
+    parser.add_argument("--row", choices=("linux-amd64", "linux-arm64", "macos-27-arm64", "windows-amd64"), required=True)
     args = parser.parse_args()
     summary = {
         "schema": "axiom-prepared-artifact-smoke/v1", "version": args.version,

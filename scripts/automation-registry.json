@@ -243,13 +243,14 @@
       "path": ".github/workflows/native-artifact-acceptance.yml",
       "kind": "workflow",
       "owner": "release",
-      "purpose": "Issue #256 required hosted native Linux ARM64 lifecycle acceptance on already-prepared immutable bytes.",
+      "purpose": "Required native Linux ARM64 and Windows member Server AMD64 installation acceptance on exact prepared artifacts; no rebuild or publication authority.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
       "runtime": [
         "github-actions",
         "bash",
+        "powershell",
         "python3"
       ],
       "scope": [
@@ -508,7 +509,7 @@
       "path": "scripts/accept-native-artifact.py",
       "kind": "script",
       "owner": "release",
-      "purpose": "Issue #256 native Linux prepared-byte install/configure/upgrade/reinstall/refusal/recovery acceptance with a genuine v0.10.0 baseline.",
+      "purpose": "Native Linux ARM64 and Windows member Server AMD64 artifact lifecycle, provenance, configuration, reinstall, refusal and recovery; genuine prior Linux release upgrade; explicit first-Server baseline N/A.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,

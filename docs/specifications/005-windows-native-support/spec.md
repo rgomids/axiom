@@ -8,6 +8,15 @@ native port on 2026-09-30. This contract governs the implementation in PR #149
 upstream acceptance and release publication remain separate decisions. Validation
 results and remaining limitations are recorded in `evidence.md`.
 
+## Server support amendment — 2026-10-09
+
+The maintainer explicitly authorized Windows Server AMD64 support for Issue #256.
+[ADR-0021](../../decisions/0021-windows-server-amd64-native-acceptance.md#decision)
+supersedes the historical Server exclusions below. Workstation and member Server
+are eligible; domain controllers, unknown products and Windows ARM64 remain refused.
+The existing local NTFS security and publication authority contracts remain.
+Native Server evidence is tracked in the [acceptance report](../../development/native-platform-acceptance.md).
+
 ## Problem
 
 Axiom's published installer and release artifacts support macOS and Linux only.

@@ -63,7 +63,7 @@ jobs:
           - platform: macos
             runner: macos-15
           - platform: windows
-            # Server is a regression host, not an approved installation row.
+            # Server AMD64 is a supported native installation and regression row.
             runner: windows-2022
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20

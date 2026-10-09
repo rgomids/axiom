@@ -33,8 +33,8 @@ func windowsBundleCandidate(t *testing.T, b *bundle) Candidate {
 }
 
 func windowsTarget(t *testing.T) Target {
-	// Exercise filesystem/install mechanics on Server CI without claiming that
-	// its host is a supported product row. Host refusal is tested separately.
+	// Exercise filesystem/install mechanics with a deterministic host fixture.
+	// Real workstation/Server eligibility is checked separately.
 	previous := hostRow
 	hostRow = func() string { return "windows:windows:amd64" }
 	t.Cleanup(func() { hostRow = previous })

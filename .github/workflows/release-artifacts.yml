@@ -170,7 +170,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  native-linux-arm64:
+  native-acceptance:
     needs: prepare
     uses: ./.github/workflows/native-artifact-acceptance.yml
     with:

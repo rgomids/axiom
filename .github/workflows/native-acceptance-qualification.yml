@@ -100,6 +100,10 @@ jobs:
         with:
           name: native-linux-arm64-rejection
           path: ${{ runner.temp }}/rejection
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: native-windows-server-amd64-rejection
+          path: ${{ runner.temp }}/windows-rejection
       - name: Assert successful acceptance and blocked promotion
         env:
           ACCEPTANCE: ${{ needs.acceptance.result }}
@@ -114,12 +118,18 @@ jobs:
           test "$PROMOTION" = skipped
           test "$MACOS" = success
           test "$CONTRACT" = success
-          python3 - "$RUNNER_TEMP/rejection/native.json" <<'PY'
+          python3 - "$RUNNER_TEMP/rejection/native.json" "$RUNNER_TEMP/windows-rejection/native.json" <<'PY'
           import json, sys
           report = json.load(open(sys.argv[1]))
           assert report['result'] == 'fail'
           assert report['error'] == 'prepared archive checksum mismatch'
           assert report['row'] == 'linux-arm64'
           assert report['environment']['architecture'] == 'aarch64'
+          windows = json.load(open(sys.argv[2]))
+          assert windows['result'] == 'fail'
+          assert windows['error'] == 'prepared archive checksum mismatch'
+          assert windows['row'] == 'windows-amd64'
+          assert windows['environment']['os'] == 'Windows'
+          assert windows['environment']['architecture'] == 'AMD64'
           PY
           printf 'acceptance=%s rejection=%s promotion=%s\n' "$ACCEPTANCE" "$REJECTION" "$PROMOTION" >> "$GITHUB_STEP_SUMMARY"

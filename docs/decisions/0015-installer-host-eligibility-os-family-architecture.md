@@ -57,10 +57,17 @@ not a check of it.
    | Linux + aarch64 | `linux-arm64` |
    | Windows client edition + AMD64 + 64-bit PowerShell | `windows-amd64` |
 
+> Superseded by [ADR-0021 — Windows Server AMD64 native acceptance](0021-windows-server-amd64-native-acceptance.md#decision), accepted 2026-10-09.
+> Only client-only Windows eligibility is superseded.
+
 4. These checks remain in force:
    - supported architecture restrictions;
    - the Windows client/server distinction (`ProductType` workstation only;
      Windows Server and domain controllers stay refused);
+
+> Superseded by [ADR-0021 — Windows Server AMD64 native acceptance](0021-windows-server-amd64-native-acceptance.md#decision), accepted 2026-10-09.
+> Only Server refusal is superseded; domain controllers remain refused.
+
    - required tools and runtime prerequisites (for example `curl`, `tar`,
      `sha256sum`/`shasum`, `Windows_NT`, 64-bit PowerShell, `tar.exe`);
    - filesystem and security constraints (ADR-0005, ADR-0010);

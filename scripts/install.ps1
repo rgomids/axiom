@@ -33,9 +33,10 @@ if ($env:PROCESSOR_ARCHITEW6432) { $architecture = $env:PROCESSOR_ARCHITEW6432 }
 if ($env:OS -ne 'Windows_NT' -or $architecture -ne 'AMD64' -or -not [Environment]::Is64BitProcess) {
     throw 'Windows amd64 and 64-bit PowerShell are required.'
 }
-# Eligibility is the Windows client edition, never the numeric OS version.
-if ((Get-CimInstance Win32_OperatingSystem).ProductType -ne 1) {
-    throw 'A Windows client edition is required; Windows Server is unsupported.'
+# Eligibility is workstation or member Server, never the numeric OS version.
+$productType = (Get-CimInstance Win32_OperatingSystem).ProductType
+if ($productType -ne 1 -and $productType -ne 3) {
+    throw 'Windows workstation or member Server is required; domain controllers and unknown product types are unsupported.'
 }
 if (-not (Get-Command tar.exe -ErrorAction SilentlyContinue)) {
     throw 'The Windows tar.exe utility is required.'

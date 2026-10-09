@@ -1,5 +1,26 @@
 # Native platform acceptance
 
+## Current Server amendment
+
+Explicit maintainer authorization expanded this PR to member Windows Server AMD64.
+The reusable required `native-acceptance` now includes `windows-server-amd64` on
+`windows-2022`, alongside Linux ARM64. Both consume exact prepared bytes and must
+pass before preparation can be successful. Workstation AMD64 remains a separate
+native coverage gap; Windows ARM64 and domain controllers remain unsupported.
+
+Server covers fresh install, PATH discovery/provenance, DACL protection, real CLI
+configuration/show/list/validate, reinstall/idempotency, invalid arguments, missing
+projects, corrupt/missing configuration recovery, corrupt archive refusal, foreign
+binary preservation, and junction destination refusal. Native existing installer
+and bootstrap regressions now run positive Server paths, including fixture upgrade,
+locked binary refusal, permission repair, default paths and both PowerShell versions.
+
+A genuine prior-supported-release Server upgrade is N/A for this first supported
+candidate; fixture upgrade does not substitute for historical release evidence.
+The POSIX installer interruption hook is N/A to Windows; Windows refused-install
+retry/recovery is covered by native regressions. Native execution results will be
+recorded after qualification. The earlier investigation/evidence below is historical.
+
 ## Authority and design
 
 Issue [#256](https://github.com/rgomids/axiom/issues/256), its
@@ -15,11 +36,11 @@ build/toolchain in the native job. The existing Linux amd64 and macOS arm64
 smokes remain intact. `verify-prepared-release.sh` already rejects any preparation
 run that is not completed/successful, both before preview and before publication.
 Acceptance cannot authorize publication or obtain publication credentials.
-No production behavior, dependency or support commitment changes; no new ADR
-is needed. ADR-0005 filesystem confinement, ADR-0010 Windows client/amd64 bounds,
-ADR-0015 host eligibility and constitution sections II–VII remain intact.
+The maintainer subsequently authorized member Server AMD64 support in the same PR.
+[ADR-0021](../decisions/0021-windows-server-amd64-native-acceptance.md) records that
+bounded amendment; local NTFS and security boundaries remain intact.
 
-## Investigation and feasibility (2026-10-09)
+## Initial investigation and feasibility (before Server authorization)
 
 | Platform/scenario | Feasibility / activation | Evidence and rationale |
 | --- | --- | --- |
@@ -72,7 +93,7 @@ or discovered Providers/Runtimes. Repository paths and HOME include spaces.
 | Invalid CLI/configuration and recovery | Linux ARM64 | `invalid-arguments`, `missing-project`, `malformed-config-recovery`, `missing-config-recovery`, `install-interruption-recovery` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
 | Platform filesystem/security behavior | Linux ARM64 | spaces, 0700 binary/0600 receipt, `foreign-binary-preserved`, `symlink-destination-refused` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
 | Negative artifact and functional controls | Linux ARM64 | `corrupt-artifact-refused`; #244 wrong provenance/non-executable/lifecycle failure/timeout/mutation tests; qualification `rejection` job | PASS; [native](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) and [deliberate rejection](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924615975) |
-| Strict release dependency | Enabled ARM64 | `native-linux-arm64` required preparation job; `test-release-flow.sh` failed preparation/authorized publication refusal; qualification rejection → skipped promotion | PASS; [propagation assertion](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113925949826) and [release contracts](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924213282) |
+| Strict release dependency | Enabled ARM64 | `native-acceptance` required preparation job; `test-release-flow.sh` failed preparation/authorized publication refusal; qualification rejection → skipped promotion | PASS; [propagation assertion](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113925949826) and [release contracts](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924213282) |
 | Candidate identity | Enabled ARM64 | #244 smoke + native before/after inventories, binary/installed provenance, checksums for candidate and baseline | PASS; [native report](native-platform-acceptance-evidence.json) |
 | Linux AMD64/macOS ARM64 regression | Existing rows | Original #244 jobs, `test-release-pipeline.sh`, `test-release-flow.sh` | Both native smokes PASS in [qualification](https://github.com/rgomids/axiom/actions/runs/37961209760); release contracts recorded below |
 | Windows client lifecycle | Windows AMD64 | No eligible hosted runner | BLOCKED; no pending required job or simulated PASS |

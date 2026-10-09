@@ -20,6 +20,51 @@ on:
 permissions:
   contents: read
 jobs:
+  windows-server-amd64:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.control_revision }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: ${{ runner.temp }}/prepared
+      - name: Verify actual native Server host
+        run: |
+          $os = Get-CimInstance Win32_OperatingSystem
+          $os | Select-Object Caption, Version, ProductType | ConvertTo-Json
+          if ($os.ProductType -ne 3 -or $env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { throw 'Native Server AMD64 required.' }
+      - name: Controlled rejection in non-publishing qualification only
+        if: inputs.reject_control
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "prepared/artifacts/axiom-$env:VERSION-windows-amd64.tar.gz"
+          $stream = [IO.File]::Open($archive, [IO.FileMode]::Append)
+          try { $bytes = [Text.Encoding]::ASCII.GetBytes('corruption-control'); $stream.Write($bytes, 0, $bytes.Length) } finally { $stream.Dispose() }
+      - name: Native installation lifecycle on exact prepared bytes
+        env:
+          VERSION: ${{ inputs.version }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          python scripts/accept-native-artifact.py --dir "$env:RUNNER_TEMP/prepared/artifacts" --version "$env:VERSION" --revision "$env:REVISION" --row windows-amd64 --log "$env:RUNNER_TEMP/native.log" > "$env:RUNNER_TEMP/native.json"
+          if ($LASTEXITCODE -ne 0) { throw "Server acceptance failed: $LASTEXITCODE" }
+      - name: Retain acceptance diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: native-windows-server-amd64-${{ inputs.reject_control && 'rejection' || 'acceptance' }}
+          path: |
+            ${{ runner.temp }}/native.json
+            ${{ runner.temp }}/native.log
+          if-no-files-found: error
+          retention-days: 30
   linux-arm64:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15

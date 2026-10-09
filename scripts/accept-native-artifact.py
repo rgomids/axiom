@@ -2,7 +2,7 @@
 """Native prepared-byte installation lifecycle (#256), no builds or Providers.
 
 The baseline is the genuine published v0.10.0 distribution. Reports and logs
-must be outside the immutable artifact directories. Only native Linux runs.
+must be outside the immutable artifact directories. Linux and Windows run natively.
 """
 import argparse
 import importlib.util
@@ -53,9 +53,13 @@ def extract(root, version, row, destination):
 
 
 def acceptance(args, report):
-    require((platform.system(), platform.machine()) == ("Linux", {"linux-arm64": "aarch64", "linux-amd64": "x86_64"}[args.row]),
+    windows = args.row == "windows-amd64"
+    binary_name = "axiom.exe" if windows else "axiom"
+    expected_host = ("Windows", "AMD64") if windows else ("Linux", {"linux-arm64": "aarch64", "linux-amd64": "x86_64"}[args.row])
+    require((platform.system(), platform.machine()) == expected_host,
             "native host does not match row")
-    roots = [Path(args.directory), Path(args.previous)]
+    require(windows or args.previous, "genuine prior Linux release required")
+    roots = [Path(args.directory)] + ([Path(args.previous)] if args.previous else [])
     require(all(p.is_absolute() and p.is_dir() and not p.is_symlink() for p in roots),
             "absolute regular artifact directories required")
     before = [smoke.inventory(p) for p in roots]
@@ -67,10 +71,14 @@ def acceptance(args, report):
             extracted = work / "bundles"
             extracted.mkdir()
             candidate, archive, checksum, metadata = extract(roots[0], args.version, args.row, extracted)
-            previous, prior_archive, prior_checksum, prior_metadata = extract(roots[1], "0.10.0", args.row, extracted)
-            report["baseline"] = {"version": "0.10.0", "archiveSha256": prior_checksum,
+            if not windows:
+                previous, prior_archive, prior_checksum, prior_metadata = extract(roots[1], "0.10.0", args.row, extracted)
+                report["baseline"] = {"version": "0.10.0", "archiveSha256": prior_checksum,
                                   "revision": prior_metadata["revision"],
                                   "binarySha256": smoke.digest(previous / "axiom")}
+            else:
+                report["notApplicable"] = {"genuine-prior-upgrade-state-reinstall": "First supported Server candidate; no prior supported Server release",
+                                           "install-interruption-recovery": "POSIX-only installer fault seam; Windows refusal/retry covered separately"}
             report["archiveSha256"] = checksum
             log = Path(args.log)
             log.parent.mkdir(parents=True, exist_ok=True)
@@ -100,28 +108,39 @@ def acceptance(args, report):
                     home.mkdir(mode=0o700)
                     for directory in ("cwd", "repository with spaces", "tmp"):
                         (home / directory).mkdir(mode=0o700)
-                    return home, {"HOME": str(home), "USERPROFILE": str(home),
+                    environment = {"HOME": str(home), "USERPROFILE": str(home),
                                   "PATH": f"{home / 'bin'}:/usr/bin:/bin",
                                   "TMPDIR": str(home / "tmp"), "LANG": "C", "LC_ALL": "C",
                                   "LINGO_PROJECTS_ROOT": str(home / "projects"),
                                   "LINGO_STATE_ROOT": str(home / "state"),
                                   "AXIOM_CODEX_SKILLS_ROOT": str(home / "skills"),
                                   "AXIOM_GH_BIN": str(home / "unavailable-gh")}
+                    if windows:
+                        environment.update(smoke.windows_environment(home, home / "tmp"))
+                        system = Path(environment["SystemRoot"]) / "System32"
+                        environment["PATH"] = os.pathsep.join(str(p) for p in (home / "bin", system, system / "WindowsPowerShell/v1.0"))
+                    return home, environment
 
                 home, env = environment("home with spaces")
-                binary = home / "bin" / "axiom"
+                binary = home / "bin" / binary_name
                 receipt = home / "receipt"
 
                 def install(bundle, subject, checksums=None, extra=None, target=home, expected=0):
                     installer_env = dict(env, HOME=str(target), USERPROFILE=str(target))
                     installer_env.update(extra or {})
+                    if windows:
+                        return command([Path(env["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe",
+                                        "-NoProfile", "-NonInteractive", "-File", bundle / "install.ps1",
+                                        "-Archive", subject, "-Checksums", checksums or roots[0] / "SHA256SUMS",
+                                        "-BinDir", target / "bin", "-ReceiptDir", target / "receipt"],
+                                       installer_env, home / "cwd", expected)
                     return command(["/bin/bash", bundle / "install.sh", "--archive", subject,
                                     "--checksums", checksums or roots[0] / "SHA256SUMS",
                                     "--bin-dir", target / "bin", "--receipt-dir", target / "receipt"],
                                    installer_env, home / "cwd", expected)
 
                 def cli(*argv, expected=0):
-                    output = command(["axiom", "--json", *argv], env, home / "cwd", expected)
+                    output = command([shutil.which(binary_name, path=env["PATH"]) or binary_name, "--json", *argv], env, home / "cwd", expected)
                     event = json.loads(output)
                     require(event.get("status") == "success" if expected == 0 else event.get("status") != "success",
                             "unexpected CLI status")
@@ -136,8 +155,28 @@ def acceptance(args, report):
 
                 scenario("fresh-install", lambda: require("install_status=installed" in install(candidate, archive), "fresh status"))
                 scenario("discovery-provenance", lambda: version(args.version, args.revision))
-                scenario("private-permissions", lambda: require(binary.stat().st_mode & 0o777 == 0o700
-                         and (receipt / "installation.receipt").stat().st_mode & 0o777 == 0o600, "unsafe permissions"))
+                if windows:
+                    def powershell(code):
+                        return command([Path(env["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe",
+                                        "-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; " + code],
+                                       env, home / "cwd")
+                    def private_permissions():
+                        for path in (binary, receipt / "installation.receipt"):
+                            rules = json.loads(powershell("$a=Get-Acl -LiteralPath '" + str(path).replace("'", "''") + "'; "
+                                 "ConvertTo-Json -Compress -InputObject @($a.Access | ForEach-Object { "
+                                 "[pscustomobject]@{sid=$_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value;"
+                                 "rights=[int]$_.FileSystemRights;type=$_.AccessControlType.ToString()} })"))
+                            user = powershell("[Security.Principal.WindowsIdentity]::GetCurrent().User.Value").strip()
+                            trusted = {user, "S-1-5-18", "S-1-5-32-544"}
+                            require(all(r["type"] != "Allow" or r["sid"] in trusted or r["rights"] & 0xD0156 == 0 for r in rules),
+                                    "unsafe Windows installation DACL")
+                    product = int(powershell("(Get-CimInstance Win32_OperatingSystem).ProductType").strip())
+                    report["environment"]["productType"] = product
+                    require(product == 3, "Server acceptance requires actual ProductType 3")
+                    scenario("private-permissions", private_permissions)
+                else:
+                    scenario("private-permissions", lambda: require(binary.stat().st_mode & 0o777 == 0o700
+                             and (receipt / "installation.receipt").stat().st_mode & 0o777 == 0o600, "unsafe permissions"))
                 configuration = ("project", "configure", "--slug", "native", "--name", "Native",
                                  "--repository", f"main={home / 'repository with spaces'}", "--work-item-provider", "none")
 
@@ -156,7 +195,7 @@ def acceptance(args, report):
                 owned = smoke.digest(binary), smoke.inventory(receipt)
                 scenario("reinstall-idempotent", lambda: require("install_status=unchanged" in install(candidate, archive)
                          and owned == (smoke.digest(binary), smoke.inventory(receipt))
-                         and sorted(p.name for p in binary.parent.iterdir()) == ["axiom"]
+                         and sorted(p.name for p in binary.parent.iterdir()) == [binary_name]
                          and state == (smoke.inventory(home / "projects"), smoke.inventory(home / "state")), "reinstall changed state"))
                 scenario("invalid-arguments", lambda: cli("project", "show", "--unsupported", expected=None))
                 scenario("missing-project", lambda: cli("project", "show", "--selector", "absent", expected=None))
@@ -200,13 +239,21 @@ def acceptance(args, report):
                 foreign = work / "foreign"
                 foreign.mkdir(mode=0o700)
                 (foreign / "bin").mkdir(mode=0o700)
-                (foreign / "bin" / "axiom").write_text("foreign")
+                (foreign / "bin" / binary_name).write_text("foreign")
                 scenario("foreign-binary-preserved", lambda: (install(candidate, archive, target=foreign, expected=None),
-                         require((foreign / "bin" / "axiom").read_text() == "foreign", "foreign binary overwritten")))
+                         require((foreign / "bin" / binary_name).read_text() == "foreign", "foreign binary overwritten")))
                 link = work / "linked"
-                link.symlink_to(home, target_is_directory=True)
+                if windows:
+                    powershell("New-Item -ItemType Junction -Path '" + str(link).replace("'", "''") + "' -Value '" + str(home).replace("'", "''") + "' | Out-Null")
+                else:
+                    link.symlink_to(home, target_is_directory=True)
                 scenario("symlink-destination-refused", lambda: (install(candidate, archive, target=link, expected=None),
                          require(owned == (smoke.digest(binary), smoke.inventory(receipt)), "symlink mutated install")))
+
+                if windows:
+                    readable()
+                    require(smoke.digest(binary) == report["binarySha256"], "installed binary changed")
+                    return
 
                 # A pre-binary interruption may be safely retried; after-binary
                 # fresh-install recovery intentionally requires guided recovery.
@@ -254,10 +301,10 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dir", dest="directory", required=True)
-    parser.add_argument("--previous", required=True)
+    parser.add_argument("--previous")
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
-    parser.add_argument("--row", choices=("linux-arm64", "linux-amd64"), required=True)
+    parser.add_argument("--row", choices=("linux-arm64", "linux-amd64", "windows-amd64"), required=True)
     parser.add_argument("--log", required=True)
     args = parser.parse_args()
     report = {"schema": "axiom-native-acceptance/v1", "version": args.version,
@@ -269,7 +316,7 @@ def main():
               "job": os.getenv("GITHUB_JOB", "local")}
     try:
         log = Path(args.log).resolve()
-        require(all(not log.is_relative_to(Path(p).resolve()) for p in (args.directory, args.previous)),
+        require(all(not log.is_relative_to(Path(p).resolve()) for p in (args.directory, args.previous) if p),
                 "log must be outside immutable inputs")
         acceptance(args, report)
         report["result"] = "pass"
