@@ -356,17 +356,6 @@ func upgradeSkillReceiptPartial(result install.Result) (string, string) {
 		"Run `axiom first-run` with the upgraded binary to refresh the skill-set receipt and converge every detected Runtime, or `axiom runtime codex install` when Codex is not on PATH"
 }
 
-// upgradeResumeNext is the next step after confirmed effects stopped short.
-func upgradeResumeNext(category string) string {
-	switch category {
-	case "preservation_failed", "preservation_unverified":
-		return "Historical state is still active and unchanged; free space or fix the archive location if needed, then rerun the installer with the same release to resume"
-	case "retirement_failed", "state_transition_incomplete":
-		return "Historical state is preserved in the Axiom archive and partly retired; rerun the installer with the same release to resume"
-	}
-	return "Rerun the installer (or `axiom upgrade`) with the same release to resume the remaining effects"
-}
-
 func upgradeCategory(err error) string {
 	var upgradeErr *install.Error
 	if errors.As(err, &upgradeErr) {

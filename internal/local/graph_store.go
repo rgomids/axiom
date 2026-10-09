@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"os"
 	"path/filepath"
 
@@ -183,11 +182,4 @@ func validGraphToken(value string) bool {
 		}
 	}
 	return true
-}
-
-func graphStoreError(err error) error {
-	if errors.Is(err, ErrRecoveryRequired) {
-		return errors.Join(err, executiongraph.ErrInvalidGraph)
-	}
-	return err
 }

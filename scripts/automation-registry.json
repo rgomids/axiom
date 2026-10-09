@@ -44,7 +44,7 @@
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "owner": "ci",
-      "purpose": "Required product checks on every pull request and main push: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job; plus the required upgrade-journeys acceptance jobs on linux and macos (versioned policy; remote application follows merge to main and administrative read-back).",
+      "purpose": "Required product checks on every pull request and manual dispatch: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job; plus the required upgrade-journeys acceptance jobs on linux and macos (versioned policy; remote application follows merge to main and administrative read-back). Parallel go-quality requires formatting, module tidiness and pinned curated Staticcheck with regression contracts.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -61,12 +61,13 @@
         "scripts/release-pr-checks.sh"
       ],
       "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos/windows plus release-contract job",
-      "outputs": "Required check contexts verify (linux|macos|windows) and release-contract; step failures fail the run",
+      "outputs": "Required check contexts verify (linux|macos|windows) and release-contract; step failures fail the run; go-quality required context",
       "local_effects": "runner workspace only",
-      "network_effects": "GitHub Actions checkout and setup-go; Go module download; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1 from github.com release downloads",
+      "network_effects": "GitHub Actions checkout and setup-go; Go module download; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1 from github.com release downloads; pinned honnef.co/go/tools@v0.8.1 and its module dependencies",
       "authority": "contents: read token only; no secrets, no publication path",
       "tests": [
-        "scripts/test-release-flow.sh"
+        "scripts/test-release-flow.sh",
+        "scripts/test-go-quality.py"
       ],
       "evidence": null,
       "compatibility": [],
@@ -808,6 +809,41 @@
         "scripts/test_maintainer_agent_eval.py"
       ],
       "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/check-go-quality.sh",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Read-only formatting, module tidiness and pinned curated Staticcheck checks for Issue #242.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "CI go-quality job or documented local reproduction",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml",
+        "scripts/test-go-quality.py"
+      ],
+      "inputs": "Go toolchain from go.mod; Staticcheck v0.8.1 on PATH or STATICCHECK; curated checks in check-go-quality.sh; source checkout",
+      "outputs": "Tool versions, reproduction command and actionable diagnostics; nonzero exit on failure",
+      "local_effects": "Go module and build caches; tests create and remove temporary fixture directories; no source mutation",
+      "network_effects": "Go module downloads if not cached; no Runtime or Provider calls",
+      "authority": "read-only local validation",
+      "tests": [
+        "scripts/test-go-quality.py"
+      ],
+      "evidence": "docs/development/evidence-go-quality-242.md",
       "compatibility": [],
       "removal_condition": null
     },
@@ -1849,6 +1885,41 @@
           "path": ".github/delivery-project.json"
         }
       ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-go-quality.py",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Real-tool positive and negative gate contracts in isolated Go modules, plus bounded parallel required-workflow checks.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3",
+        "bash",
+        "go"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "CI go-quality job or documented local reproduction",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "Go toolchain from go.mod; Staticcheck v0.8.1 on PATH or STATICCHECK; curated checks in check-go-quality.sh; source checkout",
+      "outputs": "Tool versions, reproduction command and actionable diagnostics; nonzero exit on failure",
+      "local_effects": "Go module and build caches; tests create and remove temporary fixture directories; no source mutation",
+      "network_effects": "Go module downloads if not cached; no Runtime or Provider calls",
+      "authority": "read-only local validation",
+      "tests": [
+        "scripts/test-go-quality.py"
+      ],
+      "evidence": "docs/development/evidence-go-quality-242.md",
+      "compatibility": [],
       "removal_condition": null
     },
     {

@@ -92,6 +92,9 @@ func TestWorkflowListEnumeratesDeterministicallyAndFilters(t *testing.T) {
 	if len(again.Executions) != 3 {
 		t.Fatalf("filtered = %+v", again)
 	}
+	if after := snapshotTrees(t, env.root, env.state, env.workspace); !bytes.Equal(seeded, after) {
+		t.Fatal("listing changed seeded state")
+	}
 	// A preserved record of a detached (unattached) Repository key is not
 	// listed until the key is re-attached (F-03), as in work-item list.
 	seedExecution(t, env, "api", "1", "018f4a44-7c31-7dd4-9d00-000000000004")

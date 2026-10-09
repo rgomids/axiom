@@ -100,3 +100,14 @@ func installDiagnostic(value string) string {
 		return -1
 	}, value)
 }
+
+// upgradeResumeNext is used only by the POSIX installer after partial effects.
+func upgradeResumeNext(category string) string {
+	switch category {
+	case "preservation_failed", "preservation_unverified":
+		return "Historical state is still active and unchanged; free space or fix the archive location if needed, then rerun the installer with the same release to resume"
+	case "retirement_failed", "state_transition_incomplete":
+		return "Historical state is preserved in the Axiom archive and partly retired; rerun the installer with the same release to resume"
+	}
+	return "Rerun the installer (or `axiom upgrade`) with the same release to resume the remaining effects"
+}

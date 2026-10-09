@@ -25,6 +25,33 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  go-quality:
+    name: go-quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GOTOOLCHAIN: local
+      GOWORK: off
+      GOFLAGS: ''
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Formatting
+        run: ./scripts/check-go-quality.sh format
+      - name: Module tidiness
+        run: ./scripts/check-go-quality.sh tidy
+      - name: Install pinned Staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
+      - name: Curated static analysis
+        run: ./scripts/check-go-quality.sh staticcheck
+      - name: Quality gate regression contracts
+        run: python3 scripts/test-go-quality.py
+
   verify:
     name: verify (${{ matrix.platform }})
     strategy:
