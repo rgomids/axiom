@@ -601,10 +601,3 @@ func digestOf(content []byte) string {
 	digest := sha256.Sum256(content)
 	return hex.EncodeToString(digest[:])
 }
-
-func syncPath(path string) {
-	if directory, err := os.Open(path); err == nil {
-		_ = directory.Sync()
-		_ = directory.Close()
-	}
-}

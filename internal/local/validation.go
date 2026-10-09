@@ -13,7 +13,8 @@ import (
 )
 
 func validateState(s RecordState) []Issue {
-	for _, issue := range project.ValidateIdentity(s.ProjectID, s.ObservedSlug) {
+	if issues := project.ValidateIdentity(s.ProjectID, s.ObservedSlug); len(issues) > 0 {
+		issue := issues[0]
 		field := "installation.projectId"
 		if issue.Field == "project.slug" {
 			field = "installation.observedSlug"
