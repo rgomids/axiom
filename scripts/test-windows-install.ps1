@@ -62,7 +62,7 @@ try {
     $isolatedOverrides = @{}
     foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) {
         $isolatedOverrides[$name] = [Environment]::GetEnvironmentVariable($name,'Process')
-        [Environment]::SetEnvironmentVariable($name,$null,'Process')
+        if (Test-Path -LiteralPath "Env:$name") { Remove-Item -LiteralPath "Env:$name" }
     }
     New-Item -ItemType Directory -Path $env:USERPROFILE,$env:LOCALAPPDATA -Force | Out-Null
     $everyone = New-Object Security.Principal.SecurityIdentifier('S-1-1-0')
@@ -209,7 +209,11 @@ try {
     Write-Output 'windows_install_contract=pass'
 } finally {
     Pop-Location
-    foreach ($name in $savedEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name],'Process') }
+    foreach ($name in $savedEnvironment.Keys) {
+        if ($null -eq $savedEnvironment[$name]) {
+            if (Test-Path -LiteralPath "Env:$name") { Remove-Item -LiteralPath "Env:$name" }
+        } else { [Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name],'Process') }
+    }
     # Exact UUID directory created above; never delete a caller-supplied path.
     if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
 }

@@ -253,7 +253,11 @@ try {
         $archiveHash = (Get-FileHash -LiteralPath $archivePath).Hash.ToLowerInvariant()
         $env:LOCALAPPDATA = Join-Path $work 'AppData\Local'
         $env:CLAUDE_CONFIG_DIR = $null
-        foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) { [Environment]::SetEnvironmentVariable($name,$null,'Process') }
+        # Modern .NET keeps an empty variable when PowerShell binds $null to
+        # string. The CLI correctly refuses an explicitly empty state root.
+        foreach ($name in @('LINGO_PROJECTS_ROOT','LINGO_STATE_ROOT','AXIOM_CODEX_SKILLS_ROOT')) {
+            if (Test-Path -LiteralPath "Env:$name") { Remove-Item -LiteralPath "Env:$name" }
+        }
         $runtimeBin = Join-Path $work 'runtime-bin'
         New-Item -ItemType Directory -Path $runtimeBin | Out-Null
         [IO.File]::WriteAllText((Join-Path $runtimeBin 'codex.cmd'),'@echo must-not-execute',$utf8)
@@ -280,7 +284,11 @@ try {
 } finally {
     $env:PROCESSOR_ARCHITECTURE = $savedArch; $env:PROCESSOR_ARCHITEW6432 = $savedWow
     $env:USERPROFILE = $savedProfile
-    foreach ($name in $onboardingEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name,$onboardingEnvironment[$name],'Process') }
+    foreach ($name in $onboardingEnvironment.Keys) {
+        if ($null -eq $onboardingEnvironment[$name]) {
+            if (Test-Path -LiteralPath "Env:$name") { Remove-Item -LiteralPath "Env:$name" }
+        } else { [Environment]::SetEnvironmentVariable($name,$onboardingEnvironment[$name],'Process') }
+    }
     if (-not [IO.Path]::GetFullPath($work).StartsWith([IO.Path]::GetFullPath($testRoot) + '\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Test cleanup escaped its root.' }
     Remove-Item -LiteralPath $work -Recurse -Force
 }
