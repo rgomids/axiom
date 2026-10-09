@@ -163,6 +163,7 @@ if grep -Eiq 'gh release|git push|git tag|contents: write|softprops|action-gh-re
   exit 1
 fi
 while IFS= read -r line; do
+  [[ "$line" == '    uses: ./.github/workflows/native-artifact-acceptance.yml' ]] && continue
   [[ "$line" =~ uses:\ [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}\ \#\ v[0-9.]+$ ]] || { printf 'FAIL: unpinned action: %s\n' "$line" >&2; exit 1; }
 done < <(grep -E '^\s+(- )?uses:' "$workflow")
 [[ $(grep -c 'inputs.tag' "$workflow") == $(grep -c 'RELEASE_TAG: \${{ inputs.tag }}' "$workflow") ]]

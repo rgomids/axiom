@@ -1,0 +1,289 @@
+{
+  "schema": "axiom-native-qualification-evidence/v1",
+  "workflowRun": "https://github.com/rgomids/axiom/actions/runs/37968344761",
+  "conclusion": "failure (required negative controls)",
+  "jobs": {
+    "linux": 113948678593,
+    "windows": 113948678477,
+    "macos": 113948678132,
+    "linuxRejection": 113948678473,
+    "windowsRejection": 113948678567,
+    "promotion": 113948802613,
+    "verifyPropagation": 113951085317
+  },
+  "promotion": "skipped",
+  "verifyPropagation": "success",
+  "reports": {
+    "linux": {
+      "archive": "axiom-9999.0.0-acceptance-linux-arm64.tar.gz",
+      "archiveSha256": "712de3cd46993f36a76ee8d556b44667958524b5635b3d6b359e1cdb70583d9d",
+      "baseline": {
+        "archiveSha256": "905b3f729a824d0c2e3530d638683209e1cc5d0011347b4c7182a518d5c854ba",
+        "binarySha256": "9ee3aec3106b96cb86b44cc902cc19d121727fb92a40005f0d62482b0915be20",
+        "revision": "c7260797aad7",
+        "version": "0.10.0"
+      },
+      "binarySha256": "10274fbe0de6f4a307e8ba8ff8c043a2ea407449402acf62db1c0bc06339f039",
+      "checks": [
+        "version-revision",
+        "project-configure-show-list",
+        "inputs-unchanged"
+      ],
+      "environment": {
+        "architecture": "aarch64",
+        "os": "Linux",
+        "platform": "Linux-6.17.0-1022-azure-aarch64-with-glibc2.39",
+        "runnerImage": "ubuntu24-arm64",
+        "runnerImageVersion": "20261004.142.1"
+      },
+      "inputsUnchanged": true,
+      "job": "linux-arm64",
+      "result": "pass",
+      "revision": "34c1f304222d3813576253c7968e6a7eaf5fe4c1",
+      "row": "linux-arm64",
+      "scenarios": [
+        {
+          "expected": "pass",
+          "id": "fresh-install",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "discovery-provenance",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "private-permissions",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "configuration-cli",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "reinstall-idempotent",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "invalid-arguments",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "missing-project",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "malformed-config-recovery",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "missing-config-recovery",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "corrupt-artifact-refused",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "foreign-binary-preserved",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "symlink-destination-refused",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "install-interruption-recovery",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "genuine-prior-upgrade-state-reinstall",
+          "result": "pass"
+        }
+      ],
+      "schema": "axiom-native-acceptance/v1",
+      "version": "9999.0.0-acceptance",
+      "workflowRun": "https://github.com/rgomids/axiom/actions/runs/37968344761"
+    },
+    "windows": {
+      "archive": "axiom-9999.0.0-acceptance-windows-amd64.tar.gz",
+      "archiveSha256": "f630f1f17ca42f254717d6a342a1d45e3faccb223350a832ed8ba7977ae94131",
+      "binarySha256": "32f29ddc46d55d201bdd5434f65ab8e99ee23c2023182b5579e916fca84e67f4",
+      "checks": [
+        "version-revision",
+        "project-configure-show-list",
+        "inputs-unchanged"
+      ],
+      "environment": {
+        "architecture": "AMD64",
+        "os": "Windows",
+        "platform": "Windows-2022Server-10.0.20348-SP0",
+        "productType": 3,
+        "runnerImage": "win22",
+        "runnerImageVersion": "20261004.326.1"
+      },
+      "inputsUnchanged": true,
+      "job": "windows-server-amd64",
+      "notApplicable": {
+        "genuine-prior-upgrade-state-reinstall": "First supported Server candidate; no prior supported Server release",
+        "install-interruption-recovery": "POSIX-only installer fault seam; Windows refusal/retry covered separately"
+      },
+      "result": "pass",
+      "revision": "34c1f304222d3813576253c7968e6a7eaf5fe4c1",
+      "row": "windows-amd64",
+      "scenarios": [
+        {
+          "expected": "pass",
+          "id": "fresh-install",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "discovery-provenance",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "private-permissions",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "configuration-cli",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "reinstall-idempotent",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "invalid-arguments",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "missing-project",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "malformed-config-recovery",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "missing-config-recovery",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "corrupt-artifact-refused",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "foreign-binary-preserved",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "symlink-destination-refused",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "invalid-receipt-recovery",
+          "result": "pass"
+        },
+        {
+          "expected": "pass",
+          "id": "unsafe-dacl-refusal-recovery",
+          "result": "pass"
+        }
+      ],
+      "schema": "axiom-native-acceptance/v1",
+      "version": "9999.0.0-acceptance",
+      "workflowRun": "https://github.com/rgomids/axiom/actions/runs/37968344761"
+    },
+    "macos": {
+      "archive": "axiom-9999.0.0-acceptance-macos-27-arm64.tar.gz",
+      "archiveSha256": "58ad71fe8f769c48c6532281b36f3eb64ab54435a90a01e450a83516e9b6b28c",
+      "binarySha256": "21aa41e8e15decf5eaf355800b364c12e89490e37b559150400ec33b48e16f16",
+      "checks": [
+        "version-revision",
+        "project-configure-show-list",
+        "inputs-unchanged"
+      ],
+      "environment": {
+        "architecture": "arm64",
+        "os": "Darwin",
+        "platform": "macOS-15.7.9-arm64-arm-64bit-Mach-O",
+        "release": "24.6.0",
+        "runnerImage": "macos15",
+        "runnerImageVersion": "20260907.0337.1"
+      },
+      "inputsUnchanged": true,
+      "result": "pass",
+      "revision": "34c1f304222d3813576253c7968e6a7eaf5fe4c1",
+      "row": "macos-27-arm64",
+      "schema": "axiom-prepared-artifact-smoke/v1",
+      "version": "9999.0.0-acceptance"
+    },
+    "linuxRejection": {
+      "archive": "axiom-9999.0.0-acceptance-linux-arm64.tar.gz",
+      "archiveSha256": "b1b323ed5aad992546c468f65c7365cc240d29c83c818c1d80116fe3f9865bcb",
+      "environment": {
+        "architecture": "aarch64",
+        "os": "Linux",
+        "platform": "Linux-6.17.0-1022-azure-aarch64-with-glibc2.39",
+        "runnerImage": "ubuntu24-arm64",
+        "runnerImageVersion": "20261004.142.1"
+      },
+      "error": "prepared archive checksum mismatch",
+      "inputsUnchanged": true,
+      "job": "linux-arm64",
+      "result": "fail",
+      "revision": "34c1f304222d3813576253c7968e6a7eaf5fe4c1",
+      "row": "linux-arm64",
+      "scenarios": [],
+      "schema": "axiom-native-acceptance/v1",
+      "version": "9999.0.0-acceptance",
+      "workflowRun": "https://github.com/rgomids/axiom/actions/runs/37968344761"
+    },
+    "windowsRejection": {
+      "archive": "axiom-9999.0.0-acceptance-windows-amd64.tar.gz",
+      "archiveSha256": "aafb0ff66256bf2bfd13bb70c61321991dc7cea953b7804e8e1986f5377df1f8",
+      "environment": {
+        "architecture": "AMD64",
+        "os": "Windows",
+        "platform": "Windows-2022Server-10.0.20348-SP0",
+        "runnerImage": "win22",
+        "runnerImageVersion": "20261004.326.1"
+      },
+      "error": "prepared archive checksum mismatch",
+      "inputsUnchanged": true,
+      "job": "windows-server-amd64",
+      "result": "fail",
+      "revision": "34c1f304222d3813576253c7968e6a7eaf5fe4c1",
+      "row": "windows-amd64",
+      "scenarios": [],
+      "schema": "axiom-native-acceptance/v1",
+      "version": "9999.0.0-acceptance",
+      "workflowRun": "https://github.com/rgomids/axiom/actions/runs/37968344761"
+    }
+  }
+}
