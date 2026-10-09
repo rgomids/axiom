@@ -389,18 +389,25 @@ func TestCodexConfigDecodesEscapedKeys(t *testing.T) {
 		want             AuthStatus
 		reason, override string
 	}{
-		"escaped provider key":   {"\"model_\\u0070rovider\" = \"proxy\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
-		"escaped provider table": {"[\"model_\\u0070roviders\".proxy]\n\"base_\\u0075rl\" = \"https://gateway.invalid/v1\"\nenv_key = \"PROXY_KEY\"\n", AuthIncompatible, "configuration_override", "codex_config:user:base_url,codex_config:user:model_providers"},
-		"escaped array table":    {"[[ \"model_\\U00000070roviders\" ]]\n", AuthIncompatible, "configuration_override", "codex_config:user:model_providers"},
-		"literal quoted key":     {"'model_provider' = 'oss'\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
-		"escaped openai value":   {"model_provider = \"opena\\u0069\"\n", AuthSubscriptionObserved, "", ""},
-		"escaped other value":    {"model_provider = \"ollam\\u0061\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
-		"escaped inline table":   {"profiles = { fast = { \"model_\\u0070rovider\" = \"azure\" } }\n", AuthUnproven, "configuration_unreadable", ""},
-		"undecodable key":        {"\"model_\\eprovider\" = \"proxy\"\n", AuthUnproven, "configuration_unreadable", ""},
-		"unterminated key":       {"\"model_provider = \"proxy\"\n", AuthUnproven, "configuration_unreadable", ""},
-		"equals inside key":      {"\"a=b\".model_provider = \"oss\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
-		"multiline string body":  {"instructions = \"\"\"\nnot a key: model_provider = \"azure\"\nfree text = here\n\"\"\"\nmodel = \"o4\"\n", AuthSubscriptionObserved, "", ""},
-		"compatible decoded":     {"\"model_provider\" = \"openai\" # default\n[profiles.fast]\nmodel = \"o4\"\n", AuthSubscriptionObserved, "", ""},
+		"escaped provider key":          {"\"model_\\u0070rovider\" = \"proxy\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"escaped provider table":        {"[\"model_\\u0070roviders\".proxy]\n\"base_\\u0075rl\" = \"https://gateway.invalid/v1\"\nenv_key = \"PROXY_KEY\"\n", AuthIncompatible, "configuration_override", "codex_config:user:base_url,codex_config:user:model_providers"},
+		"escaped array table":           {"[[ \"model_\\U00000070roviders\" ]]\n", AuthIncompatible, "configuration_override", "codex_config:user:model_providers"},
+		"literal quoted key":            {"'model_provider' = 'oss'\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"escaped openai value":          {"model_provider = \"opena\\u0069\"\n", AuthSubscriptionObserved, "", ""},
+		"escaped other value":           {"model_provider = \"ollam\\u0061\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"escaped inline table":          {"profiles = { fast = { \"model_\\u0070rovider\" = \"azure\" } }\n", AuthUnproven, "configuration_unreadable", ""},
+		"undecodable key":               {"\"model_\\eprovider\" = \"proxy\"\n", AuthUnproven, "configuration_unreadable", ""},
+		"unterminated key":              {"\"model_provider = \"proxy\"\n", AuthUnproven, "configuration_unreadable", ""},
+		"equals inside key":             {"\"a=b\".model_provider = \"oss\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"multiline string body":         {"instructions = \"\"\"\nnot a key: model_provider = \"azure\"\nfree text = here\n\"\"\"\nmodel = \"o4\"\n", AuthSubscriptionObserved, "", ""},
+		"delimiters in comment":         {"model = \"\"\"gpt-5\"\"\" # \"\"\"\nmodel_provider = \"proxy\"\n[model_providers.proxy]\nname = \"Controlled fixture\"\nbase_url = \"https://gateway.invalid/v1\"\nenv_key = \"PROXY_KEY\"\nwire_api = \"responses\"\n", AuthIncompatible, "configuration_override", "codex_config:user:base_url,codex_config:user:model_provider,codex_config:user:model_providers"},
+		"literal delimiters in comment": {"model = '''gpt-5''' # '''\nmodel_provider = \"proxy\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"escaped delimiter inside":      {"note = \"\"\"a \\\"\"\" still open\nmodel_provider = \"azure\"\n\"\"\"\nmodel = \"o4\"\n", AuthSubscriptionObserved, "", ""},
+		"hash inside string body":       {"note = \"\"\"\nfirst # \"\"\" closes here\n\"\"\" # done\nmodel_provider = \"oss\"\n", AuthUnproven, "configuration_unreadable", ""},
+		"comment after closing line":    {"note = \"\"\"\nbody\n\"\"\" # \"\"\"\nmodel_provider = \"oss\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"text after closing delimiter":  {"note = \"\"\"a\"\"\" trailing\nmodel_provider = \"oss\"\n", AuthUnproven, "configuration_unreadable", ""},
+		"unclosed at end of file":       {"model_provider = \"openai\"\nnote = \"\"\"\nnever closed\n", AuthUnproven, "configuration_unreadable", ""},
+		"compatible decoded":            {"\"model_provider\" = \"openai\" # default\n[profiles.fast]\nmodel = \"o4\"\n", AuthSubscriptionObserved, "", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fixture := newAuthFixture(t, "codex")

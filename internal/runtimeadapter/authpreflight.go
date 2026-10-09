@@ -516,7 +516,10 @@ func codexConfigOverrides(content []byte, prefix string) ([]string, bool) {
 	for _, raw := range strings.Split(string(content), "\n") {
 		line := strings.TrimSpace(raw)
 		if multiline != "" {
-			if strings.Count(line, multiline)%2 == 1 {
+			if end := multilineEnd(line, multiline); end >= 0 {
+				if !commentOnly(line[end:]) {
+					return nil, false
+				}
 				multiline = ""
 			}
 			continue
@@ -549,8 +552,16 @@ func codexConfigOverrides(content []byte, prefix string) ([]string, bool) {
 		last := segments[len(segments)-1]
 		value = strings.TrimSpace(value)
 		for _, delimiter := range []string{`"""`, "'''"} {
-			if strings.HasPrefix(value, delimiter) && strings.Count(value, delimiter)%2 == 1 {
+			if !strings.HasPrefix(value, delimiter) {
+				continue
+			}
+			// Only the real closing delimiter ends the string; text after it
+			// may be a comment only, whatever delimiters the comment contains.
+			end := multilineEnd(value[len(delimiter):], delimiter)
+			if end < 0 {
 				multiline = delimiter
+			} else if !commentOnly(value[len(delimiter)+end:]) {
+				return nil, false
 			}
 		}
 		if strings.HasPrefix(value, "{") || strings.HasPrefix(value, "[") {
@@ -580,7 +591,36 @@ func codexConfigOverrides(content []byte, prefix string) ([]string, bool) {
 			overrides = append(overrides, prefix+"forced_login_method")
 		}
 	}
+	if multiline != "" {
+		// A string still open at end of file is not valid TOML.
+		return nil, false
+	}
 	return overrides, true
+}
+
+// multilineEnd returns the index just past the delimiter that closes a
+// multi-line string in text, or -1. Basic strings honor backslash escapes;
+// up to two quotes adjacent to the delimiter belong to the content.
+func multilineEnd(text, delimiter string) int {
+	for index := 0; index < len(text); index++ {
+		if delimiter == `"""` && text[index] == '\\' {
+			index++
+			continue
+		}
+		if strings.HasPrefix(text[index:], delimiter) {
+			end := index + len(delimiter)
+			for extra := 0; extra < 2 && end < len(text) && text[end] == delimiter[0]; extra++ {
+				end++
+			}
+			return end
+		}
+	}
+	return -1
+}
+
+func commentOnly(text string) bool {
+	text = strings.TrimSpace(text)
+	return text == "" || strings.HasPrefix(text, "#")
 }
 
 // tomlHeader recognizes `[table]` and `[[array]]` lines, returning the key.
