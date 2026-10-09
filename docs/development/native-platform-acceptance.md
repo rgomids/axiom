@@ -43,6 +43,15 @@ The Actions-policy API returned HTTP 403, but actual probe execution establishes
 eligibility without changing policy. This does not prove future quota availability:
 once activated, infrastructure failure fails preparation closed.
 
+GitHub also documents a
+[Base Windows 11 Desktop larger-runner image](https://docs.github.com/en/actions/reference/runners/larger-runners).
+This is not an available standard label for this repository: the API identifies
+`rgomids` as a **User**, while
+[larger runners require an organization/enterprise on Team or Enterprise Cloud](https://docs.github.com/en/actions/concepts/runners/larger-runners).
+They are [paid even for public repositories](https://docs.github.com/en/billing/reference/actions-runner-pricing).
+No eligible existing client/amd64 pool was established, and changing account,
+billing or infrastructure provisioning is outside the authorized scope.
+
 ## Functional contract and traceability
 
 The suite runs the candidate's own verified `install.sh` facade. v0.10.0 is a

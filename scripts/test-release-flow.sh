@@ -1705,6 +1705,7 @@ check 'Issue closure is a publication effect: no workflow closes Issues on merge
   for w in $workflows/*.yml; do
     case \$(basename \"\$w\") in
       issue-label-policy.yml) allowed='issues|push|workflow_dispatch' ;;
+      native-artifact-acceptance.yml) allowed='workflow_call' ;;
       *) allowed='pull_request|push|workflow_dispatch' ;;
     esac
     sed -n '/^on:/,/^[a-z]/p' \"\$w\" | grep -E '^  [a-z_]+:' | tr -d ' :' | grep -Eqv \"^(\$allowed)\$\" && exit 1
@@ -1716,6 +1717,7 @@ check 'Issue closure is a publication effect: no workflow closes Issues on merge
   ! grep -Eq 'state=closed|state_reason|\"state\"' $workflows/*.yml"
 pinned=true
 while IFS= read -r line; do
+  [[ "$line" == '    uses: ./.github/workflows/native-artifact-acceptance.yml' ]] && continue
   [[ "$line" =~ uses:\ [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}\ \#\ v[0-9.]+$ ]] || { printf 'unpinned: %s\n' "$line" >&2; pinned=false; }
 done < <(grep -hE '^\s+(- )?uses:' "$workflows"/*.yml)
 check 'every action is pinned by SHA' "$pinned"

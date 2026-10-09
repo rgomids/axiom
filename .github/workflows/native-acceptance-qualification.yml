@@ -6,6 +6,23 @@ on:
 permissions:
   contents: read
 jobs:
+  release-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Release regression contracts
+        run: |
+          set -euo pipefail
+          ./scripts/test-release-pipeline.sh
+          ./scripts/test-release-flow.sh
+          ./scripts/validate-repository.sh .
   prepare:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -22,8 +39,6 @@ jobs:
           set -euo pipefail
           python3 scripts/test-prepared-artifact-smoke.py
           python3 scripts/test-native-acceptance.py
-          ./scripts/test-release-pipeline.sh
-          ./scripts/test-release-flow.sh
           ./scripts/build-release-archives.sh --version 9999.0.0-acceptance --output "$RUNNER_TEMP/prepared/artifacts"
           python3 scripts/smoke-prepared-artifact.py --dir "$RUNNER_TEMP/prepared/artifacts" \
             --version 9999.0.0-acceptance --revision "$GITHUB_SHA" --row linux-amd64
@@ -80,7 +95,7 @@ jobs:
       - run: echo 'Non-publishing promotion sentinel; must be skipped after rejection'
   verify-propagation:
     if: always()
-    needs: [acceptance, rejection, promotion, smoke-macos]
+    needs: [acceptance, rejection, promotion, smoke-macos, release-contract]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -93,12 +108,14 @@ jobs:
           REJECTION: ${{ needs.rejection.result }}
           PROMOTION: ${{ needs.promotion.result }}
           MACOS: ${{ needs.smoke-macos.result }}
+          CONTRACT: ${{ needs.release-contract.result }}
         run: |
           set -euo pipefail
           test "$ACCEPTANCE" = success
           test "$REJECTION" = failure
           test "$PROMOTION" = skipped
           test "$MACOS" = success
+          test "$CONTRACT" = success
           python3 - "$RUNNER_TEMP/rejection/native.json" <<'PY'
           import json, sys
           report = json.load(open(sys.argv[1]))
