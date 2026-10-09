@@ -4,6 +4,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
+- [ADR-0020 — Workflow definition ownership and revision binding](0020-workflow-definition-revision-binding.md) — **Proposed, 2026-10-08**; portable Project definitions/selection, immutable revisions and retained local snapshots for new configurable Executions; legacy sequential and graph decisions remain intact. Human decision required before dependent implementation.
+
 - [ADR-0001 — Project is not Repository](0001-project-is-not-repository.md) — Accepted, 2026-08-08.
 - [ADR-0002 — Axiom Relationship with GitHub Spec-Kit](0002-axiom-speckit-relationship.md) — Accepted, 2026-09-10.
 - [ADR-0003 — Lingo as Axiom Local Control Plane](0003-lingo-as-axiom-local-control-plane.md) — Accepted, 2026-09-10; implementation requires an approved Specification.

@@ -7,6 +7,26 @@ commitment. Approval and implementation status live in the
 [Specification index](../specifications/README.md); detailed scope and Evidence
 remain with each Specification. Nothing here authorizes implementation.
 
+## Configurable workflow direction
+
+[Epic #15](https://github.com/rgomids/axiom/issues/15) defines the expanded journey:
+explicit default/custom Project workflow selection, stage-specific agent contracts,
+pinned execution, public Codex/Claude coordination and reviewed delivery/rework.
+[Specification 007](../specifications/007-configurable-workflows/spec.md) owns the
+bounded new contracts and dependency/acceptance coverage;
+[ADR-0020](../decisions/0020-workflow-definition-revision-binding.md) proposes portable
+definition ownership and local revision binding. Approval status lives in the
+[Specification index](../specifications/README.md). Neither document authorizes
+implementation or replaces historical Specification 004 Slices/Evidence.
+
+The contract path precedes definition authoring, then pinned execution and stage
+planning, public orchestration, delivery and current-head acceptance. Local Runtime
+authentication proof and existing Project lifecycle acceptance join the orchestration
+boundary. Help and human results converge before final acceptance. Historical
+single/sequential and graph capabilities supply foundations, not expanded-journey
+acceptance. The generic/distributed engine and independent CI/CD hardening remain
+outside this bounded direction.
+
 ## Established foundation
 
 - Axiom owns product/domain/policies/contracts; Lingo is the accepted local-first
