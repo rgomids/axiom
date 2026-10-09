@@ -25,24 +25,30 @@ type ProjectContextInput struct {
 // A session identifier is supplied by the caller, never inferred from CWD,
 // process ID, a Runtime name, or conversation content.
 func projectSessionArgs(ctx context.Context, args []string) (context.Context, []string, bool) {
+	session, rest, ok := parseProjectSessionArgs(args)
+	if !ok || session == "" {
+		return ctx, rest, ok
+	}
+	return projectapp.WithProjectSession(ctx, session), rest, true
+}
+
+// parseProjectSessionArgs validates caller syntax without resolving local state.
+func parseProjectSessionArgs(args []string) (string, []string, bool) {
 	if len(args) == 0 {
-		return ctx, args, true
+		return "", args, true
 	}
 	session := ""
 	if args[0] == "--session" {
 		if len(args) < 3 {
-			return ctx, args, false
+			return "", args, false
 		}
 		session, args = args[1], args[2:]
 	} else if strings.HasPrefix(args[0], "--session=") {
 		session, args = strings.TrimPrefix(args[0], "--session="), args[1:]
 	} else {
-		return ctx, args, true
+		return "", args, true
 	}
-	if session == "" || !projectapp.ValidProjectSession(session) {
-		return ctx, args, false
-	}
-	return projectapp.WithProjectSession(ctx, session), args, true
+	return session, args, session != "" && projectapp.ValidProjectSession(session)
 }
 
 func runProjectContext(ctx context.Context, args []string, service ProjectContextService) Result {

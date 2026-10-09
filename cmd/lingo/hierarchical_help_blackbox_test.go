@@ -105,6 +105,36 @@ func TestHierarchicalHelpBlackboxPrecedesComposition(t *testing.T) {
 					t.Errorf("invalid JSON: %s", output)
 				}
 			}
+			for _, alias := range []string{"--help", "-h"} {
+				for _, mode := range []string{"--json", "--human"} {
+					for _, test := range []struct {
+						args  []string
+						valid bool
+					}{
+						{[]string{"--session=Session_1", "project", "list", alias}, true},
+						{[]string{"--session=", "project", "list", alias}, false},
+						{[]string{"--session", "bad/value", "project", "list", alias}, false},
+						{[]string{alias, "--session"}, false},
+						{[]string{"--session=one", "--session=two", "project", "list", alias}, false},
+						{[]string{"--session", alias, "project", "list", alias}, true},
+					} {
+						args := append([]string{mode}, test.args...)
+						command := exec.Command(binary, args...)
+						command.Dir, command.Env = cwd, environment
+						output, err := command.CombinedOutput()
+						if test.valid {
+							if err != nil || !strings.Contains(string(output), "Usage:") || json.Valid(output) {
+								t.Fatalf("session help %v: %v %s", args, err, output)
+							}
+						} else {
+							exit, ok := err.(*exec.ExitError)
+							if !ok || exit.ExitCode() != cli.ExitFailure || !strings.Contains(string(output), "validation_failure") || !strings.Contains(string(output), cli.HelpCommand(test.args)) || mode == "--json" && !json.Valid(output) {
+								t.Fatalf("invalid session %v: %v %s", args, err, output)
+							}
+						}
+					}
+				}
+			}
 			if after := snapshotTrees(t, base); !bytes.Equal(before, after) {
 				t.Fatal("help modified home, state, skills, cwd or executed a Runtime/Provider")
 			}

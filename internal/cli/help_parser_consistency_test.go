@@ -122,7 +122,7 @@ func TestHelpWindowsRecoveryRoutingWithoutWindowsEffects(t *testing.T) {
 	root := group("axiom", "Test root", windowsPermissionsCommand())
 	for _, path := range [][]string{{"windows-permissions"}, {"windows-permissions", "restore"}} {
 		for _, alias := range []string{"--help", "-h"} {
-			command, found, help, valid := helpTargetFrom(&root, append(append([]string{"--json"}, path...), alias))
+			command, found, help, valid, _ := helpTargetFrom(&root, append(append([]string{"--json"}, path...), alias))
 			if !help || !valid || strings.Join(found, " ") != strings.Join(path, " ") {
 				t.Fatalf("Windows help route failed: %v", path)
 			}
@@ -139,7 +139,7 @@ func TestHelpWindowsRecoveryRoutingWithoutWindowsEffects(t *testing.T) {
 		{[]string{"windows-permissions", "unknown"}, "axiom windows-permissions --help"},
 		{[]string{"windows-permissions", "restore", "--unknown"}, "axiom windows-permissions restore --help"},
 	} {
-		_, path, _, _ := helpTargetFrom(&root, test.args)
+		_, path, _, _, _ := helpTargetFrom(&root, test.args)
 		if got := helpInvocation(path); got != test.want {
 			t.Fatalf("Windows invalid-input guidance = %s, want %s", got, test.want)
 		}
@@ -148,7 +148,7 @@ func TestHelpWindowsRecoveryRoutingWithoutWindowsEffects(t *testing.T) {
 		}
 	}
 	for _, token := range []string{"--help", "-h"} {
-		_, _, help, _ := helpTargetFrom(&root, []string{"windows-permissions", "restore", "--backup", token, "--approve", token})
+		_, _, help, _, _ := helpTargetFrom(&root, []string{"windows-permissions", "restore", "--backup", token, "--approve", token})
 		if help {
 			t.Fatal("Windows backup/approval value treated as help")
 		}
@@ -200,6 +200,49 @@ func TestHelpDirectMutationExamplesStateRequiredAuthority(t *testing.T) {
 		}
 		if strings.HasPrefix(string(operation), "context_session-") && !strings.Contains(example, "--session") {
 			t.Fatalf("session example lacks caller session: %s", example)
+		}
+	}
+}
+
+func TestHelpGlobalSessionUsesExecutionValidation(t *testing.T) {
+	for _, alias := range []string{"--help", "-h"} {
+		for _, mode := range []string{"--json", "--human"} {
+			for _, test := range []struct {
+				name  string
+				args  []string
+				valid bool
+			}{
+				{"separate", []string{"--session", "Session_1", "project", "list", alias}, true},
+				{"inline", []string{"--session=Session_1", "project", "list", alias}, true},
+				{"empty", []string{"--session=", "project", "list", alias}, false},
+				{"invalid", []string{"--session", "bad/value", "project", "list", alias}, false},
+				{"too-long", []string{"--session=" + strings.Repeat("a", 129), "project", "list", alias}, false},
+				{"missing", []string{alias, "--session"}, false},
+				{"duplicate", []string{"--session=one", "--session", "two", "project", "list", alias}, false},
+				{"help-value", []string{"--session", alias, "project", "list", alias}, true},
+			} {
+				t.Run(test.name+alias+mode, func(t *testing.T) {
+					var output bytes.Buffer
+					args := append([]string{mode}, test.args...)
+					code := RunInteractive(context.Background(), args, nil, completionProvenance(t), nil, &output, io.Discard)
+					if test.valid {
+						if code != ExitSuccess || !strings.Contains(output.String(), "Usage:") || json.Valid(output.Bytes()) {
+							t.Fatalf("valid help: code=%d output=%s", code, &output)
+						}
+						var repeated bytes.Buffer
+						HandleHelp(args, completionProvenance(t), &repeated)
+						if !bytes.Equal(output.Bytes(), repeated.Bytes()) {
+							t.Fatal("nondeterministic help")
+						}
+					} else if code != ExitFailure || !strings.Contains(output.String(), "validation_failure") || !strings.Contains(output.String(), HelpCommand(test.args)) || mode == "--json" && !json.Valid(output.Bytes()) {
+						t.Fatalf("invalid session: code=%d output=%s", code, &output)
+					}
+				})
+			}
+			// A help token consumed as the value is never itself a help request.
+			if handled, _ := HandleHelp([]string{mode, "--session", alias, "project", "list"}, completionProvenance(t), io.Discard); handled {
+				t.Fatal("session value treated as help")
+			}
 		}
 	}
 }

@@ -120,3 +120,29 @@ No new Specification, dependency, framework, authority boundary or ADR was neede
 Pending human steps: PR review, required CI, merge and subsequent release under
 separate authority. GitHub #133 and Linear AXM-10 remain open/In Progress; no human
 acceptance is recorded by this Evidence.
+
+## PR #285 session-validation correction
+
+Review [5465153981](https://github.com/rgomids/axiom/pull/285#pullrequestreview-5465153981)
+identified that help consumed global session syntax without execution validation.
+Correction against PR head `a237832`: `parseProjectSessionArgs` now shares the
+existing pure session parsing/validity rule between execution and help. Help
+rejects empty, malformed, missing and duplicate session options, reports the
+existing session parser failure category, and retains nearest-help guidance.
+Ordinary execution keeps its validation and context-binding behavior.
+
+`TestHelpGlobalSessionUsesExecutionValidation` covers separate/inline valid
+sessions, empty/invalid/oversized/missing/duplicate inputs, both help aliases and
+both output modes with nil Service. Help aliases consumed as session values
+remain data: those strings satisfy the existing session grammar, and only a
+separate help token requests rendering. The initial test expectation that these
+values were invalid was corrected to match that existing contract.
+
+`TestHierarchicalHelpBlackboxPrecedesComposition` repeats session cases with
+invalid, absent and existing state roots, external-command traps and unchanged
+filesystem snapshots. Local validation: `go test ./internal/cli/... ./cmd/lingo/...`,
+`go test -race ./internal/cli/... ./cmd/lingo/...`, `go vet ./...`, `go build ./...`,
+repository and Go quality validators, sensitive-file/secret scans and
+`git diff --check`. All listed validations passed with exit code 0 on the correction tree.
+The Go quality validator used `STATICCHECK=/Users/rgomids/go/bin/staticcheck`
+(the pinned tool was outside PATH). PR CI and human re-review remain separate gates.

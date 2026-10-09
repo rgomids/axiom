@@ -14,7 +14,7 @@ func Help(writer io.Writer) int { return renderHelp(writer, &publicCommands, nil
 // HandleHelp runs before application composition. Flag values and tokens after
 // -- are data, never requests for help. Output selection cannot override help.
 func HandleHelp(args []string, source provenance.Value, writer io.Writer) (bool, int) {
-	command, path, help, valid := helpTarget(args)
+	command, path, help, valid, sessionOK := helpTarget(args)
 	if !help {
 		return false, 0
 	}
@@ -24,7 +24,9 @@ func HandleHelp(args []string, source provenance.Value, writer io.Writer) (bool,
 		}
 		mode, _ := parseOutputMode(args)
 		operation, issue := action("unknown"), "invalid_command"
-		if command.operation != "" && command.operation != "help" {
+		if !sessionOK {
+			operation, issue = "project_context", "invalid_input"
+		} else if command.operation != "" && command.operation != "help" {
 			operation, issue = command.operation, "invalid_input"
 		}
 		return true, emitParserFailure(guidanceWriter{writer, helpInvocation(path)}, mode, operation, issue, source)
@@ -32,15 +34,16 @@ func HandleHelp(args []string, source provenance.Value, writer io.Writer) (bool,
 	return true, renderHelp(writer, command, path)
 }
 
-func helpTarget(args []string) (*commandDefinition, []string, bool, bool) {
+func helpTarget(args []string) (*commandDefinition, []string, bool, bool, bool) {
 	return helpTargetFrom(&publicCommands, args)
 }
 
-func helpTargetFrom(root *commandDefinition, args []string) (*commandDefinition, []string, bool, bool) {
+func helpTargetFrom(root *commandDefinition, args []string) (*commandDefinition, []string, bool, bool, bool) {
 	current := root
 	var path []string
 	var provided []string
 	help, valid := false, true
+	sessionSeen, sessionOK := false, true
 	for i := 0; i < len(args); i++ {
 		token := args[i]
 		if token == "--" {
@@ -56,11 +59,13 @@ func helpTargetFrom(root *commandDefinition, args []string) (*commandDefinition,
 		if token == "--json" || token == "--human" {
 			continue
 		}
-		if current == root && token == "--session" {
-			i++
-			continue
-		}
-		if current == root && strings.HasPrefix(token, "--session=") {
+		if current == root && (token == "--session" || strings.HasPrefix(token, "--session=")) {
+			_, _, ok := parseProjectSessionArgs(args[i:])
+			sessionOK = sessionOK && ok && !sessionSeen
+			sessionSeen = true
+			if token == "--session" {
+				i++ // The following token is a value, including help aliases.
+			}
 			continue
 		}
 		if len(current.children) != 0 {
@@ -93,12 +98,12 @@ func helpTargetFrom(root *commandDefinition, args []string) (*commandDefinition,
 		}
 	}
 	if current.operation == "help" && valid {
-		return root, nil, true, true
+		return root, nil, true, sessionOK, sessionOK
 	}
 	if help && valid && current.operation != "" {
 		valid = validHelpInputs(current.operation, provided)
 	}
-	return current, path, help, valid
+	return current, path, help, valid && sessionOK, sessionOK
 }
 
 // Validate only supplied syntax with execution's own registrations. Required
@@ -183,7 +188,7 @@ func withHelpGuidance(writer io.Writer, args []string) io.Writer {
 
 // HelpCommand returns the closest registered help invocation without echoing input.
 func HelpCommand(args []string) string {
-	_, path, _, _ := helpTarget(args)
+	_, path, _, _, _ := helpTarget(args)
 	return helpInvocation(path)
 }
 
