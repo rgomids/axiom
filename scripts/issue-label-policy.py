@@ -44,15 +44,13 @@ CATALOG = {
     "area:installer": (AREA_COLOR, "Work primarily related to installation, bootstrap or upgrade."),
     "area:ci-cd": (AREA_COLOR, "Work primarily related to CI, release or delivery automation."),
     "area:governance": (AREA_COLOR, "Work primarily related to project governance, policies or process."),
-    "status:planned": ("6e7781", "Accepted into the backlog; work has not started."),
-    "status:active": ("1a7f37", "Work is in progress."),
-    "status:blocked": ("cf222e", "Work cannot advance until a dependency or decision is resolved."),
+    "status:planned": ("6e7781", "Legacy optional GitHub-only editorial stage; not automatically seeded."),
+    "status:active": ("1a7f37", "Legacy optional GitHub-only editorial stage; Linear owns mapped work."),
+    "status:blocked": ("cf222e", "Legacy optional GitHub-only editorial blocker; Linear owns dependencies."),
     "platform:windows": (PLATFORM_COLOR, "Specific to or impacting Windows."),
     "platform:linux": (PLATFORM_COLOR, "Specific to or impacting Linux."),
     "platform:macos": (PLATFORM_COLOR, "Specific to or impacting macOS."),
 }
-
-DEFAULT_STATUS = "status:planned"
 
 # Issue Form option -> label. The forms must offer exactly these options.
 FORM_AREAS = {
@@ -78,6 +76,7 @@ NO_RESPONSE = "_No response_"
 MAX_AREAS = 2
 
 # Retired vocabulary outside the governed families; release/phase is a milestone.
+# status:* is retained for backward-compatible reading, never seeded or required.
 RETIRED = {"scope:mvp", "bug", "enhancement", "cross-cutting"}
 RETIRED_PREFIXES = ("slice:",)
 
@@ -155,10 +154,6 @@ def plan(issue, action):
         elif label in RETIRED or label.startswith(RETIRED_PREFIXES):
             violations.append(f"{code(label)} is retired; use `type:*` for the nature and a milestone for release/phase.")
 
-    # status: an open Issue without any status:* is planned.
-    if not members("status"):
-        add.append(DEFAULT_STATUS)
-
     # area: fill only an empty family from the form answer.
     area_answer = form_value(body, AREA_HEADING)
     if not members("area") and area_answer is not None:
@@ -190,7 +185,7 @@ def plan(issue, action):
 
     statuses = [label for label in members("status") if label in CATALOG]
     if len(statuses) > 1:
-        violations.append("Conflicting statuses " + ", ".join(map(code, statuses)) + ": exactly one `status:*` is required.")
+        violations.append("Conflicting legacy statuses " + ", ".join(map(code, statuses)) + ": at most one optional `status:*` is allowed.")
 
     areas = [label for label in members("area") if label in CATALOG]
     if not members("area") and types != ["type:epic"]:
