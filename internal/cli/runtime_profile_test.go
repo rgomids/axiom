@@ -34,7 +34,7 @@ func TestRuntimeProfileValidateDelegatesOptionalOperation(t *testing.T) {
 
 func TestRuntimeProfileValidateRejectsAllExtraArguments(t *testing.T) {
 	for _, mode := range []string{"--json", "--human"} {
-		for _, extra := range [][]string{{"private-input"}, {"--profile", "private-input"}, {"--authorize-local"}, {"--json"}, {"--human"}, {"--"}, {"--help"}, {"-h"}} {
+		for _, extra := range [][]string{{"private-input"}, {"--profile", "private-input"}, {"--authorize-local"}, {"--json"}, {"--human"}, {"--"}} {
 			t.Run(mode+strings.Join(extra, "/"), func(t *testing.T) {
 				service := &runtimeProfileRecordingService{}
 				args := append([]string{mode, "runtime", "profile", "validate"}, extra...)
@@ -60,7 +60,7 @@ func TestRuntimeProfileValidateRejectsAllExtraArguments(t *testing.T) {
 
 func TestRuntimeProfileValidateHelp(t *testing.T) {
 	var output bytes.Buffer
-	if Help(&output) != ExitSuccess || !strings.Contains(output.String(), "runtime profile validate") || !strings.Contains(output.String(), "no flags or arguments") {
+	if renderHelp(&output, commandChild(commandChild(commandChild(&publicCommands, "runtime"), "profile"), "validate"), []string{"runtime", "profile", "validate"}) != ExitSuccess || !strings.Contains(output.String(), "runtime profile validate") || !strings.Contains(output.String(), "no flags or arguments") {
 		t.Fatalf("help=%s", &output)
 	}
 }

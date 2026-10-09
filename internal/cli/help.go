@@ -1,132 +1,360 @@
 package cli
 
-import "io"
+import (
+	"flag"
+	"fmt"
+	"io"
+	"strings"
 
-const helpText = `Axiom — Lingo local control plane
+	"github.com/rgomids/axiom/internal/provenance"
+)
 
-Usage:
-  axiom [--human|--json] <command>
-  axiom [--human|--json] [--session <id>] <command>
-  axiom help
+func Help(writer io.Writer) int { return renderHelp(writer, &publicCommands, nil) }
 
-Commands:
-  skill inspect <skill-name>
-  first-run
-  runtime codex install|status
-  runtime claude install|status
-  runtime profile validate
-  runtime profile preview --project <uuid-or-slug> --role <token> --complexity <token>
-    --capabilities <comma-list> [--runtime codex|claude]
-  project configure|list|show|resolve|validate|archive|reactivate
-  project init|reopen|update|install (historical)
-  project context show [--selector <uuid-or-slug>]
-  project context default-set|session-set --selector <uuid-or-slug> --authorize-local
-  project context default-clear|session-clear|session-end --authorize-local
-  integration list|show|validate|disable|enable|remove
-  work-item create|select|list|show|update|comment|close|reopen|complete
-  workflow start|advance|fact|resume|status|evidence|list|reconcile
-  compatibility inspect|backup|export
-  artifact cleanup|retire
-  recovery inspect|apply
-  upgrade --archive <path> --checksums <path> --bin-dir <dir> --receipt-dir <dir>
+// HandleHelp runs before application composition. Flag values and tokens after
+// -- are data, never requests for help. Output selection cannot override help.
+func HandleHelp(args []string, source provenance.Value, writer io.Writer) (bool, int) {
+	command, path, help, valid, sessionOK := helpTarget(args)
+	if !help {
+		return false, 0
+	}
+	if !valid {
+		if writer == nil {
+			return true, ExitFailure
+		}
+		mode, _ := parseOutputMode(args)
+		operation, issue := action("unknown"), "invalid_command"
+		if !sessionOK {
+			operation, issue = "project_context", "invalid_input"
+		} else if command.operation != "" && command.operation != "help" {
+			operation, issue = command.operation, "invalid_input"
+		}
+		return true, emitParserFailure(guidanceWriter{writer, helpInvocation(path)}, mode, operation, issue, source)
+	}
+	return true, renderHelp(writer, command, path)
+}
 
-Stable Runtime skill mapping:
-  $axiom-project           -> domain operations configure|list|show|validate|
-                              archive|reactivate|integration
-  $axiom-work-item         -> domain operations create|run|status|list|show|
-                              update|comment|close|reopen
+func helpTarget(args []string) (*commandDefinition, []string, bool, bool, bool) {
+	return helpTargetFrom(&publicCommands, args)
+}
 
-first-run finds Codex and Claude by their executables on PATH and installs or
-upgrades Axiom's user-global skills for each one found (Codex:
-$HOME/.agents/skills; Claude: <CLAUDE_CONFIG_DIR or ~/.claude>/skills). It never
-installs a Runtime or touches credentials; no Runtime found is success.
+func helpTargetFrom(root *commandDefinition, args []string) (*commandDefinition, []string, bool, bool, bool) {
+	current := root
+	var path []string
+	var provided []string
+	help, valid := false, true
+	sessionSeen, sessionOK := false, true
+	for i := 0; i < len(args); i++ {
+		token := args[i]
+		if token == "--" {
+			if help {
+				valid = false
+			}
+			break
+		}
+		if token == "--help" || token == "-h" {
+			help = true
+			continue
+		}
+		if token == "--json" || token == "--human" {
+			continue
+		}
+		if current == root && (token == "--session" || strings.HasPrefix(token, "--session=")) {
+			_, _, ok := parseProjectSessionArgs(args[i:])
+			sessionOK = sessionOK && ok && !sessionSeen
+			sessionSeen = true
+			if token == "--session" {
+				i++ // The following token is a value, including help aliases.
+			}
+			continue
+		}
+		if len(current.children) != 0 {
+			if !valid {
+				continue
+			}
+			child := commandChild(current, token)
+			if child == nil {
+				valid = false
+				continue
+			}
+			current = child
+			path = append(path, token)
+			continue
+		}
+		if current.operation == "help" && len(path) == 1 {
+			help = true
+			valid = false
+			continue
+		}
+		provided = append(provided, token)
+		name, _, inline := strings.Cut(strings.TrimPrefix(token, "--"), "=")
+		if strings.HasPrefix(token, "--") {
+			if f := commandFlagSet(current.operation).Lookup(name); f != nil && !inline && !booleanFlag(f) {
+				if i+1 < len(args) {
+					provided = append(provided, args[i+1])
+				}
+				i++
+			}
+		}
+	}
+	if current.operation == "help" && valid {
+		return root, nil, true, sessionOK, sessionOK
+	}
+	if help && valid && current.operation != "" {
+		valid = validHelpInputs(current.operation, provided)
+	}
+	return current, path, help, valid && sessionOK, sessionOK
+}
 
-Runtime profile validation reads local configuration without changing state,
-invoking a runtime, or probing authentication. It accepts no flags or arguments.
+// Validate only supplied syntax with execution's own registrations. Required
+// input absence and domain validation never gate help or trigger resolution.
+func validHelpInputs(operation action, args []string) bool {
+	if operation == skillInspectAction {
+		if len(args) == 0 {
+			return true
+		}
+		if len(args) != 1 {
+			return false
+		}
+		_, ok := inspectSkill(args[0])
+		return ok
+	}
+	if operation == windowsPermissionsRestoreAction {
+		return windowsPermissionsSyntax(args, false)
+	}
+	switch {
+	case knownWorkItem(operation):
+		values, ok := workItemFlags(operation, args)
+		if !ok {
+			return false
+		}
+		return selectorRequestIssueWithPresence(operation, values, false) == ""
+	case knownWorkflow(operation):
+		values, ok := workflowFlags(operation, args)
+		if !ok {
+			return false
+		}
+		return selectorRequestIssueWithPresence(operation, values, false) == ""
+	case operation == configureAction:
+		values, ok := flags(operation, args)
+		if !ok {
+			return false
+		}
+		issue := configureRequestIssue(values)
+		return issue == "" || issue == "missing_required_input"
+	case operation == validateAction:
+		slug, input, ok := projectValidationFlags(args)
+		return ok && !projectValidationSelectorsConflict(slug, input.Project)
+	case strings.HasPrefix(string(operation), "context_"):
+		_, ok := projectContextFlags(append([]string{strings.TrimPrefix(string(operation), "context_")}, args...), false)
+		return ok
+	case operation == runtimeProfilePreviewAction:
+		_, ok := runtimePreviewFlagsWithPresence(args, false)
+		return ok
+	case integrationOperation(operation):
+		_, ok := integrationFlagsWithPresence(operation, args, false)
+		return ok
+	case operation == workflowListAction:
+		_, ok := executionListFlagsWithPresence(args, false)
+		return ok
+	}
+	set := commandFlagSet(operation)
+	return !invalidFlagSyntax(set, args, repeatableFlags(set)) && set.Parse(args) == nil && set.NArg() == 0
+}
 
-Maintenance commands are read-only previews unless repeated with the exact
---preview-digest and --authorize-local. Backup/export targets must be absent
-absolute paths. Recovery applies one plan selected by its digest.
+func booleanFlag(f *flag.Flag) bool {
+	b, ok := f.Value.(interface{ IsBoolFlag() bool })
+	return ok && b.IsBoolFlag()
+}
 
-Use --json for machine-readable output. Default and --human output are readable
-status summaries. Mutation authority remains explicit through
---authorize-external or --authorize-local.
+func helpInvocation(path []string) string {
+	if len(path) == 0 {
+		return "axiom --help"
+	}
+	return "axiom " + strings.Join(path, " ") + " --help"
+}
 
-project configure without --project bootstraps a new schema v3 Project from
-explicit Repository locations (--repository <key>=<absolute-path> or a bare
-absolute path). Lingo reads each location's Git metadata and file names only:
-no Git process, network, CWD, or remote-name priority (origin is not special).
-Ambiguous remotes block until --repository-remote <key>=<locator>|none.
-Optional CREATE intent: --runtime/--model-profile (local candidates only, never
-defaulted), --runtime-preference <role>/<complexity>=<profile>, --technology
-<key>=<value>, --remove-technology <key>, --documentation <key>=repository:<repo>/
-<path>|local-file:<absolute-path>, --business-context, --context-source,
---glossary <key>=<term>:<definition>. An already
-configured slug or --project-id fails without changes. project configure
---project <project-uuid-or-slug> previews an edit of an existing Project:
-  --name <name>, --work-item-provider <id> | --remove-work-item-provider
-  --repository <key>=<absolute-path> (repeatable attach/update)
-  --remove-repository <key> (repeatable detach; never deletes a working copy)
-Omitted values are preserved. Edit rejects --slug (rename). Publish the exact
-reviewed edit by repeating it with the returned --project-id, --preview-digest
-and --authorize-local; a partial replay tuple is refused.
+type guidanceWriter struct {
+	io.Writer
+	help string
+}
 
-project archive|reactivate --project <uuid-or-slug> change only this machine's
-Project state (archive blocks operational work, never inspection or
-administration); project list hides archived Projects unless
---include-archived. integration disable|enable change only this machine's use
-of a declared Integration; integration remove drops the portable declaration
-through the reviewed edit. None of them revokes credentials or touches a
-Provider. workflow list discovers Executions; Execution cancellation is not
-supported.
+func withHelpGuidance(writer io.Writer, args []string) io.Writer {
+	if writer == nil {
+		return nil
+	}
+	return guidanceWriter{writer, HelpCommand(args)}
+}
 
-project validate --slug <slug> (or --project <uuid-or-slug>, reading the
-installed Project's recorded source) checks the portable Project and reports
-read-only operation readiness (work-item, execution): ready, partial or
-blocked, with exact blocker and warning codes. Work Item operations and
-workflow start/resume enforce the same blockers before any effect; readiness
-never grants authority.
+// HelpCommand returns the closest registered help invocation without echoing input.
+func HelpCommand(args []string) string {
+	_, path, _, _, _ := helpTarget(args)
+	return helpInvocation(path)
+}
 
-project install --source <dir> records an authored manifest, such as one that
-declares a Runtime/Profile policy; each Repository it declares needs exactly one
---repository <key>=<absolute-path>.
+func helpNext(writer io.Writer, next string) string {
+	if guided, ok := writer.(guidanceWriter); ok {
+		return next + "; see " + guided.help
+	}
+	return next
+}
 
-Strict selector vocabulary:
-  --project <project-uuid-or-slug>
-  --repository <project-scoped-key>
-  --work-item github:<owner>/<repository>#<number>
-  --execution <execution-id> (all workflow operations except start)
-  --runtime codex|claude (optional policy constraint for workflow start)
-  --role <token> --complexity <token> --capabilities <comma-list> (workflow start policy inputs)
-  --runtime-preview <digest> (start only after exact preview and fresh validation)
-
-Workflow start without --runtime-preview previews only. No Runtime is assumed.
-Lingo observes each configured Runtime itself: its executable on PATH (identity
-only, never run) and Axiom's skill integration, the only capability it proves
-(axiom-skills). Any other required capability stays unproven and blocks.
-
-Fully specified selectors require no prompt. Missing selectors may be prompted;
-unknown, duplicate, conflicting, or ambiguous selectors fail validation without
-CWD, Git, Provider, or Runtime fallback.
-
-Workflow gates:
-  workflow status reports workflow.gateAction and workflow.gateCommand.
-  workflow advance --expected-revision <revision> --automatic
-    evaluates Intake only; cannot combine with --gate/--outcome/--reference/--next.
-  workflow advance --expected-revision <revision> --gate <gate> --outcome pass|fail
-    records observed technical results; never infers human approval.
-  workflow fact --expected-revision <revision> --fact <fact> --active
-    --reference <kind>:<reference>:<sha256> --authorize-local
-    records explicit planning/implementation authority or human acceptance.
-  Always pass exact Project, Repository, Work Item and Execution selectors.
-`
-
-func Help(writer io.Writer) int {
+func renderHelp(writer io.Writer, command *commandDefinition, path []string) int {
 	if writer == nil {
 		return ExitFailure
 	}
-	if _, err := io.WriteString(writer, helpText); err != nil {
+	var text strings.Builder
+	fmt.Fprintf(&text, "%s\n\nUsage:\n  axiom", command.summary)
+	if command.operation != windowsPermissionsRestoreAction && command.name != "windows-permissions" {
+		text.WriteString(" [--human|--json]")
+	}
+	if commandSessionSupported(command, path) {
+		text.WriteString(" [--session <id>]")
+	}
+	if len(path) > 0 {
+		fmt.Fprintf(&text, " %s", strings.Join(path, " "))
+	}
+	if len(command.children) > 0 {
+		text.WriteString(" <command>")
+	} else if command.operation == skillInspectAction {
+		text.WriteString(" <skill-name>")
+	} else {
+		hasFlags := false
+		commandFlagSet(command.operation).VisitAll(func(*flag.Flag) { hasFlags = true })
+		if hasFlags {
+			text.WriteString(" [options]")
+		}
+	}
+	text.WriteString("\n")
+	fmt.Fprintf(&text, "  %s\n", helpInvocation(path))
+	if len(path) == 0 {
+		text.WriteString("  axiom [--human|--json] <command>\n  axiom help\n")
+	}
+	if len(command.children) > 0 {
+		text.WriteString("\nCommands:\n")
+		for _, child := range command.children {
+			fmt.Fprintf(&text, "  %-16s %s\n", child.name, child.summary)
+		}
+		text.WriteString("\nAppend --help or -h to any command above to discover its children or inputs.\n")
+	} else {
+		set := commandFlagSet(command.operation)
+		rules := commandRequirements(command.operation)
+		repeats := repeatableFlags(set)
+		count := 0
+		set.VisitAll(func(f *flag.Flag) {
+			if count == 0 {
+				text.WriteString("\nOptions (noninteractive requirements; guided input remains available):\n")
+			}
+			count++
+			requirement := "optional"
+			for _, rule := range rules {
+				if rule.name == f.Name {
+					if rule.required {
+						requirement = "required"
+					} else if rule.when != "" {
+						requirement = "required when " + rule.when
+					}
+				}
+			}
+			if repeats[f.Name] {
+				requirement += "; repeatable"
+			}
+			value, description := flag.UnquoteUsage(f)
+			if description == "" {
+				description = "Explicit " + f.Name + " input."
+			}
+			if booleanFlag(f) {
+				fmt.Fprintf(&text, "  --%s (%s): %s\n    forms: --%s | --%s=<boolean>\n", f.Name, requirement, description, f.Name, f.Name)
+			} else if command.operation == windowsPermissionsRestoreAction {
+				fmt.Fprintf(&text, "  --%s %s (%s): %s\n    form: --%s %s\n", f.Name, value, requirement, description, f.Name, value)
+			} else {
+				fmt.Fprintf(&text, "  --%s %s (%s): %s\n    forms: --%s %s | --%s=%s\n", f.Name, value, requirement, description, f.Name, value, f.Name, value)
+			}
+		})
+		if count == 0 && command.operation != skillInspectAction {
+			if commandSessionSupported(command, path) {
+				text.WriteString("\nAccepts no flags or arguments beyond global output/session options and help.\n")
+			} else {
+				text.WriteString("\nAccepts no flags or arguments beyond global output options and help.\n")
+			}
+		}
+		if command.operation == skillInspectAction {
+			text.WriteString("\nRequired argument: <skill-name> = axiom-project | axiom-work-item.\n")
+		}
+		fmt.Fprintf(&text, "\nExample:\n  %s\n", commandExample(command.operation, path))
+	}
+	text.WriteString("\nHelp: --help | -h (human text; takes precedence over --json/--human).\n")
+	if command.operation != windowsPermissionsRestoreAction && command.name != "windows-permissions" {
+		text.WriteString("Global output: leading --human | --json.\n")
+	}
+	if commandSessionSupported(command, path) {
+		text.WriteString("Global session: --session <id> before application commands.\n")
+	}
+	if len(path) == 0 {
+		text.WriteString("\nStable Runtime skills: $axiom-project and $axiom-work-item.\nMutation authority stays explicit through --authorize-external or --authorize-local.\n")
+	}
+	if _, err := io.WriteString(writer, text.String()); err != nil {
 		return ExitFailure
 	}
 	return ExitSuccess
+}
+
+func commandExample(operation action, path []string) string {
+	result := "axiom " + strings.Join(path, " ")
+	if strings.HasPrefix(string(operation), "context_session-") {
+		result = "axiom --session '<session-id>' " + strings.Join(path, " ")
+	}
+	if operation == windowsPermissionsRestoreAction {
+		return result + " --backup '<absolute-json-path>' --approve '<backup-digest>'"
+	}
+	if operation == skillInspectAction {
+		return result + " axiom-project"
+	}
+	// Examples use syntactic placeholders; they confer no mutation authority.
+	seen := map[string]bool{}
+	set := commandFlagSet(operation)
+	for _, rule := range commandRequirements(operation) {
+		if operation == validateAction && rule.name == "slug" {
+			continue
+		}
+		if !rule.required && rule.when == "" || seen[rule.name] {
+			continue
+		}
+		f := set.Lookup(rule.name)
+		if f == nil || rule.name == "authorize-local" || rule.name == "preview-digest" || rule.name == "project-id" || rule.name == "runtime-preview" {
+			continue
+		}
+		if rule.name == "number" {
+			result += " --work-item 'github:owner/repository#1'"
+			seen[rule.name] = true
+			continue
+		}
+		if rule.name == "provider-repository" && operation != workItemCreateAction {
+			continue
+		}
+		if booleanFlag(f) {
+			result += " --" + rule.name
+		} else {
+			value, _ := flag.UnquoteUsage(f)
+			if value == "string" {
+				value = "<" + rule.name + ">"
+			}
+			if value == "uint" || value == "uint64" || value == "int" {
+				value = "1"
+			}
+			result += " --" + rule.name + " '" + value + "'"
+		}
+		seen[rule.name] = true
+	}
+	if strings.HasPrefix(string(operation), "context_") && operation != "context_show" || operation == workflowFactAction {
+		result += " --authorize-local"
+	}
+	if operation == recoveryApplyAction {
+		result += " --preview-digest '<reviewed-digest>' --authorize-local"
+	}
+	return result
+}
+
+func commandSessionSupported(command *commandDefinition, path []string) bool {
+	return command.operation != "version" && command.operation != "help" && command.operation != windowsPermissionsRestoreAction && command.name != "windows-permissions" && (len(path) == 0 || path[0] != "skill")
 }

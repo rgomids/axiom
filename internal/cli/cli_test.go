@@ -277,7 +277,7 @@ func TestCanonicalProjectParserFailuresDoNotCallApplicationServices(t *testing.T
 			if err := json.Unmarshal(structured.Bytes(), &event); err != nil {
 				t.Fatalf("canonical JSON = %q: %v", structured.String(), err)
 			}
-			if event.Status != completion.ValidationFailure || event.Result != test.wantResult || event.Next != test.wantNext {
+			if event.Status != completion.ValidationFailure || event.Result != test.wantResult || event.Next != test.wantNext+"; see axiom "+strings.Join(test.args[:2], " ")+" --help" {
 				t.Fatalf("canonical event = %+v", event)
 			}
 

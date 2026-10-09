@@ -52,26 +52,18 @@ func integrationAction(args []string) (action, []string, bool) {
 	if len(args) == 0 || args[0] != "integration" {
 		return "", nil, false
 	}
-	if len(args) >= 2 {
-		switch args[1] {
-		case "list":
-			return integrationListAction, args[2:], true
-		case "show":
-			return integrationShowAction, args[2:], true
-		case "validate":
-			return integrationValidateAction, args[2:], true
-		case "disable":
-			return integrationDisableAction, args[2:], true
-		case "enable":
-			return integrationEnableAction, args[2:], true
-		case "remove":
-			return integrationRemoveAction, args[2:], true
-		}
+	command, _, rest, ok := resolveCommand(args)
+	if ok && operationInGroup(command.operation, "integration") {
+		return command.operation, rest, true
 	}
 	return "unknown", nil, true
 }
 
 func integrationFlags(operation action, args []string) (IntegrationInput, bool) {
+	return integrationFlagsWithPresence(operation, args, true)
+}
+
+func integrationFlagsWithPresence(operation action, args []string, requireInputs bool) (IntegrationInput, bool) {
 	var input IntegrationInput
 	set := integrationFlagSet(operation, &input)
 	if invalidFlagSyntax(set, args, nil) {
@@ -82,7 +74,7 @@ func integrationFlags(operation action, args []string) (IntegrationInput, bool) 
 	}
 	// Selectors are bounded and never empty when supplied; the application
 	// validates the Project selector and Integration key grammar exactly.
-	if input.Project == "" || len(input.Project) > 256 || len(input.Integration) > 256 || len(input.ProjectID) > 256 {
+	if requireInputs && input.Project == "" || len(input.Project) > 256 || len(input.Integration) > 256 || len(input.ProjectID) > 256 {
 		return IntegrationInput{}, false
 	}
 	if flagSupplied(args, "--integration") && input.Integration == "" || flagSupplied(args, "--preview-digest") && !validPreviewDigest(input.PreviewDigest) {
@@ -90,7 +82,7 @@ func integrationFlags(operation action, args []string) (IntegrationInput, bool) 
 	}
 	switch operation {
 	case integrationShowAction, integrationDisableAction, integrationEnableAction, integrationRemoveAction:
-		if input.Integration == "" {
+		if requireInputs && input.Integration == "" {
 			return IntegrationInput{}, false
 		}
 	}
@@ -142,7 +134,7 @@ func emitIntegrationParserFailure(writer io.Writer, mode outputMode, source prov
 	if err != nil {
 		return ExitFailure
 	}
-	nextAction, err := provenance.NewText("Provide --project and, where required, one exact --integration key; remove unknown, duplicate or conflicting flags", provenance.AxiomAuthored)
+	nextAction, err := provenance.NewText(helpNext(writer, "Provide --project and, where required, one exact --integration key; remove unknown, duplicate or conflicting flags"), provenance.AxiomAuthored)
 	if err != nil {
 		return ExitFailure
 	}

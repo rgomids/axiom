@@ -266,7 +266,7 @@ func TestExecutableRejectsSingleHyphenSelectorFlagsBeforeEffects(t *testing.T) {
 						t.Fatalf("err=%v output=%s", err, output.String())
 					}
 					var event struct{ Status, Result, Next string }
-					if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &event); err != nil || event.Status != "validation_failure" || event.Result != "Explicit selector input is invalid" || event.Next != "Remove unknown, duplicate, or conflicting inputs and retry" || prompts.Len() != 0 {
+					if err := json.Unmarshal(bytes.TrimSpace(output.Bytes()), &event); err != nil || event.Status != "validation_failure" || event.Result != "Explicit selector input is invalid" || event.Next != "Remove unknown, duplicate, or conflicting inputs and retry; see axiom "+strings.Join(args[:2], " ")+" --help" || prompts.Len() != 0 {
 						t.Fatalf("event=%+v err=%v output=%s prompts=%s", event, err, output.String(), prompts.String())
 					}
 					if after := snapshotTrees(t, root); !bytes.Equal(before, after) {
