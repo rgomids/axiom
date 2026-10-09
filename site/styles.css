@@ -1127,9 +1127,10 @@ code {
 }
 
 /* --- Foundation & discovery ---
-   Two typographic tracks instead of cards: a label column on the left and a
-   list on the right. Foundation is blue with solid rules; discovery is lighter, dashed
-   and amber. A short blue-to-amber rule bridges the two. */
+   Typographic tracks instead of cards: a label column on the left and a
+   list on the right. Foundation is blue with solid rules; the MVP in delivery is
+   amber with solid rules; discovery is lighter, dashed and amber. Short rules
+   bridge the tracks. */
 .track {
   display: grid;
   gap: var(--space-24);
@@ -1187,6 +1188,13 @@ code {
 .track-foundation .track-list li { border-top: 1px solid var(--border-strong); }
 .track-foundation .track-list h3 { color: var(--text); }
 .track-foundation .track-list p { color: var(--text-muted); }
+
+/* MVP in delivery: committed scope, not yet available */
+.track-mvp .track-name { color: var(--gold); }
+.track-mvp .track-name::before { background: var(--gold); }
+.track-mvp .track-list li { border-top: 1px solid rgba(237, 179, 81, 0.5); }
+.track-mvp .track-list h3 { color: var(--text); }
+.track-mvp .track-list p { color: var(--text-muted); }
 
 /* Discovery: open, tentative */
 .track-discovery .track-name { color: var(--gold); }
