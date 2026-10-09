@@ -185,7 +185,7 @@ func TestInstallRefusesForeignSkillUntouchedDespiteRootReplacement(t *testing.T)
 	if err := os.Mkdir(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	foreignName := skillNames[2]
+	foreignName := skillNames[1]
 	foreignDir := filepath.Join(root, foreignName)
 	if err := os.Mkdir(foreignDir, 0o700); err != nil {
 		t.Fatal(err)

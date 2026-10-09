@@ -19,12 +19,12 @@ import (
 // re-implemented here; these tests pin the deterministic boundary it hands
 // off to: the routing table each canonical skill declares, the inspection
 // metadata the binary derives, the parser that alone grants authority, and
-// the compatibility skills that must keep routing to the same commands.
+// the retired names that must no longer resolve.
 
 var canonicalDomainSkills = []string{"axiom-project", "axiom-work-item"}
 
 // compatibilityOperation maps each operation-specific skill to the canonical
-// domain operation it remains a compatibility entrypoint for.
+// domain operation whose capabilities remain available after retirement.
 var compatibilityOperation = map[string][2]string{
 	"axiom-project-configure": {"axiom-project", "configure"},
 	"axiom-project-list":      {"axiom-project", "list"},
@@ -265,15 +265,15 @@ func TestExplicitOperationRoutingIsDeterministic(t *testing.T) {
 func TestSemanticResolutionIsBoundedAndNeverMutatesOnAmbiguity(t *testing.T) {
 	rules := map[string][]string{
 		"axiom-project": {
-			"resolve intent only among `configure`, `list`,\nand `show`",
+			"interpret clear domain intent across all\nsupported operations and modes",
 			"Never turn ambiguous intent into a mutating `configure`\noperation, archive, reactivation, detach, disable, enable, or remove.",
-			"`archive`, `reactivate`, Repository detach, and the `integration`\nmodes `disable`, `enable`, and `remove` run only when the user names that\noperation explicitly.",
+			"The user need not name\nan English CLI token or another skill",
 			"it never grants\nauthority, supplies `--authorize-local`, invents selectors, or replaces Lingo\nvalidation.",
 		},
 		"axiom-work-item": {
-			"resolve intent only among `create`, `run`, and\n`status`",
+			"interpret clear domain intent across all\nsupported operations and modes",
 			"Never silently resolve ambiguous intent to `create`, `run`, or\nanother mutating path.",
-			"`update`, `comment`, `close`, and\n`reopen` run only when the user names that operation explicitly; ambiguous intent\nnever selects them.",
+			"need not name an English CLI token or another skill",
 			"never grants external/local authority, supplies `--authorize-external` or\n`--authorize-local`, invents selectors, or changes workflow state.",
 		},
 	}
@@ -558,46 +558,76 @@ func TestInvalidSelectorsRemainLingoValidation(t *testing.T) {
 	}
 }
 
-// Each compatibility skill keeps routing to exactly the canonical operation's
-// commands and authority modes, and its text names the same commands.
-func TestCompatibilitySkillsConvergeWithCanonicalOperations(t *testing.T) {
-	for compatibility, target := range compatibilityOperation {
-		t.Run(compatibility, func(t *testing.T) {
-			legacy := discoverForTest(t, compatibility)
-			canonical := discoverForTest(t, target[0])
-			var want skillOperation
-			for _, operation := range canonical.Operations {
-				if operation.Name == target[1] {
-					want = operation
+// Retired entrypoints fail closed, while their original domain operation remains.
+func TestRetiredSkillsPreserveCanonicalCapabilities(t *testing.T) {
+	for retired, target := range compatibilityOperation {
+		if _, ok := inspectSkill(retired); ok {
+			t.Fatalf("retired skill %s resolves", retired)
+		}
+		canonical := discoverForTest(t, target[0])
+		if !slices.ContainsFunc(canonical.Operations, func(op skillOperation) bool { return op.Name == target[1] }) {
+			t.Fatalf("retired skill %s lost capability", retired)
+		}
+	}
+}
+
+func (p *authorityProbe) List(context.Context) Result {
+	return p.record("project list", false, false)
+}
+
+func (p *authorityProbe) Show(context.Context, ResolveInput) Result {
+	return p.record("project show", false, false)
+}
+func (p *authorityProbe) WorkItemShow(context.Context, WorkItemInput) Result {
+	return p.record("work-item show", false, false)
+}
+func (p *authorityProbe) WorkflowStatus(context.Context, WorkflowInput) Result {
+	return p.record("workflow status", false, false)
+}
+func (p *authorityProbe) WorkflowEvidence(context.Context, WorkflowInput) Result {
+	return p.record("workflow evidence", false, false)
+}
+func (p *authorityProbe) WorkflowList(context.Context, ExecutionListInput) ExecutionListResponse {
+	return ExecutionListResponse{Result: p.record("workflow list", false, false)}
+}
+
+// Exercise every advertised read-only path against operation-shaped service
+// dispatch, including optional lifecycle interfaces. Together with
+// TestRoutingAloneNeverGrantsAuthority this covers every catalog command's
+// application handoff, rather than merely asserting command spelling.
+func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
+	requests := map[string][]string{
+		"axiom project list":         {"project", "list"},
+		"axiom project show":         {"project", "show", "--selector", "alpha"},
+		"axiom project validate":     {"project", "validate", "--project", "alpha"},
+		"axiom integration list":     {"integration", "list", "--project", "alpha"},
+		"axiom integration show":     {"integration", "show", "--project", "alpha", "--integration", "work-items"},
+		"axiom integration validate": {"integration", "validate", "--project", "alpha"},
+		"axiom work-item list":       {"work-item", "list", "--project", "alpha"},
+		"axiom work-item show":       {"work-item", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
+		"axiom workflow list":        {"workflow", "list", "--project", "alpha"},
+		"axiom workflow status":      {"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+		"axiom workflow evidence":    {"workflow", "evidence", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+	}
+	for _, name := range canonicalDomainSkills {
+		for _, operation := range discoverForTest(t, name).Operations {
+			for _, mode := range operation.Modes {
+				if mode.Effect != effectReadOnly {
+					continue
 				}
-			}
-			if len(legacy.Operations) != 1 || legacy.Operations[0].Name != want.Name {
-				t.Fatalf("compatibility operations=%+v", legacy.Operations)
-			}
-			got := legacy.Operations[0]
-			for _, mode := range want.Modes {
-				if !slices.ContainsFunc(got.Modes, func(candidate skillOperationMode) bool { return reflect.DeepEqual(candidate, mode) }) {
-					t.Fatalf("compatibility lacks canonical mode %+v", mode)
-				}
-			}
-			for _, mode := range got.Modes {
-				if !slices.ContainsFunc(want.Modes, func(candidate skillOperationMode) bool { return reflect.DeepEqual(candidate, mode) }) && mode.Effect != effectReadOnly {
-					t.Fatalf("compatibility adds a non-read-only mode %+v", mode)
-				}
-			}
-			// Both entrypoints name every command of the operation through the
-			// same `axiom --json` executable.
-			for _, source := range []string{skillSource(t, compatibility), skillSource(t, target[0])} {
-				flat := strings.Join(strings.Fields(source), " ")
-				for _, command := range want.Commands {
-					// Compatibility text may name a command family once, as in
-					// "Resume/advance/status/evidence/reconcile calls".
-					group, verb, _ := strings.Cut(strings.TrimPrefix(command, "axiom "), " ")
-					if !strings.Contains(flat, "axiom --json "+group+" "+verb) && !(strings.Contains(flat, "axiom --json "+group) && strings.Contains(strings.ToLower(flat), verb)) {
-						t.Fatalf("skill text does not name %s", command)
+				for _, command := range mode.Commands {
+					args, ok := requests[command]
+					if !ok {
+						t.Fatalf("unverified application path: %s", command)
+					}
+					probe := &authorityProbe{}
+					var output bytes.Buffer
+					Run(context.Background(), args, probe, completionProvenance(t), &output)
+					if !reflect.DeepEqual(probe.calls, []string{strings.TrimPrefix(command, "axiom ")}) || probe.local[0] || probe.ext[0] {
+						t.Fatalf("%s dispatched %v: %s", command, probe.calls, &output)
 					}
 				}
 			}
-		})
+		}
 	}
 }

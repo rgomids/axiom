@@ -128,15 +128,15 @@ if [[ -n $(find "$runtime_home" -mindepth 1 -print -quit) ]]; then
   exit 1
 fi
 skill_count=$(find "$skills_root" -name SKILL.md -type f | wc -l | tr -d ' ')
-if [[ "$skill_count" != 8 ]]; then
+if [[ "$skill_count" != 2 ]]; then
   exit 1
 fi
 axiom help >"$temporary/help.txt"
-for skill in axiom-project axiom-project-configure axiom-project-list axiom-project-show axiom-work-item axiom-work-item-create axiom-work-item-run axiom-work-item-status; do
+for skill in axiom-project axiom-work-item; do
   grep -q "\$${skill}" "$temporary/help.txt"
 done
-rm -- "$skills_root/axiom-work-item-status/SKILL.md"
-rmdir -- "$skills_root/axiom-work-item-status"
+rm -- "$skills_root/axiom-work-item/SKILL.md"
+rmdir -- "$skills_root/axiom-work-item"
 if axiom --json runtime codex status >"$temporary/runtime-missing.json"; then
   exit 1
 fi
@@ -290,7 +290,7 @@ assert_runtime_blocked() {
   assert_no_execution
 }
 policy_inputs=(--role implementation --complexity high --capabilities axiom-skills)
-# As the axiom-work-item-run skill prescribes, --runtime names the Runtime that
+# As the axiom-work-item skill prescribes, --runtime names the Runtime that
 # conducts the workflow; it narrows the policy and never widens it.
 start_args=(workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}" --runtime codex)
 

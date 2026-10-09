@@ -39,19 +39,16 @@ When the user supplies an explicit supported operation, use it exactly and route
 directly to its Lingo command. Do not classify or reinterpret an explicit
 operation semantically.
 
-When no operation is explicit, resolve intent only among `configure`, `list`,
-and `show`:
+When no operation token is explicit, interpret clear domain intent across all
+supported operations and modes. Natural language is enough: "Arquive o projeto
+X" selects `archive`; "Reative o projeto X" selects `reactivate`; "Desabilite a
+integração work-items" selects `integration` / `disable`. The user need not name
+an English CLI token or another skill. Repository attach, update, and detach
+select `configure` / `edit` and require the existing Project selector.
 
-- choose `configure` only when the user intends to create a Project or change an
-  existing Project's configuration or repository/provider associations;
-- choose `list` when the user wants the configured Project collection;
-- choose `show` when the user wants one configured Project or its associations.
-
-`validate` and the read-only `integration` modes may also be chosen when the
-user plainly asks to validate a Project or to list, show, or validate its
-Integrations. `archive`, `reactivate`, Repository detach, and the `integration`
-modes `disable`, `enable`, and `remove` run only when the user names that
-operation explicitly.
+Read-only discovery selects `list`, `show`, `validate`, or the appropriate
+read-only `integration` mode. A request such as "organize this Project" does not
+identify a mutation: clarify the operation and target first.
 
 If the intent is unknown or materially ambiguous, ask one bounded clarification
 instead of guessing. Never turn ambiguous intent into a mutating `configure`

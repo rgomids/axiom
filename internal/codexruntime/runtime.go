@@ -18,15 +18,16 @@ var embeddedSkills embed.FS
 // skillFiles is the skill set this binary publishes.
 var skillFiles fs.FS = embeddedSkills
 
-var skillNames = []string{
-	"axiom-project-configure",
-	"axiom-project-list",
-	"axiom-project-show",
-	"axiom-work-item-create",
-	"axiom-work-item-run",
-	"axiom-work-item-status",
-	"axiom-project",
-	"axiom-work-item",
+var skillNames = []string{"axiom-project", "axiom-work-item"}
+
+// retiredSkillNames are ownership candidates only, never distributed entrypoints.
+var retiredSkillNames = []string{
+	"axiom-project-configure", "axiom-project-list", "axiom-project-show",
+	"axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status",
+}
+
+func ownershipSkillNames() []string {
+	return append(append([]string{}, skillNames...), retiredSkillNames...)
 }
 
 var legacySkillDigests = map[string][]string{
@@ -186,7 +187,27 @@ func (s Service) Install(ctx context.Context) Result {
 	if replaces && !s.integration.receiptRecognizedIn(root, s.root) {
 		return s.inspectResultIn(root, Failed, s.integration.category("skill_conflict"))
 	}
+	for _, name := range retiredSkillNames {
+		if !s.integration.retiredOwnedIn(root, s.root, name) {
+			return s.inspectResultIn(root, Failed, s.integration.category("skill_conflict"))
+		}
+	}
 	changed := false
+	for _, name := range retiredSkillNames {
+		if err := ctx.Err(); err != nil {
+			return s.inspectResultIn(root, Partial, s.integration.category("skill_install_partial"))
+		}
+		if !retirementPendingIn(root, name) {
+			continue
+		}
+		if err := s.integration.removeRetiredIn(root, s.root, name, "", verify); err != nil {
+			return s.inspectResultIn(root, Partial, s.integration.category("skill_install_partial"))
+		}
+		changed = true
+		if s.afterSkill != nil {
+			s.afterSkill(name)
+		}
+	}
 	for _, name := range skillNames {
 		if err := ctx.Err(); err != nil {
 			return s.inspectResultIn(root, Partial, s.integration.category("skill_install_partial"))
@@ -273,6 +294,14 @@ func (s Service) Inspect(ctx context.Context) Result {
 	receipt, err := s.integration.receipt(s.root)
 	if err != nil || !matchesPrivateFile(filepath.Join(s.root, receiptName), receipt) {
 		return s.inspectResult(Partial, s.integration.category("skill_receipt_incomplete"))
+	}
+	for _, name := range retiredSkillNames {
+		_, entry := os.Lstat(filepath.Join(s.root, name))
+		_, proof := os.Lstat(filepath.Join(s.root, retirementProofName(name)))
+		_, stage := os.Lstat(filepath.Join(s.root, retirementStageName(name)))
+		if !os.IsNotExist(entry) || !os.IsNotExist(proof) || !os.IsNotExist(stage) {
+			return s.inspectResult(Partial, s.integration.category("skill_retirement_required"))
+		}
 	}
 	return s.inspectResult(Ready, s.integration.category("ready"))
 }
@@ -368,6 +397,22 @@ func (i integration) classify(result Result, receipt string, attested map[string
 	result.Conflicts = []Conflict{}
 	if receipt == ReceiptUnrecognized || receipt == ReceiptUnsafe {
 		result.Conflicts = append(result.Conflicts, Conflict{Artifact: receiptName, State: "receipt_" + receipt})
+	}
+	for _, name := range retiredSkillNames {
+		exists, content, safe := observe(name)
+		if !exists {
+			continue
+		}
+		state := "foreign"
+		if !safe {
+			state = "unsafe"
+		} else if attested[name] {
+			state = "modified"
+		}
+		if safe && i.knownDigest(name, digestOf(content)) {
+			continue
+		}
+		result.Conflicts = append(result.Conflicts, Conflict{Artifact: name + "/SKILL.md", State: state, Digest: digestOf(content)})
 	}
 	for _, name := range skillNames {
 		content, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")

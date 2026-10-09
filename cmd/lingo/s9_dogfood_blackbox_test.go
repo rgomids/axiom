@@ -255,7 +255,7 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 
 	installTestRuntimePolicy(t, state, setup.Setup.ProjectID, runtimeID)
 	// Claude follows the operation-specific skill, Codex the domain skill.
-	protocol := workItemRunStartProtocol(t, map[string]string{"claude": "axiom-work-item-run", "codex": "axiom-work-item"}[runtimeID])
+	protocol := workItemRunStartProtocol(t, "axiom-work-item")
 	values := map[string]string{"role": "implementation", "complexity": "high", "capabilities": "axiom-skills", "runtime": runtimeID}
 	previewArgs := expandProtocol(t, protocol[0], selector, values)
 	// Lingo observes the Runtime itself: without its executable and verified

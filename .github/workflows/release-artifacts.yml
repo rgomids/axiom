@@ -117,6 +117,9 @@ jobs:
       - name: Verify module sources
         working-directory: source
         run: go mod verify
+      - name: Verify frozen persisted-state compatibility
+        working-directory: source
+        run: AXIOM_FREEZE_STATE_CORPUS= go test ./internal/local ./internal/compatibility -count=1
       - name: Build supported release archives
         working-directory: source
         run: ./scripts/build-release-archives.sh --version "$RELEASE_VERSION" --output "$RUNNER_TEMP/axiom-release/artifacts"

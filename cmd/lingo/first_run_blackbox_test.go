@@ -175,7 +175,7 @@ func TestExecutableFirstRunRuntimeMatrix(t *testing.T) {
 		if present, _, _, _ := m.runtime(event, "codex"); present {
 			t.Fatal("codex reported present")
 		}
-		if _, err := os.Stat(filepath.Join(m.home, ".claude", "skills", "axiom-work-item-run", "SKILL.md")); err != nil {
+		if _, err := os.Stat(filepath.Join(m.home, ".claude", "skills", "axiom-work-item", "SKILL.md")); err != nil {
 			t.Fatal(err)
 		}
 		m.assertNoRuntimeExecution()
@@ -194,7 +194,7 @@ func TestExecutableFirstRunRuntimeMatrix(t *testing.T) {
 		if _, state, _, _ := m.runtime(event, "claude"); state != "configured" {
 			t.Fatalf("event = %+v", event)
 		}
-		if _, err := os.Stat(filepath.Join(configuration, "skills", "axiom-project-show", "SKILL.md")); err != nil {
+		if _, err := os.Stat(filepath.Join(configuration, "skills", "axiom-project", "SKILL.md")); err != nil {
 			t.Fatal(err)
 		}
 		if len(m.files()) != 0 {
@@ -279,7 +279,7 @@ func TestExecutableFirstRunRuntimeMatrix(t *testing.T) {
 			if err != nil || info.Mode().Perm() != 0o755 {
 				t.Fatalf("%s mode changed: %v %v", root, info, err)
 			}
-			skill, err := os.Lstat(filepath.Join(m.home, root, "axiom-work-item-run"))
+			skill, err := os.Lstat(filepath.Join(m.home, root, "axiom-work-item"))
 			if err != nil || skill.Mode().Perm() != 0o700 {
 				t.Fatalf("%s Axiom skill = %v %v", root, skill, err)
 			}

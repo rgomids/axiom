@@ -193,29 +193,14 @@ var (
 
 // These are thin Runtime-to-Lingo delegations, not a second argument registry.
 // Argument metadata still comes from each executable command's real FlagSet.
-// The canonical domain skills and the compatibility skills share mode specs,
-// so one operation cannot describe two authority contracts.
+// Only canonical domain skills expose these operation modes.
 func skillOperationSpecs(name string) []skillOperationSpec {
 	switch name {
 	case "axiom-project":
 		return []skillOperationSpec{projectConfigure, projectList, projectShow, projectValidate, projectArchive, projectReactivate, projectIntegration}
 	case "axiom-work-item":
 		return []skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}
-	case "axiom-project-configure":
-		return []skillOperationSpec{projectConfigure}
-	case "axiom-project-list":
-		return []skillOperationSpec{projectList}
-	case "axiom-project-show":
-		return []skillOperationSpec{projectShow}
-	case "axiom-work-item-create":
-		return []skillOperationSpec{workItemCreate}
-	case "axiom-work-item-run":
-		// The compatibility run skill also reads status and Evidence.
-		return []skillOperationSpec{{name: "run",
-			actions: []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowStatusAction, workflowEvidenceAction, workflowReconcileAction},
-			modes:   []skillModeSpec{workflowTransitionMode, workflowFactMode, workflowReconcileMode, workItemStatusMode}}}
-	case "axiom-work-item-status":
-		return []skillOperationSpec{workItemStatus}
+
 	}
 	return nil
 }

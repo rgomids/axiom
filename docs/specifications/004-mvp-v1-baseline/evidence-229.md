@@ -1,5 +1,11 @@
 # Issue #229 Evidence — domain-oriented Runtime skill surfaces
 
+> Historical Evidence: this records the original delivered revision. The
+> 2026-10-08 [canonical consolidation decision](issue-230-canonical-consolidation.md)
+> supersedes retention of operation-specific Runtime entrypoints; earlier
+> tests and observations below remain historical, not current acceptance.
+
+
 Issue: [#229](https://github.com/rgomids/axiom/issues/229). Pull request:
 [rgomids/axiom#252](https://github.com/rgomids/axiom/pull/252).
 Executed 2026-10-07 on macOS 27.0.1, arm64, `go1.26.1`. The candidate was built

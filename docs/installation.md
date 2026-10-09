@@ -261,7 +261,7 @@ axiom first-run
 ```
 
 Axiom detects `codex` and `claude` executables on `PATH` without running them.
-It installs or upgrades six user-global thin skills, independently per Runtime:
+It installs or upgrades two canonical user-global thin skills, independently per Runtime:
 
 | Runtime | Skill root |
 |---|---|
@@ -278,7 +278,15 @@ axiom runtime codex status
 axiom runtime claude status
 ```
 
-Use `$axiom-project-configure` in Codex or `/axiom-project-configure` in Claude.
+The current product skill set is exactly `axiom-project` and `axiom-work-item`.
+Historical releases through v0.10.0 carried six or eight skills. Upgrade removes
+obsolete entries only after verifying Axiom ownership and known content. Modified,
+foreign, linked or unrecognized entries and receipts are preserved as conflicts;
+no complete skill root or unrelated Runtime configuration is deleted. Interrupted
+cleanup keeps truthful partial state; rerun the diagnosed install/upgrade path.
+Historical ownership metadata remains internal, not an invocation surface.
+
+Use `$axiom-project` in Codex or `/axiom-project` in Claude.
 For the complete skill set and receipt/conflict diagnostics, see
 [Runtime reference](commands.md#first-run-and-runtime-integrations).
 

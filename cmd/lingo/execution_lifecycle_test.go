@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -212,5 +215,84 @@ func TestWorkflowCancelStaysInvalidCommandWithZeroEffects(t *testing.T) {
 	}
 	if env.providerCalled() {
 		t.Fatal("cancel invoked the Provider")
+	}
+}
+
+// Exercise the actual human emitter through the real local discovery path.
+// Rows must remain complete, ordered and untruncated independently of JSON.
+func TestWorkflowListHumanOutput(t *testing.T) {
+	for _, count := range []int{0, 3, 300} {
+		t.Run(fmt.Sprintf("rows-%d", count), func(t *testing.T) {
+			env := newAdmissionEnv(t)
+			expected := make([]string, 0, count)
+			for index := count; index > 0; index-- {
+				identity := fmt.Sprintf("018f4a44-7c31-7dd4-9d00-%012d", index)
+				external := fmt.Sprint(index)
+				seedExecution(t, env, "main", external, identity)
+				expected = append(expected, "execution: "+identity+" repository=main work-item=github:owner/repo#"+external+" status=active gate=intake revision=1")
+			}
+			sort.Slice(expected, func(i, j int) bool {
+				// External IDs, not numeric issue numbers, define the contract ordering.
+				extract := func(row string) string { return strings.Split(strings.Split(row, "#")[1], " ")[0] }
+				return extract(expected[i]) < extract(expected[j])
+			})
+			before := snapshotTrees(t, env.root, env.state, env.workspace)
+			run := func() string {
+				var output bytes.Buffer
+				code := cli.RunInteractive(context.Background(), []string{"--human", "workflow", "list", "--project", "guarded"}, env.service, currentProvenance(), nil, &output, &bytes.Buffer{})
+				if code != cli.ExitSuccess {
+					t.Fatalf("human code=%d output=%s", code, output.String())
+				}
+				return output.String()
+			}
+			output := run()
+			if !strings.Contains(output, "Executions listed for the Project") {
+				t.Fatalf("completion absent: %s", output)
+			}
+			if count == 0 && !strings.Contains(output, "executions: none\n") {
+				t.Fatalf("empty marker absent: %s", output)
+			}
+			rows := []string{}
+			for _, line := range strings.Split(output, "\n") {
+				if strings.HasPrefix(line, "execution: ") {
+					rows = append(rows, line)
+				}
+			}
+			if strings.Join(rows, "\n") != strings.Join(expected, "\n") {
+				t.Fatalf("rows mismatch: got %d want %d", len(rows), count)
+			}
+			if again := run(); again != output {
+				t.Fatal("human output changed across identical reads")
+			}
+			if !bytes.Equal(before, snapshotTrees(t, env.root, env.state, env.workspace)) || env.providerCalled() {
+				t.Fatal("human listing performed effects")
+			}
+		})
+	}
+}
+
+func TestWorkflowListHumanFailureOmitsPartialRows(t *testing.T) {
+	for _, damaged := range []bool{false, true} {
+		t.Run(fmt.Sprintf("damaged-%v", damaged), func(t *testing.T) {
+			env := newAdmissionEnv(t)
+			selector := "missing"
+			if damaged {
+				selector = "guarded"
+				seedExecution(t, env, "main", "7", "018f4a44-7c31-7dd4-9d00-000000000001")
+				path := filepath.Join(env.state, "executions", "v1", env.projectID, "damaged.json")
+				if err := os.WriteFile(path, []byte("{not-json}"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before := snapshotTrees(t, env.root, env.state, env.workspace)
+			var output bytes.Buffer
+			code := cli.RunInteractive(context.Background(), []string{"--human", "workflow", "list", "--project", selector}, env.service, currentProvenance(), nil, &output, &bytes.Buffer{})
+			if code != cli.ExitFailure || output.Len() == 0 || strings.Contains(output.String(), "execution: ") || strings.Contains(output.String(), "executions: none") {
+				t.Fatalf("failed listing = %d %s", code, output.String())
+			}
+			if !bytes.Equal(before, snapshotTrees(t, env.root, env.state, env.workspace)) || env.providerCalled() {
+				t.Fatal("failed human listing performed effects")
+			}
+		})
 	}
 }

@@ -33,6 +33,7 @@ var publishedSharedRevisions = []string{
 	"22493d0810b50320ca293a773e34f893dfb1f5440f6c3d6235671f964c28cdf0",
 	"dca4a1b02932801b910bd8288c1ffbbe6d158699740c2cbee3aaca5005788008",
 	"473a9f20f888c61590009d97e291f72f49952166ab29a4d102e7c45feeb48b04",
+	"7d6e1657179e2b4c9d374089d1b66bdf951afa6380dcb241465f0699f8fb09e6",
 }
 
 func TestEveryPublishedSharedRevisionStaysOwned(t *testing.T) {
@@ -177,24 +178,24 @@ func TestModifiedClaudeRevisionNIsRefusedAfterUpgrade(t *testing.T) {
 		mutate func(t *testing.T, root string)
 	}{
 		{"user edit", func(t *testing.T, root string) {
-			path := filepath.Join(root, "axiom-work-item-run", "SKILL.md")
+			path := filepath.Join(root, "axiom-work-item", "SKILL.md")
 			content, _ := os.ReadFile(path)
 			if err := os.WriteFile(path, append(content, []byte("my local change\n")...), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"foreign skill", func(t *testing.T, root string) {
-			if err := os.WriteFile(filepath.Join(root, "axiom-work-item-run", "SKILL.md"), []byte("---\nname: axiom-work-item-run\n---\nforeign\n"), 0o600); err != nil {
+			if err := os.WriteFile(filepath.Join(root, "axiom-work-item", "SKILL.md"), []byte("---\nname: axiom-work-item-run\n---\nforeign\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"ambiguous ownership", func(t *testing.T, root string) {
-			if err := os.WriteFile(filepath.Join(root, "axiom-work-item-run", "notes.md"), []byte("extra\n"), 0o600); err != nil {
+			if err := os.WriteFile(filepath.Join(root, "axiom-work-item", "notes.md"), []byte("extra\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"unsafe mode", func(t *testing.T, root string) {
-			if err := testfs.SharedMode(filepath.Join(root, "axiom-work-item-run", "SKILL.md"), 0o644); err != nil {
+			if err := testfs.SharedMode(filepath.Join(root, "axiom-work-item", "SKILL.md"), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -279,10 +280,10 @@ func TestPartialClaudeStateConvergesAfterUpgrade(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, receiptName)); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.RemoveAll(filepath.Join(root, "axiom-work-item-create")); err != nil {
+	if err := os.RemoveAll(filepath.Join(root, "axiom-work-item")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "axiom-project-show", "SKILL.md"), contents["axiom-project-show"], 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "axiom-project", "SKILL.md"), contents["axiom-project"], 0o600); err != nil {
 		t.Fatal(err)
 	}
 	installOrFail(t, claude, Applied)

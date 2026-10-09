@@ -154,7 +154,7 @@ seed_v1_state() {
 }
 
 # skills_converged: both Runtime roots hold exactly the candidate's skill
-# files, the canonical domain skills plus the compatibility ones, byte for byte.
+# files, exactly the two canonical domain skills, byte for byte.
 skills_converged() {
   local root skill expected actual
   expected=$(cd "$candidate_bundle/skills" && find . -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)

@@ -1,5 +1,17 @@
 # Specification 004 — Usable MVP v1 Baseline
 
+## Canonical Runtime surface amendment — 2026-10-08
+
+The maintainer approved the [two-skill consolidation contract and bounded
+plan/tasks](issue-230-canonical-consolidation.md). Only `axiom-project` and
+`axiom-work-item` remain active product Runtime skills. This supersedes #229's
+six compatibility entrypoints, preserves underlying CLI/lifecycle operations,
+and requires verified owned cleanup plus fail-closed conflict/recovery behavior.
+Historical descriptions and Evidence below retain their original release scope.
+Local implementation authority does not imply real Provider effects, publication
+or human acceptance.
+
+
 ## Platform reconciliation — 2026-09-28
 
 The human T23 instruction names supported operating systems generically as

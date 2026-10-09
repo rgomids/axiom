@@ -40,7 +40,7 @@ func TestAutomaticGateCLIForwardsExactInputAndRejectsConflicts(t *testing.T) {
 }
 
 func TestWorkflowGateArgumentDiscoveryMatchesAutomaticAndExplicitModes(t *testing.T) {
-	for _, name := range []string{"axiom-work-item", "axiom-work-item-run"} {
+	for _, name := range []string{"axiom-work-item"} {
 		t.Run(name, func(t *testing.T) { testGateDiscovery(t, name) })
 	}
 }

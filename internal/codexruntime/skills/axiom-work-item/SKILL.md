@@ -39,20 +39,18 @@ When the user supplies an explicit supported operation, use it exactly and route
 directly to its Lingo commands. Do not perform semantic classification for an
 explicit operation.
 
-When no operation is explicit, resolve intent only among `create`, `run`, and
-`status`:
+When no operation token is explicit, interpret clear domain intent across all
+supported operations and modes. "Crie uma issue" selects `create` / `new`;
+"Atualize o título dessa issue", "Comente na issue", "Feche a issue", and
+"Reabra a issue" select `update`, `comment`, `close`, and `reopen`. The user
+need not name an English CLI token or another skill.
 
-- choose `create` when the user wants to draft/create a new Work Item or select
-  an existing provider Work Item into Axiom;
-- choose `run` when the user wants to start, resume, advance, reconcile, or
-  record an allowed workflow fact for an Execution;
-- choose `status` when the user only wants workflow status or Evidence.
-
-`list` (linked Work Items), `show`, and `status` mode `list` (Executions of a
-Project, when no Execution identity is known) may also be chosen when the user
-plainly asks to discover or inspect them. `update`, `comment`, `close`, and
-`reopen` run only when the user names that operation explicitly; ambiguous intent
-never selects them.
+Distinguish Work Item discovery (`list`) from Execution discovery (`status` /
+`list`), and Work Item inspection (`show`) from Execution status or Evidence
+(`status` / `default`). "Continue a execução" selects `run`; read its exact
+status first and follow Lingo's applicable `resume` or gate action. Never guess
+an advance, fact, or reconcile action. "Finish this" does not identify which
+resource or effect: clarify first.
 
 If the intent is unknown or materially ambiguous, ask one bounded clarification
 or fail safely. Never silently resolve ambiguous intent to `create`, `run`, or
@@ -158,8 +156,8 @@ revision. Do not ask the user to name an internal gate or say a magic phrase.
 - Resume uses the exact committed revision. Re-read status after each result;
   stop and report denied/failed operations without inferring progression.
 
-Gate policies remain in Lingo; the domain skill and compatible run alias route
-to the same operations. The reviewed Runtime/Profile start protocol above remains
+Gate policies remain in Lingo; the canonical domain skill routes directly
+to the supported operations. The reviewed Runtime/Profile start protocol above remains
 mandatory before these actions.
 
 Record planning authority, implementation authority, review start, human

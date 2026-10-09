@@ -17,7 +17,7 @@ func TestExecutableSkillDiscoveryWithoutStateOrWorkflow(t *testing.T) {
 		t.Fatalf("build: %v: %s", err, output)
 	}
 	root := t.TempDir()
-	for _, skill := range []string{"axiom-project-configure", "axiom-project-list", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status"} {
+	for _, skill := range []string{"axiom-project", "axiom-work-item"} {
 		t.Run(skill, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
@@ -64,4 +64,19 @@ func TestExecutableSkillDiscoveryWithoutStateOrWorkflow(t *testing.T) {
 			}
 		})
 	}
+	for _, skill := range []string{"axiom-project-configure", "axiom-project-list", "axiom-project-show", "axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status"} {
+		t.Run("retired-"+skill, func(t *testing.T) {
+			command := exec.Command(binary, "--json", "skill", "inspect", skill)
+			command.Dir = root
+			output, err := command.CombinedOutput()
+			if err == nil || !bytes.Contains(output, []byte("validation_failure")) {
+				t.Fatalf("retired inspect = %v %s", err, output)
+			}
+			entries, err := os.ReadDir(root)
+			if err != nil || len(entries) != 0 {
+				t.Fatalf("retired inspection wrote state: %v %v", entries, err)
+			}
+		})
+	}
+
 }

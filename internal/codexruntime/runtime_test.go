@@ -123,7 +123,7 @@ func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
 			}
 		}
 	}
-	for _, name := range []string{"axiom-work-item-run", "axiom-work-item-status"} {
+	for _, name := range []string{"axiom-work-item"} {
 		content, _ := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
 		for _, required := range []string{"--project", "--repository", "--work-item", "--execution", "github:<owner>/<repository>#<number>"} {
 			if !strings.Contains(string(content), required) {
@@ -131,9 +131,9 @@ func TestSkillSetV2KeepsSelectorsAndCanonicalResultThin(t *testing.T) {
 			}
 		}
 	}
-	create, _ := fs.ReadFile(skillFiles, "skills/axiom-work-item-create/SKILL.md")
-	if !strings.Contains(string(create), "do not extract, duplicate, rename, or relocate") {
-		t.Fatal("axiom-work-item-create may not preserve the original Lingo payload shape")
+	create, _ := fs.ReadFile(skillFiles, "skills/axiom-work-item/SKILL.md")
+	if !strings.Contains(strings.Join(strings.Fields(string(create)), " "), "do not extract, duplicate, rename, or relocate") {
+		t.Fatal("axiom-work-item may not preserve the original Lingo payload shape")
 	}
 }
 
@@ -143,12 +143,6 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		name     string
 		payloads []string
 	}{
-		{"axiom-project-configure", []string{"setup"}},
-		{"axiom-project-list", []string{"projects"}},
-		{"axiom-project-show", []string{"project"}},
-		{"axiom-work-item-create", []string{"draft", "selection", "workItem"}},
-		{"axiom-work-item-run", []string{"workflow", "projection", "executionTarget", "runtimeResolution", "previewDigest"}},
-		{"axiom-work-item-status", []string{"workflow", "projection"}},
 		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission"}},
 		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "executionTarget", "runtimeResolution", "previewDigest", "executions", "workItems", "change", "admission"}},
 	}
@@ -282,6 +276,8 @@ func TestPreAxiomExecutableSkillsAndReceiptRemainUpgradeable(t *testing.T) {
 		if !containsString(legacySkillDigests[name], digest) {
 			t.Fatalf("%s pre-axiom owned digest is not upgradeable", name)
 		}
+	}
+	for _, name := range skillNames {
 		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
 		if err != nil {
 			t.Fatal(err)
@@ -396,8 +392,8 @@ current working directory.
 		t.Fatalf("upgrade = %#v", got)
 	}
 	data, err := os.ReadFile(filepath.Join(directory, "SKILL.md"))
-	if err != nil || !strings.Contains(string(data), "axiom --json project show") {
-		t.Fatalf("skill not upgraded: %q, %v", data, err)
+	if !os.IsNotExist(err) {
+		t.Fatalf("retired skill retained: %q, %v", data, err)
 	}
 }
 
@@ -642,10 +638,10 @@ func TestSkillRootRefusesSymlinkedRoot(t *testing.T) {
 
 func TestInstallRefusesConflictAndRollsBackCurrentAttempt(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "skills")
-	if err := os.MkdirAll(filepath.Join(root, "axiom-work-item-create"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "axiom-work-item"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "axiom-work-item-create", "SKILL.md"), []byte("unowned"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "axiom-work-item", "SKILL.md"), []byte("unowned"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	service, err := New(root)
@@ -654,15 +650,15 @@ func TestInstallRefusesConflictAndRollsBackCurrentAttempt(t *testing.T) {
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {
 		t.Fatalf("install = %#v", got)
-	} else if len(got.Skills) != len(skillNames) || got.Skills[3].State != "foreign" || len(got.Conflicts) != 1 || got.Conflicts[0] != (Conflict{Artifact: "axiom-work-item-create/SKILL.md", State: "foreign", Digest: digestOf([]byte("unowned"))}) {
+	} else if len(got.Skills) != len(skillNames) || got.Skills[1].State != "foreign" || len(got.Conflicts) != 1 || got.Conflicts[0] != (Conflict{Artifact: "axiom-work-item/SKILL.md", State: "foreign", Digest: digestOf([]byte("unowned"))}) {
 		t.Fatalf("conflict detail = %#v / %#v", got.Skills, got.Conflicts)
 	}
-	for _, name := range []string{"axiom-project-configure", "axiom-project-show"} {
+	for _, name := range []string{"axiom-project"} {
 		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
 			t.Fatalf("partial skill retained: %s: %v", name, err)
 		}
 	}
-	data, err := os.ReadFile(filepath.Join(root, "axiom-work-item-create", "SKILL.md"))
+	data, err := os.ReadFile(filepath.Join(root, "axiom-work-item", "SKILL.md"))
 	if err != nil || string(data) != "unowned" {
 		t.Fatalf("conflicting skill changed: %q, %v", data, err)
 	}
@@ -677,11 +673,11 @@ func TestInspectRejectsHardLinkedOwnedSkill(t *testing.T) {
 	if got := service.Install(context.Background()); got.Status != Applied {
 		t.Fatalf("install = %#v", got)
 	}
-	path := filepath.Join(root, "axiom-project-show", "SKILL.md")
+	path := filepath.Join(root, "axiom-project", "SKILL.md")
 	if err := os.Link(path, filepath.Join(t.TempDir(), "skill-copy")); err != nil {
 		t.Fatal(err)
 	}
-	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[2].State != "unsafe" || len(got.Conflicts) != 1 || got.Conflicts[0].Artifact != "axiom-project-show" {
+	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[0].State != "unsafe" || len(got.Conflicts) != 1 || got.Conflicts[0].Artifact != "axiom-project" {
 		t.Fatalf("hard link inspection = %#v", got)
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {
@@ -699,11 +695,11 @@ func TestInspectRejectsUnsafeSkillPermissions(t *testing.T) {
 	if got := service.Install(context.Background()); got.Status != Applied {
 		t.Fatalf("install = %#v", got)
 	}
-	directory := filepath.Join(root, "axiom-project-show")
+	directory := filepath.Join(root, "axiom-project")
 	if err := os.Chmod(directory, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[2].State != "unsafe" {
+	if got := service.Inspect(context.Background()); got.Status != Missing || got.Skills[0].State != "unsafe" {
 		t.Fatalf("permission inspection = %#v", got)
 	}
 	if got := service.Install(context.Background()); got.Status != Failed || got.Category != "codex_skill_conflict" {
@@ -717,7 +713,7 @@ func TestInstallRejectsSymlinkSkill(t *testing.T) {
 		t.Fatal(err)
 	}
 	outside := t.TempDir()
-	if err := testfs.Symlink(t, outside, filepath.Join(root, "axiom-project-configure")); err != nil {
+	if err := testfs.Symlink(t, outside, filepath.Join(root, "axiom-project")); err != nil {
 		t.Fatal(err)
 	}
 	service, err := New(root)
@@ -755,14 +751,14 @@ func TestInspectReportsBinaryCompatibilityAndPartialResume(t *testing.T) {
 	calls := 0
 	service.afterSkill = func(string) {
 		calls++
-		if calls == 2 {
+		if calls == 1 {
 			service.afterSkill = nil
 		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	service.afterSkill = func(string) {
 		calls++
-		if calls == 2 {
+		if calls == 1 {
 			cancel()
 		}
 	}
@@ -824,7 +820,7 @@ func TestClaudeIntegrationUpgradesOnlyRegisteredClaudeHistory(t *testing.T) {
 // Issue #140 replaced the selector-only start: the skill must teach the
 // reviewed preview, forward every policy input and never default a Runtime.
 func TestWorkItemRunSkillTeachesReviewedRuntimePreview(t *testing.T) {
-	for _, name := range []string{"axiom-work-item-run", "axiom-work-item"} {
+	for _, name := range []string{"axiom-work-item"} {
 		content, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
 		if err != nil {
 			t.Fatal(err)

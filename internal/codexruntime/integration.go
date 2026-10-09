@@ -21,6 +21,9 @@ type integration struct {
 	legacySkills   map[string][]string
 	legacyReceipts [][]byte
 	receiptFor     func(root string, revision skillSetRevision) ([]byte, error)
+	// retirementFault, nil outside tests, injects a failure or interruption
+	// at a named retirement-proof preparation boundary.
+	retirementFault func(step string) error
 }
 
 var codexIntegration = integration{

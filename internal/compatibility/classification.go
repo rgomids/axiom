@@ -127,7 +127,7 @@ func Inspect(ctx context.Context, roots Roots) (Report, error) {
 		if err != nil {
 			return Report{}, ErrUnsafeRoot
 		}
-		inventory, err := service.Inventory(ctx)
+		inventory, err := service.OwnershipInventory(ctx)
 		if err != nil {
 			return Report{}, err
 		}

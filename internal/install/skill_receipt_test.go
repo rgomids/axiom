@@ -80,7 +80,7 @@ func TestUpgradeAsCandidatePublishesSkillSetReceiptLast(t *testing.T) {
 		t.Fatal(err)
 	}
 	last := preview.Effects[len(preview.Effects)-1]
-	if len(preview.Effects) != 2+len(skillNames)+1 || last.Kind != "skill_receipt" || last.Expected != digest(publishedCodexReceipt(t, "v0.1.1")) || last.Next != digest(want) || last.Target != filepath.Join(root, codexruntime.SkillSetReceiptName) {
+	if len(preview.Effects) != 2+len(skillNames)+4+1 || last.Kind != "skill_receipt" || last.Expected != digest(publishedCodexReceipt(t, "v0.1.1")) || last.Next != digest(want) || last.Target != filepath.Join(root, codexruntime.SkillSetReceiptName) {
 		t.Fatalf("effects=%+v", preview.Effects)
 	}
 	authority, _ := Authorize(preview, preview.Digest)
@@ -136,19 +136,16 @@ func TestUpgradeAsCandidateCreatesAbsentReceiptOnlyForConfiguredRoot(t *testing.
 
 func TestUpgradeAsCandidatePreservesUnrecognizedReceipt(t *testing.T) {
 	foreign := []byte("formatVersion=1\nskillSetVersion=9\n")
-	_, root, _, preview := upgradeAsCandidate(t, foreign)
-	for _, effect := range preview.Effects {
-		if effect.Kind == "skill_receipt" {
-			t.Fatalf("unrecognized receipt planned for replacement: %+v", preview.Effects)
-		}
-	}
-	authority, _ := Authorize(preview, preview.Digest)
-	result, err := NewService().Apply(context.Background(), preview, authority)
-	if err != nil || result.Status != "partial" || result.SkillReceipt != SkillReceiptConflict {
-		t.Fatalf("result=%+v err=%v", result, err)
+	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
+	root := installed.withSkillsRoot(t, map[string][]byte{"axiom-project-configure": v060Skill(t, "axiom-project-configure")})
+	writeFile(t, filepath.Join(root, codexruntime.SkillSetReceiptName), foreign, 0600)
+	installed.target.Self = selfBuildFor("1.1.0")
+	preview, err := NewService().Preview(context.Background(), installed.target, installed.candidate(t, selfBundle(t, "1.1.0")))
+	if err == nil || len(preview.Effects) > 2 {
+		t.Fatal("foreign receipt permitted retirement")
 	}
 	if read(t, filepath.Join(root, codexruntime.SkillSetReceiptName)) != string(foreign) {
-		t.Fatal("unrecognized receipt overwritten")
+		t.Fatal("unrecognized receipt changed")
 	}
 }
 
@@ -186,7 +183,7 @@ func TestUpgradeNotRunningAsCandidateKeepsRefreshRequired(t *testing.T) {
 // skills is not this binary, whatever its metadata claims.
 func TestUpgradeCandidateIdentityRequiresEmbeddedSkills(t *testing.T) {
 	candidate := selfBundle(t, "1.1.0")
-	candidate.skills["axiom-work-item-run"] = []byte("different\n")
+	candidate.skills["axiom-work-item"] = []byte("different\n")
 	installed := install(t, newBundle("1.0.0", []byte("old-binary\n")))
 	if selfBuildFor("1.1.0").isCandidate(installed.candidate(t, candidate)) {
 		t.Fatal("candidate with different skills accepted as this binary")
@@ -216,7 +213,7 @@ func TestUpgradeAsCandidateResumesAfterInterruptionAroundReceipt(t *testing.T) {
 			if err != nil || !resume.Resume {
 				t.Fatalf("resume preview=%+v err=%v", resume, err)
 			}
-			wantEffects := 1
+			wantEffects := 5
 			if stop == "skill_receipt" {
 				wantEffects = 0
 			}
