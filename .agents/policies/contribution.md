@@ -28,6 +28,12 @@ Before opening a Pull Request, inspect the branch, complete diff, commits, PR
 title and description, related references, Evidence, documentation impact,
 security impact, limitations, and absence of out-of-scope changes.
 
+For Work Items mapped to Linear `AXM`, treat Linear as the sole authority for
+operational task status, assignee and blocking/unblocking; do not add, replace
+or reconcile legacy GitHub `status:*` labels, or infer technical acceptance
+from Linear status. Preserve `type:*`, `area:*`, `platform:*` and system-managed
+`axiom:*` labels. This does not authorize automatic Linear transitions.
+
 For an Axiom-managed Work Item under the approved Issue #94 amendment, the agent
 must also:
 

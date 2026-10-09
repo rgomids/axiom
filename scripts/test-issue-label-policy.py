@@ -122,10 +122,15 @@ class PlanTest(unittest.TestCase):
         self.assertTrue(result["notices"])
         self.assertTrue(any("Missing `area:*`" in violation for violation in result["violations"]))
 
-    def test_missing_status_defaults_to_planned(self):
-        result = policy.plan(issue(["type:task", "area:cli"]), "labeled")
-        self.assertEqual(result["add"], ["status:planned"])
-        self.assertEqual(result["violations"], [])
+    def test_missing_status_is_valid_and_not_seeded(self):
+        for action in ("opened", "reopened", "labeled", "unlabeled"):
+            result = policy.plan(issue(["type:task", "area:cli"]), action)
+            self.assertEqual(result["add"], [], action)
+            self.assertEqual(result["violations"], [], action)
+
+    def test_removing_last_legacy_status_does_not_restore_it(self):
+        result = policy.plan(issue(["type:story", "area:workflow"]), "unlabeled")
+        self.assertEqual((result["add"], result["violations"]), ([], []))
 
     def test_non_canonical_status_is_reported_not_replaced(self):
         result = policy.plan(issue(["type:task", "area:cli", "status:done"]), "reopened")
@@ -136,7 +141,7 @@ class PlanTest(unittest.TestCase):
         result = policy.plan(issue(["type:bug", "type:task", "status:planned", "status:active", "area:cli"]), "labeled")
         self.assertEqual(result["add"], [])
         self.assertTrue(any("Conflicting types" in violation for violation in result["violations"]))
-        self.assertTrue(any("Conflicting statuses" in violation for violation in result["violations"]))
+        self.assertTrue(any("Conflicting legacy statuses" in violation for violation in result["violations"]))
 
     def test_missing_type_is_reported(self):
         result = policy.plan(issue(["status:planned", "area:cli"]), "opened")
@@ -206,13 +211,13 @@ class AxiomAuthoredTest(unittest.TestCase):
             final, result = self.final_labels(sorted(["type:" + item_type, area]), axiom_body(item_type))
             self.assertEqual(result["violations"], [], item_type)
             self.assertEqual([label for label in final if label.startswith("type:")], ["type:" + item_type])
-            self.assertEqual([label for label in final if label.startswith("status:")], ["status:planned"])
+            self.assertEqual([label for label in final if label.startswith("status:")], [])
             self.assertEqual([label for label in final if label.startswith("area:")], [area])
 
     def test_missing_area_is_reported_never_invented(self):
         for extra in ("\n\n\\### Area\n\nRuntime", "\n\n ```\n ### Area\n\n Runtime\n ```"):
             final, result = self.final_labels(["type:story"], axiom_body("story", extra=extra))
-            self.assertEqual(final, ["status:planned", "type:story"], extra)
+            self.assertEqual(final, ["type:story"], extra)
             self.assertEqual(result["notices"], [], extra)
             self.assertTrue(any("Missing `area:*`" in violation for violation in result["violations"]), extra)
 
@@ -257,7 +262,7 @@ class FormsTest(unittest.TestCase):
     def test_forms_match_policy(self):
         for name, type_label in FORMS.items():
             text = read(os.path.join(TEMPLATES, name))
-            self.assertEqual(form_labels(text), [type_label, "status:planned"], name)
+            self.assertEqual(form_labels(text), [type_label], name)
             fields = form_fields(text)
             self.assertEqual(fields[0]["type"], "markdown", name)
             area = fields[1]
@@ -304,6 +309,7 @@ class WorkflowTest(unittest.TestCase):
             self.assertNotIn("github.event.issue." + field, text)
         self.assertEqual(re.findall(r"(?m)^      (\w[\w-]*): (\w+)$", text.split("permissions: {}", 1)[1]).count(("issues", "write")), 3)
         self.assertNotIn("DELETE", text)
+        self.assertNotIn("status:planned", text)
         self.assertIn("persist-credentials: false", text)
 
     def test_dispatch_on_another_branch_never_runs_unmerged_planner_with_write(self):
