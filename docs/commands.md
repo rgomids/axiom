@@ -728,11 +728,11 @@ filters.
 
 ## Windows native installation
 
-Installer eligibility on Windows is a client edition on amd64 with 64-bit
+Installer eligibility on Windows is workstation or member Server on amd64 with 64-bit
 PowerShell 5.1+ and the Windows-supplied `tar.exe`; local NTFS storage is the
 supported filesystem. The numeric Windows version is not an installation
-filter, and Windows Server is refused. Maintenance covers vendor-maintained
-Windows client versions. The native `tar.exe` supplied by
+filter; domain controllers and unknown product types are refused. Maintenance covers vendor-maintained
+Windows workstation and member Server versions. The native `tar.exe` supplied by
 Windows reads the same `.tar.gz` release format as the POSIX rows. No WSL,
 administrator session, Bash, or Go installation is needed by end users.
 

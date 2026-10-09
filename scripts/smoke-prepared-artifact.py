@@ -37,6 +37,8 @@ def windows_environment(home, temporary):
     """Only OS plumbing, never inherited credentials or Runtime discovery."""
     system = os.environ["SystemRoot"]
     return {"SystemRoot": system, "WINDIR": system, "OS": "Windows_NT",
+            "SystemDrive": Path(system).drive,
+            "USERPROFILE": str(home), "HOME": str(home), "APPDATA": str(home / "AppData/Roaming"),
             "PROCESSOR_ARCHITECTURE": "AMD64", "PATHEXT": ".EXE;.CMD;.BAT",
             "COMSPEC": str(Path(system) / "System32/cmd.exe"),
             "LOCALAPPDATA": str(home / "AppData/Local"),
@@ -56,7 +58,7 @@ def windows_private_directory(path):
             "$d=New-Object IO.DirectoryInfo('" + str(path).replace("'", "''") + "'); $d.SetAccessControl($a)")
     subprocess.run([str(powershell), "-NoProfile", "-NonInteractive", "-Command", code],
                    env=windows_environment(path, path), stdin=subprocess.DEVNULL,
-                   capture_output=True, timeout=20, check=True)
+                   capture_output=True, timeout=60, check=True)
 
 
 def smoke(args, summary):
