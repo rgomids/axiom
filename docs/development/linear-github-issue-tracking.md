@@ -7,12 +7,18 @@ It applies to the **AXM** team in Linear and the `rgomids/axiom` repository.
 This is a **governance rule**, not evidence that a provider integration is installed,
 that any synchronization is running, or that implementation is authorized.
 
+This policy separates **operational backlog authority** (Linear), **technical
+repository authority** (GitHub), and **canonical Axiom Execution/acceptance
+contracts**. A workflow status is neither execution authority nor technical
+acceptance.
+
 ## Ownership
 
 | Concern | Authority |
 |---|---|
 | Product roadmap, priorities, release targets, user outcomes, product epics and stories | Linear (AXM) |
-| Technical work items, defects, engineering tasks, technical research and technical issue taxonomy | GitHub Issues |
+| Operational backlog of Linear-managed work: status, assignment, priority, sequencing and `Blocks` / `Blocked by` relationships (including the already mapped MVP work) | Linear (AXM) |
+| Technical-only work items, defects, bounded engineering tasks, technical research and technical issue taxonomy | GitHub Issues |
 | Specifications, architecture decisions, code, PRs, validation and evidence | Versioned GitHub repository |
 | Technical delivery and stable publication | GitHub Release and its traceable evidence |
 | Product acceptance and delivery status | Linear, reconciled against technical evidence and required human decisions |
@@ -28,11 +34,21 @@ remain governed by [CONTRIBUTING.md](../../CONTRIBUTING.md) and approved
 Specifications. Linear uses its native issue statuses instead of duplicating
 GitHub `status:*` labels.
 
+**Transition boundary:** For already mapped MVP items, the corresponding AXM
+card is the operational source of truth for status, assignee, scheduling and
+blocking/unblocking. Related GitHub Issues retain technical history and links;
+their `status:*` labels or Project columns must not be used as a competing
+product backlog status or to unblock an AXM successor. Those GitHub metadata
+rules are **not removed by this documentation change**. Updating labels, Issue
+Forms, validators, harness instructions and automations requires a separate
+reviewed migration. GitHub-only technical work keeps its currently mandated
+metadata until then.
+
 ## Where a new request starts
 
 | Request | Create in | When to create a link elsewhere |
 |---|---|---|
-| User-facing capability, product epic, committed outcome or product discovery work | Linear | Open scoped GitHub engineering Issues when technical execution/specification is needed. |
+| User-facing capability, product epic, story, committed outcome or product discovery work | Linear | Create a bounded GitHub technical Issue only when required for distinct engineering implementation, Specification or research; do not mirror every Linear story. |
 | Reproducible bug, regression or engineering defect | GitHub | Link a Linear deliverable only when the bug affects a product commitment, priority or date. |
 | Refactor, CI/CD, maintenance, technical documentation or internal engineering improvement | GitHub | Link Linear only for a product-delivery dependency or material roadmap impact. |
 | Specification, ADR or technical investigation | GitHub | Link the impacted Linear outcome when it is a prerequisite. |
@@ -51,9 +67,12 @@ coordination is genuinely required.
 1. When there is a product commitment, add the URL of the related GitHub
    Issue(s) to the Linear card and the Linear reference to the relevant GitHub
    technical issue/PR context. Existing records may be linked instead of copied.
-2. Keep product-specific priority, target date, milestone and user-facing scope
-   in Linear. Keep technical acceptance criteria, Specifications, ADRs, detailed
-   dependencies, evidence, PR metadata and release facts in GitHub.
+2. Keep product priority, assignee, operational status, target date, milestone,
+   sequencing, `Blocks` / `Blocked by` relations and user-facing scope in Linear.
+   Keep technical acceptance criteria, Specifications, ADRs, implementation
+   constraints, evidence, PR metadata and release facts in GitHub. GitHub Issue
+   relationships may be retained for traceability, but do not independently
+   drive the operational state of a mapped Linear card.
 3. A single Linear card may depend on several GitHub Issues: do not complete
    the product card until **all** necessary technical work and its own product
    acceptance conditions are satisfied.
@@ -105,9 +124,13 @@ justified product relationships.
 | `Done` | All necessary GitHub Issues were delivered by a stable release, traceable evidence exists, and the Linear outcome meets its acceptance conditions, including any required human decision. |
 | `Canceled` / `Duplicate` | Alternatives to delivery as appropriate, not a generic blocked status. |
 
-Use Linear `Blocks` / `Blocked by` relationships for product dependencies.
-The GitHub `status:blocked` label remains an editorial GitHub state and
-does not create an extra Linear workflow column.
+Use Linear `Blocks` / `Blocked by` relationships for operational dependencies,
+including already mapped MVP activities. A completed predecessor should be
+reconciled against actual acceptance evidence before its successor is treated
+as unblocked. GitHub Issue relationships may remain as technical references,
+not as a second unblock mechanism. The GitHub `status:blocked` label remains
+an editorial GitHub state under the **current** repository policy; this stage
+does not alter labels or create an extra Linear workflow column.
 
 A PR opening, review approval, green CI or squash merge **never** proves a
 stable release or human acceptance. Per the repository's existing
@@ -123,7 +146,9 @@ performing a destructive, external or acceptance-changing action.
 ## Integration rollout: explicit future work
 
 **Adopted policy:** link PRs to relevant Linear issues using `Relates to`,
-and keep product status transitions intentional.
+and keep product status transitions intentional. Defining Linear as the
+operational authority does **not** enable automatic transitions or equate
+PR creation, approval or merge with completion.
 
 **Not authorized by this document:**
 
