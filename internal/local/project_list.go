@@ -77,8 +77,8 @@ func (s InstallationStore) ReadInstalledProject(ctx context.Context, installed p
 		return project.Project{}, projectapp.ErrProjectDefinitionUnavailable
 	}
 	defer root.Close()
-	entries, err := readDirectoryNamesBounded(root, 1)
-	if err != nil || len(entries) != 1 || entries[0] != manifestName {
+	err = validatePortableLayout(root)
+	if err != nil {
 		return project.Project{}, ErrUnsafe
 	}
 	wire, err := readPrivateFile(root, manifestName)

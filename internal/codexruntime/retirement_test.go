@@ -12,7 +12,12 @@ import (
 
 func seedEightSkillRoot(t *testing.T, service Service, root string) {
 	t.Helper()
-	revision := sharedSkillHistory[len(sharedSkillHistory)-1]
+	var revision skillSetRevision
+	for _, candidate := range sharedSkillHistory {
+		if len(candidate.skills) == 8 {
+			revision = candidate
+		}
+	}
 	if len(revision.skills) != 8 {
 		t.Fatal("missing frozen eight-skill revision")
 	}

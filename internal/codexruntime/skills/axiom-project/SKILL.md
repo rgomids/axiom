@@ -11,7 +11,7 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, authority metadata, and
 executable command metadata; do not maintain a second argument registry here.
 
-Supported domain operations are `configure`, `list`, `show`, `validate`, `archive`, `reactivate`, and `integration`.
+Supported domain operations are `configure`, `list`, `show`, `validate`, `archive`, `reactivate`, `integration`, `workflow.list`, `workflow.show`, `workflow.create`, `workflow.edit`, `workflow.validate`, `workflow.select`, `workflow.remove`, and `workflow.recover`.
 Any other operation, such as `delete`, `uninstall`, or credential revocation, is
 unsupported: report that it is not available and do not run a Lingo command for
 it. Repository associations are Project-owned: attach, update, and detach use
@@ -34,6 +34,14 @@ it. Repository associations are Project-owned: attach, update, and detach use
 | `integration` | disable | `axiom --json integration disable --project <uuid-or-slug> --integration <key>` | local mutation | machine-local only; preview first; disable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous disable intent |
 | `integration` | enable | `axiom --json integration enable --project <uuid-or-slug> --integration <key>` | local mutation | machine-local only; preview first; enable only with the exact `--preview-digest` plus `--authorize-local` | only for unambiguous enable intent |
 | `integration` | remove | `axiom --json integration remove --project <uuid-or-slug> --integration <key>` | local mutation | portable declaration only; preview first; remove only with the returned `--project-id`, the exact `--preview-digest` plus `--authorize-local` | only for unambiguous remove intent |
+| `workflow.list` | - | `axiom --json project workflow list --project <uuid-or-slug>` | read-only | none | allowed |
+| `workflow.show` | - | `axiom --json project workflow show --project <uuid-or-slug>` | read-only | none | allowed |
+| `workflow.create` | - | `axiom --json project workflow create --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
+| `workflow.edit` | - | `axiom --json project workflow edit --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
+| `workflow.validate` | - | `axiom --json project workflow validate --project <uuid-or-slug>` | read-only | none | allowed |
+| `workflow.select` | - | `axiom --json project workflow select --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
+| `workflow.remove` | - | `axiom --json project workflow remove --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
+| `workflow.recover` | - | `axiom --json project workflow recover --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
 
 When the user supplies an explicit supported operation, use it exactly and route
 directly to its Lingo command. Do not classify or reinterpret an explicit
@@ -122,10 +130,28 @@ after the user approves that exact preview. The effect boundary of each mode is
 stated by `axiom --json skill inspect axiom-project`; Lingo enforces it. Updating
 the Work Item Provider uses `configure` edit mode.
 
+## Workflow definitions
+
+Use `workflow.list` to discover the built-in default and exact revision references.
+Offer `default-sdd` for explicit selection during onboarding; never select it
+implicitly. Use `workflow.create --from-default --workflow <key>` to author a
+custom copy. For complete stage/agent edits, pass the user's JSON with `--file`
+to `workflow.validate`, then `workflow.create` or `workflow.edit`. Inspect the
+binary's argument metadata for exact prior-reference requirements. Preserve all
+instructions and context references as data; the binary owns validation and DAG
+rules. Selection and retirement use the exact returned source/revision/digest.
+
+Report the `workflowAuthoring` payload. Mutations require the user's approval of
+the exact effects followed by the returned `projectRevision` as
+`--expected-revision`, `previewDigest` as `--preview-digest`, and
+`--authorize-local`. On interruption use `recovery inspect/apply` as directed;
+`workflow.recover` only indexes an exact confirmed orphan after a new reviewed
+preview. Never repair, rewrite or prune internal files from a skill.
+
 ## Result contract
 
 Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
-Operation-specific payloads preserved separately: `setup`, `edit`, `projects`, `project`, `readiness`, `operational`, `integrations`, `admission`
+Operation-specific payloads preserved separately: `setup`, `edit`, `projects`, `project`, `readiness`, `operational`, `integrations`, `admission`, `workflowAuthoring`
 
 Copy canonical completion fields only from Lingo's top-level JSON object. Omit
 absent canonical fields. Never derive, synthesize, or reinterpret a canonical

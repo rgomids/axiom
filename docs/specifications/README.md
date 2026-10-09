@@ -7,17 +7,24 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 
 ## 007 — Configurable Project workflows
 
-[Specification](007-configurable-workflows/spec.md): **Proposed, 2026-10-08**,
+[Specification](007-configurable-workflows/spec.md): **Accepted, 2026-10-09**,
 for [#271](https://github.com/rgomids/axiom/issues/271) under
 [Epic #15](https://github.com/rgomids/axiom/issues/15). Defines portable default/custom
 revisions, explicit Project selection, machine-local pinned snapshots, stage/agent
 contracts, legacy compatibility, fixed lifecycle projection and public boundary DTOs.
-[ADR-0020](../decisions/0020-workflow-definition-revision-binding.md) is **Proposed**;
-HD-001–HD-004 remain pending human decision. [Schema and examples](007-configurable-workflows/workflow.schema.json)
+[ADR-0020](../decisions/0020-workflow-definition-revision-binding.md) and
+HD-001–HD-004 were accepted in the
+[maintainer decision](https://github.com/rgomids/axiom/issues/271#issuecomment-6074127314).
+[Schema and examples](007-configurable-workflows/workflow.schema.json)
 and [documentation validation](007-configurable-workflows/evidence.md) do not establish
 implementation or acceptance. #273–#278 consume reviewed contracts only after
 the applicable explicit human approval and bounded implementation authority.
 Specification 004's T01–T40 and historical Evidence remain unchanged.
+
+[#273 authoring implementation and verification map](007-configurable-workflows/issue-273-implementation.md)
+records definition management and explicit Project selection. Implementation
+review and human acceptance remain separate from the accepted contract;
+#274–#278 retain their own binding/planning/dispatch/delivery gates.
 
 ## 006 — Installer Host Eligibility and Platform Support Policy
 

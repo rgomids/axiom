@@ -35,6 +35,7 @@ func commandTree() commandDefinition {
 			group("claude", "Claude integration", leaf("install", "Install user-global skills", claudeInstallAction), leaf("status", "Inspect integration", claudeStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", claudeAuthAction)),
 			group("profile", "Inspect local profile policy", leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Preview Runtime resolution", runtimeProfilePreviewAction))),
 		group("project", "Configure and inspect Projects",
+			workflowAuthoringCommands(),
 			leaf("configure", "Preview CREATE or EDIT; publish with exact authority", configureAction),
 			leaf("list", "List configured Projects", listAction),
 			leaf("show", "Inspect configured Project", showAction),
@@ -125,6 +126,8 @@ func commandByAction(operation action) (*commandDefinition, []string) {
 
 func commandFlagSet(operation action) *flag.FlagSet {
 	switch {
+	case strings.HasPrefix(string(operation), "project_workflow_"):
+		return workflowAuthoringFlagSet(operation, &ProjectWorkflowInput{})
 	case operation == windowsPermissionsRestoreAction:
 		return windowsPermissionsFlagSet()
 	case strings.HasPrefix(string(operation), "context_"):

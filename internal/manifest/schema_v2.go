@@ -10,6 +10,11 @@ import (
 func versionShape(n *yaml.Node) *shape {
 	if n.Tag == "!!map" {
 		for i := 0; i < len(n.Content); i += 2 {
+			if n.Content[i].Value == "schemaVersion" && n.Content[i+1].Tag == "!!int" && n.Content[i+1].Value == "4" {
+				return versionFour()
+			}
+		}
+		for i := 0; i < len(n.Content); i += 2 {
 			if n.Content[i].Value == "schemaVersion" && n.Content[i+1].Tag == "!!int" && n.Content[i+1].Value == "2" {
 				return versionTwo()
 			}
@@ -80,5 +85,21 @@ func versionThree() *shape {
 			required("key", token), required("kind", token), optionalField("repositoryRef", logical), optionalField("path", identifier),
 		), 64))),
 	)
+	return s
+}
+
+func versionFour() *shape {
+	s := versionThree()
+	for i, f := range s.fields {
+		if f.name == "schemaVersion" {
+			s.fields[i].shape.literal = "4"
+		}
+	}
+	s.fields = append(s.fields, optionalField("workflowSelection", object(
+		required("workflowId", &shape{tag: "!!str", security: "token"}),
+		required("revision", &shape{tag: "!!int"}),
+		required("digest", &shape{tag: "!!str", security: "token"}),
+		required("source", &shape{tag: "!!str", security: "token"}),
+	)))
 	return s
 }

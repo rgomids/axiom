@@ -615,6 +615,7 @@ func (s lifecycleService) Configure(ctx context.Context, input cli.ConfigureInpu
 	if preview.Capability.Readiness != projectapp.CapabilityReady {
 		next = "Project is valid; configure a supported Work Item capability before starting that journey"
 	}
+	next += "; review the ready-to-use default with project workflow list --project " + projectID + " and explicitly select its exact reference"
 	result := canonicalCompletion(completion.Facts{Completed: true}, message, []string{"project:" + projectID}, next, s.provenance)
 	result.Setup = &preview
 	return result

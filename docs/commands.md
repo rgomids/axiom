@@ -1,5 +1,46 @@
 # Project Commands
 
+## Author and select Project workflows
+
+`axiom project workflow` manages definitions; `axiom workflow list` continues
+to list Executions. Start with the ready-to-use default:
+
+```bash
+axiom --json project workflow list --project my-project
+axiom project workflow select --help
+```
+
+Use the exact `workflowId`, `revision`, `digest` and `source` from the listing
+with `select --workflow <id> --revision <n> --digest <sha256> --source <source>`.
+Selection is explicit. Review `workflowAuthoring.effects`, then repeat the same
+command with `--expected-revision <projectRevision> --preview-digest
+<previewDigest> --authorize-local` from the preview.
+
+Create a custom copy without manually defining stages:
+
+```bash
+axiom --json project workflow create --project my-project --from-default --workflow team-sdd
+```
+
+Apply its exact preview with the same authority tuple. Use `show` with an exact
+reference to inspect the complete definition; save your edited JSON as a new
+revision and use `validate --file <json>` followed by `edit --file <json>
+--workflow <id> --prior-revision <n> --prior-digest <sha256>`. `create --file`
+also imports a complete validated definition. Creating/editing never changes
+selection; run `select` explicitly for the new reference. All commands require
+`--project <uuid-or-slug>` and have `--help`; their argument/authority metadata
+is also exposed by `axiom --json skill inspect axiom-project`.
+
+`remove` retires an unselected, unreferenced revision while retaining inspectable
+content and its immutable index assignment. Built-ins cannot be retired. Unknown
+local reference/recovery formats block retirement. For interruption, follow
+`recovery inspect/apply`; a confirmed unindexed definition requires a new reviewed
+`project workflow recover --file <exact-json>` preview and explicit apply.
+
+Definitions and selection are available in this slice; configurable Execution
+binding, planning and dispatch remain separate. See the
+[implementation boundary and verification map](specifications/007-configurable-workflows/issue-273-implementation.md).
+
 ## Hierarchical CLI help
 
 ```bash

@@ -81,7 +81,14 @@ type CredentialReference struct {
 
 // State is complete portable domain input, not a wire DTO or a validated Project.
 // It cannot carry local bindings, observations, credentials, or Git backing.
+type WorkflowSelection struct {
+	WorkflowID     string
+	Revision       int
+	Digest, Source string
+}
+
 type State struct {
+	WorkflowSelection    Declaration[WorkflowSelection]
 	SchemaVersion        int
 	ID, Slug, Name       string
 	Repositories         Declaration[[]Repository]

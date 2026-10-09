@@ -42,11 +42,12 @@ func (v *validation) key(field, key string, seen map[string]bool) {
 
 func validate(s State) []Issue {
 	v := &validation{}
-	if s.SchemaVersion < 1 || s.SchemaVersion > 3 {
+	if s.SchemaVersion < 1 || s.SchemaVersion > 4 {
 		v.add("schemaVersion", "unsupported_schema")
 	}
 	v.issues = append(v.issues, ValidateIdentity(s.ID, s.Slug)...)
 	v.required("project.name", s.Name)
+	v.workflowSelection(s)
 	v.runtimePolicy(s)
 	v.repositories(s.Repositories)
 	if s.Runtime.form == Present {

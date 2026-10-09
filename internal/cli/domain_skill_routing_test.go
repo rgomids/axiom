@@ -175,7 +175,7 @@ func TestSkillOperationMetadataMatchesExecutableParser(t *testing.T) {
 					inputs = append(inputs, mode.selector)
 				}
 				fields := strings.Fields(mode.example)
-				if len(fields) < 4 || fields[0] != "axiom" || fields[1] != "--json" || !slices.Contains(commandNames(mode.actions), "axiom "+fields[2]+" "+fields[3]) {
+				if len(fields) < 4 || fields[0] != "axiom" || fields[1] != "--json" || !slices.Contains(commandNames(mode.actions), exampleCommand(mode.example)) {
 					t.Fatalf("%s/%s/%s example %q is not one of its commands", name, spec.name, mode.name, mode.example)
 				}
 				for _, field := range fields {
@@ -403,10 +403,14 @@ var mutatingRequests = map[string][]string{
 
 // authorityValues are explicit, well-formed values for authority inputs that
 // take a value.
-var authorityValues = map[string]string{"--preview-digest": strings.Repeat("a", 64), "--project-id": "123e4567-e89b-42d3-a456-426614174000"}
+var authorityValues = map[string]string{"--expected-revision": strings.Repeat("b", 64), "--preview-digest": strings.Repeat("a", 64), "--project-id": "123e4567-e89b-42d3-a456-426614174000"}
 
 func routedRequest(t *testing.T, operation string, mode skillOperationMode, command string) []string {
 	t.Helper()
+	if strings.HasPrefix(command, "axiom project workflow ") {
+		return append(strings.Fields(strings.TrimPrefix(command, "axiom ")), "--project", "alpha")
+	}
+
 	if args, ok := mutatingRequests[operation+"/"+mode.Name]; ok {
 		return args
 	}
@@ -597,17 +601,20 @@ func (p *authorityProbe) WorkflowList(context.Context, ExecutionListInput) Execu
 // application handoff, rather than merely asserting command spelling.
 func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
 	requests := map[string][]string{
-		"axiom project list":         {"project", "list"},
-		"axiom project show":         {"project", "show", "--selector", "alpha"},
-		"axiom project validate":     {"project", "validate", "--project", "alpha"},
-		"axiom integration list":     {"integration", "list", "--project", "alpha"},
-		"axiom integration show":     {"integration", "show", "--project", "alpha", "--integration", "work-items"},
-		"axiom integration validate": {"integration", "validate", "--project", "alpha"},
-		"axiom work-item list":       {"work-item", "list", "--project", "alpha"},
-		"axiom work-item show":       {"work-item", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-		"axiom workflow list":        {"workflow", "list", "--project", "alpha"},
-		"axiom workflow status":      {"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
-		"axiom workflow evidence":    {"workflow", "evidence", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+		"axiom project workflow list":     {"project", "workflow", "list", "--project", "alpha"},
+		"axiom project workflow show":     {"project", "workflow", "show", "--project", "alpha"},
+		"axiom project workflow validate": {"project", "workflow", "validate", "--project", "alpha"},
+		"axiom project list":              {"project", "list"},
+		"axiom project show":              {"project", "show", "--selector", "alpha"},
+		"axiom project validate":          {"project", "validate", "--project", "alpha"},
+		"axiom integration list":          {"integration", "list", "--project", "alpha"},
+		"axiom integration show":          {"integration", "show", "--project", "alpha", "--integration", "work-items"},
+		"axiom integration validate":      {"integration", "validate", "--project", "alpha"},
+		"axiom work-item list":            {"work-item", "list", "--project", "alpha"},
+		"axiom work-item show":            {"work-item", "show", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
+		"axiom workflow list":             {"workflow", "list", "--project", "alpha"},
+		"axiom workflow status":           {"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+		"axiom workflow evidence":         {"workflow", "evidence", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 	}
 	for _, name := range canonicalDomainSkills {
 		for _, operation := range discoverForTest(t, name).Operations {
@@ -630,4 +637,17 @@ func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
 			}
 		}
 	}
+}
+
+func exampleCommand(example string) string {
+	fields := strings.Fields(example)
+	end := 2
+	for end < len(fields) && !strings.HasPrefix(fields[end], "--") {
+		end++
+	}
+	return "axiom " + strings.Join(fields[2:end], " ")
+}
+
+func (p *authorityProbe) ProjectWorkflow(_ context.Context, input ProjectWorkflowInput) Result {
+	return p.record("project workflow "+input.Operation, input.AuthorizeLocal, false)
 }

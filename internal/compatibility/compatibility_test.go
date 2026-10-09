@@ -215,7 +215,7 @@ func TestClassificationMatrix(t *testing.T) {
 		}, UnsupportedNewer, "newer_format_version"},
 		{"newer portable schema", func(t *testing.T, roots Roots) Roots {
 			path := filepath.Join(roots.Projects, "poc-fixture", "axiom.yaml")
-			rewrite(t, path, strings.Replace(read(t, path), "schemaVersion: 1", "schemaVersion: 4", 1))
+			rewrite(t, path, strings.Replace(read(t, path), "schemaVersion: 1", "schemaVersion: 5", 1))
 			return roots
 		}, UnsupportedNewer, "newer_format_version"},
 		{"older record", func(t *testing.T, roots Roots) Roots {

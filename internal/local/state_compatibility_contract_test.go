@@ -20,8 +20,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/manifest"
+	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -175,8 +178,8 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err := os.Chmod(portable, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	manifest := []byte("schemaVersion: 1\nproject:\n  id: 123e4567-e89b-42d3-a456-426614174000\n  slug: sample\n  name: Sample\n")
-	if err := os.WriteFile(filepath.Join(source, manifestName), manifest, 0o600); err != nil {
+	manifestWire := []byte("schemaVersion: 1\nproject:\n  id: 123e4567-e89b-42d3-a456-426614174000\n  slug: sample\n  name: Sample\n")
+	if err := os.WriteFile(filepath.Join(source, manifestName), manifestWire, 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -248,6 +251,78 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err := contexts.WriteProjectContext(context.Background(), "", validExecution().ProjectID); err != nil {
 		t.Fatal(err)
 	}
+	// Exercise schema 1/2/3 writers independently; the selected schema 4
+	// candidate comes from the same explicit upgrade operation as the product.
+	ps, e := NewPortableStore(portable)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for version := 1; version <= 3; version++ {
+		p, issues := project.New(project.State{SchemaVersion: version, ID: "87654321-4321-4abc-bdef-123456789abc", Slug: fmt.Sprintf("schema-%d", version), Name: "Compatibility"})
+		if len(issues) > 0 {
+			t.Fatal(issues)
+		}
+		b, issues := manifest.Encode(p)
+		if len(issues) > 0 {
+			t.Fatal(issues)
+		}
+		if e = ps.Create(context.Background(), p.State().Slug, b); e != nil {
+			t.Fatal(e)
+		}
+	}
+	doc := workflowdefinition.Builtin()
+	d := doc.Definition
+	d.WorkflowID = "custom"
+	doc, definitionIssues := workflowdefinition.Encode(d)
+	if len(definitionIssues) > 0 {
+		t.Fatal(definitionIssues)
+	}
+	index := WorkflowIndex{SchemaVersion: 1, Revisions: []WorkflowEntry{{WorkflowID: d.WorkflowID, Revision: 1, Digest: doc.Digest, State: "published"}}}
+	indexWire, e := EncodeWorkflowIndex(index)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = ps.PublishWorkflow(context.Background(), "sample", manifestWire, nil, &doc, indexWire); e != nil {
+		t.Fatal(e)
+	}
+	p, issues := manifest.Decode(manifestWire)
+	if len(issues) > 0 {
+		t.Fatal(issues)
+	}
+	next, issues := p.SelectWorkflow(project.WorkflowSelection{WorkflowID: d.WorkflowID, Revision: 1, Digest: doc.Digest, Source: "project"})
+	if len(issues) > 0 {
+		t.Fatal(issues)
+	}
+	nextWire, issues := manifest.Encode(next)
+	if len(issues) > 0 {
+		t.Fatal(issues)
+	}
+	if e = ps.Update(context.Background(), "sample", manifestWire, nextWire); e != nil {
+		t.Fatal(e)
+	}
+	observation, category := installations.Inspect(context.Background(), p.State().ID)
+	if category != "" {
+		t.Fatal(category)
+	}
+	snap, problems := projectapp.ReadSnapshot(manifest.Codec{}, nextWire, nil)
+	if len(problems) > 0 {
+		t.Fatal(problems)
+	}
+	localState := observation.Record.State()
+	localState.PortableRevision = snap.Revision()
+	localState.ArtifactDigests = snap.Digests()
+	localRecord, recordIssues := NewRecord(localState)
+	if len(recordIssues) > 0 {
+		t.Fatal(recordIssues)
+	}
+	localWire, recordIssues := EncodeRecord(localRecord)
+	if len(recordIssues) > 0 {
+		t.Fatal(recordIssues)
+	}
+	if e = installations.ReplaceRecord(context.Background(), p.State().ID, observation.Wire, localWire); e != nil {
+		t.Fatal(e)
+	}
+
 	return portable, state
 }
 
