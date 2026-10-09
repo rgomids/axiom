@@ -2,7 +2,6 @@ name: Story
 description: Propose a user-facing outcome or value; not only a technical activity.
 labels:
   - type:story
-  - status:planned
 body:
   - type: markdown
     attributes:
