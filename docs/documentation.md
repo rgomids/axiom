@@ -25,7 +25,8 @@ Define how Axiom documentation is classified, maintained, reviewed, and reconcil
 | Durable technical decisions | GitHub — [ADRs](decisions/README.md) |
 | Technical guides and references that must evolve with code | GitHub Repository — versioned Docs-as-Code |
 | Public tutorials, user guides, concepts, and editorial explanations | GitHub Wiki; summarize and link to code-coupled canonical references |
-| Operational state, backlog, and work in progress | GitHub Issues/Projects, when adopted |
+| Product roadmap, product epics/stories, priorities, milestones and delivery dates | Linear, AXM team; see [Linear and GitHub tracking](development/linear-github-issue-tracking.md) |
+| Technical Work Items, bugs, implementation tasks and engineering progress | GitHub Issues and PRs, with technical contracts in versioned repository artifacts |
 | Implementation evidence | Evidence, tests, commits, and PRs |
 | Delivery history | Git, PRs, Releases, and [Changelog](../CHANGELOG.md), as available |
 | Consolidated Specification status | [docs/specifications/README.md](specifications/README.md) |
@@ -33,7 +34,7 @@ Define how Axiom documentation is classified, maintained, reviewed, and reconcil
 
 GitHub Wiki and Repository have distinct ownership. Wiki explanations link to technical artifacts rather than duplicate their contracts. Notion is a migration source, not the target operational source.
 
-Classify external content and verify publication authority before importing it, following the [security policy](../.agents/policies/security.md). Historical source references may remain for provenance; no current workflow should require Notion. Migration completion requires source inventory reconciliation, validated destinations and links, and explicit publication authority. Local migration drafts are temporary review artifacts, not a third source of truth. This matrix assigns documentation ownership; it does not imply provider integrations or adoption of Issues/Projects. It does not override the constitution, approved contracts, or executable evidence under the [repository source hierarchy](../AGENTS.md#source-hierarchy).
+Classify external content and verify publication authority before importing it, following the [security policy](../.agents/policies/security.md). Historical source references may remain for provenance; no current workflow should require Notion. Migration completion requires source inventory reconciliation, validated destinations and links, and explicit publication authority. Local migration drafts are temporary review artifacts, not a third source of truth. This matrix assigns documentation ownership; it does not imply that GitHub/Linear integrations or issue synchronization have been configured. Product delivery is tracked in Linear; technical Work Item and publication authority remain in their owning GitHub and Execution artifacts. It does not override the constitution, approved contracts, or executable evidence under the [repository source hierarchy](../AGENTS.md#source-hierarchy).
 
 ## Documentation categories
 
@@ -57,7 +58,7 @@ Use Diátaxis only to classify Tutorial, How-to, Reference, and Explanation cont
 ## Lifecycle and status rules
 
 - Roadmaps express direction and dependencies, not execution tracking.
-- Do not manually track Tasks and PRs across multiple documents. Link to their authoritative records; use Issues/Projects for operational tracking when adopted. Until adoption, retain existing Task and PR records without inventing another tracker.
+- Do not manually track Tasks and PRs across multiple documents. Link to their authoritative records: Linear for product delivery planning and GitHub Issues/PRs for technical work. Link mapped records without duplicating volatile state or treating Linear as a canonical Execution ledger.
 - A technical merge does not establish human acceptance. Acceptance does not automatically authorize the next Task.
 - Current consolidated Specification status belongs in [the Specifications index](specifications/README.md). Detailed approval and acceptance records remain with the relevant artifacts; secondary documents link to them rather than copy current status.
 - ADRs preserve decision context and history; they are not operational dashboards.
