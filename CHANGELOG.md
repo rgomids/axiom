@@ -26,6 +26,14 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.12.0](https://github.com/rgomids/axiom/compare/v0.11.0...v0.12.0) (2026-10-09)
+
+
+### Features
+
+* **cli:** add hierarchical help ([#133](https://github.com/rgomids/axiom/issues/133), AXM-10) ([#285](https://github.com/rgomids/axiom/issues/285)) ([fff9b0a](https://github.com/rgomids/axiom/commit/fff9b0a6ac6078a0ba671208619798f2160f7372))
+* **runtime:** AXM-4 verify CLI subscription auth before dispatch ([#284](https://github.com/rgomids/axiom/issues/284)) ([9e6893b](https://github.com/rgomids/axiom/commit/9e6893b5022caa5bd7c663777f51fb5cfd8099e8))
+
 ## [0.11.0](https://github.com/rgomids/axiom/compare/v0.10.0...v0.11.0) (2026-10-09)
 
 
