@@ -6,7 +6,7 @@ Implementation: `feat/255-periodic-monitoring` in an isolated worktree.
 
 ## Local validation (2026-10-09)
 
-- `python scripts/test-periodic-monitoring.py`: 39 tests executed: 38 passed, one POSIX-only
+- `python scripts/test-periodic-monitoring.py`: 40 tests executed: 39 passed, one POSIX-only
   process-group test skipped on Windows (to be executed on Linux).
 - `python scripts/check-automation-registry.py .`: PASS, 81 governed surfaces.
 - `python scripts/check-adr-governance.py .`: PASS, 21 ADRs.
@@ -61,8 +61,19 @@ The exact candidate definition was then restored; no filename alias was needed.
   directly without install scripts, and bound each pipe to 1 MiB.
   Sandbox evidence now identifies its actual dispatched branch.
 - Reporting in that live failure returned HTTP 410: the fork's Issues feature
-  is disabled. No incident was created. Temporary enablement and restoration
-  require the requested explicit exception to the no-settings-change envelope.
+  was disabled. No incident was created. The human explicitly authorized its
+  temporary enablement and restoration, which is now underway.
+- Corrected live weekly [37996767428](https://github.com/joaby-oliveira/axiom/actions/runs/37996767428):
+  PASS in both jobs, all 39 then-current offline tests passed on Linux, all CLI
+  probes passed, and the suites recorded 42 adapter, 57 failure and 27 compatibility
+  test outcomes. No incident was created.
+- Controlled drift [37996928972](https://github.com/joaby-oliveira/axiom/actions/runs/37996928972)
+  created sandbox issue #1; repeated drift
+  [37997007645](https://github.com/joaby-oliveira/axiom/actions/runs/37997007645)
+  updated that same issue to two occurrences. Both analyses failed accurately
+  while reporting succeeded. The list endpoint lagged creation, omitting its
+  first audit comment. Reporting now includes validated write responses when
+  emitting audit comments; the added eventual-consistency regression test passes.
 
 Issue #255 remains incomplete until the corrected live layers and controlled
 create/update/recovery/recurrence matrix have operational evidence. No production

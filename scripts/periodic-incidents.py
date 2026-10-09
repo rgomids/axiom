@@ -283,6 +283,7 @@ class GitHub:
 
 def reconcile(api, data, namespace):
     operations = plan(data, api.issues(), namespace)
+    written = {}
     for operation in operations:
         if operation['op'] == 'create':
             # Re-discover before a write. Workflow-global non-cancelling
@@ -290,7 +291,10 @@ def reconcile(api, data, namespace):
             fresh = plan(data, api.issues(), namespace)
             if not any(o['op'] == 'create' and o['signature'] == operation['signature'] for o in fresh):
                 continue
-            api.request('POST', 'issues', {k: operation[k] for k in ('title', 'body', 'labels')})
+            created = api.request('POST', 'issues', {k: operation[k] for k in ('title', 'body', 'labels')})
+            if not owned(created, namespace, data['repository']):
+                raise SafeError('invalid_response')
+            written[created['number']] = created
         else:
             # Recheck ownership after planning; a human edit opts out.
             issue = api.request('GET', f'issues/{operation["number"]}')
@@ -299,11 +303,18 @@ def reconcile(api, data, namespace):
             fresh = plan(data, [issue], namespace)
             match = next((o for o in fresh if o['signature'] == operation['signature']), None)
             if match:
-                api.request('PATCH', f'issues/{operation["number"]}',
-                            {k: match[k] for k in ('body', 'state')} | {'state_reason': 'completed' if match['state'] == 'closed' else None})
+                updated = api.request('PATCH', f'issues/{operation["number"]}',
+                                      {k: match[k] for k in ('body', 'state')} | {'state_reason': 'completed' if match['state'] == 'closed' else None})
+                if not owned(updated, namespace, data['repository']):
+                    raise SafeError('invalid_response')
+                written[updated['number']] = updated
     # Repair the audit comment even when an earlier PATCH/POST succeeded but
     # its response/comment was lost. Same-run retries remain idempotent.
-    for issue in api.issues():
+    # The list endpoint can lag a successful write. Include validated write
+    # responses so the initial occurrence is audited before later updates.
+    inventory = {i['number']: i for i in api.issues()}
+    inventory.update(written)
+    for issue in inventory.values():
         state = owned(issue, namespace, data['repository'])
         if not state or state['last'] != sequence(data):
             continue

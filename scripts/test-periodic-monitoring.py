@@ -284,6 +284,23 @@ class Evidence(unittest.TestCase):
 
 
 class Lifecycle(unittest.TestCase):
+    def test_creation_audit_survives_eventually_consistent_inventory(self):
+        class API:
+            def __init__(self):
+                self.history = []
+            def issues(self):
+                return []
+            def comments(self, number):
+                return self.history
+            def request(self, method, path, payload=None):
+                if path == 'issues':
+                    return issue(payload)
+                self.history.append({'body': payload['body'], 'user': {'login': incidents.BOT}})
+        api = API()
+        incidents.reconcile(api, evidence(1, 'contract_drift'), 'sandbox-255')
+        self.assertEqual(len(api.history), 1)
+        self.assertIn('occurrences=1', api.history[0]['body'])
+
     def test_api_lifecycle_and_audit_repair_are_idempotent(self):
         class API:
             def __init__(self):

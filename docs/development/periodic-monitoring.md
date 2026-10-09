@@ -163,10 +163,13 @@ The sandbox namespace is exactly `sandbox-255`. Dispatch live daily/weekly
 checks as well as fixture runs; fixture PASS is not proof of live CLI/security
 health. Sandbox checkouts may use the dispatched candidate branch.
 
-Use a human-authorized sandbox. If its default branch has not yet registered the
-new workflow, replay the exact candidate workflow on a test branch through an
-existing registered workflow filename (for example `ci.yml`), documenting the
-path alias; do not change the default branch, settings or production CI. Run
+Use a human-authorized sandbox. If the new workflow is not registered, a
+temporary branch-only, read-only echo workflow at the same path can register
+it through a push to that exact sandbox branch. Then restore the exact candidate
+definition and dispatch its workflow ID at the candidate branch. Record both
+revisions; do not change the default branch or production CI. If Issues is
+disabled, obtain explicit authority for temporary enablement and restore the
+original setting after closing the owned sandbox incidents. Run
 drift twice, clean twice, drift again, then clean twice. Preserve sanitized run
 URLs, one issue's create/update/close/reopen history and final cleanup evidence.
 Record outstanding operational blockers in
