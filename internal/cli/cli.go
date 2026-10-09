@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -52,6 +53,12 @@ type Service interface {
 	WorkflowStatus(context.Context, WorkflowInput) Result
 	WorkflowEvidence(context.Context, WorkflowInput) Result
 	WorkflowReconcile(context.Context, WorkflowInput) Result
+}
+
+// RuntimeAuthService is optional: the read-only CLI subscription
+// authentication preflight of one Runtime (#272).
+type RuntimeAuthService interface {
+	RuntimeAuth(context.Context, string) Result
 }
 
 // RuntimeProfileService is optional so existing presentation services and mocks
@@ -167,6 +174,8 @@ type Result struct {
 	Edit              *projectapp.EditPreview
 	RuntimeResolution *runtimeapplication.Preview
 	ExecutionTarget   *ExecutionTargetView
+	// RuntimeAuth is the sanitized authentication preflight report.
+	RuntimeAuth *runtimeadapter.AuthReport
 	// Readiness is the canonical Project readiness report (project validate);
 	// Preflight is the operation projection that blocked an effect.
 	Readiness *projectapp.ReadinessReport
@@ -344,6 +353,17 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		}
 		return emitResponse(stdout, mode, runtimeProfilePreviewAction, profiles.RuntimeProfilePreview(ctx, input))
 	}
+	if len(args) >= 3 && args[0] == "runtime" && (args[1] == "codex" || args[1] == "claude") && args[2] == "auth" {
+		operation := action("runtime_" + args[1] + "_auth")
+		if len(args) != 3 {
+			return emitParserFailure(stdout, mode, operation, "invalid_input", source)
+		}
+		auth, ok := service.(RuntimeAuthService)
+		if !ok {
+			return emit(stdout, mode, event{Operation: operation, Status: Failed, Category: "application_unavailable"})
+		}
+		return emitResponse(stdout, mode, operation, auth.RuntimeAuth(ctx, args[1]))
+	}
 	if len(args) >= 3 && args[0] == "runtime" && args[1] == "profile" && args[2] == "validate" {
 		if len(args) != 3 {
 			return emitParserFailure(stdout, mode, runtimeProfileValidateAction, "invalid_input", source)
@@ -482,6 +502,9 @@ func emitResponse(writer io.Writer, mode outputMode, operation action, response 
 	if response.Completion != nil {
 		if response.RuntimeResolution != nil {
 			return emitRuntimeResolutionCompletion(writer, mode, *response.Completion, response)
+		}
+		if response.RuntimeAuth != nil {
+			return emitRuntimeAuthCompletion(writer, mode, *response.Completion, *response.RuntimeAuth)
 		}
 		if response.Operational != nil {
 			return emitOperationalCompletion(writer, mode, *response.Completion, response)

@@ -2,9 +2,11 @@ package graphapplication
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
@@ -16,14 +18,51 @@ import (
 // binding before the adapter may resolve credentials. It never substitutes
 // another runtime, model, credential reference or executable.
 type policyInvocations struct {
-	policy      *runtimeapplication.Service
-	previews    map[string]runtimeapplication.Preview
-	profiles    map[string]runtimeadapter.CommandProfile
-	invocations executiongraph.InvocationResolver
+	policy         *runtimeapplication.Service
+	previews       map[string]runtimeapplication.Preview
+	profiles       map[string]runtimeadapter.CommandProfile
+	invocations    executiongraph.InvocationResolver
+	auth           SubscriptionAuthenticator
+	authentication *authenticationLedger
+}
+
+// SubscriptionAuthenticator is the machine-local CLI subscription
+// authentication preflight (runtimeadapter.AuthPreflight).
+type SubscriptionAuthenticator interface {
+	Check(context.Context, runtimeadapter.AuthTarget) runtimeadapter.AuthReport
+}
+
+// authenticationLedger keeps the latest sanitized report per child.
+type authenticationLedger struct {
+	mu     sync.Mutex
+	latest map[string]runtimeadapter.AuthReport
+}
+
+func (l *authenticationLedger) record(childID string, report runtimeadapter.AuthReport) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	report.Overrides = slices.Clone(report.Overrides)
+	l.latest[childID] = report
+}
+
+func (l *authenticationLedger) reports() []runtimeadapter.AuthReport {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	ids := slices.Sorted(maps.Keys(l.latest))
+	result := make([]runtimeadapter.AuthReport, 0, len(ids))
+	for _, id := range ids {
+		report := l.latest[id]
+		report.Overrides = slices.Clone(report.Overrides)
+		result = append(result, report)
+	}
+	return result
 }
 
 func newPolicyInvocations(cfg LocalConfiguration, invocations executiongraph.InvocationResolver) (policyInvocations, error) {
-	guard := policyInvocations{policy: cfg.RuntimePolicy, previews: make(map[string]runtimeapplication.Preview), profiles: make(map[string]runtimeadapter.CommandProfile), invocations: invocations}
+	guard := policyInvocations{policy: cfg.RuntimePolicy, previews: make(map[string]runtimeapplication.Preview), profiles: make(map[string]runtimeadapter.CommandProfile), invocations: invocations, auth: cfg.SubscriptionAuth}
+	if guard.auth != nil {
+		guard.authentication = &authenticationLedger{latest: map[string]runtimeadapter.AuthReport{}}
+	}
 	for _, profile := range cfg.RuntimeProfiles {
 		if !selectionSafeArguments(profile.RuntimeID, profile.Arguments) || !selectionSafeEnvironment(profile.Environment) {
 			return policyInvocations{}, ErrInvalidComposition
@@ -62,7 +101,41 @@ func (g policyInvocations) ResolveInvocation(ctx context.Context, child executio
 	if err := g.matchesBinding(binding); err != nil {
 		return executiongraph.Invocation{}, err
 	}
-	return g.invocations.ResolveInvocation(ctx, child)
+	if g.auth == nil {
+		return g.invocations.ResolveInvocation(ctx, child)
+	}
+	return g.subscriptionInvocation(ctx, child, binding)
+}
+
+// subscriptionInvocation enforces the subscription scenario at the dispatch
+// boundary. A credential reference is refused before anything is resolved;
+// otherwise the preflight inspects the exact invocation the process runner
+// will start, including the inherited environment, and binds it to the
+// reviewed executable identity. Each attempt re-runs it, so no earlier
+// observation authorizes a later dispatch.
+func (g policyInvocations) subscriptionInvocation(ctx context.Context, child executiongraph.ChildExecution, binding runtimeapplication.Binding) (executiongraph.Invocation, error) {
+	report := runtimeadapter.AuthReport{RuntimeID: binding.Choice.RuntimeID, Status: runtimeadapter.AuthIncompatible, Reason: "credential_reference_configured", Method: "unknown", Version: "unknown", EvidenceKind: runtimeadapter.EvidenceLocalObservation, Usability: runtimeadapter.UsabilityUnproven, Revalidation: runtimeadapter.RevalidateBeforeDispatch}
+	if binding.CredentialReference != "" {
+		g.authentication.record(child.ExecutionID, report)
+		return executiongraph.Invocation{}, fmt.Errorf("%w: %s", executiongraph.ErrAuthenticationBlocked, report.Reason)
+	}
+	invocation, err := g.invocations.ResolveInvocation(ctx, child)
+	if err != nil {
+		return executiongraph.Invocation{}, err
+	}
+	// The effective argv is re-checked, not only the configured profile.
+	if len(invocation.Argv) < 4 || invocation.RuntimeID != binding.Choice.RuntimeID || binding.Choice.ExecutableDigest == "" || !selectionSafeArguments(invocation.RuntimeID, invocation.Argv[4:]) {
+		return executiongraph.Invocation{}, ErrInvalidComposition
+	}
+	report = g.auth.Check(ctx, runtimeadapter.AuthTarget{RuntimeID: invocation.RuntimeID, Executable: invocation.Argv[0], ExpectedDigest: binding.Choice.ExecutableDigest, WorkingDirectory: invocation.CWD, Environment: executiongraph.EffectiveEnvironment(invocation.Env)})
+	g.authentication.record(child.ExecutionID, report)
+	if report.Reason == "executable_identity_changed" {
+		return executiongraph.Invocation{}, fmt.Errorf("%w: %w", executiongraph.ErrAuthenticationBlocked, runtimeapplication.ErrStale)
+	}
+	if !report.DispatchAllowed() {
+		return executiongraph.Invocation{}, fmt.Errorf("%w: %s", executiongraph.ErrAuthenticationBlocked, report.Reason)
+	}
+	return invocation, nil
 }
 
 func (g policyInvocations) matchesProfile(choice runtimeprofile.Choice) bool {

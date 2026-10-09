@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 )
 
@@ -44,6 +45,41 @@ func emitRuntimeResolutionCompletion(writer io.Writer, mode outputMode, result c
 		content = append(content, extra...)
 		content = append(content, "\npreviewDigest: "...)
 		content = append(content, value.PreviewDigest...)
+	}
+	content = append(content, '\n')
+	if len(content) > MaxCompletionOutputBytes {
+		return ExitFailure
+	}
+	written, err := writer.Write(content)
+	if err != nil || written != len(content) {
+		return ExitFailure
+	}
+	return completionExitCode(result.Status())
+}
+
+type runtimeAuthCompletionEvent struct {
+	completionEvent
+	RuntimeAuth runtimeadapter.AuthReport `json:"runtimeAuth"`
+}
+
+// emitRuntimeAuthCompletion presents the sanitized preflight report; human
+// and JSON modes carry the same fields.
+func emitRuntimeAuthCompletion(writer io.Writer, mode outputMode, result completion.Result, report runtimeadapter.AuthReport) int {
+	if writer == nil || !result.Valid() {
+		return ExitFailure
+	}
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	content, err := json.Marshal(runtimeAuthCompletionEvent{completionEvent: base, RuntimeAuth: report})
+	if err != nil {
+		return ExitFailure
+	}
+	if mode == humanOutput {
+		extra, err := json.Marshal(report)
+		if err != nil {
+			return ExitFailure
+		}
+		content = append(renderCompletionHuman(result), "runtimeAuth: "...)
+		content = append(content, extra...)
 	}
 	content = append(content, '\n')
 	if len(content) > MaxCompletionOutputBytes {

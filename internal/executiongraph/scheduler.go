@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -126,6 +127,10 @@ func (s Scheduler) DispatchReady(ctx context.Context, request DispatchRequest) (
 			continue
 		}
 		invocation, err := s.invocations.ResolveInvocation(ctx, child)
+		if errors.Is(err, ErrAuthenticationBlocked) {
+			result.Blocked[child.ExecutionID] = "authentication_blocked"
+			continue
+		}
 		if err != nil || !validInvocation(child, invocation) {
 			result.Blocked[child.ExecutionID] = "invalid_invocation"
 			continue
@@ -314,12 +319,26 @@ func validEnvironmentKey(value string) bool {
 	return true
 }
 
+// ErrAuthenticationBlocked marks an invocation refused by the Runtime
+// authentication preflight; the child is blocked before any attempt starts.
+var ErrAuthenticationBlocked = errors.New("runtime authentication preflight blocked dispatch")
+
+// EffectiveEnvironment is the environment OSProcessRunner gives the child: an
+// invocation without environment inherits this process environment. The
+// authentication preflight inspects exactly this value.
+func EffectiveEnvironment(environment []string) []string {
+	if len(environment) == 0 {
+		return os.Environ()
+	}
+	return append([]string(nil), environment...)
+}
+
 type OSProcessRunner struct{}
 
 func (OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessResult {
 	command := exec.CommandContext(ctx, invocation.Argv[0], invocation.Argv[1:]...)
 	command.Dir = invocation.CWD
-	command.Env = append([]string(nil), invocation.Env...)
+	command.Env = EffectiveEnvironment(invocation.Env)
 	output := &limitedBuffer{remaining: invocation.OutputMax}
 	command.Stdout = output
 	command.Stderr = output

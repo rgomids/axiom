@@ -12,8 +12,8 @@ Usage:
 Commands:
   skill inspect <skill-name>
   first-run
-  runtime codex install|status
-  runtime claude install|status
+  runtime codex install|status|auth
+  runtime claude install|status|auth
   runtime profile validate
   runtime profile preview --project <uuid-or-slug> --role <token> --complexity <token>
     --capabilities <comma-list> [--runtime codex|claude]
@@ -40,6 +40,12 @@ first-run finds Codex and Claude by their executables on PATH and installs or
 upgrades Axiom's user-global skills for each one found (Codex:
 $HOME/.agents/skills; Claude: <CLAUDE_CONFIG_DIR or ~/.claude>/skills). It never
 installs a Runtime or touches credentials; no Runtime found is success.
+
+runtime <codex|claude> auth is the read-only subscription authentication
+preflight: it runs only the vendor version and login-status commands with this
+shell's environment, inspects API-key/provider overrides in environment and
+configuration, and reports names only. It never logs in, runs inference or
+reads credential values; a reported login does not prove usability or billing.
 
 Runtime profile validation reads local configuration without changing state,
 invoking a runtime, or probing authentication. It accepts no flags or arguments.
