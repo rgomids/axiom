@@ -50,14 +50,14 @@ const (
 // reactivate, list and validate. Every other invocation, including the POC
 // forms of list and validate, is left to the established parser.
 func runProjectLifecycle(ctx context.Context, mode outputMode, args []string, service Service, source provenance.Value, stdout io.Writer) (bool, int) {
-	if len(args) < 2 || args[0] != "project" {
+	command, _, rest, valid := resolveCommand(args)
+	if !valid || !operationInGroup(command.operation, "project") {
 		return false, 0
 	}
-	rest := args[2:]
-	switch args[1] {
-	case "archive", "reactivate":
+	switch command.operation {
+	case projectArchiveAction, projectReactivateAction:
 		operation, noun := projectArchiveAction, "Project archive"
-		if args[1] == "reactivate" {
+		if command.operation == projectReactivateAction {
 			operation, noun = projectReactivateAction, "Project reactivation"
 		}
 		input, issue := projectLifecycleFlags(operation, rest)
@@ -78,7 +78,7 @@ func runProjectLifecycle(ctx context.Context, mode outputMode, args []string, se
 			return true, emitOperationalCompletion(stdout, mode, *response.Completion, response)
 		}
 		return true, emitResponse(stdout, mode, operation, response)
-	case "list":
+	case listAction:
 		if len(rest) == 0 {
 			return false, 0
 		}
@@ -92,15 +92,13 @@ func runProjectLifecycle(ctx context.Context, mode outputMode, args []string, se
 			return true, emit(stdout, mode, event{Operation: listAction, Status: Failed, Category: "application_unavailable"})
 		}
 		return true, emitResponse(stdout, mode, listAction, lifecycle.ProjectListFiltered(ctx, input))
-	case "validate":
-		var slug string
-		var input ProjectLifecycleInput
-		set := projectValidateFlagSet(&slug, &input)
-		if invalidFlagSyntax(set, rest, nil) || set.Parse(rest) != nil || set.NArg() != 0 || input.Project == "" {
+	case validateAction:
+		slug, input, ok := projectValidationFlags(rest)
+		if !ok || input.Project == "" {
 			// Not a selector-based validation: the established parser decides.
 			return false, 0
 		}
-		if slug != "" {
+		if projectValidationSelectorsConflict(slug, input.Project) {
 			return true, emitLifecycleParserFailure(stdout, mode, "Project validation", "invalid_input", source)
 		}
 		lifecycle, ok := service.(ProjectLifecycleService)
@@ -140,7 +138,7 @@ func emitLifecycleParserFailure(writer io.Writer, mode outputMode, noun, issue s
 	if err != nil {
 		return ExitFailure
 	}
-	nextAction, err := provenance.NewText(next, provenance.AxiomAuthored)
+	nextAction, err := provenance.NewText(helpNext(writer, next), provenance.AxiomAuthored)
 	if err != nil {
 		return ExitFailure
 	}
@@ -176,4 +174,16 @@ func projectValidateFlagSet(slug *string, input *ProjectLifecycleInput) *flag.Fl
 	set.StringVar(slug, "slug", "", "Portable Project slug (historical form); `<slug>`. Conflicts with --project.")
 	set.StringVar(&input.Project, "project", "", "Installed Project identity, validated from its recorded source; `<uuid-or-slug>`.")
 	return set
+}
+
+func projectValidationFlags(args []string) (string, ProjectLifecycleInput, bool) {
+	var slug string
+	var input ProjectLifecycleInput
+	set := projectValidateFlagSet(&slug, &input)
+	ok := !invalidFlagSyntax(set, args, nil) && set.Parse(args) == nil && set.NArg() == 0
+	return slug, input, ok
+}
+
+func projectValidationSelectorsConflict(slug, project string) bool {
+	return slug != "" && project != ""
 }

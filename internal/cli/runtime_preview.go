@@ -29,21 +29,23 @@ func runtimeRequestFlags(set *flag.FlagSet, role, complexity, capabilities *stri
 }
 
 func runtimePreviewFlags(args []string) (RuntimeProfilePreviewInput, bool) {
+	return runtimePreviewFlagsWithPresence(args, true)
+}
+
+func runtimePreviewFlagsWithPresence(args []string, requireInputs bool) (RuntimeProfilePreviewInput, bool) {
 	var input RuntimeProfilePreviewInput
 	var capabilities string
-	set := flag.NewFlagSet(string(runtimeProfilePreviewAction), flag.ContinueOnError)
-	set.SetOutput(io.Discard)
-	set.StringVar(&input.Project, "project", "", "")
-	set.StringVar(&input.Runtime, "runtime", "", "")
-	runtimeRequestFlags(set, &input.Role, &input.Complexity, &capabilities)
+	set := runtimePreviewFlagSet(&input, &capabilities)
 	if invalidFlagSyntax(set, args, nil) {
 		return RuntimeProfilePreviewInput{}, false
 	}
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return RuntimeProfilePreviewInput{}, false
 	}
-	input.Capabilities = strings.Split(capabilities, ",")
-	if flagSupplied(args, "--runtime") && !workflow.SupportedRuntime(input.Runtime) || !ValidRuntimePreviewInput(input) {
+	if capabilities != "" {
+		input.Capabilities = strings.Split(capabilities, ",")
+	}
+	if flagSupplied(args, "--runtime") && !workflow.SupportedRuntime(input.Runtime) || !validRuntimePreviewInputs(input, requireInputs) {
 		return RuntimeProfilePreviewInput{}, false
 	}
 	return input, true
@@ -51,7 +53,11 @@ func runtimePreviewFlags(args []string) (RuntimeProfilePreviewInput, bool) {
 
 // ValidRuntimePreviewInput bounds input before it reaches the policy source.
 func ValidRuntimePreviewInput(input RuntimeProfilePreviewInput) bool {
-	if input.Project == "" || len(input.Project) > 256 || !previewToken(input.Role) || !previewToken(input.Complexity) || input.Runtime != "" && !workflow.SupportedRuntime(input.Runtime) || len(input.Capabilities) == 0 || len(input.Capabilities) > 32 {
+	return validRuntimePreviewInputs(input, true)
+}
+
+func validRuntimePreviewInputs(input RuntimeProfilePreviewInput, requireInputs bool) bool {
+	if requireInputs && (input.Project == "" || input.Role == "" || input.Complexity == "" || len(input.Capabilities) == 0) || len(input.Project) > 256 || input.Role != "" && !previewToken(input.Role) || input.Complexity != "" && !previewToken(input.Complexity) || input.Runtime != "" && !workflow.SupportedRuntime(input.Runtime) || len(input.Capabilities) > 32 {
 		return false
 	}
 	seen := map[string]bool{}
@@ -82,4 +88,13 @@ func validPreviewDigest(value string) bool {
 
 func (input RuntimeProfilePreviewInput) Request() runtimeapplication.Request {
 	return runtimeapplication.Request{Role: input.Role, Complexity: input.Complexity, Capabilities: append([]string(nil), input.Capabilities...), RuntimeID: input.Runtime}
+}
+
+func runtimePreviewFlagSet(input *RuntimeProfilePreviewInput, capabilities *string) *flag.FlagSet {
+	set := flag.NewFlagSet(string(runtimeProfilePreviewAction), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	set.StringVar(&input.Project, "project", "", "Configured Project identity; `<uuid-or-slug>`. May use effective Project context.")
+	set.StringVar(&input.Runtime, "runtime", "", "Optional Runtime constraint; `<codex|claude>`.")
+	runtimeRequestFlags(set, &input.Role, &input.Complexity, capabilities)
+	return set
 }

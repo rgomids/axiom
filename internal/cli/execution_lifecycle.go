@@ -61,7 +61,7 @@ type executionListCompletionEvent struct {
 // runWorkflowList handles `workflow list`. It reports handled=false for any
 // other command so the ordinary dispatch continues untouched.
 func runWorkflowList(ctx context.Context, args []string, service Service, source provenance.Value, mode outputMode, stdout io.Writer) (bool, int) {
-	if len(args) < 2 || args[0] != "workflow" || args[1] != "list" {
+	if !commandMatches(args, workflowListAction) {
 		return false, 0
 	}
 	input, ok := executionListFlags(args[2:])
@@ -82,6 +82,10 @@ func runWorkflowList(ctx context.Context, args []string, service Service, source
 // executionListFlags is strict: --project is required, --repository optional,
 // unknown, duplicate, single-hyphen and positional input is rejected.
 func executionListFlags(args []string) (ExecutionListInput, bool) {
+	return executionListFlagsWithPresence(args, true)
+}
+
+func executionListFlagsWithPresence(args []string, requireInputs bool) (ExecutionListInput, bool) {
 	var input ExecutionListInput
 	set := executionListFlagSet(&input)
 	if invalidFlagSyntax(set, args, nil) {
@@ -90,7 +94,7 @@ func executionListFlags(args []string) (ExecutionListInput, bool) {
 	if err := set.Parse(args); err != nil || set.NArg() != 0 {
 		return ExecutionListInput{}, false
 	}
-	if input.Project == "" || len(input.Project) > 256 || len(input.Repository) > 256 || flagSupplied(args, "--repository") && input.Repository == "" {
+	if requireInputs && input.Project == "" || len(input.Project) > 256 || len(input.Repository) > 256 || flagSupplied(args, "--repository") && input.Repository == "" {
 		return ExecutionListInput{}, false
 	}
 	return input, true
@@ -101,7 +105,7 @@ func emitExecutionListParserFailure(writer io.Writer, mode outputMode, source pr
 	if err != nil {
 		return ExitFailure
 	}
-	next, err := provenance.NewText("Provide --project and optionally --repository, with no other input", provenance.AxiomAuthored)
+	next, err := provenance.NewText(helpNext(writer, "Provide --project and optionally --repository, with no other input"), provenance.AxiomAuthored)
 	if err != nil {
 		return ExitFailure
 	}

@@ -252,21 +252,8 @@ func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
 }
 
 func skillCommandName(operation action) string {
-	switch {
-	case operation == projectArchiveAction || operation == projectReactivateAction:
-		return "axiom project " + strings.TrimPrefix(string(operation), "project_")
-	case operation == workflowListAction:
-		return "axiom workflow list"
-	case integrationOperation(operation):
-		return "axiom integration " + strings.TrimPrefix(string(operation), "integration_")
-	}
-	if knownWorkItem(operation) {
-		return "axiom work-item " + strings.TrimPrefix(string(operation), "work_item_")
-	}
-	if knownWorkflow(operation) {
-		return "axiom workflow " + strings.TrimPrefix(string(operation), "workflow_")
-	}
-	return "axiom project " + string(operation)
+	_, path := commandByAction(operation)
+	return "axiom " + strings.Join(path, " ")
 }
 
 func inspectSkill(name string) (skillInspection, bool) {
@@ -318,11 +305,12 @@ func inspectSkill(name string) (skillInspection, bool) {
 // InspectSkill handles the closed inspection surface before service composition.
 // It depends only on embedded declarations, provenance and its output writer.
 func InspectSkill(args []string, source provenance.Value, output io.Writer) (bool, int) {
+	output = withHelpGuidance(output, args)
 	mode, args := parseOutputMode(args)
 	if len(args) == 0 || args[0] != "skill" {
 		return false, 0
 	}
-	if len(args) != 3 || args[1] != "inspect" {
+	if len(args) != 3 || !commandMatches(args, skillInspectAction) {
 		return true, emitParserFailure(output, mode, skillInspectAction, "invalid_input", source)
 	}
 	skill, ok := inspectSkill(args[2])

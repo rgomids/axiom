@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/install"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/windowsfs"
@@ -115,10 +116,11 @@ func prepareWindowsOnboarding(target install.Target, input io.Reader, output io.
 }
 
 func restoreWindowsPermissions(args []string, output io.Writer) error {
-	if len(args) != 6 || args[0] != "windows-permissions" || args[1] != "restore" || args[2] != "--backup" || args[4] != "--approve" || !filepath.IsAbs(args[3]) {
-		return fmt.Errorf("usage: axiom windows-permissions restore --backup <absolute-json-path> --approve <backup-digest>")
+	backup, approval, ok := cli.ParseWindowsPermissionsRestore(args)
+	if !ok || !filepath.IsAbs(backup) {
+		return fmt.Errorf("usage: axiom windows-permissions restore --backup <absolute-json-path> --approve <backup-digest>; see %s", cli.HelpCommand(args))
 	}
-	path := filepath.Clean(args[3])
+	path := filepath.Clean(backup)
 	directory, err := local.OpenOwnedDirectory(filepath.Dir(path))
 	if err != nil {
 		return err
@@ -132,7 +134,7 @@ func restoreWindowsPermissions(args []string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := windowsfs.RestoreRepair(home, wire, args[5]); err != nil {
+	if err := windowsfs.RestoreRepair(home, wire, approval); err != nil {
 		return err
 	}
 	fmt.Fprintln(output, "permission_restore=verified; onboarding may require permission repair again")

@@ -48,55 +48,19 @@ const (
 )
 
 func maintenanceAction(args []string) (action, []string, bool) {
-	if len(args) >= 1 && args[0] == "upgrade" {
-		return upgradeAction, args[1:], true
+	command, _, rest, ok := resolveCommand(args)
+	if ok && maintenanceOperation(command.operation) {
+		return command.operation, rest, true
 	}
-	if len(args) < 2 {
-		return "", nil, false
-	}
-	switch args[0] + " " + args[1] {
-	case "compatibility inspect":
-		return compatibilityInspectAction, args[2:], true
-	case "compatibility backup":
-		return compatibilityBackupAction, args[2:], true
-	case "compatibility export":
-		return compatibilityExportAction, args[2:], true
-	case "artifact cleanup":
-		return artifactCleanupAction, args[2:], true
-	case "artifact retire":
-		return artifactRetireAction, args[2:], true
-	case "recovery inspect":
-		return recoveryInspectAction, args[2:], true
-	case "recovery apply":
-		return recoveryApplyAction, args[2:], true
-	}
-	if args[0] == "compatibility" || args[0] == "artifact" || args[0] == "recovery" {
+	if len(args) > 0 && (args[0] == "compatibility" || args[0] == "artifact" || args[0] == "recovery") {
 		return "unknown", nil, true
 	}
 	return "", nil, false
 }
 
 func maintenanceFlags(operation action, args []string) (MaintenanceInput, string) {
-	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
-	set.SetOutput(io.Discard)
 	var input MaintenanceInput
-	mutating := operation != compatibilityInspectAction && operation != recoveryInspectAction
-	if mutating {
-		set.StringVar(&input.PreviewDigest, "preview-digest", "", "")
-		set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "")
-	}
-	if operation == compatibilityBackupAction || operation == compatibilityExportAction {
-		set.StringVar(&input.Target, "target", "", "")
-	}
-	if operation == artifactRetireAction {
-		set.StringVar(&input.ArtifactID, "artifact", "", "")
-	}
-	if operation == upgradeAction {
-		set.StringVar(&input.Archive, "archive", "", "")
-		set.StringVar(&input.Checksums, "checksums", "", "")
-		set.StringVar(&input.BinaryDir, "bin-dir", "", "")
-		set.StringVar(&input.ReceiptDir, "receipt-dir", "", "")
-	}
+	set := maintenanceFlagSet(operation, &input)
 	if invalidFlagSyntax(set, args, nil) {
 		return MaintenanceInput{}, "invalid_input"
 	}
@@ -171,7 +135,7 @@ func emitMaintenanceParserFailure(writer io.Writer, mode outputMode, issue strin
 	if err != nil {
 		return ExitFailure
 	}
-	nextAction, err := provenance.NewText(next, provenance.AxiomAuthored)
+	nextAction, err := provenance.NewText(helpNext(writer, next), provenance.AxiomAuthored)
 	if err != nil {
 		return ExitFailure
 	}
@@ -220,4 +184,27 @@ func emitMaintenanceCompletion(writer io.Writer, mode outputMode, result complet
 		return ExitFailure
 	}
 	return completionExitCode(result.Status())
+}
+
+func maintenanceFlagSet(operation action, input *MaintenanceInput) *flag.FlagSet {
+	set := flag.NewFlagSet(string(operation), flag.ContinueOnError)
+	set.SetOutput(io.Discard)
+	mutating := operation != compatibilityInspectAction && operation != recoveryInspectAction
+	if mutating {
+		set.StringVar(&input.PreviewDigest, "preview-digest", "", "Exact reviewed plan digest; `<digest>`. Required with --authorize-local.")
+		set.BoolVar(&input.AuthorizeLocal, "authorize-local", false, "Explicit authority for the exact local effect; boolean.")
+	}
+	if operation == compatibilityBackupAction || operation == compatibilityExportAction {
+		set.StringVar(&input.Target, "target", "", "Absent absolute preservation target; `<absolute-path>`.")
+	}
+	if operation == artifactRetireAction {
+		set.StringVar(&input.ArtifactID, "artifact", "", "Exact owned artifact identity; `<artifact-id>`.")
+	}
+	if operation == upgradeAction {
+		set.StringVar(&input.Archive, "archive", "", "Verified release archive; `<absolute-path>`.")
+		set.StringVar(&input.Checksums, "checksums", "", "Release checksums file; `<absolute-path>`.")
+		set.StringVar(&input.BinaryDir, "bin-dir", "", "Owned binary directory; `<absolute-path>`.")
+		set.StringVar(&input.ReceiptDir, "receipt-dir", "", "Owned installation receipt directory; `<absolute-path>`.")
+	}
+	return set
 }
