@@ -21,6 +21,12 @@ Axiom is a development control plane for keeping software intent,
 architecture, implementation, validation, and operational evidence connected
 across human and AI work.
 
+Its MVP centers on one journey: configure a Project and its workflow, then
+deliver a Work Item through bounded Codex and Claude agents running on your
+locally authenticated CLIs. Axiom owns workflow state, authority, agent
+coordination and Evidence; you review the delivery and explicitly accept it or
+send it back for rework.
+
 ## Why Axiom?
 
 - **Intent gets lost.** Specifications preserve outcomes, constraints, and
@@ -119,14 +125,20 @@ Implementation proceeds through bounded Executions. Human approval gates
 material choices. Evidence supports review and acceptance without replacing
 human judgment.
 
+Each Project selects the workflow it follows: the default SDD workflow or a
+validated custom revision with its own stages, agents, Runtime choices and human
+gates. Every Execution stays pinned to the revision it started with, so editing
+a workflow never changes work in progress or history. Configurable workflows are
+the MVP in delivery; today Axiom runs one fixed, bounded sequential workflow.
+
 ## Project status
 
 Axiom is under active development. Published availability and human acceptance
 are separate decisions.
 
 - **Latest stable release:** [GitHub Releases](https://github.com/rgomids/axiom/releases/latest).
-  The published v0.4.2 baseline includes the capabilities below; the installer
-  resolves latest stable automatically.
+  The installer resolves it automatically; the [Changelog](CHANGELOG.md) lists
+  what each version adds.
 - **Available today / stable:** checksum-verified Linux, macOS, and Windows
   distribution; guided Project configuration, listing, and resolution;
   GitHub Work Item creation and classification; Codex/Claude bootstrap;
@@ -134,12 +146,17 @@ are separate decisions.
   This includes foundations for multi-runtime and bounded multi-agent execution
   with an Execution Graph; [S8 Evidence](docs/specifications/004-mvp-v1-baseline/evidence-s8.md)
   records scope and limitations without establishing full MVP human acceptance.
-- **On main:** Work Item creation interviews from minimal intent, with
-  conversational elaboration through the Runtime skill and plain CLI questions.
-  This enhancement is not yet part of the v0.4.2 baseline.
-- **Roadmap / upcoming:** additional Runtimes/adapters, dynamic or distributed
-  orchestration, and token/cost budget governance require their own
-  specification and authority.
+- **MVP in delivery:** configurable Project workflows (default SDD or validated
+  custom revisions); stage-specific agents with per-agent Runtime, Model Profile
+  and reasoning effort; Executions pinned to a workflow revision; public
+  Codex/Claude orchestration with structured coordination from either Runtime;
+  and one reviewed delivery with explicit acceptance or rework. Tracked by
+  [Epic #15](https://github.com/rgomids/axiom/issues/15) under the accepted
+  [Specification 007](docs/specifications/007-configurable-workflows/spec.md).
+  None of it is available until delivered and accepted.
+- **Beyond the MVP:** a graphical control plane, cloud or multi-machine
+  orchestration, an arbitrary Runtime ecosystem, and token/cost budget
+  governance require their own specification and authority.
 
 See [Changelog](CHANGELOG.md), [Specifications](docs/specifications/README.md),
 and [Roadmap](docs/product/roadmap.md) for history, Evidence, acceptance, and direction.
