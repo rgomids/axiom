@@ -24,7 +24,7 @@ ADR-0015 host eligibility and constitution sections II–VII remain intact.
 | Platform/scenario | Feasibility / activation | Evidence and rationale |
 | --- | --- | --- |
 | Linux ARM64 infrastructure | VERIFIED; activate automated native lifecycle | [Hosted probe](https://github.com/rgomids/axiom/actions/runs/37958968405), job `113916618470`: Ubuntu 24.04.5, image `ubuntu-24.04-arm` version `20261004.142.1`, actual `uname -m=aarch64` |
-| Linux ARM64 install/configure/upgrade/reinstall/errors/recovery | IMPLEMENTED / UNVERIFIED pending qualification | `accept-native-artifact.py`; candidate archive and genuine published v0.10.0 baseline; no emulation |
+| Linux ARM64 install/configure/upgrade/reinstall/errors/recovery | VERIFIED in non-publishing qualification | [Native job](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652120): all 14 scenarios passed on `aarch64`; candidate archive and genuine published v0.10.0 baseline |
 | Linux AMD64 | Existing #244 native smoke preserved | `prepare` on `ubuntu-24.04`; no added full-release upgrade matrix |
 | macOS ARM64 | Existing #244 native smoke preserved | `smoke-macos` on `macos-15`; legacy `macos-27` asset naming is not an OS version bound |
 | Windows AMD64 client lifecycle | BLOCKED; not activated | Standard hosted amd64 Windows runners are Server; client runner `windows-11-arm` is ARM64. Both violate the supported client/amd64 conjunction. `scripts/install.ps1` and `internal/install/space_windows.go` refuse Server |
@@ -65,16 +65,16 @@ or discovered Providers/Runtimes. Repository paths and HOME include spaces.
 
 | Requirement | Platform | Scenario / workflow | Evidence status |
 | --- | --- | --- | --- |
-| Fresh install and executable discovery | Linux ARM64 | `fresh-install`, `discovery-provenance`, `private-permissions` | IMPLEMENTED / UNVERIFIED |
-| CLI and configuration initialization/loading | Linux ARM64 | `configuration-cli`; real `project configure` preview/apply, show/list | IMPLEMENTED / UNVERIFIED |
-| Genuine prior upgrade and persistent-state compatibility | Linux ARM64 | `genuine-prior-upgrade-state-reinstall`; previous CLI creates Project/state, candidate installer upgrades, hashes remain unchanged, compatibility inspect | IMPLEMENTED / UNVERIFIED |
-| Reinstall/idempotence | Linux ARM64 | `reinstall-idempotent` and upgrade reinstall; binary/receipt/state digests preserved | IMPLEMENTED / UNVERIFIED |
-| Invalid CLI/configuration and recovery | Linux ARM64 | `invalid-arguments`, `missing-project`, `malformed-config-recovery`, `install-interruption-recovery` | IMPLEMENTED / UNVERIFIED |
-| Platform filesystem/security behavior | Linux ARM64 | spaces, 0700 binary/0600 receipt, `foreign-binary-preserved`, `symlink-destination-refused` | IMPLEMENTED / UNVERIFIED |
-| Negative artifact and functional controls | Linux ARM64 | `corrupt-artifact-refused`; #244 wrong provenance/non-executable/lifecycle failure/timeout/mutation tests; qualification `rejection` job | IMPLEMENTED / UNVERIFIED |
+| Fresh install and executable discovery | Linux ARM64 | `fresh-install`, `discovery-provenance`, `private-permissions` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652120) |
+| CLI and configuration initialization/loading | Linux ARM64 | `configuration-cli`; real `project configure` preview/apply, show/list/validate | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652120) |
+| Genuine prior upgrade and persistent-state compatibility | Linux ARM64 | `genuine-prior-upgrade-state-reinstall`; previous CLI creates Project/state, failed corrupt upgrade preserves state, candidate installer upgrades, hashes remain unchanged, compatibility inspect | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652120) |
+| Reinstall/idempotence | Linux ARM64 | `reinstall-idempotent` and upgrade reinstall; binary/receipt/state digests preserved, no duplicate bin entry | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652120) |
+| Invalid CLI/configuration and recovery | Linux ARM64 | `invalid-arguments`, `missing-project`, `malformed-config-recovery`, `missing-config-recovery`, `install-interruption-recovery` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652120) |
+| Platform filesystem/security behavior | Linux ARM64 | spaces, 0700 binary/0600 receipt, `foreign-binary-preserved`, `symlink-destination-refused` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652120) |
+| Negative artifact and functional controls | Linux ARM64 | `corrupt-artifact-refused`; #244 wrong provenance/non-executable/lifecycle failure/timeout/mutation tests; qualification `rejection` job | PASS; [native](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652120) and [deliberate rejection](https://github.com/rgomids/axiom/actions/runs/37960660049/job/113922652166) |
 | Strict release dependency | Enabled ARM64 | `native-linux-arm64` required preparation job; `test-release-flow.sh` failed preparation/authorized publication refusal; qualification rejection → skipped promotion | IMPLEMENTED / UNVERIFIED |
-| Candidate identity | Enabled ARM64 | #244 smoke + native before/after inventories, binary/installed provenance, checksums for candidate and baseline | IMPLEMENTED / UNVERIFIED |
-| Linux AMD64/macOS ARM64 regression | Existing rows | Original #244 jobs, `test-release-pipeline.sh`, `test-release-flow.sh` | Preserved; execution recorded separately |
+| Candidate identity | Enabled ARM64 | #244 smoke + native before/after inventories, binary/installed provenance, checksums for candidate and baseline | PASS; [native report](native-platform-acceptance-evidence.json) |
+| Linux AMD64/macOS ARM64 regression | Existing rows | Original #244 jobs, `test-release-pipeline.sh`, `test-release-flow.sh` | Both native smokes PASS in [qualification](https://github.com/rgomids/axiom/actions/runs/37960660049); release contracts recorded below |
 | Windows client lifecycle | Windows AMD64 | No eligible hosted runner | BLOCKED; no pending required job or simulated PASS |
 
 Installer failures, nonzero/unexpected CLI statuses, invalid artifacts, changed

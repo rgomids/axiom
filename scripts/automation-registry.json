@@ -207,6 +207,75 @@
       "removal_condition": null
     },
     {
+      "path": ".github/workflows/native-acceptance-qualification.yml",
+      "kind": "workflow",
+      "owner": "release",
+      "purpose": "Reproducible non-publishing qualification of native lifecycle and strict failure-to-skipped-promotion propagation.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "workflow_dispatch for developer qualification; not a routine release requirement",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Dispatched source revision, genuine public v0.10.0 baseline, GitHub-hosted runners",
+      "outputs": "Prepared qualification artifact, positive native report, deliberately failed corruption report, macOS smoke and propagation summary; intentionally failed run due to real rejection job",
+      "local_effects": "none on the runner beyond checkouts and temporary files",
+      "network_effects": "GitHub checkout, setup-go, module download, Actions artifact transfer and public baseline release downloads through reusable native job",
+      "authority": "contents: read only, no secrets, no publishing permission",
+      "tests": [
+        "scripts/test-native-acceptance.py",
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "docs/development/native-platform-acceptance.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/native-artifact-acceptance.yml",
+      "kind": "workflow",
+      "owner": "release",
+      "purpose": "Issue #256 required hosted native Linux ARM64 lifecycle acceptance on already-prepared immutable bytes.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "workflow_call from release preparation or non-publishing qualification",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/release-artifacts.yml",
+        ".github/workflows/native-acceptance-qualification.yml"
+      ],
+      "inputs": "Artifact name, version, source revision, control revision; optional corruption control used only by non-publishing qualification; genuine public v0.10.0 assets",
+      "outputs": "Required native job pass/fail; bounded JSON and diagnostic log artifacts retained 30 days",
+      "local_effects": "none on the runner beyond checkouts and temporary files",
+      "network_effects": "GitHub checkout, download/upload Actions artifacts, HTTPS downloads of public v0.10.0 release baseline",
+      "authority": "contents: read only, no secrets, no publishing permission",
+      "tests": [
+        "scripts/test-native-acceptance.py",
+        ".github/workflows/native-acceptance-qualification.yml"
+      ],
+      "evidence": "docs/development/native-platform-acceptance.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": ".github/workflows/publish-release.yml",
       "kind": "workflow",
       "owner": "release",
@@ -243,7 +312,7 @@
       "path": ".github/workflows/release-artifacts.yml",
       "kind": "workflow",
       "owner": "release",
-      "purpose": "PREPARE phase: builds once, verifies, renders notes and smokes the exact Linux amd64 and macOS arm64 artifacts; retains prepared bytes and separate smoke summaries.",
+      "purpose": "PREPARE phase: builds once, verifies, renders notes and smokes the exact Linux amd64 and macOS arm64 artifacts; retains prepared bytes and separate smoke summaries. Required native Linux ARM64 installation lifecycle validates the same prepared set.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -268,7 +337,8 @@
       "authority": "GITHUB_TOKEN read-only (contents: read, issues: read); never creates tags or Releases",
       "tests": [
         "scripts/test-release-flow.sh",
-        "scripts/test-release-pipeline.sh"
+        "scripts/test-release-pipeline.sh",
+        "scripts/test-native-acceptance.py"
       ],
       "evidence": "Produces the prepared release artifact consumed by release.sh and publish-release.yml",
       "compatibility": [],
@@ -433,6 +503,40 @@
         }
       ],
       "removal_condition": "Remove only when the v0.1.0-poc.1 fixture is no longer a supported compatibility input."
+    },
+    {
+      "path": "scripts/accept-native-artifact.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Issue #256 native Linux prepared-byte install/configure/upgrade/reinstall/refusal/recovery acceptance with a genuine v0.10.0 baseline.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "Enabled release preparation native job, non-publishing qualification or documented native local reproduction",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/native-artifact-acceptance.yml",
+        "scripts/test-native-acceptance.py"
+      ],
+      "inputs": "--dir ABS_DIR --previous ABS_DIR --version VERSION --revision SHA --row ROW --log FILE; verified candidate and published baseline distributions",
+      "outputs": "Bounded JSON scenario/provenance/environment/checksum summary on stdout, diagnostic log at --log; non-zero exit on failure",
+      "local_effects": "Temporary isolated installations and state; writes explicit diagnostic log outside artifact inputs",
+      "network_effects": "none",
+      "authority": "none",
+      "tests": [
+        "scripts/test-native-acceptance.py",
+        ".github/workflows/native-acceptance-qualification.yml"
+      ],
+      "evidence": "docs/development/native-platform-acceptance.md",
+      "compatibility": [],
+      "removal_condition": null
     },
     {
       "path": "scripts/acceptance/s9-graph-runner.go",
@@ -1627,7 +1731,9 @@
       "replay_reason": null,
       "callers": [
         ".github/workflows/release-artifacts.yml",
-        "scripts/test-release-pipeline.sh"
+        "scripts/test-release-pipeline.sh",
+        "scripts/accept-native-artifact.py",
+        ".github/workflows/native-acceptance-qualification.yml"
       ],
       "inputs": "--dir ABS_DIR --version X.Y.Z --revision SHA --row ROW",
       "outputs": "single JSON smoke summary; non-zero exit on failure",
@@ -2069,6 +2175,37 @@
       "authority": "none; read-only checks",
       "tests": [],
       "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-native-acceptance.py",
+      "kind": "script",
+      "owner": "release",
+      "purpose": "Offline native acceptance archive trust and strict release dependency regressions.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "test"
+      ],
+      "trigger": "CI release-contract and non-publishing native qualification",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/native-acceptance-qualification.yml"
+      ],
+      "inputs": "none; temporary archive fixtures",
+      "outputs": "unittest results; non-zero exit on failure",
+      "local_effects": "temporary directories only",
+      "network_effects": "none",
+      "authority": "none",
+      "tests": [],
+      "evidence": "docs/development/native-platform-acceptance.md",
       "compatibility": [],
       "removal_condition": null
     },
