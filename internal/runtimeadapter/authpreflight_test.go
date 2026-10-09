@@ -407,6 +407,9 @@ func TestCodexConfigDecodesEscapedKeys(t *testing.T) {
 		"comment after closing line":    {"note = \"\"\"\nbody\n\"\"\" # \"\"\"\nmodel_provider = \"oss\"\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
 		"text after closing delimiter":  {"note = \"\"\"a\"\"\" trailing\nmodel_provider = \"oss\"\n", AuthUnproven, "configuration_unreadable", ""},
 		"unclosed at end of file":       {"model_provider = \"openai\"\nnote = \"\"\"\nnever closed\n", AuthUnproven, "configuration_unreadable", ""},
+		"apostrophe in comment":         {"model = \"gpt-5\" # user's preferred model\n# it's \"quoted\" here\n[profiles.fast] # Bob's profile\nmodel = 'o4' # \"x\n", AuthSubscriptionObserved, "", ""},
+		"hash inside quoted value":      {"model_provider = \"proxy#1\" # it's custom\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
+		"provider after quoted comment": {"model = \"gpt-5\" # user's\nmodel_provider = \"azure\" # don't\n", AuthIncompatible, "configuration_override", "codex_config:user:model_provider"},
 		"compatible decoded":            {"\"model_provider\" = \"openai\" # default\n[profiles.fast]\nmodel = \"o4\"\n", AuthSubscriptionObserved, "", ""},
 	} {
 		t.Run(name, func(t *testing.T) {

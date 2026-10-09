@@ -527,9 +527,19 @@ func codexConfigOverrides(content []byte, prefix string) ([]string, bool) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if !strings.Contains(line, `"""`) && !strings.Contains(line, "'''") && indexOutsideQuotes(line, "\n") == -2 {
-			// An unterminated string is not valid TOML: do not guess.
-			return nil, false
+		if !strings.Contains(line, `"""`) && !strings.Contains(line, "'''") {
+			// Drop the comment (a # outside strings) before checking structure:
+			// quotes inside a comment are text. An unterminated string is not
+			// valid TOML: do not guess.
+			comment := indexOutsideQuotes(line, "#")
+			if comment == -2 {
+				return nil, false
+			}
+			if comment >= 0 {
+				if line = strings.TrimSpace(line[:comment]); line == "" {
+					continue
+				}
+			}
 		}
 		if header, isHeader := tomlHeader(line); isHeader {
 			segments, ok := tomlKey(header)
