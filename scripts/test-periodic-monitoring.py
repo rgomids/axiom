@@ -437,6 +437,9 @@ class Workflow(unittest.TestCase):
             if path.name != 'periodic-monitoring.yml':
                 self.assertNotIn('periodic-monitor', path.read_text())
         self.assertNotIn('periodic', (ROOT / '.github/rulesets/main.json').read_text())
+        release_guard = (ROOT / 'scripts/test-release-flow.sh').read_text()
+        self.assertIn("periodic-monitoring.yml) allowed='schedule|workflow_dispatch' ;;", release_guard)
+        self.assertIn("*) allowed='pull_request|push|workflow_dispatch' ;;", release_guard)
 
 
 if __name__ == '__main__':

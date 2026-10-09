@@ -31,6 +31,16 @@ Implementation: `feat/255-periodic-monitoring` in an isolated worktree.
 
 ## Operational validation
 
+Normal PR CI on the initial implementation:
+[run 37994525582](https://github.com/rgomids/axiom/actions/runs/37994525582).
+`go-quality`, `verify (linux)`, `verify (macos)` and both upgrade-journey checks
+passed; Linux/macOS include native-symlink aggregate repository validation.
+The release-contract static trigger allowlist rejected the new `schedule`
+event. A narrowly named `periodic-monitoring.yml` exception now permits only
+schedule/dispatch, preserving the delivery closure and existing trigger guards.
+The updated head requires a new CI run; the earlier failure is not claimed as
+a pass. These normal PR runs are not D5 periodic-workflow/lifecycle proof.
+
 Pending a confirmed sandbox repository. No production monitoring incident has
 been created, no release/branch settings have changed, and no operational
 Actions run is claimed. Issue #255 remains incomplete until real clean and
