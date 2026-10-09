@@ -54,6 +54,9 @@ jobs:
 
   verify:
     name: verify (${{ matrix.platform }})
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -71,13 +74,19 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
           cache: true
       - name: Unit, integration and black-box tests
-        if: matrix.platform != 'windows'
+        if: matrix.platform == 'macos'
         run: go test -race ./...
+      - name: Linux tests with coverage (same mandatory test execution)
+        if: matrix.platform == 'linux'
+        run: |
+          mkdir -p coverage
+          go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./...
       - name: Native Windows unit, integration and black-box tests
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -93,6 +102,35 @@ jobs:
       - name: Bounded dogfooding smoke test
         if: matrix.platform != 'windows'
         run: ./scripts/dogfood-poc.sh
+      - name: Collect code health snapshot
+        id: health
+        if: success() && matrix.platform == 'linux'
+        continue-on-error: true
+        run: python3 scripts/code-health.py collect
+      - name: Compare and summarize code health
+        id: health_report
+        if: success() && matrix.platform == 'linux' && steps.health.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/code-health.py report
+      - name: Code health unavailable diagnostic
+        if: always() && matrix.platform == 'linux' && (steps.health.outcome != 'success' || steps.health_report.outcome != 'success')
+        run: echo 'Go code health reporting unavailable; see test/collection/report step diagnostics. No comparison claimed.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain Linux code health evidence
+        if: success() && matrix.platform == 'linux' && steps.health.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: code-health-linux-${{ github.sha }}
+          path: |
+            coverage/snapshot.json
+            coverage/coverage.out
+            coverage/summary.json
+            coverage/summary.md
+          retention-days: 30
+          if-no-files-found: error
       - name: Native Windows installer contract
         if: matrix.platform == 'windows'
         shell: powershell
@@ -131,6 +169,8 @@ jobs:
         run: python3 scripts/test-release-corrections.py
       - name: Release PR check dispatch regressions
         run: python3 scripts/test-release-pr-checks.py
+      - name: Code health reporting contracts
+        run: python3 scripts/test-code-health.py
 
   upgrade-journeys:
     # Issues #153/#186: real N -> candidate owned upgrades with non-empty state,
