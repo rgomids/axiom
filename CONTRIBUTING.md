@@ -25,7 +25,7 @@ Open Issues use one label taxonomy. Release or phase is never a label.
 |---|---|---|
 | `type:*` (`epic`, `story`, `task`, `bug`, `research`) | nature of the Work Item | exactly one |
 | `area:*` (`cli`, `skills`, `work-item`, `workflow`, `runtime`, `execution`, `installer`, `ci-cd`, `governance`) | primary area | one; a second only when it improves classification; an Epic may have none |
-| `status:*` (`planned`, `active`, `blocked`) | editorial backlog state | exactly one; closing the Issue means done |
+| `status:*` (`planned`, `active`, `blocked`) | legacy editorial GitHub-only status; not an operational source of truth | optional, at most one; never add for Linear-managed work |
 | `platform:*` (`windows`, `linux`, `macos`) | platform restriction or impact | optional, any number |
 | `axiom:*` | reserved for Axiom | never edited by hand |
 | milestone | release or phase | e.g. `MVP` |
@@ -36,12 +36,12 @@ are Axiom's projection of workflow state (see
 
 Open Issues through the [Issue Forms](.github/ISSUE_TEMPLATE/) (Bug, Story,
 Task, Research); blank Issues are disabled. Epics are created deliberately by
-maintainers, without a form. Each form applies its `type:*` and
-`status:planned`; [`issue-label-policy.yml`](.github/workflows/issue-label-policy.yml)
+maintainers, without a form. Each form applies only its `type:*` label;
+[`issue-label-policy.yml`](.github/workflows/issue-label-policy.yml)
 maps the selected Area and Platform answers to labels. It fills only an empty
-`status:*` (`status:planned`) or `area:*` (the form answer), never removes or
-replaces a label, and reports any other violation (missing or conflicting
-type, conflicting status, missing area, non-canonical or retired labels such
+`area:*` (the form answer), never removes or replaces a label, and reports
+violations (missing or conflicting type, conflicting *legacy* statuses,
+missing area, non-canonical or retired labels such
 as `scope:mvp`, `slice:*`, `bug` or `enhancement`) in one comment that it edits
 as the Issue changes. Platform answers are applied once, when the Issue is
 opened.
@@ -49,12 +49,20 @@ opened.
 Work Items created with `axiom work-item create` follow the same taxonomy:
 declare both families explicitly with `--classification type:<type>
 --classification area:<area>` (for example `type:story` and `area:cli`); the
-policy then adds `status:planned`. Axiom never infers an area, and explicit
+policy no longer adds `status:planned`. Axiom never infers an area, and explicit
 classification replaces type inference, so omitting either value leaves a
 reported violation. The rules and the canonical catalog (names, colors, descriptions) live
 in [`scripts/issue-label-policy.py`](scripts/issue-label-policy.py); a change
 to it on `main` creates or normalizes the catalog labels, and never deletes
 one.
+
+For work tracked in Linear AXM, manage status, assignment and blocking relations
+**only in Linear**; do not add or reconcile GitHub `status:*` as a duplicate
+backlog signal. Existing `status:*` labels are retained in the catalog for
+backward compatibility, but no new Issue Form or workflow seeds them. Remove
+those labels from the explicitly mapped, open MVP Issues only after this policy
+is merged into `main`, so the default-branch workflow cannot recreate them.
+Preserve `type:*`, `area:*`, `platform:*` and all Axiom-managed `axiom:*`.
 
 ## Development flow
 
