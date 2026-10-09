@@ -194,3 +194,12 @@ build, module verification, repository governance, approved examples and legacy
 dogfood passed. The create-as-edit and unindexed-document tests both failed
 against the preceding implementations, then passed with these fixes. Hosted
 native checks and human re-review remain separate gates.
+
+Native CI exposed a pre-existing scheduling-sensitive assertion in
+`TestExecutableMinimalLifecycleAndFailurePaths`: if the second setup process
+observes the first completed publication before apply, the correct result is
+`validation_failure` with exactly `Project slug is already configured`. The test
+now accepts that specific rejection as well as stale/conflicting apply, still
+requires exactly one success and one rejection, and checks the resulting Project
+identity and repository binding. No production concurrency guard was weakened.
+The maintainer's merge of `main` (`71cd592`) is preserved.
