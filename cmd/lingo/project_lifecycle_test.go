@@ -397,7 +397,7 @@ func TestProjectListFiltersArchivedAndOrdersDeterministically(t *testing.T) {
 	if code := cli.RunInteractive(context.Background(), []string{"--human", "project", "list", "--include-archived"}, env.service, currentProvenance(), nil, &human, io.Discard); code != cli.ExitSuccess {
 		t.Fatalf("human list exit %d", code)
 	}
-	for _, expected := range []string{"project: guarded [" + env.projectID + `] name="Guarded" status=archived`, "status=invalid", "status=active"} {
+	for _, expected := range []string{"id `" + env.projectID + "` · slug `guarded` · name `Guarded` · status `archived`", "status `invalid`", "status `active`"} {
 		if !strings.Contains(human.String(), expected) {
 			t.Fatalf("%q absent from %s", expected, human.String())
 		}
@@ -454,7 +454,7 @@ func TestProjectShowHumanRendersStateAndAvailability(t *testing.T) {
 	if code := cli.RunInteractive(context.Background(), []string{"--human", "project", "show", "--selector", "guarded"}, env.service, currentProvenance(), nil, &human, io.Discard); code != cli.ExitSuccess {
 		t.Fatalf("exit %d: %s", code, human.String())
 	}
-	for _, expected := range []string{"state: archived disabled=[]", `availability=available`} {
+	for _, expected := range []string{"- **status:** `archived`", "- **disabledIntegrations:** _none_", "availability `available`"} {
 		if !strings.Contains(human.String(), expected) {
 			t.Fatalf("%q absent from %s", expected, human.String())
 		}
@@ -463,7 +463,7 @@ func TestProjectShowHumanRendersStateAndAvailability(t *testing.T) {
 	if code := cli.RunInteractive(context.Background(), []string{"--human", "project", "archive", "--project", "guarded"}, env.service, currentProvenance(), nil, &archive, io.Discard); code != cli.ExitSuccess {
 		t.Fatalf("archive exit %d: %s", code, archive.String())
 	}
-	for _, expected := range []string{"category: project_already_archived", "operation: archive", "boundary: portable=unchanged provider=none credentials=unchanged"} {
+	for _, expected := range []string{"- **category:** `project_already_archived`", "- **operation:** `archive`", "- **boundary:** portable `unchanged` · provider `none` · credentials `unchanged`"} {
 		if !strings.Contains(archive.String(), expected) {
 			t.Fatalf("%q absent from %s", expected, archive.String())
 		}

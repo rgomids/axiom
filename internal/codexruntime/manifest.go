@@ -178,6 +178,12 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-work-item-run":     "862bad903caec3048ea82e8096d48323ca98106464319605ee921b83b572bfbf",
 		"axiom-work-item-status":  "a370f1b6c48c822b0003679264bee581484cfd4b8a7fd94263e93b280937e223",
 	}},
+	// Two-skill revision published through v0.12.0, replaced when the Runtime
+	// skills began presenting Lingo's human-first Markdown result (#232).
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project":   "64054953abe8bcdac1226b6a1a711879e4cfe7d83379c82f18cd10a445635041",
+		"axiom-work-item": "09028588aec1447ec51842ffd7c9ae2b41830b2dd093e087e18c35f61f499a9e",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

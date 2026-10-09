@@ -126,7 +126,7 @@ func TestWorkItemLifecycleEmitsChangeAndListPayloads(t *testing.T) {
 			t.Fatalf("%s: %s %v", name, output.String(), err)
 		}
 		var human bytes.Buffer
-		if code := RunInteractive(context.Background(), []string{"--human", "work-item", "list", "--project", "alpha"}, service, source, nil, &human, &bytes.Buffer{}); code != ExitSuccess || !strings.Contains(human.String(), "category: "+test.response.Category) {
+		if code := RunInteractive(context.Background(), []string{"--human", "work-item", "list", "--project", "alpha"}, service, source, nil, &human, &bytes.Buffer{}); code != ExitSuccess || !strings.Contains(human.String(), "- **category:** `"+test.response.Category+"`") {
 			t.Fatalf("%s human: exit=%d %s", name, code, human.String())
 		}
 	}

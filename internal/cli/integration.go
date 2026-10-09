@@ -1,13 +1,10 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -155,53 +152,12 @@ func emitIntegrationCompletion(writer io.Writer, mode outputMode, result complet
 	if writer == nil || !result.Valid() {
 		return ExitFailure
 	}
-	var content []byte
-	if mode == humanOutput {
-		content = renderCompletionHuman(result)
-		var extra bytes.Buffer
-		fmt.Fprintf(&extra, "category: %s\n", response.Category)
-		report := response.Integrations
-		if report == nil {
-			report = &projectapp.IntegrationReport{}
-		}
-		if report.ProjectID != "" {
-			fmt.Fprintf(&extra, "project: %s\n", report.ProjectID)
-		}
-		for _, view := range report.Integrations {
-			fmt.Fprintf(&extra, "integration: %s local=%s provider=%s providerRef=%s capabilities=[%s]", view.Key, view.Local, view.Provider, view.ProviderRef, strings.Join(view.Capabilities, ","))
-			if view.Transport != "" {
-				fmt.Fprintf(&extra, " transport=%s", view.Transport)
-			}
-			if view.CredentialRef != "" {
-				fmt.Fprintf(&extra, " credentialRef=%s", view.CredentialRef)
-			}
-			extra.WriteString("\n")
-		}
-		for _, key := range report.StaleDisabled {
-			fmt.Fprintf(&extra, "stale-disabled: %s\n", key)
-		}
-		if validation := report.Validation; validation != nil {
-			fmt.Fprintf(&extra, "validation: %s\n", validation.Status)
-			for _, finding := range validation.Findings {
-				fmt.Fprintf(&extra, "finding: %s %s integration=%s capability=%s\n", finding.Severity, finding.Code, finding.Integration, finding.Capability)
-			}
-		}
-		content = append(content, extra.Bytes()...)
-	} else {
-		base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
-		wire, err := json.Marshal(integrationCompletionEvent{completionEvent: base, Category: response.Category, Integrations: response.Integrations})
-		if err != nil {
-			return ExitFailure
-		}
-		content = append(wire, '\n')
-	}
-	if len(content) > MaxCompletionOutputBytes {
+	base := completionEvent{Status: result.Status(), Result: result.Result().String(), References: result.References(), Next: result.Next().String(), Details: result.Details(), Provenance: provenanceEvent{Product: result.Provenance().Product(), Version: result.Provenance().Version(), Revision: result.Provenance().Revision(), SourceState: result.Provenance().SourceState()}}
+	wire, err := json.Marshal(integrationCompletionEvent{completionEvent: base, Category: response.Category, Integrations: response.Integrations})
+	if err != nil {
 		return ExitFailure
 	}
-	if written, err := writer.Write(content); err != nil || written != len(content) {
-		return ExitFailure
-	}
-	return completionExitCode(result.Status())
+	return presentEvent(writer, mode, result.Status(), append(wire, '\n'), MaxCompletionOutputBytes)
 }
 
 // integrationFlagSet is the single argument registry of the integration

@@ -152,14 +152,14 @@ func TestProjectLifecycleHumanRendersStatusAndAvailability(t *testing.T) {
 	if code := RunInteractive(context.Background(), []string{"--human", "project", "list", "--include-archived"}, service, completionProvenance(t), nil, &list, io.Discard); code != ExitSuccess {
 		t.Fatalf("list exit=%d output=%s", code, list.String())
 	}
-	if !strings.Contains(list.String(), `project: alpha [123e4567-e89b-42d3-a456-426614174000] name="Alpha" status=archived`) {
+	if !strings.Contains(list.String(), "id `123e4567-e89b-42d3-a456-426614174000` · slug `alpha` · name `Alpha` · status `archived`") {
 		t.Fatalf("list human = %s", list.String())
 	}
 	var show bytes.Buffer
 	if code := RunInteractive(context.Background(), []string{"--human", "project", "show", "--selector", "alpha"}, service, completionProvenance(t), nil, &show, io.Discard); code != ExitSuccess {
 		t.Fatalf("show exit=%d output=%s", code, show.String())
 	}
-	for _, expected := range []string{"state: archived disabled=[work-items]", `repository: main path="/tmp/alpha" availability=unavailable`} {
+	for _, expected := range []string{"- **status:** `archived`", "- **disabledIntegrations:**\n      - `work-items`", "key `main` · path `/tmp/alpha` · availability `unavailable`"} {
 		if !strings.Contains(show.String(), expected) {
 			t.Fatalf("%q absent from %s", expected, show.String())
 		}

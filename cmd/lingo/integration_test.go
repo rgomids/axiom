@@ -169,7 +169,7 @@ func TestIntegrationInspectionOnConfiguredUnconfiguredAndV1Projects(t *testing.T
 	// Human rendering carries the same facts and no machine path.
 	var output bytes.Buffer
 	code := cli.RunInteractive(context.Background(), []string{"--human", "integration", "list", "--project", "guarded"}, env.service, currentProvenance(), nil, &output, &bytes.Buffer{})
-	if code != cli.ExitSuccess || !strings.Contains(output.String(), "integration: work-items local=enabled provider=github") || strings.Contains(output.String(), env.state) || strings.Contains(output.String(), env.root) {
+	if code != cli.ExitSuccess || !strings.Contains(output.String(), "- **key:** `work-items`") || !strings.Contains(output.String(), "- **local:** `enabled`") || !strings.Contains(output.String(), "- **provider:** `github`") || strings.Contains(output.String(), env.state) || strings.Contains(output.String(), env.root) {
 		t.Fatalf("human output (%d): %s", code, &output)
 	}
 }

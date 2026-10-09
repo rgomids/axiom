@@ -1146,8 +1146,20 @@ back to the normal flow. See the
 
 ## CLI output and help
 
-Direct Lingo use defaults to a concise human status. Skills and scripts use the
-stable JSON surface by putting `--json` before the command:
+Every canonical result is human-first ([#232](https://github.com/rgomids/axiom/issues/232)).
+By default, direct Lingo use and both Runtime skills print deterministic
+Markdown rendered from the exact canonical JSON event of the same command:
+a level-3 heading that names the status beside its canonical code (for example
+``### Partially completed — recovery required (`partial`)``), the
+Axiom-authored result, then `Next`, `References`, `Details` and scalar payload
+fields, one `#### <payload>` section per structured operation payload in JSON
+order, and a `Provenance` footer. Every JSON key and value appears in the human
+view; Provider-authored and local values are printed literally in code spans or
+fenced blocks, with terminal control and bidirectional-override characters
+escaped. Nothing is truncated: a view that exceeds its bound (twice the JSON
+bound) fails instead. No model call formats a result. Scripts and automation
+use the stable JSON surface by putting `--json` before the command; `--human`
+selects the default explicitly:
 
 ```bash
 axiom project show --selector my-project
@@ -1181,7 +1193,7 @@ effects. A selector never grants local or Provider mutation authority.
 
 Canonical JSON for current MVP surfaces, including workflow selector operations, uses
 `status`, `result`, optional `references`, optional `next`, optional `details`, and
-mandatory `provenance`. Human output renders the same semantic value. Other POC
+mandatory `provenance`. Human output renders the same canonical event. Other POC
 operations temporarily retain `operation`, `status`, `category`, and applicable
 typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 `0` for success, `1` for failure, and `2` for interruption/cancellation.
@@ -1192,7 +1204,10 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 | `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`); `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
-repository resolution, workflow ordering, and external-mutation authority.
+repository resolution, workflow ordering, and external-mutation authority. Skills
+invoke the default human view and present Lingo's Markdown as returned, reading
+follow-up values such as a preview `digest` from their labelled fields; they use
+`--json` only when the user explicitly asks for machine-readable output.
 
 ## Resolve a configured Project globally
 

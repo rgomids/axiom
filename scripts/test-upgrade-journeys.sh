@@ -111,7 +111,13 @@ tree_digest() {
   (cd "$1" && find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do printf '%s %s\n' "$file" "$(digest "$file")"; done) | digest /dev/stdin
 }
 
-version_of() { "$H/.local/bin/axiom" version | sed -n 's/^provenance: Axiom \([^ ]*\) .*/\1/p'; }
+# Older binaries print `provenance: Axiom <version> ...`; #232 binaries print
+# the human-first `**Provenance:** product `Axiom` · version `<version>` ...` footer.
+version_of() {
+  "$H/.local/bin/axiom" version | sed -n \
+    -e 's/^provenance: Axiom \([^ ]*\) .*/\1/p' \
+    -e 's/^\*\*Provenance:\*\* product `Axiom` · version `\([^`]*\)`.*/\1/p'
+}
 
 candidate_bundle=$(release_bundle "$candidate")
 candidate_version=$(sed -n 's/^version=//p' "$candidate_bundle/release-metadata.txt")

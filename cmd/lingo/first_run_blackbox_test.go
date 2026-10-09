@@ -148,7 +148,7 @@ func TestExecutableFirstRunRuntimeMatrix(t *testing.T) {
 			t.Fatalf("zero-Runtime first run wrote %v", m.files())
 		}
 		_, human := m.run(0, "first-run")
-		if !strings.Contains(human, "runtime: codex present=false state=absent") || !strings.Contains(human, "runtime: claude present=false state=absent") {
+		if !strings.Contains(human, "runtime `codex` · executable `codex` · present `false` · configurationWithoutExecutable `false` · state `absent`") || !strings.Contains(human, "runtime `claude` · executable `claude` · present `false` · configurationWithoutExecutable `false` · state `absent`") {
 			t.Fatalf("human output = %s", human)
 		}
 	})
