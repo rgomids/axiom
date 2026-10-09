@@ -37,8 +37,10 @@ var statusLabels = map[completion.Status]string{
 var canonicalFields = map[string]bool{"status": true, "result": true, "references": true, "next": true, "details": true, "provenance": true}
 
 // humanOutputLimit bounds a Markdown view of a canonical event whose JSON is
-// bounded by limit. Markdown structure costs at most a small multiple of the
-// JSON punctuation it replaces; the view is never truncated.
+// bounded by limit. A literal code span can nearly triple a value made of
+// backticks, so no fixed multiple bounds every payload view: a view beyond this
+// limit falls back to the canonical summary, which always fits because every
+// canonical completion field is bounded by internal/completion.
 func humanOutputLimit(limit int) int { return 2 * limit }
 
 // presentEvent writes one canonical completion event: the canonical JSON wire
@@ -50,6 +52,11 @@ func presentEvent(writer io.Writer, mode outputMode, status completion.Status, w
 	content := wire
 	if mode != jsonOutput {
 		rendered, err := renderMarkdown(wire)
+		if err == nil && len(rendered) > humanOutputLimit(limit) {
+			// The outcome and confirmed effects stay visible with the same exit
+			// code; only the payload view is withheld, and named.
+			rendered, err = renderMarkdownView(wire, false)
+		}
 		if err != nil || len(rendered) > humanOutputLimit(limit) {
 			return ExitFailure
 		}
@@ -148,7 +155,11 @@ func decodeNode(decoder *json.Decoder) (*jsonNode, error) {
 // renderMarkdown renders one canonical completion event: the status, result
 // and remaining canonical completion fields, every operation-specific field in
 // its canonical order, and the provenance footer.
-func renderMarkdown(wire []byte) ([]byte, error) {
+func renderMarkdown(wire []byte) ([]byte, error) { return renderMarkdownView(wire, true) }
+
+// renderMarkdownView renders the payload fields, or only names them when the
+// payload is withheld from an oversized view.
+func renderMarkdownView(wire []byte, payload bool) ([]byte, error) {
 	root, err := decodeOrdered(wire)
 	if err != nil {
 		return nil, err
@@ -173,9 +184,14 @@ func renderMarkdown(wire []byte) ([]byte, error) {
 		writeField(&summary, "", "Details", details)
 	}
 	var sections bytes.Buffer
+	var withheld []string
 	for index, key := range root.keys {
 		value := root.children[index]
 		if canonicalFields[key] {
+			continue
+		}
+		if !payload {
+			withheld = append(withheld, codeSpan(key))
 			continue
 		}
 		if composite(value) {
@@ -184,6 +200,9 @@ func renderMarkdown(wire []byte) ([]byte, error) {
 			continue
 		}
 		writeField(&summary, "", key, value)
+	}
+	if len(withheld) != 0 {
+		fmt.Fprintf(&summary, "- **Payload withheld:** %s exceeds the human view bound; run the same command with `--json` for the complete canonical event\n", strings.Join(withheld, ", "))
 	}
 	if summary.Len() != 0 {
 		output.WriteString("\n")

@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/manifest"
+	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workitem"
@@ -247,6 +249,63 @@ func TestPresentationMakesNoModelOrRuntimeCall(t *testing.T) {
 	for _, imported := range file.Imports {
 		if !allowed[imported.Path.Value] {
 			t.Fatalf("presentation imports %s", imported.Path.Value)
+		}
+	}
+}
+
+// Review of #291: a validated setup preview whose glossary definitions are
+// runs of backticks fits the JSON bound but nearly triples as code spans. The
+// human view must keep the outcome, exit code and confirmed references.
+func TestPresentationOversizedViewKeepsCanonicalOutcome(t *testing.T) {
+	glossary := make([]project.GlossaryEntry, 0, 6)
+	for index := range 6 {
+		glossary = append(glossary, project.GlossaryEntry{Key: "term-" + strconv.Itoa(index), Term: "Term " + strconv.Itoa(index), Definition: "x" + strings.Repeat("`", 2046) + "x"})
+	}
+	proposal, issues := projectapp.PrepareSetup(manifest.Codec{}, projectapp.SetupInput{
+		ProjectID: "123e4567-e89b-42d3-a456-426614174000", Slug: "sample", Name: "Sample",
+		Repositories: []projectapp.SetupRepository{{Key: "web", Path: "/work/web", Revision: "web-revision"}}, WorkItemProvider: "github", Glossary: glossary,
+	}, projectapp.SetupObservation{PortableDestination: "/portable/sample", LocalDestination: "/state/projects/id", PortableRevision: "absent", LocalRevision: "absent"})
+	if len(issues) != 0 || !proposal.Valid() {
+		t.Fatalf("setup preview invalid: %v", issues)
+	}
+	result := presentationResult(t, completion.Facts{Completed: true}, "Project setup preview ready", []string{"project:123e4567-e89b-42d3-a456-426614174000"}, "Review preview", "")
+	var structured, human bytes.Buffer
+	jsonCode := emitSetupCompletion(&structured, jsonOutput, *result, proposal.Preview())
+	humanCode := emitSetupCompletion(&human, humanOutput, *result, proposal.Preview())
+	if jsonCode != ExitSuccess || humanCode != jsonCode {
+		t.Fatalf("exit JSON=%d human=%d", jsonCode, humanCode)
+	}
+	full, err := renderMarkdown(structured.Bytes())
+	if err != nil || len(full) <= humanOutputLimit(MaxCompletionOutputBytes) {
+		t.Fatalf("fixture no longer exceeds the human bound: %d bytes, %v", len(full), err)
+	}
+	for _, want := range []string{"### Succeeded (`success`)", "\nProject setup preview ready\n", "- **Next:** Review preview", "`project:123e4567-e89b-42d3-a456-426614174000`", "- **Payload withheld:** `setup` exceeds the human view bound; run the same command with `--json`", "**Provenance:** product `Axiom`"} {
+		if !strings.Contains(human.String(), want) {
+			t.Fatalf("summary view lacks %q:\n%s", want, human.String())
+		}
+	}
+}
+
+// The fallback summary always fits the smallest human bound: every canonical
+// field is bounded by internal/completion and provenance validation.
+func TestPresentationWorstCaseCanonicalSummaryFits(t *testing.T) {
+	references := make([]string, 16)
+	for index := range references {
+		references[index] = "r" + strconv.Itoa(index) + strings.Repeat("`", 252) + "r"
+	}
+	text := strings.Repeat("`", 512)
+	result := presentationResult(t, completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, text, references, text, "d"+strings.Repeat("`", 254)+"d")
+	wire, err := renderCompletionJSON(*result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, err := renderMarkdownView(wire, false)
+	if err != nil || len(summary) > humanOutputLimit(MaxCompletionOutputBytes) {
+		t.Fatalf("worst-case summary %d bytes exceeds %d: %v", len(summary), humanOutputLimit(MaxCompletionOutputBytes), err)
+	}
+	for _, reference := range references {
+		if !strings.Contains(string(summary), codeSpan(reference)) {
+			t.Fatal("worst-case summary dropped a confirmed reference")
 		}
 	}
 }

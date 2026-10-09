@@ -39,7 +39,15 @@ application use case
   blocks for multi-line text); C0/C1 controls and bidirectional overrides are
   escaped, so a value cannot inject Markdown structure or terminal sequences.
 - Bounded, never truncated: the human view may use at most twice the JSON
-  bound of its emitter; beyond that the command fails without partial output.
+  bound of its emitter. A literal code span can nearly triple a value made of
+  backticks, so a view beyond that bound keeps the canonical summary (status,
+  result, next, references, details, provenance) with the same exit code and
+  names the withheld payload, pointing to `--json`
+  (`TestPresentationOversizedViewKeepsCanonicalOutcome`, from the #291 review
+  reproduction with a validated `PrepareSetup` preview). Every canonical field
+  is bounded, so the summary always fits
+  (`TestPresentationWorstCaseCanonicalSummaryFits`). Skills present that
+  summary and may repeat only a read-only or preview command with `--json`.
 - Both Runtime skills (`axiom-project`, `axiom-work-item`) invoke the default
   human view, present Lingo's Markdown exactly as returned, read follow-up
   values (preview `digest`, `previewDigest`, `executionId`, `revision`) from
