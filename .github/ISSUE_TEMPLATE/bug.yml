@@ -2,7 +2,6 @@ name: Bug
 description: Report a reproducible defect or incorrect observable behavior in an available Axiom artifact.
 labels:
   - type:bug
-  - status:planned
 body:
   - type: markdown
     attributes:

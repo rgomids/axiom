@@ -174,7 +174,7 @@
       "path": ".github/workflows/issue-label-policy.yml",
       "kind": "workflow",
       "owner": "delivery",
-      "purpose": "Apply the Issue label taxonomy: seed area/platform/status from Issue Form answers, report type/status/area violations in one edited-in-place comment, and create or normalize the canonical label catalog. Never removes labels and ignores axiom:*.",
+      "purpose": "Apply the Issue label taxonomy: seed area/platform from Issue Form answers, report type/area and conflicting legacy-status violations in one edited-in-place comment, and create or normalize the canonical label catalog. Never seeds status, removes labels or edits axiom:*.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
