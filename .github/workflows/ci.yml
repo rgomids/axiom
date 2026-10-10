@@ -1,5 +1,5 @@
 name: CI
-# Required product checks for every pull request. Job names are the stable
+# Change-aware checks for every pull request. Conclusion jobs keep the stable
 # required-check contexts in .github/rulesets/main.json. It does not run again
 # on push to main: the strict required-checks policy merges a PR only when its
 # head is up to date with main, so the merge commit has the tree that already
@@ -25,8 +25,45 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  go-quality:
-    name: go-quality
+  classify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.paths.outputs.go }}
+      verify: ${{ steps.paths.outputs.verify }}
+      release: ${{ steps.paths.outputs.release }}
+      upgrade: ${{ steps.paths.outputs.upgrade }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: paths
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT" == pull_request ]]; then
+            python3 scripts/classify-ci-changes.py --base "$BASE" --head "$HEAD"
+          else
+            python3 scripts/classify-ci-changes.py --full
+          fi
+
+  repository:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: ./scripts/validate-repository.sh .
+      - run: python3 scripts/test-ci-classification.py
+
+  go-quality-suite:
+    needs: classify
+    if: needs.classify.outputs.go == 'true'
+    name: go-quality-suite
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -52,8 +89,10 @@ jobs:
       - name: Quality gate regression contracts
         run: python3 scripts/test-go-quality.py
 
-  verify:
-    name: verify (${{ matrix.platform }})
+  verify-suite:
+    needs: classify
+    if: needs.classify.outputs.verify == 'true'
+    name: verify-suite (${{ matrix.platform }})
     permissions:
       contents: read
       actions: read
@@ -144,8 +183,10 @@ jobs:
         shell: pwsh
         run: ./scripts/test-windows-bootstrap.ps1
 
-  release-contract:
-    name: release-contract
+  release-contract-suite:
+    needs: classify
+    if: needs.classify.outputs.release == 'true'
+    name: release-contract-suite
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -172,12 +213,14 @@ jobs:
       - name: Code health reporting contracts
         run: python3 scripts/test-code-health.py
 
-  upgrade-journeys:
+  upgrade-journeys-suite:
+    needs: classify
+    if: needs.classify.outputs.upgrade == 'true'
     # Issues #153/#186: real N -> candidate owned upgrades with non-empty state,
     # from the latest published stable release (N), the oldest stable release
     # with an installation receipt and historical POC state, through the
     # candidate archive's own installer. Downloads public release assets only.
-    name: upgrade-journeys (${{ matrix.platform }})
+    name: upgrade-journeys-suite (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
@@ -227,3 +270,101 @@ jobs:
           ./scripts/test-upgrade-journeys.sh --candidate "$RUNNER_TEMP/candidate" \
             --previous "$PREVIOUS_LATEST" --previous "$PREVIOUS_v0_1_1" \
             --poc-binary "$RUNNER_TEMP/poc-lingo" | tee -a "$GITHUB_STEP_SUMMARY"
+
+  go-quality:
+    name: go-quality
+    if: always()
+    needs: [classify, repository, go-quality-suite]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Required suite conclusion
+        env:
+          CLASSIFICATION: ${{ needs.classify.result }}
+          REPOSITORY: ${{ needs.repository.result }}
+          SELECTED: ${{ needs.classify.outputs.go }}
+          RESULT: ${{ needs.go-quality-suite.result }}
+        run: |
+          [[ "$CLASSIFICATION" == success && "$REPOSITORY" == success ]]
+          if [[ "$SELECTED" == true ]]; then
+            [[ "$RESULT" == success ]]
+            echo 'Applicable suite passed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            [[ "$SELECTED" == false && "$RESULT" == skipped ]]
+            echo 'Suite not applicable; classification and repository checks passed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  verify:
+    name: verify (${{ matrix.platform }})
+    if: always()
+    needs: [classify, repository, verify-suite]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        platform: [linux, macos, windows]
+    steps:
+      - name: Required suite conclusion
+        env:
+          CLASSIFICATION: ${{ needs.classify.result }}
+          REPOSITORY: ${{ needs.repository.result }}
+          SELECTED: ${{ needs.classify.outputs.verify }}
+          RESULT: ${{ needs.verify-suite.result }}
+        run: |
+          [[ "$CLASSIFICATION" == success && "$REPOSITORY" == success ]]
+          if [[ "$SELECTED" == true ]]; then
+            [[ "$RESULT" == success ]]
+            echo 'Applicable suite passed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            [[ "$SELECTED" == false && "$RESULT" == skipped ]]
+            echo 'Suite not applicable; classification and repository checks passed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  release-contract:
+    name: release-contract
+    if: always()
+    needs: [classify, repository, release-contract-suite]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Required suite conclusion
+        env:
+          CLASSIFICATION: ${{ needs.classify.result }}
+          REPOSITORY: ${{ needs.repository.result }}
+          SELECTED: ${{ needs.classify.outputs.release }}
+          RESULT: ${{ needs.release-contract-suite.result }}
+        run: |
+          [[ "$CLASSIFICATION" == success && "$REPOSITORY" == success ]]
+          if [[ "$SELECTED" == true ]]; then
+            [[ "$RESULT" == success ]]
+            echo 'Applicable suite passed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            [[ "$SELECTED" == false && "$RESULT" == skipped ]]
+            echo 'Suite not applicable; classification and repository checks passed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  upgrade-journeys:
+    name: upgrade-journeys (${{ matrix.platform }})
+    if: always()
+    needs: [classify, repository, upgrade-journeys-suite]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        platform: [linux, macos]
+    steps:
+      - name: Required suite conclusion
+        env:
+          CLASSIFICATION: ${{ needs.classify.result }}
+          REPOSITORY: ${{ needs.repository.result }}
+          SELECTED: ${{ needs.classify.outputs.upgrade }}
+          RESULT: ${{ needs.upgrade-journeys-suite.result }}
+        run: |
+          [[ "$CLASSIFICATION" == success && "$REPOSITORY" == success ]]
+          if [[ "$SELECTED" == true ]]; then
+            [[ "$RESULT" == success ]]
+            echo 'Applicable suite passed.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            [[ "$SELECTED" == false && "$RESULT" == skipped ]]
+            echo 'Suite not applicable; classification and repository checks passed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
