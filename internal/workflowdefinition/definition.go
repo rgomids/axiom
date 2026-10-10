@@ -167,7 +167,13 @@ func compileSchema() (*jsonschema.Schema, error) {
 // StrictJSON checks duplicate keys, UTF-8, Unicode surrogate validity and bounds
 // before any lossy Go JSON decoding. Depth and node counts are bounded.
 func StrictJSON(b []byte, target any) error {
-	if len(b) == 0 || len(b) > MaxBytes || !utf8.Valid(b) {
+	return StrictJSONBounded(b, target, MaxBytes)
+}
+
+// StrictJSONBounded applies the same closed decoding to a bounded local
+// envelope that may retain a complete definition plus its execution ledger.
+func StrictJSONBounded(b []byte, target any, limit int) error {
+	if len(b) == 0 || len(b) > limit || !utf8.Valid(b) {
 		return ErrInvalid
 	}
 	dec := json.NewDecoder(bytes.NewReader(b))

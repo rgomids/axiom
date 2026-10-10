@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 const maxWorkflowEvidenceBytes = 1 << 20
@@ -84,4 +85,45 @@ func equalBytes(left, right []byte) bool {
 		value |= left[index] ^ right[index]
 	}
 	return value == 0
+}
+
+// builtin-sdd-v1 validates retained typed output metadata and correlation, not
+// a caller-provided boolean. Other validator policies require an installed,
+// domain-owned adapter; definition strings can never execute a command.
+func (v WorkflowReferenceValidator) ValidateStageOutput(ctx context.Context, state workflow.State, repositoryPath string, stage workflowdefinition.Stage, output workflowdefinition.Output, validator workflowdefinition.Validator, reference workflow.Reference) error {
+	if validator.PolicyRef != "builtin-sdd-v1" || reference.Kind != "artifact" || v.Validate(ctx, state.ExecutionID, repositoryPath, reference) != nil {
+		return ErrUnsafe
+	}
+	artifact, err := v.artifacts.Read(ctx, reference.ID)
+	if err != nil || artifact.Category != output.Kind || artifact.Outcome != "success" {
+		return ErrUnsafe
+	}
+	correlation := map[string]string{"workflow-stage": stage.ID, "workflow-definition": state.Binding.Definition.Digest, "workflow-output": output.ID}
+	for key, expected := range correlation {
+		count := 0
+		for _, ref := range artifact.References {
+			if ref.Kind == key {
+				if ref.Value != expected {
+					return ErrUnsafe
+				}
+				count++
+			}
+		}
+		if count != 1 {
+			return ErrUnsafe
+		}
+	}
+	switch validator.Kind {
+	case "human-review":
+		return nil // The domain separately verifies the exact revision-bound human review fact.
+	case "artifact-schema":
+		return nil // ArtifactStore.Read validates the complete versioned artifact schema and digest.
+	case "evidence-check":
+		if len(artifact.References) == 0 || artifact.Retention != "evidence" {
+			return ErrUnsafe
+		}
+		return nil
+	default:
+		return ErrUnsafe
+	}
 }

@@ -102,6 +102,7 @@ func TestAuthoredPolicyPreviewThenStartBothRuntimes(t *testing.T) {
 				t.Fatal(err)
 			}
 			runCLI(t, env.service, []string{"project", "install", "--source", source, "--repository", "main=" + repository}, cli.ExitSuccess, "installed")
+			selectBuiltinForTest(t, env.state, "123e4567-e89b-42d3-a456-426614174000")
 			store, err := local.NewRuntimeProfileStore(env.state)
 			if err != nil {
 				t.Fatal(err)

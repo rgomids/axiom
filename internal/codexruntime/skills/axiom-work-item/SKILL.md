@@ -142,10 +142,35 @@ After the reviewed start, follow Lingo's `workflow.gateAction` and
 `workflow.gateCommand` argument array using the exact returned selectors and
 revision. Do not ask the user to name an internal gate or say a magic phrase.
 
+New configured Executions require an explicitly selected Project workflow; report
+`workflow_selection_required` through the Project workflow surface without
+silently selecting a default. Preserve `workflow.binding`, including definition
+revision/digest, and inspect `stageContract`, `stageInputs`, `stageLedger` and
+`blockers`. Resume always uses the retained snapshot; never substitute a newer
+Project selection or repair a corrupt binding. Follow the returned ordered stage
+IDs rather than imposing the legacy gate list.
+
+Configured advance requires `--stage-result <json-file>` with exact declared input
+and output references from authorized work. Preserve prior output/context digests
+from `stageInputs`; the canonical Work Item needs no caller-supplied input.
+Registered validators run in Lingo. Never invent an artifact, validator result,
+human actor or authority. For a required human review, record `stage-review` only
+after explicit authority for the exact result file and validated reference,
+including `--actor <human-identity>`, `--active true` and `--authorize-local`.
+Other configured human facts also require the actor. A technical pass cannot
+replace a human fact or final acceptance.
+
+Configured technical completion stops at `reviewed` with
+`delivery_packet_required`. Exact packet-bound acceptance belongs to the delivery
+operation (#277), which is not available in this slice. Never submit configured
+`human-acceptance` with an Evidence file or stage output as a substitute packet.
+Legacy format-1 acceptance retains its historical protocol.
+
 - An action with `automatic: true` runs `workflow advance --automatic` during
   the authorized run without another conversational confirmation. Intake is
-  currently the only gate Lingo can evaluate automatically. Do not combine
-  automatic mode with gate, outcome, reference or next inputs.
+  the only legacy gate Lingo can evaluate automatically; configured stages require
+  their complete result contract. Do not combine automatic mode with gate,
+  outcome, reference, stage-result or next inputs.
 - Other advance actions require actual authorized work and its observed `pass`
   or `fail` result with applicable validated Evidence. Fill command placeholders
   from observations; a file digest alone does not prove correctness.
@@ -177,6 +202,11 @@ Execution selectors. Run `axiom workflow status` and, when requested,
 This operation is read-only. Never infer selectors from CWD, Git, Provider,
 Runtime chat, or global discovery, and never classify workflow state
 independently.
+
+For configured Executions report the retained definition/revision/digest,
+Project/Repository/Work Item identity, current stage, criteria, ledger, human facts,
+blockers and returned next action. Do not expose retained context bodies or infer
+acceptance from Provider projection.
 
 To discover Executions without an opaque identity, run
 `axiom workflow list --project <uuid-or-slug>` (optionally

@@ -432,7 +432,7 @@ func observeRecoveryFile(root *os.Root, role, name string) RecoveryObject {
 		result.Revision = "invalid"
 		return result
 	}
-	wire, err := readPrivateFileBounded(root, name, workflowdefinition.MaxBytes)
+	wire, err := readPrivateFileBounded(root, name, MaxExecutionBytes)
 	if err != nil {
 		result.Revision = "invalid"
 		return result
