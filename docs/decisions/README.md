@@ -4,6 +4,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
+- [ADR-0022 — Dedicated workflow conversational surface](0022-dedicated-workflow-conversational-surface.md) — Proposed for human decision, 2026-10-10 ([Issue #303](https://github.com/rgomids/axiom/issues/303)); thin `axiom-workflow` Runtime skill over the existing Project-owned authoring and `axiom workflow` commands; domain, CLI and authority unchanged; would partially supersede only ADR-0020's Work Item skill-surface clause once accepted.
+
 - [ADR-0021 — Windows Server AMD64 native acceptance](0021-windows-server-amd64-native-acceptance.md) — Accepted, 2026-10-09; explicit maintainer authorization for member Server AMD64, preserving local NTFS protections and separate client coverage.
 
 - [ADR-0020 — Workflow definition ownership and revision binding](0020-workflow-definition-revision-binding.md) — **Accepted, 2026-10-09** (human decision in [Issue #271](https://github.com/rgomids/axiom/issues/271#issuecomment-6074127314)); Project-owned portable definitions and selection, JCS/SHA-256 revisions, immutable local snapshots and new linked Executions for rework; historical sequential and graph decisions remain intact. Implementation requires separate authority.
