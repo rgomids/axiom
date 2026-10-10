@@ -134,6 +134,35 @@ In the same delivery:
    one sanitized Evidence JSON. Its R-2/R-3 fields are fixed to
    `deferred_to_278`.
 
+   **Provenance binding** (amendment §Lane S: source at the exact provenance
+   revision; a mismatch is `blocked`, never substituted). The runner takes
+   an explicit target revision and version: the 40-hex commit and release
+   version of the installed or release build, from `axiom --json version`
+   provenance with `sourceState` clean, or from the release tag.
+
+   Before any test runs, it observes the tested source:
+   - `git rev-parse HEAD` must equal the target;
+   - `git status --porcelain` must be empty;
+   - the Go toolchain must be present.
+
+   A missing or unverifiable target, a mismatch, a dirty tree or a missing
+   toolchain makes every scenario and the overall R-1 result `blocked`, with
+   a classified reason. No test result is reported as `passed` for an
+   unverified revision.
+
+   The report carries every Report H field:
+   - Axiom version and target/observed revisions;
+   - observed Runtime information as `controlled` (Lane S fake observations),
+     never a real Runtime;
+   - skill-set version and per-skill SHA-256 taken from
+     `axiom --json runtime codex status` against an empty temporary skills
+     root built from the tested source;
+   - a sanitized sandbox identifier (random, no host paths);
+   - per-scenario results with test names and classified refusal categories;
+   - provenance and Evidence class `synthetic`;
+   - known limitations (G-1–G-5);
+   - the #278/AXM-12 handoff reference.
+
 ## 4. Migration
 
 | Path | Expected behavior | Verification |
@@ -201,9 +230,11 @@ and the maintainer's accept/reject decision.
 
 ## 7. Delivery
 
-- **Sequence:** T01 → T02 → T03 → T04 → T05 → T06 → T07 → T13. Off that path,
-  T08 follows T02, T09 follows T03 and T08, and T12 follows T03. T10 and T11
-  run in parallel from T01.
+- **Sequence:** T01 → T02 → T03 → T04 → T05 → T06 → T07 → T13. Off that path:
+  - T08 follows T02, and T09 follows T03 and T08;
+  - T10 runs from T01;
+  - T11 starts from T01 but closes after T03;
+  - T12 starts after T03 but closes after T10.
 - **Technical dependencies:**
   - T02 must be atomic, because the routing tests enforce a three-way
     equality;
@@ -219,6 +250,7 @@ and the maintainer's accept/reject decision.
   | R4 | Wrong inspect flags for runtime actions | `skillFlagSet` cases plus parser-parity test | No |
   | R5 | `--file` accepts non-regular files/symlinks | PD-9 | No (drafts are Runtime-owned) |
   | R6 | Runner map goes stale | Missing test gives `blocked`; unittest pins the map | No |
+  | R9 | Runner Evidence attributed to an untested revision | Provenance gate: target = `HEAD`, clean tree, toolchain; otherwise `blocked`; unittest covers divergence | No |
   | R7 | PR #304 not on `main` | T01 gate | Yes |
   | R8 | Claude converges only via `first-run` after `axiom upgrade` | Assert in T06; document in T12 | No |
 
@@ -432,31 +464,51 @@ Common rules for every task:
 - **Parallel:** with T07, T10 and T11.
 
 ### T10 — Work Item-owned #275 R-1 runner
-- **Objective:** deterministic synthetic Evidence for scenarios A–H (Lane S).
+- **Objective:** deterministic synthetic Evidence for scenarios A–H (Lane S), bound to the exact tested revision.
 - **Scope:** runner, schema, offline unittest, registry entry.
 - **Files:** `scripts/acceptance/stage-plan-r1.py`, `scripts/acceptance/stage-plan-r1.schema.json`, `scripts/acceptance/test_stage_plan_r1.py`, `scripts/automation-registry.json`; wiring into `scripts/validate-repository.sh` only if it matches how existing acceptance unittests are run.
 - **Dependencies:** T01.
-- **Requirements:** map scenarios to tests:
-  - A, C, D, E: `TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph`;
-  - B: #273 authoring tests;
-  - F: the journey negatives, `TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates`, `TestReadPlanDocumentRefusesNonRegularFiles`, `TestCompileRejectsInvalidTopologyControlsAndReferences`, `TestCompileSequentialConcurrencyAndUnsafeOverlap`, `TestPlanStageFailsClosedWithSpecificationCategories`;
-  - G: the `snapshotTrees` assertions.
+- **Requirements:**
+  1. **Inputs:** `--target-revision <40-hex>`, `--target-version <version>`, `--source <dir>`, `--output <new-path>`.
+  2. **Provenance gate, before any test runs:**
+     - `git -C <source> rev-parse HEAD` must equal the target revision;
+     - `git status --porcelain` must be empty;
+     - `go version` must succeed.
 
-  Output fields: source revision, Go version, `lane: "S"`, `class: "synthetic"`, per-scenario `passed|failed|blocked`, `r1`, `r2`/`r3` = `deferred_to_278`. A missing test gives `blocked`; a timeout or exceeded bound gives `failed`. The runner writes only to an explicit new output path, with no network or credentials.
+     Otherwise every scenario and `r1` are `blocked`, with reason `revision_mismatch`, `dirty_source`, `target_unverifiable` or `toolchain_missing`. No test results are recorded as `passed`.
+  3. **Scenario map:**
+     - A, C, D, E: `TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph`;
+     - B: #273 authoring tests;
+     - F: the journey negatives, `TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates`, `TestReadPlanDocumentRefusesNonRegularFiles`, `TestCompileRejectsInvalidTopologyControlsAndReferences`, `TestCompileSequentialConcurrencyAndUnsafeOverlap`, `TestPlanStageFailsClosedWithSpecificationCategories`;
+     - G: the `snapshotTrees` assertions.
+
+     The runner uses `go test -json -run`, with bounded output and a timeout.
+  4. **Report H fields** (closed schema, `additionalProperties: false`):
+     - `axiomVersion`, `targetRevision`, `observedRevision`, `sourceClean`, `goVersion`;
+     - `runtimeObservation: "controlled"`;
+     - `skillSet` (version and per-skill SHA-256 from `axiom --json runtime codex status` against an empty temporary root);
+     - `sandboxId` (random, no host path);
+     - `lane: "S"`, `class: "synthetic"`;
+     - per-scenario `{result: passed|failed|blocked, tests[], refusalCategories[]}`;
+     - `r1`;
+     - `r2`/`r3` fixed to `deferred_to_278`;
+     - `limitations` (G-1–G-5) and `handoff` (#278/AXM-12).
+  5. **Classification:** a missing or renamed test gives `blocked`; a timeout or exceeded bound gives `failed`. The runner writes only to a new output path; no network, vendor process, credential, environment value or host path appears in the output.
 - **Acceptance criteria:**
-  - the schema rejects `passed`/`accepted` for R-2/R-3;
-  - the unittest covers mapping, blocked, failed and output bounds;
-  - the registry checker passes.
-- **Verification:** `python3 scripts/acceptance/test_stage_plan_r1.py`; `scripts/check-automation-registry.py`; one runner run on head.
+  - the schema rejects `passed`/`accepted` for R-2/R-3, missing H fields and unknown fields;
+  - the unittest proves that a revision mismatch, dirty source, unverifiable target or missing toolchain each yields `blocked` with no `passed` scenario;
+  - the unittest also covers mapping, missing test, timeout and output bound, and confirms no host path or environment value in the output;
+  - `check-automation-registry.py` passes.
+- **Verification:** `python3 scripts/acceptance/test_stage_plan_r1.py`; `scripts/check-automation-registry.py`; one runner run on a clean checkout at the implementation head, with that head as the target revision.
 - **Evidence:** the Evidence JSON, referenced from `issue-303-implementation.md`.
-- **Definition of Done:** green, and Evidence produced.
+- **Definition of Done:** green, and Evidence produced for the exact head.
 - **Parallel:** yes, from T01.
 
 ### T11 — Security, HD-006 and negative coverage
 - **Objective:** close AC-015.9 and confirm negative coverage.
 - **Scope:** analysis, plus tests only where a gap exists.
 - **Files:** existing `internal/runtimeprofile`, `internal/runtimeapplication`, `internal/workflowcompiler` tests; new tests only for gaps.
-- **Dependencies:** T01.
+- **Dependencies:** start after T01 (test coverage); **completion requires T03** (SKILL text review).
 - **Requirements:** cite or add tests for:
   - multiple operator-named Profiles per Runtime resolving deterministically, with no fixed tier set;
   - Project ∩ local intersection with no fallback when empty, ambiguous or disabled;
@@ -467,14 +519,14 @@ Common rules for every task:
 - **Acceptance criteria:** every item has a cited passing test.
 - **Verification:** focused tests.
 - **Evidence:** test list in `issue-303-implementation.md`.
-- **Definition of Done:** checklist complete.
-- **Parallel:** yes.
+- **Definition of Done:** checklist complete, including the T03 text review.
+- **Parallel:** test-coverage part from T01; closes after T03.
 
 ### T12 — Documentation reconciliation
 - **Objective:** user and contract docs match the delivered surfaces.
 - **Scope:** the §7 documentation list, plus a #278 handoff checklist kept in the repository.
 - **Files:** the files in §7; new `docs/specifications/007-configurable-workflows/issue-303-implementation.md`.
-- **Dependencies:** T03 (T10 for Evidence links).
+- **Dependencies:** start after T03; **completion requires T10** (Evidence links).
 - **Requirements:**
   - describe the three-skill ownership and the removed Project routes;
   - make no R-2/R-3 claim;
@@ -483,8 +535,8 @@ Common rules for every task:
 - **Acceptance criteria:** `validate-repository.sh`, `check-adr-governance.py`, `scripts/test-site-language.py` and `scripts/validate-landing-page.sh` pass.
 - **Verification:** validator output.
 - **Evidence:** output.
-- **Definition of Done:** green.
-- **Parallel:** with T06–T11 after T03.
+- **Definition of Done:** green, with T10 Evidence linked.
+- **Parallel:** with T06–T11 after T03; closes after T10.
 
 ### T13 — Final validation and review readiness
 - **Objective:** an R-1-complete implementation PR ready for human review.
@@ -511,21 +563,26 @@ Common rules for every task:
 ## Task dependency graph
 
 ```text
-T01 ─┬─> T02 ─┬─> T03 ─> T04 ─> T05 ─> T06 ─> T07 ─┐
-     │        ├─> T08 ───────────────────────────────┤
-     │        └─(T03,T08)─> T09 ────────────────────┤
-     ├─> T10 ───────────────────────────────────────┤
-     ├─> T11 ───────────────────────────────────────┤
-     └─(T03)─> T12 (Evidence links after T10) ───────┴─> T13
+T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07 -> T13   (critical path)
+T02 -> T08 -> T13
+T03 + T08 -> T09 -> T13
+T01 -> T10 -> T13
+T01 -> T11(start); T03 -> T11(close) -> T13
+T03 -> T12(start); T10 -> T12(close) -> T13
 ```
 
 **Critical path:** T01 → T02 → T03 → T04 → T05 → T06 → T07 → T13.
 
+**Completion dependencies (start ≠ close):**
+- T11 starts after T01 but closes only after T03;
+- T12 starts after T03 but closes only after T10.
+
 **Parallel-safe:**
-- T10 and T11 from T01;
+- T10 from T01;
+- T11's test-coverage part from T01;
 - T08 after T02;
 - T09 after T03 and T08;
-- T12 after T03.
+- T12 drafting after T03.
 
 T02–T05 run sequentially: they change the same embedded bytes and digests.
 
@@ -537,7 +594,7 @@ T02–T05 run sequentially: they change the same embedded bytes and digests.
 | 2 Embedded/installed/discoverable; v0.15.0 upgrade; reinstall; history; no duplicate active routes | 3.7, 4 | T04, T05, T06, T07 | runtime/install/upgrade tests; upgrade journeys; inspect tests | Converged three-skill inventories; owned v0.15.0 set |
 | 3 Configuration routes = canonical commands; Project routes absent; select/run/status/plan kept; CLI unchanged | 3.1, 3.3, 3.4 | T02, T03, T07, T08 | routing/catalog/inspect/help tests | Parity; negative discovery |
 | 4 NL configuration via drafts; Project selects; start resolves and binds | 3.2, 3.4 | T03, T08, T09 | content tests; draft journey; `TestConfiguredExecutableRevisionIsolationAndAuthority` | Journey output |
-| 5 Work Item-owned #275 R-1 runner; classified scenarios; R-1/R-2/R-3 separated | 3.4, 3.8 | T10 | runner + unittest | Evidence JSON A–H |
+| 5 Work Item-owned #275 R-1 runner; classified scenarios; R-1/R-2/R-3 separated | 3.4, 3.8 | T10 | runner + unittest (incl. revision mismatch, dirty source → `blocked`) | Evidence JSON A–H with the full Report H fields, bound to the tested revision |
 | 6 No real sessions/inference/dispatch/Provider/human E2E; #278 handoff | 1, 6 | T10, T12 | schema rule; review | `deferred_to_278`; handoff checklist |
 | 7 R-1 + review + authorization; G-2/G-4 not waived | 7 | T13 | full validation; review | Review record; blockers listed |
 | 8 CLI/result/digest/preview/security unchanged | 3, 5 | T08, T13 | unmodified existing tests | Diff review |
