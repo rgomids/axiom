@@ -61,6 +61,10 @@ contract. The remaining accepted Specification 007 domain rules and
 ADR-0020 are authoritative. Implementation, merge, release, Runtime inference
 and downstream human acceptance remain separately gated.
 
+[#303 Plan and Tasks](007-configurable-workflows/plan-tasks-303-workflow-skill.md):
+**Proposed, 2026-10-10**, for independent review and maintainer acceptance;
+authorizes no implementation.
+
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
 [Specification](006-installer-host-eligibility/spec.md): **Approved, 2026-10-04**
