@@ -53,10 +53,14 @@ workflow definition operations. The responsibilities are:
    not mutate Project policy or select the active revision.
 3. **Work Item requests and controls.** `axiom-work-item` owns the
    conversational `run`, `status`, stage Plan and Execution lifecycle of a
-   **specific** Work Item. The #275 conversational stage-plan acceptance
-   procedure stays a #303 delivery requirement, but is initiated by the Work
-   Item surface; it invokes `axiom-workflow` only for the configuration
-   portion and `axiom-project` for active revision selection.
+   **specific** Work Item. The #303 delivery requirement covers the
+   **deterministic/synthetic R-1 technical verification** of the Work Item-owned
+   #275 stage-plan acceptance procedure, including skill routing, canonical
+   validation, previews and Evidence. The *real* natural-language use of that
+   procedure in Codex and Claude (R-2), and the end-to-end human MVP acceptance
+   (R-3), are both owned by #278 / AXM-12. The Work Item surface uses
+   `axiom-workflow` only for configuration and `axiom-project` for
+   active revision selection; neither takes Execution ownership.
 4. **Execution runs.** Running the specific Work Item resolves its Project's
    valid active workflow revision through the canonical application operation,
    freezes an immutable `WorkflowBinding` in the new Execution and never
