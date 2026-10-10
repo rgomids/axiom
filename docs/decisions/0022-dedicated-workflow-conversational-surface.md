@@ -133,6 +133,35 @@ Work Item execution or Doctor mutation. The proposed exact revised Spec/ADR
 still requires human acceptance; the clarified direction does not authorize
 implementation or AXM-7 acceptance.
 
+## Evidence and final acceptance placement (HD-008)
+
+The maintainer selected **Option A** on 2026-10-10: this
+[#303](https://github.com/rgomids/axiom/issues/303) skill-surface delivery
+may be **technically verified using deterministic and synthetic R-1 Evidence**,
+including registered skill metadata, installation/upgrade behavior, stage
+planning, fail-closed refusal cases and canonical CLI results. Those tests
+do not prove real vendor inference, native conversational usability or a
+complete dispatched Workflow. They are never presented as R-2 or R-3 PASS.
+
+The **final MVP validation**, [#278](https://github.com/rgomids/axiom/issues/278)
+(Linear [AXM-12](https://linear.app/rgomids/issue/AXM-12)),
+owns separate **R-2** authenticated Codex and Claude conversational sessions
+and **R-3** live Project/Workflow/Work Item/Execution and authorized
+delivery/rework tests, followed by the maintainer's explicit human
+accept/reject decision. Vendor inference, Provider effects and paid
+operations must be expressly authorized when those tests are run.
+Blockers such as G-2/#306 and consented Provider linkage G-4 must be
+resolved before affected real scenarios can pass; a synthetic passing test
+cannot waive them. Any failures discovered there are addressed by bounded
+technical corrections to the owning feature.
+
+The #303 technical completion/AXM-7 technical acceptance can be reconciled
+after R-1 review and applicable authority **without treating deferred final
+E2E testing as an AXM-8 prerequisite**. This does not mean #303 is currently
+complete, does not automatically change Linear or unblock successors, and
+does not grant final MVP acceptance. No new domain engine or skill authority
+is introduced by this test placement.
+
 ## Alternatives considered
 
 | Option | Coupling / complexity | User experience | Reversibility |
