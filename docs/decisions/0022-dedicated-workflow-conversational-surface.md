@@ -115,9 +115,9 @@ is rejected for this revision: it obscures the Work Item's lifecycle owner.
   mandatory.
 - Multi-surface journeys (configure → select → run) need clear handoff
   documentation and separate previews/approvals; no silent Project selection.
-- The intended active-selection resolution on Work Item start must be verified
-  against the current canonical contract and exposed as a separately scoped
-  gap if missing.
+- Active-selection resolution on Work Item start is existing canonical
+  behavior (`axiom workflow start` admission, verified against v0.15.0 in the
+  amendment); the skills add no selection logic and no gap is opened.
 
 ## Relationship to accepted decisions
 

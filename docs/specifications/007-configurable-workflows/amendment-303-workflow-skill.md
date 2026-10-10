@@ -62,12 +62,26 @@ or computes digests for a supported configuration journey.
   to the new Execution. Later Project workflow changes do not rewrite existing
   Execution bindings; a missing or invalid selection fails closed.
 
-Work Item `run` should not require the operator to select a workflow revision
-manually when a valid active Project selection exists. This amendment defines
-the intended conversational behavior without inventing an unverified new CLI
-capability: if the existing canonical start operation cannot resolve that
-selection, this gap must be surfaced and specified before implementation,
-not worked around by the skill.
+Work Item `run` does not require the operator to select a workflow revision
+manually when a valid active Project selection exists. **Verified against
+`main` at `3766273` (v0.15.0):** canonical `axiom workflow start` already
+resolves the Project's `workflowSelection` during admission
+(`cmd/lingo/workflow_binding.go`, the Project's resolved portable snapshot):
+
+- an absent selection returns `workflow_selection_required` with the next
+  action "select a Project workflow revision with `project workflow select`",
+  and no default is substituted;
+- a selected Project revision must be indexed `published`, and its content must
+  match the selected reference; otherwise `recovery_required`;
+- a Project source revision that differs from the resolved installation
+  returns `project_configuration_drift`;
+- the selected reference, Project revision and context digests are bound into
+  the reviewed start preview, so a selection change after review requires a
+  fresh preview, and the confirmed Execution retains its snapshot
+  ([#274 record](issue-274-implementation.md#binding-and-execution)).
+
+No new CLI capability or gap is therefore needed for this behavior, and the
+skill implements no selection logic of its own.
 
 Unchanged invariants: Project ≠ Repository; Runtime ≠ Model; Role ≠ Model;
 Execution ≠ Agent; Skill ≠ workflow truth; Evidence ≠ raw chat. Workflow
@@ -135,7 +149,7 @@ and authority derive from the existing canonical operations via
 | `definition.edit` / `definition.remove` / `definition.recover` | `axiom project workflow edit` / `remove` / `recover` | local mutation | as above |
 | `configuration.readiness` | `axiom runtime profile validate` / `preview`; Runtime status/auth observations | read-only diagnostic | none |
 
-**Not `axiom-workflow` operations:** `definition.select` (Project),
+**Not `axiom-workflow` operations:** active revision selection (Project: `axiom-project` `workflow.select`),
 `execution.list/status/run/reconcile`, `stage.plan` and
 `acceptance(stage-plan)` (Work Item), and any future dispatch/retry/cancel,
 coordination, delivery, decision or rework (#276/#277). The `axiom-work-item`
@@ -343,7 +357,7 @@ above, from a natural-language request (not a typed command). Each covers:
 3. canonical validation and preview returned by Lingo;
 4. explicit human confirmation of each exact preview, followed by bounded
    sandbox mutations (for example configuration `definition.create`, then
-   Project-owned `definition.select`);
+   the Project-owned `axiom-project` `workflow.select`);
 5. read-back of the persisted result;
 6. interpretation and a bounded Evidence entry.
 
@@ -391,8 +405,8 @@ which need explicit authorization when they involve vendor inference.
    through Runtime-prepared drafts. Project selects the active revision with
    its own approval. Starting a specific Work Item resolves that Project
    selection without a free-standing workflow run or silent fallback; each
-   Execution binds the selected immutable revision. If canonical start lacks
-   that behavior, its gap is surfaced instead of invented in the skill.
+   Execution binds the selected immutable revision. Canonical start already
+   provides this (verified above); the skill adds no selection logic.
 5. The **Work Item-owned** conversational #275 acceptance produces the report
    above in both Runtimes, routing workflow configuration to `axiom-workflow`
    and active revision selection to `axiom-project` without transferring
