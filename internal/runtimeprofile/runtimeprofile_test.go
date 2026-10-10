@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -64,6 +65,40 @@ func TestResolveDistinguishesDeclaredFromProvenCapability(t *testing.T) {
 	}
 }
 
+func TestExplicitEffortRequiresExactNonInteractiveModelProof(t *testing.T) {
+	const capability = "reasoning-effort-high"
+	cfg := testConfiguration()
+	cfg.ModelProfiles[0].Capabilities = append(cfg.ModelProfiles[0].Capabilities, capability)
+	observation := testObservation("codex", "codex", true)
+	observation.ExecutableDigest = strings.Repeat("a", 64)
+	observation.CapabilityStatus[capability] = CapabilityProven
+	observer := &fakeObserver{observations: map[string]Observation{"codex": observation}}
+	request := Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{capability}, ModelProfileID: cfg.ModelProfiles[0].ID}
+	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("Runtime-wide proof accepted for an unproven model: %v", err)
+	}
+	observation.NonInteractiveModelCapabilities = map[string]map[string]CapabilityStatus{"different-model": {capability: CapabilityProven}}
+	observer.observations["codex"] = observation
+	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("proof for different model accepted: %v", err)
+	}
+	observation.NonInteractiveModelCapabilities = map[string]map[string]CapabilityStatus{cfg.ModelProfiles[0].Model: {capability: CapabilityDeclared}}
+	observer.observations["codex"] = observation
+	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("declared effort accepted as proof: %v", err)
+	}
+	observation.NonInteractiveModelCapabilities[cfg.ModelProfiles[0].Model][capability] = CapabilityProven
+	observer.observations["codex"] = observation
+	if result, err := NewResolver(observer).Resolve(context.Background(), cfg, request); err != nil || result.Choice == nil {
+		t.Fatalf("exact effort proof rejected: result=%+v err=%v", result, err)
+	}
+	observation.Version = ""
+	observer.observations["codex"] = observation
+	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("versionless effort proof accepted: %v", err)
+	}
+}
+
 func TestResolveRejectsStaleConfigurationBeforeObservation(t *testing.T) {
 	observer := &fakeObserver{}
 	result, err := NewResolver(observer).Resolve(context.Background(), testConfiguration(), Request{ConfigurationRevision: 6, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}})
@@ -82,6 +117,21 @@ func TestResolveRejectsAmbiguousChoiceWithoutRanking(t *testing.T) {
 	result, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}})
 	if !errors.Is(err, ErrAmbiguousMatch) || result.Blocker == nil || len(result.Blocker.ProfileIDs) != 2 {
 		t.Fatalf("result=%+v err=%v", result, err)
+	}
+}
+
+func TestResolveHonorsExplicitModelProfile(t *testing.T) {
+	cfg := testConfiguration()
+	cfg.Runtimes[0].AllowlistedProfileIDs = append(cfg.Runtimes[0].AllowlistedProfileIDs, "codex-alternate")
+	cfg.ModelProfiles = append(cfg.ModelProfiles, ModelProfile{ID: "codex-alternate", RuntimeID: "codex", Model: "alternate-model", Capabilities: []string{"go", "repository-write"}, Complexities: []string{"high"}})
+	observer := &fakeObserver{observations: map[string]Observation{"codex": testObservation("codex", "codex", true), "claude": testObservation("claude", "claude", true)}}
+	result, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}, ModelProfileID: "codex-alternate"})
+	if err != nil || result.Choice == nil || result.Choice.ModelProfileID != "codex-alternate" || result.Choice.Model != "alternate-model" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	_, err = NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}, ModelProfileID: "missing-profile"})
+	if !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("missing explicit profile err=%v", err)
 	}
 }
 

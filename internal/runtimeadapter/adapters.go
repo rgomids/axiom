@@ -32,6 +32,14 @@ func NewInventory(observations []runtimeprofile.Observation) (Inventory, error) 
 		for capability, status := range observation.CapabilityStatus {
 			copyObservation.CapabilityStatus[capability] = status
 		}
+		copyObservation.NonInteractiveModelCapabilities = make(map[string]map[string]runtimeprofile.CapabilityStatus, len(observation.NonInteractiveModelCapabilities))
+		for model, capabilities := range observation.NonInteractiveModelCapabilities {
+			copyCapabilities := make(map[string]runtimeprofile.CapabilityStatus, len(capabilities))
+			for capability, status := range capabilities {
+				copyCapabilities[capability] = status
+			}
+			copyObservation.NonInteractiveModelCapabilities[model] = copyCapabilities
+		}
 		result.observations[observation.RuntimeID] = copyObservation
 	}
 	return result, nil
@@ -96,8 +104,23 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 	default:
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 	}
-	argv = append(argv, profile.Arguments...)
 	environment := append([]string(nil), profile.Environment...)
+	argv = append(argv, profile.Arguments...)
+	if effort := child.Envelope.Controls.ReasoningEffort; effort != "" {
+		proven := false
+		for _, capability := range child.Envelope.Capability.Capabilities {
+			proven = proven || capability == "reasoning-effort-"+effort
+		}
+		if !proven || len(effort) > 64 || strings.ContainsAny(effort, "\x00\r\n \t") {
+			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
+		}
+		switch profile.RuntimeID {
+		case "codex":
+			argv = append(argv, "--config", "model_reasoning_effort="+effort)
+		case "claude":
+			environment = append(environment, "CLAUDE_CODE_EFFORT_LEVEL="+effort)
+		}
+	}
 	if profile.CredentialReference != "" {
 		if r.credentials == nil {
 			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
@@ -109,7 +132,24 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 		environment = append(environment, credentialEnvironment...)
 	}
 	sort.Strings(environment)
-	return executiongraph.Invocation{RuntimeID: profile.RuntimeID, Argv: argv, CWD: child.Envelope.Workspace, Env: environment, OutputMax: profile.OutputMax}, nil
+	invocation := executiongraph.Invocation{RuntimeID: profile.RuntimeID, Argv: argv, CWD: child.Envelope.Workspace, Env: environment, OutputMax: profile.OutputMax}
+	if child.Envelope.Controls.ReasoningEffort != "" && profile.RuntimeID == "claude" {
+		// Keep inherited process variables separate from validated explicit
+		// overrides, preserving profile and credential isolation.
+		if len(profile.Environment) == 0 && profile.CredentialReference == "" {
+			invocation = executiongraph.WithInheritedEnvironment(invocation)
+		}
+		count := 0
+		for _, value := range executiongraph.EffectiveInvocationEnvironment(invocation) {
+			if strings.HasPrefix(value, "CLAUDE_CODE_EFFORT_LEVEL=") {
+				count++
+			}
+		}
+		if count != 1 {
+			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
+		}
+	}
+	return invocation, nil
 }
 
 func validCommandProfile(profile CommandProfile) bool {

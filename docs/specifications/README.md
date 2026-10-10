@@ -29,6 +29,12 @@ records configured sequential execution and retained legacy compatibility.
 #275–#278 retain their own planning/dispatch/delivery gates. These implementation
 records do not establish human acceptance.
 
+[#275 stage compiler implementation and verification map](007-configurable-workflows/issue-275-implementation.md)
+records deterministic single-agent and graph proposals, exact Runtime/Profile/
+effort resolution, authority checks and the current #274 CLI-integration and
+production effort-observation boundaries. Proposal review and human acceptance
+remain separate from implementation.
+
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
 [Specification](006-installer-host-eligibility/spec.md): **Approved, 2026-10-04**
