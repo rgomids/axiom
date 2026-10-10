@@ -8,7 +8,10 @@ together with [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-
 It records the maintainer direction of 2026-10-10 to introduce a dedicated
 `axiom-workflow` **configuration** skill and keep the complete #275
 conversational testing/acceptance journey available through the Work Item
-surface in both Codex and Claude. The maintainer refined HD-005 during
+surface in both Codex and Claude. Under HD-008, #303 delivers **technical
+synthetic verification only**; real Codex/Claude interaction, live scenarios
+and end-to-end human acceptance are deferred to [#278](https://github.com/rgomids/axiom/issues/278)
+(Linear AXM-12), the final MVP validation. The maintainer refined HD-005 during
 [PR #304 review](https://github.com/rgomids/axiom/pull/304):
 Project selects the active workflow; Workflow defines/configures it; Work Item
 initiates and controls work; Execution is its revision-bound instance. This
@@ -343,21 +346,26 @@ user's real Axiom state, skills and Repositories are never read for mutation
 or written. No Provider resource is created or mutated and nothing is
 published.
 
-**Inference boundary.** Two kinds of activity are distinct:
+**Inference boundary and stage of delivery (HD-008).** The **#303 technical
+phase** runs canonical CLI/contract checks, installation/parity tests and
+controlled/synthetic planning tests. It **does not require or dispatch**
+real vendor model inference, interactive native Codex/Claude sessions, live
+stage agents or external Provider effects. Safe local deterministic binary
+checks may run without calling a vendor; they are not evidence of real
+vendor behavior. Read-only status/auth observation (e.g. `codex login status`)
+proves only the specific observation and is never promoted to live inference
+proof.
 
-- **Lane L and Lane S checks** (CLI, planner and synthetic tests) run no
-  vendor inference and dispatch no stage agent. The only vendor processes
-  they start are the existing read-only status/auth observations of
-  `runtime.readiness` (for example `codex login status`), which the report
-  names.
-- **R-2 native sessions** (below) are interactive Codex or Claude sessions,
-  and the session itself performs vendor inference. Each one is permitted only
-  after the user's prior explicit consent for that Runtime, and is a separate
-  step from the Lane L/Lane S checks. A native session still dispatches no
-  stage agent through Axiom: `workflow stage run`, coordination and any other
-  #276 behavior stay outside #303.
+**[Issue #278](https://github.com/rgomids/axiom/issues/278) / AXM-12**
+owns the **final MVP operational/human phase**, after #276/#277 and required
+readiness dependencies: interactive natural-language journeys in real Codex
+and Claude sessions, consented login/auth probes and real Runtime dispatch,
+workflow and Work Item end-to-end execution, authorized artifacts/rework,
+and the maintainer's explicit accept/reject decision. These operations
+require separate actual user authorization at that time; no present decision
+authorizes inference, paid effects, Provider mutation or acceptance.
 
-**Credentials and isolation.** A native session authenticates through that
+**Credentials and isolation (future #278 real tests).** A native session authenticates through that
 Runtime's own existing login on the user's machine; the Axiom sandbox isolates
 Axiom state, installed skills and Repositories, not the vendor login. The
 Runtime and the skill never copy, export, print or move credentials, tokens,
@@ -368,7 +376,7 @@ is the expected sandbox result, not a failure. Evidence records only Runtime
 name, version and the canonical Axiom results; never credential values,
 environment values or host paths.
 
-**Evidence lanes** (how a result was produced).
+**Evidence lanes** (how a result was produced; L/S are technical validation only and do not claim real vendor execution).
 
 - **Lane L — live local:** the installed binary and its production observer in
   the sandbox. Classified `operational-local`; never vendor inference proof.
@@ -402,52 +410,63 @@ and none is inferred from a passing lower level.
 
 | Level | Meaning | Satisfied by | Never satisfied by |
 |---|---|---|---|
-| R-1 Technical verification | Contract, catalog, routing, install/upgrade and planner behavior are correct | Repository tests, `skill inspect`, catalog/routing tests, Lane S, Lane L binary checks | — |
-| R-2 Native conversational operability | A real Codex session and a real Claude session complete the journey from natural language | The native scenarios below, run with explicit consent, one per Runtime | Binary commands, `skill inspect`, catalog tests, synthetic routing, Lane S |
-| R-3 AXM-7 functional acceptance | The maintainer explicitly accepts the essential real scenarios | An explicit human decision over R-2 Evidence plus Lane L results for C–G | Any Lane S result, any `blocked` Lane L scenario, merge, green CI, or this report alone |
+| R-1 Technical verification (**#303**) | Contract, skill catalog/routing, fresh install/upgrade, planner and fail-closed behavior are proven technically | Deterministic repository and CLI tests, read-only local binary checks where safe, Lane S controlled observations and sanitized Evidence | Never vendor operation, native conversation or end-to-end acceptance |
+| R-2 Native conversational operability (**#278**) | Real Codex and Claude sessions can drive the accepted workflow/Work Item journeys through language | Explicitly authorized native sessions and actual Runtime observations at final MVP validation | CLI/skill metadata, mocks, synthetic routing, Lane S, binary-only checks |
+| R-3 MVP end-to-end functional/human acceptance (**#278 / AXM-12**) | Essential real Project → Workflow → Work Item → Execution → delivery/rework scenarios work and receive the maintainer's explicit acceptance | Real authenticated/dispatched Codex and Claude, the end-to-end Evidence required by #278, review and a separate human accept/reject decision | Any synthetic PASS, untested/blocked scenario, technical issue closure, merge, green CI or release alone |
 
-A report in which Lane L is `blocked` and Lane S is `passed` reads
-`R-1 passed; R-3 blocked (G-n)` for that scenario. It never counts as positive
-live acceptance. Blocked scenarios stay `blocked`, with their exact G-n
-dependencies, until an operational demonstration satisfies them; synthetic
-Evidence is intermediate technical Evidence only. Live C–G (R-3) depend on G-2
-and G-4; until G-2 ships, AXM-7 functional acceptance for those scenarios is
-blocked by it. Recorded by the maintainer on the
-[PR #304 review](https://github.com/rgomids/axiom/pull/304#issuecomment-6098704209):
-AXM-7 stays `In Progress` and keeps `Blocks AXM-8` until its essential real
-scenarios are demonstrated and explicitly accepted.
+A `Lane S = passed`, `Lane L = blocked / not run` scenario may contribute
+to **R-1 PASS only**. Its R-2/R-3 fields must read **`deferred_to_278`**
+(or `blocked: G-n` when an actual prerequisite is unsatisfied), never
+`passed`, `accepted` or implicit vendor proof. The #303 technical outcome
+is **reviewed R-1 Evidence**, not a waiver of the real MVP journey.
 
-### Native conversational scenarios (R-2)
+**Lifecycle boundary:** once #303 is implemented, its technical contract/tests
+pass and any required *technical* reviewer/maintainer authorization is given,
+the product may reconcile the AXM-7 *technical dependency* for the following
+#276/AXM-8 work; **do not keep AXM-8 blocked merely because E2E testing has
+been deliberately assigned to final #278**. This is not an automatic Linear
+status transition, product-wide acceptance or unblocking now. #278 / AXM-12
+keeps the real validation and explicit final human acceptance gate. G-2
+[#306](https://github.com/rgomids/axiom/issues/306), consented G-4 linkage
+and other prerequisites must be satisfied before those real scenarios can
+actually pass. Findings from #278 are then addressed as bounded follow-ups
+to their owning capability; historical synthetic PASS is never reinterpreted.
 
-At least one bounded, authorized native scenario runs in a real **Codex**
-session and one in a real **Claude** session, each in the safe environment
-above, from a natural-language request (not a typed command). Each covers:
+### Deferred native conversational scenarios (R-2, owned by #278 / AXM-12)
 
-1. skill discovery and ownership routing (`axiom-workflow` for definition configuration, `axiom-project` for active revision selection, `axiom-work-item` for Work Item-bound acceptance);
-2. workflow configuration from natural language into a Runtime-prepared draft;
-3. canonical validation and preview returned by Lingo;
-4. explicit human confirmation of each exact preview, followed by bounded
-   sandbox mutations (for example configuration `definition.create`, then
-   the Project-owned `axiom-project` `workflow.select`);
-5. read-back of the persisted result;
-6. interpretation and a bounded Evidence entry.
+These scenarios are a **handoff checklist**, not execution or acceptance
+criteria for #303. A final real scenario must run in an authenticated
+**Codex** session and an authenticated **Claude** session, with the
+maintainer's authorization at the time, starting from natural language:
 
-The Runtime session itself performs vendor inference, so each scenario needs
-the user's prior explicit consent before it starts, and it follows the
-inference boundary and credential rules above. The scenarios do not dispatch
-stage agents (#276) or deliver end to end (#278). Their Evidence records the
-Runtime and version, skill-set digest, the canonical results and digests of
-each step, who confirmed which preview, and a bounded description of the
-interaction, not raw chat. A scenario without that consent is `not run`, never
-`passed`.
+1. Discover the configured skills and verify HD-005/HD-007 ownership
+   (`axiom-workflow` configures, `axiom-project` selects active revision,
+   `axiom-work-item` runs a specific Work Item).
+2. Create/edit a workflow definition through a Runtime-prepared draft.
+3. Validate and present the canonical Lingo preview and effects.
+4. Capture explicit approval of each exact preview, mutate only authorized
+   sandbox/local targets and read back the result.
+5. Resolve Project Runtime/Profile allowlist vs local available Profiles
+   through the canonical resolver, without credential leakage or fallback.
+6. Exercise real Work Item/Execution and Stage/Agent flow, including Codex +
+   Claude, as supported after #276/#277 delivery; verify provenance, safety,
+   refusal/recovery, authorized PR/rework and immutable workflow binding.
+7. Obtain the **separate human MVP accept/reject decision** over sanitized
+   operational Evidence; document any defects as bounded owned corrections.
 
-**Report (H).** Axiom version and source revision; Runtime name/version as
-observed (or unknown); skill set digest; sandbox identification (no host
-paths); scenarios with `passed` / `failed` / `blocked` and the classified
-category for each refusal; digests and canonical references; lane and Evidence
-class per result; R-1, R-2 and R-3 results stated separately; known limitations (G-1–G-5); unresolved acceptance
-requirements. Raw logs are not the default presentation and credentials,
-environment values and host paths never appear.
+Vendor inference, local authentication probes and external effects remain
+unexecuted until their precise future authorization. Real vendor session
+Evidence must cite observed versions, effective identity/mode, skill-set and
+canonical command digests, without tokens, host paths or raw chat. A
+`not_run` scenario is never `passed`.
+
+**Report (H).** Axiom version and source revision; observed Runtime information
+(or `unknown`); skill-set digest; sandbox identifier (no host paths); R-1
+scenarios with `passed` / `failed` / `blocked`, classified refusals,
+provenance, canonical digests and Evidence class. R-2/R-3 are reported
+separately as `deferred_to_278` or with a concrete blocker (G-1–G-5), not
+`passed`. Include the #278/AXM-12 handoff and known limitations. Raw logs,
+credentials, environment values and host paths are never published.
 
 ## Codex/Claude parity
 
@@ -459,8 +478,9 @@ stage planning and acceptance routing; missing-input acquisition; preview and
 confirmation; failure classification; human-readable presentation; Evidence. Runtime-specific differences are limited to
 installation location and invocation syntax (`$axiom-workflow` /
 `/axiom-workflow`) and must not change semantics, authority or state.
-Synthetic routing tests are distinguished from native Runtime behavioral runs,
-which need explicit authorization when they involve vendor inference.
+Synthetic skill-routing tests prove **technical parity only** in #303.
+Native Codex/Claude behavioral sessions and all real vendor inference are
+explicitly deferred to #278/AXM-12, where separate authorization is required.
 
 ## Acceptance criteria (AC-015)
 
@@ -482,16 +502,22 @@ which need explicit authorization when they involve vendor inference.
    selection without a free-standing workflow run or silent fallback; each
    Execution binds the selected immutable revision. Canonical start already
    provides this (verified above); the skill adds no selection logic.
-5. The **Work Item-owned** conversational #275 acceptance produces the report
-   above in both Runtimes, routing workflow configuration to `axiom-workflow`
-   and active revision selection to `axiom-project` without transferring
-   Execution ownership. Every scenario is classified, every blocked item tied
-   to G-n, and R-1, R-2 and R-3 reported separately.
-6. R-2: one native scenario per Runtime (Codex and Claude) passes with
-   explicit consent, covering every step listed above.
-7. #303 technical delivery may complete on R-1 and R-2. R-3 (AXM-7
-   functional acceptance) remains a separate maintainer decision; scenarios
-   blocked by G-2/G-4 stay `blocked` and are never reported as accepted.
+5. The **Work Item-owned** #275 acceptance test procedure is operable as a
+   **deterministic/synthetic technical R-1** runner, with correct skill
+   ownership and canonical preview/Plan behavior. In Codex/Claude, installed
+   skill inventories, parity and routing are tested without requiring an
+   actual vendor conversation. Every synthetic scenario is explicitly
+   classified, including G-n blockers, and the report separates R-1, R-2
+   and R-3 statuses.
+6. **HD-008: no real Codex/Claude sessions, paid inference, live stage dispatch,
+   Provider effects or human end-to-end tests are a #303 technical delivery
+   condition.** R-2 and R-3 are reported as deferred to #278 / AXM-12, never
+   marked passed based on synthetic Evidence. A bounded handoff/checklist is
+   published for #278.
+7. #303 technical delivery requires R-1, all other applicable technical
+   acceptance criteria, review and its own normal authorization. The final
+   native interaction and end-to-end human MVP test belongs to #278 / AXM-12;
+   G-2/G-4 may block live scenarios there, but do not silently waive them.
 8. Canonical CLI, result, digest, preview/apply, security and authority
    semantics are unchanged (existing tests pass unmodified).
 9. HD-006 policy-vs-local registry boundaries are verified: #305 and #306
@@ -512,10 +538,12 @@ which need explicit authorization when they involve vendor inference.
    from v0.15.0, reinstall, idempotence, receipt/history preservation and
    negative discovery in Codex and Claude; do not schedule a later cleanup.
 3. **Work Item-owned** #275 acceptance runner (Lane S) and report schema with
-   R-1/R-2/R-3 levels, registered as durable automation; Lane L procedure in
-   `axiom-work-item` (using `axiom-workflow` only for configuration).
-4. Native R-2 scenarios in Codex and Claude, run only with explicit consent;
-   their bounded Evidence recorded in this amendment's Evidence section.
+   R-1 technical Evidence and explicit R-2/R-3 `deferred_to_278` states,
+   registered as durable automation. Deterministic Lane L CLI checks are
+   optional within #303 and are never vendor-inference proof.
+4. Prepare and cross-link the **future** real Codex/Claude R-2 and end-to-end
+   human R-3 checklist in #278 / AXM-12. Do not execute those sessions in
+   #303 or require their Evidence for #303 delivery.
 5. Documentation: `docs/commands.md`, `docs/agent-harness.md`, Spec index, this
    amendment's Evidence section.
 
@@ -526,4 +554,4 @@ which need explicit authorization when they involve vendor inference.
 | HD-005 | Dedicated configuration surface and explicit ownership | A keep HD-002; **B `axiom-workflow` configuration only, `axiom-project` selects, `axiom-work-item` runs/plans/accepts, Execution binds an immutable selected revision (ADR-0022)**; C plus new CLI tree; D new workflow domain | **B — maintainer direction recorded 2026-10-10; exact revised contract still Proposed** | Skill and operation names become public conversational contracts |
 | HD-006 | Project allowlist vs local Runtime/Profile registry, Workflow selection, readiness | **A (maintainer direction):** keep Project policy portable/editable [#305], manage multiple named local Profiles per Runtime [#306], Workflow binds Stage/Agent references, Project/workflow/host readiness is verified by canonical validators (#231). Separate the technical follow-ups from #303 implementation; **B:** conflate portable Project policy and machine-local Profiles inside #303 | **A**; preserve Spec 002 v2 intersection/bounds and security/authority. Both Issues tracked; exact revised Spec approval remains pending. | G-2 still blocks real Lane L C–G and AXM-7 R-3 until shipped; adding a global Doctor or changing Project schema needs its own reviewed scope |
 | HD-007 | Immediate removal of overlapping skill routes | A keep legacy `axiom-project` definition-authoring routes for a compatibility window; **B remove those routes in the same #303 implementation and make `axiom-workflow` their only skill owner, with no aliases or deprecation window** | **B — maintainer direction recorded 2026-10-10, pre-MVP with no external users; exact Spec/ADR revision still Proposed**. Preserve Project `workflow.select`, Work Item `run/status/plan` and existing canonical CLI. | Active skill inventory/metadata changes immediately on upgrade; historical v0.15.0 skill-set receipt/history remains intact for provenance. Renaming CLI commands is out of scope. |
-| HD-008 | Synthetic Evidence for #275 conversational acceptance | **accept as intermediate technical Evidence (R-1) only, classified `synthetic`, never R-2, R-3 or vendor proof** (direction recorded on the PR #304 review); require Lane L only | accept as R-1 only | R-3 still needs real scenarios; #278 still owns live two-Runtime proof |
+| HD-008 | Synthetic verification now; native and human E2E at final MVP acceptance | **A (selected):** accept deterministic and synthetic Evidence for #303 technical R-1, without requiring native sessions or real stage dispatch; defer R-2 and R-3 to #278 / AXM-12. **B:** require real R-2/R-3 before #303 technical delivery. | **A — maintainer direction 2026-10-10**; R-1 synthetic PASS is never real Runtime proof. Exact revised Spec/ADR remains Proposed. | #278 is the explicit owner of real Codex/Claude E2E and final human accept/reject; defects found there become scoped corrections; AXM-8 technical dependency is not gated on final-MVP tests once #303 is otherwise accepted. |
