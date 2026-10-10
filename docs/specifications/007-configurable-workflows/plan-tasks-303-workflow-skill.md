@@ -150,8 +150,39 @@ In the same delivery:
    a classified reason. No test result is reported as `passed` for an
    unverified revision.
 
+   **Version binding.** A declared target version must be provable, by one
+   of two routes:
+   - the release tag `v<version>` resolves (`git rev-parse v<version>^{commit}`)
+     to the target revision; or
+   - a supplied release binary's `axiom --json version` reports that version,
+     that revision and `sourceState: clean`.
+
+   A declared version that cannot be proven, or that disagrees, is `blocked`
+   (`version_unverifiable` / `version_mismatch`). An untagged implementation
+   head is run with no version claim and is recorded as
+   `axiomVersion: "unreleased"`, never with an invented version.
+
+   **Canonical result digests.** Positive scenarios carry the digests of the
+   canonical results they produced:
+   - `workflowRef.digest`;
+   - `plan.digest` and `plan.planDocumentDigest`;
+   - `plan.stageInputRef.digest`;
+   - `plan.graphProposalRef.digest` (graph stages only);
+   - the authoring preview digests for scenario B.
+
+   Their source is the canonical JSON the tests already decode. The two
+   stage-plan tests and the authoring test emit them through bounded
+   `t.Logf("r1-evidence {…}")` markers (a test-only change), which the runner
+   extracts from `go test -json` output. The runner validates each value as
+   64-character lowercase hex and never computes or substitutes one. A
+   required digest that is missing or malformed makes the scenario `blocked`
+   (`canonical_digest_missing`). Scenario E additionally requires two equal
+   `plan.digest` values for identical inputs and a different value after
+   drift.
+
    The report carries every Report H field:
-   - Axiom version and target/observed revisions;
+   - Axiom version (proven, or `unreleased`) and target/observed revisions;
+   - canonical result digests per scenario;
    - observed Runtime information as `controlled` (Lane S fake observations),
      never a real Runtime;
    - skill-set version and per-skill SHA-256 taken from
@@ -250,7 +281,7 @@ and the maintainer's accept/reject decision.
   | R4 | Wrong inspect flags for runtime actions | `skillFlagSet` cases plus parser-parity test | No |
   | R5 | `--file` accepts non-regular files/symlinks | PD-9 | No (drafts are Runtime-owned) |
   | R6 | Runner map goes stale | Missing test gives `blocked`; unittest pins the map | No |
-  | R9 | Runner Evidence attributed to an untested revision | Provenance gate: target = `HEAD`, clean tree, toolchain; otherwise `blocked`; unittest covers divergence | No |
+  | R9 | Runner Evidence attributed to an untested revision or version, or missing canonical digests | Provenance gate (target = `HEAD`, clean tree, toolchain, version proven by tag or release binary, else `unreleased`); digests taken only from canonical results via test markers; otherwise `blocked`; unittest covers divergence | No |
   | R7 | PR #304 not on `main` | T01 gate | Yes |
   | R8 | Claude converges only via `first-run` after `axiom upgrade` | Assert in T06; document in T12 | No |
 
@@ -465,17 +496,19 @@ Common rules for every task:
 
 ### T10 — Work Item-owned #275 R-1 runner
 - **Objective:** deterministic synthetic Evidence for scenarios A–H (Lane S), bound to the exact tested revision.
-- **Scope:** runner, schema, offline unittest, registry entry.
-- **Files:** `scripts/acceptance/stage-plan-r1.py`, `scripts/acceptance/stage-plan-r1.schema.json`, `scripts/acceptance/test_stage_plan_r1.py`, `scripts/automation-registry.json`; wiring into `scripts/validate-repository.sh` only if it matches how existing acceptance unittests are run.
+- **Scope:** runner, schema, offline unittest, registry entry, test-only digest markers.
+- **Files:** `scripts/acceptance/stage-plan-r1.py`, `scripts/acceptance/stage-plan-r1.schema.json`, `scripts/acceptance/test_stage_plan_r1.py`, `scripts/automation-registry.json`; test-only marker lines in `cmd/lingo/workflow_stage_plan_test.go` and the #273 authoring test (`cmd/lingo/workflow_authoring_test.go`); wiring into `scripts/validate-repository.sh` only if it matches how existing acceptance unittests are run.
 - **Dependencies:** T01.
 - **Requirements:**
-  1. **Inputs:** `--target-revision <40-hex>`, `--target-version <version>`, `--source <dir>`, `--output <new-path>`.
+  1. **Inputs:** `--target-revision <40-hex>`, optional `--target-version <version>`, optional `--release-binary <path>`, `--source <dir>`, `--output <new-path>`.
   2. **Provenance gate, before any test runs:**
      - `git -C <source> rev-parse HEAD` must equal the target revision;
      - `git status --porcelain` must be empty;
      - `go version` must succeed.
 
-     Otherwise every scenario and `r1` are `blocked`, with reason `revision_mismatch`, `dirty_source`, `target_unverifiable` or `toolchain_missing`. No test results are recorded as `passed`.
+     - when `--target-version` is given, it must be proven: either `git rev-parse v<version>^{commit}` equals the target revision, or `--release-binary` reports that version, that revision and `sourceState: clean` in `axiom --json version`. Without `--target-version`, the version is recorded as `unreleased`.
+
+     Otherwise every scenario and `r1` are `blocked`, with reason `revision_mismatch`, `dirty_source`, `target_unverifiable`, `toolchain_missing`, `version_unverifiable` or `version_mismatch`. No test results are recorded as `passed`.
   3. **Scenario map:**
      - A, C, D, E: `TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph`;
      - B: #273 authoring tests;
@@ -483,20 +516,27 @@ Common rules for every task:
      - G: the `snapshotTrees` assertions.
 
      The runner uses `go test -json -run`, with bounded output and a timeout.
+  3a. **Canonical digest source (test-only change):** add bounded `t.Logf("r1-evidence %s", …)` markers to `cmd/lingo/workflow_stage_plan_test.go` (both tests) and the #273 authoring test. They emit, from the canonical JSON already decoded there, the scenario ID together with the digests below:
+     - `workflowRef.digest`, `plan.digest`, `plan.planDocumentDigest`, `plan.stageInputRef.digest`;
+     - `plan.graphProposalRef.digest` (graph only);
+     - authoring `previewDigest`;
+     - refusal categories.
+
+     Assertions and production code are unchanged. The runner parses only these markers, checks that each digest is 64-character lowercase hex and never computes a digest itself.
   4. **Report H fields** (closed schema, `additionalProperties: false`):
-     - `axiomVersion`, `targetRevision`, `observedRevision`, `sourceClean`, `goVersion`;
+     - `axiomVersion` (proven, or `unreleased`), `versionProof` (`tag` | `release-binary` | `none`), `targetRevision`, `observedRevision`, `sourceClean`, `goVersion`;
      - `runtimeObservation: "controlled"`;
      - `skillSet` (version and per-skill SHA-256 from `axiom --json runtime codex status` against an empty temporary root);
      - `sandboxId` (random, no host path);
      - `lane: "S"`, `class: "synthetic"`;
-     - per-scenario `{result: passed|failed|blocked, tests[], refusalCategories[]}`;
+     - per-scenario `{result: passed|failed|blocked, tests[], refusalCategories[], canonicalDigests{}}`. Positive scenarios A–E require their digests; scenario E requires repeated equal `plan.digest` values and a changed value after drift. A missing or malformed digest gives `blocked` (`canonical_digest_missing`);
      - `r1`;
      - `r2`/`r3` fixed to `deferred_to_278`;
      - `limitations` (G-1–G-5) and `handoff` (#278/AXM-12).
   5. **Classification:** a missing or renamed test gives `blocked`; a timeout or exceeded bound gives `failed`. The runner writes only to a new output path; no network, vendor process, credential, environment value or host path appears in the output.
 - **Acceptance criteria:**
   - the schema rejects `passed`/`accepted` for R-2/R-3, missing H fields and unknown fields;
-  - the unittest proves that a revision mismatch, dirty source, unverifiable target or missing toolchain each yields `blocked` with no `passed` scenario;
+  - the unittest proves that each of the following yields `blocked` with no `passed` scenario: revision mismatch, dirty source, unverifiable target, missing toolchain, unproven or divergent target version (tag absent or pointing elsewhere; release binary reporting another version, revision or a non-clean state), and a missing or malformed canonical digest;
   - the unittest also covers mapping, missing test, timeout and output bound, and confirms no host path or environment value in the output;
   - `check-automation-registry.py` passes.
 - **Verification:** `python3 scripts/acceptance/test_stage_plan_r1.py`; `scripts/check-automation-registry.py`; one runner run on a clean checkout at the implementation head, with that head as the target revision.
@@ -594,7 +634,7 @@ T02–T05 run sequentially: they change the same embedded bytes and digests.
 | 2 Embedded/installed/discoverable; v0.15.0 upgrade; reinstall; history; no duplicate active routes | 3.7, 4 | T04, T05, T06, T07 | runtime/install/upgrade tests; upgrade journeys; inspect tests | Converged three-skill inventories; owned v0.15.0 set |
 | 3 Configuration routes = canonical commands; Project routes absent; select/run/status/plan kept; CLI unchanged | 3.1, 3.3, 3.4 | T02, T03, T07, T08 | routing/catalog/inspect/help tests | Parity; negative discovery |
 | 4 NL configuration via drafts; Project selects; start resolves and binds | 3.2, 3.4 | T03, T08, T09 | content tests; draft journey; `TestConfiguredExecutableRevisionIsolationAndAuthority` | Journey output |
-| 5 Work Item-owned #275 R-1 runner; classified scenarios; R-1/R-2/R-3 separated | 3.4, 3.8 | T10 | runner + unittest (incl. revision mismatch, dirty source → `blocked`) | Evidence JSON A–H with the full Report H fields, bound to the tested revision |
+| 5 Work Item-owned #275 R-1 runner; classified scenarios; R-1/R-2/R-3 separated | 3.4, 3.8 | T10 | runner + unittest (revision/version mismatch, dirty source, missing digest → `blocked`) | Evidence JSON A–H with the full Report H fields, canonical digests per scenario, bound to the tested revision and a proven or `unreleased` version |
 | 6 No real sessions/inference/dispatch/Provider/human E2E; #278 handoff | 1, 6 | T10, T12 | schema rule; review | `deferred_to_278`; handoff checklist |
 | 7 R-1 + review + authorization; G-2/G-4 not waived | 7 | T13 | full validation; review | Review record; blockers listed |
 | 8 CLI/result/digest/preview/security unchanged | 3, 5 | T08, T13 | unmodified existing tests | Diff review |
