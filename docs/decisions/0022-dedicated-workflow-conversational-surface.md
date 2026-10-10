@@ -62,16 +62,27 @@ workflow definition operations. The responsibilities are:
    freezes an immutable `WorkflowBinding` in the new Execution and never
    silently changes that binding when the Project selects a new revision.
    Missing or invalid active selection fails closed; there is no automatic
-   fallback or free-standing Workflow run. If the current canonical start
-   contract lacks this behavior, specify the gap rather than inventing
-   Runtime-only logic.
+   fallback or free-standing Workflow run. This is existing canonical start
+   behavior (verified against v0.15.0 in the amendment); skills add no
+   selection logic.
 
 Existing `axiom project workflow *` and `axiom workflow *` CLI operations,
 their arguments, results and authority are preserved. In particular, this ADR
 does not mandate adding or renaming CLI commands to `axiom work-item run`;
 that is a **conversational intent**, routed to the existing Work Item-owned
-canonical operations. The Project and Work Item skill compatibility routes
-remain supported until a separate versioned removal decision.
+canonical operations.
+
+**No legacy skill routes (HD-007, option B).** Axiom is pre-MVP with no
+external users, so there is no compatibility window. In the same #303
+implementation, `axiom-project` loses its workflow definition
+`workflow.list/show/create/edit/validate/remove/recover` skill routes, and
+`axiom-workflow` becomes the only conversational skill for definition, stage
+and agent configuration; no alias, forwarding, duplicate catalog action or
+later cleanup milestone remains. `axiom-project` keeps active selection
+(`workflow.select`); `axiom-work-item` keeps `run`, `status`, `plan` and its
+Execution operations. Only skill routes change: the canonical CLI commands are
+neither removed nor renamed. Historical skill-set receipts and history (for
+example v0.15.0) stay immutable provenance, not live aliases.
 
 Lingo and application services remain the sole owners of validation,
 digests, preview/apply, authorization and state. Skills add no workflow
@@ -127,7 +138,7 @@ implementation or AXM-7 acceptance.
 | Option | Coupling / complexity | User experience | Reversibility |
 |---|---|---|---|
 | A. Keep HD-002 (Project + Work Item skills only) | No new artifact | Workflow configuration remains buried in Project lifecycle | Trivial |
-| **B. Dedicated `axiom-workflow` for configuration only (selected direction)** | One new installed skill/catalog/receipt/history pin; preserves domain and CLI | Clear boundaries: Project selects, Workflow configures, Work Item runs, Execution performs | Additive; compatible existing routes |
+| **B. Dedicated `axiom-workflow` for configuration only (selected direction)** | One new installed skill/catalog/receipt/history pin; preserves domain and CLI | Clear boundaries: Project selects, Workflow configures, Work Item runs, Execution performs | Duplicate Project authoring skill routes removed in the same delivery (pre-MVP, HD-007); CLI unchanged; reversible by a later skill release |
 | C. Skill plus new top-level workflow CLI tree | Changes accepted public commands/selection | Limited benefit for conversational configuration | Needs aliases/deprecation |
 | D. New standalone Workflow domain/service | Duplicates Project ownership or migrates persisted state | Does not solve any necessary configuration UX problem beyond B | Costly and conflicts with ADR-0020 |
 
@@ -146,16 +157,19 @@ is rejected for this revision: it obscures the Work Item's lifecycle owner.
 - #275 conversational acceptance still has an explicit home in
   `axiom-work-item`, using configuration handoff rather than converting the
   configuration skill into an execution orchestrator.
-- Canonical CLI, validation, authority, revision semantics and old skill routes
-  remain unchanged.
+- Canonical CLI, validation, authority and revision semantics remain
+  unchanged; each workflow intent has exactly one owning skill route.
 
 ### Negative / trade-offs
 
 - A third skill adds inventory, install/upgrade/retirement, metadata, receipts,
   history pinning and parity test obligations for Codex and Claude.
-- The same definition operations are exposed by legacy Project compatibility
-  routes and the new configuration skill; metadata and authority parity are
-  mandatory.
+- Upgrading changes the installed skill inventory immediately: the Project
+  authoring skill routes disappear. After fresh install, upgrade from v0.15.0
+  and reinstall in both Codex and Claude, `skill inspect`, help, the active
+  inventory and routing must contain no obsolete Project authoring route,
+  while Project selection and Work Item execution routes remain; retirement
+  and skill-set history tests must prove it.
 - Multi-surface journeys (configure → select → run) need clear handoff
   documentation and separate previews/approvals; no silent Project selection.
 - Active-selection resolution on Work Item start is existing canonical
