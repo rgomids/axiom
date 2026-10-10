@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 // Issue #230 I230-T08 bounded end-to-end maintenance journey (AC-51, AC-53,
@@ -160,6 +161,10 @@ printf '{"number":7,"html_url":"https://github.com/acme/core/issues/7","state":"
 	j.run(cli.ExitSuccess, append(update, "--preview-digest", text(change, "change", "digest"), "--authorize-external")...)
 
 	// Execution: reviewed start, then discovery without a known identity.
+	ref := workflowdefinition.Builtin().Ref("builtin")
+	selectWorkflow := []string{"project", "workflow", "select", "--project", "journey", "--workflow", ref.WorkflowID, "--revision", "1", "--digest", ref.Digest, "--source", ref.Source}
+	workflowPreview := j.run(cli.ExitSuccess, selectWorkflow...)
+	j.run(cli.ExitSuccess, append(selectWorkflow, "--expected-revision", text(workflowPreview, "workflowAuthoring", "projectRevision"), "--preview-digest", text(workflowPreview, "workflowAuthoring", "previewDigest"), "--authorize-local")...)
 	start := append(append([]string{"workflow", "start"}, selector...), "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills", "--runtime", "claude")
 	resolution := j.run(cli.ExitSuccess, start...)
 	j.run(cli.ExitSuccess, append(start, "--runtime-preview", text(resolution, "previewDigest"))...)

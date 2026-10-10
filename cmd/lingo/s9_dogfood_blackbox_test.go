@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/rgomids/axiom/internal/cli"
 	"io"
 	"os"
 	"os/exec"
@@ -194,10 +195,7 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 	environment := append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "PATH="+runtimeBin, "CLAUDE_CONFIG_DIR=", "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+statePath)
 	type event struct {
 		canonicalEvent
-		Workflow *struct {
-			ExecutionID, CurrentGate, RuntimeID string
-			Revision                            uint64
-		} `json:"workflow"`
+		Workflow *cli.WorkflowView `json:"workflow"`
 	}
 	run := func(wantCode int, wantStatus string, args ...string) event {
 		t.Helper()
@@ -223,6 +221,7 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 
 	setup := run(0, "success", "project", "configure", "--slug", "configured", "--name", "Configured", "--repository", "main="+repository, "--work-item-provider", "github")
 	run(0, "success", "project", "configure", "--project-id", setup.Setup.ProjectID, "--slug", "configured", "--name", "Configured", "--repository", "main="+repository, "--work-item-provider", "github", "--preview-digest", setup.Setup.Digest, "--authorize-local")
+	selectBuiltinForTest(t, state, setup.Setup.ProjectID)
 	draftArgs := []string{"work-item", "create", "--project", "configured", "--repository", "main", "--provider-repository", "owner/repo", "--intent", "Dogfood regression", "--desired-outcome", "First projection converges", "--context", "S9 dogfood", "--scope", "Bounded change", "--constraints", "Fail closed on drift", "--non-goals", "No release", "--acceptance", "Tests pass"}
 	draft := run(0, "success", draftArgs...)
 	// Classify the same delivery as a bug, review its concrete provider labels,
@@ -316,7 +315,8 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 		t.Fatalf("status Runtime = %q", status.Workflow.RuntimeID)
 	}
 
-	advanced := run(0, "success", append(append([]string{"workflow", "advance"}, execution...), "--expected-revision", "1", "--gate", "intake", "--outcome", "pass")...)
+	stageResult := publishConfiguredOutput(t, state, started.Workflow)
+	advanced := run(0, "success", append(append([]string{"workflow", "advance"}, execution...), "--expected-revision", "1", "--gate", "intake", "--outcome", "pass", "--stage-result", stageResult)...)
 	if advanced.Workflow.RuntimeID != runtimeID || advanced.Workflow.Revision != 2 {
 		t.Fatalf("advanced = %+v", advanced.Workflow)
 	}

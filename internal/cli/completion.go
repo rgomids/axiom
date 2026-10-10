@@ -123,7 +123,11 @@ func emitWorkflowCompletion(writer io.Writer, mode outputMode, result completion
 	if err != nil {
 		return ExitFailure
 	}
-	return presentEvent(writer, mode, result.Status(), append(content, '\n'), maxWorkItemPreviewOutputBytes)
+	limit := maxWorkItemPreviewOutputBytes
+	if response.Workflow != nil && response.Workflow.Binding != nil {
+		limit = 8 << 20
+	}
+	return presentEvent(writer, mode, result.Status(), append(content, '\n'), limit)
 }
 
 func marshalWorkItemValue(value any, indented bool) ([]byte, error) {

@@ -16,6 +16,7 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -132,6 +133,8 @@ type WorkItemInput struct {
 	Cancelled                                bool
 }
 type WorkflowInput struct {
+	Actor                                                       string
+	StageResultFile                                             string
 	Automatic                                                   bool
 	Project, Repository, WorkItem, Provider, ProviderRepository string
 	ExternalID, Execution, Gate, Outcome, Reference, Next       string
@@ -282,28 +285,37 @@ type WorkItemView struct {
 	State         string `json:"state"`
 }
 type WorkflowStepView struct {
-	Revision    uint64 `json:"revision"`
-	From        string `json:"from"`
-	To          string `json:"to"`
-	Outcome     string `json:"outcome"`
-	CommittedAt string `json:"committedAt"`
+	Fact        *workflow.LifecycleFact `json:"fact,omitempty"`
+	References  []workflow.Reference    `json:"references,omitempty"`
+	Revision    uint64                  `json:"revision"`
+	From        string                  `json:"from"`
+	To          string                  `json:"to"`
+	Outcome     string                  `json:"outcome"`
+	CommittedAt string                  `json:"committedAt"`
 }
 type WorkflowView struct {
-	GateAction      *workflow.GateAction `json:"gateAction,omitempty"`
-	GateCommand     []string             `json:"gateCommand,omitempty"`
-	ExecutionID     string               `json:"executionId"`
-	WorkflowVersion string               `json:"workflowVersion"`
-	Status          string               `json:"status"`
-	CurrentGate     string               `json:"currentGate"`
-	LifecycleStage  string               `json:"lifecycleStage,omitempty"`
-	Blocked         bool                 `json:"blocked,omitempty"`
-	NeedsDecision   bool                 `json:"needsDecision,omitempty"`
-	NeedsApproval   bool                 `json:"needsApproval,omitempty"`
-	Revision        uint64               `json:"revision"`
-	RepositoryKey   string               `json:"repositoryKey"`
-	WorkItem        WorkItemView         `json:"workItem"`
-	RuntimeID       string               `json:"runtimeId"`
-	Transitions     []WorkflowStepView   `json:"transitions"`
+	Blockers        []string                      `json:"blockers,omitempty"`
+	StageInputs     map[string]workflow.Reference `json:"stageInputs,omitempty"`
+	ExecutionKind   string                        `json:"executionKind,omitempty"`
+	Binding         *workflow.BindingView         `json:"binding,omitempty"`
+	StageContract   *workflowdefinition.Stage     `json:"stageContract,omitempty"`
+	StageOrdinal    int                           `json:"stageOrdinal,omitempty"`
+	StageLedger     []workflow.StageLedger        `json:"stageLedger,omitempty"`
+	GateAction      *workflow.GateAction          `json:"gateAction,omitempty"`
+	GateCommand     []string                      `json:"gateCommand,omitempty"`
+	ExecutionID     string                        `json:"executionId"`
+	WorkflowVersion string                        `json:"workflowVersion"`
+	Status          string                        `json:"status"`
+	CurrentGate     string                        `json:"currentGate"`
+	LifecycleStage  string                        `json:"lifecycleStage,omitempty"`
+	Blocked         bool                          `json:"blocked,omitempty"`
+	NeedsDecision   bool                          `json:"needsDecision,omitempty"`
+	NeedsApproval   bool                          `json:"needsApproval,omitempty"`
+	Revision        uint64                        `json:"revision"`
+	RepositoryKey   string                        `json:"repositoryKey"`
+	WorkItem        WorkItemView                  `json:"workItem"`
+	RuntimeID       string                        `json:"runtimeId"`
+	Transitions     []WorkflowStepView            `json:"transitions"`
 }
 
 // Run parses one CLI action, delegates it, and emits one safe structured event.
@@ -599,6 +611,8 @@ const (
 )
 
 type requestInput struct {
+	actor                                    string
+	stageResultFile                          string
 	automatic                                bool
 	itemType, beneficiary, value             string
 	classification                           repositoryFlags
@@ -779,7 +793,7 @@ func selectorRequestIssueWithPresence(operation action, values requestInput, req
 	if requireInputs && missingRequiredInputs(operation, values, "expected-revision", "gate", "outcome") {
 		return "missing_required_input"
 	}
-	if operation == workflowAdvanceAction && values.automatic && (values.gate != "" || values.outcome != "" || values.reference != "" || values.next != "") {
+	if operation == workflowAdvanceAction && values.automatic && (values.gate != "" || values.outcome != "" || values.reference != "" || values.next != "" || values.stageResultFile != "") {
 		return "invalid_input"
 	}
 	if requireInputs && missingRequiredInputs(operation, values, "fact", "reference") {
@@ -980,6 +994,7 @@ func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		set.BoolVar(&values.authorizeExternal, "authorize-external", false, "Explicit authority for the exact reviewed Provider effect; boolean.")
 	}
 	if operation == workflowAdvanceAction {
+		set.StringVar(&values.stageResultFile, "stage-result", "", "Complete bounded input/output references for the configured stage; `<json-file>`.")
 		set.BoolVar(&values.automatic, "automatic", false, "Evaluate deterministic Intake only; boolean. Cannot combine with --gate, --outcome, --reference or --next.")
 		set.StringVar(&values.gate, "gate", "", "Target workflow gate; `<gate>`. Validated against the current Execution.")
 		set.StringVar(&values.outcome, "outcome", "", "Workflow outcome; `<outcome>`. Validated against the gate.")
@@ -987,6 +1002,8 @@ func workflowFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		set.StringVar(&values.next, "next", "", "Next action; `<text>`.")
 	}
 	if operation == workflowFactAction {
+		set.StringVar(&values.actor, "actor", "", "Human decision actor for configured workflow facts; `<identity>`.")
+		set.StringVar(&values.stageResultFile, "stage-result", "", "Exact input/output references human-reviewed for stage-review; `<json-file>`.")
 		set.StringVar(&values.fact, "fact", "", "Workflow fact; `<fact>`. Validated by the workflow.")
 		set.BoolVar(&values.active, "active", false, "Whether the fact is active; boolean.")
 		set.StringVar(&values.reference, "reference", "", "Evidence reference; `<reference>`. Validated by the workflow.")
@@ -1181,6 +1198,8 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 		}
 		value := WorkflowInput{Project: input.project, Repository: input.repository, WorkItem: input.workItem, Provider: provider, ProviderRepository: resource, ExternalID: externalID, Execution: input.execution, Number: input.number, Gate: input.gate, Outcome: input.outcome, Reference: input.reference, Next: input.next, Fact: input.fact, Active: input.active, ExpectedRevision: input.expectedRevision, PreviewDigest: input.previewDigest, AuthorizeExternal: input.authorizeExternal, AuthorizeLocal: input.authorizeLocal, Runtime: input.runtime, Role: input.role, Complexity: input.complexity, Capabilities: strings.Split(input.capabilities, ","), RuntimePreview: input.runtimePreview}
 		value.Automatic = input.automatic
+		value.StageResultFile = input.stageResultFile
+		value.Actor = input.actor
 		switch operation {
 		case workflowStartAction:
 			return service.WorkflowStart(ctx, value)

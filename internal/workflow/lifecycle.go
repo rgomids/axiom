@@ -10,6 +10,7 @@ import (
 type WorkItemLifecycleStage string
 
 const (
+	FactStageReview       LifecycleFactKind      = "stage_review"
 	LifecycleIntake       WorkItemLifecycleStage = "intake"
 	LifecycleSpecifying   WorkItemLifecycleStage = "specifying"
 	LifecycleSpecified    WorkItemLifecycleStage = "specified"
@@ -56,10 +57,12 @@ const (
 )
 
 type LifecycleFact struct {
-	Kind        LifecycleFactKind `json:"kind"`
-	Active      bool              `json:"active"`
-	ScopeDigest string            `json:"scopeDigest"`
-	Reference   Reference         `json:"reference"`
+	Actor        string            `json:"actor,omitempty"`
+	ResultDigest string            `json:"resultDigest,omitempty"`
+	Kind         LifecycleFactKind `json:"kind"`
+	Active       bool              `json:"active"`
+	ScopeDigest  string            `json:"scopeDigest"`
+	Reference    Reference         `json:"reference"`
 }
 
 type LifecycleConditions struct {
@@ -76,6 +79,9 @@ type LifecycleProjection struct {
 func DeriveLifecycle(state State) (LifecycleProjection, error) {
 	if !ValidState(state) {
 		return LifecycleProjection{}, ErrRecoveryRequired
+	}
+	if state.Binding != nil {
+		return configuredLifecycle(state)
 	}
 	facts, conditions, ok := lifecycleFacts(state)
 	if !ok || !validLifecycleReferences(state) {
@@ -138,6 +144,9 @@ func DeriveLifecycle(state State) (LifecycleProjection, error) {
 }
 
 func lifecycleFacts(state State) (map[LifecycleFactKind]bool, LifecycleConditions, bool) {
+	if state.Binding != nil {
+		return configuredFacts(state)
+	}
 	facts := make(map[LifecycleFactKind]bool)
 	conditions := LifecycleConditions{}
 	scope := executionScopeDigest(state)
@@ -232,6 +241,13 @@ func historyHasReference(state State, before uint64, kinds ...string) bool {
 }
 
 func executionScopeDigest(state State) string {
+	if state.Binding != nil {
+		return digest(struct {
+			Execution, Project, Repository string
+			Item                           WorkItem
+			Definition                     string
+		}{state.ExecutionID, state.ProjectID, state.RepositoryKey, state.WorkItem, state.Binding.Definition.Digest})
+	}
 	sum := sha256.Sum256([]byte(state.ExecutionID + "\x00" + state.ProjectID + "\x00" + state.RepositoryKey + "\x00" + state.WorkItem.Provider + "\x00" + state.WorkItem.Resource + "\x00" + state.WorkItem.ExternalID))
 	return hex.EncodeToString(sum[:])
 }
