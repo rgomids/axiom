@@ -126,6 +126,13 @@ func TestPlanStageFailsClosedWithSpecificationCategories(t *testing.T) {
 	escapeWrite.Plan.Work[0].Effects = []executiongraph.Effect{parent}
 	backslash := multiRequest(t)
 	backslash.Plan.Work[0].Scope.Paths = []string{`..\outside`}
+	drive := multiRequest(t)
+	volume := executiongraph.Effect{Kind: "repository-write", Target: "C:/outside"}
+	drive.ParentAuthority = []executiongraph.Effect{volume}
+	drive.Plan.Work[0].Scope.Paths = []string{"C:/outside"}
+	drive.Plan.Work[0].Effects = []executiongraph.Effect{volume}
+	driveRelative := multiRequest(t)
+	driveRelative.Plan.Work[0].Scope.Paths = []string{"C:outside"}
 	unapproved := multiRequest(t)
 	unapproved.Plan.Approved = false
 	for _, tc := range []struct {
@@ -144,6 +151,8 @@ func TestPlanStageFailsClosedWithSpecificationCategories(t *testing.T) {
 		{"parent scope path", New(testRuntimes{}, capabilityOK{}), escapeScope, "authority_denied", true},
 		{"parent write target within matching ceiling", New(testRuntimes{}, capabilityOK{}), escapeWrite, "authority_denied", true},
 		{"backslash scope path", New(testRuntimes{}, capabilityOK{}), backslash, "authority_denied", true},
+		{"Windows volume write target within matching ceiling", New(testRuntimes{}, capabilityOK{}), drive, "authority_denied", true},
+		{"Windows drive-relative scope path", New(testRuntimes{}, capabilityOK{}), driveRelative, "authority_denied", true},
 		{"unsafe parallel overlap", New(testRuntimes{}, capabilityOK{}), overlap, "invalid_stage_topology", false},
 	} {
 		_, err := tc.compiler.PlanStage(context.Background(), stagePlanRequest(t, tc.request, nil))

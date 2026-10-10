@@ -621,10 +621,11 @@ func withinScope(effects []executiongraph.Effect, paths []string) bool {
 	return true
 }
 
-// confinedPath accepts only a normalized slash path that stays inside the
-// selected Repository: no root, parent, absolute or backslash form.
+// confinedPath accepts only a portable, normalized slash path that stays
+// inside the selected Repository on every supported platform: no root,
+// parent, absolute, backslash, Windows volume/drive-relative or stream form.
 func confinedPath(value string) bool {
-	return value != "" && value != "." && value != ".." && !path.IsAbs(value) && path.Clean(value) == value && !strings.HasPrefix(value, "../") && !strings.Contains(value, "\\")
+	return value != "" && value != "." && value != ".." && !path.IsAbs(value) && path.Clean(value) == value && !strings.HasPrefix(value, "../") && !strings.ContainsAny(value, `\:`)
 }
 
 func topologicalIDs(agents []workflowdefinition.Agent) []string {

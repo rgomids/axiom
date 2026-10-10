@@ -435,14 +435,16 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 	if denied := run(1, planArgs(b, "implementation", escalated)...); denied.Status != "denied_authority" || denied.Category != "authority_denied" || denied.Plan != nil {
 		t.Fatalf("authority escalation accepted: %+v", denied)
 	}
-	parent := executiongraph.Effect{Kind: "repository-write", Target: ".."}
-	outside := writeStagePlanDocument(t, []executiongraph.WorkUnit{
-		stagePlanUnit("implementer", []string{".."}, parent),
-		stagePlanUnit("reviewer", []string{"docs"}),
-		stagePlanUnit("integrator", []string{"src"}, write),
-	}, []executiongraph.Effect{parent, write})
-	if escaped := run(1, planArgs(b, "implementation", outside)...); escaped.Status != "denied_authority" || escaped.Category != "authority_denied" || escaped.Plan != nil || len(escaped.ConfirmedEffects) != 0 {
-		t.Fatalf("scope outside the Repository accepted: %+v", escaped)
+	for _, target := range []string{"..", "C:/outside", "C:outside"} {
+		escape := executiongraph.Effect{Kind: "repository-write", Target: target}
+		outside := writeStagePlanDocument(t, []executiongraph.WorkUnit{
+			stagePlanUnit("implementer", []string{target}, escape),
+			stagePlanUnit("reviewer", []string{"docs"}),
+			stagePlanUnit("integrator", []string{"src"}, write),
+		}, []executiongraph.Effect{escape, write})
+		if escaped := run(1, planArgs(b, "implementation", outside)...); escaped.Status != "denied_authority" || escaped.Category != "authority_denied" || escaped.Plan != nil || len(escaped.ConfirmedEffects) != 0 {
+			t.Fatalf("scope %q outside the Repository accepted: %+v", target, escaped)
+		}
 	}
 	observed.observations = provenObservations(false)
 	if unsupported := run(1, planArgs(b, "implementation", graphPlan)...); unsupported.Category != "unsupported_effort" {

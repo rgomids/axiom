@@ -283,7 +283,16 @@ target and authority ceiling, was accepted because the shared graph
 the bare parent token. The graph validator now refuses `..`, and Plan admission
 requires every work scope path and write/integration target to be a normalized
 Repository-confined slash path (no root, parent, absolute or backslash form),
-refused as `authority_denied`. Regressions
+refused as `authority_denied`.
+
+CR-002 (Major) followed: Go's slash-based `path` treats Windows volume
+(`C:/outside`) and drive-relative (`C:outside`) forms as relative. Both the
+compiler's `confinedPath` and the shared graph `validRelativePath` now refuse
+any `:` or `\` in a Repository-relative path, which also excludes NTFS stream
+suffixes. Graph, compiler and public CLI regressions cover `C:/outside` and
+`C:outside` with an otherwise valid Plan and matching ceiling; each failed
+before the fix. A persisted graph containing such a path is refused on load,
+which fails closed. Regressions
 `TestValidRelativePathRefusesParentAndRoot`,
 `TestPlanStageFailsClosedWithSpecificationCategories` (parent scope, parent
 write target within a matching ceiling, backslash scope) and the public journey's
