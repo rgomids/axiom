@@ -129,7 +129,15 @@ The reviewed CI run [38091372395](https://github.com/rgomids/axiom/actions/runs/
 failed because the partial delivery had not converged embedded skill inventory,
 shared published history and installation expectations. Full implementation adds
 the third skill throughout the installation paths and the verified v0.15.0 set;
-no required check is removed or weakened. The older parser must refuse the new
+no required check is removed or weakened. The full implementation checkpoint
+`c7f74909cd4e7624c8621f697b69278235570e28` passed all local gates and R-1;
+[its CI](https://github.com/rgomids/axiom/actions/runs/38092683438) passed Linux,
+macOS, release, quality and upgrade suites but exposed Windows assumptions in
+the new R10 tests: POSIX chmod does not deny Windows reads, and directory
+timestamps are not a portable read-only snapshot. The correction uses native
+read-denial and retains tree membership, file bytes and file metadata checks;
+the final PR appendix binds the corrected revision and rerun Evidence.
+The older parser must refuse the new
 archive with zero effects; the new installer performs supported convergence.
 
 Full local tests also exposed an obsolete two-skill black-box count, updated to

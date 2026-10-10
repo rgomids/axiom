@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -138,9 +139,7 @@ func TestActiveWorkflowUnresolvableCatalogAndMixedListing(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "unreadable":
-				if err := os.Chmod(path, 0); err != nil {
-					t.Fatal(err)
-				}
+				workflow303DenyRead(t, path)
 			case "invalid":
 				if err := os.WriteFile(path, []byte(`{"unknown":true}`), 0600); err != nil {
 					t.Fatal(err)
@@ -221,7 +220,14 @@ func snapshot303Trees(t *testing.T, roots ...string) []byte {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(&out, "%s %s %d %d %d\n", root, relative, info.Mode(), info.Size(), info.ModTime().UnixNano())
+			// Match the runtime-profile snapshot precedent: NTFS can defer a
+			// prior directory timestamp update until a later handle closes.
+			// Entries, modes, ACLs and every file timestamp remain compared.
+			modified := info.ModTime().UnixNano()
+			if runtime.GOOS == "windows" && info.IsDir() {
+				modified = 0
+			}
+			fmt.Fprintf(&out, "%s %s %d %d %d %s\n", root, relative, info.Mode(), info.Size(), modified, workflow303AccessState(t, path))
 			if info.Mode().IsRegular() {
 				data, err := os.ReadFile(path)
 				if err != nil {
