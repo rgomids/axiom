@@ -39,8 +39,10 @@ separate from implementation.
 [#303 dedicated workflow skill amendment](007-configurable-workflows/amendment-303-workflow-skill.md):
 **Proposed, 2026-10-10**, with [ADR-0022](../decisions/0022-dedicated-workflow-conversational-surface.md).
 Records the maintainer direction for a thin `axiom-workflow` conversational
-surface, compatibility routes, Runtime-prepared drafts, the Runtime/Profile
-capability gaps and the conversational #275 acceptance procedure. Until its
+surface for workflow definition, stage and agent configuration, with Work
+Item-bound Execution, planning and the conversational #275 acceptance kept
+under `axiom-work-item`, plus Runtime-prepared drafts and the Runtime/Profile
+capability gaps. Until its
 exact revision is accepted, the accepted Specification text and HD-002 remain
 authoritative and no implementation is authorized.
 
