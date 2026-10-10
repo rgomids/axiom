@@ -2,35 +2,44 @@
 
 ## Status and authority
 
-**Proposed, 2026-10-10**, for human decision under
-[Issue #303](https://github.com/rgomids/axiom/issues/303) (Linear AXM-7),
+**Accepted on 2026-10-10** by the Axiom maintainer's explicit formal decision
+recorded in [Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104),
 together with [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md).
-It records the maintainer direction of 2026-10-10 to introduce a dedicated
-`axiom-workflow` **configuration** skill and keep the complete #275
-conversational testing/acceptance journey available through the Work Item
-surface in both Codex and Claude. Under HD-008, #303 delivers **technical
-synthetic verification only**; real Codex/Claude interaction, live scenarios
-and end-to-end human acceptance are deferred to [#278](https://github.com/rgomids/axiom/issues/278)
-(Linear AXM-12), the final MVP validation. The maintainer refined HD-005 during
-[PR #304 review](https://github.com/rgomids/axiom/pull/304):
-Project selects the active workflow; Workflow defines/configures it; Work Item
-initiates and controls work; Execution is its revision-bound instance. This
-scope decision does not constitute acceptance of the exact revised artifacts. Revised the same day after the maintainer's
-[contract review](https://github.com/rgomids/axiom/pull/304#issuecomment-6098704209),
-which requested changes and accepted no revision. Until the maintainer accepts this exact
-revision and decisions HD-005–HD-008, accepted
-[Specification 007](spec.md), HD-002 and ADR-0020 remain authoritative
-unchanged, and no `axiom-workflow` implementation is authorized.
+The accepted exact review is [PR #304](https://github.com/rgomids/axiom/pull/304)
+head `7db80ac95b5e83cd8cc9aaaadc785633c3ee3fa9` with amendment blob
+`9d1895b6ab2dfea7e6c8ab4cd026bb111f31ce97` and ADR-0022 blob
+`13a52a62e1273ec8c928f064563d297c3798d152`.
 
-Inspected baseline: `main` at `3766273` (release v0.15.0). The historical #275
-delivery record ([issue-275-implementation.md](issue-275-implementation.md)),
-its PR #301 and the v0.15.0 release are not reopened or reinterpreted.
+**Approved HD-005–HD-008 contract:**
+Project permits/selects, `axiom-workflow` configures Workflow definitions,
+`axiom-work-item` initiates/controls a specific Work Item, and Execution
+immutably binds the Project-selected revision (HD-005). Project Runtime/Profile
+policy remains portable, separately from machine-local Runtime/Profile
+configuration; #305 and #306 own the bounded follow-ups and #231 retains
+Project readiness (HD-006 A). Duplicate definition-authoring *skill routes*
+are removed in the same #303 implementation, without compatibility aliases;
+canonical CLI contracts stay unchanged (HD-007 B). #303 acceptance is
+**technical R-1**, supported by deterministic/synthetic Evidence. Real native
+Codex and Claude R-2 and final human E2E MVP R-3 remain in [#278](https://github.com/rgomids/axiom/issues/278)
+/ AXM-12 (HD-008 A).
 
-## Superseded fragments (applied on acceptance)
+Accepted Specification 007 HD-002's historical *skill-surface* text is
+annotated in [spec.md](spec.md), with the originally accepted decision kept
+readable. ADR-0020 and all underlying Project-owned canonical operations,
+Work Item Execution authority, historical #275/v0.15.0 Evidence and other
+Specification 007 requirements remain in force.
 
-On acceptance, before merge, the following accepted Specification text is
-preserved struck through with an inline note linking this amendment and
-ADR-0022. Nothing else in Specification 007 changes. ADR-0020 is not
+**Authority boundary:** this decision accepts the *versioned architecture
+and Specification amendment*, not any implementation, CLI/skill modification,
+vendor inference, Provider effect, merge, release, acceptance of AXM-7's
+technical implementation, closure or AXM-8 unblock. Those retain separate
+explicit gates.
+## Superseded fragments (reconciled after acceptance)
+
+After formal acceptance, the following historical skill-surface fragments
+in [spec.md](spec.md) are preserved struck through and annotated with a link
+to this amendment and ADR-0022. Their canonical CLI/domain ownership remains
+unchanged, and the rest of Specification 007 is unmodified. ADR-0020 is not
 annotated: its sentence "Authoring stays a Project operation; execution stays
 under the Work Item domain surface" states domain ownership (Work Item target
 and immutable binding), which remains in force; ADR-0022 only clarifies that it
@@ -162,7 +171,7 @@ Rules:
 
 ## `axiom-workflow` configuration operation catalog
 
-Operation names are proposed conversational contracts. All flags, requirements
+Operation names are accepted future conversational contracts, not implemented commands. All flags, requirements
 and authority derive from the existing canonical operations via
 `axiom skill inspect axiom-workflow` (no duplicate registry).
 
@@ -246,10 +255,9 @@ persistent Agent Profile entity; agents exist only inside a stage definition.
 
 ## Runtime and Model Profile capability matrix
 
-**HD-006 scope direction (maintainer, 2026-10-10):** Project Runtime policy
-describes permission, not necessarily the host's operational availability.
-This direction is incorporated in the **Proposed** amendment; exact-revision
-Spec/ADR acceptance and implementation authorization remain separate.
+**HD-006 accepted (2026-10-10):** Project Runtime policy describes permission,
+not necessarily host operational availability. The exact amendment/ADR revisions
+were accepted by the maintainer; implementation authorization remains separate.
 
 | Layer | Owner | Existing contract / missing behavior |
 |---|---|---|
@@ -551,7 +559,7 @@ explicitly deferred to #278/AXM-12, where separate authorization is required.
 
 | ID | Decision | Options | Recommendation | Harder to change later |
 |---|---|---|---|---|
-| HD-005 | Dedicated configuration surface and explicit ownership | A keep HD-002; **B `axiom-workflow` configuration only, `axiom-project` selects, `axiom-work-item` runs/plans/accepts, Execution binds an immutable selected revision (ADR-0022)**; C plus new CLI tree; D new workflow domain | **B — maintainer direction recorded 2026-10-10; exact revised contract still Proposed** | Skill and operation names become public conversational contracts |
-| HD-006 | Project allowlist vs local Runtime/Profile registry, Workflow selection, readiness | **A (maintainer direction):** keep Project policy portable/editable [#305], manage multiple named local Profiles per Runtime [#306], Workflow binds Stage/Agent references, Project/workflow/host readiness is verified by canonical validators (#231). Separate the technical follow-ups from #303 implementation; **B:** conflate portable Project policy and machine-local Profiles inside #303 | **A**; preserve Spec 002 v2 intersection/bounds and security/authority. Both Issues tracked; exact revised Spec approval remains pending. | G-2 still blocks real Lane L C–G and AXM-7 R-3 until shipped; adding a global Doctor or changing Project schema needs its own reviewed scope |
-| HD-007 | Immediate removal of overlapping skill routes | A keep legacy `axiom-project` definition-authoring routes for a compatibility window; **B remove those routes in the same #303 implementation and make `axiom-workflow` their only skill owner, with no aliases or deprecation window** | **B — maintainer direction recorded 2026-10-10, pre-MVP with no external users; exact Spec/ADR revision still Proposed**. Preserve Project `workflow.select`, Work Item `run/status/plan` and existing canonical CLI. | Active skill inventory/metadata changes immediately on upgrade; historical v0.15.0 skill-set receipt/history remains intact for provenance. Renaming CLI commands is out of scope. |
-| HD-008 | Synthetic verification now; native and human E2E at final MVP acceptance | **A (selected):** accept deterministic and synthetic Evidence for #303 technical R-1, without requiring native sessions or real stage dispatch; defer R-2 and R-3 to #278 / AXM-12. **B:** require real R-2/R-3 before #303 technical delivery. | **A — maintainer direction 2026-10-10**; R-1 synthetic PASS is never real Runtime proof. Exact revised Spec/ADR remains Proposed. | #278 is the explicit owner of real Codex/Claude E2E and final human accept/reject; defects found there become scoped corrections; AXM-8 technical dependency is not gated on final-MVP tests once #303 is otherwise accepted. |
+| HD-005 | Dedicated configuration surface and explicit ownership | A keep HD-002; **B `axiom-workflow` configuration only, `axiom-project` selects, `axiom-work-item` runs/plans/accepts, Execution binds an immutable selected revision (ADR-0022)**; C plus new CLI tree; D new workflow domain | **B — formally accepted 2026-10-10; exact reviewed revision bound in the status section** | Skill and operation names become public conversational contracts |
+| HD-006 | Project allowlist vs local Runtime/Profile registry, Workflow selection, readiness | **A (maintainer direction):** keep Project policy portable/editable [#305], manage multiple named local Profiles per Runtime [#306], Workflow binds Stage/Agent references, Project/workflow/host readiness is verified by canonical validators (#231). Separate the technical follow-ups from #303 implementation; **B:** conflate portable Project policy and machine-local Profiles inside #303 | **A — formally accepted 2026-10-10**; preserve Spec 002 v2 intersection/bounds and security/authority. Both Issues tracked; implementation separately gated. | G-2 still blocks real Lane L C–G and AXM-7 R-3 until shipped; adding a global Doctor or changing Project schema needs its own reviewed scope |
+| HD-007 | Immediate removal of overlapping skill routes | A keep legacy `axiom-project` definition-authoring routes for a compatibility window; **B remove those routes in the same #303 implementation and make `axiom-workflow` their only skill owner, with no aliases or deprecation window** | **B — formally accepted 2026-10-10**, pre-MVP with no external users. No compatibility period. Preserve Project `workflow.select`, Work Item `run/status/plan` and existing canonical CLI. | Active skill inventory/metadata changes immediately on upgrade; historical v0.15.0 skill-set receipt/history remains intact for provenance. Renaming CLI commands is out of scope. |
+| HD-008 | Synthetic verification now; native and human E2E at final MVP acceptance | **A (selected):** accept deterministic and synthetic Evidence for #303 technical R-1, without requiring native sessions or real stage dispatch; defer R-2 and R-3 to #278 / AXM-12. **B:** require real R-2/R-3 before #303 technical delivery. | **A — formally accepted 2026-10-10**; R-1 synthetic PASS is never real Runtime proof. R-2/R-3 remain future gates. | #278 is the explicit owner of real Codex/Claude E2E and final human accept/reject; defects found there become scoped corrections; AXM-8 technical dependency is not gated on final-MVP tests once #303 is otherwise accepted. |
