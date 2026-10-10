@@ -2,14 +2,15 @@
 
 Issue [#242](https://github.com/rgomids/axiom/issues/242) adds the `go-quality`
 check to `ci.yml` on every PR and manual CI dispatch, including Release PRs.
-It runs independently of the existing verify, release-contract and
-upgrade-journeys jobs. Existing tests, vet, build, module verification,
-repository validation and release/upgrade checks retain their behavior.
+Its applicable suite runs alongside verify, release-contract and upgrade
+journeys after deterministic [change classification](change-aware-ci.md).
+The required context remains present for every PR; documentation-only changes
+need successful classification and repository checks rather than Go execution.
 
 The job has a ten-minute timeout covering setup, analyzer installation and
 execution. It uses the Go version in `go.mod`, read-only token permissions,
-SHA-pinned Actions, and no credentials retained by checkout. It neither
-filters changed paths nor invokes a Runtime or Work Item Provider.
+SHA-pinned Actions, and no credentials retained by checkout. It never
+invokes a Runtime or Work Item Provider. Manual dispatch runs the full suite.
 
 ## Local reproduction
 

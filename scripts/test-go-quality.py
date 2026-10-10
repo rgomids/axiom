@@ -103,12 +103,12 @@ class WorkflowContract(unittest.TestCase):
     def test_required_parallel_bounded_gate_and_existing_checks(self):
         import json
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        quality = workflow.split('  go-quality:\n', 1)[1].split('\n  verify:', 1)[0]
+        quality = workflow.split('  go-quality-suite:\n', 1)[1].split('\n  verify-suite:', 1)[0]
         self.assertIn('name: go-quality', quality)
         self.assertIn('timeout-minutes: 10', quality)
-        self.assertNotIn('needs:', quality)
+        self.assertIn('needs: classify', quality)
         self.assertNotIn('continue-on-error:', quality)
-        self.assertNotIn('if:', quality)
+        self.assertIn("if: needs.classify.outputs.go == 'true'", quality)
         self.assertIn('persist-credentials: false', quality)
         for command in ('format', 'tidy', 'staticcheck'):
             self.assertIn(f'./scripts/check-go-quality.sh {command}', quality)

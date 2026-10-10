@@ -1,5 +1,5 @@
 name: CI
-# Required product checks for every pull request. Job names are the stable
+# Change-aware checks for every pull request. Conclusion jobs keep the stable
 # required-check contexts in .github/rulesets/main.json. It does not run again
 # on push to main: the strict required-checks policy merges a PR only when its
 # head is up to date with main, so the merge commit has the tree that already
@@ -25,8 +25,52 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  go-quality:
-    name: go-quality
+  classify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.paths.outputs.go }}
+      verify: ${{ steps.paths.outputs.verify }}
+      release: ${{ steps.paths.outputs.release }}
+      upgrade: ${{ steps.paths.outputs.upgrade }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - id: paths
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT" == pull_request ]]; then
+            python3 scripts/classify-ci-changes.py --base "$BASE" --head "$HEAD" --fetch --output "$RUNNER_TEMP/ci-plan.json"
+          else
+            python3 scripts/classify-ci-changes.py --full --head "$GITHUB_SHA" --output "$RUNNER_TEMP/ci-plan.json"
+          fi
+      - name: Retain classification plan
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-plan-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-plan.json
+          retention-days: 30
+          if-no-files-found: error
+
+  repository:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: ./scripts/validate-repository.sh .
+      - run: python3 scripts/test-ci-classification.py
+
+  go-quality-suite:
+    needs: classify
+    if: needs.classify.outputs.go == 'true'
+    name: go-quality-suite
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -52,8 +96,10 @@ jobs:
       - name: Quality gate regression contracts
         run: python3 scripts/test-go-quality.py
 
-  verify:
-    name: verify (${{ matrix.platform }})
+  verify-suite:
+    needs: classify
+    if: needs.classify.outputs.verify == 'true'
+    name: verify-suite (${{ matrix.platform }})
     permissions:
       contents: read
       actions: read
@@ -143,9 +189,22 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: ./scripts/test-windows-bootstrap.ps1
+      - name: Record completed platform
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: python3 scripts/classify-ci-changes.py --record-row --suite verify --platform "$PLATFORM" --output "$RUNNER_TEMP/row.json"
+      - name: Retain completed platform
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-row-verify-${{ matrix.platform }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/row.json
+          retention-days: 30
+          if-no-files-found: error
 
-  release-contract:
-    name: release-contract
+  release-contract-suite:
+    needs: classify
+    if: needs.classify.outputs.release == 'true'
+    name: release-contract-suite
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -172,12 +231,14 @@ jobs:
       - name: Code health reporting contracts
         run: python3 scripts/test-code-health.py
 
-  upgrade-journeys:
+  upgrade-journeys-suite:
+    needs: classify
+    if: needs.classify.outputs.upgrade == 'true'
     # Issues #153/#186: real N -> candidate owned upgrades with non-empty state,
     # from the latest published stable release (N), the oldest stable release
     # with an installation receipt and historical POC state, through the
     # candidate archive's own installer. Downloads public release assets only.
-    name: upgrade-journeys (${{ matrix.platform }})
+    name: upgrade-journeys-suite (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
@@ -227,3 +288,166 @@ jobs:
           ./scripts/test-upgrade-journeys.sh --candidate "$RUNNER_TEMP/candidate" \
             --previous "$PREVIOUS_LATEST" --previous "$PREVIOUS_v0_1_1" \
             --poc-binary "$RUNNER_TEMP/poc-lingo" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Record completed platform
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: python3 scripts/classify-ci-changes.py --record-row --suite upgrade --platform "$PLATFORM" --output "$RUNNER_TEMP/row.json"
+      - name: Retain completed platform
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-row-upgrade-${{ matrix.platform }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/row.json
+          retention-days: 30
+          if-no-files-found: error
+
+  go-quality:
+    name: go-quality
+    if: always()
+    needs: [classify, repository, go-quality-suite]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Load classification plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ci-plan-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-plan
+      - name: Required suite conclusion
+        if: always()
+        env:
+          CLASSIFICATION: ${{ needs.classify.result }}
+          REPOSITORY: ${{ needs.repository.result }}
+          SELECTED: ${{ needs.classify.outputs.go }}
+          RESULT: ${{ needs.go-quality-suite.result }}
+        run: |
+          python3 scripts/classify-ci-changes.py --conclude --suite go --plan "$RUNNER_TEMP/ci-plan/ci-plan.json" --output "$RUNNER_TEMP/outcome.json"
+      - name: Retain required conclusion evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-outcome-go-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/outcome.json
+          retention-days: 30
+          if-no-files-found: error
+
+  verify:
+    name: verify (${{ matrix.platform }})
+    if: always()
+    needs: [classify, repository, verify-suite]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        platform: [linux, macos, windows]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Load classification plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ci-plan-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-plan
+      - name: Load required platform evidence
+        if: needs.classify.outputs.verify == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ci-row-verify-${{ matrix.platform }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-row
+      - name: Required suite conclusion
+        if: always()
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          CLASSIFICATION: ${{ needs.classify.result }}
+          REPOSITORY: ${{ needs.repository.result }}
+          SELECTED: ${{ needs.classify.outputs.verify }}
+          RESULT: ${{ needs.verify-suite.result }}
+        run: |
+          python3 scripts/classify-ci-changes.py --conclude --suite verify --plan "$RUNNER_TEMP/ci-plan/ci-plan.json" --output "$RUNNER_TEMP/outcome.json" --platform "$PLATFORM" --row "$RUNNER_TEMP/ci-row/row.json"
+      - name: Retain required conclusion evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-outcome-verify-${{ matrix.platform }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/outcome.json
+          retention-days: 30
+          if-no-files-found: error
+
+  release-contract:
+    name: release-contract
+    if: always()
+    needs: [classify, repository, release-contract-suite]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Load classification plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ci-plan-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-plan
+      - name: Required suite conclusion
+        if: always()
+        env:
+          CLASSIFICATION: ${{ needs.classify.result }}
+          REPOSITORY: ${{ needs.repository.result }}
+          SELECTED: ${{ needs.classify.outputs.release }}
+          RESULT: ${{ needs.release-contract-suite.result }}
+        run: |
+          python3 scripts/classify-ci-changes.py --conclude --suite release --plan "$RUNNER_TEMP/ci-plan/ci-plan.json" --output "$RUNNER_TEMP/outcome.json"
+      - name: Retain required conclusion evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-outcome-release-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/outcome.json
+          retention-days: 30
+          if-no-files-found: error
+
+  upgrade-journeys:
+    name: upgrade-journeys (${{ matrix.platform }})
+    if: always()
+    needs: [classify, repository, upgrade-journeys-suite]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        platform: [linux, macos]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Load classification plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ci-plan-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-plan
+      - name: Load required platform evidence
+        if: needs.classify.outputs.upgrade == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: ci-row-upgrade-${{ matrix.platform }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-row
+      - name: Required suite conclusion
+        if: always()
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          CLASSIFICATION: ${{ needs.classify.result }}
+          REPOSITORY: ${{ needs.repository.result }}
+          SELECTED: ${{ needs.classify.outputs.upgrade }}
+          RESULT: ${{ needs.upgrade-journeys-suite.result }}
+        run: |
+          python3 scripts/classify-ci-changes.py --conclude --suite upgrade --plan "$RUNNER_TEMP/ci-plan/ci-plan.json" --output "$RUNNER_TEMP/outcome.json" --platform "$PLATFORM" --row "$RUNNER_TEMP/ci-row/row.json"
+      - name: Retain required conclusion evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-outcome-upgrade-${{ matrix.platform }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/outcome.json
+          retention-days: 30
+          if-no-files-found: error
