@@ -2,16 +2,20 @@
 
 ## Status
 
-**Proposed on 2026-10-10** for human decision under
-[Issue #303](https://github.com/rgomids/axiom/issues/303). The maintainer
-refined the direction in the [PR #304 discussion](https://github.com/rgomids/axiom/pull/304):
-the new `axiom-workflow` skill configures workflow definitions; it does **not**
-start, control or plan a free-standing workflow Execution. This direction
-is recorded for versioned reconciliation, not acceptance of the exact revised
-text. The ADR remains `Proposed` until the maintainer accepts it together
-with the [Specification 007 amendment](../specifications/007-configurable-workflows/amendment-303-workflow-skill.md).
-Acceptance does not by itself authorize implementation, merge, release,
-Runtime inference or Provider effects; each retains its own gate.
+Accepted on 2026-10-10 by the Axiom maintainer's **explicit formal decision**
+recorded in [Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104).
+The accepted exact review is [PR #304](https://github.com/rgomids/axiom/pull/304)
+head `7db80ac95b5e83cd8cc9aaaadc785633c3ee3fa9`, ADR blob
+`13a52a62e1273ec8c928f064563d297c3798d152`, together with the
+[accepted Specification 007 amendment](../specifications/007-configurable-workflows/amendment-303-workflow-skill.md).
+The accepted decisions are HD-005 (configuration-only Workflow skill),
+HD-006 (Project policy versus local Runtime Profiles), HD-007 (immediate
+removal of duplicate *skill* authoring routes), and HD-008 (R-1 synthetic
+verification now; R-2 and R-3 in #278 / AXM-12).
+
+This is **contract acceptance**, not authorization to implement #303, merge,
+release, run vendor inference, mutate Providers, close Issues, accept AXM-7
+implementation or unblock AXM-8. Each action retains its own gate.
 
 ## Context
 
@@ -133,9 +137,9 @@ review before implementation.
 HD-006's *separate follow-ups* are linked under [#303](https://github.com/rgomids/axiom/issues/303)
 for technical traceability without reopening the frozen MVP epic. The
 configuration-only skill in this ADR does not own G-1, G-2, stage dispatch,
-Work Item execution or Doctor mutation. The proposed exact revised Spec/ADR
-still requires human acceptance; the clarified direction does not authorize
-implementation or AXM-7 acceptance.
+Work Item execution or Doctor mutation. The exact revised Spec/ADR was
+**accepted by the maintainer on 2026-10-10**, but this contract decision does
+not authorize implementation or AXM-7 technical/product acceptance.
 
 ## Evidence and final acceptance placement (HD-008)
 
@@ -216,12 +220,14 @@ originally specified by Specification 007 HD-002, and it explicitly preserves
 [ADR-0020](0020-workflow-definition-revision-binding.md)'s Project-owned
 authoring/selection, Work Item-bound execution and immutable
 `WorkflowBinding`. ADR-0003, ADR-0008 and ADR-0009 remain unchanged.
-Superseded fragments of the accepted Specification are recorded in the
-proposed amendment and are annotated only after formal acceptance.
+Superseded *skill-surface* fragments of the accepted Specification are
+recorded in the accepted amendment and annotated in the original Specification
+as historical text; domain/CLI ownership and ADR-0020 remain valid.
 
 ## Revisit when
 
 A Workflow becomes independently owned outside a Project; Work Items gain a
-versioned, explicitly authorized workflow-override contract; CLI compatibility
-routes are retired; or evidence shows that separate conversational ownership
+versioned, explicitly authorized workflow-override contract; a later
+explicit change to canonical CLI or skill-routing ownership is proposed; or
+evidence shows that separate conversational ownership
 prevents a required user journey.
