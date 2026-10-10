@@ -8,7 +8,9 @@ together with [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-
 It records the maintainer direction of 2026-10-10 ("adopt a dedicated
 `axiom-workflow` conversational skill and make the complete #275 testing/acceptance
 preparation operable in natural language in Codex and Claude"). That direction
-is not acceptance of this text. Until the maintainer accepts this exact
+is not acceptance of this text. Revised the same day after the maintainer's
+[contract review](https://github.com/rgomids/axiom/pull/304#issuecomment-6098704209),
+which requested changes and accepted no revision. Until the maintainer accepts this exact
 revision and decisions HD-005–HD-008, accepted
 [Specification 007](spec.md), HD-002 and ADR-0020 remain authoritative
 unchanged, and no `axiom-workflow` implementation is authorized.
@@ -141,19 +143,32 @@ persistent Agent Profile entity; agents exist only inside a stage definition.
 4. Presentation shows the user a readable summary **and** the exact canonical
    preview/effects/digest returned by Lingo; approval binds to that exact
    preview, never to the summary.
-5. **Plan approval.** The Runtime writes the complete candidate Plan document
-   to scratch exactly as it would be used, including `approved: true`,
-   `planRevision` and `planDigest`, runs the read-only `stage.plan` on it and
-   presents the scope, effects, authority ceiling and Lingo's proposal with
-   its `plan.planDocumentDigest`. The user's approval binds only to that exact
-   `planDocumentDigest`; any byte change requires a fresh `stage.plan` and a
-   fresh approval. `planRevision` and `planDigest` are opaque references with
-   no authority: `planDigest` is the SHA-256 of the exact bytes of a reviewed
-   Plan/Tasks artifact the user names, or, when none exists, of a bounded
-   scope artifact the Runtime writes to scratch and shows. The Runtime never
-   defines another canonical encoding. `approved: true` is the operator
-   assertion described in G-5, decided in the conversation; it creates no
-   authority fact, gate fact or dispatch authority.
+5. **Plan confirmation.** The Runtime writes the complete candidate Plan
+   document to scratch in the existing input format, including `approved:
+   true`, `planRevision` and `planDigest`, runs the read-only `stage.plan` on
+   it and presents the scope, effects, authority ceiling and Lingo's proposal
+   with its `plan.planDocumentDigest`.
+   - `approved: true` in the candidate is a **provisional input assertion**
+     that the read-only planner requires (it refuses unapproved Plans). It is
+     not a committed approval, gate fact, authority grant or Evidence of user
+     approval. The skill never labels a candidate as human-approved because it
+     wrote that field.
+   - Human confirmation is a separate, explicit event: the user confirms the
+     exact reviewed proposal. Confirmation binds to Lingo's canonical
+     `planDocumentDigest` (computed over the canonical encoding, so formatting
+     alone does not change it) **plus** the bindings `stage.plan` reports: the
+     Execution ID and expected revision, `stageId`, `workflowRef` and the
+     proposal `plan.digest`. A change to the canonical Plan content or to any
+     of those bindings requires a fresh `stage.plan` and a fresh
+     confirmation. The Runtime defines no digest of its own and claims no
+     byte-for-byte identity that the implementation does not enforce.
+   - `planRevision` and `planDigest` are opaque references with no authority:
+     `planDigest` is the SHA-256 of the exact bytes of a reviewed Plan/Tasks
+     artifact the user names or, when none exists, of a bounded scope artifact
+     the Runtime writes to scratch and shows.
+   - The confirmation is recorded only in the conversation and the Evidence
+     report as a statement of who confirmed which digest; no Axiom fact is
+     committed (G-5). Dispatch remains #276 scope.
 6. Drafts are working files, not Evidence. Evidence cites canonical results and
    digests.
 
@@ -175,8 +190,8 @@ a login state or the Runtime it is running in.
 
 | Gap | Missing contract | Impact | Proposed disposition |
 |---|---|---|---|
-| G-1 | Preview/apply edit of Project Runtime/Model Profile policy on an existing Project | Policy changes need a new Project or a historical authored-manifest path | Follow-up Spec 002 amendment; not in #303 (HD-006) |
-| G-2 | Preview/apply authoring of the machine-local Runtime Profile store | A fresh sandbox cannot create the Profile configuration that `workflow start` and `stage.plan` need; live Execution-dependent acceptance is blocked | Follow-up with its own credential-reference security review (HD-006) |
+| G-1 | Preview/apply edit of Project Runtime/Model Profile policy on an existing Project | Policy changes need a new Project or a historical authored-manifest path | Bounded follow-up Issue (Spec 002 amendment); not in #303 (HD-006) |
+| G-2 | Preview/apply authoring of the machine-local Runtime Profile store | A fresh sandbox cannot create the Profile configuration that `workflow start` and `stage.plan` need; live Execution-dependent acceptance is blocked | Bounded follow-up Issue with its own credential-reference security review; not in #303. Required for R-3 of C–G (HD-006) |
 | G-3 | Authoritative capability / model-specific effort observation | Positive explicit-effort or non-`axiom-skills` planning is only provable synthetically | Existing #272 |
 | G-4 | Provider-free Work Item linkage for sandboxes | A live Execution needs a linked existing Provider Issue (`work-item select`, Provider read, sandbox-local link) | No new contract; use an existing Issue the user names, never create one without external authority |
 | G-5 | Recorded Plan approval fact | Approval is asserted by the Plan document | Existing #276 binds the reviewed `plan.digest` before dispatch |
@@ -196,7 +211,7 @@ vendor processes are the existing read-only status/auth observations of
 `runtime.readiness` (for example `codex login status`), which the report names.
 No Provider resource is created or mutated and nothing is published.
 
-**Evidence lanes.**
+**Evidence lanes** (how a result was produced).
 
 - **Lane L — live local:** the installed binary and its production observer in
   the sandbox. Classified `operational-local`; never vendor inference proof.
@@ -223,11 +238,55 @@ When G-2 is delivered **and** the user consents to link an existing Provider
 Issue they name (G-4), C–G gain Lane L coverage for stages requiring only
 `axiom-skills` with runtime-default effort; explicit effort stays Lane S until G-3.
 
+### Result levels
+
+Every report states three results separately; none is derived from another,
+and none is inferred from a passing lower level.
+
+| Level | Meaning | Satisfied by | Never satisfied by |
+|---|---|---|---|
+| R-1 Technical verification | Contract, catalog, routing, install/upgrade and planner behavior are correct | Repository tests, `skill inspect`, catalog/routing tests, Lane S, Lane L binary checks | — |
+| R-2 Native conversational operability | A real Codex session and a real Claude session complete the journey from natural language | The native scenarios below, run with explicit consent, one per Runtime | Binary commands, `skill inspect`, catalog tests, synthetic routing, Lane S |
+| R-3 AXM-7 functional acceptance | The maintainer explicitly accepts the essential real scenarios | An explicit human decision over R-2 Evidence plus Lane L results for C–G | Any Lane S result, any `blocked` Lane L scenario, merge, green CI, or this report alone |
+
+A report in which Lane L is `blocked` and Lane S is `passed` reads
+`R-1 passed; R-3 blocked (G-n)` for that scenario. It never counts as positive
+live acceptance. Blocked scenarios stay `blocked`, with their exact G-n
+dependencies, until an operational demonstration satisfies them; synthetic
+Evidence is intermediate technical Evidence only. Live C–G (R-3) depend on G-2
+and G-4; until G-2 ships, AXM-7 functional acceptance for those scenarios is
+blocked by it. Recorded by the maintainer on the
+[PR #304 review](https://github.com/rgomids/axiom/pull/304#issuecomment-6098704209):
+AXM-7 stays `In Progress` and keeps `Blocks AXM-8` until its essential real
+scenarios are demonstrated and explicitly accepted.
+
+### Native conversational scenarios (R-2)
+
+At least one bounded, authorized native scenario runs in a real **Codex**
+session and one in a real **Claude** session, each in the safe environment
+above, from a natural-language request (not a typed command). Each covers:
+
+1. skill discovery (`axiom-workflow` resolved from the request);
+2. workflow configuration from natural language into a Runtime-prepared draft;
+3. canonical validation and preview returned by Lingo;
+4. explicit human confirmation of that exact preview, followed by one local
+   sandbox mutation (for example `definition.create` and `definition.select`);
+5. read-back of the persisted result;
+6. interpretation and a bounded Evidence entry.
+
+The Runtime session itself performs vendor inference, so each scenario needs
+the user's explicit consent before it starts. The scenarios do not dispatch
+stage agents (#276) or deliver end to end (#278). Their Evidence records the
+Runtime and version, skill-set digest, the canonical results and digests of
+each step, who confirmed which preview, and a bounded description of the
+interaction, not raw chat. A scenario without that consent is `not run`, never
+`passed`.
+
 **Report (H).** Axiom version and source revision; Runtime name/version as
 observed (or unknown); skill set digest; sandbox identification (no host
 paths); scenarios with `passed` / `failed` / `blocked` and the classified
 category for each refusal; digests and canonical references; lane and Evidence
-class per result; known limitations (G-1–G-5); unresolved acceptance
+class per result; R-1, R-2 and R-3 results stated separately; known limitations (G-1–G-5); unresolved acceptance
 requirements. Raw logs are not the default presentation and credentials,
 environment values and host paths never appear.
 
@@ -256,10 +315,16 @@ which need explicit authorization when they involve vendor inference.
 4. Definition, stage and agent configuration work from natural language
    through Runtime-prepared drafts; required approvals stay explicit.
 5. The conversational #275 acceptance produces the report above in both
-   Runtimes, with every scenario classified and every blocked item tied to G-n.
-6. Canonical CLI, result, digest, preview/apply, security and authority
+   Runtimes, with every scenario classified, every blocked item tied to G-n,
+   and R-1, R-2 and R-3 reported separately.
+6. R-2: one native scenario per Runtime (Codex and Claude) passes with
+   explicit consent, covering every step listed above.
+7. #303 technical delivery may complete on R-1 and R-2. R-3 (AXM-7
+   functional acceptance) remains a separate maintainer decision; scenarios
+   blocked by G-2/G-4 stay `blocked` and are never reported as accepted.
+8. Canonical CLI, result, digest, preview/apply, security and authority
    semantics are unchanged (existing tests pass unmodified).
-7. An independent review reports no unresolved Blocker/Major.
+9. An independent review reports no unresolved Blocker/Major.
 
 ## Implementation plan (authorized only after acceptance)
 
@@ -268,9 +333,11 @@ which need explicit authorization when they involve vendor inference.
    inventory (`codexruntime`, `install`), receipts, skill-set history;
    compatibility text in the two existing skills.
 2. Install/upgrade/retirement and parity tests for Codex and Claude.
-3. Acceptance runner (Lane S) and report schema, registered as durable
-   automation; Lane L procedure in the skill.
-4. Documentation: `docs/commands.md`, `docs/agent-harness.md`, Spec index, this
+3. Acceptance runner (Lane S) and report schema with R-1/R-2/R-3 levels,
+   registered as durable automation; Lane L procedure in the skill.
+4. Native R-2 scenarios in Codex and Claude, run only with explicit consent;
+   their bounded Evidence recorded in this amendment's Evidence section.
+5. Documentation: `docs/commands.md`, `docs/agent-harness.md`, Spec index, this
    amendment's Evidence section.
 
 ## Human decisions requested
@@ -278,6 +345,6 @@ which need explicit authorization when they involve vendor inference.
 | ID | Decision | Options | Recommendation | Harder to change later |
 |---|---|---|---|---|
 | HD-005 | Dedicated surface | A keep HD-002; **B thin `axiom-workflow` (ADR-0022)**; C plus new CLI tree; D new workflow domain | B | Skill and operation names become public conversational contracts |
-| HD-006 | Runtime/Profile gaps G-1/G-2 | **a. record as follow-ups; accept Lane S for C–G**; b. deliver G-2 (and G-1) inside #303 | a — G-2 adds credential-reference authoring that needs its own Spec 002 amendment and security review | With (a), live C–G stays blocked until the follow-up ships |
+| HD-006 | Runtime/Profile gaps G-1/G-2 | **a. track G-1 and G-2 as bounded follow-up Issues, not in #303; live C–G stay `blocked` on G-2/G-4**; b. deliver G-2 (and G-1) inside #303 | a — G-2 adds credential-reference authoring that needs its own Spec 002 amendment and security review | With (a), AXM-7 functional acceptance (R-3) of C–G is blocked by G-2 until that follow-up ships |
 | HD-007 | Compatibility window | **keep routes until a separate removal decision**; remove at the next minor | keep | Removal later requires retirement/upgrade protocol |
-| HD-008 | Synthetic Evidence for #275 conversational acceptance | **accept, classified `synthetic`, never operational vendor proof**; require Lane L only | accept | #278 still owns live two-Runtime proof |
+| HD-008 | Synthetic Evidence for #275 conversational acceptance | **accept as intermediate technical Evidence (R-1) only, classified `synthetic`, never R-2, R-3 or vendor proof** (direction recorded on the PR #304 review); require Lane L only | accept as R-1 only | R-3 still needs real scenarios; #278 still owns live two-Runtime proof |
