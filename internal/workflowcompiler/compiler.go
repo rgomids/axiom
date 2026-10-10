@@ -25,6 +25,10 @@ var (
 	ErrInvalidRequest    = errors.New("invalid stage compilation request")
 	ErrRuntimeBlocked    = errors.New("stage runtime resolution blocked")
 	ErrUnsupportedEffort = errors.New("requested reasoning effort is unsupported")
+	// ErrAuthorityExceeded also matches ErrInvalidRequest: a Plan effect or
+	// write target outside the parent ceiling, agent ceilings or scope.
+	ErrAuthorityExceeded = errors.New("stage plan exceeds authorized effects")
+	errAuthority         = fmt.Errorf("%w: %w", ErrInvalidRequest, ErrAuthorityExceeded)
 )
 
 const maxAgents = 32
@@ -255,8 +259,11 @@ func validateRequest(request Request) (workflowdefinition.Stage, error) {
 	}
 	work := map[string]executiongraph.WorkUnit{}
 	for _, unit := range request.Plan.Work {
-		if unit.Key == "" || !validEffects(unit.Effects, request.ParentAuthority) || unit.Controls.Timeout <= 0 || unit.Controls.MaximumAttempts == 0 || unit.Scope.ProjectID != request.ProjectID || unit.Scope.RepositoryKey != request.RepositoryKey {
+		if unit.Key == "" || unit.Controls.Timeout <= 0 || unit.Controls.MaximumAttempts == 0 || unit.Scope.ProjectID != request.ProjectID || unit.Scope.RepositoryKey != request.RepositoryKey {
 			return workflowdefinition.Stage{}, ErrInvalidRequest
+		}
+		if !validEffects(unit.Effects, request.ParentAuthority) {
+			return workflowdefinition.Stage{}, errAuthority
 		}
 		if _, exists := work[unit.Key]; exists {
 			return workflowdefinition.Stage{}, ErrInvalidRequest
@@ -265,8 +272,11 @@ func validateRequest(request Request) (workflowdefinition.Stage, error) {
 	}
 	for _, agent := range stage.Agents {
 		unit, exists := work[agent.ID]
-		if !exists || !workMatchesAgent(unit, agent) || unit.Controls.Timeout > time.Duration(agent.TimeoutSeconds)*time.Second || unit.Controls.MaximumAttempts > uint32(agent.MaximumAttempts) || unit.Controls.ReasoningEffort != "" || unit.Optional || !withinEffectCeilings(unit.Effects, agent.EffectCeilings) || !withinScope(unit.Effects, unit.Scope.Paths) {
+		if !exists || !workMatchesAgent(unit, agent) || unit.Controls.Timeout > time.Duration(agent.TimeoutSeconds)*time.Second || unit.Controls.MaximumAttempts > uint32(agent.MaximumAttempts) || unit.Controls.ReasoningEffort != "" || unit.Optional {
 			return workflowdefinition.Stage{}, ErrInvalidRequest
+		}
+		if !withinEffectCeilings(unit.Effects, agent.EffectCeilings) || !withinScope(unit.Effects, unit.Scope.Paths) {
+			return workflowdefinition.Stage{}, errAuthority
 		}
 	}
 	return stage, nil

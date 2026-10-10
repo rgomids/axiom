@@ -1253,7 +1253,7 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
 | `$axiom-project` | `configure` → `project configure`, `list` → `project list`, `show` → `project show`; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
-| `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`); `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
+| `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`), `plan` → `workflow stage plan`; `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
 repository resolution, workflow ordering, and external-mutation authority. Skills
@@ -1688,6 +1688,53 @@ Historical format-1 Executions retain their fixed gate order and automatic Intak
 behavior described below; they remain readable and resumable without migration.
 See the [#274 implementation contract](specifications/007-configurable-workflows/issue-274-implementation.md)
 for retention, compatibility and verification details.
+
+### Inspect a stage plan (read-only)
+
+`workflow stage plan` previews how one stage of a configured Execution would run,
+before any agent is authorized. It reads the Execution's retained workflow
+revision (never the current Project selection), binds the stage inputs from the
+retained context and validated stage ledger, resolves each agent's Runtime, Model
+Profile and reasoning effort through the current Project policy and Runtime
+observations, and compiles the stage with the existing graph planner.
+
+```bash
+axiom workflow stage plan --project my-project --repository main \
+  --work-item github:owner/repository#123 --execution <execution-id> \
+  --expected-revision <revision> --stage implementation --plan plan.json
+```
+
+`--plan` is the bounded approved stage Plan document: `formatVersion` `1`, the
+existing graph `plan` (`approved`, `planRevision`, `planDigest`, `maximumNodes`
+and one `work` unit per declared agent, keyed by agent ID, with `scope`,
+`effects` and `controls`; `controls.timeout` is in nanoseconds) and the explicit
+`authorityCeiling` effects. Unknown fields, duplicate keys and other format
+versions are refused, as is a path that is not a regular, non-symlink file.
+Effect targets and Repository paths come only from this document.
+
+The result keeps the canonical completion fields and adds `category`,
+`confirmedEffects` (always empty), `executionRef`, `workflowRef`, `stageId` and
+`plan`. `plan` reports `executionKind` (`single` without a graph, or `graph`
+with `graphProposalRef`), `resolutions`, `validatorRefs`, `gateRefs`, `blockers`,
+the complete `compilation` (agents, dependencies, ordering, concurrency, child
+inputs, required effects and authority ceiling) and its `digest`. The same
+Execution revision, Plan, policy and observations produce the same digest; any
+change requires a fresh plan. A pending `before` human gate is reported as a
+`human_gate_pending:<gate>` blocker: planning never records or satisfies it.
+
+The operation is read-only: it creates no Execution, attempt or artifact, starts
+no Runtime and performs no Provider effect. The proposal is not dispatch
+authority; dispatch belongs to #276. Refusals use fixed categories:
+`stale_execution_revision` (denied), `stage_prerequisite_missing` with
+`missing_input:<id>` conditions, `stage_not_found`, `stage_not_plannable`,
+`configured_binding_required` for historical Executions, `invalid_stage_plan`,
+`invalid_stage_topology`, `runtime_unresolvable`, `unsupported_effort` and
+`authority_denied` (denied). There is no fallback to another Runtime or Profile.
+The production Runtime observer currently proves only Axiom skill integration, so
+stages requiring other capabilities or explicit effort are refused as
+`runtime_unresolvable`/`unsupported_effort` until an authoritative observation
+proves them. See the
+[#275 implementation record](specifications/007-configurable-workflows/issue-275-implementation.md).
 
 Start one workflow from an explicitly selected, already linked Work Item. Project
 is optional only when the effective context resolves, with precedence

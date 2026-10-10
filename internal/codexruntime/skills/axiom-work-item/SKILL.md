@@ -11,7 +11,7 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, and executable command
 metadata; do not maintain a second argument registry in this skill.
 
-Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, and `reopen`.
+Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, and `reopen`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted; sequential Executions have no
@@ -28,6 +28,7 @@ cancellation contract, and Execution history and Evidence are never edited.
 | `run` | reconcile | `axiom workflow reconcile` | external mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous run intent |
 | `status` | - | `axiom workflow status`, `axiom workflow evidence` | read-only | none | allowed |
 | `status` | list | `axiom workflow list --project <uuid-or-slug>` | read-only | none | allowed |
+| `plan` | - | `axiom workflow stage plan` | read-only | none; the proposal never dispatches, grants effects or satisfies human gates | allowed |
 | `list` | - | `axiom work-item list --project <uuid-or-slug>` | read-only | none | allowed |
 | `show` | - | `axiom work-item show --project <uuid-or-slug>` | read-only | none | allowed |
 | `update` | - | `axiom work-item update --project <uuid-or-slug>` | external mutation | preview first; update only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous update intent |
@@ -211,6 +212,24 @@ acceptance from Provider projection.
 To discover Executions without an opaque identity, run
 `axiom workflow list --project <uuid-or-slug>` (optionally
 `--repository <key>`) and report the returned `executions`.
+
+## plan
+
+Collect only missing Project, Project-scoped Repository, exact Work Item,
+Execution, expected revision, stage ID and approved Plan file inputs, then run
+`axiom workflow stage plan` with the persisted selectors returned by Lingo.
+Never invent the stage, Plan file, scope, effects or authority ceiling: they
+come from the user or the approved Plan. Lingo reads the Execution's retained
+workflow revision, never the current Project selection.
+
+This operation is read-only. Report `plan.executionKind`, `resolutions`,
+`compilation`, `blockers`, `gateRefs` and the `plan.digest` exactly as
+returned. A proposal is not authority: it never dispatches agents, records a
+human fact or grants effects, and a changed Execution, Plan, Project policy or
+Runtime observation requires a fresh plan. A refusal such as
+`runtime_unresolvable`, `unsupported_effort`, `authority_denied` or
+`stage_prerequisite_missing` stops the operation; never retry with a weaker
+constraint, another Runtime or Profile, or a widened authority ceiling.
 
 ## list and show
 
