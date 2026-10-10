@@ -37,7 +37,12 @@ capability-observation boundary. Proposal review and human acceptance remain
 separate from implementation.
 
 [#303 dedicated workflow skill amendment](007-configurable-workflows/amendment-303-workflow-skill.md):
-**Proposed, 2026-10-10**, with [ADR-0022](../decisions/0022-dedicated-workflow-conversational-surface.md).
+**Accepted, 2026-10-10**, with [ADR-0022](../decisions/0022-dedicated-workflow-conversational-surface.md);
+formal decision [Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104)
+on the exact reviewed PR #304 head `7db80ac`. The historical HD-002
+*skill-surface* clauses are preserved struck through and annotated in the
+[accepted Specification 007](007-configurable-workflows/spec.md); domain and
+CLI commands are unchanged.
 Records HD-005–HD-008: `axiom-workflow` exclusively configures Project-owned
 workflow definitions, stages and agents; `axiom-project` selects the active
 revision; `axiom-work-item` owns Work Item-bound Execution and planning. #303
@@ -51,8 +56,10 @@ Project-policy editing [#305](https://github.com/rgomids/axiom/issues/305)
 and secure local Runtime/Profile authoring
 [#306](https://github.com/rgomids/axiom/issues/306), reusing Project readiness
 [#231](https://github.com/rgomids/axiom/issues/231).
-Until the exact revision is accepted, the accepted Specification and HD-002
-remain authoritative; implementation remains separately gated.
+This amendment and ADR-0022 now define the accepted *skill-surface*
+contract. The remaining accepted Specification 007 domain rules and
+ADR-0020 are authoritative. Implementation, merge, release, Runtime inference
+and downstream human acceptance remain separately gated.
 
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
