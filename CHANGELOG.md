@@ -26,6 +26,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.15.0](https://github.com/rgomids/axiom/compare/v0.14.0...v0.15.0) (2026-10-10)
+
+
+### Features
+
+* **workflow:** add read-only workflow stage plan operation ([#301](https://github.com/rgomids/axiom/issues/301)) ([0efab4b](https://github.com/rgomids/axiom/commit/0efab4b7cef42c60154868de9d32ad99c2235cf9))
+
 ## [0.14.0](https://github.com/rgomids/axiom/compare/v0.13.0...v0.14.0) (2026-10-10)
 
 
