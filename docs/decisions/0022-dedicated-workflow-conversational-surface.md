@@ -1,0 +1,233 @@
+# ADR-0022 — Dedicated workflow configuration conversational surface
+
+## Status
+
+Accepted on 2026-10-10 by the Axiom maintainer's **explicit formal decision**
+recorded in [Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104).
+The accepted exact review is [PR #304](https://github.com/rgomids/axiom/pull/304)
+head `7db80ac95b5e83cd8cc9aaaadc785633c3ee3fa9`, ADR blob
+`13a52a62e1273ec8c928f064563d297c3798d152`, together with the
+[accepted Specification 007 amendment](../specifications/007-configurable-workflows/amendment-303-workflow-skill.md).
+The accepted decisions are HD-005 (configuration-only Workflow skill),
+HD-006 (Project policy versus local Runtime Profiles), HD-007 (immediate
+removal of duplicate *skill* authoring routes), and HD-008 (R-1 synthetic
+verification now; R-2 and R-3 in #278 / AXM-12).
+
+This is **contract acceptance**, not authorization to implement #303, merge,
+release, run vendor inference, mutate Providers, close Issues, accept AXM-7
+implementation or unblock AXM-8. Each action retains its own gate.
+
+## Context
+
+[ADR-0020](0020-workflow-definition-revision-binding.md)
+and accepted Specification 007 HD-002 establish Project-owned workflow
+definitions and active selection, and Work Item-bound Executions with immutable
+workflow revision bindings. The existing CLI deliberately separates
+`axiom project workflow *` (definition authoring/selection) from
+`axiom workflow *` (Work Item-bound Execution operations).
+
+Specification 007 also said not to introduce a dedicated `axiom-workflow`
+skill. Delivery of #273–#275 showed the configuration UX cost: workflow
+definitions, stages and agents are authored through the broad
+`axiom-project` skill, and custom definitions require hand-written JSON.
+
+A proposed dedicated skill initially grouped configuration with Execution
+run/status/plan/acceptance operations. The maintainer clarified that this is
+the wrong conversational boundary: a Workflow defines **how** work proceeds;
+a Work Item is the specific **what**; an Execution represents its concrete
+run. Executing a Workflow without a specific Work Item is not a supported
+user journey.
+
+This ADR changes only the conversational skill responsibility. Domain
+ownership, persisted state, CLI contracts and authority remain unchanged.
+
+## Decision
+
+Introduce `axiom-workflow` as a dedicated **workflow configuration**
+conversational skill in Codex and Claude, thinly routing to existing Project
+workflow definition operations. The responsibilities are:
+
+1. **Project chooses.** The Project owns definitions and selects the active
+   workflow revision. `axiom-project` is the primary conversational entrypoint
+   for active selection, Project policy and Project lifecycle.
+2. **Workflow defines.** `axiom-workflow` lists, inspects, creates, edits,
+   validates, removes and recovers definitions. It configures stages, agents,
+   dependencies, validators, gates and Runtime/Model Profile references.
+   It may perform read-only configuration readiness diagnostics but does
+   not mutate Project policy or select the active revision.
+3. **Work Item requests and controls.** `axiom-work-item` owns the
+   conversational `run`, `status`, stage Plan and Execution lifecycle of a
+   **specific** Work Item. The #303 delivery requirement covers the
+   **deterministic/synthetic R-1 technical verification** of the Work Item-owned
+   #275 stage-plan acceptance procedure, including skill routing, canonical
+   validation, previews and Evidence. The *real* natural-language use of that
+   procedure in Codex and Claude (R-2), and the end-to-end human MVP acceptance
+   (R-3), are both owned by #278 / AXM-12. The Work Item surface uses
+   `axiom-workflow` only for configuration and `axiom-project` for
+   active revision selection; neither takes Execution ownership.
+4. **Execution runs.** Running the specific Work Item resolves its Project's
+   valid active workflow revision through the canonical application operation,
+   freezes an immutable `WorkflowBinding` in the new Execution and never
+   silently changes that binding when the Project selects a new revision.
+   Missing or invalid active selection fails closed; there is no automatic
+   fallback or free-standing Workflow run. This is existing canonical start
+   behavior (verified against v0.15.0 in the amendment); skills add no
+   selection logic.
+
+Existing `axiom project workflow *` and `axiom workflow *` CLI operations,
+their arguments, results and authority are preserved. In particular, this ADR
+does not mandate adding or renaming CLI commands to `axiom work-item run`;
+that is a **conversational intent**, routed to the existing Work Item-owned
+canonical operations.
+
+**No legacy skill routes (HD-007, option B).** Axiom is pre-MVP with no
+external users, so there is no compatibility window. In the same #303
+implementation, `axiom-project` loses its workflow definition
+`workflow.list/show/create/edit/validate/remove/recover` skill routes, and
+`axiom-workflow` becomes the only conversational skill for definition, stage
+and agent configuration; no alias, forwarding, duplicate catalog action or
+later cleanup milestone remains. `axiom-project` keeps active selection
+(`workflow.select`); `axiom-work-item` keeps `run`, `status`, `plan` and its
+Execution operations. Only skill routes change: the canonical CLI commands are
+neither removed nor renamed. Historical skill-set receipts and history (for
+example v0.15.0) stay immutable provenance, not live aliases.
+
+Lingo and application services remain the sole owners of validation,
+digests, preview/apply, authorization and state. Skills add no workflow
+registry, scheduler, approval fact, result protocol or parallel domain logic.
+Runtime-prepared draft files are working inputs, not Evidence or approval.
+Each mutation uses its own canonical preview and explicit confirmation.
+
+## Configuration scope and readiness (HD-006 direction)
+
+A Project's portable policy is the set of **allowed** Runtimes and Model
+Profiles, not an assertion that a Runtime is installed, authenticated or
+operational on the machine. [Spec 002 policy v2](../specifications/002-lingo-project-initialization/runtime-policy-v2.md)
+already permits multiple Runtime declarations, Project Model Profiles and
+role/complexity preferences. The Project owns edits to that policy
+([G-1 / #305](https://github.com/rgomids/axiom/issues/305)); local Runtime
+configuration separately owns actual installed Runtime/Profile bindings
+([G-2 / #306](https://github.com/rgomids/axiom/issues/306)).
+Removing a Runtime from one Project disallows it only there; removing one
+locally affects readiness of all dependent Projects without rewriting their
+portable configuration or existing immutable Executions.
+
+A Runtime may have **multiple named local Profiles**; three common example
+names (`economy`, `balanced`, `advanced`) are optional presets, not a
+hard-coded tier model. A Workflow's Stage/Agent records the requested
+Runtime constraints, logical Profile references, complexity and effort; it
+does not configure the local machine or imply that effort is comparable
+between vendors. The effective candidate set is constrained by the Project
+policy, local matching enabled Profiles, the Stage/Agent requirements and
+authoritative capability observations. The v2 matching contract, including
+portable Project model fields and current schema limits, is preserved until
+an independently reviewed migration. Missing, inconsistent or ambiguous
+configuration fails closed; no silent Runtime/Model fallback.
+
+The [#231](https://github.com/rgomids/axiom/issues/231) Project readiness
+contract provides the existing diagnostic owner for Repository bindings,
+Provider availability and Project/runtime compatibility. A future aggregate
+`axiom doctor` may reuse its validators but is **not** created by this ADR,
+this PR or the two follow-ups. Active vendor inference requires separate
+operator authorization; readiness never grants execution authority. Local
+credential references and vendor login state are never portable Project or
+Workflow data or published Evidence. G-2 includes an independent security
+review before implementation.
+
+HD-006's *separate follow-ups* are linked under [#303](https://github.com/rgomids/axiom/issues/303)
+for technical traceability without reopening the frozen MVP epic. The
+configuration-only skill in this ADR does not own G-1, G-2, stage dispatch,
+Work Item execution or Doctor mutation. The exact revised Spec/ADR was
+**accepted by the maintainer on 2026-10-10**, but this contract decision does
+not authorize implementation or AXM-7 technical/product acceptance.
+
+## Evidence and final acceptance placement (HD-008)
+
+The maintainer selected **Option A** on 2026-10-10: this
+[#303](https://github.com/rgomids/axiom/issues/303) skill-surface delivery
+may be **technically verified using deterministic and synthetic R-1 Evidence**,
+including registered skill metadata, installation/upgrade behavior, stage
+planning, fail-closed refusal cases and canonical CLI results. Those tests
+do not prove real vendor inference, native conversational usability or a
+complete dispatched Workflow. They are never presented as R-2 or R-3 PASS.
+
+The **final MVP validation**, [#278](https://github.com/rgomids/axiom/issues/278)
+(Linear [AXM-12](https://linear.app/rgomids/issue/AXM-12)),
+owns separate **R-2** authenticated Codex and Claude conversational sessions
+and **R-3** live Project/Workflow/Work Item/Execution and authorized
+delivery/rework tests, followed by the maintainer's explicit human
+accept/reject decision. Vendor inference, Provider effects and paid
+operations must be expressly authorized when those tests are run.
+Blockers such as G-2/#306 and consented Provider linkage G-4 must be
+resolved before affected real scenarios can pass; a synthetic passing test
+cannot waive them. Any failures discovered there are addressed by bounded
+technical corrections to the owning feature.
+
+The #303 technical completion/AXM-7 technical acceptance can be reconciled
+after R-1 review and applicable authority **without treating deferred final
+E2E testing as an AXM-8 prerequisite**. This does not mean #303 is currently
+complete, does not automatically change Linear or unblock successors, and
+does not grant final MVP acceptance. No new domain engine or skill authority
+is introduced by this test placement.
+
+## Alternatives considered
+
+| Option | Coupling / complexity | User experience | Reversibility |
+|---|---|---|---|
+| A. Keep HD-002 (Project + Work Item skills only) | No new artifact | Workflow configuration remains buried in Project lifecycle | Trivial |
+| **B. Dedicated `axiom-workflow` for configuration only (selected direction)** | One new installed skill/catalog/receipt/history pin; preserves domain and CLI | Clear boundaries: Project selects, Workflow configures, Work Item runs, Execution performs | Duplicate Project authoring skill routes removed in the same delivery (pre-MVP, HD-007); CLI unchanged; reversible by a later skill release |
+| C. Skill plus new top-level workflow CLI tree | Changes accepted public commands/selection | Limited benefit for conversational configuration | Needs aliases/deprecation |
+| D. New standalone Workflow domain/service | Duplicates Project ownership or migrates persisted state | Does not solve any necessary configuration UX problem beyond B | Costly and conflicts with ADR-0020 |
+
+The earlier broad version of B (configuration **plus** Execution orchestration)
+is rejected for this revision: it obscures the Work Item's lifecycle owner.
+
+## Consequences
+
+### Positive
+
+- A distinct conversational skill to create and manage workflow configuration
+  in both Codex and Claude without requiring operator-authored JSON.
+- Project selection and Work Item execution remain understandable, separate
+  user intents. A Work Item run uses its Project's active revision, with an
+  immutable binding per Execution.
+- #275 conversational acceptance still has an explicit home in
+  `axiom-work-item`, using configuration handoff rather than converting the
+  configuration skill into an execution orchestrator.
+- Canonical CLI, validation, authority and revision semantics remain
+  unchanged; each workflow intent has exactly one owning skill route.
+
+### Negative / trade-offs
+
+- A third skill adds inventory, install/upgrade/retirement, metadata, receipts,
+  history pinning and parity test obligations for Codex and Claude.
+- Upgrading changes the installed skill inventory immediately: the Project
+  authoring skill routes disappear. After fresh install, upgrade from v0.15.0
+  and reinstall in both Codex and Claude, `skill inspect`, help, the active
+  inventory and routing must contain no obsolete Project authoring route,
+  while Project selection and Work Item execution routes remain; retirement
+  and skill-set history tests must prove it.
+- Multi-surface journeys (configure → select → run) need clear handoff
+  documentation and separate previews/approvals; no silent Project selection.
+- Active-selection resolution on Work Item start is existing canonical
+  behavior (`axiom workflow start` admission, verified against v0.15.0 in the
+  amendment); the skills add no selection logic and no gap is opened.
+
+## Relationship to accepted decisions
+
+This ADR supersedes no ADR. It changes only the skill interaction surface
+originally specified by Specification 007 HD-002, and it explicitly preserves
+[ADR-0020](0020-workflow-definition-revision-binding.md)'s Project-owned
+authoring/selection, Work Item-bound execution and immutable
+`WorkflowBinding`. ADR-0003, ADR-0008 and ADR-0009 remain unchanged.
+Superseded *skill-surface* fragments of the accepted Specification are
+recorded in the accepted amendment and annotated in the original Specification
+as historical text; domain/CLI ownership and ADR-0020 remain valid.
+
+## Revisit when
+
+A Workflow becomes independently owned outside a Project; Work Items gain a
+versioned, explicitly authorized workflow-override contract; a later
+explicit change to canonical CLI or skill-routing ownership is proposed; or
+evidence shows that separate conversational ownership
+prevents a required user journey.

@@ -36,6 +36,41 @@ operation over the #274 Execution binding, and the production
 capability-observation boundary. Proposal review and human acceptance remain
 separate from implementation.
 
+[#303 dedicated workflow skill amendment](007-configurable-workflows/amendment-303-workflow-skill.md):
+**Accepted, 2026-10-10**, with [ADR-0022](../decisions/0022-dedicated-workflow-conversational-surface.md);
+formal decision [Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104)
+on the exact reviewed PR #304 head `7db80ac`. The historical HD-002
+*skill-surface* clauses are preserved struck through and annotated in the
+[accepted Specification 007](007-configurable-workflows/spec.md); domain and
+CLI commands are unchanged.
+Records HD-005–HD-008: `axiom-workflow` exclusively configures Project-owned
+workflow definitions, stages and agents; `axiom-project` selects the active
+revision; `axiom-work-item` owns Work Item-bound Execution and planning. #303
+tests the #275 Work Item-owned stage-plan acceptance procedure **technically
+with deterministic/synthetic R-1 Evidence**. Real native Codex/Claude
+operability (**R-2**) and the end-to-end **human MVP acceptance (R-3)** are
+explicitly deferred to [#278 / AXM-12](https://github.com/rgomids/axiom/issues/278).
+HD-007 removes duplicate Project definition-authoring **skill routes** in
+the same delivery without changing canonical CLI commands. HD-006 tracks
+Project-policy editing [#305](https://github.com/rgomids/axiom/issues/305)
+and secure local Runtime/Profile authoring
+[#306](https://github.com/rgomids/axiom/issues/306), reusing Project readiness
+[#231](https://github.com/rgomids/axiom/issues/231).
+This amendment and ADR-0022 now define the accepted *skill-surface*
+contract. The remaining accepted Specification 007 domain rules and
+ADR-0020 are authoritative. Implementation, merge, release, Runtime inference
+and downstream human acceptance remain separately gated.
+
+[#303 Addendum R10 — Project `activeWorkflow` read field](007-configurable-workflows/addendum-303-r10-active-workflow.md):
+**Accepted, 2026-10-10**, by [formal maintainer decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056), recording the maintainer's
+[R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634)
+decision: a bounded exception to amendment #303 AC-015.3/AC-015.8 that adds
+only a read-only `activeWorkflow` field to `project show`/`project list`. The
+accepted amendment and ADR-0022 text are unchanged; this independently accepted addendum does not by itself authorize implementation or merge.
+
+[#303 Plan and Tasks](007-configurable-workflows/plan-tasks-303-workflow-skill.md):
+**Accepted, 2026-10-10**, by [formal maintainer decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056) after bounded review; implementation is gated by T01 and separately authorized execution. Acceptance does not imply merge, release, or technical delivery.
+
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
 [Specification](006-installer-host-eligibility/spec.md): **Approved, 2026-10-04**

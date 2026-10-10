@@ -4,6 +4,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
+- [ADR-0022 — Dedicated workflow configuration conversational surface](0022-dedicated-workflow-conversational-surface.md) — **Accepted, 2026-10-10**, by explicit maintainer decision ([Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104); exact [PR #304](https://github.com/rgomids/axiom/pull/304) head `7db80ac`). `axiom-workflow` is the single conversational *configuration* owner, `axiom-project` selects and `axiom-work-item` runs/plans; HD-006 separates Project allowlist/local profiles; HD-007 removes overlapping skill routes, not CLI; HD-008 defers real R-2/R-3 to #278. Partially supersedes only the **skill-surface** choice of Specification 007 HD-002; domain/CLI and ADR-0020 remain accepted. Implementation, merge and release need separate authority.
+
 - [ADR-0021 — Windows Server AMD64 native acceptance](0021-windows-server-amd64-native-acceptance.md) — Accepted, 2026-10-09; explicit maintainer authorization for member Server AMD64, preserving local NTFS protections and separate client coverage.
 
 - [ADR-0020 — Workflow definition ownership and revision binding](0020-workflow-definition-revision-binding.md) — **Accepted, 2026-10-09** (human decision in [Issue #271](https://github.com/rgomids/axiom/issues/271#issuecomment-6074127314)); Project-owned portable definitions and selection, JCS/SHA-256 revisions, immutable local snapshots and new linked Executions for rework; historical sequential and graph decisions remain intact. Implementation requires separate authority.
