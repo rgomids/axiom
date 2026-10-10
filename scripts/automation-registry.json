@@ -44,7 +44,7 @@
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "owner": "ci",
-      "purpose": "Required product checks on every pull request and manual dispatch: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job; plus the required upgrade-journeys acceptance jobs on linux and macos (versioned policy; remote application follows merge to main and administrative read-back). Parallel go-quality requires formatting, module tidiness and pinned curated Staticcheck with regression contracts. Linux tests collect coverage once with report-only code health summaries and artifacts.",
+      "purpose": "Change-aware PR suites, stable required contexts and unconditional repository validation; dispatch always runs full CI.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -1049,6 +1049,39 @@
         "scripts/test-check-sensitive-files.sh"
       ],
       "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/classify-ci-changes.py",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Deterministic closed path routing for PR CI with conservative full fallback.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "CI path classification or documented offline fixture checks",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "Immutable Git base/head, run identity, versioned plan and platform completion records; optional bounded fetch",
+      "outputs": "Versioned routing plan, platform records, real outcome Evidence and Actions outputs/summary; nonzero on invalid conclusion",
+      "local_effects": "Explicit output/summary files; bounded Git object/ref fetch with --fetch",
+      "network_effects": "With --fetch only: read exact base/head from origin with depth 64 and no tags",
+      "authority": "Local validation; CI-authorized read-only repository fetch when explicitly requested",
+      "tests": [
+        "scripts/test-ci-classification.py"
+      ],
+      "evidence": "docs/development/change-aware-ci.md",
       "compatibility": [],
       "removal_condition": null
     },
@@ -2185,6 +2218,38 @@
       "authority": "none; local fixture checks",
       "tests": [],
       "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-ci-classification.py",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Offline CI routing and stable required-context fixtures.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3",
+        "bash"
+      ],
+      "scope": [
+        "ci",
+        "maintainer",
+        "test"
+      ],
+      "trigger": "CI path classification or documented offline fixture checks",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "Git diff base/head or path fixtures",
+      "outputs": "Routing JSON/Actions outputs or unittest results",
+      "local_effects": "Actions output/summary files or temporary Git fixtures",
+      "network_effects": "none",
+      "authority": "read-only local validation",
+      "tests": [],
+      "evidence": "docs/development/change-aware-ci.md",
       "compatibility": [],
       "removal_condition": null
     },
