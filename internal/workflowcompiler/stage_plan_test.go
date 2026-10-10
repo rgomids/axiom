@@ -117,6 +117,15 @@ func TestPlanStageFailsClosedWithSpecificationCategories(t *testing.T) {
 			ceiling.Plan.Work[index].Scope.Paths = []string{"src"}
 		}
 	}
+	escapeScope := multiRequest(t)
+	escapeScope.Plan.Work[0].Scope.Paths = []string{".."}
+	escapeWrite := multiRequest(t)
+	parent := executiongraph.Effect{Kind: "repository-write", Target: ".."}
+	escapeWrite.ParentAuthority = []executiongraph.Effect{parent}
+	escapeWrite.Plan.Work[0].Scope.Paths = []string{".."}
+	escapeWrite.Plan.Work[0].Effects = []executiongraph.Effect{parent}
+	backslash := multiRequest(t)
+	backslash.Plan.Work[0].Scope.Paths = []string{`..\outside`}
 	unapproved := multiRequest(t)
 	unapproved.Plan.Approved = false
 	for _, tc := range []struct {
@@ -132,6 +141,9 @@ func TestPlanStageFailsClosedWithSpecificationCategories(t *testing.T) {
 		{"effect outside parent ceiling", New(testRuntimes{}, capabilityOK{}), excess, "authority_denied", true},
 		{"effect outside agent ceiling", New(testRuntimes{}, capabilityOK{}), ceiling, "authority_denied", true},
 		{"unapproved plan", New(testRuntimes{}, capabilityOK{}), unapproved, "invalid_stage_plan", false},
+		{"parent scope path", New(testRuntimes{}, capabilityOK{}), escapeScope, "authority_denied", true},
+		{"parent write target within matching ceiling", New(testRuntimes{}, capabilityOK{}), escapeWrite, "authority_denied", true},
+		{"backslash scope path", New(testRuntimes{}, capabilityOK{}), backslash, "authority_denied", true},
 		{"unsafe parallel overlap", New(testRuntimes{}, capabilityOK{}), overlap, "invalid_stage_topology", false},
 	} {
 		_, err := tc.compiler.PlanStage(context.Background(), stagePlanRequest(t, tc.request, nil))

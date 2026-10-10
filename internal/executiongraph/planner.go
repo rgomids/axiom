@@ -342,7 +342,7 @@ func pathsOverlap(left, right string) bool {
 }
 
 func validRelativePath(value string) bool {
-	return validTarget(value) && value != "." && !strings.HasPrefix(value, "/") && path.Clean(value) == value && !strings.HasPrefix(value, "../")
+	return validTarget(value) && value != "." && value != ".." && !strings.HasPrefix(value, "/") && path.Clean(value) == value && !strings.HasPrefix(value, "../")
 }
 
 func validTarget(value string) bool {

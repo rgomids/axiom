@@ -275,6 +275,20 @@ a repeated gate kind with `duplicate_gate`;
 observation digest cannot reach a resolution because `previewMatches` requires
 valid digests; an effect outside the ceiling remains an authority refusal.
 
+### PR review remediation (CR-001)
+
+Confirmed Major: a bare `..` Plan scope path, with a matching `repository-write`
+target and authority ceiling, was accepted because the shared graph
+`validRelativePath` and the compiler's `withinScope` refused `../...` but not
+the bare parent token. The graph validator now refuses `..`, and Plan admission
+requires every work scope path and write/integration target to be a normalized
+Repository-confined slash path (no root, parent, absolute or backslash form),
+refused as `authority_denied`. Regressions
+`TestValidRelativePathRefusesParentAndRoot`,
+`TestPlanStageFailsClosedWithSpecificationCategories` (parent scope, parent
+write target within a matching ceiling, backslash scope) and the public journey's
+`..` Plan each failed before the fix and pass after it, with no state change.
+
 ### Limitations
 
 - The production executable observer proves only Axiom skill integration. On a

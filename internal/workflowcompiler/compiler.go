@@ -265,6 +265,11 @@ func validateRequest(request Request) (workflowdefinition.Stage, error) {
 		if !validEffects(unit.Effects, request.ParentAuthority) {
 			return workflowdefinition.Stage{}, errAuthority
 		}
+		for _, scope := range unit.Scope.Paths {
+			if !confinedPath(scope) {
+				return workflowdefinition.Stage{}, errAuthority
+			}
+		}
 		if _, exists := work[unit.Key]; exists {
 			return workflowdefinition.Stage{}, ErrInvalidRequest
 		}
@@ -597,8 +602,8 @@ func withinScope(effects []executiongraph.Effect, paths []string) bool {
 		if effect.Kind != "repository-write" && effect.Kind != "integration" {
 			continue
 		}
-		target := path.Clean(effect.Target)
-		if target == "." || path.IsAbs(target) || target != effect.Target || strings.HasPrefix(target, "../") {
+		target := effect.Target
+		if !confinedPath(target) {
 			return false
 		}
 		covered := false
@@ -615,6 +620,13 @@ func withinScope(effects []executiongraph.Effect, paths []string) bool {
 	}
 	return true
 }
+
+// confinedPath accepts only a normalized slash path that stays inside the
+// selected Repository: no root, parent, absolute or backslash form.
+func confinedPath(value string) bool {
+	return value != "" && value != "." && value != ".." && !path.IsAbs(value) && path.Clean(value) == value && !strings.HasPrefix(value, "../") && !strings.Contains(value, "\\")
+}
+
 func topologicalIDs(agents []workflowdefinition.Agent) []string {
 	remaining := map[string]workflowdefinition.Agent{}
 	for _, agent := range agents {
