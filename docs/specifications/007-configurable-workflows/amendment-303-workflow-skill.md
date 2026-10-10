@@ -221,42 +221,91 @@ persistent Agent Profile entity; agents exist only inside a stage definition.
 
 ## Runtime and Model Profile capability matrix
 
-| Concern | Owner / layer | Current operation | `axiom-workflow` coverage |
-|---|---|---|---|
-| Project allowlist, Model Profiles, preferences at Project creation | Project (portable policy v2) | `project configure` CREATE `--runtime`, `--model-profile`, `--runtime-preference` | Explains and hands off to `axiom-project configure` with its own preview/authority |
-| Same policy on an **existing** Project | Project | none (CREATE-only) | Unavailable: reported as G-1, never patched |
-| Stage/agent Runtime constraint, Profile reference, effort | Workflow definition | `definition.create`/`edit` | Supported |
-| Machine-local Runtime Profile store (adapters, models, credential references) | Machine-local | `runtime profile validate` (read-only) | Read-only; authoring unavailable (G-2) |
-| Runtime installation / skill integration / auth observation | Machine-local | `runtime codex\|claude status`, `auth`; `runtime profile preview` | Read-only configuration diagnostics; Work Item owns execution readiness |
-| Capability and explicit-effort proof beyond `axiom-skills` | Machine-local observation | production observer proves only `axiom-skills` | Reported truthfully as `runtime_unresolvable` / `unsupported_effort` (G-3, #272) |
+**HD-006 scope direction (maintainer, 2026-10-10):** Project Runtime policy
+describes permission, not necessarily the host's operational availability.
+This direction is incorporated in the **Proposed** amendment; exact-revision
+Spec/ADR acceptance and implementation authorization remain separate.
 
-The skill never infers a capability from an executable on `PATH`, a model name,
-a login state or the Runtime it is running in.
+| Layer | Owner | Existing contract / missing behavior |
+|---|---|---|
+| Machine-local Runtime/Profile configuration | Runtime configuration, not a Project or a Workflow skill | Local installed/observed Runtimes, adapters, models, credential references. Read-only `runtime profile validate/preview` exists; supported local create/edit/remove/preview/apply is **G-2**, [#306](https://github.com/rgomids/axiom/issues/306). |
+| Portable allowed Runtime/Profile policy | Project / `axiom-project` | Spec 002 Runtime policy v2 (#140): `runtimes[]`, `modelProfiles[]`, `runtimePreferences[]` established at CREATE. Safe edit of an existing Project is **G-1**, [#305](https://github.com/rgomids/axiom/issues/305). |
+| Stage/Agent selection intent | Workflow definition / `axiom-workflow` configuration | Existing `definition.create/edit`: `runtimeConstraints`, `profileRef` or `policy-default`, `complexity`, `effort`. Neither Project policy nor local credentials are mutated by the skill. |
+| Concrete Work Item execution readiness | Work Item/Execution and canonical resolver | Resolve Project allowlist ∩ machine-local enabled/matching Profiles ∩ observed capabilities ∩ stage constraints; fail closed. |
+| Project bootstrap/readiness | [#231](https://github.com/rgomids/axiom/issues/231) | Existing proposed Project validation and Provider/Repository/binding diagnostics; no duplicate global Doctor implementation inside #303, #305 or #306. |
+
+### HD-006 configuration invariants
+
+1. A Project's Runtime list is its **allowed set**, not a single selected
+   Runtime and not proof of local installation. Removing Claude from Project A
+   affects only A. Disabling or removing Claude from the **local machine**
+   affects readiness for every dependent Project, but never rewrites portable
+   Project policies, workflow definitions or existing immutable Executions.
+2. Multiple **user-named Profiles per Runtime** are supported as a product
+   outcome. `economy`, `balanced`, `advanced` are optional examples only,
+   not a hardcoded three-profile limit or comparable vendor quality ranking.
+   Respect accepted Project policy v2 limits (**8 Runtimes, 32 profiles,
+   32 preferences**); relaxing those requires a separate versioned contract.
+3. Runtime != Model; Role != Model; Profile != agent complexity !=
+   reasoning effort. Each local Profile belongs to a Runtime and resolves
+   a concrete model/configuration as supported. The Workflow Stage/Agent
+   declares constraints and logical Profile references rather than credentials
+   or executable paths. Effort and capabilities must be observed and supported,
+   with no fabricated cross-vendor equivalence.
+4. **Preserve the current Spec 002 v2 matching rule:** a portable Project
+   `modelProfiles` entry currently includes an explicit logical key,
+   `runtimeRef` **and `model` field**; local binding must match required
+   IDs, associations and concrete model. Changing the portable model field
+   into a purely logical reference would require an independently reviewed
+   migration, not an implicit change in HD-006.
+5. No silent fallback to the initiating Runtime, another Profile or another
+   model when the intersection is empty, ambiguous, disabled, unauthenticated
+   or capability/effort-incompatible. Return a precise blocker.
+6. G-1 changes a **Project-owned portable** policy through canonical
+   read/validate/preview/apply, expected-revision and explicit authorization.
+   G-2 changes **machine-local** Runtime/Profile bindings through separately
+   gated operations; it requires credential-reference and filesystem security
+   review. Neither operation grants dispatch or Provider effects and neither
+   copies secrets, login files, tokens or host paths to portable data/Evidence.
+7. **Doctor/readiness** should aggregate existing canonical, read-only
+   Project, Provider, Repository and Runtime/Profile validators. #231 owns the
+   Project-scoped readiness proposal. A potential future `axiom doctor` is
+   only an aggregate UX idea, not a new requirement, Issue or implementation
+   in #303. Structural validity ≠ operational readiness ≠ active vendor
+   inference; live probes require their own explicit operator authorization.
+
+`axiom-workflow` may explain available Profiles and validate Stage/Agent
+references. It does not create/edit Project policy (G-1) or local Profiles
+(G-2). These remain distinct stores and authority boundaries even if one
+conversation guides the user across them.
 
 ## Gaps and dependencies
 
-| Gap | Missing contract | Impact | Proposed disposition |
-|---|---|---|---|
-| G-1 | Preview/apply edit of Project Runtime/Model Profile policy on an existing Project | Policy changes need a new Project or a historical authored-manifest path | Bounded follow-up Issue (Spec 002 amendment); not in #303 (HD-006) |
-| G-2 | Preview/apply authoring of the machine-local Runtime Profile store | A fresh sandbox cannot create the Profile configuration that `workflow start` and `stage.plan` need; live Execution-dependent acceptance is blocked | Bounded follow-up Issue with its own credential-reference security review; not in #303. Required for R-3 of C–G (HD-006) |
-| G-3 | Authoritative capability / model-specific effort observation | Positive explicit-effort or non-`axiom-skills` planning is only provable synthetically | Existing #272 |
-| G-4 | Provider-free Work Item linkage for sandboxes | A live Execution needs a linked existing Provider Issue (`work-item select`, Provider read, sandbox-local link) | No new contract; use an existing Issue the user names, never create one without external authority |
-| G-5 | Recorded Plan approval fact | Approval is asserted by the Plan document | Existing #276 binds the reviewed `plan.digest` before dispatch |
-
-**Follow-up traceability gate.** G-1 and G-2 are not tracked by any Issue
-at this revision (checked 2026-10-10; closed #140 delivered the existing
-CREATE-time policy, not G-1/G-2). Before this amendment is accepted as
-reconciled, and before #303 delivery is considered complete, one bounded
-GitHub Issue each for G-1 and G-2 must exist, created under the maintainer's
-authority, and be cross-referenced here by number. The G-2 Issue must carry the
-credential-reference security review as its own acceptance criterion. Both
-stay outside #303's skill implementation. Until the references are recorded,
-this gate reads `open` and HD-006 cannot be accepted as reconciled.
-
-| Gap | Follow-up Issue | Status |
+| Gap | Missing contract | Impact / disposition |
 |---|---|---|
-| G-1 | to be created | open |
-| G-2 | to be created | open |
+| G-1 | Edit existing Project allowed Runtimes/Model Profile policy | [#305](https://github.com/rgomids/axiom/issues/305), bounded Project config follow-up; requires its own Spec 002 reconciliation if needed; not part of #303 skill implementation. |
+| G-2 | Production authoring of local Runtime/Profile store | [#306](https://github.com/rgomids/axiom/issues/306), bounded Runtime config follow-up and mandatory credential-reference security review; prerequisite for AXM-7 R-3 live scenarios C–G; not part of #303 skill implementation. |
+| G-3 | Authoritative model-specific capability/effort observation | Existing observation boundary (#272); positive unproven capabilities remain blocked. |
+| G-4 | Live linked Provider Work Item | Requires consented use of an existing user-named Provider Issue; no new Provider resource without authority. |
+| G-5 | Recorded Plan approval fact | #276 owns durable approval binding before real dispatch. |
+
+**Follow-up traceability gate: satisfied.** G-1 and G-2 are linked
+technical follow-ups [#305](https://github.com/rgomids/axiom/issues/305)
+and [#306](https://github.com/rgomids/axiom/issues/306) under
+[#303](https://github.com/rgomids/axiom/issues/303), without adding
+scope to the frozen [#15](https://github.com/rgomids/axiom/issues/15)
+MVP epic. Their creation does **not** mean delivery or authorize
+implementation. The #303 R-1/R-2 technical milestone can be reviewed
+separately, but blocked Lane L scenarios cannot be accepted at R-3 until
+G-2 is genuinely resolved (and G-4 consented linkage is available).
+G-1 is tracked as a separate Project-policy evolution; its unavailable
+operations must be reported truthfully.
+
+| Gap | Follow-up | Status |
+|---|---|---|
+| G-1 | [#305](https://github.com/rgomids/axiom/issues/305) | Open technical dependency |
+| G-2 | [#306](https://github.com/rgomids/axiom/issues/306) | Open technical dependency; blocks R-3 C–G |
+| Doctor/Project readiness | [#231](https://github.com/rgomids/axiom/issues/231) | Existing Project diagnostic scope; no new Doctor in #303 |
 
 ## Work Item-owned conversational #275 acceptance (`axiom-work-item`, stage-plan mode)
 
@@ -419,7 +468,11 @@ which need explicit authorization when they involve vendor inference.
    blocked by G-2/G-4 stay `blocked` and are never reported as accepted.
 8. Canonical CLI, result, digest, preview/apply, security and authority
    semantics are unchanged (existing tests pass unmodified).
-9. An independent review reports no unresolved Blocker/Major.
+9. HD-006 policy-vs-local registry boundaries are verified: #305 and #306
+   are linked; no fixed three-profile constraint, no Project/local conflation,
+   no unproven Runtime capability and no hidden credential/authority mutation.
+   Project readiness reuses #231 without implementing a new Doctor here.
+10. An independent review reports no unresolved Blocker/Major.
 
 ## Implementation plan (authorized only after acceptance)
 
@@ -441,6 +494,6 @@ which need explicit authorization when they involve vendor inference.
 | ID | Decision | Options | Recommendation | Harder to change later |
 |---|---|---|---|---|
 | HD-005 | Dedicated configuration surface and explicit ownership | A keep HD-002; **B `axiom-workflow` configuration only, `axiom-project` selects, `axiom-work-item` runs/plans/accepts, Execution binds an immutable selected revision (ADR-0022)**; C plus new CLI tree; D new workflow domain | **B — maintainer direction recorded 2026-10-10; exact revised contract still Proposed** | Skill and operation names become public conversational contracts |
-| HD-006 | Runtime/Profile gaps G-1/G-2 | **a. track G-1 and G-2 as bounded follow-up Issues, not in #303; live C–G stay `blocked` on G-2/G-4**; b. deliver G-2 (and G-1) inside #303 | a — G-2 adds credential-reference authoring that needs its own Spec 002 amendment and security review; acceptance requires the follow-up traceability gate to be closed | With (a), AXM-7 functional acceptance (R-3) of C–G is blocked by G-2 until that follow-up ships |
+| HD-006 | Project allowlist vs local Runtime/Profile registry, Workflow selection, readiness | **A (maintainer direction):** keep Project policy portable/editable [#305], manage multiple named local Profiles per Runtime [#306], Workflow binds Stage/Agent references, Project/workflow/host readiness is verified by canonical validators (#231). Separate the technical follow-ups from #303 implementation; **B:** conflate portable Project policy and machine-local Profiles inside #303 | **A**; preserve Spec 002 v2 intersection/bounds and security/authority. Both Issues tracked; exact revised Spec approval remains pending. | G-2 still blocks real Lane L C–G and AXM-7 R-3 until shipped; adding a global Doctor or changing Project schema needs its own reviewed scope |
 | HD-007 | Compatibility window | **keep routes until a separate removal decision**; remove at the next minor | keep | Removal later requires retirement/upgrade protocol |
 | HD-008 | Synthetic Evidence for #275 conversational acceptance | **accept as intermediate technical Evidence (R-1) only, classified `synthetic`, never R-2, R-3 or vendor proof** (direction recorded on the PR #304 review); require Lane L only | accept as R-1 only | R-3 still needs real scenarios; #278 still owns live two-Runtime proof |
