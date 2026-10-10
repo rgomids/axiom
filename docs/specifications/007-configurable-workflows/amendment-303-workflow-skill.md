@@ -102,38 +102,60 @@ WF-009 (#276), WF-011 (#277) or WF-012 (#278).
 
 ## Skill ownership
 
-| Skill | Primary conversational ownership after this amendment | Compatibility |
-|---|---|---|
-| `axiom-project` | Project lifecycle, identity, integrations, Runtime/Model Profile policy at creation, and **selection of the active Project workflow revision** | Existing `workflow.*` routes remain operational. |
-| `axiom-workflow` | **Definition configuration only**: list/show/validate/create/edit/remove/recover workflow definitions, stages and agents, plus read-only configuration readiness | New skill, no Execution lifecycle or Work Item mutation routes. |
-| `axiom-work-item` | Work Item lifecycle and the Work Item-bound **run/status/plan/Execution interactions**, including the #275 conversational acceptance procedure | Existing `run`, `status`, `plan` remain supported. |
+**Migration policy (HD-007):** no legacy skill compatibility window. The
+new skill is introduced and overlapping old skill routes are **removed within
+the same #303 implementation**; the current PR remains a contract-only
+proposal and does not itself change installed Runtime packages.
+
+| Skill | Exclusive primary conversational ownership after implementation |
+|---|---|
+| `axiom-project` | Project lifecycle, identity, integrations, Runtime/Model Profile policy and **selection of the active Project workflow revision** (`workflow.select` and minimal Project-owned active-selection inspection). Definition authoring/validation routes are **removed** from this skill. |
+| `axiom-workflow` | **Definition configuration only**: list/show/validate/create/edit/remove/recover definitions, stages and agents, plus read-only configuration readiness. The sole canonical *skill* entrypoint for these intents. No Project selection or Work Item/Execution operation. |
+| `axiom-work-item` | Work Item lifecycle and Work Item-bound **run/status/stage planning/Execution interactions**, including the #275 conversational acceptance procedure. These routes remain here; no workflow-definition routes are introduced. |
 
 Rules:
 
-1. `axiom-workflow` routes configuration operations to the **existing** Project
-   workflow commands; domain data and validation continue to belong to Project
-   and Lingo. A route's flags, authority and results are taken from the
-   canonical command registry. Metadata parity is tested per action and mode.
-2. The **active revision is selected via `axiom-project`**, not by treating the
-   `axiom-workflow` configuration skill as the Project selector. The existing
-   `axiom project workflow select` command is unchanged. A configuration
-   conversation can explain the next Project-selection step, without silently
-   selecting or activating a revision.
-3. `axiom-work-item run` (the conversational intent, not a newly mandated CLI
-   spelling) identifies the specific Work Item and its Project, resolves the
-   Project-selected active workflow through canonical operations, and creates
-   an immutable `WorkflowBinding`. It must not execute a free-standing
-   workflow or fall back silently to another revision. `axiom workflow start`
-   and other existing CLI operations remain canonical and unchanged.
-4. `axiom-work-item` continues to own stage Plan proposals, Execution
-   operations, readiness in execution context, and the #275 acceptance
-   procedure. When that procedure needs a configured workflow, it invokes
-   the configuration surface for that **configuration subtask only**; it does
-   not transfer Work Item or Execution ownership to `axiom-workflow`.
-5. Historical routes in `axiom-project` and `axiom-work-item` remain
-   available with identical metadata and authority until a separate versioned
-   retirement decision (HD-007). A cross-skill journey never combines
-   independent canonical previews into a single approval.
+1. `axiom-workflow` routes configuration operations to the **existing**
+   Project-owned canonical CLI/application commands. Domain data and validation
+   remain Project/Lingo-owned; operation flags, authorization and canonical
+   results come from that command registry. **Domain ownership is not skill
+   routing ownership.**
+2. **HD-007: Option B — remove overlapping skill routes in the same #303
+   implementation release**, with no deprecation window or separate removal
+   PR. Remove `axiom-project workflow.list/show/create/edit/validate/remove/recover`
+   from its embedded skill instructions, operation catalog, help, inspection and
+   natural-language routing. Add equivalent **configuration-only** operations
+   to `axiom-workflow`. Do not retain aliases, forwarding shims, duplicate
+   registered skill actions or a legacy instruction path. Old instructions
+   are replaced on both Codex and Claude install/upgrade/reinstall.
+3. **Active selection stays in `axiom-project`**: retain its existing
+   `workflow.select` route and only the Project-owned read-only active
+   selection inspection needed for that task. Selection is not an
+   `axiom-workflow` action; its CLI `axiom project workflow select` is
+   unchanged. Editing/creating a definition never activates it implicitly.
+4. **Execution remains in `axiom-work-item`**: retain its existing
+   Work Item-bound `run`, `status`, `plan` and Execution operations with
+   unchanged semantic owner and authority. `axiom-work-item run` is
+   conversational intent, not a newly mandated CLI spelling. It resolves the
+   Work Item's Project-selected revision and binds an immutable
+   `WorkflowBinding`, without free-standing workflow execution or fallback.
+5. **Strict conversational routing**: a request targeting the wrong skill is
+   directed to the owning skill, not served by duplicating a foreign operation
+   in the invoked skill. A multi-domain journey may invoke each owner's
+   explicit canonical operation as a separate step, with its own preview,
+   human authorization and read-back; never combine approval boundaries.
+6. **No CLI break**: `axiom project workflow *`, `axiom workflow *` and
+   their flags/results continue to work. Removing redundant *skill surfaces*
+   does not remove those commands or move domain ownership. Removing/renaming
+   any canonical CLI operation would require an independent versioned decision.
+7. **Upgrade contract**: the installed v0.15.0 skill-set remains immutable in
+   versioned skill-set history/receipts for provenance, but a current upgrade
+   replaces old skill bytes, regenerated catalogs and routing guidance
+   atomically. After upgrade, old configuration routes must be absent from
+   `axiom-project` `skill inspect`, help and both Runtime installations,
+   while Project selection and Work Item operations still work. Reinstall and
+   upgrade are idempotent; no stale route in active inventory. Historical
+   receipts remain evidence, not active executable aliases.
 
 ## `axiom-workflow` configuration operation catalog
 
@@ -444,12 +466,16 @@ which need explicit authorization when they involve vendor inference.
 
 1. Accepted amendment and ADR-0022, with the superseded Specification fragments annotated.
 2. `axiom-workflow` is embedded, installed and discoverable for Codex and
-   Claude, including upgrade from v0.15.0 and reinstall; skill-set history pins
-   the replaced v0.15.0 set; `skill inspect`, help and routing catalogs agree.
-3. Every `axiom-workflow` **configuration** action routes to its canonical
-   Project workflow command with matching metadata; active selection stays
-   Project-owned, execution and planning stay Work Item-owned, and existing
-   routes and CLI commands remain unchanged.
+   Claude, including upgrade from v0.15.0 and reinstall. Skill-set history
+   retains the historical v0.15.0 set for provenance, while active installed
+   skills, `skill inspect`, help and routing catalogs reflect **no duplicate
+   authoring/validation routes** after replacement.
+3. Every `axiom-workflow` **configuration** action routes to its existing
+   canonical Project workflow CLI command with matching flags/authority/results.
+   The old definition list/show/create/edit/validate/remove/recover **skill
+   routes are absent from `axiom-project`**, with no aliases or forwarding;
+   `workflow.select` stays Project-owned and `run/status/plan` Work Item-owned.
+   Existing canonical CLI operations and domain semantics remain unchanged.
 4. Definition, stage and agent configuration work from natural language
    through Runtime-prepared drafts. Project selects the active revision with
    its own approval. Starting a specific Work Item resolves that Project
@@ -480,7 +506,11 @@ which need explicit authorization when they involve vendor inference.
    `skillOperationSpecs("axiom-workflow")` reusing **only definition/configuration**
    specs; embedded inventory (`codexruntime`, `install`), receipts, skill-set
    history; route selection to Project and run/plan/acceptance to Work Item.
-2. Install/upgrade/retirement and parity tests for Codex and Claude.
+2. In the **same #303 implementation**, remove obsolete `axiom-project`
+   configuration routes and all duplicate help/catalog/routing text, retaining
+   Project selection and Work Item execution. Validate fresh install, upgrade
+   from v0.15.0, reinstall, idempotence, receipt/history preservation and
+   negative discovery in Codex and Claude; do not schedule a later cleanup.
 3. **Work Item-owned** #275 acceptance runner (Lane S) and report schema with
    R-1/R-2/R-3 levels, registered as durable automation; Lane L procedure in
    `axiom-work-item` (using `axiom-workflow` only for configuration).
@@ -495,5 +525,5 @@ which need explicit authorization when they involve vendor inference.
 |---|---|---|---|---|
 | HD-005 | Dedicated configuration surface and explicit ownership | A keep HD-002; **B `axiom-workflow` configuration only, `axiom-project` selects, `axiom-work-item` runs/plans/accepts, Execution binds an immutable selected revision (ADR-0022)**; C plus new CLI tree; D new workflow domain | **B — maintainer direction recorded 2026-10-10; exact revised contract still Proposed** | Skill and operation names become public conversational contracts |
 | HD-006 | Project allowlist vs local Runtime/Profile registry, Workflow selection, readiness | **A (maintainer direction):** keep Project policy portable/editable [#305], manage multiple named local Profiles per Runtime [#306], Workflow binds Stage/Agent references, Project/workflow/host readiness is verified by canonical validators (#231). Separate the technical follow-ups from #303 implementation; **B:** conflate portable Project policy and machine-local Profiles inside #303 | **A**; preserve Spec 002 v2 intersection/bounds and security/authority. Both Issues tracked; exact revised Spec approval remains pending. | G-2 still blocks real Lane L C–G and AXM-7 R-3 until shipped; adding a global Doctor or changing Project schema needs its own reviewed scope |
-| HD-007 | Compatibility window | **keep routes until a separate removal decision**; remove at the next minor | keep | Removal later requires retirement/upgrade protocol |
+| HD-007 | Immediate removal of overlapping skill routes | A keep legacy `axiom-project` definition-authoring routes for a compatibility window; **B remove those routes in the same #303 implementation and make `axiom-workflow` their only skill owner, with no aliases or deprecation window** | **B — maintainer direction recorded 2026-10-10, pre-MVP with no external users; exact Spec/ADR revision still Proposed**. Preserve Project `workflow.select`, Work Item `run/status/plan` and existing canonical CLI. | Active skill inventory/metadata changes immediately on upgrade; historical v0.15.0 skill-set receipt/history remains intact for provenance. Renaming CLI commands is out of scope. |
 | HD-008 | Synthetic Evidence for #275 conversational acceptance | **accept as intermediate technical Evidence (R-1) only, classified `synthetic`, never R-2, R-3 or vendor proof** (direction recorded on the PR #304 review); require Lane L only | accept as R-1 only | R-3 still needs real scenarios; #278 still owns live two-Runtime proof |
