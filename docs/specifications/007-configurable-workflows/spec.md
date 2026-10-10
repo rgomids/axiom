@@ -376,13 +376,27 @@ concrete model/effort; missing local Runtime setup remains an honest readiness g
 ## Public operations and boundary DTOs (WF-009/011/013)
 
 These are **proposed interfaces**, not commands available at this revision.
-Keep authoring under `axiom project workflow <operation>` and thin
-`axiom-project` operations `workflow.<operation>`. Execution uses existing
-`axiom workflow` command family and thin `axiom-work-item`; do not create an
-`axiom-workflow` skill. Project ownership gives one discoverable configure/show
-entrypoint and reuses preview/apply. A dedicated top-level workflow management
-surface would separate authoring conceptually but add selector/skill overlap;
-revisit only if independently managed cross-Project definitions become approved.
+Keep authoring under `axiom project workflow <operation>` and
+~~thin `axiom-project` operations `workflow.<operation>`.~~ Execution uses
+existing `axiom workflow` command family and thin `axiom-work-item`;
+~~do not create an `axiom-workflow` skill.~~
+~~Project ownership gives one discoverable configure/show entrypoint and reuses
+preview/apply. A dedicated top-level workflow management surface would
+separate authoring conceptually but add selector/skill overlap; revisit only
+if independently managed cross-Project definitions become approved.~~
+
+> **Conversational skill-surface supersession (accepted 2026-10-10):** the
+> historical stricken text is preserved for traceability. The approved
+> [Specification 007 amendment](amendment-303-workflow-skill.md) and
+> [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md)
+> replace **only** the skill-routing restriction: `axiom-workflow` configures
+> workflow definitions, `axiom-project` selects the active Project revision,
+> and `axiom-work-item` owns Work Item-bound execution/plan. The original
+> Project-owned CLI authoring and `axiom workflow *` commands, authority,
+> result contracts and immutable binding remain unchanged. The maintainer's
+> formal exact-revision decision is recorded in
+> [Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104).
+> This is contract approval, **not** implementation/merge/release authority.
 
 All requests use explicit/effectively resolved Project, no CWD/chat fallback.
 Read-only operations have no authority argument. Mutating operations have preview
@@ -475,7 +489,7 @@ start. #277 owns decision/linking use cases; #274 owns immutable binding admissi
 | Decision | Options and recommendation | Trade-offs | Human owner / affected Issues |
 |---|---|---|---|
 | HD-001 / ADR-0020 | Portable Project companion definitions + schema 4 selection + local snapshots (accepted); inline manifest; global mutable catalog; digest pointer only | Companion portability/reference upkeep vs inline size; snapshots cost storage but allow offline resume; global catalog adds authority; pointer only loses retained semantics | Axiom maintainer; #273/#274 and consumers #275–#278 |
-| HD-002 / public surface | Extend Project authoring + Work Item execution (accepted); dedicated workflow skill/CLI tree | Small existing entrypoints vs longer Project command tree; dedicated skill duplicates discovery/selection | Axiom maintainer approving this Specification; #273/#133/#232/#276 |
+| HD-002 / public surface | ~~Extend Project authoring + Work Item execution (accepted)~~ **as the exclusive skill surface** (historical choice superseded by [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md) and the [accepted amendment](amendment-303-workflow-skill.md)); dedicated workflow skill/CLI tree was the original alternative. **CLI and domain ownership remain as accepted.** | Small existing entrypoints vs longer Project command tree; dedicated skill duplicates discovery/selection (historical assessment; only the configuration *skill*, not a new CLI tree, is now adopted). | Axiom maintainer approving this Specification; #273/#133/#232/#276. Follow-up skill-surface decision formally accepted 2026-10-10 in [Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104). |
 | HD-003 / rework | New linked Execution (accepted); rewind old stages; mutate completed attempts | More records/repeated gates; preserves immutable provenance vs ambiguous rewind and lost evidence | Axiom maintainer approving ADR-0020 and this Specification; #274/#277/#278 |
 | HD-004 / canonical content | JCS + SHA-256 (accepted); exact source bytes; implementation-specific marshaler | Conformance work vs formatting-sensitive edits or cross-client drift; does not change legacy graph hashes | Axiom maintainer approving ADR-0020; #273/#274/#275 |
 
