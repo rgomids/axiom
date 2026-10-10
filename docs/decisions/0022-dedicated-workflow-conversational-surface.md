@@ -27,7 +27,7 @@ conversational operator: one workflow journey (author a definition, configure
 stages and agents, select it, start an Execution, prepare a stage Plan, inspect
 the proposal) crosses two skills whose primary purposes are Project lifecycle
 and Provider Work Item lifecycle. The operator must know which skill owns which
-half, and the skills require hand-written definition and Plan JSON files.
+half, and custom definitions and stage Plans require hand-written JSON files.
 On 2026-10-10 the maintainer decided that workflow management must be a
 first-class conversational capability in both Codex and Claude (#303, Linear
 AXM-7).
@@ -108,16 +108,16 @@ Once installed, the skill name and its operation names become public
 conversational contracts covered by skill-set history. Removing or renaming them
 requires the same retirement/upgrade protocol used for the v0.6.0 skill split.
 
-## Proposed partial supersession
+## Relationship to accepted decisions
 
-Applied only when this ADR is accepted, following
-[ADR-0018](0018-adr-evolution-and-supersession-governance.md): this ADR would
-then gain a `Supersedes` section, and ADR-0020 would keep `Accepted` with the
-clause "execution stays under the Work Item domain surface" (Decision section)
-struck through and annotated as superseded **only for the conversational
-skill surface**. "Authoring stays a Project operation" and every other ADR-0020
-decision remain in force unchanged. The Specification 007 fragments are listed
-in the amendment.
+This ADR supersedes no ADR text. ADR-0020's "Authoring stays a Project
+operation; execution stays under the Work Item domain surface" states domain
+ownership — Project-owned definitions, the Execution's Work Item target and
+immutable binding — and remains in force unchanged; this ADR clarifies only
+that it does not fix which Runtime skill routes the conversation. ADR-0003,
+ADR-0008 and ADR-0009 are unchanged. The superseded Specification 007 text
+(the "do not create an `axiom-workflow` skill" sentence and the skill-surface
+part of HD-002) is listed in the amendment and annotated there on acceptance.
 
 ## Revisit when
 

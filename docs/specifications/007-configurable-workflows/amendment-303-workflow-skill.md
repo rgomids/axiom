@@ -19,15 +19,18 @@ its PR #301 and the v0.15.0 release are not reopened or reinterpreted.
 
 ## Superseded fragments (applied on acceptance)
 
-On acceptance, before merge, the following accepted text is preserved struck
-through with an inline note linking this amendment and ADR-0022. Nothing else
-in Specification 007 or ADR-0020 changes.
+On acceptance, before merge, the following accepted Specification text is
+preserved struck through with an inline note linking this amendment and
+ADR-0022. Nothing else in Specification 007 changes. ADR-0020 is not
+annotated: its sentence "Authoring stays a Project operation; execution stays
+under the Work Item domain surface" states domain ownership (Work Item target
+and immutable binding), which remains in force; ADR-0022 only clarifies that it
+does not fix the conversational skill name.
 
 | Location | Accepted text | Replacement scope |
 |---|---|---|
 | [spec.md, Public operations](spec.md#public-operations-and-boundary-dtos-wf-009011013) | "and thin `axiom-work-item`; do not create an `axiom-workflow` skill" and the sentences "A dedicated top-level workflow management surface would separate authoring conceptually but add selector/skill overlap; revisit only if independently managed cross-Project definitions become approved." | Conversational skill surface only. "Keep authoring under `axiom project workflow <operation>`" and "Execution uses existing `axiom workflow` command family" remain in force. |
 | [spec.md, Architectural decisions](spec.md#architectural-decisions--explicit-maintainer-acceptance), HD-002 row | Accepted option "Extend Project authoring + Work Item execution" **as the skill surface** | CLI command families and domain ownership remain as accepted; the skill-surface part is replaced by HD-005. The 2026-10-09 approval ledger is history and stays unchanged. |
-| [ADR-0020, Decision](../../decisions/0020-workflow-definition-revision-binding.md#decision) | "execution stays under the Work Item domain surface" | Per ADR-0022 and ADR-0018 partial supersession; "Authoring stays a Project operation" remains. |
 
 ## Intent and invariants
 
@@ -67,10 +70,12 @@ WF-009 (#276), WF-011 (#277) or WF-012 (#278).
 
 Rules:
 
-1. One canonical operation, many routes: every `axiom-workflow` operation maps
-   to an already registered command action; the same action keeps the same
+1. One canonical action, many routes: every `axiom-workflow` operation maps
+   to already registered command actions; the same action keeps the same
    flags, authority metadata and result in every skill that routes it. Routing
-   tests assert identical `skill inspect` mode metadata per action.
+   tests assert identical `skill inspect` metadata per action and mode;
+   operation groupings may differ (for example compatibility `run` also
+   contains reconcile, which `axiom-workflow` exposes as `execution.reconcile`).
 2. Compatibility routes stay installed and behave identically for at least the
    compatibility window chosen in HD-007. Their skill text points to
    `axiom-workflow` as primary; their `skill inspect` payload does not change
@@ -97,7 +102,7 @@ existing command flag sets (no second registry).
 | `definition.create` | `axiom project workflow create` (`--from-default` or a Runtime-prepared `--file` draft) | local mutation | preview first; exact `--expected-revision`, `--preview-digest`, `--authorize-local` |
 | `definition.edit` / `definition.select` / `definition.remove` / `definition.recover` | `axiom project workflow edit` / `select` / `remove` / `recover` | local mutation | as above |
 | `execution.list` / `execution.status` | `axiom workflow list` / `status`, `evidence` | read-only | none |
-| `execution.run` | `axiom workflow start`, `advance`, `fact`, `resume` | local mutation | unchanged reviewed start (`--runtime-preview`) and exact-revision gate rules |
+| `execution.run` | `axiom workflow start`, `advance`, `fact`, `resume` | local mutation | unchanged reviewed start (`--runtime-preview`), exact-revision gate rules, `fact` only with `--authorize-local` (exact metadata from `skill inspect`) |
 | `execution.reconcile` | `axiom workflow reconcile` | external mutation | preview first; exact `--preview-digest`, `--authorize-external` |
 | `stage.plan` | `axiom workflow stage plan` | read-only | none; proposal never dispatches, grants effects or satisfies gates |
 | `runtime.readiness` | `axiom runtime profile validate` / `preview`, `axiom runtime codex\|claude status` / `auth` | read-only | none |
@@ -136,16 +141,19 @@ persistent Agent Profile entity; agents exist only inside a stage definition.
 4. Presentation shows the user a readable summary **and** the exact canonical
    preview/effects/digest returned by Lingo; approval binds to that exact
    preview, never to the summary.
-5. **Plan approval.** A stage Plan draft is written with `approved: false` and
-   shown with its scope, effects and authority ceiling. Only after the user
-   explicitly approves that exact content does the Runtime write the same
-   content with `approved: true`, a `planRevision` and a `planDigest` equal to
-   the SHA-256 of the approved Plan scope it presented, computed internally.
-   The user sees both digests (Plan reference and Lingo's
-   `plan.planDocumentDigest`). Any change requires a new approval. Writing
-   `approved: true` is the Runtime recording the user's decision in the
-   existing input format; it creates no authority fact, gate fact or dispatch
-   authority (G-5).
+5. **Plan approval.** The Runtime writes the complete candidate Plan document
+   to scratch exactly as it would be used, including `approved: true`,
+   `planRevision` and `planDigest`, runs the read-only `stage.plan` on it and
+   presents the scope, effects, authority ceiling and Lingo's proposal with
+   its `plan.planDocumentDigest`. The user's approval binds only to that exact
+   `planDocumentDigest`; any byte change requires a fresh `stage.plan` and a
+   fresh approval. `planRevision` and `planDigest` are opaque references with
+   no authority: `planDigest` is the SHA-256 of the exact bytes of a reviewed
+   Plan/Tasks artifact the user names, or, when none exists, of a bounded
+   scope artifact the Runtime writes to scratch and shows. The Runtime never
+   defines another canonical encoding. `approved: true` is the operator
+   assertion described in G-5, decided in the conversation; it creates no
+   authority fact, gate fact or dispatch authority.
 6. Drafts are working files, not Evidence. Evidence cites canonical results and
    digests.
 
@@ -181,10 +189,12 @@ reports results in natural language with a bounded Evidence report.
 
 **Safe environment.** Every live step runs the installed `axiom` with fresh
 temporary `LINGO_STATE_ROOT`, `AXIOM_CODEX_SKILLS_ROOT`, `CLAUDE_CONFIG_DIR`,
-`HOME`/`USERPROFILE` and a temporary Git working copy. The user's real Axiom
-state, skills and Repositories are never read for mutation or written. No
-Runtime process is dispatched, no vendor inference runs, no Provider resource
-is created or mutated, nothing is published.
+`CODEX_HOME`, `HOME`/`USERPROFILE` and a temporary Git working copy. The
+user's real Axiom state, skills and Repositories are never read for mutation
+or written. No agent is dispatched and no vendor inference runs; the only
+vendor processes are the existing read-only status/auth observations of
+`runtime.readiness` (for example `codex login status`), which the report names.
+No Provider resource is created or mutated and nothing is published.
 
 **Evidence lanes.**
 
@@ -202,14 +212,15 @@ is created or mutated, nothing is published.
 |---|---|---|
 | A Setup | version/provenance, `skill inspect` for both Runtimes after sandbox install, Runtime status, sandbox Project and Repository, `runtime profile validate` | fixture Project/Work Item/Execution identities |
 | B Workflow authoring | `definition.list` default, custom draft, validate, create/edit preview → approval → apply, select, read-back | covered by existing #273 tests |
-| C Single agent | blocked by G-2 (no Profile store) | `executionKind: single`, one resolution, no graph identity |
-| D Multi-agent | blocked by G-2 | independent Codex/Claude agents, integrator depending on both, concurrency, child inputs/outputs, integration ownership |
-| E Determinism | blocked by G-2 | repeated identical digests; config/observation change invalidates; Execution revision binding; no fallback |
-| F Security | definition-level refusals (cycle, dangling dependency, invalid definition); plan-level cases blocked by G-2 | invalid Plan, stale revision, missing inputs, unavailable Runtime, unsupported effort, cycle, dangling, unsafe overlap, authority escalation, `..`, `C:/outside`, `C:outside` |
+| C Single agent | blocked by G-2 (no Profile store) and G-4 (linked Provider Issue needs a consented Provider read with credentials the sandbox does not hold) | `executionKind: single`, one resolution, no graph identity |
+| D Multi-agent | blocked by G-2 and G-4 | independent Codex/Claude agents, integrator depending on both, concurrency, child inputs/outputs, integration ownership |
+| E Determinism | blocked by G-2 and G-4 | repeated identical digests; config/observation change invalidates; Execution revision binding; no fallback |
+| F Security | definition-level refusals (cycle, dangling dependency, invalid definition); plan-level cases blocked by G-2 and G-4 | invalid Plan, stale revision, missing inputs, unavailable Runtime, unsupported effort, cycle, dangling, unsafe overlap, authority escalation, `..`, `C:/outside`, `C:outside` |
 | G Read-only | before/after canonical status and state-tree digests around every read-only step | no Execution/attempt/stage advance/gate/authority/Provider/artifact change |
 | H Evidence | report below | same report |
 
-When G-2 is delivered, C–G gain Lane L coverage for stages requiring only
+When G-2 is delivered **and** the user consents to link an existing Provider
+Issue they name (G-4), C–G gain Lane L coverage for stages requiring only
 `axiom-skills` with runtime-default effort; explicit effort stays Lane S until G-3.
 
 **Report (H).** Axiom version and source revision; Runtime name/version as
@@ -235,12 +246,13 @@ which need explicit authorization when they involve vendor inference.
 
 ## Acceptance criteria (AC-015)
 
-1. Accepted amendment and ADR-0022, with superseded fragments annotated.
+1. Accepted amendment and ADR-0022, with the superseded Specification fragments annotated.
 2. `axiom-workflow` is embedded, installed and discoverable for Codex and
    Claude, including upgrade from v0.15.0 and reinstall; skill-set history pins
    the replaced v0.15.0 set; `skill inspect`, help and routing catalogs agree.
-3. Every catalog operation routes to the canonical command with identical
-   metadata to its compatibility route; compatibility routes are unchanged.
+3. Every catalog action and mode routes to the canonical command with
+   metadata identical to its compatibility route; compatibility routes are
+   unchanged.
 4. Definition, stage and agent configuration work from natural language
    through Runtime-prepared drafts; required approvals stay explicit.
 5. The conversational #275 acceptance produces the report above in both
