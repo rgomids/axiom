@@ -136,7 +136,7 @@ In the same delivery:
      A user asking the Project which workflow is active gets the answer from
      the Project's own canonical reads, with no target reference and no
      change preview:
-     - `axiom project show --project <p>` gains an additive, read-only
+     - `axiom project show --selector <slug-or-id>` (its existing selector, `internal/cli/cli.go:821-823`, `internal/cli/skill_inspect.go:91-92`; no new flag or alias) gains an additive, read-only
        `project.activeWorkflow` object; `axiom project list` gains the same
        object per Project entry, when applicable;
      - fields: `status` (`selected` | `none` | `unresolvable`) and, when a
@@ -366,7 +366,7 @@ and the maintainer's accept/reject decision.
   | R9 | Runner Evidence attributed to an untested revision or version, or missing canonical digests | Provenance gate (target = `HEAD`, clean tree, toolchain, version proven by tag or release binary, else `unreleased`); digests taken only from canonical results via test markers; otherwise `blocked`; unittest covers divergence | No |
   | R7 | PR #304 not on `main` | T01 gate | Yes |
   | R8 | Claude converges only via `first-run` after `axiom upgrade` | Assert in T06; document in T12 | No |
-  | R10 | The PD-1 `activeWorkflow` field changes `project show`/`list` output, while AC-015.3/AC-015.8 keep canonical CLI results unchanged | Additive, read-only, existing fields/categories unchanged; explicit maintainer authorization of the delta (compatible with AC-015.3/8, or a recorded amendment) before T08a | **Yes, for T08a only** (and T13 closure); other tasks proceed |
+  | R10 | The PD-1 `activeWorkflow` field changes `project show`/`list` output, while AC-015.3/AC-015.8 keep canonical CLI results unchanged | Additive, read-only, existing fields/categories unchanged; explicit maintainer authorization of the delta (compatible with AC-015.3/8, or a recorded amendment) before T08a | **Yes:** T08a, and therefore T13 closure, R-1 completion and `Completes-Issues: #303`; other tasks proceed |
 
 - **Documentation:**
   - `docs/commands.md` skill sections (`:125-128`, `:521-529`, `:1256`), the Project workflow authoring section and the `project show`/`list` output (T08a field);
@@ -578,7 +578,7 @@ Common rules for every task:
 
 ### T08a — Project active-workflow read path (PD-1)
 - **Objective:** a Project-only query identifies the active workflow by ID, name and revision; changing it still needs a separate preview and authorization.
-- **Gate:** **blocked until the R10 authorization** of the additive output delta. Without it, nothing here is implemented and T13 reports T08a as blocked.
+- **Gate:** **blocked until the R10 authorization** of the additive output delta. Without it, nothing here is implemented, T08a stays `blocked`, and T13 cannot close (see T13).
 - **Scope:** application read model and CLI view for `project show`/`list`; tests; no new command, flag, operation, authority, category or state write.
 - **Files:** `cmd/lingo/project_lifecycle.go` (`listProjects`, `showProject`); `internal/projectapp/list.go` (`ProjectSummary` gains the resolved selection) plus a small resolver beside `internal/projectapp/workflow_authoring.go`; `internal/cli/cli.go` (`ProjectView`/`ProjectListView` gain `activeWorkflow,omitempty`); human renderer if it lists Project fields; new tests in `cmd/lingo` and `internal/projectapp`.
 - **Dependencies:** T02; R10 authorization.
@@ -710,7 +710,7 @@ Common rules for every task:
 - **Objective:** an R-1-complete implementation PR ready for human review.
 - **Scope:** full validation, independent review, PR.
 - **Files:** `issue-303-implementation.md` final section.
-- **Dependencies:** T02–T12, including T08a (delivered, or reported blocked on R10).
+- **Dependencies:** T02–T12, **including T08a delivered** under the R10 authorization. A blocked T08a is not a satisfied dependency.
 - **Requirements:**
   - `go test ./...`, `go vet ./...`, `go build ./...`, `go mod verify`;
   - `scripts/check-go-quality.sh all`;
@@ -718,15 +718,17 @@ Common rules for every task:
   - the T10 runner;
   - a bounded independent review;
   - no Lane L artifact (PD-5 A); every task T02–T13 is still required;
-  - Draft PR with `Related-Issues: #303`, `Completes-Issues: #303` (only if every R-1 AC is met) and `Relates to AXM-7`;
+  - Draft PR with `Related-Issues: #303` and `Relates to AXM-7`; `Completes-Issues: #303` only when T13 closes (below), otherwise `Completes-Issues: none`;
   - no merge, release, closure, AXM-7 acceptance or AXM-8 unblock.
-- **Acceptance criteria:**
-  - every check green, or NOT_RUN with a reason;
+- **Acceptance criteria (closure):**
+  - R10 authorized and T08a delivered with its tests green;
+  - every check mapped to an AC-015 row green; NOT_RUN is allowed only for a check no AC-015 row depends on, with a reason;
   - no unresolved Blocker/Major;
   - R-2/R-3 `deferred_to_278`.
-- **Verification:** CI on head; review record.
-- **Evidence:** final implementation record.
-- **Definition of Done:** Draft PR open, pushed under separate authorization.
+- **Blocked state:** if any closure criterion is unmet (for example R10 still pending), T13 is `blocked`, not done. A Draft PR may still record the work, but it reports `blocked` with the unmet items, uses `Completes-Issues: none`, and claims neither R-1 completion nor #303 technical completion, even when every other check is green.
+- **Verification:** CI on head; review record; R10 authorization record.
+- **Evidence:** final implementation record, stating `complete` or `blocked` with the unmet items.
+- **Definition of Done:** every closure criterion met and the Draft PR pushed under separate authorization. A Draft PR in the blocked state does not satisfy this DoD.
 - **Parallel:** no.
 
 ## Task dependency graph
@@ -734,7 +736,7 @@ Common rules for every task:
 ```text
 T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07 -> T13   (critical path)
 T02 -> T08 -> T13
-T02 + R10 authorization -> T08a -> T13
+T02 + R10 authorization -> T08a -> T13   (T13 cannot close while T08a is blocked)
 T03 + T08 -> T09 -> T13
 T01 -> T10 -> T13
 T01 -> T11(start); T03 -> T11(close) -> T13
@@ -767,14 +769,14 @@ T02–T05 run sequentially: they change the same embedded bytes and digests.
 | 4 NL configuration via drafts; Project selects; start resolves and binds | 3.2, 3.4 | T03, T08, T08a, T09 | content tests; draft journey; `TestConfiguredExecutableRevisionIsolationAndAuthority` | Journey output |
 | 5 Work Item-owned #275 R-1 runner; classified scenarios; R-1/R-2/R-3 separated | 3.4, 3.8 | T10 | runner + unittest (revision/version mismatch, dirty source, missing digest → `blocked`) | Evidence JSON A–H with the full Report H fields, canonical digests per scenario, bound to the tested revision and a proven or `unreleased` version |
 | 6 No real sessions/inference/dispatch/Provider/human E2E; #278 handoff | 1, 6 | T10, T12 | schema rule; review | `deferred_to_278`; handoff checklist |
-| 7 R-1 + review + authorization; G-2/G-4 not waived | 7 | T13 | full validation; review | Review record; blockers listed |
+| 7 R-1 + review + authorization; G-2/G-4 not waived | 7 | T08a, T13 | full validation; review; R10 record | Review record; T13 `complete` only with R10 authorized and T08a delivered, otherwise `blocked` with blockers listed |
 | 8 CLI/result/digest/preview/security unchanged | 3, 5 | T08, T08a, T13 | unmodified existing tests | Diff review; the only output delta is the additive `activeWorkflow` field, delivered only under R10 |
 | 9 HD-006 boundaries; #305/#306 linked; no tiers/conflation/unproven capability/credential mutation | 3.5, 5 | T03, T11 | profile/resolver tests; content tests | Cited tests |
 | 10 Independent review, no unresolved Blocker/Major | 7 | T13 | independent review | Review record |
 
 **Unresolved technical dependencies:**
 - *blocking implementation:* R7/T01 (accepted contract on approved implementation base; acceptance of this Plan/Tasks as a whole still needed);
-- *blocking T08a only:* R10 (explicit authorization of the PD-1 additive `activeWorkflow` output delta);
+- *blocking T08a, and therefore T13 closure and R-1 completion:* R10 (explicit authorization of the PD-1 additive `activeWorkflow` output delta);
 - *accepted decisions:* PD-1 to PD-9, individually accepted (§8); their Evidence (for example T05 provenance, T06 refusal) is still required;
 - *known, outside #303:* `--file` hardening #307 (PD-9 A, not a gate);
 - *outside #303:* G-1 #305, G-2 #306, G-3 #272, G-4 consent, G-5 #276.
