@@ -11,6 +11,7 @@ authorizes no implementation, merge, release, Issue or Linear change.
 | Work Item | [#303](https://github.com/rgomids/axiom/issues/303) / Linear AXM-7 |
 | Contract (immutable for this plan) | [Spec 007](spec.md), [amendment](amendment-303-workflow-skill.md), [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md); **Accepted 2026-10-10** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104)) on PR #304 `7db80ac95b5e83cd8cc9aaaadc785633c3ee3fa9` (amendment blob `9d1895b6…`, ADR blob `13a52a62…`) |
 | Planned on | PR #304 branch at `804123915d1c2eccaa81a3fbf01253aa3910ae48`; differs from `7db80ac` only in status/annotation text |
+| PD-3 upgrade decision | **Accepted — Option A** ([maintainer decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6100657230)); only PD-3 is accepted, not this Plan/Tasks as a whole |
 | Code baseline | `main` `9378c41` (v0.15.0 + #298 CI routing); every file cited below is unchanged from v0.15.0 `3766273` |
 | Starting point | Amendment §"Implementation plan" steps 1–5, refined here; HD-005–HD-008 are not reopened |
 
@@ -275,7 +276,7 @@ and the maintainer's accept/reject decision.
 
   | ID | Risk | Mitigation | Blocks |
   |---|---|---|---|
-  | R1 | v0.15.0 `axiom upgrade` refuses a three-skill archive | Supported path is the new release installer (already exercised by CI journeys); test refusal with zero effects; release note (PD-3) | Yes, until PD-3 is decided |
+  | R1 | v0.15.0 `axiom upgrade` refuses a three-skill archive | **PD-3 Accepted — Option A:** new release installer is the supported path; T06 must verify the legacy binary refuses without effects and document this in release notes | No — decision accepted; T06 verification remains required |
   | R2 | v0.15.0 set missing from history makes v0.15.0 installs look foreign | T05 before release | No |
   | R3 | Drift between table, inspect and matrix | Atomic T02; existing tests | No |
   | R4 | Wrong inspect flags for runtime actions | `skillFlagSet` cases plus parser-parity test | No |
@@ -311,7 +312,7 @@ All fall within the accepted contract; none reopens HD-005–HD-008.
 |---|---|---|---|
 | PD-1 | Project active-selection inspection | `workflow.select` preview with no authority inputs | Keep `list` in Project (duplicates an action, conflicts with HD-007) |
 | PD-2 | `configuration.readiness` scope | `runtime profile validate/preview` plus `runtime codex|claude status/auth` (read-only) | Exclude `auth` |
-| PD-3 | Upgrade from v0.15.0 | New release installer is the supported path; v0.15.0 `axiom upgrade` refuses with zero effects (tested, documented) | Version the archive skill manifest (`skillSetVersion=2`) for an explicit error, changing the installer/metadata contract |
+| PD-3 | Upgrade from v0.15.0 — **ACCEPTED, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6100657230)) | New release installer is the supported path; v0.15.0 `axiom upgrade` must refuse without effects (to be verified and documented in T06) | Version the archive skill manifest (`skillSetVersion=2`) for an explicit error, changing the installer/metadata contract — **not selected** |
 | PD-4 | R-1 runner form | python3 runner + JSON schema + offline unittest; durable; owner `maintainer-acceptance`; manual trigger | Go tests only |
 | PD-5 | Lane L in #303 | Not built (optional per amendment) | Build sandbox CLI checks |
 | PD-6 | Skill-set constants | Keep `SkillSetVersion`/`BinaryCompatibility` "2"; append history *(confirm in T05)* | Bump |
@@ -650,8 +651,9 @@ T02–T05 run sequentially: they change the same embedded bytes and digests.
 | 10 Independent review, no unresolved Blocker/Major | 7 | T13 | independent review | Review record |
 
 **Unresolved technical dependencies:**
-- *blocking implementation:* R1/PD-3 and R7/T01;
-- *non-blocking:* PD-1, PD-2 and PD-4 to PD-9, decided with this document;
+- *blocking implementation:* R7/T01 (accepted contract on approved implementation base; separate full Plan/Tasks acceptance still needed);
+- *accepted decision:* PD-3 Option A (supported upgrade via the new release installer); T06 Evidence still required;
+- *non-blocking:* PD-1, PD-2 and PD-4 to PD-9, still requiring acceptance with this document;
 - *outside #303:* G-1 #305, G-2 #306, G-3 #272, G-4 consent, G-5 #276.
 
 R-2 and R-3 rows always read `deferred_to_278`. A synthetic PASS is never
