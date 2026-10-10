@@ -26,6 +26,15 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.14.0](https://github.com/rgomids/axiom/compare/v0.13.0...v0.14.0) (2026-10-10)
+
+
+### Features
+
+* **ci:** report coverage and differential code health ([#295](https://github.com/rgomids/axiom/issues/295)) ([d788fa0](https://github.com/rgomids/axiom/commit/d788fa057be7d6ce86e8af2250e21bd1545c5f3a))
+* **workflow:** bind Work Item execution to immutable revisions ([#299](https://github.com/rgomids/axiom/issues/299)) ([328641f](https://github.com/rgomids/axiom/commit/328641f987bc05e918992712ff30b1adcd30c309))
+* **workflow:** compile stages into execution graph proposals ([#297](https://github.com/rgomids/axiom/issues/297)) ([a6adb3c](https://github.com/rgomids/axiom/commit/a6adb3cbe283bd169c7583a45e0cd457b072e324))
+
 ## [0.13.0](https://github.com/rgomids/axiom/compare/v0.12.0...v0.13.0) (2026-10-09)
 
 
