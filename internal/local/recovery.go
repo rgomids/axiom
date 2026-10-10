@@ -14,6 +14,7 @@ import (
 	"github.com/rgomids/axiom/internal/detailartifact"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 type RecoveryAction string
@@ -130,6 +131,28 @@ func recoveryDirectories(ctx context.Context, scope, path string) ([]string, err
 		for _, name := range names {
 			if project.ValidSlug(name) {
 				directories = append(directories, name)
+				projectRoot, e := existingPrivateChild(root, name)
+				if e == nil {
+					wf, e := existingPrivateChild(projectRoot, "workflows")
+					if e == nil {
+						directories = append(directories, name+"/workflows")
+						ids, e := readDirectoryNamesBounded(wf, 1025)
+						if e != nil {
+							wf.Close()
+							projectRoot.Close()
+							return nil, e
+						}
+						for _, id := range ids {
+							if workflowdefinition.ValidKey(id) {
+								if info, e := wf.Lstat(id); e == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+									directories = append(directories, name+"/workflows/"+id)
+								}
+							}
+						}
+						wf.Close()
+					}
+					projectRoot.Close()
+				}
 			}
 		}
 		sort.Strings(directories)
@@ -215,7 +238,7 @@ func validRecoveryDirectory(scope, directory string) bool {
 			return false
 		}
 	}
-	return scope == RecoveryScopeState || scope == RecoveryScopeProjects && len(parts) <= 1
+	return scope == RecoveryScopeState || scope == RecoveryScopeProjects && (len(parts) <= 1 || len(parts) == 2 && parts[1] == "workflows" || len(parts) == 3 && parts[1] == "workflows" && workflowdefinition.ValidKey(parts[2]))
 }
 
 // inspectRecoveryDirectory opens the chain scope root -> directory and takes
@@ -409,7 +432,7 @@ func observeRecoveryFile(root *os.Root, role, name string) RecoveryObject {
 		result.Revision = "invalid"
 		return result
 	}
-	wire, err := readPrivateFile(root, name)
+	wire, err := readPrivateFileBounded(root, name, workflowdefinition.MaxBytes)
 	if err != nil {
 		result.Revision = "invalid"
 		return result

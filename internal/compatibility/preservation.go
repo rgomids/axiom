@@ -123,7 +123,7 @@ func retirementCandidate(kind local.InventoryKind) bool {
 // keptKind reports the supported Project intent and associations that the
 // current contract already validated while inventorying them.
 func keptKind(kind local.InventoryKind) bool {
-	return kind == local.InventoryInstallation || kind == local.InventoryPortableManifest
+	return kind == local.InventoryInstallation || kind == local.InventoryPortableManifest || kind == local.InventoryWorkflowDefinition || kind == local.InventoryWorkflowIndex
 }
 
 // skillKind reports Axiom skill files inventoried in a Runtime skills root.
@@ -335,7 +335,7 @@ func (p TransitionPlan) manifestWire() ([]byte, error) {
 	for _, object := range p.Preserve {
 		key := object.Category + "/" + object.Relative
 		_, clean := cleanRelative(object.Relative)
-		validKind := object.Category == CategoryState && (retirementCandidate(object.Kind) || object.Kind == local.InventoryInstallation) || object.Category == CategoryProjects && object.Kind == local.InventoryPortableManifest
+		validKind := object.Category == CategoryState && (retirementCandidate(object.Kind) || object.Kind == local.InventoryInstallation) || object.Category == CategoryProjects && (object.Kind == local.InventoryPortableManifest || object.Kind == local.InventoryWorkflowDefinition || object.Kind == local.InventoryWorkflowIndex)
 		if !clean || !validKind || !digestName.MatchString(object.Digest) || object.Bytes <= 0 || object.Bytes > maxTransferFile || seen[key] {
 			return nil, ErrPreservationConflict
 		}

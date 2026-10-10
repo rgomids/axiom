@@ -30,7 +30,7 @@ var contextKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
 func ValidContextKey(key string) bool { return contextKeyPattern.MatchString(key) }
 
 func (v *validation) contextRegistry(s State) {
-	if s.SchemaVersion != 3 {
+	if s.SchemaVersion != 3 && s.SchemaVersion != 4 {
 		for field, form := range map[string]Form{
 			"technologyContext":          s.TechnologyContext.form,
 			"documentationSources":       s.DocumentationSources.form,

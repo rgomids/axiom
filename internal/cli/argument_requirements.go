@@ -3,6 +3,7 @@ package cli
 import (
 	"flag"
 	"slices"
+	"strings"
 )
 
 // inputRequirement is both discovery metadata and executable presence validation.
@@ -16,6 +17,31 @@ type inputRequirement struct {
 }
 
 func skillRequirements(operation action, v requestInput) []inputRequirement {
+	if strings.HasPrefix(string(operation), "project_workflow_") {
+		rules := []inputRequirement{{name: "project", required: true, missing: v.project == ""}}
+		op := strings.TrimPrefix(string(operation), "project_workflow_")
+		switch op {
+		case "show", "select", "remove":
+			for _, name := range []string{"workflow", "revision", "digest"} {
+				rules = append(rules, inputRequirement{name: name, when: "application: exact workflow reference"})
+			}
+		case "create":
+			rules = append(rules, inputRequirement{name: "file", when: "application: --from-default is absent"}, inputRequirement{name: "workflow", when: "application: --from-default is true"})
+		case "edit", "validate", "recover":
+			rules = append(rules, inputRequirement{name: "file", when: "application: complete definition is required"})
+			if op == "edit" {
+				for _, name := range []string{"workflow", "prior-revision", "prior-digest"} {
+					rules = append(rules, inputRequirement{name: name, when: "application: exact published prior revision is required"})
+				}
+			}
+		}
+		if op != "list" && op != "show" && op != "validate" {
+			for _, name := range []string{"expected-revision", "preview-digest", "authorize-local"} {
+				rules = append(rules, inputRequirement{name: name, when: "application: applying reviewed local effects"})
+			}
+		}
+		return rules
+	}
 	if operation == showAction || operation == resolveAction {
 		return []inputRequirement{{name: "selector", when: "no effective Project context is available", applies: true, missing: v.selector == ""}}
 	}

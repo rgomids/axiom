@@ -20,7 +20,6 @@ import (
 	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/detailartifact"
 	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
@@ -76,7 +75,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{}
+var additiveKinds = []InventoryKind{InventoryWorkflowDefinition, InventoryWorkflowIndex}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
@@ -538,33 +537,7 @@ func walkPortableRoot(w *inventoryWalk, root *os.Root) error {
 		if !project.ValidSlug(name) {
 			return w.add(name, InventoryUnknown, nil)
 		}
-		return eachFile(w, root, name, name, func(file, _ string) (InventoryKind, int) {
-			if strings.HasPrefix(file, ".lingo-manifest-") || strings.HasPrefix(file, ".lingo-attempt-update-") || protocolName(file) {
-				return InventoryRecovery, 0
-			}
-			if file != manifestName {
-				return InventoryUnknown, 0
-			}
-			return "", MaxRecordBytes
-		}, func(_ string, wire []byte) InventoryKind {
-			if _, issues := manifest.Decode(wire); len(issues) == 0 {
-				return InventoryPortableManifest
-			}
-			match := schemaVersionRe.FindSubmatch(wire)
-			if match == nil {
-				return InventoryMalformed
-			}
-			version, err := strconv.Atoi(string(match[1]))
-			switch {
-			case err != nil:
-				return InventoryMalformed
-			case version > 3: // portable schemas 1-3 are supported (Issue #231)
-				return InventoryNewer
-			case version < 1:
-				return InventoryOlder
-			}
-			return InventoryMalformed
-		})
+		return walkPortableProject(w, root, name)
 	})
 }
 

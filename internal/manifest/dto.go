@@ -36,7 +36,14 @@ func (s *text) UnmarshalYAML(n *yaml.Node) error { s.Present = true; s.Value = n
 func (s text) IsZero() bool                      { return !s.Present }
 func (s text) MarshalYAML() (any, error)         { return s.Value, nil }
 
+type selectionDTO struct {
+	WorkflowID string `yaml:"workflowId"`
+	Revision   int    `yaml:"revision"`
+	Digest     string `yaml:"digest"`
+	Source     string `yaml:"source"`
+}
 type manifestDTO struct {
+	WorkflowSelection    optional[selectionDTO]     `yaml:"workflowSelection,omitempty"`
 	SchemaVersion        int                        `yaml:"schemaVersion"`
 	Project              identityDTO                `yaml:"project"`
 	Repositories         optional[[]repositoryDTO]  `yaml:"repositories,omitempty"`

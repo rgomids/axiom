@@ -403,8 +403,8 @@ func portableSnapshot(ctx context.Context, source string) (projectapp.ArtifactSn
 		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
 	}
 	defer root.Close()
-	entries, err := readDirectoryNamesBounded(root, 1)
-	if err != nil || len(entries) != 1 || entries[0] != manifestName {
+	err = validatePortableLayout(root)
+	if err != nil {
 		return projectapp.ArtifactSnapshot{}, failedInstallation("unsafe_source")
 	}
 	input, err := readPrivateFile(root, manifestName)
