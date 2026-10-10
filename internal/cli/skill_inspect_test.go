@@ -76,27 +76,37 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 // Do not derive expectations from skillOperations: an extra mapping is a regression.
 func TestSkillDiscoveryExactCommands(t *testing.T) {
 	expected := map[string][]string{
+		"axiom-workflow":  {},
 		"axiom-project":   {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
 		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom workflow stage plan", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
 	}
-	for _, op := range []string{"list", "show", "create", "edit", "validate", "select", "remove", "recover"} {
-		expected["axiom-project"] = append(expected["axiom-project"], "axiom project workflow "+op)
+	for _, op := range []string{"list", "show", "create", "edit", "validate", "remove", "recover"} {
+		expected["axiom-workflow"] = append(expected["axiom-workflow"], "axiom project workflow "+op)
 	}
 
 	manifest, err := codexruntime.CurrentManifest()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(expected) != len(manifest.Skills) {
-		t.Fatal("skill inventory changed; reconcile exact command expectations")
-	}
+	// Installation inventory changes in T04. Every installed skill must
+	// remain covered, and the T02 catalog includes the new Workflow owner.
 	for _, skill := range manifest.Skills {
-		t.Run(skill.Name, func(t *testing.T) {
-			want, exists := expected[skill.Name]
+		if _, exists := expected[skill.Name]; !exists {
+			t.Fatalf("missing installed skill expectation for %s", skill.Name)
+		}
+	}
+	if len(expected) != len(canonicalDomainSkills) {
+		t.Fatal("catalog inventory changed; reconcile exact command expectations")
+	}
+	expected["axiom-project"] = append(expected["axiom-project"], "axiom project workflow select")
+	expected["axiom-workflow"] = append(expected["axiom-workflow"], "axiom runtime profile validate", "axiom runtime profile preview", "axiom runtime codex status", "axiom runtime claude status", "axiom runtime codex auth", "axiom runtime claude auth")
+	for _, name := range canonicalDomainSkills {
+		t.Run(name, func(t *testing.T) {
+			want, exists := expected[name]
 			if !exists {
-				t.Fatalf("missing command expectation for %s", skill.Name)
+				t.Fatalf("missing command expectation for %s", name)
 			}
-			got := discoverForTest(t, skill.Name)
+			got := discoverForTest(t, name)
 			commands := make([]string, 0, len(got.Commands))
 			for _, command := range got.Commands {
 				commands = append(commands, command.Command)
@@ -152,6 +162,11 @@ func parseSkillFlags(operation action, args []string) (requestInput, bool) {
 	// The #230 lifecycle commands have their own parsers; argument metadata
 	// must be accepted by exactly those parsers.
 	switch {
+	case operation == runtimeProfilePreviewAction:
+		_, ok := runtimePreviewFlagsWithPresence(args, false)
+		return requestInput{}, ok
+	case operation == runtimeProfileValidateAction || operation == codexStatusAction || operation == claudeStatusAction || operation == codexAuthAction || operation == claudeAuthAction:
+		return requestInput{}, len(args) == 0
 	case operation == projectArchiveAction || operation == projectReactivateAction:
 		_, issue := projectLifecycleFlags(operation, args)
 		return requestInput{}, issue != "invalid_input"
@@ -198,13 +213,9 @@ func parseSkillFlags(operation action, args []string) (requestInput, bool) {
 }
 
 func TestSkillDiscoveryMatchesParserAndAcceptedForms(t *testing.T) {
-	manifest, err := codexruntime.CurrentManifest()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, skill := range manifest.Skills {
-		got := discoverForTest(t, skill.Name)
-		for i, operation := range skillOperations(skill.Name) {
+	for _, name := range canonicalDomainSkills {
+		got := discoverForTest(t, name)
+		for i, operation := range skillOperations(name) {
 			command := got.Commands[i]
 			var values requestInput
 			set := skillFlagSet(operation, &values)
@@ -393,6 +404,47 @@ func TestRetiredSkillsFailClosed(t *testing.T) {
 		_, code := InspectSkill([]string{"--json", "skill", "inspect", name}, completionProvenance(t), &output)
 		if code != ExitFailure {
 			t.Fatalf("retired skill accepted: %s", name)
+		}
+	}
+}
+
+func TestSkillReadinessArgumentsMatchHelpAndParser(t *testing.T) {
+	inspection := discoverForTest(t, "axiom-workflow")
+	for _, command := range inspection.Commands {
+		if !strings.HasPrefix(command.Command, "axiom runtime ") {
+			continue
+		}
+		definition, _, rest, ok := resolveCommand(strings.Fields(strings.TrimPrefix(command.Command, "axiom ")))
+		if !ok || len(rest) != 0 {
+			t.Fatalf("unknown readiness command %s", command.Command)
+		}
+		rules := commandRequirements(definition.operation)
+		for _, rule := range rules {
+			arg := findArgument(t, command, "--"+rule.name)
+			if arg.Required != rule.required || arg.RequiredWhen != rule.when {
+				t.Fatalf("readiness requirement drift: %+v / %+v", arg, rule)
+			}
+		}
+		var help bytes.Buffer
+		args := append(strings.Fields(strings.TrimPrefix(command.Command, "axiom ")), "--help")
+		if code := Run(context.Background(), args, noInspectionService{}, completionProvenance(t), &help); code != ExitSuccess {
+			t.Fatalf("help %s: %s", command.Command, &help)
+		}
+		for _, arg := range command.Arguments {
+			if !strings.Contains(help.String(), arg.Name) {
+				t.Fatalf("help lacks %s: %s", arg.Name, &help)
+			}
+		}
+		if definition.operation == runtimeProfilePreviewAction {
+			valid := []string{"--project", "alpha", "--role", "implementer", "--complexity", "low", "--capabilities", "coding"}
+			if _, ok := runtimePreviewFlags(valid); !ok {
+				t.Fatal("readiness preview rejected canonical arguments")
+			}
+			for _, extra := range [][]string{{"--authorize-local"}, {"--login"}, {"--preview-digest", "example"}} {
+				if _, ok := runtimePreviewFlags(append(append([]string{}, valid...), extra...)); ok {
+					t.Fatalf("readiness preview accepted authority: %v", extra)
+				}
+			}
 		}
 	}
 }

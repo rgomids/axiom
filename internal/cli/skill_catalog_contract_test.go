@@ -32,7 +32,7 @@ func TestCanonicalRoutingContract(t *testing.T) {
 		}
 	}
 	expected := []string{}
-	for _, name := range []string{"axiom-project", "axiom-work-item"} {
+	for _, name := range []string{"axiom-project", "axiom-work-item", "axiom-workflow"} {
 		source, err := os.ReadFile("../codexruntime/skills/" + name + "/SKILL.md")
 		if err != nil {
 			t.Fatal(err)
@@ -114,5 +114,40 @@ func TestCanonicalRoutingContract(t *testing.T) {
 	}
 	if !reflect.DeepEqual(actual, expected) {
 		t.Fatalf("versioned catalog drift\nactual:\n%s\nexpected:\n%s", strings.Join(actual, "\n"), strings.Join(expected, "\n"))
+	}
+}
+
+// Shared configure create/edit modes may use one action within a skill, but
+// definition authoring, selection and Execution commands must have one owner.
+func TestCatalogActionOwnershipIsExclusive(t *testing.T) {
+	owners := map[action]string{}
+	for _, name := range canonicalDomainSkills {
+		for _, operation := range skillOperations(name) {
+			if prior, exists := owners[operation]; exists {
+				t.Fatalf("%s owned by both %s and %s", operation, prior, name)
+			}
+			owners[operation] = name
+		}
+	}
+	for _, op := range []string{"list", "show", "create", "edit", "validate", "remove", "recover"} {
+		if owners[action("project_workflow_"+op)] != "axiom-workflow" {
+			t.Fatalf("definition %s has wrong owner", op)
+		}
+	}
+	if owners["project_workflow_select"] != "axiom-project" {
+		t.Fatal("active selection lost Project ownership")
+	}
+	for _, operation := range discoverForTest(t, "axiom-project").Operations {
+		if strings.HasPrefix(operation.Name, "definition.") || strings.HasPrefix(operation.Name, "workflow.") && operation.Name != "workflow.select" {
+			t.Fatalf("duplicate Project authoring route: %s", operation.Name)
+		}
+	}
+	want := []string{"definition.list", "definition.show", "definition.create", "definition.edit", "definition.validate", "definition.remove", "definition.recover", "configuration.readiness"}
+	got := []string{}
+	for _, operation := range discoverForTest(t, "axiom-workflow").Operations {
+		got = append(got, operation.Name)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Workflow operations = %v", got)
 	}
 }

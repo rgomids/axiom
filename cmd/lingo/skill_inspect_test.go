@@ -17,7 +17,7 @@ func TestExecutableSkillDiscoveryWithoutStateOrWorkflow(t *testing.T) {
 		t.Fatalf("build: %v: %s", err, output)
 	}
 	root := t.TempDir()
-	for _, skill := range []string{"axiom-project", "axiom-work-item"} {
+	for _, skill := range []string{"axiom-project", "axiom-work-item", "axiom-workflow"} {
 		t.Run(skill, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()

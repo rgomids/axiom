@@ -104,9 +104,16 @@ func workflowAuthoringCommands() commandDefinition {
 	}
 	return group("workflow", "Author and select Project workflow definitions", children...)
 }
-func workflowAuthoringSkillSpecs() []skillOperationSpec {
+func workflowAuthoringSkillSpecs(selection bool) []skillOperationSpec {
 	var specs []skillOperationSpec
 	for _, op := range []string{"list", "show", "create", "edit", "validate", "select", "remove", "recover"} {
+		if (op == "select") != selection {
+			continue
+		}
+		name := "definition." + op
+		if selection {
+			name = "workflow.select"
+		}
 		act := action("project_workflow_" + op)
 		effect, authority := effectReadOnly, "none"
 		inputs := []string{}
@@ -116,7 +123,7 @@ func workflowAuthoringSkillSpecs() []skillOperationSpec {
 			inputs = []string{"--expected-revision", "--preview-digest", "--authorize-local"}
 		}
 		mode := skillModeSpec{name: "default", selector: "--project", effect: effect, authority: authority, actions: []action{act}, authorityInputs: inputs, rejectedInputs: []string{}, example: "axiom project workflow " + op + " --project <uuid-or-slug>"}
-		specs = append(specs, skillOperationSpec{name: "workflow." + op, actions: []action{act}, modes: []skillModeSpec{mode}})
+		specs = append(specs, skillOperationSpec{name: name, actions: []action{act}, modes: []skillModeSpec{mode}})
 	}
 	return specs
 }

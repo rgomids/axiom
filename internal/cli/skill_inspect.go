@@ -200,12 +200,29 @@ var (
 func skillOperationSpecs(name string) []skillOperationSpec {
 	switch name {
 	case "axiom-project":
-		return append([]skillOperationSpec{projectConfigure, projectList, projectShow, projectValidate, projectArchive, projectReactivate, projectIntegration}, workflowAuthoringSkillSpecs()...)
+		return append([]skillOperationSpec{projectConfigure, projectList, projectShow, projectValidate, projectArchive, projectReactivate, projectIntegration}, workflowAuthoringSkillSpecs(true)...)
+	case "axiom-workflow":
+		return append(workflowAuthoringSkillSpecs(false), workflowConfigurationReadiness())
 	case "axiom-work-item":
 		return []skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemPlan, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}
 
 	}
 	return nil
+}
+
+// Configuration diagnostics reuse existing read-only commands; authentication
+// observation is separate from configuration validity and Runtime readiness.
+func workflowConfigurationReadiness() skillOperationSpec {
+	configuration := []action{runtimeProfileValidateAction, runtimeProfilePreviewAction}
+	runtime := []action{codexStatusAction, claudeStatusAction}
+	authentication := []action{codexAuthAction, claudeAuthAction}
+	return skillOperationSpec{name: "configuration.readiness",
+		actions: append(append(append([]action{}, configuration...), runtime...), authentication...),
+		modes: []skillModeSpec{
+			{name: "configuration", effect: effectReadOnly, authority: "none", actions: configuration, authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom runtime profile validate"},
+			{name: "runtime", effect: effectReadOnly, authority: "none", actions: runtime, authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom runtime codex status"},
+			{name: "authentication", effect: effectReadOnly, authority: "none", actions: authentication, authorityInputs: []string{}, rejectedInputs: []string{}, example: "axiom runtime codex auth"},
+		}}
 }
 
 func semanticResolution(effect string) string {
@@ -236,6 +253,10 @@ func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		return workflowAuthoringFlagSet(operation, &ProjectWorkflowInput{})
 	}
 	switch operation {
+	case runtimeProfilePreviewAction:
+		return runtimePreviewFlagSet(&RuntimeProfilePreviewInput{}, new(string))
+	case runtimeProfileValidateAction, codexStatusAction, claudeStatusAction, codexAuthAction, claudeAuthAction:
+		return commandFlagSet(operation)
 	case projectArchiveAction, projectReactivateAction:
 		return projectLifecycleFlagSet(operation, &ProjectLifecycleInput{})
 	case listAction:
@@ -289,6 +310,9 @@ func inspectSkill(name string) (skillInspection, bool) {
 		set := skillFlagSet(operation, &values)
 		repeatable := repeatableFlags(set)
 		rules := skillRequirements(operation, values)
+		if operation == runtimeProfilePreviewAction {
+			rules = commandRequirements(operation)
+		}
 		command := skillCommand{Command: skillCommandName(operation), Arguments: []skillArgument{}}
 		set.VisitAll(func(f *flag.Flag) {
 			valueName, description := flag.UnquoteUsage(f)
