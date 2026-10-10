@@ -1073,11 +1073,11 @@
       "callers": [
         ".github/workflows/ci.yml"
       ],
-      "inputs": "Git diff base/head or path fixtures",
-      "outputs": "Routing JSON/Actions outputs or unittest results",
-      "local_effects": "Actions output/summary files or temporary Git fixtures",
-      "network_effects": "none",
-      "authority": "read-only local validation",
+      "inputs": "Immutable Git base/head, run identity, versioned plan and platform completion records; optional bounded fetch",
+      "outputs": "Versioned routing plan, platform records, real outcome Evidence and Actions outputs/summary; nonzero on invalid conclusion",
+      "local_effects": "Explicit output/summary files; bounded Git object/ref fetch with --fetch",
+      "network_effects": "With --fetch only: read exact base/head from origin with depth 64 and no tags",
+      "authority": "Local validation; CI-authorized read-only repository fetch when explicitly requested",
       "tests": [
         "scripts/test-ci-classification.py"
       ],
