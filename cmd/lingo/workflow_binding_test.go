@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
@@ -16,7 +18,27 @@ import (
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
+
+func selectBuiltinWorkflowExecutable(t *testing.T, binary string, environment []string, project string) {
+	t.Helper()
+	ref := workflowdefinition.Builtin().Ref("builtin")
+	args := []string{"--json", "project", "workflow", "select", "--project", project, "--workflow", ref.WorkflowID, "--revision", strconv.Itoa(ref.Revision), "--digest", ref.Digest, "--source", ref.Source}
+	run := func(category string, args []string) authoringEvent {
+		t.Helper()
+		command := exec.Command(binary, args...)
+		command.Env = environment
+		wire, err := command.CombinedOutput()
+		var event authoringEvent
+		if err != nil || json.Unmarshal(wire, &event) != nil || event.Category != category {
+			t.Fatalf("workflow selection: %v %s", err, wire)
+		}
+		return event
+	}
+	preview := run("previewed", args)
+	run("applied", append(args, "--expected-revision", preview.Workflow.ProjectRevision, "--preview-digest", preview.Workflow.PreviewDigest, "--authorize-local"))
+}
 
 func publishConfiguredOutput(t *testing.T, stateRoot string, view *cli.WorkflowView) string {
 	t.Helper()
@@ -185,5 +207,32 @@ func TestConfiguredExecutableRevisionIsolationAndAuthority(t *testing.T) {
 	evidence := run(0, append([]string{"workflow", "evidence"}, execution...)...).Workflow
 	if evidence.Revision != resumed.Revision || evidence.Binding.Definition != a.Binding.Definition || len(evidence.StageLedger) != 3 || len(evidence.Blockers) == 0 {
 		t.Fatal("authority denial changed canonical Evidence")
+	}
+	resolved := env.installation.Resolve(context.Background(), "external")
+	decision := []byte("Explicit synthetic human gate decision\n")
+	if err := os.WriteFile(filepath.Join(resolved.Project.Repositories[0].Path, "decision.md"), decision, 0600); err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256(decision)
+	decisionDigest := hex.EncodeToString(hash[:])
+	for count := 0; resumed.Status != "completed" && count < 16; count++ {
+		if action := resumed.GateAction; action != nil && action.Operation == "fact" {
+			kind := map[workflow.LifecycleFactKind]string{workflow.FactPlanningAuthority: "specification", workflow.FactImplementationAuthority: "plan", workflow.FactReviewStarted: "evidence"}[action.Fact]
+			resumed = run(0, append(append([]string{"workflow", "fact"}, execution...), "--expected-revision", strconv.FormatUint(resumed.Revision, 10), "--fact", strings.ReplaceAll(string(action.Fact), "_", "-"), "--active", "--actor", "maintainer", "--reference", kind+":decision.md:"+decisionDigest, "--authorize-local")...).Workflow
+		}
+		file := publishConfiguredOutput(t, env.state, resumed)
+		resumed = run(0, append(append([]string{"workflow", "advance"}, execution...), "--expected-revision", strconv.FormatUint(resumed.Revision, 10), "--gate", resumed.CurrentGate, "--outcome", "pass", "--stage-result", file)...).Workflow
+	}
+	if resumed.Status != "completed" || resumed.LifecycleStage != "reviewed" || resumed.GateAction != nil || len(resumed.GateCommand) != 0 || len(resumed.Blockers) != 1 || resumed.Blockers[0] != "delivery_packet_required" {
+		t.Fatalf("unsupported acceptance advertised: %+v", resumed)
+	}
+	before := snapshotTrees(t, env.state)
+	denied := run(1, append(append([]string{"workflow", "fact"}, execution...), "--expected-revision", strconv.FormatUint(resumed.Revision, 10), "--fact", "human-acceptance", "--active", "--actor", "maintainer", "--reference", "evidence:decision.md:"+decisionDigest, "--authorize-local")...)
+	if denied.Status != "denied_authority" || denied.Workflow.LifecycleStage != "reviewed" || !bytes.Equal(before, snapshotTrees(t, env.state)) || !strings.Contains(denied.Next, "#277") {
+		t.Fatal("unrelated valid Evidence granted acceptance")
+	}
+	finalEvidence := run(0, append([]string{"workflow", "evidence"}, execution...)...).Workflow
+	if finalEvidence.Revision != resumed.Revision || finalEvidence.LifecycleStage != "reviewed" || len(finalEvidence.StageLedger) != resumed.StageOrdinal+1 {
+		t.Fatal("denied acceptance rewrote final Evidence")
 	}
 }

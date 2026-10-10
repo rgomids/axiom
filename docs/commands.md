@@ -1676,7 +1676,13 @@ reference, `--active true` and `--authorize-local`. Technical pass or an agent's
 message does not grant planning, implementation, review or acceptance authority.
 The actor is an audit assertion under the existing explicit authority protocol,
 not a new authentication mechanism. Final technical completion still precedes
-separate human acceptance. Configured stages have no automatic Intake shortcut.
+separate human acceptance. Configured technical completion stops at `reviewed`
+with `delivery_packet_required`; `human-acceptance` is denied until #277 supplies
+the exact validated delivery packet and its correlation/authority protocol.
+A valid Evidence file or final stage output cannot substitute for that packet.
+Status/Evidence expose this blocker without advertising an unsupported acceptance
+command. Legacy acceptance retains its historical behavior. Configured stages
+have no automatic Intake shortcut.
 
 Historical format-1 Executions retain their fixed gate order and automatic Intake
 behavior described below; they remain readable and resumable without migration.

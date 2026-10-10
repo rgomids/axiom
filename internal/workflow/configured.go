@@ -221,7 +221,9 @@ func configuredFactAllowed(state State, kind LifecycleFactKind) bool {
 	case FactBlocked, FactNeedsDecision, FactNeedsApproval:
 		return true
 	case FactHumanAcceptance:
-		return state.Status == ExecutionCompleted && stage.Phase == "completion"
+		// #277 owns the exact validated delivery packet and its acceptance.
+		// Technical stage outputs cannot stand in for that packet.
+		return false
 	default:
 		return configuredPhaseGate(*stage) == kind
 	}
@@ -252,7 +254,7 @@ func configuredFacts(state State) (map[LifecycleFactKind]bool, LifecycleConditio
 			conditions.NeedsDecision = f.Active
 		case FactNeedsApproval:
 			conditions.NeedsApproval = f.Active
-		case FactPlanningAuthority, FactImplementationAuthority, FactReviewStarted, FactHumanAcceptance:
+		case FactPlanningAuthority, FactImplementationAuthority, FactReviewStarted:
 			if !f.Active || facts[f.Kind] {
 				return nil, conditions, false
 			}
@@ -295,9 +297,6 @@ func configuredLifecycle(state State) (LifecycleProjection, error) {
 		value = LifecycleReviewing
 		if state.Status == ExecutionCompleted {
 			value = LifecycleReviewed
-			if facts[FactHumanAcceptance] {
-				value = LifecycleAccepted
-			}
 		}
 	default:
 		return LifecycleProjection{}, ErrRecoveryRequired

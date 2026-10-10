@@ -160,6 +160,12 @@ including `--actor <human-identity>`, `--active true` and `--authorize-local`.
 Other configured human facts also require the actor. A technical pass cannot
 replace a human fact or final acceptance.
 
+Configured technical completion stops at `reviewed` with
+`delivery_packet_required`. Exact packet-bound acceptance belongs to the delivery
+operation (#277), which is not available in this slice. Never submit configured
+`human-acceptance` with an Evidence file or stage output as a substitute packet.
+Legacy format-1 acceptance retains its historical protocol.
+
 - An action with `automatic: true` runs `workflow advance --automatic` during
   the authorized run without another conversational confirmation. Intake is
   the only legacy gate Lingo can evaluate automatically; configured stages require

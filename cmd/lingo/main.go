@@ -1113,6 +1113,9 @@ func workflowResult(result workflow.Result, source provenance.Value) cli.Result 
 				view.Blockers = append(view.Blockers, result.Category)
 			}
 		}
+		if result.State.Binding != nil && result.State.Status == workflow.ExecutionCompleted {
+			view.Blockers = append(view.Blockers, "delivery_packet_required")
+		}
 	}
 	return response
 }
@@ -1185,6 +1188,9 @@ func workflowResultReferences(result workflow.Result) []string {
 	return refs
 }
 func workflowResultNext(result workflow.Result) string {
+	if result.State.Binding != nil && (result.State.Status == workflow.ExecutionCompleted || result.Category == "delivery_packet_required") {
+		return "Technical validation is complete; human acceptance requires the exact validated delivery packet from the delivery operation (#277), which is not available in this slice"
+	}
 	if result.Category == "workflow_selection_required" {
 		return "Explicitly select a Project workflow revision with project workflow select, then review a fresh workflow start preview"
 	}

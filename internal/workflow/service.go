@@ -595,6 +595,9 @@ func (s Service) RecordLifecycleFact(ctx context.Context, target Target, input L
 	if !authorized {
 		return result(Denied, "lifecycle_fact_authority_denied", state)
 	}
+	if state.Binding != nil && input.Kind == FactHumanAcceptance {
+		return result(Denied, "delivery_packet_required", state)
+	}
 	if state.Binding != nil && !validText(input.Actor) {
 		return result(ValidationFailed, "human_actor_required", state)
 	}

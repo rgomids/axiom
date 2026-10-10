@@ -28,6 +28,14 @@ name shell commands. Human-review additionally binds an explicit authorized huma
 fact to the exact StageResult digest. Protected phase gates remain human facts;
 technical completion and human acceptance remain distinct.
 
+CR-001 reconciliation: configured `human-acceptance` fails closed with
+`delivery_packet_required` until #277 supplies the exact validated delivery packet
+and revision/digest-bound decision. Technical completion projects to `reviewed`;
+`accepted` remains reserved in the existing vocabulary. Valid but unrelated
+Evidence, final technical artifacts, or a forged acceptance event cannot grant
+acceptance. Status/Evidence report the blocker and omit an unsupported acceptance
+command. Format-1 acceptance remains unchanged.
+
 Custom stage IDs map through declared phases/checkpoints to the existing ten
 lifecycle values. Provider labels remain a projection of canonical state and
 cannot authorize advancement. Status/Evidence expose identity, binding revisions,
@@ -58,7 +66,7 @@ bounded stage ledger. Legacy codec/output limits remain unchanged.
 | Missing prerequisite/validator/human authority blocks before effects | Domain stage-result and exact human-review tests; executable missing-result and denied-authority checks |
 | Status/Evidence identify contract, scope, stage and next step | Executable status/evidence assertions, binding and stage-ledger DTOs |
 | Legacy resumes; missing/corrupt/future bindings fail closed | Existing legacy corpus/tests, new frozen format-2 corpus, codec/inventory/corruption tests and offline resume |
-| Custom stages project deterministically to the ten lifecycle values | Configured custom-stage lifecycle test, configured forged Provider frontier test and existing canonical projection tests |
+| Custom stages preserve the ten-value lifecycle vocabulary | Configured stages cover intake through reviewed; packet-free acceptance is denied pending #277. Legacy acceptance and canonical Provider projection tests remain unchanged. |
 
 The registered output adapter tests also reject unknown policies, foreign stage/
 output correlation and incorrect artifact categories. Local persistence tests
@@ -82,3 +90,10 @@ denied (WinError 1314). The Python validator unit suites also hit that restricti
 the automation registry's executable-bit negative test requires POSIX semantics.
 The complete repository bootstrap therefore still needs its Linux CI run. These
 checks were not weakened or skipped to manufacture a successful bootstrap result.
+
+The first PR head's Linux/macOS CI exposed two POSIX-only fixtures that started
+without explicit workflow selection. Their preparation now selects through the
+public preview/apply operation. The executable lifecycle also supplies validated
+typed stage results and human actors, then asserts packet-free acceptance denial.
+The cross-platform executable test independently covers technical completion,
+status/Evidence blockers and byte-preserving denial of unrelated valid Evidence.

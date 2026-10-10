@@ -140,8 +140,8 @@ func TestConfiguredPrerequisitesValidatorsAndReplay(t *testing.T) {
 	}
 }
 
-func TestConfiguredCustomStagesProjectAllTenLifecycleValuesAndHumanAuthority(t *testing.T) {
-	s, _, d, _ := newConfigured(t)
+func TestConfiguredCustomStagesProjectLifecycleAndDenyUnboundAcceptance(t *testing.T) {
+	s, store, d, _ := newConfigured(t)
 	definition := d.document.Definition
 	for i := range definition.Stages {
 		old := definition.Stages[i].ID
@@ -193,13 +193,37 @@ func TestConfiguredCustomStagesProjectAllTenLifecycleValuesAndHumanAuthority(t *
 		state = advanceConfigured(t, s, state)
 		record()
 	}
-	accepted := s.RecordLifecycleFact(context.Background(), configuredTarget(), LifecycleFactInput{ExpectedRevision: state.Revision, Kind: FactHumanAcceptance, Actor: "maintainer", Active: true, Reference: Reference{Kind: "evidence", ID: "delivery", Digest: strings.Repeat("b", 64)}}, true)
-	if accepted.Status != Succeeded {
-		t.Fatal(accepted.Category)
+	before := cloneState(store.state)
+	// Even authorized, valid Evidence or the exact final technical output is
+	// insufficient without #277's correlated delivery packet.
+	finalResult := state.Transitions[len(state.Transitions)-1].Ledger.Result
+	for _, reference := range []Reference{{Kind: "evidence", ID: "unrelated", Digest: strings.Repeat("b", 64)}, finalResult.Outputs["result"]} {
+		accepted := s.RecordLifecycleFact(context.Background(), configuredTarget(), LifecycleFactInput{ExpectedRevision: state.Revision, Kind: FactHumanAcceptance, Actor: "maintainer", Active: true, Reference: reference, StageResult: &finalResult}, true)
+		if accepted.Status != Denied || accepted.Category != "delivery_packet_required" || !reflect.DeepEqual(before, store.state) {
+			t.Fatalf("unbound acceptance changed state: %s", accepted.Category)
+		}
 	}
-	state = accepted.State
-	record()
+	if NextGateAction(state) != nil {
+		t.Fatal("unsupported acceptance advertised")
+	}
+	// A forged acceptance event cannot become readable canonical truth either.
+	forged := cloneState(state)
+	event := forged.Transitions[len(forged.Transitions)-1]
+	event.Revision++
+	event.From = state.Stage
+	event.To = state.Stage
+	event.Outcome = OutcomeFact
+	event.Ledger = nil
+	event.Fact = &LifecycleFact{Kind: FactHumanAcceptance, Active: true, Actor: "maintainer", ScopeDigest: executionScopeDigest(state), Reference: Reference{Kind: "evidence", ID: "unrelated", Digest: strings.Repeat("b", 64)}}
+	forged.Transitions = append(forged.Transitions, event)
+	forged.Revision++
+	if ValidState(forged) {
+		t.Fatal("forged unbound acceptance accepted")
+	}
 	for _, stage := range LifecycleStages() {
+		if stage == LifecycleAccepted {
+			continue
+		} // Reserved for packet-bound #277.
 		if !seen[stage] {
 			t.Errorf("missing lifecycle %s", stage)
 		}
