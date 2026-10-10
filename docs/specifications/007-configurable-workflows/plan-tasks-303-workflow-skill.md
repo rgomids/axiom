@@ -11,7 +11,8 @@ authorizes no implementation, merge, release, Issue or Linear change.
 | Work Item | [#303](https://github.com/rgomids/axiom/issues/303) / Linear AXM-7 |
 | Contract (immutable for this plan) | [Spec 007](spec.md), [amendment](amendment-303-workflow-skill.md), [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md); **Accepted 2026-10-10** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104)) on PR #304 `7db80ac95b5e83cd8cc9aaaadc785633c3ee3fa9` (amendment blob `9d1895b6…`, ADR blob `13a52a62…`) |
 | Planned on | PR #304 branch at `804123915d1c2eccaa81a3fbf01253aa3910ae48`; differs from `7db80ac` only in status/annotation text |
-| Planning decisions | **PD-1 to PD-9 individually accepted** by the maintainer on #303 (links in §8). Individual PD acceptance is not acceptance of this Plan/Tasks as a whole, nor of implementation or merge. The PD-1 Project read path needs one further explicit authorization of its additive output delta before T08a (§3.4, R10) |
+| Planning decisions | **PD-1 to PD-9 individually accepted** by the maintainer on #303 (links in §8). Individual PD acceptance is not acceptance of this Plan/Tasks as a whole, nor of implementation or merge. |
+| R10 contract exception | **[R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634)**: a bounded exception to AC-015.3/AC-015.8 for the additive read-only `activeWorkflow` field, recorded in [Addendum R10](addendum-303-r10-active-workflow.md) (its text Proposed, pending re-review and separate acceptance). The decision authorizes the contract delta only, not this Plan/Tasks, implementation or merge |
 | Code baseline | `main` `9378c41` (v0.15.0 + #298 CI routing); every file cited below is unchanged from v0.15.0 `3766273` |
 | Starting point | Amendment §"Implementation plan" steps 1–5, refined here; HD-005–HD-008 are not reopened |
 
@@ -54,8 +55,8 @@ In the same delivery:
 - any new or renamed CLI command, flag, payload, schema, engine, Runtime
   registry, approval mechanism, scheduler or fixed Profile tier. **The single
   named exception** is the PD-1 additive, read-only `activeWorkflow` result
-  field on `project show`/`project list` (§3.4), which is **not authorized by
-  this document** and needs the explicit authorization in R10 before T08a;
+  field on `project show`/`project list` (§3.4), authorized as a bounded
+  contract exception by [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634) and recorded in [Addendum R10](addendum-303-r10-active-workflow.md);
 - `--file` regular-file/symlink hardening, owned by
   [#307](https://github.com/rgomids/axiom/issues/307) (PD-9 A);
 - real inference, native sessions, Provider effects, release, and the
@@ -71,7 +72,7 @@ In the same delivery:
 | Inspect flag registry | `internal/cli/skill_inspect.go` `skillFlagSet`; default `projectFlagSet` (`internal/cli/cli.go:808-812`) | Runtime actions not mapped (default would add `--slug`) | Map `runtime_profile_validate/preview` (`runtimePreviewFlagSet`, `internal/cli/runtime_preview.go:94`) and `runtime_{codex,claude}_{status,auth}` |
 | Project workflow commands | `internal/cli/commands.go:38`, `workflow_authoring.go:22-48,124-130`; `cmd/lingo/workflow_authoring.go:21-40`; `internal/projectapp/workflow_authoring.go:58` `ApplyWorkflow` | Preview/apply with `--expected-revision`, `--preview-digest`, `--authorize-local`; `--file` size-bounded, no regular-file/symlink check | Unchanged; `--file` hardening owned by #307 (PD-9 A) |
 | Active selection | `internal/projectapp/workflow_authoring.go:69-76,205-248`; stored in the portable Project `workflowSelection` (`internal/project/project.go:84-91`, validated by `internal/project/workflow.go:9-23`) | Every authoring report includes `selection` as a ref (ID, revision, digest, source) **without a name**; `select` without authority returns a read-only preview of a change | `select` unchanged; **not** used as the Project inspection (PD-1) |
-| Project show / list | `cmd/lingo/project_lifecycle.go:70-95` `listProjects`, `:101-133` `showProject`; `internal/projectapp/list.go:37-42` `ProjectSummary{ID, Slug, Name, Status}`; views `internal/cli/cli.go:263-277` `ProjectView`/`ProjectListView` | Neither result exposes the active workflow; the list catalog already reads portable definitions for display names (`list.go:54-60`) | Additive read-only `activeWorkflow` field (PD-1, §3.4, T08a), subject to R10 authorization |
+| Project show / list | `cmd/lingo/project_lifecycle.go:70-95` `listProjects`, `:101-133` `showProject`; `internal/projectapp/list.go:37-42` `ProjectSummary{ID, Slug, Name, Status}`; views `internal/cli/cli.go:263-277` `ProjectView`/`ProjectListView` | Neither result exposes the active workflow; the list catalog already reads portable definitions for display names (`list.go:54-60`) | Additive read-only `activeWorkflow` field (PD-1, §3.4, T08a), within the accepted R10 exception ([Addendum R10](addendum-303-r10-active-workflow.md)) |
 | Workflow validation | `internal/workflowdefinition/definition.go:144,244` `Encode`/`Decode`, `StrictJSONBounded` | Strict schema, limits, DAG rules | Unchanged; drafts validated through it |
 | Work Item operations | `internal/cli/skill_inspect.go` `workItemRun/Status/Plan`; `internal/cli/workflow_stage_plan.go`; `cmd/lingo/workflow_stage_plan.go` | `run`/`status`/`plan` | Catalog unchanged; SKILL text extended |
 | Execution binding | `cmd/lingo/workflow_binding.go:40-110` | Resolves `workflowSelection`, fails closed | Unchanged |
@@ -167,13 +168,13 @@ In the same delivery:
      **Delta and authorization.** This is the only output delta in #303:
      additive JSON/human output on two existing read-only commands, with no
      new command, flag, operation, authority or state write, and with every
-     existing field and category unchanged. Because AC-015.3/AC-015.8 state
-     that canonical CLI result semantics stay unchanged, this plan does not
-     treat the field as covered by the accepted contract. **T08a is blocked
-     until the maintainer explicitly authorizes the delta (R10)** as either
-     compatible with AC-015.3/AC-015.8 (additive, existing semantics
-     unchanged) or as a recorded contract amendment. Without that
-     authorization, nothing in T08a is implemented.
+     existing field and category unchanged. AC-015.3/AC-015.8 keep canonical
+     CLI results unchanged, so the field needs a formal exception. The
+     maintainer accepted it as [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634), a bounded exception limited to this
+     field, recorded in [Addendum R10](addendum-303-r10-active-workflow.md) (EX-R10.1–EX-R10.6). The accepted amendment and
+     ADR-0022 text stay unchanged. The decision authorizes only the contract
+     delta: T08a is implemented only after this Plan/Tasks is accepted as a
+     whole and T01 passes, like every other task.
 
      Rejected: reusing `project workflow list` (the `definition.list` action)
      under Project, which duplicates a Workflow-owned action (HD-007);
@@ -344,7 +345,7 @@ and the maintainer's accept/reject decision.
 
 - **Sequence:** T01 → T02 → T03 → T04 → T05 → T06 → T07 → T13. Off that path:
   - T08 follows T02, and T09 follows T03 and T08;
-  - T08a follows T02 and the R10 authorization;
+  - T08a follows T02 (R10 accepted; Addendum R10 in the T01 base);
   - T10 runs from T01;
   - T11 starts from T01 but closes after T03;
   - T12 starts after T03 but closes after T10.
@@ -366,14 +367,14 @@ and the maintainer's accept/reject decision.
   | R9 | Runner Evidence attributed to an untested revision or version, or missing canonical digests | Provenance gate (target = `HEAD`, clean tree, toolchain, version proven by tag or release binary, else `unreleased`); digests taken only from canonical results via test markers; otherwise `blocked`; unittest covers divergence | No |
   | R7 | PR #304 not on `main` | T01 gate | Yes |
   | R8 | Claude converges only via `first-run` after `axiom upgrade` | Assert in T06; document in T12 | No |
-  | R10 | The PD-1 `activeWorkflow` field changes `project show`/`list` output, while AC-015.3/AC-015.8 keep canonical CLI results unchanged | Additive, read-only, existing fields/categories unchanged; explicit maintainer authorization of the delta (compatible with AC-015.3/8, or a recorded amendment) before T08a | **Yes:** T08a, and therefore T13 closure, R-1 completion and `Completes-Issues: #303`; other tasks proceed |
+  | R10 | The PD-1 `activeWorkflow` field changes `project show`/`list` output, while AC-015.3/AC-015.8 keep canonical CLI results unchanged | **[R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634):** bounded exception recorded in [Addendum R10](addendum-303-r10-active-workflow.md); additive, read-only, existing fields/categories/tests unchanged | No decision pending. T08a delivery with Evidence remains required for T13 closure, R-1 completion and `Completes-Issues: #303` |
 
 - **Documentation:**
   - `docs/commands.md` skill sections (`:125-128`, `:521-529`, `:1256`), the Project workflow authoring section and the `project show`/`list` output (T08a field);
   - `docs/installation.md:281`, `README.md`, `docs/README.pt-BR.md`, `site/index.html`;
   - the issue-230 catalog block;
   - `internal/codexruntime/testdata/published-skills/PROVENANCE.md` wording;
-  - `docs/specifications/README.md`;
+  - `docs/specifications/README.md` (Addendum R10 status once accepted);
   - new `issue-303-implementation.md`.
 
   CHANGELOG is left to release automation.
@@ -388,14 +389,15 @@ and the maintainer's accept/reject decision.
 
 ## 8. Planning decisions (individually accepted)
 
-All nine were decided by the maintainer on #303. They fall within the accepted
-contract and none reopens HD-005–HD-008. **Individual PD acceptance does not
-accept this Plan/Tasks as a whole**, which stays Proposed, and authorizes no
-implementation or merge.
+PD-1 to PD-9 and the R10 contract exception were each decided by the
+maintainer on #303. None reopens HD-005–HD-008; R10 is the only bounded
+exception to AC-015.3/AC-015.8, recorded in [Addendum R10](addendum-303-r10-active-workflow.md).
+**Individual decision acceptance does not accept this Plan/Tasks as a
+whole**, which stays Proposed, and authorizes no implementation or merge.
 
 | ID | Decision | Accepted outcome | Applied in |
 |---|---|---|---|
-| PD-1 | Project active-workflow inspection — **Accepted, refined** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101636404)) | The Project reports its active workflow (ID, name, revision) through its own `show`/`list`, with no target reference and no change preview; `select` only changes the selection; no `definition.list` in Project; absent/unresolvable selection reported without fallback. Needs the R10 delta authorization before T08a | §2, §3.1, §3.4, §5, R10, T02, T03, T08, T08a, T12 |
+| PD-1 | Project active-workflow inspection — **Accepted, refined** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101636404)) | The Project reports its active workflow (ID, name, revision) through its own `show`/`list`, with no target reference and no change preview; `select` only changes the selection; no `definition.list` in Project; absent/unresolvable selection reported without fallback. Output delta accepted as [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634) ([Addendum R10](addendum-303-r10-active-workflow.md)) | §2, §3.1, §3.4, §5, R10, T02, T03, T08, T08a, T12 |
 | PD-2 | `configuration.readiness` scope — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101705557)) | `runtime profile validate/preview` plus `runtime codex` / `runtime claude` `status` and `auth`, reported as Configuration Valid / Runtime Ready / Authentication Ready; auth read-only, no login, never blocks authoring; point-in-time | §3.1, §5, T02, T03 |
 | PD-3 | Upgrade from v0.15.0 — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6100657230)) | New release installer is the supported path; v0.15.0 `axiom upgrade` must refuse without effects (verified and documented in T06). Versioning the archive skill manifest was **not selected** | §4, R1, T06 |
 | PD-4 | R-1 runner form — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101761143)) | python3 runner + JSON schema + offline unittest; durable; owner `maintainer-acceptance`; manual trigger; no new required CI check | §3.8, T10 |
@@ -403,6 +405,7 @@ implementation or merge.
 | PD-6 | Skill-set constants — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101819334)) | Keep `SkillSetVersion`/`BinaryCompatibility` "2"; append-only history. A real incompatibility found in T05/T06 stops the work for a new decision | T05, T06 |
 | PD-7 | v0.15.0 receipt fixture — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101853398)) | Mandatory fixture derived from official v0.15.0 artifacts, or reproduced through that version's official mechanism, with documented provenance (tag, asset, digest); never fabricated; unprovable → blocked and escalated | Common rules, T05 |
 | PD-8 | Work Item acceptance surface — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102010231)) | SKILL.md procedure section; no new inspect operation | §3.4, T03 |
+| R10 | Contract exception for the PD-1 field — **Accepted, Option B** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634)) | Formal, bounded exception to AC-015.3/AC-015.8 for `activeWorkflow` on `project show`/`list` only; recorded in [Addendum R10](addendum-303-r10-active-workflow.md), whose text still needs re-review and acceptance | §1, §3.4, R10, T01, T08a, T13 |
 | PD-9 | `--file` hardening — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102203860)) | Separate Issue [#307](https://github.com/rgomids/axiom/issues/307); known limitation, not fixed or claimed fixed by #303; #307 is not a #303 gate | §1, §2, §5, R5, T09, T11 |
 
 ---
@@ -411,7 +414,7 @@ implementation or merge.
 
 Common rules for every task:
 - No CLI, application or schema change unless the task names it; the only
-  named one is T08a, gated by R10.
+  named one is T08a, within Addendum R10.
 - No vendor inference, Provider effect or network access beyond the Go module
   cache, except T05's read-only retrieval of official v0.15.0 release
   artifacts (PD-7 A).
@@ -425,9 +428,9 @@ Common rules for every task:
 - **Objective:** implementation starts from a base containing the accepted contract.
 - **Scope:** PR #304 merged, or explicit authorization to stack on its head; then the implementation branch is created.
 - **Files:** none.
-- **Dependencies:** maintainer acceptance of this document as a whole (PD-1 to PD-9 are already individually accepted, §8). T08a additionally needs the R10 authorization.
+- **Dependencies:** maintainer acceptance of this document as a whole (PD-1 to PD-9 and R10 are already individually accepted, §8) and of the Addendum R10 text.
 - **Requirements:** no agent merge.
-- **Acceptance criteria:** the base contains the accepted amendment and ADR bytes.
+- **Acceptance criteria:** the base contains the accepted amendment, ADR-0022 and Addendum R10 bytes.
 - **Verification:** `git rev-parse <base>:<path>` matches the accepted content.
 - **Evidence:** base SHA in `issue-303-implementation.md`.
 - **Definition of Done:** branch exists on an approved base.
@@ -578,25 +581,26 @@ Common rules for every task:
 
 ### T08a — Project active-workflow read path (PD-1)
 - **Objective:** a Project-only query identifies the active workflow by ID, name and revision; changing it still needs a separate preview and authorization.
-- **Gate:** **blocked until the R10 authorization** of the additive output delta. Without it, nothing here is implemented, T08a stays `blocked`, and T13 cannot close (see T13).
+- **Contract:** [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634); implemented strictly within [Addendum R10](addendum-303-r10-active-workflow.md) EX-R10.1–EX-R10.6. Like every task, it starts only after T01. It is mandatory: T13 cannot close without T08a delivered with Evidence.
 - **Scope:** application read model and CLI view for `project show`/`list`; tests; no new command, flag, operation, authority, category or state write.
 - **Files:** `cmd/lingo/project_lifecycle.go` (`listProjects`, `showProject`); `internal/projectapp/list.go` (`ProjectSummary` gains the resolved selection) plus a small resolver beside `internal/projectapp/workflow_authoring.go`; `internal/cli/cli.go` (`ProjectView`/`ProjectListView` gain `activeWorkflow,omitempty`); human renderer if it lists Project fields; new tests in `cmd/lingo` and `internal/projectapp`.
-- **Dependencies:** T02; R10 authorization.
+- **Dependencies:** T02 (and T01, through T02).
 - **Requirements:**
   - the ref comes from the portable Project `workflowSelection`, via the existing observation used by authoring and start binding;
   - name resolution exactly as §3.4: built-in only on an exact ID/revision/digest match; project source only on a matching index entry and strictly decoded document;
   - `status: none` without a selection; `status: unresolvable` with the ref, no name and the existing binding category on any mismatch or unreadable source;
   - no fallback, defaulting, repair, selection or listing of other definitions;
   - `list`: per-Project resolution; one unresolvable entry never hides a Project or fails the listing;
-  - existing fields, categories, messages and `next` text unchanged.
+  - existing fields, categories, messages and `next` text unchanged;
+  - human output shows the same information without removing any existing line.
 - **Acceptance criteria:**
-  - tests cover: built-in selected; project revision selected; no selection; digest mismatch; missing document; unreadable portable source; list with mixed entries;
+  - tests cover (EX-R10.6): built-in selected; project revision selected; no selection; digest mismatch; revision mismatch; missing document; unreadable document or portable source; list with mixed entries; JSON and human output;
   - a tree snapshot proves both commands write nothing;
-  - existing project show/list tests pass unmodified. If one compares the full payload exactly, it is named in the PR and changed only by adding the new field, under the R10 authorization;
+  - existing CLI tests, including project show/list and `workflow.select` preview/approval, pass unmodified. If an existing test compares the full payload exactly and fails, the task stops for a maintainer decision; the test is not edited;
   - after `workflow.select` apply, `project show` reports the new selection; before apply, it reports the old one.
 - **Verification:** `go test ./cmd/lingo ./internal/projectapp ./internal/cli -run 'Project|ActiveWorkflow'`; diff review of existing tests.
-- **Evidence:** test output; JSON sample of each `status` (sanitized).
-- **Definition of Done:** green, with R10 authorization recorded.
+- **Evidence:** test output; sanitized JSON and human output samples for each `status`; R-2/R-3 stay `deferred_to_278`.
+- **Definition of Done:** green, within Addendum R10.
 - **Parallel:** with T07 and T08.
 
 ### T09 — Draft and authority integration
@@ -695,7 +699,7 @@ Common rules for every task:
 - **Dependencies:** start after T03; **completion requires T10** (Evidence links).
 - **Requirements:**
   - describe the three-skill ownership and the removed Project routes;
-  - document the `activeWorkflow` field only if T08a was authorized and delivered;
+  - document the `activeWorkflow` field as delivered by T08a, citing Addendum R10;
   - record the `--file` limitation as known and owned by #307;
   - make no R-2/R-3 claim;
   - leave the accepted amendment/ADR text unchanged;
@@ -710,7 +714,7 @@ Common rules for every task:
 - **Objective:** an R-1-complete implementation PR ready for human review.
 - **Scope:** full validation, independent review, PR.
 - **Files:** `issue-303-implementation.md` final section.
-- **Dependencies:** T02–T12, **including T08a delivered** under the R10 authorization. A blocked T08a is not a satisfied dependency.
+- **Dependencies:** T02–T12, **including T08a delivered** with Evidence. An undelivered or blocked T08a is not a satisfied dependency; the R10 decision alone does not satisfy it.
 - **Requirements:**
   - `go test ./...`, `go vet ./...`, `go build ./...`, `go mod verify`;
   - `scripts/check-go-quality.sh all`;
@@ -721,12 +725,12 @@ Common rules for every task:
   - Draft PR with `Related-Issues: #303` and `Relates to AXM-7`; `Completes-Issues: #303` only when T13 closes (below), otherwise `Completes-Issues: none`;
   - no merge, release, closure, AXM-7 acceptance or AXM-8 unblock.
 - **Acceptance criteria (closure):**
-  - R10 authorized and T08a delivered with its tests green;
+  - T08a delivered within Addendum R10, with its tests green and Evidence recorded;
   - every check mapped to an AC-015 row green; NOT_RUN is allowed only for a check no AC-015 row depends on, with a reason;
   - no unresolved Blocker/Major;
   - R-2/R-3 `deferred_to_278`.
-- **Blocked state:** if any closure criterion is unmet (for example R10 still pending), T13 is `blocked`, not done. A Draft PR may still record the work, but it reports `blocked` with the unmet items, uses `Completes-Issues: none`, and claims neither R-1 completion nor #303 technical completion, even when every other check is green.
-- **Verification:** CI on head; review record; R10 authorization record.
+- **Blocked state:** if any closure criterion is unmet (for example T08a not delivered), T13 is `blocked`, not done. A Draft PR may still record the work, but it reports `blocked` with the unmet items, uses `Completes-Issues: none`, and claims neither R-1 completion nor #303 technical completion, even when every other check is green.
+- **Verification:** CI on head; review record; T08a Evidence.
 - **Evidence:** final implementation record, stating `complete` or `blocked` with the unmet items.
 - **Definition of Done:** every closure criterion met and the Draft PR pushed under separate authorization. A Draft PR in the blocked state does not satisfy this DoD.
 - **Parallel:** no.
@@ -736,7 +740,7 @@ Common rules for every task:
 ```text
 T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07 -> T13   (critical path)
 T02 -> T08 -> T13
-T02 + R10 authorization -> T08a -> T13   (T13 cannot close while T08a is blocked)
+T02 -> T08a -> T13   (R10 accepted; T13 cannot close until T08a is delivered)
 T03 + T08 -> T09 -> T13
 T01 -> T10 -> T13
 T01 -> T11(start); T03 -> T11(close) -> T13
@@ -753,7 +757,7 @@ T03 -> T12(start); T10 -> T12(close) -> T13
 - T10 from T01;
 - T11's test-coverage part from T01;
 - T08 after T02;
-- T08a after T02 and R10;
+- T08a after T02;
 - T09 after T03 and T08;
 - T12 drafting after T03.
 
@@ -765,19 +769,19 @@ T02–T05 run sequentially: they change the same embedded bytes and digests.
 |---|---|---|---|---|
 | 1 Accepted contract, annotated | Status | T01, T12 | ADR governance; Spec index | Contract bytes on base; annotations present |
 | 2 Embedded/installed/discoverable; v0.15.0 upgrade; reinstall; history; no duplicate active routes | 3.7, 4 | T04, T05, T06, T07 | runtime/install/upgrade tests; upgrade journeys; inspect tests | Converged three-skill inventories; owned v0.15.0 set |
-| 3 Configuration routes = canonical commands; Project routes absent; select/run/status/plan kept; CLI unchanged | 3.1, 3.3, 3.4 | T02, T03, T07, T08, T08a | routing/catalog/inspect/help tests; `activeWorkflow` tests | Parity; negative discovery; Project-only active-workflow query; R10 authorization of the additive field |
+| 3 Configuration routes = canonical commands; Project routes absent; select/run/status/plan kept; CLI unchanged | 3.1, 3.3, 3.4 | T02, T03, T07, T08, T08a | routing/catalog/inspect/help tests; `activeWorkflow` tests | Parity; negative discovery; Project-only active-workflow query; additive field within the [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634) exception ([Addendum R10](addendum-303-r10-active-workflow.md)) |
 | 4 NL configuration via drafts; Project selects; start resolves and binds | 3.2, 3.4 | T03, T08, T08a, T09 | content tests; draft journey; `TestConfiguredExecutableRevisionIsolationAndAuthority` | Journey output |
 | 5 Work Item-owned #275 R-1 runner; classified scenarios; R-1/R-2/R-3 separated | 3.4, 3.8 | T10 | runner + unittest (revision/version mismatch, dirty source, missing digest → `blocked`) | Evidence JSON A–H with the full Report H fields, canonical digests per scenario, bound to the tested revision and a proven or `unreleased` version |
 | 6 No real sessions/inference/dispatch/Provider/human E2E; #278 handoff | 1, 6 | T10, T12 | schema rule; review | `deferred_to_278`; handoff checklist |
-| 7 R-1 + review + authorization; G-2/G-4 not waived | 7 | T08a, T13 | full validation; review; R10 record | Review record; T13 `complete` only with R10 authorized and T08a delivered, otherwise `blocked` with blockers listed |
-| 8 CLI/result/digest/preview/security unchanged | 3, 5 | T08, T08a, T13 | unmodified existing tests | Diff review; the only output delta is the additive `activeWorkflow` field, delivered only under R10 |
+| 7 R-1 + review + authorization; G-2/G-4 not waived | 7 | T08a, T13 | full validation; review; T08a Evidence | Review record; T13 `complete` only with T08a delivered, otherwise `blocked` with blockers listed |
+| 8 CLI/result/digest/preview/security unchanged | 3, 5 | T08, T08a, T13 | unmodified existing tests | Diff review; the only output delta is the additive `activeWorkflow` field, under the [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634) exception ([Addendum R10](addendum-303-r10-active-workflow.md)) |
 | 9 HD-006 boundaries; #305/#306 linked; no tiers/conflation/unproven capability/credential mutation | 3.5, 5 | T03, T11 | profile/resolver tests; content tests | Cited tests |
 | 10 Independent review, no unresolved Blocker/Major | 7 | T13 | independent review | Review record |
 
 **Unresolved technical dependencies:**
 - *blocking implementation:* R7/T01 (accepted contract on approved implementation base; acceptance of this Plan/Tasks as a whole still needed);
-- *blocking T08a, and therefore T13 closure and R-1 completion:* R10 (explicit authorization of the PD-1 additive `activeWorkflow` output delta);
-- *accepted decisions:* PD-1 to PD-9, individually accepted (§8); their Evidence (for example T05 provenance, T06 refusal) is still required;
+- *accepted contract exception:* [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634), recorded in [Addendum R10](addendum-303-r10-active-workflow.md) (text Proposed); T08a delivery remains required for T13 closure and R-1 completion;
+- *accepted decisions:* PD-1 to PD-9 and R10, individually accepted (§8); their Evidence (for example T05 provenance, T06 refusal) is still required;
 - *known, outside #303:* `--file` hardening #307 (PD-9 A, not a gate);
 - *outside #303:* G-1 #305, G-2 #306, G-3 #272, G-4 consent, G-5 #276.
 

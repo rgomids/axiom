@@ -61,6 +61,14 @@ contract. The remaining accepted Specification 007 domain rules and
 ADR-0020 are authoritative. Implementation, merge, release, Runtime inference
 and downstream human acceptance remain separately gated.
 
+[#303 Addendum R10 — Project `activeWorkflow` read field](007-configurable-workflows/addendum-303-r10-active-workflow.md):
+**Proposed, 2026-10-10**, recording the maintainer's
+[R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634)
+decision: a bounded exception to amendment #303 AC-015.3/AC-015.8 that adds
+only a read-only `activeWorkflow` field to `project show`/`project list`. The
+accepted amendment and ADR-0022 text are unchanged; the addendum text needs
+re-review and separate acceptance, and authorizes no implementation.
+
 [#303 Plan and Tasks](007-configurable-workflows/plan-tasks-303-workflow-skill.md):
 **Proposed, 2026-10-10**, for independent review and maintainer acceptance;
 authorizes no implementation.
