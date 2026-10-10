@@ -77,7 +77,7 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 func TestSkillDiscoveryExactCommands(t *testing.T) {
 	expected := map[string][]string{
 		"axiom-project":   {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
-		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
+		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom workflow stage plan", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
 	}
 	for _, op := range []string{"list", "show", "create", "edit", "validate", "select", "remove", "recover"} {
 		expected["axiom-project"] = append(expected["axiom-project"], "axiom project workflow "+op)
@@ -166,6 +166,9 @@ func parseSkillFlags(operation action, args []string) (requestInput, bool) {
 		return requestInput{}, !invalidFlagSyntax(set, args, nil) && set.Parse(args) == nil && set.NArg() == 0
 	case operation == workflowListAction:
 		_, ok := executionListFlags(withSelectors(args, "--project", "alpha"))
+		return requestInput{}, ok
+	case operation == workflowStagePlanAction:
+		_, ok := workflowStagePlanFlags(args, false)
 		return requestInput{}, ok
 	case integrationOperation(operation):
 		args = withSelectors(args, "--project", "alpha")

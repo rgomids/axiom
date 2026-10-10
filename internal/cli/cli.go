@@ -397,6 +397,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 	if handled, code := runWorkflowList(ctx, args, service, source, mode, stdout); handled {
 		return code
 	}
+	if handled, code := runWorkflowStagePlan(ctx, args, service, source, mode, stdout); handled {
+		return code
+	}
 	if operation, rest, ok := maintenanceAction(args); ok {
 		return runMaintenance(ctx, mode, operation, rest, service, source, stdout)
 	}

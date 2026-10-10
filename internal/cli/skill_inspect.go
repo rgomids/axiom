@@ -160,6 +160,9 @@ var (
 		authority:       "preview first; publish a Provider projection only with the exact --preview-digest plus --authorize-external",
 		authorityInputs: []string{"--preview-digest", "--authorize-external"}, rejectedInputs: []string{},
 		example: "axiom workflow reconcile --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision>"}
+	workflowStagePlanMode = skillModeSpec{name: "default", effect: effectReadOnly, actions: []action{workflowStagePlanAction}, authority: "none; the proposal never dispatches, grants effects or satisfies human gates",
+		authorityInputs: []string{}, rejectedInputs: []string{},
+		example: "axiom workflow stage plan --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id> --expected-revision <revision> --stage <stage-id> --plan <json-file>"}
 	workItemStatusMode = skillModeSpec{name: "default", effect: effectReadOnly, actions: []action{workflowStatusAction, workflowEvidenceAction}, authority: "none",
 		authorityInputs: []string{}, rejectedInputs: []string{},
 		example: "axiom workflow status --project <uuid-or-slug> --repository <key> --work-item github:<owner>/<repository>#<number> --execution <id>"}
@@ -173,6 +176,7 @@ var (
 	workItemRun      = skillOperationSpec{name: "run",
 		actions: []action{workflowStartAction, workflowAdvanceAction, workflowFactAction, workflowResumeAction, workflowReconcileAction},
 		modes:   []skillModeSpec{workflowTransitionMode, workflowFactMode, workflowReconcileMode}}
+	workItemPlan   = skillOperationSpec{name: "plan", actions: []action{workflowStagePlanAction}, modes: []skillModeSpec{workflowStagePlanMode}}
 	workItemStatus = skillOperationSpec{name: "status", actions: []action{workflowStatusAction, workflowEvidenceAction, workflowListAction}, modes: []skillModeSpec{workItemStatusMode, executionListMode}}
 
 	// Issue #230 lifecycle operations.
@@ -198,7 +202,7 @@ func skillOperationSpecs(name string) []skillOperationSpec {
 	case "axiom-project":
 		return append([]skillOperationSpec{projectConfigure, projectList, projectShow, projectValidate, projectArchive, projectReactivate, projectIntegration}, workflowAuthoringSkillSpecs()...)
 	case "axiom-work-item":
-		return []skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}
+		return []skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemPlan, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}
 
 	}
 	return nil
@@ -240,6 +244,8 @@ func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		return projectValidateFlagSet(new(string), &ProjectLifecycleInput{})
 	case workflowListAction:
 		return executionListFlagSet(&ExecutionListInput{})
+	case workflowStagePlanAction:
+		return workflowStagePlanFlagSet(&WorkflowStagePlanInput{})
 	}
 	if integrationOperation(operation) {
 		return integrationFlagSet(operation, &IntegrationInput{})

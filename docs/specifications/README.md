@@ -31,9 +31,10 @@ records do not establish human acceptance.
 
 [#275 stage compiler implementation and verification map](007-configurable-workflows/issue-275-implementation.md)
 records deterministic single-agent and graph proposals, exact Runtime/Profile/
-effort resolution, authority checks and the current #274 CLI-integration and
-production effort-observation boundaries. Proposal review and human acceptance
-remain separate from implementation.
+effort resolution, authority checks, the read-only public `workflow stage plan`
+operation over the #274 Execution binding, and the production
+capability-observation boundary. Proposal review and human acceptance remain
+separate from implementation.
 
 ## 006 — Installer Host Eligibility and Platform Support Policy
 

@@ -342,7 +342,9 @@ func pathsOverlap(left, right string) bool {
 }
 
 func validRelativePath(value string) bool {
-	return validTarget(value) && value != "." && !strings.HasPrefix(value, "/") && path.Clean(value) == value && !strings.HasPrefix(value, "../")
+	// Portable Repository-relative slash paths only: Windows volume (`C:`),
+	// drive-relative, stream (`:`) and backslash forms never stay confined.
+	return validTarget(value) && value != "." && value != ".." && !strings.HasPrefix(value, "/") && path.Clean(value) == value && !strings.HasPrefix(value, "../") && !strings.ContainsAny(value, `\:`)
 }
 
 func validTarget(value string) bool {

@@ -1,9 +1,11 @@
 # Issue #275 — Stage-to-graph compiler
 
-Status: partial implementation of #275, with the internal compilation contract
-available for review. The public operator planning surface is not delivered;
-human acceptance remains pending. The implementation consumes accepted
-Specification 007 and ADR-0020.
+Status: implementation of #275 complete for review. PR #297 delivered the
+internal compilation contract; the
+[public stage planning completion](#public-stage-planning-completion) wires the
+read-only `axiom workflow stage plan` operation over the #274 Execution binding.
+Technical review and human acceptance remain pending. The implementation
+consumes accepted Specification 007 and ADR-0020.
 It does not dispatch Runtime processes, write Execution state, or perform
 Provider effects.
 
@@ -66,9 +68,10 @@ go test ./internal/workflowcompiler ./internal/executiongraph ./internal/runtime
 
 ## Boundaries and remaining work
 
-- Public `axiom workflow stage plan` wiring remains dependent on #274's pinned
-  Execution binding/status contract. Adding an alternate command or inventing an
-  Execution identity here would conflict with that ownership boundary.
+- Public `axiom workflow stage plan` wiring was deferred here until #274's pinned
+  Execution binding existed; it is now delivered by the
+  [public stage planning completion](#public-stage-planning-completion) below,
+  without an alternate command or invented Execution identity.
 - Dispatch, attempts, cancellation, recovery and output-digest admission remain
   #276 scope. This proposal cannot invoke agents or grant effects.
 - Subscription dispatch admits only the adapter's trailing Codex effort override
@@ -165,3 +168,151 @@ checks use consistent Go 1.26.0 PATH/GOROOT. Initial host toolchain mismatch
 was corrected before successful quality checks. Native maintainer behavioral
 scenarios are not requested by repository validation; no native/live vendor
 acceptance is inferred. Remote CI must be read against the pushed final head.
+
+## Public stage planning completion
+
+This section completes #275 on top of v0.14.0 (`874b24b`). It reuses PR #297's
+compiler and PR #299's (#274) Execution binding; it adds no scheduler, store,
+Runtime invocation or Provider effect, and does not change Specification 007's
+approved text or ADR-0020.
+
+### Delivered boundary
+
+- `axiom workflow stage plan --repository --work-item --execution
+  --expected-revision --stage --plan [--project]` is registered in the command
+  tree, hierarchical help, `skill inspect axiom-work-item` (operation `plan`,
+  read-only) and the canonical routing catalog. It has no authority argument.
+- `workflow.Service.StagePlanningContext` loads the exact Execution through the
+  existing selector/scope checks, requires the exact expected revision, reads the
+  retained `WorkflowBinding` snapshot (never the current Project selection) and
+  binds stage inputs only from retained facts: pinned Project context digests,
+  validated stage-ledger outputs and the canonical Work Item identity digest.
+  Missing required inputs return `stage_prerequisite_missing` with
+  `missing_input:<id>` conditions; historical format-1 Executions return
+  `configured_binding_required`; completed or earlier stages return
+  `stage_not_plannable`. It never saves.
+- `workflowcompiler.Compiler.PlanStage` is the canonical application use case:
+  it invokes the existing `Compile` and wraps its result in the Specification 007
+  `StagePlan` DTO (`executionRef`, `workflowRef`, `stageId`, `stageInputRef`,
+  `graphProposalRef` only for graph stages, `executionKind`, `resolutions` with
+  requested/effective effort and capability-evidence reference, `validatorRefs`,
+  `gateRefs`, `blockers`), the complete `compilation`, the Plan reference and
+  Plan document digest, and a digest over all of them. Pending `before` human
+  gates are blockers; planning never records or satisfies a fact.
+- The approved Plan is a strict, bounded (`256 KiB`) `PlanDocument`: the
+  existing `ApprovedPlan` plus an explicit `authorityCeiling`. Its digest is over
+  the canonical encoding, so formatting alone does not change it.
+- `ClassifyFailure` maps compiler/graph errors to the Specification 007
+  categories: `unsupported_effort`, `runtime_unresolvable`, `authority_denied`
+  (`denied_authority`; a new `ErrAuthorityExceeded` sentinel still matches
+  `ErrInvalidRequest`), `invalid_stage_topology` and `invalid_stage_plan`.
+- `cmd/lingo` composes admission (`execution.status` inspection class), the
+  binding context, the Plan file, the existing Project Runtime policy service and
+  the compiler, then re-reads the Execution; a concurrent revision change returns
+  `stale_execution_revision` instead of a stale success. The capability check
+  probes each supported Runtime with an explicit constraint and selects nothing.
+- Presentation reuses the canonical completion plus `category`,
+  `confirmedEffects` (always empty), `executionRef`, `workflowRef`, `stageId`,
+  `conditions` and `plan`. Human output is the existing deterministic Markdown
+  projection of that JSON; no LLM call formats it.
+- The `axiom-work-item` skill routes `plan` to the same command and states that
+  the proposal grants no authority; skill-set history pins the replaced v0.14.0
+  digest.
+
+### Issue #275 acceptance criteria
+
+| Criterion | Test | Evidence |
+| --- | --- | --- |
+| Same definition/plan/policy snapshot → same proposal/digest | `TestPlanStageSingleAgentHasNoGraphAndIsDeterministic`; `TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph` (repeated CLI plan); `TestDecodePlanDocumentIsStrictAndFormattingIndependent` | Equal digests for identical inputs; Execution revision, Plan document, Runtime configuration and observation changes each change the digest |
+| One stage previews independent Claude/Codex children and integration dependency; another uses one agent | `TestPlanStageGraphExposesMixedRuntimesDependenciesAndGates`; public journey (custom R1 `implementation` vs built-in `intake`) | Graph: implementer→Codex/`medium`, reviewer→Claude/`high`, integrator→Codex owning both dependencies, ordering within concurrency 2; single: `executionKind: single`, no graph, one resolution |
+| No-match, unavailable model/profile, unsupported effort, dangling dependency, cycle, unsafe overlap or excess authority fails before dispatch | `TestPlanStageFailsClosedWithSpecificationCategories`; public journey; `TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates`; existing #297 compiler tests for cycle/dangling | `runtime_unresolvable` (no match, unavailable Claude without fallback, production observer), `unsupported_effort` (no model-specific proof), `authority_denied`, `invalid_stage_topology`; tree snapshots unchanged |
+| Every child envelope preserves stage/workflow, lineage, scope, context/artifact refs and validation obligations | Public journey child-input assertions; existing `TestCompiledInputsSurviveExistingEnvelopePublication` | Each agent input carries the pinned workflow ref, stage ID, two digest-bound inputs (prior output + business context), validators and the human gate as read-only criteria |
+| Configuration changes need a newly reviewed proposal; no implicit fallback or authority expansion | Determinism and drift assertions above; `--expected-revision` stale case | Observation drift changes the digest; stale revision is `denied_authority`; unavailable Claude is refused, not replaced |
+
+### WF-007/WF-008 and AC-007/AC-008
+
+| ID | Evidence |
+| --- | --- |
+| WF-007 / AC-007 | Deterministic compilation of single and DAG stages through the public operation; independent nodes allowed within concurrency; overlap/limit/topology refusals; no LLM involved in planning or rendering |
+| WF-008 / AC-008 | Context and prior-output digests bound from the retained Execution; per-agent Project policy/Profile/effort resolution with exact model proof; no-match/unavailable/unsupported effort refused; child envelopes preserve controls; no implicit fallback |
+
+### Verification
+
+Local checks on the final working tree (Go 1.26.0; `CODEX_API_KEY` and
+`OPENAI_API_KEY` unset):
+
+- `go build ./...`, `go vet ./...`, `go mod verify`: pass.
+- `scripts/check-go-quality.sh all` (Staticcheck v0.8.1): pass.
+- `scripts/validate-repository.sh .`: pass; native maintainer behavioral
+  scenarios SKIPPED (not requested), not passed.
+- `python3 docs/specifications/007-configurable-workflows/validate_examples.py`: pass.
+- `go test ./...`: all new and affected tests pass. Eight pre-existing tests fail
+  identically on unmodified `874b24b` in the authoring container, which runs as
+  root (symlink/foreign-owner refusals cannot trigger) and exports the hosting
+  Claude Code session environment (authentication preflight reports
+  `environment_ambiguous`): `TestRuntimeAuthObservesTheLookedUpExecutable`,
+  `TestSkillRootRefusesSymlinkedRoot`,
+  `TestSubscriptionDispatchRejectsInheritedEnvironment`,
+  `TestClaudeSubscriptionEffortUsesInheritedEnvironmentInRealPreflight`,
+  `TestUpgradeSkillConflictsHaveZeroEffects`,
+  `TestInspectRecordedSourceRejectsUnsafeOrMissingSources`,
+  `TestPortableStoreRejectsUserSymlinkAncestor` and
+  `TestPublicationDirectoryRefusesSymlinkForeignOwnerAndMissing`. Remote CI on
+  the pushed head is the authoritative run for them.
+- `go test -race` for the workflow, compiler, CLI, graph, policy and profile
+  packages and the `cmd/lingo` stage-plan, configured-execution, skill and help
+  tests: pass.
+
+### Independent review remediation
+
+A bounded independent review found no Blocker. Accepted: the `--plan` path
+must be a regular, non-symlink file checked before opening, so a FIFO cannot
+block planning (`TestReadPlanDocumentRefusesNonRegularFiles`); gate satisfaction
+is scoped to the current stage as a defensive guard (definitions already reject
+a repeated gate kind with `duplicate_gate`;
+`TestStagePlanningReportsRecordedCurrentGate`). Not changed, with reason:
+`priorOutput` remains the same binding `workflow advance` validates; an empty
+observation digest cannot reach a resolution because `previewMatches` requires
+valid digests; an effect outside the ceiling remains an authority refusal.
+
+### PR review remediation (CR-001)
+
+Confirmed Major: a bare `..` Plan scope path, with a matching `repository-write`
+target and authority ceiling, was accepted because the shared graph
+`validRelativePath` and the compiler's `withinScope` refused `../...` but not
+the bare parent token. The graph validator now refuses `..`, and Plan admission
+requires every work scope path and write/integration target to be a normalized
+Repository-confined slash path (no root, parent, absolute or backslash form),
+refused as `authority_denied`.
+
+CR-002 (Major) followed: Go's slash-based `path` treats Windows volume
+(`C:/outside`) and drive-relative (`C:outside`) forms as relative. Both the
+compiler's `confinedPath` and the shared graph `validRelativePath` now refuse
+any `:` or `\` in a Repository-relative path, which also excludes NTFS stream
+suffixes. Graph, compiler and public CLI regressions cover `C:/outside` and
+`C:outside` with an otherwise valid Plan and matching ceiling; each failed
+before the fix. A persisted graph containing such a path is refused on load,
+which fails closed. Regressions
+`TestValidRelativePathRefusesParentAndRoot`,
+`TestPlanStageFailsClosedWithSpecificationCategories` (parent scope, parent
+write target within a matching ceiling, backslash scope) and the public journey's
+`..` Plan each failed before the fix and pass after it, with no state change.
+
+### Limitations
+
+- The production executable observer proves only Axiom skill integration. On a
+  real machine, stages needing other capabilities (the built-in `read`) or
+  explicit effort are therefore refused as `runtime_unresolvable` or
+  `unsupported_effort`. This is the intended fail-closed outcome, demonstrated by
+  the executable test; authoritative capability/effort observation remains #272
+  scope. Positive journeys use controlled observations over the real installed
+  Project policy, configuration and Execution stores; they are synthetic tests,
+  not operational Evidence of vendor inference.
+- Plan approval is asserted by the operator-supplied Plan document (`approved`,
+  `planDigest`); planning records no approval fact. #276 must bind the reviewed
+  `plan.digest` before any dispatch.
+- Artifact-kind stage inputs have no authoritative pre-execution source and stay
+  unbound; a required one blocks planning with `stage_prerequisite_missing`.
+- `controls.timeout` uses the existing graph DTO encoding (nanoseconds).
+- No dispatch, retry, cancellation, delivery, merge, release or human acceptance
+  is claimed.
