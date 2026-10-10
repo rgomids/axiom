@@ -79,6 +79,49 @@ registry, scheduler, approval fact, result protocol or parallel domain logic.
 Runtime-prepared draft files are working inputs, not Evidence or approval.
 Each mutation uses its own canonical preview and explicit confirmation.
 
+## Configuration scope and readiness (HD-006 direction)
+
+A Project's portable policy is the set of **allowed** Runtimes and Model
+Profiles, not an assertion that a Runtime is installed, authenticated or
+operational on the machine. [Spec 002 policy v2](../specifications/002-lingo-project-initialization/runtime-policy-v2.md)
+already permits multiple Runtime declarations, Project Model Profiles and
+role/complexity preferences. The Project owns edits to that policy
+([G-1 / #305](https://github.com/rgomids/axiom/issues/305)); local Runtime
+configuration separately owns actual installed Runtime/Profile bindings
+([G-2 / #306](https://github.com/rgomids/axiom/issues/306)).
+Removing a Runtime from one Project disallows it only there; removing one
+locally affects readiness of all dependent Projects without rewriting their
+portable configuration or existing immutable Executions.
+
+A Runtime may have **multiple named local Profiles**; three common example
+names (`economy`, `balanced`, `advanced`) are optional presets, not a
+hard-coded tier model. A Workflow's Stage/Agent records the requested
+Runtime constraints, logical Profile references, complexity and effort; it
+does not configure the local machine or imply that effort is comparable
+between vendors. The effective candidate set is constrained by the Project
+policy, local matching enabled Profiles, the Stage/Agent requirements and
+authoritative capability observations. The v2 matching contract, including
+portable Project model fields and current schema limits, is preserved until
+an independently reviewed migration. Missing, inconsistent or ambiguous
+configuration fails closed; no silent Runtime/Model fallback.
+
+The [#231](https://github.com/rgomids/axiom/issues/231) Project readiness
+contract provides the existing diagnostic owner for Repository bindings,
+Provider availability and Project/runtime compatibility. A future aggregate
+`axiom doctor` may reuse its validators but is **not** created by this ADR,
+this PR or the two follow-ups. Active vendor inference requires separate
+operator authorization; readiness never grants execution authority. Local
+credential references and vendor login state are never portable Project or
+Workflow data or published Evidence. G-2 includes an independent security
+review before implementation.
+
+HD-006's *separate follow-ups* are linked under [#303](https://github.com/rgomids/axiom/issues/303)
+for technical traceability without reopening the frozen MVP epic. The
+configuration-only skill in this ADR does not own G-1, G-2, stage dispatch,
+Work Item execution or Doctor mutation. The proposed exact revised Spec/ADR
+still requires human acceptance; the clarified direction does not authorize
+implementation or AXM-7 acceptance.
+
 ## Alternatives considered
 
 | Option | Coupling / complexity | User experience | Reversibility |
