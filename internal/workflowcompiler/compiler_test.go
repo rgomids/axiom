@@ -2,13 +2,19 @@ package workflowcompiler
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/project"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
@@ -53,6 +59,12 @@ type capabilityOK struct{}
 
 func (capabilityOK) ValidateCapability(context.Context, executiongraph.CapabilityRequest) error {
 	return nil
+}
+
+type capabilityDenied struct{}
+
+func (capabilityDenied) ValidateCapability(context.Context, executiongraph.CapabilityRequest) error {
+	return errors.New("capability unavailable")
 }
 
 func TestCompileSingleAgentUsesNoGraphAndBindsStageInputs(t *testing.T) {
@@ -228,7 +240,314 @@ func findStage(t *testing.T, doc workflowdefinition.Document, id string) workflo
 }
 
 func digestForTest(value string) string {
-	return strings.Repeat("a", 64)
+	hash := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(hash[:])
+}
+
+type transformedRuntime struct {
+	change func(*runtimeapplication.Preview)
+}
+
+func (r transformedRuntime) Preview(ctx context.Context, projectID string, request runtimeapplication.Request) (runtimeapplication.Preview, error) {
+	preview, err := (testRuntimes{}).Preview(ctx, projectID, request)
+	if err == nil {
+		r.change(&preview)
+	}
+	return preview, err
+}
+
+func multiRequest(t *testing.T) Request {
+	t.Helper()
+	doc := loadWorkflow(t, "../../docs/specifications/007-configurable-workflows/examples/custom-r1.json")
+	return requestFor(t, doc, "implementation", []InputBinding{{InputID: "source", Reference: "tasks/result", Digest: digestForTest("prior-stage")}, {InputID: "business-context", Reference: "business-context", Digest: digestForTest("context")}})
+}
+
+func TestCompileBindsRuntimeSnapshotsAndStageKeys(t *testing.T) {
+	request := multiRequest(t)
+	first, err := New(testRuntimes{}, capabilityOK{}).Compile(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, err := New(transformedRuntime{change: func(p *runtimeapplication.Preview) { p.ObservationDigest = digestForTest("new-observation") }}, capabilityOK{}).Compile(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Digest == changed.Digest || first.Proposal.Digest == changed.Proposal.Digest {
+		t.Fatal("changed observation bytes did not invalidate both review digests")
+	}
+	for _, node := range first.Proposal.Nodes {
+		if !strings.HasPrefix(node.Key, "implementation:") {
+			t.Fatalf("node lost stage correlation: %s", node.Key)
+		}
+		found := false
+		for _, input := range node.Inputs {
+			found = found || strings.HasPrefix(input, "stage-input-")
+		}
+		if !found {
+			t.Fatalf("node %s has no digest-bound stage input", node.Key)
+		}
+		for _, agent := range first.Agents {
+			if agent.Input.NodeKey != node.Key {
+				continue
+			}
+			for _, dependency := range agent.Input.DependencyOutputs {
+				for _, output := range dependency.Outputs {
+					token := "output-implementation-" + dependency.AgentID + "-" + output
+					if !contains(node.Inputs, token) {
+						t.Fatalf("dependency output %s is absent from consumer inputs", token)
+					}
+					for _, producer := range first.Proposal.Nodes {
+						if producer.Key == "implementation:"+dependency.AgentID && !contains(producer.Outputs, token) {
+							t.Fatalf("consumer input %s does not match producer outputs", token)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestCompileReportsRequiredEffectsSeparatelyFromAuthorityCeiling(t *testing.T) {
+	r := multiRequest(t)
+	r.ParentAuthority = []executiongraph.Effect{{Kind: "read", Target: "approved-context"}}
+	result, err := New(testRuntimes{}, capabilityOK{}).Compile(context.Background(), r)
+	if err != nil || len(result.Authority) != 0 || len(result.AuthorityCeiling) != 1 {
+		t.Fatalf("required authority was expanded to unused ceiling: %+v err=%v", result, err)
+	}
+}
+
+func TestCompileRejectsPolicyDriftAcrossAgents(t *testing.T) {
+	resolver := transformedRuntime{change: func(p *runtimeapplication.Preview) {
+		if p.Request.Role == "reviewer" {
+			p.ProjectDigest = digestForTest("changed-project")
+		}
+	}}
+	if _, err := New(resolver, capabilityOK{}).Compile(context.Background(), multiRequest(t)); !errors.Is(err, ErrRuntimeBlocked) {
+		t.Fatalf("mixed Project snapshots accepted: %v", err)
+	}
+	resolver.change = func(p *runtimeapplication.Preview) {
+		if p.Request.Role == "integrator" {
+			p.ObservationDigest = digestForTest("changed-Runtime")
+		}
+	}
+	if _, err := New(resolver, capabilityOK{}).Compile(context.Background(), multiRequest(t)); !errors.Is(err, ErrRuntimeBlocked) {
+		t.Fatalf("mixed Runtime snapshots accepted: %v", err)
+	}
+}
+
+func TestCompileDoesNotMutateApprovedScope(t *testing.T) {
+	request := multiRequest(t)
+	request.Plan.Work[0].Scope.Paths = []string{"z/file.go", "a/file.go"}
+	before, _ := json.Marshal(request.Plan)
+	if _, err := New(testRuntimes{}, capabilityOK{}).Compile(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := json.Marshal(request.Plan)
+	if string(before) != string(after) {
+		t.Fatal("compiler mutated the approved input plan")
+	}
+}
+
+func TestCompileRejectsInvalidTopologyControlsAndReferences(t *testing.T) {
+	tests := []struct {
+		name string
+		edit func(*Request)
+	}{
+		{"unapproved plan", func(r *Request) { r.Plan.Approved = false }},
+		{"excess nodes", func(r *Request) { r.Plan.MaximumNodes = 2 }},
+		{"unbounded node limit", func(r *Request) { r.Plan.MaximumNodes = 33 }},
+		{"zero attempts", func(r *Request) { r.Plan.Work[0].Controls.MaximumAttempts = 0 }},
+		{"excess attempts", func(r *Request) { r.Plan.Work[0].Controls.MaximumAttempts = 3 }},
+		{"excess timeout", func(r *Request) { r.Plan.Work[0].Controls.Timeout = 25 * time.Hour }},
+		{"zero timeout", func(r *Request) { r.Plan.Work[0].Controls.Timeout = 0 }},
+		{"duplicate work", func(r *Request) { r.Plan.Work[1].Key = r.Plan.Work[0].Key }},
+		{"wrong Project", func(r *Request) { r.Plan.Work[0].Scope.ProjectID = "other" }},
+		{"wrong Repository", func(r *Request) { r.Plan.Work[0].Scope.RepositoryKey = "other" }},
+		{"scope traversal", func(r *Request) { r.Plan.Work[0].Scope.Paths = []string{"../private"} }},
+		{"stale revision", func(r *Request) { r.Workflow.Revision++ }},
+		{"host path input", func(r *Request) { r.InputBindings[0].Reference = "/private/credential" }},
+		{"credential-bearing effect", func(r *Request) {
+			effect := executiongraph.Effect{Kind: "process", Target: "api_key=unsafe-fixture"}
+			r.Plan.Work[0].Effects, r.ParentAuthority = []executiongraph.Effect{effect}, []executiongraph.Effect{effect}
+		}},
+		{"dangling dependency", func(r *Request) {
+			r.Definition.Definition.Stages[5].Agents[0].DependsOn = []string{"missing"}
+		}},
+		{"cycle", func(r *Request) {
+			r.Definition.Definition.Stages[5].Agents[0].DependsOn = []string{"integrator"}
+		}},
+		{"unsafe instructions", func(r *Request) {
+			r.Definition.Definition.Stages[5].Instructions = "api_key=unsafe-fixture"
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			r := multiRequest(t)
+			test.edit(&r)
+			if _, err := New(testRuntimes{}, capabilityOK{}).Compile(context.Background(), r); err == nil {
+				t.Fatal("unsafe request accepted")
+			}
+		})
+	}
+	if _, err := New(testRuntimes{}, capabilityDenied{}).Compile(context.Background(), multiRequest(t)); !errors.Is(err, executiongraph.ErrUnresolvable) {
+		t.Fatalf("missing capability err=%v", err)
+	}
+}
+
+func rebindStage(t *testing.T, r *Request, edit func(*workflowdefinition.Stage)) {
+	t.Helper()
+	for index := range r.Definition.Definition.Stages {
+		if r.Definition.Definition.Stages[index].ID == r.StageID {
+			edit(&r.Definition.Definition.Stages[index])
+		}
+	}
+	doc, diagnostics := workflowdefinition.Encode(r.Definition.Definition)
+	if len(diagnostics) != 0 {
+		t.Fatalf("invalid test stage: %+v", diagnostics)
+	}
+	r.Definition, r.Workflow = doc, doc.Ref("project")
+}
+
+func TestCompileSequentialConcurrencyAndUnsafeOverlap(t *testing.T) {
+	r := multiRequest(t)
+	rebindStage(t, &r, func(s *workflowdefinition.Stage) {
+		s.Mode, s.Concurrency = "sequential", 1
+		s.Agents[1].DependsOn = []string{s.Agents[0].ID}
+	})
+	sequential, err := New(testRuntimes{}, capabilityOK{}).Compile(context.Background(), r)
+	if err != nil || len(sequential.Ordering) != 3 {
+		t.Fatalf("sequential ordering=%v err=%v", sequential.Ordering, err)
+	}
+	for _, layer := range sequential.Ordering {
+		if len(layer) != 1 {
+			t.Fatal("sequential graph permits parallel execution")
+		}
+	}
+	r = multiRequest(t)
+	rebindStage(t, &r, func(s *workflowdefinition.Stage) { s.Concurrency = 1 })
+	limited, err := New(testRuntimes{}, capabilityOK{}).Compile(context.Background(), r)
+	if err != nil || len(limited.Proposal.Nodes[2].Dependencies) != 1 {
+		t.Fatalf("concurrency limit missing dependency: %+v err=%v", limited.Proposal, err)
+	}
+	r = multiRequest(t)
+	rebindStage(t, &r, func(s *workflowdefinition.Stage) {
+		s.Agents[1].EffectCeilings = append(s.Agents[1].EffectCeilings, "repository-write")
+	})
+	write := executiongraph.Effect{Kind: "repository-write", Target: "src/shared.go"}
+	r.ParentAuthority = []executiongraph.Effect{write}
+	for index := 0; index < 2; index++ {
+		r.Plan.Work[index].Scope.Paths = []string{"src/shared.go"}
+		r.Plan.Work[index].Effects = []executiongraph.Effect{write}
+	}
+	if _, err := New(testRuntimes{}, capabilityOK{}).Compile(context.Background(), r); !errors.Is(err, executiongraph.ErrUnsafeOverlap) {
+		t.Fatalf("unsafe parallel overlap err=%v", err)
+	}
+}
+
+type memoryGraph struct{ graph executiongraph.Graph }
+
+func (s *memoryGraph) Create(_ context.Context, g executiongraph.Graph) error {
+	s.graph = g
+	return nil
+}
+func (s *memoryGraph) Load(context.Context, string, string) (executiongraph.Graph, error) {
+	return s.graph, nil
+}
+
+func TestCompiledInputsSurviveExistingEnvelopePublication(t *testing.T) {
+	r := multiRequest(t)
+	compiled, err := New(testRuntimes{}, capabilityOK{}).Compile(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publication := executiongraph.PublicationRequest{Proposal: *compiled.Proposal, ExpectedDigest: compiled.Proposal.Digest, GraphRevision: 1, ParentAuthority: r.ParentAuthority, ChildAuthorities: map[string][]executiongraph.Effect{}, Resolutions: map[string]executiongraph.Resolution{}, Workspaces: map[string]string{}, AuthorityReferences: map[string]string{}}
+	for _, agent := range compiled.Agents {
+		key := agent.Input.NodeKey
+		publication.ChildAuthorities[key] = agent.Effects
+		publication.Resolutions[key] = executiongraph.Resolution{RuntimeID: agent.Choice.RuntimeID, ModelProfileID: agent.Choice.ModelProfileID, ConfigurationRevision: agent.Choice.ConfigurationRevision, ObservationRevision: agent.Choice.ObservationRevision}
+		publication.Workspaces[key] = "isolated/" + agent.AgentID
+		publication.AuthorityReferences[key] = "reviewed-authority-" + agent.AgentID
+		ref, err := stageInputReference(agent.Input)
+		if err != nil || ref != agent.InputReference {
+			t.Fatal("stage input digest does not bind canonical bytes")
+		}
+	}
+	next := 0
+	graph, err := executiongraph.NewGraphService(&memoryGraph{}, func() (string, error) { next++; return fmt.Sprintf("00000000-0000-4000-8000-%012d", next), nil }, func() time.Time { return time.Unix(10, 0).UTC() }).Publish(context.Background(), publication)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, child := range graph.Children {
+		if child.ParentID != graph.Parent.ExecutionID {
+			t.Fatal("child lost parent lineage")
+		}
+		for _, agent := range compiled.Agents {
+			if agent.Input.NodeKey == child.NodeKey && (!contains(child.Envelope.Inputs, agent.InputReference.ID) || child.Envelope.Controls != agent.Controls) {
+				t.Fatal("envelope lost stage reference or controls")
+			}
+		}
+	}
+}
+
+type fixedPolicySource struct{ snapshot runtimeapplication.Snapshot }
+
+func (s fixedPolicySource) Load(context.Context, string) (runtimeapplication.Snapshot, error) {
+	return s.snapshot, nil
+}
+
+func TestCompileWithRealProjectPolicyAndModelSpecificObservations(t *testing.T) {
+	const projectID = "123e4567-e89b-42d3-a456-426614174000"
+	state := project.State{SchemaVersion: 2, ID: projectID, Slug: "example", Name: "Example"}
+	var runtimes []project.Runtime
+	var profiles []project.ModelProfile
+	configuration := runtimeprofile.Configuration{FormatVersion: 1, Revision: 7}
+	var observations []runtimeprofile.Observation
+	for _, id := range []string{"codex", "claude"} {
+		model, profileID := "local-"+id+"-model", "profile-"+id
+		runtimes = append(runtimes, project.Runtime{ID: id})
+		profiles = append(profiles, project.ModelProfile{Key: profileID, RuntimeRef: project.Configured(id), Model: project.Configured(model)})
+		configuration.Runtimes = append(configuration.Runtimes, runtimeprofile.Runtime{ID: id, Adapter: id, Enabled: true, AllowlistedProfileIDs: []string{profileID}, CredentialReference: "env:PRIVATE_REFERENCE_ONLY"})
+		configuration.ModelProfiles = append(configuration.ModelProfiles, runtimeprofile.ModelProfile{ID: profileID, RuntimeID: id, Model: model, Capabilities: []string{"read", "repository-write", "reasoning-effort-high", "reasoning-effort-medium"}, Complexities: []string{"medium"}})
+		observations = append(observations, runtimeprofile.Observation{RuntimeID: id, Adapter: id, Installed: true, Available: true, Version: "test-1.0", ExecutableDigest: digestForTest(id), Revision: 7, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"read": runtimeprofile.CapabilityProven, "repository-write": runtimeprofile.CapabilityProven, "reasoning-effort-high": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven}, NonInteractiveModelCapabilities: map[string]map[string]runtimeprofile.CapabilityStatus{model: {"reasoning-effort-high": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven}}})
+	}
+	state.Runtimes, state.ModelProfiles = project.Configured(runtimes), project.Configured(profiles)
+	state.RuntimePreferences = project.Configured([]project.RuntimePreference{{Role: "integrator", Complexity: "medium", ModelProfileRef: "profile-codex"}})
+	configured, diagnostics := project.New(state)
+	if len(diagnostics) != 0 {
+		t.Fatal(diagnostics)
+	}
+	inventory, err := runtimeadapter.NewInventory(observations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := runtimeapplication.New(fixedPolicySource{snapshot: runtimeapplication.Snapshot{Project: configured, Configuration: configuration, Observer: inventory}})
+	r := multiRequest(t)
+	r.ProjectID = projectID
+	for index := range r.Plan.Work {
+		r.Plan.Work[index].Scope.ProjectID = projectID
+	}
+	compiled, err := New(service, capabilityOK{}).Compile(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, agent := range compiled.Agents {
+		if _, err := service.Check(context.Background(), agent.Input.RuntimePreview); err != nil {
+			t.Fatalf("compiled Runtime preview cannot be revalidated: %v", err)
+		}
+	}
+	wire, _ := json.Marshal(compiled)
+	if strings.Contains(string(wire), "PRIVATE_REFERENCE_ONLY") {
+		t.Fatal("compiled proposal leaked credential reference")
+	}
+	observations[0].NonInteractiveModelCapabilities = nil
+	inventory, err = runtimeadapter.NewInventory(observations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service = runtimeapplication.New(fixedPolicySource{snapshot: runtimeapplication.Snapshot{Project: configured, Configuration: configuration, Observer: inventory}})
+	if _, err := New(service, capabilityOK{}).Compile(context.Background(), r); !errors.Is(err, ErrUnsupportedEffort) {
+		t.Fatalf("Runtime-wide effort proof admitted: %v", err)
+	}
 }
 
 func workflowSource(doc workflowdefinition.Document) string {

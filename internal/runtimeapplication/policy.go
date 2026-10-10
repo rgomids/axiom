@@ -279,7 +279,7 @@ func projectConfiguration(state project.State, local runtimeprofile.Configuratio
 	// do not remove it and accidentally choose another profile.
 	if preferences, ok := state.RuntimePreferences.Value(); ok {
 		for _, preference := range preferences {
-			if preference.Role != request.Role || preference.Complexity != request.Complexity {
+			if request.ModelProfileID != "" || preference.Role != request.Role || preference.Complexity != request.Complexity {
 				continue
 			}
 			if preference.Role == "" || preference.Complexity == "" {
@@ -345,12 +345,22 @@ func safeVersion(v string) bool {
 }
 
 func safeObservation(o runtimeprofile.Observation) bool {
-	if !token(o.RuntimeID) || !token(o.Adapter) || !safeVersion(o.Version) || len(o.CapabilityStatus) > 32 {
+	if !token(o.RuntimeID) || !token(o.Adapter) || !safeVersion(o.Version) || len(o.CapabilityStatus) > 32 || len(o.NonInteractiveModelCapabilities) > 32 {
 		return false
 	}
 	for capability, status := range o.CapabilityStatus {
 		if !token(capability) || (status != runtimeprofile.CapabilityDeclared && status != runtimeprofile.CapabilityProven) {
 			return false
+		}
+	}
+	for model, capabilities := range o.NonInteractiveModelCapabilities {
+		if model == "" || len(model) > 256 || strings.TrimSpace(model) != model || strings.ContainsAny(model, "\x00\r\n") || len(capabilities) > 32 {
+			return false
+		}
+		for capability, status := range capabilities {
+			if !token(capability) || (status != runtimeprofile.CapabilityDeclared && status != runtimeprofile.CapabilityProven) {
+				return false
+			}
 		}
 	}
 	return true

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -61,6 +62,40 @@ func TestResolveDistinguishesDeclaredFromProvenCapability(t *testing.T) {
 	_, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go", "repository-write"}})
 	if !errors.Is(err, ErrNoMatch) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestExplicitEffortRequiresExactNonInteractiveModelProof(t *testing.T) {
+	const capability = "reasoning-effort-high"
+	cfg := testConfiguration()
+	cfg.ModelProfiles[0].Capabilities = append(cfg.ModelProfiles[0].Capabilities, capability)
+	observation := testObservation("codex", "codex", true)
+	observation.ExecutableDigest = strings.Repeat("a", 64)
+	observation.CapabilityStatus[capability] = CapabilityProven
+	observer := &fakeObserver{observations: map[string]Observation{"codex": observation}}
+	request := Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{capability}, ModelProfileID: cfg.ModelProfiles[0].ID}
+	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("Runtime-wide proof accepted for an unproven model: %v", err)
+	}
+	observation.NonInteractiveModelCapabilities = map[string]map[string]CapabilityStatus{"different-model": {capability: CapabilityProven}}
+	observer.observations["codex"] = observation
+	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("proof for different model accepted: %v", err)
+	}
+	observation.NonInteractiveModelCapabilities = map[string]map[string]CapabilityStatus{cfg.ModelProfiles[0].Model: {capability: CapabilityDeclared}}
+	observer.observations["codex"] = observation
+	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("declared effort accepted as proof: %v", err)
+	}
+	observation.NonInteractiveModelCapabilities[cfg.ModelProfiles[0].Model][capability] = CapabilityProven
+	observer.observations["codex"] = observation
+	if result, err := NewResolver(observer).Resolve(context.Background(), cfg, request); err != nil || result.Choice == nil {
+		t.Fatalf("exact effort proof rejected: result=%+v err=%v", result, err)
+	}
+	observation.Version = ""
+	observer.observations["codex"] = observation
+	if _, err := NewResolver(observer).Resolve(context.Background(), cfg, request); !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("versionless effort proof accepted: %v", err)
 	}
 }
 

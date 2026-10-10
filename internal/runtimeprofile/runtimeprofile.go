@@ -80,6 +80,9 @@ type Observation struct {
 	Revision         uint64                      `json:"revision"`
 	ObservedAt       time.Time                   `json:"observedAt"`
 	CapabilityStatus map[string]CapabilityStatus `json:"capabilityStatus"`
+	// NonInteractiveModelCapabilities proves capability for an exact local model
+	// in this observed executable/version's noninteractive invocation mode.
+	NonInteractiveModelCapabilities map[string]map[string]CapabilityStatus `json:"nonInteractiveModelCapabilities,omitempty"`
 }
 
 type Observer interface {
@@ -298,6 +301,12 @@ func supports(profile ModelProfile, observation Observation, request Request) bo
 	for _, capability := range request.Capabilities {
 		if !contains(profile.Capabilities, capability) || observation.CapabilityStatus[capability] != CapabilityProven {
 			return false
+		}
+		if strings.HasPrefix(capability, "reasoning-effort-") {
+			identity, err := hex.DecodeString(observation.ExecutableDigest)
+			if err != nil || len(identity) != sha256.Size || !validText(observation.Version) || observation.NonInteractiveModelCapabilities[profile.Model][capability] != CapabilityProven {
+				return false
+			}
 		}
 	}
 	return true

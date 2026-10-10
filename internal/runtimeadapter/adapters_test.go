@@ -2,6 +2,7 @@ package runtimeadapter
 
 import (
 	"context"
+	"errors"
 	"github.com/rgomids/axiom/internal/testfs"
 	"reflect"
 	"testing"
@@ -56,11 +57,13 @@ func TestConcreteResolversProduceExplicitArgvAndResolveCredentialByReference(t *
 		t.Fatalf("invocation=%+v err=%v", invocation, err)
 	}
 	codex.Envelope.Controls.ReasoningEffort = "high"
+	codex.Envelope.Capability.Capabilities = []string{"reasoning-effort-high"}
 	invocation, err = resolver.ResolveInvocation(context.Background(), codex)
 	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{testfs.Path("/opt/bin/codex"), "exec", "--model", "local-codex-model", "--json", "--config", "model_reasoning_effort=high"}) {
 		t.Fatalf("Codex effort invocation=%+v err=%v", invocation, err)
 	}
 	claude.Envelope.Controls.ReasoningEffort = "high"
+	claude.Envelope.Capability.Capabilities = []string{"reasoning-effort-high"}
 	invocation, err = resolver.ResolveInvocation(context.Background(), claude)
 	if err != nil || !reflect.DeepEqual(invocation.Env, []string{"CLAUDE_CODE_EFFORT_LEVEL=high", "PATH=/opt/bin"}) {
 		t.Fatalf("Claude effort environment=%+v err=%v", invocation, err)
@@ -69,4 +72,30 @@ func TestConcreteResolversProduceExplicitArgvAndResolveCredentialByReference(t *
 
 func adapterChild(runtimeID, profileID string) executiongraph.ChildExecution {
 	return executiongraph.ChildExecution{Envelope: executiongraph.ChildEnvelope{Workspace: "/tmp/isolated", Resolution: executiongraph.Resolution{RuntimeID: runtimeID, ModelProfileID: profileID, ConfigurationRevision: 1, ObservationRevision: 1}}}
+}
+
+func TestEffortMappingRejectsMissingCapabilityAndConflictingEnvironment(t *testing.T) {
+	for _, runtimeID := range []string{"codex", "claude"} {
+		t.Run(runtimeID, func(t *testing.T) {
+			resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: runtimeID, ModelProfileID: "profile", Executable: testfs.Path("/opt/bin/" + runtimeID), Model: "local-model", OutputMax: 1024}}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			child := adapterChild(runtimeID, "profile")
+			child.Envelope.Controls.ReasoningEffort = "unsupported"
+			if _, err := resolver.ResolveInvocation(context.Background(), child); !errors.Is(err, ErrInvalidAdapterConfiguration) {
+				t.Fatalf("unproven effort err=%v", err)
+			}
+		})
+	}
+	resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: "claude", ModelProfileID: "profile", Executable: testfs.Path("/opt/bin/claude"), Model: "local-model", Environment: []string{"CLAUDE_CODE_EFFORT_LEVEL=low"}, OutputMax: 1024}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	child := adapterChild("claude", "profile")
+	child.Envelope.Controls.ReasoningEffort = "high"
+	child.Envelope.Capability.Capabilities = []string{"reasoning-effort-high"}
+	if _, err := resolver.ResolveInvocation(context.Background(), child); !errors.Is(err, ErrInvalidAdapterConfiguration) {
+		t.Fatalf("conflicting effort environment err=%v", err)
+	}
 }

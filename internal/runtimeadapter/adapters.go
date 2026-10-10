@@ -32,6 +32,14 @@ func NewInventory(observations []runtimeprofile.Observation) (Inventory, error) 
 		for capability, status := range observation.CapabilityStatus {
 			copyObservation.CapabilityStatus[capability] = status
 		}
+		copyObservation.NonInteractiveModelCapabilities = make(map[string]map[string]runtimeprofile.CapabilityStatus, len(observation.NonInteractiveModelCapabilities))
+		for model, capabilities := range observation.NonInteractiveModelCapabilities {
+			copyCapabilities := make(map[string]runtimeprofile.CapabilityStatus, len(capabilities))
+			for capability, status := range capabilities {
+				copyCapabilities[capability] = status
+			}
+			copyObservation.NonInteractiveModelCapabilities[model] = copyCapabilities
+		}
 		result.observations[observation.RuntimeID] = copyObservation
 	}
 	return result, nil
@@ -99,6 +107,13 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 	environment := append([]string(nil), profile.Environment...)
 	argv = append(argv, profile.Arguments...)
 	if effort := child.Envelope.Controls.ReasoningEffort; effort != "" {
+		proven := false
+		for _, capability := range child.Envelope.Capability.Capabilities {
+			proven = proven || capability == "reasoning-effort-"+effort
+		}
+		if !proven || len(effort) > 64 || strings.ContainsAny(effort, "\x00\r\n \t") {
+			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
+		}
 		switch profile.RuntimeID {
 		case "codex":
 			argv = append(argv, "--config", "model_reasoning_effort="+effort)
@@ -115,6 +130,17 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 			return executiongraph.Invocation{}, err
 		}
 		environment = append(environment, credentialEnvironment...)
+	}
+	if child.Envelope.Controls.ReasoningEffort != "" && profile.RuntimeID == "claude" {
+		count := 0
+		for _, value := range environment {
+			if strings.HasPrefix(value, "CLAUDE_CODE_EFFORT_LEVEL=") {
+				count++
+			}
+		}
+		if count != 1 {
+			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
+		}
 	}
 	sort.Strings(environment)
 	return executiongraph.Invocation{RuntimeID: profile.RuntimeID, Argv: argv, CWD: child.Envelope.Workspace, Env: environment, OutputMax: profile.OutputMax}, nil

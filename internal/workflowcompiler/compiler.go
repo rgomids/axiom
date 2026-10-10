@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/portableconfig"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
@@ -52,6 +53,19 @@ type Request struct {
 }
 
 type ExecutionInput struct {
+	ProjectID         string                           `json:"projectId"`
+	RepositoryKey     string                           `json:"repositoryKey"`
+	AgentID           string                           `json:"agentId"`
+	NodeKey           string                           `json:"nodeKey"`
+	PlanRevision      string                           `json:"planRevision"`
+	PlanDigest        string                           `json:"planDigest"`
+	Role              string                           `json:"role"`
+	Responsibilities  string                           `json:"responsibilities"`
+	RuntimePreview    runtimeapplication.Preview       `json:"runtimePreview"`
+	RequestedEffort   workflowdefinition.Effort        `json:"requestedEffort"`
+	Controls          executiongraph.ExecutionControls `json:"controls"`
+	Scope             executiongraph.Scope             `json:"scope"`
+	Effects           []executiongraph.Effect          `json:"effects"`
 	Workflow          workflowdefinition.Ref           `json:"workflow"`
 	StageID           string                           `json:"stageId"`
 	Purpose           string                           `json:"purpose"`
@@ -87,23 +101,32 @@ type ResolvedAgent struct {
 	Scope            executiongraph.Scope             `json:"scope"`
 	Effects          []executiongraph.Effect          `json:"effects"`
 	Input            ExecutionInput                   `json:"executionInput"`
+	InputReference   StageInputReference              `json:"stageInputRef"`
+}
+
+// StageInputReference identifies canonical input bytes to publish through the
+// existing artifact store before envelope admission. Compilation writes nothing.
+type StageInputReference struct {
+	ID     string `json:"id"`
+	Digest string `json:"digest"`
 }
 
 type Result struct {
-	FormatVersion int                      `json:"formatVersion"`
-	Workflow      workflowdefinition.Ref   `json:"workflow"`
-	StageID       string                   `json:"stageId"`
-	ExecutionKind string                   `json:"executionKind"`
-	Mode          string                   `json:"mode"`
-	Concurrency   int                      `json:"concurrency"`
-	Ordering      [][]string               `json:"executionOrdering"`
-	Authority     []executiongraph.Effect  `json:"requiredAuthority"`
-	Validation    []ValidationResult       `json:"validation"`
-	Proposal      *executiongraph.Proposal `json:"graphProposal,omitempty"`
-	Agents        []ResolvedAgent          `json:"agents"`
-	PlanRevision  string                   `json:"planRevision"`
-	PlanDigest    string                   `json:"planDigest"`
-	Digest        string                   `json:"digest"`
+	FormatVersion    int                      `json:"formatVersion"`
+	Workflow         workflowdefinition.Ref   `json:"workflow"`
+	StageID          string                   `json:"stageId"`
+	ExecutionKind    string                   `json:"executionKind"`
+	Mode             string                   `json:"mode"`
+	Concurrency      int                      `json:"concurrency"`
+	Ordering         [][]string               `json:"executionOrdering"`
+	Authority        []executiongraph.Effect  `json:"requiredAuthority"`
+	AuthorityCeiling []executiongraph.Effect  `json:"authorityCeiling"`
+	Validation       []ValidationResult       `json:"validation"`
+	Proposal         *executiongraph.Proposal `json:"graphProposal,omitempty"`
+	Agents           []ResolvedAgent          `json:"agents"`
+	PlanRevision     string                   `json:"planRevision"`
+	PlanDigest       string                   `json:"planDigest"`
+	Digest           string                   `json:"digest"`
 }
 
 type Compiler struct {
@@ -135,15 +158,49 @@ func (c Compiler) Compile(ctx context.Context, request Request) (Result, error) 
 		if err != nil {
 			return Result{}, err
 		}
-		input := executionInput(request, stage, agent)
+		if len(agents) > 0 {
+			prior := agents[0].Input.RuntimePreview
+			if prior.ProjectDigest != resolved.ProjectDigest || prior.ConfigurationDigest != resolved.ConfigurationDigest || prior.ConfigurationRevision != resolved.ConfigurationRevision {
+				return Result{}, fmt.Errorf("%w: policy changed during compilation", ErrRuntimeBlocked)
+			}
+		}
+		for _, priorAgent := range agents {
+			prior := priorAgent.Input.RuntimePreview
+			if prior.Choice.RuntimeID != resolved.Choice.RuntimeID {
+				continue
+			}
+			if prior.Choice.ObservationRevision != resolved.Choice.ObservationRevision || prior.Choice.RuntimeVersion != resolved.Choice.RuntimeVersion || prior.Choice.ExecutableDigest != resolved.Choice.ExecutableDigest || prior.Request.RuntimeID == resolved.Request.RuntimeID && prior.ObservationDigest != resolved.ObservationDigest {
+				return Result{}, fmt.Errorf("%w: Runtime changed during compilation", ErrRuntimeBlocked)
+			}
+		}
 		unit := compiledUnit(request, stage, agent, work)
-		agents = append(agents, ResolvedAgent{AgentID: agent.ID, Role: agent.Role, Responsibilities: agent.Responsibilities, Choice: *resolved.Choice, Capability: unit.Capability, Controls: unit.Controls, Scope: unit.Scope, Effects: unit.Effects, Input: input})
+		input := executionInput(request, stage, agent)
+		input.ProjectID, input.RepositoryKey = request.ProjectID, request.RepositoryKey
+		input.AgentID, input.NodeKey = agent.ID, unit.Key
+		input.PlanRevision, input.PlanDigest = request.Plan.PlanRevision, request.Plan.PlanDigest
+		input.Role, input.Responsibilities = agent.Role, agent.Responsibilities
+		input.RuntimePreview, input.RequestedEffort = resolved, agent.Effort
+		input.Controls, input.Scope, input.Effects = unit.Controls, unit.Scope, unit.Effects
+		inputReference, err := stageInputReference(input)
+		if err != nil {
+			return Result{}, err
+		}
+		unit.Inputs = sortedUnique(append(unit.Inputs, inputReference.ID))
+		agents = append(agents, ResolvedAgent{AgentID: agent.ID, Role: agent.Role, Responsibilities: agent.Responsibilities, Choice: *resolved.Choice, Capability: unit.Capability, Controls: unit.Controls, Scope: unit.Scope, Effects: unit.Effects, Input: input, InputReference: inputReference})
 		units = append(units, unit)
 	}
-	result := Result{FormatVersion: 1, Workflow: request.Workflow, StageID: stage.ID, ExecutionKind: "graph", Mode: stage.Mode, Concurrency: stage.Concurrency, Authority: sortedEffects(request.ParentAuthority), Validation: []ValidationResult{{Check: "workflow-revision", Status: "passed"}, {Check: "stage-contract", Status: "passed"}, {Check: "bounded-plan", Status: "passed"}, {Check: "input-references", Status: "passed"}, {Check: "runtime-profile-resolution", Status: "passed"}, {Check: "effort-policy", Status: "passed"}, {Check: "authority-ceiling", Status: "passed"}, {Check: "topology-and-concurrency", Status: "passed"}}, Agents: agents, PlanRevision: request.Plan.PlanRevision, PlanDigest: request.Plan.PlanDigest}
+	var requiredEffects []executiongraph.Effect
+	for _, unit := range units {
+		for _, effect := range unit.Effects {
+			if !containsEffect(requiredEffects, effect) {
+				requiredEffects = append(requiredEffects, effect)
+			}
+		}
+	}
+	result := Result{FormatVersion: 1, Workflow: request.Workflow, StageID: stage.ID, ExecutionKind: "graph", Mode: stage.Mode, Concurrency: stage.Concurrency, Authority: sortedEffects(requiredEffects), AuthorityCeiling: sortedEffects(request.ParentAuthority), Validation: []ValidationResult{{Check: "workflow-revision", Status: "passed"}, {Check: "stage-contract", Status: "passed"}, {Check: "bounded-plan", Status: "passed"}, {Check: "input-references", Status: "passed"}, {Check: "runtime-profile-resolution", Status: "passed"}, {Check: "effort-policy", Status: "passed"}, {Check: "authority-ceiling", Status: "passed"}, {Check: "topology-and-concurrency", Status: "passed"}}, Agents: agents, PlanRevision: request.Plan.PlanRevision, PlanDigest: request.Plan.PlanDigest}
 	if len(stage.Agents) == 1 {
 		result.ExecutionKind = "single"
-		result.Ordering = [][]string{{stage.Agents[0].ID}}
+		result.Ordering = [][]string{{units[0].Key}}
 		plan := request.Plan
 		plan.MaximumNodes = 1
 		plan.Work = units
@@ -180,7 +237,7 @@ func validateRequest(request Request) (workflowdefinition.Stage, error) {
 			break
 		}
 	}
-	if stage.ID == "" || len(stage.Agents) == 0 || len(stage.Agents) > maxAgents || stage.Concurrency < 1 || stage.Concurrency > len(stage.Agents) || len(request.Plan.Work) != len(stage.Agents) || len(request.Plan.Work) > request.Plan.MaximumNodes {
+	if stage.ID == "" || len(stage.Agents) == 0 || len(stage.Agents) > maxAgents || stage.Concurrency < 1 || stage.Concurrency > len(stage.Agents) || !request.Plan.Approved || request.Plan.MaximumNodes > maxAgents || len(request.Plan.Work) != len(stage.Agents) || len(request.Plan.Work) > request.Plan.MaximumNodes {
 		return workflowdefinition.Stage{}, ErrInvalidRequest
 	}
 	canonical, diagnostics := workflowdefinition.Encode(request.Definition.Definition)
@@ -290,14 +347,14 @@ func compiledUnit(request Request, stage workflowdefinition.Stage, agent workflo
 		for _, prior := range stage.Agents {
 			if prior.ID == dependency {
 				for _, output := range prior.Outputs {
-					inputs = append(inputs, "output-"+dependency+"-"+output)
+					inputs = append(inputs, "output-"+stage.ID+"-"+dependency+"-"+output)
 				}
 			}
 		}
 	}
 	outputs := make([]string, 0, len(agent.Outputs))
 	for _, output := range agent.Outputs {
-		outputs = append(outputs, "output-"+output)
+		outputs = append(outputs, "output-"+stage.ID+"-"+agent.ID+"-"+output)
 	}
 	controls := work.Controls
 	if int(controls.Timeout.Seconds()) > agent.TimeoutSeconds {
@@ -313,7 +370,13 @@ func compiledUnit(request Request, stage workflowdefinition.Stage, agent workflo
 	if agent.Effort.Mode == "explicit" {
 		capabilities = append(capabilities, "reasoning-effort-"+agent.Effort.Value)
 	}
-	return executiongraph.WorkUnit{Key: agent.ID, Capability: executiongraph.CapabilityRequest{Role: agent.Role, Complexity: agent.Complexity, Capabilities: sortedUnique(capabilities)}, Dependencies: append([]string(nil), agent.DependsOn...), Inputs: sortedUnique(inputs), Outputs: sortedUnique(outputs), Scope: work.Scope, Effects: append([]executiongraph.Effect(nil), work.Effects...), ValidationOwner: agent.ValidationOwner, IntegrationOwner: agent.IntegrationOwner, Controls: controls}
+	dependencies := make([]string, 0, len(agent.DependsOn))
+	for _, dependency := range agent.DependsOn {
+		dependencies = append(dependencies, stage.ID+":"+dependency)
+	}
+	scope := work.Scope
+	scope.Paths = sortedUnique(append([]string(nil), scope.Paths...))
+	return executiongraph.WorkUnit{Key: stage.ID + ":" + agent.ID, Capability: executiongraph.CapabilityRequest{Role: agent.Role, Complexity: agent.Complexity, Capabilities: sortedUnique(capabilities)}, Dependencies: dependencies, Inputs: sortedUnique(inputs), Outputs: sortedUnique(outputs), Scope: scope, Effects: sortedEffects(work.Effects), ValidationOwner: agent.ValidationOwner, IntegrationOwner: agent.IntegrationOwner, Controls: controls}
 }
 
 func applyConcurrencyLimit(units []executiongraph.WorkUnit, stage workflowdefinition.Stage, concurrency int) {
@@ -325,7 +388,7 @@ func applyConcurrencyLimit(units []executiongraph.WorkUnit, stage workflowdefini
 	for _, id := range ids {
 		for _, agent := range stage.Agents {
 			if agent.ID == id && !agent.IntegrationOwner {
-				filtered = append(filtered, id)
+				filtered = append(filtered, stage.ID+":"+id)
 			}
 		}
 	}
@@ -430,6 +493,25 @@ func digest(result Result) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
+func stageInputReference(input ExecutionInput) (StageInputReference, error) {
+	wire, err := json.Marshal(input)
+	if err != nil || len(wire) > executiongraph.MaxGraphBytes {
+		return StageInputReference{}, ErrInvalidRequest
+	}
+	hash := sha256.Sum256(wire)
+	digest := hex.EncodeToString(hash[:])
+	return StageInputReference{ID: "stage-input-" + digest, Digest: digest}, nil
+}
+
+func containsEffect(effects []executiongraph.Effect, expected executiongraph.Effect) bool {
+	for _, effect := range effects {
+		if effect == expected {
+			return true
+		}
+	}
+	return false
+}
+
 func previewMatches(preview runtimeapplication.Preview, projectID string, request runtimeapplication.Request) bool {
 	choice := preview.Choice
 	if choice == nil || preview.Blocker != nil || preview.ProjectID != projectID || preview.Request.Role != request.Role || preview.Request.Complexity != request.Complexity || preview.Request.RuntimeID != request.RuntimeID || preview.Request.ModelProfileID != request.ModelProfileID || !sameStrings(preview.Request.Capabilities, request.Capabilities) || request.RuntimeID != "" && choice.RuntimeID != request.RuntimeID || request.ModelProfileID != "" && choice.ModelProfileID != request.ModelProfileID || !sameStrings(choice.Capabilities, request.Capabilities) || !workflowdefinition.ValidDigest(preview.ProjectDigest) || !workflowdefinition.ValidDigest(preview.ConfigurationDigest) || !workflowdefinition.ValidDigest(preview.ObservationDigest) || !workflowdefinition.ValidDigest(choice.ExecutableDigest) || choice.ObservationRevision == 0 {
@@ -469,6 +551,9 @@ func sameStrings(left, right []string) bool {
 func validEffects(effects, authority []executiongraph.Effect) bool {
 	allowed := map[string]bool{}
 	for _, effect := range authority {
+		if portableconfig.ContainsSecretBearingValue(effect.Target) {
+			return false
+		}
 		allowed[effect.Kind+"\x00"+effect.Target] = true
 	}
 	for _, effect := range effects {

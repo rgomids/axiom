@@ -104,6 +104,27 @@ func TestProjectResolutionHonorsExactModelProfile(t *testing.T) {
 	}
 }
 
+func TestExactProfileDoesNotUseUnavailableDefaultPreference(t *testing.T) {
+	source, _ := setup(t, "codex", "claude")
+	state := source.snapshot.Project.State()
+	state.RuntimePreferences = project.Configured([]project.RuntimePreference{{Role: "implementation", Complexity: "high", ModelProfileRef: "codex-profile"}})
+	p, diagnostics := project.New(state)
+	if len(diagnostics) != 0 {
+		t.Fatal(diagnostics)
+	}
+	source.snapshot.Project = p
+	// Retain the portable preferred profile but remove it from local admission.
+	source.snapshot.Configuration.ModelProfiles[0].Model = "locally-incompatible-model"
+	req := request()
+	req.ModelProfileID = "claude-profile"
+	if preview, err := New(source).Preview(context.Background(), projectID, req); err != nil || preview.Choice == nil || preview.Choice.ModelProfileID != "claude-profile" {
+		t.Fatalf("explicit allowed profile blocked by unused default: %+v %v", preview, err)
+	}
+	if _, err := New(source).Preview(context.Background(), projectID, request()); !errors.Is(err, ErrBlocked) {
+		t.Fatalf("default unexpectedly fell back: %v", err)
+	}
+}
+
 // Keep JSON leak assertions on the real public representation.
 
 func wireString(p Preview) string { wire, _ := json.Marshal(p); return string(wire) }
