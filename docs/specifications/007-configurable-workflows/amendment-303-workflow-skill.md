@@ -320,8 +320,8 @@ and [#306](https://github.com/rgomids/axiom/issues/306) under
 [#303](https://github.com/rgomids/axiom/issues/303), without adding
 scope to the frozen [#15](https://github.com/rgomids/axiom/issues/15)
 MVP epic. Their creation does **not** mean delivery or authorize
-implementation. The #303 R-1/R-2 technical milestone can be reviewed
-separately, but blocked Lane L scenarios cannot be accepted at R-3 until
+implementation. The #303 R-1 technical milestone can be reviewed
+separately (R-2 is deferred to #278 under HD-008), but blocked Lane L scenarios cannot be accepted at R-3 until
 G-2 is genuinely resolved (and G-4 consented linkage is available).
 G-1 is tracked as a separate Project-policy evolution; its unavailable
 operations must be reported truthfully.
