@@ -71,10 +71,11 @@ go test ./internal/workflowcompiler ./internal/executiongraph ./internal/runtime
   Execution identity here would conflict with that ownership boundary.
 - Dispatch, attempts, cancellation, recovery and output-digest admission remain
   #276 scope. This proposal cannot invoke agents or grant effects.
-- Existing subscription dispatch composition rejects arbitrary Codex `--config`
-  arguments. #276 must explicitly admit the reviewed effort mapping while keeping
-  model, credential and executable selection guards; adapter argv tests alone
-  do not prove that composition dispatches explicit Codex effort.
+- Subscription dispatch admits only the adapter's trailing Codex effort override
+  matching the capability-proven child envelope. Arbitrary/configured `--config`
+  arguments remain rejected; Runtime/Profile, model, credential, executable and
+  authentication guards remain authoritative. This boundary fix does not deliver
+  #276 orchestration or live inference proof.
 - The production executable observer currently proves Runtime availability and
   Axiom skill integration, not model-specific reasoning-effort support. Explicit
   effort therefore remains blocked unless an authoritative observation supplies
@@ -121,3 +122,46 @@ staticcheck v0.8.1; `scripts/validate-repository.sh .`; the Specification 007
 example validator; PR metadata validation; diff and security checks. The
 repository validator's unrequested native maintainer behavioral scenarios remain
 SKIPPED, not passed. Remote CI must be evaluated for the pushed final head.
+
+### PR #297 — subscription effort review remediation
+
+The two P1 findings are corrected at the existing adapter/dispatch boundaries:
+
+- `TestSubscriptionDispatchWithValidatedEffort` crosses the real policy resolver,
+  adapter and subscription guard for Codex and Claude. The Codex regression failed
+  with `ErrInvalidComposition` before the guard correction.
+  `TestSubscriptionCodexEffortArgumentsFailClosed` refuses changed effort,
+  arbitrary/duplicate configuration, model override and missing capability proof.
+- Claude effort retains a private machine-local inherited environment snapshot
+  separate from bounded explicit overrides. The preliminary auxiliary commit
+  `e1444f28565a947322ca56bcc0f88dc6c28428c5` was inspected; copying inheritance
+  directly into `Invocation.Env` was insufficient because scheduler limits would
+  reject ordinary large/lowercase inherited environments. Adapter regressions
+  first failed for lost inheritance and inherited effort conflicts; they now
+  check snapshot stability, explicit/credential isolation and duplicate refusal.
+- `TestClaudeSubscriptionEffortUsesInheritedEnvironmentInRealPreflight` runs the
+  real preflight with controlled vendor status, proves HOME/USERPROFILE resolution
+  and environment equivalence, and blocks inherited API credentials without
+  exposing values. `TestClaudeEffortDispatchPreservesLargeInheritedEnvironment`
+  crosses adapter, subscription guard and scheduler with a fake runner and more
+  than 64 inherited entries plus a lowercase key. Preflight and runner receive
+  identical effective environments. `TestInheritedSnapshotKeepsExplicitEnvironmentValidation`
+  preserves explicit count/key/conflict checks; `TestOSProcessRunnerUsesCapturedEnvironment`
+  checks snapshot/override delivery through a real local helper process.
+
+These tests use synthetic profiles and controlled login observations. They do
+not run vendor inference, establish subscription usability, or record human
+acceptance. The public planning and production effort-observation gaps above
+remain unchanged. Reviewer threads remain their authors' responsibility.
+
+Local remediation validation passed: focused runtimeadapter/executiongraph/
+graphapplication/workflowcompiler/runtimeprofile tests; full `go test ./...`;
+focused `go test -race` for the four affected execution packages;
+`go build ./...`, `go vet ./...`, `go mod verify`;
+`scripts/check-go-quality.sh all` (Staticcheck v0.8.1),
+`python3 scripts/test-go-quality.py`, and `scripts/validate-repository.sh .`.
+Test processes unset ambient `CODEX_API_KEY` and `OPENAI_API_KEY`; toolchain
+checks use consistent Go 1.26.0 PATH/GOROOT. Initial host toolchain mismatch
+was corrected before successful quality checks. Native maintainer behavioral
+scenarios are not requested by repository validation; no native/live vendor
+acceptance is inferred. Remote CI must be read against the pushed final head.

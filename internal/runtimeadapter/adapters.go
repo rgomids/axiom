@@ -131,9 +131,16 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 		}
 		environment = append(environment, credentialEnvironment...)
 	}
+	sort.Strings(environment)
+	invocation := executiongraph.Invocation{RuntimeID: profile.RuntimeID, Argv: argv, CWD: child.Envelope.Workspace, Env: environment, OutputMax: profile.OutputMax}
 	if child.Envelope.Controls.ReasoningEffort != "" && profile.RuntimeID == "claude" {
+		// Keep inherited process variables separate from validated explicit
+		// overrides, preserving profile and credential isolation.
+		if len(profile.Environment) == 0 && profile.CredentialReference == "" {
+			invocation = executiongraph.WithInheritedEnvironment(invocation)
+		}
 		count := 0
-		for _, value := range environment {
+		for _, value := range executiongraph.EffectiveInvocationEnvironment(invocation) {
 			if strings.HasPrefix(value, "CLAUDE_CODE_EFFORT_LEVEL=") {
 				count++
 			}
@@ -142,8 +149,7 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 		}
 	}
-	sort.Strings(environment)
-	return executiongraph.Invocation{RuntimeID: profile.RuntimeID, Argv: argv, CWD: child.Envelope.Workspace, Env: environment, OutputMax: profile.OutputMax}, nil
+	return invocation, nil
 }
 
 func validCommandProfile(profile CommandProfile) bool {

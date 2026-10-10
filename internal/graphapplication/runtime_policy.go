@@ -124,10 +124,10 @@ func (g policyInvocations) subscriptionInvocation(ctx context.Context, child exe
 		return executiongraph.Invocation{}, err
 	}
 	// The effective argv is re-checked, not only the configured profile.
-	if len(invocation.Argv) < 4 || invocation.RuntimeID != binding.Choice.RuntimeID || binding.Choice.ExecutableDigest == "" || !selectionSafeArguments(invocation.RuntimeID, invocation.Argv[4:]) {
+	if len(invocation.Argv) < 4 || invocation.RuntimeID != binding.Choice.RuntimeID || binding.Choice.ExecutableDigest == "" || !subscriptionSafeArguments(child, invocation.Argv[4:]) {
 		return executiongraph.Invocation{}, ErrInvalidComposition
 	}
-	report = g.auth.Check(ctx, runtimeadapter.AuthTarget{RuntimeID: invocation.RuntimeID, Executable: invocation.Argv[0], ExpectedDigest: binding.Choice.ExecutableDigest, WorkingDirectory: invocation.CWD, Environment: executiongraph.EffectiveEnvironment(invocation.Env)})
+	report = g.auth.Check(ctx, runtimeadapter.AuthTarget{RuntimeID: invocation.RuntimeID, Executable: invocation.Argv[0], ExpectedDigest: binding.Choice.ExecutableDigest, WorkingDirectory: invocation.CWD, Environment: executiongraph.EffectiveInvocationEnvironment(invocation)})
 	g.authentication.record(child.ExecutionID, report)
 	if report.Reason == "executable_identity_changed" {
 		return executiongraph.Invocation{}, fmt.Errorf("%w: %w", executiongraph.ErrAuthenticationBlocked, runtimeapplication.ErrStale)
@@ -229,4 +229,21 @@ func selectionSafeArguments(runtimeID string, arguments []string) bool {
 		}
 	}
 	return runtimeID == "codex" || runtimeID == "claude"
+}
+
+// Only the adapter's trailing override for the reviewed, proven effort may
+// bypass the configured-argument guard. All remaining arguments stay guarded.
+func subscriptionSafeArguments(child executiongraph.ChildExecution, arguments []string) bool {
+	runtimeID := child.Envelope.Resolution.RuntimeID
+	effort := child.Envelope.Controls.ReasoningEffort
+	if runtimeID == "codex" && effort != "" {
+		if len(effort) > 64 || strings.ContainsAny(effort, "\x00\r\n \t") ||
+			!slices.Contains(child.Envelope.Capability.Capabilities, "reasoning-effort-"+effort) ||
+			len(arguments) < 2 || arguments[len(arguments)-2] != "--config" ||
+			arguments[len(arguments)-1] != "model_reasoning_effort="+effort {
+			return false
+		}
+		arguments = arguments[:len(arguments)-2]
+	}
+	return selectionSafeArguments(runtimeID, arguments)
 }

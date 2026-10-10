@@ -25,6 +25,9 @@ type Invocation struct {
 	CWD       string
 	Env       []string
 	OutputMax int
+	// Captured only by WithInheritedEnvironment; separate from bounded explicit
+	// overrides so ordinary OS inheritance keeps its existing semantics.
+	inheritedEnvironment []string
 }
 
 type InvocationResolver interface {
@@ -297,6 +300,10 @@ func validInvocation(child ChildExecution, invocation Invocation) bool {
 		}
 	}
 	seen := map[string]bool{}
+	for _, item := range invocation.inheritedEnvironment {
+		key, _, _ := strings.Cut(item, "=")
+		seen[key] = true
+	}
 	for _, item := range invocation.Env {
 		key, _, ok := strings.Cut(item, "=")
 		if !ok || !validEnvironmentKey(key) || seen[key] || strings.ContainsRune(item, '\x00') {
@@ -333,12 +340,28 @@ func EffectiveEnvironment(environment []string) []string {
 	return append([]string(nil), environment...)
 }
 
+// WithInheritedEnvironment captures the parent environment once, so preflight
+// and dispatch use identical bytes even if the parent environment later changes.
+// Explicit overrides remain subject to the ordinary invocation validation.
+func WithInheritedEnvironment(invocation Invocation) Invocation {
+	invocation.inheritedEnvironment = append([]string{}, os.Environ()...)
+	return invocation
+}
+
+// EffectiveInvocationEnvironment is shared by authentication and process start.
+func EffectiveInvocationEnvironment(invocation Invocation) []string {
+	if invocation.inheritedEnvironment != nil {
+		return append(append([]string(nil), invocation.inheritedEnvironment...), invocation.Env...)
+	}
+	return EffectiveEnvironment(invocation.Env)
+}
+
 type OSProcessRunner struct{}
 
 func (OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessResult {
 	command := exec.CommandContext(ctx, invocation.Argv[0], invocation.Argv[1:]...)
 	command.Dir = invocation.CWD
-	command.Env = EffectiveEnvironment(invocation.Env)
+	command.Env = EffectiveInvocationEnvironment(invocation)
 	output := &limitedBuffer{remaining: invocation.OutputMax}
 	command.Stdout = output
 	command.Stderr = output
