@@ -2,17 +2,15 @@
 
 ## Status
 
-**Proposed, 2026-10-10**, for independent review (Code Review Guardian) and
-then explicit maintainer acceptance. This document is **not accepted** and
-authorizes no implementation, merge, release, Issue or Linear change.
+**Accepted, 2026-10-10** by [explicit maintainer decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056), on PR #304 head `a548d44ea0e0f432eca80ebde80c420616771334` and original Plan/Tasks blob `75f689946689cf61bc40872dbb61e4fc44f00e85`, following independent review. This approves the planning artifacts but is **not** Evidence of technical delivery and does not by itself execute code, merge, release, or change Issue/Linear state.
 
 | Item | Value |
 |---|---|
 | Work Item | [#303](https://github.com/rgomids/axiom/issues/303) / Linear AXM-7 |
 | Contract (immutable for this plan) | [Spec 007](spec.md), [amendment](amendment-303-workflow-skill.md), [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md); **Accepted 2026-10-10** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104)) on PR #304 `7db80ac95b5e83cd8cc9aaaadc785633c3ee3fa9` (amendment blob `9d1895b6…`, ADR blob `13a52a62…`) |
 | Planned on | PR #304 branch at `804123915d1c2eccaa81a3fbf01253aa3910ae48`; differs from `7db80ac` only in status/annotation text |
-| Planning decisions | **PD-1 to PD-9 individually accepted** by the maintainer on #303 (links in §8). Individual PD acceptance is not acceptance of this Plan/Tasks as a whole, nor of implementation or merge. |
-| R10 contract exception | **[R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634)**: a bounded exception to AC-015.3/AC-015.8 for the additive read-only `activeWorkflow` field, recorded in [Addendum R10](addendum-303-r10-active-workflow.md) (its text Proposed, pending re-review and separate acceptance). The decision authorizes the contract delta only, not this Plan/Tasks, implementation or merge |
+| Planning decisions | **PD-1 to PD-9 individually accepted** by the maintainer on #303 (links in §8). PD-1 to PD-9 and R10 were accepted individually; this Plan/Tasks was **separately accepted** by [human decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056). None of those decisions authorizes merge/release or implies technical delivery. |
+| R10 contract exception | **[R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634)**: a bounded exception to AC-015.3/AC-015.8 for the additive read-only `activeWorkflow` field, recorded in [Addendum R10](addendum-303-r10-active-workflow.md) ([Addendum accepted](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056), original blob `14300b70226c807d2648e8e6b30181f23be3cae4`). The R10 decision alone authorized only the contract delta; independent acceptance of both documents is recorded in https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056 |
 | Code baseline | `main` `9378c41` (v0.15.0 + #298 CI routing); every file cited below is unchanged from v0.15.0 `3766273` |
 | Starting point | Amendment §"Implementation plan" steps 1–5, refined here; HD-005–HD-008 are not reopened |
 
@@ -392,8 +390,7 @@ and the maintainer's accept/reject decision.
 PD-1 to PD-9 and the R10 contract exception were each decided by the
 maintainer on #303. None reopens HD-005–HD-008; R10 is the only bounded
 exception to AC-015.3/AC-015.8, recorded in [Addendum R10](addendum-303-r10-active-workflow.md).
-**Individual decision acceptance does not accept this Plan/Tasks as a
-whole**, which stays Proposed, and authorizes no implementation or merge.
+**Individual PD/R10 acceptances are distinct from acceptance of this Plan/Tasks as a whole**, now separately [ACCEPTED](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056). No product implementation, merge or release is inferred solely from a planning acceptance.
 
 | ID | Decision | Accepted outcome | Applied in |
 |---|---|---|---|
@@ -405,7 +402,7 @@ whole**, which stays Proposed, and authorizes no implementation or merge.
 | PD-6 | Skill-set constants — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101819334)) | Keep `SkillSetVersion`/`BinaryCompatibility` "2"; append-only history. A real incompatibility found in T05/T06 stops the work for a new decision | T05, T06 |
 | PD-7 | v0.15.0 receipt fixture — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101853398)) | Mandatory fixture derived from official v0.15.0 artifacts, or reproduced through that version's official mechanism, with documented provenance (tag, asset, digest); never fabricated; unprovable → blocked and escalated | Common rules, T05 |
 | PD-8 | Work Item acceptance surface — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102010231)) | SKILL.md procedure section; no new inspect operation | §3.4, T03 |
-| R10 | Contract exception for the PD-1 field — **Accepted, Option B** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634)) | Formal, bounded exception to AC-015.3/AC-015.8 for `activeWorkflow` on `project show`/`list` only; recorded in [Addendum R10](addendum-303-r10-active-workflow.md), whose text still needs re-review and acceptance | §1, §3.4, R10, T01, T08a, T13 |
+| R10 | Contract exception for the PD-1 field — **Accepted, Option B** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634)) | Formal, bounded exception to AC-015.3/AC-015.8 for `activeWorkflow` on `project show`/`list` only; recorded in the separately [accepted Addendum R10](addendum-303-r10-active-workflow.md) ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056)) | §1, §3.4, R10, T01, T08a, T13 |
 | PD-9 | `--file` hardening — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102203860)) | Separate Issue [#307](https://github.com/rgomids/axiom/issues/307); known limitation, not fixed or claimed fixed by #303; #307 is not a #303 gate | §1, §2, §5, R5, T09, T11 |
 
 ---
@@ -779,8 +776,8 @@ T02–T05 run sequentially: they change the same embedded bytes and digests.
 | 10 Independent review, no unresolved Blocker/Major | 7 | T13 | independent review | Review record |
 
 **Unresolved technical dependencies:**
-- *blocking implementation:* R7/T01 (accepted contract on approved implementation base; acceptance of this Plan/Tasks as a whole still needed);
-- *accepted contract exception:* [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634), recorded in [Addendum R10](addendum-303-r10-active-workflow.md) (text Proposed); T08a delivery remains required for T13 closure and R-1 completion;
+- *blocking implementation start until the approved base is available:* R7/T01 (the Plan/Tasks and Addendum are now [accepted](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056); ensure accepted contract on the implementation base and separate bounded execution authority);
+- *accepted contract exception:* [R10 ACCEPTED — Option B](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634), recorded in [Addendum R10](addendum-303-r10-active-workflow.md) (document [accepted](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056)); T08a delivery remains required for T13 closure and R-1 completion;
 - *accepted decisions:* PD-1 to PD-9 and R10, individually accepted (§8); their Evidence (for example T05 provenance, T06 refusal) is still required;
 - *known, outside #303:* `--file` hardening #307 (PD-9 A, not a gate);
 - *outside #303:* G-1 #305, G-2 #306, G-3 #272, G-4 consent, G-5 #276.
