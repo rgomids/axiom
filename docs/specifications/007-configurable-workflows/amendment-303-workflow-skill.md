@@ -5,10 +5,14 @@
 **Proposed, 2026-10-10**, for human decision under
 [Issue #303](https://github.com/rgomids/axiom/issues/303) (Linear AXM-7),
 together with [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md).
-It records the maintainer direction of 2026-10-10 ("adopt a dedicated
-`axiom-workflow` conversational skill and make the complete #275 testing/acceptance
-preparation operable in natural language in Codex and Claude"). That direction
-is not acceptance of this text. Revised the same day after the maintainer's
+It records the maintainer direction of 2026-10-10 to introduce a dedicated
+`axiom-workflow` **configuration** skill and keep the complete #275
+conversational testing/acceptance journey available through the Work Item
+surface in both Codex and Claude. The maintainer refined HD-005 during
+[PR #304 review](https://github.com/rgomids/axiom/pull/304):
+Project selects the active workflow; Workflow defines/configures it; Work Item
+initiates and controls work; Execution is its revision-bound instance. This
+scope decision does not constitute acceptance of the exact revised artifacts. Revised the same day after the maintainer's
 [contract review](https://github.com/rgomids/axiom/pull/304#issuecomment-6098704209),
 which requested changes and accepted no revision. Until the maintainer accepts this exact
 revision and decisions HD-005–HD-008, accepted
@@ -36,14 +40,34 @@ does not fix the conversational skill name.
 
 ## Intent and invariants
 
-A developer working in Codex or Claude describes workflow outcomes in natural
-language — author or change a workflow, configure stages and agents, select a
-revision, plan a stage, run the #275 acceptance — and the Runtime discovers
-state, collects only genuinely missing facts, prepares drafts, validates them
-through Axiom, presents the canonical preview and effects, obtains explicit
-approval for the exact preview, applies only that, and reads back the result.
-The developer never authors JSON, computes a digest, looks up an internal
-revision, assembles CLI arguments or knows a test name for a supported journey.
+A developer working in Codex or Claude configures a Project-owned workflow in
+natural language through `axiom-workflow`: stages, agent topology, validators,
+gates, dependencies, Runtime/Profile references and revision authoring. The
+Runtime gathers missing configuration facts, prepares bounded drafts, validates
+them with Axiom, presents the canonical preview/effects, requests explicit
+approval and reads back the result. The developer never manually authors JSON
+or computes digests for a supported configuration journey.
+
+**Domain and conversational responsibility are separate:**
+
+- **Project chooses:** the Project owns workflow definitions and selects the
+  active workflow revision through `axiom-project`.
+- **Workflow defines:** `axiom-workflow` configures and validates the
+  Project-owned definitions, but does not initiate or control Executions.
+- **Work Item requests and controls:** `axiom-work-item` owns the conversational
+  `run`, `status`, stage planning and Execution lifecycle for a **specific**
+  Work Item, including the conversational #275 acceptance journey.
+- **Execution performs:** starting a Work Item resolves the Project's active
+  workflow revision via canonical application behavior and immutably binds it
+  to the new Execution. Later Project workflow changes do not rewrite existing
+  Execution bindings; a missing or invalid selection fails closed.
+
+Work Item `run` should not require the operator to select a workflow revision
+manually when a valid active Project selection exists. This amendment defines
+the intended conversational behavior without inventing an unverified new CLI
+capability: if the existing canonical start operation cannot resolve that
+selection, this gap must be surfaced and specified before implementation,
+not worked around by the skill.
 
 Unchanged invariants: Project ≠ Repository; Runtime ≠ Model; Role ≠ Model;
 Execution ≠ Agent; Skill ≠ workflow truth; Evidence ≠ raw chat. Workflow
@@ -57,63 +81,67 @@ mandatory MCP integration.
 
 | ID | Required behavior | Primary owner | Acceptance |
 |---|---|---|---|
-| WF-015 | Dedicated installed `axiom-workflow` conversational surface in Codex and Claude over existing canonical operations, with compatibility routes, Runtime-prepared drafts and a conversational #275 acceptance procedure | #303 | AC-015 |
+| WF-015 | Dedicated `axiom-workflow` **configuration** skill in Codex and Claude; Project-owned active selection; Work Item-owned run/status/plan/acceptance journey; revision-bound Execution; compatible canonical operations and Runtime-prepared drafts | #303 | AC-015 |
 
 WF-001–WF-014 owners and acceptance are unchanged. WF-015 adds no behavior to
 WF-009 (#276), WF-011 (#277) or WF-012 (#278).
 
 ## Skill ownership
 
-| Skill | Primary conversational ownership after this amendment | Workflow routes kept for compatibility |
+| Skill | Primary conversational ownership after this amendment | Compatibility |
 |---|---|---|
-| `axiom-project` | Project lifecycle, identity, readiness, Repository associations, Work Item Provider and Integrations, Project Runtime/Model Profile policy authoring at create | `workflow.list/show/create/edit/validate/select/remove/recover` unchanged |
-| `axiom-work-item` | Work Item create/select/list/show/update/comment/close/reopen | `run`, `status`, `plan` unchanged |
-| `axiom-workflow` | Workflow definitions and revisions, stage/agent configuration, Runtime/Profile references and read-only readiness, Execution workflow interaction, stage planning, workflow acceptance procedures | — |
+| `axiom-project` | Project lifecycle, identity, integrations, Runtime/Model Profile policy at creation, and **selection of the active Project workflow revision** | Existing `workflow.*` routes remain operational. |
+| `axiom-workflow` | **Definition configuration only**: list/show/validate/create/edit/remove/recover workflow definitions, stages and agents, plus read-only configuration readiness | New skill, no Execution lifecycle or Work Item mutation routes. |
+| `axiom-work-item` | Work Item lifecycle and the Work Item-bound **run/status/plan/Execution interactions**, including the #275 conversational acceptance procedure | Existing `run`, `status`, `plan` remain supported. |
 
 Rules:
 
-1. One canonical action, many routes: every `axiom-workflow` operation maps
-   to already registered command actions; the same action keeps the same
-   flags, authority metadata and result in every skill that routes it. Routing
-   tests assert identical `skill inspect` metadata per action and mode;
-   operation groupings may differ (for example compatibility `run` also
-   contains reconcile, which `axiom-workflow` exposes as `execution.reconcile`).
-2. Compatibility routes stay installed and behave identically for at least the
-   compatibility window chosen in HD-007. Their skill text points to
-   `axiom-workflow` as primary; their `skill inspect` payload does not change
-   shape. Removal needs a separate versioned decision and the skill retirement
-   protocol.
-3. Natural-language workflow intent arriving at `axiom-project` or
-   `axiom-work-item` is still served (it may be routed to the same commands);
-   it is never refused only because another skill is primary.
-4. A workflow intent that also needs a Project or Work Item lifecycle effect
-   (for example a new Project or linking a Provider Issue) uses that owner's
-   canonical command with its own preview and authority; `axiom-workflow` may
-   orchestrate the sequence but never merges two previews into one approval.
+1. `axiom-workflow` routes configuration operations to the **existing** Project
+   workflow commands; domain data and validation continue to belong to Project
+   and Lingo. A route's flags, authority and results are taken from the
+   canonical command registry. Metadata parity is tested per action and mode.
+2. The **active revision is selected via `axiom-project`**, not by treating the
+   `axiom-workflow` configuration skill as the Project selector. The existing
+   `axiom project workflow select` command is unchanged. A configuration
+   conversation can explain the next Project-selection step, without silently
+   selecting or activating a revision.
+3. `axiom-work-item run` (the conversational intent, not a newly mandated CLI
+   spelling) identifies the specific Work Item and its Project, resolves the
+   Project-selected active workflow through canonical operations, and creates
+   an immutable `WorkflowBinding`. It must not execute a free-standing
+   workflow or fall back silently to another revision. `axiom workflow start`
+   and other existing CLI operations remain canonical and unchanged.
+4. `axiom-work-item` continues to own stage Plan proposals, Execution
+   operations, readiness in execution context, and the #275 acceptance
+   procedure. When that procedure needs a configured workflow, it invokes
+   the configuration surface for that **configuration subtask only**; it does
+   not transfer Work Item or Execution ownership to `axiom-workflow`.
+5. Historical routes in `axiom-project` and `axiom-work-item` remain
+   available with identical metadata and authority until a separate versioned
+   retirement decision (HD-007). A cross-skill journey never combines
+   independent canonical previews into a single approval.
 
-## `axiom-workflow` operation catalog
+## `axiom-workflow` configuration operation catalog
 
-Operation names are proposed conversational contracts; flags, requirements and
-authority come from `axiom skill inspect axiom-workflow`, generated from the
-existing command flag sets (no second registry).
+Operation names are proposed conversational contracts. All flags, requirements
+and authority derive from the existing canonical operations via
+`axiom skill inspect axiom-workflow` (no duplicate registry).
 
 | Operation | Canonical command(s) | Effect | Authority |
 |---|---|---|---|
 | `definition.list` / `definition.show` | `axiom project workflow list` / `show` | read-only | none |
 | `definition.validate` | `axiom project workflow validate` | read-only | none |
-| `definition.create` | `axiom project workflow create` (`--from-default` or a Runtime-prepared `--file` draft) | local mutation | preview first; exact `--expected-revision`, `--preview-digest`, `--authorize-local` |
-| `definition.edit` / `definition.select` / `definition.remove` / `definition.recover` | `axiom project workflow edit` / `select` / `remove` / `recover` | local mutation | as above |
-| `execution.list` / `execution.status` | `axiom workflow list` / `status`, `evidence` | read-only | none |
-| `execution.run` | `axiom workflow start`, `advance`, `fact`, `resume` | local mutation | unchanged reviewed start (`--runtime-preview`), exact-revision gate rules, `fact` only with `--authorize-local` (exact metadata from `skill inspect`) |
-| `execution.reconcile` | `axiom workflow reconcile` | external mutation | preview first; exact `--preview-digest`, `--authorize-external` |
-| `stage.plan` | `axiom workflow stage plan` | read-only | none; proposal never dispatches, grants effects or satisfies gates |
-| `runtime.readiness` | `axiom runtime profile validate` / `preview`, `axiom runtime codex\|claude status` / `auth` | read-only | none |
-| `acceptance` (mode `stage-plan`) | Guided composition of the rows above plus the registered acceptance runner (see below) | sandbox-local only | each step keeps its own preview/authority; no external effect |
+| `definition.create` | `axiom project workflow create` (`--from-default` or Runtime-prepared `--file`) | local mutation | exact preview/revision and `--authorize-local` |
+| `definition.edit` / `definition.remove` / `definition.recover` | `axiom project workflow edit` / `remove` / `recover` | local mutation | as above |
+| `configuration.readiness` | `axiom runtime profile validate` / `preview`; Runtime status/auth observations | read-only diagnostic | none |
 
-Stage dispatch/retry/cancel, coordination, delivery, decision and rework (#276,
-#277) are **not** registered. The skill reports them as not yet available and
-names the owning Issue. A route is added only by the change that delivers the
-operation.
+**Not `axiom-workflow` operations:** `definition.select` (Project),
+`execution.list/status/run/reconcile`, `stage.plan` and
+`acceptance(stage-plan)` (Work Item), and any future dispatch/retry/cancel,
+coordination, delivery, decision or rework (#276/#277). The `axiom-work-item`
+skill can expose its existing `run/status/plan` routes and a bounded #275
+acceptance procedure with their original canonical commands and authority.
+No new workflow execution engine or top-level CLI command family is implied.
 
 ### Conversational configuration coverage
 
@@ -128,8 +156,10 @@ persistent Agent Profile entity; agents exist only inside a stage definition.
 
 ## Runtime-prepared drafts
 
-1. The Runtime may write bounded draft inputs (workflow definitions, stage Plan
-   documents, stage results) only to a Runtime-owned scratch directory outside
+1. The Runtime may write bounded draft inputs (workflow definitions when using
+   `axiom-workflow`; stage Plan documents/results only when using the
+   Work Item-owned planning/acceptance journey) to a Runtime-owned scratch
+   directory outside
    the Project working copy, every Repository working copy and Axiom state
    roots. It never writes Project, workflow index, Execution, Runtime Profile or
    receipt files.
@@ -137,13 +167,16 @@ persistent Agent Profile entity; agents exist only inside a stage definition.
    read results and explicit defaults that the skill names. Unknown or
    ambiguous material values (stage, scope paths, effects, authority ceiling,
    Runtime constraint, Profile, effort) are asked, never invented.
-3. Every draft passes through the canonical validation (`definition.validate`,
-   a mutating preview or `stage.plan`) before it is presented. Lingo's
+3. Every draft passes through its owner's canonical validation
+   (`definition.validate` / configuration preview or Work Item-owned
+   `stage.plan`) before it is presented. Lingo's
    diagnostics are presented as returned; the Runtime does not pre-judge them.
 4. Presentation shows the user a readable summary **and** the exact canonical
    preview/effects/digest returned by Lingo; approval binds to that exact
    preview, never to the summary.
-5. **Plan confirmation.** The Runtime writes the complete candidate Plan
+5. **Work Item-owned Plan confirmation (not an `axiom-workflow` action).**
+   When `axiom-work-item` prepares the #275 stage-plan acceptance, the Runtime
+   writes the complete candidate Plan
    document to scratch in the existing input format, including `approved:
    true`, `planRevision` and `planDigest`, runs the read-only `stage.plan` on
    it and presents the scope, effects, authority ceiling and Lingo's proposal
@@ -176,11 +209,11 @@ persistent Agent Profile entity; agents exist only inside a stage definition.
 
 | Concern | Owner / layer | Current operation | `axiom-workflow` coverage |
 |---|---|---|---|
-| Project allowlist, Model Profiles, preferences at Project creation | Project (portable policy v2) | `project configure` CREATE `--runtime`, `--model-profile`, `--runtime-preference` | Explains and orchestrates through `axiom-project configure` with its own preview/authority |
+| Project allowlist, Model Profiles, preferences at Project creation | Project (portable policy v2) | `project configure` CREATE `--runtime`, `--model-profile`, `--runtime-preference` | Explains and hands off to `axiom-project configure` with its own preview/authority |
 | Same policy on an **existing** Project | Project | none (CREATE-only) | Unavailable: reported as G-1, never patched |
 | Stage/agent Runtime constraint, Profile reference, effort | Workflow definition | `definition.create`/`edit` | Supported |
 | Machine-local Runtime Profile store (adapters, models, credential references) | Machine-local | `runtime profile validate` (read-only) | Read-only; authoring unavailable (G-2) |
-| Runtime installation / skill integration / auth observation | Machine-local | `runtime codex\|claude status`, `auth`; `runtime profile preview` | Read-only `runtime.readiness` |
+| Runtime installation / skill integration / auth observation | Machine-local | `runtime codex\|claude status`, `auth`; `runtime profile preview` | Read-only configuration diagnostics; Work Item owns execution readiness |
 | Capability and explicit-effort proof beyond `axiom-skills` | Machine-local observation | production observer proves only `axiom-skills` | Reported truthfully as `runtime_unresolvable` / `unsupported_effort` (G-3, #272) |
 
 The skill never infers a capability from an executable on `PATH`, a model name,
@@ -211,9 +244,10 @@ this gate reads `open` and HD-006 cannot be accepted as reconciled.
 | G-1 | to be created | open |
 | G-2 | to be created | open |
 
-## Conversational #275 acceptance (`acceptance`, mode `stage-plan`)
+## Work Item-owned conversational #275 acceptance (`axiom-work-item`, stage-plan mode)
 
-One natural-language request in either Runtime starts it. The Runtime assembles
+This remains an explicit #303 outcome, but **not an `axiom-workflow` operation**.
+A single Work Item-bound natural-language request to `axiom-work-item` in either Runtime starts it. The Runtime assembles
 and runs the procedure, asks only for genuinely missing consent/inputs, and
 reports results in natural language with a bounded Evidence report.
 
@@ -264,7 +298,7 @@ environment values or host paths.
 | Scenario | Lane L (installed binary, sandbox) | Lane S (synthetic) |
 |---|---|---|
 | A Setup | version/provenance, `skill inspect` for both Runtimes after sandbox install, Runtime status, sandbox Project and Repository, `runtime profile validate` | fixture Project/Work Item/Execution identities |
-| B Workflow authoring | `definition.list` default, custom draft, validate, create/edit preview → approval → apply, select, read-back | covered by existing #273 tests |
+| B Workflow setup | `axiom-workflow` configures/validates/previews/applies draft; `axiom-project` selects the active revision with its own review/approval; read-back | covered by existing #273 tests |
 | C Single agent | blocked by G-2 (no Profile store) and G-4 (linked Provider Issue needs a consented Provider read with credentials the sandbox does not hold) | `executionKind: single`, one resolution, no graph identity |
 | D Multi-agent | blocked by G-2 and G-4 | independent Codex/Claude agents, integrator depending on both, concurrency, child inputs/outputs, integration ownership |
 | E Determinism | blocked by G-2 and G-4 | repeated identical digests; config/observation change invalidates; Execution revision binding; no fallback |
@@ -304,11 +338,12 @@ At least one bounded, authorized native scenario runs in a real **Codex**
 session and one in a real **Claude** session, each in the safe environment
 above, from a natural-language request (not a typed command). Each covers:
 
-1. skill discovery (`axiom-workflow` resolved from the request);
+1. skill discovery and ownership routing (`axiom-workflow` for definition configuration, `axiom-project` for active revision selection, `axiom-work-item` for Work Item-bound acceptance);
 2. workflow configuration from natural language into a Runtime-prepared draft;
 3. canonical validation and preview returned by Lingo;
-4. explicit human confirmation of that exact preview, followed by one local
-   sandbox mutation (for example `definition.create` and `definition.select`);
+4. explicit human confirmation of each exact preview, followed by bounded
+   sandbox mutations (for example configuration `definition.create`, then
+   Project-owned `definition.select`);
 5. read-back of the persisted result;
 6. interpretation and a bounded Evidence entry.
 
@@ -331,12 +366,12 @@ environment values and host paths never appear.
 
 ## Codex/Claude parity
 
-Both Runtimes install the same embedded `axiom-workflow` bytes and resolve the
-same catalog. Validation covers, per Runtime: discovery after install, upgrade
-and reinstall; natural-language intent resolution; explicit operation
-invocation; missing-input acquisition; preview and confirmation; workflow
-configuration; stage planning; failure classification; human-readable
-presentation; Evidence generation. Runtime-specific differences are limited to
+Both Runtimes install the same embedded `axiom-workflow` configuration bytes
+and resolve the same catalog. Validation covers, per Runtime: discovery after
+install, upgrade and reinstall; natural-language configuration intents and
+canonical operations; Project-owned selection; Work Item-owned execution,
+stage planning and acceptance routing; missing-input acquisition; preview and
+confirmation; failure classification; human-readable presentation; Evidence. Runtime-specific differences are limited to
 installation location and invocation syntax (`$axiom-workflow` /
 `/axiom-workflow`) and must not change semantics, authority or state.
 Synthetic routing tests are distinguished from native Runtime behavioral runs,
@@ -348,14 +383,21 @@ which need explicit authorization when they involve vendor inference.
 2. `axiom-workflow` is embedded, installed and discoverable for Codex and
    Claude, including upgrade from v0.15.0 and reinstall; skill-set history pins
    the replaced v0.15.0 set; `skill inspect`, help and routing catalogs agree.
-3. Every catalog action and mode routes to the canonical command with
-   metadata identical to its compatibility route; compatibility routes are
-   unchanged.
+3. Every `axiom-workflow` **configuration** action routes to its canonical
+   Project workflow command with matching metadata; active selection stays
+   Project-owned, execution and planning stay Work Item-owned, and existing
+   routes and CLI commands remain unchanged.
 4. Definition, stage and agent configuration work from natural language
-   through Runtime-prepared drafts; required approvals stay explicit.
-5. The conversational #275 acceptance produces the report above in both
-   Runtimes, with every scenario classified, every blocked item tied to G-n,
-   and R-1, R-2 and R-3 reported separately.
+   through Runtime-prepared drafts. Project selects the active revision with
+   its own approval. Starting a specific Work Item resolves that Project
+   selection without a free-standing workflow run or silent fallback; each
+   Execution binds the selected immutable revision. If canonical start lacks
+   that behavior, its gap is surfaced instead of invented in the skill.
+5. The **Work Item-owned** conversational #275 acceptance produces the report
+   above in both Runtimes, routing workflow configuration to `axiom-workflow`
+   and active revision selection to `axiom-project` without transferring
+   Execution ownership. Every scenario is classified, every blocked item tied
+   to G-n, and R-1, R-2 and R-3 reported separately.
 6. R-2: one native scenario per Runtime (Codex and Claude) passes with
    explicit consent, covering every step listed above.
 7. #303 technical delivery may complete on R-1 and R-2. R-3 (AXM-7
@@ -367,13 +409,14 @@ which need explicit authorization when they involve vendor inference.
 
 ## Implementation plan (authorized only after acceptance)
 
-1. Skill and catalog: `internal/codexruntime/skills/axiom-workflow/SKILL.md`;
-   `skillOperationSpecs("axiom-workflow")` reusing existing specs; embedded
-   inventory (`codexruntime`, `install`), receipts, skill-set history;
-   compatibility text in the two existing skills.
+1. Configuration skill and catalog: `internal/codexruntime/skills/axiom-workflow/SKILL.md`;
+   `skillOperationSpecs("axiom-workflow")` reusing **only definition/configuration**
+   specs; embedded inventory (`codexruntime`, `install`), receipts, skill-set
+   history; route selection to Project and run/plan/acceptance to Work Item.
 2. Install/upgrade/retirement and parity tests for Codex and Claude.
-3. Acceptance runner (Lane S) and report schema with R-1/R-2/R-3 levels,
-   registered as durable automation; Lane L procedure in the skill.
+3. **Work Item-owned** #275 acceptance runner (Lane S) and report schema with
+   R-1/R-2/R-3 levels, registered as durable automation; Lane L procedure in
+   `axiom-work-item` (using `axiom-workflow` only for configuration).
 4. Native R-2 scenarios in Codex and Claude, run only with explicit consent;
    their bounded Evidence recorded in this amendment's Evidence section.
 5. Documentation: `docs/commands.md`, `docs/agent-harness.md`, Spec index, this
@@ -383,7 +426,7 @@ which need explicit authorization when they involve vendor inference.
 
 | ID | Decision | Options | Recommendation | Harder to change later |
 |---|---|---|---|---|
-| HD-005 | Dedicated surface | A keep HD-002; **B thin `axiom-workflow` (ADR-0022)**; C plus new CLI tree; D new workflow domain | B | Skill and operation names become public conversational contracts |
+| HD-005 | Dedicated configuration surface and explicit ownership | A keep HD-002; **B `axiom-workflow` configuration only, `axiom-project` selects, `axiom-work-item` runs/plans/accepts, Execution binds an immutable selected revision (ADR-0022)**; C plus new CLI tree; D new workflow domain | **B — maintainer direction recorded 2026-10-10; exact revised contract still Proposed** | Skill and operation names become public conversational contracts |
 | HD-006 | Runtime/Profile gaps G-1/G-2 | **a. track G-1 and G-2 as bounded follow-up Issues, not in #303; live C–G stay `blocked` on G-2/G-4**; b. deliver G-2 (and G-1) inside #303 | a — G-2 adds credential-reference authoring that needs its own Spec 002 amendment and security review; acceptance requires the follow-up traceability gate to be closed | With (a), AXM-7 functional acceptance (R-3) of C–G is blocked by G-2 until that follow-up ships |
 | HD-007 | Compatibility window | **keep routes until a separate removal decision**; remove at the next minor | keep | Removal later requires retirement/upgrade protocol |
 | HD-008 | Synthetic Evidence for #275 conversational acceptance | **accept as intermediate technical Evidence (R-1) only, classified `synthetic`, never R-2, R-3 or vendor proof** (direction recorded on the PR #304 review); require Lane L only | accept as R-1 only | R-3 still needs real scenarios; #278 still owns live two-Runtime proof |
