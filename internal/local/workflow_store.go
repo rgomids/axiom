@@ -10,11 +10,26 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/workflow"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
+
+const MaxExecutionBytes = 4 << 20
+
+func readExecutionFile(root *os.Root, name string) ([]byte, error) {
+	pending, err := protocolStatePresent(root)
+	if err != nil {
+		return nil, err
+	}
+	if pending {
+		return nil, ErrRecoveryRequired
+	}
+	return readPrivateFileBounded(root, name, MaxExecutionBytes)
+}
 
 type WorkflowStore struct {
 	root  string
@@ -22,6 +37,8 @@ type WorkflowStore struct {
 }
 
 type executionDTO struct {
+	Binding         *workflow.WorkflowBinding   `json:"binding,omitempty"`
+	StageOrdinal    int                         `json:"stageOrdinal,omitempty"`
 	FormatVersion   int                         `json:"formatVersion"`
 	ExecutionID     string                      `json:"executionId"`
 	WorkflowVersion string                      `json:"workflowVersion"`
@@ -83,15 +100,21 @@ func (s WorkflowStore) write(ctx context.Context, state workflow.State, create b
 	name := executionName(state.RepositoryKey, state.WorkItem)
 	var expected []byte
 	if !create {
-		expected, err = readPublishedFile(projectRoot, name)
+		expected, err = readExecutionFile(projectRoot, name)
 		if err != nil {
 			return workflowStoreError(err)
 		}
 		if state.StorageRevision == ([sha256.Size]byte{}) || sha256.Sum256(expected) != state.StorageRevision {
 			return workflowStoreError(ErrConflict)
 		}
+		prior, e := decodeExecution(expected)
+		if e != nil || !sameExecutionBinding(prior, state) {
+			return workflow.ErrRecoveryRequired
+		}
 	}
-	return workflowStoreError(publishFile(ctx, projectRoot, name, expected, wire, create, s.hooks))
+	hooks := s.hooks
+	hooks.contentLimit = MaxExecutionBytes
+	return workflowStoreError(publishFile(ctx, projectRoot, name, expected, wire, create, hooks))
 }
 
 func (s WorkflowStore) Load(ctx context.Context, projectID, repositoryKey string, item workflow.WorkItem) (workflow.State, error) {
@@ -114,7 +137,7 @@ func (s WorkflowStore) Load(ctx context.Context, projectID, repositoryKey string
 		return workflow.State{}, workflowStoreError(err)
 	}
 	defer closeFiles(locks)
-	wire, err := readPublishedFile(projectRoot, executionName(repositoryKey, item))
+	wire, err := readExecutionFile(projectRoot, executionName(repositoryKey, item))
 	if err != nil {
 		return workflow.State{}, workflowStoreError(err)
 	}
@@ -170,7 +193,7 @@ func (s WorkflowStore) List(ctx context.Context, projectID string) ([]workflow.S
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		wire, err := readPublishedFile(projectRoot, name)
+		wire, err := readExecutionFile(projectRoot, name)
 		if err != nil {
 			return nil, workflowStoreError(err)
 		}
@@ -221,29 +244,51 @@ func encodeExecution(state workflow.State) ([]byte, error) {
 		return nil, ErrUnsafe
 	}
 	dto := executionDTO{
+		Binding: state.Binding, StageOrdinal: state.StageOrdinal,
 		FormatVersion: state.FormatVersion, ExecutionID: state.ExecutionID, WorkflowVersion: state.WorkflowVersion,
 		ProjectID: state.ProjectID, RepositoryKey: state.RepositoryKey, WorkItem: state.WorkItem,
 		RuntimeID: state.RuntimeID, Stage: state.Stage, Revision: state.Revision, Status: state.Status,
 		Transitions: state.Transitions, CreatedAt: state.CreatedAt.UTC().Format(timeFormat), UpdatedAt: state.UpdatedAt.UTC().Format(timeFormat),
 		Provenance: state.Provenance, Terminal: state.Terminal, Projections: state.Projections,
 	}
-	wire, err := json.Marshal(dto)
-	if err != nil || len(wire)+1 > MaxRecordBytes {
+	var buffer bytes.Buffer
+	if state.FormatVersion == 1 {
+		wire, err := json.Marshal(dto)
+		if err != nil || len(wire)+1 > MaxRecordBytes {
+			return nil, ErrUnsafe
+		}
+		return append(wire, '\n'), nil
+	}
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(dto)
+	wire := bytes.TrimSuffix(buffer.Bytes(), []byte{'\n'})
+	if err != nil || len(wire)+1 > MaxExecutionBytes || state.FormatVersion == 1 && len(wire)+1 > MaxRecordBytes {
 		return nil, ErrUnsafe
 	}
-	return append(wire, '\n'), nil
+	wire = append(wire, '\n')
+	if _, err := decodeExecution(wire); err != nil {
+		return nil, err
+	}
+	return wire, nil
 }
 
 const timeFormat = "2006-01-02T15:04:05.999999999Z07:00"
 
 func decodeExecution(wire []byte) (workflow.State, error) {
-	if len(wire) == 0 || len(wire) > MaxRecordBytes {
+	if len(wire) == 0 || len(wire) > MaxExecutionBytes {
 		return workflow.State{}, ErrUnsafe
 	}
-	decoder := json.NewDecoder(io.LimitReader(bytes.NewReader(wire), MaxRecordBytes+1))
+	decoder := json.NewDecoder(io.LimitReader(bytes.NewReader(wire), MaxExecutionBytes+1))
 	decoder.DisallowUnknownFields()
 	var dto executionDTO
 	if err := decoder.Decode(&dto); err != nil {
+		return workflow.State{}, ErrUnsafe
+	}
+	if dto.FormatVersion == 2 && workflowdefinition.StrictJSONBounded(wire, &dto, MaxExecutionBytes) != nil {
+		return workflow.State{}, ErrUnsafe
+	}
+	if dto.FormatVersion == 1 && len(wire) > MaxRecordBytes {
 		return workflow.State{}, ErrUnsafe
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
@@ -258,6 +303,7 @@ func decodeExecution(wire []byte) (workflow.State, error) {
 		return workflow.State{}, ErrUnsafe
 	}
 	state := workflow.State{
+		Binding: dto.Binding, StageOrdinal: dto.StageOrdinal,
 		ExecutionID: dto.ExecutionID, FormatVersion: dto.FormatVersion, WorkflowVersion: dto.WorkflowVersion,
 		ProjectID: dto.ProjectID, RepositoryKey: dto.RepositoryKey, WorkItem: dto.WorkItem, RuntimeID: dto.RuntimeID,
 		Stage: dto.Stage, Revision: dto.Revision, Status: dto.Status, Transitions: dto.Transitions,
@@ -267,6 +313,25 @@ func decodeExecution(wire []byte) (workflow.State, error) {
 		return workflow.State{}, ErrUnsafe
 	}
 	return state, nil
+}
+
+func sameExecutionBinding(left, right workflow.State) bool {
+	a, _ := json.Marshal(left.Binding)
+	b, _ := json.Marshal(right.Binding)
+	if !bytes.Equal(a, b) || left.ExecutionID != right.ExecutionID || left.FormatVersion != right.FormatVersion || left.WorkflowVersion != right.WorkflowVersion || left.ProjectID != right.ProjectID || left.RepositoryKey != right.RepositoryKey || left.WorkItem != right.WorkItem || left.RuntimeID != right.RuntimeID {
+		return false
+	}
+	if left.Binding != nil {
+		if !left.CreatedAt.Equal(right.CreatedAt) || left.Provenance != right.Provenance || len(right.Transitions) < len(left.Transitions) {
+			return false
+		}
+		for i, event := range left.Transitions {
+			if !reflect.DeepEqual(event, right.Transitions[i]) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func parseExecutionTime(value string) (time.Time, error) {
@@ -293,6 +358,9 @@ func executionName(repositoryKey string, item workflow.WorkItem) string {
 }
 
 func workflowStoreError(err error) error {
+	if err == nil {
+		return nil
+	}
 	switch {
 	case errors.Is(err, ErrRecoveryRequired):
 		return errors.Join(err, workflow.ErrRecoveryRequired)
@@ -301,6 +369,6 @@ func workflowStoreError(err error) error {
 	case errors.Is(err, ErrNotFound), os.IsNotExist(err):
 		return errors.Join(err, workflow.ErrNotFound)
 	default:
-		return err
+		return errors.Join(err, workflow.ErrRecoveryRequired)
 	}
 }

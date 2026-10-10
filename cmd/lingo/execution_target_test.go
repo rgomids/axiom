@@ -17,6 +17,7 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 func TestWorkflowStartValidatesTargetBeforeRuntimePreview(t *testing.T) {
@@ -54,6 +55,11 @@ func installLinkedTarget(t *testing.T, env workItemSourceEnvironment) {
 	state := value.State()
 	state.Repositories = project.Configured([]project.Repository{{Key: "main"}})
 	value, issues = project.New(state)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	ref := workflowdefinition.Builtin().Ref("builtin")
+	value, issues = value.SelectWorkflow(project.WorkflowSelection{WorkflowID: ref.WorkflowID, Revision: ref.Revision, Digest: ref.Digest, Source: ref.Source})
 	if len(issues) != 0 {
 		t.Fatal(issues)
 	}

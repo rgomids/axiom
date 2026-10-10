@@ -42,6 +42,14 @@ func NextGateAction(state State) *GateAction {
 		}
 		return nil
 	}
+	if state.Binding != nil {
+		stage := CurrentStage(state)
+		required := configuredPhaseGate(*stage)
+		if required != "" && !facts[required] {
+			return &GateAction{Operation: "fact", Fact: required, Active: true, ReferenceRequired: true, AuthorityRequired: true}
+		}
+		return &GateAction{Operation: "advance", Gate: state.Stage, ReferenceRequired: true}
+	}
 	var required LifecycleFactKind
 	switch state.Stage {
 	case Plan:

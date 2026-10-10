@@ -14,7 +14,62 @@ import (
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
+
+// New configurable starts require a human-selected workflow. This fixture
+// records that explicit choice without changing the Runtime policy under test.
+func selectBuiltinForTest(t *testing.T, stateRoot, id string) {
+	t.Helper()
+	path := filepath.Join(stateRoot, "projects", id, "installation.json")
+	wire, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, issues := local.DecodeRecord(wire)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	rs := record.State()
+	manifestPath := filepath.Join(rs.SourceLocation, "axiom.yaml")
+	wire, err = os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, pi := manifest.Decode(wire)
+	if len(pi) != 0 {
+		t.Fatal(pi)
+	}
+	r := workflowdefinition.Builtin().Ref("builtin")
+	p, pi = p.SelectWorkflow(project.WorkflowSelection{WorkflowID: r.WorkflowID, Revision: r.Revision, Digest: r.Digest, Source: r.Source})
+	if len(pi) != 0 {
+		t.Fatal(pi)
+	}
+	wire, pi = manifest.Encode(p)
+	if len(pi) != 0 {
+		t.Fatal(pi)
+	}
+	if err = os.WriteFile(manifestPath, wire, 0600); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, si := projectapp.ReadSnapshot(manifest.Codec{}, wire, nil)
+	if len(si) != 0 {
+		t.Fatal(si)
+	}
+	rs.PortableRevision = snapshot.Revision()
+	rs.ArtifactDigests = snapshot.Digests()
+	record, issues = local.NewRecord(rs)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	wire, issues = local.EncodeRecord(record)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	if err = os.WriteFile(path, wire, 0600); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // Fixtures explicitly authorize a portable policy and its matching installed
 // snapshot; configuration alone must never regain the old implicit fallback.

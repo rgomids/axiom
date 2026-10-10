@@ -100,6 +100,7 @@ type WorkItems interface {
 type Identity struct{ Product, Version, Revision, SourceState string }
 type Reference struct{ Kind, ID, Digest string }
 type Transition struct {
+	Ledger        *StageLedger `json:"stageLedger,omitempty"`
 	Revision      uint64
 	From, To      Stage
 	Outcome       Outcome
@@ -121,6 +122,8 @@ type ProjectionRecord struct {
 	Complete            bool
 }
 type State struct {
+	Binding                  *WorkflowBinding
+	StageOrdinal             int
 	ExecutionID              string
 	FormatVersion            int
 	WorkflowVersion          string
@@ -226,6 +229,7 @@ type Result struct {
 	Executions []Summary
 }
 type Target struct {
+	RuntimePreview                               string
 	ProjectSelector, RepositoryKey               string
 	WorkItemProvider, WorkItemResource, WorkItem string
 	ExecutionID, RuntimeID                       string
@@ -233,6 +237,7 @@ type Target struct {
 	ReviewedTarget *ResolvedTarget
 }
 type TransitionInput struct {
+	StageResult      *StageResult `json:"stageResult,omitempty"`
 	ExpectedRevision uint64
 	Stage            Stage
 	Outcome          Outcome
@@ -240,6 +245,8 @@ type TransitionInput struct {
 	Next             string
 }
 type LifecycleFactInput struct {
+	Actor            string       `json:"actor,omitempty"`
+	StageResult      *StageResult `json:"stageResult,omitempty"`
 	ExpectedRevision uint64
 	Kind             LifecycleFactKind
 	Active           bool
@@ -249,14 +256,16 @@ type IDAllocator func() (string, error)
 type Clock func() time.Time
 
 type Service struct {
-	resolver   Resolver
-	workItems  WorkItems
-	store      Store
-	projection ProjectionCapability
-	references ReferenceValidator
-	source     provenance.Value
-	allocateID IDAllocator
-	now        Clock
+	definitions DefinitionResolver
+	validators  StageValidator
+	resolver    Resolver
+	workItems   WorkItems
+	store       Store
+	projection  ProjectionCapability
+	references  ReferenceValidator
+	source      provenance.Value
+	allocateID  IDAllocator
+	now         Clock
 }
 
 func New(resolver Resolver, workItems WorkItems, store Store, projection ProjectionCapability, references ReferenceValidator, source provenance.Value, allocateID IDAllocator, now Clock) Service {
@@ -285,7 +294,20 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 	if failed.Category != "" {
 		return failed
 	}
-	if target.ReviewedTarget != nil && *target.ReviewedTarget != (ResolvedTarget{ProjectID: project.ID, Repository: repository, WorkItem: item}) {
+	resolvedTarget := ResolvedTarget{ProjectID: project.ID, Repository: repository, WorkItem: item}
+	var observation DefinitionObservation
+	if s.definitions != nil {
+		var category string
+		observation, category = s.definitions.ResolveDefinition(ctx, target.ProjectSelector)
+		if category != "" {
+			return result(ValidationFailed, category, State{})
+		}
+		resolvedTarget.DefinitionObservation = observation.Digest
+		if observation.ProjectID != project.ID || !validDefinitionObservation(observation) {
+			return result(Failed, "recovery_required", State{})
+		}
+	}
+	if target.ReviewedTarget != nil && *target.ReviewedTarget != resolvedTarget {
 		return result(ValidationFailed, "stale_execution_target", State{})
 	}
 	existing, err := s.store.Load(ctx, project.ID, repository.Key, item)
@@ -304,6 +326,13 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 	}
 	now := s.now().UTC()
 	state := State{ExecutionID: id, FormatVersion: FormatVersion, WorkflowVersion: WorkflowVersion, ProjectID: project.ID, RepositoryKey: repository.Key, WorkItem: item, RuntimeID: target.RuntimeID, Stage: Intake, Revision: 1, Status: ExecutionActive, CreatedAt: now, UpdatedAt: now, Provenance: identity(s.source)}
+	if s.definitions != nil {
+		state.FormatVersion, state.WorkflowVersion = ConfiguredFormatVersion, ConfiguredWorkflowVersion
+		state.Binding = &WorkflowBinding{ProjectID: project.ID, Definition: observation.Document.Ref(observation.Source), SchemaVersion: observation.Document.Definition.SchemaVersion, SnapshotRef: "execution:" + id + "#/binding/snapshot", Snapshot: append([]byte(nil), observation.Document.Canonical...), ObservationDigest: observation.Digest, RuntimePreview: target.RuntimePreview, BoundAt: now}
+		state.Binding.Contexts = observation.Contexts
+		state.Binding.ProjectRevision, state.Binding.LocalRevision = observation.ProjectRevision, observation.LocalRevision
+		state.Stage = Stage(observation.Document.Definition.Stages[0].ID)
+	}
 	if !ValidState(state) {
 		return result(ValidationFailed, "invalid_execution_state", State{})
 	}
@@ -311,13 +340,13 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 		var committed interface{ EffectCommitted() bool }
 		if errors.As(err, &committed) && committed.EffectCommitted() {
 			existing, loadErr := s.store.Load(ctx, project.ID, repository.Key, item)
-			if loadErr == nil && equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) {
+			if loadErr == nil && equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) && sameStartContract(existing, state) {
 				return result(Succeeded, "execution_started", existing)
 			}
 		}
 		if errors.Is(err, ErrConflict) {
 			existing, loadErr := s.store.Load(ctx, project.ID, repository.Key, item)
-			if loadErr == nil && equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) {
+			if loadErr == nil && equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) && sameStartContract(existing, state) {
 				return result(Succeeded, "execution_already_started", existing)
 			}
 		}
@@ -326,6 +355,9 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 	loaded, err := s.store.Load(ctx, project.ID, repository.Key, item)
 	if err != nil {
 		return storeFailure(err)
+	}
+	if !equivalentPersistedState(loaded, state) {
+		return result(Failed, "recovery_required", State{})
 	}
 	return result(Succeeded, "execution_started", loaded)
 }
@@ -439,6 +471,9 @@ func (s Service) Resume(ctx context.Context, target Target, expectedRevision uin
 	if state.Status != ExecutionInterrupted {
 		return result(Succeeded, "execution_not_interrupted", state)
 	}
+	if state.Binding != nil && s.definitions == nil {
+		return result(Failed, "configured_workflow_unavailable", state)
+	}
 	input := TransitionInput{ExpectedRevision: expectedRevision, Stage: state.Stage, Outcome: OutcomeResumed}
 	event := transitionFor(state, input, state.Stage, s.now().UTC(), s.source)
 	state.Revision++
@@ -455,6 +490,9 @@ func (s Service) Transition(ctx context.Context, target Target, input Transition
 	state, repository, failed := s.loadResolved(ctx, target)
 	if failed.Category != "" {
 		return failed
+	}
+	if state.Binding != nil {
+		return s.transitionConfigured(ctx, state, repository, input)
 	}
 	requestDigest, valid := transitionDigest(input)
 	if !valid {
@@ -557,13 +595,30 @@ func (s Service) RecordLifecycleFact(ctx context.Context, target Target, input L
 	if !authorized {
 		return result(Denied, "lifecycle_fact_authority_denied", state)
 	}
-	if !factAllowedAt(input.Kind, state.Stage) || !validReference(input.Reference) || state.Status == ExecutionInterrupted {
+	if state.Binding != nil && !validText(input.Actor) {
+		return result(ValidationFailed, "human_actor_required", state)
+	}
+	allowed := factAllowedAt(input.Kind, state.Stage)
+	if state.Binding != nil {
+		allowed = configuredFactAllowed(state, input.Kind)
+	}
+	if !allowed || !validReference(input.Reference) || state.Status == ExecutionInterrupted {
 		return result(ValidationFailed, "invalid_lifecycle_fact", state)
 	}
 	if s.references == nil || s.references.Validate(ctx, state.ExecutionID, repository.Path, input.Reference) != nil {
 		return result(ValidationFailed, "lifecycle_fact_reference_unavailable", state)
 	}
 	fact := LifecycleFact{Kind: input.Kind, Active: input.Active, ScopeDigest: executionScopeDigest(state), Reference: input.Reference}
+	if state.Binding != nil {
+		fact.Actor = input.Actor
+		if input.Kind == FactStageReview {
+			stage := CurrentStage(state)
+			if input.StageResult == nil || !validStageResult(state, *stage, *input.StageResult) {
+				return result(ValidationFailed, "stage_prerequisite_missing", state)
+			}
+			fact.ResultDigest = digest(input.StageResult)
+		}
+	}
 	previous := cloneState(state)
 	transitionInput := TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: state.Stage, Outcome: OutcomeFact, References: []Reference{input.Reference}}
 	event := transitionFor(state, transitionInput, state.Stage, s.now().UTC(), s.source)
@@ -994,10 +1049,16 @@ func replayed(state State, expected uint64, requestDigest string) bool {
 func SupportedRuntime(id string) bool { return id == "codex" || id == "claude" }
 
 func equivalentStart(state State, projectID, repositoryKey string, item WorkItem, runtimeID string) bool {
-	return state.FormatVersion == FormatVersion && state.WorkflowVersion == WorkflowVersion && state.ProjectID == projectID && state.RepositoryKey == repositoryKey && state.RuntimeID == runtimeID && state.WorkItem == item
+	return ValidState(state) && state.ProjectID == projectID && state.RepositoryKey == repositoryKey && state.RuntimeID == runtimeID && state.WorkItem == item
 }
 
 func ValidState(state State) bool {
+	if state.FormatVersion == ConfiguredFormatVersion {
+		return validConfiguredState(state)
+	}
+	if state.Binding != nil || state.StageOrdinal != 0 {
+		return false
+	}
 	if !validOpaqueID(state.ExecutionID) || state.FormatVersion != FormatVersion || state.WorkflowVersion != WorkflowVersion || !validText(state.ProjectID) || !validText(state.RepositoryKey) || !validWorkItem(state.WorkItem) || !validText(state.RuntimeID) || !state.Stage.Valid() || state.Revision == 0 || !validExecutionStatus(state.Status) || state.CreatedAt.IsZero() || state.UpdatedAt.Before(state.CreatedAt) || !validIdentity(state.Provenance) || len(state.Transitions) > maxEvents || len(state.Projections) > maxEvents {
 		return false
 	}
@@ -1008,6 +1069,9 @@ func ValidState(state State) bool {
 	derivedStatus := ExecutionActive
 	lastCommittedAt := state.CreatedAt
 	for index, event := range state.Transitions {
+		if event.Ledger != nil {
+			return false
+		}
 		if event.Revision != uint64(index+2) || !event.From.Valid() || !event.To.Valid() || event.Outcome != OutcomePassed && event.Outcome != OutcomeFailed && event.Outcome != OutcomeResumed && event.Outcome != OutcomeFact || event.RequestDigest == "" || event.CommittedAt.IsZero() || !validIdentity(event.Provenance) || len(event.References) > maxReferences || !validOptionalText(event.Next) {
 			return false
 		}
@@ -1115,6 +1179,11 @@ func validProjectionEffects(record ProjectionRecord, desired []string, comment s
 func projectionSnapshot(state State, revision uint64) State {
 	projected := cloneState(state)
 	projected.Stage = Intake
+	if state.Binding != nil {
+		doc, _ := bindingDocument(state)
+		projected.Stage = Stage(doc.Definition.Stages[0].ID)
+		projected.StageOrdinal = 0
+	}
 	projected.Status = ExecutionActive
 	projected.Revision = revision
 	projected.Transitions = projected.Transitions[:revision-1]
@@ -1122,12 +1191,15 @@ func projectionSnapshot(state State, revision uint64) State {
 	projected.Terminal = nil
 	projected.Projections = nil
 	for _, event := range projected.Transitions {
+		if event.Ledger != nil && event.Outcome == OutcomePassed && event.From != event.To {
+			projected.StageOrdinal++
+		}
 		projected.Stage = event.To
 		projected.UpdatedAt = event.CommittedAt
 		switch event.Outcome {
 		case OutcomePassed:
 			projected.Status = ExecutionActive
-			if event.From == Completion {
+			if event.From == Completion && state.Binding == nil || state.Binding != nil && event.Outcome == OutcomePassed && event.From == event.To {
 				projected.Status = ExecutionCompleted
 				projected.Terminal = &Terminal{Status: completion.Success, ConfirmedEffects: []string{"local_execution_transition"}}
 			}
@@ -1390,8 +1462,24 @@ func cloneEffects(values []ProjectionEffect) []ProjectionEffect {
 }
 func cloneReferences(values []Reference) []Reference { return append([]Reference(nil), values...) }
 func cloneState(state State) State {
+	if state.Binding != nil {
+		b := *state.Binding
+		b.Snapshot = append([]byte(nil), b.Snapshot...)
+		b.Contexts = make(map[string]ContextObservation, len(state.Binding.Contexts))
+		for key, c := range state.Binding.Contexts {
+			c.Content = append([]byte(nil), c.Content...)
+			b.Contexts[key] = c
+		}
+		state.Binding = &b
+	}
 	state.Transitions = append([]Transition(nil), state.Transitions...)
 	for index := range state.Transitions {
+		if state.Transitions[index].Ledger != nil {
+			wire, _ := json.Marshal(state.Transitions[index].Ledger)
+			var ledger StageLedger
+			_ = json.Unmarshal(wire, &ledger)
+			state.Transitions[index].Ledger = &ledger
+		}
 		state.Transitions[index].References = cloneReferences(state.Transitions[index].References)
 		if state.Transitions[index].Fact != nil {
 			fact := *state.Transitions[index].Fact

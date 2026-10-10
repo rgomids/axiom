@@ -24,7 +24,10 @@ Specification 004's T01–T40 and historical Evidence remain unchanged.
 [#273 authoring implementation and verification map](007-configurable-workflows/issue-273-implementation.md)
 records definition management and explicit Project selection. Implementation
 review and human acceptance remain separate from the accepted contract;
-#274–#278 retain their own binding/planning/dispatch/delivery gates.
+[#274 binding implementation and verification map](007-configurable-workflows/issue-274-implementation.md)
+records configured sequential execution and retained legacy compatibility.
+#275–#278 retain their own planning/dispatch/delivery gates. These implementation
+records do not establish human acceptance.
 
 ## 006 — Installer Host Eligibility and Platform Support Policy
 

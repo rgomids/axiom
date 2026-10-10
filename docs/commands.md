@@ -1643,6 +1643,46 @@ human acceptance.
 
 ## Execute the bounded workflow
 
+New Executions require an explicitly selected Project WorkflowDefinition. They
+retain its canonical snapshot, exact revision and digest, Project/local revisions,
+reviewed Runtime preview and required local context observations. Changing the
+Project selection affects subsequent Executions; resume uses the retained binding
+even when the original source is unavailable. Missing, corrupt or future snapshots
+fail closed without falling back to the current Project selection.
+
+For configured Executions, read `workflow.binding`, `stageContract`, `stageInputs`,
+`stageLedger`, `blockers`, `gateAction` and `gateCommand` from status/evidence.
+These expose the exact contract, criteria, validated artifacts, current stage and
+next action. The ordered definition controls progression, including custom stage
+IDs; lifecycle projection retains the existing ten canonical values.
+
+Supply `workflow advance --stage-result <json-file>` along with the returned exact
+selectors, revision, `--gate <current-stage-id>` and observed `--outcome pass|fail`.
+The bounded JSON file has `inputs` and `outputs` maps keyed by declared IDs. Each
+reference uses the existing `Kind`, `ID`, `Digest` fields. Work Item inputs come
+from the canonical binding; prior outputs and Project context references must
+exactly match `stageInputs`. Required outputs must be retained typed artifacts
+belonging to this Execution, with the declared output category and successful
+outcome. Artifact references bind `workflow-stage` to the stage ID,
+`workflow-definition` to the definition digest and `workflow-output` to the output
+ID. Built-in `artifact-schema`, `evidence-check` and `human-review` validators use
+the registered `builtin-sdd-v1` policy. Unknown policies block; definitions cannot
+provide executable commands.
+
+Configured human facts additionally require `--actor <human-identity>` and explicit
+authority. A `human-review` validator requires `workflow fact --fact stage-review`
+with `--stage-result` identifying the exact reviewed result, one validated
+reference, `--active true` and `--authorize-local`. Technical pass or an agent's
+message does not grant planning, implementation, review or acceptance authority.
+The actor is an audit assertion under the existing explicit authority protocol,
+not a new authentication mechanism. Final technical completion still precedes
+separate human acceptance. Configured stages have no automatic Intake shortcut.
+
+Historical format-1 Executions retain their fixed gate order and automatic Intake
+behavior described below; they remain readable and resumable without migration.
+See the [#274 implementation contract](specifications/007-configurable-workflows/issue-274-implementation.md)
+for retention, compatibility and verification details.
+
 Start one workflow from an explicitly selected, already linked Work Item. Project
 is optional only when the effective context resolves, with precedence
 `explicit operation Project > session override > persistent local default > unresolved/fail closed`. An invalid
@@ -1685,7 +1725,7 @@ advance, fact, evidence, reconcile, and resume use the recorded Runtime and reje
 `--runtime`, and a later `workflow start` naming a different Runtime for the same
 Work Item returns `validation_failure` without changing the Execution.
 
-Advance gates in fixed order from the exact current revision. Optional references
+For legacy Executions, advance gates in fixed order from the exact current revision. Optional references
 are either a machine-local detail artifact or a repository-relative regular
 Evidence file no larger than 1 MiB. The caller supplies the expected SHA-256;
 Lingo re-reads and validates it before committing the transition. Repository

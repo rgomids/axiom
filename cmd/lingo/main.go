@@ -165,7 +165,7 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
-	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil)
+	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil).WithDefinitions(workflowDefinitions{installation, store}, references)
 	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, operational: operational, projectCatalog: projectapp.NewProjectCatalog(installation, installation).WithOperationalState(operational), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
 }
 
@@ -930,7 +930,7 @@ func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.Workflo
 		return *blocked
 	}
 	if input.Automatic {
-		if input.Gate != "" || input.Outcome != "" || input.Reference != "" || input.Next != "" {
+		if input.Gate != "" || input.Outcome != "" || input.Reference != "" || input.Next != "" || input.StageResultFile != "" {
 			return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_transition"}, s.provenance)
 		}
 		return workflowResult(s.workflows.AdvanceAutomatic(ctx, workflowTarget(input), input.ExpectedRevision), s.provenance)
@@ -939,7 +939,15 @@ func (s lifecycleService) WorkflowAdvance(ctx context.Context, input cli.Workflo
 	if !ok {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
 	}
-	return workflowResult(s.workflows.Transition(ctx, workflowTarget(input), workflow.TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: workflow.Stage(input.Gate), Outcome: workflow.Outcome(input.Outcome), References: references, Next: input.Next}), s.provenance)
+	var stageResult *workflow.StageResult
+	if input.StageResultFile != "" {
+		var value workflow.StageResult
+		if readStageResult(input.StageResultFile, &value) != nil {
+			return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_stage_result"}, s.provenance)
+		}
+		stageResult = &value
+	}
+	return workflowResult(s.workflows.Transition(ctx, workflowTarget(input), workflow.TransitionInput{ExpectedRevision: input.ExpectedRevision, Stage: workflow.Stage(input.Gate), Outcome: workflow.Outcome(input.Outcome), References: references, Next: input.Next, StageResult: stageResult}), s.provenance)
 }
 func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowInput) cli.Result {
 	if input.Project == "" {
@@ -958,6 +966,7 @@ func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowIn
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_workflow_reference"}, s.provenance)
 	}
 	kinds := map[string]workflow.LifecycleFactKind{
+		"stage-review":             workflow.FactStageReview,
 		"planning-authority":       workflow.FactPlanningAuthority,
 		"implementation-authority": workflow.FactImplementationAuthority,
 		"review-started":           workflow.FactReviewStarted,
@@ -970,7 +979,15 @@ func (s lifecycleService) WorkflowFact(ctx context.Context, input cli.WorkflowIn
 	if kind == "" {
 		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_lifecycle_fact"}, s.provenance)
 	}
-	return workflowResult(s.workflows.RecordLifecycleFact(ctx, workflowTarget(input), workflow.LifecycleFactInput{ExpectedRevision: input.ExpectedRevision, Kind: kind, Active: input.Active, Reference: references[0]}, input.AuthorizeLocal), s.provenance)
+	var stageResult *workflow.StageResult
+	if input.StageResultFile != "" {
+		var value workflow.StageResult
+		if readStageResult(input.StageResultFile, &value) != nil {
+			return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "invalid_stage_result"}, s.provenance)
+		}
+		stageResult = &value
+	}
+	return workflowResult(s.workflows.RecordLifecycleFact(ctx, workflowTarget(input), workflow.LifecycleFactInput{ExpectedRevision: input.ExpectedRevision, Kind: kind, Active: input.Active, Reference: references[0], Actor: input.Actor, StageResult: stageResult}, input.AuthorizeLocal), s.provenance)
 }
 func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.WorkflowInput) cli.Result {
 	if input.Project == "" {
@@ -1062,11 +1079,40 @@ func workflowResult(result workflow.Result, source provenance.Value) cli.Result 
 			view.NeedsApproval = lifecycle.Conditions.NeedsApproval
 		}
 		for _, step := range result.State.Transitions {
-			view.Transitions = append(view.Transitions, cli.WorkflowStepView{Revision: step.Revision, From: string(step.From), To: string(step.To), Outcome: string(step.Outcome), CommittedAt: step.CommittedAt.Format("2006-01-02T15:04:05.999999999Z07:00")})
+			view.Transitions = append(view.Transitions, cli.WorkflowStepView{Revision: step.Revision, From: string(step.From), To: string(step.To), Outcome: string(step.Outcome), CommittedAt: step.CommittedAt.Format("2006-01-02T15:04:05.999999999Z07:00"), Fact: step.Fact, References: step.References})
 		}
 		response.Workflow = view
+		view.ExecutionKind = "legacy-sequential"
+		if result.State.Binding != nil {
+			view.ExecutionKind = "configured-sequential"
+			view.Binding = workflow.InspectBinding(result.State)
+			view.StageContract = workflow.CurrentStage(result.State)
+			view.StageOrdinal = result.State.StageOrdinal
+			view.StageInputs = workflow.StageInputs(result.State)
+			for _, step := range result.State.Transitions {
+				if step.Ledger != nil {
+					view.StageLedger = append(view.StageLedger, *step.Ledger)
+				}
+			}
+		}
 		view.GateAction = workflow.NextGateAction(result.State)
+		if result.State.Binding != nil && result.Category == "stage_human_review_required" {
+			view.GateAction = &workflow.GateAction{Operation: "fact", Fact: workflow.FactStageReview, Active: true, ReferenceRequired: true, AuthorityRequired: true}
+		}
 		view.GateCommand = workflowGateCommand(result.State, view.GateAction)
+		if result.State.Binding != nil && view.GateAction != nil {
+			switch view.GateAction.Operation {
+			case "fact":
+				view.Blockers = []string{"human_fact_required:" + string(view.GateAction.Fact)}
+			case "resume":
+				view.Blockers = []string{"execution_resume_required"}
+			case "advance":
+				view.Blockers = []string{"stage_result_required"}
+			}
+			if result.Category == "stage_validator_failed" || result.Category == "stage_prerequisite_missing" {
+				view.Blockers = append(view.Blockers, result.Category)
+			}
+		}
 	}
 	return response
 }
@@ -1084,9 +1130,18 @@ func workflowGateCommand(state workflow.State, action *workflow.GateAction) []st
 			args = append(args, "--automatic")
 		} else {
 			args = append(args, "--gate", string(action.Gate), "--outcome", "<pass-or-fail>", "--reference", "<kind>:<reference>:<sha256>")
+			if state.Binding != nil {
+				args = append(args, "--stage-result", "<stage-result.json>")
+			}
 		}
 	case "fact":
 		args = append(args, "--fact", strings.ReplaceAll(string(action.Fact), "_", "-"), "--active="+strconv.FormatBool(action.Active), "--reference", "<kind>:<reference>:<sha256>", "--authorize-local")
+		if state.Binding != nil {
+			args = append(args, "--actor", "<human-actor>")
+			if action.Fact == workflow.FactStageReview {
+				args = append(args, "--stage-result", "<reviewed-stage-result.json>")
+			}
+		}
 	}
 	return args
 }
@@ -1120,12 +1175,22 @@ func workflowResultReferences(result workflow.Result) []string {
 	if result.State.ExecutionID != "" {
 		refs = append(refs, "execution:"+result.State.ExecutionID)
 	}
+	if result.State.Binding != nil {
+		b := result.State.Binding
+		refs = append(refs, "workflow:"+b.Definition.WorkflowID+"/"+strconv.Itoa(b.Definition.Revision)+":"+b.Definition.Digest)
+	}
 	if result.State.WorkItem.URL != "" && result.Status == workflow.Partial {
 		refs = append(refs, "provider:"+result.State.WorkItem.URL)
 	}
 	return refs
 }
 func workflowResultNext(result workflow.Result) string {
+	if result.Category == "workflow_selection_required" {
+		return "Explicitly select a Project workflow revision with project workflow select, then review a fresh workflow start preview"
+	}
+	if result.State.Binding != nil && (result.Status == workflow.Succeeded || result.Category == "stage_prerequisite_missing" || result.Category == "stage_validator_failed" || result.Category == "stage_human_review_required" || result.Category == "human_actor_required") {
+		return "Inspect workflow.binding, stageContract, stageInputs, stageLedger, blockers and gateCommand; supply validated outputs or the exact human decision before the next action"
+	}
 	switch result.Category {
 	case "invalid_execution_input", "repository_not_configured", "repository_ambiguous", "work_item_not_linked", "work_item_ambiguous", "execution_selector_conflict", "execution_scope_conflict", "stale_execution_target":
 		return "Inspect Project context and the exact linked Work Item, Repository and Execution selectors; correct the target before retrying"
