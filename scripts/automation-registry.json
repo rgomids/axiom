@@ -44,7 +44,7 @@
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "owner": "ci",
-      "purpose": "Required product checks on every pull request and manual dispatch: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job; plus the required upgrade-journeys acceptance jobs on linux and macos (versioned policy; remote application follows merge to main and administrative read-back). Parallel go-quality requires formatting, module tidiness and pinned curated Staticcheck with regression contracts.",
+      "purpose": "Required product checks on every pull request and manual dispatch: Go tests, vet/build, repository checks, dogfood smoke test, Windows installer/bootstrap contracts, and the release-contract job; plus the required upgrade-journeys acceptance jobs on linux and macos (versioned policy; remote application follows merge to main and administrative read-back). Parallel go-quality requires formatting, module tidiness and pinned curated Staticcheck with regression contracts. Linux tests collect coverage once with report-only code health summaries and artifacts.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -63,13 +63,46 @@
       "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos/windows plus release-contract job",
       "outputs": "Required check contexts verify (linux|macos|windows) and release-contract; step failures fail the run; go-quality required context",
       "local_effects": "runner workspace only",
-      "network_effects": "GitHub Actions checkout and setup-go; Go module download; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1 from github.com release downloads; pinned honnef.co/go/tools@v0.8.1 and its module dependencies",
-      "authority": "contents: read token only; no secrets, no publication path",
+      "network_effects": "GitHub Actions checkout and setup-go; Go module download; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1 from github.com release downloads; pinned honnef.co/go/tools@v0.8.1 and its module dependencies Read-only Actions baseline lookup and code health artifact retention.",
+      "authority": "contents: read; verify adds actions: read for baseline artifacts; no secrets or privileged PR event",
       "tests": [
         "scripts/test-release-flow.sh",
-        "scripts/test-go-quality.py"
+        "scripts/test-go-quality.py",
+        "scripts/test-code-health.py"
       ],
       "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/code-health-baseline.yml",
+      "kind": "workflow",
+      "owner": "ci",
+      "purpose": "On main push, retain a validated successful tree-equivalent PR snapshot without repeating product tests.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "push to main",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Coverage profile, checkout, snapshot metadata; optional read-only Actions API token and UTC time.",
+      "outputs": "Revision-associated JSON/Markdown metrics or offline test results; no numeric enforcement.",
+      "local_effects": "coverage directory and runner summary only",
+      "network_effects": "Read-only GitHub Actions/commit/PR APIs and SHA-pinned checkout/upload-artifact; writes only Actions artifact storage.",
+      "authority": "User-authorized CI observability; contents/actions read only; no secrets or provider writes.",
+      "tests": [
+        "scripts/test-code-health.py",
+        "scripts/codehealth/main_test.go"
+      ],
+      "evidence": "docs/development/code-health.md",
       "compatibility": [],
       "removal_condition": null
     },
@@ -1016,6 +1049,105 @@
         "scripts/test-check-sensitive-files.sh"
       ],
       "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/code-health.py",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Collect atomic coverage snapshots, compare PR metrics and promote successful tree-equivalent PR artifacts as main baselines.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3",
+        "go"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "CI code health collection, comparison, main baseline promotion or offline fixture validation.",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/code-health-baseline.yml",
+        "scripts/test-code-health.py"
+      ],
+      "inputs": "Coverage profile, checkout, snapshot metadata; optional read-only Actions API token and UTC time.",
+      "outputs": "Revision-associated JSON/Markdown metrics or offline test results; no numeric enforcement.",
+      "local_effects": "coverage directory and runner summary only",
+      "network_effects": "Read-only GitHub Actions artifacts/runs and commit/PR REST APIs; Go package listing and AST go run may download existing module dependencies.",
+      "authority": "User-authorized CI observability; contents/actions read only; no secrets or provider writes.",
+      "tests": [
+        "scripts/test-code-health.py",
+        "scripts/codehealth/main_test.go"
+      ],
+      "evidence": "docs/development/code-health.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/codehealth/main.go",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Measure one cyclomatic complexity signal over tracked non-test cmd/internal Go declarations using standard AST.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "CI code health collection, comparison, main baseline promotion or offline fixture validation.",
+      "replay_reason": null,
+      "callers": [
+        "scripts/code-health.py"
+      ],
+      "inputs": "Git tracked Go sources in cmd/internal; current working tree.",
+      "outputs": "Deterministically ordered JSON function inventory on stdout; parse errors fail.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "Read-only repository source analysis.",
+      "tests": [
+        "scripts/test-code-health.py",
+        "scripts/codehealth/main_test.go"
+      ],
+      "evidence": "docs/development/code-health.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/codehealth/main_test.go",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Offline Go AST complexity and method/generic identity fixtures.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "test"
+      ],
+      "trigger": "CI code health collection, comparison, main baseline promotion or offline fixture validation.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Embedded Go source fixtures.",
+      "outputs": "Go test pass/fail.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "Offline deterministic validation.",
+      "tests": [
+        "scripts/test-code-health.py",
+        "scripts/codehealth/main_test.go"
+      ],
+      "evidence": "docs/development/code-health.md",
       "compatibility": [],
       "removal_condition": null
     },
@@ -2023,6 +2155,38 @@
       "authority": "none; local fixture checks",
       "tests": [],
       "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/test-code-health.py",
+      "kind": "script",
+      "owner": "ci",
+      "purpose": "Offline coverage, schema, diff, formatting and trusted baseline artifact/promotion contracts.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "test"
+      ],
+      "trigger": "CI code health collection, comparison, main baseline promotion or offline fixture validation.",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/ci.yml"
+      ],
+      "inputs": "Embedded metrics and mocked REST/ZIP fixtures; workflow source.",
+      "outputs": "Unit test pass/fail.",
+      "local_effects": "none",
+      "network_effects": "none",
+      "authority": "Offline deterministic validation.",
+      "tests": [
+        "scripts/test-code-health.py",
+        "scripts/codehealth/main_test.go"
+      ],
+      "evidence": "docs/development/code-health.md",
       "compatibility": [],
       "removal_condition": null
     },
