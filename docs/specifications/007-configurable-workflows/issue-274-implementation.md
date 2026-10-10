@@ -97,3 +97,13 @@ public preview/apply operation. The executable lifecycle also supplies validated
 typed stage results and human actors, then asserts packet-free acceptance denial.
 The cross-platform executable test independently covers technical completion,
 status/Evidence blockers and byte-preserving denial of unrelated valid Evidence.
+
+Follow-up CI confirmed the full Go race suites and repository validators on Linux
+and macOS, and the complete Windows job. The remaining failure was the dogfood
+smoke script's historical implicit workflow and untyped advancement. It now uses
+public selection preview/apply in its managed portable root, a registered
+synthetic fixture that publishes through the production artifact store, typed
+StageResults and explicit human actors. Its final assertion requires `reviewed`
+and `delivery_packet_required`, with no revision increment on acceptance denial.
+The complete smoke script passed in an isolated Linux WSL checkout with Go 1.26.0;
+the fixture build/vet and automation-registry validation also passed.
