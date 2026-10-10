@@ -327,7 +327,10 @@ Common rules for every task:
 - No CLI, application or schema change unless the task names it.
 - No vendor inference, Provider effect or network access beyond the Go module
   cache, except PD-7 if approved.
-- Existing tests change only where they enumerate skill names or catalog rows.
+- Existing tests change only where they enumerate skill names or catalog rows, plus **one bounded exception (R-1 instrumentation, T10):**
+  - purely additive `t.Logf("r1-evidence %s", …)` lines in `cmd/lingo/workflow_stage_plan_test.go` and `cmd/lingo/workflow_authoring_test.go`;
+  - they emit values already present in the canonical JSON those tests decode;
+  - no existing line, assertion, fixture, control flow or production code may change.
 - Each task ends with `go build ./...`, `go vet ./...` and its focused tests.
 
 ### T01 — Contract baseline gate (human)
@@ -468,8 +471,13 @@ Common rules for every task:
   - its no-authority preview is read-only and reports `selection` (PD-1);
   - Work Item `run`/`status`/`plan` metadata unchanged;
   - CLI help tree, flags and results unmodified.
-- **Acceptance criteria:** the #273/#274/#275 tests pass unmodified.
-- **Verification:** `git diff` shows those tests untouched; test output.
+- **Acceptance criteria:**
+  - the #273/#274/#275 tests pass with their assertions and fixtures unmodified;
+  - the only permitted diff in them is the T10 R-1 instrumentation exception.
+- **Verification:**
+  - `git diff <base> -- internal/cli/workflow_authoring_test.go cmd/lingo/workflow_binding_test.go` is empty;
+  - for `cmd/lingo/workflow_authoring_test.go` and `cmd/lingo/workflow_stage_plan_test.go`, `git diff --unified=0 <base>` contains no removed lines, and every added line matches `^\+\s*t\.Logf\("r1-evidence `;
+  - test output.
 - **Evidence:** diff and output.
 - **Definition of Done:** green.
 - **Parallel:** with T07.
@@ -522,7 +530,7 @@ Common rules for every task:
      - authoring `previewDigest`;
      - refusal categories.
 
-     Assertions and production code are unchanged. The runner parses only these markers, checks that each digest is 64-character lowercase hex and never computes a digest itself.
+     Assertions and production code are unchanged. The runner parses only these markers, checks that each digest is 64-character lowercase hex and never computes a digest itself. This is the general-rules instrumentation exception, enforced by T08's diff verification: additive marker lines only, with no other change to those files.
   4. **Report H fields** (closed schema, `additionalProperties: false`):
      - `axiomVersion` (proven, or `unreleased`), `versionProof` (`tag` | `release-binary` | `none`), `targetRevision`, `observedRevision`, `sourceClean`, `goVersion`;
      - `runtimeObservation: "controlled"`;
