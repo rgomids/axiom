@@ -73,3 +73,6 @@ remote required context before claiming branch protection is active. No remote
 ruleset update, merge or external acceptance is implied by local validation.
 
 See [baseline and validation Evidence](evidence-go-quality-242.md).
+
+Coverage and differential complexity are separate [report-only code health
+signals](code-health.md); they do not change this required gate.

@@ -1,0 +1,41 @@
+name: Code health baseline
+# Reuse successful PR CI; never rerun the product suite after merge.
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Promote successful tree-equivalent PR snapshot
+        id: promote
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/code-health.py promote
+      - name: Retain main baseline
+        if: steps.promote.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: code-health-main-${{ github.sha }}
+          path: coverage/snapshot.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Baseline status
+        if: always()
+        env:
+          OUTCOME: ${{ steps.promote.outcome }}
+        run: |
+          if [ "$OUTCOME" = success ]; then
+            echo 'Main snapshot measured by successful tree-equivalent PR CI; see artifact upload status.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Main baseline unavailable: no trusted successful equivalent PR snapshot; no test suite rerun.' >> "$GITHUB_STEP_SUMMARY"
+          fi
