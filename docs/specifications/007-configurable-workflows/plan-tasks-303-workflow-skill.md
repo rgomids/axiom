@@ -11,7 +11,7 @@ authorizes no implementation, merge, release, Issue or Linear change.
 | Work Item | [#303](https://github.com/rgomids/axiom/issues/303) / Linear AXM-7 |
 | Contract (immutable for this plan) | [Spec 007](spec.md), [amendment](amendment-303-workflow-skill.md), [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md); **Accepted 2026-10-10** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104)) on PR #304 `7db80ac95b5e83cd8cc9aaaadc785633c3ee3fa9` (amendment blob `9d1895b6…`, ADR blob `13a52a62…`) |
 | Planned on | PR #304 branch at `804123915d1c2eccaa81a3fbf01253aa3910ae48`; differs from `7db80ac` only in status/annotation text |
-| PD-3 upgrade decision | **Accepted — Option A** ([maintainer decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6100657230)); only PD-3 is accepted, not this Plan/Tasks as a whole |
+| Planning decisions | **PD-1 to PD-9 individually accepted** by the maintainer on #303 (links in §8). Individual PD acceptance is not acceptance of this Plan/Tasks as a whole, nor of implementation or merge. The PD-1 Project read path needs one further explicit authorization of its additive output delta before T08a (§3.4, R10) |
 | Code baseline | `main` `9378c41` (v0.15.0 + #298 CI routing); every file cited below is unchanged from v0.15.0 `3766273` |
 | Starting point | Amendment §"Implementation plan" steps 1–5, refined here; HD-005–HD-008 are not reopened |
 
@@ -33,7 +33,8 @@ operation routes to an existing canonical command.
 
 In the same delivery:
 - `axiom-project` loses its duplicate definition-authoring skill routes and
-  keeps Project lifecycle, policy and `workflow.select`;
+  keeps Project lifecycle, policy and `workflow.select`. Its own `show`/`list`
+  report each Project's active workflow (ID, name, revision) read-only (PD-1);
 - `axiom-work-item` keeps `run`/`status`/`plan` and gains the documented #275
   stage-plan acceptance procedure, backed by a deterministic synthetic **R-1**
   runner.
@@ -51,9 +52,14 @@ In the same delivery:
   global Doctor;
 - #276 dispatch, #277 delivery/rework, #278 R-2/R-3;
 - any new or renamed CLI command, flag, payload, schema, engine, Runtime
-  registry, approval mechanism, scheduler or fixed Profile tier;
+  registry, approval mechanism, scheduler or fixed Profile tier. **The single
+  named exception** is the PD-1 additive, read-only `activeWorkflow` result
+  field on `project show`/`project list` (§3.4), which is **not authorized by
+  this document** and needs the explicit authorization in R10 before T08a;
+- `--file` regular-file/symlink hardening, owned by
+  [#307](https://github.com/rgomids/axiom/issues/307) (PD-9 A);
 - real inference, native sessions, Provider effects, release, and the
-  optional Lane L sandbox runner (PD-5).
+  Lane L sandbox runner (PD-5 A: not built).
 
 ## 2. Current architecture (observed)
 
@@ -63,8 +69,9 @@ In the same delivery:
 | Operation catalog | `internal/cli/skill_inspect.go:200-208` `skillOperationSpecs`; `inspectSkill` (`:267`) | Switch on two names; Project case appends `workflowAuthoringSkillSpecs()` | New case; split specs |
 | Authoring specs | `internal/cli/workflow_authoring.go:107-122` | 8 `workflow.*` specs over `project_workflow_*` actions | 7 move to `definition.*`; `select` stays |
 | Inspect flag registry | `internal/cli/skill_inspect.go` `skillFlagSet`; default `projectFlagSet` (`internal/cli/cli.go:808-812`) | Runtime actions not mapped (default would add `--slug`) | Map `runtime_profile_validate/preview` (`runtimePreviewFlagSet`, `internal/cli/runtime_preview.go:94`) and `runtime_{codex,claude}_{status,auth}` |
-| Project workflow commands | `internal/cli/commands.go:38`, `workflow_authoring.go:22-48,124-130`; `cmd/lingo/workflow_authoring.go:21-40`; `internal/projectapp/workflow_authoring.go:58` `ApplyWorkflow` | Preview/apply with `--expected-revision`, `--preview-digest`, `--authorize-local`; `--file` size-bounded | Unchanged (PD-9 for `--file`) |
-| Active selection | `internal/projectapp/workflow_authoring.go:69-76,205-248` | Every report includes `selection`; `select` without authority returns a read-only preview | Used by `axiom-project` as its inspection (PD-1) |
+| Project workflow commands | `internal/cli/commands.go:38`, `workflow_authoring.go:22-48,124-130`; `cmd/lingo/workflow_authoring.go:21-40`; `internal/projectapp/workflow_authoring.go:58` `ApplyWorkflow` | Preview/apply with `--expected-revision`, `--preview-digest`, `--authorize-local`; `--file` size-bounded, no regular-file/symlink check | Unchanged; `--file` hardening owned by #307 (PD-9 A) |
+| Active selection | `internal/projectapp/workflow_authoring.go:69-76,205-248`; stored in the portable Project `workflowSelection` (`internal/project/project.go:84-91`, validated by `internal/project/workflow.go:9-23`) | Every authoring report includes `selection` as a ref (ID, revision, digest, source) **without a name**; `select` without authority returns a read-only preview of a change | `select` unchanged; **not** used as the Project inspection (PD-1) |
+| Project show / list | `cmd/lingo/project_lifecycle.go:70-95` `listProjects`, `:101-133` `showProject`; `internal/projectapp/list.go:37-42` `ProjectSummary{ID, Slug, Name, Status}`; views `internal/cli/cli.go:263-277` `ProjectView`/`ProjectListView` | Neither result exposes the active workflow; the list catalog already reads portable definitions for display names (`list.go:54-60`) | Additive read-only `activeWorkflow` field (PD-1, §3.4, T08a), subject to R10 authorization |
 | Workflow validation | `internal/workflowdefinition/definition.go:144,244` `Encode`/`Decode`, `StrictJSONBounded` | Strict schema, limits, DAG rules | Unchanged; drafts validated through it |
 | Work Item operations | `internal/cli/skill_inspect.go` `workItemRun/Status/Plan`; `internal/cli/workflow_stage_plan.go`; `cmd/lingo/workflow_stage_plan.go` | `run`/`status`/`plan` | Catalog unchanged; SKILL text extended |
 | Execution binding | `cmd/lingo/workflow_binding.go:40-110` | Resolves `workflowSelection`, fails closed | Unchanged |
@@ -84,11 +91,23 @@ In the same delivery:
    - Split `workflowAuthoringSkillSpecs()`: `definition.list|show|validate|create|edit|remove|recover`
      reuse the same `project_workflow_*` actions, modes and authority
      strings under a new `axiom-workflow` case.
-   - The `axiom-project` case keeps only `workflow.select`.
+   - The `axiom-project` case keeps only `workflow.select` among workflow
+     operations; its existing `show`/`list` operation metadata (actions,
+     modes, flags, authority `none`) is unchanged and carries the PD-1 read.
+   - No `definition.list` or other definition read is added to
+     `axiom-project`.
    - Add `configuration.readiness` with read-only modes over
      `runtime_profile_validate`, `runtime_profile_preview`,
      `runtime_codex_status`, `runtime_claude_status`, `runtime_codex_auth` and
-     `runtime_claude_auth` (PD-2), and add matching `skillFlagSet` cases.
+     `runtime_claude_auth` (PD-2 A,
+     [decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101705557)),
+     and add matching `skillFlagSet` cases.
+   - The skill reports three distinct readiness facts, never merged into one
+     verdict: **Configuration Valid** (`runtime profile validate/preview`),
+     **Runtime Ready** (`runtime codex|claude status`) and **Authentication
+     Ready** (`runtime codex|claude auth`). Auth is a read-only status
+     observation: no login, no credential write, and it never blocks
+     authoring. Every result is reported as point-in-time.
    - Invariant: no action is registered in two skills.
 2. **Draft preparation (skill text only).** The Runtime writes a draft only
    to its own scratch outside the Project, Repository and Axiom state roots.
@@ -109,9 +128,58 @@ In the same delivery:
      alias or shim.
    - An explicit removed operation is reported as unsupported.
 4. **Preserved boundaries.**
-   - `workflow.select` metadata stays unchanged; its preview with no
-     authority inputs is the Project's read-only active-selection inspection
-     (PD-1).
+   - `workflow.select` metadata and behavior stay unchanged. It is used only
+     to **change** the selection (preview, then separate approval), never as
+     an inspection.
+   - **Project active-workflow read path (PD-1 A,
+     [decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101636404)).**
+     A user asking the Project which workflow is active gets the answer from
+     the Project's own canonical reads, with no target reference and no
+     change preview:
+     - `axiom project show --project <p>` gains an additive, read-only
+       `project.activeWorkflow` object; `axiom project list` gains the same
+       object per Project entry, when applicable;
+     - fields: `status` (`selected` | `none` | `unresolvable`) and, when a
+       selection is recorded, `workflowId`, `revision`, `digest`, `source`;
+       `name` only when resolved; `category` when `unresolvable`.
+
+     **Name resolution (safe, no fallback).** The ref comes from the portable
+     Project `workflowSelection`, through the same observation the authoring
+     port and start binding already use (`cmd/lingo/workflow_authoring.go:72`
+     `ObserveWorkflows`; `cmd/lingo/workflow_binding.go:40-110`):
+     - `source: builtin`: the name comes from `workflowdefinition.Builtin()`
+       only if its ID, revision and canonical digest equal the ref;
+     - `source: project`: the name comes from the catalog document for that
+       ID/revision only if the index entry matches the ref's ID, revision and
+       digest and the document decodes strictly;
+     - no selection: `status: none`, with no defaulting to the built-in;
+     - any mismatch, missing document, undecodable document or unreadable
+       source: `status: unresolvable`, with the ref fields still reported, no
+       `name`, and the canonical category start binding already returns for
+       that condition (for example `project_configuration_drift`,
+       `recovery_required`). No new category is introduced without
+       authorization.
+
+     The read never selects, repairs, lists other definitions or falls back
+     to another revision. For `list`, an unresolvable entry never hides the
+     Project or fails the whole listing.
+
+     **Delta and authorization.** This is the only output delta in #303:
+     additive JSON/human output on two existing read-only commands, with no
+     new command, flag, operation, authority or state write, and with every
+     existing field and category unchanged. Because AC-015.3/AC-015.8 state
+     that canonical CLI result semantics stay unchanged, this plan does not
+     treat the field as covered by the accepted contract. **T08a is blocked
+     until the maintainer explicitly authorizes the delta (R10)** as either
+     compatible with AC-015.3/AC-015.8 (additive, existing semantics
+     unchanged) or as a recorded contract amendment. Without that
+     authorization, nothing in T08a is implemented.
+
+     Rejected: reusing `project workflow list` (the `definition.list` action)
+     under Project, which duplicates a Workflow-owned action (HD-007);
+     treating the `select` preview as an inspection (rejected by the PD-1
+     decision); having `axiom-project` call `axiom-workflow` reads, which
+     breaks single ownership.
    - `axiom-work-item` `run`/`status`/`plan` metadata stays unchanged. It gains
      handoff rules and an "acceptance (stage-plan, R-1)" procedure section
      (PD-8). That section keeps the Plan-confirmation rules: provisional
@@ -130,7 +198,7 @@ In the same delivery:
    - Append the replaced v0.15.0 set to `sharedSkillHistory`.
    - Retirement is not used: `axiom-project` is replaced as an owned revision.
 8. **R-1 runner.** Add `scripts/acceptance/stage-plan-r1.py` with a schema and
-   an offline unittest (PD-4). It maps scenarios A–H to existing Go tests,
+   an offline unittest (PD-4 A: durable, owner `maintainer-acceptance`, manual trigger, no new required CI check). It maps scenarios A–H to existing Go tests,
    runs `go test -json -run` with bounded output and a timeout, and writes
    one sanitized Evidence JSON. Its R-2/R-3 fields are fixed to
    `deferred_to_278`.
@@ -222,17 +290,28 @@ In the same delivery:
   Any change requires a fresh preview.
 - **Filesystem.** Drafts go only to Runtime scratch. The skill never writes
   Project, index, Execution, Profile or receipt files. Skill installation
-  keeps its anchored-root, ownership and conflict checks. `--file` currently
-  lacks a regular-file/symlink check (PD-9).
+  keeps its anchored-root, ownership and conflict checks.
+- **Known `--file` limitation (PD-9 A,
+  [decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102203860)).**
+  `project workflow --file` uses `os.Open` with no regular-file/symlink check
+  (`cmd/lingo/workflow_authoring.go:26-37`). The limitation stays known and
+  **is not fixed by #303**; [#307](https://github.com/rgomids/axiom/issues/307)
+  owns the hardening and is not a gate for #303. #303 does not claim it fixed
+  and does not include the hardening silently. The skill mitigates exposure
+  only by writing drafts as regular files in Runtime scratch.
+- **Project read path (PD-1).** `activeWorkflow` is read-only, needs no
+  authority input, writes no state, never selects or repairs and never falls
+  back; it discloses only the ref and definition name, no host path.
 - **Credentials and disclosure.** No credential, environment value or host
   path appears in skill text, Evidence or runner output. Readiness `auth`
-  runs only the existing read-only vendor status observation.
+  runs only the existing read-only vendor status observation (PD-2 A).
 - **Fail-closed.** Wrong-skill intents are redirected. #276/#277 operations
   and G-1/G-2 are reported as unavailable. There is no Runtime, Profile or
   model fallback, and a synthetic result never fills R-2/R-3.
 - **External effects.** None. The runner runs local `go test` only, with fakes
   and controlled observations.
-- **Negative tests.** T07 (stale routes, unsupported operations), T09
+- **Negative tests.** T07 (stale routes, unsupported operations), T08a
+  (absent/unresolvable selection, no fallback, no write), T09
   (stale/unauthorized apply), T10 scenario F, T11 (HD-006/credential).
 
 ## 6. Testing (R-1 deterministic/synthetic)
@@ -243,7 +322,8 @@ In the same delivery:
 | Operation metadata | `TestSkillDiscoveryExactCommands`, `TestSkillDiscoveryMatchesParserAndAcceptedForms` (T02) |
 | Routing | `TestCanonicalRoutingContract`, `TestCanonicalSkillRoutingTableConvergesWithInspection`, `TestExplicitOperationRoutingIsDeterministic`, `TestSemanticResolutionIsBoundedAndNeverMutatesOnAmbiguity` (T02, T07) |
 | Draft handling, validation, preview/apply | new draft journey test (T09); existing #273 authoring tests |
-| Project selection | `select` preview read-only test (T08) |
+| Project active workflow | new `project show`/`list` `activeWorkflow` tests: selected built-in, selected project revision, none, unresolvable, list isolation, no write (T08a); `select` behavior unchanged (T08) |
+| Readiness | three-fact readiness mapping, auth read-only and non-blocking (T02, T03) |
 | Work Item stage planning | `TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph`, `TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates` (T08, T10) |
 | Negatives | `TestUnsupportedDomainOperationsFailSafely`, `TestReadPlanDocumentRefusesNonRegularFiles`, `TestCompileRejectsInvalidTopologyControlsAndReferences`, `TestCompileSequentialConcurrencyAndUnsafeOverlap`, `TestPlanStageFailsClosedWithSpecificationCategories` (T07, T10, T11) |
 | Skill migration and parity | `domain_skills_upgrade_test.go` (codexruntime and install), `upgrade_test.go`, `skill_receipt_test.go`, `first_run_blackbox_test.go`, `scripts/test-upgrade-journeys.sh` (T06) |
@@ -264,6 +344,7 @@ and the maintainer's accept/reject decision.
 
 - **Sequence:** T01 → T02 → T03 → T04 → T05 → T06 → T07 → T13. Off that path:
   - T08 follows T02, and T09 follows T03 and T08;
+  - T08a follows T02 and the R10 authorization;
   - T10 runs from T01;
   - T11 starts from T01 but closes after T03;
   - T12 starts after T03 but closes after T10.
@@ -280,14 +361,15 @@ and the maintainer's accept/reject decision.
   | R2 | v0.15.0 set missing from history makes v0.15.0 installs look foreign | T05 before release | No |
   | R3 | Drift between table, inspect and matrix | Atomic T02; existing tests | No |
   | R4 | Wrong inspect flags for runtime actions | `skillFlagSet` cases plus parser-parity test | No |
-  | R5 | `--file` accepts non-regular files/symlinks | PD-9 | No (drafts are Runtime-owned) |
+  | R5 | `--file` accepts non-regular files/symlinks | **PD-9 A:** known limitation owned by [#307](https://github.com/rgomids/axiom/issues/307); not fixed or claimed fixed by #303; drafts are regular files in Runtime scratch | No — #307 is not a #303 gate |
   | R6 | Runner map goes stale | Missing test gives `blocked`; unittest pins the map | No |
   | R9 | Runner Evidence attributed to an untested revision or version, or missing canonical digests | Provenance gate (target = `HEAD`, clean tree, toolchain, version proven by tag or release binary, else `unreleased`); digests taken only from canonical results via test markers; otherwise `blocked`; unittest covers divergence | No |
   | R7 | PR #304 not on `main` | T01 gate | Yes |
   | R8 | Claude converges only via `first-run` after `axiom upgrade` | Assert in T06; document in T12 | No |
+  | R10 | The PD-1 `activeWorkflow` field changes `project show`/`list` output, while AC-015.3/AC-015.8 keep canonical CLI results unchanged | Additive, read-only, existing fields/categories unchanged; explicit maintainer authorization of the delta (compatible with AC-015.3/8, or a recorded amendment) before T08a | **Yes, for T08a only** (and T13 closure); other tasks proceed |
 
 - **Documentation:**
-  - `docs/commands.md` skill sections (`:125-128`, `:521-529`, `:1256`) and the Project workflow authoring section;
+  - `docs/commands.md` skill sections (`:125-128`, `:521-529`, `:1256`), the Project workflow authoring section and the `project show`/`list` output (T08a field);
   - `docs/installation.md:281`, `README.md`, `docs/README.pt-BR.md`, `site/index.html`;
   - the issue-230 catalog block;
   - `internal/codexruntime/testdata/published-skills/PROVENANCE.md` wording;
@@ -304,30 +386,35 @@ and the maintainer's accept/reject decision.
 - **Rollback:** see §4. Revert the PR before release. No persisted-state
   migration is introduced.
 
-## 8. Planning decisions for approval with this document
+## 8. Planning decisions (individually accepted)
 
-All fall within the accepted contract; none reopens HD-005–HD-008.
+All nine were decided by the maintainer on #303. They fall within the accepted
+contract and none reopens HD-005–HD-008. **Individual PD acceptance does not
+accept this Plan/Tasks as a whole**, which stays Proposed, and authorizes no
+implementation or merge.
 
-| ID | Decision | Recommendation | Alternative |
+| ID | Decision | Accepted outcome | Applied in |
 |---|---|---|---|
-| PD-1 | Project active-selection inspection | `workflow.select` preview with no authority inputs | Keep `list` in Project (duplicates an action, conflicts with HD-007) |
-| PD-2 | `configuration.readiness` scope | `runtime profile validate/preview` plus `runtime codex|claude status/auth` (read-only) | Exclude `auth` |
-| PD-3 | Upgrade from v0.15.0 — **ACCEPTED, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6100657230)) | New release installer is the supported path; v0.15.0 `axiom upgrade` must refuse without effects (to be verified and documented in T06) | Version the archive skill manifest (`skillSetVersion=2`) for an explicit error, changing the installer/metadata contract — **not selected** |
-| PD-4 | R-1 runner form | python3 runner + JSON schema + offline unittest; durable; owner `maintainer-acceptance`; manual trigger | Go tests only |
-| PD-5 | Lane L in #303 | Not built (optional per amendment) | Build sandbox CLI checks |
-| PD-6 | Skill-set constants | Keep `SkillSetVersion`/`BinaryCompatibility` "2"; append history *(confirm in T05)* | Bump |
-| PD-7 | v0.15.0 receipt fixture | Add from published v0.15.0 assets (read-only download) | Skip |
-| PD-8 | Work Item acceptance surface | SKILL.md procedure section; no new inspect operation | New operation (out of scope) |
-| PD-9 | `--file` regular-file/symlink hardening | Separate bounded follow-up Issue | Include in #303 with explicit approval |
+| PD-1 | Project active-workflow inspection — **Accepted, refined** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101636404)) | The Project reports its active workflow (ID, name, revision) through its own `show`/`list`, with no target reference and no change preview; `select` only changes the selection; no `definition.list` in Project; absent/unresolvable selection reported without fallback. Needs the R10 delta authorization before T08a | §2, §3.1, §3.4, §5, R10, T02, T03, T08, T08a, T12 |
+| PD-2 | `configuration.readiness` scope — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101705557)) | `runtime profile validate/preview` plus `runtime codex` / `runtime claude` `status` and `auth`, reported as Configuration Valid / Runtime Ready / Authentication Ready; auth read-only, no login, never blocks authoring; point-in-time | §3.1, §5, T02, T03 |
+| PD-3 | Upgrade from v0.15.0 — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6100657230)) | New release installer is the supported path; v0.15.0 `axiom upgrade` must refuse without effects (verified and documented in T06). Versioning the archive skill manifest was **not selected** | §4, R1, T06 |
+| PD-4 | R-1 runner form — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101761143)) | python3 runner + JSON schema + offline unittest; durable; owner `maintainer-acceptance`; manual trigger; no new required CI check | §3.8, T10 |
+| PD-5 | Lane L in #303 — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101798981)) | Lane L is not built; T02–T13 all remain required | §1, T13 |
+| PD-6 | Skill-set constants — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101819334)) | Keep `SkillSetVersion`/`BinaryCompatibility` "2"; append-only history. A real incompatibility found in T05/T06 stops the work for a new decision | T05, T06 |
+| PD-7 | v0.15.0 receipt fixture — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101853398)) | Mandatory fixture derived from official v0.15.0 artifacts, or reproduced through that version's official mechanism, with documented provenance (tag, asset, digest); never fabricated; unprovable → blocked and escalated | Common rules, T05 |
+| PD-8 | Work Item acceptance surface — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102010231)) | SKILL.md procedure section; no new inspect operation | §3.4, T03 |
+| PD-9 | `--file` hardening — **Accepted, Option A** ([decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102203860)) | Separate Issue [#307](https://github.com/rgomids/axiom/issues/307); known limitation, not fixed or claimed fixed by #303; #307 is not a #303 gate | §1, §2, §5, R5, T09, T11 |
 
 ---
 
 # Part II — Tasks
 
 Common rules for every task:
-- No CLI, application or schema change unless the task names it.
+- No CLI, application or schema change unless the task names it; the only
+  named one is T08a, gated by R10.
 - No vendor inference, Provider effect or network access beyond the Go module
-  cache, except PD-7 if approved.
+  cache, except T05's read-only retrieval of official v0.15.0 release
+  artifacts (PD-7 A).
 - Existing tests change only where they enumerate skill names or catalog rows, plus **one bounded exception (R-1 instrumentation, T10):**
   - purely additive `t.Logf("r1-evidence %s", …)` lines in `cmd/lingo/workflow_stage_plan_test.go` and `cmd/lingo/workflow_authoring_test.go`;
   - they emit values already present in the canonical JSON those tests decode;
@@ -338,7 +425,7 @@ Common rules for every task:
 - **Objective:** implementation starts from a base containing the accepted contract.
 - **Scope:** PR #304 merged, or explicit authorization to stack on its head; then the implementation branch is created.
 - **Files:** none.
-- **Dependencies:** maintainer acceptance of this document, including PD-1 to PD-9.
+- **Dependencies:** maintainer acceptance of this document as a whole (PD-1 to PD-9 are already individually accepted, §8). T08a additionally needs the R10 authorization.
 - **Requirements:** no agent merge.
 - **Acceptance criteria:** the base contains the accepted amendment and ADR bytes.
 - **Verification:** `git rev-parse <base>:<path>` matches the accepted content.
@@ -357,9 +444,9 @@ Common rules for every task:
 - **Dependencies:** T01.
 - **Requirements:**
   - `definition.*` reuse the `project_workflow_*` actions and authority strings exactly;
-  - add `configuration.readiness` (PD-2) and its `skillFlagSet` cases;
-  - no action in two skills;
-  - `axiom-work-item` inspect byte-identical to before.
+  - add `configuration.readiness` (PD-2 A) and its `skillFlagSet` cases;
+  - no action in two skills; no `definition.*` read in `axiom-project`;
+  - `axiom-project` `show`/`list`/`workflow.select` and all `axiom-work-item` inspect metadata byte-identical to before.
 - **Acceptance criteria:**
   - `axiom-workflow` inspect lists exactly the planned operations, with arguments equal to the parsers;
   - `axiom-project` inspect lacks the seven removed operations;
@@ -380,7 +467,9 @@ Common rules for every task:
   - G-1/G-2 reported as unavailable with #305/#306;
   - #276/#277 reported as unavailable;
   - redirection rules;
-  - Work Item acceptance procedure (PD-8) with Plan-confirmation rules;
+  - Work Item acceptance procedure (PD-8 A) with Plan-confirmation rules;
+  - `axiom-project`: "which workflow is active" answered from `project show`/`list` `activeWorkflow` (PD-1); a change only via `workflow.select` preview plus separate approval; `none`/`unresolvable` reported as such, with no guessed name or fallback;
+  - `axiom-workflow` readiness reported as the three PD-2 facts, point-in-time, with auth never blocking authoring;
   - no credentials, paths or tiers.
 - **Acceptance criteria:**
   - each file has the inspect pointer, the exact operations sentence and the canonical result contract;
@@ -413,18 +502,23 @@ Common rules for every task:
 
 ### T05 — History pinning and receipt provenance
 - **Objective:** v0.15.0 installs stay owned and the new set is pinned.
-- **Scope:** shared history, published-revision list, optional receipt fixture.
+- **Scope:** shared history, published-revision list, mandatory v0.15.0 receipt fixture (PD-7 A).
 - **Files:**
   - `internal/codexruntime/manifest.go` (append v0.15.0: `axiom-project d80cd1d1…`, `axiom-work-item e47c9256…`);
   - `internal/codexruntime/shared_history_test.go:22`;
-  - optional `testdata/published-receipts/v0.15.0/` (PD-7);
-  - `testdata/published-skills/PROVENANCE.md`.
+  - `testdata/published-receipts/v0.15.0/` (mandatory, PD-7 A);
+  - `testdata/published-skills/PROVENANCE.md` and the receipt provenance record.
 - **Dependencies:** T04 (final bytes).
-- **Requirements:** append only; Codex-only history and existing fixtures stay frozen; confirm PD-6.
-- **Acceptance criteria:** the five history/receipt tests in §6 pass.
+- **Requirements:**
+  - append only; Codex-only history and existing fixtures stay frozen;
+  - PD-6 A: constants stay "2"; a real incompatibility stops the task for a new decision;
+  - PD-7 A: the receipt fixture comes from the official v0.15.0 release artifacts (read-only), or is reproduced through v0.15.0's official install mechanism from those artifacts. Provenance records the tag `v0.15.0`, its commit, the asset name and the asset SHA-256. Bytes are never hand-written or fabricated; if provenance cannot be proven, the task is `blocked` and escalated.
+- **Acceptance criteria:**
+  - the five history/receipt tests in §6 pass, including the v0.15.0 receipt;
+  - the recorded asset digest matches the official release asset.
 - **Verification:** `go test ./internal/codexruntime`.
-- **Evidence:** test output; recorded digests.
-- **Definition of Done:** green.
+- **Evidence:** test output; recorded digests; fixture provenance (tag, commit, asset, digest).
+- **Definition of Done:** green, with proven fixture provenance.
 - **Parallel:** no. Re-pin if T03 or T04 bytes change.
 
 ### T06 — Install, upgrade and reinstall convergence
@@ -463,15 +557,14 @@ Common rules for every task:
 - **Parallel:** with T08.
 
 ### T08 — Preservation of selection, execution and CLI
-- **Objective:** HD-005 boundaries hold and the CLI is unchanged.
+- **Objective:** HD-005 boundaries hold and the CLI is unchanged apart from the T08a field.
 - **Scope:** one new Project-skill test, plus a check that existing tests are untouched.
 - **Files:** a new test in `internal/cli` or `cmd/lingo`; existing `internal/cli/workflow_authoring_test.go`, `cmd/lingo/{workflow_authoring,workflow_binding,workflow_stage_plan}_test.go`.
 - **Dependencies:** T02.
 - **Requirements:**
-  - `workflow.select` metadata unchanged;
-  - its no-authority preview is read-only and reports `selection` (PD-1);
+  - `workflow.select` metadata and behavior unchanged; it is not used as an inspection;
   - Work Item `run`/`status`/`plan` metadata unchanged;
-  - CLI help tree, flags and results unmodified.
+  - CLI help tree and flags unmodified; results unmodified except the T08a `activeWorkflow` field.
 - **Acceptance criteria:**
   - the #273/#274/#275 tests pass with their assertions and fixtures unmodified;
   - the only permitted diff in them is the T10 R-1 instrumentation exception.
@@ -482,6 +575,29 @@ Common rules for every task:
 - **Evidence:** diff and output.
 - **Definition of Done:** green.
 - **Parallel:** with T07.
+
+### T08a — Project active-workflow read path (PD-1)
+- **Objective:** a Project-only query identifies the active workflow by ID, name and revision; changing it still needs a separate preview and authorization.
+- **Gate:** **blocked until the R10 authorization** of the additive output delta. Without it, nothing here is implemented and T13 reports T08a as blocked.
+- **Scope:** application read model and CLI view for `project show`/`list`; tests; no new command, flag, operation, authority, category or state write.
+- **Files:** `cmd/lingo/project_lifecycle.go` (`listProjects`, `showProject`); `internal/projectapp/list.go` (`ProjectSummary` gains the resolved selection) plus a small resolver beside `internal/projectapp/workflow_authoring.go`; `internal/cli/cli.go` (`ProjectView`/`ProjectListView` gain `activeWorkflow,omitempty`); human renderer if it lists Project fields; new tests in `cmd/lingo` and `internal/projectapp`.
+- **Dependencies:** T02; R10 authorization.
+- **Requirements:**
+  - the ref comes from the portable Project `workflowSelection`, via the existing observation used by authoring and start binding;
+  - name resolution exactly as §3.4: built-in only on an exact ID/revision/digest match; project source only on a matching index entry and strictly decoded document;
+  - `status: none` without a selection; `status: unresolvable` with the ref, no name and the existing binding category on any mismatch or unreadable source;
+  - no fallback, defaulting, repair, selection or listing of other definitions;
+  - `list`: per-Project resolution; one unresolvable entry never hides a Project or fails the listing;
+  - existing fields, categories, messages and `next` text unchanged.
+- **Acceptance criteria:**
+  - tests cover: built-in selected; project revision selected; no selection; digest mismatch; missing document; unreadable portable source; list with mixed entries;
+  - a tree snapshot proves both commands write nothing;
+  - existing project show/list tests pass unmodified. If one compares the full payload exactly, it is named in the PR and changed only by adding the new field, under the R10 authorization;
+  - after `workflow.select` apply, `project show` reports the new selection; before apply, it reports the old one.
+- **Verification:** `go test ./cmd/lingo ./internal/projectapp ./internal/cli -run 'Project|ActiveWorkflow'`; diff review of existing tests.
+- **Evidence:** test output; JSON sample of each `status` (sanitized).
+- **Definition of Done:** green, with R10 authorization recorded.
+- **Parallel:** with T07 and T08.
 
 ### T09 — Draft and authority integration
 - **Objective:** the draft journey maps onto the canonical preview/apply contract with no new behavior.
@@ -496,7 +612,7 @@ Common rules for every task:
   - creation does not change the selection;
   - `select` preview then apply activates it;
   - tree snapshot around each refused step;
-  - PD-9 outcome applied.
+  - drafts written as regular files only; `--file` hardening is **not** added (#307, PD-9 A), and no test claims non-regular-file refusal.
 - **Acceptance criteria:** the categories returned today; no state change on refusals.
 - **Verification:** focused test.
 - **Evidence:** test output.
@@ -542,6 +658,7 @@ Common rules for every task:
      - `r1`;
      - `r2`/`r3` fixed to `deferred_to_278`;
      - `limitations` (G-1–G-5) and `handoff` (#278/AXM-12).
+  4a. **Operation (PD-4 A):** registered as durable with owner `maintainer-acceptance`; run by manual trigger only; no new required CI check or workflow job is added.
   5. **Classification:** a missing or renamed test gives `blocked`; a timeout or exceeded bound gives `failed`. The runner writes only to a new output path; no network, vendor process, credential, environment value or host path appears in the output.
 - **Acceptance criteria:**
   - the schema rejects `passed`/`accepted` for R-2/R-3, missing H fields and unknown fields;
@@ -564,7 +681,7 @@ Common rules for every task:
   - no credential reference in serialized output;
   - unsupported effort failing closed.
 
-  Also confirm the T03 text has no credential, path or tier assumption, and record the PD-9 decision.
+  Also confirm the T03 text has no credential, path or tier assumption, and record the `--file` limitation as known, owned by #307 and not fixed by #303 (PD-9 A).
 - **Acceptance criteria:** every item has a cited passing test.
 - **Verification:** focused tests.
 - **Evidence:** test list in `issue-303-implementation.md`.
@@ -578,6 +695,8 @@ Common rules for every task:
 - **Dependencies:** start after T03; **completion requires T10** (Evidence links).
 - **Requirements:**
   - describe the three-skill ownership and the removed Project routes;
+  - document the `activeWorkflow` field only if T08a was authorized and delivered;
+  - record the `--file` limitation as known and owned by #307;
   - make no R-2/R-3 claim;
   - leave the accepted amendment/ADR text unchanged;
   - make no Issue edits without authority.
@@ -591,13 +710,14 @@ Common rules for every task:
 - **Objective:** an R-1-complete implementation PR ready for human review.
 - **Scope:** full validation, independent review, PR.
 - **Files:** `issue-303-implementation.md` final section.
-- **Dependencies:** T02–T12.
+- **Dependencies:** T02–T12, including T08a (delivered, or reported blocked on R10).
 - **Requirements:**
   - `go test ./...`, `go vet ./...`, `go build ./...`, `go mod verify`;
   - `scripts/check-go-quality.sh all`;
   - `scripts/validate-repository.sh .`;
   - the T10 runner;
   - a bounded independent review;
+  - no Lane L artifact (PD-5 A); every task T02–T13 is still required;
   - Draft PR with `Related-Issues: #303`, `Completes-Issues: #303` (only if every R-1 AC is met) and `Relates to AXM-7`;
   - no merge, release, closure, AXM-7 acceptance or AXM-8 unblock.
 - **Acceptance criteria:**
@@ -614,6 +734,7 @@ Common rules for every task:
 ```text
 T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07 -> T13   (critical path)
 T02 -> T08 -> T13
+T02 + R10 authorization -> T08a -> T13
 T03 + T08 -> T09 -> T13
 T01 -> T10 -> T13
 T01 -> T11(start); T03 -> T11(close) -> T13
@@ -630,6 +751,7 @@ T03 -> T12(start); T10 -> T12(close) -> T13
 - T10 from T01;
 - T11's test-coverage part from T01;
 - T08 after T02;
+- T08a after T02 and R10;
 - T09 after T03 and T08;
 - T12 drafting after T03.
 
@@ -641,19 +763,20 @@ T02–T05 run sequentially: they change the same embedded bytes and digests.
 |---|---|---|---|---|
 | 1 Accepted contract, annotated | Status | T01, T12 | ADR governance; Spec index | Contract bytes on base; annotations present |
 | 2 Embedded/installed/discoverable; v0.15.0 upgrade; reinstall; history; no duplicate active routes | 3.7, 4 | T04, T05, T06, T07 | runtime/install/upgrade tests; upgrade journeys; inspect tests | Converged three-skill inventories; owned v0.15.0 set |
-| 3 Configuration routes = canonical commands; Project routes absent; select/run/status/plan kept; CLI unchanged | 3.1, 3.3, 3.4 | T02, T03, T07, T08 | routing/catalog/inspect/help tests | Parity; negative discovery |
-| 4 NL configuration via drafts; Project selects; start resolves and binds | 3.2, 3.4 | T03, T08, T09 | content tests; draft journey; `TestConfiguredExecutableRevisionIsolationAndAuthority` | Journey output |
+| 3 Configuration routes = canonical commands; Project routes absent; select/run/status/plan kept; CLI unchanged | 3.1, 3.3, 3.4 | T02, T03, T07, T08, T08a | routing/catalog/inspect/help tests; `activeWorkflow` tests | Parity; negative discovery; Project-only active-workflow query; R10 authorization of the additive field |
+| 4 NL configuration via drafts; Project selects; start resolves and binds | 3.2, 3.4 | T03, T08, T08a, T09 | content tests; draft journey; `TestConfiguredExecutableRevisionIsolationAndAuthority` | Journey output |
 | 5 Work Item-owned #275 R-1 runner; classified scenarios; R-1/R-2/R-3 separated | 3.4, 3.8 | T10 | runner + unittest (revision/version mismatch, dirty source, missing digest → `blocked`) | Evidence JSON A–H with the full Report H fields, canonical digests per scenario, bound to the tested revision and a proven or `unreleased` version |
 | 6 No real sessions/inference/dispatch/Provider/human E2E; #278 handoff | 1, 6 | T10, T12 | schema rule; review | `deferred_to_278`; handoff checklist |
 | 7 R-1 + review + authorization; G-2/G-4 not waived | 7 | T13 | full validation; review | Review record; blockers listed |
-| 8 CLI/result/digest/preview/security unchanged | 3, 5 | T08, T13 | unmodified existing tests | Diff review |
+| 8 CLI/result/digest/preview/security unchanged | 3, 5 | T08, T08a, T13 | unmodified existing tests | Diff review; the only output delta is the additive `activeWorkflow` field, delivered only under R10 |
 | 9 HD-006 boundaries; #305/#306 linked; no tiers/conflation/unproven capability/credential mutation | 3.5, 5 | T03, T11 | profile/resolver tests; content tests | Cited tests |
 | 10 Independent review, no unresolved Blocker/Major | 7 | T13 | independent review | Review record |
 
 **Unresolved technical dependencies:**
-- *blocking implementation:* R7/T01 (accepted contract on approved implementation base; separate full Plan/Tasks acceptance still needed);
-- *accepted decision:* PD-3 Option A (supported upgrade via the new release installer); T06 Evidence still required;
-- *non-blocking:* PD-1, PD-2 and PD-4 to PD-9, still requiring acceptance with this document;
+- *blocking implementation:* R7/T01 (accepted contract on approved implementation base; acceptance of this Plan/Tasks as a whole still needed);
+- *blocking T08a only:* R10 (explicit authorization of the PD-1 additive `activeWorkflow` output delta);
+- *accepted decisions:* PD-1 to PD-9, individually accepted (§8); their Evidence (for example T05 provenance, T06 refusal) is still required;
+- *known, outside #303:* `--file` hardening #307 (PD-9 A, not a gate);
 - *outside #303:* G-1 #305, G-2 #306, G-3 #272, G-4 consent, G-5 #276.
 
 R-2 and R-3 rows always read `deferred_to_278`. A synthetic PASS is never
