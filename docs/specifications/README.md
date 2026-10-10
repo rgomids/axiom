@@ -71,6 +71,12 @@ accepted amendment and ADR-0022 text are unchanged; this independently accepted 
 [#303 Plan and Tasks](007-configurable-workflows/plan-tasks-303-workflow-skill.md):
 **Accepted, 2026-10-10**, by [formal maintainer decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056) after bounded review; implementation is gated by T01 and separately authorized execution. Acceptance does not imply merge, release, or technical delivery.
 
+[#303 implementation and verification map](007-configurable-workflows/issue-303-implementation.md)
+records the three-skill delivery, the read-only R10 `activeWorkflow` delta,
+installation compatibility and synthetic R-1 Evidence. It keeps native R-2 and
+human R-3 acceptance deferred to #278; technical checks do not imply release
+or human acceptance.
+
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
 [Specification](006-installer-host-eligibility/spec.md): **Approved, 2026-10-04**

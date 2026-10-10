@@ -1,16 +1,18 @@
 package codexruntime
 
 import (
+	"bytes"
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
 // The pre-MVP decision supersedes #229's additive installation: historical
-// owned six-skill roots converge to two canonical skills without deleting edits.
+// owned six-skill roots converge to three canonical skills without deleting edits.
 
-var domainSkills = []string{"axiom-project", "axiom-work-item"}
+var domainSkills = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
 
 // sixSkillRevision is the v0.6.0 skill set: the last six-skill
 // sharedSkillHistory revision, pinned against the receipts v0.6.0 really wrote.
@@ -169,5 +171,99 @@ func TestCodexAndClaudeSixSkillRootsConvergeToSameSkillSet(t *testing.T) {
 	}
 	if trees[0] != trees[1] {
 		t.Fatalf("Codex and Claude diverge:\n%s\n%s", trees[0], trees[1])
+	}
+}
+
+func seedPublishedV015Root(t *testing.T, service Service, root string) {
+	t.Helper()
+	for _, name := range []string{"axiom-project", "axiom-work-item"} {
+		wire, err := os.ReadFile(filepath.Join("testdata", "published-skills", "v0.15.0", name, "SKILL.md"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(filepath.Join(root, name), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, name, "SKILL.md"), wire, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, receiptName), publishedReceipt(t, "v0.15.0", service.Runtime(), root), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPublishedV015ConvergesToThreeSkillsInBothRuntimes(t *testing.T) {
+	for _, constructor := range runtimeServices(t) {
+		root := privateSkillRoot(t)
+		service, err := constructor(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Run(service.Runtime(), func(t *testing.T) {
+			seedPublishedV015Root(t, service, root)
+			oldReceipt, err := os.ReadFile(filepath.Join(root, receiptName))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if before := service.Inspect(context.Background()); before.Receipt != ReceiptLegacy || len(before.Conflicts) != 0 {
+				t.Fatalf("before: %+v", before)
+			}
+			installOrFail(t, service, Applied)
+			if after := service.Inspect(context.Background()); after.Status != Ready || after.Receipt != ReceiptCurrent || len(after.Skills) != 3 {
+				t.Fatalf("after: %+v", after)
+			}
+			for _, name := range skillNames {
+				actual, err := os.ReadFile(filepath.Join(root, name, "SKILL.md"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				expected, err := fs.ReadFile(skillFiles, "skills/"+name+"/SKILL.md")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(actual, expected) {
+					t.Fatalf("%s embedded bytes differ", name)
+				}
+			}
+			tree := skillTree(t, root)
+			installOrFail(t, service, Unchanged)
+			if skillTree(t, root) != tree {
+				t.Fatal("reinstall changed root")
+			}
+			if !bytes.Equal(oldReceipt, publishedReceipt(t, "v0.15.0", service.Runtime(), root)) {
+				t.Fatal("historical fixture changed")
+			}
+		})
+	}
+}
+
+func TestPublishedV015RefusesForeignWorkflowWithoutContentEffects(t *testing.T) {
+	for _, constructor := range runtimeServices(t) {
+		root := privateSkillRoot(t)
+		service, err := constructor(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Run(service.Runtime(), func(t *testing.T) {
+			seedPublishedV015Root(t, service, root)
+			if err := os.Mkdir(filepath.Join(root, "axiom-workflow"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "axiom-workflow", "SKILL.md"), []byte("operator-owned workflow\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			before := skillTree(t, root)
+			result := service.Install(context.Background())
+			if result.Status != Failed || result.Category != service.integration.category("skill_conflict") {
+				t.Fatalf("%+v", result)
+			}
+			if err := os.Remove(filepath.Join(root, installLockName)); err != nil {
+				t.Fatal(err)
+			}
+			if skillTree(t, root) != before {
+				t.Fatal("conflict changed content")
+			}
+		})
 	}
 }

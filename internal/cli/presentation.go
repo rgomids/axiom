@@ -196,7 +196,11 @@ func renderMarkdownView(wire []byte, readable bool) ([]byte, error) {
 		}
 		if composite(value) {
 			fmt.Fprintf(&sections, "\n#### %s\n\n", markdownKey(key))
-			writeChildren(&sections, "", value)
+			if key == "projects" && value.kind == jsonArray {
+				writeProjectRows(&sections, value)
+			} else {
+				writeChildren(&sections, "", value)
+			}
 			continue
 		}
 		writeField(&summary, "", key, value)
@@ -404,4 +408,30 @@ func escapeControls(text string, keepLayout bool) string {
 
 func bidiControl(value rune) bool {
 	return value == 0x061C || value == 0x200E || value == 0x200F || (value >= 0x202A && value <= 0x202E) || (value >= 0x2066 && value <= 0x2069)
+}
+
+// R10 preserves existing compact Project rows while adding the selection below.
+func writeProjectRows(output *bytes.Buffer, node *jsonNode) {
+	for _, row := range node.children {
+		if row.kind != jsonObject {
+			writeItem(output, "", "", row)
+			continue
+		}
+		prior := &jsonNode{kind: jsonObject}
+		var active *jsonNode
+		for i, key := range row.keys {
+			if key == "activeWorkflow" {
+				active = row.children[i]
+				continue
+			}
+			prior.keys = append(prior.keys, key)
+			prior.children = append(prior.children, row.children[i])
+		}
+		if active == nil || !flatObject(prior) {
+			writeItem(output, "", "", row)
+			continue
+		}
+		writeItem(output, "", "", prior)
+		writeField(output, "  ", "activeWorkflow", active)
+	}
 }

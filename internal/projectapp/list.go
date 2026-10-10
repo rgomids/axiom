@@ -35,6 +35,7 @@ const (
 )
 
 type ProjectSummary struct {
+	ActiveWorkflow *ActiveWorkflow
 	ID, Slug, Name string
 	// Status is the machine-local discoverable status (Issue #230). It is empty
 	// only when the catalog has no operational-state reader.
@@ -57,6 +58,19 @@ type ProjectCatalog struct {
 	installed   InstalledProjectReader
 	definitions InstalledProjectDefinitionReader
 	operational OperationalStore
+	workflows   ActiveWorkflowReader
+}
+
+// WithInspectionDefinitions uses an inspection-only portable metadata reader.
+func (c ProjectCatalog) WithInspectionDefinitions(reader InstalledProjectDefinitionReader) ProjectCatalog {
+	c.definitions = reader
+	return c
+}
+
+// WithActiveWorkflows adds read-only selection inspection independently of display metadata.
+func (c ProjectCatalog) WithActiveWorkflows(reader ActiveWorkflowReader) ProjectCatalog {
+	c.workflows = reader
+	return c
 }
 
 // WithOperationalState returns a catalog that also reports each Project's
@@ -112,7 +126,7 @@ func (c ProjectCatalog) ListProjects(ctx context.Context, options ProjectListOpt
 			if textBytes > maxProjectListTextBytes {
 				return failedProjectList("invalid_project_state")
 			}
-			projects = append(projects, ProjectSummary{ID: record.ID, Slug: record.Slug, Status: status})
+			projects = append(projects, ProjectSummary{ID: record.ID, Slug: record.Slug, Status: status, ActiveWorkflow: c.activeWorkflow(ctx, record.ID)})
 			continue
 		}
 		if err != nil {
@@ -129,7 +143,7 @@ func (c ProjectCatalog) ListProjects(ctx context.Context, options ProjectListOpt
 		if textBytes > maxProjectListTextBytes {
 			return failedProjectList("invalid_project_state")
 		}
-		projects = append(projects, ProjectSummary{ID: record.ID, Slug: record.Slug, Name: state.Name, Status: status})
+		projects = append(projects, ProjectSummary{ID: record.ID, Slug: record.Slug, Name: state.Name, Status: status, ActiveWorkflow: c.activeWorkflow(ctx, record.ID)})
 	}
 	sort.Slice(projects, func(i, j int) bool {
 		if projects[i].Slug != projects[j].Slug {
@@ -159,4 +173,12 @@ func failedProjectList(category string) ProjectListResult {
 
 func cancelledProjectList() ProjectListResult {
 	return ProjectListResult{Status: ProjectListCancelled, Category: "cancelled"}
+}
+
+func (c ProjectCatalog) activeWorkflow(ctx context.Context, id string) *ActiveWorkflow {
+	if c.workflows == nil {
+		return nil
+	}
+	value := c.workflows.ReadActiveWorkflow(ctx, id)
+	return &value
 }

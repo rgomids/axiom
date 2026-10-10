@@ -261,17 +261,19 @@ type RepositoryView struct {
 	Availability string `json:"availability,omitempty"`
 }
 type ProjectView struct {
-	ID           string           `json:"id"`
-	Slug         string           `json:"slug"`
-	Source       string           `json:"source"`
-	Repositories []RepositoryView `json:"repositories"`
+	ActiveWorkflow *projectapp.ActiveWorkflow `json:"activeWorkflow,omitempty"`
+	ID             string                     `json:"id"`
+	Slug           string                     `json:"slug"`
+	Source         string                     `json:"source"`
+	Repositories   []RepositoryView           `json:"repositories"`
 	// State is the machine-local operational status (project show only).
 	State *ProjectStateView `json:"state,omitempty"`
 }
 type ProjectListView struct {
-	ID   string `json:"id"`
-	Slug string `json:"slug"`
-	Name string `json:"name"`
+	ActiveWorkflow *projectapp.ActiveWorkflow `json:"activeWorkflow,omitempty"`
+	ID             string                     `json:"id"`
+	Slug           string                     `json:"slug"`
+	Name           string                     `json:"name"`
 	// Status is active, archived, invalid or recovery_required.
 	Status string `json:"status,omitempty"`
 }

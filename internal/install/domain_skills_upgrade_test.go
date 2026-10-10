@@ -13,14 +13,14 @@ import (
 	"github.com/rgomids/axiom/internal/compatibility"
 )
 
-// Historical six-skill release installations converge to the two-skill
+// Historical six-skill release installations converge to the three-skill
 // candidate, with digest-bound retirement and no adoption of modified content.
 
 const v060SkillManifestSHA256 = "d7190ebb175652c1080288a2f293a1ba70d101d7874880c6eca91b1092dedc3a"
 
 var (
 	sixReleaseSkills = retiredSkillNames
-	domainSkillNames = []string{"axiom-project", "axiom-work-item"}
+	domainSkillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
 )
 
 // v060SkillManifest is the skills-manifest.txt of the published v0.6.0
@@ -85,7 +85,7 @@ func TestUpgradeFromSixSkillReleaseAddsOnlyDomainSkills(t *testing.T) {
 	for _, effect := range preview.Effects {
 		kinds[effect.Kind]++
 	}
-	if kinds["skill_retire"] != 6 || kinds["skill"] != 2 {
+	if kinds["skill_retire"] != 6 || kinds["skill"] != 3 {
 		t.Fatalf("effects=%+v", preview.Effects)
 	}
 	if last := preview.Effects[len(preview.Effects)-1]; last.Expected != digest(publishedCodexReceipt(t, "v0.6.0")) {
@@ -174,7 +174,7 @@ func TestInstalledSkillManifestUsesReleaseOrderForDomainSkills(t *testing.T) {
 	self := selfBundle(t, "1.1.0")
 	inventory := codexruntime.UpgradeInventory{Configured: true}
 	release := "formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n"
-	for _, name := range []string{"axiom-work-item", "axiom-project"} {
+	for _, name := range []string{"axiom-workflow", "axiom-work-item", "axiom-project"} {
 		inventory.Skills = append(inventory.Skills, codexruntime.UpgradeSkill{Name: name, SHA256: digest(self.skills[name])})
 	}
 	for _, name := range slices.Sorted(slices.Values(skillNames)) {

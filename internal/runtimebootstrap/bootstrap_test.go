@@ -16,7 +16,7 @@ import (
 	"github.com/rgomids/axiom/internal/codexruntime"
 )
 
-var skillNames = []string{"axiom-project", "axiom-work-item"}
+var skillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
 
 type machine struct {
 	home        string

@@ -1,0 +1,8 @@
+formatVersion=1
+runtime=claude
+skillsRoot={{ROOT}}
+skillSetVersion=2
+binaryCompatibility=2
+manifestSha256=b115f8b67efa3b9ae5e50588877e837d0c765f88b277682267ad23a80a2453d3
+skill.axiom-project=d80cd1d1bca8e88ceb2c61b8ff92d4c050b83835a78ba96e92346c9f2f15b06c
+skill.axiom-work-item=e47c9256b40975bbcb96015cb681d3d27a6cfed0d1820c51ff98deee8a30cc9f

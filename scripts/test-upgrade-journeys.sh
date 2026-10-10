@@ -160,7 +160,7 @@ seed_v1_state() {
 }
 
 # skills_converged: both Runtime roots hold exactly the candidate's skill
-# files, exactly the two canonical domain skills, byte for byte.
+# files, exactly the three canonical domain skills, byte for byte.
 skills_converged() {
   local root skill expected actual
   expected=$(cd "$candidate_bundle/skills" && find . -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)
@@ -185,6 +185,18 @@ check seed-state-with-previous seed_v1_state
 check previous-reads-seeded-state-as-v1 test "$(classification)" = valid_v1
 state_before=$(tree_digest "$STATE")
 portable_before=$(tree_digest "$PROJECTS")
+# PD-3: v0.15.0's old archive parser must refuse the new three-skill bundle
+# before any write; the candidate installer remains the supported migration.
+if [[ "$previous_version" == "0.15.0" ]]; then
+  legacy_before=$(tree_digest "$H")
+  candidate_archive=$(find "$candidate" -maxdepth 1 -name "axiom-*-$row.tar.gz" | head -1)
+  if (cd "$H/cwd" && axiom --json upgrade --archive "$candidate_archive" --checksums "$candidate/SHA256SUMS" --bin-dir "$H/.local/bin" --receipt-dir "$H/.local/state/axiom/install") >"$work/legacy-upgrade.json" 2>&1; then
+    fail legacy-parser-refuses-three-skills
+  else
+    check legacy-parser-refuses-three-skills grep -q '"result":"Upgrade candidate failed verification: skill_manifest_invalid"' "$work/legacy-upgrade.json"
+  fi
+  check legacy-parser-refusal-zero-effects test "$(tree_digest "$H")" = "$legacy_before"
+fi
 check upgrade install_release "$candidate"
 check upgrade-status grep -qx 'install_status=upgraded' "$work/install.out"
 check version test "$(version_of)" = "$candidate_version"

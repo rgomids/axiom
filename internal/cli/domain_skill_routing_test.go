@@ -21,7 +21,7 @@ import (
 // metadata the binary derives, the parser that alone grants authority, and
 // the retired names that must no longer resolve.
 
-var canonicalDomainSkills = []string{"axiom-project", "axiom-work-item"}
+var canonicalDomainSkills = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
 
 // compatibilityOperation maps each operation-specific skill to the canonical
 // domain operation whose capabilities remain available after retirement.
@@ -554,7 +554,9 @@ func TestInvalidSelectorsRemainLingoValidation(t *testing.T) {
 			t.Fatalf("%v: code=%d calls=%v output=%s", args, code, probe.calls, output.String())
 		}
 	}
-	for _, name := range canonicalDomainSkills {
+	// T03 supplies the new Workflow instructional content; preserve the
+	// existing Project/Work Item prose assertions in this catalog-only task.
+	for _, name := range []string{"axiom-project", "axiom-work-item"} {
 		source := skillSource(t, name)
 		if !strings.Contains(source, "conflicting inputs") || !strings.Contains(source, "Lingo") {
 			t.Fatalf("%s does not forward invalid inputs to Lingo validation", name)
@@ -604,6 +606,12 @@ func (p *authorityProbe) WorkflowStagePlan(context.Context, WorkflowStagePlanInp
 // application handoff, rather than merely asserting command spelling.
 func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
 	requests := map[string][]string{
+		"axiom runtime profile validate":  {"runtime", "profile", "validate"},
+		"axiom runtime profile preview":   {"runtime", "profile", "preview", "--project", "alpha", "--role", "implementer", "--complexity", "low", "--capabilities", "coding"},
+		"axiom runtime codex status":      {"runtime", "codex", "status"},
+		"axiom runtime claude status":     {"runtime", "claude", "status"},
+		"axiom runtime codex auth":        {"runtime", "codex", "auth"},
+		"axiom runtime claude auth":       {"runtime", "claude", "auth"},
 		"axiom project workflow list":     {"project", "workflow", "list", "--project", "alpha"},
 		"axiom project workflow show":     {"project", "workflow", "show", "--project", "alpha"},
 		"axiom project workflow validate": {"project", "workflow", "validate", "--project", "alpha"},
@@ -654,4 +662,20 @@ func exampleCommand(example string) string {
 
 func (p *authorityProbe) ProjectWorkflow(_ context.Context, input ProjectWorkflowInput) Result {
 	return p.record("project workflow "+input.Operation, input.AuthorizeLocal, false)
+}
+
+func (p *authorityProbe) RuntimeProfileValidate(context.Context) Result {
+	return p.record("runtime profile validate", false, false)
+}
+func (p *authorityProbe) RuntimeProfilePreview(context.Context, RuntimeProfilePreviewInput) Result {
+	return p.record("runtime profile preview", false, false)
+}
+func (p *authorityProbe) RuntimeCodexStatus(context.Context) Result {
+	return p.record("runtime codex status", false, false)
+}
+func (p *authorityProbe) RuntimeClaudeStatus(context.Context) Result {
+	return p.record("runtime claude status", false, false)
+}
+func (p *authorityProbe) RuntimeAuth(_ context.Context, runtimeID string) Result {
+	return p.record("runtime "+runtimeID+" auth", false, false)
 }

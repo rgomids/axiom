@@ -92,6 +92,7 @@ func TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates(t *testing.T) {
 		if actual != code || len(args) > 0 && args[0] == "--json" && json.Unmarshal(bytes.TrimSpace(wire), &value) != nil {
 			t.Fatalf("%v code=%d: %s", args, actual, wire)
 		}
+		t.Logf("r1-evidence {\"scenario\":\"F\",\"canonical\":{\"category\":%q}}", value.Category)
 		return wire, value
 	}
 	run(0, "--json", "runtime", "codex", "install")
@@ -294,6 +295,8 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 		if err := json.Unmarshal(bytes.TrimSpace(wire), &value); err != nil {
 			t.Fatalf("%v: %s", args, wire)
 		}
+		t.Logf("r1-evidence {\"scenario\":\"A\",\"canonical\":{\"status\":%q,\"plan\":%s}}", value.Status, func() []byte { decoded, _ := json.Marshal(value.Plan); return decoded }())
+		t.Logf("r1-evidence {\"scenario\":\"F\",\"canonical\":{\"category\":%q}}", value.Category)
 		return value
 	}
 	startExecution := func(workItem string) *cli.WorkflowView {

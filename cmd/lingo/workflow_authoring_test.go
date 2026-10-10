@@ -43,6 +43,7 @@ func TestExecutableWorkflowDefaultCustomEditSelectAndRetire(t *testing.T) {
 		if (e == nil) != success {
 			t.Fatalf("wrong exit for %s: %v %s", category, e, output)
 		}
+		t.Logf("r1-evidence {\"scenario\":\"B\",\"canonical\":{\"category\":%q,\"workflowAuthoring\":{\"previewDigest\":%q,\"reference\":%s}}}", event.Category, event.Workflow.PreviewDigest, func() []byte { decoded, _ := json.Marshal(event.Workflow.Reference); return decoded }())
 		return event
 	}
 	authorize := func(preview authoringEvent, args []string) []string {

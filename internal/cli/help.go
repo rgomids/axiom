@@ -282,7 +282,7 @@ func renderHelp(writer io.Writer, command *commandDefinition, path []string) int
 			}
 		}
 		if command.operation == skillInspectAction {
-			text.WriteString("\nRequired argument: <skill-name> = axiom-project | axiom-work-item.\n")
+			text.WriteString("\nRequired argument: <skill-name> = axiom-project | axiom-work-item | axiom-workflow.\n")
 		}
 		fmt.Fprintf(&text, "\nExample:\n  %s\n", commandExample(command.operation, path))
 	}
@@ -294,7 +294,7 @@ func renderHelp(writer io.Writer, command *commandDefinition, path []string) int
 		text.WriteString("Global session: --session <id> before application commands.\n")
 	}
 	if len(path) == 0 {
-		text.WriteString("\nStable Runtime skills: $axiom-project and $axiom-work-item.\nMutation authority stays explicit through --authorize-external or --authorize-local.\n")
+		text.WriteString("\nStable Runtime skills: $axiom-project, $axiom-work-item and $axiom-workflow.\nMutation authority stays explicit through --authorize-external or --authorize-local.\n")
 	}
 	if _, err := io.WriteString(writer, text.String()); err != nil {
 		return ExitFailure

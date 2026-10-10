@@ -2,6 +2,33 @@
 
 ## Author and select Project workflows
 
+Project selects, Workflow configures, Work Item runs, Execution performs.
+`axiom-workflow` owns definition list/show/validate/create/edit/remove/recover
+and read-only configuration readiness. `axiom-project` keeps `workflow.select`;
+`axiom-work-item` keeps `run`, `status` and `plan`. Explicit removed Project
+`workflow.*` authoring skill operations are unsupported; canonical CLI commands
+remain unchanged.
+
+Ask which workflow is active through `axiom project show --selector <slug-or-id>`
+or `axiom project list`. Their additive, read-only `activeWorkflow` field reports
+`selected`, `none` or `unresolvable`; a resolved selection includes its name.
+These reads never select, repair or fall back. Changing selection requires a
+separate exact preview and approval.
+
+The workflow skill prepares complete conversational JSON drafts as regular files
+in Runtime scratch outside Project, Repository and Axiom state roots. It validates,
+previews, obtains approval of the exact digest/revision, applies, then reads back.
+Creation/editing never selects. `--file` symlink/non-regular-file hardening remains
+a known limitation owned by [#307](https://github.com/rgomids/axiom/issues/307).
+Readiness reports Configuration Valid, Runtime Ready and Authentication Ready as
+separate point-in-time facts. Auth is read-only and never blocks authoring.
+Project policy editing (#305), local Profile authoring (#306), global Doctor
+(#231), dispatch (#276) and delivery/rework (#277) remain unavailable.
+Work Item stage-plan confirmation binds to `planDocumentDigest`, Execution ID and
+expected revision, `stageId`, `workflowRef` and `plan.digest`; provisional
+`approved: true` never grants authority. Synthetic R-1 evidence does not establish
+native operability (R-2) or human MVP acceptance (R-3), deferred to #278.
+
 Workflow authoring uses the same canonical Markdown presentation as other
 commands. Use `--json` when machine-readable output is required; both views
 preserve the complete `workflowAuthoring` payload and exact preview values.
@@ -36,7 +63,8 @@ reserve the key. An exact published create replay is unchanged, and
 `--from-default` always proposes revision 1 rather than allocating an edit.
 Creating/editing never changes selection; run `select` explicitly for the new reference. All commands require
 `--project <uuid-or-slug>` and have `--help`; their argument/authority metadata
-is also exposed by `axiom --json skill inspect axiom-project`.
+is also exposed by `axiom skill inspect axiom-workflow` for definition configuration
+and `axiom skill inspect axiom-project` for selection.
 
 `remove` retires an unselected, unreferenced revision while retaining inspectable
 content and its immutable index assignment. Built-ins cannot be retired. Unknown
@@ -123,9 +151,10 @@ Execute estes comandos na raiz do repositório.
 ```bash
 axiom skill inspect axiom-project
 axiom --json skill inspect axiom-work-item
+axiom skill inspect axiom-workflow
 ```
 
-Use exactly `axiom-project` or `axiom-work-item`, the two product skills
+Use exactly `axiom-project`, `axiom-work-item` or `axiom-workflow`, the three product skills
 shown by `axiom help`.
 Inspection describes the skill embedded in this binary without executing it,
 reading Project/Provider/Runtime state, prompting, or granting authority. It also
@@ -414,7 +443,7 @@ executable is never run. A Runtime whose executable is not on this process's
 `PATH` is reported absent (with `configurationWithoutExecutable` when its
 configuration directory exists); put it on `PATH` and rerun, or use the
 per-Runtime command below. For every Runtime found it installs or upgrades the
-two canonical Axiom-owned user-global skills, then reports every supported Runtime:
+three canonical Axiom-owned user-global skills, then reports every supported Runtime:
 
 ```bash
 axiom first-run
@@ -519,14 +548,15 @@ the requested semantic `axiom:<skill>` names are invoked as:
 ```text
 $axiom-project
 $axiom-work-item
+$axiom-workflow
 ```
 
-`$axiom-project` and `$axiom-work-item` are the only product Runtime skills.
+`$axiom-project`, `$axiom-work-item` and `$axiom-workflow` are the product Runtime skills.
 Explicit operations route directly to Lingo; natural-language intent selects
 only supported operations. Ambiguity requires clarification; interpretation
 never supplies authority. Inspect the current binary for operation/mode,
-argument and effect contracts. Claude invokes `/axiom-project` and
-`/axiom-work-item`, or selects them from their descriptions.
+argument and effect contracts. Claude invokes `/axiom-project`,
+`/axiom-work-item` and `/axiom-workflow`, or selects them from their descriptions.
 
 Releases through v0.10.0 distributed operation-specific skills (six before
 #229, eight after it). The pre-MVP decision now removes these active entrypoints.
@@ -637,9 +667,9 @@ absolute output directory. It emits four checksummed archives plus
 Each archive holds one bundle directory with the canonical public executable
 `axiom` (`axiom.exe` on Windows), `LICENSE`, the release installer `install.sh`
 (`install.ps1` on Windows), `release-metadata.txt`,
-`skills-manifest.txt`, the two canonical Runtime skills, and a complete `MANIFEST.sha256`.
+`skills-manifest.txt`, the three canonical Runtime skills, and a complete `MANIFEST.sha256`.
 Upgrading a recognized six- or eight-skill installation retires verified
-Axiom-owned legacy entries and converges to the two canonical skills. Foreign,
+Axiom-owned legacy entries and converges to the three canonical skills. Foreign,
 modified, linked or unrecognized content is preserved and reported as conflict.
 The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom`
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
@@ -1252,7 +1282,8 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
-| `$axiom-project` | `configure` → `project configure`, `list` → `project list`, `show` → `project show`; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
+| `$axiom-project` | `workflow.select` → `project workflow select`; `configure` → `project configure`, `list` → `project list`, `show` → `project show`; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
+| `$axiom-workflow` | `definition.list/show/validate/create/edit/remove/recover` → `project workflow` definition commands; `configuration.readiness` → read-only Runtime/Profile validate/preview/status/auth |
 | `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`), `plan` → `workflow stage plan`; `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,

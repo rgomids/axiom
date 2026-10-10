@@ -104,7 +104,7 @@ architecture=$architecture
 skillSetVersion=1
 EOF
 printf 'formatVersion=1\nskillSetVersion=1\nbinaryCompatibility=1\n' >"$bundle/skills-manifest.txt"
-for name in axiom-project axiom-work-item; do
+for name in axiom-project axiom-work-item axiom-workflow; do
   mkdir "$bundle/skills/$name"
   printf '# Offline %s fixture\n' "$name" >"$bundle/skills/$name/SKILL.md"
   printf 'skill.%s=%s\n' "$name" "$(digest "$bundle/skills/$name/SKILL.md")" >>"$bundle/skills-manifest.txt"

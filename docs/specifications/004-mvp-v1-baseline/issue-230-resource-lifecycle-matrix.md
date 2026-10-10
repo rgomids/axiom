@@ -476,14 +476,7 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-project | integration | disable | axiom integration disable | local-mutation | --preview-digest --authorize-local |
 | axiom-project | integration | enable | axiom integration enable | local-mutation | --preview-digest --authorize-local |
 | axiom-project | integration | remove | axiom integration remove | local-mutation | --project-id --preview-digest --authorize-local |
-| axiom-project | workflow.list | default | axiom project workflow list | read-only |  |
-| axiom-project | workflow.show | default | axiom project workflow show | read-only |  |
-| axiom-project | workflow.create | default | axiom project workflow create | local-mutation | --expected-revision --preview-digest --authorize-local |
-| axiom-project | workflow.edit | default | axiom project workflow edit | local-mutation | --expected-revision --preview-digest --authorize-local |
-| axiom-project | workflow.validate | default | axiom project workflow validate | read-only |  |
 | axiom-project | workflow.select | default | axiom project workflow select | local-mutation | --expected-revision --preview-digest --authorize-local |
-| axiom-project | workflow.remove | default | axiom project workflow remove | local-mutation | --expected-revision --preview-digest --authorize-local |
-| axiom-project | workflow.recover | default | axiom project workflow recover | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-work-item | create | new | axiom work-item create | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | create | existing | axiom work-item select | local-mutation | --preview-digest --authorize-local |
 | axiom-work-item | run | transition | axiom workflow start; axiom workflow advance; axiom workflow resume | local-mutation |  |
@@ -498,6 +491,16 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-work-item | comment | default | axiom work-item comment | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | close | default | axiom work-item close | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | reopen | default | axiom work-item reopen | external-mutation | --preview-digest --authorize-external |
+| axiom-workflow | definition.list | default | axiom project workflow list | read-only |  |
+| axiom-workflow | definition.show | default | axiom project workflow show | read-only |  |
+| axiom-workflow | definition.create | default | axiom project workflow create | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-workflow | definition.edit | default | axiom project workflow edit | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-workflow | definition.validate | default | axiom project workflow validate | read-only |  |
+| axiom-workflow | definition.remove | default | axiom project workflow remove | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-workflow | definition.recover | default | axiom project workflow recover | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-workflow | configuration.readiness | configuration | axiom runtime profile validate; axiom runtime profile preview | read-only |  |
+| axiom-workflow | configuration.readiness | runtime | axiom runtime codex status; axiom runtime claude status | read-only |  |
+| axiom-workflow | configuration.readiness | authentication | axiom runtime codex auth; axiom runtime claude auth | read-only |  |
 <!-- canonical-runtime-catalog:end -->
 
 Natural-language operation selection carries no authority. Clear Portuguese
