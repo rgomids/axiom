@@ -43,7 +43,7 @@ func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID, executa
 		portableProfiles = append(portableProfiles, project.ModelProfile{Key: id, RuntimeRef: project.Configured(runtimeID), Model: project.Configured("local-test-profile")})
 		preferences = append(preferences, project.RuntimePreference{Role: child.Envelope.Capability.Role, Complexity: "low", ModelProfileRef: id})
 		runtime.AllowlistedProfileIDs = append(runtime.AllowlistedProfileIDs, id)
-		cfg.ModelProfiles = append(cfg.ModelProfiles, runtimeprofile.ModelProfile{ID: id, RuntimeID: runtimeID, Model: "local-test-profile", Capabilities: []string{"go"}, Complexities: []string{"low"}})
+		cfg.ModelProfiles = append(cfg.ModelProfiles, runtimeprofile.ModelProfile{ID: id, RuntimeID: runtimeID, Model: "local-test-profile", Capabilities: append([]string(nil), child.Envelope.Capability.Capabilities...), Complexities: []string{"low"}})
 	}
 	state.ModelProfiles = project.Configured(portableProfiles)
 	state.RuntimePreferences = project.Configured(preferences)
@@ -56,7 +56,13 @@ func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID, executa
 	if err != nil {
 		t.Fatal(err)
 	}
-	inventory, err := runtimeadapter.NewInventory([]runtimeprofile.Observation{{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, ExecutableDigest: identity, Revision: 1, ObservedAt: time.Unix(10, 0).UTC(), CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"go": runtimeprofile.CapabilityProven}}})
+	capabilities := map[string]runtimeprofile.CapabilityStatus{"go": runtimeprofile.CapabilityProven}
+	for _, child := range graph.Children {
+		for _, capability := range child.Envelope.Capability.Capabilities {
+			capabilities[capability] = runtimeprofile.CapabilityProven
+		}
+	}
+	inventory, err := runtimeadapter.NewInventory([]runtimeprofile.Observation{{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, Version: "synthetic-1", ExecutableDigest: identity, Revision: 1, ObservedAt: time.Unix(10, 0).UTC(), CapabilityStatus: capabilities, NonInteractiveModelCapabilities: map[string]map[string]runtimeprofile.CapabilityStatus{"local-test-profile": capabilities}}})
 	if err != nil {
 		t.Fatal(err)
 	}

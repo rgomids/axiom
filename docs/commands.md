@@ -1253,7 +1253,7 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
 | `$axiom-project` | `configure` → `project configure`, `list` → `project list`, `show` → `project show`; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
-| `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`); `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
+| `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`), `plan` → `workflow stage plan`; `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,
 repository resolution, workflow ordering, and external-mutation authority. Skills
@@ -1643,6 +1643,99 @@ human acceptance.
 
 ## Execute the bounded workflow
 
+New Executions require an explicitly selected Project WorkflowDefinition. They
+retain its canonical snapshot, exact revision and digest, Project/local revisions,
+reviewed Runtime preview and required local context observations. Changing the
+Project selection affects subsequent Executions; resume uses the retained binding
+even when the original source is unavailable. Missing, corrupt or future snapshots
+fail closed without falling back to the current Project selection.
+
+For configured Executions, read `workflow.binding`, `stageContract`, `stageInputs`,
+`stageLedger`, `blockers`, `gateAction` and `gateCommand` from status/evidence.
+These expose the exact contract, criteria, validated artifacts, current stage and
+next action. The ordered definition controls progression, including custom stage
+IDs; lifecycle projection retains the existing ten canonical values.
+
+Supply `workflow advance --stage-result <json-file>` along with the returned exact
+selectors, revision, `--gate <current-stage-id>` and observed `--outcome pass|fail`.
+The bounded JSON file has `inputs` and `outputs` maps keyed by declared IDs. Each
+reference uses the existing `Kind`, `ID`, `Digest` fields. Work Item inputs come
+from the canonical binding; prior outputs and Project context references must
+exactly match `stageInputs`. Required outputs must be retained typed artifacts
+belonging to this Execution, with the declared output category and successful
+outcome. Artifact references bind `workflow-stage` to the stage ID,
+`workflow-definition` to the definition digest and `workflow-output` to the output
+ID. Built-in `artifact-schema`, `evidence-check` and `human-review` validators use
+the registered `builtin-sdd-v1` policy. Unknown policies block; definitions cannot
+provide executable commands.
+
+Configured human facts additionally require `--actor <human-identity>` and explicit
+authority. A `human-review` validator requires `workflow fact --fact stage-review`
+with `--stage-result` identifying the exact reviewed result, one validated
+reference, `--active true` and `--authorize-local`. Technical pass or an agent's
+message does not grant planning, implementation, review or acceptance authority.
+The actor is an audit assertion under the existing explicit authority protocol,
+not a new authentication mechanism. Final technical completion still precedes
+separate human acceptance. Configured technical completion stops at `reviewed`
+with `delivery_packet_required`; `human-acceptance` is denied until #277 supplies
+the exact validated delivery packet and its correlation/authority protocol.
+A valid Evidence file or final stage output cannot substitute for that packet.
+Status/Evidence expose this blocker without advertising an unsupported acceptance
+command. Legacy acceptance retains its historical behavior. Configured stages
+have no automatic Intake shortcut.
+
+Historical format-1 Executions retain their fixed gate order and automatic Intake
+behavior described below; they remain readable and resumable without migration.
+See the [#274 implementation contract](specifications/007-configurable-workflows/issue-274-implementation.md)
+for retention, compatibility and verification details.
+
+### Inspect a stage plan (read-only)
+
+`workflow stage plan` previews how one stage of a configured Execution would run,
+before any agent is authorized. It reads the Execution's retained workflow
+revision (never the current Project selection), binds the stage inputs from the
+retained context and validated stage ledger, resolves each agent's Runtime, Model
+Profile and reasoning effort through the current Project policy and Runtime
+observations, and compiles the stage with the existing graph planner.
+
+```bash
+axiom workflow stage plan --project my-project --repository main \
+  --work-item github:owner/repository#123 --execution <execution-id> \
+  --expected-revision <revision> --stage implementation --plan plan.json
+```
+
+`--plan` is the bounded approved stage Plan document: `formatVersion` `1`, the
+existing graph `plan` (`approved`, `planRevision`, `planDigest`, `maximumNodes`
+and one `work` unit per declared agent, keyed by agent ID, with `scope`,
+`effects` and `controls`; `controls.timeout` is in nanoseconds) and the explicit
+`authorityCeiling` effects. Unknown fields, duplicate keys and other format
+versions are refused, as is a path that is not a regular, non-symlink file.
+Effect targets and Repository paths come only from this document.
+
+The result keeps the canonical completion fields and adds `category`,
+`confirmedEffects` (always empty), `executionRef`, `workflowRef`, `stageId` and
+`plan`. `plan` reports `executionKind` (`single` without a graph, or `graph`
+with `graphProposalRef`), `resolutions`, `validatorRefs`, `gateRefs`, `blockers`,
+the complete `compilation` (agents, dependencies, ordering, concurrency, child
+inputs, required effects and authority ceiling) and its `digest`. The same
+Execution revision, Plan, policy and observations produce the same digest; any
+change requires a fresh plan. A pending `before` human gate is reported as a
+`human_gate_pending:<gate>` blocker: planning never records or satisfies it.
+
+The operation is read-only: it creates no Execution, attempt or artifact, starts
+no Runtime and performs no Provider effect. The proposal is not dispatch
+authority; dispatch belongs to #276. Refusals use fixed categories:
+`stale_execution_revision` (denied), `stage_prerequisite_missing` with
+`missing_input:<id>` conditions, `stage_not_found`, `stage_not_plannable`,
+`configured_binding_required` for historical Executions, `invalid_stage_plan`,
+`invalid_stage_topology`, `runtime_unresolvable`, `unsupported_effort` and
+`authority_denied` (denied). There is no fallback to another Runtime or Profile.
+The production Runtime observer currently proves only Axiom skill integration, so
+stages requiring other capabilities or explicit effort are refused as
+`runtime_unresolvable`/`unsupported_effort` until an authoritative observation
+proves them. See the
+[#275 implementation record](specifications/007-configurable-workflows/issue-275-implementation.md).
+
 Start one workflow from an explicitly selected, already linked Work Item. Project
 is optional only when the effective context resolves, with precedence
 `explicit operation Project > session override > persistent local default > unresolved/fail closed`. An invalid
@@ -1685,7 +1778,7 @@ advance, fact, evidence, reconcile, and resume use the recorded Runtime and reje
 `--runtime`, and a later `workflow start` naming a different Runtime for the same
 Work Item returns `validation_failure` without changing the Execution.
 
-Advance gates in fixed order from the exact current revision. Optional references
+For legacy Executions, advance gates in fixed order from the exact current revision. Optional references
 are either a machine-local detail artifact or a repository-relative regular
 Evidence file no larger than 1 MiB. The caller supplies the expected SHA-256;
 Lingo re-reads and validates it before committing the transition. Repository

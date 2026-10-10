@@ -257,7 +257,7 @@ func scanArtifactReferences(root *os.Root, artifacts []detailartifact.Artifact) 
 				projectRoot.Close()
 				return nil, ErrRecoveryRequired
 			}
-			wire, err := readPrivateFile(projectRoot, name)
+			wire, err := readExecutionFile(projectRoot, name)
 			if err != nil {
 				projectRoot.Close()
 				return nil, ErrRecoveryRequired
@@ -271,6 +271,15 @@ func scanArtifactReferences(root *os.Root, artifacts []detailartifact.Artifact) 
 				open[state.ExecutionID] = true
 			}
 			for _, transition := range state.Transitions {
+				if transition.Ledger != nil {
+					for _, refs := range []map[string]workflow.Reference{transition.Ledger.Result.Inputs, transition.Ledger.Result.Outputs} {
+						for _, reference := range refs {
+							if reference.Kind == "artifact" {
+								references[reference.ID] = append(references[reference.ID], "execution:"+state.ExecutionID)
+							}
+						}
+					}
+				}
 				for _, reference := range transition.References {
 					if reference.Kind == "artifact" {
 						references[reference.ID] = append(references[reference.ID], "execution:"+state.ExecutionID)

@@ -594,6 +594,9 @@ func (p *authorityProbe) WorkflowEvidence(context.Context, WorkflowInput) Result
 func (p *authorityProbe) WorkflowList(context.Context, ExecutionListInput) ExecutionListResponse {
 	return ExecutionListResponse{Result: p.record("workflow list", false, false)}
 }
+func (p *authorityProbe) WorkflowStagePlan(context.Context, WorkflowStagePlanInput) WorkflowStagePlanResponse {
+	return WorkflowStagePlanResponse{Result: p.record("workflow stage plan", false, false)}
+}
 
 // Exercise every advertised read-only path against operation-shaped service
 // dispatch, including optional lifecycle interfaces. Together with
@@ -615,6 +618,7 @@ func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
 		"axiom workflow list":             {"workflow", "list", "--project", "alpha"},
 		"axiom workflow status":           {"workflow", "status", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 		"axiom workflow evidence":         {"workflow", "evidence", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
+		"axiom workflow stage plan":       {"workflow", "stage", "plan", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "intake", "--plan", "plan.json"},
 	}
 	for _, name := range canonicalDomainSkills {
 		for _, operation := range discoverForTest(t, name).Operations {

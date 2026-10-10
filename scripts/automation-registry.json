@@ -1299,6 +1299,36 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/dogfoodfixture/main.go",
+      "kind": "script",
+      "owner": "cli-e2e",
+      "purpose": "Synthetic typed stage output fixture for configured dogfooding, using the production artifact store.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "go"
+      ],
+      "scope": [
+        "test",
+        "ci"
+      ],
+      "trigger": "dogfood-poc.sh builds and invokes this fixture for builtin identity and typed synthetic outputs",
+      "replay_reason": null,
+      "callers": [
+        "scripts/dogfood-poc.sh"
+      ],
+      "inputs": "definition, or result STATE_ROOT with configured workflow status JSON on stdin",
+      "outputs": "Builtin definition reference or typed StageResult JSON on stdout",
+      "local_effects": "Synthetic artifact store writes under the dogfood temporary state root",
+      "network_effects": "none (fake gh binary; go build may use the local module cache)",
+      "authority": "none; no real provider or user state is touched",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/install-axiom.sh",
       "kind": "script",
       "owner": "installation",

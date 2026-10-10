@@ -22,10 +22,11 @@ var ErrBlocked = errors.New("project runtime resolution blocked")
 var ErrStale = errors.New("project runtime resolution stale")
 
 type Request struct {
-	Role         string   `json:"role"`
-	Complexity   string   `json:"complexity"`
-	Capabilities []string `json:"capabilities"`
-	RuntimeID    string   `json:"runtimeId,omitempty"`
+	Role           string   `json:"role"`
+	Complexity     string   `json:"complexity"`
+	Capabilities   []string `json:"capabilities"`
+	RuntimeID      string   `json:"runtimeId,omitempty"`
+	ModelProfileID string   `json:"modelProfileId,omitempty"`
 }
 
 type Preview struct {
@@ -132,7 +133,7 @@ func (s Service) preview(ctx context.Context, projectID string, request Request)
 	}
 	result.ObservationDigest = digest(observationWire)
 	resolution, err := runtimeprofile.NewResolver(captured).Resolve(ctx, cfg, runtimeprofile.Request{
-		ConfigurationRevision: cfg.Revision, Role: request.Role, Complexity: request.Complexity, Capabilities: request.Capabilities,
+		ConfigurationRevision: cfg.Revision, Role: request.Role, Complexity: request.Complexity, Capabilities: request.Capabilities, ModelProfileID: request.ModelProfileID,
 	})
 	if err != nil {
 		return denyWith(result, resolution.Blocker.Code)
@@ -278,7 +279,7 @@ func projectConfiguration(state project.State, local runtimeprofile.Configuratio
 	// do not remove it and accidentally choose another profile.
 	if preferences, ok := state.RuntimePreferences.Value(); ok {
 		for _, preference := range preferences {
-			if preference.Role != request.Role || preference.Complexity != request.Complexity {
+			if request.ModelProfileID != "" || preference.Role != request.Role || preference.Complexity != request.Complexity {
 				continue
 			}
 			if preference.Role == "" || preference.Complexity == "" {
@@ -302,7 +303,7 @@ func projectConfiguration(state project.State, local runtimeprofile.Configuratio
 	return cfg, ""
 }
 func validRequest(r Request) bool {
-	if !token(r.Role) || !token(r.Complexity) || r.RuntimeID != "" && !token(r.RuntimeID) || len(r.Capabilities) == 0 || len(r.Capabilities) > 32 {
+	if !token(r.Role) || !token(r.Complexity) || r.RuntimeID != "" && !token(r.RuntimeID) || r.ModelProfileID != "" && !token(r.ModelProfileID) || len(r.Capabilities) == 0 || len(r.Capabilities) > 32 {
 		return false
 	}
 	seen := map[string]bool{}
@@ -344,12 +345,22 @@ func safeVersion(v string) bool {
 }
 
 func safeObservation(o runtimeprofile.Observation) bool {
-	if !token(o.RuntimeID) || !token(o.Adapter) || !safeVersion(o.Version) || len(o.CapabilityStatus) > 32 {
+	if !token(o.RuntimeID) || !token(o.Adapter) || !safeVersion(o.Version) || len(o.CapabilityStatus) > 32 || len(o.NonInteractiveModelCapabilities) > 32 {
 		return false
 	}
 	for capability, status := range o.CapabilityStatus {
 		if !token(capability) || (status != runtimeprofile.CapabilityDeclared && status != runtimeprofile.CapabilityProven) {
 			return false
+		}
+	}
+	for model, capabilities := range o.NonInteractiveModelCapabilities {
+		if model == "" || len(model) > 256 || strings.TrimSpace(model) != model || strings.ContainsAny(model, "\x00\r\n") || len(capabilities) > 32 {
+			return false
+		}
+		for capability, status := range capabilities {
+			if !token(capability) || (status != runtimeprofile.CapabilityDeclared && status != runtimeprofile.CapabilityProven) {
+				return false
+			}
 		}
 	}
 	return true

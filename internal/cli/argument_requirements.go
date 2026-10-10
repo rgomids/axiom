@@ -58,6 +58,9 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 	case integrationOperation(operation):
 		return []inputRequirement{{name: "project", required: true, missing: v.project == ""}, {name: "integration", required: true, missing: true}}
 	}
+	if operation == workflowStagePlanAction {
+		return stagePlanRequirements(WorkflowStagePlanInput{})
+	}
 	if !knownWorkItem(operation) && !knownWorkflow(operation) {
 		return nil
 	}

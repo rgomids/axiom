@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/rgomids/axiom/internal/testfs"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -354,5 +355,63 @@ func TestEffectiveEnvironmentMatchesProcessInheritance(t *testing.T) {
 	explicit := EffectiveEnvironment([]string{"PATH=/usr/bin"})
 	if len(explicit) != 1 || explicit[0] != "PATH=/usr/bin" {
 		t.Fatalf("explicit environment=%v", explicit)
+	}
+}
+
+func TestInheritedSnapshotKeepsExplicitEnvironmentValidation(t *testing.T) {
+	for i := 0; i < 70; i++ {
+		t.Setenv(fmt.Sprintf("AXM_SNAPSHOT_%d", i), "synthetic")
+	}
+	t.Setenv("lowercase_inherited", "synthetic")
+	child := mustGraph(t).Children[0]
+	invocation, err := (invocationFake{}).ResolveInvocation(context.Background(), child)
+	if err != nil {
+		t.Fatal(err)
+	}
+	invocation.Env = []string{"CLAUDE_CODE_EFFORT_LEVEL=high"}
+	invocation = WithInheritedEnvironment(invocation)
+	if !validInvocation(child, invocation) {
+		t.Fatal("ordinary inherited environment rejected")
+	}
+	t.Setenv("lowercase_inherited", "changed")
+	if !strings.Contains(strings.Join(EffectiveInvocationEnvironment(invocation), "\n"), "lowercase_inherited=synthetic") {
+		t.Fatal("environment snapshot changed")
+	}
+	for _, invalid := range [][]string{
+		{"lowercase_explicit=synthetic"},
+		{"CLAUDE_CODE_EFFORT_LEVEL=high", "CLAUDE_CODE_EFFORT_LEVEL=low"},
+		{"lowercase_inherited=override"},
+	} {
+		invocation.Env = invalid
+		if validInvocation(child, invocation) {
+			t.Fatal("invalid explicit override accepted")
+		}
+	}
+	invocation.Env = nil
+	for i := 0; i < 65; i++ {
+		invocation.Env = append(invocation.Env, fmt.Sprintf("EXPLICIT_%d=synthetic", i))
+	}
+	if validInvocation(child, invocation) {
+		t.Fatal("explicit environment bound weakened")
+	}
+}
+
+func TestOSProcessRunnerUsesCapturedEnvironment(t *testing.T) {
+	if os.Getenv("AXM_CAPTURED_ENV_HELPER") == "1" {
+		if os.Getenv("AXM_CAPTURED_ENV_PROBE") != "captured" || os.Getenv("CLAUDE_CODE_EFFORT_LEVEL") != "high" {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	t.Setenv("AXM_CAPTURED_ENV_PROBE", "captured")
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	invocation := WithInheritedEnvironment(Invocation{Argv: []string{executable, "-test.run=^TestOSProcessRunnerUsesCapturedEnvironment$"}, CWD: t.TempDir(), Env: []string{"AXM_CAPTURED_ENV_HELPER=1", "CLAUDE_CODE_EFFORT_LEVEL=high"}, OutputMax: 1024})
+	t.Setenv("AXM_CAPTURED_ENV_PROBE", "changed")
+	result := (OSProcessRunner{}).Run(context.Background(), invocation)
+	if result.ExitCode != 0 {
+		t.Fatal("process runner did not use captured environment and override")
 	}
 }

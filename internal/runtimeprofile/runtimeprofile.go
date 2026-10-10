@@ -80,6 +80,9 @@ type Observation struct {
 	Revision         uint64                      `json:"revision"`
 	ObservedAt       time.Time                   `json:"observedAt"`
 	CapabilityStatus map[string]CapabilityStatus `json:"capabilityStatus"`
+	// NonInteractiveModelCapabilities proves capability for an exact local model
+	// in this observed executable/version's noninteractive invocation mode.
+	NonInteractiveModelCapabilities map[string]map[string]CapabilityStatus `json:"nonInteractiveModelCapabilities,omitempty"`
 }
 
 type Observer interface {
@@ -91,6 +94,7 @@ type Request struct {
 	Role                  string   `json:"role"`
 	Complexity            string   `json:"complexity"`
 	Capabilities          []string `json:"capabilities"`
+	ModelProfileID        string   `json:"modelProfileId,omitempty"`
 }
 
 type Choice struct {
@@ -127,7 +131,7 @@ func (r Resolver) Resolve(ctx context.Context, cfg Configuration, request Reques
 	if request.ConfigurationRevision != cfg.Revision {
 		return blocked("stale_configuration", nil, nil), ErrStaleConfiguration
 	}
-	if !validToken(request.Role) || !validToken(request.Complexity) || !validTokens(request.Capabilities, false) {
+	if !validToken(request.Role) || !validToken(request.Complexity) || !validTokens(request.Capabilities, false) || request.ModelProfileID != "" && !validToken(request.ModelProfileID) {
 		return blocked("invalid_request", nil, nil), ErrInvalidConfiguration
 	}
 	if r.observer == nil {
@@ -146,6 +150,9 @@ func (r Resolver) Resolve(ctx context.Context, cfg Configuration, request Reques
 			continue
 		}
 		for _, profileID := range sortedStrings(runtime.AllowlistedProfileIDs) {
+			if request.ModelProfileID != "" && request.ModelProfileID != profileID {
+				continue
+			}
 			profile := profiles[profileID]
 			if profile.RuntimeID != runtime.ID || !supports(profile, observation, request) {
 				continue
@@ -157,7 +164,10 @@ func (r Resolver) Resolve(ctx context.Context, cfg Configuration, request Reques
 			})
 		}
 	}
-	preferred := preferredProfile(cfg.Preferences, request)
+	preferred := ""
+	if request.ModelProfileID == "" {
+		preferred = preferredProfile(cfg.Preferences, request)
+	}
 	if preferred != "" {
 		filtered := candidates[:0]
 		for _, candidate := range candidates {
@@ -291,6 +301,12 @@ func supports(profile ModelProfile, observation Observation, request Request) bo
 	for _, capability := range request.Capabilities {
 		if !contains(profile.Capabilities, capability) || observation.CapabilityStatus[capability] != CapabilityProven {
 			return false
+		}
+		if strings.HasPrefix(capability, "reasoning-effort-") {
+			identity, err := hex.DecodeString(observation.ExecutableDigest)
+			if err != nil || len(identity) != sha256.Size || !validText(observation.Version) || observation.NonInteractiveModelCapabilities[profile.Model][capability] != CapabilityProven {
+				return false
+			}
 		}
 	}
 	return true

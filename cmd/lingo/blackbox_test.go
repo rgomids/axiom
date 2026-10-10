@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/testfs"
 	"os"
@@ -156,12 +157,7 @@ type canonicalEvent struct {
 	WorkItem *struct {
 		URL, State, ExternalID string
 	} `json:"workItem"`
-	Workflow *struct {
-		ExecutionID, Status, CurrentGate, RepositoryKey string
-		RuntimeID                                       string
-		Revision                                        uint64
-		WorkItem                                        struct{ Resource string }
-	} `json:"workflow"`
+	Workflow   *cli.WorkflowView `json:"workflow"`
 	Projection *struct {
 		Digest, ProjectionKey string
 		Effects               []struct{ Kind, Value string }
@@ -410,7 +406,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 	}
 	referenceDigest := fmt.Sprintf("%x", sha256.Sum256(referenceContent))
 	factArgs := func(revision uint64, fact, kind string) []string {
-		return []string{"workflow", "fact", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--fact", fact, "--active", "--reference", kind + ":s6-reference.md:" + referenceDigest, "--authorize-local"}
+		return []string{"workflow", "fact", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--fact", fact, "--active", "--actor", "maintainer", "--reference", kind + ":s6-reference.md:" + referenceDigest, "--authorize-local"}
 	}
 	ghBinary := filepath.Join(t.TempDir(), "gh")
 	createCount := filepath.Join(t.TempDir(), "create-count")
@@ -530,6 +526,7 @@ exit 0
 	}
 	runCanonical(0, "success", "Work Item comment added", append(commentArgs, "--preview-digest", commentPreview.Change.Digest, "--authorize-external")...)
 	policyFlags := installTestRuntimePolicy(t, state, preview.Setup.ProjectID, "codex")
+	selectBuiltinWorkflowExecutable(t, binary, environment, "configured")
 	startArgs := append([]string{"workflow", "start", "--project", "configured", "--repository", "main", "--number", "7"}, policyFlags...)
 	runtimePreview := runCanonical(0, "success", "Project Runtime resolution preview ready", startArgs...)
 	started := runCanonical(0, "success", "Execution workflow operation completed", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
@@ -583,8 +580,14 @@ exit 0
 		t.Fatalf("invalid selector changed execution: %v", err)
 	}
 	revision := uint64(1)
+	advance := func(gate string, revision uint64) canonicalEvent {
+		t.Helper()
+		status := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "status", "--project", "configured", "--repository", "main", "--number", "7")
+		file := publishConfiguredOutput(t, state, status.Workflow)
+		return runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", gate, "--outcome", "pass", "--stage-result", file)
+	}
 	for _, gate := range []string{"intake", "specification", "clarification"} {
-		advanced := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", gate, "--outcome", "pass")
+		advanced := advance(gate, revision)
 		revision++
 		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
 			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
@@ -593,7 +596,7 @@ exit 0
 	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "planning-authority", "specification")...)
 	revision++
 	for _, gate := range []string{"plan", "tasks"} {
-		advanced := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", gate, "--outcome", "pass")
+		advanced := advance(gate, revision)
 		revision++
 		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
 			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
@@ -624,7 +627,7 @@ exit 0
 	if resumed.Workflow == nil || resumed.Workflow.Status != "active" || resumed.Workflow.Revision != revision {
 		t.Fatalf("resumed = %+v", resumed.Workflow)
 	}
-	advancedToReview := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", "implementation", "--outcome", "pass")
+	advancedToReview := advance("implementation", revision)
 	revision++
 	if advancedToReview.Workflow == nil || advancedToReview.Workflow.Revision != revision {
 		t.Fatalf("advanced workflow = %+v", advancedToReview.Workflow)
@@ -632,13 +635,16 @@ exit 0
 	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "review-started", "evidence")...)
 	revision++
 	for _, gate := range []string{"review", "evidence", "reconciliation", "completion"} {
-		advanced := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "advance", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10), "--gate", gate, "--outcome", "pass")
+		advanced := advance(gate, revision)
 		revision++
 		if advanced.Workflow == nil || advanced.Workflow.Revision != revision {
 			t.Fatalf("advanced workflow = %+v", advanced.Workflow)
 		}
 	}
-	runCanonical(0, "success", "Execution workflow operation completed", factArgs(revision, "human-acceptance", "evidence")...)
+	deniedAcceptance := runCanonical(1, "denied_authority", "Execution authority is stale or incomplete", factArgs(revision, "human-acceptance", "evidence")...)
+	if deniedAcceptance.Workflow.Revision != revision || deniedAcceptance.Workflow.LifecycleStage != "reviewed" || deniedAcceptance.Workflow.GateAction != nil || len(deniedAcceptance.Workflow.Blockers) != 1 || deniedAcceptance.Workflow.Blockers[0] != "delivery_packet_required" {
+		t.Fatalf("unbound acceptance: %+v", deniedAcceptance.Workflow)
+	}
 	runCanonical(0, "success", "Execution workflow operation completed", "workflow", "evidence", "--project", "configured", "--repository", "main", "--number", "7")
 	run(1, "error", "missing_required_input", "project", "init", "--slug", "sample")
 	run(0, "success", "applied", "project", "init", "--slug", "sample", "--name", "Sample")

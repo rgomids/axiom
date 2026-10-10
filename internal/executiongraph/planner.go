@@ -53,6 +53,7 @@ type Effect struct {
 type ExecutionControls struct {
 	Timeout         time.Duration `json:"timeout"`
 	MaximumAttempts uint32        `json:"maximumAttempts"`
+	ReasoningEffort string        `json:"reasoningEffort,omitempty"`
 }
 
 type WorkUnit struct {
@@ -219,7 +220,10 @@ func validNode(node ProposedNode) bool {
 	if !validToken(node.Key) || !validCapability(node.Capability) || !validToken(node.Scope.ProjectID) || !validToken(node.Scope.RepositoryKey) || len(node.Dependencies) > maxListItems || len(node.Inputs) == 0 || len(node.Inputs) > maxListItems || len(node.Outputs) == 0 || len(node.Outputs) > maxListItems || len(node.Scope.Paths) == 0 || len(node.Scope.Paths) > maxListItems || len(node.Effects) > maxListItems {
 		return false
 	}
-	if node.Controls.Timeout <= 0 || node.Controls.Timeout > 24*time.Hour || node.Controls.MaximumAttempts == 0 || node.Controls.MaximumAttempts > 10 {
+	if node.Controls.Timeout <= 0 || node.Controls.Timeout > 24*time.Hour || node.Controls.MaximumAttempts == 0 || node.Controls.MaximumAttempts > 10 || node.Controls.ReasoningEffort != "" && !validToken(node.Controls.ReasoningEffort) {
+		return false
+	}
+	if node.Controls.ReasoningEffort != "" && !hasCapability(node.Capability.Capabilities, "reasoning-effort-"+node.Controls.ReasoningEffort) {
 		return false
 	}
 	for _, values := range [][]string{node.Dependencies, node.Inputs, node.Outputs} {
@@ -243,6 +247,15 @@ func validNode(node ProposedNode) bool {
 		}
 	}
 	return true
+}
+
+func hasCapability(capabilities []string, value string) bool {
+	for _, capability := range capabilities {
+		if capability == value {
+			return true
+		}
+	}
+	return false
 }
 
 func validCapability(request CapabilityRequest) bool {
@@ -329,7 +342,9 @@ func pathsOverlap(left, right string) bool {
 }
 
 func validRelativePath(value string) bool {
-	return validTarget(value) && value != "." && !strings.HasPrefix(value, "/") && path.Clean(value) == value && !strings.HasPrefix(value, "../")
+	// Portable Repository-relative slash paths only: Windows volume (`C:`),
+	// drive-relative, stream (`:`) and backslash forms never stay confined.
+	return validTarget(value) && value != "." && value != ".." && !strings.HasPrefix(value, "/") && path.Clean(value) == value && !strings.HasPrefix(value, "../") && !strings.ContainsAny(value, `\:`)
 }
 
 func validTarget(value string) bool {

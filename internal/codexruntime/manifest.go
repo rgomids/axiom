@@ -194,6 +194,21 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-project":   "48d3d7381230e18ce1614ea45ce1109bcf99674b43a6d4348b64514551cb874a",
 		"axiom-work-item": "26c26672524258c1a9bdafc2b64fbe06fbe6b2e4558f1dfb6ba98f4baaa7e3aa",
 	}},
+	// v0.13.0 authoring revision before configured Execution binding (#274).
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project":   "d80cd1d1bca8e88ceb2c61b8ff92d4c050b83835a78ba96e92346c9f2f15b06c",
+		"axiom-work-item": "26c26672524258c1a9bdafc2b64fbe06fbe6b2e4558f1dfb6ba98f4baaa7e3aa",
+	}},
+	// Initial #274 revision, before refusing packet-free final acceptance.
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project":   "d80cd1d1bca8e88ceb2c61b8ff92d4c050b83835a78ba96e92346c9f2f15b06c",
+		"axiom-work-item": "c6f22b938d196a542f868405db9ad4cd66055e5f1c9f81cdca93c58b1c51d661",
+	}},
+	// v0.14.0 revision, before the read-only stage planning route (#275).
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project":   "d80cd1d1bca8e88ceb2c61b8ff92d4c050b83835a78ba96e92346c9f2f15b06c",
+		"axiom-work-item": "8f3a24324d83ad60a5e786fc8b2f8ca0695b0f420d3af123f38e04817756d0e5",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

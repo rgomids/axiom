@@ -24,6 +24,7 @@ mkdir -p "$unrelated" "$repository"
 
 AXIOM_BIN_DIR="$binary_root" AXIOM_INSTALL_STATE_ROOT="$install_state" \
   "$repository_root/scripts/install-axiom.sh" >"$temporary/install.json"
+(cd "$repository_root" && go build -o "$temporary/dogfoodfixture" ./scripts/dogfoodfixture)
 export PATH="$binary_root:$PATH"
 export LINGO_PROJECTS_ROOT="$portable_root"
 export LINGO_STATE_ROOT="$state_root"
@@ -198,7 +199,7 @@ assert_project_repository "$temporary/project-restored.json" available
 # The delivery Project carries an operator-authored portable Runtime/Profile
 # policy: both concrete Runtimes are allowed and nothing is a default. Install
 # records it only with an exact binding for every declared Repository.
-authored="$temporary/authored/dogfood-project"
+authored="$portable_root/dogfood-project"
 mkdir -p "$authored"
 cat >"$authored/axiom.yaml" <<'MANIFEST'
 schemaVersion: 2
@@ -305,6 +306,16 @@ selection_digest=$(sed -n 's/.*"digest":"\([0-9a-f]*\)".*/\1/p' "$temporary/unco
 axiom --json "${selection_args[@]}" --preview-digest "$selection_digest" --authorize-local >"$temporary/unconfigured-selection.json"
 assert_canonical "$temporary/unconfigured-selection.json" success "GitHub Work Item linked"
 
+# Select the builtin revision explicitly before reviewing Runtime policy.
+"$temporary/dogfoodfixture" definition >"$temporary/definition.json"
+read -r workflow_id workflow_digest < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1])); print(w["workflowId"],w["digest"])' "$temporary/definition.json")
+for selected_project in dogfood-project dogfood-configured; do
+  workflow_selection=(project workflow select --project "$selected_project" --workflow "$workflow_id" --revision 1 --digest "$workflow_digest" --source builtin)
+  run_success previewed "$temporary/workflow-selection.json" "${workflow_selection[@]}"
+  read -r project_revision selection_preview < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1]))["workflowAuthoring"]; print(w["projectRevision"], w["previewDigest"])' "$temporary/workflow-selection.json")
+  run_success applied "$temporary/workflow-selected.json" "${workflow_selection[@]}" --expected-revision "$project_revision" --preview-digest "$selection_preview" --authorize-local
+done
+
 # No configured policy, no explicitly allowed-and-observed Runtime and no
 # capability Lingo cannot prove ever falls back to Codex.
 assert_runtime_blocked unconfigured policy_unconfigured \
@@ -347,19 +358,28 @@ execution_id=$(sed -n 's/.*"executionId":"\([^"]*\)".*/\1/p' "$temporary/workflo
 [[ -n "$execution_id" ]]
 revision=1
 
+# Typed synthetic outputs use the production artifact store, without editing
+# canonical Execution records or manufacturing validator results.
+advance_configured() {
+  local gate=$1
+  axiom --json workflow status --project dogfood-project --repository main --number 7 >"$temporary/current-stage.json"
+  "$temporary/dogfoodfixture" result "$state_root" <"$temporary/current-stage.json" >"$temporary/stage-result.json"
+  axiom --json workflow advance --project dogfood-project --repository main --number 7 \
+    --expected-revision "$revision" --gate "$gate" --outcome pass \
+    --stage-result "$temporary/stage-result.json" >"$temporary/workflow-$gate.json"
+  assert_canonical "$temporary/workflow-$gate.json" success "Execution workflow operation completed"
+}
+
 for gate in intake specification clarification; do
   printf '%s\n' "$gate" >"$repository/$gate.md"
   reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
-  axiom --json workflow advance --project dogfood-project --repository main --number 7 \
-    --expected-revision "$revision" --gate "$gate" --outcome pass \
-    --reference "evidence:$gate.md:$reference_digest" >"$temporary/workflow-$gate.json"
-  assert_canonical "$temporary/workflow-$gate.json" success "Execution workflow operation completed"
+  advance_configured "$gate"
   revision=$((revision + 1))
 done
 
 specification_digest=$(shasum -a 256 "$repository/specification.md" | awk '{print $1}')
 axiom --json workflow fact --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --fact planning-authority --active \
+  --expected-revision "$revision" --fact planning-authority --active --actor maintainer \
   --reference "specification:specification.md:$specification_digest" --authorize-local \
   >"$temporary/workflow-planning-authority.json"
 assert_canonical "$temporary/workflow-planning-authority.json" success "Execution workflow operation completed"
@@ -368,16 +388,13 @@ revision=$((revision + 1))
 for gate in plan tasks; do
   printf '%s\n' "$gate" >"$repository/$gate.md"
   reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
-  axiom --json workflow advance --project dogfood-project --repository main --number 7 \
-    --expected-revision "$revision" --gate "$gate" --outcome pass \
-    --reference "evidence:$gate.md:$reference_digest" >"$temporary/workflow-$gate.json"
-  assert_canonical "$temporary/workflow-$gate.json" success "Execution workflow operation completed"
+  advance_configured "$gate"
   revision=$((revision + 1))
 done
 
 plan_digest=$(shasum -a 256 "$repository/plan.md" | awk '{print $1}')
 axiom --json workflow fact --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --fact implementation-authority --active \
+  --expected-revision "$revision" --fact implementation-authority --active --actor maintainer \
   --reference "plan:plan.md:$plan_digest" --authorize-local \
   >"$temporary/workflow-implementation-authority.json"
 assert_canonical "$temporary/workflow-implementation-authority.json" success "Execution workflow operation completed"
@@ -420,15 +437,11 @@ revision=$((revision + 1))
 
 printf '%s\n' implementation >"$repository/implementation.md"
 implementation_digest=$(shasum -a 256 "$repository/implementation.md" | awk '{print $1}')
-axiom --json workflow advance --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --gate implementation --outcome pass \
-  --reference "evidence:implementation.md:$implementation_digest" \
-  >"$temporary/workflow-implementation.json"
-assert_canonical "$temporary/workflow-implementation.json" success "Execution workflow operation completed"
+advance_configured implementation
 revision=$((revision + 1))
 
 axiom --json workflow fact --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --fact review-started --active \
+  --expected-revision "$revision" --fact review-started --active --actor maintainer \
   --reference "evidence:implementation.md:$implementation_digest" --authorize-local \
   >"$temporary/workflow-review-started.json"
 assert_canonical "$temporary/workflow-review-started.json" success "Execution workflow operation completed"
@@ -437,27 +450,33 @@ revision=$((revision + 1))
 for gate in review evidence reconciliation completion; do
   printf '%s\n' "$gate" >"$repository/$gate.md"
   reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
-  axiom --json workflow advance --project dogfood-project --repository main --number 7 \
-    --expected-revision "$revision" --gate "$gate" --outcome pass \
-    --reference "evidence:$gate.md:$reference_digest" >"$temporary/workflow-$gate.json"
-  assert_canonical "$temporary/workflow-$gate.json" success "Execution workflow operation completed"
+  advance_configured "$gate"
   revision=$((revision + 1))
 done
 
 evidence_digest=$(shasum -a 256 "$repository/evidence.md" | awk '{print $1}')
-axiom --json workflow fact --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --fact human-acceptance --active \
+if axiom --json workflow fact --project dogfood-project --repository main --number 7 \
+  --expected-revision "$revision" --fact human-acceptance --active --actor maintainer \
   --reference "evidence:evidence.md:$evidence_digest" --authorize-local \
-  >"$temporary/workflow-human-acceptance.json"
-assert_canonical "$temporary/workflow-human-acceptance.json" success "Execution workflow operation completed"
-revision=$((revision + 1))
+  >"$temporary/workflow-human-acceptance.json"; then
+  exit 1
+fi
+assert_canonical "$temporary/workflow-human-acceptance.json" denied_authority "Execution authority is stale or incomplete"
+python3 - "$temporary/workflow-human-acceptance.json" "$revision" <<'PYJSON'
+import json, sys
+w = json.load(open(sys.argv[1]))["workflow"]
+assert w["revision"] == int(sys.argv[2])
+assert w["lifecycleStage"] == "reviewed"
+assert w["blockers"] == ["delivery_packet_required"]
+assert not w.get("gateAction") and not w.get("gateCommand")
+PYJSON
 
 axiom --json workflow evidence --project dogfood-project --repository main --number 7 \
   >"$temporary/workflow-evidence.json"
 assert_canonical "$temporary/workflow-evidence.json" success "Execution workflow operation completed"
 grep -q '"currentGate":"completion"' "$temporary/workflow-evidence.json"
 grep -q '"status":"completed"' "$temporary/workflow-evidence.json"
-grep -q '"lifecycleStage":"accepted"' "$temporary/workflow-evidence.json"
+grep -q '"lifecycleStage":"reviewed"' "$temporary/workflow-evidence.json"
 
 binary_sha=$(shasum -a 256 "$resolved_binary" | awk '{print $1}')
 workflow_record=$(find "$state_root/executions/v1" -name '*.json' -type f -print)

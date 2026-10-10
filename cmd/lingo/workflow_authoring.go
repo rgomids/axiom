@@ -98,6 +98,23 @@ func (a workflowAuthoringAdapter) ObserveWorkflows(ctx context.Context, selector
 		// Legacy v1 executions have no configurable binding. Future formats or
 		// unknown recovery/reference records deny retirement rather than guessing.
 	}
+	if observation.ReferencesChecked {
+		store, err := local.NewWorkflowStore(s.stateRoot)
+		if err != nil {
+			observation.ReferencesChecked = false
+		} else {
+			states, err := store.List(ctx, state.ProjectID)
+			if err != nil {
+				observation.ReferencesChecked = false
+			} else {
+				for _, execution := range states {
+					if execution.Binding != nil {
+						observation.Referenced = append(observation.Referenced, execution.Binding.Definition)
+					}
+				}
+			}
+		}
+	}
 	return observation, ""
 }
 func fmtDigest(d [32]byte) string {

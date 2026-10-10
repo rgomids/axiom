@@ -267,12 +267,12 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 						if !hexDigestName.MatchString(file) {
 							return InventoryUnknown, 0
 						}
-						return "", MaxRecordBytes
-					}, func(_ string, wire []byte) InventoryKind {
-						if _, err := decodeExecution(wire); err == nil {
+						return "", MaxExecutionBytes
+					}, func(file string, wire []byte) InventoryKind {
+						if state, err := decodeExecution(wire); err == nil && state.ProjectID == id && executionName(state.RepositoryKey, state.WorkItem) == file {
 							return InventoryExecution
 						}
-						return versionedFailure(wire)
+						return versionedFailureWithin(wire, 2)
 					})
 				})
 			})

@@ -11,7 +11,7 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, and executable command
 metadata; do not maintain a second argument registry in this skill.
 
-Supported domain operations are `create`, `run`, `status`, `list`, `show`, `update`, `comment`, `close`, and `reopen`.
+Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, and `reopen`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted; sequential Executions have no
@@ -28,6 +28,7 @@ cancellation contract, and Execution history and Evidence are never edited.
 | `run` | reconcile | `axiom workflow reconcile` | external mutation | preview first; publish only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous run intent |
 | `status` | - | `axiom workflow status`, `axiom workflow evidence` | read-only | none | allowed |
 | `status` | list | `axiom workflow list --project <uuid-or-slug>` | read-only | none | allowed |
+| `plan` | - | `axiom workflow stage plan` | read-only | none; the proposal never dispatches, grants effects or satisfies human gates | allowed |
 | `list` | - | `axiom work-item list --project <uuid-or-slug>` | read-only | none | allowed |
 | `show` | - | `axiom work-item show --project <uuid-or-slug>` | read-only | none | allowed |
 | `update` | - | `axiom work-item update --project <uuid-or-slug>` | external mutation | preview first; update only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous update intent |
@@ -142,10 +143,35 @@ After the reviewed start, follow Lingo's `workflow.gateAction` and
 `workflow.gateCommand` argument array using the exact returned selectors and
 revision. Do not ask the user to name an internal gate or say a magic phrase.
 
+New configured Executions require an explicitly selected Project workflow; report
+`workflow_selection_required` through the Project workflow surface without
+silently selecting a default. Preserve `workflow.binding`, including definition
+revision/digest, and inspect `stageContract`, `stageInputs`, `stageLedger` and
+`blockers`. Resume always uses the retained snapshot; never substitute a newer
+Project selection or repair a corrupt binding. Follow the returned ordered stage
+IDs rather than imposing the legacy gate list.
+
+Configured advance requires `--stage-result <json-file>` with exact declared input
+and output references from authorized work. Preserve prior output/context digests
+from `stageInputs`; the canonical Work Item needs no caller-supplied input.
+Registered validators run in Lingo. Never invent an artifact, validator result,
+human actor or authority. For a required human review, record `stage-review` only
+after explicit authority for the exact result file and validated reference,
+including `--actor <human-identity>`, `--active true` and `--authorize-local`.
+Other configured human facts also require the actor. A technical pass cannot
+replace a human fact or final acceptance.
+
+Configured technical completion stops at `reviewed` with
+`delivery_packet_required`. Exact packet-bound acceptance belongs to the delivery
+operation (#277), which is not available in this slice. Never submit configured
+`human-acceptance` with an Evidence file or stage output as a substitute packet.
+Legacy format-1 acceptance retains its historical protocol.
+
 - An action with `automatic: true` runs `workflow advance --automatic` during
   the authorized run without another conversational confirmation. Intake is
-  currently the only gate Lingo can evaluate automatically. Do not combine
-  automatic mode with gate, outcome, reference or next inputs.
+  the only legacy gate Lingo can evaluate automatically; configured stages require
+  their complete result contract. Do not combine automatic mode with gate,
+  outcome, reference, stage-result or next inputs.
 - Other advance actions require actual authorized work and its observed `pass`
   or `fail` result with applicable validated Evidence. Fill command placeholders
   from observations; a file digest alone does not prove correctness.
@@ -178,9 +204,32 @@ This operation is read-only. Never infer selectors from CWD, Git, Provider,
 Runtime chat, or global discovery, and never classify workflow state
 independently.
 
+For configured Executions report the retained definition/revision/digest,
+Project/Repository/Work Item identity, current stage, criteria, ledger, human facts,
+blockers and returned next action. Do not expose retained context bodies or infer
+acceptance from Provider projection.
+
 To discover Executions without an opaque identity, run
 `axiom workflow list --project <uuid-or-slug>` (optionally
 `--repository <key>`) and report the returned `executions`.
+
+## plan
+
+Collect only missing Project, Project-scoped Repository, exact Work Item,
+Execution, expected revision, stage ID and approved Plan file inputs, then run
+`axiom workflow stage plan` with the persisted selectors returned by Lingo.
+Never invent the stage, Plan file, scope, effects or authority ceiling: they
+come from the user or the approved Plan. Lingo reads the Execution's retained
+workflow revision, never the current Project selection.
+
+This operation is read-only. Report `plan.executionKind`, `resolutions`,
+`compilation`, `blockers`, `gateRefs` and the `plan.digest` exactly as
+returned. A proposal is not authority: it never dispatches agents, records a
+human fact or grants effects, and a changed Execution, Plan, Project policy or
+Runtime observation requires a fresh plan. A refusal such as
+`runtime_unresolvable`, `unsupported_effort`, `authority_denied` or
+`stage_prerequisite_missing` stops the operation; never retry with a weaker
+constraint, another Runtime or Profile, or a widened authority ceiling.
 
 ## list and show
 
