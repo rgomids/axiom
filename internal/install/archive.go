@@ -32,7 +32,7 @@ var (
 	// skillNames is the closed current archive inventory. Earlier five-, six-,
 	// and eight-skill sets remain ownership history, never active entrypoints.
 	// Their manifests are reconstructed from present historical skills only.
-	skillNames = []string{"axiom-project", "axiom-work-item"}
+	skillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
 )
 
 // Candidate is a verified release bundle held in memory. Nothing from the

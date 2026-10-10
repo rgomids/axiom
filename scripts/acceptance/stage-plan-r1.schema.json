@@ -1,0 +1,634 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://axiom.dev/schemas/stage-plan-r1.schema.json",
+  "title": "Work Item-owned #275 Lane S synthetic R-1 Evidence",
+  "type": "object",
+  "properties": {
+    "axiomVersion": {
+      "type": "string",
+      "pattern": "(unreleased|[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?)"
+    },
+    "versionProof": {
+      "enum": [
+        "tag",
+        "release-binary",
+        "none"
+      ]
+    },
+    "targetRevision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "[0-9a-f]{40}"
+    },
+    "observedRevision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "[0-9a-f]{40}"
+    },
+    "sourceClean": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "goVersion": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "go version go[0-9]+\\.[0-9]+(?:\\.[0-9]+)? [a-z0-9]+/[a-z0-9]+"
+    },
+    "runtimeObservation": {
+      "const": "controlled"
+    },
+    "skillSet": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "[0-9]+"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "enum": [
+                  "axiom-project",
+                  "axiom-work-item",
+                  "axiom-workflow"
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "[0-9a-f]{64}"
+              }
+            },
+            "required": [
+              "name",
+              "sha256"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "version",
+        "skills"
+      ],
+      "additionalProperties": false
+    },
+    "sandboxId": {
+      "type": "string",
+      "pattern": "r1-[0-9a-f]{32}"
+    },
+    "lane": {
+      "const": "S"
+    },
+    "class": {
+      "const": "synthetic"
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "const": "git"
+        },
+        "revisionVerified": {
+          "type": "boolean"
+        },
+        "versionVerified": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "source",
+        "revisionVerified",
+        "versionVerified"
+      ],
+      "additionalProperties": false
+    },
+    "scenarios": {
+      "type": "object",
+      "properties": {
+        "A": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/scenario"
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "canonicalDigests": {
+                    "required": [
+                      "workflowRefDigest",
+                      "planDigest",
+                      "planDocumentDigest",
+                      "stageInputRefDigest"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "B": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/scenario"
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "canonicalDigests": {
+                    "required": [
+                      "workflowRefDigest",
+                      "previewDigests"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "C": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/scenario"
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "canonicalDigests": {
+                    "required": [
+                      "workflowRefDigest",
+                      "planDigest",
+                      "planDocumentDigest",
+                      "stageInputRefDigest"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "D": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/scenario"
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "canonicalDigests": {
+                    "required": [
+                      "workflowRefDigest",
+                      "planDigest",
+                      "planDocumentDigest",
+                      "stageInputRefDigest",
+                      "graphProposalRefDigest"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "E": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/scenario"
+            },
+            {
+              "if": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                },
+                "required": [
+                  "result"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "canonicalDigests": {
+                    "required": [
+                      "workflowRefDigest",
+                      "planDigest",
+                      "planDocumentDigest",
+                      "stageInputRefDigest",
+                      "repeatedPlanDigests",
+                      "driftedPlanDigest"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "F": {
+          "$ref": "#/$defs/scenario"
+        },
+        "G": {
+          "$ref": "#/$defs/scenario"
+        },
+        "H": {
+          "$ref": "#/$defs/scenario"
+        }
+      },
+      "required": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ],
+      "additionalProperties": false
+    },
+    "r1": {
+      "enum": [
+        "passed",
+        "failed",
+        "blocked"
+      ]
+    },
+    "r2": {
+      "const": "deferred_to_278"
+    },
+    "r3": {
+      "const": "deferred_to_278"
+    },
+    "limitations": {
+      "const": [
+        "G-1",
+        "G-2",
+        "G-3",
+        "G-4",
+        "G-5"
+      ]
+    },
+    "handoff": {
+      "const": "https://github.com/rgomids/axiom/issues/278#AXM-12"
+    }
+  },
+  "required": [
+    "axiomVersion",
+    "versionProof",
+    "targetRevision",
+    "observedRevision",
+    "sourceClean",
+    "goVersion",
+    "runtimeObservation",
+    "skillSet",
+    "sandboxId",
+    "lane",
+    "class",
+    "provenance",
+    "scenarios",
+    "r1",
+    "r2",
+    "r3",
+    "limitations",
+    "handoff"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "enum": [
+            "passed",
+            "failed",
+            "blocked"
+          ]
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph",
+              "TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates",
+              "TestExecutableWorkflowDefaultCustomEditSelectAndRetire",
+              "TestReadPlanDocumentRefusesNonRegularFiles",
+              "TestCompileRejectsInvalidTopologyControlsAndReferences",
+              "TestCompileSequentialConcurrencyAndUnsafeOverlap",
+              "TestPlanStageFailsClosedWithSpecificationCategories",
+              "TestUnsupportedDomainOperationsFailSafely"
+            ]
+          },
+          "minItems": 0
+        },
+        "refusalCategories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "revision_mismatch",
+              "dirty_source",
+              "target_unverifiable",
+              "toolchain_missing",
+              "version_unverifiable",
+              "version_mismatch",
+              "canonical_digest_missing",
+              "determinism_mismatch",
+              "test_missing",
+              "test_failed",
+              "timeout",
+              "output_bound",
+              "build_failed",
+              "skill_set_unverifiable",
+              "runtime_unresolvable",
+              "stale_execution_revision",
+              "stage_prerequisite_missing",
+              "stage_not_found",
+              "execution_selector_conflict",
+              "invalid_stage_plan",
+              "authority_denied",
+              "unsupported_effort",
+              "invalid_stage_topology",
+              "stale_authority",
+              "invalid_definition",
+              "prior_revision_required",
+              "workflow_exists",
+              "revision_in_use",
+              "workflow_not_found",
+              "reference_inventory_unknown"
+            ]
+          },
+          "minItems": 0
+        },
+        "canonicalDigests": {
+          "type": "object",
+          "properties": {
+            "workflowRefDigest": {
+              "type": "string",
+              "pattern": "[0-9a-f]{64}"
+            },
+            "planDigest": {
+              "type": "string",
+              "pattern": "[0-9a-f]{64}"
+            },
+            "planDocumentDigest": {
+              "type": "string",
+              "pattern": "[0-9a-f]{64}"
+            },
+            "stageInputRefDigest": {
+              "type": "string",
+              "pattern": "[0-9a-f]{64}"
+            },
+            "graphProposalRefDigest": {
+              "type": "string",
+              "pattern": "[0-9a-f]{64}"
+            },
+            "driftedPlanDigest": {
+              "type": "string",
+              "pattern": "[0-9a-f]{64}"
+            },
+            "previewDigests": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "[0-9a-f]{64}"
+              },
+              "minItems": 1
+            },
+            "repeatedPlanDigests": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "[0-9a-f]{64}"
+              },
+              "minItems": 2
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "result",
+        "tests",
+        "refusalCategories",
+        "canonicalDigests"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "r1": {
+            "const": "passed"
+          }
+        },
+        "required": [
+          "r1"
+        ]
+      },
+      "then": {
+        "properties": {
+          "sourceClean": {
+            "const": true
+          },
+          "targetRevision": {
+            "type": "string"
+          },
+          "observedRevision": {
+            "type": "string"
+          },
+          "goVersion": {
+            "type": "string"
+          },
+          "provenance": {
+            "properties": {
+              "revisionVerified": {
+                "const": true
+              }
+            }
+          },
+          "skillSet": {
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "skills": {
+                "minItems": 3
+              }
+            }
+          },
+          "scenarios": {
+            "properties": {
+              "A": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                }
+              },
+              "B": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                }
+              },
+              "C": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                }
+              },
+              "D": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                }
+              },
+              "E": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                }
+              },
+              "F": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                }
+              },
+              "G": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                }
+              },
+              "H": {
+                "properties": {
+                  "result": {
+                    "const": "passed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "versionProof": {
+            "const": "none"
+          }
+        },
+        "required": [
+          "versionProof"
+        ]
+      },
+      "then": {
+        "properties": {
+          "axiomVersion": {
+            "const": "unreleased"
+          },
+          "provenance": {
+            "properties": {
+              "versionVerified": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "versionProof": {
+            "enum": [
+              "tag",
+              "release-binary"
+            ]
+          }
+        },
+        "required": [
+          "versionProof"
+        ]
+      },
+      "then": {
+        "properties": {
+          "axiomVersion": {
+            "pattern": "[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?"
+          },
+          "provenance": {
+            "properties": {
+              "versionVerified": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

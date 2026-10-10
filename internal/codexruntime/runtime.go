@@ -18,7 +18,7 @@ var embeddedSkills embed.FS
 // skillFiles is the skill set this binary publishes.
 var skillFiles fs.FS = embeddedSkills
 
-var skillNames = []string{"axiom-project", "axiom-work-item"}
+var skillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
 
 // retiredSkillNames are ownership candidates only, never distributed entrypoints.
 var retiredSkillNames = []string{

@@ -45,7 +45,7 @@ func assertOnlyCanonical(t *testing.T, service Service, root string) {
 		}
 	}
 	status := service.Inspect(context.Background())
-	if status.Status != Ready || len(status.Skills) != 2 {
+	if status.Status != Ready || len(status.Skills) != len(skillNames) {
 		t.Fatalf("status=%+v", status)
 	}
 	installOrFail(t, service, Unchanged)

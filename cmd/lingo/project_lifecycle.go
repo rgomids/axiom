@@ -68,7 +68,7 @@ func (s lifecycleService) ProjectListFiltered(ctx context.Context, input cli.Pro
 }
 
 func (s lifecycleService) listProjects(ctx context.Context, options projectapp.ProjectListOptions) cli.Result {
-	result := s.projectCatalog.ListProjects(ctx, options)
+	result := s.projectCatalog.WithInspectionDefinitions(activeWorkflowReader{s}).WithActiveWorkflows(activeWorkflowReader{s}).ListProjects(ctx, options)
 	switch result.Status {
 	case projectapp.ProjectListSucceeded:
 		message := "Configured Projects listed"
@@ -78,7 +78,7 @@ func (s lifecycleService) listProjects(ctx context.Context, options projectapp.P
 		response := canonicalCompletion(completion.Facts{Completed: true}, message, nil, "", s.provenance)
 		response.Projects = make([]cli.ProjectListView, 0, len(result.Projects))
 		for _, configured := range result.Projects {
-			response.Projects = append(response.Projects, cli.ProjectListView{ID: configured.ID, Slug: configured.Slug, Name: configured.Name, Status: string(configured.Status)})
+			response.Projects = append(response.Projects, cli.ProjectListView{ID: configured.ID, Slug: configured.Slug, Name: configured.Name, Status: string(configured.Status), ActiveWorkflow: configured.ActiveWorkflow})
 		}
 		return response
 	case projectapp.ProjectListCancelled:
@@ -120,6 +120,8 @@ func (s lifecycleService) showProject(ctx context.Context, selector string) cli.
 		}
 	}
 	view.State = projectStateView(state)
+	active := (activeWorkflowReader{s}).ReadActiveWorkflow(ctx, selected.Project.ID)
+	view.ActiveWorkflow = &active
 	next := ""
 	switch {
 	case state.Status == projectapp.ProjectInvalid || state.Status == projectapp.ProjectRecoveryRequired:

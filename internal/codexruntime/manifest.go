@@ -209,6 +209,12 @@ var sharedSkillHistory = []skillSetRevision{
 		"axiom-project":   "d80cd1d1bca8e88ceb2c61b8ff92d4c050b83835a78ba96e92346c9f2f15b06c",
 		"axiom-work-item": "8f3a24324d83ad60a5e786fc8b2f8ca0695b0f420d3af123f38e04817756d0e5",
 	}},
+	// Published v0.15.0 two-skill set, replaced by the dedicated Workflow
+	// conversational surface (#303). Official asset bytes pinned in testdata.
+	{skillSetVersion: "2", binaryCompatibility: "2", skills: map[string]string{
+		"axiom-project":   "d80cd1d1bca8e88ceb2c61b8ff92d4c050b83835a78ba96e92346c9f2f15b06c",
+		"axiom-work-item": "e47c9256b40975bbcb96015cb681d3d27a6cfed0d1820c51ff98deee8a30cc9f",
+	}},
 }
 
 // currentRevision is the skill set embedded in this binary.

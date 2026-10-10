@@ -231,38 +231,6 @@ Runtime observation requires a fresh plan. A refusal such as
 `stage_prerequisite_missing` stops the operation; never retry with a weaker
 constraint, another Runtime or Profile, or a widened authority ceiling.
 
-## acceptance (stage-plan, R-1)
-
-For #275 stage-plan acceptance, first read the exact Execution status and its
-retained `workflowRef`. Prepare the Plan document from the user's intent in
-Runtime scratch as a regular file, outside Project, Repository and Axiom state
-roots. Ask only for material unknowns. A provisional `approved: true` is needed
-for canonical planning, but a Runtime-written value is never human approval.
-Include `planRevision` and `planDigest` as opaque references without authority.
-`planDigest` is the SHA-256 of exact bytes of the reviewed Plan/Tasks artifact
-the user names, or a bounded scope artifact prepared in scratch and shown to
-the user. Drafts are working files, not Evidence.
-
-Run the read-only `plan` operation with the exact Execution revision, stage and
-Plan file. Present the canonical proposal, blockers, scope, effects and bindings.
-Obtain an explicit human confirmation bound to `planDocumentDigest`, Execution
-ID and expected revision, `stageId`, `workflowRef` and `plan.digest`. The document
-digest comes from Lingo canonical encoding; never define a Runtime digest or
-claim byte identity that Lingo does not enforce. Record who confirmed which
-digest only in conversation and the Evidence report (G-5), with no Axiom fact;
-never infer it from the provisional value or a passing technical result. Any
-change to these inputs or policy/Runtime observations requires a fresh proposal
-and confirmation. Never create a new CLI approval operation or record a human
-fact merely because planning succeeded.
-
-Synthetic R-1 acceptance uses the deterministic maintainer runner
-`scripts/acceptance/stage-plan-r1.py` against the exact clean source revision;
-its sanitized Evidence is technical evidence, not human acceptance. R-2/R-3
-remain deferred to #278. Dispatch (#276) and delivery/rework (#277) are
-unavailable; a proposal never performs Execution work. Definition configuration
-belongs to `axiom-workflow`, selection belongs to `axiom-project`, and Work Item
-`run`/`status`/`plan` retain the canonical execution boundary.
-
 ## list and show
 
 Run `axiom work-item list --project <uuid-or-slug>` (optionally

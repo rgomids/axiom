@@ -1,7 +1,8 @@
-# Issue #303 — T01/T02 implementation Evidence
+# Issue #303 — implementation Evidence
 
 Scope: GitHub [#303](https://github.com/rgomids/axiom/issues/303) / AXM-7.
-T01 and T02 only; #303 is not complete. No technical/product acceptance inferred.
+Full accepted implementation scope T01–T13, including T08a.
+Final convergence is recorded in the validation appendix of [Draft PR #308](https://github.com/rgomids/axiom/pull/308). No human/product acceptance is inferred.
 
 ## T01 — approved baseline gate: PASS
 
@@ -95,24 +96,81 @@ use controlled services; no real auth probe, credential access, paid inference
 or product Provider effect. Repository publication is limited to the authorized
 implementation branch and Draft PR.
 
-## Limits and next action
+## Full implementation execution
 
-- Delegation not used: coupled catalog/table changes are cheaper to integrate
-  sequentially; deterministic checks suffice for the bounded review.
-- Minimal new SKILL file only. Existing Project definition prose deliberately
-  untouched under T02's tables/operations-sentence scope; T03 must reconcile it
-  and add the full instructional content before product use.
-- Installer inventories and global skill-name help remain at the preceding
-  two-skill set until T04; upgrade/history/receipt proof belongs to T05–T07.
-  This Draft PR proves catalog/inspect routing, not installed discovery.
-- T03–T13, including T08a `activeWorkflow`, NOT_RUN/not implemented here.
-  Full #303 R-1 acceptance runner not delivered; no overall R-1 completion claim.
-  R-2/R-3: `deferred_to_278`. G-1/#305, G-2/#306, G-4 consent and
-  `--file` hardening #307 remain with their owners.
-- Next recommended task: T03, after Code Review of this bounded T02 commit
-  and separate implementation authority. Request review of ownership,
-  metadata compatibility, readiness argument parity and scope boundaries.
-- Stop here: no merge, release, Issue closure, Linear transition or AXM-8 unblock.
+The earlier T01/T02 checks above remain historical Evidence. The full execution
+preserves those contracts and delivers the following additional scope.
 
-Resume from the Draft PR branch/HEAD, recheck main and review state, read this
-record and the accepted Plan/T03. Do not treat this partial delivery as T13.
+| Task | Implementation and deterministic Evidence |
+|---|---|
+| T03 | Three complete embedded skills; `workflow_skill_content_test.go` checks schema coverage, ownership, authority and limitations |
+| T04 | Runtime/archive/installer/help inventories contain three skills; runtime/bootstrap, POSIX facade and release archive tests |
+| T05 | Shared immutable v0.15.0 history and official receipts; [provenance](../../../internal/codexruntime/testdata/published-receipts/v0.15.0/PROVENANCE.md); final embedded digests pinned |
+| T06 | Both Runtime official-receipt convergence, reinstall, foreign conflict, historical rollback tests; release upgrade journeys |
+| T07 | Installed skill bytes, inspect, help and catalog parity; removed routes fail closed with no alias or forwarding |
+| T08 | Additive preservation tests; canonical Project selection and Work Item run/status/plan metadata retained |
+| T08a | Exact selected/none/unresolvable read model in Project show/list, JSON/human and mixed list tests; state snapshots prove no writes |
+| T09 | Runtime scratch draft journey; validation, separate creation/selection previews and approval, draft drift and refusal snapshots |
+| T10 | Offline bounded [R-1 runner](../../../scripts/acceptance/stage-plan-r1.py), closed JSON schema, unit tests and actual canonical test markers |
+| T11 | Existing Runtime/Profile/policy/effort/credential failure coverage; additive multiple named Profile test; bounded contract/security review |
+| T12 | CLI/install/README/site/index reconciliation, R10 exception and #278 handoff below |
+| T13 | Exact clean revision runner, complete checks, independent review and remote head CI recorded in PR validation appendix |
+
+AC-015 rows 1–10 map respectively to: accepted unchanged blobs/index; three-skill
+installation/history/journeys; routing/preservation/R10; content/draft/binding;
+R-1 A–H report; deferred native handoff; final convergence; protected compatibility;
+Profile security; independent review. A row passes only with its actual final
+validation record. Until all required checks and review pass, T13 is blocked and
+`Completes-Issues: none` applies.
+
+### Regression analysis
+
+The reviewed CI run [38091372395](https://github.com/rgomids/axiom/actions/runs/38091372395)
+failed because the partial delivery had not converged embedded skill inventory,
+shared published history and installation expectations. Full implementation adds
+the third skill throughout the installation paths and the verified v0.15.0 set;
+no required check is removed or weakened. The older parser must refuse the new
+archive with zero effects; the new installer performs supported convergence.
+
+Full local tests also exposed an obsolete two-skill black-box count, updated to
+three. An inherited host authentication variable caused a synthetic test to
+observe an additional override: validation uses an isolated environment with API
+key variables removed, without reading or printing their values. An ignored
+preexisting Claude agent worktree causes repository structure validation in the
+primary checkout to reject its nested adapter; final validators use a clean
+implementation checkout, preserving that preexisting worktree.
+
+### Reproduction and final records
+
+Run `go test ./...`, `go build ./...`, `go vet ./...`, `go mod verify`,
+`scripts/check-go-quality.sh all`, and `scripts/validate-repository.sh .` from a
+clean checkout of the final PR SHA. Run the runner unit tests with
+`python3 -m unittest discover -s scripts/acceptance -p 'test_stage_plan_r1.py'`.
+Run R-1 with `python3 scripts/acceptance/stage-plan-r1.py --source "$PWD"
+--target-revision <full-final-SHA> --output <outside-source-report.json>`.
+The report is bound to actual test results and the exact clean source revision;
+no declared release version is inferred from synthetic artifact builds.
+
+The PR appendix retains the actual R-1 report, final SHA, command exit results,
+independent review verdict and final CI run IDs. Temporary host log paths are not
+portable acceptance Evidence. Published receipt provenance and test fixtures are
+committed; final-run provenance belongs to that exact revision's appendix.
+
+### Explicit limitations and #278 handoff
+
+R-1: use the actual final report result. R-2 and R-3: `deferred_to_278`.
+No real vendor session, inference, Provider dispatch or human E2E is claimed.
+The additive read model never selects, repairs, defaults or falls back; an
+unreadable portable manifest cannot supply an observable reference and reports
+unresolvable without guessing. Missing Project directories retain the original
+show failure category.
+
+The #278 handoff must supply: exact implementation revision and R-1 report;
+Runtime/version and named Profile identity; Project policy intersection;
+separate technical and product acceptance; G-2 availability/resolution proof;
+G-4 explicit consent for each native effect; native A–H/Report H Evidence and
+R-2/R-3 verdicts without inferring real availability from synthetic tests.
+#305/#306 retain their configuration owners. The accepted #307 regular-file
+`--file` limitation remains documented and unfixed. No Lane L artifact, fixed
+model tier, credential mutation, successor implementation, merge, release,
+Issue closure, Linear transition or AXM-8 unblock is included.

@@ -448,3 +448,34 @@ func TestSkillReadinessArgumentsMatchHelpAndParser(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkflowSkillDiscoveryHasNoForeignOperationsOrAliases(t *testing.T) {
+	project := discoverForTest(t, "axiom-project")
+	for _, old := range []string{"list", "show", "create", "edit", "validate", "remove", "recover"} {
+		removed := "workflow." + old
+		for _, operation := range project.Operations {
+			if operation.Name == removed {
+				t.Fatalf("removed Project operation %s still active", removed)
+			}
+		}
+		for _, command := range project.Commands {
+			if command.Command == "axiom project workflow "+old {
+				t.Fatalf("removed Project alias %s", command.Command)
+			}
+		}
+		if strings.Contains(skillSource(t, "axiom-project"), removed) {
+			t.Fatalf("removed prose route %s", removed)
+		}
+	}
+	workflow := discoverForTest(t, "axiom-workflow")
+	for _, operation := range workflow.Operations {
+		if !strings.HasPrefix(operation.Name, "definition.") && operation.Name != "configuration.readiness" {
+			t.Fatalf("foreign Workflow operation %s", operation.Name)
+		}
+	}
+	for _, command := range workflow.Commands {
+		if strings.HasPrefix(command.Command, "axiom workflow ") || command.Command == "axiom project workflow select" {
+			t.Fatalf("foreign Workflow command %s", command.Command)
+		}
+	}
+}

@@ -261,7 +261,7 @@ axiom first-run
 ```
 
 Axiom detects `codex` and `claude` executables on `PATH` without running them.
-It installs or upgrades two canonical user-global thin skills, independently per Runtime:
+It installs or upgrades three canonical user-global thin skills, independently per Runtime:
 
 | Runtime | Skill root |
 |---|---|
@@ -278,7 +278,7 @@ axiom runtime codex status
 axiom runtime claude status
 ```
 
-The current product skill set is exactly `axiom-project` and `axiom-work-item`.
+The current product skill set is exactly `axiom-project`, `axiom-work-item` and `axiom-workflow`.
 Historical releases through v0.10.0 carried six or eight skills. Upgrade removes
 obsolete entries only after verifying Axiom ownership and known content. Modified,
 foreign, linked or unrecognized entries and receipts are preserved as conflicts;
@@ -286,7 +286,16 @@ no complete skill root or unrelated Runtime configuration is deleted. Interrupte
 cleanup keeps truthful partial state; rerun the diagnosed install/upgrade path.
 Historical ownership metadata remains internal, not an invocation surface.
 
-Use `$axiom-project` in Codex or `/axiom-project` in Claude.
+Project selects with `axiom-project`, Workflow configures with `axiom-workflow`,
+and Work Item runs/plans with `axiom-work-item`. Use `$<skill-name>` in Codex or
+`/<skill-name>` in Claude; both install the same canonical skill bytes.
+
+For a v0.15.0 installation, use the **new release installer** to upgrade to the
+three-skill inventory. The installed v0.15.0 `axiom upgrade --archive <new>` parser
+refuses the three-skill archive before effects. After binary upgrade, rerun
+`axiom first-run` to converge Claude as well as Codex; reinstall is idempotent.
+Foreign or modified skill bytes remain conflicts and are preserved. Downgrade
+is not supported. See the [upgrade reference](commands.md#compatibility-cleanup-recovery-and-upgrade).
 For the complete skill set and receipt/conflict diagnostics, see
 [Runtime reference](commands.md#first-run-and-runtime-integrations).
 

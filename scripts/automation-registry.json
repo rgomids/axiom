@@ -719,6 +719,36 @@
       "removal_condition": null
     },
     {
+      "path": "scripts/acceptance/stage-plan-r1.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Collect exact-clean-revision, offline Lane S synthetic R-1 stage-planning Evidence; R-2 and R-3 remain deferred to #278.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3",
+        "go"
+      ],
+      "scope": [
+        "maintainer"
+      ],
+      "trigger": "Manual only; no CI workflow or required check.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Explicit target revision, optional target version/release binary, source directory and new output path.",
+      "outputs": "Sanitized closed-schema JSON; exit 0 passed, 1 failed, 78 blocked, 2 output/schema refused.",
+      "local_effects": "New output path and isolated temporary roots; Go caches only.",
+      "network_effects": "none; GOPROXY=off, GOSUMDB=off, GOTOOLCHAIN=local.",
+      "authority": "Manual synthetic verification only; no native Runtime/authentication, dispatch, Provider mutation or human acceptance.",
+      "tests": [
+        "scripts/acceptance/test_stage_plan_r1.py"
+      ],
+      "evidence": "docs/specifications/007-configurable-workflows/issue-303-implementation.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
       "path": "scripts/acceptance/test_s9_rc_envelope.py",
       "kind": "script",
       "owner": "maintainer-acceptance",
@@ -794,6 +824,34 @@
           "path": "docs/specifications/004-mvp-v1-baseline/evidence-s9-rc2/prior-candidate-v0.1.2-rc.1.json"
         }
       ],
+      "removal_condition": null
+    },
+    {
+      "path": "scripts/acceptance/test_stage_plan_r1.py",
+      "kind": "script",
+      "owner": "maintainer-acceptance",
+      "purpose": "Offline safety and closed-schema tests for the stage-plan R-1 collector; fixtures never establish acceptance Evidence.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "python3"
+      ],
+      "scope": [
+        "maintainer",
+        "test"
+      ],
+      "trigger": "Manual only; no CI workflow or required check.",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "No arguments; local synthetic fixtures and injected subprocess observations.",
+      "outputs": "unittest results and exit code; no acceptance claim.",
+      "local_effects": "Temporary fixture directories only.",
+      "network_effects": "none",
+      "authority": "Manual synthetic verification only; no native Runtime/authentication, dispatch, Provider mutation or human acceptance.",
+      "tests": [],
+      "evidence": null,
+      "compatibility": [],
       "removal_condition": null
     },
     {

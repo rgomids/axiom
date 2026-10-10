@@ -144,6 +144,7 @@ func TestSkillOutputContractsIsolateCanonicalCompletionAndPreserveOperationPaylo
 		payloads []string
 	}{
 		{"axiom-project", []string{"setup", "edit", "projects", "project", "readiness", "operational", "integrations", "admission", "workflowAuthoring"}},
+		{"axiom-workflow", []string{"workflowAuthoring", "runtimeResolution", "previewDigest", "runtime", "runtimeAuth"}},
 		{"axiom-work-item", []string{"draft", "selection", "workItem", "workflow", "projection", "executionTarget", "runtimeResolution", "previewDigest", "executions", "workItems", "change", "admission"}},
 	}
 	fixture := []byte(`{
@@ -654,7 +655,7 @@ func TestInstallRefusesConflictAndRollsBackCurrentAttempt(t *testing.T) {
 	} else if len(got.Skills) != len(skillNames) || got.Skills[1].State != "foreign" || len(got.Conflicts) != 1 || got.Conflicts[0] != (Conflict{Artifact: "axiom-work-item/SKILL.md", State: "foreign", Digest: digestOf([]byte("unowned"))}) {
 		t.Fatalf("conflict detail = %#v / %#v", got.Skills, got.Conflicts)
 	}
-	for _, name := range []string{"axiom-project"} {
+	for _, name := range []string{"axiom-project", "axiom-workflow"} {
 		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
 			t.Fatalf("partial skill retained: %s: %v", name, err)
 		}
