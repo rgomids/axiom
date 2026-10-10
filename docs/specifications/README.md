@@ -38,13 +38,21 @@ separate from implementation.
 
 [#303 dedicated workflow skill amendment](007-configurable-workflows/amendment-303-workflow-skill.md):
 **Proposed, 2026-10-10**, with [ADR-0022](../decisions/0022-dedicated-workflow-conversational-surface.md).
-Records the maintainer direction for a thin `axiom-workflow` conversational
-surface for workflow definition, stage and agent configuration, with Work
-Item-bound Execution, planning and the conversational #275 acceptance kept
-under `axiom-work-item`, plus Runtime-prepared drafts and the Runtime/Profile
-capability gaps. Until its
-exact revision is accepted, the accepted Specification text and HD-002 remain
-authoritative and no implementation is authorized.
+Records HD-005–HD-008: `axiom-workflow` exclusively configures Project-owned
+workflow definitions, stages and agents; `axiom-project` selects the active
+revision; `axiom-work-item` owns Work Item-bound Execution and planning. #303
+tests the #275 Work Item-owned stage-plan acceptance procedure **technically
+with deterministic/synthetic R-1 Evidence**. Real native Codex/Claude
+operability (**R-2**) and the end-to-end **human MVP acceptance (R-3)** are
+explicitly deferred to [#278 / AXM-12](https://github.com/rgomids/axiom/issues/278).
+HD-007 removes duplicate Project definition-authoring **skill routes** in
+the same delivery without changing canonical CLI commands. HD-006 tracks
+Project-policy editing [#305](https://github.com/rgomids/axiom/issues/305)
+and secure local Runtime/Profile authoring
+[#306](https://github.com/rgomids/axiom/issues/306), reusing Project readiness
+[#231](https://github.com/rgomids/axiom/issues/231).
+Until the exact revision is accepted, the accepted Specification and HD-002
+remain authoritative; implementation remains separately gated.
 
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
