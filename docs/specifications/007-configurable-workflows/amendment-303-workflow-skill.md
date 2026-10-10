@@ -196,20 +196,58 @@ a login state or the Runtime it is running in.
 | G-4 | Provider-free Work Item linkage for sandboxes | A live Execution needs a linked existing Provider Issue (`work-item select`, Provider read, sandbox-local link) | No new contract; use an existing Issue the user names, never create one without external authority |
 | G-5 | Recorded Plan approval fact | Approval is asserted by the Plan document | Existing #276 binds the reviewed `plan.digest` before dispatch |
 
+**Follow-up traceability gate.** G-1 and G-2 are not tracked by any Issue
+at this revision (checked 2026-10-10; closed #140 delivered the existing
+CREATE-time policy, not G-1/G-2). Before this amendment is accepted as
+reconciled, and before #303 delivery is considered complete, one bounded
+GitHub Issue each for G-1 and G-2 must exist, created under the maintainer's
+authority, and be cross-referenced here by number. The G-2 Issue must carry the
+credential-reference security review as its own acceptance criterion. Both
+stay outside #303's skill implementation. Until the references are recorded,
+this gate reads `open` and HD-006 cannot be accepted as reconciled.
+
+| Gap | Follow-up Issue | Status |
+|---|---|---|
+| G-1 | to be created | open |
+| G-2 | to be created | open |
+
 ## Conversational #275 acceptance (`acceptance`, mode `stage-plan`)
 
 One natural-language request in either Runtime starts it. The Runtime assembles
 and runs the procedure, asks only for genuinely missing consent/inputs, and
 reports results in natural language with a bounded Evidence report.
 
-**Safe environment.** Every live step runs the installed `axiom` with fresh
+**Safe environment.** Every Lane L step runs the installed `axiom` with fresh
 temporary `LINGO_STATE_ROOT`, `AXIOM_CODEX_SKILLS_ROOT`, `CLAUDE_CONFIG_DIR`,
 `CODEX_HOME`, `HOME`/`USERPROFILE` and a temporary Git working copy. The
 user's real Axiom state, skills and Repositories are never read for mutation
-or written. No agent is dispatched and no vendor inference runs; the only
-vendor processes are the existing read-only status/auth observations of
-`runtime.readiness` (for example `codex login status`), which the report names.
-No Provider resource is created or mutated and nothing is published.
+or written. No Provider resource is created or mutated and nothing is
+published.
+
+**Inference boundary.** Two kinds of activity are distinct:
+
+- **Lane L and Lane S checks** (CLI, planner and synthetic tests) run no
+  vendor inference and dispatch no stage agent. The only vendor processes
+  they start are the existing read-only status/auth observations of
+  `runtime.readiness` (for example `codex login status`), which the report
+  names.
+- **R-2 native sessions** (below) are interactive Codex or Claude sessions,
+  and the session itself performs vendor inference. Each one is permitted only
+  after the user's prior explicit consent for that Runtime, and is a separate
+  step from the Lane L/Lane S checks. A native session still dispatches no
+  stage agent through Axiom: `workflow stage run`, coordination and any other
+  #276 behavior stay outside #303.
+
+**Credentials and isolation.** A native session authenticates through that
+Runtime's own existing login on the user's machine; the Axiom sandbox isolates
+Axiom state, installed skills and Repositories, not the vendor login. The
+Runtime and the skill never copy, export, print or move credentials, tokens,
+login files or vendor configuration into scratch, Evidence, the sandbox state
+roots or the isolated Runtime homes used for Lane L. Lane L `runtime.readiness`
+observations of an isolated home therefore report it as unauthenticated, which
+is the expected sandbox result, not a failure. Evidence records only Runtime
+name, version and the canonical Axiom results; never credential values,
+environment values or host paths.
 
 **Evidence lanes** (how a result was produced).
 
@@ -275,7 +313,8 @@ above, from a natural-language request (not a typed command). Each covers:
 6. interpretation and a bounded Evidence entry.
 
 The Runtime session itself performs vendor inference, so each scenario needs
-the user's explicit consent before it starts. The scenarios do not dispatch
+the user's prior explicit consent before it starts, and it follows the
+inference boundary and credential rules above. The scenarios do not dispatch
 stage agents (#276) or deliver end to end (#278). Their Evidence records the
 Runtime and version, skill-set digest, the canonical results and digests of
 each step, who confirmed which preview, and a bounded description of the
@@ -345,6 +384,6 @@ which need explicit authorization when they involve vendor inference.
 | ID | Decision | Options | Recommendation | Harder to change later |
 |---|---|---|---|---|
 | HD-005 | Dedicated surface | A keep HD-002; **B thin `axiom-workflow` (ADR-0022)**; C plus new CLI tree; D new workflow domain | B | Skill and operation names become public conversational contracts |
-| HD-006 | Runtime/Profile gaps G-1/G-2 | **a. track G-1 and G-2 as bounded follow-up Issues, not in #303; live C–G stay `blocked` on G-2/G-4**; b. deliver G-2 (and G-1) inside #303 | a — G-2 adds credential-reference authoring that needs its own Spec 002 amendment and security review | With (a), AXM-7 functional acceptance (R-3) of C–G is blocked by G-2 until that follow-up ships |
+| HD-006 | Runtime/Profile gaps G-1/G-2 | **a. track G-1 and G-2 as bounded follow-up Issues, not in #303; live C–G stay `blocked` on G-2/G-4**; b. deliver G-2 (and G-1) inside #303 | a — G-2 adds credential-reference authoring that needs its own Spec 002 amendment and security review; acceptance requires the follow-up traceability gate to be closed | With (a), AXM-7 functional acceptance (R-3) of C–G is blocked by G-2 until that follow-up ships |
 | HD-007 | Compatibility window | **keep routes until a separate removal decision**; remove at the next minor | keep | Removal later requires retirement/upgrade protocol |
 | HD-008 | Synthetic Evidence for #275 conversational acceptance | **accept as intermediate technical Evidence (R-1) only, classified `synthetic`, never R-2, R-3 or vendor proof** (direction recorded on the PR #304 review); require Lane L only | accept as R-1 only | R-3 still needs real scenarios; #278 still owns live two-Runtime proof |
