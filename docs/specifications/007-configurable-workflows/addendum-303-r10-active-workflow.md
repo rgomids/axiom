@@ -6,7 +6,7 @@
 |---|---|
 | Identifier | Spec 007 / amendment #303 / **Addendum R10** |
 | Decision | **R10 ACCEPTED — Option B** (formal, bounded contract exception), recorded by the maintainer on [Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6102574634), 2026-10-10, after review of the [Plan/Tasks](plan-tasks-303-workflow-skill.md) at PR #304 head `e0df3e366b214f3e8e8222fdc79ecee0ce8b346c` |
-| This document | **Proposed, 2026-10-10**. It records the accepted decision; its own text needs re-review and separate maintainer acceptance |
+| This document | **Accepted, 2026-10-10** by [explicit human acceptance](https://github.com/rgomids/axiom/issues/303#issuecomment-6102714056), bound to PR #304 head `a548d44ea0e0f432eca80ebde80c420616771334`, original Addendum blob `14300b70226c807d2648e8e6b30181f23be3cae4`; this is contract approval, not implementation/merge authority |
 | Amends | [Specification 007 amendment #303](amendment-303-workflow-skill.md) acceptance criteria **AC-015.3** and **AC-015.8** only, as a bounded exception |
 | Preserved unchanged | The accepted amendment text and blob `9d1895b6…`, [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md) blob `13a52a62…`, HD-005–HD-008, PD-1 to PD-9 |
 | Origin | Risk R10 in the [Plan/Tasks](plan-tasks-303-workflow-skill.md), raised by the refined [PD-1 decision](https://github.com/rgomids/axiom/issues/303#issuecomment-6101636404) |
