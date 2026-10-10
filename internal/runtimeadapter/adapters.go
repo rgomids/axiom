@@ -96,8 +96,16 @@ func (r InvocationResolver) ResolveInvocation(ctx context.Context, child executi
 	default:
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 	}
-	argv = append(argv, profile.Arguments...)
 	environment := append([]string(nil), profile.Environment...)
+	argv = append(argv, profile.Arguments...)
+	if effort := child.Envelope.Controls.ReasoningEffort; effort != "" {
+		switch profile.RuntimeID {
+		case "codex":
+			argv = append(argv, "--config", "model_reasoning_effort="+effort)
+		case "claude":
+			environment = append(environment, "CLAUDE_CODE_EFFORT_LEVEL="+effort)
+		}
+	}
 	if profile.CredentialReference != "" {
 		if r.credentials == nil {
 			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration

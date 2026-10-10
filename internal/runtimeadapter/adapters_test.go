@@ -55,6 +55,16 @@ func TestConcreteResolversProduceExplicitArgvAndResolveCredentialByReference(t *
 	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{testfs.Path("/opt/bin/claude"), "--print", "--model", "local-claude-model", "--output-format", "json"}) {
 		t.Fatalf("invocation=%+v err=%v", invocation, err)
 	}
+	codex.Envelope.Controls.ReasoningEffort = "high"
+	invocation, err = resolver.ResolveInvocation(context.Background(), codex)
+	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{testfs.Path("/opt/bin/codex"), "exec", "--model", "local-codex-model", "--json", "--config", "model_reasoning_effort=high"}) {
+		t.Fatalf("Codex effort invocation=%+v err=%v", invocation, err)
+	}
+	claude.Envelope.Controls.ReasoningEffort = "high"
+	invocation, err = resolver.ResolveInvocation(context.Background(), claude)
+	if err != nil || !reflect.DeepEqual(invocation.Env, []string{"CLAUDE_CODE_EFFORT_LEVEL=high", "PATH=/opt/bin"}) {
+		t.Fatalf("Claude effort environment=%+v err=%v", invocation, err)
+	}
 }
 
 func adapterChild(runtimeID, profileID string) executiongraph.ChildExecution {

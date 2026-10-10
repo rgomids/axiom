@@ -85,6 +85,21 @@ func TestResolveRejectsAmbiguousChoiceWithoutRanking(t *testing.T) {
 	}
 }
 
+func TestResolveHonorsExplicitModelProfile(t *testing.T) {
+	cfg := testConfiguration()
+	cfg.Runtimes[0].AllowlistedProfileIDs = append(cfg.Runtimes[0].AllowlistedProfileIDs, "codex-alternate")
+	cfg.ModelProfiles = append(cfg.ModelProfiles, ModelProfile{ID: "codex-alternate", RuntimeID: "codex", Model: "alternate-model", Capabilities: []string{"go", "repository-write"}, Complexities: []string{"high"}})
+	observer := &fakeObserver{observations: map[string]Observation{"codex": testObservation("codex", "codex", true), "claude": testObservation("claude", "claude", true)}}
+	result, err := NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}, ModelProfileID: "codex-alternate"})
+	if err != nil || result.Choice == nil || result.Choice.ModelProfileID != "codex-alternate" || result.Choice.Model != "alternate-model" {
+		t.Fatalf("result=%+v err=%v", result, err)
+	}
+	_, err = NewResolver(observer).Resolve(context.Background(), cfg, Request{ConfigurationRevision: 7, Role: "implementation", Complexity: "high", Capabilities: []string{"go"}, ModelProfileID: "missing-profile"})
+	if !errors.Is(err, ErrNoMatch) {
+		t.Fatalf("missing explicit profile err=%v", err)
+	}
+}
+
 func TestConfigurationClosedSchemaAndSecretReferenceSafety(t *testing.T) {
 	cfg := testConfiguration()
 	if err := Validate(cfg); err != nil {

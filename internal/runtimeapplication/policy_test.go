@@ -90,6 +90,20 @@ func TestProjectResolutionBothExplicitRuntimes(t *testing.T) {
 	}
 }
 
+func TestProjectResolutionHonorsExactModelProfile(t *testing.T) {
+	source, _ := setup(t, "codex", "claude")
+	req := request()
+	req.ModelProfileID = "claude-profile"
+	preview, err := New(source).Preview(context.Background(), projectID, req)
+	if err != nil || preview.Choice == nil || preview.Choice.RuntimeID != "claude" || preview.Choice.ModelProfileID != "claude-profile" {
+		t.Fatalf("preview=%+v err=%v", preview, err)
+	}
+	req.ModelProfileID = "not-allowlisted"
+	if _, err := New(source).Preview(context.Background(), projectID, req); !errors.Is(err, ErrBlocked) {
+		t.Fatalf("unavailable exact profile err=%v", err)
+	}
+}
+
 // Keep JSON leak assertions on the real public representation.
 
 func wireString(p Preview) string { wire, _ := json.Marshal(p); return string(wire) }
