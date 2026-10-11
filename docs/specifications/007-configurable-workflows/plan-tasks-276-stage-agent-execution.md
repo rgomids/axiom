@@ -2,7 +2,7 @@
 
 ## Status
 
-**Phase 1 (Plan), revision 4 — Proposed, pending human review.** This
+**Phase 1 (Plan), revision 5 — Proposed, pending human review.** This
 document is the Plan for [#276](https://github.com/rgomids/axiom/issues/276) /
 Linear AXM-8. It does not authorize Tasks, implementation, Runtime dispatch,
 real inference, Provider effects, merge, release or human acceptance. Part II
@@ -17,7 +17,7 @@ contracts it depends on are approved.
 | Contracts proposed by this PR | [Spec 007 amendment #276](amendment-276-stage-dispatch.md) (**Proposed**) and [ADR-0025](../../decisions/0025-public-stage-dispatch-and-capability-proof.md) (**Proposed**). Neither is accepted; each needs its own human decision |
 | Maintainer decisions incorporated | **D-1 resolved** ([PR #311 comment](https://github.com/rgomids/axiom/pull/311#issuecomment-6108112930)): capability proof for stage execution is a #276 deliverable. **#306 contracts consumed as accepted on PR #310** ([acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), commit `823bce3`; not yet merged): vendor-managed authentication (D2), Profile-owned effort and versioned migration (amendment-306 PE-01–PE-06, ADR-0024) |
 | Satisfied predecessors | #274 (binding), #275 (stage compiler, v0.15.0), #303 (skill surface, v0.16.0), #272 (auth preflight), #230 (resource lifecycle), #271 (contracts) — implementation baseline only |
-| Parallel work | [#306](https://github.com/rgomids/axiom/issues/306) / [PR #310](https://github.com/rgomids/axiom/pull/310), head `c4cb5aa` (local Runtime/Profile authoring, Profile-owned effort, `axiom-runtime` skill, Accepted ADR-0023/ADR-0024; cross-cutting migration bundle X01–X07 pending PD-OWN) — boundary in §3.10 and §10 |
+| Parallel work | [#306](https://github.com/rgomids/axiom/issues/306) / [PR #310](https://github.com/rgomids/axiom/pull/310), head `c4cb5aa` (local Runtime/Profile authoring, Profile-owned effort, `axiom-runtime` skill, Accepted ADR-0023/ADR-0024; PD-OWN [decided on PR #310](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213): I306-T01–T16 and I306-X01–X07 all belong to #306 / PR #310; those Tasks are still Proposed and the migration is not implemented) — boundary in §3.10 and §10 |
 | Successors (not in scope) | #277 delivery/rework, #278 / AXM-12 R-2 native and R-3 human MVP acceptance |
 | Code baseline | `main` `5d52327` (v0.16.0); Plan revision 1 at `0f5ba21` |
 | Lifecycle | One branch (`feat/276-stage-agent-execution`) and one Draft PR (#311) for Plan → Tasks → Implementation, each separately approved |
@@ -835,7 +835,7 @@ amendment-306 §3. Categories are #306's unless marked #276.
 
 | # | Source contract | Target / operation | Admissible | Migration required | Evidence required | Refusal state / category | Implementation owner |
 |---|---|---|---|---|---|---|---|
-| 1 | Workflow schema 1 (any effort, **including `runtime-default`**) | New Execution start or new stage compilation under Profile-owned semantics | **No** | Explicit Workflow migration to a schema-2 revision with confirmed per-agent Profile mapping, then explicit Project selection | — | `workflow_migration_required` | #306 X01–X04 (PD-OWN); #276 enforces at its entrypoints |
+| 1 | Workflow schema 1 (any effort, **including `runtime-default`**) | New Execution start or new stage compilation under Profile-owned semantics | **No** | Explicit Workflow migration to a schema-2 revision with confirmed per-agent Profile mapping, then explicit Project selection | — | `workflow_migration_required` | #306 X01–X04; #276 enforces at its entrypoints |
 | 2 | Workflow schema 1, explicit agent effort | Same as row 1 | **No**; the legacy override is never ignored or reinterpreted | As row 1; the removed effort is shown beside the chosen Profile effort | — | `workflow_migration_required` | as row 1 |
 | 3 | Configured Execution format 1/2 (schema-1 binding), already started | `stage run` (new dispatch) | **No** | New Execution identity under a migrated schema-2 Workflow, through its lifecycle owner; no rebind or recompile | — | `legacy_execution_contract` | Contract #306; enforcement #276 |
 | 4 | Same as row 3 | `stage retry` | **No** | As row 3 | — | `legacy_execution_contract` | as row 3 |
@@ -866,14 +866,24 @@ withdrawn in favor of #306's `workflow_migration_required`.
 **Ownership boundary and dependencies.**
 - #306 owns local v2 authoring, Profile-owned effort and the accepted
   versioning contract.
-- Implementation of the cross-cutting X01–X07 bundle (Workflow schema 2,
-  compiler and Stage Plan v2, Execution format 3, graph v2 with per-node
-  `resolvedProfile`, PE-05a, `default-sdd` r2) is **pending maintainer
-  decision PD-OWN in PR #310**. This is gate IG-7. #276 neither assumes that
-  ownership nor implements those formats.
+- The cross-cutting X01–X07 bundle belongs to **#306 / PR #310**. It covers
+  Workflow schema 2, compiler and Stage Plan v2, Execution format 3, graph
+  v2 with per-node `resolvedProfile`, PE-05a and `default-sdd` r2.
+  - **PD-OWN is decided** ([decided on PR #310](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213), 2026-10-11, HEAD `2da26c6`):
+    I306-T01–T16 and I306-X01–X07 stay in the same Issue and PR, with no
+    separate delivery. That decision supersedes the earlier Option A
+    ([history](https://github.com/rgomids/axiom/pull/310#issuecomment-6109470563)).
+  - Ownership being decided does **not** mean the #306 Tasks are accepted:
+    they are still Proposed. The migration is not implemented either.
+  - Gate IG-7 therefore stays **technically unsatisfied** until those Tasks
+    are accepted, implemented and merged.
+  - #276 neither implements those formats nor absorbs that scope. It keeps
+    dispatch, the supervisor, coordination, capability proof and their
+    integration with the #306 contracts.
 - #276 graph additions (classification marker and reasons, lease epoch,
   dispatch-authority reference, reconciliation facts) must form a single
-  graph format revision together with X05's graph v2. That is PD-16.
+  graph format revision together with X05's graph v2 (owned by #306). That
+  is PD-16.
 - Adjustment registered for PR #310, not made here: its
   `tasks-306-local-runtime-profiles.md` line 35 notes the ADR-0024 path
   collision. After this revision #311 uses ADR-0025, so no change is needed
@@ -1226,7 +1236,7 @@ observation contract (unchanged).
 | IG-3 Profile invocation parameters | #306 | Adapter constants only | Compose through the `CommandProfile` builder after review |
 | IG-5 Profile-owned effort and versioned migration contract | PR #310 — **Accepted 2026-10-11** (amendment-306, ADR-0024), not yet merged | #276 consumes it exactly (§3.10 matrix); no #276 effort amendment | Tasks cite the accepted blob; re-check on merge |
 | IG-6 `axiom-runtime` skill | PR #310 (D4) | Capability show/probe/invalidate skill route | PD-14 |
-| IG-7 Cross-cutting migration bundle X01–X07 (Workflow schema 2, compiler and Stage Plan v2, Execution format 3, graph v2 with `resolvedProfile`, PE-05a, `default-sdd` r2) | **Pending PD-OWN in PR #310** (not decided; no ownership assumed here) | #276 real and v2 dispatch cannot be admitted before it; #276 graph fields must join graph v2 (PD-16) | Deterministic #276 work proceeds against the accepted contract shape; dependent Tasks wait for PD-OWN |
+| IG-7 Cross-cutting migration bundle X01–X07 (Workflow schema 2, compiler and Stage Plan v2, Execution format 3, graph v2 with `resolvedProfile`, PE-05a, `default-sdd` r2) | **#306 / PR #310** — ownership decided ([decided on PR #310](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213)); Tasks still Proposed; not implemented | #276 real and v2 dispatch cannot be admitted before it; #276 graph fields must join graph v2 (PD-16) | Deterministic #276 work proceeds against the accepted contract shape; dependent #276 Tasks wait for the relevant X Tasks to be accepted and delivered |
 
 IG-4 (capability proof) is **no longer a gate**. It is a #276 deliverable
 (§3.9).
@@ -1252,7 +1262,7 @@ regeneration.
 
 | # | Outcome | Components | Depends on | Validation | Risks |
 |---|---|---|---|---|---|
-| I1 | Contract gate: amendment #276 and ADR-0025 accepted or revised; PDs decided; PD-OWN (IG-7) decided in PR #310 | docs | Plan approval | doc checks | scope creep |
+| I1 | Contract gate: amendment #276 and ADR-0025 accepted or revised; PDs decided; X01–X07 Tasks accepted in PR #310 (IG-7 planning prerequisite) | docs | Plan approval | doc checks | scope creep |
 | I2 | Safety baseline: G8; stdin; process groups; lease and epoch; additive attempt fields; `ClassifyAttempt`; publication builder | `executiongraph`, `graphapplication`, `local` | I1 | unit, CR-001 invariants, format compatibility | format compatibility |
 | I3 | Capability proof: interface observation, evidence store, probe envelope and canary (fake executables), extended-probe guard, cleanup and quarantine, observer integration, revalidation, show/probe/invalidate | `capabilityproof` (new), `runtimeadapter`, `local`, `cmd/lingo` | I1, I2 | capability and envelope matrices | vendor interface drift |
 | I4 | Adapter: argv allowlist, confinement variants, packet, environment allowlist, mandatory subscription auth; consume frozen `resolvedProfile` tuple and X05 effort-source inspection | `runtimeadapter`, `graphapplication` | I2, I3, IG-7 | unit, controlled Runtime | flag drift |
@@ -1291,7 +1301,7 @@ regeneration.
 | PD-13 | Capability proof = interface observation (can only refute) + authorized behavioral probe (can prove), bound per §3.9, with a fixed maximum evidence age (proposed 30 days) | Interface observation as proof (prohibited by D-1 direction); a probe before every dispatch | Probe-based, reusable while fresh and binding-matched | Probe cost and inference consent vs. per-dispatch cost; exact max age | Approve: I3 as planned. Reject: alternative proof needs design | Yes (I3) |
 | PD-14 | Capability commands live under `axiom runtime <id> capability`, owned by #276. The skill route is `axiom-runtime` once PR #310 delivers it; until then, CLI only, with `axiom-work-item` blockers naming the CLI next action | Route via `axiom-work-item`; wait for #310 | CLI now, `axiom-runtime` route later | Temporary CLI-only diagnostics; cross-PR skill coordination | Approve: no skill duplication. Reject: `axiom-work-item` gains capability routes | No (route-only) |
 | PD-15 | #276 consumes the accepted #306 contract without restating it; legacy schema-1 Workflows (including `runtime-default`) and format-1/2 Executions are refused for new dispatch and retry (§3.10 matrix) | Keep the revision-2 legacy `runtime-default` exception (contradicts accepted amendment-306 §3) | Consume exactly | No legacy dispatch until migration; historical data untouched | Approve: matrix binds Tasks. Reject: needs an amendment-306 change in PR #310 | Yes (I4, I5) |
-| PD-16 | #276 graph additions (classification marker and reasons, lease epoch, process correlation, dispatch-authority reference, reconciliation facts) and X05 per-node `resolvedProfile` are defined as **one** graph format revision (v2), owned jointly through PD-OWN | Separate successive versions (v2 by X05, v3 by #276) | One joint revision | Coordination cost vs. two migrations and a transient readable-but-undispatchable format | Approve: one codec and compatibility window. Reject: #276 defines v3 after X05 | Yes (I2) |
+| PD-16 | #276 graph additions (classification marker and reasons, lease epoch, process correlation, dispatch-authority reference, reconciliation facts) and X05 per-node `resolvedProfile` are defined as **one** graph format revision (v2), with X05 (#306) owning the graph v2 codec; #276 supplies its fields to that definition | Separate successive versions (v2 by X05, v3 by #276) | One joint revision | Coordination cost vs. two migrations and a transient readable-but-undispatchable format | Approve: one codec and compatibility window. Reject: #276 defines v3 after X05 | Yes (I2) |
 | PD-17 | Default probe confines all mutations to the Axiom-owned envelope; an **extended probe** testing `$TMPDIR`, `/tmp` (one uniquely named empty file each, removed and verified) is a separate, explicitly authorized operation; `$HOME`, vendor homes and external network are never probed | Include temp roots in the default probe; never test outside the envelope | Envelope-only default; optional extended probe for temp roots only | Less confinement detail by default vs. no unauthorized effects | Approve: as §3.9. Reject (never): temp/home writability always `not_tested` | No (optional capability) |
 
 The Plan itself, [amendment #276](amendment-276-stage-dispatch.md) and
@@ -1310,7 +1320,7 @@ each need explicit human acceptance before Phase 2.
 | Same-user forgery of inbox or evidence files | security | ADR-0005 boundary; epoch fencing; evidence digest checked against binding |
 | Supervisor portability | operational | Platform tests; fail closed |
 | New graph/attempt fields break readers | architecture | Versioned graph v2 (PD-16) with historical readers; compatibility tests |
-| PR #310 sequencing (IG-1, IG-5, IG-6, IG-7/PD-OWN) | dependency | Gates explicit; deterministic work proceeds; accepted contract cited by blob |
+| PR #310 sequencing (IG-1, IG-5, IG-6, IG-7) | dependency | Gates explicit; deterministic work proceeds; accepted contract cited by blob |
 | Merge conflicts with PR #310 | parallel development | §10 mitigations |
 
 ### 12.4 Open questions (resolved in Tasks unless escalated)
@@ -1329,6 +1339,11 @@ each need explicit human acceptance before Phase 2.
   supervisor model, the environment allowlist, the lease order, no
   pre-#306 smoke, stdin, reuse of existing categories, binary pinning, the
   AC-2 cross-surface case, the single-path PD and empty attempt IDs.
+- **Revision 5 ([review 5483558844](https://github.com/rgomids/axiom/pull/311#pullrequestreview-5483558844)).**
+  - **CR-009:** PD-OWN is recorded as decided: X01–X07 and T01–T16 belong
+    to #306 / PR #310, and the earlier Option A is kept as history.
+  - IG-7 stays technically unsatisfied, because the #306 Tasks are still
+    Proposed and the migration is not implemented.
 - **Revision 4 ([review 5483476742](https://github.com/rgomids/axiom/pull/311#pullrequestreview-5483476742)).**
   - **CR-007:** per-variant probe tasks. `read-only` proves read, process,
     coordination and result without workspace writes, and treats the

@@ -249,7 +249,8 @@ graphs and `default-sdd` r1 are never rewritten. The full admission matrix
 is in Plan §3.10.
 
 Graph v2 additions from #276 and from #306 X05 form one format revision,
-subject to Plan PD-16 and PR #310 PD-OWN.
+subject to Plan PD-16. X05 is owned by #306 / PR #310, per
+[PD-OWN as decided](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213).
 
 ## Compatibility
 

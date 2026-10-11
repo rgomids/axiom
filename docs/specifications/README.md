@@ -78,7 +78,7 @@ human R-3 acceptance deferred to #278; technical checks do not imply release
 or human acceptance.
 
 [#276 Plan — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
-**Proposed (Phase 1, revision 3), pending human review.** Plans public
+**Proposed (Phase 1, revision 5), pending human review.** Plans public
 `workflow stage` dispatch, coordination, status and recovery over the existing
 graph services, plus probe-based capability proof (maintainer decision D-1),
 persisted coordination-to-graph classification and Profile-owned effort
