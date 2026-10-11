@@ -78,11 +78,13 @@ human R-3 acceptance deferred to #278; technical checks do not imply release
 or human acceptance.
 
 [#276 Plan — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
-**Proposed (Phase 1), pending human review.** Plans public `workflow stage`
-dispatch, coordination, status and recovery over the existing graph,
-scheduler, coordination and Runtime-policy services, with decisions D-1 and
-PD-1–PD-11, the #306 integration boundary and the open capability-observation
-gate (IG-4). It authorizes no Tasks, implementation, Runtime dispatch or
+**Proposed (Phase 1, revision 2), pending human review.** Plans public
+`workflow stage` dispatch, coordination, status and recovery over the existing
+graph services, plus probe-based capability proof (maintainer decision D-1),
+persisted coordination-to-graph classification and Profile-owned effort
+consumption (PR #310). Companion [amendment #276](007-configurable-workflows/amendment-276-stage-dispatch.md)
+and [ADR-0024](../decisions/0024-public-stage-dispatch-and-capability-proof.md)
+are **Proposed**. Nothing here authorizes Tasks, implementation, dispatch or
 acceptance.
 
 ## 006 — Installer Host Eligibility and Platform Support Policy
