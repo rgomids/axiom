@@ -26,6 +26,13 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.16.0](https://github.com/rgomids/axiom/compare/v0.15.0...v0.16.0) (2026-10-11)
+
+
+### Features
+
+* **workflow:** complete dedicated workflow surface and acceptance ([#303](https://github.com/rgomids/axiom/issues/303)) ([#308](https://github.com/rgomids/axiom/issues/308)) ([abb87b7](https://github.com/rgomids/axiom/commit/abb87b76146333256f6dca7051153c5fac2b200b))
+
 ## [0.15.0](https://github.com/rgomids/axiom/compare/v0.14.0...v0.15.0) (2026-10-10)
 
 
