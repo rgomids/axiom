@@ -2,19 +2,24 @@
 
 ## Status
 
-**Phase 1 (Plan), revision 5 — Proposed, pending human review.** This
-document is the Plan for [#276](https://github.com/rgomids/axiom/issues/276) /
-Linear AXM-8. It does not authorize Tasks, implementation, Runtime dispatch,
-real inference, Provider effects, merge, release or human acceptance. Part II
-(Tasks) stays empty until this Plan, its decisions (§12) and the proposed
-contracts it depends on are approved.
+**Part I (Plan), revision 5 — Accepted, 2026-10-11**, by
+[explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/311#issuecomment-6109867861) at HEAD
+`4b8c888c66be3a30a2757761f71a4f9df2703631`, blob
+`13776ae4e5923b2c30439b2b12586b202d864c11`, together with PD-1–PD-17 as
+recommended. **Part II (Tasks) — Proposed, awaiting human approval.** Only the
+Status section of Part I changed after acceptance (administrative
+reconciliation); the accepted bytes remain addressable by that blob.
+
+The acceptance authorizes preparing Tasks only. It does not authorize
+implementation, Runtime dispatch, real inference, Provider effects, merge,
+release or human acceptance of #276.
 
 | Item | Value |
 |---|---|
 | Work Item | [#276](https://github.com/rgomids/axiom/issues/276) / Linear AXM-8 (operational status lives in Linear) |
 | Parent | [Epic #15](https://github.com/rgomids/axiom/issues/15); Spec 007 requirement **WF-009**, acceptance **AC-009** ([spec.md:62](spec.md), [spec.md:547](spec.md)) |
 | Contract consumed | [Spec 007](spec.md) (Accepted 2026-10-09), [amendment #303](amendment-303-workflow-skill.md) + [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md) (Accepted 2026-10-10), [ADR-0003](../../decisions/0003-lingo-as-axiom-local-control-plane.md), [ADR-0004](../../decisions/0004-portable-project-manifest.md), [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md), [ADR-0007](../../decisions/0007-local-publication-and-recovery-protocol.md), [ADR-0008](../../decisions/0008-minimal-machine-local-execution-record.md), [ADR-0009](../../decisions/0009-parent-child-execution-graph.md), [ADR-0020](../../decisions/0020-workflow-definition-revision-binding.md) |
-| Contracts proposed by this PR | [Spec 007 amendment #276](amendment-276-stage-dispatch.md) (**Proposed**) and [ADR-0025](../../decisions/0025-public-stage-dispatch-and-capability-proof.md) (**Proposed**). Neither is accepted; each needs its own human decision |
+| Contracts from this PR | [Spec 007 amendment #276](amendment-276-stage-dispatch.md) and [ADR-0025](../../decisions/0025-public-stage-dispatch-and-capability-proof.md): **Accepted 2026-10-11** (blobs `3c931f0`, `1da38d6`) |
 | Maintainer decisions incorporated | **D-1 resolved** ([PR #311 comment](https://github.com/rgomids/axiom/pull/311#issuecomment-6108112930)): capability proof for stage execution is a #276 deliverable. **#306 contracts consumed as accepted on PR #310** ([acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), commit `823bce3`; not yet merged): vendor-managed authentication (D2), Profile-owned effort and versioned migration (amendment-306 PE-01–PE-06, ADR-0024) |
 | Satisfied predecessors | #274 (binding), #275 (stage compiler, v0.15.0), #303 (skill surface, v0.16.0), #272 (auth preflight), #230 (resource lifecycle), #271 (contracts) — implementation baseline only |
 | Parallel work | [#306](https://github.com/rgomids/axiom/issues/306) / [PR #310](https://github.com/rgomids/axiom/pull/310), head `c4cb5aa` (local Runtime/Profile authoring, Profile-owned effort, `axiom-runtime` skill, Accepted ADR-0023/ADR-0024; PD-OWN [decided on PR #310](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213): I306-T01–T16 and I306-X01–X07 all belong to #306 / PR #310; those Tasks are still Proposed and the migration is not implemented) — boundary in §3.10 and §10 |
@@ -1406,6 +1411,1062 @@ Spec 007 AC-009 is covered by AC-2, AC-3 and AC-5.
 
 # Part II — Tasks
 
-**Not yet authorized.** Tasks will be added to this file in Phase 2, on the
-same branch and PR, only after human approval of this Plan, amendment #276,
-ADR-0025 and the pending decisions in §12.2.
+## Status
+
+**Proposed — Awaiting Human Approval — Tasks.** Prepared on 2026-10-11 under the
+[Phase 1 acceptance](https://github.com/rgomids/axiom/pull/311#issuecomment-6109867861),
+which accepted Part I (blob `13776ae4e5923b2c30439b2b12586b202d864c11`), amendment #276
+(blob `3c931f0d6005a8abfc870b5febf414606d2ffdaa`), ADR-0025 (blob
+`1da38d6905df8ad34c07d70b2204164b5aed0634`) and PD-1–PD-17 as recommended, at HEAD
+`4b8c888c66be3a30a2757761f71a4f9df2703631`, and authorized preparing these Tasks.
+Nothing in this Part is accepted, started or done. It does not authorize
+implementation, real Runtime execution, probes, inference, Provider effects,
+merge or release. Part I is unchanged except for its Status section.
+
+**Summary.** 44 Tasks, IDs `I276-T01`–`I276-T44`, stable once
+accepted. Distribution by capability area:
+
+| Area | Tasks | Count |
+|---|---|---|
+| A. Foundation | T01, T02, T03, T04, T05, T06, T07, T08, T09, T43 | 10 |
+| B. Capability proof | T10, T11, T12, T13, T14, T15, T16, T17, T41, T42 | 10 |
+| C. Runtime adapter | T18, T19, T20, T21 | 4 |
+| D. Stage execution | T25, T26, T27, T28 | 4 |
+| E. Coordination | T22, T23, T24 | 3 |
+| F. Lifecycle and integration | T29, T30, T31, T32, T33 | 5 |
+| G. Public interfaces | T34, T35, T44 | 3 |
+| H. Verification | T36, T37, T38, T39, T40 | 5 |
+
+Conventions: "Files" are expected locations, confirmed during implementation
+without widening scope. External dependencies name the real #306 Task IDs from
+[`tasks-306-local-runtime-profiles.md`](https://github.com/rgomids/axiom/blob/16c2aa034ffc98009ce2e04c1d243d76eb645ea8/docs/specifications/002-lingo-project-initialization/tasks-306-local-runtime-profiles.md)
+on PR #310 head `16c2aa0`; those Tasks are **Proposed** there and are neither
+executed nor approved here. All synthetic Evidence is classified `synthetic` and is
+never operational proof. Common gates apply to every Task: its own acceptance,
+explicit bounded implementation authority, review, and the security rules of
+Plan §7.
+
+## Task catalog
+
+### I276-T01 — Specify the #276 graph v2 field contract for the I306-X05 codec
+
+- **Area / batch:** A. Foundation / B1
+- **Objective:** Define, as a reviewed contract artifact with test vectors, every graph/attempt field #276 needs inside the single graph v2 format (PD-16), so I306-X05 owns one codec that carries them.
+- **Scope:** Field semantics, closed value sets and validation rules for: graph `classificationPolicy` marker; attempt `classificationReason`, `qualifyingRecordRef`, `leaseEpoch`, process correlation (PID, process start identity, process-group/job identity), `packetDigest`; graph `dispatchAuthorityRef`, `cancelRequest`, `stageConcurrency`; append-only reconciliation facts. Canonical test vectors (valid and invalid) and domain validation functions in `executiongraph` that do not serialize. Boundary: I306-X05 owns the serialized structs, tags and decoder; this Task owns field semantics, domain validation and vectors only.
+- **Non-goals:** No codec, decoder, encoder, version dispatch or migration (I306-X05). No v1 graph rewrite.
+- **Components and files (expected):** `docs/specifications/007-configurable-workflows/` (field contract appendix); `internal/executiongraph/` (types, validation, vectors under `testdata/`)
+- **Contracts:** Plan §3.5, §3.7, §3.8; amendment A3–A4; ADR-0025 decisions 2–4; PD-9, PD-10, PD-16; amendment-306 §3 (graph v2)
+- **Depends on:** none (internal)
+- **External dependencies:** I306-X05 consumes the vectors (handoff, not a start prerequisite)
+- **Acceptance criteria:** Every field has a type, closed values where applicable, requiredness per graph/attempt state and invariant I-1–I-6 mapping; vectors are accepted by the #276 validators; handoff note names the exact I306-X05 integration point.
+- **Positive tests:** Valid vectors for each classification reason, lease epoch progression, reconciliation fact append, cancel request.
+- **Negative tests:** Missing reason on a terminal attempt; `succeeded` without `qualifyingRecordRef`; unknown reason value; decreasing epoch; mutated reconciliation fact; v1 graph presented as v2.
+- **Expected Evidence:** Contract appendix blob; validator unit-test report; handoff record for I306-X05.
+- **Risks and security care:** Divergence from I306-X05 codec; mitigated by shared vectors and a single owner per layer.
+- **Done when:** Contract appendix reviewed; validators and vectors merged; I306-X05 handoff recorded (codec delivery not required to close).
+
+### I276-T02 — Never redispatch a running attempt (G8 defect)
+
+- **Area / batch:** A. Foundation / B0
+- **Objective:** Fix the scheduler so a child whose last attempt is `running` is never ready, regardless of retry authorization.
+- **Scope:** `readyChildren` gate on `running`; regression tests for crash-left `running` with `RetryChildIDs`.
+- **Non-goals:** No stale/orphan classification (I276-T06/T08); no format change.
+- **Components and files (expected):** `internal/executiongraph/scheduler.go`, `scheduler_test.go`
+- **Contracts:** Plan G8, §3.5 scheduler table; ADR-0009
+- **Depends on:** none (internal)
+- **External dependencies:** none
+- **Acceptance criteria:** A `running` last attempt is reported `blocked` with a stable reason and never dispatched.
+- **Positive tests:** Normal ready/blocked behavior unchanged for every other status.
+- **Negative tests:** Retry authorized on a `running` child; concurrent `DispatchReady` calls on the same graph.
+- **Expected Evidence:** Regression test report showing the failing case before and passing after.
+- **Risks and security care:** None beyond regression of existing scheduler semantics.
+- **Done when:** Test merged and green on all platforms; existing executiongraph suite green.
+
+### I276-T03 — Pure attempt classifier and record ordering (CR-001)
+
+- **Area / batch:** A. Foundation / B0
+- **Objective:** Implement `ClassifyAttempt` and the per-attempt record ordering rules as pure functions.
+- **Scope:** Rules 0–6 and 1b of Plan §3.5; reasons; `latest within the attempt` by canonical revision and attempt ID; `result.outcome` closed enum (`succeeded`|`failed`) validation in `coordination`; per-attempt capacity reserve computation; integration attempt reasons.
+- **Non-goals:** No persistence, scheduler wiring or ingestion.
+- **Components and files (expected):** `internal/executiongraph/classify.go` (new), `internal/coordination/coordination.go` (outcome enum, capacity helpers)
+- **Contracts:** Plan §3.5; amendment A3; PD-9; CR-001
+- **Depends on:** none (internal)
+- **External dependencies:** none
+- **Acceptance criteria:** Every row of the classifier table maps to exactly one status/reason; ordering is total and deterministic; outcome enum enforced.
+- **Positive tests:** Each rule row; blocker then result; result then blocker; cancel with confirmed stop; timeout with confirmed stop.
+- **Negative tests:** Records from another attempt or graph revision ignored; rejected candidates ignored; free-text outcome rejected; capacity reserve exceeded.
+- **Expected Evidence:** Table-driven unit test report covering every row.
+- **Risks and security care:** Misclassification would unlock dependents; mitigated by exhaustive table tests.
+- **Done when:** Classifier and enum merged with 100% rule coverage.
+
+### I276-T04 — Scheduler, retry and integration consume persisted classification
+
+- **Area / batch:** A. Foundation / B1
+- **Objective:** Make readiness, retry eligibility, integration eligibility and status read only persisted classification and reconciliation facts.
+- **Scope:** Retry from `failed`/`blocked`/`cancelled`; from `unknown`/ambiguous only with a reconciliation fact; `skipped` never; integration requires `result_recorded` and a `ChildResult` bound to `qualifyingRecordRef`; refusal of graphs without the classification marker; invariants I-1–I-6 enforced on load. Dispatch-time stage-concurrency check against the recorded `stageConcurrency` (G16). Boundary: this Task owns in-memory domain checks; decode-time validation belongs to the I306-X05 codec.
+- **Non-goals:** No classifier logic (I276-T03); no codec (I306-X05).
+- **Components and files (expected):** `internal/executiongraph/scheduler.go`, `integration.go`, tests
+- **Contracts:** Plan §3.5 scheduler/integration table; amendment A3; PD-9; CR-001
+- **Depends on:** I276-T01, I276-T02, I276-T03
+- **External dependencies:** I306-X05 (persisting the fields; logic testable on in-memory graphs before it)
+- **Acceptance criteria:** No consumer calls the classifier; status/dispatch/integration agree for every persisted state; invariants checked.
+- **Positive tests:** Blocked child keeps dependents undispatched; `result_missing` refused by integration; retry after reconciliation fact.
+- **Negative tests:** Integration with caller-supplied result not matching the qualifying record; retry of `unknown` without fact; `skipped` retry; unmarked (v1) graph mutation. Batch larger than the recorded stage concurrency refused.
+- **Expected Evidence:** Unit/integration report per invariant I-1–I-6.
+- **Risks and security care:** Behavior change of `succeeded` semantics; covered by explicit tests and ADR-0025.
+- **Done when:** Merged with invariant tests green on in-memory graphs; persistence integration re-verified once I306-X05 lands.
+
+### I276-T05 — Stdin delivery, per-attempt save and drain hook
+
+- **Area / batch:** A. Foundation / B0
+- **Objective:** Deliver stdin to children and persist each attempt as soon as it ends, with the hook point used by drain and classification.
+- **Scope:** `Invocation` stdin field; per-attempt terminal save instead of per batch; ordered hook between process exit, inbox drain and save.
+- **Non-goals:** No process groups, job objects or confirmed-stop detection (I276-T43); no supervisor (I276-T27); no ingestion logic (I276-T23).
+- **Components and files (expected):** `internal/executiongraph/scheduler.go`, tests
+- **Contracts:** Plan §3.2, §3.5, §3.8; ADR-0009 cancellation; PD-2, PD-6
+- **Depends on:** none (internal)
+- **External dependencies:** none
+- **Acceptance criteria:** Stdin delivered byte-exact; each attempt persisted independently; hook order enforced.
+- **Positive tests:** Child reading stdin; mid-batch completion saved before batch end.
+- **Negative tests:** Stdin larger than bound refused; save failure after exit keeps prior state.
+- **Expected Evidence:** Unit test report.
+- **Risks and security care:** Partial batch persistence; covered by per-attempt tests.
+- **Done when:** Merged with tests green.
+
+### I276-T06 — Run lease, epoch fencing and stale/orphan detection
+
+- **Area / batch:** A. Foundation / B1
+- **Objective:** Provide the non-blocking per-graph run lease with monotonic epochs and detect stale and orphan attempts.
+- **Scope:** Lease as the first lock in the ADR-0007 order; epoch recorded on attempts; non-blocking probe for status; stale = `running` with free lease; orphan = stale with live recorded process group (PID + start identity).
+- **Non-goals:** No reconciliation facts (I276-T08); no supervisor (I276-T27).
+- **Components and files (expected):** `internal/local/` (lease file/lock), `internal/executiongraph/` (epoch rules), tests
+- **Contracts:** Plan §3.7; ADR-0007 lock order; ADR-0025 decision 1; PD-2
+- **Depends on:** I276-T01
+- **External dependencies:** I306-X05 for persisted epoch (logic testable before)
+- **Acceptance criteria:** Two holders never coexist; probes never block; stale/orphan classification deterministic.
+- **Positive tests:** Acquire/release/re-acquire with increasing epoch; status probe while held.
+- **Negative tests:** Concurrent acquisition; PID reuse with different start identity; lock file replaced or symlinked; lower epoch write rejected.
+- **Expected Evidence:** Concurrency and failure-injection test report.
+- **Risks and security care:** PID reuse and clock assumptions; mitigated by start identity, not time.
+- **Done when:** Merged with concurrency tests green on all platforms.
+
+### I276-T07 — Dispatch-authority record and protected multi-object commit
+
+- **Area / batch:** A. Foundation / B1
+- **Objective:** Persist the dispatch-authority record and commit it with the graph (or single-agent ledger attempt) under the ADR-0007 single commit point and recovery record.
+- **Scope:** Record {preview digest, scope = first attempt per child of graph revision, actor kind, time}; `AuthorityReferences` linkage; recovery recognition and read-back; refusal of reuse beyond scope.
+- **Non-goals:** No preview computation (I276-T25); no Execution format change (I306-X04).
+- **Components and files (expected):** `internal/local/` (record store, recovery registration), `internal/executiongraph/graph.go` (reference checks), tests
+- **Contracts:** Plan §3.3; amendment A4; ADR-0007; ADR-0025 decision 2; PD-3; G-5
+- **Depends on:** I276-T01, I276-T06
+- **External dependencies:** I306-X04/X05 for the final ledger and graph v2 objects
+- **Acceptance criteria:** Commit is all-or-nothing with recoverable intermediate states; scope enforced; read-back verified.
+- **Positive tests:** Graph path and single path commits; recovery after crash at each step.
+- **Negative tests:** Authority reused for a retry; digest mismatch; partial commit presented as committed; foreign graph revision.
+- **Expected Evidence:** Fault-injection report per commit step.
+- **Risks and security care:** Authority inflation; mitigated by scope checks at every dispatch.
+- **Done when:** Merged with fault-injection tests green; recovery recognized by existing inventory.
+
+### I276-T08 — Append-only reconciliation facts
+
+- **Area / batch:** A. Foundation / B1
+- **Objective:** Record reconciliation facts next to attempts without rewriting status, and let the scheduler read them.
+- **Scope:** Fact {attempt, observations digest, classification, actor, time}; append-only store semantics; scheduler and integration read paths; observation gathering helpers (lease, liveness, worktree status, canonical records, quarantined inbox).
+- **Non-goals:** No CLI (I276-T30); no retry (I276-T31).
+- **Components and files (expected):** `internal/executiongraph/`, `internal/local/`, tests
+- **Contracts:** Plan §3.8; amendment A3; PD-10; ADR-0009
+- **Depends on:** I276-T04, I276-T06
+- **External dependencies:** I306-X05 for persistence
+- **Acceptance criteria:** Facts never mutate attempt status; duplicate/contradictory facts preserved and surfaced; retry eligibility reads them.
+- **Positive tests:** Fact for `unknown` enables explicit retry; fact for stale attempt.
+- **Negative tests:** Attempt status rewrite attempt; fact for a different graph revision; fact on a `running` attempt with live lease.
+- **Expected Evidence:** Unit/integration report.
+- **Risks and security care:** Facts used as success proof; prevented by never upgrading status.
+- **Done when:** Merged with tests green.
+
+### I276-T09 — #276 admission guards for versioned contracts
+
+- **Area / batch:** A. Foundation / B4
+- **Objective:** Enforce at every #276 entrypoint the admission matrix of Plan §3.10 using #306 versioned readers and categories.
+- **Scope:** Refusals `workflow_migration_required`, `legacy_execution_contract`, `profile_effort_unconfigured`, `unsupported_graph_format`; read-only access for legacy Executions and v1 graphs; no reinterpretation.
+- **Non-goals:** No codecs, migrations or resolver (I306-X01–X05, I306-T03).
+- **Components and files (expected):** `internal/stageexecution/` (new) admission module, tests
+- **Contracts:** Plan §3.10 matrix; amendment A6; PD-15; CR-006; amendment-306 §3
+- **Depends on:** I276-T01
+- **External dependencies:** I306-X01; I306-X03; I306-X04; I306-X05; I306-T02
+- **Acceptance criteria:** Each matrix row has a guard and a test; historical bytes unchanged after every operation.
+- **Positive tests:** Schema-2/format-3/local-v2 admitted to the next check.
+- **Negative tests:** Schema 1 with `runtime-default`; schema 1 with explicit effort; legacy Execution run/retry; local v1; v1 graph mutation; incomplete migration cases.
+- **Expected Evidence:** Matrix test report (one case per row).
+- **Risks and security care:** Silent admission of legacy contracts; prevented by default-deny.
+- **Done when:** Merged with matrix tests green against the delivered #306 readers.
+
+### I276-T10 — Capability domain: vocabulary, states, evidence binding, freshness
+
+- **Area / batch:** B. Capability proof / B0
+- **Objective:** Define the capability vocabulary, states and evidence binding as a pure domain.
+- **Scope:** Vocabulary `read`, `repository-write`, `process`, `noninteractive`, `axiom-coordination`; model-scoped `model-invocation`, `reasoning-effort-<token>`; states `proven`/`unsupported`/`unknown`; binding {Runtime, executable digest, version, mode digest, variant, adapter version} plus model-scoped resolvedProfile elements; 30-day maximum age (PD-13); invalidation reasons; confinement values `os-enforced`/`advisory`/`unknown` with scope and `not_tested` roots.
+- **Non-goals:** No store, probe or observer.
+- **Components and files (expected):** `internal/capabilityproof/` (new) domain, tests
+- **Contracts:** Plan §3.9; amendment A2; ADR-0025 decision 5; PD-13; D-1; CR-002
+- **Depends on:** none (internal)
+- **External dependencies:** I306-T03 (resolvedProfile type; domain can use an interface until delivered)
+- **Acceptance criteria:** Evidence matches a binding only on exact equality; any element change yields `unknown`/`capability_stale`; no path to `proven` without probe facts.
+- **Positive tests:** Fresh matching evidence is `proven`; per-variant evidence selection.
+- **Negative tests:** Version-only, auth-only, declaration-only or help-only inputs never yield `proven`; expired evidence; cross-variant evidence reuse.
+- **Expected Evidence:** Unit test report.
+- **Risks and security care:** Over-broad binding equality; mitigated by exhaustive element tests.
+- **Done when:** Merged with tests green.
+
+### I276-T11 — Capability evidence store with redaction and recovery
+
+- **Area / batch:** B. Capability proof / B0
+- **Objective:** Persist capability evidence machine-locally with protected publication, recovery recognition and redaction.
+- **Scope:** Store layout, conditional publish, read-back, invalidation records, retention until invalidated/expired/cleaned, inventory recognition; schema forbids host paths, environment values, configuration, credentials, account data and transcripts.
+- **Non-goals:** No probe execution.
+- **Components and files (expected):** `internal/local/capability_store.go` (new), recovery registration, tests
+- **Contracts:** Plan §3.9 retention/redaction; ADR-0005; ADR-0007; CR-005
+- **Depends on:** I276-T10
+- **External dependencies:** none
+- **Acceptance criteria:** Records round-trip; unsafe fields rejected at encode; recovery recognizes intermediate states.
+- **Positive tests:** Publish, read, invalidate, expire.
+- **Negative tests:** Record containing a host path, env value or credential-like value; tampered digest; concurrent publish.
+- **Expected Evidence:** Unit and recovery test report.
+- **Risks and security care:** Leaking sensitive data into evidence; prevented by schema-level rejection.
+- **Done when:** Merged with tests green on all platforms.
+
+### I276-T12 — Interface observation (refute-only)
+
+- **Area / batch:** B. Capability proof / B0
+- **Objective:** Observe `--version` and help output under the constructed environment to refute capabilities, never to prove them.
+- **Scope:** Per-Runtime parsers for required options/modes of each variant; `unsupported` when absent; version capture for binding; no inference, no authentication.
+- **Non-goals:** No probe; no promotion to `proven`.
+- **Components and files (expected):** `internal/capabilityproof/interface.go` (new), `internal/runtimeadapter/`, tests with recorded help fixtures
+- **Contracts:** Plan §3.9 level 1; amendment A2 rule 3; PD-13
+- **Depends on:** I276-T10, I276-T19
+- **External dependencies:** none
+- **Acceptance criteria:** Missing option → `unsupported`; present option → still `unknown` until a probe proves it.
+- **Positive tests:** Recorded Codex 0.159.1 / Claude 2.1.296 help fixtures parsed.
+- **Negative tests:** Unknown version; malformed help; executable replaced between calls; help output claiming capabilities.
+- **Expected Evidence:** Parser test report with fixtures.
+- **Risks and security care:** Vendor output drift; mitigated by fail-to-`unknown`.
+- **Done when:** Merged with tests green.
+
+### I276-T13 — Probe envelope lifecycle
+
+- **Area / batch:** B. Capability proof / B0
+- **Objective:** Create, manifest, quarantine and clean up probe envelopes inside the state root.
+- **Scope:** `capability-probes/<probeId>/` with `workspace/`, `inbox/`, `sentinel/`, `envelope.json`; private ownership, no symlink components, never under user repositories/`$HOME` outside state root/vendor homes/`$TMPDIR`/`/tmp`; manifest digest; exact owned-object cleanup with read-back; quarantine on interruption.
+- **Non-goals:** No canary or Runtime run.
+- **Components and files (expected):** `internal/capabilityproof/envelope.go` (new), `internal/local/`, tests
+- **Contracts:** Plan §3.9 envelope; amendment A2; ADR-0005; ADR-0007; CR-005
+- **Depends on:** I276-T11
+- **External dependencies:** none
+- **Acceptance criteria:** Envelope paths resolve without symlinks; cleanup removes only owned objects; quarantine preserved until explicit cleanup.
+- **Positive tests:** Create, manifest digest stable, cleanup verified.
+- **Negative tests:** Symlinked state root component; pre-existing path; `..` traversal; cleanup of a replaced directory refused.
+- **Expected Evidence:** Unit and filesystem test report (POSIX, Windows).
+- **Risks and security care:** Cleanup deleting non-owned data; prevented by identity checks.
+- **Done when:** Merged with platform tests green.
+
+### I276-T14 — Deterministic canary entrypoint
+
+- **Area / batch:** B. Capability proof / B0
+- **Objective:** Provide the hidden `axiom` canary that a probed child runs to exercise process, coordination and confinement targets.
+- **Scope:** Manifest-bound target list only; `O_CREAT|O_EXCL` create of uniquely named empty files on negative targets; errno, uid/gid and process identity report; loopback-only network check against an Axiom-owned listener; inbox publish via I276-T22; refusal of any non-manifest target.
+- **Non-goals:** No classification (I276-T15); no external network; no writes outside the manifest.
+- **Components and files (expected):** `cmd/lingo/` hidden entrypoint, `internal/capabilityproof/canary.go` (new), tests
+- **Contracts:** Plan §3.9 measurement; amendment A2; CR-005, CR-007
+- **Depends on:** I276-T13, I276-T22
+- **External dependencies:** none
+- **Acceptance criteria:** Canary touches only manifest targets; reports are deterministic and redacted.
+- **Positive tests:** Each variant's target set exercised; loopback listener reached or denied.
+- **Negative tests:** Out-of-manifest target; symlinked target; external host requested; missing manifest. Canary invoked outside a probe envelope context (no manifest/probe correlation): refused.
+- **Expected Evidence:** Unit test report plus filesystem snapshot proving no out-of-envelope change.
+- **Risks and security care:** Canary becoming a write primitive; prevented by manifest-only targets.
+- **Done when:** Merged with tests green.
+
+### I276-T15 — Per-variant scoring, positive control and confinement classification
+
+- **Area / batch:** B. Capability proof / B0
+- **Objective:** Score per-variant positive and negative steps and attribute denials to confinement only through the positive control.
+- **Scope:** Variant task tables (CR-007); pre/post control writes by the probe process as the same uid/gid; object identity snapshots (device, inode, owner, mode, ACL digest, read-only flag, symlink-free resolution); attribution rules; `os-enforced`/`advisory`/`unknown` classification scoped to listed targets.
+- **Non-goals:** No Runtime launch (I276-T16).
+- **Components and files (expected):** `internal/capabilityproof/classify.go` (new), tests with fake sandboxes
+- **Contracts:** Plan §3.9; amendment A2; ADR-0025 decision 5; CR-007, CR-008
+- **Depends on:** I276-T13, I276-T14
+- **External dependencies:** none
+- **Acceptance criteria:** `os-enforced` only with both controls passing, identity unchanged, matching uid/gid, allowed-root writes succeeding and errno in {EACCES, EPERM, EROFS}; otherwise `advisory` or `unknown`.
+- **Positive tests:** Sandbox denial of a writable sentinel; advisory writable sentinel; read-only variant read proven without workspace write.
+- **Negative tests:** DAC/ACL-denied sentinel; read-only filesystem; control failure; uid/gid mismatch; permission or ACL change; symlink/directory replacement; errno outside set; inbox write denied (coordination not proven); canary not executable (process not proven).
+- **Expected Evidence:** Fake-sandbox report for CR-007 cases 1–6 and CR-008 cases 1–8, 10 and 11 of Plan §9.1 (CR-007 cases 7–8 and CR-008 case 9 belong to I276-T16; CR-007 case 9 to I276-T17).
+- **Risks and security care:** False `os-enforced`; prevented by mandatory control and identity equality.
+- **Done when:** Merged with all listed cases green.
+
+### I276-T16 — Capability probe preview, apply and execution
+
+- **Area / batch:** B. Capability proof / B2
+- **Objective:** Run authorized probes end to end and expose show/invalidate as application use cases.
+- **Scope:** Preview (manifest digest, exact argv, variant, risk and advisory disclosure, cost note) and apply with local and external authority (PD-12); one invocation per variant through the dispatch adapter; verification; evidence write; model-scoped evidence with resolvedProfile and effort-source digest; cleanup/quarantine.
+- **Non-goals:** No `show`/`invalidate` (I276-T42); no CLI wiring (I276-T44); no real probe execution in tests; no extended probe (I276-T41).
+- **Components and files (expected):** `internal/capabilityproof/service.go` (new), `cmd/lingo/` composition, tests with fake executables
+- **Contracts:** Plan §3.9, §5; amendment A1–A2; PD-12, PD-13, PD-17; CR-005, CR-007, CR-008
+- **Depends on:** I276-T11, I276-T12, I276-T15, I276-T18, I276-T19, I276-T20
+- **External dependencies:** I306-T03 (resolvedProfile); I306-X05 (effort-source inspection) for model-scoped evidence
+- **Acceptance criteria:** Probe never runs without both authorities; evidence binds the exact variant; inconclusive runs leave `unknown`.
+- **Positive tests:** Fake Runtime probe proving each variant.
+- **Negative tests:** Missing external authority; stale preview; interrupted probe (CR-007 case 7, CR-008 case 9); inconclusive result (CR-007 case 8); auth not proven (no evidence change); model refusal; usage-limit simulation; local configuration v1 refused.
+- **Expected Evidence:** Application integration report with fake executables (synthetic).
+- **Risks and security care:** Paid inference without consent; prevented by preview + two authorities.
+- **Done when:** Merged with synthetic tests green; real probes remain unexecuted.
+
+### I276-T17 — Capability observer integration and dispatch-time revalidation
+
+- **Area / batch:** B. Capability proof / B2
+- **Objective:** Feed proven capabilities into Runtime policy per variant and revalidate the full binding at preview and every dispatch.
+- **Scope:** Per-variant observer setting `CapabilityStatus` only from matching fresh evidence; implicit and model-scoped checks in the #276 capability service; `CapabilityEvidenceRef` = evidence digest; blockers `capability_unknown`/`capability_unsupported`/`capability_stale`; revalidation tuple incl. adapter version, pinned `axiom` digest, resolvedProfile elements and `effortSourceDigest`.
+- **Non-goals:** No change to the `runtimeprofile.Observation` contract; no Profile declaration changes.
+- **Components and files (expected):** `internal/capabilityproof/observer.go` (new), `cmd/lingo/runtime_policy.go`, tests
+- **Contracts:** Plan §3.9 checks/revalidation; amendment A2 rules 4–6; PD-13
+- **Depends on:** I276-T10, I276-T11, I276-T18
+- **External dependencies:** I306-T03; I306-X03 (StagePlan v2 field for the evidence ref)
+- **Acceptance criteria:** No dispatch with a non-`proven` required capability; any binding drift blocks.
+- **Positive tests:** Matching evidence admits; per-variant selection.
+- **Negative tests:** Executable digest change; version change; mode change; Profile edit; effort-source change; expired evidence; evidence for a different variant.
+- **Expected Evidence:** Unit/integration report. Includes CR-007 case 9 (probe-to-dispatch drift → `capability_stale`).
+- **Risks and security care:** Stale evidence admitted; prevented by full-tuple equality.
+- **Done when:** Merged with tests green.
+
+### I276-T18 — Argument allowlist and confinement flags
+
+- **Area / batch:** C. Runtime adapter / B0
+- **Objective:** Replace the configured-argument denylist with adapter-owned constant argv per Runtime and variant.
+- **Scope:** Constant `Arguments`/`OutputMax`; confinement options appended last (Codex `--sandbox`, `--add-dir`, `-C`; Claude permission mode, allowed tools, `--add-dir`); explicit rejection of bypass and alternate-selection options; `--bare` rejected; read-only variant keeps only the inbox writable.
+- **Non-goals:** No environment (I276-T19); no effort source logic (I276-T21).
+- **Components and files (expected):** `internal/runtimeadapter/adapters.go`, `internal/graphapplication/runtime_policy.go`, tests
+- **Contracts:** Plan §3.6; G5; PD-4
+- **Depends on:** none (internal)
+- **External dependencies:** none
+- **Acceptance criteria:** Every emitted argv is in the allowlist for the observed version; bypass options can never be emitted.
+- **Positive tests:** Per-Runtime per-variant golden argv.
+- **Negative tests:** Each bypass option; `--settings`/`--profile`/`--config` (except adapter effort); unknown version; injected arguments from configuration.
+- **Expected Evidence:** Golden-argv and rejection test report.
+- **Risks and security care:** Vendor flag drift; mitigated by version-gated allowlists.
+- **Done when:** Merged with tests green.
+
+### I276-T19 — Environment allowlist and mandatory subscription authentication
+
+- **Area / batch:** C. Runtime adapter / B0
+- **Objective:** Construct the child environment from the closed list and run the existing auth preflight on exactly that environment.
+- **Scope:** Closed list (`HOME`, `USER`, `LOGNAME`, `PATH`, `SHELL`, `TMPDIR`, `LANG`/`LC_*`, `CODEX_HOME` for Codex, `CLAUDE_CONFIG_DIR` for Claude, correlation variables); `SubscriptionAuth` mandatory for public dispatch and probes (PD-5); credential references refused (`credential_reference_configured`).
+- **Non-goals:** No credential capture or management (#306 D2).
+- **Components and files (expected):** `internal/executiongraph/scheduler.go` (`EffectiveEnvironment`), `internal/runtimeadapter/authpreflight.go`, `internal/graphapplication/`, tests
+- **Contracts:** Plan §3.6; G13, G14; PD-5; ADR-0009 minimum credential capability
+- **Depends on:** none (internal)
+- **External dependencies:** none
+- **Acceptance criteria:** No variable outside the list reaches a child; preflight inspects the same bytes used at spawn.
+- **Positive tests:** Login variables present when needed; subscription observed admits.
+- **Negative tests:** `GH_TOKEN`/provider keys dropped; missing login variable blocks auth truthfully; credential reference configured; opt-out of subscription attempted.
+- **Expected Evidence:** Unit report incl. both failure modes.
+- **Risks and security care:** Breaking vendor login; mitigated by explicit vendor-home variables and truthful blockers.
+- **Done when:** Merged with tests green.
+
+### I276-T20 — Task packet builder and stdin delivery
+
+- **Area / batch:** C. Runtime adapter / B0
+- **Objective:** Build the bounded task packet from the compiled input and deliver it on stdin.
+- **Scope:** Fields per Plan §3.6 (role, responsibilities, instructions, validated input refs/digests, outputs, criteria, allowed paths/effects, coordination protocol, pinned `axiom` path and digest, prohibitions incl. 'publish result before exit 0'); size bound; digest recorded on attempt; no effort, model, credentials or raw chat.
+- **Non-goals:** No ingestion; no prompt engineering beyond the contract fields.
+- **Components and files (expected):** `internal/runtimeadapter/packet.go` (new), tests
+- **Contracts:** Plan §3.6 packet; G4; CR-001 (result requirement)
+- **Depends on:** I276-T05
+- **External dependencies:** I306-X03 (compiled input v2 fields; builder can target an interface before)
+- **Acceptance criteria:** Packet is deterministic for identical inputs and bounded.
+- **Positive tests:** Graph child and single-agent packets.
+- **Negative tests:** Oversized packet; credential-like content in inputs; chat-role markers; missing pinned digest.
+- **Expected Evidence:** Golden packet test report.
+- **Risks and security care:** Prompt injection via inputs; mitigated by filters and the fact that records grant no authority.
+- **Done when:** Merged with tests green.
+
+### I276-T21 — Consume frozen resolvedProfile and effort-source checks at dispatch
+
+- **Area / batch:** C. Runtime adapter / B3
+- **Objective:** Wire the adapter to the frozen #306 tuple and invoke the I306-X05 effort-source inspection before each attempt.
+- **Scope:** Effort taken only from the tuple; per-model evidence required; drift of any tuple element blocks without replacement; `effort_configuration_unproven`/`effort_override_conflict` propagated; no fallback.
+- **Non-goals:** No resolver, codec or inspection implementation (I306-T03, I306-X05).
+- **Components and files (expected):** `internal/runtimeadapter/`, `internal/graphapplication/`, tests with injected tuples
+- **Contracts:** Plan §3.10; amendment A6; amendment-306 PE-03–PE-06/PE-05a; PD-15; CR-003, CR-006
+- **Depends on:** I276-T17, I276-T18
+- **External dependencies:** I306-T03; I306-X03; I306-X05
+- **Acceptance criteria:** Adapter emits effort only from a tuple with matching proof; any drift blocks before spawn.
+- **Positive tests:** Explicit effort with proof; runtime-default no-override with proof.
+- **Negative tests:** Each tuple element drift; external selector inserted after preview; missing proof; attempt to fall back to Runtime default. Frozen tuple whose local Profile was removed, tombstoned, edited or disabled: new attempt blocked with no fallback to another Profile, model, Runtime or effort.
+- **Expected Evidence:** Injected-tuple test report; re-run against delivered I306-X05.
+- **Risks and security care:** Silent effort override; prevented by tuple-only source.
+- **Done when:** Merged with injected tests green and verified against delivered I306-X05.
+
+### I276-T22 — Attempt inbox and child-context publish
+
+- **Area / batch:** E. Coordination / B0
+- **Objective:** Let a running child publish coordination candidates only into its own inbox.
+- **Scope:** Inbox creation per attempt; identity from workspace + attempt correlation; non-empty attempt ID; per-attempt sequence numbers; existing kind/field/size/filter validation; fail-closed outside a running child context.
+- **Non-goals:** No ingestion (I276-T23); no canonical store writes.
+- **Components and files (expected):** `internal/coordination/inbox.go` (new), `cmd/lingo/` child entrypoint, tests
+- **Contracts:** Plan §3.4; amendment A1; PD-4; G7
+- **Depends on:** none (internal)
+- **External dependencies:** none
+- **Acceptance criteria:** Candidates land only in the caller's inbox; all nine kinds validated.
+- **Positive tests:** Each of the nine kinds published from a fake child.
+- **Negative tests:** Publish from a human shell; foreign workspace; empty attempt; another attempt's inbox; oversized or credential-like field.
+- **Expected Evidence:** Unit report for nine kinds and negatives.
+- **Risks and security care:** Same-user forgery (ADR-0005); mitigated by ingestion re-validation and no authority from records.
+- **Done when:** Merged with tests green.
+
+### I276-T23 — Ingestion, final drain and epoch fencing
+
+- **Area / batch:** E. Coordination / B3
+- **Objective:** Ingest inbox candidates into canonical streams concurrently and drain each attempt before its terminal save.
+- **Scope:** Lineage, chain, capacity reserve, cross-stream references (`question_reference`, `contract_reference`), revision assignment in sequence order, epoch fencing and quarantine, rejected-candidate diagnostics, drain hook used by the classifier.
+- **Non-goals:** No CLI read ops (I276-T24).
+- **Components and files (expected):** `internal/coordination/ingest.go` (new), `internal/local/coordination_store.go`, tests
+- **Contracts:** Plan §3.4–§3.5; amendment A3; CR-001; ADR-0009 coordination
+- **Depends on:** I276-T03, I276-T05, I276-T06, I276-T22, I276-T24
+- **External dependencies:** none
+- **Acceptance criteria:** Only validated candidates become canonical; late records rejected; drained set matches classifier input.
+- **Positive tests:** Cross-runtime question/answer between two fake children; blocker before exit.
+- **Negative tests:** Forged lineage; stale revision; capacity exceeded; answer referencing a missing question; candidate from previous epoch; record after terminal save.
+- **Expected Evidence:** Integration report with fake children.
+- **Risks and security care:** Races between drain and late writes; mitigated by drain-then-seal ordering.
+- **Done when:** Merged with tests green.
+
+### I276-T24 — Coordination stream read, list, show and bounded wait
+
+- **Area / batch:** E. Coordination / B0
+- **Objective:** Expose canonical coordination streams through read-only use cases.
+- **Scope:** Stream read API on the store; list/show filters by parent/child/attempt/kind; bounded `--wait` shorter than the caller's timeout.
+- **Non-goals:** No publish (I276-T22); no CLI wiring (I276-T34).
+- **Components and files (expected):** `internal/local/coordination_store.go`, `internal/coordination/`, tests
+- **Contracts:** Plan §3.4; amendment A1; G7
+- **Depends on:** none (internal)
+- **External dependencies:** none
+- **Acceptance criteria:** Reads never return inbox candidates; wait is bounded and cancellable.
+- **Positive tests:** List and show for each kind; wait satisfied by a new record.
+- **Negative tests:** Wait timeout; unknown record ID; tampered stream digest.
+- **Expected Evidence:** Unit report.
+- **Risks and security care:** None significant.
+- **Done when:** Merged with tests green.
+
+### I276-T25 — Publication builder and dispatch preview
+
+- **Area / batch:** D. Stage execution / B4
+- **Objective:** Build the graph publication request from the recompiled Stage Plan v2 and compute the dispatch preview digest with per-child rights.
+- **Scope:** Recompile under the bound revision and compare plan digests; resolutions from frozen tuples; workspaces; effects; confinement and `not_tested` disclosure; capability states; validator policy reference; attempt limits; pinned `axiom` digest; per-child enforced-vs-policy prohibitions. Enforce graph bounds before publication: at most 32 nodes, attempts 1–10, timeout ≤ 24h.
+- **Non-goals:** No apply (I276-T26).
+- **Components and files (expected):** `internal/stageexecution/preview.go` (new), tests
+- **Contracts:** Plan §3.3, §3.6; amendment A4; PD-3, PD-4, PD-12; G1
+- **Depends on:** I276-T09, I276-T17, I276-T18, I276-T32, I276-T19, I276-T21
+- **External dependencies:** I306-X03; I306-X04
+- **Acceptance criteria:** Preview is deterministic and binds every element listed in Plan §3.3; nothing is written.
+- **Positive tests:** Graph and single-agent previews.
+- **Negative tests:** Plan digest mismatch; policy drift; missing capability; advisory child disclosed; legacy contract refused via I276-T09. 33-node proposal, zero or 11 attempts, timeout above 24h refused.
+- **Expected Evidence:** Golden preview report.
+- **Risks and security care:** Under-disclosure of rights; mitigated by golden tests of the rights section.
+- **Done when:** Merged with tests green.
+
+### I276-T26 — Stage run apply and single-agent dispatch
+
+- **Area / batch:** D. Stage execution / B4
+- **Objective:** Commit authority and graph (or ledger attempt) and start the supervisor after re-observation.
+- **Scope:** Local + external authority; re-observe all preview elements; I276-T07 commit; worktree preparation; supervisor start and correlation; single-agent path through the extended sequential executor (PD-11) with the same adapter, packet, classifier and supervisor.
+- **Non-goals:** No supervisor internals (I276-T27).
+- **Components and files (expected):** `internal/stageexecution/run.go` (new), `internal/workflow/` (single path seam), tests
+- **Contracts:** Plan §3.3, §3.11; PD-3, PD-11, PD-12; amendment A4
+- **Depends on:** I276-T07, I276-T25, I276-T27
+- **External dependencies:** I306-X04 (format-3 ledger)
+- **Acceptance criteria:** No process starts before the commit is read back; drift refuses with `stale_preview`.
+- **Positive tests:** Graph run start; single-agent run start.
+- **Negative tests:** Missing external authority; drift between preview and apply; commit failure; supervisor start failure leaves recoverable state. Projection failure after the authority/graph commit (expects `partial` with recovery, never a silent success).
+- **Expected Evidence:** Integration report with fake executables.
+- **Risks and security care:** Dispatch without authority; prevented by commit-before-spawn.
+- **Done when:** Merged with tests green.
+
+### I276-T27 — Detached bounded supervisor
+
+- **Area / batch:** D. Stage execution / B3
+- **Objective:** Run authorized dispatch in a detached supervisor process of the same binary.
+- **Scope:** Hidden entrypoint; per-platform detachment; lease acquisition; batch dispatch with drift re-check before each attempt; ingestion loop; classification and per-attempt save; exit conditions; never initiates retry, reconcile, integrate or new authority.
+- **Non-goals:** No public command.
+- **Components and files (expected):** `cmd/lingo/` hidden entrypoint, `internal/stageexecution/supervisor.go` (new), tests
+- **Contracts:** Plan §3.2; ADR-0025 decision 1; PD-2
+- **Depends on:** I276-T04, I276-T05, I276-T06, I276-T21, I276-T23, I276-T07, I276-T19, I276-T20, I276-T43
+- **External dependencies:** none
+- **Acceptance criteria:** Supervisor survives the initiating process; stops on drift or cancel; leaves only persisted truth.
+- **Positive tests:** Full fake run with two concurrent children and an integration owner pending.
+- **Negative tests:** Supervisor killed at each phase; drift mid-run; lease already held; detachment unsupported (fail closed). Supervisor entrypoint invoked from a shell without a committed authority record, with a forged `dispatchAuthorityRef`, or for a foreign graph: refused before any spawn.
+- **Expected Evidence:** Failure-injection report per platform.
+- **Risks and security care:** Runaway background process; bounded by exit conditions and lease.
+- **Done when:** Merged with platform tests green.
+
+### I276-T28 — Stage status and resume after restart
+
+- **Area / batch:** D. Stage execution / B4
+- **Objective:** Report persisted stage state and resume already-authorized work after restart.
+- **Scope:** Status of children, attempts, reasons, record refs, stale/orphan, blockers and next actions; resume starts a supervisor only for authorized first attempts with full re-checks. Resume is a `stage run` re-invocation, not a new command: it requires `--authorize-external` for any further inference and re-checks the T07 authority scope, which covers only not-yet-started first attempts.
+- **Non-goals:** No reconciliation (I276-T30).
+- **Components and files (expected):** `internal/stageexecution/status.go` (new), tests
+- **Contracts:** Plan §3.5, §3.7, §4; amendment A1
+- **Depends on:** I276-T04, I276-T06, I276-T26, I276-T07
+- **External dependencies:** none
+- **Acceptance criteria:** Status computes nothing beyond persisted fields; identical before and after restart.
+- **Positive tests:** Status across all statuses; resume after supervisor kill.
+- **Negative tests:** Resume with stale or orphan attempts (requires reconcile); resume under drift. Resume with an expired or consumed authority scope; resume without external authority when inference would start.
+- **Expected Evidence:** Integration report.
+- **Risks and security care:** Misleading status; prevented by persisted-only rendering.
+- **Done when:** Merged with tests green.
+
+### I276-T29 — Stage cancel
+
+- **Area / batch:** F. Lifecycle and integration / B4
+- **Objective:** Persist cancel requests and stop running groups with truthful outcomes.
+- **Scope:** Preview/apply local authority; persisted cancel request; scheduler stops new dispatch; supervisor bounded group stop; `cancelled` only with confirmed stop and no ambiguous effect, else `unknown` + `CancellationSeen`; `cancellation_requested` result category.
+- **Non-goals:** No Execution-level `workflow cancel` (stays `invalid_command`).
+- **Components and files (expected):** `internal/stageexecution/cancel.go` (new), tests
+- **Contracts:** Plan §3.8; amendment A1; ADR-0009; PD-6
+- **Depends on:** I276-T43, I276-T27
+- **External dependencies:** none
+- **Acceptance criteria:** Cancel never reports an unobserved stop.
+- **Positive tests:** Cancel before dispatch; cancel while running with confirmed stop.
+- **Negative tests:** Descendant survives; supervisor absent; repeated cancel.
+- **Expected Evidence:** Integration report.
+- **Risks and security care:** False cancellation; prevented by confirmation rule.
+- **Done when:** Merged with tests green.
+
+### I276-T30 — Stage reconcile
+
+- **Area / batch:** F. Lifecycle and integration / B4
+- **Objective:** Expose reconciliation as preview/apply over append-only facts.
+- **Scope:** Observations gathering; preview digest; apply local authority; orphan stop guidance; quarantined inbox shown as diagnostics only.
+- **Non-goals:** No status rewrite.
+- **Components and files (expected):** `internal/stageexecution/reconcile.go` (new), tests
+- **Contracts:** Plan §3.8; PD-10
+- **Depends on:** I276-T08, I276-T28
+- **External dependencies:** none
+- **Acceptance criteria:** Reconcile never upgrades status; facts recorded with observations digest.
+- **Positive tests:** Reconcile stale and unknown attempts.
+- **Negative tests:** Reconcile with live lease; orphan still alive; stale preview.
+- **Expected Evidence:** Integration report.
+- **Risks and security care:** Using reconcile to fake success; prevented by append-only facts.
+- **Done when:** Merged with tests green.
+
+### I276-T31 — Stage retry with workspace disposition
+
+- **Area / batch:** F. Lifecycle and integration / B4
+- **Objective:** Create a new attempt under the same child after explicit authority.
+- **Scope:** Eligibility per Plan §3.8; remaining attempts; fresh capability evidence; local + external authority; explicit workspace disposition after effects (PD-8).
+- **Non-goals:** No counter reset; no automatic retry.
+- **Components and files (expected):** `internal/stageexecution/retry.go` (new), tests
+- **Contracts:** Plan §3.8; PD-8, PD-12
+- **Depends on:** I276-T08, I276-T26
+- **External dependencies:** none
+- **Acceptance criteria:** Retry only from eligible statuses with all checks; dispositions explicit.
+- **Positive tests:** Retry after `failed`, `blocked`, reconciled `unknown`.
+- **Negative tests:** Retry of `skipped`; exhausted attempts; stale capability; missing disposition; legacy Execution (`legacy_execution_contract`).
+- **Expected Evidence:** Integration report.
+- **Risks and security care:** Silent workspace reset; prevented by explicit disposition.
+- **Done when:** Merged with tests green.
+
+### I276-T32 — Validator policy artifact
+
+- **Area / batch:** F. Lifecycle and integration / B1
+- **Objective:** Introduce the separately authorized validator-policy artifact used by integration.
+- **Scope:** Policy format with exact argv (no shell), preview/apply local authority, digest referenced by dispatch preview, mapping to `gitworkspace.ValidationCommand`.
+- **Non-goals:** No agent-authored commands; no Plan-document commands.
+- **Components and files (expected):** `internal/local/` (policy store), `internal/gitworkspace/`, `internal/stageexecution/`, tests
+- **Contracts:** Plan G11; amendment A5; PD-7; Spec 007 validators clause
+- **Depends on:** none (internal)
+- **External dependencies:** none
+- **Acceptance criteria:** Only reviewed policy commands run; digest drift refuses integration.
+- **Positive tests:** Policy create, reference, run in integration.
+- **Negative tests:** Shell argv; unreviewed change; digest mismatch; policy from an agent record.
+- **Expected Evidence:** Unit/integration report.
+- **Risks and security care:** Command injection; prevented by argv-only and review.
+- **Done when:** Merged with tests green.
+
+### I276-T33 — Stage integrate and parent roll-up
+
+- **Area / batch:** F. Lifecycle and integration / B4
+- **Objective:** Run the existing digest-bound integration with persisted eligibility and record the stage outcome.
+- **Scope:** Preview/apply local authority; eligibility from persisted classification; validator policy; integration attempt reasons; deterministic roll-up; stage outcome in the Execution ledger as an ADR-0007 multi-object commit; graph result never accepts the Work Item. Confirmed primary effect with failed projection is reported `partial` / `confirmed_effect_reconciliation_required` with references and next action.
+- **Non-goals:** No push/PR/merge (#277).
+- **Components and files (expected):** `internal/stageexecution/integrate.go` (new), `internal/executiongraph/integration.go`, tests
+- **Contracts:** Plan §3.5, §6; amendment A3, A5; PD-7, PD-9
+- **Depends on:** I276-T04, I276-T26, I276-T32
+- **External dependencies:** I306-X04 (ledger format 3)
+- **Acceptance criteria:** Roll-up succeeds only with every required child `result_recorded` and validators passing.
+- **Positive tests:** Two-child integration with validators.
+- **Negative tests:** Missing result; conflicting results; validator failure; integration attempt `unknown` blocks re-run. Ledger projection failure after a confirmed integration effect (expects `partial`).
+- **Expected Evidence:** Integration report.
+- **Risks and security care:** Unauthorized repository effects; limited to the local integration effect.
+- **Done when:** Merged with tests green.
+
+### I276-T34 — Stage and coordination CLI commands, help and result metadata
+
+- **Area / batch:** G. Public interfaces / B5
+- **Objective:** Wire all new operations into the CLI with canonical results and help metadata.
+- **Scope:** `workflow stage run/status/cancel/retry/reconcile/integrate`, `workflow coordination list/show/publish`; resume is a `stage run` re-invocation over an existing authority record (no `stage resume` command); flags; admission rules; categories from amendment A1; new files to limit conflicts with PR #310; `docs/commands.md`.
+- **Non-goals:** No capability commands (I276-T44); no skill text (I276-T35).
+- **Components and files (expected):** `internal/cli/` (new files + single appended table entries), `cmd/lingo/`, `internal/projectapp/admission.go`, `docs/commands.md`, tests
+- **Contracts:** Plan §5; amendment A1; PD-1, PD-12, PD-14
+- **Depends on:** I276-T24, I276-T26, I276-T28, I276-T29, I276-T30, I276-T31, I276-T33
+- **External dependencies:** none
+- **Acceptance criteria:** Every operation reachable with correct authority flags, exit codes and JSON/human parity.
+- **Positive tests:** Help and inspect metadata for each command.
+- **Negative tests:** Mutation without authority flags; `coordination publish` outside child context; `workflow cancel` still `invalid_command`.
+- **Expected Evidence:** CLI blackbox report.
+- **Risks and security care:** Merge conflicts with PR #310; mitigated by new files.
+- **Done when:** Merged with blackbox tests green.
+
+### I276-T35 — axiom-work-item skill routes and skill contract tests
+
+- **Area / batch:** G. Public interfaces / B5
+- **Objective:** Route stage and coordination operations through `axiom-work-item` for Codex and Claude, with capability next actions pointing to the CLI.
+- **Scope:** Skill text and routing table; inspect metadata; identical content for both Runtimes; receipt/upgrade fixtures; capability operations not routed through `axiom-work-item` (PD-14); handoff note for the `axiom-runtime` route owned by I306-T11.
+- **Non-goals:** No `axiom-runtime` skill content (I306-T11).
+- **Components and files (expected):** `internal/codexruntime/skills/axiom-work-item/SKILL.md`, `internal/cli/skill_inspect.go`, routing tests, `internal/codexruntime/testdata/published-*`
+- **Contracts:** Plan §5; ADR-0022; PD-14
+- **Depends on:** I276-T34
+- **External dependencies:** I306-T11 (only for the later `axiom-runtime` capability route)
+- **Acceptance criteria:** Routing tests prove ownership exclusivity and no authority from routing.
+- **Positive tests:** Both Runtimes install identical content; routes resolve.
+- **Negative tests:** Unsupported operation fails safely; capability route absent from `axiom-work-item`.
+- **Expected Evidence:** Skill contract test report.
+- **Risks and security care:** Skill duplicating rules; prevented by thin-route tests.
+- **Done when:** Merged with tests green.
+
+### I276-T36 — Synthetic end-to-end suite with fake Runtime executables
+
+- **Area / batch:** H. Verification / B6
+- **Objective:** Prove the installed-path journey synthetically for graph and single-agent stages.
+- **Scope:** Test-built fake `codex`/`claude` reading the packet and scripting outcomes; cross-Runtime question/answer; overlap timing; failure injection at every kill window; cross-surface parity (Codex-shaped vs Claude-shaped skill invocations and CLI); restart identity.
+- **Non-goals:** No real Runtime or inference.
+- **Components and files (expected):** `cmd/lingo/*_blackbox_test.go`, test helpers
+- **Contracts:** Plan §9.1–§9.2; AC-1–AC-5; AC-009
+- **Depends on:** I276-T34, I276-T35, I276-T44
+- **External dependencies:** none
+- **Acceptance criteria:** All listed scenarios green; Evidence classified `synthetic`.
+- **Positive tests:** Graph run to integration; single-agent run.
+- **Negative tests:** Each kill window; drift; forged lineage; capacity; stale revision; authority escalation.
+- **Expected Evidence:** Blackbox report classified synthetic.
+- **Risks and security care:** Treating synthetic as operational; prevented by classification.
+- **Done when:** Suite merged and green on CI.
+
+### I276-T37 — Cross-PR compatibility matrix verification
+
+- **Area / batch:** H. Verification / B6
+- **Objective:** Verify the §3.10 matrix against the delivered #306 contracts.
+- **Scope:** One test per row with delivered I306 readers/writers; historical bytes unchanged; graph v2 fields round-trip through the I306-X05 codec.
+- **Non-goals:** No duplication of I306-X07 checks (consume its corpus).
+- **Components and files (expected):** `internal/stageexecution/compat_test.go` (new)
+- **Contracts:** Plan §3.10; amendment A6; PD-15, PD-16; CR-006
+- **Depends on:** I276-T09, I276-T01, I276-T21, I276-T26, I276-T31
+- **External dependencies:** I306-X07
+- **Acceptance criteria:** All 15 rows green against delivered #306 code.
+- **Positive tests:** Admitted v2 path.
+- **Negative tests:** Every refusal row. `default-sdd` r1 bytes and digest unchanged after every operation.
+- **Expected Evidence:** Matrix report.
+- **Risks and security care:** Contract drift between PRs; caught here.
+- **Done when:** Merged with all rows green after I306-X07.
+
+### I276-T38 — Security regression suite
+
+- **Area / batch:** H. Verification / B6
+- **Objective:** Consolidate security regressions across adapter, environment, envelope, canary, positive control and evidence.
+- **Scope:** Bypass options; environment leakage; credential exposure; envelope escape; DAC/ACL false positive; advisory disclosure; redaction; no out-of-envelope effect; records granting no authority.
+- **Non-goals:** No new behavior.
+- **Components and files (expected):** `internal/*/security_test.go`, blackbox security cases
+- **Contracts:** Plan §7, §9.1; CR-005, CR-007, CR-008; ADR-0005
+- **Depends on:** I276-T15, I276-T16, I276-T18, I276-T19, I276-T23, I276-T41, I276-T43
+- **External dependencies:** none
+- **Acceptance criteria:** Every listed regression has a failing-before/passing-after or invariant test.
+- **Positive tests:** —
+- **Negative tests:** All listed attack/misuse cases. Extended probe without its authority refused; residue after extended probe fails.
+- **Expected Evidence:** Security regression report.
+- **Risks and security care:** Gaps in coverage; reviewed in the Phase 3 security review.
+- **Done when:** Suite merged and green.
+
+### I276-T39 — Documentation reconciliation and implementation record
+
+- **Area / batch:** H. Verification / B6
+- **Objective:** Reconcile docs and record the delivered boundary and synthetic Evidence.
+- **Scope:** `issue-276-implementation.md`, `docs/commands.md` final pass, specifications index, help, limitations, Evidence classification.
+- **Non-goals:** No acceptance claims.
+- **Components and files (expected):** `docs/specifications/007-configurable-workflows/issue-276-implementation.md` (new), indexes
+- **Contracts:** AGENTS.md documentation policy; Plan §13
+- **Depends on:** I276-T36, I276-T37, I276-T38
+- **External dependencies:** none
+- **Acceptance criteria:** Every AC and decision mapped to delivered Evidence or an explicit open gate.
+- **Positive tests:** —
+- **Negative tests:** —
+- **Expected Evidence:** Implementation record.
+- **Risks and security care:** Overstating delivery; prevented by explicit open gates.
+- **Done when:** Record reviewed; repository validation passes.
+
+### I276-T40 — Bounded real Codex + Claude smoke (separately authorized)
+
+- **Area / batch:** H. Verification / B7
+- **Objective:** Produce `engineering_smoke_real` Evidence under an exact human-authorized envelope.
+- **Scope:** Clean state configured through #306 supported authoring; authorized real probes; dag stage with independent Codex/Claude children exchanging question/answer and results; integration; cross-surface start/inspect; bounded artifacts.
+- **Non-goals:** Not R-2, R-3 or #278 acceptance; no Provider effects.
+- **Components and files (expected):** Evidence directory under `docs/specifications/007-configurable-workflows/` (path fixed at authorization)
+- **Contracts:** Plan §9.4; AC-1, AC-3, AC-6; IG-1
+- **Depends on:** I276-T39, I276-T16
+- **External dependencies:** I306-T16 (local authoring delivered); I306-X07; Explicit human authorization of the smoke envelope and real probes
+- **Acceptance criteria:** Evidence records auth mode, versions, digests, graph, records, persisted classifications and artifacts; classification `engineering_smoke_real`.
+- **Positive tests:** Authorized run succeeds or fails truthfully.
+- **Negative tests:** Any precondition missing → not run, reason recorded.
+- **Expected Evidence:** Smoke Evidence package.
+- **Risks and security care:** Paid inference and advisory confinement; bounded by the envelope and consent.
+- **Done when:** Evidence published or not-run reason recorded.
+
+### I276-T41 — Extended temp-root probe (optional, PD-17)
+
+- **Area / batch:** B. Capability proof / B2
+- **Objective:** Allow a separately authorized probe of `$TMPDIR` and `/tmp` writability.
+- **Scope:** Separate preview/authority naming exact roots; one uniquely named empty file per root; positive control; verified removal; residue = failure; never `$HOME`, vendor homes or external network.
+- **Non-goals:** No default inclusion in standard probes.
+- **Components and files (expected):** `internal/capabilityproof/extended.go` (new), tests
+- **Contracts:** Plan §3.9; PD-17; CR-005
+- **Depends on:** I276-T16
+- **External dependencies:** none
+- **Acceptance criteria:** Refused without its own authority; residue detected.
+- **Positive tests:** Authorized extended probe on fake roots.
+- **Negative tests:** Missing authority; residue left; `$HOME` requested.
+- **Expected Evidence:** Unit/integration report.
+- **Risks and security care:** Mutation of shared temp roots; limited to unique empty files with verified removal.
+- **Done when:** Merged with tests green.
+
+### I276-T42 — Capability show and invalidate use cases
+
+- **Area / batch:** B. Capability proof / B2
+- **Objective:** Expose capability evidence state and explicit invalidation.
+- **Scope:** `show` per Runtime/Profile/variant with states, scope and `not_tested` roots; `invalidate` preview/apply with local authority; Profile disable/removal (#306) reflected as `unknown`.
+- **Non-goals:** No probe execution; no CLI wiring (I276-T44).
+- **Components and files (expected):** `internal/capabilityproof/service.go`, tests
+- **Contracts:** Plan §3.9 states/invalidation; amendment A1; PD-13
+- **Depends on:** I276-T11, I276-T10
+- **External dependencies:** none
+- **Acceptance criteria:** Show never reports `proven` without matching fresh evidence; invalidation is recorded and makes evidence `unknown`.
+- **Positive tests:** Show fresh, expired and invalidated evidence; invalidate apply.
+- **Negative tests:** Invalidate without authority; stale preview; evidence for another binding.
+- **Expected Evidence:** Unit/integration report.
+- **Risks and security care:** Misleading readiness display; prevented by binding-equality rendering.
+- **Done when:** Merged with tests green.
+
+### I276-T43 — Process containment and confirmed stop
+
+- **Area / batch:** A. Foundation / B0
+- **Objective:** Contain each child in a process group (POSIX) or job object (Windows) and report stop only when confirmed.
+- **Scope:** Group/job creation at spawn; bounded group stop; `Stopped` true only when the whole group is confirmed gone; timeouts without confirmed stop stay `unknown`; `timeout_stopped` support for the classifier.
+- **Non-goals:** No cancel use case (I276-T29); no supervisor detachment (I276-T27).
+- **Components and files (expected):** New platform files `internal/executiongraph/process_posix.go`, `process_windows.go`, tests
+- **Contracts:** Plan §3.2, §3.8; ADR-0009 cancellation; PD-2, PD-6
+- **Depends on:** I276-T05
+- **External dependencies:** none
+- **Acceptance criteria:** Descendants are stopped with the group; unobserved stop is never reported as stopped.
+- **Positive tests:** Descendant processes stopped with the group on Linux, macOS and Windows.
+- **Negative tests:** Descendant escaping the group yields `unknown`; group already gone; permission failure on stop.
+- **Expected Evidence:** Platform test report (Linux, macOS, Windows).
+- **Risks and security care:** Platform divergence and orphaned descendants; mitigated by per-platform tests and truthful `unknown`.
+- **Done when:** Merged with platform tests green on the CI matrix.
+
+### I276-T44 — Capability CLI commands, help and result metadata
+
+- **Area / batch:** G. Public interfaces / B5
+- **Objective:** Wire `runtime <id> capability show/probe/invalidate` and the separately authorized extended probe into the CLI.
+- **Scope:** Commands and flags incl. local and external authority for probes and a distinct extended-probe operation (PD-17); help/inspect metadata; categories; `docs/commands.md`.
+- **Non-goals:** No `axiom-runtime` skill route (I306-T11; PD-14).
+- **Components and files (expected):** `internal/cli/` (new files + single appended table entries), `cmd/lingo/`, `docs/commands.md`, tests
+- **Contracts:** Plan §3.9, §5; amendment A1; PD-1, PD-12, PD-14, PD-17
+- **Depends on:** I276-T16, I276-T41, I276-T42
+- **External dependencies:** none
+- **Acceptance criteria:** Probe operations unreachable without both authorities; extended probe needs its own authority.
+- **Positive tests:** Help and inspect metadata for each command; show/invalidate round trip.
+- **Negative tests:** Probe without `--authorize-external`; extended probe without its authority; `$HOME` target requested.
+- **Expected Evidence:** CLI blackbox report.
+- **Risks and security care:** Merge conflicts with PR #310 CLI tables; mitigated by new files.
+- **Done when:** Merged with blackbox tests green.
+
+## Dependency DAG
+
+Validated acyclic by deterministic topological sort; every dependency names an
+existing Task.
+
+```mermaid
+graph LR
+  T01 --> T04
+  T02 --> T04
+  T03 --> T04
+  T01 --> T06
+  T01 --> T07
+  T06 --> T07
+  T04 --> T08
+  T06 --> T08
+  T01 --> T09
+  T10 --> T11
+  T10 --> T12
+  T19 --> T12
+  T11 --> T13
+  T13 --> T14
+  T22 --> T14
+  T13 --> T15
+  T14 --> T15
+  T11 --> T16
+  T12 --> T16
+  T15 --> T16
+  T18 --> T16
+  T19 --> T16
+  T20 --> T16
+  T10 --> T17
+  T11 --> T17
+  T18 --> T17
+  T05 --> T20
+  T17 --> T21
+  T18 --> T21
+  T03 --> T23
+  T05 --> T23
+  T06 --> T23
+  T22 --> T23
+  T24 --> T23
+  T09 --> T25
+  T17 --> T25
+  T18 --> T25
+  T32 --> T25
+  T19 --> T25
+  T21 --> T25
+  T07 --> T26
+  T25 --> T26
+  T27 --> T26
+  T04 --> T27
+  T05 --> T27
+  T06 --> T27
+  T21 --> T27
+  T23 --> T27
+  T07 --> T27
+  T19 --> T27
+  T20 --> T27
+  T43 --> T27
+  T04 --> T28
+  T06 --> T28
+  T26 --> T28
+  T07 --> T28
+  T43 --> T29
+  T27 --> T29
+  T08 --> T30
+  T28 --> T30
+  T08 --> T31
+  T26 --> T31
+  T04 --> T33
+  T26 --> T33
+  T32 --> T33
+  T24 --> T34
+  T26 --> T34
+  T28 --> T34
+  T29 --> T34
+  T30 --> T34
+  T31 --> T34
+  T33 --> T34
+  T34 --> T35
+  T34 --> T36
+  T35 --> T36
+  T44 --> T36
+  T09 --> T37
+  T01 --> T37
+  T21 --> T37
+  T26 --> T37
+  T31 --> T37
+  T15 --> T38
+  T16 --> T38
+  T18 --> T38
+  T19 --> T38
+  T23 --> T38
+  T41 --> T38
+  T43 --> T38
+  T36 --> T39
+  T37 --> T39
+  T38 --> T39
+  T39 --> T40
+  T16 --> T40
+  T16 --> T41
+  T11 --> T42
+  T10 --> T42
+  T05 --> T43
+  T16 --> T44
+  T41 --> T44
+  T42 --> T44
+```
+
+| Task | Depends on | Unblocks | External | Batch |
+|---|---|---|---|---|
+| I276-T01 | — | T04, T06, T07, T09, T37 | I306-X05 consumes the vectors (handoff, not a start prerequisite) | B1 |
+| I276-T02 | — | T04 | — | B0 |
+| I276-T03 | — | T04, T23 | — | B0 |
+| I276-T04 | T01, T02, T03 | T08, T27, T28, T33 | I306-X05 (persisting the fields; logic testable on in-memory graphs before it) | B1 |
+| I276-T05 | — | T20, T23, T27, T43 | — | B0 |
+| I276-T06 | T01 | T07, T08, T23, T27, T28 | I306-X05 for persisted epoch (logic testable before) | B1 |
+| I276-T07 | T01, T06 | T26, T27, T28 | I306-X04/X05 for the final ledger and graph v2 objects | B1 |
+| I276-T08 | T04, T06 | T30, T31 | I306-X05 for persistence | B1 |
+| I276-T09 | T01 | T25, T37 | I306-X01; I306-X03; I306-X04; I306-X05; I306-T02 | B4 |
+| I276-T10 | — | T11, T12, T17, T42 | I306-T03 (resolvedProfile type; domain can use an interface until delivered) | B0 |
+| I276-T11 | T10 | T13, T16, T17, T42 | — | B0 |
+| I276-T12 | T10, T19 | T16 | — | B0 |
+| I276-T13 | T11 | T14, T15 | — | B0 |
+| I276-T14 | T13, T22 | T15 | — | B0 |
+| I276-T15 | T13, T14 | T16, T38 | — | B0 |
+| I276-T16 | T11, T12, T15, T18, T19, T20 | T38, T40, T41, T44 | I306-T03 (resolvedProfile); I306-X05 (effort-source inspection) for model-scoped evidence | B2 |
+| I276-T17 | T10, T11, T18 | T21, T25 | I306-T03; I306-X03 (StagePlan v2 field for the evidence ref) | B2 |
+| I276-T18 | — | T16, T17, T21, T25, T38 | — | B0 |
+| I276-T19 | — | T12, T16, T25, T27, T38 | — | B0 |
+| I276-T20 | T05 | T16, T27 | I306-X03 (compiled input v2 fields; builder can target an interface before) | B0 |
+| I276-T21 | T17, T18 | T25, T27, T37 | I306-T03; I306-X03; I306-X05 | B3 |
+| I276-T22 | — | T14, T23 | — | B0 |
+| I276-T23 | T03, T05, T06, T22, T24 | T27, T38 | — | B3 |
+| I276-T24 | — | T23, T34 | — | B0 |
+| I276-T25 | T09, T17, T18, T32, T19, T21 | T26 | I306-X03; I306-X04 | B4 |
+| I276-T26 | T07, T25, T27 | T28, T31, T33, T34, T37 | I306-X04 (format-3 ledger) | B4 |
+| I276-T27 | T04, T05, T06, T21, T23, T07, T19, T20, T43 | T26, T29 | — | B3 |
+| I276-T28 | T04, T06, T26, T07 | T30, T34 | — | B4 |
+| I276-T29 | T43, T27 | T34 | — | B4 |
+| I276-T30 | T08, T28 | T34 | — | B4 |
+| I276-T31 | T08, T26 | T34, T37 | — | B4 |
+| I276-T32 | — | T25, T33 | — | B1 |
+| I276-T33 | T04, T26, T32 | T34 | I306-X04 (ledger format 3) | B4 |
+| I276-T34 | T24, T26, T28, T29, T30, T31, T33 | T35, T36 | — | B5 |
+| I276-T35 | T34 | T36 | I306-T11 (only for the later `axiom-runtime` capability route) | B5 |
+| I276-T36 | T34, T35, T44 | T39 | — | B6 |
+| I276-T37 | T09, T01, T21, T26, T31 | T39 | I306-X07 | B6 |
+| I276-T38 | T15, T16, T18, T19, T23, T41, T43 | T39 | — | B6 |
+| I276-T39 | T36, T37, T38 | T40 | — | B6 |
+| I276-T40 | T39, T16 | — | I306-T16 (local authoring delivered); I306-X07; Explicit human authorization of the smoke envelope and real probes | B7 |
+| I276-T41 | T16 | T38, T44 | — | B2 |
+| I276-T42 | T11, T10 | T44 | — | B2 |
+| I276-T43 | T05 | T27, T29, T38 | — | B0 |
+| I276-T44 | T16, T41, T42 | T36 | — | B5 |
+
+**Critical path (internal, 13 Tasks):** I276-T10 → I276-T11 → I276-T17 → I276-T21 → I276-T25 → I276-T26 → I276-T28 → I276-T30 → I276-T34 → I276-T35 → I276-T36 → I276-T39 → I276-T40.
+External gates on that path: I306-X03/X05 (tuple and effort-source wiring in
+T21), I306-X04 (ledger in T26/T33), I306-X07 (T37) and, for operational
+Evidence, I306-T16 plus explicit human authorization (T40).
+
+**Parallelism.** Within B0 the following have no mutual dependencies and touch
+disjoint files: T02, T03, T05, T10, T18, T19, T22, T24 (T43 after T05) (T11→T13→T14→T15 and
+T12, T20 follow their single prerequisites). B1 items T01, T06, T07, T32 can run
+in parallel once B0 prerequisites land.
+
+**File conflicts to serialize.** `internal/executiongraph/scheduler.go` (T02, T04,
+T05, T43, T19): land in that order. `internal/runtimeadapter/adapters.go` and
+`internal/graphapplication/runtime_policy.go` (T18, T19, T21). `internal/local/coordination_store.go` (T24 before T23). `internal/cli/*`
+shared tables, `docs/commands.md` and skill receipts (T34, T35, T44 vs PR #310
+I306-T09/T11): append-only entries, rebase at batch boundaries.
+`cmd/lingo/runtime_policy.go` (T17 vs I306-T03/T09).
+
+**Not blocked by #306:** B0 entirely, T01, T06, T07, T08, T32 and the
+deterministic parts of T04, T16, T17, T20, T42 (against interfaces/injected tuples).
+**Blocked until IG-7 is satisfied (completion):** T09, T21, T25, T26, T33, T37,
+and any real or v2 dispatch. **Blocked until IG-1 and human authorization:** T40.
+
+## Implementation batches (proposal; none executed)
+
+| Batch | Tasks | Verifiable outcome | Start prerequisites | Completion / integration prerequisites | Operational acceptance |
+|---|---|---|---|---|---|
+| B0 | T02, T03, T05, T10, T11, T12, T13, T14, T15, T18, T19, T20, T22, T24, T43 | Independent deterministic foundation | Tasks accepted; implementation authority; none | Tasks accepted; no #306 dependency | Not applicable |
+| B1 | T01, T04, T06, T07, T08, T32 | Graph v2 field contract, lease, authority, reconciliation, validator policy | Tasks accepted; implementation authority; previous batches | B0 relevant Tasks; I306-X05 for persistence completion | Not applicable |
+| B2 | T16, T17, T41, T42 | Capability proof use cases | Tasks accepted; implementation authority; previous batches | B0; I306-T03/X05 for model-scoped completion | Not applicable |
+| B3 | T21, T23, T27 | Supervisor, ingestion, tuple consumption | Tasks accepted; implementation authority; previous batches | B0–B2; I306-X03/X05 for tuple wiring completion | Not applicable |
+| B4 | T09, T25, T26, T28, T29, T30, T31, T33 | Stage operations and admission | Tasks accepted; implementation authority; previous batches | B1–B3; I306-X01/X03/X04/X05 for completion | Not applicable |
+| B5 | T34, T35, T44 | CLI and skill surfaces | Tasks accepted; implementation authority; previous batches | B2–B4 | Not applicable |
+| B6 | T36, T37, T38, T39 | Verification, compatibility and documentation | Tasks accepted; implementation authority; previous batches | B5; I306-X07 for T37 | Not applicable |
+| B7 | T40 | Operational smoke | Tasks accepted; implementation authority; previous batches | B6; I306-T16, I306-X07, explicit human authorization | Human authorization of the smoke envelope and real probes |
+
+Each batch is independently reviewable, leaves persisted state safe (new
+behavior unreachable from public commands until B5), records its own Evidence
+and can resume after interruption from the last merged Task.
+
+
+## Traceability
+
+Specification/criterion → decision → Plan → Tasks → tests → Evidence. Validated: every Task ID referenced exists, and every Task appears in at least one row.
+
+| Requirement | Decision / contract | Plan | Tasks | Tests | Expected Evidence |
+|---|---|---|---|---|---|
+| AC-1 installed path starts Codex+Claude children | PD-1, PD-2, PD-3, PD-11, PD-12 | §3.2–§3.3, §3.6, §3.11 | T05, T18, T19, T20, T25, T26, T27, T34, T36, T40, T43 | CLI blackbox with fake executables; real smoke | Synthetic blackbox report; `engineering_smoke_real` after IG-1/IG-7 |
+| AC-2 either Runtime initiates; restart/status/resume keep identity | PD-2, PD-14 | §3.2, §3.5, §3.7 | T06, T27, T28, T35, T36, T40 | Cross-surface parity; supervisor-kill restart | Parity report; stable IDs |
+| AC-3 real cross-Runtime Q/A consumed; nine kinds, forged lineage, stale revision, authority escalation, capacity | PD-4, PD-9 | §3.4–§3.5 | T03, T22, T23, T24, T36, T38, T40 | Nine-kind and negative ingestion tests; real Q/A | Test report; smoke records |
+| AC-4 overlap only when allowed; conflicts serialize; integration and roll-up preserve validation/authority | PD-7, PD-9 | §3.5, §6 | T04, T05, T27, T32, T33, T36 | Scheduling regressions; integration tests | Regression results; overlap timestamps |
+| AC-5 denied/failed/interrupted/unknown/recovery-required distinct; reconcile before retry | PD-6, PD-8, PD-10 | §3.5, §3.7–§3.8, §8 | T02, T03, T06, T08, T29, T30, T31, T36 | Per-outcome and kill-window tests | Outcome matrix report |
+| AC-6 early real smoke with auth mode, versions, graph, coordination, artifacts; synthetic never operational | PD-5, PD-13 | §9.4 | T39, T40 | Evidence field check | Smoke Evidence or not-run reason |
+| Spec 007 WF-009 / AC-009 | Amendment #276 A1–A6 | §5, §13 | T22, T23, T26, T28, T30, T34, T35, T36 | Parity, restart lineage, nine kinds, forged/stale denial, unknown reconciled | Covered by AC-2, AC-3, AC-5 Evidence |
+| D-1 / CR-002 capability proof owned by #276 | D-1, PD-13 | §3.9 | T10, T11, T12, T13, T14, T15, T16, T17, T42 | Capability matrix | Synthetic capability report; real probes only when authorized |
+| PD-1 public command surface | PD-1 | §5 | T24, T28, T30, T33, T34, T44 | CLI blackbox | Help/inspect metadata |
+| PD-2 supervisor | PD-2 | §3.2 | T05, T27, T43 | Detachment and kill tests | Platform report |
+| PD-3 dispatch authority record | PD-3 | §3.3 | T07, T25, T26 | Fault injection; scope | Commit report |
+| PD-4 inbox and truthful confinement | PD-4 | §3.4, §3.6 | T15, T18, T22, T23, T25 | Advisory disclosure; ingestion | Security report |
+| PD-5 mandatory subscription auth | PD-5 | §3.6 | T19 | Auth negatives | Unit report |
+| PD-6 cancel | PD-6 | §3.8 | T29, T43 | Cancel tests | Integration report |
+| PD-7 validator policy | PD-7 | §3.3, G11 | T32, T33 | Policy tests | Integration report |
+| PD-8 retry workspace disposition | PD-8 | §3.8 | T31 | Retry tests | Integration report |
+| PD-9 persisted classification | PD-9 | §3.5 | T03, T04, T23 | Classifier table; invariants | Unit/integration report |
+| PD-10 append-only reconciliation | PD-10 | §3.8 | T08, T30 | Fact tests | Integration report |
+| PD-11 single-agent dispatch | PD-11 | §3.11 | T20, T25, T26 | Single-agent run | Integration report |
+| PD-12 external authority for inference | PD-12 | §3.3 | T16, T25, T26, T28, T31, T44 | Missing-authority negatives | CLI report |
+| PD-13 probe-based proof, 30-day freshness | PD-13 | §3.9 | T10, T12, T16, T17, T42 | Freshness/expiry | Unit report |
+| PD-14 capability CLI now, axiom-runtime route later | PD-14 | §5 | T35, T44 | Routing tests | Skill contract report |
+| PD-15 consume accepted #306 contract | PD-15 | §3.10 | T09, T21, T37 | Matrix rows 1–15 | Matrix report |
+| PD-16 single graph v2 format | PD-16 | §3.10 | T01, T37 | Vectors through I306-X05 codec | Handoff + round-trip report |
+| PD-17 extended temp-root probe | PD-17 | §3.9 | T41, T44 | Extended probe tests | Unit/integration report |
+| CR-001 coordination-to-graph state | PD-9 | §3.5 | T03, T04, T23 | Invariants I-1–I-6 | Report |
+| CR-003 Profile-owned effort | amendment-306 PE-01–PE-06 | §3.10 | T21 | Tuple-only effort | Report |
+| CR-004 ADR-0025 identity | ADR-0025 | Status | T39 | ADR governance check | Validator output |
+| CR-005 probe envelope | PD-17 | §3.9 | T13, T14, T38, T41 | No out-of-envelope effect | Filesystem snapshot report |
+| CR-006 compatibility matrix | PD-15 | §3.10 | T09, T21, T37 | Matrix rows | Matrix report |
+| CR-007 per-variant probe | PD-13 | §3.9 | T15, T16, T17 | 9 variant cases | Report |
+| CR-008 positive control | PD-13 | §3.9 | T15, T16, T38 | 11 control cases | Report |
+| CR-009 PD-OWN decided | PD-OWN (#310) | §3.10, §10 | T01, T09, T21, T37 | External-dependency mapping | This Part |
+| IG-1 #306 local authoring | #306 T-series | §10 | T40 | Precondition check | Not-run reason until satisfied |
+| IG-2 credential handling (vendor-managed) | #306 D2 | §10 | T19 | Credential refusal | Unit report |
+| IG-3 Profile invocation parameters | #306 | §10 | T18 | Constants only | Golden argv |
+| IG-4 capability proof (closed into #276) | D-1 | §3.9 | T10–T17, T41, T42 | Capability matrix | Report |
+| IG-5 Profile-owned effort contract | amendment-306, ADR-0024 | §3.10 | T21, T09 | Tuple/effort tests | Report |
+| IG-6 axiom-runtime skill | I306-T11 | §10 | T35 | Route handoff | Handoff note |
+| IG-7 X01–X07 migration delivered | PD-OWN | §10 | T09, T21, T25, T26, T33, T37 | Completion verification against delivered #306 | Matrix report |
+| #306 resolvedProfile tuple (I306-T03, PE-04) | amendment-306 | §3.10 | T16, T17, T21 | Injected tuples then delivered resolver | Report |
+| #306 Stage Plan v2 / Execution format 3 (I306-X03/X04) | amendment-306 | §3.10 | T09, T20, T25, T26, T33 | Integration | Report |
+| #306 graph v2 + PE-05a (I306-X05) | amendment-306, PD-16 | §3.10 | T01, T04, T21, T37 | Codec round-trip; effort-source drift | Report |
+
+## Cross-PR integration (#306 / PR #310)
+
+| Producer (#306, Proposed) | Interface | #276 consumer | Gate type |
+|---|---|---|---|
+| I306-T02 | Local configuration v2 with Profile effort; v1 readable | T09 (`profile_effort_unconfigured`) | Completion |
+| I306-T03 | Sole resolver; versioned `resolvedProfile` tuple | T10 (types), T16, T17, T21 | Completion (interfaces allowed before) |
+| I306-X01 | Workflow schema 2 codec; schema-1 historical readers | T09 | Completion |
+| I306-X03 | Compiler/Stage Plan v2 with tuple and evidence ref field | T17, T20, T21, T25 | Completion |
+| I306-X04 | Configured Execution format 3; frozen child tuples at stage admission | T07, T09, T25, T26, T33 | Completion |
+| I306-X05 | Graph v2 codec carrying #276 fields (from T01); PE-05a inspection; attempt checks | T01 (supplies fields), T04, T06, T08, T16, T21, T37 | Completion; T01 handoff is a producer input to X05 |
+| I306-X07 | Cross-cutting compatibility corpus | T37 | Completion |
+| I306-T11 | `axiom-runtime` skill | T35 (later capability route) | Route only |
+| I306-T16 | Local G-2 authoring Evidence (supported clean configuration) | T40 | Operational acceptance |
+
+No implementation is assigned to both owners: #306 owns codecs, migrations,
+resolver, Stage Plan/Execution formats, effort-source inspection and the
+`axiom-runtime` skill; #276 owns the field semantics it supplies to I306-X05
+(T01), capability proof, dispatch, supervisor, coordination and their use of
+those contracts. **Registered cross-PR gap (not changed here):** the I306-X05
+Task text on PR #310 does not yet list the #276 graph fields required by PD-16;
+PR #310 needs to reference the T01 field contract before X05 is accepted.
+
+## Review readiness
+
+These Tasks require explicit human acceptance (individually or as a set) before
+any implementation authority. Acceptance of Tasks does not accept the #306 Tasks
+they depend on, and does not authorize real probes, the smoke (T40), merge or
+release.

@@ -77,16 +77,17 @@ installation compatibility and synthetic R-1 Evidence. It keeps native R-2 and
 human R-3 acceptance deferred to #278; technical checks do not imply release
 or human acceptance.
 
-[#276 Plan — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
-**Proposed (Phase 1, revision 5), pending human review.** Plans public
-`workflow stage` dispatch, coordination, status and recovery over the existing
-graph services, plus probe-based capability proof (maintainer decision D-1),
-persisted coordination-to-graph classification and Profile-owned effort
-consumption of the #306 contract accepted on PR #310, with a legacy
-admission matrix and a confined capability-probe envelope. Companion [amendment #276](007-configurable-workflows/amendment-276-stage-dispatch.md)
-and [ADR-0025](../decisions/0025-public-stage-dispatch-and-capability-proof.md)
-are **Proposed**. Nothing here authorizes Tasks, implementation, dispatch or
-acceptance.
+[#276 Plan and Tasks — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
+Part I (Plan, revision 5), the companion
+[amendment #276](007-configurable-workflows/amendment-276-stage-dispatch.md) and
+[ADR-0025](../decisions/0025-public-stage-dispatch-and-capability-proof.md)
+are **Accepted, 2026-10-11** ([maintainer decision](https://github.com/rgomids/axiom/pull/311#issuecomment-6109867861); blobs `13776ae`,
+`3c931f0`, `1da38d6` at `4b8c888`), with PD-1–PD-17 approved as recommended.
+They cover public `workflow stage` dispatch, a detached supervisor,
+coordination, probe-based capability proof, persisted coordination-to-graph
+classification and consumption of the #306 effort/versioning contract.
+**Part II (44 Tasks) is Proposed, awaiting human approval.** Nothing here
+authorizes implementation, dispatch, inference or acceptance.
 
 ## 006 — Installer Host Eligibility and Platform Support Policy
 

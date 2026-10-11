@@ -2,10 +2,13 @@
 
 ## Status
 
-Proposed, 2026-10-11, for human review on Draft PR
+Accepted on 2026-10-11 by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/311#issuecomment-6109867861), fixed to
+commit `4b8c888c66be3a30a2757761f71a4f9df2703631`, blob
+`1da38d6905df8ad34c07d70b2204164b5aed0634`, on Draft PR
 [#311](https://github.com/rgomids/axiom/pull/311) (Issue
-[#276](https://github.com/rgomids/axiom/issues/276)). It is not accepted. It
-authorizes no implementation, dispatch, inference, merge or release. The
+[#276](https://github.com/rgomids/axiom/issues/276)). Only this status
+paragraph changed after acceptance. Acceptance establishes the architecture;
+it authorizes no implementation, dispatch, inference, merge or release. The
 number 0025 avoids collision with ADR-0023 and ADR-0024, both of which
 PR #310 proposes and which were accepted there on 2026-10-11 but are not yet
 merged.

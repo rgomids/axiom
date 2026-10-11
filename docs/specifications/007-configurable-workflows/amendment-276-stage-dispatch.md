@@ -2,14 +2,16 @@
 
 ## Status
 
-**Proposed, 2026-10-11, for human review.** Prepared with the
+**Accepted, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/311#issuecomment-6109867861)
+at HEAD `4b8c888c66be3a30a2757761f71a4f9df2703631`, blob
+`3c931f0d6005a8abfc870b5febf414606d2ffdaa`. Only this status paragraph changed
+after acceptance. It was prepared with the
 [#276 Plan](plan-tasks-276-stage-agent-execution.md) on Draft PR
-[#311](https://github.com/rgomids/axiom/pull/311). The amendment is not
-accepted. It changes no accepted text of [Specification 007](spec.md)
-until a human accepts it, and acceptance would not authorize
-implementation, dispatch, inference, merge or release. The companion
-decision is [ADR-0025](../../decisions/0025-public-stage-dispatch-and-capability-proof.md)
-(Proposed).
+[#311](https://github.com/rgomids/axiom/pull/311). Acceptance establishes the
+contract only; it does not authorize implementation, dispatch, inference,
+merge or release. Companion decision:
+[ADR-0025](../../decisions/0025-public-stage-dispatch-and-capability-proof.md)
+(Accepted).
 
 ## Scope
 
