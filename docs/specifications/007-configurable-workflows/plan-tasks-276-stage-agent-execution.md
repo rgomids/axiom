@@ -2,7 +2,7 @@
 
 ## Status
 
-**Phase 1 (Plan), revision 2 — Proposed, pending human review.** This
+**Phase 1 (Plan), revision 3 — Proposed, pending human review.** This
 document is the Plan for [#276](https://github.com/rgomids/axiom/issues/276) /
 Linear AXM-8. It does not authorize Tasks, implementation, Runtime dispatch,
 real inference, Provider effects, merge, release or human acceptance. Part II
@@ -14,14 +14,14 @@ contracts it depends on are approved.
 | Work Item | [#276](https://github.com/rgomids/axiom/issues/276) / Linear AXM-8 (operational status lives in Linear) |
 | Parent | [Epic #15](https://github.com/rgomids/axiom/issues/15); Spec 007 requirement **WF-009**, acceptance **AC-009** ([spec.md:62](spec.md), [spec.md:547](spec.md)) |
 | Contract consumed | [Spec 007](spec.md) (Accepted 2026-10-09), [amendment #303](amendment-303-workflow-skill.md) + [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md) (Accepted 2026-10-10), [ADR-0003](../../decisions/0003-lingo-as-axiom-local-control-plane.md), [ADR-0004](../../decisions/0004-portable-project-manifest.md), [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md), [ADR-0007](../../decisions/0007-local-publication-and-recovery-protocol.md), [ADR-0008](../../decisions/0008-minimal-machine-local-execution-record.md), [ADR-0009](../../decisions/0009-parent-child-execution-graph.md), [ADR-0020](../../decisions/0020-workflow-definition-revision-binding.md) |
-| Contracts proposed by this PR | [Spec 007 amendment #276](amendment-276-stage-dispatch.md) (**Proposed**) and [ADR-0024](../../decisions/0024-public-stage-dispatch-and-capability-proof.md) (**Proposed**). Neither is accepted; each needs its own human decision |
-| Maintainer decisions incorporated | **D-1 resolved** ([PR #311 comment](https://github.com/rgomids/axiom/pull/311#issuecomment-6108112930)): capability proof for stage execution is a #276 deliverable. #306 directions D2/D3 ([PR #310 comment](https://github.com/rgomids/axiom/pull/310#issuecomment-6108025068)): vendor-managed authentication only; `effort` belongs to the local Model Profile |
+| Contracts proposed by this PR | [Spec 007 amendment #276](amendment-276-stage-dispatch.md) (**Proposed**) and [ADR-0025](../../decisions/0025-public-stage-dispatch-and-capability-proof.md) (**Proposed**). Neither is accepted; each needs its own human decision |
+| Maintainer decisions incorporated | **D-1 resolved** ([PR #311 comment](https://github.com/rgomids/axiom/pull/311#issuecomment-6108112930)): capability proof for stage execution is a #276 deliverable. **#306 contracts consumed as accepted on PR #310** ([acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), commit `823bce3`; not yet merged): vendor-managed authentication (D2), Profile-owned effort and versioned migration (amendment-306 PE-01–PE-06, ADR-0024) |
 | Satisfied predecessors | #274 (binding), #275 (stage compiler, v0.15.0), #303 (skill surface, v0.16.0), #272 (auth preflight), #230 (resource lifecycle), #271 (contracts) — implementation baseline only |
-| Parallel work | [#306](https://github.com/rgomids/axiom/issues/306) / [PR #310](https://github.com/rgomids/axiom/pull/310) (local Runtime/Profile authoring, Profile-owned effort, `axiom-runtime` skill, ADR-0023) — boundary in §10 |
+| Parallel work | [#306](https://github.com/rgomids/axiom/issues/306) / [PR #310](https://github.com/rgomids/axiom/pull/310), head `c4cb5aa` (local Runtime/Profile authoring, Profile-owned effort, `axiom-runtime` skill, Accepted ADR-0023/ADR-0024; cross-cutting migration bundle X01–X07 pending PD-OWN) — boundary in §3.10 and §10 |
 | Successors (not in scope) | #277 delivery/rework, #278 / AXM-12 R-2 native and R-3 human MVP acceptance |
 | Code baseline | `main` `5d52327` (v0.16.0); Plan revision 1 at `0f5ba21` |
 | Lifecycle | One branch (`feat/276-stage-agent-execution`) and one Draft PR (#311) for Plan → Tasks → Implementation, each separately approved |
-| Review | Revision 1: independent adversarial review (§12.5). Revision 2: maintainer REQUEST CHANGES on PR #311 (D-1, CR-001, #310 reconciliation, ADR collision, metadata) |
+| Review | Revision 1: independent adversarial review. Revision 2: maintainer REQUEST CHANGES (D-1, CR-001, ADR collision, metadata). Revision 3: [Code Review Guardian re-review](https://github.com/rgomids/axiom/pull/311#pullrequestreview-5483400200) findings CR-004–CR-006 (§12.5) |
 
 Observed statements cite `file:line` on the baseline. Statements marked
 *(inferred)* must be confirmed in the named Task. **PD-n** items need explicit
@@ -308,7 +308,8 @@ read by every consumer. Rendering never reinterprets them.
   terminal save**, and persists the result **in the same CAS save**.
 - Each attempt is saved as soon as it is classified, not once per batch
   (today it is per batch after `wg.Wait`, `scheduler.go:198-205`).
-- `Attempt` gains two additive fields:
+- `Attempt` gains two fields, carried in the versioned graph v2 revision
+  (PD-16; the graph decoder rejects unknown fields, `graph.go:226,312`):
   - `classificationReason`;
   - `qualifyingRecordRef`, the digest of the qualifying canonical record.
     It is distinct from the existing `ResultReference`, which stays the
@@ -426,17 +427,19 @@ logic and record their own reasons (`integration_applied`,
     for the exact binding.
 - **What is and is not enforced (stated per Runtime in the preview):**
   - Reads are **not OS-confined** for either Runtime.
-  - Codex writes are OS-confined to the writable set **the probe actually
-    observed**. This may include `$TMPDIR` or `/tmp`
-    *(unverified; recorded, never assumed)*.
+  - Codex writes are OS-confined only as far as the probe verified, which
+    is denial of the in-envelope sentinel (§3.9). `$HOME` and vendor homes
+    are always `not_tested` and never probed. `$TMPDIR` and `/tmp` are
+    `not_tested` unless an extended probe was separately authorized (PD-17).
   - Claude writes are advisory.
   - Because `HOME` is passed for vendor login, an advisory child can reach
     user-level tools and credentials such as SSH keys or a `gh` login, and
     could in principle push or open a PR. The prohibition on push, PR, merge,
     Provider calls and credential access is therefore **policy, not
     enforcement**, for advisory children, and the preview says so.
-  - Network access is a separate dimension. It is pinned per variant where the
-    Runtime offers it and probed and reported like writes.
+  - Network access is a separate dimension. It is pinned per variant where
+    the Runtime offers it. Only loopback denial is probed; external network
+    is `not_tested`.
 - **Task packet on stdin:** role, responsibilities, instructions, validated
   input refs/digests, outputs, criteria, allowed paths/effects, coordination
   protocol and limits (including "publish `result` before exiting 0"), the
@@ -466,7 +469,7 @@ Status probes it non-blockingly. A `running` attempt whose lease is free is
 reported, its inbox is quarantined, and retry stays blocked until it is
 stopped and reconciled. Authority + graph and stage outcome + ledger are
 multi-object commits under ADR-0007 commit-point/recovery rules (exact
-objects in ADR-0024 and Tasks).
+objects in ADR-0025 and Tasks).
 
 ### 3.8 Reconciliation, retry and cancellation
 
@@ -532,11 +535,16 @@ recorded **separately** as per-model `model-invocation` and
 - `CapabilityEvidenceRef` in the stage plan and preview becomes the evidence
   record digest. Today it is the observation digest (`stage_plan.go:136`).
 
-**Evidence binding.** One evidence record per {Runtime ID, executable
-digest, observed version, invocation-mode digest (constant argv template +
-confinement variant `read-only` or `workspace-write` + environment allowlist
-digest), Axiom adapter version}. Model-scoped results also bind {model,
-Profile-owned effort token}. Each record stores per-capability state, the
+**Evidence binding.** There is one evidence record per {Runtime ID,
+executable digest, observed version, invocation-mode digest, Axiom adapter
+version}. The invocation-mode digest covers the constant argv template, the
+confinement variant and the environment allowlist digest.
+
+Model-scoped results additionally bind the resolvedProfile elements of the
+accepted #306 tuple (PE-04): Profile ID, `profileDigest`, model, effort mode
+and token (or explicit no-override), `configurationRevision` and
+`effortSourceDigest` observed at probe time. Their digest is the
+`capability proof reference` that the tuple carries. Each record stores per-capability state, the
 verification facts, confinement observed, `observedAt` and the probe packet
 digest. It stores no transcripts, credentials or account identifiers, and
 lives in a new machine-local store owned by #276. It does **not** change the
@@ -550,34 +558,113 @@ lives in a new machine-local store owned by #276. It does **not** change the
    absent for the observed version, or confirm that a probe is possible. It
    never yields `proven`.
 2. **Behavioral calibration probe (vendor inference; separately
-   authorized).** `axiom runtime <codex|claude> capability probe --profile
-   <id>` preview/apply runs the Runtime in the **exact dispatch invocation
-   mode** (same adapter, argv allowlist, environment and packet format), once
-   per confinement variant. It runs in an Axiom-created disposable scratch git
-   repository under the state root, never a user repository, with a bounded
-   timeout, one attempt and no retry. The canary tasks are: read a file
-   containing a nonce, create and edit a file with derived content, run a
-   command (the pinned `axiom` canary/coordination publish, which proves
-   `process` and `axiom-coordination`), exit 0 after publishing a `result`,
-   and attempt a write to a sentinel directory inside the probe root but
-   outside the allowed write set.
+   authorized; CR-005).** `axiom runtime <codex|claude> capability probe
+   --profile <id>` preview/apply runs the Runtime in the **exact dispatch
+   invocation mode** (same adapter, argv allowlist, environment and packet
+   format) once per confinement variant, with a bounded timeout, one
+   attempt and no retry. **Axiom verifies outcomes by inspecting the
+   filesystem, inbox and exit status, never by trusting the agent's
+   statements.**
 
-   **Axiom verifies outcomes by inspecting the filesystem, inbox and exit
-   status, never by trusting the agent's statements.**
+   **Probe envelope.** Every probe runs inside an Axiom-created envelope
+   `<state root>/capability-probes/<probeId>/`:
 
-   Confinement is measured by the **deterministic `axiom` canary** that the
-   child is asked to run, never by the model's own attempt.
-   - The canary tries writes to the sentinel, `$TMPDIR`, `/tmp`, `$HOME` and
-     the vendor home, and one network connection.
-   - It records each errno or result in its inbox record.
-   - The observed writable set and network posture are stored as evidence.
-   - `os-enforced` is concluded only when the canary itself ran and was
-     denied outside the allowed set.
-   - If the canary did not run, or the model refused, the result is
-     `unknown`, never `os-enforced`.
+   | Path | Purpose |
+   |---|---|
+   | `workspace/` | Scratch git repository; allowed write root |
+   | `inbox/` | Attempt inbox; allowed write root |
+   | `sentinel/` | Disposable, outside the allowed write set |
+   | `envelope.json` | Envelope manifest |
 
-   Each confinement variant is probed separately. Model invocation with the Profile's model/effort is
-   recorded as model-scoped evidence.
+   - The envelope has its own identity: probe ID, nonce and creation
+     revision. Its manifest lists the exact allowed roots, the sentinel, the
+     timeout and the effect limits, and the manifest digest is bound into the
+     probe preview and authorization.
+   - Directories are created private and owned by the operator. The envelope
+     never resolves through symlinks, and it is never inside a user
+     repository, `$HOME` (except as a descendant of the state root),
+     vendor homes, `$TMPDIR` or `/tmp`.
+
+   **Canary tasks.** The model is asked to do the following, all inside the
+   envelope:
+   - read a nonce file in `workspace/`;
+   - create and edit a file in `workspace/`;
+   - run the pinned `axiom` canary, which proves `process` and
+     `axiom-coordination` by publishing to `inbox/`;
+   - publish a `result` and exit 0.
+
+   **Confinement measurement without unauthorized mutation.**
+   - The deterministic `axiom` canary runs inside the child's sandbox and
+     attempts exactly one out-of-scope write: an `O_CREAT|O_EXCL` create of
+     a uniquely named empty file in `sentinel/`. That target is
+     Axiom-owned, disposable and authorized as part of the envelope.
+   - It records the errno.
+   - It performs **no** write, create, rename or delete anywhere else, and
+     never targets `$HOME`, vendor login or configuration directories,
+     `$TMPDIR`, `/tmp`, user repositories or credentials.
+   - The canary's target list is computed only from the envelope manifest,
+     and the canary refuses any target outside it.
+
+   **Network.** At most, the canary connects to an Axiom-owned ephemeral
+   listener on the loopback interface inside the probe process. That
+   confirms or refutes network denial without external effect. No external
+   host is contacted. External network posture is reported as `not_tested`.
+
+   **Writability of user locations is never discovered by mutating them.**
+   - `$HOME`, vendor homes, `$TMPDIR` and `/tmp` are reported as
+     `not_tested`.
+   - `$HOME`, vendor homes and external networks are **never probed**.
+   - Testing `$TMPDIR` or `/tmp` requires a separately authorized
+     **extended probe** (PD-17), limited to those temp roots only. Its
+     preview names the exact roots and the limit of one uniquely named empty
+     file per root. It
+     proves cleanup by read-back and records any residue as a failure.
+     Probe authority never extends to it implicitly.
+
+   **Classification.**
+   - **`os-enforced`** only when all of these hold: the mode declares OS
+     sandboxing (interface observation), the canary itself ran, and the
+     canary's sentinel create was denied with an errno in {`EACCES`, `EPERM`,
+     `EROFS`} while its allowed-root writes succeeded. Any other errno
+     (e.g. `ENOENT`) or a canary-side refusal is `unknown`. The evidence states its scope, namely
+     that denial was verified for the in-envelope sentinel; it does not
+     claim that untested roots are confined.
+   - **`advisory`** when the sentinel create succeeded. The file is
+     Axiom-owned and is removed by envelope cleanup.
+   - **`unknown`** when the canary did not run, the model refused, the run
+     was interrupted or timed out, or the result is ambiguous.
+   - Nothing is promoted to `os-enforced` by documentation, flags or the
+     model's own claims.
+
+   **Residual risk and mitigation.**
+   - On an `advisory` Runtime the *model itself* (not the canary) could act
+     outside the envelope despite instructions.
+   - The probe packet confines instructions to the envelope, the adapter
+     uses the narrowest tool allowlist (Claude: file tools plus Bash limited
+     to the pinned canary command prefix), and the probe preview states
+     this residual risk before consent.
+   - The residual risk is accepted only by that explicit consent, within the
+     [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md)
+     same-user model.
+
+   **Cleanup, interruption and retention.**
+   - After verification, Axiom removes the envelope using exact owned-object
+     cleanup ([ADR-0007](../../decisions/0007-local-publication-and-recovery-protocol.md))
+     and verifies the removal by read-back.
+   - An interrupted or crashed probe leaves the envelope **quarantined**.
+     Its evidence is `unknown/inconclusive`, and a later cleanup
+     preview/apply removes only that envelope's owned objects.
+   - Evidence retains only digests, envelope-relative names, errno classes,
+     categories, versions and timestamps. It never retains host paths,
+     environment values, file contents beyond the nonce check,
+     configuration, credentials, account data or inference transcripts.
+   - Process output is kept only as a digest plus a bounded redacted excerpt.
+   - Evidence records are retained until they are invalidated, expire or
+     are removed by explicit cleanup.
+
+   **Model scope.** Model invocation with the Profile's exact model and
+   effort mode is recorded as model-scoped evidence (PE-06), together with
+   the effort-source digest observed at probe time (PE-05a).
 
 **States** reported by `capability show`, preview and blockers:
 
@@ -605,7 +692,9 @@ continuation and retries) recompute the binding tuple:
 - mode digest;
 - adapter version;
 - pinned `axiom` binary digest;
-- Profile model/effort and configuration revision.
+- the frozen `resolvedProfile` tuple elements (Profile digest, model, effort,
+  configuration revision);
+- the current `effortSourceDigest` (PE-05a).
 Any mismatch makes the capability `unknown` and blocks with
 `capability_stale`. A mismatch between preview and dispatch is reported as
 `denied_authority/stale_preview`.
@@ -626,26 +715,96 @@ version (for example, Claude without observable OS write confinement), the
 outcome is recorded truthfully (`advisory`, or `unsupported` for a missing
 interface) and surfaced in preview. Nothing is bypassed or promoted.
 
-### 3.10 Effort and model (reconciliation with #306 D3; IG-5, PD-15)
+### 3.10 Effort, versioning and compatibility with #306 (CR-006; IG-5, IG-7, PD-15, PD-16)
 
-- Effort is owned by the local Model Profile (#306). The workflow references
-  a Profile and does not specify or override effort. `complexity` stays a
-  task requirement independent of effort.
-- #276 consumes the Profile's effort. The resolution, dispatch preview and
-  envelope `Controls.ReasoningEffort` carry the Profile effort, and the task
-  packet carries none. The adapter emits it only with matching per-model
-  evidence (`reasoning-effort-<token>` proven for the exact model, version
-  and mode). Missing or non-matching effort evidence blocks with
-  `capability_unknown`; it never falls back silently to the Runtime default.
-- Compatibility: agents with `effort {mode: runtime-default}`, which covers
-  every built-in `default-sdd` stage, are unaffected. A pinned historical
-  revision with an explicit agent effort is never rewritten. A new dispatch
-  under it is refused with `workflow_effort_override_unsupported` and
-  directed to a new revision. Existing Executions keep their bindings.
-- The Spec 007 / `default-sdd` schema change that removes or retires agent
-  effort is **owned by PR #310** per its maintainer decision (mandatory change
-  2). #276 depends on it (IG-5) and does not author it. Amendment #276 states
-  only the dispatch-side consumption rule.
+**Consumed contract.** PR #310 carries three artifacts that were
+**Accepted on 2026-10-11** by
+[explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466),
+fixed to commit `823bce3141bae5e90951c5239181c46d88cfbfe9`:
+- the Spec 007 effort/onboarding amendment
+  ([amendment-306, blob `4bc5b65`](https://github.com/rgomids/axiom/blob/823bce3141bae5e90951c5239181c46d88cfbfe9/docs/specifications/007-configurable-workflows/amendment-306-profile-effort-onboarding.md));
+- ADR-0023 (local Runtime configuration);
+- ADR-0024 (Model Profile owns effort).
+
+None is merged to `main` yet. The current #310 head (`c4cb5aa`) changes only
+status and backlink reconciliation in those files. #276 consumes this
+contract exactly. It does not restate, weaken or extend it.
+
+- **PE-01/02.** Effort comes only from the local Model Profile (local
+  configuration format 2). Workflow schema 2 forbids agent effort.
+  `complexity` stays an independent task requirement.
+- **PE-03.** A Profile is chosen first, then its effort is checked. If the
+  effort fails, that choice blocks. There is no search for another Profile,
+  model, Runtime or effort.
+- **PE-04/05.** Dispatch admits a child only with a frozen `resolvedProfile`
+  tuple:
+  - Profile ID and `profileDigest`;
+  - Runtime and model;
+  - effort;
+  - configuration revision and digest;
+  - executable digest;
+  - Runtime version and invocation mode;
+  - observation revision and digest;
+  - `effortSourceDigest`;
+  - capability proof reference.
+
+  Child controls derive only from that tuple.
+- **PE-05a.** The bounded external effort-source inspection is implemented
+  under #306 bundle X05. It runs at the authorized dispatch boundary and
+  again before each attempt. `effort_configuration_unproven` and
+  `effort_override_conflict` block dispatch.
+- **PE-06.** Explicit effort, and runtime-default no-override semantics, both
+  require model-scoped proof for the exact tuple. **#276 acquires that proof**
+  (G-3 per D-1, §3.9).
+
+**Admission and compatibility matrix.** This is the same contract as
+amendment-306 §3. Categories are #306's unless marked #276.
+
+| # | Source contract | Target / operation | Admissible | Migration required | Evidence required | Refusal state / category | Implementation owner |
+|---|---|---|---|---|---|---|---|
+| 1 | Workflow schema 1 (any effort, **including `runtime-default`**) | New Execution start or new stage compilation under Profile-owned semantics | **No** | Explicit Workflow migration to a schema-2 revision with confirmed per-agent Profile mapping, then explicit Project selection | — | `workflow_migration_required` | #306 X01–X04 (PD-OWN); #276 enforces at its entrypoints |
+| 2 | Workflow schema 1, explicit agent effort | Same as row 1 | **No**; the legacy override is never ignored or reinterpreted | As row 1; the removed effort is shown beside the chosen Profile effort | — | `workflow_migration_required` | as row 1 |
+| 3 | Configured Execution format 1/2 (schema-1 binding), already started | `stage run` (new dispatch) | **No** | New Execution identity under a migrated schema-2 Workflow, through its lifecycle owner; no rebind or recompile | — | `legacy_execution_contract` | Contract #306; enforcement #276 |
+| 4 | Same as row 3 | `stage retry` | **No** | As row 3 | — | `legacy_execution_contract` | as row 3 |
+| 5 | Same as row 3 | `workflow status/resume` (#274, sequential) | Yes, unchanged #274 semantics; never produces #276 dispatch | None | — | — | #274 (existing) |
+| 6 | Same as row 3 | `stage status`, `coordination list` (read) | Yes, read-only; reports `legacy_execution_contract` as next action | None | — | — | #276 |
+| 7 | Graph/proposal version 1 (historical S9) | Any #276 mutation | **No**; readable only | None (never upgraded) | — | `recovery_required/unsupported_graph_format` (#276) | #276 |
+| 8 | Local configuration format 1 (no Profile effort) | Any v2 admission, `stage run` or `capability probe` | **No** | Explicit local migration choosing effort per Profile | — | `profile_effort_unconfigured` | #306 T-series |
+| 9 | Schema-2 Workflow + Execution format 3 + local configuration v2 | `stage plan` (Stage Plan v2) | Yes | None | resolvedProfile resolution | Resolver blockers (ambiguity, policy) | #306 X03 + #276 |
+| 10 | Same as row 9 | `stage run`, first attempts | Yes, only if every check passes | None | Frozen tuple; #276 capability evidence `proven` for every required and model-scoped capability; PE-05a inspection clean with `effortSourceDigest` matching; subscription auth observed; dispatch authority | `capability_unknown/unsupported/stale` (#276); `effort_configuration_unproven`; `effort_override_conflict`; `authentication_blocked`; `denied_authority/stale_preview` | #276 (composition, proof); #306 X05 (graph v2, PE-05a) |
+| 11 | Same as row 9, tuple frozen | Supervisor continuation or `stage retry` | Yes, only if re-evaluation equals the frozen tuple | None | As row 10, re-evaluated before each attempt | Any drift blocks (`capability_stale`, `effort_override_conflict`, `stale_preview`) until explicit replan or reconciliation; the tuple is never replaced | #276 |
+| 12 | Same as row 9 | Resume after supervisor restart | Yes for already-authorized first attempts, with the row 11 checks; stale or orphan attempts need reconcile first | None | Persisted classification (§3.5) | `failure/recovery_required` | #276 |
+| 13 | Migration incomplete: Workflow migrated but not selected, Profile missing, or Project policy not allowing it | Start or `stage run` | **No** | Complete the missing explicit step | — | `workflow_migration_required` / `profile_effort_unconfigured` / `project_policy_update_required` | #306 / #305 |
+| 14 | Frozen tuple whose local Profile was later removed, tombstoned, edited or disabled | New attempt | **No**; no fallback to another Profile, model, Runtime or effort | Explicit replan under a new authority | — | Drift blocker per #306 (`stale_preview` / resolution blocker) | #306 contract; #276 enforcement |
+| 15 | Default `default-sdd` r1 (schema 1) | New start | **No**; r1 bytes and digest are preserved | Select `default-sdd` r2 (schema 2) after guided setup | — | `workflow_migration_required` | #306 X06 |
+
+**Distinctions preserved.** These four are separate inputs to the preview and
+blockers, and none implies another:
+- **declared configuration**: Profile, effort and Project policy;
+- **proven capability**: #276 evidence;
+- **authentication**: vendor-managed preflight;
+- **authorized effects**: dispatch authority.
+
+**Rows retired by this revision.** The revision-2 rule "agents with
+`runtime-default` effort are unaffected" is **withdrawn**. It contradicted
+rows 1, 3 and 15. The category `workflow_effort_override_unsupported` is
+withdrawn in favor of #306's `workflow_migration_required`.
+
+**Ownership boundary and dependencies.**
+- #306 owns local v2 authoring, Profile-owned effort and the accepted
+  versioning contract.
+- Implementation of the cross-cutting X01–X07 bundle (Workflow schema 2,
+  compiler and Stage Plan v2, Execution format 3, graph v2 with per-node
+  `resolvedProfile`, PE-05a, `default-sdd` r2) is **pending maintainer
+  decision PD-OWN in PR #310**. This is gate IG-7. #276 neither assumes that
+  ownership nor implements those formats.
+- #276 graph additions (classification marker and reasons, lease epoch,
+  dispatch-authority reference, reconciliation facts) must form a single
+  graph format revision together with X05's graph v2. That is PD-16.
+- Adjustment registered for PR #310, not made here: its
+  `tasks-306-local-runtime-profiles.md` line 35 notes the ADR-0024 path
+  collision. After this revision #311 uses ADR-0025, so no change is needed
+  in #310 beyond eventual index merge order.
 
 ### 3.11 Single-agent stages (PD-11)
 
@@ -713,7 +872,7 @@ final only in Tasks.
 | `runtime <id> capability show` | new read | no | none | `axiom-runtime` once #310 lands (PD-14) | amendment #276 |
 | `runtime <id> capability probe` | new | evidence; vendor inference | local + external | `axiom-runtime` once #310 lands (PD-14) | amendment #276 |
 | `runtime <id> capability invalidate` | new | evidence state | local | `axiom-runtime` once #310 lands (PD-14) | amendment #276 |
-| supervisor entrypoint | hidden | as authorized | inherited, scoped | none | ADR-0024 |
+| supervisor entrypoint | hidden | as authorized | inherited, scoped | none | ADR-0025 |
 | `workflow cancel` | existing unsupported | no | — | unchanged | #230 F-02 |
 
 `coordination publish` outside a running child context fails closed. Results
@@ -746,11 +905,11 @@ added. Skills relay human rendering and never compute digests or policy.
 |---|---|
 | Authorization before dispatch | Dispatch preview + local and external authority; record committed before any attempt; first-attempt scope; gates checked |
 | Capability vs effect vs confinement | Three separate records shown per child in preview; proof never grants authority; authority never implies proof |
-| Capability proof | Probe-verified evidence only; installation, version, authentication, Profile declaration or help output never promoted to `proven` |
+| Capability proof | Probe-verified evidence only; installation, version, authentication, Profile declaration or help output never promoted to `proven`; probes confined to an Axiom-owned envelope whose manifest digest is authorized; no mutation of user, vendor, temp or network targets without a separately authorized extended probe (§3.9, PD-17) |
 | Runtime / Profile resolution | `runtimeapplication.Check` at preview, apply and each dispatch; no fallback; initiating Runtime has no preference |
-| Model / effort | Profile-owned (#306); used only with matching per-model evidence; no cross-vendor mapping |
+| Model / effort | Profile-owned and frozen in the `resolvedProfile` tuple (#306 PE-04); used only with matching model-scoped proof and clean PE-05a effort-source inspection; no fallback or cross-vendor mapping |
 | Authentication | Vendor-managed (#306 D2); subscription preflight mandatory (PD-5); no credential capture; credential references refused |
-| Read/write/process scope | Writes: worktree + own inbox (Codex OS-enforced; Claude advisory unless proven). Reads: not OS-confined, stated in preview. Commands: run in worktree under the shown confinement |
+| Read/write/process scope | Writes: worktree + own inbox (Codex OS-enforced where the probe proves it; Claude advisory unless proven). Reads: not OS-confined, stated in preview. Commands: run in worktree under the shown confinement |
 | Arguments / environment | Constant allowlist; bypass options rejected; constructed environment without ambient tokens |
 | Lineage / revision | Child/attempt/graph revision/epoch checks; recompile under bound revision; digest compare |
 | Coordination provenance | Inbox + concurrent ingestion + final drain + epoch fencing; records grant nothing |
@@ -773,7 +932,10 @@ process groups, capability evidence integrity and binding, and redaction.
 | Capability unknown (no/stale/expired/invalidated evidence) | capability observer | `validation_failure` / `capability_unknown` or `capability_stale` | authorized probe |
 | Capability unsupported | interface observation or probe | `validation_failure` / `capability_unsupported` | different Profile/Runtime by explicit choice |
 | Model/effort unproven | per-model evidence | `validation_failure` / `unsupported_effort` or `capability_unknown` | probe or change Profile (#306) |
-| Explicit workflow effort in pinned revision | compiler | `validation_failure` / `workflow_effort_override_unsupported` | new revision |
+| Workflow schema 1 (any effort, incl. `runtime-default`) | admission | `validation_failure` / `workflow_migration_required` | explicit migration (#306) |
+| Legacy Execution (format 1/2) | `stage run` / `stage retry` | `validation_failure` / `legacy_execution_contract` | new Execution under migrated Workflow |
+| Local configuration v1 (no Profile effort) | admission, probe | `validation_failure` / `profile_effort_unconfigured` | local migration (#306) |
+| External effort selector or unproven effort source | PE-05a inspection | `effort_override_conflict` / `effort_configuration_unproven` | user resolves vendor configuration; new preview |
 | Authentication unavailable | preflight | `authentication_blocked` | vendor login (user-run) |
 | Credential reference configured | guard | `authentication_blocked` / `credential_reference_configured` | #306 |
 | Stale/invalid revision | recompile + digest | `denied_authority` / `stale_preview`; corrupt → `recovery_required` | new preview |
@@ -786,7 +948,9 @@ process groups, capability evidence integrity and binding, and redaction.
 | Interrupted / timeout | supervisor | `unknown`; `interrupted` only without ambiguous effect, else `failure/recovery_required` | reconcile |
 | Supervisor killed | free lease | `failure/recovery_required` (stale/orphan) | stop orphan; reconcile |
 | Concurrent operations | lease, CAS, chain | `stale_preview` / `temporarily_unavailable` | retry operation |
-| Probe inconclusive (usage limit, timeout) | probe | capability `unknown` | new authorized probe |
+| Probe inconclusive (usage limit, timeout, interruption, model refusal) | probe | capability `unknown`; envelope quarantined | cleanup preview; new authorized probe |
+| Probe canary escapes the envelope | sentinel create succeeded | confinement `advisory` (never `os-enforced`) | disclosed in preview |
+| Probe target outside envelope requested | canary manifest check | refused; probe `unknown` | extended probe needs separate authority (PD-17) |
 | Confirmed effect, projection failed | after commit | `partial` / `confirmed_effect_reconciliation_required` | reconcile |
 
 ## 9. Validation strategy
@@ -828,12 +992,51 @@ process groups, capability evidence integrity and binding, and redaction.
     between save and lease release.
 - **Recovery.** Cover stale and orphan states, the G8 regression, resume from
   the store, cancel before and during a run, and retry eligibility.
-- **Compatibility.**
-  - Pinned revisions with `runtime-default` effort are dispatchable; those
-    with explicit effort are refused for new dispatch and never rewritten.
-  - Existing Executions are untouched.
-  - Historical graphs are readable but refused for mutation.
-  - Graph and attempt formats stay additive.
+- **Compatibility (CR-006).** One test per row of the §3.10 matrix:
+  - schema 1 with `runtime-default` and with explicit effort both refused
+    `workflow_migration_required`;
+  - legacy Execution `stage run`/`stage retry` refused
+    `legacy_execution_contract`, while #274 `resume` and reads still work;
+  - v1 graph read-only;
+  - local configuration v1 refused `profile_effort_unconfigured`;
+  - schema-2/format-3/local-v2 admitted only with a frozen tuple, proven
+    capability and clean PE-05a;
+  - drift of each tuple element blocks continuation and retry without
+    replacing the tuple, including:
+    - `profileDigest`, model, effort and configuration revision;
+    - executable, version and mode;
+    - `effortSourceDigest` changed by an external selector inserted after
+      preview;
+  - removed, tombstoned or disabled Profile blocks with no fallback;
+  - each incomplete-migration case;
+  - `default-sdd` r1 bytes and digest unchanged;
+  - historical Workflow, Execution and graph bytes unchanged after every
+    operation.
+- **Capability probe safety (CR-005)**, run with fake Runtimes against a
+  temporary `HOME`, vendor home, `TMPDIR` and `/tmp` substitute:
+  - **effective confinement**: the sentinel create is denied, so the result
+    is `os-enforced`, scoped to the in-envelope sentinel;
+  - **advisory confinement**: the sentinel create succeeds, so the result is
+    `advisory`, and the file is removed by cleanup;
+  - **writable user directories**: a fake Runtime with writable `HOME` and
+    vendor home still gets no canary write there, and those roots are
+    reported `not_tested`;
+  - **envelope escape**: a manifest-external target, a symlinked envelope
+    path or `..` traversal is refused, and the probe ends `unknown`;
+  - **interrupted probe**: the envelope is quarantined, the result is
+    `unknown/inconclusive`, and cleanup removes only owned objects;
+  - **inconclusive probe**: model refusal, canary not run, timeout or usage
+    limit gives `unknown`, never `os-enforced`;
+  - **no out-of-scope effects**: a filesystem snapshot of the substitute
+    roots is unchanged after every default probe, and the loopback-only
+    network check contacts no external host;
+  - **extended probe** (PD-17): refused without its own authority; with
+    authority, it creates exactly one uniquely named empty file per
+    authorized temp root and verifies removal; a residue fails the probe;
+  - **redaction and retention**: evidence holds no host paths, environment
+    values, configuration, credentials, account data or transcripts; output
+    is digest plus redacted excerpt; evidence is removed on invalidation or
+    cleanup.
 - **Credentials and Evidence.** Cover environment construction (tokens
   dropped, login variables kept), the absence of credential or login
   material in packets, records, evidence, logs and Evidence, and redaction.
@@ -904,8 +1107,9 @@ observation contract (unchanged).
 | IG-1 Supported local Profile authoring and onboarding | #306 / PR #310 | Real installed dispatch, probes and the smoke need a clean, supported configuration | Deterministic delivery uses test fixtures only (never product paths); no temporary configuration path |
 | IG-2 Credential handling | #306 (D2: vendor-managed only) | No credential resolver; references refused | Existing refusal |
 | IG-3 Profile invocation parameters | #306 | Adapter constants only | Compose through the `CommandProfile` builder after review |
-| IG-5 Profile-owned effort and the Spec 007 / `default-sdd` effort amendment | PR #310 (maintainer decision, mandatory change 2) | #276 reads effort from the Profile; agent-effort retirement is not authored here | §3.10 consumption rule; Tasks that depend on effort wait for that amendment's acceptance |
+| IG-5 Profile-owned effort and versioned migration contract | PR #310 — **Accepted 2026-10-11** (amendment-306, ADR-0024), not yet merged | #276 consumes it exactly (§3.10 matrix); no #276 effort amendment | Tasks cite the accepted blob; re-check on merge |
 | IG-6 `axiom-runtime` skill | PR #310 (D4) | Capability show/probe/invalidate skill route | PD-14 |
+| IG-7 Cross-cutting migration bundle X01–X07 (Workflow schema 2, compiler and Stage Plan v2, Execution format 3, graph v2 with `resolvedProfile`, PE-05a, `default-sdd` r2) | **Pending PD-OWN in PR #310** (not decided; no ownership assumed here) | #276 real and v2 dispatch cannot be admitted before it; #276 graph fields must join graph v2 (PD-16) | Deterministic #276 work proceeds against the accepted contract shape; dependent Tasks wait for PD-OWN |
 
 IG-4 (capability proof) is **no longer a gate**. It is a #276 deliverable
 (§3.9).
@@ -917,7 +1121,7 @@ Likely file conflicts with PR #310:
   `internal/cli/help_requirements.go`;
 - `internal/cli/skill_inspect.go`;
 - `docs/commands.md`;
-- `docs/decisions/README.md` (ADR-0023 and ADR-0024 entries);
+- `docs/decisions/README.md` (ADR-0023, ADR-0024 and ADR-0025 entries);
 - `docs/specifications/README.md`;
 - `internal/codexruntime/testdata/published-*`;
 - `cmd/lingo/runtime_policy.go`;
@@ -931,10 +1135,10 @@ regeneration.
 
 | # | Outcome | Components | Depends on | Validation | Risks |
 |---|---|---|---|---|---|
-| I1 | Contract gate: amendment #276 and ADR-0024 accepted or revised; PDs decided; IG-5 status known | docs | Plan approval | doc checks | scope creep |
+| I1 | Contract gate: amendment #276 and ADR-0025 accepted or revised; PDs decided; PD-OWN (IG-7) decided in PR #310 | docs | Plan approval | doc checks | scope creep |
 | I2 | Safety baseline: G8; stdin; process groups; lease and epoch; additive attempt fields; `ClassifyAttempt`; publication builder | `executiongraph`, `graphapplication`, `local` | I1 | unit, CR-001 invariants, format compatibility | format compatibility |
-| I3 | Capability proof: interface observation, evidence store, probe (fake executables), observer integration, revalidation, show/probe/invalidate | `capabilityproof` (new), `runtimeadapter`, `local`, `cmd/lingo` | I1, I2 | capability matrix | vendor interface drift |
-| I4 | Adapter: argv allowlist, confinement variants, packet, environment allowlist, mandatory subscription auth, Profile-owned effort | `runtimeadapter`, `graphapplication` | I2, I3, IG-5 for effort | unit, controlled Runtime | flag drift |
+| I3 | Capability proof: interface observation, evidence store, probe envelope and canary (fake executables), extended-probe guard, cleanup and quarantine, observer integration, revalidation, show/probe/invalidate | `capabilityproof` (new), `runtimeadapter`, `local`, `cmd/lingo` | I1, I2 | capability and envelope matrices | vendor interface drift |
+| I4 | Adapter: argv allowlist, confinement variants, packet, environment allowlist, mandatory subscription auth; consume frozen `resolvedProfile` tuple and X05 effort-source inspection | `runtimeadapter`, `graphapplication` | I2, I3, IG-7 | unit, controlled Runtime | flag drift |
 | I5 | `stageexecution`: preview/apply, authority record, supervisor, graph and single paths, status, resume | new component, composition | I2–I4 | application integration | supervisor portability |
 | I6 | Coordination: inbox, publish, ingestion, drain, list/show/wait | `coordination`, `local`, service | I5 | nine kinds, negative tests | ingestion races |
 | — | **Real capability probes and smoke** (§9.4), only after IG-1 and separate authorization | — | I3–I6 | real Evidence | usage limits; advisory confinement |
@@ -949,14 +1153,14 @@ regeneration.
 | ID | Decision | Source |
 |---|---|---|
 | D-1 | Capability proof needed for stage execution (IG-4/G-3) is in #276 and PR #311. No new Issue and no transfer to #272/#306 | [Maintainer, PR #311](https://github.com/rgomids/axiom/pull/311#issuecomment-6108112930) |
-| #306 D2/D3 (consumed) | Vendor-managed authentication; effort is owned by the local Model Profile with no Workflow override; complexity is independent | [Maintainer, PR #310](https://github.com/rgomids/axiom/pull/310#issuecomment-6108025068) (conceptual direction; #310 artifacts not yet accepted) |
+| #306 contracts (consumed) | Vendor-managed authentication (D2); Profile-owned effort, Workflow schema 2, versioned bindings, explicit migration, PE-05a (amendment-306, ADR-0024) | [Accepted on PR #310](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466) at `823bce3`; not merged |
 
 ### 12.2 Pending decisions (none approved; each blocks the Tasks that depend on it)
 
 | ID | Decision | Alternatives | Recommendation | Trade-offs / risks | If approved / if rejected | Blocks Phase 2? |
 |---|---|---|---|---|---|---|
 | PD-1 | Accept the amendment #276 surface: `stage status/reconcile/integrate`, `coordination show`, `runtime <id> capability show/probe/invalidate`, categories | Fold into existing commands as modes | Accept separate leaves | More commands, clearer authority per mutation | Approve: CLI tasks proceed. Reject: redesign §5 | Yes (CLI/skill tasks) |
-| PD-2 | Detached bounded supervisor per run | Foreground step capped below the host tool limit | Supervisor (ADR-0024) | Background lifecycle and portability vs. surviving tool timeouts | Approve: I5 as planned. Reject: terminal-only long runs; skill-initiated runs limited to short children | Yes (I5) |
+| PD-2 | Detached bounded supervisor per run | Foreground step capped below the host tool limit | Supervisor (ADR-0025) | Background lifecycle and portability vs. surviving tool timeouts | Approve: I5 as planned. Reject: terminal-only long runs; skill-initiated runs limited to short children | Yes (I5) |
 | PD-3 | Dispatch-authority record committed with graph/ledger, first-attempt scope | New `workflow fact` kind | Record via preview/apply | Record format (additive) vs. new approval mechanism | Approve: G-5 closed this way. Reject: fact-kind design needed | Yes (I5) |
 | PD-4 | Attempt inbox + supervisor ingestion; truthful confinement (`advisory` for Claude unless proven) | Children write canonical store directly; or disable Claude children until OS confinement is proven | Inbox + truthful level, human decides per dispatch | Same-user forgery remains (ADR-0005); Claude writes not OS-confined | Approve: Claude usable with disclosed advisory confinement. Reject (disable variant): Claude dispatch blocked until proof, weakening AC-1/AC-3 | Yes (I6) |
 | PD-5 | Subscription auth mandatory for public dispatch and probes | Opt-in | Mandatory | Excludes API-key users (consistent with #306 D2) | Approve: fail closed. Reject: auth modes must be specified | Yes (I4) |
@@ -969,10 +1173,12 @@ regeneration.
 | PD-12 | Vendor inference (`stage run`, `stage retry`, `capability probe`) requires `--authorize-external` in addition to `--authorize-local` | Local authority only | Both | Extra confirmation vs. truthful external-effect consent | Approve: preview names inference. Reject: local only | Yes (I3, I5) |
 | PD-13 | Capability proof = interface observation (can only refute) + authorized behavioral probe (can prove), bound per §3.9, with a fixed maximum evidence age (proposed 30 days) | Interface observation as proof (prohibited by D-1 direction); a probe before every dispatch | Probe-based, reusable while fresh and binding-matched | Probe cost and inference consent vs. per-dispatch cost; exact max age | Approve: I3 as planned. Reject: alternative proof needs design | Yes (I3) |
 | PD-14 | Capability commands live under `axiom runtime <id> capability`, owned by #276. The skill route is `axiom-runtime` once PR #310 delivers it; until then, CLI only, with `axiom-work-item` blockers naming the CLI next action | Route via `axiom-work-item`; wait for #310 | CLI now, `axiom-runtime` route later | Temporary CLI-only diagnostics; cross-PR skill coordination | Approve: no skill duplication. Reject: `axiom-work-item` gains capability routes | No (route-only) |
-| PD-15 | #276 consumes Profile-owned effort; the Spec 007/`default-sdd` effort amendment is authored by PR #310 (IG-5); pinned explicit-effort revisions refused for new dispatch | #276 authors the Spec 007 effort amendment | #310 authors it, per its decision | Cross-PR sequencing | Approve: effort tasks wait for IG-5. Reject: #276 adds an effort amendment, coordinated with #310 | Yes (effort parts of I4) |
+| PD-15 | #276 consumes the accepted #306 contract without restating it; legacy schema-1 Workflows (including `runtime-default`) and format-1/2 Executions are refused for new dispatch and retry (§3.10 matrix) | Keep the revision-2 legacy `runtime-default` exception (contradicts accepted amendment-306 §3) | Consume exactly | No legacy dispatch until migration; historical data untouched | Approve: matrix binds Tasks. Reject: needs an amendment-306 change in PR #310 | Yes (I4, I5) |
+| PD-16 | #276 graph additions (classification marker and reasons, lease epoch, process correlation, dispatch-authority reference, reconciliation facts) and X05 per-node `resolvedProfile` are defined as **one** graph format revision (v2), owned jointly through PD-OWN | Separate successive versions (v2 by X05, v3 by #276) | One joint revision | Coordination cost vs. two migrations and a transient readable-but-undispatchable format | Approve: one codec and compatibility window. Reject: #276 defines v3 after X05 | Yes (I2) |
+| PD-17 | Default probe confines all mutations to the Axiom-owned envelope; an **extended probe** testing `$TMPDIR`, `/tmp` (one uniquely named empty file each, removed and verified) is a separate, explicitly authorized operation; `$HOME`, vendor homes and external network are never probed | Include temp roots in the default probe; never test outside the envelope | Envelope-only default; optional extended probe for temp roots only | Less confinement detail by default vs. no unauthorized effects | Approve: as §3.9. Reject (never): temp/home writability always `not_tested` | No (optional capability) |
 
 The Plan itself, [amendment #276](amendment-276-stage-dispatch.md) and
-[ADR-0024](../../decisions/0024-public-stage-dispatch-and-capability-proof.md)
+[ADR-0025](../../decisions/0025-public-stage-dispatch-and-capability-proof.md)
 each need explicit human acceptance before Phase 2.
 
 ### 12.3 Risks
@@ -986,8 +1192,8 @@ each need explicit human acceptance before Phase 2.
 | Probe cost and usage limits | operational | One bounded probe per binding/variant; reused while fresh |
 | Same-user forgery of inbox or evidence files | security | ADR-0005 boundary; epoch fencing; evidence digest checked against binding |
 | Supervisor portability | operational | Platform tests; fail closed |
-| Additive formats break readers | architecture | Compatibility tests |
-| PR #310 sequencing (IG-1, IG-5, IG-6) | dependency | Gates explicit; deterministic work proceeds |
+| New graph/attempt fields break readers | architecture | Versioned graph v2 (PD-16) with historical readers; compatibility tests |
+| PR #310 sequencing (IG-1, IG-5, IG-6, IG-7/PD-OWN) | dependency | Gates explicit; deterministic work proceeds; accepted contract cited by blob |
 | Merge conflicts with PR #310 | parallel development | §10 mitigations |
 
 ### 12.4 Open questions (resolved in Tasks unless escalated)
@@ -1006,6 +1212,16 @@ each need explicit human acceptance before Phase 2.
   supervisor model, the environment allowlist, the lease order, no
   pre-#306 smoke, stdin, reuse of existing categories, binary pinning, the
   AC-2 cross-surface case, the single-path PD and empty attempt IDs.
+- **Revision 3 (Code Review Guardian, review 5483400200).**
+  - **CR-004:** renumbered to ADR-0025. ADR-0023 and ADR-0024 belong to
+    PR #310 and are accepted there.
+  - **CR-005:** probe envelope, envelope-only canary, no mutation of
+    user/vendor/temp/network targets, extended probe (PD-17),
+    quarantine/cleanup, redaction (§3.9).
+  - **CR-006:** compatibility matrix consuming the accepted amendment-306
+    (§3.10), withdrawal of the legacy `runtime-default` exception, PE-05a and
+    tuple binding, IG-7/PD-16.
+  - CR-001–CR-003 preserved.
 - **Revision 2, second independent review.** These findings were
   incorporated:
   - the `read` variant must still write its inbox;
@@ -1027,7 +1243,7 @@ each need explicit human acceptance before Phase 2.
   - Security boundary and preview rights (§3.3, §3.6, §7).
   - Reconciliation with #306 (§3.10, §10).
   - CR-001: persisted classification and invariants (§3.5).
-  - The ADR collision: #276 now uses ADR-0024.
+  - The ADR collision: resolved by renumbering (see CR-004 below).
   - Validation coverage (§9.1).
   - Delivery metadata in the PR body.
 
@@ -1041,6 +1257,7 @@ each need explicit human acceptance before Phase 2.
 | AC-4 Overlap only when allowed; conflicts serialize/block; integration and roll-up preserve validation/authority | Scheduler, concurrency check, persisted eligibility, `stage integrate`, PD-7 | Scheduling regressions, CR-001 tests, integration tests | Regression results; smoke overlap timestamps |
 | AC-5 Denied, failed, interrupted, unknown and recovery-required are distinguishable; reconcile before retry | G8 fix, classifier reasons, stale/orphan, cancel/reconcile/retry | Per-outcome and kill-window tests | Outcome matrix report |
 | AC-6 Early real smoke records auth mode, versions, graph, coordination and bounded artifacts; synthetic never operational | §9.4, capability evidence, classification fields | Evidence field check; human review | `engineering_smoke_real` Evidence, or a recorded not-run reason |
+| (CR-006) Admission consistent with accepted #306 contract | §3.10 matrix rows 1–15 | Compatibility tests per row | Matrix test report |
 | (D-1) Capabilities needed for real agentic development are proven, not assumed | §3.9 interface observation, probe, evidence store, revalidation, fail-closed | Capability matrix tests; authorized real probes | Evidence records per binding; synthetic vs. real classification |
 
 Spec 007 AC-009 is covered by AC-2, AC-3 and AC-5.
@@ -1051,4 +1268,4 @@ Spec 007 AC-009 is covered by AC-2, AC-3 and AC-5.
 
 **Not yet authorized.** Tasks will be added to this file in Phase 2, on the
 same branch and PR, only after human approval of this Plan, amendment #276,
-ADR-0024 and the pending decisions in §12.2.
+ADR-0025 and the pending decisions in §12.2.

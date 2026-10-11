@@ -8,7 +8,7 @@
 accepted. It changes no accepted text of [Specification 007](spec.md)
 until a human accepts it, and acceptance would not authorize
 implementation, dispatch, inference, merge or release. The companion
-decision is [ADR-0024](../../decisions/0024-public-stage-dispatch-and-capability-proof.md)
+decision is [ADR-0025](../../decisions/0025-public-stage-dispatch-and-capability-proof.md)
 (Proposed).
 
 ## Scope
@@ -22,9 +22,11 @@ assigns to #276 ([spec.md:62](spec.md), [spec.md:418-419](spec.md),
 - the `runtimeprofile.Observation` contract;
 - the HD-005–HD-008 skill surface.
 
-The Profile-owned **effort** change is **out of scope**. It belongs to
-PR #310 / #306, under the maintainer's D3 direction and that PR's mandatory
-change 2. This amendment states only how #276 consumes the outcome (§A6).
+The Profile-owned **effort** contract is **out of scope**. It is defined by
+the #306 Spec 007 amendment and ADR-0024, which were
+[accepted on PR #310](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466)
+on 2026-10-11 at `823bce3` and are not yet merged. This amendment only
+states how #276 consumes that contract (§A6).
 
 ## A1 — Public operations (additions to the boundary table)
 
@@ -48,7 +50,7 @@ Additional categories use the existing completion statuses:
 
 | Category | Completion status |
 |---|---|
-| `capability_unknown`, `capability_unsupported`, `capability_stale`, `workflow_effort_override_unsupported`, `result_missing` (operation-level) | `validation_failure` |
+| `capability_unknown`, `capability_unsupported`, `capability_stale`, `result_missing` (operation-level) | `validation_failure` |
 | `unsupported_graph_format` | `failure` |
 | `cancellation_requested` | `success`, describing an observed request, never an observed stop |
 
@@ -102,9 +104,41 @@ Implicit and model-scoped capabilities are checked against evidence for the
 child's confinement variant. They do not require new Profile declarations.
 Every coordinating variant is write-capable for the attempt inbox.
 
-Confinement and network posture are measured by a deterministic `axiom`
-canary run inside the child. The model's own claims never count. The
-observed writable set is recorded.
+**Probe envelope (safety contract).**
+
+- Every probe runs in an Axiom-owned envelope under the state root. The
+  envelope contains a scratch `workspace/`, an `inbox/`, a disposable
+  `sentinel/` and a manifest, and the manifest digest is bound into the
+  probe authority.
+- The deterministic `axiom` canary mutates only manifest-listed envelope
+  paths. It creates one uniquely named empty file in `sentinel/` to measure
+  confinement. It never writes to `$HOME`, vendor login or configuration
+  directories, `$TMPDIR`, `/tmp`, user repositories or credentials. Network
+  checks use only an Axiom-owned loopback listener. Untested roots are
+  reported as `not_tested`.
+- Testing `$TMPDIR` or `/tmp` requires a separately authorized extended
+  probe, limited to one uniquely named empty file per authorized root with
+  verified removal. `$HOME`, vendor homes and external networks are never
+  probed.
+- Confinement is classified as follows:
+  - `os-enforced` only when the mode declares OS sandboxing, the canary
+    ran, its sentinel create was denied with an errno in {`EACCES`, `EPERM`,
+    `EROFS`}, and its allowed-root writes succeeded. That classification is
+    scoped to the sentinel.
+  - `advisory` when the sentinel create succeeded.
+  - `unknown` otherwise.
+- Interrupted probes leave a quarantined envelope and `unknown` evidence.
+  Cleanup removes exact owned objects only.
+- Evidence retains digests, envelope-relative names, errno classes,
+  categories and versions. It never retains host paths, environment values,
+  configuration, credentials, account data or transcripts.
+
+The model's own claims never count.
+
+Model-scoped evidence binds the accepted #306 `resolvedProfile` elements:
+Profile digest, model, effort or no-override, configuration revision,
+`effortSourceDigest`, executable digest, Runtime version, invocation mode,
+and observation revision and digest. Its digest is the tuple's capability proof reference.
 
 Capability, effect authorization and confinement are distinct. The dispatch
 preview shows all three per child, including whether write confinement is
@@ -165,21 +199,39 @@ authority, and the dispatch preview references it by digest
 ([spec.md:176-180](spec.md)). It is never taken from an agent-prepared Plan
 document.
 
-## A6 — Effort consumption (dependent on PR #310)
+## A6 — Consumption of the accepted #306 effort and versioning contract
 
-#276 reads effort from the resolved local Model Profile. The workflow
-`effort` value is consumed as follows:
+#276 admits dispatch only under the accepted #306 contract (amendment-306
+§2–§3, ADR-0024):
 
-- `runtime-default` stays dispatchable;
-- an explicit agent effort in a pinned revision is refused for new dispatch
-  with `workflow_effort_override_unsupported`, and is never rewritten.
+- a schema-2 Workflow, a format-3 Execution and local configuration v2;
+- a frozen `resolvedProfile` tuple per child;
+- #276 capability proof for every required and model-scoped capability;
+- clean PE-05a effort-source inspection, re-evaluated before each attempt;
+- authentication;
+- dispatch authority.
 
-The schema and Specification text that retire agent effort are owned by
-PR #310 and require their own acceptance.
+The following are refused:
+
+| Input | Category |
+|---|---|
+| Workflow schema 1, whatever its effort (including `runtime-default`) | `workflow_migration_required` |
+| `stage run`/`stage retry` under a format-1/2 Execution | `legacy_execution_contract` |
+| Local configuration v1, including for `capability probe` (a #276 extension: a probe needs an exact model/effort tuple) | `profile_effort_unconfigured` |
+| A version-1 graph (mutations only) | `unsupported_graph_format` |
+
+Drift blocks a frozen tuple and never replaces it. Nothing falls back to
+another Profile, model, Runtime or effort. Historical Workflows, Executions,
+graphs and `default-sdd` r1 are never rewritten. The full admission matrix
+is in Plan §3.10.
+
+Graph v2 additions from #276 and from #306 X05 form one format revision,
+subject to Plan PD-16 and PR #310 PD-OWN.
 
 ## Compatibility
 
-All format changes are additive:
+Format changes join the versioned families of the accepted #306 contract.
+They are not silent additions to existing versions:
 
 - attempt classification fields;
 - reconciliation facts;

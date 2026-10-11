@@ -1,4 +1,4 @@
-# ADR-0024 — Public stage dispatch supervision, capability proof and coordination ingress
+# ADR-0025 — Public stage dispatch supervision, capability proof and coordination ingress
 
 ## Status
 
@@ -6,7 +6,9 @@ Proposed, 2026-10-11, for human review on Draft PR
 [#311](https://github.com/rgomids/axiom/pull/311) (Issue
 [#276](https://github.com/rgomids/axiom/issues/276)). It is not accepted. It
 authorizes no implementation, dispatch, inference, merge or release. The
-number 0024 avoids collision with the ADR-0023 proposed in PR #310.
+number 0025 avoids collision with ADR-0023 and ADR-0024, both of which
+PR #310 proposes and which were accepted there on 2026-10-11 but are not yet
+merged.
 
 ## Context
 
@@ -73,8 +75,22 @@ Subject to human acceptance:
      one.
    - Capability, effect authorization and confinement are recorded and shown
      separately.
-   - Confinement is reported as either `os-enforced` or `advisory`, as
-     observed.
+   - Confinement is reported as `os-enforced`, `advisory` or `unknown`, as
+     observed; `os-enforced` needs a canary-observed sandbox denial.
+   - Probes mutate only an Axiom-owned envelope whose manifest digest is
+     authorized; untested roots are reported `not_tested`.
+   - Temp roots can be tested only by a separately authorized extended
+     probe.
+   - User homes, vendor homes and external networks are never probed;
+     network checks use an Axiom-owned loopback listener only.
+   - Interrupted probes quarantine their envelope and yield `unknown`
+     evidence.
+   - Evidence keeps digests and categories only: no host paths,
+     environment values, configuration, credentials or transcripts.
+6. **Consumption of the accepted #306 contract.** Dispatch admission follows
+   the accepted amendment-306 and ADR-0024: schema-2 Workflows, format-3
+   Executions, frozen `resolvedProfile` tuples and PE-05a effort-source
+   checks. Legacy contracts are refused, never reinterpreted.
 
 ## Alternatives considered
 
@@ -94,7 +110,8 @@ Subject to human acceptance:
 
 ## Consequences
 
-- There are additive format changes:
+- There are format changes, versioned together with the #306 graph v2 rather
+  than added silently:
   - attempt classification fields, the lease epoch and process correlation;
   - reconciliation facts;
   - the dispatch-authority record;
