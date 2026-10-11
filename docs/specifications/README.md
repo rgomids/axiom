@@ -4,8 +4,11 @@ Issue [#306](https://github.com/rgomids/axiom/issues/306) proposes a
 [local Runtime/Profile authoring Plan](002-lingo-project-initialization/plan-306-local-runtime-profiles.md),
 [Spec 002 addition](002-lingo-project-initialization/amendment-306-local-runtime-authoring.md),
 and [mandatory security review](002-lingo-project-initialization/security-review-306-local-runtime-profiles.md).
-All remain **Proposed**; Planning only, with independent contract/security/ADR
-acceptance and explicit Plan approval required before subsequent authorized phases.
+Its reconciled [Spec 007 effort/onboarding proposal](007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
+and [documentary Evidence](002-lingo-project-initialization/evidence-306-planning-reconciliation.md)
+trace the confirmed maintainer D1–D5 direction. Exact artifacts remain **Proposed /
+Awaiting Human Approval**; independent contract/security/ADR acceptance and explicit
+Plan approval are required before subsequent authorized phases.
 
 Specifications define desired outcomes and observable behavior before implementation
 plans. Approval gates remain separate: an approved Specification permits planning;

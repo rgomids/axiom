@@ -4,7 +4,9 @@
 
 **Proposed, 2026-10-11**, for [Issue #306](https://github.com/rgomids/axiom/issues/306)
 in [Draft PR #310](https://github.com/rgomids/axiom/pull/310).
-Requires independent exact-revision acceptance before implementation. No current
+[Maintainer D4 direction](https://github.com/rgomids/axiom/issues/306#issuecomment-6108025323)
+is conceptually confirmed; this reconciled exact artifact still requires independent
+acceptance before implementation. No current
 skill inventory or accepted contract is changed by this proposal.
 
 ## Context
@@ -25,10 +27,14 @@ Add thin `axiom-runtime` for machine-local Runtime bindings and named Model
 Profiles. Canonical application/CLI operations own validation, selection,
 preview/apply, exact revision, authorization, state and diagnostics. The skill
 owns only intent collection, safe draft preparation and readable confirmation.
+It lists safe known options, explains current blockers and guides first configuration
+without requiring hand-authored JSON. It cannot authenticate vendors or infer
+model/effort support from installation.
 Both Codex and Claude discover the same embedded source/catalog contract.
 
 Project chooses portable permission/active Workflow; Workflow defines Stage/Agent
-requirements; Runtime configuration binds local models; Work Item requests and
+requirements and Profile references; Runtime configuration binds local models and
+sole Profile-owned effort; Work Item requests and
 controls execution. `axiom-runtime` cannot select Workflow revisions, edit Project
 policy or run Work Items. Existing read-only Workflow readiness may refer users
 to it; no authoring forwarding alias or new business registry is created.
@@ -47,6 +53,16 @@ records and receipt hashes. Keep retirements of old generic wrapper skills.
 | Expand `axiom-project` | Familiar entrypoint | Project-independent configuration becomes coupled to Project lifecycle; misleading scope of local effects |
 | CLI only | Smallest implementation surface | Does not satisfy #306 conversational guidance acceptance |
 
+Distribute optional `fast`, `balanced`, `deep` guidance without fixed models,
+universal effort levels or vendor rankings. One valid Profile per detected Runtime
+is enough structurally; preserve existing config, never create an absent binding.
+CLI install stays noninteractive; first use guides via this skill. Every local
+mutation uses exact confirmation; Project policy/Workflow publication/active
+selection and Work Item start remain separate approvals. Known model/effort options
+require authoritative provenance; otherwise report unproven with consent handoff.
+The [Spec 007 proposal](../specifications/007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
+separates distributed default-sdd template from user-confirmed derived config.
+
 No new server, MCP, workflow engine, secret backend or Runtime plugin framework
 is introduced. Model IDs/effort tokens remain configuration and observed facts,
 never hardcoded vendor quality tiers. This ADR approves no credential mechanism.
@@ -59,9 +75,11 @@ catalog/help alignment, no conflicting active artifacts and preserved historical
 receipts. Adding a discoverable skill raises installation/migration maintenance
 cost; later removal requires owned retirement and another explicit decision.
 
-Local wire format and portable Project contracts remain unchanged. The Plan's
-credential/removal/effort decisions and mandatory security acceptance remain
-separate gates. Implementation, Tasks, merge, release and acceptance of future
+Portable Project contracts remain unchanged. Local v2 Profile effort and
+versioned Workflow/Execution migration are proposed separately in ADR-0024;
+this skill cannot implement that decision by changing guidance alone. D1–D5
+conceptual directions are confirmed; exact migration/format/security artifacts
+remain independent gates. Implementation, Tasks, merge, release and acceptance of future
 live scenarios are not authorized by this proposed ADR.
 
 ## Revisit when
