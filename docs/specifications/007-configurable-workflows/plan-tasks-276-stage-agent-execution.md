@@ -2,7 +2,7 @@
 
 ## Status
 
-**Phase 1 (Plan), revision 3 — Proposed, pending human review.** This
+**Phase 1 (Plan), revision 4 — Proposed, pending human review.** This
 document is the Plan for [#276](https://github.com/rgomids/axiom/issues/276) /
 Linear AXM-8. It does not authorize Tasks, implementation, Runtime dispatch,
 real inference, Provider effects, merge, release or human acceptance. Part II
@@ -419,8 +419,9 @@ logic and record their own reasons (`integration_applied`,
       through its path);
     - `repository-write` children run with the worktree as working root plus
       `--add-dir <inbox>`.
-  - The exact layout is fixed in Tasks and proven per variant by the probe
-    (§3.9). Codex help describes `--add-dir` only as "writable alongside the
+  - The exact layout is fixed in Tasks and proven per variant by that
+    variant's own probe tasks (§3.9). A `read-only` child's workspace stays
+    non-writable during its probe as well. Codex help describes `--add-dir` only as "writable alongside the
     primary workspace".
   - Claude tool restrictions (`--permission-mode dontAsk`, `--allowedTools`,
     `--add-dir`) are **advisory** unless the probe demonstrates enforcement
@@ -428,7 +429,8 @@ logic and record their own reasons (`integration_applied`,
 - **What is and is not enforced (stated per Runtime in the preview):**
   - Reads are **not OS-confined** for either Runtime.
   - Codex writes are OS-confined only as far as the probe verified, which
-    is denial of the in-envelope sentinel (§3.9). `$HOME` and vendor homes
+    is a positively controlled denial of the in-envelope negative targets
+    (§3.9). `$HOME` and vendor homes
     are always `not_tested` and never probed. `$TMPDIR` and `/tmp` are
     `not_tested` unless an extended probe was separately authorized (PD-17).
   - Claude writes are advisory.
@@ -585,25 +587,86 @@ lives in a new machine-local store owned by #276. It does **not** change the
      repository, `$HOME` (except as a descendant of the state root),
      vendor homes, `$TMPDIR` or `/tmp`.
 
-   **Canary tasks.** The model is asked to do the following, all inside the
-   envelope:
-   - read a nonce file in `workspace/`;
-   - create and edit a file in `workspace/`;
-   - run the pinned `axiom` canary, which proves `process` and
-     `axiom-coordination` by publishing to `inbox/`;
-   - publish a `result` and exit 0.
+   **Per-variant probe tasks (CR-007).** Each confinement variant is probed in
+   its own invocation, using exactly the argv, environment and writable roots
+   that dispatch would use for that variant. No variant receives extra
+   permissions to pass its probe.
+
+   | Step | `read-only` variant | `repository-write` variant |
+   |---|---|---|
+   | Positive: read | Read the nonce file in `workspace/` | Read the nonce file in `workspace/` |
+   | Positive: workspace write | **Not required, never attempted as a positive step** | Create a file in `workspace/`, then edit it with derived content |
+   | Positive: process + coordination | Run the pinned `axiom` canary, which publishes to `inbox/` (the only writable root) | Same |
+   | Positive: result | Publish `result`, exit 0, non-interactive | Same |
+   | Negative: confinement targets | `sentinel/` **and** `workspace/` | `sentinel/` |
+
+   - **Capabilities proven per variant:**
+     - `read-only` proves `read`, `process`, `noninteractive` and
+       `axiom-coordination`.
+     - `repository-write` proves the same plus `repository-write`.
+   - **Positive and negative steps are scored independently.**
+     - A denied workspace write in the `read-only` variant is a confinement
+       observation, never a failed `read`.
+     - A successful one in that variant makes it `advisory`. The file is
+       removed by envelope cleanup.
+     - A negative test never substitutes for a positive proof.
+   - **Evidence is bound to its exact variant.**
+     - Dispatch uses only the variant its effects imply.
+     - Evidence from one variant never satisfies another; for example,
+       `read` proven in `repository-write` does not prove it for
+       `read-only`.
+     - There is no fallback between variants.
 
    **Confinement measurement without unauthorized mutation.**
-   - The deterministic `axiom` canary runs inside the child's sandbox and
-     attempts exactly one out-of-scope write: an `O_CREAT|O_EXCL` create of
-     a uniquely named empty file in `sentinel/`. That target is
-     Axiom-owned, disposable and authorized as part of the envelope.
-   - It records the errno.
+   - The deterministic `axiom` canary runs inside the child's sandbox.
+   - For each negative target of its variant, it attempts exactly one
+     `O_CREAT|O_EXCL` create of a uniquely named empty file. Every target is
+     Axiom-owned, disposable and listed in the envelope manifest.
+   - It records the errno, together with its own uid, gid and process
+     identity.
    - It performs **no** write, create, rename or delete anywhere else, and
      never targets `$HOME`, vendor login or configuration directories,
      `$TMPDIR`, `/tmp`, user repositories or credentials.
    - The canary's target list is computed only from the envelope manifest,
      and the canary refuses any target outside it.
+
+   **Positive control (CR-008).** A denial proves nothing about the sandbox
+   unless the same target is shown to be writable by the same identity
+   outside that sandbox. The probe therefore keeps four facts separate:
+   - filesystem writability of the target;
+   - sandbox restriction;
+   - authority granted to the process;
+   - what the canary observed.
+
+   1. **Pre-control.** Immediately before launching the Runtime, a bounded
+      Axiom component (the probe process itself, outside any sandbox, as the
+      same uid/gid that will run the Runtime) does the following for each
+      negative target:
+      - creates a uniquely named empty file with `O_CREAT|O_EXCL`, then
+        removes it and verifies the removal;
+      - records the target's object identity: device and inode, owner,
+        mode bits, ACL digest (or `acl_unreadable`), the filesystem
+        read-only flag and the resolved path inside the envelope (no
+        symlink components).
+
+      It never changes permissions, ownership or ACLs to make a target
+      writable. Everything it touches is inside the envelope and covered by
+      the probe's authority.
+   2. **Canary run.** The negative-target attempts happen inside the
+      Runtime's sandbox.
+   3. **Post-control.** Immediately after the Runtime exits, the same
+      component repeats the identity snapshot and the create/remove control
+      write on each target.
+   4. **Attribution.** A canary denial is attributed to confinement only
+      when all of the following hold:
+      - pre- and post-control writes both succeeded;
+      - both identity snapshots are equal (no replacement, symlink, mode,
+        owner, ACL or read-only change);
+      - the canary's reported uid/gid equal the control identity;
+      - the denial errno is in {`EACCES`, `EPERM`, `EROFS`}.
+
+   The control is deterministic, involves no inference and does not rely on
+   anything the agent states.
 
    **Network.** At most, the canary connects to an Axiom-owned ephemeral
    listener on the loopback interface inside the probe process. That
@@ -622,19 +685,29 @@ lives in a new machine-local store owned by #276. It does **not** change the
      Probe authority never extends to it implicitly.
 
    **Classification.**
-   - **`os-enforced`** only when all of these hold: the mode declares OS
-     sandboxing (interface observation), the canary itself ran, and the
-     canary's sentinel create was denied with an errno in {`EACCES`, `EPERM`,
-     `EROFS`} while its allowed-root writes succeeded. Any other errno
-     (e.g. `ENOENT`) or a canary-side refusal is `unknown`. The evidence states its scope, namely
-     that denial was verified for the in-envelope sentinel; it does not
-     claim that untested roots are confined.
-   - **`advisory`** when the sentinel create succeeded. The file is
-     Axiom-owned and is removed by envelope cleanup.
-   - **`unknown`** when the canary did not run, the model refused, the run
-     was interrupted or timed out, or the result is ambiguous.
-   - Nothing is promoted to `os-enforced` by documentation, flags or the
-     model's own claims.
+   - **`os-enforced`**, only when all of these hold:
+     - the mode declares OS sandboxing (interface observation);
+     - the canary ran inside the Runtime with the control identity;
+     - the variant's positive allowed-root writes succeeded;
+     - **every** negative target passed the positive control and its canary
+       write was denied, with attribution satisfied.
+
+     The evidence states its scope: denial was verified for the listed
+     in-envelope targets only.
+   - **`advisory`**: any negative-target canary write succeeded inside the
+     Runtime. The file is Axiom-owned and removed by cleanup.
+   - **`unknown`** in any of these cases:
+     - a positive control failed, for example a target denied by DAC or ACL
+       or a read-only filesystem;
+     - identity, permissions or the read-only flag changed between
+       observations, or a directory or symlink was replaced;
+     - the canary identity differs from the control identity;
+     - the errno is outside the set (e.g. `ENOENT`);
+     - the canary did not run or refused, or the model refused;
+     - the Runtime was interrupted or timed out;
+     - the origin of a denial cannot be proven.
+   - `unknown` is never promoted to `os-enforced`, and nothing is promoted by
+     documentation, flags or model claims.
 
    **Residual risk and mitigation.**
    - On an `advisory` Runtime the *model itself* (not the canary) could act
@@ -905,7 +978,7 @@ added. Skills relay human rendering and never compute digests or policy.
 |---|---|
 | Authorization before dispatch | Dispatch preview + local and external authority; record committed before any attempt; first-attempt scope; gates checked |
 | Capability vs effect vs confinement | Three separate records shown per child in preview; proof never grants authority; authority never implies proof |
-| Capability proof | Probe-verified evidence only; installation, version, authentication, Profile declaration or help output never promoted to `proven`; probes confined to an Axiom-owned envelope whose manifest digest is authorized; no mutation of user, vendor, temp or network targets without a separately authorized extended probe (§3.9, PD-17) |
+| Capability proof | Probe-verified evidence only; installation, version, authentication, Profile declaration or help output never promoted to `proven`; probes confined to an Axiom-owned envelope whose manifest digest is authorized; per-variant tasks; `os-enforced` only with a same-identity positive control bracketing each denial; no mutation of user, vendor, temp or network targets without a separately authorized extended probe (§3.9, PD-17) |
 | Runtime / Profile resolution | `runtimeapplication.Check` at preview, apply and each dispatch; no fallback; initiating Runtime has no preference |
 | Model / effort | Profile-owned and frozen in the `resolvedProfile` tuple (#306 PE-04); used only with matching model-scoped proof and clean PE-05a effort-source inspection; no fallback or cross-vendor mapping |
 | Authentication | Vendor-managed (#306 D2); subscription preflight mandatory (PD-5); no credential capture; credential references refused |
@@ -949,6 +1022,7 @@ process groups, capability evidence integrity and binding, and redaction.
 | Supervisor killed | free lease | `failure/recovery_required` (stale/orphan) | stop orphan; reconcile |
 | Concurrent operations | lease, CAS, chain | `stale_preview` / `temporarily_unavailable` | retry operation |
 | Probe inconclusive (usage limit, timeout, interruption, model refusal) | probe | capability `unknown`; envelope quarantined | cleanup preview; new authorized probe |
+| Positive control fails, or identity or permissions change | pre/post control | confinement `unknown` (never `os-enforced`) | inspect envelope; new probe |
 | Probe canary escapes the envelope | sentinel create succeeded | confinement `advisory` (never `os-enforced`) | disclosed in preview |
 | Probe target outside envelope requested | canary manifest check | refused; probe `unknown` | extended probe needs separate authority (PD-17) |
 | Confirmed effect, projection failed | after commit | `partial` / `confirmed_effect_reconciliation_required` | reconcile |
@@ -1012,10 +1086,53 @@ process groups, capability evidence integrity and binding, and redaction.
   - `default-sdd` r1 bytes and digest unchanged;
   - historical Workflow, Execution and graph bytes unchanged after every
     operation.
+- **Per-variant probe (CR-007)**, run with fake Runtimes:
+  1. `read-only` functional: read, canary, inbox publish, result, exit 0
+     give `proven` for `read`, `process`, `noninteractive` and
+     `axiom-coordination`, with no workspace write attempted as a positive
+     step;
+  2. `repository-write` functional: create and edit in the workspace, plus
+     everything in case 1;
+  3. a workspace write denied in `read-only` is recorded as a confinement
+     observation, and `read` stays `proven`;
+  4. inbox writes are permitted in both variants and verified;
+  5. process execution unavailable (the canary cannot be executed) makes
+     `process` and `axiom-coordination` `unknown` or `unsupported`, never
+     `proven`;
+  6. coordination unavailable (inbox publish rejected) makes
+     `axiom-coordination` not proven;
+  7. an interrupted probe leaves the variant's evidence `unknown`;
+  8. an inconclusive result is `unknown`;
+  9. drift between probe and dispatch (variant, mode, executable, version,
+     tuple) blocks with `capability_stale`.
+
+  Evidence from one variant never satisfies another.
+- **Positive control (CR-008)**, run with fake sandboxes:
+  1. a sandbox denying a sentinel that passes pre- and post-control gives
+     `os-enforced`;
+  2. a sentinel denied only by DAC or ACL fails the positive control and
+     gives `unknown`, never `os-enforced`;
+  3. a read-only filesystem fails the positive control and gives
+     `unknown`;
+  4. an advisory variant whose canary write succeeds gives `advisory`;
+  5. a pre- or post-control failure gives `unknown`;
+  6. a canary uid/gid different from the control identity gives `unknown`;
+  7. a mode, owner, ACL or read-only change between observations gives
+     `unknown`;
+  8. replacement of a directory or a symlink component between
+     observations gives `unknown`;
+  9. an interrupted probe gives `unknown`, with the envelope quarantined;
+  10. insufficient proof (errno outside the set, canary not run) gives
+      `unknown`;
+  11. no effect outside the envelope: control and canary writes are
+      confined to manifest targets, and the substitute roots are unchanged.
+
+  The control never alters permissions.
 - **Capability probe safety (CR-005)**, run with fake Runtimes against a
   temporary `HOME`, vendor home, `TMPDIR` and `/tmp` substitute:
-  - **effective confinement**: the sentinel create is denied, so the result
-    is `os-enforced`, scoped to the in-envelope sentinel;
+  - **effective confinement**: a sentinel create that passes the positive
+    control and is then denied gives `os-enforced`, scoped to the
+    in-envelope targets (see CR-008 cases);
   - **advisory confinement**: the sentinel create succeeds, so the result is
     `advisory`, and the file is removed by cleanup;
   - **writable user directories**: a fake Runtime with writable `HOME` and
@@ -1212,6 +1329,14 @@ each need explicit human acceptance before Phase 2.
   supervisor model, the environment allowlist, the lease order, no
   pre-#306 smoke, stdin, reuse of existing categories, binary pinning, the
   AC-2 cross-surface case, the single-path PD and empty attempt IDs.
+- **Revision 4 ([review 5483476742](https://github.com/rgomids/axiom/pull/311#pullrequestreview-5483476742)).**
+  - **CR-007:** per-variant probe tasks. `read-only` proves read, process,
+    coordination and result without workspace writes, and treats the
+    workspace as a negative target. Evidence is variant-bound (§3.9).
+  - **CR-008:** a same-identity positive control brackets every denial,
+    with object-identity snapshots. DAC, ACL or read-only denials and any
+    change between observations give `unknown` (§3.9).
+  - CR-001 to CR-006 are preserved.
 - **Revision 3 (Code Review Guardian, review 5483400200).**
   - **CR-004:** renumbered to ADR-0025. ADR-0023 and ADR-0024 belong to
     PR #310 and are accepted there.

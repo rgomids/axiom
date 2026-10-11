@@ -120,13 +120,36 @@ Every coordinating variant is write-capable for the attempt inbox.
   probe, limited to one uniquely named empty file per authorized root with
   verified removal. `$HOME`, vendor homes and external networks are never
   probed.
+- Each confinement variant is probed in its own dispatch-identical
+  invocation, with no added permissions:
+  - `read-only` proves `read`, `process`, `noninteractive` and
+    `axiom-coordination` without workspace writes, and its negative targets
+    are `sentinel/` and `workspace/`;
+  - `repository-write` additionally proves workspace create/edit, and its
+    negative target is `sentinel/`.
+
+  Positive and negative steps are scored independently. Evidence binds the
+  exact variant and never satisfies another.
+- A denial counts as confinement only with a **positive control**:
+  - immediately before and after the Runtime run, a bounded Axiom component
+    outside the sandbox, as the same uid/gid, creates and removes a control
+    file on the same target;
+  - it records object identity (device, inode, owner, mode, ACL digest,
+    read-only flag, symlink-free resolution), which must be unchanged
+    between the two observations;
+  - the canary's uid/gid must match the control identity.
+
+  The control never changes permissions and stays within the envelope.
 - Confinement is classified as follows:
-  - `os-enforced` only when the mode declares OS sandboxing, the canary
-    ran, its sentinel create was denied with an errno in {`EACCES`, `EPERM`,
-    `EROFS`}, and its allowed-root writes succeeded. That classification is
-    scoped to the sentinel.
+  - `os-enforced` only when the mode declares OS sandboxing, the canary ran
+    with the control identity, the variant's allowed-root writes succeeded,
+    and every negative target passed the positive control and was denied
+    with an errno in {`EACCES`, `EPERM`, `EROFS`}. The classification is
+    scoped to the listed targets.
   - `advisory` when the sentinel create succeeded.
-  - `unknown` otherwise.
+  - `unknown` otherwise. This includes a failed control (DAC, ACL or
+    read-only filesystem), any identity or permission change, and an
+    unattributable denial. `unknown` is never promoted.
 - Interrupted probes leave a quarantined envelope and `unknown` evidence.
   Cleanup removes exact owned objects only.
 - Evidence retains digests, envelope-relative names, errno classes,

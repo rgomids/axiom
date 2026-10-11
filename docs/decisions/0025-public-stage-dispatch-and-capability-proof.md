@@ -76,7 +76,13 @@ Subject to human acceptance:
    - Capability, effect authorization and confinement are recorded and shown
      separately.
    - Confinement is reported as `os-enforced`, `advisory` or `unknown`, as
-     observed; `os-enforced` needs a canary-observed sandbox denial.
+     observed. `os-enforced` needs a canary-observed denial bracketed by a
+     same-identity positive control (pre- and post-run writes to the same
+     unchanged target outside the sandbox). Otherwise the result is
+     `unknown`.
+   - Each confinement variant is probed with its own tasks in its exact
+     dispatch mode; `read-only` never needs a workspace write. Evidence is
+     variant-bound.
    - Probes mutate only an Axiom-owned envelope whose manifest digest is
      authorized; untested roots are reported `not_tested`.
    - Temp roots can be tested only by a separately authorized extended
