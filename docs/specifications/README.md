@@ -1,5 +1,12 @@
 # Specifications
 
+Issue [#306](https://github.com/rgomids/axiom/issues/306) proposes a
+[local Runtime/Profile authoring Plan](002-lingo-project-initialization/plan-306-local-runtime-profiles.md),
+[Spec 002 addition](002-lingo-project-initialization/amendment-306-local-runtime-authoring.md),
+and [mandatory security review](002-lingo-project-initialization/security-review-306-local-runtime-profiles.md).
+All remain **Proposed**; Planning only, with independent contract/security/ADR
+acceptance and explicit Plan approval required before subsequent authorized phases.
+
 Specifications define desired outcomes and observable behavior before implementation
 plans. Approval gates remain separate: an approved Specification permits planning;
 implementation requires an approved Plan/Tasks and explicit authorization for the

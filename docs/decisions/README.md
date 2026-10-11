@@ -4,6 +4,8 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
+- [ADR-0023 — Local Runtime configuration conversational surface](0023-local-runtime-configuration-surface.md) — **Proposed** for #306; thin machine-local authoring owner and bounded skill-inventory extension; independent acceptance required.
+
 - [ADR-0022 — Dedicated workflow configuration conversational surface](0022-dedicated-workflow-conversational-surface.md) — **Accepted, 2026-10-10**, by explicit maintainer decision ([Issue #303](https://github.com/rgomids/axiom/issues/303#issuecomment-6099596104); exact [PR #304](https://github.com/rgomids/axiom/pull/304) head `7db80ac`). `axiom-workflow` is the single conversational *configuration* owner, `axiom-project` selects and `axiom-work-item` runs/plans; HD-006 separates Project allowlist/local profiles; HD-007 removes overlapping skill routes, not CLI; HD-008 defers real R-2/R-3 to #278. Partially supersedes only the **skill-surface** choice of Specification 007 HD-002; domain/CLI and ADR-0020 remain accepted. Implementation, merge and release need separate authority.
 
 - [ADR-0021 — Windows Server AMD64 native acceptance](0021-windows-server-amd64-native-acceptance.md) — Accepted, 2026-10-09; explicit maintainer authorization for member Server AMD64, preserving local NTFS protections and separate client coverage.
