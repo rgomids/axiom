@@ -13,26 +13,30 @@ Canonical scope is issue-specific `tasks-306-local-runtime-profiles.md`, consist
 - **Plan**: [accepted Plan #306](plan-306-local-runtime-profiles.md); **Security**: [accepted design baseline](security-review-306-local-runtime-profiles.md).
 - **ADR-0023/0024**: [local configuration surface](../../decisions/0023-local-runtime-configuration-surface.md) / [sole effort owner](../../decisions/0024-model-profile-effort-ownership.md); exact file paths distinguish ADR identities. [ADR-0018](../../decisions/0018-adr-evolution-and-supersession-governance.md) governs historical annotations.
 - Other directly affected foundations: [Spec 002](spec.md), [portable Runtime policy v2](runtime-policy-v2.md), [Spec 007](../007-configurable-workflows/spec.md), [#303 workflow skill contract](../007-configurable-workflows/amendment-303-workflow-skill.md), [#231 readiness](evidence-issue-231.md), [ADR-0005](../../decisions/0005-bounded-local-filesystem-threat-model.md), [ADR-0007](../../decisions/0007-local-publication-and-recovery-protocol.md), [ADR-0020](../../decisions/0020-workflow-definition-revision-binding.md).
-- Task structure follows repository `axiom-sdd` and issue-scoped conventions. The requested “00 - Axiom Core”, “01 - Protocolo Operacional”, “02 - Playbook SDD” were not located by bounded repository/connected-source lookup; precise sources have been requested. Their verification is pending and must be completed before declaring Playbook conformance; no unseen requirement is invented.
+- Task structure follows the SDD/Orchestrator instructions incorporated in the current human request and repository `axiom-sdd` conventions. Private Core/Operational Protocol/SDD Playbook sources need no discovery, path request or separate availability gate. No private source content is invented or imported.
 
 ## Ownership, external dependencies and human gates
 
 | Boundary | Owner / precise dependency | This artifact's action |
 | --- | --- | --- |
 | Local domain/store/authoring/CLI/skill/onboarding | #306 / G-2 | T01–T16: confirmed local scope, Tasks not approved |
-| Workflow schema/migration/compiler/Execution/graph/default | **PD-OWN — Pending Human Decision** | X01–X07: complete bounded dependency decomposition; recommendation is a separately authorized technical Work Item/bundle; no new Issue created and no implementation assignment inferred |
+| Workflow schema/migration/compiler/Execution/graph/default | **Delivery B — separate technical delivery, PD-OWN Option A accepted** | X01–X07: proposed separate bundle; nominal owner, Work Item identity, lifecycle and authorization to be established independently; no assignment to #306/#276 and no Issue created |
 | Portable Project policy authoring | #305 / G-1 | Consume existing policy/readiness; needed policy edits handed off with separate confirmation; never implement #305 in T/X units |
 | Positive Runtime/model/effort proof | G-3 | Consume exact evidence contract; deterministic injected inputs test refusal/consumption only. Real acquisition needs authority; proposed #276 PR #311 includes this responsibility but is not accepted by this artifact |
-| Runtime dispatch / attempts / coordination | #276 | X05 owns the accepted D3-compatible snapshot/guard seam only if PD-OWN assigns it; public dispatch composition and positive proof delivery remain #276; no second scheduler |
+| Runtime dispatch / attempts / coordination | #276 | Delivery B X05 specifies the accepted D3-compatible snapshot/guard seam, pending its own owner/authorization; public dispatch composition and positive proof delivery remain #276; no second scheduler |
 | Delivery/rework/new continuation lifecycle | #277 | Consume existing lifecycle only; no old Execution rewrite or new automatic successor mechanism |
 | Actual R-2/R-3/end-to-end product acceptance | #278 | Separate native/vendor authority and acceptance; cannot be satisfied by local/synthetic CI |
 | Consented Provider linkage | G-4 | Independent; neither setup nor preview grants Provider authority |
 
-**PD-OWN recommendation:** keep #306 local scope, approve a separate bounded migration bundle X01–X07 with explicit integration owner and dependency relation before dependent implementation. Alternative: maintainer expressly assigns that same bundle to #306. Either choice needs a recorded human decision; this artifact does not choose it. Existing accepted format/window/no-override choices are not reopened. X tasks are blocked by PD-OWN; T16's complete preparation integration additionally depends on X07. T01–T15 can establish local behavior without fabricating Workflow readiness. All T/X work still needs exact Tasks approval and explicit bounded implementation authority.
+**PD-OWN — Option A Accepted, 2026-10-11:** [human ownership record](https://github.com/rgomids/axiom/pull/310#issuecomment-6109470563) refers to reviewed commit `c4cb5aa83fdf82acc91c9d6fc4f0a6012f04dd63`. **Delivery A is exclusively #306, T01–T16; Delivery B is X01–X07, a separate technical delivery with its own authorization and lifecycle.** The former choice between including the bundle in #306 versus separating it is resolved; do not request that choice again. Delivery B's nominal owner/future Work Item is not automatically assigned and no Issue is created. This ownership acceptance does not accept these revised Tasks. Historical Plan/ADR references that left ownership pending are resolved by this later receipt; their accepted technical text and exact blobs remain unchanged.
+
+**Delivery A completion:** T16 depends only on T14/T15 and their transitive local prerequisites. It establishes the local G-2 result and reports external blockers truthfully; it does not wait for X07, model proof acquisition or complete Workflow readiness. Local Tasks cannot be declared Done by deleting a genuinely required local interface/test: all original local dependencies remain, including T07 safety before T06 migration. Every T unit still requires its own relevant security/native checks.
+
+**Delivery B completion:** X01–X07 retain their technical prerequisites from Delivery A and their internal DAG. Its scope includes schema2/Workflow migration/compiler/Stage Plan/Execution/graph/default and transversal compatibility only; no second dispatcher or capability acquisition. Separate exact Tasks/implementation authority and nominal owner are required before work. Integrated readiness is evaluated by GATE-I306-INTEGRATED below, never by T16. All 23 Tasks remain Not started.
 
 **External readiness gates:** G-3 exact model/executable/version/mode/token/no-override proof; #305 policy edits where required; #276 supported dispatch seam; #277 continuation if needed; #278 native acceptance. Unsupported adapter effort-source fields/precedence must block; their authoritative proof is a prerequisite for declaring support, not permission to invent vendor behavior. No authenticated test is run in this phase.
 
-**Concurrent PR check:** #311 head `4c857ead8f4c7ec8d027df2d8eef746464b55d17` is a Proposed #276 planning change. It references accepted #306 effort ownership but also introduces a different ADR file numbered 0024 and touches the same indexes. ADR identity is path-based; preserve the accepted #306 path and reconcile indexes on eventual integration. No renumbering, edits to #311 or acceptance of its proposals here.
+**Concurrent PR check — current:** #311 head `52971d0f63b67427107011c874acf3d742e0e800` carries Proposed `docs/decisions/0025-public-stage-dispatch-and-capability-proof.md`. The earlier `4c857ea` collision with the accepted #306 ADR-0024 path is historical and has been renumbered in #311 by its own delivery. ADR-0018 still identifies decisions by path. Preserve accepted `0024-model-profile-effort-ownership.md`; merge-time shared-index/reference reconciliation remains required. No edits, renumbering or acceptance of #311 here.
 
 ## Phases and scheduling
 
@@ -41,15 +45,63 @@ Canonical scope is issue-specific `tasks-306-local-runtime-profiles.md`, consist
 | 1 Interfaces/domain/resolution | T01–T03 | 3 | Local versioned contracts and sole resolver |
 | 2 Persistence/recovery/migration | T04–T06 | 3 | Protected monotonic lifecycle and explicit migration |
 | 3 Safety/authoring/CLI/readiness | T07–T10 | 4 | Exact confirmed local authoring and diagnostic seams |
-| 4 Transversal migration (PD-OWN) | X01–X07 | 7 | Compatible Workflow/compiler/Execution/graph/default chain |
+| 4 Delivery B transversal migration | X01–X07 | 7 | Compatible Workflow/compiler/Execution/graph/default chain |
 | 5 Skill/passive onboarding/templates | T11–T13 | 3 | Both Runtime integrations and guided setup |
 | 6 Integration/native local verification | T14–T15 | 2 | Classified local/synthetic/native receipts |
 | 7 Evidence and dependency handoff | T16 | 1 | G-2 traceability and honest remaining blockers |
 | Total | 16 local + 7 transversal | **23** | No unit started or accepted |
 
-Phase order is a review grouping, not an extra dependency: follow each Task's exact DAG. Recommended spine: T01→T02→T04→T05→T06, with T07 safety also required before T06; T03/T07 feed T08→T09→T11→T12→T13; T10 integrates readiness; T14/T15 produce local Evidence. After PD-OWN, X01 can run alongside local foundations, X02 after local migration, X03 after resolution, X04→X05 after frozen contracts; X06 joins onboarding, X07 then T16. Do not hold all local work for externally acquired positive proof: save intent truthfully as unproven, keep use blocked.
+Phase order is a review grouping, not an extra dependency: follow each Task's exact DAG. Recommended spine: T01→T02→T04→T05→T06, with T07 safety also required before T06; T03/T07 feed T08→T09→T11→T12→T13; T10 integrates readiness; T14/T15 produce local Evidence. Under Delivery B's own future authorization, X01 can run alongside local foundations, X02 after local migration, X03 after resolution, X04→X05 after frozen contracts; X06 joins onboarding and X07 consolidates B. T14/T15 feed T16 independently; A/B and external receipts converge only at GATE-I306-INTEGRATED. Do not hold all local work for externally acquired positive proof: save intent truthfully as unproven, keep use blocked.
 
-Parallelizable after their prerequisites: T03 and T04 and T07 after T02; T09 and T10 after T08; X01 alongside T03/T04 once interfaces stable and PD-OWN resolved; X02 and X03 after their distinct inputs; T14 and T15 after onboarding/native prerequisites. Shared files require disjoint ownership or serial integration; parallel arrows are permission to schedule, never permission for concurrent writes to the same file. No live/native vendor acceptance is delegated automatically.
+Parallelizable after their prerequisites: T03 and T04 and T07 after T02; T09 and T10 after T08; X01 alongside T03/T04 once interfaces stable and Delivery B independently authorized; X02 and X03 after their distinct inputs; T14 and T15 after onboarding/native prerequisites. Shared files require disjoint ownership or serial integration; parallel arrows are permission to schedule, never permission for concurrent writes to the same file. No live/native vendor acceptance is delegated automatically.
+
+## Independent delivery gates and interface handoffs
+
+| Gate | Required inputs | Objective conclusion / excluded claim |
+| --- | --- | --- |
+| Delivery A local technical gate | T14 + T15 → T16; required local security/native filesystem/integration receipts | Supported local Profile authoring/onboarding and truthful local readiness/blockers. No X dependency, no proven dispatch/default-sdd r2/model availability/MVP claim |
+| Delivery B compatibility gate | X01–X06 → X07; local producer interfaces below; separate owner and authority | Versioned Workflow/compiler/Execution/graph/default compatibility. Positive real model/dispatch/E2E proof is outside X07's synthetic contract receipt |
+| **GATE-I306-INTEGRATED** (review gate, not Task 24) | Independent A/T16 receipt + B/X07 receipt + authoritative G-3 model/effort/no-override proof + #276 dispatch/coordination receipts + #278 separately authorized real E2E/acceptance receipts; #305 policy/#277 delivery-rework/G-4 linkage when required by the scenario | Full scenario may be declared ready/verified only when every required receipt matches exact versions/identities, snapshot/proof freshness and authority. Missing/stale/unknown input yields BLOCKED with rightful-owner action; justified NOT_APPLICABLE for genuinely unused external features only. Gate grants no execution/publication authority and no automatic human acceptance |
+
+GATE-I306-INTEGRATED stays **Not evaluated**. It creates no Issue, Task, scheduler, registry or acceptance authority. The local gate has no back-edge to B/integrated readiness. Delivery A acceptance does not redefine Workflow v1/v2 or historical Execution effort; B implements the accepted versioned contracts under separate authority. Actual model/auth/effort support, dispatch, E2E and human MVP acceptance remain individually classified.
+
+| Stabilized producer/interface | Delivery A owner/output | Delivery B consumer / truthful boundary |
+| --- | --- | --- |
+| Local active2/tombstone1/v1 read, canonical effort/digest/generation | T01/T02/T04–T06 | X01/X02/X07 consume exact version/state; no implicit migration |
+| Exact safe authoring/read/preview/apply/result | T07–T09 | X02/X06 use reviewed local state; policy/Workflow edits retain separate owners |
+| Exact Profile-first intersection and PE-04 versioned projection interface | T03/T10 | X03/X04/X05 freeze controls/bindings later. A tests injected proof consumption and real unknown blockers, not operational compiler/Execution availability |
+| Capability/proof/source identity and freshness contract | T01/T03 consume declared interface; G-3 owns positive acquisition | X03/X05 bind/recheck actual proofs and effortSourceDigest; absent native version/precedence support blocks use. No A→B dependency for source acquisition |
+| Skill inventory/passive onboarding/neutral candidate guidance | T11–T13; local verification T14/T15 | X06 prepares separately confirmed derived default-sdd r2; local setup never selects a Workflow or patches policy |
+
+## Updated Task dependency matrix
+
+| Task | Delivery | Task prerequisites |
+| --- | --- | --- |
+| I306-T01 | A / #306 | None |
+| I306-T02 | A / #306 | I306-T01 |
+| I306-T03 | A / #306 | I306-T02 |
+| I306-T04 | A / #306 | I306-T01, I306-T02 |
+| I306-T05 | A / #306 | I306-T04 |
+| I306-T06 | A / #306 | I306-T02, I306-T04, I306-T05, I306-T07 |
+| I306-T07 | A / #306 | I306-T02 |
+| I306-T08 | A / #306 | I306-T03, I306-T04, I306-T05, I306-T06, I306-T07 |
+| I306-T09 | A / #306 | I306-T08 |
+| I306-T10 | A / #306 | I306-T03, I306-T08 |
+| I306-X01 | B / separate | I306-T01, I306-T02 |
+| I306-X02 | B / separate | I306-X01, I306-T06, I306-T08 |
+| I306-X03 | B / separate | I306-X01, I306-T03 |
+| I306-X04 | B / separate | I306-X01, I306-X03 |
+| I306-X05 | B / separate | I306-X03, I306-X04, I306-T07 |
+| I306-X06 | B / separate | I306-X01, I306-X02, I306-X03, I306-T10, I306-T11, I306-T13 |
+| I306-X07 | B / separate | I306-X01, I306-X02, I306-X03, I306-X04, I306-X05, I306-X06 |
+| I306-T11 | A / #306 | I306-T09 |
+| I306-T12 | A / #306 | I306-T09, I306-T10, I306-T11 |
+| I306-T13 | A / #306 | I306-T08, I306-T11, I306-T12 |
+| I306-T14 | A / #306 | I306-T06, I306-T07, I306-T09, I306-T10, I306-T11, I306-T12, I306-T13 |
+| I306-T15 | A / #306 | I306-T04, I306-T05, I306-T11, I306-T12 |
+| I306-T16 | A / #306 | I306-T14, I306-T15 |
+
+All local units are executable as a separately authorized delivery after their local prerequisites. T03/T04/T07 can proceed in parallel after T02; T09/T10 after T08; T14/T15 after their own prerequisites. Stable interface handoff permits B to consume local work as it lands under B's own authority, rather than making A wait for B. Disjoint file ownership/serial integration still applies. External proof tests use injected sources only until separately authorized native acquisition.
 
 ## Shared completion and Evidence contract
 
@@ -88,11 +140,11 @@ Every implementation unit includes its proportional tests; T14/X07 integrate cro
 ### I306-T03 — Resolve the exact Profile before effort proof
 
 - **Status:** Not started; awaiting Tasks approval and bounded implementation authority.
-- **Objective / implementation scope:** Extend the sole resolver and Project projection for local2. Resolve explicit ref/exact Project preference/unique permitted candidate first, derive effort only then. Introduce the safe versioned resolvedProfile contract consumed by compiler; do not edit portable policy or acquire proof.
+- **Objective / implementation scope:** Extend the sole resolver and Project projection for local2. Resolve explicit ref/exact Project preference/unique permitted candidate first, derive effort only then. Introduce the safe versioned resolvedProfile producer/interface for future Delivery B consumers; do not compile Stage Plans, freeze Executions, edit portable policy or acquire proof in Delivery A. Unknown external observations yield blocked/unproven diagnostics, never invented tuple proof.
 - **Contract references:** LA-07/09; PE-03/04/06; AC-PE1/3; ADR-0024.
 - **Likely components/files:** `internal/runtimeprofile resolver; internal/runtimeapplication/policy.go; internal/projectapp readiness`. These are investigation targets, not permission for unrelated refactoring.
 - **Dependencies:** I306-T02.
-- **Acceptance:** Exact Project Runtime/Profile/model intersection maintained; tuple includes all PE-04 identities/digests/mode/proof refs; effort failure blocks chosen Profile; two otherwise eligible candidates remain ambiguous even if only one effort works; saved unproven intent is structurally valid but not operationally ready.
+- **Acceptance:** Exact Project Runtime/Profile/model intersection maintained; the versioned interface accounts for all PE-04 identities/digests/mode/proof refs; successful injected resolution proves contract consumption only, unavailable real proof/source facts remain explicit blockers; effort failure blocks chosen Profile; two otherwise eligible candidates remain ambiguous even if only one effort works; saved unproven intent is structurally valid but not operationally ready.
 - **Negative scenarios:** Runtime-wide/declared/auth-only proof; stale exact-model evidence; initiating Runtime preference; effort used as tiebreak; fallback; local preference replacing Project choice; v1 fabricated default.
 - **Expected Evidence:** Injected exact/mismatched/unknown observations and Project intersection regressions; safe snapshot equality and drift tests. No native proof acquisition.
 - **Flags / gates:** security-review, persisted-contract, external:G-3.
@@ -197,93 +249,93 @@ Every implementation unit includes its proportional tests; T14/X07 integrate cro
 
 ### I306-X01 — Introduce Workflow schema 2 with historical codecs
 
-- **Status:** Not started; blocked by PD-OWN and common authorization gates.
+- **Status:** Not started; Delivery B awaiting separate owner, exact Tasks approval and bounded implementation authority.
 - **Objective / implementation scope:** Add closed schema2/model/validator family without Agent effort or alternate reserved effort requirements. Retain schema1 parse/encode/digest meanings and original schema/fixtures addressably.
 - **Contract references:** PE-02; Spec 007 §3; AC-PE1/2; ADR-0024.
 - **Likely components/files:** `internal/workflowdefinition/definition.go, validation.go, schema/catalog; documentary versioned schema/examples`. These are investigation targets, not permission for unrelated refactoring.
-- **Dependencies:** I306-T01, I306-T02; PD-OWN.
+- **Dependencies:** I306-T01, I306-T02; Delivery B own authority gate.
 - **Acceptance:** Strict version dispatch; schema2 role/complexity/Profile refs unchanged; explicit/null/empty Agent effort and reserved effort selectors rejected; old fixtures produce identical bytes/digests; mixed schemas fail.
 - **Negative scenarios:** Replacing v1 schema under same identity; dropping historical effort; unknown/duplicate fields; capability/WorkUnit/CLI alternate effort owner.
 - **Expected Evidence:** Schema/codec compatibility corpus and negative-validation tests linked to AC-PE1/2.
-- **Flags / gates:** security-review, persisted-contract, migration, ownership:PD-OWN.
+- **Flags / gates:** security-review, persisted-contract, migration, delivery:B-own-authority.
 - **Objective completion condition:** Shared Done contract above plus every assertion and expected receipt of this unit; unsupported/unavailable required capability leaves its use blocked and accurately reported.
 
 ### I306-X02 — Publish explicitly mapped Workflow migrations
 
-- **Status:** Not started; blocked by PD-OWN and common authorization gates.
+- **Status:** Not started; Delivery B awaiting separate owner, exact Tasks approval and bounded implementation authority.
 - **Objective / implementation scope:** Use existing Project-owned authorship to prepare schema2 from exact schema1 revision with operator per-Agent mapping. Compare historical requested effort with selected Profile effort; publish a new immutable revision of same ID, under separate authority.
 - **Contract references:** Spec 007 §3; PE-02/03; AC-PE2; ADR-0020/0024.
 - **Likely components/files:** `internal/projectapp Workflow authoring; workflowdefinition; existing CLI/axiom-workflow configuration route`. These are investigation targets, not permission for unrelated refactoring.
-- **Dependencies:** I306-X01, I306-T06, I306-T08; PD-OWN.
+- **Dependencies:** I306-X01, I306-T06, I306-T08; Delivery B own authority gate.
 - **Acceptance:** Preview shows source ref/digest and each changed request/Profile/effort; source bytes preserved; exact confirmation publishes next revision/read-back; no active selection/start/local config/policy mutation; incompatible replacement visibly changed behavior; disallowed Profile returns project_policy_update_required.
 - **Negative scenarios:** Automatic Profile derivation; partial mapping; changed source/local/policy after preview; old digest approves new revision; silent Project preference write; binding existing Execution to new revision.
 - **Expected Evidence:** Migration comparison golden, immutable source digest and separate authority/selection spies; recovery/restart cases.
-- **Flags / gates:** security-review, persisted-contract, migration, ownership:PD-OWN, external:#305.
+- **Flags / gates:** security-review, persisted-contract, migration, delivery:B-own-authority, external:#305.
 - **Objective completion condition:** Shared Done contract above plus every assertion and expected receipt of this unit; unsupported/unavailable required capability leaves its use blocked and accurately reported.
 
 ### I306-X03 — Compile Profile-owned controls and Stage Plan v2
 
-- **Status:** Not started; blocked by PD-OWN and common authorization gates.
+- **Status:** Not started; Delivery B awaiting separate owner, exact Tasks approval and bounded implementation authority.
 - **Objective / implementation scope:** Consume sole-resolver resolvedProfile and produce compiler/result/Stage Plan2 with profileEffort, source provenance and safe exact tuple. Frozen child controls derive only from tuple; preserve v1 RequestedEffort DTO.
 - **Contract references:** PE-03/04/05; AC-PE1/3; ADR-0024.
 - **Likely components/files:** `internal/workflowcompiler/compiler.go, stage_plan.go; workflow stage planning; CLI result version dispatch`. These are investigation targets, not permission for unrelated refactoring.
-- **Dependencies:** I306-X01, I306-T03; PD-OWN.
+- **Dependencies:** I306-X01, I306-T03; Delivery B own authority gate.
 - **Acceptance:** Profile selected before proof; controls/tokens match exact effort; single and multi-agent paths carry profile/config/exe/version/mode/obs/proof/source digests; old approvals invalid for v2; unknown facts block rather than fabricate dispatchable placeholders.
 - **Negative scenarios:** Effort as tiebreak; substitute Profile on unsupported effort; WorkUnit/CLI override; mismatched tuple; mutable config re-read to invent old requestedEffort; v1 digest replay.
 - **Expected Evidence:** Compiler/Stage Plan deterministic goldens, domain-to-compiler negative boundary tests and single/mixed graph snapshots.
-- **Flags / gates:** security-review, persisted-contract, ownership:PD-OWN, external:G-3.
+- **Flags / gates:** security-review, persisted-contract, delivery:B-own-authority, external:G-3.
 - **Objective completion condition:** Shared Done contract above plus every assertion and expected receipt of this unit; unsupported/unavailable required capability leaves its use blocked and accurately reported.
 
 ### I306-X04 — Freeze configured Execution format 3 bindings
 
-- **Status:** Not started; blocked by PD-OWN and common authorization gates.
+- **Status:** Not started; Delivery B awaiting separate owner, exact Tasks approval and bounded implementation authority.
 - **Objective / implementation scope:** Extend canonical Execution codec/admission/inventory for format3 configured-sequential-v2/schema2. Start freezes Workflow and initial Profile; later authorized stage admission freezes actual child tuples with protected publication. Keep legacy inspection/completion.
 - **Contract references:** PE-04/05; Spec 007 §3; AC-PE2/3; ADR-0020/0024.
 - **Likely components/files:** `internal/workflow/configured.go, service.go; internal/local/workflow_store.go; compatibility inventory`. These are investigation targets, not permission for unrelated refactoring.
-- **Dependencies:** I306-X01, I306-X03; PD-OWN.
+- **Dependencies:** I306-X01, I306-X03; Delivery B own authority gate.
 - **Acceptance:** New records bind exact immutable Workflow/Profile tuple; later lifecycle appends cannot rewrite prior bindings; format1/2 byte meaning retained; legacy new dispatch/retry lacking tuple returns legacy_execution_contract; Project selection/local edit never rebinds existing Execution; old Workflow starts require workflow_migration_required.
 - **Negative scenarios:** Recompile old Execution after migration; synthesize legacy snapshot from current config; implicit successor/continuation identity; partial publication loses tuple; stale admission approval.
 - **Expected Evidence:** Versioned codec/admission/fault/restart tests and historical binding digests before-after.
-- **Flags / gates:** security-review, persisted-contract, migration, ownership:PD-OWN.
+- **Flags / gates:** security-review, persisted-contract, migration, delivery:B-own-authority.
 - **Objective completion condition:** Shared Done contract above plus every assertion and expected receipt of this unit; unsupported/unavailable required capability leaves its use blocked and accurately reported.
 
 ### I306-X05 — Bind graph v2 and effort-source attempt checks
 
-- **Status:** Not started; blocked by PD-OWN and common authorization gates.
+- **Status:** Not started; Delivery B awaiting separate owner, exact Tasks approval and bounded implementation authority.
 - **Objective / implementation scope:** Extend existing proposal/graph2 per-node snapshots and same single/graph attempt checks. Implement bounded, separately consented effort-source inspection with adapter exact-version/mode field/precedence provenance; reuse auth/argument/env guards. Unknown semantics refuse. Dispatch composition and positive proof acquisition remain with their owners.
 - **Contract references:** PE-05/05a/06; AC-PE3; Security sole-owner review.
 - **Likely components/files:** `internal/executiongraph codecs/planner; graphapplication/runtime_policy.go; runtimeadapter/adapters/authpreflight; existing scheduler guard seam`. These are investigation targets, not permission for unrelated refactoring.
-- **Dependencies:** I306-X03, I306-X04, I306-T07; PD-OWN.
+- **Dependencies:** I306-X03, I306-X04, I306-T07; Delivery B own authority gate.
 - **Acceptance:** Tuple/controls/proof/source digest verified before effects each attempt; only Profile-derived explicit override accepted; runtime-default has no external selector; selector-free native default permitted without asserted concrete level; safe source classes/key-presence only; sources rebound/rechecked; original graph1 unchanged.
 - **Negative scenarios:** External Codex config/Claude effort env even same token; unknown version/precedence/selected section; unreadable/malformed/oversized/drop-in/reparse/symlink source; duplicate normalized environment keys/multiple Claude effort selectors; selector insertion after preview or changed effortSourceDigest despite unchanged model/configuration revision; changed exe/model/mode/proof/config; hashing unknown source; fixture/auth-only/Runtime-wide proof accepted; settings repair.
 - **Expected Evidence:** Injected adapter/preflight-to-policy-to-scheduler tests with zero-effect assertions; authoritative source references required per supported mapping. Native proof/support remains external G-3/#276.
-- **Flags / gates:** security-review, persisted-contract, migration, ownership:PD-OWN, external:G-3/#276, native-runtime-gate.
+- **Flags / gates:** security-review, persisted-contract, migration, delivery:B-own-authority, external:G-3/#276, native-runtime-gate.
 - **Objective completion condition:** Shared Done contract above plus every assertion and expected receipt of this unit; unsupported/unavailable required capability leaves its use blocked and accurately reported.
 
 ### I306-X06 — Distribute default-sdd r2 and confirmed derived setup
 
-- **Status:** Not started; blocked by PD-OWN and common authorization gates.
+- **Status:** Not started; Delivery B awaiting separate owner, exact Tasks approval and bounded implementation authority.
 - **Objective / implementation scope:** Add r2/schema2 template with generic supported Runtime constraints/policy-default and no concrete model/effort. Keep builtin r1 identity/digest addressable. Guide separately confirmed Project-owned copy, references or portable preference through existing owners.
 - **Contract references:** ON-04/ON-05; AC-ON3; PE-02/03; ADR-0023/0024.
 - **Likely components/files:** `workflowdefinition builtin catalog/new default-sdd-r2; examples; axiom-workflow guidance; Project selection routes`. These are investigation targets, not permission for unrelated refactoring.
-- **Dependencies:** I306-X01, I306-X02, I306-X03, I306-T10, I306-T11, I306-T13; PD-OWN.
+- **Dependencies:** I306-X01, I306-X02, I306-X03, I306-T10, I306-T11, I306-T13; Delivery B own authority gate.
 - **Acceptance:** Codex-only/Claude-only unique permitted candidate disclosed/confirmed; both explicit assignment supports mixed Runtime stage; r1 bytes unchanged; templates not auto-selected; local configuration/policy/revision publication/selection/start separate previews/authorities.
 - **Negative scenarios:** Unresolved multiplicity; allowlist/model mismatch; initiating vendor priority; local preference invented as portable intent; r1 replacement; new template auto-selects Project or changes frozen Execution.
 - **Expected Evidence:** Default catalog digest tests and synthetic full setup-to-ready scenarios for four installed states and existing selections.
-- **Flags / gates:** security-review, persisted-contract, migration, ownership:PD-OWN, external:#305.
+- **Flags / gates:** security-review, persisted-contract, migration, delivery:B-own-authority, external:#305.
 - **Objective completion condition:** Shared Done contract above plus every assertion and expected receipt of this unit; unsupported/unavailable required capability leaves its use blocked and accurately reported.
 
 ### I306-X07 — Verify the cross-cutting compatibility chain
 
-- **Status:** Not started; blocked by PD-OWN and common authorization gates.
+- **Status:** Not started; Delivery B awaiting separate owner, exact Tasks approval and bounded implementation authority.
 - **Objective / implementation scope:** Consolidate versioned local/Workflow/StagePlan/Execution/graph corpus, every-reader/writer recognition and integration faults. Verify new admission and immutable old inspection without duplicating unit checks.
 - **Contract references:** AC-PE1/2/3; AC-ON3; AC-SEC; FR-026.
 - **Likely components/files:** `Affected Workflow/compiler/Execution/graph integration tests; append-only compatibility corpus and Evidence`. These are investigation targets, not permission for unrelated refactoring.
-- **Dependencies:** I306-X01, I306-X02, I306-X03, I306-X04, I306-X05, I306-X06; PD-OWN.
+- **Dependencies:** I306-X01, I306-X02, I306-X03, I306-X04, I306-X05, I306-X06; Delivery B own authority gate.
 - **Acceptance:** End-to-end synthetic migration publishes only reviewed owner effects; restart preserves all historical hashes; version matrix covers read/new admission/retry/forward/unsupported downgrade; faults block safely with exact remediation; proof gaps classified.
 - **Negative scenarios:** Old approval/new family reuse; legacy continuation silently works; corpus replacement; partial migration selects active revision; CI/fake results claimed live or #278 acceptance.
 - **Expected Evidence:** Exact-head integration compatibility matrix, original/new hashes, command/results and classified missing native/proof gates.
-- **Flags / gates:** security-review, persisted-contract, migration, ownership:PD-OWN, external:G-3/#276/#278.
+- **Flags / gates:** security-review, persisted-contract, migration, delivery:B-own-authority, external:G-3/#276/#278.
 - **Objective completion condition:** Shared Done contract above plus every assertion and expected receipt of this unit; unsupported/unavailable required capability leaves its use blocked and accurately reported.
 
 ## Phase 5 Tasks
@@ -357,18 +409,18 @@ Every implementation unit includes its proportional tests; T14/X07 integrate cro
 
 ## Phase 7 Tasks
 
-### I306-T16 — Consolidate G-2 Evidence and external readiness handoff
+### I306-T16 — Consolidate independent local G-2 Evidence and handoffs
 
-- **Status:** Not started; awaiting Tasks approval and bounded implementation authority.
-- **Objective / implementation scope:** Reconcile durable contracts/help/docs and Evidence for local authoring delivered; integrate separate cross-cutting receipts when available, with ownership trace. Replay G-2 preparation using actual authoring, not fixture config; report G-3/G-4/dispatch/delivery/real acceptance independently.
-- **Contract references:** Plan §8; Issue IA-01–07; AC-PE1–3/ON1–4/SEC; #303 Lane L / #275 C–G.
-- **Likely components/files:** `Issue-scoped implementation Evidence; command docs; specs/ADR indexes as behavior changes; acceptance matrix`. These are investigation targets, not permission for unrelated refactoring.
-- **Dependencies:** I306-T14, I306-T15, I306-X07.
-- **Acceptance:** Each accepted criterion maps exact commit/blob/command/result/category; historical hashes/receipts preserved; G-2 removed blockers distinguished from unresolved cross-cutting/G-3/G-4; security review attached; no automatic Issue closure/human acceptance; full preparation blocked if dependency absent.
-- **Negative scenarios:** CI accepted as MVP; external owner inferred green; omitted unavailable platform/proof; Tasks checked complete without authority; operation journal leaks raw vendor output.
-- **Expected Evidence:** Integrated classified Evidence and independent human review. Native R-2/R-3 remains #278 with separately authorized G-3/#276/#277 work.
-- **Flags / gates:** security-review, external:G-3/#276/#277/#278.
-- **Objective completion condition:** Shared Done contract above plus every assertion and expected receipt of this unit; unsupported/unavailable required capability leaves its use blocked and accurately reported.
+- **Status:** Not started; awaiting exact Tasks approval and bounded implementation authority.
+- **Objective / implementation scope:** Reconcile local authoring/help/docs and consolidate Delivery A's G-2 Evidence from production authoring, not fixture-written configuration. Classify each accepted criterion's local portion and external integration portion separately. Hand off local v2/selected-Profile interfaces and unresolved G-3/Delivery B/#305/#276/#277/#278/G-4 diagnostics; do not integrate or certify their deliveries here.
+- **Contract references:** Plan §8; LA-01–12; local portions of IA-01–07, AC-PE1/2/3, AC-ON1/2/4 and AC-SEC; accepted PD-OWN Option A. AC-ON3/full transversal portions belong to B/integrated gate.
+- **Likely components/files:** `Issue-scoped local implementation Evidence; canonical command docs; local acceptance matrix and handoff references`. These are investigation targets, not unrelated refactoring authority.
+- **Dependencies:** I306-T14, I306-T15.
+- **Acceptance:** All Delivery A local authoring/lifecycle/migration/authority/redaction/skill/onboarding/readiness criteria have exact-head classified Evidence and required security/native local receipts; historical hashes preserved; unavailable model/effort/auth/Workflow/dispatch/E2E dependencies remain truthful actionable blockers outside local scope. Local G-2 result is reviewable without B. No dispatch/default-sdd r2/Workflow2/Execution3/graph2/native model/MVP success asserted without independent receipts. No Issue closure or artifact acceptance by agent.
+- **Negative scenarios:** Waiting for X07 to approve local Evidence; local PASS represented as end-to-end success; deleting local safety/native tests to make Done; foreign delivery silently marked complete; omitted pending/unavailable proofs; raw vendor/credential output in journal.
+- **Expected Evidence:** Independent Delivery A acceptance matrix, exact-head local/synthetic/native-filesystem classification, security review, stable interface handoff and explicit external blocker list. Real R-2/R-3 stays #278; integrated gate receives separate receipts later.
+- **Flags / gates:** security-review, delivery:A-local, independent-local-completion, external-handoff-only.
+- **Objective completion condition:** T14/T15 and all mandatory local assertions/receipts satisfy the shared Done contract; each external unmet dependency has an accurate diagnostic/handoff rather than a fabricated PASS. No X/G-3/#276/#277/#278 completion is required to conclude T16's local technical scope; human local acceptance and implementation authority remain separate.
 
 ## Complete acceptance traceability
 
@@ -382,7 +434,7 @@ Issue acceptance aliases below identify the seven original Issue #306 checkboxes
 | IA-04 truthful capability/effort/auth/stale/ambiguity/redaction | T03, T07, T10, T13–T14; X03/X05; positive proof G-3 |
 | IA-05 exact mutation authority/no credential disclosure | T01, T04–T09, T14–T15; X02/X05/X07 |
 | IA-06 independent contract/security acceptance/no Doctor | Receipt reconciled as Accepted design; T07/T10/T14–T16 future code review; Tasks/implementation gates still separate |
-| IA-07 G-2-specific Lane L C–G blockers; no automatic R-3 | T14–T16 plus X07 integration; G-3/G-4/#276/#277/#278 remain separate |
+| IA-07 G-2-specific Lane L C–G blockers; no automatic R-3 | T14–T16 prove local G-2 blocker removal with honest remaining diagnostics; X07 plus GATE-I306-INTEGRATED cover full preparation; G-3/G-4/#276/#277/#278 remain separate |
 | D1; LA-03/10; AC-SEC | T02, T04–T06, T08, T14–T15; X07 compatibility |
 | D2; LA-06/08 | T06–T07, T10, T12–T16; X05 safety boundary; G-3/#276 native authority |
 | D3; LA-07; PE-01–06 including PE-05a | T02–T03/T06/T07; X01–X05/X07; sole Profile owner, exact tuple and bounded source check |
@@ -397,10 +449,10 @@ Issue acceptance aliases below identify the seven original Issue #306 checkboxes
 | AC-ON2 preservation/consent/zero effects/read-back | T04–T09/T11–T15; X02/X06/X07 |
 | AC-ON3 default-sdd and ambiguous both | X01–X03/X06/X07; T10/T13 readiness/setup |
 | AC-ON4 unavailable facts/no fallback | T03/T07/T10/T12–T14; X03/X05/X06 |
-| Plan §8 all seven Evidence rows and additional acceptance | IA rows and AC rows above; final classified T16 receipt |
+| Plan §8 all seven Evidence rows and additional acceptance | IA/AC rows above split local T16 receipt versus B X07 and GATE-I306-INTEGRATED; no full-contract acceptance inferred from local completion |
 | Security threat table + residual risks | T02 strict wire; T04/T05 lifecycle/identity/faults; T07 redaction/auth; T08 authority; T15 native; X05 source/dispatch; final independent code review |
 | FR-026 all version families/readers/writers | T02/T05/T06; X01–X07; append-only corpus/new-format recognition |
 
 ## Stop and review
 
-Tasks are complete as a proposed decomposition, not execution results. Review exact Tasks artifact and PD-OWN recommendation; complete the outstanding source-convention verification. Then request bounded implementation authority only after exact Tasks approval. **Awaiting Human Approval — Tasks. STOP.** Do not start implementation, run vendor probes, mutate configuration/Providers, mark units completed, mark PR Ready, merge/release or change Issue operational state.
+Tasks are complete as a proposed decomposition, not execution results. PD-OWN Option A is accepted; review the exact revised Tasks artifact. Delivery B still needs a nominal owner and its own future lifecycle/authority, not a new decision about assigning it to #306. Then request bounded implementation authority only after exact Tasks approval. **Awaiting Human Approval — Tasks. STOP.** Do not start implementation, run vendor probes, mutate configuration/Providers, mark units completed, mark PR Ready, merge/release or change Issue operational state.

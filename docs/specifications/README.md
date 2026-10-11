@@ -2,7 +2,7 @@
 
 Issue [#306](https://github.com/rgomids/axiom/issues/306): [Plan](002-lingo-project-initialization/plan-306-local-runtime-profiles.md), [Spec 002 amendment](002-lingo-project-initialization/amendment-306-local-runtime-authoring.md), [mandatory design Security Review](002-lingo-project-initialization/security-review-306-local-runtime-profiles.md), [Spec 007 effort/onboarding amendment](007-configurable-workflows/amendment-306-profile-effort-onboarding.md) and ADR-0023/0024 are **Accepted, 2026-10-11**, by [exact six-artifact acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466) at `823bce3`.
 [Acceptance/Tasks Evidence](002-lingo-project-initialization/evidence-306-acceptance-tasks.md) preserves blobs and historical [Planning Evidence](002-lingo-project-initialization/evidence-306-planning-reconciliation.md).
-[Tasks](002-lingo-project-initialization/tasks-306-local-runtime-profiles.md) are **Awaiting Human Approval — Tasks**; cross-cutting ownership remains Pending Human Decision. No implementation or real Runtime acceptance is implied.
+[Tasks](002-lingo-project-initialization/tasks-306-local-runtime-profiles.md) are **Awaiting Human Approval — Tasks**; [PD-OWN Option A is accepted](https://github.com/rgomids/axiom/pull/310#issuecomment-6109470563): Delivery A is #306 T01–T16; X01–X07 form separate Delivery B with its own owner/lifecycle/authority. No implementation or real Runtime acceptance is implied.
 
 Specifications define desired outcomes and observable behavior before implementation
 plans. Approval gates remain separate: an approved Specification permits planning;

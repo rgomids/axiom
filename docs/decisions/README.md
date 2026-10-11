@@ -4,7 +4,7 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
-- [ADR-0024 — Model Profile owns effort with versioned execution bindings](0024-model-profile-effort-ownership.md) — **Accepted, 2026-10-11**, at `823bce3` by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466); local v2 / Workflow v2 / immutable snapshots and explicit migration. Partially supersedes only ADR-0022 Stage/Agent configurable effort and corresponding Spec 007 clauses; historical v1 meanings preserved. Implementation ownership remains pending.
+- [ADR-0024 — Model Profile owns effort with versioned execution bindings](0024-model-profile-effort-ownership.md) — **Accepted, 2026-10-11**, at `823bce3` by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466); local v2 / Workflow v2 / immutable snapshots and explicit migration. Partially supersedes only ADR-0022 Stage/Agent configurable effort and corresponding Spec 007 clauses; historical v1 meanings preserved. [PD-OWN Option A accepted](https://github.com/rgomids/axiom/pull/310#issuecomment-6109470563): local delivery stays #306; transversal migration is a separate delivery needing its own owner/authority.
 
 - [ADR-0023 — Local Runtime configuration conversational surface](0023-local-runtime-configuration-surface.md) — **Accepted, 2026-10-11**, at `823bce3` by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466); thin machine-local authoring owner and bounded future four-skill inventory extension; implementation remains separately gated.
 
