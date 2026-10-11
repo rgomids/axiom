@@ -2,9 +2,9 @@
 
 ## Status and authority
 
-**Accepted, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), fixed to commit `823bce3141bae5e90951c5239181c46d88cfbfe9` and blob `d4886e9c282ee12d3526566d0ddfc31f8fffb391`. This revision reconciles status only; the approved historical bytes remain in Git and the [acceptance receipt](evidence-306-acceptance-tasks.md). Tasks preparation is authorized; [Tasks](tasks-306-local-runtime-profiles.md) remain **Awaiting Human Approval — Tasks**. No implementation, vendor probes, merge, release, Issue closure or MVP acceptance.
+**Accepted, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), fixed to commit `823bce3141bae5e90951c5239181c46d88cfbfe9` and blob `d4886e9c282ee12d3526566d0ddfc31f8fffb391`. This revision reconciles status and the explicitly accepted later ownership only; the approved historical bytes remain in Git and the [acceptance receipt](evidence-306-acceptance-tasks.md). Tasks preparation is authorized; [Tasks](tasks-306-local-runtime-profiles.md) remain **Awaiting Human Approval — Tasks**. No implementation, vendor probes, merge, release, Issue closure or MVP acceptance.
 
-Technical owner: [Issue #306](https://github.com/rgomids/axiom/issues/306). Preserve branch `feat/306-local-runtime-profiles` and Draft PR #310. Cross-cutting Workflow/compiler/Execution implementation ownership is still **Pending Human Decision**; the Tasks separate that bundle without expanding #306. Material contract changes require renewed exact acceptance.
+Technical owner: [Issue #306](https://github.com/rgomids/axiom/issues/306). Preserve branch `feat/306-local-runtime-profiles` and Draft PR #310. [Latest PD-OWN](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213) assigns all T01–T16/X01–X07 to #306 as internal fronts, superseding the earlier ownership split. Tasks stay Proposed; implementation remains unauthorized. Material contract changes require renewed exact acceptance.
 
 ## Investigation baseline
 
@@ -124,8 +124,9 @@ blocked. #306 removes authoring/setup blockers; G-3, G-4 and R-2/R-3 remain sepa
 The Spec 007 amendment defines accepted future local v2, Workflow schema 2, Stage Plan/
 compiler projection 2, configured Execution 3 and graph/proposal 2. This is an
 explicit accepted migration contract, not an implied expansion into dispatch implementation.
-Cross-cutting migration implementation ownership still requires an explicit human
-assignment, in #306 or a separately authorized bounded Work Item; none is created.
+Cross-cutting migration ownership is explicitly assigned to #306 by the latest
+PD-OWN decision. T/X grouping is internal; no additional Work Item is required.
+This ownership-only reconciliation changes no technical format/migration contract.
 
 ## 3. Canonical operations and interfaces
 
@@ -298,7 +299,7 @@ implementation; this reconciliation edits neither schemas nor production fixture
 
 This is the accepted implementation sequencing; the [proposed Tasks](tasks-306-local-runtime-profiles.md) now decompose it under separate review:
 
-Contract/security/ADR and migration ownership acceptance → versioned local/Profile
+Accepted contract/security/ADR and unified #306 ownership → versioned local/Profile
 and Workflow interfaces → authoring boundary and safe store/recovery →
 canonical CLI/composition → shared diagnostics → thin conversational integration
 and installer parity → focused regressions/Evidence → independent review and
@@ -366,12 +367,10 @@ amendments and security review, with objective future acceptance criteria.
 D1–D5/onboarding and all six exact artifacts are accepted through [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466).
 The version/migration/legacy-continuation window and runtime-default no-override
 semantics are accepted design contracts, not undecided conceptual choices.
-Implementation ownership of the cross-cutting Workflow/compiler/Execution bundle
-remains Pending Human Decision. The [Tasks](tasks-306-local-runtime-profiles.md)
-recommend separate bounded ownership, without creating an Issue.
+The [latest ownership decision](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213) assigns the cross-cutting Workflow/compiler/Execution bundle to #306. The [Tasks](tasks-306-local-runtime-profiles.md) retain 23 IDs and unchanged technical dependencies. T16 is the independent local checkpoint; X07 consolidates transversal compatibility. Complete #306 technical Evidence requires both; actual model/dispatch/MVP/R-3 acceptance still needs external receipts. The earlier separate-delivery decision remains historical.
 
 Tasks require exact human approval; implementation additionally requires explicit
 bounded implementation authority and independent future-code security review.
 No CI/document/synthetic result proves live Runtime operation or accepts the MVP.
-Next: review Tasks and ownership. **STOP before Implementation.** PR remains Draft;
+Next: review and explicitly approve the exact revised Tasks. **STOP before Implementation.** PR remains Draft;
 no merge, release, Issue closure, Linear transition or product acceptance here.

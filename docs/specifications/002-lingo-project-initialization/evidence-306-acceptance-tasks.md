@@ -47,7 +47,7 @@ Actual checks and receipts for the prior c4cb5aa revision are recorded below; cu
 - Diff scope/whitespace — PASS: 13 Markdown artifacts only; staged sensitive-file check PASS; scoped gitleaks on Spec 002, Spec 007 and ADRs PASS, no detected leaks.
 - PR metadata — PASS: Related-Issues #306, Completes-Issues none. Final historical c4cb5aa remote-head/read-back/CI receipt is [the prior PR review record](https://github.com/rgomids/axiom/pull/310#issuecomment-6109364967). Its source/ownership pendencies are superseded by the current receipt below, not new implementation authority.
 
-## Current ownership reconciliation — 2026-10-11
+## Historical Option A ownership reconciliation — 2da26c6
 
 [PD-OWN human acceptance — Option A](https://github.com/rgomids/axiom/pull/310#issuecomment-6109470563) records the current maintainer request against reviewed remote/local HEAD `c4cb5aa83fdf82acc91c9d6fc4f0a6012f04dd63`. This is an ownership acceptance, not acceptance of corrected Tasks or a formal GitHub review.
 
@@ -59,7 +59,7 @@ Actual checks and receipts for the prior c4cb5aa revision are recorded below; cu
 - All six reconciled accepted files remain byte-identical to pre-edit c4cb5aa; exact approved 823bce3 Git blobs and the table above are preserved. No accepted ADR decision/supersession, historical Specification, schema, fixture, source or prior Planning Evidence is edited. Only Tasks, this Evidence and affected index status references change.
 - No delegation: the bounded coupled correction is smaller and safer to integrate/check directly in the Orchestrator; no model or effort selection is simulated.
 
-## Current concurrent PR and integration handoff
+## Historical concurrent PR and integration handoff — 2da26c6
 
 PR #310 was OPEN/Draft at `c4cb5aa`, branch `feat/306-local-runtime-profiles`, base main `5d52327b0367ba08d872b50e804df5c7d63a3e89`; clean local state matched remote before edits. All prior commits remain.
 
@@ -67,7 +67,7 @@ Read-only PR #311 observation: HEAD `52971d0f63b67427107011c874acf3d742e0e800` n
 
 #305 retains policy authoring; G-3 retains positive proof acquisition; #276 retains public dispatch/scheduler/coordination; #277 retains delivery/rework; #278 retains actual E2E acceptance. X05 supplies only the separately authorized snapshot/effort guard seam; no duplicated proof acquisition or dispatcher. The gate requires exact matched provenance, explicit authority and separate native classification; unknown/stale/missing evidence blocks full readiness.
 
-## Current documentary validation
+## Historical documentary validation — 2da26c6
 
 - Task IDs/fields/AC traceability/DAG — PASS: same 23 unique IDs, ten fields each, all Not started; D1–D5/LA/PE/ON/AC/IA markers present; acyclic. The only prerequisite delta is removal of T16→X07; every A dependency stays within A and every B prerequisite is retained. Integrated gate is separate/Not evaluated.
 - Local Markdown targets/anchors — PASS: 133 targets/two anchors. Index references updated only for accepted ownership; ADR-0018 reciprocal metadata untouched and repository ADR governance PASS.
@@ -77,6 +77,40 @@ Read-only PR #311 observation: HEAD `52971d0f63b67427107011c874acf3d742e0e800` n
 
 No production/Runtime test, authenticated vendor probe/inference, operational migration, local configuration or Provider change runs in this phase. Documentary checks prove document consistency only.
 
-## Current limits and stop
+## Historical limits and stop — 2da26c6
 
 PD-OWN Option A is accepted. The corrected artifact remains **Proposed — Awaiting Human Approval — Tasks**. Real model/auth/effort support, Delivery B implementation, #305/G-3/#276/#277/#278/G-4 receipts and nominal Delivery B owner/future lifecycle remain external; they do not prevent Delivery A's independently bounded Evidence. No private-document availability pendency. All Tasks Not started, gate Not evaluated; no new Issue, Ready transition, formal review, merge, release, operational state or MVP acceptance.
+
+## Current unified ownership — 2026-10-11
+
+[Latest PD-OWN human decision](https://github.com/rgomids/axiom/pull/310#issuecomment-6109651213), posted by `rgomids` at 13:42:49 UTC (10:42:49 America/Sao_Paulo), refers to `2da26c60f63e56141fadd5d45caf477f0cb7a920`. It explicitly replaces only the [Option A split](https://github.com/rgomids/axiom/pull/310#issuecomment-6109470563); the earlier receipt and documentary revision remain historical. Neither decision approves the current Tasks or implementation.
+
+All **23 Tasks belong to #306 / PR #310**. T01–T16 and X01–X07 are local/transversal technical fronts of the same administrative delivery and owner; no new Work Item/Issue/PR or X-specific lifecycle/authorization is required. Exact Tasks approval and bounded implementation authority apply equally to both groups. All units remain Proposed/Not started.
+
+T16 remains local, depending only on T14/T15; X07 remains transversal consolidation of X01–X06 and their original local prerequisites. The DAG is unchanged by this revision. Complete #306 technical scope requires both checkpoint receipts and all relevant #306 criteria/security/compatibility tests. GATE-I306-INTEGRATED remains separate/Not evaluated: real model/effort availability, dispatch and E2E need G-3/#276/#278 and applicable #305/#277/G-4 receipts, not local or synthetic PASS. No checkpoint accepts the MVP/AXM-7 R-3 or closes an Issue.
+
+### Exact contract preservation and Plan delta
+
+The original six-artifact 823bce3 approval table/blobs above remain unchanged. Five accepted artifacts (both amendments, Security, ADR-0023/0024) remain byte-identical to pre-edit 2da26c6. **Plan is the only accepted artifact edited:** its ownership/status/sequencing references now implement the expressly accepted unified assignment. Technical D1–D5, formats, migration window, immutable history, security, recovery and external boundaries are unchanged. This ownership delta is identified explicitly, under the latest decision; no additional material technical redesign or acceptance is inferred. Any future material technical delta needs renewed exact acceptance. Older pending-ownership language in preserved historical contracts is resolved by the latest receipt/current Plan, not silently rewritten.
+
+Prior Evidence/receipt content and historical Specifications/ADR supersession annotations are preserved. Current Tasks/Plan/indices refer to the latest decision; prior Option A remains visibly historical here and in GitHub/Git. Changes are limited to five Markdown files. No source/schema/fixture/configuration or accepted ADR content is changed.
+
+### External responsibilities and integration context
+
+#305 retains Project policy editing; G-3/#276 positive proof acquisition; #276 full public dispatch/scheduler/coordination; #277 delivery/rework; #278 actual E2E acceptance; G-4 Provider linkage. #306 owns the approved consumption/projection/snapshot/validation/effort-guard integration, without duplicating those services. Missing external evidence remains actionable and fail-closed; it is not a separate X owner decision.
+
+Read-only #311 integration context advanced from the historical snapshot above; current observed HEAD is `cb01938165aad30048224db6f0933716e988ccaa`. ADR-0025 remains a proposed path in that PR, not an accepted #306 contract. #306 ADR-0024 identity/acceptance stays intact. Shared index/reference reconciliation remains integration work; no #311 mutation or new ADR.
+
+### Current documentary checks
+
+- Stable IDs/fields/Not-started status, exact DAG, checkpoints and D1–D5/LA/PE/ON/AC/IA coverage — PASS: 23 unique IDs/ten fields, acyclic graph, every prerequisite unchanged from 2da26c6; T16 depends only on T14/T15.
+- Preservation — PASS: five accepted artifacts byte-identical to 2da26c6; Plan diff reviewed and restricted to authorized ownership/status/sequencing. Original six 823bce3 approval rows/blob identities, prior Planning Evidence and historical Specifications/ADRs unchanged.
+- Local Markdown targets/anchors — PASS: 155 targets/six anchors. Repository validator — PASS (25 ADRs, governance/structural/security checks); vendor behavior SKIPPED/UNVERIFIED. Scope/whitespace — PASS: five authorized Markdown paths only.
+- Staged sensitive-file check and consolidated `gitleaks dir docs --no-banner --redact` — PASS, no detected leaks. PR metadata — PASS (Related-Issues #306; Completes-Issues none). These are documentary publication checks, not real Runtime/model Evidence.
+- Final exact publication SHA/Tasks blob, remote read-back and CI classification belong to the new PR review record.
+
+No delegation: the bounded ownership reconciliation is integrated directly in the Orchestrator. No private-document discovery, production/Runtime test, inference, authenticated probe, operational migration, local/provider configuration or credentials change.
+
+### Current stop
+
+Unified ownership is accepted. Real remaining gates: exact approval of revised Tasks; explicit implementation authorization; external capability/dispatch/delivery/linkage/E2E receipts as applicable. No pending X owner or mandatory separate Work Item. **Awaiting Human Approval — Tasks. STOP before Implementation.** PR stays Draft; no Tasks completed, additional Issue/PR, merge/release, operational state or product acceptance.
