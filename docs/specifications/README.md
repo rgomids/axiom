@@ -77,6 +77,14 @@ installation compatibility and synthetic R-1 Evidence. It keeps native R-2 and
 human R-3 acceptance deferred to #278; technical checks do not imply release
 or human acceptance.
 
+[#276 Plan — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
+**Proposed (Phase 1), pending human review.** Plans public `workflow stage`
+dispatch, coordination, status and recovery over the existing graph,
+scheduler, coordination and Runtime-policy services, with decisions D-1 and
+PD-1–PD-11, the #306 integration boundary and the open capability-observation
+gate (IG-4). It authorizes no Tasks, implementation, Runtime dispatch or
+acceptance.
+
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
 [Specification](006-installer-host-eligibility/spec.md): **Approved, 2026-10-04**
