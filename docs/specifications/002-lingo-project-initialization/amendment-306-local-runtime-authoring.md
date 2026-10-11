@@ -1,18 +1,10 @@
-# Issue #306 — Proposed local Runtime/Profile authoring contract
+# Issue #306 — Local Runtime/Profile authoring contract
 
 ## Status and acceptance boundary
 
-**Proposed / Awaiting Human Approval, reconciled 2026-10-11.**
-[Maintainer direction D1–D5/onboarding](https://github.com/rgomids/axiom/issues/306#issuecomment-6108025323)
-confirms conceptual choices and replaces the previous D3; it does not accept the
-exact artifacts. Prior proposal at `2096509` is historical. This revised proposal,
-[Plan](plan-306-local-runtime-profiles.md), [Security](security-review-306-local-runtime-profiles.md),
-[ADR-0023](../../decisions/0023-local-runtime-configuration-surface.md),
-[Spec 007 effort/onboarding amendment](../007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
-and [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md) need exact
-independent review. No Tasks, production/schema/fixture changes or vendor probes.
+**Accepted, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), at commit `823bce3141bae5e90951c5239181c46d88cfbfe9`, blob `c504cd5204e38eacafe18ae90179c6b646d0cd1e`. The [acceptance receipt](evidence-306-acceptance-tasks.md) preserves the exact six-artifact record. D1–D5/onboarding and the version/migration contracts are accepted for future implementation. Tasks preparation is authorized; production/schema/fixture changes and vendor probes remain unauthorized. This status reconciliation supplies no operational proof.
 
-## Preserved accepted contract and proposed delta
+## Preserved historical contract and accepted delta
 
 Project != Repository; Runtime != Model; Role != Model; Execution != Agent;
 Provider != Transport; Skill != workflow source of truth; Evidence != raw chat.
@@ -22,13 +14,13 @@ enabled/allowlisted local candidates and authoritative observations further
 constrain permission. Local preferences never invent portable Project intent.
 No initiating-Runtime preference, model ranking or silent fallback.
 
-Current local v1 has no effort; accepted Workflow v1 Agent owns it. D3 now proposes
+Current local v1 has no effort; historical Workflow v1 Agent owns it. Accepted D3 defines
 local **format 2** with required effort and Workflow **schema 2** with no effort
 field/override. Historical accepted files and meanings stay intact. The companion
-Spec 007 proposal is canonical for migration/snapshot semantics; this document
+Spec 007 amendment is canonical for migration/snapshot semantics; this document
 owns local authoring, security, lifecycle and onboarding operations.
 
-## Proposed requirements
+## Accepted requirements
 
 **LA-01 — single authority.** Canonical application use cases own machine-local
 read/list/show/validate/create/edit/remove through RuntimeProfileStore. Keep one
@@ -89,7 +81,7 @@ WorkUnit controls. Compiler derives frozen controls from the selected Profile,
 with Profile/configuration/proof digests and exact Runtime/model/version/mode.
 Declared effort/model capability may be saved as unproven; use requires authoritative
 support and fresh dispatch checks. No substitution to another effort/Profile or
-cross-vendor equivalence. The Spec 007 proposal owns exact snapshots and migration.
+cross-vendor equivalence. The Spec 007 amendment owns exact snapshots and migration.
 
 **LA-08 — observation authority (D2).** Passive installed/integration observation,
 authentication status, model availability and effort support are separate facts.
@@ -116,7 +108,7 @@ committed rollback uses a new monotonic authorized generation. New readers read
 old supported formats without refusal/rewrite; new admission may require explicit
 migration. Incompatible old readers fail safe. No universal downgrade guarantee,
 automatic down-conversion or historical corpus edit. FR-026 matrix/forward path
-is specified in the companion amendment and needs exact acceptance.
+is accepted in the companion amendment; its implementation still needs proof.
 
 **LA-11 — skill owner (D4).** Thin axiom-runtime handles natural-language local
 configuration/inspection/onboarding, explains options/effects, prepares safe input,
@@ -124,7 +116,7 @@ obtains explicit confirmation and invokes canonical CLI only. Application owns
 validation, persistence, preview/apply, authority, diagnostics and recovery.
 Project defines portable permissions/selects Workflow; Workflow defines stages and
 Profile references; Work Item executes. No Project/Workflow authorship forwarding
-or duplicate store. ADR-0023 proposes the explicit inventory extension; historical
+or duplicate store. ADR-0023 accepts the explicit inventory extension; historical
 skill receipts and retired aliases remain intact.
 
 **LA-12 — first experience.** Noninteractive CLI installation passively detects
@@ -139,22 +131,21 @@ without readiness, but no ready/dispatch claim follows. Each local apply receive
 exact confirmation/read-back; derived Workflow and portable policy have separate
 owners/approvals. See ON-01–05 and AC-ON1–4 for Codex-only/Claude-only/both cases.
 
-## Proposed reconciliation of related accepted specifications
+## Reconciliation of related accepted specifications
 
-Accept this local v2 authoring addition independently from Plan approval. Portable
-Spec 002 Runtime Policy v2 remains unchanged. Spec 007/ADR-0022's accepted legacy
-Agent effort requires the proposed versioned amendment/ADR-0024; annotate affected
-historical clauses only after exact acceptance, not as if already active. G-3 proof,
-G-4 Provider linkage and #278 real acceptance remain independent.
+This independently accepted local v2 authoring addition leaves portable Spec 002
+Runtime Policy v2 unchanged. Accepted Spec 007 amendment/ADR-0024 evolve effort
+only for new versioned definitions/admissions. Bounded historical clauses are
+annotated with backlinks; v1 semantics, receipts and bytes remain historical.
+G-3 proof, G-4 Provider linkage and #278 real acceptance stay independent.
 
-LA-11/ADR-0023 propose the fourth active configuration skill, preserving historical
-Specification 004 consolidation and #303 receipts. No retired generic wrapper
-returns. Planning alters no installed catalog/skill/schema or accepted ADR content.
+LA-11/ADR-0023 accept the fourth future active configuration skill. Specification
+004 consolidation and #303 receipts remain historical; no retired generic wrapper
+returns. This documentation revision changes no installed catalog or schema.
 
-## Pending exact artifact gates
+## Remaining gates
 
-D1–D5/onboarding direction is confirmed; do not solicit it again as unknown.
-Remaining review concerns exact local/Workflow/Execution version families, migration
-and legacy-continuation window, Profile runtime-default semantics, cross-cutting
-implementation ownership and independent Plan/Spec/ADR/Security acceptance.
-Any material alternative requires revised artifacts and renewed exact review.
+Exact Tasks approval and bounded implementation authority remain required.
+Cross-cutting implementation ownership remains Pending Human Decision.
+Do not reopen accepted format/window/no-override decisions as unknown; any material
+alternative requires revised artifacts and renewed human acceptance.

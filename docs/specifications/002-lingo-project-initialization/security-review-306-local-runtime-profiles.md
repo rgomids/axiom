@@ -2,17 +2,9 @@
 
 ## Status and scope
 
-**Proposed design review; Awaiting Human Approval, reconciled 2026-10-11.**
-[Human D1–D5/onboarding direction](https://github.com/rgomids/axiom/issues/306#issuecomment-6108025323)
-is confirmed; exact security/format/migration artifacts are not accepted.
-This supersedes the prior #306 D3 proposal, not accepted production contracts.
-This review does not certify future code. Planning only; no credentials, vendor
-login files, environment values or authenticated vendor probes were imported.
-The reviewed baseline is main `5d52327b0367ba08d872b50e804df5c7d63a3e89`.
-See [Plan](plan-306-local-runtime-profiles.md),
-[contract proposal](amendment-306-local-runtime-authoring.md), and
-[Spec 007 sole-effort/migration/onboarding proposal](../007-configurable-workflows/amendment-306-profile-effort-onboarding.md).
-This reconciliation changes no code/schema/fixture and runs no authenticated probes.
+**Accepted as a design baseline, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), at commit `823bce3141bae5e90951c5239181c46d88cfbfe9`, blob `d7105750fa50f9c92179d330ab604a817d2c1d71`. No certification of future code, native Runtime operation or MVP acceptance. Tasks preparation only is now authorized. The reviewed production baseline remains main `5d52327b0367ba08d872b50e804df5c7d63a3e89`; no credentials, login files, environment values or authenticated probes were imported.
+
+See [Plan](plan-306-local-runtime-profiles.md), [Spec 002 amendment](amendment-306-local-runtime-authoring.md), [Spec 007 amendment](../007-configurable-workflows/amendment-306-profile-effort-onboarding.md), [acceptance receipt](evidence-306-acceptance-tasks.md) and [Tasks](tasks-306-local-runtime-profiles.md). Required future-code/security/native gates remain unsatisfied.
 
 ## Assets, effects and trust boundaries
 
@@ -72,7 +64,7 @@ cannot prove every arbitrary token is nonsecret; no credential value input is
 supported. The safe projection must omit unsafe historical model/reference
 values and return a logical repair blocker rather than asserting display safety.
 
-## Vendor-managed authentication review (confirmed D2, proposed exact design)
+## Vendor-managed authentication review (accepted D2 design)
 
 MVP uses only already installed/authenticated Codex/Claude CLIs and supported
 native subscriptions. No Axiom credential backend, token/session/API-key capture,
@@ -116,8 +108,8 @@ auth-only, template defaults and declared-only facts are insufficient.
 Legacy v1 configs/Workflow requests remain readable with their original meaning.
 No automatic effort inference or old-record rewriting. New admissions require
 explicit migration; historical continuation without a v2 snapshot blocks with
-reconciliation guidance. This legacy continuation policy and version/window need
-independent exact acceptance. G-3 proof acquisition and #276 dispatch composition
+reconciliation guidance. This legacy continuation policy and version/window have
+independent exact acceptance as design, not executable validation. G-3 proof acquisition and #276 dispatch composition
 remain separate owners; #306 planning cannot supply their operational Evidence.
 
 ## Residual risks and blockers

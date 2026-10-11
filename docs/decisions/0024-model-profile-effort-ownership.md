@@ -2,11 +2,7 @@
 
 ## Status
 
-**Proposed, 2026-10-11.** Reconciles the maintainer's
-[D3 direction](https://github.com/rgomids/axiom/issues/306#issuecomment-6108025323)
-in [Draft PR #310](https://github.com/rgomids/axiom/pull/310).
-Direction is confirmed; this exact architecture/migration artifact remains
-unaccepted. No Tasks, schema edits, implementation or vendor execution authorized.
+Accepted on 2026-10-11 by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), fixed to commit `823bce3141bae5e90951c5239181c46d88cfbfe9`, blob `c9753a515ef43d2a84bae2156b1c6f8eac170dd1`. The exact historical artifact is preserved in Git; [acceptance receipt](../specifications/002-lingo-project-initialization/evidence-306-acceptance-tasks.md) records the six independent decisions. Acceptance establishes future architecture, not delivered code, installed inventory or native proof. Tasks preparation is authorized; implementation/merge/release remain separately gated.
 
 ## Context
 
@@ -16,7 +12,7 @@ and ADR-0022 describe that ownership. D3 explicitly changes the owner to the loc
 Model Profile: Workflow references a Profile and must never override its effort.
 This cannot be delivered by adding an optional field or deleting old Agent data.
 
-## Proposed decision
+## Decision
 
 Introduce required effort in local configuration format 2 and Workflow definition
 schema 2 that forbids effort overrides. Resolve Runtime/model/Profile first,
@@ -34,15 +30,15 @@ Canonical store/resolver/graph remain sole authorities. Child controls are a fro
 projection of the Profile, not editable Workflow configuration. Historical effort
 requests remain historical facts, never interpreted as current Profile defaults.
 
-## Compatibility and proposed evolution scope
+## Compatibility and evolution scope
 
-The [proposed Spec 007 amendment](../specifications/007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
+The [accepted Spec 007 amendment](../specifications/007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
 defines the version matrix, migration, default template and acceptance criteria.
 New readers retain local v1, Workflow v1 and supported old Execution/graph bytes
 for inspection. Operator chooses effort during local v1→v2 migration; Workflow
 v1→v2 publishes a new immutable revision with explicit Profile mapping. New
 v2 admission refuses unmigrated ownership; existing Executions are never rebound.
-New frozen bindings use proposed configured Execution format 3 and graph/proposal
+New frozen bindings use accepted future configured Execution format 3 and graph/proposal
 format 2; a legacy record without a proven v2 snapshot cannot gain one by resume.
 
 No universal old-reader downgrade is promised. Incompatible readers fail safely;
@@ -50,13 +46,16 @@ FR-026 windows/forward paths and append-only compatibility corpus are required.
 Monotonic local generation survives migration and retirement; recovery and rollback
 require fresh exact authority and never reset it.
 
-After acceptance, annotate only ADR-0022's configuration-scope sentence assigning
-effort to Stage/Agent, and the corresponding accepted Spec 007 effort/schema and
-Stage Plan clauses. ADR-0022 retains Accepted and all other boundaries. Add the
-ADR-0018 reciprocal supersession metadata/index note **after** exact acceptance,
-not in this Proposed revision. ADR-0009 graph ownership and ADR-0020 immutable
-Workflow binding remain accepted; their codecs/projections evolve explicitly.
-No historical receipt, r1 fixture, schema or accepted ADR is rewritten here.
+Only ADR-0022's assignment of effort to Stage/Agent and the corresponding Spec
+007 effort/schema/Stage Plan clauses are partially superseded for the new versioned
+contracts. Their historical text remains visible; v1 records retain original meaning.
+ADR-0009 graph ownership and ADR-0020 immutable Workflow binding remain accepted.
+No receipt, fixture, schema or historical bytes are rewritten by these annotations.
+
+## Supersedes
+
+- [ADR-0022 configuration scope](0022-dedicated-workflow-conversational-surface.md#configuration-scope-and-readiness-hd-006-direction): only Stage/Agent-owned configurable effort; all other boundaries remain in force.
+- [Spec 007](../specifications/007-configurable-workflows/spec.md): only configurable Agent effort and Workflow-owned Stage Plan effort for future schema-2/versioned admissions, through its accepted #306 amendment. Legacy v1 meanings remain intact.
 
 ## Alternatives and trade-offs
 
@@ -76,7 +75,7 @@ addressable. G-3 and real onboarding/dispatch proof stay separate; documenting
 interfaces does not implement capabilities or accept MVP operation.
 
 The cross-cutting Workflow/compiler/Execution migration needs explicit ownership
-in the accepted Plan or a separately authorized Work Item before Tasks. This ADR
+in the accepted Plan or a separately authorized Work Item before dependent implementation. Tasks may document that pending bundle. This ADR
 creates neither. Adding versions increases compatibility maintenance and makes
 upgrade reversible only through supported explicit paths; narrowing windows later
 needs another accepted decision.

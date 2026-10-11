@@ -2,14 +2,9 @@
 
 ## Status and authority
 
-**Proposed; awaiting human review.** Only Planning is authorized. Tasks,
-production implementation, vendor probes, merge, release, Issue closure and
-product acceptance remain separately gated.
+**Accepted, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), fixed to commit `823bce3141bae5e90951c5239181c46d88cfbfe9` and blob `d4886e9c282ee12d3526566d0ddfc31f8fffb391`. This revision reconciles status only; the approved historical bytes remain in Git and the [acceptance receipt](evidence-306-acceptance-tasks.md). Tasks preparation is authorized; [Tasks](tasks-306-local-runtime-profiles.md) remain **Awaiting Human Approval — Tasks**. No implementation, vendor probes, merge, release, Issue closure or MVP acceptance.
 
-Technical owner: [Issue #306](https://github.com/rgomids/axiom/issues/306).
-One branch, `feat/306-local-runtime-profiles`, and one Draft PR serve the entire
-lifecycle. Human approval must identify the exact commit and artifact blobs;
-material changes invalidate the affected approval.
+Technical owner: [Issue #306](https://github.com/rgomids/axiom/issues/306). Preserve branch `feat/306-local-runtime-profiles` and Draft PR #310. Cross-cutting Workflow/compiler/Execution implementation ownership is still **Pending Human Decision**; the Tasks separate that bundle without expanding #306. Material contract changes require renewed exact acceptance.
 
 ## Investigation baseline
 
@@ -26,10 +21,10 @@ references, capability truth, persistence/recovery and conversational routing.
 PR: [#310](https://github.com/rgomids/axiom/pull/310). The initial Planning
 transition is recorded in [#306](https://github.com/rgomids/axiom/issues/306#issuecomment-6105235739).
 The complete reviewed artifact set comprises this Plan, the
-[proposed contract](amendment-306-local-runtime-authoring.md), the
+[accepted contract](amendment-306-local-runtime-authoring.md), the
 [security review](security-review-306-local-runtime-profiles.md), and
-[proposed ADR-0023](../../decisions/0023-local-runtime-configuration-surface.md).
-None is accepted by publication. No Tasks artifact is generated here.
+[accepted ADR-0023](../../decisions/0023-local-runtime-configuration-surface.md).
+Publication alone grants no acceptance. The later explicit acceptance above authorizes Tasks preparation; the initial Planning boundary remains historical.
 
 ## Maintainer reconciliation — 2026-10-11
 
@@ -37,11 +32,12 @@ Remote #310 HEAD was reverified as `2096509b03daa9fb345ec245cb9070bbb18a3479`
 before any edits; main remained `5d52327b0367ba08d872b50e804df5c7d63a3e89`.
 [Human D1–D5/onboarding direction](https://github.com/rgomids/axiom/issues/306#issuecomment-6108025323)
 and [textual REQUEST CHANGES](https://github.com/rgomids/axiom/pull/310#issuecomment-6108025068)
-replace the previous D3 recommendation. Direction is confirmed; these exact
-revised artifacts remain Proposed / Awaiting Human Approval. The prior Plan
+replace the previous D3 recommendation. At that reconciliation the exact
+revised artifacts remained Proposed; the later acceptance above accepts all six
+contract artifacts and their version/migration window, not future code or behavior. The prior Plan
 revision stays historical in Git, not authority for the new effort architecture.
 
-Additional required proposals: [Spec 007 effort/onboarding amendment](../007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
+Additional independently accepted artifacts: [Spec 007 effort/onboarding amendment](../007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
 and [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md).
 [Reconciliation Evidence](evidence-306-planning-reconciliation.md) records current
 source facts, documentary checks and unchanged accepted/code artifacts.
@@ -74,7 +70,7 @@ ADR-0004/0008/0009/0014/0020 ownership references, quality/security policies and
 | Bootstrap | `internal/runtimebootstrap/bootstrap.go` discovers executables and installs Axiom integrations | Keep independent; it does not configure Profiles or credentials |
 | CLI/application | `cmd/lingo/runtime_profile.go`, `runtime_policy.go`, `internal/cli/runtime_preview.go` | New authoring application methods composed in Lingo and declared in CLI; preserve existing resolution preview/validate behavior |
 | Readiness | `cmd/lingo/readiness.go`, `internal/local/readiness_adapters.go`, `internal/projectapp/readiness.go` | Share local report with #231 and Workflow consumers; no global Doctor |
-| Conversational guidance | Embedded `internal/codexruntime/skills/axiom-workflow/SKILL.md` supplies configuration readiness only | Proposed thin `axiom-runtime` local configuration owner; explicit contract/ADR acceptance required |
+| Conversational guidance | Embedded `internal/codexruntime/skills/axiom-workflow/SKILL.md` supplies configuration readiness only | Accepted thin `axiom-runtime` local configuration owner; implementation and inventory proof still required |
 | Recovery/upgrade | `internal/local/publication.go`, `safe_fs.go`, `recovery.go`, `inventory.go`, stable corpus | Recognize Runtime/Profile recovery paths and removal protocol; preserve historical format/corpus |
 
 Current Profiles already support arbitrary globally unique IDs and more than
@@ -89,12 +85,12 @@ model/capabilities/complexities, allowlists and local preferences. No Profile
 credential is present in current v1. Profile eligibility can be changed by explicit allowlist
 membership, without adding another persisted enabled flag.
 
-## 2. Confirmed direction and proposed contracts
+## 2. Accepted direction and future contracts
 
 D1–D5 are confirmed conceptual directions, not pending choices among the former
-options. Exact format, migration, security and Plan artifacts still need acceptance.
+options. Exact format, migration, design-security and Plan artifacts have independent acceptance.
 
-| Direction | Reconciled proposed design | Traceability |
+| Direction | Accepted future design | Traceability |
 | --- | --- | --- |
 | D1 lifecycle | Valid active v2 creation; final same-file tombstone; generation increments through edit/migration/retirement/recreation; exact recovery and forward compatibility, no universal downgrade | Spec 002 LA-03/04/10; Spec 007 §3 |
 | D2 auth | Existing Codex/Claude CLI subscriptions only; no token/session/login-file management or credential backend; observations/inference require separate authority | LA-06/08; Security credential section |
@@ -125,11 +121,11 @@ boundary. Production observer proves executable identity and `axiom-skills`, not
 model access/effort. G-2 config intent can be valid while operational readiness is
 blocked. #306 removes authoring/setup blockers; G-3, G-4 and R-2/R-3 remain separate.
 
-The Spec 007 amendment defines proposed local v2, Workflow schema 2, Stage Plan/
+The Spec 007 amendment defines accepted future local v2, Workflow schema 2, Stage Plan/
 compiler projection 2, configured Execution 3 and graph/proposal 2. This is an
-explicit migration proposal, not an implied expansion into dispatch implementation.
-Cross-cutting migration implementation ownership must be decided in exact Plan
-approval or assigned to a separately authorized bounded Work Item; none is created.
+explicit accepted migration contract, not an implied expansion into dispatch implementation.
+Cross-cutting migration implementation ownership still requires an explicit human
+assignment, in #306 or a separately authorized bounded Work Item; none is created.
 
 ## 3. Canonical operations and interfaces
 
@@ -208,7 +204,7 @@ supported configuration but never override Project preferences.
    be presented as confirmed success merely because an old opened root was safe.
 
 The security review specifies threat controls and required fault injection.
-The new schema/migration proposal requires separately versioned codec/inventory
+The accepted schema/migration contract requires separately versioned codec/inventory
 support, not silent relaxation of an accepted mapping.
 There is no new registry, approval ledger or second filesystem authority layer.
 Committed rollback is a new monotonic reviewed generation, not restoration of an
@@ -254,7 +250,7 @@ selection and stage execution remain their existing owners.
 
 ## 6. Compatibility, migration and default onboarding
 
-The canonical [Spec 007 proposal §3](../007-configurable-workflows/amendment-306-profile-effort-onboarding.md#3-versioning-and-explicit-migration-strategy)
+The canonical [Spec 007 amendment §3](../007-configurable-workflows/amendment-306-profile-effort-onboarding.md#3-versioning-and-explicit-migration-strategy)
 defines the full version matrix, FR-026 window and forward paths. New readers
 preserve local v1, Workflow v1 and supported historical Execution/graph bytes for
 safe inspection; no automatic codec normalization or effort default inference.
@@ -285,7 +281,7 @@ explicit local confirmation and read-back. Reuse detection without invoking
 runtimebootstrap.Run as a read operation, because Run installs Axiom integrations.
 No absent Runtime binding and no credential/probe effects.
 
-Default-sdd r1 and its digest remain historical/addressable. Proposed r2/schema2
+Default-sdd r1 and its digest remain historical/addressable. Accepted future r2/schema2
 has no Agent effort, vendor/model preference or universal effort token. The user
 confirms an explicit Profile assignment in a Project-owned copy or a separate
 portable role/complexity preference. policy-default reuses the sole resolver;
@@ -293,20 +289,20 @@ Codex-only, Claude-only and both are supported through choices, not Runtime orde
 Two eligible unresolved candidates still block. Existing Project policy edits
 remain #305; readiness blocked by them is reported rather than auto-corrected.
 
-New embedded axiom-runtime skill/catalog/inventory needs ADR-0023 exact acceptance,
+New embedded axiom-runtime skill/catalog/inventory has ADR-0023 exact acceptance;
 both Runtime fresh/upgrade/reinstall/retirement/parity checks and historical pin
-preservation. Proposed schema/default fixture changes occur only during authorized
+preservation remain required. Future schema/default fixture changes occur only during authorized
 implementation; this reconciliation edits neither schemas nor production fixtures.
 
 ## 7. Sequencing, dependencies and parallel opportunities
 
-This is implementation sequencing, **not generated Tasks**:
+This is the accepted implementation sequencing; the [proposed Tasks](tasks-306-local-runtime-profiles.md) now decompose it under separate review:
 
 Contract/security/ADR and migration ownership acceptance → versioned local/Profile
 and Workflow interfaces → authoring boundary and safe store/recovery →
 canonical CLI/composition → shared diagnostics → thin conversational integration
 and installer parity → focused regressions/Evidence → independent review and
-documentation reconciliation. Tasks require separate Plan approval.
+documentation reconciliation. Plan approval is recorded; exact Tasks approval remains required.
 
 Contract, security and onboarding investigation/review were delegated read-only
 where independent surfaces benefited from bounded context. All inherited
@@ -367,17 +363,15 @@ Project inventory; first-use templates mistaken for executable configuration;
 concurrency/identity/recovery and redaction. Controls are explicit in both
 amendments and security review, with objective future acceptance criteria.
 
-D1–D5/onboarding direction is confirmed. Pending exact acceptance covers the
-revised Plan, Spec 002/007 amendments, Security and ADR-0023/0024; selection of
-the proposed version/migration window, local runtime-default no-override semantics,
-and ownership of cross-cutting Workflow/compiler/Execution migration. Recommend
-separate bounded implementation ownership when needed; do not create an Issue.
-No new conceptual approval of D1–D5 is requested as if the record did not exist.
+D1–D5/onboarding and all six exact artifacts are accepted through [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466).
+The version/migration/legacy-continuation window and runtime-default no-override
+semantics are accepted design contracts, not undecided conceptual choices.
+Implementation ownership of the cross-cutting Workflow/compiler/Execution bundle
+remains Pending Human Decision. The [Tasks](tasks-306-local-runtime-profiles.md)
+recommend separate bounded ownership, without creating an Issue.
 
-Tasks need explicit Plan approval; implementation additionally requires Tasks,
-required contract/ADR/security acceptance and explicit implementation authority.
-No CI/doc/synthetic result accepts artifacts or proves live Runtime operation.
-
-Next: review the reconciled exact artifacts and remaining migration/ownership proposals. **STOP before Tasks.** This PR
-remains Draft through all intermediate phases. No merge, release, Issue closure,
-Linear status/dependency changes or product acceptance is authorized here.
+Tasks require exact human approval; implementation additionally requires explicit
+bounded implementation authority and independent future-code security review.
+No CI/document/synthetic result proves live Runtime operation or accepts the MVP.
+Next: review Tasks and ownership. **STOP before Implementation.** PR remains Draft;
+no merge, release, Issue closure, Linear transition or product acceptance here.

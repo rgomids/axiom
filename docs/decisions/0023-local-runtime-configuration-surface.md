@@ -2,12 +2,7 @@
 
 ## Status
 
-**Proposed, 2026-10-11**, for [Issue #306](https://github.com/rgomids/axiom/issues/306)
-in [Draft PR #310](https://github.com/rgomids/axiom/pull/310).
-[Maintainer D4 direction](https://github.com/rgomids/axiom/issues/306#issuecomment-6108025323)
-is conceptually confirmed; this reconciled exact artifact still requires independent
-acceptance before implementation. No current
-skill inventory or accepted contract is changed by this proposal.
+Accepted on 2026-10-11 by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), fixed to commit `823bce3141bae5e90951c5239181c46d88cfbfe9`, blob `f39a75b1d227016bbd19b096bfae326ad92049f1`. The exact historical artifact is preserved in Git; [acceptance receipt](../specifications/002-lingo-project-initialization/evidence-306-acceptance-tasks.md) records the six independent decisions. Acceptance establishes future architecture, not delivered code, installed inventory or native proof. Tasks preparation is authorized; implementation/merge/release remain separately gated.
 
 ## Context
 
@@ -21,7 +16,7 @@ The historical Specification 004 two-skill consolidation was subsequently
 extended by accepted #303 Workflow configuration ownership. A fourth active
 skill requires an explicit inventory decision, not an incidental catalog edit.
 
-## Proposed decision
+## Decision
 
 Add thin `axiom-runtime` for machine-local Runtime bindings and named Model
 Profiles. Canonical application/CLI operations own validation, selection,
@@ -39,16 +34,16 @@ controls execution. `axiom-runtime` cannot select Workflow revisions, edit Proje
 policy or run Work Items. Existing read-only Workflow readiness may refer users
 to it; no authoring forwarding alias or new business registry is created.
 
-The proposed [Spec 002 addition](../specifications/002-lingo-project-initialization/amendment-306-local-runtime-authoring.md#proposed-reconciliation-of-related-accepted-specifications)
-defines the bounded active-inventory extension. On acceptance, reconcile the
-current inventory references explicitly while preserving historical consolidation
+The accepted [Spec 002 addition](../specifications/002-lingo-project-initialization/amendment-306-local-runtime-authoring.md#reconciliation-of-related-accepted-specifications)
+defines the accepted bounded active-inventory extension. Reconcile the
+future inventory references explicitly while preserving historical consolidation
 records and receipt hashes. Keep retirements of old generic wrapper skills.
 
 ## Alternatives and trade-offs
 
 | Option | Benefit | Cost / compatibility |
 | --- | --- | --- |
-| **Dedicated thin local skill (recommended)** | Clear machine-local ownership; supported conversational journey | Fourth installed skill, inventory/history/upgrade/parity checks; separate acceptance required |
+| **Dedicated thin local skill (recommended)** | Clear machine-local ownership; supported conversational journey | Fourth future installed skill; inventory/history/upgrade/parity proof required |
 | Expand `axiom-workflow` | Smaller inventory | Changes configuration boundary: Workflow would configure host state; accepted ownership amendment required |
 | Expand `axiom-project` | Familiar entrypoint | Project-independent configuration becomes coupled to Project lifecycle; misleading scope of local effects |
 | CLI only | Smallest implementation surface | Does not satisfy #306 conversational guidance acceptance |
@@ -60,7 +55,7 @@ CLI install stays noninteractive; first use guides via this skill. Every local
 mutation uses exact confirmation; Project policy/Workflow publication/active
 selection and Work Item start remain separate approvals. Known model/effort options
 require authoritative provenance; otherwise report unproven with consent handoff.
-The [Spec 007 proposal](../specifications/007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
+The [Spec 007 amendment](../specifications/007-configurable-workflows/amendment-306-profile-effort-onboarding.md)
 separates distributed default-sdd template from user-confirmed derived config.
 
 No new server, MCP, workflow engine, secret backend or Runtime plugin framework
@@ -76,11 +71,11 @@ receipts. Adding a discoverable skill raises installation/migration maintenance
 cost; later removal requires owned retirement and another explicit decision.
 
 Portable Project contracts remain unchanged. Local v2 Profile effort and
-versioned Workflow/Execution migration are proposed separately in ADR-0024;
+versioned Workflow/Execution migration are accepted separately in ADR-0024;
 this skill cannot implement that decision by changing guidance alone. D1–D5
-conceptual directions are confirmed; exact migration/format/security artifacts
-remain independent gates. Implementation, Tasks, merge, release and acceptance of future
-live scenarios are not authorized by this proposed ADR.
+contracts and independent design-security baseline are accepted. Exact Tasks
+approval, implementation, merge, release and acceptance of future live scenarios
+remain separate gates; this ADR supplies none of those authorities.
 
 ## Revisit when
 

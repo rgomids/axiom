@@ -2,17 +2,9 @@
 
 ## Status and authority
 
-**Proposed, awaiting exact-revision human approval, 2026-10-11.**
-[Maintainer direction D1–D5/onboarding](https://github.com/rgomids/axiom/issues/306#issuecomment-6108025323)
-and [REQUEST CHANGES](https://github.com/rgomids/axiom/pull/310#issuecomment-6108025068)
-require this reconciliation; they do not accept these exact artifacts or authorize
-Tasks, implementation, vendor probes or merge. This proposal replaces the earlier
-#306 D3 recommendation, not the currently accepted contracts in place.
+**Accepted, 2026-10-11**, by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), at commit `823bce3141bae5e90951c5239181c46d88cfbfe9`, blob `4bc5b65830fb9ec885bdd53c2484f53c13a02b86`. [Acceptance receipt](../002-lingo-project-initialization/evidence-306-acceptance-tasks.md) preserves exact authority and history. Accepted D3 modifies future contracts through versioned migration; Workflow schema 1 and old Executions retain their meaning. Tasks preparation is authorized; this revision reconciles status/backlinks only, with no implementation/schema/fixture/vendor change.
 
-Companion artifacts: [Plan](../002-lingo-project-initialization/plan-306-local-runtime-profiles.md),
-[Spec 002 proposal](../002-lingo-project-initialization/amendment-306-local-runtime-authoring.md),
-[security review](../002-lingo-project-initialization/security-review-306-local-runtime-profiles.md),
-[ADR-0024 proposal](../../decisions/0024-model-profile-effort-ownership.md).
+Companions: [Plan](../002-lingo-project-initialization/plan-306-local-runtime-profiles.md), [Spec 002 amendment](../002-lingo-project-initialization/amendment-306-local-runtime-authoring.md), [Security](../002-lingo-project-initialization/security-review-306-local-runtime-profiles.md), [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md).
 
 ## 1. Verified current contract and bounded delta
 
@@ -32,12 +24,12 @@ becomes an unspecified Profile ID, resolved by portable Project preferences and
 the canonical local intersection. Two viable results are a blocker; sorted
 Runtime iteration is not selection priority.
 
-This proposal changes only future effort ownership/versioned bindings and the
+This accepted amendment changes only future effort ownership/versioned bindings and the
 guided path to a ready default Workflow. Project allowlist/permissions and
 immutable binding ownership remain Spec 002 / ADR-0020; no new scheduler,
 Provider authority, Project policy editor or automatic workflow selection.
 
-## 2. Proposed contract: one effort owner
+## 2. Accepted contract: one effort owner
 
 **PE-01.** Local configuration format 2 requires `ModelProfile.effort` as a closed
 object: `{mode: explicit, value: <opaque adapter token>}` or
@@ -65,7 +57,7 @@ when one effort would work. Profile choice uses an explicit reference, exact Pro
 or a unique permitted candidate disclosed in the reviewed preview and explicitly
 confirmed. Multiplicity still blocks; no quality ranking or vendor translation.
 
-**PE-04.** Proposed v2 resolution projection carries a safe immutable
+**PE-04.** Accepted future v2 resolution projection carries a safe immutable
 `resolvedProfile` tuple: `profileId`, `runtimeId`, `model`, `effort`,
 `profileDigest`, `configurationRevision`, `configurationDigest`,
 `executableDigest`, `runtimeVersion`, `invocationMode`, `observationRevision`,
@@ -87,7 +79,7 @@ authentication boundary, then add the bounded effort-source check below.
 
 **PE-05a — bounded external effort inspection.** At a separately consented preflight
 or authorized dispatch boundary, inspect recognized effort selectors without editing
-vendor settings. Proposed sources mirror existing bounded configuration scopes:
+vendor settings. Accepted inspection sources mirror existing bounded configuration scopes:
 Codex effective argv, environment and user/managed/project `config.toml` settings
 (including `model_reasoning_effort` and selected named config sections); Claude
 effective argv, `CLAUDE_CODE_EFFORT_LEVEL`, user/project/project-local/managed
@@ -124,7 +116,7 @@ requiring its own authority; this planning run performs no vendor operation.
 
 ## 3. Versioning and explicit migration strategy
 
-Versions below are proposed implementation contracts; no schema/fixture is changed
+Versions below are accepted future implementation contracts; no schema/fixture is changed
 in this PR. Codec compatibility and monotonic record revision remain independent.
 
 | Family | New contract | Supported historical handling / forward path |
@@ -134,7 +126,7 @@ in this PR. Codec compatibility and monotonic record revision remain independent
 | Workflow definition | `schemaVersion: 2`; effort forbidden | Decode schema 1 exactly for inspection/history. Explicit migration publishes next immutable revision of the same Workflow ID; leaves source bytes/digest unchanged |
 | Distributed default | `default-sdd` revision 2/schema 2 | Preserve revision 1 and digest as addressable historical built-in; never replace the bytes behind an existing builtin reference |
 | Stage Plan / compiler result | Version 2 projection and effort provenance | Read v1 as Workflow-owned historical request; old review digests cannot approve a v2 result |
-| Configured Execution | Proposed format 3 / `configured-sequential-v2`, schema-2 Workflow snapshot | Existing format 1/2 inspection/history preserved; extend canonical codec/inventory without rewriting old records |
+| Configured Execution | Accepted future format 3 / `configured-sequential-v2`, schema-2 Workflow snapshot | Existing format 1/2 inspection/history preserved; extend canonical codec/inventory without rewriting old records |
 | Graph/proposal | Version 2 with resolvedProfile snapshot per node | Version 1 records stay readable and immutable; no invented provenance or automatic upgraded proposal |
 
 Migration is **prepare → validate → preview → explicit confirmation → apply →
@@ -230,7 +222,7 @@ own exact preview. Project selects active revision independently. Work Item then
 uses its existing planning/start flow; its authority is not inherited from setup.
 No skill edits internal JSON or owns a parallel onboarding state store.
 
-**ON-05 — default template is not selected configuration.** Proposed default-sdd
+**ON-05 — default template is not selected configuration.** Accepted future default-sdd
 revision 2 has no concrete vendor/model/effort choice, retains supported Runtime
 constraints and `policy-default`, and requires the canonical intersection.
 For one eligible Profile, show the exact resolution before confirmation; detection
@@ -253,13 +245,14 @@ Project or substituted behind an Execution's frozen revision.
 
 #306/G-2 owns local v2 Profile authoring/onboarding, configuration skill and safe
 authoring/projection interfaces. It proposes the Workflow v2/immutable binding
-delta because D3 makes it a prerequisite; implementation ownership must be
-explicitly accepted in the final Plan. Recommend a separately bounded technical
+delta because D3 makes it a prerequisite; implementation ownership remains
+Pending Human Decision before dependent implementation. Tasks document the entire
+bundle separately without granting it #306 implementation authority. Recommend a separately bounded technical
 Work Item for cross-cutting Workflow/compiler/Execution-format migration if that
 delta should not be included in #306. No Issue is created here. #305 owns existing
 Project policy editing; G-3 owns authoritative proof acquisition; #276/#277 own
 dispatch/delivery lifecycle; #278 owns actual R-2/R-3 acceptance. Publishing this
-proposal unblocks none of them automatically.
+amendment unblocks none of them automatically.
 
 | Criterion | Required objective Evidence in future implementation |
 | --- | --- |
@@ -268,7 +261,7 @@ proposal unblocks none of them automatically.
 | AC-PE3 snapshot and proof | Exact Profile/config/proof tuple bound for single and graph paths; edit/token/model/executable/version/mode drift and external Claude effort env/Codex effort config block before effects; declared/runtime-wide/auth-only proofs fail |
 | AC-ON1 first-use matrix | None/Codex-only/Claude-only/both; deterministic absolute executable presence; no absent bindings; one/three/over-three Profiles; no required interactive CLI install |
 | AC-ON2 preservation/consent | Existing valid state unchanged; drafts/preview zero writes/processes/network; optional templates no fixed model/effort; exact confirmation/apply/restart read-back; separately consented probes |
-| AC-ON3 default-sdd | Historic r1/digests unchanged; proposed r2 no effort; Codex-only/Claude-only unique resolution; both explicit selection supports mixed graph; unresolved multiplicity and disallowed Project policy block |
+| AC-ON3 default-sdd | Historic r1/digests unchanged; accepted future r2 no effort; Codex-only/Claude-only unique resolution; both explicit selection supports mixed graph; unresolved multiplicity and disallowed Project policy block |
 | AC-ON4 unavailable facts | Auth negative/unknown, model unknown/unavailable, effort unsupported/unproven and missing required task capability have separate actionable blockers; no ranking/fallback |
 | AC-SEC lifecycle | Tombstone generation, stale preview/ABA/concurrency, fault/recovery/permissions/redaction tested; no portable/Workflow/Execution/credential rewrite on local removal |
 
