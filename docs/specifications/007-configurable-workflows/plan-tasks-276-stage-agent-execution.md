@@ -34,11 +34,12 @@ Real capability/model/effort proof, #276 dispatch and operational acceptance rem
 | IG-1 | Supported authoring/onboarding delivered and integrated | Clean supported configuration and separately authorized operational proof still required for T40 |
 | IG-5 | Accepted effort/version contract implemented and integrated | Consume frozen tuple and source checks; no Workflow effort override or proof inferred from declaration |
 | IG-6 | axiom-runtime skill delivered and integrated | #276 capability routes and tests remain proposed; installed-state operation not proved here |
-| IG-7 | X01–X07 technical delivery integrated; #306 producer prerequisite satisfied | NOT fully satisfied: CR-012/PD-16 persistence conflict plus #276 admission/integration verification and real proof remain pending |
+| IG-7 | X01–X07 technical delivery integrated; #306 producer prerequisite satisfied | #306 side satisfied. Remaining #276 gates: acceptance of proposed ADR-0026 and successor amendment, T01 successor codec, #276 admission/integration verification (T09/T37) and separately authorized real proof |
 
-CR-013 operational status is reconciled by this note. CR-012 is
-**HUMAN_DECISION_REQUIRED**, decision **PD-R276-01** in the
-[Decision Packet and Evidence](reconciliation-276-post-merge-306.md).
+CR-013 operational status is reconciled by this note. CR-012 decision
+**PD-R276-01** ([Decision Packet and Evidence](reconciliation-276-post-merge-306.md))
+was answered with direction **B** (see next section); the detailed contracts and
+reconciled Tasks remain Proposed.
 Statements below about #306 saying “Tasks Proposed”, “not implemented”,
 “not yet merged” or “IG-7 unsatisfied because #306 is undelivered” describe the
 accepted historical baseline only. #276 Tasks remain Proposed today. They cannot assign new work to completed I306-X05.
@@ -1484,8 +1485,11 @@ accepted. Distribution by capability area:
 Conventions: "Files" are expected locations, confirmed during implementation
 without widening scope. External dependencies name the real #306 Task IDs from
 [`tasks-306-local-runtime-profiles.md`](https://github.com/rgomids/axiom/blob/16c2aa034ffc98009ce2e04c1d243d76eb645ea8/docs/specifications/002-lingo-project-initialization/tasks-306-local-runtime-profiles.md)
-on PR #310 head `16c2aa0`; those Tasks are **Proposed** there and are neither
-executed nor approved here. All synthetic Evidence is classified `synthetic` and is
+(PR #310 head `16c2aa0`). Those #306 Tasks were accepted and delivered at the
+PR #310 merge `5e1c995`; here they are **delivered contracts consumed
+read-only**, never pending work and never Evidence that a #276 Task is done.
+**Proposed** dependencies are #276-internal (T01 successor codec) or human
+gates (ADR-0026, successor amendment, Task acceptance, implementation authority). All synthetic Evidence is classified `synthetic` and is
 never operational proof. Common gates apply to every Task: its own acceptance,
 explicit bounded implementation authority, review, and the security rules of
 Plan §7.
@@ -1510,6 +1514,19 @@ implementation, dispatch, inference, merge or release is authorized.
 Original Part I §3.5/§3.10/PD-16, amendment #276 and ADR-0025 preserve their
 accepted historical wording until a separately accepted contract revision
 formally supersedes the material joint-Graph2 fragment under ADR-0018.
+
+**CR-012 view synchronization (proposed).** The Task catalog, Dependency DAG
+External column, Implementation batches, Traceability and Cross-PR integration
+views of this Part use one ownership model: T01 owns the successor codec,
+version dispatch, field contract, strict validation and canonical vectors;
+T04 the classification consumers and scheduler/integration invariants; T06 the
+lease epoch and process correlation; T07 the dispatch-authority record and
+protected commit/recovery; T08 append-only reconciliation semantics; T09
+version admission and refusal; T37 cross-version compatibility, historical hash
+preservation, old-reader refusal and recovery/restart regressions. Delivered
+#306 contracts (I306-X01/X03/X04/X05/X07, I306-T02/T03/T11/T16) are read-only
+baselines. The PD-16 joint-Graph2 traceability row is kept as accepted Phase 1
+history only. Mermaid edges and the 44 IDs are unchanged.
 
 ## Proposed successor-format admission delta (conditional)
 
@@ -1540,12 +1557,12 @@ constraints remain those delivered by #306.
 - **Scope:** Field semantics, closed value sets and validation rules for: graph `classificationPolicy` marker; attempt `classificationReason`, `qualifyingRecordRef`, `leaseEpoch`, process correlation (PID, process start identity, process-group/job identity), `packetDigest`; graph `dispatchAuthorityRef`, `cancelRequest`, `stageConcurrency`; append-only reconciliation facts. Canonical test vectors (valid and invalid) and domain validation functions in `executiongraph` that do not serialize. Boundary: #276 T01 owns successor-only serialized structs, tags, strict reader/writer/version-dispatch, domain validation and canonical vectors. Graph1/2 implementations and #306 PE-05a remain immutable baselines.
 - **Non-goals:** No Graph1/2 rewrite, silent same-version extension, historical conversion, Execution3 format change, or reimplementation/reopening of I306-X05.
 - **Components and files (expected):** `docs/specifications/007-configurable-workflows/` (field contract appendix); `internal/executiongraph/` (types, validation, vectors under `testdata/`)
-- **Contracts:** Plan §3.5, §3.7, §3.8; amendment A3–A4; ADR-0025 decisions 2–4; PD-9, PD-10, PD-16; amendment-306 §3 (graph v2)
+- **Contracts:** Plan §3.5, §3.7, §3.8; amendment A3–A4; ADR-0025 decisions 2–4; PD-9, PD-10, PD-16 (historical joint-Graph2 wording); proposed ADR-0026 decisions 1–3 and successor amendment A1–A2 (Proposed); amendment-306 §3 (delivered Graph2 baseline)
 - **Depends on:** none (internal)
 - **External dependencies:** Delivered I306-X05 Graph2 codec/PE-05a (immutable compatibility baseline); proposed successor amendment and ADR-0026 must be accepted before implementation.
 - **Acceptance criteria:** Every field has a type, closed values where applicable, requiredness per graph/attempt state and invariant I-1–I-6 mapping; vectors are accepted by the #276 validators and successor strict reader/writer; Graph1/2 fixtures retain identical bytes and SHA-256 digests; old readers reject the successor; no I306-X05 handoff is outstanding.
 - **Positive tests:** Valid vectors for each classification reason, lease epoch progression, reconciliation fact append, cancel request.
-- **Negative tests:** Missing reason on a terminal attempt; `succeeded` without `qualifyingRecordRef`; unknown reason value; decreasing epoch; mutated reconciliation fact; v1 graph presented as v2.
+- **Negative tests:** Missing reason on a terminal attempt; `succeeded` without `qualifyingRecordRef`; unknown reason value; decreasing epoch; mutated reconciliation fact; Graph1/Graph2 bytes presented as successor; successor bytes presented to a Graph1/2 reader; unknown or duplicate successor field; unknown successor version.
 - **Expected Evidence:** Accepted successor contract blob; codec/version matrix, validator/round-trip, rejected-unknown/duplicate, historical digest and old-reader-refusal test reports.
 - **Risks and security care:** Same-version silent interpretation, digest drift and authority confusion; mitigated by explicit successor discriminator and preserved Graph1/2 codec/corpus.
 - **Done when:** Following separate contract/Task/implementation approval, successor codec, version dispatch, validators and vectors are merged and compatibility/fail-closed tests pass; historical Graph1/2 digests remain unchanged.
@@ -1591,7 +1608,7 @@ constraints remain those delivered by #306.
 - **Scope:** Retry from `failed`/`blocked`/`cancelled`; from `unknown`/ambiguous only with a reconciliation fact; `skipped` never; integration requires `result_recorded` and a `ChildResult` bound to `qualifyingRecordRef`; refusal of graphs without the classification marker; invariants I-1–I-6 enforced on load. Dispatch-time stage-concurrency check against the recorded `stageConcurrency` (G16). Boundary: this Task owns in-memory consumer rules; decode-time validation and persisted classifications are supplied by the approved #276 T01 successor codec.
 - **Non-goals:** No classifier logic (I276-T03); no duplicate codec (I276-T01 owns successor serialization).
 - **Components and files (expected):** `internal/executiongraph/scheduler.go`, `integration.go`, tests
-- **Contracts:** Plan §3.5 scheduler/integration table; amendment A3; PD-9; CR-001
+- **Contracts:** Plan §3.5 scheduler/integration table; amendment A3; PD-9; CR-001; proposed successor amendment A2 (Proposed)
 - **Depends on:** I276-T01, I276-T02, I276-T03
 - **External dependencies:** Delivered I306-X05 Graph2 for history only; #276 T01 successor codec required for persistence tests.
 - **Acceptance criteria:** No consumer calls the classifier; status/dispatch/integration agree for every persisted state; invariants checked.
@@ -1625,7 +1642,7 @@ constraints remain those delivered by #306.
 - **Scope:** Lease as the first lock in the ADR-0007 order; epoch recorded on attempts; non-blocking probe for status; stale = `running` with free lease; orphan = stale with live recorded process group (PID + start identity).
 - **Non-goals:** No reconciliation facts (I276-T08); no supervisor (I276-T27).
 - **Components and files (expected):** `internal/local/` (lease file/lock), `internal/executiongraph/` (epoch rules), tests
-- **Contracts:** Plan §3.7; ADR-0007 lock order; ADR-0025 decision 1; PD-2
+- **Contracts:** Plan §3.7; ADR-0007 lock order; ADR-0025 decision 1; PD-2; proposed successor amendment A2 (`leaseEpoch`, process correlation; Proposed)
 - **Depends on:** I276-T01
 - **External dependencies:** Delivered Graph2 codec is read-only #276 baseline; #276 T01 persists epochs and attempt process correlation in the authorized successor.
 - **Acceptance criteria:** Two holders never coexist; probes never block; stale/orphan classification deterministic; monotonic epochs and process identity survive encode/decode/restart in successor format.
@@ -1642,7 +1659,7 @@ constraints remain those delivered by #306.
 - **Scope:** Record {preview digest, scope = first attempt per child of graph revision, actor kind, time}; `AuthorityReferences` linkage; recovery recognition and read-back; refusal of reuse beyond scope.
 - **Non-goals:** No preview computation (I276-T25); no Execution format change (I306-X04).
 - **Components and files (expected):** `internal/local/` (record store, recovery registration), `internal/executiongraph/graph.go` (reference checks), tests
-- **Contracts:** Plan §3.3; amendment A4; ADR-0007; ADR-0025 decision 2; PD-3; G-5
+- **Contracts:** Plan §3.3; amendment A4; ADR-0007; ADR-0025 decision 2; PD-3; G-5; proposed successor amendment A3 (Proposed)
 - **Depends on:** I276-T01, I276-T06
 - **External dependencies:** Delivered I306-X04 Execution3 ledger and I306-X05 Graph2 compatibility baseline; #276 T01 owns successor graph references, this Task owns protected authority record and atomic graph/ledger commitment.
 - **Acceptance criteria:** Protected authority and successor Graph (or single-agent ledger) commit atomically with recoverable intermediate states; authority scope, preview digest and graph revision binding enforced; read-back verified.
@@ -1659,7 +1676,7 @@ constraints remain those delivered by #306.
 - **Scope:** Fact {attempt, observations digest, classification, actor, time}; append-only store semantics; scheduler and integration read paths; observation gathering helpers (lease, liveness, worktree status, canonical records, quarantined inbox).
 - **Non-goals:** No CLI (I276-T30); no retry (I276-T31).
 - **Components and files (expected):** `internal/executiongraph/`, `internal/local/`, tests
-- **Contracts:** Plan §3.8; amendment A3; PD-10; ADR-0009
+- **Contracts:** Plan §3.8; amendment A3; PD-10; ADR-0009; proposed successor amendment A2 (Proposed)
 - **Depends on:** I276-T04, I276-T06
 - **External dependencies:** Delivered I306-X05 is historical Graph2 input only; #276 T01 owns successor wire representation and this Task owns append-only fact transaction semantics.
 - **Acceptance criteria:** Successor facts bind exact parent/graph revision/attempt, authority and observation digest; facts never mutate terminal status; duplicate/contradictory facts preserved and surfaced; retry eligibility reads only persisted validated facts.
@@ -1676,15 +1693,15 @@ constraints remain those delivered by #306.
 - **Scope:** Refusals `workflow_migration_required`, `legacy_execution_contract`, `profile_effort_unconfigured`, `unsupported_graph_format`; read-only access for legacy Executions and historical Graph1/2; #276 mutations require the accepted successor format and frozen Execution3/Profile tuple; no reinterpretation.
 - **Non-goals:** No duplicate codecs (successor Graph owned by T01), no #306 Workflow/Execution migrations or resolver (I306-X01–X05, I306-T03).
 - **Components and files (expected):** `internal/stageexecution/` (new) admission module, tests
-- **Contracts:** Plan §3.10 matrix; amendment A6; PD-15; CR-006; amendment-306 §3
+- **Contracts:** Plan §3.10 matrix; amendment A6; PD-15; CR-006; amendment-306 §3; proposed successor amendment A4 and ADR-0026 decision 5 (Proposed)
 - **Depends on:** I276-T01
-- **External dependencies:** I306-X01; I306-X03; I306-X04; I306-X05; I306-T02
+- **External dependencies:** Delivered I306-X01; I306-X03; I306-X04; I306-X05 (Graph2 read-only baseline); I306-T02
 - **Acceptance criteria:** Each historical §3.10 matrix row and approved successor-format delta has guards/tests; #276 mutation of Graph1/2 is refused, read-only status preserved; historical bytes/digests unchanged.
-- **Positive tests:** Schema-2/format-3/local-v2 admitted to the next check.
-- **Negative tests:** Schema 1 with `runtime-default`; schema 1 with explicit effort; legacy Execution run/retry; local v1; v1 graph mutation; incomplete migration cases.
+- **Positive tests:** Schema-2/format-3/local-v2 with an accepted successor Graph admitted to the next check.
+- **Negative tests:** Schema 1 with `runtime-default`; schema 1 with explicit effort; legacy Execution run/retry; local v1; Graph1 or delivered Graph2 mutation; unknown/unsupported successor version with no fallback; incomplete migration cases.
 - **Expected Evidence:** Matrix test report (one case per row).
 - **Risks and security care:** Silent admission of legacy contracts; prevented by default-deny.
-- **Done when:** Merged with matrix tests green against the delivered #306 readers.
+- **Done when:** Merged with matrix tests green against the delivered #306 readers and the accepted T01 successor codec.
 
 ### I276-T10 — Capability domain: vocabulary, states, evidence binding, freshness
 
@@ -1695,7 +1712,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/capabilityproof/` (new) domain, tests
 - **Contracts:** Plan §3.9; amendment A2; ADR-0025 decision 5; PD-13; D-1; CR-002
 - **Depends on:** none (internal)
-- **External dependencies:** I306-T03 (resolvedProfile type; domain can use an interface until delivered)
+- **External dependencies:** Delivered I306-T03 (resolvedProfile type)
 - **Acceptance criteria:** Evidence matches a binding only on exact equality; any element change yields `unknown`/`capability_stale`; no path to `proven` without probe facts.
 - **Positive tests:** Fresh matching evidence is `proven`; per-variant evidence selection.
 - **Negative tests:** Version-only, auth-only, declaration-only or help-only inputs never yield `proven`; expired evidence; cross-variant evidence reuse.
@@ -1797,7 +1814,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/capabilityproof/service.go` (new), `cmd/lingo/` composition, tests with fake executables
 - **Contracts:** Plan §3.9, §5; amendment A1–A2; PD-12, PD-13, PD-17; CR-005, CR-007, CR-008
 - **Depends on:** I276-T11, I276-T12, I276-T15, I276-T18, I276-T19, I276-T20
-- **External dependencies:** I306-T03 (resolvedProfile); I306-X05 (effort-source inspection) for model-scoped evidence
+- **External dependencies:** Delivered I306-T03 (resolvedProfile); delivered I306-X05 PE-05a effort-source inspection for model-scoped evidence
 - **Acceptance criteria:** Probe never runs without both authorities; evidence binds the exact variant; inconclusive runs leave `unknown`.
 - **Positive tests:** Fake Runtime probe proving each variant.
 - **Negative tests:** Missing external authority; stale preview; interrupted probe (CR-007 case 7, CR-008 case 9); inconclusive result (CR-007 case 8); auth not proven (no evidence change); model refusal; usage-limit simulation; local configuration v1 refused.
@@ -1814,7 +1831,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/capabilityproof/observer.go` (new), `cmd/lingo/runtime_policy.go`, tests
 - **Contracts:** Plan §3.9 checks/revalidation; amendment A2 rules 4–6; PD-13
 - **Depends on:** I276-T10, I276-T11, I276-T18
-- **External dependencies:** I306-T03; I306-X03 (StagePlan v2 field for the evidence ref)
+- **External dependencies:** Delivered I306-T03; delivered I306-X03 (StagePlan v2 field for the evidence ref)
 - **Acceptance criteria:** No dispatch with a non-`proven` required capability; any binding drift blocks.
 - **Positive tests:** Matching evidence admits; per-variant selection.
 - **Negative tests:** Executable digest change; version change; mode change; Profile edit; effort-source change; expired evidence; evidence for a different variant.
@@ -1865,7 +1882,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/runtimeadapter/packet.go` (new), tests
 - **Contracts:** Plan §3.6 packet; G4; CR-001 (result requirement)
 - **Depends on:** I276-T05
-- **External dependencies:** I306-X03 (compiled input v2 fields; builder can target an interface before)
+- **External dependencies:** Delivered I306-X03 (compiled input v2 fields)
 - **Acceptance criteria:** Packet is deterministic for identical inputs and bounded.
 - **Positive tests:** Graph child and single-agent packets.
 - **Negative tests:** Oversized packet; credential-like content in inputs; chat-role markers; missing pinned digest.
@@ -1882,7 +1899,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/runtimeadapter/`, `internal/graphapplication/`, tests with injected tuples
 - **Contracts:** Plan §3.10; amendment A6; amendment-306 PE-03–PE-06/PE-05a; PD-15; CR-003, CR-006
 - **Depends on:** I276-T17, I276-T18
-- **External dependencies:** I306-T03; I306-X03; I306-X05
+- **External dependencies:** Delivered I306-T03; I306-X03; I306-X05 PE-05a effort-source inspection (no Graph persistence)
 - **Acceptance criteria:** Adapter emits effort only from a tuple with matching proof; any drift blocks before spawn.
 - **Positive tests:** Explicit effort with proof; runtime-default no-override with proof.
 - **Negative tests:** Each tuple element drift; external selector inserted after preview; missing proof; attempt to fall back to Runtime default. Frozen tuple whose local Profile was removed, tombstoned, edited or disabled: new attempt blocked with no fallback to another Profile, model, Runtime or effort.
@@ -1950,7 +1967,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/stageexecution/preview.go` (new), tests
 - **Contracts:** Plan §3.3, §3.6; amendment A4; PD-3, PD-4, PD-12; G1
 - **Depends on:** I276-T09, I276-T17, I276-T18, I276-T32, I276-T19, I276-T21
-- **External dependencies:** I306-X03; I306-X04
+- **External dependencies:** Delivered I306-X03; I306-X04
 - **Acceptance criteria:** Preview is deterministic and binds every element listed in Plan §3.3; nothing is written.
 - **Positive tests:** Graph and single-agent previews.
 - **Negative tests:** Plan digest mismatch; policy drift; missing capability; advisory child disclosed; legacy contract refused via I276-T09. 33-node proposal, zero or 11 attempts, timeout above 24h refused.
@@ -1967,7 +1984,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/stageexecution/run.go` (new), `internal/workflow/` (single path seam), tests
 - **Contracts:** Plan §3.3, §3.11; PD-3, PD-11, PD-12; amendment A4
 - **Depends on:** I276-T07, I276-T25, I276-T27
-- **External dependencies:** I306-X04 (format-3 ledger)
+- **External dependencies:** Delivered I306-X04 (format-3 ledger)
 - **Acceptance criteria:** No process starts before the commit is read back; drift refuses with `stale_preview`.
 - **Positive tests:** Graph run start; single-agent run start.
 - **Negative tests:** Missing external authority; drift between preview and apply; commit failure; supervisor start failure leaves recoverable state. Projection failure after the authority/graph commit (expects `partial` with recovery, never a silent success).
@@ -2086,7 +2103,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/stageexecution/integrate.go` (new), `internal/executiongraph/integration.go`, tests
 - **Contracts:** Plan §3.5, §6; amendment A3, A5; PD-7, PD-9
 - **Depends on:** I276-T04, I276-T26, I276-T32
-- **External dependencies:** I306-X04 (ledger format 3)
+- **External dependencies:** Delivered I306-X04 (ledger format 3)
 - **Acceptance criteria:** Roll-up succeeds only with every required child `result_recorded` and validators passing.
 - **Positive tests:** Two-child integration with validators.
 - **Negative tests:** Missing result; conflicting results; validator failure; integration attempt `unknown` blocks re-run. Ledger projection failure after a confirmed integration effect (expects `partial`).
@@ -2120,7 +2137,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** `internal/codexruntime/skills/axiom-work-item/SKILL.md`, `internal/cli/skill_inspect.go`, routing tests, `internal/codexruntime/testdata/published-*`
 - **Contracts:** Plan §5; ADR-0022; PD-14
 - **Depends on:** I276-T34
-- **External dependencies:** I306-T11 (only for the later `axiom-runtime` capability route)
+- **External dependencies:** Delivered I306-T11 (only for the later `axiom-runtime` capability route)
 - **Acceptance criteria:** Routing tests prove ownership exclusivity and no authority from routing.
 - **Positive tests:** Both Runtimes install identical content; routes resolve.
 - **Negative tests:** Unsupported operation fails safely; capability route absent from `axiom-work-item`.
@@ -2152,15 +2169,15 @@ constraints remain those delivered by #306.
 - **Scope:** One test per original §3.10 row plus successor-format delta with delivered I306 readers/writers; Graph1/2 bytes/digests unchanged; successor fields round-trip through the #276 T01 strict codec; old readers explicitly refuse successor; duplicate/unknown/version errors fail closed; recovery/restart, authority binding and classification invariant tests.
 - **Non-goals:** No duplication of I306-X07 checks (consume its corpus).
 - **Components and files (expected):** `internal/stageexecution/compat_test.go` (new)
-- **Contracts:** Plan §3.10; amendment A6; PD-15, PD-16; CR-006
+- **Contracts:** Plan §3.10; amendment A6; PD-15, PD-16 (historical); CR-006; proposed ADR-0026 decision 6 and successor amendment A5 (Proposed)
 - **Depends on:** I276-T09, I276-T01, I276-T21, I276-T26, I276-T31
-- **External dependencies:** I306-X07
+- **External dependencies:** Delivered I306-X07 corpus (read-only baseline)
 - **Acceptance criteria:** All 15 historical rows and every accepted successor admission/refusal row green against delivered #306 code and #276 T01 codec; six-family historical corpus/hash proof preserved.
 - **Positive tests:** Existing schema-2/Execution3/Profile-v2 compiler/admission baseline and a separately authorized successor-Graph #276 path.
 - **Negative tests:** Every historical and successor refusal row; Graph1/2 mutation; old reader presented successor; duplicate/unknown fields, stale epoch, PID reuse, wrong-attempt result, torn authority/graph commit and restart drift; `default-sdd` r1 bytes/digest unchanged.
 - **Expected Evidence:** Extended admission matrix, strict codec/hash corpus, old-reader-refusal and restart/failure-injection reports.
 - **Risks and security care:** Contract drift between PRs; caught here.
-- **Done when:** Merged with all rows green after I306-X07.
+- **Done when:** Merged with all historical and successor rows green against the delivered I306-X07 corpus and the accepted T01 successor codec; Graph1/2 hashes unchanged; old-reader refusal and restart regressions green.
 
 ### I276-T38 — Security regression suite
 
@@ -2205,7 +2222,7 @@ constraints remain those delivered by #306.
 - **Components and files (expected):** Evidence directory under `docs/specifications/007-configurable-workflows/` (path fixed at authorization)
 - **Contracts:** Plan §9.4; AC-1, AC-3, AC-6; IG-1
 - **Depends on:** I276-T39, I276-T16
-- **External dependencies:** I306-T16 (local authoring delivered); I306-X07; Explicit human authorization of the smoke envelope and real probes
+- **External dependencies:** Delivered I306-T16 (local authoring); delivered I306-X07; explicit human authorization of the smoke envelope and real probes
 - **Acceptance criteria:** Specific human authorization and all Plan §9.4 preconditions are satisfied, including IG-1 and the applicable IG-7 gate; real Codex and Claude execute the bounded smoke. Evidence classified `engineering_smoke_real` records all §9.4 fields and checks: exact envelope, subscription auth mode, versions and identity digests, graph, cross-Runtime question/answer and consumed results, local integration, persisted classifications before/after initiating-session exit, cross-surface start/inspect/integrate, and bounded redacted artifacts (AC-6). Missing proof leaves the corresponding acceptance criteria pending; no R-2/R-3 or #278 acceptance claim.
 - **Positive tests:** Authorized run succeeds or fails truthfully.
 - **Negative tests:** Missing IG-1, applicable IG-7 prerequisite or human inference/probe authorization → no Runtime execution or inference; record reason, missing prerequisites and blocking Evidence, keep `BLOCKED`/`NOT_RUN`, never Done or AC-6 satisfied. An authorized real attempt that fails or is inconclusive preserves available real Evidence, failure, limitations and next steps; unproven criteria remain pending, with no functional success or invented operational capability.
@@ -2284,7 +2301,13 @@ constraints remain those delivered by #306.
 ## Dependency DAG
 
 Validated acyclic by deterministic topological sort; every dependency names an
-existing Task.
+existing Task. In the table's External column, **Delivered** names #306
+contracts integrated at PR #310 merge `5e1c995` and consumed read-only (never
+pending work, never a reason a #276 Task is done); **Proposed** names #276-owned
+or human gates not yet accepted. Every Task additionally carries the common
+gates (its own acceptance and explicit implementation authority); Tasks that
+read or write successor-Graph state also require separate acceptance of
+proposed ADR-0026 and the successor amendment. No row assigns work to I306-X05.
 
 ```mermaid
 graph LR
@@ -2392,60 +2415,62 @@ graph LR
 
 | Task | Depends on | Unblocks | External | Batch |
 |---|---|---|---|---|
-| I276-T01 | — | T04, T06, T07, T09, T37 | I306-X05 consumes the vectors (handoff, not a start prerequisite) | B1 |
+| I276-T01 | — | T04, T06, T07, T09, T37 | Delivered: I306-X05 Graph2/PE-05a (immutable baseline; no handoff). Proposed: ADR-0026 + successor amendment acceptance; T01 owns successor codec, version dispatch and vectors | B1 |
 | I276-T02 | — | T04 | — | B0 |
 | I276-T03 | — | T04, T23 | — | B0 |
-| I276-T04 | T01, T02, T03 | T08, T27, T28, T33 | I306-X05 (persisting the fields; logic testable on in-memory graphs before it) | B1 |
+| I276-T04 | T01, T02, T03 | T08, T27, T28, T33 | Delivered: Graph2 read-only history. Proposed: persistence via T01 successor codec (logic testable on in-memory graphs before it) | B1 |
 | I276-T05 | — | T20, T23, T27, T43 | — | B0 |
-| I276-T06 | T01 | T07, T08, T23, T27, T28 | I306-X05 for persisted epoch (logic testable before) | B1 |
-| I276-T07 | T01, T06 | T26, T27, T28 | I306-X04/X05 for the final ledger and graph v2 objects | B1 |
-| I276-T08 | T04, T06 | T30, T31 | I306-X05 for persistence | B1 |
-| I276-T09 | T01 | T25, T37 | I306-X01; I306-X03; I306-X04; I306-X05; I306-T02 | B4 |
-| I276-T10 | — | T11, T12, T17, T42 | I306-T03 (resolvedProfile type; domain can use an interface until delivered) | B0 |
+| I276-T06 | T01 | T07, T08, T23, T27, T28 | Proposed: epoch and process correlation persisted via T01 successor codec (logic testable before) | B1 |
+| I276-T07 | T01, T06 | T26, T27, T28 | Delivered: I306-X04 Execution3 ledger. Proposed: successor Graph objects via T01 | B1 |
+| I276-T08 | T04, T06 | T30, T31 | Proposed: fact wire representation via T01 successor codec | B1 |
+| I276-T09 | T01 | T25, T37 | Delivered: I306-X01; I306-X03; I306-X04; I306-X05 (Graph2 read-only); I306-T02. Proposed: successor admission delta | B4 |
+| I276-T10 | — | T11, T12, T17, T42 | Delivered: I306-T03 (resolvedProfile type) | B0 |
 | I276-T11 | T10 | T13, T16, T17, T42 | — | B0 |
 | I276-T12 | T10, T19 | T16 | — | B0 |
 | I276-T13 | T11 | T14, T15 | — | B0 |
 | I276-T14 | T13, T22 | T15 | — | B0 |
 | I276-T15 | T13, T14 | T16, T38 | — | B0 |
-| I276-T16 | T11, T12, T15, T18, T19, T20 | T38, T40, T41, T44 | I306-T03 (resolvedProfile); I306-X05 (effort-source inspection) for model-scoped evidence | B2 |
-| I276-T17 | T10, T11, T18 | T21, T25 | I306-T03; I306-X03 (StagePlan v2 field for the evidence ref) | B2 |
+| I276-T16 | T11, T12, T15, T18, T19, T20 | T38, T40, T41, T44 | Delivered: I306-T03 (resolvedProfile); I306-X05 PE-05a effort-source inspection | B2 |
+| I276-T17 | T10, T11, T18 | T21, T25 | Delivered: I306-T03; I306-X03 (StagePlan v2 field for the evidence ref) | B2 |
 | I276-T18 | — | T16, T17, T21, T25, T38 | — | B0 |
 | I276-T19 | — | T12, T16, T25, T27, T38 | — | B0 |
-| I276-T20 | T05 | T16, T27 | I306-X03 (compiled input v2 fields; builder can target an interface before) | B0 |
-| I276-T21 | T17, T18 | T25, T27, T37 | I306-T03; I306-X03; I306-X05 | B3 |
+| I276-T20 | T05 | T16, T27 | Delivered: I306-X03 (compiled input v2 fields) | B0 |
+| I276-T21 | T17, T18 | T25, T27, T37 | Delivered: I306-T03; I306-X03; I306-X05 PE-05a inspection (no Graph persistence) | B3 |
 | I276-T22 | — | T14, T23 | — | B0 |
 | I276-T23 | T03, T05, T06, T22, T24 | T27, T38 | — | B3 |
 | I276-T24 | — | T23, T34 | — | B0 |
-| I276-T25 | T09, T17, T18, T32, T19, T21 | T26 | I306-X03; I306-X04 | B4 |
-| I276-T26 | T07, T25, T27 | T28, T31, T33, T34, T37 | I306-X04 (format-3 ledger) | B4 |
+| I276-T25 | T09, T17, T18, T32, T19, T21 | T26 | Delivered: I306-X03; I306-X04 | B4 |
+| I276-T26 | T07, T25, T27 | T28, T31, T33, T34, T37 | Delivered: I306-X04 (format-3 ledger) | B4 |
 | I276-T27 | T04, T05, T06, T21, T23, T07, T19, T20, T43 | T26, T29 | — | B3 |
 | I276-T28 | T04, T06, T26, T07 | T30, T34 | — | B4 |
 | I276-T29 | T43, T27 | T34 | — | B4 |
 | I276-T30 | T08, T28 | T34 | — | B4 |
 | I276-T31 | T08, T26 | T34, T37 | — | B4 |
 | I276-T32 | — | T25, T33 | — | B1 |
-| I276-T33 | T04, T26, T32 | T34 | I306-X04 (ledger format 3) | B4 |
+| I276-T33 | T04, T26, T32 | T34 | Delivered: I306-X04 (ledger format 3) | B4 |
 | I276-T34 | T24, T26, T28, T29, T30, T31, T33 | T35, T36 | — | B5 |
-| I276-T35 | T34 | T36 | I306-T11 (only for the later `axiom-runtime` capability route) | B5 |
+| I276-T35 | T34 | T36 | Delivered: I306-T11 (only for the later `axiom-runtime` capability route) | B5 |
 | I276-T36 | T34, T35, T44 | T39 | — | B6 |
-| I276-T37 | T09, T01, T21, T26, T31 | T39 | I306-X07 | B6 |
+| I276-T37 | T09, T01, T21, T26, T31 | T39 | Delivered: I306-X07 corpus (read-only). Proposed: successor rows via T01 codec | B6 |
 | I276-T38 | T15, T16, T18, T19, T23, T41, T43 | T39 | — | B6 |
 | I276-T39 | T36, T37, T38 | T40 | — | B6 |
-| I276-T40 | T39, T16 | — | I306-T16 (local authoring delivered); I306-X07; Explicit human authorization of the smoke envelope and real probes | B7 |
+| I276-T40 | T39, T16 | — | Delivered: I306-T16 (local authoring); I306-X07. Human: explicit authorization of the smoke envelope and real probes | B7 |
 | I276-T41 | T16 | T38, T44 | — | B2 |
 | I276-T42 | T11, T10 | T44 | — | B2 |
 | I276-T43 | T05 | T27, T29, T38 | — | B0 |
 | I276-T44 | T16, T41, T42 | T36 | — | B5 |
 
 **Critical path (internal, 13 Tasks):** I276-T10 → I276-T11 → I276-T17 → I276-T21 → I276-T25 → I276-T26 → I276-T28 → I276-T30 → I276-T34 → I276-T35 → I276-T36 → I276-T39 → I276-T40.
-External gates on that path: I306-X03/X05 (tuple and effort-source wiring in
-T21), I306-X04 (ledger in T26/T33), I306-X07 (T37) and, for operational
-Evidence, I306-T16 plus explicit human authorization (T40).
+Delivered #306 baselines on that path: I306-X03/X05 PE-05a (tuple and
+effort-source wiring in T21), I306-X04 (ledger in T26/T33), I306-T16 (T40).
+Remaining gates: acceptance of proposed ADR-0026 and successor amendment (T01
+and successor-Graph consumers), Task acceptance, implementation authority and,
+for operational Evidence, explicit human authorization (T40).
 
 **Parallelism.** Within B0 the following have no mutual dependencies and touch
 disjoint files: T02, T03, T05, T10, T18, T19, T22, T24 (T43 after T05) (T11→T13→T14→T15 and
-T12, T20 follow their single prerequisites). B1 items T01, T06, T07, T32 can run
-in parallel once B0 prerequisites land.
+T12, T20 follow their single prerequisites). In B1, T01 and T32 can start
+in parallel; T06 then T07 follow T01, and T04/T08 follow their listed edges.
 
 **File conflicts to serialize.** `internal/executiongraph/scheduler.go` (T02, T04,
 T05, T43, T19): land in that order. `internal/runtimeadapter/adapters.go` and
@@ -2454,27 +2479,31 @@ shared tables, `docs/commands.md` and skill receipts (T34, T35, T44 vs PR #310
 I306-T09/T11): append-only entries, rebase at batch boundaries.
 `cmd/lingo/runtime_policy.go` (T17 vs I306-T03/T09).
 
-**Not blocked by #306:** B0 entirely, T01, T06, T07, T08, T32 and the
-deterministic parts of T04, T16, T17, T20, T42 (against interfaces/injected tuples).
-**Blocked until IG-7 is satisfied (completion):** T09, T21, T25, T26, T33, T37,
-and any real or v2 dispatch. **Blocked until IG-1 and human authorization:** T40.
+**#306 blocks nothing:** its producers are delivered. **Blocked until ADR-0026
+and the successor amendment are accepted:** T01 and successor persistence in
+T04, T06, T07, T08, T09, T37 (in-memory logic of T04/T06/T08 may be tested
+before T01 lands). **Completion verification against delivered #306 contracts
+(IG-7, #276 side):** T09, T21, T25, T26, T33, T37, and any real or successor-Graph
+dispatch. **Blocked until IG-1 operational proof and human authorization:** T40.
 
 ## Implementation batches (proposal; none executed)
 
 | Batch | Tasks | Verifiable outcome | Start prerequisites | Completion / integration prerequisites | Operational acceptance |
 |---|---|---|---|---|---|
-| B0 | T02, T03, T05, T10, T11, T12, T13, T14, T15, T18, T19, T20, T22, T24, T43 | Independent deterministic foundation | Tasks accepted; implementation authority; none | Tasks accepted; no #306 dependency | Not applicable |
-| B1 | T01, T04, T06, T07, T08, T32 | Graph v2 field contract, lease, authority, reconciliation, validator policy | Tasks accepted; implementation authority; previous batches | B0 relevant Tasks; I306-X05 for persistence completion | Not applicable |
-| B2 | T16, T17, T41, T42 | Capability proof use cases | Tasks accepted; implementation authority; previous batches | B0; I306-T03/X05 for model-scoped completion | Not applicable |
-| B3 | T21, T23, T27 | Supervisor, ingestion, tuple consumption | Tasks accepted; implementation authority; previous batches | B0–B2; I306-X03/X05 for tuple wiring completion | Not applicable |
-| B4 | T09, T25, T26, T28, T29, T30, T31, T33 | Stage operations and admission | Tasks accepted; implementation authority; previous batches | B1–B3; I306-X01/X03/X04/X05 for completion | Not applicable |
+| B0 | T02, T03, T05, T10, T11, T12, T13, T14, T15, T18, T19, T20, T22, T24, T43 | Independent deterministic foundation | Tasks accepted; implementation authority; none | Own Tasks merged with tests green; delivered #306 types consumed read-only | Not applicable |
+| B1 | T01, T04, T06, T07, T08, T32 | Successor Graph field contract and codec (T01: version dispatch, strict validation, canonical vectors), classification consumers (T04), lease and fencing (T06), dispatch authority (T07), reconciliation (T08), validator policy (T32) | ADR-0026 and successor amendment accepted; Tasks accepted; implementation authority; previous batches | B0 relevant Tasks; T01 successor codec merged with Graph1/2 hash-preservation and old-reader-refusal tests; T04/T06/T07/T08 persisted-state tests green on the successor format. Delivered Graph2 and PE-05a are integrated baselines, not B1 deliverables | Not applicable |
+| B2 | T16, T17, T41, T42 | Capability proof use cases | Tasks accepted; implementation authority; previous batches | B0; verification against delivered I306-T03/X05 PE-05a for model-scoped completion | Not applicable |
+| B3 | T21, T23, T27 | Supervisor, ingestion, tuple consumption | Tasks accepted; implementation authority; previous batches | B0–B2 (B1 successor persistence for T27); verification against delivered I306-X03/X05 PE-05a tuple wiring | Not applicable |
+| B4 | T09, T25, T26, T28, T29, T30, T31, T33 | Stage operations and admission | Tasks accepted; implementation authority; previous batches | B1–B3; admission and refusal verified against delivered I306-X01/X03/X04/X05 readers and the T01 successor codec | Not applicable |
 | B5 | T34, T35, T44 | CLI and skill surfaces | Tasks accepted; implementation authority; previous batches | B2–B4 | Not applicable |
-| B6 | T36, T37, T38, T39 | Verification, compatibility and documentation | Tasks accepted; implementation authority; previous batches | B5; I306-X07 for T37 | Not applicable |
-| B7 | T40 | Operational smoke | Tasks accepted; implementation authority; previous batches | B6; I306-T16, I306-X07, explicit human authorization | Human authorization of the smoke envelope and real probes |
+| B6 | T36, T37, T38, T39 | Verification, compatibility and documentation | Tasks accepted; implementation authority; previous batches | B5; T37 green on delivered I306-X07 corpus plus successor round-trip, Graph1/2 hash preservation, old-reader refusal and recovery/restart regressions | Not applicable |
+| B7 | T40 | Operational smoke | Tasks accepted; implementation authority; previous batches | B6; IG-1 operational precondition; explicit human authorization | Human authorization of the smoke envelope and real probes |
 
 Each batch is independently reviewable, leaves persisted state safe (new
 behavior unreachable from public commands until B5), records its own Evidence
-and can resume after interruption from the last merged Task.
+and can resume after interruption from the last merged Task. No batch is
+complete on the strength of historical #306 deliveries alone; completion
+requires the batch's own #276 Tasks merged with their Evidence.
 
 
 ## Traceability
@@ -2506,7 +2535,8 @@ Specification/criterion → decision → Plan → Tasks → tests → Evidence. 
 | PD-13 probe-based proof, 30-day freshness | PD-13 | §3.9 | T10, T12, T16, T17, T42 | Freshness/expiry | Unit report |
 | PD-14 capability CLI now, axiom-runtime route later | PD-14 | §5 | T35, T44 | Routing tests | Skill contract report |
 | PD-15 consume accepted #306 contract | PD-15 | §3.10 | T09, T21, T37 | Matrix rows 1–15 | Matrix report |
-| PD-16 single graph v2 format | PD-16 | §3.10 | T01, T37 | Vectors through I306-X05 codec | Handoff + round-trip report |
+| PD-16 (historical, accepted Phase 1): single joint Graph2 revision | PD-16 as accepted 2026-10-11; preserved as history, not an active Phase 2 criterion | §3.10 | — (no active Task obligation; superseded only if ADR-0026 is accepted) | — | Phase 1 receipt (blob `13776ae`) |
+| PD-R276-01/B successor Graph (approved direction; detailed contract Proposed) | [Direction receipt](https://github.com/rgomids/axiom/pull/311#issuecomment-6125676685); proposed ADR-0026 and successor amendment A1–A5 awaiting exact-artifact human acceptance | §3.10 (historical) + Part II successor admission delta | T01 (successor codec owner), T04, T06, T07, T08, T09, T37 (compatibility owner) | T01 vectors through the #276 successor strict codec; Graph1/2 round-trip with unchanged SHA-256; old-reader refusal; admission/version-dispatch refusals; recovery/restart | Successor codec/version matrix, historical hash, old-reader-refusal and admission reports; gates: ADR-0026, amendment, Tasks, implementation authority |
 | PD-17 extended temp-root probe | PD-17 | §3.9 | T41, T44 | Extended probe tests | Unit/integration report |
 | CR-001 coordination-to-graph state | PD-9 | §3.5 | T03, T04, T23 | Invariants I-1–I-6 | Report |
 | CR-003 Profile-owned effort | amendment-306 PE-01–PE-06 | §3.10 | T21 | Tuple-only effort | Report |
@@ -2522,10 +2552,10 @@ Specification/criterion → decision → Plan → Tasks → tests → Evidence. 
 | IG-4 capability proof (closed into #276) | D-1 | §3.9 | T10–T17, T41, T42 | Capability matrix | Report |
 | IG-5 Profile-owned effort contract | amendment-306, ADR-0024 | §3.10 | T21, T09 | Tuple/effort tests | Report |
 | IG-6 axiom-runtime skill | I306-T11 | §10 | T35 | Route handoff | Handoff note |
-| IG-7 X01–X07 migration delivered | PD-OWN | §10 | T09, T21, T25, T26, T33, T37 | Completion verification against delivered #306 | Matrix report |
+| IG-7 X01–X07 migration delivered (#306 side satisfied at PR #310 merge) | PD-OWN | §10 | T09, T21, T25, T26, T33, T37 | Completion verification against delivered #306 readers and the T01 successor codec | Matrix report |
 | #306 resolvedProfile tuple (I306-T03, PE-04) | amendment-306 | §3.10 | T16, T17, T21 | Injected tuples then delivered resolver | Report |
 | #306 Stage Plan v2 / Execution format 3 (I306-X03/X04) | amendment-306 | §3.10 | T09, T20, T25, T26, T33 | Integration | Report |
-| #306 graph v2 + PE-05a (I306-X05) | amendment-306, PD-16 | §3.10 | T01, T04, T21, T37 | Codec round-trip; effort-source drift | Report |
+| #306 Graph2 + PE-05a (I306-X05, delivered baseline) | amendment-306 | §3.10 | T01, T09, T21, T37 | Graph2 read-only inspection with unchanged bytes/digests; #276 mutation refused; PE-05a effort-source drift | Historical corpus/hash and admission report |
 
 ## Cross-PR integration (#306 / PR #310)
 
