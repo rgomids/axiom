@@ -69,6 +69,19 @@ re-observed at implementation time.
 
 ---
 
+## Approved architectural direction / proposed contract revision — 2026-10-12
+
+[Maintainer receipt](https://github.com/rgomids/axiom/pull/311#issuecomment-6125676685) accepts **PD-R276-01/B as direction only**:
+use an explicitly versioned successor Graph owned by #276, while preserving
+delivered Graph1/2 and the completed #306 scope. The proposed
+[ADR-0026](../../decisions/0026-successor-stage-dispatch-graph-format.md)
+and [successor Spec amendment](amendment-276-successor-graph-proposed.md)
+still require separate exact-artifact acceptance. Under ADR-0018 the accepted
+Part I §3.5/§3.10/PD-16 and ADR-0025 remain historical; no supersession of
+their joint-Graph2 fragment is effective until the new ADR is accepted.
+The **reconciled Part II Tasks are Proposed**, not approved for implementation.
+No code, codec, Runtime dispatch, inference or real smoke is authorized.
+
 # Part I — Plan
 
 ## 1. Scope and objective
@@ -1477,38 +1490,65 @@ never operational proof. Common gates apply to every Task: its own acceptance,
 explicit bounded implementation authority, review, and the security rules of
 Plan §7.
 
-## Administrative Task gate — 2026-10-12
+## Administrative Task reconciliation — 2026-10-12
 
-All 44 Task IDs and their catalog, acceptance criteria and internal DAG remain
-unchanged. References to Proposed/undelivered #306 producers below are historical;
-all 23 #306 Tasks were accepted and technically delivered at merge `5e1c995`.
-Completed I306-X05 cannot receive a new #276 serialization handoff. Its actual
-Graph2 contract lacks the #276 fields. T01/T04/T06/T07/T08/T09/T37 and their
-transitive persistence consumers are held at **PD-R276-01 / HUMAN_DECISION_REQUIRED**.
-The [Decision Packet](reconciliation-276-post-merge-306.md) records proposed
-ownership and dependency corrections; **their application to this catalog,
-DAG, batches and traceability is pending human decision**. No new codec ownership,
-successor version or changed Task scope is adopted here. Delivered #306 interfaces
-may be consumed only within subsequently authorized #276 implementation.
+**PD-R276-01/B architectural direction approved** by the maintainer
+([exact decision receipt](https://github.com/rgomids/axiom/pull/311#issuecomment-6125676685)): prepare an explicitly versioned
+successor Graph contract owned by #276; preserve historical Graph1/2, immutable
+digests, PD-OWN and the completed I306-X05. This direction is distinct from
+acceptance of the detailed [proposed successor amendment](amendment-276-successor-graph-proposed.md),
+the proposed [ADR-0026](../../decisions/0026-successor-stage-dispatch-graph-format.md)
+and the 44 reconciled Tasks. Those artifacts **remain Proposed / Awaiting Human Approval**.
+
+The catalog below is a **new proposed Task revision**, not an amendment to the
+previously accepted Phase 1 blob. It replaces future-X05 handoffs with #276
+complementary codec/consumer ownership, consumes delivered #306 interfaces as
+read-only compatibility baselines, and retains all 44 IDs and internal DAG edges.
+No Task is accepted, started or completed; no Graph successor format number,
+implementation, dispatch, inference, merge or release is authorized.
+
+Original Part I §3.5/§3.10/PD-16, amendment #276 and ADR-0025 preserve their
+accepted historical wording until a separately accepted contract revision
+formally supersedes the material joint-Graph2 fragment under ADR-0018.
+
+## Proposed successor-format admission delta (conditional)
+
+This is a proposed **Part II** Task-validation addendum to the accepted §3.10
+historical matrix, NOT a retroactive change to the accepted Phase 1 Plan.
+It becomes binding only after the successor amendment and ADR-0026 receive
+separate human acceptance.
+
+| Input | #276 mutation | Read-only inspection | Refusal / test |
+|---|---|---|---|
+| Historical Graph1 | No | Yes, according to existing reader contract | `unsupported_graph_format`; immutable bytes |
+| Delivered Graph2 (#306, no #276 classification) | No | Yes, according to existing reader contract | `unsupported_graph_format`; no silent extension |
+| Accepted successor Graph with valid classification and frozen Execution3 tuple | Yes, only after all authority, capability and effort gates pass | Yes | Strict codec, complete persistence, exact bound authority |
+| Missing/unsupported successor discriminator or required field | No | Refuse unsupported data; fail closed | No fallback/downgrade |
+| New Graph publication / retry / recovery | Only with exact approved version, CAS, lease, authority and persisted facts | Historical inspect as above | Crash/restart, stale epoch, torn commit, unknown retry |
+
+The physical successor version number, canonical JSON field encodings, requiredness
+and size limits are frozen by T01's reviewed contract vectors, not inferred from
+this planning addendum. The existing Execution3, Workflow2 and Profile-v2
+constraints remain those delivered by #306.
 
 ## Task catalog
 
-### I276-T01 — Specify the #276 graph v2 field contract for the I306-X05 codec
+### I276-T01 — Specify #276 successor-Graph codec, field contract and version dispatch
 
 - **Area / batch:** A. Foundation / B1
-- **Objective:** Define, as a reviewed contract artifact with test vectors, every graph/attempt field #276 needs inside the single graph v2 format (PD-16), so I306-X05 owns one codec that carries them.
-- **Scope:** Field semantics, closed value sets and validation rules for: graph `classificationPolicy` marker; attempt `classificationReason`, `qualifyingRecordRef`, `leaseEpoch`, process correlation (PID, process start identity, process-group/job identity), `packetDigest`; graph `dispatchAuthorityRef`, `cancelRequest`, `stageConcurrency`; append-only reconciliation facts. Canonical test vectors (valid and invalid) and domain validation functions in `executiongraph` that do not serialize. Boundary: I306-X05 owns the serialized structs, tags and decoder; this Task owns field semantics, domain validation and vectors only.
-- **Non-goals:** No codec, decoder, encoder, version dispatch or migration (I306-X05). No v1 graph rewrite.
+- **Objective:** Define and implement, only after separate Task/implementation authorization, #276's explicitly versioned successor-Graph codec and semantic validation without changing historical Graph1/2 bytes or ownership of delivered I306-X05.
+- **Scope:** Field semantics, closed value sets and validation rules for: graph `classificationPolicy` marker; attempt `classificationReason`, `qualifyingRecordRef`, `leaseEpoch`, process correlation (PID, process start identity, process-group/job identity), `packetDigest`; graph `dispatchAuthorityRef`, `cancelRequest`, `stageConcurrency`; append-only reconciliation facts. Canonical test vectors (valid and invalid) and domain validation functions in `executiongraph` that do not serialize. Boundary: #276 T01 owns successor-only serialized structs, tags, strict reader/writer/version-dispatch, domain validation and canonical vectors. Graph1/2 implementations and #306 PE-05a remain immutable baselines.
+- **Non-goals:** No Graph1/2 rewrite, silent same-version extension, historical conversion, Execution3 format change, or reimplementation/reopening of I306-X05.
 - **Components and files (expected):** `docs/specifications/007-configurable-workflows/` (field contract appendix); `internal/executiongraph/` (types, validation, vectors under `testdata/`)
 - **Contracts:** Plan §3.5, §3.7, §3.8; amendment A3–A4; ADR-0025 decisions 2–4; PD-9, PD-10, PD-16; amendment-306 §3 (graph v2)
 - **Depends on:** none (internal)
-- **External dependencies:** I306-X05 consumes the vectors (handoff, not a start prerequisite)
-- **Acceptance criteria:** Every field has a type, closed values where applicable, requiredness per graph/attempt state and invariant I-1–I-6 mapping; vectors are accepted by the #276 validators; handoff note names the exact I306-X05 integration point.
+- **External dependencies:** Delivered I306-X05 Graph2 codec/PE-05a (immutable compatibility baseline); proposed successor amendment and ADR-0026 must be accepted before implementation.
+- **Acceptance criteria:** Every field has a type, closed values where applicable, requiredness per graph/attempt state and invariant I-1–I-6 mapping; vectors are accepted by the #276 validators and successor strict reader/writer; Graph1/2 fixtures retain identical bytes and SHA-256 digests; old readers reject the successor; no I306-X05 handoff is outstanding.
 - **Positive tests:** Valid vectors for each classification reason, lease epoch progression, reconciliation fact append, cancel request.
 - **Negative tests:** Missing reason on a terminal attempt; `succeeded` without `qualifyingRecordRef`; unknown reason value; decreasing epoch; mutated reconciliation fact; v1 graph presented as v2.
-- **Expected Evidence:** Contract appendix blob; validator unit-test report; handoff record for I306-X05.
-- **Risks and security care:** Divergence from I306-X05 codec; mitigated by shared vectors and a single owner per layer.
-- **Done when:** Contract appendix reviewed; validators and vectors merged; I306-X05 handoff recorded (codec delivery not required to close).
+- **Expected Evidence:** Accepted successor contract blob; codec/version matrix, validator/round-trip, rejected-unknown/duplicate, historical digest and old-reader-refusal test reports.
+- **Risks and security care:** Same-version silent interpretation, digest drift and authority confusion; mitigated by explicit successor discriminator and preserved Graph1/2 codec/corpus.
+- **Done when:** Following separate contract/Task/implementation approval, successor codec, version dispatch, validators and vectors are merged and compatibility/fail-closed tests pass; historical Graph1/2 digests remain unchanged.
 
 ### I276-T02 — Never redispatch a running attempt (G8 defect)
 
@@ -1548,18 +1588,18 @@ may be consumed only within subsequently authorized #276 implementation.
 
 - **Area / batch:** A. Foundation / B1
 - **Objective:** Make readiness, retry eligibility, integration eligibility and status read only persisted classification and reconciliation facts.
-- **Scope:** Retry from `failed`/`blocked`/`cancelled`; from `unknown`/ambiguous only with a reconciliation fact; `skipped` never; integration requires `result_recorded` and a `ChildResult` bound to `qualifyingRecordRef`; refusal of graphs without the classification marker; invariants I-1–I-6 enforced on load. Dispatch-time stage-concurrency check against the recorded `stageConcurrency` (G16). Boundary: this Task owns in-memory domain checks; decode-time validation belongs to the I306-X05 codec.
-- **Non-goals:** No classifier logic (I276-T03); no codec (I306-X05).
+- **Scope:** Retry from `failed`/`blocked`/`cancelled`; from `unknown`/ambiguous only with a reconciliation fact; `skipped` never; integration requires `result_recorded` and a `ChildResult` bound to `qualifyingRecordRef`; refusal of graphs without the classification marker; invariants I-1–I-6 enforced on load. Dispatch-time stage-concurrency check against the recorded `stageConcurrency` (G16). Boundary: this Task owns in-memory consumer rules; decode-time validation and persisted classifications are supplied by the approved #276 T01 successor codec.
+- **Non-goals:** No classifier logic (I276-T03); no duplicate codec (I276-T01 owns successor serialization).
 - **Components and files (expected):** `internal/executiongraph/scheduler.go`, `integration.go`, tests
 - **Contracts:** Plan §3.5 scheduler/integration table; amendment A3; PD-9; CR-001
 - **Depends on:** I276-T01, I276-T02, I276-T03
-- **External dependencies:** I306-X05 (persisting the fields; logic testable on in-memory graphs before it)
+- **External dependencies:** Delivered I306-X05 Graph2 for history only; #276 T01 successor codec required for persistence tests.
 - **Acceptance criteria:** No consumer calls the classifier; status/dispatch/integration agree for every persisted state; invariants checked.
 - **Positive tests:** Blocked child keeps dependents undispatched; `result_missing` refused by integration; retry after reconciliation fact.
 - **Negative tests:** Integration with caller-supplied result not matching the qualifying record; retry of `unknown` without fact; `skipped` retry; unmarked (v1) graph mutation. Batch larger than the recorded stage concurrency refused.
 - **Expected Evidence:** Unit/integration report per invariant I-1–I-6.
 - **Risks and security care:** Behavior change of `succeeded` semantics; covered by explicit tests and ADR-0025.
-- **Done when:** Merged with invariant tests green on in-memory graphs; persistence integration re-verified once I306-X05 lands.
+- **Done when:** Merged with I-1–I-6 and successor persisted-state integration tests green after T01 lands; Graph1/2 #276 mutations refused.
 
 ### I276-T05 — Stdin delivery, per-attempt save and drain hook
 
@@ -1587,8 +1627,8 @@ may be consumed only within subsequently authorized #276 implementation.
 - **Components and files (expected):** `internal/local/` (lease file/lock), `internal/executiongraph/` (epoch rules), tests
 - **Contracts:** Plan §3.7; ADR-0007 lock order; ADR-0025 decision 1; PD-2
 - **Depends on:** I276-T01
-- **External dependencies:** I306-X05 for persisted epoch (logic testable before)
-- **Acceptance criteria:** Two holders never coexist; probes never block; stale/orphan classification deterministic.
+- **External dependencies:** Delivered Graph2 codec is read-only #276 baseline; #276 T01 persists epochs and attempt process correlation in the authorized successor.
+- **Acceptance criteria:** Two holders never coexist; probes never block; stale/orphan classification deterministic; monotonic epochs and process identity survive encode/decode/restart in successor format.
 - **Positive tests:** Acquire/release/re-acquire with increasing epoch; status probe while held.
 - **Negative tests:** Concurrent acquisition; PID reuse with different start identity; lock file replaced or symlinked; lower epoch write rejected.
 - **Expected Evidence:** Concurrency and failure-injection test report.
@@ -1604,8 +1644,8 @@ may be consumed only within subsequently authorized #276 implementation.
 - **Components and files (expected):** `internal/local/` (record store, recovery registration), `internal/executiongraph/graph.go` (reference checks), tests
 - **Contracts:** Plan §3.3; amendment A4; ADR-0007; ADR-0025 decision 2; PD-3; G-5
 - **Depends on:** I276-T01, I276-T06
-- **External dependencies:** I306-X04/X05 for the final ledger and graph v2 objects
-- **Acceptance criteria:** Commit is all-or-nothing with recoverable intermediate states; scope enforced; read-back verified.
+- **External dependencies:** Delivered I306-X04 Execution3 ledger and I306-X05 Graph2 compatibility baseline; #276 T01 owns successor graph references, this Task owns protected authority record and atomic graph/ledger commitment.
+- **Acceptance criteria:** Protected authority and successor Graph (or single-agent ledger) commit atomically with recoverable intermediate states; authority scope, preview digest and graph revision binding enforced; read-back verified.
 - **Positive tests:** Graph path and single path commits; recovery after crash at each step.
 - **Negative tests:** Authority reused for a retry; digest mismatch; partial commit presented as committed; foreign graph revision.
 - **Expected Evidence:** Fault-injection report per commit step.
@@ -1621,8 +1661,8 @@ may be consumed only within subsequently authorized #276 implementation.
 - **Components and files (expected):** `internal/executiongraph/`, `internal/local/`, tests
 - **Contracts:** Plan §3.8; amendment A3; PD-10; ADR-0009
 - **Depends on:** I276-T04, I276-T06
-- **External dependencies:** I306-X05 for persistence
-- **Acceptance criteria:** Facts never mutate attempt status; duplicate/contradictory facts preserved and surfaced; retry eligibility reads them.
+- **External dependencies:** Delivered I306-X05 is historical Graph2 input only; #276 T01 owns successor wire representation and this Task owns append-only fact transaction semantics.
+- **Acceptance criteria:** Successor facts bind exact parent/graph revision/attempt, authority and observation digest; facts never mutate terminal status; duplicate/contradictory facts preserved and surfaced; retry eligibility reads only persisted validated facts.
 - **Positive tests:** Fact for `unknown` enables explicit retry; fact for stale attempt.
 - **Negative tests:** Attempt status rewrite attempt; fact for a different graph revision; fact on a `running` attempt with live lease.
 - **Expected Evidence:** Unit/integration report.
@@ -1633,13 +1673,13 @@ may be consumed only within subsequently authorized #276 implementation.
 
 - **Area / batch:** A. Foundation / B4
 - **Objective:** Enforce at every #276 entrypoint the admission matrix of Plan §3.10 using #306 versioned readers and categories.
-- **Scope:** Refusals `workflow_migration_required`, `legacy_execution_contract`, `profile_effort_unconfigured`, `unsupported_graph_format`; read-only access for legacy Executions and v1 graphs; no reinterpretation.
-- **Non-goals:** No codecs, migrations or resolver (I306-X01–X05, I306-T03).
+- **Scope:** Refusals `workflow_migration_required`, `legacy_execution_contract`, `profile_effort_unconfigured`, `unsupported_graph_format`; read-only access for legacy Executions and historical Graph1/2; #276 mutations require the accepted successor format and frozen Execution3/Profile tuple; no reinterpretation.
+- **Non-goals:** No duplicate codecs (successor Graph owned by T01), no #306 Workflow/Execution migrations or resolver (I306-X01–X05, I306-T03).
 - **Components and files (expected):** `internal/stageexecution/` (new) admission module, tests
 - **Contracts:** Plan §3.10 matrix; amendment A6; PD-15; CR-006; amendment-306 §3
 - **Depends on:** I276-T01
 - **External dependencies:** I306-X01; I306-X03; I306-X04; I306-X05; I306-T02
-- **Acceptance criteria:** Each matrix row has a guard and a test; historical bytes unchanged after every operation.
+- **Acceptance criteria:** Each historical §3.10 matrix row and approved successor-format delta has guards/tests; #276 mutation of Graph1/2 is refused, read-only status preserved; historical bytes/digests unchanged.
 - **Positive tests:** Schema-2/format-3/local-v2 admitted to the next check.
 - **Negative tests:** Schema 1 with `runtime-default`; schema 1 with explicit effort; legacy Execution run/retry; local v1; v1 graph mutation; incomplete migration cases.
 - **Expected Evidence:** Matrix test report (one case per row).
@@ -2109,16 +2149,16 @@ may be consumed only within subsequently authorized #276 implementation.
 
 - **Area / batch:** H. Verification / B6
 - **Objective:** Verify the §3.10 matrix against the delivered #306 contracts.
-- **Scope:** One test per row with delivered I306 readers/writers; historical bytes unchanged; graph v2 fields round-trip through the I306-X05 codec.
+- **Scope:** One test per original §3.10 row plus successor-format delta with delivered I306 readers/writers; Graph1/2 bytes/digests unchanged; successor fields round-trip through the #276 T01 strict codec; old readers explicitly refuse successor; duplicate/unknown/version errors fail closed; recovery/restart, authority binding and classification invariant tests.
 - **Non-goals:** No duplication of I306-X07 checks (consume its corpus).
 - **Components and files (expected):** `internal/stageexecution/compat_test.go` (new)
 - **Contracts:** Plan §3.10; amendment A6; PD-15, PD-16; CR-006
 - **Depends on:** I276-T09, I276-T01, I276-T21, I276-T26, I276-T31
 - **External dependencies:** I306-X07
-- **Acceptance criteria:** All 15 rows green against delivered #306 code.
-- **Positive tests:** Admitted v2 path.
-- **Negative tests:** Every refusal row. `default-sdd` r1 bytes and digest unchanged after every operation.
-- **Expected Evidence:** Matrix report.
+- **Acceptance criteria:** All 15 historical rows and every accepted successor admission/refusal row green against delivered #306 code and #276 T01 codec; six-family historical corpus/hash proof preserved.
+- **Positive tests:** Existing schema-2/Execution3/Profile-v2 compiler/admission baseline and a separately authorized successor-Graph #276 path.
+- **Negative tests:** Every historical and successor refusal row; Graph1/2 mutation; old reader presented successor; duplicate/unknown fields, stale epoch, PID reuse, wrong-attempt result, torn authority/graph commit and restart drift; `default-sdd` r1 bytes/digest unchanged.
+- **Expected Evidence:** Extended admission matrix, strict codec/hash corpus, old-reader-refusal and restart/failure-injection reports.
 - **Risks and security care:** Contract drift between PRs; caught here.
 - **Done when:** Merged with all rows green after I306-X07.
 
@@ -2489,29 +2529,29 @@ Specification/criterion → decision → Plan → Tasks → tests → Evidence. 
 
 ## Cross-PR integration (#306 / PR #310)
 
-| Producer (#306, Proposed) | Interface | #276 consumer | Gate type |
+| Producer (#306, delivered) | Interface | #276 consumer | Gate type |
 |---|---|---|---|
 | I306-T02 | Local configuration v2 with Profile effort; v1 readable | T09 (`profile_effort_unconfigured`) | Completion |
 | I306-T03 | Sole resolver; versioned `resolvedProfile` tuple | T10 (types), T16, T17, T21 | Completion (interfaces allowed before) |
 | I306-X01 | Workflow schema 2 codec; schema-1 historical readers | T09 | Completion |
 | I306-X03 | Compiler/Stage Plan v2 with tuple and evidence ref field | T17, T20, T21, T25 | Completion |
 | I306-X04 | Configured Execution format 3; frozen child tuples at stage admission | T07, T09, T25, T26, T33 | Completion |
-| I306-X05 | Graph v2 codec carrying #276 fields (from T01); PE-05a inspection; attempt checks | T01 (supplies fields), T04, T06, T08, T16, T21, T37 | Completion; T01 handoff is a producer input to X05 |
+| I306-X05 | Delivered closed Graph2 codec / Profile tuple and PE-05a inspection; no #276 successor fields | T01 (historical compatibility baseline), T04, T06, T08, T16, T21, T37 | Delivered at PR #310 merge; #276 T01 owns separate successor persistence after contract acceptance |
 | I306-X07 | Cross-cutting compatibility corpus | T37 | Completion |
 | I306-T11 | `axiom-runtime` skill | T35 (later capability route) | Route only |
 | I306-T16 | Local G-2 authoring Evidence (supported clean configuration) | T40 | Operational acceptance |
 
-No implementation is assigned to both owners: #306 owns codecs, migrations,
-resolver, Stage Plan/Execution formats, effort-source inspection and the
-`axiom-runtime` skill; #276 owns the field semantics it supplies to I306-X05
-(T01), capability proof, dispatch, supervisor, coordination and their use of
-those contracts. **Registered cross-PR gap (not changed here):** the I306-X05
-Task text on PR #310 does not yet list the #276 graph fields required by PD-16;
-PR #310 needs to reference the T01 field contract before X05 is accepted.
+No work is reassigned to completed #306: it owns delivered Workflow2,
+StagePlan2, Execution3, Graph2, PE-05a and `axiom-runtime` contracts.
+#276's proposed T01 owns the separate successor-Graph codec and validators;
+T04/T06/T07/T08/T09/T37 and transitive consumers use it only after renewed
+contract and Task acceptance. PD-R276-01/B direction was approved at
+[the maintainer receipt](https://github.com/rgomids/axiom/pull/311#issuecomment-6125676685), but detailed ADR-0026 and successor
+amendment remain Proposed. Historical formats and hashes remain unchanged.
 
 ## Review readiness
 
-These Tasks require explicit human acceptance (individually or as a set) before
-any implementation authority. Acceptance of Tasks does not accept the #306 Tasks
-they depend on, and does not authorize real probes, the smoke (T40), merge or
-release.
+These reconciled Tasks require explicit human acceptance (individually or as a
+set), and the successor amendment/ADR requires separate acceptance, before any
+implementation authority. The #306 Tasks were already delivered; Task approval
+does not authorize real probes, the T40 smoke, merge or release.
