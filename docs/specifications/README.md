@@ -81,6 +81,8 @@ installation compatibility and synthetic R-1 Evidence. It keeps native R-2 and
 human R-3 acceptance deferred to #278; technical checks do not imply release
 or human acceptance.
 
+[Proposed #276 successor-Graph amendment](007-configurable-workflows/amendment-276-successor-graph-proposed.md) and [ADR-0026](../decisions/0026-successor-stage-dispatch-graph-format.md): PD-R276-01/B direction approved on 2026-10-12, detailed contract/Tasks still Proposed; Graph1/2 preserved; Phase 3 not authorized.
+
 [#276 Plan and Tasks — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
 Part I (Plan, revision 5), the companion
 [amendment #276](007-configurable-workflows/amendment-276-stage-dispatch.md) and
