@@ -17,6 +17,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 const (
@@ -229,6 +230,7 @@ type Result struct {
 	Executions []Summary
 }
 type Target struct {
+	ResolvedProfile                              *runtimeprofile.ResolvedProfile
 	RuntimePreview                               string
 	ProjectSelector, RepositoryKey               string
 	WorkItemProvider, WorkItemResource, WorkItem string
@@ -256,16 +258,17 @@ type IDAllocator func() (string, error)
 type Clock func() time.Time
 
 type Service struct {
-	definitions DefinitionResolver
-	validators  StageValidator
-	resolver    Resolver
-	workItems   WorkItems
-	store       Store
-	projection  ProjectionCapability
-	references  ReferenceValidator
-	source      provenance.Value
-	allocateID  IDAllocator
-	now         Clock
+	profileContract bool
+	definitions     DefinitionResolver
+	validators      StageValidator
+	resolver        Resolver
+	workItems       WorkItems
+	store           Store
+	projection      ProjectionCapability
+	references      ReferenceValidator
+	source          provenance.Value
+	allocateID      IDAllocator
+	now             Clock
 }
 
 func New(resolver Resolver, workItems WorkItems, store Store, projection ProjectionCapability, references ReferenceValidator, source provenance.Value, allocateID IDAllocator, now Clock) Service {
@@ -306,6 +309,12 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 		if observation.ProjectID != project.ID || !validDefinitionObservation(observation) {
 			return result(Failed, "recovery_required", State{})
 		}
+		if s.profileContract && observation.Document.Definition.SchemaVersion != 2 {
+			return result(ValidationFailed, "workflow_migration_required", State{})
+		}
+		if s.profileContract && target.ResolvedProfile == nil {
+			return result(ValidationFailed, "profile_effort_unconfigured", State{})
+		}
 	}
 	if target.ReviewedTarget != nil && *target.ReviewedTarget != resolvedTarget {
 		return result(ValidationFailed, "stale_execution_target", State{})
@@ -329,6 +338,14 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 	if s.definitions != nil {
 		state.FormatVersion, state.WorkflowVersion = ConfiguredFormatVersion, ConfiguredWorkflowVersion
 		state.Binding = &WorkflowBinding{ProjectID: project.ID, Definition: observation.Document.Ref(observation.Source), SchemaVersion: observation.Document.Definition.SchemaVersion, SnapshotRef: "execution:" + id + "#/binding/snapshot", Snapshot: append([]byte(nil), observation.Document.Canonical...), ObservationDigest: observation.Digest, RuntimePreview: target.RuntimePreview, BoundAt: now}
+		if observation.Document.Definition.SchemaVersion == 2 {
+			if target.ResolvedProfile == nil || runtimeprofile.ValidateResolvedProfile(*target.ResolvedProfile) != nil || target.ResolvedProfile.RuntimeID != target.RuntimeID {
+				return result(ValidationFailed, "profile_effort_unconfigured", State{})
+			}
+			frozen := *target.ResolvedProfile
+			state.Binding.ResolvedProfile = &frozen
+			state.FormatVersion, state.WorkflowVersion = ProfileConfiguredFormatVersion, ProfileConfiguredWorkflowVersion
+		}
 		state.Binding.Contexts = observation.Contexts
 		state.Binding.ProjectRevision, state.Binding.LocalRevision = observation.ProjectRevision, observation.LocalRevision
 		state.Stage = Stage(observation.Document.Definition.Stages[0].ID)
@@ -464,6 +481,9 @@ func (s Service) Resume(ctx context.Context, target Target, expectedRevision uin
 	state, failed := s.load(ctx, target)
 	if failed.Category != "" {
 		return failed
+	}
+	if s.profileContract && state.FormatVersion != ProfileConfiguredFormatVersion {
+		return result(ValidationFailed, "legacy_execution_contract", state)
 	}
 	if state.Revision != expectedRevision {
 		return result(Denied, "stale_execution_revision", state)
@@ -1056,7 +1076,7 @@ func equivalentStart(state State, projectID, repositoryKey string, item WorkItem
 }
 
 func ValidState(state State) bool {
-	if state.FormatVersion == ConfiguredFormatVersion {
+	if state.FormatVersion == ConfiguredFormatVersion || state.FormatVersion == ProfileConfiguredFormatVersion {
 		return validConfiguredState(state)
 	}
 	if state.Binding != nil || state.StageOrdinal != 0 {
@@ -1467,6 +1487,10 @@ func cloneReferences(values []Reference) []Reference { return append([]Reference
 func cloneState(state State) State {
 	if state.Binding != nil {
 		b := *state.Binding
+		if b.ResolvedProfile != nil {
+			frozen := *b.ResolvedProfile
+			b.ResolvedProfile = &frozen
+		}
 		b.Snapshot = append([]byte(nil), b.Snapshot...)
 		b.Contexts = make(map[string]ContextObservation, len(state.Binding.Contexts))
 		for key, c := range state.Binding.Contexts {

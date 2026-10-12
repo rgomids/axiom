@@ -223,17 +223,17 @@ func TestBootstrapAuthorsRuntimePolicyFromLocalCandidatesOnly(t *testing.T) {
 	if err != nil || !strings.Contains(string(manifest), "runtimes:\n  - id: claude") || !strings.Contains(string(manifest), "model: approved-model") || strings.Contains(string(manifest), "private-test-reference") {
 		t.Fatalf("authored policy = %s %v", manifest, err)
 	}
-	// With the Runtime observable, both operations are ready without editing axiom.yaml.
+	// Historical local intent stays valid; current execution requires explicit effort migration.
 	service, _ := testRuntime(t, env.service.(lifecycleService), "claude")
 	report := service.readiness().Evaluate(context.Background(), "policy")
-	if report.Effective != "ready" || report.Runtime.Status != "ready" {
+	if report.Effective != "partial" || report.Runtime.Detail != "profile_effort_unconfigured" || !report.Operation(projectapp.OperationWorkItem).Ready() {
 		t.Fatalf("readiness = %+v", report)
 	}
-	// Removing the executable blocks Execution only; no other Runtime is chosen.
+	// Missing executable cannot bypass the unmet historical-effort boundary.
 	missing := service
 	missing.runtimes.lookPath = func(string) (string, error) { return "", os.ErrNotExist }
 	blocked := missing.readiness().Evaluate(context.Background(), "policy")
-	if blocked.Effective != "partial" || blocked.Runtime.Detail != "runtime_unavailable" || !blocked.Operation(projectapp.OperationWorkItem).Ready() {
+	if blocked.Effective != "partial" || blocked.Runtime.Detail != "profile_effort_unconfigured" || !blocked.Operation(projectapp.OperationWorkItem).Ready() {
 		t.Fatalf("blocked = %+v", blocked)
 	}
 }

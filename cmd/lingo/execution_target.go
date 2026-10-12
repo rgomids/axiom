@@ -108,6 +108,7 @@ func (s lifecycleService) WorkflowStart(ctx context.Context, input cli.WorkflowI
 	startTarget := workflowTarget(input)
 	startTarget.ReviewedTarget = &target
 	startTarget.RuntimePreview = preview.Digest()
+	startTarget.ResolvedProfile = binding.Choice.ResolvedProfile
 	result := s.workflows.Start(ctx, startTarget)
 	if result.Category == "stale_execution_target" {
 		return s.runtimePolicyFailure("stale_preview")

@@ -83,7 +83,7 @@ func (s Service) preview(ctx context.Context, projectID string, request Request)
 	}
 	snapshot, err := s.source.Load(ctx, projectID)
 	if err != nil {
-		return denyWith(result, "policy_unavailable")
+		return denyWith(result, localStateCategory(err))
 	}
 	if snapshot.Project.State().ID != projectID {
 		return denyWith(result, "invalid_project")
@@ -139,6 +139,13 @@ func (s Service) preview(ctx context.Context, projectID string, request Request)
 		return denyWith(result, resolution.Blocker.Code)
 	}
 	result.Choice = resolution.Choice
+	if !runtimeprofile.SafeIdentifier(result.Choice.Model) || !safeVersion(result.Choice.RuntimeVersion) {
+		return denyWith(result, "unsafe_configuration")
+	}
+	if result.Choice.ResolvedProfile != nil {
+		result.Choice.ResolvedProfile.ConfigurationDigest = result.ConfigurationDigest
+		result.Choice.ResolvedProfile.ObservationDigest = result.ObservationDigest
+	}
 	return result, snapshot.Configuration, nil
 }
 
@@ -154,6 +161,10 @@ func (s Service) Check(ctx context.Context, expected Preview) (Binding, error) {
 		return Binding{}, ErrStale
 	}
 	choice := *expected.Choice
+	if choice.ResolvedProfile != nil {
+		p := *choice.ResolvedProfile
+		choice.ResolvedProfile = &p
+	}
 	choice.Capabilities = append([]string(nil), choice.Capabilities...)
 	for _, runtime := range cfg.Runtimes {
 		if runtime.ID == choice.RuntimeID && runtime.Adapter == choice.Adapter {
@@ -170,6 +181,15 @@ func (s Service) Check(ctx context.Context, expected Preview) (Binding, error) {
 // blocker code (policy_unconfigured, no_allowed_match, runtime_unavailable, ...).
 // Role-specific preferences and capabilities are checked only by Preview.
 func (s Service) Availability(ctx context.Context, projectID string) string {
+	return s.availability(ctx, projectID, false)
+}
+
+// CurrentAvailability projects operational readiness for Profile-owned admission.
+// Historical availability remains inspectable through Availability.
+func (s Service) CurrentAvailability(ctx context.Context, projectID string) string {
+	return s.availability(ctx, projectID, true)
+}
+func (s Service) availability(ctx context.Context, projectID string, current bool) string {
 	if len(project.ValidateIdentity(projectID, "preview")) != 0 {
 		return "invalid_request"
 	}
@@ -178,10 +198,13 @@ func (s Service) Availability(ctx context.Context, projectID string) string {
 	}
 	snapshot, err := s.source.Load(ctx, projectID)
 	if err != nil {
-		return "policy_unavailable"
+		return localStateCategory(err)
 	}
 	if snapshot.Project.State().ID != projectID {
 		return "invalid_project"
+	}
+	if current && snapshot.Configuration.FormatVersion == 1 {
+		return "profile_effort_unconfigured"
 	}
 	cfg, code := projectConfiguration(snapshot.Project.State(), snapshot.Configuration, Request{})
 	if code != "" {
@@ -190,16 +213,49 @@ func (s Service) Availability(ctx context.Context, projectID string) string {
 	if snapshot.Observer == nil {
 		return "inventory_unavailable"
 	}
+	if runtimeprofile.Validate(snapshot.Configuration) != nil {
+		return "invalid_configuration"
+	}
+	blocker := "runtime_unavailable"
 	for _, runtime := range cfg.Runtimes {
 		if !runtime.Enabled {
 			continue
 		}
 		observation, err := snapshot.Observer.Observe(ctx, runtime.ID)
-		if err == nil && observation.Installed && observation.Available {
+		if err != nil || !observation.Installed || !observation.Available {
+			continue
+		}
+		if !safeObservation(observation) {
+			return "invalid_observation"
+		}
+		if cfg.FormatVersion != runtimeprofile.FormatVersionV2 {
 			return ""
 		}
+		if observation.RuntimeID != runtime.ID || observation.Adapter != runtime.Adapter || observation.Revision != cfg.Revision || observation.ObservedAt.IsZero() {
+			blocker = "stale_observation"
+			continue
+		}
+		for _, p := range cfg.ModelProfiles {
+			if p.RuntimeID != runtime.ID {
+				continue
+			}
+			allowed := false
+			for _, id := range runtime.AllowlistedProfileIDs {
+				if id == p.ID {
+					allowed = true
+				}
+			}
+			if !allowed {
+				continue
+			}
+			code := runtimeprofile.ProfileReadiness(cfg, p, observation)
+			if code == "" {
+				return ""
+			}
+			blocker = code
+		}
 	}
-	return "runtime_unavailable"
+	return blocker
 }
 
 // Digest is an operator review token, not authority for external effects.
@@ -245,7 +301,7 @@ func projectConfiguration(state project.State, local runtimeprofile.Configuratio
 			profiles[profile.Key] = profile
 		}
 	}
-	cfg := runtimeprofile.Configuration{FormatVersion: runtimeprofile.FormatVersion, Revision: local.Revision}
+	cfg := runtimeprofile.Configuration{FormatVersion: local.FormatVersion, Revision: local.Revision}
 	for _, runtime := range local.Runtimes {
 		if !allowed[runtime.ID] || request.RuntimeID != "" && request.RuntimeID != runtime.ID {
 			continue
@@ -345,8 +401,21 @@ func safeVersion(v string) bool {
 }
 
 func safeObservation(o runtimeprofile.Observation) bool {
-	if !token(o.RuntimeID) || !token(o.Adapter) || !safeVersion(o.Version) || len(o.CapabilityStatus) > 32 || len(o.NonInteractiveModelCapabilities) > 32 {
+	if !token(o.RuntimeID) || !token(o.Adapter) || !safeVersion(o.Version) || len(o.CapabilityStatus) > 32 || len(o.NonInteractiveModelCapabilities) > 32 || len(o.ProfileProofs) > 32 {
 		return false
+	}
+	for _, proof := range o.ProfileProofs {
+		if len(proof.CapabilityStatus) > 32 {
+			return false
+		}
+		for c, s := range proof.CapabilityStatus {
+			if !token(c) || (s != runtimeprofile.CapabilityDeclared && s != runtimeprofile.CapabilityProven) {
+				return false
+			}
+		}
+		if !runtimeprofile.SafeIdentifier(proof.RuntimeID) || !runtimeprofile.SafeIdentifier(proof.Model) || !runtimeprofile.ValidEffort(proof.Effort) || !safeVersion(proof.RuntimeVersion) || !runtimeprofile.SafeIdentifier(proof.Reference) || proof.InvocationMode != "noninteractive" {
+			return false
+		}
 	}
 	for capability, status := range o.CapabilityStatus {
 		if !token(capability) || (status != runtimeprofile.CapabilityDeclared && status != runtimeprofile.CapabilityProven) {

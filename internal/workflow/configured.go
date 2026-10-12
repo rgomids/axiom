@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
+const ProfileConfiguredFormatVersion = 3
+const ProfileConfiguredWorkflowVersion = "configured-sequential-v2"
 const ConfiguredFormatVersion = 2
 const ConfiguredWorkflowVersion = "configured-sequential-v1"
 
@@ -20,21 +23,22 @@ func sameStartContract(left, right State) bool {
 	if left.Binding == nil || right.Binding == nil {
 		return left.Binding == nil && right.Binding == nil
 	}
-	return left.Binding.Definition == right.Binding.Definition && left.Binding.ObservationDigest == right.Binding.ObservationDigest && left.Binding.RuntimePreview == right.Binding.RuntimePreview
+	return reflect.DeepEqual(left.Binding.ResolvedProfile, right.Binding.ResolvedProfile) && left.Binding.Definition == right.Binding.Definition && left.Binding.ObservationDigest == right.Binding.ObservationDigest && left.Binding.RuntimePreview == right.Binding.RuntimePreview
 }
 
 func digestBytes(value []byte) string { sum := sha256.Sum256(value); return hex.EncodeToString(sum[:]) }
 
 type BindingView struct {
-	ProjectRevision   string                 `json:"projectRevision"`
-	LocalRevision     string                 `json:"localRevision"`
-	ProjectID         string                 `json:"projectId"`
-	Definition        workflowdefinition.Ref `json:"definition"`
-	SchemaVersion     int                    `json:"schemaVersion"`
-	SnapshotRef       string                 `json:"snapshotRef"`
-	ObservationDigest string                 `json:"observationDigest"`
-	RuntimePreview    string                 `json:"runtimePreview"`
-	BoundAt           time.Time              `json:"boundAt"`
+	ResolvedProfile   *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
+	ProjectRevision   string                          `json:"projectRevision"`
+	LocalRevision     string                          `json:"localRevision"`
+	ProjectID         string                          `json:"projectId"`
+	Definition        workflowdefinition.Ref          `json:"definition"`
+	SchemaVersion     int                             `json:"schemaVersion"`
+	SnapshotRef       string                          `json:"snapshotRef"`
+	ObservationDigest string                          `json:"observationDigest"`
+	RuntimePreview    string                          `json:"runtimePreview"`
+	BoundAt           time.Time                       `json:"boundAt"`
 }
 
 func InspectBinding(state State) *BindingView {
@@ -42,24 +46,30 @@ func InspectBinding(state State) *BindingView {
 		return nil
 	}
 	b := state.Binding
-	return &BindingView{ProjectID: b.ProjectID, Definition: b.Definition, SchemaVersion: b.SchemaVersion, SnapshotRef: b.SnapshotRef, ObservationDigest: b.ObservationDigest, RuntimePreview: b.RuntimePreview, BoundAt: b.BoundAt, ProjectRevision: b.ProjectRevision, LocalRevision: b.LocalRevision}
+	var profile *runtimeprofile.ResolvedProfile
+	if b.ResolvedProfile != nil {
+		frozen := *b.ResolvedProfile
+		profile = &frozen
+	}
+	return &BindingView{ResolvedProfile: profile, ProjectID: b.ProjectID, Definition: b.Definition, SchemaVersion: b.SchemaVersion, SnapshotRef: b.SnapshotRef, ObservationDigest: b.ObservationDigest, RuntimePreview: b.RuntimePreview, BoundAt: b.BoundAt, ProjectRevision: b.ProjectRevision, LocalRevision: b.LocalRevision}
 }
 
 // WorkflowBinding retains the complete validated contract in the same protected
 // publication as its Execution. SnapshotRef addresses this record, not mutable
 // Project storage; a single publication avoids a half-published dependency.
 type WorkflowBinding struct {
-	ProjectRevision   string                        `json:"projectRevision"`
-	LocalRevision     string                        `json:"localRevision"`
-	Contexts          map[string]ContextObservation `json:"contexts"`
-	ProjectID         string                        `json:"projectId"`
-	Definition        workflowdefinition.Ref        `json:"definition"`
-	SchemaVersion     int                           `json:"schemaVersion"`
-	SnapshotRef       string                        `json:"snapshotRef"`
-	Snapshot          json.RawMessage               `json:"snapshot"`
-	ObservationDigest string                        `json:"observationDigest"`
-	RuntimePreview    string                        `json:"runtimePreview"`
-	BoundAt           time.Time                     `json:"boundAt"`
+	ResolvedProfile   *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
+	ProjectRevision   string                          `json:"projectRevision"`
+	LocalRevision     string                          `json:"localRevision"`
+	Contexts          map[string]ContextObservation   `json:"contexts"`
+	ProjectID         string                          `json:"projectId"`
+	Definition        workflowdefinition.Ref          `json:"definition"`
+	SchemaVersion     int                             `json:"schemaVersion"`
+	SnapshotRef       string                          `json:"snapshotRef"`
+	Snapshot          json.RawMessage                 `json:"snapshot"`
+	ObservationDigest string                          `json:"observationDigest"`
+	RuntimePreview    string                          `json:"runtimePreview"`
+	BoundAt           time.Time                       `json:"boundAt"`
 }
 
 type DefinitionObservation struct {
@@ -137,12 +147,18 @@ func (s Service) WithDefinitions(definitions DefinitionResolver, validators Stag
 	return s
 }
 
+// WithProfileContract activates current admission at the production boundary.
+// Canonical historical readers and lifecycle completion keep their old meaning.
+func (s Service) WithProfileContract() Service { s.profileContract = true; return s }
+
 func bindingDocument(state State) (workflowdefinition.Document, bool) {
 	b := state.Binding
 	if b != nil && (!workflowdefinition.ValidDigest(b.ProjectRevision) || !workflowdefinition.ValidDigest(b.LocalRevision)) {
 		return workflowdefinition.Document{}, false
 	}
-	if b == nil || state.FormatVersion != ConfiguredFormatVersion || state.WorkflowVersion != ConfiguredWorkflowVersion || b.ProjectID != state.ProjectID || !b.Definition.Valid() || b.SchemaVersion != 1 || b.SnapshotRef != "execution:"+state.ExecutionID+"#/binding/snapshot" || !workflowdefinition.ValidDigest(b.ObservationDigest) || !workflowdefinition.ValidDigest(b.RuntimePreview) || !b.BoundAt.Equal(state.CreatedAt) {
+	historical := state.FormatVersion == ConfiguredFormatVersion && state.WorkflowVersion == ConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 1 && b.ResolvedProfile == nil
+	current := state.FormatVersion == ProfileConfiguredFormatVersion && state.WorkflowVersion == ProfileConfiguredWorkflowVersion && b != nil && b.SchemaVersion == 2 && b.ResolvedProfile != nil && runtimeprofile.ValidateResolvedProfile(*b.ResolvedProfile) == nil && b.ResolvedProfile.RuntimeID == state.RuntimeID
+	if b == nil || (!historical && !current) || b.ProjectID != state.ProjectID || !b.Definition.Valid() || b.SnapshotRef != "execution:"+state.ExecutionID+"#/binding/snapshot" || !workflowdefinition.ValidDigest(b.ObservationDigest) || !workflowdefinition.ValidDigest(b.RuntimePreview) || !b.BoundAt.Equal(state.CreatedAt) {
 		return workflowdefinition.Document{}, false
 	}
 	doc, issues := workflowdefinition.Decode(b.Snapshot)
@@ -168,7 +184,7 @@ func bindingDocument(state State) (workflowdefinition.Document, bool) {
 			}
 		}
 	}
-	return doc, len(issues) == 0 && doc.Ref(b.Definition.Source) == b.Definition && string(doc.Canonical) == string(b.Snapshot)
+	return doc, len(issues) == 0 && doc.Definition.SchemaVersion == b.SchemaVersion && doc.Ref(b.Definition.Source) == b.Definition && string(doc.Canonical) == string(b.Snapshot)
 }
 
 func CurrentStage(state State) *workflowdefinition.Stage {

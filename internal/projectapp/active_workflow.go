@@ -45,6 +45,13 @@ func ResolveActiveWorkflow(state project.State, catalog workflowdefinition.Catal
 		return out
 	}
 	doc := workflowdefinition.Builtin()
+	if ref.Source == "builtin" {
+		var supported bool
+		doc, supported = workflowdefinition.BuiltinRevision(ref.Revision)
+		if !supported {
+			return out
+		}
+	}
 	if ref.Source == "project" {
 		found := false
 		for _, entry := range catalog.Index.Revisions {

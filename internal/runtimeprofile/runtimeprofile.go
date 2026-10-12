@@ -18,6 +18,7 @@ import (
 
 const (
 	FormatVersion         = 1
+	FormatVersionV2       = 2
 	MaxConfigurationBytes = 256 << 10
 	maxRuntimes           = 8
 	maxProfiles           = 32
@@ -47,6 +48,7 @@ type Runtime struct {
 }
 
 type ModelProfile struct {
+	Effort       Effort   `json:"-"`
 	ID           string   `json:"id"`
 	RuntimeID    string   `json:"runtimeId"`
 	Model        string   `json:"model"`
@@ -83,6 +85,7 @@ type Observation struct {
 	// NonInteractiveModelCapabilities proves capability for an exact local model
 	// in this observed executable/version's noninteractive invocation mode.
 	NonInteractiveModelCapabilities map[string]map[string]CapabilityStatus `json:"nonInteractiveModelCapabilities,omitempty"`
+	ProfileProofs                   []ProfileProof                         `json:"profileProofs,omitempty"`
 }
 
 type Observer interface {
@@ -98,15 +101,16 @@ type Request struct {
 }
 
 type Choice struct {
-	RuntimeID             string   `json:"runtimeId"`
-	Adapter               string   `json:"adapter"`
-	ModelProfileID        string   `json:"modelProfileId"`
-	Model                 string   `json:"model"`
-	Capabilities          []string `json:"capabilities"`
-	RuntimeVersion        string   `json:"runtimeVersion,omitempty"`
-	ExecutableDigest      string   `json:"executableDigest,omitempty"`
-	ConfigurationRevision uint64   `json:"configurationRevision"`
-	ObservationRevision   uint64   `json:"observationRevision"`
+	ResolvedProfile       *ResolvedProfile `json:"resolvedProfile,omitempty"`
+	RuntimeID             string           `json:"runtimeId"`
+	Adapter               string           `json:"adapter"`
+	ModelProfileID        string           `json:"modelProfileId"`
+	Model                 string           `json:"model"`
+	Capabilities          []string         `json:"capabilities"`
+	RuntimeVersion        string           `json:"runtimeVersion,omitempty"`
+	ExecutableDigest      string           `json:"executableDigest,omitempty"`
+	ConfigurationRevision uint64           `json:"configurationRevision"`
+	ObservationRevision   uint64           `json:"observationRevision"`
 }
 
 type Blocker struct {
@@ -140,6 +144,7 @@ func (r Resolver) Resolve(ctx context.Context, cfg Configuration, request Reques
 	profiles := profileMap(cfg.ModelProfiles)
 	candidates := make([]Choice, 0, len(cfg.ModelProfiles))
 	seenRuntimes := make([]string, 0, len(cfg.Runtimes))
+	observations := map[string]Observation{}
 	for _, runtime := range sortedRuntimes(cfg.Runtimes) {
 		seenRuntimes = append(seenRuntimes, runtime.ID)
 		if !runtime.Enabled {
@@ -149,12 +154,13 @@ func (r Resolver) Resolve(ctx context.Context, cfg Configuration, request Reques
 		if err != nil || !validObservation(runtime, cfg.Revision, observation) {
 			continue
 		}
+		observations[runtime.ID] = observation
 		for _, profileID := range sortedStrings(runtime.AllowlistedProfileIDs) {
 			if request.ModelProfileID != "" && request.ModelProfileID != profileID {
 				continue
 			}
 			profile := profiles[profileID]
-			if profile.RuntimeID != runtime.ID || !supports(profile, observation, request) {
+			if profile.RuntimeID != runtime.ID || !supportsCandidate(cfg.FormatVersion, profile, observation, request) {
 				continue
 			}
 			candidates = append(candidates, Choice{
@@ -187,15 +193,35 @@ func (r Resolver) Resolve(ctx context.Context, cfg Configuration, request Reques
 		}
 		return blocked("ambiguous_match", nil, sortedStrings(ids)), ErrAmbiguousMatch
 	}
+	if cfg.FormatVersion == FormatVersionV2 {
+		profile := profiles[candidates[0].ModelProfileID]
+		observation := observations[candidates[0].RuntimeID]
+		for _, c := range request.Capabilities {
+			if observation.CapabilityStatus[c] != CapabilityProven {
+				return blocked("capability_unproven", nil, []string{profile.ID}), ErrNoMatch
+			}
+		}
+		resolved, code := resolveProfile(cfg, profile, observation, request.Capabilities)
+		if code != "" {
+			return blocked(code, nil, []string{profile.ID}), ErrNoMatch
+		}
+		candidates[0].ResolvedProfile = &resolved
+	}
+	if !SafeIdentifier(candidates[0].ModelProfileID) || !SafeIdentifier(candidates[0].Model) || candidates[0].RuntimeVersion != "" && !SafeRuntimeVersion(candidates[0].RuntimeVersion) {
+		return blocked("unsafe_configuration", nil, nil), ErrNoMatch
+	}
 	return Result{Choice: &candidates[0]}, nil
 }
 
 func Validate(cfg Configuration) error {
-	if cfg.FormatVersion != FormatVersion || cfg.Revision == 0 || len(cfg.Runtimes) == 0 || len(cfg.Runtimes) > maxRuntimes || len(cfg.ModelProfiles) == 0 || len(cfg.ModelProfiles) > maxProfiles {
+	if (cfg.FormatVersion != FormatVersion && cfg.FormatVersion != FormatVersionV2) || cfg.Revision == 0 || len(cfg.Runtimes) == 0 || len(cfg.Runtimes) > maxRuntimes || len(cfg.ModelProfiles) == 0 || len(cfg.ModelProfiles) > maxProfiles {
 		return ErrInvalidConfiguration
 	}
 	runtimes := make(map[string]Runtime, len(cfg.Runtimes))
 	for _, runtime := range cfg.Runtimes {
+		if cfg.FormatVersion == FormatVersionV2 && (runtime.CredentialReference != "" || len(runtime.AllowlistedProfileIDs) == 0) {
+			return ErrInvalidConfiguration
+		}
 		if !validToken(runtime.ID) || (runtime.Adapter != "codex" && runtime.Adapter != "claude") || runtime.ID != runtime.Adapter || !validReference(runtime.CredentialReference) || len(runtime.AllowlistedProfileIDs) > maxProfiles {
 			return ErrInvalidConfiguration
 		}
@@ -206,6 +232,12 @@ func Validate(cfg Configuration) error {
 	}
 	profiles := make(map[string]ModelProfile, len(cfg.ModelProfiles))
 	for _, profile := range cfg.ModelProfiles {
+		if cfg.FormatVersion == FormatVersion && profile.Effort != (Effort{}) {
+			return ErrInvalidConfiguration
+		}
+		if cfg.FormatVersion == FormatVersionV2 && !validV2Profile(profile) {
+			return ErrInvalidConfiguration
+		}
 		if !validToken(profile.ID) || !validText(profile.Model) || !validTokens(profile.Capabilities, false) || !validTokens(profile.Complexities, true) {
 			return ErrInvalidConfiguration
 		}
@@ -279,7 +311,7 @@ func Encode(cfg Configuration) ([]byte, error) {
 }
 
 func Decode(wire []byte) (Configuration, error) {
-	if len(wire) == 0 || len(wire) > MaxConfigurationBytes {
+	if len(wire) == 0 || len(wire) > MaxConfigurationBytes || !uniqueJSON(wire) {
 		return Configuration{}, ErrInvalidConfiguration
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(wire)))
@@ -290,6 +322,37 @@ func Decode(wire []byte) (Configuration, error) {
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || Validate(cfg) != nil {
 		return Configuration{}, ErrInvalidConfiguration
+	}
+	if cfg.FormatVersion == FormatVersionV2 {
+		if !closedConfigurationV2(wire) {
+			return Configuration{}, ErrInvalidConfiguration
+		}
+		var raw struct {
+			Runtimes []map[string]json.RawMessage `json:"runtimes"`
+		}
+		if json.Unmarshal(wire, &raw) != nil {
+			return Configuration{}, ErrInvalidConfiguration
+		}
+		for _, r := range raw.Runtimes {
+			if _, exists := r["credentialReference"]; exists {
+				return Configuration{}, ErrInvalidConfiguration
+			}
+		}
+	}
+	if cfg.FormatVersion == FormatVersion {
+		var raw struct {
+			Profiles []map[string]json.RawMessage `json:"modelProfiles"`
+		}
+		if json.Unmarshal(wire, &raw) != nil {
+			return Configuration{}, ErrInvalidConfiguration
+		}
+		for _, p := range raw.Profiles {
+			for key := range p {
+				if strings.EqualFold(key, "effort") {
+					return Configuration{}, ErrInvalidConfiguration
+				}
+			}
+		}
 	}
 	return cfg, nil
 }
@@ -326,6 +389,12 @@ func preferredProfile(preferences []Preference, request Request) string {
 }
 
 func blocked(code string, runtimes, profiles []string) Result {
+	profiles = append([]string(nil), profiles...)
+	for i, id := range profiles {
+		if !SafeIdentifier(id) {
+			profiles[i] = "redacted"
+		}
+	}
 	return Result{Blocker: &Blocker{Code: code, RuntimeIDs: runtimes, ProfileIDs: profiles}}
 }
 
@@ -393,3 +462,18 @@ func validReference(value string) bool {
 }
 
 func (b Blocker) Error() string { return fmt.Sprintf("runtime resolution blocked: %s", b.Code) }
+
+func supportsCandidate(version int, p ModelProfile, o Observation, r Request) bool {
+	if version == FormatVersion {
+		return supports(p, o, r)
+	}
+	if len(p.Complexities) > 0 && !contains(p.Complexities, r.Complexity) {
+		return false
+	}
+	for _, c := range r.Capabilities {
+		if strings.HasPrefix(c, "reasoning-effort-") || !contains(p.Capabilities, c) {
+			return false
+		}
+	}
+	return true
+}

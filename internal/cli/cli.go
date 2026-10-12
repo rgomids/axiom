@@ -175,6 +175,7 @@ type Result struct {
 	Context           *projectapp.EffectiveContext
 	Setup             *projectapp.SetupPreview
 	Edit              *projectapp.EditPreview
+	RuntimeAuthoring  *runtimeapplication.AuthoringReport
 	RuntimeResolution *runtimeapplication.Preview
 	ExecutionTarget   *ExecutionTargetView
 	// RuntimeAuth is the sanitized authentication preflight report.
@@ -360,6 +361,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 		if failure != nil {
 			return emitResponse(stdout, mode, "project_context", *failure)
 		}
+	}
+	if handled, code := runRuntimeAuthoring(ctx, mode, args, service, source, stdout); handled {
+		return code
 	}
 	if commandMatches(args, runtimeProfilePreviewAction) {
 		input, ok := runtimePreviewFlags(args[3:])
@@ -1240,15 +1244,16 @@ func dispatch(ctx context.Context, operation action, input requestInput, service
 }
 
 type event struct {
-	NextAction        string                      `json:"nextAction,omitempty"`
-	Operation         action                      `json:"operation"`
-	Status            Status                      `json:"status"`
-	Category          string                      `json:"category"`
-	Project           *ProjectView                `json:"project,omitempty"`
-	WorkItem          *WorkItemView               `json:"workItem,omitempty"`
-	Workflow          *WorkflowView               `json:"workflow,omitempty"`
-	Setup             *projectapp.SetupPreview    `json:"setup,omitempty"`
-	Runtime           *RuntimeView                `json:"runtime,omitempty"`
+	NextAction        string                   `json:"nextAction,omitempty"`
+	Operation         action                   `json:"operation"`
+	Status            Status                   `json:"status"`
+	Category          string                   `json:"category"`
+	Project           *ProjectView             `json:"project,omitempty"`
+	WorkItem          *WorkItemView            `json:"workItem,omitempty"`
+	Workflow          *WorkflowView            `json:"workflow,omitempty"`
+	Setup             *projectapp.SetupPreview `json:"setup,omitempty"`
+	Runtime           *RuntimeView             `json:"runtime,omitempty"`
+	RuntimeAuthoring  *runtimeapplication.AuthoringReport
 	RuntimeResolution *runtimeapplication.Preview `json:"runtimeResolution,omitempty"`
 	PreviewDigest     string                      `json:"previewDigest,omitempty"`
 	Projection        *workflow.ProjectionPreview `json:"projection,omitempty"`

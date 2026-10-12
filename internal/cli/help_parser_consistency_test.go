@@ -30,6 +30,12 @@ func TestHelpDocumentedFlagsParseWithExecutionRegistrations(t *testing.T) {
 				switch f.Name {
 				case "repository", "repository-remote", "technology", "runtime-preference", "documentation", "glossary":
 					value = "sample=value"
+				case "enabled":
+					value = "true"
+				case "agent-profile":
+					value = "intake:owner:sample"
+				case "profile-effort":
+					value = "sample:runtime-default:default"
 				case "elaborated-section":
 					value = "problem=Sample problem"
 				}

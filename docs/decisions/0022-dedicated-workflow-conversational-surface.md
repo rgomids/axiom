@@ -124,6 +124,9 @@ portable Project model fields and current schema limits, is preserved until
 an independently reviewed migration. Missing, inconsistent or ambiguous
 configuration fails closed; no silent Runtime/Model fallback.
 
+> Superseded by [ADR-0024 — Model Profile owns effort with versioned execution bindings](0024-model-profile-effort-ownership.md#decision), accepted 2026-10-11.
+> Only the Stage/Agent-owned configurable effort in the paragraph above is superseded for future versioned contracts. Other scope/resolution boundaries and historical v1 meaning remain in force.
+
 The [#231](https://github.com/rgomids/axiom/issues/231) Project readiness
 contract provides the existing diagnostic owner for Repository bindings,
 Provider availability and Project/runtime compatibility. A future aggregate

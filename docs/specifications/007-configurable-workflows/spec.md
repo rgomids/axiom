@@ -193,6 +193,9 @@ concurrency 1 and every non-first agent depending on its immediate predecessor;
 `dag` allows independent nodes. Stage limits and the approved Plan may narrow
 effects/attempts/concurrency; they cannot exceed definition or operator ceilings.
 
+> Partially superseded by [ADR-0024 — Model Profile owns effort with versioned execution bindings](../../decisions/0024-model-profile-effort-ownership.md#decision) and the [accepted #306 amendment](amendment-306-profile-effort-onboarding.md), accepted 2026-10-11.
+> Only configurable Agent/Workflow effort changes for schema 2 and new versioned bindings. The text above remains the historical v1 contract; role, complexity, ceilings and historical records remain unchanged.
+
 `failurePolicy` fixes `onFailure: block`, `onUnknown: reconcile`, and
 `retry: explicit`. Fail/timeout blocks dependent work; cancellation prevents new
 dispatch, requests bounded stopping and preserves confirmed/unknown effects.
@@ -373,6 +376,9 @@ effective local CLI authentication without hidden API prerequisites. Observation
 drift demands a fresh authorized proposal. Default is usable without selecting a
 concrete model/effort; missing local Runtime setup remains an honest readiness gap.
 
+> Partially superseded by [ADR-0024 — Model Profile owns effort with versioned execution bindings](../../decisions/0024-model-profile-effort-ownership.md#decision) and the [accepted #306 amendment](amendment-306-profile-effort-onboarding.md), accepted 2026-10-11.
+> Only configurable Agent/Workflow effort changes for schema 2 and new versioned bindings. The text above remains the historical v1 contract; role, complexity, ceilings and historical records remain unchanged.
+
 ## Public operations and boundary DTOs (WF-009/011/013)
 
 These are **proposed interfaces**, not commands available at this revision.
@@ -433,6 +439,9 @@ executionKind, resolutions[], validatorRefs[], gateRefs[], blockers[]}`.
 observationRevision, requestedEffort, effectiveEffort, capabilityEvidenceRef}`.
 These fields are required except graphProposalRef for a single-agent path;
 resolutions exist only when successful. No unresolved placeholder is dispatchable.
+
+> Partially superseded by [ADR-0024 — Model Profile owns effort with versioned execution bindings](../../decisions/0024-model-profile-effort-ownership.md#decision) and the [accepted #306 amendment](amendment-306-profile-effort-onboarding.md), accepted 2026-10-11.
+> Only configurable Agent/Workflow effort changes for schema 2 and new versioned bindings. Stage Plan v2 uses Profile effort/provenance; the DTO above remains the historical v1 contract; role, complexity, ceilings and historical records remain unchanged.
 
 Canonical result retains existing completion `status`, provenance-marked
 `result`, `references`, `next`, `details`, `provenance`; application payload adds

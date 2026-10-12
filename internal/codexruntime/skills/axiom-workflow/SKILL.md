@@ -11,7 +11,7 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, authority metadata, and
 executable command metadata; do not maintain a second argument registry here.
 
-Supported domain operations are `definition.list`, `definition.show`, `definition.create`, `definition.edit`, `definition.validate`, `definition.remove`, `definition.recover`, and `configuration.readiness`.
+Supported domain operations are `definition.list`, `definition.show`, `definition.create`, `definition.edit`, `definition.validate`, `definition.remove`, `definition.recover`, `definition.migrate`, and `configuration.readiness`.
 Any other operation is unsupported: report that it is unavailable and run no
 Lingo command for it. Project selects, Workflow configures, Work Item runs,
 Execution performs. Selection belongs to `axiom-project`; execution and stage
@@ -29,6 +29,7 @@ Dispatch (#276) and delivery/rework (#277) are unavailable in this slice.
 | `definition.validate` | - | `axiom project workflow validate --project <uuid-or-slug>` | read-only | none | allowed |
 | `definition.remove` | - | `axiom project workflow remove --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
 | `definition.recover` | - | `axiom project workflow recover --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
+| `definition.migrate` | - | `axiom project workflow migrate --project <uuid-or-slug>` | local mutation | preview first; exact `--expected-revision`, `--preview-digest` plus `--authorize-local` | only for unambiguous workflow intent |
 | `configuration.readiness` | configuration | `axiom runtime profile validate`, `axiom runtime profile preview` | read-only | none | allowed |
 | `configuration.readiness` | runtime | `axiom runtime codex status`, `axiom runtime claude status` | read-only | none | allowed |
 | `configuration.readiness` | authentication | `axiom runtime codex auth`, `axiom runtime claude auth` | read-only | none | allowed |
@@ -129,3 +130,16 @@ Lingo prints the canonical completion fields in its summary and provenance
 footer, and each operation-specific payload under its own name in JSON order.
 Never derive, synthesize, or reinterpret a canonical field from an
 operation-specific payload. Skill text grants no local or Provider authority.
+
+## Profile effort versions
+
+Workflow schema 1 remains historical and owns its old Agent `effort` meaning.
+Schema 2 forbids Agent effort and reasoning-effort capability overrides; exact
+selected local Model Profile owns effort. To prepare current default-sdd intent,
+use create with `--from-default --default-revision 2`; no Runtime, model or effort
+is chosen by the template. Multiple viable Profiles/Runtimes remain ambiguous.
+Explicit schema migration uses canonical `definition.migrate`, exact prior ref
+and per-Agent `--agent-profile` mappings. Present every old requested effort and
+new Profile effort comparison, including changed behavior. Confirm only that
+new immutable revision; selection/start/policy/local Profile edits are separate.
+Historical definitions and Executions retain bytes and meaning.

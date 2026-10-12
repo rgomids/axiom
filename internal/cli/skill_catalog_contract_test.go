@@ -32,7 +32,7 @@ func TestCanonicalRoutingContract(t *testing.T) {
 		}
 	}
 	expected := []string{}
-	for _, name := range []string{"axiom-project", "axiom-work-item", "axiom-workflow"} {
+	for _, name := range []string{"axiom-project", "axiom-work-item", "axiom-workflow", "axiom-runtime"} {
 		source, err := os.ReadFile("../codexruntime/skills/" + name + "/SKILL.md")
 		if err != nil {
 			t.Fatal(err)
@@ -142,7 +142,7 @@ func TestCatalogActionOwnershipIsExclusive(t *testing.T) {
 			t.Fatalf("duplicate Project authoring route: %s", operation.Name)
 		}
 	}
-	want := []string{"definition.list", "definition.show", "definition.create", "definition.edit", "definition.validate", "definition.remove", "definition.recover", "configuration.readiness"}
+	want := []string{"definition.list", "definition.show", "definition.create", "definition.edit", "definition.validate", "definition.remove", "definition.recover", "definition.migrate", "configuration.readiness"}
 	got := []string{}
 	for _, operation := range discoverForTest(t, "axiom-workflow").Operations {
 		got = append(got, operation.Name)

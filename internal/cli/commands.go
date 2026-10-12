@@ -2,6 +2,7 @@ package cli
 
 import (
 	"flag"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"io"
 	"runtime"
 	"strings"
@@ -33,7 +34,8 @@ func commandTree() commandDefinition {
 		group("runtime", "Manage Runtime integrations and profile policy",
 			group("codex", "Codex integration", leaf("install", "Install user-global skills", codexInstallAction), leaf("status", "Inspect integration", codexStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", codexAuthAction)),
 			group("claude", "Claude integration", leaf("install", "Install user-global skills", claudeInstallAction), leaf("status", "Inspect integration", claudeStatusAction), leaf("auth", "Inspect subscription authentication (read-only)", claudeAuthAction)),
-			group("profile", "Inspect local profile policy", leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Preview Runtime resolution", runtimeProfilePreviewAction))),
+			group("binding", "Author machine-local Runtime bindings", runtimeAuthoringCommands("binding")...),
+			group("profile", "Inspect and author local Profiles", append([]commandDefinition{leaf("validate", "Validate local configuration", runtimeProfileValidateAction), leaf("preview", "Preview Runtime resolution", runtimeProfilePreviewAction)}, runtimeAuthoringCommands("profile")...)...)),
 		group("project", "Configure and inspect Projects",
 			workflowAuthoringCommands(),
 			leaf("configure", "Preview CREATE or EDIT; publish with exact authority", configureAction),
@@ -127,6 +129,8 @@ func commandByAction(operation action) (*commandDefinition, []string) {
 
 func commandFlagSet(operation action) *flag.FlagSet {
 	switch {
+	case strings.HasPrefix(string(operation), "runtime_authoring_"):
+		return runtimeAuthoringFlagSet(operation, &runtimeapplication.AuthoringRequest{})
 	case strings.HasPrefix(string(operation), "project_workflow_"):
 		return workflowAuthoringFlagSet(operation, &ProjectWorkflowInput{})
 	case operation == windowsPermissionsRestoreAction:

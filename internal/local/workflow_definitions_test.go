@@ -11,6 +11,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -315,5 +316,63 @@ func TestWorkflowPublicationRejectsUnindexedDocumentBeforeEffects(t *testing.T) 
 	}
 	if current, err := store.Read(ctx, "sample"); err != nil || string(current) != string(wire) {
 		t.Fatalf("invalid publication altered readable Project: %v", err)
+	}
+}
+
+func TestWorkflowMigrationPublicationRefusesSameBytesProfileReplacement(t *testing.T) {
+	ctx := context.Background()
+	f := newEditPublicationFixture(t)
+	observed, category := f.installation.Inspect(ctx, editTestProjectID)
+	if category != "" {
+		t.Fatal(category)
+	}
+	manifestWire, err := f.portable.Read(ctx, "sample")
+	if err != nil {
+		t.Fatal(err)
+	}
+	profiles, err := NewRuntimeProfileStore(f.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := profiles.Inspect(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	active, err := profiles.Publish(ctx, fresh.Token, authoringWire(t, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := runtimeprofile.Digest(active.Configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := workflowdefinition.Builtin().Definition
+	d.WorkflowID = "migrated"
+	doc, issues := workflowdefinition.Encode(d)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	index, err := EncodeWorkflowIndex(WorkflowIndex{SchemaVersion: 1, Revisions: []WorkflowEntry{{WorkflowID: d.WorkflowID, Revision: 1, Digest: doc.Digest, State: "published"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(f.state, "runtime-profiles", "v1", "configuration.json")
+	wire, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement := filepath.Join(filepath.Dir(path), "same-bytes.json")
+	if err := os.WriteFile(replacement, wire, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(replacement, path); err != nil {
+		t.Fatal(err)
+	}
+	err = f.installation.PublishWorkflowWithProfile(ctx, digest, active.Token, f.portable, editTestProjectID, "sample", observed.Wire, manifestWire, nil, &doc, index)
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("same-byte replacement reused authority: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(f.source, "workflows")); !os.IsNotExist(err) {
+		t.Fatal("refused migration published a Workflow")
 	}
 }

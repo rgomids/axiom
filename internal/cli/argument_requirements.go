@@ -121,6 +121,9 @@ func missingRequiredInputs(operation action, values requestInput, names ...strin
 func repeatableFlags(set *flag.FlagSet) map[string]bool {
 	result := make(map[string]bool)
 	set.VisitAll(func(f *flag.Flag) {
+		if f.Name == "profile-effort" || f.Name == "agent-profile" {
+			result[f.Name] = true
+		}
 		switch f.Value.(type) {
 		case *repositoryFlags, *elaboratedSectionFlags:
 			result[f.Name] = true

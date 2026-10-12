@@ -14,6 +14,7 @@ import (
 )
 
 var ErrInvalidComposition = errors.New("invalid local graph execution composition")
+var ErrLegacyExecutionContract = errors.New("legacy_execution_contract")
 
 type LocalConfiguration struct {
 	Repository, WorkspaceRoot, BaseRevision string
@@ -26,6 +27,7 @@ type LocalConfiguration struct {
 	// SubscriptionAuth, when set, enforces the CLI subscription scenario
 	// (#272): every dispatch re-runs the authentication preflight on the
 	// effective child invocation and refuses credential references.
+	EffortSources     EffortSourceInspector
 	SubscriptionAuth  SubscriptionAuthenticator
 	Validators        []gitworkspace.ValidationCommand
 	AllocateAttemptID func() (string, error)
@@ -47,6 +49,9 @@ type LocalService struct {
 }
 
 func NewLocalService(ctx context.Context, configuration LocalConfiguration) (*LocalService, error) {
+	if configuration.Graph.FormatVersion != 2 {
+		return nil, ErrLegacyExecutionContract
+	}
 	if configuration.RuntimePolicy == nil || len(configuration.RuntimePreviews) != len(configuration.Graph.Children) {
 		return nil, ErrInvalidComposition
 	}
@@ -96,6 +101,9 @@ func (s *LocalService) PrepareWorkspaces(ctx context.Context) ([]gitworkspace.Wo
 func (s *LocalService) DispatchReady(ctx context.Context, retryChildIDs map[string]bool, cancelRequested bool) (executiongraph.DispatchResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.graph.FormatVersion != 2 {
+		return executiongraph.DispatchResult{}, ErrLegacyExecutionContract
+	}
 	result, err := s.scheduler.DispatchReady(ctx, executiongraph.DispatchRequest{Graph: s.graph, RetryChildIDs: retryChildIDs, CancelRequested: cancelRequested})
 	if err != nil {
 		return result, err

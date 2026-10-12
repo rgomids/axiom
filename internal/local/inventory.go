@@ -272,7 +272,7 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 						if state, err := decodeExecution(wire); err == nil && state.ProjectID == id && executionName(state.RepositoryKey, state.WorkItem) == file {
 							return InventoryExecution
 						}
-						return versionedFailureWithin(wire, 2)
+						return versionedFailureWithin(wire, 3)
 					})
 				})
 			})
@@ -363,7 +363,7 @@ func classifyCreateAttempt(projectID, file string, wire []byte) InventoryKind {
 func (w *inventoryWalk) classifyGraph(projectID, file string, wire []byte) InventoryKind {
 	graph, err := executiongraph.DecodeGraph(wire)
 	if err != nil {
-		return versionedFailure(wire)
+		return versionedFailureWithin(wire, 2)
 	}
 	if !graphStoredAt(graph, projectID, file) {
 		return InventoryMalformed
@@ -424,7 +424,10 @@ func walkRuntimeProfilesV1(w *inventoryWalk, version *os.Root, relative string) 
 		if _, err := runtimeprofile.Decode(wire); err == nil {
 			return w.add(childRelative, InventoryRuntimeProfile, wire)
 		}
-		return w.add(childRelative, versionedFailure(wire), wire)
+		if _, err := runtimeprofile.DecodeTombstone(wire); err == nil {
+			return w.add(childRelative, InventoryRuntimeProfile, wire)
+		}
+		return w.add(childRelative, versionedFailureWithin(wire, 2), wire)
 	})
 }
 

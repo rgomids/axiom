@@ -60,7 +60,11 @@ func (r workflowDefinitions) ResolveDefinition(ctx context.Context, selector str
 	ref := workflowdefinition.Ref{WorkflowID: selected.WorkflowID, Revision: selected.Revision, Digest: selected.Digest, Source: selected.Source}
 	var doc workflowdefinition.Document
 	if ref.Source == "builtin" {
-		doc = workflowdefinition.Builtin()
+		var supported bool
+		doc, supported = workflowdefinition.BuiltinRevision(ref.Revision)
+		if !supported {
+			return workflow.DefinitionObservation{}, "recovery_required"
+		}
 	} else {
 		published := false
 		for _, entry := range catalog.Index.Revisions {

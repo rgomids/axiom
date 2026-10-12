@@ -10,8 +10,10 @@ import (
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
+	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 const authoredPolicyManifest = `schemaVersion: 2
@@ -102,7 +104,7 @@ func TestAuthoredPolicyPreviewThenStartBothRuntimes(t *testing.T) {
 				t.Fatal(err)
 			}
 			runCLI(t, env.service, []string{"project", "install", "--source", source, "--repository", "main=" + repository}, cli.ExitSuccess, "installed")
-			selectBuiltinForTest(t, env.state, "123e4567-e89b-42d3-a456-426614174000")
+			selectProfileBuiltinForTest(t, env.service.(lifecycleService), "authored")
 			store, err := local.NewRuntimeProfileStore(env.state)
 			if err != nil {
 				t.Fatal(err)
@@ -116,6 +118,7 @@ func TestAuthoredPolicyPreviewThenStartBothRuntimes(t *testing.T) {
 			}
 			// Only one Runtime is observable; the other declared one is absent.
 			service, _ := testRuntime(t, env.service.(lifecycleService), runtimeID)
+			service = currentProfileStartFixture(t, service, env.state)
 			saveTargetLink(t, env.state, "123e4567-e89b-42d3-a456-426614174000", "7", "owner/repo")
 			input := cli.WorkflowInput{Project: "authored", Repository: "main", Number: 7, Role: "review", Complexity: "low", Capabilities: []string{runtimeadapter.IntegrationCapability}}
 			preview := service.WorkflowStart(context.Background(), input)
@@ -129,5 +132,42 @@ func TestAuthoredPolicyPreviewThenStartBothRuntimes(t *testing.T) {
 				t.Fatalf("reviewed start still blocked by policy: %+v", started.RuntimeResolution)
 			}
 		})
+	}
+}
+
+func selectProfileBuiltinForTest(t *testing.T, s lifecycleService, selector string) {
+	t.Helper()
+	resolved := s.installation.Resolve(context.Background(), selector)
+	if resolved.Status != local.ResolutionFound {
+		t.Fatal("current builtin fixture Project unresolved")
+	}
+	record, category := s.installation.Inspect(context.Background(), resolved.Project.ID)
+	if category != "" {
+		t.Fatal(category)
+	}
+	// Fixture setup explicitly owns the external source for this scoped authoring
+	// call; the tested service keeps its original source roots afterward.
+	s.projectsRoot = filepath.Dir(record.Record.State().SourceLocation)
+	var err error
+	s.portable, err = local.NewPortableStore(s.projectsRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d, _ := workflowdefinition.BuiltinRevision(2)
+	ref := d.Ref("builtin")
+	r := cli.ProjectWorkflowInput{WorkflowRequest: projectapp.WorkflowRequest{Operation: "select", Project: selector, Ref: ref}}
+	p := s.ProjectWorkflow(context.Background(), r)
+	if p.Category == "unchanged" {
+		return
+	}
+	if p.WorkflowAuthoring == nil || p.Category != "previewed" {
+		t.Fatalf("current builtin selection preview: %+v", p)
+	}
+	r.ExpectedRevision = p.WorkflowAuthoring.ProjectRevision
+	r.PreviewDigest = p.WorkflowAuthoring.PreviewDigest
+	r.AuthorizeLocal = true
+	if applied := s.ProjectWorkflow(context.Background(), r); applied.Category != "applied" {
+		t.Fatalf("current builtin selection apply: %+v", applied)
 	}
 }

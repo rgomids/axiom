@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -71,14 +72,17 @@ type GateRef struct {
 // Resolution is one agent's resolved Runtime/Profile selection. Effective
 // effort is "default" (no override) or the exact capability-proven value.
 type Resolution struct {
-	AgentID               string                    `json:"agentId"`
-	RuntimeID             string                    `json:"runtimeId"`
-	ModelProfileID        string                    `json:"modelProfileId"`
-	ConfigurationRevision uint64                    `json:"configurationRevision"`
-	ObservationRevision   uint64                    `json:"observationRevision"`
-	RequestedEffort       workflowdefinition.Effort `json:"requestedEffort"`
-	EffectiveEffort       string                    `json:"effectiveEffort"`
-	CapabilityEvidenceRef string                    `json:"capabilityEvidenceRef"`
+	ProfileEffort         *runtimeprofile.Effort          `json:"profileEffort,omitempty"`
+	EffortSource          string                          `json:"effortSource,omitempty"`
+	ResolvedProfile       *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
+	AgentID               string                          `json:"agentId"`
+	RuntimeID             string                          `json:"runtimeId"`
+	ModelProfileID        string                          `json:"modelProfileId"`
+	ConfigurationRevision uint64                          `json:"configurationRevision"`
+	ObservationRevision   uint64                          `json:"observationRevision"`
+	RequestedEffort       workflowdefinition.Effort       `json:"requestedEffort"`
+	EffectiveEffort       string                          `json:"effectiveEffort"`
+	CapabilityEvidenceRef string                          `json:"capabilityEvidenceRef"`
 }
 
 type StagePlanRequest struct {
@@ -115,15 +119,30 @@ type StagePlan struct {
 // wraps it in the canonical StagePlan. It has no dispatch, persistence or
 // effect port: a returned plan is inspection data, never authority.
 func (c Compiler) PlanStage(ctx context.Context, request StagePlanRequest) (StagePlan, error) {
+	return c.planStage(ctx, request, request.Compile.Definition.Definition.SchemaVersion == 2)
+}
+func (c Compiler) PlanStageV2(ctx context.Context, request StagePlanRequest) (StagePlan, error) {
+	return c.planStage(ctx, request, true)
+}
+func (c Compiler) planStage(ctx context.Context, request StagePlanRequest, v2 bool) (StagePlan, error) {
 	if request.Execution.ExecutionID == "" || request.Execution.Revision == 0 || !workflowdefinition.ValidDigest(request.PlanDocumentDigest) {
 		return StagePlan{}, ErrInvalidRequest
 	}
-	compiled, err := c.Compile(ctx, request.Compile)
+	var compiled Result
+	var err error
+	if v2 {
+		compiled, err = c.CompileV2(ctx, request.Compile)
+	} else {
+		compiled, err = c.Compile(ctx, request.Compile)
+	}
 	if err != nil {
 		return StagePlan{}, err
 	}
 	stage, _ := validateRequest(request.Compile)
 	plan := StagePlan{FormatVersion: StagePlanFormatVersion, Execution: request.Execution, ProjectID: request.Compile.ProjectID, RepositoryKey: request.Compile.RepositoryKey, Workflow: compiled.Workflow, StageID: compiled.StageID, ExecutionKind: compiled.ExecutionKind, Plan: PlanRef{ID: compiled.PlanRevision, Revision: compiled.PlanRevision, Digest: compiled.PlanDigest}, PlanDocumentDigest: request.PlanDocumentDigest, Resolutions: make([]Resolution, 0, len(compiled.Agents)), ValidatorRefs: []string{}, GateRefs: []GateRef{}, Blockers: []string{}, Compilation: compiled}
+	if v2 {
+		plan.FormatVersion = 2
+	}
 	if compiled.Proposal != nil {
 		plan.GraphProposal = &GraphProposalRef{PlanRevision: compiled.Proposal.PlanRevision, Digest: compiled.Proposal.Digest}
 	}
@@ -135,6 +154,16 @@ func (c Compiler) PlanStage(ctx context.Context, request StagePlanRequest) (Stag
 			effective = agent.Input.RequestedEffort.Value
 		}
 		plan.Resolutions = append(plan.Resolutions, Resolution{AgentID: agent.AgentID, RuntimeID: agent.Choice.RuntimeID, ModelProfileID: agent.Choice.ModelProfileID, ConfigurationRevision: agent.Choice.ConfigurationRevision, ObservationRevision: agent.Choice.ObservationRevision, RequestedEffort: agent.Input.RequestedEffort, EffectiveEffort: effective, CapabilityEvidenceRef: "runtime-observation:" + agent.Choice.RuntimeID + ":" + preview.ObservationDigest})
+		if v2 {
+			resolution := &plan.Resolutions[len(plan.Resolutions)-1]
+			resolution.ProfileEffort = agent.Input.ProfileEffort
+			resolution.EffortSource = "local-model-profile"
+			resolution.ResolvedProfile = agent.Input.ResolvedProfile
+			if resolution.ProfileEffort.Mode == "explicit" {
+				resolution.EffectiveEffort = resolution.ProfileEffort.Value
+			}
+			resolution.CapabilityEvidenceRef = resolution.ResolvedProfile.CapabilityProofReference
+		}
 		inputRefs = append(inputRefs, agent.InputReference)
 	}
 	sort.Slice(plan.Resolutions, func(i, j int) bool { return plan.Resolutions[i].AgentID < plan.Resolutions[j].AgentID })
@@ -175,6 +204,8 @@ type Failure struct {
 // refusal categories. Unknown errors stay a generic invalid plan.
 func ClassifyFailure(err error) Failure {
 	switch {
+	case errors.Is(err, ErrWorkflowMigrationRequired):
+		return Failure{Category: "workflow_migration_required"}
 	case errors.Is(err, ErrUnsupportedEffort):
 		return Failure{Category: "unsupported_effort"}
 	case errors.Is(err, ErrRuntimeBlocked), errors.Is(err, executiongraph.ErrUnresolvable):
@@ -190,4 +221,18 @@ func ClassifyFailure(err error) Failure {
 func digestOf(wire []byte) string {
 	hash := sha256.Sum256(wire)
 	return hex.EncodeToString(hash[:])
+}
+
+func (resolution Resolution) MarshalJSON() ([]byte, error) {
+	type wire Resolution
+	b, err := json.Marshal(wire(resolution))
+	if err != nil || resolution.EffortSource == "" {
+		return b, err
+	}
+	var object map[string]json.RawMessage
+	if err = json.Unmarshal(b, &object); err != nil {
+		return nil, err
+	}
+	delete(object, "requestedEffort")
+	return json.Marshal(object)
 }

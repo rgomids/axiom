@@ -12,6 +12,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -211,7 +212,7 @@ func validateWorkflowSelection(wire []byte, c WorkflowCatalog) error {
 	}
 	ref := workflowdefinition.Ref{WorkflowID: selected.WorkflowID, Revision: selected.Revision, Digest: selected.Digest, Source: selected.Source}
 	if ref.Source == "builtin" {
-		if ref != workflowdefinition.Builtin().Ref("builtin") {
+		if !workflowdefinition.IsBuiltin(ref) {
 			return ErrUnsafe
 		}
 		return nil
@@ -443,6 +444,12 @@ func (s PortableStore) WithWorkflowIndex(expected []byte) PortableStore {
 // PublishWorkflow holds the same local chain locks as Project edits before
 // acquiring the portable lock, preventing a binding edit from racing authority.
 func (s InstallationStore) PublishWorkflow(ctx context.Context, portable PortableStore, projectID, slug string, expectedLocal, expectedManifest, expectedIndex []byte, doc *workflowdefinition.Document, nextIndex []byte) error {
+	return s.PublishWorkflowWithProfile(ctx, "", "", portable, projectID, slug, expectedLocal, expectedManifest, expectedIndex, doc, nextIndex)
+}
+
+// PublishWorkflowWithProfile checks migration input under the same state-root
+// lock that serializes Runtime Profile mutation. It performs only Workflow writes.
+func (s InstallationStore) PublishWorkflowWithProfile(ctx context.Context, profileDigest, profileToken string, portable PortableStore, projectID, slug string, expectedLocal, expectedManifest, expectedIndex []byte, doc *workflowdefinition.Document, nextIndex []byte) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -468,10 +475,38 @@ func (s InstallationStore) PublishWorkflow(ctx context.Context, portable Portabl
 		return err
 	}
 	defer closeFiles(locks)
+	checkProfile := func() error {
+		if profileDigest == "" && profileToken == "" {
+			return nil
+		}
+		if profileDigest == "" || profileToken == "" {
+			return ErrConflict
+		}
+		profiles, e := NewRuntimeProfileStore(s.root)
+		if e != nil {
+			return ErrConflict
+		}
+		snapshot, e := profiles.Inspect(ctx)
+		if e != nil || snapshot.State != "active-v2" || snapshot.Token != profileToken {
+			return ErrConflict
+		}
+		actual, e := runtimeprofile.Digest(snapshot.Configuration)
+		if e != nil || actual != profileDigest {
+			return ErrConflict
+		}
+		return nil
+	}
+	if err := checkProfile(); err != nil {
+		return err
+	}
+
 	if category := installationDirectoryIssue(target); category != "" {
 		return ErrRecoveryRequired
 	}
 	check := func() error {
+		if err := checkProfile(); err != nil {
+			return err
+		}
 		for _, entry := range []struct {
 			handle *os.Root
 			path   string

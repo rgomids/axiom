@@ -13,7 +13,7 @@ var _ cli.RuntimeProfileService = lifecycleService{}
 
 func (s lifecycleService) RuntimeProfileValidate(ctx context.Context) cli.Result {
 	failure := func() cli.Result {
-		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Runtime profile configuration is missing or invalid", nil, "Provide valid local runtime profile configuration and retry validation", s.provenance)
+		return canonicalCompletion(completion.Facts{ValidationFailed: true}, "Runtime profile configuration is missing or invalid", nil, "Use axiom-runtime to inspect state and prepare explicit local setup, migration or scoped recovery", s.provenance)
 	}
 	store, err := local.NewRuntimeProfileStore(s.stateRoot)
 	if err != nil {
@@ -26,5 +26,9 @@ func (s lifecycleService) RuntimeProfileValidate(ctx context.Context) cli.Result
 	if err := runtimeprofile.Validate(cfg); err != nil {
 		return failure()
 	}
-	return canonicalCompletion(completion.Facts{Completed: true}, "Runtime profile configuration is valid", nil, "", s.provenance)
+	next := ""
+	if cfg.FormatVersion == 1 {
+		next = "Historical configuration is structurally valid; use axiom-runtime for explicit effort migration before current admission"
+	}
+	return canonicalCompletion(completion.Facts{Completed: true}, "Runtime profile configuration is valid", nil, next, s.provenance)
 }

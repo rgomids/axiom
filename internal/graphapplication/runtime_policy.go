@@ -2,6 +2,7 @@ package graphapplication
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -24,6 +25,7 @@ type policyInvocations struct {
 	invocations    executiongraph.InvocationResolver
 	auth           SubscriptionAuthenticator
 	authentication *authenticationLedger
+	effortSources  EffortSourceInspector
 }
 
 // SubscriptionAuthenticator is the machine-local CLI subscription
@@ -59,7 +61,7 @@ func (l *authenticationLedger) reports() []runtimeadapter.AuthReport {
 }
 
 func newPolicyInvocations(cfg LocalConfiguration, invocations executiongraph.InvocationResolver) (policyInvocations, error) {
-	guard := policyInvocations{policy: cfg.RuntimePolicy, previews: make(map[string]runtimeapplication.Preview), profiles: make(map[string]runtimeadapter.CommandProfile), invocations: invocations, auth: cfg.SubscriptionAuth}
+	guard := policyInvocations{policy: cfg.RuntimePolicy, previews: make(map[string]runtimeapplication.Preview), profiles: make(map[string]runtimeadapter.CommandProfile), invocations: invocations, auth: cfg.SubscriptionAuth, effortSources: cfg.EffortSources}
 	if guard.auth != nil {
 		guard.authentication = &authenticationLedger{latest: map[string]runtimeadapter.AuthReport{}}
 	}
@@ -78,6 +80,10 @@ func newPolicyInvocations(cfg LocalConfiguration, invocations executiongraph.Inv
 		preview.ObservationRevisions = maps.Clone(preview.ObservationRevisions)
 		choice := *preview.Choice
 		choice.Capabilities = slices.Clone(choice.Capabilities)
+		if choice.ResolvedProfile != nil {
+			frozen := *choice.ResolvedProfile
+			choice.ResolvedProfile = &frozen
+		}
 		preview.Choice = &choice
 		guard.previews[child.ExecutionID] = preview
 	}
@@ -102,7 +108,11 @@ func (g policyInvocations) ResolveInvocation(ctx context.Context, child executio
 		return executiongraph.Invocation{}, err
 	}
 	if g.auth == nil {
-		return g.invocations.ResolveInvocation(ctx, child)
+		invocation, err := g.invocations.ResolveInvocation(ctx, child)
+		if err != nil {
+			return executiongraph.Invocation{}, err
+		}
+		return g.checkEffortSources(ctx, child, invocation)
 	}
 	return g.subscriptionInvocation(ctx, child, binding)
 }
@@ -127,6 +137,11 @@ func (g policyInvocations) subscriptionInvocation(ctx context.Context, child exe
 	if len(invocation.Argv) < 4 || invocation.RuntimeID != binding.Choice.RuntimeID || binding.Choice.ExecutableDigest == "" || !subscriptionSafeArguments(child, invocation.Argv[4:]) {
 		return executiongraph.Invocation{}, ErrInvalidComposition
 	}
+	if child.Envelope.Resolution.ResolvedProfile != nil {
+		if _, e := g.checkEffortSources(ctx, child, invocation); e != nil {
+			return executiongraph.Invocation{}, e
+		}
+	}
 	report = g.auth.Check(ctx, runtimeadapter.AuthTarget{RuntimeID: invocation.RuntimeID, Executable: invocation.Argv[0], ExpectedDigest: binding.Choice.ExecutableDigest, WorkingDirectory: invocation.CWD, Environment: executiongraph.EffectiveInvocationEnvironment(invocation)})
 	g.authentication.record(child.ExecutionID, report)
 	if report.Reason == "executable_identity_changed" {
@@ -135,7 +150,7 @@ func (g policyInvocations) subscriptionInvocation(ctx context.Context, child exe
 	if !report.DispatchAllowed() {
 		return executiongraph.Invocation{}, fmt.Errorf("%w: %s", executiongraph.ErrAuthenticationBlocked, report.Reason)
 	}
-	return invocation, nil
+	return g.checkEffortSources(ctx, child, invocation)
 }
 
 func (g policyInvocations) matchesProfile(choice runtimeprofile.Choice) bool {
@@ -166,9 +181,14 @@ func matchesChild(preview runtimeapplication.Preview, child executiongraph.Child
 	choice := preview.Choice
 	capability := child.Envelope.Capability
 	resolution := child.Envelope.Resolution
+	if resolution.ResolvedProfile != nil {
+		if choice == nil || choice.ResolvedProfile == nil || *choice.ResolvedProfile != *resolution.ResolvedProfile || !executiongraph.ValidProfileControls(resolution.ResolvedProfile, child.Envelope.Controls, capability) {
+			return false
+		}
+	}
 	return choice != nil && preview.Blocker == nil && preview.ProjectID == child.Envelope.Scope.ProjectID &&
 		preview.Request.Role == capability.Role && preview.Request.Complexity == capability.Complexity &&
-		sameCapabilities(preview.Request.Capabilities, capability.Capabilities) &&
+		sameCapabilities(preview.Request.Capabilities, authoredCapabilities(capability.Capabilities, resolution.ResolvedProfile)) &&
 		(preview.Request.RuntimeID == "" || preview.Request.RuntimeID == resolution.RuntimeID) &&
 		choice.RuntimeID == resolution.RuntimeID && choice.ModelProfileID == resolution.ModelProfileID &&
 		choice.ConfigurationRevision == resolution.ConfigurationRevision && choice.ObservationRevision == resolution.ObservationRevision
@@ -246,4 +266,48 @@ func subscriptionSafeArguments(child executiongraph.ChildExecution, arguments []
 		arguments = arguments[:len(arguments)-2]
 	}
 	return selectionSafeArguments(runtimeID, arguments)
+}
+
+// EffortSourceInspector consumes the separately authorized exact-version proof
+// seam. It returns a safe canonical source digest, never source content/paths.
+// Unknown/unreadable sources must return an error; hashing them is not proof.
+type EffortSourceInspector interface {
+	CheckEffortSources(context.Context, runtimeprofile.ResolvedProfile, executiongraph.Invocation) (string, error)
+}
+
+func (g policyInvocations) checkEffortSources(ctx context.Context, child executiongraph.ChildExecution, invocation executiongraph.Invocation) (executiongraph.Invocation, error) {
+	profile := child.Envelope.Resolution.ResolvedProfile
+	if profile == nil {
+		return invocation, nil
+	} // historical composition; new admission owns legacy refusal
+	if !executiongraph.ValidProfileControls(profile, child.Envelope.Controls, child.Envelope.Capability) || g.effortSources == nil {
+		return executiongraph.Invocation{}, ErrEffortConfigurationUnproven
+	}
+	sourceDigest, err := g.effortSources.CheckEffortSources(ctx, *profile, invocation)
+	if err != nil {
+		if errors.Is(err, ErrEffortOverrideConflict) || errors.Is(err, runtimeadapter.ErrEffortOverrideConflict) {
+			return executiongraph.Invocation{}, ErrEffortOverrideConflict
+		}
+		return executiongraph.Invocation{}, ErrEffortConfigurationUnproven
+	}
+	if sourceDigest != profile.EffortSourceDigest {
+		return executiongraph.Invocation{}, runtimeapplication.ErrStale
+	}
+	return invocation, nil
+}
+
+var ErrEffortConfigurationUnproven = errors.New("effort_configuration_unproven")
+var ErrEffortOverrideConflict = errors.New("effort_override_conflict")
+
+func authoredCapabilities(values []string, profile *runtimeprofile.ResolvedProfile) []string {
+	if profile == nil {
+		return values
+	}
+	result := []string{}
+	for _, value := range values {
+		if !strings.HasPrefix(value, "reasoning-effort-") {
+			result = append(result, value)
+		}
+	}
+	return result
 }
