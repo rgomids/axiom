@@ -6,7 +6,7 @@ Implementation authorization: [PR #310 comment 6109821395](https://github.com/rg
 
 Repository: `rgomids/axiom`; Issue #306; existing Draft PR #310; branch `feat/306-local-runtime-profiles`. The commit containing this receipt identifies its source tree. Remote CI must match that commit or its subsequent documentation-only consolidation before final technical completion. No merge, release, Issue closure, Ready transition, external model run or human acceptance is authorized by this receipt.
 
-**Current checkpoint:** 23 units have implementation coverage below. Local tests and synthetic integration are classified independently. Supported native Linux/Windows CI is **UNVERIFIED** until exact-head receipts arrive. Therefore T15/T16 and the final X07 consolidation are **UNVERIFIED**, and full Issue completion is not asserted. GATE-I306-INTEGRATED remains **BLOCKED** by missing authoritative external receipts.
+**Technical checkpoint:** 23/23 units implemented and technically validated with the local/synthetic/native boundaries below. T15 native receipts, local T16 and transversal X07 are **PASS** at implementation commit `dc4e6167967732051acbc56b3eb7e358c480e133`, whose [complete CI run](https://github.com/rgomids/axiom/actions/runs/38190550665) concluded success. This receipt consolidation changes documentation only; final-head mandatory CI remains a publication gate checked on the PR. GATE-I306-INTEGRATED remains **BLOCKED** by missing authoritative external functional receipts. No real model/E2E or human acceptance is asserted.
 
 ## Task acceptance matrix
 
@@ -17,26 +17,26 @@ Paths below are relative to the repository. Test names are executable receipts, 
 | I306-T01 | Canonical configuration, observation, authoring, conditional publication/recovery ports; application owns exact authority; CLI projects sanitized reports | `runtimeapplication/authoring.go`, `runtimeprofile/v2.go`, `local/runtime_profile_authoring.go`; application authoring tests | PASS local |
 | I306-T02 | Mandatory Profile effort, exact closed v2 member names, no credentials, version dispatch; canonical tombstone1 and immutable v1 decoding | `runtimeprofile/v2_test.go`; current corpus `local-v2.json`, `tombstone-v1.json`; old fixtures retained | PASS local |
 | I306-T03 | Exact Project/local intersection, Profile-first uniqueness, model/effort proof consumption and complete PE-04 tuple; ambiguity before proof, no complexity-derived effort | `runtimeapplication/policy_v2_test.go`, runtimeprofile resolution tests; capability evidence injected | PASS synthetic |
-| I306-T04 | Exact snapshot token binds bytes, file/ancestor identity and generation; locks, conditional create/update/retire/recreate, monotonic revision and read-back | `local/runtime_profile_authoring_test.go`: lifecycle, identity, contention and multiprocess tests | PASS macOS native; other native rows UNVERIFIED |
-| I306-T05 | Local1/2 and tombstone recognition, supported malformed versus future-version diagnosis; scoped F0–F8 recovery preserving unrelated scopes | local runtime authoring/recovery tests and `TestRuntimeProfileInventoryInvalidSupportedV2IsMalformed` | PASS macOS native; other native rows UNVERIFIED |
+| I306-T04 | Exact snapshot token binds bytes, file/ancestor identity and generation; locks, conditional create/update/retire/recreate, monotonic revision and read-back | `local/runtime_profile_authoring_test.go`: lifecycle, identity, contention and multiprocess tests | PASS macOS/Linux/Windows native |
+| I306-T05 | Local1/2 and tombstone recognition, supported malformed versus future-version diagnosis; scoped F0–F8 recovery preserving unrelated scopes | local runtime authoring/recovery tests and `TestRuntimeProfileInventoryInvalidSupportedV2IsMalformed` | PASS macOS/Linux/Windows native |
 | I306-T06 | Explicit effort for every legacy Profile; explicit legacy-reference removal; preview alone writes nothing; no implicit rewrite | `TestAuthoringMigrationRequiresEveryExplicitEffortAndLegacyConsent`; protected restart chain; smoke CLI migration | PASS local |
 | I306-T07 | Input/candidate redaction, safe identifiers, native subscription-auth boundary, no credential store/import; version/mode/source/proof-scoped overrides | runtimeapplication canaries; runtimeadapter effort-source negative tests; subscription-auth tests; independent review | PASS local/synthetic; vendor proof UNVERIFIED |
 | I306-T08 | Typed authoring operations, exact effect preview/apply, stale replay and no-op refusal, cascade and tombstone/recreation, uncertainty and scoped recovery | `runtimeapplication/authoring_test.go`, local fault/recovery tests | PASS local |
 | I306-T09 | Canonical binding/profile CLI metadata and thin adapters; duplicate/unknown flag refusal and structural candidate validation | `internal/cli/runtime_authoring.go`, `cmd/lingo/runtime_authoring_test.go`, metadata/help contracts | PASS real CLI with synthetic executable inventory |
 | I306-T10 | Existing readiness distinguishes missing/retired/unsafe/recovery/legacy effort from model/auth/proof gaps; bounded catalog includes archived Projects and reports unknown references honestly | `cmd/lingo/runtime_impacts_test.go`, bootstrap readiness tests; two-Project snapshots unchanged | PASS local/synthetic |
-| I306-T11 | Fourth thin `axiom-runtime` skill in shared Codex/Claude catalog, manifest/upgrade/install/help parity; historical three-skill digest retained | codexruntime/install/domain-skill tests; bounded installer smoke | PASS macOS native Axiom installation; Linux/Windows UNVERIFIED |
+| I306-T11 | Fourth thin `axiom-runtime` skill in shared Codex/Claude catalog, manifest/upgrade/install/help parity; historical three-skill digest retained | codexruntime/install/domain-skill tests; bounded installer smoke | PASS macOS/Linux/Windows native Axiom installation |
 | I306-T12 | Passive executable/integration discovery with no vendor process, authentication or forced authoring | runtimebootstrap passive callback/process-refusal tests; executable first-run tests | PASS local/synthetic |
 | I306-T13 | Optional descriptive fast/balanced/deep guidance; operator-supplied model/token, one/three/four Profiles, no universal effort tiers or inferred availability | skill source plus `TestExecutableRuntimeAuthoringRestartAndRetirement` four inventories/four Profiles per Runtime | PASS local/synthetic |
 | I306-T14 | Production CLI writes reviewed intent in isolated roots; four installed states; replay, refusal, remove/recreate and restart; shared-profile impacts without Project mutations | executable runtime authoring; application migration/recovery; two-Project impacts; smoke journal | PASS local Axiom; installed executables and positive capability scenarios synthetic |
-| I306-T15 | Anchored roots/private permissions, symlink/reparse/identity refusal, locking, replacement/concurrency and recovery; fresh/upgrade/reinstall inventory | local/install native suites and CI verify matrix | PASS macOS native; Linux/Windows UNVERIFIED |
-| I306-T16 | Independent local acceptance/checkpoint, command/help reconciliation, security/native classification and explicit external handoffs | This receipt's local matrix, validation, review and handoff sections | UNVERIFIED pending T15 native CI |
+| I306-T15 | Anchored roots/private permissions, symlink/reparse/identity refusal, locking, replacement/concurrency and recovery; fresh/upgrade/reinstall inventory | local/install native suites and CI verify matrix | PASS macOS/Linux/Windows native |
+| I306-T16 | Independent local acceptance/checkpoint, command/help reconciliation, security/native classification and explicit external handoffs | This receipt's local matrix, validation, review and handoff sections | PASS local technical checkpoint |
 | I306-X01 | Workflow schema2 excludes Agent effort and reserved effort-capability channels; closed codecs; schema1 historical semantics preserved | workflowdefinition v2/encoding/negative tests and validator examples | PASS local |
 | I306-X02 | Explicit per-agent Profile mapping, old/new effort comparison, exact Project/local policy, immutable source revision, independent publication/selection; source token checked under lock and before commit | projectapp migration tests; native same-byte replacement publication refusal test | PASS local/synthetic |
 | I306-X03 | Compiler/StagePlan2 takes controls only from `resolvedProfile`; per-agent tuple and input/proposal digest; historical compiler1 retained | workflowcompiler v2 and protected chain; current public single/mixed StagePlan journey | PASS synthetic |
 | I306-X04 | Execution3 freezes schema2 snapshot and initial Profile tuple; restart/clone isolation and rebind refusal; historical records inspectable; new legacy start/resume refused | workflow binding tests, protected chain, current start and historical public fixture tests | PASS local/synthetic |
 | I306-X05 | Graph2 freezes per-child tuple/controls; source inspection and exact proof guard before each attempt; legacy current dispatch refused; no replacement dispatcher | executiongraph/graphapplication current tests; runtimeadapter source tests; protected graph restart | PASS synthetic and native file inspection; actual vendor attempt UNVERIFIED |
 | I306-X06 | Addressable builtin default-sdd r2/schema2, no vendor/model/effort imposed; builtin1 bytes/digest retained; confirmed Project selection stays separate | workflowdefinition v2 tests, current start/StagePlan journey, passive four inventories and separate-selection smoke | PASS synthetic/local |
-| I306-X07 | Protected migration/restart chain, negative proof/model/source drift, no rebind, current admission versus historical readers, append-only six-family corpus | `TestProfileV2ProtectedMigrationCompilerGraphRestartChain`, current/legacy admission suites, version matrix below | UNVERIFIED final exact-head/native consolidation; local chain PASS |
+| I306-X07 | Protected migration/restart chain, negative proof/model/source drift, no rebind, current admission versus historical readers, append-only six-family corpus | `TestProfileV2ProtectedMigrationCompilerGraphRestartChain`, current/legacy admission suites, version matrix below | PASS local/synthetic/native compatibility; external live gate BLOCKED |
 
 ## Version and ownership matrix
 
@@ -72,7 +72,22 @@ Local environment: macOS arm64, isolated Axiom state, no vendor authentication/m
 | `git diff --check` | PASS |
 | `gitleaks dir . --no-banner --redact` | PASS worktree scan; staged sensitive-file and `gitleaks git --staged --no-banner --redact` checks also PASS before commit |
 
-Changes after the full race run are additionally checked in affected packages. The full local suite was rerun after review fixes and passed. Native Windows/Linux cross-builds also passed; staged scan passed; exact-head CI outcomes will be reconciled before technical completion. Cross-compilation is a build receipt only and cannot satisfy T15 native Windows/Linux gates.
+Changes after the full race run are additionally checked in affected packages. The full local suite was rerun after review fixes and passed. Native Windows/Linux cross-builds also passed; staged scan passed. The complete exact implementation-head CI passed as recorded below. Final-head checks for this documentation-only consolidation must also pass before reporting the delivery ready for human review. Cross-compilation is a build receipt only and cannot satisfy T15 native Windows/Linux gates.
+
+## Exact implementation-head CI receipts
+
+[CI run 38190550665](https://github.com/rgomids/axiom/actions/runs/38190550665) completed **PASS** for `dc4e6167967732051acbc56b3eb7e358c480e133`. All selected suites ran; no selected suite was skipped to obtain a green result.
+
+| Platform/check | Actual receipt | Result |
+| --- | --- | --- |
+| Linux x86-64, ubuntu-24.04 | [verify-suite job](https://github.com/rgomids/axiom/actions/runs/38190550665/job/114622229260): native tests with race + atomic coverage, vet/build/module verification, repository and bounded smoke | PASS |
+| macOS arm64, macos-15 | [verify-suite job](https://github.com/rgomids/axiom/actions/runs/38190550665/job/114622229239): native race suite, vet/build/module verification, repository and bounded smoke | PASS |
+| Windows AMD64, windows-2022 | [verify-suite job](https://github.com/rgomids/axiom/actions/runs/38190550665/job/114622229276): native unit/integration/black-box suite, vet/build/module verification, native installer, PowerShell and PowerShell7 bootstrap contracts | PASS |
+| Native upgrade journeys | Both Linux/macOS suites and required conclusion checks | PASS |
+| Repository / Go quality / release-contract | Full selected suites and mandatory conclusion checks | PASS |
+| Delivery metadata | Exact implementation-head workflow and required check | PASS |
+
+Native Axiom state/install tests do not constitute vendor model/authentication proof. Platform-specific tests keep existing explicit skips where a threat mechanism or POSIX fixture is inapplicable; supported platform suites retain their native replacements and no supported threat exclusion was broadened. Optional maintainer behavioral evaluation remains UNVERIFIED. Final PR checks verify the final documentation-consolidation HEAD independently; this source receipt is immutable and does not claim a future run passed.
 
 ## Independent engineering/security review
 
@@ -83,7 +98,7 @@ A separate reviewer inspected the consolidated diff and ran nine affected packag
 3. Smoke skill count still expected three instead of four. Reconciled installation inventory and current-versus-historical admission checks; no fabricated production model proof was added.
 4. Invalid supported Local2 was diagnosed as a future version. Inventory now distinguishes malformed2 from unsupported3, with a regression test.
 
-No remaining blocking correctness/security finding was identified in the reviewed scope. This is engineering review, not human acceptance. Native Windows ACL/reparse execution remains a required CI receipt. The single-child execution dispatcher remains #276-owned; this Issue freezes Profile controls in compiler/StagePlan/Execution/Graph boundaries and does not claim real dispatch completion.
+No remaining blocking correctness/security finding was identified in the reviewed scope. This is engineering review, not human acceptance. Native Windows supported ACL/reparse contracts passed in the linked CI platform suite; existing platform-specific skips/exclusions were preserved. The single-child execution dispatcher remains #276-owned; this Issue freezes Profile controls in compiler/StagePlan/Execution/Graph boundaries and does not claim real dispatch completion.
 
 ## Handoffs and remaining gates
 
@@ -92,5 +107,5 @@ No remaining blocking correctness/security finding was identified in the reviewe
 - **#276 — actual agent dispatch/coordination UNVERIFIED:** synthetic dispatcher/guard regressions test consumption and zero-effect refusals; no authenticated or paid inference receipt exists.
 - **#278 — real E2E/MVP/AXM-7 R-3 BLOCKED:** requires separately authorized real-world receipts and human acceptance. Tests, CI and this document confer no acceptance.
 - **#277/G-4 — NOT_APPLICABLE to local configuration proof:** delivery/rework and external Provider linkage are not authored by this change; required integrated scenarios must acquire their own receipts.
-- **Native Linux/Windows and final CI — UNVERIFIED:** supported platforms remain required. Do not label cross-builds or synthetic executables native success. Complete T15, then T16/X07 exact-head consolidation, after actual required checks pass.
+- **Native Linux/macOS/Windows — PASS at the implementation commit:** actual supported platform suites, including Windows installer/bootstrap, passed. Cross-builds and synthetic executables remain separate receipts. T15/T16/X07 technical checkpoints PASS; final-head CI for this documentation consolidation is checked on PR #310 before final delivery.
 - **Human review/merge — pending:** PR remains Draft. No self-approval, Ready transition, Issue closure, merge or release.
