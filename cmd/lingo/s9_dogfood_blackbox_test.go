@@ -195,6 +195,7 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 	environment := append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "PATH="+runtimeBin, "CLAUDE_CONFIG_DIR=", "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+statePath)
 	type event struct {
 		canonicalEvent
+		Next     string            `json:"next"`
 		Workflow *cli.WorkflowView `json:"workflow"`
 	}
 	run := func(wantCode int, wantStatus string, args ...string) event {
@@ -284,7 +285,15 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 		t.Fatalf("unreviewed digest = %+v", stale.RuntimeResolution)
 	}
 	values["previewDigest"] = runtimePreview.PreviewDigest
-	started := run(0, "success", expandProtocol(t, protocol[1], selector, values)...)
+	refused := run(1, "validation_failure", expandProtocol(t, protocol[1], selector, values)...)
+	if !strings.Contains(refused.Next, "workflow_migration_required") || refused.Workflow != nil {
+		t.Fatalf("legacy public start refusal %+v", refused)
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", portable)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	fixtureService := composeWithProvenance(currentProvenance()).(lifecycleService)
+	historical := seedHistoricalWorkflow(t, fixtureService, cli.WorkflowInput{Project: "configured", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: runtimeID, RuntimePreview: runtimePreview.PreviewDigest})
+	started := event{Workflow: historical}
 	if started.Workflow == nil || started.Workflow.RuntimeID != runtimePreview.RuntimeResolution.Choice.RuntimeID || started.Workflow.Revision != 1 {
 		t.Fatalf("started = %+v", started.Workflow)
 	}

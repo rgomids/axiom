@@ -37,7 +37,7 @@ func (r runtimeReadiness) Availability(ctx context.Context, projectID string) st
 	if source == nil {
 		source = runtimePolicySource{installation: r.service.installation, portable: r.service.portable, stateRoot: r.service.stateRoot, runtimes: r.service.runtimeObservationSources()}
 	}
-	return runtimeapplication.New(source).Availability(ctx, projectID)
+	return runtimeapplication.New(source).CurrentAvailability(ctx, projectID)
 }
 
 // preflight returns a failure before any effect when a structurally valid

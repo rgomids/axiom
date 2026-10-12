@@ -16,7 +16,7 @@ import (
 	"github.com/rgomids/axiom/internal/codexruntime"
 )
 
-var skillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
+var skillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow", "axiom-runtime"}
 
 type machine struct {
 	home        string
@@ -399,4 +399,41 @@ func TestPartialPriorOwnedInstallConverges(t *testing.T) {
 	}
 	assertConfigured(t, claudeSkills)
 	assertConfigured(t, m.codexSkills)
+}
+
+func TestPassiveDetectDoesNotOpenIntegrationOrWrite(t *testing.T) {
+	for _, names := range [][]string{nil, {"codex"}, {"claude"}, {"codex", "claude"}} {
+		t.Run(strings.Join(names, "+"), func(t *testing.T) {
+			m := newMachine(t, names...)
+			runtimes := m.runtimes(t)
+			calls := 0
+			for i := range runtimes {
+				runtimes[i].Integration = func() (Integration, error) { calls++; return nil, errors.New("unexpected integration") }
+			}
+			before := tree(t, m.home)
+			report := Detect(context.Background(), m.lookPath, runtimes)
+			if calls != 0 || tree(t, m.home) != before {
+				t.Fatal("passive detection caused an effect")
+			}
+			if report.Detected() != len(names) {
+				t.Fatalf("detected %d want %d", report.Detected(), len(names))
+			}
+			if len(m.lookups) != 2 {
+				t.Fatalf("lookups %d", len(m.lookups))
+			}
+			for _, r := range report.Runtimes {
+				if r.Present && (r.State != "detected" || r.Category != "integration_unobserved") {
+					t.Fatalf("misstated readiness: %+v", r)
+				}
+			}
+		})
+	}
+}
+func TestPassiveDetectRejectsRelativeExecutable(t *testing.T) {
+	for _, path := range []string{"codex", "./codex", "bin/codex"} {
+		report := Detect(context.Background(), func(string) (string, error) { return path, nil }, []Runtime{{ID: "codex", Executable: "codex", Integration: func() (Integration, error) { t.Fatal("opened integration"); return nil, nil }}})
+		if report.Detected() != 0 || report.Runtimes[0].State != Absent {
+			t.Fatalf("relative executable accepted: %+v", report)
+		}
+	}
 }

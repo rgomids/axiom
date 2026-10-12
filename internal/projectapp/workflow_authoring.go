@@ -8,26 +8,32 @@ import (
 	"fmt"
 
 	"github.com/rgomids/axiom/internal/project"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 // Workflow authoring is a Project application operation. Adapters own I/O;
 // this layer owns revision assignment, reference validation and exact authority.
 type WorkflowRequest struct {
-	Operation        string                 `json:"operation"`
-	Project          string                 `json:"project"`
-	Definition       []byte                 `json:"-"`
-	FromDefault      bool                   `json:"fromDefault"`
-	WorkflowID       string                 `json:"workflowId"`
-	Ref              workflowdefinition.Ref `json:"ref"`
-	Prior            workflowdefinition.Ref `json:"prior"`
-	ExpectedRevision string                 `json:"expectedRevision"`
-	PreviewDigest    string                 `json:"previewDigest"`
-	AuthorizeLocal   bool                   `json:"authorizeLocal"`
+	Mapping          []WorkflowAgentProfileMapping `json:"mapping,omitempty"`
+	Operation        string                        `json:"operation"`
+	Project          string                        `json:"project"`
+	Definition       []byte                        `json:"-"`
+	DefaultRevision  int                           `json:"defaultRevision,omitempty"`
+	FromDefault      bool                          `json:"fromDefault"`
+	WorkflowID       string                        `json:"workflowId"`
+	Ref              workflowdefinition.Ref        `json:"ref"`
+	Prior            workflowdefinition.Ref        `json:"prior"`
+	ExpectedRevision string                        `json:"expectedRevision"`
+	PreviewDigest    string                        `json:"previewDigest"`
+	AuthorizeLocal   bool                          `json:"authorizeLocal"`
 }
 type WorkflowObservation struct {
-	Selection EditSelection
-	Catalog   workflowdefinition.Catalog
+	ProfileConfigurationToken    string
+	ProfileConfigurationDigest   string
+	ProfileConfigurationRevision uint64
+	Selection                    EditSelection
+	Catalog                      workflowdefinition.Catalog
 	// ReferencesChecked is false whenever retention inventory is uncertain.
 	ReferencesChecked bool
 	Referenced        []workflowdefinition.Ref
@@ -38,17 +44,20 @@ type WorkflowAuthoringPort interface {
 	PublishWorkflowSelection(context.Context, WorkflowObservation, project.Project) string
 }
 type WorkflowReport struct {
-	ProjectID       string                          `json:"projectId,omitempty"`
-	ProjectRevision string                          `json:"projectRevision,omitempty"`
-	Selection       *workflowdefinition.Ref         `json:"selection,omitempty"`
-	Revisions       []workflowdefinition.Ref        `json:"revisions,omitempty"`
-	Retired         []workflowdefinition.Ref        `json:"retired,omitempty"`
-	Definition      *workflowdefinition.Definition  `json:"definition,omitempty"`
-	Reference       *workflowdefinition.Ref         `json:"reference,omitempty"`
-	Diagnostics     []workflowdefinition.Diagnostic `json:"diagnostics,omitempty"`
-	Prerequisites   []string                        `json:"prerequisites,omitempty"`
-	Effects         []string                        `json:"effects,omitempty"`
-	PreviewDigest   string                          `json:"previewDigest,omitempty"`
+	MigrationSource            *workflowdefinition.Ref         `json:"migrationSource,omitempty"`
+	EffortComparisons          []WorkflowEffortComparison      `json:"effortComparisons,omitempty"`
+	ProfileConfigurationDigest string                          `json:"profileConfigurationDigest,omitempty"`
+	ProjectID                  string                          `json:"projectId,omitempty"`
+	ProjectRevision            string                          `json:"projectRevision,omitempty"`
+	Selection                  *workflowdefinition.Ref         `json:"selection,omitempty"`
+	Revisions                  []workflowdefinition.Ref        `json:"revisions,omitempty"`
+	Retired                    []workflowdefinition.Ref        `json:"retired,omitempty"`
+	Definition                 *workflowdefinition.Definition  `json:"definition,omitempty"`
+	Reference                  *workflowdefinition.Ref         `json:"reference,omitempty"`
+	Diagnostics                []workflowdefinition.Diagnostic `json:"diagnostics,omitempty"`
+	Prerequisites              []string                        `json:"prerequisites,omitempty"`
+	Effects                    []string                        `json:"effects,omitempty"`
+	PreviewDigest              string                          `json:"previewDigest,omitempty"`
 }
 type WorkflowAuthoringResult struct {
 	Category string
@@ -83,7 +92,8 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 			out.Report.Retired = append(out.Report.Retired, entry.Ref())
 		}
 	}
-	out.Report.Revisions = append([]workflowdefinition.Ref{builtin.Ref("builtin")}, out.Report.Revisions...)
+	latest, _ := workflowdefinition.BuiltinRevision(2)
+	out.Report.Revisions = append([]workflowdefinition.Ref{builtin.Ref("builtin"), latest.Ref("builtin")}, out.Report.Revisions...)
 	if len(catalog.Unindexed) > 0 && r.Operation != "recover" {
 		out.Report.Revisions = catalog.Unindexed
 		return fail("recovery_required")
@@ -93,7 +103,8 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 			return workflowdefinition.Document{}, false
 		}
 		if ref.Source == "builtin" {
-			return builtin, ref == builtin.Ref("builtin")
+			d, ok := workflowdefinition.BuiltinRevision(ref.Revision)
+			return d, ok && ref == d.Ref("builtin")
 		}
 		for _, e := range catalog.Index.Revisions {
 			if e.Ref() == ref && (e.State == "published" || r.Operation == "show") {
@@ -110,6 +121,39 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 	var newIndex workflowdefinition.Index
 	effects := []string{}
 	switch r.Operation {
+	case "migrate":
+		if len(r.Definition) != 0 || r.FromDefault || r.Prior.Source != "project" {
+			return fail("prior_revision_required")
+		}
+		source, ok := lookup(r.Prior)
+		if !ok {
+			return fail("prior_revision_required")
+		}
+		profilePort, ok := port.(WorkflowProfilePort)
+		if !ok {
+			return fail("profile_effort_unconfigured")
+		}
+		cfg, token, category := profilePort.ObserveWorkflowProfiles(ctx, r.Project)
+		if category != "" {
+			return fail(category)
+		}
+		configurationDigest, err := runtimeprofile.Digest(cfg)
+		if err != nil {
+			return fail("profile_effort_unconfigured")
+		}
+		observed.ProfileConfigurationDigest, observed.ProfileConfigurationRevision, observed.ProfileConfigurationToken = configurationDigest, cfg.Revision, token
+		out.Report.ProfileConfigurationDigest = configurationDigest
+		out.Report.MigrationSource = &r.Prior
+		revision := source.Definition.Revision + 1
+		for _, entry := range catalog.Index.Revisions {
+			if entry.WorkflowID == source.Definition.WorkflowID && entry.Revision >= revision {
+				revision = entry.Revision + 1
+			}
+		}
+		doc, out.Report.EffortComparisons, category = migrateWorkflow(source, revision, r.Mapping, cfg, state)
+		if category != "" {
+			return fail(category)
+		}
 	case "show", "select", "remove":
 		var ok bool
 		doc, ok = lookup(r.Ref)
@@ -122,7 +166,15 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 			if !workflowdefinition.ValidKey(r.WorkflowID) || len(r.Definition) != 0 || r.Operation != "create" {
 				return out
 			}
-			d := builtin.Definition
+			selected := builtin
+			if r.DefaultRevision != 0 {
+				var ok bool
+				selected, ok = workflowdefinition.BuiltinRevision(r.DefaultRevision)
+				if !ok {
+					return fail("invalid_default_revision")
+				}
+			}
+			d := selected.Definition
 			d.WorkflowID = r.WorkflowID
 			d.Name = r.WorkflowID
 			d.Revision = 1
@@ -158,7 +210,7 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 	newIndex = catalog.Index
 	newIndex.Revisions = append([]workflowdefinition.Entry(nil), catalog.Index.Revisions...)
 	switch r.Operation {
-	case "create", "edit", "recover":
+	case "create", "edit", "recover", "migrate":
 		maxRevision := 0
 		exists := false
 		for _, e := range catalog.Index.Revisions {
@@ -233,12 +285,15 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 	out.Report.Effects = effects
 	envelope := struct {
 		Operation, ProjectID, Portable, Local string
+		ProfileConfigurationDigest            string
+		ProfileConfigurationToken             string `json:"profileConfigurationToken,omitempty"`
+		EffortComparisons                     []WorkflowEffortComparison
 		Selection                             *workflowdefinition.Ref
 		Reference                             workflowdefinition.Ref
 		Prior                                 workflowdefinition.Ref
 		Index                                 workflowdefinition.Index
 		Effects                               []string
-	}{r.Operation, state.ID, observed.Selection.PortableRevision, observed.Selection.LocalRevision, out.Report.Selection, ref, r.Prior, catalog.Index, effects}
+	}{r.Operation, state.ID, observed.Selection.PortableRevision, observed.Selection.LocalRevision, observed.ProfileConfigurationDigest, observed.ProfileConfigurationToken, out.Report.EffortComparisons, out.Report.Selection, ref, r.Prior, catalog.Index, effects}
 	b, _ := json.Marshal(envelope)
 	digest := sha256.Sum256(b)
 	out.Report.PreviewDigest = hex.EncodeToString(digest[:])

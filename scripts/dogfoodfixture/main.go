@@ -25,6 +25,13 @@ func main() {
 }
 
 func run() error {
+	if len(os.Args) == 2 && os.Args[1] == "definition-current" {
+		d, ok := workflowdefinition.BuiltinRevision(2)
+		if !ok {
+			return fmt.Errorf("missing current builtin")
+		}
+		return json.NewEncoder(os.Stdout).Encode(d.Ref("builtin"))
+	}
 	if len(os.Args) == 2 && os.Args[1] == "definition" {
 		return json.NewEncoder(os.Stdout).Encode(workflowdefinition.Builtin().Ref("builtin"))
 	}

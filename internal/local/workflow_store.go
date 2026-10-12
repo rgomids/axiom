@@ -285,7 +285,7 @@ func decodeExecution(wire []byte) (workflow.State, error) {
 	if err := decoder.Decode(&dto); err != nil {
 		return workflow.State{}, ErrUnsafe
 	}
-	if dto.FormatVersion == 2 && workflowdefinition.StrictJSONBounded(wire, &dto, MaxExecutionBytes) != nil {
+	if (dto.FormatVersion == 2 || dto.FormatVersion == 3) && workflowdefinition.StrictJSONBounded(wire, &dto, MaxExecutionBytes) != nil {
 		return workflow.State{}, ErrUnsafe
 	}
 	if dto.FormatVersion == 1 && len(wire) > MaxRecordBytes {

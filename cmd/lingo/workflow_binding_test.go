@@ -110,7 +110,11 @@ func TestConfiguredExecutableRevisionIsolationAndAuthority(t *testing.T) {
 	start := append([]string{"workflow", "start"}, selector...)
 	start = append(start, "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills")
 	preview := run(0, start...)
-	a := run(0, append(start, "--runtime-preview", preview.PreviewDigest)...).Workflow
+	refused := run(1, append(start, "--runtime-preview", preview.PreviewDigest)...)
+	if refused.Workflow != nil {
+		t.Fatal("legacy public start created Execution")
+	}
+	a := seedHistoricalWorkflow(t, env.service.(lifecycleService), cli.WorkflowInput{Project: "external", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: "codex", RuntimePreview: preview.PreviewDigest})
 	if a == nil || a.Binding == nil || a.Binding.Definition.Revision != 1 {
 		t.Fatal("missing R1 binding")
 	}
@@ -175,7 +179,11 @@ func TestConfiguredExecutableRevisionIsolationAndAuthority(t *testing.T) {
 	bStart := append([]string{"workflow", "start"}, bSelector...)
 	bStart = append(bStart, "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills")
 	bPreview := run(0, bStart...)
-	b := run(0, append(bStart, "--runtime-preview", bPreview.PreviewDigest)...).Workflow
+	refusedB := run(1, append(bStart, "--runtime-preview", bPreview.PreviewDigest)...)
+	if refusedB.Workflow != nil {
+		t.Fatal("new schema1 revision bypassed migration")
+	}
+	b := seedHistoricalWorkflow(t, service, cli.WorkflowInput{Project: "external", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "8", Runtime: "codex", RuntimePreview: bPreview.PreviewDigest})
 	if b.Binding.Definition.Revision != 2 || b.Binding.Definition.WorkflowID != "custom" {
 		t.Fatal("B did not bind R2")
 	}
@@ -186,7 +194,19 @@ func TestConfiguredExecutableRevisionIsolationAndAuthority(t *testing.T) {
 		t.Fatal("missing persisted validation ledger")
 	}
 	stopped := run(2, append(append([]string{"workflow", "advance"}, execution...), "--expected-revision", "2", "--gate", advanced.CurrentGate, "--outcome", "fail")...).Workflow
-	resumed := run(0, append(append([]string{"workflow", "resume"}, execution...), "--expected-revision", strconv.FormatUint(stopped.Revision, 10))...).Workflow
+	beforeRetry := snapshotTrees(t, env.root, env.state, env.elsewhere)
+	refusedResume := run(1, append(append([]string{"workflow", "resume"}, execution...), "--expected-revision", strconv.FormatUint(stopped.Revision, 10))...)
+	if refusedResume.Workflow != nil && refusedResume.Workflow.Binding != nil && refusedResume.Workflow.Binding.ResolvedProfile != nil || !bytes.Equal(beforeRetry, snapshotTrees(t, env.root, env.state, env.elsewhere)) {
+		t.Fatal("current retry synthesized or changed legacy snapshot")
+	}
+	// Prepare an already recorded legacy continuation receipt, then verify current readers/completion keep its binding.
+	oldService := historicalWorkflowService(t, service)
+	oldTarget := workflowTarget(cli.WorkflowInput{Project: "external", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Execution: a.ExecutionID})
+	oldResume := oldService.Resume(context.Background(), oldTarget, stopped.Revision)
+	if oldResume.Status != workflow.Succeeded {
+		t.Fatal(oldResume.Category)
+	}
+	resumed := run(0, append([]string{"workflow", "status"}, execution...)...).Workflow
 	if resumed.Binding.Definition != a.Binding.Definition {
 		t.Fatal("resume rebound R2")
 	}

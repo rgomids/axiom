@@ -175,3 +175,32 @@ func safeRoot(path string) (string, error) {
 	}
 	return filepath.Clean(path), nil
 }
+
+// Detect is passive first-use inventory. It resolves executable paths only;
+// integrations, vendor processes and authentication are never invoked.
+func Detect(ctx context.Context, lookPath LookPath, runtimes []Runtime) Report {
+	report := Report{Runtimes: make([]RuntimeReport, 0, len(runtimes))}
+	for _, r := range runtimes {
+		entry := RuntimeReport{ID: r.ID, State: Absent, Category: r.ID + "_absent"}
+		if ctx.Err() != nil {
+			entry.State = Failed
+			entry.Category = "cancelled"
+			report.Runtimes = append(report.Runtimes, entry)
+			continue
+		}
+		if lookPath != nil {
+			p, e := lookPath(r.Executable)
+			if e == nil && filepath.IsAbs(p) {
+				entry.Executable = p
+				entry.Present = true
+				entry.State = "detected"
+				entry.Category = "integration_unobserved"
+			}
+		}
+		if !entry.Present {
+			entry.ConfigurationWithoutExecutable = directoryExists(r.ConfigurationRoot)
+		}
+		report.Runtimes = append(report.Runtimes, entry)
+	}
+	return report
+}

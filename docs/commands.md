@@ -3,7 +3,7 @@
 ## Author and select Project workflows
 
 Project selects, Workflow configures, Work Item runs, Execution performs.
-`axiom-workflow` owns definition list/show/validate/create/edit/remove/recover
+`axiom-workflow` owns definition list/show/validate/create/edit/remove/migrate/recover
 and read-only configuration readiness. `axiom-project` keeps `workflow.select`;
 `axiom-work-item` keeps `run`, `status` and `plan`. Explicit removed Project
 `workflow.*` authoring skill operations are unsupported; canonical CLI commands
@@ -146,15 +146,64 @@ and [validation Evidence](specifications/002-lingo-project-initialization/eviden
 
 Execute estes comandos na raiz do repositório.
 
+## Configure machine-local Runtime Profiles
+
+Inspect without starting vendor processes:
+
+```bash
+axiom runtime binding list
+axiom runtime profile list
+axiom skill inspect axiom-runtime
+```
+
+`axiom-runtime` manages local bindings and operator-defined Profiles. Creation
+requires an installed supported Runtime, an exact model intent and an explicit
+Profile effort choice. For example, after choosing these values:
+
+```bash
+axiom runtime binding create --runtime codex --profile operator-review \
+  --model operator-model --effort-mode runtime-default --effort default \
+  --capabilities read --complexities high
+```
+
+This prepares a preview. Apply the same candidate only with its returned opaque
+`--expected-revision`, `--preview-digest` and `--authorize-local`. Changed inputs,
+state, identities or dependencies require another preview. `runtime-default`
+means no Axiom override; successful authoring saves intent and proves no vendor
+model, effort support or authentication. Inspect read-back after apply.
+
+Profile create/edit changes model intent, effort, capabilities and complexity.
+Binding edit changes eligibility through `--enabled`; enable/disable use the
+same preview protocol. Final removal requires explicit `--cascade` and retains
+a versioned tombstone. Reads and recovery never delete vendor settings,
+authentication, receipts, Projects, Workflows or historical Executions.
+
+Use `runtime profile migrate` with one repeated
+`--profile-effort <profile>:<explicit|runtime-default>:<value>` for each legacy
+Profile. Removing legacy credential references additionally requires
+`--clear-legacy-references`. Pending state uses scoped `runtime profile recover`
+and its separate exact recovery confirmation; uncertain publication requires
+inspection before any new attempt.
+
+Workflow migration is a separate `project workflow migrate` operation: map each
+Agent using repeated `--agent-profile <stage>:<agent>:<profile>`, inspect the
+legacy/Profile effort comparison and confirm the new immutable revision.
+Selection remains a separate Project operation. `--from-default
+--default-revision 2` derives the neutral schema-2 default; revision 1 remains
+readable. Current starts require schema 2 and local Profile-owned effort.
+Historical Executions remain readable; new stage compilation, dispatch or retry
+without a frozen v2 tuple refuses `legacy_execution_contract`.
+
 ## Inspect skill arguments
 
 ```bash
 axiom skill inspect axiom-project
 axiom --json skill inspect axiom-work-item
 axiom skill inspect axiom-workflow
+axiom skill inspect axiom-runtime
 ```
 
-Use exactly `axiom-project`, `axiom-work-item` or `axiom-workflow`, the three product skills
+Use exactly `axiom-project`, `axiom-work-item`, `axiom-workflow` or `axiom-runtime`, the four product skills
 shown by `axiom help`.
 Inspection describes the skill embedded in this binary without executing it,
 reading Project/Provider/Runtime state, prompting, or granting authority. It also
@@ -549,14 +598,15 @@ the requested semantic `axiom:<skill>` names are invoked as:
 $axiom-project
 $axiom-work-item
 $axiom-workflow
+$axiom-runtime
 ```
 
-`$axiom-project`, `$axiom-work-item` and `$axiom-workflow` are the product Runtime skills.
+`$axiom-project`, `$axiom-work-item`, `$axiom-workflow` and `$axiom-runtime` are the product Runtime skills.
 Explicit operations route directly to Lingo; natural-language intent selects
 only supported operations. Ambiguity requires clarification; interpretation
 never supplies authority. Inspect the current binary for operation/mode,
 argument and effect contracts. Claude invokes `/axiom-project`,
-`/axiom-work-item` and `/axiom-workflow`, or selects them from their descriptions.
+`/axiom-work-item`, `/axiom-workflow` and `/axiom-runtime`, or selects them from their descriptions.
 
 Releases through v0.10.0 distributed operation-specific skills (six before
 #229, eight after it). The pre-MVP decision now removes these active entrypoints.
@@ -1283,7 +1333,8 @@ typed payloads until their authorized MVP Tasks migrate them. Exit codes remain
 | Codex skill | Stable Lingo entrypoint |
 |---|---|
 | `$axiom-project` | `workflow.select` → `project workflow select`; `configure` → `project configure`, `list` → `project list`, `show` → `project show`; `validate` / `archive` / `reactivate` / `integration` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
-| `$axiom-workflow` | `definition.list/show/validate/create/edit/remove/recover` → `project workflow` definition commands; `configuration.readiness` → read-only Runtime/Profile validate/preview/status/auth |
+| `$axiom-workflow` | `definition.list/show/validate/create/edit/remove/migrate/recover` → `project workflow` definition commands; `configuration.readiness` → read-only Runtime/Profile validate/preview/status/auth |
+| `$axiom-runtime` | `binding.*` / `profile.*` → canonical `runtime binding` / `runtime profile` authoring; exact preview/apply and scoped recovery |
 | `$axiom-work-item` | `create` → `work-item create|select`, `run` → `workflow start|advance|fact|resume|reconcile`, `status` → `workflow status|evidence|list` (`status` mode `list` → `workflow list`), `plan` → `workflow stage plan`; `list` / `show` / `update` / `comment` / `close` / `reopen` → [resource lifecycle](#maintain-resource-lifecycle-issue-230) |
 
 Skills collect missing selectors conversationally, but Lingo retains validation,

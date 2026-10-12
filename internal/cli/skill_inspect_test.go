@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"io"
 	"os"
 	"reflect"
@@ -77,11 +78,18 @@ func findArgument(t *testing.T, cmd skillCommand, name string) skillArgument {
 func TestSkillDiscoveryExactCommands(t *testing.T) {
 	expected := map[string][]string{
 		"axiom-workflow":  {},
+		"axiom-runtime":   {},
 		"axiom-project":   {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
 		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom workflow stage plan", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
 	}
-	for _, op := range []string{"list", "show", "create", "edit", "validate", "remove", "recover"} {
+	for _, op := range []string{"list", "show", "create", "edit", "validate", "remove", "recover", "migrate"} {
 		expected["axiom-workflow"] = append(expected["axiom-workflow"], "axiom project workflow "+op)
+	}
+
+	for _, kind := range []string{"binding", "profile"} {
+		for _, op := range []string{"list", "show", "create", "edit", "enable", "disable", "remove", "migrate", "validate-candidate", "recover"} {
+			expected["axiom-runtime"] = append(expected["axiom-runtime"], "axiom runtime "+kind+" "+op)
+		}
 	}
 
 	manifest, err := codexruntime.CurrentManifest()
@@ -154,10 +162,15 @@ func TestSkillDiscoveryRequiredOptionalDescriptionForms(t *testing.T) {
 }
 
 func parseSkillFlags(operation action, args []string) (requestInput, bool) {
+	if strings.HasPrefix(string(operation), "runtime_authoring_") {
+		in := runtimeapplication.AuthoringRequest{}
+		set := runtimeAuthoringFlagSet(operation, &in)
+		return requestInput{}, !invalidFlagSyntax(set, args, map[string]bool{"profile-effort": true}) && set.Parse(args) == nil && set.NArg() == 0
+	}
 	if strings.HasPrefix(string(operation), "project_workflow_") {
 		in := ProjectWorkflowInput{}
 		set := workflowAuthoringFlagSet(operation, &in)
-		return requestInput{}, set.Parse(args) == nil && set.NArg() == 0 && !duplicateFlag(args)
+		return requestInput{}, set.Parse(args) == nil && set.NArg() == 0 && !invalidFlagSyntax(set, args, map[string]bool{"agent-profile": true})
 	}
 	// The #230 lifecycle commands have their own parsers; argument metadata
 	// must be accepted by exactly those parsers.
@@ -246,6 +259,15 @@ func TestSkillDiscoveryMatchesParserAndAcceptedForms(t *testing.T) {
 					case int, uint64:
 						value = "7"
 					}
+					if f.Name == "enabled" {
+						value = "true"
+					}
+					if f.Name == "agent-profile" {
+						value = "intake:owner:example"
+					}
+					if f.Name == "profile-effort" {
+						value = "example:runtime-default:default"
+					}
 					if f.Name == "runtime-preview" {
 						value = strings.Repeat("a", 64)
 					}
@@ -268,6 +290,12 @@ func TestSkillDiscoveryMatchesParserAndAcceptedForms(t *testing.T) {
 						}
 					}
 					second := forms[0]
+					if f.Name == "agent-profile" {
+						second = []string{arg.Name, "specification:owner:example"}
+					}
+					if f.Name == "profile-effort" {
+						second = []string{arg.Name, "another:runtime-default:default"}
+					}
 					if f.Name == "elaborated-section" {
 						second = []string{arg.Name, "scope=Example"}
 					}
@@ -451,7 +479,7 @@ func TestSkillReadinessArgumentsMatchHelpAndParser(t *testing.T) {
 
 func TestWorkflowSkillDiscoveryHasNoForeignOperationsOrAliases(t *testing.T) {
 	project := discoverForTest(t, "axiom-project")
-	for _, old := range []string{"list", "show", "create", "edit", "validate", "remove", "recover"} {
+	for _, old := range []string{"list", "show", "create", "edit", "validate", "remove", "recover", "migrate"} {
 		removed := "workflow." + old
 		for _, operation := range project.Operations {
 			if operation.Name == removed {

@@ -22,9 +22,10 @@ import (
 )
 
 var (
-	ErrInvalidRequest    = errors.New("invalid stage compilation request")
-	ErrRuntimeBlocked    = errors.New("stage runtime resolution blocked")
-	ErrUnsupportedEffort = errors.New("requested reasoning effort is unsupported")
+	ErrWorkflowMigrationRequired = errors.New("workflow_migration_required")
+	ErrInvalidRequest            = errors.New("invalid stage compilation request")
+	ErrRuntimeBlocked            = errors.New("stage runtime resolution blocked")
+	ErrUnsupportedEffort         = errors.New("requested reasoning effort is unsupported")
 	// ErrAuthorityExceeded also matches ErrInvalidRequest: a Plan effect or
 	// write target outside the parent ceiling, agent ceilings or scope.
 	ErrAuthorityExceeded = errors.New("stage plan exceeds authorized effects")
@@ -66,6 +67,9 @@ type ExecutionInput struct {
 	Role              string                           `json:"role"`
 	Responsibilities  string                           `json:"responsibilities"`
 	RuntimePreview    runtimeapplication.Preview       `json:"runtimePreview"`
+	ProfileEffort     *runtimeprofile.Effort           `json:"profileEffort,omitempty"`
+	EffortSource      string                           `json:"effortSource,omitempty"`
+	ResolvedProfile   *runtimeprofile.ResolvedProfile  `json:"resolvedProfile,omitempty"`
 	RequestedEffort   workflowdefinition.Effort        `json:"requestedEffort"`
 	Controls          executiongraph.ExecutionControls `json:"controls"`
 	Scope             executiongraph.Scope             `json:"scope"`
@@ -143,6 +147,21 @@ func New(runtimes RuntimeResolver, capabilities executiongraph.CapabilityValidat
 }
 
 func (c Compiler) Compile(ctx context.Context, request Request) (Result, error) {
+	return c.compile(ctx, request, request.Definition.Definition.SchemaVersion == 2)
+}
+
+// CompileV2 admits only schema2 and canonical profile-owned resolution.
+func (c Compiler) CompileV2(ctx context.Context, request Request) (Result, error) {
+	if request.Definition.Definition.SchemaVersion != 2 {
+		return Result{}, ErrWorkflowMigrationRequired
+	}
+	return c.compile(ctx, request, true)
+}
+
+func (c Compiler) compile(ctx context.Context, request Request, v2 bool) (Result, error) {
+	if !v2 && request.Definition.Definition.SchemaVersion != 1 {
+		return Result{}, ErrInvalidRequest
+	}
 	stage, err := validateRequest(request)
 	if err != nil {
 		return Result{}, err
@@ -177,13 +196,38 @@ func (c Compiler) Compile(ctx context.Context, request Request) (Result, error) 
 				return Result{}, fmt.Errorf("%w: Runtime changed during compilation", ErrRuntimeBlocked)
 			}
 		}
+		if v2 {
+			profile := resolved.Choice.ResolvedProfile
+			if profile == nil || runtimeprofile.ValidateResolvedProfile(*profile) != nil {
+				return Result{}, ErrRuntimeBlocked
+			}
+			profileCopy := *profile
+			resolved.Choice.ResolvedProfile = &profileCopy
+		}
 		unit := compiledUnit(request, stage, agent, work)
+		if v2 {
+			profile := resolved.Choice.ResolvedProfile
+			unit.ResolvedProfile = profile
+			if profile.Effort.Mode == "explicit" {
+				unit.Controls.ReasoningEffort = profile.Effort.Value
+				unit.Capability.Capabilities = sortedUnique(append(unit.Capability.Capabilities, "reasoning-effort-"+profile.Effort.Value))
+			}
+			if !executiongraph.ValidProfileControls(profile, unit.Controls, unit.Capability) {
+				return Result{}, ErrUnsupportedEffort
+			}
+		}
 		input := executionInput(request, stage, agent)
 		input.ProjectID, input.RepositoryKey = request.ProjectID, request.RepositoryKey
 		input.AgentID, input.NodeKey = agent.ID, unit.Key
 		input.PlanRevision, input.PlanDigest = request.Plan.PlanRevision, request.Plan.PlanDigest
 		input.Role, input.Responsibilities = agent.Role, agent.Responsibilities
 		input.RuntimePreview, input.RequestedEffort = resolved, agent.Effort
+		if v2 {
+			effort := resolved.Choice.ResolvedProfile.Effort
+			input.ProfileEffort = &effort
+			input.EffortSource = "local-model-profile"
+			input.ResolvedProfile = resolved.Choice.ResolvedProfile
+		}
 		input.Controls, input.Scope, input.Effects = unit.Controls, unit.Scope, unit.Effects
 		inputReference, err := stageInputReference(input)
 		if err != nil {
@@ -202,6 +246,9 @@ func (c Compiler) Compile(ctx context.Context, request Request) (Result, error) 
 		}
 	}
 	result := Result{FormatVersion: 1, Workflow: request.Workflow, StageID: stage.ID, ExecutionKind: "graph", Mode: stage.Mode, Concurrency: stage.Concurrency, Authority: sortedEffects(requiredEffects), AuthorityCeiling: sortedEffects(request.ParentAuthority), Validation: []ValidationResult{{Check: "workflow-revision", Status: "passed"}, {Check: "stage-contract", Status: "passed"}, {Check: "bounded-plan", Status: "passed"}, {Check: "input-references", Status: "passed"}, {Check: "runtime-profile-resolution", Status: "passed"}, {Check: "effort-policy", Status: "passed"}, {Check: "authority-ceiling", Status: "passed"}, {Check: "topology-and-concurrency", Status: "passed"}}, Agents: agents, PlanRevision: request.Plan.PlanRevision, PlanDigest: request.Plan.PlanDigest}
+	if v2 {
+		result.FormatVersion = 2
+	}
 	if len(stage.Agents) == 1 {
 		result.ExecutionKind = "single"
 		result.Ordering = [][]string{{units[0].Key}}
@@ -249,7 +296,10 @@ func validateRequest(request Request) (workflowdefinition.Stage, error) {
 		return workflowdefinition.Stage{}, ErrInvalidRequest
 	}
 	if request.Workflow.Source == "builtin" {
-		builtin := workflowdefinition.Builtin()
+		builtin, ok := workflowdefinition.BuiltinRevision(request.Workflow.Revision)
+		if !ok {
+			return workflowdefinition.Stage{}, ErrInvalidRequest
+		}
 		if request.Workflow != builtin.Ref("builtin") || canonical.Digest != builtin.Digest {
 			return workflowdefinition.Stage{}, ErrInvalidRequest
 		}
@@ -320,6 +370,17 @@ func validateBindings(stage workflowdefinition.Stage, bindings []InputBinding) e
 }
 
 func (c Compiler) resolveAgent(ctx context.Context, request Request, stage workflowdefinition.Stage, agent workflowdefinition.Agent) (runtimeapplication.Preview, error) {
+	if request.Definition.Definition.SchemaVersion == 2 {
+		selection := runtimeapplication.Request{Role: agent.Role, Complexity: agent.Complexity, Capabilities: sortedUnique(append([]string(nil), agent.Capabilities...)), ModelProfileID: profileID(agent.ProfileRef)}
+		if len(agent.RuntimeConstraints) == 1 {
+			selection.RuntimeID = agent.RuntimeConstraints[0]
+		}
+		preview, err := c.runtimes.Preview(ctx, request.ProjectID, selection)
+		if err != nil || !previewMatchesV2(preview, request.ProjectID, selection) || len(agent.RuntimeConstraints) > 0 && !contains(agent.RuntimeConstraints, preview.Choice.RuntimeID) {
+			return runtimeapplication.Preview{}, ErrRuntimeBlocked
+		}
+		return preview, nil
+	}
 	constraints := append([]string(nil), agent.RuntimeConstraints...)
 	sort.Strings(constraints)
 	runtimeIDs := constraints
@@ -682,4 +743,31 @@ func sortedUnique(values []string) []string {
 		}
 	}
 	return result
+}
+
+func previewMatchesV2(preview runtimeapplication.Preview, projectID string, request runtimeapplication.Request) bool {
+	choice := preview.Choice
+	if choice == nil || choice.ResolvedProfile == nil || runtimeprofile.ValidateResolvedProfile(*choice.ResolvedProfile) != nil {
+		return false
+	}
+	profile := choice.ResolvedProfile
+	if preview.Blocker != nil || preview.ProjectID != projectID || preview.Request.Role != request.Role || preview.Request.Complexity != request.Complexity || preview.Request.RuntimeID != request.RuntimeID || preview.Request.ModelProfileID != request.ModelProfileID || !sameStrings(preview.Request.Capabilities, request.Capabilities) {
+		return false
+	}
+	return profile.ProfileID == choice.ModelProfileID && profile.RuntimeID == choice.RuntimeID && profile.Model == choice.Model && profile.ConfigurationRevision == preview.ConfigurationRevision && profile.ConfigurationDigest == preview.ConfigurationDigest && profile.ObservationDigest == preview.ObservationDigest && profile.ExecutableDigest == choice.ExecutableDigest && profile.RuntimeVersion == choice.RuntimeVersion && profile.ObservationRevision == choice.ObservationRevision && (request.RuntimeID == "" || request.RuntimeID == profile.RuntimeID) && (request.ModelProfileID == "" || request.ModelProfileID == profile.ProfileID)
+}
+
+// MarshalJSON retains v1 requestedEffort while v2 exposes only Profile provenance.
+func (input ExecutionInput) MarshalJSON() ([]byte, error) {
+	type wire ExecutionInput
+	b, err := json.Marshal(wire(input))
+	if err != nil || input.EffortSource == "" {
+		return b, err
+	}
+	var object map[string]json.RawMessage
+	if err = json.Unmarshal(b, &object); err != nil {
+		return nil, err
+	}
+	delete(object, "requestedEffort")
+	return json.Marshal(object)
 }

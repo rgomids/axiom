@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/rgomids/axiom/internal/codexruntime"
 	"io"
 	"os"
 	"path"
@@ -32,7 +33,7 @@ var (
 	// skillNames is the closed current archive inventory. Earlier five-, six-,
 	// and eight-skill sets remain ownership history, never active entrypoints.
 	// Their manifests are reconstructed from present historical skills only.
-	skillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
+	skillNames = codexruntime.ActiveSkillNames()
 )
 
 // Candidate is a verified release bundle held in memory. Nothing from the

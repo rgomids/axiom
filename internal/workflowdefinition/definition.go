@@ -23,6 +23,12 @@ const MaxBytes = 1 << 20
 //go:embed workflow.schema.json
 var schemaWire []byte
 
+//go:embed workflow-v2.schema.json
+var schemaV2Wire []byte
+
+//go:embed default-sdd-r2.json
+var defaultV2Wire []byte
+
 //go:embed default-sdd-r1.json
 var defaultWire []byte
 var ErrInvalid = errors.New("invalid_workflow_definition")
@@ -125,6 +131,22 @@ type Diagnostic struct {
 	Field string `json:"field"`
 	Code  string `json:"code"`
 }
+
+// Schema-2 agents carry effort exclusively through their resolved Profile.
+// Preserve the historical nonzero schema-1 encoding while omitting zero effort.
+func (a Agent) MarshalJSON() ([]byte, error) {
+	type plain Agent
+	var effort *Effort
+	if a.Effort != (Effort{}) {
+		value := a.Effort
+		effort = &value
+	}
+	return json.Marshal(struct {
+		plain
+		Effort *Effort `json:"effort,omitempty"`
+	}{plain(a), effort})
+}
+
 type Document struct {
 	Definition Definition
 	Canonical  []byte
@@ -142,26 +164,49 @@ func Builtin() Document {
 	return d
 }
 func Encode(d Definition) (Document, []Diagnostic) {
+	if d.SchemaVersion == 2 {
+		for _, stage := range d.Stages {
+			for _, agent := range stage.Agents {
+				if agent.Effort != (Effort{}) {
+					return Document{}, []Diagnostic{{"agent.effort", "forbidden_effort"}}
+				}
+			}
+		}
+	}
 	b, e := json.Marshal(d)
+	if e == nil && d.SchemaVersion == 2 {
+		var raw map[string]any
+		_ = json.Unmarshal(b, &raw)
+		stages, _ := raw["stages"].([]any)
+		for _, stage := range stages {
+			agents, _ := stage.(map[string]any)["agents"].([]any)
+			for _, agent := range agents {
+				delete(agent.(map[string]any), "effort")
+			}
+		}
+		b, e = json.Marshal(raw)
+	}
 	if e != nil {
 		return Document{}, []Diagnostic{{"definition", "invalid_json"}}
 	}
 	return Decode(b)
 }
 
-var compiledSchema, schemaError = compileSchema()
+var compiledSchema, schemaError = compileSchema(schemaWire, "urn:axiom:workflow-definition:1")
 
-func compileSchema() (*jsonschema.Schema, error) {
+var compiledV2Schema, schemaV2Error = compileSchema(schemaV2Wire, "urn:axiom:workflow-definition:2")
+
+func compileSchema(wire []byte, id string) (*jsonschema.Schema, error) {
 	var resource any
-	if e := json.Unmarshal(schemaWire, &resource); e != nil {
+	if e := json.Unmarshal(wire, &resource); e != nil {
 		return nil, e
 	}
 	c := jsonschema.NewCompiler()
 	c.DefaultDraft(jsonschema.Draft2020)
-	if e := c.AddResource("urn:axiom:workflow-definition:1", resource); e != nil {
+	if e := c.AddResource(id, resource); e != nil {
 		return nil, e
 	}
-	return c.Compile("urn:axiom:workflow-definition:1")
+	return c.Compile(id)
 }
 
 // StrictJSON checks duplicate keys, UTF-8, Unicode surrogate validity and bounds
@@ -247,10 +292,18 @@ func Decode(b []byte) (Document, []Diagnostic) {
 	if e := StrictJSON(b, &raw); e != nil {
 		return bad("invalid_json")
 	}
-	if schemaError != nil {
+	schema, schemaErr := compiledSchema, schemaError
+	object, ok := raw.(map[string]any)
+	if !ok {
+		return bad("invalid_schema")
+	}
+	if object["schemaVersion"] == json.Number("2") {
+		schema, schemaErr = compiledV2Schema, schemaV2Error
+	}
+	if schemaErr != nil {
 		return bad("schema_unavailable")
 	}
-	if e := compiledSchema.Validate(raw); e != nil {
+	if e := schema.Validate(raw); e != nil {
 		return bad("invalid_schema")
 	}
 	// Integers only, no null, and byte limits supplement schema character limits.
@@ -308,4 +361,23 @@ func logicalSource(s string) bool {
 		}
 	}
 	return true
+}
+
+// BuiltinRevision preserves every published builtin identity.
+func BuiltinRevision(revision int) (Document, bool) {
+	var wire []byte
+	switch revision {
+	case 1:
+		wire = defaultWire
+	case 2:
+		wire = defaultV2Wire
+	default:
+		return Document{}, false
+	}
+	doc, issues := Decode(wire)
+	return doc, len(issues) == 0
+}
+func IsBuiltin(ref Ref) bool {
+	doc, ok := BuiltinRevision(ref.Revision)
+	return ok && ref == doc.Ref("builtin")
 }

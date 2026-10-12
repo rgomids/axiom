@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 const (
@@ -57,17 +59,18 @@ type ExecutionControls struct {
 }
 
 type WorkUnit struct {
-	Key              string            `json:"key"`
-	Capability       CapabilityRequest `json:"capability"`
-	Dependencies     []string          `json:"dependencies"`
-	Inputs           []string          `json:"inputs"`
-	Outputs          []string          `json:"outputs"`
-	Scope            Scope             `json:"scope"`
-	Effects          []Effect          `json:"effects"`
-	ValidationOwner  bool              `json:"validationOwner"`
-	IntegrationOwner bool              `json:"integrationOwner"`
-	Optional         bool              `json:"optional"`
-	Controls         ExecutionControls `json:"controls"`
+	ResolvedProfile  *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
+	Key              string                          `json:"key"`
+	Capability       CapabilityRequest               `json:"capability"`
+	Dependencies     []string                        `json:"dependencies"`
+	Inputs           []string                        `json:"inputs"`
+	Outputs          []string                        `json:"outputs"`
+	Scope            Scope                           `json:"scope"`
+	Effects          []Effect                        `json:"effects"`
+	ValidationOwner  bool                            `json:"validationOwner"`
+	IntegrationOwner bool                            `json:"integrationOwner"`
+	Optional         bool                            `json:"optional"`
+	Controls         ExecutionControls               `json:"controls"`
 }
 
 type ApprovedPlan struct {
@@ -79,17 +82,18 @@ type ApprovedPlan struct {
 }
 
 type ProposedNode struct {
-	Key              string            `json:"key"`
-	Capability       CapabilityRequest `json:"capability"`
-	Dependencies     []string          `json:"dependencies"`
-	Inputs           []string          `json:"inputs"`
-	Outputs          []string          `json:"outputs"`
-	Scope            Scope             `json:"scope"`
-	Effects          []Effect          `json:"effects"`
-	ValidationOwner  bool              `json:"validationOwner"`
-	IntegrationOwner bool              `json:"integrationOwner"`
-	Optional         bool              `json:"optional"`
-	Controls         ExecutionControls `json:"controls"`
+	ResolvedProfile  *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
+	Key              string                          `json:"key"`
+	Capability       CapabilityRequest               `json:"capability"`
+	Dependencies     []string                        `json:"dependencies"`
+	Inputs           []string                        `json:"inputs"`
+	Outputs          []string                        `json:"outputs"`
+	Scope            Scope                           `json:"scope"`
+	Effects          []Effect                        `json:"effects"`
+	ValidationOwner  bool                            `json:"validationOwner"`
+	IntegrationOwner bool                            `json:"integrationOwner"`
+	Optional         bool                            `json:"optional"`
+	Controls         ExecutionControls               `json:"controls"`
 }
 
 type Proposal struct {
@@ -114,6 +118,11 @@ func (p Planner) Propose(ctx context.Context, plan ApprovedPlan) (Proposal, erro
 	}
 	proposal := Proposal{FormatVersion: ProposalFormatVersion, PlanRevision: plan.PlanRevision, PlanDigest: plan.PlanDigest, Nodes: make([]ProposedNode, 0, len(plan.Work))}
 	for _, unit := range plan.Work {
+		if unit.ResolvedProfile != nil {
+			frozen := *unit.ResolvedProfile
+			unit.ResolvedProfile = &frozen
+			proposal.FormatVersion = 2
+		}
 		proposal.Nodes = append(proposal.Nodes, ProposedNode(unit))
 	}
 	normalizeProposal(&proposal)
@@ -129,13 +138,13 @@ func (p Planner) Propose(ctx context.Context, plan ApprovedPlan) (Proposal, erro
 }
 
 func (p Planner) Validate(ctx context.Context, proposal Proposal, maximumNodes int) error {
-	if proposal.FormatVersion != ProposalFormatVersion || !validToken(proposal.PlanRevision) || !validDigest(proposal.PlanDigest) || maximumNodes < 1 || maximumNodes > maxNodes || len(proposal.Nodes) == 0 || len(proposal.Nodes) > maximumNodes {
+	if (proposal.FormatVersion != ProposalFormatVersion && proposal.FormatVersion != 2) || !validToken(proposal.PlanRevision) || !validDigest(proposal.PlanDigest) || maximumNodes < 1 || maximumNodes > maxNodes || len(proposal.Nodes) == 0 || len(proposal.Nodes) > maximumNodes {
 		return ErrInvalidGraph
 	}
 	nodes := make(map[string]ProposedNode, len(proposal.Nodes))
 	integrationKey := ""
 	for _, node := range proposal.Nodes {
-		if !validNode(node) {
+		if !validNode(node) || proposal.FormatVersion == 2 && !ValidProfileControls(node.ResolvedProfile, node.Controls, node.Capability) || proposal.FormatVersion == 1 && node.ResolvedProfile != nil {
 			return ErrInvalidGraph
 		}
 		if _, exists := nodes[node.Key]; exists {
@@ -377,4 +386,28 @@ func sortedUnique(values []string) []string {
 		}
 	}
 	return result
+}
+
+// ValidProfileControls verifies the frozen sole-owner projection without acquiring proof.
+func ValidProfileControls(profile *runtimeprofile.ResolvedProfile, controls ExecutionControls, capability CapabilityRequest) bool {
+	if profile == nil || runtimeprofile.ValidateResolvedProfile(*profile) != nil {
+		return false
+	}
+	expected := ""
+	if profile.Effort.Mode == "explicit" {
+		expected = profile.Effort.Value
+	}
+	if controls.ReasoningEffort != expected {
+		return false
+	}
+	found := false
+	for _, value := range capability.Capabilities {
+		if strings.HasPrefix(value, "reasoning-effort-") {
+			if expected == "" || value != "reasoning-effort-"+expected || found {
+				return false
+			}
+			found = true
+		}
+	}
+	return expected == "" || found
 }

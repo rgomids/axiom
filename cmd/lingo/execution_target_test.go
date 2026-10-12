@@ -17,6 +17,7 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -25,6 +26,7 @@ func TestWorkflowStartValidatesTargetBeforeRuntimePreview(t *testing.T) {
 	env.installOutsideRoot(t, portableManifest(t, workItemSourceProjectID, "external", "External", true))
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
 	for _, number := range []int{0, -1, 7} {
 		input := cli.WorkflowInput{Project: "external", Repository: "main", Number: number, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
@@ -91,6 +93,7 @@ func TestWorkflowStartReviewBindsCanonicalTargetAndContext(t *testing.T) {
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	ctx := context.Background()
 	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
 	preview := service.WorkflowStart(ctx, input)
@@ -139,6 +142,7 @@ func TestWorkflowStartEffectiveProjectSourcesAndDisclosure(t *testing.T) {
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	ctx := projectapp.WithProjectSession(context.Background(), "target-session")
 	input := cli.WorkflowInput{Repository: "main", WorkItem: "github:owner/repo#7", Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
 	if got := service.WorkflowStart(ctx, input); got.Category != "project_context_unresolved" {
@@ -220,6 +224,7 @@ func TestWorkflowStartStaleContextReviewAndPersistedIdentity(t *testing.T) {
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	ctx := projectapp.WithProjectSession(context.Background(), "one")
 	for _, session := range []string{"", "one"} {
 		if c := service.projectContext().Set(ctx, session, "external"); c != "" {
@@ -267,6 +272,7 @@ func TestWorkflowStartAmbiguousLinkAndProjectFailClosed(t *testing.T) {
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
 	saveTargetLink(t, env.state, workItemSourceProjectID, "7", "other/repo")
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
@@ -316,6 +322,7 @@ func TestWorkflowStartNeverSearchesAnotherProjectForWorkItem(t *testing.T) {
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	other := "123e4567-e89b-42d3-a456-426614174001"
 	source, repository := filepath.Join(env.elsewhere, "other"), filepath.Join(t.TempDir(), "repository")
 	for _, path := range []string{source, repository} {
@@ -373,6 +380,7 @@ func TestWorkflowStartRejectsTargetDriftDuringPolicyCheck(t *testing.T) {
 			installLinkedTarget(t, env)
 			installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 			service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+			service = currentProfileStartFixture(t, service, env.state)
 			ctx := projectapp.WithProjectSession(context.Background(), "one")
 			for _, session := range []string{"", "one"} {
 				if c := service.projectContext().Set(ctx, session, "external"); c != "" {
@@ -383,7 +391,7 @@ func TestWorkflowStartRejectsTargetDriftDuringPolicyCheck(t *testing.T) {
 			preview := service.WorkflowStart(ctx, input)
 			input.RuntimePreview = preview.PreviewDigest
 			var afterDrift []byte
-			source := &targetDriftPolicySource{source: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: service.runtimeObservationSources()}}
+			source := &targetDriftPolicySource{source: service.RuntimePolicySource}
 			source.drift = func() {
 				if drift == "context" {
 					if c := service.projectContext().Clear(ctx, "one"); c != "" {
@@ -422,6 +430,7 @@ func TestWorkflowStartRechecksAdmissionAfterPolicyCheck(t *testing.T) {
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	ctx := context.Background()
 	input := cli.WorkflowInput{Project: "external", Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
 	preview := service.WorkflowStart(ctx, input)
@@ -430,7 +439,7 @@ func TestWorkflowStartRechecksAdmissionAfterPolicyCheck(t *testing.T) {
 	}
 	input.RuntimePreview = preview.PreviewDigest
 	var archived []byte
-	source := &targetDriftPolicySource{source: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: service.runtimeObservationSources()}}
+	source := &targetDriftPolicySource{source: service.RuntimePolicySource}
 	source.drift = func() {
 		store, err := local.NewOperationalStore(env.state)
 		if err != nil {
@@ -454,4 +463,76 @@ func TestWorkflowStartRechecksAdmissionAfterPolicyCheck(t *testing.T) {
 	if !bytes.Equal(archived, snapshotTrees(t, env.root, env.state, env.elsewhere)) {
 		t.Fatal("denied start changed state")
 	}
+}
+
+// New-admission fixtures consume actual protected local2 and executable identity,
+// while explicitly injecting unacquired model/effort/auth/source evidence. Legacy
+// observer-only tests keep their original v1 setup and no positive proof claim.
+type currentFixtureSource struct{ base runtimeapplication.Source }
+
+func (s currentFixtureSource) Load(ctx context.Context, id string) (runtimeapplication.Snapshot, error) {
+	snapshot, err := s.base.Load(ctx, id)
+	if err != nil {
+		return snapshot, err
+	}
+	snapshot.Observer = currentFixtureObserver{base: snapshot.Observer, configuration: snapshot.Configuration}
+	return snapshot, nil
+}
+
+type currentFixtureObserver struct {
+	base          runtimeprofile.Observer
+	configuration runtimeprofile.Configuration
+}
+
+func (o currentFixtureObserver) Observe(ctx context.Context, id string) (runtimeprofile.Observation, error) {
+	observed, err := o.base.Observe(ctx, id)
+	if err != nil || !observed.Installed || !observed.Available {
+		return observed, err
+	}
+	observed.Version = "injected-fixture-1"
+	for _, p := range o.configuration.ModelProfiles {
+		if p.RuntimeID != id {
+			continue
+		}
+		caps := map[string]runtimeprofile.CapabilityStatus{}
+		for _, c := range p.Capabilities {
+			caps[c] = runtimeprofile.CapabilityProven
+		}
+		observed.ProfileProofs = append(observed.ProfileProofs, runtimeprofile.ProfileProof{RuntimeID: id, Model: p.Model, Effort: p.Effort, ExecutableDigest: observed.ExecutableDigest, RuntimeVersion: observed.Version, InvocationMode: "noninteractive", ObservationRevision: observed.Revision, Reference: "injected-fixture-" + p.ID, EffortSourceDigest: strings.Repeat("a", 64), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: caps})
+	}
+	return observed, nil
+}
+func currentProfileStartFixture(t *testing.T, service lifecycleService, root string) lifecycleService {
+	t.Helper()
+	store, err := local.NewRuntimeProfileStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.FormatVersion == 1 {
+		mapping := map[string]runtimeprofile.Effort{}
+		for _, p := range cfg.ModelProfiles {
+			mapping[p.ID] = runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}
+		}
+		app := runtimeapplication.Authoring{Store: runtimeAuthoringStore{store}}
+		r := runtimeapplication.AuthoringRequest{Kind: "profile", Operation: "migrate", MigrationEfforts: mapping, ClearLegacyReferences: true}
+		p, err := app.Run(context.Background(), r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.AuthorizeLocal = true
+		r.ExpectedRevision = p.ExpectedRevision
+		r.PreviewDigest = p.PreviewDigest
+		if _, err := app.Run(context.Background(), r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if record, category := service.installation.Inspect(context.Background(), workItemSourceProjectID); category == "" && record.Record.State().ProjectID == workItemSourceProjectID {
+		selectProfileBuiltinForTest(t, service, workItemSourceProjectID)
+	}
+	service.RuntimePolicySource = currentFixtureSource{base: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: root, runtimes: service.runtimeObservationSources()}}
+	return service
 }

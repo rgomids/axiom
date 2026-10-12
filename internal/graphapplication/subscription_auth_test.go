@@ -62,7 +62,7 @@ func subscriptionGuard(t *testing.T, runtimeID, credential string, environment [
 	if err != nil {
 		t.Fatal(err)
 	}
-	guard, err := newPolicyInvocations(LocalConfiguration{Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: profiles, SubscriptionAuth: auth}, adapter)
+	guard, err := newPolicyInvocations(LocalConfiguration{EffortSources: injectedEffortSources{}, Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: profiles, SubscriptionAuth: auth}, adapter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,6 +128,8 @@ func TestSubscriptionDispatchRefusesCredentialReferenceBeforeResolution(t *testi
 // environment; an inherited API key there blocks dispatch.
 func TestSubscriptionDispatchRejectsInheritedEnvironment(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("OPENAI_API_KEY", "")
+	_ = os.Unsetenv("OPENAI_API_KEY")
 	t.Setenv("CODEX_API_KEY", "sk-inherited-secret")
 	status := &scriptedStatus{}
 	preflight, err := runtimeadapter.NewAuthPreflight(status, runtimeadapter.ManagedConfiguration{})
@@ -165,7 +167,7 @@ func TestProductionDispatchBlockedByAuthenticationHasNoAttempts(t *testing.T) {
 	repository, revision := initRepository(t, filepath.Join(root, "repository"))
 	graph := buildGraph(t, filepath.Join(root, "workspaces"))
 	executable, marker := stubRuntime(t, filepath.Join(root, "bin"), "claude")
-	policy, previews, _ := policyFixture(t, &graph, "claude", executable, "")
+	policy, previews, _ := currentPolicyFixture(t, &graph, "claude", executable, "")
 	profiles := []runtimeadapter.CommandProfile{}
 	for _, child := range graph.Children {
 		profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: "claude", ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", Environment: []string{"HOME=" + root}, OutputMax: 4096})
@@ -177,7 +179,7 @@ func TestProductionDispatchBlockedByAuthenticationHasNoAttempts(t *testing.T) {
 	store := &memoryGraphStore{wire: mustEncodeGraph(t, graph)}
 	before := string(store.wire)
 	auth := &recordingAuth{status: runtimeadapter.AuthUnavailable, reason: "not_logged_in"}
-	service, err := NewLocalService(context.Background(), LocalConfiguration{
+	service, err := NewLocalService(context.Background(), LocalConfiguration{EffortSources: injectedEffortSources{},
 		Repository: repository, WorkspaceRoot: filepath.Join(root, "workspaces"), BaseRevision: revision,
 		Graph: graph, GraphStore: store, RuntimeProfiles: profiles, RuntimePolicy: policy, RuntimePreviews: previews, SubscriptionAuth: auth,
 		Validators:        []gitworkspace.ValidationCommand{{Reference: "diff-check", Argv: []string{gitPath, "diff", "--check"}, OutputMax: 4096}},

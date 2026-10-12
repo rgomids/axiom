@@ -498,9 +498,30 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-workflow | definition.validate | default | axiom project workflow validate | read-only |  |
 | axiom-workflow | definition.remove | default | axiom project workflow remove | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-workflow | definition.recover | default | axiom project workflow recover | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-workflow | definition.migrate | default | axiom project workflow migrate | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-workflow | configuration.readiness | configuration | axiom runtime profile validate; axiom runtime profile preview | read-only |  |
 | axiom-workflow | configuration.readiness | runtime | axiom runtime codex status; axiom runtime claude status | read-only |  |
 | axiom-workflow | configuration.readiness | authentication | axiom runtime codex auth; axiom runtime claude auth | read-only |  |
+| axiom-runtime | binding.list | default | axiom runtime binding list | read-only |  |
+| axiom-runtime | binding.show | default | axiom runtime binding show | read-only |  |
+| axiom-runtime | binding.create | default | axiom runtime binding create | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | binding.edit | default | axiom runtime binding edit | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | binding.enable | default | axiom runtime binding enable | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | binding.disable | default | axiom runtime binding disable | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | binding.remove | default | axiom runtime binding remove | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | binding.migrate | default | axiom runtime binding migrate | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | binding.validate-candidate | default | axiom runtime binding validate-candidate | read-only |  |
+| axiom-runtime | binding.recover | default | axiom runtime binding recover | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | profile.list | default | axiom runtime profile list | read-only |  |
+| axiom-runtime | profile.show | default | axiom runtime profile show | read-only |  |
+| axiom-runtime | profile.create | default | axiom runtime profile create | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | profile.edit | default | axiom runtime profile edit | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | profile.enable | default | axiom runtime profile enable | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | profile.disable | default | axiom runtime profile disable | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | profile.remove | default | axiom runtime profile remove | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | profile.migrate | default | axiom runtime profile migrate | local-mutation | --expected-revision --preview-digest --authorize-local |
+| axiom-runtime | profile.validate-candidate | default | axiom runtime profile validate-candidate | read-only |  |
+| axiom-runtime | profile.recover | default | axiom runtime profile recover | local-mutation | --expected-revision --preview-digest --authorize-local |
 <!-- canonical-runtime-catalog:end -->
 
 Natural-language operation selection carries no authority. Clear Portuguese

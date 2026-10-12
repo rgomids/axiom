@@ -116,7 +116,7 @@ func TestPolicyInvocationChecksExactSelectionBeforeCredentials(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			guard, err := newPolicyInvocations(LocalConfiguration{Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: profiles}, adapter)
+			guard, err := newPolicyInvocations(LocalConfiguration{EffortSources: injectedEffortSources{}, Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: profiles}, adapter)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -197,13 +197,15 @@ func TestPolicyInvocationRejectsMissingMismatchedAndOverrideBindings(t *testing.
 			c.RuntimePreviews = map[string]runtimeapplication.Preview{c.Graph.Children[0].ExecutionID: preview, c.Graph.Children[1].ExecutionID: c.RuntimePreviews[c.Graph.Children[1].ExecutionID], c.Graph.Children[2].ExecutionID: c.RuntimePreviews[c.Graph.Children[2].ExecutionID]}
 		},
 	} {
-		cfg := LocalConfiguration{Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: append([]runtimeadapter.CommandProfile(nil), profiles...)}
+		cfg := LocalConfiguration{EffortSources: injectedEffortSources{}, Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: append([]runtimeadapter.CommandProfile(nil), profiles...)}
 		mutation(&cfg)
 		if _, err := newPolicyInvocations(cfg, helperInvocations{}); !errors.Is(err, ErrInvalidComposition) {
 			t.Fatalf("err=%v", err)
 		}
 	}
-	if _, err := NewLocalService(context.Background(), LocalConfiguration{Graph: graph}); !errors.Is(err, ErrInvalidComposition) {
+	current := graph
+	current.FormatVersion = 2
+	if _, err := NewLocalService(context.Background(), LocalConfiguration{EffortSources: injectedEffortSources{}, Graph: current}); !errors.Is(err, ErrInvalidComposition) {
 		t.Fatalf("missing policy err=%v", err)
 	}
 }
@@ -242,7 +244,7 @@ func TestAlternateModelSelectionRejectedBeforeCredentials(t *testing.T) {
 						if err != nil {
 							t.Fatal(err)
 						}
-						_, err = newPolicyInvocations(LocalConfiguration{Graph: graph, RuntimeProfiles: candidate, RuntimePolicy: policy, RuntimePreviews: previews}, adapter)
+						_, err = newPolicyInvocations(LocalConfiguration{EffortSources: injectedEffortSources{}, Graph: graph, RuntimeProfiles: candidate, RuntimePolicy: policy, RuntimePreviews: previews}, adapter)
 						if !errors.Is(err, ErrInvalidComposition) || credentials.calls != 0 {
 							t.Fatalf("err=%v credentials=%d", err, credentials.calls)
 						}
@@ -260,7 +262,7 @@ func TestProductionDispatchStalePolicyHasNoAttemptsOrCredentials(t *testing.T) {
 			repository, revision := initRepository(t, filepath.Join(root, "repository"))
 			graph := buildGraph(t, filepath.Join(root, "workspaces"))
 			executable, marker := stubRuntime(t, filepath.Join(root, "bin"), runtimeID)
-			policy, previews, source := policyFixture(t, &graph, runtimeID, executable, "synthetic:credential")
+			policy, previews, source := currentPolicyFixture(t, &graph, runtimeID, executable, "synthetic:credential")
 			credentials := &countedCredentials{}
 			profiles := []runtimeadapter.CommandProfile{}
 			for _, child := range graph.Children {
@@ -273,7 +275,7 @@ func TestProductionDispatchStalePolicyHasNoAttemptsOrCredentials(t *testing.T) {
 			store := &memoryGraphStore{wire: mustEncodeGraph(t, graph)}
 			before := string(store.wire)
 			allocations := 0
-			service, err := NewLocalService(context.Background(), LocalConfiguration{
+			service, err := NewLocalService(context.Background(), LocalConfiguration{EffortSources: injectedEffortSources{},
 				Repository: repository, WorkspaceRoot: filepath.Join(root, "workspaces"), BaseRevision: revision,
 				Graph: graph, GraphStore: store, RuntimeProfiles: profiles, Credentials: credentials, RuntimePolicy: policy, RuntimePreviews: previews,
 				Validators:        []gitworkspace.ValidationCommand{{Reference: "diff-check", Argv: []string{gitPath, "diff", "--check"}, OutputMax: 4096}},
@@ -335,7 +337,7 @@ func main() {
 			caseRoot := filepath.Join(root, runtimeID+"-case")
 			repository, revision := initRepository(t, filepath.Join(caseRoot, "repository"))
 			graph := buildGraph(t, filepath.Join(caseRoot, "workspaces"))
-			policy, previews, _ := policyFixture(t, &graph, runtimeID, executable, "")
+			policy, previews, _ := currentPolicyFixture(t, &graph, runtimeID, executable, "")
 			profiles := []runtimeadapter.CommandProfile{}
 			for _, child := range graph.Children {
 				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", OutputMax: 4096})
@@ -345,7 +347,7 @@ func main() {
 				t.Fatal(err)
 			}
 			store := &memoryGraphStore{wire: mustEncodeGraph(t, graph)}
-			service, err := NewLocalService(context.Background(), LocalConfiguration{
+			service, err := NewLocalService(context.Background(), LocalConfiguration{EffortSources: injectedEffortSources{},
 				Repository: repository, WorkspaceRoot: filepath.Join(caseRoot, "workspaces"), BaseRevision: revision,
 				Graph: graph, GraphStore: store, RuntimeProfiles: profiles, RuntimePolicy: policy, RuntimePreviews: previews,
 				Validators: []gitworkspace.ValidationCommand{{Reference: "diff-check", Argv: []string{gitPath, "diff", "--check"}, OutputMax: 4096}},
@@ -449,7 +451,7 @@ func TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects(t *testing.T) 
 				repository, revision := initRepository(t, filepath.Join(root, "repository"))
 				graph := buildGraph(t, filepath.Join(root, "workspaces"))
 				executable, marker := stubRuntime(t, filepath.Join(root, "bin"), runtimeID)
-				policy, previews, source := policyFixture(t, &graph, runtimeID, executable, "synthetic:credential-a")
+				policy, previews, source := currentPolicyFixture(t, &graph, runtimeID, executable, "synthetic:credential-a")
 				profiles := []runtimeadapter.CommandProfile{}
 				for _, child := range graph.Children {
 					profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", CredentialReference: "synthetic:credential-a", OutputMax: 4096})
@@ -463,7 +465,7 @@ func TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects(t *testing.T) 
 				store := &memoryGraphStore{wire: mustEncodeGraph(t, graph)}
 				before := string(store.wire)
 				allocations := 0
-				service, err := NewLocalService(context.Background(), LocalConfiguration{
+				service, err := NewLocalService(context.Background(), LocalConfiguration{EffortSources: injectedEffortSources{},
 					Repository: repository, WorkspaceRoot: filepath.Join(root, "workspaces"), BaseRevision: revision,
 					Graph: graph, GraphStore: store, RuntimeProfiles: profiles, Credentials: credentials, RuntimePolicy: policy, RuntimePreviews: previews,
 					Validators:        []gitworkspace.ValidationCommand{{Reference: "diff-check", Argv: []string{gitPath, "diff", "--check"}, OutputMax: 4096}},
@@ -510,7 +512,7 @@ func TestPolicyInvocationResolvesOnlyTheReviewedCredentialReference(t *testing.T
 		if err != nil {
 			t.Fatal(err)
 		}
-		guard, err := newPolicyInvocations(LocalConfiguration{Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: profiles}, adapter)
+		guard, err := newPolicyInvocations(LocalConfiguration{EffortSources: injectedEffortSources{}, Graph: graph, RuntimePolicy: policy, RuntimePreviews: previews, RuntimeProfiles: profiles}, adapter)
 		if err != nil {
 			t.Fatal(err)
 		}

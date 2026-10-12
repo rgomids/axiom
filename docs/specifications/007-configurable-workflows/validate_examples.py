@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent
 PHASES = ['intake', 'specification', 'planning', 'implementation', 'review', 'completion']
 KEYWORDS = {'$schema', '$id', 'title', 'type', 'additionalProperties', 'required',
             'properties', 'items', 'minItems', 'maxItems', 'minLength', 'maxLength',
-            'pattern', 'minimum', 'maximum', 'enum', 'const'}
+            'pattern', 'minimum', 'maximum', 'enum', 'const', 'not'}
 
 
 def require(condition, message):
@@ -38,6 +38,11 @@ def read(path):
 
 def structural(value, schema, path='$'):
     require(set(schema) <= KEYWORDS, f'{path}: unsupported schema keyword')
+
+    if 'not' in schema:
+        excluded = schema['not']
+        require(set(excluded) == {'pattern'}, f'{path}: unsupported negation')
+        require(type(value) is str and re.search(excluded['pattern'], value) is None, f'{path}: excluded pattern')
     kind = schema['type']
     types = {'object': dict, 'array': list, 'string': str, 'integer': int, 'boolean': bool}
     require(type(value) is types[kind], f'{path}: expected {kind}')
@@ -82,7 +87,7 @@ def ancestors(nodes, key, visiting=None):
 
 
 def validate(definition):
-    structural(definition, read(ROOT / 'workflow.schema.json'))
+    structural(definition, read(ROOT / ('workflow-v2.schema.json' if definition.get('schemaVersion') == 2 else 'workflow.schema.json')))
     require(len(canonical(definition)) <= 1 << 20, 'definition byte bound')
     stages = definition['stages']
     unique(stages, 'id', 'stages')
@@ -128,8 +133,11 @@ def validate(definition):
             require(set(agent['inputs']) <= inputs and set(agent['outputs']) <= outputs, 'agent I/O reference')
             require(len(agent['dependsOn']) == len(set(agent['dependsOn'])), 'duplicate dependency')
             ancestors(nodes, agent['id'])
-            effort = agent['effort']
-            require((effort['mode'] == 'runtime-default') == (effort['value'] == 'default'), 'effort mode/value')
+            if definition['schemaVersion'] == 1:
+                effort = agent['effort']
+                require((effort['mode'] == 'runtime-default') == (effort['value'] == 'default'), 'effort mode/value')
+            else:
+                require('effort' not in agent and not any(c.startswith('reasoning-effort-') for c in agent['capabilities']), 'Profile-owned effort')
             assigned_outputs.update(agent['outputs'])
         require({item['id'] for item in stage['outputs'] if item['required']} <= assigned_outputs, 'unowned output')
         if stage['mode'] == 'sequential':
@@ -173,7 +181,7 @@ def set_path(value, path, replacement):
 
 def main():
     examples = {path.name: read(path) for path in sorted((ROOT / 'examples').glob('*.json'))}
-    require(len(examples) == 3, 'fixture inventory')
+    require(len(examples) == 4, 'fixture inventory')
     for name, value in examples.items():
         validate(value)
         print(f'PASS {name}: sha256:{digest(value)}')
