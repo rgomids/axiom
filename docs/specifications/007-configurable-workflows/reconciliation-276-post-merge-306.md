@@ -1,5 +1,25 @@
 # #276 post-merge reconciliation — CR-012 / CR-013
 
+## Post-decision update — 2026-10-12 (current)
+
+PD-R276-01/**B direction approved** at the exact
+[maintainer decision receipt](https://github.com/rgomids/axiom/pull/311#issuecomment-6125676685).
+The alternatives and original Evidence below are preserved as historical
+pre-approval analysis; their `Proposed / HUMAN_DECISION_REQUIRED` labels describe
+the earlier observation and are not current decision-state labels.
+
+A new detailed [ADR-0026](../../decisions/0026-successor-stage-dispatch-graph-format.md)
+and [successor Specification amendment](amendment-276-successor-graph-proposed.md)
+are **Proposed, awaiting separate exact-artifact acceptance**.
+The existing 44 Tasks are reconciled as a new **Proposed** Task revision;
+this does **not** authorize implementation, does not alter #306 and does not
+supersede accepted ADR-0025 until ADR-0018 governance is completed.
+
+CR-012 remains open pending acceptance/re-review of the detailed contracts
+and their aligned Tasks. CR-013 remains resolved.
+PR #311 stays Draft; Phase 1 remains accepted historical baseline,
+Phase 2 proposed, Phase 3 not authorized.
+
 ## Status and authority — 2026-10-12
 
 **PD-R276-01: Proposed / HUMAN_DECISION_REQUIRED.** This packet is analysis and
