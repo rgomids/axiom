@@ -2121,12 +2121,12 @@ Plan §7.
 - **Contracts:** Plan §9.4; AC-1, AC-3, AC-6; IG-1
 - **Depends on:** I276-T39, I276-T16
 - **External dependencies:** I306-T16 (local authoring delivered); I306-X07; Explicit human authorization of the smoke envelope and real probes
-- **Acceptance criteria:** Evidence records auth mode, versions, digests, graph, records, persisted classifications and artifacts; classification `engineering_smoke_real`.
+- **Acceptance criteria:** Specific human authorization and all Plan §9.4 preconditions are satisfied, including IG-1 and the applicable IG-7 gate; real Codex and Claude execute the bounded smoke. Evidence classified `engineering_smoke_real` records all §9.4 fields and checks: exact envelope, subscription auth mode, versions and identity digests, graph, cross-Runtime question/answer and consumed results, local integration, persisted classifications before/after initiating-session exit, cross-surface start/inspect/integrate, and bounded redacted artifacts (AC-6). Missing proof leaves the corresponding acceptance criteria pending; no R-2/R-3 or #278 acceptance claim.
 - **Positive tests:** Authorized run succeeds or fails truthfully.
-- **Negative tests:** Any precondition missing → not run, reason recorded.
-- **Expected Evidence:** Smoke Evidence package.
+- **Negative tests:** Missing IG-1, applicable IG-7 prerequisite or human inference/probe authorization → no Runtime execution or inference; record reason, missing prerequisites and blocking Evidence, keep `BLOCKED`/`NOT_RUN`, never Done or AC-6 satisfied. An authorized real attempt that fails or is inconclusive preserves available real Evidence, failure, limitations and next steps; unproven criteria remain pending, with no functional success or invented operational capability.
+- **Expected Evidence:** Real smoke Evidence package classified `engineering_smoke_real`; when not run, a separate blocking Evidence record naming reason and missing prerequisites, which does not satisfy AC-6. Failed/inconclusive attempts retain their real Evidence and explicit outstanding criteria.
 - **Risks and security care:** Paid inference and advisory confinement; bounded by the envelope and consent.
-- **Done when:** Evidence published or not-run reason recorded.
+- **Done when:** Only after the specifically authorized smoke executes with real Codex and Claude, all Task criteria and Plan §9.4 / AC-6 Evidence fields and checks are proven, and the valid `engineering_smoke_real` package is published and receives applicable validation and acceptance. A not-run record never permits Done or satisfies AC-6; a failed/inconclusive attempt cannot close unproven criteria.
 
 ### I276-T41 — Extended temp-root probe (optional, PD-17)
 
@@ -2403,7 +2403,7 @@ Specification/criterion → decision → Plan → Tasks → tests → Evidence. 
 | AC-3 real cross-Runtime Q/A consumed; nine kinds, forged lineage, stale revision, authority escalation, capacity | PD-4, PD-9 | §3.4–§3.5 | T03, T22, T23, T24, T36, T38, T40 | Nine-kind and negative ingestion tests; real Q/A | Test report; smoke records |
 | AC-4 overlap only when allowed; conflicts serialize; integration and roll-up preserve validation/authority | PD-7, PD-9 | §3.5, §6 | T04, T05, T27, T32, T33, T36 | Scheduling regressions; integration tests | Regression results; overlap timestamps |
 | AC-5 denied/failed/interrupted/unknown/recovery-required distinct; reconcile before retry | PD-6, PD-8, PD-10 | §3.5, §3.7–§3.8, §8 | T02, T03, T06, T08, T29, T30, T31, T36 | Per-outcome and kill-window tests | Outcome matrix report |
-| AC-6 early real smoke with auth mode, versions, graph, coordination, artifacts; synthetic never operational | PD-5, PD-13 | §9.4 | T39, T40 | Evidence field check | Smoke Evidence or not-run reason |
+| AC-6 early real smoke with auth mode, versions, graph, coordination, artifacts; synthetic never operational | PD-5, PD-13 | §9.4 | T39, T40 | Evidence field check | Valid `engineering_smoke_real` Evidence satisfies AC-6; not-run reason is blocking Evidence only, with T40 `BLOCKED`/`NOT_RUN` |
 | Spec 007 WF-009 / AC-009 | Amendment #276 A1–A6 | §5, §13 | T22, T23, T26, T28, T30, T34, T35, T36 | Parity, restart lineage, nine kinds, forged/stale denial, unknown reconciled | Covered by AC-2, AC-3, AC-5 Evidence |
 | D-1 / CR-002 capability proof owned by #276 | D-1, PD-13 | §3.9 | T10, T11, T12, T13, T14, T15, T16, T17, T42 | Capability matrix | Synthetic capability report; real probes only when authorized |
 | PD-1 public command surface | PD-1 | §5 | T24, T28, T30, T33, T34, T44 | CLI blackbox | Help/inspect metadata |
