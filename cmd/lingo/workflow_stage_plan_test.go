@@ -25,6 +25,7 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 type stagePlanEvent struct {
@@ -99,7 +100,12 @@ func TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates(t *testing.T) {
 	selector := []string{"--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7"}
 	start := append(append([]string{"--json", "workflow", "start"}, selector...), "--role", "implementation", "--complexity", "high", "--capabilities", runtimeadapter.IntegrationCapability)
 	_, preview := run(0, start...)
-	_, started := run(0, append(start, "--runtime-preview", preview.PreviewDigest)...)
+	_, refusedStart := run(1, append(start, "--runtime-preview", preview.PreviewDigest)...)
+	if !strings.Contains(refusedStart.Next, "workflow_migration_required") || refusedStart.Workflow != nil {
+		t.Fatalf("legacy current refusal %+v", refusedStart)
+	}
+	seeded := seedHistoricalWorkflow(t, env.service.(lifecycleService), cli.WorkflowInput{Project: "external", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: "codex", RuntimePreview: preview.PreviewDigest})
+	started := stagePlanEvent{Workflow: seeded}
 	if started.Workflow == nil || started.Workflow.Binding == nil {
 		t.Fatal("missing configured Execution")
 	}
@@ -109,11 +115,11 @@ func TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates(t *testing.T) {
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
 
 	_, refused := run(1, append([]string{"--json"}, plan...)...)
-	if refused.Status != "validation_failure" || refused.Category != "runtime_unresolvable" || refused.Plan != nil || len(refused.ConfirmedEffects) != 0 || refused.Execution == nil || refused.Execution.ExecutionID != execution {
+	if refused.Status != "validation_failure" || refused.Category != "legacy_execution_contract" || refused.Plan != nil || len(refused.ConfirmedEffects) != 0 || refused.Execution == nil || refused.Execution.ExecutionID != execution {
 		t.Fatalf("production observer claimed an unproven capability: %+v", refused)
 	}
 	human, _ := run(1, plan...)
-	if !bytes.Contains(human, []byte("runtime_unresolvable")) || bytes.HasPrefix(bytes.TrimSpace(human), []byte("{")) {
+	if !bytes.Contains(human, []byte("legacy_execution_contract")) || bytes.HasPrefix(bytes.TrimSpace(human), []byte("{")) {
 		t.Fatalf("default output is not the human rendering: %s", human)
 	}
 	for _, tc := range []struct {
@@ -146,8 +152,8 @@ func TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates(t *testing.T) {
 	if err := os.WriteFile(invalid, []byte(`{"formatVersion":1,"plan":{},"authorityCeiling":[],"grant":true}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, got := run(1, append(append([]string{"--json"}, plan[:len(plan)-1]...), invalid)...); got.Category != "invalid_stage_plan" {
-		t.Fatalf("unknown Plan field accepted: %+v", got)
+	if _, got := run(1, append(append([]string{"--json"}, plan[:len(plan)-1]...), invalid)...); got.Category != "legacy_execution_contract" {
+		t.Fatalf("legacy planning bypassed immutable snapshot guard: %+v", got)
 	}
 	if _, got := run(1, append([]string{"--json"}, plan[:len(plan)-2]...)...); got.Status != "validation_failure" || got.Result != "Stage plan input is invalid" || !strings.Contains(got.Next, "axiom workflow stage plan --help") {
 		t.Fatalf("missing --plan accepted: %+v", got)
@@ -225,7 +231,7 @@ func installStagePlanPolicy(t *testing.T, stateRoot, id string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	capabilities := []string{runtimeadapter.IntegrationCapability, "read", "repository-write", "reasoning-effort-medium", "reasoning-effort-high"}
+	capabilities := []string{runtimeadapter.IntegrationCapability, "read", "repository-write"}
 	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1}
 	for _, runtimeID := range []string{"codex", "claude"} {
 		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.Runtime{ID: runtimeID, Adapter: runtimeID, Enabled: true, AllowlistedProfileIDs: []string{"profile-" + runtimeID}, CredentialReference: "private-test-reference"})
@@ -252,6 +258,28 @@ func (s *controlledObservations) Load(ctx context.Context, id string) (runtimeap
 	if err != nil {
 		return runtimeapplication.Snapshot{}, err
 	}
+	if snapshot.Configuration.FormatVersion == 2 {
+		observations := append([]runtimeprofile.Observation(nil), s.observations...)
+		for i := range observations {
+			o := &observations[i]
+			o.Revision = snapshot.Configuration.Revision
+			o.ProfileProofs = nil
+			status := runtimeprofile.CapabilityProven
+			if len(o.NonInteractiveModelCapabilities) == 0 {
+				status = runtimeprofile.CapabilityDeclared
+			}
+			for _, profile := range snapshot.Configuration.ModelProfiles {
+				if profile.RuntimeID != o.RuntimeID {
+					continue
+				}
+				o.ProfileProofs = append(o.ProfileProofs, runtimeprofile.ProfileProof{RuntimeID: o.RuntimeID, Model: profile.Model, Effort: profile.Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: "injected-stage-proof", EffortSourceDigest: strings.Repeat("a", 64), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: status, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: o.CapabilityStatus})
+			}
+		}
+		inventory, err = runtimeadapter.NewInventory(observations)
+		if err != nil {
+			return runtimeapplication.Snapshot{}, err
+		}
+	}
 	snapshot.Observer = inventory
 	return snapshot, nil
 }
@@ -276,7 +304,7 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 	env := newWorkItemSourceEnvironment(t)
 	installLinkedTarget(t, env)
 	installStagePlanPolicy(t, env.state, workItemSourceProjectID)
-	service := env.service.(lifecycleService)
+	service := currentProfileStartFixture(t, env.service.(lifecycleService), env.state)
 	observed := &controlledObservations{base: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: service.runtimeObservationSources()}, observations: provenObservations(true)}
 	service.RuntimePolicySource = observed
 	ctx := context.Background()
@@ -346,11 +374,38 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 	}
 	observed.observations = provenObservations(true)
 
-	// B: custom R1 with an independent Codex/Claude DAG at implementation.
-	request := cli.ProjectWorkflowInput{WorkflowRequest: projectapp.WorkflowRequest{Operation: "create", Project: "external"}, File: "../../docs/specifications/007-configurable-workflows/examples/custom-r1.json"}
+	// B: new schema-2 copy with an explicit Profile per agent and independent Codex/Claude DAG.
+	historicalWire, err := os.ReadFile("../../docs/specifications/007-configurable-workflows/examples/custom-r1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, issues := workflowdefinition.Decode(historicalWire)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	definition := legacy.Definition
+	definition.SchemaVersion = 2
+	for i := range definition.Stages {
+		for j := range definition.Stages[i].Agents {
+			a := &definition.Stages[i].Agents[j]
+			a.Effort = workflowdefinition.Effort{}
+			a.ProfileRef = "profile-codex"
+			if len(a.RuntimeConstraints) == 1 && a.RuntimeConstraints[0] == "claude" {
+				a.ProfileRef = "profile-claude"
+			}
+		}
+	}
+	current, issues := workflowdefinition.Encode(definition)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	file := filepath.Join(t.TempDir(), "explicit-schema2.json")
+	if err = os.WriteFile(file, current.Canonical, 0600); err != nil {
+		t.Fatal(err)
+	}
+	request := cli.ProjectWorkflowInput{WorkflowRequest: projectapp.WorkflowRequest{Operation: "create", Project: "external"}, File: file}
 	author := service
 	author.projectsRoot = env.elsewhere
-	var err error
 	if author.portable, err = local.NewPortableStore(env.elsewhere); err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +464,7 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 	for _, resolution := range g.Resolutions {
 		runtimes[resolution.AgentID], efforts[resolution.AgentID] = resolution.RuntimeID, resolution.EffectiveEffort
 	}
-	if runtimes["implementer"] != "codex" || runtimes["reviewer"] != "claude" || runtimes["integrator"] != "codex" || efforts["implementer"] != "medium" || efforts["reviewer"] != "high" || efforts["integrator"] != "default" {
+	if runtimes["implementer"] != "codex" || runtimes["reviewer"] != "claude" || runtimes["integrator"] != "codex" || efforts["implementer"] != "default" || efforts["reviewer"] != "default" || efforts["integrator"] != "default" {
 		t.Fatalf("Runtime/effort resolution: %v %v", runtimes, efforts)
 	}
 	for _, node := range g.Compilation.Proposal.Nodes {
@@ -450,7 +505,7 @@ func TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph(t *testing.T) 
 		}
 	}
 	observed.observations = provenObservations(false)
-	if unsupported := run(1, planArgs(b, "implementation", graphPlan)...); unsupported.Category != "unsupported_effort" {
+	if unsupported := run(1, planArgs(b, "implementation", graphPlan)...); unsupported.Category != "runtime_unresolvable" {
 		t.Fatalf("unproven model effort accepted: %+v", unsupported)
 	}
 	observed.observations = provenObservations(true)

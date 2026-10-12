@@ -72,6 +72,9 @@ func (s lifecycleService) WorkflowStagePlan(ctx context.Context, input cli.Workf
 		return response
 	}
 	execution := workflowcompiler.ExecutionRef{ExecutionID: planning.ExecutionID, Revision: planning.ExecutionRevision}
+	if planning.Binding.SchemaVersion != 2 || planning.Binding.ResolvedProfile == nil {
+		return s.stagePlanFailure(completion.ValidationFailure, "legacy_execution_contract", []string{"Reconcile the retained Execution through its lifecycle owner before new stage compilation; no snapshot is synthesized"}, &execution)
+	}
 	document, documentDigest, err := readPlanDocument(input.PlanFile)
 	if err != nil {
 		return s.stagePlanFailure(completion.ValidationFailure, "invalid_stage_plan", nil, &execution)
@@ -90,7 +93,7 @@ func (s lifecycleService) WorkflowStagePlan(ctx context.Context, input cli.Workf
 		gates = append(gates, workflowcompiler.GateRef{Kind: gate.Kind, Timing: gate.Timing, Satisfied: gate.Satisfied})
 	}
 	request := workflowcompiler.StagePlanRequest{Execution: execution, Gates: gates, PlanDocumentDigest: documentDigest, Compile: workflowcompiler.Request{ProjectID: planning.ProjectID, RepositoryKey: planning.RepositoryKey, Workflow: planning.Binding.Definition, Definition: planning.Document, StageID: planning.Stage.ID, Plan: document.Plan, InputBindings: bindings, ParentAuthority: document.AuthorityCeiling}}
-	plan, err := workflowcompiler.New(policy, policyCapabilities{policy: policy, projectID: planning.ProjectID}).PlanStage(ctx, request)
+	plan, err := workflowcompiler.New(policy, policyCapabilities{policy: policy, projectID: planning.ProjectID}).PlanStageV2(ctx, request)
 	if ctx.Err() != nil {
 		return s.stagePlanFailure(completion.Interrupted, "workflow_cancelled", nil, &execution)
 	}

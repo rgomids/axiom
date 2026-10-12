@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/testfs"
+	"github.com/rgomids/axiom/internal/workflow"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -393,7 +395,7 @@ func TestExecutableMinimalLifecycleAndFailurePaths(t *testing.T) {
 		t.Fatal("first-run touched the absent Claude configuration")
 	}
 	installed, err := filepath.Glob(filepath.Join(skills, "axiom-*", "SKILL.md"))
-	if err != nil || len(installed) != 3 {
+	if err != nil || len(installed) != 4 {
 		t.Fatalf("installed Codex skills = %v, %v", installed, err)
 	}
 	repository := filepath.Join(t.TempDir(), "configured-repository")
@@ -529,7 +531,19 @@ exit 0
 	selectBuiltinWorkflowExecutable(t, binary, environment, "configured")
 	startArgs := append([]string{"workflow", "start", "--project", "configured", "--repository", "main", "--number", "7"}, policyFlags...)
 	runtimePreview := runCanonical(0, "success", "Project Runtime resolution preview ready", startArgs...)
-	started := runCanonical(0, "success", "Execution workflow operation completed", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
+	refused := runCanonical(1, "validation_failure", "Execution workflow operation did not complete", append(startArgs, "--runtime-preview", runtimePreview.PreviewDigest)...)
+	if refused.Workflow != nil {
+		t.Fatal("legacy current start wrote an Execution")
+	}
+	t.Setenv("LINGO_PROJECTS_ROOT", portable)
+	t.Setenv("LINGO_STATE_ROOT", state)
+	t.Setenv("AXIOM_CODEX_SKILLS_ROOT", skills)
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
+	t.Setenv("AXIOM_GH_BIN", ghBinary)
+	fixtureService := compose().(lifecycleService)
+	historical := seedHistoricalWorkflow(t, fixtureService, cli.WorkflowInput{Project: "configured", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: "codex", RuntimePreview: runtimePreview.PreviewDigest})
+	started := canonicalEvent{Workflow: historical}
 	// Omitted --runtime resolves Codex from the explicitly configured policy and
 	// the codex executable plus verified skills observed on this PATH.
 	if started.Workflow == nil || started.Workflow.ExecutionID == "" || started.Workflow.CurrentGate != "intake" || started.Workflow.Revision != 1 || started.Workflow.RuntimeID != "codex" {
@@ -614,15 +628,24 @@ exit 0
 	observedEnvironment := environment
 	environment = append(append([]string(nil), environment...), "PATH="+t.TempDir())
 	beforeResume := snapshotTrees(t, portable, state, skills, repository, home)
-	blockedResume := runCanonical(1, "validation_failure", "Project is not ready for Execution", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
-	if blockedResume.Preflight == nil || len(blockedResume.Preflight.Blockers) != 1 || blockedResume.Preflight.Blockers[0].Code != "runtime_resolution_blocked" || blockedResume.Preflight.Blockers[0].Detail != "runtime_unavailable" {
-		t.Fatalf("resume preflight = %+v", blockedResume.Preflight)
+	blockedResume := runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
+	if blockedResume.Workflow == nil || blockedResume.Workflow.Status != "interrupted" || blockedResume.Workflow.Revision != revision {
+		t.Fatal("legacy retry did not preserve retained record")
 	}
 	if after := snapshotTrees(t, portable, state, skills, repository, home); !bytes.Equal(beforeResume, after) {
 		t.Fatal("blocked resume changed local state")
 	}
 	environment = observedEnvironment
-	resumed := runCanonical(0, "success", "Execution workflow operation completed", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
+	denied := runCanonical(1, "validation_failure", "Execution workflow operation did not complete", "workflow", "resume", "--project", "configured", "--repository", "main", "--number", "7", "--expected-revision", strconv.FormatUint(revision, 10))
+	if denied.Workflow == nil || denied.Workflow.Revision != revision {
+		t.Fatal("legacy retry mutated record")
+	}
+	// Prepare a historical continuation receipt through its retained library contract.
+	continuation := historicalWorkflowService(t, fixtureService).Resume(context.Background(), workflowTarget(cli.WorkflowInput{Project: "configured", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7"}), revision)
+	if continuation.Status != workflow.Succeeded {
+		t.Fatal(continuation.Category)
+	}
+	resumed := canonicalEvent{Workflow: workflowResult(continuation, fixtureService.provenance).Workflow}
 	revision++
 	if resumed.Workflow == nil || resumed.Workflow.Status != "active" || resumed.Workflow.Revision != revision {
 		t.Fatalf("resumed = %+v", resumed.Workflow)

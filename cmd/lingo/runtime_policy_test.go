@@ -134,6 +134,7 @@ func TestWorkflowStartRequiresReviewedFreshPolicy(t *testing.T) {
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
 	service, executable := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	input := cli.WorkflowInput{Project: workItemSourceProjectID, Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
 	preview := service.WorkflowStart(context.Background(), input)
@@ -149,7 +150,8 @@ func TestWorkflowStartRequiresReviewedFreshPolicy(t *testing.T) {
 		t.Fatalf("mismatch=%+v", mismatch)
 	}
 	input.RuntimePreview = preview.PreviewDigest
-	snapshot, err := (runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: env.state, runtimes: service.runtimeObservationSources()}).Load(context.Background(), input.Project)
+	originalSource := service.RuntimePolicySource
+	snapshot, err := originalSource.Load(context.Background(), input.Project)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +164,7 @@ func TestWorkflowStartRequiresReviewedFreshPolicy(t *testing.T) {
 	if after := snapshotTrees(t, env.root, env.state, env.elsewhere); !bytes.Equal(before, after) {
 		t.Fatal("stale preview created an execution")
 	}
-	service.RuntimePolicySource = nil
+	service.RuntimePolicySource = originalSource
 	// The reviewed digest names one executable; replacing or removing it after
 	// review blocks before any Execution exists.
 	if err := os.WriteFile(executable, []byte("#!/bin/sh\n# replaced\n"), 0o700); err != nil {
@@ -200,6 +202,7 @@ func TestWorkflowStartNeverFallsBackToCodex(t *testing.T) {
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "claude")
 	service, _ := testRuntime(t, env.service.(lifecycleService), "codex")
+	service = currentProfileStartFixture(t, service, env.state)
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
 	for _, runtimeID := range []string{"", "codex", "claude"} {
 		input := cli.WorkflowInput{Project: workItemSourceProjectID, Repository: "main", Number: 7, Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}, Runtime: runtimeID}

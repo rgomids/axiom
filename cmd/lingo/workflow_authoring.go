@@ -15,6 +15,7 @@ import (
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -143,7 +144,7 @@ func (a workflowAuthoringAdapter) PublishWorkflowRevision(ctx context.Context, o
 	if e != nil {
 		return "invalid_revision_index"
 	}
-	e = a.s.installation.PublishWorkflow(ctx, a.s.portable, o.Selection.Local.ProjectID, o.Selection.Local.ObservedSlug, o.Selection.LocalWire, o.Selection.Portable.Manifest(), o.Catalog.Wire, d, wire)
+	e = a.s.installation.PublishWorkflowWithProfile(ctx, o.ProfileConfigurationDigest, o.ProfileConfigurationToken, a.s.portable, o.Selection.Local.ProjectID, o.Selection.Local.ObservedSlug, o.Selection.LocalWire, o.Selection.Portable.Manifest(), o.Catalog.Wire, d, wire)
 	if e != nil {
 		var publication *local.PublicationError
 		if errors.As(e, &publication) && publication.EffectCommitted() {
@@ -171,4 +172,17 @@ func (a workflowAuthoringAdapter) PublishWorkflowSelection(ctx context.Context, 
 	}
 	result := (local.ProjectEditPublisher{Installation: a.s.installation, Portable: a.s.portable.WithWorkflowIndex(o.Catalog.Wire)}).PublishEdit(ctx, projectapp.EditPublicationRequest{ProjectID: state.ProjectID, Slug: state.ObservedSlug, PortableDestination: o.Selection.PortableDestination, LocalDestination: o.Selection.LocalDestination, PortableExpected: o.Selection.Portable.Manifest(), PortableNext: wire, LocalExpected: o.Selection.LocalWire, LocalNext: localWire})
 	return string(result.Status)
+}
+
+func (a workflowAuthoringAdapter) ObserveWorkflowProfiles(ctx context.Context, _ string) (runtimeprofile.Configuration, string, string) {
+	store, e := local.NewRuntimeProfileStore(a.s.stateRoot)
+	if e != nil {
+		return runtimeprofile.Configuration{}, "", "profile_effort_unconfigured"
+	}
+	snapshot, e := store.Inspect(ctx)
+	cfg := snapshot.Configuration
+	if e != nil || snapshot.State != "active-v2" || cfg.FormatVersion != runtimeprofile.FormatVersionV2 {
+		return runtimeprofile.Configuration{}, "", "profile_effort_unconfigured"
+	}
+	return cfg, snapshot.Token, ""
 }

@@ -165,7 +165,7 @@ func composeWithProvenance(source provenance.Value) cli.Service {
 	if err != nil {
 		return cli.NewUnavailableService(source)
 	}
-	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil).WithDefinitions(workflowDefinitions{installation, store}, references)
+	workflowService := workflow.New(workflowResolver{installation}, workflowWorkItems{workItemService}, workflows, github, references, source, nil, nil).WithDefinitions(workflowDefinitions{installation, store}, references).WithProfileContract()
 	return lifecycleService{lifecycle: projectapp.NewLifecycle(store, manifest.Codec{}, local.IdentityAllocator{}), portable: store, installation: installation, operational: operational, projectCatalog: projectapp.NewProjectCatalog(installation, installation).WithOperationalState(operational), codex: codex, workItems: workItemService, workflows: workflowService, projectsRoot: root, stateRoot: state, skillsRoot: codexSkillsRoot(), runtimes: discoverRuntimeRoots(), provenance: source}
 }
 
@@ -997,6 +997,14 @@ func (s lifecycleService) WorkflowResume(ctx context.Context, input cli.Workflow
 		}
 		input.Project = id
 	}
+	decision := s.admission().Admit(ctx, input.Project, projectapp.AdmitExecutionResume)
+	if !decision.Allowed {
+		return s.admissionDenied(decision)
+	}
+	retained := s.workflows.Status(ctx, workflowTarget(input))
+	if retained.Status == workflow.Succeeded && retained.State.FormatVersion != workflow.ProfileConfiguredFormatVersion {
+		return workflowResult(workflow.Result{Status: workflow.ValidationFailed, Category: "legacy_execution_contract", State: retained.State}, s.provenance)
+	}
 
 	if blocked := s.gate(ctx, input.Project, projectapp.AdmitExecutionResume); blocked != nil {
 		return *blocked
@@ -1198,6 +1206,12 @@ func workflowResultNext(result workflow.Result) string {
 		return "Inspect workflow.binding, stageContract, stageInputs, stageLedger, blockers and gateCommand; supply validated outputs or the exact human decision before the next action"
 	}
 	switch result.Category {
+	case "workflow_migration_required":
+		return "workflow_migration_required: migrate the immutable Workflow revision with explicit Profile mappings, then select the reviewed schema-2 revision separately"
+	case "profile_effort_unconfigured":
+		return "profile_effort_unconfigured: configure or explicitly migrate local Profiles through axiom-runtime; operational proofs remain separate"
+	case "legacy_execution_contract":
+		return "legacy_execution_contract: inspect the retained Execution; reconcile through its lifecycle owner before any new dispatch or retry"
 	case "invalid_execution_input", "repository_not_configured", "repository_ambiguous", "work_item_not_linked", "work_item_ambiguous", "execution_selector_conflict", "execution_scope_conflict", "stale_execution_target":
 		return "Inspect Project context and the exact linked Work Item, Repository and Execution selectors; correct the target before retrying"
 	}

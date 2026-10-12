@@ -120,7 +120,7 @@ func validate(d Definition) []Diagnostic {
 			unique(a.Inputs, af+".inputs")
 			unique(a.Outputs, af+".outputs")
 			unique(a.EffectCeilings, af+".effectCeilings")
-			if (a.Effort.Mode == "runtime-default") != (a.Effort.Value == "default") {
+			if d.SchemaVersion == 1 && (a.Effort.Mode == "runtime-default") != (a.Effort.Value == "default") {
 				add(af, "invalid_effort")
 			}
 			if s.Mode == "sequential" && j > 0 {

@@ -71,10 +71,11 @@ func (s runtimePolicySource) Load(ctx context.Context, id string) (runtimeapplic
 	if err != nil {
 		return runtimeapplication.Snapshot{}, errRuntimePolicyInput
 	}
-	cfg, err := store.Load(ctx)
-	if err != nil {
-		return runtimeapplication.Snapshot{}, errRuntimePolicyInput
+	localState, err := store.Inspect(ctx)
+	if err != nil || localState.State != "active-v1" && localState.State != "active-v2" {
+		return runtimeapplication.Snapshot{}, runtimeapplication.LocalStateError{State: localState.State}
 	}
+	cfg := localState.Configuration
 	observer, err := s.runtimes.observer(cfg)
 	if err != nil {
 		return runtimeapplication.Snapshot{}, errRuntimePolicyInput
@@ -110,6 +111,12 @@ func (s lifecycleService) runtimePolicyPreview(ctx context.Context, input cli.Ru
 	}
 	source := s.RuntimePolicySource
 	id := input.Project
+	if source != nil {
+		resolved := s.installation.Resolve(ctx, input.Project)
+		if resolved.Status == local.ResolutionFound {
+			id = resolved.Project.ID
+		}
+	}
 	if source == nil {
 		resolved := s.installation.Resolve(ctx, input.Project)
 		if resolved.Status != local.ResolutionFound {
@@ -136,7 +143,16 @@ func (s lifecycleService) RuntimeProfilePreview(ctx context.Context, input cli.R
 }
 
 func (s lifecycleService) runtimeResolutionResult(preview runtimeapplication.Preview, ready bool) cli.Result {
-	response := canonicalCompletion(completion.Facts{ValidationFailed: !ready, Completed: ready}, "Project Runtime policy resolution blocked", nil, "Correct the Project policy or local Runtime state and request a fresh preview", s.provenance)
+	next := "Correct the Project policy or local Runtime state and request a fresh preview"
+	if preview.Blocker != nil {
+		switch preview.Blocker.Code {
+		case "configuration_missing", "configuration_retired", "profile_effort_unconfigured":
+			next = "Use axiom-runtime to inspect and prepare explicit local setup or migration; request a fresh preview afterwards"
+		case "configuration_recovery_required", "configuration_unsafe":
+			next = "Use axiom-runtime scoped recovery; preserve the current state and review exact recovery authority"
+		}
+	}
+	response := canonicalCompletion(completion.Facts{ValidationFailed: !ready, Completed: ready}, "Project Runtime policy resolution blocked", nil, next, s.provenance)
 	if ready {
 		response = canonicalCompletion(completion.Facts{Completed: true}, "Project Runtime resolution preview ready", nil, "Review the Runtime resolution and repeat workflow start with --runtime-preview", s.provenance)
 	}

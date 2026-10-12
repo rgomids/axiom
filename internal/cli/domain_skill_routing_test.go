@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"os"
 	"reflect"
 	"slices"
@@ -21,7 +22,7 @@ import (
 // metadata the binary derives, the parser that alone grants authority, and
 // the retired names that must no longer resolve.
 
-var canonicalDomainSkills = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
+var canonicalDomainSkills = []string{"axiom-project", "axiom-work-item", "axiom-workflow", "axiom-runtime"}
 
 // compatibilityOperation maps each operation-specific skill to the canonical
 // domain operation whose capabilities remain available after retirement.
@@ -407,6 +408,9 @@ var authorityValues = map[string]string{"--expected-revision": strings.Repeat("b
 
 func routedRequest(t *testing.T, operation string, mode skillOperationMode, command string) []string {
 	t.Helper()
+	if strings.HasPrefix(command, "axiom runtime binding ") || strings.HasPrefix(command, "axiom runtime profile ") {
+		return strings.Fields(strings.TrimPrefix(command, "axiom "))
+	}
 	if strings.HasPrefix(command, "axiom project workflow ") {
 		return append(strings.Fields(strings.TrimPrefix(command, "axiom ")), "--project", "alpha")
 	}
@@ -628,6 +632,12 @@ func TestCanonicalReadOnlyCatalogDispatch(t *testing.T) {
 		"axiom workflow evidence":         {"workflow", "evidence", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 		"axiom workflow stage plan":       {"workflow", "stage", "plan", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "intake", "--plan", "plan.json"},
 	}
+	for _, kind := range []string{"binding", "profile"} {
+		for _, op := range []string{"list", "show", "validate-candidate"} {
+			requests["axiom runtime "+kind+" "+op] = []string{"runtime", kind, op}
+		}
+	}
+
 	for _, name := range canonicalDomainSkills {
 		for _, operation := range discoverForTest(t, name).Operations {
 			for _, mode := range operation.Modes {
@@ -678,4 +688,8 @@ func (p *authorityProbe) RuntimeClaudeStatus(context.Context) Result {
 }
 func (p *authorityProbe) RuntimeAuth(_ context.Context, runtimeID string) Result {
 	return p.record("runtime "+runtimeID+" auth", false, false)
+}
+
+func (p *authorityProbe) RuntimeAuthoring(_ context.Context, r runtimeapplication.AuthoringRequest) Result {
+	return p.record("runtime "+r.Kind+" "+r.Operation, r.AuthorizeLocal, false)
 }

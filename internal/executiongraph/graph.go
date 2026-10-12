@@ -12,6 +12,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 const MaxGraphBytes = 1 << 20
@@ -27,10 +30,11 @@ type ParentExecution struct {
 }
 
 type Resolution struct {
-	RuntimeID             string `json:"runtimeId"`
-	ModelProfileID        string `json:"modelProfileId"`
-	ConfigurationRevision uint64 `json:"configurationRevision"`
-	ObservationRevision   uint64 `json:"observationRevision"`
+	ResolvedProfile       *runtimeprofile.ResolvedProfile `json:"resolvedProfile,omitempty"`
+	RuntimeID             string                          `json:"runtimeId"`
+	ModelProfileID        string                          `json:"modelProfileId"`
+	ConfigurationRevision uint64                          `json:"configurationRevision"`
+	ObservationRevision   uint64                          `json:"observationRevision"`
 }
 
 type ChildEnvelope struct {
@@ -148,7 +152,7 @@ func (s GraphService) Publish(ctx context.Context, request PublicationRequest) (
 	if err != nil {
 		return Graph{}, err
 	}
-	graph := Graph{FormatVersion: GraphFormatVersion, Parent: ParentExecution{
+	graph := Graph{FormatVersion: request.Proposal.FormatVersion, Parent: ParentExecution{
 		ExecutionID: parentID, GraphRevision: request.GraphRevision, ProposalDigest: request.Proposal.Digest,
 		AuthorityDigest: authorityDigest, AuthorityEffects: sortedEffects(request.ParentAuthority), CreatedAt: s.now().UTC(),
 	}}
@@ -157,6 +161,11 @@ func (s GraphService) Publish(ctx context.Context, request PublicationRequest) (
 		for _, key := range node.Dependencies {
 			dependencies = append(dependencies, childIDs[key])
 		}
+		resolution := request.Resolutions[node.Key]
+		if resolution.ResolvedProfile != nil {
+			frozen := *resolution.ResolvedProfile
+			resolution.ResolvedProfile = &frozen
+		}
 		child := ChildExecution{
 			ExecutionID: childIDs[node.Key], ParentID: parentID, GraphRevision: request.GraphRevision, NodeKey: node.Key,
 			Envelope: ChildEnvelope{
@@ -164,7 +173,7 @@ func (s GraphService) Publish(ctx context.Context, request PublicationRequest) (
 				Workspace: request.Workspaces[node.Key], Dependencies: dependencies,
 				AllowedEffects: sortedEffects(request.ChildAuthorities[node.Key]), AuthorityReference: request.AuthorityReferences[node.Key],
 				Controls: node.Controls, ValidationOwner: node.ValidationOwner, IntegrationOwner: node.IntegrationOwner,
-				Optional: node.Optional, Resolution: request.Resolutions[node.Key],
+				Optional: node.Optional, Resolution: resolution,
 			},
 		}
 		if node.IntegrationOwner {
@@ -215,7 +224,7 @@ func validatePublicationRequest(request PublicationRequest) error {
 			return ErrAuthoritySubset
 		}
 		resolution, ok := request.Resolutions[node.Key]
-		if !ok || !validResolution(resolution) || !validTarget(request.Workspaces[node.Key]) || !validTarget(request.AuthorityReferences[node.Key]) {
+		if !ok || !validResolution(resolution) || request.Proposal.FormatVersion == 2 && (node.ResolvedProfile == nil || resolution.ResolvedProfile == nil || *node.ResolvedProfile != *resolution.ResolvedProfile) || !validTarget(request.Workspaces[node.Key]) || !validTarget(request.AuthorityReferences[node.Key]) {
 			return ErrInvalidGraph
 		}
 	}
@@ -223,7 +232,7 @@ func validatePublicationRequest(request PublicationRequest) error {
 }
 
 func ValidGraph(graph Graph) bool {
-	if graph.FormatVersion != GraphFormatVersion || !validOpaqueID(graph.Parent.ExecutionID) || graph.Parent.GraphRevision == 0 || !validDigest(graph.Parent.ProposalDigest) || !validDigest(graph.Parent.AuthorityDigest) || graph.Parent.CreatedAt.IsZero() || len(graph.Children) == 0 || len(graph.Children) > maxNodes {
+	if (graph.FormatVersion != GraphFormatVersion && graph.FormatVersion != 2) || !validOpaqueID(graph.Parent.ExecutionID) || graph.Parent.GraphRevision == 0 || !validDigest(graph.Parent.ProposalDigest) || !validDigest(graph.Parent.AuthorityDigest) || graph.Parent.CreatedAt.IsZero() || len(graph.Children) == 0 || len(graph.Children) > maxNodes {
 		return false
 	}
 	ids := map[string]bool{graph.Parent.ExecutionID: true}
@@ -232,6 +241,9 @@ func ValidGraph(graph Graph) bool {
 	projectID := ""
 	integrationCount := 0
 	for _, child := range graph.Children {
+		if graph.FormatVersion == 2 && !ValidProfileControls(child.Envelope.Resolution.ResolvedProfile, child.Envelope.Controls, child.Envelope.Capability) || graph.FormatVersion == 1 && child.Envelope.Resolution.ResolvedProfile != nil {
+			return false
+		}
 		if !validOpaqueID(child.ExecutionID) || ids[child.ExecutionID] || attemptIDs[child.ExecutionID] || child.ParentID != graph.Parent.ExecutionID || child.GraphRevision != graph.Parent.GraphRevision || !validToken(child.NodeKey) || !validEnvelope(child.Envelope) || len(child.Attempts) > int(child.Envelope.Controls.MaximumAttempts) {
 			return false
 		}
@@ -314,6 +326,9 @@ func DecodeGraph(wire []byte) (Graph, error) {
 	if err := decoder.Decode(&graph); err != nil {
 		return Graph{}, ErrInvalidGraph
 	}
+	if graph.FormatVersion == 2 && workflowdefinition.StrictJSONBounded(wire, &graph, MaxGraphBytes) != nil {
+		return Graph{}, ErrInvalidGraph
+	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) || !ValidGraph(graph) {
 		return Graph{}, ErrInvalidGraph
 	}
@@ -327,6 +342,11 @@ func validEnvelope(envelope ChildEnvelope) bool {
 }
 
 func validResolution(resolution Resolution) bool {
+	if profile := resolution.ResolvedProfile; profile != nil {
+		if runtimeprofile.ValidateResolvedProfile(*profile) != nil || profile.RuntimeID != resolution.RuntimeID || profile.ProfileID != resolution.ModelProfileID || profile.ConfigurationRevision != resolution.ConfigurationRevision || profile.ObservationRevision != resolution.ObservationRevision {
+			return false
+		}
+	}
 	return (resolution.RuntimeID == "codex" || resolution.RuntimeID == "claude") && validToken(resolution.ModelProfileID) && resolution.ConfigurationRevision > 0 && resolution.ObservationRevision > 0
 }
 

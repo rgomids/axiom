@@ -10,9 +10,9 @@ import (
 )
 
 // The pre-MVP decision supersedes #229's additive installation: historical
-// owned six-skill roots converge to three canonical skills without deleting edits.
+// owned six-skill roots converge to four canonical skills without deleting edits.
 
-var domainSkills = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
+var domainSkills = []string{"axiom-project", "axiom-work-item", "axiom-workflow", "axiom-runtime"}
 
 // sixSkillRevision is the v0.6.0 skill set: the last six-skill
 // sharedSkillHistory revision, pinned against the receipts v0.6.0 really wrote.
@@ -210,7 +210,7 @@ func TestPublishedV015ConvergesToThreeSkillsInBothRuntimes(t *testing.T) {
 				t.Fatalf("before: %+v", before)
 			}
 			installOrFail(t, service, Applied)
-			if after := service.Inspect(context.Background()); after.Status != Ready || after.Receipt != ReceiptCurrent || len(after.Skills) != 3 {
+			if after := service.Inspect(context.Background()); after.Status != Ready || after.Receipt != ReceiptCurrent || len(after.Skills) != 4 {
 				t.Fatalf("after: %+v", after)
 			}
 			for _, name := range skillNames {

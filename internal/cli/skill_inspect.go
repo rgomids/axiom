@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"flag"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"io"
 	"strings"
 
@@ -199,6 +200,8 @@ var (
 // Only canonical domain skills expose these operation modes.
 func skillOperationSpecs(name string) []skillOperationSpec {
 	switch name {
+	case "axiom-runtime":
+		return runtimeAuthoringSkillSpecs()
 	case "axiom-project":
 		return append([]skillOperationSpec{projectConfigure, projectList, projectShow, projectValidate, projectArchive, projectReactivate, projectIntegration}, workflowAuthoringSkillSpecs(true)...)
 	case "axiom-workflow":
@@ -249,6 +252,9 @@ func skillOperations(name string) []action {
 }
 
 func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
+	if strings.HasPrefix(string(operation), "runtime_authoring_") {
+		return runtimeAuthoringFlagSet(operation, &runtimeapplication.AuthoringRequest{})
+	}
 	if strings.HasPrefix(string(operation), "project_workflow_") {
 		return workflowAuthoringFlagSet(operation, &ProjectWorkflowInput{})
 	}

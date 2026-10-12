@@ -9,6 +9,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
 type ProjectWorkflowInput struct {
@@ -30,7 +31,8 @@ func workflowAuthoringFlagSet(op action, in *ProjectWorkflowInput) *flag.FlagSet
 		set.StringVar(&in.File, "file", "", "Complete UTF-8 JSON definition; `<path>`.")
 	}
 	if operation == "create" {
-		set.BoolVar(&in.FromDefault, "from-default", false, "Copy the ready-to-use SDD definition.")
+		set.BoolVar(&in.FromDefault, "from-default", false, "Copy an immutable SDD definition.")
+		set.IntVar(&in.DefaultRevision, "default-revision", 0, "Explicit default-sdd revision; `<1|2>`. Revision 2 consumes local Profile effort.")
 		set.StringVar(&in.WorkflowID, "workflow", "", "New logical workflow key; `<key>`.")
 	}
 	if operation == "show" || operation == "select" || operation == "remove" {
@@ -39,7 +41,17 @@ func workflowAuthoringFlagSet(op action, in *ProjectWorkflowInput) *flag.FlagSet
 		set.StringVar(&in.Ref.Digest, "digest", "", "Exact content SHA-256; `<digest>`.")
 		set.StringVar(&in.Ref.Source, "source", "project", "Reference source; `builtin|project`.")
 	}
-	if operation == "edit" {
+	if operation == "migrate" {
+		set.Func("agent-profile", "Explicit mapping; repeat `<stage>:<agent>:<profile>`.", func(v string) error {
+			p := strings.Split(v, ":")
+			if len(p) != 3 || !workflowdefinition.ValidKey(p[0]) || !workflowdefinition.ValidKey(p[1]) || !workflowdefinition.ValidKey(p[2]) {
+				return flag.ErrHelp
+			}
+			in.Mapping = append(in.Mapping, projectapp.WorkflowAgentProfileMapping{StageID: p[0], AgentID: p[1], ProfileID: p[2]})
+			return nil
+		})
+	}
+	if operation == "edit" || operation == "migrate" {
 		in.Prior.Source = "project"
 		set.StringVar(&in.Prior.WorkflowID, "workflow", "", "Existing workflow key; `<key>`.")
 		set.IntVar(&in.Prior.Revision, "prior-revision", 0, "Reviewed prior revision; `<positive-integer>`.")
@@ -59,7 +71,7 @@ func runProjectWorkflow(ctx context.Context, mode outputMode, args []string, ser
 	}
 	in := ProjectWorkflowInput{}
 	set := workflowAuthoringFlagSet(command.operation, &in)
-	if set.Parse(rest) != nil || set.NArg() != 0 || duplicateFlag(rest) || in.Project == "" {
+	if invalidFlagSyntax(set, rest, map[string]bool{"agent-profile": true}) || set.Parse(rest) != nil || set.NArg() != 0 || in.Project == "" {
 		return true, emitParserFailure(out, mode, command.operation, "invalid_input", source)
 	}
 	adapter, ok := service.(ProjectWorkflowService)
@@ -99,14 +111,14 @@ func duplicateFlag(args []string) bool {
 
 func workflowAuthoringCommands() commandDefinition {
 	var children []commandDefinition
-	for _, op := range []string{"list", "show", "create", "edit", "validate", "select", "remove", "recover"} {
+	for _, op := range []string{"list", "show", "create", "edit", "validate", "select", "remove", "recover", "migrate"} {
 		children = append(children, leaf(op, "Project workflow "+op+" (immutable revisions)", action("project_workflow_"+op)))
 	}
 	return group("workflow", "Author and select Project workflow definitions", children...)
 }
 func workflowAuthoringSkillSpecs(selection bool) []skillOperationSpec {
 	var specs []skillOperationSpec
-	for _, op := range []string{"list", "show", "create", "edit", "validate", "select", "remove", "recover"} {
+	for _, op := range []string{"list", "show", "create", "edit", "validate", "select", "remove", "recover", "migrate"} {
 		if (op == "select") != selection {
 			continue
 		}

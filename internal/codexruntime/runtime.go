@@ -18,13 +18,16 @@ var embeddedSkills embed.FS
 // skillFiles is the skill set this binary publishes.
 var skillFiles fs.FS = embeddedSkills
 
-var skillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow"}
+var skillNames = []string{"axiom-project", "axiom-work-item", "axiom-workflow", "axiom-runtime"}
 
 // retiredSkillNames are ownership candidates only, never distributed entrypoints.
 var retiredSkillNames = []string{
 	"axiom-project-configure", "axiom-project-list", "axiom-project-show",
 	"axiom-work-item-create", "axiom-work-item-run", "axiom-work-item-status",
 }
+
+// ActiveSkillNames returns the canonical current integration/archive inventory.
+func ActiveSkillNames() []string { return append([]string(nil), skillNames...) }
 
 func ownershipSkillNames() []string {
 	return append(append([]string{}, skillNames...), retiredSkillNames...)

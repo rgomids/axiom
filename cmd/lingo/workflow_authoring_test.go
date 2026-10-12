@@ -53,7 +53,7 @@ func TestExecutableWorkflowDefaultCustomEditSelectAndRetire(t *testing.T) {
 		return []string{op, "--workflow", ref.WorkflowID, "--revision", strconv.Itoa(ref.Revision), "--digest", ref.Digest, "--source", ref.Source}
 	}
 	list := run("listed", "list")
-	if list.Workflow.Selection != nil || len(list.Workflow.Revisions) != 1 {
+	if list.Workflow.Selection != nil || len(list.Workflow.Revisions) != 2 {
 		t.Fatal("fresh Project implicitly selected a workflow")
 	}
 	builtin := list.Workflow.Revisions[0]

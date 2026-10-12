@@ -105,9 +105,9 @@ Project; operações de Work Item exigem [GitHub CLI](https://cli.github.com/)
 autenticado. Os comandos guiados de configuração e criação mostram um preview
 e pedem confirmação antes de gravar.
 
-Também é possível usar três skills: `axiom-project` seleciona o workflow,
+Também é possível usar quatro skills: `axiom-project` seleciona o workflow,
 `axiom-workflow` configura suas definições e `axiom-work-item` executa e planeja
-Work Items. Use `$<skill-name>` no Codex ou `/<skill-name>` no Claude. Consulte [skills e Runtimes](commands.md#first-run-and-runtime-integrations)
+Work Items; `axiom-runtime` gerencia bindings e Profiles locais. Use `$<skill-name>` no Codex ou `/<skill-name>` no Claude. Consulte [skills e Runtimes](commands.md#first-run-and-runtime-integrations)
 e [referência de comandos](commands.md) para detalhes.
 
 ## Como o Axiom funciona

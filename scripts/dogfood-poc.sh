@@ -129,11 +129,11 @@ if [[ -n $(find "$runtime_home" -mindepth 1 -print -quit) ]]; then
   exit 1
 fi
 skill_count=$(find "$skills_root" -name SKILL.md -type f | wc -l | tr -d ' ')
-if [[ "$skill_count" != 3 ]]; then
+if [[ "$skill_count" != 4 ]]; then
   exit 1
 fi
 axiom help >"$temporary/help.txt"
-for skill in axiom-project axiom-work-item axiom-workflow; do
+for skill in axiom-project axiom-work-item axiom-workflow axiom-runtime; do
   grep -q "\$${skill}" "$temporary/help.txt"
 done
 rm -- "$skills_root/axiom-work-item/SKILL.md"
@@ -350,140 +350,41 @@ assert_canonical "$temporary/workflow-runtime-repreview.json" success "Project R
 fresh_preview=$(sed -n 's/.*"previewDigest":"\([0-9a-f]*\)".*/\1/p' "$temporary/workflow-runtime-repreview.json")
 [[ "$fresh_preview" == "$runtime_preview" ]]
 
-# 3. The exact reviewed decision, revalidated now, creates the Execution.
-observed_axiom "${start_args[@]}" --runtime-preview "$fresh_preview" >"$temporary/workflow-start.json"
-assert_canonical "$temporary/workflow-start.json" success "Execution workflow operation completed"
-grep -Fq '"runtimeId":"codex"' "$temporary/workflow-start.json"
-execution_id=$(sed -n 's/.*"executionId":"\([^"]*\)".*/\1/p' "$temporary/workflow-start.json")
-[[ -n "$execution_id" ]]
-revision=1
-
-# Typed synthetic outputs use the production artifact store, without editing
-# canonical Execution records or manufacturing validator results.
-advance_configured() {
-  local gate=$1
-  axiom --json workflow status --project dogfood-project --repository main --number 7 >"$temporary/current-stage.json"
-  "$temporary/dogfoodfixture" result "$state_root" <"$temporary/current-stage.json" >"$temporary/stage-result.json"
-  axiom --json workflow advance --project dogfood-project --repository main --number 7 \
-    --expected-revision "$revision" --gate "$gate" --outcome pass \
-    --stage-result "$temporary/stage-result.json" >"$temporary/workflow-$gate.json"
-  assert_canonical "$temporary/workflow-$gate.json" success "Execution workflow operation completed"
-}
-
-for gate in intake specification clarification; do
-  printf '%s\n' "$gate" >"$repository/$gate.md"
-  reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
-  advance_configured "$gate"
-  revision=$((revision + 1))
-done
-
-specification_digest=$(shasum -a 256 "$repository/specification.md" | awk '{print $1}')
-axiom --json workflow fact --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --fact planning-authority --active --actor maintainer \
-  --reference "specification:specification.md:$specification_digest" --authorize-local \
-  >"$temporary/workflow-planning-authority.json"
-assert_canonical "$temporary/workflow-planning-authority.json" success "Execution workflow operation completed"
-revision=$((revision + 1))
-
-for gate in plan tasks; do
-  printf '%s\n' "$gate" >"$repository/$gate.md"
-  reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
-  advance_configured "$gate"
-  revision=$((revision + 1))
-done
-
-plan_digest=$(shasum -a 256 "$repository/plan.md" | awk '{print $1}')
-axiom --json workflow fact --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --fact implementation-authority --active --actor maintainer \
-  --reference "plan:plan.md:$plan_digest" --authorize-local \
-  >"$temporary/workflow-implementation-authority.json"
-assert_canonical "$temporary/workflow-implementation-authority.json" success "Execution workflow operation completed"
-revision=$((revision + 1))
-
-# S6 treats zero lifecycle markers as Provider drift. Seed the bounded fake with
-# the exact already-aligned observation; deterministic adapter tests cover label
-# creation/replacement effects separately.
-printf '%s\n' 'axiom:stage:implementing' >"$provider_label"
-axiom --json workflow reconcile --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" >"$temporary/workflow-projection-preview.json"
-assert_canonical "$temporary/workflow-projection-preview.json" success "Execution workflow operation completed"
-projection_digest=$(sed -n 's/.*"projection":.*"digest":"\([^"]*\)".*/\1/p' "$temporary/workflow-projection-preview.json")
-projection_key=$(sed -n 's/.*"projectionKey":"\([^"]*\)".*/\1/p' "$temporary/workflow-projection-preview.json")
-[[ -n "$projection_digest" && -n "$projection_key" ]]
-axiom --json workflow reconcile --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --preview-digest "$projection_digest" --authorize-external \
-  >"$temporary/workflow-projected.json"
-assert_canonical "$temporary/workflow-projected.json" success "Execution workflow operation completed"
-grep -Fq 'axiom:stage:implementing' "$provider_label"
-grep -Fq 'axiom:workflow-projection:' "$provider_comment"
-axiom --json workflow reconcile --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" >"$temporary/workflow-projection-replay.json"
-assert_canonical "$temporary/workflow-projection-replay.json" success "Execution workflow operation completed"
-grep -Fq '"effects":[]' "$temporary/workflow-projection-replay.json"
-
-printf '%s\n' implementation >"$repository/implementation.md"
-implementation_digest=$(shasum -a 256 "$repository/implementation.md" | awk '{print $1}')
-if axiom --json workflow advance --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --gate implementation --outcome fail \
-  --reference "evidence:implementation.md:$implementation_digest" >"$temporary/workflow-interrupted.json"; then
+# Current product admission refuses the historical contract. Historical lifecycle
+# inspection/advance/reconciliation remains exercised by the black-box fixture
+# tests below, without enabling a legacy production start or resume override.
+if observed_axiom "${start_args[@]}" --runtime-preview "$fresh_preview" >"$temporary/legacy-refusal.json"; then
   exit 1
 fi
-assert_canonical "$temporary/workflow-interrupted.json" interrupted "Execution remains at the current workflow stage"
-revision=$((revision + 1))
-observed_axiom workflow resume --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" >"$temporary/workflow-resume.json"
-assert_canonical "$temporary/workflow-resume.json" success "Execution workflow operation completed"
-revision=$((revision + 1))
+grep -Fq 'workflow_migration_required' "$temporary/legacy-refusal.json"
+assert_no_execution
 
-printf '%s\n' implementation >"$repository/implementation.md"
-implementation_digest=$(shasum -a 256 "$repository/implementation.md" | awk '{print $1}')
-advance_configured implementation
-revision=$((revision + 1))
-
-axiom --json workflow fact --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --fact review-started --active --actor maintainer \
-  --reference "evidence:implementation.md:$implementation_digest" --authorize-local \
-  >"$temporary/workflow-review-started.json"
-assert_canonical "$temporary/workflow-review-started.json" success "Execution workflow operation completed"
-revision=$((revision + 1))
-
-for gate in review evidence reconciliation completion; do
-  printf '%s\n' "$gate" >"$repository/$gate.md"
-  reference_digest=$(shasum -a 256 "$repository/$gate.md" | awk '{print $1}')
-  advance_configured "$gate"
-  revision=$((revision + 1))
-done
-
-evidence_digest=$(shasum -a 256 "$repository/evidence.md" | awk '{print $1}')
-if axiom --json workflow fact --project dogfood-project --repository main --number 7 \
-  --expected-revision "$revision" --fact human-acceptance --active --actor maintainer \
-  --reference "evidence:evidence.md:$evidence_digest" --authorize-local \
-  >"$temporary/workflow-human-acceptance.json"; then
-  exit 1
-fi
-assert_canonical "$temporary/workflow-human-acceptance.json" denied_authority "Execution authority is stale or incomplete"
-python3 - "$temporary/workflow-human-acceptance.json" "$revision" <<'PYJSON'
-import json, sys
-w = json.load(open(sys.argv[1]))["workflow"]
-assert w["revision"] == int(sys.argv[2])
-assert w["lifecycleStage"] == "reviewed"
-assert w["blockers"] == ["delivery_packet_required"]
-assert not w.get("gateAction") and not w.get("gateCommand")
+# Migration is an independently reviewed machine-local operation. No Runtime
+# model/authentication probe or Workflow/Project selection is implied.
+migration=(runtime profile migrate --profile-effort worker:runtime-default:default --profile-effort careful:runtime-default:default)
+run_success preview "$temporary/migration-preview.json" "${migration[@]}"
+read -r local_token local_preview < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1]))["runtimeAuthoring"]; print(w["expectedRevision"], w["previewDigest"])' "$temporary/migration-preview.json")
+run_success applied "$temporary/migration-applied.json" "${migration[@]}" --expected-revision "$local_token" --preview-digest "$local_preview" --authorize-local
+run_success inspected "$temporary/current-profiles.json" runtime profile list
+python3 - "$temporary/current-profiles.json" <<'PYJSON'
+import json,sys
+r=json.load(open(sys.argv[1]))["runtimeAuthoring"]
+assert r["state"] == "active-v2" and r["revision"] == 2
+assert r["authentication"] == "unknown" and r["modelSupport"] == "unproven"
+assert all(p["effort"] == {"mode":"runtime-default","value":"default"} for p in r["profiles"])
 PYJSON
 
-axiom --json workflow evidence --project dogfood-project --repository main --number 7 \
-  >"$temporary/workflow-evidence.json"
-assert_canonical "$temporary/workflow-evidence.json" success "Execution workflow operation completed"
-grep -q '"currentGate":"completion"' "$temporary/workflow-evidence.json"
-grep -q '"status":"completed"' "$temporary/workflow-evidence.json"
-grep -q '"lifecycleStage":"reviewed"' "$temporary/workflow-evidence.json"
+# The new builtin selection has its own exact confirmation. Missing G-3 proof
+# blocks use even after structural local migration and explicit selection.
+"$temporary/dogfoodfixture" definition-current >"$temporary/definition-current.json"
+read -r current_id current_revision current_digest < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1])); print(w["workflowId"],w["revision"],w["digest"])' "$temporary/definition-current.json")
+current_selection=(project workflow select --project dogfood-project --workflow "$current_id" --revision "$current_revision" --digest "$current_digest" --source builtin)
+run_success previewed "$temporary/current-selection-preview.json" "${current_selection[@]}"
+read -r project_revision selection_preview < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1]))["workflowAuthoring"]; print(w["projectRevision"],w["previewDigest"])' "$temporary/current-selection-preview.json")
+run_success applied "$temporary/current-selected.json" "${current_selection[@]}" --expected-revision "$project_revision" --preview-digest "$selection_preview" --authorize-local
+assert_runtime_blocked current-proof effort_unproven "${start_args[@]}"
 
-binary_sha=$(shasum -a 256 "$resolved_binary" | awk '{print $1}')
-workflow_record=$(find "$state_root/executions/v1" -name '*.json' -type f -print)
-workflow_count=$(printf '%s\n' "$workflow_record" | grep -c .)
-if [[ "$workflow_count" != 1 ]]; then
-  exit 1
-fi
-workflow_sha=$(shasum -a 256 "$workflow_record" | awk '{print $1}')
-printf '{"evidenceVersion":1,"evidence":"axiom_e2e_dogfood","cwdIndependent":true,"globalSkillCount":%s,"workItem":7,"executionId":"%s","runtimeId":"codex","runtimePreviewDigest":"%s","revision":%s,"workflow":"completed","projectionKey":"%s","projectionDigest":"%s","binarySha256":"%s","workflowSha256":"%s","result":"pass"}\n' \
-  "$skill_count" "$execution_id" "$runtime_preview" "$revision" "$projection_key" "$projection_digest" "$binary_sha" "$workflow_sha"
+# Positive current lifecycle and historical inspection are synthetic integration
+# receipts with injected evidence, separate from this real CLI refusal journal.
+(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun|TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph' -count=1)
+printf '%s\n' 'PASS: bounded production authoring/refusal smoke; current positive lifecycle SYNTHETIC; vendor model/auth and integrated E2E UNVERIFIED'

@@ -8,6 +8,9 @@ plan/tasks](issue-230-canonical-consolidation.md). Only `axiom-project` and
 six compatibility entrypoints, preserves underlying CLI/lifecycle operations,
 and requires verified owned cleanup plus fail-closed conflict/recovery behavior.
 Historical descriptions and Evidence below retain their original release scope.
+
+> Inventory evolution: accepted [#303 amendment](../007-configurable-workflows/amendment-303-workflow-skill.md) / [ADR-0022](../../decisions/0022-dedicated-workflow-conversational-surface.md) added `axiom-workflow`; accepted [#306 local amendment](../002-lingo-project-initialization/amendment-306-local-runtime-authoring.md) / [ADR-0023](../../decisions/0023-local-runtime-configuration-surface.md), accepted 2026-10-11, add future thin `axiom-runtime`. Only the exhaustive active-skill inventory assertion above is evolved; historical consolidation, retirements, receipts and Evidence retain their release identities. The fourth skill is not implemented by documentation approval.
+
 Local implementation authority does not imply real Provider effects, publication
 or human acceptance.
 

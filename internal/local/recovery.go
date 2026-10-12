@@ -44,15 +44,16 @@ type RecoveryObject struct {
 }
 
 type RecoveryPlan struct {
-	Scope       string           `json:"scope"`
-	Directory   string           `json:"directory"`
-	Protocol    string           `json:"protocol"`
-	Marker      string           `json:"marker,omitempty"`
-	Stage       FaultStage       `json:"stage,omitempty"`
-	Action      RecoveryAction   `json:"action"`
-	Objects     []RecoveryObject `json:"objects"`
-	Explanation string           `json:"explanation"`
-	Digest      string           `json:"digest"`
+	SnapshotIdentity string           `json:"snapshotIdentity,omitempty"`
+	Scope            string           `json:"scope"`
+	Directory        string           `json:"directory"`
+	Protocol         string           `json:"protocol"`
+	Marker           string           `json:"marker,omitempty"`
+	Stage            FaultStage       `json:"stage,omitempty"`
+	Action           RecoveryAction   `json:"action"`
+	Objects          []RecoveryObject `json:"objects"`
+	Explanation      string           `json:"explanation"`
+	Digest           string           `json:"digest"`
 }
 
 type RecoveryReport struct {
@@ -197,6 +198,9 @@ func recoveryDirectories(ctx context.Context, scope, path string) ([]string, err
 			return nil, err
 		}
 	}
+	if chainExists(root, []string{"runtime-profiles", "v1"}) {
+		directories = append(directories, "runtime-profiles/v1")
+	}
 	for _, name := range []string{"cleanup", "retirements"} {
 		if chainExists(root, []string{"artifacts", "v1", name}) {
 			directories = append(directories, "artifacts/v1/"+name)
@@ -272,7 +276,11 @@ func inspectRecoveryDirectory(ctx context.Context, scope, path, directory, proje
 		return RecoveryPlan{}, false, err
 	}
 	defer closeFiles(locks)
-	return planRecovery(chain[len(chain)-1], scope, directory, projectsRoot)
+	plan, found, err := planRecovery(chain[len(chain)-1], scope, directory, projectsRoot)
+	if err == nil && found {
+		err = bindRuntimeRecovery(&plan, path, chain[len(chain)-1])
+	}
+	return plan, found, err
 }
 
 func recoveryProtocolName(name string) bool {
@@ -553,6 +561,9 @@ func ApplyRecovery(ctx context.Context, roots RecoveryRoots, plan RecoveryPlan, 
 	target := chain[len(chain)-1]
 	current, found, err := planRecovery(target, plan.Scope, plan.Directory, roots.Projects)
 	if err != nil {
+		return RecoveryResult{}, err
+	}
+	if err := bindRuntimeRecovery(&current, path, target); err != nil {
 		return RecoveryResult{}, err
 	}
 	if !found || current.Digest != plan.Digest || current.Action != plan.Action {

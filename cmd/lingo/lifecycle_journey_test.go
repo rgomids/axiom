@@ -100,6 +100,7 @@ printf '{"number":7,"html_url":"https://github.com/acme/core/issues/7","state":"
 		t.Fatal(err)
 	}
 	service, _ := testRuntime(t, compose().(lifecycleService), "claude")
+	service = currentProfileStartFixture(t, service, env.state)
 	j := journey{t: t, service: service, provider: providerDir}
 	core := writeTree(t, filepath.Join(env.workspace, "core"), map[string]string{"README.md": "core"})
 	docs := writeTree(t, filepath.Join(env.workspace, "docs"), map[string]string{"SENTINEL": "working copy content"})
@@ -161,8 +162,9 @@ printf '{"number":7,"html_url":"https://github.com/acme/core/issues/7","state":"
 	j.run(cli.ExitSuccess, append(update, "--preview-digest", text(change, "change", "digest"), "--authorize-external")...)
 
 	// Execution: reviewed start, then discovery without a known identity.
-	ref := workflowdefinition.Builtin().Ref("builtin")
-	selectWorkflow := []string{"project", "workflow", "select", "--project", "journey", "--workflow", ref.WorkflowID, "--revision", "1", "--digest", ref.Digest, "--source", ref.Source}
+	currentBuiltin, _ := workflowdefinition.BuiltinRevision(2)
+	ref := currentBuiltin.Ref("builtin")
+	selectWorkflow := []string{"project", "workflow", "select", "--project", "journey", "--workflow", ref.WorkflowID, "--revision", "2", "--digest", ref.Digest, "--source", ref.Source}
 	workflowPreview := j.run(cli.ExitSuccess, selectWorkflow...)
 	j.run(cli.ExitSuccess, append(selectWorkflow, "--expected-revision", text(workflowPreview, "workflowAuthoring", "projectRevision"), "--preview-digest", text(workflowPreview, "workflowAuthoring", "previewDigest"), "--authorize-local")...)
 	start := append(append([]string{"workflow", "start"}, selector...), "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills", "--runtime", "claude")

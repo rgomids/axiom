@@ -25,13 +25,16 @@ func NewRuntimeProfileStore(root string) (RuntimeProfileStore, error) {
 }
 
 func (s RuntimeProfileStore) Create(ctx context.Context, cfg runtimeprofile.Configuration) error {
-	if cfg.Revision != 1 {
+	if cfg.Revision != 1 || cfg.FormatVersion != runtimeprofile.FormatVersion {
 		return runtimeprofile.ErrInvalidConfiguration
 	}
 	return s.write(ctx, cfg, true)
 }
 
 func (s RuntimeProfileStore) Save(ctx context.Context, cfg runtimeprofile.Configuration) error {
+	if cfg.FormatVersion != runtimeprofile.FormatVersion {
+		return runtimeprofile.ErrInvalidConfiguration
+	}
 	return s.write(ctx, cfg, false)
 }
 
@@ -65,11 +68,40 @@ func (s RuntimeProfileStore) write(ctx context.Context, cfg runtimeprofile.Confi
 		if err != nil {
 			return ErrUnsafe
 		}
-		if cfg.Revision != current.Revision+1 {
+		if current.FormatVersion != runtimeprofile.FormatVersion || cfg.FormatVersion != current.FormatVersion || cfg.Revision != current.Revision+1 {
 			return ErrConflict
 		}
 	}
-	return publishFile(ctx, version, "configuration.json", expected, wire, create, s.hooks)
+	facts, err := s.runtimeProfileFacts()
+	if err != nil {
+		return err
+	}
+	hooks := s.hooks
+	before := hooks.beforeCommit
+	hooks.beforeCommit = func() error {
+		if before != nil {
+			if err := before(); err != nil {
+				return err
+			}
+		}
+		observed, err := s.runtimeProfileFacts()
+		if err != nil || observed != facts {
+			return ErrConflict
+		}
+		return nil
+	}
+	if err := publishFile(ctx, version, "configuration.json", expected, wire, create, hooks); err != nil {
+		return err
+	}
+	for _, item := range []struct {
+		root *os.Root
+		path string
+	}{{root, s.root}, {profiles, filepath.Join(s.root, "runtime-profiles")}, {version, filepath.Join(s.root, "runtime-profiles", "v1")}} {
+		if err := stillAtPath(item.root, item.path); err != nil {
+			return publicationFailure(FaultF6, true, ErrRecoveryRequired)
+		}
+	}
+	return nil
 }
 
 func (s RuntimeProfileStore) Load(ctx context.Context) (runtimeprofile.Configuration, error) {

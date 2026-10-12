@@ -31,7 +31,7 @@ TESTS["G"] = [JOURNEY, EXECUTABLE]
 TESTS["H"] = []
 REFUSALS = {"runtime_unresolvable", "stale_execution_revision", "stage_prerequisite_missing", "stage_not_found", "execution_selector_conflict", "invalid_stage_plan", "authority_denied", "unsupported_effort", "invalid_stage_topology", "stale_authority", "invalid_definition", "prior_revision_required", "workflow_exists", "revision_in_use", "workflow_not_found", "reference_inventory_unknown"}
 LIMITATIONS = ["G-1", "G-2", "G-3", "G-4", "G-5"]
-SKILLS = {"axiom-project", "axiom-work-item", "axiom-workflow"}
+SKILLS = {"axiom-project", "axiom-work-item", "axiom-workflow", "axiom-runtime"}
 SCHEMA = Path(__file__).with_name("stage-plan-r1.schema.json")
 
 
