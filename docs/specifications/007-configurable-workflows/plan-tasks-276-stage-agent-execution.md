@@ -14,6 +14,37 @@ The acceptance authorizes preparing Tasks only. It does not authorize
 implementation, Runtime dispatch, real inference, Provider effects, merge,
 release or human acceptance of #276.
 
+## Administrative post-merge reconciliation — 2026-10-12
+
+This later observation supersedes operational dependency status in the historical
+Plan, not its accepted technical contract or approval receipt. PR #310 merged at
+2026-10-12 03:05:33 UTC (00:05:33 America/Sao_Paulo), commit
+`5e1c995ab57ed3fbd54e5b72288607140d031e7d`, already included in PR #311 HEAD
+`3c2f436823740ce97c5616c0cb3106b9fea4dbe0`.
+All 23 #306 Tasks were [accepted](https://github.com/rgomids/axiom/pull/310#issuecomment-6109821395);
+its complete technical delivery was [accepted at dd6fc596](https://github.com/rgomids/axiom/pull/310#issuecomment-6117000624).
+The integrated [implementation Evidence](../002-lingo-project-initialization/evidence-306-implementation.md)
+records local, synthetic and native boundaries; its older pending-merge wording is historical.
+Workflow2, StagePlan2, Execution3, Graph2, Profile-owned effort, effort-source
+inspection, default-sdd r2 and Runtime/Profile authoring are available to consume.
+Real capability/model/effort proof, #276 dispatch and operational acceptance remain pending.
+
+| Gate | Current technical state | Remaining #276 gate |
+| --- | --- | --- |
+| IG-1 | Supported authoring/onboarding delivered and integrated | Clean supported configuration and separately authorized operational proof still required for T40 |
+| IG-5 | Accepted effort/version contract implemented and integrated | Consume frozen tuple and source checks; no Workflow effort override or proof inferred from declaration |
+| IG-6 | axiom-runtime skill delivered and integrated | #276 capability routes and tests remain proposed; installed-state operation not proved here |
+| IG-7 | X01–X07 technical delivery integrated; #306 producer prerequisite satisfied | NOT fully satisfied: CR-012/PD-16 persistence conflict plus #276 admission/integration verification and real proof remain pending |
+
+CR-013 operational status is reconciled by this note. CR-012 is
+**HUMAN_DECISION_REQUIRED**, decision **PD-R276-01** in the
+[Decision Packet and Evidence](reconciliation-276-post-merge-306.md).
+Statements below about #306 saying “Tasks Proposed”, “not implemented”,
+“not yet merged” or “IG-7 unsatisfied because #306 is undelivered” describe the
+accepted historical baseline only. #276 Tasks remain Proposed today. They cannot assign new work to completed I306-X05.
+Phase 1 remains Accepted; Phase 2 remains Proposed / Awaiting Human Approval;
+Phase 3 is Not Authorized; PR #311 remains Draft.
+
 | Item | Value |
 |---|---|
 | Work Item | [#276](https://github.com/rgomids/axiom/issues/276) / Linear AXM-8 (operational status lives in Linear) |
@@ -1445,6 +1476,20 @@ executed nor approved here. All synthetic Evidence is classified `synthetic` and
 never operational proof. Common gates apply to every Task: its own acceptance,
 explicit bounded implementation authority, review, and the security rules of
 Plan §7.
+
+## Administrative Task gate — 2026-10-12
+
+All 44 Task IDs and their catalog, acceptance criteria and internal DAG remain
+unchanged. References to Proposed/undelivered #306 producers below are historical;
+all 23 #306 Tasks were accepted and technically delivered at merge `5e1c995`.
+Completed I306-X05 cannot receive a new #276 serialization handoff. Its actual
+Graph2 contract lacks the #276 fields. T01/T04/T06/T07/T08/T09/T37 and their
+transitive persistence consumers are held at **PD-R276-01 / HUMAN_DECISION_REQUIRED**.
+The [Decision Packet](reconciliation-276-post-merge-306.md) records proposed
+ownership and dependency corrections; **their application to this catalog,
+DAG, batches and traceability is pending human decision**. No new codec ownership,
+successor version or changed Task scope is adopted here. Delivered #306 interfaces
+may be consumed only within subsequently authorized #276 implementation.
 
 ## Task catalog
 
