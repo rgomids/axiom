@@ -2,6 +2,7 @@ package runtimeadapter
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -13,7 +14,7 @@ func identityRequest(runtime string, write, process bool) StageInvocationRequest
 	if runtime == "claude" {
 		version = "2.1.296"
 	}
-	return StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtime, Executable: "/bin/" + runtime, Model: "model"}, Version: version, Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom", RepositoryWrite: write, Process: process}
+	return StageInvocationRequest{Profile: CommandProfile{RuntimeID: runtime, Executable: nativeFixturePath("/bin/" + runtime), Model: "model"}, Version: version, Workspace: nativeFixturePath("/work"), Inbox: nativeFixturePath("/inbox"), AxiomPath: nativeFixturePath("/bin/axiom"), RepositoryWrite: write, Process: process}
 }
 
 func TestAdapterVersionCanonical(t *testing.T) {
@@ -74,9 +75,9 @@ func TestModeDigestVolatileNormalization(t *testing.T) {
 		for _, write := range []bool{false, true} {
 			base := identityRequest(runtime, write, false)
 			other := base
-			other.Profile.Executable = "/other/bin/" + runtime
+			other.Profile.Executable = nativeFixturePath("/other/bin/" + runtime)
 			other.Profile.Model, other.Profile.ModelProfileID = "other-model", "other-profile"
-			other.Workspace, other.Inbox, other.AxiomPath = "/tmp/another-work", "/tmp/another-inbox", "/tmp/another-axiom"
+			other.Workspace, other.Inbox, other.AxiomPath = nativeFixturePath("/tmp/another-work"), nativeFixturePath("/tmp/another-inbox"), nativeFixturePath("/tmp/another-axiom")
 			other.ParentEnvironment = []string{"HOME=/tmp/another-home", "TMPDIR=/tmp/volatile", "PROVIDER_AUTH=redacted-placeholder"}
 			other.Correlation = AttemptCorrelation{"project", "parent", "child", "attempt"}
 			want, err := ModeDigest(base)
@@ -88,8 +89,12 @@ func TestModeDigestVolatileNormalization(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, excluded := range []string{"/tmp/", "/other/", "redacted-placeholder", "PROVIDER_AUTH", "other-model", "other-profile", "attempt"} {
-				if bytes.Contains(wire, []byte(excluded)) {
+			for _, excluded := range []string{other.Workspace, other.Inbox, other.AxiomPath, other.Profile.Executable, "redacted-placeholder", "PROVIDER_AUTH", "other-model", "other-profile", "attempt"} {
+				encoded, err := json.Marshal(excluded)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if bytes.Contains(wire, encoded[1:len(encoded)-1]) {
 					t.Fatalf("serialized excluded input %q", excluded)
 				}
 			}
@@ -99,18 +104,33 @@ func TestModeDigestVolatileNormalization(t *testing.T) {
 
 func TestModeDigestSafetyDifferences(t *testing.T) {
 	for _, runtime := range []string{"codex", "claude"} {
-		read, _ := ModeDigest(identityRequest(runtime, false, false))
-		write, _ := ModeDigest(identityRequest(runtime, true, false))
+		read, err := ModeDigest(identityRequest(runtime, false, false))
+		if err != nil {
+			t.Fatal(err)
+		}
+		write, err := ModeDigest(identityRequest(runtime, true, false))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if read == write {
 			t.Fatal("confinement variants collapsed")
 		}
 	}
-	limited, _ := ModeDigest(identityRequest("claude", false, false))
-	process, _ := ModeDigest(identityRequest("claude", false, true))
+	limited, err := ModeDigest(identityRequest("claude", false, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	process, err := ModeDigest(identityRequest("claude", false, true))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if limited == process {
 		t.Fatal("restricted Axiom Bash and unrestricted Bash collapsed")
 	}
-	codex, _ := ModeDigest(identityRequest("codex", false, false))
+	codex, err := ModeDigest(identityRequest("codex", false, false))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if codex == limited {
 		t.Fatal("sandbox and permission-tool policies collapsed")
 	}

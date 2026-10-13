@@ -124,7 +124,9 @@ func TestStagePathAndProcessBoundary(t *testing.T) {
 
 func TestStageInvocationCorrelationIsAttemptOwned(t *testing.T) {
 	correlation := AttemptCorrelation{ProjectID: "project-1", ParentID: "parent-1", ChildID: "child-1", AttemptID: "attempt-1"}
-	request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: "codex", Executable: "/bin/codex", Model: "model"}, Version: "0.159.1", Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom", ParentEnvironment: []string{"PATH=/bin", "AXIOM_ATTEMPT_ID=stale"}, Correlation: correlation}
+	request := identityRequest("codex", false, false)
+	request.ParentEnvironment = []string{"PATH=/bin", "AXIOM_ATTEMPT_ID=stale"}
+	request.Correlation = correlation
 	inv, err := BuildStageInvocation(request)
 	if err != nil {
 		t.Fatal(err)
