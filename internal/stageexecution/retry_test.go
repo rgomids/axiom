@@ -58,11 +58,48 @@ func (f *fakeRetryStore) CommitRetry(_ context.Context, g executiongraph.Success
 	return ref, nil
 }
 
-type fakeDisposer struct{ dispositions []string }
+type fakeDisposer struct {
+	dispositions []string
+	err          error
+}
 
 func (f *fakeDisposer) Dispose(_ context.Context, _ executiongraph.SuccessorGraph, _ executiongraph.SuccessorChild, d string) error {
 	f.dispositions = append(f.dispositions, d)
-	return nil
+	return f.err
+}
+
+func TestRetryDispositionFailureRequiresRecovery(t *testing.T) {
+	h := retryFixture(t, "unknown", 3)
+	appendRetrySafeFact(t, h)
+	blocker := errors.New("synthetic authority fencing unavailable")
+	h.disposer.err = blocker
+	p, err := h.service.Preview(context.Background(), h.request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := h.service.Apply(context.Background(), RetryApply{Preview: p, AuthorizeLocal: true, AuthorizeExternal: true, Actor: "operator", Disposition: executiongraph.DispositionReset})
+	if !errors.Is(err, blocker) || result.Status != "recovery_required" || result.Recovery == "" || result.AuthorityRef == "" {
+		t.Fatal(result, err)
+	}
+	if h.store.commits != 1 || len(h.starter.refs) != 0 || len(h.store.g.Children[0].Attempts) != 1 {
+		t.Fatal("refusal started or changed an attempt")
+	}
+	if _, ok := h.store.receipts[result.AuthorityRef]; !ok {
+		t.Fatal("committed receipt lost")
+	}
+}
+
+func TestRetryPreserveDisposition(t *testing.T) {
+	h := retryFixture(t, "unknown", 3)
+	appendRetrySafeFact(t, h)
+	p, err := h.service.Preview(context.Background(), h.request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := h.service.Apply(context.Background(), RetryApply{Preview: p, AuthorizeLocal: true, AuthorizeExternal: true, Actor: "operator", Disposition: executiongraph.DispositionPreserve})
+	if err != nil || result.Status != "success" || len(h.disposer.dispositions) != 1 || h.disposer.dispositions[0] != executiongraph.DispositionPreserve {
+		t.Fatal(result, err)
+	}
 }
 
 type fakeRetryStarter struct{ refs []string }

@@ -213,7 +213,7 @@ func (s RetryService) Apply(ctx context.Context, r RetryApply) (RetryResult, err
 			}
 		}
 		if err = s.Disposer.Dispose(ctx, g, child, disposition); err != nil {
-			result.Status, result.Recovery = "recovery_required", "apply the recorded workspace disposition before resuming the retry"
+			result.Status, result.Recovery = "recovery_required", "inspect the committed retry authority and disposition failure before any retry start"
 			return result, err
 		}
 	}

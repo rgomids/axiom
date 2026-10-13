@@ -2,11 +2,199 @@ package main
 
 import (
 	"context"
+	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/coordination"
+	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/graphapplication"
+	"github.com/rgomids/axiom/internal/local"
+	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/stageexecution"
+	"os"
 )
 
 type stageSupervisorLoader interface {
 	LoadSupervisor(context.Context, stageexecution.SupervisorRequest) (stageexecution.Supervisor, error)
+}
+
+func (s LocalSupervisorStore) LoadRetry(ctx context.Context, r stageexecution.SupervisorRequest, ref string) (executiongraph.RetryAuthority, error) {
+	return s.Graphs.LoadRetry(ctx, r.ProjectID, r.ParentID, ref)
+}
+
+// The current lease is captured by the same store that owns CAS persistence.
+// Preparation never acquires a second lease and ingestion uses this exact one.
+type activeStageStore struct {
+	LocalSupervisorStore
+	lease *local.RunLease
+}
+
+func (s *activeStageStore) Acquire(ctx context.Context, g executiongraph.SuccessorGraph) (stageexecution.SupervisorLease, error) {
+	l, err := s.LocalSupervisorStore.Acquire(ctx, g)
+	if err == nil {
+		s.lease = l.(localSupervisorLease).lease
+	}
+	return l, err
+}
+
+type productionSupervisorLoader struct{}
+
+func (productionSupervisorLoader) LoadSupervisor(ctx context.Context, r stageexecution.SupervisorRequest) (stageexecution.Supervisor, error) {
+	s, ok := composeWithProvenance(currentProvenance()).(lifecycleService)
+	if !ok {
+		return stageexecution.Supervisor{}, stageexecution.ErrAdmission
+	}
+	stores, err := s.stageStores()
+	if err != nil {
+		return stageexecution.Supervisor{}, err
+	}
+	preview, err := retainedPreview(ctx, stores.graphs, r)
+	if err != nil {
+		return stageexecution.Supervisor{}, err
+	}
+	states, err := stores.executions.List(ctx, r.ProjectID)
+	if err != nil {
+		return stageexecution.Supervisor{}, err
+	}
+	var t stageTarget
+	for _, state := range states {
+		if state.ExecutionID != preview.Plan.Execution.ExecutionID {
+			continue
+		}
+		item := state.WorkItem
+		input := cli.WorkflowStageInput{Project: state.ProjectID, Repository: state.RepositoryKey, WorkItem: item.Provider + ":" + item.Resource + "#" + item.ExternalID, Execution: state.ExecutionID, ExpectedRevision: preview.Plan.Execution.Revision}
+		var failure *cli.WorkflowStageResponse
+		t, failure = s.resolveStageTarget(ctx, input, projectapp.AdmitExecutionAdvance)
+		if failure != nil || t.request.ParentID != r.ParentID {
+			return stageexecution.Supervisor{}, stageexecution.ErrAdmission
+		}
+		break
+	}
+	if t.state.ExecutionID == "" {
+		return stageexecution.Supervisor{}, stageexecution.ErrAdmission
+	}
+	capabilities, err := productionCapabilityService(s.stateRoot)
+	if err != nil {
+		return stageexecution.Supervisor{}, err
+	}
+	policy, err := s.stageRuntimePolicy(ctx, stores, capabilities)
+	if err != nil {
+		return stageexecution.Supervisor{}, err
+	}
+	store := &activeStageStore{LocalSupervisorStore: s.supervisorStore(stores, t)}
+	loader := stageAttemptLoader{s: s, stores: stores, target: t, store: store, preview: preview}
+	auth, err := runtimeadapter.NewAuthPreflight(runtimeadapter.OSStatusRunner{}, runtimeadapter.DefaultManagedConfiguration())
+	if err != nil {
+		return stageexecution.Supervisor{}, err
+	}
+	preparation := &stageexecution.CompiledSupervisorPreparation{Loader: loader, Checker: policy, Auth: auth}
+	if sources, ok := capabilities.Source.(graphapplication.EffortSourceInspector); ok {
+		preparation.Sources = sources
+	}
+	return stageexecution.Supervisor{Store: store, Preparation: stageContextPreparation{next: preparation, stateRoot: s.stateRoot, projectsRoot: s.projectsRoot, skillsRoot: s.skillsRoot}, Runner: executiongraph.OSProcessRunner{}, AllocateID: allocateStageID}, nil
+}
+
+// Only installation-owned roots are added after the adapter constructs its
+// clean environment. Correlation and vendor settings still belong to the
+// frozen adapter; ambient credentials and arbitrary AXIOM_* are never copied.
+type stageContextPreparation struct {
+	next                                stageexecution.SupervisorPreparation
+	stateRoot, projectsRoot, skillsRoot string
+}
+
+func (p stageContextPreparation) Prepare(ctx context.Context, g executiongraph.SuccessorGraph, c executiongraph.SuccessorChild, id string, epoch uint64) (executiongraph.Invocation, error) {
+	inv, err := p.next.Prepare(ctx, g, c, id, epoch)
+	if err != nil {
+		return inv, err
+	}
+	env := executiongraph.EffectiveInvocationEnvironment(inv)
+	for _, entry := range []string{"LINGO_STATE_ROOT=" + p.stateRoot, "LINGO_PROJECTS_ROOT=" + p.projectsRoot, "AXIOM_CODEX_SKILLS_ROOT=" + p.skillsRoot} {
+		env = append(env, entry)
+	}
+	return executiongraph.WithExactEnvironment(inv, env), nil
+}
+func (p stageContextPreparation) Drain(ctx context.Context, g executiongraph.SuccessorGraph, c executiongraph.SuccessorChild, a executiongraph.SuccessorAttempt, final bool) ([]executiongraph.AttemptRecord, error) {
+	return p.next.Drain(ctx, g, c, a, final)
+}
+
+type stageAttemptLoader struct {
+	s       lifecycleService
+	stores  stageStores
+	target  stageTarget
+	store   *activeStageStore
+	preview stageexecution.DispatchPreview
+}
+
+func (l stageAttemptLoader) LoadAttempt(ctx context.Context, g executiongraph.SuccessorGraph, c executiongraph.SuccessorChild, id string, epoch uint64) (stageexecution.AttemptMaterial, error) {
+	if l.store.lease == nil || l.store.lease.Epoch != epoch {
+		return stageexecution.AttemptMaterial{}, stageexecution.ErrSupervisorAuthority
+	}
+	m, projection, err := (gitIntegration{l.target.repository.Path}).manager(ctx, g)
+	if err != nil {
+		return stageexecution.AttemptMaterial{}, err
+	}
+	for _, child := range projection.Children {
+		if child.ExecutionID == c.ExecutionID {
+			err = m.InspectRetryWorkspace(ctx, child)
+			break
+		}
+	}
+	if err != nil {
+		return stageexecution.AttemptMaterial{}, err
+	}
+	var material stageexecution.AttemptMaterial
+	for _, a := range l.preview.Plan.Compilation.Agents {
+		if a.Input.NodeKey == c.NodeKey {
+			material.Input = a.Input
+			break
+		}
+	}
+	if material.Input.ResolvedProfile == nil {
+		return material, stageexecution.ErrAdmission
+	}
+	frozen := *material.Input.ResolvedProfile
+	executable, err := l.s.runtimes.lookPath(frozen.RuntimeID)
+	if err != nil {
+		return material, err
+	}
+	axiom, err := os.Executable()
+	if err != nil {
+		return material, err
+	}
+	cctx := coordination.ChildContext{Workspace: c.Envelope.Workspace, Inbox: attemptInbox(c.Envelope.Workspace, id), ParentID: g.Parent.ExecutionID, ChildID: c.ExecutionID, AttemptID: id, GraphRevision: g.Parent.GraphRevision, Epoch: epoch, Running: true}
+	inbox, err := local.NewAttemptInbox(cctx)
+	if err != nil {
+		return material, err
+	}
+	if err = inbox.Create(ctx, cctx); err != nil {
+		return material, err
+	}
+	canonical, err := local.NewCoordinationStore(l.s.stateRoot, l.target.state.ProjectID)
+	if err != nil {
+		return material, err
+	}
+	fence := local.CoordinationFence{Lease: l.store.lease, Current: func(ctx context.Context) (coordination.ChildContext, error) {
+		fresh, err := l.stores.graphs.LoadSuccessor(ctx, l.target.state.ProjectID, g.Parent.ExecutionID)
+		if err != nil {
+			return coordination.ChildContext{}, err
+		}
+		for _, child := range fresh.Children {
+			if child.ExecutionID == c.ExecutionID && len(child.Attempts) > 0 {
+				at := child.Attempts[len(child.Attempts)-1]
+				if at.AttemptID == id && at.LeaseEpoch == epoch && at.Status == executiongraph.AttemptRunning {
+					return cctx, nil
+				}
+			}
+		}
+		return coordination.ChildContext{}, coordination.ErrEpochFenced
+	}}
+	material.Context = cctx
+	material.Ingestor = coordination.Ingestor{Service: coordination.New(canonical, allocateStageID, nil), Reader: canonical, Inbox: inbox, Fence: fence, MaximumAttempts: c.Envelope.Controls.MaximumAttempts}
+	for _, child := range g.Children {
+		material.Ingestor.ReferenceChildren = append(material.Ingestor.ReferenceChildren, child.ExecutionID)
+	}
+	material.Packet = runtimeadapter.PacketContext{AttemptID: id, Inbox: cctx.Inbox, AxiomPath: axiom, AxiomDigest: l.preview.AxiomDigest}
+	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, Executable: executable, Model: frozen.Model}, Version: frozen.RuntimeVersion, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: l.target.state.ProjectID, ParentID: cctx.ParentID, ChildID: cctx.ChildID, AttemptID: id}}
+	return material, nil
 }
 
 // The stage-run composition owns the loader. A shell invocation cannot supply

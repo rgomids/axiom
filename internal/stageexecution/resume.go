@@ -56,6 +56,9 @@ func (s RunService) resume(ctx context.Context, r RunRequest) (RunResult, error)
 	if err != nil || fresh.Digest != a.PreviewDigest {
 		return result, errors.Join(ErrStalePreview, err)
 	}
+	if fresh.Publication == nil || fresh.Publication.ExpectedDigest != g.Parent.ProposalDigest {
+		return result, ErrStalePreview
+	}
 	p := Publication{Graph: &g, Authority: a}
 	result.Publication = p
 	result.Status, result.Recovery = "recovery_required", "resume committed first attempts"
@@ -66,6 +69,9 @@ func (s RunService) resume(ctx context.Context, r RunRequest) (RunResult, error)
 	fresh, err = s.Preview.Preview(ctx, r.Execution, r.StageID)
 	if err != nil || fresh.Digest != a.PreviewDigest {
 		return result, errors.Join(ErrStalePreview, err)
+	}
+	if fresh.Publication == nil || fresh.Publication.ExpectedDigest != g.Parent.ProposalDigest {
+		return result, ErrStalePreview
 	}
 	process, err := s.Starter.Start(ctx, p)
 	if err != nil {

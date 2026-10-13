@@ -96,7 +96,7 @@ type IntegrationReceipt struct {
 	FormatVersion            int              `json:"formatVersion"`
 	ProjectID                string           `json:"projectId"`
 	ParentID                 string           `json:"parentId"`
-	ExecutionID              string           `json:"executionId"`
+	ExecutionID              string           `json:"executionId,omitempty"`
 	Revision                 uint64           `json:"revision"`
 	GraphDigest              string           `json:"graphDigest"`
 	PreviewDigest            string           `json:"previewDigest"`
@@ -116,7 +116,9 @@ type IntegrationReceipt struct {
 }
 
 func ValidateIntegrationReceipt(a IntegrationReceipt) error {
-	if a.FormatVersion != 1 || !validToken(a.ProjectID) || !validOpaqueID(a.ParentID) || !validOpaqueID(a.ExecutionID) || a.Revision == 0 || a.ExecutionRevision != a.Revision || !successorDigest(a.GraphDigest) || !successorDigest(a.PreviewDigest) || !successorDigest(a.IntegrationPreviewDigest) || !successorDigest(a.ValidatorPolicyDigest) || !validOpaqueID(a.IntegrationChildID) || a.AttemptNumber == 0 || a.OptionalWaivers == nil || len(a.OptionalWaivers) > maxListItems || !validDispatchEffects(a.Effects) || !successorDigest(a.LedgerDigest) || !validToken(a.StageID) || a.StageOrdinal < 0 || a.ActorKind != "human-operator" || !boundedIdentity(a.Actor) || !utc(a.RecordedAt) {
+	// Format 1 used the graph parent as the ledger Execution identity. Preserve
+	// its exact encoding and digest; format 2 binds the distinct Execution.
+	if (a.FormatVersion != 1 && a.FormatVersion != 2) || a.FormatVersion == 1 && a.ExecutionID != "" || a.FormatVersion == 2 && !validOpaqueID(a.ExecutionID) || !validToken(a.ProjectID) || !validOpaqueID(a.ParentID) || a.Revision == 0 || a.ExecutionRevision != a.Revision || !successorDigest(a.GraphDigest) || !successorDigest(a.PreviewDigest) || !successorDigest(a.IntegrationPreviewDigest) || !successorDigest(a.ValidatorPolicyDigest) || !validOpaqueID(a.IntegrationChildID) || a.AttemptNumber == 0 || a.OptionalWaivers == nil || len(a.OptionalWaivers) > maxListItems || !validDispatchEffects(a.Effects) || !successorDigest(a.LedgerDigest) || !validToken(a.StageID) || a.StageOrdinal < 0 || a.ActorKind != "human-operator" || !boundedIdentity(a.Actor) || !utc(a.RecordedAt) {
 		return ErrInvalidGraph
 	}
 	for i, w := range a.OptionalWaivers {
@@ -261,7 +263,11 @@ func BuildStageOutcome(g SuccessorGraph, receiptRef string, receipt IntegrationR
 	if attempt == nil || attempt.PacketDigest != receiptRef || attempt.Number != receipt.AttemptNumber {
 		return StageOutcome{}, ErrInvalidGraph
 	}
-	o := StageOutcome{FormatVersion: 1, ProjectID: receipt.ProjectID, ExecutionID: receipt.ExecutionID, ExecutionRevision: receipt.ExecutionRevision, LedgerDigest: receipt.LedgerDigest, StageID: receipt.StageID, StageOrdinal: receipt.StageOrdinal, GraphDigest: hex.EncodeToString(g.StorageRevision[:]), IntegrationReceiptRef: receiptRef, ValidatorPolicyDigest: receipt.ValidatorPolicyDigest, Rollup: r, IntegrationResultReference: attempt.ResultReference, ValidationOutputDigest: attempt.OutputDigest, RecordedAt: recordedAt.UTC()}
+	executionID := receipt.ExecutionID
+	if receipt.FormatVersion == 1 {
+		executionID = receipt.ParentID
+	}
+	o := StageOutcome{FormatVersion: 1, ProjectID: receipt.ProjectID, ExecutionID: executionID, ExecutionRevision: receipt.ExecutionRevision, LedgerDigest: receipt.LedgerDigest, StageID: receipt.StageID, StageOrdinal: receipt.StageOrdinal, GraphDigest: hex.EncodeToString(g.StorageRevision[:]), IntegrationReceiptRef: receiptRef, ValidatorPolicyDigest: receipt.ValidatorPolicyDigest, Rollup: r, IntegrationResultReference: attempt.ResultReference, ValidationOutputDigest: attempt.OutputDigest, RecordedAt: recordedAt.UTC()}
 	return o, ValidateStageOutcome(o)
 }
 

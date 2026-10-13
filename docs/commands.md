@@ -1,5 +1,26 @@
 # Project Commands
 
+## T34 recovery limitation: retry reset
+
+The pending T34 production adapter disables `workflow stage retry` with
+`--disposition reset`. A committed retry receipt alone does not authorize
+destructive workspace operations: persisted receipt binding, current lease
+fencing and managed-worktree ownership must remain protected across each
+effect. The existing disposer interface does not provide that guard.
+
+Reset returns `failure` with category
+`retry_reset_authority_fencing_unavailable`, preserving workspace contents.
+If retry authority was already committed, its result remains
+`recovery_required`; no retry supervisor is started. Inspect that receipt and
+the disposition failure before recovery; do not blindly replay the operation
+or perform a manual reset as a workaround. `preserve` keeps the existing
+non-destructive workspace inspection path. Retry still requires fresh preview
+and local plus external authority; this fallback grants no new authority.
+The same canonical result is used by JSON and human presentation.
+
+T34 production completion and command parity remain unverified. This note
+does not claim delivery of operational smoke or capability probing.
+
 ## Author and select Project workflows
 
 Project selects, Workflow configures, Work Item runs, Execution performs.

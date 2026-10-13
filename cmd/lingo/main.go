@@ -33,7 +33,7 @@ var (
 )
 
 func main() {
-	if handled, code := stageSupervisorCommand(context.Background(), os.Args[1:], nil); handled {
+	if handled, code := stageSupervisorCommand(context.Background(), os.Args[1:], productionSupervisorLoader{}); handled {
 		os.Exit(code)
 	}
 	if handled, code := probeCanaryCommand(context.Background(), os.Args[1:], nil, os.Stdout); handled {

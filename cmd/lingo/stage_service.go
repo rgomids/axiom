@@ -139,6 +139,15 @@ func (s lifecycleService) resolveStageTarget(ctx context.Context, in cli.Workflo
 	}
 	state := status.State
 	t := stageTarget{state: state, request: stageexecution.StatusRequest{ProjectID: state.ProjectID, ParentID: state.ExecutionID}, ref: workflowcompiler.ExecutionRef{ExecutionID: state.ExecutionID, Revision: state.Revision}, repository: resolved.Repository}
+	if graphs, err := local.NewGraphStore(s.stateRoot); err == nil {
+		parent, err := graphs.FindStageGraph(ctx, state.ProjectID, state.ExecutionID, string(state.Stage))
+		if err == nil {
+			t.request.ParentID = parent
+		} else if !errors.Is(err, local.ErrNotFound) && !errors.Is(err, os.ErrNotExist) {
+			response := s.stageError(err, nil)
+			return stageTarget{}, &response
+		}
+	}
 	if in.ExpectedRevision != 0 && in.ExpectedRevision != state.Revision {
 		response := s.stageFailure(completion.DeniedAuthority, "stale_execution_revision", "Execution revision changed", "Inspect workflow status and request a fresh preview", nil)
 		return stageTarget{}, &response
@@ -323,11 +332,11 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 // --- status ---------------------------------------------------------------
 
 type stageStatusPayload struct {
-	Graph    executiongraph.GraphDocument           `json:"graph"`
-	Blockers map[string]string                      `json:"blockers"`
+	Graph    executiongraph.GraphDocument            `json:"graph"`
+	Blockers map[string]string                       `json:"blockers"`
 	Health   map[string]executiongraph.AttemptHealth `json:"health"`
-	Next     map[string]string                      `json:"next"`
-	Outcomes map[string]executiongraph.StageOutcome `json:"outcomes,omitempty"`
+	Next     map[string]string                       `json:"next"`
+	Outcomes map[string]executiongraph.StageOutcome  `json:"outcomes,omitempty"`
 }
 
 type localStatusObserver struct {
