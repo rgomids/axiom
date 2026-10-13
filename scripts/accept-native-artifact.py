@@ -2,7 +2,7 @@
 """Native prepared-byte installation lifecycle (#256), no builds or Providers.
 
 The baseline is the genuine published v0.10.0 distribution. Reports and logs
-must be outside the immutable artifact directories. Linux and Windows run natively.
+must be outside the immutable artifact directories. Linux runs natively.
 """
 import argparse
 import importlib.util
@@ -40,12 +40,10 @@ def extract(root, version, row, destination):
         names = set()
         for member in members:
             parts = member.name.split("/")
-            entry_key = member.name.casefold() if row == "windows-amd64" else member.name
             require(parts[0] == name and all(p not in ("", ".", "..") for p in parts)
                     and "\\" not in member.name and (member.isfile() or member.isdir())
-                    and entry_key not in names
-                    and (row != "windows-amd64" or smoke.windows_archive_name(member.name)), "unsafe archive entry")
-            names.add(entry_key)
+                    and member.name not in names, "unsafe archive entry")
+            names.add(member.name)
         source.extractall(destination, members=members)
     bundle = destination / name
     metadata = dict(line.split("=", 1) for line in (bundle / "release-metadata.txt").read_text().splitlines())
@@ -55,15 +53,12 @@ def extract(root, version, row, destination):
 
 
 def acceptance(args, report):
-    windows = args.row == "windows-amd64"
-    binary_name = "axiom.exe" if windows else "axiom"
-    # Python 3.13's Windows mode=0700 adds OWNER RIGHTS; inherit our protected
-    # native DACL instead. POSIX keeps its owner-only modes.
-    directory_mode = 0o777 if windows else 0o700
-    expected_host = ("Windows", "AMD64") if windows else ("Linux", {"linux-arm64": "aarch64", "linux-amd64": "x86_64"}[args.row])
+    binary_name = "axiom"
+    directory_mode = 0o700
+    expected_host = ("Linux", {"linux-arm64": "aarch64", "linux-amd64": "x86_64"}[args.row])
     require((platform.system(), platform.machine()) == expected_host,
             "native host does not match row")
-    require(windows or args.previous, "genuine prior Linux release required")
+    require(args.previous, "genuine prior Linux release required")
     roots = [Path(args.directory)] + ([Path(args.previous)] if args.previous else [])
     require(all(p.is_absolute() and p.is_dir() and not p.is_symlink() for p in roots),
             "absolute regular artifact directories required")
@@ -71,22 +66,15 @@ def acceptance(args, report):
     try:
         # Preserve #244's exact provenance/lifecycle and input immutability checks.
         smoke.smoke(args, report)
-        with tempfile.TemporaryDirectory(prefix="axiom-native-",
-                                         dir=os.environ["USERPROFILE"] if windows else None) as temporary:
+        with tempfile.TemporaryDirectory(prefix="axiom-native-") as temporary:
             work = Path(temporary).resolve()
-            if windows:
-                smoke.windows_private_directory(work)
             extracted = work / "bundles"
             extracted.mkdir()
             candidate, archive, checksum, metadata = extract(roots[0], args.version, args.row, extracted)
-            if not windows:
-                previous, prior_archive, prior_checksum, prior_metadata = extract(roots[1], "0.10.0", args.row, extracted)
-                report["baseline"] = {"version": "0.10.0", "archiveSha256": prior_checksum,
+            previous, prior_archive, prior_checksum, prior_metadata = extract(roots[1], "0.10.0", args.row, extracted)
+            report["baseline"] = {"version": "0.10.0", "archiveSha256": prior_checksum,
                                   "revision": prior_metadata["revision"],
                                   "binarySha256": smoke.digest(previous / "axiom")}
-            else:
-                report["notApplicable"] = {"genuine-prior-upgrade-state-reinstall": "First supported Server candidate; no prior supported Server release",
-                                           "install-interruption-recovery": "POSIX-only installer fault seam; Windows refusal/retry covered separately"}
             report["archiveSha256"] = checksum
             log = Path(args.log)
             log.parent.mkdir(parents=True, exist_ok=True)
@@ -116,17 +104,13 @@ def acceptance(args, report):
                     home.mkdir(mode=directory_mode)
                     for directory in ("cwd", "repository with spaces", "tmp"):
                         (home / directory).mkdir(mode=directory_mode)
-                    environment = {"HOME": str(home), "USERPROFILE": str(home),
+                    environment = {"HOME": str(home),
                                   "PATH": f"{home / 'bin'}:/usr/bin:/bin",
                                   "TMPDIR": str(home / "tmp"), "LANG": "C", "LC_ALL": "C",
                                   "LINGO_PROJECTS_ROOT": str(home / "projects"),
                                   "LINGO_STATE_ROOT": str(home / "state"),
                                   "AXIOM_CODEX_SKILLS_ROOT": str(home / "skills"),
                                   "AXIOM_GH_BIN": str(home / "unavailable-gh")}
-                    if windows:
-                        environment.update(smoke.windows_environment(home, home / "tmp"))
-                        system = Path(environment["SystemRoot"]) / "System32"
-                        environment["PATH"] = os.pathsep.join(str(p) for p in (home / "bin", system, system / "WindowsPowerShell/v1.0"))
                     return home, environment
 
                 home, env = environment("home with spaces")
@@ -134,14 +118,8 @@ def acceptance(args, report):
                 receipt = home / "receipt"
 
                 def install(bundle, subject, checksums=None, extra=None, target=home, expected=0):
-                    installer_env = dict(env, HOME=str(target), USERPROFILE=str(target))
+                    installer_env = dict(env, HOME=str(target))
                     installer_env.update(extra or {})
-                    if windows:
-                        return command([Path(env["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe",
-                                        "-NoProfile", "-NonInteractive", "-File", bundle / "install.ps1",
-                                        "-Archive", subject, "-Checksums", checksums or roots[0] / "SHA256SUMS",
-                                        "-BinDir", target / "bin", "-ReceiptDir", target / "receipt"],
-                                       installer_env, home / "cwd", expected)
                     return command(["/bin/bash", bundle / "install.sh", "--archive", subject,
                                     "--checksums", checksums or roots[0] / "SHA256SUMS",
                                     "--bin-dir", target / "bin", "--receipt-dir", target / "receipt"],
@@ -163,28 +141,8 @@ def acceptance(args, report):
 
                 scenario("fresh-install", lambda: require("install_status=installed" in install(candidate, archive), "fresh status"))
                 scenario("discovery-provenance", lambda: version(args.version, args.revision))
-                if windows:
-                    def powershell(code):
-                        return command([Path(env["SystemRoot"]) / "System32/WindowsPowerShell/v1.0/powershell.exe",
-                                        "-NoProfile", "-NonInteractive", "-Command", "$ErrorActionPreference='Stop'; " + code],
-                                       env, home / "cwd")
-                    def private_permissions():
-                        for path in (binary, receipt / "installation.receipt"):
-                            rules = json.loads(powershell("$a=Get-Acl -LiteralPath '" + str(path).replace("'", "''") + "'; "
-                                 "ConvertTo-Json -Compress -InputObject @($a.Access | ForEach-Object { "
-                                 "[pscustomobject]@{sid=$_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value;"
-                                 "rights=[int]$_.FileSystemRights;type=$_.AccessControlType.ToString()} })"))
-                            user = powershell("[Security.Principal.WindowsIdentity]::GetCurrent().User.Value").strip()
-                            trusted = {user, "S-1-5-18", "S-1-5-32-544"}
-                            require(all(r["type"] != "Allow" or r["sid"] in trusted or r["rights"] & 0xD0156 == 0 for r in rules),
-                                    "unsafe Windows installation DACL")
-                    product = int(powershell("(Get-CimInstance Win32_OperatingSystem).ProductType").strip())
-                    report["environment"]["productType"] = product
-                    require(product == 3, "Server acceptance requires actual ProductType 3")
-                    scenario("private-permissions", private_permissions)
-                else:
-                    scenario("private-permissions", lambda: require(binary.stat().st_mode & 0o777 == 0o700
-                             and (receipt / "installation.receipt").stat().st_mode & 0o777 == 0o600, "unsafe permissions"))
+                scenario("private-permissions", lambda: require(binary.stat().st_mode & 0o777 == 0o700
+                         and (receipt / "installation.receipt").stat().st_mode & 0o777 == 0o600, "unsafe permissions"))
                 configuration = ("project", "configure", "--slug", "native", "--name", "Native",
                                  "--repository", f"main={home / 'repository with spaces'}", "--work-item-provider", "none")
 
@@ -251,51 +209,9 @@ def acceptance(args, report):
                 scenario("foreign-binary-preserved", lambda: (install(candidate, archive, target=foreign, expected=None),
                          require((foreign / "bin" / binary_name).read_text() == "foreign", "foreign binary overwritten")))
                 link = work / "linked"
-                if windows:
-                    powershell("New-Item -ItemType Junction -Path '" + str(link).replace("'", "''") + "' -Value '" + str(home).replace("'", "''") + "' | Out-Null")
-                else:
-                    link.symlink_to(home, target_is_directory=True)
+                link.symlink_to(home, target_is_directory=True)
                 scenario("symlink-destination-refused", lambda: (install(candidate, archive, target=link, expected=None),
                          require(owned == (smoke.digest(binary), smoke.inventory(receipt)), "symlink mutated install")))
-
-                if windows:
-                    def receipt_recovery():
-                        path = receipt / "installation.receipt"
-                        saved = path.read_bytes()
-                        path.write_text("invalid receipt\n")
-                        try:
-                            install(candidate, archive, expected=None)
-                            require(path.read_text() == "invalid receipt\n" and smoke.digest(binary) == owned[0],
-                                    "invalid receipt refusal mutated installation")
-                        finally:
-                            path.write_bytes(saved)
-                        require("install_status=unchanged" in install(candidate, archive), "receipt recovery failed")
-                        readable()
-                    scenario("invalid-receipt-recovery", receipt_recovery)
-
-                    def dacl_recovery():
-                        target = work / "unsafe permissions"
-                        target.mkdir()
-                        escaped = str(target).replace("'", "''")
-                        powershell("$a=Get-Acl -LiteralPath '" + escaped + "'; "
-                                   "$s=New-Object Security.Principal.SecurityIdentifier('S-1-1-0'); "
-                                   "$a.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($s,'DeleteSubdirectoriesAndFiles','None','None','Allow'))); "
-                                   "$d=New-Object IO.DirectoryInfo('" + escaped + "'); $d.SetAccessControl($a)")
-                        acl = powershell("(Get-Acl -LiteralPath '" + escaped + "').Sddl")
-                        install(candidate, archive, target=target, expected=None)
-                        require(not (target / "bin").exists() and not (target / "receipt").exists()
-                                and acl == powershell("(Get-Acl -LiteralPath '" + escaped + "').Sddl"),
-                                "unsafe ancestor was mutated")
-                        smoke.windows_private_directory(target)
-                        require("install_status=installed" in install(candidate, archive, target=target), "DACL recovery retry failed")
-                        require(smoke.digest(target / "bin" / binary_name) == report["binarySha256"], "recovery binary mismatch")
-                    scenario("unsafe-dacl-refusal-recovery", dacl_recovery)
-                    compatibility = cli("compatibility", "inspect")
-                    require(compatibility.get("maintenance", {}).get("classification") == "valid_v1",
-                            "Windows state compatibility not valid_v1")
-                    readable()
-                    require(smoke.digest(binary) == report["binarySha256"], "installed binary changed")
-                    return
 
                 # A pre-binary interruption may be safely retried; after-binary
                 # fresh-install recovery intentionally requires guided recovery.
@@ -346,7 +262,7 @@ def main():
     parser.add_argument("--previous")
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
-    parser.add_argument("--row", choices=("linux-arm64", "linux-amd64", "windows-amd64"), required=True)
+    parser.add_argument("--row", choices=("linux-arm64", "linux-amd64"), required=True)
     parser.add_argument("--log", required=True)
     args = parser.parse_args()
     report = {"schema": "axiom-native-acceptance/v1", "version": args.version,

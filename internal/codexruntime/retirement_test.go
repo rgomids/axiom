@@ -528,8 +528,6 @@ func TestRetirementPreservesForeignOrUnsafePreparationObjects(t *testing.T) {
 				service, _ := factory(root)
 				name := retiredSkillNames[0]
 				t.Run(service.Runtime()+"/"+entry+"/"+kind, func(t *testing.T) {
-					if kind == "shared" {
-					}
 					content := seedRetirementRoot(t, service, root, false)
 					skill := filepath.Join(root, name, "SKILL.md")
 					path := filepath.Join(root, map[string]string{"stage": retirementStageName(name), "proof": retirementProofName(name)}[entry])

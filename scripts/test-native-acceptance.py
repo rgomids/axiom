@@ -7,6 +7,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 
 sys.dont_write_bytecode = True
 spec = importlib.util.spec_from_file_location("native", Path(__file__).with_name("accept-native-artifact.py"))
@@ -15,23 +16,13 @@ spec.loader.exec_module(native)
 
 
 class NativeContract(unittest.TestCase):
-    def test_windows_archive_aliases_refused_before_extraction(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            prefix = "axiom-0.10.0-windows-amd64"
-            archive = root / f"{prefix}.tar.gz"
-            for entries in (("file:stream",), ("NUL.txt",), ("file.",), ("file ",), ("file", "FILE")):
-                with self.subTest(entries=entries):
-                    with tarfile.open(archive, "w:gz") as tar:
-                        for name in entries:
-                            member = tarfile.TarInfo(f"{prefix}/{name}")
-                            member.size = 1
-                            tar.addfile(member, io.BytesIO(b"x"))
-                    (root / "SHA256SUMS").write_text(f"{native.smoke.digest(archive)}  {archive.name}\n")
-                    destination = root / "extract"
-                    with self.assertRaisesRegex(ValueError, "unsafe archive entry"):
-                        native.extract(root, "0.10.0", "windows-amd64", destination)
-                    self.assertFalse(destination.exists())
+    def test_unsupported_rows_refused(self):
+        for row in ("windows-amd64", "macos-27-arm64"):
+            with self.subTest(row=row), self.assertRaises(SystemExit), \
+                    mock.patch.object(sys, "argv", ["accept-native-artifact.py", "--dir", "/x", "--version", "0.10.0",
+                                                    "--revision", "0" * 40, "--row", row, "--log", "/y"]), \
+                    mock.patch.object(sys, "stderr", io.StringIO()):
+                native.main()
 
     def test_untrusted_baseline_archives(self):
         with tempfile.TemporaryDirectory() as temporary:

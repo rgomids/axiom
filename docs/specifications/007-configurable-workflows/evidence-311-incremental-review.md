@@ -166,3 +166,65 @@ Until Block 2/3, release scripts that build `windows/amd64` and the Windows CI
 jobs are expected to fail. Removal is **not complete** before Block 5.
 No merge, release, tag, ruleset change or review-thread closure was performed.
 This section is committed with the Block 1 change, whose parent is `707765d`.
+
+## Windows support removal — Block 2/5 (distribution scripts), 2026-10-13
+
+Base `00fa0d7b1505fc00a97d9bced0d096063dfebcae` (Block 1). Block 1 is not rewritten.
+
+Scope (scripts and the SA9003 cleanup only; no workflow, ruleset, doc or frozen
+corpus change):
+
+- SA9003: the empty `if` branches left by Block 1 in
+  `internal/codexruntime/retirement_test.go` and
+  `internal/install/poc_transition_test.go` only called a Windows skip helper;
+  they were removed. Every case and assertion is kept.
+- `build-release-archives.sh` builds only `macos-27/arm64`, `linux/amd64` and
+  `linux/arm64`; no `axiom.exe`, `install.ps1` or `install-release.ps1` is
+  bundled. Names, `MANIFEST.sha256`, metadata and `SHA256SUMS` of the POSIX
+  bundles are unchanged.
+- `verify-release-artifacts.sh` requires exactly the three POSIX archives; a
+  `windows-amd64` archive is outside the closed set and refused.
+  `install-release.sh` already accepted only POSIX rows (unchanged).
+- Deleted `scripts/{install,install-release,test-windows-install,test-windows-bootstrap}.ps1`
+  and only their four `automation-registry.json` entries (required for the
+  registry check to stay valid).
+- `smoke-prepared-artifact.py`, `accept-native-artifact.py` accept only
+  supported rows; Windows ACL/PowerShell/environment plumbing removed; POSIX
+  archive-entry, checksum, permission, provenance and upgrade checks unchanged.
+  `acceptance/stage-plan-r1.py` dropped its `os.name == "nt"` branches.
+- Release tests expect three archives (four assets with `SHA256SUMS`);
+  `test-release-pipeline.sh` adds an unsupported-row refusal case and
+  `test-native-acceptance.py` replaces the Windows alias test with a refusal
+  of unsupported rows.
+
+Validation (Linux amd64, Go 1.26.0, Staticcheck 0.8.1):
+
+- `check-go-quality.sh all`, `test-go-quality.py`, `go vet ./...`,
+  `GOOS=darwin GOARCH=arm64 go vet ./...`, `check-automation-registry.py`,
+  `test-check-automation-registry.py`: PASS.
+- `go test ./...` in a clean worktree with a minimal environment: PASS. In the
+  working checkout the known `TestStableCorpusIsAppendOnly` (untracked CR-015
+  snapshots) and inherited-environment failures recur, as in Block 1.
+- `test-release-pipeline.sh`, `test-release-flow.sh`, `test-delivery.sh`,
+  `test-release-corrections.py`, `test-release-pr-checks.py`,
+  `test-code-health.py`, `test-install-bootstrap.sh`,
+  `test-install-posix-facade.sh`, `test-native-acceptance.py`,
+  `test-prepared-artifact-smoke.py`: PASS.
+- `test-upgrade-journeys.sh` with a candidate built at this commit, published
+  `v0.16.0` and `v0.1.1` `linux-amd64` assets and the `v0.1.0-poc.1` binary: PASS.
+- Clean-clone build plus `verify-release-artifacts.sh`: PASS for exactly three
+  archives; `sha256sum -c SHA256SUMS`: PASS; no `.exe`/`.ps1` entry in any
+  archive; adding a `windows-amd64` archive: refused.
+- Pre-existing, not Block 2: `test-release-archives.sh` (not run in CI)
+  still asserts the former two-skill surface (lines 65, 111, 125, 150-170)
+  against today's four skills; its archive, checksum and clean-clone provenance
+  sections pass. `acceptance/test_stage_plan_r1.py` has the same 67 failures
+  at `00fa0d7`.
+- macOS: darwin/arm64 is cross-built and verified by header and build
+  information only; no darwin binary was executed (CI).
+
+Known until Block 3: `.github/workflows/ci.yml` Windows verify steps call the
+deleted PowerShell scripts, and `native-artifact-acceptance.yml` /
+`native-acceptance-qualification.yml` pass `--row windows-amd64`, which the
+scripts now refuse; Windows CI jobs are expected to fail. Removal is **not
+complete** before Block 5. No merge, release, tag or ruleset change was made.

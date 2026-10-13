@@ -393,8 +393,6 @@ func TestRecognizedPOCCorrespondenceBlocksRetirement(t *testing.T) {
 	}
 	for name, tamper := range cases {
 		t.Run(name, func(t *testing.T) {
-			if strings.Contains(name, "unverifiable") {
-			}
 			installed := pocInstallation(t)
 			candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
 			preview, _ := NewService().Preview(context.Background(), installed.target, candidate)
