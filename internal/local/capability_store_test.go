@@ -16,7 +16,7 @@ import (
 
 func storeEvidence() capabilityproof.Evidence {
 	d := strings.Repeat("a", 64)
-	return capabilityproof.Evidence{SchemaVersion: 1, Binding: capabilityproof.Binding{RuntimeID: "codex", ExecutableDigest: d, Version: "1", ModeDigest: d, Variant: "read-only", AdapterVersion: "1", AxiomDigest: d}, ObservedAt: time.Now().UTC(), ProbePacketDigest: d, Capabilities: map[string]capabilityproof.Result{"read": {State: capabilityproof.Proven, Facts: capabilityproof.ProbeFacts{AuthenticationProven: true, BehavioralProbe: true, Verified: true}}}, Confinement: capabilityproof.Confinement{Level: "unknown", NotTested: []string{"home", "vendor-home", "tmpdir", "system-temp", "external-network"}}}
+	return capabilityproof.Evidence{SchemaVersion: 1, Binding: capabilityproof.Binding{RuntimeID: "codex", ExecutableDigest: d, Version: "1", ModeDigest: d, Variant: "read-only", AdapterVersion: "1", AxiomDigest: d}, ObservedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), ProbePacketDigest: d, Capabilities: map[string]capabilityproof.Result{"read": {State: capabilityproof.Proven, Facts: capabilityproof.ProbeFacts{AuthenticationProven: true, BehavioralProbe: true, Verified: true}}}, Confinement: capabilityproof.Confinement{Level: "unknown", NotTested: []string{"home", "vendor-home", "tmpdir", "system-temp", "external-network"}}}
 }
 func TestCapabilityStoreRoundTripInvalidate(t *testing.T) {
 	ctx := context.Background()
