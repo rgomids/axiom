@@ -12,7 +12,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/rgomids/axiom/internal/provenance"
-	"github.com/rgomids/axiom/internal/testfs"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -219,7 +218,6 @@ func TestTitleIsConciseDeterministicAndUnicodeSafe(t *testing.T) {
 // GitHub Search response would return them: Issues created by hand or by other
 // tools are untrusted and must never be reconciled as a prior Axiom create.
 func TestReconcileCreateAcceptsOnlyTheReservedHeader(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh, response := filepath.Join(directory, "gh"), filepath.Join(directory, "search")
 	if err := os.WriteFile(gh, []byte("#!/bin/sh\ncat \"$AXIOM_TEST_SEARCH\"\n"), 0o700); err != nil {

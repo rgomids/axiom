@@ -46,8 +46,8 @@ done
 
 "$repository_root/scripts/build-release-archives.sh" --version 0.0.0-s2-test --output "$temporary/release" --development >/dev/null
 
-[[ $(find "$temporary/release" -name '*.tar.gz' -type f | wc -l | tr -d ' ') == 4 ]]
-[[ $(wc -l <"$temporary/release/SHA256SUMS" | tr -d ' ') == 4 ]]
+[[ $(find "$temporary/release" -name '*.tar.gz' -type f | wc -l | tr -d ' ') == 3 ]]
+[[ $(wc -l <"$temporary/release/SHA256SUMS" | tr -d ' ') == 3 ]]
 while read -r hash archive; do
   [[ "$hash" =~ ^[0-9a-f]{64}$ ]]
   [[ -f "$temporary/release/$archive" ]]
@@ -55,7 +55,6 @@ while read -r hash archive; do
   [[ "$actual" == "$hash" ]]
   listing=$(tar -tzf "$temporary/release/$archive")
   executable=axiom installer=install.sh
-  if [[ "$archive" == *-windows-amd64.tar.gz ]]; then executable=axiom.exe installer=install.ps1; fi
   for expected in /"$executable" /LICENSE /"$installer" /release-metadata.txt /skills-manifest.txt /MANIFEST.sha256; do
     grep -Fq "$expected" <<<"$listing"
   done

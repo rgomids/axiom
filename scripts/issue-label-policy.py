@@ -47,7 +47,6 @@ CATALOG = {
     "status:planned": ("6e7781", "Legacy optional GitHub-only editorial stage; not automatically seeded."),
     "status:active": ("1a7f37", "Legacy optional GitHub-only editorial stage; Linear owns mapped work."),
     "status:blocked": ("cf222e", "Legacy optional GitHub-only editorial blocker; Linear owns dependencies."),
-    "platform:windows": (PLATFORM_COLOR, "Specific to or impacting Windows."),
     "platform:linux": (PLATFORM_COLOR, "Specific to or impacting Linux."),
     "platform:macos": (PLATFORM_COLOR, "Specific to or impacting macOS."),
 }
@@ -65,7 +64,6 @@ FORM_AREAS = {
     "Governance": "area:governance",
 }
 FORM_PLATFORMS = {
-    "Windows": "platform:windows",
     "Linux": "platform:linux",
     "macOS": "platform:macos",
 }

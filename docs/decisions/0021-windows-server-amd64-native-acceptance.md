@@ -6,6 +6,18 @@ Accepted on 2026-10-09 by the maintainer's explicit instruction to include
 Windows Server AMD64 support and acceptance in the Issue #256 PR and record
 the result on the Issue. Review, merge and release publication remain separate.
 
+> **Windows support withdrawn — 2026-10-13.** The human decision in
+> [PR #311 comment 6153404308](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308)
+> removed Windows support; supported hosts are macOS arm64 and Linux amd64/arm64.
+> No superseding ADR was created, so this is a historical note, not an ADR-0018
+> supersession annotation.
+>
+> Affected contract: Windows workstation and member Server AMD64 support and
+> its required native acceptance row; neither has current effect. Still valid:
+> required native acceptance consumes exact prepared bytes on GitHub-hosted
+> runners and blocks preparation on failure (Linux ARM64 today). Text below is
+> preserved as history.
+
 ## Context
 
 Issue #256 initially preserved client-only Windows support. Standard hosted

@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/rgomids/axiom/internal/runtimeprofile"
@@ -61,7 +60,7 @@ func ExecutableIdentity(path string) (string, error) {
 }
 
 func executableMode(info os.FileInfo) bool {
-	return runtime.GOOS == "windows" || info.Mode().Perm()&0o111 != 0
+	return info.Mode().Perm()&0o111 != 0
 }
 
 // IntegrationInspector reports, read-only, whether Axiom's skill integration

@@ -267,7 +267,7 @@ func TestUnsafeFilesystemFactsFailClosed(t *testing.T) {
 		mutate func(*testing.T, Roots)
 	}{
 		{"symlink entry", func(t *testing.T, roots Roots) {
-			if err := testfs.Symlink(t, t.TempDir(), filepath.Join(roots.State, "work-items", pocProjectID, "link.json")); err != nil {
+			if err := os.Symlink(t.TempDir(), filepath.Join(roots.State, "work-items", pocProjectID, "link.json")); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -551,7 +551,7 @@ func removeAll(t *testing.T, path string) {
 
 func chmod(t *testing.T, path string, mode os.FileMode) {
 	t.Helper()
-	if err := testfs.SharedMode(path, mode); err != nil {
+	if err := os.Chmod(path, mode); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -2,7 +2,6 @@ package local
 
 import (
 	"context"
-	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -100,10 +99,10 @@ func TestInstallationRejectsTargetReplacementBeforePublication(t *testing.T) {
 	outside := privateTestRoot(t)
 	target := filepath.Join(state, "projects", "123e4567-e89b-42d3-a456-426614174000")
 	store.beforePublication = func() {
-		if err := testfs.RenameOrSkipPinned(t, target, target+"-moved"); err != nil {
+		if err := os.Rename(target, target+"-moved"); err != nil {
 			t.Fatal(err)
 		}
-		if err := testfs.Symlink(t, outside, target); err != nil {
+		if err := os.Symlink(outside, target); err != nil {
 			t.Fatal(err)
 		}
 	}

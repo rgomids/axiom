@@ -523,7 +523,7 @@ Issue, with final operational proof owned by #278.
 
 | Epic capability | Existing contract/evidence boundary | Remaining primary owner / requirement |
 |---|---|---|
-| Install/first-run/discovery, K1 | `internal/install`, `runtimebootstrap`, 004 S2/S9; no new host run | #278 / WF-012; #265 retains its separate Windows check |
+| Install/first-run/discovery, K1 | `internal/install`, `runtimebootstrap`, 004 S2/S9; no new host run | #278 / WF-012; #265 retained a separate Windows check (Windows support superseded 2026-10-13, PR #311) |
 | Project identity/repos/bindings/Provider/Integration, K2 | 002, #231/#230 implementation | #230 / WF-014 acceptance; #278 journey |
 | Business context/glossary/docs/technology summaries, K2 | 002 schema 3, `internal/project/context_test.go` | #275 / WF-008 consumption; #278 journey |
 | Runtime/Profile policy, K2/K4 | 002 policy v2, #140, `internal/runtimeprofile` | #275 / WF-008 stage resolution |

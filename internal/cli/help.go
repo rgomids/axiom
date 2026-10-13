@@ -119,9 +119,6 @@ func validHelpInputs(operation action, args []string) bool {
 		_, ok := inspectSkill(args[0])
 		return ok
 	}
-	if operation == windowsPermissionsRestoreAction {
-		return windowsPermissionsSyntax(args, false)
-	}
 	switch {
 	case knownWorkItem(operation):
 		values, ok := workItemFlags(operation, args)
@@ -159,6 +156,9 @@ func validHelpInputs(operation action, args []string) bool {
 		return ok
 	case operation == workflowStagePlanAction:
 		_, ok := workflowStagePlanFlags(args, false)
+		return ok
+	case workflowStageOperation(operation):
+		_, ok := workflowStageFlags(operation, args, false)
 		return ok
 	}
 	set := commandFlagSet(operation)
@@ -208,9 +208,7 @@ func renderHelp(writer io.Writer, command *commandDefinition, path []string) int
 	}
 	var text strings.Builder
 	fmt.Fprintf(&text, "%s\n\nUsage:\n  axiom", command.summary)
-	if command.operation != windowsPermissionsRestoreAction && command.name != "windows-permissions" {
-		text.WriteString(" [--human|--json]")
-	}
+	text.WriteString(" [--human|--json]")
 	if commandSessionSupported(command, path) {
 		text.WriteString(" [--session <id>]")
 	}
@@ -268,8 +266,6 @@ func renderHelp(writer io.Writer, command *commandDefinition, path []string) int
 			}
 			if booleanFlag(f) {
 				fmt.Fprintf(&text, "  --%s (%s): %s\n    forms: --%s | --%s=<boolean>\n", f.Name, requirement, description, f.Name, f.Name)
-			} else if command.operation == windowsPermissionsRestoreAction {
-				fmt.Fprintf(&text, "  --%s %s (%s): %s\n    form: --%s %s\n", f.Name, value, requirement, description, f.Name, value)
 			} else {
 				fmt.Fprintf(&text, "  --%s %s (%s): %s\n    forms: --%s %s | --%s=%s\n", f.Name, value, requirement, description, f.Name, value, f.Name, value)
 			}
@@ -287,9 +283,7 @@ func renderHelp(writer io.Writer, command *commandDefinition, path []string) int
 		fmt.Fprintf(&text, "\nExample:\n  %s\n", commandExample(command.operation, path))
 	}
 	text.WriteString("\nHelp: --help | -h (human text; takes precedence over --json/--human).\n")
-	if command.operation != windowsPermissionsRestoreAction && command.name != "windows-permissions" {
-		text.WriteString("Global output: leading --human | --json.\n")
-	}
+	text.WriteString("Global output: leading --human | --json.\n")
 	if commandSessionSupported(command, path) {
 		text.WriteString("Global session: --session <id> before application commands.\n")
 	}
@@ -306,9 +300,6 @@ func commandExample(operation action, path []string) string {
 	result := "axiom " + strings.Join(path, " ")
 	if strings.HasPrefix(string(operation), "context_session-") {
 		result = "axiom --session '<session-id>' " + strings.Join(path, " ")
-	}
-	if operation == windowsPermissionsRestoreAction {
-		return result + " --backup '<absolute-json-path>' --approve '<backup-digest>'"
 	}
 	if operation == skillInspectAction {
 		return result + " axiom-project"
@@ -359,5 +350,5 @@ func commandExample(operation action, path []string) string {
 }
 
 func commandSessionSupported(command *commandDefinition, path []string) bool {
-	return command.operation != "version" && command.operation != "help" && command.operation != windowsPermissionsRestoreAction && command.name != "windows-permissions" && (len(path) == 0 || path[0] != "skill")
+	return command.operation != "version" && command.operation != "help" && (len(path) == 0 || path[0] != "skill")
 }

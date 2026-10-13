@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -239,9 +238,6 @@ func TestBootstrapAuthorsRuntimePolicyFromLocalCandidatesOnly(t *testing.T) {
 }
 
 func TestBlockedPreflightPerformsNoEffects(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Provider stub is a POSIX script")
-	}
 	env := newBootstrapEnv(t)
 	calls := filepath.Join(t.TempDir(), "gh-calls")
 	gh := filepath.Join(t.TempDir(), "gh")

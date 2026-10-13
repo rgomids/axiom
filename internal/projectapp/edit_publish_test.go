@@ -7,7 +7,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/testfs"
 )
 
 // I230-T03 application Evidence: authorized EDIT publication rebuilds the
@@ -83,7 +82,7 @@ func TestApplyEditPreviewsThenPublishesOnlyExactAuthority(t *testing.T) {
 		t.Fatalf("publish = %+v", published)
 	}
 	request := spy.requests[0]
-	if request.ProjectID != editProjectID || request.Slug != "sample" || request.PortableDestination != testfs.Path("/portable/sample") ||
+	if request.ProjectID != editProjectID || request.Slug != "sample" || request.PortableDestination != "/portable/sample" ||
 		!bytes.Equal(request.PortableExpected, f.selection.Portable.Manifest()) || !bytes.Equal(request.LocalExpected, f.selection.LocalWire) ||
 		!bytes.Equal(request.PortableNext, published.Proposal.Manifest()) || !bytes.Equal(request.LocalNext, published.Proposal.LocalWire()) {
 		t.Fatalf("publication request does not carry exact observations and candidates: %+v", request)
@@ -93,7 +92,7 @@ func TestApplyEditPreviewsThenPublishesOnlyExactAuthority(t *testing.T) {
 func TestApplyEditLocalOnlyNoOpAndPublicationOutcomes(t *testing.T) {
 	f := newEditFixture(t)
 	spy := &publisherSpy{result: projectapp.EditPublicationResult{Status: projectapp.EditPublicationApplied}}
-	localOnly := projectapp.EditIntent{RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "web", Path: testfs.Path("/work/web-fixed")}}}
+	localOnly := projectapp.EditIntent{RepositoryUpserts: []projectapp.RepositoryUpsert{{Key: "web", Path: "/work/web-fixed"}}}
 	preview := f.apply(localOnly, projectapp.EditAuthority{}, spy).Proposal.Preview()
 	if result := f.apply(localOnly, authorityFor(preview), spy); result.Outcome != projectapp.EditPublished || len(spy.requests[0].PortableNext) != 0 {
 		t.Fatalf("local-only publication must not republish the portable Project: %+v", spy.requests)

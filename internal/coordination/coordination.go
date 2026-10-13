@@ -25,6 +25,7 @@ const (
 	maxFields        = 32
 	maxFieldBytes    = 4096
 	maxStreamRecords = 64
+	MaxStreamBytes   = MaxRecordBytes * maxStreamRecords
 )
 
 var (
@@ -186,6 +187,9 @@ func ValidRecord(record Record) bool {
 	if record.AttemptID != "" && !validID(record.AttemptID) {
 		return false
 	}
+	if !validResultOutcome(record.Kind, record.Fields) {
+		return false
+	}
 	allowed := allowedFields(record.Kind)
 	seen := map[string]bool{}
 	for _, field := range record.Fields {
@@ -276,14 +280,14 @@ func EncodeStream(stream Stream) ([]byte, error) {
 		return nil, ErrInvalidRecord
 	}
 	wire, err := json.Marshal(stream)
-	if err != nil || len(wire)+1 > MaxRecordBytes*maxStreamRecords {
+	if err != nil || len(wire)+1 > MaxStreamBytes {
 		return nil, ErrInvalidRecord
 	}
 	return append(wire, '\n'), nil
 }
 
 func DecodeStream(wire []byte) (Stream, error) {
-	if len(wire) == 0 || len(wire) > MaxRecordBytes*maxStreamRecords {
+	if len(wire) == 0 || len(wire) > MaxStreamBytes {
 		return Stream{}, ErrInvalidRecord
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(wire)))
@@ -314,6 +318,9 @@ func validInput(graph executiongraph.Graph, input Input) bool {
 				attemptFound = true
 			}
 		}
+	}
+	if !validResultOutcome(input.Kind, input.Fields) {
+		return false
 	}
 	probe := Record{Kind: input.Kind, Fields: input.Fields, Usage: input.Usage}
 	allowed := allowedFields(probe.Kind)
@@ -443,4 +450,65 @@ func randomID() (string, error) {
 	value[6] = value[6]&0x0f | 0x40
 	value[8] = value[8]&0x3f | 0x80
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", value[0:4], value[4:6], value[6:8], value[8:10], value[10:16]), nil
+}
+
+// ResultOutcome is the closed terminal result vocabulary.
+type ResultOutcome string
+
+const (
+	OutcomeSucceeded ResultOutcome = "succeeded"
+	OutcomeFailed    ResultOutcome = "failed"
+)
+
+func validResultOutcome(kind Kind, fields []Field) bool {
+	if kind != Result {
+		return true
+	}
+	for _, field := range fields {
+		if field.Name == "outcome" {
+			return field.Value == string(OutcomeSucceeded) || field.Value == string(OutcomeFailed)
+		}
+	}
+	return false
+}
+
+// ClassifierRecord projects only validated canonical records. An invalid or
+// rejected candidate yields an unaccepted projection and cannot qualify work.
+func ClassifierRecord(record Record) executiongraph.AttemptRecord {
+	if !ValidRecord(record) {
+		return executiongraph.AttemptRecord{}
+	}
+	projected := executiongraph.AttemptRecord{ParentID: record.ParentID, ChildID: record.ChildID, AttemptID: record.AttemptID, GraphRevision: record.GraphRevision, Revision: record.Revision, Kind: string(record.Kind), Digest: record.Digest, Accepted: true}
+	for _, field := range record.Fields {
+		if field.Name == "outcome" {
+			projected.Outcome = field.Value
+		}
+	}
+	return projected
+}
+
+// AttemptCapacity divides the stream evenly; each attempt reserves one slot
+// for its terminal result or blocker. Remainder slots stay unallocated.
+func AttemptCapacity(maximumAttempts uint32) (int, error) {
+	if maximumAttempts == 0 || maximumAttempts > 10 {
+		return 0, ErrCapacity
+	}
+	return maxStreamRecords / int(maximumAttempts), nil
+}
+
+// CheckAttemptCapacity checks the next publication using the number of records
+// already accepted for this attempt. Ingestion supplies that count.
+func CheckAttemptCapacity(maximumAttempts uint32, accepted int, kind Kind) error {
+	capacity, err := AttemptCapacity(maximumAttempts)
+	if err != nil || accepted < 0 || !validKind(kind) {
+		return ErrCapacity
+	}
+	limit := capacity - 1
+	if kind == Result || kind == Blocker {
+		limit = capacity
+	}
+	if accepted >= limit {
+		return ErrCapacity
+	}
+	return nil
 }

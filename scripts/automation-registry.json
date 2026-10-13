@@ -60,8 +60,8 @@
       "callers": [
         "scripts/release-pr-checks.sh"
       ],
-      "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos/windows plus release-contract job",
-      "outputs": "Required check contexts verify (linux|macos|windows) and release-contract; step failures fail the run; go-quality required context",
+      "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos plus release-contract job",
+      "outputs": "Required check contexts verify (linux|macos) and release-contract; step failures fail the run; go-quality required context",
       "local_effects": "runner workspace only",
       "network_effects": "GitHub Actions checkout and setup-go; Go module download; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1 from github.com release downloads; pinned honnef.co/go/tools@v0.8.1 and its module dependencies Read-only Actions baseline lookup and code health artifact retention.",
       "authority": "contents: read; verify adds actions: read for baseline artifacts; no secrets or privileged PR event",
@@ -276,14 +276,13 @@
       "path": ".github/workflows/native-artifact-acceptance.yml",
       "kind": "workflow",
       "owner": "release",
-      "purpose": "Required native Linux ARM64 and Windows member Server AMD64 installation acceptance on exact prepared artifacts; no rebuild or publication authority.",
+      "purpose": "Required native Linux ARM64 installation acceptance on exact prepared artifacts; no rebuild or publication authority.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
       "runtime": [
         "github-actions",
         "bash",
-        "powershell",
         "python3"
       ],
       "scope": [
@@ -574,7 +573,7 @@
       "path": "scripts/accept-native-artifact.py",
       "kind": "script",
       "owner": "release",
-      "purpose": "Native Linux ARM64 and Windows member Server AMD64 artifact lifecycle, provenance, configuration, reinstall, refusal and recovery; genuine prior Linux release upgrade; explicit first-Server baseline N/A.",
+      "purpose": "Native Linux artifact lifecycle, provenance, configuration, reinstall, refusal and recovery; genuine prior Linux release upgrade.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -858,7 +857,7 @@
       "path": "scripts/build-release-archives.sh",
       "kind": "script",
       "owner": "release",
-      "purpose": "Builds the four supported cross-platform release archives, per-bundle manifests and SHA256SUMS from the clean checked-out source revision.",
+      "purpose": "Builds the three supported cross-platform release archives, per-bundle manifests and SHA256SUMS from the clean checked-out source revision.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -880,7 +879,7 @@
         "scripts/test-s7-native.sh"
       ],
       "inputs": "--version X.Y.Z[-pre] (required), --output ABS_DIR (required, empty or new), --development (allows dirty source); reads git HEAD and status, LICENSE, scripts/install-release.{sh,ps1}, internal/codexruntime/skills",
-      "outputs": "stdout release_build_success: <output>; stderr release_build_error and exit 1 on invalid input; writes four axiom-<version>-<platform>-<arch>.tar.gz archives and SHA256SUMS under --output",
+      "outputs": "stdout release_build_success: <output>; stderr release_build_error and exit 1 on invalid input; writes three axiom-<version>-<platform>-<arch>.tar.gz archives and SHA256SUMS under --output",
       "local_effects": "Creates and writes the --output directory (must be empty); temporary work directory removed on exit",
       "network_effects": "none by the script itself (go build may use the module cache or proxy)",
       "authority": "none; local build only, release builds refuse a dirty source unless --development",
@@ -1421,39 +1420,6 @@
       "removal_condition": null
     },
     {
-      "path": "scripts/install-release.ps1",
-      "kind": "script",
-      "owner": "installation",
-      "purpose": "Windows release-bundle entrypoint, shipped as install.ps1 in the archive, mapping native parameters to the bundled axiom.exe install-release command.",
-      "lifecycle": "durable",
-      "disposition": "keep",
-      "disposition_ref": null,
-      "runtime": [
-        "powershell"
-      ],
-      "scope": [
-        "public"
-      ],
-      "trigger": "packaged into every Windows release archive as install.ps1; run by users or by the bootstrap installer on install",
-      "replay_reason": null,
-      "callers": [
-        "scripts/build-release-archives.sh",
-        "scripts/verify-release-artifacts.sh",
-        "scripts/test-windows-install.ps1"
-      ],
-      "inputs": "-Archive, -Checksums (required), -BinDir and -ReceiptDir (default under LOCALAPPDATA\\Axiom); sibling axiom.exe",
-      "outputs": "Output of axiom.exe install-release; throws on non-zero exit",
-      "local_effects": "installs axiom.exe and receipt under the chosen BinDir/ReceiptDir via the Go installer",
-      "network_effects": "none",
-      "authority": "current user; explicit archive and checksums; no elevation",
-      "tests": [
-        "scripts/test-windows-install.ps1"
-      ],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": null
-    },
-    {
       "path": "scripts/install-release.sh",
       "kind": "script",
       "owner": "installation",
@@ -1486,36 +1452,6 @@
         "scripts/test-install-posix-facade.sh",
         "internal/install",
         "internal/local"
-      ],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": null
-    },
-    {
-      "path": "scripts/install.ps1",
-      "kind": "script",
-      "owner": "installation",
-      "purpose": "Windows remote bootstrap: resolve a stable or exact release, download and verify the archive, then run the bundled axiom.exe install-release from private staging.",
-      "lifecycle": "durable",
-      "disposition": "keep",
-      "disposition_ref": null,
-      "runtime": [
-        "powershell"
-      ],
-      "scope": [
-        "public"
-      ],
-      "trigger": "users run it via Invoke-RestMethod from the raw main URL to install or upgrade Axiom on Windows",
-      "replay_reason": null,
-      "callers": [],
-      "inputs": "-Version vX.Y.Z[-rc.N], -Channel stable, -BinDir, -ReceiptDir (defaults under LOCALAPPDATA\\Axiom); env USERPROFILE, PROCESSOR_ARCHITECTURE",
-      "outputs": "Output of axiom.exe install-release; throws on unsupported host, bad selector, checksum or archive failure",
-      "local_effects": "private ACL-protected staging dir under USERPROFILE (removed); installs axiom.exe and receipt under BinDir/ReceiptDir via the Go installer; no PATH or global ACL changes",
-      "network_effects": "HTTPS only (redirects revalidated) to api.github.com latest release and github.com release assets",
-      "authority": "current user; no elevation; archive digest must match published SHA256SUMS",
-      "tests": [
-        "scripts/test-windows-bootstrap.ps1",
-        "scripts/test-windows-install.ps1"
       ],
       "evidence": null,
       "compatibility": [],
@@ -2989,67 +2925,6 @@
       "removal_condition": null
     },
     {
-      "path": "scripts/test-windows-bootstrap.ps1",
-      "kind": "script",
-      "owner": "installation",
-      "purpose": "Execute install.ps1 with an in-memory HTTP transport and injected host data to test its refusal contract (HTTP, selectors, size, unsupported host).",
-      "lifecycle": "durable",
-      "disposition": "keep",
-      "disposition_ref": null,
-      "runtime": [
-        "powershell"
-      ],
-      "scope": [
-        "ci",
-        "test"
-      ],
-      "trigger": "every CI verify run on windows (Windows bootstrap refusal contract step)",
-      "replay_reason": null,
-      "callers": [
-        ".github/workflows/ci.yml"
-      ],
-      "inputs": "none; reads install.ps1 source and replaces its HttpClient construction with a test client",
-      "outputs": "Throws on any contract failure; pass output on success",
-      "local_effects": "temporary directory under USERPROFILE (removed); USERPROFILE and architecture env vars temporarily changed and restored",
-      "network_effects": "none (in-memory transport)",
-      "authority": "none",
-      "tests": [],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": null
-    },
-    {
-      "path": "scripts/test-windows-install.ps1",
-      "kind": "script",
-      "owner": "installation",
-      "purpose": "Offline Windows native installer contract: builds a test bundle and exercises install-release.ps1 install, checksum refusal, in-use upgrade and bootstrap selector rejection.",
-      "lifecycle": "durable",
-      "disposition": "keep",
-      "disposition_ref": null,
-      "runtime": [
-        "powershell",
-        "go"
-      ],
-      "scope": [
-        "ci",
-        "test"
-      ],
-      "trigger": "every CI verify run on windows (Native Windows installer contract step)",
-      "replay_reason": null,
-      "callers": [
-        ".github/workflows/ci.yml"
-      ],
-      "inputs": "none; builds cmd/lingo with go and tar.exe archives; sets LINGO_* and AXIOM_CODEX_SKILLS_ROOT to temporary paths",
-      "outputs": "windows_install_contract=pass on success; throws on failure",
-      "local_effects": "temporary directory under TEMP (removed); process env vars restored",
-      "network_effects": "none (go build may use the local module cache)",
-      "authority": "none; no release or user installation touched",
-      "tests": [],
-      "evidence": null,
-      "compatibility": [],
-      "removal_condition": null
-    },
-    {
       "path": "scripts/test_maintainer_agent_eval.py",
       "kind": "script",
       "owner": "maintainer-harness",
@@ -3213,7 +3088,7 @@
       "path": "scripts/verify-release-artifacts.sh",
       "kind": "script",
       "owner": "release",
-      "purpose": "Verifies one complete four-archive release artifact set against the exact clean checked-out source revision and prints closed Evidence.",
+      "purpose": "Verifies one complete three-archive release artifact set against the exact clean checked-out source revision and prints closed Evidence.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,

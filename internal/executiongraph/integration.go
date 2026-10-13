@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 )
@@ -424,4 +425,69 @@ func validValidationResults(results []ValidationResult) bool {
 		}
 	}
 	return true
+}
+
+// CanonicalChildResult is projected from an accepted canonical record by the
+// coordination read boundary. Record.Digest hashes that record, not Result's
+// JSON encoding. Caller-supplied results must equal this resolved projection.
+type CanonicalChildResult struct {
+	Record AttemptRecord
+	Result ChildResult
+}
+
+func (c SuccessorConsumer) IntegrationPreview(observation IntegrationObservation, results []ChildResult, canonical []CanonicalChildResult) (IntegrationPreview, error) {
+	if ValidateSuccessorRecords(c.graph, c.records) != nil {
+		return IntegrationPreview{}, ErrIntegrationBlocked
+	}
+	available, err := SuccessorIntegrationAttemptAvailable(c.graph)
+	if err != nil || !available {
+		return IntegrationPreview{}, ErrIntegrationBlocked
+	}
+	// Reuse only envelope/topology preview assembly. Attempt eligibility and
+	// qualification have already been enforced against successor persisted state.
+	historical := Graph{FormatVersion: 2, Parent: c.graph.Parent}
+	for _, child := range c.graph.Children {
+		h := ChildExecution{ExecutionID: child.ExecutionID, ParentID: child.ParentID, GraphRevision: child.GraphRevision, NodeKey: child.NodeKey, Envelope: child.Envelope}
+		if !child.Envelope.IntegrationOwner && len(child.Attempts) > 0 {
+			a := child.Attempts[len(child.Attempts)-1]
+			h.Attempts = []Attempt{{AttemptID: a.AttemptID, Number: 1, Status: a.Status, StartedAt: a.StartedAt, FinishedAt: a.FinishedAt}}
+		}
+		historical.Children = append(historical.Children, h)
+	}
+	for _, result := range results {
+		found := false
+		for _, child := range c.graph.Children {
+			if child.ExecutionID != result.ChildID || child.Envelope.IntegrationOwner || len(child.Attempts) == 0 {
+				continue
+			}
+			a := child.Attempts[len(child.Attempts)-1]
+			if a.Status != AttemptSucceeded || a.ClassificationReason != ResultRecorded {
+				return IntegrationPreview{}, ErrIntegrationBlocked
+			}
+			for _, resolved := range canonical {
+				r := resolved.Record
+				if r.Accepted && r.Revision > 0 && r.Digest == a.QualifyingRecordRef && r.Kind == "result" && r.Outcome == "succeeded" && r.ParentID == c.graph.Parent.ExecutionID && r.GraphRevision == c.graph.Parent.GraphRevision && r.ChildID == child.ExecutionID && r.AttemptID == a.AttemptID && reflect.DeepEqual(resolved.Result, result) {
+					for _, loaded := range c.records {
+						if reflect.DeepEqual(loaded, r) {
+							found = true
+						}
+					}
+				}
+			}
+		}
+		if !found {
+			return IntegrationPreview{}, ErrIntegrationBlocked
+		}
+	}
+	preview, err := (IntegrationService{}).Preview(historical, observation, results)
+	if err != nil {
+		return IntegrationPreview{}, err
+	}
+	for _, child := range c.graph.Children {
+		if child.Envelope.IntegrationOwner {
+			preview.IntegrationAttempts = uint32(len(child.Attempts))
+		}
+	}
+	preview.Digest, err = integrationPreviewDigest(preview)
+	return preview, err
 }

@@ -42,7 +42,7 @@ KINDS = {"script", "workflow"}
 LIFECYCLES = {"durable", "historical-replay"}
 EPHEMERAL_LIFECYCLES = {"ephemeral", "temporary", "one-off", "oneoff", "transient"}
 DISPOSITIONS = {"keep", "move", "merge", "replace", "delete"}
-RUNTIMES = {"bash", "posix-sh", "python3", "powershell", "go", "github-actions"}
+RUNTIMES = {"bash", "posix-sh", "python3", "go", "github-actions"}
 SCOPES = {"public", "maintainer", "ci", "test", "historical"}
 GOVERNED_EXTENSIONS = {
     ".sh", ".bash", ".zsh", ".py", ".ps1", ".psm1", ".go", ".rb", ".pl",

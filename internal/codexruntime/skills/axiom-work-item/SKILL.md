@@ -11,11 +11,14 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, and executable command
 metadata; do not maintain a second argument registry in this skill.
 
-Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, and `reopen`.
+Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `stage.run`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `stage.integrate`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted; sequential Executions have no
-cancellation contract, and Execution history and Evidence are never edited.
+cancellation contract (only a dispatched stage has `stage.cancel`), and
+Execution history and Evidence are never edited. Runtime capability `show`,
+`probe` and `invalidate` are not routed here: name the CLI command
+`axiom runtime <codex|claude> capability ...` as the next action.
 
 ## Operation routing
 
@@ -35,6 +38,14 @@ cancellation contract, and Execution history and Evidence are never edited.
 | `comment` | - | `axiom work-item comment --project <uuid-or-slug>` | external mutation | preview first; comment only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous comment intent |
 | `close` | - | `axiom work-item close --project <uuid-or-slug>` | external mutation | preview first; close only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous close intent |
 | `reopen` | - | `axiom work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
+| `stage.run` | - | `axiom workflow stage run` | external mutation | preview first; dispatch only with the exact `--preview-digest`, `--authorize-local` and `--authorize-external` (vendor inference) | only for unambiguous stage run intent |
+| `stage.status` | - | `axiom workflow stage status` | read-only | none; persisted state only, never a stop or success claim | allowed |
+| `stage.cancel` | - | `axiom workflow stage cancel` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous stage cancel intent |
+| `stage.retry` | - | `axiom workflow stage retry` | external mutation | preview first; dispatch only with the exact `--preview-digest`, `--authorize-local` and `--authorize-external` (vendor inference) | only for unambiguous stage retry intent |
+| `stage.reconcile` | - | `axiom workflow stage reconcile` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous stage reconcile intent |
+| `stage.integrate` | - | `axiom workflow stage integrate` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous stage integrate intent |
+| `coordination.list` | - | `axiom workflow coordination list` | read-only | none; persisted state only, never a stop or success claim | allowed |
+| `coordination.show` | - | `axiom workflow coordination show` | read-only | none; persisted state only, never a stop or success claim | allowed |
 
 When the user supplies an explicit supported operation, use it exactly and route
 directly to its Lingo commands. Do not perform semantic classification for an
@@ -258,10 +269,44 @@ fact merely because planning succeeded.
 Synthetic R-1 acceptance uses the deterministic maintainer runner
 `scripts/acceptance/stage-plan-r1.py` against the exact clean source revision;
 its sanitized Evidence is technical evidence, not human acceptance. R-2/R-3
-remain deferred to #278. Dispatch (#276) and delivery/rework (#277) are
-unavailable; a proposal never performs Execution work. Definition configuration
+remain deferred to #278. Delivery/rework (#277) is unavailable. A proposal
+never performs Execution work; dispatch is the separately authorized
+`stage.run`. Definition configuration
 belongs to `axiom-workflow`, selection belongs to `axiom-project`, and Work Item
 `run`/`status`/`plan` retain the canonical execution boundary.
+
+## stage dispatch and coordination
+
+Stage operations act on one exact Execution, using the persisted selectors
+Lingo returned. Collect only missing selectors, expected revision, stage ID,
+approved Plan file and reviewed validator policy digest; never invent them.
+
+Every mutation is a two-step protocol. Run the command without authority
+first and present the returned preview unchanged: per-child rights,
+capability states, confinement (`os-enforced`, `advisory` or `unknown`),
+`not_tested` roots, effects and the digest. Only after an explicit human
+decision for that exact preview, repeat the identical inputs with
+`--preview-digest <digest>` and exactly the authority flags in the routing
+table. `stage.run` and `stage.retry` start vendor inference and need both
+`--authorize-local` and `--authorize-external`; `stage.cancel`,
+`stage.reconcile` and `stage.integrate` need only `--authorize-local`.
+Routing, a preview or a passing status never grants authority, and a skill
+never supplies an authority flag on its own.
+
+Resume after a restart is a `stage.run` re-invocation over the already
+committed authority; there is no separate resume command. Stale or orphan
+attempts need `stage.reconcile` first; `stage.retry` needs an explicit
+`--disposition` after possible workspace effects. `cancellation_requested`
+reports an observed request, never an observed stop. `unknown`,
+`recovery_required` and `partial` / `confirmed_effect_reconciliation_required`
+are reported exactly; never retry an ambiguous effect blindly. Stage
+integration is a local repository effect: it never pushes, opens a PR,
+merges, or accepts the Work Item.
+
+`coordination.list` and `coordination.show` read canonical records only.
+`axiom workflow coordination publish` is used by a running stage child from its
+task packet, never by this skill or from a human shell. Records grant no
+authority.
 
 ## list and show
 
@@ -297,7 +342,7 @@ conflicting inputs go to Lingo validation. Runtime skill text is a presentation
 and routing surface, not the workflow or domain source of truth.
 
 Canonical completion fields: `status`, `result`, `references`, `next`, `details`, `provenance`
-Operation-specific payloads preserved separately: `draft`, `selection`, `workItem`, `workflow`, `projection`, `executionTarget`, `runtimeResolution`, `previewDigest`, `executions`, `workItems`, `change`, `admission`
+Operation-specific payloads preserved separately: `draft`, `selection`, `workItem`, `workflow`, `projection`, `executionTarget`, `runtimeResolution`, `previewDigest`, `executions`, `workItems`, `change`, `admission`, `stage`
 
 Lingo renders every result as deterministic Markdown derived from its canonical
 result. Present that Markdown exactly as returned: do not rewrite, summarize,

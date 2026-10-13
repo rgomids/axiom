@@ -3,7 +3,6 @@ package githubissues
 import (
 	"context"
 	"errors"
-	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,7 +38,6 @@ func TestRenderSeparatesAuthorshipAndNeutralizesMarkdownStructure(t *testing.T) 
 }
 
 func TestAdapterUsesBoundedAPICommandsAndStdinForUntrustedBody(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	log := filepath.Join(directory, "args")
@@ -78,7 +76,6 @@ esac
 }
 
 func TestInspectReturnsExactIssueIdentityStateAndProjectionFacts(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	projectionKey := strings.Repeat("a", 64)
@@ -111,7 +108,6 @@ esac
 }
 
 func TestAdapterStrictlyRejectsMismatchedResponseAndStructuredRateLimit(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	if err := os.WriteFile(gh, []byte("#!/bin/sh\nprintf '%s\\n' '{\"number\":7,\"html_url\":\"https://github.com/other/repo/issues/7\",\"state\":\"open\"}'\n"), 0o700); err != nil {
@@ -132,7 +128,6 @@ func TestAdapterStrictlyRejectsMismatchedResponseAndStructuredRateLimit(t *testi
 }
 
 func TestAdapterClassifiesStructuredHTTPStatusConservatively(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	script := `#!/bin/sh
@@ -197,7 +192,6 @@ exit 1
 }
 
 func TestAdapterCreateMarksOnlyUncertainRetryableFailureAmbiguous(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	script := `#!/bin/sh
@@ -235,7 +229,6 @@ exit 1
 }
 
 func TestAdapterCreateTreatsUnknownOrInvalidSuccessResponseAsAmbiguous(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	adapterRequest := workitem.CreateRequest{Resource: "owner/repo", Correlation: strings.Repeat("a", 64), Document: workitem.ProviderDocument{Title: "Title", Body: "Body"}}
@@ -261,7 +254,6 @@ func TestAdapterCreateTreatsUnknownOrInvalidSuccessResponseAsAmbiguous(t *testin
 }
 
 func TestAdapterUnknownCLIErrorIsNotRetryable(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	if err := os.WriteFile(gh, []byte("#!/bin/sh\nprintf '%s\\n' 'unstructured failure' >&2\nexit 1\n"), 0o700); err != nil {
@@ -279,7 +271,6 @@ func TestAdapterUnknownCLIErrorIsNotRetryable(t *testing.T) {
 }
 
 func TestAdapterBoundsTimeoutAndOutput(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	if err := os.WriteFile(gh, []byte("#!/bin/sh\nsleep 1\n"), 0o700); err != nil {
@@ -322,7 +313,6 @@ func TestRenderTruncatesUnicodeTitleWithoutBreakingUTF8(t *testing.T) {
 }
 
 func TestProjectionInspectAndApplyAreBoundedAndNamespaced(t *testing.T) {
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	log := filepath.Join(directory, "log")

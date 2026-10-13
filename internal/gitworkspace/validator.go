@@ -32,7 +32,7 @@ func NewCombinedValidator(workspaces *Manager, commands []ValidationCommand) (*C
 	result := &CombinedValidator{workspaces: workspaces, commands: make([]ValidationCommand, 0, len(commands))}
 	seen := map[string]bool{}
 	for _, command := range commands {
-		if !validValidationCommand(command) || seen[command.Reference] {
+		if !ValidValidationCommand(command) || seen[command.Reference] {
 			return nil, ErrInvalidConfiguration
 		}
 		seen[command.Reference] = true
@@ -51,7 +51,7 @@ func (v *CombinedValidator) ValidateCombined(ctx context.Context, integration ex
 	for _, validation := range v.commands {
 		command := exec.CommandContext(ctx, validation.Argv[0], validation.Argv[1:]...)
 		command.Dir = integration.Envelope.Workspace
-		command.Env = append([]string(nil), validation.Env...)
+		command.Env = append([]string{}, validation.Env...)
 		output := &boundedBuffer{remaining: validation.OutputMax}
 		command.Stdout, command.Stderr = output, output
 		err := command.Run()
@@ -75,12 +75,20 @@ func (v *CombinedValidator) ValidateCombined(ctx context.Context, integration ex
 	return results, nil
 }
 
-func validValidationCommand(command ValidationCommand) bool {
+// ValidValidationCommand checks the argv-only integration command boundary.
+// HostAbsolutePlaceholder returns a host-absolute path ending in name, for
+// structural validation of commands persisted on another platform.
+func HostAbsolutePlaceholder(name string) string {
+	root, _ := filepath.Abs(string(filepath.Separator))
+	return filepath.Join(root, name)
+}
+
+func ValidValidationCommand(command ValidationCommand) bool {
 	if command.Reference == "" || len(command.Reference) > 512 || strings.ContainsAny(command.Reference, "\x00\r\n") || len(command.Argv) == 0 || len(command.Argv) > 64 || !filepath.IsAbs(command.Argv[0]) || command.OutputMax <= 0 || command.OutputMax > executiongraph.MaxCapturedOutputBytes || len(command.Env) > 64 {
 		return false
 	}
 	base := strings.TrimSuffix(strings.ToLower(filepath.Base(command.Argv[0])), ".exe")
-	if base == "sh" || base == "bash" || base == "zsh" || base == "fish" || base == "cmd" || base == "powershell" || base == "pwsh" {
+	if base == "sh" || base == "bash" || base == "zsh" || base == "fish" || base == "cmd" || base == "powershell" || base == "pwsh" || base == "dash" || base == "ksh" || base == "csh" || base == "tcsh" || base == "ash" || base == "busybox" || base == "env" {
 		return false
 	}
 	for _, argument := range command.Argv {

@@ -1,5 +1,3 @@
-//go:build !windows
-
 package main
 
 import (
@@ -41,5 +39,3 @@ func workflow303DenyRead(t *testing.T, path string) {
 		t.Fatalf("fixture must deny actual read: %v", err)
 	}
 }
-
-func workflow303AccessState(*testing.T, string) string { return "" }

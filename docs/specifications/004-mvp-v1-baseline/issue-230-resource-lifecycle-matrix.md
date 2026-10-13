@@ -491,6 +491,14 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-work-item | comment | default | axiom work-item comment | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | close | default | axiom work-item close | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | reopen | default | axiom work-item reopen | external-mutation | --preview-digest --authorize-external |
+| axiom-work-item | stage.run | default | axiom workflow stage run | external-mutation | --preview-digest --authorize-local --authorize-external |
+| axiom-work-item | stage.status | default | axiom workflow stage status | read-only |  |
+| axiom-work-item | stage.cancel | default | axiom workflow stage cancel | local-mutation | --preview-digest --authorize-local |
+| axiom-work-item | stage.retry | default | axiom workflow stage retry | external-mutation | --preview-digest --authorize-local --authorize-external |
+| axiom-work-item | stage.reconcile | default | axiom workflow stage reconcile | local-mutation | --preview-digest --authorize-local |
+| axiom-work-item | stage.integrate | default | axiom workflow stage integrate | local-mutation | --preview-digest --authorize-local |
+| axiom-work-item | coordination.list | default | axiom workflow coordination list | read-only |  |
+| axiom-work-item | coordination.show | default | axiom workflow coordination show | read-only |  |
 | axiom-workflow | definition.list | default | axiom project workflow list | read-only |  |
 | axiom-workflow | definition.show | default | axiom project workflow show | read-only |  |
 | axiom-workflow | definition.create | default | axiom project workflow create | local-mutation | --expected-revision --preview-digest --authorize-local |

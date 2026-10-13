@@ -98,7 +98,7 @@ Every entry declares exactly these fields. Not-applicable text fields are
 | `lifecycle` | `durable` or `historical-replay` |
 | `disposition` | `keep`, `move`, `merge`, `replace` or `delete` |
 | `disposition_ref` | approved work item for a non-`keep` disposition |
-| `runtime` | interpreters/runtimes: `bash`, `posix-sh`, `python3`, `powershell`, `go`, `github-actions` |
+| `runtime` | interpreters/runtimes: `bash`, `posix-sh`, `python3`, `go`, `github-actions` (`.ps1`/`.psm1` stay detected so an unsupported PowerShell surface cannot be added unnoticed) |
 | `scope` | supported scope: `public`, `maintainer`, `ci`, `test`, `historical` |
 | `trigger` | recurring event or operation that runs it (required for `durable`) |
 | `replay_reason` | past result it reproduces and why it is kept (required for `historical-replay`, `null` for `durable`) |

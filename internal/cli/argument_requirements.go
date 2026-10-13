@@ -61,6 +61,9 @@ func skillRequirements(operation action, v requestInput) []inputRequirement {
 	if operation == workflowStagePlanAction {
 		return stagePlanRequirements(WorkflowStagePlanInput{})
 	}
+	if workflowStageOperation(operation) {
+		return workflowStageRequirements(operation, WorkflowStageInput{})
+	}
 	if !knownWorkItem(operation) && !knownWorkflow(operation) {
 		return nil
 	}

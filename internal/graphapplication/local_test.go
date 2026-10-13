@@ -129,9 +129,10 @@ func TestLocalServiceIntegrationPersistenceFailureAfterEffectsStaysRecoveryRequi
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Two dispatch saves plus the running integration save succeed; the
+	// Dispatch saves (running plus one terminal save per attempt, I276-T05)
+	// and the running integration save succeed; the
 	// terminal integration save fails after confirmed apply and validation.
-	store := &failingGraphStore{memoryGraphStore: memoryGraphStore{wire: mustEncodeGraph(t, graph)}, failOn: 4}
+	store := &failingGraphStore{memoryGraphStore: memoryGraphStore{wire: mustEncodeGraph(t, graph)}, failOn: 5}
 	service, err := newLocalService(context.Background(), LocalConfiguration{EffortSources: injectedEffortSources{},
 		Repository: repository, WorkspaceRoot: workspaceRoot, BaseRevision: revision,
 		Graph: graph, GraphStore: store,

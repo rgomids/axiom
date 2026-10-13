@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/rgomids/axiom/internal/testfs"
 )
 
 func seedEightSkillRoot(t *testing.T, service Service, root string) {
@@ -108,7 +106,7 @@ func TestRetirementRefusesMalformedReceiptAndForeignLegacyContent(t *testing.T) 
 					err = os.WriteFile(filepath.Join(root, retiredSkillNames[0], "notes"), []byte("operator content\n"), 0600)
 				case "linked":
 					if err = os.Remove(path); err == nil {
-						err = testfs.Symlink(t, filepath.Join(root, retiredSkillNames[1], "SKILL.md"), path)
+						err = os.Symlink(filepath.Join(root, retiredSkillNames[1], "SKILL.md"), path)
 					}
 				}
 				if err != nil {
@@ -530,9 +528,6 @@ func TestRetirementPreservesForeignOrUnsafePreparationObjects(t *testing.T) {
 				service, _ := factory(root)
 				name := retiredSkillNames[0]
 				t.Run(service.Runtime()+"/"+entry+"/"+kind, func(t *testing.T) {
-					if kind == "shared" {
-						testfs.POSIXModes(t)
-					}
 					content := seedRetirementRoot(t, service, root, false)
 					skill := filepath.Join(root, name, "SKILL.md")
 					path := filepath.Join(root, map[string]string{"stage": retirementStageName(name), "proof": retirementProofName(name)}[entry])
@@ -543,7 +538,7 @@ func TestRetirementPreservesForeignOrUnsafePreparationObjects(t *testing.T) {
 					case "longer":
 						err = os.WriteFile(path, append(append([]byte{}, content...), "operator tail\n"...), 0600)
 					case "link":
-						err = testfs.Symlink(t, skill, path)
+						err = os.Symlink(skill, path)
 					case "directory":
 						if err = os.Mkdir(path, 0700); err == nil {
 							err = os.WriteFile(filepath.Join(path, "notes"), []byte("operator content\n"), 0600)

@@ -26,7 +26,7 @@ Open Issues use one label taxonomy. Release or phase is never a label.
 | `type:*` (`epic`, `story`, `task`, `bug`, `research`) | nature of the Work Item | exactly one |
 | `area:*` (`cli`, `skills`, `work-item`, `workflow`, `runtime`, `execution`, `installer`, `ci-cd`, `governance`) | primary area | one; a second only when it improves classification; an Epic may have none |
 | `status:*` (`planned`, `active`, `blocked`) | legacy editorial GitHub-only status; not an operational source of truth | optional, at most one; never add for Linear-managed work |
-| `platform:*` (`windows`, `linux`, `macos`) | platform restriction or impact | optional, any number |
+| `platform:*` (`linux`, `macos`) | platform restriction or impact | optional, any number |
 | `axiom:*` | reserved for Axiom | never edited by hand |
 | milestone | release or phase | e.g. `MVP` |
 

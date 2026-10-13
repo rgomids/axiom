@@ -42,8 +42,8 @@ Remaining asymmetries:
 - the runtimes expose different delegation, model and reasoning controls;
   [`axiom-orchestrate`](../.agents/skills/axiom-orchestrate/SKILL.md) uses
   them only when present and degrades to the main session otherwise;
-- adapters are symlinks; checkouts without symlink support (for example Git
-  for Windows with `core.symlinks=false`) lose Claude native discovery, while
+- adapters are symlinks; checkouts without symlink support (for example
+  `core.symlinks=false`) lose Claude native discovery, while
   `AGENTS.md` routing still reaches the canonical skills.
 
 Maintainer runtime support is not Agent Factory renderer support: the only

@@ -207,7 +207,7 @@ func skillOperationSpecs(name string) []skillOperationSpec {
 	case "axiom-workflow":
 		return append(workflowAuthoringSkillSpecs(false), workflowConfigurationReadiness())
 	case "axiom-work-item":
-		return []skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemPlan, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}
+		return append([]skillOperationSpec{workItemCreate, workItemRun, workItemStatus, workItemPlan, workItemList, workItemShow, workItemUpdate, workItemComment, workItemClose, workItemReopen}, workflowStageSkillSpecs()...)
 
 	}
 	return nil
@@ -273,6 +273,9 @@ func skillFlagSet(operation action, values *requestInput) *flag.FlagSet {
 		return executionListFlagSet(&ExecutionListInput{})
 	case workflowStagePlanAction:
 		return workflowStagePlanFlagSet(&WorkflowStagePlanInput{})
+	}
+	if workflowStageOperation(operation) {
+		return workflowStageFlagSet(operation, &WorkflowStageInput{})
 	}
 	if integrationOperation(operation) {
 		return integrationFlagSet(operation, &IntegrationInput{})
@@ -369,7 +372,7 @@ func InspectSkill(args []string, source provenance.Value, output io.Writer) (boo
 		return true, ExitFailure
 	}
 	// A multi-command skill can exceed the ordinary completion-only bound.
-	return true, presentEvent(output, mode, result.Status(), append(wire, '\n'), 64*1024)
+	return true, presentEvent(output, mode, result.Status(), append(wire, '\n'), 256*1024)
 }
 
 const skillInspectAction action = "skill_inspect"

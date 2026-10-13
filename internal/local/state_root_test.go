@@ -1,12 +1,10 @@
 package local
 
 import (
-	"github.com/rgomids/axiom/internal/testfs"
 	"testing"
 )
 
 func TestNativeStateRoot(t *testing.T) {
-	testfs.POSIXModes(t)
 	tests := []struct {
 		name, goos, home, xdg, want string
 		invalid                     bool
@@ -15,7 +13,7 @@ func TestNativeStateRoot(t *testing.T) {
 		{"Linux XDG", "linux", "/home/test", "/state/custom", "/state/custom/lingo", false},
 		{"Linux fallback", "linux", "/home/test", "", "/home/test/.local/state/lingo", false},
 		{"Linux relative XDG", "linux", "/home/test", "relative/state", "/home/test/.local/state/lingo", false},
-		{"Windows fallback", "windows", "/home/test", "", "/home/test/.axiom/windows/state", false},
+		{"Windows unsupported", "windows", "/home/test", "", "", true},
 		{"unsupported platform", "plan9", "/home/test", "", "", true},
 		{"relative home", "linux", "relative/home", "", "", true},
 	}

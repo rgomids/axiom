@@ -17,6 +17,9 @@ import (
 
 const MaxCapturedOutputBytes = 256 << 10
 
+// MaxStdinBytes bounds the in-memory task packet.
+const MaxStdinBytes = 256 << 10
+
 var ErrInvalidInvocation = errors.New("invalid runtime invocation")
 
 type Invocation struct {
@@ -25,9 +28,11 @@ type Invocation struct {
 	CWD       string
 	Env       []string
 	OutputMax int
+	Stdin     []byte
 	// Captured only by WithInheritedEnvironment; separate from bounded explicit
 	// overrides so ordinary OS inheritance keeps its existing semantics.
 	inheritedEnvironment []string
+	exactEnvironment     bool
 }
 
 type InvocationResolver interface {
@@ -40,6 +45,8 @@ type ProcessResult struct {
 	ResultReference string
 	EffectAmbiguous bool
 	Stopped         bool
+	OutcomeUnknown  bool
+	TimedOut        bool
 }
 
 type ProcessRunner interface {
@@ -72,13 +79,18 @@ type DispatchResult struct {
 	Blocked map[string]string
 }
 
+// AttemptCompletionHook runs after process exit and before the terminal save.
+// It may drain an inbox and qualify the attempt; errors leave it running.
+type AttemptCompletionHook func(context.Context, ChildExecution, ProcessResult, Attempt) (Attempt, error)
+
 type Scheduler struct {
-	invocations InvocationResolver
-	runner      ProcessRunner
-	workspaces  WorkspaceValidator
-	store       GraphAttemptStore
-	allocateID  func() (string, error)
-	now         func() time.Time
+	completionHook AttemptCompletionHook
+	invocations    InvocationResolver
+	runner         ProcessRunner
+	workspaces     WorkspaceValidator
+	store          GraphAttemptStore
+	allocateID     func() (string, error)
+	now            func() time.Time
 }
 
 func NewScheduler(invocations InvocationResolver, runner ProcessRunner, workspaces WorkspaceValidator, store GraphAttemptStore, allocateID func() (string, error), now func() time.Time) Scheduler {
@@ -91,8 +103,20 @@ func NewScheduler(invocations InvocationResolver, runner ProcessRunner, workspac
 	return Scheduler{invocations: invocations, runner: runner, workspaces: workspaces, store: store, allocateID: allocateID, now: now}
 }
 
+// WithCompletionHook returns a scheduler with an ordered terminal hook.
+func (s Scheduler) WithCompletionHook(hook AttemptCompletionHook) Scheduler {
+	s.completionHook = hook
+	return s
+}
+
 func (s Scheduler) DispatchReady(ctx context.Context, request DispatchRequest) (DispatchResult, error) {
 	result := DispatchResult{Graph: request.Graph, Blocked: map[string]string{}}
+	// Own the mutable slices so failed saves and concurrent callers cannot alter
+	// the supplied graph or previously saved snapshots.
+	result.Graph.Children = append([]ChildExecution(nil), request.Graph.Children...)
+	for i := range result.Graph.Children {
+		result.Graph.Children[i].Attempts = append([]Attempt(nil), request.Graph.Children[i].Attempts...)
+	}
 	if !ValidGraph(result.Graph) || s.invocations == nil || s.runner == nil || s.workspaces == nil {
 		return result, ErrInvalidGraph
 	}
@@ -113,6 +137,7 @@ func (s Scheduler) DispatchReady(ctx context.Context, request DispatchRequest) (
 		index   int
 		attempt Attempt
 		record  DispatchRecord
+		err     error
 	}
 	type planned struct {
 		index      int
@@ -180,30 +205,45 @@ func (s Scheduler) DispatchReady(ctx context.Context, request DispatchRequest) (
 			}
 			digest := sha256.Sum256(process.Output)
 			attempt := Attempt{AttemptID: attemptID, Number: attemptNumber, Status: status, StartedAt: &started, FinishedAt: &ended, ResultReference: process.ResultReference, OutputDigest: hex.EncodeToString(digest[:]), ExitCode: process.ExitCode, AmbiguousEffect: process.EffectAmbiguous || status == AttemptUnknown, CancellationSeen: attemptCtx.Err() != nil}
-			completedCh <- completed{index: index, attempt: attempt, record: DispatchRecord{ChildID: child.ExecutionID, AttemptID: attemptID, Status: status, StartedAt: started, EndedAt: ended}}
+			var hookErr error
+			if s.completionHook != nil {
+				attempt, hookErr = s.completionHook(ctx, child, process, attempt)
+			}
+			completedCh <- completed{index: index, attempt: attempt, err: hookErr, record: DispatchRecord{ChildID: child.ExecutionID, AttemptID: attemptID, Status: attempt.Status, StartedAt: started, EndedAt: ended}}
 		}(plan.index, plan.child, plan.invocation, plan.attemptID, plan.number, plan.started)
 	}
-	wg.Wait()
-	close(completedCh)
-	items := make([]completed, 0, len(batch))
+	go func() { wg.Wait(); close(completedCh) }()
+	var completionErr error
+	persistenceFailed := false
 	for item := range completedCh {
-		items = append(items, item)
-	}
-	sort.Slice(items, func(i, j int) bool {
-		return result.Graph.Children[items[i].index].ExecutionID < result.Graph.Children[items[j].index].ExecutionID
-	})
-	for _, item := range items {
-		attemptIndex := len(result.Graph.Children[item.index].Attempts) - 1
-		result.Graph.Children[item.index].Attempts[attemptIndex] = item.attempt
+		if persistenceFailed {
+			continue
+		}
+		if item.err != nil {
+			completionErr = item.err
+			continue
+		}
+		candidate := result.Graph
+		candidate.Children = append([]ChildExecution(nil), result.Graph.Children...)
+		child := &candidate.Children[item.index]
+		child.Attempts = append([]Attempt(nil), child.Attempts...)
+		child.Attempts[len(child.Attempts)-1] = item.attempt
+		if s.store != nil {
+			persisted, err := s.store.Save(ctx, candidate)
+			if err != nil {
+				completionErr = err
+				persistenceFailed = true
+				continue
+			}
+			candidate = persisted
+		}
+		result.Graph = candidate
 		result.Records = append(result.Records, item.record)
 	}
-	if len(items) > 0 && s.store != nil {
-		persisted, err := s.store.Save(ctx, result.Graph)
-		if err != nil {
-			return result, err
-		}
-		result.Graph = persisted
+	if completionErr != nil {
+		return result, completionErr
 	}
+	sort.Slice(result.Records, func(i, j int) bool { return result.Records[i].ChildID < result.Records[j].ChildID })
 	return result, nil
 }
 
@@ -218,6 +258,10 @@ func readyChildren(graph Graph, retries map[string]bool, blocked map[string]stri
 	for index, child := range graph.Children {
 		if child.Envelope.IntegrationOwner {
 			blocked[child.ExecutionID] = "integration_pending"
+			continue
+		}
+		if len(child.Attempts) > 0 && child.Attempts[len(child.Attempts)-1].Status == AttemptRunning {
+			blocked[child.ExecutionID] = "attempt_running"
 			continue
 		}
 		if succeeded[child.ExecutionID] {
@@ -287,7 +331,7 @@ func childEffectsConflict(left, right ChildExecution) bool {
 }
 
 func validInvocation(child ChildExecution, invocation Invocation) bool {
-	if invocation.RuntimeID != child.Envelope.Resolution.RuntimeID || len(invocation.Argv) == 0 || len(invocation.Argv) > 64 || invocation.CWD != child.Envelope.Workspace || !filepath.IsAbs(invocation.CWD) || invocation.OutputMax <= 0 || invocation.OutputMax > MaxCapturedOutputBytes || len(invocation.Env) > 64 {
+	if len(invocation.Stdin) > MaxStdinBytes || invocation.RuntimeID != child.Envelope.Resolution.RuntimeID || len(invocation.Argv) == 0 || len(invocation.Argv) > 64 || invocation.CWD != child.Envelope.Workspace || !filepath.IsAbs(invocation.CWD) || invocation.OutputMax <= 0 || invocation.OutputMax > MaxCapturedOutputBytes || len(invocation.Env) > 64 {
 		return false
 	}
 	base := strings.TrimSuffix(strings.ToLower(filepath.Base(invocation.Argv[0])), ".exe")
@@ -350,22 +394,92 @@ func WithInheritedEnvironment(invocation Invocation) Invocation {
 
 // EffectiveInvocationEnvironment is shared by authentication and process start.
 func EffectiveInvocationEnvironment(invocation Invocation) []string {
+	if invocation.exactEnvironment {
+		return append([]string{}, invocation.Env...)
+	}
 	if invocation.inheritedEnvironment != nil {
 		return append(append([]string(nil), invocation.inheritedEnvironment...), invocation.Env...)
 	}
 	return EffectiveEnvironment(invocation.Env)
 }
 
+// WithExactEnvironment freezes an explicit environment, including an empty
+// one. Stage dispatch uses this seam so authentication and spawn inspect the
+// same bytes without falling back to historical ambient inheritance.
+func WithExactEnvironment(invocation Invocation, environment []string) Invocation {
+	invocation.Env = append([]string{}, environment...)
+	invocation.inheritedEnvironment = nil
+	invocation.exactEnvironment = true
+	return invocation
+}
+
 type OSProcessRunner struct{}
 
-func (OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessResult {
-	command := exec.CommandContext(ctx, invocation.Argv[0], invocation.Argv[1:]...)
+func (r OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessResult {
+	return r.RunObserved(ctx, invocation, nil)
+}
+
+// RunObserved uses the existing containment and stop-confirmation boundary.
+func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, started func(*ProcessCorrelation) error) ProcessResult {
+	if len(invocation.Stdin) > MaxStdinBytes || len(invocation.Argv) == 0 {
+		return ProcessResult{ExitCode: -1, OutcomeUnknown: true}
+	}
+	command := exec.Command(invocation.Argv[0], invocation.Argv[1:]...)
+	command.Stdin = bytes.NewReader(invocation.Stdin)
 	command.Dir = invocation.CWD
 	command.Env = EffectiveInvocationEnvironment(invocation)
 	output := &limitedBuffer{remaining: invocation.OutputMax}
 	command.Stdout = output
 	command.Stderr = output
-	err := command.Run()
+	group, err := newProcessContainment()
+	if err != nil {
+		return ProcessResult{ExitCode: -1, OutcomeUnknown: true}
+	}
+	defer group.close()
+	command.WaitDelay = processStopBound
+	if err = ctx.Err(); err == nil {
+		err = group.start(command)
+	}
+	startFailed := err != nil
+	stopped := false
+	if err == nil && started != nil {
+		identity, observationErr := ObserveProcessCorrelation(int64(command.Process.Pid))
+		if observationErr == nil && identity != nil {
+			observationErr = started(identity)
+		} else if observationErr == nil {
+			observationErr = ErrInvalidGraph
+		}
+		if observationErr != nil {
+			stopCtx, cancel := context.WithTimeout(context.Background(), processStopBound)
+			stopped = confirmProcessStop(stopCtx, group)
+			cancel()
+			wait := make(chan error, 1)
+			go func() { wait <- command.Wait() }()
+			select {
+			case <-wait:
+			case <-time.After(processStopBound):
+			}
+			return ProcessResult{ExitCode: -1, OutcomeUnknown: true, Stopped: stopped}
+		}
+	}
+	interrupted := false
+	if err == nil {
+		wait := make(chan error, 1)
+		go func() { wait <- command.Wait() }()
+		select {
+		case err = <-wait:
+		case <-ctx.Done():
+			interrupted = true
+			stopCtx, cancel := context.WithTimeout(context.Background(), processStopBound)
+			stopped = confirmProcessStop(stopCtx, group)
+			cancel()
+			select {
+			case err = <-wait:
+			case <-time.After(processStopBound):
+				err = ctx.Err()
+			}
+		}
+	}
 	exitCode := 0
 	if err != nil {
 		exitCode = -1
@@ -374,19 +488,22 @@ func (OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessRe
 			exitCode = exitError.ExitCode()
 		}
 	}
-	// CommandContext observes its direct child. Descendant processes or external
-	// effects can remain uncertain, so timeout/cancellation is not called stopped.
+	// Platform observation confirms group/job termination; observed escapes
+	// or observation failures veto confirmation. POSIX groups remain advisory.
 	captured := output.Bytes()
 	digest := sha256.Sum256(captured)
-	return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), Stopped: false}
+	return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), Stopped: stopped, OutcomeUnknown: interrupted && !stopped || startFailed, TimedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
 }
 
 type limitedBuffer struct {
+	mu sync.Mutex
 	bytes.Buffer
 	remaining int
 }
 
 func (b *limitedBuffer) Write(value []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	original := len(value)
 	if len(value) > b.remaining {
 		value = value[:b.remaining]
@@ -396,4 +513,59 @@ func (b *limitedBuffer) Write(value []byte) (int, error) {
 		b.remaining -= len(value)
 	}
 	return original, nil
+}
+
+func (b *limitedBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]byte(nil), b.Buffer.Bytes()...)
+}
+
+// DispatchBatch checks a caller's complete proposed batch before dispatch.
+// Running attempts consume capacity even when they are not ready themselves.
+func (c SuccessorConsumer) DispatchBatch(ids []string, retries map[string]bool) error {
+	ready, _, err := c.Ready(retries)
+	if err != nil {
+		return err
+	}
+	allowed := map[string]bool{}
+	for _, id := range ready {
+		allowed[id] = true
+	}
+	running := 0
+	for _, child := range c.graph.Children {
+		if len(child.Attempts) > 0 && child.Attempts[len(child.Attempts)-1].Status == AttemptRunning {
+			running++
+		}
+	}
+	if len(ids)+running > int(c.graph.StageConcurrency) {
+		return ErrStageConcurrency
+	}
+	selected := []ChildExecution{}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if seen[id] || !allowed[id] {
+			return ErrInvalidGraph
+		}
+		seen[id] = true
+		for _, child := range c.graph.Children {
+			if child.ExecutionID != id {
+				continue
+			}
+			candidate := ChildExecution{Envelope: child.Envelope}
+			for _, other := range selected {
+				if childEffectsConflict(candidate, other) {
+					return ErrInvalidGraph
+				}
+			}
+			// Concurrent running effects also conflict with a newly proposed child.
+			for _, other := range c.graph.Children {
+				if len(other.Attempts) > 0 && other.Attempts[len(other.Attempts)-1].Status == AttemptRunning && childEffectsConflict(candidate, ChildExecution{Envelope: other.Envelope}) {
+					return ErrInvalidGraph
+				}
+			}
+			selected = append(selected, candidate)
+		}
+	}
+	return nil
 }

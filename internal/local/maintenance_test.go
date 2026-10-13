@@ -484,7 +484,7 @@ func TestGuidedRecoveryPreservesAmbiguousCorruptAndUnknownState(t *testing.T) {
 				if err := os.Remove(stages[0]); err != nil {
 					t.Fatal(err)
 				}
-				if err := testfs.Symlink(t, filepath.Join(t.TempDir(), "outside"), stages[0]); err != nil {
+				if err := os.Symlink(filepath.Join(t.TempDir(), "outside"), stages[0]); err != nil {
 					t.Fatal(err)
 				}
 			}

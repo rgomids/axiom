@@ -127,7 +127,8 @@ func NewGraphService(store GraphStore, allocateID func() (string, error), now fu
 	return GraphService{store: store, allocateID: allocateID, now: now}
 }
 
-func (s GraphService) Publish(ctx context.Context, request PublicationRequest) (Graph, error) {
+// Build validates and constructs a candidate without writing any object.
+func (s GraphService) Build(request PublicationRequest) (Graph, error) {
 	if err := validatePublicationRequest(request); err != nil {
 		return Graph{}, err
 	}
@@ -183,6 +184,14 @@ func (s GraphService) Publish(ctx context.Context, request PublicationRequest) (
 	}
 	if !ValidGraph(graph) {
 		return Graph{}, ErrInvalidGraph
+	}
+	return graph, nil
+}
+
+func (s GraphService) Publish(ctx context.Context, request PublicationRequest) (Graph, error) {
+	graph, err := s.Build(request)
+	if err != nil {
+		return Graph{}, err
 	}
 	if s.store == nil {
 		return Graph{}, ErrInvalidGraph

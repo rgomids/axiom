@@ -125,7 +125,7 @@ Payloads, hashes e ledger estão naquele Evidence.
 
 | Controle | Observado | Desejado |
 |---|---|---|
-| Ruleset `default` (id `22828068`) em `main` | deletion, non_fast_forward, PR com 1 aprovação, code owner review, resolução de threads, merge `merge`+`squash`, code_quality; **sem required status checks**; bypass `RepositoryRole` id 2 em modo `always` | igual, mais required checks `go-quality`, `verify (linux)`, `verify (macos)`, `verify (windows)`, `release-contract`, `delivery-metadata`, `upgrade-journeys (linux)` e `upgrade-journeys (macos)` (GitHub Actions, integration id `15368`, strict), merge somente `squash`, bypass somente via PR (`pull_request`) |
+| Ruleset `default` (id `22828068`) em `main` | deletion, non_fast_forward, PR com 1 aprovação, code owner review, resolução de threads, merge `merge`+`squash`, code_quality; **sem required status checks**; bypass `RepositoryRole` id 2 em modo `always` | igual, mais required checks `go-quality`, `verify (linux)`, `verify (macos)`, `release-contract`, `delivery-metadata`, `upgrade-journeys (linux)` e `upgrade-journeys (macos)` (GitHub Actions, integration id `15368`, strict), merge somente `squash`, bypass somente via PR (`pull_request`) |
 | `CODEOWNERS` | ausente (code owner review sem owners) | `* @rgomids` (adicionado neste repositório) |
 | Métodos de merge | merge commit, squash e rebase habilitados; branch não removida após merge | somente squash, título = título do PR, remover branch após merge |
 | Actions | qualquer action; SHA pinning não exigido; `GITHUB_TOKEN` read; Actions não criam PRs | SHA pinning exigido; Actions podem criar PRs (Release Please) |

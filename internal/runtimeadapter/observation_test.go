@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -39,22 +38,20 @@ func TestExecutableIdentityBindsPathAndContent(t *testing.T) {
 	if identity, err := ExecutableIdentity(path); err != nil || identity == original {
 		t.Fatal("replaced content kept its identity")
 	}
-	if runtime.GOOS != "windows" {
-		link := filepath.Join(t.TempDir(), "codex")
-		if err := os.Symlink(path, link); err != nil {
-			t.Fatal(err)
-		}
-		target, _ := ExecutableIdentity(path)
-		if identity, err := ExecutableIdentity(link); err != nil || identity != target {
-			t.Fatal("a link does not resolve to its target executable")
-		}
-		plain := filepath.Join(t.TempDir(), "codex")
-		if err := os.WriteFile(plain, []byte("not executable"), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := ExecutableIdentity(plain); err == nil {
-			t.Fatal("non-executable file accepted")
-		}
+	link := filepath.Join(t.TempDir(), "codex")
+	if err := os.Symlink(path, link); err != nil {
+		t.Fatal(err)
+	}
+	target, _ := ExecutableIdentity(path)
+	if identity, err := ExecutableIdentity(link); err != nil || identity != target {
+		t.Fatal("a link does not resolve to its target executable")
+	}
+	plain := filepath.Join(t.TempDir(), "codex")
+	if err := os.WriteFile(plain, []byte("not executable"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ExecutableIdentity(plain); err == nil {
+		t.Fatal("non-executable file accepted")
 	}
 	for _, invalid := range []string{"codex", filepath.Join(root, "missing"), root} {
 		if _, err := ExecutableIdentity(invalid); err == nil {

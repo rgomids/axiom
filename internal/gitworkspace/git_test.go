@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -155,7 +154,7 @@ func TestManagerRejectsOutsideRootAndSymlinkEscape(t *testing.T) {
 			t.Fatal(err)
 		}
 		link := filepath.Join(workspaceRoot, "escape")
-		if err := testfs.Symlink(t, outside, link); err != nil {
+		if err := os.Symlink(outside, link); err != nil {
 			t.Fatal(err)
 		}
 		graph := buildGraph(t, workspaceRoot, graphOptions{workspaceOverride: map[string]string{"a": filepath.Join(link, "a")}})

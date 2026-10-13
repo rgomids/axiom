@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/completion"
@@ -31,6 +32,12 @@ type runtimePolicySource struct {
 // reads: executables resolved from PATH exactly as first-run discovers them and
 // Axiom's own skill integration per Runtime. No caller-supplied inventory exists.
 type runtimeObservationSources struct {
+	// Capability consumption is injected per variant by stage callers. No probe
+	// or runtime execution is wired here; absent evidence remains fail-closed.
+	capability        *capabilityproof.Service
+	capabilityTargets []capabilityproof.Target
+	// Version reads current interface facts; it must not read stored proof.
+	version      func(context.Context, string, string) (string, error)
 	lookPath     runtimebootstrap.LookPath
 	integrations map[string]func() (runtimeadapter.IntegrationInspector, error)
 }
@@ -85,7 +92,7 @@ func (s runtimePolicySource) Load(ctx context.Context, id string) (runtimeapplic
 
 // Each Load observes afresh, so Check compares the reviewed executable
 // identity and integration proof with the machine as it is now.
-func (r runtimeObservationSources) observer(cfg runtimeprofile.Configuration) (runtimeadapter.ExecutableObserver, error) {
+func (r runtimeObservationSources) observer(cfg runtimeprofile.Configuration) (runtimeprofile.Observer, error) {
 	runtimes := make([]runtimeadapter.ObservedRuntime, 0, len(cfg.Runtimes))
 	for _, runtime := range cfg.Runtimes {
 		observed := runtimeadapter.ObservedRuntime{ID: runtime.ID}
@@ -102,7 +109,16 @@ func (r runtimeObservationSources) observer(cfg runtimeprofile.Configuration) (r
 		}
 		runtimes = append(runtimes, observed)
 	}
-	return runtimeadapter.NewExecutableObserver(cfg.Revision, time.Now(), runtimes)
+	base, err := runtimeadapter.NewExecutableObserver(cfg.Revision, time.Now(), runtimes)
+	if err != nil {
+		return nil, err
+	}
+	if r.capability != nil {
+		service := *r.capability
+		service.Source = capabilityproof.ConfiguredSource{Source: service.Source, Configuration: cfg}
+		return capabilityproof.Observer{Base: runtimeVersionObserver{base: base, version: r.version}, Service: service, Targets: append([]capabilityproof.Target(nil), r.capabilityTargets...)}, nil
+	}
+	return base, nil
 }
 
 func (s lifecycleService) runtimePolicyPreview(ctx context.Context, input cli.RuntimeProfilePreviewInput) (runtimeapplication.Preview, runtimeapplication.Service, error) {
@@ -163,4 +179,32 @@ func (s lifecycleService) runtimeResolutionResult(preview runtimeapplication.Pre
 
 func (s lifecycleService) runtimePolicyFailure(code string) cli.Result {
 	return s.runtimeResolutionResult(runtimeapplication.Preview{Blocker: &runtimeprofile.Blocker{Code: code}}, false)
+}
+
+// runtimeVersionObserver keeps version acquisition separate from proof. With no
+// interface reader installed the version stays unknown and proof fails closed.
+type runtimeVersionObserver struct {
+	base    runtimeprofile.Observer
+	version func(context.Context, string, string) (string, error)
+}
+
+func (o runtimeVersionObserver) Observe(ctx context.Context, id string) (runtimeprofile.Observation, error) {
+	observed, err := o.base.Observe(ctx, id)
+	if err != nil || o.version == nil || !observed.Available {
+		return observed, err
+	}
+	version, err := o.version(ctx, id, observed.ExecutableDigest)
+	if err != nil {
+		return runtimeprofile.Observation{}, err
+	}
+	// Re-read executable identity after interface inspection to reject drift.
+	after, err := o.base.Observe(ctx, id)
+	if err != nil {
+		return runtimeprofile.Observation{}, err
+	}
+	if after.ExecutableDigest != observed.ExecutableDigest || !after.Available {
+		return runtimeprofile.Observation{}, errRuntimePolicyInput
+	}
+	after.Version = version
+	return after, nil
 }

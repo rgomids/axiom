@@ -159,7 +159,7 @@ class Baselines(unittest.TestCase):
     def test_workflow_keeps_required_tests_and_report_only(self):
         ci = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertEqual(ci.count('go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./...'), 1)
-        self.assertIn('run: go test ./... -timeout 10m', ci)
+        self.assertIn('run: go test -race ./...', ci)
         self.assertIn('name: go-quality', ci)
         self.assertNotIn('pull_request_target', ci)
         baseline = (ROOT / '.github/workflows/code-health-baseline.yml').read_text()

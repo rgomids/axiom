@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rgomids/axiom/internal/executiongraph"
 	"os"
 	"strings"
 )
@@ -44,28 +45,32 @@ func (e *PublicationError) Unwrap() error { return e.Err }
 func (e *PublicationError) EffectCommitted() bool { return e.Committed }
 
 type protocolMarker struct {
-	FormatVersion  int        `json:"formatVersion"`
-	OperationID    string     `json:"operationId"`
-	Object         string     `json:"object"`
-	Stage          FaultStage `json:"stage"`
-	PriorPresent   bool       `json:"priorPresent"`
-	PriorRevision  string     `json:"priorRevision"`
-	NewPresent     bool       `json:"newPresent"`
-	NewRevision    string     `json:"newRevision"`
-	Staging        string     `json:"staging"`
-	CommitProtocol string     `json:"commitProtocol"`
+	Companion         string     `json:"companion,omitempty"`
+	CompanionRevision string     `json:"companionRevision,omitempty"`
+	FormatVersion     int        `json:"formatVersion"`
+	OperationID       string     `json:"operationId"`
+	Object            string     `json:"object"`
+	Stage             FaultStage `json:"stage"`
+	PriorPresent      bool       `json:"priorPresent"`
+	PriorRevision     string     `json:"priorRevision"`
+	NewPresent        bool       `json:"newPresent"`
+	NewRevision       string     `json:"newRevision"`
+	Staging           string     `json:"staging"`
+	CommitProtocol    string     `json:"commitProtocol"`
 }
 
 type publicationHooks struct {
-	contentLimit int
-	fault        func(FaultStage) error
-	remove       func(*os.Root, string) error
-	sync         func(*os.Root) error
-	write        func(*os.Root, string, []byte) error
-	stagePrefix  string
-	afterStage   func()
-	beforeCommit func() error
-	afterCommit  func()
+	companion     string
+	companionWire []byte
+	contentLimit  int
+	fault         func(FaultStage) error
+	remove        func(*os.Root, string) error
+	sync          func(*os.Root) error
+	write         func(*os.Root, string, []byte) error
+	stagePrefix   string
+	afterStage    func()
+	beforeCommit  func() error
+	afterCommit   func()
 }
 
 func (h publicationHooks) at(stage FaultStage) error {
@@ -112,9 +117,13 @@ func writeProtocolMarker(root *os.Root, object, staging string, priorPresent boo
 	name := ".axiom-recovery-" + operation
 	marker := protocolMarker{
 		FormatVersion: 1, OperationID: operation, Object: object, Stage: FaultF3,
+		Companion:    hooks.companion,
 		PriorPresent: priorPresent, PriorRevision: hex.EncodeToString(prior[:]),
 		NewPresent: true, NewRevision: hex.EncodeToString(next[:]), Staging: staging,
 		CommitProtocol: "rename",
+	}
+	if hooks.companion != "" {
+		marker.CompanionRevision = hexDigest(hooks.companionWire)
 	}
 	wire, err := json.Marshal(marker)
 	if err != nil {
@@ -169,6 +178,12 @@ func readProtocolMarker(root *os.Root, name string) (protocolMarker, error) {
 }
 
 func validProtocolMarker(marker protocolMarker) bool {
+	if marker.Companion != "" && (!hexDigestName.MatchString(marker.Companion) || !validDigestText(marker.CompanionRevision) || marker.Companion == marker.Object) {
+		return false
+	}
+	if marker.Companion == "" && marker.CompanionRevision != "" {
+		return false
+	}
 	if marker.FormatVersion != 1 || marker.OperationID == "" || marker.Object == "" || marker.Staging == "" || marker.CommitProtocol != "rename" || !marker.NewPresent {
 		return false
 	}
@@ -343,6 +358,27 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 	if err := ctx.Err(); err != nil {
 		return cleanupFailure(FaultF3, err, cleanup())
 	}
+	if hooks.companion != "" {
+		existing, readErr := readPrivateFileBounded(root, hooks.companion, executiongraph.MaxDispatchAuthorityBytes)
+		if readErr == nil && !bytes.Equal(existing, hooks.companionWire) {
+			return cleanupFailure(FaultF3, ErrConflict, cleanup())
+		}
+		if readErr != nil {
+			if !os.IsNotExist(readErr) {
+				return cleanupFailure(FaultF3, readErr, cleanup())
+			}
+			if err := writePrivateFile(root, hooks.companion, hooks.companionWire); err != nil {
+				return cleanupFailure(FaultF3, err, cleanup())
+			}
+		}
+		confirmed, err := readPrivateFileBounded(root, hooks.companion, executiongraph.MaxDispatchAuthorityBytes)
+		if err != nil || !bytes.Equal(confirmed, hooks.companionWire) {
+			return publicationFailure(FaultF3, false, ErrRecoveryRequired)
+		}
+		if err := hooks.syncRoot(root); err != nil {
+			return publicationFailure(FaultF3, false, ErrRecoveryRequired)
+		}
+	}
 	if hooks.beforeCommit != nil {
 		if err := hooks.beforeCommit(); err != nil {
 			return cleanupFailure(FaultF3, err, cleanup())
@@ -369,6 +405,12 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 		}
 		return publicationFailure(FaultF5, false, err)
 	}
+	if hooks.companion != "" {
+		receipt, err := readPrivateFileBounded(root, hooks.companion, executiongraph.MaxDispatchAuthorityBytes)
+		if err != nil || !bytes.Equal(receipt, hooks.companionWire) {
+			return publicationFailure(FaultF5, false, ErrRecoveryRequired)
+		}
+	}
 	if create {
 		err = renameNoReplace(root, stage, name)
 	} else {
@@ -384,7 +426,13 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
 	}
 	if err := hooks.at(FaultF6); err != nil {
-		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
+		return publicationFailure(FaultF6, true, errors.Join(ErrRecoveryRequired, err))
+	}
+	if hooks.companion != "" {
+		receipt, err := readPrivateFileBounded(root, hooks.companion, executiongraph.MaxDispatchAuthorityBytes)
+		if err != nil || !bytes.Equal(receipt, hooks.companionWire) {
+			return publicationFailure(FaultF6, true, ErrRecoveryRequired)
+		}
 	}
 	confirmed, err := readPrivateFileBounded(root, name, limit)
 	if err != nil || !bytes.Equal(confirmed, next) {
@@ -403,7 +451,7 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 	}
 	if err := hooks.at(FaultF8); err != nil {
-		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
+		return publicationFailure(FaultF8, true, errors.Join(ErrRecoveryRequired, err))
 	}
 	if err := removeProtocolState(root, markerName, hooks); err != nil {
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)

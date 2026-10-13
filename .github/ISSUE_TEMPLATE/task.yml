@@ -34,7 +34,6 @@ body:
       multiple: true
       options:
         - Not platform-specific
-        - Windows
         - Linux
         - macOS
     validations:

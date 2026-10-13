@@ -81,6 +81,20 @@ installation compatibility and synthetic R-1 Evidence. It keeps native R-2 and
 human R-3 acceptance deferred to #278; technical checks do not imply release
 or human acceptance.
 
+[Proposed #276 successor-Graph amendment](007-configurable-workflows/amendment-276-successor-graph-proposed.md) and [ADR-0026](../decisions/0026-successor-stage-dispatch-graph-format.md): PD-R276-01/B direction approved on 2026-10-12, detailed contract/Tasks still Proposed; Graph1/2 preserved; Phase 3 not authorized.
+
+[#276 Plan and Tasks — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
+Part I (Plan, revision 5), the companion
+[amendment #276](007-configurable-workflows/amendment-276-stage-dispatch.md) and
+[ADR-0025](../decisions/0025-public-stage-dispatch-and-capability-proof.md)
+are **Accepted, 2026-10-11** ([maintainer decision](https://github.com/rgomids/axiom/pull/311#issuecomment-6109867861); blobs `13776ae`,
+`3c931f0`, `1da38d6` at `4b8c888`), with PD-1–PD-17 approved as recommended.
+They cover public `workflow stage` dispatch, a detached supervisor,
+coordination, probe-based capability proof, persisted coordination-to-graph
+classification and consumption of the #306 effort/versioning contract.
+**Part II (44 Tasks) is Proposed, awaiting human approval.** Nothing here
+authorizes implementation, dispatch, inference or acceptance.
+
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
 [Specification](006-installer-host-eligibility/spec.md): **Approved, 2026-10-04**
@@ -92,6 +106,10 @@ fragments of ADR-0010 and Specifications 004/005 are preserved struck through an
 annotated. Merge, human acceptance and release publication remain separate decisions.
 
 ## 005 — Native Windows Support
+
+**SUPERSEDED, 2026-10-13.** Windows support ended in the current scope by
+maintainer decision ([PR #311](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308)); Linux and macOS remain supported.
+The entries below are preserved as history only.
 
 [Default Windows onboarding amendment (#265)](005-windows-native-support/issue-265-default-onboarding.md): implementation requested 2026-10-08, with explicitly selected consent-gated directory repair. [ADR-0019](../decisions/0019-windows-default-onboarding-and-permission-repair.md) records fresh profile storage, legacy preservation and repair authority; executable Evidence and release remain separate.
 

@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -146,7 +147,13 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 		written = append(written, name.Name())
 	}
 	// workflows/ holds only frozen historical POC records; no v1 writer uses it.
-	expected := slices.DeleteFunc(slices.Clone(StateRootDirectories), func(name string) bool { return name == "workflows" })
+	// capability-probes/ holds only transient probe envelopes, which inventory
+	// classifies as recovery state; no durable v1 writer leaves records there.
+	expected := slices.DeleteFunc(slices.Clone(StateRootDirectories), func(name string) bool {
+		return name == "workflows" || name == "capability-probes"
+	})
+	slices.Sort(written)
+	slices.Sort(expected)
 	if !slices.Equal(written, expected) {
 		t.Errorf("writers produced top-level directories %v, want every v1 directory %v", written, expected)
 	}
@@ -226,11 +233,44 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph := localGraphFixture(t)
-	if err := graphs.Create(context.Background(), graph); err != nil {
+	successor, authority := localDispatch(t)
+	graph := executiongraph.Graph{FormatVersion: 2, Parent: successor.Parent}
+	for _, child := range successor.Children {
+		graph.Children = append(graph.Children, executiongraph.ChildExecution{ExecutionID: child.ExecutionID, ParentID: child.ParentID, GraphRevision: child.GraphRevision, NodeKey: child.NodeKey, Envelope: child.Envelope})
+	}
+	leases, err := NewRunLeaseStore(state)
+	if err != nil {
 		t.Fatal(err)
 	}
-	streams, err := NewCoordinationStore(state, "project-1")
+	lease, err := leases.Acquire(context.Background(), authority.ProjectID, graph.Parent.ExecutionID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := graphs.CommitDispatch(context.Background(), successor, authority, authority.PreviewDigest, lease); err != nil {
+		t.Fatal(err)
+	}
+	if err := lease.Close(); err != nil {
+		t.Fatal(err)
+	}
+	failed := failLocalFirstAttempt(t, graphs, leases, authority.ProjectID, authority.ParentID)
+	if _, err := graphs.CommitRetry(context.Background(), failed, localRetryAuthority(failed)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := graphs.CommitIntegrationReceipt(context.Background(), failed, localIntegrationReceipt(failed)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := graphs.CommitDispatchInputs(context.Background(), localDispatchInputs(failed, "00000000-0000-4000-8000-0000000005e1", "implementation")); err != nil {
+		t.Fatal(err)
+	}
+	ledgers, err := NewWorkflowStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v3 := createLocalV3Execution(t, ledgers)
+	if _, err := ledgers.RecordStageOutcome(context.Background(), v3, localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")); err != nil {
+		t.Fatal(err)
+	}
+	streams, err := NewCoordinationStore(state, authority.ProjectID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,6 +363,20 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(e)
 	}
 
+	evidenceStore, err := NewCapabilityStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := evidenceStore.Create(context.Background(), storeEvidence()); err != nil {
+		t.Fatal(err)
+	}
+	policyStore, err := NewValidatorPolicyStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := policyStore.Create(context.Background(), storePolicy()); err != nil {
+		t.Fatal(err)
+	}
 	return portable, state
 }
 

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
@@ -28,9 +27,6 @@ type admissionEnv struct {
 
 func newAdmissionEnv(t *testing.T) admissionEnv {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("Provider spy is a POSIX script")
-	}
 	env := admissionEnv{bootstrapEnv: newBootstrapEnv(t)}
 	env.calls = filepath.Join(t.TempDir(), "gh-calls")
 	gh := filepath.Join(t.TempDir(), "gh")

@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -14,7 +13,7 @@ import (
 )
 
 func TestHierarchicalHelpBlackboxPrecedesComposition(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), testExecutableName("axiom"))
+	binary := filepath.Join(t.TempDir(), "axiom")
 	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v: %s", err, output)
 	}
@@ -31,11 +30,8 @@ func TestHierarchicalHelpBlackboxPrecedesComposition(t *testing.T) {
 			// Shell builtins keep the trap effective even with PATH restricted to
 			// this directory: an attempted Runtime/Provider execution leaves a mark.
 			script := []byte("#!/bin/sh\nprintf called > '" + marker + "'\nexit 99\n")
-			if runtime.GOOS == "windows" {
-				script = []byte("@echo called>\"" + marker + "\"\r\n@exit /b 99\r\n")
-			}
 			for _, name := range []string{"codex", "claude", "gh", "git"} {
-				if err := os.WriteFile(filepath.Join(bin, testRuntimeName(name)), script, 0o700); err != nil {
+				if err := os.WriteFile(filepath.Join(bin, name), script, 0o700); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -54,13 +50,10 @@ func TestHierarchicalHelpBlackboxPrecedesComposition(t *testing.T) {
 				}
 			}
 			environment := []string{
-				"HOME=" + home, "USERPROFILE=" + home, "LOCALAPPDATA=" + filepath.Join(home, "AppData", "Local"),
+				"HOME=" + home,
 				"PATH=" + bin, "CLAUDE_CONFIG_DIR=" + filepath.Join(home, "claude"), "XDG_STATE_HOME=" + filepath.Join(home, "xdg"),
 				"LINGO_PROJECTS_ROOT=" + projects, "LINGO_STATE_ROOT=" + state, "AXIOM_CODEX_SKILLS_ROOT=" + skills,
-				"AXIOM_GH_BIN=" + filepath.Join(bin, testRuntimeName("gh")),
-			}
-			if runtime.GOOS == "windows" {
-				environment = append(environment, "SYSTEMROOT="+os.Getenv("SYSTEMROOT"), "PATHEXT=.COM;.EXE;.BAT;.CMD")
+				"AXIOM_GH_BIN=" + filepath.Join(bin, "gh"),
 			}
 			before := snapshotTrees(t, base)
 			for _, path := range [][]string{

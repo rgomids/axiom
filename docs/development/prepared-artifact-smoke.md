@@ -62,10 +62,8 @@ contracts remain unchanged.
 
 Hosted smoke proves this bounded lifecycle in the recorded environment,
 not every filesystem/install/upgrade journey. Issue #256 adds required Linux
-arm64 and explicitly authorized member Windows Server AMD64 installation lifecycle acceptance, described in
-[native platform acceptance](native-platform-acceptance.md). Supported Windows
-client native acceptance remains blocked by hosted runner eligibility and does
-not block publication.
+arm64 installation lifecycle acceptance, described in
+[native platform acceptance](native-platform-acceptance.md).
 Unavailable rows remain residual risk under
 [#256](https://github.com/rgomids/axiom/issues/256), never simulated as PASS.
 Any future change of the automated runner set follows an explicit reviewed

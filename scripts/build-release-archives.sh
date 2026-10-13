@@ -75,11 +75,6 @@ digest() {
 build_target() {
   local platform=$1 goos=$2 arch=$3
   local executable=axiom installer=install.sh installer_source=install-release.sh
-  if [[ "$goos" == windows ]]; then
-    executable=axiom.exe
-    installer=install.ps1
-    installer_source=install-release.ps1
-  fi
   local bundle="axiom-${version}-${platform}-${arch}"
   local root="$work/$bundle"
   mkdir -p "$root/skills"
@@ -138,6 +133,5 @@ build_target() {
 build_target macos-27 darwin arm64
 build_target linux linux amd64
 build_target linux linux arm64
-build_target windows windows amd64
 
 printf 'release_build_success: %s\n' "$output"

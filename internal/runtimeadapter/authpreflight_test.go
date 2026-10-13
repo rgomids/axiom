@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -353,9 +352,6 @@ func TestAuthReportExcludesSecretsAndAccountIdentifiers(t *testing.T) {
 // OSStatusRunner gives the child exactly the effective environment: nothing
 // inherited from the Axiom process, with bounded output and recorded exit.
 func TestOSStatusRunnerUsesOnlyTheGivenEnvironment(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX shell fixture")
-	}
 	t.Setenv("AXM_PARENT_ONLY", "inherited")
 	fixture := newAuthFixture(t, "codex")
 	script := "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'codex-cli 9.8.7'; exit 0; fi\n" +

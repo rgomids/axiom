@@ -9,6 +9,18 @@ of executable Evidence and release publication remain separate.
 
 The requester separately authorized automatic persistent user PATH setup.
 
+> **Windows support withdrawn — 2026-10-13.** The human decision in
+> [PR #311 comment 6153404308](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308)
+> removed Windows support; supported hosts are macOS arm64 and Linux amd64/arm64.
+> No superseding ADR was created, so this is a historical note, not an ADR-0018
+> supersession annotation.
+>
+> Affected contract: Windows default profile storage, the consent-gated
+> permission repair, `windows-permissions restore` and Windows persistent PATH
+> setup; none of them has current effect. Still valid: installers never weaken
+> permissions to pass and never change persistent PATH or shell profiles on the
+> supported hosts. Text below is preserved as history.
+
 ## Context
 
 Issue #265 reproduced default storage refusals at AppData ancestors and standard

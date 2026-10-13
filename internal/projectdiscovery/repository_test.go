@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -27,13 +26,6 @@ func gitRepo(t *testing.T, config string) string {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".git", "config"), config)
 	return root
-}
-
-func skipWindows(t *testing.T) {
-	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("symlink semantics differ on Windows")
-	}
 }
 
 func remote(name, url string) string {
@@ -166,7 +158,6 @@ func TestInspectRepositoryAbsentAndMissingConfig(t *testing.T) {
 }
 
 func TestInspectRepositoryLinksAndPointers(t *testing.T) {
-	skipWindows(t)
 	t.Run(".git symlink", func(t *testing.T) {
 		root, real := t.TempDir(), gitRepo(t, remote("o", "https://github.com/a/b.git"))
 		if err := os.Symlink(filepath.Join(real, ".git"), filepath.Join(root, ".git")); err != nil {

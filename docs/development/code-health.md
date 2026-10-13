@@ -38,7 +38,7 @@ inventory is needed for future matching; the human summary is capped at 15
 packages and 15 functions. There are no automatic PR comments.
 Changed packages take precedence; critical packages are `project`, `projectapp`,
 `executiongraph`, `graphapplication`, `workflow`, `runtimeadapter`,
-`runtimeapplication`, `local`, `portableconfig`, `windowsfs` and `darwinacl`.
+`runtimeapplication`, `local`, `portableconfig` and `darwinacl`.
 
 Coverage is statement-weighted, not the average of package percentages. The
 inventory is `go list ./...` on Linux, with default per-package Go test

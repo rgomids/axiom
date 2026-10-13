@@ -84,16 +84,13 @@ def command(argv, source, env, timeout=180, bound=2 * 1024 * 1024):
     """Bound allocation and time; kill the entire subprocess group on refusal."""
     chunks, exceeded = [], threading.Event()
     try:
-        process = subprocess.Popen(argv, cwd=source, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=os.name != "nt")
+        process = subprocess.Popen(argv, cwd=source, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
     except OSError:
         return "unavailable", b""
 
     def stop():
         try:
-            if os.name != "nt":
-                os.killpg(process.pid, signal.SIGKILL)
-            else:
-                process.kill()
+            os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
 
@@ -313,7 +310,7 @@ def collect(source, target, version=None, binary=None, run=command):
             env.update({key: caches[key] for key in ("GOMODCACHE", "GOCACHE", "GOROOT")})
         except (ValueError, KeyError, TypeError, RecursionError):
             return refuse(value, "toolchain_missing")
-        binary_path = str(scratch / ("axiom.exe" if os.name == "nt" else "axiom"))
+        binary_path = str(scratch / "axiom")
         code, _ = run(["go", "build", "-o", binary_path, "./cmd/lingo"], source, env)
         if code != 0:
             return refuse(value, code if code in ("timeout", "output_bound") else "build_failed", "failed")

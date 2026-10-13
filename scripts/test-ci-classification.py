@@ -26,7 +26,7 @@ class Routing(unittest.TestCase):
             (['.agents/skills/axiom-review/SKILL.md'], []),
             (['internal/application/run.go'], ['go', 'verify', 'upgrade']),
             (['go.mod', 'go.sum'], ['go', 'verify', 'upgrade']),
-            (['install.ps1'], ['go', 'verify', 'release', 'upgrade']),
+            (['install.sh'], ['go', 'verify', 'release', 'upgrade']),
             (['internal/compatibility/testdata/state.json'], ['go', 'verify', 'release', 'upgrade']),
             (['scripts/test-release-flow.sh'], ['release']),
             (['scripts/build-release-archives.sh'], ['go', 'verify', 'release', 'upgrade']),
@@ -139,7 +139,7 @@ class Routing(unittest.TestCase):
 
     def test_missing_or_invalid_platform_cannot_pass(self):
         plan = classifier.plan([dict(path='unknown', status='M')])
-        for suite, platforms in [('verify', ['linux', 'macos', 'windows']),
+        for suite, platforms in [('verify', ['linux', 'macos']),
                                  ('upgrade', ['linux', 'macos'])]:
             for platform in platforms:
                 row = dict(schema_version=1, identity=classifier.identity(), suite=suite,
@@ -153,6 +153,12 @@ class Routing(unittest.TestCase):
                         'success', 'success', invalid, suite, platform))
                 self.assertFalse(classifier.conclude(dict(plan, identity={}), 'true',
                     'success', 'success', 'success', row, suite, platform))
+            # Unsupported platforms cannot conclude even with a self-consistent row.
+            for unsupported in ('windows', 'other'):
+                row = dict(schema_version=1, identity=classifier.identity(), suite=suite,
+                           platform=unsupported, result='success')
+                self.assertFalse(classifier.conclude(plan, 'true', 'success',
+                    'success', 'success', row, suite, unsupported))
 
     def test_unavailable_refs_and_shallow_history_fall_back_full(self):
         with tempfile.TemporaryDirectory() as directory:

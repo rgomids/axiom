@@ -53,17 +53,7 @@ Instale a **release estável mais recente** no **Linux ou macOS**:
 curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh
 ```
 
-No **Windows** (PowerShell 64 bits):
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
-```
-
-O bootstrap Windows verifica o binário instalado, configura as skills dos
-Runtimes detectados e atualiza o PATH deste terminal e o PATH permanente do usuário. Instalações novas usam
-armazenamento privado no perfil. Se diretórios padrão dos Runtimes precisarem
-de reparo de permissões, ele mostra as alterações exatas e pede aprovação antes
-de aplicá-las. Consulte [onboarding e recuperação no Windows](installation.md#windows).
+Supported hosts: macOS arm64 and Linux amd64/arm64.
 
 Pré-requisitos, plataformas, PATH, atualização e diagnóstico:
 [guia de instalação](installation.md).
@@ -141,8 +131,8 @@ são decisões distintas.
 - **Release estável mais recente:** [GitHub Releases](https://github.com/rgomids/axiom/releases/latest).
   O instalador a resolve automaticamente; o [Changelog](../CHANGELOG.md) lista o
   que cada versão adiciona.
-- **Disponível hoje / stable:** distribuição verificada por checksum para Linux,
-  macOS e Windows; configuração guiada, listagem e resolução de Projects;
+- **Disponível hoje / stable:** distribuição verificada por checksum para Linux
+  e macOS; configuração guiada, listagem e resolução de Projects;
   criação e classificação de Work Items GitHub; bootstrap Codex/Claude;
   workflow persistente, Evidence, recuperação e upgrades de instalações próprias.
   Inclui fundamentos de multi-runtime e execução multi-agent delimitada com
@@ -230,7 +220,7 @@ go test ./...
 
 O script instala um build de desenvolvimento do checkout. Consulte
 [setup de desenvolvimento](development/getting-started.md) e
-[referência de comandos](commands.md) para build, Windows e dogfooding.
+[referência de comandos](commands.md) para build e dogfooding.
 
 ## Site
 

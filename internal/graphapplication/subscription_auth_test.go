@@ -214,7 +214,6 @@ func TestSubscriptionDispatchWithValidatedEffort(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		t.Run(runtimeID, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
-			t.Setenv("USERPROFILE", t.TempDir())
 			t.Setenv("AXIOM_INHERITED_MARKER", "synthetic")
 			auth := &recordingAuth{status: runtimeadapter.AuthSubscriptionObserved}
 			guard, graph, _, _ := subscriptionGuard(t, runtimeID, "", nil, auth, "high")
@@ -225,7 +224,7 @@ func TestSubscriptionDispatchWithValidatedEffort(t *testing.T) {
 			if len(auth.targets) != 1 || !slices.Equal(auth.targets[0].Environment, executiongraph.EffectiveInvocationEnvironment(invocation)) {
 				t.Fatal("preflight and runner environments differ")
 			}
-			for _, key := range []string{"HOME", "USERPROFILE", "PATH", "AXIOM_INHERITED_MARKER"} {
+			for _, key := range []string{"HOME", "PATH", "AXIOM_INHERITED_MARKER"} {
 				if !slices.Contains(auth.targets[0].Environment, key+"="+os.Getenv(key)) {
 					t.Fatalf("missing inherited key %s", key)
 				}
@@ -296,7 +295,6 @@ func TestClaudeSubscriptionEffortUsesInheritedEnvironmentInRealPreflight(t *test
 		}
 	}
 	t.Setenv("HOME", canonicalTempDir(t))
-	t.Setenv("USERPROFILE", os.Getenv("HOME"))
 	status := &claudeEffortStatus{}
 	preflight, err := runtimeadapter.NewAuthPreflight(status, runtimeadapter.ManagedConfiguration{})
 	if err != nil {

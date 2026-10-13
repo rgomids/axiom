@@ -192,7 +192,7 @@ def install(tool, home, env):
                             package + '@' + BASELINE['tools'][tool]['version']], 180, env)
         binary = home / 'npm/node_modules/.bin' / tool
         if tool == 'claude' and response['category'] == 'none':
-            # The current wrapper's postinstall replaces an inert .exe stub.
+            # The current wrapper's postinstall replaces an inert placeholder stub.
             # Keep lifecycle scripts disabled; use the exact npm-integrity-
             # verified Linux x64 optional binary directly on our runner row.
             binary = home / 'npm/node_modules/@anthropic-ai/claude-code-linux-x64/claude'

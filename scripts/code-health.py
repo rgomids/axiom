@@ -17,7 +17,7 @@ SCHEMA = 1
 SCOPE = 'linux/go-test-atomic/default-package-instrumentation;ast/cmd+internal/all-platforms/no-tests/v1'
 LIMIT = 15
 CRITICAL = {'project', 'projectapp', 'executiongraph', 'graphapplication', 'workflow',
-            'runtimeadapter', 'runtimeapplication', 'local', 'portableconfig', 'windowsfs', 'darwinacl'}
+            'runtimeadapter', 'runtimeapplication', 'local', 'portableconfig', 'darwinacl'}
 MAX_BYTES = 8 * 1024 * 1024
 MAX_AGE = dt.timedelta(days=30)
 SHA = re.compile(r'^[0-9a-f]{40}$')

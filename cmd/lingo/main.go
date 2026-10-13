@@ -33,6 +33,12 @@ var (
 )
 
 func main() {
+	if handled, code := stageSupervisorCommand(context.Background(), os.Args[1:], productionSupervisorLoader{}); handled {
+		os.Exit(code)
+	}
+	if handled, code := probeCanaryCommand(context.Background(), os.Args[1:], nil, os.Stdout); handled {
+		os.Exit(code)
+	}
 	if handled, code := cli.HandleHelp(os.Args[1:], currentProvenance(), os.Stdout); handled {
 		os.Exit(code)
 	}
@@ -203,9 +209,6 @@ func stateRoot() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
-	}
-	if runtime.GOOS == "windows" {
-		return local.WindowsStateRoot(home, os.Getenv("LOCALAPPDATA"))
 	}
 	return local.NativeStateRoot(runtime.GOOS, home, os.Getenv("XDG_STATE_HOME"))
 }

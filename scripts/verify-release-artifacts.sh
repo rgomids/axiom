@@ -40,7 +40,7 @@ digest() {
   fi
 }
 
-rows='macos-27:darwin:arm64 linux:linux:amd64 linux:linux:arm64 windows:windows:amd64'
+rows='macos-27:darwin:arm64 linux:linux:amd64 linux:linux:arm64'
 # The closed skill set is exactly the source revision's embedded skills
 # (internal/codexruntime/skills), which this checkout is verified to be.
 skill_names=$(cd "$repository_root/internal/codexruntime/skills" && for skill in */; do printf '%s ' "${skill%/}"; done)
@@ -62,7 +62,7 @@ while IFS= read -r name; do
 done <"$temporary/actual-files"
 
 checksums="$directory/SHA256SUMS"
-[[ $(wc -l <"$checksums" | tr -d ' ') == 4 ]] || fail 'SHA256SUMS must list exactly the four archives'
+[[ $(wc -l <"$checksums" | tr -d ' ') == 3 ]] || fail 'SHA256SUMS must list exactly the three archives'
 grep -v '^SHA256SUMS$' "$temporary/expected-files" >"$temporary/expected-archives"
 awk '{print $2}' "$checksums" | LC_ALL=C sort >"$temporary/listed-archives"
 cmp -s "$temporary/expected-archives" "$temporary/listed-archives" || fail 'SHA256SUMS names do not match the archive set'
@@ -82,11 +82,6 @@ for row in $rows; do
   executable=axiom
   installer=install.sh
   installer_source=install-release.sh
-  if [[ "$goos" == windows ]]; then
-    executable=axiom.exe
-    installer=install.ps1
-    installer_source=install-release.ps1
-  fi
   bundle="axiom-$version-$platform-$architecture"
   archive="$directory/$bundle.tar.gz"
 
@@ -140,7 +135,6 @@ for row in $rows; do
     darwin:arm64) [[ "$header" == cffaedfe0c000001* ]] ;;
     linux:amd64) [[ "$header" == 7f454c46020101* && "${header:36:4}" == 3e00 ]] ;;
     linux:arm64) [[ "$header" == 7f454c46020101* && "${header:36:4}" == b700 ]] ;;
-    windows:amd64) [[ "$header" == 4d5a* ]] ;;
     *) false ;;
   esac || fail "axiom executable format does not match $goos/$architecture: $bundle"
 

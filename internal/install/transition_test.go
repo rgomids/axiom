@@ -15,7 +15,6 @@ import (
 	"github.com/rgomids/axiom/internal/detailartifact"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/provenance"
-	"github.com/rgomids/axiom/internal/testfs"
 )
 
 const (
@@ -128,13 +127,13 @@ func TestUpgradeResolvesForwardTransitionPolicy(t *testing.T) {
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
 		{"unsafe symlink entry", "1.1.0", func(i installation, t *testing.T) {
 			i.withV1State(t)
-			if err := testfs.Symlink(t, t.TempDir(), filepath.Join(i.target.State.State, "work-items", pocProjectID, "link.json")); err != nil {
+			if err := os.Symlink(t.TempDir(), filepath.Join(i.target.State.State, "work-items", pocProjectID, "link.json")); err != nil {
 				t.Fatal(err)
 			}
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
 		{"unsafe permissive mode", "1.1.0", func(i installation, t *testing.T) {
 			i.withV1State(t)
-			if err := testfs.SharedMode(i.workItem(), 0o644); err != nil {
+			if err := os.Chmod(i.workItem(), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
@@ -149,7 +148,7 @@ func TestUpgradeResolvesForwardTransitionPolicy(t *testing.T) {
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},
 		{"unsafe POC history beside v1", "1.1.0", func(i installation, t *testing.T) {
 			i.withPOCAndV1State(t)
-			if err := testfs.SharedMode(i.pocWorkflow(), 0o644); err != nil {
+			if err := os.Chmod(i.pocWorkflow(), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}, compatibility.Malformed, compatibility.StrategyRefuse, "state_unsafe"},

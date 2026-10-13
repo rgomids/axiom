@@ -78,7 +78,6 @@ func TestDetectTechnology(t *testing.T) {
 }
 
 func TestDetectTechnologyIgnoresLinksAndDirectories(t *testing.T) {
-	skipWindows(t)
 	root := t.TempDir()
 	if err := os.Mkdir(filepath.Join(root, "go.mod"), 0o755); err != nil {
 		t.Fatal(err)
