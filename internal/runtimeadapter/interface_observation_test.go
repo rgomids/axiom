@@ -28,6 +28,7 @@ func (f *fakeInterface) Output(_ context.Context, _ string, args, env []string, 
 	return "Usage: codex exec\nOptions:\n  --model M\n  --ignore-user-config\n  --ephemeral\n  --sandbox MODE\n  --add-dir DIR", nil
 }
 func TestInterfaceExactEnvironmentAndReplacement(t *testing.T) {
+	skipPOSIXStagePaths(t)
 	for _, ids := range [][]string{{"a", "a", "a"}, {"a", "b"}, {"a", "a", "b"}} {
 		for i := range ids {
 			ids[i] = strings.Repeat(ids[i], 64)

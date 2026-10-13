@@ -26,13 +26,18 @@ func (g *posixProcessGroup) start(cmd *exec.Cmd) error {
 func (g *posixProcessGroup) stop() error {
 	g.observeEscapes()
 	err := syscall.Kill(-g.pid, syscall.SIGKILL)
-	if errors.Is(err, syscall.ESRCH) {
+	// Darwin reports EPERM for a group whose members are all zombies; gone()
+	// confirms through process observation instead of trusting the signal.
+	if errors.Is(err, syscall.ESRCH) || errors.Is(err, syscall.EPERM) {
 		return nil
 	}
 	return err
 }
 func (g *posixProcessGroup) gone() (bool, error) {
 	err := syscall.Kill(-g.pid, 0)
+	if errors.Is(err, syscall.EPERM) {
+		err = nil // zombie-only group on Darwin: decide by observation below
+	}
 	if err != nil && !errors.Is(err, syscall.ESRCH) {
 		return false, err
 	}

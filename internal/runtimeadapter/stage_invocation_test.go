@@ -8,6 +8,7 @@ import (
 )
 
 func TestStageArgvGolden(t *testing.T) {
+	skipPOSIXStagePaths(t)
 	for _, tc := range []struct {
 		runtime, version string
 		write            bool
@@ -99,6 +100,7 @@ func TestStageAuthMissingLoginRoot(t *testing.T) {
 }
 
 func TestStagePathAndProcessBoundary(t *testing.T) {
+	skipPOSIXStagePaths(t)
 	request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: "claude", Executable: "/bin/claude", Model: "model"}, Version: "2.1.296", Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom"}
 	for _, inbox := range []string{"/work/inbox", "/", "/inbox/../inbox", "/inbox\n", "/inbox\x00"} {
 		invalid := request

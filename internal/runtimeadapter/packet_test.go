@@ -20,6 +20,7 @@ func packetFixture() (PacketInput, PacketContext) {
 }
 
 func TestTaskPacketGraphAndSingleAgent(t *testing.T) {
+	skipPOSIXStagePaths(t)
 	for _, kind := range []string{"graph-child", "single-agent"} {
 		t.Run(kind, func(t *testing.T) {
 			input, binding := packetFixture()
@@ -105,6 +106,7 @@ func (f *packetRecorderFake) RecordTaskPacket(_ context.Context, receipt Attempt
 	return f.err
 }
 func TestPreparePacketRecordsBeforeDelivery(t *testing.T) {
+	skipPOSIXStagePaths(t)
 	input, binding := packetFixture()
 	recorder := &packetRecorderFake{}
 	invocation, receipt, err := PrepareTaskPacket(context.Background(), executiongraph.Invocation{}, input, binding, recorder)
