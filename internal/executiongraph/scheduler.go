@@ -415,7 +415,12 @@ func WithExactEnvironment(invocation Invocation, environment []string) Invocatio
 
 type OSProcessRunner struct{}
 
-func (OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessResult {
+func (r OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessResult {
+	return r.RunObserved(ctx, invocation, nil)
+}
+
+// RunObserved uses the existing containment and stop-confirmation boundary.
+func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, started func(*ProcessCorrelation) error) ProcessResult {
 	if len(invocation.Stdin) > MaxStdinBytes || len(invocation.Argv) == 0 {
 		return ProcessResult{ExitCode: -1, OutcomeUnknown: true}
 	}
@@ -437,6 +442,26 @@ func (OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessRe
 	}
 	startFailed := err != nil
 	stopped := false
+	if err == nil && started != nil {
+		identity, observationErr := ObserveProcessCorrelation(int64(command.Process.Pid))
+		if observationErr == nil && identity != nil {
+			observationErr = started(identity)
+		} else if observationErr == nil {
+			observationErr = ErrInvalidGraph
+		}
+		if observationErr != nil {
+			stopCtx, cancel := context.WithTimeout(context.Background(), processStopBound)
+			stopped = confirmProcessStop(stopCtx, group)
+			cancel()
+			wait := make(chan error, 1)
+			go func() { wait <- command.Wait() }()
+			select {
+			case <-wait:
+			case <-time.After(processStopBound):
+			}
+			return ProcessResult{ExitCode: -1, OutcomeUnknown: true, Stopped: stopped}
+		}
+	}
 	interrupted := false
 	if err == nil {
 		wait := make(chan error, 1)
