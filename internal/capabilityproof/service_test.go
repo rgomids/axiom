@@ -190,3 +190,17 @@ func TestInvalidationPreviewFreezesProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestEachRequiredCapabilityBlocks(t *testing.T) {
+	for _, cap := range []string{Read, RepositoryWrite, Process, Noninteractive, AxiomCoordination, ModelInvocation, "reasoning-effort-high"} {
+		t.Run(cap, func(t *testing.T) {
+			s, store, source, target := proofFixture(RepositoryWriteVariant)
+			delete(store.evidence.Capabilities, cap)
+			store.ref, _ = Digest(store.evidence)
+			source.current.EvidenceRef = store.ref
+			if _, code, err := s.Check(context.Background(), target, []string{Read}, true, true, ""); err == nil || code != "capability_unknown" {
+				t.Fatal(code, err)
+			}
+		})
+	}
+}

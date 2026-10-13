@@ -46,7 +46,7 @@ func TestObserverRejectsMixedVariants(t *testing.T) {
 
 func TestConfiguredSourceReflectsProfileState(t *testing.T) {
 	s, store, source, target := proofFixture(ReadOnlyVariant)
-	p := runtimeprofile.ModelProfile{ID: "profile", RuntimeID: "codex", Model: "model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "high"}, Capabilities: []string{Read}, Roles: []string{"implementation"}, Complexities: []string{"high"}}
+	p := runtimeprofile.ModelProfile{ID: "profile", RuntimeID: "codex", Model: "model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "high"}, Capabilities: []string{Read}, Complexities: []string{"high"}}
 	pd, err := runtimeprofile.ProfileDigest(p)
 	if err != nil {
 		t.Fatal(err)
@@ -57,6 +57,11 @@ func TestConfiguredSourceReflectsProfileState(t *testing.T) {
 	source.current.EvidenceRef = store.ref
 	cfg := runtimeprofile.Configuration{FormatVersion: 2, Revision: 1, Runtimes: []runtimeprofile.Runtime{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"profile"}}}, ModelProfiles: []runtimeprofile.ModelProfile{p}}
 	s.Source = ConfiguredSource{source, cfg}
+	base := fakeObserver{runtimeprofile.Observation{RuntimeID: "codex", Adapter: "codex", Installed: true, Available: true, ExecutableDigest: source.current.Binding.ExecutableDigest, Version: source.current.Binding.Version, Revision: 1, ObservedAt: s.now()}}
+	resolution, resolveErr := runtimeprofile.NewResolver(Observer{Base: base, Service: s, Targets: []Target{target}}).Resolve(context.Background(), cfg, runtimeprofile.Request{ConfigurationRevision: 1, Role: "implementation", Complexity: "high", Capabilities: []string{Read}, ModelProfileID: "profile"})
+	if resolveErr != nil || resolution.Choice == nil || resolution.Choice.ResolvedProfile.CapabilityProofReference != store.ref {
+		t.Fatal(resolution, resolveErr)
+	}
 	view, err := s.Show(context.Background(), target)
 	if err != nil || view.States[Read] != Proven {
 		t.Fatal(view, err)
