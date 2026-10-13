@@ -76,6 +76,13 @@ func (v *CombinedValidator) ValidateCombined(ctx context.Context, integration ex
 }
 
 // ValidValidationCommand checks the argv-only integration command boundary.
+// HostAbsolutePlaceholder returns a host-absolute path ending in name, for
+// structural validation of commands persisted on another platform.
+func HostAbsolutePlaceholder(name string) string {
+	root, _ := filepath.Abs(string(filepath.Separator))
+	return filepath.Join(root, name)
+}
+
 func ValidValidationCommand(command ValidationCommand) bool {
 	if command.Reference == "" || len(command.Reference) > 512 || strings.ContainsAny(command.Reference, "\x00\r\n") || len(command.Argv) == 0 || len(command.Argv) > 64 || !filepath.IsAbs(command.Argv[0]) || command.OutputMax <= 0 || command.OutputMax > executiongraph.MaxCapturedOutputBytes || len(command.Env) > 64 {
 		return false

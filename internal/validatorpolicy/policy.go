@@ -64,7 +64,7 @@ func ValidateDefinition(d Definition) error {
 	}
 	seen := map[string]bool{}
 	for _, c := range d.Commands {
-		if !gitworkspace.ValidValidationCommand(toCommand(c)) || seen[c.Reference] {
+		if !gitworkspace.ValidValidationCommand(portableCommand(c)) || seen[c.Reference] {
 			return ErrInvalid
 		}
 		seen[c.Reference] = true
@@ -123,6 +123,33 @@ func toCommand(c Command) gitworkspace.ValidationCommand {
 	return gitworkspace.ValidationCommand{Reference: c.Reference, Argv: append([]string(nil), c.Argv...), Env: append([]string(nil), c.Env...), OutputMax: c.OutputMax}
 }
 
+// portableCommand lets persisted policy structure be judged independently of
+// the reading host: argv[0] must be absolute under POSIX or Windows rules, and
+// is then checked against every other ValidationCommand rule. Commands still
+// enforces host-native validity before anything can execute.
+func portableCommand(c Command) gitworkspace.ValidationCommand {
+	command := toCommand(c)
+	if len(command.Argv) == 0 || !portableAbsolute(command.Argv[0]) {
+		return command
+	}
+	name := command.Argv[0]
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	if name == "" {
+		return command
+	}
+	command.Argv[0] = gitworkspace.HostAbsolutePlaceholder(name)
+	return command
+}
+
+func portableAbsolute(path string) bool {
+	if strings.HasPrefix(path, "/") || strings.HasPrefix(path, `\\`) {
+		return true
+	}
+	return len(path) >= 3 && (path[0]|0x20) >= 'a' && (path[0]|0x20) <= 'z' && path[1] == ':' && (path[2] == '\\' || path[2] == '/')
+}
+
 // Commands binds the exact reviewed artifact referenced by a dispatch preview.
 func Commands(p Policy, expected string) ([]gitworkspace.ValidationCommand, error) {
 	actual, e := Digest(p)
@@ -134,7 +161,11 @@ func Commands(p Policy, expected string) ([]gitworkspace.ValidationCommand, erro
 	}
 	result := make([]gitworkspace.ValidationCommand, 0, len(p.Commands))
 	for _, c := range p.Commands {
-		result = append(result, toCommand(c))
+		command := toCommand(c)
+		if !gitworkspace.ValidValidationCommand(command) {
+			return nil, ErrInvalid
+		}
+		result = append(result, command)
 	}
 	return result, nil
 }
