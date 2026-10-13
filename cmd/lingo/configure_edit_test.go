@@ -14,7 +14,6 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/testfs"
 )
 
 // Issue #132 I132-T01 Evidence: EDIT is a zero-write preview over the real
@@ -421,12 +420,12 @@ func TestEditFailsClosedOnUnsafeOrIncoherentRecordedSource(t *testing.T) {
 			if err := os.Rename(source, source+"-real"); err != nil {
 				t.Fatal(err)
 			}
-			if err := testfs.Symlink(t, source+"-real", source); err != nil {
+			if err := os.Symlink(source+"-real", source); err != nil {
 				t.Fatal(err)
 			}
 		},
 		"shared source permissions": func(t *testing.T, _ editEnvironment, source string) {
-			if err := testfs.SharedMode(source, 0o755); err != nil {
+			if err := os.Chmod(source, 0o755); err != nil {
 				t.Fatal(err)
 			}
 		},

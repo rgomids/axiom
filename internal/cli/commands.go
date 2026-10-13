@@ -4,7 +4,6 @@ import (
 	"flag"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"io"
-	"runtime"
 	"strings"
 )
 
@@ -80,9 +79,6 @@ func commandTree() commandDefinition {
 		leaf("upgrade", "Preview or upgrade owned release installation", upgradeAction),
 	)
 
-	if runtime.GOOS == "windows" {
-		root.children = append(root.children, windowsPermissionsCommand())
-	}
 	return root
 }
 
@@ -134,8 +130,6 @@ func commandFlagSet(operation action) *flag.FlagSet {
 		return runtimeAuthoringFlagSet(operation, &runtimeapplication.AuthoringRequest{})
 	case strings.HasPrefix(string(operation), "project_workflow_"):
 		return workflowAuthoringFlagSet(operation, &ProjectWorkflowInput{})
-	case operation == windowsPermissionsRestoreAction:
-		return windowsPermissionsFlagSet()
 	case strings.HasPrefix(string(operation), "context_"):
 		return projectContextFlagSet(&ProjectContextInput{Action: strings.TrimPrefix(string(operation), "context_")})
 	case operation == runtimeProfilePreviewAction:

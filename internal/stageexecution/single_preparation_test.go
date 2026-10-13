@@ -3,7 +3,6 @@ package stageexecution
 import (
 	"context"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -52,9 +51,6 @@ func (f *fakeSingleInvocationSupervisor) StartSingleInvocation(_ context.Context
 	return executiongraph.ProcessCorrelation{PID: 44, StartIdentity: "fake-single", GroupIdentity: "fake-group"}, nil
 }
 func TestSinglePreparationReusesFrozenAdapterAndPacket(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX stage-path fixtures; Windows stage paths pending (#276)")
-	}
 	for _, kind := range []string{"positive", "input drift", "tuple drift", "auth blocked", "packet save failure", "foreign inbox"} {
 		t.Run(kind, func(t *testing.T) {
 			g := graphFixture(t)

@@ -263,12 +263,12 @@ func TestUpgradeRefusesUnattestedEmptyLegacyDirectory(t *testing.T) {
 	}
 }
 
-// The Windows installer inspects the skill root as persisted state
+// Upgrade can inspect the skill root as persisted state
 // (Target.State.Skills == SkillsRoot). A retirement interrupted between
 // removing SKILL.md and its directory must resume through Preview and Apply,
 // both when the historical receipt attests the name and when only the
 // retirement proof written before the first deletion does.
-func TestUpgradeResumesPartialRetirementWithWindowsStateWiring(t *testing.T) {
+func TestUpgradeResumesPartialRetirementWithPersistedSkillsWiring(t *testing.T) {
 	for _, proof := range []string{"receipt", "retirement-proof"} {
 		t.Run(proof, func(t *testing.T) {
 			installed, root := installSixSkillRelease(t)
@@ -337,7 +337,7 @@ func TestUpgradeResumesPartialRetirementWithWindowsStateWiring(t *testing.T) {
 
 // With the same wiring, an empty retired directory that neither a receipt
 // nor a retirement proof attests remains refused and untouched.
-func TestUpgradeRefusesUnattestedEmptyDirectoryWithWindowsStateWiring(t *testing.T) {
+func TestUpgradeRefusesUnattestedEmptyDirectoryWithPersistedSkillsWiring(t *testing.T) {
 	installed, root := installSixSkillRelease(t)
 	installed.target.State.Skills = root
 	if err := os.Remove(filepath.Join(root, codexruntime.SkillSetReceiptName)); err != nil {
@@ -356,9 +356,9 @@ func TestUpgradeRefusesUnattestedEmptyDirectoryWithWindowsStateWiring(t *testing
 }
 
 // An upgrade interrupted while preparing the next entry's proof leaves an
-// empty or truncated private stage; with the Windows wiring and without a
+// empty or truncated private stage; with that wiring and without a
 // receipt, resume prepares it again and converges.
-func TestUpgradeResumesInterruptedProofPreparationWithWindowsStateWiring(t *testing.T) {
+func TestUpgradeResumesInterruptedProofPreparationWithPersistedSkillsWiring(t *testing.T) {
 	for _, size := range []string{"empty", "truncated"} {
 		t.Run(size, func(t *testing.T) {
 			installed, root := installSixSkillRelease(t)

@@ -1,12 +1,10 @@
-//go:build !windows
+//go:build unix
 
 package install
 
 import "golang.org/x/sys/unix"
 
 const binaryName = "axiom"
-
-func supportedWindowsHost() bool { return false }
 
 func statfsAvailable(path string) (uint64, error) {
 	var filesystem unix.Statfs_t

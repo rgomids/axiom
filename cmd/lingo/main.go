@@ -210,9 +210,6 @@ func stateRoot() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if runtime.GOOS == "windows" {
-		return local.WindowsStateRoot(home, os.Getenv("LOCALAPPDATA"))
-	}
 	return local.NativeStateRoot(runtime.GOOS, home, os.Getenv("XDG_STATE_HOME"))
 }
 

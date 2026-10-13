@@ -26,7 +26,7 @@ func TestExecutableWorkflowDefaultCustomEditSelectAndRetire(t *testing.T) {
 	env := newBootstrapEnv(t)
 	repository := writeTree(t, filepath.Join(env.workspace, "main"), map[string]string{"README.md": "untouched"})
 	configureProject(t, env.service, "workflows", "Workflows", "main="+repository, "none")
-	binary := filepath.Join(t.TempDir(), testExecutableName("axiom"))
+	binary := filepath.Join(t.TempDir(), "axiom")
 	cmd := exec.Command("go", "build", "-o", binary, ".")
 	if output, e := cmd.CombinedOutput(); e != nil {
 		t.Fatalf("build %v %s", e, output)

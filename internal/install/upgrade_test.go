@@ -363,16 +363,16 @@ func TestUpgradeSkillConflictsHaveZeroEffects(t *testing.T) {
 			writeFile(t, filepath.Join(root, skillNames[0], "notes.md"), []byte("x\n"), 0o600)
 		},
 		"permissive skill file": func(t *testing.T, root string) {
-			if err := testfs.SharedMode(filepath.Join(root, skillNames[1], "SKILL.md"), 0o644); err != nil {
+			if err := os.Chmod(filepath.Join(root, skillNames[1], "SKILL.md"), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		},
 		"symlinked skill directory": func(t *testing.T, root string) {
 			outside := t.TempDir()
-			if err := testfs.RenameOrSkipPinned(t, filepath.Join(root, skillNames[1]), filepath.Join(outside, "moved")); err != nil {
+			if err := os.Rename(filepath.Join(root, skillNames[1]), filepath.Join(outside, "moved")); err != nil {
 				t.Fatal(err)
 			}
-			if err := testfs.Symlink(t, filepath.Join(outside, "moved"), filepath.Join(root, skillNames[1])); err != nil {
+			if err := os.Symlink(filepath.Join(outside, "moved"), filepath.Join(root, skillNames[1])); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -658,7 +658,7 @@ func TestUpgradeRefusalsHaveZeroEffects(t *testing.T) {
 			if err := os.Remove(path); err != nil {
 				t.Fatal(err)
 			}
-			if err := testfs.Symlink(t, outside, path); err != nil {
+			if err := os.Symlink(outside, path); err != nil {
 				t.Fatal(err)
 			}
 			return i.candidate(t, newBundle("1.1.0", []byte("new\n")))
@@ -680,20 +680,20 @@ func TestUpgradeRefusalsHaveZeroEffects(t *testing.T) {
 			return i.candidate(t, newBundle("1.1.0", []byte("new\n")))
 		}, "receipt_invalid"},
 		{"shared receipt directory", func(t *testing.T, i *installation) Candidate {
-			if err := testfs.SharedMode(i.target.ReceiptDir, 0o755); err != nil {
+			if err := os.Chmod(i.target.ReceiptDir, 0o755); err != nil {
 				t.Fatal(err)
 			}
 			return i.candidate(t, newBundle("1.1.0", []byte("new\n")))
 		}, "unsafe_target"},
 		{"symlinked binary directory", func(t *testing.T, i *installation) Candidate {
 			real := privateDirectory(t, filepath.Dir(i.target.BinaryDir), "real-bin")
-			if err := testfs.RenameOrSkipPinned(t, filepath.Join(i.target.BinaryDir, binaryName), filepath.Join(real, binaryName)); err != nil {
+			if err := os.Rename(filepath.Join(i.target.BinaryDir, binaryName), filepath.Join(real, binaryName)); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.Remove(i.target.BinaryDir); err != nil {
 				t.Fatal(err)
 			}
-			if err := testfs.Symlink(t, real, i.target.BinaryDir); err != nil {
+			if err := os.Symlink(real, i.target.BinaryDir); err != nil {
 				t.Fatal(err)
 			}
 			return i.candidate(t, newBundle("1.1.0", []byte("new\n")))
@@ -708,7 +708,7 @@ func TestUpgradeRefusalsHaveZeroEffects(t *testing.T) {
 			mutate func(*testing.T, *installation) Candidate
 			want   string
 		}{fmt.Sprintf("binary directory %04o", mode), func(t *testing.T, i *installation) Candidate {
-			if err := testfs.SharedMode(i.target.BinaryDir, mode); err != nil {
+			if err := os.Chmod(i.target.BinaryDir, mode); err != nil {
 				t.Fatal(err)
 			}
 			return i.candidate(t, newBundle("1.1.0", []byte("new\n")))

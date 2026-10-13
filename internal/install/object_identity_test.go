@@ -3,7 +3,6 @@ package install
 import (
 	"context"
 	"errors"
-	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +25,7 @@ var replaceDirectory = []struct {
 	replace func(t *testing.T, path string) (original, replacement string)
 }{
 	{"root replaced by another directory", func(t *testing.T, path string) (string, string) {
-		if err := testfs.RenameOrSkipPinned(t, path, path+"-moved"); err != nil {
+		if err := os.Rename(path, path+"-moved"); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Mkdir(path, 0o700); err != nil {
@@ -39,17 +38,17 @@ var replaceDirectory = []struct {
 		if err := os.Mkdir(foreign, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if err := testfs.RenameOrSkipPinned(t, path, path+"-moved"); err != nil {
+		if err := os.Rename(path, path+"-moved"); err != nil {
 			t.Fatal(err)
 		}
-		if err := testfs.Symlink(t, foreign, path); err != nil {
+		if err := os.Symlink(foreign, path); err != nil {
 			t.Fatal(err)
 		}
 		return path + "-moved", foreign
 	}},
 	{"ancestor replaced", func(t *testing.T, path string) (string, string) {
 		parent := filepath.Dir(path)
-		if err := testfs.RenameOrSkipPinned(t, parent, parent+"-moved"); err != nil {
+		if err := os.Rename(parent, parent+"-moved"); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.MkdirAll(path, 0o700); err != nil {
@@ -162,7 +161,7 @@ func TestApplyRefusesReceiptDirectoryReplacedMidOperation(t *testing.T) {
 	priorReceipt := read(t, filepath.Join(receiptDir, receiptName))
 	service.afterEffect = func(kind string) error {
 		if kind == "binary" {
-			if err := testfs.RenameOrSkipPinned(t, receiptDir, receiptDir+"-moved"); err != nil {
+			if err := os.Rename(receiptDir, receiptDir+"-moved"); err != nil {
 				return err
 			}
 			return os.Mkdir(receiptDir, 0o700)
@@ -197,7 +196,7 @@ func TestApplyDoesNotDeclareSuccessAfterBinaryDirectoryReplaced(t *testing.T) {
 	binaryDir := installed.target.BinaryDir
 	service.afterEffect = func(kind string) error {
 		if kind == "receipt" {
-			if err := testfs.RenameOrSkipPinned(t, binaryDir, binaryDir+"-moved"); err != nil {
+			if err := os.Rename(binaryDir, binaryDir+"-moved"); err != nil {
 				return err
 			}
 			return os.Mkdir(binaryDir, 0o700)
@@ -241,7 +240,7 @@ func TestApplyKeepsMarkerWhenSkillRootReplacedAfterPublication(t *testing.T) {
 		if kind != "skill:"+skillNames[len(skillNames)-1] {
 			return nil
 		}
-		if err := testfs.RenameOrSkipPinned(t, root, root+"-old"); err != nil {
+		if err := os.Rename(root, root+"-old"); err != nil {
 			return err
 		}
 		// Even a complete matching set at B cannot confirm publication in A.

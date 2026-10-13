@@ -153,8 +153,6 @@ func DefaultManagedConfiguration() ManagedConfiguration {
 		return ManagedConfiguration{ClaudeSettings: []string{"/Library/Application Support/ClaudeCode/managed-settings.json"}, CodexConfig: []string{"/etc/codex/config.toml", "/etc/codex/managed_config.toml"}}
 	case "linux":
 		return ManagedConfiguration{ClaudeSettings: []string{"/etc/claude-code/managed-settings.json"}, CodexConfig: []string{"/etc/codex/config.toml", "/etc/codex/managed_config.toml"}}
-	case "windows":
-		return ManagedConfiguration{ClaudeSettings: []string{`C:\Program Files\ClaudeCode\managed-settings.json`}}
 	}
 	return ManagedConfiguration{}
 }
@@ -175,7 +173,7 @@ func (p AuthPreflight) Check(ctx context.Context, target AuthTarget) AuthReport 
 	if err != nil {
 		return report.with(AuthUnavailable, "executable_unavailable")
 	}
-	if strings.TrimSuffix(strings.ToLower(filepath.Base(target.Executable)), ".exe") != target.RuntimeID {
+	if filepath.Base(target.Executable) != target.RuntimeID {
 		return report.with(AuthIncompatible, "executable_mismatch")
 	}
 	report.ExecutableDigest = identity
@@ -259,8 +257,8 @@ func compactStrings(values []string) []string {
 	return result
 }
 
-// environmentMap normalizes keys to upper case, matching Windows semantics,
-// and rejects duplicate keys whose effective value would be ambiguous.
+// environmentMap normalizes keys to upper case and rejects duplicate keys,
+// including case variants, whose effective value would be ambiguous.
 func environmentMap(environment []string) (map[string]string, bool) {
 	result := make(map[string]string, len(environment))
 	for _, entry := range environment {
@@ -330,9 +328,6 @@ type configurationFile struct{ scope, path string }
 
 func (p AuthPreflight) configurationOverrides(runtimeID string, environment map[string]string, cwd string) ([]string, string) {
 	home := environment["HOME"]
-	if home == "" {
-		home = environment["USERPROFILE"]
-	}
 	directories, ok := projectDirectories(cwd)
 	if !ok {
 		return nil, "configuration_root_unresolved"

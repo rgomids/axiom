@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/local"
@@ -41,17 +40,15 @@ func TestDocumentationResolverRepositorySources(t *testing.T) {
 		"README.md/child":            projectapp.DocumentationMissing,
 		"../escape":                  projectapp.DocumentationUnsafe,
 	}
-	if runtime.GOOS != "windows" {
-		if err := os.Symlink(outside, filepath.Join(repo, "linked")); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Symlink(filepath.Join(outside, "secret.md"), filepath.Join(repo, "docs", "leaf.md")); err != nil {
-			t.Fatal(err)
-		}
-		cases["linked/secret.md"] = projectapp.DocumentationUnsafe
-		cases["linked"] = projectapp.DocumentationUnsafe
-		cases["docs/leaf.md"] = projectapp.DocumentationUnsafe
+	if err := os.Symlink(outside, filepath.Join(repo, "linked")); err != nil {
+		t.Fatal(err)
 	}
+	if err := os.Symlink(filepath.Join(outside, "secret.md"), filepath.Join(repo, "docs", "leaf.md")); err != nil {
+		t.Fatal(err)
+	}
+	cases["linked/secret.md"] = projectapp.DocumentationUnsafe
+	cases["linked"] = projectapp.DocumentationUnsafe
+	cases["docs/leaf.md"] = projectapp.DocumentationUnsafe
 	for path, want := range cases {
 		got := resolver.ResolveDocumentation(context.Background(), projectapp.DocumentationRequest{Source: repositorySource(path), RepositoryPath: repo})
 		if got != want {
@@ -112,19 +109,17 @@ func TestDocumentationResolverLocalFileBindings(t *testing.T) {
 	if _, ok := local.ObserveDocumentationFile("notes", "relative.md", nil); ok {
 		t.Fatal("relative path accepted")
 	}
-	if runtime.GOOS != "windows" {
-		mustWrite(t, keep)
-		link := filepath.Join(dir, "link.md")
-		if err := os.Symlink(keep, link); err != nil {
-			t.Fatal(err)
-		}
-		if _, ok := local.ObserveDocumentationFile("notes", link, nil); ok {
-			t.Fatal("link accepted at bootstrap")
-		}
-		linked := binding
-		linked.ExplicitPath = link
-		if got := resolve(&linked); got != projectapp.DocumentationUnsafe {
-			t.Fatalf("link resolved: %s", got)
-		}
+	mustWrite(t, keep)
+	link := filepath.Join(dir, "link.md")
+	if err := os.Symlink(keep, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := local.ObserveDocumentationFile("notes", link, nil); ok {
+		t.Fatal("link accepted at bootstrap")
+	}
+	linked := binding
+	linked.ExplicitPath = link
+	if got := resolve(&linked); got != projectapp.DocumentationUnsafe {
+		t.Fatalf("link resolved: %s", got)
 	}
 }

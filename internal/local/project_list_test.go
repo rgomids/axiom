@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/rgomids/axiom/internal/testfs"
-
 	"github.com/rgomids/axiom/internal/projectapp"
 )
 
@@ -67,7 +65,7 @@ func TestReadInstalledProjectDistinguishesUnavailableFromUnsafeSource(t *testing
 
 	outside := privateDirectory(t, "outside-source")
 	installed.Source = filepath.Join(t.TempDir(), "linked-source")
-	if err := testfs.Symlink(t, outside, installed.Source); err != nil {
+	if err := os.Symlink(outside, installed.Source); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.ReadInstalledProject(context.Background(), installed); !errors.Is(err, ErrUnsafe) {
@@ -103,7 +101,7 @@ func TestListInstalledFailsClosedForUnsafeState(t *testing.T) {
 		if err := os.WriteFile(outside, []byte("{}\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := testfs.Symlink(t, outside, filepath.Join(directory, "installation.json")); err != nil {
+		if err := os.Symlink(outside, filepath.Join(directory, "installation.json")); err != nil {
 			t.Fatal(err)
 		}
 		if projects, err := service.ListInstalled(context.Background()); err == nil || projects != nil {

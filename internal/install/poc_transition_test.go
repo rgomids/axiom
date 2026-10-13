@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/compatibility"
-	"github.com/rgomids/axiom/internal/testfs"
 )
 
 // Issue #153 / I153-T02: the RecognizedPOC transition preserve -> clean
@@ -366,7 +365,7 @@ func TestRecognizedPOCCorrespondenceBlocksRetirement(t *testing.T) {
 		},
 		"unverifiable archived object": func(t *testing.T, archive string) {
 			document := readManifest(t, archive)
-			if err := testfs.SharedMode(filepath.Join(archive, "objects", document.Objects[0].Digest), 0o644); err != nil {
+			if err := os.Chmod(filepath.Join(archive, "objects", document.Objects[0].Digest), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		},
@@ -395,7 +394,6 @@ func TestRecognizedPOCCorrespondenceBlocksRetirement(t *testing.T) {
 	for name, tamper := range cases {
 		t.Run(name, func(t *testing.T) {
 			if strings.Contains(name, "unverifiable") {
-				testfs.POSIXModes(t)
 			}
 			installed := pocInstallation(t)
 			candidate := installed.candidate(t, newBundle("1.1.0", []byte("new-binary\n")))
@@ -528,16 +526,15 @@ func TestRecognizedPOCUnsafeDestinationsAndSourcesHaveZeroEffects(t *testing.T) 
 			installed.target.Archive = "archive"
 		}, "preservation_target_unsafe"},
 		"symlinked archive root": {func(t *testing.T, installed *installation) {
-			if err := testfs.Symlink(t, t.TempDir(), installed.target.Archive); err != nil {
+			if err := os.Symlink(t.TempDir(), installed.target.Archive); err != nil {
 				t.Skip(err)
 			}
 		}, "preservation_target_unsafe"},
 		"permissive archive root": {func(t *testing.T, installed *installation) {
-			testfs.POSIXModes(t)
 			if err := os.Mkdir(installed.target.Archive, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if err := testfs.SharedMode(installed.target.Archive, 0o777); err != nil {
+			if err := os.Chmod(installed.target.Archive, 0o777); err != nil {
 				t.Fatal(err)
 			}
 		}, "preservation_target_unsafe"},
@@ -569,7 +566,7 @@ func TestRecognizedPOCUnsafeDestinationsAndSourcesHaveZeroEffects(t *testing.T) 
 			if err := os.Remove(installed.workItem()); err != nil {
 				t.Fatal(err)
 			}
-			if err := testfs.Symlink(t, installed.pocWorkflow(), installed.workItem()); err != nil {
+			if err := os.Symlink(installed.pocWorkflow(), installed.workItem()); err != nil {
 				t.Skip(err)
 			}
 		}, "state_unsafe"},

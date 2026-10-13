@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/rgomids/axiom/internal/testfs"
 	"io"
 	"os"
 	"reflect"
@@ -22,9 +21,9 @@ type invocationFake struct {
 }
 
 func (f invocationFake) ResolveInvocation(_ context.Context, child ChildExecution) (Invocation, error) {
-	executable := testfs.Path("/usr/bin/true")
+	executable := "/usr/bin/true"
 	if f.invalid {
-		executable = testfs.Path("/bin/sh")
+		executable = "/bin/sh"
 	}
 	return Invocation{RuntimeID: child.Envelope.Resolution.RuntimeID, Argv: []string{executable, "literal;not-shell"}, CWD: child.Envelope.Workspace, Env: []string{"PATH=/usr/bin"}, OutputMax: 1024, Stdin: f.stdin}, nil
 }

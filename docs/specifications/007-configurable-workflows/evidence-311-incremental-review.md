@@ -94,3 +94,75 @@ compilation is not substituted. macOS corrected-commit execution is **NOT_RUN**.
 The existing CI Windows job already runs the native suite; it needs access to
 the corrected revision after separately authorized publication of that branch.
 No push, merge, release, review-thread closure, real Runtime or probe was executed.
+
+## Windows support removal — Block 1/5 (Go code), 2026-10-13
+
+Sections above are preserved as written at their time; this section supersedes
+their open CR-016 items without rewriting them.
+
+Observed after their publication: commit
+`707765d2b7d5d0dceb370a01e830e106b6e779ed` ran in
+[CI run 38451927783](https://github.com/rgomids/axiom/actions/runs/38451927783).
+The [native Windows job 115485169528](https://github.com/rgomids/axiom/actions/runs/38451927783/job/115485169528)
+exited 1 on the five invocation/identity tests (invalid adapter configuration);
+Linux and macOS jobs passed and aggregate verify failed on Windows. Rafael then
+approved a timeboxed Option A (native Windows pinned-Axiom invocation). A Linux
+investigation found no verifiable safe Windows `Bash(...)` permission
+representation; that attempt was never committed.
+
+**Human decision:** [PR #311 comment 6153404308](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308)
+removes Windows support entirely. Supported platforms are Linux and macOS.
+CR-016, Option A and fallback B are **CANCELLED_BY_HUMAN_DECISION**. The
+decision authorizes no `t.Skip`, merge, release, new ADR or Windows support
+under another form; PR #311 stays the single PR.
+
+Block 1 scope (production Go, related Go tests, this Evidence only):
+
+- Removed 40 files: every `*_windows.go`/`*_windows_test.go` under `cmd/` and
+  `internal/`, the `internal/windowsfs` package, `cmd/lingo/install_windows_result*.go`,
+  `internal/cli/windows_permissions.go` (`windows-permissions restore`), and
+  test shims that existed only to branch for Windows
+  (`cmd/lingo/platform_test.go`, `internal/{runtimeadapter,graphapplication}/posix_paths_test.go`,
+  `internal/testfs/permissions_posix.go`).
+- Shared code: `stateRoot` no longer has a Windows branch and `NativeStateRoot`
+  refuses `windows` (`ErrUnsafe`); `WindowsStateRoot`, the `windows/amd64` host
+  row, the Windows managed-settings path, the `USERPROFILE` home fallback and the
+  Windows executable-mode bypass were removed. Runtime executable identity now
+  requires the exact basename (`codex`/`claude`) instead of tolerating `.exe`, a
+  narrowing. `!windows` build constraints became `unix`; fallback files dropped
+  `!windows`. A `windows/amd64` build now fails to compile; no Windows stub was added.
+- Tests: Windows-only tests and `GOOS == "windows"` skips/branches were removed;
+  POSIX assertions were unwrapped, not weakened. `testfs` helpers that were
+  identity/no-op on POSIX were inlined. Tests named for Windows state wiring
+  that also run on POSIX upgrades were renamed `...WithPersistedSkillsWiring`.
+- Preserved: lexical refusal of Windows path spellings and of `cmd`/`powershell`/`pwsh`
+  shells (planner, compiler, gitworkspace, scheduler, validator policy),
+  `validatorpolicy.portableAbsolute` (persisted-policy structure), the
+  `windows-credential-manager` test vectors, frozen-corpus Windows JSON-path
+  normalization, goldens and snapshots. No dispatch, Runtime or integration
+  authority was broadened.
+
+Validation (Linux host, Go 1.26 toolchain):
+
+- `gofmt -l cmd internal`: no output. `go vet ./...`: PASS.
+  `GOOS=darwin GOARCH=arm64 go vet ./...`: PASS.
+- `go test` for `./internal/runtimeadapter/...`, `./internal/workflowdefinition/...`,
+  `./cmd/lingo/...`: PASS. No `unsafe_source` occurred.
+- `./internal/executiongraph/...`: FAIL under the inherited host environment
+  (`TestInheritedSnapshotKeepsExplicitEnvironmentValidation`), also at
+  unmodified `707765d`; PASS with a minimal environment. Pre-existing and
+  host-environment dependent; not changed here.
+- `go test ./...`: FAIL only in `TestStableCorpusIsAppendOnly`, caused by the
+  pre-existing untracked snapshots `v0.12.0-issue276.{b5t34recovery,bld007}`
+  (CR-015 freeze gate); a clean worktree of `707765d` plus this diff: PASS.
+- `go build ./cmd/lingo` with `CGO_ENABLED=0` for linux/amd64, linux/arm64,
+  darwin/arm64, darwin/amd64: PASS. No darwin test binary was executed;
+  native macOS acceptance remains with CI.
+
+Not yet done (later blocks, same branch): installation/release scripts and
+PowerShell entry points (Block 2), CI workflows and rulesets (Block 3), site,
+README, specifications and changelog (Block 4), repository-wide sweep (Block 5).
+Until Block 2/3, release scripts that build `windows/amd64` and the Windows CI
+jobs are expected to fail. Removal is **not complete** before Block 5.
+No merge, release, tag, ruleset change or review-thread closure was performed.
+This section is committed with the Block 1 change, whose parent is `707765d`.

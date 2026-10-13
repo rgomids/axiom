@@ -10,12 +10,11 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/stageexecution"
-	"github.com/rgomids/axiom/internal/testfs"
 	"github.com/rgomids/axiom/internal/validatorpolicy"
 )
 
 func storePolicy() validatorpolicy.Policy {
-	d := validatorpolicy.Definition{FormatVersion: 1, ProjectID: "project-1", Commands: []validatorpolicy.Command{{Reference: "tests", Argv: []string{testfs.Path("/synthetic/validator"), "test"}, Env: []string{"LC_ALL=C"}, OutputMax: 4096}}}
+	d := validatorpolicy.Definition{FormatVersion: 1, ProjectID: "project-1", Commands: []validatorpolicy.Command{{Reference: "tests", Argv: []string{"/synthetic/validator", "test"}, Env: []string{"LC_ALL=C"}, OutputMax: 4096}}}
 	preview, _ := validatorpolicy.PreviewDigest(d)
 	return validatorpolicy.Policy{Definition: d, Review: validatorpolicy.Review{PreviewDigest: preview, ActorKind: "human-operator", Actor: "operator", ReviewedAt: time.Unix(10, 0).UTC(), AuthorityRef: strings.Repeat("a", 64)}}
 }
@@ -47,7 +46,7 @@ func TestValidatorPolicyReviewStoreReference(t *testing.T) {
 	}
 	r = request
 	r.Definition.Commands = append([]validatorpolicy.Command(nil), r.Definition.Commands...)
-	r.Definition.Commands[0].Argv = []string{testfs.Path("/synthetic/changed")}
+	r.Definition.Commands[0].Argv = []string{"/synthetic/changed"}
 	if _, e := service.Apply(ctx, r); !errors.Is(e, validatorpolicy.ErrDigest) {
 		t.Fatal("unreviewed change", e)
 	}
@@ -60,11 +59,11 @@ func TestValidatorPolicyReviewStoreReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	commands, err := service.Commands(ctx, "project-1", id)
-	if err != nil || commands[0].Argv[0] != testfs.Path("/synthetic/validator") {
+	if err != nil || commands[0].Argv[0] != "/synthetic/validator" {
 		t.Fatal(commands, err)
 	}
 	commands[0].Argv[0] = "changed"
-	if loaded.Commands[0].Argv[0] != testfs.Path("/synthetic/validator") {
+	if loaded.Commands[0].Argv[0] != "/synthetic/validator" {
 		t.Fatal("alias")
 	}
 	if _, err := service.Commands(ctx, "other-project", id); !errors.Is(err, validatorpolicy.ErrAuthority) {
@@ -80,7 +79,7 @@ func TestValidatorPolicyReviewStoreReference(t *testing.T) {
 	if len(inventory.Entries) != 1 || inventory.Entries[0].Kind != InventoryValidatorPolicy {
 		t.Fatal(inventory)
 	}
-	loaded.Commands[0].Argv[0] = testfs.Path("/synthetic/tampered")
+	loaded.Commands[0].Argv[0] = "/synthetic/tampered"
 	wire, _ := validatorpolicy.Encode(loaded)
 	if len(wire) == 0 {
 		wire = []byte(`{}`)

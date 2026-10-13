@@ -12,7 +12,7 @@ import (
 )
 
 func TestExecutableSkillDiscoveryWithoutStateOrWorkflow(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), testExecutableName("axiom"))
+	binary := filepath.Join(t.TempDir(), "axiom")
 	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v: %s", err, output)
 	}

@@ -2,7 +2,6 @@ package codexruntime
 
 import (
 	"context"
-	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -72,7 +71,7 @@ func TestReceiptAndSkillAuthorityUsesAnchoredObject(t *testing.T) {
 					t.Fatal(err)
 				}
 				defer root.Close()
-				if err := testfs.RenameOrSkipPinned(t, path, path+"-old"); err != nil {
+				if err := os.Rename(path, path+"-old"); err != nil {
 					t.Fatal(err)
 				}
 				if err := os.MkdirAll(filepath.Join(path, name), 0700); err != nil {
@@ -125,7 +124,7 @@ func TestInstallOwnershipInspectionDoesNotReadReplacement(t *testing.T) {
 	}
 	var a, b map[string]string
 	service.afterLock = func() {
-		if err := testfs.RenameOrSkipPinned(t, path, path+"-old"); err != nil {
+		if err := os.Rename(path, path+"-old"); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Mkdir(path, 0700); err != nil {
@@ -163,7 +162,7 @@ func TestUpgradeSessionInspectionAndCleanupRefuseReplacement(t *testing.T) {
 	if _, err := session.Inspect(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if err := testfs.RenameOrSkipPinned(t, path, path+"-old"); err != nil {
+	if err := os.Rename(path, path+"-old"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(path, name), 0700); err != nil {

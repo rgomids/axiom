@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -63,9 +62,6 @@ func (j journey) patches() string {
 }
 
 func TestResourceLifecycleJourneyWithoutPersistedFileEditing(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Provider stub is a POSIX script")
-	}
 	env := newBootstrapEnv(t)
 	providerDir := t.TempDir()
 	gh := filepath.Join(providerDir, "gh")

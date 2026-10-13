@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -220,14 +219,7 @@ func snapshot303Trees(t *testing.T, roots ...string) []byte {
 			if err != nil {
 				return err
 			}
-			// Match the runtime-profile snapshot precedent: NTFS can defer a
-			// prior directory timestamp update until a later handle closes.
-			// Entries, modes, ACLs and every file timestamp remain compared.
-			modified := info.ModTime().UnixNano()
-			if runtime.GOOS == "windows" && info.IsDir() {
-				modified = 0
-			}
-			fmt.Fprintf(&out, "%s %s %d %d %d %s\n", root, relative, info.Mode(), info.Size(), modified, workflow303AccessState(t, path))
+			fmt.Fprintf(&out, "%s %s %d %d %d\n", root, relative, info.Mode(), info.Size(), info.ModTime().UnixNano())
 			if info.Mode().IsRegular() {
 				data, err := os.ReadFile(path)
 				if err != nil {

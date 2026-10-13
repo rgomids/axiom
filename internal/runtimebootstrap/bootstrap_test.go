@@ -39,7 +39,7 @@ func newMachine(t *testing.T, executables ...string) *machine {
 func (m *machine) lookPath(name string) (string, error) {
 	m.lookups = append(m.lookups, name)
 	if m.executables[name] {
-		return filepath.Join(testfs.Path("/opt/runtimes/bin"), name), nil
+		return filepath.Join("/opt/runtimes/bin", name), nil
 	}
 	return "", exec.ErrNotFound
 }
@@ -357,21 +357,21 @@ func TestRelativePathResolutionIsAbsence(t *testing.T) {
 
 func TestClaudeConfigurationRootResolution(t *testing.T) {
 	none := func(string) string { return "" }
-	if root, err := ClaudeSkillsRoot(none, testfs.Path("/home/u")); err != nil || root != testfs.Path("/home/u/.claude/skills") {
+	if root, err := ClaudeSkillsRoot(none, "/home/u"); err != nil || root != "/home/u/.claude/skills" {
 		t.Fatalf("default = %q, %v", root, err)
 	}
 	override := func(key string) string {
 		if key == "CLAUDE_CONFIG_DIR" {
-			return testfs.Path("/srv/claude-work/")
+			return "/srv/claude-work/"
 		}
 		return ""
 	}
-	if root, err := ClaudeSkillsRoot(override, testfs.Path("/home/u")); err != nil || root != testfs.Path("/srv/claude-work/skills") {
+	if root, err := ClaudeSkillsRoot(override, "/home/u"); err != nil || root != "/srv/claude-work/skills" {
 		t.Fatalf("override = %q, %v", root, err)
 	}
 	for _, value := range []string{"relative/claude", "/", "/tmp/a\nb"} {
 		bad := func(string) string { return value }
-		if _, err := ClaudeSkillsRoot(bad, testfs.Path("/home/u")); !errors.Is(err, ErrUnsafeConfigurationRoot) {
+		if _, err := ClaudeSkillsRoot(bad, "/home/u"); !errors.Is(err, ErrUnsafeConfigurationRoot) {
 			t.Fatalf("%q accepted", value)
 		}
 	}

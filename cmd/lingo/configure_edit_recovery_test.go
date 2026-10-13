@@ -331,7 +331,7 @@ func recoveryPlanFor(t *testing.T, service cli.Service, protocol string) local.R
 // Executable black-box: the built binary previews and replays an EDIT, and
 // new processes observe and recover a portable-committed/local-failed edit.
 func TestExecutableEditReplayAndCrossStoreRecovery(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), testExecutableName("lingo"))
+	binary := filepath.Join(t.TempDir(), "lingo")
 	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build executable: %v: %s", err, output)
 	}

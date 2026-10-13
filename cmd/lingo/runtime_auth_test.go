@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/completion"
@@ -51,9 +50,6 @@ func TestRuntimeAuthWithoutExecutableIsUnavailable(t *testing.T) {
 // A controlled fake executable on the lookup path stands in for the vendor
 // CLI; it never authenticates or runs inference.
 func TestRuntimeAuthObservesTheLookedUpExecutable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX shell fixture")
-	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("CODEX_HOME", "")

@@ -6,8 +6,6 @@ package cli
 func commandRequirements(operation action) []inputRequirement {
 	rules := skillRequirements(operation, requestInput{})
 	switch operation {
-	case windowsPermissionsRestoreAction:
-		return []inputRequirement{{name: windowsBackupFlag, required: true}, {name: windowsApproveFlag, required: true}}
 	case initAction:
 		return []inputRequirement{{name: "slug", required: true}, {name: "name", required: true}}
 	case reopenAction:

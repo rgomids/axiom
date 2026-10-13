@@ -57,7 +57,6 @@ func frozenFixture(id, mode string) (runtimeadapter.StageInvocationRequest, runt
 	return r, p, runtimeapplication.Preview{Choice: &runtimeprofile.Choice{ResolvedProfile: &p}}
 }
 func TestFrozenStageEffortAndPerAttemptChecks(t *testing.T) {
-	skipPOSIXStagePaths(t)
 	for _, id := range []string{"codex", "claude"} {
 		for _, mode := range []string{"explicit", "runtime-default"} {
 			t.Run(id+mode, func(t *testing.T) {
@@ -88,7 +87,6 @@ func TestFrozenStageEffortAndPerAttemptChecks(t *testing.T) {
 	}
 }
 func TestFrozenStageEveryTupleElementDrift(t *testing.T) {
-	skipPOSIXStagePaths(t)
 	r, p, preview := frozenFixture("codex", "explicit")
 	typ := reflect.TypeOf(p)
 	for n := 0; n < typ.NumField(); n++ {
@@ -113,7 +111,6 @@ func TestFrozenStageEveryTupleElementDrift(t *testing.T) {
 	}
 }
 func TestFrozenStageNoProofNoFallbackAndSourceFailures(t *testing.T) {
-	skipPOSIXStagePaths(t)
 	for _, name := range []string{"removed", "tombstoned", "edited", "disabled", "missing-proof", "fallback-default", "selector-after-preview", "unproven-sources", "source-digest-drift"} {
 		t.Run(name, func(t *testing.T) {
 			r, p, preview := frozenFixture("codex", "explicit")
@@ -162,7 +159,6 @@ func (s *frozenLocalSource) Load(ctx context.Context, id string) (runtimeapplica
 // Exercises the delivered resolver's Check with fake local inputs. No Runtime
 // executable is invoked and no observation probe runs.
 func TestFrozenStageCurrentLocalProfileRefusals(t *testing.T) {
-	skipPOSIXStagePaths(t)
 	for _, name := range []string{"removed", "tombstoned", "edited", "disabled", "proof-removed", "wrong-model-proof"} {
 		t.Run(name, func(t *testing.T) {
 			r, _, _ := frozenFixture("codex", "runtime-default")
@@ -232,7 +228,6 @@ func TestFrozenStageCurrentLocalProfileRefusals(t *testing.T) {
 }
 
 func TestFrozenStageSourceChangeDuringAuthenticationAndRedaction(t *testing.T) {
-	skipPOSIXStagePaths(t)
 	for _, failure := range []error{runtimeadapter.ErrEffortOverrideConflict, errors.New("private raw configuration text")} {
 		r, p, preview := frozenFixture("codex", "runtime-default")
 		sources := &frozenSources{digest: p.EffortSourceDigest, secondErr: failure}

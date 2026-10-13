@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -313,9 +312,9 @@ func TestProductionDispatchUsesPreviewedModelBothAdapters(t *testing.T) {
 	// vendor runtime, reads credentials or performs repository writes.
 	sourcePath := filepath.Join(root, "runtime-helper.go")
 	source := `package main
-import ("fmt"; "os"; "path/filepath"; "strings")
+import ("fmt"; "os"; "path/filepath")
 func main() {
- name := strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe")
+ name := filepath.Base(os.Args[0])
  prefix := "exec"
  if name == "claude" { prefix = "--print" }
  if len(os.Args) != 4 || os.Args[1] != prefix || os.Args[2] != "--model" || os.Args[3] != "local-test-profile" { fmt.Fprintln(os.Stderr, "unexpected adapter selection"); os.Exit(1) }
@@ -327,9 +326,6 @@ func main() {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		t.Run(runtimeID, func(t *testing.T) {
 			binaryName := runtimeID
-			if runtime.GOOS == "windows" {
-				binaryName += ".exe"
-			}
 			executable := filepath.Join(root, binaryName)
 			if output, err := exec.Command("go", "build", "-o", executable, sourcePath).CombinedOutput(); err != nil {
 				t.Fatalf("build synthetic runtime: %v: %s", err, output)

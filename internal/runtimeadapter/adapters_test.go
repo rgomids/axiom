@@ -3,7 +3,6 @@ package runtimeadapter
 import (
 	"context"
 	"errors"
-	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"reflect"
 	"sort"
@@ -39,15 +38,15 @@ func TestInventoryExposesOnlyObservedCodexAndClaude(t *testing.T) {
 func TestConcreteResolversProduceExplicitArgvAndResolveCredentialByReference(t *testing.T) {
 	credentials := &credentialFake{}
 	resolver, err := NewInvocationResolver([]CommandProfile{
-		{RuntimeID: "codex", ModelProfileID: "codex-high", Executable: testfs.Path("/opt/bin/codex"), Model: "local-codex-model", Arguments: []string{"--json"}, Environment: []string{"PATH=/opt/bin"}, CredentialReference: "keychain:codex", OutputMax: 1024},
-		{RuntimeID: "claude", ModelProfileID: "claude-high", Executable: testfs.Path("/opt/bin/claude"), Model: "local-claude-model", Arguments: []string{"--output-format", "json"}, Environment: []string{"PATH=/opt/bin"}, OutputMax: 1024},
+		{RuntimeID: "codex", ModelProfileID: "codex-high", Executable: "/opt/bin/codex", Model: "local-codex-model", Arguments: []string{"--json"}, Environment: []string{"PATH=/opt/bin"}, CredentialReference: "keychain:codex", OutputMax: 1024},
+		{RuntimeID: "claude", ModelProfileID: "claude-high", Executable: "/opt/bin/claude", Model: "local-claude-model", Arguments: []string{"--output-format", "json"}, Environment: []string{"PATH=/opt/bin"}, OutputMax: 1024},
 	}, credentials)
 	if err != nil {
 		t.Fatal(err)
 	}
 	codex := adapterChild("codex", "codex-high")
 	invocation, err := resolver.ResolveInvocation(context.Background(), codex)
-	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{testfs.Path("/opt/bin/codex"), "exec", "--model", "local-codex-model", "--json"}) || invocation.CWD != codex.Envelope.Workspace {
+	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{"/opt/bin/codex", "exec", "--model", "local-codex-model", "--json"}) || invocation.CWD != codex.Envelope.Workspace {
 		t.Fatalf("invocation=%+v err=%v", invocation, err)
 	}
 	if !reflect.DeepEqual(credentials.references, []string{"keychain:codex"}) {
@@ -55,13 +54,13 @@ func TestConcreteResolversProduceExplicitArgvAndResolveCredentialByReference(t *
 	}
 	claude := adapterChild("claude", "claude-high")
 	invocation, err = resolver.ResolveInvocation(context.Background(), claude)
-	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{testfs.Path("/opt/bin/claude"), "--print", "--model", "local-claude-model", "--output-format", "json"}) {
+	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{"/opt/bin/claude", "--print", "--model", "local-claude-model", "--output-format", "json"}) {
 		t.Fatalf("invocation=%+v err=%v", invocation, err)
 	}
 	codex.Envelope.Controls.ReasoningEffort = "high"
 	codex.Envelope.Capability.Capabilities = []string{"reasoning-effort-high"}
 	invocation, err = resolver.ResolveInvocation(context.Background(), codex)
-	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{testfs.Path("/opt/bin/codex"), "exec", "--model", "local-codex-model", "--json", "--config", "model_reasoning_effort=high"}) {
+	if err != nil || !reflect.DeepEqual(invocation.Argv, []string{"/opt/bin/codex", "exec", "--model", "local-codex-model", "--json", "--config", "model_reasoning_effort=high"}) {
 		t.Fatalf("Codex effort invocation=%+v err=%v", invocation, err)
 	}
 	claude.Envelope.Controls.ReasoningEffort = "high"
@@ -79,7 +78,7 @@ func adapterChild(runtimeID, profileID string) executiongraph.ChildExecution {
 func TestEffortMappingRejectsMissingCapabilityAndConflictingEnvironment(t *testing.T) {
 	for _, runtimeID := range []string{"codex", "claude"} {
 		t.Run(runtimeID, func(t *testing.T) {
-			resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: runtimeID, ModelProfileID: "profile", Executable: testfs.Path("/opt/bin/" + runtimeID), Model: "local-model", OutputMax: 1024}}, nil)
+			resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: runtimeID, ModelProfileID: "profile", Executable: "/opt/bin/" + runtimeID, Model: "local-model", OutputMax: 1024}}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -90,7 +89,7 @@ func TestEffortMappingRejectsMissingCapabilityAndConflictingEnvironment(t *testi
 			}
 		})
 	}
-	resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: "claude", ModelProfileID: "profile", Executable: testfs.Path("/opt/bin/claude"), Model: "local-model", Environment: []string{"CLAUDE_CODE_EFFORT_LEVEL=low"}, OutputMax: 1024}}, nil)
+	resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: "claude", ModelProfileID: "profile", Executable: "/opt/bin/claude", Model: "local-model", Environment: []string{"CLAUDE_CODE_EFFORT_LEVEL=low"}, OutputMax: 1024}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,14 +102,14 @@ func TestEffortMappingRejectsMissingCapabilityAndConflictingEnvironment(t *testi
 }
 
 func TestClaudeEffortPreservesInheritedEnvironment(t *testing.T) {
-	t.Setenv("HOME", testfs.Path("/tmp/claude-home"))
-	t.Setenv("PATH", testfs.Path("/tmp/claude-bin"))
+	t.Setenv("HOME", "/tmp/claude-home")
+	t.Setenv("PATH", "/tmp/claude-bin")
 	t.Setenv("AXIOM_INHERITED_SNAPSHOT", "before")
 	t.Setenv("CLAUDE_CODE_EFFORT_LEVEL", "")
 	if err := os.Unsetenv("CLAUDE_CODE_EFFORT_LEVEL"); err != nil {
 		t.Fatal(err)
 	}
-	resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: "claude", ModelProfileID: "profile", Executable: testfs.Path("/opt/bin/claude"), Model: "local-model", OutputMax: 1024}}, nil)
+	resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: "claude", ModelProfileID: "profile", Executable: "/opt/bin/claude", Model: "local-model", OutputMax: 1024}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +156,7 @@ func TestClaudeEffortPreservesExplicitEnvironmentIsolation(t *testing.T) {
 		{name: "explicit and credential", environment: []string{"PATH=/explicit/bin"}, reference: "keychain:claude", credentials: effortCredentialFake{"RUNTIME_TOKEN=PLACEHOLDER"}, want: []string{"CLAUDE_CODE_EFFORT_LEVEL=high", "PATH=/explicit/bin", "RUNTIME_TOKEN=PLACEHOLDER"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: "claude", ModelProfileID: "profile", Executable: testfs.Path("/opt/bin/claude"), Model: "local-model", Environment: tc.environment, CredentialReference: tc.reference, OutputMax: 1024}}, tc.credentials)
+			resolver, err := NewInvocationResolver([]CommandProfile{{RuntimeID: "claude", ModelProfileID: "profile", Executable: "/opt/bin/claude", Model: "local-model", Environment: tc.environment, CredentialReference: tc.reference, OutputMax: 1024}}, tc.credentials)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -176,7 +175,7 @@ func TestClaudeEffortRejectsDuplicateEnvironmentFromEverySource(t *testing.T) {
 	for _, source := range []string{"inherited", "explicit", "credential"} {
 		for _, value := range []string{"high", "low"} {
 			t.Run(source+"/"+value, func(t *testing.T) {
-				profile := CommandProfile{RuntimeID: "claude", ModelProfileID: "profile", Executable: testfs.Path("/opt/bin/claude"), Model: "local-model", OutputMax: 1024}
+				profile := CommandProfile{RuntimeID: "claude", ModelProfileID: "profile", Executable: "/opt/bin/claude", Model: "local-model", OutputMax: 1024}
 				var credentials effortCredentialFake
 				switch source {
 				case "inherited":

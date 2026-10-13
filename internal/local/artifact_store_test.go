@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -321,9 +320,6 @@ func TestArtifactStoreRestoresMarkerWhenRemovalSyncFailsAfterCommit(t *testing.T
 }
 
 func TestArtifactStoreRejectsDigestModeLinkAndTypeChanges(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("MVP excludes Windows")
-	}
 	tests := []struct {
 		name   string
 		mutate func(string) error
@@ -332,14 +328,13 @@ func TestArtifactStoreRejectsDigestModeLinkAndTypeChanges(t *testing.T) {
 			return os.WriteFile(filepath.Join(object, "details.md"), []byte("changed"), 0o600)
 		}},
 		{"mode", func(object string) error {
-			testfs.POSIXModes(t)
 			return os.Chmod(filepath.Join(object, "details.md"), 0o644)
 		}},
 		{"symlink", func(object string) error {
 			if err := os.Remove(filepath.Join(object, "details.md")); err != nil {
 				return err
 			}
-			return testfs.Symlink(t, "metadata.json", filepath.Join(object, "details.md"))
+			return os.Symlink("metadata.json", filepath.Join(object, "details.md"))
 		}},
 		{"hardlink", func(object string) error {
 			return os.Link(filepath.Join(object, "details.md"), filepath.Join(object, "copy.md"))

@@ -20,7 +20,6 @@ func (f *stageAuthFake) Check(_ context.Context, target runtimeadapter.AuthTarge
 	return runtimeadapter.AuthReport{RuntimeID: target.RuntimeID, Status: f.status, Version: f.version, ExecutableDigest: target.ExpectedDigest, EvidenceKind: runtimeadapter.EvidenceFake}
 }
 func TestPrepareStageMandatorySubscription(t *testing.T) {
-	skipPOSIXStagePaths(t)
 	request := runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: "codex", Executable: "/bin/codex", Model: "model"}, Version: "0.159.1", Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom", ParentEnvironment: []string{"HOME=/home/example", "PATH=/bin", "GH_TOKEN=synthetic"}}
 	for _, status := range []runtimeadapter.AuthStatus{runtimeadapter.AuthUnavailable, runtimeadapter.AuthUnproven, runtimeadapter.AuthIncompatible, runtimeadapter.AuthUnsupported} {
 		f := &stageAuthFake{status: status, version: request.Version}

@@ -116,7 +116,7 @@ func TestProjectContextFailsOnStalePortableRevision(t *testing.T) {
 	}
 }
 
-// Inspect decoded strings so JSON escaping cannot hide Windows paths.
+// Inspect decoded strings so JSON escaping cannot hide paths.
 func contextPayloadContainsPath(payload any, paths ...string) bool {
 	switch value := payload.(type) {
 	case string:

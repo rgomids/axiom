@@ -46,7 +46,7 @@ func (c AttemptCorrelation) environment() ([]string, error) {
 // may select the reviewed executable/model, but cannot supply argv or credentials.
 func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invocation, error) {
 	p := request.Profile
-	if !stagePath(p.Executable) || strings.TrimSuffix(strings.ToLower(filepath.Base(p.Executable)), ".exe") != p.RuntimeID || p.Model == "" || strings.HasPrefix(p.Model, "-") || strings.ContainsAny(p.Model, "\x00\r\n") || len(p.Arguments) != 0 || len(p.Environment) != 0 || p.CredentialReference != "" || !stagePath(request.Workspace) || !stagePath(request.Inbox) || !stagePath(request.AxiomPath) || stageContains(request.Workspace, request.Inbox) || stageContains(request.Inbox, request.Workspace) || strings.ContainsAny(request.AxiomPath, " ,():*;\"'`$|&<>\\") {
+	if !stagePath(p.Executable) || filepath.Base(p.Executable) != p.RuntimeID || p.Model == "" || strings.HasPrefix(p.Model, "-") || strings.ContainsAny(p.Model, "\x00\r\n") || len(p.Arguments) != 0 || len(p.Environment) != 0 || p.CredentialReference != "" || !stagePath(request.Workspace) || !stagePath(request.Inbox) || !stagePath(request.AxiomPath) || stageContains(request.Workspace, request.Inbox) || stageContains(request.Inbox, request.Workspace) || strings.ContainsAny(request.AxiomPath, " ,():*;\"'`$|&<>\\") {
 		return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 	}
 	environment, err := StageEnvironment(p.RuntimeID, request.ParentEnvironment)

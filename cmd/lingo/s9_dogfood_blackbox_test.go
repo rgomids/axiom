@@ -155,7 +155,7 @@ func TestExecutableRuntimeAndFirstProjectionOfCreatedWorkItem(t *testing.T) {
 
 func executableRuntimeJourney(t *testing.T, runtimeID string) {
 	other := map[string]string{"claude": "codex", "codex": "claude"}[runtimeID]
-	binary := filepath.Join(t.TempDir(), testExecutableName("axiom"))
+	binary := filepath.Join(t.TempDir(), "axiom")
 	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build executable: %v: %s", err, output)
 	}
@@ -189,10 +189,9 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 		t.Fatal(err)
 	}
 	runtimeBin := t.TempDir()
-	// os.UserHomeDir reads USERPROFILE on Windows and HOME on POSIX. Isolate
-	// both so a host Claude installation cannot satisfy this fixture's policy.
+	// Isolate HOME so a host Claude installation cannot satisfy this fixture's policy.
 	home := t.TempDir()
-	environment := append(os.Environ(), "HOME="+home, "USERPROFILE="+home, "PATH="+runtimeBin, "CLAUDE_CONFIG_DIR=", "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+statePath)
+	environment := append(os.Environ(), "HOME="+home, "PATH="+runtimeBin, "CLAUDE_CONFIG_DIR=", "LINGO_PROJECTS_ROOT="+portable, "LINGO_STATE_ROOT="+state, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+statePath)
 	type event struct {
 		canonicalEvent
 		Next     string            `json:"next"`
@@ -262,7 +261,7 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 	// Axiom skill integration the reviewed policy cannot resolve.
 	run(1, "validation_failure", previewArgs...)
 	executed := filepath.Join(t.TempDir(), runtimeID+"-executed")
-	if err := os.WriteFile(filepath.Join(runtimeBin, testExecutableName(runtimeID)), []byte("#!/bin/sh\ntouch "+executed+"\n"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(runtimeBin, runtimeID), []byte("#!/bin/sh\ntouch "+executed+"\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	run(1, "validation_failure", previewArgs...)

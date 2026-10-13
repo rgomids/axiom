@@ -97,7 +97,7 @@ func TestOperationalRejectsSharedRecordPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := operationalPath(state)
-	if err := testfs.SharedMode(path, 0o644); err != nil {
+	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if testfs.PrivateMode(path, 0o600) {
@@ -341,7 +341,7 @@ func TestOperationalRejectsLinkedRecordAndDirectory(t *testing.T) {
 		if err := os.WriteFile(outside, wire, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := testfs.Symlink(t, outside, operationalPath(state)); err != nil {
+		if err := os.Symlink(outside, operationalPath(state)); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := store.InspectOperational(context.Background(), operationalProjectID); !errors.Is(err, ErrUnsafe) {
@@ -374,7 +374,7 @@ func TestOperationalRejectsLinkedRecordAndDirectory(t *testing.T) {
 		if err := os.Rename(directory, moved); err != nil {
 			t.Fatal(err)
 		}
-		if err := testfs.Symlink(t, moved, directory); err != nil {
+		if err := os.Symlink(moved, directory); err != nil {
 			t.Fatal(err)
 		}
 		if err := store.CommitOperational(context.Background(), operationalProjectID, projectapp.OperationalRevisionAbsent, archived()); !errors.Is(err, ErrUnsafe) {

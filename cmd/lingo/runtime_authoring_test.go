@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -16,7 +15,7 @@ import (
 // Production CLI authoring, isolated state and synthetic installed executables.
 // This exercises real Axiom filesystem writes, never vendor execution/proof.
 func TestExecutableRuntimeAuthoringRestartAndRetirement(t *testing.T) {
-	binary := filepath.Join(t.TempDir(), testExecutableName("axiom"))
+	binary := filepath.Join(t.TempDir(), "axiom")
 	build := exec.Command("go", "build", "-o", binary, ".")
 	if b, e := build.CombinedOutput(); e != nil {
 		t.Fatalf("build: %v %s", e, b)
@@ -31,9 +30,6 @@ func TestExecutableRuntimeAuthoringRestartAndRetirement(t *testing.T) {
 			}
 			for _, id := range installed {
 				name := id
-				if runtime.GOOS == "windows" {
-					name += ".exe"
-				}
 				if e := os.WriteFile(filepath.Join(bin, name), []byte("synthetic executable: must never be invoked\n"), 0700); e != nil {
 					t.Fatal(e)
 				}

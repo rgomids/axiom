@@ -14,7 +14,6 @@ import (
 )
 
 func TestCompiledPacketProjectsGraphChildAndSingleAgent(t *testing.T) {
-	skipPOSIXStagePaths(t)
 	for _, node := range []string{"child-1", ""} {
 		input := workflowcompiler.ExecutionInput{AgentID: "worker", NodeKey: node, Role: "engineer", Responsibilities: "Implement approved plan", Instructions: "Read input refs", Controls: executiongraph.ExecutionControls{Timeout: time.Minute, ReasoningEffort: "private-effort"}, ResolvedProfile: &runtimeprofile.ResolvedProfile{Model: "private-model", Effort: runtimeprofile.Effort{Value: "private-effort"}}, Inputs: []workflowcompiler.InputBinding{{InputID: "plan", Reference: "artifact:plan", Digest: strings.Repeat("a", 64)}}}
 		binding := runtimeadapter.PacketContext{AttemptID: "attempt-1", Inbox: "/state/inbox", AxiomPath: "/bin/axiom", AxiomDigest: strings.Repeat("b", 64)}

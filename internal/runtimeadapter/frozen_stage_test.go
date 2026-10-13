@@ -13,7 +13,6 @@ import (
 // Reuses delivered X05 inspection against inert temp files, never an executable
 // Runtime, ambient HOME, probe, network or inference.
 func TestFrozenStageDeliveredEffortInspection(t *testing.T) {
-	skipPOSIXStagePaths(t)
 	for _, id := range []string{"codex", "claude"} {
 		for _, mode := range []string{"explicit", "runtime-default"} {
 			t.Run(id+mode, func(t *testing.T) {

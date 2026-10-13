@@ -71,17 +71,17 @@ func TestConfiguredExecutableRevisionIsolationAndAuthority(t *testing.T) {
 	env := newWorkItemSourceEnvironment(t)
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
-	binary := filepath.Join(t.TempDir(), testExecutableName("axiom"))
+	binary := filepath.Join(t.TempDir(), "axiom")
 	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v %s", err, output)
 	}
 	runtimeDir := t.TempDir()
-	runtimePath := filepath.Join(runtimeDir, testExecutableName("codex"))
+	runtimePath := filepath.Join(runtimeDir, "codex")
 	if err := os.WriteFile(runtimePath, []byte("#!/bin/sh\nexit 99\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	isolatedHome := t.TempDir()
-	environment := append(os.Environ(), "PATH="+runtimeDir, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "USERPROFILE="+isolatedHome, "HOME="+isolatedHome)
+	environment := append(os.Environ(), "PATH="+runtimeDir, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "HOME="+isolatedHome)
 	type event struct {
 		Status        string            `json:"status"`
 		Next          string            `json:"next"`

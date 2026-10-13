@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -108,9 +107,7 @@ func TestRuntimePolicyProvesOnlyLingoVerifiedFacts(t *testing.T) {
 			if err := os.Chmod(executable, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if runtime.GOOS != "windows" {
-				blockedWith("non-executable file", service, input)
-			}
+			blockedWith("non-executable file", service, input)
 		})
 	}
 }

@@ -68,16 +68,16 @@ func TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates(t *testing.T) {
 	env := newWorkItemSourceEnvironment(t)
 	installLinkedTarget(t, env)
 	installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "codex")
-	binary := filepath.Join(t.TempDir(), testExecutableName("axiom"))
+	binary := filepath.Join(t.TempDir(), "axiom")
 	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v %s", err, output)
 	}
 	runtimeDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(runtimeDir, testExecutableName("codex")), []byte("#!/bin/sh\nexit 99\n"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(runtimeDir, "codex"), []byte("#!/bin/sh\nexit 99\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	home := t.TempDir()
-	environment := append(os.Environ(), "PATH="+runtimeDir, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "USERPROFILE="+home, "HOME="+home)
+	environment := append(os.Environ(), "PATH="+runtimeDir, "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(t.TempDir(), "skills"), "HOME="+home)
 	run := func(code int, args ...string) ([]byte, stagePlanEvent) {
 		t.Helper()
 		command := exec.Command(binary, args...)

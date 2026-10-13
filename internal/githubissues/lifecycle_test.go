@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/provenance"
-	"github.com/rgomids/axiom/internal/testfs"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -23,7 +22,6 @@ type lifecycleStub struct {
 
 func newLifecycleStub(t *testing.T) lifecycleStub {
 	t.Helper()
-	testfs.POSIXShell(t)
 	directory := t.TempDir()
 	gh := filepath.Join(directory, "gh")
 	script := `#!/bin/sh

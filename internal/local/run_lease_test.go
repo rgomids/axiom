@@ -3,7 +3,6 @@ package local
 import (
 	"context"
 	"errors"
-	"github.com/rgomids/axiom/internal/testfs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,7 +103,7 @@ func TestRunLeaseReplacementAndEpochFencing(t *testing.T) {
 			file := filepath.Join(dir, "epoch.json")
 			switch mode {
 			case "rename directory", "symlink directory":
-				if err := testfs.RenameOrSkipPinned(t, dir, dir+"-old"); err != nil {
+				if err := os.Rename(dir, dir+"-old"); err != nil {
 					t.Fatal(err)
 				}
 				if mode == "rename directory" {
@@ -112,7 +111,7 @@ func TestRunLeaseReplacementAndEpochFencing(t *testing.T) {
 						t.Fatal(err)
 					}
 				} else {
-					if err := testfs.Symlink(t, dir+"-old", dir); err != nil {
+					if err := os.Symlink(dir+"-old", dir); err != nil {
 						t.Skip(err)
 					}
 				}
@@ -125,7 +124,7 @@ func TestRunLeaseReplacementAndEpochFencing(t *testing.T) {
 						t.Fatal(err)
 					}
 				} else {
-					if err := testfs.Symlink(t, "epoch.json-old", file); err != nil {
+					if err := os.Symlink("epoch.json-old", file); err != nil {
 						t.Skip(err)
 					}
 				}
@@ -188,7 +187,7 @@ func TestRunLeaseOSLockContention(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer root.Close()
-	if err := testfs.SharedMode(root.Name(), 0o700); err != nil {
+	if err := os.Chmod(root.Name(), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	first, err := lockDirectory(root, true)
@@ -227,7 +226,7 @@ func TestRunLeaseOSLockCrossProcess(t *testing.T) {
 		t.Fatal("unexpected helper environment")
 	}
 	path := t.TempDir()
-	if err := testfs.SharedMode(path, 0o700); err != nil {
+	if err := os.Chmod(path, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	root, err := os.OpenRoot(path)
