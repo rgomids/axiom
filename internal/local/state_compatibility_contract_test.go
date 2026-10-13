@@ -151,6 +151,8 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 	expected := slices.DeleteFunc(slices.Clone(StateRootDirectories), func(name string) bool {
 		return name == "workflows" || name == "capability-probes"
 	})
+	slices.Sort(written)
+	slices.Sort(expected)
 	if !slices.Equal(written, expected) {
 		t.Errorf("writers produced top-level directories %v, want every v1 directory %v", written, expected)
 	}
@@ -332,6 +334,13 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	if _, err := evidenceStore.Create(context.Background(), storeEvidence()); err != nil {
+		t.Fatal(err)
+	}
+	policyStore, err := NewValidatorPolicyStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := policyStore.Create(context.Background(), storePolicy()); err != nil {
 		t.Fatal(err)
 	}
 	return portable, state

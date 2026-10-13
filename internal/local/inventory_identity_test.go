@@ -9,6 +9,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/validatorpolicy"
 )
 
 // A record is supported only at the location its store addresses it by. These
@@ -24,6 +25,7 @@ func TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation(t *testing.T) {
 		// state-relative path that must now fail closed.
 		relocate func(t *testing.T, state, relative string) string
 	}{
+		{"policy renamed to another digest", InventoryValidatorPolicy, renameTo(strings.Repeat("f", 64) + ".json")},
 		{"graph renamed to another digest", InventoryGraph, renameTo(strings.Repeat("a", 64) + ".json")},
 		{"graph moved under another project", InventoryGraph, moveToProject("project-2")},
 		{"coordination stream renamed to another digest", InventoryCoordination, renameTo(strings.Repeat("b", 64) + ".json")},
@@ -106,6 +108,22 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			return data
 		}
 		switch entry.Kind {
+		case InventoryValidatorPolicy:
+			p, err := validatorpolicy.Decode(wire())
+			if err != nil {
+				t.Fatal(err)
+			}
+			id, err := validatorpolicy.Digest(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, err := NewValidatorPolicyStore(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := store.Load(ctx, id); err != nil {
+				t.Errorf("supported policy %s does not load: %v", entry.Relative, err)
+			}
 		case InventoryGraph:
 			decoded, err := executiongraph.DecodeGraph(wire())
 			if err != nil {
@@ -169,7 +187,7 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 		}
 		checked[entry.Kind] = true
 	}
-	for _, kind := range []InventoryKind{InventoryGraph, InventoryCoordination, InventoryCreateAttempt, InventoryRuntimeProfile, InventoryOperational} {
+	for _, kind := range []InventoryKind{InventoryValidatorPolicy, InventoryGraph, InventoryCoordination, InventoryCreateAttempt, InventoryRuntimeProfile, InventoryOperational} {
 		if !checked[kind] {
 			t.Errorf("no supported %s record was loaded through its store", kind)
 		}

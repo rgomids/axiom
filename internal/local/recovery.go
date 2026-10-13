@@ -198,6 +198,9 @@ func recoveryDirectories(ctx context.Context, scope, path string) ([]string, err
 			return nil, err
 		}
 	}
+	if chainExists(root, []string{"validator-policies", "v1"}) {
+		directories = append(directories, "validator-policies/v1")
+	}
 	if chainExists(root, []string{"capability-evidence", "v1"}) {
 		directories = append(directories, "capability-evidence/v1")
 	}

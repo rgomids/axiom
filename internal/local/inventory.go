@@ -23,6 +23,7 @@ import (
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/validatorpolicy"
 )
 
 // InventoryKind is the read-only compatibility fact observed for one owned
@@ -40,6 +41,7 @@ const (
 	InventoryGraph              InventoryKind = "execution_graph"
 	InventoryCoordination       InventoryKind = "coordination_stream"
 	InventoryCapabilityEvidence InventoryKind = "capability_evidence"
+	InventoryValidatorPolicy    InventoryKind = "validator_policy"
 	InventoryRuntimeProfile     InventoryKind = "runtime_profile_configuration"
 	InventoryProjectContext     InventoryKind = "project_context_preference"
 	InventoryPortableManifest   InventoryKind = "portable_manifest"
@@ -56,7 +58,7 @@ const (
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
+	case InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
 		return true
 	}
 	return false
@@ -77,7 +79,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence}
+var additiveKinds = []InventoryKind{InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
@@ -186,7 +188,7 @@ func inspectInventory(ctx context.Context, path string, walk func(*inventoryWalk
 // classifies. Every directory a v1 store writes below the state root MUST be
 // listed here, or an upgrade would refuse state an earlier release produced;
 // TestEveryStateRootWriterDirectoryIsInventoried enforces that.
-var StateRootDirectories = []string{"artifacts", "capability-evidence", "capability-probes", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "work-items", "workflows"}
+var StateRootDirectories = []string{"artifacts", "capability-evidence", "capability-probes", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "work-items", "workflows", "validator-policies"}
 
 func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 	if err := walkStateRootEntries(w, root); err != nil {
@@ -290,6 +292,8 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 			})
 		case "capability-probes":
 			return walkProbeEnvelopes(w, root)
+		case "validator-policies":
+			return eachVersionDirectory(w, root, name, walkValidatorPoliciesV1)
 		case "capability-evidence":
 			return eachVersionDirectory(w, root, name, walkCapabilityEvidenceV1)
 		case "runtime-profiles":
@@ -857,5 +861,27 @@ func walkCapabilityEvidenceV1(w *inventoryWalk, version *os.Root, relative strin
 			return w.add(relative+"/"+name, InventoryMalformed, nil)
 		}
 		return w.add(relative+"/"+name, InventoryCapabilityEvidence, wire)
+	})
+}
+
+func walkValidatorPoliciesV1(w *inventoryWalk, version *os.Root, relative string) error {
+	return eachName(w, version, relative, func(name string) error {
+		if protocolName(name) {
+			return w.add(relative+"/"+name, InventoryRecovery, nil)
+		}
+		if !hexDigestName.MatchString(name) {
+			return w.add(relative+"/"+name, InventoryUnknown, nil)
+		}
+		wire, err := readPublishedFile(version, name)
+		if err != nil {
+			return w.add(relative+"/"+name, InventoryMalformed, nil)
+		}
+		p, err := validatorpolicy.Decode(wire)
+		id, _ := validatorpolicy.Digest(p)
+		canonical, _ := validatorpolicy.Encode(p)
+		if err != nil || id+".json" != name || !bytes.Equal(canonical, wire) {
+			return w.add(relative+"/"+name, InventoryMalformed, nil)
+		}
+		return w.add(relative+"/"+name, InventoryValidatorPolicy, wire)
 	})
 }
