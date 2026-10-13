@@ -252,6 +252,10 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err := lease.Close(); err != nil {
 		t.Fatal(err)
 	}
+	failed := failLocalFirstAttempt(t, graphs, leases, authority.ProjectID, authority.ParentID)
+	if _, err := graphs.CommitRetry(context.Background(), failed, localRetryAuthority(failed)); err != nil {
+		t.Fatal(err)
+	}
 	streams, err := NewCoordinationStore(state, authority.ProjectID)
 	if err != nil {
 		t.Fatal(err)

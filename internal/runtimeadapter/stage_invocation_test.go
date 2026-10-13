@@ -60,7 +60,7 @@ func TestStageEnvironmentClosed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := []string{"HOME=/home/example", "PATH=/bin", "LANG=C", "LC_ALL=C", "AXIOM_ATTEMPT_ID=a"}
+		want := []string{"HOME=/home/example", "PATH=/bin", "LANG=C", "LC_ALL=C"}
 		if runtime == "codex" {
 			want = append(want, "CODEX_HOME=/vendor")
 		} else {

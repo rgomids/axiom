@@ -69,7 +69,8 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 }
 
 // StageEnvironment drops provider credentials and all unlisted variables.
-// Correlation variables are a closed set; arbitrary AXIOM_* is not trusted.
+// Correlation variables are never inherited: a value in the supervisor's own
+// environment belongs to no attempt. Only the attempt context may set them.
 func StageEnvironment(runtimeID string, parent []string) ([]string, error) {
 	if runtimeID != "codex" && runtimeID != "claude" {
 		return nil, ErrInvalidAdapterConfiguration
@@ -80,7 +81,7 @@ func StageEnvironment(runtimeID string, parent []string) ([]string, error) {
 		if !ok || !stageEnvironmentKey(key) || strings.ContainsRune(entry, '\x00') {
 			return nil, ErrInvalidAdapterConfiguration
 		}
-		allowed := key == "HOME" || key == "USER" || key == "LOGNAME" || key == "PATH" || key == "SHELL" || key == "TMPDIR" || key == "LANG" || strings.HasPrefix(key, "LC_") || key == "AXIOM_EXECUTION_ID" || key == "AXIOM_ATTEMPT_ID" || key == "AXIOM_GRAPH_ID" || key == "AXIOM_CORRELATION_ID" || runtimeID == "codex" && key == "CODEX_HOME" || runtimeID == "claude" && key == "CLAUDE_CONFIG_DIR"
+		allowed := key == "HOME" || key == "USER" || key == "LOGNAME" || key == "PATH" || key == "SHELL" || key == "TMPDIR" || key == "LANG" || strings.HasPrefix(key, "LC_") || runtimeID == "codex" && key == "CODEX_HOME" || runtimeID == "claude" && key == "CLAUDE_CONFIG_DIR"
 		if !allowed {
 			continue
 		}

@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -177,6 +178,8 @@ func safePacketJSON(wire []byte) bool {
 	return safe(object)
 }
 
+var packetCredential = regexp.MustCompile(`\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|(?:AKIA|ASIA)[A-Z0-9]{16}|sk-(?:proj-|ant-)?[A-Za-z0-9_-]{20,})\b`)
+
 func safePacketText(value string) bool {
 	if !utf8.ValidString(value) || strings.ContainsRune(value, '\x00') || portableconfig.ContainsSecretBearingValue(value) {
 		return false
@@ -190,7 +193,12 @@ func safePacketText(value string) bool {
 			}
 		}
 	}
-	for _, marker := range []string{"sk-", "ghp_", "github_pat_", "-----begin", "<|im_start|>", "<|im_end|>", "<|start_header_id|>", "<|end_header_id|>", "[inst]", "[/inst]", "<system>", "</system>", "<assistant>", "</assistant>", "<user>", "</user>", "\nsystem:", "\nassistant:", "\nuser:"} {
+	// Credentials are matched by token shape, never by a bare prefix: ordinary
+	// words such as "task-list" contain "sk-" and must not refuse a packet.
+	if packetCredential.MatchString(value) {
+		return false
+	}
+	for _, marker := range []string{"-----begin", "<|im_start|>", "<|im_end|>", "<|start_header_id|>", "<|end_header_id|>", "[inst]", "[/inst]", "<system>", "</system>", "<assistant>", "</assistant>", "<user>", "</user>", "\nsystem:", "\nassistant:", "\nuser:"} {
 		if strings.Contains(lower, marker) {
 			return false
 		}

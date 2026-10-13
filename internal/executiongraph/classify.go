@@ -51,11 +51,14 @@ func LatestAttemptRecord(correlation AttemptCorrelation, records []AttemptRecord
 
 // ClassifyAttempt implements Plan §3.5 in first-match order. Process uncertainty
 // and ambiguous effects override coordination, which cannot prove process stop.
+// A pending cancel alone is not process uncertainty: an attempt that exited on
+// its own (no interruption, so OutcomeUnknown is false) falls through to rules
+// 2–6 exactly as the accepted table orders them.
 func ClassifyAttempt(process ProcessResult, cancelRequested bool, correlation AttemptCorrelation, records []AttemptRecord) (AttemptStatus, ClassificationReason, string) {
 	if cancelRequested && process.Stopped && !process.EffectAmbiguous {
 		return AttemptCancelled, CancelConfirmed, ""
 	}
-	if process.EffectAmbiguous || process.OutcomeUnknown && !(process.TimedOut && process.Stopped) || process.TimedOut && !process.Stopped || cancelRequested && !process.Stopped {
+	if process.EffectAmbiguous || process.OutcomeUnknown && !(process.TimedOut && process.Stopped) || process.TimedOut && !process.Stopped {
 		return AttemptUnknown, ProcessOutcomeUnknown, ""
 	}
 	if process.TimedOut && process.Stopped {
