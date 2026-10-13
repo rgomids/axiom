@@ -419,14 +419,42 @@ func (OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessRe
 	if len(invocation.Stdin) > MaxStdinBytes || len(invocation.Argv) == 0 {
 		return ProcessResult{ExitCode: -1, OutcomeUnknown: true}
 	}
-	command := exec.CommandContext(ctx, invocation.Argv[0], invocation.Argv[1:]...)
+	command := exec.Command(invocation.Argv[0], invocation.Argv[1:]...)
 	command.Stdin = bytes.NewReader(invocation.Stdin)
 	command.Dir = invocation.CWD
 	command.Env = EffectiveInvocationEnvironment(invocation)
 	output := &limitedBuffer{remaining: invocation.OutputMax}
 	command.Stdout = output
 	command.Stderr = output
-	err := command.Run()
+	group, err := newProcessContainment()
+	if err != nil {
+		return ProcessResult{ExitCode: -1, OutcomeUnknown: true}
+	}
+	defer group.close()
+	command.WaitDelay = processStopBound
+	if err = ctx.Err(); err == nil {
+		err = group.start(command)
+	}
+	startFailed := err != nil
+	stopped := false
+	interrupted := false
+	if err == nil {
+		wait := make(chan error, 1)
+		go func() { wait <- command.Wait() }()
+		select {
+		case err = <-wait:
+		case <-ctx.Done():
+			interrupted = true
+			stopCtx, cancel := context.WithTimeout(context.Background(), processStopBound)
+			stopped = confirmProcessStop(stopCtx, group)
+			cancel()
+			select {
+			case err = <-wait:
+			case <-time.After(processStopBound):
+				err = ctx.Err()
+			}
+		}
+	}
 	exitCode := 0
 	if err != nil {
 		exitCode = -1
@@ -435,19 +463,22 @@ func (OSProcessRunner) Run(ctx context.Context, invocation Invocation) ProcessRe
 			exitCode = exitError.ExitCode()
 		}
 	}
-	// CommandContext observes its direct child. Descendant processes or external
-	// effects can remain uncertain, so timeout/cancellation is not called stopped.
+	// Platform observation confirms group/job termination; observed escapes
+	// or observation failures veto confirmation. POSIX groups remain advisory.
 	captured := output.Bytes()
 	digest := sha256.Sum256(captured)
-	return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), Stopped: false, OutcomeUnknown: ctx.Err() != nil, TimedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
+	return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), Stopped: stopped, OutcomeUnknown: interrupted && !stopped || startFailed, TimedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
 }
 
 type limitedBuffer struct {
+	mu sync.Mutex
 	bytes.Buffer
 	remaining int
 }
 
 func (b *limitedBuffer) Write(value []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	original := len(value)
 	if len(value) > b.remaining {
 		value = value[:b.remaining]
@@ -457,4 +488,10 @@ func (b *limitedBuffer) Write(value []byte) (int, error) {
 		b.remaining -= len(value)
 	}
 	return original, nil
+}
+
+func (b *limitedBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]byte(nil), b.Buffer.Bytes()...)
 }

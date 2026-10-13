@@ -28,15 +28,26 @@ func NewCoordinationStore(root, projectID string) (CoordinationStore, error) {
 }
 
 func (s CoordinationStore) Latest(ctx context.Context, parentID, childID string) (coordination.Record, bool, error) {
+	stream, found, err := s.ReadStream(ctx, parentID, childID)
+	if err != nil || !found {
+		return coordination.Record{}, found, err
+	}
+	return stream.Records[len(stream.Records)-1], true, nil
+}
+
+func (s CoordinationStore) ReadStream(ctx context.Context, parentID, childID string) (coordination.Stream, bool, error) {
+	if !validGraphToken(parentID) || !validGraphToken(childID) {
+		return coordination.Stream{}, false, ErrUnsafe
+	}
 	if err := ctx.Err(); err != nil {
-		return coordination.Record{}, false, err
+		return coordination.Stream{}, false, err
 	}
 	root, streams, version, project, err := s.openProject(false)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, ErrNotFound) {
-			return coordination.Record{}, false, nil
+			return coordination.Stream{}, false, nil
 		}
-		return coordination.Record{}, false, err
+		return coordination.Stream{}, false, err
 	}
 	defer root.Close()
 	defer streams.Close()
@@ -44,21 +55,21 @@ func (s CoordinationStore) Latest(ctx context.Context, parentID, childID string)
 	defer project.Close()
 	locks, err := lockRoots(false, root, streams, version, project)
 	if err != nil {
-		return coordination.Record{}, false, err
+		return coordination.Stream{}, false, err
 	}
 	defer closeFiles(locks)
-	wire, err := readPublishedFile(project, coordinationName(parentID, childID))
+	wire, err := readCoordinationStream(project, coordinationName(parentID, childID))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, ErrNotFound) {
-			return coordination.Record{}, false, nil
+			return coordination.Stream{}, false, nil
 		}
-		return coordination.Record{}, false, err
+		return coordination.Stream{}, false, err
 	}
 	stream, err := coordination.DecodeStream(wire)
 	if err != nil || stream.ParentID != parentID || stream.ChildID != childID {
-		return coordination.Record{}, false, ErrUnsafe
+		return coordination.Stream{}, false, ErrUnsafe
 	}
-	return stream.Records[len(stream.Records)-1], true, nil
+	return stream, true, nil
 }
 
 func (s CoordinationStore) Publish(ctx context.Context, record coordination.Record) error {
@@ -82,7 +93,7 @@ func (s CoordinationStore) Publish(ctx context.Context, record coordination.Reco
 	}
 	defer closeFiles(locks)
 	name := coordinationName(record.ParentID, record.ChildID)
-	expected, readErr := readPublishedFile(project, name)
+	expected, readErr := readCoordinationStream(project, name)
 	create := errors.Is(readErr, os.ErrNotExist) || errors.Is(readErr, ErrNotFound)
 	stream := coordination.Stream{FormatVersion: coordination.FormatVersion, ParentID: record.ParentID, ChildID: record.ChildID, Records: []coordination.Record{record}}
 	if !create {
@@ -141,4 +152,15 @@ func (s CoordinationStore) openProject(create bool) (*os.Root, *os.Root, *os.Roo
 func coordinationName(parentID, childID string) string {
 	digest := sha256.Sum256([]byte(parentID + "\x00" + childID))
 	return hex.EncodeToString(digest[:]) + ".json"
+}
+
+func readCoordinationStream(root *os.Root, name string) ([]byte, error) {
+	pending, err := protocolStatePresent(root)
+	if err != nil {
+		return nil, err
+	}
+	if pending {
+		return nil, ErrRecoveryRequired
+	}
+	return readPrivateFileBounded(root, name, coordination.MaxStreamBytes)
 }

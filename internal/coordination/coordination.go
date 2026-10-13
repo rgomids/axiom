@@ -25,6 +25,7 @@ const (
 	maxFields        = 32
 	maxFieldBytes    = 4096
 	maxStreamRecords = 64
+	MaxStreamBytes   = MaxRecordBytes * maxStreamRecords
 )
 
 var (
@@ -279,14 +280,14 @@ func EncodeStream(stream Stream) ([]byte, error) {
 		return nil, ErrInvalidRecord
 	}
 	wire, err := json.Marshal(stream)
-	if err != nil || len(wire)+1 > MaxRecordBytes*maxStreamRecords {
+	if err != nil || len(wire)+1 > MaxStreamBytes {
 		return nil, ErrInvalidRecord
 	}
 	return append(wire, '\n'), nil
 }
 
 func DecodeStream(wire []byte) (Stream, error) {
-	if len(wire) == 0 || len(wire) > MaxRecordBytes*maxStreamRecords {
+	if len(wire) == 0 || len(wire) > MaxStreamBytes {
 		return Stream{}, ErrInvalidRecord
 	}
 	decoder := json.NewDecoder(strings.NewReader(string(wire)))
