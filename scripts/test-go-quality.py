@@ -113,8 +113,7 @@ class WorkflowContract(unittest.TestCase):
         for command in ('format', 'tidy', 'staticcheck'):
             self.assertIn(f'./scripts/check-go-quality.sh {command}', quality)
         self.assertIn('staticcheck@v0.8.1', quality)
-        for command in ('go test -race ./...', 'go test ./... -timeout 10m',
-                        'go vet ./...', 'go build ./...', 'go mod verify',
+        for command in ('go test -race ./...', 'go vet ./...', 'go build ./...', 'go mod verify',
                         './scripts/validate-repository.sh .', './scripts/test-release-pipeline.sh',
                         './scripts/test-upgrade-journeys.sh'):
             self.assertIn(command, workflow)

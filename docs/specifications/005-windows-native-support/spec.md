@@ -1,5 +1,13 @@
 # Specification 005 — Native Windows Support
 
+> **SUPERSEDED — 2026-10-13.** Rafael (maintainer) decided to end Windows
+> support in the current scope
+> ([human authority, PR #311](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308); Issue #276 / AXM-8). Linux and macOS
+> remain the supported platforms. Windows may be reconsidered in the future,
+> with no commitment or timeline. This Specification, its Plan, Tasks and
+> Evidence are preserved unchanged below as history only; they no longer
+> define current support, installation or acceptance requirements.
+
 ## Status
 
 **Implementation authorized.** The requester explicitly approved the complete

@@ -9,6 +9,16 @@ The implementation is the bounded #183 hotfix in PR #184. There is no separate
 Plan or Tasks file: the work is a single installer-eligibility correction.
 Merge, human acceptance and release publication remain separate decisions.
 
+## Platform support amendment — 2026-10-13
+
+Rafael (maintainer) ended Windows support in the current scope
+([human authority, PR #311](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308); Issue #276 / AXM-8). Every Windows
+eligibility row, requirement and acceptance criterion in this Specification,
+including the Server amendment below, is superseded and retained as history
+only. The supported installer hosts are Linux and macOS; their OS-family and
+architecture contract is unchanged. Windows may be reconsidered in the future,
+with no commitment.
+
 ## Server support amendment — 2026-10-09
 
 The maintainer explicitly authorized Windows Server AMD64 support for Issue #256.

@@ -189,21 +189,22 @@ pass "canonical URL, Open Graph and Twitter metadata are present"
 # --- Installer parity ---------------------------------------------------------
 
 posix_install='curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh'
-windows_install='&amp; ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))'
 
 grep -Fq -- "$posix_install" "$SITE/index.html" \
   || fail "landing page does not publish the POSIX installer command"
-grep -Fq -- "$windows_install" "$SITE/index.html" \
-  || fail "landing page does not publish the native PowerShell installer command"
-grep -Fq -- 'Windows setup updates PATH for the current terminal and persistent user PATH' "$SITE/index.html" \
-  || fail "landing page does not explain Windows user PATH setup"
-grep -Fq -- 'Fresh Windows installations use private profile storage' "$SITE/index.html" \
-  || fail "landing page does not explain private fresh Windows storage"
-grep -Fq -- 'asks for approval before changing only the necessary directories' "$SITE/index.html" \
-  || fail "landing page does not explain bounded permission-repair authority"
-grep -Fq -- 'Windows client edition, amd64: 64-bit PowerShell 5.1+' "$SITE/index.html" \
-  || fail "landing page does not state the supported Windows host row"
-pass "landing page presents equivalent POSIX and native PowerShell installation paths"
+grep -Fq -- 'Supported hosts: macOS arm64 and Linux amd64/arm64.' "$SITE/index.html" \
+  || fail "landing page does not state the supported Linux and macOS host rows"
+grep -Fq -- 'Windows is not currently supported' "$SITE/index.html" \
+  || fail "landing page does not state that Windows is not currently supported"
+# Windows support ended (PR #311, Issue #276): no PowerShell installer, removed
+# install.ps1 link or Windows onboarding instruction may come back unnoticed.
+if grep -rEqi 'install\.ps1|powershell|pwsh|scriptblock|Invoke-RestMethod|PS&gt;' "$SITE"; then
+  fail "site/ still publishes a PowerShell installation path; Windows is not supported"
+fi
+if grep -rEq 'installation\.md#windows|Windows client|Windows Server|NTFS|AppData' "$SITE"; then
+  fail "site/ still documents Windows installation, eligibility or onboarding"
+fi
+pass "landing page presents the POSIX installation path and no Windows installation path"
 
 # --- Theme: dark only ---------------------------------------------------------
 

@@ -53,17 +53,9 @@ Install the **latest stable release** on **Linux or macOS**:
 curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh
 ```
 
-On **Windows** (64-bit PowerShell):
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
-```
-
-The Windows bootstrap verifies the installed binary, configures detected Runtime
-skills and updates this terminal's PATH and the persistent user PATH. Fresh installs use private profile
-storage. If existing standard Runtime directories need permission repair, it
-shows the exact changes and asks for approval before applying them. See
-[Windows onboarding and recovery](docs/installation.md#windows).
+Linux and macOS are the supported platforms. Windows is not currently
+supported and has no installer; it may be reconsidered in the future, with no
+committed timeline.
 
 For prerequisites, platforms, PATH, upgrades, and diagnostics, see the
 [installation guide](docs/installation.md).
@@ -143,7 +135,7 @@ are separate decisions.
 - **Latest stable release:** [GitHub Releases](https://github.com/rgomids/axiom/releases/latest).
   The installer resolves it automatically; the [Changelog](CHANGELOG.md) lists
   what each version adds.
-- **Available today / stable:** checksum-verified Linux, macOS, and Windows
+- **Available today / stable:** checksum-verified Linux and macOS
   distribution; guided Project configuration, listing, and resolution;
   GitHub Work Item creation and classification; Codex/Claude bootstrap;
   persistent workflow, Evidence, recovery, and owned-install upgrades.
@@ -231,7 +223,7 @@ go test ./...
 
 The script installs a development build from the checkout. See
 [development setup](docs/development/getting-started.md) and the
-[command reference](docs/commands.md) for build, Windows, and dogfooding details.
+[command reference](docs/commands.md) for build and dogfooding details.
 
 ## Website
 
