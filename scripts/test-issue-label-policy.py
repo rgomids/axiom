@@ -72,9 +72,9 @@ def issue(labels, body="", state="open", **extra):
 
 class PlanTest(unittest.TestCase):
     def test_bug_form_gets_area_and_platforms(self):
-        body = render([("Area", "Installer"), ("Platform", "Windows, macOS"), ("Description", "x")])
+        body = render([("Area", "Installer"), ("Platform", "Linux, macOS"), ("Description", "x")])
         result = policy.plan(issue(["type:bug", "status:planned"], body), "opened")
-        self.assertEqual(result["add"], ["area:installer", "platform:windows", "platform:macos"])
+        self.assertEqual(result["add"], ["area:installer", "platform:linux", "platform:macos"])
         self.assertEqual(result["violations"], [])
 
     def test_every_area_option_maps(self):
@@ -84,17 +84,18 @@ class PlanTest(unittest.TestCase):
             self.assertEqual(result["add"], [label, "platform:linux"], option)
 
     def test_platform_only_seeded_when_opened(self):
-        body = render([("Area", "CLI"), ("Platform", "Windows")])
+        body = render([("Area", "CLI"), ("Platform", "Linux")])
         result = policy.plan(issue(["type:bug", "status:planned", "area:cli"], body), "unlabeled")
         self.assertEqual(result["add"], [])
 
     def test_multi_select_rendering_variants(self):
         # GitHub documents `multiple` but not the rendered separator; accept the
         # plausible renderings and never apply a label from an unknown token.
-        for answer in ("Windows, macOS", "Windows,macOS", "Windows\nmacOS", "- Windows\n- macOS", "* Windows\r\n* macOS"):
+        for answer in ("Linux, macOS", "Linux,macOS", "Linux\nmacOS", "- Linux\n- macOS", "* Linux\r\n* macOS"):
             result = policy.plan(issue(["type:bug", "status:planned", "area:cli"], render([("Platform", answer)])), "opened")
-            self.assertEqual(result["add"], ["platform:windows", "platform:macos"], repr(answer))
-        for answer in ("Windows; macOS", "Windows and macOS", "windows"):
+            self.assertEqual(result["add"], ["platform:linux", "platform:macos"], repr(answer))
+        # Windows is not a supported platform: it is a non-canonical option.
+        for answer in ("Linux; macOS", "Linux and macOS", "linux", "Windows", "Windows, macOS"):
             result = policy.plan(issue(["type:bug", "status:planned", "area:cli"], render([("Platform", answer)])), "opened")
             self.assertEqual(result["add"], [], repr(answer))
             self.assertEqual(len(result["notices"]), 1, repr(answer))
@@ -224,7 +225,7 @@ class AxiomAuthoredTest(unittest.TestCase):
 
 class CatalogTest(unittest.TestCase):
     def test_catalog_shape(self):
-        families = {"type": 5, "area": 9, "status": 3, "platform": 3}
+        families = {"type": 5, "area": 9, "status": 3, "platform": 2}
         for family, count in families.items():
             self.assertEqual(len(policy.canonical(family)), count, family)
         self.assertEqual(len(policy.CATALOG), sum(families.values()))

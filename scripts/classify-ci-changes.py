@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 SUITES = ('go', 'verify', 'release', 'upgrade')
+# Closed native rows per platform suite; Linux and macOS are the supported platforms.
+PLATFORMS = {'verify': ('linux', 'macos'), 'upgrade': ('linux', 'macos')}
 
 
 def identity():
@@ -28,8 +30,8 @@ def category(path):
             '.github/workflows/deploy-landpage.yml'):
         return 'site'
     if path.startswith(('internal/compatibility/', 'internal/installation/')) or path in (
-            'install.sh', 'install.ps1') or path.startswith(('scripts/install',
-            'scripts/test-install', 'scripts/test-windows', 'scripts/test-upgrade')):
+            'install.sh',) or path.startswith(('scripts/install',
+            'scripts/test-install', 'scripts/test-upgrade')):
         return 'installer'
     if path.startswith(('cmd/', 'internal/')) or path in ('go.mod', 'go.sum'):
         return 'go'
@@ -139,7 +141,8 @@ def conclude(plan_record, selected, result, classification, repository, row=None
             suite in SUITES and selected == str(plan_record.get('suites', {}).get(suite, {}).get('selected')).lower() and
             classification == repository == 'success' and
             ((selected == 'true' and result == 'success' and
-              (platform is None or row_matches(row, suite, platform))) or
+              (platform is None or (platform in PLATFORMS.get(suite, ()) and
+                                    row_matches(row, suite, platform)))) or
              (selected == 'false' and result == 'skipped')))
 
 
@@ -160,7 +163,9 @@ def main():
     if args.record_row:
         if not args.suite or not args.platform or not args.output:
             parser.error('row recording requires suite, platform and output')
-        if args.platform != {'linux': 'linux', 'darwin': 'macos', 'win32': 'windows'}.get(sys.platform):
+        if args.platform not in PLATFORMS.get(args.suite, ()):
+            raise SystemExit('platform is not a supported row for this suite')
+        if args.platform != {'linux': 'linux', 'darwin': 'macos'}.get(sys.platform):
             raise SystemExit('platform identity does not match native runner')
         Path(args.output).write_text(json.dumps(dict(schema_version=1, identity=identity(),
             suite=args.suite, platform=args.platform, result='success')), encoding='utf-8')

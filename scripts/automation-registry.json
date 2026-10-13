@@ -60,8 +60,8 @@
       "callers": [
         "scripts/release-pr-checks.sh"
       ],
-      "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos/windows plus release-contract job",
-      "outputs": "Required check contexts verify (linux|macos|windows) and release-contract; step failures fail the run; go-quality required context",
+      "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos plus release-contract job",
+      "outputs": "Required check contexts verify (linux|macos) and release-contract; step failures fail the run; go-quality required context",
       "local_effects": "runner workspace only",
       "network_effects": "GitHub Actions checkout and setup-go; Go module download; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1 from github.com release downloads; pinned honnef.co/go/tools@v0.8.1 and its module dependencies Read-only Actions baseline lookup and code health artifact retention.",
       "authority": "contents: read; verify adds actions: read for baseline artifacts; no secrets or privileged PR event",
@@ -276,14 +276,13 @@
       "path": ".github/workflows/native-artifact-acceptance.yml",
       "kind": "workflow",
       "owner": "release",
-      "purpose": "Required native Linux ARM64 and Windows member Server AMD64 installation acceptance on exact prepared artifacts; no rebuild or publication authority.",
+      "purpose": "Required native Linux ARM64 installation acceptance on exact prepared artifacts; no rebuild or publication authority.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
       "runtime": [
         "github-actions",
         "bash",
-        "powershell",
         "python3"
       ],
       "scope": [
@@ -574,7 +573,7 @@
       "path": "scripts/accept-native-artifact.py",
       "kind": "script",
       "owner": "release",
-      "purpose": "Native Linux ARM64 and Windows member Server AMD64 artifact lifecycle, provenance, configuration, reinstall, refusal and recovery; genuine prior Linux release upgrade; explicit first-Server baseline N/A.",
+      "purpose": "Native Linux artifact lifecycle, provenance, configuration, reinstall, refusal and recovery; genuine prior Linux release upgrade.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,

@@ -53,8 +53,10 @@ class NativeContract(unittest.TestCase):
         self.assertIn("native-acceptance:\n    needs: prepare", prepare)
         self.assertIn("uses: ./.github/workflows/native-artifact-acceptance.yml", prepare)
         self.assertIn("runs-on: ubuntu-24.04-arm", native_workflow)
-        self.assertIn("runs-on: windows-2022", native_workflow)
-        self.assertIn("--row windows-amd64", native_workflow)
+        self.assertIn("--row linux-arm64", native_workflow)
+        # Windows is not a supported platform: no Windows runner or row is provisioned.
+        for workflow in (native_workflow, qualifier):
+            self.assertNotIn("windows", workflow.lower())
         self.assertIn(".conclusion == \"success\"", publish)
         self.assertIn('test "$PROMOTION" = skipped', qualifier)
         for workflow in (prepare, native_workflow, qualifier):
