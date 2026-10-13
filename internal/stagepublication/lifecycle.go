@@ -13,6 +13,8 @@ import (
 type LocalStageState struct {
 	Graphs   local.GraphStore
 	Contract func(context.Context, stageexecution.StatusRequest) (stageexecution.Contract, error)
+	// Observer is rechecked under the run lease by AppendReconciliation.
+	Observer local.ReconciliationObserver
 }
 
 func (s LocalStageState) StageSnapshot(ctx context.Context, r stageexecution.StatusRequest) (stageexecution.Contract, error) {
@@ -32,4 +34,10 @@ func (s LocalStageState) StageSnapshot(ctx context.Context, r stageexecution.Sta
 }
 func (s LocalStageState) RequestCancel(ctx context.Context, g executiongraph.SuccessorGraph, r executiongraph.CancelRequest) (executiongraph.SuccessorGraph, error) {
 	return s.Graphs.RequestCancel(ctx, g, r)
+}
+func (s LocalStageState) AppendReconciliation(ctx context.Context, g executiongraph.SuccessorGraph, f executiongraph.ReconciliationFact) (executiongraph.SuccessorGraph, error) {
+	if s.Observer == nil {
+		return g, stageexecution.ErrPreview
+	}
+	return s.Graphs.AppendReconciliation(ctx, g, f, s.Observer)
 }

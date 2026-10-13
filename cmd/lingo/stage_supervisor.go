@@ -15,7 +15,7 @@ func stageSupervisorCommand(ctx context.Context, args []string, loader stageSupe
 	if len(args) == 0 || args[0] != "__stage-supervisor" {
 		return false, 0
 	}
-	if len(args) != 5 || loader == nil {
+	if len(args) != 5 && len(args) != 6 || loader == nil {
 		return true, 1
 	}
 	r := stageexecution.SupervisorRequest{ProjectID: args[1], ParentID: args[2], PreviewDigest: args[3], AuthorityRef: args[4]}
@@ -23,7 +23,14 @@ func stageSupervisorCommand(ctx context.Context, args []string, loader stageSupe
 	if e != nil {
 		return true, 1
 	}
-	if e = s.Run(ctx, r); e != nil {
+	// A sixth argument names a committed retry receipt; it never widens the
+	// first-attempt scope and is verified again under the run lease.
+	if len(args) == 6 {
+		e = s.RunRetry(ctx, r, args[5])
+	} else {
+		e = s.Run(ctx, r)
+	}
+	if e != nil {
 		return true, 1
 	}
 	return true, 0

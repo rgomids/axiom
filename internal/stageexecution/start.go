@@ -23,3 +23,12 @@ func (s CommittedStarter) Start(ctx context.Context, p Publication) (executiongr
 	}
 	return executiongraph.ProcessCorrelation{}, ErrPreview
 }
+
+// StartRetry launches the detached supervisor for one committed retry receipt.
+func (s CommittedStarter) StartRetry(ctx context.Context, r SupervisorRequest, retryRef string) (executiongraph.ProcessCorrelation, error) {
+	store, ok := s.Store.(RetrySupervisorStore)
+	if !ok {
+		return executiongraph.ProcessCorrelation{}, ErrSupervisorAuthority
+	}
+	return LaunchRetry(ctx, r, retryRef, store, s.Detached)
+}

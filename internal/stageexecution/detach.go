@@ -76,3 +76,32 @@ func (SameBinaryDetacher) Start(ctx context.Context, args []string) (executiongr
 	}
 	return *identity, nil
 }
+
+// LaunchRetry checks the committed retry receipt before spawning. The hidden
+// process receives only identities and the receipt digest, never flags.
+func LaunchRetry(ctx context.Context, r SupervisorRequest, retryRef string, store RetrySupervisorStore, start DetachedStart) (executiongraph.ProcessCorrelation, error) {
+	if e := ctx.Err(); e != nil {
+		return executiongraph.ProcessCorrelation{}, e
+	}
+	if store == nil || start == nil {
+		return executiongraph.ProcessCorrelation{}, ErrSupervisorAuthority
+	}
+	g, a, e := store.Load(ctx, r)
+	if e != nil {
+		return executiongraph.ProcessCorrelation{}, e
+	}
+	if e = verifySupervisor(r, g, a); e != nil {
+		return executiongraph.ProcessCorrelation{}, e
+	}
+	retry, e := store.LoadRetry(ctx, r, retryRef)
+	if e != nil {
+		return executiongraph.ProcessCorrelation{}, e
+	}
+	if digest, e := executiongraph.RetryAuthorityDigest(retry); e != nil || digest != retryRef {
+		return executiongraph.ProcessCorrelation{}, ErrSupervisorAuthority
+	}
+	if _, e = executiongraph.CheckRetryDispatch(g, retry); e != nil {
+		return executiongraph.ProcessCorrelation{}, ErrSupervisorAuthority
+	}
+	return start.Start(ctx, []string{"__stage-supervisor", r.ProjectID, r.ParentID, r.PreviewDigest, r.AuthorityRef, retryRef})
+}

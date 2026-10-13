@@ -102,6 +102,7 @@ type fakeSupervisorPreparation struct {
 	failDrain   bool
 	failFinal   bool
 	results     bool
+	kind        string
 	onPrepare   func()
 }
 
@@ -131,7 +132,11 @@ func (f *fakeSupervisorPreparation) Drain(_ context.Context, g executiongraph.Su
 		return nil, errInjected
 	}
 	if f.results {
-		r := executiongraph.AttemptRecord{ParentID: g.Parent.ExecutionID, ChildID: c.ExecutionID, AttemptID: a.AttemptID, GraphRevision: g.Parent.GraphRevision, Revision: uint64(f.finals), Digest: fmt.Sprintf("%064x", f.finals), Kind: "result", Outcome: "succeeded", Accepted: true}
+		kind := "result"
+		if f.kind != "" {
+			kind = f.kind
+		}
+		r := executiongraph.AttemptRecord{ParentID: g.Parent.ExecutionID, ChildID: c.ExecutionID, AttemptID: a.AttemptID, GraphRevision: g.Parent.GraphRevision, Revision: uint64(f.finals), Digest: fmt.Sprintf("%064x", f.finals), Kind: kind, Outcome: "succeeded", Accepted: true}
 		f.store.records = append(f.store.records, r)
 		return []executiongraph.AttemptRecord{r}, nil
 	}

@@ -162,7 +162,10 @@ func (s Supervisor) Run(ctx context.Context, r SupervisorRequest) error {
 		if len(batch) == 0 {
 			return nil
 		}
-		if err = s.runBatch(ctx, r, &g, a, lease, batch, now, interval); err != nil {
+		first := func(g executiongraph.SuccessorGraph, id string) (uint32, error) {
+			return 1, executiongraph.CheckFirstDispatch(g, a, r.PreviewDigest, id, 1)
+		}
+		if err = s.runBatch(ctx, r, &g, first, lease, batch, now, interval); err != nil {
 			return err
 		}
 		// Refresh cancellation and CAS state. Never overwrite a concurrent request.
@@ -184,7 +187,11 @@ type supervisorEvent struct {
 	ack      chan error
 }
 
-func (s Supervisor) runBatch(ctx context.Context, r SupervisorRequest, g *executiongraph.SuccessorGraph, a executiongraph.DispatchAuthority, lease SupervisorLease, batch []string, now func() time.Time, interval time.Duration) error {
+// dispatchCheck returns the attempt number covered by the caller's exact
+// authority for one child, immediately before preparation and spawn.
+type dispatchCheck func(executiongraph.SuccessorGraph, string) (uint32, error)
+
+func (s Supervisor) runBatch(ctx context.Context, r SupervisorRequest, g *executiongraph.SuccessorGraph, check dispatchCheck, lease SupervisorLease, batch []string, now func() time.Time, interval time.Duration) error {
 	workCtx, stop := context.WithCancel(ctx)
 	defer stop()
 	events := make(chan supervisorEvent, len(batch)*2)
@@ -220,7 +227,8 @@ func (s Supervisor) runBatch(ctx context.Context, r SupervisorRequest, g *execut
 				break
 			}
 		}
-		if index < 0 || executiongraph.CheckFirstDispatch(*g, a, r.PreviewDigest, id, 1) != nil {
+		number, e := check(*g, id)
+		if index < 0 || e != nil {
 			firstErr = ErrSupervisorAuthority
 			break
 		}
@@ -263,7 +271,7 @@ func (s Supervisor) runBatch(ctx context.Context, r SupervisorRequest, g *execut
 		}
 		start := now().UTC()
 		digest := sha256.Sum256(inv.Stdin)
-		at := executiongraph.SuccessorAttempt{AttemptID: attemptID, Number: 1, Status: executiongraph.AttemptRunning, StartedAt: &start, LeaseEpoch: lease.Epoch(), PacketDigest: hex.EncodeToString(digest[:])}
+		at := executiongraph.SuccessorAttempt{AttemptID: attemptID, Number: number, Status: executiongraph.AttemptRunning, StartedAt: &start, LeaseEpoch: lease.Epoch(), PacketDigest: hex.EncodeToString(digest[:])}
 		child := g.Children[index]
 		pending++
 		go func(index int, at executiongraph.SuccessorAttempt, inv executiongraph.Invocation) {
