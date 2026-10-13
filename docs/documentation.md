@@ -18,13 +18,14 @@ Define how Axiom documentation is classified, maintained, reviewed, and reconcil
 
 | Information | Canonical source |
 |---|---|
-| Public product vision, problem, audience, discovery, and user flows | [GitHub Wiki](https://github.com/rgomids/axiom/wiki); technical requirements remain in approved repository artifacts |
-| Public product hypotheses and questions | GitHub Wiki, explicitly classified and reconciled against approved contracts before publication |
+| Product and system documentation: vision, problem, audience, discovery, user flows, concepts and system overview | [Notion — Axiom](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979); technical requirements remain in approved repository artifacts |
+| Product hypotheses and open questions | Notion, explicitly classified and reconciled against approved contracts |
 | Feature behavior and contracts | GitHub — [Specifications](specifications/README.md) |
 | Implemented or intended architecture | GitHub — [Architecture](architecture/README.md), using C4 |
 | Durable technical decisions | GitHub — [ADRs](decisions/README.md) |
 | Technical guides and references that must evolve with code | GitHub Repository — versioned Docs-as-Code |
-| Public tutorials, user guides, concepts, and editorial explanations | GitHub Wiki; summarize and link to code-coupled canonical references |
+| Tutorials, user guides, concepts, and editorial explanations | Notion; summarize and link to code-coupled canonical references |
+| Normative governance and agent instructions | Repository — [Constitution](product/constitution.md), [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md) and `.agents/**` |
 | Product roadmap, product epics/stories, priorities, milestones and delivery dates | Linear, AXM team; see [Linear and GitHub tracking](development/linear-github-issue-tracking.md) |
 | Technical Work Items, bugs, implementation tasks and engineering progress | GitHub Issues and PRs, with technical contracts in versioned repository artifacts |
 | Implementation evidence | Evidence, tests, commits, and PRs |
@@ -32,15 +33,19 @@ Define how Axiom documentation is classified, maintained, reviewed, and reconcil
 | Consolidated Specification status | [docs/specifications/README.md](specifications/README.md) |
 | Stable repository landing page | Canonical English [README.md](../README.md) and synchronized official [README.pt-BR.md](README.pt-BR.md) translation |
 
-GitHub Wiki and Repository have distinct ownership. Wiki explanations link to technical artifacts rather than duplicate their contracts. Notion is a migration source, not the target operational source.
+Notion and the Repository have distinct ownership. Notion pages explain and link to technical artifacts rather than duplicate their contracts. Specifications, ADRs, Evidence, the normative constitution, `AGENTS.md`, `CLAUDE.md` and `.agents/**` remain versioned in the repository because agents and checks consume them.
 
-Classify external content and verify publication authority before importing it, following the [security policy](../.agents/policies/security.md). Historical source references may remain for provenance; no current workflow should require Notion. Migration completion requires source inventory reconciliation, validated destinations and links, and explicit publication authority. Local migration drafts are temporary review artifacts, not a third source of truth. This matrix assigns documentation ownership; it does not imply that GitHub/Linear integrations or issue synchronization have been configured. Product delivery is tracked in Linear; technical Work Item and publication authority remain in their owning GitHub and Execution artifacts. It does not override the constitution, approved contracts, or executable evidence under the [repository source hierarchy](../AGENTS.md#source-hierarchy).
+The GitHub Wiki is retired. It is no longer a canonical source; its pages are historical and must not be updated or cited as current state. [Evidence of the 2026-10-05 Wiki migration](development/evidence-docs-migration.md) remains as dated history.
+
+Repository agents must not require Notion access to execute work. [Product Foundation](product/foundation.md) and [Roadmap](product/roadmap.md) keep short, versioned summaries of the minimum product context agents need and link to Notion for the full narrative. When the summary and Notion diverge, reconcile the summary; approved repository contracts still prevail over both.
+
+Notion content is non-public by default. Classify external content and verify publication authority before importing it, following the [security policy](../.agents/policies/security.md). Repository content must not copy private Notion content merely because an agent can access it. Local migration drafts are temporary review artifacts, not a third source of truth. This matrix assigns documentation ownership; it does not imply that GitHub/Linear integrations or issue synchronization have been configured. Product delivery is tracked in Linear; technical Work Item and publication authority remain in their owning GitHub and Execution artifacts. It does not override the constitution, approved contracts, or executable evidence under the [repository source hierarchy](../AGENTS.md#source-hierarchy).
 
 ## Documentation categories
 
 | Category | Purpose |
 |---|---|
-| Product | Public discovery and explanations live in Wiki; repository product summaries link to Wiki and approved technical contracts. Normative constitution and Evidence remain versioned. |
+| Product | Discovery, explanations and system narrative live in Notion; repository product summaries link to Notion and approved technical contracts. Normative constitution and Evidence remain versioned. |
 | Architecture | Describe system structure, boundaries, and relationships; distinguish implemented behavior from intended architecture. Use C4 as the preferred visualization standard. |
 | ADRs | Preserve durable decisions, context, alternatives, consequences, and trade-offs. |
 | Specifications | Define feature behavior, contracts, constraints, and acceptance criteria. |
@@ -74,7 +79,7 @@ Use Diátaxis only to classify Tutorial, How-to, Reference, and Explanation cont
 | Durable architectural decision | ADR and architecture |
 | New boundary or integration | Architecture and possibly an ADR |
 | New command or configuration | Reference/guide |
-| Public product change | Wiki and, when a contract is affected, Specification |
+| Product change | Notion and, when a contract is affected, Specification; reconcile Foundation/Roadmap summaries if agent context changes |
 | Execution state | Issue/Project when adopted; otherwise the existing Task/PR record |
 | Completed delivery | Evidence, PR, and Changelog when relevant |
 

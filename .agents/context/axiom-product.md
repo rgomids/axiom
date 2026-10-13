@@ -10,10 +10,13 @@ source of truth; durable Evidence is not raw chat history.
 
 Use these canonical sources rather than expanding this routing summary:
 
-- [Product Foundation](../../docs/product/foundation.md): facts, requirements,
-  decisions, hypotheses and open questions.
+- [Notion — Axiom](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979):
+  home of product and system documentation (vision, discovery, flows, open
+  questions); non-public and not required to execute repository work.
+- [Product Foundation](../../docs/product/foundation.md): short versioned summary
+  of the minimum vocabulary, requirements, principles and authority agents need.
 - [Constitution](../../docs/product/constitution.md): normative governance.
-- [Product index](../../docs/product/README.md#documentation-authority): discovery,
+- [Product index](../../docs/product/README.md#documentation-authority): Notion,
   versioned technical truth and operational tracking responsibilities.
 - [Architecture](../../docs/architecture/README.md): target boundaries and implemented foundation.
 - [Specification index](../../docs/specifications/README.md): current approval,

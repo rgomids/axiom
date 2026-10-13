@@ -22,7 +22,7 @@ acceptance.
 | Specifications, architecture decisions, code, PRs, validation and evidence | Versioned GitHub repository |
 | Technical delivery and stable publication | GitHub Release and its traceable evidence |
 | Product acceptance and delivery status | Linear, reconciled against technical evidence and required human decisions |
-| Public editorial product explanations | GitHub Wiki; not an operational tracker |
+| Product and system documentation and editorial explanations | Notion; not an operational tracker (GitHub Wiki retired) |
 
 A Linear story may map to **multiple** GitHub Issues, and an engineering Issue
 may have no Linear card. Do not force a one-to-one relationship, duplicate

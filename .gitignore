@@ -39,3 +39,5 @@ dist/
 build/
 vendor/
 node_modules/
+__pycache__/
+*.pyc

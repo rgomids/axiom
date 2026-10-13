@@ -6,7 +6,9 @@ Before reconciling documents, consult [Documentation Governance v1](../../docs/d
 
 ## Authority and anti-drift
 
-- GitHub Wiki owns public product discovery and user-oriented documentation; Specifications, architecture, and ADRs in the repository own technical contracts and decisions. Code-coupled references remain versioned; secondary sources summarize and link.
+- [Notion](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979) owns product and system documentation (discovery, flows, concepts, guides and system overview); Specifications, architecture, ADRs, Evidence, the normative constitution, `AGENTS.md`, `CLAUDE.md` and `.agents/**` remain versioned in the repository. Code-coupled references remain versioned; secondary sources summarize and link.
+- The GitHub Wiki is retired: do not update it or cite it as current state.
+- Do not require Notion access to execute repository work. Keep the minimum agent-needed product context in the short Product Foundation and Roadmap summaries, and treat Notion content as non-public under the [security policy](security.md).
 - Keep operational tracking in Issues/Projects when adopted, or existing Task/PR records until then. Never copy Task/PR status into Product Foundation or Roadmap; link to the Specifications index for consolidated lifecycle state.
 - Preserve approved decisions and dated history. Merge does not mean human acceptance; acceptance does not authorize the next Task.
 - Agent context must not override canonical artifacts. Hypotheses must remain distinct from accepted decisions.
@@ -34,7 +36,7 @@ These rules apply to the Axiom repository agent through the
 | Change | Expected documentation |
 |---|---|
 | internal bug fix, no contract impact | task/evidence; durable docs only if needed |
-| business-rule change | Specification and Evidence; Wiki if public product discovery changes |
+| business-rule change | Specification and Evidence; Notion if product discovery changes |
 | new integration/boundary | architecture; possibly ADR |
 | public API incompatibility | spec + architecture + migration/ADR as applicable |
 | infrastructure behavior | operational/architecture docs |
