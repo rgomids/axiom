@@ -384,7 +384,7 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
 	}
 	if err := hooks.at(FaultF6); err != nil {
-		return publicationFailure(FaultF6, true, ErrRecoveryRequired)
+		return publicationFailure(FaultF6, true, errors.Join(ErrRecoveryRequired, err))
 	}
 	confirmed, err := readPrivateFileBounded(root, name, limit)
 	if err != nil || !bytes.Equal(confirmed, next) {
@@ -403,7 +403,7 @@ func publishFile(ctx context.Context, root *os.Root, name string, expected, next
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
 	}
 	if err := hooks.at(FaultF8); err != nil {
-		return publicationFailure(FaultF8, true, ErrRecoveryRequired)
+		return publicationFailure(FaultF8, true, errors.Join(ErrRecoveryRequired, err))
 	}
 	if err := removeProtocolState(root, markerName, hooks); err != nil {
 		return publicationFailure(FaultF8, true, ErrRecoveryRequired)

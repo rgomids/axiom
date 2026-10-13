@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/detailartifact"
 	"github.com/rgomids/axiom/internal/executiongraph"
@@ -29,32 +30,33 @@ import (
 type InventoryKind string
 
 const (
-	InventoryInstallation     InventoryKind = "installation_record"
-	InventoryWorkItem         InventoryKind = "work_item_link"
-	InventoryCreateAttempt    InventoryKind = "work_item_create_attempt"
-	InventoryExecution        InventoryKind = "execution"
-	InventoryArtifact         InventoryKind = "artifact_object"
-	InventoryCleanupRecord    InventoryKind = "artifact_cleanup_record"
-	InventoryRetirementRecord InventoryKind = "artifact_retirement_record"
-	InventoryGraph            InventoryKind = "execution_graph"
-	InventoryCoordination     InventoryKind = "coordination_stream"
-	InventoryRuntimeProfile   InventoryKind = "runtime_profile_configuration"
-	InventoryProjectContext   InventoryKind = "project_context_preference"
-	InventoryPortableManifest InventoryKind = "portable_manifest"
-	InventoryOperational      InventoryKind = "project_operational_state"
-	InventoryPOCWorkflow      InventoryKind = "poc_workflow"
-	InventoryRecovery         InventoryKind = "recovery_state"
-	InventoryNewer            InventoryKind = "unsupported_newer"
-	InventoryOlder            InventoryKind = "unsupported_older"
-	InventoryMalformed        InventoryKind = "malformed"
-	InventoryUnsafe           InventoryKind = "unsafe"
-	InventoryUnknown          InventoryKind = "unknown"
+	InventoryInstallation       InventoryKind = "installation_record"
+	InventoryWorkItem           InventoryKind = "work_item_link"
+	InventoryCreateAttempt      InventoryKind = "work_item_create_attempt"
+	InventoryExecution          InventoryKind = "execution"
+	InventoryArtifact           InventoryKind = "artifact_object"
+	InventoryCleanupRecord      InventoryKind = "artifact_cleanup_record"
+	InventoryRetirementRecord   InventoryKind = "artifact_retirement_record"
+	InventoryGraph              InventoryKind = "execution_graph"
+	InventoryCoordination       InventoryKind = "coordination_stream"
+	InventoryCapabilityEvidence InventoryKind = "capability_evidence"
+	InventoryRuntimeProfile     InventoryKind = "runtime_profile_configuration"
+	InventoryProjectContext     InventoryKind = "project_context_preference"
+	InventoryPortableManifest   InventoryKind = "portable_manifest"
+	InventoryOperational        InventoryKind = "project_operational_state"
+	InventoryPOCWorkflow        InventoryKind = "poc_workflow"
+	InventoryRecovery           InventoryKind = "recovery_state"
+	InventoryNewer              InventoryKind = "unsupported_newer"
+	InventoryOlder              InventoryKind = "unsupported_older"
+	InventoryMalformed          InventoryKind = "malformed"
+	InventoryUnsafe             InventoryKind = "unsafe"
+	InventoryUnknown            InventoryKind = "unknown"
 )
 
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
+	case InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
 		return true
 	}
 	return false
@@ -75,7 +77,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{InventoryWorkflowDefinition, InventoryWorkflowIndex}
+var additiveKinds = []InventoryKind{InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
@@ -184,7 +186,7 @@ func inspectInventory(ctx context.Context, path string, walk func(*inventoryWalk
 // classifies. Every directory a v1 store writes below the state root MUST be
 // listed here, or an upgrade would refuse state an earlier release produced;
 // TestEveryStateRootWriterDirectoryIsInventoried enforces that.
-var StateRootDirectories = []string{"artifacts", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "work-items", "workflows"}
+var StateRootDirectories = []string{"artifacts", "capability-evidence", "capability-probes", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "work-items", "workflows"}
 
 func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 	if err := walkStateRootEntries(w, root); err != nil {
@@ -286,6 +288,10 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
 				return eachDigestRecordDirectory(w, version, relative, w.classifyCoordination)
 			})
+		case "capability-probes":
+			return walkProbeEnvelopes(w, root)
+		case "capability-evidence":
+			return eachVersionDirectory(w, root, name, walkCapabilityEvidenceV1)
 		case "runtime-profiles":
 			return eachVersionDirectory(w, root, name, walkRuntimeProfilesV1)
 		case "project-context":
@@ -827,4 +833,29 @@ func validPOCWorkflow(wire []byte) bool {
 		return dto.Steps[dto.Current].Status == "pending"
 	}
 	return dto.Steps[dto.Current].Status == "failed"
+}
+
+func walkCapabilityEvidenceV1(w *inventoryWalk, version *os.Root, relative string) error {
+	return eachName(w, version, relative, func(name string) error {
+		if protocolName(name) {
+			return w.add(relative+"/"+name, InventoryRecovery, nil)
+		}
+		if !hexDigestName.MatchString(name) {
+			return w.add(relative+"/"+name, InventoryUnknown, nil)
+		}
+		wire, err := readPublishedFile(version, name)
+		if err != nil {
+			return w.add(relative+"/"+name, InventoryMalformed, nil)
+		}
+		e, err := capabilityproof.DecodeEvidence(wire)
+		if err != nil {
+			return w.add(relative+"/"+name, InventoryMalformed, nil)
+		}
+		e.InvalidatedReason = ""
+		id, _ := capabilityproof.Digest(e)
+		if id+".json" != name {
+			return w.add(relative+"/"+name, InventoryMalformed, nil)
+		}
+		return w.add(relative+"/"+name, InventoryCapabilityEvidence, wire)
+	})
 }

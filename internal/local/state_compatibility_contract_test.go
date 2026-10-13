@@ -146,7 +146,11 @@ func TestEveryV1WriterIsRecognizedByInventory(t *testing.T) {
 		written = append(written, name.Name())
 	}
 	// workflows/ holds only frozen historical POC records; no v1 writer uses it.
-	expected := slices.DeleteFunc(slices.Clone(StateRootDirectories), func(name string) bool { return name == "workflows" })
+	// capability-probes/ holds only transient probe envelopes, which inventory
+	// classifies as recovery state; no durable v1 writer leaves records there.
+	expected := slices.DeleteFunc(slices.Clone(StateRootDirectories), func(name string) bool {
+		return name == "workflows" || name == "capability-probes"
+	})
 	if !slices.Equal(written, expected) {
 		t.Errorf("writers produced top-level directories %v, want every v1 directory %v", written, expected)
 	}
@@ -323,6 +327,13 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(e)
 	}
 
+	evidenceStore, err := NewCapabilityStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := evidenceStore.Create(context.Background(), storeEvidence()); err != nil {
+		t.Fatal(err)
+	}
 	return portable, state
 }
 

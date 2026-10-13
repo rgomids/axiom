@@ -32,6 +32,7 @@ type Invocation struct {
 	// Captured only by WithInheritedEnvironment; separate from bounded explicit
 	// overrides so ordinary OS inheritance keeps its existing semantics.
 	inheritedEnvironment []string
+	exactEnvironment     bool
 }
 
 type InvocationResolver interface {
@@ -393,10 +394,23 @@ func WithInheritedEnvironment(invocation Invocation) Invocation {
 
 // EffectiveInvocationEnvironment is shared by authentication and process start.
 func EffectiveInvocationEnvironment(invocation Invocation) []string {
+	if invocation.exactEnvironment {
+		return append([]string{}, invocation.Env...)
+	}
 	if invocation.inheritedEnvironment != nil {
 		return append(append([]string(nil), invocation.inheritedEnvironment...), invocation.Env...)
 	}
 	return EffectiveEnvironment(invocation.Env)
+}
+
+// WithExactEnvironment freezes an explicit environment, including an empty
+// one. Stage dispatch uses this seam so authentication and spawn inspect the
+// same bytes without falling back to historical ambient inheritance.
+func WithExactEnvironment(invocation Invocation, environment []string) Invocation {
+	invocation.Env = append([]string{}, environment...)
+	invocation.inheritedEnvironment = nil
+	invocation.exactEnvironment = true
+	return invocation
 }
 
 type OSProcessRunner struct{}
