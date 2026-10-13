@@ -11,6 +11,19 @@ This ADR supersedes only the OS-version fragment of
 [ADR-0010](0010-windows-native-filesystem-boundary.md#decision) (see
 [Supersedes](#supersedes)). The rest of ADR-0010 stays in force.
 
+> **Windows support withdrawn — 2026-10-13.** The human decision in
+> [PR #311 comment 6153404308](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308)
+> removed Windows support; supported hosts are macOS arm64 and Linux amd64/arm64.
+> No superseding ADR was created, so this is a historical note, not an ADR-0018
+> supersession annotation.
+>
+> Affected contract: the `windows-amd64` eligibility row, the Windows
+> client/Server and `ProductType` checks and the Windows prerequisites. Still in
+> force: eligibility by OS family and architecture, no numeric OS-version gate,
+> the macOS arm64 and Linux amd64/arm64 rows, fail-closed refusal of other hosts
+> and the separation of eligibility, support and Evidence. Text below is preserved
+> as history.
+
 ## Context
 
 Earlier contracts put exact OS versions into installer host eligibility:

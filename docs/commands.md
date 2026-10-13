@@ -112,9 +112,7 @@ axiom --json workflow start --help
 Every public command group and leaf supports `--help` and `-h`. Root help lists
 public top-level surfaces; group help lists direct children; leaf help shows
 usage, required, conditional and optional inputs, repeatable flags and examples.
-Examples containing placeholders require real values before execution. On Windows,
-help also covers `windows-permissions restore`; its fixed-order recovery syntax
-remains unchanged.
+Examples containing placeholders require real values before execution.
 
 Help is deterministic human text, including when combined with `--json` or
 `--human`. It runs before application composition, Project/context resolution,
@@ -736,8 +734,7 @@ absolute output directory. It emits four checksummed archives plus
 ```
 
 Each archive holds one bundle directory with the canonical public executable
-`axiom` (`axiom.exe` on Windows), `LICENSE`, the release installer `install.sh`
-(`install.ps1` on Windows), `release-metadata.txt`,
+`axiom`, `LICENSE`, the release installer `install.sh`, `release-metadata.txt`,
 `skills-manifest.txt`, the three canonical Runtime skills, and a complete `MANIFEST.sha256`.
 Upgrading a recognized six- or eight-skill installation retires verified
 Axiom-owned legacy entries and converges to the three canonical skills. Foreign,
@@ -746,7 +743,7 @@ The installer publishes `<bin-dir>/axiom`. A receipt or binary from a pre-`axiom
 archive (which shipped `lingo`) is not recognized as owned and is preserved;
 no migration from such an installation is performed.
 
-Supported archive rows are macOS arm64, Linux amd64/arm64, and Windows amd64.
+Supported hosts: macOS arm64 and Linux amd64/arm64.
 Installer eligibility is the OS family and architecture, plus real tool
 prerequisites; the numeric OS version is not an installation filter. The
 `macos-27-arm64` name is legacy release-row naming, not a version requirement,
@@ -874,146 +871,6 @@ downgrade, foreign/modified/unsafe state, concurrency, interruption and network
 cases need a supported row (any macOS arm64 or Linux x86_64/aarch64 qualifies)
 and exit `78` elsewhere. OS version and Linux distribution are not installer
 filters.
-
-## Windows native installation
-
-Installer eligibility on Windows is workstation or member Server on amd64 with 64-bit
-PowerShell 5.1+ and the Windows-supplied `tar.exe`; local NTFS storage is the
-supported filesystem. The numeric Windows version is not an installation
-filter; domain controllers and unknown product types are refused. Maintenance covers vendor-maintained
-Windows workstation and member Server versions. The native `tar.exe` supplied by
-Windows reads the same `.tar.gz` release format as the POSIX rows. No WSL,
-administrator session, Bash, or Go installation is needed by end users.
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1)))
-axiom version
-axiom help
-```
-
-To select an exact release in one PowerShell command:
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) -Version v0.4.2
-```
-
-Download-then-run remains available when retaining the bootstrap is useful:
-
-```powershell
-Invoke-WebRequest https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1 -OutFile install-axiom.ps1
-.\install-axiom.ps1
-```
-
-`-Channel stable` is the default. `-Version` accepts an exact published
-`vMAJOR.MINOR.PATCH[-rc.N]` tag and cannot be combined with `-Channel`.
-Only releases containing `axiom-<version>-windows-amd64.tar.gz` can be selected.
-`-BinDir` and `-ReceiptDir` override the fresh defaults
-`%USERPROFILE%\.axiom\windows\bin` and `%USERPROFILE%\.axiom\windows\install`.
-Existing default binary/receipt locations under LocalAppData are retained.
-The online bootstrap verifies the installed version, runs `first-run`, and adds
-the selected binary directory to this terminal's PATH and persistent user PATH.
-Existing raw entries and registry type are preserved; duplicates are avoided.
-`-SessionOnly` disables user PATH persistence for temporary installs. The bootstrap
-never changes system PATH, elevates, changes execution policy, or changes credentials. Fresh state defaults
-to `%USERPROFILE%\.axiom\windows\state`; existing LocalAppData state remains in
-place. `LINGO_STATE_ROOT` remains an explicit override.
-Portable Project locations and Runtime skill roots retain their existing rules.
-
-Preflight can offer a bounded permission repair for the standard Runtime
-directories, listing the affected paths, access restriction and private backup.
-The simple `[S/n]` confirmation approves the internally pinned exact plan;
-`D` shows ACL/digest diagnostics on request. EOF cancels without effects.
-It does not automatically rewrite ACLs or relocate Runtime skill discovery.
-Use `-SkipRuntimeSetup` for deliberate binary-only validation. The repair and
-automatic onboarding behavior require a native release containing ADR-0019;
-older exact-version binaries retain their earlier behavior. See
-[Windows onboarding and recovery](installation.md#windows).
-
-If the installer reports `unsafe project storage`, the selected storage did not
-pass the filesystem security checks. Permissions allowing untrusted accounts to
-modify the location, unsafe ownership, unsupported storage, or reparse points
-can cause refusal. Ancestor directories are also checked. Existing directories
-are not automatically re-permissioned.
-
-The source installer now isolates its parameters in a child PowerShell scope,
-including when invoked through `Invoke-Expression`; the explicit scriptblock
-command above remains recommended. Native binaries built with the issue #189
-fix report `path=... rule=...` for filesystem refusals and `install_next:` with
-storage guidance. Reinstallations retain the upgrade category and additionally
-report `install_storage:`. Published v0.4.2 binaries predate these diagnostics.
-An ACL on an ancestor such as `AppData` can prevent installation even when
-the final directory is private. Do not remove capability SIDs or broaden ACLs
-just to make installation pass; select an eligible location instead. See
-[issue #189 validation and limitations](specifications/004-mvp-v1-baseline/evidence-issue-189.md).
-
-Choose another eligible local NTFS location instead of disabling the checks or
-broadly changing profile permissions. For example, use new directories beneath
-your user profile:
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.ps1))) `
-  -BinDir "$env:USERPROFILE\AxiomInstall\bin" `
-  -ReceiptDir "$env:USERPROFILE\AxiomInstall\install"
-$env:PATH = "$env:USERPROFILE\AxiomInstall\bin;$env:PATH"
-axiom version
-axiom help
-```
-
-The alternative and its ancestors must pass the same checks; it is not guaranteed
-to work on every machine. The session-only `PATH` must match `-BinDir`.
-`-BinDir` and `-ReceiptDir` do not relocate state or Runtime skills, so commands
-using those locations can still refuse unsafe storage after binary installation.
-Reinstallation or upgrade can also report `upgrade: state_unsafe` when inspecting
-local compatibility state, including Project, state, and skill roots. Changing
-`LINGO_STATE_ROOT` alone is not a guaranteed remedy: it selects only a separate
-absolute state directory, which must also satisfy the filesystem boundary.
-
-For a complete block that selects fresh binary, receipt, Project, state and
-Codex skill paths together, see the
-[isolated Windows fresh-install test](installation.md#isolated-windows-fresh-install-test).
-This is binary installation validation; the custom Codex skill root does not
-provide automatic Runtime skill discovery.
-
-The online bootstrap performs Runtime integration automatically. After an
-offline/binary-only installation, or to retry a preserved integration conflict:
-
-```powershell
-axiom first-run
-```
-
-This installs or upgrades user-global skills for detected Runtimes. See
-[first-run and Runtime integrations](#first-run-and-runtime-integrations) for
-its effects and diagnostics; binary installation alone does not validate them.
-
-For an offline installation, verify the downloaded archive against the release's
-`SHA256SUMS`, extract it into private local storage, and invoke the bundle's
-`install.ps1 -Archive <absolute-archive-path> -Checksums <absolute-checksums-path>`.
-The staged executable validates the complete bundle manifest, metadata and skill
-manifest before publishing the binary and receipt. Reinstall is a no-op; upgrades
-use the existing owned-install protocol and refuse downgrades, foreign/modified
-targets, unsafe ACLs and uncertain prior state. Close Axiom before upgrading:
-Windows can refuse replacement of a running or otherwise locked executable.
-
-The filesystem boundary rejects network/device paths, non-NTFS volumes, alternate
-data streams, ambiguous Win32 names, junctions and other reparse points, hardlinked
-state files, and unsafe owners/DACLs. SYSTEM and local Administrators remain
-trusted. Existing directories are not silently re-permissioned. Store private
-state outside shared or redirected folders that violate these checks.
-File contents are flushed before atomic publication; recovery covers process
-interruption, not a guarantee of directory-entry durability after power loss.
-An interrupted installation lock is preserved for operator review; never delete
-it while an installer is running or discard recovery evidence blindly.
-
-Runtime discovery accepts Windows `PATH` entries, including npm command shims.
-Execution Graph command profiles must point to native `codex.exe` or `claude.exe`
-executables; Axiom does not wrap arguments in `cmd.exe` or PowerShell.
-
-Native offline installer acceptance (requires Go for building its test fixtures):
-
-```powershell
-.\scripts\test-windows-install.ps1
-go test ./...
-```
 
 ## Prepare a release artifact set (S9/T38)
 

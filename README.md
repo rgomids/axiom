@@ -53,9 +53,7 @@ Install the **latest stable release** on **Linux or macOS**:
 curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh
 ```
 
-Linux and macOS are the supported platforms. Windows is not currently
-supported and has no installer; it may be reconsidered in the future, with no
-committed timeline.
+Supported hosts: macOS arm64 and Linux amd64/arm64.
 
 For prerequisites, platforms, PATH, upgrades, and diagnostics, see the
 [installation guide](docs/installation.md).

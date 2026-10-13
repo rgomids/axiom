@@ -192,6 +192,15 @@ class RegistryCheckTests(unittest.TestCase):
         self.assert_fails("invalid scope value 'everyone'")
         self.assert_fails("runtime must be a non-empty list")
 
+    def test_powershell_runtime_is_refused(self):
+        # Regression guard (PR #311): PowerShell is not a supported automation runtime.
+        self.entry("scripts/tool.sh")["runtime"] = ["powershell"]
+        self.assert_fails("invalid runtime value 'powershell'")
+
+    def test_unregistered_powershell_script_fails(self):
+        self.write("scripts/install.ps1", "Write-Output 'install'\n")
+        self.assert_fails("unregistered automation surface: scripts/install.ps1")
+
     def test_duplicate_registration_fails(self):
         self.registry["entries"].append(entry("scripts/tool.sh"))
         self.assert_fails("duplicate registration: scripts/tool.sh")

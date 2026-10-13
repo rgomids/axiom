@@ -20,6 +20,12 @@ response to the [PR #226 review](https://github.com/rgomids/axiom/pull/226).
 It is reconciled into the failure-class matrix (F32–F38), the test taxonomy,
 the target pipeline, the gap analysis (G12–G18) and slices 15–22.
 
+Historical research snapshot: its Windows rows, runners and recommendations
+were withdrawn on 2026-10-13 by the human decision in
+[PR #311 comment 6153404308](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308).
+They are preserved as recorded; the current supported hosts are macOS arm64 and
+Linux amd64/arm64.
+
 Reading order: [Summary](#summary) →
 [#153 tracer](#trigger-regression-153-as-tracer) →
 [Recommended target pipeline](#recommended-target-pipeline) →

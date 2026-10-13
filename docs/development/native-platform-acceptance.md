@@ -1,6 +1,97 @@
 # Native platform acceptance
 
-## Current Server amendment
+## Current contract
+
+Supported hosts: macOS arm64 and Linux amd64/arm64.
+
+The required reusable `native-acceptance` job runs the full applicable lifecycle
+on Linux ARM64 (`ubuntu-24.04-arm`) against the exact prepared candidate bytes.
+Linux AMD64 and macOS ARM64 keep the exact-artifact smoke from #244. All rows
+consume the already-built candidate and must pass before preparation can be
+successful; acceptance has no publication authority.
+
+## Functional contract and traceability
+
+The suite runs the candidate's own verified `install.sh` facade. v0.10.0 is a
+genuine release with a Linux ARM64 distribution, published checksums and the
+supported install/upgrade protocol. It is a fixed, reproducible supported baseline,
+not a rebuild or invented historic version. Candidates must upgrade from it;
+historical candidates at or below that baseline are outside this new contract.
+The release downloader is isolated from CLI execution. CLI commands inherit a
+closed environment with temporary HOME/state/projects/skills and no credentials
+or discovered Providers/Runtimes. Repository paths and HOME include spaces.
+
+| Requirement | Platform | Scenario / workflow | Evidence status |
+| --- | --- | --- | --- |
+| Fresh install and executable discovery | Linux ARM64 | `fresh-install`, `discovery-provenance`, `private-permissions` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
+| CLI and configuration initialization/loading | Linux ARM64 | `configuration-cli`; real `project configure` preview/apply, show/list/validate | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
+| Genuine prior upgrade and persistent-state compatibility | Linux ARM64 | `genuine-prior-upgrade-state-reinstall`; previous CLI creates Project/state, failed corrupt upgrade preserves state, candidate installer upgrades, hashes remain unchanged, compatibility inspect | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
+| Reinstall/idempotence | Linux ARM64 | `reinstall-idempotent` and upgrade reinstall; binary/receipt/state digests preserved, no duplicate bin entry | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
+| Invalid CLI/configuration and recovery | Linux ARM64 | `invalid-arguments`, `missing-project`, `malformed-config-recovery`, `missing-config-recovery`, `install-interruption-recovery` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
+| Platform filesystem/security behavior | Linux ARM64 | spaces, 0700 binary/0600 receipt, `foreign-binary-preserved`, `symlink-destination-refused` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
+| Negative artifact and functional controls | Linux ARM64 | `corrupt-artifact-refused`; #244 wrong provenance/non-executable/lifecycle failure/timeout/mutation tests; qualification `rejection` job | PASS; [native](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) and [deliberate rejection](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924615975) |
+| Strict release dependency | Enabled ARM64 | `native-acceptance` required preparation job; `test-release-flow.sh` failed preparation/authorized publication refusal; qualification rejection → skipped promotion | PASS; [propagation assertion](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113925949826) and [release contracts](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924213282) |
+| Candidate identity | Enabled ARM64 | #244 smoke + native before/after inventories, binary/installed provenance, checksums for candidate and baseline | PASS; [native report](native-platform-acceptance-evidence.json) |
+| Linux AMD64/macOS ARM64 regression | Existing rows | Original #244 jobs, `test-release-pipeline.sh`, `test-release-flow.sh` | Both native smokes PASS in [qualification](https://github.com/rgomids/axiom/actions/runs/37961209760); release contracts recorded below |
+
+Installer failures, nonzero/unexpected CLI statuses, invalid artifacts, changed
+inputs and timeouts all fail acceptance. The supported first-install pre-binary
+fault seam verifies that no binary was committed and a normal retry succeeds.
+Malformed Project configuration is refused without rewriting it; restoring the
+original bytes permits normal loading. This is guided recovery of controlled
+temporary state, not a claim of power-loss durability or every filesystem case.
+
+## Reproduction and evidence
+
+On native Linux ARM64 (use `linux-amd64` for local x86_64 diagnostics):
+
+```bash
+python3 scripts/accept-native-artifact.py --dir /absolute/prepared/artifacts \
+  --previous /absolute/v0.10.0-assets --version VERSION --revision FULL_SHA \
+  --row linux-arm64 --log /absolute/diagnostics/native.log > native.json
+python3 scripts/test-native-acceptance.py
+./scripts/test-release-pipeline.sh
+./scripts/test-release-flow.sh
+```
+
+`native.json` has schema `axiom-native-acceptance/v1`, candidate version/full
+revision, archive and binary digests, baseline identity, actual OS/architecture,
+runner image/version, run URL/job, individual expected/observed scenario outcomes
+and input preservation. Logs are retained separately, never publication assets
+or envelope inputs. If infrastructure fails before the suite starts, the job
+fails and raw Actions logs diagnose the missing report; no PASS is fabricated.
+
+The manual, non-publishing `native-acceptance-qualification.yml` builds once,
+transfers the same candidate to successful acceptance and deliberate corruption
+rejection jobs. `promotion` requires rejection and must be skipped; the
+`verify-propagation` observer asserts success/failure/skipped results. The
+qualification run is intentionally red because the rejection remains a real
+failed required job; no ignored exit/continue-on-error masks it. This observer
+does not run in release preparation and cannot waive the release gate.
+
+Rollback removes the new required preparation job after a reviewed decision;
+there is no data migration or change to prepared/publication bytes. Do not waive
+an activated failing row by marking it unavailable within a release run.
+
+## Open acceptance and follow-up
+
+Record qualification run URL, tested digest, native scenario outcomes and strict
+gate proof before marking a row VERIFIED. A green infrastructure probe alone is
+not product acceptance. Full release-preparation dispatch requires a reviewed
+revision on main; branch qualification does not authorize release readiness.
+Keep #256 open unless all applicable approved criteria have Evidence and closure
+is explicitly authorized. Future follow-up: reconsider the fixed baseline when
+its compatibility/support contract changes.
+
+## Historical Evidence
+
+The sections below are preserved as recorded at their time. The Windows rows,
+Server amendment and Windows follow-ups they describe were withdrawn on
+2026-10-13 by the human decision in
+[PR #311 comment 6153404308](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308);
+the Linux and macOS Evidence they contain remains valid.
+
+### Server amendment (historical)
 
 Explicit maintainer authorization expanded this PR to member Windows Server AMD64.
 The reusable required `native-acceptance` now includes `windows-server-amd64` on
@@ -20,7 +111,7 @@ candidate; fixture upgrade does not substitute for historical release evidence.
 The POSIX installer interruption hook is N/A to Windows; Windows refused-install
 retry/recovery is covered by native regressions. Native execution results are recorded below. The earlier investigation/evidence below is historical.
 
-## Current verified coverage and traceability
+### Server amendment verified coverage and traceability
 
 The explicit Server amendment is implemented and natively VERIFIED in
 [qualification 37968344761](https://github.com/rgomids/axiom/actions/runs/37968344761) at source/control revision
@@ -91,7 +182,7 @@ including actual Server bootstrap execution under PowerShell 5.1 and 7.
 The GitHub-owned AI code-scanning request failed with HTTP 402/monthly quota exhausted;
 its completion is unverified and no purchase or security-setting change is authorized.
 
-### Approved criteria and Definition of Done audit
+#### Approved criteria and Definition of Done audit
 
 Investigation, feasibility, full applicable activated lifecycle, actual hosted native
 execution, exact artifact identity, preserved smoke, positive/negative diagnostics,
@@ -107,7 +198,7 @@ has not run. The requested Server functional acceptance itself is VERIFIED. Keep
 open; proposed follow-ups are eligible client AMD64 evidence, a genuine Server upgrade
 baseline after its first supported release, and post-adoption production preparation.
 
-## Authority and design
+### Authority and design
 
 Issue [#256](https://github.com/rgomids/axiom/issues/256), its
 [approved Socratic Gate](https://github.com/rgomids/axiom/issues/256#issuecomment-6084847176),
@@ -126,7 +217,7 @@ The maintainer subsequently authorized member Server AMD64 support in the same P
 [ADR-0021](../decisions/0021-windows-server-amd64-native-acceptance.md) records that
 bounded amendment; local NTFS and security boundaries remain intact.
 
-## Initial investigation and feasibility (before Server authorization)
+### Initial investigation and feasibility (before Server authorization)
 
 | Platform/scenario | Feasibility / activation | Evidence and rationale |
 | --- | --- | --- |
@@ -159,82 +250,7 @@ They are [paid even for public repositories](https://docs.github.com/en/billing/
 No eligible existing client/amd64 pool was established, and changing account,
 billing or infrastructure provisioning is outside the authorized scope.
 
-## Functional contract and traceability
-
-The suite runs the candidate's own verified `install.sh` facade. v0.10.0 is a
-genuine release with a Linux ARM64 distribution, published checksums and the
-supported install/upgrade protocol. It is a fixed, reproducible supported baseline,
-not a rebuild or invented historic version. Candidates must upgrade from it;
-historical candidates at or below that baseline are outside this new contract.
-The release downloader is isolated from CLI execution. CLI commands inherit a
-closed environment with temporary HOME/state/projects/skills and no credentials
-or discovered Providers/Runtimes. Repository paths and HOME include spaces.
-
-| Requirement | Platform | Scenario / workflow | Evidence status |
-| --- | --- | --- | --- |
-| Fresh install and executable discovery | Linux ARM64 | `fresh-install`, `discovery-provenance`, `private-permissions` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
-| CLI and configuration initialization/loading | Linux ARM64 | `configuration-cli`; real `project configure` preview/apply, show/list/validate | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
-| Genuine prior upgrade and persistent-state compatibility | Linux ARM64 | `genuine-prior-upgrade-state-reinstall`; previous CLI creates Project/state, failed corrupt upgrade preserves state, candidate installer upgrades, hashes remain unchanged, compatibility inspect | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
-| Reinstall/idempotence | Linux ARM64 | `reinstall-idempotent` and upgrade reinstall; binary/receipt/state digests preserved, no duplicate bin entry | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
-| Invalid CLI/configuration and recovery | Linux ARM64 | `invalid-arguments`, `missing-project`, `malformed-config-recovery`, `missing-config-recovery`, `install-interruption-recovery` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
-| Platform filesystem/security behavior | Linux ARM64 | spaces, 0700 binary/0600 receipt, `foreign-binary-preserved`, `symlink-destination-refused` | PASS; [native job](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) |
-| Negative artifact and functional controls | Linux ARM64 | `corrupt-artifact-refused`; #244 wrong provenance/non-executable/lifecycle failure/timeout/mutation tests; qualification `rejection` job | PASS; [native](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924616021) and [deliberate rejection](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924615975) |
-| Strict release dependency | Enabled ARM64 | `native-acceptance` required preparation job; `test-release-flow.sh` failed preparation/authorized publication refusal; qualification rejection → skipped promotion | PASS; [propagation assertion](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113925949826) and [release contracts](https://github.com/rgomids/axiom/actions/runs/37961209760/job/113924213282) |
-| Candidate identity | Enabled ARM64 | #244 smoke + native before/after inventories, binary/installed provenance, checksums for candidate and baseline | PASS; [native report](native-platform-acceptance-evidence.json) |
-| Linux AMD64/macOS ARM64 regression | Existing rows | Original #244 jobs, `test-release-pipeline.sh`, `test-release-flow.sh` | Both native smokes PASS in [qualification](https://github.com/rgomids/axiom/actions/runs/37961209760); release contracts recorded below |
-| Windows client lifecycle | Windows AMD64 | No eligible hosted runner | BLOCKED; no pending required job or simulated PASS |
-
-Installer failures, nonzero/unexpected CLI statuses, invalid artifacts, changed
-inputs and timeouts all fail acceptance. The supported first-install pre-binary
-fault seam verifies that no binary was committed and a normal retry succeeds.
-Malformed Project configuration is refused without rewriting it; restoring the
-original bytes permits normal loading. This is guided recovery of controlled
-temporary state, not a claim of power-loss durability or every filesystem case.
-
-## Reproduction and evidence
-
-On native Linux ARM64 (use `linux-amd64` for local x86_64 diagnostics):
-
-```bash
-python3 scripts/accept-native-artifact.py --dir /absolute/prepared/artifacts \
-  --previous /absolute/v0.10.0-assets --version VERSION --revision FULL_SHA \
-  --row linux-arm64 --log /absolute/diagnostics/native.log > native.json
-python3 scripts/test-native-acceptance.py
-./scripts/test-release-pipeline.sh
-./scripts/test-release-flow.sh
-```
-
-`native.json` has schema `axiom-native-acceptance/v1`, candidate version/full
-revision, archive and binary digests, baseline identity, actual OS/architecture,
-runner image/version, run URL/job, individual expected/observed scenario outcomes
-and input preservation. Logs are retained separately, never publication assets
-or envelope inputs. If infrastructure fails before the suite starts, the job
-fails and raw Actions logs diagnose the missing report; no PASS is fabricated.
-
-The manual, non-publishing `native-acceptance-qualification.yml` builds once,
-transfers the same candidate to successful acceptance and deliberate corruption
-rejection jobs. `promotion` requires rejection and must be skipped; the
-`verify-propagation` observer asserts success/failure/skipped results. The
-qualification run is intentionally red because the rejection remains a real
-failed required job; no ignored exit/continue-on-error masks it. This observer
-does not run in release preparation and cannot waive the release gate.
-
-Rollback removes the new required preparation job after a reviewed decision;
-there is no data migration or change to prepared/publication bytes. Do not waive
-an activated failing row by marking it unavailable within a release run.
-
-## Open acceptance and follow-up
-
-Record qualification run URL, tested digest, native scenario outcomes and strict
-gate proof before marking a row VERIFIED. A green infrastructure probe alone is
-not product acceptance. Full release-preparation dispatch requires a reviewed
-revision on main; branch qualification does not authorize release readiness.
-Keep #256 open unless all applicable approved criteria have Evidence and closure
-is explicitly authorized. Future follow-up: activate Windows AMD64 client only
-when an eligible GitHub-hosted client/amd64 runner exists, and reconsider the
-fixed baseline when its compatibility/support contract changes.
-
-## Historical initial Engineering report / Evidence snapshot — 2026-10-09
+### Historical initial Engineering report / Evidence snapshot — 2026-10-09
 
 Final qualification [run 37961209760](https://github.com/rgomids/axiom/actions/runs/37961209760)
 tested revision `e8157bc30383bc72ab27b934596dc2fb9d689d5f`, version
@@ -288,7 +304,7 @@ not on PATH, local repository validation stopped at Windows symlink checkout
 representation, and `gitleaks` was unavailable. Hosted repository validation and
 release builds passed; no unsupported local check is reported as PASS.
 
-### Approved acceptance criteria audit
+#### Approved acceptance criteria audit
 
 | Gate acceptance criterion | Evaluation |
 | --- | --- |

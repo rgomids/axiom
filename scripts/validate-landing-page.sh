@@ -192,10 +192,13 @@ posix_install='curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/s
 
 grep -Fq -- "$posix_install" "$SITE/index.html" \
   || fail "landing page does not publish the POSIX installer command"
-grep -Fq -- 'Supported hosts: macOS arm64 and Linux amd64/arm64.' "$SITE/index.html" \
-  || fail "landing page does not state the supported Linux and macOS host rows"
-grep -Fq -- 'Windows is not currently supported' "$SITE/index.html" \
-  || fail "landing page does not state that Windows is not currently supported"
+grep -Fq -- 'Supported hosts: macOS arm64 and Linux amd64/arm64' "$SITE/index.html" \
+  || fail "landing page does not state the approved supported-hosts sentence"
+# Regression guard (PR #311 comment 6153404308): the site names only the
+# supported hosts; no Windows statement, link, download or installer returns.
+if grep -rqi 'windows' "$SITE"; then
+  fail "site/ mentions Windows; only the supported hosts may be published"
+fi
 # Windows support ended (PR #311, Issue #276): no PowerShell installer, removed
 # install.ps1 link or Windows onboarding instruction may come back unnoticed.
 if grep -rEqi 'install\.ps1|powershell|pwsh|scriptblock|Invoke-RestMethod|PS&gt;' "$SITE"; then

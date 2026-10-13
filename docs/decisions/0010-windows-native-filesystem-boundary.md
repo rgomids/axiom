@@ -5,6 +5,17 @@
 **Accepted for the requested implementation** on 2026-09-30. Upstream acceptance
 remains subject to PR review; this is not release-publication authority.
 
+> **Windows support withdrawn — 2026-10-13.** The human decision in
+> [PR #311 comment 6153404308](https://github.com/rgomids/axiom/pull/311#issuecomment-6153404308)
+> removed Windows support; supported hosts are macOS arm64 and Linux amd64/arm64.
+> No superseding ADR was created, so this is a historical note, not an ADR-0018
+> supersession annotation.
+>
+> Affected contract: the Windows filesystem adapter, local NTFS user storage and
+> the Windows lock/staging/recovery boundary decided here; none of them has
+> current effect. Still valid: ADR-0005's POSIX boundary and the principle that
+> an unavailable check is never treated as safe. Text below is preserved as history.
+
 ## Context
 
 ADR-0005's implemented checks use POSIX ownership, modes, ACL inspection,

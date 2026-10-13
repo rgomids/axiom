@@ -1334,7 +1334,7 @@ cp "$saved_delivery_fixture"/scripts/*.sh "$dfix/scripts/"
 project_config disabled
 correction_base=$(dcommit 'chore(main): release 0.3.0 (#100)' '' 0.3.0)
 valid_completion=$(dcommit 'feat: valid delivery (#101)' 'Related-Issues: #20\nCompletes-Issues: #20\n')
-invalid_completion=$(dcommit 'feat: native Windows support (#149)' 'Related-Issues: #128\nCompletes-Issues: #128\n')
+invalid_completion=$(dcommit 'feat: native platform support (#149)' 'Related-Issues: #128\nCompletes-Issues: #128\n')
 git -C "$dfix" show -s --format=%B "$invalid_completion" >"$temporary/immutable-message"
 reset_github
 issue 20 'Valid delivery'
