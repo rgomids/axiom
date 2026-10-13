@@ -74,7 +74,7 @@ and does not expose a conversion API.
 | `leaseEpoch` | uint64 | Required positive; nondecreasing across attempts of a child; frozen for an existing attempt |
 | `process` | process-correlation object | Required running; optional terminal (for example a launch failure); absence is never proof of process stop |
 | `packetDigest` | digest | Required in every recorded attempt; frozen invocation-packet identity |
-| `reconciliationFacts` | array | Required, at most 64; empty while running, append-only after terminal save |
+| `reconciliationFacts` | array | Required, at most 64; append-only; running facts admitted only through T08 stale reconciliation under an acquired run lease |
 
 `not-started` and `skipped` remain historical domain vocabulary, but are not
 classified process outcomes in this family: absence of a recorded attempt
@@ -124,7 +124,7 @@ passing the codec is not proof that references exist or that authority is valid.
 
 `ValidateSuccessorUpdate` validates both states without serialization. It freezes
 publication fields and previous attempts, preserves exact prior fact prefixes,
-and permits only a running attempt's terminal save and new attempts/facts.
+and permits only a running attempt's terminal save and new attempts/facts. T08 also permits facts on stale running attempts without rewriting their status; a running attempt remains ineligible for dispatch. The local fact operation acquires the run lease first, refuses a live holder, and rechecks observations before CAS.
 Process identity, epoch, packet identity and start time cannot change during a
 terminal save. A terminal status/reason/reference cannot be rewritten. New
 contradictory facts are retained explicitly; no last-writer-wins reconciliation

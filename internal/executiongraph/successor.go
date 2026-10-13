@@ -142,7 +142,7 @@ func ValidateSuccessorGraph(g SuccessorGraph) error {
 				return ErrInvalidGraph
 			}
 			if a.Status == AttemptRunning {
-				if a.FinishedAt != nil || a.ClassificationReason != "" || a.QualifyingRecordRef != "" || a.Process == nil || len(a.ReconciliationFacts) != 0 || i != len(c.Attempts)-1 {
+				if a.FinishedAt != nil || a.ClassificationReason != "" || a.QualifyingRecordRef != "" || a.Process == nil || i != len(c.Attempts)-1 {
 					return ErrInvalidGraph
 				}
 			} else {
@@ -150,9 +150,12 @@ func ValidateSuccessorGraph(g SuccessorGraph) error {
 					return ErrInvalidGraph
 				}
 			}
-			var last time.Time
+			last := *a.StartedAt
+			if a.FinishedAt != nil {
+				last = *a.FinishedAt
+			}
 			for _, f := range a.ReconciliationFacts {
-				if !validOpaqueID(f.FactID) || facts[f.FactID] || ids[f.FactID] || f.ParentID != g.Parent.ExecutionID || f.ChildID != c.ExecutionID || f.GraphRevision != g.Parent.GraphRevision || f.AttemptID != a.AttemptID || !successorDigest(f.ObservationsDigest) || !successorDigest(f.AuthorityRef) || f.ActorKind != "human-operator" || !boundedIdentity(f.Actor) || !utc(f.RecordedAt) || f.RecordedAt.Before(*a.FinishedAt) || f.RecordedAt.Before(last) || (f.Classification != "retry_safe" && f.Classification != "recovery_required") {
+				if !validOpaqueID(f.FactID) || facts[f.FactID] || ids[f.FactID] || f.ParentID != g.Parent.ExecutionID || f.ChildID != c.ExecutionID || f.GraphRevision != g.Parent.GraphRevision || f.AttemptID != a.AttemptID || !successorDigest(f.ObservationsDigest) || !successorDigest(f.AuthorityRef) || f.AuthorityRef == g.DispatchAuthorityRef || f.ActorKind != "human-operator" || !boundedIdentity(f.Actor) || !utc(f.RecordedAt) || f.RecordedAt.Before(last) || (f.Classification != "retry_safe" && f.Classification != "recovery_required") {
 					return ErrInvalidGraph
 				}
 				facts[f.FactID] = true
@@ -269,7 +272,7 @@ func ValidateSuccessorUpdate(old, next SuccessorGraph) error {
 					return ErrInvalidGraph
 				}
 			}
-			if a.Status != AttemptRunning {
+			if a.Status != AttemptRunning || b.Status == AttemptRunning {
 				if !reflect.DeepEqual(a, b) {
 					return ErrInvalidGraph
 				}

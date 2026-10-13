@@ -193,10 +193,38 @@ func recoveryDirectories(ctx context.Context, scope, path string) ([]string, err
 		}
 		return nil
 	}
-	for _, parts := range [][]string{{"projects"}, {"work-items"}, {"executions", "v1"}, {"artifacts", "v1", "objects"}} {
+	for _, parts := range [][]string{{"projects"}, {"work-items"}, {"executions", "v1"}, {"graphs", "v1"}, {"run-leases", "v1"}, {"artifacts", "v1", "objects"}} {
 		if err := children(parts...); err != nil {
 			return nil, err
 		}
+	}
+	// Lease protocol records live one level below each Project, under the
+	// per-graph lock directory. Enumerate only positively owned directories.
+	for _, dir := range append([]string(nil), directories...) {
+		if !strings.HasPrefix(dir, "run-leases/v1/") {
+			continue
+		}
+		project, err := openRecoveryLeaseProject(root, dir)
+		if err != nil {
+			return nil, err
+		}
+		names, err := readDirectoryNamesBounded(project, maxLocalDirectoryEntries)
+		if err != nil {
+			project.Close()
+			return nil, err
+		}
+		for _, name := range names {
+			if !hexDigestName.MatchString(name) {
+				continue
+			}
+			info, err := project.Lstat(name)
+			if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+				project.Close()
+				return nil, ErrUnsafe
+			}
+			directories = append(directories, dir+"/"+name)
+		}
+		project.Close()
 	}
 	if chainExists(root, []string{"validator-policies", "v1"}) {
 		directories = append(directories, "validator-policies/v1")
@@ -660,4 +688,19 @@ func recoveryRole(objects []RecoveryObject, role string) string {
 		}
 	}
 	return ""
+}
+
+func openRecoveryLeaseProject(root *os.Root, dir string) (*os.Root, error) {
+	current := root
+	for _, part := range strings.Split(dir, "/") {
+		next, err := existingPrivateChild(current, part)
+		if current != root {
+			current.Close()
+		}
+		if err != nil {
+			return nil, err
+		}
+		current = next
+	}
+	return current, nil
 }

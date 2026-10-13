@@ -38,6 +38,7 @@ const (
 	InventoryArtifact           InventoryKind = "artifact_object"
 	InventoryCleanupRecord      InventoryKind = "artifact_cleanup_record"
 	InventoryRetirementRecord   InventoryKind = "artifact_retirement_record"
+	InventoryRunLease           InventoryKind = "run_lease"
 	InventoryGraph              InventoryKind = "execution_graph"
 	InventoryCoordination       InventoryKind = "coordination_stream"
 	InventoryCapabilityEvidence InventoryKind = "capability_evidence"
@@ -58,7 +59,7 @@ const (
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
+	case InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
 		return true
 	}
 	return false
@@ -79,7 +80,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
+var additiveKinds = []InventoryKind{InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
@@ -188,7 +189,7 @@ func inspectInventory(ctx context.Context, path string, walk func(*inventoryWalk
 // classifies. Every directory a v1 store writes below the state root MUST be
 // listed here, or an upgrade would refuse state an earlier release produced;
 // TestEveryStateRootWriterDirectoryIsInventoried enforces that.
-var StateRootDirectories = []string{"artifacts", "capability-evidence", "capability-probes", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "work-items", "workflows", "validator-policies"}
+var StateRootDirectories = []string{"artifacts", "capability-evidence", "capability-probes", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "run-leases", "work-items", "workflows", "validator-policies"}
 
 func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 	if err := walkStateRootEntries(w, root); err != nil {
@@ -282,13 +283,15 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 			})
 		case "artifacts":
 			return eachVersionDirectory(w, root, name, walkArtifactsV1)
+		case "run-leases":
+			return eachVersionDirectory(w, root, name, walkRunLeasesV1)
 		case "graphs":
 			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
-				return eachDigestRecordDirectory(w, version, relative, w.classifyGraph)
+				return eachDigestRecordDirectory(w, version, relative, executiongraph.MaxGraphBytes, w.classifyGraph)
 			})
 		case "coordination":
 			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
-				return eachDigestRecordDirectory(w, version, relative, w.classifyCoordination)
+				return eachDigestRecordDirectory(w, version, relative, MaxRecordBytes, w.classifyCoordination)
 			})
 		case "capability-probes":
 			return walkProbeEnvelopes(w, root)
@@ -331,7 +334,7 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 
 // eachDigestRecordDirectory walks <project>/<sha256>.json records, the layout
 // GraphStore and CoordinationStore publish below their version directory.
-func eachDigestRecordDirectory(w *inventoryWalk, version *os.Root, relative string, decode func(projectID, file string, wire []byte) InventoryKind) error {
+func eachDigestRecordDirectory(w *inventoryWalk, version *os.Root, relative string, limit int, decode func(projectID, file string, wire []byte) InventoryKind) error {
 	return eachName(w, version, relative, func(projectID string) error {
 		childRelative := relative + "/" + projectID
 		if protocolName(projectID) {
@@ -347,7 +350,7 @@ func eachDigestRecordDirectory(w *inventoryWalk, version *os.Root, relative stri
 			if !hexDigestName.MatchString(file) {
 				return InventoryUnknown, 0
 			}
-			return "", MaxRecordBytes
+			return "", limit
 		}, func(file string, wire []byte) InventoryKind {
 			return decode(projectID, file, wire)
 		})
@@ -371,21 +374,35 @@ func classifyCreateAttempt(projectID, file string, wire []byte) InventoryKind {
 }
 
 func (w *inventoryWalk) classifyGraph(projectID, file string, wire []byte) InventoryKind {
-	graph, err := executiongraph.DecodeGraph(wire)
+	doc, err := executiongraph.DecodeGraphDocument(wire)
 	if err != nil {
-		return versionedFailureWithin(wire, 2)
-	}
-	if !graphStoredAt(graph, projectID, file) {
-		return InventoryMalformed
+		return versionedFailureWithin(wire, 3)
 	}
 	children := map[string]bool{}
-	for _, child := range graph.Children {
-		children[child.ExecutionID] = true
+	var parentID string
+	if doc.Successor != nil {
+		g := doc.Successor
+		if g.Children[0].Envelope.Scope.ProjectID != projectID || graphName(g.Parent.ExecutionID) != file {
+			return InventoryMalformed
+		}
+		parentID = g.Parent.ExecutionID
+		for _, c := range g.Children {
+			children[c.ExecutionID] = true
+		}
+	} else {
+		g := *doc.Historical
+		if !graphStoredAt(g, projectID, file) {
+			return InventoryMalformed
+		}
+		parentID = g.Parent.ExecutionID
+		for _, c := range g.Children {
+			children[c.ExecutionID] = true
+		}
 	}
 	if w.graphChildren == nil {
 		w.graphChildren = map[string]map[string]bool{}
 	}
-	w.graphChildren[projectID+"\x00"+graph.Parent.ExecutionID] = children
+	w.graphChildren[projectID+"\x00"+parentID] = children
 	return InventoryGraph
 }
 

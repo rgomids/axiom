@@ -25,6 +25,8 @@ func TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation(t *testing.T) {
 		// state-relative path that must now fail closed.
 		relocate func(t *testing.T, state, relative string) string
 	}{
+		{"lease epoch renamed", InventoryRunLease, renameTo("foreign.json")},
+		{"lease moved to another graph", InventoryRunLease, moveLeaseGraph},
 		{"policy renamed to another digest", InventoryValidatorPolicy, renameTo(strings.Repeat("f", 64) + ".json")},
 		{"graph renamed to another digest", InventoryGraph, renameTo(strings.Repeat("a", 64) + ".json")},
 		{"graph moved under another project", InventoryGraph, moveToProject("project-2")},
@@ -108,6 +110,18 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			return data
 		}
 		switch entry.Kind {
+		case InventoryRunLease:
+			record, err := decodeRunLease(wire())
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, err := NewRunLeaseStore(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if held, err := store.Probe(ctx, record.ProjectID, record.ParentID); err != nil || held {
+				t.Errorf("supported lease %s does not probe canonically: held=%v err=%v", entry.Relative, held, err)
+			}
 		case InventoryValidatorPolicy:
 			p, err := validatorpolicy.Decode(wire())
 			if err != nil {
@@ -187,7 +201,7 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 		}
 		checked[entry.Kind] = true
 	}
-	for _, kind := range []InventoryKind{InventoryValidatorPolicy, InventoryGraph, InventoryCoordination, InventoryCreateAttempt, InventoryRuntimeProfile, InventoryOperational} {
+	for _, kind := range []InventoryKind{InventoryRunLease, InventoryValidatorPolicy, InventoryGraph, InventoryCoordination, InventoryCreateAttempt, InventoryRuntimeProfile, InventoryOperational} {
 		if !checked[kind] {
 			t.Errorf("no supported %s record was loaded through its store", kind)
 		}
@@ -253,4 +267,16 @@ func kindOf(t *testing.T, state, relative string) InventoryKind {
 	}
 	t.Fatalf("%s not inventoried", relative)
 	return ""
+}
+
+func moveLeaseGraph(t *testing.T, state, relative string) string {
+	t.Helper()
+	parts := strings.Split(relative, "/")
+	prior := filepath.Join(state, filepath.FromSlash(strings.Join(parts[:len(parts)-1], "/")))
+	parts[len(parts)-2] = strings.Repeat("f", 64) + ".json"
+	target := filepath.Join(state, filepath.FromSlash(strings.Join(parts[:len(parts)-1], "/")))
+	if err := os.Rename(prior, target); err != nil {
+		t.Fatal(err)
+	}
+	return strings.Join(parts, "/")
 }

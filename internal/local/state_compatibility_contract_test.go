@@ -236,6 +236,17 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err := graphs.Create(context.Background(), graph); err != nil {
 		t.Fatal(err)
 	}
+	leases, err := NewRunLeaseStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease, err := leases.Acquire(context.Background(), "project-1", graph.Parent.ExecutionID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lease.Close(); err != nil {
+		t.Fatal(err)
+	}
 	streams, err := NewCoordinationStore(state, "project-1")
 	if err != nil {
 		t.Fatal(err)
