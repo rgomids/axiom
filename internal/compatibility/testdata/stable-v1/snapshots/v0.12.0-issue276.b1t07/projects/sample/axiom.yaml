@@ -1,0 +1,10 @@
+workflowSelection:
+  workflowId: custom
+  revision: 1
+  digest: de3b40bff6956d45bf234c2e08da5eb658fd1a131530604b335432ab4369b8b5
+  source: project
+schemaVersion: 4
+project:
+  id: 123e4567-e89b-42d3-a456-426614174000
+  slug: sample
+  name: Sample

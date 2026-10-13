@@ -43,6 +43,7 @@ const (
 	InventoryCoordination       InventoryKind = "coordination_stream"
 	InventoryCapabilityEvidence InventoryKind = "capability_evidence"
 	InventoryValidatorPolicy    InventoryKind = "validator_policy"
+	InventoryDispatchAuthority  InventoryKind = "dispatch_authority"
 	InventoryRuntimeProfile     InventoryKind = "runtime_profile_configuration"
 	InventoryProjectContext     InventoryKind = "project_context_preference"
 	InventoryPortableManifest   InventoryKind = "portable_manifest"
@@ -59,7 +60,7 @@ const (
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
+	case InventoryDispatchAuthority, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
 		return true
 	}
 	return false
@@ -80,7 +81,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
+var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
@@ -274,6 +275,9 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 						}
 						return "", MaxExecutionBytes
 					}, func(file string, wire []byte) InventoryKind {
+						if kind := classifyDispatchAuthority(id, file, wire, "single-first-attempt"); kind != "" {
+							return kind
+						}
 						if state, err := decodeExecution(wire); err == nil && state.ProjectID == id && executionName(state.RepositoryKey, state.WorkItem) == file {
 							return InventoryExecution
 						}
@@ -374,6 +378,9 @@ func classifyCreateAttempt(projectID, file string, wire []byte) InventoryKind {
 }
 
 func (w *inventoryWalk) classifyGraph(projectID, file string, wire []byte) InventoryKind {
+	if kind := classifyDispatchAuthority(projectID, file, wire, "graph-first-attempts"); kind != "" {
+		return kind
+	}
 	doc, err := executiongraph.DecodeGraphDocument(wire)
 	if err != nil {
 		return versionedFailureWithin(wire, 3)
@@ -901,4 +908,16 @@ func walkValidatorPoliciesV1(w *inventoryWalk, version *os.Root, relative string
 		}
 		return w.add(relative+"/"+name, InventoryValidatorPolicy, wire)
 	})
+}
+
+func classifyDispatchAuthority(projectID, file string, wire []byte, scope string) InventoryKind {
+	a, err := executiongraph.DecodeDispatchAuthority(wire)
+	if err != nil {
+		return ""
+	}
+	digest, _ := executiongraph.DispatchAuthorityDigest(a)
+	if a.ProjectID != projectID || a.Scope != scope || hexDigest(wire) != digest || digest+".json" != file {
+		return InventoryMalformed
+	}
+	return InventoryDispatchAuthority
 }

@@ -419,6 +419,15 @@ func planRecovery(target *os.Root, scope, directory, projectsRoot string) (Recov
 		plan.Digest = recoveryDigest(plan)
 		return plan, true, nil
 	}
+	if marker.Companion != "" {
+		companion := observeRecoveryFile(target, "authority", marker.Companion)
+		plan.Objects = append(plan.Objects, companion)
+		if companion.Present && companion.Revision != marker.CompanionRevision || canonical.Revision == marker.NewRevision && (!companion.Present || companion.Revision != marker.CompanionRevision) {
+			plan.Explanation = "dispatch authority companion missing or inconsistent"
+			plan.Digest = recoveryDigest(plan)
+			return plan, true, nil
+		}
+	}
 	prior := marker.PriorPresent && canonical.Present && canonical.Revision == marker.PriorRevision || !marker.PriorPresent && !canonical.Present
 	newCanonical := canonical.Present && canonical.Revision == marker.NewRevision
 	newStage := stage.Present && stage.Revision == marker.NewRevision

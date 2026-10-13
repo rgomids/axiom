@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/manifest"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -232,22 +233,26 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph := localGraphFixture(t)
-	if err := graphs.Create(context.Background(), graph); err != nil {
-		t.Fatal(err)
+	successor, authority := localDispatch(t)
+	graph := executiongraph.Graph{FormatVersion: 2, Parent: successor.Parent}
+	for _, child := range successor.Children {
+		graph.Children = append(graph.Children, executiongraph.ChildExecution{ExecutionID: child.ExecutionID, ParentID: child.ParentID, GraphRevision: child.GraphRevision, NodeKey: child.NodeKey, Envelope: child.Envelope})
 	}
 	leases, err := NewRunLeaseStore(state)
 	if err != nil {
 		t.Fatal(err)
 	}
-	lease, err := leases.Acquire(context.Background(), "project-1", graph.Parent.ExecutionID, 0)
+	lease, err := leases.Acquire(context.Background(), authority.ProjectID, graph.Parent.ExecutionID, 0)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := graphs.CommitDispatch(context.Background(), successor, authority, authority.PreviewDigest, lease); err != nil {
 		t.Fatal(err)
 	}
 	if err := lease.Close(); err != nil {
 		t.Fatal(err)
 	}
-	streams, err := NewCoordinationStore(state, "project-1")
+	streams, err := NewCoordinationStore(state, authority.ProjectID)
 	if err != nil {
 		t.Fatal(err)
 	}

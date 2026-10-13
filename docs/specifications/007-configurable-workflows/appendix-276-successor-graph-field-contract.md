@@ -139,7 +139,7 @@ T04/T06/T07/T08 and their consumers, not claims made by this codec.
 | I-1 | Domain validator enforces terminal status/reason matrix |
 | I-2 | Codec requires successful-result digest; record validator checks exact lineage/kind/outcome; consumer resolves canonical storage |
 | I-3 | Codec requires blocker digest; record validator checks canonical blocker and lineage |
-| I-4 | Persisted fields/facts are exported; validators never call the classifier; scheduler/integration/status consumers are later Tasks |
+| I-4 | T04 loads an independent successor snapshot with resolved canonical records; readiness, retry, integration preview and status consume persisted fields/facts without calling the classifier |
 | I-5 | Update validator freezes terminal state and fact prefixes; final-drain/CAS timing is later consumer work |
 | I-6 | Explicit version dispatch keeps historical inspection separate; historical bytes cannot enter successor decoder; public mutation admission is T09 |
 
@@ -154,3 +154,31 @@ qualification. `historical-digests.json` freezes SHA-256 expectations for the
 existing Graph1 stable corpus and delivered Graph2 fixture, without changing
 those files. Tests require exact historical byte round-trips and old-reader
 refusal of every valid successor vector.
+
+## T04 consumer and T07 protected authority boundaries
+
+`LoadSuccessorConsumer` refuses historical/unmarked documents and resolves I-2
+and I-3 before exposing readiness, status or integration preview. Dispatch batch
+validation counts existing running attempts against the frozen concurrency and
+checks effect overlap. A canonical result projection must match the caller's
+`ChildResult` and the persisted qualifying record's exact lineage and digest;
+the coordination-record digest is not the hash of the `ChildResult` DTO.
+
+T07's separate, bounded 64 KiB format-1 dispatch receipt records project,
+preview digest, first-attempt scope, parent/revision, proposal digest, child
+effects, human operator identity and UTC time. Graph envelopes and
+`dispatchAuthorityRef` bind its content-addressed digest. Single-agent receipts
+add stage ID/ordinal, attempt ID and exact Execution3 ledger digest, without
+changing the Execution codec. Retry and integration cannot consume graph
+first-attempt authority; single-stage scope cannot be reset by changing the
+proposal or ledger revision.
+
+Protected publication records the receipt name/digest in the existing
+ADR-0007 recovery marker before publishing it. The graph or distinct ledger
+generation remains the single commit point. Intermediate reads fail closed;
+recovery checks the receipt before recognizing a committed generation. An inert
+receipt left by a precommit interruption permits exact re-apply, but grants no
+dispatch authority by itself. Single-ledger updates must change the canonical
+bytes, so prior and committed generations remain distinguishable. Inventory
+recognizes receipts only in their scope's canonical family/project/digest path.
+See [T04/T07 evidence](evidence-276-b1-t04-t07.md) for executed checks and limits.

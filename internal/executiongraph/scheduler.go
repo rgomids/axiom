@@ -495,3 +495,52 @@ func (b *limitedBuffer) Bytes() []byte {
 	defer b.mu.Unlock()
 	return append([]byte(nil), b.Buffer.Bytes()...)
 }
+
+// DispatchBatch checks a caller's complete proposed batch before dispatch.
+// Running attempts consume capacity even when they are not ready themselves.
+func (c SuccessorConsumer) DispatchBatch(ids []string, retries map[string]bool) error {
+	ready, _, err := c.Ready(retries)
+	if err != nil {
+		return err
+	}
+	allowed := map[string]bool{}
+	for _, id := range ready {
+		allowed[id] = true
+	}
+	running := 0
+	for _, child := range c.graph.Children {
+		if len(child.Attempts) > 0 && child.Attempts[len(child.Attempts)-1].Status == AttemptRunning {
+			running++
+		}
+	}
+	if len(ids)+running > int(c.graph.StageConcurrency) {
+		return ErrStageConcurrency
+	}
+	selected := []ChildExecution{}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if seen[id] || !allowed[id] {
+			return ErrInvalidGraph
+		}
+		seen[id] = true
+		for _, child := range c.graph.Children {
+			if child.ExecutionID != id {
+				continue
+			}
+			candidate := ChildExecution{Envelope: child.Envelope}
+			for _, other := range selected {
+				if childEffectsConflict(candidate, other) {
+					return ErrInvalidGraph
+				}
+			}
+			// Concurrent running effects also conflict with a newly proposed child.
+			for _, other := range c.graph.Children {
+				if len(other.Attempts) > 0 && other.Attempts[len(other.Attempts)-1].Status == AttemptRunning && childEffectsConflict(candidate, ChildExecution{Envelope: other.Envelope}) {
+					return ErrInvalidGraph
+				}
+			}
+			selected = append(selected, candidate)
+		}
+	}
+	return nil
+}

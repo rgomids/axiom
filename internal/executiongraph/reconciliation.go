@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"sort"
 )
 
 // AttemptHealth is an observation, never a replacement for persisted status.
@@ -119,7 +120,7 @@ func SuccessorRetryEligible(g SuccessorGraph, childID string, explicitRetry bool
 		if c.ExecutionID != childID {
 			continue
 		}
-		if !explicitRetry || len(c.Attempts) == 0 || uint32(len(c.Attempts)) >= c.Envelope.Controls.MaximumAttempts {
+		if g.CancelRequest != nil || !explicitRetry || len(c.Attempts) == 0 || uint32(len(c.Attempts)) >= c.Envelope.Controls.MaximumAttempts {
 			return false, nil
 		}
 		a := c.Attempts[len(c.Attempts)-1]
@@ -138,7 +139,7 @@ func SuccessorRetryEligible(g SuccessorGraph, childID string, explicitRetry bool
 		case AttemptRunning:
 			return false, nil // running attempts are never redispatched
 		case AttemptFailed, AttemptBlocked, AttemptCancelled:
-			return !a.AmbiguousEffect, nil
+			return !a.AmbiguousEffect || safe, nil
 		default:
 			return false, nil
 		}
@@ -167,6 +168,9 @@ func ValidateLeaseEpoch(g SuccessorGraph, epoch uint64) error {
 func SuccessorIntegrationAttemptAvailable(g SuccessorGraph) (bool, error) {
 	if ValidateSuccessorGraph(g) != nil {
 		return false, ErrInvalidGraph
+	}
+	if g.CancelRequest != nil {
+		return false, nil
 	}
 	for _, c := range g.Children {
 		if !c.Envelope.IntegrationOwner {
@@ -247,6 +251,12 @@ func ReadySuccessorChildren(g SuccessorGraph, retries map[string]bool) ([]string
 	}
 	ready := []string{}
 	blocked := map[string]string{}
+	if g.CancelRequest != nil {
+		for _, c := range g.Children {
+			blocked[c.ExecutionID] = "cancel_requested"
+		}
+		return ready, blocked, nil
+	}
 	succeeded := map[string]bool{}
 	for _, c := range g.Children {
 		if len(c.Attempts) > 0 && c.Attempts[len(c.Attempts)-1].Status == AttemptSucceeded {
@@ -287,5 +297,6 @@ func ReadySuccessorChildren(g SuccessorGraph, retries map[string]bool) ([]string
 		}
 		ready = append(ready, c.ExecutionID)
 	}
+	sort.Strings(ready)
 	return ready, blocked, nil
 }
