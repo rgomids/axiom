@@ -1,9 +1,12 @@
 package executiongraph
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"github.com/rgomids/axiom/internal/testfs"
+	"io"
 	"os"
 	"reflect"
 	"strings"
@@ -13,14 +16,17 @@ import (
 	"time"
 )
 
-type invocationFake struct{ invalid bool }
+type invocationFake struct {
+	invalid bool
+	stdin   []byte
+}
 
 func (f invocationFake) ResolveInvocation(_ context.Context, child ChildExecution) (Invocation, error) {
 	executable := testfs.Path("/usr/bin/true")
 	if f.invalid {
 		executable = testfs.Path("/bin/sh")
 	}
-	return Invocation{RuntimeID: child.Envelope.Resolution.RuntimeID, Argv: []string{executable, "literal;not-shell"}, CWD: child.Envelope.Workspace, Env: []string{"PATH=/usr/bin"}, OutputMax: 1024}, nil
+	return Invocation{RuntimeID: child.Envelope.Resolution.RuntimeID, Argv: []string{executable, "literal;not-shell"}, CWD: child.Envelope.Workspace, Env: []string{"PATH=/usr/bin"}, OutputMax: 1024, Stdin: f.stdin}, nil
 }
 
 type workspaceFake struct{ reject string }
@@ -114,7 +120,7 @@ func TestSchedulerDispatchesIndependentChildrenConcurrentlyAndBlocksDependency(t
 		t.Fatalf("records=%+v blocked=%v", result.Records, result.Blocked)
 	}
 	store.mu.Lock()
-	if len(store.saves) != 2 {
+	if len(store.saves) != 3 {
 		store.mu.Unlock()
 		t.Fatalf("final saves=%d", len(store.saves))
 	}
@@ -413,5 +419,295 @@ func TestOSProcessRunnerUsesCapturedEnvironment(t *testing.T) {
 	result := (OSProcessRunner{}).Run(context.Background(), invocation)
 	if result.ExitCode != 0 {
 		t.Fatal("process runner did not use captured environment and override")
+	}
+}
+
+func TestReadyChildrenStatuses(t *testing.T) {
+	for _, status := range []AttemptStatus{AttemptNotStarted, AttemptRunning, AttemptBlocked, AttemptSucceeded, AttemptFailed, AttemptCancelled, AttemptSkipped, AttemptUnknown} {
+		for _, retry := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/retry=%t", status, retry), func(t *testing.T) {
+				graph := mustGraph(t)
+				index := 0
+				for graph.Children[index].Envelope.IntegrationOwner {
+					index++
+				}
+				child := &graph.Children[index]
+				child.Attempts = []Attempt{{AttemptID: "00000000-0000-4000-8000-000000000099", Number: 1, Status: status}}
+				blocked := map[string]string{}
+				ready := readyChildren(graph, map[string]bool{child.ExecutionID: retry}, blocked)
+				found := false
+				for _, i := range ready {
+					if i == index {
+						found = true
+					}
+				}
+				want := retry && status != AttemptRunning && status != AttemptSucceeded && status != AttemptUnknown
+				if found != want {
+					t.Fatalf("ready=%v blocked=%v", ready, blocked)
+				}
+				if status == AttemptRunning && blocked[child.ExecutionID] != "attempt_running" {
+					t.Fatal(blocked)
+				}
+			})
+		}
+	}
+}
+
+func TestSchedulerConcurrentRunningRetryNeverDispatches(t *testing.T) {
+	graph := mustGraph(t)
+	retries := map[string]bool{}
+	started := time.Now().UTC()
+	for i := range graph.Children {
+		child := &graph.Children[i]
+		if child.Envelope.IntegrationOwner {
+			continue
+		}
+		child.Attempts = []Attempt{{AttemptID: fmt.Sprintf("00000000-0000-4000-8000-%012d", 900+i), Number: 1, Status: AttemptRunning, StartedAt: &started}}
+		retries[child.ExecutionID] = true
+	}
+	runner := &concurrentRunner{started: make(chan struct{}, 2), release: make(chan struct{}, 2)}
+	scheduler := NewScheduler(invocationFake{}, runner, workspaceFake{}, nil, sequenceAllocator(), time.Now)
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Go(func() {
+			result, err := scheduler.DispatchReady(context.Background(), DispatchRequest{Graph: graph, RetryChildIDs: retries})
+			if err != nil || len(result.Records) != 0 {
+				t.Errorf("records=%v err=%v", result.Records, err)
+			}
+			for id := range retries {
+				if result.Blocked[id] != "attempt_running" {
+					t.Errorf("blocked=%v", result.Blocked)
+				}
+			}
+		})
+	}
+	wg.Wait()
+	if runner.maximum.Load() != 0 {
+		t.Fatal("running child redispatched")
+	}
+}
+
+type completionStore struct {
+	mu       sync.Mutex
+	saves    []Graph
+	terminal chan Graph
+	fail     bool
+}
+
+func (s *completionStore) Save(_ context.Context, g Graph) (Graph, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.saves) > 0 && s.fail {
+		return Graph{}, fmt.Errorf("terminal save failed")
+	}
+	s.saves = append(s.saves, g)
+	if len(s.saves) > 1 && s.terminal != nil {
+		s.terminal <- g
+	}
+	return g, nil
+}
+
+func TestSchedulerSavesCompletionBeforeBatchEnds(t *testing.T) {
+	graph := mustGraph(t)
+	runner := &concurrentRunner{started: make(chan struct{}, 2), release: make(chan struct{}, 2)}
+	store := &completionStore{terminal: make(chan Graph, 2)}
+	var hooks atomic.Int32
+	scheduler := NewScheduler(invocationFake{}, runner, workspaceFake{}, store, sequenceAllocator(), time.Now).WithCompletionHook(func(_ context.Context, _ ChildExecution, _ ProcessResult, a Attempt) (Attempt, error) {
+		if a.Status == AttemptRunning {
+			t.Error("hook before exit")
+		}
+		hooks.Add(1)
+		return a, nil
+	})
+	done := make(chan error, 1)
+	go func() {
+		_, err := scheduler.DispatchReady(context.Background(), DispatchRequest{Graph: graph})
+		done <- err
+	}()
+	<-runner.started
+	<-runner.started
+	runner.release <- struct{}{}
+	select {
+	case saved := <-store.terminal:
+		running, terminal := 0, 0
+		for _, child := range saved.Children {
+			for _, a := range child.Attempts {
+				if a.Status == AttemptRunning {
+					running++
+				} else {
+					terminal++
+				}
+			}
+		}
+		if running != 1 || terminal != 1 || hooks.Load() != 1 {
+			t.Errorf("running=%d terminal=%d hooks=%d", running, terminal, hooks.Load())
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("completion waited for batch")
+	}
+	runner.release <- struct{}{}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if len(store.saves) != 3 {
+		t.Fatalf("saves=%d", len(store.saves))
+	}
+	for _, child := range store.saves[0].Children {
+		for _, a := range child.Attempts {
+			if a.Status != AttemptRunning {
+				t.Fatal("prior save mutated")
+			}
+		}
+	}
+}
+
+func TestSchedulerCompletionFailuresKeepRunningState(t *testing.T) {
+	for _, hookFailure := range []bool{false, true} {
+		t.Run(fmt.Sprintf("hook=%t", hookFailure), func(t *testing.T) {
+			graph := mustGraph(t)
+			runner := &concurrentRunner{started: make(chan struct{}, 2), release: make(chan struct{}, 2)}
+			runner.release <- struct{}{}
+			runner.release <- struct{}{}
+			store := &completionStore{fail: !hookFailure}
+			scheduler := NewScheduler(invocationFake{}, runner, workspaceFake{}, store, sequenceAllocator(), time.Now)
+			if hookFailure {
+				scheduler = scheduler.WithCompletionHook(func(context.Context, ChildExecution, ProcessResult, Attempt) (Attempt, error) {
+					return Attempt{}, fmt.Errorf("drain failed")
+				})
+			}
+			result, err := scheduler.DispatchReady(context.Background(), DispatchRequest{Graph: graph})
+			if err == nil || len(result.Records) != 0 {
+				t.Fatalf("err=%v records=%v", err, result.Records)
+			}
+			for _, child := range result.Graph.Children {
+				for _, a := range child.Attempts {
+					if a.Status != AttemptRunning {
+						t.Fatal("failed completion changed prior state")
+					}
+				}
+			}
+			for _, child := range graph.Children {
+				if len(child.Attempts) != 0 {
+					t.Fatal("input graph mutated")
+				}
+			}
+		})
+	}
+}
+
+func TestOSProcessRunnerStdinBytes(t *testing.T) {
+	if os.Getenv("AXM_STDIN_HELPER") == "1" {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			os.Exit(2)
+		}
+		_, _ = os.Stdout.Write(data)
+		os.Exit(0)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stdin := range [][]byte{nil, []byte("packet\x00\r\nUnicode: é"), bytes.Repeat([]byte("x"), MaxStdinBytes), bytes.Repeat([]byte("x"), MaxStdinBytes+1)} {
+		t.Run(fmt.Sprint(len(stdin)), func(t *testing.T) {
+			result := (OSProcessRunner{}).Run(context.Background(), Invocation{Argv: []string{executable, "-test.run=^TestOSProcessRunnerStdinBytes$"}, CWD: t.TempDir(), Env: append(os.Environ(), "AXM_STDIN_HELPER=1"), Stdin: stdin, OutputMax: MaxCapturedOutputBytes})
+			if len(stdin) > MaxStdinBytes {
+				if result.ExitCode != -1 {
+					t.Fatal("oversize accepted")
+				}
+				return
+			}
+			if result.ExitCode != 0 || !bytes.Equal(result.Output, stdin) {
+				t.Fatalf("exit=%d output length=%d", result.ExitCode, len(result.Output))
+			}
+		})
+	}
+}
+
+func TestInvocationStdinBound(t *testing.T) {
+	child := mustGraph(t).Children[0]
+	invocation, _ := (invocationFake{}).ResolveInvocation(context.Background(), child)
+	for _, size := range []int{0, MaxStdinBytes, MaxStdinBytes + 1} {
+		invocation.Stdin = make([]byte, size)
+		if validInvocation(child, invocation) != (size <= MaxStdinBytes) {
+			t.Fatalf("size=%d", size)
+		}
+	}
+}
+
+type casAttemptStore struct {
+	mu       sync.Mutex
+	revision [32]byte
+}
+
+func (s *casAttemptStore) Save(_ context.Context, g Graph) (Graph, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if g.StorageRevision != s.revision {
+		return g, fmt.Errorf("stale graph")
+	}
+	wire, err := EncodeGraph(g)
+	if err != nil {
+		return g, err
+	}
+	g.StorageRevision = sha256.Sum256(wire)
+	s.revision = g.StorageRevision
+	return g, nil
+}
+
+func TestSchedulerConcurrentDispatchUsesStoreCAS(t *testing.T) {
+	graph := mustGraph(t)
+	wire, err := EncodeGraph(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph.StorageRevision = sha256.Sum256(wire)
+	store := &casAttemptStore{revision: graph.StorageRevision}
+	runner := &concurrentRunner{started: make(chan struct{}, 4), release: make(chan struct{}, 4)}
+	scheduler := NewScheduler(invocationFake{}, runner, workspaceFake{}, store, sequenceAllocator(), time.Now)
+	done := make(chan error, 2)
+	for range 2 {
+		go func() {
+			_, err := scheduler.DispatchReady(context.Background(), DispatchRequest{Graph: graph})
+			done <- err
+		}()
+	}
+	// One caller loses the initial CAS while the winner's children remain running.
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("concurrent stale dispatch succeeded")
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("concurrent dispatch not refused")
+	}
+	<-runner.started
+	<-runner.started
+	runner.release <- struct{}{}
+	runner.release <- struct{}{}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if runner.maximum.Load() != 2 {
+		t.Fatalf("duplicate dispatch: maximum=%d", runner.maximum.Load())
+	}
+}
+
+func TestSchedulerRejectsOversizeStdinBeforeDispatch(t *testing.T) {
+	graph := mustGraph(t)
+	runner := &concurrentRunner{started: make(chan struct{}, 2), release: make(chan struct{}, 2)}
+	result, err := NewScheduler(invocationFake{stdin: make([]byte, MaxStdinBytes+1)}, runner, workspaceFake{}, nil, sequenceAllocator(), time.Now).DispatchReady(context.Background(), DispatchRequest{Graph: graph})
+	if err != nil || len(result.Records) != 0 || runner.maximum.Load() != 0 {
+		t.Fatalf("records=%v err=%v", result.Records, err)
+	}
+	for _, child := range result.Graph.Children {
+		if len(child.Attempts) != 0 {
+			t.Fatal("attempt created")
+		}
+		if !child.Envelope.IntegrationOwner && result.Blocked[child.ExecutionID] != "invalid_invocation" {
+			t.Fatal(result.Blocked)
+		}
 	}
 }
