@@ -1,103 +1,59 @@
 # Product Foundation
 
-## Purpose
+Short versioned summary of the minimum product context repository agents need.
+The full product and system narrative (vision, problem, audience, discovery,
+flows, open questions) lives in [Notion — Axiom](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979), per
+[Documentation Governance](../documentation.md). This summary does not convert
+discovery material into approval and must not copy Task/PR status.
 
-This document classifies the current product foundation. It does not convert discovery material into approval. Normative principles live in the [Axiom Constitution](constitution.md), domain language in the [conceptual model](../architecture/conceptual-model.md), and durable architecture choices in [ADRs](../decisions/README.md).
+Normative principles: [Axiom Constitution](constitution.md). Domain language:
+[conceptual model](../architecture/conceptual-model.md). Durable decisions:
+[ADRs](../decisions/README.md). Contracts and current lifecycle:
+[Specification index](../specifications/README.md).
 
 ## Classification vocabulary
 
-| Class | Meaning |
-|---|---|
-| Fact | Directly observable current state or reproducible evidence. |
-| Requirement | Behavior or constraint the product must satisfy. |
-| Principle | Durable rule governing choices and work. |
-| Hypothesis | Testable possibility not yet approved. |
-| Decision | Explicitly accepted choice with accountable status. |
-| Open question | Material unknown requiring evidence or human choice. |
+Fact (observed or reproduced), Requirement (must be satisfied), Principle
+(durable rule), Hypothesis (testable, not approved), Decision (explicitly
+accepted), Open question (needs evidence or human choice). Assumptions are
+temporary, visible and reversible; never report them as facts.
 
-Assumptions are temporary inputs used to continue safely. They must be visible, reversible and must not be reported as facts.
+## What Axiom is
 
-## What Axiom is and why it exists
+Axiom is the product, domain, policies and contracts that preserve coherence
+across product intent, specifications, architecture, work, repositories,
+execution, validation, documentation, releases and evidence when humans and AI
+agents collaborate. Lingo is the accepted local executable control plane
+([ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md)); the names
+are not interchangeable.
 
-**Requirement:** Axiom is the product, domain, policies, and contracts intended to preserve coherence across product intent, specifications, architecture, work, repositories, execution, validation, documentation, releases and evidence when humans and AI agents collaborate. Lingo is the accepted local executable control-plane direction; the two names are not interchangeable.
+## Requirements agents must preserve
 
-**Problem evidence from discovery:** agent-assisted development fragments context and durable state, especially when work spans repositories and external systems.
+- A Project may relate multiple repositories without submodules
+  ([ADR-0001](../decisions/0001-project-is-not-repository.md)).
+- Durable state must not depend exclusively on chat history; traceability from
+  intent to delivery evidence is preserved.
+- Useful deterministic behavior remains possible without a model.
+- No source-control, tracking, documentation or runtime provider is mandatory at
+  the domain level.
+- Human approval boundaries remain explicit.
+- Portable Project configuration excludes secrets and machine-specific state
+  ([ADR-0004](../decisions/0004-portable-project-manifest.md)).
+- Roles are not coupled to concrete models; `Runtime != Model`,
+  `Role != Model`, `Execution != Agent`, `Provider != Transport`,
+  `Integration != MCP`.
 
-**Current product outcome:** incrementally deliver the first executable slice, [Specification 002 — Lingo Project Initialization](../specifications/002-lingo-project-initialization/spec.md), using the harness and tested Go foundations before automating a broader platform.
+## Principles
 
-## Current classification
+Intent precedes implementation. Documentation is part of product state.
+Deterministic evidence outranks unsupported model judgment. Security and
+observability are design concerns. Prefer the smallest coherent change.
+Hypotheses are not decisions.
 
-### Facts
+## Authority
 
-- The repository contains a Codex-first harness, policies, skills, templates and deterministic shell validation.
-- A Go module exists in `go.mod`, with tested Project rules, application
-  contracts, portable/local codecs and an executable E2E Lingo/Codex POC. See
-  the [implemented foundation](../architecture/README.md#implemented-foundation).
-- The [Specification index](../specifications/README.md#002--lingo-project-initialization) owns the current delivery and acceptance status.
-- The bounded E2E POC implements a Codex Runtime adapter, five thin global skills,
-  GitHub Issue Work Items, Project/repository resolution and one sequential
-  workflow. It is not a general runtime/provider/orchestration platform. See
-  [Specification 003 Evidence](../specifications/003-e2e-codex-poc/final-report.md).
-- The current agent factory describes `intake -> normalized blueprint -> artifact plan -> Codex renderer -> validation -> package`.
-- Public discovery belongs in the [GitHub Wiki](https://github.com/rgomids/axiom/wiki); approved technical decisions remain in Specifications and ADRs. Migration sources and unresolved classifications do not establish current product facts.
-
-### Requirements
-
-- A Project must be able to relate multiple repositories without requiring submodules.
-- Durable state must not depend exclusively on chat history.
-- The product must preserve traceability between intent and delivery evidence.
-- Useful deterministic behavior must remain possible without an available model.
-- No source-control, tracking or documentation provider may be mandatory at the domain level.
-- Relevant human approval boundaries must remain explicit.
-- An Axiom Project must remain portable across agent runtimes, with runtime-specific overrides isolated from domain concepts.
-- Portable Project configuration must exclude secrets and machine-specific state.
-- Roles must not be coupled to concrete models; model availability belongs to runtime resolution.
-- Provider, Capability, Integration and Transport must remain distinct; MCP is a possible Transport, not a domain concept.
-
-### Principles
-
-- Intent precedes implementation.
-- Documentation is part of product state.
-- Deterministic evidence outranks unsupported model judgment.
-- Security and observability are design concerns.
-- Prefer the smallest coherent change; avoid speculative abstraction.
-- Hypotheses are not decisions.
-
-### Decisions
-
-- The project now uses the [Axiom Constitution](constitution.md) as normative governance.
-- `Project != Repository` is accepted in [ADR-0001](../decisions/0001-project-is-not-repository.md).
-- Axiom owns its SDD harness, domain, and lifecycle; Spec-Kit is a strategic upstream research reference with no runtime, architectural, behavioral, or file-format compatibility commitment, as accepted in [ADR-0002](../decisions/0002-axiom-speckit-relationship.md).
-- Codex is the only currently supported native renderer in the existing harness. This is a bounded current-state decision, not a commitment that Axiom will remain single-runtime.
-- Local-first Lingo is the accepted executable control-plane direction in [ADR-0003](../decisions/0003-lingo-as-axiom-local-control-plane.md).
-- The versioned Portable Project Manifest and its separation from local installation state are accepted in [ADR-0004](../decisions/0004-portable-project-manifest.md).
-- Specification 002 is the first slice in incremental implementation, under an approved Specification, Plan and Tasks with separate implementation authorization. [Specification 001 — Codex agent harness generation](../specifications/001-codex-agent-harness-generation/spec.md) remains a Proposed harness slice.
-
-### Hypotheses
-
-- Axiom may persist its own Workspace, Work Item, Execution and Evidence identities.
-- Project may become the principal persistent operational context without necessarily becoming the aggregate root or owning every related record.
-- Agent Planning and orchestration may derive capability-based execution graphs with parent and child Executions and durable Evidence.
-- RTK, Caveman, Ponytail, Graphify and `tech-leads-club/agent-skills` may offer useful techniques. None is adopted.
-
-### Open questions
-
-- Is Workspace a persisted aggregate, a local operational view, or both?
-- How will future provider synchronization resolve ownership and conflicts per artifact type? Current documentation authority is defined in the [product index](README.md#documentation-authority).
-- Does a Work Item have Axiom identity, provider identity, or a hybrid mapping?
-- Which execution events and evidence must be retained, for how long, and with what privacy controls?
-- Which orchestration responsibilities belong to Lingo, runtime adapters, and individual agents?
-- How will future workflows extend action/risk approval policies beyond the explicit authority boundaries already specified for Project operations?
-- What are the runtime/model discovery, capability-negotiation and Execution-graph contracts?
-- Which concrete filesystem publication/recovery mechanisms will satisfy the approved Plan, and which credential sources will future integrations resolve? Portable and local v1 formats and logical credential references are already specified; they are not open design questions.
-
-## Source register and authority
-
-| Source | Role | Classification rule |
-|---|---|---|
-| Repository state and executable checks | Current evidence | Facts only when observed or reproduced. |
-| [Constitution](constitution.md) | Governance | Normative principles. |
-| Approved specifications and ADRs | Product/architecture authority | Requirements and accepted decisions. |
-| `.agents/context/` and current docs | Durable working context | Requirements, principles or hypotheses according to explicit labels. |
-| [GitHub Wiki](https://github.com/rgomids/axiom/wiki) | Public product discovery | Explicitly classified input; never automatic approval or publication authority. |
-| Historical harness proposal | Historical evidence | Requirements source only after current validation. |
+Approved Specifications and ADRs are product/architecture authority; repository
+state and executable checks are evidence; Notion is the product narrative and
+discovery home and never automatic approval or publication authority. Neither
+roadmap direction, code availability nor technical merge substitutes for human
+acceptance.

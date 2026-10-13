@@ -212,8 +212,8 @@ See the [architecture overview](docs/architecture/README.md),
 | Security | [Security policy](SECURITY.md) · [Repository security](docs/security/repository-security.md) |
 | History | [Changelog](CHANGELOG.md) |
 
-[GitHub Wiki](https://github.com/rgomids/axiom/wiki) provides public product
-documentation, concepts, and user-oriented navigation. Versioned repository
+[Notion](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979) is the home of product and system documentation, concepts, and
+user-oriented navigation; the former GitHub Wiki is retired. Versioned repository
 artifacts own technical contracts, decisions, implementation evidence, and
 references that must evolve with code. Discovery does not imply approval.
 
