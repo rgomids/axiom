@@ -24,7 +24,6 @@ import (
 	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/stageexecution"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
@@ -721,12 +720,4 @@ func (s lifecycleService) stageIntegrate(ctx context.Context, stores stageStores
 		refs = append(refs, "stage-outcome:"+result.OutcomeRef)
 	}
 	return s.stageSuccess("stage_integrated", "Stage integrated locally; the Work Item is not accepted", refs, "Advance the Execution through its own lifecycle; no push, PR or merge happened", result)
-}
-
-// profileFrozen reports the frozen tuple of a bound Execution.
-func profileFrozen(state workflow.State) *runtimeprofile.ResolvedProfile {
-	if state.Binding == nil {
-		return nil
-	}
-	return state.Binding.ResolvedProfile
 }

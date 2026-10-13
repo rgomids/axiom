@@ -85,7 +85,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventoryDispatchInputs, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
+var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
