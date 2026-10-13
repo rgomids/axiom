@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/rgomids/axiom/internal/coordination"
@@ -57,6 +58,9 @@ func (f *fakeStageAuth) Check(_ context.Context, t runtimeadapter.AuthTarget) ru
 }
 
 func TestCompiledPreparationReusesFrozenChecksAndTaskPacket(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX stage-path fixtures; Windows stage paths pending (#276)")
+	}
 	for _, kind := range []string{"positive", "tuple-drift", "wrong-child", "wrong-epoch", "wrong-inbox", "source-conflict", "unproven-auth", "missing-loader"} {
 		t.Run(kind, func(t *testing.T) {
 			g := graphFixture(t)
