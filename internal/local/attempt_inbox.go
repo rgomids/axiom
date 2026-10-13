@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/rgomids/axiom/internal/coordination"
 )
@@ -157,20 +156,7 @@ func (s *AttemptInbox) Append(ctx context.Context, binding coordination.ChildCon
 	if err := s.inboxAnchor.verify(root); err != nil {
 		return coordination.Candidate{}, err
 	}
-	var lock *os.File
-	for {
-		lock, err = lockDirectory(root, true)
-		if !errors.Is(err, ErrConflict) {
-			break
-		}
-		timer := time.NewTimer(time.Millisecond)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return coordination.Candidate{}, ctx.Err()
-		case <-timer.C:
-		}
-	}
+	lock, err := lockInbox(ctx, root)
 	if err != nil {
 		return coordination.Candidate{}, err
 	}
@@ -179,6 +165,13 @@ func (s *AttemptInbox) Append(ctx context.Context, binding coordination.ChildCon
 	actual, err := readPrivateFileBounded(root, "binding.json", 4096)
 	if err != nil || !bytes.Equal(actual, expected) {
 		return coordination.Candidate{}, coordination.ErrChildContext
+	}
+	state, _, _, err := readInboxIngestion(root)
+	if err != nil {
+		return coordination.Candidate{}, err
+	}
+	if state.Sealed {
+		return coordination.Candidate{}, coordination.ErrAttemptSealed
 	}
 	// The files are the sequence journal, so reopening the adapter cannot reuse a
 	// sequence. Partial or forged journal entries fail closed instead of skipping.
@@ -192,7 +185,7 @@ func (s *AttemptInbox) Append(ctx context.Context, binding coordination.ChildCon
 		if err := ctx.Err(); err != nil {
 			return coordination.Candidate{}, err
 		}
-		if name == "binding.json" {
+		if name == "binding.json" || name == "ingestion.json" {
 			continue
 		}
 		if name != fmt.Sprintf("candidate-%020d.json", sequence) {
