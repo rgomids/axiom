@@ -80,7 +80,7 @@ func TestSkillDiscoveryExactCommands(t *testing.T) {
 		"axiom-workflow":  {},
 		"axiom-runtime":   {},
 		"axiom-project":   {"axiom project configure", "axiom project list", "axiom project show", "axiom project validate", "axiom project archive", "axiom project reactivate", "axiom integration list", "axiom integration show", "axiom integration validate", "axiom integration disable", "axiom integration enable", "axiom integration remove"},
-		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom workflow stage plan", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen"},
+		"axiom-work-item": {"axiom work-item create", "axiom work-item select", "axiom workflow start", "axiom workflow advance", "axiom workflow fact", "axiom workflow resume", "axiom workflow reconcile", "axiom workflow status", "axiom workflow evidence", "axiom workflow list", "axiom workflow stage plan", "axiom work-item list", "axiom work-item show", "axiom work-item update", "axiom work-item comment", "axiom work-item close", "axiom work-item reopen", "axiom workflow stage run", "axiom workflow stage status", "axiom workflow stage cancel", "axiom workflow stage retry", "axiom workflow stage reconcile", "axiom workflow stage integrate", "axiom workflow coordination list", "axiom workflow coordination show"},
 	}
 	for _, op := range []string{"list", "show", "create", "edit", "validate", "remove", "recover", "migrate"} {
 		expected["axiom-workflow"] = append(expected["axiom-workflow"], "axiom project workflow "+op)
@@ -198,6 +198,9 @@ func parseSkillFlags(operation action, args []string) (requestInput, bool) {
 	case operation == workflowStagePlanAction:
 		_, ok := workflowStagePlanFlags(args, false)
 		return requestInput{}, ok
+	case workflowStageOperation(operation):
+		_, ok := workflowStageFlags(operation, args, false)
+		return requestInput{}, ok
 	case integrationOperation(operation):
 		args = withSelectors(args, "--project", "alpha")
 		if operation != integrationListAction && operation != integrationValidateAction {
@@ -279,6 +282,12 @@ func TestSkillDiscoveryMatchesParserAndAcceptedForms(t *testing.T) {
 					}
 					if f.Name == "work-item" {
 						value = "github:owner/repo#7"
+					}
+					if f.Name == "waive" || f.Name == "field" {
+						value = "example=reference"
+					}
+					if f.Name == "wait" {
+						value = "1s"
 					}
 					forms := [][]string{{arg.Name, value}, {arg.Name + "=" + value}}
 					if b, ok := f.Value.(interface{ IsBoolFlag() bool }); ok && b.IsBoolFlag() {

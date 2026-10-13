@@ -71,7 +71,8 @@ func commandTree() commandDefinition {
 			leaf("fact", "Record explicit lifecycle fact", workflowFactAction), leaf("resume", "Resume committed Execution", workflowResumeAction),
 			leaf("status", "Inspect Execution and next gate action", workflowStatusAction), leaf("evidence", "Inspect Execution Evidence", workflowEvidenceAction),
 			leaf("list", "List local Executions", workflowListAction), leaf("reconcile", "Preview or project lifecycle metadata", workflowReconcileAction),
-			group("stage", "Inspect configured stage planning (read-only)", leaf("plan", "Preview deterministic stage proposal; never dispatches", workflowStagePlanAction))),
+			group("stage", "Plan, dispatch and inspect configured stage agents", workflowStageCommands()...),
+			group("coordination", "Inspect stage coordination records; children publish", workflowCoordinationCommands()...)),
 		group("compatibility", "Inspect and preserve local compatibility",
 			leaf("inspect", "Inspect compatibility", compatibilityInspectAction), leaf("backup", "Preview or back up state", compatibilityBackupAction), leaf("export", "Preview or export state", compatibilityExportAction)),
 		group("artifact", "Maintain owned artifacts", leaf("cleanup", "Preview or clean artifacts", artifactCleanupAction), leaf("retire", "Preview or retire one artifact", artifactRetireAction)),
@@ -141,6 +142,8 @@ func commandFlagSet(operation action) *flag.FlagSet {
 		return runtimePreviewFlagSet(&RuntimeProfilePreviewInput{}, new(string))
 	case operation == workflowStagePlanAction:
 		return workflowStagePlanFlagSet(&WorkflowStagePlanInput{})
+	case workflowStageOperation(operation):
+		return workflowStageFlagSet(operation, &WorkflowStageInput{})
 	case maintenanceOperation(operation):
 		return maintenanceFlagSet(operation, &MaintenanceInput{})
 	case operation == firstRunAction || operation == codexInstallAction || operation == codexStatusAction || operation == claudeInstallAction || operation == claudeStatusAction || operation == codexAuthAction || operation == claudeAuthAction || operation == runtimeProfileValidateAction || operation == skillInspectAction || operation == "help" || operation == "version":

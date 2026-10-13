@@ -160,6 +160,9 @@ func validHelpInputs(operation action, args []string) bool {
 	case operation == workflowStagePlanAction:
 		_, ok := workflowStagePlanFlags(args, false)
 		return ok
+	case workflowStageOperation(operation):
+		_, ok := workflowStageFlags(operation, args, false)
+		return ok
 	}
 	set := commandFlagSet(operation)
 	return !invalidFlagSyntax(set, args, repeatableFlags(set)) && set.Parse(args) == nil && set.NArg() == 0
