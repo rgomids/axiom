@@ -45,6 +45,10 @@ func (f *fakeRunPorts) Build(_ context.Context, p DispatchPreview, actor string,
 }
 func (f *fakeRunPorts) Commit(_ context.Context, p Publication) error {
 	f.publication = p
+	if f.fail == "committed" {
+		f.events = append(f.events, "commit")
+		return fakeCommittedError{}
+	}
 	return f.event("commit")
 }
 func (f *fakeRunPorts) ReadBack(_ context.Context, p Publication) (Publication, error) {
@@ -184,5 +188,18 @@ func TestCommittedStarterSingleUsesSequentialSeam(t *testing.T) {
 	a.SingleAttemptID = "foreign"
 	if _, e = starter.Start(context.Background(), Publication{Single: &s, Authority: a}); !errors.Is(e, workflow.ErrSingleDispatch) || f.calls != 1 {
 		t.Fatal("foreign attempt started", e)
+	}
+}
+
+type fakeCommittedError struct{}
+
+func (fakeCommittedError) Error() string         { return "injected confirmed commit failure" }
+func (fakeCommittedError) EffectCommitted() bool { return true }
+func TestRunConfirmedCommitFailureIsPartial(t *testing.T) {
+	s, r, f, _ := runFixture(t, false)
+	f.fail = "committed"
+	result, e := s.Apply(context.Background(), r)
+	if e == nil || result.Status != "partial" || result.Publication.Graph == nil || result.Recovery == "" || !reflect.DeepEqual(f.events, []string{"build", "commit"}) {
+		t.Fatal(result, e, f.events)
 	}
 }

@@ -3,6 +3,9 @@ package stagepublication
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
@@ -43,7 +46,12 @@ func (p LocalPublisher) Build(ctx context.Context, preview stageexecution.Dispat
 		if e != nil {
 			return stageexecution.Publication{}, e
 		}
-		if single.State.ExecutionID != preview.Plan.Execution.ExecutionID || single.ResolvedProfile == nil || preview.Plan.Compilation.Agents[0].Input.ResolvedProfile == nil || *single.ResolvedProfile != *preview.Plan.Compilation.Agents[0].Input.ResolvedProfile || single.AttemptID != attempt || single.Workspace != preview.Children[0].Workspace || single.Inbox != preview.Children[0].Inbox || single.AxiomDigest != preview.AxiomDigest {
+		inputWire, e := json.Marshal(preview.Plan.Compilation.Agents[0].Input)
+		if e != nil {
+			return stageexecution.Publication{}, e
+		}
+		inputSum := sha256.Sum256(inputWire)
+		if single.InputDigest != hex.EncodeToString(inputSum[:]) || string(single.State.Stage) != preview.Plan.StageID || single.State.Binding == nil || single.State.Binding.Definition != preview.Plan.Workflow || single.State.ExecutionID != preview.Plan.Execution.ExecutionID || single.ResolvedProfile == nil || preview.Plan.Compilation.Agents[0].Input.ResolvedProfile == nil || *single.ResolvedProfile != *preview.Plan.Compilation.Agents[0].Input.ResolvedProfile || single.AttemptID != attempt || single.Workspace != preview.Children[0].Workspace || single.Inbox != preview.Children[0].Inbox || single.AxiomDigest != preview.AxiomDigest {
 			return stageexecution.Publication{}, stageexecution.ErrPreview
 		}
 		digest, e := local.ExecutionDigest(single.State)

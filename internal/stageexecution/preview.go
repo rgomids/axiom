@@ -57,6 +57,7 @@ type ChildRights struct {
 	Reads        string                           `json:"reads"`
 	Writes       []string                         `json:"writes"`
 	Commands     string                           `json:"commands"`
+	Network      string                           `json:"network"`
 	Effects      []executiongraph.Effect          `json:"effects"`
 	Controls     executiongraph.ExecutionControls `json:"controls"`
 	Capability   capabilityproof.View             `json:"capability"`
@@ -180,7 +181,7 @@ func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.Execut
 		untested := append([]string{"home", "vendor-home", "tmpdir", "system-temp", "external-network"}, v.Confinement.NotTested...)
 		sort.Strings(untested)
 		untested = uniqueStrings(untested)
-		p.Children = append(p.Children, ChildRights{AgentID: a.AgentID, Workspace: workspace, Inbox: inbox, Reads: "worktree; reads outside are not OS-confined", Writes: writes, Commands: "within worktree under the disclosed confinement", Effects: a.Effects, Controls: a.Controls, Capability: v, Prohibitions: prohibitions, NotTested: untested})
+		p.Children = append(p.Children, ChildRights{AgentID: a.AgentID, Workspace: workspace, Inbox: inbox, Reads: "worktree; reads outside are not OS-confined", Writes: writes, Commands: "within worktree under the disclosed confinement", Network: "external-network: not_tested; loopback observation limited to the disclosed probe scope", Effects: a.Effects, Controls: a.Controls, Capability: v, Prohibitions: prohibitions, NotTested: untested})
 		if p.Publication != nil {
 			key := a.Input.NodeKey
 			p.Publication.ChildAuthorities[key] = a.Effects

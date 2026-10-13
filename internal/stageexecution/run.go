@@ -35,14 +35,16 @@ type DispatchProjection interface {
 	Project(context.Context, Publication) error
 }
 type RunService struct {
-	Preview    PreviewService
-	Publisher  DispatchPublisher
-	Workspaces DispatchWorkspaces
-	Starter    DispatchStarter
-	Projection DispatchProjection
-	Now        func() time.Time
+	ResumeStore SupervisorStore
+	Preview     PreviewService
+	Publisher   DispatchPublisher
+	Workspaces  DispatchWorkspaces
+	Starter     DispatchStarter
+	Projection  DispatchProjection
+	Now         func() time.Time
 }
 type RunRequest struct {
+	Committed                         *SupervisorRequest
 	Execution                         workflowcompiler.ExecutionRef
 	StageID                           string
 	PreviewDigest                     string
@@ -58,6 +60,9 @@ type RunResult struct {
 }
 
 func (s RunService) Apply(ctx context.Context, r RunRequest) (RunResult, error) {
+	if r.Committed != nil {
+		return s.resume(ctx, r)
+	}
 	result := RunResult{Status: "denied_authority"}
 	if !r.AuthorizeLocal || !r.AuthorizeExternal || r.Actor == "" {
 		return result, ErrDispatchAuthority

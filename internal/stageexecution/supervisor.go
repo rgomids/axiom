@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
@@ -283,7 +284,7 @@ func (s Supervisor) runBatch(ctx context.Context, r SupervisorRequest, g *execut
 			if ev.index == index {
 				waiting = false
 			}
-			if e = s.handleEvent(ctx, g, lease, ev, active, now); e != nil && firstErr == nil {
+			if e = s.handleEvent(ctx, r, g, lease, ev, active, now); e != nil && firstErr == nil {
 				firstErr = e
 				stop()
 			}
@@ -301,7 +302,7 @@ func (s Supervisor) runBatch(ctx context.Context, r SupervisorRequest, g *execut
 	for pending > 0 {
 		select {
 		case ev := <-events:
-			if e := s.handleEvent(ctx, g, lease, ev, active, now); e != nil && firstErr == nil {
+			if e := s.handleEvent(ctx, r, g, lease, ev, active, now); e != nil && firstErr == nil {
 				firstErr = e
 				stop()
 			}
@@ -345,7 +346,28 @@ func (s Supervisor) runBatch(ctx context.Context, r SupervisorRequest, g *execut
 	return firstErr
 }
 
-func (s Supervisor) handleEvent(ctx context.Context, g *executiongraph.SuccessorGraph, lease SupervisorLease, ev supervisorEvent, active map[int]executiongraph.SuccessorAttempt, now func() time.Time) error {
+func (s Supervisor) handleEvent(ctx context.Context, r SupervisorRequest, g *executiongraph.SuccessorGraph, lease SupervisorLease, ev supervisorEvent, active map[int]executiongraph.SuccessorAttempt, now func() time.Time) error {
+	// Observe cancellation even when completion wins the race with the poll.
+	// Only the append-only control message may change under our lease.
+	fresh, receipt, err := s.Store.Load(ctx, r)
+	if err == nil {
+		err = verifySupervisor(r, fresh, receipt)
+	}
+	if err == nil {
+		before, after := *g, fresh
+		before.CancelRequest, after.CancelRequest = nil, nil
+		before.StorageRevision, after.StorageRevision = [32]byte{}, [32]byte{}
+		if !reflect.DeepEqual(before, after) {
+			err = ErrSupervisorRecovery
+		}
+	}
+	if err != nil {
+		if ev.ack != nil {
+			ev.ack <- err
+		}
+		return err
+	}
+	*g = fresh
 	if ev.ack != nil {
 		at := ev.attempt
 		at.Process = ev.identity
