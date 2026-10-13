@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"os"
 
@@ -36,6 +37,186 @@ func (s GraphStore) CommitIntegrationReceipt(ctx context.Context, g executiongra
 		return "", err
 	}
 	return s.commitGraphReceipt(ctx, g, a.ProjectID, a.ParentID, wire)
+}
+
+// CommitDispatchInputs publishes the inert reviewed preview before the
+// dispatch commit point. It never writes the graph or grants authority; an
+// orphan left by an interrupted commit is recognized and inert.
+func (s GraphStore) CommitDispatchInputs(ctx context.Context, d executiongraph.DispatchInputs) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	wire, err := executiongraph.EncodeDispatchInputs(d)
+	if err != nil {
+		return "", err
+	}
+	ref := hexDigest(wire)
+	root, graphs, version, project, err := s.openProject(d.ProjectID, true)
+	if err != nil {
+		return "", err
+	}
+	defer root.Close()
+	defer graphs.Close()
+	defer version.Close()
+	defer project.Close()
+	locks, err := lockRoots(true, root, graphs, version, project)
+	if err != nil {
+		return "", err
+	}
+	defer closeFiles(locks)
+	existing, err := readPrivateFileBounded(project, ref+".json", executiongraph.MaxDispatchInputsBytes)
+	switch {
+	case err == nil:
+		if !bytes.Equal(existing, wire) {
+			return "", ErrUnsafe
+		}
+		return ref, nil
+	case !errors.Is(err, ErrNotFound) && !errors.Is(err, os.ErrNotExist):
+		return "", err
+	}
+	hooks := s.hooks
+	hooks.contentLimit = executiongraph.MaxDispatchInputsBytes
+	if err := publishFile(ctx, project, ref+".json", nil, wire, true, hooks); err != nil {
+		return "", err
+	}
+	return ref, nil
+}
+
+// LoadDispatchInputs finds the inputs record of one graph and preview digest.
+// Callers must still verify the preview's own digest and the committed
+// authority before using any content.
+func (s GraphStore) LoadDispatchInputs(ctx context.Context, projectID, parentID, previewDigest string) (executiongraph.DispatchInputs, error) {
+	if err := ctx.Err(); err != nil {
+		return executiongraph.DispatchInputs{}, err
+	}
+	if !validGraphAddress(projectID, parentID) {
+		return executiongraph.DispatchInputs{}, ErrUnsafe
+	}
+	root, graphs, version, project, err := s.openProject(projectID, false)
+	if err != nil {
+		return executiongraph.DispatchInputs{}, err
+	}
+	defer root.Close()
+	defer graphs.Close()
+	defer version.Close()
+	defer project.Close()
+	locks, err := lockRoots(false, root, graphs, version, project)
+	if err != nil {
+		return executiongraph.DispatchInputs{}, err
+	}
+	defer closeFiles(locks)
+	pending, err := protocolStatePresent(project)
+	if err != nil {
+		return executiongraph.DispatchInputs{}, err
+	}
+	if pending {
+		return executiongraph.DispatchInputs{}, ErrRecoveryRequired
+	}
+	names, err := readDirectoryNamesBounded(project, maxLocalDirectoryEntries)
+	if err != nil {
+		return executiongraph.DispatchInputs{}, err
+	}
+	for _, name := range names {
+		if !hexDigestName.MatchString(name) {
+			continue
+		}
+		wire, err := readPrivateFileBounded(project, name, executiongraph.MaxDispatchInputsBytes)
+		if err != nil {
+			return executiongraph.DispatchInputs{}, err
+		}
+		d, err := executiongraph.DecodeDispatchInputs(wire)
+		if err != nil || d.ParentID != parentID || d.PreviewDigest != previewDigest {
+			continue
+		}
+		if hexDigest(wire)+".json" != name || d.ProjectID != projectID {
+			return executiongraph.DispatchInputs{}, ErrUnsafe
+		}
+		return d, nil
+	}
+	return executiongraph.DispatchInputs{}, ErrNotFound
+}
+
+// FindStageGraph resolves the committed successor graph of one Execution
+// stage from inert dispatch-inputs records whose graph was committed. Orphan
+// inputs of an interrupted commit are ignored; more than one committed graph
+// for the same Execution stage is ambiguous and fails closed.
+func (s GraphStore) FindStageGraph(ctx context.Context, projectID, executionID, stageID string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	root, graphs, version, project, err := s.openProject(projectID, false)
+	if errors.Is(err, ErrNotFound) || errors.Is(err, os.ErrNotExist) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	defer root.Close()
+	defer graphs.Close()
+	defer version.Close()
+	defer project.Close()
+	locks, err := lockRoots(false, root, graphs, version, project)
+	if err != nil {
+		return "", err
+	}
+	defer closeFiles(locks)
+	names, err := readDirectoryNamesBounded(project, maxLocalDirectoryEntries)
+	if err != nil {
+		return "", err
+	}
+	present := map[string]bool{}
+	for _, name := range names {
+		present[name] = true
+	}
+	found := map[string]bool{}
+	for _, name := range names {
+		if !hexDigestName.MatchString(name) {
+			continue
+		}
+		wire, err := readPrivateFileBounded(project, name, executiongraph.MaxDispatchInputsBytes)
+		if err != nil {
+			return "", err
+		}
+		d, err := executiongraph.DecodeDispatchInputs(wire)
+		if err != nil || d.ProjectID != projectID || !present[graphName(d.ParentID)] {
+			continue
+		}
+		var identity struct {
+			Plan struct {
+				Execution struct {
+					ExecutionID string `json:"executionId"`
+				} `json:"executionRef"`
+				StageID string `json:"stageId"`
+			} `json:"stagePlan"`
+		}
+		if json.Unmarshal(d.Preview, &identity) != nil {
+			continue
+		}
+		if identity.Plan.Execution.ExecutionID == executionID && identity.Plan.StageID == stageID {
+			found[d.ParentID] = true
+		}
+	}
+	if len(found) == 0 {
+		return "", ErrNotFound
+	}
+	if len(found) > 1 {
+		return "", ErrRecoveryRequired
+	}
+	for parent := range found {
+		return parent, nil
+	}
+	return "", ErrNotFound
+}
+
+func classifyDispatchInputs(projectID, file string, wire []byte) InventoryKind {
+	d, err := executiongraph.DecodeDispatchInputs(wire)
+	if err != nil {
+		return ""
+	}
+	if d.ProjectID != projectID || hexDigest(wire)+".json" != file {
+		return InventoryMalformed
+	}
+	return InventoryDispatchInputs
 }
 
 func (s GraphStore) commitGraphReceipt(ctx context.Context, g executiongraph.SuccessorGraph, projectID, parentID string, wire []byte) (string, error) {

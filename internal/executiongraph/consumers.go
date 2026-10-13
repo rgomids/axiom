@@ -49,3 +49,28 @@ func (c SuccessorConsumer) Status() (SuccessorGraph, error) {
 	graph.StorageRevision = c.graph.StorageRevision
 	return graph, err
 }
+
+// WorkspaceProjection exposes a successor graph to the existing Git workspace
+// manager in its historical shape: envelopes, topology and each work child's
+// latest attempt identity/status. It is never persisted, never encoded as a
+// Graph2 document and never used for eligibility, which stays successor-only.
+func WorkspaceProjection(g SuccessorGraph) (Graph, error) {
+	if ValidateSuccessorGraph(g) != nil {
+		return Graph{}, ErrInvalidGraph
+	}
+	historical := Graph{FormatVersion: 2, Parent: g.Parent}
+	for _, child := range g.Children {
+		h := ChildExecution{ExecutionID: child.ExecutionID, ParentID: child.ParentID, GraphRevision: child.GraphRevision, NodeKey: child.NodeKey, Envelope: child.Envelope}
+		if !child.Envelope.IntegrationOwner && len(child.Attempts) > 0 {
+			a := child.Attempts[len(child.Attempts)-1]
+			if a.Status != AttemptRunning {
+				h.Attempts = []Attempt{{AttemptID: a.AttemptID, Number: 1, Status: a.Status, StartedAt: a.StartedAt, FinishedAt: a.FinishedAt}}
+			}
+		}
+		historical.Children = append(historical.Children, h)
+	}
+	if !ValidGraph(historical) {
+		return Graph{}, ErrInvalidGraph
+	}
+	return historical, nil
+}

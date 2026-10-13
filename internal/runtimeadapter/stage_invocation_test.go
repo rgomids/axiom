@@ -121,3 +121,22 @@ func TestStagePathAndProcessBoundary(t *testing.T) {
 		t.Fatal("invalid key")
 	}
 }
+
+func TestStageInvocationCorrelationIsAttemptOwned(t *testing.T) {
+	correlation := AttemptCorrelation{ProjectID: "project-1", ParentID: "parent-1", ChildID: "child-1", AttemptID: "attempt-1"}
+	request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: "codex", Executable: "/bin/codex", Model: "model"}, Version: "0.159.1", Workspace: "/work", Inbox: "/inbox", AxiomPath: "/bin/axiom", ParentEnvironment: []string{"PATH=/bin", "AXIOM_ATTEMPT_ID=stale"}, Correlation: correlation}
+	inv, err := BuildStageInvocation(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"AXIOM_ATTEMPT_ID=attempt-1", "AXIOM_CORRELATION_ID=project-1", "AXIOM_EXECUTION_ID=parent-1", "AXIOM_GRAPH_ID=child-1", "PATH=/bin"}
+	if got := executiongraph.EffectiveInvocationEnvironment(inv); !slices.Equal(got, want) {
+		t.Fatalf("environment = %v", got)
+	}
+	for _, bad := range []AttemptCorrelation{{ProjectID: "p", ParentID: "a=b", ChildID: "c", AttemptID: "d"}, {ProjectID: "p", ParentID: "", ChildID: "c", AttemptID: "d"}} {
+		request.Correlation = bad
+		if _, err := BuildStageInvocation(request); err == nil {
+			t.Fatalf("invalid correlation accepted: %+v", bad)
+		}
+	}
+}

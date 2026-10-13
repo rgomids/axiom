@@ -97,7 +97,10 @@ func (s RetryService) snapshot(ctx context.Context, r RetryRequest) (executiongr
 		return executiongraph.SuccessorGraph{}, executiongraph.SuccessorChild{}, executiongraph.ErrUnsupportedGraphFormat
 	}
 	g := *c.Graph.Successor
-	if g.Parent.ExecutionID != r.Target.ParentID || g.Children[0].Envelope.Scope.ProjectID != r.Target.ProjectID || r.Execution.ExecutionID != r.Target.ParentID {
+	// The graph parent is an allocated identity, never the Execution ID. The
+	// graph is bound to this Execution by its revision here and by the
+	// recompiled proposal digest in preview.
+	if g.Parent.ExecutionID != r.Target.ParentID || g.Children[0].Envelope.Scope.ProjectID != r.Target.ProjectID || r.Execution.Revision != g.Parent.GraphRevision {
 		return g, executiongraph.SuccessorChild{}, ErrAdmission
 	}
 	for _, child := range g.Children {
@@ -130,6 +133,9 @@ func (s RetryService) preview(ctx context.Context, r RetryRequest) (RetryPreview
 	dispatch, err := s.Dispatch.Preview(ctx, r.Execution, r.StageID)
 	if err != nil {
 		return RetryPreview{}, g, errors.Join(ErrStalePreview, err)
+	}
+	if dispatch.Publication == nil || dispatch.Publication.ExpectedDigest != g.Parent.ProposalDigest {
+		return RetryPreview{}, g, ErrStalePreview
 	}
 	prior := child.Attempts[len(child.Attempts)-1]
 	p := RetryPreview{Request: r, Revision: g.Parent.GraphRevision, StorageRevision: g.StorageRevision, PriorAttemptID: prior.AttemptID, PriorStatus: prior.Status, AttemptNumber: used + 1, Remaining: child.Envelope.Controls.MaximumAttempts - used, DispositionRequired: executiongraph.RetryDispositionRequired(child), DispatchDigest: dispatch.Digest, Effects: child.Envelope.AllowedEffects}

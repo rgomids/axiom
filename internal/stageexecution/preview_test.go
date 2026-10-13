@@ -62,7 +62,8 @@ func previewFixture(t *testing.T, single bool) (PreviewService, *fakePreviewSour
 	g := graphFixture(t)
 	c := currentContract(t)
 	c.Graph = nil
-	ref := workflowcompiler.ExecutionRef{ExecutionID: g.Parent.ExecutionID, Revision: 1}
+	// The graph parent is an allocated identity, distinct from the Execution.
+	ref := workflowcompiler.ExecutionRef{ExecutionID: "00000000-0000-4000-8000-0000000005e1", Revision: 1}
 	plan := workflowcompiler.StagePlan{FormatVersion: 2, Execution: ref, ProjectID: g.Children[0].Envelope.Scope.ProjectID, RepositoryKey: "main", Workflow: c.Definition.Ref("builtin"), StageID: "implementation", ExecutionKind: "graph", PlanDocumentDigest: strings.Repeat("a", 64), Digest: strings.Repeat("b", 64), Compilation: workflowcompiler.Result{FormatVersion: 2, Concurrency: 1, ExecutionKind: "graph", AuthorityCeiling: g.Parent.AuthorityEffects}}
 	caps := &fakeCapabilities{views: map[capabilityproof.Target]capabilityproof.View{}}
 	o := PreviewObservation{Contract: c, PolicyDigest: strings.Repeat("c", 64), ValidatorPolicyDigest: strings.Repeat("d", 64), AxiomDigest: strings.Repeat("e", 64), Workspaces: map[string]string{}, Inboxes: map[string]string{}}

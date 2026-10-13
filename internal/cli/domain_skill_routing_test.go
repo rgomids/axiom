@@ -400,7 +400,7 @@ var mutatingRequests = map[string][]string{
 	"work-item comment":        {"work-item", "comment", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--message", "Note"},
 	"work-item close":          {"work-item", "close", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
 	"work-item reopen":         {"work-item", "reopen", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7"},
-	"workflow stage run":       {"workflow", "stage", "run", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "implementation", "--plan", "plan.json", "--validator-policy", "policy"},
+	"workflow stage run":       {"workflow", "stage", "run", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "implementation", "--plan", "plan.json", "--validator-policy", "policy", "--workspace-root", "/w"},
 	"workflow stage cancel":    {"workflow", "stage", "cancel", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1"},
 	"workflow stage retry":     {"workflow", "stage", "retry", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--expected-revision", "1", "--stage", "implementation", "--plan", "plan.json", "--validator-policy", "policy", "--child", "c-1"},
 	"workflow stage reconcile": {"workflow", "stage", "reconcile", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--child", "c-1", "--attempt", "a-1"},

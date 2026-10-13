@@ -39,10 +39,10 @@ func TestWorkflowStageCommandsRouteExactInputs(t *testing.T) {
 		args  string
 		check func(WorkflowStageInput) bool
 	}{
-		"run preview": {"workflow stage run " + stageSelectors + " --expected-revision 3 --stage implementation --plan p.json --validator-policy v", func(in WorkflowStageInput) bool {
+		"run preview": {"workflow stage run " + stageSelectors + " --expected-revision 3 --stage implementation --plan p.json --validator-policy v --workspace-root /w", func(in WorkflowStageInput) bool {
 			return in.Operation == "run" && in.ExpectedRevision == 3 && !in.AuthorizeLocal && !in.AuthorizeExternal && in.PreviewDigest == ""
 		}},
-		"run apply": {"workflow stage run " + stageSelectors + " --expected-revision 3 --stage implementation --plan p.json --validator-policy v --preview-digest d --authorize-local --authorize-external", func(in WorkflowStageInput) bool {
+		"run apply": {"workflow stage run " + stageSelectors + " --expected-revision 3 --stage implementation --plan p.json --validator-policy v --workspace-root /w --preview-digest d --authorize-local --authorize-external", func(in WorkflowStageInput) bool {
 			return in.PreviewDigest == "d" && in.AuthorizeLocal && in.AuthorizeExternal
 		}},
 		"status": {"workflow stage status " + stageSelectors, func(in WorkflowStageInput) bool { return in.Operation == "status" && in.Execution == "e-1" }},

@@ -19,7 +19,9 @@ func (s RunService) resume(ctx context.Context, r RunRequest) (RunResult, error)
 		return result, ErrStalePreview
 	}
 	request := *r.Committed
-	if request.ParentID != r.Execution.ExecutionID || request.PreviewDigest != r.PreviewDigest {
+	// The graph parent is allocated; the committed authority binds this
+	// Execution through its preview digest, re-derived below from fresh state.
+	if request.PreviewDigest != r.PreviewDigest {
 		return result, ErrSupervisorAuthority
 	}
 	g, a, err := s.ResumeStore.Load(ctx, request)

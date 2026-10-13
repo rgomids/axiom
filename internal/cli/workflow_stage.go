@@ -39,6 +39,7 @@ type WorkflowStageInput struct {
 	Project, Repository, WorkItem, Execution string
 	ExpectedRevision                         uint64
 	Stage, PlanFile, ValidatorPolicy         string
+	WorkspaceRoot                            string
 	PreviewDigest                            string
 	AuthorizeLocal, AuthorizeExternal        bool
 	Child, Attempt, Disposition              string
@@ -119,6 +120,9 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 		set.StringVar(&in.ValidatorPolicy, "validator-policy", "", "Reviewed validator policy referenced by digest; `<digest>`.")
 		preview()
 		set.BoolVar(&in.AuthorizeExternal, "authorize-external", false, "Allow the previewed vendor inference (Runtime child processes).")
+		if operation == workflowStageRunAction {
+			set.StringVar(&in.WorkspaceRoot, "workspace-root", "", "Operator-chosen private directory for isolated worktrees and attempt inboxes, outside the repository and state root; `<absolute-path>`.")
+		}
 		if operation == workflowStageRetryAction {
 			set.StringVar(&in.Child, "child", "", "Child execution receiving one new attempt; `<child-id>`.")
 			set.StringVar(&in.Disposition, "disposition", "", "Explicit workspace disposition after effects; `<preserve|reset|not_required>`.")
@@ -204,6 +208,9 @@ func workflowStageRequirements(operation action, v WorkflowStageInput) []inputRe
 	switch operation {
 	case workflowStageRunAction, workflowStageRetryAction:
 		rules = append(rules, inputRequirement{name: "expected-revision", required: true, missing: v.ExpectedRevision == 0}, inputRequirement{name: "stage", required: true, missing: v.Stage == ""}, inputRequirement{name: "plan", required: true, missing: v.PlanFile == ""}, inputRequirement{name: "validator-policy", required: true, missing: v.ValidatorPolicy == ""})
+		if operation == workflowStageRunAction {
+			rules = append(rules, inputRequirement{name: "workspace-root", required: true, missing: v.WorkspaceRoot == ""})
+		}
 		if operation == workflowStageRetryAction {
 			rules = append(rules, inputRequirement{name: "child", required: true, missing: v.Child == ""})
 		}
@@ -284,7 +291,7 @@ func workflowStageSkillSpecs() []skillOperationSpec {
 	}
 	planned := " --expected-revision <revision> --stage <stage-id>"
 	return []skillOperationSpec{
-		inference("stage.run", workflowStageRunAction, "axiom workflow stage run "+selectors+planned+" --plan <json-file> --validator-policy <digest>"),
+		inference("stage.run", workflowStageRunAction, "axiom workflow stage run "+selectors+planned+" --plan <json-file> --validator-policy <digest> --workspace-root <absolute-path>"),
 		read("stage.status", workflowStageStatusAction, "axiom workflow stage status "+selectors),
 		local("stage.cancel", workflowStageCancelAction, "axiom workflow stage cancel "+selectors),
 		inference("stage.retry", workflowStageRetryAction, "axiom workflow stage retry "+selectors+planned+" --plan <json-file> --validator-policy <digest> --child <child-id>"),

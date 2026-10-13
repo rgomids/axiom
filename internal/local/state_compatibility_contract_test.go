@@ -259,6 +259,9 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if _, err := graphs.CommitIntegrationReceipt(context.Background(), failed, localIntegrationReceipt(failed)); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := graphs.CommitDispatchInputs(context.Background(), localDispatchInputs(failed, "00000000-0000-4000-8000-0000000005e1", "implementation")); err != nil {
+		t.Fatal(err)
+	}
 	ledgers, err := NewWorkflowStore(state)
 	if err != nil {
 		t.Fatal(err)

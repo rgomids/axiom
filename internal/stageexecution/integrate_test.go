@@ -216,7 +216,8 @@ func integrationFixture(t *testing.T) (IntegrateService, IntegrateRequest, *fake
 		t.Fatal(err)
 	}
 	c := currentContract(t)
-	c.Execution.ExecutionID = g.Parent.ExecutionID
+	// The Execution and the allocated graph parent are distinct identities.
+	c.Execution.ExecutionID = "00000000-0000-4000-8000-0000000005e1"
 	c.Execution.ProjectID = g.Children[0].Envelope.Scope.ProjectID
 	c.Execution.Revision = g.Parent.GraphRevision
 	c.Execution.Stage = "implementation"
@@ -229,7 +230,7 @@ func integrationFixture(t *testing.T) (IntegrateService, IntegrateRequest, *fake
 	s := IntegrateService{Store: store, Workspace: workspace, Validators: fakeValidatorCommands{integratePolicy}, Ledger: ledger, AllocateID: func() (string, error) { n++; return fmt.Sprintf("00000000-0000-4000-8000-0000000002%02d", n), nil }, Now: func() time.Time { return time.Unix(100, 0).UTC() }, Self: func() (*executiongraph.ProcessCorrelation, error) {
 		return &executiongraph.ProcessCorrelation{PID: 77, StartIdentity: "integrator-start", GroupIdentity: "integrator-group"}, nil
 	}}
-	r := IntegrateRequest{Target: StatusRequest{ProjectID: c.Execution.ProjectID, ParentID: g.Parent.ExecutionID}, Execution: workflowcompiler.ExecutionRef{ExecutionID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision}, StageID: "implementation", ValidatorPolicyDigest: integratePolicy}
+	r := IntegrateRequest{Target: StatusRequest{ProjectID: c.Execution.ProjectID, ParentID: g.Parent.ExecutionID}, Execution: workflowcompiler.ExecutionRef{ExecutionID: c.Execution.ExecutionID, Revision: g.Parent.GraphRevision}, StageID: "implementation", ValidatorPolicyDigest: integratePolicy}
 	return s, r, store, workspace, ledger
 }
 

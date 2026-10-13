@@ -139,7 +139,9 @@ func (s IntegrateService) snapshot(ctx context.Context, r IntegrateRequest) (int
 		return integrateSnapshot{}, executiongraph.ErrUnsupportedGraphFormat
 	}
 	g := *c.Graph.Successor
-	if g.Parent.ExecutionID != r.Target.ParentID || g.Children[0].Envelope.Scope.ProjectID != r.Target.ProjectID || r.Execution.ExecutionID != r.Target.ParentID || c.Execution.ExecutionID != g.Parent.ExecutionID || c.Execution.ProjectID != r.Target.ProjectID {
+	// The graph parent is an allocated identity; the trusted loader located
+	// this graph for the Execution, which must still be at its revision.
+	if g.Parent.ExecutionID != r.Target.ParentID || g.Children[0].Envelope.Scope.ProjectID != r.Target.ProjectID || r.Execution.ExecutionID != c.Execution.ExecutionID || c.Execution.ProjectID != r.Target.ProjectID {
 		return integrateSnapshot{}, ErrAdmission
 	}
 	// The graph was published for exactly this Execution generation and stage;
@@ -190,7 +192,7 @@ func (s IntegrateService) preview(ctx context.Context, r IntegrateRequest) (Inte
 	}
 	if n := len(integration.Attempts); n > 0 {
 		last := integration.Attempts[n-1]
-		outcomes, err := s.Ledger.LoadStageOutcomes(ctx, r.Target.ProjectID, g.Parent.ExecutionID)
+		outcomes, err := s.Ledger.LoadStageOutcomes(ctx, r.Target.ProjectID, snap.contract.Execution.ExecutionID)
 		if err != nil {
 			return IntegratePreview{}, snap, err
 		}
@@ -303,7 +305,7 @@ func (s IntegrateService) Apply(ctx context.Context, r IntegrateApply) (Integrat
 	g := snap.graph
 	integration, _ := integrationChildOf(g)
 	waivers := append([]executiongraph.OptionalWaiver{}, fresh.Integration.OptionalWaivers...)
-	receipt := executiongraph.IntegrationReceipt{FormatVersion: 1, ProjectID: r.Preview.Request.Target.ProjectID, ParentID: g.Parent.ExecutionID, Revision: g.Parent.GraphRevision, GraphDigest: hex.EncodeToString(g.StorageRevision[:]), PreviewDigest: fresh.Digest, IntegrationPreviewDigest: fresh.Integration.Digest, ValidatorPolicyDigest: fresh.Request.ValidatorPolicyDigest, IntegrationChildID: integration.ExecutionID, AttemptNumber: uint32(len(integration.Attempts)) + 1, OptionalWaivers: waivers, Effects: append([]executiongraph.Effect{}, fresh.Integration.Effects...), ExecutionRevision: snap.contract.Execution.Revision, LedgerDigest: fresh.LedgerDigest, StageID: fresh.Request.StageID, StageOrdinal: snap.contract.Execution.StageOrdinal, ActorKind: "human-operator", Actor: r.Actor, RecordedAt: s.now()}
+	receipt := executiongraph.IntegrationReceipt{FormatVersion: 1, ProjectID: r.Preview.Request.Target.ProjectID, ParentID: g.Parent.ExecutionID, ExecutionID: snap.contract.Execution.ExecutionID, Revision: g.Parent.GraphRevision, GraphDigest: hex.EncodeToString(g.StorageRevision[:]), PreviewDigest: fresh.Digest, IntegrationPreviewDigest: fresh.Integration.Digest, ValidatorPolicyDigest: fresh.Request.ValidatorPolicyDigest, IntegrationChildID: integration.ExecutionID, AttemptNumber: uint32(len(integration.Attempts)) + 1, OptionalWaivers: waivers, Effects: append([]executiongraph.Effect{}, fresh.Integration.Effects...), ExecutionRevision: snap.contract.Execution.Revision, LedgerDigest: fresh.LedgerDigest, StageID: fresh.Request.StageID, StageOrdinal: snap.contract.Execution.StageOrdinal, ActorKind: "human-operator", Actor: r.Actor, RecordedAt: s.now()}
 	result.Status, result.Category = "failure", ""
 	lease, err := s.Store.Acquire(ctx, g)
 	if err != nil {

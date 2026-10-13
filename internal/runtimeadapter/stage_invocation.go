@@ -19,6 +19,27 @@ type StageInvocationRequest struct {
 	Process           bool
 	RepositoryWrite   bool
 	ParentEnvironment []string
+	// Correlation is the attempt's own closed correlation set, set by the
+	// trusted supervisor; inherited values are never used (see StageEnvironment).
+	Correlation AttemptCorrelation
+}
+
+// AttemptCorrelation identifies the running attempt to its child for
+// coordination publish. It grants nothing: ingestion revalidates lineage.
+type AttemptCorrelation struct {
+	ProjectID, ParentID, ChildID, AttemptID string
+}
+
+func (c AttemptCorrelation) environment() ([]string, error) {
+	if c == (AttemptCorrelation{}) {
+		return nil, nil
+	}
+	for _, v := range []string{c.ProjectID, c.ParentID, c.ChildID, c.AttemptID} {
+		if v == "" || len(v) > 128 || strings.ContainsAny(v, "=\x00\r\n") {
+			return nil, ErrInvalidAdapterConfiguration
+		}
+	}
+	return []string{"AXIOM_ATTEMPT_ID=" + c.AttemptID, "AXIOM_CORRELATION_ID=" + c.ProjectID, "AXIOM_EXECUTION_ID=" + c.ParentID, "AXIOM_GRAPH_ID=" + c.ChildID}, nil
 }
 
 // BuildStageInvocation owns every option and output bound. Caller configuration
@@ -32,6 +53,12 @@ func BuildStageInvocation(request StageInvocationRequest) (executiongraph.Invoca
 	if err != nil {
 		return executiongraph.Invocation{}, err
 	}
+	correlation, err := request.Correlation.environment()
+	if err != nil {
+		return executiongraph.Invocation{}, err
+	}
+	environment = append(environment, correlation...)
+	sort.Strings(environment)
 	argv := []string{p.Executable}
 	cwd := request.Workspace
 	switch p.RuntimeID {
