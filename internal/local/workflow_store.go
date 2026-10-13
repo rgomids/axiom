@@ -372,3 +372,13 @@ func workflowStoreError(err error) error {
 		return errors.Join(err, workflow.ErrRecoveryRequired)
 	}
 }
+
+// ExecutionDigest binds single-stage dispatch to the exact existing Execution3
+// encoding. It introduces neither another codec nor additional wire fields.
+func ExecutionDigest(state workflow.State) (string, error) {
+	wire, err := encodeExecution(state)
+	if err != nil {
+		return "", err
+	}
+	return hexDigest(wire), nil
+}
