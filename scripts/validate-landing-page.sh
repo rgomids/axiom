@@ -192,8 +192,45 @@ posix_install='curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/s
 
 grep -Fq -- "$posix_install" "$SITE/index.html" \
   || fail "landing page does not publish the POSIX installer command"
-grep -Fq -- 'Supported hosts: macOS arm64 and Linux amd64/arm64' "$SITE/index.html" \
-  || fail "landing page does not state the approved supported-hosts sentence"
+# The supported-hosts sentence (AXM-20) is checked in context, not anywhere in
+# the file: English in the callout's visible text, Portuguese in the data-pt of
+# that same element, and each README in its own language.
+python3 - "$ROOT" <<'PYEOF' || fail "the supported-hosts sentence is missing or in the wrong language"
+import re
+import sys
+
+root = sys.argv[1]
+EN = "Supported hosts: macOS arm64 and Linux amd64/arm64."
+PT = "Hosts suportados: macOS arm64 e Linux amd64/arm64."
+
+html = open(root + "/site/index.html", encoding="utf-8").read()
+callouts = re.findall(r'<p class="callout">(.*?)</p>', html, re.S)
+spans = [
+    (pt, text)
+    for callout in callouts
+    for pt, text in re.findall(r'<span data-pt="([^"]*)">(.*?)</span>', callout, re.S)
+    if "amd64/arm64" in pt or "amd64/arm64" in text
+]
+if len(spans) != 1:
+    raise SystemExit("expected one callout span with the supported hosts, found %d" % len(spans))
+pt, text = spans[0]
+if not " ".join(text.split()).startswith(EN):
+    raise SystemExit("the callout's English text does not start with: " + EN)
+if not pt.startswith(PT):
+    raise SystemExit("the callout's data-pt does not start with: " + PT)
+if EN in pt or PT in text:
+    raise SystemExit("the callout mixes up the English and Portuguese sentences")
+
+def lines(path):
+    return open(root + "/" + path, encoding="utf-8").read().splitlines()
+
+if EN not in lines("README.md"):
+    raise SystemExit("README.md does not state: " + EN)
+readme_pt = lines("docs/README.pt-BR.md")
+if PT not in readme_pt or any(EN in line for line in readme_pt):
+    raise SystemExit("docs/README.pt-BR.md must state exactly: " + PT)
+PYEOF
+pass "supported hosts are stated in English and Portuguese in their own contexts"
 # Regression guard (PR #311 comment 6153404308): the site names only the
 # supported hosts; no Windows statement, link, download or installer returns.
 if grep -rqi 'windows' "$SITE"; then
