@@ -33,6 +33,9 @@ var (
 )
 
 func main() {
+	if handled, code := probeCanaryCommand(context.Background(), os.Args[1:], nil, os.Stdout); handled {
+		os.Exit(code)
+	}
 	if handled, code := cli.HandleHelp(os.Args[1:], currentProvenance(), os.Stdout); handled {
 		os.Exit(code)
 	}

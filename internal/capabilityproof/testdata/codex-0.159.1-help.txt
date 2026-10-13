@@ -1,0 +1,7 @@
+Usage: codex exec [OPTIONS] [PROMPT]
+Options:
+  --model <MODEL> Model
+  --ignore-user-config Ignore configuration
+  --ephemeral Ephemeral session
+  --sandbox <SANDBOX_MODE> Sandbox [possible values: read-only, workspace-write]
+  --add-dir <DIR> Additional directory

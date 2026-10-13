@@ -1,0 +1,9 @@
+Usage: claude [options] [prompt]
+Options:
+  --print Print response
+  --model <model> Model
+  --input-format <format> Input format (choices: text, stream-json)
+  --permission-prompts <mode> Permission prompts (choices: none)
+  --permission-mode <mode> Permission mode (choices: dontAsk)
+  --allowedTools <tools> Allowed tools
+  --add-dir <directories> Additional directories
