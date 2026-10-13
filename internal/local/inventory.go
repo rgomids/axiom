@@ -31,37 +31,39 @@ import (
 type InventoryKind string
 
 const (
-	InventoryInstallation       InventoryKind = "installation_record"
-	InventoryWorkItem           InventoryKind = "work_item_link"
-	InventoryCreateAttempt      InventoryKind = "work_item_create_attempt"
-	InventoryExecution          InventoryKind = "execution"
-	InventoryArtifact           InventoryKind = "artifact_object"
-	InventoryCleanupRecord      InventoryKind = "artifact_cleanup_record"
-	InventoryRetirementRecord   InventoryKind = "artifact_retirement_record"
-	InventoryRunLease           InventoryKind = "run_lease"
-	InventoryGraph              InventoryKind = "execution_graph"
-	InventoryCoordination       InventoryKind = "coordination_stream"
-	InventoryCapabilityEvidence InventoryKind = "capability_evidence"
-	InventoryValidatorPolicy    InventoryKind = "validator_policy"
-	InventoryDispatchAuthority  InventoryKind = "dispatch_authority"
-	InventoryRetryAuthority     InventoryKind = "stage_retry_authority"
-	InventoryRuntimeProfile     InventoryKind = "runtime_profile_configuration"
-	InventoryProjectContext     InventoryKind = "project_context_preference"
-	InventoryPortableManifest   InventoryKind = "portable_manifest"
-	InventoryOperational        InventoryKind = "project_operational_state"
-	InventoryPOCWorkflow        InventoryKind = "poc_workflow"
-	InventoryRecovery           InventoryKind = "recovery_state"
-	InventoryNewer              InventoryKind = "unsupported_newer"
-	InventoryOlder              InventoryKind = "unsupported_older"
-	InventoryMalformed          InventoryKind = "malformed"
-	InventoryUnsafe             InventoryKind = "unsafe"
-	InventoryUnknown            InventoryKind = "unknown"
+	InventoryInstallation         InventoryKind = "installation_record"
+	InventoryWorkItem             InventoryKind = "work_item_link"
+	InventoryCreateAttempt        InventoryKind = "work_item_create_attempt"
+	InventoryExecution            InventoryKind = "execution"
+	InventoryArtifact             InventoryKind = "artifact_object"
+	InventoryCleanupRecord        InventoryKind = "artifact_cleanup_record"
+	InventoryRetirementRecord     InventoryKind = "artifact_retirement_record"
+	InventoryRunLease             InventoryKind = "run_lease"
+	InventoryGraph                InventoryKind = "execution_graph"
+	InventoryCoordination         InventoryKind = "coordination_stream"
+	InventoryCapabilityEvidence   InventoryKind = "capability_evidence"
+	InventoryValidatorPolicy      InventoryKind = "validator_policy"
+	InventoryDispatchAuthority    InventoryKind = "dispatch_authority"
+	InventoryRetryAuthority       InventoryKind = "stage_retry_authority"
+	InventoryStageOutcome         InventoryKind = "stage_outcome"
+	InventoryIntegrationAuthority InventoryKind = "stage_integration_authority"
+	InventoryRuntimeProfile       InventoryKind = "runtime_profile_configuration"
+	InventoryProjectContext       InventoryKind = "project_context_preference"
+	InventoryPortableManifest     InventoryKind = "portable_manifest"
+	InventoryOperational          InventoryKind = "project_operational_state"
+	InventoryPOCWorkflow          InventoryKind = "poc_workflow"
+	InventoryRecovery             InventoryKind = "recovery_state"
+	InventoryNewer                InventoryKind = "unsupported_newer"
+	InventoryOlder                InventoryKind = "unsupported_older"
+	InventoryMalformed            InventoryKind = "malformed"
+	InventoryUnsafe               InventoryKind = "unsafe"
+	InventoryUnknown              InventoryKind = "unknown"
 )
 
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
+	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
 		return true
 	}
 	return false
@@ -82,7 +84,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAuthority, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
+var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
@@ -279,6 +281,9 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 						if kind := classifyDispatchAuthority(id, file, wire, "single-first-attempt"); kind != "" {
 							return kind
 						}
+						if kind := classifyStageOutcome(id, file, wire); kind != "" {
+							return kind
+						}
 						if state, err := decodeExecution(wire); err == nil && state.ProjectID == id && executionName(state.RepositoryKey, state.WorkItem) == file {
 							return InventoryExecution
 						}
@@ -383,6 +388,9 @@ func (w *inventoryWalk) classifyGraph(projectID, file string, wire []byte) Inven
 		return kind
 	}
 	if kind := classifyRetryAuthority(projectID, file, wire); kind != "" {
+		return kind
+	}
+	if kind := classifyIntegrationReceipt(projectID, file, wire); kind != "" {
 		return kind
 	}
 	doc, err := executiongraph.DecodeGraphDocument(wire)

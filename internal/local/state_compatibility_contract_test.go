@@ -256,6 +256,17 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if _, err := graphs.CommitRetry(context.Background(), failed, localRetryAuthority(failed)); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := graphs.CommitIntegrationReceipt(context.Background(), failed, localIntegrationReceipt(failed)); err != nil {
+		t.Fatal(err)
+	}
+	ledgers, err := NewWorkflowStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v3 := createLocalV3Execution(t, ledgers)
+	if _, err := ledgers.RecordStageOutcome(context.Background(), v3, localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")); err != nil {
+		t.Fatal(err)
+	}
 	streams, err := NewCoordinationStore(state, authority.ProjectID)
 	if err != nil {
 		t.Fatal(err)
