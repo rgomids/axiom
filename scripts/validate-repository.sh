@@ -74,18 +74,18 @@ for pattern in "${required_ignores[@]}"; do
     || fail "required .gitignore pattern is missing: $pattern"
 done
 
-wiki_url="https://github.com/rgomids/axiom/wiki"
+product_docs_url="https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979"
 
-grep -Fq -- "$wiki_url" "$ROOT/README.md" \
-  || fail "Wiki source is missing from README.md"
-grep -Fq -- "$wiki_url" "$ROOT/docs/README.pt-BR.md" \
-  || fail "Wiki source is missing from docs/README.pt-BR.md"
+grep -Fq -- "$product_docs_url" "$ROOT/README.md" \
+  || fail "Notion product documentation link is missing from README.md"
+grep -Fq -- "$product_docs_url" "$ROOT/docs/README.pt-BR.md" \
+  || fail "Notion product documentation link is missing from docs/README.pt-BR.md"
 grep -Fq -- 'href="docs/README.pt-BR.md"' "$ROOT/README.md" \
   || fail "README.md is missing the Brazilian Portuguese navigation link"
 grep -Fq -- 'href="../README.md"' "$ROOT/docs/README.pt-BR.md" \
   || fail "docs/README.pt-BR.md is missing the English navigation link"
-grep -Fq -- "$wiki_url" "$ROOT/docs/product/README.md" \
-  || fail "Wiki source is missing from docs/product/README.md"
+grep -Fq -- "$product_docs_url" "$ROOT/docs/product/README.md" \
+  || fail "Notion product documentation link is missing from docs/product/README.md"
 
 "$ROOT/scripts/check-claude-bootstrap.sh" --skill-adapters "$ROOT"
 

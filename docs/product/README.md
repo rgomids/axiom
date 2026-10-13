@@ -2,7 +2,7 @@
 
 Axiom é uma plataforma para governar o ciclo de desenvolvimento de software assistido por IA.
 
-Estado consolidado: [Product Foundation](foundation.md). Governança normativa: [Axiom Constitution](constitution.md). Sequenciamento futuro: [Product Roadmap](roadmap.md).
+Documentação de produto e sistema: [Notion — Axiom](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979). Resumo para agentes: [Product Foundation](foundation.md). Governança normativa: [Axiom Constitution](constitution.md). Sequenciamento futuro: [Product Roadmap](roadmap.md).
 
 Seu objetivo é manter coerência entre:
 
@@ -28,12 +28,18 @@ Decisão e trade-offs: [ADR-0001](../decisions/0001-project-is-not-repository.md
 
 ## Documentation authority
 
-- **GitHub Wiki:** documentação pública de produto, conceitos, discovery e guias em
-  [Axiom Wiki](https://github.com/rgomids/axiom/wiki).
-  Conteúdo externo não implica aprovação ou permissão de publicação; confirme
-  classificação antes de incorporá-lo ao repositório público.
+- **Notion:** casa da documentação de produto e de sistema (visão, fluxos,
+  conceitos, discovery, guias e visão geral do sistema) em
+  [Notion — Axiom](https://app.notion.com/p/3b4e01f22626810791b4f9d016ab5979).
+  Conteúdo do Notion é não público por padrão e não implica aprovação nem
+  permissão de publicação; confirme classificação antes de incorporá-lo ao
+  repositório público.
+- **GitHub Wiki:** aposentada. Não é fonte canônica; não atualize nem cite como
+  estado atual.
 - **GitHub / repositório versionado:** verdade técnica em Specifications, ADRs,
-  arquitetura, código e Evidence. Artefatos aprovados governam os contratos;
+  arquitetura, código e Evidence, além da constituição normativa, `AGENTS.md`,
+  `CLAUDE.md` e `.agents/**`. Foundation e Roadmap são resumos curtos com o
+  contexto mínimo para agentes e linkam para o Notion. Artefatos aprovados governam os contratos;
   contexto de agentes resume e aponta para essas fontes.
 - **GitHub Issues/Projects, quando adotados:** estado operacional do trabalho.
   Não substituem contratos aprovados nem transformam roadmap em task tracker.
