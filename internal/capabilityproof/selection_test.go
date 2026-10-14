@@ -3,6 +3,7 @@ package capabilityproof
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -268,5 +269,89 @@ func TestEvidenceSelectionRequiresIndependentCurrentIdentity(t *testing.T) {
 	cancel()
 	if _, _, err := s.Select(ctx, e.Binding, selectionModel()); !errors.Is(err, context.Canceled) || scanner.scans != 0 {
 		t.Fatal("cancelled", err)
+	}
+}
+
+// expiringContext reports a deadline only once the scanner expires it, so the
+// test observes expiry during enumeration without wall-clock timing.
+type expiringContext struct {
+	context.Context
+	err error
+}
+
+func (c *expiringContext) Err() error { return c.err }
+
+// interruptingScanner visits its first record, interrupts the context and
+// aborts as a real scanner does when it observes ctx.Err between entries.
+type interruptingScanner struct {
+	records   []StoredEvidence
+	interrupt func()
+	wrap      bool
+	visited   int
+}
+
+func (f *interruptingScanner) Scan(ctx context.Context, visit func(StoredEvidence) error) error {
+	for _, r := range f.records {
+		if err := ctx.Err(); err != nil {
+			if f.wrap {
+				return fmt.Errorf("/private/state/capability-evidence/%s: %w", r.Ref, err)
+			}
+			return err
+		}
+		if err := visit(r); err != nil {
+			return err
+		}
+		f.visited++
+		f.interrupt()
+	}
+	return nil
+}
+
+func TestEvidenceSelectionPreservesContextErrorsDuringScan(t *testing.T) {
+	e := profileEvidence(ReadOnlyVariant)
+	expired := profileEvidence(ReadOnlyVariant)
+	expired.ObservedAt = e.ObservedAt.Add(-MaxAge - time.Hour)
+	now := func() time.Time { return e.ObservedAt.Add(time.Hour) }
+	// Uninterrupted, the same enumeration selects e uniquely.
+	baseline := &interruptingScanner{records: []StoredEvidence{stored(e), stored(expired)}, interrupt: func() {}}
+	if ref, _, err := (Selector{Evidence: baseline, Now: now}).Select(context.Background(), e.Binding, selectionModel()); err != nil || ref != stored(e).Ref {
+		t.Fatal("baseline", ref, err)
+	}
+	for _, wrap := range []bool{false, true} {
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		expiring := &expiringContext{Context: context.Background()}
+		cases := []struct {
+			name      string
+			ctx       context.Context
+			interrupt func()
+			want      error
+		}{
+			{"canceled", cancelCtx, cancel, context.Canceled},
+			{"deadline", expiring, func() { expiring.err = context.DeadlineExceeded }, context.DeadlineExceeded},
+		}
+		for _, c := range cases {
+			t.Run(fmt.Sprintf("%s/wrapped=%t", c.name, wrap), func(t *testing.T) {
+				records := []StoredEvidence{stored(e), stored(expired)}
+				scanner := &interruptingScanner{records: records, interrupt: c.interrupt, wrap: wrap}
+				s := Selector{Evidence: scanner, Now: now}
+				ref, code, err := s.Select(c.ctx, e.Binding, selectionModel())
+				if ref != "" || code != "capability_unknown" || !errors.Is(err, c.want) || scanner.visited != 1 {
+					t.Fatalf("%q %q %v visited=%d", ref, code, err, scanner.visited)
+				}
+				// Neither a miss nor ambiguity, and no storage detail leaks.
+				if errors.Is(err, ErrBlocked) || strings.Contains(err.Error(), "/private") {
+					t.Fatal("context error lost identity or leaked detail", err)
+				}
+				if records[0].Evidence.InvalidatedReason != "" || !records[0].Evidence.ObservedAt.Equal(e.ObservedAt) {
+					t.Fatal("record mutated")
+				}
+			})
+		}
+		cancel()
+	}
+	// A non-context scanner failure still fails closed with the generic blocker.
+	s := Selector{Evidence: &fakeScanner{records: []StoredEvidence{stored(e)}, err: errors.New("i/o")}, Now: now}
+	if ref, code, err := s.Select(context.Background(), e.Binding, selectionModel()); ref != "" || code != "capability_unknown" || err != ErrBlocked {
+		t.Fatalf("%q %q %v", ref, code, err)
 	}
 }

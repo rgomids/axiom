@@ -2,6 +2,7 @@ package capabilityproof
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -67,6 +68,12 @@ func (s Selector) Select(ctx context.Context, b Binding, m *ModelBinding) (strin
 		return nil
 	})
 	switch {
+	// Cancellation keeps its identity, but only as the bare sentinel so a
+	// wrapping scanner error never exposes storage details.
+	case errors.Is(err, context.Canceled):
+		return "", "capability_unknown", context.Canceled
+	case errors.Is(err, context.DeadlineExceeded):
+		return "", "capability_unknown", context.DeadlineExceeded
 	case err != nil:
 		return "", "capability_unknown", ErrBlocked
 	case matches == 0:
