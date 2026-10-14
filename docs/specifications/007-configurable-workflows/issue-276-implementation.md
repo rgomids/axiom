@@ -442,3 +442,99 @@ capability proof.
 Status: T16/T17 not complete. Remaining: BLD-001B.3 (authorized v3
 authoring/publication and composition wiring); T34/T44; retry-reset
 authority/fencing; remaining AXM-8 work.
+
+## AXM-22 BLD-001B.3a — Migration contract and effort path reliability
+
+Authority: Rafael Gomides approved A1–A5 on 2026-10-14 at 10:27
+(America/Sao_Paulo): explicit v2→v3 migration (never automatic), minimal public
+`EffortDeclaration` authoring reusing existing commands, preview/confirmation/
+atomic publication/recovery, refusal of missing/ambiguous/inapplicable
+declarations including executable-identity mismatch, and correction of the
+BLD-001B.2b path finding. It supersedes BI-2a D5 only for that write path.
+
+Scope: contract and fix only. Recorded in
+[amendment BI-2b and BI-3](amendment-276-axm22-binding-identity.md#bi-3--explicit-v2v3-migration-and-minimal-effortdeclaration-authoring-bld-001b3).
+
+Files:
+
+| File | Change |
+|---|---|
+| `amendment-276-axm22-binding-identity.md` | BI-2b (path-operand reliability) and BI-3 (migration, authoring, preview/confirmation, revalidation, atomic publication, recovery, fail-closed conditions, 3a/3b/3c division) |
+| `internal/runtimeadapter/effort_sources.go` | unexported `effortPathOperand`; the PE-05a argv scan skips only the clean absolute operand of the adapter's own path options |
+| `internal/runtimeadapter/effort_sources_path_test.go` | path regression, preserved-override and operand-predicate tests |
+| `internal/runtimeadapter/binding_source_test.go` | BindingSource fixture stage root now spells `effort` (was a workaround for the finding) |
+
+**Migration/authoring contract (BI-3, not implemented).** Reuse
+`axiom runtime binding migrate|edit` and the existing `--expected-revision`,
+`--preview-digest`, `--authorize-local` authority. Add only
+`--target-format 3` (migrate; required on `active-v2`, refused on `active-v1`)
+and `--effort-declaration <json-file>` (one strict BI-2a declaration for
+`--runtime`). Preview is zero-write and binds the snapshot token, source digest,
+candidate digest, declaration and the independently observed executable digest
+and version. Apply re-inspects, re-reads, re-observes and recomputes; any change
+is `stale_preview`. Publication goes through the existing
+`RuntimeProfileStore.Publish` protocol, extended in 3b to accept format 3 only
+as `active-v2 → v3` or `active-v3 → v3`, never as a downgrade; F6 is
+`recovery_required` and recovery is the existing scoped `recover` with fresh
+authority and no automatic retry. Runtimes, Profiles, Profile digests and
+Preferences are carried unchanged; v2 history is never rewritten.
+
+**Path finding root cause.** `effortSourceProjection` scanned every argv token
+after `<exe> <mode> --model <model>` with `strings.Contains(lower, "effort")`,
+including the operands of `BuildStageInvocation`'s own options: Codex `-C` and
+`--add-dir`, Claude `--add-dir` and the `Bash(<axiomPath>:*)` element of
+`--allowedTools`. Workspace, inbox and environment scanning, source-root
+inspection and override detection were not the cause.
+
+**Correction.** `effortPathOperand(runtime, option, value)` exempts only those
+operands, and only when they are `stagePath` (clean absolute, no control
+characters); for `--allowedTools` only `Bash(<stagePath>:*)` elements, never a
+value starting with `-`. Everything else keeps the unchanged predicate. Argv
+tokens add no projection fact, so no field, encoding, hash or ProofReference
+changes.
+
+Synthetic Evidence (Go 1.26.0 linux/amd64, `GOTOOLCHAIN=local GOWORK=off GOFLAGS=`):
+
+- Reproduction: with the exemption disabled (loop equal to `ef4f3b6`),
+  `go test ./internal/runtimeadapter -run TestEffortSourcesPathSpellingIsNotOverride`
+  FAILED: `codex/explicit … nested-mixed-case: err effort_override_conflict`.
+  Restored before every recorded run.
+- `go test ./internal/runtimeadapter -run 'TestEffortSourcesPath|TestEffortSourcesOverridesStillRefusedUnderEffortPaths' -v`
+  — exit 0, 3 tests, 18 subtests. Codex and Claude × explicit/runtime-default
+  effort × read-only/repository-write × Process false/true: six path sets
+  (component, workspace named `effort`, nested mixed case, selector-spelled
+  directories, Axiom path, and the real temporary root carrying the test name)
+  give the same digest as the neutral baseline, each through `compareWithPE05a`
+  (inspector and `CheckEffortSources` byte-identical projection and digest):
+  96 comparisons. Still refused under an `effort` stage path: conflicting
+  `--config`/`-c`, `--profile`, non-path and relative/unclean path operands, a
+  path option swallowing `--config`, Claude `--effort`, an `effort` tool
+  element, `--allowedTools -p`, inherited and declared environment conflicts,
+  configured selectors (`effort_override_conflict`), and symlinked sources,
+  unsupported TOML and ambiguous JSON (`effort_configuration_unproven`).
+- `go test ./internal/runtimeadapter -run 'TestBindingSource|TestEffortSources|TestInspectEffortSources|TestTrustedEffortRoot|TestAdapterVersionCanonical|TestModeDigest|TestFrozenStage' -v`
+  — exit 0, 34 tests, including the existing PE-05a equivalence
+  (`TestInspectEffortSourcesMatchesPE05aDigest`, `…RefusalsMatchPE05a`), both
+  symlink refusal tests and the BindingSource suite now on an `effort` stage
+  root.
+- `go test ./internal/runtimeprofile -run 'TestV3|TestV2'` (11 tests) and
+  `go test ./internal/capabilityproof -run 'Process|Selection|TestCheck|TestShow|TestInvalidat|TestRequired|TestEach|TestObserver|TestConfiguredSource'`
+  — exit 0.
+- `gofmt -l`, `go build` (runtimeadapter, capabilityproof, runtimeprofile,
+  `cmd/lingo`), `go vet` (runtimeadapter, runtimeprofile),
+  `git diff --check` — exit 0.
+
+No `t.Skip`. Hosts: executed on Linux amd64 only; macOS arm64 and Linux arm64
+are unverified in this block (tests are `unix`-tagged and need native
+symlinks only).
+
+Explicitly not done: v3 production migration **not implemented**; v3
+production publication **not implemented**; `cmd/lingo` production
+composition **not completed**; no operational capability proof, Runtime
+executable, probe, inference, stage dispatch or Provider effect.
+
+Status: AXM-22 not complete; T16/T17 not complete. Remaining: BLD-001B.3b
+(v2→v3 migration, minimal authoring flags, format-3 local inspection and
+atomic publication/recovery) and BLD-001B.3c (BindingSource composition in
+`cmd/lingo`, synthetic end-to-end validation, final AXM-22 reconciliation);
+T34/T44 and remaining AXM-8 work.

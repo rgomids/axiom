@@ -127,7 +127,12 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 		facts = append(facts, effortSourceFact{Scope: "argv", Key: "profile-no-override", Present: true})
 	}
 
-	for _, a := range args {
+	for n := 0; n < len(args); n++ {
+		a := args[n]
+		if n+1 < len(args) && effortPathOperand(p.RuntimeID, a, args[n+1]) {
+			n++
+			continue
+		}
 		lower := strings.ToLower(a)
 		if strings.Contains(lower, "effort") || a == "--config" || a == "-c" || a == "--profile" || a == "-p" {
 			return nil, ErrEffortOverrideConflict
@@ -239,6 +244,29 @@ func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSu
 		Facts []effortSourceFact `json:"facts"`
 	}{d.ProofReference, facts})
 	return b, nil
+}
+
+// effortPathOperand reports whether value is the filesystem operand of one of
+// the adapter's own path options (BuildStageInvocation). A clean absolute path
+// there names a location, not an effort selector, so its spelling is not
+// scanned; the option name and every other token still are. It adds no fact.
+func effortPathOperand(runtimeID, option, value string) bool {
+	switch {
+	case option == "--add-dir" || runtimeID == "codex" && option == "-C":
+		return stagePath(value)
+	case runtimeID == "claude" && option == "--allowedTools" && !strings.HasPrefix(value, "-"):
+		for _, tool := range strings.Split(value, ",") {
+			path, ok := strings.CutPrefix(tool, "Bash(")
+			if ok {
+				path, ok = strings.CutSuffix(path, ":*)")
+			}
+			if !(ok && stagePath(path)) && strings.Contains(strings.ToLower(tool), "effort") {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 func containsKey(keys []string, key string) bool {
 	for _, v := range keys {

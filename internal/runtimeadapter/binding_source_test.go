@@ -58,9 +58,9 @@ type bindingFixture struct {
 func newBindingFixture(t *testing.T, runtime string) *bindingFixture {
 	t.Helper()
 	inspector := newEffortInspectorFixture(t, runtime)
-	// Stage paths live under a neutral root: PE-05a refuses any stage argument
-	// containing "effort", and test temp names embed the test name.
-	neutral, err := os.MkdirTemp("", "axm22-stage-")
+	// Stage paths deliberately spell "effort" (BLD-001B.3a): a path operand is
+	// not an effort override.
+	neutral, err := os.MkdirTemp("", "axm22-effort-stage-")
 	if err != nil {
 		t.Fatal(err)
 	}
