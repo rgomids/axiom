@@ -963,7 +963,7 @@ the v1→v2 migration used by dogfood and the v2 store paths.
 
 Pending, recorded and not claimed:
 
-- BLD-001B.3c-2b.2: remaining consumer preparation.
+- BLD-001B.3c-2b.2: remaining consumer preparation (recorded below).
 - BLD-001B.3c-2c.1: passive Runtime registry and synthetic v3 dogfood
   preparation.
 - BLD-001B.3c-2b.3: coordinated v3-only activation and retirement (wiring of
@@ -975,3 +975,120 @@ Pending, recorded and not claimed:
 
 Status: canonical v3 activation not complete; AXM-22 not complete; T16/T17
 not complete.
+
+## AXM-22 BLD-001B.3c-2b.2 — v3 policy, Workflow, admission, readiness and validation consumers
+
+Starting HEAD `ae4d192`. Preparation only: isolated format-3 evaluators that
+reuse `runtimeprofile.ConsumerV3`, `RecordStateV3`, `ProfileIntentV3`,
+`DigestV3` and the unchanged `ProfileDigest`. None is called by a production
+path; Runtime policy, Workflow authoring, stage admission, readiness and
+`runtime profile validate` keep their current v2 behavior. No v3→v2
+projection, persisted field, digest, golden vector, CLI command, flag or
+feature flag changes.
+
+Prepared evaluators:
+
+- `internal/runtimeapplication/policy_v3.go`:
+  - `ConsumerFromRecordV3(state, *ConfigurationV3)` maps an
+    `InspectVersioned` state through `RecordStateV3` and `NewConsumerV3`:
+    `fresh` → `configuration_missing`, `retired` → `configuration_retired`,
+    invalid v3 → `invalid_configuration`, `active-v1/v2` →
+    `unsupported_configuration_format`, `pending`/`unsafe` → the existing
+    `localStateCategory` codes. A valid v3 record is never
+    `configuration_unsafe` merely because the v2 reader refuses format 3.
+  - `EvaluatePolicyV3(project, ConsumerV3, Request)` intersects portable
+    Project policy (allowed Runtimes, portable Profile Runtime/model
+    relationship, preferences) with `AllowedProfile`/`ProfileIntent`, using the
+    existing Preview codes (`invalid_request`, `invalid_project`,
+    `policy_unconfigured`, `invalid_configuration`, `no_allowed_match`,
+    `ambiguous_match`, `unsafe_configuration`). Several admissible Profiles are
+    `ambiguous_match`; nothing is selected implicitly. Requested capabilities
+    are matched against Profile-declared capabilities only; the candidate
+    carries no observation, `ResolvedProfile` or proof, and an
+    EffortDeclaration never contributes. Observer inputs and capability proof
+    remain on the existing path until activation.
+  - `CheckPolicyV3` accepts only the exact reviewed candidate (DigestV3,
+    ProfileDigest, revision) and returns `ErrStale` on drift.
+  - `ReadinessCandidatesV3(state, *ConfigurationV3)` discloses enabled
+    Runtimes with each allowlisted Profile's model and effort intent; no
+    selection, no declaration read, distinct missing/retired/invalid codes.
+- `internal/projectapp/workflow_profiles_v3.go`:
+  `ValidateWorkflowProfilesV3(Definition, ConsumerV3, project.State)` binds
+  every schema-2 agent to the exact `ProfileIntentV3` with `migrateWorkflow`'s
+  categories (`workflow_migration_required` for schema 1, `forbidden_effort`
+  for any agent effort per ADR-0024, `invalid_profile_mapping`,
+  `profile_effort_unconfigured`, `project_policy_update_required`,
+  `profile_runtime_mismatch`).
+- `internal/stageexecution/admission.go`: the configuration-independent part
+  of `Admit` is extracted unchanged into `admitExecution`; `Admit` keeps its
+  exact v2 decision order. `AdmitV3(Operation, ContractV3)` reuses it, then
+  derives current Profile availability from `ConsumerV3.ProfileIntent` of the
+  frozen binding (the `stageContract` rule): missing, retired and historical
+  v1/v2 → `profile_effort_unconfigured`; invalid v3 →
+  `invalid_stage_contract`; policy → `project_policy_update_required`. It
+  returns the current `ProfileIntentV3`, not capability proof, and never
+  compares or rewrites frozen Execution history. Historical Execution/Graph
+  inspection is decided before any configuration read.
+- `cmd/lingo/runtime_profile_v3.go`: unexported
+  `runtimeProfileValidityV3(snapshot, err)` returns valid only for an active,
+  valid v3 record; v1/v2, invalid, missing, retired, unsafe and
+  recovery-required are refused. Not wired to `runtime profile validate`.
+
+Synthetic tests (`runtimeprofiletest` fixtures; no legacy v2 fixture converted,
+no corpus file changed): `TestPolicyV3ExactProfileIntentAndIdentity`,
+`TestPolicyV3NoImplicitRuntimeSelection`, `TestPolicyV3FailsClosed`,
+`TestPolicyV3DeclarationIsNotCapabilityProof`,
+`TestPolicyV3IdentityDriftIsStale`, `TestConsumerFromRecordV3States`,
+`TestReadinessCandidatesV3`, `TestWorkflowProfilesV3BindsExactProfileIntent`,
+`TestWorkflowProfilesV3FailsClosed`, `TestAdmitV3ActiveBindsCurrentIdentity`,
+`TestAdmitV3RefusesNonCurrentConfiguration`,
+`TestAdmitV3PreservesExecutionAndInspectionSemantics` (parity with `Admit`
+for every configuration-independent row and record state),
+`TestRuntimeProfileValidityV3`, `TestRuntimeProfileValidityV3FreshStoreZeroWrite`.
+
+Validation (Go 1.26.0, `GOTOOLCHAIN=local`, `GOWORK=off`, `GOFLAGS=`,
+`pipefail`; synthetic only, no Runtime execution, probe or inference), all
+exit 0:
+
+- New: `./internal/runtimeapplication -run 'TestPolicyV3|TestConsumerFromRecordV3|TestReadinessCandidatesV3'`
+  (7), `./internal/projectapp -run TestWorkflowProfilesV3` (2),
+  `./internal/stageexecution -run TestAdmitV3` (3),
+  `./cmd/lingo -run TestRuntimeProfileValidityV3` (2).
+- ConsumerV3/DigestV3: `./internal/runtimeprofile -run 'TestV3Consumer|TestV3Fixtures|TestDigestV3|TestV3'`
+  (18); `./internal/runtimeprofile` (38);
+  `./internal/runtimeadapter -run 'ModeDigest|EffortSource|Identity|BindingSource'` (34).
+- Existing production v2 behavior: `./internal/runtimeapplication` (32),
+  `./internal/projectapp -run Workflow` (12) and full package,
+  `./internal/stageexecution` (54), `./internal/workflowcompiler`,
+  `./internal/local -run RuntimeProfile` (6), and 37 `cmd/lingo` Runtime
+  policy, Workflow authoring/start/list, readiness/preflight, Runtime impacts,
+  stage plan and `runtime profile validate` tests (Executable* and Runtime auth
+  tests excluded).
+- `gofmt -l` (empty); `go build` and `go vet` of runtimeapplication,
+  projectapp, stageexecution, runtimeprofile and `cmd/lingo`; Staticcheck
+  0.8.1 with the CI check set on the same packages;
+  `scripts/check-adr-governance.py`; `scripts/check-sensitive-files.sh`;
+  `scripts/validate-repository.sh`; `git diff --cached --check`.
+
+No `t.Skip`. Host: Linux amd64 only. The full `go test -race ./...` matrix and
+`scripts/dogfood-poc.sh` were not run locally.
+
+Still active (v2) and unchanged: every production consumer listed for
+BLD-001B.3c-2b.1, upgrade/compatibility inventory, Runtime retirement and the
+v2 store paths.
+
+Pending, recorded and not claimed:
+
+- Remaining fixture conversions: the legacy v2 test fixtures stay until
+  coordinated activation replaces them.
+- BLD-001B.3c-2c.1: passive Runtime registry and synthetic v3 dogfood
+  preparation.
+- BLD-001B.3c-2b.3: coordinated v3-only activation (wiring the evaluators
+  above, observer/proof composition over `ConsumerV3`, retirement, removal of
+  v2 paths).
+- BLD-001B.3c-3: persistent authorization epoch and `cmd/lingo` BindingSource
+  composition.
+- BLD-001B.3c-4: final synthetic validation and reconciliation.
+
+Status: canonical v3-only operation is not available; AXM-22 not complete;
+T16/T17 not complete.

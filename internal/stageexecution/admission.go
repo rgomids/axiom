@@ -46,42 +46,8 @@ type Contract struct {
 type Admission struct{ Next string }
 
 func Admit(operation Operation, c Contract) (Admission, error) {
-	inspection := operation == StageStatus || operation == CoordinationRead
-	switch operation {
-	case StagePlan, StageRun, StageRetry, StageResume, StageCancel, StageReconcile, StageIntegrate, StageStatus, CoordinationRead, CapabilityProbe:
-	default:
-		return Admission{}, ErrAdmission
-	}
-	if c.Graph != nil {
-		if _, err := executiongraph.EncodeGraphDocument(*c.Graph); err != nil {
-			return Admission{}, executiongraph.ErrUnsupportedGraphFormat
-		}
-		if !inspection && c.Graph.Successor == nil {
-			return Admission{}, executiongraph.ErrUnsupportedGraphFormat
-		}
-	}
-	if inspection {
-		if c.Execution.FormatVersion != workflow.ProfileConfiguredFormatVersion {
-			return Admission{Next: ErrLegacyExecution.Error()}, nil
-		}
-		if c.Graph != nil && c.Graph.Historical != nil {
-			return Admission{Next: executiongraph.ErrUnsupportedGraphFormat.Error()}, nil
-		}
-		return Admission{}, nil
-	}
-	if operation != CapabilityProbe {
-		if operation != StagePlan && c.Execution.FormatVersion != workflow.ProfileConfiguredFormatVersion {
-			return Admission{}, ErrLegacyExecution
-		}
-		if c.Definition.Definition.SchemaVersion == 1 || !c.WorkflowSelected {
-			return Admission{}, workflowcompiler.ErrWorkflowMigrationRequired
-		}
-		if c.Definition.Definition.SchemaVersion != 2 {
-			return Admission{}, ErrAdmission
-		}
-		if operation != StagePlan && (c.Execution.Binding == nil || c.Execution.Binding.SchemaVersion != 2 || c.Execution.Binding.ResolvedProfile == nil || runtimeprofile.ValidateResolvedProfile(*c.Execution.Binding.ResolvedProfile) != nil) {
-			return Admission{}, ErrLegacyExecution
-		}
+	if admission, done, err := admitExecution(operation, c); done {
+		return admission, err
 	}
 	if c.Configuration.FormatVersion == runtimeprofile.FormatVersion || !c.ProfileAvailable {
 		return Admission{}, ErrProfileEffortUnconfigured
@@ -95,4 +61,109 @@ func Admit(operation Operation, c Contract) (Admission, error) {
 	// A graph is optional for planning, publication and genuine single stages.
 	// Any supplied graph has already passed the one canonical versioned codec.
 	return Admission{}, nil
+}
+
+// admitExecution applies the configuration-independent operation, graph,
+// historical inspection, Workflow and frozen binding checks. done reports a
+// final decision; otherwise the caller checks current Profile configuration.
+func admitExecution(operation Operation, c Contract) (Admission, bool, error) {
+	inspection := operation == StageStatus || operation == CoordinationRead
+	switch operation {
+	case StagePlan, StageRun, StageRetry, StageResume, StageCancel, StageReconcile, StageIntegrate, StageStatus, CoordinationRead, CapabilityProbe:
+	default:
+		return Admission{}, true, ErrAdmission
+	}
+	if c.Graph != nil {
+		if _, err := executiongraph.EncodeGraphDocument(*c.Graph); err != nil {
+			return Admission{}, true, executiongraph.ErrUnsupportedGraphFormat
+		}
+		if !inspection && c.Graph.Successor == nil {
+			return Admission{}, true, executiongraph.ErrUnsupportedGraphFormat
+		}
+	}
+	if inspection {
+		if c.Execution.FormatVersion != workflow.ProfileConfiguredFormatVersion {
+			return Admission{Next: ErrLegacyExecution.Error()}, true, nil
+		}
+		if c.Graph != nil && c.Graph.Historical != nil {
+			return Admission{Next: executiongraph.ErrUnsupportedGraphFormat.Error()}, true, nil
+		}
+		return Admission{}, true, nil
+	}
+	if operation != CapabilityProbe {
+		if operation != StagePlan && c.Execution.FormatVersion != workflow.ProfileConfiguredFormatVersion {
+			return Admission{}, true, ErrLegacyExecution
+		}
+		if c.Definition.Definition.SchemaVersion == 1 || !c.WorkflowSelected {
+			return Admission{}, true, workflowcompiler.ErrWorkflowMigrationRequired
+		}
+		if c.Definition.Definition.SchemaVersion != 2 {
+			return Admission{}, true, ErrAdmission
+		}
+		if operation != StagePlan && (c.Execution.Binding == nil || c.Execution.Binding.SchemaVersion != 2 || c.Execution.Binding.ResolvedProfile == nil || runtimeprofile.ValidateResolvedProfile(*c.Execution.Binding.ResolvedProfile) != nil) {
+			return Admission{}, true, ErrLegacyExecution
+		}
+	}
+	return Admission{}, false, nil
+}
+
+// ContractV3 is the format-3 admission input (Specification 007 AXM-22
+// BLD-001B.3c-2b.2). It carries the inspected record state and versioned
+// configuration instead of the format-1/2 Configuration; current Profile
+// availability is derived from ConsumerV3, never supplied.
+type ContractV3 struct {
+	Definition       workflowdefinition.Document
+	Execution        workflow.State
+	Graph            *executiongraph.GraphDocument
+	Record           runtimeprofile.RecordStateV3
+	Configuration    runtimeprofile.VersionedConfiguration
+	WorkflowSelected bool
+	PolicyAllowed    bool
+}
+
+// AdmissionV3 reports the current intent of the frozen Profile: identity is
+// DigestV3 and the unchanged ProfileDigest. It is not capability proof.
+type AdmissionV3 struct {
+	Admission
+	Profile *runtimeprofile.ProfileIntentV3
+}
+
+// AdmitV3 is the separately invoked format-3 admission evaluator. Execution,
+// graph and historical inspection checks are Admit's own; only the current
+// configuration check reads ConsumerV3. Missing, retired and historical
+// format-1/2 records are profile_effort_unconfigured; an invalid record is
+// invalid_stage_contract. It is not wired to production until coordinated
+// v3-only activation.
+func AdmitV3(operation Operation, c ContractV3) (AdmissionV3, error) {
+	shared := Contract{Definition: c.Definition, Execution: c.Execution, Graph: c.Graph, WorkflowSelected: c.WorkflowSelected}
+	if admission, done, err := admitExecution(operation, shared); done {
+		return AdmissionV3{Admission: admission}, err
+	}
+	var consumer runtimeprofile.ConsumerV3
+	var err error
+	if c.Record == runtimeprofile.RecordActiveV3 {
+		consumer, err = runtimeprofile.ConsumeVersioned(c.Configuration)
+	} else {
+		consumer, err = runtimeprofile.NewConsumerV3(c.Record, c.Configuration.V3)
+	}
+	switch {
+	case errors.Is(err, runtimeprofile.ErrConfigurationMissingV3), errors.Is(err, runtimeprofile.ErrConfigurationRetiredV3), errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat):
+		return AdmissionV3{}, ErrProfileEffortUnconfigured
+	case err != nil:
+		return AdmissionV3{}, ErrAdmission
+	}
+	// A removed, disallowed or disabled frozen Profile blocks; nothing falls
+	// back to another Profile, model, Runtime or effort.
+	binding := c.Execution.Binding
+	if binding == nil || binding.ResolvedProfile == nil {
+		return AdmissionV3{}, ErrProfileEffortUnconfigured
+	}
+	intent, err := consumer.ProfileIntent(binding.ResolvedProfile.RuntimeID, binding.ResolvedProfile.ProfileID)
+	if err != nil {
+		return AdmissionV3{}, ErrProfileEffortUnconfigured
+	}
+	if !c.PolicyAllowed {
+		return AdmissionV3{}, ErrPolicyUpdateRequired
+	}
+	return AdmissionV3{Profile: &intent}, nil
 }
