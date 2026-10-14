@@ -32,6 +32,13 @@ removed by BLD-001B.3c-1. The dated records above and below are history and are
 not rewritten. v3-only activation of authoring and consumers is pending
 (BLD-001B.3c-2, PM-3).
 
+**Pre-stable compatibility and DigestV3 decisions, 2026-10-14 13:30**
+(clause [PM.2](#pm2-pre-stable-compatibility-and-canonical-digestv3-bld-001b3c-2a)):
+the pre-stable period has no mandatory backward compatibility window and
+existing installations reconfigure explicitly (PM-8); the canonical v3
+identity is `DigestV3` (PM-9); BLD-001B.3c-2 is divided into 3c-2a/2b/2c
+(PM-10).
+
 This amendment **adds** to the accepted
 [#276 amendment](amendment-276-stage-dispatch.md) A2,
 [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md) and
@@ -468,8 +475,80 @@ conflicting with an accepted invariant.
   a v1/v2 record. *Delivered; v3-only activation not claimed.*
 - **BLD-001B.3c-2:** v3 consumers, v3-only authoring and the passive Runtime
   registry; removal of the remaining v2 authoring, v1→v2 migration and v2
-  store paths. *Pending.*
+  store paths. *Pending.* Divided on 2026-10-14 (PM-10) into 3c-2a, 3c-2b and
+  3c-2c.
 - **BLD-001B.3c-3:** persistent authorization epoch and `cmd/lingo`
   BindingSource composition. *Pending.*
 - **BLD-001B.3c-4:** synthetic end-to-end validation and final AXM-22
   reconciliation. *Pending.*
+
+### PM.2 Pre-stable compatibility and canonical DigestV3 (BLD-001B.3c-2a)
+
+**Accepted maintainer decisions C1–C3, 2026-10-14 13:30 America/Sao_Paulo**
+(Rafael Gomides, AXM-22 BLD-001B.3c-2a brief). Prospective: earlier clauses,
+Evidence and acceptance receipts stay as history and are not rewritten.
+
+- **PM-8. Pre-stable compatibility (C1).** Before the first stable/LTS release
+  there is no mandatory backward compatibility window for local Runtime/Profile
+  configuration. Previously published pre-stable formats (local format 1 from
+  releases such as v0.4.0 and v0.10.0, and format 2) are outside the mandatory
+  support window. Configuration format 3 is the only target canonical format;
+  there is no direct v1→v3 upgrade, no v1→v2 or v2→v3 migration requirement, no
+  automatic conversion and no compatibility fallback. An existing installation
+  on an unsupported pre-stable format requires explicit reconfiguration; its
+  active state refuses safely and is never silently deleted or converted.
+  Strict backward compatibility begins at the first stable/LTS release.
+  The frozen historical compatibility corpus (`internal/compatibility/testdata/stable-v1`)
+  remains intact and append-only: its release snapshots and original bytes are
+  historical Evidence, not disposable fixtures, and are never edited,
+  relabelled or deleted. Amended prospectively:
+  [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md) (Status
+  note), [Specification 004 FR-026](../004-mvp-v1-baseline/spec.md) and the
+  local configuration rows and first-release window of the
+  [#306 amendment §3](amendment-306-profile-effort-onboarding.md#3-versioning-and-explicit-migration-strategy).
+  Workflow, Execution, graph and Provider compatibility are unchanged.
+- **PM-9. Canonical v3 digest (C2).**
+  `DigestV3(configuration) = SHA-256(EncodeV3(configuration))`, lowercase
+  hexadecimal, over the complete canonical v3 configuration: `formatVersion`,
+  `revision`, `runtimes` with their Runtime-owned `effortDeclarations`,
+  `modelProfiles` and `preferences`. EncodeV3 is the only canonicalization; no
+  secondary algorithm exists. An invalid configuration has no digest. Every
+  valid change to a declaration field (`declarationId`, `runtimeVersion`,
+  `executableDigest`, source path, scope/anchor, recognized keys, membership)
+  changes the digest; declaration fields are included although they are not
+  capability proof. DigestV3 hashes no source contents (EffortSourceDigest),
+  host paths, executable bytes, Evidence, registry data, credentials or time.
+  It does not redefine the historical format-1/2 `Digest`, and
+  `ProfileDigest`, `EffortSourceDigest`, `ModeDigest`, `ExecutableDigest` and
+  Evidence digests stay independent. Intended use from BLD-001B.3c-2b: active
+  v3 identity is `DigestV3` of the current configuration, and a v3 retirement
+  binds `priorConfigurationDigest` to `DigestV3` of the exact prior active v3
+  configuration. The existing tombstone contract is unchanged until then, and
+  no authorization epoch is introduced here (PM-6).
+- **PM-10. Delivery division (C3).**
+  - **BLD-001B.3c-2a:** PM-8 contract reconciliation and `DigestV3`.
+    *Delivered by this block; consumers unchanged.*
+  - **BLD-001B.3c-2b:** coordinated canonical v3 activation — authoring,
+    consumers, admission, readiness, `profile validate`, Runtime retirement and
+    the v3 compatibility/upgrade inventory. *Pending.*
+  - **BLD-001B.3c-2c:** passive `RuntimeVersionObserver`, versioned repository
+    registry, synthetic v3 dogfood and remaining relevant fixture conversion.
+    *Pending.*
+  - BLD-001B.3c-3 and 3c-4 are unchanged (PM.1).
+
+**Compatibility corpus test owed by BLD-001B.3c-2b.** The current inventory
+still classifies local format 1 as `valid_v1`, so
+`TestStableCorpusResolvesToDirectUpgrade` passes unchanged and is not modified
+before the v3 inventory exists. When BLD-001B.3c-2b makes the inventory v3-only,
+that test must keep iterating every frozen snapshot with unchanged bytes and
+labels and keep its kind-coverage assertion, but split its expectation: every
+non-Runtime/Profile v1 kind still resolves `direct`/`compatible`, while each
+pre-stable `runtime_profile_configuration` record is reported as historical pre-stable state
+whose current support classification is explicit reconfiguration (refused
+safely, never converted or deleted), not a mandatory stable/LTS upgrade.
+The expectation is changed, never weakened to suppress a failure, and no
+snapshot is removed.
+
+No new ADR: PM-8 is recorded as a dated ADR-0024 Status note, the repository
+precedent for a human decision without a superseding ADR (ADR-0010, ADR-0015,
+ADR-0019, ADR-0021), and changes no accepted invariant of PM-7.

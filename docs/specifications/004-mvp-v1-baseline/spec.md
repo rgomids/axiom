@@ -945,6 +945,23 @@ MUST NOT claim authorship over the transported content.
   state resolves as `valid_v1` (`direct`), with the POC records preserved
   untouched and never read, migrated, or promoted. Any migration of that history
   is a separate, explicitly requested capability (Issue #175).
+  Per the prospective 2026-10-14 pre-stable amendment (maintainer decision C1,
+  Rafael Gomides, 13:30 America/Sao_Paulo; Specification 007 AXM-22 clause
+  PM-8), the *historical release corpus* and the *mandatory supported upgrade
+  window* are distinct. The historical release corpus (the frozen stable-v1
+  snapshots, their MANIFEST and original bytes) is retained permanently, is
+  never rewritten or relabelled, and remains regression and release-history
+  Evidence; membership in it does not by itself place a format in a mandatory
+  supported upgrade window. Mandatory supported upgrade windows start with the
+  first stable/LTS release and include a pre-stable local format only if that
+  release explicitly declares it. For published pre-stable local Runtime/Profile
+  configuration (local format 1, and format 2) there is no guaranteed direct
+  upgrade to configuration format 3 and no required bounded migration: explicit
+  reconfiguration is the forward path. Unsupported active state MUST refuse
+  safely and MUST NOT be silently deleted or converted. This narrows the stable
+  window statement above for the local Runtime/Profile configuration only; it
+  does not change the compatibility of any other persisted family, including
+  Execution, graph, Workflow and Provider records.
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.

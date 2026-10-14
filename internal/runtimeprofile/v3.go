@@ -337,6 +337,25 @@ func EncodeV3(c ConfigurationV3) ([]byte, error) {
 	return append(wire, '\n'), nil
 }
 
+// DigestV3 is the canonical v3 configuration identity (Specification 007 AXM-22
+// clause PM-8): SHA-256 over the exact EncodeV3 bytes, so every encoded field,
+// including Runtime-owned EffortDeclarations, participates and EncodeV3 is the
+// only canonicalization. It hashes no source contents, host paths, executable
+// bytes or Evidence (EffortSourceDigest, ModeDigest and Evidence digests stay
+// separate) and is independent of the historical format-1/2 Digest. Retirement
+// of an active v3 record binds priorConfigurationDigest to this value from
+// BLD-001B.3c-2b; until then the existing tombstone contract is unchanged.
+func DigestV3(c ConfigurationV3) (string, error) {
+	if err := ValidateV3(c); err != nil {
+		return "", err
+	}
+	wire, err := EncodeV3(c)
+	if err != nil {
+		return "", err
+	}
+	return hash(wire), nil
+}
+
 // canonicalV3 orders every set-like collection; declaration source order never
 // carries precedence, which the adapter owns.
 func canonicalV3(c ConfigurationV3) ConfigurationV3 {

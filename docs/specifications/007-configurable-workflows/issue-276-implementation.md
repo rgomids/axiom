@@ -786,3 +786,100 @@ Pending, recorded and not claimed:
   reconciliation.
 
 Status: AXM-22 not complete; T16/T17 not complete.
+
+## AXM-22 BLD-001B.3c-2a — Pre-MVP compatibility contract and canonical DigestV3
+
+Decisions C1–C3: Rafael Gomides, 2026-10-14 13:30 America/Sao_Paulo, recorded
+as clause
+[PM.2 (PM-8–PM-10)](amendment-276-axm22-binding-identity.md#pm2-pre-stable-compatibility-and-canonical-digestv3-bld-001b3c-2a).
+Starting HEAD `9287fa9`. This block reconciles contracts and adds one pure
+function; no production consumer, persisted field or command changes.
+
+Pre-stable compatibility (C1, PM-8), amended prospectively; earlier text,
+receipts and Evidence are preserved:
+
+- [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md): dated
+  Status note (the ADR-0010/0015/0019/0021 precedent for a human decision
+  without a superseding ADR, not an ADR-0018 supersession annotation) and
+  [index](../../decisions/README.md) clause. Effort ownership, execution
+  binding semantics, historical v1 meaning and the acceptance receipt are
+  unchanged.
+- [Specification 004 FR-026](../004-mvp-v1-baseline/spec.md): the historical
+  release corpus is distinct from the mandatory supported upgrade window, which
+  starts at the first stable/LTS release; published pre-stable local
+  Runtime/Profile formats 1/2 have no guaranteed direct upgrade to format 3
+  and no required migration; explicit reconfiguration, safe refusal, no silent
+  deletion or conversion. Other persisted families are unchanged.
+- Specification 007: PM.2 in the AXM-22 amendment, and a dated note in the
+  [#306 amendment §3](amendment-306-profile-effort-onboarding.md#3-versioning-and-explicit-migration-strategy)
+  superseding only its local configuration forward paths and first-release
+  local window. The BI-3 and earlier PM records are not deleted.
+- Historical corpus: `internal/compatibility/testdata/stable-v1` is untouched
+  (every snapshot, including v0.4.0 and v0.10.0, holds local format 1).
+  `TestStableCorpusResolvesToDirectUpgrade` still passes unchanged because the
+  current inventory classifies format 1 as `valid_v1`; its expectation change
+  depends on the v3 inventory and is specified for BLD-001B.3c-2b in PM.2.
+
+Canonical v3 digest (C2, PM-9): `runtimeprofile.DigestV3` in
+`internal/runtimeprofile/v3.go` validates with `ValidateV3`, encodes with the
+unchanged `EncodeV3` and returns lowercase hex SHA-256 of those exact bytes;
+an invalid configuration returns `ErrInvalidConfiguration` and no digest.
+`Digest`, `ProfileDigest`, `EffortSourceDigest`, `ModeDigest` and all persisted
+fields are unchanged. `internal/runtimeprofile/v3_digest_test.go`:
+
+- `TestDigestV3GoldenVectors`: five vectors, canonical bytes in
+  `testdata/configuration-v3.json` (multiple Runtimes and preferences,
+  `e5bb920d…681d40`, equal to `sha256sum` of the pre-existing golden file) and
+  `testdata/digest-v3/{codex-declaration,claude-declaration,multiple-declarations,preferences}.json`
+  (`5765a511…6f15`, `9addda04…7231`, `4d705a21…3da9`, `2b1cb1c6…5ac6`); each
+  asserts EncodeV3 bytes = file, DigestV3 = SHA-256(file) = constant,
+  repeatability and reversal of every EncodeV3-ordered collection.
+- `TestDigestV3SemanticDrift`: 18 valid mutations yield 19 pairwise distinct
+  digests (revision, Runtime set, enabled, Profile model, effort value and
+  mode, preferences, declarationId, runtimeVersion, executableDigest, source
+  path, scope/anchor swap, JSON key, JSON and environment key inventory,
+  declaration removed/added); 10 closed-schema violations (Runtime rename,
+  declarationVersion, invocationMode, precedence, anchor, missing source,
+  absolute path, ambiguous tuple, format, zero revision) and the zero value
+  are refused with no digest.
+- `TestDigestV3PreservesHistoricalIdentities`: historical `Digest` constant,
+  DigestV3 ≠ Digest of the v2 projection, pinned `ProfileDigest` values
+  unchanged by declaration drift, no capability proof in v3 bytes.
+
+Validation (Go 1.26.0, `GOTOOLCHAIN=local`, `GOWORK=off`, `GOFLAGS=`,
+`pipefail`; synthetic only, no Runtime execution, probe or inference), all
+exit 0:
+
+- `go test ./internal/runtimeprofile -run '^TestDigestV3' -count=1 -v` (3 tests).
+- `go test ./internal/runtimeprofile -run '^TestV3|^TestDigest|^TestV2|ProfileDigest' -count=1 -v`
+  (15 tests); `go test ./internal/runtimeprofile -count=1`.
+- `go test ./internal/runtimeadapter -run '^TestModeDigest|^TestEffortSource' -count=1 -v`
+  (17 passes) and `-run '^TestBindingSource|^TestEffortInspect|^TestInspectEffort'`
+  (14 passes).
+- `go test ./internal/compatibility -run '^TestStableCorpus|^TestV0100|^TestReleasePreparationEnforcesStableCorpus' -count=1 -v`
+  (4 passes).
+- `gofmt -l internal/runtimeprofile` (empty), `go build ./...`,
+  `go vet ./internal/runtimeprofile`, `scripts/check-adr-governance.py`
+  (27 ADRs) and its self-test, `validate_examples.py`,
+  `scripts/check-sensitive-files.sh`, `scripts/validate-repository.sh`,
+  `git diff --check`. `gitleaks` is not installed.
+
+No `t.Skip`. Host: Linux amd64 only; macOS arm64 and Linux arm64 unverified.
+The full test matrix and `scripts/dogfood-poc.sh` were not run locally.
+
+Pending, recorded and not claimed:
+
+- BLD-001B.3c-2b: consumer adoption of DigestV3 and coordinated v3-only
+  activation (authoring, Runtime policy, Workflow authoring, stage admission,
+  readiness, `profile validate`), Runtime retirement binding
+  `priorConfigurationDigest` to DigestV3, v3 compatibility/upgrade inventory
+  and the corpus test expectation in PM.2.
+- BLD-001B.3c-2c: passive `RuntimeVersionObserver`, versioned repository
+  registry, synthetic v3 dogfood and remaining fixture conversion.
+- BLD-001B.3c-3: persistent authorization epoch (the pre-rollback preview
+  reuse defect remains open) and `cmd/lingo` BindingSource composition.
+- BLD-001B.3c-4: synthetic end-to-end validation and final AXM-22
+  reconciliation.
+
+Status: canonical v3 activation not complete; AXM-22 not complete; T16/T17
+not complete.
