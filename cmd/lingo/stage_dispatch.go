@@ -140,10 +140,16 @@ func (p stagePolicy) service(ctx context.Context, r runtimeapplication.Request) 
 	if err != nil {
 		return runtimeapplication.Service{}, err
 	}
-	variant := capabilityproof.ReadOnlyVariant
+	// The policy request carries capabilities, not effects; the mode is taken
+	// from them explicitly. A mode differing from preview/dispatch selects
+	// another EvidenceRef and is rejected as stale, never admitted.
+	variant, process := capabilityproof.ReadOnlyVariant, false
 	for _, c := range r.Capabilities {
-		if c == capabilityproof.RepositoryWrite {
+		switch c {
+		case capabilityproof.RepositoryWrite:
 			variant = capabilityproof.RepositoryWriteVariant
+		case capabilityproof.Process:
+			process = true
 		}
 	}
 	runtimes := p.s.runtimeObservationSources()
@@ -162,7 +168,7 @@ func (p stagePolicy) service(ctx context.Context, r runtimeapplication.Request) 
 			continue
 		}
 		seen[profile.RuntimeID] = true
-		runtimes.capabilityTargets = append(runtimes.capabilityTargets, capabilityproof.Target{RuntimeID: profile.RuntimeID, ProfileID: profile.ID, Variant: variant})
+		runtimes.capabilityTargets = append(runtimes.capabilityTargets, capabilityproof.Target{RuntimeID: profile.RuntimeID, ProfileID: profile.ID, Variant: variant, Process: process})
 	}
 	targets := append([]capabilityproof.Target(nil), runtimes.capabilityTargets...)
 	runtimes.version = func(ctx context.Context, id, digest string) (string, error) {

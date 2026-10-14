@@ -87,3 +87,13 @@ func TestConfiguredSourceReflectsProfileState(t *testing.T) {
 		t.Fatal(view, err)
 	}
 }
+
+func TestObserverRejectsMixedProcessModes(t *testing.T) {
+	s, _, source, target := proofFixture(ReadOnlyVariant)
+	base := fakeObserver{runtimeprofile.Observation{RuntimeID: "codex", Installed: true, Available: true, ExecutableDigest: source.current.Binding.ExecutableDigest, Version: source.current.Binding.Version, Revision: 1}}
+	other := target
+	other.RuntimeID, other.Process = "claude", !target.Process
+	if _, err := (Observer{Base: base, Service: s, Targets: []Target{target, other}}).Observe(context.Background(), "codex"); err != ErrBlocked {
+		t.Fatalf("mixed Process modes observed: %v", err)
+	}
+}

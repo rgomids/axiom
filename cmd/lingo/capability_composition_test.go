@@ -25,7 +25,7 @@ func TestProductionCapabilityCompositionFailsClosed(t *testing.T) {
 	}
 	ctx := context.Background()
 	for _, variant := range []string{capabilityproof.ReadOnlyVariant, capabilityproof.RepositoryWriteVariant} {
-		target := capabilityproof.Target{RuntimeID: "codex", ProfileID: "synthetic", Variant: variant}
+		target := capabilityproof.Target{RuntimeID: "codex", ProfileID: "synthetic", Variant: variant, Process: true}
 		view, err := s.Show(ctx, target)
 		if !errors.Is(err, capabilityproof.ErrBlocked) || view.EvidenceRef != "" {
 			t.Fatalf("missing source/evidence: %+v, %v", view, err)

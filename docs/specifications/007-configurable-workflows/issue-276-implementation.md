@@ -150,3 +150,60 @@ Remaining: production BindingSource (current identity observation), wiring the
 selector into it and `capabilityproof.Service`, T34 composition, T44/B6 CLI,
 retry-reset authority/fencing, and a decision on multiple matching Evidence.
 AXM-8 remains In Progress.
+
+## AXM-22 BLD-001A — Process mode identity and approved binding contracts
+
+Child Work Item AXM-22 (Production BindingSource) of AXM-8 (#276) under
+accepted I276-T16/T17; branch `feat/axm-22-production-binding-source`, base
+`ca105cc`, one Draft PR. BLD-001A is the first bounded block; BLD-001B follows.
+
+Approved decisions (Rafael Gomides, 2026-10-14), recorded in the
+[AXM-22 binding identity amendment](amendment-276-axm22-binding-identity.md):
+
+- **BI-1** — `Process bool` in `capabilityproof.Target` is part of the
+  invocation-mode identity, reusing `runtimeadapter.ModeDigest`.
+- **BI-2** — a narrow effort-source inspector, independent of capability proof,
+  using a versioned configured `EffortDeclaration` validated against current
+  executable identity and the canonical `EffortSourceDigest`; no vendor-version
+  inference. Approved, **not implemented**.
+
+Process propagation (BI-1, partial):
+
+| Consumer | Change |
+|---|---|
+| `capabilityproof.Target` | `Process` field added; `Binding`, `ModelBinding`, `Current`, `BindingSource` signatures unchanged |
+| `Service.Check` (preview and every dispatch) | requested `process` contradicting `Target.Process` blocks `capability_stale`; the `process` capability is still required from Evidence |
+| `Observer` | Targets mixing Process modes block, as mixed variants already did |
+| `stageexecution` dispatch preview | Target Process from the child's `process` effect, the source the supervisor applies to `StageInvocationRequest.Process` |
+| `cmd/lingo` stage policy observer | Target Process from the requested `process` capability, mirroring its variant derivation |
+| Probe preparation / Evidence selection | receive the Target / current Binding unchanged; mode distinction comes from the canonical ModeDigest in `Binding` |
+
+Pending consumer: no production `BindingSource` exists, so no code computes
+`Binding.ModeDigest` from a Target yet; production reads remain blocked.
+
+Synthetic Evidence (Go 1.26.0, `GOTOOLCHAIN=local GOWORK=off GOFLAGS=`), all exit 0:
+
+- `go test ./internal/capabilityproof -run '^(TestCheckRejectsContradictoryProcessMode|TestObserverRejectsMixedProcessModes|TestClaudeProcessModesHaveDistinctCanonicalIdentity|TestEvidenceSelectionNeverCrossesProcessModes|TestRevalidationRejectsProcessModeDrift)$' -count=1`
+  — Claude Process modes have distinct canonical ModeDigests (Codex 0.159.1
+  identical by adapter construction); identical requests give identical
+  digests; Evidence for either mode never satisfies the other; dispatch-time
+  drift is `capability_stale`; contradictory Process blocks; unproven `process`
+  still blocks; no Evidence mutation.
+- `go test ./internal/stageexecution -run '^TestDispatchPreviewBindsProcessMode$' -count=1`
+  — a `process` effect selects the Process=true Target; Process=false
+  Evidence and unproven `process` are refused.
+- Regression: `go test ./internal/capabilityproof -count=1` (incl. AXM-21
+  zero/multiple selection and cancellation), `go test ./internal/runtimeadapter -run '^TestModeDigest' -count=1`,
+  `go test ./internal/stageexecution -run '^TestDispatchPreview' -count=1`,
+  `go test ./cmd/lingo -run '^TestProductionCapabilityComposition' -count=1`;
+  `go build`/`go vet` for the four packages; `gofmt -l` on modified files.
+
+Synthetic only: no Runtime executable, capability probe, inference, stage
+dispatch or Provider effect ran; this is not operational capability proof.
+
+Status: Process contract partially implemented; effort inspector not yet
+implemented; production BindingSource not yet implemented; T34 remains pending;
+T16/T17 are not complete. Remaining (BLD-001B): effort inspector with
+canonical-digest equivalence tests, configured `EffortDeclaration` integration
+(blocked on a schema decision if no existing configured carrier exists — see
+BI-2), production BindingSource and AXM-21 selector composition.

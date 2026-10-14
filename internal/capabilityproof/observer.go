@@ -7,8 +7,9 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// Observer is instantiated for exactly one confinement variant. Current facts
-// come from Base and Source on every observation, never from evidence itself.
+// Observer is instantiated for exactly one invocation mode (confinement variant
+// and Process). Current facts come from Base and Source on every observation,
+// never from evidence itself.
 type Observer struct {
 	Base    runtimeprofile.Observer
 	Service Service
@@ -19,13 +20,11 @@ func (o Observer) Observe(ctx context.Context, id string) (runtimeprofile.Observ
 	if o.Base == nil {
 		return runtimeprofile.Observation{}, ErrBlocked
 	}
-	var variant string
 	seen := map[string]bool{}
 	for _, t := range o.Targets {
-		if variant != "" && variant != t.Variant || seen[t.RuntimeID] {
+		if t.Variant != o.Targets[0].Variant || t.Process != o.Targets[0].Process || seen[t.RuntimeID] {
 			return runtimeprofile.Observation{}, ErrBlocked
 		}
-		variant = t.Variant
 		seen[t.RuntimeID] = true
 	}
 	observation, err := o.Base.Observe(ctx, id)
