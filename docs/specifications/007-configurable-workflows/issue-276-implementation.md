@@ -264,3 +264,75 @@ Status: T16/T17 not complete. Remaining: BLD-001B.2 (effort inspector,
 canonical `EffortSourceDigest` equivalence, anchor-root resolution,
 production BindingSource, AXM-21 selector composition); BLD-001B.3
 (authorized v3 authoring/publication); T34 and remaining AXM-8 work.
+
+## AXM-22 BLD-001B.2a — Canonical effort-source inspector
+
+Scope: the narrow internal effort inspector of
+[amendment BI-2](amendment-276-axm22-binding-identity.md#bi-2--effort-source-identity-inspection-independent-of-capability-proof),
+fed by the BI-2a v3 declaration. Production BindingSource is BLD-001B.2b.
+
+Files:
+
+| File | Change |
+|---|---|
+| `internal/runtimeadapter/effort_sources.go` | PE-05a body extracted unchanged into the shared unexported `effortSourceProjection`; `CheckEffortSources` keeps its consent and `ValidateResolvedProfile` gate and hashes that projection with the existing `effortHash` (SHA-256, lowercase hex) |
+| `internal/runtimeadapter/effort_inspector.go` | internal `InspectEffortSources(ctx, EffortSourceRequest)` with `EffortSourceRoots`; `trustedEffortRoot` |
+| `internal/runtimeadapter/effort_identity_posix.go` | `effortAncestorSafe` (the ADR-0005 container rule of `internal/local`) and the stricter `effortRootSafe` |
+| `internal/runtimeadapter/effort_inspector_test.go` | equivalence, refusal, independence, read-only and fail-closed tests |
+
+Behaviour:
+
+- **One algorithm.** The inspector maps the configured declaration onto the
+  existing `runtimeadapter.EffortDeclaration` (`ProofReference` =
+  `declarationId`, D7) and calls the same projection; no field is added to the
+  digest.
+- **Applicability.** Selection is `runtimeprofile.ApplicableEffortDeclaration`
+  over a `DecodeVersioned` result, matching the observed Runtime, version,
+  executable digest and mode exactly; it revalidates the full v3 rules
+  (declaration version, uniqueness, scopes, anchors, precedence). The core
+  then rechecks the executable identity of `argv[0]`, the argv mode/model and
+  the Runtime of the invocation. Model and effort intent come from the
+  configured Model Profile (ADR-0024), never from a proof.
+- **Anchors.** `user`/`project`/`managed` resolve only to caller-supplied
+  current roots. Each root must be absolute, clean, an existing non-symlinked
+  directory bound through the PE-05a path boundary, owned by the current user
+  or root without group/other write, under ancestors that are safe from
+  replacement; its binding is compared again after inspection. Sources are
+  then read through the unchanged PE-05a resolver (symlink, special-file,
+  drop-in and drift refusals). Nothing is created, repaired or mutated.
+- **Fail closed.** Every refusal is `effort_configuration_unproven`, or the
+  existing `effort_override_conflict` for a present override; no new error
+  category. A missing anchor root refuses; an absent source file under a
+  trusted root stays a PE-05a absence fact.
+- **No proof.** The request carries no `ProfileProof`, `ResolvedProfile`,
+  Observation, capability status or Evidence; the result is a digest only.
+  Format-1/2 records and v3 Runtimes without a declaration stay unproven; a
+  vendor version selects nothing.
+
+Synthetic Evidence (Go 1.26.0, `GOTOOLCHAIN=local GOWORK=off GOFLAGS=`):
+
+- `go test ./internal/runtimeadapter -run 'TestInspectEffortSources|TestTrustedEffortRoot' -v`
+  — exit 0, 8 tests. For Codex and Claude: canonical projection bytes and
+  digest equal `CheckEffortSources` for baseline, absent source, different
+  non-selector bytes, explicit Profile effort and another `declarationId`;
+  content drift, `declarationId` and drop-in membership each change the
+  digest; selector/environment/argv overrides and unsupported grammar refuse
+  identically; 36 (Codex) / 39 (Claude) fail-closed mutations each start
+  from an accepted baseline.
+- An uncommitted cross-check against the `dd08cbf` `CheckEffortSources` body
+  matched the refactored function and the inspector byte for byte in 10
+  Codex/Claude cases (7 digests, 3 identical refusals).
+- `go test ./internal/runtimeadapter` and
+  `go test ./internal/runtimeprofile -run 'TestV3|TestV2'` — exit 0;
+  `go build ./...`, `go vet` (runtimeadapter, runtimeprofile), `gofmt -l`,
+  `check-go-quality.sh format|tidy`, `git diff --check` — exit 0.
+- Not run: `check-go-quality.sh staticcheck` (staticcheck v0.8.1 not
+  installable in this environment).
+
+No `t.Skip` in added tests. No Runtime executable, probe, inference, stage
+dispatch or Provider effect ran.
+
+Status: T16/T17 not complete. Remaining: BLD-001B.2b (production
+BindingSource composing Binding/ModelBinding, Process-aware ModeDigest, this
+inspector, the AXM-21 Selector and `capabilityproof.Service`); BLD-001B.3
+(authorized v3 authoring/publication); T34/T44 and remaining AXM-8 work.

@@ -12,8 +12,9 @@ Clause **BI-1** (Process mode identity) is partially implemented by BLD-001A.
 Clause **BI-2** (effort-source identity inspection) is approved. Its configured
 carrier — local configuration format 3 with `EffortDeclaration` — was decided
 on 2026-10-14 (D1–D8 below) and its codec/validation is implemented by
-BLD-001B.1; the effort inspector and production BindingSource are **not
-implemented** (BLD-001B.2), nor is v3 publication (BLD-001B.3).
+BLD-001B.1; the BI-2 effort inspector is implemented by BLD-001B.2a; the
+production BindingSource is **not implemented** (BLD-001B.2b), nor is v3
+publication (BLD-001B.3).
 
 This amendment **adds** to the accepted
 [#276 amendment](amendment-276-stage-dispatch.md) A2,
@@ -64,8 +65,12 @@ blocked (BLD-001B).
 
 ## BI-2 — Effort-source identity inspection independent of capability proof
 
-Approved, not yet implemented. A narrow internal effort inspector produces the
-canonical `EffortSourceDigest` for the production BindingSource:
+Approved. Implemented by BLD-001B.2a as the internal
+`runtimeadapter.InspectEffortSources`, sharing the PE-05a projection
+([implementation record](issue-276-implementation.md#axm-22-bld-001b2a--canonical-effort-source-inspector));
+its production BindingSource consumer is BLD-001B.2b. A narrow internal effort
+inspector produces the canonical `EffortSourceDigest` for the production
+BindingSource:
 
 1. **Same digest.** It reuses the existing canonical effort-source projection
    and digest algorithm (`runtimeadapter.EffortInspection.CheckEffortSources`,
