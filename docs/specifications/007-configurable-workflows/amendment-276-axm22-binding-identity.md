@@ -450,6 +450,34 @@ sequencing reconciliation of the same day (Option C):
   versioned registry file in the repository whose records bind supported
   Runtime versions to exact executable digests. The Runtime is never executed
   to determine its version (BLD-001B.3c-2).
+  - **PM-5a. Registry contract (BLD-001B.3c-2c.1).** The registry is
+    `internal/runtimeadapter/runtime-versions.json`, embedded with `go:embed`
+    into the Axiom build; production reads only those bytes
+    (`EmbeddedVersionObserver`), never a filesystem path, environment value,
+    flag or download. Wire version `axiom-runtime-version-registry/v1`:
+    `{"schema","entries":[{"runtimeId","version","executableDigest"}]}`,
+    decoded with exact member names (no unknown, duplicate or
+    case-aliased members), at most 64 KiB and 256 entries; `runtimeId` is an
+    adapter Runtime (`codex`, `claude`), `version` satisfies
+    `SafeRuntimeVersion`, `executableDigest` is 64 lowercase hex characters,
+    entries are strictly ordered by (`runtimeId`, `executableDigest`) and each
+    digest appears once, so one Runtime/digest pair maps to exactly one
+    version. Any other schema or shape refuses the whole registry. The digest
+    is the canonical `ExecutableIdentity` (no second hash algorithm); the
+    observer receives it from the caller, which observes and revalidates the
+    executable for drift, so lookup reads no file and runs nothing. An
+    unmatched pair is `capabilityproof.ErrBlocked` (the callers' existing
+    blocked/unproven categories), with no fallback to filename, Runtime ID,
+    PATH, EffortDeclaration, Profile, Evidence, vendor version or execution.
+    A registered version is identity only: it proves no Runtime, model,
+    effort, subscription or Provider capability and is not Capability
+    Evidence. The production registry has zero entries until an executable
+    identity is independently verified and approved; synthetic entries exist
+    only in tests through the unexported decoder.
+    *Limitation:* `ExecutableIdentity` binds the resolved path as well as the
+    content, so a production entry would be specific to one installation
+    path. Populating portable production entries needs a recorded decision
+    and is not attempted here.
 - **PM-6. Authorization epoch.** Preview authorization includes a persistent,
   monotonic authorization epoch that participates in preview identity. A
   preview issued before recovery must not become valid again after rollback
@@ -533,7 +561,10 @@ Evidence and acceptance receipts stay as history and are not rewritten.
     the v3 compatibility/upgrade inventory. *Pending.*
   - **BLD-001B.3c-2c:** passive `RuntimeVersionObserver`, versioned repository
     registry, synthetic v3 dogfood and remaining relevant fixture conversion.
-    *Pending.*
+    *BLD-001B.3c-2c.1 delivered the passive embedded registry (PM-5a) and
+    isolated synthetic v3 dogfood fixtures, unwired; the dogfood cutover and
+    fixture conversion move to BLD-001B.3c-2b.3, and `cmd/lingo` composition
+    to BLD-001B.3c-3.*
   - BLD-001B.3c-3 and 3c-4 are unchanged (PM.1).
 
 **Compatibility corpus test owed by BLD-001B.3c-2b.** The current inventory

@@ -1092,3 +1092,112 @@ Pending, recorded and not claimed:
 
 Status: canonical v3-only operation is not available; AXM-22 not complete;
 T16/T17 not complete.
+
+## AXM-22 BLD-001B.3c-2c.1 — Passive Runtime version registry and synthetic v3 dogfood preparation
+
+Starting HEAD `27ca9ad`. Preparation only: the registry and observer are not
+composed by any production path (`cmd/lingo` keeps a nil version observer, so
+declaration applicability and BindingSource remain
+`effort_configuration_unproven`/blocked). Runtime policy, Workflow authoring,
+stage admission, readiness, `runtime profile validate`, the upgrade inventory,
+`scripts/dogfood-poc.sh` and the historical corpus are unchanged. No CLI
+command, flag, persisted field, digest or ADR changes.
+
+Registry (amendment PM-5a):
+
+- `internal/runtimeadapter/runtime-versions.json`, wire version
+  `axiom-runtime-version-registry/v1`, embedded with `go:embed`. Production
+  contents: `{"schema":"axiom-runtime-version-registry/v1","entries":[]}`. No
+  executable identity has been independently verified and approved, so no
+  production entry is claimed; synthetic Codex/Claude identities are never
+  production entries.
+- `internal/runtimeadapter/version_registry.go`: unexported
+  `decodeVersionRegistry` (`strictjson.Decode`, 64 KiB, 256 entries, exact
+  members, one schema, adapter Runtime IDs, `SafeRuntimeVersion`, 64
+  lowercase hex digests, strict (`runtimeId`, `executableDigest`) order,
+  digest unique). `EmbeddedVersionObserver()` is the only exported
+  constructor and reads only the embedded bytes; no path, environment value,
+  flag or download selects a registry.
+- `RegistryVersionObserver.Version(ctx, runtimeID, executableDigest)` has the
+  unchanged BindingSource `Version` / `ObserveEffortApplicability` signature.
+  It requires the exact pair, returns the registered version, preserves
+  context cancellation and otherwise returns `capabilityproof.ErrBlocked`. It
+  reads no file and executes nothing; callers supply the canonical
+  `ExecutableIdentity` and revalidate it for drift. It reads no declaration,
+  Profile, Evidence or capability proof.
+- Limitation recorded: `ExecutableIdentity` binds the resolved path, so a
+  production entry would be installation-path specific; portable production
+  entries need a recorded decision.
+
+Synthetic fixtures (test-only, `//go:build unix`):
+
+- `internal/runtimeadapter/version_registry_test.go`: synthetic executables
+  with fixed harmless bytes that would write a marker if run (asserted
+  absent), synthetic registry wire builders, registry and observer tests.
+- `internal/runtimeadapter/dogfood_v3_fixture_test.go`: `newDogfoodV3Fixture`
+  builds `runtimeprofiletest.MultiRuntime()` (Codex + Claude, explicit
+  Profile effort, canonical declarations, user/project/managed anchors,
+  TOML/JSON/drop-in sources, revision 1), binds each declaration and
+  synthetic registry entry to the actual `ExecutableIdentity` of its
+  synthetic executable, and lays out `home`/`project`/`managed`/`bin` under
+  the test temp root. Isolated from the active dogfood journey, which keeps
+  its v1→v2 setup until BLD-001B.3c-2b.3.
+
+Tests: `TestEmbeddedVersionRegistryIsEmptyAndRefuses`,
+`TestRegistryVersionObserverExactLookup`, `TestDecodeVersionRegistryFailsClosed`
+(29 refusal shapes: malformed, trailing, unsupported/missing schema,
+missing/null entries, unknown and case-aliased members, duplicate member,
+duplicate/conflicting/digest-reused/unordered entries, unknown or invalid
+Runtime, missing/empty/unsafe/secret-bearing/non-string version, invalid
+digests, entry and byte bounds), `TestRegistryVersionIsNotDeclarationOrCapability`,
+`TestBindingSourceConsumesRegistryVersionObserver` (Codex, Claude; the
+registry observer substituted for `Version` in a test fixture),
+`TestDogfoodV3FixtureIsCanonical` (`DigestV3` = SHA-256 of `EncodeV3`, stable
+decode/encode, `ConsumerV3` declaration lookup),
+`TestDogfoodV3FixtureApplicability` (Codex, Claude: observed applicability,
+declaration match, `InspectEffortSources`, no cross-Runtime selection, changed
+registry version, unknown digest, missing declaration, symlinked source
+refusal, changed executable bytes), `TestDogfoodV3FixtureLeavesProductionRegistry`.
+
+Validation (Go 1.26.0, `GOTOOLCHAIN=local`, `GOWORK=off`, `GOFLAGS=`,
+`pipefail`; synthetic only, no Runtime execution, probe, inference or
+Provider effect), all exit 0:
+
+- New: `go test ./internal/runtimeadapter -run 'Registry|DogfoodV3|BindingSourceConsumes' -v`
+  (8 tests, 4 Codex/Claude subtests).
+- Regressions, full packages: `./internal/runtimeadapter` (73),
+  `./internal/runtimeprofile/...` (38), `./internal/capabilityproof` (54),
+  `./internal/runtimeapplication` (32), `./internal/graphapplication` (30),
+  `./internal/stageexecution` (54), `./internal/strictjson`; and
+  `./cmd/lingo -run 'Runtime|Workflow|Stage|Readiness|Profile|Effort|Binding|Admission'`
+  (161), covering production v2 Runtime policy, Workflow authoring, stage
+  admission, readiness and profile validation.
+- `go build ./...`; `go vet` of runtimeadapter, runtimeprofile and
+  `cmd/lingo`; `scripts/check-go-quality.sh format|tidy|staticcheck`
+  (Staticcheck 0.8.1); `scripts/check-adr-governance.py`;
+  `scripts/check-sensitive-files.sh`; `validate_examples.py`;
+  `scripts/validate-repository.sh .`; `git diff --cached --check`.
+
+Environment note: in a shell exporting `CLAUDE_CODE_EFFORT_LEVEL` (a Claude
+Code maintainer session), two `graphapplication` tests
+(`TestSubscriptionDispatchWithValidatedEffort/claude`,
+`TestClaudeEffortDispatchPreservesLargeInheritedEnvironment`) fail
+identically at `27ca9ad` because the inherited effort variable is refused;
+the regression runs above used a clean environment (`env -i` with
+`HOME`/`PATH`/Go caches) and pass. Not changed here.
+
+No `t.Skip`. Host: Linux amd64 only. The full `go test -race ./...` matrix and
+`scripts/dogfood-poc.sh` were not run locally (the script is unchanged).
+
+Pending, recorded and not claimed:
+
+- BLD-001B.3c-2b.3: coordinated v3-only authoring and consumer activation,
+  dogfood cutover onto these fixtures, Runtime retirement, legacy fixture
+  conversion and removal of v2 paths.
+- BLD-001B.3c-3: persistent authorization epoch (PM-6) and `cmd/lingo`
+  BindingSource composition, including the embedded registry observer.
+- BLD-001B.3c-4: final synthetic end-to-end verification and reconciliation.
+- Approved production registry entries (none exist; see the limitation).
+
+Status: canonical v3-only operation is not available; AXM-22 not complete;
+T16/T17 not complete.
