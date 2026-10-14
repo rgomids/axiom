@@ -125,6 +125,15 @@ Subject to human acceptance:
   - reconciliation facts;
   - the dispatch-authority record;
   - a new machine-local capability evidence store.
+
+  > Superseded by [ADR-0026 — Successor execution Graph for public stage dispatch](0026-successor-stage-dispatch-graph-format.md#supersedes), accepted 2026-10-13.
+  > Only the joint-Graph2/I306-X05 version-and-ownership arrangement above
+  > ("versioned together with the #306 graph v2"), with the corresponding
+  > PD-16/Plan §3.10 assertion and amendment #276 A6 sentence, is superseded:
+  > successor Graph ownership belongs to #276. The listed format changes and
+  > every other decision of this ADR (supervisor, authority, coordination,
+  > classification, capability proof, security and safety) remain in force.
+  > The text is preserved for traceability.
 - `succeeded` now means the child's contract is fulfilled, not only that the
   process exited 0.
 - Write confinement for Claude children is advisory unless proven. The human
