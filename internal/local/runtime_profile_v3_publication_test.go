@@ -15,15 +15,23 @@ import (
 
 const codexDeclarationInput = `{"declarationId":"codex-effort-sources","declarationVersion":1,"runtimeVersion":"synthetic-codex-1","executableDigest":"1111111111111111111111111111111111111111111111111111111111111111","invocationMode":"noninteractive","precedenceEstablished":true,"jsonKeys":[],"environmentKeys":[],"sources":[{"scope":"user","anchor":"user","path":".codex/config.toml","format":"toml","directory":false},{"scope":"project","anchor":"project","path":".codex/config.toml","format":"toml","directory":false},{"scope":"managed","anchor":"managed","path":"managed_config.toml","format":"toml","directory":false}]}`
 
-func migratedWire(t *testing.T, source runtimeprofile.Configuration) []byte {
+// v3Wire is a canonical format-3 record authored directly (Specification 007
+// PM-1): the Runtime/Profile content of authoringConfig, with the Codex
+// declaration when declared is set.
+func v3Wire(t *testing.T, revision uint64, declared bool) []byte {
 	t.Helper()
-	d, err := runtimeprofile.DecodeEffortDeclaration([]byte(codexDeclarationInput), "codex")
-	if err != nil {
-		t.Fatal(err)
-	}
-	next, err := runtimeprofile.MigrateV2ToV3(source, "codex", d)
-	if err != nil {
-		t.Fatal(err)
+	cfg := authoringConfig(revision)
+	next := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: revision, ModelProfiles: cfg.ModelProfiles, Preferences: cfg.Preferences}
+	for _, r := range cfg.Runtimes {
+		runtime := runtimeprofile.RuntimeV3{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs}
+		if declared && r.ID == "codex" {
+			d, err := runtimeprofile.DecodeEffortDeclaration([]byte(codexDeclarationInput), "codex")
+			if err != nil {
+				t.Fatal(err)
+			}
+			runtime.EffortDeclarations = []runtimeprofile.EffortDeclaration{d}
+		}
+		next.Runtimes = append(next.Runtimes, runtime)
 	}
 	wire, err := runtimeprofile.EncodeV3(next)
 	if err != nil {
@@ -32,7 +40,9 @@ func migratedWire(t *testing.T, source runtimeprofile.Configuration) []byte {
 	return wire
 }
 
-func activeV2Store(t *testing.T) (RuntimeProfileStore, RuntimeProfileSnapshot, string) {
+// activeV3Store initializes format 3 directly over fresh state; no v2 record
+// or migration is involved.
+func activeV3Store(t *testing.T) (RuntimeProfileStore, RuntimeProfileSnapshot, string) {
 	t.Helper()
 	ctx := context.Background()
 	store := authoringStore(t)
@@ -40,33 +50,20 @@ func activeV2Store(t *testing.T) (RuntimeProfileStore, RuntimeProfileSnapshot, s
 	if err != nil || fresh.State != "fresh" {
 		t.Fatalf("%+v %v", fresh, err)
 	}
-	active, err := store.Publish(ctx, fresh.Token, authoringWire(t, 1))
-	if err != nil || active.State != "active-v2" {
+	active, err := store.Publish(ctx, fresh.Token, v3Wire(t, 1, false))
+	if err != nil || active.State != "active-v3" || active.Revision != 1 || active.V3 == nil {
 		t.Fatalf("%+v %v", active, err)
 	}
 	return store, active, filepath.Join(store.root, "runtime-profiles", "v1", runtimeProfileObject)
 }
 
-// BI-3.2 item 10: v2 → v3 and v3 → v3 at revision+1, exact bytes, legacy
-// v2-only readers still refusing the published record (D8).
+// PM-1: fresh → v3 and v3 → v3 at revision+1 with exact canonical bytes; the
+// v2-only readers kept for pending consumers still refuse the record (D8).
 func TestRuntimeProfileV3Publication(t *testing.T) {
 	ctx := context.Background()
-	store, active, path := activeV2Store(t)
-	legacy, err := store.Inspect(ctx)
-	if err != nil || legacy.Token != active.Token || legacy.State != "active-v2" {
-		t.Fatalf("versioned inspection changed v2 identity: %+v %v", legacy, err)
-	}
-	v3 := migratedWire(t, active.Configuration)
-	published, err := store.Publish(ctx, active.Token, v3)
-	if err != nil || published.State != "active-v3" || published.Revision != 2 || published.V3 == nil {
-		t.Fatalf("%+v %v", published, err)
-	}
-	if current, _ := os.ReadFile(path); !bytes.Equal(current, v3) {
-		t.Fatal("published bytes differ from the canonical candidate")
-	}
-	versioned, err := store.InspectVersioned(ctx)
-	if err != nil || versioned.Token != published.Token || versioned.V3.Revision != 2 {
-		t.Fatalf("%+v %v", versioned, err)
+	store, active, path := activeV3Store(t)
+	if current, _ := os.ReadFile(path); !bytes.Equal(current, v3Wire(t, 1, false)) {
+		t.Fatal("initialized bytes differ from the canonical candidate")
 	}
 	if _, err := store.Inspect(ctx); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		t.Fatalf("v2-only reader accepted v3: %v", err)
@@ -74,8 +71,20 @@ func TestRuntimeProfileV3Publication(t *testing.T) {
 	if _, err := store.Load(ctx); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		t.Fatalf("v2-only load accepted v3: %v", err)
 	}
-	if err := store.Save(ctx, authoringConfig(3)); err == nil {
+	if err := store.Save(ctx, authoringConfig(2)); err == nil {
 		t.Fatal("legacy save replaced v3")
+	}
+	declared := v3Wire(t, 2, true)
+	published, err := store.Publish(ctx, active.Token, declared)
+	if err != nil || published.State != "active-v3" || published.Revision != 2 || published.V3 == nil {
+		t.Fatalf("%+v %v", published, err)
+	}
+	if current, _ := os.ReadFile(path); !bytes.Equal(current, declared) {
+		t.Fatal("published bytes differ from the canonical candidate")
+	}
+	versioned, err := store.InspectVersioned(ctx)
+	if err != nil || versioned.Token != published.Token || versioned.V3.Revision != 2 {
+		t.Fatalf("%+v %v", versioned, err)
 	}
 
 	// Declaration authoring on v3.
@@ -94,43 +103,49 @@ func TestRuntimeProfileV3Publication(t *testing.T) {
 	}
 }
 
-// BI-3.2 item 10: no downgrade, no v3 over v1/fresh/retired, no skipped or
-// repeated revision, no non-canonical bytes; refusals never mutate.
+// PM-1: no downgrade, no v3 over a v1/v2 record (no conversion by overwrite),
+// no skipped or repeated revision, no non-canonical bytes; refusals never
+// mutate. A retired record may be re-authored directly in format 3.
 func TestRuntimeProfileV3PublicationRefusals(t *testing.T) {
 	ctx := context.Background()
 	t.Run("revision-and-canonical", func(t *testing.T) {
-		store, active, path := activeV2Store(t)
-		v3 := migratedWire(t, active.Configuration)
-		v, _ := runtimeprofile.DecodeVersioned(v3)
-		skipped := *v.V3
-		skipped.Revision = 3
-		skippedWire, _ := runtimeprofile.EncodeV3(skipped)
-		indented := append([]byte(" "), v3...)
-		for name, wire := range map[string][]byte{"skipped": skippedWire, "non-canonical": indented} {
-			if _, err := store.Publish(ctx, active.Token, wire); err == nil {
+		store := authoringStore(t)
+		fresh, _ := store.InspectVersioned(ctx)
+		indented := append([]byte(" "), v3Wire(t, 1, false)...)
+		for name, wire := range map[string][]byte{"skipped": v3Wire(t, 2, false), "non-canonical": indented} {
+			if _, err := store.Publish(ctx, fresh.Token, wire); err == nil {
 				t.Fatalf("%s accepted", name)
 			}
 		}
-		if current, _ := os.ReadFile(path); !bytes.Equal(current, authoringWire(t, 1)) {
-			t.Fatal("refusal mutated v2")
+		if after, _ := store.InspectVersioned(ctx); after.State != "fresh" {
+			t.Fatal("refusal mutated fresh state")
 		}
 	})
 	t.Run("downgrade", func(t *testing.T) {
-		store, active, path := activeV2Store(t)
-		v3 := migratedWire(t, active.Configuration)
-		published, err := store.Publish(ctx, active.Token, v3)
-		if err != nil {
-			t.Fatal(err)
-		}
+		store, active, path := activeV3Store(t)
 		digest, _ := runtimeprofile.Digest(authoringConfig(1))
-		tomb, _ := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 3, PriorConfigurationDigest: digest})
-		for name, wire := range map[string][]byte{"v2": authoringWire(t, 3), "tombstone": tomb} {
-			if _, err := store.Publish(ctx, published.Token, wire); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
+		tomb, _ := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: digest})
+		for name, wire := range map[string][]byte{"v2": authoringWire(t, 2), "tombstone": tomb} {
+			if _, err := store.Publish(ctx, active.Token, wire); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 				t.Fatalf("%s over v3: %v", name, err)
 			}
 		}
-		if current, _ := os.ReadFile(path); !bytes.Equal(current, v3) {
+		if current, _ := os.ReadFile(path); !bytes.Equal(current, v3Wire(t, 1, false)) {
 			t.Fatal("downgrade refusal mutated v3")
+		}
+	})
+	t.Run("v2", func(t *testing.T) {
+		store := authoringStore(t)
+		fresh, _ := store.InspectVersioned(ctx)
+		v2, err := store.Publish(ctx, fresh.Token, authoringWire(t, 1))
+		if err != nil || v2.State != "active-v2" {
+			t.Fatalf("%+v %v", v2, err)
+		}
+		if _, err := store.Publish(ctx, v2.Token, v3Wire(t, 2, true)); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
+			t.Fatalf("v2 → v3: %v", err)
+		}
+		if current, _ := os.ReadFile(filepath.Join(store.root, "runtime-profiles", "v1", runtimeProfileObject)); !bytes.Equal(current, authoringWire(t, 1)) {
+			t.Fatal("refusal mutated v2")
 		}
 	})
 	t.Run("v1", func(t *testing.T) {
@@ -142,32 +157,39 @@ func TestRuntimeProfileV3PublicationRefusals(t *testing.T) {
 		if err != nil || v1.State != "active-v1" {
 			t.Fatalf("%+v %v", v1, err)
 		}
-		if _, err := store.Publish(ctx, v1.Token, migratedWire(t, authoringConfig(1))); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
+		if _, err := store.Publish(ctx, v1.Token, v3Wire(t, 2, true)); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 			t.Fatalf("v1 → v3: %v", err)
 		}
 	})
 	t.Run("retired", func(t *testing.T) {
-		store, active, _ := activeV2Store(t)
-		digest, _ := runtimeprofile.Digest(active.Configuration)
+		store := authoringStore(t)
+		fresh, _ := store.InspectVersioned(ctx)
+		active, err := store.Publish(ctx, fresh.Token, authoringWire(t, 1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest, _ := runtimeprofile.Digest(authoringConfig(1))
 		tomb, _ := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: digest})
 		retired, err := store.Publish(ctx, active.Token, tomb)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := store.Publish(ctx, retired.Token, migratedWire(t, authoringConfig(2))); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
-			t.Fatalf("retired → v3: %v", err)
+		if next, err := store.Publish(ctx, retired.Token, v3Wire(t, 3, false)); err != nil || next.State != "active-v3" || next.Revision != 3 {
+			t.Fatalf("retired → v3: %+v %v", next, err)
 		}
 	})
 }
 
-// BI-3.2 item 11: an interrupted v3 publication is never success; scoped
-// recovery stays authoritative and the pre-recovery token is never reusable.
+// PM-1 keeps the existing F3/F6 protocol for v3 → v3: an interrupted
+// publication is never success and scoped recovery stays authoritative.
+// Rollback restoring an identical reusable preview token is the recorded
+// pending defect closed by the authorization epoch (BLD-001B.3c-3).
 func TestRuntimeProfileV3PublicationRecovery(t *testing.T) {
 	ctx := context.Background()
 	for _, stage := range []FaultStage{FaultF3, FaultF6} {
 		t.Run(string(stage), func(t *testing.T) {
-			store, active, _ := activeV2Store(t)
-			v3 := migratedWire(t, active.Configuration)
+			store, active, _ := activeV3Store(t)
+			v3 := v3Wire(t, 2, true)
 			store.hooks.fault = func(at FaultStage) error {
 				if at == stage {
 					return ErrSimulatedInterruption
@@ -197,18 +219,16 @@ func TestRuntimeProfileV3PublicationRecovery(t *testing.T) {
 				t.Fatal(err)
 			}
 			recovered, err := store.InspectVersioned(ctx)
-			if err != nil || recovered.State != "active-v2" && recovered.State != "active-v3" {
+			if err != nil || recovered.State != "active-v3" {
 				t.Fatalf("%+v %v", recovered, err)
 			}
 			current, _ := os.ReadFile(filepath.Join(store.root, "runtime-profiles", "v1", runtimeProfileObject))
-			if stage == FaultF6 && recovered.State != "active-v3" {
-				t.Fatalf("committed publication recovered to %s", recovered.State)
-			}
-			if recovered.State == "active-v2" {
-				// Rollback restores the exact pre-attempt snapshot (identities and
-				// bytes), so a fresh preview is identical to the earlier one.
-				if recovered.Token != active.Token || !bytes.Equal(current, authoringWire(t, 1)) {
-					t.Fatal("rollback did not restore the exact source snapshot")
+			if recovered.Revision == 1 {
+				if stage == FaultF6 {
+					t.Fatal("committed publication rolled back")
+				}
+				if !bytes.Equal(current, v3Wire(t, 1, false)) {
+					t.Fatal("rollback did not restore the exact source bytes")
 				}
 				return
 			}

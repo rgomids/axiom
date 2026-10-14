@@ -10,13 +10,16 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/runtimeadapter"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// Specification 007 BI-3 through the production CLI with isolated state and a
-// synthetic executable that is never invoked. No production version reader is
-// composed before BLD-001B.3c, so applicability stays unproven: the explicit
-// migration fails closed without writing, never probing the Runtime.
-func TestExecutableDeclarationMigrationFailsClosedWithoutVersionObserver(t *testing.T) {
+// Specification 007 PM-1/PM-3 through the production CLI with isolated state
+// and a synthetic executable that is never invoked. Existing authoring keeps
+// writing format 2 until BLD-001B.3c-2; no v2→v3 migration exists, and a
+// declaration is authored only on a format-3 record. No production version
+// reader is composed before BLD-001B.3c-2, so declaration authoring fails
+// closed without writing, never probing the Runtime.
+func TestExecutableDeclarationAuthoringWithoutMigration(t *testing.T) {
 	binary := filepath.Join(t.TempDir(), "axiom")
 	if b, e := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); e != nil {
 		t.Fatalf("build: %v %s", e, b)
@@ -56,19 +59,41 @@ func TestExecutableDeclarationMigrationFailsClosedWithoutVersionObserver(t *test
 	preview := run("preview", create...)
 	run("applied", append(create, "--expected-revision", preview["expectedRevision"].(string), "--preview-digest", preview["previewDigest"].(string), "--authorize-local")...)
 	path := filepath.Join(state, "runtime-profiles", "v1", "configuration.json")
-	before, e := os.ReadFile(path)
-	if e != nil || !strings.Contains(string(before), `"formatVersion":2`) {
-		t.Fatalf("%s %v", before, e)
+	v2, e := os.ReadFile(path)
+	if e != nil || !strings.Contains(string(v2), `"formatVersion":2`) {
+		t.Fatalf("%s %v", v2, e)
 	}
-	run("effort_configuration_unproven", "runtime", "binding", "migrate", "--runtime", "codex", "--target-format", "3", "--effort-declaration", declaration)
-	run("migration_required", "runtime", "binding", "edit", "--runtime", "codex", "--effort-declaration", declaration)
+	// No v2→v3 migration surface: the flag is unknown and a declaration over
+	// a format-2 record is refused without migrating or converting it.
+	for _, args := range [][]string{{"runtime", "binding", "migrate", "--runtime", "codex", "--target-format", "3", "--effort-declaration", declaration}, {"runtime", "binding", "migrate", "--runtime", "codex", "--effort-declaration", declaration}} {
+		cmd := exec.Command(binary, append([]string{"--json"}, args...)...)
+		cmd.Env = append(os.Environ(), "PATH="+bin, "LINGO_STATE_ROOT="+state, "LINGO_PROJECTS_ROOT="+filepath.Join(base, "projects"), "AXIOM_CODEX_SKILLS_ROOT="+filepath.Join(base, "skills"))
+		b, e := cmd.CombinedOutput()
+		if e == nil || !bytes.Contains(b, []byte(`"status":"validation_failure"`)) || bytes.Contains(b, []byte("runtimeAuthoring")) {
+			t.Fatalf("%v parsed: %s", args, b)
+		}
+	}
+	run("configuration_unavailable", "runtime", "binding", "edit", "--runtime", "codex", "--effort-declaration", declaration)
+	if after, _ := os.ReadFile(path); !bytes.Equal(v2, after) {
+		t.Fatal("refusal changed the v2 record")
+	}
+	// A format-3 record (seeded directly; authoring activates it in 3c-2).
+	v3, e := runtimeprofile.EncodeV3(runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 2,
+		Runtimes:      []runtimeprofile.RuntimeV3{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"codex-one"}}},
+		ModelProfiles: []runtimeprofile.ModelProfile{{ID: "codex-one", RuntimeID: "codex", Model: "operator-model", Capabilities: []string{"axiom-skills"}, Effort: runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}}}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e := os.WriteFile(path, v3, 0o600); e != nil {
+		t.Fatal(e)
+	}
+	run("effort_configuration_unproven", "runtime", "binding", "edit", "--runtime", "codex", "--effort-declaration", declaration)
 	link := filepath.Join(base, "link.json")
 	if e := os.Symlink(declaration, link); e != nil {
 		t.Fatal(e)
 	}
-	run("invalid_input", "runtime", "binding", "migrate", "--runtime", "codex", "--target-format", "3", "--effort-declaration", link)
-	run("invalid_input", "runtime", "binding", "migrate", "--runtime", "codex", "--effort-declaration", declaration)
-	if after, _ := os.ReadFile(path); !bytes.Equal(before, after) {
-		t.Fatal("refused migration changed the v2 record")
+	run("invalid_input", "runtime", "binding", "edit", "--runtime", "codex", "--effort-declaration", link)
+	if after, _ := os.ReadFile(path); !bytes.Equal(v3, after) {
+		t.Fatal("refused declaration authoring changed the v3 record")
 	}
 }

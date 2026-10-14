@@ -36,9 +36,9 @@ type AuthoringRequest struct {
 	Capabilities, Complexities                   []string
 	Enabled                                      *bool
 	Cascade, ClearLegacyReferences               bool
-	MigrationEfforts                             map[string]runtimeprofile.Effort
-	// TargetFormat selects the explicit v2→v3 migration (only 3, BI-3.1).
-	TargetFormat int
+	// MigrationEfforts drives the historical v1→v2 transition retained only for
+	// operational continuity until BLD-001B.3c-2 (Specification 007 PM-3).
+	MigrationEfforts map[string]runtimeprofile.Effort
 	// EffortDeclaration is the host path of one declaration file; it is read
 	// once per attempt and never persisted or reported.
 	EffortDeclaration               string

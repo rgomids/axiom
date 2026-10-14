@@ -35,7 +35,9 @@ func TestRuntimeProfileV2OnlyPathsRefuseV3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Publish(ctx, fresh.Token, v3); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
+	// PM-1 admits v3 over fresh state only as the exact revision-1 candidate;
+	// this revision-7 fixture is not, so nothing is written.
+	if _, err := store.Publish(ctx, fresh.Token, v3); !errors.Is(err, ErrConflict) {
 		t.Fatalf("fresh v3 publication: %v", err)
 	}
 	if after, _ := store.Inspect(ctx); after.State != "fresh" {
@@ -46,9 +48,9 @@ func TestRuntimeProfileV2OnlyPathsRefuseV3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// BI-3 admits v2 → v3 only as the exact revision+1 candidate; this fixture
-	// is not, so it is a conflict and nothing is written.
-	if _, err := store.Publish(ctx, active.Token, v3); !errors.Is(err, ErrConflict) {
+	// PM-1: format 3 never replaces a v2 record (no migration or conversion by
+	// overwrite), so nothing is written.
+	if _, err := store.Publish(ctx, active.Token, v3); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		t.Fatalf("v3 publication over v2: %v", err)
 	}
 	path := filepath.Join(store.root, "runtime-profiles", "v1", "configuration.json")

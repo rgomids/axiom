@@ -672,3 +672,117 @@ Status: AXM-22 not complete; T16/T17 not complete. Remaining: BLD-001B.3c
 `productionCapabilityService`, v3-aware Runtime policy/compatibility consumers
 or an explicit decision, synthetic end-to-end validation, final AXM-22
 reconciliation); T34/T44 and remaining AXM-8 work.
+
+## AXM-22 BLD-001B.3c-1 — Pre-MVP canonical v3 reconciliation
+
+Decision: Rafael Gomides, 2026-10-14 11:44 and 12:06 America/Sao_Paulo
+(pre-MVP canonical format), and the same-day sequencing reconciliation
+(Option C), recorded as clause
+[PM](amendment-276-axm22-binding-identity.md#pm--pre-mvp-canonical-configuration-format-bld-001b3c).
+Before the first stable release configuration v3 is the only target canonical
+format: no v2 reading, no v2→v3 migration, no compatibility fallback, no v3→v2
+downgrade. PM supersedes prospectively the BI-3 v2→v3 migration (A1, BI-3.1
+`--target-format 3`, BI-3.2) and the obligation to preserve v1/v2
+compatibility. The BLD-001B.3b record above stays as the historical record of
+what was implemented in commit `6660196`; it is not rewritten.
+
+Sequencing (PM-3). A first attempt in this block made the existing authoring
+commands write format 3 directly and refused v1/v2 records. It stopped under
+the two-attempt rule: `TestRuntimeImpactsSharedProjectsPreservedAfterRemoval`
+showed that the v2-only Runtime policy consumer then reports
+`configuration_unsafe` instead of `no_allowed_match`, and the CI dogfood
+script depends on the v1→v2 path. The maintainer chose Option C: this block
+removes the migration and keeps the existing v2 authoring path and consumers
+working for operational continuity. BLD-001B.3c-2 removes the remaining v2
+paths and switches authoring and consumers to v3 together. **Canonical
+v3-only activation is not complete.** No v2 compatibility is accepted for the
+final MVP.
+
+Removed (v2→v3 migration only):
+
+- `runtimeprofile.MigrateV2ToV3` and its tests (`TestMigrateV2ToV3PreservesSource`,
+  `TestMigrateV2ToV3Refusals`); `v3_migration_test.go` becomes
+  `v3_declaration_test.go` with v3 fixtures authored directly.
+- `AuthoringRequest.TargetFormat`, the `--target-format` flag on
+  `runtime binding migrate`, and `--effort-declaration` on `migrate`.
+- The migrate branch of `authorDeclaration` (`migrate local format 2 to 3`
+  effects, `migration_mapping_required`/`migration_required` declaration
+  categories). A declaration over a format 1/2 or fresh state now refuses as
+  `configuration_unavailable` with no migration or conversion.
+- The local store's `active-v2 → v3` publication transition: format 3 is now
+  accepted over fresh, retired or active-v3 state only, in canonical bytes at
+  revision+1, and never over a v1/v2 record (no conversion by overwrite).
+
+Retained (PM-2): `binding edit --runtime <id> --effort-declaration <file>`
+with `--expected-revision`/`--preview-digest`/`--authorize-local`; strict
+`DecodeEffortDeclaration`; independent executable/version applicability;
+zero-write preview; exact confirmation; revalidation immediately before
+publication; `WithEffortDeclaration` add/same-id replace with ambiguity and
+foreign-identity refusal; atomic publication with the existing locks, compare,
+post-commit verification and F3/F6 recovery; the bounded no-symlink
+declaration reader. No digest, Evidence, Binding, proof or persisted-format
+change; no new command or flag.
+
+Temporary v2 dependencies retained until BLD-001B.3c-2:
+
+- `runtimeapplication.Authoring` v2 create/edit/enable/disable/remove/validate
+  and v2 tombstone retirement, and the v1→v2 `runtime binding|profile migrate`
+  with `--profile-effort`/`--clear-legacy-references` (used by
+  `scripts/dogfood-poc.sh` in CI).
+- `local.RuntimeProfileStore` v2/tombstone `Publish` branches and the v2-only
+  `Inspect`/`Load`/`Save`.
+- v2-only consumers: Runtime policy (`cmd/lingo/runtime_policy.go`), Workflow
+  authoring (`cmd/lingo/workflow_authoring.go`,
+  `internal/local/workflow_definitions.go`), and state compatibility /
+  `axiom upgrade` inventory classification.
+
+Validation (Go 1.26.0, `GOTOOLCHAIN=local`, `GOWORK=off`, `GOFLAGS=`,
+`pipefail`; synthetic only, no Runtime execution, probe or inference):
+
+- `go test ./internal/runtimeprofile ./internal/runtimeapplication
+  ./internal/local ./internal/cli ./internal/runtimeadapter ./cmd/lingo
+  -count=1`: exit 0.
+- Focused filters, each executing tests: runtimeprofile declaration/v3 (10
+  tests, including `TestNoHistoricalFormatBecomesV3`); runtimeapplication
+  `TestDeclaration|TestAuthoring` (13 tests, 40 passes with subtests); local
+  v3 publication, refusal, recovery and declaration-reader tests (7 tests, 26
+  passes); `TestRuntimeDeclarationFlagSurface`; `cmd/lingo`
+  `TestExecutableDeclarationAuthoringWithoutMigration`,
+  `TestExecutableRuntimeAuthoringRestartAndRetirement`, `TestRuntimeImpacts*`
+  (5 tests, 12 passes). All exit 0.
+- Positive coverage: v3 decoding; direct v3 initialization at the store over
+  fresh and retired state; declaration add/replace on v3; zero-write preview;
+  exact confirmation; snapshot and executable revalidation; canonical atomic
+  publication; F3/F6 recovery of v3 → v3.
+- Negative coverage: `--target-format` and `migrate --effort-declaration`
+  rejected by the parser; declaration over v1/v2/fresh refused with no write;
+  v3 never published over v1/v2; v2 or tombstone over v3 refused (no
+  downgrade); missing, malformed, oversized, unknown/duplicate-field,
+  ambiguous, wrong-Runtime, wrong-executable and version-mismatched
+  declarations refused; stale preview, inexact digest/revision and missing
+  `--authorize-local` refused; symlinked declaration input refused; no
+  capability, model or authentication support inferred; a v2 record is never
+  decoded as v3.
+- `gofmt -l internal cmd` (empty), `go build ./...`, `go vet` (five touched
+  packages), `scripts/check-adr-governance.py`, `scripts/check-sensitive-files.sh`,
+  `git diff --check`: exit 0. `gitleaks` is not installed.
+
+No `t.Skip`. Hosts: Linux amd64 only; macOS arm64 and Linux arm64 unverified.
+`scripts/dogfood-poc.sh` was not run locally.
+
+Pending, recorded and not claimed:
+
+- BLD-001B.3c-2: v3-only authoring and consumers together; removal of the
+  temporary v2 dependencies above; passive `RuntimeVersionObserver` over a
+  versioned repository registry of exact executable digests (PM-5). Until it
+  is composed, `cmd/lingo` declaration authoring refuses as
+  `effort_configuration_unproven`. Format 3 has no retirement record; the v3
+  removal of the last Runtime is decided there.
+- BLD-001B.3c-3: persistent monotonic authorization epoch (PM-6). Until then,
+  rollback recovery restores an identical snapshot whose pre-rollback preview
+  token is reusable — a recorded pending security defect, not resolved here.
+  `cmd/lingo` BindingSource composition.
+- BLD-001B.3c-4: synthetic end-to-end validation and final AXM-22
+  reconciliation.
+
+Status: AXM-22 not complete; T16/T17 not complete.

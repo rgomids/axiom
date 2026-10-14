@@ -44,9 +44,9 @@ func (m *memoryStore) Inspect(context.Context) (LocalSnapshot, error) {
 	case v.V3 != nil:
 		snapshot.State, snapshot.Revision, snapshot.V3 = "active-v3", v.V3.Revision, v.V3
 	case v.Configuration.FormatVersion == runtimeprofile.FormatVersionV2:
-		snapshot.State, snapshot.Revision, snapshot.Configuration = "active-v2", v.Configuration.Revision, *v.Configuration
+		snapshot.State, snapshot.Revision = "active-v2", v.Configuration.Revision
 	default:
-		snapshot.State, snapshot.Revision, snapshot.Configuration = "active-v1", v.Configuration.Revision, *v.Configuration
+		snapshot.State, snapshot.Revision = "active-v1", v.Configuration.Revision
 	}
 	sum := sha256.Sum256(append([]byte(snapshot.State+"\x00"), m.wire...))
 	snapshot.Token = hex.EncodeToString(sum[:])
@@ -68,21 +68,44 @@ func (m *memoryStore) Publish(ctx context.Context, token string, wire []byte) (L
 	return m.Inspect(ctx)
 }
 
-func declarationSource() runtimeprofile.Configuration {
-	return runtimeprofile.Configuration{FormatVersion: runtimeprofile.FormatVersionV2, Revision: 4,
-		Runtimes:      []runtimeprofile.Runtime{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"codex-high"}}, {ID: "claude", Adapter: "claude", Enabled: true, AllowlistedProfileIDs: []string{"claude-low"}}},
+// declarationSource is a format-3 record authored directly, with no
+// declarations yet (Specification 007 PM-1: no v2 source, no migration).
+func declarationSource() runtimeprofile.ConfigurationV3 {
+	return runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 4,
+		Runtimes:      []runtimeprofile.RuntimeV3{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"codex-high"}}, {ID: "claude", Adapter: "claude", Enabled: true, AllowlistedProfileIDs: []string{"claude-low"}}},
 		ModelProfiles: []runtimeprofile.ModelProfile{{ID: "codex-high", RuntimeID: "codex", Model: "local-codex-model", Capabilities: []string{"go"}, Complexities: []string{"high"}, Effort: runtimeprofile.Effort{Mode: "explicit", Value: "high"}}, {ID: "claude-low", RuntimeID: "claude", Model: "local-claude-model", Capabilities: []string{"go"}, Complexities: []string{"low"}, Effort: runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}}},
 		Preferences:   []runtimeprofile.Preference{{Role: "implementation", Complexity: "high", ModelProfileID: "codex-high"}},
 	}
 }
 
-func v2Store(t *testing.T) *memoryStore {
+func v3Store(t *testing.T) *memoryStore {
 	t.Helper()
-	wire, err := runtimeprofile.Encode(declarationSource())
+	wire, err := runtimeprofile.EncodeV3(declarationSource())
 	if err != nil {
 		t.Fatal(err)
 	}
 	return &memoryStore{wire: wire}
+}
+
+// historicalWire is a valid format-1/2 record; authoring must refuse it.
+func historicalWire(t *testing.T, format int) []byte {
+	t.Helper()
+	c := declarationSource()
+	cfg := runtimeprofile.Configuration{FormatVersion: format, Revision: c.Revision, ModelProfiles: c.ModelProfiles, Preferences: c.Preferences}
+	for _, r := range c.Runtimes {
+		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.Runtime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs})
+	}
+	if format == runtimeprofile.FormatVersion {
+		cfg.ModelProfiles = append([]runtimeprofile.ModelProfile(nil), cfg.ModelProfiles...)
+		for i := range cfg.ModelProfiles {
+			cfg.ModelProfiles[i].Effort = runtimeprofile.Effort{}
+		}
+	}
+	wire, err := runtimeprofile.Encode(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return wire
 }
 
 // declarationHarness supplies the synthetic declaration file and the passive
@@ -118,8 +141,8 @@ func (h *declarationHarness) authoring(store AuthoringStore) Authoring {
 		}}
 }
 
-func migrateRequest() AuthoringRequest {
-	return AuthoringRequest{Kind: "binding", Operation: "migrate", RuntimeID: "codex", TargetFormat: 3, EffortDeclaration: "declaration.json", MigrationEfforts: map[string]runtimeprofile.Effort{}}
+func editRequest() AuthoringRequest {
+	return AuthoringRequest{Kind: "binding", Operation: "edit", RuntimeID: "codex", EffortDeclaration: "declaration.json"}
 }
 
 func confirmed(req AuthoringRequest, preview AuthoringReport) AuthoringRequest {
@@ -127,27 +150,31 @@ func confirmed(req AuthoringRequest, preview AuthoringReport) AuthoringRequest {
 	return req
 }
 
-// BI-3.2: explicit preview (zero writes), exact confirmation, revision+1,
-// carried Runtimes/Profiles/Preferences and canonical v3 bytes.
-func TestDeclarationMigrationPreviewAndApply(t *testing.T) {
+// BI-3.1/PM-1: declaration authoring on a v3 record with explicit preview
+// (zero writes), exact confirmation, revision+1, every Runtime/Profile/
+// Preference carried and canonical v3 bytes.
+func TestDeclarationPreviewAndApplyOnV3(t *testing.T) {
 	ctx := context.Background()
-	store, h := v2Store(t), newHarness()
+	store, h := v3Store(t), newHarness()
 	source := declarationSource()
 	sourceWire := append([]byte(nil), store.wire...)
-	preview, err := h.authoring(store).Run(ctx, migrateRequest())
+	preview, err := h.authoring(store).Run(ctx, editRequest())
 	if err != nil || preview.Category != "preview" || store.writes != 0 || !bytes.Equal(store.wire, sourceWire) || h.reads != 1 {
 		t.Fatalf("%+v %v writes=%d reads=%d", preview, err, store.writes, h.reads)
 	}
 	effects := strings.Join(preview.Effects, "\n")
-	for _, want := range []string{"migrate local format 2 to 3", "source format 2 revision 4 digest ", "add effort declaration codex-effort-sources", "Runtime codex effort declaration codex-effort-sources applies to observed version synthetic-codex-1 executable " + declarationDigest + " mode noninteractive"} {
+	for _, want := range []string{"add effort declaration codex-effort-sources", "Runtime codex effort declaration codex-effort-sources applies to observed version synthetic-codex-1 executable " + declarationDigest + " mode noninteractive"} {
 		if !strings.Contains(effects, want) {
 			t.Fatalf("effect %q missing from %s", want, effects)
 		}
 	}
+	if strings.Contains(effects, "migrate") || strings.Contains(effects, "format 2") {
+		t.Fatalf("migration effect reported: %s", effects)
+	}
 	if preview.Revision != 4 || preview.CandidateDigest == "" || preview.PreviewDigest == "" || preview.EffortSupport != "unproven" || preview.ModelSupport != "unproven" {
 		t.Fatalf("%+v", preview)
 	}
-	applied, err := h.authoring(store).Run(ctx, confirmed(migrateRequest(), preview))
+	applied, err := h.authoring(store).Run(ctx, confirmed(editRequest(), preview))
 	if err != nil || applied.Category != "applied" || applied.State != "active-v3" || applied.Revision != 5 || store.writes != 1 {
 		t.Fatalf("%+v %v", applied, err)
 	}
@@ -176,7 +203,6 @@ func TestDeclarationMigrationPreviewAndApply(t *testing.T) {
 	if len(v.V3.Preferences) != 1 || v.V3.Preferences[0] != source.Preferences[0] {
 		t.Fatal("Preferences not carried")
 	}
-	// The migrated record is listable and declarations stay unproven elsewhere.
 	listed, err := h.authoring(store).Run(ctx, AuthoringRequest{Kind: "binding", Operation: "list"})
 	if err != nil || listed.State != "active-v3" || len(listed.Runtimes) != 2 || len(listed.Profiles) != 2 {
 		t.Fatalf("%+v %v", listed, err)
@@ -185,15 +211,16 @@ func TestDeclarationMigrationPreviewAndApply(t *testing.T) {
 
 func hexDigest(wire []byte) string { sum := sha256.Sum256(wire); return hex.EncodeToString(sum[:]) }
 
-// BI-3.1: add or replace by declarationId on active-v3, never implicitly.
+// BI-3.1: add or replace by declarationId on active-v3, never implicitly;
+// ordinary v3 mutations carry declarations and never downgrade.
 func TestDeclarationEditOnV3(t *testing.T) {
 	ctx := context.Background()
-	store, h := v2Store(t), newHarness()
-	preview, _ := h.authoring(store).Run(ctx, migrateRequest())
-	if _, err := h.authoring(store).Run(ctx, confirmed(migrateRequest(), preview)); err != nil {
+	store, h := v3Store(t), newHarness()
+	preview, _ := h.authoring(store).Run(ctx, editRequest())
+	if _, err := h.authoring(store).Run(ctx, confirmed(editRequest(), preview)); err != nil {
 		t.Fatal(err)
 	}
-	edit := AuthoringRequest{Kind: "binding", Operation: "edit", RuntimeID: "codex", EffortDeclaration: "declaration.json"}
+	edit := editRequest()
 	same, err := h.authoring(store).Run(ctx, edit)
 	if err != nil || same.Category != "unchanged" {
 		t.Fatalf("identical declaration: %+v %v", same, err)
@@ -212,13 +239,13 @@ func TestDeclarationEditOnV3(t *testing.T) {
 	if got, err := h.authoring(store).Run(ctx, edit); err == nil || got.Category != "candidate_invalid" || store.writes != 2 {
 		t.Fatalf("ambiguous: %+v %v", got, err)
 	}
-	// Ordinary v2 mutations never touch format 3 (no downgrade).
+	// Until BLD-001B.3c-2 every other mutation stays v2-only and refuses a v3
+	// record: no downgrade, no implicit migration (PM-3).
 	enabled := false
-	if got, err := h.authoring(store).Run(ctx, AuthoringRequest{Kind: "binding", Operation: "edit", RuntimeID: "codex", Enabled: &enabled}); err == nil || got.Category != "configuration_unavailable" || store.writes != 2 {
-		t.Fatalf("v2 mutation over v3: %+v %v", got, err)
-	}
-	if got, err := h.authoring(store).Run(ctx, migrateRequest()); err == nil || got.Category != "migration_mapping_required" {
-		t.Fatalf("re-migration: %+v %v", got, err)
+	for _, r := range []AuthoringRequest{{Kind: "binding", Operation: "edit", RuntimeID: "codex", Enabled: &enabled}, {Kind: "binding", Operation: "remove", RuntimeID: "codex", Cascade: true}, {Kind: "binding", Operation: "migrate", RuntimeID: "codex"}} {
+		if got, err := h.authoring(store).Run(ctx, r); err == nil || got.Category != "configuration_unavailable" || store.writes != 2 {
+			t.Fatalf("%s over v3: %+v %v", r.Operation, got, err)
+		}
 	}
 }
 
@@ -230,56 +257,41 @@ func TestDeclarationRefusals(t *testing.T) {
 		req            func() AuthoringRequest
 		setup          func(*memoryStore, *declarationHarness)
 	}{
-		{"no-target-format", "invalid_input", func() AuthoringRequest { r := migrateRequest(); r.TargetFormat = 0; return r }, nil},
-		{"target-format-2", "invalid_input", func() AuthoringRequest { r := migrateRequest(); r.TargetFormat = 2; return r }, nil},
-		{"target-format-without-declaration", "invalid_input", func() AuthoringRequest { r := migrateRequest(); r.EffortDeclaration = ""; return r }, nil},
-		{"target-format-on-edit", "invalid_input", func() AuthoringRequest { r := migrateRequest(); r.Operation = "edit"; return r }, nil},
-		{"declaration-on-profile", "invalid_input", func() AuthoringRequest { r := migrateRequest(); r.Kind = "profile"; return r }, nil},
-		{"missing-runtime", "invalid_input", func() AuthoringRequest { r := migrateRequest(); r.RuntimeID = ""; return r }, nil},
-		{"mixed-v1-mapping", "invalid_input", func() AuthoringRequest {
-			r := migrateRequest()
-			r.MigrationEfforts = map[string]runtimeprofile.Effort{"codex-high": {Mode: "explicit", Value: "high"}}
-			return r
-		}, nil},
-		{"declaration-on-v2-edit", "migration_required", func() AuthoringRequest {
-			return AuthoringRequest{Kind: "binding", Operation: "edit", RuntimeID: "codex", EffortDeclaration: "declaration.json"}
-		}, nil},
-		{"missing-file", "invalid_input", migrateRequest, func(_ *memoryStore, h *declarationHarness) { h.input = "" }},
-		{"malformed", "invalid_input", migrateRequest, func(_ *memoryStore, h *declarationHarness) { h.input = declarationInput[:50] }},
-		{"oversized", "invalid_input", migrateRequest, func(_ *memoryStore, h *declarationHarness) {
+		{"migrate-operation", "invalid_input", func() AuthoringRequest { r := editRequest(); r.Operation = "migrate"; return r }, nil},
+		{"declaration-on-create", "invalid_input", func() AuthoringRequest { r := editRequest(); r.Operation = "create"; return r }, nil},
+		{"declaration-on-profile", "invalid_input", func() AuthoringRequest { r := editRequest(); r.Kind = "profile"; return r }, nil},
+		{"missing-runtime", "invalid_input", func() AuthoringRequest { r := editRequest(); r.RuntimeID = ""; return r }, nil},
+		{"mixed-candidate-field", "invalid_input", func() AuthoringRequest { r := editRequest(); r.Model = "local-codex-model"; return r }, nil},
+		{"missing-file", "invalid_input", editRequest, func(_ *memoryStore, h *declarationHarness) { h.input = "" }},
+		{"malformed", "invalid_input", editRequest, func(_ *memoryStore, h *declarationHarness) { h.input = declarationInput[:50] }},
+		{"oversized", "invalid_input", editRequest, func(_ *memoryStore, h *declarationHarness) {
 			h.input = declarationInput + strings.Repeat(" ", runtimeprofile.MaxConfigurationBytes)
 		}},
-		{"unknown-field", "invalid_input", migrateRequest, func(_ *memoryStore, h *declarationHarness) {
+		{"unknown-field", "invalid_input", editRequest, func(_ *memoryStore, h *declarationHarness) {
 			h.input = strings.Replace(declarationInput, `"jsonKeys":[]`, `"jsonKeys":[],"capabilityStatus":"proven"`, 1)
 		}},
-		{"duplicate-field", "invalid_input", migrateRequest, func(_ *memoryStore, h *declarationHarness) {
+		{"duplicate-field", "invalid_input", editRequest, func(_ *memoryStore, h *declarationHarness) {
 			h.input = strings.Replace(declarationInput, `"jsonKeys":[]`, `"jsonKeys":[],"jsonKeys":[]`, 1)
 		}},
-		{"wrong-runtime-rules", "invalid_input", func() AuthoringRequest { r := migrateRequest(); r.RuntimeID = "claude"; return r }, nil},
-		{"wrong-executable", "effort_configuration_unproven", migrateRequest, func(_ *memoryStore, h *declarationHarness) {
+		{"wrong-runtime-rules", "invalid_input", func() AuthoringRequest { r := editRequest(); r.RuntimeID = "claude"; return r }, nil},
+		{"wrong-executable", "effort_configuration_unproven", editRequest, func(_ *memoryStore, h *declarationHarness) {
 			h.observed.ExecutableDigest = strings.Repeat("9", 64)
 		}},
-		{"version-mismatch", "effort_configuration_unproven", migrateRequest, func(_ *memoryStore, h *declarationHarness) {
+		{"version-mismatch", "effort_configuration_unproven", editRequest, func(_ *memoryStore, h *declarationHarness) {
 			h.observed.RuntimeVersion = "synthetic-codex-2"
 		}},
-		{"unobserved", "effort_configuration_unproven", migrateRequest, func(_ *memoryStore, h *declarationHarness) { h.observed.RuntimeID = "none" }},
-		{"recovery-required", "recovery_required", migrateRequest, func(m *memoryStore, _ *declarationHarness) { m.pending = true }},
-		{"fresh", "migration_mapping_required", migrateRequest, func(m *memoryStore, _ *declarationHarness) { m.state = "fresh" }},
-		{"v1", "migration_required", migrateRequest, func(m *memoryStore, _ *declarationHarness) {
-			cfg := declarationSource()
-			cfg.FormatVersion = runtimeprofile.FormatVersion
-			for i := range cfg.ModelProfiles {
-				cfg.ModelProfiles[i].Effort = runtimeprofile.Effort{}
-			}
-			var err error
-			if m.wire, err = runtimeprofile.Encode(cfg); err != nil {
-				t.Fatal(err)
-			}
+		{"unobserved", "effort_configuration_unproven", editRequest, func(_ *memoryStore, h *declarationHarness) { h.observed.RuntimeID = "none" }},
+		{"recovery-required", "recovery_required", editRequest, func(m *memoryStore, _ *declarationHarness) { m.pending = true }},
+		{"fresh", "configuration_unavailable", editRequest, func(m *memoryStore, _ *declarationHarness) { m.state = "fresh" }},
+		// PM-1: no v1/v2 record is read, migrated or converted.
+		{"v1", "configuration_unavailable", editRequest, func(m *memoryStore, _ *declarationHarness) { m.wire = historicalWire(t, runtimeprofile.FormatVersion) }},
+		{"v2", "configuration_unavailable", editRequest, func(m *memoryStore, _ *declarationHarness) {
+			m.wire = historicalWire(t, runtimeprofile.FormatVersionV2)
 		}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			store, h := v2Store(t), newHarness()
+			store, h := v3Store(t), newHarness()
 			if c.setup != nil {
 				c.setup(store, h)
 			}
@@ -291,16 +303,16 @@ func TestDeclarationRefusals(t *testing.T) {
 		})
 	}
 	// The Runtime must be configured; the declaration is never attached elsewhere.
-	store, h := v2Store(t), newHarness()
+	store, h := v3Store(t), newHarness()
 	cfg := declarationSource()
 	cfg.Runtimes, cfg.ModelProfiles, cfg.Preferences = cfg.Runtimes[1:], cfg.ModelProfiles[1:], nil
-	store.wire, _ = runtimeprofile.Encode(cfg)
-	if got, err := h.authoring(store).Run(ctx, migrateRequest()); err == nil || got.Category != "candidate_invalid" || store.writes != 0 {
+	store.wire, _ = runtimeprofile.EncodeV3(cfg)
+	if got, err := h.authoring(store).Run(ctx, editRequest()); err == nil || got.Category != "candidate_invalid" || store.writes != 0 {
 		t.Fatalf("unconfigured Runtime: %+v %v", got, err)
 	}
 }
 
-// BI-3.2 items 8–9: inexact or drifted confirmation is stale_preview with no
+// BI-3.2 items 8–9 (retained by PM-1): inexact or drifted confirmation is stale_preview with no
 // write; an unconfirmed publication is never success.
 func TestDeclarationConfirmationDrift(t *testing.T) {
 	ctx := context.Background()
@@ -315,7 +327,7 @@ func TestDeclarationConfirmationDrift(t *testing.T) {
 		"stale-snapshot": {"stale_preview", func(m *memoryStore, _ *declarationHarness, _ *AuthoringRequest) {
 			cfg := declarationSource()
 			cfg.Revision = 5
-			m.wire, _ = runtimeprofile.Encode(cfg)
+			m.wire, _ = runtimeprofile.EncodeV3(cfg)
 		}},
 		"changed-declaration": {"stale_preview", func(_ *memoryStore, h *declarationHarness, _ *AuthoringRequest) {
 			h.input = strings.Replace(declarationInput, `"environmentKeys":[]`, `"environmentKeys":["CODEX_EFFORT"]`, 1)
@@ -341,12 +353,12 @@ func TestDeclarationConfirmationDrift(t *testing.T) {
 	}
 	for name, c := range drift {
 		t.Run(name, func(t *testing.T) {
-			store, h := v2Store(t), newHarness()
-			preview, err := h.authoring(store).Run(ctx, migrateRequest())
+			store, h := v3Store(t), newHarness()
+			preview, err := h.authoring(store).Run(ctx, editRequest())
 			if err != nil {
 				t.Fatal(err)
 			}
-			req := confirmed(migrateRequest(), preview)
+			req := confirmed(editRequest(), preview)
 			c.change(store, h, &req)
 			before := append([]byte(nil), store.wire...)
 			got, err := h.authoring(store).Run(ctx, req)
@@ -356,24 +368,24 @@ func TestDeclarationConfirmationDrift(t *testing.T) {
 		})
 	}
 	t.Run("authority-without-authorize-local", func(t *testing.T) {
-		store, h := v2Store(t), newHarness()
-		preview, _ := h.authoring(store).Run(ctx, migrateRequest())
-		req := confirmed(migrateRequest(), preview)
+		store, h := v3Store(t), newHarness()
+		preview, _ := h.authoring(store).Run(ctx, editRequest())
+		req := confirmed(editRequest(), preview)
 		req.AuthorizeLocal = false
 		if got, err := h.authoring(store).Run(ctx, req); err == nil || got.Category != "local_authority_required" || store.writes != 0 {
 			t.Fatalf("%+v %v", got, err)
 		}
 	})
 	t.Run("interrupted-publication", func(t *testing.T) {
-		store, h := v2Store(t), newHarness()
-		preview, _ := h.authoring(store).Run(ctx, migrateRequest())
+		store, h := v3Store(t), newHarness()
+		preview, _ := h.authoring(store).Run(ctx, editRequest())
 		store.refuse = true
-		got, err := h.authoring(store).Run(ctx, confirmed(migrateRequest(), preview))
+		got, err := h.authoring(store).Run(ctx, confirmed(editRequest(), preview))
 		if err == nil || got.Category != "publication_unconfirmed" || store.writes != 0 {
 			t.Fatalf("%+v %v", got, err)
 		}
 		// No automatic retry: the next attempt requires scoped recovery first.
-		if got, err := h.authoring(store).Run(ctx, confirmed(migrateRequest(), preview)); err == nil || got.Category != "recovery_required" || store.writes != 0 {
+		if got, err := h.authoring(store).Run(ctx, confirmed(editRequest(), preview)); err == nil || got.Category != "recovery_required" || store.writes != 0 {
 			t.Fatalf("%+v %v", got, err)
 		}
 	})

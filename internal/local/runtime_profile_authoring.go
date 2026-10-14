@@ -211,10 +211,13 @@ func (s RuntimeProfileStore) inspect(ctx context.Context, versioned bool) (Runti
 	return s.inspectLocked(versioned)
 }
 
-// Publish consumes an exact reviewed snapshot. It accepts active v2 or a
-// tombstone over v1/v2, and format 3 only as active-v2 → v3 (explicit
-// migration) or active-v3 → v3 (declaration authoring), always revision+1. It
-// never down-converts v3, deletes the history, or retries a conflict.
+// Publish consumes an exact reviewed snapshot. Format 3 (Specification 007
+// PM-1) is accepted over fresh, retired or active-v3 state, in canonical bytes
+// with revision+1, and never over a format 1/2 record, so nothing is migrated
+// or converted by overwrite. The format-2 and tombstone branches are retained
+// only for operational continuity until BLD-001B.3c-2 switches authoring and
+// consumers to v3 together (PM-3). It never down-converts v3, deletes the
+// history, or retries a conflict.
 func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, next []byte) (RuntimeProfileSnapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return RuntimeProfileSnapshot{}, err
@@ -251,8 +254,8 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 		if err != nil || v.FormatVersion != runtimeprofile.FormatVersionV3 || v.V3 == nil {
 			return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
 		}
-		// Format 3 never replaces fresh, retired, v1, pending or unsafe state.
-		if prior.State != "active-v2" && prior.State != "active-v3" {
+		// Format 3 never replaces a v1/v2 record, pending or unsafe state.
+		if prior.State != "fresh" && prior.State != "retired" && prior.State != "active-v3" {
 			return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
 		}
 		if canonical, err := runtimeprofile.EncodeV3(*v.V3); err != nil || !bytes.Equal(canonical, next) || v.V3.Revision != prior.Revision+1 {

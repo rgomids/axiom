@@ -1,7 +1,6 @@
 package runtimeprofile
 
 import (
-	"bytes"
 	"errors"
 	"strings"
 	"testing"
@@ -9,12 +8,20 @@ import (
 
 const codexDeclarationJSON = `{"declarationId":"codex-effort-sources","declarationVersion":1,"runtimeVersion":"synthetic-codex-1","executableDigest":"1111111111111111111111111111111111111111111111111111111111111111","invocationMode":"noninteractive","precedenceEstablished":true,"jsonKeys":[],"environmentKeys":[],"sources":[{"scope":"user","anchor":"user","path":".codex/config.toml","format":"toml","directory":false},{"scope":"project","anchor":"project","path":".codex/config.toml","format":"toml","directory":false},{"scope":"managed","anchor":"managed","path":"managed_config.toml","format":"toml","directory":false}]}`
 
-func migrationSource() Configuration {
-	return Configuration{FormatVersion: FormatVersionV2, Revision: 4,
-		Runtimes:      []Runtime{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"codex-high"}}, {ID: "claude", Adapter: "claude", Enabled: false, AllowlistedProfileIDs: []string{"claude-low"}}},
+// declarationBase is a canonical v3 record authored directly in format 3; the
+// pre-MVP policy has no v2 source and no migration (Specification 007 PM-1).
+func declarationBase(runtimeID string, d EffortDeclaration) ConfigurationV3 {
+	c := ConfigurationV3{FormatVersion: FormatVersionV3, Revision: 5,
+		Runtimes:      []RuntimeV3{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"codex-high"}}, {ID: "claude", Adapter: "claude", Enabled: false, AllowlistedProfileIDs: []string{"claude-low"}}},
 		ModelProfiles: []ModelProfile{{ID: "codex-high", RuntimeID: "codex", Model: "local-codex-model", Capabilities: []string{"go"}, Complexities: []string{"high"}, Effort: Effort{Mode: "explicit", Value: "high"}}, {ID: "claude-low", RuntimeID: "claude", Model: "local-claude-model", Capabilities: []string{"go"}, Complexities: []string{"low"}, Effort: Effort{Mode: "runtime-default", Value: "default"}}},
 		Preferences:   []Preference{{Role: "implementation", Complexity: "high", ModelProfileID: "codex-high"}},
 	}
+	for i := range c.Runtimes {
+		if c.Runtimes[i].ID == runtimeID {
+			c.Runtimes[i].EffortDeclarations = []EffortDeclaration{d}
+		}
+	}
+	return c
 }
 
 func codexDeclaration(t *testing.T) EffortDeclaration {
@@ -59,86 +66,11 @@ func TestDecodeEffortDeclarationIsStrict(t *testing.T) {
 	}
 }
 
-// BI-3.2 item 6: format 3, revision+1, every Runtime/Profile/allowlist/
-// Preference unchanged and only the named Runtime gains the declaration.
-func TestMigrateV2ToV3PreservesSource(t *testing.T) {
-	source := migrationSource()
-	sourceWire, err := Encode(source)
-	if err != nil {
-		t.Fatal(err)
-	}
-	sourceDigest, _ := Digest(source)
-	profileDigests := map[string]string{}
-	for _, p := range source.ModelProfiles {
-		profileDigests[p.ID], _ = ProfileDigest(p)
-	}
-	next, err := MigrateV2ToV3(source, "codex", codexDeclaration(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if next.FormatVersion != FormatVersionV3 || next.Revision != source.Revision+1 || len(next.Runtimes) != 2 || len(next.ModelProfiles) != 2 || len(next.Preferences) != 1 {
-		t.Fatalf("%+v", next)
-	}
-	for _, r := range next.Runtimes {
-		if r.ID == "codex" && (len(r.EffortDeclarations) != 1 || r.EffortDeclarations[0].DeclarationID != "codex-effort-sources") {
-			t.Fatalf("declaration not bound: %+v", r)
-		}
-		if r.ID == "claude" && r.EffortDeclarations != nil {
-			t.Fatal("declaration invented for another Runtime")
-		}
-	}
-	for _, p := range next.ModelProfiles {
-		if d, _ := ProfileDigest(p); d != profileDigests[p.ID] {
-			t.Fatalf("Profile digest changed for %s", p.ID)
-		}
-	}
-	wire, err := EncodeV3(next)
-	if err != nil {
-		t.Fatal(err)
-	}
-	v, err := DecodeVersioned(wire)
-	if err != nil || v.V3 == nil {
-		t.Fatal(err)
-	}
-	if again, _ := EncodeV3(*v.V3); !bytes.Equal(again, wire) {
-		t.Fatal("v3 candidate is not canonical")
-	}
-	// Historical v2 bytes and digest are untouched by migration.
-	if after, _ := Encode(source); !bytes.Equal(after, sourceWire) {
-		t.Fatal("v2 source re-encoded differently")
-	}
-	if after, _ := Digest(source); after != sourceDigest {
-		t.Fatal("v2 digest changed")
-	}
-	// Other Runtimes stay unproven; no declaration is selected by version alone.
-	if _, err := ApplicableEffortDeclaration(v, EffortApplicability{RuntimeID: "claude", RuntimeVersion: "synthetic-codex-1", ExecutableDigest: strings.Repeat("1", 64), InvocationMode: "noninteractive"}); !errors.Is(err, ErrEffortDeclarationUnproven) {
-		t.Fatal("declaration applied to another Runtime")
-	}
-	if _, err := ApplicableEffortDeclaration(v, EffortApplicability{RuntimeID: "codex", RuntimeVersion: "synthetic-codex-1", ExecutableDigest: strings.Repeat("9", 64), InvocationMode: "noninteractive"}); !errors.Is(err, ErrEffortDeclarationUnproven) {
-		t.Fatal("version alone selected a declaration")
-	}
-}
-
-func TestMigrateV2ToV3Refusals(t *testing.T) {
-	d := codexDeclaration(t)
-	v1 := migrationSource()
-	v1.FormatVersion = FormatVersion
-	missing := migrationSource()
-	missing.Runtimes = missing.Runtimes[1:]
-	missing.ModelProfiles = missing.ModelProfiles[1:]
-	missing.Preferences = nil
-	for name, source := range map[string]Configuration{"v1": v1, "runtime-missing": missing, "empty": {}} {
-		if _, err := MigrateV2ToV3(source, "codex", d); err == nil {
-			t.Errorf("%s migrated", name)
-		}
-	}
-}
-
 // BI-3.1: add, replace by declarationId, refuse ambiguity and duplicates.
 func TestWithEffortDeclaration(t *testing.T) {
-	base, err := MigrateV2ToV3(migrationSource(), "codex", codexDeclaration(t))
-	if err != nil {
-		t.Fatal(err)
+	base := declarationBase("codex", codexDeclaration(t))
+	if ValidateV3(base) != nil {
+		t.Fatal("invalid base")
 	}
 	other := codexDeclaration(t)
 	other.DeclarationID = "codex-next"
@@ -167,14 +99,36 @@ func TestWithEffortDeclaration(t *testing.T) {
 	if _, _, err := WithEffortDeclaration(base, "absent", other); err == nil {
 		t.Fatal("missing Runtime accepted")
 	}
-	claude, err := MigrateV2ToV3(migrationSource(), "claude", claudeDeclaration(t))
-	if err != nil {
-		t.Fatal(err)
+	// A declaration is added to a v3 Runtime that has none yet.
+	empty := declarationBase("", EffortDeclaration{})
+	if first, replaced, err := WithEffortDeclaration(empty, "codex", codexDeclaration(t)); err != nil || replaced || len(first.Runtimes[0].EffortDeclarations) != 1 {
+		t.Fatalf("first declaration: %v %v", replaced, err)
 	}
+	claude := declarationBase("claude", claudeDeclaration(t))
 	stolen := codexDeclaration(t)
 	stolen.DeclarationID = "claude-effort-sources"
 	if _, _, err := WithEffortDeclaration(claude, "codex", stolen); err == nil {
 		t.Fatal("declarationId owned by another Runtime accepted")
+	}
+}
+
+// PM-1: no v2 → v3 conversion exists; format 1/2 records never become a v3
+// record, and ApplicableEffortDeclaration never selects for them.
+func TestNoHistoricalFormatBecomesV3(t *testing.T) {
+	v2 := Configuration{FormatVersion: FormatVersionV2, Revision: 4,
+		Runtimes:      []Runtime{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"codex-high"}}},
+		ModelProfiles: []ModelProfile{{ID: "codex-high", RuntimeID: "codex", Model: "local-codex-model", Capabilities: []string{"go"}, Complexities: []string{"high"}, Effort: Effort{Mode: "explicit", Value: "high"}}},
+	}
+	wire, err := Encode(v2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := DecodeVersioned(wire)
+	if err != nil || v.V3 != nil || v.FormatVersion != FormatVersionV2 {
+		t.Fatalf("v2 reinterpreted: %+v %v", v, err)
+	}
+	if _, err := ApplicableEffortDeclaration(v, EffortApplicability{RuntimeID: "codex", RuntimeVersion: "synthetic-codex-1", ExecutableDigest: strings.Repeat("1", 64), InvocationMode: "noninteractive"}); !errors.Is(err, ErrEffortDeclarationUnproven) {
+		t.Fatal("declaration synthesized for a v2 record")
 	}
 }
 

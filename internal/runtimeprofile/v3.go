@@ -15,8 +15,10 @@ import (
 // Local configuration format 3 (Specification 007 AXM-22 amendment BI-2,
 // D1–D8) adds the Runtime-owned EffortDeclaration. It is a separate type so
 // every format-1/2 consumer keeps reading Configuration and refuses format 3.
-// EncodeV3 is the only v3 writer; production use is limited to the BI-3
-// explicit v2-to-v3 migration and declaration authoring (A1–A4).
+// EncodeV3 is the only v3 writer. Before the first stable release format 3 is
+// the target canonical format; there is no v2-to-v3 migration and no v3-to-v2
+// downgrade (Specification 007 AXM-22 pre-MVP decision PM-1). Activation of
+// v3-only authoring and consumers is BLD-001B.3c-2 (PM-3).
 const (
 	FormatVersionV3          = 3
 	EffortDeclarationVersion = 1
@@ -322,8 +324,7 @@ func decodeConfigurationV3(wire []byte) (ConfigurationV3, error) {
 	return c, nil
 }
 
-// EncodeV3 is the canonical v3 writer. BI-3 supersedes D5 only for the
-// explicit migration and declaration-authoring publication path.
+// EncodeV3 is the canonical v3 writer used by local authoring (PM-1).
 func EncodeV3(c ConfigurationV3) ([]byte, error) {
 	n := canonicalV3(c)
 	if err := ValidateV3(n); err != nil {
@@ -442,39 +443,6 @@ func DecodeEffortDeclaration(wire []byte, runtimeID string) (EffortDeclaration, 
 		return EffortDeclaration{}, ErrInvalidConfiguration
 	}
 	return cloneDeclaration(declaration), nil
-}
-
-// MigrateV2ToV3 is the BI-3.2 explicit transition: the format-2 source is
-// carried over unchanged with revision+1 and exactly one declaration under
-// runtimeID. Every other Runtime stays without declarations.
-func MigrateV2ToV3(c Configuration, runtimeID string, d EffortDeclaration) (ConfigurationV3, error) {
-	if c.FormatVersion != FormatVersionV2 || Validate(c) != nil || c.Revision == math.MaxUint64 {
-		return ConfigurationV3{}, ErrInvalidConfiguration
-	}
-	source, err := Digest(c)
-	if err != nil {
-		return ConfigurationV3{}, err
-	}
-	next := ConfigurationV3{FormatVersion: FormatVersionV3, Revision: c.Revision + 1, ModelProfiles: append([]ModelProfile(nil), c.ModelProfiles...), Preferences: append([]Preference(nil), c.Preferences...)}
-	found := false
-	for _, r := range c.Runtimes {
-		runtime := RuntimeV3{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: append([]string(nil), r.AllowlistedProfileIDs...)}
-		if r.ID == runtimeID {
-			runtime.EffortDeclarations = []EffortDeclaration{cloneDeclaration(d)}
-			found = true
-		}
-		next.Runtimes = append(next.Runtimes, runtime)
-	}
-	if !found || ValidateV3(next) != nil {
-		return ConfigurationV3{}, ErrInvalidConfiguration
-	}
-	// Every Runtime, Profile, allowlist and Preference must survive unchanged.
-	carried := projectV2(next)
-	carried.Revision = c.Revision
-	if after, err := Digest(carried); err != nil || after != source {
-		return ConfigurationV3{}, ErrInvalidConfiguration
-	}
-	return next, nil
 }
 
 // WithEffortDeclaration adds d to Runtime runtimeID or replaces the declaration

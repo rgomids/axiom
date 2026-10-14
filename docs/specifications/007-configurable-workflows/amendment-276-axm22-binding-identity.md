@@ -23,6 +23,15 @@ Clause **BI-2b** (path-operand reliability) is implemented and clause **BI-3**
 is specified by BLD-001B.3a and implemented by BLD-001B.3b; composition of the
 production BindingSource in `cmd/lingo` remains BLD-001B.3c.
 
+**Pre-MVP canonical format decision, 2026-10-14** (clause **PM** below):
+configuration v3 is the only target canonical format before the first stable
+release. PM **supersedes prospectively** the BI-3 v2→v3 migration (A1, BI-3.1
+`--target-format 3`, BI-3.2) and every obligation to preserve v1/v2
+compatibility; the BLD-001B.3b migration is historically implemented and was
+removed by BLD-001B.3c-1. The dated records above and below are history and are
+not rewritten. v3-only activation of authoring and consumers is pending
+(BLD-001B.3c-2, PM-3).
+
 This amendment **adds** to the accepted
 [#276 amendment](amendment-276-stage-dispatch.md) A2,
 [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md) and
@@ -243,6 +252,13 @@ Contract:
 
 ## BI-3 — Explicit v2→v3 migration and minimal EffortDeclaration authoring (BLD-001B.3)
 
+> **Superseded in part by [PM](#pm--pre-mvp-canonical-configuration-format-bld-001b3c).**
+> A1, the `--target-format 3` row of BI-3.1, BI-3.2 (migration contract) and
+> the `active-v2 → v3` publication transition no longer apply. A2–A4,
+> declaration authoring on `binding edit`, preview, exact confirmation,
+> revalidation, atomic publication, recovery and BI-3.3 refusals remain in
+> force. The text below is preserved as the 2026-10-14 record.
+
 **Approved maintainer decisions, 2026-10-14 10:27 America/Sao_Paulo** (Rafael
 Gomides, AXM-22 BLD-001B.3a brief):
 
@@ -394,3 +410,66 @@ is absent or inexact; or publication cannot be verified.
 - **BLD-001B.3c:** composition of the production BindingSource in `cmd/lingo`
   `productionCapabilityService`, synthetic end-to-end validation, final AXM-22
   reconciliation.
+
+## PM — Pre-MVP canonical configuration format (BLD-001B.3c)
+
+**Accepted maintainer decisions, 2026-10-14 11:44 and 12:06
+America/Sao_Paulo** (Rafael Gomides, AXM-22 BLD-001B.3c-1 brief), with the
+sequencing reconciliation of the same day (Option C):
+
+- **PM-1. Format policy.** Before the first MVP stable release, configuration
+  v3 is the only canonical format. There is no v2 reading as a supported
+  configuration, no v2→v3 migration, no automatic compatibility fallback and
+  no v3→v2 downgrade. There is no obligation to preserve obsolete v1/v2 codecs,
+  migration flows or compatibility fixtures. Strict backward compatibility
+  starts with the first stable/LTS release.
+- **PM-2. Authoring.** v3 authoring and atomic publication remain required:
+  `axiom runtime binding edit --runtime <id> --effort-declaration <json-file>`
+  with the existing `--expected-revision`, `--preview-digest` and
+  `--authorize-local`, strict declaration validation, independent executable
+  applicability, zero-write preview, exact confirmation, revalidation before
+  publication, atomic publication and F3/F6 recovery. A declaration never
+  becomes capability proof.
+- **PM-3. Sequencing.** BLD-001B.3c-1 removes the v2→v3 migration but keeps
+  the existing v2 authoring path and v2 consumers working for operational
+  continuity (existing tests and CI). BLD-001B.3c-2 removes the remaining v2
+  paths and switches authoring and consumers to v3 together. This is an
+  intermediate boundary, not a reversal of PM-1: no v2 compatibility is
+  accepted for the final MVP.
+- **PM-4. Consumers.** Runtime policy, Workflow authoring and
+  compatibility/upgrade checks become v3-only (BLD-001B.3c-2), with no
+  validation weakening.
+- **PM-5. Runtime version.** A passive `RuntimeVersionObserver` reads a
+  versioned registry file in the repository whose records bind supported
+  Runtime versions to exact executable digests. The Runtime is never executed
+  to determine its version (BLD-001B.3c-2).
+- **PM-6. Authorization epoch.** Preview authorization includes a persistent,
+  monotonic authorization epoch that participates in preview identity. A
+  preview issued before recovery must not become valid again after rollback
+  (BLD-001B.3c-3). Its persisted representation is not decided here. Until
+  then, reuse of an otherwise identical pre-rollback preview token remains a
+  recorded pending security defect.
+- **PM-7. Invariants.** ADR-0024 effort-intent ownership, the Runtime-owned
+  `EffortDeclaration`, v3 canonical semantics, the
+  `declarationId`/`ProofReference` relationship, canonical
+  `EffortSourceDigest` and `ModeDigest`, existing Binding/ModelBinding
+  contracts, AXM-21 Evidence selection, capability-proof validation,
+  filesystem trust boundaries, explicit local authority and atomic
+  publication/recovery safety remain mandatory. No Evidence-derived current
+  identity; no declaration promoted to capability proof.
+
+No new ADR: PM narrows the accepted local configuration lifecycle without
+conflicting with an accepted invariant.
+
+### PM.1 Delivery division
+
+- **BLD-001B.3c-1:** contract reconciliation and migration removal. The local
+  store accepts format 3 over fresh, retired or active-v3 state and never over
+  a v1/v2 record. *Delivered; v3-only activation not claimed.*
+- **BLD-001B.3c-2:** v3 consumers, v3-only authoring and the passive Runtime
+  registry; removal of the remaining v2 authoring, v1→v2 migration and v2
+  store paths. *Pending.*
+- **BLD-001B.3c-3:** persistent authorization epoch and `cmd/lingo`
+  BindingSource composition. *Pending.*
+- **BLD-001B.3c-4:** synthetic end-to-end validation and final AXM-22
+  reconciliation. *Pending.*
