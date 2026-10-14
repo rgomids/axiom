@@ -883,3 +883,95 @@ Pending, recorded and not claimed:
 
 Status: canonical v3 activation not complete; AXM-22 not complete; T16/T17
 not complete.
+
+## AXM-22 BLD-001B.3c-2b.1 — Canonical v3 consumer preparation
+
+Starting HEAD `5ee8671`. Preparation only: internal primitives and synthetic
+fixtures for the coordinated v3-only activation, under the decisions already
+recorded in PM.1/PM.2. No production consumer is wired to them, and no
+persisted field, digest, golden vector, CLI command or flag changes.
+
+Typed v3 projection boundary (`internal/runtimeprofile/v3_consumer.go`):
+
+- `ConsumerV3`, built only by `NewConsumerV3(RecordStateV3, *ConfigurationV3)`
+  or `ConsumeVersioned(VersionedConfiguration)`. It reads `ConfigurationV3`
+  directly after `ValidateV3`; there is no v3→v2 projection, every
+  EffortDeclaration is retained, and identity is the unchanged `DigestV3`
+  (`Digest()`), computed only over validated data. `Configuration()` returns
+  an independent canonical copy.
+- Explicit record states: `RecordMissingV3` → `ErrConfigurationMissingV3`,
+  `RecordRetiredV3` (tombstone after the final Runtime) →
+  `ErrConfigurationRetiredV3`, inconsistent state/record or invalid v3 →
+  `ErrInvalidConfiguration`; historical formats 1/2 →
+  `ErrUnsupportedConfigurationFormat`, never upgraded.
+- Exact lookups, no implicit default and no substitution: `EnabledRuntime`
+  (`ErrRuntimeAbsent`, `ErrRuntimeDisabled`), `AllowedProfile`
+  (`ErrProfileMissing`, `ErrProfileRuntimeMismatch`,
+  `ErrProfileNotAllowlisted`; the first two reuse the existing authoring codes),
+  `ProfileIntent` (Runtime, adapter, Profile, model, effort intent, unchanged
+  `ProfileDigest`, revision and DigestV3; no declaration, observation or
+  proof) and `EffortDeclaration` (enabled owning Runtime, then the unchanged
+  `ApplicableEffortDeclaration`; missing or inapplicable stays
+  `effort_configuration_unproven`).
+
+Synthetic fixtures (`internal/runtimeprofile/runtimeprofiletest`, imported by
+tests only, the `internal/testfs` precedent; no new dependency): `CodexOnly`,
+`ClaudeOnly`, `MultiRuntime` (different allowlists, an owned but unlisted
+Profile), explicit and runtime-default effort, valid Codex/Claude
+declarations, `WithoutDeclarations`, `WithRuntimeDisabled`, `WithPreferences`,
+`WithRevision`, `WithDeclaration`, `WithAllowlisted` (inconsistent
+references), unknown Runtime/Profile identifiers, applicability inputs and
+`Consumer`/`Encode`/`Digest` helpers. Runtime versions and executable digests
+are synthetic; no credential, production support claim or Runtime execution.
+
+Tests (`internal/runtimeprofile/v3_consumer_test.go`, external package):
+`TestV3FixturesAreCanonicalAndRoundTrip`, `TestV3ConsumerRecordStates`,
+`TestV3ConsumerRefusesHistoricalFormats`, `TestV3ConsumerRuntimeAndProfileLookup`,
+`TestV3ConsumerProfileIntent`, `TestV3ConsumerEffortDeclarationOwnership`,
+`TestV3ConsumerNoDowngrade`, `TestV3ConsumerDigestIdentity`
+(DigestV3 = SHA-256(EncodeV3) per fixture; declaration drift, removal,
+revision and preferences change it; ProfileDigest is independent of
+declarations and revision). Existing golden vectors and the frozen corpus are
+untouched.
+
+Validation (Go 1.26.0, `GOTOOLCHAIN=local`, `GOWORK=off`, `GOFLAGS=`,
+`pipefail`; synthetic only, no Runtime execution, probe or inference), all
+exit 0:
+
+- `go test ./internal/runtimeprofile -run 'TestV3Consumer|TestV3Fixtures' -count=1 -v`
+  (8 passes); `go test ./internal/runtimeprofile -count=1 -v` (38 passes);
+  `-run 'TestDigestV3|TestV3'` (18 passes).
+- `go test ./internal/runtimeadapter -run 'ModeDigest|EffortSource|Identity|BindingSource' -count=1 -v`
+  (34 passes; ModeDigest and EffortSourceDigest unchanged).
+- Existing v2 production smoke: `./internal/runtimeapplication -run 'Authoring|Declaration|Policy'`
+  (13), `./internal/stageexecution -run 'Admission|Admit'` (1),
+  `./internal/local -run 'RuntimeProfile'` (6),
+  `./cmd/lingo -run 'RuntimeProfile|RuntimePolicy|Readiness'` (6).
+- `gofmt -l internal/runtimeprofile` (empty); `go build` of runtimeprofile,
+  runtimeapplication, stageexecution, local and `cmd/lingo`;
+  `go vet ./internal/runtimeprofile/...`; `scripts/check-adr-governance.py`
+  (27 ADRs); `scripts/check-sensitive-files.sh`;
+  `scripts/validate-repository.sh`; `git diff --cached --check`.
+
+No `t.Skip`. Host: Linux amd64 only. The full test matrix and
+`scripts/dogfood-poc.sh` were not run locally.
+
+Still active (v2) and unchanged: Runtime policy, Workflow authoring
+(`active-v2` gate), stage admission (format-2 gate), readiness,
+`profile validate`, upgrade inventory, authoring lifecycle, Runtime retirement,
+the v1→v2 migration used by dogfood and the v2 store paths.
+
+Pending, recorded and not claimed:
+
+- BLD-001B.3c-2b.2: remaining consumer preparation.
+- BLD-001B.3c-2c.1: passive Runtime registry and synthetic v3 dogfood
+  preparation.
+- BLD-001B.3c-2b.3: coordinated v3-only activation and retirement (wiring of
+  `ConsumerV3`, local state mapping, removal of v2 paths, corpus expectation in
+  PM.2).
+- BLD-001B.3c-3: persistent authorization epoch and `cmd/lingo` BindingSource
+  composition.
+- BLD-001B.3c-4: final synthetic validation and reconciliation.
+
+Status: canonical v3 activation not complete; AXM-22 not complete; T16/T17
+not complete.
