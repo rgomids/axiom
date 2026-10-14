@@ -13,8 +13,9 @@ Clause **BI-2** (effort-source identity inspection) is approved. Its configured
 carrier — local configuration format 3 with `EffortDeclaration` — was decided
 on 2026-10-14 (D1–D8 below) and its codec/validation is implemented by
 BLD-001B.1; the BI-2 effort inspector is implemented by BLD-001B.2a; the
-production BindingSource is **not implemented** (BLD-001B.2b), nor is v3
-publication (BLD-001B.3).
+production BindingSource is implemented by BLD-001B.2b
+([implementation record](issue-276-implementation.md#axm-22-bld-001b2b--production-bindingsource));
+v3 authoring/publication is **not implemented** (BLD-001B.3).
 
 This amendment **adds** to the accepted
 [#276 amendment](amendment-276-stage-dispatch.md) A2,
@@ -58,10 +59,10 @@ and grants no authority, consent, Provider or Runtime authorization.
    persisted Runtime/Profile formats, selector cardinality and historical
    Evidence meaning.
 
-Pending consumer: the production `BindingSource` must compute
-`Binding.ModeDigest` from the Target's Variant **and** Process through
-`runtimeadapter.ModeDigest`. Until it exists, production capability reads stay
-blocked (BLD-001B).
+Consumer: the production `BindingSource` computes `Binding.ModeDigest` from
+the Target's Variant **and** Process through `runtimeadapter.ModeDigest`
+(BLD-001B.2b). Production capability reads stay blocked until a v3 local
+configuration can be authored and read in composition (BLD-001B.3).
 
 ## BI-2 — Effort-source identity inspection independent of capability proof
 
@@ -188,9 +189,11 @@ Contract (BLD-001B.1):
 
 Delivery boundaries:
 
-- **BLD-001B.2 (pending):** narrow effort inspector, shared canonical
+- **BLD-001B.2a (implemented):** narrow effort inspector, shared canonical
   `EffortSourceDigest` algorithm with digest-equivalence tests, anchor-root
-  resolution, production BindingSource and AXM-21 Evidence selection.
+  resolution.
+- **BLD-001B.2b (implemented):** production BindingSource and AXM-21 Evidence
+  selection.
 - **BLD-001B.3 (pending):** authorized v3 writing/publication, supported local
   authoring integration, synthetic end-to-end configuration validation.
 - New public CLI flags or v2-to-v3 migration require a separate explicit

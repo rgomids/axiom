@@ -336,3 +336,109 @@ Status: T16/T17 not complete. Remaining: BLD-001B.2b (production
 BindingSource composing Binding/ModelBinding, Process-aware ModeDigest, this
 inspector, the AXM-21 Selector and `capabilityproof.Service`); BLD-001B.3
 (authorized v3 authoring/publication); T34/T44 and remaining AXM-8 work.
+
+## AXM-22 BLD-001B.2b — Production BindingSource
+
+Scope: the production `capabilityproof.BindingSource` of
+[amendment BI-1/BI-2/BI-2a](amendment-276-axm22-binding-identity.md),
+consuming the BLD-001B.2a inspector and the AXM-21 Selector. The interface,
+`Binding`, `ModelBinding`, Evidence, `ModeDigest` and `EffortSourceDigest`
+are unchanged.
+
+Files:
+
+| File | Change |
+|---|---|
+| `internal/runtimeadapter/binding_source.go` | `BindingSource` (implements `capabilityproof.BindingSource`) and `StageContext`; lives in `runtimeadapter` because that package already imports `capabilityproof` |
+| `internal/runtimeadapter/frozen_stage.go` | the explicit-effort argv/environment encoding extracted unchanged into the unexported `withStageEffort`, shared by `BuildFrozenStageInvocation` and the BindingSource |
+| `internal/runtimeadapter/binding_source_test.go` | synthetic identity, drift, selection and Service tests |
+| `internal/runtimeadapter/effort_sources_test.go` | both historical `t.Skip("native symlink unavailable")` calls replaced by `t.Fatalf` with the setup error |
+
+Behaviour — each `Current` observes afresh, in order:
+
+1. **Configuration** through an injected version-aware read
+   (`runtimeprofile.VersionedConfiguration`, i.e. `DecodeVersioned`). Only a
+   valid format 3 proceeds; format 1/2 is `effort_configuration_unproven`
+   (D3). Legacy v2 `Load`/`Publish`/`Save` are untouched and still refuse v3.
+2. **Runtime/Profile**: an enabled Runtime whose ID and adapter equal the
+   Target Runtime, allowlisting the Target Profile, bound to the same Runtime;
+   otherwise `ErrBlocked`. `ProfileDigest` is the existing
+   `runtimeprofile.ProfileDigest`; revision is the configuration revision.
+3. **Executable** via injected `LookPath` and the canonical
+   `ExecutableIdentity`; **version** via an injected observer keyed by that
+   identity (the existing `runtimeVersionObserver` signature). No vendor binary
+   is executed by the BindingSource.
+4. **Pinned Axiom** identity via `ExecutableIdentity(AxiomPath)`.
+5. **Mode**: one effective `StageInvocationRequest` from the Target (Variant →
+   `RepositoryWrite`, `Process`), the observed executable/version, the Profile
+   model and a caller-supplied `StageContext` (workspace, inbox, parent
+   environment; required, never defaulted). `ModeDigest` and `AdapterVersion`
+   are the canonical functions: Claude's Process modes differ, Codex's are
+   identical by construction.
+6. **Effort**: the same request through `BuildStageInvocation` plus
+   `withStageEffort`, then `InspectEffortSources` with the observed
+   Runtime/version/executable, `noninteractive`, caller-supplied trusted roots
+   and the caller's consent. Its refusals propagate unchanged
+   (`effort_configuration_unproven`, `effort_override_conflict`).
+7. Executable and Axiom identities are re-read; replacement during
+   observation is `ErrBlocked`.
+8. **Selection**: AXM-21 `Selector.Select` with the complete Binding and
+   ModelBinding; `Current` carries its unique reference and
+   `ProfileActive=true`. Zero, several or unverifiable records fail closed as
+   `ErrEvidenceMissing`, `ErrEvidenceAmbiguous`, `ErrBlocked`; no precedence,
+   invalidation or write.
+
+No step reads Evidence, `ProfileProof` or a `ResolvedProfile`; Selection runs
+only after the identity is complete. `context.Canceled` and
+`context.DeadlineExceeded` keep their identity at every stage.
+`ConfiguredSource` and `Service` consume it unchanged; with the same
+configuration `ConfiguredSource` recomputes identical Profile fields.
+
+Observed limitation (unchanged PE-05a behaviour): the projection refuses any
+stage argument containing `effort`, so a workspace or inbox path with that
+substring fails closed as `effort_override_conflict`. Test fixtures therefore
+place stage paths under a neutral temporary root.
+
+Composition boundary: `cmd/lingo` still composes `capabilityproof.Service`
+without a Source. The local snapshot reader refuses format 3 (D8), so wiring
+this BindingSource into production commands depends on BLD-001B.3.
+
+Synthetic Evidence (Go 1.26.0, `GOTOOLCHAIN=local GOWORK=off GOFLAGS=`):
+
+- `go test ./internal/runtimeadapter -run TestBindingSource -v` — exit 0;
+  7 tests, 38 subtests. Codex and Claude × read-only/repository-write ×
+  Process false/true return the complete Binding and ModelBinding equal to
+  independent oracles (`ModeDigest`, `AdapterVersion`, `ProfileDigest`, and
+  PE-05a `CheckEffortSources` over `BuildFrozenStageInvocation`) and the unique
+  EvidenceRef; explicit and runtime-default effort. 34 fail-closed cases:
+  missing Runtime/Profile/ProfileID, unknown variant, disabled Runtime,
+  executable unavailable/drift, invalid executable applicability, unsupported,
+  unobserved and declaration-drifted version, Process and variant mismatch,
+  Axiom drift/unavailable, Profile digest/effort drift, revision drift,
+  effort-source drift, override conflict, missing declaration, format 2,
+  unreadable configuration, no consent, group-writable and symlinked roots,
+  missing stage context, adapter and ModeDigest mismatch, missing, multiple
+  and corrupt Evidence, cancellation and deadline during selection. Separate
+  tests prove no Evidence-derived identity, that a `declarationId` spelled as
+  an EvidenceRef proves nothing (`Service.Check` → `capability_unknown`), and
+  `ConfiguredSource`/`Service.Check` compatibility including Process
+  contradiction (`capability_stale`) and a disabled Runtime.
+- `go test ./internal/runtimeadapter -run 'TestBindingSource|TestEffortSources|TestInspectEffortSources|TestTrustedEffortRoot|TestAdapterVersionCanonical|TestModeDigest|TestFrozenStage'`
+  and `go test ./internal/capabilityproof -run 'Process|Selection|TestCheck|TestShow|TestInvalidat|TestRequired|TestEach|TestObserver|TestConfiguredSource'`
+  — exit 0. Both symlink refusal tests
+  (`TestEffortSourcesMalformedAndSymlinkRefusal`,
+  `TestEffortSourcesDropInUnknownAndSymlinkRefusal/symlink`) pass on Linux
+  amd64 with no skip.
+- `go build` (runtimeadapter, capabilityproof, cmd/lingo), `go vet`
+  (runtimeadapter, capabilityproof), `check-go-quality.sh format` and
+  `staticcheck`, `git diff --check` — exit 0. `check-architecture.go` covers
+  only `internal/project`/`internal/projectapp`, which this block does not
+  touch.
+
+No `t.Skip` in added or modified tests. No Runtime executable, probe,
+inference, stage dispatch, T40 or Provider effect ran. Nothing here is
+capability proof.
+
+Status: T16/T17 not complete. Remaining: BLD-001B.3 (authorized v3
+authoring/publication and composition wiring); T34/T44; retry-reset
+authority/fencing; remaining AXM-8 work.

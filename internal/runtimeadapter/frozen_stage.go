@@ -16,12 +16,18 @@ func BuildFrozenStageInvocation(request StageInvocationRequest, frozen runtimepr
 	if err != nil {
 		return executiongraph.Invocation{}, err
 	}
-	if frozen.Effort.Mode == runtimeprofile.EffortExplicit {
-		switch frozen.RuntimeID {
+	return withStageEffort(inv, frozen.Effort)
+}
+
+// withStageEffort is the adapter's single encoding of Model Profile effort
+// intent onto a stage invocation (ADR-0024).
+func withStageEffort(inv executiongraph.Invocation, effort runtimeprofile.Effort) (executiongraph.Invocation, error) {
+	if effort.Mode == runtimeprofile.EffortExplicit {
+		switch inv.RuntimeID {
 		case "codex":
-			inv.Argv = append(inv.Argv, "--config", "model_reasoning_effort="+frozen.Effort.Value)
+			inv.Argv = append(inv.Argv, "--config", "model_reasoning_effort="+effort.Value)
 		case "claude":
-			inv = executiongraph.WithExactEnvironment(inv, append(inv.Env, "CLAUDE_CODE_EFFORT_LEVEL="+frozen.Effort.Value))
+			inv = executiongraph.WithExactEnvironment(inv, append(inv.Env, "CLAUDE_CODE_EFFORT_LEVEL="+effort.Value))
 		default:
 			return executiongraph.Invocation{}, ErrInvalidAdapterConfiguration
 		}
