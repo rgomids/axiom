@@ -146,7 +146,8 @@ func (s RuntimeProfileStore) inspectLocked() (RuntimeProfileSnapshot, error) {
 		return snapshot, err
 	}
 	snapshot.wire = wire
-	if cfg, err := runtimeprofile.Decode(wire); err == nil {
+	cfg, cfgErr := runtimeprofile.Decode(wire)
+	if cfgErr == nil {
 		snapshot.Configuration = cfg
 		snapshot.Revision = cfg.Revision
 		snapshot.State = "active-v1"
@@ -156,6 +157,9 @@ func (s RuntimeProfileStore) inspectLocked() (RuntimeProfileSnapshot, error) {
 	} else if tombstone, err := runtimeprofile.DecodeTombstone(wire); err == nil {
 		snapshot.Revision = tombstone.Revision
 		snapshot.State = "retired"
+	} else if errors.Is(cfgErr, runtimeprofile.ErrUnsupportedConfigurationFormat) {
+		// v2-only reader: a newer format is refused explicitly, never read as v2.
+		return snapshot, fmt.Errorf("%w: %w", ErrUnsafe, cfgErr)
 	} else {
 		return snapshot, ErrUnsafe
 	}
@@ -220,6 +224,9 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 		if tombstone.Revision != prior.Revision+1 || tombstone.PriorConfigurationDigest != digest {
 			return prior, ErrConflict
 		}
+	case errors.Is(cfgErr, runtimeprofile.ErrUnsupportedConfigurationFormat):
+		// Format-3 publication is not authorized (Specification 007 AXM-22 D5).
+		return prior, cfgErr
 	default:
 		return prior, runtimeprofile.ErrInvalidConfiguration
 	}

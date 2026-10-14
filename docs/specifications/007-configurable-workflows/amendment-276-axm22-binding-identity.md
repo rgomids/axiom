@@ -9,8 +9,11 @@ Owner: AXM-22 — Production BindingSource, child of AXM-8
 I276-T16/T17 ([Plan Part II](plan-tasks-276-stage-agent-execution.md#i276-t16--capability-probe-preview-apply-and-execution)).
 
 Clause **BI-1** (Process mode identity) is partially implemented by BLD-001A.
-Clause **BI-2** (effort-source identity inspection) is approved but **not
-implemented**; it belongs to BLD-001B.
+Clause **BI-2** (effort-source identity inspection) is approved. Its configured
+carrier — local configuration format 3 with `EffortDeclaration` — was decided
+on 2026-10-14 (D1–D8 below) and its codec/validation is implemented by
+BLD-001B.1; the effort inspector and production BindingSource are **not
+implemented** (BLD-001B.2), nor is v3 publication (BLD-001B.3).
 
 This amendment **adds** to the accepted
 [#276 amendment](amendment-276-stage-dispatch.md) A2,
@@ -88,9 +91,102 @@ canonical `EffortSourceDigest` for the production BindingSource:
 7. No new Provider or Runtime authorization, consent or persisted Evidence
    change.
 
-**Open schema question (blocks BLD-001B implementation, not this amendment).**
+**Open schema question (historical, as recorded by BLD-001A).**
 Local configuration format 2 (`runtimeprofile.Configuration`, `Runtime`,
 `ModelProfile`) has no field that carries an `EffortDeclaration`. If BLD-001B
 cannot obtain the declaration from an existing configured carrier, the
 persisted location and field names require an explicit maintainer schema
-decision before implementation; this amendment invents none.
+decision before implementation; this amendment invents none. *Resolved by
+BI-2a below.*
+
+## BI-2a — Configuration v3 carrier for EffortDeclaration (BLD-001B.1)
+
+**Approved maintainer decisions, 2026-10-14** (Rafael Gomides, AXM-22
+BLD-001B.1 execution brief). No new ADR (D4); ADR-0024 ownership unchanged.
+
+- **D1.** Local configuration format 3 is the official persisted carrier of
+  `EffortDeclaration`.
+- **D2.** `EffortDeclaration` belongs to Runtime/executable identity. Effort
+  intent remains in `ModelProfile` (ADR-0024).
+- **D3.** Format 2 stays readable with its original semantics. A missing
+  declaration yields `effort_configuration_unproven`. No implicit migration.
+- **D4.** The schema amendment is recorded here; no new ADR.
+- **D5.** Codec and validation only. v3 serialization exists only for
+  deterministic test fixtures; production v3 write/publication, public CLI
+  flags, v2-to-v3 migration and changes to the v1-to-v2 migration are not
+  authorized. D5 is an intermediate delivery, not operational acceptance.
+- **D6.** Source locations use the closed anchors `user`, `project`,
+  `managed` plus a validated relative path. No absolute host path or home
+  directory is persisted. The existing local filesystem trust boundary is
+  preserved; no new permission model.
+- **D7.** `declarationId` is mandatory and maps 1:1 to the existing
+  `runtimeadapter.EffortDeclaration.ProofReference`. It identifies the
+  configured declaration; it is not capability Evidence and never makes an
+  effort capability appear proven.
+- **D8.** Production paths that support format 2 only refuse format 3
+  explicitly until BLD-001B.2/B.3 implement it; no silent downgrade, ignored
+  declaration or reinterpretation as a format-2 record.
+
+Contract (BLD-001B.1):
+
+1. **Ownership and shape.** `runtimeprofile.ConfigurationV3` is the format-2
+   shape with `formatVersion: 3` and an optional
+   `runtimes[].effortDeclarations[]`. The enclosing Runtime supplies the
+   declaration's Runtime identity (no duplicated `runtimeId`). Every format-2
+   Runtime/Profile/Preference rule applies unchanged; `ModelProfile` keeps
+   effort intent and its Profile digest. Omission is the only spelling of "no
+   declaration" (`null`/`[]` refused).
+2. **Declaration fields (all required, closed, no defaults).**
+   `declarationId` (lowercase token ≤ 64 bytes, safe identifier),
+   `declarationVersion` (`1`), `runtimeVersion` and `executableDigest` (the
+   applicable executable identity), `invocationMode` (`noninteractive`),
+   `precedenceEstablished` (must be `true`; the adapter owns the order),
+   `jsonKeys`, `environmentKeys` (safe keys, ≤ 16 each, unique; environment
+   keys case-insensitively) and `sources[]` of {`scope`, `anchor`, `path`,
+   `format`, `directory`}.
+3. **Recognized sources** mirror PE-05a: Codex `user`/`project`/`managed`
+   TOML (`config.toml`, `managed_config.toml`) with no JSON keys; Claude adds
+   `project-local` and a `managed-drop-in` JSON directory, requires at least one
+   JSON key and `CLAUDE_CODE_EFFORT_LEVEL`. Each required scope appears exactly
+   once (two sources in a scope are ambiguous precedence); the anchor must own
+   the scope (`project-local`→`project`, `managed-drop-in`→`managed`).
+4. **Relative paths** are canonical slash-separated paths ≤ 256 bytes over
+   `[A-Za-z0-9._ -]`: no absolute/UNC/drive/URI/`~` form, `\`, `:`, empty,
+   `.` or `..` segment, control/NUL/non-ASCII character, or segment with
+   trailing dot/space. Lexical validity does **not** prove filesystem safety:
+   resolution below an anchor must use the existing trusted boundary
+   (PE-05a), which refuses symlinked or special components.
+5. **Uniqueness and applicability.** `declarationId` is unique within the
+   configuration (keeping the ProofReference mapping 1:1); at most 8
+   declarations per Runtime, one per (`runtimeVersion`, `executableDigest`,
+   `invocationMode`). A declaration applies only to an exact, independently
+   observed Runtime/version/executable/mode; decoding never claims that
+   observation. A vendor version never creates or selects a declaration.
+6. **Codec.** Strict decoding (closed objects, duplicate/case-alias/unknown
+   member refusal, size bound) and canonical encoding (set-like collections
+   ordered; source order carries no precedence). `DecodeVersioned` dispatches
+   1/2 to the unchanged `Decode` and 3 to the v3 decoder; newer formats are
+   `unsupported_configuration_format`.
+7. **Historical preservation.** Format-1/2 bytes, `Digest` and Profile digests
+   are unchanged; history gains no synthetic declaration, is never rewritten,
+   and its effort configuration is unproven.
+8. **Explicit refusal (D8).** `Decode`/`Validate`/`Encode`/`Digest` return
+   `ErrUnsupportedConfigurationFormat` (still an `ErrInvalidConfiguration`)
+   for format ≥ 3; the local snapshot reader, `Load`, `Publish` and legacy
+   `Save` refuse without mutation; inventory keeps `unsupported_newer`;
+   authoring keeps the public `configuration_unavailable` category with an
+   actionable next step. No new public error taxonomy.
+9. **Declaration ≠ proof.** The declaration has no capability status; a
+   `declarationId` equal to a proof reference never satisfies `ProfileProof`.
+10. **Writer boundary (D5).** The only v3 encoder is unexported and used by
+    package tests; no production path can publish format 3.
+
+Delivery boundaries:
+
+- **BLD-001B.2 (pending):** narrow effort inspector, shared canonical
+  `EffortSourceDigest` algorithm with digest-equivalence tests, anchor-root
+  resolution, production BindingSource and AXM-21 Evidence selection.
+- **BLD-001B.3 (pending):** authorized v3 writing/publication, supported local
+  authoring integration, synthetic end-to-end configuration validation.
+- New public CLI flags or v2-to-v3 migration require a separate explicit
+  maintainer decision before implementation.

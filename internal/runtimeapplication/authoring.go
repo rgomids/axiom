@@ -115,6 +115,9 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	}
 	snapshot, err := s.Store.Inspect(ctx)
 	if err != nil {
+		if errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
+			report.Next = "Local configuration format is newer than this authoring path supports; it is preserved unchanged, with no downgrade or migration"
+		}
 		return deny("configuration_unavailable")
 	}
 	report.State, report.Revision = snapshot.State, snapshot.Revision

@@ -207,3 +207,60 @@ T16/T17 are not complete. Remaining (BLD-001B): effort inspector with
 canonical-digest equivalence tests, configured `EffortDeclaration` integration
 (blocked on a schema decision if no existing configured carrier exists — see
 BI-2), production BindingSource and AXM-21 selector composition.
+
+## AXM-22 BLD-001B.1 — Configuration v3 EffortDeclaration codec
+
+Decision: Rafael Gomides approved D1–D8 on 2026-10-14 (AXM-22 BLD-001B.1
+brief), recorded in [amendment BI-2a](amendment-276-axm22-binding-identity.md#bi-2a--configuration-v3-carrier-for-effortdeclaration-bld-001b1).
+This resolves the BLD-001A schema question; it is an intermediate delivery.
+
+Files:
+
+| File | Change |
+|---|---|
+| `internal/runtimeprofile/v3.go` | `ConfigurationV3`, `RuntimeV3`, `EffortDeclaration`, `EffortSourceDeclaration`; `ValidateV3`, `DecodeVersioned`, `ApplicableEffortDeclaration`, `ValidEffortSourcePath`, `ProofReference()`; unexported canonical test-fixture encoder |
+| `internal/runtimeprofile/runtimeprofile.go` | `Validate`/`Decode` refuse format ≥ 3 with `ErrUnsupportedConfigurationFormat`; v1/v2 paths unchanged |
+| `internal/local/runtime_profile_authoring.go` | snapshot reader and `Publish` surface the explicit refusal; no mutation |
+| `internal/runtimeapplication/authoring.go` | actionable `Next` inside the existing `configuration_unavailable` category |
+| `internal/runtimeprofile/testdata/configuration-v3.json` | canonical synthetic v3 fixture |
+| tests | `runtimeprofile/v3_test.go`, `local/runtime_profile_v3_refusal_test.go`, `runtimeapplication/authoring_v3_refusal_test.go`, `runtimeadapter/effort_sources_v3_path_test.go` |
+
+Boundaries held: no production v3 writer (encoder unexported, test use
+only), no CLI flag, no v2-to-v3 migration, v1-to-v2 migration untouched, no
+Binding/ModelBinding/Evidence/digest/`runtimeadapter` production change, no
+new public error category.
+
+Synthetic Evidence (Go 1.26.0, `GOTOOLCHAIN=local GOWORK=off GOFLAGS=`), all exit 0:
+
+- `go test ./internal/runtimeprofile -run 'TestV3|TestV2ClosedCodecAndHistoricalBytes' -v`
+  — golden format-2 bytes (`08a005ea…`) and `Digest` (`8a7f9a6e…`) recorded
+  at 825b88c unchanged; v1/v2 dispatch without synthetic declarations and
+  `effort_configuration_unproven`; canonical v3 round trip, permutation
+  determinism and golden fixture; Profile effort/digest unchanged; 1:1
+  `declarationId`/ProofReference; applicability exact on Runtime, executable,
+  version and mode; vendor version creates nothing; declaration never
+  satisfies `ProfileProof`; 50+ negative declaration/path/wire cases
+  (missing/duplicate id, version, mode, precedence, anchors, absolute/UNC/
+  drive/traversal/URI/control/oversized paths, keys, counts, unknown/
+  duplicate/case-alias fields); `Decode`/`Validate`/`Encode`/`Digest` refuse v3.
+- `go test ./internal/local -run 'TestRuntimeProfileV2OnlyPathsRefuseV3|TestRuntimeProfileInventoryInvalidSupportedV2IsMalformed' -v`
+  — `Publish` (fresh and over v2), snapshot reader, `Load`, legacy `Save`
+  refuse v3; v2 and v3 bytes unchanged; inventory `unsupported_newer`.
+- `go test ./internal/runtimeapplication -run 'TestAuthoringRefusesV3WithoutMigrationOrWrite' -v`
+  — create/list/migrate refused, zero writes.
+- `go test ./internal/runtimeadapter -run 'TestEffortSources' -v` — includes a
+  lexically valid configured path whose component is a symlink escaping the
+  anchor: refused by the existing trusted resolution (no skip; setup failure fails).
+- Regression: `go test ./internal/runtimeprofile`,
+  `go test ./internal/local -run 'RuntimeProfile|RuntimeAuthoring|Runtime.*Recovery'`,
+  `go test ./internal/runtimeapplication -run 'Authoring'`; `go build` (four
+  packages and `./cmd/...`), `go vet` (four packages), `gofmt -l`.
+
+Distinctions: schema accepted ≠ inspector implemented; schema accepted ≠
+operational authoring; declaration present ≠ capability proven. No Runtime
+executable, probe, inference, stage dispatch or Provider effect ran.
+
+Status: T16/T17 not complete. Remaining: BLD-001B.2 (effort inspector,
+canonical `EffortSourceDigest` equivalence, anchor-root resolution,
+production BindingSource, AXM-21 selector composition); BLD-001B.3
+(authorized v3 authoring/publication); T34 and remaining AXM-8 work.
