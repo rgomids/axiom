@@ -1,0 +1,3 @@
+Axiom landing page — Apache-2.0.
+Manrope — SIL Open Font License 1.1 (assets/Manrope-OFL.txt).
+Original Axiom mascot preserved, SHA256: c58970cd0bfda80a8c46e22bfdb0218eba9d75ff4c41b80f4d476b2492cf812f
