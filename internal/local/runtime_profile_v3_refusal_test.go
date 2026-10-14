@@ -46,7 +46,9 @@ func TestRuntimeProfileV2OnlyPathsRefuseV3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.Publish(ctx, active.Token, v3); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
+	// BI-3 admits v2 → v3 only as the exact revision+1 candidate; this fixture
+	// is not, so it is a conflict and nothing is written.
+	if _, err := store.Publish(ctx, active.Token, v3); !errors.Is(err, ErrConflict) {
 		t.Fatalf("v3 publication over v2: %v", err)
 	}
 	path := filepath.Join(store.root, "runtime-profiles", "v1", "configuration.json")

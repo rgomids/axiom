@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"path"
 	"sort"
 	"strings"
@@ -14,8 +15,8 @@ import (
 // Local configuration format 3 (Specification 007 AXM-22 amendment BI-2,
 // D1–D8) adds the Runtime-owned EffortDeclaration. It is a separate type so
 // every format-1/2 consumer keeps reading Configuration and refuses format 3.
-// Only an unexported encoder exists: production v3 publication, authoring and
-// v2-to-v3 migration are not authorized (D5).
+// EncodeV3 is the only v3 writer; production use is limited to the BI-3
+// explicit v2-to-v3 migration and declaration authoring (A1–A4).
 const (
 	FormatVersionV3          = 3
 	EffortDeclarationVersion = 1
@@ -321,10 +322,9 @@ func decodeConfigurationV3(wire []byte) (ConfigurationV3, error) {
 	return c, nil
 }
 
-// encodeConfigurationV3 is the canonical v3 writer for deterministic test
-// fixtures only (D5). It is deliberately unexported: no production path may
-// publish format 3 until BLD-001B.3 is authorized.
-func encodeConfigurationV3(c ConfigurationV3) ([]byte, error) {
+// EncodeV3 is the canonical v3 writer. BI-3 supersedes D5 only for the
+// explicit migration and declaration-authoring publication path.
+func EncodeV3(c ConfigurationV3) ([]byte, error) {
 	n := canonicalV3(c)
 	if err := ValidateV3(n); err != nil {
 		return nil, err
@@ -403,24 +403,122 @@ func closedConfigurationV3(w []byte) bool {
 	profile := func(v []byte) bool {
 		return closedObject(v, []string{"id", "runtimeId", "model", "capabilities", "complexities", "effort"}, map[string]func([]byte) bool{"effort": effort})
 	}
-	list := func(v []byte) bool { return closedArray(v, func([]byte) bool { return true }) }
-	source := func(v []byte) bool {
-		return requiredObject(v, []string{"scope", "anchor", "path", "format", "directory"}, nil)
-	}
-	declaration := func(v []byte) bool {
-		return requiredObject(v, []string{"declarationId", "declarationVersion", "runtimeVersion", "executableDigest", "invocationMode", "precedenceEstablished", "jsonKeys", "environmentKeys", "sources"}, map[string]func([]byte) bool{
-			"jsonKeys": list, "environmentKeys": list, "sources": func(v []byte) bool { return closedArray(v, source) },
-		})
-	}
 	// An explicit empty or null declaration list would be a second spelling of
 	// "no declaration"; only omission is canonical.
 	declarations := func(v []byte) bool {
 		var items []json.RawMessage
-		return json.Unmarshal(v, &items) == nil && len(items) > 0 && closedArray(v, declaration)
+		return json.Unmarshal(v, &items) == nil && len(items) > 0 && closedArray(v, closedEffortDeclaration)
 	}
 	runtime := func(v []byte) bool {
 		return closedObject(v, []string{"id", "adapter", "enabled", "allowlistedProfileIds", "effortDeclarations"}, map[string]func([]byte) bool{"effortDeclarations": declarations})
 	}
 	preference := func(v []byte) bool { return closedObject(v, []string{"role", "complexity", "modelProfileId"}, nil) }
 	return closedObject(w, []string{"formatVersion", "revision", "runtimes", "modelProfiles", "preferences"}, map[string]func([]byte) bool{"runtimes": func(v []byte) bool { return closedArray(v, runtime) }, "modelProfiles": func(v []byte) bool { return closedArray(v, profile) }, "preferences": func(v []byte) bool { return closedArray(v, preference) }})
+}
+
+// closedEffortDeclaration is the strict wire form of one declaration: every
+// member present, no unknown, duplicate or case-alias member (BI-2a item 2).
+func closedEffortDeclaration(v []byte) bool {
+	list := func(v []byte) bool { return closedArray(v, func([]byte) bool { return true }) }
+	source := func(v []byte) bool {
+		return requiredObject(v, []string{"scope", "anchor", "path", "format", "directory"}, nil)
+	}
+	return requiredObject(v, []string{"declarationId", "declarationVersion", "runtimeVersion", "executableDigest", "invocationMode", "precedenceEstablished", "jsonKeys", "environmentKeys", "sources"}, map[string]func([]byte) bool{
+		"jsonKeys": list, "environmentKeys": list, "sources": func(v []byte) bool { return closedArray(v, source) },
+	})
+}
+
+// DecodeEffortDeclaration strictly decodes one authored declaration for the
+// enclosing Runtime runtimeID (BI-3.1). Nothing is defaulted, completed or
+// derived from a vendor version; decoding claims no applicability.
+func DecodeEffortDeclaration(wire []byte, runtimeID string) (EffortDeclaration, error) {
+	if len(wire) == 0 || len(wire) > MaxConfigurationBytes || !uniqueJSON(wire) || !closedEffortDeclaration(wire) {
+		return EffortDeclaration{}, ErrInvalidConfiguration
+	}
+	d := json.NewDecoder(bytes.NewReader(wire))
+	d.DisallowUnknownFields()
+	var declaration EffortDeclaration
+	if d.Decode(&declaration) != nil || d.Decode(&struct{}{}) != io.EOF || !validEffortDeclaration(runtimeID, declaration) {
+		return EffortDeclaration{}, ErrInvalidConfiguration
+	}
+	return cloneDeclaration(declaration), nil
+}
+
+// MigrateV2ToV3 is the BI-3.2 explicit transition: the format-2 source is
+// carried over unchanged with revision+1 and exactly one declaration under
+// runtimeID. Every other Runtime stays without declarations.
+func MigrateV2ToV3(c Configuration, runtimeID string, d EffortDeclaration) (ConfigurationV3, error) {
+	if c.FormatVersion != FormatVersionV2 || Validate(c) != nil || c.Revision == math.MaxUint64 {
+		return ConfigurationV3{}, ErrInvalidConfiguration
+	}
+	source, err := Digest(c)
+	if err != nil {
+		return ConfigurationV3{}, err
+	}
+	next := ConfigurationV3{FormatVersion: FormatVersionV3, Revision: c.Revision + 1, ModelProfiles: append([]ModelProfile(nil), c.ModelProfiles...), Preferences: append([]Preference(nil), c.Preferences...)}
+	found := false
+	for _, r := range c.Runtimes {
+		runtime := RuntimeV3{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: append([]string(nil), r.AllowlistedProfileIDs...)}
+		if r.ID == runtimeID {
+			runtime.EffortDeclarations = []EffortDeclaration{cloneDeclaration(d)}
+			found = true
+		}
+		next.Runtimes = append(next.Runtimes, runtime)
+	}
+	if !found || ValidateV3(next) != nil {
+		return ConfigurationV3{}, ErrInvalidConfiguration
+	}
+	// Every Runtime, Profile, allowlist and Preference must survive unchanged.
+	carried := projectV2(next)
+	carried.Revision = c.Revision
+	if after, err := Digest(carried); err != nil || after != source {
+		return ConfigurationV3{}, ErrInvalidConfiguration
+	}
+	return next, nil
+}
+
+// WithEffortDeclaration adds d to Runtime runtimeID or replaces the declaration
+// with the same declarationId there, with revision+1 (BI-3.1). Another
+// declarationId for the same applicability tuple is ambiguous and refused, as
+// is an identity owned by another Runtime. Removal is not provided.
+func WithEffortDeclaration(c ConfigurationV3, runtimeID string, d EffortDeclaration) (ConfigurationV3, bool, error) {
+	if ValidateV3(c) != nil || c.Revision == math.MaxUint64 {
+		return ConfigurationV3{}, false, ErrInvalidConfiguration
+	}
+	next := c
+	next.Revision = c.Revision + 1
+	next.Runtimes = make([]RuntimeV3, len(c.Runtimes))
+	found, replaced := false, false
+	for i, r := range c.Runtimes {
+		declarations := make([]EffortDeclaration, 0, len(r.EffortDeclarations)+1)
+		for _, existing := range r.EffortDeclarations {
+			sameTuple := existing.RuntimeVersion == d.RuntimeVersion && existing.ExecutableDigest == d.ExecutableDigest && existing.InvocationMode == d.InvocationMode
+			switch {
+			case existing.DeclarationID == d.DeclarationID && r.ID != runtimeID:
+				return ConfigurationV3{}, false, ErrInvalidConfiguration
+			case existing.DeclarationID == d.DeclarationID:
+				replaced = true
+				continue
+			case r.ID == runtimeID && sameTuple:
+				return ConfigurationV3{}, false, ErrInvalidConfiguration
+			}
+			declarations = append(declarations, cloneDeclaration(existing))
+		}
+		if r.ID == runtimeID {
+			declarations = append(declarations, cloneDeclaration(d))
+			found = true
+		}
+		if len(declarations) == 0 {
+			declarations = nil
+		}
+		r.AllowlistedProfileIDs = append([]string(nil), r.AllowlistedProfileIDs...)
+		r.EffortDeclarations = declarations
+		next.Runtimes[i] = r
+	}
+	next.ModelProfiles = append([]ModelProfile(nil), c.ModelProfiles...)
+	next.Preferences = append([]Preference(nil), c.Preferences...)
+	if !found || ValidateV3(next) != nil {
+		return ConfigurationV3{}, false, ErrInvalidConfiguration
+	}
+	return next, replaced, nil
 }

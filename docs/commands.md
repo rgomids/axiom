@@ -204,6 +204,30 @@ Profile. Removing legacy credential references additionally requires
 and its separate exact recovery confirmation; uncertain publication requires
 inspection before any new attempt.
 
+Local format 3 adds Runtime-owned effort-source declarations and is reached
+only explicitly; no read, upgrade or other mutation migrates:
+
+```bash
+axiom runtime binding migrate --runtime codex --target-format 3 \
+  --effort-declaration ./codex-declaration.json
+axiom runtime binding edit --runtime codex \
+  --effort-declaration ./codex-declaration.json
+```
+
+The file holds exactly one complete declaration object for `--runtime` (no
+unknown, duplicate or defaulted field); it must be a regular, non-symlinked
+file and is never stored verbatim. Its `runtimeVersion` and `executableDigest`
+must equal the independently observed Runtime identity, or the command refuses
+with `effort_configuration_unproven`; until a passive Runtime version observer
+is composed (pending), that observation is unavailable and these commands
+refuse without writing. Migration carries every Runtime, Profile
+and Preference unchanged; `edit` on format 3 adds a declaration or replaces the
+one with the same `declarationId`. Both use the same preview and exact
+`--expected-revision`/`--preview-digest`/`--authorize-local` confirmation. A
+declaration is configuration, not capability proof. There is no downgrade to
+format 2, and Axiom versions or commands that only read format 2 refuse format
+3 without changing it.
+
 Workflow migration is a separate `project workflow migrate` operation: map each
 Agent using repeated `--agent-profile <stage>:<agent>:<profile>`, inspect the
 legacy/Profile effort comparison and confirm the new immutable revision.

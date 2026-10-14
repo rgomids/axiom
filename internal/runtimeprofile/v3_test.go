@@ -44,7 +44,7 @@ func testV3() ConfigurationV3 {
 
 func encodeV3(t *testing.T, c ConfigurationV3) []byte {
 	t.Helper()
-	w, err := encodeConfigurationV3(c)
+	w, err := EncodeV3(c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,7 @@ func TestV3StrictDeclarationValidation(t *testing.T) {
 		if ValidateV3(c) == nil {
 			t.Fatal("invalid declaration accepted:", name)
 		}
-		if _, err := encodeConfigurationV3(c); err == nil {
+		if _, err := EncodeV3(c); err == nil {
 			t.Fatal("invalid declaration encoded:", name)
 		}
 	}

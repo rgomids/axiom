@@ -58,6 +58,14 @@ func runtimeAuthoringFlagSet(op action, r *runtimeapplication.AuthoringRequest) 
 		})
 		set.BoolVar(&r.ClearLegacyReferences, "clear-legacy-references", false, "Include explicit removal of unresolved legacy references.")
 	}
+	// Specification 007 BI-3.1: the only v3 authoring flags, on binding
+	// migrate (explicit v2→v3) and binding edit (declaration authoring).
+	if r.Kind == "binding" && r.Operation == "migrate" {
+		set.IntVar(&r.TargetFormat, "target-format", 0, "Explicit local format transition; only `<3>`.")
+	}
+	if r.Kind == "binding" && (r.Operation == "migrate" || r.Operation == "edit") {
+		set.StringVar(&r.EffortDeclaration, "effort-declaration", "", "One EffortDeclaration for --runtime; `<json-file>`.")
+	}
 	if r.Operation != "list" && r.Operation != "show" && r.Operation != "validate" && r.Operation != "validate-candidate" {
 		set.StringVar(&r.ExpectedRevision, "expected-revision", "", "Exact opaque snapshot token from preview; `<digest>`.")
 		set.StringVar(&r.PreviewDigest, "preview-digest", "", "Exact mutation preview digest; `<digest>`.")

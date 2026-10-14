@@ -538,3 +538,137 @@ Status: AXM-22 not complete; T16/T17 not complete. Remaining: BLD-001B.3b
 atomic publication/recovery) and BLD-001B.3c (BindingSource composition in
 `cmd/lingo`, synthetic end-to-end validation, final AXM-22 reconciliation);
 T34/T44 and remaining AXM-8 work.
+
+## AXM-22 BLD-001B.3b — Explicit v2→v3 migration, authoring and atomic publication
+
+Authority: A1–A4 (Rafael Gomides, 2026-10-14 10:27 America/Sao_Paulo) as
+recorded in
+[BI-3](amendment-276-axm22-binding-identity.md#bi-3--explicit-v2v3-migration-and-minimal-effortdeclaration-authoring-bld-001b3).
+Implements BI-3.1–BI-3.3 without changing the contract. No ADR, persisted
+format, Binding/ModelBinding, Evidence schema, ModeDigest or
+EffortSourceDigest change.
+
+Files:
+
+| File | Change |
+|---|---|
+| `internal/runtimeprofile/v3.go` | `EncodeV3` (the former test-only canonical encoder, now exported for BI-3 only); `DecodeEffortDeclaration` (strict closed object, every member required, Runtime rules of the enclosing Runtime); `MigrateV2ToV3` (revision+1, one declaration, v2 projection digest must equal the source `Digest`); `WithEffortDeclaration` (add or same-`declarationId` replace; ambiguous tuple, foreign identity or missing Runtime refused) |
+| `internal/local/runtime_profile_authoring.go` | `InspectVersioned` (zero-write; adds `active-v3`, strictly decoded; v1/v2/tombstone states and tokens unchanged); `Inspect` stays v2-only; `Publish` accepts format 3 only as `active-v2 → v3` or `active-v3 → v3`, canonical bytes, revision+1; v2 or tombstone over v3 refused; post-commit verification v3-aware |
+| `internal/local/effort_declaration_input.go` | `ReadEffortDeclarationInput`: one read, regular file, no symlink component except trusted root-owned aliases, `O_NOFOLLOW`, same-file check, configuration size bound |
+| `internal/runtimeadapter/effort_applicability.go` | `ObserveEffortApplicability`: LookPath, `ExecutableIdentity`, version observer keyed by that identity, executable re-read for drift; nothing executed |
+| `internal/runtimeapplication/authoring.go`, `authoring_declaration.go` | `TargetFormat`/`EffortDeclaration` request fields; declaration branch; shared `confirm` tail (behavior unchanged for existing operations) with revalidation before publication; read-only `v3View` for presentation |
+| `internal/cli/runtime_authoring.go` | `--target-format` (binding migrate) and `--effort-declaration` (binding migrate/edit) only |
+| `cmd/lingo/runtime_authoring.go` | authoring adapter uses `InspectVersioned`; composes the reader and applicability with the existing `runtimeObservationSources().version` seam |
+| `docs/commands.md`, amendment status | public CLI and status reconciliation |
+
+**CLI contract.** `axiom runtime binding migrate --runtime <id> --target-format 3
+--effort-declaration <json-file>` and `axiom runtime binding edit --runtime <id>
+--effort-declaration <json-file>`, with the unchanged `--expected-revision`,
+`--preview-digest`, `--authorize-local`. Other commands, `profile *` and the
+v1→v2 flags keep their flag surface. `--target-format` other than 3, without a
+declaration, or on another command; `--effort-declaration` without `--runtime`,
+with another candidate field or v1 mappings: `invalid_input`.
+
+**State and categories.** Migration requires `active-v2` (`active-v1`:
+`migration_required`; `fresh`, `retired`, `active-v3`:
+`migration_mapping_required`); declaration edit requires `active-v3`
+(otherwise `migration_required`). Unreadable/malformed/oversized/symlinked/
+non-strict input: `invalid_input`; absent, unobserved or mismatched executable
+digest/version: `effort_configuration_unproven`; ambiguous, foreign or
+unconfigured Runtime: `candidate_invalid`; `pending`: `recovery_required`.
+Existing categories reused: `revision_overflow`; `unchanged`/`preview_required`
+for an identical declaration; on `active-v3` every non-declaration mutation is
+the existing `configuration_unavailable` (no downgrade), while `list`/`show`
+project it read-only.
+
+**Preview and confirmation.** Zero writes. The existing envelope binds the
+snapshot token, source revision, source `Digest` (effect line), candidate
+digest, declaration ID and Runtime, observed version, executable digest and
+mode, and projected views. Apply re-inspects, re-reads the file once,
+re-decodes, re-observes, rebuilds and recomputes the envelope; any difference is
+`stale_preview`; the observation is repeated immediately before `Publish` and
+drift there is `stale_preview`. A replaced executable between preview and apply
+no longer matches the declaration and refuses earlier as
+`effort_configuration_unproven`. Neither writes.
+
+**Publication and recovery.** Existing `Publish` protocol: exclusive locks,
+exact prior token and wire, atomic replace, post-commit identity and byte
+verification. An interrupted or unverifiable publication is
+`publication_unconfirmed`, and the following attempt is `recovery_required` (no
+automatic retry). Scoped `recover` is unchanged. After roll-forward (F6) the
+pre-recovery token is refused. After rollback (F3) the exact pre-attempt
+snapshot is restored (same identities and bytes), so a fresh preview is
+identical to the earlier one; no new marker was introduced to distinguish them.
+
+**v2 compatibility.** v2 codec, golden bytes, `Digest`, Profile digests and the
+v1→v2 migration are unchanged. History gains no declaration. `Inspect`, `Load`,
+`Save`, inventory (`unsupported_newer`) and other v2-only consumers keep
+refusing format 3 without mutation.
+
+Synthetic Evidence (Go 1.26.0 linux/amd64, `GOTOOLCHAIN=local GOWORK=off
+GOFLAGS=`, `set -o pipefail`; every run exit 0, no FAIL, no SKIP):
+
+- `go test ./internal/runtimeprofile -run 'TestDecodeEffortDeclarationIsStrict|TestMigrateV2ToV3|TestWithEffortDeclaration' -v`:
+  4 tests (strict input incl. unknown/duplicate/case-alias/missing/oversized/
+  trailing/absolute path/`runtimeId`; preservation, Profile digests, canonical
+  bytes, other Runtimes without declarations, version alone selects nothing;
+  add/replace/ambiguous/foreign/missing Runtime). Historical
+  `-run 'TestV3|TestV2'`: 11 tests; whole package: 28.
+- `go test ./internal/runtimeapplication -run TestDeclaration -v`: 4 tests,
+  29 subtests (preview zero-write and single read, exact apply, revision+1,
+  carried Runtimes/Profiles/Preferences, canonical published bytes equal to
+  the previewed candidate digest, `EffortSupport`/`ModelSupport` remain
+  `unproven`; edit add/replace/unchanged/ambiguous; v2 mutation over v3
+  refused; 20 refusals and 9 drift/authority/interruption cases, all with
+  zero writes). Whole package: 25 tests, 65 subtests.
+- `go test ./internal/local -run 'TestRuntimeProfileV3|TestReadEffortDeclarationInput|TestRuntimeProfileV2OnlyPathsRefuseV3' -v`:
+  5 tests, 6 subtests (v2→v3 and v3→v3 publication with exact bytes; legacy
+  `Inspect`/`Load`/`Save` refusal; skipped revision, non-canonical bytes, v2
+  and tombstone over v3, v1→v3 and retired→v3 refused without mutation; F3/F6
+  fault, pending refusal, scoped recovery; regular/symlink/symlinked ancestor/
+  missing/directory/oversized/FIFO/NUL input). Existing runtime-profile,
+  authoring and recovery suites `-run 'RuntimeProfile|RuntimeAuthoring|RuntimeRecovery'`:
+  17 tests, 25 subtests.
+- `go test ./internal/runtimeadapter -run TestObserveEffortApplicability`: 1
+  test (synthetic executable never run; absent observer, unobserved/unsafe
+  version, absent/relative executable, unsupported Runtime, drift).
+  `-run 'TestBindingSource|TestInspectEffortSources|TestEffortSources'`: 27
+  tests, 74 subtests.
+- `go test ./internal/cli`: 118 tests, 1794 subtests, including
+  `TestRuntimeDeclarationFlagSurface` and the help/skill parser-consistency
+  suites.
+- `go test ./cmd/lingo -run 'TestExecutableDeclarationMigrationFailsClosedWithoutVersionObserver|TestExecutableRuntimeAuthoringRestartAndRetirement' -v`:
+  2 tests, 4 subtests. Through the built binary and real local store, migration
+  refuses as `effort_configuration_unproven`, v2 edit with a declaration as
+  `migration_required`, symlinked or untargeted input as `invalid_input`; v2
+  bytes unchanged, the synthetic executable is never invoked and no host path
+  is reported.
+- `gofmt -l`, `go build ./...`, `go vet` (the six touched packages),
+  `scripts/check-adr-governance.py`, `scripts/check-sensitive-files.sh`,
+  `git diff --check`: exit 0. `go run ./scripts/check-architecture.go
+  domain|application` exits 1 on unchanged `internal/project` and
+  `internal/projectapp` imports (`encoding/hex`, `strconv`), which this block
+  does not touch; it is not fixed here. `gitleaks` is not installed.
+
+No `t.Skip`. Hosts: Linux amd64 only; macOS arm64 and Linux arm64 unverified.
+
+Limits and open risks:
+
+- No production version reader is composed, so in `cmd/lingo` declaration
+  authoring always refuses as `effort_configuration_unproven` until
+  BLD-001B.3c. This is the intended fail-closed behavior: no probe or Runtime
+  execution was added.
+- After a successful migration, the v2-only consumers would refuse the record:
+  Runtime policy resolution reports `configuration_unsafe`, workflow
+  authoring `profile_effort_unconfigured`, and state compatibility (`axiom upgrade`, maintenance
+  inventory) classifies it `unsupported_newer`. BLD-001B.3c, or a separate
+  decision, must make them v3-aware before migration is operationally usable.
+
+Explicitly not done: BindingSource composition in `cmd/lingo`; no operational
+capability proof, probe, inference, stage dispatch, T40 or Provider effect.
+
+Status: AXM-22 not complete; T16/T17 not complete. Remaining: BLD-001B.3c
+(production BindingSource and version observation in `cmd/lingo`
+`productionCapabilityService`, v3-aware Runtime policy/compatibility consumers
+or an explicit decision, synthetic end-to-end validation, final AXM-22
+reconciliation); T34/T44 and remaining AXM-8 work.

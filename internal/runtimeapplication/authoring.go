@@ -19,7 +19,9 @@ type LocalSnapshot struct {
 	State         string
 	Revision      uint64
 	Configuration runtimeprofile.Configuration
-	Token         string
+	// V3 is the strictly decoded record of an active-v3 snapshot.
+	V3    *runtimeprofile.ConfigurationV3
+	Token string
 }
 type AuthoringRecovery interface {
 	Recover(context.Context, AuthoringRequest) (AuthoringReport, error)
@@ -35,8 +37,13 @@ type AuthoringRequest struct {
 	Enabled                                      *bool
 	Cascade, ClearLegacyReferences               bool
 	MigrationEfforts                             map[string]runtimeprofile.Effort
-	ExpectedRevision, PreviewDigest              string
-	AuthorizeLocal                               bool
+	// TargetFormat selects the explicit v2→v3 migration (only 3, BI-3.1).
+	TargetFormat int
+	// EffortDeclaration is the host path of one declaration file; it is read
+	// once per attempt and never persisted or reported.
+	EffortDeclaration               string
+	ExpectedRevision, PreviewDigest string
+	AuthorizeLocal                  bool
 }
 type ProfileView struct {
 	ID        string                `json:"id"`
@@ -73,6 +80,12 @@ type Authoring struct {
 	Installed func(string) bool
 	Impacts   func(context.Context) ([]LocalImpact, string)
 	Passive   func(context.Context) []DetectedRuntime
+	// ReadDeclaration performs the single bounded, non-symlinked read of a
+	// declaration file inside the trusted filesystem boundary.
+	ReadDeclaration func(string) ([]byte, error)
+	// Applicability passively observes the Runtime executable identity and
+	// version a declaration must match; it never probes or proves capability.
+	Applicability func(context.Context, string) (runtimeprofile.EffortApplicability, error)
 }
 type LocalImpact struct {
 	ProjectID string `json:"projectId"`
@@ -85,6 +98,8 @@ type DetectedRuntime struct {
 }
 
 var ErrAuthoring = errors.New("local runtime authoring blocked")
+
+const newerFormatNext = "Local configuration format is newer than this authoring path supports; it is preserved unchanged, with no downgrade or migration"
 
 func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringReport, error) {
 	report := AuthoringReport{ImpactInventory: "incomplete: project references not evaluated", Authentication: "unknown", ModelSupport: "unproven", EffortSupport: "unproven"}
@@ -116,7 +131,7 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	snapshot, err := s.Store.Inspect(ctx)
 	if err != nil {
 		if errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
-			report.Next = "Local configuration format is newer than this authoring path supports; it is preserved unchanged, with no downgrade or migration"
+			report.Next = newerFormatNext
 		}
 		return deny("configuration_unavailable")
 	}
@@ -129,11 +144,21 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	if req.AuthorizeLocal && req.ExpectedRevision != snapshot.Token {
 		return deny("stale_preview")
 	}
+	if req.EffortDeclaration != "" {
+		return s.authorDeclaration(ctx, req, snapshot, report)
+	}
+	if snapshot.State == "active-v3" && snapshot.V3 == nil {
+		return deny("configuration_unavailable")
+	}
 	if req.Operation == "list" || req.Operation == "show" {
 		if req.AuthorizeLocal || req.ExpectedRevision != "" || req.PreviewDigest != "" {
 			return deny("invalid_authority")
 		}
-		projectLocal(&report, snapshot.Configuration, req)
+		view := snapshot.Configuration
+		if snapshot.State == "active-v3" {
+			view = v3View(*snapshot.V3)
+		}
+		projectLocal(&report, view, req)
 		report.Category = "inspected"
 		if snapshot.State == "fresh" || snapshot.State == "retired" {
 			report.Next = "Use axiom-runtime to prepare explicit local configuration"
@@ -142,6 +167,12 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 			report.Next = "Migrate explicitly with effort for every Profile"
 		}
 		return report, nil
+	}
+	// Format 3 is mutated only by declaration authoring; every other mutation
+	// stays v2-only and refuses it, with no downgrade or implicit migration.
+	if snapshot.State == "active-v3" {
+		report.Next = newerFormatNext
+		return deny("configuration_unavailable")
 	}
 	if snapshot.Revision == math.MaxUint64 {
 		return deny("revision_overflow")
@@ -245,6 +276,14 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 	report.Effects = append(effects, candidateEffects(snapshot.Configuration, cfg)...)
 	report.Category = "preview"
 	projectLocal(&report, cfg, req)
+	return s.confirm(ctx, req, snapshot.Token, wire, report, nil)
+}
+
+// confirm binds the preview envelope and publishes only under exact local
+// authority. revalidate, when set, re-observes inputs immediately before the
+// write; any drift is stale_preview and nothing is written.
+func (s Authoring) confirm(ctx context.Context, req AuthoringRequest, token string, wire []byte, report AuthoringReport, revalidate func() bool) (AuthoringReport, error) {
+	deny := func(code string) (AuthoringReport, error) { report.Category = code; return report, ErrAuthoring }
 	report.PreviewDigest = ""
 	envelope, _ := json.Marshal(report)
 	report.PreviewDigest = digest(envelope)
@@ -254,10 +293,13 @@ func (s Authoring) Run(ctx context.Context, req AuthoringRequest) (AuthoringRepo
 		}
 		return report, nil
 	}
-	if req.ExpectedRevision != snapshot.Token || req.PreviewDigest != report.PreviewDigest {
+	if req.ExpectedRevision != token || req.PreviewDigest != report.PreviewDigest {
 		return deny("stale_preview")
 	}
-	actual, err := s.Store.Publish(ctx, snapshot.Token, wire)
+	if revalidate != nil && !revalidate() {
+		return deny("stale_preview")
+	}
+	actual, err := s.Store.Publish(ctx, token, wire)
 	if err != nil {
 		report.Next = "Inspect scoped local recovery before preparing a new preview; publication is unconfirmed"
 		return deny("publication_unconfirmed")
@@ -322,6 +364,9 @@ func safeAuthoring(r AuthoringRequest) bool {
 		if !runtimeprofile.SafeIdentifier(id) || !runtimeprofile.ValidEffort(e) {
 			return false
 		}
+	}
+	if !safeDeclarationRequest(r) {
+		return false
 	}
 	return len(r.Capabilities) <= 32 && len(r.Complexities) <= 32 && len(r.MigrationEfforts) <= 32
 }

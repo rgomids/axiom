@@ -15,10 +15,13 @@ on 2026-10-14 (D1–D8 below) and its codec/validation is implemented by
 BLD-001B.1; the BI-2 effort inspector is implemented by BLD-001B.2a; the
 production BindingSource is implemented by BLD-001B.2b
 ([implementation record](issue-276-implementation.md#axm-22-bld-001b2b--production-bindingsource));
-v3 authoring/publication is **not implemented** (BLD-001B.3). Clause **BI-2b**
-(path-operand reliability) is implemented and clause **BI-3** (explicit v2→v3
-migration and minimal authoring contract, approved 2026-10-14) is specified,
-not implemented, by BLD-001B.3a.
+explicit v2→v3 migration, declaration authoring and v3 publication are
+implemented by BLD-001B.3b
+([implementation record](issue-276-implementation.md#axm-22-bld-001b3b--explicit-v2v3-migration-authoring-and-atomic-publication)).
+Clause **BI-2b** (path-operand reliability) is implemented and clause **BI-3**
+(explicit v2→v3 migration and minimal authoring contract, approved 2026-10-14)
+is specified by BLD-001B.3a and implemented by BLD-001B.3b; composition of the
+production BindingSource in `cmd/lingo` remains BLD-001B.3c.
 
 This amendment **adds** to the accepted
 [#276 amendment](amendment-276-stage-dispatch.md) A2,
@@ -188,7 +191,9 @@ Contract (BLD-001B.1):
 9. **Declaration ≠ proof.** The declaration has no capability status; a
    `declarationId` equal to a proof reference never satisfies `ProfileProof`.
 10. **Writer boundary (D5).** The only v3 encoder is unexported and used by
-    package tests; no production path can publish format 3.
+    package tests; no production path can publish format 3. *(Superseded for
+    the BI-3 path only: BLD-001B.3b exports it as `EncodeV3`, used solely by
+    the explicit migration and declaration authoring.)*
 
 Delivery boundaries:
 
@@ -197,8 +202,10 @@ Delivery boundaries:
   resolution.
 - **BLD-001B.2b (implemented):** production BindingSource and AXM-21 Evidence
   selection.
-- **BLD-001B.3 (pending):** authorized v3 writing/publication, supported local
-  authoring integration, synthetic end-to-end configuration validation.
+- **BLD-001B.3b (implemented):** authorized v3 writing/publication and
+  supported local authoring integration (BI-3).
+- **BLD-001B.3c (pending):** synthetic end-to-end configuration validation and
+  production BindingSource composition.
 - New public CLI flags or v2-to-v3 migration require a separate explicit
   maintainer decision before implementation.
 
@@ -254,7 +261,8 @@ filesystem-safety weakening, no Evidence or digest change, no Runtime probe or
 inference and no Provider effect. No new ADR: the contract stays inside
 ADR-0024 ownership and the accepted local publication protocol.
 
-BLD-001B.3a records this contract only; nothing below is implemented yet.
+BLD-001B.3a recorded this contract; BLD-001B.3b implements BI-3.1–BI-3.3
+without changing it (see the implementation record for exact behavior).
 
 ### BI-3.1 Public interface (reuse, no new subsystem)
 
