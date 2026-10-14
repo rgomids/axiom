@@ -78,9 +78,9 @@ func runtimeImpactEnvironment(t *testing.T) (editEnvironment, lifecycleService, 
 	}
 	return env, service, second.ProjectID
 }
-func runtimeImpactConfiguration() runtimeprofile.Configuration {
-	return runtimeprofile.Configuration{FormatVersion: 2, Revision: 1,
-		Runtimes:      []runtimeprofile.Runtime{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"shared", "survivor"}}},
+func runtimeImpactConfiguration() runtimeprofile.ConfigurationV3 {
+	return runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 1,
+		Runtimes:      []runtimeprofile.RuntimeV3{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"shared", "survivor"}}},
 		ModelProfiles: []runtimeprofile.ModelProfile{{ID: "shared", RuntimeID: "codex", Model: "shared-model", Capabilities: []string{"read"}, Effort: runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}}, {ID: "survivor", RuntimeID: "codex", Model: "survivor-model", Capabilities: []string{"read"}, Effort: runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}}},
 	}
 }
@@ -100,7 +100,7 @@ func TestRuntimeImpactsSharedProjectsPreservedAfterRemoval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wire, err := runtimeprofile.Encode(runtimeImpactConfiguration())
+	wire, err := runtimeprofile.EncodeV3(runtimeImpactConfiguration())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,20 +227,19 @@ func TestRuntimeImpactsCurrentReadinessAndMissingConfigurationRouting(t *testing
 			t.Fatal("missing configuration exposed source path")
 		}
 	}
-	store, err := local.NewRuntimeProfileStore(env.state)
-	if err != nil {
-		t.Fatal(err)
+	// A recognized pre-stable record is refused, never admitted or migrated
+	// (Specification 007 PM-11, B1).
+	current := runtimeImpactConfiguration()
+	legacy := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1, ModelProfiles: append([]runtimeprofile.ModelProfile(nil), current.ModelProfiles...)}
+	for _, r := range current.Runtimes {
+		legacy.Runtimes = append(legacy.Runtimes, runtimeprofile.Runtime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs})
 	}
-	legacy := runtimeImpactConfiguration()
-	legacy.FormatVersion = 1
 	for index := range legacy.ModelProfiles {
 		legacy.ModelProfiles[index].Effort = runtimeprofile.Effort{}
 	}
-	if err := store.Create(ctx, legacy); err != nil {
-		t.Fatal(err)
-	}
+	writeLegacyRuntimeProfile(t, env.state, legacy)
 	before = snapshotTrees(t, env.root, env.state)
-	if code := (runtimeReadiness{service}).Availability(ctx, env.projectID); code != "profile_effort_unconfigured" {
+	if code := (runtimeReadiness{service}).Availability(ctx, env.projectID); code != "unsupported_configuration_format" {
 		t.Fatalf("historical local1 admitted as current readiness: %s", code)
 	}
 	if after := snapshotTrees(t, env.root, env.state); !bytes.Equal(before, after) {

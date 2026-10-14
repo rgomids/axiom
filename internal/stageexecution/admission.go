@@ -32,35 +32,28 @@ const (
 	CapabilityProbe  Operation = "capability.probe"
 )
 
-// Contract contains reader-validated snapshots. Admission never migrates them,
-// resolves another Profile, acquires proof or grants effect authority.
+// Contract contains reader-validated snapshots: the inspected local record
+// state and its canonical versioned configuration. Admission never migrates
+// them, resolves another Profile, acquires proof or grants effect authority.
+// Current Profile availability is derived from ConsumerV3, never supplied.
 type Contract struct {
 	Definition       workflowdefinition.Document
 	Execution        workflow.State
-	Configuration    runtimeprofile.Configuration
 	Graph            *executiongraph.GraphDocument
+	Record           runtimeprofile.RecordStateV3
+	Configuration    runtimeprofile.VersionedConfiguration
 	WorkflowSelected bool
-	ProfileAvailable bool
 	PolicyAllowed    bool
 }
 type Admission struct{ Next string }
 
+// Admit is the Stage admission boundary. Since BLD-001B.3c-2b.3 it is AdmitV3:
+// only canonical format 3 is current configuration. A graph is optional for
+// planning, publication and genuine single stages; any supplied graph has
+// already passed the one canonical versioned codec.
 func Admit(operation Operation, c Contract) (Admission, error) {
-	if admission, done, err := admitExecution(operation, c); done {
-		return admission, err
-	}
-	if c.Configuration.FormatVersion == runtimeprofile.FormatVersion || !c.ProfileAvailable {
-		return Admission{}, ErrProfileEffortUnconfigured
-	}
-	if runtimeprofile.Validate(c.Configuration) != nil || c.Configuration.FormatVersion != runtimeprofile.FormatVersionV2 {
-		return Admission{}, ErrAdmission
-	}
-	if !c.PolicyAllowed {
-		return Admission{}, ErrPolicyUpdateRequired
-	}
-	// A graph is optional for planning, publication and genuine single stages.
-	// Any supplied graph has already passed the one canonical versioned codec.
-	return Admission{}, nil
+	admission, err := AdmitV3(operation, c)
+	return admission.Admission, err
 }
 
 // admitExecution applies the configuration-independent operation, graph,
@@ -108,18 +101,8 @@ func admitExecution(operation Operation, c Contract) (Admission, bool, error) {
 }
 
 // ContractV3 is the format-3 admission input (Specification 007 AXM-22
-// BLD-001B.3c-2b.2). It carries the inspected record state and versioned
-// configuration instead of the format-1/2 Configuration; current Profile
-// availability is derived from ConsumerV3, never supplied.
-type ContractV3 struct {
-	Definition       workflowdefinition.Document
-	Execution        workflow.State
-	Graph            *executiongraph.GraphDocument
-	Record           runtimeprofile.RecordStateV3
-	Configuration    runtimeprofile.VersionedConfiguration
-	WorkflowSelected bool
-	PolicyAllowed    bool
-}
+// BLD-001B.3c-2b.2), now the only Contract.
+type ContractV3 = Contract
 
 // AdmissionV3 reports the current intent of the frozen Profile: identity is
 // DigestV3 and the unchanged ProfileDigest. It is not capability proof.
@@ -132,11 +115,9 @@ type AdmissionV3 struct {
 // graph and historical inspection checks are Admit's own; only the current
 // configuration check reads ConsumerV3. Missing, retired and historical
 // format-1/2 records are profile_effort_unconfigured; an invalid record is
-// invalid_stage_contract. It is not wired to production until coordinated
-// v3-only activation.
+// invalid_stage_contract.
 func AdmitV3(operation Operation, c ContractV3) (AdmissionV3, error) {
-	shared := Contract{Definition: c.Definition, Execution: c.Execution, Graph: c.Graph, WorkflowSelected: c.WorkflowSelected}
-	if admission, done, err := admitExecution(operation, shared); done {
+	if admission, done, err := admitExecution(operation, c); done {
 		return AdmissionV3{Admission: admission}, err
 	}
 	var consumer runtimeprofile.ConsumerV3

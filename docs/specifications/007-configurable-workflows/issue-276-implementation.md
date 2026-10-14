@@ -1201,3 +1201,155 @@ Pending, recorded and not claimed:
 
 Status: canonical v3-only operation is not available; AXM-22 not complete;
 T16/T17 not complete.
+
+## AXM-22 BLD-001B.3c-2b.3 — Coordinated canonical v3-only activation
+
+Starting HEAD `27f683c`. Authoring, every current Runtime/Profile consumer,
+the compatibility inventory and the active dogfood become canonical-v3-only
+together, applying the accepted PM-1/PM-8/PM-9 decisions and maintainer
+decisions A1/B1 of 2026-10-14 15:51 BRT, recorded as amendment clause
+[PM-11](amendment-276-axm22-binding-identity.md#pm3-pre-stable-reconfiguration-and-application-upgrade-classification-bld-001b3c-2b3)
+and in [Specification 004 FR-026](../004-mvp-v1-baseline/spec.md). No new
+command, flag, persisted field, tombstone format, digest algorithm, registry
+format, `ExecutableIdentity` change, production registry entry or ADR. The
+first execution of this block stopped at T1.3 before any change because no
+authorized reconfiguration path existed for multi-Runtime pre-stable records;
+A1/B1 resolved that.
+
+Local lifecycle (`internal/local`, `internal/runtimeapplication`):
+
+- `RuntimeProfileStore.Inspect` is the single zero-write reader: `fresh`,
+  `retired`, `active-v3` (strict `DecodeVersioned`), or a recognized
+  `active-v1`/`active-v2` record exposed only as `Legacy`. `InspectVersioned`,
+  `Create`, `Save`, `Load` and the format-1 writer are removed.
+- `Publish` accepts canonical v3 (revision+1) over fresh, retired or active-v3
+  state and the existing tombstone over active-v3 (`priorConfigurationDigest =
+  DigestV3`) or active-v1/v2 (historical `Digest`); it refuses every format 1/2
+  configuration write and any v3 over a v1/v2 record. Locks, exact token,
+  filesystem identity checks, atomic replace, post-commit verification and
+  F3/F6 recovery are unchanged.
+- `Authoring.Run` edits `ConfigurationV3` directly (create, edit, enable,
+  disable, remove, validate, validate-candidate, list, show, recover);
+  declarations are retained on structural edits; removing one of several
+  Runtimes publishes v3, removing the last publishes the tombstone bound to
+  `DigestV3`; fresh/retired state starts a new explicit record. The
+  `migrate` operation, `MigrationEfforts`, `ClearLegacyReferences`, the CLI
+  `runtime binding|profile migrate` leaves and `--profile-effort` /
+  `--clear-legacy-references` are removed; the `axiom-runtime` skill table and
+  the #230 lifecycle matrix drop them (replaced skill revision recorded in
+  `sharedSkillHistory`).
+- `retireLegacy` (A1): on active-v1/v2 only `binding remove --runtime <id>
+  --cascade` with an existing Runtime retires the entire record; the preview
+  lists the ENTIRE-scope meaning, every Runtime/Profile/Preference and the
+  historical digest; confirmation is the existing exact authority and the
+  store re-checks the token under lock. Every other operation refuses
+  (`unsupported_configuration_format`, `binding_missing`,
+  `compound_removal_required`, `configuration_unavailable` for declarations,
+  `configuration_invalid` for a malformed record).
+
+Consumers:
+
+- Runtime policy (`runtimeapplication.Service`): `Snapshot.Consumer` is a
+  `ConsumerV3`; Preview selects with `EvaluatePolicyV3` (exact selection,
+  `ambiguous_match`, Project constraints, allowlists, Preferences) and then
+  applies the existing observation/proof gates to the selected Profile through
+  the new `ConsumerV3.ObservedChoice`, which reuses the format-2 proof rule
+  (`resolveProfileAt`) bound to `DigestV3`; no second resolver and no v3→v2
+  projection. `Check` re-previews exactly; `Binding.CredentialReference` is
+  always empty. Availability uses `ConsumerV3.ProfileReadiness`.
+  `capabilityproof.ConfiguredSource` reads the consumer. Pre-stable states map
+  to `unsupported_configuration_format`.
+- Workflow authoring: `WorkflowProfilePort` returns a `ConsumerV3`;
+  `migrateWorkflow` checks references through `ValidateWorkflowProfilesV3`;
+  the publication guard rechecks `active-v3` and `DigestV3`.
+- Stage admission: `Contract` carries `Record`/`VersionedConfiguration`
+  (`ContractV3` is an alias) and `Admit` is `AdmitV3`; `stageContract` maps
+  the inspected state; stage dispatch targets read the consumer.
+- Readiness candidates use `ReadinessCandidatesV3`; `runtime profile validate`
+  uses `runtimeProfileValidityV3` (pre-stable records get explicit retirement
+  guidance).
+- Compatibility inventory (B1): v3 and tombstone →
+  `runtime_profile_configuration`; valid v1/v2 →
+  `runtime_profile_prestable_configuration` (upgrade-eligible, reconfiguration
+  guidance in the report); malformed → `malformed`; format >3 →
+  `unsupported_newer`; protocol names → `recovery_state`.
+- `scripts/acceptance/s9-graph-runner.go` (build-ignored acceptance tool)
+  publishes canonical v3 instead of the removed v1 writer.
+
+Remaining format 1/2 readers (narrow, historical): store classification and
+retirement digest, compatibility inventory, the s9 runner's script-local
+graph-planning model, and tests over immutable artifacts/corpora. No
+production v2 consumer or fallback remains.
+
+Fixtures (classified): A (current local state) converted to canonical v3 in
+`internal/local`, `runtimeapplication`, `capabilityproof`, `stageexecution`,
+`graphapplication`, `workflowcompiler`, `projectapp`, `runtimeadapter` and
+`cmd/lingo`; B/C (`internal/compatibility/testdata/stable-v1`,
+`internal/workflowcompiler/testdata/issue306`) preserved byte-for-byte and now
+verified as immutable historical Evidence (`TestIssue306HistoricalCorpusIsImmutableAndReadable`,
+split `TestStableCorpusResolvesToDirectUpgrade`). Format-1-only semantics are
+asserted as v3 fail-closed results: credential references (none in v3) are
+refused before resolution, effort is Profile-owned, machine availability
+never selects between two configured Runtimes (`ambiguous_match`), and the
+production observer without injected proof is `effort_unproven` /
+`authentication_unproven`. Positive lifecycles use the existing explicit
+injected-proof seam (`withInjectedProofs`).
+
+Dogfood (`scripts/dogfood-poc.sh`): authors two Runtimes as canonical v3
+through `runtime binding create` under an isolated PATH of never-executed
+stubs, validates, proves `runtime profile migrate` is gone, asserts
+`ambiguous_match` without `--runtime` and `effort_unproven` for the explicit
+start, and runs the synthetic receipts (`cmd/lingo` lifecycle/authoring
+tests, `internal/runtimeadapter` `TestDogfoodV3Fixture*`). No v1 file, no
+migration and no registry override.
+
+New/changed regression coverage includes `TestRuntimeAuthoringLegacyRetirement`,
+`TestRuntimeAuthoringLifecycle`, `TestRuntimeProfileReaderRecognizesV3AndRefusesFuture`,
+`TestAuthoringLegacyFullRetirement`, `TestAuthoringLegacyMalformedRefusesRetirement`,
+`TestConsumerV3ObservedChoiceAppliesExistingProofGates`,
+`TestRuntimeProfileUpgradeClassification`, `TestStableCorpusResolvesToDirectUpgrade`,
+`TestExecutableDeclarationAuthoringWithoutMigration` (binary: fresh v3,
+declaration refusal, disable/enable, last-Runtime retirement with `DigestV3`,
+recreate, A1 legacy full retirement and fresh v3), `TestProfileV3ProtectedRetirementCompilerGraphRestartChain`.
+
+Validation (Go 1.26.0, `GOTOOLCHAIN=local`, `GOWORK=off`, `GOFLAGS=`,
+`pipefail`, `env -u CLAUDE_CODE_EFFORT_LEVEL`; synthetic only), all exit 0:
+
+- Focused filters (`-v`, tests executed): local store lifecycle/retirement/
+  recovery 45; authoring incl. A1 43; Runtime policy 71; `runtimeprofile` +
+  `capabilityproof` 209; Workflow authoring 21; Stage admission 41;
+  compatibility + stable corpus 14; inventory/writer 37; workflowcompiler
+  chain 3; graphapplication policy 61; `cmd/lingo` readiness/validate/policy
+  38; binary authoring/retirement 1; black-box journeys 6; v3 dogfood
+  fixtures/registry 12; CLI/skills 527.
+- `go test ./... -count=1` and `go test -race ./... -count=1`: exit 0.
+- `scripts/dogfood-poc.sh` (isolated install, HOME, PATH and state; fake
+  `gh`; stubs never executed): exit 0.
+- `go build ./...`, `go vet ./...`, `go vet scripts/acceptance/s9-graph-runner.go`,
+  `scripts/check-go-quality.sh format|tidy|staticcheck` (Staticcheck 0.8.1;
+  first run flagged the now-unused `capture` observer, removed), plus the
+  repository validators recorded in the PR.
+
+Environment note: with `CLAUDE_CODE_EFFORT_LEVEL` exported (a Claude Code
+maintainer shell), `TestClaudeEffortDispatchPreservesLargeInheritedEnvironment`
+refuses the inherited effort override as designed; runs above unset it.
+
+No `t.Skip`. No Runtime executed, probed or asked for its version; no model
+inference, live Stage dispatch or Provider effect. `scripts/test-upgrade-journeys.sh`
+needs published release assets and runs in CI only.
+
+Limitations and pending, recorded and not claimed:
+
+- The embedded Runtime version registry has no production entry and
+  `ExecutableIdentity` binds the resolved installation path; production
+  workflow start therefore fails closed (`effort_unproven`) until
+  BLD-001B.3c-3 composes the production BindingSource and decides registry
+  portability or accepts the limitation.
+- PM-6 authorization epoch (pre-recovery preview-token replay after rollback
+  remains an open defect) — BLD-001B.3c-3.
+- BLD-001B.3c-4: final synthetic end-to-end verification and AXM-22
+  reconciliation.
+
+Status: canonical v3-only local Runtime/Profile configuration is active; real
+Runtime capability readiness is not claimed; AXM-22 not complete; T16/T17 not
+complete.

@@ -11,13 +11,13 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-// Specification 007 AXM-22 BLD-001B.3c-2b.2 prepares the format-3 consumers
-// below. They read runtimeprofile.ConsumerV3 directly, never project onto the
-// format-1/2 Configuration and are not wired to Preview, Check, Availability
-// or readiness until coordinated v3-only activation (BLD-001B.3c-2b.3).
+// Specification 007 AXM-22 BLD-001B.3c-2b.2 prepared the format-3 consumers
+// below and BLD-001B.3c-2b.3 activated them in Preview, Check, Availability
+// and readiness. They read runtimeprofile.ConsumerV3 directly and never
+// project onto the format-1/2 Configuration.
 
 // ConsumerFromRecordV3 classifies one inspected local record state (as
-// local.RuntimeProfileStore.InspectVersioned reports it) through RecordStateV3.
+// local.RuntimeProfileStore.Inspect reports it) through RecordStateV3.
 // Only an active, valid format-3 record yields a consumer; every other state
 // returns the established blocker code and is never a default.
 func ConsumerFromRecordV3(state string, cfg *runtimeprofile.ConfigurationV3) (runtimeprofile.ConsumerV3, string) {
@@ -29,10 +29,8 @@ func ConsumerFromRecordV3(state string, cfg *runtimeprofile.ConfigurationV3) (ru
 		record = runtimeprofile.RecordRetiredV3
 	case "active-v3":
 		record = runtimeprofile.RecordActiveV3
-	case "active-v1", "active-v2":
+	case "active-v1", "active-v2", "pending", "unsafe":
 		// Historical formats are refused, never upgraded or reinterpreted.
-		return runtimeprofile.ConsumerV3{}, "unsupported_configuration_format"
-	case "pending", "unsafe":
 		return runtimeprofile.ConsumerV3{}, localStateCategory(LocalStateError{State: state})
 	default:
 		return runtimeprofile.ConsumerV3{}, "configuration_unsafe"

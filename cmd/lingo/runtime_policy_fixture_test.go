@@ -13,7 +13,6 @@ import (
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -131,14 +130,7 @@ func installTestRuntimePolicy(t *testing.T, stateRoot, id, runtimeID string) []s
 	if err := os.WriteFile(recordPath, wire, 0600); err != nil {
 		t.Fatal(err)
 	}
-	store, err := local.NewRuntimeProfileStore(stateRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1, Runtimes: []runtimeprofile.Runtime{{ID: runtimeID, Adapter: runtimeID, Enabled: true, AllowlistedProfileIDs: []string{"worker"}, CredentialReference: "private-test-reference"}}, ModelProfiles: []runtimeprofile.ModelProfile{{ID: "worker", RuntimeID: runtimeID, Model: "approved-model", Capabilities: []string{runtimeadapter.IntegrationCapability}, Complexities: []string{"high"}}}}
-	if err := store.Create(context.Background(), cfg); err != nil {
-		t.Fatal(err)
-	}
+	publishRuntimeProfileV3(t, stateRoot, singleRuntimeV3(runtimeID, "worker", "approved-model", []string{runtimeadapter.IntegrationCapability}, []string{"high"}))
 	// Observations are never supplied: Lingo reads the executable and the
 	// Axiom skill integration that the caller's environment exposes.
 	return []string{"--role", "implementation", "--complexity", "high", "--capabilities", runtimeadapter.IntegrationCapability}

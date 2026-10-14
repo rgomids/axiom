@@ -962,6 +962,21 @@ MUST NOT claim authorship over the transported content.
   window statement above for the local Runtime/Profile configuration only; it
   does not change the compatibility of any other persisted family, including
   Execution, graph, Workflow and Provider records.
+  Per the prospective 2026-10-14 15:51 BRT maintainer decisions A1/B1
+  (Specification 007 AXM-22 clause PM-11), application upgrade eligibility and
+  Runtime/Profile operational admission are separate: a valid recognized
+  pre-stable local Runtime/Profile record is inventoried as historical
+  pre-stable configuration, passes the application upgrade gate (`direct` when
+  every other condition holds) with its bytes preserved and explicit
+  reconfiguration guidance, and is refused by every current v3-only
+  Runtime/Profile consumer. Explicit reconfiguration is the existing
+  `axiom runtime binding remove --runtime <id> --cascade`, which on such a
+  record retires the entire configuration under exact preview authority
+  through the existing tombstone bound to the historical configuration digest,
+  followed by a separately authorized fresh v3 configuration. Malformed,
+  future-format and interrupted local Runtime/Profile state keep their strict
+  refusals; no direct v1/v2→v3 upgrade, migration or automatic conversion is
+  promised.
 - **FR-027 Migration preview:** any mutating migration MUST validate source state,
   show source/target versions and affected roots, identify backup/rollback behavior,
   require exact authority, and revalidate the result.

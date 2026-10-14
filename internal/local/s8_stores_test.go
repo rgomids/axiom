@@ -15,35 +15,36 @@ import (
 )
 
 func TestRuntimeProfileStorePreservesRevisionAndCompletePriorGeneration(t *testing.T) {
+	ctx := context.Background()
 	root := filepath.Join(t.TempDir(), "state")
 	store, err := NewRuntimeProfileStore(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	first := runtimeConfiguration(1)
-	if err := store.Create(context.Background(), first); err != nil {
+	fresh, _ := store.Inspect(ctx)
+	first, err := store.Publish(ctx, fresh.Token, authoringWire(t, 1))
+	if err != nil {
 		t.Fatal(err)
 	}
-	second := runtimeConfiguration(2)
 	store.hooks.fault = func(stage FaultStage) error {
 		if stage == FaultF2 {
 			return ErrSimulatedInterruption
 		}
 		return nil
 	}
-	if err := store.Save(context.Background(), second); err == nil {
+	if _, err := store.Publish(ctx, first.Token, authoringWire(t, 2)); err == nil {
 		t.Fatal("faulted update succeeded")
 	}
 	store.hooks = publicationHooks{}
-	if _, err := store.Load(context.Background()); !errors.Is(err, ErrRecoveryRequired) {
+	if _, err := store.Inspect(ctx); !errors.Is(err, ErrRecoveryRequired) {
 		t.Fatalf("interrupted reader err=%v", err)
 	}
 	wire, err := os.ReadFile(filepath.Join(root, "runtime-profiles", "v1", "configuration.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	loaded, err := runtimeprofile.Decode(wire)
-	if err != nil || loaded.Revision != 1 {
+	loaded, err := runtimeprofile.DecodeVersioned(wire)
+	if err != nil || loaded.V3 == nil || loaded.V3.Revision != 1 {
 		t.Fatalf("canonical=%+v err=%v", loaded, err)
 	}
 	root = filepath.Join(t.TempDir(), "state")
@@ -51,11 +52,12 @@ func TestRuntimeProfileStorePreservesRevisionAndCompletePriorGeneration(t *testi
 	if err != nil {
 		t.Fatalf("fresh store err=%v", err)
 	}
-	if err = store.Create(context.Background(), first); err != nil {
+	fresh, _ = store.Inspect(ctx)
+	first, err = store.Publish(ctx, fresh.Token, authoringWire(t, 1))
+	if err != nil {
 		t.Fatalf("fresh create err=%v", err)
 	}
-	second.Revision = 3
-	if err := store.Save(context.Background(), second); !errors.Is(err, ErrConflict) {
+	if _, err := store.Publish(ctx, first.Token, authoringWire(t, 3)); !errors.Is(err, ErrConflict) {
 		t.Fatalf("stale revision err=%v", err)
 	}
 }

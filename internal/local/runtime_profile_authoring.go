@@ -16,10 +16,14 @@ import (
 // RuntimeProfileSnapshot is an internal authoring input. Configuration must
 // never be serialized directly into a public diagnostic; Token is opaque.
 type RuntimeProfileSnapshot struct {
-	State         string
-	Revision      uint64
-	Configuration runtimeprofile.Configuration
-	// V3 is set only by InspectVersioned for an active-v3 record.
+	State    string
+	Revision uint64
+	// Legacy is the strictly decoded pre-stable format-1/2 record of an
+	// active-v1/active-v2 snapshot. It is read only to refuse it and to bind its
+	// explicit retirement (Specification 007 PM-11); it is never a current
+	// Runtime/Profile configuration.
+	Legacy runtimeprofile.Configuration
+	// V3 is the strictly decoded canonical record of an active-v3 snapshot.
 	V3    *runtimeprofile.ConfigurationV3
 	Token string
 	wire  []byte
@@ -109,9 +113,10 @@ func closeRootChain(chain []*os.Root) {
 	}
 }
 
-// inspectLocked classifies the canonical object. Only a versioned inspection
-// reads format 3 (active-v3); the v2-only reader keeps refusing it (D8).
-func (s RuntimeProfileStore) inspectLocked(versioned bool) (RuntimeProfileSnapshot, error) {
+// inspectLocked classifies the canonical object: fresh, retired, active-v3, or
+// a recognized pre-stable active-v1/active-v2 record (PM-11), which only
+// explicit retirement may replace.
+func (s RuntimeProfileStore) inspectLocked() (RuntimeProfileSnapshot, error) {
 	snapshot := RuntimeProfileSnapshot{State: "unsafe"}
 	facts, err := s.runtimeProfileFacts()
 	if err != nil {
@@ -152,7 +157,7 @@ func (s RuntimeProfileStore) inspectLocked(versioned bool) (RuntimeProfileSnapsh
 	snapshot.wire = wire
 	cfg, cfgErr := runtimeprofile.Decode(wire)
 	if cfgErr == nil {
-		snapshot.Configuration = cfg
+		snapshot.Legacy = cfg
 		snapshot.Revision = cfg.Revision
 		snapshot.State = "active-v1"
 		if cfg.FormatVersion == runtimeprofile.FormatVersionV2 {
@@ -164,7 +169,7 @@ func (s RuntimeProfileStore) inspectLocked(versioned bool) (RuntimeProfileSnapsh
 	} else if errors.Is(cfgErr, runtimeprofile.ErrUnsupportedConfigurationFormat) {
 		// Format 3 is strictly decoded by its own codec, never read as v2.
 		v, err := runtimeprofile.DecodeVersioned(wire)
-		if !versioned || err != nil || v.FormatVersion != runtimeprofile.FormatVersionV3 || v.V3 == nil {
+		if err != nil || v.FormatVersion != runtimeprofile.FormatVersionV3 || v.V3 == nil {
 			return snapshot, fmt.Errorf("%w: %w", ErrUnsafe, runtimeprofile.ErrUnsupportedConfigurationFormat)
 		}
 		snapshot.V3 = v.V3
@@ -181,20 +186,10 @@ func (s RuntimeProfileStore) inspectLocked(versioned bool) (RuntimeProfileSnapsh
 	return snapshot, nil
 }
 
-// Inspect is zero-write: shared locks use existing directory descriptors. It
-// is the v2-only reader and refuses format 3 (D8).
+// Inspect is the zero-write reader: shared locks use existing directory
+// descriptors. It never migrates, and v1/v2/tombstone classifications and
+// tokens are unchanged.
 func (s RuntimeProfileStore) Inspect(ctx context.Context) (RuntimeProfileSnapshot, error) {
-	return s.inspect(ctx, false)
-}
-
-// InspectVersioned is the zero-write format-3-aware reader (BI-3.2 item 10):
-// it additionally reports a strictly decoded active-v3 record. It never
-// migrates, and v1/v2/tombstone classifications and tokens are unchanged.
-func (s RuntimeProfileStore) InspectVersioned(ctx context.Context) (RuntimeProfileSnapshot, error) {
-	return s.inspect(ctx, true)
-}
-
-func (s RuntimeProfileStore) inspect(ctx context.Context, versioned bool) (RuntimeProfileSnapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return RuntimeProfileSnapshot{}, err
 	}
@@ -208,16 +203,17 @@ func (s RuntimeProfileStore) inspect(ctx context.Context, versioned bool) (Runti
 		return RuntimeProfileSnapshot{}, err
 	}
 	defer closeFiles(locks)
-	return s.inspectLocked(versioned)
+	return s.inspectLocked()
 }
 
 // Publish consumes an exact reviewed snapshot. Format 3 (Specification 007
 // PM-1) is accepted over fresh, retired or active-v3 state, in canonical bytes
 // with revision+1, and never over a format 1/2 record, so nothing is migrated
-// or converted by overwrite. The format-2 and tombstone branches are retained
-// only for operational continuity until BLD-001B.3c-2 switches authoring and
-// consumers to v3 together (PM-3). It never down-converts v3, deletes the
-// history, or retries a conflict.
+// or converted by overwrite. The existing tombstone retires an active record
+// with revision+1: priorConfigurationDigest is DigestV3 of an active-v3 record
+// (PM-9) and the historical Digest of a pre-stable active-v1/v2 record (PM-11).
+// No format 1/2 configuration is ever written. It never down-converts v3,
+// deletes the history, or retries a conflict.
 func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, next []byte) (RuntimeProfileSnapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return RuntimeProfileSnapshot{}, err
@@ -232,23 +228,19 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 		return RuntimeProfileSnapshot{}, err
 	}
 	defer closeFiles(locks)
-	prior, err := s.inspectLocked(true)
+	prior, err := s.inspectLocked()
 	if err != nil {
 		return prior, err
 	}
 	if expectedToken == "" || prior.Token != expectedToken || prior.Revision == math.MaxUint64 {
 		return prior, ErrConflict
 	}
-	cfg, cfgErr := runtimeprofile.Decode(next)
+	_, cfgErr := runtimeprofile.Decode(next)
 	tombstone, tombErr := runtimeprofile.DecodeTombstone(next)
 	switch {
-	case prior.State == "active-v3" && (cfgErr == nil || tombErr == nil):
-		// No v3 → v2 downgrade and no retirement of a v3 record.
+	case cfgErr == nil:
+		// No format 1/2 write: no v3 → v2 downgrade and no legacy authoring.
 		return prior, runtimeprofile.ErrUnsupportedConfigurationFormat
-	case cfgErr == nil && cfg.FormatVersion == runtimeprofile.FormatVersionV2:
-		if cfg.Revision != prior.Revision+1 {
-			return prior, ErrConflict
-		}
 	case errors.Is(cfgErr, runtimeprofile.ErrUnsupportedConfigurationFormat):
 		v, err := runtimeprofile.DecodeVersioned(next)
 		if err != nil || v.FormatVersion != runtimeprofile.FormatVersionV3 || v.V3 == nil {
@@ -261,9 +253,14 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 		if canonical, err := runtimeprofile.EncodeV3(*v.V3); err != nil || !bytes.Equal(canonical, next) || v.V3.Revision != prior.Revision+1 {
 			return prior, ErrConflict
 		}
+	case tombErr == nil && prior.State == "active-v3" && prior.V3 != nil:
+		digest, err := runtimeprofile.DigestV3(*prior.V3)
+		if err != nil || tombstone.Revision != prior.Revision+1 || tombstone.PriorConfigurationDigest != digest {
+			return prior, ErrConflict
+		}
 	case tombErr == nil && (prior.State == "active-v1" || prior.State == "active-v2"):
-		digest, _ := runtimeprofile.Digest(prior.Configuration)
-		if tombstone.Revision != prior.Revision+1 || tombstone.PriorConfigurationDigest != digest {
+		digest, err := runtimeprofile.Digest(prior.Legacy)
+		if err != nil || tombstone.Revision != prior.Revision+1 || tombstone.PriorConfigurationDigest != digest {
 			return prior, ErrConflict
 		}
 	default:
@@ -348,7 +345,7 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 	if err != nil {
 		return prior, err
 	}
-	observed, err := s.inspectLocked(true)
+	observed, err := s.inspectLocked()
 	visibleFacts, factsErr := s.runtimeProfileFacts()
 	visibleIdentity, identityErr := FileIdentity(filepath.Join(s.root, "runtime-profiles", "v1", runtimeProfileObject))
 	if err != nil || factsErr != nil || identityErr != nil || committedIdentity == "" || visibleIdentity != committedIdentity || !strings.HasPrefix(visibleFacts, ancestorFacts) || !bytes.Equal(observed.wire, next) {

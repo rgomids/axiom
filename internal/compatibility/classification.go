@@ -221,6 +221,13 @@ func (o observation) report() Report {
 		report.Classification, report.Reason = AbsentV1, "no_owned_state"
 		report.Next = []string{"Run `axiom runtime codex install`, then `axiom project configure` explicitly"}
 	}
+	// A recognized pre-stable Runtime/Profile record passes the application
+	// upgrade gate but is not current configuration (Specification 007 PM-11,
+	// B1): its bytes are preserved and it is refused by every Runtime/Profile
+	// consumer until it is explicitly retired and canonical v3 is created.
+	if counts[local.InventoryRuntimeProfilePreStable] > 0 && (report.Classification == ValidV1 || report.Classification == RecognizedPOC) {
+		report.Next = append(report.Next, "Local Runtime/Profile configuration is pre-stable and is not used: retire it explicitly with `axiom runtime binding remove --runtime <id> --cascade`, then create canonical configuration; nothing is migrated")
+	}
 	if skillState == codexruntime.SkillSetUpgradable && (report.Classification == ValidV1 || report.Classification == RecognizedPOC) {
 		report.Next = append(report.Next, "Run `axiom runtime codex install` to replace the known older owned Codex skill set")
 	}

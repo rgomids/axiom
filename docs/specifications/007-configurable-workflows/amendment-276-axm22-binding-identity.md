@@ -39,6 +39,15 @@ existing installations reconfigure explicitly (PM-8); the canonical v3
 identity is `DigestV3` (PM-9); BLD-001B.3c-2 is divided into 3c-2a/2b/2c
 (PM-10).
 
+**Pre-stable reconfiguration and application upgrade classification,
+2026-10-14 15:51 BRT** (clause
+[PM.3](#pm3-pre-stable-reconfiguration-and-application-upgrade-classification-bld-001b3c-2b3)):
+a pre-stable record is reconfigured only by its explicit full retirement and
+fresh v3 setup, and application upgrade is separated from Runtime/Profile
+operational admission (PM-11). Canonical v3-only activation is delivered by
+BLD-001B.3c-2b.3
+([implementation record](issue-276-implementation.md#axm-22-bld-001b3c-2b3--coordinated-canonical-v3-only-activation)).
+
 This amendment **adds** to the accepted
 [#276 amendment](amendment-276-stage-dispatch.md) A2,
 [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md) and
@@ -503,8 +512,8 @@ conflicting with an accepted invariant.
   a v1/v2 record. *Delivered; v3-only activation not claimed.*
 - **BLD-001B.3c-2:** v3 consumers, v3-only authoring and the passive Runtime
   registry; removal of the remaining v2 authoring, v1→v2 migration and v2
-  store paths. *Pending.* Divided on 2026-10-14 (PM-10) into 3c-2a, 3c-2b and
-  3c-2c.
+  store paths. Divided on 2026-10-14 (PM-10) into 3c-2a, 3c-2b and 3c-2c.
+  *Delivered by 3c-2a, 3c-2b.1–3 and 3c-2c.1 (PM.3).*
 - **BLD-001B.3c-3:** persistent authorization epoch and `cmd/lingo`
   BindingSource composition. *Pending.*
 - **BLD-001B.3c-4:** synthetic end-to-end validation and final AXM-22
@@ -558,7 +567,8 @@ Evidence and acceptance receipts stay as history and are not rewritten.
     *Delivered by this block; consumers unchanged.*
   - **BLD-001B.3c-2b:** coordinated canonical v3 activation — authoring,
     consumers, admission, readiness, `profile validate`, Runtime retirement and
-    the v3 compatibility/upgrade inventory. *Pending.*
+    the v3 compatibility/upgrade inventory. *Delivered by BLD-001B.3c-2b.3
+    with PM-11 (PM.3).*
   - **BLD-001B.3c-2c:** passive `RuntimeVersionObserver`, versioned repository
     registry, synthetic v3 dogfood and remaining relevant fixture conversion.
     *BLD-001B.3c-2c.1 delivered the passive embedded registry (PM-5a) and
@@ -583,3 +593,92 @@ snapshot is removed.
 No new ADR: PM-8 is recorded as a dated ADR-0024 Status note, the repository
 precedent for a human decision without a superseding ADR (ADR-0010, ADR-0015,
 ADR-0019, ADR-0021), and changes no accepted invariant of PM-7.
+
+### PM.3 Pre-stable reconfiguration and application upgrade classification (BLD-001B.3c-2b.3)
+
+**Accepted maintainer decisions A1 and B1, 2026-10-14 15:51 BRT** (Rafael
+Gomides, AXM-22 BLD-001B.3c-2b.3 continuation brief). Prospective: PM-1–PM-10,
+earlier clauses, Evidence and acceptance receipts stay as history and are not
+rewritten.
+
+- **PM-11. Pre-stable reconfiguration and application upgrade
+  classification.**
+  - **PM-11a. Explicit full retirement of a pre-stable record (A1).** A valid
+    active local configuration of format 1 or 2 is reconfigured only by the
+    existing command `axiom runtime binding remove --runtime <id> --cascade`.
+    On such a record that operation retires the ENTIRE local Runtime/Profile
+    configuration, not only the named Runtime; the named Runtime must exist in
+    the strictly validated record, and `--cascade` is required. The zero-write
+    preview states that meaning and lists every retired Runtime (with its
+    enablement and allowlist), every Profile and every Preference, the
+    historical configuration digest and that nothing is created or migrated.
+    Preview authority binds the exact prior state, revision, canonical source
+    identity (the snapshot token over the exact bytes and filesystem facts),
+    candidate digest and complete effects; it is confirmed only with the
+    existing `--expected-revision`, `--preview-digest` and
+    `--authorize-local`, and the source is re-inspected under the exclusive
+    lock before publication. Publication writes the existing tombstone
+    (`runtime-profile-tombstone`, format 1, revision+1) whose
+    `priorConfigurationDigest` is the historical `runtimeprofile.Digest` of the
+    exact prior record, through the existing atomic publication and F3/F6
+    recovery; historical Digest semantics and the tombstone format are
+    unchanged. No EffortDeclaration is synthesized and no legacy Profile is
+    transformed. After retirement a fresh canonical v3 configuration is
+    created only by separately authorized operations (`runtime binding
+    create`); retirement never creates v3 and never resurrects legacy state.
+    Every other operation on a pre-stable record (create, edit, enable,
+    disable, Profile removal, candidate validation, declaration authoring) is
+    refused (`unsupported_configuration_format`, or
+    `configuration_unavailable` for a declaration) without writing. There is
+    no new command or flag, no partial v1/v2 mutation, no direct v1/v2 → v3
+    overwrite (the store still refuses it), no migration and no automatic
+    conversion. `axiom compatibility backup` may keep a copy of the source
+    under its existing contract; it is not authorization, tombstone, atomicity
+    or recovery.
+  - **PM-11b. Canonical v3 retirement.** On an active canonical v3 record,
+    removing one of several Runtimes publishes a new validated v3 revision
+    (dangling allowlists and Preferences are refused or removed with the
+    Profile, as before); removing the final Runtime publishes the same
+    existing tombstone with `priorConfigurationDigest = DigestV3` of the exact
+    prior record (PM-9). No empty v3 configuration exists and no v2 tombstone
+    path remains; preview, authority and recovery requirements are unchanged.
+  - **PM-11c. Application upgrade separated from operational admission
+    (B1).** The state inventory classifies the local Runtime/Profile object as:
+    valid active v3 → `runtime_profile_configuration` (supported current
+    configuration); valid tombstone → `runtime_profile_configuration`
+    (recognized explicit retired state, not an active configuration); valid
+    recognized format 1/2 → `runtime_profile_prestable_configuration`
+    (historical pre-stable configuration, eligible for the application upgrade
+    gate, NOT current configuration); malformed or ambiguous format 1/2 or 3 →
+    `malformed`; a future format → `unsupported_newer`, never reinterpreted as
+    v3; pending publication or recovery state → `recovery_state`. A valid
+    pre-stable record therefore lets the existing upgrade journey proceed
+    (`direct`/`compatible` when every other condition holds) with its bytes
+    preserved, no migration, no silent retirement and no automatic v3
+    initialization, and the compatibility report adds explicit reconfiguration
+    guidance. Runtime policy, Workflow authoring, Stage admission, readiness
+    and `runtime profile validate` read only canonical v3 and refuse a
+    pre-stable record until it is retired and v3 is created. No direct
+    Runtime/Profile upgrade from v1/v2 to v3 is promised; this narrow
+    historical recognition is not backward-compatible Runtime/Profile execution
+    support. Malformed, unsafe, future and recovery states keep their strict
+    refusals.
+  - **PM-11d. Historical corpus.** `internal/compatibility/testdata/stable-v1`
+    stays byte-for-byte intact. `TestStableCorpusResolvesToDirectUpgrade` keeps
+    iterating every snapshot with unchanged labels and its kind coverage; its
+    expectation is split (owed by PM.2): every snapshot still upgrades
+    `direct`/`compatible`, each frozen Runtime/Profile record is the pre-stable
+    kind with reconfiguration guidance, and the frozen corpus covers the
+    Runtime/Profile family through that historical kind while the canonical v3
+    kind stays writer-tested until the first stable release freezes it.
+    Execution, graph, Workflow and Provider compatibility contracts are
+    unchanged, and no historical record is bound to current v3 Profile intent.
+  - **Remaining narrow historical readers.** Format 1/2 decoding remains only
+    in the store classification (to refuse and to bind retirement), the
+    retirement digest, the compatibility inventory and immutable-artifact or
+    corpus tests; the s9 acceptance runner keeps a script-local format-1
+    capability model for graph planning while publishing canonical v3.
+
+No new ADR: PM-11 applies the accepted PM-8 pre-stable decision and the existing
+tombstone/authority/recovery contracts without new public authority, persisted
+fields or formats, and changes no accepted invariant of PM-7.

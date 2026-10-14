@@ -233,6 +233,25 @@ func configuration(s spec) runtimeprofile.Configuration {
 	return cfg
 }
 
+// configurationV3 is the canonical local record published for the journey
+// (Specification 007 PM-1/PM-11): explicit runtime-default effort, no effort
+// declaration and no capability claim. The graph planner keeps resolving over
+// the script-local format-1 capability model built by configuration.
+func configurationV3(s spec) runtimeprofile.ConfigurationV3 {
+	legacy := configuration(s)
+	cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 1, Preferences: legacy.Preferences}
+	for _, profile := range legacy.ModelProfiles {
+		profile.Effort = runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}
+		cfg.ModelProfiles = append(cfg.ModelProfiles, profile)
+	}
+	for _, runtime := range legacy.Runtimes {
+		if len(runtime.AllowlistedProfileIDs) != 0 {
+			cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.RuntimeV3{ID: runtime.ID, Adapter: runtime.Adapter, Enabled: runtime.Enabled, AllowlistedProfileIDs: runtime.AllowlistedProfileIDs})
+		}
+	}
+	return cfg
+}
+
 type capabilities struct {
 	cfg      runtimeprofile.Configuration
 	resolver runtimeprofile.Resolver
@@ -271,11 +290,17 @@ func prepare(s spec, specDigest, projectID string) {
 	cfg := configuration(s)
 	profileStore, err := local.NewRuntimeProfileStore(s.StateRoot)
 	must(err)
-	if _, loadErr := profileStore.Load(ctx); loadErr != nil {
-		must(profileStore.Create(ctx, cfg))
-	}
-	cfg, err = profileStore.Load(ctx)
+	snapshot, err := profileStore.Inspect(ctx)
 	must(err)
+	if snapshot.State == "fresh" {
+		wire, encodeErr := runtimeprofile.EncodeV3(configurationV3(s))
+		must(encodeErr)
+		snapshot, err = profileStore.Publish(ctx, snapshot.Token, wire)
+		must(err)
+	}
+	if snapshot.State != "active-v3" || snapshot.V3 == nil {
+		fatal(errors.New("local Runtime/Profile configuration must be canonical v3"))
+	}
 	observations := []runtimeprofile.Observation{}
 	for _, runtime := range []string{"codex", "claude"} {
 		status := map[string]runtimeprofile.CapabilityStatus{}
@@ -327,7 +352,7 @@ func prepare(s spec, specDigest, projectID string) {
 	invocations, err := runtimeadapter.NewInvocationResolver(profiles, nil)
 	must(err)
 	write(s, "command-profiles.json", profiles)
-	encoded, err := runtimeprofile.Encode(cfg)
+	encoded, err := runtimeprofile.EncodeV3(*snapshot.V3)
 	must(err)
 	references := []string{}
 	for _, validator := range s.Validators {

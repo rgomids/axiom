@@ -18,9 +18,10 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
-// BLD-001B.3c-2c.1: synthetic canonical-v3 preparation for the future dogfood
-// cutover (BLD-001B.3c-2b.3). It is isolated from scripts/dogfood-poc.sh,
-// which keeps its v1→v2 journey unchanged. Fixed-byte synthetic executables
+// BLD-001B.3c-2c.1: synthetic canonical-v3 identity fixtures. Since the
+// BLD-001B.3c-2b.3 cutover scripts/dogfood-poc.sh authors canonical v3 through
+// the public CLI and runs these tests as its synthetic identity receipt; the
+// production registry stays empty. Fixed-byte synthetic executables
 // are hashed through ExecutableIdentity, never run; the same identity binds
 // the synthetic registry entry and the Runtime-owned EffortDeclaration.
 type dogfoodV3Fixture struct {

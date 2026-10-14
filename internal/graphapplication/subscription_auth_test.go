@@ -109,17 +109,17 @@ func TestSubscriptionDispatchFailsClosed(t *testing.T) {
 	}
 }
 
-// A reviewed credential reference is the API path: the subscription scenario
-// refuses it before any credential is resolved or any status command runs.
+// A credential reference is the API path. Canonical v3 configuration binds
+// none, so a command profile carrying one diverges from the reviewed binding
+// and is refused before any credential is resolved or any status command runs.
 func TestSubscriptionDispatchRefusesCredentialReferenceBeforeResolution(t *testing.T) {
 	auth := &recordingAuth{status: runtimeadapter.AuthSubscriptionObserved}
 	guard, graph, credentials, _ := subscriptionGuard(t, "codex", "synthetic:credential", nil, auth)
 	_, err := guard.ResolveInvocation(context.Background(), graph.Children[0])
-	if !errors.Is(err, executiongraph.ErrAuthenticationBlocked) || credentials.calls != 0 || len(auth.targets) != 0 {
+	if !errors.Is(err, ErrInvalidComposition) || credentials.calls != 0 || len(auth.targets) != 0 {
 		t.Fatalf("err=%v credentials=%d preflight=%d", err, credentials.calls, len(auth.targets))
 	}
-	evidence := guard.authentication.reports()
-	if len(evidence) != 1 || evidence[0].Reason != "credential_reference_configured" || strings.Contains(strings.Join(evidence[0].Overrides, ","), "synthetic") {
+	if evidence := guard.authentication.reports(); len(evidence) != 0 {
 		t.Fatalf("evidence=%+v", evidence)
 	}
 }
@@ -153,8 +153,8 @@ func TestSubscriptionDispatchRejectsInheritedEnvironment(t *testing.T) {
 
 // Without SubscriptionAuth the existing reviewed-binding behavior is unchanged.
 func TestNoSubscriptionScenarioKeepsExistingBinding(t *testing.T) {
-	guard, graph, credentials, _ := subscriptionGuard(t, "codex", "synthetic:credential", nil, nil)
-	if _, err := guard.ResolveInvocation(context.Background(), graph.Children[0]); err != nil || credentials.calls != 1 || guard.authentication != nil {
+	guard, graph, credentials, _ := subscriptionGuard(t, "codex", "", nil, nil)
+	if _, err := guard.ResolveInvocation(context.Background(), graph.Children[0]); err != nil || credentials.calls != 0 || guard.authentication != nil {
 		t.Fatalf("err=%v credentials=%d", err, credentials.calls)
 	}
 }

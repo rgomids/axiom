@@ -15,6 +15,7 @@ import (
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
@@ -69,6 +70,8 @@ func workflowAuthoringCompletion(outcome projectapp.WorkflowAuthoringResult, sou
 }
 
 type workflowAuthoringAdapter struct{ s lifecycleService }
+
+var _ projectapp.WorkflowProfilePort = workflowAuthoringAdapter{}
 
 func (a workflowAuthoringAdapter) ObserveWorkflows(ctx context.Context, selector string) (projectapp.WorkflowObservation, string) {
 	s := a.s
@@ -174,15 +177,20 @@ func (a workflowAuthoringAdapter) PublishWorkflowSelection(ctx context.Context, 
 	return string(result.Status)
 }
 
-func (a workflowAuthoringAdapter) ObserveWorkflowProfiles(ctx context.Context, _ string) (runtimeprofile.Configuration, string, string) {
+// ObserveWorkflowProfiles reads only the canonical v3 record; missing,
+// retired, pre-stable and invalid state is profile_effort_unconfigured.
+func (a workflowAuthoringAdapter) ObserveWorkflowProfiles(ctx context.Context, _ string) (runtimeprofile.ConsumerV3, string, string) {
 	store, e := local.NewRuntimeProfileStore(a.s.stateRoot)
 	if e != nil {
-		return runtimeprofile.Configuration{}, "", "profile_effort_unconfigured"
+		return runtimeprofile.ConsumerV3{}, "", "profile_effort_unconfigured"
 	}
 	snapshot, e := store.Inspect(ctx)
-	cfg := snapshot.Configuration
-	if e != nil || snapshot.State != "active-v2" || cfg.FormatVersion != runtimeprofile.FormatVersionV2 {
-		return runtimeprofile.Configuration{}, "", "profile_effort_unconfigured"
+	if e != nil {
+		return runtimeprofile.ConsumerV3{}, "", "profile_effort_unconfigured"
 	}
-	return cfg, snapshot.Token, ""
+	consumer, code := runtimeapplication.ConsumerFromRecordV3(snapshot.State, snapshot.V3)
+	if code != "" {
+		return runtimeprofile.ConsumerV3{}, "", "profile_effort_unconfigured"
+	}
+	return consumer, snapshot.Token, ""
 }

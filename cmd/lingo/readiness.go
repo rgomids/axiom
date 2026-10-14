@@ -11,7 +11,6 @@ import (
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/projectdiscovery"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 // Issue #231 composition: the canonical readiness evaluator, the pre-effect
@@ -68,30 +67,27 @@ func runtimeCandidates(ctx context.Context, stateRoot string) []projectapp.Runti
 	if err != nil {
 		return nil
 	}
-	cfg, err := store.Load(ctx)
+	snapshot, err := store.Inspect(ctx)
 	if err != nil {
 		return nil
 	}
-	return candidatesFrom(cfg)
+	return candidatesFrom(snapshot)
 }
 
-// candidatesFrom lists enabled Runtimes with their allowlisted profiles. It
-// is a disclosure of machine facts; nothing here selects a Runtime.
-func candidatesFrom(cfg runtimeprofile.Configuration) []projectapp.RuntimeCandidate {
-	profiles := map[string]runtimeprofile.ModelProfile{}
-	for _, profile := range cfg.ModelProfiles {
-		profiles[profile.ID] = profile
+// candidatesFrom lists enabled Runtimes with their allowlisted profiles from
+// the canonical v3 record only (ReadinessCandidatesV3). Missing, retired,
+// pre-stable or invalid state discloses no candidate. It is a disclosure of
+// machine facts; nothing here selects a Runtime.
+func candidatesFrom(snapshot local.RuntimeProfileSnapshot) []projectapp.RuntimeCandidate {
+	runtimes, code := runtimeapplication.ReadinessCandidatesV3(snapshot.State, snapshot.V3)
+	if code != "" {
+		return nil
 	}
 	candidates := []projectapp.RuntimeCandidate{}
-	for _, runtime := range cfg.Runtimes {
-		if !runtime.Enabled {
-			continue
-		}
-		candidate := projectapp.RuntimeCandidate{ID: runtime.ID, Profiles: []projectapp.ProfileCandidate{}}
-		for _, id := range runtime.AllowlistedProfileIDs {
-			if profile, ok := profiles[id]; ok && profile.RuntimeID == runtime.ID {
-				candidate.Profiles = append(candidate.Profiles, projectapp.ProfileCandidate{Key: profile.ID, Model: profile.Model})
-			}
+	for _, runtime := range runtimes {
+		candidate := projectapp.RuntimeCandidate{ID: runtime.RuntimeID, Profiles: []projectapp.ProfileCandidate{}}
+		for _, profile := range runtime.Profiles {
+			candidate.Profiles = append(candidate.Profiles, projectapp.ProfileCandidate{Key: profile.ProfileID, Model: profile.Model})
 		}
 		candidates = append(candidates, candidate)
 	}

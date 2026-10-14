@@ -22,18 +22,18 @@ func safeDeclarationRequest(r AuthoringRequest) bool {
 	if r.Kind != "binding" || r.Operation != "edit" || r.RuntimeID == "" || r.ProfileID != "" || len(r.EffortDeclaration) > maxDeclarationPathBytes || strings.ContainsRune(r.EffortDeclaration, 0) {
 		return false
 	}
-	return r.Model == "" && r.Effort == (runtimeprofile.Effort{}) && r.Capabilities == nil && r.Complexities == nil && r.Enabled == nil && !r.Cascade && !r.ClearLegacyReferences && len(r.MigrationEfforts) == 0
+	return r.Model == "" && r.Effort == (runtimeprofile.Effort{}) && r.Capabilities == nil && r.Complexities == nil && r.Enabled == nil && !r.Cascade
 }
 
 // authorDeclaration is the declaration write path on an active-v3 record. Each
 // attempt inspects the snapshot, reads the declaration once, observes the
 // executable and rebuilds the candidate, so any drift since the preview changes
 // its digest and is stale_preview. A format 1/2 record is never migrated or
-// converted (PM-1); format-3 authoring is activated by BLD-001B.3c-2.
+// converted (PM-1).
 func (s Authoring) authorDeclaration(ctx context.Context, req AuthoringRequest, snapshot LocalSnapshot, report AuthoringReport) (AuthoringReport, error) {
 	deny := func(code string) (AuthoringReport, error) { report.Category = code; return report, ErrAuthoring }
 	if snapshot.State != "active-v3" || snapshot.V3 == nil {
-		report.Next = "Effort declarations require a local format 3 record; format 1/2 is never migrated or converted"
+		report.Next = "Effort declarations require an active canonical configuration; create one explicitly first"
 		return deny("configuration_unavailable")
 	}
 	if snapshot.Revision == math.MaxUint64 {
@@ -89,22 +89,11 @@ func (s Authoring) authorDeclaration(ctx context.Context, req AuthoringRequest, 
 	}
 	effects = append(effects, fmt.Sprintf("Runtime %s effort declaration %s applies to observed version %s executable %s mode %s", req.RuntimeID, declaration.DeclarationID, observed.RuntimeVersion, observed.ExecutableDigest, observed.InvocationMode))
 	report.CandidateDigest = digest(wire)
-	report.Effects = append(effects, candidateEffects(v3View(*snapshot.V3), v3View(candidate))...)
+	report.Effects = append(effects, candidateEffects(snapshot.V3.ModelProfiles, snapshot.V3.Preferences, v3Runtimes(candidate), candidate.ModelProfiles)...)
 	report.Category = "preview"
-	projectLocal(&report, v3View(candidate), req)
+	projectLocal(&report, v3Runtimes(candidate), candidate.ModelProfiles, req)
 	return s.confirm(ctx, req, snapshot.Token, wire, report, func() bool {
 		again, ok := observe()
 		return ok && again == observed
 	})
-}
-
-// v3View is a presentation-only projection of a format-3 record onto the
-// existing views and effect lines. It is never encoded or published, so it
-// cannot down-convert a record.
-func v3View(c runtimeprofile.ConfigurationV3) runtimeprofile.Configuration {
-	view := runtimeprofile.Configuration{FormatVersion: c.FormatVersion, Revision: c.Revision, ModelProfiles: c.ModelProfiles, Preferences: c.Preferences}
-	for _, r := range c.Runtimes {
-		view.Runtimes = append(view.Runtimes, runtimeprofile.Runtime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs})
-	}
-	return view
 }

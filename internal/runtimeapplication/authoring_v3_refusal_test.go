@@ -20,10 +20,10 @@ func (s *unsupportedFormatStore) Publish(context.Context, string, []byte) (Local
 	return LocalSnapshot{}, errors.New("unexpected publication")
 }
 
-// Specification 007 AXM-22 D8: v2-only authoring refuses format 3 with an
-// actionable next step, inside the existing public category, and never writes.
-func TestAuthoringRefusesV3WithoutMigrationOrWrite(t *testing.T) {
-	for _, req := range []AuthoringRequest{createRequest(), {Kind: "profile", Operation: "list"}, {Kind: "profile", Operation: "migrate"}} {
+// Specification 007 AXM-22 D8/PM-11: a future format is refused with an
+// actionable next step, inside the existing public category, and never written.
+func TestAuthoringRefusesNewerFormatWithoutMigrationOrWrite(t *testing.T) {
+	for _, req := range []AuthoringRequest{createRequest(), {Kind: "profile", Operation: "list"}} {
 		store := &unsupportedFormatStore{}
 		got, err := Authoring{Store: store}.Run(context.Background(), req)
 		if err == nil || got.Category != "configuration_unavailable" || !strings.Contains(got.Next, "no downgrade or migration") || store.writes != 0 {

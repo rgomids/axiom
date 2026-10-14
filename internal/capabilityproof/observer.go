@@ -72,12 +72,12 @@ func (o Observer) Observe(ctx context.Context, id string) (runtimeprofile.Observ
 	return observation, nil
 }
 
-// ConfiguredSource intersects current facts with the freshly loaded local
-// configuration, preventing a removed, disabled or edited Profile from retaining
-// proof through an otherwise valid evidence selection.
+// ConfiguredSource intersects current facts with the freshly loaded canonical
+// v3 configuration, preventing a removed, disabled or edited Profile from
+// retaining proof through an otherwise valid evidence selection.
 type ConfiguredSource struct {
-	Source        BindingSource
-	Configuration runtimeprofile.Configuration
+	Source   BindingSource
+	Consumer runtimeprofile.ConsumerV3
 }
 
 func (s ConfiguredSource) Current(ctx context.Context, t Target) (Current, error) {
@@ -89,30 +89,17 @@ func (s ConfiguredSource) Current(ctx context.Context, t Target) (Current, error
 		return c, err
 	}
 	active := false
-	for _, r := range s.Configuration.Runtimes {
-		if r.ID != t.RuntimeID || !r.Enabled {
-			continue
+	if p, err := s.Consumer.AllowedProfile(t.RuntimeID, t.ProfileID); err == nil {
+		active = true
+		pd, err := runtimeprofile.ProfileDigest(p)
+		if err != nil || c.Model == nil {
+			return Current{}, ErrStalePreview
 		}
-		for _, allowed := range r.AllowlistedProfileIDs {
-			if allowed != t.ProfileID {
-				continue
-			}
-			for _, p := range s.Configuration.ModelProfiles {
-				if p.ID != t.ProfileID || p.RuntimeID != t.RuntimeID {
-					continue
-				}
-				active = true
-				pd, err := runtimeprofile.ProfileDigest(p)
-				if err != nil || c.Model == nil {
-					return Current{}, ErrStalePreview
-				}
-				model := *c.Model
-				model.ProfileDigest, model.Model = pd, p.Model
-				model.EffortMode, model.EffortToken = p.Effort.Mode, p.Effort.Value
-				model.ConfigurationRevision = s.Configuration.Revision
-				c.Model = &model
-			}
-		}
+		model := *c.Model
+		model.ProfileDigest, model.Model = pd, p.Model
+		model.EffortMode, model.EffortToken = p.Effort.Mode, p.Effort.Value
+		model.ConfigurationRevision = s.Consumer.Revision()
+		c.Model = &model
 	}
 	c.ProfileActive = c.ProfileActive && active
 	return c, nil

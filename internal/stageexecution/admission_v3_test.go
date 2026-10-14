@@ -18,19 +18,10 @@ import (
 func currentContractV3(t *testing.T) (ContractV3, runtimeprofile.ConfigurationV3) {
 	t.Helper()
 	c := currentContract(t)
-	p := c.Execution.Binding.ResolvedProfile
-	cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 4,
-		Runtimes: []runtimeprofile.RuntimeV3{{ID: p.RuntimeID, Adapter: p.RuntimeID, Enabled: true, AllowlistedProfileIDs: []string{p.ProfileID, "other-profile"}}},
-		ModelProfiles: []runtimeprofile.ModelProfile{
-			{ID: p.ProfileID, RuntimeID: p.RuntimeID, Model: p.Model, Effort: p.Effort, Capabilities: []string{"read"}},
-			{ID: "other-profile", RuntimeID: p.RuntimeID, Model: "other-model", Effort: runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}, Capabilities: []string{"read"}},
-		}}
-	if err := runtimeprofile.ValidateV3(cfg); err != nil {
-		t.Fatal(err)
-	}
+	cfg := *c.Configuration.V3
 	v3 := cfg
-	return ContractV3{Definition: c.Definition, Execution: c.Execution, Graph: c.Graph, Record: runtimeprofile.RecordActiveV3,
-		Configuration: runtimeprofile.VersionedConfiguration{FormatVersion: runtimeprofile.FormatVersionV3, V3: &v3}, WorkflowSelected: true, PolicyAllowed: true}, cfg
+	c.Configuration.V3 = &v3
+	return c, cfg
 }
 
 func TestAdmitV3ActiveBindsCurrentIdentity(t *testing.T) {

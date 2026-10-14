@@ -10,8 +10,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/cli"
-	"github.com/rgomids/axiom/internal/local"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -87,14 +85,7 @@ printf '{"number":7,"html_url":"https://github.com/acme/core/issues/7","state":"
 	}
 	t.Setenv("AXIOM_GH_BIN", gh)
 	t.Setenv("AXIOM_TEST_PROVIDER", providerDir)
-	profiles, err := local.NewRuntimeProfileStore(env.state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1, Runtimes: []runtimeprofile.Runtime{{ID: "claude", Adapter: "claude", Enabled: true, AllowlistedProfileIDs: []string{"worker"}, CredentialReference: "private-test-reference"}}, ModelProfiles: []runtimeprofile.ModelProfile{{ID: "worker", RuntimeID: "claude", Model: "approved-model", Capabilities: []string{"axiom-skills"}, Complexities: []string{"high"}}}}
-	if err := profiles.Create(context.Background(), cfg); err != nil {
-		t.Fatal(err)
-	}
+	publishRuntimeProfileV3(t, env.state, singleRuntimeV3("claude", "worker", "approved-model", []string{"axiom-skills"}, []string{"high"}))
 	service, _ := testRuntime(t, compose().(lifecycleService), "claude")
 	service = currentProfileStartFixture(t, service, env.state)
 	j := journey{t: t, service: service, provider: providerDir}

@@ -99,10 +99,12 @@ func TestWorkflowStagePlanExecutableFailsClosedAndNeverMutates(t *testing.T) {
 	run(0, "--json", "runtime", "codex", "install")
 	selector := []string{"--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7"}
 	start := append(append([]string{"--json", "workflow", "start"}, selector...), "--role", "implementation", "--complexity", "high", "--capabilities", runtimeadapter.IntegrationCapability)
-	_, preview := run(0, start...)
+	// Production composition injects no Profile proof, so the public start
+	// fails closed before any Execution exists (Specification 007 PM-7).
+	_, preview := run(1, start...)
 	_, refusedStart := run(1, append(start, "--runtime-preview", preview.PreviewDigest)...)
-	if !strings.Contains(refusedStart.Next, "workflow_migration_required") || refusedStart.Workflow != nil {
-		t.Fatalf("legacy current refusal %+v", refusedStart)
+	if preview.PreviewDigest == "" || refusedStart.Workflow != nil {
+		t.Fatalf("unproven current start %+v", refusedStart)
 	}
 	seeded := seedHistoricalWorkflow(t, env.service.(lifecycleService), cli.WorkflowInput{Project: "external", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: "codex", RuntimePreview: preview.PreviewDigest})
 	started := stagePlanEvent{Workflow: seeded}
@@ -227,19 +229,13 @@ func installStagePlanPolicy(t *testing.T, stateRoot, id string) {
 	if err := os.WriteFile(recordPath, wire, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store, err := local.NewRuntimeProfileStore(stateRoot)
-	if err != nil {
-		t.Fatal(err)
-	}
 	capabilities := []string{runtimeadapter.IntegrationCapability, "read", "repository-write"}
-	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1}
+	cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 1}
 	for _, runtimeID := range []string{"codex", "claude"} {
-		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.Runtime{ID: runtimeID, Adapter: runtimeID, Enabled: true, AllowlistedProfileIDs: []string{"profile-" + runtimeID}, CredentialReference: "private-test-reference"})
-		cfg.ModelProfiles = append(cfg.ModelProfiles, runtimeprofile.ModelProfile{ID: "profile-" + runtimeID, RuntimeID: runtimeID, Model: "local-" + runtimeID + "-model", Capabilities: capabilities, Complexities: []string{"medium", "high"}})
+		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.RuntimeV3{ID: runtimeID, Adapter: runtimeID, Enabled: true, AllowlistedProfileIDs: []string{"profile-" + runtimeID}})
+		cfg.ModelProfiles = append(cfg.ModelProfiles, runtimeprofile.ModelProfile{ID: "profile-" + runtimeID, RuntimeID: runtimeID, Model: "local-" + runtimeID + "-model", Effort: runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}, Capabilities: capabilities, Complexities: []string{"medium", "high"}})
 	}
-	if err := store.Create(context.Background(), cfg); err != nil {
-		t.Fatal(err)
-	}
+	publishRuntimeProfileV3(t, stateRoot, cfg)
 }
 
 // controlledObservations replaces only the machine observer: Project policy
@@ -258,17 +254,19 @@ func (s *controlledObservations) Load(ctx context.Context, id string) (runtimeap
 	if err != nil {
 		return runtimeapplication.Snapshot{}, err
 	}
-	if snapshot.Configuration.FormatVersion == 2 {
+	// Canonical v3 policy consumes injected per-Profile proofs; nothing here
+	// acquires proof (Specification 007 PM-7).
+	if cfg := snapshot.Consumer.Configuration(); snapshot.Consumer.Digest() != "" {
 		observations := append([]runtimeprofile.Observation(nil), s.observations...)
 		for i := range observations {
 			o := &observations[i]
-			o.Revision = snapshot.Configuration.Revision
+			o.Revision = cfg.Revision
 			o.ProfileProofs = nil
 			status := runtimeprofile.CapabilityProven
 			if len(o.NonInteractiveModelCapabilities) == 0 {
 				status = runtimeprofile.CapabilityDeclared
 			}
-			for _, profile := range snapshot.Configuration.ModelProfiles {
+			for _, profile := range cfg.ModelProfiles {
 				if profile.RuntimeID != o.RuntimeID {
 					continue
 				}

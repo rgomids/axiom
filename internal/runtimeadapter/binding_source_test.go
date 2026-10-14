@@ -14,6 +14,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
 // Specification 007 AXM-22 BLD-001B.2b: the production BindingSource observes
@@ -447,14 +448,6 @@ func (bindingStore) Invalidate(context.Context, string, string, [sha256.Size]byt
 	return capabilityproof.ErrAuthority
 }
 
-func v2Projection(c runtimeprofile.ConfigurationV3) runtimeprofile.Configuration {
-	cfg := runtimeprofile.Configuration{FormatVersion: runtimeprofile.FormatVersionV2, Revision: c.Revision, ModelProfiles: c.ModelProfiles, Preferences: c.Preferences}
-	for _, r := range c.Runtimes {
-		cfg.Runtimes = append(cfg.Runtimes, runtimeprofile.Runtime{ID: r.ID, Adapter: r.Adapter, Enabled: r.Enabled, AllowlistedProfileIDs: r.AllowlistedProfileIDs})
-	}
-	return cfg
-}
-
 func TestBindingSourceServiceCompatibility(t *testing.T) {
 	for _, runtime := range []string{"codex", "claude"} {
 		t.Run(runtime, func(t *testing.T) {
@@ -462,7 +455,7 @@ func TestBindingSourceServiceCompatibility(t *testing.T) {
 			target := f.target(capabilityproof.RepositoryWriteVariant, true)
 			stored := f.seed(t, target)
 			store := bindingStore{stored.Ref: stored.Evidence}
-			configured := capabilityproof.ConfiguredSource{Source: f.source, Configuration: v2Projection(f.cfg)}
+			configured := capabilityproof.ConfiguredSource{Source: f.source, Consumer: runtimeprofiletest.Consumer(t, f.cfg)}
 			direct, err := f.source.Current(context.Background(), target)
 			if err != nil {
 				t.Fatal(err)
@@ -481,9 +474,8 @@ func TestBindingSourceServiceCompatibility(t *testing.T) {
 			}
 			// A Runtime disabled in the freshly loaded configuration deactivates
 			// the Profile without promoting the observation.
-			disabled := v2Projection(f.cfg)
-			disabled.Runtimes[0].Enabled = false
-			service.Source = capabilityproof.ConfiguredSource{Source: f.source, Configuration: disabled}
+			disabled := runtimeprofiletest.WithRuntimeDisabled(f.cfg, f.cfg.Runtimes[0].ID)
+			service.Source = capabilityproof.ConfiguredSource{Source: f.source, Consumer: runtimeprofiletest.Consumer(t, disabled)}
 			if _, code, err := service.Check(context.Background(), target, []string{capabilityproof.Read}, true, true, ""); code != "capability_unknown" || !errors.Is(err, capabilityproof.ErrBlocked) {
 				t.Fatalf("inactive Profile admitted: %q %v", code, err)
 			}

@@ -19,7 +19,7 @@ type WorkflowProfileBindingV3 struct {
 // with the categories migrateWorkflow uses (Specification 007 AXM-22
 // BLD-001B.3c-2b.2). Effort is Profile-owned (ADR-0024): any agent effort is
 // refused. Schema-1 records are never reinterpreted as Profile configuration.
-// It is not wired to Workflow authoring until coordinated v3-only activation.
+// Workflow authoring applies it to every Profile-binding migration.
 func ValidateWorkflowProfilesV3(d workflowdefinition.Definition, consumer runtimeprofile.ConsumerV3, p project.State) ([]WorkflowProfileBindingV3, string) {
 	if d.SchemaVersion != 2 {
 		return nil, "workflow_migration_required"

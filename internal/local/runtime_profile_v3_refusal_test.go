@@ -25,9 +25,10 @@ func validV3Wire(t *testing.T) []byte {
 	return wire
 }
 
-// Specification 007 AXM-22 D5/D8: v2-only local paths refuse format 3
-// explicitly, never read it as v2, never publish it and never mutate state.
-func TestRuntimeProfileV2OnlyPathsRefuseV3(t *testing.T) {
+// Specification 007 AXM-22 PM-11 (B1): the single reader recognizes canonical
+// v3, keeps a future format unsupported and never reinterprets it, and
+// refusals never mutate state.
+func TestRuntimeProfileReaderRecognizesV3AndRefusesFuture(t *testing.T) {
 	ctx := context.Background()
 	v3 := validV3Wire(t)
 	store := authoringStore(t)
@@ -43,42 +44,27 @@ func TestRuntimeProfileV2OnlyPathsRefuseV3(t *testing.T) {
 	if after, _ := store.Inspect(ctx); after.State != "fresh" {
 		t.Fatal("refused publication mutated state")
 	}
-	v2 := authoringWire(t, 1)
-	active, err := store.Publish(ctx, fresh.Token, v2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// PM-1: format 3 never replaces a v2 record (no migration or conversion by
-	// overwrite), so nothing is written.
-	if _, err := store.Publish(ctx, active.Token, v3); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
-		t.Fatalf("v3 publication over v2: %v", err)
-	}
+	writeLegacyRecord(t, store.root, v3)
 	path := filepath.Join(store.root, "runtime-profiles", "v1", "configuration.json")
-	if current, _ := os.ReadFile(path); !bytes.Equal(current, v2) {
-		t.Fatal("historical v2 bytes changed by refused publication")
-	}
-	if snapshot, err := store.Inspect(ctx); err != nil || snapshot.State != "active-v2" || snapshot.Configuration.FormatVersion != runtimeprofile.FormatVersionV2 {
-		t.Fatal("v2 record migrated", err)
-	}
-
-	// A format-3 record present on disk is preserved and refused by readers.
-	if err := os.WriteFile(path, v3, 0600); err != nil {
-		t.Fatal(err)
-	}
 	snapshot, err := store.Inspect(ctx)
-	if !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) || !errors.Is(err, ErrUnsafe) || snapshot.State == "active-v1" || snapshot.State == "active-v2" || snapshot.Configuration.FormatVersion != 0 {
-		t.Fatalf("v2-only snapshot reader accepted v3: %s %v", snapshot.State, err)
+	if err != nil || snapshot.State != "active-v3" || snapshot.V3 == nil || snapshot.Legacy.FormatVersion != 0 {
+		t.Fatalf("v3 record not recognized: %+v %v", snapshot, err)
 	}
-	if _, err := store.Load(ctx); !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) {
-		t.Fatalf("v2-only load accepted v3: %v", err)
-	}
-	if err := store.Save(ctx, authoringConfig(2)); err == nil {
-		t.Fatal("legacy save replaced a v3 record")
-	}
-	if kind := kindOf(t, store.root, "runtime-profiles/v1/configuration.json"); kind != InventoryNewer {
+	if kind := kindOf(t, store.root, "runtime-profiles/v1/configuration.json"); kind != InventoryRuntimeProfile {
 		t.Fatalf("inventory classification %s", kind)
 	}
-	if current, _ := os.ReadFile(path); !bytes.Equal(current, v3) {
-		t.Fatal("refusal mutated the v3 record")
+	future := bytes.Replace(v3, []byte(`"formatVersion":3`), []byte(`"formatVersion":4`), 1)
+	if err := os.WriteFile(path, future, 0600); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err = store.Inspect(ctx)
+	if !errors.Is(err, runtimeprofile.ErrUnsupportedConfigurationFormat) || !errors.Is(err, ErrUnsafe) || snapshot.V3 != nil {
+		t.Fatalf("future format accepted: %s %v", snapshot.State, err)
+	}
+	if kind := kindOf(t, store.root, "runtime-profiles/v1/configuration.json"); kind != InventoryNewer {
+		t.Fatalf("future inventory classification %s", kind)
+	}
+	if current, _ := os.ReadFile(path); !bytes.Equal(current, future) {
+		t.Fatal("refusal mutated the future record")
 	}
 }

@@ -136,10 +136,15 @@ func (p stagePolicy) service(ctx context.Context, r runtimeapplication.Request) 
 	if p.s.RuntimePolicySource != nil {
 		return runtimeapplication.New(p.s.RuntimePolicySource), nil
 	}
-	cfg, err := p.stores.profiles.Load(ctx)
+	snapshot, err := p.stores.profiles.Inspect(ctx)
 	if err != nil {
 		return runtimeapplication.Service{}, err
 	}
+	consumer, code := runtimeapplication.ConsumerFromRecordV3(snapshot.State, snapshot.V3)
+	if code != "" {
+		return runtimeapplication.Service{}, runtimeapplication.LocalStateError{State: snapshot.State}
+	}
+	cfg := consumer.Configuration()
 	// The policy request carries capabilities, not effects; the mode is taken
 	// from them explicitly. A mode differing from preview/dispatch selects
 	// another EvidenceRef and is rejected as stale, never admitted.

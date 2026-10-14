@@ -17,13 +17,13 @@ import (
 type runtimeAuthoringStore struct{ local.RuntimeProfileStore }
 
 func authoringSnapshot(s local.RuntimeProfileSnapshot) runtimeapplication.LocalSnapshot {
-	return runtimeapplication.LocalSnapshot{State: s.State, Revision: s.Revision, Configuration: s.Configuration, V3: s.V3, Token: s.Token}
+	return runtimeapplication.LocalSnapshot{State: s.State, Revision: s.Revision, Legacy: s.Legacy, V3: s.V3, Token: s.Token}
 }
 
-// Inspect is the format-3-aware reader (Specification 007 BI-3.2 item 10);
-// non-authoring consumers keep the v2-only Inspect.
+// Inspect reports canonical v3 state; a pre-stable record is carried only for
+// its explicit retirement (Specification 007 PM-11).
 func (s runtimeAuthoringStore) Inspect(ctx context.Context) (runtimeapplication.LocalSnapshot, error) {
-	v, e := s.RuntimeProfileStore.InspectVersioned(ctx)
+	v, e := s.RuntimeProfileStore.Inspect(ctx)
 	return authoringSnapshot(v), e
 }
 func (s runtimeAuthoringStore) Publish(ctx context.Context, token string, wire []byte) (runtimeapplication.LocalSnapshot, error) {

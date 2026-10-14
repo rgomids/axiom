@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -24,6 +23,7 @@ import (
 	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/stageexecution"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
@@ -167,25 +167,24 @@ func (s lifecycleService) stageContract(ctx context.Context, stores stageStores,
 		// The Workflow was explicitly selected when this Execution was bound.
 		c.WorkflowSelected = state.Binding.SchemaVersion == 2
 	}
-	cfg, err := stores.profiles.Load(ctx)
+	// Stage admission (AdmitV3) derives the frozen Profile's availability from
+	// the canonical v3 record; a removed, disallowed or disabled Profile blocks
+	// and nothing falls back to another Profile, model, Runtime or effort.
+	snapshot, err := stores.profiles.Inspect(ctx)
 	if err != nil {
 		return c, stageexecution.ErrProfileEffortUnconfigured
 	}
-	c.Configuration = cfg
-	if state.Binding != nil && state.Binding.ResolvedProfile != nil {
-		frozen := state.Binding.ResolvedProfile
-		// A removed, disallowed or disabled frozen Profile blocks; nothing
-		// falls back to another Profile, model, Runtime or effort.
-		for _, runtime := range cfg.Runtimes {
-			if runtime.ID != frozen.RuntimeID || !runtime.Enabled || !slices.Contains(runtime.AllowlistedProfileIDs, frozen.ProfileID) {
-				continue
-			}
-			for _, profile := range cfg.ModelProfiles {
-				if profile.ID == frozen.ProfileID && profile.RuntimeID == frozen.RuntimeID {
-					c.ProfileAvailable = true
-				}
-			}
-		}
+	switch snapshot.State {
+	case "active-v3":
+		c.Record = runtimeprofile.RecordActiveV3
+		c.Configuration = runtimeprofile.VersionedConfiguration{FormatVersion: runtimeprofile.FormatVersionV3, V3: snapshot.V3}
+	case "retired":
+		c.Record = runtimeprofile.RecordRetiredV3
+	case "fresh":
+		c.Record = runtimeprofile.RecordMissingV3
+	default:
+		// Pre-stable records are never current configuration (PM-11, B1).
+		return c, stageexecution.ErrProfileEffortUnconfigured
 	}
 	return c, nil
 }

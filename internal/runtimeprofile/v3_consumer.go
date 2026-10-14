@@ -7,8 +7,8 @@ import "errors"
 // reads ConfigurationV3 directly: there is no projection onto the format-1/2
 // Configuration, Runtime-owned EffortDeclarations are retained, and identity
 // is DigestV3. It never selects an alternative Runtime or Profile, applies no
-// implicit default and proves no capability. No production consumer is wired
-// to it until coordinated v3-only activation (BLD-001B.3c-2b.3).
+// implicit default and proves no capability. Since BLD-001B.3c-2b.3 it is the
+// only current Runtime/Profile consumer boundary.
 type ConsumerV3 struct {
 	cfg    ConfigurationV3
 	digest string
@@ -165,4 +165,56 @@ func (c ConsumerV3) EffortDeclaration(a EffortApplicability) (EffortDeclaration,
 	}
 	cfg := c.cfg
 	return ApplicableEffortDeclaration(VersionedConfiguration{FormatVersion: FormatVersionV3, V3: &cfg}, a)
+}
+
+// ObservedChoice applies the existing observation and proof gates to exactly
+// one allowed Profile of the consumed configuration (BLD-001B.3c-2b.3): the
+// observation must be the current, available one for this Runtime and
+// configuration revision, every requested capability must be proven, and the
+// Profile must resolve through the same proof rule as the format-2 Resolver,
+// bound to DigestV3. It selects nothing; a stored EffortDeclaration never
+// contributes. The code is "" only for a proven choice.
+func (c ConsumerV3) ObservedChoice(runtimeID, profileID string, o Observation, capabilities []string) (Choice, string) {
+	runtime, err := c.EnabledRuntime(runtimeID)
+	if err != nil {
+		return Choice{}, "no_allowed_match"
+	}
+	p, err := c.AllowedProfile(runtimeID, profileID)
+	if err != nil {
+		return Choice{}, "no_allowed_match"
+	}
+	if o.RuntimeID != runtime.ID || o.Adapter != runtime.Adapter || o.Revision != c.cfg.Revision || !o.Installed || !o.Available || o.ObservedAt.IsZero() {
+		return Choice{}, "no_allowed_match"
+	}
+	for _, capability := range capabilities {
+		if o.CapabilityStatus[capability] != CapabilityProven {
+			return Choice{}, "capability_unproven"
+		}
+	}
+	resolved, code := resolveProfileAt(c.cfg.Revision, c.digest, p, o, capabilities)
+	if code != "" {
+		return Choice{}, code
+	}
+	choice := Choice{ResolvedProfile: &resolved, RuntimeID: runtime.ID, Adapter: runtime.Adapter, ModelProfileID: p.ID, Model: p.Model, Capabilities: sortedStrings(capabilities), RuntimeVersion: o.Version, ExecutableDigest: o.ExecutableDigest, ConfigurationRevision: c.cfg.Revision, ObservationRevision: o.Revision}
+	if !SafeIdentifier(choice.ModelProfileID) || !SafeIdentifier(choice.Model) || choice.RuntimeVersion != "" && !SafeRuntimeVersion(choice.RuntimeVersion) {
+		return Choice{}, "unsafe_configuration"
+	}
+	return choice, ""
+}
+
+// ProfileReadiness consumes injected evidence for one allowed Profile without
+// selecting or dispatching, with the format-2 readiness codes.
+func (c ConsumerV3) ProfileReadiness(runtimeID, profileID string, o Observation) string {
+	p, err := c.AllowedProfile(runtimeID, profileID)
+	if err != nil {
+		return "no_allowed_match"
+	}
+	if !validV2Profile(p) {
+		return "unsafe_configuration"
+	}
+	if len(o.ProfileProofs) == 0 {
+		return "authentication_unproven"
+	}
+	_, code := resolveProfileAt(c.cfg.Revision, c.digest, p, o, nil)
+	return code
 }

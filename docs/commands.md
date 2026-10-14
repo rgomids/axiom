@@ -193,23 +193,35 @@ model, effort support or authentication. Inspect read-back after apply.
 
 Profile create/edit changes model intent, effort, capabilities and complexity.
 Binding edit changes eligibility through `--enabled`; enable/disable use the
-same preview protocol. Final removal requires explicit `--cascade` and retains
-a versioned tombstone. Reads and recovery never delete vendor settings,
-authentication, receipts, Projects, Workflows or historical Executions.
+same preview protocol. Removing one of several Runtimes publishes a new
+revision. Removing the final Runtime requires explicit `--cascade` and retires
+the configuration through the existing versioned tombstone; nothing is
+resurrected, and a new configuration is created explicitly afterwards. Reads
+and recovery never delete vendor settings, authentication, receipts, Projects,
+Workflows or historical Executions. Pending state uses scoped
+`runtime profile recover` and its separate exact recovery confirmation;
+uncertain publication requires inspection before any new attempt.
 
-Use `runtime profile migrate` with one repeated
-`--profile-effort <profile>:<explicit|runtime-default>:<value>` for each legacy
-Profile. Removing legacy credential references additionally requires
-`--clear-legacy-references`. Pending state uses scoped `runtime profile recover`
-and its separate exact recovery confirmation; uncertain publication requires
-inspection before any new attempt.
+Local configuration format 3, with Runtime-owned effort-source declarations, is
+the only canonical format before the first stable release: every authoring
+command above writes it and every Runtime/Profile consumer reads only it. There
+is no migration, automatic conversion or downgrade (Specification 007 AXM-22
+PM-1, PM-8, PM-11).
 
-Local format 3 adds Runtime-owned effort-source declarations. Before the first
-stable release it is the only target canonical format: there is no format
-2→3 migration, no automatic conversion and no downgrade (Specification 007
-AXM-22 PM). Switching the authoring commands above and their consumers to
-format 3 is pending; until then they keep writing format 2. A declaration is
-authored on a format-3 record only:
+A pre-stable local record (format 1 or 2, written by earlier releases) is kept
+byte-for-byte and refused by every current use with
+`unsupported_configuration_format`; upgrading the application does not convert
+it. Reconfigure explicitly: `axiom runtime binding remove --runtime <id>
+--cascade` on such a record retires the ENTIRE pre-stable configuration (the
+named Runtime must exist in it). Its preview lists every Runtime, Profile,
+allowlist and Preference retired and the historical configuration digest the
+tombstone binds; apply it with the exact `--expected-revision`,
+`--preview-digest` and `--authorize-local`. Then create a format-3
+configuration with `runtime binding create`. No other operation, including
+create, edit, enable, disable or a declaration edit, changes a pre-stable
+record. `axiom compatibility backup` can keep a copy of the source first.
+
+A declaration is authored on a format-3 record only:
 
 ```bash
 axiom runtime binding edit --runtime codex \
@@ -220,14 +232,15 @@ The file holds exactly one complete declaration object for `--runtime` (no
 unknown, duplicate or defaulted field); it must be a regular, non-symlinked
 file and is never stored verbatim. Its `runtimeVersion` and `executableDigest`
 must equal the independently observed Runtime identity, or the command refuses
-with `effort_configuration_unproven`; until a passive Runtime version observer
-is composed (pending), that observation is unavailable and the command refuses
-without writing. `edit` adds a declaration or replaces the one with the same
+with `effort_configuration_unproven`. The embedded Runtime version registry
+has no production entry, so an unregistered executable stays unproven and the
+command refuses without writing; the Runtime is never executed to learn its
+version. `edit` adds a declaration or replaces the one with the same
 `declarationId`, using the same preview and exact
 `--expected-revision`/`--preview-digest`/`--authorize-local` confirmation. On a
 format 1/2 record it refuses with `configuration_unavailable` and changes
-nothing. A declaration is configuration, not capability proof. Axiom versions
-or commands that only read format 2 refuse format 3 without changing it.
+nothing. A declaration is configuration, not capability proof. Earlier Axiom
+versions that only read format 2 refuse format 3 without changing it.
 
 Workflow migration is a separate `project workflow migrate` operation: map each
 Agent using repeated `--agent-profile <stage>:<agent>:<profile>`, inspect the

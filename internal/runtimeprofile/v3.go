@@ -13,12 +13,13 @@ import (
 )
 
 // Local configuration format 3 (Specification 007 AXM-22 amendment BI-2,
-// D1–D8) adds the Runtime-owned EffortDeclaration. It is a separate type so
-// every format-1/2 consumer keeps reading Configuration and refuses format 3.
-// EncodeV3 is the only v3 writer. Before the first stable release format 3 is
-// the target canonical format; there is no v2-to-v3 migration and no v3-to-v2
-// downgrade (Specification 007 AXM-22 pre-MVP decision PM-1). Activation of
-// v3-only authoring and consumers is BLD-001B.3c-2 (PM-3).
+// D1–D8) adds the Runtime-owned EffortDeclaration. It is a separate type from
+// the historical format-1/2 Configuration, which remains only for narrow
+// pre-stable recognition and retirement (PM-11). EncodeV3 is the only local
+// configuration writer. Before the first stable release format 3 is the only
+// canonical format; there is no v2-to-v3 migration and no v3-to-v2 downgrade
+// (Specification 007 AXM-22 PM-1). Every current consumer is v3-only since
+// BLD-001B.3c-2b.3.
 const (
 	FormatVersionV3          = 3
 	EffortDeclarationVersion = 1

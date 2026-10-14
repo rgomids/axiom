@@ -79,20 +79,29 @@ func (s runtimePolicySource) Load(ctx context.Context, id string) (runtimeapplic
 		return runtimeapplication.Snapshot{}, errRuntimePolicyInput
 	}
 	localState, err := store.Inspect(ctx)
-	if err != nil || localState.State != "active-v1" && localState.State != "active-v2" {
+	if err != nil {
 		return runtimeapplication.Snapshot{}, runtimeapplication.LocalStateError{State: localState.State}
 	}
-	cfg := localState.Configuration
-	observer, err := s.runtimes.observer(cfg)
+	// Only canonical v3 is current configuration; fresh, retired and
+	// pre-stable records keep their distinct refusals (PM-11, B1).
+	consumer, code := runtimeapplication.ConsumerFromRecordV3(localState.State, localState.V3)
+	if code != "" {
+		if localState.State == "active-v3" {
+			return runtimeapplication.Snapshot{}, errRuntimePolicyInput
+		}
+		return runtimeapplication.Snapshot{}, runtimeapplication.LocalStateError{State: localState.State}
+	}
+	observer, err := s.runtimes.observer(consumer)
 	if err != nil {
 		return runtimeapplication.Snapshot{}, errRuntimePolicyInput
 	}
-	return runtimeapplication.Snapshot{Project: portable.Snapshot.Project(), Configuration: cfg, Observer: observer}, nil
+	return runtimeapplication.Snapshot{Project: portable.Snapshot.Project(), Consumer: consumer, Observer: observer}, nil
 }
 
 // Each Load observes afresh, so Check compares the reviewed executable
 // identity and integration proof with the machine as it is now.
-func (r runtimeObservationSources) observer(cfg runtimeprofile.Configuration) (runtimeprofile.Observer, error) {
+func (r runtimeObservationSources) observer(consumer runtimeprofile.ConsumerV3) (runtimeprofile.Observer, error) {
+	cfg := consumer.Configuration()
 	runtimes := make([]runtimeadapter.ObservedRuntime, 0, len(cfg.Runtimes))
 	for _, runtime := range cfg.Runtimes {
 		observed := runtimeadapter.ObservedRuntime{ID: runtime.ID}
@@ -115,7 +124,7 @@ func (r runtimeObservationSources) observer(cfg runtimeprofile.Configuration) (r
 	}
 	if r.capability != nil {
 		service := *r.capability
-		service.Source = capabilityproof.ConfiguredSource{Source: service.Source, Configuration: cfg}
+		service.Source = capabilityproof.ConfiguredSource{Source: service.Source, Consumer: consumer}
 		return capabilityproof.Observer{Base: runtimeVersionObserver{base: base, version: r.version}, Service: service, Targets: append([]capabilityproof.Target(nil), r.capabilityTargets...)}, nil
 	}
 	return base, nil
@@ -163,7 +172,9 @@ func (s lifecycleService) runtimeResolutionResult(preview runtimeapplication.Pre
 	if preview.Blocker != nil {
 		switch preview.Blocker.Code {
 		case "configuration_missing", "configuration_retired", "profile_effort_unconfigured":
-			next = "Use axiom-runtime to inspect and prepare explicit local setup or migration; request a fresh preview afterwards"
+			next = "Use axiom-runtime to inspect and prepare explicit local setup; request a fresh preview afterwards"
+		case "unsupported_configuration_format":
+			next = "Pre-stable local configuration is not used: retire it explicitly with axiom-runtime (binding remove --runtime <id> --cascade), create canonical configuration, then request a fresh preview"
 		case "configuration_recovery_required", "configuration_unsafe":
 			next = "Use axiom-runtime scoped recovery; preserve the current state and review exact recovery authority"
 		}

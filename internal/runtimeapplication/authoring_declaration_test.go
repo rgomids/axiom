@@ -44,9 +44,9 @@ func (m *memoryStore) Inspect(context.Context) (LocalSnapshot, error) {
 	case v.V3 != nil:
 		snapshot.State, snapshot.Revision, snapshot.V3 = "active-v3", v.V3.Revision, v.V3
 	case v.Configuration.FormatVersion == runtimeprofile.FormatVersionV2:
-		snapshot.State, snapshot.Revision = "active-v2", v.Configuration.Revision
+		snapshot.State, snapshot.Revision, snapshot.Legacy = "active-v2", v.Configuration.Revision, *v.Configuration
 	default:
-		snapshot.State, snapshot.Revision = "active-v1", v.Configuration.Revision
+		snapshot.State, snapshot.Revision, snapshot.Legacy = "active-v1", v.Configuration.Revision, *v.Configuration
 	}
 	sum := sha256.Sum256(append([]byte(snapshot.State+"\x00"), m.wire...))
 	snapshot.Token = hex.EncodeToString(sum[:])
@@ -239,13 +239,24 @@ func TestDeclarationEditOnV3(t *testing.T) {
 	if got, err := h.authoring(store).Run(ctx, edit); err == nil || got.Category != "candidate_invalid" || store.writes != 2 {
 		t.Fatalf("ambiguous: %+v %v", got, err)
 	}
-	// Until BLD-001B.3c-2 every other mutation stays v2-only and refuses a v3
-	// record: no downgrade, no implicit migration (PM-3).
+	// Since BLD-001B.3c-2b.3 every structural mutation authors v3 directly:
+	// the candidate keeps the declarations and needs no capability proof.
 	enabled := false
-	for _, r := range []AuthoringRequest{{Kind: "binding", Operation: "edit", RuntimeID: "codex", Enabled: &enabled}, {Kind: "binding", Operation: "remove", RuntimeID: "codex", Cascade: true}, {Kind: "binding", Operation: "migrate", RuntimeID: "codex"}} {
-		if got, err := h.authoring(store).Run(ctx, r); err == nil || got.Category != "configuration_unavailable" || store.writes != 2 {
+	for _, r := range []AuthoringRequest{{Kind: "binding", Operation: "edit", RuntimeID: "codex", Enabled: &enabled}, {Kind: "binding", Operation: "remove", RuntimeID: "codex", Cascade: true}} {
+		if got, err := h.authoring(store).Run(ctx, r); err != nil || got.Category != "preview" || store.writes != 2 {
 			t.Fatalf("%s over v3: %+v %v", r.Operation, got, err)
 		}
+	}
+	if got, err := h.authoring(store).Run(ctx, AuthoringRequest{Kind: "binding", Operation: "migrate", RuntimeID: "codex"}); err == nil || got.Category != "invalid_input" || store.writes != 2 {
+		t.Fatalf("migrate over v3: %+v %v", got, err)
+	}
+	disable := AuthoringRequest{Kind: "binding", Operation: "edit", RuntimeID: "codex", Enabled: &enabled}
+	preview, _ = h.authoring(store).Run(ctx, disable)
+	if _, err := h.authoring(store).Run(ctx, confirmed(disable, preview)); err != nil || store.writes != 3 {
+		t.Fatalf("v3 disable: %v", err)
+	}
+	if v, err := runtimeprofile.DecodeVersioned(store.wire); err != nil || v.V3 == nil || len(v.V3.Runtimes[1].EffortDeclarations) != 1 || v.V3.Runtimes[1].Enabled {
+		t.Fatalf("structural edit dropped declarations or downgraded: %+v %v", v, err)
 	}
 }
 

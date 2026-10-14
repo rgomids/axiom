@@ -11,9 +11,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
-	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 // Issue #231 black-box Evidence: explicit-location bootstrap, portable/local
@@ -194,14 +192,7 @@ func TestBootstrapFromExplicitRepositoriesResolvesAmbiguityAndSeparatesLocalStat
 func TestBootstrapAuthorsRuntimePolicyFromLocalCandidatesOnly(t *testing.T) {
 	env := newBootstrapEnv(t)
 	repository := writeTree(t, filepath.Join(env.workspace, "main"), map[string]string{"README.md": "x"})
-	store, err := local.NewRuntimeProfileStore(env.state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1, Runtimes: []runtimeprofile.Runtime{{ID: "claude", Adapter: "claude", Enabled: true, AllowlistedProfileIDs: []string{"worker"}, CredentialReference: "private-test-reference"}}, ModelProfiles: []runtimeprofile.ModelProfile{{ID: "worker", RuntimeID: "claude", Model: "approved-model", Capabilities: []string{"axiom-skills"}, Complexities: []string{"high"}}}}
-	if err := store.Create(context.Background(), cfg); err != nil {
-		t.Fatal(err)
-	}
+	publishRuntimeProfileV3(t, env.state, singleRuntimeV3("claude", "worker", "approved-model", []string{"axiom-skills"}, []string{"high"}))
 	base := []string{"project", "configure", "--slug", "policy", "--name", "Policy", "--repository", "main=" + repository, "--work-item-provider", "github"}
 	none, _ := runEvent(t, env.service, cli.ExitSuccess, base...)
 	if none.Setup.RuntimePolicy.Status != "absent" || len(none.Setup.RuntimePolicy.Candidates) != 1 || none.Setup.RuntimePolicy.Candidates[0].ID != "claude" {
@@ -222,17 +213,18 @@ func TestBootstrapAuthorsRuntimePolicyFromLocalCandidatesOnly(t *testing.T) {
 	if err != nil || !strings.Contains(string(manifest), "runtimes:\n  - id: claude") || !strings.Contains(string(manifest), "model: approved-model") || strings.Contains(string(manifest), "private-test-reference") {
 		t.Fatalf("authored policy = %s %v", manifest, err)
 	}
-	// Historical local intent stays valid; current execution requires explicit effort migration.
+	// Canonical v3 intent is valid, but an observed executable with no
+	// injected Profile proof stays unproven (Specification 007 PM-7).
 	service, _ := testRuntime(t, env.service.(lifecycleService), "claude")
 	report := service.readiness().Evaluate(context.Background(), "policy")
-	if report.Effective != "partial" || report.Runtime.Detail != "profile_effort_unconfigured" || !report.Operation(projectapp.OperationWorkItem).Ready() {
+	if report.Effective != "partial" || report.Runtime.Detail != "authentication_unproven" || !report.Operation(projectapp.OperationWorkItem).Ready() {
 		t.Fatalf("readiness = %+v", report)
 	}
-	// Missing executable cannot bypass the unmet historical-effort boundary.
+	// A missing executable is unavailable, never proven.
 	missing := service
 	missing.runtimes.lookPath = func(string) (string, error) { return "", os.ErrNotExist }
 	blocked := missing.readiness().Evaluate(context.Background(), "policy")
-	if blocked.Effective != "partial" || blocked.Runtime.Detail != "profile_effort_unconfigured" || !blocked.Operation(projectapp.OperationWorkItem).Ready() {
+	if blocked.Effective != "partial" || blocked.Runtime.Detail != "runtime_unavailable" || !blocked.Operation(projectapp.OperationWorkItem).Ready() {
 		t.Fatalf("blocked = %+v", blocked)
 	}
 }
