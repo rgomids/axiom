@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "repository": "https://github.com/rgomids/axiom-ds",
-  "revision": "a29016d237180a528fa6fd4c81fd0185db7e8f26",
+  "revision": "37f15c9e42915f5ef6aa5a300dc7f5ce2678d02e",
   "bundle": "packages/landing/dist",
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
