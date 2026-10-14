@@ -4,7 +4,7 @@ Este diretório registra decisões técnicas duráveis e difíceis de reverter.
 
 ## Index
 
-- [ADR-0026 — Successor execution Graph for public stage dispatch](0026-successor-stage-dispatch-graph-format.md) — **Proposed, 2026-10-12**; PD-R276-01/B direction approved ([receipt](https://github.com/rgomids/axiom/pull/311#issuecomment-6125676685)); exact successor format/codec contract and partial supersession of ADR-0025 are not yet accepted. No implementation authority.
+- [ADR-0026 — Successor execution Graph for public stage dispatch](0026-successor-stage-dispatch-graph-format.md) — **Proposed, 2026-10-12**; PD-R276-01/B direction approved ([receipt](https://github.com/rgomids/axiom/pull/311#issuecomment-6125676685)); **Accepted, recorded 2026-10-13** with the successor amendment and the 44 #276 Tasks; implementation authorized within the accepted contracts ([record](../specifications/007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13)).
 
 - [ADR-0025 — Public stage dispatch supervision, capability proof and coordination ingress](0025-public-stage-dispatch-and-capability-proof.md) — **Accepted, 2026-10-11** ([maintainer decision](https://github.com/rgomids/axiom/pull/311#issuecomment-6109867861); PR #311 head `4b8c888`, blob `1da38d6`; Issue #276); detached per-run supervisor with lease, dispatch-authority record, child inbox ingress, persisted attempt classification and probe-based capability proof. Implementation, merge and release need separate authority.
 

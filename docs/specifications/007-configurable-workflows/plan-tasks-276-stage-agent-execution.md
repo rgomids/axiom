@@ -83,6 +83,51 @@ their joint-Graph2 fragment is effective until the new ADR is accepted.
 The **reconciled Part II Tasks are Proposed**, not approved for implementation.
 No code, codec, Runtime dispatch, inference or real smoke is authorized.
 
+## Maintainer acceptance and delivery governance — recorded 2026-10-13
+
+This later administrative record supersedes the Proposed status statements
+above and in Part II, not their technical content. The maintainer (Rafael)
+accepted, as recorded in `main` at `bf3c6218422123fb99b6a30ef89f92f5bc7d5e7d`:
+
+- [ADR-0026](../../decisions/0026-successor-stage-dispatch-graph-format.md)
+  (blob `1a99a571ee74656a23fa294dfae7e3bc63bc2469`);
+- the [successor Spec amendment](amendment-276-successor-graph-proposed.md)
+  (blob `53ac761f31e79dbff1c6ed9652de92f8556e7a6f`);
+- all 44 Part II Tasks, `I276-T01`–`I276-T44`, exactly as defined in this file
+  at that commit (blob `3a78512ffe596957957deaabb76d2137a126de11`);
+- implementation within those accepted contracts.
+
+The acceptance was communicated through the AXM-21 work brief; no separate
+public receipt (comment URL, signature or reviewer record) was supplied, so
+none is cited. Task wording, dependencies, acceptance criteria and authority
+gates are unchanged. Real probes, inference, T40 smoke, Provider effects,
+merge and release keep their own separate authority gates.
+
+| Layer | State |
+|---|---|
+| Accepted plan | Part I (2026-10-11), ADR-0026, successor amendment and the 44 Tasks |
+| Authorized implementation | Within the accepted contracts, delivered one child Work Item at a time |
+| Implemented code | Only what a merged child PR and its Evidence record name; acceptance marks no Task implemented |
+| Verified Evidence | Per-Task Evidence files; synthetic Evidence is never operational proof |
+| Operational acceptance | Pending (#276 acceptance criteria, T40 and human acceptance) |
+
+**Delivery governance.** AXM-8 / #276 remains **In Progress**. PR #311 merged
+as the original delivery slice (squash `ee3bbaa`). Further implementation is
+split into approved child Work Items owned by AXM-8: exactly one branch and one
+PR per child card, each branched from current `main`. A child PR merge does not
+complete AXM-8; the original #276 acceptance criteria still apply and final
+reconciliation happens at the parent card. This supersedes the single-branch
+lifecycle row above for future delivery only. AXM-21 owns Capability Evidence
+Selection under I276-T16/T17 ([implementation record](issue-276-implementation.md#axm-21--capability-evidence-selection)).
+
+**Evidence selection policy (AXM-21).** A unique, exact, fresh, valid and
+non-invalidated Evidence matching the complete independently observed
+Binding/ModelBinding is selectable. Missing Evidence fails closed; several
+matching records fail closed as ambiguous. No automatic precedence (newest,
+oldest, name or digest order) is accepted; a multiple-Evidence policy remains
+a pending decision. The production BindingSource and T34 composition remain
+separate work; T16/T17 are not complete.
+
 # Part I — Plan
 
 ## 1. Scope and objective
@@ -1467,6 +1512,11 @@ which accepted Part I (blob `13776ae4e5923b2c30439b2b12586b202d864c11`), amendme
 Nothing in this Part is accepted, started or done. It does not authorize
 implementation, real Runtime execution, probes, inference, Provider effects,
 merge or release. Part I is unchanged except for its Status section.
+
+**Accepted, recorded 2026-10-13** — see
+[Maintainer acceptance and delivery governance](#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13).
+The paragraph above and the 2026-10-12 reconciliation below are preserved as
+history; acceptance marks no Task implemented.
 
 **Summary.** 44 Tasks, IDs `I276-T01`–`I276-T44`, stable once
 accepted. Distribution by capability area:

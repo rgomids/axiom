@@ -3,8 +3,10 @@ package local
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
 )
@@ -110,6 +112,64 @@ func (s CapabilityStore) Load(ctx context.Context, id string) (capabilityproof.E
 		return capabilityproof.Evidence{}, ErrUnsafe
 	}
 	return e, nil
+}
+
+// Scan visits every verified record read-only under a shared lock. It never
+// creates directories or writes; an absent store has no records. Pending
+// publication state, unexpected names and records that fail decoding or their
+// content address abort the scan instead of being skipped.
+func (s CapabilityStore) Scan(ctx context.Context, visit func(capabilityproof.StoredEvidence) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	root, parent, version, err := s.open(false)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	defer parent.Close()
+	defer version.Close()
+	locks, err := lockRoots(false, root, parent, version)
+	if err != nil {
+		return err
+	}
+	defer closeFiles(locks)
+	if pending, err := protocolStatePresent(version); err != nil || pending {
+		return ErrRecoveryRequired
+	}
+	names, err := readDirectoryNamesBounded(version, maxLocalDirectoryEntries)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if !hexDigestName.MatchString(name) {
+			return ErrUnsafe
+		}
+		wire, err := readPrivateFile(version, name)
+		if err != nil {
+			return ErrUnsafe
+		}
+		e, err := capabilityproof.DecodeEvidence(wire)
+		if err != nil {
+			return ErrUnsafe
+		}
+		original := e
+		original.InvalidatedReason = ""
+		id := strings.TrimSuffix(name, ".json")
+		if actual, err := capabilityproof.Digest(original); err != nil || actual != id {
+			return ErrUnsafe
+		}
+		if err := visit(capabilityproof.StoredEvidence{Ref: id, Evidence: e}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Invalidate uses the loaded wire revision as a conditional update; evidence

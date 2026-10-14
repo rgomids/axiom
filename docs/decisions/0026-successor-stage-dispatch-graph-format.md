@@ -8,6 +8,11 @@ approved the architectural **direction** PD-R276-01/B
 its wire representation, the amended Specification, Tasks, or implementation.
 No supersession is currently in force.
 
+**Accepted, recorded 2026-10-13**, by the maintainer, for this exact artifact
+(blob `1a99a571ee74656a23fa294dfae7e3bc63bc2469` at `main` `bf3c621`); see the
+[#276 acceptance record](../specifications/007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13).
+The paragraph above is preserved as history.
+
 ## Context
 
 #306 / PR #310 delivered a closed Graph format 2 that records resolved Profile

@@ -8,6 +8,12 @@ This exact amendment and [ADR-0026](../../decisions/0026-successor-stage-dispatc
 are not yet accepted, do not supersede the 2026-10-11 Phase 1 accepted
 amendment, and do not authorize Implementation or real inference.
 
+**Accepted, recorded 2026-10-13**, by the maintainer, for this exact artifact
+(blob `53ac761f31e79dbff1c6ed9652de92f8556e7a6f` at `main` `bf3c621`) together
+with ADR-0026; see the [#276 acceptance record](plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13).
+Implementation is authorized within the accepted contracts; real inference
+keeps its separate gate. The paragraph above is preserved as history.
+
 ## Scope and ownership
 
 Complement only the successor-Graph version/codec contract for the public
