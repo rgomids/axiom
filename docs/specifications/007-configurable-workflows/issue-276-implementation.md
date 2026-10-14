@@ -93,3 +93,60 @@ Historical configured invocations are outside this closed stage-mode contract.
 No consumers are wired by BLD-005; production BindingSource and T34 composition
 remain incomplete. Evidence encoding, historical bytes/digests, exact binding
 equality, capability states/freshness, Graph1/2/3 and authority contracts are unchanged.
+
+## AXM-21 — Capability Evidence Selection
+
+Child Work Item of AXM-8 (#276) under accepted I276-T16/T17; one branch
+(`feat/axm-21-capability-evidence-selection`) and one Draft PR. Governance and
+acceptance: [Plan record](plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13).
+
+`capabilityproof.Selector` (`internal/capabilityproof/selection.go`) receives an
+independently observed `Binding` and optional `ModelBinding`; an invalid or
+partial `Binding` blocks before any enumeration, so persisted Evidence is never
+a source of current identity. It re-verifies each candidate's content address
+and admits a record only when `ValidEvidence` holds, it is not invalidated, it
+is fresh under `MaxAge` (not future-dated), and both structures are exactly
+equal (all seven Binding and seven ModelBinding fields; a Runtime-level request
+never matches Profile-level Evidence or the reverse). Outcomes, all with blocker
+`capability_unknown` and wrapping `ErrBlocked`:
+
+| Candidates | Result |
+|---|---|
+| exactly one admissible | its content-addressed `EvidenceRef` |
+| none | `ErrEvidenceMissing` |
+| more than one | `ErrEvidenceAmbiguous`; no timestamp, name or digest precedence |
+| any unreadable, unsafe, unverifiable or duplicate entry | generic `ErrBlocked`; no storage detail exposed |
+
+Storage boundary: `local.CapabilityStore.Scan` enumerates `capability-evidence/v1`
+read-only under the shared lock, bounded by the existing local directory limit.
+It opens existing private roots only (an absent store yields no records and
+creates nothing), refuses pending publication state (`ErrRecoveryRequired`), and
+aborts with `ErrUnsafe` on any unexpected name, symlink, non-regular or
+over-permissive entry, decoding failure or content-address mismatch, so a
+partial view cannot yield a false unique selection. It writes, invalidates,
+migrates and indexes nothing; Evidence schema, encoding, digests, Binding and
+ModelBinding are unchanged.
+
+Synthetic Evidence (Go 1.26.0 pinned toolchain, `GOTOOLCHAIN=local GOWORK=off`):
+
+- `go test ./internal/capabilityproof -run '^TestEvidenceSelection' -count=1` — exit 0
+  (11 tests, 35 including subtests): unique Runtime-/Profile-level, per variant,
+  order independence, every Binding/ModelBinding field drift, none, two matches,
+  invalidated/expired/future, content-address, corruption, unsupported schema,
+  duplicate and unreadable candidates, missing current identity.
+- `go test ./internal/local -run '^TestCapabilityEvidenceScan' -count=1` — exit 0
+  (4 tests, 12 including subtests): real store selection with byte/mode/mtime
+  snapshots proving no mutation, absent store not created, ambiguity, explicit
+  invalidation preserved, corrupted/misaddressed/unsupported/unknown/symlink/
+  directory/over-permissive entries and pending publication fail closed.
+- Regression: `go test ./internal/capabilityproof -count=1` and
+  `go test ./internal/local -run '^TestCapability' -count=1` — exit 0;
+  `go vet` and `go build` for both packages — exit 0.
+
+These are synthetic tests only: no Runtime executable, probe, inference or
+Provider effect was run, and they are not operational Evidence.
+
+Remaining: production BindingSource (current identity observation), wiring the
+selector into it and `capabilityproof.Service`, T34 composition, T44/B6 CLI,
+retry-reset authority/fencing, and a decision on multiple matching Evidence.
+AXM-8 remains In Progress.

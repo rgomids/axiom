@@ -2,6 +2,13 @@
 
 ## Status
 
+**Accepted, recorded 2026-10-13**, by the maintainer, for this exact artifact
+(blob `1a99a571ee74656a23fa294dfae7e3bc63bc2469` at `main` `bf3c621`); see the
+[#276 acceptance record](../specifications/007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13).
+The paragraph below is preserved as history. After acceptance, only ADR-0018
+supersession bookkeeping changed: this Status order, the supersession heading
+and note, and the `## Supersedes` backlink; the decision text is unchanged.
+
 Proposed on 2026-10-12 for acceptance of this exact artifact. The maintainer
 approved the architectural **direction** PD-R276-01/B
 ([receipt](https://github.com/rgomids/axiom/pull/311#issuecomment-6125676685)); that approval is not approval of this detailed ADR,
@@ -66,7 +73,11 @@ Runtime capability proof; #306's 23 completed Tasks are not reopened.
 This ADR specifies no permission for implementation, real Runtime inference
 or new external effects.
 
-## Intended partial supersession — not yet effective
+## Partial supersession — effective since acceptance, 2026-10-13
+
+The conditional wording below is preserved as proposed; acceptance recorded
+on 2026-10-13 made this partial supersession effective, as listed in
+[Supersedes](#supersedes).
 
 **When and only when accepted**, this ADR would supersede the bounded
 **joint-Graph2/X05 version/ownership fragment** of
@@ -77,6 +88,21 @@ proof and safety) remains in force. Upon exact-artifact acceptance, create
 the ADR-0018 `## Supersedes` backlink and historical annotation in ADR-0025,
 and update the ADR index's partial-supersession note. Until then, none of
 those accepted artifacts is silently replaced.
+
+## Supersedes
+
+- [ADR-0025 Consequences](0025-public-stage-dispatch-and-capability-proof.md#consequences):
+  only the joint-Graph2/I306-X05 version-and-ownership fragment (format
+  changes "versioned together with the #306 graph v2"). Successor Graph
+  ownership belongs to #276 under this decision. Supervision, authority,
+  coordination, classification, capability proof and security/safety
+  decisions of ADR-0025 remain in force.
+- [Plan #276 Part I](../specifications/007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
+  only the corresponding PD-16/§3.10 joint-Graph2 assertion, and the
+  corresponding [amendment #276](../specifications/007-configurable-workflows/amendment-276-stage-dispatch.md)
+  A6 sentence; their wording is preserved as history.
+
+Acceptance: [#276 acceptance record](../specifications/007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13).
 
 ## Alternatives considered
 
