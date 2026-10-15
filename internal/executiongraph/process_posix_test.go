@@ -6,7 +6,6 @@ import (
 	"context"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"syscall"
 	"testing"
@@ -42,9 +41,6 @@ func TestPOSIXProcessContainment(t *testing.T) {
 		escaped := mode != "descendants"
 		orphan := mode == "orphaned escaped descendant"
 		t.Run(mode, func(t *testing.T) {
-			if orphan && runtime.GOOS != "linux" {
-				t.Skip("orphaned double-fork escapes are observable only through the Linux child subreaper; other POSIX platforms record this as a containment limitation")
-			}
 			pidfile := t.TempDir() + "/pid"
 			command := exec.Command(os.Args[0], "-test.run=^TestPOSIXProcessContainment$")
 			command.Env = append(os.Environ(), "AXIOM_GROUP_HELPER=parent", "AXIOM_GROUP_PIDFILE="+pidfile)

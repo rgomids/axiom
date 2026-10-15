@@ -2242,3 +2242,38 @@ trust path or adopt another dependency implicitly. Stop only an effect whose
 safe authority/identity/measurement cannot be established; preserve all
 independent work. No current human action is required to continue implementation.
 Future operational tests need the specific independent consent listed above.
+
+### Continuation — Darwin orphan boundary (T43)
+
+The `82e711e` checkpoint is preserved. PR #320 was re-observed open/Draft on
+the same branch, with remote HEAD `82e711eaf85fd01f024ea94b4348b48bee58fd50`;
+its CI run `38818347537` passed native Linux/macOS. AXM-8 remains In Progress,
+with no blockedBy relation. The three specified human decisions were read in
+full; no Provider content was imported. No delegation: the required strictly
+lower model hierarchy is not established by the available runtime metadata.
+
+T43 now takes a pre-spawn Darwin launchd-adoption baseline using the existing
+`x/sys/unix` sysctl boundary. It compares PID **and start identity** after exit
+and before stop confirmation. A new live adopted process outside known attempt
+groups is un-attributable: stop stays unconfirmed and the runner remains unknown.
+This deliberately permits conservative false negatives when an unrelated process
+daemonizes concurrently; it grants no sandbox or arbitrary-descendant kill power.
+No new dependency or accepted ADR change. Linux retains its subreaper boundary.
+The previous Darwin orphan-test skip was removed and the runner's orphan test
+is shared by Linux and Darwin. Native macOS execution must be observed in CI;
+cross-compilation alone is not native proof.
+
+Local synthetic validation, pinned Go 1.26.0, ambient Claude effort unset:
+
+| Command | Result |
+| --- | --- |
+| `go test -race ./internal/executiongraph -run 'TestPOSIX\|TestOSProcessRunner' -count=1 -timeout=120s` | exit 0, 22.128s |
+| `go test ./internal/executiongraph ./internal/stageexecution ./internal/capabilityproof -count=1 -timeout=120s` | exit 0, 12.690s / 2.886s / 0.089s |
+| `GOOS=darwin GOARCH=arm64 go test -c ./internal/executiongraph` | exit 0, compilation only |
+| `go vet ./internal/executiongraph`; format / tidy / staticcheck | exit 0; Staticcheck 0.8.1 |
+
+Staticcheck initially refused because its installed binary was absent from PATH;
+adding the existing `/home/box/go/bin` resolved it, without installing anything.
+No actual vendor executable, authentication, probe or inference was invoked.
+T40 and AC-6 remain NOT_RUN. This unit does not close the remaining T41/T44,
+stage-composition, retry-reset or installed-validation gaps listed above.

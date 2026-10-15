@@ -22,6 +22,7 @@ type posixProcessGroup struct {
 	pid            int
 	escaped        bool
 	observationErr error
+	orphans        map[int]string
 }
 
 func newProcessContainment() (processContainment, error) { return &posixProcessGroup{}, nil }
@@ -30,6 +31,11 @@ func (g *posixProcessGroup) start(cmd *exec.Cmd) error {
 	if err := enableChildSubreaper(); err != nil {
 		return err
 	}
+	baseline, err := observeAdoptedProcesses()
+	if err != nil {
+		return err
+	}
+	g.orphans = baseline
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		return err
@@ -104,6 +110,16 @@ func (g *posixProcessGroup) close() {
 type processObservation struct{ pid, parent, group int }
 
 func (g *posixProcessGroup) observeEscapes() {
+	adopted, err := observeAdoptedProcesses()
+	if err != nil {
+		g.observationErr = err
+		return
+	}
+	for pid, identity := range adopted {
+		if g.orphans[pid] != identity {
+			g.escaped = true
+		}
+	}
 	processes, err := observeProcesses()
 	if err != nil {
 		g.observationErr = err
