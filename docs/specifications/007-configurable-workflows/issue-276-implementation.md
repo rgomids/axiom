@@ -1756,15 +1756,25 @@ manifest digest, nonce, external address, child binding and symlink drift;
 publication tests reject packet/attempt drift and unknown denial. Existing
 classification tests retain pre/post control and errno attribution coverage.
 
-The reported `authentication_blocked` interruption failure did not reproduce in
-isolation or the initial race matrix. Its test used a 15-second outer deadline
-covering all preparation and authentication, so expiration could stop before
-probe dispatch. The fixture now permits a bounded one-minute preflight window,
-then explicitly requires the fake invocation-start marker and `context.Canceled`
-from the marker-triggered cancellation. Timeout likewise must reach the fake
-invocation. Probe budgets allow instrumented subprocess startup (15 seconds for
-normal fixtures, 5 seconds for timeout); production auth and authority gates are
-unchanged. The test cannot pass by treating a preflight timeout as interruption.
+The reported `authentication_blocked` failure reproduced with Linux CI's
+`-race -covermode=atomic -coverprofile=...` flags, after non-coverage runs passed.
+The copied FAKE executable emitted version/status without a terminating newline;
+Go coverage then appended `warning: GOCOVERDIR not set, no coverage data emitted`
+on stderr, joining the output into `0.159.1warning: ...` or
+`Logged in using ChatGPTwarning: ...`. The existing production preflight
+correctly rejected the unrecognized version/status. Fake version/status now emit
+complete newline-terminated lines. No auth parser, environment allowlist,
+coverage setting or production gate was relaxed. The first publication
+`4541ecf` passed native macOS but failed Linux coverage; that result is not
+reported as green CI. The final PR check must use the subsequent correction.
+
+Separately, the interruption fixture now explicitly requires the invocation-start
+marker and `context.Canceled` from marker-triggered cancellation; a bounded
+one-minute outer window permits instrumented preflight. Timeout likewise must
+reach the fake invocation. Probe budgets allow instrumented subprocess startup
+(15 seconds for normal fixtures, 5 seconds for timeout). The test cannot pass by
+treating a preflight failure as interruption. Quarantine authority revocation is
+also checked independently of process output.
 
 **Validation ledger (Linux, synthetic).** Go 1.26.0 from the existing cached
 toolchain (`GOTOOLCHAIN=auto` initially; then its pinned binary on PATH with
@@ -1781,6 +1791,8 @@ repository, temporary and vendor roots. Fixtures are removed by test cleanup.
 | `go test -race ./cmd/lingo -run '^TestPreparedProductionProbe' -count=1 -timeout=120s` | PASS, final matrix including outside-root snapshots and refusal cases (65.7s) |
 | `go test -race ./cmd/lingo -run '^TestPreparedProductionProbeRefusals/interrupted$' -count=5 -timeout=90s` | PASS, five consecutive dispatch-confirmed interruptions (17.1s total) |
 | `go test -race <package> -count=1 -timeout=120s`, separately for every `go list ./...` package except `cmd/lingo` | PASS for all 36 remaining packages; four have no test files |
+| `go test -race -covermode=atomic -coverprofile=<private-output> ./cmd/lingo -run '^TestPreparedProductionProbe' -count=1 -timeout=120s` | PASS after the FAKE line-ending correction; all variants/refusals with Linux CI instrumentation (63.8s) |
+| Same race/coverage command with `-run '^TestPreparedProductionProbeRefusals/interrupted$' -count=5 -timeout=90s` | PASS, five consecutive interruptions with Linux coverage instrumentation (17.7s) |
 | `go vet ./...`; `go build ./...`; `go mod verify` | PASS |
 | `./scripts/check-go-quality.sh format`, `tidy`, `staticcheck` | PASS; Staticcheck 2026.2.1 / v0.8.1 |
 | `./scripts/validate-repository.sh .` | PASS; vendor runtime behavioral checks deliberately UNVERIFIED |

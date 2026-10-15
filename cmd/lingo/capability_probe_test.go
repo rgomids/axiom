@@ -47,7 +47,7 @@ func probeFakeProcess() (bool, int) {
 		if name == "claude" {
 			version = "2.1.296"
 		}
-		_, err = io.WriteString(os.Stdout, version)
+		_, err = io.WriteString(os.Stdout, version+"\n")
 		if err != nil {
 			return true, 1
 		}
@@ -61,7 +61,7 @@ func probeFakeProcess() (bool, int) {
 		if name == "claude" {
 			status = `{"loggedIn":true,"authMethod":"claude.ai","apiProvider":"firstParty"}`
 		}
-		_, err = io.WriteString(os.Stdout, status)
+		_, err = io.WriteString(os.Stdout, status+"\n")
 		if err != nil {
 			return true, 1
 		}
