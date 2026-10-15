@@ -1898,3 +1898,190 @@ verified. Real Runtime/version/help/authentication, inference, live probes,
 installed smoke, Provider effects and T40 remain **NOT_RUN**. No acceptance,
 merge, release, Issue/Task closure or Linear mutation. Remote exact-head native
 Linux/macOS CI and the re-review request are recorded on this same Draft PR.
+
+
+## CONTINUE 2026-10-15 — Operational checkpoint for PR #320
+
+Snapshot before edits: clean `feat/axm-8-stage-agent-execution` at
+`e05e209f7a77d5f56ad67ce02320cd533b8ea9b5`; remote branch matches;
+`main@87f882115667cd1de8ac06397a4d11941a01f7fd`. GitHub read-back:
+#276 OPEN; #320 OPEN/DRAFT, sole open AXM-8 work PR; unrelated #317 is not
+part of this work. CI run 38804515821 and delivery metadata PASS for that
+exact baseline HEAD, including native Linux/macOS. Review 5540357018 is
+favorable for its slice, native COMMENT/self-review, not native approval.
+CR-001/CR-002 remain resolved at baseline. AXM-8 is In Progress, no blockedBy,
+blocks AXM-9. No lifecycle, relation, label or acceptance mutation is authorized.
+
+The three maintainer decisions named in the continuation request were read in
+full and match the versioned scope addenda. Only technical decision summaries
+already authorized for this public repository are retained here. No raw provider
+comments are imported. No new Specification, ADR or Work Item is needed for the
+approved work. No delegation: a strictly lower model hierarchy cannot be
+verified from this runtime's metadata, so the Orchestrator performs the units.
+
+### Current Task inventory
+
+This overlays, rather than replaces, the dated main-baseline matrix. INTEGRADO
+means the component and its cited synthetic Evidence exist on main, not that
+the whole installed journey or Task Done has human acceptance. IMPLEMENTADO NO
+PR is unmerged and qualified by remaining public/operational boundaries. Tests
+below identify existing Evidence, not new executions in this checkpoint. Exact
+criteria, file links and residual gaps remain in the baseline rows; dependencies
+below are the immutable approved catalog, with the later v3/Linux/macOS addenda.
+
+| Task | State | Catalog predecessors | Requirement / AC | Existing Evidence locator |
+| --- | --- | --- | --- | --- |
+| I276-T01 | INTEGRADO | none (internal) | ADR-0026 D1–6; I-1–I-6. | successor_test.go: TestSuccessorCanonicalVectors, TestSuccessorHistoricalBytesAndDigests; successor_graph_store_test.go |
+| I276-T02 | INTEGRADO | none (internal) | G8; AC-5. | scheduler_test.go: TestSchedulerConcurrentRunningRetryNeverDispatches, TestReadyChildrenStatuses |
+| I276-T03 | INTEGRADO | none (internal) | CR-001; PD-9; AC-3/5. | classify_test.go: TestClassifyAttemptRules, TestLatestAttemptRecordTotalOrdering |
+| I276-T04 | INTEGRADO | T01, T02, T03 | PD-9; I-1–I-6; AC-4. | consumers_test.go: TestConsumerPersistedStateMatrix, TestConsumerLoadInvariants, TestConsumerBatchConcurrency |
+| I276-T05 | INTEGRADO | none (internal) | PD-2/9; AC-1/4. | scheduler_test.go: TestSchedulerSavesCompletionBeforeBatchEnds, TestOSProcessRunnerStdinBytes, TestSchedulerCompletionFailuresKeepRunningState |
+| I276-T06 | INTEGRADO | T01 | PD-2/10; AC-2/5. | run_lease_test.go: TestRunLeaseReplacementAndEpochFencing; successor_graph_store_test.go: TestSuccessorSavePinsLeaseThroughCommit |
+| I276-T07 | INTEGRADO | T01, T06 | PD-3/12; ADR-0007. | dispatch_authority_test.go: TestDispatchCompanionFaultWindows, TestDispatchGraphStoreCommitAndReadback, TestSingleDispatchStoreCommitAndScope |
+| I276-T08 | INTEGRADO | T04, T06 | PD-10; AC-5. | reconciliation_test.go: TestReconciliationAppendRetryAndConflict; successor_graph_store_test.go: TestSuccessorReconciliationPublicationRecovery |
+| I276-T09 | INTEGRADO | T01 | CR-006; PD-15; PM-11. | admission_test.go: TestAdmissionHistoricalMatrix, TestAllHistoricalGraphMutationsRefusedAndInspectionPreservesBytes; admission_v3_test.go |
+| I276-T10 | INTEGRADO | none (internal) | PD-13; D-1. | evidence_test.go: TestFreshnessAndExactBinding, TestNoPromotionWithoutProbe, TestRedactionAndStrictDecode |
+| I276-T11 | INTEGRADO | T10 | PD-13; ADR-0007. | capability_store_test.go: TestCapabilityStoreRoundTripInvalidate, TestCapabilityRecoveryAndInventory, TestCapabilityStoreRejectsUnsafeBeforeEffects |
+| I276-T12 | INTEGRADO | T10, T19 | PD-13; level-1 refutation. | interface_test.go: TestInterfaceRefutation; runtimeadapter/interface_observation_test.go: TestInterfaceExactEnvironmentAndReplacement; testdata help fixtures |
+| I276-T13 | IMPLEMENTADO NO PR | T11 | CR-005; ADR-0005/7. | T13/T14/T16 production integration + review corrections |
+| I276-T14 | IMPLEMENTADO NO PR | T13, T22 | CR-005/007; PD-13. | T13/T14/T16 production integration + review corrections |
+| I276-T15 | INTEGRADO | T13, T14 | CR-007/008; PD-13. | classify_test.go: TestVariantScoring, TestConfinementControlMatrix, TestControlMeasurementNoForeignEffects |
+| I276-T16 | IMPLEMENTADO NO PR | T11, T12, T15, T18, T19, T20 | PD-12/13; CR-007/008; PM. | T13/T14/T16 production integration + review corrections |
+| I276-T17 | PARCIAL | T10, T11, T18 | PD-13; BI-1/2; PM-12/13. | service_test.go: TestCheckBindingDrift, TestRequiredNonProvenBlocks; binding_source_test.go; capability_composition_test.go |
+| I276-T18 | INTEGRADO | none (internal) | PD-4; G5; AC-1. | stage_invocation_test.go: TestStageArgvGolden, TestStageRejectsConfiguredArguments; identity_test.go: TestModeDigestGolden |
+| I276-T19 | INTEGRADO | none (internal) | PD-5; G13/14; AC-1/6. | stage_invocation_test.go: TestStageEnvironmentClosed; authpreflight_test.go: TestAuthPreflightInspectsTheExactEffectiveInvocation |
+| I276-T20 | INTEGRADO | T05 | PD-11; AC-1. | packet_test.go: TestTaskPacketGraphAndSingleAgent, TestTaskPacketRejectsUnsafeInputs, TestPreparePacketRecordsBeforeDelivery |
+| I276-T21 | PARCIAL | T17, T18 | CR-003/006; PE-05a; PM-13. | frozen_stage_test.go: TestFrozenStageDeliveredEffortInspection; stage_effort_test.go; capability_composition_test.go |
+| I276-T22 | INTEGRADO | none (internal) | PD-4; AC-3; nine kinds. | attempt_inbox_test.go: TestAttemptInboxEveryKindAndExclusiveCreate, TestAttemptInboxRejectsInvalidPublish; stage_dispatch_test.go: TestPublishRefusesAbsentRunningContext |
+| I276-T23 | INTEGRADO | T03, T05, T06, T22, T24 | PD-4/9; I-1–I-6; AC-3. | coordination_ingest_test.go: TestIngestCrossRuntimeQuestionAnswerAndBlocker, TestIngestCapacityReserveAndCrashReplay, TestFinalDrainRacesPublishWithoutLateCanonicalRecord |
+| I276-T24 | INTEGRADO | none (internal) | PD-1/4; AC-3. | coordination_read_test.go: TestCoordinationReadStreamCanonicalOnlyAndTamper, TestReadStreamSupportsCompleteCodecByteWindow |
+| I276-T25 | PARCIAL | T09, T17, T18, T32, T19, T21 | PD-3/12; AC-1/4; PM. | preview_test.go: TestDispatchPreviewGraphAndSingle, TestDispatchPreviewRightsGolden, TestDispatchPreviewRefusals; stage_dispatch_test.go |
+| I276-T26 | PARCIAL | T07, T25, T27 | PD-3/11/12; AC-1. | run_test.go: TestRunGraphAndSingleCommitBeforeStart, TestRunConfirmedCommitFailureIsPartial; publisher_test.go |
+| I276-T27 | PARCIAL | T04, T05, T06, T21, T23, T07, T19, T20, T43 | PD-2; AC-1/2/4. | supervisor_test.go: TestSupervisorFailureInjectionPhases, TestSupervisorInitiatingContextDoesNotOwnRun; supervisor_preparation_test.go |
+| I276-T28 | PARCIAL | T04, T06, T26, T07 | PD-2/12; AC-2. | lifecycle_test.go: TestStatusRendersPersistedStateAcrossStatuses, TestResumeAfterSupervisorKillStartsOnlyRemainingFirstAttempts |
+| I276-T29 | PARCIAL | T43, T27 | PD-6; AC-5. | lifecycle_test.go: TestCancelBeforeDispatchPreventsAttempts, TestCancelWhileRunningRequiresConfirmedStop |
+| I276-T30 | PARCIAL | T08, T28 | PD-10; AC-5. | reconcile_test.go: TestReconcileStaleAndUnknownAppendsFactsOnly, TestReconcileRefusals |
+| I276-T31 | PARCIAL | T08, T26 | PD-8/12; AC-5. | retry_test.go; recompiled_proposal_test.go; cmd/lingo/stage_dispatch_test.go: TestStageDisposerResetFailsBeforeWorkspacePreparation; gitworkspace/retry_reset_test.go |
+| I276-T32 | INTEGRADO | none (internal) | PD-7; amendment A5. | validator_policy_test.go: TestPolicyPreviewApplyRefusesAgentAuthorityAndDrift; validator_policy_store_test.go |
+| I276-T33 | INTEGRADO | T04, T26, T32 | PD-7/9; AC-4. | integrate_test.go: TestIntegrateTwoChildrenWithValidators, TestIntegrateProjectionFailureIsPartialAndRepairable, TestIntegrateUnknownEffectBlocksRerun |
+| I276-T34 | PARCIAL | T24, T26, T28, T29, T30, T31, T33 | PD-1/12; AC-1/2/5; AC-009. | cli/workflow_stage_test.go: TestWorkflowStageCommandsRouteExactInputs, TestWorkflowStageJSONAndHumanParity, TestWorkflowStageExitCodesFollowCanonicalStatus; stage_dispatch_test.go |
+| I276-T35 | INTEGRADO | T34 | PD-14; ADR-0022; AC-2/009. | cli/domain_skill_routing_test.go: TestCanonicalSkillRoutingTableConvergesWithInspection, TestRoutingAloneNeverGrantsAuthority; codexruntime/domain_skills_upgrade_test.go |
+| I276-T36 | NÃO PROVADO | T34, T35, T44 | AC-1–5; AC-009. | Service/fake-adapter and local publication tests exist; no complete installed stage blackbox suite located |
+| I276-T37 | PARCIAL | T09, T01, T21, T26, T31 | CR-006; ADR-0026 D6; PM-11. | TestAdmissionHistoricalMatrix, TestUnknownWireNeverFallsBack, TestSuccessorHistoricalBytesAndDigests, TestStableCorpusResolvesToDirectUpgrade |
+| I276-T38 | PARCIAL | T15, T16, T18, T19, T23, T41, T43 | Plan §7/9.1; CR-005/007/008. | TestConfinementControlMatrix, TestExtendedMissingAuthority, TestExtendedResidue, TestStageRejectsConfiguredArguments, TestIngestRejectsCandidatesAndReportsSafeCategories |
+| I276-T39 | PARCIAL | T36, T37, T38 | Plan §13; documentation governance. | This dated reconciliation; repository/ADR checks V3; Task/DAG checks V4 |
+| I276-T40 | GATE HUMANO / NOT_RUN | T39, T16 | Plan §9.4; AC-1/3/6. | NOT_RUN; no real Runtime, inference, probe or Provider effect executed |
+| I276-T41 | PARCIAL | T16 | PD-17; CR-005. | extended_test.go: TestExtendedAuthorizedFakeRoots, TestExtendedMissingAuthority, TestExtendedResidue, TestExtendedForbiddenRoots |
+| I276-T42 | INTEGRADO | T11, T10 | PD-13; amendment A1. | service_test.go: TestShowStatesAndProfileRemoval, TestInvalidateAuthorityAndPreview, TestInvalidationPreviewFreezesProfile |
+| I276-T43 | PARCIAL | T05 | PD-2/6; AC-1/5. | process_posix_test.go: TestPOSIXProcessContainment, TestPOSIXAlreadyExitedGroup; process_test.go |
+| I276-T44 | PENDENTE | T16, T41, T42 | PD-1/12/14/17. | No capability command/blackbox suite located; application service tests belong to T16/T42 |
+
+### Recoverable execution sequence
+
+Each row is a checkpoint inside this one PR, not a new Task or a change to the
+approved DAG. Integrations and pushes are serialized. Read relevant contracts
+only as each unit is entered. Never use child claims, fake fixtures or the empty
+passive registry to create operational capability proof.
+
+| Unit / criteria | Prerequisites | Files / interfaces | Validation / output | Risk / stop condition |
+| --- | --- | --- | --- | --- |
+| T43: descendants and truthful stop | T05 integrated | executiongraph process boundary + OSProcessRunner | native fake-process exit/timeout/cancel/escape tests, race; native Linux/macOS CI | unobservable escape stays unknown; no Windows; no attribution-based kill outside owned group |
+| T41 → T44: extended effects and capability CLI | T16 ports in PR, T42 integrated | capabilityproof.ExtendedEffects; local owned file operations; cmd/lingo composition; internal/cli help/result | fake temp roots; exact cleanup/residue/identity; CLI no-authority zero-writes; preparation separate from probe | unsafe root or incomplete identity/attestation refuses; no real vendor call |
+| T17/T21/T25 → T27/T26: graph and single composition | T43, T07/T09/T18–24/T32 | stageexecution preview/run/start, stagepublication LocalPublisher.Single, CommittedStarter.Sequential, cmd/lingo supervisor | exact frozen-v3 preview; readback-before-spawn; both topologies; protected failure windows | no spawn before authority commit; missing proof fails closed |
+| T28/T29/T30/T31 → T34 | T26/T27; T06/T08 | persisted status/resume/cancel/reconcile/retry, gitworkspace fencing, stage/coordination CLI | restart, confirmed cancel, append-only facts, authority/lease/epoch/worktree checks at every reset effect | reset remains refused unless full safe destructive protocol is proved; no counter reset or automatic retry |
+| T36/T37/T38 → T39 | T34/T44 + required catalog predecessors | installed CLI fake suite, immutable corpora, commands/help, this record | graph/single; nine kinds; cross-Runtime Q/A consumed; overlap/dependencies; kill windows; 15 historical + v3 rows; consolidated security report | never weaken gate or rewrite historical fixture to pass; unresolved Major/Blocker prevents readiness claim |
+| T40 future operational gate | T39/T16, fresh independent authorization | future engineering_smoke_real package | exact preconditions/envelope checklist only in this implementation | NOT_RUN; no vendor version/help/auth/probe/inference, Provider effect, real smoke, merge, release or Done |
+
+AC-1–5 and WF-009/AC-009 retain component synthetic Evidence only; the installed
+end-to-end technical matrix is not yet proved. AC-1–3 real-runtime implications
+and AC-6 remain operational gates. T40's deferral does not satisfy its Done or
+AC-6. Continue the existing units without requesting generic reapproval.
+
+### T43 checkpoint — natural leader exit does not prove descendant completion
+
+`OSProcessRunner.RunObserved` now observes the process group after a natural
+leader exit. If members remain, an escape is observed, or observation fails,
+it requests the existing bounded group stop and records unknown/ambiguous
+effects. Exit 0 and a pending cancel cannot override those effects. A clean
+natural exit retains the prior `Stopped=false` semantics (no forced stop);
+`Stopped` is not repurposed as a generic completion flag. Existing timeout,
+cancel and correlation-publication-failure paths still require confirmed stop.
+An unstarted POSIX group refuses both stop and gone checks before any signal,
+preventing PID zero from addressing the caller's own group. Tests now release
+registered group handles explicitly.
+
+Reuse decision: stdlib `os/exec`, existing process observation, POSIX groups and
+`x/sys` suffice for this bounded correction. No dependency, wrapper protocol,
+privileged observer, broader signal authority, vendor invocation or schema
+change was introduced. The existing advisory containment boundary is retained.
+
+Regression proof: the new `TestOSProcessRunnerStopsDescendants/completion`
+was run against the baseline scheduler from `e05e209` while preserving/restoring
+the worktree implementation. `go test ./internal/executiongraph -run
+'^TestOSProcessRunnerStopsDescendants$/^completion$' -count=1 -timeout=30s`
+returned **exit 1**, showing exit 0, `Stopped=false`, `OutcomeUnknown=false`
+while the descendant was alive. Test cleanup stopped only that fixture's
+identity-matched descendant. The corrected test is green and separately checks
+that cancel cannot promote the ambiguous result.
+
+New native-process tests cover normal-leader exit with a surviving group member,
+timeout after observed startup, explicit cancellation, failed correlation
+publication, clean natural exit 0/7, and an unstarted group. The Linux-only
+`TestOSProcessRunnerOrphanedEscapeIsUnknown` exercises an escaped double-fork
+through the actual runner: the escape survives until explicit fixture cleanup,
+`Stopped=false`, unknown/ambiguous effects, and unknown classification. These
+are test-binary executables, not Codex/Claude or installed Runtime probes.
+
+**T43 remains PARTIAL.** Native macOS validation is required in this PR's CI,
+and the existing `TestPOSIXProcessContainment/orphaned escaped descendant`
+still skips on macOS: Darwin has no Linux child subreaper, and the current
+ancestry snapshot cannot attribute an already reparented escape. The new group
+completion fix does not close that observation gap and cannot prove the full
+T43 descendant criterion on macOS. This is a material remaining technical gap,
+not a request to waive safety or a claim of platform-complete stop. A verified
+platform tracking protocol (or a fail-closed unsupported/unknown boundary when
+tracking is insufficient) is still needed before T43/T29/T38 can be complete.
+Do not authorize signals to unattributable processes or treat group disappearance
+alone as proof against arbitrary daemonization. Windows remains outside scope.
+
+Validation on Linux, pinned cached Go 1.26.0, `GOTOOLCHAIN=local GOWORK=off
+GOFLAGS=`:
+
+| Command | Actual result |
+| --- | --- |
+| `go test -race ./internal/executiongraph ./internal/stageexecution ./internal/capabilityproof ./internal/runtimeadapter -count=1 -timeout=180s` | exit 0; 21.103s / 19.426s / 1.807s / 5.941s |
+| `go test -race ./internal/executiongraph -run 'TestOSProcessRunnerStopsDescendants\|TestOSProcessRunnerNaturalExitPreservesOutcome\|TestPOSIXUnstartedGroupRefusesStop' -count=1 -timeout=60s` | exit 0; 8.500s; includes final ambiguous-effect/cancel assertion and clean-exit regression |
+| `go test -race ./internal/executiongraph -run '^TestOSProcessRunnerOrphanedEscapeIsUnknown$' -count=1 -timeout=30s` | exit 0; 4.125s |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbe\|^TestProbeOpenFailure\|^TestStage' -count=1 -timeout=180s` with private `AXIOM_TEST_PROBE_STATE_ROOT` under `/home/box` | exit 0; 79.276s; production probe, forged-report and stage regressions, FAKE executables only |
+| `go vet ./...`; `go build ./...`; `go mod verify` | exit 0 |
+| `./scripts/check-go-quality.sh format`, `tidy`, `staticcheck` | exit 0; Staticcheck 2026.2.1 (v0.8.1) |
+| `./scripts/validate-repository.sh .` | exit 0; native vendor behavioral scenarios SKIP/UNVERIFIED as required |
+
+An initial intermediate implementation marked clean natural exits `Stopped`;
+the capability regression correctly failed because that flag means interrupted
+probe/quarantine. It was corrected before publication, preserving clean-exit
+semantics. That failed intermediate run is not reported as PASS. The final
+focused clean-exit and failed-probe regressions passed. Full exact-head native
+Linux/macOS CI remains a separate observation after push, never inferred from
+these local runs. No real version/help/authentication, probe, inference, smoke
+or Provider mutation was executed. T40/AC-6 remain NOT_RUN/unproved.
+
+Source SHA-256 at this checkpoint:
+
+- `internal/executiongraph/scheduler.go`: `cd2cbb4390c664739503735a6f6f3353f1dd8f9a4279d20eb8c2109d544793ed`
+- `internal/executiongraph/process_posix.go`: `b60249add3c5121fc0b38e3107979fa457e5c7e1bfcf31b529deeee849426c68`
+- `internal/executiongraph/process_posix_test.go`: `09d2873477ab79777122f909967b359e6c85ad3dcd454aa933f20b84422f810c`
+- `internal/executiongraph/process_runner_linux_test.go`: `54bfebf7d716c156430b9d9c3701f280d37cf545dd7b3758a9a37219ad7cf3d2`
+
+Engineering/security self-review used `axiom-review` and documentation
+reconciliation used `axiom-document`: no blocking finding in this bounded
+correction; the material Darwin observation gap remains explicitly open for the
+whole delivery. Existing CR-001/CR-002 fixes and their FAKE regression were
+preserved. No accepted ADR, historical Plan/catalog suffix, Graph1/2/corpus,
+capability facts, authority contract or runtime policy was weakened. No new
+narrative code comments, TODO/FIXME, permissions or unrelated changes.
+Dedicated gitleaks is unavailable; no dedicated scanner PASS is claimed.
+
+Inventory check: an ephemeral read-only Python check compared each of the 44
+unique continuation rows with the approved catalog's exact predecessor list and
+performed a DFS over all nodes: PASS, exit 0, acyclic. No durable helper added.
