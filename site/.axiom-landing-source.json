@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "repository": "https://github.com/rgomids/axiom-ds",
-  "revision": "124e7084157329528b9d359518e0678299037cbc",
+  "revision": "62fa05884a3ddd04a1ac5cb1a284bc6a7d40b5e2",
   "bundle": "packages/landing/dist",
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -15,7 +15,7 @@
     "preview.js": "aec8a8db6ba17a9c9e8fafbdb7ca041d21e53ce050d3085c8435a5349250eb3b",
     "story-state.js": "3cf81da36bbec737851bce097a619c8464df7f4a5d939f47d62113c56f73d9af",
     "storytelling.css": "8bc00f450976e6e1d009406cb3824df9393a14f4cea507c0b3636ea2993ad707",
-    "storytelling.js": "78fa745a4fedb705d9304791f2e4b212d49b7e54468ab0c822c9f2f0096c77d9",
+    "storytelling.js": "76f94cc4cb0019e3d7e25004c7685a0cbcf883ac4c4e1f7358619f8480e27479",
     "style.css": "150e90a04d9de82dd2877639ea55a66260be84685b0ed3ec70912491fcad6ebe",
     "tokens.css": "1b5f886ab9a74dcdaf0ab1233a60d6ed7d51ef7ef3ddb5d5e77371df0c744857"
   }

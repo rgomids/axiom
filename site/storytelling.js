@@ -77,8 +77,8 @@ function paint() {
     work.style.transform += ` rotate(${node.rotation}deg)`;
     work.style.setProperty('--work-focus', node.focus);
     work.querySelector('.work-proof').textContent = proofLabels[i];
-    work.querySelector('.work-proof').style.opacity = state.proof;
-    work.querySelector('.work-detail').style.opacity = 1 - state.proof;
+    work.querySelector('.work-proof').style.opacity = clamp((state.proof - 0.5) * 2);
+    work.querySelector('.work-detail').style.opacity = clamp(1 - state.proof * 2);
     const destination = state.hub.map(
       (value, axis) => value + (state.idea[axis] - value) * state.delivery,
     );
