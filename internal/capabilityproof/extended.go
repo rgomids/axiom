@@ -2,6 +2,7 @@ package capabilityproof
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"reflect"
@@ -24,6 +25,7 @@ type ExtendedRoot struct {
 	Snapshot   ObjectSnapshot
 }
 type ExtendedPreview struct {
+	Digest   string
 	ProbeID  string
 	Roots    []ExtendedRoot
 	Filename string
@@ -96,6 +98,14 @@ func (s ExtendedService) Preview(ctx context.Context, id string, kinds []string)
 		seen[root] = true
 		p.Roots = append(p.Roots, ExtendedRoot{kind, root, snapshot})
 	}
+	wire, err := json.Marshal(struct {
+		Encoding string
+		Preview  ExtendedPreview
+	}{"axiom-extended-probe-preview-v1", p})
+	if err != nil {
+		return ExtendedPreview{}, err
+	}
+	p.Digest = packetDigest(wire)
 	return p, nil
 }
 
