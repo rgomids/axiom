@@ -21,7 +21,7 @@ class SyncTests(unittest.TestCase):
         self.target = self.base / 'site'
         self.source.mkdir(parents=True)
         self.target.mkdir()
-        for name in ('index.html', 'app.js', 'organic-workflow.js', 'tokens.css'):
+        for name in ('index.html', 'app.js', 'storytelling.js', 'story-state.js', 'tokens.css'):
             (self.source / name).write_text(name, encoding='utf-8')
 
     def tearDown(self):

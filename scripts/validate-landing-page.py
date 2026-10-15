@@ -24,6 +24,9 @@ class Document(HTMLParser):
         self.references = []
         self.translations = 0
         self.metadata = {}
+        self.story_scenes = []
+        self.story_entities = {name: 0 for name in ('idea', 'work', 'path', 'axiom', 'decision')}
+
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -31,6 +34,10 @@ class Document(HTMLParser):
             require(attrs['id'] not in self.ids, 'duplicate id: ' + attrs['id'])
             self.ids.add(attrs['id'])
         self.translations += 'data-en' in attrs
+        if 'data-story-scene' in attrs:
+            self.story_scenes.append(attrs['data-story-scene'])
+        for name in self.story_entities:
+            self.story_entities[name] += 'data-story-' + name in attrs
         for name in ('src', 'href'):
             if name in attrs:
                 self.references.append(attrs[name])
@@ -60,10 +67,18 @@ def validate():
         elif not urlparse(reference).scheme:
             require((SITE / reference.split('#')[0]).is_file(), 'broken local resource: ' + reference)
     require(doc.translations >= 40, 'incomplete bilingual content')
+    require(doc.story_scenes == ['1', '2', '3', '4', '5'], 'five complete static scenes must remain in narrative order')
+    require(doc.story_entities == {'idea': 1, 'work': 6, 'path': 6, 'axiom': 1, 'decision': 1}, 'animated story must retain one idea, six shared work objects/paths, an Axiom hub and a human decision')
+    for name in ('storytelling.js', 'story-state.js'):
+        require(name in files, 'missing story implementation: ' + name)
+    for scene in range(1, 6):
+        require('cena-' + str(scene) in doc.ids, 'static story scene anchor missing')
     require(doc.metadata.get('canonical') == 'https://rgomids.github.io/axiom/', 'wrong production canonical URL')
     require(doc.metadata.get('og:type') == 'website' and doc.metadata.get('twitter:card') == 'summary_large_image', 'social metadata missing')
     for anchor in ('inicio', 'proposta', 'fluxo', 'instalar', 'fundacao'):
         require(anchor in doc.ids, 'required section missing: ' + anchor)
+    require('conceitual' in html.lower() and 'conceptual' in html.lower(), 'story must identify its conceptual visualization in both languages')
+    require('retrabalho' in html.lower() and 'rework' in html.lower(), 'human rework alternative missing')
     require('Apache 2.0' in html and 'github.com/rgomids/axiom' in html, 'required project/license links missing')
     scripts = '\n'.join(p.read_text(encoding='utf-8') for p in SITE.glob('*.js'))
     require(not re.search('innerHTML|outerHTML|insertAdjacentHTML|document\\.write', scripts), 'browser scripts must keep translations and commands as text')

@@ -11,7 +11,7 @@ review, merge, deployment or full MVP acceptance.
 
 - Axiom DS owns landing presentation, sections, tokens and browser behavior.
   Axiom owns the product integration and accuracy of its installation/capability
-  claims. Source changes happen upstream, then a reviewed bundle is imported.
+  claims. Source changes happen upstream; a pinned bundle is imported for review.
 - `site/` is a checked-in static snapshot of `packages/landing/dist` from the
   full DS Git revision in `site/.axiom-landing-source.json`. Every file has a
   SHA-256 digest. There is no runtime CDN, frontend framework, paid service or
@@ -21,9 +21,19 @@ review, merge, deployment or full MVP acceptance.
   is intentional so a reviewed page does not depend on moving raw `main` URLs.
   The structural validator compares the logo bytes to the canonical product
   `docs/assets/axiom-logo-white.png`.
-- The gold opening transitions into the dark page through native scrolling.
-  The organic control-plane diagram is explanatory, with a readable transcript.
-  System reduced motion and the manual motion control reveal complete content.
+- The narrative is one continuous five-scene transformation: an idea is born,
+  its work fragments, Axiom connects the existing pieces, a six-stage workflow
+  makes boundaries visible, and verifiable results lead to a human choice.
+  The idea remains the protagonist; the large Axiom mark enters at the third
+  scene. The six workflow stages belong to scene four, not six more scenes.
+- Native scroll controls the narrative reversibly. System reduced motion,
+  manual pause and absent JavaScript reveal five complete static scenes; no
+  essential explanation depends on animation. Institutional content, installation
+  and documentation remain directly reachable without completing the story.
+- Illustrations are conceptual explanations, never product GUI screenshots or
+  live execution results. Diff, tests and Evidence are examples; scrolling
+  never authorizes or accepts a real delivery. Accept and rework remain human
+  alternatives.
 - PT/EN translations remain text. Static formatting belongs to HTML elements,
   never parsed translation strings. Blocked browser storage is supported.
 - Each terminal command has its own copy control and selection fallback.
@@ -33,6 +43,22 @@ review, merge, deployment or full MVP acceptance.
 - Available foundation, MVP delivery and discovery remain distinct. This
   marketing change does not authorize CLI/domain implementation or accept the
   complete configurable delivery journey.
+
+## Editorial revision
+
+The [editorial review of PR #317](https://github.com/rgomids/axiom/pull/317#pullrequestreview-5512493953)
+requested fragmentation before the solution, a visible transformation reusing
+existing work, and a return to the original idea at the verifiable outcome.
+The [motion handoff](https://github.com/rgomids/axiom/pull/317#issuecomment-6160104548)
+and five storyboard references guide the new prototype. Their timings and
+composition are design proposals. The maintainer's subsequent request authorizes
+implementation of the prototype; it does not convert illustrative concepts
+into delivered product functionality or imply editorial/visual acceptance.
+
+The design source remains DS PR #19. The product imports its versioned bundle;
+reviewers separately assess narrative comprehension and visual quality. Automated
+checks verify reproducibility, continuity, accessibility fallbacks and product
+regressions, not a visitor's understanding or human approval.
 
 ## Upgrade and validation
 
@@ -47,7 +73,8 @@ checker. It validates source revision, exact file digests, resource/anchor
 resolution, canonical/social metadata, the original brand bytes, safe text
 boundaries and product installer parity. Offline Chromium tests cover language
 round trips and DOM XSS, blocked storage, keyboard tab navigation, narrow width,
-reduced motion and copying one command at a time. Import tests verify
+reduced motion, complete no-JavaScript scenes, reversible native scroll and copying
+one command at a time. Import tests verify
 reproducibility, ownership protection and path traversal refusal.
 
 ## Approval, rollout and rollback

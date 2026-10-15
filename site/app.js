@@ -4,9 +4,7 @@ const i18n = [...document.querySelectorAll('[data-en]')];
 i18n.forEach((el) => (el.dataset.pt = el.textContent));
 const ariaI18n = [...document.querySelectorAll('[data-en-aria]')];
 ariaI18n.forEach((el) => (el.dataset.ptAria = el.getAttribute('aria-label')));
-const opening = document.querySelector('.opening'),
-  motionButton = document.querySelector('#motion'),
-  camera = document.querySelector('.logo-camera svg');
+const motionButton = document.querySelector('#motion');
 const setupTabs = [...document.querySelectorAll('[data-setup]')];
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 let language = 'pt',
@@ -14,7 +12,7 @@ let language = 'pt',
   staticMode = reduced.matches,
   selectedSetup = 0,
   frame = 0;
-let bounds = { openingTop: 0, openingRange: 1, scrollRange: 1 };
+const bounds = { scrollRange: 1 };
 const installCommand =
   'curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh';
 const setupCommands = [
@@ -39,10 +37,6 @@ const comments = {
 };
 function clamp(n, min = 0, max = 1) {
   return Math.min(max, Math.max(min, n));
-}
-function smooth(n) {
-  n = clamp(n);
-  return n * n * (3 - 2 * n);
 }
 function updateTerminal() {
   renderCommands();
@@ -131,33 +125,12 @@ function renderCommands() {
   );
 }
 function measure() {
-  bounds.width = innerWidth;
-  bounds.height = innerHeight;
-  bounds.logoWidth =
-    innerWidth <= 760 ? Math.min(innerWidth * 0.96, 400) : Math.min(innerWidth * 0.58, 520);
-  if (innerHeight <= 720) bounds.logoWidth = innerWidth <= 760 ? 300 : 400;
-  bounds.openingTop = opening.getBoundingClientRect().top + scrollY;
-  bounds.openingRange = Math.max(1, opening.offsetHeight - innerHeight);
   bounds.scrollRange = Math.max(1, document.body.scrollHeight - innerHeight);
   schedule();
 }
 function paint() {
   frame = 0;
   root.style.setProperty('--page-progress', clamp(scrollY / bounds.scrollRange));
-  const p = staticMode ? 1 : clamp((scrollY - bounds.openingTop) / bounds.openingRange),
-    reveal = smooth(p / 0.78);
-  const worldWidth = Math.exp(
-      Math.log(20) * (1 - reveal) + Math.log((600 * bounds.width) / bounds.logoWidth) * reveal,
-    ),
-    worldHeight = (worldWidth * bounds.height) / bounds.width;
-  camera.setAttribute(
-    'viewBox',
-    `${300 - worldWidth * 0.5} ${203 - worldHeight * (0.5 - 0.21 * reveal)} ${worldWidth} ${worldHeight}`,
-  );
-  root.style.setProperty('--wash', 1 - smooth(p / 0.16));
-  root.style.setProperty('--intro-copy', 1 - smooth(p / 0.22));
-  root.style.setProperty('--final-copy', smooth((p - 0.68) / 0.23));
-  document.body.classList.toggle('gold-start', !staticMode && p < 0.13);
 }
 function schedule() {
   if (!frame) frame = requestAnimationFrame(paint);

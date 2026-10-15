@@ -26,16 +26,18 @@ class LandingTests(unittest.TestCase):
         self.errors = []
         self.page.on('pageerror', lambda error: self.errors.append(str(error)))
         self.defer_app = False
+        self.js_enabled = True
 
         def serve(route):
             url = urlparse(route.request.url)
             path = (ROOT / 'site' / url.path.lstrip('/')).resolve()
             if url.netloc != 'axiom.test' or not path.is_relative_to(ROOT / 'site') or not path.is_file():
                 route.abort()
-            elif self.defer_app and path.name in ('app.js', 'organic-workflow.js'):
+            elif self.defer_app and path.name in ('app.js', 'storytelling.js', 'story-state.js'):
                 route.fulfill(body='', content_type='text/javascript')
             else:
                 route.fulfill(path=str(path))
+        self.serve = serve
         self.page.route('**/*', serve)
 
     def tearDown(self):
@@ -46,6 +48,9 @@ class LandingTests(unittest.TestCase):
         if blocked:
             self.page.add_init_script("Object.defineProperty(window,'localStorage',{get(){throw Error('blocked')}})")
         self.page.goto('https://axiom.test/index.html')
+        if self.js_enabled and not self.defer_app:
+            self.page.wait_for_function("document.querySelector('.storytelling').hasAttribute('data-story-progress')")
+            self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
 
     def choose(self, language):
         if self.page.locator('html').get_attribute('lang') != language:
@@ -99,17 +104,89 @@ class LandingTests(unittest.TestCase):
             self.assertIn('copiado', self.page.locator('#copy-status').inner_text())
         self.assertEqual(self.errors, [])
 
-    def test_native_scroll_reveals_dark_page_and_complete_workflow(self):
+    def seek_story(self, progress):
+        self.page.evaluate("""progress => {
+            const story=document.querySelector('.storytelling');
+            const top=story.getBoundingClientRect().top+scrollY;
+            scrollTo({top:top+(story.offsetHeight-innerHeight)*progress/4,behavior:'instant'});
+        }""", progress)
+        self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+        self.page.wait_for_function("expected=>Math.abs(Number(document.querySelector('.storytelling').dataset.storyProgress)-expected)<.01", arg=progress, timeout=3000)
+
+    def story_snapshot(self):
+        return self.page.evaluate("""() => [...document.querySelectorAll(
+            '.story-stage [data-story-idea],.story-stage [data-story-work],.story-stage [data-story-path],.story-stage [data-story-axiom]'
+        )].map(el=>({style:el.getAttribute('style'),d:el.getAttribute('d')}))""")
+
+    def test_native_story_reuses_entities_and_reverses_deterministically(self):
         self.page.emulate_media(reduced_motion='no-preference')
         self.load()
-        self.assertTrue(self.page.locator('body').evaluate("el=>el.classList.contains('gold-start')"))
-        self.page.locator('#fundacao').scroll_into_view_if_needed()
-        self.page.wait_for_function("!document.body.classList.contains('gold-start')")
-        self.assertEqual(self.page.locator('[data-node]').count(), 6)
-        self.assertEqual(self.page.locator('[data-path]').count(), 6)
+        self.page.evaluate("window.storyEntities=[...document.querySelectorAll('.story-stage [data-story-work],.story-stage [data-story-idea]')]")
+        self.assertEqual(self.page.locator('.story-stage [data-story-idea]').count(), 1)
+        self.assertEqual(self.page.locator('.story-stage [data-story-work]').count(), 6)
+        self.assertEqual(self.page.locator('.story-stage [data-story-path]').count(), 6)
+        self.page.evaluate("() => {window.nativeScrollEnded = new Promise(resolve => addEventListener('scrollend',resolve,{once:true}));}")
+        self.page.keyboard.press('PageDown')
+        self.page.wait_for_function('scrollY > 0')
+        self.page.evaluate("Promise.race([nativeScrollEnded,new Promise((_,reject)=>setTimeout(()=>reject(Error('native scroll did not end')),3000))])")
+        snapshots = {}
+        for progress in (0, 1, 2, 3, 4):
+            self.seek_story(progress)
+            snapshots[progress] = self.story_snapshot()
+            self.assertTrue(self.page.evaluate('storyEntities.every(el=>el.isConnected)'))
+            hub_opacity = self.page.locator('[data-story-axiom]').evaluate('el=>Number(getComputedStyle(el).opacity)')
+            if progress == 1:
+                self.assertLess(hub_opacity, .01)
+            if progress == 2:
+                self.assertGreater(hub_opacity, .9)
+            if progress == 4:
+                self.assertGreater(self.page.locator('[data-story-idea]').evaluate('el=>Number(getComputedStyle(el).opacity)'), .9)
+                decision = self.page.locator('[data-story-decision]').inner_text().lower()
+                self.assertIn('aceitar', decision)
+                self.assertIn('retrabalho', decision)
+            self.choose('en')
+            self.assertTrue(self.page.locator('.story-stage').evaluate("el=>[...el.querySelectorAll('[data-en]')].every(node=>node.textContent===node.dataset.en)"))
+            self.choose('pt-BR')
+        for progress in (3, 1, 4, 2, 0):
+            self.seek_story(progress)
+            self.assertEqual(self.story_snapshot(), snapshots[progress])
+        for anchor, scene in (('#fluxo', '4'), ('#proposta', '3')):
+            self.page.evaluate("() => {window.nativeScrollEnded = new Promise(resolve => addEventListener('scrollend',resolve,{once:true}));}")
+            self.page.locator(f'.header a[href="{anchor}"]').click()
+            self.page.evaluate("Promise.race([nativeScrollEnded,new Promise((_,reject)=>setTimeout(()=>reject(Error('native scroll did not end')),3000))])")
+            self.assertEqual(self.page.locator('.storytelling').get_attribute('data-story-scene'), scene)
+        self.page.set_viewport_size({'width': 390, 'height': 844})
+        self.seek_story(1.5)
+        mobile_snapshot = self.story_snapshot()
+        self.seek_story(3.5)
+        self.seek_story(1.5)
+        self.assertEqual(self.story_snapshot(), mobile_snapshot)
+        self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
         self.page.locator('#motion').click()
         self.assertTrue(self.page.locator('body').evaluate("el=>el.classList.contains('static-motion')"))
         self.assertEqual(self.errors, [])
+
+    def test_no_javascript_has_five_complete_scenes_and_direct_installation(self):
+        self.context.close()
+        self.js_enabled = False
+        self.context = self.browser.new_context(java_script_enabled=False)
+        self.page = self.context.new_page()
+        self.page.route('**/*', self.serve)
+        self.load(width=390)
+        scenes = self.page.locator('article[data-story-scene]')
+        self.assertEqual(scenes.count(), 5)
+        for index in range(5):
+            scene = scenes.nth(index)
+            self.assertTrue(scene.is_visible())
+            self.assertGreater(len(scene.inner_text().strip()), 80)
+            self.assertGreater(scene.locator('svg,img').count(), 0)
+        for width in (320, 390, 1280):
+            self.page.set_viewport_size({'width': width, 'height': 900})
+            self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
+        self.assertTrue(self.page.locator('#instalar').is_visible())
+        self.assertIn('curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh', self.page.locator('#instalar').inner_text())
+        self.assertGreater(self.page.locator('a[href="#instalar"]').count(), 0)
+        self.assertGreater(self.page.locator('a[href*="github.com/rgomids/axiom"]').count(), 0)
 
     def test_copy_denial_selects_only_requested_command(self):
         self.page.add_init_script("Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{throw Error('denied')}}})")
@@ -123,7 +200,12 @@ class LandingTests(unittest.TestCase):
     def test_reduced_motion_mobile_and_blocked_storage(self):
         self.load(width=390, blocked=True)
         self.assertTrue(self.page.locator('body').evaluate("el=>el.classList.contains('static-motion')"))
-        self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
+        for width in (320, 390, 1280):
+            self.page.set_viewport_size({'width': width, 'height': 900})
+            self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
+        self.assertEqual(self.page.locator('article[data-story-scene]').count(), 5)
+        for scene in self.page.locator('article[data-story-scene]').all():
+            self.assertTrue(scene.is_visible())
         self.choose('en')
         self.assertIn('Supported hosts:', self.page.locator('.terminal-platform').inner_text())
         self.assertEqual(self.page.locator('[data-os="windows"]').count(), 0)

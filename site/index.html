@@ -27,9 +27,9 @@
     <link rel="preload" href="assets/Manrope.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="stylesheet" href="tokens.css" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="organic-workflow.css" />
+    <link rel="stylesheet" href="storytelling.css" />
   </head>
-  <body class="gold-start">
+  <body>
     <svg
       width="0"
       height="0"
@@ -56,7 +56,7 @@
       </defs></svg
     ><a class="skip" href="#proposta" data-en="Skip introduction">Pular apresentação</a
     ><header class="header">
-  <a class="brand" href="#inicio" aria-label="Axiom início"
+  <a class="brand" href="#inicio" aria-label="Axiom início" data-en-aria="Axiom home"
     ><svg
       class="brand-original"
       viewBox="320 240 620 520"
@@ -92,349 +92,774 @@
   <div class="reading-progress" aria-hidden="true"></div>
 </header>
 
-    <main>
-      <section
-  class="opening"
+    <main><section
+  class="storytelling"
   id="inicio"
-  aria-label="Apresentação Axiom"
-  data-en-aria="Axiom introduction"
+  aria-label="Da ideia à entrega verificável"
+  data-en-aria="From idea to verifiable delivery"
 >
-  <div class="opening-stage">
-    <div class="gold-wash" aria-hidden="true"></div>
-    <div class="opening-light" aria-hidden="true"></div>
-    <div class="logo-camera" aria-hidden="true">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 620" fill="none">
-        <defs>
-          <clipPath id="hero-logo-crop"><rect x="153" y="125" width="294" height="249" /></clipPath>
-        </defs>
-        <image
-          class="logo-artwork"
-          clip-path="url(#hero-logo-crop)"
-          href="assets/axiom-logo.png"
-          x="0"
-          y="10"
-          width="600"
-          height="600"
-          preserveAspectRatio="xMidYMid meet"
-        />
-      </svg>
-    </div>
-    <div class="opening-first">
-      <p class="eyebrow" data-en="EVERYTHING STARTS HERE">TUDO COMEÇA AQUI</p>
+  <nav class="story-navigation" aria-label="Cenas da história" data-en-aria="Story scenes">
+    <a href="#cena-1"
+      ><span>01</span><span data-en="The birth of an idea">O nascimento da ideia</span></a
+    ><a href="#cena-2"><span>02</span><span data-en="Complexity">A complexidade</span></a
+    ><a href="#cena-3"><span>03</span><span data-en="Enter Axiom">A entrada do Axiom</span></a
+    ><a href="#cena-4"
+      ><span>04</span><span data-en="Orchestration and control">Orquestração e controle</span></a
+    ><a href="#cena-5"
+      ><span>05</span><span data-en="Verifiable delivery">A entrega verificável</span></a
+    >
+  </nav>
+  <div class="story-stage" aria-hidden="true">
+    <div class="story-wash"></div>
+    <div class="story-ambient"></div>
+    <div class="story-copy" data-story-copy="0">
+      <p class="eyebrow">01 / <span data-en="The birth of an idea">O nascimento da ideia</span></p>
       <h1>
         <span data-en="One idea.">Uma ideia.</span><br /><span data-en="Infinite possibilities."
           >Infinitas possibilidades.</span
         >
       </h1>
-      <p data-en="Give your intent a direction.">Dê uma direção à sua intenção.</p>
-    </div>
-    <div class="opening-final">
-      <p class="eyebrow">AXIOM / DEVELOPMENT CONTROL PLANE</p>
-      <h2 data-en="Intelligence, connected.">Inteligência, conectada.</h2>
-      <p data-en="Intent. Decisions. Code. Evidence.">Intenção. Decisões. Código. Evidências.</p>
-    </div>
-    <div class="opening-bottom">
-      <span data-en="OPEN SOURCE · UNDER ACTIVE DEVELOPMENT"
-        >OPEN SOURCE · EM DESENVOLVIMENTO ATIVO</span
-      ><a href="#proposta" data-en="SCROLL TO EXPLORE ↓">ROLE PARA EXPLORAR ↓</a
-      ><span class="opening-number">01 — 05</span>
-    </div>
-  </div>
-</section>
- <section class="manifesto section" id="proposta">
-  <p class="eyebrow" data-en="FROM INTENT TO EVIDENCE">DA INTENÇÃO À EVIDÊNCIA</p>
-  <h2 class="manifesto-title">
-    <span data-en="Writing code is">Escrever código é</span><br /><span
-      data-en="part of the journey."
-      >parte da jornada.</span
-    ><br /><em data-en="Preserving the why">Preservar o porquê</em><br /><em
-      data-en="changes everything."
-      >muda tudo.</em
-    >
-  </h2>
-  <div class="manifesto-bottom">
-    <p
-      data-en="Agents accelerate tasks. Axiom preserves what connects them: intent, architecture, decisions, and the evidence of what was delivered."
-    >
-      Agentes aceleram tarefas. O Axiom preserva o que conecta cada uma delas: a intenção, a
-      arquitetura, as decisões e a evidência do que foi entregue.
-    </p>
-    <p
-      data-en="A local development control plane. For people and AI working with shared context, explicit limits, and human authority."
-    >
-      Um control plane de desenvolvimento local. Para pessoas e IA trabalhando com contexto
-      compartilhado, limites explícitos e autoridade humana.
-    </p>
-  </div>
-  <a
-    class="inline-link"
-    href="https://github.com/rgomids/axiom"
-    target="_blank"
-    rel="noopener"
-    data-en="Explore Axiom on GitHub ↗"
-    >Explore o Axiom no GitHub ↗</a
-  >
-</section>
- <section
-  class="organic-workflow"
-  id="fluxo"
-  aria-label="Revelação dos caminhos do workflow"
-  data-en-aria="Workflow path reveal"
->
-  <div class="stage">
-    <div class="stage-heading">
-      <p class="eyebrow" data-en="ONE CORE. MANY PATHS.">UM NÚCLEO. VÁRIOS CAMINHOS.</p>
-      <h2>
-        <span data-en="Every workflow needs">Todo fluxo precisa</span><br /><span
-          data-en="a center."
-          >de um centro.</span
-        >
-      </h2>
-      <p class="intro-line" data-en="Scroll to watch the work take shape.">
-        Role para ver o trabalho ganhar forma.
+      <p data-en="Give your intent a direction." class="story-lead">
+        Dê uma direção à sua intenção.
       </p>
     </div>
-    <figure
-      class="organic-map"
-      aria-label="Axiom conecta Specification, planos, implementação, validação, Evidence e aceite humano"
-      data-en-aria="Axiom connects Specification, plans, implementation, validation, Evidence, and human acceptance"
-    >
-      <div class="ambient-light" aria-hidden="true"></div>
-      <div class="map-orbit orbit-one" aria-hidden="true"></div>
-      <div class="map-orbit orbit-two" aria-hidden="true"></div>
-      <svg class="branches" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="branch-gold" x1="0" y1="0" x2="1" y2="1">
-            <stop stop-color="var(--axion-semantic-marketing-decoration-pathStart)" />
-            <stop offset=".45" stop-color="var(--axion-semantic-marketing-decoration-pathMiddle)" />
-            <stop offset="1" stop-color="var(--axion-semantic-marketing-decoration-pathEnd)" />
-          </linearGradient>
-        </defs>
-        <g class="branch-glows">
-          <path data-glow="0" />
-          <path data-glow="1" />
-          <path data-glow="2" />
-          <path data-glow="3" />
-          <path data-glow="4" />
-          <path data-glow="5" />
-        </g>
-        <g class="branch-lines">
-          <path data-path="0" pathLength="1" />
-          <path data-path="1" pathLength="1" />
-          <path data-path="2" pathLength="1" />
-          <path data-path="3" pathLength="1" />
-          <path data-path="4" pathLength="1" />
-          <path data-path="5" pathLength="1" />
-        </g>
-      </svg>
-      <div class="core-card">
-        <span class="core-corner top-left"></span><span class="core-corner bottom-right"></span
-        ><svg
-          class="logo-lockup"
-          viewBox="320 240 620 520"
-          width="162"
-          height="162"
-          role="img"
-          aria-label="Axiom"
+    <div class="story-copy" data-story-copy="1">
+      <p class="eyebrow">02 / <span data-en="Complexity">A complexidade</span></p>
+      <h2>
+        <span data-en="Agents accelerate tasks.">Agentes aceleram tarefas.</span><br /><em
+          data-en="Who keeps everything connected?"
+          >Quem mantém tudo conectado?</em
         >
+      </h2>
+      <p data-en="More workstreams. More decisions. More contexts." class="story-lead">
+        Mais frentes. Mais decisões. Mais contextos.
+      </p>
+    </div>
+    <div class="story-copy" data-story-copy="2">
+      <p class="eyebrow">03 / <span data-en="Enter Axiom">A entrada do Axiom</span></p>
+      <h2>
+        <span data-en="Axiom connects">O Axiom conecta</span><br /><em data-en="what was scattered."
+          >o que estava disperso.</em
+        >
+      </h2>
+      <p data-en="The same idea. The same parts. A shared direction." class="story-lead">
+        A mesma ideia. As mesmas partes. Uma direção compartilhada.
+      </p>
+    </div>
+    <div class="story-copy" data-story-copy="3">
+      <p class="eyebrow">
+        04 / <span data-en="Orchestration and control">Orquestração e controle</span>
+      </p>
+      <h2>
+        <span data-en="A configurable process.">Um processo configurável.</span><br /><em
+          data-en="With human control."
+          >Com controle humano.</em
+        >
+      </h2>
+      <p data-en="Agents execute. Axiom coordinates. You authorize." class="story-lead">
+        Agentes executam. Axiom coordena. Você autoriza.
+      </p>
+    </div>
+    <div class="story-copy" data-story-copy="4">
+      <p class="eyebrow">05 / <span data-en="Verifiable delivery">A entrega verificável</span></p>
+      <h2>
+        <span data-en="More than finished work.">Não apenas trabalho concluído.</span><br /><em
+          data-en="Verifiable work."
+          >Trabalho verificável.</em
+        >
+      </h2>
+      <p data-en="Your idea, connected to what can be inspected." class="story-lead">
+        Sua ideia, conectada ao que pode ser inspecionado.
+      </p>
+    </div>
+    <div class="story-world">
+      <svg class="story-links" viewBox="0 0 100 100" preserveAspectRatio="none" fill="none">
+        <g>
+          <path data-story-path="0" />
+          <path data-story-path="1" />
+          <path data-story-path="2" />
+          <path data-story-path="3" />
+          <path data-story-path="4" />
+          <path data-story-path="5" />
+        </g>
+        <path class="story-origin-link" />
+      </svg>
+      <div class="idea-core" data-story-idea>
+        <span class="idea-ring"></span><span data-en="Your idea" class="idea-label">Sua ideia</span>
+      </div>
+      <div class="axiom-core" data-story-axiom>
+        <svg class="" viewBox="320 240 620 520" role="img" aria-label="Axiom">
           <defs>
-            <clipPath id="core-logo-crop">
+            <clipPath id="story-mascot"><rect x="320" y="240" width="620" height="520" /></clipPath>
+          </defs>
+          <image
+            clip-path="url(#story-mascot)"
+            href="assets/axiom-logo.png"
+            width="1254"
+            height="1254"
+          /></svg
+        ><span>AXIOM / CONTROL PLANE</span>
+      </div>
+      <div class="story-work" data-story-work="0">
+        <span class="work-number">01</span>
+        <div class="work-body">
+          <strong data-en="Specification">Specification</strong
+          ><small data-en="Outcomes and constraints." class="work-detail"
+            >Resultados e restrições.</small
+          ><small class="work-proof"></small>
+        </div>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          aria-hidden="true"
+        >
+          <path d="M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6" />
+        </svg>
+      </div>
+      <div class="story-work" data-story-work="1">
+        <span class="work-number">02</span>
+        <div class="work-body">
+          <strong data-en="Plan / ADRs">Plano / ADRs</strong
+          ><small data-en="Decisions that endure." class="work-detail"
+            >Decisões que permanecem.</small
+          ><small class="work-proof"></small>
+        </div>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          aria-hidden="true"
+        >
+          <path d="M12 3v6 M5 14v6 M19 14v6 M5 14h14 M12 9v5 M9 3h6 M2 20h6 M16 20h6" />
+        </svg>
+      </div>
+      <div class="story-work" data-story-work="2">
+        <span class="work-number">03</span>
+        <div class="work-body">
+          <strong data-en="Implementation">Implementação</strong
+          ><small data-en="Agents execute within boundaries." class="work-detail"
+            >Agentes executam com limites.</small
+          ><small class="work-proof"></small>
+        </div>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          aria-hidden="true"
+        >
+          <path d="M8 6l-6 6 6 6 M16 6l6 6-6 6 M14 3l-4 18" />
+        </svg>
+      </div>
+      <div class="story-work" data-story-work="3">
+        <span class="work-number">04</span>
+        <div class="work-body">
+          <strong data-en="Validation / review">Validação / revisão</strong
+          ><small data-en="Verify before concluding." class="work-detail"
+            >Verificar antes de concluir.</small
+          ><small class="work-proof"></small>
+        </div>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          aria-hidden="true"
+        >
+          <path d="M3 3h18v18H3z M7 12l3 3 7-7" />
+        </svg>
+      </div>
+      <div class="story-work" data-story-work="4">
+        <span class="work-number">05</span>
+        <div class="work-body">
+          <strong data-en="Evidence">Evidence</strong
+          ><small data-en="Inspectable results." class="work-detail"
+            >Resultados inspecionáveis.</small
+          ><small class="work-proof"></small>
+        </div>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          aria-hidden="true"
+        >
+          <path d="M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5" />
+        </svg>
+      </div>
+      <div class="story-work" data-story-work="5">
+        <span class="work-number">06</span>
+        <div class="work-body">
+          <strong data-en="Human acceptance">Aceite humano</strong
+          ><small data-en="You decide the next step." class="work-detail"
+            >Você decide o próximo passo.</small
+          ><small class="work-proof"></small>
+        </div>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.4"
+          aria-hidden="true"
+        >
+          <path d="M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M4 21v-2a8 8 0 0 1 16 0v2" />
+        </svg>
+      </div>
+      <div class="story-context">
+        <span>RUNTIME / Codex</span><span>RUNTIME / Claude</span
+        ><span data-en="AGENT / executor">AGENTE / executor</span
+        ><span data-en="CONTEXT / decisions">CONTEXTO / decisões</span>
+      </div>
+      <div class="story-roles">
+        <span data-en="Agents execute.">Agentes executam.</span
+        ><span data-en="Axiom coordinates.">Axiom coordena.</span
+        ><strong data-en="You authorize.">Você autoriza.</strong>
+        <small data-en="Example Runtimes: Codex / Claude"
+          >Exemplos de Runtime: Codex / Claude</small
+        >
+      </div>
+      <div class="story-decision" data-story-decision>
+        <p data-en="HUMAN DECISION" class="eyebrow">DECISÃO HUMANA</p>
+        <strong data-en="You choose the next step.">Você escolhe o próximo passo.</strong>
+        <ul>
+          <li><span data-en="Accept delivery">Aceitar a entrega</span></li>
+          <li><span data-en="Request rework">Solicitar retrabalho</span></li>
+        </ul>
+      </div>
+    </div>
+    <p data-en="Conceptual journey · see actual availability below." class="story-concept">
+      Jornada conceitual · veja a disponibilidade real abaixo.
+    </p>
+  </div>
+  <div class="story-scenes">
+    <article class="story-scene" data-story-scene="1" id="cena-1" style="--scene-index: 0">
+      <header>
+        <p class="eyebrow">
+          01 / <span data-en="The birth of an idea">O nascimento da ideia</span>
+        </p>
+        <h1 data-en="One idea. Infinite possibilities.">Uma ideia. Infinitas possibilidades.</h1>
+        <p data-en="Give your intent a direction." class="static-lead">
+          Dê uma direção à sua intenção.
+        </p>
+      </header>
+      <figure class="static-visual static-visual-1" aria-hidden="true">
+        <svg class="static-links" viewBox="0 0 1000 400" fill="none" preserveAspectRatio="none">
+          <path
+            d="M50 250 C200 40 320 380 500 200 S800 40 950 220 M100 100 C250 350 390 50 500 200 S750 360 900 100"
+          /></svg
+        ><span class="static-idea"></span>
+      </figure>
+      <p
+        data-en="Everything starts with an intent: a need, a problem, or something new to build. The gold core represents that same idea throughout the journey."
+        class="scene-description"
+      >
+        Tudo começa com uma intenção: uma necessidade, um problema ou algo novo a construir. O
+        núcleo dourado representa essa mesma ideia ao longo de toda a jornada.
+      </p>
+    </article>
+    <article class="story-scene" data-story-scene="2" id="cena-2" style="--scene-index: 1">
+      <header>
+        <p class="eyebrow">02 / <span data-en="Complexity">A complexidade</span></p>
+        <h2 data-en="Agents accelerate tasks. Who keeps everything connected?">
+          Agentes aceleram tarefas. Quem mantém tudo conectado?
+        </h2>
+        <p data-en="More workstreams. More decisions. More contexts." class="static-lead">
+          Mais frentes. Mais decisões. Mais contextos.
+        </p>
+      </header>
+      <figure class="static-visual static-visual-2" aria-hidden="true">
+        <svg class="static-links" viewBox="0 0 1000 400" fill="none" preserveAspectRatio="none">
+          <path
+            d="M50 250 C200 40 320 380 500 200 S800 40 950 220 M100 100 C250 350 390 50 500 200 S750 360 900 100"
+          /></svg
+        ><span class="static-idea"></span>
+        <div class="static-work-grid">
+          <div class="static-work">
+            <span>01</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6" /></svg
+            ><strong data-en="Specification">Specification</strong>
+          </div>
+          <div class="static-work">
+            <span>02</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M12 3v6 M5 14v6 M19 14v6 M5 14h14 M12 9v5 M9 3h6 M2 20h6 M16 20h6" /></svg
+            ><strong data-en="Plan / ADRs">Plano / ADRs</strong>
+          </div>
+          <div class="static-work">
+            <span>03</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M8 6l-6 6 6 6 M16 6l6 6-6 6 M14 3l-4 18" /></svg
+            ><strong data-en="Implementation">Implementação</strong>
+          </div>
+          <div class="static-work">
+            <span>04</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M3 3h18v18H3z M7 12l3 3 7-7" /></svg
+            ><strong data-en="Validation / review">Validação / revisão</strong>
+          </div>
+          <div class="static-work">
+            <span>05</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5" /></svg
+            ><strong data-en="Evidence">Evidence</strong>
+          </div>
+          <div class="static-work">
+            <span>06</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M4 21v-2a8 8 0 0 1 16 0v2" /></svg
+            ><strong data-en="Human acceptance">Aceite humano</strong>
+          </div>
+        </div>
+      </figure>
+      <p
+        data-en="The idea unfolds into requirements, decisions, code, tests, review, and delivery. Agents and Runtimes accelerate parts of the work, while intent and relationships can fragment across contexts."
+        class="scene-description"
+      >
+        A ideia se desdobra em requisitos, decisões, código, testes, revisão e entrega. Agentes e
+        Runtimes aceleram partes do trabalho, mas a intenção e as relações podem se dispersar entre
+        contextos.
+      </p>
+    </article>
+    <article class="story-scene" data-story-scene="3" id="cena-3" style="--scene-index: 2">
+      <span id="proposta" class="scene-anchor"></span>
+      <header>
+        <p class="eyebrow">03 / <span data-en="Enter Axiom">A entrada do Axiom</span></p>
+        <h2 data-en="Axiom connects what was scattered.">O Axiom conecta o que estava disperso.</h2>
+        <p data-en="The same idea. The same parts. A shared direction." class="static-lead">
+          A mesma ideia. As mesmas partes. Uma direção compartilhada.
+        </p>
+      </header>
+      <figure class="static-visual static-visual-3" aria-hidden="true">
+        <svg class="static-links" viewBox="0 0 1000 400" fill="none" preserveAspectRatio="none">
+          <path
+            d="M50 250 C200 40 320 380 500 200 S800 40 950 220 M100 100 C250 350 390 50 500 200 S750 360 900 100"
+          /></svg
+        ><span class="static-idea"></span
+        ><svg class="static-mascot" viewBox="320 240 620 520" role="img" aria-label="Axiom">
+          <defs>
+            <clipPath id="static-mascot-2">
               <rect x="320" y="240" width="620" height="520" />
             </clipPath>
           </defs>
           <image
-            class="logo-artwork"
-            clip-path="url(#core-logo-crop)"
+            clip-path="url(#static-mascot-2)"
             href="assets/axiom-logo.png"
             width="1254"
             height="1254"
           />
         </svg>
-        <div class="core-rule"></div>
-        <p>DEVELOPMENT CONTROL PLANE</p>
-        <span class="core-context"
-          ><i></i><span data-en=" Intent stays connected."> A intenção permanece.</span></span
-        >
-      </div>
-      <div class="workflow-node" data-node="0" style="--x: 15%; --y: 20%">
-        <span class="node-no">01</span>
-        <div>
-          <strong>Specification</strong
-          ><small data-en="What to build. And why.">O que construir. E por quê.</small>
+        <div class="static-work-grid">
+          <div class="static-work">
+            <span>01</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6" /></svg
+            ><strong data-en="Specification">Specification</strong>
+          </div>
+          <div class="static-work">
+            <span>02</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M12 3v6 M5 14v6 M19 14v6 M5 14h14 M12 9v5 M9 3h6 M2 20h6 M16 20h6" /></svg
+            ><strong data-en="Plan / ADRs">Plano / ADRs</strong>
+          </div>
+          <div class="static-work">
+            <span>03</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M8 6l-6 6 6 6 M16 6l6 6-6 6 M14 3l-4 18" /></svg
+            ><strong data-en="Implementation">Implementação</strong>
+          </div>
+          <div class="static-work">
+            <span>04</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M3 3h18v18H3z M7 12l3 3 7-7" /></svg
+            ><strong data-en="Validation / review">Validação / revisão</strong>
+          </div>
+          <div class="static-work">
+            <span>05</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5" /></svg
+            ><strong data-en="Evidence">Evidence</strong>
+          </div>
+          <div class="static-work">
+            <span>06</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M4 21v-2a8 8 0 0 1 16 0v2" /></svg
+            ><strong data-en="Human acceptance">Aceite humano</strong>
+          </div>
         </div>
-        <span class="node-mark">↗</span>
-      </div>
-      <div class="workflow-node" data-node="1" style="--x: 14%; --y: 49%">
-        <span class="node-no">02</span>
-        <div>
-          <strong data-en="Plan & ADRs">Plano e ADRs</strong
-          ><small data-en="Decisions that endure.">Decisões que permanecem.</small>
-        </div>
-        <span class="node-mark">◇</span>
-      </div>
-      <div class="workflow-node" data-node="2" style="--x: 19%; --y: 80%">
-        <span class="node-no">03</span>
-        <div>
-          <strong data-en="Implementation">Implementação</strong
-          ><small data-en="Bounded execution.">Execução com limites.</small>
-        </div>
-        <span class="node-mark">&lt;/&gt;</span>
-      </div>
-      <div class="workflow-node" data-node="3" style="--x: 85%; --y: 20%">
-        <span class="node-no">04</span>
-        <div>
-          <strong data-en="Validation & review">Validação e revisão</strong
-          ><small data-en="Verify before concluding.">Verificar antes de concluir.</small>
-        </div>
-        <span class="node-mark">✓</span>
-      </div>
-      <div class="workflow-node" data-node="4" style="--x: 86%; --y: 49%">
-        <span class="node-no">05</span>
-        <div>
-          <strong>Evidence</strong
-          ><small data-en="Inspectable results.">Resultados inspecionáveis.</small>
-        </div>
-        <span class="node-mark">≡</span>
-      </div>
-      <div class="workflow-node" data-node="5" style="--x: 81%; --y: 80%">
-        <span class="node-no">06</span>
-        <div>
-          <strong data-en="Human acceptance">Aceite humano</strong
-          ><small data-en="The decision stays yours.">A decisão continua sua.</small>
-        </div>
-        <span class="node-mark">◎</span>
-      </div>
-      <figcaption>
-        Fluxo conceitual · execução configurável e coordenação de agentes em entrega.
-      </figcaption>
-    </figure>
-    <div class="narrative">
-      <span class="narrative-count">00<span>/ 06</span></span>
-      <div class="narrative-text">
-        <h2>Antes dos caminhos, uma intenção.</h2>
-        <p>O Axiom mantém o contexto no centro. Ao rolar, descubra como cada parte se conecta.</p>
-      </div>
-    </div>
-    <div class="stage-bottom">
-      <span class="scroll-hint"
-        ><span data-en="EXPLORE AT YOUR OWN PACE ">EXPLORE NO SEU RITMO </span
-        ><b><span data-en="↓">↓</span></b></span
+      </figure>
+      <p
+        data-en="Axiom enters as a control plane: it connects the same scattered elements, preserving intent, decisions, relationships, and boundaries. The idea remains yours; Axiom coordinates the process."
+        class="scene-description"
       >
-      <nav class="step-dots" aria-label="Caminhos do workflow" data-en-aria="Workflow paths">
-        <a href="#caminho-1" aria-label="Specification"><span>01</span></a
-        ><a href="#caminho-2" aria-label="Plano e ADRs" data-en-aria="Plan & ADRs"
-          ><span>02</span></a
-        ><a href="#caminho-3" aria-label="Implementação" data-en-aria="Implementation"
-          ><span>03</span></a
-        ><a href="#caminho-4" aria-label="Validação e revisão" data-en-aria="Validation & review"
-          ><span>04</span></a
-        ><a href="#caminho-5" aria-label="Evidence"><span>05</span></a
-        ><a href="#caminho-6" aria-label="Aceite humano" data-en-aria="Human acceptance"
-          ><span>06</span></a
-        >
-      </nav>
-      <a href="#mapa-completo" class="full-map-link"
-        ><span data-en="See full map ">Ver mapa completo </span
-        ><span><span data-en="↘">↘</span></span></a
+        O Axiom entra como control plane: conecta os mesmos elementos que estavam dispersos,
+        preservando intenção, decisões, relações e limites. A ideia continua sendo sua; Axiom
+        coordena o processo.
+      </p>
+    </article>
+    <article class="story-scene" data-story-scene="4" id="cena-4" style="--scene-index: 3">
+      <span id="fluxo" class="scene-anchor"></span>
+      <header>
+        <p class="eyebrow">
+          04 / <span data-en="Orchestration and control">Orquestração e controle</span>
+        </p>
+        <h2 data-en="A configurable process. With human control.">
+          Um processo configurável. Com controle humano.
+        </h2>
+        <p data-en="Agents execute. Axiom coordinates. You authorize." class="static-lead">
+          Agentes executam. Axiom coordena. Você autoriza.
+        </p>
+      </header>
+      <figure class="static-visual static-visual-4" aria-hidden="true">
+        <svg class="static-links" viewBox="0 0 1000 400" fill="none" preserveAspectRatio="none">
+          <path
+            d="M50 250 C200 40 320 380 500 200 S800 40 950 220 M100 100 C250 350 390 50 500 200 S750 360 900 100"
+          /></svg
+        ><span class="static-idea"></span
+        ><svg class="static-mascot" viewBox="320 240 620 520" role="img" aria-label="Axiom">
+          <defs>
+            <clipPath id="static-mascot-3">
+              <rect x="320" y="240" width="620" height="520" />
+            </clipPath>
+          </defs>
+          <image
+            clip-path="url(#static-mascot-3)"
+            href="assets/axiom-logo.png"
+            width="1254"
+            height="1254"
+          />
+        </svg>
+        <div class="static-work-grid">
+          <div class="static-work">
+            <span>01</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6" /></svg
+            ><strong data-en="Specification">Specification</strong>
+          </div>
+          <div class="static-work">
+            <span>02</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M12 3v6 M5 14v6 M19 14v6 M5 14h14 M12 9v5 M9 3h6 M2 20h6 M16 20h6" /></svg
+            ><strong data-en="Plan / ADRs">Plano / ADRs</strong>
+          </div>
+          <div class="static-work">
+            <span>03</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M8 6l-6 6 6 6 M16 6l6 6-6 6 M14 3l-4 18" /></svg
+            ><strong data-en="Implementation">Implementação</strong>
+          </div>
+          <div class="static-work">
+            <span>04</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M3 3h18v18H3z M7 12l3 3 7-7" /></svg
+            ><strong data-en="Validation / review">Validação / revisão</strong>
+          </div>
+          <div class="static-work">
+            <span>05</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5" /></svg
+            ><strong data-en="Evidence">Evidence</strong>
+          </div>
+          <div class="static-work">
+            <span>06</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M4 21v-2a8 8 0 0 1 16 0v2" /></svg
+            ><strong data-en="Human acceptance">Aceite humano</strong>
+          </div>
+        </div>
+      </figure>
+      <p
+        data-en="Specification → Plan/ADRs → Implementation → Validation/review → Evidence → Human acceptance. Six stages make work traceable. Runtimes such as Codex and Claude provide execution; material choices and acceptance remain human. The map is conceptual, not a finished GUI."
+        class="scene-description"
       >
-    </div>
-  </div>
-  <div class="scroll-markers" aria-hidden="true">
-    <span id="caminho-1"></span><span id="caminho-2"></span><span id="caminho-3"></span
-    ><span id="caminho-4"></span><span id="caminho-5"></span><span id="caminho-6"></span
-    ><span id="mapa-completo"></span>
+        Specification → Plano/ADRs → Implementação → Validação/revisão → Evidence → Aceite humano.
+        As seis etapas tornam o trabalho rastreável. Runtimes, como Codex e Claude, oferecem
+        execução; escolhas materiais e aceite continuam humanos. O mapa é conceitual, não uma GUI
+        pronta.
+      </p>
+    </article>
+    <article class="story-scene" data-story-scene="5" id="cena-5" style="--scene-index: 4">
+      <header>
+        <p class="eyebrow">05 / <span data-en="Verifiable delivery">A entrega verificável</span></p>
+        <h2 data-en="More than finished work. Verifiable work.">
+          Não apenas trabalho concluído. Trabalho verificável.
+        </h2>
+        <p data-en="Your idea, connected to what can be inspected." class="static-lead">
+          Sua ideia, conectada ao que pode ser inspecionado.
+        </p>
+      </header>
+      <figure class="static-visual static-visual-5" aria-hidden="true">
+        <svg class="static-links" viewBox="0 0 1000 400" fill="none" preserveAspectRatio="none">
+          <path
+            d="M50 250 C200 40 320 380 500 200 S800 40 950 220 M100 100 C250 350 390 50 500 200 S750 360 900 100"
+          /></svg
+        ><span class="static-idea"></span
+        ><svg class="static-mascot" viewBox="320 240 620 520" role="img" aria-label="Axiom">
+          <defs>
+            <clipPath id="static-mascot-4">
+              <rect x="320" y="240" width="620" height="520" />
+            </clipPath>
+          </defs>
+          <image
+            clip-path="url(#static-mascot-4)"
+            href="assets/axiom-logo.png"
+            width="1254"
+            height="1254"
+          />
+        </svg>
+        <div class="static-work-grid">
+          <div class="static-work">
+            <span>01</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h6" /></svg
+            ><strong data-en="Scope / criteria">Escopo / critérios</strong>
+          </div>
+          <div class="static-work">
+            <span>02</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M12 3v6 M5 14v6 M19 14v6 M5 14h14 M12 9v5 M9 3h6 M2 20h6 M16 20h6" /></svg
+            ><strong data-en="ADRs / context">ADRs / contexto</strong>
+          </div>
+          <div class="static-work">
+            <span>03</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M8 6l-6 6 6 6 M16 6l6 6-6 6 M14 3l-4 18" /></svg
+            ><strong data-en="Code / PR">Código / PR</strong>
+          </div>
+          <div class="static-work">
+            <span>04</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M3 3h18v18H3z M7 12l3 3 7-7" /></svg
+            ><strong data-en="Tests / review">Testes / revisão</strong>
+          </div>
+          <div class="static-work">
+            <span>05</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M5 3h14v18H5z M8 8h8 M8 12h8 M8 16h5" /></svg
+            ><strong data-en="Diff / Evidence">Diff / Evidence</strong>
+          </div>
+          <div class="static-work">
+            <span>06</span
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              aria-hidden="true"
+            >
+              <path d="M8 8a4 4 0 1 0 8 0a4 4 0 1 0-8 0 M4 21v-2a8 8 0 0 1 16 0v2" /></svg
+            ><strong data-en="Human decision">Decisão humana</strong>
+          </div>
+        </div>
+        <div class="static-decision">
+          <strong data-en="You decide: accept delivery or request rework."
+            >Você decide: aceitar a entrega ou solicitar retrabalho.</strong
+          >
+        </div>
+      </figure>
+      <p
+        data-en="Scope and criteria, ADRs, code/PR, tests, review, diff, and Evidence connect intent to outcome. You inspect the evidence and choose to accept delivery or request rework. Scrolling illustrates the journey; it does not make that decision."
+        class="scene-description"
+      >
+        Escopo e critérios, ADRs, código/PR, testes, revisão, diff e Evidence conectam a intenção ao
+        resultado. Você inspeciona as evidências e escolhe aceitar a entrega ou solicitar
+        retrabalho. A rolagem demonstra o percurso; não toma essa decisão.
+      </p>
+    </article>
   </div>
 </section>
- <section
-  class="workflow-transcript section"
-  aria-label="Descrição do fluxo"
-  data-en-aria="Workflow description"
->
-  <article>
-    <span>01 /</span>
-    <h3>Specification</h3>
-    <p data-en="Outcomes, constraints, and acceptance criteria record what needs to be built.">
-      Resultados, restrições e critérios de aceitação registram o que precisa ser construído.
-    </p>
-  </article>
-  <article>
-    <span>02 /</span>
-    <h3 data-en="Plan & ADRs">Plano e ADRs</h3>
-    <p data-en="Planning and architecture decisions preserve the rationale behind implementation.">
-      Planejamento e decisões de arquitetura preservam o raciocínio por trás da implementação.
-    </p>
-  </article>
-  <article>
-    <span>03 /</span>
-    <h3 data-en="Implementation">Implementação</h3>
-    <p
-      data-en="Bounded executions in Runtimes such as Codex and Claude, with approval for material choices."
-    >
-      Execuções delimitadas em Runtimes como Codex e Claude, com aprovação de escolhas materiais.
-    </p>
-  </article>
-  <article>
-    <span>04 /</span>
-    <h3 data-en="Validation & review">Validação e revisão</h3>
-    <p data-en="Tests, diffs, and review make work inspectable before a conclusion.">
-      Testes, diffs e revisão permitem inspecionar o trabalho antes de uma conclusão.
-    </p>
-  </article>
-  <article>
-    <span>05 /</span>
-    <h3>Evidence</h3>
-    <p data-en="Reproducible observations support claims about execution results.">
-      Observações reproduzíveis sustentam as afirmações sobre o resultado da execução.
-    </p>
-  </article>
-  <article>
-    <span>06 /</span>
-    <h3 data-en="Human acceptance">Aceite humano</h3>
-    <p data-en="You review the delivery and decide whether to accept it or request rework.">
-      Você avalia a entrega e decide entre aceitar ou solicitar retrabalho.
-    </p>
-  </article>
-</section>
- <section class="human section">
-  <p class="eyebrow" data-en="AUTONOMY WITH DIRECTION">AUTONOMIA COM DIREÇÃO</p>
+ <section class="reality section" id="fundacao">
+  <p class="eyebrow" data-en="BUILT ON CLARITY">CONSTRUÍDO SOBRE CLAREZA</p>
   <h2>
-    <span data-en="Agents do the work.">Agentes fazem o trabalho.</span><br /><em
-      ><span data-en="You keep the authority.">Você mantém a autoridade.</span></em
+    <span data-en="A solid foundation.">Uma base sólida.</span><br /><em
+      ><span data-en="Room to evolve.">Espaço para evoluir.</span></em
     >
   </h2>
-  <div class="human-layout">
-    <div class="runtime-visual" aria-hidden="true">
-      <div class="runtime-orbit"></div>
-      <span class="runtime-name codex">◈ <b>Codex</b><small>RUNTIME</small></span
-      ><span class="runtime-name claude">✳ <b>Claude</b><small>RUNTIME</small></span>
-      <div class="human-center">◇<span data-en="HUMAN DECISION">DECISÃO HUMANA</span></div>
-    </div>
-    <div class="human-copy">
+  <div class="reality-grid">
+    <article>
+      <span class="status blue" data-en="AVAILABLE TODAY">DISPONÍVEL HOJE</span>
+      <h3 data-en="The connected foundation.">A base conectada.</h3>
       <p
-        data-en="Axiom organizes the process. Runtimes provide execution capabilities. Agents work within explicit boundaries."
+        data-en="Local installation, guided Projects, GitHub Work Items, Codex/Claude bootstrap, persistent workflow, and Evidence. Projects select versioned workflows; bounded executions retain the revision they started with."
       >
-        O Axiom organiza o processo. Runtimes oferecem capacidades de execução. Agentes trabalham
-        dentro de limites explícitos.
+        Instalação local, Projects guiados, Work Items no GitHub, bootstrap Codex/Claude, workflow
+        persistente e Evidence. Projects selecionam workflows versionados; execuções delimitadas
+        preservam a revisão em que começaram.
       </p>
+    </article>
+    <article>
+      <span class="status gold" data-en="MVP IN DELIVERY">MVP EM ENTREGA</span>
+      <h3 data-en="Configurable coordination.">Coordenação configurável.</h3>
       <p
-        data-en="Your local tools. Your authentication. Material decisions pass through human gates, and Evidence supports your judgment."
+        data-en="Configurable execution per Project, agents and controls per stage, and coordinated Codex/Claude delivery remain in delivery. The diagram illustrates their role, not full availability or acceptance."
       >
-        Suas ferramentas locais. Sua autenticação. Decisões materiais passam por gates humanos, e
-        Evidence sustenta seu julgamento.
+        Execução configurável por Project, agentes e controles por etapa e entrega coordenada
+        Codex/Claude seguem em entrega. O diagrama ilustra seu papel, não disponibilidade ou aceite
+        integral.
       </p>
-      <a
-        class="inline-link"
-        href="https://github.com/rgomids/axiom/blob/main/docs/architecture/conceptual-model.md"
-        target="_blank"
-        rel="noopener"
-        data-en="Understand the concepts ↗"
-        >Entenda os conceitos ↗</a
+    </article>
+    <article>
+      <span class="status" data-en="IN DISCOVERY">EM DISCOVERY</span>
+      <h3 data-en="The next possibilities.">As próximas possibilidades.</h3>
+      <p
+        data-en="Graphical control plane, additional Runtimes, cloud orchestration, and cost governance require their own specification and authority. Discovery is not an implementation commitment."
       >
-    </div>
+        Control plane gráfico, outros Runtimes, orquestração em nuvem e governança de custos exigem
+        especificação e autoridade próprias. Discovery não é compromisso de implementação.
+      </p>
+    </article>
   </div>
+  <a
+    class="inline-link"
+    href="https://github.com/rgomids/axiom#project-status"
+    target="_blank"
+    rel="noopener"
+    data-en="See versioned product status ↗"
+    >Veja o estado versionado do produto ↗</a
+  >
 </section>
-
-      <section class="installation section" id="instalar">
+ <section class="installation section" id="instalar">
   <div class="install-heading">
     <p class="eyebrow" data-en="FROM YOUR TERMINAL">A PARTIR DO SEU TERMINAL</p>
     <h2>
@@ -537,7 +962,17 @@
       </div>
       <div class="terminal-body">
         <p class="terminal-comment"># instale a release estável mais recente</p>
-        <div class="command-list" id="commands"></div>
+        <div class="command-list" id="commands">
+          <div class="command-row">
+            <pre><code>curl -fsSL https://raw.githubusercontent.com/rgomids/axiom/main/scripts/install.sh | sh</code></pre>
+            <button class="copy-command" type="button" disabled>Copiar ⧉</button>
+          </div>
+        </div>
+        <noscript
+          ><p class="terminal-comment">
+            Selecione o comando para copiar. Consulte o guia completo para as próximas etapas.
+          </p></noscript
+        >
         <p id="copy-status" role="status"></p>
       </div>
       <div class="terminal-foot">
@@ -560,56 +995,6 @@
     rel="noopener"
     data-en="Full getting started guide ↗"
     >Guia completo de primeiros passos ↗</a
-  >
-</section>
- <section class="reality section" id="fundacao">
-  <p class="eyebrow" data-en="BUILT ON CLARITY">CONSTRUÍDO SOBRE CLAREZA</p>
-  <h2>
-    <span data-en="A solid foundation.">Uma base sólida.</span><br /><em
-      ><span data-en="Room to evolve.">Espaço para evoluir.</span></em
-    >
-  </h2>
-  <div class="reality-grid">
-    <article>
-      <span class="status blue" data-en="AVAILABLE TODAY">DISPONÍVEL HOJE</span>
-      <h3 data-en="The connected foundation.">A base conectada.</h3>
-      <p
-        data-en="Local installation, guided Projects, GitHub Work Items, Codex/Claude bootstrap, persistent workflow, and Evidence. Projects select versioned workflows; bounded executions retain the revision they started with."
-      >
-        Instalação local, Projects guiados, Work Items no GitHub, bootstrap Codex/Claude, workflow
-        persistente e Evidence. Projects selecionam workflows versionados; execuções delimitadas
-        preservam a revisão em que começaram.
-      </p>
-    </article>
-    <article>
-      <span class="status gold" data-en="MVP IN DELIVERY">MVP EM ENTREGA</span>
-      <h3 data-en="Configurable coordination.">Coordenação configurável.</h3>
-      <p
-        data-en="Configurable execution per Project, agents and controls per stage, and coordinated Codex/Claude delivery remain in delivery. The diagram illustrates their role, not full availability or acceptance."
-      >
-        Execução configurável por Project, agentes e controles por etapa e entrega coordenada
-        Codex/Claude seguem em entrega. O diagrama ilustra seu papel, não disponibilidade ou aceite
-        integral.
-      </p>
-    </article>
-    <article>
-      <span class="status" data-en="IN DISCOVERY">EM DISCOVERY</span>
-      <h3 data-en="The next possibilities.">As próximas possibilidades.</h3>
-      <p
-        data-en="Graphical control plane, additional Runtimes, cloud orchestration, and cost governance require their own specification and authority. Discovery is not an implementation commitment."
-      >
-        Control plane gráfico, outros Runtimes, orquestração em nuvem e governança de custos exigem
-        especificação e autoridade próprias. Discovery não é compromisso de implementação.
-      </p>
-    </article>
-  </div>
-  <a
-    class="inline-link"
-    href="https://github.com/rgomids/axiom#project-status"
-    target="_blank"
-    rel="noopener"
-    data-en="See versioned product status ↗"
-    >Veja o estado versionado do produto ↗</a
   >
 </section>
  <section class="closing section">
@@ -656,10 +1041,9 @@
     >
   </div>
 </section>
-
-    </main>
+</main>
     <footer>
-  <a class="brand" href="#inicio" aria-label="Axiom início"
+  <a class="brand" href="#inicio" aria-label="Axiom início" data-en-aria="Axiom home"
     ><svg
       class="brand-original"
       viewBox="320 240 620 520"
@@ -678,6 +1062,6 @@
 
     <script src="preview.js"></script>
     <script src="app.js"></script>
-    <script src="organic-workflow.js"></script>
+    <script type="module" src="storytelling.js"></script>
   </body>
 </html>
