@@ -2,6 +2,7 @@ package executiongraph
 
 import (
 	"fmt"
+	"os"
 
 	"golang.org/x/sys/unix"
 )
@@ -19,6 +20,9 @@ func observeAdoptedProcesses(baseline bool) (map[int]string, error) {
 	defer startedGroups.Unlock()
 	for _, p := range processes {
 		if p.Proc.P_stat == 5 || !baseline && (p.Eproc.Ppid != 1 || startedGroups.leaders[int(p.Eproc.Pgid)]) {
+			continue
+		}
+		if os.Geteuid() != 0 && int(p.Eproc.Pcred.P_ruid) != os.Getuid() && int(p.Eproc.Pcred.P_svuid) != os.Getuid() && int(p.Eproc.Ucred.Uid) != os.Geteuid() {
 			continue
 		}
 		result[int(p.Proc.P_pid)] = fmt.Sprintf("%d:%d", p.Proc.P_starttime.Sec, p.Proc.P_starttime.Usec)

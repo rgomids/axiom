@@ -2309,3 +2309,13 @@ checks (`go test -race ./internal/cli ./cmd/lingo -run
 -count=1 -timeout=60s`) passed, exit 0 (1.124s / 1.152s).
 T44 remains partial until standard probe/preparation and distinct extended
 operation are composed and validated; T41 and installed T36 are still open.
+
+Native macOS CI at `4f841ab` (`38824648854`) also failed: new launchd services
+outside the operator identity can appear during probes/timeouts. The observer
+now scopes adoption to matching real, saved **or** effective operator UID;
+an effective-root supervisor still observes all identities. Setuid execution
+retains the real operator UID and remains included. This is advisory process
+tracking for the non-elevated Runtime contract, never a privilege/confinement
+claim. New unrelated processes with the operator's identity still conservatively
+prevent confirmation. No tests or result gates changed. Darwin arm64 test
+compilation passed (exit 0); native CI remains required.
