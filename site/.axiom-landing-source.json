@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "repository": "https://github.com/rgomids/axiom-ds",
-  "revision": "62fa05884a3ddd04a1ac5cb1a284bc6a7d40b5e2",
+  "revision": "1a475dbadf74bf4f3a64439d5bc2f2e774b2ac5a",
   "bundle": "packages/landing/dist",
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -9,13 +9,13 @@
     "assets/axiom-logo.png": "c58970cd0bfda80a8c46e22bfdb0218eba9d75ff4c41b80f4d476b2492cf812f",
     "assets/Manrope-OFL.txt": "d6a309fcfb963d329a93baf9df66fa5f3c23a4be2b5f67edf24d6cafecde12ac",
     "assets/Manrope.ttf": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
-    "index.html": "8d4d5cbf9c854b0e898b63c6a60256a8dfee3293d95d56ea0f8b8f7efb44a198",
+    "index.html": "4949bee540f68012b5b9d50c41fb7255384669fc4cb6a18ec40b2544a6ad3ecc",
     "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     "NOTICE.txt": "09ac728da60aab6f4b60bb476f5df271f368054267d156cc2641f7592cd7ddd0",
     "preview.js": "aec8a8db6ba17a9c9e8fafbdb7ca041d21e53ce050d3085c8435a5349250eb3b",
-    "story-state.js": "3cf81da36bbec737851bce097a619c8464df7f4a5d939f47d62113c56f73d9af",
-    "storytelling.css": "8bc00f450976e6e1d009406cb3824df9393a14f4cea507c0b3636ea2993ad707",
-    "storytelling.js": "76f94cc4cb0019e3d7e25004c7685a0cbcf883ac4c4e1f7358619f8480e27479",
+    "story-state.js": "ccb13b7995a0db0d55089d737e0caf86e313526ed0d0c505dc53b3fe5f5768f3",
+    "storytelling.css": "9986b739a261aeb7bc32134d85ceb0931997abe0408722ab56a8232566d5a81a",
+    "storytelling.js": "bc34b187e3e54d8f5c9166b0359fee9142815b66a76065bfd4633c7c9b242afb",
     "style.css": "150e90a04d9de82dd2877639ea55a66260be84685b0ed3ec70912491fcad6ebe",
     "tokens.css": "1b5f886ab9a74dcdaf0ab1233a60d6ed7d51ef7ef3ddb5d5e77371df0c744857"
   }

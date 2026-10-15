@@ -2,6 +2,7 @@ import { storyState, connectionPath, clamp } from './story-state.js';
 
 const story = document.querySelector('.storytelling');
 const idea = story.querySelector('[data-story-idea]');
+const nova = story.querySelector('.story-supernova');
 const hub = story.querySelector('[data-story-axiom]');
 const works = [...story.querySelectorAll('[data-story-work]')];
 const paths = [...story.querySelectorAll('[data-story-path]')];
@@ -39,16 +40,20 @@ function paint() {
   story.dataset.storyProgress = p.toFixed(6);
   story.dataset.storyScene = String(state.scene + 1);
   story.style.setProperty('--story-wash', state.wash);
+  story.style.setProperty('--story-ambient', state.ambient);
   document.body.classList.toggle(
     'gold-start',
     (!staticMode || previewScene !== null) && state.wash > 0.65 && scrollY < top + innerHeight,
   );
   if (staticMode && previewScene === null) return;
+  place(nova, innerWidth <= 760 ? [50, 46] : [50, 52]);
+  nova.style.opacity = state.novaOpacity;
+  nova.style.setProperty('--nova-scale', state.novaScale);
+  nova.style.setProperty('--nova-halo', state.novaHalo);
   idea.style.opacity = state.ideaOpacity;
   idea.style.width = state.ideaSize + 'px';
   idea.style.height = state.ideaSize + 'px';
   place(idea, state.idea);
-  idea.style.setProperty('--idea-label-shift', `${-(state.ideaSize + 42) * state.coordination}px`);
   idea.querySelector('.idea-label').style.opacity = 1 - state.delivery;
   place(hub, state.hub);
   hub.style.opacity = state.hubOpacity;
@@ -94,7 +99,10 @@ function paint() {
     paths[i].style.setProperty('--work-focus', node.focus);
   });
   copies.forEach((copy, i) => {
-    const alpha = clamp((0.5 - Math.abs(p - i)) / 0.15);
+    const alpha =
+      i === 0
+        ? state.openingCopy
+        : clamp((0.5 - Math.abs(p - i)) / 0.15) * (i === 1 ? state.complexityCopy : 1);
     copy.style.opacity = alpha;
     copy.style.visibility = alpha > 0 ? 'visible' : 'hidden';
     copy.style.transform = `translateY(${(i - p) * 12}px)`;
