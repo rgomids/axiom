@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"os"
 	"reflect"
 	"strings"
@@ -268,5 +269,33 @@ func TestPreviewBindsPolicyAndDisclosure(t *testing.T) {
 	}
 	if !advisory {
 		t.Fatal("advisory child omitted")
+	}
+}
+func TestDispatchPreviewBindsProcessMode(t *testing.T) {
+	s, _, compiler, caps := previewFixture(t, true)
+	agent := &compiler.plan.Compilation.Agents[0]
+	agent.Effects = append(agent.Effects, executiongraph.Effect{Kind: "process", Target: "worktree"})
+	f := agent.Input.ResolvedProfile
+	readOnly := capabilityproof.Target{RuntimeID: f.RuntimeID, ProfileID: f.ProfileID, Variant: capabilityproof.ReadOnlyVariant}
+	// Evidence held only for the Process=false mode never admits a process effect.
+	if _, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID); !errors.Is(e, capabilityproof.ErrBlocked) {
+		t.Fatalf("process effect admitted through Process=false mode: %v", e)
+	}
+	process := readOnly
+	process.Process = true
+	v := caps.views[readOnly]
+	v.Target = process
+	v.States = maps.Clone(v.States)
+	v.States[capabilityproof.Process] = capabilityproof.Proven
+	caps.views[process] = v
+	p, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID)
+	if e != nil || len(p.Children) != 1 || p.Children[0].Capability.Target != process {
+		t.Fatalf("process mode not preserved: %+v %v", p.Children, e)
+	}
+	// The process mode still requires proven Process capability Evidence.
+	v.States[capabilityproof.Process] = capabilityproof.Unknown
+	caps.views[process] = v
+	if _, e := s.Preview(context.Background(), compiler.plan.Execution, compiler.plan.StageID); !errors.Is(e, capabilityproof.ErrBlocked) {
+		t.Fatalf("unproven Process admitted: %v", e)
 	}
 }

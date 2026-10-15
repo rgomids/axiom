@@ -495,20 +495,29 @@ func (s fixedPolicySource) Load(context.Context, string) (runtimeapplication.Sna
 	return s.snapshot, nil
 }
 
+// Under canonical v3 policy effort is Profile-owned (ADR-0024): a schema-1
+// agent's requested effort is never satisfied by a reasoning-effort capability,
+// even when model-specific observations and Profile proofs exist, so the
+// historical schema-1 compile refuses it. Schema-2 compilation is covered by
+// TestProfileV3ProtectedRetirementCompilerGraphRestartChain.
 func TestCompileWithRealProjectPolicyAndModelSpecificObservations(t *testing.T) {
 	const projectID = "123e4567-e89b-42d3-a456-426614174000"
 	state := project.State{SchemaVersion: 2, ID: projectID, Slug: "example", Name: "Example"}
 	var runtimes []project.Runtime
 	var profiles []project.ModelProfile
-	configuration := runtimeprofile.Configuration{FormatVersion: 1, Revision: 7}
+	configuration := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 7}
 	var observations []runtimeprofile.Observation
 	for _, id := range []string{"codex", "claude"} {
 		model, profileID := "local-"+id+"-model", "profile-"+id
 		runtimes = append(runtimes, project.Runtime{ID: id})
 		profiles = append(profiles, project.ModelProfile{Key: profileID, RuntimeRef: project.Configured(id), Model: project.Configured(model)})
-		configuration.Runtimes = append(configuration.Runtimes, runtimeprofile.Runtime{ID: id, Adapter: id, Enabled: true, AllowlistedProfileIDs: []string{profileID}, CredentialReference: "env:PRIVATE_REFERENCE_ONLY"})
-		configuration.ModelProfiles = append(configuration.ModelProfiles, runtimeprofile.ModelProfile{ID: profileID, RuntimeID: id, Model: model, Capabilities: []string{"read", "repository-write", "reasoning-effort-high", "reasoning-effort-medium"}, Complexities: []string{"medium"}})
-		observations = append(observations, runtimeprofile.Observation{RuntimeID: id, Adapter: id, Installed: true, Available: true, Version: "test-1.0", ExecutableDigest: digestForTest(id), Revision: 7, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"read": runtimeprofile.CapabilityProven, "repository-write": runtimeprofile.CapabilityProven, "reasoning-effort-high": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven}, NonInteractiveModelCapabilities: map[string]map[string]runtimeprofile.CapabilityStatus{model: {"reasoning-effort-high": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven}}})
+		profile := runtimeprofile.ModelProfile{ID: profileID, RuntimeID: id, Model: model, Effort: runtimeprofile.Effort{Mode: "explicit", Value: "high"}, Capabilities: []string{"read", "repository-write"}, Complexities: []string{"medium"}}
+		configuration.Runtimes = append(configuration.Runtimes, runtimeprofile.RuntimeV3{ID: id, Adapter: id, Enabled: true, AllowlistedProfileIDs: []string{profileID}})
+		configuration.ModelProfiles = append(configuration.ModelProfiles, profile)
+		capabilities := map[string]runtimeprofile.CapabilityStatus{"read": runtimeprofile.CapabilityProven, "repository-write": runtimeprofile.CapabilityProven, "reasoning-effort-high": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven}
+		o := runtimeprofile.Observation{RuntimeID: id, Adapter: id, Installed: true, Available: true, Version: "test-1.0", ExecutableDigest: digestForTest(id), Revision: 7, ObservedAt: time.Unix(1, 0).UTC(), CapabilityStatus: capabilities, NonInteractiveModelCapabilities: map[string]map[string]runtimeprofile.CapabilityStatus{model: {"reasoning-effort-high": runtimeprofile.CapabilityProven, "reasoning-effort-medium": runtimeprofile.CapabilityProven}}}
+		o.ProfileProofs = []runtimeprofile.ProfileProof{{RuntimeID: id, Model: model, Effort: profile.Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: "injected-" + profileID, EffortSourceDigest: digestForTest("sources-" + id), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: capabilities}}
+		observations = append(observations, o)
 	}
 	state.Runtimes, state.ModelProfiles = project.Configured(runtimes), project.Configured(profiles)
 	state.RuntimePreferences = project.Configured([]project.RuntimePreference{{Role: "integrator", Complexity: "medium", ModelProfileRef: "profile-codex"}})
@@ -520,33 +529,27 @@ func TestCompileWithRealProjectPolicyAndModelSpecificObservations(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := runtimeapplication.New(fixedPolicySource{snapshot: runtimeapplication.Snapshot{Project: configured, Configuration: configuration, Observer: inventory}})
+	consumer, err := runtimeprofile.NewConsumerV3(runtimeprofile.RecordActiveV3, &configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := runtimeapplication.New(fixedPolicySource{snapshot: runtimeapplication.Snapshot{Project: configured, Consumer: consumer, Observer: inventory}})
 	r := multiRequest(t)
 	r.ProjectID = projectID
 	for index := range r.Plan.Work {
 		r.Plan.Work[index].Scope.ProjectID = projectID
 	}
-	compiled, err := New(service, capabilityOK{}).Compile(context.Background(), r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, agent := range compiled.Agents {
-		if _, err := service.Check(context.Background(), agent.Input.RuntimePreview); err != nil {
-			t.Fatalf("compiled Runtime preview cannot be revalidated: %v", err)
+	explicit := false
+	for _, stage := range r.Definition.Definition.Stages {
+		for _, agent := range stage.Agents {
+			explicit = explicit || agent.Effort.Mode == "explicit"
 		}
 	}
-	wire, _ := json.Marshal(compiled)
-	if strings.Contains(string(wire), "PRIVATE_REFERENCE_ONLY") {
-		t.Fatal("compiled proposal leaked credential reference")
+	if !explicit {
+		t.Fatal("fixture lost its explicit schema-1 agent effort")
 	}
-	observations[0].NonInteractiveModelCapabilities = nil
-	inventory, err = runtimeadapter.NewInventory(observations)
-	if err != nil {
-		t.Fatal(err)
-	}
-	service = runtimeapplication.New(fixedPolicySource{snapshot: runtimeapplication.Snapshot{Project: configured, Configuration: configuration, Observer: inventory}})
 	if _, err := New(service, capabilityOK{}).Compile(context.Background(), r); !errors.Is(err, ErrUnsupportedEffort) {
-		t.Fatalf("Runtime-wide effort proof admitted: %v", err)
+		t.Fatalf("schema-1 agent effort resolved through a capability: %v", err)
 	}
 }
 

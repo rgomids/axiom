@@ -144,7 +144,7 @@ func TestEffortSourcesMalformedAndSymlinkRefusal(t *testing.T) {
 		t.Fatal(e)
 	}
 	if e := os.Symlink(path+".saved", path); e != nil {
-		t.Skip("native symlink unavailable")
+		t.Fatalf("native symlink setup failed on a supported host: %v", e)
 	}
 	if _, e := i.CheckEffortSources(context.Background(), p, inv); e == nil {
 		t.Fatal("followed symlink")
@@ -222,7 +222,7 @@ func TestEffortSourcesDropInUnknownAndSymlinkRefusal(t *testing.T) {
 				os.Mkdir(path, 0700)
 			case "symlink":
 				if err := os.Symlink(filepath.Join(source.Root, "settings.json"), path); err != nil {
-					t.Skip("native symlink unavailable")
+					t.Fatalf("native symlink setup failed on a supported host: %v", err)
 				}
 			case "oversized-inventory":
 				for n := 0; n < 65; n++ {

@@ -487,10 +487,10 @@ func (s InstallationStore) PublishWorkflowWithProfile(ctx context.Context, profi
 			return ErrConflict
 		}
 		snapshot, e := profiles.Inspect(ctx)
-		if e != nil || snapshot.State != "active-v2" || snapshot.Token != profileToken {
+		if e != nil || snapshot.State != "active-v3" || snapshot.V3 == nil || snapshot.Token != profileToken {
 			return ErrConflict
 		}
-		actual, e := runtimeprofile.Digest(snapshot.Configuration)
+		actual, e := runtimeprofile.DigestV3(*snapshot.V3)
 		if e != nil || actual != profileDigest {
 			return ErrConflict
 		}

@@ -49,22 +49,28 @@ const (
 	InventoryIntegrationAuthority InventoryKind = "stage_integration_authority"
 	InventoryDispatchInputs       InventoryKind = "stage_dispatch_inputs"
 	InventoryRuntimeProfile       InventoryKind = "runtime_profile_configuration"
-	InventoryProjectContext       InventoryKind = "project_context_preference"
-	InventoryPortableManifest     InventoryKind = "portable_manifest"
-	InventoryOperational          InventoryKind = "project_operational_state"
-	InventoryPOCWorkflow          InventoryKind = "poc_workflow"
-	InventoryRecovery             InventoryKind = "recovery_state"
-	InventoryNewer                InventoryKind = "unsupported_newer"
-	InventoryOlder                InventoryKind = "unsupported_older"
-	InventoryMalformed            InventoryKind = "malformed"
-	InventoryUnsafe               InventoryKind = "unsafe"
-	InventoryUnknown              InventoryKind = "unknown"
+	// InventoryRuntimeProfilePreStable is a valid recognized pre-stable local
+	// format-1/2 Runtime/Profile record (Specification 007 PM-11, B1). It is
+	// eligible for application upgrade but never a current configuration:
+	// operational consumers refuse it until it is explicitly retired and a
+	// canonical v3 configuration is created.
+	InventoryRuntimeProfilePreStable InventoryKind = "runtime_profile_prestable_configuration"
+	InventoryProjectContext          InventoryKind = "project_context_preference"
+	InventoryPortableManifest        InventoryKind = "portable_manifest"
+	InventoryOperational             InventoryKind = "project_operational_state"
+	InventoryPOCWorkflow             InventoryKind = "poc_workflow"
+	InventoryRecovery                InventoryKind = "recovery_state"
+	InventoryNewer                   InventoryKind = "unsupported_newer"
+	InventoryOlder                   InventoryKind = "unsupported_older"
+	InventoryMalformed               InventoryKind = "malformed"
+	InventoryUnsafe                  InventoryKind = "unsafe"
+	InventoryUnknown                 InventoryKind = "unknown"
 )
 
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryProjectContext, InventoryOperational:
+	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryRuntimeProfilePreStable, InventoryProjectContext, InventoryOperational:
 		return true
 	}
 	return false
@@ -92,8 +98,10 @@ var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAu
 func AdditiveKinds() []InventoryKind { return append([]InventoryKind(nil), additiveKinds...) }
 
 // Supported reports kinds a v1 reader accepts or the POC signature recognizes.
+// A pre-stable Runtime/Profile record is supported for application upgrade
+// only (PM-11, B1); no current writer produces it.
 func (k InventoryKind) Supported() bool {
-	return k == InventoryPOCWorkflow || slices.Contains(v1Kinds, k) || slices.Contains(additiveKinds, k)
+	return k == InventoryPOCWorkflow || k == InventoryRuntimeProfilePreStable || slices.Contains(v1Kinds, k) || slices.Contains(additiveKinds, k)
 }
 
 type InventoryEntry struct {
@@ -461,6 +469,21 @@ func walkRuntimeProfilesV1(w *inventoryWalk, version *os.Root, relative string) 
 		if protocolName(name) {
 			return w.add(childRelative, InventoryRecovery, nil)
 		}
+		if name == authorizationEpochObject {
+			// The PM-6 authorization epoch belongs to the Runtime/Profile
+			// family; only its exact canonical record is recognized.
+			if info, err := version.Lstat(name); err != nil || !info.Mode().IsRegular() {
+				return w.add(childRelative, InventoryUnsafe, nil)
+			}
+			wire, err := readPrivateFileBounded(version, name, maxAuthorizationEpoch)
+			if err != nil {
+				return w.add(childRelative, InventoryUnsafe, nil)
+			}
+			if _, err := decodeAuthorizationEpoch(wire); err != nil {
+				return w.add(childRelative, InventoryMalformed, wire)
+			}
+			return w.add(childRelative, InventoryRuntimeProfile, wire)
+		}
 		if name != "configuration.json" {
 			return w.add(childRelative, InventoryUnknown, nil)
 		}
@@ -471,13 +494,19 @@ func walkRuntimeProfilesV1(w *inventoryWalk, version *os.Root, relative string) 
 		if err != nil {
 			return w.add(childRelative, InventoryUnsafe, nil)
 		}
-		if _, err := runtimeprofile.Decode(wire); err == nil {
+		// Canonical v3 and the retired tombstone are current state. A valid
+		// format-1/2 record is recognized pre-stable history only (PM-11, B1);
+		// malformed records, future formats and protocol state stay refused.
+		if v, err := runtimeprofile.DecodeVersioned(wire); err == nil && v.FormatVersion == runtimeprofile.FormatVersionV3 && v.V3 != nil {
 			return w.add(childRelative, InventoryRuntimeProfile, wire)
 		}
 		if _, err := runtimeprofile.DecodeTombstone(wire); err == nil {
 			return w.add(childRelative, InventoryRuntimeProfile, wire)
 		}
-		return w.add(childRelative, versionedFailureWithin(wire, 2), wire)
+		if _, err := runtimeprofile.Decode(wire); err == nil {
+			return w.add(childRelative, InventoryRuntimeProfilePreStable, wire)
+		}
+		return w.add(childRelative, versionedFailureWithin(wire, runtimeprofile.FormatVersionV3), wire)
 	})
 }
 

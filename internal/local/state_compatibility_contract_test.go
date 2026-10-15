@@ -281,7 +281,11 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := profiles.Create(context.Background(), runtimeConfiguration(1)); err != nil {
+	freshProfiles, err := profiles.Inspect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := profiles.Publish(context.Background(), freshProfiles.Token, authoringWire(t, 1)); err != nil {
 		t.Fatal(err)
 	}
 	contexts, err := NewInstallationStore(state)

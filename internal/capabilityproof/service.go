@@ -23,7 +23,16 @@ type Store interface {
 	Load(context.Context, string) (Evidence, error)
 	Invalidate(context.Context, string, string, [sha256.Size]byte) error
 }
-type Target struct{ RuntimeID, ProfileID, Variant string }
+
+// Target identifies one requested invocation mode. Process is an explicit mode
+// dimension (AXM-22): it may change the adapter's effective invocation and
+// therefore ModeDigest; false is a valid mode, never a fallback for unknown.
+type Target struct {
+	RuntimeID string
+	ProfileID string
+	Variant   string
+	Process   bool
+}
 type Current struct {
 	Binding       Binding
 	Model         *ModelBinding
@@ -33,6 +42,8 @@ type Current struct {
 
 // BindingSource must inspect current executable, adapter, pinned axiom, mode,
 // Profile and effort-source identities; evidence is never a source of identity.
+// ModeDigest is computed by runtimeadapter.ModeDigest from the effective request
+// for the Target's Variant and Process.
 type BindingSource interface {
 	Current(context.Context, Target) (Current, error)
 }
@@ -127,7 +138,8 @@ func (s Service) Check(ctx context.Context, t Target, declared []string, write, 
 	}
 	caps := append([]string(nil), declared...)
 	caps = append(caps, Noninteractive, AxiomCoordination, ModelInvocation)
-	if write && t.Variant != RepositoryWriteVariant || !write && t.Variant != ReadOnlyVariant {
+	// The requested mode must equal the Target the binding was read for.
+	if write && t.Variant != RepositoryWriteVariant || !write && t.Variant != ReadOnlyVariant || process != t.Process {
 		return "", "capability_stale", ErrBlocked
 	}
 	if write {

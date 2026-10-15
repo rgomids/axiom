@@ -235,12 +235,50 @@ axiom --json project show --selector dogfood-project >"$temporary/project-author
 assert_canonical "$temporary/project-authored.json" success "Project resolved"
 
 # Machine-local Runtime Profile configuration stays outside portable intent.
-# Profiles may only need what Lingo can prove itself: axiom-skills.
-mkdir -p "$state_root/runtime-profiles/v1"
-printf '%s\n' '{"formatVersion":1,"revision":1,"runtimes":[{"id":"claude","adapter":"claude","enabled":true,"allowlistedProfileIds":["careful"]},{"id":"codex","adapter":"codex","enabled":true,"allowlistedProfileIds":["worker"]}],"modelProfiles":[{"id":"careful","runtimeId":"claude","model":"approved-claude-model","capabilities":["axiom-skills"],"complexities":["high"]},{"id":"worker","runtimeId":"codex","model":"approved-codex-model","capabilities":["axiom-skills"],"complexities":["high"]}]}' \
-  >"$state_root/runtime-profiles/v1/configuration.json"
+# It is authored as canonical v3 through the public reviewed lifecycle
+# (Specification 007 PM-1/PM-11): fresh state is initialized directly, nothing
+# is migrated and no local configuration file is written by hand. Binding
+# creation only looks the executables up on an isolated PATH holding
+# never-executed stubs; the host's real Codex or Claude is never visible.
+authoring_bin="$temporary/authoring-bin"
+mkdir -p "$authoring_bin"
+for stub in codex claude; do
+  printf '#!/bin/sh\nexit 99\n' >"$authoring_bin/$stub"
+  chmod 700 "$authoring_bin/$stub"
+done
+authoring_axiom() {
+  env -u CLAUDE_CONFIG_DIR HOME="$runtime_home" PATH="$authoring_bin:$binary_root" axiom --json "$@"
+}
+author_runtime() {
+  local label=$1
+  shift
+  authoring_axiom "$@" >"$temporary/runtime-$label-preview.json"
+  grep -q '"category":"preview"' "$temporary/runtime-$label-preview.json"
+  read -r local_token local_preview < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1]))["runtimeAuthoring"]; print(w["expectedRevision"], w["previewDigest"])' "$temporary/runtime-$label-preview.json")
+  authoring_axiom "$@" --expected-revision "$local_token" --preview-digest "$local_preview" --authorize-local >"$temporary/runtime-$label-applied.json"
+  grep -q '"status":"success"' "$temporary/runtime-$label-applied.json"
+  grep -q '"category":"applied"' "$temporary/runtime-$label-applied.json"
+}
+axiom --json runtime profile validate >"$temporary/runtime-profile-missing.json" && exit 1
+author_runtime claude runtime binding create --runtime claude --profile careful --model approved-claude-model \
+  --effort-mode runtime-default --effort default --capabilities axiom-skills --complexities high
+author_runtime codex runtime binding create --runtime codex --profile worker --model approved-codex-model \
+  --effort-mode runtime-default --effort default --capabilities axiom-skills --complexities high
+python3 - "$state_root/runtime-profiles/v1/configuration.json" <<'PYJSON'
+import json,sys
+c=json.load(open(sys.argv[1]))
+assert c["formatVersion"] == 3 and c["revision"] == 2
+assert [r["id"] for r in c["runtimes"]] == ["claude", "codex"]
+assert all("effortDeclarations" not in r for r in c["runtimes"])
+assert all(p["effort"] == {"mode":"runtime-default","value":"default"} for p in c["modelProfiles"])
+PYJSON
 axiom --json runtime profile validate >"$temporary/runtime-profile-validate.json"
 assert_canonical "$temporary/runtime-profile-validate.json" success "Runtime profile configuration is valid"
+# The removed migration surface is not callable.
+if axiom --json runtime profile migrate --profile-effort worker:runtime-default:default >"$temporary/runtime-migrate.json"; then
+  exit 1
+fi
+grep -q '"category":"invalid_command"' "$temporary/runtime-migrate.json"
 
 draft_args=(work-item create --project dogfood-project --repository main \
   --provider-repository owner/repo --intent "Dogfood delivery is blocked" \
@@ -326,56 +364,18 @@ assert_runtime_blocked unprovable no_allowed_match \
   workflow start --project dogfood-project --repository main --number 7 \
   --role implementation --complexity high --capabilities go
 
-# 1. Preview: the first start only reviews the decision.
-observed_axiom "${start_args[@]}" >"$temporary/workflow-runtime-preview.json"
-assert_canonical "$temporary/workflow-runtime-preview.json" success "Project Runtime resolution preview ready"
-grep -Fq '"choice":{"runtimeId":"codex","adapter":"codex","modelProfileId":"worker","model":"approved-codex-model","capabilities":["axiom-skills"],"executableDigest":"' "$temporary/workflow-runtime-preview.json"
-grep -Fq '"projectId":"5f0c7a52-1b7e-4c1d-9a3e-0d6f2b8c4e19"' "$temporary/workflow-runtime-preview.json"
-if grep -Fq "$temporary" "$temporary/workflow-runtime-preview.json" || grep -Fq '"workflow":' "$temporary/workflow-runtime-preview.json"; then
-  exit 1
-fi
-runtime_preview=$(sed -n 's/.*"previewDigest":"\([0-9a-f]*\)".*/\1/p' "$temporary/workflow-runtime-preview.json")
-[[ ${#runtime_preview} == 64 ]]
-assert_no_execution
+# Two configured, allowed Runtimes are never resolved by machine availability.
+assert_runtime_blocked implicit ambiguous_match \
+  workflow start --project dogfood-project --repository main --number 7 "${policy_inputs[@]}"
 
-# 2. A Runtime executable replaced after review no longer matches the digest.
-cp -- "$runtime_bin/codex" "$temporary/codex-reviewed"
-printf '%s\n' '# replaced after review' >>"$runtime_bin/codex"
-assert_runtime_blocked replaced stale_preview "${start_args[@]}" --runtime-preview "$runtime_preview"
-cp -- "$temporary/codex-reviewed" "$runtime_bin/codex"
-# A blocker means a fresh preview; the restored executable reproduces the
-# reviewed identity, so the decision and its digest are the same.
-observed_axiom "${start_args[@]}" >"$temporary/workflow-runtime-repreview.json"
-assert_canonical "$temporary/workflow-runtime-repreview.json" success "Project Runtime resolution preview ready"
-fresh_preview=$(sed -n 's/.*"previewDigest":"\([0-9a-f]*\)".*/\1/p' "$temporary/workflow-runtime-repreview.json")
-[[ "$fresh_preview" == "$runtime_preview" ]]
-
-# Current product admission refuses the historical contract. Historical lifecycle
-# inspection/advance/reconciliation remains exercised by the black-box fixture
-# tests below, without enabling a legacy production start or resume override.
-if observed_axiom "${start_args[@]}" --runtime-preview "$fresh_preview" >"$temporary/legacy-refusal.json"; then
-  exit 1
-fi
-grep -Fq 'workflow_migration_required' "$temporary/legacy-refusal.json"
-assert_no_execution
-
-# Migration is an independently reviewed machine-local operation. No Runtime
-# model/authentication probe or Workflow/Project selection is implied.
-migration=(runtime profile migrate --profile-effort worker:runtime-default:default --profile-effort careful:runtime-default:default)
-run_success preview "$temporary/migration-preview.json" "${migration[@]}"
-read -r local_token local_preview < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1]))["runtimeAuthoring"]; print(w["expectedRevision"], w["previewDigest"])' "$temporary/migration-preview.json")
-run_success applied "$temporary/migration-applied.json" "${migration[@]}" --expected-revision "$local_token" --preview-digest "$local_preview" --authorize-local
-run_success inspected "$temporary/current-profiles.json" runtime profile list
-python3 - "$temporary/current-profiles.json" <<'PYJSON'
-import json,sys
-r=json.load(open(sys.argv[1]))["runtimeAuthoring"]
-assert r["state"] == "active-v2" and r["revision"] == 2
-assert r["authentication"] == "unknown" and r["modelSupport"] == "unproven"
-assert all(p["effort"] == {"mode":"runtime-default","value":"default"} for p in r["profiles"])
-PYJSON
+# The observed codex stub and its verified skill integration are not proof:
+# the production composition injects no Profile proof and the embedded
+# version registry has no production entry, so even the explicitly selected,
+# structurally valid v3 Profile fails closed before any Execution exists.
+assert_runtime_blocked historical-proof effort_unproven "${start_args[@]}"
 
 # The new builtin selection has its own exact confirmation. Missing G-3 proof
-# blocks use even after structural local migration and explicit selection.
+# still blocks use after explicit selection.
 "$temporary/dogfoodfixture" definition-current >"$temporary/definition-current.json"
 read -r current_id current_revision current_digest < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1])); print(w["workflowId"],w["revision"],w["digest"])' "$temporary/definition-current.json")
 current_selection=(project workflow select --project dogfood-project --workflow "$current_id" --revision "$current_revision" --digest "$current_digest" --source builtin)
@@ -383,8 +383,22 @@ run_success previewed "$temporary/current-selection-preview.json" "${current_sel
 read -r project_revision selection_preview < <(python3 -c 'import json,sys; w=json.load(open(sys.argv[1]))["workflowAuthoring"]; print(w["projectRevision"],w["previewDigest"])' "$temporary/current-selection-preview.json")
 run_success applied "$temporary/current-selected.json" "${current_selection[@]}" --expected-revision "$project_revision" --preview-digest "$selection_preview" --authorize-local
 assert_runtime_blocked current-proof effort_unproven "${start_args[@]}"
+run_success inspected "$temporary/current-profiles.json" runtime profile list
+python3 - "$temporary/current-profiles.json" <<'PYJSON'
+import json,sys
+r=json.load(open(sys.argv[1]))["runtimeAuthoring"]
+assert r["state"] == "active-v3" and r["revision"] == 2
+assert r["authentication"] == "unknown" and r["modelSupport"] == "unproven" and r["effortSupport"] == "unproven"
+assert all(p["effort"] == {"mode":"runtime-default","value":"default"} for p in r["profiles"])
+PYJSON
 
 # Positive current lifecycle and historical inspection are synthetic integration
 # receipts with injected evidence, separate from this real CLI refusal journal.
-(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun|TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph' -count=1)
-printf '%s\n' 'PASS: bounded production authoring/refusal smoke; current positive lifecycle SYNTHETIC; vendor model/auth and integrated E2E UNVERIFIED'
+# Synthetic canonical-v3 identity/applicability receipts use only the
+# test-only registry decoder; the embedded production registry stays empty.
+(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY -u CLAUDE_CODE_EFFORT_LEVEL go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestExecutableDeclarationAuthoringWithoutMigration|TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun|TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph|TestCapabilityComposition|TestProductionCapabilityComposition|TestProductionEffortInspectorComposition' -count=1)
+(cd "$repository_root" && env -u CLAUDE_CODE_EFFORT_LEVEL go test ./internal/runtimeadapter -run 'TestDogfoodV3Fixture|TestStageEffort|TestTrustedEffortAnchorAbsentManaged|TestVerifyChildEquivalence' -count=1)
+# AXM-22 PM-6: a preview issued before a failed, rolled-back or recovered
+# Runtime/Profile publication never becomes valid again.
+(cd "$repository_root" && go test ./internal/local -run 'TestAuthorizationEpoch' -count=1)
+printf '%s\n' 'PASS: bounded production canonical-v3 authoring/refusal smoke; current positive lifecycle and v3 identity SYNTHETIC; vendor model/auth, production Runtime identity and integrated E2E UNVERIFIED'

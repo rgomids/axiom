@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/rgomids/axiom/internal/project"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -133,15 +132,15 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 		if !ok {
 			return fail("profile_effort_unconfigured")
 		}
-		cfg, token, category := profilePort.ObserveWorkflowProfiles(ctx, r.Project)
+		consumer, token, category := profilePort.ObserveWorkflowProfiles(ctx, r.Project)
 		if category != "" {
 			return fail(category)
 		}
-		configurationDigest, err := runtimeprofile.Digest(cfg)
-		if err != nil {
+		configurationDigest := consumer.Digest()
+		if configurationDigest == "" {
 			return fail("profile_effort_unconfigured")
 		}
-		observed.ProfileConfigurationDigest, observed.ProfileConfigurationRevision, observed.ProfileConfigurationToken = configurationDigest, cfg.Revision, token
+		observed.ProfileConfigurationDigest, observed.ProfileConfigurationRevision, observed.ProfileConfigurationToken = configurationDigest, consumer.Revision(), token
 		out.Report.ProfileConfigurationDigest = configurationDigest
 		out.Report.MigrationSource = &r.Prior
 		revision := source.Definition.Revision + 1
@@ -150,7 +149,7 @@ func ApplyWorkflow(ctx context.Context, port WorkflowAuthoringPort, r WorkflowRe
 				revision = entry.Revision + 1
 			}
 		}
-		doc, out.Report.EffortComparisons, category = migrateWorkflow(source, revision, r.Mapping, cfg, state)
+		doc, out.Report.EffortComparisons, category = migrateWorkflow(source, revision, r.Mapping, consumer, state)
 		if category != "" {
 			return fail(category)
 		}

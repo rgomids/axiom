@@ -11,9 +11,11 @@ owns executable commands, argument forms and authority metadata. Use only
 operations returned by that inspection; never maintain another registry.
 
 Use canonical `runtime binding` and `runtime profile` commands for local
-configuration. Read exact state before preparing changes. Missing state leads
-to setup; format 1 requires explicit migration; unsafe/pending state requires
-scoped recovery. Do not write configuration JSON, receipts or vendor settings.
+configuration. Read exact state before preparing changes. Missing or retired
+state leads to explicit setup; a pre-stable format 1/2 record is never used or
+migrated: retire it as a whole with `binding remove --runtime <id> --cascade`
+under exact authority, then set up again; unsafe/pending state requires scoped
+recovery. Do not write configuration JSON, receipts or vendor settings.
 Never collect credentials, login files, tokens, sessions or API keys.
 
 ## Guided setup
@@ -86,7 +88,6 @@ Operation-specific payloads: `runtimeAuthoring`.
 | `binding.enable` | - | `axiom runtime binding enable` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 | `binding.disable` | - | `axiom runtime binding disable` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 | `binding.remove` | - | `axiom runtime binding remove` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
-| `binding.migrate` | - | `axiom runtime binding migrate` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 | `binding.validate-candidate` | - | `axiom runtime binding validate-candidate` | read-only | none | allowed |
 | `binding.recover` | - | `axiom runtime binding recover` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 | `profile.list` | - | `axiom runtime profile list` | read-only | none | allowed |
@@ -96,8 +97,7 @@ Operation-specific payloads: `runtimeAuthoring`.
 | `profile.enable` | - | `axiom runtime profile enable` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 | `profile.disable` | - | `axiom runtime profile disable` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 | `profile.remove` | - | `axiom runtime profile remove` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
-| `profile.migrate` | - | `axiom runtime profile migrate` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 | `profile.validate-candidate` | - | `axiom runtime profile validate-candidate` | read-only | none | allowed |
 | `profile.recover` | - | `axiom runtime profile recover` | local mutation | preview first; exact snapshot, digest and explicit local confirmation (`--expected-revision`, `--preview-digest`, `--authorize-local`) | only for unambiguous intent |
 
-Supported domain operations are `binding.list`, `binding.show`, `binding.create`, `binding.edit`, `binding.enable`, `binding.disable`, `binding.remove`, `binding.migrate`, `binding.validate-candidate`, `binding.recover`, `profile.list`, `profile.show`, `profile.create`, `profile.edit`, `profile.enable`, `profile.disable`, `profile.remove`, `profile.migrate`, `profile.validate-candidate`, and `profile.recover`.
+Supported domain operations are `binding.list`, `binding.show`, `binding.create`, `binding.edit`, `binding.enable`, `binding.disable`, `binding.remove`, `binding.validate-candidate`, `binding.recover`, `profile.list`, `profile.show`, `profile.create`, `profile.edit`, `profile.enable`, `profile.disable`, `profile.remove`, `profile.validate-candidate`, and `profile.recover`.

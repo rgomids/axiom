@@ -44,10 +44,12 @@ type Preview struct {
 // Snapshot contains independently read portable and machine-local inputs.
 // Observer must return current authoritative observations on each Load/Observe;
 // an old captured inventory cannot establish freshness for a changed machine.
+// Consumer is the canonical v3 record; no other local format is consumed
+// (Specification 007 AXM-22 BLD-001B.3c-2b.3).
 type Snapshot struct {
-	Project       project.Project
-	Configuration runtimeprofile.Configuration
-	Observer      runtimeprofile.Observer
+	Project  project.Project
+	Consumer runtimeprofile.ConsumerV3
+	Observer runtimeprofile.Observer
 }
 type Source interface {
 	Load(context.Context, string) (Snapshot, error)
@@ -57,96 +59,90 @@ type Service struct{ source Source }
 func New(source Source) Service { return Service{source: source} }
 
 func (s Service) Preview(ctx context.Context, projectID string, request Request) (Preview, error) {
-	result, _, err := s.preview(ctx, projectID, request)
-	return result, err
+	return s.preview(ctx, projectID, request)
 }
 
 // Binding is the concrete dispatch binding that Check re-derives from the same
-// snapshot that reproduced the reviewed preview. It is internal: Preview and
-// output carry only the configuration digest, never the credential reference.
+// snapshot that reproduced the reviewed preview. Canonical v3 carries no
+// credential reference, so CredentialReference stays empty.
 type Binding struct {
 	Choice              runtimeprofile.Choice
 	CredentialReference string `json:"-"`
 }
 
-func (s Service) preview(ctx context.Context, projectID string, request Request) (Preview, runtimeprofile.Configuration, error) {
+func (s Service) preview(ctx context.Context, projectID string, request Request) (Preview, error) {
 	result := Preview{}
 	if !validRequest(request) || len(project.ValidateIdentity(projectID, "preview")) != 0 {
-		return denyWith(result, "invalid_request")
+		return deny(result, "invalid_request")
 	}
 	result.ProjectID = projectID
 	request.Capabilities = append([]string(nil), request.Capabilities...)
 	sort.Strings(request.Capabilities)
 	result.Request = request
 	if s.source == nil {
-		return denyWith(result, "inventory_unavailable")
+		return deny(result, "inventory_unavailable")
 	}
 	snapshot, err := s.source.Load(ctx, projectID)
 	if err != nil {
-		return denyWith(result, localStateCategory(err))
+		return deny(result, localStateCategory(err))
 	}
 	if snapshot.Project.State().ID != projectID {
-		return denyWith(result, "invalid_project")
+		return deny(result, "invalid_project")
 	}
 	wire, issues := manifest.Encode(snapshot.Project)
 	if len(issues) != 0 {
-		return denyWith(result, "invalid_project")
+		return deny(result, "invalid_project")
 	}
 	result.ProjectDigest = digest(wire)
-	result.ConfigurationDigest, err = runtimeprofile.Digest(snapshot.Configuration)
-	if err != nil {
-		return denyWith(result, "invalid_configuration")
+	consumer := snapshot.Consumer
+	if consumer.Digest() == "" {
+		return deny(result, "invalid_configuration")
 	}
-	result.ConfigurationRevision = snapshot.Configuration.Revision
-	cfg, code := projectConfiguration(snapshot.Project.State(), snapshot.Configuration, request)
-	if code != "" {
-		return denyWith(result, code)
+	result.ConfigurationDigest = consumer.Digest()
+	result.ConfigurationRevision = consumer.Revision()
+	// Selection is the exact policy intersection; several admissible Profiles
+	// are ambiguous_match and nothing is selected implicitly.
+	candidate, blocker := EvaluatePolicyV3(snapshot.Project, consumer, request)
+	if blocker != nil {
+		return deny(result, blocker.Code)
 	}
 	if snapshot.Observer == nil {
-		return denyWith(result, "inventory_unavailable")
+		return deny(result, "inventory_unavailable")
 	}
-	result.ObservationRevisions = map[string]uint64{}
-	captured := capture{observations: map[string]runtimeprofile.Observation{}}
-	observed := make([]runtimeprofile.Observation, 0, len(cfg.Runtimes))
-	for _, runtime := range cfg.Runtimes {
-		observation, err := snapshot.Observer.Observe(ctx, runtime.ID)
-		if err != nil {
-			observation = runtimeprofile.Observation{RuntimeID: runtime.ID, Adapter: runtime.Adapter}
-		}
-		// Raw version text never crosses the presentation boundary.
-		if !safeObservation(observation) {
-			return denyWith(result, "invalid_observation")
-		}
-		result.ObservationRevisions[runtime.ID] = observation.Revision
-		captured.observations[runtime.ID] = observation
-		// Timestamp denotes collection, not machine revision; refreshed timestamps
-		// alone do not invalidate an otherwise identical authoritative observation.
-		if !observation.ObservedAt.IsZero() {
-			observation.ObservedAt = time.Unix(1, 0).UTC()
-		}
-		observed = append(observed, observation)
+	runtimeID := candidate.Profile.RuntimeID
+	observation, err := snapshot.Observer.Observe(ctx, runtimeID)
+	if err != nil {
+		observation = runtimeprofile.Observation{RuntimeID: runtimeID, Adapter: candidate.Profile.Adapter}
 	}
-	sort.Slice(observed, func(i, j int) bool { return observed[i].RuntimeID < observed[j].RuntimeID })
-	observationWire, marshalErr := json.Marshal(observed)
+	// Raw version text never crosses the presentation boundary.
+	if !safeObservation(observation) {
+		return deny(result, "invalid_observation")
+	}
+	result.ObservationRevisions = map[string]uint64{runtimeID: observation.Revision}
+	normalized := observation
+	// Timestamp denotes collection, not machine revision; refreshed timestamps
+	// alone do not invalidate an otherwise identical authoritative observation.
+	if !normalized.ObservedAt.IsZero() {
+		normalized.ObservedAt = time.Unix(1, 0).UTC()
+	}
+	observationWire, marshalErr := json.Marshal([]runtimeprofile.Observation{normalized})
 	if marshalErr != nil {
-		return denyWith(result, "invalid_observation")
+		return deny(result, "invalid_observation")
 	}
 	result.ObservationDigest = digest(observationWire)
-	resolution, err := runtimeprofile.NewResolver(captured).Resolve(ctx, cfg, runtimeprofile.Request{
-		ConfigurationRevision: cfg.Revision, Role: request.Role, Complexity: request.Complexity, Capabilities: request.Capabilities, ModelProfileID: request.ModelProfileID,
-	})
-	if err != nil {
-		return denyWith(result, resolution.Blocker.Code)
+	// The existing observation and proof gates apply to the selected Profile;
+	// a declaration or the policy selection itself never proves capability.
+	choice, code := consumer.ObservedChoice(runtimeID, candidate.Profile.ProfileID, observation, request.Capabilities)
+	if code != "" {
+		return deny(result, code)
 	}
-	result.Choice = resolution.Choice
-	if !runtimeprofile.SafeIdentifier(result.Choice.Model) || !safeVersion(result.Choice.RuntimeVersion) {
-		return denyWith(result, "unsafe_configuration")
+	if !runtimeprofile.SafeIdentifier(choice.Model) || !safeVersion(choice.RuntimeVersion) {
+		return deny(result, "unsafe_configuration")
 	}
-	if result.Choice.ResolvedProfile != nil {
-		result.Choice.ResolvedProfile.ConfigurationDigest = result.ConfigurationDigest
-		result.Choice.ResolvedProfile.ObservationDigest = result.ObservationDigest
-	}
-	return result, snapshot.Configuration, nil
+	choice.ResolvedProfile.ConfigurationDigest = result.ConfigurationDigest
+	choice.ResolvedProfile.ObservationDigest = result.ObservationDigest
+	result.Choice = &choice
+	return result, nil
 }
 
 // Check re-reads all inputs and accepts only the exact previewed decision.
@@ -156,7 +152,7 @@ func (s Service) Check(ctx context.Context, expected Preview) (Binding, error) {
 	if expected.Choice == nil || expected.Blocker != nil {
 		return Binding{}, ErrBlocked
 	}
-	current, cfg, err := s.preview(ctx, expected.ProjectID, expected.Request)
+	current, err := s.preview(ctx, expected.ProjectID, expected.Request)
 	if err != nil || !reflect.DeepEqual(current, expected) {
 		return Binding{}, ErrStale
 	}
@@ -166,12 +162,7 @@ func (s Service) Check(ctx context.Context, expected Preview) (Binding, error) {
 		choice.ResolvedProfile = &p
 	}
 	choice.Capabilities = append([]string(nil), choice.Capabilities...)
-	for _, runtime := range cfg.Runtimes {
-		if runtime.ID == choice.RuntimeID && runtime.Adapter == choice.Adapter {
-			return Binding{Choice: choice, CredentialReference: runtime.CredentialReference}, nil
-		}
-	}
-	return Binding{}, ErrStale
+	return Binding{Choice: choice}, nil
 }
 
 // Availability is the request-independent readiness projection of the same
@@ -189,7 +180,7 @@ func (s Service) Availability(ctx context.Context, projectID string) string {
 func (s Service) CurrentAvailability(ctx context.Context, projectID string) string {
 	return s.availability(ctx, projectID, true)
 }
-func (s Service) availability(ctx context.Context, projectID string, current bool) string {
+func (s Service) availability(ctx context.Context, projectID string, _ bool) string {
 	if len(project.ValidateIdentity(projectID, "preview")) != 0 {
 		return "invalid_request"
 	}
@@ -203,22 +194,27 @@ func (s Service) availability(ctx context.Context, projectID string, current boo
 	if snapshot.Project.State().ID != projectID {
 		return "invalid_project"
 	}
-	if current && snapshot.Configuration.FormatVersion == 1 {
-		return "profile_effort_unconfigured"
+	consumer := snapshot.Consumer
+	if consumer.Digest() == "" {
+		return "invalid_configuration"
 	}
-	cfg, code := projectConfiguration(snapshot.Project.State(), snapshot.Configuration, Request{})
-	if code != "" {
-		return code
+	state := snapshot.Project.State()
+	if state.SchemaVersion != 1 && !project.MultiRuntimeSchema(state.SchemaVersion) {
+		return "invalid_project"
+	}
+	if !project.RuntimePolicyDeclared(state) {
+		return "policy_unconfigured"
+	}
+	permitted := permittedProfiles(state, consumer)
+	if len(permitted) == 0 {
+		return "no_allowed_match"
 	}
 	if snapshot.Observer == nil {
 		return "inventory_unavailable"
 	}
-	if runtimeprofile.Validate(snapshot.Configuration) != nil {
-		return "invalid_configuration"
-	}
 	blocker := "runtime_unavailable"
-	for _, runtime := range cfg.Runtimes {
-		if !runtime.Enabled {
+	for _, runtime := range consumer.Configuration().Runtimes {
+		if !runtime.Enabled || len(permitted[runtime.ID]) == 0 {
 			continue
 		}
 		observation, err := snapshot.Observer.Observe(ctx, runtime.ID)
@@ -228,27 +224,12 @@ func (s Service) availability(ctx context.Context, projectID string, current boo
 		if !safeObservation(observation) {
 			return "invalid_observation"
 		}
-		if cfg.FormatVersion != runtimeprofile.FormatVersionV2 {
-			return ""
-		}
-		if observation.RuntimeID != runtime.ID || observation.Adapter != runtime.Adapter || observation.Revision != cfg.Revision || observation.ObservedAt.IsZero() {
+		if observation.RuntimeID != runtime.ID || observation.Adapter != runtime.Adapter || observation.Revision != consumer.Revision() || observation.ObservedAt.IsZero() {
 			blocker = "stale_observation"
 			continue
 		}
-		for _, p := range cfg.ModelProfiles {
-			if p.RuntimeID != runtime.ID {
-				continue
-			}
-			allowed := false
-			for _, id := range runtime.AllowlistedProfileIDs {
-				if id == p.ID {
-					allowed = true
-				}
-			}
-			if !allowed {
-				continue
-			}
-			code := runtimeprofile.ProfileReadiness(cfg, p, observation)
+		for _, id := range permitted[runtime.ID] {
+			code := consumer.ProfileReadiness(runtime.ID, id, observation)
 			if code == "" {
 				return ""
 			}
@@ -258,12 +239,47 @@ func (s Service) availability(ctx context.Context, projectID string, current boo
 	return blocker
 }
 
+// permittedProfiles is the request-independent policy intersection: every
+// Runtime the Project allows with the Profiles it owns and allowlists whose
+// portable reference names the same Runtime and model. Enablement is checked
+// by the caller, so a disabled Runtime stays runtime_unavailable.
+func permittedProfiles(state project.State, consumer runtimeprofile.ConsumerV3) map[string][]string {
+	allowed := map[string]bool{}
+	for _, id := range project.AllowedRuntimes(state) {
+		allowed[id] = true
+	}
+	portableProfiles, _ := state.ModelProfiles.Value()
+	portable := map[string]project.ModelProfile{}
+	for _, profile := range portableProfiles {
+		if profile.State.Form() != project.NotConfigured {
+			portable[profile.Key] = profile
+		}
+	}
+	cfg := consumer.Configuration()
+	out := map[string][]string{}
+	for _, runtime := range cfg.Runtimes {
+		if !allowed[runtime.ID] {
+			continue
+		}
+		for _, id := range runtime.AllowlistedProfileIDs {
+			p, ok := portable[id]
+			if !ok {
+				continue
+			}
+			ref, _ := p.RuntimeRef.Value()
+			model, _ := p.Model.Value()
+			for _, profile := range cfg.ModelProfiles {
+				if profile.ID == id && profile.RuntimeID == runtime.ID && ref == runtime.ID && model == profile.Model {
+					out[runtime.ID] = append(out[runtime.ID], id)
+				}
+			}
+		}
+	}
+	return out
+}
+
 // Digest is an operator review token, not authority for external effects.
 func (p Preview) Digest() string { wire, _ := json.Marshal(p); return digest(wire) }
-func denyWith(p Preview, code string) (Preview, runtimeprofile.Configuration, error) {
-	p, err := deny(p, code)
-	return p, runtimeprofile.Configuration{}, err
-}
 func deny(p Preview, code string) (Preview, error) {
 	p.Choice = nil
 	p.Blocker = &runtimeprofile.Blocker{Code: code}
@@ -271,93 +287,6 @@ func deny(p Preview, code string) (Preview, error) {
 }
 func digest(wire []byte) string { d := sha256.Sum256(wire); return hex.EncodeToString(d[:]) }
 
-type capture struct {
-	observations map[string]runtimeprofile.Observation
-}
-
-func (c capture) Observe(_ context.Context, id string) (runtimeprofile.Observation, error) {
-	o, ok := c.observations[id]
-	if !ok {
-		return o, ErrBlocked
-	}
-	return o, nil
-}
-
-func projectConfiguration(state project.State, local runtimeprofile.Configuration, request Request) (runtimeprofile.Configuration, string) {
-	if state.SchemaVersion != 1 && !project.MultiRuntimeSchema(state.SchemaVersion) {
-		return runtimeprofile.Configuration{}, "invalid_project"
-	}
-	if !project.RuntimePolicyDeclared(state) {
-		return runtimeprofile.Configuration{}, "policy_unconfigured"
-	}
-	allowed := map[string]bool{}
-	for _, id := range project.AllowedRuntimes(state) {
-		allowed[id] = true
-	}
-	portableProfiles, _ := state.ModelProfiles.Value()
-	profiles := map[string]project.ModelProfile{}
-	for _, profile := range portableProfiles {
-		if profile.State.Form() != project.NotConfigured {
-			profiles[profile.Key] = profile
-		}
-	}
-	cfg := runtimeprofile.Configuration{FormatVersion: local.FormatVersion, Revision: local.Revision}
-	for _, runtime := range local.Runtimes {
-		if !allowed[runtime.ID] || request.RuntimeID != "" && request.RuntimeID != runtime.ID {
-			continue
-		}
-		runtime.AllowlistedProfileIDs = append([]string(nil), runtime.AllowlistedProfileIDs...)
-		permitted := make([]string, 0, len(runtime.AllowlistedProfileIDs))
-		for _, id := range runtime.AllowlistedProfileIDs {
-			portable, ok := profiles[id]
-			if !ok {
-				continue
-			}
-			ref, _ := portable.RuntimeRef.Value()
-			model, _ := portable.Model.Value()
-			for _, profile := range local.ModelProfiles {
-				if profile.ID == id && profile.RuntimeID == runtime.ID && ref == runtime.ID && profile.Model == model {
-					permitted = append(permitted, id)
-					cfg.ModelProfiles = append(cfg.ModelProfiles, profile)
-				}
-			}
-		}
-		if len(permitted) == 0 {
-			continue
-		}
-		runtime.AllowlistedProfileIDs = permitted
-		cfg.Runtimes = append(cfg.Runtimes, runtime)
-	}
-	if len(cfg.Runtimes) == 0 || len(cfg.ModelProfiles) == 0 {
-		return cfg, "no_allowed_match"
-	}
-	// A portable preference whose profile is locally unavailable still blocks;
-	// do not remove it and accidentally choose another profile.
-	if preferences, ok := state.RuntimePreferences.Value(); ok {
-		for _, preference := range preferences {
-			if request.ModelProfileID != "" || preference.Role != request.Role || preference.Complexity != request.Complexity {
-				continue
-			}
-			if preference.Role == "" || preference.Complexity == "" {
-				return cfg, "invalid_project"
-			}
-			cfg.Preferences = append(cfg.Preferences, runtimeprofile.Preference{Role: preference.Role, Complexity: preference.Complexity, ModelProfileID: preference.ModelProfileRef})
-		}
-	}
-	// Missing preferred profiles block; another candidate is never substituted.
-	for _, preference := range cfg.Preferences {
-		exists := false
-		for _, profile := range cfg.ModelProfiles {
-			if profile.ID == preference.ModelProfileID {
-				exists = true
-			}
-		}
-		if !exists {
-			return cfg, "no_allowed_match"
-		}
-	}
-	return cfg, ""
-}
 func validRequest(r Request) bool {
 	if !token(r.Role) || !token(r.Complexity) || r.RuntimeID != "" && !token(r.RuntimeID) || r.ModelProfileID != "" && !token(r.ModelProfileID) || len(r.Capabilities) == 0 || len(r.Capabilities) > 32 {
 		return false

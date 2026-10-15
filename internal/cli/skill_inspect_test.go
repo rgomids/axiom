@@ -87,7 +87,7 @@ func TestSkillDiscoveryExactCommands(t *testing.T) {
 	}
 
 	for _, kind := range []string{"binding", "profile"} {
-		for _, op := range []string{"list", "show", "create", "edit", "enable", "disable", "remove", "migrate", "validate-candidate", "recover"} {
+		for _, op := range []string{"list", "show", "create", "edit", "enable", "disable", "remove", "validate-candidate", "recover"} {
 			expected["axiom-runtime"] = append(expected["axiom-runtime"], "axiom runtime "+kind+" "+op)
 		}
 	}

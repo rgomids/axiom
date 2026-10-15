@@ -5,12 +5,12 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/graphapplication"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/stageexecution"
 	"os"
+	"path/filepath"
 )
 
 type stageSupervisorLoader interface {
@@ -72,7 +72,17 @@ func (productionSupervisorLoader) LoadSupervisor(ctx context.Context, r stageexe
 	if t.state.ExecutionID == "" {
 		return stageexecution.Supervisor{}, stageexecution.ErrAdmission
 	}
-	capabilities, err := productionCapabilityService(s.stateRoot)
+	// The committed dispatch authority is the authorized PE-05a boundary;
+	// every child is a retained, digest-verified preview child.
+	if len(preview.Children) == 0 {
+		return stageexecution.Supervisor{}, stageexecution.ErrAdmission
+	}
+	workspaceRoot := filepath.Dir(filepath.Dir(preview.Children[0].Workspace))
+	capabilities, err := productionCapabilityService(s.stateRoot, s.runtimes.lookPath, stageOperation{repository: t.repository.Path, workspaceRoot: workspaceRoot, consented: true})
+	if err != nil {
+		return stageexecution.Supervisor{}, err
+	}
+	sources, err := productionEffortInspector(s.stateRoot, t.repository.Path, preview.Children)
 	if err != nil {
 		return stageexecution.Supervisor{}, err
 	}
@@ -86,10 +96,7 @@ func (productionSupervisorLoader) LoadSupervisor(ctx context.Context, r stageexe
 	if err != nil {
 		return stageexecution.Supervisor{}, err
 	}
-	preparation := &stageexecution.CompiledSupervisorPreparation{Loader: loader, Checker: policy, Auth: auth}
-	if sources, ok := capabilities.Source.(graphapplication.EffortSourceInspector); ok {
-		preparation.Sources = sources
-	}
+	preparation := &stageexecution.CompiledSupervisorPreparation{Loader: loader, Checker: policy, Auth: auth, Sources: sources}
 	return stageexecution.Supervisor{Store: store, Preparation: stageContextPreparation{next: preparation, stateRoot: s.stateRoot, projectsRoot: s.projectsRoot, skillsRoot: s.skillsRoot}, Runner: executiongraph.OSProcessRunner{}, AllocateID: allocateStageID}, nil
 }
 

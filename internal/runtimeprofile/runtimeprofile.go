@@ -214,6 +214,10 @@ func (r Resolver) Resolve(ctx context.Context, cfg Configuration, request Reques
 }
 
 func Validate(cfg Configuration) error {
+	// Configuration is the format-1/2 type; format 3 is ConfigurationV3 only.
+	if cfg.FormatVersion > FormatVersionV2 {
+		return ErrUnsupportedConfigurationFormat
+	}
 	if (cfg.FormatVersion != FormatVersion && cfg.FormatVersion != FormatVersionV2) || cfg.Revision == 0 || len(cfg.Runtimes) == 0 || len(cfg.Runtimes) > maxRuntimes || len(cfg.ModelProfiles) == 0 || len(cfg.ModelProfiles) > maxProfiles {
 		return ErrInvalidConfiguration
 	}
@@ -310,7 +314,17 @@ func Encode(cfg Configuration) ([]byte, error) {
 	return append(wire, '\n'), nil
 }
 
+// Decode is the format-1/2 reader used by every existing consumer. A newer
+// format is refused explicitly, never downgraded or partially read (D8).
 func Decode(wire []byte) (Configuration, error) {
+	cfg, err := decodeHistorical(wire)
+	if err != nil && probeFormatVersion(wire) > FormatVersionV2 {
+		return Configuration{}, ErrUnsupportedConfigurationFormat
+	}
+	return cfg, err
+}
+
+func decodeHistorical(wire []byte) (Configuration, error) {
 	if len(wire) == 0 || len(wire) > MaxConfigurationBytes || !uniqueJSON(wire) {
 		return Configuration{}, ErrInvalidConfiguration
 	}

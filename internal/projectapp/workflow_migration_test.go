@@ -15,14 +15,21 @@ import (
 
 type migrationPort struct {
 	*workflowPort
-	cfg       runtimeprofile.Configuration
+	cfg       runtimeprofile.ConfigurationV3
 	published *workflowdefinition.Document
 	selected  int
 	token     string
 }
 
-func (p *migrationPort) ObserveWorkflowProfiles(context.Context, string) (runtimeprofile.Configuration, string, string) {
-	return p.cfg, p.token, ""
+var _ projectapp.WorkflowProfilePort = (*migrationPort)(nil)
+
+// ObserveWorkflowProfiles re-reads the canonical v3 record on every call.
+func (p *migrationPort) ObserveWorkflowProfiles(context.Context, string) (runtimeprofile.ConsumerV3, string, string) {
+	consumer, err := runtimeprofile.NewConsumerV3(runtimeprofile.RecordActiveV3, &p.cfg)
+	if err != nil {
+		return runtimeprofile.ConsumerV3{}, "", "profile_effort_unconfigured"
+	}
+	return consumer, p.token, ""
 }
 func (p *migrationPort) PublishWorkflowRevision(_ context.Context, _ projectapp.WorkflowObservation, doc *workflowdefinition.Document, idx workflowdefinition.Index) string {
 	p.writes++
@@ -56,7 +63,7 @@ func migrationFixture(t *testing.T) (*migrationPort, workflowdefinition.Document
 		t.Fatal(problems)
 	}
 	port.observed.Selection.Portable = snapshot
-	cfg := runtimeprofile.Configuration{FormatVersion: 2, Revision: 5, Runtimes: []runtimeprofile.Runtime{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"worker"}}}, ModelProfiles: []runtimeprofile.ModelProfile{{ID: "worker", RuntimeID: "codex", Model: "opaque-model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "opaque-high"}, Capabilities: []string{"read", "repository-write", "process", "artifact-publish", "integration"}}}}
+	cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 5, Runtimes: []runtimeprofile.RuntimeV3{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"worker"}}}, ModelProfiles: []runtimeprofile.ModelProfile{{ID: "worker", RuntimeID: "codex", Model: "opaque-model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "opaque-high"}, Capabilities: []string{"read", "repository-write", "process", "artifact-publish", "integration"}}}}
 	request := projectapp.WorkflowRequest{Operation: "migrate", Project: "sample", Prior: source.Ref("project")}
 	for _, stage := range source.Definition.Stages {
 		for _, agent := range stage.Agents {

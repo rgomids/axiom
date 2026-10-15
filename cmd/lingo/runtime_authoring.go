@@ -8,15 +8,20 @@ import (
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
 	"github.com/rgomids/axiom/internal/local"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimebootstrap"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 type runtimeAuthoringStore struct{ local.RuntimeProfileStore }
 
 func authoringSnapshot(s local.RuntimeProfileSnapshot) runtimeapplication.LocalSnapshot {
-	return runtimeapplication.LocalSnapshot{State: s.State, Revision: s.Revision, Configuration: s.Configuration, Token: s.Token}
+	return runtimeapplication.LocalSnapshot{State: s.State, Revision: s.Revision, Legacy: s.Legacy, V3: s.V3, Token: s.Token}
 }
+
+// Inspect reports canonical v3 state; a pre-stable record is carried only for
+// its explicit retirement (Specification 007 PM-11).
 func (s runtimeAuthoringStore) Inspect(ctx context.Context) (runtimeapplication.LocalSnapshot, error) {
 	v, e := s.RuntimeProfileStore.Inspect(ctx)
 	return authoringSnapshot(v), e
@@ -32,7 +37,14 @@ func (s lifecycleService) RuntimeAuthoring(ctx context.Context, req runtimeappli
 		r.Category = "configuration_unavailable"
 		return r
 	}
-	app := runtimeapplication.Authoring{Impacts: s.runtimeImpacts, Passive: passiveRuntimeInventory, Store: runtimeAuthoringStore{store}, Installed: func(id string) bool { p, e := exec.LookPath(id); return e == nil && filepath.IsAbs(p) }}
+	app := runtimeapplication.Authoring{Impacts: s.runtimeImpacts, Passive: passiveRuntimeInventory, Store: runtimeAuthoringStore{store}, Installed: func(id string) bool { p, e := exec.LookPath(id); return e == nil && filepath.IsAbs(p) }, ReadDeclaration: local.ReadEffortDeclarationInput}
+	// Declaration applicability uses the existing passive version seam. No
+	// production version reader is composed here (BLD-001B.3c), so it stays
+	// effort_configuration_unproven; nothing is probed or executed.
+	version := s.runtimeObservationSources().version
+	app.Applicability = func(ctx context.Context, id string) (runtimeprofile.EffortApplicability, error) {
+		return runtimeadapter.ObserveEffortApplicability(ctx, exec.LookPath, version, id)
+	}
 	report, e := app.Run(ctx, req)
 	facts := completion.Facts{Completed: e == nil}
 	if e != nil {

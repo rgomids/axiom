@@ -112,7 +112,7 @@ func (s lifecycleService) dispatchPreview(ctx context.Context, stores stageStore
 			return stageexecution.PreviewService{}, stageexecution.ErrPreview
 		}
 	}
-	capabilities, err := productionCapabilityService(s.stateRoot)
+	capabilities, err := productionCapabilityService(s.stateRoot, s.runtimes.lookPath, stageOperation{repository: t.repository.Path, workspaceRoot: root, consented: in.AuthorizeLocal})
 	if err != nil {
 		return stageexecution.PreviewService{}, err
 	}
@@ -136,14 +136,25 @@ func (p stagePolicy) service(ctx context.Context, r runtimeapplication.Request) 
 	if p.s.RuntimePolicySource != nil {
 		return runtimeapplication.New(p.s.RuntimePolicySource), nil
 	}
-	cfg, err := p.stores.profiles.Load(ctx)
+	snapshot, err := p.stores.profiles.Inspect(ctx)
 	if err != nil {
 		return runtimeapplication.Service{}, err
 	}
-	variant := capabilityproof.ReadOnlyVariant
+	consumer, code := runtimeapplication.ConsumerFromRecordV3(snapshot.State, snapshot.V3)
+	if code != "" {
+		return runtimeapplication.Service{}, runtimeapplication.LocalStateError{State: snapshot.State}
+	}
+	cfg := consumer.Configuration()
+	// The policy request carries capabilities, not effects; the mode is taken
+	// from them explicitly. A mode differing from preview/dispatch selects
+	// another EvidenceRef and is rejected as stale, never admitted.
+	variant, process := capabilityproof.ReadOnlyVariant, false
 	for _, c := range r.Capabilities {
-		if c == capabilityproof.RepositoryWrite {
+		switch c {
+		case capabilityproof.RepositoryWrite:
 			variant = capabilityproof.RepositoryWriteVariant
+		case capabilityproof.Process:
+			process = true
 		}
 	}
 	runtimes := p.s.runtimeObservationSources()
@@ -162,20 +173,16 @@ func (p stagePolicy) service(ctx context.Context, r runtimeapplication.Request) 
 			continue
 		}
 		seen[profile.RuntimeID] = true
-		runtimes.capabilityTargets = append(runtimes.capabilityTargets, capabilityproof.Target{RuntimeID: profile.RuntimeID, ProfileID: profile.ID, Variant: variant})
+		runtimes.capabilityTargets = append(runtimes.capabilityTargets, capabilityproof.Target{RuntimeID: profile.RuntimeID, ProfileID: profile.ID, Variant: variant, Process: process})
 	}
-	targets := append([]capabilityproof.Target(nil), runtimes.capabilityTargets...)
-	runtimes.version = func(ctx context.Context, id, digest string) (string, error) {
-		for _, t := range targets {
-			if t.RuntimeID == id {
-				c, err := p.capabilities.Source.Current(ctx, t)
-				if err == nil && c.Binding.ExecutableDigest == digest {
-					return c.Binding.Version, nil
-				}
-			}
-		}
-		return "", capabilityproof.ErrBlocked
+	// The version is observed passively from the embedded registry for the
+	// freshly observed executable identity (PM-5a), never from a capability
+	// observation or Evidence.
+	registry, err := runtimeadapter.EmbeddedVersionObserver()
+	if err != nil {
+		return runtimeapplication.Service{}, err
 	}
+	runtimes.version = registry.Version
 	return runtimeapplication.New(runtimePolicySource{installation: p.s.installation, portable: p.s.portable, stateRoot: p.s.stateRoot, runtimes: runtimes}), nil
 }
 func (p stagePolicy) Preview(ctx context.Context, id string, r runtimeapplication.Request) (runtimeapplication.Preview, error) {

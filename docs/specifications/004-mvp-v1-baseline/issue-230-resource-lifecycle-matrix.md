@@ -517,7 +517,6 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-runtime | binding.enable | default | axiom runtime binding enable | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-runtime | binding.disable | default | axiom runtime binding disable | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-runtime | binding.remove | default | axiom runtime binding remove | local-mutation | --expected-revision --preview-digest --authorize-local |
-| axiom-runtime | binding.migrate | default | axiom runtime binding migrate | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-runtime | binding.validate-candidate | default | axiom runtime binding validate-candidate | read-only |  |
 | axiom-runtime | binding.recover | default | axiom runtime binding recover | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-runtime | profile.list | default | axiom runtime profile list | read-only |  |
@@ -527,7 +526,6 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-runtime | profile.enable | default | axiom runtime profile enable | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-runtime | profile.disable | default | axiom runtime profile disable | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-runtime | profile.remove | default | axiom runtime profile remove | local-mutation | --expected-revision --preview-digest --authorize-local |
-| axiom-runtime | profile.migrate | default | axiom runtime profile migrate | local-mutation | --expected-revision --preview-digest --authorize-local |
 | axiom-runtime | profile.validate-candidate | default | axiom runtime profile validate-candidate | read-only |  |
 | axiom-runtime | profile.recover | default | axiom runtime profile recover | local-mutation | --expected-revision --preview-digest --authorize-local |
 <!-- canonical-runtime-catalog:end -->

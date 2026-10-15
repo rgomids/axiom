@@ -197,13 +197,13 @@ func TestFrozenStageCurrentLocalProfileRefusals(t *testing.T) {
 			auth := &stageAuthFake{status: runtimeadapter.AuthSubscriptionObserved, version: p.RuntimeVersion}
 			switch name {
 			case "removed":
-				source.snapshot.Configuration.ModelProfiles = source.snapshot.Configuration.ModelProfiles[1:]
+				source.config.ModelProfiles = source.config.ModelProfiles[1:]
 			case "tombstoned":
 				localSource.err = runtimeapplication.LocalStateError{State: "retired"}
 			case "edited":
-				source.snapshot.Configuration.ModelProfiles[0].Model = "changed-model"
+				source.config.ModelProfiles[0].Model = "changed-model"
 			case "disabled":
-				source.snapshot.Configuration.Runtimes[0].Enabled = false
+				source.config.Runtimes[0].Enabled = false
 			case "proof-removed", "wrong-model-proof":
 				if name == "proof-removed" {
 					observation.ProfileProofs = nil

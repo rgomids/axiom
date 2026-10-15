@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,7 +27,7 @@ import (
 type chainAuthoringStore struct{ store local.RuntimeProfileStore }
 
 func chainSnapshot(s local.RuntimeProfileSnapshot) runtimeapplication.LocalSnapshot {
-	return runtimeapplication.LocalSnapshot{State: s.State, Revision: s.Revision, Configuration: s.Configuration, Token: s.Token}
+	return runtimeapplication.LocalSnapshot{State: s.State, Revision: s.Revision, Legacy: s.Legacy, V3: s.V3, Token: s.Token}
 }
 func (s chainAuthoringStore) Inspect(ctx context.Context) (runtimeapplication.LocalSnapshot, error) {
 	v, e := s.store.Inspect(ctx)
@@ -56,11 +55,106 @@ type chainPolicySource struct {
 }
 
 func (s *chainPolicySource) Load(ctx context.Context, _ string) (runtimeapplication.Snapshot, error) {
-	cfg, err := s.store.Load(ctx)
-	return runtimeapplication.Snapshot{Project: s.project, Configuration: cfg, Observer: s.observer}, err
+	snapshot, err := s.store.Inspect(ctx)
+	if err != nil {
+		return runtimeapplication.Snapshot{}, err
+	}
+	consumer, code := runtimeapplication.ConsumerFromRecordV3(snapshot.State, snapshot.V3)
+	if code != "" {
+		return runtimeapplication.Snapshot{}, runtimeapplication.LocalStateError{State: snapshot.State}
+	}
+	return runtimeapplication.Snapshot{Project: s.project, Consumer: consumer, Observer: s.observer}, nil
 }
 
-func TestProfileV2ProtectedMigrationCompilerGraphRestartChain(t *testing.T) {
+// chainApply previews and confirms one authoring request under exact local
+// authority; the preview itself writes nothing.
+func chainApply(t *testing.T, ctx context.Context, author runtimeapplication.Authoring, store local.RuntimeProfileStore, r runtimeapplication.AuthoringRequest) runtimeapplication.AuthoringReport {
+	t.Helper()
+	before, _ := store.Inspect(ctx)
+	preview, err := author.Run(ctx, r)
+	if err != nil || preview.Category != "preview" {
+		t.Fatalf("%s %s preview %+v: %v", r.Kind, r.Operation, preview, err)
+	}
+	if after, _ := store.Inspect(ctx); after.Token != before.Token {
+		t.Fatal("preview wrote local state")
+	}
+	r.AuthorizeLocal, r.ExpectedRevision, r.PreviewDigest = true, preview.ExpectedRevision, preview.PreviewDigest
+	applied, err := author.Run(ctx, r)
+	if err != nil || applied.Category != "applied" {
+		t.Fatalf("%s %s apply %+v: %v", r.Kind, r.Operation, applied, err)
+	}
+	return applied
+}
+
+// writeHistoricalRecord places pre-stable bytes exactly as an earlier release
+// left them; no current writer produces format 1/2 (Specification 007 PM-11).
+func writeHistoricalRecord(t *testing.T, stateRoot string, wire []byte) {
+	t.Helper()
+	dir := filepath.Join(stateRoot, "runtime-profiles", "v1")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{stateRoot, filepath.Join(stateRoot, "runtime-profiles"), dir} {
+		if err := os.Chmod(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "configuration.json"), wire, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The issue306 corpus records historical v2-local generation output. It is
+// immutable Evidence: every file still matches SHA256SUMS and still decodes
+// with its historical reader, while the pre-stable local record is never
+// current configuration (Specification 007 PM-11, B1).
+func TestIssue306HistoricalCorpusIsImmutableAndReadable(t *testing.T) {
+	sums, err := os.ReadFile(filepath.Join("testdata", "issue306", "SHA256SUMS"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := map[string][]byte{}
+	for _, line := range strings.Split(strings.TrimSpace(string(sums)), "\n") {
+		want, name, ok := strings.Cut(line, "  ")
+		if !ok {
+			t.Fatalf("malformed SHA256SUMS line %q", line)
+		}
+		wire, err := os.ReadFile(filepath.Join("testdata", "issue306", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sum := sha256.Sum256(bytes.TrimSpace(wire))
+		if hex.EncodeToString(sum[:]) != want {
+			t.Fatalf("historical corpus file %s changed", name)
+		}
+		files[name] = bytes.TrimSpace(wire)
+	}
+	if len(files) != 6 {
+		t.Fatalf("historical corpus has %d files", len(files))
+	}
+	historical, err := runtimeprofile.Decode(files["local-v2.json"])
+	if err != nil || historical.FormatVersion != runtimeprofile.FormatVersionV2 {
+		t.Fatal("historical local record no longer decodes", err)
+	}
+	if v, err := runtimeprofile.DecodeVersioned(files["local-v2.json"]); err != nil || v.V3 != nil {
+		t.Fatal("historical local record read as canonical v3", err)
+	}
+	if _, code := runtimeapplication.ConsumerFromRecordV3("active-v2", nil); code != "unsupported_configuration_format" {
+		t.Fatalf("pre-stable record consumed: %s", code)
+	}
+	tomb, err := runtimeprofile.DecodeTombstone(files["tombstone-v1.json"])
+	if digest, _ := runtimeprofile.Digest(historical); err != nil || tomb.PriorConfigurationDigest != digest {
+		t.Fatal("historical tombstone no longer binds the historical Digest", err)
+	}
+	if _, issues := workflowdefinition.Decode(files["workflow-v2.json"]); len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	if _, err := executiongraph.DecodeGraph(files["graph-v2.json"]); err != nil {
+		t.Fatal("historical graph no longer decodes", err)
+	}
+}
+
+func TestProfileV3ProtectedRetirementCompilerGraphRestartChain(t *testing.T) {
 	ctx := context.Background()
 	tmp := t.TempDir()
 	stateRoot := filepath.Join(tmp, "state")
@@ -77,9 +171,7 @@ func TestProfileV2ProtectedMigrationCompilerGraphRestartChain(t *testing.T) {
 	if err := os.WriteFile(legacyFixture, legacyWire, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Create(ctx, legacy); err != nil {
-		t.Fatal(err)
-	}
+	writeHistoricalRecord(t, stateRoot, legacyWire)
 	sourcePath := "../../docs/specifications/007-configurable-workflows/examples/custom-r1.json"
 	sourceWire, err := os.ReadFile(sourcePath)
 	if err != nil {
@@ -90,31 +182,34 @@ func TestProfileV2ProtectedMigrationCompilerGraphRestartChain(t *testing.T) {
 		t.Fatal(issues)
 	}
 	historicalDigest := historical.Digest
-	mapping := map[string]runtimeprofile.Effort{"codex-explicit": {Mode: "explicit", Value: "medium"}, "codex-default": {Mode: "runtime-default", Value: "default"}, "claude-explicit": {Mode: "explicit", Value: "high"}}
-	author := runtimeapplication.Authoring{Store: chainAuthoringStore{store}, Installed: func(string) bool { t.Fatal("migration must not discover/probe vendor"); return false }}
-	migration := runtimeapplication.AuthoringRequest{Kind: "profile", Operation: "migrate", MigrationEfforts: mapping, ClearLegacyReferences: true}
-	preview, err := author.Run(ctx, migration)
-	if err != nil || preview.Category != "preview" {
-		t.Fatalf("migration preview %s: %v", preview.Category, err)
+	// PM-11 A1: the pre-stable record is retired explicitly as a whole, then
+	// canonical v3 is created through separately reviewed operations. Nothing
+	// is migrated and no effort is inferred from the historical record.
+	author := runtimeapplication.Authoring{Store: chainAuthoringStore{store}, Installed: func(string) bool { return true }}
+	if migrate, err := author.Run(ctx, runtimeapplication.AuthoringRequest{Kind: "profile", Operation: "migrate"}); err == nil || migrate.Category != "invalid_input" {
+		t.Fatalf("migration is callable: %+v", migrate)
 	}
-	inspected, err := store.Inspect(ctx)
-	if err != nil || inspected.Configuration.FormatVersion != 1 || inspected.Revision != 1 {
-		t.Fatal("preview changed historical active state")
+	retired := chainApply(t, ctx, author, store, runtimeapplication.AuthoringRequest{Kind: "binding", Operation: "remove", RuntimeID: "codex", Cascade: true})
+	if retired.State != "retired" || retired.Revision != 2 {
+		t.Fatalf("legacy retirement %+v", retired)
 	}
-	migration.AuthorizeLocal = true
-	migration.ExpectedRevision = preview.ExpectedRevision
-	migration.PreviewDigest = preview.PreviewDigest
-	applied, err := author.Run(ctx, migration)
-	if err != nil || applied.Revision != 2 {
-		t.Fatal("reviewed local migration failed", err)
-	}
+	readWrite := []string{"read", "repository-write"}
+	medium := []string{"medium"}
+	chainApply(t, ctx, author, store, runtimeapplication.AuthoringRequest{Kind: "binding", Operation: "create", RuntimeID: "codex", ProfileID: "codex-explicit", Model: "codex-model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "medium"}, Capabilities: readWrite, Complexities: medium})
+	chainApply(t, ctx, author, store, runtimeapplication.AuthoringRequest{Kind: "profile", Operation: "create", RuntimeID: "codex", ProfileID: "codex-default", Model: "codex-model", Effort: runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}, Capabilities: readWrite, Complexities: medium})
+	chainApply(t, ctx, author, store, runtimeapplication.AuthoringRequest{Kind: "binding", Operation: "create", RuntimeID: "claude", ProfileID: "claude-explicit", Model: "claude-model", Effort: runtimeprofile.Effort{Mode: "explicit", Value: "high"}, Capabilities: readWrite, Complexities: medium})
 	restarted, err := local.NewRuntimeProfileStore(stateRoot)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := restarted.Load(ctx)
-	if err != nil || cfg.FormatVersion != 2 || cfg.Revision != 2 {
-		t.Fatal("restart did not load v2", err)
+	current, err := restarted.Inspect(ctx)
+	if err != nil || current.State != "active-v3" || current.V3 == nil || current.Revision != 5 {
+		t.Fatal("restart did not load canonical v3", err)
+	}
+	cfg := *current.V3
+	configurationDigest, err := runtimeprofile.DigestV3(cfg)
+	if err != nil {
+		t.Fatal(err)
 	}
 	const projectID = "123e4567-e89b-42d3-a456-426614174000"
 	ps := project.State{SchemaVersion: 2, ID: projectID, Slug: "profile-chain", Name: "Profile chain", Runtimes: project.Configured([]project.Runtime{{ID: "codex"}, {ID: "claude"}})}
@@ -223,12 +318,12 @@ func TestProfileV2ProtectedMigrationCompilerGraphRestartChain(t *testing.T) {
 		if r == nil || !executiongraph.ValidProfileControls(r, child.Envelope.Controls, child.Envelope.Capability) {
 			t.Fatal("graph lost sole-profile controls")
 		}
-		if r.ConfigurationRevision != 2 {
-			t.Fatal("graph lost migration generation")
+		if r.ConfigurationRevision != cfg.Revision || r.ConfigurationDigest != configurationDigest {
+			t.Fatal("graph lost the canonical v3 generation")
 		}
 	}
 
-	// The configured Execution3 uses the same canonical v2 resolution and retains
+	// The configured Execution3 uses the same canonical v3 resolution and retains
 	// its complete schema2 snapshot in the protected WorkflowStore.
 	startSelection := runtimeapplication.Request{Role: "engineer", Complexity: "medium", Capabilities: []string{"read"}, ModelProfileID: "codex-default"}
 	startPreview, err := policy.Preview(ctx, projectID, startSelection)
@@ -284,39 +379,17 @@ func TestProfileV2ProtectedMigrationCompilerGraphRestartChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Append-only current-family corpus. Paths are normalized only in this test
-	// receipt; actual protected records retain their isolated workspace paths.
-	configurationWire, err := runtimeprofile.Encode(cfg)
+	// The frozen issue306 corpus is historical (TestIssue306HistoricalCorpus...);
+	// the live v3 chain binds DigestV3 everywhere instead.
+	if frozenStart.ConfigurationDigest != configurationDigest || startPreview.ConfigurationDigest != configurationDigest || planned.Compilation.Proposal == nil {
+		t.Fatal("Execution3 binding is not bound to DigestV3")
+	}
+	tombstoneWire, err := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: cfg.Revision + 1, PriorConfigurationDigest: configurationDigest})
 	if err != nil {
 		t.Fatal(err)
 	}
-	configurationDigest, err := runtimeprofile.Digest(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tombstoneWire, err := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 3, PriorConfigurationDigest: configurationDigest})
-	if err != nil {
-		t.Fatal(err)
-	}
-	stagePlanWire, err := json.Marshal(planned)
-	if err != nil {
-		t.Fatal(err)
-	}
-	corpus := map[string][]byte{"local-v2.json": configurationWire, "tombstone-v1.json": tombstoneWire, "workflow-v2.json": mapped.Canonical, "stage-plan-v2.json": stagePlanWire, "execution-v3.json": originalExecutionWire, "graph-v2.json": beforeGraph}
-	for name, wire := range corpus {
-		for _, agent := range compiled.Agents {
-			originalPath, _ := json.Marshal(filepath.Join(tmp, "workspace", agent.AgentID))
-			normalizedPath, _ := json.Marshal("/synthetic/issue306/workspace/" + agent.AgentID)
-			wire = bytes.ReplaceAll(wire, originalPath, normalizedPath)
-		}
-		wire = bytes.TrimSpace(bytes.ReplaceAll(wire, []byte(tmp), []byte("/synthetic/issue306")))
-		path := filepath.Join("testdata", "issue306", name)
-		frozen, err := os.ReadFile(path)
-		if err != nil || !bytes.Equal(bytes.TrimSpace(frozen), wire) {
-			t.Fatalf("current corpus changed: %s (%v)", name, err)
-		}
-		hash := sha256.Sum256(bytes.TrimSpace(frozen))
-		t.Logf("current-corpus %s sha256=%s", name, hex.EncodeToString(hash[:]))
+	if _, err := runtimeprofile.DecodeTombstone(tombstoneWire); err != nil {
+		t.Fatal("v3 retirement does not fit the existing tombstone format", err)
 	}
 	for _, poison := range []string{strings.Replace(string(originalExecutionWire), `"formatVersion":3`, `"formatVersion":3,"formatVersion":3`, 1), strings.Replace(string(originalExecutionWire), `"profileId":"codex-default"`, `"profileId":"codex-default","profileId":"codex-default"`, 1)} {
 		if poison == string(originalExecutionWire) {

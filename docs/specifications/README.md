@@ -83,6 +83,8 @@ or human acceptance.
 
 [Proposed #276 successor-Graph amendment](007-configurable-workflows/amendment-276-successor-graph-proposed.md) and [ADR-0026](../decisions/0026-successor-stage-dispatch-graph-format.md): PD-R276-01/B direction approved on 2026-10-12; detailed contract and the 44 Tasks accepted, recorded 2026-10-13 ([record](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13)); Graph1/2 preserved; implementation proceeds through one PR per AXM-8 child card.
 
+[AXM-22 binding identity amendment](007-configurable-workflows/amendment-276-axm22-binding-identity.md): Process as an explicit invocation-mode identity dimension (BI-1, partially implemented) and capability-proof-independent effort-source inspection (BI-2, approved, not implemented); approved 2026-10-14 under I276-T16/T17.
+
 [#276 Plan and Tasks — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
 Part I (Plan, revision 5), the companion
 [amendment #276](007-configurable-workflows/amendment-276-stage-dispatch.md) and
