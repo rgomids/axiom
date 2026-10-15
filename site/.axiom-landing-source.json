@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "repository": "https://github.com/rgomids/axiom-ds",
-  "revision": "1a475dbadf74bf4f3a64439d5bc2f2e774b2ac5a",
+  "revision": "4987ec7d9d9d23ff6ce25b88cde25c2d6375b294",
   "bundle": "packages/landing/dist",
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -13,9 +13,9 @@
     "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     "NOTICE.txt": "09ac728da60aab6f4b60bb476f5df271f368054267d156cc2641f7592cd7ddd0",
     "preview.js": "aec8a8db6ba17a9c9e8fafbdb7ca041d21e53ce050d3085c8435a5349250eb3b",
-    "story-state.js": "ccb13b7995a0db0d55089d737e0caf86e313526ed0d0c505dc53b3fe5f5768f3",
-    "storytelling.css": "9986b739a261aeb7bc32134d85ceb0931997abe0408722ab56a8232566d5a81a",
-    "storytelling.js": "bc34b187e3e54d8f5c9166b0359fee9142815b66a76065bfd4633c7c9b242afb",
+    "story-state.js": "2c4c90bf5ba1a7055e2bc2b208f39bd923eac8a5dfc1e77aa2b0a8551765ef84",
+    "storytelling.css": "6dc8987e0566f34816c94796d427ba22f234adf1500fa26417a6922e207777c8",
+    "storytelling.js": "f058f2df58e0d89a9fa19af893ec6cccb7be984335da6de23474b457cb21790e",
     "style.css": "150e90a04d9de82dd2877639ea55a66260be84685b0ed3ec70912491fcad6ebe",
     "tokens.css": "1b5f886ab9a74dcdaf0ab1233a60d6ed7d51ef7ef3ddb5d5e77371df0c744857"
   }

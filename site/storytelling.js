@@ -58,6 +58,9 @@ function paint() {
   place(hub, state.hub);
   hub.style.opacity = state.hubOpacity;
   hub.style.transform += ` scale(${state.hubScale})`;
+  hub.style.setProperty('--control-morph', state.morph);
+  hub.style.borderRadius = `${20 + state.morph * 68}px`;
+  for (const content of hub.children) content.style.opacity = clamp(1 - state.morph * 2);
   const proofLabels = document.documentElement.lang.startsWith('en')
     ? [
         'Scope / criteria',

@@ -32,8 +32,9 @@ review, merge, deployment or full MVP acceptance.
   and documentation remain directly reachable without completing the story.
 - The opening fades the gold screen to black before a single supernova reveals
   the idea. The nucleus fades out before the control plane enters, stays hidden
-  through coordination, and reappears only after reaching its final position
-  beside the human decision. Its identity and accessible explanation persist;
+  through coordination, then returns through a shared card-to-sphere metamorphosis
+  toward the human decision: shrinking, rounding and complementary fades start
+  with the movement. Its identity and accessible explanation persist;
   no repeated flash or autonomous playback is added.
 - Illustrations are conceptual explanations, never product GUI screenshots or
   live execution results. Diff, tests and Evidence are examples; scrolling

@@ -99,12 +99,15 @@ export function storyState(progress, narrow = false) {
     delivery = ease(p - 3);
   const ideaStart = narrow ? [50, 46] : [50, 52];
   const ideaEnd = narrow ? [50, 68] : [77, 30];
-  // Reposition while invisible; the nucleus never travels across the headings.
-  const idea = ideaStart.map((value, axis) => mix(value, ideaEnd[axis], (p - 3) / 0.5));
+  const hubStart = narrow ? [50, 19] : [50, 50];
+  const morph = ease((p - 3) / 0.6);
+  const hub = hubStart.map((value, axis) => mix(value, ideaEnd[axis], p - 3));
+  // The card and sphere share one trajectory throughout the metamorphosis.
+  const idea = ideaStart.map((value, axis) =>
+    p >= 3 ? hub[axis] : mix(value, hubStart[axis], (p - 1.24) / 0.3),
+  );
   const birth = ease((p - 0.58) / 0.2);
   const conceal = 1 - ease((p - 1.06) / 0.18);
-  const returnIdea = ease((p - 3.55) / 0.3);
-  const hub = narrow ? [50, mix(19, 66, delivery)] : [mix(50, 77, delivery), mix(50, 15, delivery)];
   const works = points[part].map((point, i) => ({
     x: mix(point[0], points[part + 1][i][0], t),
     y: mix(point[1], points[part + 1][i][1], t),
@@ -123,11 +126,12 @@ export function storyState(progress, narrow = false) {
     novaScale: mix(0.06, 3.2, (p - 0.34) / 0.45),
     novaHalo: mix(0, 16, (p - 0.42) / 0.35),
     idea,
-    ideaOpacity: birth * conceal + returnIdea,
+    ideaOpacity: birth * conceal + morph,
     ideaSize: mix(74, 26, coordination),
     hub,
-    hubOpacity: ease((p - 1.25) / 0.45) * (1 - delivery),
-    hubScale: mix(1, 0.48, delivery),
+    hubOpacity: ease((p - 1.25) / 0.45) * (1 - morph),
+    hubScale: 1 - morph * 0.84,
+    morph,
     works,
     coordination,
     delivery,

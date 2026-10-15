@@ -407,6 +407,20 @@
   width: 106px;
   height: 90px;
 }
+.axiom-core::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: var(--control-morph, 0);
+  background: radial-gradient(
+    circle at 36% 28%,
+    var(--text),
+    var(--gold) 35%,
+    color-mix(in srgb, var(--gold) 30%, transparent) 75%
+  );
+  pointer-events: none;
+}
 .axiom-core > span {
   font: 8px var(--mono);
   color: var(--axion-semantic-marketing-text-coreRole);
