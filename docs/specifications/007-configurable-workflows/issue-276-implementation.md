@@ -1,6 +1,6 @@
 # #276 implementation record
 
-Latest implementation: [T13/T14/T16 production integration](#implement-2026-10-15--prepared-production-probe-and-canary). Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Baseline assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
+Latest continuation: [operational checkpoint, Task inventory and T43/T41 Evidence](#continue-2026-10-15--operational-checkpoint-for-pr-320). Earlier PR implementation: [T13/T14/T16 production integration](#implement-2026-10-15--prepared-production-probe-and-canary). Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Baseline assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
 
 ## Implementation scope addendum — 2026-10-15
 
@@ -2085,3 +2085,160 @@ Dedicated gitleaks is unavailable; no dedicated scanner PASS is claimed.
 Inventory check: an ephemeral read-only Python check compared each of the 44
 unique continuation rows with the approved catalog's exact predecessor list and
 performed a DFS over all nodes: PASS, exit 0, acyclic. No durable helper added.
+
+### T41 checkpoint — digest of the read-only extended preview
+
+`ExtendedService.Preview` now returns a SHA-256 digest over the exact probe ID,
+ordered roots and their physical snapshots, unique filename, one-file limit and
+timeout. The closed projection uses stdlib JSON of `{Encoding, Preview}` with
+encoding `axiom-extended-probe-preview-v1` and the preview's Digest empty; the
+existing `packetDigest` supplies SHA-256. No raw paths are added to persisted
+Evidence; paths remain in the ephemeral local preview. This does not hash or
+attest an operational Runtime invocation: production extended adapter composition
+is still missing. The standard `ProbeAuthority` cannot substitute for the
+separate `ExtendedAuthority` type.
+
+Apply still re-observes the exact preview before the first effect. A missing,
+changed or stale digest, root identity, filename, timeout, limit or root set
+refuses without controls, canary or cleanup calls. Tests cover 17 mutation
+cases, repeat determinism, and independently changed probe/path/inode/root-set
+digests, in addition to existing missing authority, forbidden home/vendor/
+external roots, control failure and residue cases. All effects are fake; no
+shared system temp directory or real Runtime was probed.
+
+Validation (Go 1.26.0, same pinned environment as T43):
+
+| Command | Actual result |
+| --- | --- |
+| `go test ./internal/capabilityproof -run '^TestExtended' -count=1 -timeout=30s` | exit 0, 0.017s before the additional digest-source tests |
+| `go test -race ./internal/capabilityproof -count=1 -timeout=90s` | exit 0, 1.211s, including all final extended tests |
+| `go test ./internal/runtimeadapter ./internal/stageexecution -count=1 -timeout=90s` | exit 0, 0.726s / 2.738s |
+| `go vet ./internal/capabilityproof`; `go build ./internal/capabilityproof` | exit 0 |
+| `./scripts/check-go-quality.sh format`, `tidy`, `staticcheck` | exit 0 |
+
+Source SHA-256: `extended.go`
+`1e78f761e822436bcc9798ad465beaa0932c44feca2ab7aad37cd96d63ffb8ef`;
+`extended_test.go`
+`34c45e1a6d41a5ac188ac7e5b14ce111d7d87a0c58ab17034d153ce8372eb7c9`.
+Engineering/security review: no new dependency, effect authority, filesystem
+operation or capability promotion. This is an ephemeral preview API extension,
+not a persisted schema migration. Existing Graph/corpus/ADRs are untouched.
+**T41 remains PARTIAL:** production identity-bound ExtendedEffects with exact
+owned-file cleanup, dispatch-identical invocation/auth/binding and independent
+measurement, plus T44 routing, still need implementation and installed tests.
+Do not wire a child-controlled errno/claim as independent measurement. These
+checks neither satisfy operational proof nor make the delivery ready for review.
+
+### T40 preparation only — future authorization and Evidence checklist
+
+Status: **NOT_RUN**. This is a checklist, not an `engineering_smoke_real`
+Evidence package and not an authorized command sequence. The maintainer must
+grant new specific authority before any real vendor version/help/authentication,
+probe, inference or installed smoke is invoked. Preparation consent never
+implies probe consent; extended-temp consent is separate from standard consent.
+
+Before proposing a future run, verify all of Plan §9.4's five preconditions:
+
+1. IG-1: supported canonical v3 authoring creates the clean configuration, with
+   no hand-edited state. Confirm the installed Axiom binary's exact version,
+   commit and SHA-256, and the same reviewed CLI/skill contracts.
+2. Independently observed version identities must be admissible through the
+   accepted passive registry. Current empty registry does not meet this gate.
+   Fresh separately authorized capability probes must produce matching proven
+   Evidence for each exact child binding/variant, with inspected Profile/effort
+   sources. Current production verification's unknown results do not meet it.
+3. Both vendors must already be authenticated using subscription mode. Any
+   future `codex login status` / `claude auth status --json` observation needs
+   its own granted preflight envelope here; no API keys, environment bypass,
+   child claims or fixture auth can supply proof.
+4. A human must approve the exact run envelope: scratch lab repository (never
+   Axiom's repository), canonical workflow digest/stage, Graph3 and parent/child
+   identities, Runtime/Profile/model/effort, permitted read/worktree-write/process
+   effects, validator-policy digest, maximum attempts 1, per-child timeout,
+   total bound, coordination budget, private Evidence directory, approver/time,
+   and exact preview digest/authorities. Name residual confinement/cost risks,
+   cleanup/quarantine and uncertain-stop recovery before consent.
+5. Complete I2–I6 and the applicable delivered IG-7/#276 v3/Graph3 admission and
+   composition checks; T36/T37/T38/T39 technical Evidence and independent review
+   must cover the actual installed artifacts. No green component CI replaces
+   these missing installed-journey checks.
+
+If any prerequisite is absent, retain NOT_RUN and identify it. For a separately
+authorized run, the eventual redacted `engineering_smoke_real` record must include
+exact executable/version/mode/capability/Profile/effort/policy digests, subscription
+observation, confinement level and scope, exact graph/authority and packet
+correlation, bounded streams and attempt metadata, and all Plan §9.4 checks:
+Codex question_request, Claude answer with question_reference, both result
+records consumed by the orchestrator/integration owner, authorized concurrency,
+local integration/validator outputs, persisted status/reason/readiness before
+and after initiating-session exit, and start from one supported Runtime's skill
+with inspection/integration from the other. Preserve failures, uncertainty,
+stop confirmation and cleanup/residue, not only successes. Retain no account
+IDs, credentials or raw transcripts. This cannot claim R-2/R-3, #278, release,
+AXM-8 Done or operational acceptance. T40 execution and AC-6 remain open.
+
+### Acceptance at this continuation checkpoint
+
+| Criterion | Synthetic Evidence now | Still open |
+| --- | --- | --- |
+| AC-1 | Existing packet/argv/auth/environment and graph/single service components; production T13/T14/T16 FAKE matrix; new descendant boundary tests | Public installed graph AND single FAKE start, then separately authorized real configured Codex+Claude journey |
+| AC-2 | Persisted lease/status/resume and thin skill routes; detached-supervisor component tests | Complete installed cross-surface restart/status/resume and native initiating-session independence |
+| AC-3 | Nine-kind inbox/ingestion, lineage/revision/epoch/capacity, synthetic Q/A components | Installed orchestrator consumes cross-Runtime FAKE Q/A; full negative matrix; later separately authorized real exchange |
+| AC-4 | Scheduler conflict/overlap and validator-bound integration/roll-up components | Installed concurrency/dependency/effect and integration journey under final composition |
+| AC-5 | Classifier/reconciliation/retry and kill-window components; new exit/timeout/cancel/escaped-descendant regressions | Installed recovery; Darwin reparented escape gap; destructive retry-reset fencing remains unavailable/fail-closed |
+| AC-6 | No operational Evidence | T40 NOT_RUN; future exact-envelope authorization and all real smoke fields/checks |
+| WF-009 / AC-009 | Stage/coordination parser, T35 routing and persisted state components | Complete CLI/Codex/Claude installed parity, graph/single lifecycle, public coordination and recovery journeys |
+
+The Task inventory above remains current: T43 and T41 gained bounded unmerged
+implementation/Evidence but stay PARTIAL. T13/T14/T16 are preserved in the same
+Draft PR, not reimplemented. T44 is still PENDING; T36 is not proved; T37–T39
+are partial; no technical-delivery or human acceptance claim is made.
+
+### HANDOFF — continue the same AXM-8 technical delivery
+
+This is a recoverable session checkpoint, **not Done or technical delivery ready
+for review**. Do not restart SDD or request a new prompt per Task. Preserve the
+same objective and authorization from the single continuation request. Context
+was bounded after reconnaissance and two safe implementation units; the next
+production boundary should be entered with its full relevant contracts available.
+
+```yaml
+objective: Complete remaining authorized technical I276-T01–T44 in Draft PR 320
+state: in_progress
+branch: feat/axm-8-stage-agent-execution
+source_head: aa92e330d90bff360c55139493fb0ba316f5cd59
+source_head_note: This record is in the documentation-only successor; code equals source_head. Read exact published HEAD and CI from PR 320, then verify git status/rev-parse/ls-remote before mutation.
+source_commits:
+  - dbfe896f80de91e449a42265dbeb5ea165241648: T43 natural-exit descendants correction and 44-Task inventory
+  - aa92e330d90bff360c55139493fb0ba316f5cd59: T41 extended preview digest and synthetic refusals
+completed_units:
+  - Revalidated sole work PR, main, HEAD, AXM-8 relations and three human decisions
+  - Compared all 44 Tasks with main and PR; catalog predecessor and DAG check passed
+  - T43 bounded correction with regression failure against baseline and race checks
+  - T41 digest-bound read-only extended preview with 17 mutation refusals and digest-source tests
+  - T39 checkpoint reconciliation and T40 future prerequisite checklist only
+remaining_units:
+  - T43 Darwin reparented-escape observation or an honest fail-closed boundary; native test cannot be skipped as proof
+  - T41 production ExtendedEffects and exact invocation/binding/authentication/cleanup; fake-root positive/negative tests
+  - T44 public capability show/probe/invalidate plus independently authorized preparation and distinct extended operation
+  - T17/T21/T25 production preview and immediate revalidation; T26 graph AND single wiring with T27 supervision
+  - T28/T29/T30/T31 lifecycle and safe reset authority/lease/epoch/worktree fencing
+  - T34 installed stage/coordination parity; preserve T35 thin routes and T32/T33 validators
+  - T36 installed fake-Runtime graph/single and Q/A consumed by orchestrator, restart, overlap/conflicts and kill windows
+  - T37 compatibility matrix and immutable corpus hashes; T38 consolidated security regressions; final T39
+  - Final exact-head Linux/macOS CI and independent review, with findings resolved in this same PR
+next_action: Implement T41 production extended-effects composition against the existing port, with exact trusted root/file identities and separate invocation/authority preview. Keep native roots unprobed; test on private synthetic roots with FAKE executables. T43 Darwin is a separate material open technical node, not a reason to block independent T41/T44 work.
+next_files: internal/capabilityproof/extended.go; internal/local native extended-effects boundary; cmd/lingo capability composition and its tests. New filenames are a plan, not existing implementation.
+next_acceptance: Preview zero writes; missing authorities and stale digest/binding/root refuse before effects; one exclusive empty filename per root; cleanup only the exact owned inode; residue fails; child claims never prove invocation or denial; no promotion when independent observation is absent.
+authority_granted: Scoped #276 code/docs, deterministic and synthetic tests, cohesive commits, push existing branch, update same PR
+pending_authority: All real Runtime version/help/authentication/probe/inference/smoke effects, T40, Provider effects, merge, release, final acceptance
+validation_status: Focused race/regressions, vet/build/module/format/tidy/staticcheck/repository checks passed as recorded above; exact remote CI is SHA-specific and must be read from PR 320. Vendor behavioral checks deliberately UNVERIFIED.
+review_status: Earlier CR-001/CR-002 resolved; favorable COMMENT at e05e209 covers its slice only. New checkpoint self-review is not independent approval. Whole delivery remains incomplete.
+```
+
+Before a substantial process-tracking or extended-probe mechanism, compare the
+stdlib and existing `x/sys`/owned-filesystem primitives. Do not invent a new
+trust path or adopt another dependency implicitly. Stop only an effect whose
+safe authority/identity/measurement cannot be established; preserve all
+independent work. No current human action is required to continue implementation.
+Future operational tests need the specific independent consent listed above.
