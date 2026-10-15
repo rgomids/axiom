@@ -74,7 +74,11 @@ func probeFakeProcess() (bool, int) {
 		time.Sleep(30 * time.Second)
 		return true, 7
 	}
-	if cfg.Mode == "failure" {
+	if cfg.Mode == "failure" || cfg.Mode == "refusal" || cfg.Mode == "usage-limit" {
+		if cfg.Mode != "failure" {
+			_, _ = io.WriteString(os.Stdout, cfg.Mode)
+			return true, 0
+		}
 		_, _ = io.WriteString(os.Stdout, `{"modelInvoked":true,"effortVerified":true}`)
 		return true, 7
 	}
@@ -183,9 +187,9 @@ func newPreparedProbeFixture(t *testing.T, runtimeID, variant, mode string) (*co
 		t.Fatal(err)
 	}
 	f.publish(t, func(*runtimeprofile.ConfigurationV3) {})
-	timeout := 5 * time.Second
+	timeout := 15 * time.Second
 	if mode == "timeout" {
-		timeout = 250 * time.Millisecond
+		timeout = 5 * time.Second
 	}
 	e, err := prepareCapabilityEnvelope(context.Background(), probePreparationAuthority{Actor: "synthetic-operator", Local: true, ProbeID: "synthetic-probe", Policy: local.EnvelopePolicy{StateRoot: f.state, Variant: variant, RepositoryRoots: []string{f.roots.Project}, VendorHomes: []string{filepath.Join(f.roots.User, ".codex"), filepath.Join(f.roots.User, ".claude")}}, Limits: local.EnvelopeLimits{Timeout: timeout, MaxFiles: 64, MaxBytes: 1 << 20}})
 	if err != nil {
@@ -275,6 +279,10 @@ func TestPreparedProductionProbeVariants(t *testing.T) {
 				if variant == capabilityproof.ReadOnlyVariant && strings.Contains(packet.Instructions, "probe-work") {
 					t.Fatal("read-only packet requires workspace write")
 				}
+				outside := map[string]map[string]string{}
+				for _, root := range []string{f.roots.Project, f.roots.User, f.roots.Managed, filepath.Dir(f.exe)} {
+					outside[root] = probeTree(t, root)
+				}
 				out, err := s.Probe(context.Background(), p, probeAuthority(p))
 				if err != nil || out.Inconclusive {
 					t.Fatalf("outcome %+v error %v", out, err)
@@ -312,13 +320,18 @@ func TestPreparedProductionProbeVariants(t *testing.T) {
 				if _, err := os.Lstat(e.Path()); !os.IsNotExist(err) {
 					t.Fatal("envelope not cleaned", err)
 				}
+				for root, before := range outside {
+					if !reflect.DeepEqual(before, probeTree(t, root)) {
+						t.Fatal("probe changed an out-of-envelope fixture root", root)
+					}
+				}
 			})
 		}
 	}
 }
 
 func TestPreparedProductionProbeRefusals(t *testing.T) {
-	cases := []string{"local", "external", "different-preview", "auth", "manifest", "symlink", "replacement", "profile", "executable", "axiom", "configuration-v1", "configuration-v2", "claims", "failure", "interrupted", "timeout", "cleanup"}
+	cases := []string{"local", "external", "different-preview", "auth", "manifest", "symlink", "replacement", "profile", "environment", "executable", "axiom", "configuration-v1", "configuration-v2", "claims", "failure", "refusal", "usage-limit", "interrupted", "timeout", "cleanup"}
 	for _, name := range cases {
 		t.Run(name, func(t *testing.T) {
 			mode := "success"
@@ -343,7 +356,7 @@ func TestPreparedProductionProbeRefusals(t *testing.T) {
 			case "different-preview":
 				a.Preview.Cost = "changed"
 				expected = capabilityproof.ErrAuthority
-			case "auth", "claims", "failure", "interrupted":
+			case "auth", "claims", "failure", "refusal", "usage-limit", "interrupted":
 				cfg := probeFakeSettings{Runtime: "codex", Mode: name, Auth: name != "auth"}
 				wire, _ := json.Marshal(cfg)
 				if err := os.WriteFile(filepath.Join(filepath.Dir(f.exe), "fake-probe-runtime.json"), wire, 0600); err != nil {
@@ -354,7 +367,7 @@ func TestPreparedProductionProbeRefusals(t *testing.T) {
 				}
 				if name == "interrupted" {
 					var cancel context.CancelFunc
-					ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
+					ctx, cancel = context.WithTimeout(ctx, time.Minute)
 					defer cancel()
 					go func() {
 						ticker := time.NewTicker(10 * time.Millisecond)
@@ -399,6 +412,9 @@ func TestPreparedProductionProbeRefusals(t *testing.T) {
 			case "profile":
 				f.publish(t, func(c *runtimeprofile.ConfigurationV3) { c.ModelProfiles[0].Model = "changed-model" })
 				expected = capabilityproof.ErrStalePreview
+			case "environment":
+				f.stage.ParentEnvironment = append(f.stage.ParentEnvironment, "LANG=C")
+				expected = capabilityproof.ErrStalePreview
 			case "executable", "axiom":
 				path := f.exe
 				if name == "axiom" {
@@ -426,6 +442,16 @@ func TestPreparedProductionProbeRefusals(t *testing.T) {
 			}
 			before := probeTree(t, f.base)
 			out, err := s.Probe(ctx, p, a)
+			if name == "timeout" {
+				if _, startedErr := os.Stat(filepath.Join(filepath.Dir(f.exe), "fake-invocation-started")); startedErr != nil {
+					t.Fatal("timeout did not reach the fake invocation", startedErr, err)
+				}
+			}
+			if name == "interrupted" {
+				if _, startedErr := os.Stat(filepath.Join(filepath.Dir(f.exe), "fake-invocation-started")); startedErr != nil || !errors.Is(ctx.Err(), context.Canceled) {
+					t.Fatalf("did not cancel the running fake invocation: %v, %v, %v", startedErr, ctx.Err(), err)
+				}
+			}
 			if expected != nil {
 				if !errors.Is(err, expected) || out.EvidenceRef != "" {
 					t.Fatalf("expected %v got %+v %v", expected, out, err)
@@ -458,6 +484,9 @@ func TestPreparedProductionProbeRefusals(t *testing.T) {
 			_, statErr := os.Lstat(e.Path())
 			if (name == "interrupted" || name == "timeout") && statErr != nil {
 				t.Fatal("interruption lost quarantine", statErr)
+			}
+			if (name == "interrupted" || name == "timeout") && e.InspectReady() == nil {
+				t.Fatal("quarantine retained dispatch authority")
 			}
 			if name != "interrupted" && name != "timeout" && !os.IsNotExist(statErr) {
 				t.Fatal("completed fake residue", statErr)

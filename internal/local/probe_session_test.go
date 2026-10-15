@@ -155,6 +155,27 @@ func TestProbeSessionCannotResumeRecoveryHandle(t *testing.T) {
 	}
 }
 
+func TestProbePreparedAbandonmentRevokesHandle(t *testing.T) {
+	e := envelopeFixture(t)
+	if err := e.Quarantine(); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.InspectReady(); err == nil {
+		t.Fatal("abandoned preparation retained dispatch authority")
+	}
+	recovered, err := OpenQuarantinedEnvelope(e.policy, e.manifest.ProbeID, e.digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := recovered.PreviewCleanup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Apply(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestProbeNativeControlObservesUnchangedObject(t *testing.T) {
 	e := envelopeFixture(t)
 	s := openProbeSession(t, e)

@@ -372,9 +372,12 @@ func openEnvelope(policy EnvelopePolicy, id, digest string) (*Envelope, error) {
 	return e, e.verify()
 }
 
-// Quarantine checks the exact envelope and deliberately preserves every object.
+// Quarantine revokes the live preparation handle and preserves every object.
 // Leftovers are quarantined by default, including crash-before-marker cases.
-func (e *Envelope) Quarantine() error { return e.verify() }
+func (e *Envelope) Quarantine() error {
+	e.prepared = false
+	return e.verify()
+}
 
 type EnvelopeCleanupPreview struct {
 	envelope   *Envelope

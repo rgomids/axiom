@@ -44,8 +44,6 @@ type stageOperation struct {
 // productionCapabilityService composes the canonical Evidence store with the
 // production runtimeadapter.BindingSource. A present Source enables fresh
 // identity observation and AXM-21 Evidence selection only; it proves nothing.
-// Probe ports require a live, independently prepared T13 handle. Composition
-// itself launches no effects and reads only the embedded version registry.
 func productionCapabilityService(stateRoot string, lookPath runtimebootstrap.LookPath, op stageOperation) (capabilityproof.Service, error) {
 	registry, err := runtimeadapter.EmbeddedVersionObserver()
 	if err != nil {

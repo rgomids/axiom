@@ -1,6 +1,6 @@
 # #276 implementation record
 
-Latest implementation: [bounded T16 progress](#implement-2026-10-15--t16-v3-preparation-partial). Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Baseline assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
+Latest implementation: [T13/T14/T16 production integration](#implement-2026-10-15--prepared-production-probe-and-canary). Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Baseline assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
 
 ## Implementation scope addendum — 2026-10-15
 
@@ -1701,3 +1701,112 @@ PR. Do not start T25/T26/T31/T34/T44 here. The embedded registry remains empty;
 real tests and T40 are **NOT_RUN** by human decision. AC-6 and operational
 acceptance remain unproved; no merge, release, Issue closure or Linear state
 transition is authorized or performed.
+
+
+## IMPLEMENT 2026-10-15 — Prepared production probe and canary
+
+Continuation of Draft [PR #320](https://github.com/rgomids/axiom/pull/320),
+branch `feat/axm-8-stage-agent-execution`. Resumed WIP
+`077fd12606ef4ab688218d45eec7f83a156e4919` is preserved in history. This record
+supersedes the earlier partial-unit handoff and qualifies the dated baseline
+matrix above; no historical assessment or approval is rewritten.
+
+The lifecycle question is resolved by the maintainer's **option A**, recorded
+in the [Plan addendum](plan-tasks-276-stage-agent-execution.md#envelope-lifecycle-decision--option-a).
+The two referenced human decisions were read in full. No material conflict with
+ADR-0025/0026 or the accepted binding amendment was identified. The accepted
+Plan/catalog suffix from Part I remains byte-identical to baseline `87f8821`.
+
+| Task | Delivered boundary | Remaining boundary |
+| --- | --- | --- |
+| T13 integration | `prepareCapabilityEnvelope` requires independent local preparation authority, reuses `local.CreateEnvelope` and returns its live handle. `InspectReady` verifies the exact manifest digest, physical identities and absence of cleanup intent without writes. Recovery handles cannot dispatch. Quarantine revokes the live handle and retains objects for exact cleanup. | Public preparation/confirmation UX belongs to the existing T44 unit. Native platform execution is assessed by the PR checks, not inferred from Linux. |
+| T14 | The hidden production entrypoint now supplies `local.ProbeCanaryLoader` with its effective CWD. It validates the ready manifest, digest, variant, identities and launch/attempt context; uses owned-directory operations, the existing deterministic canary and T22 inbox publication. Only manifest-relative negative targets and an owned loopback listener are exercised. | Real Runtime sandbox behavior is NOT_RUN. This is technical implementation, not merged/accepted Task Done. |
+| T16 | All four production ports are composed: `preparedProbeAdapter`, `local.PreparedProbeEnvelopes`, `local.CapabilityStore`, and `preparedProbeAuthentication` with the existing OS auth preflight. Preparation uses canonical v3 BindingSource/effort inspection and the exact ready manifest, task packet, invocation/environment and variant. Apply revalidates before/after independent auth and before the single process invocation; verification reads effects and correlated inbox records, then cleans or quarantines. | Public capability commands remain T44; no installed public probe journey is claimed. Real proof and operational acceptance remain separate. |
+
+No second envelope implementation, planned manifest, dependency, version-registry
+entry, Graph/corpus migration or new Task was introduced. Existing filesystem,
+process, identity, effort, packet and inbox components suffice. Added production
+comments are public API GoDoc or semantic build constraints; the updated
+Quarantine GoDoc states its authority-revocation contract.
+
+**Synthetic tests and security review.** `TestPreparedProductionProbeVariants`
+copies the test executable into private fixture `codex`, `claude` and `axiom`
+paths. These are FAKE executables, never installed vendors. Both Runtimes and
+both variants traverse the production adapters, OS auth-status runner, OS process
+runner, real T13 envelope, native canary loader/effects, T22 inbox and canonical
+Evidence writer. The passive version observer is fixture-injected; the production
+embedded registry remains empty. Fixture auth/status results confer no real
+subscription or capability proof.
+
+Snapshots verify preview zero-writes, and successful apply leaves the fixture
+repository, user/managed roots and executable directory unchanged. Tests check
+packet/manifest/attempt correlation, exact stored Evidence bytes and content
+address, variant-bound positive effects, advisory confinement, redaction and
+exact cleanup. Fake timeout/interruption markers are harness instrumentation in
+the fixture executable directory, outside the envelope; they are not canary
+effects or persisted Evidence.
+
+Refusals cover independent local/external authority, a different consented
+preview, auth failure, manifest/configuration/Profile/environment/executable/Axiom
+drift, retired v1/v2, symlink and physical replacement. Fake raw success claims,
+nonzero failure, model refusal and usage-limit output cannot promote capabilities.
+Timeout/interruption produce inconclusive Unknown Evidence and retain quarantine;
+unsafe cleanup never publishes Evidence. Loader tests cover missing/wrong context,
+manifest digest, nonce, external address, child binding and symlink drift;
+publication tests reject packet/attempt drift and unknown denial. Existing
+classification tests retain pre/post control and errno attribution coverage.
+
+The reported `authentication_blocked` interruption failure did not reproduce in
+isolation or the initial race matrix. Its test used a 15-second outer deadline
+covering all preparation and authentication, so expiration could stop before
+probe dispatch. The fixture now permits a bounded one-minute preflight window,
+then explicitly requires the fake invocation-start marker and `context.Canceled`
+from the marker-triggered cancellation. Timeout likewise must reach the fake
+invocation. Probe budgets allow instrumented subprocess startup (15 seconds for
+normal fixtures, 5 seconds for timeout); production auth and authority gates are
+unchanged. The test cannot pass by treating a preflight timeout as interruption.
+
+**Validation ledger (Linux, synthetic).** Go 1.26.0 from the existing cached
+toolchain (`GOTOOLCHAIN=auto` initially; then its pinned binary on PATH with
+`GOTOOLCHAIN=local GOWORK=off GOFLAGS=`), ambient Claude effort unset.
+`AXIOM_TEST_PROBE_STATE_ROOT` is a private directory under `/home/box`, outside
+repository, temporary and vendor roots. Fixtures are removed by test cleanup.
+
+| Command | Result |
+| --- | --- |
+| `go test ./internal/capabilityproof -count=1 -timeout=90s` | PASS |
+| `go test ./internal/runtimeadapter -count=1 -timeout=120s` | PASS |
+| `go test ./internal/local -count=1 -timeout=180s` | PASS, private envelope/session/loader tests enabled |
+| `go test ./cmd/lingo -count=1 -timeout=120s` | PASS, complete package (79.3s) |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbe' -count=1 -timeout=120s` | PASS, final matrix including outside-root snapshots and refusal cases (65.7s) |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbeRefusals/interrupted$' -count=5 -timeout=90s` | PASS, five consecutive dispatch-confirmed interruptions (17.1s total) |
+| `go test -race <package> -count=1 -timeout=120s`, separately for every `go list ./...` package except `cmd/lingo` | PASS for all 36 remaining packages; four have no test files |
+| `go vet ./...`; `go build ./...`; `go mod verify` | PASS |
+| `./scripts/check-go-quality.sh format`, `tidy`, `staticcheck` | PASS; Staticcheck 2026.2.1 / v0.8.1 |
+| `./scripts/validate-repository.sh .` | PASS; vendor runtime behavioral checks deliberately UNVERIFIED |
+| Accepted Plan/catalog suffix comparison against `87f8821` | PASS |
+
+The complete local `cmd/lingo` race attempt with `-timeout=180s` reached that
+limit during the pre-existing Work Item projection blackbox, without an
+assertion failure. Its full race result remains for CI; the complete non-race
+package and bounded probe race matrix passed. No timeout result is called PASS.
+
+Commit identity and remote Linux/macOS CI conclusions are recorded in the same
+PR after publication, against its exact head. A native
+macOS CI result is required; cross-compilation is not a substitute.
+
+Security/engineering self-review found no remaining blocking finding in this
+bounded diff. The dedicated `gitleaks` scanner is unavailable on this host; no
+dedicated-scanner result is claimed. Staged sensitive-file and whitespace checks
+passed before commit.
+
+**Handoff.** This bounded slice integrates the requested production seams;
+T13/T14/T16 are not declared merged, accepted or operationally proven. Continue
+in this same Draft PR. The next existing capability unit is T41's production
+extended-effects boundary before T44 public capability commands; consolidated
+stage dispatch still has its existing T25/T26/T31/T34 work. None was started
+here. Real probes, vendor version/help/authentication, inference, installed
+smoke, Provider effects and T40 remain **NOT_RUN**. AC-6, real capabilities and
+human operational acceptance remain unproved. No merge, release, Issue closure,
+Linear lifecycle/blocker/label change or new Work Item is authorized by this
+record. No additional human decision is needed for the delivered slice.
