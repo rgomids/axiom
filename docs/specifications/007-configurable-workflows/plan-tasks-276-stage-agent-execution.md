@@ -4,6 +4,32 @@ Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15)
 
 ## Implementation scope addendum — 2026-10-15
 
+### Envelope lifecycle decision — option A
+
+Authority: maintainer comment `ee426468-cee7-41f2-8647-4ba854466ee9` on
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills),
+15 October 2026, read in full. Publication of this bounded decision summary is
+authorized by the continuation brief for Draft PR #320.
+
+PREPARE is an independently authorized local operation: reuse T13 to create
+private Axiom-owned objects and a `ready` manifest with nonce, revision,
+physical identities and exact digest. It authorizes no Runtime, credentials,
+inference, dispatch or Provider. PREVIEW is read-only over that prepared
+envelope and binds the exact manifest, binding/Profile v3/effort, invocation,
+environment, packet, variant, risk and cost. It creates no objects and changes
+no manifest. Future APPLY needs its own exact-preview confirmation, separate
+local and external authorities, authentication and fail-closed revalidation of
+configuration, identity, digest, execution and effects. Drift refuses as
+`stale_preview`; the authorized digest is never silently replaced. Abandoned,
+interrupted or ambiguous envelopes remain quarantined for verified exact-object
+cleanup/recovery. No planned manifest or second envelope lifecycle is adopted.
+
+The deferred-real-proof, Linux/macOS and human acceptance boundaries below
+remain in force. This prospective addendum changes no accepted Plan/catalog,
+ADR, receipt, historical corpus or digest.
+
+### Deferred proof and platform scope
+
 Authority: maintainer comment `e67f6bbe-74dc-408d-b02d-bda86f930ca7`
 ([AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)),
 read in full before implementation. The maintainer explicitly authorizes a

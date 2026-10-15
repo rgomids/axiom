@@ -27,6 +27,7 @@ type capabilityDependencies struct {
 	stage           func(context.Context, capabilityproof.Target) (runtimeadapter.StageContext, error)
 	effortRoots     func(context.Context, capabilityproof.Target, []string) (runtimeadapter.EffortSourceRoots, error)
 	effortConsented bool
+	envelope        *local.Envelope
 }
 
 // stageOperation scopes capability observation to one authorized Stage
@@ -37,13 +38,14 @@ type capabilityDependencies struct {
 type stageOperation struct {
 	repository, workspaceRoot string
 	consented                 bool
+	probe                     *local.Envelope
 }
 
 // productionCapabilityService composes the canonical Evidence store with the
 // production runtimeadapter.BindingSource. A present Source enables fresh
 // identity observation and AXM-21 Evidence selection only; it proves nothing.
-// Probe dependencies stay unconfigured, so composition launches no effects,
-// runs no Runtime and reads no registry other than the embedded one.
+// Probe ports require a live, independently prepared T13 handle. Composition
+// itself launches no effects and reads only the embedded version registry.
 func productionCapabilityService(stateRoot string, lookPath runtimebootstrap.LookPath, op stageOperation) (capabilityproof.Service, error) {
 	registry, err := runtimeadapter.EmbeddedVersionObserver()
 	if err != nil {
@@ -53,7 +55,7 @@ func productionCapabilityService(stateRoot string, lookPath runtimebootstrap.Loo
 	if err != nil {
 		return capabilityproof.Service{}, err
 	}
-	return composeCapabilityService(capabilityDependencies{stateRoot: stateRoot, lookPath: lookPath, version: registry.Version, axiomPath: axiom, stage: op.context, effortRoots: runtimeadapter.StageEffortRoots{Repository: op.repository}.Resolve, effortConsented: op.consented})
+	return composeCapabilityService(capabilityDependencies{stateRoot: stateRoot, lookPath: lookPath, version: registry.Version, axiomPath: axiom, stage: op.context, effortRoots: runtimeadapter.StageEffortRoots{Repository: op.repository}.Resolve, effortConsented: op.consented, envelope: op.probe})
 }
 
 // context is the operation's effective dispatch context. ModeDigest and the
@@ -93,7 +95,12 @@ func composeCapabilityService(d capabilityDependencies) (capabilityproof.Service
 		EffortConsented: d.effortConsented,
 		Selector:        capabilityproof.Selector{Evidence: store},
 	}
-	return capabilityproof.Service{Store: store, Source: source}, nil
+	adapter := preparedProbeAdapter{source: source, envelope: d.envelope}
+	auth, err := runtimeadapter.NewAuthPreflight(runtimeadapter.OSStatusRunner{}, runtimeadapter.DefaultManagedConfiguration())
+	if err != nil {
+		return capabilityproof.Service{}, err
+	}
+	return capabilityproof.Service{Store: store, Source: source, ProbeAdapter: adapter, ProbeEnvelopes: local.PreparedProbeEnvelopes{Envelope: d.envelope}, ProbeWriter: store, ProbeAuth: preparedProbeAuthentication{adapter: adapter, preflight: auth}}, nil
 }
 
 // productionEffortInspector is the supervisor's dispatch-time PE-05a

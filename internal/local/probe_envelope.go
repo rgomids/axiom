@@ -32,6 +32,7 @@ type Envelope struct {
 	path     string
 	manifest EnvelopeManifest
 	digest   string
+	prepared bool
 }
 
 func within(path, root string) bool {
@@ -235,7 +236,7 @@ func prepareEnvelope(policy EnvelopePolicy, id string, limits EnvelopeLimits) (*
 	if err := checkpoint(); err != nil {
 		return nil, err
 	}
-	e := &Envelope{policy: policy, path: path, manifest: manifest, digest: digestEnvelope(wire)}
+	e := &Envelope{policy: policy, path: path, manifest: manifest, digest: digestEnvelope(wire), prepared: true}
 	if err := e.verifyObjects(); err != nil {
 		return nil, err
 	}
@@ -248,6 +249,22 @@ func digestEnvelope(wire []byte) string {
 }
 func (e *Envelope) Path() string           { return e.path }
 func (e *Envelope) ManifestDigest() string { return e.digest }
+
+// InspectReady observes a live prepared envelope without creating objects or
+// accepting cleanup recovery state as a runnable envelope.
+func (e *Envelope) InspectReady() error {
+	if e == nil || !e.prepared || e.manifest.Phase != "ready" {
+		return ErrUnsafeEnvelope
+	}
+	if err := e.verify(); err != nil {
+		return err
+	}
+	intent, err := readEnvelopeIntent(e.policy, e.manifest.ProbeID)
+	if err != nil || intent != nil {
+		return ErrUnsafeEnvelope
+	}
+	return nil
+}
 
 // Manifest returns detached metadata; callers cannot change cleanup identity.
 func (e *Envelope) Manifest() EnvelopeManifest {
@@ -308,6 +325,10 @@ func (e *Envelope) verifyObjects() error {
 // OpenQuarantinedEnvelope reopens leftovers for explicit cleanup only. It does
 // not authorize resuming a probe or promote interrupted evidence to proven.
 func OpenQuarantinedEnvelope(policy EnvelopePolicy, id, digest string) (*Envelope, error) {
+	return openEnvelope(policy, id, digest)
+}
+
+func openEnvelope(policy EnvelopePolicy, id, digest string) (*Envelope, error) {
 	if !probeName(id) || digest == "" {
 		return nil, ErrUnsafeEnvelope
 	}

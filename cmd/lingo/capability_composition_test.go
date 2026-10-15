@@ -39,8 +39,8 @@ func TestProductionCapabilityCompositionFailsClosed(t *testing.T) {
 	if _, ok := source.Selector.Evidence.(local.CapabilityStore); !ok {
 		t.Fatal("selection must scan the canonical store")
 	}
-	if s.ProbeAdapter != nil || s.ProbeEnvelopes != nil || s.ProbeWriter != nil || s.ProbeAuth != nil {
-		t.Fatal("effect dependencies must remain absent")
+	if s.ProbeAdapter == nil || s.ProbeEnvelopes == nil || s.ProbeWriter == nil || s.ProbeAuth == nil {
+		t.Fatal("production ports must be present and fail closed without preparation")
 	}
 	ctx := context.Background()
 	for _, variant := range []string{capabilityproof.ReadOnlyVariant, capabilityproof.RepositoryWriteVariant} {
