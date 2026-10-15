@@ -122,6 +122,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Private synthetic probe state
+        run: |
+          probe_state="$(mktemp -d "$HOME/axiom-fake-probe.XXXXXX")"
+          echo "AXIOM_TEST_PROBE_STATE_ROOT=$probe_state" >> "$GITHUB_ENV"
       - name: Unit, integration and black-box tests
         if: matrix.platform == 'macos'
         run: go test -race ./...

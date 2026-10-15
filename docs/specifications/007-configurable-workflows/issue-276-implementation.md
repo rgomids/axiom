@@ -1,6 +1,17 @@
 # #276 implementation record
 
-Current assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
+Latest implementation: [bounded T16 progress](#implement-2026-10-15--t16-v3-preparation-partial). Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Baseline assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
+
+## Implementation scope addendum — 2026-10-15
+
+The [maintainer scope addendum](plan-tasks-276-stage-agent-execution.md#implementation-scope-addendum--2026-10-15)
+qualifies the earlier dated T40/T43 assessments: all real tests are deferred
+(**NOT_RUN**); T40 does not block technical delivery, while its own Done and
+AC-6 remain unproved; active T43/T13 platform Evidence is Linux/macOS only.
+Windows requirements in the historical catalog are excluded prospectively.
+The maintainer owns the deferred-proof risk and final operational acceptance.
+No Task or AXM-8 state is promoted by these decisions.
+
 
 ## Historical gap report and approved decision
 
@@ -1626,3 +1637,67 @@ parity; T44 capability CLI is still absent. This is residual work under existing
 Tasks, not a new card, contract, implementation authorization for real effects or
 work started by this reconciliation. T36–T39 final verification then T40 exact
 human-authorized smoke remain open.
+
+## IMPLEMENT 2026-10-15 — T16 v3 preparation (partial)
+
+Baseline: PR #319 merge `87f882115667cd1de8ac06397a4d11941a01f7fd`.
+No open AXM-8 implementation PR existed when this unit began. The work branch
+is `feat/axm-8-stage-agent-execution`; continue the same Draft PR.
+The human decision is summarized in the scope addendum above; it is authority,
+not execution Evidence.
+
+| Task | Current delta | Remaining boundary |
+| --- | --- | --- |
+| T16 | **PARTIAL**. `PreviewProbe` and its synthetic fixture now require canonical configuration v3. `BindingSource.PrepareProbe` shares the existing complete observation and dispatch invocation construction, including effort projection, without selecting prior Evidence. v1/v2, identity drift, missing authority, stale preview, incomplete binding and authentication refusals remain fail-closed. | The returned preparation deliberately has no envelope manifest or task packet yet. The four production Probe ports remain absent; no installed probe path or complete fake end-to-end production journey is claimed. |
+| T14 | **PARTIAL, unchanged**. Existing hidden entrypoint and pure canary tests pass. | Verified production loader, active-envelope context and native effect integration remain unimplemented; `main.go` still supplies nil. Existing fake loader tests are not native loader Evidence. |
+
+**Open integration question, not a new accepted contract:**
+`local.prepareEnvelope` assigns physical directory identities to the ready
+manifest; `PreviewProbe` requires that exact ready manifest and digest.
+Preparing those objects inside preview would violate its no-effect contract.
+Replacing the digest after apply would break reviewed-manifest authority.
+The session asked whether composition may require a live T13 envelope already
+provisioned under independent authorization. No answer has been assumed.
+An alternative planned-manifest lifecycle would require explicit contract
+clarification; it was not implemented. No accepted ADR was rewritten or found
+to require retroactive supersession by the independent v3 correction.
+
+**Synthetic Evidence executed locally (Linux):** all Go commands used the
+installed Go 1.26.0 binary, `GOTOOLCHAIN=local GOWORK=off GOFLAGS=` and an unset
+`CLAUDE_CODE_EFFORT_LEVEL`. No vendor binary was launched or inspected for its
+version/help. Fixture Runtime versions and executable bytes are synthetic.
+
+| Check | Result / limit |
+| --- | --- |
+| `go test ./internal/capabilityproof ./internal/runtimeadapter ./internal/local ./internal/executiongraph -count=1` | PASS, four packages. `AXIOM_TEST_PROBE_STATE_ROOT` was an isolated private directory under `/home/box`, outside repository/temp/vendor roots, automatically cleaned after the subprocess. Existing envelope lifecycle, symlink/replacement, cleanup/recovery and POSIX containment tests executed. |
+| `go test -race ./internal/capabilityproof ./internal/runtimeadapter -count=1` | PASS after the final test change. `TestProbeEachVariant` exercises both positive application-port fixtures; refusals, interruption, inconclusive/model refusal and cleanup failure remain covered. `TestProbeFakeExecutableFailureNeverProves` executes only a generated `/bin/sh` fixture exiting 7: no capability is promoted, output/host paths are excluded from Evidence. This uses an injected envelope verifier and is not the missing production end-to-end journey. |
+| `TestPrepareProbeUsesObservedV3WithoutEvidence` | PASS for Codex/Claude × both variants × both Process modes, using synthetic local files and trusted fixture roots. Empty Evidence selection does not prevent preparation or become proof; executable replacement is refused. `TestPrepareProbeRefusesRetiredConfiguration` covers v1/v2 directly. |
+| `go test ./cmd/lingo -run 'Test(CapabilityComposition\|ProductionCapabilityComposition\|ProductionEffortInspector\|HiddenCanary\|HiddenSupervisor)' -count=1` | PASS. Production empty-registry refusal and injected canary tests remain intact. |
+| `go vet ./internal/capabilityproof ./internal/runtimeadapter ./cmd/lingo` | PASS. |
+| `GOOS=darwin GOARCH=arm64 go build ./cmd/lingo ./internal/capabilityproof ./internal/runtimeadapter ./internal/local ./internal/executiongraph` | PASS cross-compilation only; no native macOS execution claimed. |
+| `./scripts/check-go-quality.sh format` | PASS. |
+| `./scripts/validate-repository.sh .` | PASS; runtime behavioral scenarios deliberately UNVERIFIED, not requested. |
+| Accepted Plan/catalog suffix comparison against baseline | PASS: Part I onward is byte-identical; only the current-scope preamble/addendum changed. |
+
+CI now allocates a private synthetic probe state directory under the hosted
+runner's HOME on the existing Linux/macOS verify jobs, so envelope tests do not
+skip for a missing fixture root. It introduces no real Runtime test or Windows
+job. Remote CI results belong to the PR head, not this local ledger.
+
+Engineering/security self-review used `axiom-review`; documentation reconciliation
+used `axiom-document`. Standard library and existing observation/filesystem/process
+components suffice: no dependency, cryptography or parallel envelope implementation
+was added. The only production comment edit corrects the existing public
+`ProbePreparation` contract's configuration version. Staged sensitive-file and
+whitespace checks are required before commit; dedicated `gitleaks` is unavailable
+on this host, so no dedicated-scanner result is claimed.
+
+**Handoff:** T16/T14 are not Done and this unit does not meet the full requested
+production integration outcome. The next existing unit is the remaining T16/T14
+composition and verified loader after the envelope lifecycle question is resolved:
+connect the four ports, bind the exact packet/manifest and active context, exercise
+positive and refusal fake executable journeys, then review Evidence in this same
+PR. Do not start T25/T26/T31/T34/T44 here. The embedded registry remains empty;
+real tests and T40 are **NOT_RUN** by human decision. AC-6 and operational
+acceptance remain unproved; no merge, release, Issue closure or Linear state
+transition is authorized or performed.

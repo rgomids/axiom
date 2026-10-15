@@ -1,6 +1,36 @@
 # Plan and Tasks — #276 run and coordinate stage agents through CLI and Runtime skills
 
-Current interpretation: [2026-10-15 reconciliation addendum](#reconciliation-addendum--2026-10-15), including the v3 configuration overlay and current delivery governance. Historical status statements below retain their dated meaning.
+Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Technical baseline: [2026-10-15 reconciliation addendum](#reconciliation-addendum--2026-10-15), including the v3 configuration overlay and current delivery governance. Historical status statements below retain their dated meaning.
+
+## Implementation scope addendum — 2026-10-15
+
+Authority: maintainer comment `e67f6bbe-74dc-408d-b02d-bda86f930ca7`
+([AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)),
+read in full before implementation. The maintainer explicitly authorizes a
+bounded T16/T14 implementation and publication of this scope summary.
+
+- All real Runtime tests, version/help commands, authentication, inference,
+  probes, installed smoke and Provider effects are deferred: **NOT_RUN**.
+  The maintainer assumes the risk of postponing this proof. Synthetic unit,
+  integration, fake subprocess, security and CI checks remain required;
+  authority gates, binding checks and fail-closed refusal remain mandatory.
+- T40 is optional and non-blocking for **technical delivery**. Its own Done
+  criterion and AC-6 still require real, independently authorized Evidence;
+  NOT_RUN, FAILED or INCONCLUSIVE do not satisfy them. A future attempt needs
+  its exact envelope, independent consent and all prerequisites. The owner
+  performs real validation and final acceptance after technical delivery.
+- Active T43 platform scope and expected Evidence are **Linux and macOS**:
+  POSIX descendant containment and confirmed stop, with synthetic tests and
+  applicable native CI. Windows job objects, native Windows Evidence and
+  Windows CI are excluded, reusing [Specification 006](../006-installer-host-eligibility/spec.md).
+  The same platform scope applies to T13 envelope checks. Historical Windows
+  wording in the accepted Plan/catalog is preserved, with this explicit scope
+  disposition; it is no longer an active delivery requirement.
+
+This addendum qualifies the earlier T40/T43 gate assessment and historical
+platform requirements without changing accepted ADRs, Task numbering, DAG,
+corpora, hashes or receipts. It grants no merge, release, operational acceptance
+or automatic AXM-8 state transition. No capability is proven by this decision.
 
 ## Status
 

@@ -215,7 +215,7 @@ func (s Service) Invalidate(ctx context.Context, p InvalidationPreview, a LocalA
 }
 
 // ProbePreparation describes a single dispatch-identical invocation. Prepare
-// must freshly inspect the v2 Profile and PE-05a effort sources without creating
+// must freshly inspect the v3 Profile and PE-05a effort sources without creating
 // an envelope or launching inference. Host paths remain only in this preview.
 type ProbePreparation struct {
 	Current              Current
@@ -320,7 +320,7 @@ func (s Service) PreviewProbe(ctx context.Context, t Target) (ProbePreview, erro
 	check := Evidence{SchemaVersion: 1, Binding: c.Binding, Model: c.Model, Capabilities: map[string]Result{ModelInvocation: {State: Unknown}}, Confinement: Confinement{Level: "unknown", NotTested: []string{"home", "vendor-home", "tmpdir", "system-temp", "external-network"}}, ObservedAt: s.now(), ProbePacketDigest: packetDigest(p.Invocation.Stdin)}
 	m := p.Manifest
 	wire, _ := json.Marshal(m)
-	if p.ConfigurationVersion != 2 || !c.ProfileActive || c.Model == nil || c.Model.ProfileID != t.ProfileID || c.Binding.RuntimeID != t.RuntimeID || c.Binding.Variant != t.Variant || !ValidEvidence(check) || m.Version != 1 || m.Phase != "ready" || m.Variant != t.Variant || !safe(m.ProbeID) || !digest.MatchString(m.Nonce) || !digest.MatchString(m.Revision) || m.CreatedAt.IsZero() || m.Limits.Timeout <= 0 || m.Limits.Timeout > 24*time.Hour || m.Limits.MaxFiles <= 0 || m.Limits.MaxBytes <= 0 || p.ManifestDigest != packetDigest(wire) || p.Interface.ExecutableDigest != c.Binding.ExecutableDigest || p.Interface.Version != c.Binding.Version || p.Invocation.RuntimeID != t.RuntimeID || len(p.Invocation.Argv) == 0 || len(p.Invocation.Stdin) == 0 || p.Invocation.OutputMax <= 0 || p.Invocation.OutputMax > executiongraph.MaxCapturedOutputBytes || len(p.Invocation.Stdin) > executiongraph.MaxStdinBytes {
+	if p.ConfigurationVersion != 3 || !c.ProfileActive || c.Model == nil || c.Model.ProfileID != t.ProfileID || c.Binding.RuntimeID != t.RuntimeID || c.Binding.Variant != t.Variant || !ValidEvidence(check) || m.Version != 1 || m.Phase != "ready" || m.Variant != t.Variant || !safe(m.ProbeID) || !digest.MatchString(m.Nonce) || !digest.MatchString(m.Revision) || m.CreatedAt.IsZero() || m.Limits.Timeout <= 0 || m.Limits.Timeout > 24*time.Hour || m.Limits.MaxFiles <= 0 || m.Limits.MaxBytes <= 0 || p.ManifestDigest != packetDigest(wire) || p.Interface.ExecutableDigest != c.Binding.ExecutableDigest || p.Interface.Version != c.Binding.Version || p.Invocation.RuntimeID != t.RuntimeID || len(p.Invocation.Argv) == 0 || len(p.Invocation.Stdin) == 0 || p.Invocation.OutputMax <= 0 || p.Invocation.OutputMax > executiongraph.MaxCapturedOutputBytes || len(p.Invocation.Stdin) > executiongraph.MaxStdinBytes {
 		return ProbePreview{}, ErrBlocked
 	}
 	targets := []string{"sentinel"}

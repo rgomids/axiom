@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -480,6 +481,52 @@ func TestBindingSourceServiceCompatibility(t *testing.T) {
 			service.Source = capabilityproof.ConfiguredSource{Source: f.source, Consumer: runtimeprofiletest.Consumer(t, disabled)}
 			if _, code, err := service.Check(context.Background(), target, []string{capabilityproof.Read}, true, true, ""); code != "capability_unknown" || !errors.Is(err, capabilityproof.ErrBlocked) {
 				t.Fatalf("inactive Profile admitted: %q %v", code, err)
+			}
+		})
+	}
+}
+
+func TestPrepareProbeUsesObservedV3WithoutEvidence(t *testing.T) {
+	for _, runtime := range []string{"codex", "claude"} {
+		for _, variant := range []string{capabilityproof.ReadOnlyVariant, capabilityproof.RepositoryWriteVariant} {
+			for _, process := range []bool{false, true} {
+				t.Run(runtime+"/"+variant+"/"+strconv.FormatBool(process), func(t *testing.T) {
+					f := newBindingFixture(t, runtime)
+					target := f.target(variant, process)
+					b, m := f.expected(t, target)
+					f.scanner.records = nil
+					p, err := f.source.PrepareProbe(context.Background(), target)
+					if err != nil || p.ConfigurationVersion != 3 || p.Current.Binding != b || p.Current.Model == nil || *p.Current.Model != m || !p.Current.ProfileActive || p.Current.EvidenceRef != "" {
+						t.Fatalf("preparation=%+v err=%v", p, err)
+					}
+					if p.Interface.ExecutableDigest != b.ExecutableDigest || p.Interface.Version != b.Version || p.Invocation.RuntimeID != runtime || len(p.Invocation.Stdin) != 0 || p.Invocation.CWD == "" {
+						t.Fatalf("invocation=%+v interface=%+v", p.Invocation, p.Interface)
+					}
+					if _, err := f.source.Current(context.Background(), target); !errors.Is(err, capabilityproof.ErrEvidenceMissing) {
+						t.Fatalf("preparation manufactured Evidence: %v", err)
+					}
+					if err := os.WriteFile(f.exe, []byte("replaced synthetic executable"), 0o700); err != nil {
+						t.Fatal(err)
+					}
+					if _, err := f.source.PrepareProbe(context.Background(), target); err == nil {
+						t.Fatal("identity drift admitted")
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestPrepareProbeRefusesRetiredConfiguration(t *testing.T) {
+	for _, version := range []int{1, 2} {
+		t.Run(strconv.Itoa(version), func(t *testing.T) {
+			f := newBindingFixture(t, "codex")
+			f.source.Configuration = func(context.Context) (runtimeprofile.VersionedConfiguration, error) {
+				return runtimeprofile.VersionedConfiguration{FormatVersion: version}, nil
+			}
+			p, err := f.source.PrepareProbe(context.Background(), f.target(capabilityproof.ReadOnlyVariant, false))
+			if !errors.Is(err, ErrEffortConfigurationUnproven) || p.ConfigurationVersion != 0 || len(p.Invocation.Argv) != 0 || f.scanner.scans != 0 {
+				t.Fatalf("retired format returned an invocation: %+v %v", p, err)
 			}
 		})
 	}
