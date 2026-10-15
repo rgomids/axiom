@@ -2287,3 +2287,25 @@ processes only. No outcome assertion or security gate was weakened. Linux
 focused race regression repeated: exit 0, 22.140s; Darwin arm64 compilation:
 exit 0. Native CI for the correction is still required. An unrelated process
 created and daemonized after spawn can still conservatively prevent confirmation.
+
+### T44 incremental CLI — show and invalidation
+
+Both `runtime codex capability` and `runtime claude capability` now route `show`
+and `invalidate` through the canonical T42 services and production BindingSource.
+The CLI has no evidence-selection or capability rules. Exact Profile, variant,
+process mode and operation roots select the binding; local consent gates effort
+inspection. Invalidation previews bind the entire domain preview by SHA-256;
+apply checks local authority, exact digest and the domain's fresh CAS preview.
+Unknown bindings remain unknown. No executable, auth command or Provider is run.
+Commands/help use the same flag registry; human/JSON share the payload. No
+capability route was added to a Runtime skill, per PD-14.
+
+Synthetic tests cover both command paths, parity/help, malformed/duplicate and
+foreign-authority flags, unknown-state zero-write refusal and an actual canonical
+Evidence-store show/invalidate/show round trip under injected version/Evidence
+fixtures. That fixture is explicitly not an operational proof. Focused race
+checks (`go test -race ./internal/cli ./cmd/lingo -run
+'TestRuntimeCapability|TestCapabilityInvalidation|TestCapabilityPublic|TestCapabilityExcluded'
+-count=1 -timeout=60s`) passed, exit 0 (1.124s / 1.152s).
+T44 remains partial until standard probe/preparation and distinct extended
+operation are composed and validated; T41 and installed T36 are still open.

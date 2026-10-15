@@ -362,6 +362,9 @@ func RunInteractive(ctx context.Context, args []string, service Service, source 
 			return emitResponse(stdout, mode, "project_context", *failure)
 		}
 	}
+	if handled, code := runRuntimeCapability(ctx, mode, args, service, source, stdout); handled {
+		return code
+	}
 	if handled, code := runRuntimeAuthoring(ctx, mode, args, service, source, stdout); handled {
 		return code
 	}

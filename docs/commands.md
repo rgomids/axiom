@@ -251,6 +251,34 @@ readable. Current starts require schema 2 and local Profile-owned effort.
 Historical Executions remain readable; new stage compilation, dispatch or retry
 without a frozen v2 tuple refuses `legacy_execution_contract`.
 
+## Inspect and invalidate capability Evidence
+
+```bash
+axiom runtime codex capability show --help
+axiom runtime claude capability invalidate --help
+axiom --json runtime codex capability show --profile codex-high \
+  --variant repository-write --repository-root /absolute/repository \
+  --workspace-root /absolute/workspace --authorize-local
+axiom --json runtime codex capability invalidate --profile codex-high \
+  --variant repository-write --repository-root /absolute/repository \
+  --workspace-root /absolute/workspace --authorize-local
+```
+
+Both Runtime names expose the same commands. `--process` selects the exact mode
+with process effects. `--authorize-local` consents to effort-source inspection;
+it authorizes invalidation only with the exact `--preview-digest` returned by
+the invalidation preview. Omitting the digest previews without writes. Repeat
+the same selectors and add that digest to invalidate; no Runtime or Provider is
+invoked. JSON and human output carry the same completion and capability payload.
+
+Evidence must match the fresh executable, passive version observation, Profile,
+effort, variant and pinned Axiom binary. Unknown or unavailable observations
+remain `capability_unknown`, including the empty embedded version registry and
+the currently unprovable read-only effort boundary. Invalidation never promotes
+capability. Capability commands are CLI-only, outside `axiom-runtime` skill
+routing. Probe and extended-probe wiring remain under implementation in #276;
+these commands do not authorize either effect.
+
 ## Inspect skill arguments
 
 ```bash
