@@ -2277,3 +2277,13 @@ adding the existing `/home/box/go/bin` resolved it, without installing anything.
 No actual vendor executable, authentication, probe or inference was invoked.
 T40 and AC-6 remain NOT_RUN. This unit does not close the remaining T41/T44,
 stage-composition, retry-reset or installed-validation gaps listed above.
+
+CI `38823438873` at `13412e0` **FAILED** on native macOS: the orphan regression
+ran, but the baseline wrongly included only processes already parented by
+launchd. Pre-existing unrelated processes adopted later made clean exits and
+confirmed group-stop tests inconclusive. The correction snapshots **all** live
+pre-spawn process identities, while subsequent observations consider adopted
+processes only. No outcome assertion or security gate was weakened. Linux
+focused race regression repeated: exit 0, 22.140s; Darwin arm64 compilation:
+exit 0. Native CI for the correction is still required. An unrelated process
+created and daemonized after spawn can still conservatively prevent confirmation.

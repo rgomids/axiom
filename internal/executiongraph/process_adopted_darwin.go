@@ -9,7 +9,7 @@ import (
 // Darwin adopts escaped orphans into launchd instead of this supervisor. A new
 // live launchd child cannot be attributed safely, so stop remains unconfirmed.
 // Start identity prevents a reused PID from matching the pre-spawn baseline.
-func observeAdoptedProcesses() (map[int]string, error) {
+func observeAdoptedProcesses(baseline bool) (map[int]string, error) {
 	processes, err := unix.SysctlKinfoProcSlice("kern.proc.all")
 	if err != nil {
 		return nil, err
@@ -18,7 +18,7 @@ func observeAdoptedProcesses() (map[int]string, error) {
 	startedGroups.Lock()
 	defer startedGroups.Unlock()
 	for _, p := range processes {
-		if p.Proc.P_stat == 5 || p.Eproc.Ppid != 1 || startedGroups.leaders[int(p.Eproc.Pgid)] {
+		if p.Proc.P_stat == 5 || !baseline && (p.Eproc.Ppid != 1 || startedGroups.leaders[int(p.Eproc.Pgid)]) {
 			continue
 		}
 		result[int(p.Proc.P_pid)] = fmt.Sprintf("%d:%d", p.Proc.P_starttime.Sec, p.Proc.P_starttime.Usec)

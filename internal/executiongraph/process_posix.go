@@ -31,7 +31,7 @@ func (g *posixProcessGroup) start(cmd *exec.Cmd) error {
 	if err := enableChildSubreaper(); err != nil {
 		return err
 	}
-	baseline, err := observeAdoptedProcesses()
+	baseline, err := observeAdoptedProcesses(true)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (g *posixProcessGroup) close() {
 type processObservation struct{ pid, parent, group int }
 
 func (g *posixProcessGroup) observeEscapes() {
-	adopted, err := observeAdoptedProcesses()
+	adopted, err := observeAdoptedProcesses(false)
 	if err != nil {
 		g.observationErr = err
 		return
