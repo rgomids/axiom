@@ -81,9 +81,9 @@ installation compatibility and synthetic R-1 Evidence. It keeps native R-2 and
 human R-3 acceptance deferred to #278; technical checks do not imply release
 or human acceptance.
 
-[Proposed #276 successor-Graph amendment](007-configurable-workflows/amendment-276-successor-graph-proposed.md) and [ADR-0026](../decisions/0026-successor-stage-dispatch-graph-format.md): PD-R276-01/B direction approved on 2026-10-12; detailed contract and the 44 Tasks accepted, recorded 2026-10-13 ([record](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13)); Graph1/2 preserved; implementation proceeds through one PR per AXM-8 child card.
+[#276 successor-Graph amendment](007-configurable-workflows/amendment-276-successor-graph-proposed.md) and [ADR-0026](../decisions/0026-successor-stage-dispatch-graph-format.md): PD-R276-01/B direction approved on 2026-10-12; detailed contract and the 44 Tasks accepted, recorded 2026-10-13 ([record](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#maintainer-acceptance-and-delivery-governance--recorded-2026-10-13)); Graph1/2 preserved; remaining execution is consolidated in AXM-8 with one open work PR, following the 2026-10-14 decision ([reconciliation](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#reconciliation-addendum--2026-10-15)).
 
-[AXM-22 binding identity amendment](007-configurable-workflows/amendment-276-axm22-binding-identity.md): Process as an explicit invocation-mode identity dimension (BI-1, partially implemented) and capability-proof-independent effort-source inspection (BI-2, approved, not implemented); approved 2026-10-14 under I276-T16/T17.
+[AXM-22 binding identity amendment](007-configurable-workflows/amendment-276-axm22-binding-identity.md): Process mode identity, effort-source inspection, canonical Runtime/Profile v3-only activation, production BindingSource and authorization epoch integrated via AXM-22/#318. Production capability availability remains unproven; the embedded version registry is empty. See the [current Evidence matrix](007-configurable-workflows/issue-276-implementation.md#reconcile-2026-10-15--main-baseline-and-task-matrix).
 
 [#276 Plan and Tasks — run and coordinate stage agents](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md):
 Part I (Plan, revision 5), the companion
@@ -94,8 +94,7 @@ are **Accepted, 2026-10-11** ([maintainer decision](https://github.com/rgomids/a
 They cover public `workflow stage` dispatch, a detached supervisor,
 coordination, probe-based capability proof, persisted coordination-to-graph
 classification and consumption of the #306 effort/versioning contract.
-**Part II (44 Tasks) is Proposed, awaiting human approval.** Nothing here
-authorizes implementation, dispatch, inference or acceptance.
+**Part II (44 Tasks), ADR-0026 and successor amendment accepted, recorded 2026-10-13**, including implementation within those contracts. The [reconciliation addendum](007-configurable-workflows/plan-tasks-276-stage-agent-execution.md#reconciliation-addendum--2026-10-15) applies subsequent v3 and delivery decisions without rewriting accepted history. [Task/Evidence matrix](007-configurable-workflows/issue-276-implementation.md#reconcile-2026-10-15--main-baseline-and-task-matrix): partial public composition, capability probe wiring, verification and real smoke remain open. Acceptance does not authorize real probes/inference, merge, release or product acceptance.
 
 ## 006 — Installer Host Eligibility and Platform Support Policy
 
