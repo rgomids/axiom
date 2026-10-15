@@ -27,6 +27,10 @@ import (
 type PreparedProbeEnvelopes struct{ Envelope *Envelope }
 
 func (p PreparedProbeEnvelopes) Open(ctx context.Context, preparation capabilityproof.ProbePreparation) (capabilityproof.ProbeEnvelope, error) {
+	return p.open(ctx, preparation, (*AttemptInbox).Create)
+}
+
+func (p PreparedProbeEnvelopes) open(ctx context.Context, preparation capabilityproof.ProbePreparation, create func(*AttemptInbox, context.Context, coordination.ChildContext) error) (session capabilityproof.ProbeEnvelope, err error) {
 	e := p.Envelope
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -51,24 +55,27 @@ func (p PreparedProbeEnvelopes) Open(ctx context.Context, preparation capability
 		return nil, err
 	}
 	launch := probeCanaryLaunch{ProbeID: e.manifest.ProbeID, ManifestDigest: e.digest, Nonce: e.manifest.Nonce, PacketDigest: digestEnvelope(preparation.Invocation.Stdin), Loopback: listener.Addr().(*net.TCPAddr).AddrPort(), Child: probeChild(e)}
+	defer func() {
+		if session == nil {
+			listener.Close()
+			err = errors.Join(err, e.Quarantine())
+		}
+	}()
 	wire, err := json.Marshal(launch)
 	if err == nil {
 		err = directory.CreateExclusive("probe-run.json", wire, 0600)
 	}
 	if err != nil {
-		listener.Close()
 		return nil, err
 	}
 	inbox, err := NewAttemptInbox(launch.Child)
 	if err == nil {
-		err = inbox.Create(ctx, launch.Child)
+		err = create(inbox, ctx, launch.Child)
 	}
 	if err != nil {
-		listener.Close()
 		return nil, err
 	}
 	if err = e.InspectReady(); err != nil {
-		listener.Close()
 		return nil, err
 	}
 	s := &probeSession{envelope: e, launch: launch, inbox: inbox, listener: listener, done: make(chan struct{})}
@@ -183,7 +190,7 @@ func (s *probeSession) Verify(ctx context.Context, result executiongraph.Process
 				return v, nil
 			}
 		}
-		v.Negatives = append(v.Negatives, capabilityproof.NegativeMeasurement{Target: target, Canary: attempt, Identity: report.Identity, CanaryRan: true})
+		v.Negatives = append(v.Negatives, capabilityproof.NegativeMeasurement{Target: target, Canary: attempt, Identity: report.Identity})
 	}
 	inbox, err := OpenOwnedDirectory(filepath.Join(s.envelope.path, "inbox"))
 	if err != nil {
@@ -202,10 +209,7 @@ func (s *probeSession) Verify(ctx context.Context, result executiongraph.Process
 		workspace.Close()
 		write = err == nil && string(wire) == "created:"+s.launch.Nonce+";edited:"+s.launch.Nonce
 	}
-	v.Positive = capabilityproof.PositiveSteps{ReadNonce: read, WorkspaceCreated: write, WorkspaceEdited: write, CanaryExecuted: true, InboxPublished: true, ResultPublished: read, Noninteractive: true}
-	v.ModelInvoked = read
-	v.EffortVerified = read
-	v.Inconclusive = !read || s.envelope.manifest.Variant == capabilityproof.RepositoryWriteVariant && !write
+	v.Positive = capabilityproof.PositiveSteps{ReadNonce: read, WorkspaceCreated: write, WorkspaceEdited: write, InboxPublished: true, ResultPublished: read, Noninteractive: true}
 	return v, s.envelope.InspectReady()
 }
 

@@ -1822,3 +1822,79 @@ smoke, Provider effects and T40 remain **NOT_RUN**. AC-6, real capabilities and
 human operational acceptance remain unproved. No merge, release, Issue closure,
 Linear lifecycle/blocker/label change or new Work Item is authorized by this
 record. No additional human decision is needed for the delivered slice.
+
+### Review corrections 2026-10-15 — PR #320 round 1, CR-001 / CR-002
+
+Scope is exclusively the two Major findings in
+[review 5539186839](https://github.com/rgomids/axiom/pull/320#pullrequestreview-5539186839),
+against `481f6997f806beef74466678d13c9a9b33568f41`. The earlier implementation
+ledger remains historical; its capability-promotion and advisory-confinement
+claims are corrected by this entry. No Task, accepted Plan/catalog, Specification,
+ADR, receipt or historical corpus is changed.
+
+**CR-001.** Inbox lineage, digest, nonce, process identity and denial reports
+are consistency checks on child-controlled data. Neither unchanged targets nor
+parent-side positive controls attest that a denied syscall happened. A loopback
+nonce exchange also cannot identify the executable responsible. The existing
+contract provides no independent attestation of canary execution, model invocation
+or effective effort. The smallest safe correction retains those verification
+flags as false and the verification as inconclusive. Observed file contents and
+validated publications remain diagnostic observations; `Service.Probe` consequently
+persists all capability states and confinement as `unknown`. This applies even
+when the cooperative synthetic child runs the actual canary. These production
+ports cannot currently establish capability proof. No signature, permission
+expansion, dependency or alternative probe mechanism is introduced. This follows
+ADR-0025's own-observation and unknown rules, without changing that decision.
+
+The adversarial subprocess fixture reads the manifest, workspace nonce and
+launch context; writes the expected positive files; and publishes a valid
+`Progress` containing a correlated `CanaryReport` with fabricated `EACCES` for
+every negative target. It never invokes the canary or attempts a negative write.
+Both fake Runtime identities and both variants must reach report verification
+with exit zero and accepted negative observations, while `CanaryRan`,
+`CanaryExecuted`, `ModelInvoked` and `EffortVerified` remain false. Final Evidence
+must be inconclusive, with every capability and confinement `unknown`. Cooperative
+positive fixtures still require observed nonce/workspace/publication/canary-file
+effects, packet binding, zero-write preview, exact stored Evidence, unchanged
+outside roots and exact cleanup; they now expect honest unknown capability states.
+
+**CR-002.** `Service.Probe` cannot quarantine an envelope when its opener fails.
+The opener now owns failure recovery from immediately before the first launch-file
+write, including partially failed writes. Every unsuccessful return closes its
+listener, revokes the live preparation through existing `Envelope.Quarantine`,
+retains owned objects, and joins any quarantine verification error with the
+original failure. Recovery uses the existing inventory and exact cleanup protocol;
+there is no implicit deletion, reuse or retry. A private create callback at the
+existing inbox-creation boundary permits deterministic fault injection without
+changing the public port or adding a second lifecycle.
+
+Fault tests inject ENOSPC after launch persistence, after a partial attempt inbox
+with incomplete binding, and after complete inbox creation. A fourth test starts
+cleanup recovery before the final ready inspection. Every case requires a revoked
+handle, closed listener, refused reopening for dispatch, preserved objects,
+`InventoryRecovery`, recovery-only reopening and successful explicit exact cleanup.
+
+Validation uses the cached Go 1.26.0 binary with
+`GOTOOLCHAIN=local GOWORK=off GOFLAGS=`, ambient Claude effort unset and
+`AXIOM_TEST_PROBE_STATE_ROOT` under a private `/home/box` root outside repositories,
+temporary and vendor roots. The system Go 1.24.4 initially refused the module;
+that attempt executed no tests.
+
+| Command | Result |
+| --- | --- |
+| `go test -race ./internal/local ./cmd/lingo -run 'TestProbeOpenFailure\|TestPreparedProductionProbe(ForgedReport\|Variants)' -count=1 -timeout=180s` | PASS |
+| `go test -race ./internal/local ./internal/capabilityproof ./internal/runtimeadapter -count=1 -timeout=180s` | PASS, complete packages |
+| `go test -race -covermode=atomic -coverprofile=<private-output> ./cmd/lingo -run 'TestPreparedProductionProbe\|TestPrepareEnvelopeRequiresIndependentLocalAuthority\|TestHiddenCanary' -count=1 -timeout=180s` | PASS, full probe matrix with Linux CI instrumentation |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbeVariants$' -count=1 -timeout=120s` | PASS after adding explicit positive-effect assertions |
+| `go vet ./...`; `go build ./...`; `go mod verify` | PASS |
+| `./scripts/check-go-quality.sh all` | PASS, format/tidy/Staticcheck v0.8.1 |
+| `./scripts/validate-repository.sh .` | PASS, Runtime behavioral scenarios deliberately UNVERIFIED |
+
+Security review: child publications cannot elevate canonical capability Evidence;
+cleanup remains bound to verified ownership and exact objects. No material ADR
+conflict was identified. Dedicated `gitleaks` remains unavailable locally; no dedicated scanner result is claimed. Main-session implementation, review and validation were
+used without delegation because strict capability inferiority could not be
+verified. Real Runtime/version/help/authentication, inference, live probes,
+installed smoke, Provider effects and T40 remain **NOT_RUN**. No acceptance,
+merge, release, Issue/Task closure or Linear mutation. Remote exact-head native
+Linux/macOS CI and the re-review request are recorded on this same Draft PR.

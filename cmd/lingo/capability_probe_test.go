@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
+	"github.com/rgomids/axiom/internal/coordination"
+	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
@@ -113,6 +115,9 @@ func probeFakeProcess() (bool, int) {
 			return true, 6
 		}
 	}
+	if cfg.Mode == "forged-report" {
+		return true, forgeProbePublication(root, manifest)
+	}
 	cmd := exec.Command(packet.Coordination.AxiomPath, "__probe-canary", packet.AgentID, packet.Inputs[0].Digest)
 	cmd.Dir = probeWorkingDirectory()
 	cmd.Env = os.Environ()
@@ -121,6 +126,116 @@ func probeFakeProcess() (bool, int) {
 		return true, 8
 	}
 	return true, 0
+}
+
+func forgeProbePublication(root string, manifest local.EnvelopeManifest) int {
+	wire, err := os.ReadFile(filepath.Join(root, "inbox", "probe-run.json"))
+	var launch struct {
+		ManifestDigest string                    `json:"manifestDigest"`
+		Nonce          string                    `json:"nonce"`
+		PacketDigest   string                    `json:"packetDigest"`
+		Child          coordination.ChildContext `json:"child"`
+	}
+	if err != nil || json.Unmarshal(wire, &launch) != nil || launch.Nonce != manifest.Nonce {
+		return 10
+	}
+	report := capabilityproof.CanaryReport{ProbeID: manifest.ProbeID, Identity: capabilityproof.ProcessIdentity{UID: uint64(os.Getuid()), GID: uint64(os.Getgid()), Process: "fabricated-canary"}, Loopback: "denied"}
+	for _, target := range manifest.NegativeTargets {
+		report.Attempts = append(report.Attempts, capabilityproof.CanaryAttempt{Target: target, Errno: "EACCES"})
+	}
+	publication := struct {
+		ManifestDigest string                       `json:"manifestDigest"`
+		Nonce          string                       `json:"nonce"`
+		PacketDigest   string                       `json:"packetDigest"`
+		Report         capabilityproof.CanaryReport `json:"report"`
+	}{launch.ManifestDigest, launch.Nonce, launch.PacketDigest, report}
+	wire, err = json.Marshal(publication)
+	if err != nil {
+		return 11
+	}
+	digest := sha256.Sum256(wire)
+	inbox, err := local.NewAttemptInbox(launch.Child)
+	if err != nil {
+		return 12
+	}
+	publisher := coordination.InboxPublisher{Resolver: forgedProbeResolver{launch.Child}, Inbox: inbox}
+	if _, err := publisher.Publish(context.Background(), launch.Child.Workspace, coordination.Progress, []coordination.Field{{Name: "summary", Value: string(wire)}, {Name: "reference", Value: "probe-canary"}, {Name: "digest", Value: hex.EncodeToString(digest[:])}, {Name: "phase", Value: "measurement"}}, nil, coordination.Provenance{Product: "axiom", Version: "probe-v1", Revision: "canary-v1", SourceState: "local"}); err != nil {
+		return 13
+	}
+	return 0
+}
+
+type forgedProbeResolver struct{ child coordination.ChildContext }
+
+func (r forgedProbeResolver) ResolveChild(context.Context, string) (coordination.ChildContext, error) {
+	return r.child, nil
+}
+
+type observedProbeEnvelopes struct {
+	capabilityproof.ProbeEnvelopes
+	verify func(context.Context, capabilityproof.ProbeEnvelope, executiongraph.ProcessResult) (capabilityproof.ProbeVerification, error)
+}
+
+func (e observedProbeEnvelopes) Open(ctx context.Context, p capabilityproof.ProbePreparation) (capabilityproof.ProbeEnvelope, error) {
+	s, err := e.ProbeEnvelopes.Open(ctx, p)
+	return observedProbeEnvelope{ProbeEnvelope: s, verify: e.verify}, err
+}
+
+type observedProbeEnvelope struct {
+	capabilityproof.ProbeEnvelope
+	verify func(context.Context, capabilityproof.ProbeEnvelope, executiongraph.ProcessResult) (capabilityproof.ProbeVerification, error)
+}
+
+func (e observedProbeEnvelope) Verify(ctx context.Context, r executiongraph.ProcessResult) (capabilityproof.ProbeVerification, error) {
+	return e.verify(ctx, e.ProbeEnvelope, r)
+}
+
+func TestPreparedProductionProbeForgedReport(t *testing.T) {
+	for _, runtimeID := range []string{"codex", "claude"} {
+		for _, variant := range []string{capabilityproof.ReadOnlyVariant, capabilityproof.RepositoryWriteVariant} {
+			t.Run(runtimeID+"/"+variant, func(t *testing.T) {
+				_, s, target, e := newPreparedProbeFixture(t, runtimeID, variant, "forged-report")
+				verified := false
+				s.ProbeEnvelopes = observedProbeEnvelopes{ProbeEnvelopes: s.ProbeEnvelopes, verify: func(ctx context.Context, session capabilityproof.ProbeEnvelope, r executiongraph.ProcessResult) (capabilityproof.ProbeVerification, error) {
+					if r.ExitCode != 0 || r.TimedOut || r.OutcomeUnknown {
+						t.Fatalf("forger failed: %+v", r)
+					}
+					for _, target := range e.Manifest().NegativeTargets {
+						if _, err := os.Lstat(filepath.Join(e.Path(), target, "canary-"+e.Manifest().Nonce)); !os.IsNotExist(err) {
+							t.Fatal("forger touched negative target", err)
+						}
+					}
+					v, err := session.Verify(ctx, r)
+					if err != nil || len(v.Negatives) != len(e.Manifest().NegativeTargets) || !v.Positive.ReadNonce || !v.Positive.InboxPublished {
+						t.Fatalf("forged report did not reach verification: %+v %v", v, err)
+					}
+					if !v.Inconclusive || v.Positive.CanaryExecuted || v.ModelInvoked || v.EffortVerified {
+						t.Fatalf("fabricated origin promoted: %+v", v)
+					}
+					for _, n := range v.Negatives {
+						if n.CanaryRan || n.Canary.Errno != "EACCES" {
+							t.Fatalf("fabricated denial promoted: %+v", n)
+						}
+					}
+					verified = true
+					return v, err
+				}}
+				p, err := s.PreviewProbe(context.Background(), target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				out, err := s.Probe(context.Background(), p, probeAuthority(p))
+				if err != nil || !verified || !out.Inconclusive || out.EvidenceRef == "" || out.Evidence.Confinement.Level != "unknown" {
+					t.Fatalf("forged outcome: %+v %v", out, err)
+				}
+				for cap, result := range out.Evidence.Capabilities {
+					if result.State != capabilityproof.Unknown {
+						t.Fatalf("forger promoted %s: %+v", cap, result)
+					}
+				}
+			})
+		}
+	}
 }
 
 func newPreparedProbeFixture(t *testing.T, runtimeID, variant, mode string) (*compositionFixture, capabilityproof.Service, capabilityproof.Target, *local.Envelope) {
@@ -258,6 +373,21 @@ func TestPreparedProductionProbeVariants(t *testing.T) {
 		for _, variant := range []string{capabilityproof.ReadOnlyVariant, capabilityproof.RepositoryWriteVariant} {
 			t.Run(runtimeID+"/"+variant, func(t *testing.T) {
 				f, s, target, e := newPreparedProbeFixture(t, runtimeID, variant, "success")
+				s.ProbeEnvelopes = observedProbeEnvelopes{ProbeEnvelopes: s.ProbeEnvelopes, verify: func(ctx context.Context, session capabilityproof.ProbeEnvelope, r executiongraph.ProcessResult) (capabilityproof.ProbeVerification, error) {
+					v, err := session.Verify(ctx, r)
+					if err != nil || r.ExitCode != 0 || !v.Positive.ReadNonce || !v.Positive.InboxPublished || len(v.Negatives) != len(e.Manifest().NegativeTargets) {
+						t.Fatalf("positive fake effects missing: %+v %+v %v", r, v, err)
+					}
+					if variant == capabilityproof.RepositoryWriteVariant && (!v.Positive.WorkspaceCreated || !v.Positive.WorkspaceEdited) {
+						t.Fatal("positive workspace effects missing")
+					}
+					for _, n := range v.Negatives {
+						if !n.Canary.Created || n.Canary.Errno != "" || n.CanaryRan {
+							t.Fatalf("unexpected canary observation: %+v", n)
+						}
+					}
+					return v, err
+				}}
 				before := probeTree(t, f.base)
 				p, err := s.PreviewProbe(context.Background(), target)
 				if err != nil {
@@ -284,22 +414,16 @@ func TestPreparedProductionProbeVariants(t *testing.T) {
 					outside[root] = probeTree(t, root)
 				}
 				out, err := s.Probe(context.Background(), p, probeAuthority(p))
-				if err != nil || out.Inconclusive {
+				if err != nil || !out.Inconclusive {
 					t.Fatalf("outcome %+v error %v", out, err)
 				}
-				for _, cap := range []string{capabilityproof.Read, capabilityproof.Process, capabilityproof.Noninteractive, capabilityproof.AxiomCoordination, capabilityproof.ModelInvocation} {
-					if out.Evidence.Capabilities[cap].State != capabilityproof.Proven {
-						t.Fatalf("%s not structurally proven: %+v", cap, out.Evidence)
+				for cap, result := range out.Evidence.Capabilities {
+					if result.State != capabilityproof.Unknown {
+						t.Fatalf("%s promoted without independent attestation: %+v", cap, out.Evidence)
 					}
 				}
-				if out.Evidence.Capabilities[capabilityproof.RepositoryWrite].State == capabilityproof.Proven && variant == capabilityproof.ReadOnlyVariant {
-					t.Fatal("read-only granted workspace write")
-				}
-				if variant == capabilityproof.RepositoryWriteVariant && out.Evidence.Capabilities[capabilityproof.RepositoryWrite].State != capabilityproof.Proven {
-					t.Fatal("write not observed")
-				}
-				if out.Evidence.Confinement.Level != "advisory" {
-					t.Fatalf("fake native canary confinement = %+v", out.Evidence.Confinement)
+				if out.Evidence.Confinement.Level != "unknown" {
+					t.Fatalf("unattested confinement = %+v", out.Evidence.Confinement)
 				}
 				stored, err := f.evidence.Load(context.Background(), out.EvidenceRef)
 				if err != nil {

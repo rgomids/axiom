@@ -5,13 +5,18 @@ package local
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
+	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/executiongraph"
 )
 
@@ -189,5 +194,93 @@ func TestProbeNativeControlObservesUnchangedObject(t *testing.T) {
 	}
 	if _, err := s.Control(context.Background(), "../outside"); err == nil {
 		t.Fatal("control accepted path outside manifest")
+	}
+}
+
+func TestProbeOpenFailureQuarantinesPartialPreparation(t *testing.T) {
+	for _, stage := range []string{"launch", "partial-inbox", "complete-inbox", "final-inspection"} {
+		t.Run(stage, func(t *testing.T) {
+			e := envelopeFixture(t)
+			preparation := capabilityproof.ProbePreparation{Manifest: e.Manifest(), ManifestDigest: e.digest, Invocation: executiongraph.Invocation{Stdin: []byte("synthetic-packet")}}
+			injected := error(syscall.ENOSPC)
+			if stage == "final-inspection" {
+				injected = ErrUnsafeEnvelope
+			}
+			create := func(inbox *AttemptInbox, ctx context.Context, child coordination.ChildContext) error {
+				if _, err := os.Stat(filepath.Join(e.path, "inbox", "probe-run.json")); err != nil {
+					t.Fatal("launch not persisted before fault", err)
+				}
+				switch stage {
+				case "partial-inbox":
+					if err := os.Mkdir(child.Inbox, 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(filepath.Join(child.Inbox, "binding.json"), []byte("{"), 0600); err != nil {
+						t.Fatal(err)
+					}
+				case "complete-inbox", "final-inspection":
+					if err := inbox.Create(ctx, child); err != nil {
+						t.Fatal(err)
+					}
+					if stage == "final-inspection" {
+						preview, err := e.PreviewCleanup()
+						if err != nil {
+							t.Fatal(err)
+						}
+						return preview.ensureCleanupIntent()
+					}
+				}
+				return injected
+			}
+			s, err := (PreparedProbeEnvelopes{Envelope: e}).open(context.Background(), preparation, create)
+			if s != nil || !errors.Is(err, injected) || e.prepared || e.InspectReady() == nil {
+				t.Fatalf("partial preparation retained authority: %v %v prepared=%v", s, err, e.prepared)
+			}
+			launchWire, err := os.ReadFile(filepath.Join(e.path, "inbox", "probe-run.json"))
+			var launch probeCanaryLaunch
+			if err != nil || json.Unmarshal(launchWire, &launch) != nil {
+				t.Fatal("launch lost", err)
+			}
+			conn, err := net.DialTimeout("tcp4", launch.Loopback.String(), time.Second)
+			if err == nil {
+				conn.Close()
+				t.Fatal("failed open leaked listener")
+			}
+			if _, err := (PreparedProbeEnvelopes{Envelope: e}).Open(context.Background(), preparation); err == nil {
+				t.Fatal("failed open reused preparation")
+			}
+			if stage != "launch" {
+				if _, err := os.Stat(filepath.Join(launch.Child.Inbox, "binding.json")); err != nil {
+					t.Fatal("partial objects removed implicitly", err)
+				}
+			}
+			inventory, err := InspectStateInventory(context.Background(), e.policy.StateRoot)
+			if err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, entry := range inventory.Entries {
+				if entry.Relative == filepath.Join("capability-probes", e.manifest.ProbeID) {
+					found = entry.Kind == InventoryRecovery
+				}
+			}
+			if !found {
+				t.Fatal("failed preparation missing from recovery inventory")
+			}
+			recovered, err := OpenQuarantinedEnvelope(e.policy, e.manifest.ProbeID, e.digest)
+			if err != nil || recovered.InspectReady() == nil {
+				t.Fatal("recovery acquired authority", err)
+			}
+			preview, err := recovered.PreviewCleanup()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := preview.Apply(); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Lstat(e.path); !os.IsNotExist(err) {
+				t.Fatal("exact recovery cleanup failed", err)
+			}
+		})
 	}
 }
