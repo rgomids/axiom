@@ -41,6 +41,14 @@ func (p PreparedProbeEnvelopes) open(ctx context.Context, preparation capability
 	if preparation.ManifestDigest != e.digest || !reflect.DeepEqual(preparation.Manifest, e.Manifest()) || len(preparation.Invocation.Stdin) == 0 {
 		return nil, capabilityproof.ErrStalePreview
 	}
+	if err := e.claim(); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if session == nil {
+			err = errors.Join(err, e.Quarantine())
+		}
+	}()
 	directory, err := OpenOwnedDirectory(filepath.Join(e.path, "inbox"))
 	if err != nil {
 		return nil, err
@@ -58,7 +66,6 @@ func (p PreparedProbeEnvelopes) open(ctx context.Context, preparation capability
 	defer func() {
 		if session == nil {
 			listener.Close()
-			err = errors.Join(err, e.Quarantine())
 		}
 	}()
 	wire, err := json.Marshal(launch)

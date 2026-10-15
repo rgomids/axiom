@@ -70,6 +70,16 @@ func (l ProbeCanaryLoader) Load(ctx context.Context, id, digest string) (capabil
 		return capabilityproof.CanaryContext{}, nil, capabilityproof.ErrCanaryContext
 	}
 	e.prepared = true
+	claimed, err := OpenOwnedDirectory(e.path)
+	if err != nil {
+		return capabilityproof.CanaryContext{}, nil, err
+	}
+	claim, err := claimed.ReadFile(probeClaimName, 64)
+	claimed.Close()
+	if err != nil || string(claim) != e.digest {
+		return capabilityproof.CanaryContext{}, nil, capabilityproof.ErrCanaryContext
+	}
+	e.claimed = true
 	if err := e.InspectReady(); err != nil {
 		return capabilityproof.CanaryContext{}, nil, err
 	}

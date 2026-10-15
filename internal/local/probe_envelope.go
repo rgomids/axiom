@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
@@ -33,6 +34,8 @@ type Envelope struct {
 	manifest EnvelopeManifest
 	digest   string
 	prepared bool
+	mu       sync.Mutex
+	claimed  bool
 }
 
 func within(path, root string) bool {
@@ -102,15 +105,46 @@ func probeName(id string) bool {
 }
 
 // CreateEnvelope never overwrites a pre-existing probe and leaves interrupted
-// preparation quarantined. A running probe requires the caller's live handle.
+// preparation quarantined. An unused ready preparation can be reopened only by
+// its exact manifest digest; a running probe requires its unique live claim.
 func CreateEnvelope(policy EnvelopePolicy, id string, limits EnvelopeLimits) (*Envelope, error) {
-	if (policy.Variant != capabilityproof.ReadOnlyVariant && policy.Variant != capabilityproof.RepositoryWriteVariant) || !probeName(id) || limits.Timeout <= 0 || limits.MaxFiles <= 0 || limits.MaxBytes <= 0 || limits.MaxBytes > 1<<30 || limits.MaxFiles > 10000 {
-		return nil, ErrUnsafeEnvelope
-	}
-	if err := checkEnvelopePolicy(policy); err != nil {
+	if _, err := InspectEnvelopePreparation(policy, id, limits); err != nil {
 		return nil, err
 	}
 	return prepareEnvelope(policy, id, limits)
+}
+
+// InspectEnvelopePreparation validates a zero-write preparation and binds the
+// existing state-root ancestors. Any existing probe identity is refused.
+func InspectEnvelopePreparation(policy EnvelopePolicy, id string, limits EnvelopeLimits) (string, error) {
+	if (policy.Variant != capabilityproof.ReadOnlyVariant && policy.Variant != capabilityproof.RepositoryWriteVariant) || !probeName(id) || limits.Timeout <= 0 || limits.MaxFiles <= 0 || limits.MaxBytes <= 0 || limits.MaxBytes > 1<<30 || limits.MaxFiles > 10000 {
+		return "", ErrUnsafeEnvelope
+	}
+	if err := checkEnvelopePolicy(policy); err != nil {
+		return "", err
+	}
+	if _, err := os.Lstat(filepath.Join(policy.StateRoot, "capability-probes", id)); !os.IsNotExist(err) {
+		return "", ErrUnsafeEnvelope
+	}
+	identities := map[string]string{}
+	for path := policy.StateRoot; ; path = filepath.Dir(path) {
+		identity, err := DirectoryIdentity(path)
+		if err != nil {
+			if _, err := os.Lstat(path); !os.IsNotExist(err) {
+				return "", ErrUnsafeEnvelope
+			}
+			identity = "absent"
+		}
+		identities[path] = identity
+		if filepath.Dir(path) == path {
+			break
+		}
+	}
+	wire, err := json.Marshal(identities)
+	if err != nil {
+		return "", err
+	}
+	return digestEnvelope(wire), nil
 }
 
 // prepareEnvelope accepts an already policy-validated state root.
@@ -253,7 +287,12 @@ func (e *Envelope) ManifestDigest() string { return e.digest }
 // InspectReady observes a live prepared envelope without creating objects or
 // accepting cleanup recovery state as a runnable envelope.
 func (e *Envelope) InspectReady() error {
-	if e == nil || !e.prepared || e.manifest.Phase != "ready" {
+	if e == nil {
+		return ErrUnsafeEnvelope
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if !e.prepared || e.manifest.Phase != "ready" {
 		return ErrUnsafeEnvelope
 	}
 	if err := e.verify(); err != nil {
@@ -262,6 +301,80 @@ func (e *Envelope) InspectReady() error {
 	intent, err := readEnvelopeIntent(e.policy, e.manifest.ProbeID)
 	if err != nil || intent != nil {
 		return ErrUnsafeEnvelope
+	}
+	if _, err := os.Lstat(filepath.Join(e.path, probeQuarantineName)); !os.IsNotExist(err) {
+		return ErrUnsafeEnvelope
+	}
+	if !e.claimed {
+		d, err := OpenOwnedDirectory(e.path)
+		if err != nil {
+			return err
+		}
+		defer d.Close()
+		if _, err := d.Lstat(probeClaimName); !os.IsNotExist(err) {
+			return ErrUnsafeEnvelope
+		}
+	}
+	return nil
+}
+
+const probeClaimName = ".axiom-recovery-probe-claimed"
+const probeQuarantineName = ".axiom-recovery-probe-quarantined"
+
+// OpenPreparedEnvelope reads an unused ready preparation by its exact manifest
+// digest. A claimed, quarantined, interrupted or cleanup envelope never reopens
+// for execution; OpenQuarantinedEnvelope remains cleanup-only.
+func OpenPreparedEnvelope(policy EnvelopePolicy, id, digest string) (*Envelope, error) {
+	e, err := openEnvelope(policy, id, digest)
+	if err != nil || e.manifest.Phase != "ready" {
+		return nil, ErrUnsafeEnvelope
+	}
+	e.prepared = true
+	if err := e.InspectReady(); err != nil {
+		return nil, err
+	}
+	d, err := OpenOwnedDirectory(filepath.Join(e.path, "inbox"))
+	if err != nil {
+		return nil, err
+	}
+	defer d.Close()
+	entries, err := d.ReadDir()
+	if err != nil || len(entries) != 0 {
+		return nil, ErrUnsafeEnvelope
+	}
+	return e, nil
+}
+
+func (e *Envelope) claim() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if !e.prepared || e.claimed {
+		return ErrUnsafeEnvelope
+	}
+	if err := e.verify(); err != nil {
+		return err
+	}
+	d, err := OpenOwnedDirectory(e.path)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	info, err := d.root.Stat(".")
+	if err != nil {
+		return err
+	}
+	identity, err := envelopeObjectIdentity(info)
+	if err != nil || identity != e.manifest.Identities["."] {
+		return ErrUnsafeEnvelope
+	}
+	if err = d.CreateExclusive(probeClaimName, []byte(e.digest), 0600); err != nil {
+		e.prepared = false
+		return err
+	}
+	e.claimed = true
+	if err := d.Sync(); err != nil {
+		e.prepared = false
+		return err
 	}
 	return nil
 }
@@ -375,8 +488,25 @@ func openEnvelope(policy EnvelopePolicy, id, digest string) (*Envelope, error) {
 // Quarantine revokes the live preparation handle and preserves every object.
 // Leftovers are quarantined by default, including crash-before-marker cases.
 func (e *Envelope) Quarantine() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.prepared = false
-	return e.verify()
+	if err := e.verify(); err != nil {
+		return err
+	}
+	intent, err := readEnvelopeIntent(e.policy, e.manifest.ProbeID)
+	if err != nil || intent != nil {
+		return err
+	}
+	d, err := OpenOwnedDirectory(e.path)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	if err := d.CreateExclusive(probeQuarantineName, []byte(e.digest), 0600); err != nil && !os.IsExist(err) {
+		return err
+	}
+	return d.Sync()
 }
 
 type EnvelopeCleanupPreview struct {

@@ -2319,3 +2319,36 @@ tracking for the non-elevated Runtime contract, never a privilege/confinement
 claim. New unrelated processes with the operator's identity still conservatively
 prevent confirmation. No tests or result gates changed. Darwin arm64 test
 compilation passed (exit 0); native CI remains required.
+
+### Unused preparation handoff and durable single-use claim (T13/T16/T44)
+
+Option A's separately prepared envelope can now cross CLI invocations only while
+it is an unused, physically verified `ready` envelope, selected by its exact
+manifest digest. `OpenQuarantinedEnvelope` still never grants execution. Opening
+an unused preparation checks cleanup intent, quarantine, claim and an empty
+inbox without writes. Session open exclusively creates and fsyncs a claim before
+listener/inbox effects; only its live owning handle can continue. Recovery
+markers use the existing recognized `.axiom-recovery-*` namespace and contain
+only the manifest digest. Quarantine now persists revocation, except when an
+existing cleanup intent already excludes execution. Interrupted/claimed or
+quarantined envelopes refuse reuse. The pinned canary loader verifies the claim
+and refuses quarantine; child output remains diagnostic, never trusted proof.
+
+The claim revalidates the manifest objects and the opened root's physical
+identity before its first write. There is no new dependency, Runtime/Profile
+format, Graph format or canonical Evidence kind. Existing recovery inventory
+and exact-object cleanup recognize the markers. A cleanup preview made before
+quarantine must now be renewed because quarantine adds an owned object: the
+regression asserts refusal of the old preview and success of the new exact
+preview. Cleanup intent in progress does not receive a new object.
+
+Synthetic validation with `AXIOM_TEST_PROBE_STATE_ROOT` set to a private test
+directory outside temporary/repository roots, pinned Go 1.26.0 and ambient Claude
+effort unset: `go test -race ./internal/local -run
+'TestProbe|TestCanary|TestPreparedEnvelope|TestQuarantinedEnvelope' -count=1
+-timeout=90s` passed (exit 0, 2.069s), including eight concurrent handles, exactly
+one claim, crash-after-claim refusal, read-only re-open, quarantine refusal,
+physical identity checks, partial-open fault injection and exact recovery.
+Initial stale cleanup-preview and cleanup-intent regressions failed; they were
+resolved as above, without weakening cleanup identity checks. Full-suite results
+and native CI are recorded separately when observed. No real Runtime ran.
