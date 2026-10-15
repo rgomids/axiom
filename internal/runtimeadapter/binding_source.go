@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
+	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
@@ -37,8 +38,9 @@ type BindingSource struct {
 	AxiomPath string
 	// Stage supplies the effective dispatch context for the Target.
 	Stage func(context.Context, capabilityproof.Target) (StageContext, error)
-	// EffortRoots supplies the trusted current effort-source anchor roots.
-	EffortRoots     func(context.Context) (EffortSourceRoots, error)
+	// EffortRoots supplies the trusted current effort-source anchor roots for
+	// the Target and the effective child environment (PM-13).
+	EffortRoots     func(context.Context, capabilityproof.Target, []string) (EffortSourceRoots, error)
 	EffortConsented bool
 	Selector        capabilityproof.Selector
 }
@@ -125,7 +127,7 @@ func (s BindingSource) observe(ctx context.Context, t capabilityproof.Target) (c
 	if err != nil {
 		return none, noModel, capabilityproof.ErrBlocked
 	}
-	roots, err := s.EffortRoots(ctx)
+	roots, err := s.EffortRoots(ctx, t, executiongraph.EffectiveInvocationEnvironment(inv))
 	if err != nil {
 		return none, noModel, blocked(ctx, err)
 	}

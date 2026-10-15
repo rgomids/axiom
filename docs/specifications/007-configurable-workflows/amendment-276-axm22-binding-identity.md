@@ -48,6 +48,14 @@ operational admission (PM-11). Canonical v3-only activation is delivered by
 BLD-001B.3c-2b.3
 ([implementation record](issue-276-implementation.md#axm-22-bld-001b3c-2b3--coordinated-canonical-v3-only-activation)).
 
+**Authorization epoch and production composition, 2026-10-14** (clause
+[PM.4](#pm4-authorization-epoch-and-production-capability-composition-bld-001b3c-3)):
+PM-6 is implemented as an internal epoch record under the AXM-22 final
+delivery brief, and the production capability Service composes the
+BindingSource. The Stage effort-inspection context — stable host/repository
+roots, per-attempt child equivalence and operation consent — is the accepted
+maintainer decision PM-13 (approved with constraints, 2026-10-14).
+
 This amendment **adds** to the accepted
 [#276 amendment](amendment-276-stage-dispatch.md) A2,
 [ADR-0024](../../decisions/0024-model-profile-effort-ownership.md) and
@@ -682,3 +690,131 @@ rewritten.
 No new ADR: PM-11 applies the accepted PM-8 pre-stable decision and the existing
 tombstone/authority/recovery contracts without new public authority, persisted
 fields or formats, and changes no accepted invariant of PM-7.
+
+### PM.4 Authorization epoch and production capability composition (BLD-001B.3c-3)
+
+Implemented under the AXM-22 final delivery brief of 2026-10-14 (Rafael
+Gomides), which directs PM-6 to an internal durable record protected by the
+existing local filesystem boundary, with no public command, flag,
+configuration field, tombstone format, Evidence field or digest algorithm.
+This clause records the resulting internal contract; it records no other
+maintainer approval. PM-1–PM-11 and the dated history above are unchanged.
+
+- **PM-12. Authorization epoch persistence (PM-6).**
+  - *Record.* `runtime-profiles/v1/authorization-epoch.json`, a private
+    regular file beside the configuration object, exactly
+    `{"schema":"axiom-runtime-authorization-epoch/v1","epoch":N}` + LF with
+    `N` a positive `uint64`. Only these canonical bytes decode (strict
+    members, ≤ 256 bytes); any other spelling, a symlink, a foreign owner or
+    group/other permission is unsafe. It is read through the store's
+    descriptor chain like the configuration object. It is not configuration,
+    not covered by `DigestV3`, and never copied into a preview or Evidence;
+    only its value enters the opaque snapshot token.
+  - *Identity.* The Runtime/Profile snapshot token (the existing
+    `--expected-revision` value, bound into every authoring preview digest)
+    and the scoped Runtime recovery plan identity both include the committed
+    epoch. Preview stays zero-write; confirmation requires the exact token,
+    hence the exact epoch.
+  - *Monotonic advance.* Under the store's exclusive locks, after the exact
+    token and candidate checks pass and **before** the configuration can reach
+    its commit point, `Publish` re-reads the epoch from the locked
+    descriptor and publishes `epoch+1` (staged as
+    `.axiom-stage-epoch-<random>`, fsync, rename, directory fsync, read back).
+    `ApplyRecovery` on `runtime-profiles/v1` likewise advances the epoch after
+    re-verifying the authorized plan and before restoring or finalizing any
+    generation. A rejected, unauthorized or invalid request never advances
+    it. The counter never wraps (`MaxUint64` refuses), decreases or resets;
+    retirement, recreation and an interrupted first publication keep it.
+  - *Consequence.* Whatever an authorized attempt's outcome — commit, F3
+    pre-commit cleanup, F3–F5 rollback recovery restoring byte-identical
+    configuration, or F6+ finalization — the previously reviewed token can
+    never match again, and the next operation needs a fresh preview.
+  - *Absence and recovery.* An absent record is epoch 0 only for states that
+    can predate PM-6 (fresh, retired tombstone, pre-stable format 1/2); an
+    active canonical v3 record without it is unsafe. A leftover epoch stage is
+    recovery state that every reader refuses; scoped recovery classifies it
+    (`restore_prior`, role `epoch_stage`, alone or beside a publication
+    marker), advances the committed epoch and removes it. Corrupt or
+    ambiguous epoch state fails closed and is never repaired.
+  - *Inventory.* The valid record is classified with its family
+    (`runtime_profile_configuration`); an invalid one is `malformed`; its
+    stage is `recovery_state`.
+  - *Threat-model limit.* Deleting the record of a retired or pre-stable state
+    requires the principal that owns the private state root, which can already
+    rewrite configuration; such a deletion resets nothing for active v3, which
+    refuses.
+- **Production capability composition.** `cmd/lingo` composes
+  `capabilityproof.Service{Store, Source}` with the existing
+  `runtimeadapter.BindingSource`: canonical v3 configuration read on every
+  observation through the zero-write `RuntimeProfileStore.Inspect` (active v3
+  only; fresh, retired, pre-stable, future, corrupt, unsafe and pending states
+  blocked, no fallback), the established PATH lookup, `EmbeddedVersionObserver`
+  (no other registry source), the pinned Axiom executable (`os.Executable`),
+  and the AXM-21 `Selector` over the canonical `CapabilityStore`. Probe
+  dependencies stay absent. The Stage policy's version observation now reads
+  the same passive registry for the freshly observed executable identity
+  instead of a capability observation. A present Source proves nothing. The
+  Stage context, effort roots and consent follow PM-13.
+- **Known limitations.** The embedded registry has zero entries (PM-5a), so
+  every production observation blocks at the version step.
+- **Delivery.** BLD-001B.3c-3 (epoch and composition) and BLD-001B.3c-4
+  (synthetic end-to-end validation and reconciliation) are delivered together
+  with PM-13 ([implementation record](issue-276-implementation.md#axm-22-bld-001b3c-3--authorization-epoch-production-composition-and-stage-effort-context)).
+
+**PM-13. Stage effort-inspection context (accepted maintainer decision,
+approved with constraints, 2026-10-14, Rafael Gomides).** Contract R: stable
+host/repository effort roots with per-attempt child equivalence. The
+canonical `EffortSourceDigest` and `ModeDigest` algorithms, the Evidence
+schema and the public CLI are unchanged; no digest version, flag or probe is
+added.
+
+1. *Roots* (`runtimeadapter.StageEffortRoots`, resolved per operation, never
+   persisted). `user` is the `HOME` of the effective child environment — the
+   adapter's filtered environment of the attempt — exactly once, clean and
+   absolute; a case alias, a duplicate, or a present `CODEX_HOME` /
+   `CLAUDE_CONFIG_DIR` (which relocate the user source to a path the
+   declaration does not name) refuses; no OS-account home is substituted.
+   `managed` is the single directory of the Runtime's existing
+   `DefaultManagedConfiguration` locations. `project` is the registered
+   repository root of the Stage.
+2. *Missing managed root.* An absence fact only when its nearest existing
+   ancestor is anchor-grade (current user or root, no group/other write;
+   sticky is no excuse), every higher ancestor is safe and no component is a
+   symlink; the absent binding enters the canonical projection unchanged and
+   is revalidated after inspection. User and project roots must exist.
+   Nothing is created or repaired.
+3. *Variant.* Only repository-write Targets and children are admitted.
+   Read-only children (working root = private inbox) stay blocked
+   (`effort_configuration_unproven`) until independently established
+   Runtime-version evidence proves how that working root resolves project
+   configuration.
+4. *Child equivalence before each attempt* (`VerifyChildEquivalence`, called
+   by the supervisor's `StageEffortInspector` on every dispatch-time check).
+   The repository-root view and the child-worktree view (project anchor =
+   the child's working directory) are each inspected canonically; their
+   projections must be equal in every fact except the location binding of
+   project-anchored source facts, and every project-anchored declared source
+   must have the same presence and exact bytes. User and managed anchors —
+   including the managed drop-in inventory — are the same roots in both views
+   and are re-inspected. The returned digest is the repository-root view's,
+   compared with the frozen tuple. Any difference, unreviewed working
+   directory, executable or registry-version drift, configuration
+   unavailability or inspection uncertainty fails closed; a selector is the
+   existing `effort_override_conflict`.
+5. *Stage context.* Operation-scoped: the operation's workspace and inbox
+   namespaces and the inherited parent environment (the detached supervisor
+   inherits it). ModeDigest and argv path operands carry only path roles
+   (BI-1, BI-2b), so these identify every child of a shared Target.
+6. *Consent.* `--authorize-local` on a `stage run`/`stage retry` call is
+   explicit read-only inspection consent for that operation only, including
+   its zero-write preview; without it inspection is unproven. At dispatch the
+   committed Stage authority is the PE-05a authorized boundary. Consent grants
+   no dispatch, external or capability authority, and exact preview
+   confirmation is unchanged.
+7. *Limitations.* On macOS `/etc` is a symlink, so the Codex managed root
+   `/etc/codex` fails closed under the existing no-symlink boundary. Every
+   production observation still blocks at the empty registry (PM-5a).
+
+No new ADR: PM-13 binds caller-supplied roots that BI-2a D6 left to the
+caller, relaxes only the missing-managed-root refusal under stricter ancestor
+rules, and changes no accepted digest, Evidence or authority invariant (PM-7).

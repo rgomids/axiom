@@ -469,6 +469,21 @@ func walkRuntimeProfilesV1(w *inventoryWalk, version *os.Root, relative string) 
 		if protocolName(name) {
 			return w.add(childRelative, InventoryRecovery, nil)
 		}
+		if name == authorizationEpochObject {
+			// The PM-6 authorization epoch belongs to the Runtime/Profile
+			// family; only its exact canonical record is recognized.
+			if info, err := version.Lstat(name); err != nil || !info.Mode().IsRegular() {
+				return w.add(childRelative, InventoryUnsafe, nil)
+			}
+			wire, err := readPrivateFileBounded(version, name, maxAuthorizationEpoch)
+			if err != nil {
+				return w.add(childRelative, InventoryUnsafe, nil)
+			}
+			if _, err := decodeAuthorizationEpoch(wire); err != nil {
+				return w.add(childRelative, InventoryMalformed, wire)
+			}
+			return w.add(childRelative, InventoryRuntimeProfile, wire)
+		}
 		if name != "configuration.json" {
 			return w.add(childRelative, InventoryUnknown, nil)
 		}

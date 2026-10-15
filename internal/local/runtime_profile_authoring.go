@@ -27,6 +27,8 @@ type RuntimeProfileSnapshot struct {
 	V3    *runtimeprofile.ConfigurationV3
 	Token string
 	wire  []byte
+	// epoch is the committed authorization epoch bound into Token (PM-6).
+	epoch uint64
 }
 
 const runtimeProfileObject = "configuration.json"
@@ -125,7 +127,7 @@ func (s RuntimeProfileStore) inspectLocked() (RuntimeProfileSnapshot, error) {
 	root, profiles, version, err := s.open(false)
 	if errors.Is(err, ErrNotFound) {
 		snapshot.State = "fresh"
-		snapshot.Token = hexDigest([]byte(facts + "\x00fresh"))
+		snapshot.Token = hexDigest([]byte(facts + "\x00fresh" + authorizationEpochFact(0)))
 		return snapshot, nil
 	}
 	if err != nil {
@@ -138,14 +140,34 @@ func (s RuntimeProfileStore) inspectLocked() (RuntimeProfileSnapshot, error) {
 	if err != nil {
 		return snapshot, ErrUnsafe
 	}
+	object := false
 	for _, name := range names {
 		if protocolName(name) {
 			snapshot.State = "pending"
 			return snapshot, ErrRecoveryRequired
 		}
-		if name != runtimeProfileObject {
+		if name != runtimeProfileObject && name != authorizationEpochObject {
 			return snapshot, ErrUnsafe
 		}
+		object = object || name == runtimeProfileObject
+	}
+	// The epoch never rolls back with configuration bytes (PM-6). An absent
+	// record is epoch 0 only for states that can predate it.
+	epoch, epochPresent, err := readAuthorizationEpoch(version)
+	if err != nil {
+		return snapshot, err
+	}
+	snapshot.epoch = epoch
+	if !object {
+		// A first publication interrupted before its commit point leaves only
+		// the advanced epoch; the state is still fresh at that epoch.
+		after, err := s.runtimeProfileFacts()
+		if err != nil || after != facts {
+			return RuntimeProfileSnapshot{State: "unsafe"}, ErrConflict
+		}
+		snapshot.State = "fresh"
+		snapshot.Token = hexDigest([]byte(facts + "\x00fresh" + authorizationEpochFact(epoch)))
+		return snapshot, nil
 	}
 	wire, err := readPublishedFile(version, runtimeProfileObject)
 	if err != nil {
@@ -178,11 +200,16 @@ func (s RuntimeProfileStore) inspectLocked() (RuntimeProfileSnapshot, error) {
 	} else {
 		return snapshot, ErrUnsafe
 	}
+	// Every canonical v3 record is published after an epoch advance, so its
+	// absence is a missing or deleted record, never an initial state.
+	if snapshot.State == "active-v3" && !epochPresent {
+		return RuntimeProfileSnapshot{State: "unsafe"}, ErrUnsafe
+	}
 	after, err := s.runtimeProfileFacts()
 	if err != nil || after != facts {
 		return RuntimeProfileSnapshot{State: "unsafe"}, ErrConflict
 	}
-	snapshot.Token = hexDigest(append([]byte(facts+"\x00"+snapshot.State+"\x00"), wire...))
+	snapshot.Token = hexDigest(append([]byte(facts+"\x00"+snapshot.State+authorizationEpochFact(epoch)+"\x00"), wire...))
 	return snapshot, nil
 }
 
@@ -340,6 +367,17 @@ func (s RuntimeProfileStore) Publish(ctx context.Context, expectedToken string, 
 			afterCommit()
 		}
 	}
+	// Advance the epoch before the configuration can reach its commit point:
+	// whatever this attempt's outcome (commit, F3 rollback, recovery), the
+	// reviewed prior token can never match again (PM-6). The epoch is read
+	// from the locked descriptor, so concurrent writers cannot lose an update.
+	epoch, _, err := readAuthorizationEpoch(version)
+	if err != nil || epoch != prior.epoch {
+		return prior, ErrConflict
+	}
+	if _, err := advanceAuthorizationEpoch(version, epoch, hooks); err != nil {
+		return prior, err
+	}
 	hooks.contentLimit = runtimeprofile.MaxConfigurationBytes
 	err = publishFile(ctx, version, runtimeProfileObject, prior.wire, next, prior.State == "fresh", hooks)
 	if err != nil {
@@ -377,6 +415,12 @@ func bindRuntimeRecovery(plan *RecoveryPlan, path string, target *os.Root) error
 	if err != nil {
 		return err
 	}
+	// The recovery preview binds the epoch it will advance (PM-6).
+	epoch, _, err := readAuthorizationEpoch(target)
+	if err != nil {
+		return err
+	}
+	facts += authorizationEpochFact(epoch)
 	for _, object := range plan.Objects {
 		if !object.Present {
 			continue

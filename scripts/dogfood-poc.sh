@@ -396,6 +396,9 @@ PYJSON
 # receipts with injected evidence, separate from this real CLI refusal journal.
 # Synthetic canonical-v3 identity/applicability receipts use only the
 # test-only registry decoder; the embedded production registry stays empty.
-(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY -u CLAUDE_CODE_EFFORT_LEVEL go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestExecutableDeclarationAuthoringWithoutMigration|TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun|TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph' -count=1)
-(cd "$repository_root" && env -u CLAUDE_CODE_EFFORT_LEVEL go test ./internal/runtimeadapter -run 'TestDogfoodV3Fixture' -count=1)
+(cd "$repository_root" && env -u OPENAI_API_KEY -u CODEX_API_KEY -u CLAUDE_CODE_EFFORT_LEVEL go test ./cmd/lingo -run 'TestExecutableMinimalLifecycleAndFailurePaths|TestExecutableDeclarationAuthoringWithoutMigration|TestCurrentWorkflowStartFreezesReviewedV2ProfileWithoutModelRun|TestWorkflowStagePlanPublicJourneySingleAndMixedRuntimeGraph|TestCapabilityComposition|TestProductionCapabilityComposition|TestProductionEffortInspectorComposition' -count=1)
+(cd "$repository_root" && env -u CLAUDE_CODE_EFFORT_LEVEL go test ./internal/runtimeadapter -run 'TestDogfoodV3Fixture|TestStageEffort|TestTrustedEffortAnchorAbsentManaged|TestVerifyChildEquivalence' -count=1)
+# AXM-22 PM-6: a preview issued before a failed, rolled-back or recovered
+# Runtime/Profile publication never becomes valid again.
+(cd "$repository_root" && go test ./internal/local -run 'TestAuthorizationEpoch' -count=1)
 printf '%s\n' 'PASS: bounded production canonical-v3 authoring/refusal smoke; current positive lifecycle and v3 identity SYNTHETIC; vendor model/auth, production Runtime identity and integrated E2E UNVERIFIED'

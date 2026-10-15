@@ -1353,3 +1353,88 @@ Limitations and pending, recorded and not claimed:
 Status: canonical v3-only local Runtime/Profile configuration is active; real
 Runtime capability readiness is not claimed; AXM-22 not complete; T16/T17 not
 complete.
+
+## AXM-22 BLD-001B.3c-3 — Authorization epoch, production composition and Stage effort context
+
+Scope: [amendment PM.4](amendment-276-axm22-binding-identity.md#pm4-authorization-epoch-and-production-capability-composition-bld-001b3c-3)
+— PM-12 (epoch, under the AXM-22 final delivery brief) and PM-13 (Stage
+effort-inspection context, maintainer decision approved with constraints,
+2026-10-14); also closes BLD-001B.3c-4. Starting HEAD `fe5c85f` (PR #318).
+
+| File | Change |
+| --- | --- |
+| `internal/local/runtime_authorization_epoch.go` (new) | Epoch record codec, locked read, monotonic staged advance, no wrap |
+| `internal/local/runtime_profile_authoring.go` | Epoch in snapshot token and recovery identity; advance before commit; fresh-at-epoch; active v3 without epoch unsafe |
+| `internal/local/recovery.go` | Epoch-stage recovery; recovery advances the epoch before acting |
+| `internal/local/inventory.go` | Epoch record recognized in its family; invalid record malformed |
+| `internal/runtimeadapter/stage_effort.go` (new) | `StageEffortRoots`, `VerifyChildEquivalence`, dispatch-time `StageEffortInspector` |
+| `internal/runtimeadapter/effort_inspector.go` | Declaration-returning inspection; validated absent managed root |
+| `internal/runtimeadapter/binding_source.go` | Roots resolved for the Target and the effective child environment |
+| `cmd/lingo/capability_composition.go` | Production `BindingSource` and inspector composition; operation scope and consent |
+| `cmd/lingo/stage_dispatch.go`, `cmd/lingo/stage_supervisor.go` | Operation-scoped composition; registry version for Stage policy; supervisor inspector |
+| `internal/local/runtime_authorization_epoch_test.go`, `internal/runtimeadapter/stage_effort_test.go` (new); `cmd/lingo/capability_composition_test.go`, `internal/runtimeadapter/binding_source_test.go`, `internal/runtimeadapter/effort_inspector_test.go`, `internal/local/runtime_profile_v3_refusal_test.go` | PM-6/PM-13 regressions; composition E2E; signature update; missing-root case split (user/project still refuse, managed absence tested separately); directly placed v3 record needs the epoch |
+| `scripts/dogfood-poc.sh` | Runs the composition, PM-13 and epoch receipts |
+
+Decisions: the epoch is separate from configuration bytes and advances
+before the commit point and before recovery acts, so no attempt outcome can
+revive a reviewed token; it is read from the locked descriptor (no lost
+update) and tolerated as absent only for states that predate PM-6. The Stage
+policy reads the Runtime version from the registry, no longer from
+`Source.Current`. PM-13 roots are host/repository-stable, so preview and
+dispatch observe one canonical digest, while each attempt separately proves
+that the child worktree's effective configuration equals the inspected one.
+
+Synthetic Evidence (Go 1.26.0, `GOTOOLCHAIN=local GOWORK=off GOFLAGS=`,
+`pipefail`, `CLAUDE_CODE_EFFORT_LEVEL` unset); see the PR #318 body for the
+final command list and exit codes:
+
+- Epoch (`internal/local -run TestAuthorizationEpoch`): fresh preview, exact
+  apply, applied-preview reuse, configuration/epoch change, **F3 rollback
+  (cleanup and recovery) to byte- and inode-identical configuration followed
+  by stale reuse of the pre-F3 preview**, F6 recovery and reuse of the
+  pre-F6 preview and applied recovery plan, recovery plan bound to the epoch,
+  restart, retirement, recreation, interrupted first publication, concurrent
+  writers, no escalation or retry, overflow, corrupt/missing/symlinked/
+  permissive record, interrupted epoch persistence and its recovery,
+  zero-write preview, inventory.
+- PM-13 (`internal/runtimeadapter -run 'TestStageEffort|TestTrustedEffortAnchorAbsentManaged|TestVerifyChildEquivalence'`):
+  root resolution and 12 refusals (read-only, HOME missing/relative/unclean/
+  root/duplicate/case alias, `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, unknown
+  Runtime, untrusted repository, cancellation); absent managed root stable,
+  part of identity, never created, distinct once it appears; sticky- or
+  group-writable or symlinked parent and missing user/project refuse; child
+  equivalence for Codex and Claude with differing bytes, missing on either
+  side, child selector, symlink, unsafe or missing child, Claude
+  `project-local` only in the repository and managed drop-in drift; the
+  dispatch inspector's digest equals the repository-root digest, uses the
+  attempt's environment, catches drift between attempts and refuses 11
+  failure modes; preview BindingSource and dispatch inspector agree for both
+  Runtimes.
+- Composition (`cmd/lingo -run 'CapabilityComposition|ProductionEffortInspector'`):
+  repository-write positive selection with independently computed identity
+  through the production resolver; unproven capability, Process, read-only
+  variant and other Profile not inferred; drift after preview and before
+  dispatch; a 35-scenario negative matrix including `CODEX_HOME` and missing
+  child HOME; production composition blocked by the empty embedded registry;
+  consent only with `--authorize-local`; operation context; read-only,
+  unconsented and untrusted-repository refusals; supervisor inspector wiring.
+- Full suite, race suite, build, vet, format, tidy, staticcheck, dogfood and
+  repository validators: recorded in the PR body.
+- `internal/compatibility/testdata/stable-v1` unchanged.
+
+IMPLEMENTED: PM-6 epoch; production composition of Store, Source, canonical
+v3 configuration, lookup, embedded registry, pinned Axiom, Selector, PM-13
+roots, consent and Stage context; dispatch-time equivalence inspector;
+passive Stage policy version. TESTED SYNTHETICALLY: all of the above. NOT
+OPERATIONALLY PROVEN: any real Runtime identity, version, effort source,
+child resolution behaviour or capability; no Runtime executed, probed or
+asked for its version, no model inference, Stage dispatch or Provider effect.
+
+Limitations: the embedded registry is empty, so production capability checks
+fail closed at the version step; read-only Stage children are blocked
+(PM-13 item 3); on macOS the Codex managed root `/etc/codex` is under a
+symlinked `/etc` and fails closed.
+
+Status: AXM-22 implementation complete under these limitations; real
+Runtime capability availability is not claimed. T16/T17 remain open for
+operational proof; AXM-8 not complete; T34/T44 not started.

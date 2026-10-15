@@ -103,7 +103,9 @@ func newBindingFixture(t *testing.T, runtime string) *bindingFixture {
 		Stage: func(context.Context, capabilityproof.Target) (StageContext, error) {
 			return StageContext{Workspace: filepath.Join(f.base, "work"), Inbox: filepath.Join(f.base, "inbox"), ParentEnvironment: []string{"PATH=fixture"}}, nil
 		},
-		EffortRoots:     func(context.Context) (EffortSourceRoots, error) { return f.roots, nil },
+		EffortRoots: func(context.Context, capabilityproof.Target, []string) (EffortSourceRoots, error) {
+			return f.roots, nil
+		},
 		EffortConsented: true,
 		Selector:        capabilityproof.Selector{Evidence: f.scanner, Now: func() time.Time { return bindingNow }},
 	}

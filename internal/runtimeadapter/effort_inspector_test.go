@@ -425,8 +425,15 @@ func TestInspectEffortSourcesFailsClosed(t *testing.T) {
 		"missing-user-root":      func(_ *testing.T, f *effortInspectorFixture) { f.req.Roots.User = "" },
 		"relative-root":          func(_ *testing.T, f *effortInspectorFixture) { f.req.Roots.Project = "project" },
 		"unclean-root":           func(_ *testing.T, f *effortInspectorFixture) { f.req.Roots.Project += "/../project" },
-		"absent-root": func(t *testing.T, f *effortInspectorFixture) {
-			if err := os.RemoveAll(f.req.Roots.Managed); err != nil {
+		// PM-13: only a missing managed root may be an absence fact
+		// (TestTrustedEffortAnchorAbsentManaged); user and project must exist.
+		"absent-user-root": func(t *testing.T, f *effortInspectorFixture) {
+			if err := os.RemoveAll(f.req.Roots.User); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"absent-project-root": func(t *testing.T, f *effortInspectorFixture) {
+			if err := os.RemoveAll(f.req.Roots.Project); err != nil {
 				t.Fatal(err)
 			}
 		},

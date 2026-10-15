@@ -371,6 +371,24 @@ func planRecovery(target *os.Root, scope, directory, projectsRoot string) (Recov
 		// A nested ADR-0007 file publication is classified first; the edit
 		// recovery state stays and is classified once that is resolved.
 	}
+	// An interrupted authorization epoch advance (PM-6) left only staged
+	// candidates; the committed epoch and configuration are unchanged, and
+	// recovery advances the epoch before removing them.
+	epochStages := make([]RecoveryObject, 0)
+	if scope == RecoveryScopeState && directory == "runtime-profiles/v1" {
+		for _, name := range protocol {
+			if authorizationEpochStageName(name) {
+				epochStages = append(epochStages, observeRecoveryFile(target, "epoch_stage", name))
+			}
+		}
+	}
+	if len(markers) == 0 && len(epochStages) != 0 && len(epochStages) == len(protocol) {
+		plan.Protocol, plan.Action = protocolFile, RestorePrior
+		plan.Objects = epochStages
+		plan.Explanation = "authorization epoch advance stopped before its commit point; recovery advances the committed epoch"
+		plan.Digest = recoveryDigest(plan)
+		return plan, true, nil
+	}
 	if len(markers) == 0 {
 		plan.Protocol = protocolAttempt
 		return unknown("interrupted attempt state lacks prior/new generation facts; preserved for operator review")
@@ -391,6 +409,9 @@ func planRecovery(target *os.Root, scope, directory, projectsRoot string) (Recov
 	allowed := map[string]bool{markers[0]: true, marker.Staging: true}
 	for _, name := range edits {
 		allowed[name] = true
+	}
+	for _, object := range epochStages {
+		allowed[object.Name] = true
 	}
 	updates := make([]RecoveryObject, 0)
 	for _, name := range protocol {
@@ -413,7 +434,7 @@ func planRecovery(target *os.Root, scope, directory, projectsRoot string) (Recov
 	}
 	canonical := observe(target, "canonical", marker.Object)
 	stage := observe(target, "stage", marker.Staging)
-	plan.Objects = append([]RecoveryObject{{Role: "marker", Name: markers[0], Present: true}, canonical, stage}, updates...)
+	plan.Objects = append(append([]RecoveryObject{{Role: "marker", Name: markers[0], Present: true}, canonical, stage}, updates...), epochStages...)
 	if canonical.Revision == "invalid" || stage.Revision == "invalid" {
 		plan.Explanation = "a generation is present but incomplete, corrupt, or unsafe"
 		plan.Digest = recoveryDigest(plan)
@@ -632,6 +653,17 @@ func ApplyRecovery(ctx context.Context, roots RecoveryRoots, plan RecoveryPlan, 
 		}
 		return applyEditRecovery(ctx, chain, current, stillCanonical)
 	}
+	if plan.Scope == RecoveryScopeState && plan.Directory == "runtime-profiles/v1" {
+		// Recovery invalidates every pre-recovery authorization (PM-6): the
+		// epoch advances before any generation is restored or finalized.
+		epoch, _, err := readAuthorizationEpoch(target)
+		if err != nil {
+			return RecoveryResult{}, err
+		}
+		if _, err := advanceAuthorizationEpoch(target, epoch, publicationHooks{}); err != nil {
+			return RecoveryResult{}, err
+		}
+	}
 	result := RecoveryResult{Action: plan.Action, Removed: []string{}}
 	if plan.Action == RestorePrior {
 		stage := recoveryRole(current.Objects, "stage")
@@ -643,7 +675,7 @@ func ApplyRecovery(ctx context.Context, roots RecoveryRoots, plan RecoveryPlan, 
 		}
 	}
 	for _, object := range current.Objects {
-		if object.Role != "marker_update" {
+		if object.Role != "marker_update" && object.Role != "epoch_stage" {
 			continue
 		}
 		if err := target.Remove(object.Name); err != nil {
@@ -653,6 +685,9 @@ func ApplyRecovery(ctx context.Context, roots RecoveryRoots, plan RecoveryPlan, 
 	}
 	if err := syncRoot(target); err != nil {
 		return result, ErrRecoveryRequired
+	}
+	if plan.Marker == "" {
+		return result, nil
 	}
 	if err := removeProtocolState(target, plan.Marker, publicationHooks{}); err != nil {
 		return result, ErrRecoveryRequired

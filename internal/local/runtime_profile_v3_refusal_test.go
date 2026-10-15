@@ -46,6 +46,12 @@ func TestRuntimeProfileReaderRecognizesV3AndRefusesFuture(t *testing.T) {
 	}
 	writeLegacyRecord(t, store.root, v3)
 	path := filepath.Join(store.root, "runtime-profiles", "v1", "configuration.json")
+	// Every canonical v3 record is published after an authorization epoch
+	// advance (PM-6); without that record the state is unsafe, not active.
+	if snapshot, err := store.Inspect(ctx); !errors.Is(err, ErrUnsafe) || snapshot.V3 != nil {
+		t.Fatalf("v3 without authorization epoch: %+v %v", snapshot, err)
+	}
+	writeEpochRecord(t, store.root, 1)
 	snapshot, err := store.Inspect(ctx)
 	if err != nil || snapshot.State != "active-v3" || snapshot.V3 == nil || snapshot.Legacy.FormatVersion != 0 {
 		t.Fatalf("v3 record not recognized: %+v %v", snapshot, err)
