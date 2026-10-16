@@ -114,11 +114,11 @@ class WorkflowContract(unittest.TestCase):
             self.assertIn(f'./scripts/check-go-quality.sh {command}', gate)
         self.assertIn('staticcheck@v0.8.1', gate)
         for command in ('go mod verify', 'go vet ./...', 'go build ./...', 'run: go test ./...',
-                        './scripts/validate-repository.sh .'):
+                        './scripts/validate-repository.sh .', 'python3 scripts/test-go-quality.py'):
             self.assertIn(command, gate)
         native = (ROOT / '.github/workflows/native-suite.yml').read_text()
         for command in ('go test -race ./...', './scripts/test-release-pipeline.sh',
-                        './scripts/test-upgrade-journeys.sh', 'python3 scripts/test-go-quality.py'):
+                        './scripts/test-upgrade-journeys.sh'):
             self.assertIn(command, native)
         rules = json.loads((ROOT / '.github/rulesets/main.json').read_text())
         checks = next(r['parameters']['required_status_checks'] for r in rules['rules']

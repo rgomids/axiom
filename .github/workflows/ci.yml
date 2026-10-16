@@ -55,6 +55,8 @@ jobs:
         run: go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
       - name: Curated static analysis
         run: ./scripts/check-go-quality.sh staticcheck
+      - name: Quality gate regression contracts
+        run: python3 scripts/test-go-quality.py
       - name: Build
         run: go build ./...
       - name: Private synthetic probe state

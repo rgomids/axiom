@@ -2369,7 +2369,7 @@
       "trigger": "CI PR Checks job or documented local reproduction",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/native-suite.yml"
+        ".github/workflows/ci.yml"
       ],
       "inputs": "Go toolchain from go.mod; Staticcheck v0.8.1 on PATH or STATICCHECK; curated checks in check-go-quality.sh; source checkout",
       "outputs": "Tool versions, reproduction command and actionable diagnostics; nonzero exit on failure",

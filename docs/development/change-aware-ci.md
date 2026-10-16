@@ -10,7 +10,7 @@ recorded in [ADR-0029](../decisions/0029-minimal-pr-gate-native-qualification.md
 
 | Required context | Workflow | What it proves |
 | --- | --- | --- |
-| `PR Checks` | `.github/workflows/ci.yml` | One Ubuntu job: `gofmt`, `go mod tidy -diff`, `go mod verify`, `go vet ./...`, pinned Staticcheck v0.8.1, `go build ./...`, `go test ./...` and `scripts/validate-repository.sh` (governance and sensitive-file checks). The job's own exit status is the result. |
+| `PR Checks` | `.github/workflows/ci.yml` | One Ubuntu job: `gofmt`, `go mod tidy -diff`, `go mod verify`, `go vet ./...`, pinned Staticcheck v0.8.1 and its gate contracts (`test-go-quality.py`), `go build ./...`, `go test ./...` and `scripts/validate-repository.sh` (governance and sensitive-file checks). The job's own exit status is the result. |
 | `delivery-metadata` | `.github/workflows/delivery-metadata.yml` | Unchanged PR description and Issue metadata contract. |
 
 There are no path filters, aggregators, artifacts or matrices in the PR gate.
@@ -31,7 +31,7 @@ Reproduce locally with Go from `go.mod`:
   build, module verification, repository checks and the bounded dogfooding
   smoke; Linux retains a report-only code health snapshot.
 - `contracts`: release pipeline, native acceptance, release flow, delivery,
-  recovery, Release PR dispatch, code health and quality-gate contracts.
+  recovery, Release PR dispatch and code health contracts.
 - `upgrade-journeys (linux|macos)`: owned N → candidate upgrades from public
   release assets.
 
