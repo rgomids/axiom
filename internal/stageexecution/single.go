@@ -2,9 +2,9 @@ package stageexecution
 
 import (
 	"context"
-	"errors"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"

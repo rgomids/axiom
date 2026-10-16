@@ -213,7 +213,9 @@ func TestSingleSupervisorCancellationAndDrift(t *testing.T) {
 	store, r := singleFixture(t)
 	runner := &fakeSingleRunner{block: true, started: make(chan struct{})}
 	done := make(chan error, 1)
-	go func() { done <- newSingleSupervisor(store, &fakeSinglePreparation{}, runner).Run(context.Background(), r) }()
+	go func() {
+		done <- newSingleSupervisor(store, &fakeSinglePreparation{}, runner).Run(context.Background(), r)
+	}()
 	<-runner.started
 	store.cancel(t)
 	if err := <-done; err != nil {
