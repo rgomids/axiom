@@ -7,7 +7,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"syscall"
 )
+
+// procEntryVanished reports a /proc entry whose process was reaped between
+// enumeration and read; the kernel answers ENOENT or ESRCH for it.
+func procEntryVanished(err error) bool {
+	return errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH)
+}
 
 func observeProcesses() ([]processObservation, error) {
 	entries, err := os.ReadDir("/proc")
@@ -21,7 +28,7 @@ func observeProcesses() ([]processObservation, error) {
 			continue
 		}
 		data, err := os.ReadFile("/proc/" + entry.Name() + "/stat")
-		if errors.Is(err, os.ErrNotExist) {
+		if procEntryVanished(err) {
 			continue
 		}
 		if err != nil {

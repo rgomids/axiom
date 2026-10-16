@@ -3,9 +3,33 @@
 package executiongraph
 
 import (
+	"io/fs"
+	"os"
 	"strings"
+	"syscall"
 	"testing"
 )
+
+func TestProcEntryVanishedOnlyForReapedProcesses(t *testing.T) {
+	for _, err := range []error{
+		&fs.PathError{Op: "read", Path: "/proc/1/stat", Err: syscall.ESRCH},
+		&fs.PathError{Op: "open", Path: "/proc/1/stat", Err: syscall.ENOENT},
+		os.ErrNotExist,
+	} {
+		if !procEntryVanished(err) {
+			t.Fatalf("reaped process entry not classified as vanished: %v", err)
+		}
+	}
+	for _, err := range []error{
+		nil,
+		&fs.PathError{Op: "read", Path: "/proc/1/stat", Err: syscall.EACCES},
+		&fs.PathError{Op: "read", Path: "/proc/1/stat", Err: syscall.EIO},
+	} {
+		if procEntryVanished(err) {
+			t.Fatalf("observation failure classified as vanished: %v", err)
+		}
+	}
+}
 
 func TestProcessIdentityKernelTicks(t *testing.T) {
 	fields := make([]string, 21)
