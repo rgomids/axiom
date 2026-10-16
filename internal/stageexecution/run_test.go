@@ -37,7 +37,7 @@ func (f *fakeRunPorts) Build(_ context.Context, p DispatchPreview, actor string,
 	// The publication port is a fake: no filesystem, Runtime or Provider effects.
 	f.publication = Publication{Authority: executiongraph.DispatchAuthority{PreviewDigest: p.Digest, Actor: actor, RecordedAt: at}}
 	if p.Publication == nil {
-		f.publication.Single = &workflow.SingleDispatch{AttemptID: "fake-attempt", State: workflow.State{ExecutionID: p.Plan.Execution.ExecutionID}}
+		f.publication.Single = &SinglePublication{Execution: workflow.State{ExecutionID: p.Plan.Execution.ExecutionID}}
 	} else {
 		f.publication.Graph = &executiongraph.SuccessorGraph{Parent: executiongraph.ParentExecution{ExecutionID: p.Plan.Execution.ExecutionID}}
 	}
@@ -159,35 +159,6 @@ func TestRunPublicationAndStartFailures(t *testing.T) {
 	result, e := s.Apply(context.Background(), r)
 	if !errors.Is(e, ErrSupervisorRecovery) || result.Status != "recovery_required" || !reflect.DeepEqual(f.events, []string{"build", "commit", "readback"}) {
 		t.Fatal(result, e, f.events)
-	}
-}
-
-type fakeSequentialStarter struct {
-	calls     int
-	single    workflow.SingleDispatch
-	authority executiongraph.DispatchAuthority
-}
-
-func (f *fakeSequentialStarter) StartSingle(_ context.Context, s workflow.SingleDispatch, a executiongraph.DispatchAuthority) (executiongraph.ProcessCorrelation, error) {
-	f.calls++
-	f.single = s
-	f.authority = a
-	return executiongraph.ProcessCorrelation{PID: 55, StartIdentity: "fake-single", GroupIdentity: "fake-group"}, nil
-}
-func TestCommittedStarterSingleUsesSequentialSeam(t *testing.T) {
-	c := currentContract(t)
-	frozen := c.Execution.Binding.ResolvedProfile
-	s := workflow.SingleDispatch{State: workflow.State{FormatVersion: 3, ExecutionID: "00000000-0000-4000-8000-000000000001", ProjectID: "project", Stage: "intake", Revision: 2, Binding: c.Execution.Binding}, AttemptID: "00000000-0000-4000-8000-000000000010", ResolvedProfile: frozen}
-	a := executiongraph.DispatchAuthority{FormatVersion: 1, ProjectID: "project", PreviewDigest: strings.Repeat("a", 64), Scope: "single-first-attempt", ParentID: s.State.ExecutionID, Revision: 2, ProposalDigest: strings.Repeat("b", 64), SingleStageID: "intake", SingleAttemptID: s.AttemptID, LedgerDigest: strings.Repeat("c", 64), ActorKind: "human-operator", Actor: "operator", RecordedAt: time.Unix(20, 0).UTC(), Children: []executiongraph.DispatchChildAuthority{{ChildID: s.State.ExecutionID}}}
-	f := &fakeSequentialStarter{}
-	starter := CommittedStarter{Sequential: f}
-	process, e := starter.Start(context.Background(), Publication{Single: &s, Authority: a})
-	if e != nil || process.PID != 55 || f.calls != 1 || !reflect.DeepEqual(f.single, s) || !reflect.DeepEqual(f.authority, a) {
-		t.Fatal(process, e, f.calls)
-	}
-	a.SingleAttemptID = "foreign"
-	if _, e = starter.Start(context.Background(), Publication{Single: &s, Authority: a}); !errors.Is(e, workflow.ErrSingleDispatch) || f.calls != 1 {
-		t.Fatal("foreign attempt started", e)
 	}
 }
 
