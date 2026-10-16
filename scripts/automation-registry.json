@@ -1341,7 +1341,7 @@
         "scripts/test-delivery.sh",
         "scripts/test-release-flow.sh"
       ],
-      "inputs": "mode parse|check-pr|commits|release; --file/--body/--title/--from/--to/--tag/--revision; local Git history; .github/delivery-corrections.txt at the resolved revision",
+      "inputs": "mode parse|check-pr|commits|release; --file/--body/--title/--from/--to/--tag/--revision, commits --require-declared; local Git history; .github/delivery-corrections.txt at the resolved revision",
       "outputs": "metadata=/related=/completes= lines or one line per commit to stdout; delivery_metadata_error to stderr and exit 1",
       "local_effects": "none",
       "network_effects": "none",
@@ -2324,9 +2324,10 @@
         "ci",
         "test"
       ],
-      "trigger": "every native-suite.yml contracts job run",
+      "trigger": "every native-suite.yml contracts job run and CI PR Checks job",
       "replay_reason": null,
       "callers": [
+        ".github/workflows/ci.yml",
         ".github/workflows/native-suite.yml"
       ],
       "inputs": "none; reads delivery-issues.sh, .github/delivery-corrections.txt and delivery-project.json",

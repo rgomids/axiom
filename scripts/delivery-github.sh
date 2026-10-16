@@ -607,7 +607,8 @@ Released in [$tag]($release_url) (revision \`${revision:0:12}\`), delivered by $
       [[ -n "$from" ]] || fail 'no .release-please-manifest.json history to anchor the sync range'
     fi
     [[ "$from" =~ ^[0-9a-f]{40}$ ]] || fail 'sync requires a full --from revision'
-    "$repository_root/scripts/delivery-issues.sh" commits --from "$from" --to "$to" >"$temporary/commits" || exit 1
+    # Reject metadata lost in squash before planning or applying any effect.
+    "$repository_root/scripts/delivery-issues.sh" commits --from "$from" --to "$to" --require-declared >"$temporary/commits" || exit 1
     # cover: each commit and the release version whose release commit (at or
     # after it in this window) delivers it, or none.
     awk '{sha[NR] = substr($1, 8); rel[NR] = substr($3, 9)} END {

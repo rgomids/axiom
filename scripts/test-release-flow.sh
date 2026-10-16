@@ -1134,6 +1134,12 @@ check 'reconciliation skips an unreadable (transferred or deleted) Issue and con
   grep -Fxq 'reconcile_skipped=21 tag=v0.2.0 reason=issue_unreadable' '$temporary/sync' && grep -Fxq 'reconcile_skipped=22 tag=v0.2.0 reason=latest_record_v0.3.0' '$temporary/sync'"
 mv "$state/issue-21.moved" "$state/issues/21.json"
 dbad=$(dcommit 'fix: merged without metadata (#15)' 'Closes #23\n')
+before=$(mutations)
+expect_failure 'sync refuses metadata lost in squash immediately after merge' "commit $dbad has no delivery metadata" \
+  dgh sync --from "$drel" --to "$dbad"
+expect_failure 'sync validates the whole window before any earlier delivery effect' "commit $dbad has no delivery metadata" \
+  dgh sync --from "$d0" --to "$dbad"
+check 'missing squash metadata produces no Issue or Project effects' test "$(mutations)" = "$before"
 dr021=$(dcommit 'chore(main): release 0.2.1 (#16)' '' 0.2.1)
 dgh sync --from "$dr021" --to "$dr021" >"$temporary/sync"
 check 'reconciliation skips an unresolvable release and still reconciles the others' bash -c "
@@ -2242,6 +2248,12 @@ expect_failure 'published recovery refuses changed correction pins' 'pins differ
 unset AXIOM_RELEASE_CORRECTIONS_REVISION AXIOM_RELEASE_CORRECTIONS_DIGEST
 # Ordinary post-release sync must resolve the immutable release commit using
 # published pins, without adopting those pins for unrelated commit parsing.
+before=$(mutations)
+expect_failure 'published recovery pins never excuse a newer undeclared commit' "commit $ralt has no delivery metadata" \
+  "$rfix/scripts/delivery-github.sh" sync --repo rgomids/axiom --from "$rbase" --to "$ralt"
+check 'a newer undeclared recovery control commit fails without effects' test "$(mutations)" = "$before"
+printf '%s related=none completes=none\n' "$ralt" >>"$rfix/.github/delivery-corrections.txt"
+rsync=$(rcommit 'docs(delivery): record reviewed correction (#171)' 'Related-Issues: none\nCompletes-Issues: none\n')
 export AXIOM_DELIVERY_PROJECT_TOKEN=$FAKE_PROJECT_TOKEN
 stage_project 'Legacy Done'
 rrecord=$state/releases/$(release_json v0.3.0 | jq -r .id).json
@@ -2250,7 +2262,7 @@ reject_historical_sync() {
   local label=$1 filter=$2 before
   jq "$filter" "$temporary/rrecord-original.json" >"$rrecord"
   before=$(mutations)
-  if "$rfix/scripts/delivery-github.sh" sync --repo rgomids/axiom --from "$rbase" --to "$ralt" \
+  if "$rfix/scripts/delivery-github.sh" sync --repo rgomids/axiom --from "$rbase" --to "$rsync" \
     >"$temporary/historical-out" 2>"$temporary/historical-error"; then
     check "$label" false
   else
@@ -2264,7 +2276,7 @@ reject_historical_sync 'historical recovery refuses another source revision befo
 reject_historical_sync 'historical recovery refuses duplicate pins before any effects' '.body += "\n- Recovery corrections revision: `0000000000000000000000000000000000000000`"'
 reject_historical_sync 'historical recovery refuses malformed pins before any effects' '.body |= sub("Recovery corrections SHA-256: `[0-9a-f]{64}`"; "Recovery corrections SHA-256: `bad`")'
 check 'ordinary sync resolves published recovery and repairs released Project projection' \
-  "$rfix/scripts/delivery-github.sh" sync --repo rgomids/axiom --from "$rbase" --to "$ralt"
+  "$rfix/scripts/delivery-github.sh" sync --repo rgomids/axiom --from "$rbase" --to "$rsync"
 check 'historical recovery reconciliation projects only the published completed Issue' bash -c "
   [[ '$(item 86)' == 'Released|v0.3.0' ]] && [[ \$(jq -r .state '$state/issues/86.json') == closed ]] &&
   ! grep -Eq '^(ISSUE|COMMENT|PROJECT).*153' '$state/ledger'"
@@ -2272,8 +2284,6 @@ unset AXIOM_DELIVERY_PROJECT_TOKEN
 # A release published through the recovery is a valid previous release: the
 # next start checks it with the pins it records, as verify does.
 rm -f "$state/pr-merged.json"
-printf '%s related=none completes=none\n' "$ralt" >>"$rfix/.github/delivery-corrections.txt"
-rcommit 'docs(delivery): record reviewed correction (#171)' 'Related-Issues: none\nCompletes-Issues: none\n' >/dev/null
 # Notes generated later differ; the recovery release keeps its control notes.
 printf "printf 'Later notes format.\\\\n'\n" >>"$rfix/scripts/release-notes.sh"
 rcommit 'docs(release): change the notes format (#173)' 'Related-Issues: none\nCompletes-Issues: none\n' >/dev/null

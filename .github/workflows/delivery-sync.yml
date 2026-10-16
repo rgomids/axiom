@@ -16,8 +16,11 @@ name: Delivery sync
 # - with projection enabled, every stable release since v0.2.0 is reconciled:
 #   a closed/completed Issue whose latest release record names that release
 #   is repaired to Released with that Target Release.
-# Partial PRs (Completes-Issues: none) have no effect. This is a delivery
-# projection for humans, never Axiom Execution truth or axiom:stage:* state.
+# Partial PRs (Completes-Issues: none) have no effect.
+# Missing metadata in an ordinary post-v0.2.0 squash fails before any effect;
+# a green pre-merge PR check alone does not validate the final squash message.
+# This is a delivery projection for humans, never Axiom Execution truth or
+# axiom:stage:* state.
 # Issue closure happens only in publish-release.yml, inside the authorized
 # publication envelope. Runs the trusted main revision only (push), never PR
 # code. The Project credential is an environment secret of `delivery`, used
