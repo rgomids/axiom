@@ -26,6 +26,20 @@
   Projects created by `project configure` carry no policy and block until an
   authored policy is installed.
 
+## [0.17.0](https://github.com/rgomids/axiom/compare/v0.16.0...v0.17.0) (2026-10-16)
+
+
+### Features
+
+* **capabilityproof:** read-only Evidence selection (AXM-21) ([#315](https://github.com/rgomids/axiom/issues/315)) ([ca105cc](https://github.com/rgomids/axiom/commit/ca105cc8fd8fbadb52eb74df5747b150f799ecab))
+* **runtime:** implement local profile effort and workflow integration ([#310](https://github.com/rgomids/axiom/issues/310)) ([5e1c995](https://github.com/rgomids/axiom/commit/5e1c995ab57ed3fbd54e5b72288607140d031e7d))
+* **workflow:** advance stage execution and capability proof ([#320](https://github.com/rgomids/axiom/issues/320)) ([eed4aac](https://github.com/rgomids/axiom/commit/eed4aace5c3d223f0588d14c21fcfc8ac06659ba))
+
+
+### Bug Fixes
+
+* **delivery:** restore squash metadata and validate merged commits ([#321](https://github.com/rgomids/axiom/issues/321)) ([9b8b30b](https://github.com/rgomids/axiom/commit/9b8b30b41e26cf07874ce4395a3cc87fc2e566cf))
+
 ## [0.16.0](https://github.com/rgomids/axiom/compare/v0.15.0...v0.16.0) (2026-10-11)
 
 
