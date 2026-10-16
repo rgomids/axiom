@@ -2627,3 +2627,75 @@ Final reviewed source SHA-256 for this boundary:
 - `process_posix.go`: `970ec362204d27e05df09ef9fbff7b356da4bf0d8c6f82f266b4d0671b57ad77`
 - `process_posix_test.go`: `de9e7d1c7cabb9de993f24d4d07f361b0f48eb34f1a2c0e903cf56f398d0ef27`
 - `process_adopted_darwin.go`: `6661500f2b1ee4980bb3d4334fbc1247e07649866b99aeac1c21f808e3b08757`
+
+### Scope reduction delta — T43 process-group boundary and minimal PR CI
+
+Maintainer decision: [AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
+Linear comment `247f9812-31d2-4c62-af63-7fd972d18f54` (2026-10-15), which
+supersedes the open Darwin orphan investigation above. Recorded as
+[ADR-0028](../../decisions/0028-mvp-posix-process-group-supervision-boundary.md)
+and [ADR-0029](../../decisions/0029-minimal-pr-gate-native-qualification.md),
+both **Proposed**. The accepted T43 Plan wording stays unchanged until
+ADR-0028 is accepted; then only a disposition note is added.
+
+**T43 (A).** `process_posix.go` supervises the leader and its own process group:
+`Setpgid`, recorded start/group identity, refusal on identity drift (PID reuse),
+`SIGKILL` to that group only, confirmation only when the group is observably
+empty, and a veto when an escape is visible through the live leader's
+ancestry. Removed: Linux child subreaper (`process_reaper_*`), the global
+attempt-leader registry, and the Darwin launchd adoption snapshot
+(`process_adopted_*`). Descendants that leave the group and lose ancestry are
+outside the MVP guarantee; they are not tracked, signalled or counted. Exit 0
+still never proves success (`ResultMissing` without a recorded result).
+
+The removed inference also produced false `unknown` on Linux: the new test
+`TestPOSIXIndependentHostActivityDoesNotVetoStop` fails at `d288cc1`
+("independent host activity vetoed confirmation of the attempt group") and
+passes now. A pre-existing false `unknown` for leaders that exit before their
+identity is read (zombie, so identity reads nil) was found by the first native
+run of the new suite (`TestProbeFakeExecutableFailureNeverProves`, Linux race).
+A 300-run `/bin/sh -c 'exit 7'` stress under CPU load measured 14/300 unknown at
+`d288cc1`, 2/300 after the boundary change, 0/900 after the fix. An unreaped
+leader keeps its PID, so a later live process at that PID is refused as reuse
+(`TestPOSIXLeaderExitedBeforeObservation`).
+
+Focused tests: descendants in the group, known escape (setsid child of a live
+leader) and known escape into another attempt group (`Stopped=false`, escapee
+untouched); decoupled orphans in their own session, the supervisor's group or
+another attempt's group (group confirmed, process untouched, outside
+guarantee); independent host activity; already exited group; changed identity
+never signals; unstarted group; exit 0/7; completion/timeout/cancel/correlation
+failure; cancel with known escape is `unknown`; permission and observation
+failures via the fake containment.
+
+**CI (B).** `ci.yml` is one `PR Checks` job; `delivery-metadata` is unchanged.
+The classifier (`classify-ci-changes.py`, `test-ci-classification.py`) and its
+conclusion jobs/artifacts are removed. `native-suite.yml` (Linux/macOS
+`go test -race`, Linux coverage, contracts, upgrade journeys) is called by the
+new `nightly.yml` (daily 05:17 UTC and manual), by the manual native
+qualification and by `release-artifacts.yml` at the release revision, whose
+failure blocks publication through `verify-prepared-release.sh`. The versioned
+ruleset requires `PR Checks` and `delivery-metadata`; release fixtures model a
+historical correction pin with the legacy contexts and a current policy that
+refuses missing, failing or foreign-app `PR Checks`.
+
+**Remote ruleset (pending, administrative).** Read-back 2026-10-16: ruleset
+`22828068` still requires the seven legacy contexts. Apply together with the
+merge of #320, never earlier (it would block every PR lacking `PR Checks`) and
+not later than the next PR: `gh api --method PUT repos/rgomids/axiom/rulesets/22828068 --input .github/rulesets/main.json`,
+then read back the contexts and the unchanged review, Code Owners, strict,
+thread, squash, deletion, non-fast-forward, code-quality and bypass rules. Until
+then #320 cannot satisfy the legacy contexts; that is expected, not a bypass.
+
+Runs at `99ad6f9`: PR CI [38843821453](https://github.com/rgomids/axiom/actions/runs/38843821453)
+`PR Checks` PASS in 3m04s (start 03:06:11Z, end 03:09:15Z; one run, target
+2–3 minutes not yet shown) and `delivery-metadata` PASS. Native qualification
+[38843824624](https://github.com/rgomids/axiom/actions/runs/38843824624):
+`suite (macos)` **PASS** (complete `go test -race ./... -p=1`, including
+`internal/executiongraph`, `cmd/lingo` and `internal/capabilityproof`, the
+packages that failed natively on macOS at `d288cc1`), `upgrade-journeys
+(linux|macos)`, `acceptance`, `smoke-macos` PASS; rejection/promotion as
+designed. `suite (linux)` FAILED on the zombie-at-start false `unknown` fixed
+above, and `contracts` FAILED because `test-go-quality.py` needs Staticcheck,
+installed only in `PR Checks`; it now runs there. The exact-HEAD rerun is
+listed in PR #320.
