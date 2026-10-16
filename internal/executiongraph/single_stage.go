@@ -70,6 +70,8 @@ type SingleStageRun struct {
 
 // SingleStageAuthority is the version-2 single-stage dispatch receipt. It is a
 // separate codec from the version-1 DispatchAuthority and never decodes as one.
+// DispatchDigest is the dispatch preview re-observed for this attempt; for the
+// first attempt it is the bound preview itself.
 type SingleStageAuthority struct {
 	FormatVersion       int       `json:"formatVersion"`
 	Scope               string    `json:"scope"`
@@ -82,6 +84,7 @@ type SingleStageAuthority struct {
 	WorkflowRevision    uint64    `json:"workflowRevision"`
 	LedgerGeneration    string    `json:"ledgerGeneration,omitempty"`
 	PreviewDigest       string    `json:"previewDigest"`
+	DispatchDigest      string    `json:"dispatchDigest"`
 	ProposalDigest      string    `json:"proposalDigest"`
 	AttemptNumber       uint32    `json:"attemptNumber"`
 	PriorAttemptID      string    `json:"priorAttemptId,omitempty"`
@@ -236,14 +239,14 @@ func validateAttemptPrefix(old, next []SuccessorAttempt) error {
 }
 
 func ValidateSingleStageAuthority(a SingleStageAuthority) error {
-	if a.FormatVersion != SingleStageAuthorityVersion || a.Scope != SingleStageAuthorityScope || !validToken(a.ProjectID) || !validOpaqueID(a.ExecutionID) || !validToken(a.StageID) || a.StageOrdinal < 0 || !successorDigest(a.ScopeDigest) || !successorDigest(a.ExecutionGeneration) || a.WorkflowRevision == 0 || !successorDigest(a.PreviewDigest) || !successorDigest(a.ProposalDigest) || !validDispatchEffects(a.Effects) || a.ActorKind != "human-operator" || !boundedIdentity(a.Actor) || !utc(a.RecordedAt) {
+	if a.FormatVersion != SingleStageAuthorityVersion || a.Scope != SingleStageAuthorityScope || !validToken(a.ProjectID) || !validOpaqueID(a.ExecutionID) || !validToken(a.StageID) || a.StageOrdinal < 0 || !successorDigest(a.ScopeDigest) || !successorDigest(a.ExecutionGeneration) || a.WorkflowRevision == 0 || !successorDigest(a.PreviewDigest) || !successorDigest(a.DispatchDigest) || !successorDigest(a.ProposalDigest) || !validDispatchEffects(a.Effects) || a.ActorKind != "human-operator" || !boundedIdentity(a.Actor) || !utc(a.RecordedAt) {
 		return ErrInvalidGraph
 	}
 	if a.AttemptNumber < 1 || a.AttemptNumber > MaxSingleStageAttempts {
 		return ErrInvalidGraph
 	}
 	if a.AttemptNumber == 1 {
-		if a.LedgerGeneration != "" || a.PriorAttemptID != "" || a.Disposition != DispositionNotRequired {
+		if a.LedgerGeneration != "" || a.PriorAttemptID != "" || a.Disposition != DispositionNotRequired || a.DispatchDigest != a.PreviewDigest {
 			return ErrInvalidGraph
 		}
 		return nil

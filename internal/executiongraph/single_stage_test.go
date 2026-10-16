@@ -24,7 +24,7 @@ func singleStageFixture(t *testing.T) (SingleStageRun, SingleStageAuthority) {
 	}
 	created := time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC)
 	binding := SingleStageBinding{ExecutionGeneration: strings.Repeat("6", 64), WorkflowRevision: 3, PreviewDigest: strings.Repeat("7", 64), ProposalDigest: strings.Repeat("8", 64), InputDigest: strings.Repeat("9", 64), AxiomDigest: strings.Repeat("a", 64), Workspace: "/synthetic/worktrees/one", Inbox: "/synthetic/inboxes/one", Effects: []Effect{{Kind: "repository-write", Target: "src"}}, Controls: ExecutionControls{Timeout: time.Hour, MaximumAttempts: 3}, Resolution: Resolution{ResolvedProfile: profile, RuntimeID: "codex", ModelProfileID: "codex-high", ConfigurationRevision: 1, ObservationRevision: 1}}
-	a := SingleStageAuthority{FormatVersion: 2, Scope: SingleStageAuthorityScope, ProjectID: scope.ProjectID, ExecutionID: scope.ExecutionID, StageID: scope.StageID, StageOrdinal: scope.StageOrdinal, ScopeDigest: digest, ExecutionGeneration: binding.ExecutionGeneration, WorkflowRevision: binding.WorkflowRevision, PreviewDigest: binding.PreviewDigest, ProposalDigest: binding.ProposalDigest, AttemptNumber: 1, Effects: binding.Effects, Disposition: DispositionNotRequired, ActorKind: "human-operator", Actor: "synthetic-operator", RecordedAt: created}
+	a := SingleStageAuthority{FormatVersion: 2, Scope: SingleStageAuthorityScope, ProjectID: scope.ProjectID, ExecutionID: scope.ExecutionID, StageID: scope.StageID, StageOrdinal: scope.StageOrdinal, ScopeDigest: digest, ExecutionGeneration: binding.ExecutionGeneration, WorkflowRevision: binding.WorkflowRevision, PreviewDigest: binding.PreviewDigest, DispatchDigest: binding.PreviewDigest, ProposalDigest: binding.ProposalDigest, AttemptNumber: 1, Effects: binding.Effects, Disposition: DispositionNotRequired, ActorKind: "human-operator", Actor: "synthetic-operator", RecordedAt: created}
 	ref, err := SingleStageAuthorityDigest(a)
 	if err != nil {
 		t.Fatal(err)
@@ -136,7 +136,9 @@ func TestSingleStageBoundsAndScope(t *testing.T) {
 		"no authority":  func(r *SingleStageRun) { r.Authorities = nil },
 		"same paths":    func(r *SingleStageRun) { r.Binding.Inbox = r.Binding.Workspace },
 		"two pending":   func(r *SingleStageRun) { r.Authorities = append(r.Authorities, strings.Repeat("d", 64)) },
-		"epoch":         func(r *SingleStageRun) { r.Attempts = []SuccessorAttempt{finishedAttempt("00000000-0000-4000-8000-000000000002", 1, 2, AttemptFailed, ProcessFailed, r.CreatedAt)} },
+		"epoch": func(r *SingleStageRun) {
+			r.Attempts = []SuccessorAttempt{finishedAttempt("00000000-0000-4000-8000-000000000002", 1, 2, AttemptFailed, ProcessFailed, r.CreatedAt)}
+		},
 	} {
 		c := CloneSingleStageRun(r)
 		change(&c)
