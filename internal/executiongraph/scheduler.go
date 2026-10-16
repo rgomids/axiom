@@ -435,7 +435,6 @@ func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, s
 	if err != nil {
 		return ProcessResult{ExitCode: -1, OutcomeUnknown: true}
 	}
-	defer group.close()
 	command.WaitDelay = processStopBound
 	if err = ctx.Err(); err == nil {
 		err = group.start(command)

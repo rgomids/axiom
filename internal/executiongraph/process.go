@@ -13,7 +13,6 @@ type processContainment interface {
 	start(*exec.Cmd) error
 	stop() error
 	gone() (bool, error)
-	close()
 }
 
 // confirmProcessStop never turns a signal delivery or an observation error into

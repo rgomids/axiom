@@ -25,7 +25,6 @@ func (g *fakeProcessContainment) stop() error {
 func (g *fakeProcessContainment) gone() (bool, error) {
 	return !g.alive && g.descendants == 0 && !g.escaped, g.observeErr
 }
-func (*fakeProcessContainment) close() {}
 func TestConfirmedProcessGroupStop(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
