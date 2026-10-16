@@ -114,53 +114,8 @@ func ValidateSuccessorGraph(g SuccessorGraph) error {
 	}
 	facts := map[string]bool{}
 	for _, c := range g.Children {
-		if len(c.Attempts) > int(c.Envelope.Controls.MaximumAttempts) {
-			return ErrInvalidGraph
-		}
-		var epoch uint64
-		var previousFinish *time.Time
-		for i, a := range c.Attempts {
-			if !validOpaqueID(a.AttemptID) || ids[a.AttemptID] || a.Number != uint32(i+1) || a.LeaseEpoch == 0 || a.LeaseEpoch < epoch || !successorDigest(a.PacketDigest) || a.StartedAt == nil || !utc(*a.StartedAt) || a.StartedAt.Before(g.Parent.CreatedAt) || len(a.ReconciliationFacts) > MaxReconciliationFacts {
-				return ErrInvalidGraph
-			}
-			if previousFinish != nil && a.StartedAt.Before(*previousFinish) || a.AmbiguousEffect && a.Status != AttemptUnknown {
-				return ErrInvalidGraph
-			}
-			if a.CancellationSeen && g.CancelRequest == nil {
-				return ErrInvalidGraph
-			}
-			if a.ClassificationReason == CancelConfirmed && (g.CancelRequest == nil || a.FinishedAt == nil || a.FinishedAt.Before(g.CancelRequest.RequestedAt)) {
-				return ErrInvalidGraph
-			}
-			previousFinish = a.FinishedAt
-			epoch = a.LeaseEpoch
-			ids[a.AttemptID] = true
-			if a.OutputDigest != "" && !successorDigest(a.OutputDigest) || a.ResultReference != "" && !successorDigest(a.ResultReference) {
-				return ErrInvalidGraph
-			}
-			if a.Process != nil && (a.Process.PID <= 0 || !boundedIdentity(a.Process.StartIdentity) || !boundedIdentity(a.Process.GroupIdentity)) {
-				return ErrInvalidGraph
-			}
-			if a.Status == AttemptRunning {
-				if a.FinishedAt != nil || a.ClassificationReason != "" || a.QualifyingRecordRef != "" || a.Process == nil || i != len(c.Attempts)-1 {
-					return ErrInvalidGraph
-				}
-			} else {
-				if a.FinishedAt == nil || !utc(*a.FinishedAt) || a.FinishedAt.Before(*a.StartedAt) || !validClassification(a, c.Envelope.IntegrationOwner) {
-					return ErrInvalidGraph
-				}
-			}
-			last := *a.StartedAt
-			if a.FinishedAt != nil {
-				last = *a.FinishedAt
-			}
-			for _, f := range a.ReconciliationFacts {
-				if !validOpaqueID(f.FactID) || facts[f.FactID] || ids[f.FactID] || f.ParentID != g.Parent.ExecutionID || f.ChildID != c.ExecutionID || f.GraphRevision != g.Parent.GraphRevision || f.AttemptID != a.AttemptID || !successorDigest(f.ObservationsDigest) || !successorDigest(f.AuthorityRef) || f.AuthorityRef == g.DispatchAuthorityRef || f.ActorKind != "human-operator" || !boundedIdentity(f.Actor) || !utc(f.RecordedAt) || f.RecordedAt.Before(last) || (f.Classification != "retry_safe" && f.Classification != "recovery_required") {
-					return ErrInvalidGraph
-				}
-				facts[f.FactID] = true
-				last = f.RecordedAt
-			}
+		if err := validateAttemptSequence(c.Attempts, attemptScope{created: g.Parent.CreatedAt, cancel: g.CancelRequest, parentID: g.Parent.ExecutionID, childID: c.ExecutionID, revision: g.Parent.GraphRevision, maximum: c.Envelope.Controls.MaximumAttempts, integration: c.Envelope.IntegrationOwner, authority: map[string]bool{g.DispatchAuthorityRef: true}}, ids, facts); err != nil {
+			return err
 		}
 	}
 	for id := range facts {
@@ -170,6 +125,68 @@ func ValidateSuccessorGraph(g SuccessorGraph) error {
 	}
 	if g.CancelRequest != nil && (ids[g.CancelRequest.RequestID] || facts[g.CancelRequest.RequestID]) {
 		return ErrInvalidGraph
+	}
+	return nil
+}
+
+type attemptScope struct {
+	created           time.Time
+	cancel            *CancelRequest
+	parentID, childID string
+	revision          uint64
+	maximum           uint32
+	integration       bool
+	authority         map[string]bool
+}
+
+func validateAttemptSequence(attempts []SuccessorAttempt, scope attemptScope, ids, facts map[string]bool) error {
+	if len(attempts) > int(scope.maximum) {
+		return ErrInvalidGraph
+	}
+	var epoch uint64
+	var previousFinish *time.Time
+	for i, a := range attempts {
+		if !validOpaqueID(a.AttemptID) || ids[a.AttemptID] || a.Number != uint32(i+1) || a.LeaseEpoch == 0 || a.LeaseEpoch < epoch || !successorDigest(a.PacketDigest) || a.StartedAt == nil || !utc(*a.StartedAt) || a.StartedAt.Before(scope.created) || len(a.ReconciliationFacts) > MaxReconciliationFacts {
+			return ErrInvalidGraph
+		}
+		if previousFinish != nil && a.StartedAt.Before(*previousFinish) || a.AmbiguousEffect && a.Status != AttemptUnknown {
+			return ErrInvalidGraph
+		}
+		if a.CancellationSeen && scope.cancel == nil {
+			return ErrInvalidGraph
+		}
+		if a.ClassificationReason == CancelConfirmed && (scope.cancel == nil || a.FinishedAt == nil || a.FinishedAt.Before(scope.cancel.RequestedAt)) {
+			return ErrInvalidGraph
+		}
+		previousFinish = a.FinishedAt
+		epoch = a.LeaseEpoch
+		ids[a.AttemptID] = true
+		if a.OutputDigest != "" && !successorDigest(a.OutputDigest) || a.ResultReference != "" && !successorDigest(a.ResultReference) {
+			return ErrInvalidGraph
+		}
+		if a.Process != nil && (a.Process.PID <= 0 || !boundedIdentity(a.Process.StartIdentity) || !boundedIdentity(a.Process.GroupIdentity)) {
+			return ErrInvalidGraph
+		}
+		if a.Status == AttemptRunning {
+			if a.FinishedAt != nil || a.ClassificationReason != "" || a.QualifyingRecordRef != "" || a.Process == nil || i != len(attempts)-1 {
+				return ErrInvalidGraph
+			}
+		} else {
+			if a.FinishedAt == nil || !utc(*a.FinishedAt) || a.FinishedAt.Before(*a.StartedAt) || !validClassification(a, scope.integration) {
+				return ErrInvalidGraph
+			}
+		}
+		last := *a.StartedAt
+		if a.FinishedAt != nil {
+			last = *a.FinishedAt
+		}
+		for _, f := range a.ReconciliationFacts {
+			if !validOpaqueID(f.FactID) || facts[f.FactID] || ids[f.FactID] || f.ParentID != scope.parentID || f.ChildID != scope.childID || f.GraphRevision != scope.revision || f.AttemptID != a.AttemptID || !successorDigest(f.ObservationsDigest) || !successorDigest(f.AuthorityRef) || scope.authority[f.AuthorityRef] || f.ActorKind != "human-operator" || !boundedIdentity(f.Actor) || !utc(f.RecordedAt) || f.RecordedAt.Before(last) || (f.Classification != "retry_safe" && f.Classification != "recovery_required") {
+				return ErrInvalidGraph
+			}
+			facts[f.FactID] = true
+			last = f.RecordedAt
+		}
 	}
 	return nil
 }

@@ -267,6 +267,21 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	v3 := createLocalV3Execution(t, ledgers)
+	single, singleAuthority := localSingleStage(t, v3)
+	singles, err := NewSingleStageStore(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	singleLease, err := leases.Acquire(context.Background(), single.Scope.ProjectID, single.Scope.ExecutionID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := singles.CommitAuthority(context.Background(), single, singleAuthority, v3, singleLease); err != nil {
+		t.Fatal(err)
+	}
+	if err := singleLease.Close(); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := ledgers.RecordStageOutcome(context.Background(), v3, localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")); err != nil {
 		t.Fatal(err)
 	}
