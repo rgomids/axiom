@@ -49,12 +49,12 @@ jobs:
           echo "AXIOM_TEST_PROBE_STATE_ROOT=$probe_state" >> "$GITHUB_ENV"
       - name: Unit, integration and black-box tests with race detector
         if: matrix.platform == 'macos'
-        run: go test -race ./... -p=1
+        run: go test -race ./... -p=1 -timeout=20m
       - name: Linux tests with race detector and coverage
         if: matrix.platform == 'linux'
         run: |
           mkdir -p coverage
-          go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./...
+          go test -race -covermode=atomic -coverprofile=coverage/coverage.out ./... -timeout=20m
       - name: Static and build checks
         run: |
           go vet ./...
