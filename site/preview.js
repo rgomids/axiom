@@ -10,7 +10,8 @@ const previews = {
   footer: 'footer',
 };
 const parameters = new URLSearchParams(location.search);
-const preview = parameters.has('scene') ? 'story' : parameters.get('preview');
+const preview =
+  parameters.has('scene') || parameters.has('frame') ? 'story' : parameters.get('preview');
 if (Object.hasOwn(previews, preview)) {
   document.body.dataset.preview = preview;
   for (const element of document.querySelectorAll('main > section, .header, footer, .skip'))

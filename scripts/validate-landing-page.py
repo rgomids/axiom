@@ -25,6 +25,7 @@ class Document(HTMLParser):
         self.translations = 0
         self.metadata = {}
         self.story_scenes = []
+        self.story_beats = []
         self.story_entities = {name: 0 for name in ('idea', 'work', 'path', 'axiom', 'decision')}
 
 
@@ -36,6 +37,8 @@ class Document(HTMLParser):
         self.translations += 'data-en' in attrs
         if 'data-story-scene' in attrs:
             self.story_scenes.append(attrs['data-story-scene'])
+        if attrs.get('class', '').split().count('story-beat'):
+            self.story_beats.append(attrs.get('id'))
         for name in self.story_entities:
             self.story_entities[name] += 'data-story-' + name in attrs
         for name in ('src', 'href'):
@@ -68,8 +71,9 @@ def validate():
             require((SITE / reference.split('#')[0]).is_file(), 'broken local resource: ' + reference)
     require(doc.translations >= 40, 'incomplete bilingual content')
     require(doc.story_scenes == ['1', '2', '3', '4', '5'], 'five complete static scenes must remain in narrative order')
+    require(doc.story_beats == [f'quadro-{scene}-{beat}' for scene in range(1, 6) for beat in range(1, 6)], 'all 25 storyboard beats must remain complete and ordered')
     require(doc.story_entities == {'idea': 1, 'work': 6, 'path': 6, 'axiom': 1, 'decision': 1}, 'animated story must retain one idea, six shared work objects/paths, an Axiom hub and a human decision')
-    for name in ('storytelling.js', 'story-state.js'):
+    for name in ('storytelling.js', 'story-state.js', 'storyboard-state.js', 'story-frames.js'):
         require(name in files, 'missing story implementation: ' + name)
     for scene in range(1, 6):
         require('cena-' + str(scene) in doc.ids, 'static story scene anchor missing')

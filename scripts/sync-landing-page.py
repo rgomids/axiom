@@ -29,7 +29,7 @@ def safe_files(directory):
             if name == MANIFEST or any(part.startswith('.') and part != '.nojekyll' for part in path.relative_to(directory).parts):
                 raise ValueError('bundle contains a reserved or hidden path')
             files[name] = path
-    for required in ('index.html', 'app.js', 'storytelling.js', 'story-state.js', 'tokens.css'):
+    for required in ('index.html', 'app.js', 'storytelling.js', 'story-state.js', 'storyboard-state.js', 'story-frames.js', 'tokens.css'):
         if required not in files:
             raise ValueError('bundle missing ' + required)
     return files

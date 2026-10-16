@@ -116,7 +116,7 @@ class LandingTests(unittest.TestCase):
     def story_snapshot(self):
         return self.page.evaluate("""() => [...document.querySelectorAll(
             '.story-stage [data-story-idea],.story-stage [data-story-work],.story-stage [data-story-path],.story-stage [data-story-axiom]'
-        )].map(el=>({style:el.getAttribute('style'),d:el.getAttribute('d')}))""")
+        )].map(el=>({transform:getComputedStyle(el).transform,opacity:getComputedStyle(el).opacity,width:getComputedStyle(el).width,height:getComputedStyle(el).height,d:el.getAttribute('d')}))""")
 
     def test_native_story_reuses_entities_and_reverses_deterministically(self):
         self.page.emulate_media(reduced_motion='no-preference')
@@ -130,7 +130,7 @@ class LandingTests(unittest.TestCase):
         self.page.wait_for_function('scrollY > 0')
         self.page.evaluate("Promise.race([nativeScrollEnded,new Promise((_,reject)=>setTimeout(()=>reject(Error('native scroll did not end')),3000))])")
         snapshots = {}
-        for progress in (0, 1, 2, 3, 4):
+        for progress in [index / 6 for index in range(25)]:
             self.seek_story(progress)
             snapshots[progress] = self.story_snapshot()
             self.assertTrue(self.page.evaluate('storyEntities.every(el=>el.isConnected)'))
@@ -139,9 +139,13 @@ class LandingTests(unittest.TestCase):
                 self.assertLess(hub_opacity, .01)
             if progress == 2:
                 self.assertGreater(hub_opacity, .9)
+            if progress == 22 / 6:
+                self.assertGreater(self.page.locator('[data-story-decision]').evaluate('el=>Number(getComputedStyle(el).opacity)'), .9)
+                self.assertEqual(self.page.locator('[data-story-decision] li').count(), 5)
+                self.assertEqual(self.page.locator('[data-story-decision] .decision-choices>span').count(), 2)
             if progress == 4:
                 self.assertGreater(self.page.locator('[data-story-idea]').evaluate('el=>Number(getComputedStyle(el).opacity)'), .9)
-                decision = self.page.locator('[data-story-decision]').inner_text().lower()
+                decision = self.page.locator('[data-story-decision]').text_content().lower()
                 self.assertIn('aceitar', decision)
                 self.assertIn('retrabalho', decision)
             self.choose('en')
@@ -204,6 +208,7 @@ class LandingTests(unittest.TestCase):
             self.page.set_viewport_size({'width': width, 'height': 900})
             self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
         self.assertEqual(self.page.locator('article[data-story-scene]').count(), 5)
+        self.assertEqual(self.page.locator('.story-beat').count(), 25)
         for scene in self.page.locator('article[data-story-scene]').all():
             self.assertTrue(scene.is_visible())
         self.choose('en')

@@ -26,16 +26,25 @@ review, merge, deployment or full MVP acceptance.
   makes boundaries visible, and verifiable results lead to a human choice.
   The idea remains the protagonist; the large Axiom mark enters at the third
   scene. The six workflow stages belong to scene four, not six more scenes.
+- All 25 storyboard beats are retained, five per scene. Fragmentation includes
+  six work fronts and tool/context tiles; orchestration separately presents the
+  map, five configurable stage cards, dependency graph, human gate and six-row
+  execution view. Delivery presents convergence, five artifact rows, five review
+  checks with two human alternatives, the delivered result and next possibilities.
+  The same 25 illustrated beats remain available without motion or JavaScript.
 - Native scroll controls the narrative reversibly. System reduced motion,
   manual pause and absent JavaScript reveal five complete static scenes; no
   essential explanation depends on animation. Institutional content, installation
   and documentation remain directly reachable without completing the story.
 - The opening fades the gold screen to black before a single supernova reveals
   the idea. The nucleus fades out before the control plane enters, stays hidden
-  through coordination, then returns through a shared card-to-sphere metamorphosis
-  toward the human decision: shrinking, rounding and complementary fades start
-  with the movement. Its identity and accessible explanation persist;
+  through the central Axiom reveal and becomes the luminous origin as the
+  configurable flow forms. The original idea returns connected to the next
+  possibilities after the verifiable delivery. Its identity and explanation persist;
   no repeated flash or autonomous playback is added.
+- Sample model assignments, PR #123, 12/12 tests, progress 3/6 and approval labels
+  follow the storyboard. Visible conceptual/example captions distinguish these
+  illustrations from actual product capabilities, real CI results or acceptance.
 - Illustrations are conceptual explanations, never product GUI screenshots or
   live execution results. Diff, tests and Evidence are examples; scrolling
   never authorizes or accepts a real delivery. Accept and rework remain human
