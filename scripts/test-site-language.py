@@ -130,16 +130,16 @@ class LandingTests(unittest.TestCase):
         self.page.wait_for_function('scrollY > 0')
         self.page.evaluate("Promise.race([nativeScrollEnded,new Promise((_,reject)=>setTimeout(()=>reject(Error('native scroll did not end')),3000))])")
         snapshots = {}
-        for progress in [index / 6 for index in range(25)]:
+        for progress in [index * 4 / 17 for index in range(18)]:
             self.seek_story(progress)
             snapshots[progress] = self.story_snapshot()
             self.assertTrue(self.page.evaluate('storyEntities.every(el=>el.isConnected)'))
             hub_opacity = self.page.locator('[data-story-axiom]').evaluate('el=>Number(getComputedStyle(el).opacity)')
-            if progress == 1:
+            if progress == 4 * 4 / 17:
                 self.assertLess(hub_opacity, .01)
-            if progress == 2:
+            if progress == 8 * 4 / 17:
                 self.assertGreater(hub_opacity, .9)
-            if progress == 22 / 6:
+            if progress == 15 * 4 / 17:
                 self.assertGreater(self.page.locator('[data-story-decision]').evaluate('el=>Number(getComputedStyle(el).opacity)'), .9)
                 self.assertEqual(self.page.locator('[data-story-decision] li').count(), 5)
                 self.assertEqual(self.page.locator('[data-story-decision] .decision-choices>span').count(), 2)
@@ -151,7 +151,7 @@ class LandingTests(unittest.TestCase):
             self.choose('en')
             self.assertTrue(self.page.locator('.story-stage').evaluate("el=>[...el.querySelectorAll('[data-en]')].every(node=>node.textContent===node.dataset.en)"))
             self.choose('pt-BR')
-        for progress in (3, 1, 4, 2, 0):
+        for progress in (12 * 4 / 17, 4 * 4 / 17, 4, 8 * 4 / 17, 0):
             self.seek_story(progress)
             self.assertEqual(self.story_snapshot(), snapshots[progress])
         for anchor, scene in (('#fluxo', '4'), ('#proposta', '3')):
@@ -208,8 +208,8 @@ class LandingTests(unittest.TestCase):
             self.page.set_viewport_size({'width': width, 'height': 900})
             self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
         self.assertEqual(self.page.locator('article[data-story-scene]').count(), 5)
-        self.assertEqual(self.page.locator('.story-beat').count(), 25)
-        self.assertEqual(self.page.locator('.static-transcript').count(), 25)
+        self.assertEqual(self.page.locator('.story-beat').count(), 18)
+        self.assertEqual(self.page.locator('.static-transcript').count(), 18)
         self.assertTrue(self.page.locator('.scene-static').evaluate_all("els=>els.every(el=>el.getAttribute('aria-hidden')==='true')"))
         self.assertNotIn('Code Review', self.page.locator('.static-transcript').first.inner_text())
         for scene in self.page.locator('article[data-story-scene]').all():

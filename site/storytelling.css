@@ -1,4 +1,4 @@
-/* Storyboard: 25 compositions on one reversible, native-scroll stage. */
+/* Storyboard: 18 distinct compositions on one reversible, native-scroll stage. */
 .storytelling {
   --story-wash: 1;
   --story-beat-span: 200svh;
@@ -103,44 +103,6 @@
   width: 26px;
   height: 26px;
   color: var(--gold);
-}
-.story-grid,
-.story-beam,
-.story-energy,
-.story-links,
-.story-particles {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-.story-grid {
-  background-image:
-    linear-gradient(color-mix(in srgb, var(--gold) 5%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--gold) 5%, transparent) 1px, transparent 1px);
-  background-size: 46px 46px;
-  mask-image: radial-gradient(ellipse, black, transparent 70%);
-}
-.story-beam {
-  left: 47%;
-  width: 6%;
-  background: linear-gradient(
-    transparent,
-    color-mix(in srgb, var(--gold) 35%, transparent),
-    transparent
-  );
-  filter: blur(8px);
-}
-.story-energy,
-.story-links {
-  overflow: visible;
-}
-.story-energy path {
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 0.13;
-  opacity: 0.27;
 }
 .story-links path {
   stroke: var(--gold);
@@ -275,18 +237,8 @@
     inset 0 0 20px color-mix(in srgb, var(--gold) 6%, transparent);
 }
 .story-mascot {
-  width: 66%;
-  height: 65%;
-}
-.axiom-core > span {
-  color: var(--gold);
-  text-align: center;
-  letter-spacing: 3px;
-  font: 9px var(--mono);
-}
-.axiom-core small {
-  letter-spacing: 1.3px;
-  font-size: 6px;
+  width: 82%;
+  height: 82%;
 }
 .story-work {
   flex-direction: column;
@@ -604,17 +556,6 @@
   font-weight: 500;
   line-height: 1.3;
 }
-.story-particles {
-  opacity: 0.35;
-}
-.story-particles i {
-  position: absolute;
-  width: var(--particle);
-  height: var(--particle);
-  border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 7px var(--gold);
-}
 .story-supernova {
   position: absolute;
   left: 50%;
@@ -669,7 +610,7 @@
   font-size: 13px;
 }
 .story-motion .storytelling {
-  height: calc(100svh + 24 * var(--story-beat-span));
+  height: calc(100svh + 17 * var(--story-beat-span));
 }
 .story-motion .story-stage {
   display: block;
@@ -697,7 +638,7 @@
 }
 .story-motion .story-scenes > article {
   position: absolute;
-  top: calc(var(--scene-index) * 5 * var(--story-beat-span));
+  top: calc(var(--scene-start) * var(--story-beat-span));
   width: 100%;
 }
 .story-motion .scene-heading {
@@ -736,16 +677,6 @@
   inset: 0;
   background: var(--gold);
   opacity: var(--story-wash);
-}
-.story-ambient {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse at 50% 45%,
-    color-mix(in srgb, var(--gold) 6%, transparent),
-    transparent 65%
-  );
-  opacity: calc(1 - var(--story-wash));
 }
 .story-copy {
   position: absolute;
@@ -1016,12 +947,6 @@ body[data-preview='story'] .storytelling {
   stroke-width: 2px;
   vector-effect: non-scaling-stroke;
 }
-.story-world .story-grid {
-  top: calc(var(--platform, 0) * 67%);
-  height: calc(100% - var(--platform, 0) * 35%);
-  transform: perspective(400px) rotateX(calc(var(--platform, 0) * 55deg));
-  transform-origin: 50% 0;
-}
 .story-transcript-title,
 .story-motion .scene-heading {
   display: block;
@@ -1041,29 +966,6 @@ body[data-preview='story'] .storytelling {
 }
 .live-world[data-ambient='true'] .orb-surface {
   animation: idea-breath 5.8s ease-in-out infinite;
-}
-.live-world[data-ambient='true'] .story-energy path {
-  transform-origin: 50% 50%;
-  animation: idea-wave 9s ease-in-out infinite alternate;
-}
-.live-world[data-ambient='true'] .story-energy path:nth-child(3n) {
-  animation-delay: -3s;
-  animation-duration: 12s;
-}
-.live-world[data-ambient='true'] .story-energy path:nth-child(3n + 1) {
-  animation-delay: -6s;
-}
-.live-world[data-ambient='true'] .story-particles i,
-.live-world[data-ambient='true'] .story-ground i,
-.live-world[data-ambient='true'] .orb-ring,
-.live-world[data-ambient='true'] .story-beam {
-  animation: light-breath 6s ease-in-out infinite alternate;
-}
-.live-world[data-ambient='true'] .story-particles i:nth-child(3n) {
-  animation-delay: -2s;
-}
-.live-world[data-ambient='true'] .story-particles i:nth-child(3n + 1) {
-  animation-delay: -4s;
 }
 .card-bloom,
 .story-tool::after,
@@ -1107,16 +1009,7 @@ body[data-preview='story'] .storytelling {
     filter: brightness(1.12);
   }
 }
-@keyframes idea-wave {
-  from {
-    transform: translateY(-1.4%) scaleY(0.95);
-    opacity: 0.18;
-  }
-  to {
-    transform: translateY(1.4%) scaleY(1.05);
-    opacity: 0.38;
-  }
-}
+
 @keyframes light-breath {
   from {
     filter: brightness(0.8);
@@ -1158,43 +1051,19 @@ body[data-preview='story'] .storytelling {
   animation-duration: 9s;
 }
 @keyframes thought-drift {
-  0%,
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1.15);
+  }
+  25% {
+    opacity: 0.85;
+  }
+  70% {
+    opacity: 0.4;
+  }
   100% {
     opacity: 0;
-    transform: translateY(9px) scale(0.5);
-  }
-  35%,
-  60% {
-    opacity: 1;
-    transform: translateY(0) scale(1.12);
-  }
-  85% {
-    opacity: 0.15;
-    transform: translateY(-9px) scale(0.75);
-  }
-}
-
-.story-energy .energy-impulse {
-  display: none;
-}
-.live-world[data-ambient='true'] .story-energy .energy-impulse {
-  display: block;
-  stroke: color-mix(in srgb, var(--text) 55%, var(--gold));
-  stroke-width: 0.24;
-  stroke-dasharray: 3 24;
-  animation:
-    idea-wave 9s ease-in-out infinite alternate,
-    energy-flow 11s linear infinite;
-}
-.live-world[data-ambient='true'] .story-energy .energy-impulse:nth-child(4n) {
-  animation-delay:
-    -4s,
-    -6s;
-  animation-duration: 12s, 14s;
-}
-@keyframes energy-flow {
-  to {
-    stroke-dashoffset: -54;
+    transform: translate(var(--pull-x, 0px), var(--pull-y, 0px)) scale(0.3);
   }
 }
 
@@ -1207,5 +1076,149 @@ body[data-preview='story'] .storytelling {
   }
   to {
     stroke-opacity: 1;
+  }
+}
+
+/* Broad wave fronts flow inward. They are ambient surfaces, never card connectors. */
+.story-wave {
+  position: absolute;
+  inset: -18% -12%;
+  width: 124%;
+  height: 136%;
+  pointer-events: none;
+  overflow: visible;
+}
+.story-wave path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--gold) 28%, transparent);
+  stroke-width: 0.18;
+}
+.story-wave g {
+  transform-origin: 50% 50%;
+  opacity: 0.5;
+}
+.live-world[data-ambient='true'] .story-wave g {
+  animation: wave-inward 16s linear infinite;
+  animation-delay: var(--wave-delay);
+}
+@keyframes wave-inward {
+  0% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  75% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(0.16);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-world[data-ambient='true'] .story-wave g {
+    animation: none;
+  }
+}
+
+.story-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.live-world[data-ambient='true'] .orb-ring,
+.live-world[data-ambient='true'] .story-ground i {
+  animation: light-breath 6s ease-in-out infinite alternate;
+}
+
+.story-work[data-kind='dependencies'] {
+  flex-direction: row;
+  gap: 9px;
+  padding: 8px;
+}
+.story-work[data-kind='dependencies'] .work-title {
+  font-size: 13px;
+}
+.agent-mark {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.claude-mark {
+  filter: invert(1);
+}
+.work-agent:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.work-agent .agent-mark {
+  width: 13px;
+  height: 13px;
+}
+.runtime-activity .agent-mark {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@media (max-width: 760px) {
+  .story-work[data-kind='dependencies'] .work-title {
+    font-size: 10px;
+  }
+  .story-work[data-kind='dependencies'] .story-icon {
+    width: 20px;
+    height: 20px;
+  }
+  .work-agent .agent-mark {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+.story-tool {
+  line-height: 1.2;
+}
+@media (max-width: 760px) {
+  .story-tool {
+    font-size: 10px;
+  }
+  .story-work[data-kind='dependencies'] {
+    gap: 6px;
+  }
+}
+
+/* Secondary tools converge into subordinate badges; geometry stays continuous. */
+.story-tool {
+  display: block;
+  font-size: calc(11px - var(--tool-grouping, 0) * 1px);
+}
+.story-tool > b,
+.story-tool > .agent-mark {
+  position: absolute;
+  left: calc(50% - var(--tool-grouping, 0) * 35%);
+  top: calc(30% + var(--tool-grouping, 0) * 20%);
+  transform: translate(-50%, -50%);
+  width: calc(22px - var(--tool-grouping, 0) * 10px);
+  height: calc(22px - var(--tool-grouping, 0) * 10px);
+  font-size: calc(20px - var(--tool-grouping, 0) * 8px);
+}
+.story-tool > span {
+  position: absolute;
+  left: calc(50% + var(--tool-grouping, 0) * 9%);
+  top: calc(72% - var(--tool-grouping, 0) * 22%);
+  width: calc(94% - var(--tool-grouping, 0) * 24%);
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .story-tool {
+    font-size: calc(10px - var(--tool-grouping, 0) * 2px);
   }
 }

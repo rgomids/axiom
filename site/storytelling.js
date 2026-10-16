@@ -1,13 +1,18 @@
 import {
   storyState,
   storyConnections,
-  originConnection,
   flowSpineX,
-  connectionPath,
+  dependencySideConnections,
   frameState,
   clamp,
-} from './story-state.js';
-import { frames, workContent } from './story-frames.js';
+} from './story-state.js?v=5d511770b198';
+import {
+  frames,
+  workContent,
+  frameProgress,
+  sceneStarts,
+  sceneRepresentatives,
+} from './story-frames.js?v=5d511770b198';
 const story = document.querySelector('.storytelling'),
   world = story.querySelector('.live-world');
 const entities = {
@@ -27,10 +32,10 @@ const params = new URLSearchParams(location.search),
   fixedFrame = Number(params.get('frame')),
   fixedScene = Number(params.get('scene'));
 const previewIndex =
-  fixedFrame >= 1 && fixedFrame <= 25
+  fixedFrame >= 1 && fixedFrame <= frames.length
     ? fixedFrame - 1
     : fixedScene >= 1 && fixedScene <= 5
-      ? [0, 9, 12, 19, 24][fixedScene - 1]
+      ? sceneRepresentatives[fixedScene - 1]
       : null;
 let frame = 0,
   top = 0,
@@ -63,7 +68,8 @@ function paint(now) {
   frame = 0;
   const staticMode = document.body.classList.contains('static-motion');
   document.body.classList.toggle('story-motion', !staticMode || previewIndex !== null);
-  const target = previewIndex !== null ? previewIndex / 6 : clamp((scrollY - top) / range) * 4;
+  const target =
+    previewIndex !== null ? frameProgress(previewIndex) : clamp((scrollY - top) / range) * 4;
   if (renderedProgress === null || staticMode || previewIndex !== null) renderedProgress = target;
   const dt = Math.min(64, now - (lastPaint || now));
   lastPaint = now;
@@ -86,6 +92,7 @@ function paint(now) {
   );
   if (staticMode && previewIndex === null) return;
   world.dataset.layout = s.layout;
+  world.style.setProperty('--tool-grouping', s.toolGrouping);
   place(entities.idea, s.idea);
   entities.idea.style.setProperty('--idea-card', s.ideaCard);
   entities.idea.querySelector('.idea-label').style.opacity = s.ideaCard;
@@ -93,7 +100,6 @@ function paint(now) {
   place(entities.hub, s.hub);
   entities.hub.style.borderRadius = `${14 + s.hubRound * 36}%`;
   entities.hub.querySelector('.story-mascot').style.opacity = 1 - s.morph;
-  entities.hub.querySelector('span').style.opacity = 1 - s.morph;
   const before = frameState(s.from, s.narrow, width),
     after = frameState(s.from + 1, s.narrow, width);
   for (const group of ['works', 'tools', 'ghosts', 'contexts'])
@@ -115,16 +121,17 @@ function paint(now) {
         scale:
           entering || (roleChange && s.transition >= 0.5)
             ? 0.78 + growth * 0.22
-            : 1 + s.reveals[i % 6].bloom * 0.025,
+            : (s[group][i].scale ?? 1) * (1 + s.reveals[i % 6].bloom * 0.025),
       });
+      if (group === 'ghosts') {
+        el.style.setProperty('--pull-x', `${((50 - s[group][i].x) * width) / 500}px`);
+        el.style.setProperty('--pull-y', `${((50 - s[group][i].y) * height) / 500}px`);
+      }
       el.style.setProperty(
         '--card-bloom',
-        after[group][i].opacity > 0.1 ? s.reveals[i % 6].bloom : 0,
+        after[group][i].opacity > 0.1 && (entering || roleChange) ? s.reveals[i % 6].bloom : 0,
       );
     });
-  const roleChange =
-    frames[Math.floor(s.beatProgress)].layout !==
-    frames[Math.min(24, Math.ceil(s.beatProgress))].layout;
   entities.works.forEach((el, i) => {
     const c = workContent(s.index, i);
     el.dataset.kind = c.kind;
@@ -134,9 +141,17 @@ function paint(now) {
       target.dataset.en = c[field].en;
       target.textContent = c[field][lang];
     }
-    el.querySelector('.work-agent').textContent = c.agent;
+    const agent = el.querySelector('.work-agent');
+    agent.hidden = !c.agent;
+    agent.querySelector('span').textContent = c.agent;
+    const mark = agent.querySelector('img');
+    mark.src = `assets/${c.agent.startsWith('Claude') ? 'claude' : 'openai'}-mark.svg`;
+    mark.classList.toggle('claude-mark', c.agent.startsWith('Claude'));
     el.querySelector('.story-icon use').setAttribute('href', '#story-icon-' + c.icon);
-    el.querySelector('.work-body').style.opacity = roleChange ? s.contentOpacity : 1;
+    const beforeText = workContent(s.from, i),
+      afterText = workContent(s.from + 1, i);
+    const changed = JSON.stringify(beforeText) !== JSON.stringify(afterText);
+    el.querySelector('.work-body').style.opacity = changed ? s.contentOpacity : 1;
   });
   storyConnections(s, width, height).forEach((connection, i) => {
     const path = paths[i];
@@ -151,22 +166,16 @@ function paint(now) {
     trails[i].setAttribute('d', connection.trail);
     trails[i].style.opacity = connection.opacity * connection.signal;
   });
+  const dependency = s.layout === 'dependencies' ? s.routingFade : 0;
+  const sideConnections = dependencySideConnections(s, width, height);
+  world.querySelector('.dependency-shortcut').setAttribute('d', sideConnections[2]);
+  world.querySelector('.dependency-shortcut').style.opacity = dependency * 0.65;
   world.querySelectorAll('.context-link').forEach((path, i) => {
-    const origin = s.works[i === 0 ? 1 : 2];
-    path.setAttribute(
-      'd',
-      connectionPath([origin.x, origin.y], [s.contexts[i].x, s.contexts[i].y], i),
-    );
-    path.style.opacity = s.contexts[i].opacity;
+    path.setAttribute('d', sideConnections[i]);
+    path.style.opacity = s.contexts[i].opacity * dependency;
   });
-  const input = originConnection(s, width);
-  world.querySelector('.idea-link').setAttribute('d', input.d);
-  alpha('.idea-link', input.opacity);
-  alpha('.story-energy', s.energy);
-  alpha('.story-grid', s.grid);
-  world.querySelector('.story-grid').style.setProperty('--platform', s.platform);
+  alpha('.story-wave', Math.max(s.energy * 0.75, (1 - s.wash) * 0.45) * (1 - s.toolGrouping * 0.7));
   alpha('.story-ground', s.ground);
-  alpha('.story-beam', s.beam);
   alpha('.execution-shell', s.execution);
   alpha('.story-decision', s.decision);
   alpha('.delivery-chips', s.chips);
@@ -191,7 +200,6 @@ function paint(now) {
       y = s.works[i].y;
     el.setAttribute('d', `M ${x} ${y} H ${x + 7} H ${s.works[i].x}`);
   });
-  alpha('.story-particles', Math.max(s.energy, s.connections, s.ground) * 0.35);
   alpha('.story-supernova', s.novaOpacity);
   world.querySelector('.story-supernova').style.setProperty('--nova-scale', s.novaScale);
   copies.forEach((el, i) => {
@@ -200,8 +208,10 @@ function paint(now) {
     el.style.transform = `translateY(${(1 - s.copy[i]) * 10}px)`;
   });
   story.querySelector('.story-disclaimer').style.opacity =
-    clamp((s.beatProgress - 15.2) / 0.6) ** 2 * (3 - 2 * clamp((s.beatProgress - 15.2) / 0.6));
-  story.querySelector('.story-counter').textContent = `0${s.scene + 1} — 05 · 0${s.beat} / 05`;
+    clamp((s.beatProgress - sceneStarts[3]) / 0.6) ** 2 *
+    (3 - 2 * clamp((s.beatProgress - sceneStarts[3]) / 0.6));
+  story.querySelector('.story-counter').textContent =
+    `0${s.scene + 1} — 05 · 0${s.beat} / 0${frames.filter((f) => f.scene === s.scene + 1).length}`;
   steps.forEach((el, i) => {
     if (i === s.scene) el.setAttribute('aria-current', 'step');
     else el.removeAttribute('aria-current');
@@ -213,7 +223,18 @@ function schedule() {
 addEventListener('scroll', schedule, { passive: true });
 addEventListener('resize', measure, { passive: true });
 addEventListener('axiom:settings', measure);
-addEventListener('load', measure, { once: true });
+addEventListener(
+  'load',
+  () => {
+    measure();
+    if (previewIndex === null && /^#(?:cena-\d|quadro-\d-\d|fluxo|proposta)$/.test(location.hash)) {
+      requestAnimationFrame(() =>
+        document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'instant' }),
+      );
+    }
+  },
+  { once: true },
+);
 document.fonts.ready.then(measure);
 new ResizeObserver(measure).observe(story);
 measure();

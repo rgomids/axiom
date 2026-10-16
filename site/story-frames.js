@@ -1,4 +1,4 @@
-// Five supplied storyboards, read left-to-right, five beats each.
+// Five chapters, with repeated compositions consolidated into 18 distinct beats.
 export const text = (pt, en) => ({ pt, en });
 export const sceneNames = [
   text('O nascimento da ideia', 'The birth of an idea'),
@@ -8,7 +8,7 @@ export const sceneNames = [
   text('A entrega verificável', 'Verifiable delivery'),
 ];
 export const fronts = [
-  text('Requisitos', 'Requirements'),
+  text('Specification', 'Specification'),
   text('Arquitetura', 'Architecture'),
   text('Código', 'Code'),
   text('Testes', 'Tests'),
@@ -26,13 +26,13 @@ export const stages = [
 export const tools = [
   'Notion',
   'Claude',
-  'Codex',
+  'Codex · OpenAI',
   'GitHub',
   'Docs',
   'Decisões',
   'CLI',
   'Issues',
-  '…',
+  'Artefatos',
 ];
 const f = (scene, beat, layout, pt, en, lead, leadEn) => ({
   scene,
@@ -60,18 +60,10 @@ export const frames = [
     'O ponto de partida de tudo.',
     'The starting point of everything.',
   ),
+
   f(
     1,
     3,
-    'idea',
-    'Uma ideia.',
-    'An idea.',
-    'Uma necessidade, um problema a resolver ou uma oportunidade de criar algo novo.',
-    'A need, a problem to solve, or an opportunity to create something new.',
-  ),
-  f(
-    1,
-    4,
     'unfold',
     'Cada ideia se desdobra\nem muitas partes.',
     'Every idea unfolds\ninto many parts.',
@@ -80,34 +72,17 @@ export const frames = [
   ),
   f(
     1,
-    5,
+    4,
     'fronts',
     'Mais elementos. Mais decisões.\nMais contextos.',
     'More elements. More decisions.\nMore contexts.',
     'Como manter tudo conectado?',
     'How do you keep it all connected?',
   ),
+
   f(
     2,
     1,
-    'idea',
-    'Uma ideia.',
-    'An idea.',
-    'Tudo começa com uma intenção.',
-    'Everything starts with an intention.',
-  ),
-  f(
-    2,
-    2,
-    'fronts',
-    'Uma ideia.',
-    'An idea.',
-    'Rapidamente surgem várias frentes.',
-    'Many workstreams quickly emerge.',
-  ),
-  f(
-    2,
-    3,
     'tools',
     'Múltiplas ferramentas.\nMúltiplos agentes.',
     'Multiple tools.\nMultiple agents.',
@@ -116,7 +91,7 @@ export const frames = [
   ),
   f(
     2,
-    4,
+    2,
     'fragmentation',
     'O trabalho se dispersa.',
     'Work becomes scattered.',
@@ -125,25 +100,17 @@ export const frames = [
   ),
   f(
     2,
-    5,
+    3,
     'tension',
     'Agentes aceleram tarefas.\nMas quem mantém tudo conectado?',
     'Agents accelerate tasks.\nBut who keeps everything connected?',
     'Uma camada de orquestração é necessária.',
     'An orchestration layer is needed.',
   ),
+
   f(
     3,
     1,
-    'scattered',
-    'O que estava disperso\ncomeça a se conectar.',
-    'What was scattered\nbegins to connect.',
-    'A mesma intenção. Os mesmos elementos.',
-    'The same intent. The same elements.',
-  ),
-  f(
-    3,
-    2,
     'emerge',
     'O Axiom emerge.',
     'Axiom emerges.',
@@ -152,43 +119,17 @@ export const frames = [
   ),
   f(
     3,
-    3,
+    2,
     'connect',
     'O Axiom conecta\no que estava disperso.',
     'Axiom connects\nwhat was scattered.',
     'Coordenação, contexto compartilhado e limites.',
     'Coordination, shared context and boundaries.',
   ),
-  f(
-    3,
-    4,
-    'unified',
-    'Um fluxo coerente.',
-    'A coherent flow.',
-    'Intenção, decisões, código e evidências conectados, com controle humano.',
-    'Intent, decisions, code and evidence connected, with human control.',
-  ),
-  f(
-    3,
-    5,
-    'platform',
-    'Pronto para orquestração.',
-    'Ready for orchestration.',
-    'Os elementos conectados evoluem para um fluxo configurável.',
-    'Connected elements evolve into a configurable workflow.',
-  ),
+
   f(
     4,
     1,
-    'map',
-    'Da intenção ao fluxo.',
-    'From intent to workflow.',
-    'Etapas, agentes e limites explícitos.',
-    'Explicit stages, agents and boundaries.',
-  ),
-  f(
-    4,
-    2,
     'lanes',
     'Um processo configurável.',
     'A configurable process.',
@@ -197,7 +138,7 @@ export const frames = [
   ),
   f(
     4,
-    3,
+    2,
     'dependencies',
     'Dependências e contexto.',
     'Dependencies and context.',
@@ -206,7 +147,7 @@ export const frames = [
   ),
   f(
     4,
-    4,
+    3,
     'human-gate',
     'Com controle humano.',
     'With human control.',
@@ -215,7 +156,7 @@ export const frames = [
   ),
   f(
     4,
-    5,
+    4,
     'execution',
     'Uma visão da execução.',
     'One execution view.',
@@ -268,6 +209,9 @@ export const frames = [
     'Your next idea. Connected from the start.',
   ),
 ];
+export const sceneStarts = sceneNames.map((_, i) => frames.findIndex((f) => f.scene === i + 1));
+export const sceneRepresentatives = [0, 6, 8, 12, 17];
+export const frameProgress = (index) => (index * 4) / (frames.length - 1);
 export function workContent(index, i) {
   const layout = frames[index].layout;
   const c = {
@@ -278,26 +222,6 @@ export function workContent(index, i) {
     kind: 'front',
     agent: '',
   };
-  if (index === 4 && i === 0) c.title = stages[0];
-  if (['fragmentation', 'tension'].includes(layout)) {
-    c.title = [
-      text('Specification v1 → v2', 'Specification v1 → v2'),
-      text('Arquitetura · ADR', 'Architecture · ADR'),
-      text('Discussão em chat', 'Chat discussion'),
-      text('Código em construção', 'Code in progress'),
-      text('Testes', 'Tests'),
-      text('Deploy · pendente', 'Deploy · pending'),
-    ][i];
-    c.detail = [
-      text('Requisitos e mudanças', 'Requirements and changes'),
-      text('Decisões em outro contexto', 'Decisions in another context'),
-      text('O contexto se fragmenta', 'Context fragments'),
-      text('function deliver() { … }', 'function deliver() { … }'),
-      text('Validações separadas', 'Separate validations'),
-      text('Entrega ainda desconectada', 'Delivery still disconnected'),
-    ][i];
-    c.kind = 'artifact';
-  }
   if (['lanes', 'dependencies', 'human-gate', 'execution'].includes(layout)) {
     c.title = stages[i];
     c.kind = layout;
@@ -311,9 +235,13 @@ export function workContent(index, i) {
         text('Evidence e aceite humano.', 'Evidence and human acceptance.'),
         text('', ''),
       ][i];
-      c.agent = i === 2 || i === 3 ? 'Codex · o4-mini' : 'Claude · Sonnet 4';
+      c.agent = i === 5 ? '' : i === 2 || i === 3 ? 'Codex · o4-mini' : 'Claude · Sonnet 4';
     }
-    if (layout === 'dependencies' && i === 3) c.title = text('Testes', 'Tests');
+    if (layout === 'dependencies' && i === 3) {
+      c.title = text('Testes', 'Tests');
+      c.icon = 'flask';
+    }
+    if (layout === 'dependencies' && i === 4) c.title = text('Revisão', 'Review');
     if (layout === 'human-gate') {
       c.detail =
         i === 4

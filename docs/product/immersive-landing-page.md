@@ -26,12 +26,12 @@ review, merge, deployment or full MVP acceptance.
   makes boundaries visible, and verifiable results lead to a human choice.
   The idea remains the protagonist; the large Axiom mark enters at the third
   scene. The six workflow stages belong to scene four, not six more scenes.
-- All 25 storyboard beats are retained, five per scene. Fragmentation includes
+- Eighteen distinct beats retain the five-chapter story (4/3/2/4/5). Fragmentation includes
   six work fronts and tool/context tiles; orchestration separately presents the
-  map, five configurable stage cards, dependency graph, human gate and six-row
+  five configurable stage cards, dependency graph, human gate and six-row
   execution view. Delivery presents convergence, five artifact rows, five review
   checks with two human alternatives, the delivered result and next possibilities.
-  The same 25 illustrated beats remain available without motion or JavaScript.
+  The same 18 illustrated beats remain available without motion or JavaScript.
 - Native scroll controls the narrative reversibly. System reduced motion,
   manual pause and absent JavaScript reveal five complete static scenes; no
   essential explanation depends on animation. Institutional content, installation
@@ -43,12 +43,13 @@ review, merge, deployment or full MVP acceptance.
   possibilities after the verifiable delivery. Its identity and explanation persist;
   no repeated flash or timed scene advancement is added.
 - Pacing uses 200svh per beat, a reading hold, quintic geometry interpolation and
-  a short scroll follower. Connection signals precede staggered card blooms.
+  a short scroll follower. Card blooms introduce work fronts; connection signals
+  begin only after Axiom appears.
   Ambient globe rotation, light pulses, wave lines and decorative square zooms
   add movement without advancing scenes. Pause/reduced motion disable ambient
   loops; fixed-frame previews remain deterministic. Connector endpoints follow
   actual card edges and viewport width; the returning idea fades during relocation
-  and reappears on the first workflow port. The globe/card silhouette, perspective
+  and reappears on the first workflow port. The globe/card silhouette
   and routing auxiliaries change continuously, with no abrupt visible shape switch.
 - Sample model assignments, PR #123, 12/12 tests, progress 3/6 and approval labels
   follow the storyboard. Visible conceptual/example captions distinguish these
@@ -115,3 +116,24 @@ page and validator as one coherent unit.
 Chromium checks do not establish Safari/Firefox or real-device acceptance.
 Social preview caches and the served Pages deployment are external checks after
 merge. No Go product logic changes, and page validation does not replace Go CI.
+
+## Latest storytelling refinement
+
+The maintainer consolidated repeated compositions into eighteen distinct beats
+across five chapters (4/3/2/4/5). Work fronts and agent/tool cards persist as the
+field gains depth. Connections only appear after the original octopus is fully
+visible; the center no longer has the AXIOM/CONTROL PLANE subtitle. An inward
+wave replaces the old background. Native scroll, reading dwell, reversible fades
+and the full intent-to-evidence journey remain.
+
+The dependency view follows the supplied orthogonal flowchart, including the
+Specification-to-Implementation shortcut and lateral docs, integrations and
+tests. Claude and OpenAI marks identify the Claude/Codex integrations already
+documented by the product. This is not a claim of a separate ChatGPT adapter or
+vendor endorsement. Marks are bundled locally with provenance in NOTICE.
+Content-derived JS/CSS revisions prevent mixed cached module versions.
+
+The organization scene keeps six primary fronts in focus. Nine secondary tools
+converge into subordinate badges under their owning front; no independent wires
+connect those badges. Two shared lateral spines and short branches replace the
+previous dense central graph. Wave intensity decreases during organization.
