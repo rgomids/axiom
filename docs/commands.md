@@ -301,14 +301,24 @@ before invocation.
 requires a prepared envelope and explicit `--roots tmpdir`, `--roots system-temp`
 or `--roots tmpdir,system-temp`. There is no arbitrary-path flag. Its read-only
 preview binds the standard invocation, exact physical roots and snapshots,
-unique filename, one-file limit and timeout. HOME, vendor homes, repository,
-linked and duplicate roots are refused. Apply additionally needs its exact
-preview digest and **`--authorize-extended`**; standard probe authority cannot
-substitute. The production measurement/owned-file cleanup backend is currently
-unavailable: even with all flags, apply returns
-`extended_measurement_unavailable` / `unknown` before controls, auth or Runtime
-execution. No shared temp file is created or removed. This refusal is not a
-successful extended measurement or completion of its remaining #276 backend.
+unique filename, one-file limit, timeout, the digest of each per-root canary
+packet and its cost (one vendor inference per root, no retries). HOME, vendor
+homes, repository, linked and duplicate roots are refused. Apply additionally
+needs its exact preview digest and **`--authorize-extended`**; standard probe
+authority cannot substitute.
+
+Apply runs the subscription preflight, re-observes the whole preview, claims
+the envelope and, per root: creates and removes an exclusive empty control
+file on the host, runs the Runtime once with a packet that only invokes the
+hidden canary entrypoint for that exact file, observes the root on the host,
+removes the file only when it is an empty single-link regular file of the
+current user, and repeats the control. A file the host observes after the run
+reports `advisory`; anything else stays `unknown`, because a child report or
+exit status cannot attest denial. A pre-existing or non-owned object at the
+probe filename is never touched: apply stops with `extended_residue_detected`
+and quarantines the envelope. The result is reported as
+`capability_extended_measured`; it writes no capability Evidence and proves no
+confinement.
 
 ## Inspect skill arguments
 

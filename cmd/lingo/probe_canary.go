@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"io"
 	"os"
+
+	"github.com/rgomids/axiom/internal/capabilityproof"
+	"github.com/rgomids/axiom/internal/local"
 )
 
 type probeCanaryLoader interface {
@@ -28,6 +30,16 @@ func probeCanaryCommand(ctx context.Context, args []string, loader probeCanaryLo
 		return true, 1
 	}
 	if json.NewEncoder(out).Encode(r) != nil {
+		return true, 1
+	}
+	return true, 0
+}
+
+func extendedCanaryCommand(args []string, cwd string) (bool, int) {
+	if len(args) == 0 || args[0] != "__probe-canary-extended" {
+		return false, 0
+	}
+	if len(args) != 4 || local.CreateExtendedCanary(cwd, args[1], args[2], args[3]) != nil {
 		return true, 1
 	}
 	return true, 0

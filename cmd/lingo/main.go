@@ -39,6 +39,9 @@ func main() {
 	if handled, code := probeCanaryCommand(context.Background(), os.Args[1:], local.ProbeCanaryLoader{WorkingDirectory: probeWorkingDirectory()}, os.Stdout); handled {
 		os.Exit(code)
 	}
+	if handled, code := extendedCanaryCommand(os.Args[1:], probeWorkingDirectory()); handled {
+		os.Exit(code)
+	}
 	if handled, code := cli.HandleHelp(os.Args[1:], currentProvenance(), os.Stdout); handled {
 		os.Exit(code)
 	}

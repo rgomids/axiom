@@ -36,7 +36,7 @@ func capabilityCommands(runtime string) commandDefinition {
 		leaf("invalidate", "Preview or invalidate Evidence with local authority", action("capability_"+runtime+"_invalidate")),
 		leaf("prepare", "Preview or prepare an envelope under separate local authority", action("capability_"+runtime+"_prepare")),
 		leaf("probe", "Preview or run a bounded probe with local and external authority", action("capability_"+runtime+"_probe")),
-		leaf("probe-extended", "Preview separately authorized temp-root measurement; unavailable proof stays blocked", action("capability_"+runtime+"_probe-extended")))
+		leaf("probe-extended", "Preview or run separately authorized temp-root measurement", action("capability_"+runtime+"_probe-extended")))
 }
 
 func capabilityOperation(op action) bool { return strings.HasPrefix(string(op), "capability_") }

@@ -35,6 +35,9 @@ func probeFakeProcess() (bool, int) {
 		handled, code := probeCanaryCommand(context.Background(), os.Args[1:], local.ProbeCanaryLoader{WorkingDirectory: probeWorkingDirectory()}, os.Stdout)
 		return handled, code
 	}
+	if handled, code := extendedCanaryCommand(os.Args[1:], probeWorkingDirectory()); handled {
+		return handled, code
+	}
 	name := filepath.Base(os.Args[0])
 	if name != "codex" && name != "claude" {
 		return false, 0
@@ -91,6 +94,23 @@ func probeFakeProcess() (bool, int) {
 	var packet runtimeadapter.TaskPacket
 	if json.NewDecoder(os.Stdin).Decode(&packet) != nil || len(packet.Inputs) != 1 {
 		return true, 2
+	}
+	if fields := strings.Fields(packet.Instructions); len(fields) > 6 && fields[4] == "__probe-canary-extended" {
+		args := fields[5:8]
+		switch cfg.Mode {
+		case "extended-skip":
+			return true, 0
+		case "extended-residue":
+			_ = os.WriteFile(args[2], []byte("not empty"), 0600)
+			return true, 0
+		}
+		cmd := exec.Command(packet.Coordination.AxiomPath, append([]string{"__probe-canary-extended"}, args...)...)
+		cmd.Dir = probeWorkingDirectory()
+		cmd.Env = os.Environ()
+		if cmd.Run() != nil {
+			return true, 14
+		}
+		return true, 0
 	}
 	root := filepath.Dir(probeWorkingDirectory())
 	wire, err = os.ReadFile(filepath.Join(root, "workspace", "nonce"))
