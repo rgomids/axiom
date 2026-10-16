@@ -318,6 +318,27 @@ The unmodified graph journey also passes three repetitions with race (74.075s).
 This does not promote the failed native run to PASS; a new exact-head native
 qualification is required and recorded on PR #320.
 
+The `a0e2b99` qualification [38915242348](https://github.com/rgomids/axiom/actions/runs/38915242348)
+still failed macOS: a FAKE coordination wait expired with exit 23, and the
+aggregate CLI package exceeded Go's default ten-minute test deadline. Diagnostic
+commit `bf138c3` reproduced the failure natively in
+[38948160200](https://github.com/rgomids/axiom/actions/runs/38948160200), exposing
+`work_item_not_linked` from the child's public coordination read. Its clean
+environment correctly drops `AXIOM_GH_BIN`; adapter discovery then depended on
+the host's `gh` being under `/usr/bin:/bin`, which was true on Linux and false
+on macOS. The fixture now supplies a discoverable FAKE `gh` tripwire and uses
+only its private executable directory in PATH, with an explicit link to Git.
+Every installed journey asserts that the Provider tripwire was never executed.
+No production adapter, environment guard, authority or outcome assertion changes.
+
+The native race commands now have an explicit twenty-minute per-package deadline
+within their thirty-minute jobs. The diagnostic Linux CLI race/coverage run
+passed in 522.423 seconds; the earlier macOS timeout occurred while another
+test was executing ordinary JSON decoding. This aggregate test budget is separate
+from the FAKE coordination wait and does not turn either failed run into PASS.
+Local counterexample, corrected installed-suite results and final native
+qualification are recorded by exact SHA in PR #320.
+
 No real Runtime version/help/auth/probe/inference, Provider operation, merge,
 release, ruleset change, Issue closure or Linear state transition was performed.
 

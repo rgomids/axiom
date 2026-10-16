@@ -62,6 +62,9 @@ func newStageJourney(t *testing.T, concurrency ...int) *stageJourney {
 	t.Setenv("TMPDIR", temp)
 	j := &stageJourney{env: newWorkItemSourceEnvironment(t), bin: t.TempDir(), home: t.TempDir(), digests: map[string]string{}, managed: map[string]string{}}
 	t.Cleanup(func() {
+		if _, err := os.Lstat(filepath.Join(j.home, "fake-gh-invocations.log")); !os.IsNotExist(err) {
+			t.Errorf("unexpected Provider invocation: %v", err)
+		}
 		if t.Failed() {
 			for _, name := range []string{"fake-stage-invocations.jsonl", "fake-stage-diagnostics.log"} {
 				wire, _ := os.ReadFile(filepath.Join(j.home, name))
@@ -69,6 +72,16 @@ func newStageJourney(t *testing.T, concurrency ...int) *stageJourney {
 			}
 		}
 	})
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(git, filepath.Join(j.bin, "git")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(j.bin, "gh"), []byte("#!/bin/sh\nprintf 'unexpected Provider invocation\\n' >> \"$HOME/fake-gh-invocations.log\"\nexit 97\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	for _, id := range []string{"codex", "claude"} {
 		j.managed[id] = filepath.Join(j.home, "managed-"+id)
 		if err := os.Mkdir(j.managed[id], 0o700); err != nil {
@@ -111,7 +124,7 @@ func newStageJourney(t *testing.T, concurrency ...int) *stageJourney {
 	if err := os.Mkdir(j.workspace, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	j.environment = []string{"HOME=" + j.home, "PATH=" + j.bin + string(os.PathListSeparator) + "/usr/bin:/bin", "LINGO_PROJECTS_ROOT=" + j.env.root, "LINGO_STATE_ROOT=" + j.env.state, "AXIOM_CODEX_SKILLS_ROOT=" + filepath.Join(j.home, ".codex", "skills"), "AXIOM_GH_BIN=" + filepath.Join(t.TempDir(), "gh-never-executed"), "LANG=C"}
+	j.environment = []string{"HOME=" + j.home, "PATH=" + j.bin, "LINGO_PROJECTS_ROOT=" + j.env.root, "LINGO_STATE_ROOT=" + j.env.state, "AXIOM_CODEX_SKILLS_ROOT=" + filepath.Join(j.home, ".codex", "skills"), "AXIOM_GH_BIN=" + filepath.Join(t.TempDir(), "gh-never-executed"), "LANG=C"}
 	j.policy = j.seedValidatorPolicy(t)
 	j.selectWorkflow(t, concurrency...)
 	return j
