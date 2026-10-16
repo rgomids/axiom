@@ -542,3 +542,58 @@ func TestInstalledSyntheticSingleStageJourney(t *testing.T) {
 		t.Fatal("re-run started another Runtime")
 	}
 }
+
+// A failed single-agent attempt is retried only with an explicit workspace
+// disposition; reset is applied by the fenced supervisor before the new
+// attempt, so the failed attempt's file is gone.
+func TestInstalledSyntheticSingleStageRetryReset(t *testing.T) {
+	j := newStageJourney(t)
+	j.run(t, 0, "runtime", "codex", "install")
+	view := j.startExecution(t, "github:owner/repo#8")
+	unit := writeUnit("owner", []string{"docs"}, "docs/intake.md")
+	unit.Controls.MaximumAttempts = 2
+	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{unit}, []executiongraph.Effect{{Kind: "repository-write", Target: "docs/intake.md"}})
+	args := stageRunArgs(view, "intake", plan, j.policy, j.workspace)
+	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	j.script(t, fakeStageScript{
+		Agents:   map[string][]fakeStageStep{"owner": {{Op: "write", Path: "docs/intake.md", Content: "second\n"}, {Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded"}}}},
+		Attempts: map[string][]fakeStageStep{"owner#1": {{Op: "write", Path: "docs/stale.md", Content: "first\n"}, {Op: "exit", Code: 3}}},
+	})
+	digest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
+	j.run(t, 0, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+	first := decodeSingle(t, j.waitStatus(t, view, latestSettled))
+	if len(first.Single.Attempts) != 1 || first.Single.Attempts[0].Status != "failed" || first.Single.Attempts[0].ClassificationReason != "process_failed" || first.Single.Attempts[0].ExitCode != 3 {
+		t.Fatalf("failed attempt %+v", first)
+	}
+	workspace := first.Single.Binding.Workspace
+	if _, err := os.Stat(filepath.Join(workspace, "docs", "stale.md")); err != nil {
+		t.Fatalf("failed attempt effect: %v", err)
+	}
+	retry := append(append([]string{"workflow", "stage", "retry"}, stageSelector(view)...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--stage", "intake", "--plan", plan, "--validator-policy", j.policy, "--child", view.ExecutionID, "--authorize-local")
+	retryDigest := j.run(t, 0, retry...).reference(t, "stage-preview:")
+	if refused := j.run(t, 1, append(retry, "--preview-digest", retryDigest, "--authorize-external")...); refused.Category != "workspace_disposition_required" {
+		t.Fatalf("retry without disposition %+v", refused)
+	}
+	if refused := j.run(t, 1, append(retry, "--preview-digest", retryDigest, "--disposition", "reset")...); refused.Status != "denied_authority" {
+		t.Fatalf("retry without external authority %+v", refused)
+	}
+	if len(j.invocations(t)) != 1 {
+		t.Fatal("refused retry started a Runtime")
+	}
+	j.run(t, 0, append(retry, "--preview-digest", retryDigest, "--authorize-external", "--disposition", "reset")...)
+	second := decodeSingle(t, j.waitStatus(t, view, func(stage json.RawMessage) bool {
+		return latestSettled(stage) && len(decodeSingle(t, stage).Single.Attempts) == 2
+	}))
+	if last := second.Single.Attempts[1]; last.Status != "succeeded" || last.Number != 2 {
+		t.Fatalf("retried attempt %+v", second)
+	}
+	if _, err := os.Lstat(filepath.Join(workspace, "docs", "stale.md")); !os.IsNotExist(err) {
+		t.Fatalf("reset preserved the failed attempt's file: %v", err)
+	}
+	if wire, err := os.ReadFile(filepath.Join(workspace, "docs", "intake.md")); err != nil || string(wire) != "second\n" {
+		t.Fatalf("retried effect %q %v", wire, err)
+	}
+	if again := j.run(t, 1, append(retry, "--preview-digest", retryDigest, "--authorize-external", "--disposition", "reset")...); again.Category == "stage_retry_dispatched" {
+		t.Fatal("retry receipt reused")
+	}
+}
