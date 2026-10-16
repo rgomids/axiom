@@ -7,6 +7,7 @@ import (
 	"os"
 	"syscall"
 	"testing"
+	"time"
 )
 
 type faultWriter struct {
@@ -61,4 +62,56 @@ func TestWriteCompleteHandlesShortWritesAndStorageFaults(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStoreLocksWaitForShortContention(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	held, err := lockDirectory(root, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		time.Sleep(20 * time.Millisecond)
+		held.Close()
+	}()
+	locks, err := lockRoots(true, root)
+	if err != nil {
+		t.Fatalf("short contention: %v", err)
+	}
+	closeFiles(locks)
+	<-done
+}
+
+func TestStoreLocksBoundContentionAndReleasePartialAcquisition(t *testing.T) {
+	first, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	second, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer second.Close()
+	held, err := lockDirectory(second, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+	started := time.Now()
+	locks, err := lockRoots(true, first, second)
+	if !errors.Is(err, ErrConflict) || len(locks) != 0 || time.Since(started) > 3*storeLockWait {
+		t.Fatalf("contention not bounded: %v locks=%d elapsed=%s", err, len(locks), time.Since(started))
+	}
+	free, err := lockDirectory(first, true)
+	if err != nil {
+		t.Fatalf("partial acquisition leaked a lock: %v", err)
+	}
+	free.Close()
 }

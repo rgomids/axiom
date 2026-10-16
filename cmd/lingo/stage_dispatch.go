@@ -244,14 +244,6 @@ func (w stageWorkspaces) Prepare(ctx context.Context, p stageexecution.Publicati
 	if p.Graph == nil {
 		return stageexecution.ErrPreview
 	}
-	m, _, err := (gitIntegration{repository: w.repository}).manager(ctx, *p.Graph)
-	if err != nil {
-		return err
-	}
-	_, err = m.Prepare(ctx)
-	if err != nil {
-		return err
-	}
 	root, err := stageWorkspaceRoot(*p.Graph)
 	if err != nil {
 		return err
@@ -261,11 +253,22 @@ func (w stageWorkspaces) Prepare(ctx context.Context, p stageexecution.Publicati
 		return err
 	}
 	defer anchor.Close()
-	if err = privateInboxDirectory(anchor, "inboxes"); err != nil {
-		return err
+	for _, name := range []string{"worktrees", "inboxes"} {
+		if err = privateInboxDirectory(anchor, name); err != nil {
+			return err
+		}
 	}
 	for _, child := range p.Graph.Children {
 		if err = privateInboxDirectory(anchor, filepath.Join("inboxes", filepath.Base(child.Envelope.Workspace))); err != nil {
+			return err
+		}
+	}
+	m, projection, err := (gitIntegration{repository: w.repository}).manager(ctx, *p.Graph)
+	if err != nil {
+		return err
+	}
+	for _, child := range projection.Children {
+		if err := m.EnsureWorkspace(ctx, child); err != nil {
 			return err
 		}
 	}
