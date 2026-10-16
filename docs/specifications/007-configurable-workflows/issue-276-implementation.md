@@ -2443,3 +2443,112 @@ directories: deterministic snapshots, replaced inode, changed mode, repository
 and link refusal, foreign roots, cancellation, separate authority, blocked apply
 without writes, help/parser and executable no-authority tripwires. Format,
 Staticcheck 0.8.1 and `go vet ./...` passed. T40/AC-6 remain NOT_RUN.
+
+
+### Material decision gate — single-stage attempt persistence
+
+**SINGLE-PERSISTENCE-01 (Major, specification/persistence).** The new executable
+contract test confirms that an existing valid Execution3 cannot be republished
+as an attempt generation by a no-op, timestamp-only/revision-only mutation or
+added attempt field. The stored workflow remains unchanged on every refusal.
+A child start/completion must not fabricate a workflow fact, failure or gate
+advance. The existing single interfaces do not provide persisted attempt truth.
+
+[ADR-0027](../../decisions/0027-single-stage-attempt-persistence.md) is a concrete
+**Proposed** resolution: a separate versioned single-stage operational ledger
+and versioned single-stage authority, preserving Execution3 and Graph history.
+It compares explicit Execution4 and the incomplete receipt-only fallback.
+No new codec/store, workflow event or fallback has been implemented from this
+proposal. The accepted 44 Tasks are not being resubmitted for generic approval.
+
+Required maintainer action: select/accept the bounded persistence contract in
+ADR-0027 (recommended A), choose its explicit alternative B, or supply another
+contract preserving these invariants. This changes a durable agent-execution
+and multi-object authority boundary; the architecture policy requires an ADR,
+and ADR-0018 keeps a proposed decision out of force until human acceptance.
+That decision is needed for the single writer/supervisor and its persisted
+status/cancel/reconcile/retry consumers. It grants no vendor/Provider effects.
+
+The full AXM-8 technical objective remains **incomplete**, with no readiness,
+merge, release, operational acceptance, Task closure or AXM transition. Independent
+implementation already delivered in this PR is preserved. Remaining technical
+work is not hidden by this gate: T41's native canary/owned-file cleanup backend,
+Darwin exact-head validation, T17/T21/T25–T34 final graph/single composition,
+T31's guarded destructive reset, installed T36 and full T37/T38/T39 closure are
+still open. Reset still returns `retry_reset_authority_fencing_unavailable`.
+T40 remains NOT_RUN and AC-6 unproved, separately authorized in the future.
+
+Decision-gate Evidence: pinned Go 1.26.0, `go test -race ./internal/local -run
+'TestSingleDispatchCannotInventAnExecution3AttemptGeneration|TestSingleDispatchStoreCommitAndScope|TestSingleDispatchRetryLedgerGeneration'
+-count=1 -timeout=60s` passed, exit 0, 2.218s. `scripts/check-adr-governance.py`
+passed with 28 ADRs; this proves proposal structure only, not acceptance.
+
+### Current 44-Task matrix at the decision gate
+
+The immutable catalog IDs, predecessors and AC mapping remain in the full
+continuation inventory above. This table supersedes its status/Evidence columns
+only; INTEGRADO denotes existing main components, not new end-to-end proof.
+IMPLEMENTADO NO PR is unmerged and does not extend the old favorable review to
+new changes. All referenced tests are synthetic unless explicitly stated.
+
+| Task | Current status | Evidence / limitation |
+| --- | --- | --- |
+| I276-T01 | INTEGRADO | successor_test.go: TestSuccessorCanonicalVectors, TestSuccessorHistoricalBytesAndDigests; successor_graph_store_test.go |
+| I276-T02 | INTEGRADO | scheduler_test.go: TestSchedulerConcurrentRunningRetryNeverDispatches, TestReadyChildrenStatuses |
+| I276-T03 | INTEGRADO | classify_test.go: TestClassifyAttemptRules, TestLatestAttemptRecordTotalOrdering |
+| I276-T04 | INTEGRADO | consumers_test.go: TestConsumerPersistedStateMatrix, TestConsumerLoadInvariants, TestConsumerBatchConcurrency |
+| I276-T05 | INTEGRADO | scheduler_test.go: TestSchedulerSavesCompletionBeforeBatchEnds, TestOSProcessRunnerStdinBytes, TestSchedulerCompletionFailuresKeepRunningState |
+| I276-T06 | INTEGRADO | run_lease_test.go: TestRunLeaseReplacementAndEpochFencing; successor_graph_store_test.go: TestSuccessorSavePinsLeaseThroughCommit |
+| I276-T07 | INTEGRADO | dispatch_authority_test.go: TestDispatchCompanionFaultWindows, TestDispatchGraphStoreCommitAndReadback, TestSingleDispatchStoreCommitAndScope |
+| I276-T08 | INTEGRADO | reconciliation_test.go: TestReconciliationAppendRetryAndConflict; successor_graph_store_test.go: TestSuccessorReconciliationPublicationRecovery |
+| I276-T09 | INTEGRADO | admission_test.go: TestAdmissionHistoricalMatrix, TestAllHistoricalGraphMutationsRefusedAndInspectionPreservesBytes; admission_v3_test.go |
+| I276-T10 | INTEGRADO | evidence_test.go: TestFreshnessAndExactBinding, TestNoPromotionWithoutProbe, TestRedactionAndStrictDecode |
+| I276-T11 | INTEGRADO | capability_store_test.go: TestCapabilityStoreRoundTripInvalidate, TestCapabilityRecoveryAndInventory, TestCapabilityStoreRejectsUnsafeBeforeEffects |
+| I276-T12 | INTEGRADO | interface_test.go: TestInterfaceRefutation; runtimeadapter/interface_observation_test.go: TestInterfaceExactEnvironmentAndReplacement; testdata help fixtures |
+| I276-T13 | IMPLEMENTADO NO PR | internal/local/probe_prepared_test.go; probe_session_test.go; production fake probe tests and earlier CR-002 correction |
+| I276-T14 | IMPLEMENTADO NO PR | internal/local/probe_canary.go; probe_session_test.go; cmd/lingo/capability_probe_test.go, including forged reports |
+| I276-T15 | INTEGRADO | classify_test.go: TestVariantScoring, TestConfinementControlMatrix, TestControlMeasurementNoForeignEffects |
+| I276-T16 | IMPLEMENTADO NO PR | cmd/lingo/capability_probe_test.go; runtime_capability_test.go; runtime_capability_blackbox_test.go; synthetic only |
+| I276-T17 | PARCIAL | service_test.go: TestCheckBindingDrift, TestRequiredNonProvenBlocks; binding_source_test.go; capability_composition_test.go |
+| I276-T18 | INTEGRADO | stage_invocation_test.go: TestStageArgvGolden, TestStageRejectsConfiguredArguments; identity_test.go: TestModeDigestGolden |
+| I276-T19 | INTEGRADO | stage_invocation_test.go: TestStageEnvironmentClosed; authpreflight_test.go: TestAuthPreflightInspectsTheExactEffectiveInvocation |
+| I276-T20 | INTEGRADO | packet_test.go: TestTaskPacketGraphAndSingleAgent, TestTaskPacketRejectsUnsafeInputs, TestPreparePacketRecordsBeforeDelivery |
+| I276-T21 | PARCIAL | frozen_stage_test.go: TestFrozenStageDeliveredEffortInspection; stage_effort_test.go; capability_composition_test.go |
+| I276-T22 | INTEGRADO | attempt_inbox_test.go: TestAttemptInboxEveryKindAndExclusiveCreate, TestAttemptInboxRejectsInvalidPublish; stage_dispatch_test.go: TestPublishRefusesAbsentRunningContext |
+| I276-T23 | INTEGRADO | coordination_ingest_test.go: TestIngestCrossRuntimeQuestionAnswerAndBlocker, TestIngestCapacityReserveAndCrashReplay, TestFinalDrainRacesPublishWithoutLateCanonicalRecord |
+| I276-T24 | INTEGRADO | coordination_read_test.go: TestCoordinationReadStreamCanonicalOnlyAndTamper, TestReadStreamSupportsCompleteCodecByteWindow |
+| I276-T25 | PARCIAL | preview_test.go: TestDispatchPreviewGraphAndSingle, TestDispatchPreviewRightsGolden, TestDispatchPreviewRefusals; stage_dispatch_test.go |
+| I276-T26 | PARCIAL — single persistence decision gate | ADR-0027 (Proposed); internal/local/single_dispatch_contract_test.go; existing graph run/publication tests |
+| I276-T27 | PARCIAL | supervisor_test.go: TestSupervisorFailureInjectionPhases, TestSupervisorInitiatingContextDoesNotOwnRun; supervisor_preparation_test.go |
+| I276-T28 | PARCIAL | lifecycle_test.go: TestStatusRendersPersistedStateAcrossStatuses, TestResumeAfterSupervisorKillStartsOnlyRemainingFirstAttempts |
+| I276-T29 | PARCIAL | lifecycle_test.go: TestCancelBeforeDispatchPreventsAttempts, TestCancelWhileRunningRequiresConfirmedStop |
+| I276-T30 | PARCIAL | reconcile_test.go: TestReconcileStaleAndUnknownAppendsFactsOnly, TestReconcileRefusals |
+| I276-T31 | PARCIAL | retry_test.go; recompiled_proposal_test.go; cmd/lingo/stage_dispatch_test.go: TestStageDisposerResetFailsBeforeWorkspacePreparation; gitworkspace/retry_reset_test.go |
+| I276-T32 | INTEGRADO | validator_policy_test.go: TestPolicyPreviewApplyRefusesAgentAuthorityAndDrift; validator_policy_store_test.go |
+| I276-T33 | INTEGRADO | integrate_test.go: TestIntegrateTwoChildrenWithValidators, TestIntegrateProjectionFailureIsPartialAndRepairable, TestIntegrateUnknownEffectBlocksRerun |
+| I276-T34 | PARCIAL | cli/workflow_stage_test.go: TestWorkflowStageCommandsRouteExactInputs, TestWorkflowStageJSONAndHumanParity, TestWorkflowStageExitCodesFollowCanonicalStatus; stage_dispatch_test.go |
+| I276-T35 | INTEGRADO | cli/domain_skill_routing_test.go: TestCanonicalSkillRoutingTableConvergesWithInspection, TestRoutingAloneNeverGrantsAuthority; codexruntime/domain_skills_upgrade_test.go |
+| I276-T36 | NÃO PROVADO | Only capability public-binary blackbox added; complete installed graph/single and consumed cross-Runtime Q/A remain absent |
+| I276-T37 | PARCIAL | TestAdmissionHistoricalMatrix, TestUnknownWireNeverFallsBack, TestSuccessorHistoricalBytesAndDigests, TestStableCorpusResolvesToDirectUpgrade |
+| I276-T38 | PARCIAL | TestConfinementControlMatrix, TestExtendedMissingAuthority, TestExtendedResidue, TestStageRejectsConfiguredArguments, TestIngestRejectsCandidatesAndReportsSafeCategories |
+| I276-T39 | PARCIAL | This continuation, commands and Proposed ADR-0027; complete technical/operational acceptance is not claimed |
+| I276-T40 | GATE HUMANO / NOT_RUN | NOT_RUN; no real Runtime, inference, probe or Provider effect executed |
+| I276-T41 | PARCIAL — production Effects unavailable | internal/capabilityproof/extended_test.go; internal/local/extended_probe_test.go; cmd/lingo/runtime_capability_extended_test.go; no real effects |
+| I276-T42 | INTEGRADO | service_test.go: TestShowStatesAndProfileRemoval, TestInvalidateAuthorityAndPreview, TestInvalidationPreviewFreezesProfile |
+| I276-T43 | PARCIAL — native verification open | Shared POSIX orphan tests now run on Darwin; failed native runs documented above; serialized exact-head CI still required |
+| I276-T44 | PARCIAL — extended measurement unavailable | internal/cli/runtime_capability_test.go; cmd/lingo/runtime_capability_test.go, runtime_capability_extended_test.go, runtime_capability_blackbox_test.go; five public routes |
+
+| Acceptance criterion | Synthetic evidence retained/added | Still unproved |
+| --- | --- | --- |
+| AC-1 | Existing adapter/packet/auth and new capability CLI/fake probes | Full installed graph and single start; later real configured journey |
+| AC-2 | Existing persisted graph lease/status/resume components | Single attempt persistence decision; complete installed restart independence |
+| AC-3 | Nine-kind and cross-Runtime Q/A component tests | Public installed orchestrator consumes bounded Q/A |
+| AC-4 | Scheduler overlap/conflict and validator integration components | Full installed concurrency/dependency/integration journey |
+| AC-5 | Linux fake descendants/unknown, refusal, claim/recovery and single codec fencing | Darwin exact-head proof, guarded reset, full installed recovery |
+| AC-6 | No operational Evidence | T40 NOT_RUN; future specific envelope authority and human acceptance |
+| WF-009 / AC-009 | Existing stage/coordination routes and new five-command capability CLI/help | Final graph/single installed composition, lifecycle and entrypoint parity |
+
+Review: engineering/security self-review only for this continuation. Earlier
+CR-001/CR-002 remain covered by adversarial FAKE regressions; the favorable old
+COMMENT is not independent approval of this delta. No claim of an independent
+whole-PR review, no technical-ready review request, and no unproved native PASS.
