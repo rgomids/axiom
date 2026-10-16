@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -144,18 +145,23 @@ func runFakeStageSteps(script fakeStageScript, packet runtimeadapter.TaskPacket,
 					return 25
 				}
 			} else if err != nil || !bytes.Contains(out, []byte(`"coordination_candidate_published"`)) {
+				appendFakeStageDiagnostic(packet.AgentID, fmt.Sprintf("publish %s: %v %s", step.Kind, err, out))
 				return 22
 			}
 		case "await":
 			captured = ""
+			var lastOutput []byte
+			var lastError error
 			deadline := time.Now().Add(time.Duration(step.Millis) * time.Millisecond)
 			for captured == "" {
 				if time.Now().After(deadline) {
+					appendFakeStageDiagnostic(packet.AgentID, fmt.Sprintf("await %s: %v %s", step.Kind, lastError, lastOutput))
 					return 23
 				}
 				cmd := exec.Command(axiom, append(append([]string{"--json", "workflow", "coordination", "list"}, script.Selectors...), "--kind", step.Kind)...)
 				cmd.Env = os.Environ()
-				out, err := cmd.Output()
+				out, err := cmd.CombinedOutput()
+				lastOutput, lastError = out, err
 				var event struct {
 					Stage struct {
 						Records []coordination.Record `json:"records"`
@@ -182,6 +188,15 @@ func runFakeStageSteps(script fakeStageScript, packet runtimeadapter.TaskPacket,
 		}
 	}
 	return 0
+}
+
+func appendFakeStageDiagnostic(agent, message string) {
+	f, err := os.OpenFile(filepath.Join(os.Getenv("HOME"), "fake-stage-diagnostics.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = fmt.Fprintf(f, "%s %s: %s\n", time.Now().UTC().Format(time.RFC3339Nano), agent, message)
 }
 
 func stageFakeEnvironment(overrides []string) []string {

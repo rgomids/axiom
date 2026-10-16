@@ -61,6 +61,14 @@ func newStageJourney(t *testing.T, concurrency ...int) *stageJourney {
 	}
 	t.Setenv("TMPDIR", temp)
 	j := &stageJourney{env: newWorkItemSourceEnvironment(t), bin: t.TempDir(), home: t.TempDir(), digests: map[string]string{}, managed: map[string]string{}}
+	t.Cleanup(func() {
+		if t.Failed() {
+			for _, name := range []string{"fake-stage-invocations.jsonl", "fake-stage-diagnostics.log"} {
+				wire, _ := os.ReadFile(filepath.Join(j.home, name))
+				t.Logf("%s: %s", name, wire)
+			}
+		}
+	})
 	for _, id := range []string{"codex", "claude"} {
 		j.managed[id] = filepath.Join(j.home, "managed-"+id)
 		if err := os.Mkdir(j.managed[id], 0o700); err != nil {
@@ -746,7 +754,7 @@ func TestInstalledSyntheticGraphStageJourney(t *testing.T) {
 			continue
 		}
 		if len(child.Attempts) != 1 || child.Attempts[0].Status != "succeeded" || child.Attempts[0].QualifyingRecordRef == "" {
-			t.Fatalf("graph child did not succeed: %+v", child)
+			t.Fatalf("graph child did not succeed: %+v\nfull status: %s", child, status)
 		}
 		completed = append(completed, child.Attempts[0])
 	}
