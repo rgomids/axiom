@@ -1,25 +1,26 @@
 # Project Commands
 
-## T34 recovery limitation: retry reset
+## Stage retry workspace disposition
 
-The pending T34 production adapter disables `workflow stage retry` with
-`--disposition reset`. A committed retry receipt alone does not authorize
-destructive workspace operations: persisted receipt binding, current lease
-fencing and managed-worktree ownership must remain protected across each
-effect. The existing disposer interface does not provide that guard.
+`workflow stage retry` requires an explicit `--disposition` once the prior
+attempt may have changed its workspace: `preserve` keeps the managed worktree
+as it is, `reset` restores it to the stage base revision. The retry command
+itself only commits the single-use retry receipt and checks the exact managed
+worktree without effects. A `reset` is applied by the detached supervisor,
+while it holds the run lease and before it starts the authorized attempt.
+Immediately before each destructive Git effect, and once after the last one,
+it revalidates the lease epoch, the unchanged pending receipt and ledger
+generation, the exact worktree ownership record, confinement below the
+workspace root and the absence of executable Git filter configuration. The
+worktree must then be clean at its base revision, or no attempt starts.
 
-Reset returns `failure` with category
-`retry_reset_authority_fencing_unavailable`, preserving workspace contents.
-If retry authority was already committed, its result remains
-`recovery_required`; no retry supervisor is started. Inspect that receipt and
-the disposition failure before recovery; do not blindly replay the operation
-or perform a manual reset as a workaround. `preserve` keeps the existing
-non-destructive workspace inspection path. Retry still requires fresh preview
-and local plus external authority; this fallback grants no new authority.
-The same canonical result is used by JSON and human presentation.
-
-T34 production completion and command parity remain unverified. This note
-does not claim delivery of operational smoke or capability probing.
+If any check fails, no further effect runs and no attempt is created; the
+receipt stays pending and authorizes nothing else. Inspect `stage status`.
+A single-agent stage resumes its pending receipt with the same `stage run`
+re-invocation; a graph child needs a fresh `stage retry` preview and both
+authorities. Either way the fenced reset repeats from the beginning. Never
+reset a managed worktree manually. JSON and human output carry the same
+canonical result.
 
 ## Author and select Project workflows
 

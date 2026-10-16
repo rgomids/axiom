@@ -196,17 +196,22 @@ func (w stageWorkspaces) prepareSingle(ctx context.Context, run executiongraph.S
 type singleDisposer struct{ repository string }
 
 func (d singleDisposer) DisposeSingle(ctx context.Context, run executiongraph.SingleStageRun, a executiongraph.SingleStageAuthority) error {
-	switch a.Disposition {
-	case executiongraph.DispositionReset:
-		return gitworkspace.ErrRetryResetFencingUnavailable
-	case executiongraph.DispositionPreserve:
-		m, child, err := singleManager(ctx, d.repository, run)
-		if err != nil {
-			return err
-		}
-		return m.InspectRetryWorkspace(ctx, child)
+	if a.Disposition != executiongraph.DispositionPreserve && a.Disposition != executiongraph.DispositionReset {
+		return stageexecution.ErrDispositionRequired
 	}
-	return stageexecution.ErrDispositionRequired
+	m, child, err := singleManager(ctx, d.repository, run)
+	if err != nil {
+		return err
+	}
+	return m.InspectRetryWorkspace(ctx, child)
+}
+
+func (d singleDisposer) ResetSingle(ctx context.Context, run executiongraph.SingleStageRun, guard func(context.Context) error) error {
+	m, child, err := singleManager(ctx, d.repository, run)
+	if err != nil {
+		return err
+	}
+	return m.ResetWorkspace(ctx, child, guard)
 }
 
 func (s lifecycleService) singleLifecycle(stores stageStores, t stageTarget, dispatch stageexecution.PreviewService) stageexecution.SingleLifecycle {
@@ -326,7 +331,7 @@ func (productionSupervisorLoader) LoadSingleSupervisor(ctx context.Context, r st
 	}
 	store := &localSingleStore{s: s, stores: stores, target: t}
 	preparation := &stageexecution.CompiledSinglePreparation{Loader: singleAttemptLoader{s: s, stores: stores, target: t, store: store, preview: preview}, Checker: policy, Auth: auth, Sources: sources}
-	return stageexecution.SingleSupervisor{Store: store, Preparation: singleContextPreparation{next: preparation, stateRoot: s.stateRoot, projectsRoot: s.projectsRoot, skillsRoot: s.skillsRoot}, Runner: executiongraph.OSProcessRunner{}, AllocateID: allocateStageID}, nil
+	return stageexecution.SingleSupervisor{Store: store, Preparation: singleContextPreparation{next: preparation, stateRoot: s.stateRoot, projectsRoot: s.projectsRoot, skillsRoot: s.skillsRoot}, Runner: executiongraph.OSProcessRunner{}, Reset: singleDisposer{t.repository.Path}, AllocateID: allocateStageID}, nil
 }
 
 type singleContextPreparation struct {

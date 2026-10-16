@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
 )
 
@@ -30,10 +32,17 @@ type RetryStore interface {
 	CommitRetry(context.Context, executiongraph.SuccessorGraph, executiongraph.RetryAuthority) (string, error)
 }
 
-// WorkspaceDisposer applies an explicit, authorized disposition. "preserve"
-// must leave the workspace untouched; there is no implicit reset.
+// WorkspaceDisposer checks an explicit, authorized disposition without
+// effects. "preserve" leaves the workspace untouched; a "reset" is applied
+// only by the supervisor through WorkspaceReset. There is no implicit reset.
 type WorkspaceDisposer interface {
 	Dispose(context.Context, executiongraph.SuccessorGraph, executiongraph.SuccessorChild, string) error
+}
+
+// WorkspaceReset applies a committed reset disposition while the supervisor
+// holds the run lease. guard must succeed before every destructive effect.
+type WorkspaceReset interface {
+	ResetChild(context.Context, executiongraph.SuccessorGraph, string, func(context.Context) error) error
 }
 type RetryStarter interface {
 	StartRetry(context.Context, SupervisorRequest, string) (executiongraph.ProcessCorrelation, error)
@@ -295,6 +304,27 @@ func (s Supervisor) RunRetry(ctx context.Context, r SupervisorRequest, retryRef 
 	for _, c := range g.Children {
 		if len(c.Attempts) > 0 && c.Attempts[len(c.Attempts)-1].Status == executiongraph.AttemptRunning {
 			return ErrSupervisorRecovery
+		}
+	}
+	if retry.Disposition == executiongraph.DispositionReset {
+		if s.Reset == nil {
+			return gitworkspace.ErrRetryResetFencingUnavailable
+		}
+		guard := func(context.Context) error {
+			if err := lease.Validate(); err != nil {
+				return err
+			}
+			fresh, current, err := load()
+			if err != nil {
+				return err
+			}
+			if fresh.StorageRevision != g.StorageRevision || !reflect.DeepEqual(current, retry) {
+				return ErrSupervisorRecovery
+			}
+			return nil
+		}
+		if err = s.Reset.ResetChild(ctx, g, retry.ChildID, guard); err != nil {
+			return err
 		}
 	}
 	records, err := s.Store.Records(ctx, g)

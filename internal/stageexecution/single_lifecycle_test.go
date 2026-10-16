@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
 )
@@ -209,4 +210,84 @@ func previewRef(t *testing.T) (workflowcompiler.ExecutionRef, string) {
 	t.Helper()
 	_, _, compiler, _ := previewFixture(t, true)
 	return compiler.plan.Execution, compiler.plan.StageID
+}
+
+type fakeSingleReset struct {
+	store  *fakeSingleStore
+	before func()
+	resets int
+}
+
+func (f *fakeSingleReset) ResetSingle(ctx context.Context, _ executiongraph.SingleStageRun, guard func(context.Context) error) error {
+	if f.before != nil {
+		f.before()
+	}
+	if err := guard(ctx); err != nil {
+		return err
+	}
+	f.resets++
+	return guard(ctx)
+}
+
+func TestSingleResetRunsOnlyInsideTheFencedSupervisor(t *testing.T) {
+	prepare := func(t *testing.T) (*fakeSingleLedger, SingleRequest) {
+		s, ledger, _ := singleLifecycle(t)
+		ledger.store.run.Binding.Effects = []executiongraph.Effect{{Kind: "repository-write", Target: "src"}}
+		for ref, a := range ledger.store.authorities {
+			a.Effects = ledger.store.run.Binding.Effects
+			delete(ledger.store.authorities, ref)
+			newRef, _ := executiongraph.SingleStageAuthorityDigest(a)
+			ledger.store.authorities[newRef] = a
+			ledger.store.run.Authorities = []string{newRef}
+		}
+		withFinishedAttempt(ledger.store, executiongraph.AttemptFailed, executiongraph.ProcessFailed, 7)
+		ref, stage := previewRef(t)
+		p, err := s.RetryPreview(context.Background(), ref, stage)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := s.Retry(context.Background(), ref, stage, p.Digest, true, true, "op", executiongraph.DispositionReset)
+		if err != nil || result.Status != "success" || len(ledger.disposed) != 1 || ledger.disposed[0] != executiongraph.DispositionReset {
+			t.Fatal(result, err)
+		}
+		run := ledger.store.run
+		return ledger, SingleRequest{ProjectID: run.Scope.ProjectID, ExecutionID: run.Scope.ExecutionID, ScopeDigest: run.ScopeDigest, AuthorityRef: result.AuthorityRef}
+	}
+	t.Run("reset precedes the retry attempt", func(t *testing.T) {
+		ledger, r := prepare(t)
+		prep, runner := &fakeSinglePreparation{}, &fakeSingleRunner{}
+		reset := &fakeSingleReset{store: ledger.store}
+		reset.before = func() {
+			if len(prep.prepared) != 0 {
+				t.Error("attempt prepared before reset")
+			}
+		}
+		s := newSingleSupervisor(ledger.store, prep, runner)
+		s.Reset = reset
+		if err := s.Run(context.Background(), r); err != nil {
+			t.Fatal(err)
+		}
+		if reset.resets != 1 || runner.calls != 1 || len(ledger.store.run.Attempts) != 2 {
+			t.Fatal(reset.resets, runner.calls, ledger.store.run.Attempts)
+		}
+	})
+	t.Run("missing port", func(t *testing.T) {
+		ledger, r := prepare(t)
+		prep, runner := &fakeSinglePreparation{}, &fakeSingleRunner{}
+		s := newSingleSupervisor(ledger.store, prep, runner)
+		if err := s.Run(context.Background(), r); !errors.Is(err, gitworkspace.ErrRetryResetFencingUnavailable) || runner.calls != 0 || len(prep.prepared) != 0 {
+			t.Fatal(err)
+		}
+	})
+	t.Run("ledger changed under the fence", func(t *testing.T) {
+		ledger, r := prepare(t)
+		prep, runner := &fakeSinglePreparation{}, &fakeSingleRunner{}
+		reset := &fakeSingleReset{store: ledger.store}
+		reset.before = func() { ledger.store.cancel(t) }
+		s := newSingleSupervisor(ledger.store, prep, runner)
+		s.Reset = reset
+		if err := s.Run(context.Background(), r); err == nil || reset.resets != 0 || runner.calls != 0 {
+			t.Fatal(err, reset.resets)
+		}
+	})
 }

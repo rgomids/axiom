@@ -98,7 +98,7 @@ func (productionSupervisorLoader) LoadSupervisor(ctx context.Context, r stageexe
 		return stageexecution.Supervisor{}, err
 	}
 	preparation := &stageexecution.CompiledSupervisorPreparation{Loader: loader, Checker: policy, Auth: auth, Sources: sources}
-	return stageexecution.Supervisor{Store: store, Preparation: stageContextPreparation{next: preparation, stateRoot: s.stateRoot, projectsRoot: s.projectsRoot, skillsRoot: s.skillsRoot}, Runner: executiongraph.OSProcessRunner{}, AllocateID: allocateStageID}, nil
+	return stageexecution.Supervisor{Store: store, Preparation: stageContextPreparation{next: preparation, stateRoot: s.stateRoot, projectsRoot: s.projectsRoot, skillsRoot: s.skillsRoot}, Runner: executiongraph.OSProcessRunner{}, Reset: stageDisposer{t.repository.Path}, AllocateID: allocateStageID}, nil
 }
 
 // Only installation-owned roots are added after the adapter constructs its

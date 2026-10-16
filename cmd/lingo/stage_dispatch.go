@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -371,22 +370,35 @@ func (st stageRetryStore) CommitRetry(ctx context.Context, g executiongraph.Succ
 type stageDisposer struct{ repository string }
 
 func (d stageDisposer) Dispose(ctx context.Context, g executiongraph.SuccessorGraph, c executiongraph.SuccessorChild, disposition string) error {
-	if disposition == executiongraph.DispositionReset {
-		return gitworkspace.ErrRetryResetFencingUnavailable
-	}
-	if disposition != executiongraph.DispositionPreserve {
+	if disposition != executiongraph.DispositionPreserve && disposition != executiongraph.DispositionReset {
 		return stageexecution.ErrDispositionRequired
 	}
-	m, projection, err := (gitIntegration{d.repository}).manager(ctx, g)
+	m, child, err := d.child(ctx, g, c.ExecutionID)
 	if err != nil {
 		return err
 	}
+	return m.InspectRetryWorkspace(ctx, child)
+}
+
+func (d stageDisposer) child(ctx context.Context, g executiongraph.SuccessorGraph, id string) (*gitworkspace.Manager, executiongraph.ChildExecution, error) {
+	m, projection, err := (gitIntegration{d.repository}).manager(ctx, g)
+	if err != nil {
+		return nil, executiongraph.ChildExecution{}, err
+	}
 	for _, child := range projection.Children {
-		if child.ExecutionID == c.ExecutionID {
-			return m.InspectRetryWorkspace(ctx, child)
+		if child.ExecutionID == id {
+			return m, child, nil
 		}
 	}
-	return gitworkspace.ErrInvalidConfiguration
+	return nil, executiongraph.ChildExecution{}, gitworkspace.ErrInvalidConfiguration
+}
+
+func (d stageDisposer) ResetChild(ctx context.Context, g executiongraph.SuccessorGraph, id string, guard func(context.Context) error) error {
+	m, child, err := d.child(ctx, g, id)
+	if err != nil {
+		return err
+	}
+	return m.ResetWorkspace(ctx, child, guard)
 }
 func (s lifecycleService) stageRetry(ctx context.Context, stores stageStores, t stageTarget, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
 	dispatch, err := s.dispatchPreview(ctx, stores, t, in)
@@ -416,9 +428,6 @@ func (s lifecycleService) stageRetry(ctx context.Context, stores stageStores, t 
 	return s.stageSuccess("stage_retry_dispatched", "Committed retry authority and started its supervisor", []string{"retry-authority:" + result.AuthorityRef}, "Inspect stage status; retry start does not imply success", result)
 }
 func (s lifecycleService) stageDispatchError(err error, status string, payload any) cli.WorkflowStageResponse {
-	if errors.Is(err, gitworkspace.ErrRetryResetFencingUnavailable) {
-		return s.stageFailure(completion.Failure, "retry_reset_authority_fencing_unavailable", "Retry reset is disabled; workspace contents are preserved", "Inspect committed retry authority; reset requires an authority-bound fencing guard before recovery", payload)
-	}
 	if status == "partial" {
 		return s.stageFailure(completion.Partial, "confirmed_effect_reconciliation_required", "Stage publication committed incompletely", "Inspect persisted authority before resuming", payload)
 	}

@@ -15,22 +15,28 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/stageexecution"
 	"github.com/rgomids/axiom/internal/stagepublication"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
 )
 
-func TestStageDisposerResetFailsBeforeWorkspacePreparation(t *testing.T) {
-	// Invalid inputs deliberately prove reset never reaches manager creation,
-	// ownership inspection, or a Git effect. Repeat cannot consume a reset.
+func TestStageDisposerChecksDispositionWithoutEffects(t *testing.T) {
 	d := stageDisposer{repository: "/synthetic/nonexistent-repository"}
-	for i := 0; i < 2; i++ {
-		err := d.Dispose(context.Background(), executiongraph.SuccessorGraph{}, executiongraph.SuccessorChild{}, executiongraph.DispositionReset)
-		if !errors.Is(err, gitworkspace.ErrRetryResetFencingUnavailable) {
-			t.Fatal(err)
+	for _, disposition := range []string{executiongraph.DispositionPreserve, executiongraph.DispositionReset} {
+		err := d.Dispose(context.Background(), executiongraph.SuccessorGraph{}, executiongraph.SuccessorChild{}, disposition)
+		if err == nil || errors.Is(err, stageexecution.ErrDispositionRequired) {
+			t.Fatalf("%s: %v", disposition, err)
 		}
+	}
+	for _, disposition := range []string{"", executiongraph.DispositionNotRequired, "discard"} {
+		if err := d.Dispose(context.Background(), executiongraph.SuccessorGraph{}, executiongraph.SuccessorChild{}, disposition); !errors.Is(err, stageexecution.ErrDispositionRequired) {
+			t.Fatalf("%q: %v", disposition, err)
+		}
+	}
+	guard := func(context.Context) error { return nil }
+	if err := d.ResetChild(context.Background(), executiongraph.SuccessorGraph{}, "child", guard); err == nil {
+		t.Fatal("reset without a managed worktree succeeded")
 	}
 }
 

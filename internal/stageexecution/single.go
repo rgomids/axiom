@@ -11,6 +11,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/coordination"
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/graphapplication"
 	"github.com/rgomids/axiom/internal/workflow"
 )
@@ -40,6 +41,12 @@ type SingleStore interface {
 	SaveSingle(context.Context, executiongraph.SingleStageRun, SupervisorLease) (executiongraph.SingleStageRun, error)
 }
 
+// SingleWorkspaceReset applies a committed reset disposition while the
+// supervisor holds the run lease. guard must succeed before every effect.
+type SingleWorkspaceReset interface {
+	ResetSingle(context.Context, executiongraph.SingleStageRun, func(context.Context) error) error
+}
+
 // SinglePreparation revalidates the frozen tuple, policy, capability, effort
 // sources, authentication and workspace, then builds the attempt inbox and
 // task packet. It never resolves a replacement Profile.
@@ -52,6 +59,7 @@ type SingleSupervisor struct {
 	Store        SingleStore
 	Preparation  SinglePreparation
 	Runner       SupervisorRunner
+	Reset        SingleWorkspaceReset
 	AllocateID   func() (string, error)
 	Now          func() time.Time
 	PollInterval time.Duration
@@ -126,6 +134,28 @@ func (s SingleSupervisor) Run(ctx context.Context, r SingleRequest) error {
 	run, number, err := reload()
 	if err != nil {
 		return err
+	}
+	if a.Disposition == executiongraph.DispositionReset {
+		if s.Reset == nil {
+			return gitworkspace.ErrRetryResetFencingUnavailable
+		}
+		reviewed := run.StorageRevision
+		guard := func(context.Context) error {
+			if err := lease.Validate(); err != nil {
+				return err
+			}
+			fresh, _, err := reload()
+			if err != nil {
+				return err
+			}
+			if fresh.StorageRevision != reviewed {
+				return ErrSupervisorRecovery
+			}
+			return nil
+		}
+		if err = s.Reset.ResetSingle(ctx, run, guard); err != nil {
+			return err
+		}
 	}
 	attemptID, err := s.AllocateID()
 	if err != nil {
