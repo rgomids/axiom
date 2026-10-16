@@ -209,6 +209,9 @@ class LandingTests(unittest.TestCase):
             self.assertFalse(self.page.evaluate('document.documentElement.scrollWidth>innerWidth'))
         self.assertEqual(self.page.locator('article[data-story-scene]').count(), 5)
         self.assertEqual(self.page.locator('.story-beat').count(), 25)
+        self.assertEqual(self.page.locator('.static-transcript').count(), 25)
+        self.assertTrue(self.page.locator('.scene-static').evaluate_all("els=>els.every(el=>el.getAttribute('aria-hidden')==='true')"))
+        self.assertNotIn('Code Review', self.page.locator('.static-transcript').first.inner_text())
         for scene in self.page.locator('article[data-story-scene]').all():
             self.assertTrue(scene.is_visible())
         self.choose('en')

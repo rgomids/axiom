@@ -1016,3 +1016,15 @@ body[data-preview='story'] .storytelling {
   transform: perspective(400px) rotateX(55deg);
   transform-origin: 50% 0;
 }
+.story-transcript-title,
+.story-motion .scene-heading {
+  display: block;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
