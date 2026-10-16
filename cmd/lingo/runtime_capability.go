@@ -26,9 +26,12 @@ func (s lifecycleService) RuntimeCapability(ctx context.Context, in cli.RuntimeC
 		return s.capabilityPrepare(ctx, in)
 	}
 	op := stageOperation{repository: in.RepositoryRoot, workspaceRoot: in.WorkspaceRoot, consented: in.AuthorizeLocal}
-	if in.Operation == "probe" {
+	if in.Operation == "probe" || in.Operation == "probe-extended" {
 		if in.PreviewDigest != "" && (!in.AuthorizeLocal || !in.AuthorizeExternal) {
 			return s.capabilityFailure("probe_authority_required", nil)
+		}
+		if in.Operation == "probe-extended" && in.PreviewDigest != "" && !in.AuthorizeExtended {
+			return s.capabilityFailure("extended_authority_required", nil)
 		}
 		if in.ProbeID == "" || in.ManifestDigest == "" {
 			return s.capabilityFailure("prepared_envelope_required", nil)
@@ -66,6 +69,8 @@ func (s lifecycleService) capabilityOperation(ctx context.Context, service capab
 	switch in.Operation {
 	case "probe":
 		return s.capabilityProbe(ctx, service, in, target)
+	case "probe-extended":
+		return s.capabilityExtended(ctx, service, in, target)
 	case "show":
 		view, err := service.Show(ctx, target)
 		if err != nil {

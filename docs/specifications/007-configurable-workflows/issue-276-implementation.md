@@ -2407,3 +2407,39 @@ T44 is **PARTIAL**, now missing the distinct production extended operation and
 its installed validation, rather than missing all public capability routing.
 T41 remains PARTIAL. T43 native CI is still a required open observation; the
 stage composition and T31/T36–T39 gaps in the checkpoint remain open.
+
+### T41/T44 — distinct extended preview and truthful unavailable boundary
+
+Both Runtime CLI paths now expose `capability probe-extended` with closed root
+kind selection and separate `--authorize-extended`. Preview combines the exact
+standard ProbePreview/manifest/binding with T41's physical roots/snapshots,
+filename, one-file limit and timeout, then hashes the complete projection. No
+arbitrary-path flag, default temp mutation or standard-authority fallback exists.
+Apply refuses missing local/external/extended authority and stale combined
+digests before any effect. The native `local.ExtendedRootObserver` supplies only
+read-only filesystem observations of host-selected canonical temp roots, with
+no symlink components or repository ancestors; it reports unreadable ACLs
+conservatively. Home/vendor aliases are resolved before the domain's exclusion
+checks. The domain can now preview through an Inspector without an Effects port;
+apply still re-observes the preview and refuses an absent Effects port.
+
+**Remaining material implementation boundary:** no independently observed
+extended canary and exact owned-file cleanup backend is composed. Production
+extended apply therefore returns `extended_measurement_unavailable`, state
+unknown, before controls, auth, claim, Runtime or cleanup. No child report,
+errno, filename publication or interface declaration is accepted as a substitute.
+This is an implemented safe refusal/CLI route, **not completed T41**, not a native
+extended success and not technical-delivery readiness. The existing trusted
+FAKE Effects unit tests retain positive/negative use-case coverage; their
+injected observations are not production proof. No real shared root was probed.
+
+Focused race validation after the final manifest-ID binding check:
+`go test -race ./internal/capabilityproof ./internal/local ./internal/cli
+./cmd/lingo -run
+'TestExtended|TestCapabilityExtended|TestCapabilityProbeHelp|TestRuntimeCapability|TestExecutableCapabilityRefusalsAndPreparation'
+-count=1 -timeout=60s` passed, exit 0 (1.085s / 1.116s / 1.094s / 3.460s), with the
+private synthetic probe root configured. Tests inspect only private FAKE temp
+directories: deterministic snapshots, replaced inode, changed mode, repository
+and link refusal, foreign roots, cancellation, separate authority, blocked apply
+without writes, help/parser and executable no-authority tripwires. Format,
+Staticcheck 0.8.1 and `go vet ./...` passed. T40/AC-6 remain NOT_RUN.

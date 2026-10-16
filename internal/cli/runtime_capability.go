@@ -17,6 +17,8 @@ type RuntimeCapabilityInput struct {
 	Process, AuthorizeLocal                  bool
 	ProbeID, ManifestDigest                  string
 	AuthorizePrepare, AuthorizeExternal      bool
+	AuthorizeExtended                        bool
+	RootKinds                                []string
 }
 
 type RuntimeCapabilityResponse struct {
@@ -33,7 +35,8 @@ func capabilityCommands(runtime string) commandDefinition {
 		leaf("show", "Inspect fresh Evidence; unknown never means proven", action("capability_"+runtime+"_show")),
 		leaf("invalidate", "Preview or invalidate Evidence with local authority", action("capability_"+runtime+"_invalidate")),
 		leaf("prepare", "Preview or prepare an envelope under separate local authority", action("capability_"+runtime+"_prepare")),
-		leaf("probe", "Preview or run a bounded probe with local and external authority", action("capability_"+runtime+"_probe")))
+		leaf("probe", "Preview or run a bounded probe with local and external authority", action("capability_"+runtime+"_probe")),
+		leaf("probe-extended", "Preview separately authorized temp-root measurement; unavailable proof stays blocked", action("capability_"+runtime+"_probe-extended")))
 }
 
 func capabilityOperation(op action) bool { return strings.HasPrefix(string(op), "capability_") }
@@ -55,15 +58,19 @@ func capabilityFlagSet(op action, in *RuntimeCapabilityInput) *flag.FlagSet {
 	if in.Operation != "show" {
 		set.StringVar(&in.PreviewDigest, "preview-digest", "", "Exact operation preview digest; absent means preview only; `<digest>`.")
 	}
-	if in.Operation == "prepare" || in.Operation == "probe" {
+	if in.Operation == "prepare" || in.Operation == "probe" || in.Operation == "probe-extended" {
 		set.StringVar(&in.ProbeID, "probe-id", "", "Unique Axiom-owned envelope identity; `<token>`.")
 	}
 	if in.Operation == "prepare" {
 		set.BoolVar(&in.AuthorizePrepare, "authorize-prepare", false, "Authorize only the exact local envelope preparation; never a Runtime invocation.")
 	}
-	if in.Operation == "probe" {
+	if in.Operation == "probe" || in.Operation == "probe-extended" {
 		set.StringVar(&in.ManifestDigest, "manifest-digest", "", "Exact digest from the independently prepared ready envelope; `<digest>`.")
 		set.BoolVar(&in.AuthorizeExternal, "authorize-external", false, "Allow the exact previewed subscription-auth preflight and one bounded inference invocation.")
+	}
+	if in.Operation == "probe-extended" {
+		set.BoolVar(&in.AuthorizeExtended, "authorize-extended", false, "Separately authorize only the exact temp-root preview; standard probe authority cannot substitute.")
+		set.Func("roots", "Exact host-selected temp-root kinds; `<tmpdir|system-temp|tmpdir,system-temp>`.", func(v string) error { in.RootKinds = strings.Split(v, ","); return nil })
 	}
 	return set
 }
@@ -78,7 +85,7 @@ func runRuntimeCapability(ctx context.Context, mode outputMode, args []string, s
 	if invalidFlagSyntax(set, rest, nil) || set.Parse(rest) != nil || set.NArg() != 0 || duplicateFlag(rest) || !previewToken(in.ProfileID) || (in.Variant != "read-only" && in.Variant != "repository-write") {
 		return true, emitParserFailure(out, mode, command.operation, "invalid_input", source)
 	}
-	if (in.Operation == "probe" || in.Operation == "prepare") && !previewToken(in.ProbeID) || in.Operation == "probe" && !validPreviewDigest(in.ManifestDigest) {
+	if (in.Operation == "probe" || in.Operation == "probe-extended" || in.Operation == "prepare") && !previewToken(in.ProbeID) || (in.Operation == "probe" || in.Operation == "probe-extended") && !validPreviewDigest(in.ManifestDigest) || in.Operation == "probe-extended" && (len(in.RootKinds) == 0 || len(in.RootKinds) > 2) {
 		return true, emitParserFailure(out, mode, command.operation, "invalid_input", source)
 	}
 	app, ok := service.(RuntimeCapabilityService)

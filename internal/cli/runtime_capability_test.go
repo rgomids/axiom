@@ -68,6 +68,8 @@ func TestRuntimeCapabilityParserRefusals(t *testing.T) {
 		"probe --profile p --variant read-only --probe-id p --manifest-digest invalid",
 		"prepare --profile p --variant read-only --probe-id p --authorize-external",
 		"probe --profile p --variant read-only --probe-id p --manifest-digest " + strings.Repeat("a", 64) + " --authorize-prepare",
+		"probe-extended --profile p --variant read-only --probe-id p --manifest-digest " + strings.Repeat("a", 64),
+		"probe --profile p --variant read-only --probe-id p --manifest-digest " + strings.Repeat("a", 64) + " --authorize-extended",
 	} {
 		service := &capabilityRecorder{}
 		var out bytes.Buffer
@@ -80,7 +82,7 @@ func TestRuntimeCapabilityParserRefusals(t *testing.T) {
 
 func TestCapabilityProbeHelpAndPreparationAuthority(t *testing.T) {
 	for _, runtime := range []string{"codex", "claude"} {
-		for _, op := range []string{"prepare", "probe"} {
+		for _, op := range []string{"prepare", "probe", "probe-extended"} {
 			var out bytes.Buffer
 			args := []string{"runtime", runtime, "capability", op, "--help"}
 			if code := Run(context.Background(), args, nil, completionProvenance(t), &out); code != ExitSuccess {
@@ -89,6 +91,9 @@ func TestCapabilityProbeHelpAndPreparationAuthority(t *testing.T) {
 			want, absent := "--authorize-prepare", "--authorize-external"
 			if op == "probe" {
 				want, absent = absent, want
+			}
+			if op == "probe-extended" {
+				want, absent = "--authorize-extended", "--authorize-prepare"
 			}
 			if !strings.Contains(out.String(), want) || strings.Contains(out.String(), absent) {
 				t.Fatalf("authority conflated: %s", &out)

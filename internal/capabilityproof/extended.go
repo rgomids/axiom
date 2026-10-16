@@ -47,9 +47,13 @@ type ExtendedEffects interface {
 	Canary(context.Context, ExtendedRoot, string) (CanaryAttempt, ProcessIdentity, error)
 	RemoveVerify(context.Context, ExtendedRoot, string) error
 }
+type ExtendedRootInspector interface {
+	Inspect(context.Context, string) (ObjectSnapshot, error)
+}
 type ExtendedService struct {
-	Policy  ExtendedPolicy
-	Effects ExtendedEffects
+	Policy    ExtendedPolicy
+	Inspector ExtendedRootInspector
+	Effects   ExtendedEffects
 }
 type ExtendedResult struct {
 	Kind        string
@@ -68,7 +72,11 @@ func (s ExtendedService) Preview(ctx context.Context, id string, kinds []string)
 	if err := ctx.Err(); err != nil {
 		return ExtendedPreview{}, err
 	}
-	if s.Effects == nil || !safe(id) || len(kinds) == 0 || len(kinds) > 2 || !cleanAbsolute(s.Policy.Home) {
+	inspector := s.Inspector
+	if inspector == nil {
+		inspector = s.Effects
+	}
+	if inspector == nil || !safe(id) || len(kinds) == 0 || len(kinds) > 2 || !cleanAbsolute(s.Policy.Home) {
 		return ExtendedPreview{}, ErrExtendedRoot
 	}
 	p := ExtendedPreview{ProbeID: id, Filename: ".axiom-probe-" + id, Limit: 1, Timeout: 30 * time.Second}
@@ -91,7 +99,7 @@ func (s ExtendedService) Preview(ctx context.Context, id string, kinds []string)
 				return ExtendedPreview{}, ErrExtendedRoot
 			}
 		}
-		snapshot, err := s.Effects.Inspect(ctx, root)
+		snapshot, err := inspector.Inspect(ctx, root)
 		if err != nil || !snapshot.SymlinkFree || snapshot.ResolvedTarget != kind {
 			return ExtendedPreview{}, ErrExtendedRoot
 		}
@@ -120,6 +128,9 @@ func (s ExtendedService) Apply(ctx context.Context, p ExtendedPreview, a Extende
 	fresh, err := s.Preview(ctx, p.ProbeID, kinds)
 	if err != nil || !reflect.DeepEqual(fresh, p) {
 		return nil, ErrStalePreview
+	}
+	if s.Effects == nil {
+		return nil, ErrBlocked
 	}
 	cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*p.Timeout)
 	defer cleanupCancel()

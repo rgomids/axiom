@@ -294,8 +294,20 @@ quarantined preparation cannot be reused. Inspect recovery and authorize exact
 cleanup instead. An unknown capability result is inconclusive even if the child
 exits successfully; child claims cannot attest invocation, effort or confinement.
 The empty production version registry continues to block unrecognized binaries
-before invocation. Extended-probe wiring remains under implementation in #276;
-standard probe authority never grants shared-temp effects.
+before invocation.
+
+`runtime <codex|claude> capability probe-extended` is a distinct operation. It
+requires a prepared envelope and explicit `--roots tmpdir`, `--roots system-temp`
+or `--roots tmpdir,system-temp`. There is no arbitrary-path flag. Its read-only
+preview binds the standard invocation, exact physical roots and snapshots,
+unique filename, one-file limit and timeout. HOME, vendor homes, repository,
+linked and duplicate roots are refused. Apply additionally needs its exact
+preview digest and **`--authorize-extended`**; standard probe authority cannot
+substitute. The production measurement/owned-file cleanup backend is currently
+unavailable: even with all flags, apply returns
+`extended_measurement_unavailable` / `unknown` before controls, auth or Runtime
+execution. No shared temp file is created or removed. This refusal is not a
+successful extended measurement or completion of its remaining #276 backend.
 
 ## Inspect skill arguments
 

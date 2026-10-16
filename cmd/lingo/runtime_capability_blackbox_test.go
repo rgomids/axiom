@@ -50,12 +50,15 @@ func TestExecutableCapabilityRefusalsAndPreparation(t *testing.T) {
 		return event
 	}
 	for _, runtime := range []string{"codex", "claude"} {
-		for _, op := range []string{"show", "invalidate", "probe"} {
+		for _, op := range []string{"show", "invalidate", "probe", "probe-extended"} {
 			args := []string{"runtime", runtime, "capability", op, "--profile", "synthetic", "--variant", "repository-write"}
 			category := "capability_unknown"
-			if op == "probe" {
+			if op == "probe" || op == "probe-extended" {
 				category = "probe_authority_required"
 				args = append(args, "--probe-id", "fake-probe", "--manifest-digest", strings.Repeat("a", 64), "--preview-digest", strings.Repeat("b", 64), "--authorize-local")
+			}
+			if op == "probe-extended" {
+				args = append(args, "--roots", "tmpdir")
 			}
 			run(args, category, false)
 		}
