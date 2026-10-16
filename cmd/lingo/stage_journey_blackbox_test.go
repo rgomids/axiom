@@ -429,7 +429,7 @@ func stageRunArgs(view *cli.WorkflowView, stage, plan, policy, workspace string)
 
 func (j *stageJourney) waitStatus(t *testing.T, view *cli.WorkflowView, done func(json.RawMessage) bool) json.RawMessage {
 	t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
+	deadline := time.Now().Add(2 * time.Minute)
 	for {
 		_, event, output := j.invoke(t, j.axiom, append([]string{"workflow", "stage", "status"}, stageSelector(view)...)...)
 		if done(event.Stage) {
@@ -713,15 +713,15 @@ func TestInstalledSyntheticGraphStageJourney(t *testing.T) {
 			{Op: "write", Path: "src/impl.go", Content: "package src\n"},
 			{Op: "publish", Kind: "question_request", Fields: []string{"question=Is the API stable?", "response_contract=yes-or-no"}},
 			{Op: "publish", Kind: "contract_proposal", Fields: []string{"contract=api-v1", "scope=src"}},
-			{Op: "await", Kind: "answer", Millis: 20000},
+			{Op: "await", Kind: "answer", Millis: 60000},
 			{Op: "publish", Kind: "progress", Fields: []string{"phase=implemented", "percent=100"}},
 			{Op: "publish", Kind: "artifact_publication", Fields: []string{"artifact_id=impl", "artifact_digest=" + strings.Repeat("b", 64), "media_type=text/plain"}},
 			{Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded", "summary=implemented"}},
 		},
 		"reviewer": {
-			{Op: "await", Kind: "question_request", Millis: 20000},
+			{Op: "await", Kind: "question_request", Millis: 60000},
 			{Op: "publish", Kind: "answer", Fields: []string{"answer=yes", "question_reference={captured}"}},
-			{Op: "await", Kind: "contract_proposal", Millis: 20000},
+			{Op: "await", Kind: "contract_proposal", Millis: 60000},
 			{Op: "publish", Kind: "contract_acceptance", Fields: []string{"decision=accepted", "contract_reference={captured}"}},
 			{Op: "publish", Kind: "blocker", Fields: []string{"code=review_pending", "required_action=finish-review"}},
 			{Op: "write", Path: "docs/review.md", Content: "reviewed\n"},

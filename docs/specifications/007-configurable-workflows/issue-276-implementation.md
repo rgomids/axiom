@@ -305,6 +305,19 @@ with race and isolated managed roots (168.727s); format/tidy/Staticcheck and
 repository validation passed. Final exact-SHA native reruns and
 results are recorded in PR #320.
 
+At `abae7d9`, [qualification 38912522291](https://github.com/rgomids/axiom/actions/runs/38912522291)
+passed the complete Linux suite, both upgrade journeys, contracts and artifact
+acceptance. macOS passed the other seven installed journeys but the graph
+positive exceeded its 20-second status wait with both children still running.
+Only fixture budgets change: status waits allow two minutes and FAKE
+coordination waits allow one minute; production controls and every outcome,
+overlap, nine-kind and integration assertion remain unchanged. An ephemeral
+overlay delaying FAKE startup by 25 seconds reproduces the old wait failure
+(37.238s); the identical delayed journey passes with the new wait (52.236s).
+The unmodified graph journey also passes three repetitions with race (74.075s).
+This does not promote the failed native run to PASS; a new exact-head native
+qualification is required and recorded on PR #320.
+
 No real Runtime version/help/auth/probe/inference, Provider operation, merge,
 release, ruleset change, Issue closure or Linear state transition was performed.
 
