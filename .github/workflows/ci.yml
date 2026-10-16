@@ -38,6 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          # Delivery regression contracts inspect committed correction SHAs.
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
@@ -57,6 +59,8 @@ jobs:
         run: ./scripts/check-go-quality.sh staticcheck
       - name: Quality gate regression contracts
         run: python3 scripts/test-go-quality.py
+      - name: Delivery metadata regression contracts
+        run: ./scripts/test-delivery.sh
       - name: Build
         run: go build ./...
       - name: Private synthetic probe state

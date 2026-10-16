@@ -374,8 +374,16 @@ alone. Limits: it covers only Issues the merge completes; GitHub closes
 linked Issues asynchronously, so a closure that lands after that push's sync
 is repaired by the next push to `main` (at the latest the Release PR merge
 of the release that contains it), which re-scans the window.
-Keep the metadata intact when editing the squash commit message. If a merged
-commit's metadata is missing or malformed, the release preflight
+Keep the metadata intact when editing the squash commit message. If the
+message is summarized or supplied through a merge API/CLI, copy both metadata
+lines from the validated PR body and validate the final title/body with
+`scripts/delivery-issues.sh check-pr` before submitting the merge. The default
+`PR_BODY` squash setting supplies the body but does not prevent an override.
+After merge, Delivery sync validates the actual committed messages with
+`commits --require-declared` before any Issue or Project effect. An ordinary
+commit after the v0.2.0 boundary without metadata fails that run immediately;
+legacy history and genuine Release Please commits remain allowed.
+If a merged commit's metadata is missing or malformed, the release preflight
 (`$axiom-release`) stops before any Release PR exists, naming the commit. The
 fix is a normal reviewed PR to `main` that adds a line to
 [`.github/delivery-corrections.txt`](.github/delivery-corrections.txt) of the

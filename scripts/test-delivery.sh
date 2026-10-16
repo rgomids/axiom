@@ -281,6 +281,10 @@ lr021=$(lcommit 'chore(main): release 0.2.1 (#172)' '' 0.2.1)
 check 'after the boundary: a fully declared range resolves, the release commit may be undeclared' bash -c "
   grep -Fxq undeclared_policy=fail_closed '$temporary/post' && grep -Fxq issues=171 '$temporary/post' && grep -Fxq undeclared_commits=1 '$temporary/post'"
 lsneak=$(lcommit 'fix: merged without metadata (#173)' 'Closes #174\n')
+expect_failure 'strict merge-time inspection catches metadata lost in squash before release' \
+  "commit $lsneak has no delivery metadata" "$lfix/scripts/delivery-issues.sh" commits --from "$lr021" --to "$lsneak" --require-declared
+check 'strict merge-time inspection preserves legacy history and Release Please exceptions' \
+  "$lfix/scripts/delivery-issues.sh" commits --from "$l0" --to "$lr021" --require-declared
 lr022=$(lcommit 'chore(main): release 0.2.2 (#175)' '' 0.2.2)
 expect_failure 'after the boundary: an undeclared ordinary commit fails release resolution' \
   "commit $lsneak in the v0.2.2 range has no delivery metadata" "$lfix/scripts/delivery-issues.sh" release --tag v0.2.2 --revision "$lr022"
@@ -293,7 +297,20 @@ lr022=$(lcommit 'chore(main): release 0.2.2 (#177)' '' 0.2.2)
 "$lfix/scripts/delivery-issues.sh" release --tag v0.2.2 --revision "$lr022" >"$temporary/post"
 check 'after the boundary: an explicit reviewed correction resolves the commit without inferring completion' bash -c "
   grep -Fxq issues=none '$temporary/post' && grep -Fxq undeclared_commits=1 '$temporary/post'"
+check 'strict merge-time inspection reads committed corrections without changing Issue completion' bash -c "
+  '$lfix/scripts/delivery-issues.sh' commits --from '$lr021' --to '$lr022' --require-declared | grep -Fxq 'commit=$lsneak pr=173 release=none metadata=corrected related=174 completes=none'"
+ldowngrade=$(lcommit 'fix: downgrade manifest without metadata (#181)' '' 0.1.0)
+expect_failure 'strict merge-time inspection cannot be bypassed by a manifest downgrade' \
+  "commit $ldowngrade has no delivery metadata" "$lfix/scripts/delivery-issues.sh" commits --from "$lr022" --to "$ldowngrade" --require-declared
+git -C "$lfix" reset -q --hard "$lr022"
+rm "$lfix/.release-please-manifest.json"
+ldelete=$(lcommit 'fix: delete manifest without metadata (#182)' '')
+expect_failure 'strict merge-time inspection cannot be bypassed by deleting the manifest' \
+  "commit $ldelete has no delivery metadata" "$lfix/scripts/delivery-issues.sh" commits --from "$lr022" --to "$ldelete" --require-declared
+git -C "$lfix" reset -q --hard "$lr022"
 lsmuggle=$(lcommit 'feat: bump the manifest outside Release Please (#178)' '' 0.3.0)
+expect_failure 'strict merge-time inspection refuses manifest changes outside Release Please' \
+  "commit $lsmuggle has no delivery metadata" "$lfix/scripts/delivery-issues.sh" commits --from "$lr022" --to "$lsmuggle" --require-declared
 expect_failure 'after the boundary: a manifest change that is not a Release Please commit stays undeclared and fails' \
   "commit $lsmuggle in the v0.3.0 range has no delivery metadata" "$lfix/scripts/delivery-issues.sh" release --tag v0.3.0 --revision "$lsmuggle"
 git -C "$lfix" reset -q --hard "$lr022"
@@ -329,7 +346,7 @@ corrections=$repository_root/.github/delivery-corrections.txt
 check 'every reviewed correction names a commit of main history' bash -c "
   grep -Ev '^(#|$)' '$corrections' | while read -r sha _; do git -C '$repository_root' cat-file -e \"\$sha^{commit}\" || exit 1; done"
 check 'the v0.2.0 legacy reconciliations are exactly #143 -> #129 and #148 -> #147; #132 is not completed' bash -c "
-  [[ \$(grep -Evc '^(#|$)' '$corrections') == 8 ]] &&
+  [[ \$(grep -Evc '^(#|$)' '$corrections') == 9 ]] &&
   grep -Fxq 'f04dbf38db4cb609256ede47e5fbcbe7a16c6487 related=129 completes=129' '$corrections' &&
   grep -Fxq 'fc6cdf4749943df93ec4d91c473fe5152f4bc186 related=147 completes=147' '$corrections' &&
   ! grep -Ev '^#' '$corrections' | grep -q '132'"
@@ -339,6 +356,9 @@ check 'PR #157 restores related #153 without claiming completion' grep -Fxq \
 
 check 'PR #149 supersedes PR #128 without claiming an Issue relationship' grep -Fxq \
   '4dbdba2a43844aa615f340e79b829956ee5880f4 related=none completes=none' "$corrections"
+
+check 'PR #310 restores its validated relationship without claiming completion' grep -Fxq \
+  '5e1c995ab57ed3fbd54e5b72288607140d031e7d related=306 completes=none' "$corrections"
 
 check 'reverted CI/CD Slices 1-4 deliver none of #227, #234, #236, #238 in v0.6.0' bash -c "
   grep -Fxq 'f4819ccd178b1e0222b0e6cccbd5c77900f9d1f5 related=154,227 completes=none' '$corrections' &&

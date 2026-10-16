@@ -1134,6 +1134,12 @@ check 'reconciliation skips an unreadable (transferred or deleted) Issue and con
   grep -Fxq 'reconcile_skipped=21 tag=v0.2.0 reason=issue_unreadable' '$temporary/sync' && grep -Fxq 'reconcile_skipped=22 tag=v0.2.0 reason=latest_record_v0.3.0' '$temporary/sync'"
 mv "$state/issue-21.moved" "$state/issues/21.json"
 dbad=$(dcommit 'fix: merged without metadata (#15)' 'Closes #23\n')
+before=$(mutations)
+expect_failure 'sync refuses metadata lost in squash immediately after merge' "commit $dbad has no delivery metadata" \
+  dgh sync --from "$drel" --to "$dbad"
+expect_failure 'sync validates the whole window before any earlier delivery effect' "commit $dbad has no delivery metadata" \
+  dgh sync --from "$d0" --to "$dbad"
+check 'missing squash metadata produces no Issue or Project effects' test "$(mutations)" = "$before"
 dr021=$(dcommit 'chore(main): release 0.2.1 (#16)' '' 0.2.1)
 dgh sync --from "$dr021" --to "$dr021" >"$temporary/sync"
 check 'reconciliation skips an unresolvable release and still reconciles the others' bash -c "

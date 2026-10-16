@@ -1203,6 +1203,7 @@ Each command is read-only unless stated:
 ./scripts/delivery-issues.sh parse --file message.txt                 # one commit message or PR body
 ./scripts/delivery-issues.sh check-pr --title title.txt --body body.txt
 ./scripts/delivery-issues.sh commits --from <full-sha> --to <full-sha>   # merge-time lines
+./scripts/delivery-issues.sh commits --from <full-sha> --to <full-sha> --require-declared # post-merge validation before sync effects
 ./scripts/delivery-issues.sh release --tag v0.2.0 --revision <release-commit>
 ./scripts/delivery-github.sh state --repo rgomids/axiom --tag v0.2.0 --revision <release-commit>
 ./scripts/delivery-github.sh verify --repo rgomids/axiom --tag v0.2.0 --revision <release-commit>
