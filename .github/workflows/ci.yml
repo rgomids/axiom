@@ -128,7 +128,7 @@ jobs:
           echo "AXIOM_TEST_PROBE_STATE_ROOT=$probe_state" >> "$GITHUB_ENV"
       - name: Unit, integration and black-box tests
         if: matrix.platform == 'macos'
-        run: go test -race ./...
+        run: go test -race ./... -p=1
       - name: Linux tests with coverage (same mandatory test execution)
         if: matrix.platform == 'linux'
         run: |

@@ -2352,3 +2352,17 @@ physical identity checks, partial-open fault injection and exact recovery.
 Initial stale cleanup-preview and cleanup-intent regressions failed; they were
 resolved as above, without weakening cleanup identity checks. Full-suite results
 and native CI are recorded separately when observed. No real Runtime ran.
+
+### Native Darwin validation isolation
+
+At `267efdc`, native Linux verification passed but native macOS job
+`116733107467` in run `38825743111` failed: positive group/probe tests received
+conservative unknown outcomes. The global adoption observer can see detached
+descendants of other concurrently executing test packages under the same UID;
+their process-local attempt registries are intentionally not shared authority.
+The macOS full-suite command now uses `-p=1` to serialize packages. All packages,
+race instrumentation, assertions and mandatory conclusions remain enabled;
+Linux coverage execution is unchanged. This is validation isolation, not a
+claim that a global observer can attribute unrelated same-UID host processes.
+Native results for this adjustment are still required; failures above are not
+reported as PASS. No runner, permissions, entitlement or infrastructure changed.
