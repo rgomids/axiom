@@ -170,6 +170,15 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  native-suite:
+    # Native Linux/macOS suites, release contracts and upgrade journeys at the
+    # exact preflighted revision. A failure fails this run, and
+    # verify-prepared-release.sh refuses a run that did not succeed.
+    needs: prepare
+    uses: ./.github/workflows/native-suite.yml
+    with:
+      ref: ${{ inputs.revision }}
+
   native-acceptance:
     needs: prepare
     uses: ./.github/workflows/native-artifact-acceptance.yml

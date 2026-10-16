@@ -1483,7 +1483,7 @@ unset AXIOM_DELIVERY_PROJECT_TOKEN
 # --- 4. release.sh: prepare, envelope and authority boundary ---------------------------------------
 release() { (cd "$fixture" && "$fixture/scripts/release.sh" "$@"); }
 green() {
-  printf '{"check_runs":[{"name":"go-quality","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"upgrade-journeys (linux)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"upgrade-journeys (macos)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}}]}\n' >"$state/checks-$1.json"
+  printf '{"check_runs":[{"name":"go-quality","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (linux)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"verify (macos)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"release-contract","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"upgrade-journeys (linux)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"upgrade-journeys (macos)","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}},{"name":"PR Checks","status":"completed","conclusion":"success","started_at":"1","app":{"id":15368}}]}\n' >"$state/checks-$1.json"
 }
 # stage_prepared_run ID TAG REVISION SALT [WORKFLOW] places a prepared set, as
 # release-artifacts.yml retains it, behind the fake `gh run download`.
@@ -1708,7 +1708,8 @@ check 'Issue closure is a publication effect: no workflow closes Issues on merge
     case \$(basename \"\$w\") in
       issue-label-policy.yml) allowed='issues|push|workflow_dispatch' ;;
       periodic-monitoring.yml) allowed='schedule|workflow_dispatch' ;;
-      native-artifact-acceptance.yml) allowed='workflow_call' ;;
+      native-artifact-acceptance.yml|native-suite.yml) allowed='workflow_call' ;;
+      nightly.yml) allowed='schedule|workflow_dispatch' ;;
       *) allowed='pull_request|push|workflow_dispatch' ;;
     esac
     sed -n '/^on:/,/^[a-z]/p' \"\$w\" | grep -E '^  [a-z_]+:' | tr -d ' :' | grep -Eqv \"^(\$allowed)\$\" && exit 1
@@ -1720,13 +1721,14 @@ check 'Issue closure is a publication effect: no workflow closes Issues on merge
   ! grep -Eq 'state=closed|state_reason|\"state\"' $workflows/*.yml"
 pinned=true
 while IFS= read -r line; do
-  [[ "$line" == '    uses: ./.github/workflows/native-artifact-acceptance.yml' ]] && continue
+  [[ "$line" == '    uses: ./.github/workflows/native-artifact-acceptance.yml' || "$line" == '    uses: ./.github/workflows/native-suite.yml' ]] && continue
   [[ "$line" =~ uses:\ [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}\ \#\ v[0-9.]+$ ]] || { printf 'unpinned: %s\n' "$line" >&2; pinned=false; }
 done < <(grep -hE '^\s+(- )?uses:' "$workflows"/*.yml)
 check 'every action is pinned by SHA' "$pinned"
 check 'checkouts never persist credentials' bash -c "[[ \$(grep -c 'actions/checkout@' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') == \$(grep -c 'persist-credentials: false' $workflows/*.yml | awk -F: '{s+=\$2} END {print s}') ]]"
-ci_contexts=$(printf 'delivery-metadata\ngo-quality\nrelease-contract\nupgrade-journeys (linux)\nupgrade-journeys (macos)\nverify (linux)\nverify (macos)\n')
-check 'ruleset requires exactly the CI job checks and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fq 'name: verify (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '          - platform: linux' '$workflows/ci.yml' && grep -Fxq '          - platform: macos' '$workflows/ci.yml' && ! grep -Eqi 'windows|pwsh|powershell' '$workflows/ci.yml' && grep -Fq 'name: upgrade-journeys (\${{ matrix.platform }})' '$workflows/ci.yml' && grep -Fxq '    name: go-quality' '$workflows/ci.yml' && grep -Fxq '    name: release-contract' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
+ci_contexts=$(printf 'PR Checks\ndelivery-metadata\n')
+check 'ruleset requires exactly the PR Checks job and the PR delivery-metadata check' bash -c "[[ \$(jq -r '.rules[] | select(.type == \"required_status_checks\") | .parameters.required_status_checks[].context' '$repository_root/.github/rulesets/main.json' | LC_ALL=C sort) == '$ci_contexts' ]] && grep -Fxq '    name: PR Checks' '$workflows/ci.yml' && [[ \$(grep -c '^    name: ' '$workflows/ci.yml') == 1 ]] && ! grep -Eq 'runs-on: (macos|windows)|pwsh|powershell|go test -race|matrix' '$workflows/ci.yml' && grep -Fxq '    name: delivery-metadata' '$workflows/delivery-metadata.yml'"
+check 'native suites, release contracts and upgrade journeys gate the prepared release run' bash -c "grep -Fxq '    uses: ./.github/workflows/native-suite.yml' '$workflows/release-artifacts.yml' && grep -Fxq '          - platform: macos' '$workflows/native-suite.yml' && grep -Fq 'go test -race ./...' '$workflows/native-suite.yml' && grep -Fxq '        run: ./scripts/test-release-flow.sh' '$workflows/native-suite.yml' && grep -Fq './scripts/test-upgrade-journeys.sh' '$workflows/native-suite.yml' && grep -Fq '17 5 * * *' '$workflows/nightly.yml'"
 # Every required context must exist on the Release PR head, where Release
 # Please events start no pull_request run: its workflows are dispatched there.
 check 'every required context is produced on the Release PR path' bash -c "
@@ -1802,9 +1804,10 @@ s=s.replace('"$(cat "$temporary/published-notes")" == "$(cat "$notes")"', '$(cat
 s=s.replace('"$(cat "$temporary/published-notes")" == "$(cat "$temporary/recovery-notes")"', '$(cat "$temporary/published-notes") == $(cat "$temporary/recovery-notes")')
 p.write_text(s)
 PYFIX
-# The original correction predates Upgrade Journeys. The
-# executable repair satisfies current policy without inventing historical runs.
-jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks |= map(select(.context != "upgrade-journeys (linux)" and .context != "upgrade-journeys (macos)")) else . end)' \
+# The original correction predates the PR Checks context and pins the legacy
+# job contexts. The executable repair satisfies current policy without
+# inventing historical runs.
+jq '.rules |= map(if .type == "required_status_checks" then .parameters.required_status_checks = [("go-quality", "verify (linux)", "verify (macos)", "release-contract", "delivery-metadata") | {context: ., integration_id: 15368}] else . end)' \
   "$rfix/.github/rulesets/main.json" >"$temporary/historical-ruleset"
 # Negative policies are immutable ancestor pins too; malformed trailing rules
 # must not authorize CI using the valid rows jq emitted before its error.
@@ -1957,8 +1960,8 @@ printf '[]\n' >"$state/comments/86.json"
 printf '[{"number":160,"merged_at":"2026-10-02T00:00:00Z","labels":[{"name":"autorelease: pending"}]}]\n' >"$state/pulls.json"
 rrepair_args=(--tag v0.3.0 --revision "$rsource" --prepared-run 6161 --corrections-revision "$rcontrol" --corrections-digest "$AXIOM_RELEASE_CORRECTIONS_DIGEST" --repair-revision "$rrepair")
 # Published repair validates historical metadata with the policy at its pin.
-# Its current execution policy must still require Upgrade Journeys and every other check.
-jq '.check_runs |= map(select(.name != "upgrade-journeys (linux)" and .name != "upgrade-journeys (macos)"))' "$state/checks-$rcontrol.json" >"$temporary/rcontrol-historical-green"
+# Its current execution policy must still require PR Checks.
+jq '.check_runs |= map(select(.name != "PR Checks"))' "$state/checks-$rcontrol.json" >"$temporary/rcontrol-historical-green"
 cp "$temporary/rcontrol-historical-green" "$state/checks-$rcontrol.json"
 expect_failure 'ordinary recovery still requires the current CI policy' 'required CI on correction revision is not successful' \
   release status --tag v0.3.0 --revision "$rsource" --prepared-run 6161 \
@@ -1989,24 +1992,12 @@ current_required_ci() {
     grep -Fxq next_action=blocked "$temporary/rcurrent-ci" &&
     grep -Fq 'repair revision must descend from correction revision and have successful CI' "$temporary/rcurrent-ci"
 }
-check 'current repair still refuses missing Upgrade Journeys CI after policy evolution' current_required_ci \
-  '.check_runs |= map(select(.name != "upgrade-journeys (macos)"))'
-check 'current repair still refuses failing Upgrade Journeys CI after policy evolution' current_required_ci \
-  '.check_runs |= map(if .name == "upgrade-journeys (linux)" then .conclusion = "failure" else . end)'
-check 'current repair refuses missing Go quality CI' current_required_ci \
-  '.check_runs |= map(select(.name != "go-quality"))'
-check 'current repair refuses failing Go quality CI' current_required_ci \
-  '.check_runs |= map(if .name == "go-quality" then .conclusion = "failure" else . end)'
-check 'current repair refuses Go quality CI from another app' current_required_ci \
-  '.check_runs |= map(if .name == "go-quality" then .app.id = 1 else . end)'
-for platform in linux macos; do
-  check "current repair refuses missing Upgrade Journeys CI ($platform)" current_required_ci \
-    ".check_runs |= map(select(.name != \"upgrade-journeys ($platform)\"))"
-  check "current repair refuses failing Upgrade Journeys CI ($platform)" current_required_ci \
-    ".check_runs |= map(if .name == \"upgrade-journeys ($platform)\" then .conclusion = \"failure\" else . end)"
-  check "current repair refuses Upgrade Journeys CI from another app ($platform)" current_required_ci \
-    ".check_runs |= map(if .name == \"upgrade-journeys ($platform)\" then .app.id = 1 else . end)"
-done
+check 'current repair refuses missing PR Checks CI after policy evolution' current_required_ci \
+  '.check_runs |= map(select(.name != "PR Checks"))'
+check 'current repair refuses failing PR Checks CI' current_required_ci \
+  '.check_runs |= map(if .name == "PR Checks" then .conclusion = "failure" else . end)'
+check 'current repair refuses PR Checks CI from another app' current_required_ci \
+  '.check_runs |= map(if .name == "PR Checks" then .app.id = 1 else . end)'
 historical_policy_refuses() {
   local pin=$1 message=$2 before result=0
   before=$(mutations)
