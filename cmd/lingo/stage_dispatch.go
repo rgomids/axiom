@@ -94,6 +94,9 @@ func (o dispatchObservation) Observe(ctx context.Context, ref workflowcompiler.E
 
 func (s lifecycleService) dispatchPreview(ctx context.Context, stores stageStores, t stageTarget, in cli.WorkflowStageInput) (stageexecution.PreviewService, error) {
 	root := in.WorkspaceRoot
+	if root == "" && t.single != nil {
+		root = filepath.Dir(filepath.Dir(t.single.Binding.Workspace))
+	}
 	if root == "" {
 		doc, err := stageGraph(ctx, stores, t.request)
 		if err != nil || doc == nil || doc.Successor == nil {
@@ -220,6 +223,13 @@ func (p *retainedPublisher) Commit(ctx context.Context, v stageexecution.Publica
 	if err != nil {
 		return err
 	}
+	if v.Single != nil {
+		run := v.Single.Run
+		if _, err = p.Singles.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 1, ProjectID: run.Scope.ProjectID, ParentID: run.Scope.ExecutionID, PreviewDigest: run.Binding.PreviewDigest, Preview: wire}); err != nil {
+			return err
+		}
+		return p.LocalPublisher.Commit(ctx, v)
+	}
 	if _, err = p.Graphs.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 1, ProjectID: v.Authority.ProjectID, ParentID: v.Authority.ParentID, PreviewDigest: v.Authority.PreviewDigest, Preview: wire}); err != nil {
 		return err
 	}
@@ -229,6 +239,9 @@ func (p *retainedPublisher) Commit(ctx context.Context, v stageexecution.Publica
 type stageWorkspaces struct{ repository string }
 
 func (w stageWorkspaces) Prepare(ctx context.Context, p stageexecution.Publication) error {
+	if p.Single != nil && p.Graph == nil {
+		return w.prepareSingle(ctx, p.Single.Run)
+	}
 	if p.Graph == nil {
 		return stageexecution.ErrPreview
 	}
@@ -303,8 +316,13 @@ func (s lifecycleService) stageRun(ctx context.Context, stores stageStores, t st
 		return s.stagePreview(preview.Digest, "Stage dispatch preview", "Review child rights; repeat with exact digest, revision and both authority flags", preview)
 	}
 	store := s.supervisorStore(stores, t)
-	service := stageexecution.RunService{ResumeStore: store, Preview: previewService, Publisher: &retainedPublisher{LocalPublisher: stagepublication.LocalPublisher{Graphs: stores.graphs, Executions: stores.executions, Leases: stores.leases, AllocateID: allocateStageID}}, Workspaces: stageWorkspaces{t.repository.Path}, Starter: stageexecution.CommittedStarter{Store: store, Detached: stageexecution.SameBinaryDetacher{}}}
+	single := &localSingleStore{s: s, stores: stores, target: t}
+	service := stageexecution.RunService{ResumeStore: store, SingleStore: single, Preview: previewService, Publisher: &retainedPublisher{LocalPublisher: stagepublication.LocalPublisher{Graphs: stores.graphs, Executions: stores.executions, Singles: stores.singles, Leases: stores.leases, Execution: t.state, AllocateID: allocateStageID}}, Workspaces: stageWorkspaces{t.repository.Path}, Starter: stageexecution.CommittedStarter{Store: store, Single: single, Detached: stageexecution.SameBinaryDetacher{}}}
 	r := stageexecution.RunRequest{Execution: t.ref, StageID: in.Stage, PreviewDigest: in.PreviewDigest, ExpectedRevision: in.ExpectedRevision, AuthorizeLocal: in.AuthorizeLocal, AuthorizeExternal: in.AuthorizeExternal, Actor: stageActor()}
+	if t.single != nil {
+		request := singleRequest(*t.single)
+		r.CommittedSingle = &request
+	}
 	if doc, err := stageGraph(ctx, stores, t.request); err == nil && doc != nil && doc.Successor != nil {
 		committed, err := committedRequest(ctx, s.stateRoot, stores.graphs, *doc.Successor)
 		if err != nil {
@@ -316,7 +334,11 @@ func (s lifecycleService) stageRun(ctx context.Context, stores stageStores, t st
 	if err != nil {
 		return s.stageDispatchError(err, result.Status, result)
 	}
-	return s.stageSuccess("stage_dispatched", "Committed stage authority and started the supervisor", []string{"dispatch-authority:" + result.Publication.Authority.PreviewDigest}, "Inspect stage status; supervisor start does not imply child success", result)
+	reference := "dispatch-authority:" + result.Publication.Authority.PreviewDigest
+	if result.Publication.Single != nil {
+		reference = "single-stage-authority:" + singleRequest(result.Publication.Single.Run).AuthorityRef
+	}
+	return s.stageSuccess("stage_dispatched", "Committed stage authority and started the supervisor", []string{reference}, "Inspect stage status; supervisor start does not imply child success", result)
 }
 
 func committedRequest(ctx context.Context, stateRoot string, graphs local.GraphStore, g executiongraph.SuccessorGraph) (stageexecution.SupervisorRequest, error) {
@@ -413,8 +435,12 @@ func retainedPreview(ctx context.Context, graphs local.GraphStore, r stageexecut
 	if err != nil {
 		return stageexecution.DispatchPreview{}, err
 	}
+	return verifiedPreview(d.Preview, r.PreviewDigest)
+}
+
+func verifiedPreview(wire []byte, expected string) (stageexecution.DispatchPreview, error) {
 	var p stageexecution.DispatchPreview
-	if workflowdefinition.StrictJSONBounded(d.Preview, &p, executiongraph.MaxDispatchInputsBytes) != nil || p.Digest != r.PreviewDigest {
+	if workflowdefinition.StrictJSONBounded(wire, &p, executiongraph.MaxDispatchInputsBytes) != nil || p.Digest != expected {
 		return p, stageexecution.ErrSupervisorAuthority
 	}
 	digest := p.Digest

@@ -40,6 +40,7 @@ type stageStores struct {
 	executions local.WorkflowStore
 	policies   local.ValidatorPolicyStore
 	profiles   local.RuntimeProfileStore
+	singles    local.SingleStageStore
 }
 
 func (s lifecycleService) stageStores() (stageStores, error) {
@@ -57,6 +58,9 @@ func (s lifecycleService) stageStores() (stageStores, error) {
 	if out.policies, err = local.NewValidatorPolicyStore(s.stateRoot); err != nil {
 		return out, err
 	}
+	if out.singles, err = local.NewSingleStageStore(s.stateRoot); err != nil {
+		return out, err
+	}
 	out.profiles, err = local.NewRuntimeProfileStore(s.stateRoot)
 	return out, err
 }
@@ -68,6 +72,7 @@ type stageTarget struct {
 	request    stageexecution.StatusRequest
 	ref        workflowcompiler.ExecutionRef
 	repository workflow.Repository
+	single     *executiongraph.SingleStageRun
 }
 
 func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
@@ -88,6 +93,20 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 	target, failure := s.resolveStageTarget(ctx, in, operation)
 	if failure != nil {
 		return *failure
+	}
+	if target.single != nil {
+		switch in.Operation {
+		case "status":
+			return s.singleStatus(ctx, stores, target)
+		case "cancel":
+			return s.singleCancel(ctx, stores, target, in)
+		case "reconcile":
+			return s.singleReconcile(ctx, stores, target, in)
+		case "retry":
+			return s.singleRetry(ctx, stores, target, in)
+		case "integrate":
+			return s.stageError(stageexecution.ErrStageKindMismatch, nil)
+		}
 	}
 	switch in.Operation {
 	case "status":
@@ -143,6 +162,16 @@ func (s lifecycleService) resolveStageTarget(ctx context.Context, in cli.Workflo
 		if err == nil {
 			t.request.ParentID = parent
 		} else if !errors.Is(err, local.ErrNotFound) && !errors.Is(err, os.ErrNotExist) {
+			response := s.stageError(err, nil)
+			return stageTarget{}, &response
+		}
+	}
+	if t.request.ParentID == state.ExecutionID {
+		singles, err := local.NewSingleStageStore(s.stateRoot)
+		if err == nil {
+			t.single, err = loadStageSingle(ctx, singles, state)
+		}
+		if err != nil {
 			response := s.stageError(err, nil)
 			return stageTarget{}, &response
 		}
@@ -315,6 +344,8 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		{coordination.ErrRecordNotFound, completion.ValidationFailure, "record_not_found", "List the child's canonical records first"},
 		{coordination.ErrInvalidWait, completion.ValidationFailure, "invalid_wait", "Use a positive --wait no longer than 30s"},
 		{errStageGraphMissing, completion.ValidationFailure, "stage_not_dispatched", "Run stage run for this Execution first"},
+		{stageexecution.ErrStageKindMismatch, completion.ValidationFailure, "single_stage_operation_unsupported", "A single-agent stage owns validation and integration of its own output; advance the Execution through its lifecycle"},
+		{executiongraph.ErrUnsupportedSingleStageFormat, completion.Failure, "unsupported_single_stage_format", "This release cannot read the single-stage ledger; nothing was changed"},
 		{local.ErrConflict, completion.RetryableFailure, "temporarily_unavailable", "A concurrent stage operation holds the lease; retry the read first"},
 		{local.ErrRecoveryRequired, completion.Failure, "recovery_required", "Run recovery inspect and apply the reviewed plan"},
 		{executiongraph.ErrInvalidGraph, completion.Failure, "recovery_required", "Inspect stage status and recovery state"},
@@ -370,7 +401,9 @@ func (s lifecycleService) stageCoordinationRead(ctx context.Context, stores stag
 	}
 	reader := coordination.Reader{Store: store}
 	children := []string{in.Child}
-	if in.Child == "" {
+	if in.Child == "" && t.single != nil {
+		children = []string{t.state.ExecutionID}
+	} else if in.Child == "" {
 		doc, err := stageGraph(ctx, stores, t.request)
 		if err != nil || doc == nil || doc.Successor == nil {
 			return s.stageError(errors.Join(errStageGraphMissing, err), nil)

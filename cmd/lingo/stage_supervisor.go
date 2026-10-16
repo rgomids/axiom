@@ -15,6 +15,7 @@ import (
 
 type stageSupervisorLoader interface {
 	LoadSupervisor(context.Context, stageexecution.SupervisorRequest) (stageexecution.Supervisor, error)
+	LoadSingleSupervisor(context.Context, stageexecution.SingleRequest) (stageexecution.SingleSupervisor, error)
 }
 
 func (s LocalSupervisorStore) LoadRetry(ctx context.Context, r stageexecution.SupervisorRequest, ref string) (executiongraph.RetryAuthority, error) {
@@ -210,7 +211,18 @@ func stageSupervisorCommand(ctx context.Context, args []string, loader stageSupe
 	if len(args) == 0 || args[0] != "__stage-supervisor" {
 		return false, 0
 	}
-	if len(args) != 5 && len(args) != 6 || loader == nil {
+	if loader == nil {
+		return true, 1
+	}
+	if len(args) == 6 && args[1] == "single" {
+		r := stageexecution.SingleRequest{ProjectID: args[2], ExecutionID: args[3], ScopeDigest: args[4], AuthorityRef: args[5]}
+		s, e := loader.LoadSingleSupervisor(ctx, r)
+		if e != nil || s.Run(ctx, r) != nil {
+			return true, 1
+		}
+		return true, 0
+	}
+	if len(args) != 5 && len(args) != 6 {
 		return true, 1
 	}
 	r := stageexecution.SupervisorRequest{ProjectID: args[1], ParentID: args[2], PreviewDigest: args[3], AuthorityRef: args[4]}
