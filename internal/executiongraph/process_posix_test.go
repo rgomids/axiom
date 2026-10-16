@@ -164,6 +164,40 @@ func TestPOSIXAlreadyExitedGroup(t *testing.T) {
 	}
 }
 
+func TestPOSIXLeaderExitedBeforeObservation(t *testing.T) {
+	command := exec.Command(os.Args[0], "-test.run=^$")
+	group := &posixProcessGroup{}
+	if err := group.start(command); err != nil {
+		t.Fatal(err)
+	}
+	group.identity, group.exitedAtStart = nil, true
+	if err := command.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), processStopBound)
+	defer cancel()
+	if !confirmProcessStop(ctx, group) {
+		t.Fatal("leader that exited before observation not confirmed gone")
+	}
+	other := exec.Command(os.Args[0], "-test.run=^TestPOSIXProcessContainment$")
+	other.Env = append(os.Environ(), "AXIOM_GROUP_HELPER=descendant")
+	other.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := other.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = other.Process.Kill(); _ = other.Wait() }()
+	reused := &posixProcessGroup{pid: other.Process.Pid, exitedAtStart: true}
+	if err := reused.stop(); err == nil {
+		t.Fatal("live process at an exited leader PID accepted stop")
+	}
+	if gone, err := reused.gone(); gone || err == nil {
+		t.Fatalf("reused PID confirmed: gone=%v error=%v", gone, err)
+	}
+	if err := syscall.Kill(other.Process.Pid, 0); err != nil {
+		t.Fatal("refusal signaled the live process", err)
+	}
+}
+
 func TestPOSIXChangedLeaderIdentityNeverSignals(t *testing.T) {
 	command := exec.Command(os.Args[0], "-test.run=^TestPOSIXProcessContainment$")
 	command.Env = append(os.Environ(), "AXIOM_GROUP_HELPER=descendant")

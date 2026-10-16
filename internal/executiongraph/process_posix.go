@@ -17,6 +17,7 @@ type posixProcessGroup struct {
 	escaped        bool
 	observationErr error
 	identity       *ProcessCorrelation
+	exitedAtStart  bool
 }
 
 var errProcessGroupIdentity = errors.New("process group identity unavailable or changed")
@@ -29,6 +30,9 @@ func (g *posixProcessGroup) start(cmd *exec.Cmd) error {
 	}
 	g.pid = cmd.Process.Pid
 	g.identity, g.observationErr = ObserveProcessCorrelation(int64(g.pid))
+	// An unreaped leader that already exited is unobservable but still holds
+	// its PID; any later live process at that PID is a reuse and is refused.
+	g.exitedAtStart = g.identity == nil && g.observationErr == nil
 	return nil
 }
 func (g *posixProcessGroup) stop() error {
@@ -80,14 +84,14 @@ func (g *posixProcessGroup) gone() (bool, error) {
 }
 
 func (g *posixProcessGroup) sameLeader() error {
-	if g.identity == nil {
+	if g.identity == nil && !g.exitedAtStart {
 		return errProcessGroupIdentity
 	}
 	current, err := ObserveProcessCorrelation(int64(g.pid))
 	if err != nil {
 		return err
 	}
-	if current != nil && *current != *g.identity {
+	if current != nil && (g.identity == nil || *current != *g.identity) {
 		return errProcessGroupIdentity
 	}
 	return nil
