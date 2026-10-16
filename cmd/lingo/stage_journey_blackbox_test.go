@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -26,6 +28,8 @@ import (
 	"github.com/rgomids/axiom/internal/validatorpolicy"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
+
+const stageJourneyDecision = "Explicit synthetic human gate decision\n"
 
 var stageJourneyVersions = map[string]string{"codex": "0.159.1", "claude": "2.1.296"}
 
@@ -52,7 +56,7 @@ type stageJourneyEvent struct {
 // The test Axiom binary differs from the distributed one only by a build
 // overlay of the embedded version registry naming those two fake identities;
 // the distributed build is kept beside it to prove it still refuses.
-func newStageJourney(t *testing.T) *stageJourney {
+func newStageJourney(t *testing.T, concurrency ...int) *stageJourney {
 	t.Helper()
 	j := &stageJourney{env: newWorkItemSourceEnvironment(t), bin: t.TempDir(), home: t.TempDir(), digests: map[string]string{}}
 	self, err := os.Executable()
@@ -93,7 +97,7 @@ func newStageJourney(t *testing.T) *stageJourney {
 	}
 	j.environment = []string{"HOME=" + j.home, "PATH=" + j.bin + string(os.PathListSeparator) + "/usr/bin:/bin", "LINGO_PROJECTS_ROOT=" + j.env.root, "LINGO_STATE_ROOT=" + j.env.state, "AXIOM_CODEX_SKILLS_ROOT=" + filepath.Join(j.home, ".codex", "skills"), "AXIOM_GH_BIN=" + filepath.Join(t.TempDir(), "gh-never-executed"), "LANG=C"}
 	j.policy = j.seedValidatorPolicy(t)
-	j.selectWorkflow(t)
+	j.selectWorkflow(t, concurrency...)
 	return j
 }
 
@@ -101,7 +105,7 @@ func newStageJourney(t *testing.T) *stageJourney {
 // example in which every agent writes the repository: the read-only effort
 // boundary is currently unprovable (PM-13), so read-only children never
 // dispatch.
-func (j *stageJourney) selectWorkflow(t *testing.T) {
+func (j *stageJourney) selectWorkflow(t *testing.T, concurrency ...int) {
 	t.Helper()
 	wire, err := os.ReadFile("../../docs/specifications/007-configurable-workflows/examples/custom-r1.json")
 	if err != nil {
@@ -115,6 +119,9 @@ func (j *stageJourney) selectWorkflow(t *testing.T) {
 	definition.SchemaVersion = 2
 	for i := range definition.Stages {
 		stage := &definition.Stages[i]
+		if stage.ID == "implementation" && len(concurrency) == 1 {
+			stage.Concurrency = concurrency[0]
+		}
 		for k := range stage.Agents {
 			a := &stage.Agents[k]
 			a.Effort = workflowdefinition.Effort{}
@@ -198,8 +205,10 @@ func (j *stageJourney) writeOverlay(t *testing.T) string {
 func (j *stageJourney) initRepository(t *testing.T) {
 	t.Helper()
 	for _, args := range [][]string{{"init", "-q", "-b", "main"}, {"add", "-A"}, {"-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-q", "--allow-empty", "-m", "base"}} {
-		if err := os.WriteFile(filepath.Join(j.repository, "README.md"), []byte("synthetic\n"), 0o600); err != nil {
-			t.Fatal(err)
+		for name, content := range map[string]string{"README.md": "synthetic\n", "decision.md": stageJourneyDecision} {
+			if err := os.WriteFile(filepath.Join(j.repository, name), []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
 		}
 		command := exec.Command("git", args...)
 		command.Dir = j.repository
@@ -595,5 +604,260 @@ func TestInstalledSyntheticSingleStageRetryReset(t *testing.T) {
 	}
 	if again := j.run(t, 1, append(retry, "--preview-digest", retryDigest, "--authorize-external", "--disposition", "reset")...); again.Category == "stage_retry_dispatched" {
 		t.Fatal("retry receipt reused")
+	}
+}
+
+type workflowEvent struct {
+	Workflow *cli.WorkflowView `json:"workflow"`
+}
+
+func (j *stageJourney) advanceTo(t *testing.T, view *cli.WorkflowView, stage string) *cli.WorkflowView {
+	t.Helper()
+	sum := sha256.Sum256([]byte(stageJourneyDecision))
+	digest := hex.EncodeToString(sum[:])
+	call := func(args ...string) *cli.WorkflowView {
+		t.Helper()
+		code, _, output := j.invoke(t, j.axiom, args...)
+		var event workflowEvent
+		if code != 0 || json.Unmarshal(bytes.TrimSpace(output), &event) != nil || event.Workflow == nil {
+			t.Fatalf("%v: code=%d %s", args, code, output)
+		}
+		return event.Workflow
+	}
+	selector := stageSelector(view)
+	fact := func(v *cli.WorkflowView) *cli.WorkflowView {
+		if action := v.GateAction; action != nil && action.Operation == "fact" {
+			reference := "specification:decision.md:" + digest
+			if action.Fact == "implementation_authority" {
+				reference = "plan:decision.md:" + digest
+			}
+			return call(append(append([]string{"workflow", "fact"}, selector...), "--expected-revision", strconv.FormatUint(v.Revision, 10), "--fact", strings.ReplaceAll(string(action.Fact), "_", "-"), "--active", "--actor", "maintainer", "--reference", reference, "--authorize-local")...)
+		}
+		return v
+	}
+	for count := 0; view.CurrentGate != stage && count < 16; count++ {
+		view = fact(view)
+		file := publishConfiguredOutput(t, j.env.state, view)
+		view = call(append(append([]string{"workflow", "advance"}, selector...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--gate", view.CurrentGate, "--outcome", "pass", "--stage-result", file)...)
+	}
+	if view.CurrentGate != stage {
+		t.Fatalf("did not reach %s: %s", stage, view.CurrentGate)
+	}
+	return fact(view)
+}
+
+func graphSettled(stage json.RawMessage) bool {
+	return bytes.Count(stage, []byte(`"status":"succeeded"`)) >= 2 || bytes.Contains(stage, []byte(`"status":"failed"`)) || bytes.Contains(stage, []byte(`"status":"unknown"`)) || bytes.Contains(stage, []byte(`"status":"blocked"`))
+}
+
+func TestInstalledSyntheticGraphStageJourney(t *testing.T) {
+	j := newStageJourney(t)
+	j.run(t, 0, "runtime", "codex", "install")
+	j.run(t, 0, "runtime", "claude", "install")
+	saveTargetLink(t, j.env.state, workItemSourceProjectID, "9", "owner/repo")
+	view := j.advanceTo(t, j.startExecution(t, "github:owner/repo#9"), "implementation")
+	impl := executiongraph.Effect{Kind: "repository-write", Target: "src/impl.go"}
+	review := executiongraph.Effect{Kind: "repository-write", Target: "docs/review.md"}
+	integrated := executiongraph.Effect{Kind: "integration", Target: "src/impl.go"}
+	integratedReview := executiongraph.Effect{Kind: "integration", Target: "docs/review.md"}
+	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{
+		stagePlanUnit("implementer", []string{"src"}, impl),
+		stagePlanUnit("reviewer", []string{"docs"}, review),
+		stagePlanUnit("integrator", []string{"src", "docs"}, impl, integrated, integratedReview),
+	}, []executiongraph.Effect{impl, review, integrated, integratedReview})
+	args := stageRunArgs(view, "implementation", plan, j.policy, j.workspace)
+	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	if refused := j.run(t, 1, append(args, "--authorize-local")...); refused.Category != "runtime_unresolvable" {
+		t.Fatalf("graph preview without Claude Evidence: %+v", refused)
+	}
+	j.seedEvidence(t, "claude", "profile-claude", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	selectors := stageSelector(view)
+	j.script(t, fakeStageScript{Selectors: selectors, Agents: map[string][]fakeStageStep{
+		"implementer": {
+			{Op: "write", Path: "src/impl.go", Content: "package src\n"},
+			{Op: "publish", Kind: "question_request", Fields: []string{"question=Is the API stable?", "response_contract=yes-or-no"}},
+			{Op: "publish", Kind: "contract_proposal", Fields: []string{"contract=api-v1", "scope=src"}},
+			{Op: "await", Kind: "answer", Millis: 20000},
+			{Op: "publish", Kind: "progress", Fields: []string{"phase=implemented", "percent=100"}},
+			{Op: "publish", Kind: "artifact_publication", Fields: []string{"artifact_id=impl", "artifact_digest=" + strings.Repeat("b", 64), "media_type=text/plain"}},
+			{Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded", "summary=implemented"}},
+		},
+		"reviewer": {
+			{Op: "await", Kind: "question_request", Millis: 20000},
+			{Op: "publish", Kind: "answer", Fields: []string{"answer=yes", "question_reference={captured}"}},
+			{Op: "await", Kind: "contract_proposal", Millis: 20000},
+			{Op: "publish", Kind: "contract_acceptance", Fields: []string{"decision=accepted", "contract_reference={captured}"}},
+			{Op: "publish", Kind: "blocker", Fields: []string{"code=review_pending", "required_action=finish-review"}},
+			{Op: "write", Path: "docs/review.md", Content: "reviewed\n"},
+			{Op: "publish", Kind: "dependency_resolution", Fields: []string{"dependency=api", "resolution=stable"}},
+			{Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded", "summary=reviewed"}},
+		},
+	}})
+	digest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
+	j.run(t, 0, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+	status := j.waitStatus(t, view, graphSettled)
+	var persisted stageexecution.StatusResult
+	if err := json.Unmarshal(status, &persisted); err != nil || persisted.Graph.Successor == nil {
+		t.Fatalf("graph status: %s %v", status, err)
+	}
+	g := persisted.Graph.Successor
+	var completed []executiongraph.SuccessorAttempt
+	for _, child := range g.Children {
+		if child.Envelope.IntegrationOwner {
+			if len(child.Attempts) != 0 || persisted.Blockers[child.ExecutionID] != "integration_pending" {
+				t.Fatalf("integration ran before operator authority: %+v", child)
+			}
+			continue
+		}
+		if len(child.Attempts) != 1 || child.Attempts[0].Status != "succeeded" || child.Attempts[0].QualifyingRecordRef == "" {
+			t.Fatalf("graph child did not succeed: %+v", child)
+		}
+		completed = append(completed, child.Attempts[0])
+	}
+	if len(completed) != 2 || !completed[0].StartedAt.Before(*completed[1].FinishedAt) || !completed[1].StartedAt.Before(*completed[0].FinishedAt) {
+		t.Fatalf("independent children did not overlap: %+v", completed)
+	}
+	calls := j.invocations(t)
+	if len(calls) != 2 || calls[0].Runtime == calls[1].Runtime {
+		t.Fatalf("expected two cross-Runtime FAKE calls: %+v", calls)
+	}
+	records := j.run(t, 0, append([]string{"workflow", "coordination", "list"}, selectors...)...)
+	for _, kind := range []string{"question_request", "answer", "progress", "contract_proposal", "artifact_publication", "dependency_resolution", "contract_acceptance", "blocker", "result"} {
+		if !bytes.Contains(records.Stage, []byte(`"kind":"`+kind+`"`)) {
+			t.Fatalf("missing canonical %s: %s", kind, records.Stage)
+		}
+	}
+	integrate := append(append([]string{"workflow", "stage", "integrate"}, selectors...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--stage", "implementation", "--validator-policy", j.policy)
+	idigest := j.run(t, 0, integrate...).reference(t, "stage-preview:")
+	applied := j.run(t, 0, append(integrate, "--preview-digest", idigest, "--authorize-local")...)
+	var result stageexecution.IntegrateResult
+	if err := json.Unmarshal(applied.Stage, &result); err != nil || result.Rollup == nil || result.Rollup.Status != "success" || result.OutcomeRef == "" || result.ResultTree == "" || len(result.Validations) != 1 || result.Validations[0].ExitCode != 0 {
+		t.Fatalf("integration did not persist validated outcome: %s %v", applied.Stage, err)
+	}
+	for _, child := range g.Children {
+		if !child.Envelope.IntegrationOwner {
+			continue
+		}
+		for path, want := range map[string]string{"src/impl.go": "package src\n", "docs/review.md": "reviewed\n"} {
+			if wire, err := os.ReadFile(filepath.Join(child.Envelope.Workspace, path)); err != nil || string(wire) != want {
+				t.Fatalf("integrated %s: %q %v", path, wire, err)
+			}
+		}
+	}
+	if again := j.run(t, 1, append(integrate, "--preview-digest", idigest, "--authorize-local")...); again.Category == "stage_integrated" {
+		t.Fatal("integration repeated its effects")
+	}
+}
+
+func TestInstalledSyntheticGraphConflictRetryReset(t *testing.T) {
+	j := newStageJourney(t, 1)
+	j.run(t, 0, "runtime", "codex", "install")
+	j.run(t, 0, "runtime", "claude", "install")
+	saveTargetLink(t, j.env.state, workItemSourceProjectID, "10", "owner/repo")
+	view := j.advanceTo(t, j.startExecution(t, "github:owner/repo#10"), "implementation")
+	write := executiongraph.Effect{Kind: "repository-write", Target: "src/shared.go"}
+	integration := executiongraph.Effect{Kind: "integration", Target: "src/shared.go"}
+	a, b := stagePlanUnit("implementer", []string{"src"}, write), stagePlanUnit("reviewer", []string{"src"}, write)
+	a.Controls.MaximumAttempts = 2
+	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{a, b, stagePlanUnit("integrator", []string{"src"}, write, integration)}, []executiongraph.Effect{write, integration})
+	args := stageRunArgs(view, "implementation", plan, j.policy, j.workspace)
+	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	j.seedEvidence(t, "claude", "profile-claude", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	j.script(t, fakeStageScript{
+		Agents: map[string][]fakeStageStep{
+			"implementer": {{Op: "write", Path: "src/shared.go", Content: "implementation\n"}, {Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded"}}},
+			"reviewer":    {{Op: "write", Path: "src/shared.go", Content: "review\n"}, {Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded"}}},
+		},
+		Attempts: map[string][]fakeStageStep{"implementer#1": {{Op: "write", Path: "src/stale.go", Content: "stale\n"}, {Op: "sleep", Millis: 300}, {Op: "exit", Code: 7}}},
+	})
+	digest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
+	j.run(t, 0, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+	settled := func(stage json.RawMessage) bool {
+		var status stageexecution.StatusResult
+		if json.Unmarshal(stage, &status) != nil || status.Graph.Successor == nil {
+			return false
+		}
+		for _, child := range status.Graph.Successor.Children {
+			if child.Envelope.IntegrationOwner {
+				continue
+			}
+			if len(child.Attempts) == 0 || child.Attempts[len(child.Attempts)-1].Status == "running" {
+				return false
+			}
+		}
+		return true
+	}
+	var first stageexecution.StatusResult
+	if err := json.Unmarshal(j.waitStatus(t, view, graphSettled), &first); err != nil {
+		t.Fatal(err)
+	}
+	var failed executiongraph.SuccessorChild
+	var attempts []executiongraph.SuccessorAttempt
+	for _, child := range first.Graph.Successor.Children {
+		if child.Envelope.IntegrationOwner {
+			continue
+		}
+		if len(child.Attempts) != 0 {
+			attempts = append(attempts, child.Attempts[0])
+		}
+		if child.NodeKey == "implementation:implementer" {
+			failed = child
+		}
+	}
+	if len(attempts) != 1 {
+		t.Fatalf("dependent child ran after failed prerequisite: %+v", attempts)
+	}
+	if failed.ExecutionID == "" || failed.Attempts[0].Status != "failed" {
+		t.Fatalf("missing failed child: %+v", failed)
+	}
+	retry := append(append([]string{"workflow", "stage", "retry"}, stageSelector(view)...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--stage", "implementation", "--plan", plan, "--validator-policy", j.policy, "--child", failed.ExecutionID, "--authorize-local")
+	rdigest := j.run(t, 0, retry...).reference(t, "stage-preview:")
+	j.run(t, 0, append(retry, "--preview-digest", rdigest, "--authorize-external", "--disposition", "reset")...)
+	var after stageexecution.StatusResult
+	if err := json.Unmarshal(j.waitStatus(t, view, func(stage json.RawMessage) bool {
+		var status stageexecution.StatusResult
+		if json.Unmarshal(stage, &status) != nil || status.Graph.Successor == nil {
+			return false
+		}
+		for _, child := range status.Graph.Successor.Children {
+			if child.ExecutionID == failed.ExecutionID {
+				return len(child.Attempts) == 2 && child.Attempts[1].Status != "running"
+			}
+		}
+		return false
+	}), &after); err != nil {
+		t.Fatal(err)
+	}
+	for _, child := range after.Graph.Successor.Children {
+		if child.ExecutionID == failed.ExecutionID && (len(child.Attempts) != 2 || child.Attempts[1].Status != "succeeded") {
+			t.Fatalf("retry failed: %+v", child)
+		}
+	}
+	resumeDigest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
+	j.run(t, 0, append(args, "--preview-digest", resumeDigest, "--authorize-local", "--authorize-external")...)
+	if err := json.Unmarshal(j.waitStatus(t, view, settled), &after); err != nil {
+		t.Fatal(err)
+	}
+	var implemented, reviewed executiongraph.SuccessorAttempt
+	for _, child := range after.Graph.Successor.Children {
+		if child.NodeKey == "implementation:implementer" {
+			implemented = child.Attempts[1]
+		}
+		if child.NodeKey == "implementation:reviewer" {
+			reviewed = child.Attempts[0]
+		}
+	}
+	if implemented.FinishedAt == nil || reviewed.StartedAt == nil || reviewed.StartedAt.Before(*implemented.FinishedAt) {
+		t.Fatalf("conflicting children overlapped: %+v %+v", implemented, reviewed)
+	}
+	if _, err := os.Lstat(filepath.Join(failed.Envelope.Workspace, "src/stale.go")); !os.IsNotExist(err) {
+		t.Fatalf("graph reset preserved stale file: %v", err)
+	}
+	integrate := append(append([]string{"workflow", "stage", "integrate"}, stageSelector(view)...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--stage", "implementation", "--validator-policy", j.policy)
+	if refused := j.run(t, 1, integrate...); refused.Category != "integration_blocked" {
+		t.Fatalf("conflicting result trees admitted: %+v", refused)
+	}
+	if len(j.invocations(t)) != 3 {
+		t.Fatalf("unexpected calls: %+v", j.invocations(t))
 	}
 }

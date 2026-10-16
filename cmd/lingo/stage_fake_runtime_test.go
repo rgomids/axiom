@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -24,13 +25,14 @@ type fakeStageScript struct {
 }
 
 type fakeStageStep struct {
-	Op      string   `json:"op"`
-	Path    string   `json:"path,omitempty"`
-	Content string   `json:"content,omitempty"`
-	Kind    string   `json:"kind,omitempty"`
-	Fields  []string `json:"fields,omitempty"`
-	Code    int      `json:"code,omitempty"`
-	Millis  int      `json:"millis,omitempty"`
+	Op          string   `json:"op"`
+	Path        string   `json:"path,omitempty"`
+	Content     string   `json:"content,omitempty"`
+	Kind        string   `json:"kind,omitempty"`
+	Fields      []string `json:"fields,omitempty"`
+	Environment []string `json:"environment,omitempty"`
+	Code        int      `json:"code,omitempty"`
+	Millis      int      `json:"millis,omitempty"`
 }
 
 type fakeStageInvocation struct {
@@ -131,13 +133,19 @@ func runFakeStageSteps(script fakeStageScript, packet runtimeadapter.TaskPacket,
 			if os.WriteFile(step.Path, []byte(step.Content), 0o600) != nil {
 				return 21
 			}
-		case "publish":
+		case "publish", "publish-denied":
 			cmd := exec.Command(axiom, append([]string{"--json", "workflow", "coordination", "publish", "--kind", step.Kind}, expand(step.Fields)...)...)
-			cmd.Env = os.Environ()
-			if out, err := cmd.CombinedOutput(); err != nil || !bytes.Contains(out, []byte(`"coordination_candidate_published"`)) {
+			cmd.Env = stageFakeEnvironment(step.Environment)
+			out, err := cmd.CombinedOutput()
+			if step.Op == "publish-denied" {
+				if err == nil || bytes.Contains(out, []byte(`"coordination_candidate_published"`)) || !bytes.Contains(out, []byte(`"child_context_required"`)) {
+					return 25
+				}
+			} else if err != nil || !bytes.Contains(out, []byte(`"coordination_candidate_published"`)) {
 				return 22
 			}
 		case "await":
+			captured = ""
 			deadline := time.Now().Add(time.Duration(step.Millis) * time.Millisecond)
 			for captured == "" {
 				if time.Now().After(deadline) {
@@ -172,4 +180,30 @@ func runFakeStageSteps(script fakeStageScript, packet runtimeadapter.TaskPacket,
 		}
 	}
 	return 0
+}
+
+func stageFakeEnvironment(overrides []string) []string {
+	values := map[string]string{}
+	for _, entry := range os.Environ() {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			values[key] = value
+		}
+	}
+	for _, entry := range overrides {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			values[key] = value
+		}
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	environment := make([]string, 0, len(keys))
+	for _, key := range keys {
+		environment = append(environment, key+"="+values[key])
+	}
+	return environment
 }
