@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
@@ -66,8 +65,14 @@ func (s lifecycleService) capabilityExtended(ctx context.Context, service capabi
 	if err != nil || envelope == nil {
 		return s.capabilityFailure("probe_recovery_required", nil)
 	}
+	if err := local.BindExtendedRootPermit(ctx, envelope, extended.Roots); err != nil {
+		finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*extended.Roots.Timeout)
+		defer cancel()
+		quarantined := envelope.Quarantine(finish) == nil
+		return s.capabilityFailure("probe_recovery_required", map[string]any{"previewDigest": digest, "quarantined": quarantined})
+	}
 	observer := roots.Inspector.(local.ExtendedRootObserver)
-	roots.Effects = local.ExtendedRootEffects{ExtendedRootObserver: observer, Run: func(ctx context.Context, root capabilityproof.ExtendedRoot, name string) error {
+	roots.Effects = &local.ExtendedRootEffects{ExtendedRootObserver: observer, Run: func(ctx context.Context, root capabilityproof.ExtendedRoot, name string) error {
 		inv, err := extendedCanaryInvocation(extended.Probe.Preparation, filepath.Join(root.Path, name))
 		if err != nil {
 			return err
@@ -121,45 +126,10 @@ func extendedCanaryInvocation(p capabilityproof.ProbePreparation, path string) (
 }
 
 func extendedCapabilityPreview(ctx context.Context, in cli.RuntimeCapabilityInput, probe capabilityproof.ProbePreview) (extendedCapabilityObservation, capabilityproof.ExtendedService, error) {
-	home, err := os.UserHomeDir()
+	service, err := local.ExtendedProbeService(in.RootKinds)
 	if err != nil {
 		return extendedCapabilityObservation{}, capabilityproof.ExtendedService{}, err
 	}
-	home, err = filepath.EvalSymlinks(home)
-	if err != nil {
-		return extendedCapabilityObservation{}, capabilityproof.ExtendedService{}, err
-	}
-	temp, err := filepath.EvalSymlinks(os.TempDir())
-	if err != nil {
-		return extendedCapabilityObservation{}, capabilityproof.ExtendedService{}, err
-	}
-	system, err := filepath.EvalSymlinks("/tmp")
-	if err != nil {
-		return extendedCapabilityObservation{}, capabilityproof.ExtendedService{}, err
-	}
-	policy := capabilityproof.ExtendedPolicy{TempDir: temp, SystemTemp: system, Home: home, VendorHomes: []string{filepath.Join(home, ".codex"), filepath.Join(home, ".claude")}}
-	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR"} {
-		if path := os.Getenv(key); path != "" {
-			policy.VendorHomes = append(policy.VendorHomes, path)
-		}
-	}
-	for i, path := range policy.VendorHomes {
-		if physical, err := filepath.EvalSymlinks(path); err == nil {
-			policy.VendorHomes[i] = physical
-		} else if !os.IsNotExist(err) {
-			return extendedCapabilityObservation{}, capabilityproof.ExtendedService{}, err
-		}
-	}
-	observer := local.ExtendedRootObserver{}
-	for _, kind := range in.RootKinds {
-		switch kind {
-		case "tmpdir":
-			observer.TempDir = temp
-		case "system-temp":
-			observer.SystemTemp = system
-		}
-	}
-	service := capabilityproof.ExtendedService{Policy: policy, Inspector: observer}
 	p, err := service.Preview(ctx, in.ProbeID, in.RootKinds)
 	if err != nil {
 		return extendedCapabilityObservation{}, service, err

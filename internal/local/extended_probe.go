@@ -7,8 +7,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
@@ -90,7 +90,31 @@ func (o ExtendedRootObserver) Inspect(ctx context.Context, path string) (capabil
 // its outcome is observed afterwards on the host, never read from the child.
 type ExtendedRootEffects struct {
 	ExtendedRootObserver
-	Run func(context.Context, capabilityproof.ExtendedRoot, string) error
+	Run   func(context.Context, capabilityproof.ExtendedRoot, string) error
+	mu    sync.Mutex
+	files map[string]os.FileInfo
+}
+
+func extendedProbeKey(root capabilityproof.ExtendedRoot, name string) string {
+	return filepath.Join(root.Path, name)
+}
+
+func (e *ExtendedRootEffects) remember(root capabilityproof.ExtendedRoot, name string, info os.FileInfo) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.files == nil {
+		e.files = make(map[string]os.FileInfo)
+	}
+	e.files[extendedProbeKey(root, name)] = info
+}
+
+func (e *ExtendedRootEffects) take(root capabilityproof.ExtendedRoot, name string) os.FileInfo {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	key := extendedProbeKey(root, name)
+	info := e.files[key]
+	delete(e.files, key)
+	return info
 }
 
 func extendedProbeName(name string) bool {
@@ -98,8 +122,8 @@ func extendedProbeName(name string) bool {
 	return ok && id != "" && filepath.Base(name) == name && !strings.ContainsAny(name, "\x00\r\n")
 }
 
-func (e ExtendedRootEffects) open(ctx context.Context, root capabilityproof.ExtendedRoot, name string) (*os.Root, error) {
-	if !extendedProbeName(name) {
+func (e *ExtendedRootEffects) open(ctx context.Context, root capabilityproof.ExtendedRoot, name string) (*os.Root, error) {
+	if e == nil || !extendedProbeName(name) {
 		return nil, capabilityproof.ErrExtendedRoot
 	}
 	snapshot, err := e.Inspect(ctx, root.Path)
@@ -111,8 +135,12 @@ func (e ExtendedRootEffects) open(ctx context.Context, root capabilityproof.Exte
 		return nil, err
 	}
 	info, err := r.Stat(".")
+	if err != nil {
+		r.Close()
+		return nil, err
+	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
-	if err != nil || !ok || uint64(stat.Dev) != root.Snapshot.Device || uint64(stat.Ino) != root.Snapshot.Inode {
+	if !ok || uint64(stat.Dev) != root.Snapshot.Device || uint64(stat.Ino) != root.Snapshot.Inode {
 		r.Close()
 		return nil, capabilityproof.ErrStalePreview
 	}
@@ -124,7 +152,7 @@ func ownedProbeFile(info os.FileInfo) bool {
 	return ok && info.Mode().IsRegular() && info.Size() == 0 && stat.Nlink == 1 && int(stat.Uid) == os.Geteuid()
 }
 
-func (e ExtendedRootEffects) Control(ctx context.Context, root capabilityproof.ExtendedRoot, name string) (capabilityproof.Control, error) {
+func (e *ExtendedRootEffects) Control(ctx context.Context, root capabilityproof.ExtendedRoot, name string) (capabilityproof.Control, error) {
 	c := capabilityproof.Control{UID: uint64(os.Geteuid()), GID: uint64(os.Getegid())}
 	r, err := e.open(ctx, root, name)
 	if err != nil {
@@ -140,9 +168,13 @@ func (e ExtendedRootEffects) Control(ctx context.Context, root capabilityproof.E
 	}
 	created, err := file.Stat()
 	if closeErr := file.Close(); err != nil || closeErr != nil {
+		if created != nil {
+			e.remember(root, name, created)
+		}
 		return c, errors.Join(capabilityproof.ErrProbeResidue, err, closeErr)
 	}
 	c.Created = true
+	e.remember(root, name, created)
 	current, err := r.Lstat(name)
 	if err != nil || !os.SameFile(created, current) || !ownedProbeFile(current) {
 		return c, capabilityproof.ErrProbeResidue
@@ -154,6 +186,7 @@ func (e ExtendedRootEffects) Control(ctx context.Context, root capabilityproof.E
 	if _, err := r.Lstat(name); !errors.Is(err, os.ErrNotExist) {
 		return c, capabilityproof.ErrProbeResidue
 	}
+	e.take(root, name)
 	c.RemovalVerified = true
 	snapshot, err := e.Inspect(ctx, root.Path)
 	if err != nil || snapshot != root.Snapshot {
@@ -163,7 +196,7 @@ func (e ExtendedRootEffects) Control(ctx context.Context, root capabilityproof.E
 	return c, nil
 }
 
-func (e ExtendedRootEffects) Canary(ctx context.Context, root capabilityproof.ExtendedRoot, name string) (capabilityproof.CanaryAttempt, capabilityproof.ProcessIdentity, error) {
+func (e *ExtendedRootEffects) Canary(ctx context.Context, root capabilityproof.ExtendedRoot, name string) (capabilityproof.CanaryAttempt, capabilityproof.ProcessIdentity, error) {
 	attempt := capabilityproof.CanaryAttempt{Target: root.Kind}
 	if e.Run == nil {
 		return attempt, capabilityproof.ProcessIdentity{}, capabilityproof.ErrBlocked
@@ -186,10 +219,11 @@ func (e ExtendedRootEffects) Canary(ctx context.Context, root capabilityproof.Ex
 	}
 	stat := info.Sys().(*syscall.Stat_t)
 	attempt.Created = true
+	e.remember(root, name, info)
 	return attempt, capabilityproof.ProcessIdentity{UID: uint64(stat.Uid), GID: uint64(stat.Gid), Process: "runtime-child"}, runErr
 }
 
-func (e ExtendedRootEffects) RemoveVerify(ctx context.Context, root capabilityproof.ExtendedRoot, name string) error {
+func (e *ExtendedRootEffects) RemoveVerify(ctx context.Context, root capabilityproof.ExtendedRoot, name string) error {
 	r, err := e.open(ctx, root, name)
 	if err != nil {
 		return err
@@ -197,9 +231,15 @@ func (e ExtendedRootEffects) RemoveVerify(ctx context.Context, root capabilitypr
 	defer r.Close()
 	info, err := r.Lstat(name)
 	if errors.Is(err, os.ErrNotExist) {
+		e.take(root, name)
 		return nil
 	}
-	if err != nil || !ownedProbeFile(info) {
+	if err != nil {
+		e.take(root, name)
+		return capabilityproof.ErrProbeResidue
+	}
+	expected := e.take(root, name)
+	if expected == nil || !os.SameFile(expected, info) || !ownedProbeFile(info) {
 		return capabilityproof.ErrProbeResidue
 	}
 	if err := r.Remove(name); err != nil {
@@ -211,45 +251,54 @@ func (e ExtendedRootEffects) RemoveVerify(ctx context.Context, root capabilitypr
 	return nil
 }
 
-// CreateExtendedCanary is the deterministic child side of the extended probe.
-// The working directory must belong to the digest-verified envelope of id;
-// path must be that probe's filename directly below the child's own TMPDIR or
-// /tmp. It makes one exclusive empty file and nothing else.
+// CreateExtendedCanary requires a live envelope and exact-root permit.
 func CreateExtendedCanary(cwd, id, digest, path string) error {
-	if !filepath.IsAbs(cwd) || filepath.Clean(cwd) != cwd || !slices.Contains([]string{"workspace", "inbox"}, filepath.Base(cwd)) || filepath.Base(filepath.Dir(cwd)) != id || filepath.Base(filepath.Dir(filepath.Dir(cwd))) != "capability-probes" {
-		return capabilityproof.ErrCanaryContext
-	}
-	directory, err := OpenOwnedDirectory(filepath.Dir(cwd))
+	root, err := readExtendedRootPermit(cwd, id, digest, path)
 	if err != nil {
 		return err
 	}
-	wire, err := directory.ReadFile("envelope.json", 16384)
-	directory.Close()
-	var m EnvelopeManifest
-	if err != nil || strictEnvelopeJSON(wire, &m) != nil || digestEnvelope(wire) != digest || m.ProbeID != id {
-		return capabilityproof.ErrCanaryContext
-	}
-	if !filepath.IsAbs(path) || filepath.Clean(path) != path || filepath.Base(path) != ".axiom-probe-"+id {
+	name := filepath.Base(path)
+	observer, err := ExtendedProbeService([]string{root.Kind})
+	if err != nil {
 		return capabilityproof.ErrExtendedRoot
 	}
-	parent := filepath.Dir(path)
-	allowed := false
-	for _, candidate := range []string{os.TempDir(), "/tmp"} {
-		if physical, err := filepath.EvalSymlinks(candidate); err == nil && physical == parent {
-			allowed = true
-		}
+	snapshot, err := observer.Inspector.Inspect(context.Background(), root.Path)
+	if err != nil || snapshot != root.Snapshot {
+		return capabilityproof.ErrStalePreview
 	}
-	if !allowed {
-		return capabilityproof.ErrExtendedRoot
-	}
-	r, err := os.OpenRoot(parent)
+	r, err := os.OpenRoot(root.Path)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
-	file, err := r.OpenFile(filepath.Base(path), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	rootInfo, err := r.Stat(".")
+	if err != nil {
+		return capabilityproof.ErrStalePreview
+	}
+	stat, ok := rootInfo.Sys().(*syscall.Stat_t)
+	if !ok || uint64(stat.Dev) != root.Snapshot.Device || uint64(stat.Ino) != root.Snapshot.Inode {
+		return capabilityproof.ErrStalePreview
+	}
+	file, err := r.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
-	return file.Close()
+	created, statErr := file.Stat()
+	closeErr := file.Close()
+	if statErr != nil || closeErr != nil || !ownedProbeFile(created) {
+		return errors.Join(statErr, closeErr, capabilityproof.ErrProbeResidue)
+	}
+	current, err := r.Lstat(name)
+	if err != nil || !os.SameFile(created, current) || !ownedProbeFile(current) {
+		return capabilityproof.ErrProbeResidue
+	}
+	currentRoot, err := r.Stat(".")
+	if err != nil || !os.SameFile(rootInfo, currentRoot) {
+		return capabilityproof.ErrStalePreview
+	}
+	latest, err := observer.Inspector.Inspect(context.Background(), root.Path)
+	if err != nil || latest != root.Snapshot {
+		return capabilityproof.ErrStalePreview
+	}
+	return nil
 }
