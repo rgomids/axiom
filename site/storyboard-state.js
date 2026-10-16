@@ -31,12 +31,13 @@ const orbit = (n) =>
         [34, 82],
         [66, 82],
       ];
-export function frameState(index, narrow = false) {
+export function frameState(index, narrow = false, width = narrow ? 360 : 1000) {
   index = Math.round(clamp(index, 0, 24));
   const layout = frames[index].layout;
   const s = {
     index,
     layout,
+    narrow,
     wash: 0,
     idea: node(50, 50, narrow ? 76 : 96, narrow ? 76 : 96),
     hub: node(50, 50, narrow ? 90 : 150, narrow ? 96 : 156),
@@ -67,6 +68,7 @@ export function frameState(index, narrow = false) {
     connections: 0,
     grid: 0,
     ground: 0,
+    platform: 0,
     beam: 0,
     orbRing: 0,
     execution: 0,
@@ -76,6 +78,8 @@ export function frameState(index, narrow = false) {
     panel: 0,
     hubRound: 0,
     ideaCard: 0,
+    ideaLink: 0,
+    flowPorts: 0,
     morph: 0,
   };
   const showWorks = (a = 1) => s.works.forEach((n) => (n.opacity = a)),
@@ -138,11 +142,13 @@ export function frameState(index, narrow = false) {
     }
     if (['unified', 'platform', 'map'].includes(layout)) s.grid = 1;
     if (layout === 'platform') {
+      s.platform = 1;
       s.ground = 1;
       s.beam = 1;
       s.hub.y = 44;
     }
     if (layout === 'map') {
+      s.ideaLink = 1;
       s.idea = node(10, 50, narrow ? 36 : 50, narrow ? 36 : 50, 1);
       s.hub.x = 45;
       const mapPositions = narrow
@@ -174,7 +180,11 @@ export function frameState(index, narrow = false) {
     );
     s.connections = 1;
     s.morph = 1;
-    s.idea = node(narrow ? 5 : 25, 10, 12, 12, 1);
+    s.flowPorts = 1;
+    const spine = flowSpineX(s, width);
+    s.idea = node(spine, 10, 12, 12, 1);
+    s.hub = node(spine, 10, 12, 12, 0);
+    s.hubRound = 1;
   }
   if (layout === 'dependencies') {
     const pos = [
@@ -254,20 +264,21 @@ const interpolate = (a, b, t) => {
     return Object.fromEntries(Object.keys(a).map((k) => [k, interpolate(a[k], b[k], t)]));
   return t < 0.5 ? a : b;
 };
-export function storyState(progress, narrow = false) {
+export function storyState(progress, narrow = false, width = narrow ? 360 : 1000) {
   const p = clamp(progress, 0, 4),
     q = p * 6,
     from = Math.min(23, Math.floor(q)),
     // Hold the complete composition before a long, continuous transition.
     travel = clamp((q - from - 0.28) / 0.72),
     t = travel * travel * travel * (travel * (travel * 6 - 15) + 10),
-    s = interpolate(frameState(from, narrow), frameState(from + 1, narrow), t),
+    s = interpolate(frameState(from, narrow, width), frameState(from + 1, narrow, width), t),
     index = from + (t >= 0.5 ? 1 : 0);
   s.progress = p;
   s.beatProgress = q;
   s.from = from;
   s.transition = t;
   s.narrow = narrow;
+  s.width = width;
   s.index = index;
   s.scene = frames[index].scene - 1;
   s.beat = frames[index].beat;
@@ -277,10 +288,10 @@ export function storyState(progress, narrow = false) {
   );
   // A traveling impulse arrives before the card opens; stagger all six fronts.
   s.reveals = s.works.map((_, i) => {
-    const arrival = 0.53 + i * 0.035;
-    const growth = ease((travel - arrival) / 0.22);
+    const arrival = 0.5 + i * 0.018;
+    const growth = ease((travel - arrival) / 0.41);
     return {
-      line: ease((travel - 0.12 - i * 0.035) / 0.4),
+      line: ease((travel - 0.1 - i * 0.018) / 0.38),
       card: growth,
       bloom: Math.sin(Math.PI * growth),
     };
@@ -292,16 +303,24 @@ export function storyState(progress, narrow = false) {
     s.idea.opacity = ease((q - 0.72) / 0.28);
   }
   if (from === 15) {
-    const m = t;
-    s.hub.x = mix(frameState(15, narrow).hub.x, s.idea.x, m);
-    s.hub.y = mix(50, s.idea.y, m);
-    s.hub.w = mix(narrow ? 90 : 150, 14, m);
-    s.hub.h = s.hub.w;
-    s.hubRound = m;
-    s.hub.opacity = 1 - m;
-    s.idea.opacity = 1;
+    // Hide the relocation, then reveal the nucleus already attached to its port.
+    s.idea.opacity = 1 - ease(t / 0.45) + ease((t - 0.62) / 0.38);
+    s.hub.opacity = 1 - ease(t / 0.65);
+    if (t >= 0.5) {
+      s.idea.x = flowSpineX(s, width);
+      s.idea.y = s.works[0].y;
+    }
   }
+  s.routingFade = 1 - ease(t / 0.5) + ease((t - 0.5) / 0.5);
+  s.flowPorts =
+    frameState(from, narrow, width).flowPorts * (1 - ease(t / 0.5)) +
+    frameState(from + 1, narrow, width).flowPorts * ease((t - 0.5) / 0.5);
   return s;
+}
+
+export function flowSpineX(s, width) {
+  const first = s.works[0];
+  return Math.max(0, first.x - ((first.w / 2 + (s.narrow ? 12 : 28)) / width) * 100);
 }
 
 // Cubic geometry stays compatible across radial, linear and dependency layouts.
@@ -316,8 +335,8 @@ function relationCurve(s, i, width, height) {
     if (i === 5) opacity = 0;
   }
   if (s.layout === 'lanes') {
-    from = [s.works[0].x - 29, i ? s.works[i - 1].y : s.works[0].y];
-    to = [n.x - 29, n.y];
+    from = [flowSpineX(s, width), i ? s.works[i - 1].y : s.works[0].y];
+    to = [flowSpineX(s, width), n.y];
     if (i === 5) opacity = 0;
   }
   if (s.layout === 'dependencies') {
@@ -327,8 +346,9 @@ function relationCurve(s, i, width, height) {
     to = i === 3 ? [n.x - (n.w / width) * 50 - 1, n.y] : [n.x, n.y - (n.h / height) * 50 - 1];
   }
   if (s.layout === 'human-gate') {
-    from = [s.works[4].x - 44, s.works[4].y];
-    to = [n.x - 44, n.y];
+    const review = s.works[4];
+    from = [review.x - (review.w / width) * 50, review.y];
+    to = [n.x - (n.w / width) * 50, n.y];
     opacity = i === 5 ? 0.6 : 0;
   }
   if (s.layout === 'continuity') {
@@ -337,13 +357,32 @@ function relationCurve(s, i, width, height) {
     opacity = i === 0 ? 0.7 : 0;
   }
   const d =
-    s.layout === 'dependencies'
-      ? dependencyPath(from, to, i === 3)
-      : connectionPath(from, to, i, s.grid);
+    s.layout === 'human-gate'
+      ? `M ${from[0]} ${from[1]} C ${from[0] - 4} ${from[1]}, ${to[0] - 4} ${to[1]}, ${to[0]} ${to[1]}`
+      : ['dependencies', 'lanes'].includes(s.layout)
+        ? dependencyPath(from, to, i === 3)
+        : connectionPath(from, to, i, s.grid);
   return { points: d.match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/g).map(Number), opacity };
 }
 export const curvePath = (v) =>
   `M ${v[0]} ${v[1]} C ${v[2]} ${v[3]}, ${v[4]} ${v[5]}, ${v[6]} ${v[7]}`;
+export function frameConnections(s, width, height) {
+  return s.works.map((_, i) => {
+    const c = relationCurve(s, i, width, height);
+    return { d: curvePath(c.points), opacity: c.opacity };
+  });
+}
+export function originConnection(s, width) {
+  return {
+    d: connectionPath(
+      [s.idea.x + (s.idea.w / width) * 50, s.idea.y],
+      [s.hub.x - (s.hub.w / width) * 50, s.hub.y],
+      2,
+      0.5,
+    ),
+    opacity: s.ideaLink * Math.min(s.idea.opacity, s.hub.opacity),
+  };
+}
 export function curvePrefix(v, progress) {
   const p = clamp(progress),
     a = [v[0], v[1]],
@@ -360,8 +399,8 @@ export function curvePrefix(v, progress) {
   return { d: curvePath([...a, ...ab, ...abc, ...end]), end };
 }
 export function storyConnections(s, width, height) {
-  const a = frameState(s.from, s.narrow),
-    b = frameState(s.from + 1, s.narrow);
+  const a = frameState(s.from, s.narrow, width),
+    b = frameState(s.from + 1, s.narrow, width);
   return s.works.map((_, i) => {
     const before = relationCurve(a, i, width, height),
       after = relationCurve(b, i, width, height),
@@ -371,7 +410,14 @@ export function storyConnections(s, width, height) {
       impulse = curvePrefix(points, s.reveals[i].line);
     return {
       ...prefix,
-      opacity: mix(before.opacity, after.opacity, s.transition),
+      opacity:
+        mix(before.opacity, after.opacity, s.transition) *
+        (a.layout !== b.layout &&
+        ['lanes', 'dependencies', 'human-gate', 'convergence', 'continuity'].some((layout) =>
+          [a.layout, b.layout].includes(layout),
+        )
+          ? s.routingFade
+          : 1),
       signalEnd: impulse.end,
       trail: impulse.d,
       signal: Math.sin(Math.PI * s.reveals[i].line) * (after.opacity > 0.1 ? 1 : 0),

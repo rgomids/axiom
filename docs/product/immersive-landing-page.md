@@ -46,7 +46,10 @@ review, merge, deployment or full MVP acceptance.
   a short scroll follower. Connection signals precede staggered card blooms.
   Ambient globe rotation, light pulses, wave lines and decorative square zooms
   add movement without advancing scenes. Pause/reduced motion disable ambient
-  loops; fixed-frame previews remain deterministic.
+  loops; fixed-frame previews remain deterministic. Connector endpoints follow
+  actual card edges and viewport width; the returning idea fades during relocation
+  and reappears on the first workflow port. The globe/card silhouette, perspective
+  and routing auxiliaries change continuously, with no abrupt visible shape switch.
 - Sample model assignments, PR #123, 12/12 tests, progress 3/6 and approval labels
   follow the storyboard. Visible conceptual/example captions distinguish these
   illustrations from actual product capabilities, real CI results or acceptance.

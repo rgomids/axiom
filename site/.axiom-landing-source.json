@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "repository": "https://github.com/rgomids/axiom-ds",
-  "revision": "1b5f935802316d373f80bc37406001de08e023b1",
+  "revision": "1cf1a3dc370e30ed917c109fa2da5020100eac73",
   "bundle": "packages/landing/dist",
   "files": {
     ".nojekyll": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -9,15 +9,15 @@
     "assets/axiom-logo.png": "c58970cd0bfda80a8c46e22bfdb0218eba9d75ff4c41b80f4d476b2492cf812f",
     "assets/Manrope-OFL.txt": "d6a309fcfb963d329a93baf9df66fa5f3c23a4be2b5f67edf24d6cafecde12ac",
     "assets/Manrope.ttf": "3ae11c49db0455a3cc33e37d380f20fdb8c7f8b41dc07625c177e3d87a9d6ae6",
-    "index.html": "981c3e7cf22facfa2a084016e0518e958c2b7e7516e823c8fedc5a233680a822",
+    "index.html": "ecc086f2422d0cc190d86c3e0ffda9e4ca59459ea0150fc54b0adcc3284bc2f0",
     "LICENSE.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     "NOTICE.txt": "09ac728da60aab6f4b60bb476f5df271f368054267d156cc2641f7592cd7ddd0",
     "preview.js": "6f297e5d858c7a69c168a8a4ca06b605c42cdecbaba99177de8f114d5a53b6b9",
     "story-frames.js": "673cbc925ab7695da0e5410b17b153b86323dfae404df560dbfdc64b370706ce",
-    "story-state.js": "d5abb3a68376ef7187a07632592b699a28bd53c7dafc9aa38a28407147190986",
-    "storyboard-state.js": "3c99bc10da5087c0c1f132016e1d260594a639b37f23ef21b8e81952b8fe9c11",
-    "storytelling.css": "3d1badee6438a70f598aa9d00bd8b95bd2931197ae70a4985f83308dc8c30909",
-    "storytelling.js": "775789a9294bd79dbb25a5877c6a41f58f90945d405f135b76e7ec72d2f69807",
+    "story-state.js": "b0d781313aa0985db977d4e0ccf2b8dd6f957d758b592c89ca6567871e747c2f",
+    "storyboard-state.js": "e69b9dcba649404d3caa59ede53aecae78d41f1dc65294496d2cbcb67d60e314",
+    "storytelling.css": "a943f2d7997a455ec9c7664b0a250c83f4af51d63e1da916e8930a6485ee7cae",
+    "storytelling.js": "4dc652289abf22d11490bb785a638fa3ea6d44ec4df13083c7fffc35b7bc6f87",
     "style.css": "150e90a04d9de82dd2877639ea55a66260be84685b0ed3ec70912491fcad6ebe",
     "tokens.css": "bdf1f2cccb5792b81ca1fc4e2f6f683a38950a32560745b3ece48237c3b228a2"
   }

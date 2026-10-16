@@ -1,4 +1,12 @@
-import { storyState, storyConnections, connectionPath, frameState, clamp } from './story-state.js';
+import {
+  storyState,
+  storyConnections,
+  originConnection,
+  flowSpineX,
+  connectionPath,
+  frameState,
+  clamp,
+} from './story-state.js';
 import { frames, workContent } from './story-frames.js';
 const story = document.querySelector('.storytelling'),
   world = story.querySelector('.live-world');
@@ -63,7 +71,7 @@ function paint(now) {
   const settled = Math.abs(target - renderedProgress) < 0.000005;
   if (settled) renderedProgress = target;
   const p = renderedProgress,
-    s = storyState(p, innerWidth <= 760),
+    s = storyState(p, innerWidth <= 760, width),
     lang = document.documentElement.lang.startsWith('en') ? 'en' : 'pt';
   story.dataset.storySettled = String(settled);
   world.dataset.ambient = String(!staticMode && previewIndex === null);
@@ -79,15 +87,15 @@ function paint(now) {
   if (staticMode && previewIndex === null) return;
   world.dataset.layout = s.layout;
   place(entities.idea, s.idea);
-  entities.idea.dataset.card = String(Math.round(s.ideaCard));
+  entities.idea.style.setProperty('--idea-card', s.ideaCard);
   entities.idea.querySelector('.idea-label').style.opacity = s.ideaCard;
-  entities.idea.querySelector('.orb-ring').style.opacity = s.orbRing;
+  entities.idea.querySelector('.orb-ring').style.opacity = s.orbRing * (1 - s.ideaCard);
   place(entities.hub, s.hub);
   entities.hub.style.borderRadius = `${14 + s.hubRound * 36}%`;
   entities.hub.querySelector('.story-mascot').style.opacity = 1 - s.morph;
   entities.hub.querySelector('span').style.opacity = 1 - s.morph;
-  const before = frameState(s.from, s.narrow),
-    after = frameState(s.from + 1, s.narrow);
+  const before = frameState(s.from, s.narrow, width),
+    after = frameState(s.from + 1, s.narrow, width);
   for (const group of ['works', 'tools', 'ghosts', 'contexts'])
     entities[group].forEach((el, i) => {
       const entering = before[group][i].opacity < 0.05 && after[group][i].opacity > 0.1,
@@ -151,8 +159,12 @@ function paint(now) {
     );
     path.style.opacity = s.contexts[i].opacity;
   });
+  const input = originConnection(s, width);
+  world.querySelector('.idea-link').setAttribute('d', input.d);
+  alpha('.idea-link', input.opacity);
   alpha('.story-energy', s.energy);
   alpha('.story-grid', s.grid);
+  world.querySelector('.story-grid').style.setProperty('--platform', s.platform);
   alpha('.story-ground', s.ground);
   alpha('.story-beam', s.beam);
   alpha('.execution-shell', s.execution);
@@ -167,15 +179,15 @@ function paint(now) {
     opacity: s.continuity,
     rotation: 0,
   });
-  alpha('.flow-ports', s.layout === 'lanes' ? 1 : 0);
+  alpha('.flow-ports', s.flowPorts);
   world.querySelectorAll('.flow-port').forEach((el, i) => {
-    el.setAttribute('cx', s.works[0].x - 29);
+    el.setAttribute('cx', flowSpineX(s, width));
     el.setAttribute('cy', s.works[i].y);
     el.setAttribute('rx', (4 / width) * 100);
     el.setAttribute('ry', (4 / height) * 100);
   });
   world.querySelectorAll('.flow-fork').forEach((el, i) => {
-    const x = s.works[0].x - 29,
+    const x = flowSpineX(s, width),
       y = s.works[i].y;
     el.setAttribute('d', `M ${x} ${y} H ${x + 7} H ${s.works[i].x}`);
   });
@@ -187,7 +199,8 @@ function paint(now) {
     el.style.visibility = s.copy[i] > 0.001 ? 'visible' : 'hidden';
     el.style.transform = `translateY(${(1 - s.copy[i]) * 10}px)`;
   });
-  story.querySelector('.story-disclaimer').style.opacity = s.beatProgress >= 15.5 ? 1 : 0;
+  story.querySelector('.story-disclaimer').style.opacity =
+    clamp((s.beatProgress - 15.2) / 0.6) ** 2 * (3 - 2 * clamp((s.beatProgress - 15.2) / 0.6));
   story.querySelector('.story-counter').textContent = `0${s.scene + 1} — 05 · 0${s.beat} / 05`;
   steps.forEach((el, i) => {
     if (i === s.scene) el.setAttribute('aria-current', 'step');

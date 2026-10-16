@@ -243,22 +243,27 @@
   color: var(--gold);
   font-size: 10px;
 }
-.idea-core[data-card='1'] {
+.idea-core {
+  --idea-card: 0;
+  border-radius: calc((1 - var(--idea-card)) * 50% + var(--idea-card) * 16px);
+}
+.idea-core::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   border: 1px solid var(--gold);
-  border-radius: 16px;
+  border-radius: inherit;
   background: var(--bg);
   box-shadow: 0 0 36px color-mix(in srgb, var(--gold) 20%, transparent);
+  opacity: var(--idea-card);
 }
-.idea-core[data-card='1'] .orb-surface {
-  inset: 18% 31% 49%;
+.idea-core .orb-surface {
+  inset: calc(var(--idea-card) * 18%) calc(var(--idea-card) * 31%) calc(var(--idea-card) * 49%);
 }
-.idea-core[data-card='1'] .orb-ring {
-  display: none;
-}
-.idea-core[data-card='1'] .idea-label {
-  top: 65%;
-  color: var(--text);
-  font-size: 14px;
+.idea-core .idea-label {
+  top: calc(100% - var(--idea-card) * 35% + (1 - var(--idea-card)) * 20px);
+  color: color-mix(in srgb, var(--text) calc(var(--idea-card) * 100%), var(--gold));
+  font-size: calc(10px + var(--idea-card) * 4px);
 }
 .axiom-core {
   flex-direction: column;
@@ -1011,10 +1016,10 @@ body[data-preview='story'] .storytelling {
   stroke-width: 2px;
   vector-effect: non-scaling-stroke;
 }
-.story-world[data-layout='platform'] .story-grid {
-  top: 67%;
-  height: 65%;
-  transform: perspective(400px) rotateX(55deg);
+.story-world .story-grid {
+  top: calc(var(--platform, 0) * 67%);
+  height: calc(100% - var(--platform, 0) * 35%);
+  transform: perspective(400px) rotateX(calc(var(--platform, 0) * 55deg));
   transform-origin: 50% 0;
 }
 .story-transcript-title,
