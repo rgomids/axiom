@@ -48,6 +48,7 @@ type stageJourneyEvent struct {
 	PreviewDigest string          `json:"previewDigest"`
 	References    []string        `json:"references"`
 	Stage         json.RawMessage `json:"stage"`
+	Capability    json.RawMessage `json:"capability"`
 	Payload       json.RawMessage `json:"payload"`
 }
 

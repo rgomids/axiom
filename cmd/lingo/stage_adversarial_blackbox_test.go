@@ -177,6 +177,20 @@ func TestInstalledSyntheticSingleLifecycleAdversarial(t *testing.T) {
 	invalidatedArgs := stageRunArgs(invalidated, "intake", plan, j.policy, j.workspace)
 	j.script(t, fakeStageScript{Agents: map[string][]fakeStageStep{"owner": {{Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded"}}}}})
 	invalidatedDigest := j.run(t, 0, append(invalidatedArgs, "--authorize-local")...).reference(t, "stage-preview:")
+	capabilityArgs := []string{"runtime", "codex", "capability", "invalidate", "--profile", "profile-codex", "--variant", "repository-write", "--repository-root", j.repository, "--workspace-root", j.workspace, "--authorize-local"}
+	capabilityPreview := j.run(t, 0, capabilityArgs...)
+	var invalidation struct {
+		PreviewDigest string `json:"previewDigest"`
+	}
+	if err := json.Unmarshal(capabilityPreview.Capability, &invalidation); err != nil || invalidation.PreviewDigest == "" {
+		t.Fatalf("capability invalidation preview: %s %v", capabilityPreview.Capability, err)
+	}
+	if applied := j.run(t, 0, append(capabilityArgs, "--preview-digest", invalidation.PreviewDigest)...); applied.Category != "capability_invalidated" {
+		t.Fatalf("capability invalidation: %+v", applied)
+	}
+	if refused := j.run(t, 1, append(invalidatedArgs, "--preview-digest", invalidatedDigest, "--authorize-local", "--authorize-external")...); refused.Category != "runtime_unresolvable" {
+		t.Fatalf("invalidated Evidence admitted dispatch: %+v", refused)
+	}
 	fakeRuntime := filepath.Join(j.bin, "codex")
 	file, err := os.OpenFile(fakeRuntime, os.O_APPEND|os.O_WRONLY, 0)
 	if err != nil {

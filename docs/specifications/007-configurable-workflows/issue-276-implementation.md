@@ -83,7 +83,7 @@ editing canonical state.
 | `TestInstalledSyntheticSingleStageRetryReset` | Failed attempt, explicit disposition/external authority, fenced reset removes stale file, second attempt succeeds, receipt cannot be reused. |
 | `TestInstalledSyntheticGraphStageJourney` | Codex/Claude FAKE overlap, consumed question/answer and contract proposal/acceptance, all nine kinds, dependent integration pending until authority, reviewed validator, applied result tree and persisted outcome/rollup. |
 | `TestInstalledSyntheticGraphConflictRetryReset` | Workflow concurrency serializes overlapping effects; failed prerequisite holds dependent; explicit retry/reset and stage-run resume continue remaining first attempt; conflicting result trees refuse integration. |
-| `TestInstalledSyntheticSingleLifecycleAdversarial` | Cancel preview/authority/stale-digest refusal; confirmed group stop; fresh-process persisted status; process failure, missing result and timeout; terminal reconcile refusal; executable drift refuses dispatch. |
+| `TestInstalledSyntheticSingleLifecycleAdversarial` | Cancel preview/authority/stale-digest refusal; confirmed group stop; fresh-process persisted status; process failure, missing result and timeout; terminal reconcile refusal; public capability invalidation and executable drift refuse dispatch. |
 | `TestInstalledSyntheticSingleSupervisorCrashAndReconcile` | Kill only a verified scoped supervisor; persisted stale/orphan identity; live orphan refuses reconciliation; exact FAKE group stop; append-only retry-safe observation; running attempt remains running and is never silently redispatched. |
 | `TestInstalledSyntheticSingleLedgerCorruptionFailsClosed` | Corruption after settlement refuses status without spawning another Runtime. |
 | `TestInstalledSyntheticSingleLineageCapacityAndAdmission` | Forged child context rejected, 63 progress records plus reserved terminal slot, excess candidates rejected, stale Execution revision and out-of-bound controls refused before spawn. |
@@ -247,6 +247,9 @@ with private synthetic probe state (CLI 189.708s), `go vet ./...`,
 commit, and focused extended local/CLI tests with race (1.434s / 16.901s).
 After the final test fixture adjustments (Darwin decimal group identity and
 UUID-shaped forged lineage), installed crash/admission tests passed, 18.746s.
+The final installed lifecycle test also applies `runtime codex capability invalidate`
+through its reviewed public preview, then proves stage dispatch refuses invalidated
+Evidence before testing executable drift (PASS, 17.264s).
 An earlier installed-race run compiled during refusal-category changes and
 failed stale assertions; that intermediate failure is not reported as PASS.
 The integrated `go test -race ./cmd/lingo ./internal/local ./internal/stageexecution
