@@ -2366,3 +2366,44 @@ Linux coverage execution is unchanged. This is validation isolation, not a
 claim that a global observer can attribute unrelated same-UID host processes.
 Native results for this adjustment are still required; failures above are not
 reported as PASS. No runner, permissions, entitlement or infrastructure changed.
+
+### Public standard probe and independent preparation CLI (T44 delta)
+
+`runtime <codex|claude> capability prepare` now exposes zero-write preparation
+preview and exact-digest apply under the distinct `--authorize-prepare` authority.
+The digest binds policy, roots, limits, unique ID and existing state-root
+ancestor identities. Invalid policy and pre-existing identities refuse before
+creation. Preparation never authenticates or starts a vendor.
+`runtime <codex|claude> capability probe` consumes an unused ready preparation
+by `--probe-id` and `--manifest-digest`. Preview is read-only. Apply first checks
+both local/external authorities and the reviewed digest, then uses the canonical
+Service's exact preflight, re-observation, claim, single invocation, redacted
+Evidence and quarantine/cleanup protocol. Preparation authority cannot substitute
+for probe authority. The empty production registry and PM-13 limitations still
+block unprovable bindings before auth/inference. Forged child data stays unknown.
+
+Validation, pinned Go 1.26.0, ambient Claude effort unset and the explicit private
+synthetic probe root set (no required fake-probe test skipped):
+
+| Command | Actual result |
+| --- | --- |
+| `go test -race ./... -count=1 -timeout=10m` | exit 0; CLI package 269.410s, other packages passed; before the final claim-root revalidation helper and added executable blackbox |
+| focused race: CLI probe/preparation, forged-report, variants, parser/help and public executable refusals (`-count=1 -timeout=120s`) | exit 0; cmd 52.171s, cli 1.108s; after final claim-root revalidation |
+| `go test ./cmd/lingo -run '^TestExecutableCapabilityRefusalsAndPreparation$' -count=1 -timeout=60s` | exit 0, 0.635s |
+| format / Staticcheck 0.8.1 / `go vet ./...` / `go build ./...` | exit 0 |
+| `./scripts/validate-repository.sh .` | exit 0; intentionally unauthorized native vendor checks remain UNVERIFIED |
+| `scripts/test-go-quality.py` / `scripts/test-code-health.py` | exit 0, 10 / 11 cases; the first unpinned-toolchain attempt refused and was rerun with the existing Go/Staticcheck PATH |
+
+The executable blackbox builds the public binary, places FAKE codex/claude first
+on PATH with an invocation tripwire, checks both Runtime refusals and zero-write
+preparation preview, then authorizes only local preparation. Neither fake vendor
+is invoked in that blackbox. Separate composed tests invoke only FAKE binaries
+and inject the version registry; both return inconclusive unknown Evidence.
+This does not prove the installed graph/single journey or operational acceptance.
+No new skill route, dependency, corpus edit, ADR change, permission or real
+Runtime effect. Dedicated gitleaks remains unavailable, not a claimed scanner PASS.
+
+T44 is **PARTIAL**, now missing the distinct production extended operation and
+its installed validation, rather than missing all public capability routing.
+T41 remains PARTIAL. T43 native CI is still a required open observation; the
+stage composition and T31/T36–T39 gaps in the checkpoint remain open.

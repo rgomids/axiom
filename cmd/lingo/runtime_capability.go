@@ -9,6 +9,7 @@ import (
 	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/completion"
+	"github.com/rgomids/axiom/internal/local"
 )
 
 func capabilityPreviewDigest(p any) (string, error) {
@@ -21,7 +22,27 @@ func capabilityPreviewDigest(p any) (string, error) {
 }
 
 func (s lifecycleService) RuntimeCapability(ctx context.Context, in cli.RuntimeCapabilityInput) cli.RuntimeCapabilityResponse {
-	service, err := productionCapabilityService(s.stateRoot, s.runtimes.lookPath, stageOperation{repository: in.RepositoryRoot, workspaceRoot: in.WorkspaceRoot, consented: in.AuthorizeLocal})
+	if in.Operation == "prepare" {
+		return s.capabilityPrepare(ctx, in)
+	}
+	op := stageOperation{repository: in.RepositoryRoot, workspaceRoot: in.WorkspaceRoot, consented: in.AuthorizeLocal}
+	if in.Operation == "probe" {
+		if in.PreviewDigest != "" && (!in.AuthorizeLocal || !in.AuthorizeExternal) {
+			return s.capabilityFailure("probe_authority_required", nil)
+		}
+		if in.ProbeID == "" || in.ManifestDigest == "" {
+			return s.capabilityFailure("prepared_envelope_required", nil)
+		}
+		policy, err := s.capabilityEnvelopePolicy(in)
+		if err != nil {
+			return s.capabilityFailure("prepared_envelope_required", nil)
+		}
+		op.probe, err = local.OpenPreparedEnvelope(policy, in.ProbeID, in.ManifestDigest)
+		if err != nil {
+			return s.capabilityFailure("prepared_envelope_required", nil)
+		}
+	}
+	service, err := productionCapabilityService(s.stateRoot, s.runtimes.lookPath, op)
 	if err != nil {
 		return s.capabilityFailure("capability_unknown", nil)
 	}
@@ -43,6 +64,8 @@ func (s lifecycleService) capabilitySuccess(category string, payload any) cli.Ru
 func (s lifecycleService) capabilityOperation(ctx context.Context, service capabilityproof.Service, in cli.RuntimeCapabilityInput) cli.RuntimeCapabilityResponse {
 	target := capabilityproof.Target{RuntimeID: in.RuntimeID, ProfileID: in.ProfileID, Variant: in.Variant, Process: in.Process}
 	switch in.Operation {
+	case "probe":
+		return s.capabilityProbe(ctx, service, in, target)
 	case "show":
 		view, err := service.Show(ctx, target)
 		if err != nil {

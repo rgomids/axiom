@@ -275,9 +275,27 @@ Evidence must match the fresh executable, passive version observation, Profile,
 effort, variant and pinned Axiom binary. Unknown or unavailable observations
 remain `capability_unknown`, including the empty embedded version registry and
 the currently unprovable read-only effort boundary. Invalidation never promotes
-capability. Capability commands are CLI-only, outside `axiom-runtime` skill
-routing. Probe and extended-probe wiring remain under implementation in #276;
-these commands do not authorize either effect.
+capability. Capability commands are CLI-only, outside `axiom-runtime` skill routing.
+
+`runtime <codex|claude> capability prepare` previews an envelope preparation.
+It uses the same Profile/variant and operation roots, plus `--probe-id <unique-id>`.
+Apply requires its exact `--preview-digest` and **`--authorize-prepare`**.
+This consent creates only the private envelope (30s, 64 files, 1 MiB); it never
+authorizes authentication, inference or Provider access. The preview binds the
+existing state-root ancestor identities. Preparation returns `manifestDigest`.
+
+`runtime <codex|claude> capability probe` takes the same selectors plus
+`--probe-id` and `--manifest-digest`. With no preview digest it inspects an unused
+ready envelope without writes. Apply requires the exact `--preview-digest`,
+`--authorize-local` and `--authorize-external`; preparation consent cannot replace
+them. Exact subscription preflight precedes effects and binding revalidation
+follows preflight. Claims and quarantine are durable: a started, interrupted or
+quarantined preparation cannot be reused. Inspect recovery and authorize exact
+cleanup instead. An unknown capability result is inconclusive even if the child
+exits successfully; child claims cannot attest invocation, effort or confinement.
+The empty production version registry continues to block unrecognized binaries
+before invocation. Extended-probe wiring remains under implementation in #276;
+standard probe authority never grants shared-temp effects.
 
 ## Inspect skill arguments
 
