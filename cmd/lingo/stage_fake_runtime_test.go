@@ -19,9 +19,10 @@ import (
 const fakeStageRuntimeFile = "fake-stage-runtime.json"
 
 type fakeStageScript struct {
-	Selectors []string                   `json:"selectors"`
-	Agents    map[string][]fakeStageStep `json:"agents"`
-	Attempts  map[string][]fakeStageStep `json:"attempts"`
+	StartupMillis int                        `json:"startupMillis,omitempty"`
+	Selectors     []string                   `json:"selectors"`
+	Agents        map[string][]fakeStageStep `json:"agents"`
+	Attempts      map[string][]fakeStageStep `json:"attempts"`
 }
 
 type fakeStageStep struct {
@@ -78,6 +79,7 @@ func stageFakeProcess() (bool, int) {
 	if override, ok := script.Attempts[packet.AgentID+"#"+strconv.Itoa(attemptOrdinal(packet.AgentID))]; ok {
 		steps = override
 	}
+	time.Sleep(time.Duration(script.StartupMillis) * time.Millisecond)
 	appendFakeStageLog(record)
 	return true, runFakeStageSteps(script, packet, steps)
 }

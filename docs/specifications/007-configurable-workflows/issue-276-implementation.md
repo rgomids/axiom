@@ -56,9 +56,14 @@ two FAKE Runtime invocations.
 ### T36 test artifact and installed-path report (`synthetic`)
 
 `cmd/lingo/stage_journey_blackbox_test.go` builds a normal binary and a test
-binary. The only build overlay replaces the embedded `runtime-versions.json`
-with the exact two FAKE executable digests and synthetic version tuples. The
-FAKE executables are copies of the test executable with distinct trailers;
+binary. Its build overlay replaces the embedded `runtime-versions.json`
+with the exact two FAKE executable digests and synthetic version tuples, and
+replaces only the default managed-configuration location literals with private
+fixture directories. The same directories are supplied to Evidence seeding's
+normal BindingSource/effort observer; all parsers, physical-root/permission,
+freshness, identity, auth and capability guards are unchanged. TMPDIR is
+canonicalized before allocating fixtures so macOS `/var` aliases do not enter
+trusted anchors. The normal build receives neither overlay. The FAKE executables are copies of the test executable with distinct trailers;
 their scripted dispatcher handles only the fixture environment. Capability
 Evidence is created through `local.CapabilityStore.Create` in temporary state,
 with the normally observed executable/adapter/mode/Axiom/Profile/effort binding.
@@ -273,6 +278,32 @@ workflow job conclusions and independent review requests are recorded in PR #320
 by SHA. Pending or failed jobs are not PASS. The final remote Evidence comment
 is the qualification record for the final HEAD; this document does not infer
 native execution from cross-compilation or from earlier source revisions.
+
+### Native qualification corrections — fixture readiness and macOS roots
+
+At `c75300e`, [qualification 38910081705](https://github.com/rgomids/axiom/actions/runs/38910081705)
+failed its positive Linux and macOS suites; these failures are retained as FAIL.
+Linux CLI race/coverage failed `TestInstalledSyntheticSingleSupervisorCrashAndReconcile`:
+the supervisor had already persisted the running PID while the FAKE process had
+not yet appended its invocation log (`calls=[]`). The test now waits for both
+persisted running identity and the exact matching FAKE entry before asserting
+and killing. A 1.5-second FAKE startup delay makes that ordering reproducible;
+restoring only the old wait predicate in an ephemeral overlay fails at the same
+unchanged assertion (9.508s). The corrected crash test passed three times with
+race and coverage (40.577s). No production stop or identity assertion changed.
+
+macOS failed all installed journeys at Evidence setup with
+`effort_configuration_unproven`, before dispatch. The fixture's temporary-root
+aliases and the real `/etc/codex` managed alias cannot satisfy the existing
+canonical-anchor guard. The fixture now uses physical temporary paths and
+isolated synthetic managed roots in both its test-build location overlay and
+normal binding observation. It does not create or modify system/vendor config,
+relax a guard, alter production defaults or prove real managed configuration.
+The old statement that the build differs only by its registry is superseded by
+the complete difference description above. The full installed suite passed again
+with race and isolated managed roots (168.727s); format/tidy/Staticcheck and
+repository validation passed. Final exact-SHA native reruns and
+results are recorded in PR #320.
 
 No real Runtime version/help/auth/probe/inference, Provider operation, merge,
 release, ruleset change, Issue closure or Linear state transition was performed.

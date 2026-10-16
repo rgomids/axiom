@@ -38,6 +38,7 @@ type stageJourney struct {
 	axiom, distributed, bin, home  string
 	workspace, repository, overlay string
 	digests                        map[string]string
+	managed                        map[string]string
 	policy                         string
 	environment                    []string
 }
@@ -52,14 +53,20 @@ type stageJourneyEvent struct {
 	Payload       json.RawMessage `json:"payload"`
 }
 
-// newStageJourney prepares the synthetic T36 fixture. The fake codex and
-// claude executables are copies of this test binary with distinct trailers.
-// The test Axiom binary differs from the distributed one only by a build
-// overlay of the embedded version registry naming those two fake identities;
-// the distributed build is kept beside it to prove it still refuses.
 func newStageJourney(t *testing.T, concurrency ...int) *stageJourney {
 	t.Helper()
-	j := &stageJourney{env: newWorkItemSourceEnvironment(t), bin: t.TempDir(), home: t.TempDir(), digests: map[string]string{}}
+	temp, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", temp)
+	j := &stageJourney{env: newWorkItemSourceEnvironment(t), bin: t.TempDir(), home: t.TempDir(), digests: map[string]string{}, managed: map[string]string{}}
+	for _, id := range []string{"codex", "claude"} {
+		j.managed[id] = filepath.Join(j.home, "managed-"+id)
+		if err := os.Mkdir(j.managed[id], 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
 	self, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -192,7 +199,31 @@ func (j *stageJourney) writeOverlay(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	overlay, err := json.Marshal(map[string]map[string]string{"Replace": {original: registry}})
+	managedOriginal, err := filepath.Abs("../../internal/runtimeadapter/authpreflight.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	managedSource, err := os.ReadFile(managedOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for original, replacement := range map[string]string{
+		"/etc/codex/config.toml":                                        filepath.Join(j.managed["codex"], "config.toml"),
+		"/etc/codex/managed_config.toml":                                filepath.Join(j.managed["codex"], "managed_config.toml"),
+		"/etc/claude-code/managed-settings.json":                        filepath.Join(j.managed["claude"], "managed-settings.json"),
+		"/Library/Application Support/ClaudeCode/managed-settings.json": filepath.Join(j.managed["claude"], "managed-settings.json"),
+	} {
+		quoted := strconv.Quote(original)
+		if !bytes.Contains(managedSource, []byte(quoted)) {
+			t.Fatalf("managed location absent from fixture overlay: %s", original)
+		}
+		managedSource = bytes.ReplaceAll(managedSource, []byte(quoted), []byte(strconv.Quote(replacement)))
+	}
+	managedPath := filepath.Join(dir, "authpreflight.go")
+	if err := os.WriteFile(managedPath, managedSource, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	overlay, err := json.Marshal(map[string]map[string]string{"Replace": {original: registry, managedOriginal: managedPath}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,7 +389,11 @@ func (j *stageJourney) seedEvidence(t *testing.T, runtimeID, profileID, variant 
 		Stage: func(context.Context, capabilityproof.Target) (runtimeadapter.StageContext, error) {
 			return runtimeadapter.StageContext{Workspace: filepath.Join(j.workspace, "worktrees"), Inbox: filepath.Join(j.workspace, "inboxes"), ParentEnvironment: j.environment}, nil
 		},
-		EffortRoots:     runtimeadapter.StageEffortRoots{Repository: j.repository}.Resolve,
+		EffortRoots: func(ctx context.Context, target capabilityproof.Target, environment []string) (runtimeadapter.EffortSourceRoots, error) {
+			roots, err := (runtimeadapter.StageEffortRoots{Repository: j.repository}).Resolve(ctx, target, environment)
+			roots.Managed = j.managed[target.RuntimeID]
+			return roots, err
+		},
 		EffortConsented: true,
 	}
 	prepared, err := source.PrepareProbe(context.Background(), capabilityproof.Target{RuntimeID: runtimeID, ProfileID: profileID, Variant: variant})

@@ -226,12 +226,20 @@ func TestInstalledSyntheticSingleSupervisorCrashAndReconcile(t *testing.T) {
 	unit.Controls.Timeout = 2 * time.Minute
 	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{unit}, []executiongraph.Effect{{Kind: "repository-write", Target: "docs/intake.md"}})
 	args := stageRunArgs(view, "intake", plan, j.policy, j.workspace)
-	j.script(t, fakeStageScript{Agents: map[string][]fakeStageStep{"owner": {{Op: "sleep", Millis: 60000}, {Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded"}}}}})
+	j.script(t, fakeStageScript{StartupMillis: 1500, Agents: map[string][]fakeStageStep{"owner": {{Op: "sleep", Millis: 60000}, {Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded"}}}}})
 	digest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
 	j.run(t, 0, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
 	runningWire := j.waitStatus(t, view, func(stage json.RawMessage) bool {
 		value := decodeSingleCrashStatus(t, stage)
-		return len(value.Single.Attempts) == 1 && value.Single.Attempts[0].Status == "running" && value.Single.Attempts[0].Process != nil
+		if len(value.Single.Attempts) != 1 || value.Single.Attempts[0].Status != "running" || value.Single.Attempts[0].Process == nil {
+			return false
+		}
+		for _, call := range j.invocations(t) {
+			if call.Attempt == value.Single.Attempts[0].AttemptID && call.Runtime == "codex" && call.Agent == "owner" {
+				return true
+			}
+		}
+		return false
 	})
 	running := decodeSingleCrashStatus(t, runningWire)
 	attempt := running.Single.Attempts[0]
