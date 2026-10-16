@@ -20,6 +20,9 @@ func TestMain(m *testing.M) {
 	if handled, code := probeFakeProcess(); handled {
 		os.Exit(code)
 	}
+	if handled, code := stageFakeProcess(); handled {
+		os.Exit(code)
+	}
 	if path := os.Getenv(fakeGitHubStateVariable); path != "" {
 		os.Exit(runFakeGitHub(path, os.Args[1:], os.Stdin, os.Stdout))
 	}

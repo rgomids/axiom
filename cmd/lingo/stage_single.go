@@ -170,27 +170,29 @@ func singleManager(ctx context.Context, repository string, run executiongraph.Si
 	return m, child, err
 }
 
-func prepareInboxes(root, workspace string) error {
+func prepareStageDirectories(root, workspace string) error {
 	anchor, err := os.OpenRoot(root)
 	if err != nil {
 		return err
 	}
 	defer anchor.Close()
-	if err = privateInboxDirectory(anchor, "inboxes"); err != nil {
-		return err
+	for _, name := range []string{"worktrees", "inboxes", filepath.Join("inboxes", filepath.Base(workspace))} {
+		if err = privateInboxDirectory(anchor, name); err != nil {
+			return err
+		}
 	}
-	return privateInboxDirectory(anchor, filepath.Join("inboxes", filepath.Base(workspace)))
+	return nil
 }
 
 func (w stageWorkspaces) prepareSingle(ctx context.Context, run executiongraph.SingleStageRun) error {
+	if err := prepareStageDirectories(filepath.Dir(filepath.Dir(run.Binding.Workspace)), run.Binding.Workspace); err != nil {
+		return err
+	}
 	m, child, err := singleManager(ctx, w.repository, run)
 	if err != nil {
 		return err
 	}
-	if err = m.EnsureWorkspace(ctx, child); err != nil {
-		return err
-	}
-	return prepareInboxes(filepath.Dir(filepath.Dir(run.Binding.Workspace)), run.Binding.Workspace)
+	return m.EnsureWorkspace(ctx, child)
 }
 
 type singleDisposer struct{ repository string }
@@ -410,6 +412,6 @@ func (l singleAttemptLoader) LoadSingleAttempt(ctx context.Context, run executio
 	material.Context = cctx
 	material.Ingestor = coordination.Ingestor{Service: coordination.New(canonical, allocateStageID, nil), Reader: canonical, Inbox: inbox, Fence: fence, MaximumAttempts: run.Binding.Controls.MaximumAttempts, ReferenceChildren: []string{execution}}
 	material.Packet = runtimeadapter.PacketContext{AttemptID: id, Inbox: cctx.Inbox, AxiomPath: axiom, AxiomDigest: run.Binding.AxiomDigest}
-	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, Executable: executable, Model: frozen.Model}, Version: frozen.RuntimeVersion, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: run.Scope.ProjectID, ParentID: execution, ChildID: execution, AttemptID: id}}
+	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, Executable: executable, Model: frozen.Model}, Version: frozen.RuntimeVersion, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: run.Scope.ProjectID, ParentID: execution, ChildID: execution, AttemptID: id}}
 	return material, nil
 }

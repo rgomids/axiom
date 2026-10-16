@@ -1,0 +1,544 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"slices"
+	"sort"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/rgomids/axiom/internal/capabilityproof"
+	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/local"
+	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeadapter"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
+	"github.com/rgomids/axiom/internal/stageexecution"
+	"github.com/rgomids/axiom/internal/validatorpolicy"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
+)
+
+var stageJourneyVersions = map[string]string{"codex": "0.159.1", "claude": "2.1.296"}
+
+type stageJourney struct {
+	env                            workItemSourceEnvironment
+	axiom, distributed, bin, home  string
+	workspace, repository, overlay string
+	digests                        map[string]string
+	policy                         string
+	environment                    []string
+}
+
+type stageJourneyEvent struct {
+	Status        string          `json:"status"`
+	Category      string          `json:"category"`
+	PreviewDigest string          `json:"previewDigest"`
+	References    []string        `json:"references"`
+	Stage         json.RawMessage `json:"stage"`
+	Payload       json.RawMessage `json:"payload"`
+}
+
+// newStageJourney prepares the synthetic T36 fixture. The fake codex and
+// claude executables are copies of this test binary with distinct trailers.
+// The test Axiom binary differs from the distributed one only by a build
+// overlay of the embedded version registry naming those two fake identities;
+// the distributed build is kept beside it to prove it still refuses.
+func newStageJourney(t *testing.T) *stageJourney {
+	t.Helper()
+	j := &stageJourney{env: newWorkItemSourceEnvironment(t), bin: t.TempDir(), home: t.TempDir(), digests: map[string]string{}}
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	image, err := os.ReadFile(self)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, runtimeID := range []string{"codex", "claude"} {
+		path := filepath.Join(j.bin, runtimeID)
+		if err := os.WriteFile(path, append(append([]byte(nil), image...), []byte("\nsynthetic-"+runtimeID+"\n")...), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if j.digests[runtimeID], err = runtimeadapter.ExecutableIdentity(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	j.overlay = j.writeOverlay(t)
+	build := t.TempDir()
+	j.axiom, j.distributed = filepath.Join(build, "axiom"), filepath.Join(build, "axiom-distributed")
+	if output, err := exec.Command("go", "build", "-overlay", j.overlay, "-o", j.axiom, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build synthetic test binary: %v %s", err, output)
+	}
+	if output, err := exec.Command("go", "build", "-o", j.distributed, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build distributed binary: %v %s", err, output)
+	}
+	installLinkedTarget(t, j.env)
+	resolved := j.env.installation.Resolve(context.Background(), "external")
+	j.repository = resolved.Project.Repositories[0].Path
+	j.initRepository(t)
+	installStagePlanPolicy(t, j.env.state, workItemSourceProjectID)
+	j.publishProfiles(t)
+	j.workspace = filepath.Join(t.TempDir(), "workspace")
+	if err := os.Mkdir(j.workspace, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	j.environment = []string{"HOME=" + j.home, "PATH=" + j.bin + string(os.PathListSeparator) + "/usr/bin:/bin", "LINGO_PROJECTS_ROOT=" + j.env.root, "LINGO_STATE_ROOT=" + j.env.state, "AXIOM_CODEX_SKILLS_ROOT=" + filepath.Join(j.home, ".codex", "skills"), "AXIOM_GH_BIN=" + filepath.Join(t.TempDir(), "gh-never-executed"), "LANG=C"}
+	j.policy = j.seedValidatorPolicy(t)
+	j.selectWorkflow(t)
+	return j
+}
+
+// selectWorkflow authors and selects a schema-2 copy of the reviewed-delivery
+// example in which every agent writes the repository: the read-only effort
+// boundary is currently unprovable (PM-13), so read-only children never
+// dispatch.
+func (j *stageJourney) selectWorkflow(t *testing.T) {
+	t.Helper()
+	wire, err := os.ReadFile("../../docs/specifications/007-configurable-workflows/examples/custom-r1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy, issues := workflowdefinition.Decode(wire)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	definition := legacy.Definition
+	definition.SchemaVersion = 2
+	for i := range definition.Stages {
+		stage := &definition.Stages[i]
+		for k := range stage.Agents {
+			a := &stage.Agents[k]
+			a.Effort = workflowdefinition.Effort{}
+			a.ProfileRef = "profile-codex"
+			if len(a.RuntimeConstraints) == 1 && a.RuntimeConstraints[0] == "claude" {
+				a.ProfileRef = "profile-claude"
+			}
+			if !slices.Contains(a.EffectCeilings, "repository-write") {
+				a.EffectCeilings = append(a.EffectCeilings, "repository-write")
+				a.Capabilities = append(a.Capabilities, "repository-write")
+			}
+		}
+	}
+	current, issues := workflowdefinition.Encode(definition)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	file := filepath.Join(t.TempDir(), "journey-schema2.json")
+	if err = os.WriteFile(file, current.Canonical, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	author := j.env.service.(lifecycleService)
+	author.projectsRoot = j.env.elsewhere
+	if author.portable, err = local.NewPortableStore(j.env.elsewhere); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	apply := func(input cli.ProjectWorkflowInput) cli.Result {
+		t.Helper()
+		preview := author.ProjectWorkflow(ctx, input)
+		if preview.WorkflowAuthoring == nil || preview.WorkflowAuthoring.PreviewDigest == "" {
+			t.Fatalf("authoring %s", preview.Category)
+		}
+		input.PreviewDigest, input.ExpectedRevision, input.AuthorizeLocal = preview.WorkflowAuthoring.PreviewDigest, preview.WorkflowAuthoring.ProjectRevision, true
+		out := author.ProjectWorkflow(ctx, input)
+		if out.Category != "applied" {
+			t.Fatalf("authoring apply %s", out.Category)
+		}
+		return out
+	}
+	created := apply(cli.ProjectWorkflowInput{WorkflowRequest: projectapp.WorkflowRequest{Operation: "create", Project: "external"}, File: file})
+	apply(cli.ProjectWorkflowInput{WorkflowRequest: projectapp.WorkflowRequest{Operation: "select", Project: "external", Ref: *created.WorkflowAuthoring.Reference}})
+}
+
+func (j *stageJourney) writeOverlay(t *testing.T) string {
+	t.Helper()
+	type entry struct {
+		RuntimeID        string `json:"runtimeId"`
+		Version          string `json:"version"`
+		ExecutableDigest string `json:"executableDigest"`
+	}
+	entries := []entry{}
+	for runtimeID, digest := range j.digests {
+		entries = append(entries, entry{runtimeID, stageJourneyVersions[runtimeID], digest})
+	}
+	sort.Slice(entries, func(a, b int) bool { return entries[a].RuntimeID < entries[b].RuntimeID })
+	wire, err := json.Marshal(map[string]any{"schema": runtimeadapter.VersionRegistrySchema, "entries": entries})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	registry := filepath.Join(dir, "runtime-versions.json")
+	if err := os.WriteFile(registry, wire, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	original, err := filepath.Abs("../../internal/runtimeadapter/runtime-versions.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	overlay, err := json.Marshal(map[string]map[string]string{"Replace": {original: registry}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "overlay.json")
+	if err := os.WriteFile(path, overlay, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func (j *stageJourney) initRepository(t *testing.T) {
+	t.Helper()
+	for _, args := range [][]string{{"init", "-q", "-b", "main"}, {"add", "-A"}, {"-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-q", "--allow-empty", "-m", "base"}} {
+		if err := os.WriteFile(filepath.Join(j.repository, "README.md"), []byte("synthetic\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		command := exec.Command("git", args...)
+		command.Dir = j.repository
+		command.Env = []string{"HOME=" + j.home, "PATH=/usr/bin:/bin", "GIT_CONFIG_NOSYSTEM=1"}
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v %s", args, err, output)
+		}
+	}
+}
+
+// publishProfiles replaces the stage-plan v3 configuration with one carrying
+// effort declarations for the fake identities.
+func (j *stageJourney) publishProfiles(t *testing.T) {
+	t.Helper()
+	store, err := local.NewRuntimeProfileStore(j.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := store.Inspect(context.Background())
+	if err != nil || snapshot.V3 == nil {
+		t.Fatalf("stage plan profiles: %v", err)
+	}
+	cfg := *snapshot.V3
+	declarations := map[string]runtimeprofile.EffortDeclaration{"codex": runtimeprofiletest.CodexDeclaration(), "claude": runtimeprofiletest.ClaudeDeclaration()}
+	for i := range cfg.Runtimes {
+		d := declarations[cfg.Runtimes[i].ID]
+		d.ExecutableDigest, d.RuntimeVersion = j.digests[cfg.Runtimes[i].ID], stageJourneyVersions[cfg.Runtimes[i].ID]
+		cfg.Runtimes[i].EffortDeclarations = []runtimeprofile.EffortDeclaration{d}
+	}
+	publishRuntimeProfileV3(t, j.env.state, cfg)
+}
+
+func (j *stageJourney) seedValidatorPolicy(t *testing.T) string {
+	t.Helper()
+	store, err := local.NewValidatorPolicyStore(j.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := stageexecution.ValidatorPolicyService{Store: store}
+	d := validatorpolicy.Definition{FormatVersion: 1, ProjectID: workItemSourceProjectID, Commands: []validatorpolicy.Command{{Reference: "synthetic-check", Argv: []string{"/usr/bin/true"}, Env: []string{"LC_ALL=C"}, OutputMax: 4096}}}
+	preview, err := service.Preview(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := service.Apply(context.Background(), stageexecution.ValidatorPolicyApply{Definition: d, PreviewDigest: preview, AuthorizeLocal: true, Source: "human-operator", Actor: "fixture-operator", AuthorityRef: strings.Repeat("a", 64)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+// startExecution creates the configured Execution in-process before the
+// installed run: production workflow start cannot observe Profile proof.
+func (j *stageJourney) startExecution(t *testing.T, workItem string) *cli.WorkflowView {
+	t.Helper()
+	service := j.env.service.(lifecycleService)
+	observations := provenObservations(true)
+	for i := range observations {
+		observations[i].ExecutableDigest = j.digests[observations[i].RuntimeID]
+		observations[i].Version = stageJourneyVersions[observations[i].RuntimeID]
+	}
+	service.RuntimePolicySource = &controlledObservations{base: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: j.env.state, runtimes: service.runtimeObservationSources()}, observations: observations}
+	ctx := context.Background()
+	input := cli.WorkflowInput{Project: "external", Repository: "main", WorkItem: workItem, Role: "engineer", Complexity: "medium", Capabilities: []string{"read"}, Runtime: "codex"}
+	preview := service.WorkflowStart(ctx, input)
+	if preview.PreviewDigest == "" {
+		t.Fatalf("start preview: %+v", preview)
+	}
+	input.RuntimePreview = preview.PreviewDigest
+	started := service.WorkflowStart(ctx, input)
+	if started.Workflow == nil || started.Workflow.Binding == nil {
+		t.Fatalf("start: %+v", started)
+	}
+	return started.Workflow
+}
+
+func (j *stageJourney) script(t *testing.T, script fakeStageScript) {
+	t.Helper()
+	wire, err := json.Marshal(script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(j.home, fakeStageRuntimeFile), wire, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (j *stageJourney) invoke(t *testing.T, binary string, args ...string) (int, stageJourneyEvent, []byte) {
+	t.Helper()
+	command := exec.Command(binary, append([]string{"--json"}, args...)...)
+	command.Env = j.environment
+	command.Dir = j.home
+	output, err := command.Output()
+	code := 0
+	if exit, ok := err.(*exec.ExitError); ok {
+		code = exit.ExitCode()
+	} else if err != nil {
+		t.Fatalf("%v: %v", args, err)
+	}
+	var event stageJourneyEvent
+	if err := json.Unmarshal(bytes.TrimSpace(output), &event); err != nil {
+		t.Fatalf("%v: invalid JSON %q", args, output)
+	}
+	return code, event, output
+}
+
+func (e stageJourneyEvent) reference(t *testing.T, prefix string) string {
+	t.Helper()
+	for _, r := range e.References {
+		if value, ok := strings.CutPrefix(r, prefix); ok {
+			return value
+		}
+	}
+	t.Fatalf("no %s reference in %+v", prefix, e.References)
+	return ""
+}
+
+func (j *stageJourney) run(t *testing.T, want int, args ...string) stageJourneyEvent {
+	t.Helper()
+	code, event, output := j.invoke(t, j.axiom, args...)
+	if code != want {
+		t.Fatalf("%v: code=%d %s", args, code, output)
+	}
+	return event
+}
+
+// seedEvidence stores synthetic capability Evidence for the binding the
+// installed binary itself reports, through the canonical Evidence store. It
+// is classified synthetic: no Runtime was invoked to produce it.
+func (j *stageJourney) seedEvidence(t *testing.T, runtimeID, profileID, variant string, caps ...string) string {
+	t.Helper()
+	profiles, err := local.NewRuntimeProfileStore(j.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := runtimeadapter.BindingSource{
+		Configuration: canonicalV3Configuration(profiles),
+		LookPath:      func(name string) (string, error) { return filepath.Join(j.bin, name), nil },
+		Version: func(_ context.Context, id, digest string) (string, error) {
+			if j.digests[id] != digest {
+				return "", capabilityproof.ErrBlocked
+			}
+			return stageJourneyVersions[id], nil
+		},
+		AxiomPath: j.axiom,
+		Stage: func(context.Context, capabilityproof.Target) (runtimeadapter.StageContext, error) {
+			return runtimeadapter.StageContext{Workspace: filepath.Join(j.workspace, "worktrees"), Inbox: filepath.Join(j.workspace, "inboxes"), ParentEnvironment: j.environment}, nil
+		},
+		EffortRoots:     runtimeadapter.StageEffortRoots{Repository: j.repository}.Resolve,
+		EffortConsented: true,
+	}
+	prepared, err := source.PrepareProbe(context.Background(), capabilityproof.Target{RuntimeID: runtimeID, ProfileID: profileID, Variant: variant})
+	if err != nil {
+		t.Fatalf("observe %s binding: %v", runtimeID, err)
+	}
+	view := prepared.Current
+	store, err := local.NewCapabilityStore(j.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proven := capabilityproof.Result{State: capabilityproof.Proven, Facts: capabilityproof.ProbeFacts{AuthenticationProven: true, BehavioralProbe: true, Verified: true}}
+	results := map[string]capabilityproof.Result{}
+	for _, c := range caps {
+		results[c] = proven
+	}
+	ref, err := store.Create(context.Background(), capabilityproof.Evidence{SchemaVersion: 1, Binding: view.Binding, Model: view.Model, ObservedAt: time.Now().Add(-time.Minute), ProbePacketDigest: strings.Repeat("5", 64), Capabilities: results, Confinement: capabilityproof.Confinement{Level: "advisory", CanaryIdentityMatched: true, Scope: []string{"workspace", "inbox"}, NotTested: []string{"home", "vendor-home", "tmpdir", "system-temp", "external-network"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ref
+}
+
+var stageJourneyCaps = []string{capabilityproof.Read, capabilityproof.RepositoryWrite, capabilityproof.Noninteractive, capabilityproof.AxiomCoordination, capabilityproof.ModelInvocation}
+
+func stageSelector(view *cli.WorkflowView) []string {
+	return []string{"--project", "external", "--repository", "main", "--work-item", "github:" + view.WorkItem.Resource + "#" + view.WorkItem.ExternalID, "--execution", view.ExecutionID}
+}
+
+func stageRunArgs(view *cli.WorkflowView, stage, plan, policy, workspace string) []string {
+	return append(append([]string{"workflow", "stage", "run"}, stageSelector(view)...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--stage", stage, "--plan", plan, "--validator-policy", policy, "--workspace-root", workspace)
+}
+
+func (j *stageJourney) waitStatus(t *testing.T, view *cli.WorkflowView, done func(json.RawMessage) bool) json.RawMessage {
+	t.Helper()
+	deadline := time.Now().Add(20 * time.Second)
+	for {
+		_, event, output := j.invoke(t, j.axiom, append([]string{"workflow", "stage", "status"}, stageSelector(view)...)...)
+		if done(event.Stage) {
+			return event.Stage
+		}
+		if time.Now().After(deadline) {
+			log, _ := os.ReadFile(filepath.Join(j.home, "fake-stage-invocations.jsonl"))
+			t.Fatalf("stage status did not converge: %s\nfake log: %s", output, log)
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+func writeUnit(key string, paths []string, target string) executiongraph.WorkUnit {
+	return stagePlanUnit(key, paths, executiongraph.Effect{Kind: "repository-write", Target: target})
+}
+
+func (j *stageJourney) invocations(t *testing.T) []fakeStageInvocation {
+	t.Helper()
+	wire, err := os.ReadFile(filepath.Join(j.home, "fake-stage-invocations.jsonl"))
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	var out []fakeStageInvocation
+	for _, line := range bytes.Split(bytes.TrimSpace(wire), []byte("\n")) {
+		var r fakeStageInvocation
+		if len(line) > 0 && json.Unmarshal(line, &r) == nil {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+type singleStatus struct {
+	Single struct {
+		Binding struct {
+			Workspace string `json:"workspace"`
+		} `json:"binding"`
+		Attempts []struct {
+			AttemptID            string `json:"attemptId"`
+			Number               int    `json:"number"`
+			Status               string `json:"status"`
+			ClassificationReason string `json:"classificationReason"`
+			QualifyingRecordRef  string `json:"qualifyingRecordRef"`
+			ExitCode             int    `json:"exitCode"`
+		} `json:"attempts"`
+	} `json:"single"`
+	Next string `json:"next"`
+}
+
+func decodeSingle(t *testing.T, wire json.RawMessage) singleStatus {
+	t.Helper()
+	var v singleStatus
+	if err := json.Unmarshal(wire, &v); err != nil {
+		t.Fatalf("single status %s: %v", wire, err)
+	}
+	return v
+}
+
+func latestSettled(stage json.RawMessage) bool {
+	var v singleStatus
+	if json.Unmarshal(stage, &v) != nil || len(v.Single.Attempts) == 0 {
+		return false
+	}
+	status := v.Single.Attempts[len(v.Single.Attempts)-1].Status
+	return status != "running" && status != ""
+}
+
+// T36 single-agent journey on the installed CLI: dispatch preview, both
+// authorities, detached supervisor, fake Codex child, ingested result and
+// persisted inspection. Every scenario is synthetic.
+func TestInstalledSyntheticSingleStageJourney(t *testing.T) {
+	j := newStageJourney(t)
+	j.run(t, 0, "runtime", "codex", "install")
+	j.run(t, 0, "runtime", "claude", "install")
+	view := j.startExecution(t, "github:owner/repo#7")
+	write := executiongraph.Effect{Kind: "repository-write", Target: "docs/intake.md"}
+	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{writeUnit("owner", []string{"docs"}, "docs/intake.md")}, []executiongraph.Effect{write})
+	args := stageRunArgs(view, "intake", plan, j.policy, j.workspace)
+
+	if refused := j.run(t, 1, append(args, "--authorize-local")...); refused.Category != "runtime_unresolvable" {
+		t.Fatalf("dispatch preview without Evidence: %+v", refused)
+	}
+	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	if refused := j.run(t, 1, args...); refused.Category != "runtime_unresolvable" {
+		t.Fatalf("preview without effort-inspection consent: %+v", refused)
+	}
+	escalated := writeStagePlanDocument(t, []executiongraph.WorkUnit{writeUnit("owner", []string{"docs"}, "docs/intake.md")}, nil)
+	if denied := j.run(t, 1, append(stageRunArgs(view, "intake", escalated, j.policy, j.workspace), "--authorize-local")...); denied.Status != "denied_authority" || denied.Category != "authority_denied" {
+		t.Fatalf("authority escalation: %+v", denied)
+	}
+	preview := j.run(t, 0, append(args, "--authorize-local")...)
+	digest := preview.reference(t, "stage-preview:")
+	if code, distributed, _ := j.invoke(t, j.distributed, append(args, "--authorize-local")...); code == 0 || len(distributed.References) != 0 || distributed.Category != "runtime_unresolvable" {
+		t.Fatalf("distributed binary admitted synthetic identities: %+v", distributed)
+	}
+	if code, distributed, _ := j.invoke(t, j.distributed, "runtime", "codex", "capability", "show", "--profile", "profile-codex", "--variant", "repository-write", "--repository-root", j.repository, "--workspace-root", j.workspace, "--authorize-local"); code == 0 || distributed.Category != "capability_unknown" {
+		t.Fatalf("distributed binary observed synthetic Evidence: %+v", distributed)
+	}
+	j.script(t, fakeStageScript{Agents: map[string][]fakeStageStep{"owner": {
+		{Op: "write", Path: "docs/intake.md", Content: "synthetic intake\n"},
+		{Op: "publish", Kind: "progress", Fields: []string{"phase=writing", "percent=50"}},
+		{Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded", "summary=synthetic"}},
+	}}})
+	for _, refused := range [][]string{
+		append(args, "--preview-digest", digest, "--authorize-local"),
+		append(args, "--preview-digest", digest, "--authorize-external"),
+		append(args, "--preview-digest", strings.Repeat("0", 64), "--authorize-local", "--authorize-external"),
+	} {
+		if event := j.run(t, 1, refused...); event.Status != "denied_authority" && event.Category != "runtime_unresolvable" {
+			t.Fatalf("%v: %+v", refused[len(refused)-3:], event)
+		}
+	}
+	if len(j.invocations(t)) != 0 {
+		t.Fatal("refused dispatch started a Runtime")
+	}
+	dispatched := j.run(t, 0, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+	if dispatched.Category != "stage_dispatched" || len(dispatched.References) == 0 {
+		t.Fatalf("dispatch %+v", dispatched)
+	}
+	status := decodeSingle(t, j.waitStatus(t, view, latestSettled))
+	if len(status.Single.Attempts) != 1 || status.Single.Attempts[0].Status != "succeeded" || status.Single.Attempts[0].ClassificationReason != "result_recorded" || status.Single.Attempts[0].QualifyingRecordRef == "" || status.Next != "advance_execution" {
+		t.Fatalf("synthetic single status %+v", status)
+	}
+	calls := j.invocations(t)
+	if len(calls) != 1 || calls[0].Runtime != "codex" || calls[0].Agent != "owner" || calls[0].Attempt != status.Single.Attempts[0].AttemptID || calls[0].CWD != status.Single.Binding.Workspace || !slices.Contains(calls[0].Argv, "local-codex-model") {
+		t.Fatalf("fake invocation %+v", calls)
+	}
+	for _, key := range calls[0].Environment {
+		if key == "AXIOM_GH_BIN" || key == "LANG_UNUSED" {
+			t.Fatalf("child inherited %s", key)
+		}
+	}
+	if !slices.Contains(calls[0].Environment, "AXIOM_ATTEMPT_ID") {
+		t.Fatalf("child correlation missing: %v", calls[0].Environment)
+	}
+	if wire, err := os.ReadFile(filepath.Join(status.Single.Binding.Workspace, "docs", "intake.md")); err != nil || string(wire) != "synthetic intake\n" {
+		t.Fatalf("child workspace effect: %q %v", wire, err)
+	}
+	if _, err := os.Lstat(filepath.Join(j.repository, "docs")); !os.IsNotExist(err) {
+		t.Fatal("child wrote the registered repository")
+	}
+	records := j.run(t, 0, append(append([]string{"workflow", "coordination", "list"}, stageSelector(view)...), "--child", view.ExecutionID)...)
+	if !bytes.Contains(records.Stage, []byte(`"progress"`)) || !bytes.Contains(records.Stage, []byte(`"result"`)) {
+		t.Fatalf("canonical records %s", records.Stage)
+	}
+	integrate := append(append([]string{"workflow", "stage", "integrate"}, stageSelector(view)...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--stage", "intake", "--validator-policy", j.policy)
+	if refused := j.run(t, 1, integrate...); refused.Category != "single_stage_operation_unsupported" {
+		t.Fatalf("single integrate %+v", refused)
+	}
+	if again := j.run(t, 1, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...); again.Category == "stage_dispatched" {
+		t.Fatalf("succeeded single stage dispatched twice: %+v", again)
+	}
+	if len(j.invocations(t)) != 1 {
+		t.Fatal("re-run started another Runtime")
+	}
+}

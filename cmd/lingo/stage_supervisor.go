@@ -201,7 +201,7 @@ func (l stageAttemptLoader) LoadAttempt(ctx context.Context, g executiongraph.Su
 		material.Ingestor.ReferenceChildren = append(material.Ingestor.ReferenceChildren, child.ExecutionID)
 	}
 	material.Packet = runtimeadapter.PacketContext{AttemptID: id, Inbox: cctx.Inbox, AxiomPath: axiom, AxiomDigest: l.preview.AxiomDigest}
-	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, Executable: executable, Model: frozen.Model}, Version: frozen.RuntimeVersion, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: l.target.state.ProjectID, ParentID: cctx.ParentID, ChildID: cctx.ChildID, AttemptID: id}}
+	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, Executable: executable, Model: frozen.Model}, Version: frozen.RuntimeVersion, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: l.target.state.ProjectID, ParentID: cctx.ParentID, ChildID: cctx.ChildID, AttemptID: id}}
 	return material, nil
 }
 
