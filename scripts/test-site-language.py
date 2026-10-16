@@ -111,7 +111,7 @@ class LandingTests(unittest.TestCase):
             scrollTo({top:top+(story.offsetHeight-innerHeight)*progress/4,behavior:'instant'});
         }""", progress)
         self.page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-        self.page.wait_for_function("expected=>Math.abs(Number(document.querySelector('.storytelling').dataset.storyProgress)-expected)<.01", arg=progress, timeout=3000)
+        self.page.wait_for_function("expected=>{const s=document.querySelector('.storytelling');return s.dataset.storySettled==='true' && Math.abs(Number(s.dataset.storyProgress)-expected)<.01}", arg=progress, timeout=3000)
 
     def story_snapshot(self):
         return self.page.evaluate("""() => [...document.querySelectorAll(

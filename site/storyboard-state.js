@@ -258,11 +258,16 @@ export function storyState(progress, narrow = false) {
   const p = clamp(progress, 0, 4),
     q = p * 6,
     from = Math.min(23, Math.floor(q)),
-    t = ease(q - from),
+    // Hold the complete composition before a long, continuous transition.
+    travel = clamp((q - from - 0.28) / 0.72),
+    t = travel * travel * travel * (travel * (travel * 6 - 15) + 10),
     s = interpolate(frameState(from, narrow), frameState(from + 1, narrow), t),
-    index = Math.round(q);
+    index = from + (t >= 0.5 ? 1 : 0);
   s.progress = p;
   s.beatProgress = q;
+  s.from = from;
+  s.transition = t;
+  s.narrow = narrow;
   s.index = index;
   s.scene = frames[index].scene - 1;
   s.beat = frames[index].beat;
@@ -270,14 +275,24 @@ export function storyState(progress, narrow = false) {
   s.copy = frames.map((_, i) =>
     i === from ? clamp(1 - 2 * t) : i === from + 1 ? clamp(2 * t - 1) : 0,
   );
+  // A traveling impulse arrives before the card opens; stagger all six fronts.
+  s.reveals = s.works.map((_, i) => {
+    const arrival = 0.53 + i * 0.035;
+    const growth = ease((travel - arrival) / 0.22);
+    return {
+      line: ease((travel - 0.12 - i * 0.035) / 0.4),
+      card: growth,
+      bloom: Math.sin(Math.PI * growth),
+    };
+  });
   s.novaOpacity = ease((q - 0.54) / 0.15) * (1 - ease((q - 0.9) / 0.35));
   s.novaScale = 0.08 + ease((q - 0.54) / 0.65) * 3.1;
   if (q < 1) {
     s.wash = 1 - ease((q - 0.08) / 0.42);
     s.idea.opacity = ease((q - 0.72) / 0.28);
   }
-  if (q >= 15 && q <= 16) {
-    const m = ease(q - 15);
+  if (from === 15) {
+    const m = t;
     s.hub.x = mix(frameState(15, narrow).hub.x, s.idea.x, m);
     s.hub.y = mix(50, s.idea.y, m);
     s.hub.w = mix(narrow ? 90 : 150, 14, m);
@@ -288,12 +303,93 @@ export function storyState(progress, narrow = false) {
   }
   return s;
 }
+
+// Cubic geometry stays compatible across radial, linear and dependency layouts.
+function relationCurve(s, i, width, height) {
+  const n = s.works[i];
+  let from = s.hub.opacity > 0.3 ? [s.hub.x, s.hub.y] : [s.idea.x, s.idea.y],
+    to = [n.x, n.y],
+    opacity = s.connections * n.opacity;
+  if (s.layout === 'convergence') {
+    from = [n.x, n.y];
+    to = [s.works[5].x, s.works[5].y];
+    if (i === 5) opacity = 0;
+  }
+  if (s.layout === 'lanes') {
+    from = [s.works[0].x - 29, i ? s.works[i - 1].y : s.works[0].y];
+    to = [n.x - 29, n.y];
+    if (i === 5) opacity = 0;
+  }
+  if (s.layout === 'dependencies') {
+    const prev = { 1: 0, 2: 1, 4: 2, 5: 4, 3: 2 }[i];
+    if (prev === undefined) opacity = 0;
+    else from = [s.works[prev].x, s.works[prev].y];
+    to = i === 3 ? [n.x - (n.w / width) * 50 - 1, n.y] : [n.x, n.y - (n.h / height) * 50 - 1];
+  }
+  if (s.layout === 'human-gate') {
+    from = [s.works[4].x - 44, s.works[4].y];
+    to = [n.x - 44, n.y];
+    opacity = i === 5 ? 0.6 : 0;
+  }
+  if (s.layout === 'continuity') {
+    from = [s.idea.x, s.idea.y];
+    to = [72, 50];
+    opacity = i === 0 ? 0.7 : 0;
+  }
+  const d =
+    s.layout === 'dependencies'
+      ? dependencyPath(from, to, i === 3)
+      : connectionPath(from, to, i, s.grid);
+  return { points: d.match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/g).map(Number), opacity };
+}
+export const curvePath = (v) =>
+  `M ${v[0]} ${v[1]} C ${v[2]} ${v[3]}, ${v[4]} ${v[5]}, ${v[6]} ${v[7]}`;
+export function curvePrefix(v, progress) {
+  const p = clamp(progress),
+    a = [v[0], v[1]],
+    b = [v[2], v[3]],
+    c = [v[4], v[5]],
+    d = [v[6], v[7]],
+    point = (u, w) => u.map((n, i) => mix(n, w[i], p)),
+    ab = point(a, b),
+    bc = point(b, c),
+    cd = point(c, d),
+    abc = point(ab, bc),
+    bcd = point(bc, cd),
+    end = point(abc, bcd);
+  return { d: curvePath([...a, ...ab, ...abc, ...end]), end };
+}
+export function storyConnections(s, width, height) {
+  const a = frameState(s.from, s.narrow),
+    b = frameState(s.from + 1, s.narrow);
+  return s.works.map((_, i) => {
+    const before = relationCurve(a, i, width, height),
+      after = relationCurve(b, i, width, height),
+      points = before.points.map((n, j) => mix(n, after.points[j], s.transition)),
+      revealing = before.opacity < 0.05 && after.opacity > 0.1,
+      prefix = curvePrefix(points, revealing ? s.reveals[i].line : 1),
+      impulse = curvePrefix(points, s.reveals[i].line);
+    return {
+      ...prefix,
+      opacity: mix(before.opacity, after.opacity, s.transition),
+      signalEnd: impulse.end,
+      trail: impulse.d,
+      signal: Math.sin(Math.PI * s.reveals[i].line) * (after.opacity > 0.1 ? 1 : 0),
+    };
+  });
+}
 export function connectionPath(from, to, index = 0, coordination = 1) {
   const [x, y] = from,
     [ex, ey] = to,
     dx = ex - x,
     dy = ey - y,
     bend = (index % 2 ? 1 : -1) * (8 + (1 - coordination) * 8);
+  if (index === 0 || index === 5) {
+    const length = Math.hypot(dx, dy) || 1,
+      nx = -dy / length,
+      ny = dx / length;
+    return `M ${x} ${y} C ${x + dx * 0.3 + nx * bend} ${y + dy * 0.3 + ny * bend}, ${x + dx * 0.7 + nx * bend} ${y + dy * 0.7 + ny * bend}, ${ex} ${ey}`;
+  }
   return `M ${x} ${y} C ${x + dx * 0.35} ${y - dy * 0.2 + bend}, ${ex - dx * 0.3} ${ey + dy * 0.2 - bend}, ${ex} ${ey}`;
 }
 export function dependencyPath(from, to, side = false) {

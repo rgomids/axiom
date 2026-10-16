@@ -5,4 +5,6 @@ export {
   dependencyPath,
   clamp,
   ease,
+  storyConnections,
+  curvePrefix,
 } from './storyboard-state.js';

@@ -41,7 +41,12 @@ review, merge, deployment or full MVP acceptance.
   through the central Axiom reveal and becomes the luminous origin as the
   configurable flow forms. The original idea returns connected to the next
   possibilities after the verifiable delivery. Its identity and explanation persist;
-  no repeated flash or autonomous playback is added.
+  no repeated flash or timed scene advancement is added.
+- Pacing uses 200svh per beat, a reading hold, quintic geometry interpolation and
+  a short scroll follower. Connection signals precede staggered card blooms.
+  Ambient globe rotation, light pulses, wave lines and decorative square zooms
+  add movement without advancing scenes. Pause/reduced motion disable ambient
+  loops; fixed-frame previews remain deterministic.
 - Sample model assignments, PR #123, 12/12 tests, progress 3/6 and approval labels
   follow the storyboard. Visible conceptual/example captions distinguish these
   illustrations from actual product capabilities, real CI results or acceptance.

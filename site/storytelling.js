@@ -1,4 +1,4 @@
-import { storyState, connectionPath, dependencyPath, clamp } from './story-state.js';
+import { storyState, storyConnections, connectionPath, frameState, clamp } from './story-state.js';
 import { frames, workContent } from './story-frames.js';
 const story = document.querySelector('.storytelling'),
   world = story.querySelector('.live-world');
@@ -11,6 +11,8 @@ const entities = {
   contexts: [...story.querySelectorAll('[data-story-context]')],
 };
 const paths = [...story.querySelectorAll('[data-story-path]')],
+  signals = [...world.querySelectorAll('.connection-signal')],
+  trails = [...world.querySelectorAll('.signal-trail')],
   copies = [...story.querySelectorAll('[data-story-copy]')],
   steps = [...story.querySelectorAll('.story-navigation a')];
 const params = new URLSearchParams(location.search),
@@ -26,7 +28,9 @@ let frame = 0,
   top = 0,
   range = 1,
   width = 1,
-  height = 1;
+  height = 1,
+  renderedProgress = null,
+  lastPaint = 0;
 function measure() {
   top = story.getBoundingClientRect().top + scrollY;
   const rect = world.getBoundingClientRect();
@@ -36,7 +40,7 @@ function measure() {
   schedule();
 }
 function place(el, n) {
-  el.style.transform = `translate3d(${(n.x * width) / 100}px,${(n.y * height) / 100}px,0) translate(-50%,-50%) rotate(${n.rotation}deg)`;
+  el.style.transform = `translate3d(${(n.x * width) / 100}px,${(n.y * height) / 100}px,0) translate(-50%,-50%) rotate(${n.rotation}deg) scale(${n.scale ?? 1})`;
   el.style.width = n.w + 'px';
   el.style.height = n.h + 'px';
   el.style.opacity = n.opacity;
@@ -47,13 +51,23 @@ const alpha = (selector, value) => {
   el.style.opacity = value;
   el.style.visibility = value > 0.001 ? 'visible' : 'hidden';
 };
-function paint() {
+function paint(now) {
   frame = 0;
   const staticMode = document.body.classList.contains('static-motion');
   document.body.classList.toggle('story-motion', !staticMode || previewIndex !== null);
-  const p = previewIndex !== null ? previewIndex / 6 : clamp((scrollY - top) / range) * 4,
+  const target = previewIndex !== null ? previewIndex / 6 : clamp((scrollY - top) / range) * 4;
+  if (renderedProgress === null || staticMode || previewIndex !== null) renderedProgress = target;
+  const dt = Math.min(64, now - (lastPaint || now));
+  lastPaint = now;
+  renderedProgress += (target - renderedProgress) * (1 - Math.exp(-dt / 95));
+  const settled = Math.abs(target - renderedProgress) < 0.000005;
+  if (settled) renderedProgress = target;
+  const p = renderedProgress,
     s = storyState(p, innerWidth <= 760),
     lang = document.documentElement.lang.startsWith('en') ? 'en' : 'pt';
+  story.dataset.storySettled = String(settled);
+  world.dataset.ambient = String(!staticMode && previewIndex === null);
+  if (!settled) schedule();
   story.dataset.storyProgress = p.toFixed(6);
   story.dataset.storyScene = String(s.scene + 1);
   story.dataset.storyFrame = String(s.index + 1);
@@ -72,8 +86,34 @@ function paint() {
   entities.hub.style.borderRadius = `${14 + s.hubRound * 36}%`;
   entities.hub.querySelector('.story-mascot').style.opacity = 1 - s.morph;
   entities.hub.querySelector('span').style.opacity = 1 - s.morph;
+  const before = frameState(s.from, s.narrow),
+    after = frameState(s.from + 1, s.narrow);
   for (const group of ['works', 'tools', 'ghosts', 'contexts'])
-    entities[group].forEach((el, i) => place(el, s[group][i]));
+    entities[group].forEach((el, i) => {
+      const entering = before[group][i].opacity < 0.05 && after[group][i].opacity > 0.1,
+        roleChange =
+          group === 'works' && workContent(s.from, i).kind !== workContent(s.from + 1, i).kind,
+        growth = s.reveals[i % 6].card,
+        fade = entering
+          ? growth
+          : roleChange
+            ? s.transition < 0.5
+              ? s.contentOpacity
+              : growth
+            : 1;
+      place(el, {
+        ...s[group][i],
+        opacity: s[group][i].opacity * fade,
+        scale:
+          entering || (roleChange && s.transition >= 0.5)
+            ? 0.78 + growth * 0.22
+            : 1 + s.reveals[i % 6].bloom * 0.025,
+      });
+      el.style.setProperty(
+        '--card-bloom',
+        after[group][i].opacity > 0.1 ? s.reveals[i % 6].bloom : 0,
+      );
+    });
   const roleChange =
     frames[Math.floor(s.beatProgress)].layout !==
     frames[Math.min(24, Math.ceil(s.beatProgress))].layout;
@@ -90,47 +130,18 @@ function paint() {
     el.querySelector('.story-icon use').setAttribute('href', '#story-icon-' + c.icon);
     el.querySelector('.work-body').style.opacity = roleChange ? s.contentOpacity : 1;
   });
-  paths.forEach((path, i) => {
-    const n = s.works[i],
-      center = s.hub.opacity > 0.3 ? [s.hub.x, s.hub.y] : [s.idea.x, s.idea.y];
-    let from = center,
-      to = [n.x, n.y],
-      opacity = s.connections * n.opacity;
-    if (s.layout === 'convergence') {
-      from = [n.x, n.y];
-      to = [s.works[5].x, s.works[5].y];
-      if (i === 5) opacity = 0;
-    }
-    if (s.layout === 'lanes') {
-      from = [s.works[0].x - 29, i ? s.works[i - 1].y : s.works[0].y];
-      to = [n.x - 29, n.y];
-      if (i === 5) opacity = 0;
-    }
-    if (s.layout === 'dependencies') {
-      const prev = { 1: 0, 2: 1, 4: 2, 5: 4, 3: 2 }[i];
-      if (prev === undefined) opacity = 0;
-      else from = [s.works[prev].x, s.works[prev].y];
-    }
-    if (s.layout === 'human-gate') {
-      from = [s.works[4].x - 44, s.works[4].y];
-      to = [n.x - 44, n.y];
-      opacity = i === 5 ? 0.6 : 0;
-    }
-    if (s.layout === 'continuity') {
-      from = [s.idea.x, s.idea.y];
-      to = [72, 50];
-      opacity = i === 0 ? 0.7 : 0;
-    }
-    if (s.layout === 'dependencies')
-      to = i === 3 ? [n.x - (n.w / width) * 50 - 1, n.y] : [n.x, n.y - (n.h / height) * 50 - 1];
-    path.setAttribute(
-      'd',
-      s.layout === 'dependencies'
-        ? dependencyPath(from, to, i === 3)
-        : connectionPath(from, to, i, s.grid),
-    );
+  storyConnections(s, width, height).forEach((connection, i) => {
+    const path = paths[i];
+    path.setAttribute('d', connection.d);
     path.setAttribute('marker-end', s.layout === 'dependencies' ? 'url(#story-flow-arrow)' : '');
-    path.style.opacity = opacity;
+    path.style.opacity = connection.opacity;
+    signals[i].setAttribute('cx', connection.signalEnd[0]);
+    signals[i].setAttribute('cy', connection.signalEnd[1]);
+    signals[i].setAttribute('rx', 280 / width);
+    signals[i].setAttribute('ry', 280 / height);
+    signals[i].style.opacity = connection.opacity * connection.signal;
+    trails[i].setAttribute('d', connection.trail);
+    trails[i].style.opacity = connection.opacity * connection.signal;
   });
   world.querySelectorAll('.context-link').forEach((path, i) => {
     const origin = s.works[i === 0 ? 1 : 2];
