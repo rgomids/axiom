@@ -2,12 +2,15 @@
 
 ## Status
 
-Proposed. Records the [AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
+Accepted on 2026-10-16 by explicit maintainer decision in
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
+(Linear comment `fee15434-632b-4239-8d14-55653cab0ad7`). It records the [AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
 maintainer decision of 2026-10-15 (Linear comment
 `247f9812-31d2-4c62-af63-7fd972d18f54`, "simplificação T43 + CI mínimo").
-The decision approves two required PR checks; this text still needs maintainer
-acceptance. The remote `main` ruleset change is a separate administrative
-step tied to the merge of PR #320. No merge or release is inferred.
+The decision approves two required PR checks. The maintainer applied the remote
+`main` ruleset `22828068` change on 2026-10-16 (required contexts exactly
+`PR Checks` and `delivery-metadata`, strict; other protections unchanged),
+read back on 2026-10-16. No merge or release is inferred.
 
 ## Context
 
@@ -71,3 +74,11 @@ requires the same coordinated migration.
 
 Nightly failures repeatedly reach release preparation, PR CI time measurements
 miss the target materially, or another supported platform enters scope.
+
+## Disposition — 2026-10-16
+
+Decision item 6 is satisfied: the maintainer switched ruleset `22828068` to
+exactly `PR Checks` and `delivery-metadata` (strict) before PR #320 merged, and
+the read-back on 2026-10-16 showed the other protections unchanged. The PR #320
+`ci.yml`, `native-suite.yml`, `nightly.yml` and release-gate changes implement
+items 1–5.

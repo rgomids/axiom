@@ -100,11 +100,25 @@ func TestPOSIXProcessContainment(t *testing.T) {
 			if got := confirmProcessStop(ctx, group); got != tc.confirmed {
 				t.Fatalf("Stopped=%v want %v", got, tc.confirmed)
 			}
-			if alive := syscall.Kill(pid, 0) == nil; alive != tc.descendantRemain {
+			if alive := liveProcess(t, pid); alive != tc.descendantRemain {
 				t.Fatalf("descendant alive=%v want %v", alive, tc.descendantRemain)
 			}
 		})
 	}
+}
+
+func liveProcess(t *testing.T, pid int) bool {
+	t.Helper()
+	processes, err := observeProcesses()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range processes {
+		if p.pid == pid {
+			return true
+		}
+	}
+	return false
 }
 
 func waitHelperPID(t *testing.T, pidfile string) int {

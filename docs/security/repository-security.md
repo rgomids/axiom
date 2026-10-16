@@ -148,15 +148,12 @@ administrativa do novo contexto segue pendente, após merge e autorização
 explícita. A implementação local não altera a proteção remota.
 
 A [ADR-0029](../decisions/0029-minimal-pr-gate-native-qualification.md)
-(Proposed, decisão do mantenedor em AXM-8) reduz o estado versionado a dois
-checks: `PR Checks` e `delivery-metadata`. Read-back de 2026-10-16: o ruleset
-remoto `22828068` ainda exige os sete checks anteriores (`go-quality`,
-`verify (linux|macos)`, `release-contract`, `delivery-metadata`,
-`upgrade-journeys (linux|macos)`). A troca remota é feita junto com o merge do
-PR que introduz `PR Checks` (#320): aplicar antes bloqueia todo PR sem o novo
-contexto; aplicar depois deixa o próprio PR sem os checks antigos. Nenhuma
-outra regra (revisão, Code Owners, strict, threads, squash, deletion,
-non_fast_forward, code_quality, bypass) muda.
+(Accepted em 2026-10-16, comentário AXM-8 `fee15434`) reduz o estado
+versionado a dois checks: `PR Checks` e `delivery-metadata`. O mantenedor
+aplicou a mudança remota em 2026-10-16 (00:40:05 -03:00). Read-back de
+2026-10-16: o ruleset `22828068` está ativo e exige exatamente `PR Checks` e
+`delivery-metadata`, com strict policy; as demais regras (revisão, Code Owners,
+threads, squash, deletion, non_fast_forward, code_quality, bypass) não mudaram.
 
 Sequência: **estado versionado → merge em main → aplicação administrativa
 remota → read-back**. Para esta mudança, primeiro revisar/mergear #187,

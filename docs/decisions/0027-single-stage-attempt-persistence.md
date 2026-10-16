@@ -2,9 +2,12 @@
 
 ## Status
 
-Proposed. Requires a maintainer decision for the single-agent persistence
-boundary of #276 / AXM-8. No acceptance, implementation authority for the new
-format, operational acceptance, merge or release is inferred. The accepted 44
+Accepted on 2026-10-16 by explicit maintainer decision in
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
+(Linear comment `fee15434-632b-4239-8d14-55653cab0ad7`). Option A
+(SINGLE-PERSISTENCE-01) is selected; alternative B (Execution4) is not
+approved. Acceptance authorizes implementing this persistence contract on
+PR #320; no operational acceptance, merge or release is inferred. The accepted 44
 Tasks and existing ADRs remain in force; no historical artifact is rewritten.
 
 ## Context
@@ -42,7 +45,7 @@ not a request to reapprove all 44 Tasks.
 
 ## Decision
 
-Proposed option A: add an explicit single-stage operational ledger and a
+Option A: add an explicit single-stage operational ledger and a
 versioned single-stage authority contract, while leaving Execution3 and all
 Graph formats unchanged.
 

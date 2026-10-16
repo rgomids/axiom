@@ -2,12 +2,14 @@
 
 ## Status
 
-Proposed. Records the [AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
+Accepted on 2026-10-16 by explicit maintainer decision in
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
+(Linear comment `fee15434-632b-4239-8d14-55653cab0ad7`). It records the [AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
 maintainer decision of 2026-10-15 (Linear comment
 `247f9812-31d2-4c62-af63-7fd972d18f54`, "simplificação T43 + CI mínimo") for
 I276-T43 of Issue #276. The decision approves the reduced MVP scope and its
-implementation on PR #320; this text still needs maintainer acceptance before
-the T43 wording of the accepted Plan is annotated. No accepted ADR is changed.
+implementation on PR #320; the T43 wording of the accepted Plan receives a
+disposition note, not a rewrite. No accepted ADR is changed.
 No merge, release or operational acceptance is inferred.
 
 ## Context
@@ -85,3 +87,11 @@ A Runtime is shown to daemonize work during attempts, a platform offers
 unprivileged descendant containment (for example cgroup ownership or a process
 sandbox) that can be adopted without new privileges, or Windows job objects
 re-enter scope.
+
+## Disposition — 2026-10-16
+
+The accepted I276-T43 Plan wording ("`Stopped` true only when the whole group
+is confirmed gone"; a descendant escaping the group yields `unknown`) is read
+through this decision: "escaping" means an escape observable through the live
+leader's ancestry. The reduced implementation (no subreaper, attempt-leader
+registry or launchd adoption snapshot) is the one on PR #320.

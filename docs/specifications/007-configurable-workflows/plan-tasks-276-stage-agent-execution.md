@@ -1,6 +1,26 @@
 # Plan and Tasks — #276 run and coordinate stage agents through CLI and Runtime skills
 
-Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Technical baseline: [2026-10-15 reconciliation addendum](#reconciliation-addendum--2026-10-15), including the v3 configuration overlay and current delivery governance. Historical status statements below retain their dated meaning.
+Current scope: [accepted decision dispositions](#accepted-decision-dispositions--2026-10-16) and [maintainer addendum](#implementation-scope-addendum--2026-10-15). Technical baseline: [2026-10-15 reconciliation addendum](#reconciliation-addendum--2026-10-15), including the v3 configuration overlay and current delivery governance. Historical status statements below retain their dated meaning.
+
+## Accepted decision dispositions — 2026-10-16
+
+Authority: maintainer comment `fee15434-632b-4239-8d14-55653cab0ad7` on
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills),
+accepting three ADRs. The catalog below keeps its text; these notes say how it
+is read.
+
+- [ADR-0027](../../decisions/0027-single-stage-attempt-persistence.md), option A:
+  T26–T31 single-agent "stage ledger" means the private
+  `single-stage-runs/v1` operational ledger plus the version-2 single-stage
+  dispatch authority. Execution3 and Graph1/2/3 codecs are unchanged.
+- [ADR-0028](../../decisions/0028-mvp-posix-process-group-supervision-boundary.md):
+  T43 "the whole group is confirmed gone" and "descendant escaping the group
+  yields `unknown`" refer to the leader's own process group and to escapes
+  observable through the live leader's ancestry. Deliberately detached
+  descendants without observable ancestry are outside the MVP guarantee.
+- [ADR-0029](../../decisions/0029-minimal-pr-gate-native-qualification.md):
+  "platform tests green on the CI matrix" (T27, T43) is met by the nightly or
+  manual native suite and the release-revision gate, not by a required PR check.
 
 ## Implementation scope addendum — 2026-10-15
 
