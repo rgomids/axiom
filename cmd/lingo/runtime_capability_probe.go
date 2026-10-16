@@ -47,7 +47,7 @@ func (s lifecycleService) capabilityProbe(ctx context.Context, service capabilit
 	return s.capabilitySuccess(category, out)
 }
 
-func (s lifecycleService) capabilityEnvelopePolicy(in cli.RuntimeCapabilityInput) (local.EnvelopePolicy, error) {
+func (s lifecycleService) capabilityEnvelopePolicy(ctx context.Context, in cli.RuntimeCapabilityInput) (local.EnvelopePolicy, error) {
 	home, err := os.UserHomeDir()
 	if err != nil || !filepath.IsAbs(in.RepositoryRoot) || !filepath.IsAbs(in.WorkspaceRoot) {
 		return local.EnvelopePolicy{}, capabilityproof.ErrBlocked
@@ -58,14 +58,35 @@ func (s lifecycleService) capabilityEnvelopePolicy(in cli.RuntimeCapabilityInput
 			vendor = append(vendor, v)
 		}
 	}
-	return local.EnvelopePolicy{StateRoot: s.stateRoot, Variant: in.Variant, RepositoryRoots: []string{in.RepositoryRoot, in.WorkspaceRoot}, VendorHomes: vendor}, nil
+	policy := local.EnvelopePolicy{StateRoot: s.stateRoot, Variant: in.Variant, RepositoryRoots: []string{in.RepositoryRoot, in.WorkspaceRoot}, VendorHomes: vendor}
+	installed, err := local.NewInstallationStore(s.stateRoot)
+	if err != nil {
+		return local.EnvelopePolicy{}, err
+	}
+	projects, err := installed.ListInstalled(ctx)
+	if err != nil {
+		return local.EnvelopePolicy{}, err
+	}
+	for _, project := range projects {
+		observed, category := installed.Inspect(ctx, project.ID)
+		if category != "" || !observed.Exists {
+			return local.EnvelopePolicy{}, capabilityproof.ErrBlocked
+		}
+		for _, repository := range observed.Record.State().Repositories {
+			if !filepath.IsAbs(repository.ExplicitPath) {
+				return local.EnvelopePolicy{}, capabilityproof.ErrBlocked
+			}
+			policy.RepositoryRoots = append(policy.RepositoryRoots, repository.ExplicitPath)
+		}
+	}
+	return policy, nil
 }
 
 func (s lifecycleService) capabilityPrepare(ctx context.Context, in cli.RuntimeCapabilityInput) cli.RuntimeCapabilityResponse {
 	if in.PreviewDigest != "" && !in.AuthorizePrepare {
 		return s.capabilityFailure("preparation_authority_required", nil)
 	}
-	policy, err := s.capabilityEnvelopePolicy(in)
+	policy, err := s.capabilityEnvelopePolicy(ctx, in)
 	if err != nil || in.ProbeID == "" {
 		return s.capabilityFailure("preparation_blocked", nil)
 	}

@@ -2552,3 +2552,32 @@ Review: engineering/security self-review only for this continuation. Earlier
 CR-001/CR-002 remain covered by adversarial FAKE regressions; the favorable old
 COMMENT is not independent approval of this delta. No claim of an independent
 whole-PR review, no technical-ready review request, and no unproved native PASS.
+
+### Continuation self-review correction — complete repository exclusion
+
+The public preparation composition initially supplied only the request's
+Repository/workspace roots to the envelope exclusion policy. Review identified
+that other installed Repository bindings also belong in that policy, including
+unavailable/archived membership. Composition now reads the protected complete
+installation catalog, inspects every record, and includes all concrete bound
+Repository paths. Missing/corrupt inventory, a disappearing record or an unknown
+root blocks preparation. No portable Project or Provider content is opened.
+The actual Create/Inspect envelope policy still enforces physical path and
+root exclusions before effects. A new regression registers another Repository
+containing the state root (without relying on a `.git` marker), proves refusal
+without writes, then proves unknown-root and corrupt-inventory refusal.
+
+Capability completions now distinguish `denied_authority` (missing/changed
+authority or stale preview), `failure` (preparation/probe recovery needed), and
+`validation_failure` (unavailable/unknown prerequisites). The public-binary
+blackbox asserts canonical status as well as category, failure exit and the
+Runtime invocation tripwire. Human/JSON still share one completion payload.
+
+Pinned Go 1.26.0 with private synthetic probe root and ambient Claude effort
+unset: focused capability/CLI/executable race regression passed, exit 0
+(cmd 16.836s / cli 1.085s); the final complete-inventory/unknown-root test repeated
+with race passed, exit 0 (1.395s). Format, Staticcheck 0.8.1 and vet passed.
+The preceding whole-tree race run (including the ADR-0027 contract proof) passed,
+exit 0, CLI 269.629s, before these final inventory/status corrections. Exact-head
+remote CI remains a separate required observation. The architecture decision
+gate and all incomplete Task/AC entries above remain open.

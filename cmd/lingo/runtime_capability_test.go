@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/cli"
 	"github.com/rgomids/axiom/internal/local"
+	"github.com/rgomids/axiom/internal/projectapp"
 )
 
 func TestCapabilityInvalidationRoundTrip(t *testing.T) {
@@ -52,6 +54,65 @@ func TestCapabilityInvalidationRoundTrip(t *testing.T) {
 	in.Operation = "show"
 	if r = s.capabilityOperation(ctx, service, in); r.Payload.(capabilityproof.View).States[capabilityproof.Read] != capabilityproof.Unknown {
 		t.Fatal("invalidation promoted capability", r)
+	}
+}
+
+func TestCapabilityPreparationExcludesAllInstalledRepositoryBindings(t *testing.T) {
+	f, _, target, _ := newPreparedProbeFixture(t, "codex", capabilityproof.RepositoryWriteVariant, "success")
+	id := "123e4567-e89b-42d3-a456-426614174000"
+	record, issues := local.NewRecord(local.RecordState{ProjectID: id, ObservedSlug: "synthetic", SourceLocation: filepath.Join(f.base, "portable"), PortableRevision: projectapp.RecordedPortableRevision([32]byte{1}), ArtifactDigests: []projectapp.ArtifactDigest{{Name: "axiom.yaml", Digest: [32]byte{1}}}, Repositories: []projectapp.RepositoryBinding{{RepositoryKey: "other", ExplicitPath: f.base, Observation: projectapp.Observation{Availability: projectapp.Available, Basis: projectapp.PresentMetadata, ObservedAt: time.Unix(1, 0).UTC()}}}})
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	wire, issues := local.EncodeRecord(record)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	dir := filepath.Join(f.state, "projects", id)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "installation.json")
+	if err := os.WriteFile(path, wire, 0600); err != nil {
+		t.Fatal(err)
+	}
+	s := lifecycleService{stateRoot: f.state, provenance: authProvenance(t)}
+	in := cli.RuntimeCapabilityInput{Operation: "prepare", RuntimeID: "codex", ProfileID: target.ProfileID, Variant: target.Variant, ProbeID: "forbidden-preparation", RepositoryRoot: f.roots.Project, WorkspaceRoot: f.stage.Workspace}
+	before := probeTree(t, f.base)
+	policy, err := s.capabilityEnvelopePolicy(context.Background(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := local.InspectEnvelopePreparation(policy, in.ProbeID, local.EnvelopeLimits{Timeout: time.Second, MaxFiles: 64, MaxBytes: 1024}); !errors.Is(err, local.ErrUnsafeEnvelope) {
+		t.Fatal("registered repository absent from exclusion policy", err)
+	}
+	if r := s.RuntimeCapability(context.Background(), in); r.Result.Category != "preparation_blocked" {
+		t.Fatal("preparation in a registered repository accepted", r)
+	}
+	if !reflect.DeepEqual(before, probeTree(t, f.base)) {
+		t.Fatal("refused preparation wrote state")
+	}
+	unknown := record.State()
+	unknown.Repositories[0].ExplicitPath = ""
+	record, issues = local.NewRecord(unknown)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	wire, issues = local.EncodeRecord(record)
+	if len(issues) != 0 {
+		t.Fatal(issues)
+	}
+	if err := os.WriteFile(path, wire, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.capabilityEnvelopePolicy(context.Background(), in); err == nil {
+		t.Fatal("unknown installed repository root accepted")
+	}
+	if err := os.WriteFile(path, []byte("{"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.capabilityEnvelopePolicy(context.Background(), in); err == nil {
+		t.Fatal("incomplete installed repository inventory accepted")
 	}
 }
 
@@ -122,7 +183,7 @@ func TestCapabilityPreparationCommand(t *testing.T) {
 		t.Fatal(r)
 	}
 	manifest := r.Payload.(map[string]any)["manifestDigest"].(string)
-	policy, err := s.capabilityEnvelopePolicy(in)
+	policy, err := s.capabilityEnvelopePolicy(ctx, in)
 	if err != nil {
 		t.Fatal(err)
 	}

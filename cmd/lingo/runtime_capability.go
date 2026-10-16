@@ -36,7 +36,7 @@ func (s lifecycleService) RuntimeCapability(ctx context.Context, in cli.RuntimeC
 		if in.ProbeID == "" || in.ManifestDigest == "" {
 			return s.capabilityFailure("prepared_envelope_required", nil)
 		}
-		policy, err := s.capabilityEnvelopePolicy(in)
+		policy, err := s.capabilityEnvelopePolicy(ctx, in)
 		if err != nil {
 			return s.capabilityFailure("prepared_envelope_required", nil)
 		}
@@ -53,7 +53,14 @@ func (s lifecycleService) RuntimeCapability(ctx context.Context, in cli.RuntimeC
 }
 
 func (s lifecycleService) capabilityFailure(category string, payload any) cli.RuntimeCapabilityResponse {
-	r := canonicalCompletion(completion.Facts{ValidationFailed: true}, "Capability operation refused: "+category, nil, "Inspect the exact binding and authority; no capability is inferred", s.provenance)
+	facts := completion.Facts{ValidationFailed: true}
+	switch category {
+	case "local_authority_required", "probe_authority_required", "preparation_authority_required", "extended_authority_required", "stale_preview":
+		facts = completion.Facts{AuthorityDenied: true}
+	case "preparation_recovery_required", "probe_recovery_required":
+		facts = completion.Facts{Failed: true}
+	}
+	r := canonicalCompletion(facts, "Capability operation refused: "+category, nil, "Inspect exact binding, preparation recovery and authority; unknown never authorizes dispatch", s.provenance)
 	r.Category = category
 	return cli.RuntimeCapabilityResponse{Result: r, Payload: payload}
 }

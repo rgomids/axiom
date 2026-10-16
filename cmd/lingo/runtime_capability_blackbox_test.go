@@ -47,6 +47,15 @@ func TestExecutableCapabilityRefusalsAndPreparation(t *testing.T) {
 		if json.Unmarshal(wire, &event) != nil || event["category"] != category {
 			t.Fatalf("category=%s args=%v output=%s", category, args, wire)
 		}
+		status := "validation_failure"
+		if success {
+			status = "success"
+		} else if category == "probe_authority_required" || category == "preparation_authority_required" {
+			status = "denied_authority"
+		}
+		if event["status"] != status {
+			t.Fatalf("status=%s args=%v output=%s", status, args, wire)
+		}
 		return event
 	}
 	for _, runtime := range []string{"codex", "claude"} {
