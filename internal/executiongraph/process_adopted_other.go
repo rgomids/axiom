@@ -2,4 +2,4 @@
 
 package executiongraph
 
-func observeAdoptedProcesses(bool) (map[int]string, error) { return nil, nil }
+func observeAdoptedProcesses(bool, int) (map[int]string, error) { return nil, nil }

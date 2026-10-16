@@ -2581,3 +2581,49 @@ The preceding whole-tree race run (including the ADR-0027 contract proof) passed
 exit 0, CLI 269.629s, before these final inventory/status corrections. Exact-head
 remote CI remains a separate required observation. The architecture decision
 gate and all incomplete Task/AC entries above remain open.
+
+### T43 review correction — foreign groups and credential-independent orphans
+
+The unmerged UID-filter experiment at `267efdc` is **withdrawn**. A process can
+change credentials, so current/real/saved UID is not proof that an adopted
+process could not be an escaped descendant. Darwin now considers all newly
+adopted live identities outside the attempt's own group. The native fixture
+asserts that both operator and root UID observations remain candidates and that
+start identity fences PID reuse. It invokes no privileged process or setuid tool.
+
+Review also found a concrete false-stop path in the earlier common POSIX
+predicate: an orphan could join the supervisor's group or a different registered
+attempt group, and group membership excluded it from escape observation. New
+FAKE processes actually exercise both escapes on Linux/macOS. Production now
+excludes only direct trusted attempt leaders by independently observed kernel
+start identity, never descendants by membership in a foreign group. Newly
+un-attributable orphans keep stop unknown. The group additionally pins its
+leader's process correlation and refuses signal/confirmation on identity drift;
+the stale-identity regression verifies the live helper was not signaled.
+
+Evidence on Linux, pinned Go 1.26.0, synthetic processes only:
+
+| Command | Actual result |
+| --- | --- |
+| `go test -overlay /tmp/axiom-320-unsafe-group-overlay.json ./internal/executiongraph -run '^TestPOSIXProcessContainment/orphaned_escape_to' -count=1 -timeout=30s` | expected exit 1: both real FAKE escapes incorrectly returned `Stopped=true` when only the old group-exclusion predicate was restored in an ephemeral overlay; no worktree code was weakened |
+| `go test -race ./internal/executiongraph -run 'TestPOSIX\|TestOSProcessRunner' -count=1 -timeout=120s` | exit 0, 28.210s with final ownership/leader guard |
+| `go test -race ./internal/executiongraph ./internal/stageexecution ./internal/capabilityproof -count=1 -timeout=150s` | exit 0, 29.699s / 13.389s / 1.232s |
+| `GOOS=darwin GOARCH=arm64 go test -c ./internal/executiongraph` | exit 0, compilation only; not native execution proof |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbe(Variants\|ForgedReport)$\|^TestCapabilityProbeCommand' -count=1 -timeout=120s` | exit 0, 50.880s, private FAKE binaries; CR-001/CR-002 integration preserved |
+| format / Staticcheck 0.8.1 / vet | exit 0 |
+
+Native CI `38829521431` at the earlier `444419d` passed Linux but **failed
+macOS**, even with serialized packages: positive probe/group cases returned
+unknown. Serialization did not resolve the global adoption observation gap.
+Those failures remain failures; the UID/group exclusions are not reinstated to
+make them pass. Native exact-head execution after this correction is still
+required. T43 stays PARTIAL. A new unrelated adopted host process can still
+conservatively prevent confirmation; no security sandbox or causal ancestry
+attestation is claimed. The single-stage decision gate and remaining technical
+scope remain as recorded above.
+
+Final reviewed source SHA-256 for this boundary:
+
+- `process_posix.go`: `970ec362204d27e05df09ef9fbff7b356da4bf0d8c6f82f266b4d0671b57ad77`
+- `process_posix_test.go`: `de9e7d1c7cabb9de993f24d4d07f361b0f48eb34f1a2c0e903cf56f398d0ef27`
+- `process_adopted_darwin.go`: `6661500f2b1ee4980bb3d4334fbc1247e07649866b99aeac1c21f808e3b08757`

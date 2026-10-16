@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -23,6 +24,13 @@ func TestPOSIXProcessContainment(t *testing.T) {
 		if os.Getenv("AXIOM_GROUP_ESCAPE") == "1" {
 			child.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 		}
+		if target := os.Getenv("AXIOM_GROUP_JOIN"); target != "" {
+			group, err := strconv.Atoi(target)
+			if err != nil {
+				os.Exit(5)
+			}
+			child.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: group}
+		}
 		if err := child.Start(); err != nil {
 			os.Exit(2)
 		}
@@ -37,15 +45,32 @@ func TestPOSIXProcessContainment(t *testing.T) {
 		time.Sleep(time.Hour)
 		return
 	}
-	for _, mode := range []string{"descendants", "escaped descendant", "orphaned escaped descendant"} {
+	for _, mode := range []string{"descendants", "escaped descendant", "orphaned escaped descendant", "orphaned escape to supervisor group", "orphaned escape to another attempt group"} {
 		escaped := mode != "descendants"
-		orphan := mode == "orphaned escaped descendant"
+		orphan := strings.HasPrefix(mode, "orphaned")
 		t.Run(mode, func(t *testing.T) {
+			targetGroup := 0
+			if mode == "orphaned escape to supervisor group" {
+				targetGroup = syscall.Getpgrp()
+			}
+			if mode == "orphaned escape to another attempt group" {
+				foreign := exec.Command(os.Args[0], "-test.run=^TestPOSIXProcessContainment$")
+				foreign.Env = append(os.Environ(), "AXIOM_GROUP_HELPER=descendant")
+				other := &posixProcessGroup{}
+				if err := other.start(foreign); err != nil {
+					t.Fatal(err)
+				}
+				targetGroup = other.pid
+				defer func() { _ = other.stop(); _ = foreign.Wait(); other.close() }()
+			}
 			pidfile := t.TempDir() + "/pid"
 			command := exec.Command(os.Args[0], "-test.run=^TestPOSIXProcessContainment$")
 			command.Env = append(os.Environ(), "AXIOM_GROUP_HELPER=parent", "AXIOM_GROUP_PIDFILE="+pidfile)
 			if escaped {
 				command.Env = append(command.Env, "AXIOM_GROUP_ESCAPE=1")
+			}
+			if targetGroup != 0 {
+				command.Env = append(command.Env, "AXIOM_GROUP_JOIN="+strconv.Itoa(targetGroup))
 			}
 			if orphan {
 				command.Env = append(command.Env, "AXIOM_GROUP_ORPHAN=1")
@@ -100,6 +125,32 @@ func TestPOSIXAlreadyExitedGroup(t *testing.T) {
 	defer cancel()
 	if !confirmProcessStop(ctx, group) {
 		t.Fatal("already exited group not confirmed gone")
+	}
+}
+
+func TestPOSIXChangedLeaderIdentityNeverSignals(t *testing.T) {
+	command := exec.Command(os.Args[0], "-test.run=^TestPOSIXProcessContainment$")
+	command.Env = append(os.Environ(), "AXIOM_GROUP_HELPER=descendant")
+	group := &posixProcessGroup{}
+	if err := group.start(command); err != nil {
+		t.Fatal(err)
+	}
+	identity := group.identity
+	defer func() { group.identity = identity; _ = group.stop(); _ = command.Wait(); group.close() }()
+	if identity == nil {
+		t.Fatal("helper identity unavailable")
+	}
+	changed := *identity
+	changed.StartIdentity += "-stale"
+	group.identity = &changed
+	if err := group.stop(); err == nil {
+		t.Fatal("changed leader identity accepted stop")
+	}
+	if gone, err := group.gone(); gone || err == nil {
+		t.Fatalf("changed identity confirmed: gone=%v error=%v", gone, err)
+	}
+	if err := syscall.Kill(group.pid, 0); err != nil {
+		t.Fatal("refusal signaled the live helper", err)
 	}
 }
 
