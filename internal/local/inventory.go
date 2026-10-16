@@ -48,6 +48,8 @@ const (
 	InventoryStageOutcome         InventoryKind = "stage_outcome"
 	InventoryIntegrationAuthority InventoryKind = "stage_integration_authority"
 	InventoryDispatchInputs       InventoryKind = "stage_dispatch_inputs"
+	InventorySingleStageRun       InventoryKind = "single_stage_run"
+	InventorySingleStageAuthority InventoryKind = "single_stage_authority"
 	InventoryRuntimeProfile       InventoryKind = "runtime_profile_configuration"
 	// InventoryRuntimeProfilePreStable is a valid recognized pre-stable local
 	// format-1/2 Runtime/Profile record (Specification 007 PM-11, B1). It is
@@ -70,7 +72,7 @@ const (
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryRuntimeProfilePreStable, InventoryProjectContext, InventoryOperational:
+	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventorySingleStageRun, InventorySingleStageAuthority, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryRuntimeProfilePreStable, InventoryProjectContext, InventoryOperational:
 		return true
 	}
 	return false
@@ -91,7 +93,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
+var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAuthority, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventorySingleStageRun, InventorySingleStageAuthority, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
@@ -202,7 +204,7 @@ func inspectInventory(ctx context.Context, path string, walk func(*inventoryWalk
 // classifies. Every directory a v1 store writes below the state root MUST be
 // listed here, or an upgrade would refuse state an earlier release produced;
 // TestEveryStateRootWriterDirectoryIsInventoried enforces that.
-var StateRootDirectories = []string{"artifacts", "capability-evidence", "capability-probes", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "run-leases", "work-items", "workflows", "validator-policies"}
+var StateRootDirectories = []string{"artifacts", "capability-evidence", "capability-probes", "coordination", "executions", "graphs", "project-context", "projects", "runtime-profiles", "run-leases", "single-stage-runs", "work-items", "workflows", "validator-policies"}
 
 func walkStateRoot(w *inventoryWalk, root *os.Root) error {
 	if err := walkStateRootEntries(w, root); err != nil {
@@ -307,6 +309,10 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 		case "graphs":
 			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
 				return eachDigestRecordDirectory(w, version, relative, executiongraph.MaxGraphBytes, w.classifyGraph)
+			})
+		case "single-stage-runs":
+			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {
+				return eachDigestRecordDirectory(w, version, relative, executiongraph.MaxSingleStageRunBytes, classifySingleStage)
 			})
 		case "coordination":
 			return eachVersionDirectory(w, root, name, func(w *inventoryWalk, version *os.Root, relative string) error {

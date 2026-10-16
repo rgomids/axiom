@@ -15,6 +15,7 @@ import (
 
 type stageSupervisorLoader interface {
 	LoadSupervisor(context.Context, stageexecution.SupervisorRequest) (stageexecution.Supervisor, error)
+	LoadSingleSupervisor(context.Context, stageexecution.SingleRequest) (stageexecution.SingleSupervisor, error)
 }
 
 func (s LocalSupervisorStore) LoadRetry(ctx context.Context, r stageexecution.SupervisorRequest, ref string) (executiongraph.RetryAuthority, error) {
@@ -97,7 +98,7 @@ func (productionSupervisorLoader) LoadSupervisor(ctx context.Context, r stageexe
 		return stageexecution.Supervisor{}, err
 	}
 	preparation := &stageexecution.CompiledSupervisorPreparation{Loader: loader, Checker: policy, Auth: auth, Sources: sources}
-	return stageexecution.Supervisor{Store: store, Preparation: stageContextPreparation{next: preparation, stateRoot: s.stateRoot, projectsRoot: s.projectsRoot, skillsRoot: s.skillsRoot}, Runner: executiongraph.OSProcessRunner{}, AllocateID: allocateStageID}, nil
+	return stageexecution.Supervisor{Store: store, Preparation: stageContextPreparation{next: preparation, stateRoot: s.stateRoot, projectsRoot: s.projectsRoot, skillsRoot: s.skillsRoot}, Runner: executiongraph.OSProcessRunner{}, Reset: stageDisposer{t.repository.Path}, AllocateID: allocateStageID}, nil
 }
 
 // Only installation-owned roots are added after the adapter constructs its
@@ -200,7 +201,7 @@ func (l stageAttemptLoader) LoadAttempt(ctx context.Context, g executiongraph.Su
 		material.Ingestor.ReferenceChildren = append(material.Ingestor.ReferenceChildren, child.ExecutionID)
 	}
 	material.Packet = runtimeadapter.PacketContext{AttemptID: id, Inbox: cctx.Inbox, AxiomPath: axiom, AxiomDigest: l.preview.AxiomDigest}
-	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, Executable: executable, Model: frozen.Model}, Version: frozen.RuntimeVersion, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: l.target.state.ProjectID, ParentID: cctx.ParentID, ChildID: cctx.ChildID, AttemptID: id}}
+	material.Invocation = runtimeadapter.StageInvocationRequest{Profile: runtimeadapter.CommandProfile{RuntimeID: frozen.RuntimeID, ModelProfileID: frozen.ProfileID, Executable: executable, Model: frozen.Model}, Version: frozen.RuntimeVersion, Workspace: cctx.Workspace, Inbox: cctx.Inbox, AxiomPath: axiom, ParentEnvironment: os.Environ(), Correlation: runtimeadapter.AttemptCorrelation{ProjectID: l.target.state.ProjectID, ParentID: cctx.ParentID, ChildID: cctx.ChildID, AttemptID: id}}
 	return material, nil
 }
 
@@ -210,7 +211,18 @@ func stageSupervisorCommand(ctx context.Context, args []string, loader stageSupe
 	if len(args) == 0 || args[0] != "__stage-supervisor" {
 		return false, 0
 	}
-	if len(args) != 5 && len(args) != 6 || loader == nil {
+	if loader == nil {
+		return true, 1
+	}
+	if len(args) == 6 && args[1] == "single" {
+		r := stageexecution.SingleRequest{ProjectID: args[2], ExecutionID: args[3], ScopeDigest: args[4], AuthorityRef: args[5]}
+		s, e := loader.LoadSingleSupervisor(ctx, r)
+		if e != nil || s.Run(ctx, r) != nil {
+			return true, 1
+		}
+		return true, 0
+	}
+	if len(args) != 5 && len(args) != 6 {
 		return true, 1
 	}
 	r := stageexecution.SupervisorRequest{ProjectID: args[1], ParentID: args[2], PreviewDigest: args[3], AuthorityRef: args[4]}

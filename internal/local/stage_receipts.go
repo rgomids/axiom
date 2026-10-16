@@ -50,7 +50,6 @@ func (s GraphStore) CommitDispatchInputs(ctx context.Context, d executiongraph.D
 	if err != nil {
 		return "", err
 	}
-	ref := hexDigest(wire)
 	root, graphs, version, project, err := s.openProject(d.ProjectID, true)
 	if err != nil {
 		return "", err
@@ -64,6 +63,11 @@ func (s GraphStore) CommitDispatchInputs(ctx context.Context, d executiongraph.D
 		return "", err
 	}
 	defer closeFiles(locks)
+	return commitInertInputs(ctx, project, wire, s.hooks)
+}
+
+func commitInertInputs(ctx context.Context, project *os.Root, wire []byte, base publicationHooks) (string, error) {
+	ref := hexDigest(wire)
 	existing, err := readPrivateFileBounded(project, ref+".json", executiongraph.MaxDispatchInputsBytes)
 	switch {
 	case err == nil:
@@ -74,7 +78,7 @@ func (s GraphStore) CommitDispatchInputs(ctx context.Context, d executiongraph.D
 	case !errors.Is(err, ErrNotFound) && !errors.Is(err, os.ErrNotExist):
 		return "", err
 	}
-	hooks := s.hooks
+	hooks := base
 	hooks.contentLimit = executiongraph.MaxDispatchInputsBytes
 	if err := publishFile(ctx, project, ref+".json", nil, wire, true, hooks); err != nil {
 		return "", err
@@ -105,6 +109,10 @@ func (s GraphStore) LoadDispatchInputs(ctx context.Context, projectID, parentID,
 		return executiongraph.DispatchInputs{}, err
 	}
 	defer closeFiles(locks)
+	return findDispatchInputs(project, projectID, parentID, previewDigest)
+}
+
+func findDispatchInputs(project *os.Root, projectID, parentID, previewDigest string) (executiongraph.DispatchInputs, error) {
 	pending, err := protocolStatePresent(project)
 	if err != nil {
 		return executiongraph.DispatchInputs{}, err

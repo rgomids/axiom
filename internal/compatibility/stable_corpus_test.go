@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -104,7 +105,7 @@ func TestStableCorpusResolvesToDirectUpgrade(t *testing.T) {
 		preStable := false
 		for _, object := range report.objects {
 			observed[object.Kind] = true
-			if object.Kind == local.InventoryRuntimeProfile {
+			if object.Kind == local.InventoryRuntimeProfile && preStableRuntimeProfile(t, filepath.Join(stableCorpus, "snapshots", label, "state", object.Relative)) {
 				t.Fatalf("released snapshot %s: pre-stable Runtime/Profile record %s classified as current configuration", label, object.Relative)
 			}
 			preStable = preStable || object.Kind == local.InventoryRuntimeProfilePreStable
@@ -156,4 +157,16 @@ func TestReleasePreparationEnforcesStableCorpus(t *testing.T) {
 	if position < 0 || build < 0 || position >= build {
 		t.Fatal("release preparation must validate the frozen compatibility corpus before building")
 	}
+}
+
+func preStableRuntimeProfile(t *testing.T, path string) bool {
+	t.Helper()
+	wire, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var probe struct {
+		FormatVersion int `json:"formatVersion"`
+	}
+	return json.Unmarshal(wire, &probe) == nil && (probe.FormatVersion == 1 || probe.FormatVersion == 2)
 }

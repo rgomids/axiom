@@ -21,6 +21,8 @@ func attemptInbox(workspace, attempt string) string {
 type persistedChildResolver struct {
 	graphs                          local.GraphStore
 	leases                          local.RunLeaseStore
+	singles                         local.SingleStageStore
+	executions                      local.WorkflowStore
 	project, parent, child, attempt string
 }
 
@@ -28,6 +30,9 @@ func (r persistedChildResolver) ResolveChild(ctx context.Context, cwd string) (c
 	held, err := r.leases.Probe(ctx, r.project, r.parent)
 	if err != nil || !held {
 		return coordination.ChildContext{}, coordination.ErrChildContext
+	}
+	if r.parent == r.child {
+		return r.resolveSingle(ctx, cwd)
 	}
 	g, err := r.graphs.LoadSuccessor(ctx, r.project, r.parent)
 	if err != nil {
@@ -44,6 +49,34 @@ func (r persistedChildResolver) ResolveChild(ctx context.Context, cwd string) (c
 		binding := coordination.ChildContext{Workspace: c.Envelope.Workspace, Inbox: attemptInbox(c.Envelope.Workspace, a.AttemptID), ParentID: r.parent, ChildID: r.child, AttemptID: r.attempt, GraphRevision: g.Parent.GraphRevision, Epoch: a.LeaseEpoch, Running: true}
 		// Read-only adapters use the inbox as their CWD. Both paths are exact
 		// persisted locations; unrelated descendants are deliberately refused.
+		if cwd != binding.Workspace && cwd != binding.Inbox {
+			break
+		}
+		return binding, nil
+	}
+	return coordination.ChildContext{}, coordination.ErrChildContext
+}
+
+// resolveSingle binds the running attempt of the Execution's current single
+// stage; the Execution is both parent and Runtime identity there.
+func (r persistedChildResolver) resolveSingle(ctx context.Context, cwd string) (coordination.ChildContext, error) {
+	states, err := r.executions.List(ctx, r.project)
+	if err != nil {
+		return coordination.ChildContext{}, coordination.ErrChildContext
+	}
+	for _, state := range states {
+		if state.ExecutionID != r.parent {
+			continue
+		}
+		run, err := loadStageSingle(ctx, r.singles, state)
+		if err != nil || run == nil || len(run.Attempts) == 0 {
+			break
+		}
+		a := run.Attempts[len(run.Attempts)-1]
+		if a.AttemptID != r.attempt || a.Status != executiongraph.AttemptRunning {
+			break
+		}
+		binding := coordination.ChildContext{Workspace: run.Binding.Workspace, Inbox: attemptInbox(run.Binding.Workspace, a.AttemptID), ParentID: r.parent, ChildID: r.child, AttemptID: r.attempt, GraphRevision: run.Binding.WorkflowRevision, Epoch: a.LeaseEpoch, Running: true}
 		if cwd != binding.Workspace && cwd != binding.Inbox {
 			break
 		}
@@ -77,7 +110,15 @@ func (s lifecycleService) stagePublish(ctx context.Context, in cli.WorkflowStage
 	if err != nil {
 		return s.stageError(coordination.ErrChildContext, nil)
 	}
-	resolver := persistedChildResolver{graphs: graphs, leases: leases, project: os.Getenv("AXIOM_CORRELATION_ID"), parent: os.Getenv("AXIOM_EXECUTION_ID"), child: os.Getenv("AXIOM_GRAPH_ID"), attempt: os.Getenv("AXIOM_ATTEMPT_ID")}
+	singles, err := local.NewSingleStageStore(s.stateRoot)
+	if err != nil {
+		return s.stageError(err, nil)
+	}
+	executions, err := local.NewWorkflowStore(s.stateRoot)
+	if err != nil {
+		return s.stageError(err, nil)
+	}
+	resolver := persistedChildResolver{graphs: graphs, leases: leases, singles: singles, executions: executions, project: os.Getenv("AXIOM_CORRELATION_ID"), parent: os.Getenv("AXIOM_EXECUTION_ID"), child: os.Getenv("AXIOM_GRAPH_ID"), attempt: os.Getenv("AXIOM_ATTEMPT_ID")}
 	c, err := resolver.ResolveChild(ctx, cwd)
 	if err != nil {
 		return s.stageError(err, nil)

@@ -193,7 +193,7 @@ func recoveryDirectories(ctx context.Context, scope, path string) ([]string, err
 		}
 		return nil
 	}
-	for _, parts := range [][]string{{"projects"}, {"work-items"}, {"executions", "v1"}, {"graphs", "v1"}, {"run-leases", "v1"}, {"artifacts", "v1", "objects"}} {
+	for _, parts := range [][]string{{"projects"}, {"work-items"}, {"executions", "v1"}, {"graphs", "v1"}, {"single-stage-runs", "v1"}, {"run-leases", "v1"}, {"artifacts", "v1", "objects"}} {
 		if err := children(parts...); err != nil {
 			return nil, err
 		}

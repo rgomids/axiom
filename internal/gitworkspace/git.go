@@ -87,8 +87,41 @@ func NewManager(ctx context.Context, repository, root, baseRevision string, grap
 	if err != nil {
 		return nil, ErrInvalidConfiguration
 	}
-	repository, err = cleanExistingDirectory(repository)
-	if err != nil || !validObjectID(baseRevision) || !executiongraph.ValidGraph(graph) {
+	if !executiongraph.ValidGraph(graph) {
+		return nil, ErrInvalidConfiguration
+	}
+	return newManager(ctx, git, repository, root, baseRevision, graph)
+}
+
+// NewSingleManager binds the one managed workspace of a single-agent stage,
+// whose Runtime identity is the Execution itself. It has no graph parent or
+// integration child, so every integration operation refuses.
+func NewSingleManager(ctx context.Context, repository, root, baseRevision string, child executiongraph.ChildExecution) (*Manager, error) {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		return nil, ErrInvalidConfiguration
+	}
+	git, err = filepath.Abs(git)
+	if err != nil || child.ExecutionID == "" || child.ParentID != child.ExecutionID || child.GraphRevision == 0 || child.Envelope.IntegrationOwner {
+		return nil, ErrInvalidConfiguration
+	}
+	return newManager(ctx, git, repository, root, baseRevision, executiongraph.Graph{Parent: executiongraph.ParentExecution{ExecutionID: child.ExecutionID, GraphRevision: child.GraphRevision}, Children: []executiongraph.ChildExecution{child}})
+}
+
+// EnsureWorkspace creates the managed worktree when absent and otherwise
+// verifies the exact owned worktree while preserving its modifications.
+func (m *Manager) EnsureWorkspace(ctx context.Context, child executiongraph.ChildExecution) error {
+	if _, err := os.Lstat(child.Envelope.Workspace); errors.Is(err, os.ErrNotExist) {
+		_, err = m.create(ctx, child)
+		return err
+	}
+	_, err := m.inspect(ctx, child, false)
+	return err
+}
+
+func newManager(ctx context.Context, git, repository, root, baseRevision string, graph executiongraph.Graph) (*Manager, error) {
+	repository, err := cleanExistingDirectory(repository)
+	if err != nil || !validObjectID(baseRevision) {
 		return nil, ErrInvalidConfiguration
 	}
 	root, err = cleanAuthorizedRoot(root)

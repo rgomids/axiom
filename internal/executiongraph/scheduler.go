@@ -435,7 +435,6 @@ func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, s
 	if err != nil {
 		return ProcessResult{ExitCode: -1, OutcomeUnknown: true}
 	}
-	defer group.close()
 	command.WaitDelay = processStopBound
 	if err = ctx.Err(); err == nil {
 		err = group.start(command)
@@ -462,12 +461,19 @@ func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, s
 			return ProcessResult{ExitCode: -1, OutcomeUnknown: true, Stopped: stopped}
 		}
 	}
-	interrupted := false
+	interrupted, completionUnknown := false, false
 	if err == nil {
 		wait := make(chan error, 1)
 		go func() { wait <- command.Wait() }()
 		select {
 		case err = <-wait:
+			gone, observationErr := group.gone()
+			if !gone || observationErr != nil {
+				completionUnknown = true
+				stopCtx, cancel := context.WithTimeout(context.Background(), processStopBound)
+				stopped = confirmProcessStop(stopCtx, group)
+				cancel()
+			}
 		case <-ctx.Done():
 			interrupted = true
 			stopCtx, cancel := context.WithTimeout(context.Background(), processStopBound)
@@ -492,7 +498,7 @@ func (OSProcessRunner) RunObserved(ctx context.Context, invocation Invocation, s
 	// or observation failures veto confirmation. POSIX groups remain advisory.
 	captured := output.Bytes()
 	digest := sha256.Sum256(captured)
-	return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), Stopped: stopped, OutcomeUnknown: interrupted && !stopped || startFailed, TimedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
+	return ProcessResult{ExitCode: exitCode, Output: captured, ResultReference: "process-output:" + hex.EncodeToString(digest[:]), Stopped: stopped, EffectAmbiguous: completionUnknown, OutcomeUnknown: interrupted && !stopped || startFailed || completionUnknown, TimedOut: errors.Is(ctx.Err(), context.DeadlineExceeded)}
 }
 
 type limitedBuffer struct {

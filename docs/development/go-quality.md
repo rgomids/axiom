@@ -1,11 +1,11 @@
 # Fast PR Go quality gate
 
-Issue [#242](https://github.com/rgomids/axiom/issues/242) adds the `go-quality`
-check to `ci.yml` on every PR and manual CI dispatch, including Release PRs.
-Its applicable suite runs alongside verify, release-contract and upgrade
-journeys after deterministic [change classification](change-aware-ci.md).
-The required context remains present for every PR; documentation-only changes
-need successful classification and repository checks rather than Go execution.
+Issue [#242](https://github.com/rgomids/axiom/issues/242) added the Go quality
+gate to `ci.yml`. Since [ADR-0029](../decisions/0029-minimal-pr-gate-native-qualification.md)
+(Proposed) its steps run inside the single required `PR Checks` job on every PR
+and manual CI dispatch, including Release PRs; the separate `go-quality`
+context and change classification are retired
+([PR CI and native qualification](change-aware-ci.md)).
 
 The job has a ten-minute timeout covering setup, analyzer installation and
 execution. It uses the Go version in `go.mod`, read-only token permissions,
@@ -63,8 +63,9 @@ and [Go module reference](https://go.dev/ref/mod#go-mod-tidy).
 
 ## Blocking semantics and rollout
 
-The versioned `.github/rulesets/main.json` adds `go-quality`, bound to the
-GitHub Actions integration (15368), alongside every existing required context.
+The versioned `.github/rulesets/main.json` historically added `go-quality`,
+bound to the GitHub Actions integration (15368); it now requires `PR Checks`
+and `delivery-metadata` only (ADR-0029).
 Release gates consume this policy, and the release contract fixtures include
 the new context. The workflow never tolerates failure or skips these stages.
 

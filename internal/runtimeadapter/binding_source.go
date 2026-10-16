@@ -60,97 +60,116 @@ func (s BindingSource) Current(ctx context.Context, t capabilityproof.Target) (c
 }
 
 func (s BindingSource) observe(ctx context.Context, t capabilityproof.Target) (capabilityproof.Binding, capabilityproof.ModelBinding, error) {
+	b, m, _, err := s.observeInvocation(ctx, t)
+	return b, m, err
+}
+
+func (s BindingSource) PrepareProbe(ctx context.Context, t capabilityproof.Target) (capabilityproof.ProbePreparation, error) {
+	b, m, inv, err := s.observeInvocation(ctx, t)
+	if err != nil {
+		return capabilityproof.ProbePreparation{}, err
+	}
+	return capabilityproof.ProbePreparation{
+		Current:              capabilityproof.Current{Binding: b, Model: &m, ProfileActive: true},
+		ConfigurationVersion: runtimeprofile.FormatVersionV3,
+		Invocation:           inv,
+		Interface:            capabilityproof.InterfaceObservation{ExecutableDigest: b.ExecutableDigest, Version: b.Version},
+		OSSandbox:            t.RuntimeID == "codex",
+	}, nil
+}
+
+func (s BindingSource) observeInvocation(ctx context.Context, t capabilityproof.Target) (capabilityproof.Binding, capabilityproof.ModelBinding, executiongraph.Invocation, error) {
 	var none capabilityproof.Binding
 	var noModel capabilityproof.ModelBinding
 	if err := ctx.Err(); err != nil {
-		return none, noModel, err
+		return none, noModel, executiongraph.Invocation{}, err
 	}
 	if s.Configuration == nil || s.LookPath == nil || s.Version == nil || s.Stage == nil || s.EffortRoots == nil || t.ProfileID == "" || t.Variant != capabilityproof.ReadOnlyVariant && t.Variant != capabilityproof.RepositoryWriteVariant {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	cfg, err := s.Configuration(ctx)
 	if err != nil {
-		return none, noModel, blocked(ctx, err)
+		return none, noModel, executiongraph.Invocation{}, blocked(ctx, err)
 	}
 	// Only format 3 carries an EffortDeclaration; formats 1/2 stay readable
 	// elsewhere but their effort configuration is unproven (D3).
 	if cfg.FormatVersion != runtimeprofile.FormatVersionV3 || cfg.V3 == nil {
-		return none, noModel, ErrEffortConfigurationUnproven
+		return none, noModel, executiongraph.Invocation{}, ErrEffortConfigurationUnproven
 	}
 	if runtimeprofile.ValidateV3(*cfg.V3) != nil {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	runtime, profile, ok := activeProfile(*cfg.V3, t)
 	if !ok {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	profileDigest, err := runtimeprofile.ProfileDigest(profile)
 	if err != nil {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	executable, err := s.LookPath(runtime.Adapter)
 	if err != nil || !filepath.IsAbs(executable) {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	executableDigest, err := ExecutableIdentity(executable)
 	if err != nil {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	version, err := s.Version(ctx, t.RuntimeID, executableDigest)
 	if err != nil || version == "" {
-		return none, noModel, blocked(ctx, err)
+		return none, noModel, executiongraph.Invocation{}, blocked(ctx, err)
 	}
 	axiomDigest, err := ExecutableIdentity(s.AxiomPath)
 	if err != nil {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	stage, err := s.Stage(ctx, t)
 	if err != nil {
-		return none, noModel, blocked(ctx, err)
+		return none, noModel, executiongraph.Invocation{}, blocked(ctx, err)
 	}
 	request := StageInvocationRequest{Profile: CommandProfile{RuntimeID: t.RuntimeID, ModelProfileID: profile.ID, Executable: executable, Model: profile.Model}, Version: version, Workspace: stage.Workspace, Inbox: stage.Inbox, AxiomPath: s.AxiomPath, Process: t.Process, RepositoryWrite: t.Variant == capabilityproof.RepositoryWriteVariant, ParentEnvironment: stage.ParentEnvironment}
 	// The same effective request feeds the canonical mode identity and, with
 	// the Profile's effort encoding, the effort-source inspection.
 	mode, err := ModeDigest(request)
 	if err != nil {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	adapter, err := AdapterVersion(t.RuntimeID)
 	if err != nil {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	base, err := BuildStageInvocation(request)
 	if err != nil {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	inv, err := withStageEffort(base, profile.Effort)
 	if err != nil {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	roots, err := s.EffortRoots(ctx, t, executiongraph.EffectiveInvocationEnvironment(inv))
 	if err != nil {
-		return none, noModel, blocked(ctx, err)
+		return none, noModel, executiongraph.Invocation{}, blocked(ctx, err)
 	}
 	effortDigest, err := InspectEffortSources(ctx, EffortSourceRequest{Consented: s.EffortConsented, Configuration: cfg, ProfileID: profile.ID, Observed: runtimeprofile.EffortApplicability{RuntimeID: t.RuntimeID, RuntimeVersion: version, ExecutableDigest: executableDigest, InvocationMode: "noninteractive"}, Roots: roots, Invocation: inv})
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
-			return none, noModel, ctxErr
+			return none, noModel, executiongraph.Invocation{}, ctxErr
 		}
-		return none, noModel, err
+		return none, noModel, executiongraph.Invocation{}, err
 	}
 	// Executables replaced during observation are not the ones observed.
 	if after, err := ExecutableIdentity(executable); err != nil || after != executableDigest {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	if after, err := ExecutableIdentity(s.AxiomPath); err != nil || after != axiomDigest {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
 	b := capabilityproof.Binding{RuntimeID: t.RuntimeID, ExecutableDigest: executableDigest, Version: version, ModeDigest: mode, Variant: t.Variant, AdapterVersion: adapter, AxiomDigest: axiomDigest}
 	m := capabilityproof.ModelBinding{ProfileID: profile.ID, ProfileDigest: profileDigest, Model: profile.Model, EffortMode: profile.Effort.Mode, EffortToken: profile.Effort.Value, ConfigurationRevision: cfg.V3.Revision, EffortSourceDigest: effortDigest}
 	if !capabilityproof.ValidBinding(b) {
-		return none, noModel, capabilityproof.ErrBlocked
+		return none, noModel, executiongraph.Invocation{}, capabilityproof.ErrBlocked
 	}
-	return b, m, nil
+	return b, m, inv, nil
 }
 
 // activeProfile requires an enabled Runtime that allowlists exactly the

@@ -1,6 +1,82 @@
 # Plan and Tasks — #276 run and coordinate stage agents through CLI and Runtime skills
 
-Current interpretation: [2026-10-15 reconciliation addendum](#reconciliation-addendum--2026-10-15), including the v3 configuration overlay and current delivery governance. Historical status statements below retain their dated meaning.
+Current scope: [accepted decision dispositions](#accepted-decision-dispositions--2026-10-16) and [maintainer addendum](#implementation-scope-addendum--2026-10-15). Technical baseline: [2026-10-15 reconciliation addendum](#reconciliation-addendum--2026-10-15), including the v3 configuration overlay and current delivery governance. Historical status statements below retain their dated meaning.
+
+## Accepted decision dispositions — 2026-10-16
+
+Authority: maintainer comment `fee15434-632b-4239-8d14-55653cab0ad7` on
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills),
+accepting three ADRs. The catalog below keeps its text; these notes say how it
+is read.
+
+- [ADR-0027](../../decisions/0027-single-stage-attempt-persistence.md), option A:
+  T26–T31 single-agent "stage ledger" means the private
+  `single-stage-runs/v1` operational ledger plus the version-2 single-stage
+  dispatch authority. Execution3 and Graph1/2/3 codecs are unchanged.
+- [ADR-0028](../../decisions/0028-mvp-posix-process-group-supervision-boundary.md):
+  T43 "the whole group is confirmed gone" and "descendant escaping the group
+  yields `unknown`" refer to the leader's own process group and to escapes
+  observable through the live leader's ancestry. Deliberately detached
+  descendants without observable ancestry are outside the MVP guarantee.
+- [ADR-0029](../../decisions/0029-minimal-pr-gate-native-qualification.md):
+  "platform tests green on the CI matrix" (T27, T43) is met by the nightly or
+  manual native suite and the release-revision gate, not by a required PR check.
+
+## Implementation scope addendum — 2026-10-15
+
+### Envelope lifecycle decision — option A
+
+Authority: maintainer comment `ee426468-cee7-41f2-8647-4ba854466ee9` on
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills),
+15 October 2026, read in full. Publication of this bounded decision summary is
+authorized by the continuation brief for Draft PR #320.
+
+PREPARE is an independently authorized local operation: reuse T13 to create
+private Axiom-owned objects and a `ready` manifest with nonce, revision,
+physical identities and exact digest. It authorizes no Runtime, credentials,
+inference, dispatch or Provider. PREVIEW is read-only over that prepared
+envelope and binds the exact manifest, binding/Profile v3/effort, invocation,
+environment, packet, variant, risk and cost. It creates no objects and changes
+no manifest. Future APPLY needs its own exact-preview confirmation, separate
+local and external authorities, authentication and fail-closed revalidation of
+configuration, identity, digest, execution and effects. Drift refuses as
+`stale_preview`; the authorized digest is never silently replaced. Abandoned,
+interrupted or ambiguous envelopes remain quarantined for verified exact-object
+cleanup/recovery. No planned manifest or second envelope lifecycle is adopted.
+
+The deferred-real-proof, Linux/macOS and human acceptance boundaries below
+remain in force. This prospective addendum changes no accepted Plan/catalog,
+ADR, receipt, historical corpus or digest.
+
+### Deferred proof and platform scope
+
+Authority: maintainer comment `e67f6bbe-74dc-408d-b02d-bda86f930ca7`
+([AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)),
+read in full before implementation. The maintainer explicitly authorizes a
+bounded T16/T14 implementation and publication of this scope summary.
+
+- All real Runtime tests, version/help commands, authentication, inference,
+  probes, installed smoke and Provider effects are deferred: **NOT_RUN**.
+  The maintainer assumes the risk of postponing this proof. Synthetic unit,
+  integration, fake subprocess, security and CI checks remain required;
+  authority gates, binding checks and fail-closed refusal remain mandatory.
+- T40 is optional and non-blocking for **technical delivery**. Its own Done
+  criterion and AC-6 still require real, independently authorized Evidence;
+  NOT_RUN, FAILED or INCONCLUSIVE do not satisfy them. A future attempt needs
+  its exact envelope, independent consent and all prerequisites. The owner
+  performs real validation and final acceptance after technical delivery.
+- Active T43 platform scope and expected Evidence are **Linux and macOS**:
+  POSIX descendant containment and confirmed stop, with synthetic tests and
+  applicable native CI. Windows job objects, native Windows Evidence and
+  Windows CI are excluded, reusing [Specification 006](../006-installer-host-eligibility/spec.md).
+  The same platform scope applies to T13 envelope checks. Historical Windows
+  wording in the accepted Plan/catalog is preserved, with this explicit scope
+  disposition; it is no longer an active delivery requirement.
+
+This addendum qualifies the earlier T40/T43 gate assessment and historical
+platform requirements without changing accepted ADRs, Task numbering, DAG,
+corpora, hashes or receipts. It grants no merge, release, operational acceptance
+or automatic AXM-8 state transition. No capability is proven by this decision.
 
 ## Status
 

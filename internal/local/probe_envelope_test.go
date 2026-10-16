@@ -184,11 +184,14 @@ func TestProbeEnvelopeLifecycle(t *testing.T) {
 	if _, err := OpenQuarantinedEnvelope(e.policy, e.manifest.ProbeID, "wrong-digest"); err == nil {
 		t.Fatal("unbound recovery accepted")
 	}
-	_, err = e.PreviewCleanup()
+	fresh, err := e.PreviewCleanup()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := preview.Apply(); err != nil {
+	if err := preview.Apply(); err == nil {
+		t.Fatal("pre-quarantine cleanup preview accepted after persisted quarantine")
+	}
+	if err := fresh.Apply(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Lstat(e.path); !os.IsNotExist(err) {

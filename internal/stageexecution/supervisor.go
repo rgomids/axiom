@@ -47,6 +47,7 @@ type Supervisor struct {
 	Store        SupervisorStore
 	Preparation  SupervisorPreparation
 	Runner       SupervisorRunner
+	Reset        WorkspaceReset
 	AllocateID   func() (string, error)
 	Now          func() time.Time
 	PollInterval time.Duration

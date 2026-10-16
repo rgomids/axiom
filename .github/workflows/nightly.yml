@@ -1,0 +1,21 @@
+name: Nightly native suite
+# Scheduled and manually dispatchable run of native-suite.yml on the dispatched
+# commit. A failure fails this run visibly in Actions; nothing is published.
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native-suite:
+    uses: ./.github/workflows/native-suite.yml
+    with:
+      ref: ${{ github.sha }}

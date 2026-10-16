@@ -232,14 +232,18 @@ Before every commit, inspect staged paths and content and run `./scripts/check-s
 
 ### Required CI
 
-The [CI workflow](.github/workflows/ci.yml) runs on every Pull Request and every
-push to `main`. Its jobs are the required checks of the `main` ruleset
-([desired state](.github/rulesets/main.json)):
+Every Pull Request has two required checks in the `main` ruleset
+([desired state](.github/rulesets/main.json)); see
+[PR CI and native qualification](docs/development/change-aware-ci.md):
 
 | Required check | Runs |
 |---|---|
-| `verify (linux)`, `verify (macos)` | `go test -race ./...`, `go vet ./...`, `go build ./...`, `go mod verify`, `./scripts/validate-repository.sh .`, `./scripts/dogfood-poc.sh` |
-| `release-contract` | `./scripts/test-release-pipeline.sh`, `./scripts/test-release-flow.sh` |
+| `PR Checks` ([CI workflow](.github/workflows/ci.yml)) | `gofmt`, `go mod tidy -diff`, `go mod verify`, `go vet ./...`, Staticcheck, `go build ./...`, `go test ./...`, `./scripts/validate-repository.sh .` |
+| `delivery-metadata` | PR description and Issue metadata contract |
+
+Linux/macOS `go test -race`, release contracts and upgrade journeys run in the
+[native suite](.github/workflows/native-suite.yml): nightly, on manual dispatch
+and in every release preparation, where a failure blocks publication.
 
 CI has a read-only token and never publishes anything. Renaming a job changes a
 required check: update the ruleset file and the repository ruleset together.

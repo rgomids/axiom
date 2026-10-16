@@ -44,7 +44,7 @@
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "owner": "ci",
-      "purpose": "Change-aware PR suites, stable required contexts and unconditional repository validation; dispatch always runs full CI.",
+      "purpose": "Single direct PR gate: format, tidiness, module verification, vet, curated Staticcheck, build, go test ./... and repository/sensitive-file validation in one Linux job.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -60,11 +60,11 @@
       "callers": [
         "scripts/release-pr-checks.sh"
       ],
-      "inputs": "GitHub event; repository checkout; go.mod Go version; matrix linux/macos plus release-contract job",
-      "outputs": "Required check contexts verify (linux|macos) and release-contract; step failures fail the run; go-quality required context",
+      "inputs": "GitHub event; repository checkout; go.mod Go version",
+      "outputs": "Required check context PR Checks; step failures fail the job",
       "local_effects": "runner workspace only",
-      "network_effects": "GitHub Actions checkout and setup-go; Go module download; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1 from github.com release downloads; pinned honnef.co/go/tools@v0.8.1 and its module dependencies Read-only Actions baseline lookup and code health artifact retention.",
-      "authority": "contents: read; verify adds actions: read for baseline artifacts; no secrets or privileged PR event",
+      "network_effects": "GitHub Actions checkout and setup-go; Go module download; pinned honnef.co/go/tools@v0.8.1 and its module dependencies",
+      "authority": "contents: read; no secrets or privileged PR event",
       "tests": [
         "scripts/test-release-flow.sh",
         "scripts/test-go-quality.py",
@@ -243,7 +243,7 @@
       "path": ".github/workflows/native-acceptance-qualification.yml",
       "kind": "workflow",
       "owner": "release",
-      "purpose": "Reproducible non-publishing qualification of native lifecycle and strict failure-to-skipped-promotion propagation.",
+      "purpose": "Reproducible non-publishing qualification of native lifecycle, native suites and strict failure-to-skipped-promotion propagation.",
       "lifecycle": "durable",
       "disposition": "keep",
       "disposition_ref": null,
@@ -260,7 +260,7 @@
       "replay_reason": null,
       "callers": [],
       "inputs": "Dispatched source revision, genuine public v0.10.0 baseline, GitHub-hosted runners",
-      "outputs": "Prepared qualification artifact, positive native report, deliberately failed corruption report, macOS smoke and propagation summary; intentionally failed run due to real rejection job",
+      "outputs": "Prepared qualification artifact, positive native report, deliberately failed corruption report, macOS smoke, native-suite job results and propagation summary; intentionally failed run due to real rejection job",
       "local_effects": "none on the runner beyond checkouts and temporary files",
       "network_effects": "GitHub checkout, setup-go, module download, Actions artifact transfer and public baseline release downloads through reusable native job",
       "authority": "contents: read only, no secrets, no publishing permission",
@@ -305,6 +305,73 @@
         ".github/workflows/native-acceptance-qualification.yml"
       ],
       "evidence": "docs/development/native-platform-acceptance.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/native-suite.yml",
+      "kind": "workflow",
+      "owner": "ci",
+      "purpose": "Reusable native validation outside the PR gate: Linux/macOS go test -race (Linux with coverage), vet/build/verify, repository checks, dogfooding smoke, release and governance contracts and owned upgrade journeys.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions",
+        "bash",
+        "python3"
+      ],
+      "scope": [
+        "ci",
+        "maintainer"
+      ],
+      "trigger": "workflow_call from nightly.yml, native-acceptance-qualification.yml and release-artifacts.yml",
+      "replay_reason": null,
+      "callers": [
+        ".github/workflows/nightly.yml",
+        ".github/workflows/native-acceptance-qualification.yml",
+        ".github/workflows/release-artifacts.yml"
+      ],
+      "inputs": "Exact commit SHA to validate; go.mod Go version; GitHub-hosted Linux and macOS runners",
+      "outputs": "Job results that fail the calling run; optional Linux code health snapshot artifact",
+      "local_effects": "runner workspace only",
+      "network_effects": "GitHub checkout, setup-go, Go module download, Actions artifact upload; upgrade-journeys downloads public release assets (SHA256SUMS and one archive per row) of the newest stable tag and v0.1.1",
+      "authority": "contents: read only; no secrets; never publishes",
+      "tests": [
+        "scripts/test-release-flow.sh",
+        "scripts/test-go-quality.py",
+        "scripts/test-code-health.py"
+      ],
+      "evidence": "docs/development/change-aware-ci.md",
+      "compatibility": [],
+      "removal_condition": null
+    },
+    {
+      "path": ".github/workflows/nightly.yml",
+      "kind": "workflow",
+      "owner": "ci",
+      "purpose": "Scheduled and manual run of the native suite on the dispatched commit with visible failure.",
+      "lifecycle": "durable",
+      "disposition": "keep",
+      "disposition_ref": null,
+      "runtime": [
+        "github-actions"
+      ],
+      "scope": [
+        "ci"
+      ],
+      "trigger": "schedule (daily 05:17 UTC) and workflow_dispatch",
+      "replay_reason": null,
+      "callers": [],
+      "inputs": "Default-branch or dispatched commit",
+      "outputs": "native-suite.yml job results; failed run on any failure",
+      "local_effects": "runner workspace only",
+      "network_effects": "Through native-suite.yml only",
+      "authority": "contents: read only; no secrets; never publishes",
+      "tests": [
+        "scripts/test-release-flow.sh"
+      ],
+      "evidence": "docs/development/change-aware-ci.md",
       "compatibility": [],
       "removal_condition": null
     },
@@ -1056,7 +1123,7 @@
         "maintainer",
         "test"
       ],
-      "trigger": "CI go-quality job or documented local reproduction",
+      "trigger": "CI PR Checks job or documented local reproduction",
       "replay_reason": null,
       "callers": [
         ".github/workflows/ci.yml",
@@ -1110,39 +1177,6 @@
       "removal_condition": null
     },
     {
-      "path": "scripts/classify-ci-changes.py",
-      "kind": "script",
-      "owner": "ci",
-      "purpose": "Deterministic closed path routing for PR CI with conservative full fallback.",
-      "lifecycle": "durable",
-      "disposition": "keep",
-      "disposition_ref": null,
-      "runtime": [
-        "python3"
-      ],
-      "scope": [
-        "ci",
-        "maintainer",
-        "test"
-      ],
-      "trigger": "CI path classification or documented offline fixture checks",
-      "replay_reason": null,
-      "callers": [
-        ".github/workflows/ci.yml"
-      ],
-      "inputs": "Immutable Git base/head, run identity, versioned plan and platform completion records; optional bounded fetch",
-      "outputs": "Versioned routing plan, platform records, real outcome Evidence and Actions outputs/summary; nonzero on invalid conclusion",
-      "local_effects": "Explicit output/summary files; bounded Git object/ref fetch with --fetch",
-      "network_effects": "With --fetch only: read exact base/head from origin with depth 64 and no tags",
-      "authority": "Local validation; CI-authorized read-only repository fetch when explicitly requested",
-      "tests": [
-        "scripts/test-ci-classification.py"
-      ],
-      "evidence": "docs/development/change-aware-ci.md",
-      "compatibility": [],
-      "removal_condition": null
-    },
-    {
       "path": "scripts/code-health.py",
       "kind": "script",
       "owner": "ci",
@@ -1161,8 +1195,8 @@
       "trigger": "CI code health collection, comparison, main baseline promotion or offline fixture validation.",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml",
         ".github/workflows/code-health-baseline.yml",
+        ".github/workflows/native-suite.yml",
         "scripts/test-code-health.py"
       ],
       "inputs": "Coverage profile, checkout, snapshot metadata; optional read-only Actions API token and UTC time.",
@@ -1343,7 +1377,7 @@
       "trigger": "every CI verify run on linux and macos (Bounded dogfooding smoke test step)",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "none; builds the checkout through install-axiom.sh and sets LINGO_PROJECTS_ROOT, LINGO_STATE_ROOT, AXIOM_CODEX_SKILLS_ROOT, AXIOM_GH_BIN to temporary paths",
       "outputs": "JSON evidence record on stdout (evidence=axiom_e2e_dogfood, result=pass); any failed assertion exits non-zero",
@@ -2216,38 +2250,6 @@
       "removal_condition": null
     },
     {
-      "path": "scripts/test-ci-classification.py",
-      "kind": "script",
-      "owner": "ci",
-      "purpose": "Offline CI routing and stable required-context fixtures.",
-      "lifecycle": "durable",
-      "disposition": "keep",
-      "disposition_ref": null,
-      "runtime": [
-        "python3",
-        "bash"
-      ],
-      "scope": [
-        "ci",
-        "maintainer",
-        "test"
-      ],
-      "trigger": "CI path classification or documented offline fixture checks",
-      "replay_reason": null,
-      "callers": [
-        ".github/workflows/ci.yml"
-      ],
-      "inputs": "Git diff base/head or path fixtures",
-      "outputs": "Routing JSON/Actions outputs or unittest results",
-      "local_effects": "Actions output/summary files or temporary Git fixtures",
-      "network_effects": "none",
-      "authority": "read-only local validation",
-      "tests": [],
-      "evidence": "docs/development/change-aware-ci.md",
-      "compatibility": [],
-      "removal_condition": null
-    },
-    {
       "path": "scripts/test-code-health.py",
       "kind": "script",
       "owner": "ci",
@@ -2264,7 +2266,7 @@
       "trigger": "CI code health collection, comparison, main baseline promotion or offline fixture validation.",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "Embedded metrics and mocked REST/ZIP fixtures; workflow source.",
       "outputs": "Unit test pass/fail.",
@@ -2322,10 +2324,10 @@
         "ci",
         "test"
       ],
-      "trigger": "every CI release-contract job run",
+      "trigger": "every native-suite.yml contracts job run",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "none; reads delivery-issues.sh, .github/delivery-corrections.txt and delivery-project.json",
       "outputs": "ok:/FAIL: lines; PASS summary and exit 0, or failure count and exit 1",
@@ -2364,7 +2366,7 @@
         "maintainer",
         "test"
       ],
-      "trigger": "CI go-quality job or documented local reproduction",
+      "trigger": "CI PR Checks job or documented local reproduction",
       "replay_reason": null,
       "callers": [
         ".github/workflows/ci.yml"
@@ -2546,11 +2548,11 @@
         "ci",
         "test"
       ],
-      "trigger": "CI release-contract and non-publishing native qualification",
+      "trigger": "native-suite.yml contracts job and non-publishing native qualification",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml",
-        ".github/workflows/native-acceptance-qualification.yml"
+        ".github/workflows/native-acceptance-qualification.yml",
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "none; temporary archive fixtures",
       "outputs": "unittest results; non-zero exit on failure",
@@ -2609,7 +2611,7 @@
         "ci",
         "test"
       ],
-      "trigger": "Every CI release-contract job through test-release-pipeline.sh",
+      "trigger": "Every native-suite.yml contracts job through test-release-pipeline.sh",
       "replay_reason": null,
       "callers": [
         "scripts/test-release-pipeline.sh"
@@ -2669,10 +2671,10 @@
         "ci",
         "test"
       ],
-      "trigger": "Every CI release-contract job run (ci.yml)",
+      "trigger": "Every native-suite.yml contracts job run (nightly, qualification and release-artifacts)",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "none; copies release-corrections.sh into temporary Git fixtures",
       "outputs": "unittest results; non-zero exit on failure",
@@ -2700,10 +2702,10 @@
         "ci",
         "test"
       ],
-      "trigger": "Every CI release-contract job run (ci.yml)",
+      "trigger": "Every native-suite.yml contracts job run (nightly, qualification and release-artifacts)",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "none; stateful fake gh on PATH backed by local JSON, local fixture repository and bare remote",
       "outputs": "ok:/FAIL: lines per check; non-zero exit when any check fails",
@@ -2730,10 +2732,10 @@
         "ci",
         "test"
       ],
-      "trigger": "Every CI release-contract job run (ci.yml)",
+      "trigger": "Every native-suite.yml contracts job run (nightly, qualification and release-artifacts)",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "none; builds and verifies in a clean clone of committed HEAD (go toolchain required)",
       "outputs": "exit 0 on success; FAIL: messages on stderr and non-zero exit on failure",
@@ -2761,10 +2763,10 @@
         "ci",
         "test"
       ],
-      "trigger": "Every CI release-contract job run (ci.yml)",
+      "trigger": "Every native-suite.yml contracts job run (nightly, qualification and release-artifacts)",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "none; fake gh executable on PATH with fixture JSON; reads release-please.yml text",
       "outputs": "unittest results; non-zero exit on failure",
@@ -2879,10 +2881,10 @@
         "maintainer",
         "test"
       ],
-      "trigger": "every CI upgrade-journeys run on linux and macos; maintainers before a release with locally built candidate archives",
+      "trigger": "every native-suite.yml upgrade-journeys run on linux and macos; maintainers before a release with locally built candidate archives",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "--candidate ABS_DIR (SHA256SUMS + archives of the candidate), --previous ABS_DIR (repeatable; first is release N), optional --poc-binary ABS_FILE (lingo built from v0.1.0-poc.1); reads internal/compatibility/testdata/stable-v1",
       "outputs": "journey=<name> step=<step> result=pass|fail lines, failures=<n>, result=pass|fail; exit 1 on any failure, 78 on an unsupported host row, 2 on invalid input",
@@ -3033,10 +3035,11 @@
         "ci",
         "maintainer"
       ],
-      "trigger": "Every CI repository-check run on linux and macos (ci.yml 'Repository checks') and maintainer validation before a change is complete.",
+      "trigger": "Every CI PR Checks run (ci.yml) and every native-suite.yml run on linux and macos, and maintainer validation before a change is complete.",
       "replay_reason": null,
       "callers": [
-        ".github/workflows/ci.yml"
+        ".github/workflows/ci.yml",
+        ".github/workflows/native-suite.yml"
       ],
       "inputs": "Optional $1 target directory (default .); reads required docs, .gitignore, README.md and delegates to child scripts.",
       "outputs": "PASS line on stdout and exit 0, or 'FAIL: <reason>' on stderr and exit 1; child scripts print their own PASS/FAIL.",

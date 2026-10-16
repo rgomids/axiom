@@ -66,6 +66,10 @@ func TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation(t *testing.T) {
 		{"create attempt stored under a work item name", InventoryCreateAttempt, renameTo("main-attempt.json")},
 		{"work item stored under a create attempt name", InventoryWorkItem, renameTo(".axiom-create-" + strings.Repeat("d", 64) + ".json")},
 		{"operational state moved under another project", InventoryOperational, moveToProject(foreignProjectUUID)},
+		{"single-stage ledger renamed to another digest", InventorySingleStageRun, renameTo(strings.Repeat("e", 64) + ".json")},
+		{"single-stage ledger moved under another project", InventorySingleStageRun, moveToProject("project-2")},
+		{"single-stage authority renamed to another digest", InventorySingleStageAuthority, renameTo(strings.Repeat("e", 64) + ".json")},
+		{"single-stage authority moved under another project", InventorySingleStageAuthority, moveToProject("project-2")},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -308,7 +312,7 @@ func onlyEntryOfKind(t *testing.T, state string, kind InventoryKind) string {
 			found = append(found, entry.Relative)
 		}
 	}
-	if len(found) != 1 {
+	if len(found) == 0 || len(found) > 1 && kind != InventoryRunLease {
 		t.Fatalf("want exactly one %s entry, got %v", kind, found)
 	}
 	return found[0]

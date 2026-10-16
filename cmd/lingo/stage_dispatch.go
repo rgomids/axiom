@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -94,6 +93,9 @@ func (o dispatchObservation) Observe(ctx context.Context, ref workflowcompiler.E
 
 func (s lifecycleService) dispatchPreview(ctx context.Context, stores stageStores, t stageTarget, in cli.WorkflowStageInput) (stageexecution.PreviewService, error) {
 	root := in.WorkspaceRoot
+	if root == "" && t.single != nil {
+		root = filepath.Dir(filepath.Dir(t.single.Binding.Workspace))
+	}
 	if root == "" {
 		doc, err := stageGraph(ctx, stores, t.request)
 		if err != nil || doc == nil || doc.Successor == nil {
@@ -220,6 +222,13 @@ func (p *retainedPublisher) Commit(ctx context.Context, v stageexecution.Publica
 	if err != nil {
 		return err
 	}
+	if v.Single != nil {
+		run := v.Single.Run
+		if _, err = p.Singles.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 1, ProjectID: run.Scope.ProjectID, ParentID: run.Scope.ExecutionID, PreviewDigest: run.Binding.PreviewDigest, Preview: wire}); err != nil {
+			return err
+		}
+		return p.LocalPublisher.Commit(ctx, v)
+	}
 	if _, err = p.Graphs.CommitDispatchInputs(ctx, executiongraph.DispatchInputs{FormatVersion: 1, ProjectID: v.Authority.ProjectID, ParentID: v.Authority.ParentID, PreviewDigest: v.Authority.PreviewDigest, Preview: wire}); err != nil {
 		return err
 	}
@@ -229,16 +238,11 @@ func (p *retainedPublisher) Commit(ctx context.Context, v stageexecution.Publica
 type stageWorkspaces struct{ repository string }
 
 func (w stageWorkspaces) Prepare(ctx context.Context, p stageexecution.Publication) error {
+	if p.Single != nil && p.Graph == nil {
+		return w.prepareSingle(ctx, p.Single.Run)
+	}
 	if p.Graph == nil {
 		return stageexecution.ErrPreview
-	}
-	m, _, err := (gitIntegration{repository: w.repository}).manager(ctx, *p.Graph)
-	if err != nil {
-		return err
-	}
-	_, err = m.Prepare(ctx)
-	if err != nil {
-		return err
 	}
 	root, err := stageWorkspaceRoot(*p.Graph)
 	if err != nil {
@@ -249,11 +253,22 @@ func (w stageWorkspaces) Prepare(ctx context.Context, p stageexecution.Publicati
 		return err
 	}
 	defer anchor.Close()
-	if err = privateInboxDirectory(anchor, "inboxes"); err != nil {
-		return err
+	for _, name := range []string{"worktrees", "inboxes"} {
+		if err = privateInboxDirectory(anchor, name); err != nil {
+			return err
+		}
 	}
 	for _, child := range p.Graph.Children {
 		if err = privateInboxDirectory(anchor, filepath.Join("inboxes", filepath.Base(child.Envelope.Workspace))); err != nil {
+			return err
+		}
+	}
+	m, projection, err := (gitIntegration{repository: w.repository}).manager(ctx, *p.Graph)
+	if err != nil {
+		return err
+	}
+	for _, child := range projection.Children {
+		if err := m.EnsureWorkspace(ctx, child); err != nil {
 			return err
 		}
 	}
@@ -303,8 +318,13 @@ func (s lifecycleService) stageRun(ctx context.Context, stores stageStores, t st
 		return s.stagePreview(preview.Digest, "Stage dispatch preview", "Review child rights; repeat with exact digest, revision and both authority flags", preview)
 	}
 	store := s.supervisorStore(stores, t)
-	service := stageexecution.RunService{ResumeStore: store, Preview: previewService, Publisher: &retainedPublisher{LocalPublisher: stagepublication.LocalPublisher{Graphs: stores.graphs, Executions: stores.executions, Leases: stores.leases, AllocateID: allocateStageID}}, Workspaces: stageWorkspaces{t.repository.Path}, Starter: stageexecution.CommittedStarter{Store: store, Detached: stageexecution.SameBinaryDetacher{}}}
+	single := &localSingleStore{s: s, stores: stores, target: t}
+	service := stageexecution.RunService{ResumeStore: store, SingleStore: single, Preview: previewService, Publisher: &retainedPublisher{LocalPublisher: stagepublication.LocalPublisher{Graphs: stores.graphs, Executions: stores.executions, Singles: stores.singles, Leases: stores.leases, Execution: t.state, AllocateID: allocateStageID}}, Workspaces: stageWorkspaces{t.repository.Path}, Starter: stageexecution.CommittedStarter{Store: store, Single: single, Detached: stageexecution.SameBinaryDetacher{}}}
 	r := stageexecution.RunRequest{Execution: t.ref, StageID: in.Stage, PreviewDigest: in.PreviewDigest, ExpectedRevision: in.ExpectedRevision, AuthorizeLocal: in.AuthorizeLocal, AuthorizeExternal: in.AuthorizeExternal, Actor: stageActor()}
+	if t.single != nil {
+		request := singleRequest(*t.single)
+		r.CommittedSingle = &request
+	}
 	if doc, err := stageGraph(ctx, stores, t.request); err == nil && doc != nil && doc.Successor != nil {
 		committed, err := committedRequest(ctx, s.stateRoot, stores.graphs, *doc.Successor)
 		if err != nil {
@@ -316,7 +336,11 @@ func (s lifecycleService) stageRun(ctx context.Context, stores stageStores, t st
 	if err != nil {
 		return s.stageDispatchError(err, result.Status, result)
 	}
-	return s.stageSuccess("stage_dispatched", "Committed stage authority and started the supervisor", []string{"dispatch-authority:" + result.Publication.Authority.PreviewDigest}, "Inspect stage status; supervisor start does not imply child success", result)
+	reference := "dispatch-authority:" + result.Publication.Authority.PreviewDigest
+	if result.Publication.Single != nil {
+		reference = "single-stage-authority:" + singleRequest(result.Publication.Single.Run).AuthorityRef
+	}
+	return s.stageSuccess("stage_dispatched", "Committed stage authority and started the supervisor", []string{reference}, "Inspect stage status; supervisor start does not imply child success", result)
 }
 
 func committedRequest(ctx context.Context, stateRoot string, graphs local.GraphStore, g executiongraph.SuccessorGraph) (stageexecution.SupervisorRequest, error) {
@@ -349,22 +373,35 @@ func (st stageRetryStore) CommitRetry(ctx context.Context, g executiongraph.Succ
 type stageDisposer struct{ repository string }
 
 func (d stageDisposer) Dispose(ctx context.Context, g executiongraph.SuccessorGraph, c executiongraph.SuccessorChild, disposition string) error {
-	if disposition == executiongraph.DispositionReset {
-		return gitworkspace.ErrRetryResetFencingUnavailable
-	}
-	if disposition != executiongraph.DispositionPreserve {
+	if disposition != executiongraph.DispositionPreserve && disposition != executiongraph.DispositionReset {
 		return stageexecution.ErrDispositionRequired
 	}
-	m, projection, err := (gitIntegration{d.repository}).manager(ctx, g)
+	m, child, err := d.child(ctx, g, c.ExecutionID)
 	if err != nil {
 		return err
 	}
+	return m.InspectRetryWorkspace(ctx, child)
+}
+
+func (d stageDisposer) child(ctx context.Context, g executiongraph.SuccessorGraph, id string) (*gitworkspace.Manager, executiongraph.ChildExecution, error) {
+	m, projection, err := (gitIntegration{d.repository}).manager(ctx, g)
+	if err != nil {
+		return nil, executiongraph.ChildExecution{}, err
+	}
 	for _, child := range projection.Children {
-		if child.ExecutionID == c.ExecutionID {
-			return m.InspectRetryWorkspace(ctx, child)
+		if child.ExecutionID == id {
+			return m, child, nil
 		}
 	}
-	return gitworkspace.ErrInvalidConfiguration
+	return nil, executiongraph.ChildExecution{}, gitworkspace.ErrInvalidConfiguration
+}
+
+func (d stageDisposer) ResetChild(ctx context.Context, g executiongraph.SuccessorGraph, id string, guard func(context.Context) error) error {
+	m, child, err := d.child(ctx, g, id)
+	if err != nil {
+		return err
+	}
+	return m.ResetWorkspace(ctx, child, guard)
 }
 func (s lifecycleService) stageRetry(ctx context.Context, stores stageStores, t stageTarget, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
 	dispatch, err := s.dispatchPreview(ctx, stores, t, in)
@@ -394,9 +431,6 @@ func (s lifecycleService) stageRetry(ctx context.Context, stores stageStores, t 
 	return s.stageSuccess("stage_retry_dispatched", "Committed retry authority and started its supervisor", []string{"retry-authority:" + result.AuthorityRef}, "Inspect stage status; retry start does not imply success", result)
 }
 func (s lifecycleService) stageDispatchError(err error, status string, payload any) cli.WorkflowStageResponse {
-	if errors.Is(err, gitworkspace.ErrRetryResetFencingUnavailable) {
-		return s.stageFailure(completion.Failure, "retry_reset_authority_fencing_unavailable", "Retry reset is disabled; workspace contents are preserved", "Inspect committed retry authority; reset requires an authority-bound fencing guard before recovery", payload)
-	}
 	if status == "partial" {
 		return s.stageFailure(completion.Partial, "confirmed_effect_reconciliation_required", "Stage publication committed incompletely", "Inspect persisted authority before resuming", payload)
 	}
@@ -413,8 +447,12 @@ func retainedPreview(ctx context.Context, graphs local.GraphStore, r stageexecut
 	if err != nil {
 		return stageexecution.DispatchPreview{}, err
 	}
+	return verifiedPreview(d.Preview, r.PreviewDigest)
+}
+
+func verifiedPreview(wire []byte, expected string) (stageexecution.DispatchPreview, error) {
 	var p stageexecution.DispatchPreview
-	if workflowdefinition.StrictJSONBounded(d.Preview, &p, executiongraph.MaxDispatchInputsBytes) != nil || p.Digest != r.PreviewDigest {
+	if workflowdefinition.StrictJSONBounded(wire, &p, executiongraph.MaxDispatchInputsBytes) != nil || p.Digest != expected {
 		return p, stageexecution.ErrSupervisorAuthority
 	}
 	digest := p.Digest

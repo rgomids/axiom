@@ -1,6 +1,347 @@
 # #276 implementation record
 
-Current assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
+Latest continuation: [installed synthetic technical qualification](#continuation-2026-10-16--installed-synthetic-technical-qualification). Earlier checkpoint: [Task inventory and T43/T41 Evidence](#continue-2026-10-15--operational-checkpoint-for-pr-320). Earlier PR implementation: [T13/T14/T16 production integration](#implement-2026-10-15--prepared-production-probe-and-canary). Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Baseline assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
+
+## Implementation scope addendum — 2026-10-15
+
+The [maintainer scope addendum](plan-tasks-276-stage-agent-execution.md#implementation-scope-addendum--2026-10-15)
+qualifies the earlier dated T40/T43 assessments: all real tests are deferred
+(**NOT_RUN**); T40 does not block technical delivery, while its own Done and
+AC-6 remain unproved; active T43/T13 platform Evidence is Linux/macOS only.
+Windows requirements in the historical catalog are excluded prospectively.
+The maintainer owns the deferred-proof risk and final operational acceptance.
+No Task or AXM-8 state is promoted by these decisions.
+
+
+## Continuation 2026-10-16 — installed synthetic technical qualification
+
+This section supersedes the status columns of the earlier dated matrices. It
+records implementation on the same unmerged Draft PR #320, not Task lifecycle
+closure, merge readiness or operational acceptance. T40 and AC-6 remain NOT_RUN.
+
+Initial source: `95a4a5e72858a61bcd26bfe7d9a985a1eaaecc45` (Codex takeover).
+The [takeover HANDOFF](https://github.com/rgomids/axiom/pull/320#issuecomment-6216317513)
+records the four inherited dirty files before edits. The earlier
+[handoff at 6847990](https://github.com/rgomids/axiom/pull/320#issuecomment-6208213568)
+is historical: accepted ADR-0027/0028/0029, T31 reset, extended effects and two
+installed single journeys have since been implemented. No ruleset change is
+part of this continuation.
+
+### Delta and concrete integration corrections
+
+Relative to `4aa3bed`, the PR adds the accepted ADR dispositions, single-stage
+ledger v1 / authority v2 and their frozen candidate corpus, single publication,
+detached supervisor and lifecycle composition. Relative to `6847990`:
+
+| Change | Source / observed behavior |
+| --- | --- |
+| Linux process observation | `f8f84b1`: `/proc` enumeration can race with reap and return ESRCH. Like ENOENT, that entry has vanished; other errors retain unknown. Full failed CI 38851696265 was inspected; no stop assertion was relaxed. |
+| Fenced reset | `94d5f9a`: graph and single supervisors hold the lease, revalidate pending receipt/generation/epoch around destructive effects, and verify exact owned worktree/base after reset. |
+| Extended effects | `82e16c1`: host root snapshots, bounded control/canary/cleanup and public CLI measurement. This continuation additionally binds exact selected roots to a live claimed envelope and removes only observed physical objects. |
+| Installed single | `3bb56fd`, `95a4a5e`: installed dispatch/result and retry/reset with temporary synthetic capability Evidence. |
+| Installed graph | This continuation: graph preparation creates private worktree/inbox roots before use. Resume uses existing `EnsureWorkspace`, preserving verified owned worktrees rather than colliding on recreation. |
+| Store contention | A bounded one-second retry acquires the same shared/exclusive locks; every failed multi-root attempt releases partial acquisitions. This prevents a concurrent canonical coordination read from aborting supervisor ingestion. Long contention remains ErrConflict. |
+| Test assertions | Replaced inherited graph debug logs with assertions of child result records, overlap, all nine kinds, validated integration/rollup, file contents and refusal to repeat integration. Removed temporary DEBUGAPPLY production writes. |
+| Public failures | Invalid stage topology and invalid plan controls receive the existing deterministic refusal categories. Persisted corruption retains recovery semantics. |
+
+This continuation commits `511c12d` (resume/locks), `c2aee8e` (extended-root
+authority/cleanup) and `f9af14a` (installed journeys and refusal categories).
+
+The fixture originally gave the integration owner a repository-write effect for
+an unrelated output. The corrected plan grants explicit integration effects for
+the two source paths. The integration owner is a local operator-authorized Git
+operation, not an additional vendor child; the installed test expects exactly
+two FAKE Runtime invocations.
+
+### T36 test artifact and installed-path report (`synthetic`)
+
+`cmd/lingo/stage_journey_blackbox_test.go` builds a normal binary and a test
+binary. Its build overlay replaces the embedded `runtime-versions.json`
+with the exact two FAKE executable digests and synthetic version tuples, and
+replaces only the default managed-configuration location literals with private
+fixture directories. The same directories are supplied to Evidence seeding's
+normal BindingSource/effort observer; all parsers, physical-root/permission,
+freshness, identity, auth and capability guards are unchanged. TMPDIR is
+canonicalized before allocating fixtures so macOS `/var` aliases do not enter
+trusted anchors. The normal build receives neither overlay. The FAKE executables are copies of the test executable with distinct trailers;
+their scripted dispatcher handles only the fixture environment. Capability
+Evidence is created through `local.CapabilityStore.Create` in temporary state,
+with the normally observed executable/adapter/mode/Axiom/Profile/effort binding.
+Production admission, capability checks and dispatch revalidation are unchanged.
+The normal binary is separately shown to refuse these identities/Evidence with
+`capability_unknown`; the production registry remains empty.
+
+Fixture setup selects a synthetic schema-2 workflow and creates its initial
+Execution through existing services with controlled synthetic observations;
+prior stage outputs are seeded via the normal artifact store. These are setup
+fixtures, not claims that normal workflow-start model proof is available. Once
+stage execution begins, dispatch, detached supervision, child publication,
+canonical ingestion, inspection, cancellation, reconciliation, retry and
+integration use installed CLI processes. No private acceptance runner writes
+outcomes into canonical state. The corruption case intentionally damages an
+already settled ledger and proves refusal; it never drives a positive run by
+editing canonical state.
+
+| Installed test | Observed requirement |
+| --- | --- |
+| `TestInstalledSyntheticSingleStageJourney` | Preview and both authorities; normal binary refusal; FAKE invocation and workspace edit; persisted qualifying result; no double dispatch; single integration refusal. |
+| `TestInstalledSyntheticSingleStageRetryReset` | Failed attempt, explicit disposition/external authority, fenced reset removes stale file, second attempt succeeds, receipt cannot be reused. |
+| `TestInstalledSyntheticGraphStageJourney` | Codex/Claude FAKE overlap, consumed question/answer and contract proposal/acceptance, all nine kinds, dependent integration pending until authority, reviewed validator, applied result tree and persisted outcome/rollup. |
+| `TestInstalledSyntheticGraphConflictRetryReset` | Workflow concurrency serializes overlapping effects; failed prerequisite holds dependent; explicit retry/reset and stage-run resume continue remaining first attempt; conflicting result trees refuse integration. |
+| `TestInstalledSyntheticSingleLifecycleAdversarial` | Cancel preview/authority/stale-digest refusal; confirmed group stop; fresh-process persisted status; process failure, missing result and timeout; terminal reconcile refusal; public capability invalidation and executable drift refuse dispatch. |
+| `TestInstalledSyntheticSingleSupervisorCrashAndReconcile` | Kill only a verified scoped supervisor; persisted stale/orphan identity; live orphan refuses reconciliation; exact FAKE group stop; append-only retry-safe observation; running attempt remains running and is never silently redispatched. |
+| `TestInstalledSyntheticSingleLedgerCorruptionFailsClosed` | Corruption after settlement refuses status without spawning another Runtime. |
+| `TestInstalledSyntheticSingleLineageCapacityAndAdmission` | Forged child context rejected, 63 progress records plus reserved terminal slot, excess candidates rejected, stale Execution revision and out-of-bound controls refused before spawn. |
+
+Failure windows at store publication, spawn/identity, running save, terminal save
+and inbox final drain additionally use deterministic fault injection in
+`TestDispatchCompanionFaultWindows`, `TestSingleStageCommitFaultWindows`,
+`TestSupervisorFailureInjectionPhases`,
+`TestSupervisorInterruptedAtSaveBoundariesLeavesPersistedTruth`,
+`TestSingleSupervisorCancellationAndDrift` and
+`TestFinalDrainRacesPublishWithoutLateCanonicalRecord`. Those component tests
+are distinguished from installed process-kill evidence above; not every
+injected storage fault is an installed OS kill. CLI/skill parser and authority
+parity remains covered by `TestCanonicalSkillRoutingTableConvergesWithInspection`,
+`TestWorkflowStageCommandsRouteExactInputs`,
+`TestWorkflowStageJSONAndHumanParity` and `TestRoutingAloneNeverGrantsAuthority`.
+
+A crashed attempt persisted as running is never made successful or automatically
+retryable by a reconciliation fact. This is the accepted running-attempt fence;
+status and the installed test preserve its exact identity. Reconciliation is an
+observation, not a terminal outcome rewrite or a blanket continuation grant.
+
+### T37 compatibility report
+
+The original §3.10 rows are consumed, not redefined. Runtime/Profile v3-only
+admission follows the accepted later amendment; the v1/v2 historical corpus is
+kept byte-for-byte. No released snapshot was modified.
+
+| §3.10 row | Executed test coverage |
+| --- | --- |
+| 1 | `TestAdmissionHistoricalMatrix/row01-schema1-default` |
+| 2 | `TestAdmissionHistoricalMatrix/row02-schema1-explicit` |
+| 3 | `TestAdmissionHistoricalMatrix/row03-legacy-run` |
+| 4 | `TestAdmissionHistoricalMatrix/row04-legacy-retry` |
+| 5 | `TestAdmissionHistoricalMatrix/row05-sequential-legacy-inspection` |
+| 6 | `TestAdmissionHistoricalMatrix/row06-legacy-coordination` |
+| 7 | `row07-graph1`; `TestAllHistoricalGraphMutationsRefusedAndInspectionPreservesBytes` |
+| 8 | `row08-local1`, `row08-local2`, local-missing/retired/probe cases; `TestAdmitV3RefusesNonCurrentConfiguration` |
+| 9 | `TestAdmitV3ActiveBindsCurrentIdentity`; workflowcompiler v2 frozen tuple tests |
+| 10 | `row10-first-attempt-next-gates`; installed graph/single positive journeys |
+| 11 | `row11-retry-next-gates`; installed graph/single retry/reset |
+| 12 | `row12-resume-next-gates`; installed graph resume, single crash/reconciliation; `TestRunLeaseAcquireProbeRestart` |
+| 13 | `row13-migration-not-selected`, `row13-missing-profile`, `row13-policy` |
+| 14 | `row14-removed-profile`; `TestAdmitV3RefusesNonCurrentConfiguration` |
+| 15 | `row15-default-r1`; historical default-r1 definition/digest invariants |
+
+`TestSuccessorCanonicalVectors` explicitly presents every valid Graph3 vector to
+the historical decoder and requires refusal. `TestSuccessorHistoricalBytesAndDigests`
+protects Graph1/2. `TestSuccessorInvalidVectors` covers duplicate/unknown/version
+failures. `TestSingleStageCanonicalVectors` and
+`TestSingleStageVersionAdmissionFailsClosed` protect single ledger v1 and mutual
+v1/v2 authority refusal. Inventory, every writer/readback, six-family historical
+corpus and candidate snapshot are checked by `TestEveryV1WriterIsRecognizedByInventory`,
+`TestEverySupportedRecordLoadsThroughItsCanonicalStore`,
+`TestStableCorpusIsAppendOnly` and `TestStableCorpusResolvesToDirectUpgrade`.
+Atomic publication, generation/epoch fencing and retry correlation remain in
+local dispatch/single-store suites. This report links distributed tests; it does
+not introduce a second compatibility framework or regenerate historical bytes.
+
+### T38 security report
+
+| Boundary | Executed invariant / negative tests |
+| --- | --- |
+| Adapter options/environment/auth | `TestStageRejectsConfiguredArguments`, `TestStageEnvironmentClosed`, `TestAuthPreflightRejectsEnvironmentOverridesBeforeRunningStatus`, `TestAuthReportExcludesSecretsAndAccountIdentifiers` |
+| Identity/capability drift | Binding/ModeDigest vectors, `TestCheckBindingDrift`, `TestRequiredNonProvenBlocks`, `TestRevalidationRejectsProcessModeDrift`, normal-binary installed refusal and executable-drift case |
+| Envelope/path/symlink/root limits | local probe/envelope safety suites; `TestExtendedRootObserverRefusals`, `TestExtendedRootEffectsRefuseUnreviewedTargets`, `TestCreateExtendedCanaryRefusesOutsideItsEnvelope` |
+| Exact extended root and authority | `TestExtendedMissingAuthority`, `TestExtendedPreviewDigestAndMutationRefusals`, `TestExtendedRootPermitBindsExactRootAndCleansWithEnvelope`, inverse selected-root/tampering/session negatives |
+| Cleanup/partial failure | `TestExtendedResidue`, `TestExtendedRootEffectsPreservePreexistingEmptyControlFile`, `TestExtendedRootEffectsPreserveReplacementAfterCanary`; owned identity only, foreign residue preserved/quarantined |
+| DAC/ACL/advisory truth | capabilityproof classification/control tables: unavailable/changed ACL or unequal identity remains unknown; observed creation is advisory, never confinement proof |
+| Spawn/stop/owner fencing | `TestOSProcessRunnerStopsDescendants`, POSIX identity/escape tests; installed crash/cancel/timeout; retry reset fence loss before/between/after effects and owner/confinement tests |
+| Forged reports and records | `TestPreparedProductionProbeForgedReport`, `TestIngestRejectsCandidatesAndReportsSafeCategories`, installed forged child context and capacity reserve |
+| Redaction/input bounds | `TestRedactionAndStrictDecode`, `TestRejectsStaleControlRawChatCredentialAndOversize`; installed out-of-bound plan/stale revision refusal |
+| Authority remains separate | missing local/external/disposition tests, validator-policy authority tests, no child claim promotion or Provider effects |
+
+The accepted ADR-0005 same-UID race exclusions still apply. Physical identity
+checks are bounded local observations, not an OS sandbox claim. Extended preview
+has no effects; apply runs only under its independent authority. All process and
+extended effects exercised here use FAKE or local synthetic fixtures.
+
+### Current T01–T44 implementation matrix
+
+`BASELINE` means already integrated component; `PR` means implemented in this
+unmerged PR with synthetic tests. Neither label changes the canonical Task or
+AXM lifecycle. Exact-head remote qualification and review are tracked on PR #320.
+
+| Task | Technical implementation | Evidence |
+| --- | --- | --- |
+| I276-T01 | BASELINE | successor codec/vectors/historical hashes |
+| I276-T02 | BASELINE | scheduler running/retry eligibility |
+| I276-T03 | BASELINE | classifier/latest qualifying records |
+| I276-T04 | BASELINE | persisted-state consumer matrix |
+| I276-T05 | BASELINE | scheduler completion persistence/process runner |
+| I276-T06 | BASELINE | lease replacement/epoch/CAS tests |
+| I276-T07 | BASELINE + PR single | dispatch companion and single publication fault windows |
+| I276-T08 | BASELINE | append-only reconciliation/recovery |
+| I276-T09 | BASELINE | historical/current admission matrix |
+| I276-T10 | BASELINE | exact capability binding/freshness/redaction |
+| I276-T11 | BASELINE | Evidence store/inventory/recovery |
+| I276-T12 | BASELINE | interface observation/refutation |
+| I276-T13 | PR | prepared production probe FAKE/session tests |
+| I276-T14 | PR | canary verification/forged-report refusal |
+| I276-T15 | BASELINE | control/confinement classification tables |
+| I276-T16 | PR | production binding/probe CLI, unknown retained without independent attestation |
+| I276-T17 | PR | per-attempt binding revalidation and installed drift refusal |
+| I276-T18 | BASELINE | stage argv/mode golden vectors |
+| I276-T19 | BASELINE | environment/auth exact-invocation tests |
+| I276-T20 | BASELINE | TaskPacket graph/single/record-before-delivery |
+| I276-T21 | PR | frozen-stage effort and installed Profile binding |
+| I276-T22 | BASELINE + PR single | all-kind inbox/publication and installed forged lineage |
+| I276-T23 | BASELINE + PR composition | ingestion/reserve/final drain and installed cross-Runtime Q/A |
+| I276-T24 | BASELINE + PR composition | canonical stream/read limits and installed list |
+| I276-T25 | PR | graph/single preview and installed authority/refusal cases |
+| I276-T26 | PR | graph publication + single ledger v1/authority v2 |
+| I276-T27 | PR | detached graph/single supervisors, failure windows and installed crash |
+| I276-T28 | PR | persisted status and graph resume / single pending receipt |
+| I276-T29 | PR | graph/single cancellation and installed confirmed cancel |
+| I276-T30 | PR | append-only reconciliation and installed orphan refusal |
+| I276-T31 | PR | fenced reset graph/single plus installed retry/reset |
+| I276-T32 | BASELINE | reviewed validator-policy store/authority |
+| I276-T33 | BASELINE + PR composition | installed validated integration/rollup/conflict refusal |
+| I276-T34 | PR | shared graph/single stage and coordination CLI routes |
+| I276-T35 | BASELINE | canonical skill route/CLI guard parity tests |
+| I276-T36 | PR synthetic suite | installed report above; component fault windows distinguished |
+| I276-T37 | PR report | fifteen-row compatibility and immutable corpora above |
+| I276-T38 | PR report | security matrix above |
+| I276-T39 | PR | command reference and this implementation record |
+| I276-T40 | NOT_RUN | real Runtime consent and AC-6 remain outstanding |
+| I276-T41 | PR | bounded host extended effects, exact-root permit, cleanup negatives |
+| I276-T42 | BASELINE + PR CLI | show/invalidate without capability promotion |
+| I276-T43 | PR | accepted process-group boundary; local race stress PASS, exact-head native qualification tracked on PR |
+| I276-T44 | PR | prepare/probe/extended/show/invalidate public CLI tests |
+
+| AC | Technical synthetic evidence | Operational boundary |
+| --- | --- | --- |
+| AC-1 | Installed graph/single start, task packet, edits/results | No real vendor invocation/proof |
+| AC-2 | Detached supervisor, fresh CLI inspection, graph resume, single crash identity | Stale running attempts remain fenced |
+| AC-3 | Installed cross-Runtime Q/A consumed; nine kinds, forged lineage/capacity refusals | FAKE only |
+| AC-4 | Installed overlap, conflict serialization, validator/integration outcome | No operational acceptance |
+| AC-5 | Installed timeout/cancel/failure/corruption/crash; component kill/publication windows | Native Linux/macOS exact SHA required below/on PR |
+| AC-6 | NOT_RUN / unproved | Specific future real-smoke envelope and independent consent required |
+| WF-009 / AC-009 | Common CLI/skill guards, installed graph/single lifecycle and bounded coordination | No Task closure, merge or acceptance inferred |
+
+### Validation and remaining gates
+
+Pinned Go 1.26.0, Linux amd64; ambient Claude effort unset; synthetic probe state
+uses a private directory outside temp roots. Observed before final commits:
+
+- `go test -race ./internal/executiongraph -run 'TestOSProcessRunnerStopsDescendants|TestPOSIX|Test.*Process.*Read' -count=10 -timeout=300s` — PASS, 171.116s.
+- Installed graph positive journey repeated three times — PASS, 35.647s.
+- Restoring only the original non-waiting store locks through an ephemeral test
+  overlay — expected FAIL in the installed cross-Runtime journey (3-run command,
+  failed child outcomes); no worktree guards/assertions were weakened.
+- `go test -race ./internal/local -run '^TestStoreLocks' -count=1 -timeout=20s` — PASS, 2.089s; contention wait, bound and release of partial acquisitions.
+- Installed graph retry/reset/resume/conflict journey — PASS, 23.778s after
+  replacing duplicate worktree creation with exact owned-worktree inspection.
+
+Integrated local checks also passed: `go test ./... -count=1 -timeout=360s`
+with private synthetic probe state (CLI 189.708s), `go vet ./...`,
+`./scripts/check-go-quality.sh all` (format, tidy, pinned Staticcheck 0.8.1),
+`./scripts/validate-repository.sh .`, staged sensitive-file checks before each
+commit, and focused extended local/CLI tests with race (1.434s / 16.901s).
+After the final test fixture adjustments (Darwin decimal group identity and
+UUID-shaped forged lineage), installed crash/admission tests passed, 18.746s.
+The final installed lifecycle test also applies `runtime codex capability invalidate`
+through its reviewed public preview, then proves stage dispatch refuses invalidated
+Evidence before testing executable drift (PASS, 17.264s).
+An earlier installed-race run compiled during refusal-category changes and
+failed stale assertions; that intermediate failure is not reported as PASS.
+The integrated `go test -race ./cmd/lingo ./internal/local ./internal/stageexecution
+./internal/gitworkspace ./internal/capabilityproof -count=1 -timeout=360s` passed
+(CLI 359.564s; local 54.144s; stageexecution 17.807s; gitworkspace 5.298s;
+capabilityproof 1.285s). The separate focused probe run used private probe state;
+final exact-head native jobs remain a separate remote observation.
+The dedicated gitleaks scanner is unavailable; no dedicated-scanner PASS is claimed.
+
+Independent agent review inventoried the complete PR diff (148 baseline paths)
+and inspected the tracked/untracked continuation, with deeper review of
+persistence/authority, supervisor, reset, extended roots and CI/release gates.
+No blocking or major finding remained in the final inspected code. This was a
+risk-focused engineering/security review, not an exhaustive line audit or human
+approval. The initial review found the extended-root/cleanup defects described
+above and the corrections have negative tests. A separate GitHub reviewer request
+and its state are recorded on the PR; no self-approval is performed.
+
+Final integrated Go/repository checks, exact implementation commits, CI/native
+workflow job conclusions and independent review requests are recorded in PR #320
+by SHA. Pending or failed jobs are not PASS. The final remote Evidence comment
+is the qualification record for the final HEAD; this document does not infer
+native execution from cross-compilation or from earlier source revisions.
+
+### Native qualification corrections — fixture readiness and macOS roots
+
+At `c75300e`, [qualification 38910081705](https://github.com/rgomids/axiom/actions/runs/38910081705)
+failed its positive Linux and macOS suites; these failures are retained as FAIL.
+Linux CLI race/coverage failed `TestInstalledSyntheticSingleSupervisorCrashAndReconcile`:
+the supervisor had already persisted the running PID while the FAKE process had
+not yet appended its invocation log (`calls=[]`). The test now waits for both
+persisted running identity and the exact matching FAKE entry before asserting
+and killing. A 1.5-second FAKE startup delay makes that ordering reproducible;
+restoring only the old wait predicate in an ephemeral overlay fails at the same
+unchanged assertion (9.508s). The corrected crash test passed three times with
+race and coverage (40.577s). No production stop or identity assertion changed.
+
+macOS failed all installed journeys at Evidence setup with
+`effort_configuration_unproven`, before dispatch. The fixture's temporary-root
+aliases and the real `/etc/codex` managed alias cannot satisfy the existing
+canonical-anchor guard. The fixture now uses physical temporary paths and
+isolated synthetic managed roots in both its test-build location overlay and
+normal binding observation. It does not create or modify system/vendor config,
+relax a guard, alter production defaults or prove real managed configuration.
+The old statement that the build differs only by its registry is superseded by
+the complete difference description above. The full installed suite passed again
+with race and isolated managed roots (168.727s); format/tidy/Staticcheck and
+repository validation passed. Final exact-SHA native reruns and
+results are recorded in PR #320.
+
+At `abae7d9`, [qualification 38912522291](https://github.com/rgomids/axiom/actions/runs/38912522291)
+passed the complete Linux suite, both upgrade journeys, contracts and artifact
+acceptance. macOS passed the other seven installed journeys but the graph
+positive exceeded its 20-second status wait with both children still running.
+Only fixture budgets change: status waits allow two minutes and FAKE
+coordination waits allow one minute; production controls and every outcome,
+overlap, nine-kind and integration assertion remain unchanged. An ephemeral
+overlay delaying FAKE startup by 25 seconds reproduces the old wait failure
+(37.238s); the identical delayed journey passes with the new wait (52.236s).
+The unmodified graph journey also passes three repetitions with race (74.075s).
+This does not promote the failed native run to PASS; a new exact-head native
+qualification is required and recorded on PR #320.
+
+The `a0e2b99` qualification [38915242348](https://github.com/rgomids/axiom/actions/runs/38915242348)
+still failed macOS: a FAKE coordination wait expired with exit 23, and the
+aggregate CLI package exceeded Go's default ten-minute test deadline. Diagnostic
+commit `bf138c3` reproduced the failure natively in
+[38948160200](https://github.com/rgomids/axiom/actions/runs/38948160200), exposing
+`work_item_not_linked` from the child's public coordination read. Its clean
+environment correctly drops `AXIOM_GH_BIN`; adapter discovery then depended on
+the host's `gh` being under `/usr/bin:/bin`, which was true on Linux and false
+on macOS. The fixture now supplies a discoverable FAKE `gh` tripwire and uses
+only its private executable directory in PATH, with an explicit link to Git.
+Every installed journey asserts that the Provider tripwire was never executed.
+No production adapter, environment guard, authority or outcome assertion changes.
+
+The native race commands now have an explicit twenty-minute per-package deadline
+within their thirty-minute jobs. The diagnostic Linux CLI race/coverage run
+passed in 522.423 seconds; the earlier macOS timeout occurred while another
+test was executing ordinary JSON decoding. This aggregate test budget is separate
+from the FAKE coordination wait and does not turn either failed run into PASS.
+Local counterexample, corrected installed-suite results and final native
+qualification are recorded by exact SHA in PR #320.
+
+No real Runtime version/help/auth/probe/inference, Provider operation, merge,
+release, ruleset change, Issue closure or Linear state transition was performed.
+
 
 ## Historical gap report and approved decision
 
@@ -1626,3 +1967,1065 @@ parity; T44 capability CLI is still absent. This is residual work under existing
 Tasks, not a new card, contract, implementation authorization for real effects or
 work started by this reconciliation. T36–T39 final verification then T40 exact
 human-authorized smoke remain open.
+
+## IMPLEMENT 2026-10-15 — T16 v3 preparation (partial)
+
+Baseline: PR #319 merge `87f882115667cd1de8ac06397a4d11941a01f7fd`.
+No open AXM-8 implementation PR existed when this unit began. The work branch
+is `feat/axm-8-stage-agent-execution`; continue the same Draft PR.
+The human decision is summarized in the scope addendum above; it is authority,
+not execution Evidence.
+
+| Task | Current delta | Remaining boundary |
+| --- | --- | --- |
+| T16 | **PARTIAL**. `PreviewProbe` and its synthetic fixture now require canonical configuration v3. `BindingSource.PrepareProbe` shares the existing complete observation and dispatch invocation construction, including effort projection, without selecting prior Evidence. v1/v2, identity drift, missing authority, stale preview, incomplete binding and authentication refusals remain fail-closed. | The returned preparation deliberately has no envelope manifest or task packet yet. The four production Probe ports remain absent; no installed probe path or complete fake end-to-end production journey is claimed. |
+| T14 | **PARTIAL, unchanged**. Existing hidden entrypoint and pure canary tests pass. | Verified production loader, active-envelope context and native effect integration remain unimplemented; `main.go` still supplies nil. Existing fake loader tests are not native loader Evidence. |
+
+**Open integration question, not a new accepted contract:**
+`local.prepareEnvelope` assigns physical directory identities to the ready
+manifest; `PreviewProbe` requires that exact ready manifest and digest.
+Preparing those objects inside preview would violate its no-effect contract.
+Replacing the digest after apply would break reviewed-manifest authority.
+The session asked whether composition may require a live T13 envelope already
+provisioned under independent authorization. No answer has been assumed.
+An alternative planned-manifest lifecycle would require explicit contract
+clarification; it was not implemented. No accepted ADR was rewritten or found
+to require retroactive supersession by the independent v3 correction.
+
+**Synthetic Evidence executed locally (Linux):** all Go commands used the
+installed Go 1.26.0 binary, `GOTOOLCHAIN=local GOWORK=off GOFLAGS=` and an unset
+`CLAUDE_CODE_EFFORT_LEVEL`. No vendor binary was launched or inspected for its
+version/help. Fixture Runtime versions and executable bytes are synthetic.
+
+| Check | Result / limit |
+| --- | --- |
+| `go test ./internal/capabilityproof ./internal/runtimeadapter ./internal/local ./internal/executiongraph -count=1` | PASS, four packages. `AXIOM_TEST_PROBE_STATE_ROOT` was an isolated private directory under `/home/box`, outside repository/temp/vendor roots, automatically cleaned after the subprocess. Existing envelope lifecycle, symlink/replacement, cleanup/recovery and POSIX containment tests executed. |
+| `go test -race ./internal/capabilityproof ./internal/runtimeadapter -count=1` | PASS after the final test change. `TestProbeEachVariant` exercises both positive application-port fixtures; refusals, interruption, inconclusive/model refusal and cleanup failure remain covered. `TestProbeFakeExecutableFailureNeverProves` executes only a generated `/bin/sh` fixture exiting 7: no capability is promoted, output/host paths are excluded from Evidence. This uses an injected envelope verifier and is not the missing production end-to-end journey. |
+| `TestPrepareProbeUsesObservedV3WithoutEvidence` | PASS for Codex/Claude × both variants × both Process modes, using synthetic local files and trusted fixture roots. Empty Evidence selection does not prevent preparation or become proof; executable replacement is refused. `TestPrepareProbeRefusesRetiredConfiguration` covers v1/v2 directly. |
+| `go test ./cmd/lingo -run 'Test(CapabilityComposition\|ProductionCapabilityComposition\|ProductionEffortInspector\|HiddenCanary\|HiddenSupervisor)' -count=1` | PASS. Production empty-registry refusal and injected canary tests remain intact. |
+| `go vet ./internal/capabilityproof ./internal/runtimeadapter ./cmd/lingo` | PASS. |
+| `GOOS=darwin GOARCH=arm64 go build ./cmd/lingo ./internal/capabilityproof ./internal/runtimeadapter ./internal/local ./internal/executiongraph` | PASS cross-compilation only; no native macOS execution claimed. |
+| `./scripts/check-go-quality.sh format` | PASS. |
+| `./scripts/validate-repository.sh .` | PASS; runtime behavioral scenarios deliberately UNVERIFIED, not requested. |
+| Accepted Plan/catalog suffix comparison against baseline | PASS: Part I onward is byte-identical; only the current-scope preamble/addendum changed. |
+
+CI now allocates a private synthetic probe state directory under the hosted
+runner's HOME on the existing Linux/macOS verify jobs, so envelope tests do not
+skip for a missing fixture root. It introduces no real Runtime test or Windows
+job. Remote CI results belong to the PR head, not this local ledger.
+
+Engineering/security self-review used `axiom-review`; documentation reconciliation
+used `axiom-document`. Standard library and existing observation/filesystem/process
+components suffice: no dependency, cryptography or parallel envelope implementation
+was added. The only production comment edit corrects the existing public
+`ProbePreparation` contract's configuration version. Staged sensitive-file and
+whitespace checks are required before commit; dedicated `gitleaks` is unavailable
+on this host, so no dedicated-scanner result is claimed.
+
+**Handoff:** T16/T14 are not Done and this unit does not meet the full requested
+production integration outcome. The next existing unit is the remaining T16/T14
+composition and verified loader after the envelope lifecycle question is resolved:
+connect the four ports, bind the exact packet/manifest and active context, exercise
+positive and refusal fake executable journeys, then review Evidence in this same
+PR. Do not start T25/T26/T31/T34/T44 here. The embedded registry remains empty;
+real tests and T40 are **NOT_RUN** by human decision. AC-6 and operational
+acceptance remain unproved; no merge, release, Issue closure or Linear state
+transition is authorized or performed.
+
+
+## IMPLEMENT 2026-10-15 — Prepared production probe and canary
+
+Continuation of Draft [PR #320](https://github.com/rgomids/axiom/pull/320),
+branch `feat/axm-8-stage-agent-execution`. Resumed WIP
+`077fd12606ef4ab688218d45eec7f83a156e4919` is preserved in history. This record
+supersedes the earlier partial-unit handoff and qualifies the dated baseline
+matrix above; no historical assessment or approval is rewritten.
+
+The lifecycle question is resolved by the maintainer's **option A**, recorded
+in the [Plan addendum](plan-tasks-276-stage-agent-execution.md#envelope-lifecycle-decision--option-a).
+The two referenced human decisions were read in full. No material conflict with
+ADR-0025/0026 or the accepted binding amendment was identified. The accepted
+Plan/catalog suffix from Part I remains byte-identical to baseline `87f8821`.
+
+| Task | Delivered boundary | Remaining boundary |
+| --- | --- | --- |
+| T13 integration | `prepareCapabilityEnvelope` requires independent local preparation authority, reuses `local.CreateEnvelope` and returns its live handle. `InspectReady` verifies the exact manifest digest, physical identities and absence of cleanup intent without writes. Recovery handles cannot dispatch. Quarantine revokes the live handle and retains objects for exact cleanup. | Public preparation/confirmation UX belongs to the existing T44 unit. Native platform execution is assessed by the PR checks, not inferred from Linux. |
+| T14 | The hidden production entrypoint now supplies `local.ProbeCanaryLoader` with its effective CWD. It validates the ready manifest, digest, variant, identities and launch/attempt context; uses owned-directory operations, the existing deterministic canary and T22 inbox publication. Only manifest-relative negative targets and an owned loopback listener are exercised. | Real Runtime sandbox behavior is NOT_RUN. This is technical implementation, not merged/accepted Task Done. |
+| T16 | All four production ports are composed: `preparedProbeAdapter`, `local.PreparedProbeEnvelopes`, `local.CapabilityStore`, and `preparedProbeAuthentication` with the existing OS auth preflight. Preparation uses canonical v3 BindingSource/effort inspection and the exact ready manifest, task packet, invocation/environment and variant. Apply revalidates before/after independent auth and before the single process invocation; verification reads effects and correlated inbox records, then cleans or quarantines. | Public capability commands remain T44; no installed public probe journey is claimed. Real proof and operational acceptance remain separate. |
+
+No second envelope implementation, planned manifest, dependency, version-registry
+entry, Graph/corpus migration or new Task was introduced. Existing filesystem,
+process, identity, effort, packet and inbox components suffice. Added production
+comments are public API GoDoc or semantic build constraints; the updated
+Quarantine GoDoc states its authority-revocation contract.
+
+**Synthetic tests and security review.** `TestPreparedProductionProbeVariants`
+copies the test executable into private fixture `codex`, `claude` and `axiom`
+paths. These are FAKE executables, never installed vendors. Both Runtimes and
+both variants traverse the production adapters, OS auth-status runner, OS process
+runner, real T13 envelope, native canary loader/effects, T22 inbox and canonical
+Evidence writer. The passive version observer is fixture-injected; the production
+embedded registry remains empty. Fixture auth/status results confer no real
+subscription or capability proof.
+
+Snapshots verify preview zero-writes, and successful apply leaves the fixture
+repository, user/managed roots and executable directory unchanged. Tests check
+packet/manifest/attempt correlation, exact stored Evidence bytes and content
+address, variant-bound positive effects, advisory confinement, redaction and
+exact cleanup. Fake timeout/interruption markers are harness instrumentation in
+the fixture executable directory, outside the envelope; they are not canary
+effects or persisted Evidence.
+
+Refusals cover independent local/external authority, a different consented
+preview, auth failure, manifest/configuration/Profile/environment/executable/Axiom
+drift, retired v1/v2, symlink and physical replacement. Fake raw success claims,
+nonzero failure, model refusal and usage-limit output cannot promote capabilities.
+Timeout/interruption produce inconclusive Unknown Evidence and retain quarantine;
+unsafe cleanup never publishes Evidence. Loader tests cover missing/wrong context,
+manifest digest, nonce, external address, child binding and symlink drift;
+publication tests reject packet/attempt drift and unknown denial. Existing
+classification tests retain pre/post control and errno attribution coverage.
+
+The reported `authentication_blocked` failure reproduced with Linux CI's
+`-race -covermode=atomic -coverprofile=...` flags, after non-coverage runs passed.
+The copied FAKE executable emitted version/status without a terminating newline;
+Go coverage then appended `warning: GOCOVERDIR not set, no coverage data emitted`
+on stderr, joining the output into `0.159.1warning: ...` or
+`Logged in using ChatGPTwarning: ...`. The existing production preflight
+correctly rejected the unrecognized version/status. Fake version/status now emit
+complete newline-terminated lines. No auth parser, environment allowlist,
+coverage setting or production gate was relaxed. The first publication
+`4541ecf` passed native macOS but failed Linux coverage; that result is not
+reported as green CI. The final PR check must use the subsequent correction.
+
+Separately, the interruption fixture now explicitly requires the invocation-start
+marker and `context.Canceled` from marker-triggered cancellation; a bounded
+one-minute outer window permits instrumented preflight. Timeout likewise must
+reach the fake invocation. Probe budgets allow instrumented subprocess startup
+(15 seconds for normal fixtures, 5 seconds for timeout). The test cannot pass by
+treating a preflight failure as interruption. Quarantine authority revocation is
+also checked independently of process output.
+
+**Validation ledger (Linux, synthetic).** Go 1.26.0 from the existing cached
+toolchain (`GOTOOLCHAIN=auto` initially; then its pinned binary on PATH with
+`GOTOOLCHAIN=local GOWORK=off GOFLAGS=`), ambient Claude effort unset.
+`AXIOM_TEST_PROBE_STATE_ROOT` is a private directory under `/home/box`, outside
+repository, temporary and vendor roots. Fixtures are removed by test cleanup.
+
+| Command | Result |
+| --- | --- |
+| `go test ./internal/capabilityproof -count=1 -timeout=90s` | PASS |
+| `go test ./internal/runtimeadapter -count=1 -timeout=120s` | PASS |
+| `go test ./internal/local -count=1 -timeout=180s` | PASS, private envelope/session/loader tests enabled |
+| `go test ./cmd/lingo -count=1 -timeout=120s` | PASS, complete package (79.3s) |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbe' -count=1 -timeout=120s` | PASS, final matrix including outside-root snapshots and refusal cases (65.7s) |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbeRefusals/interrupted$' -count=5 -timeout=90s` | PASS, five consecutive dispatch-confirmed interruptions (17.1s total) |
+| `go test -race <package> -count=1 -timeout=120s`, separately for every `go list ./...` package except `cmd/lingo` | PASS for all 36 remaining packages; four have no test files |
+| `go test -race -covermode=atomic -coverprofile=<private-output> ./cmd/lingo -run '^TestPreparedProductionProbe' -count=1 -timeout=120s` | PASS after the FAKE line-ending correction; all variants/refusals with Linux CI instrumentation (63.8s) |
+| Same race/coverage command with `-run '^TestPreparedProductionProbeRefusals/interrupted$' -count=5 -timeout=90s` | PASS, five consecutive interruptions with Linux coverage instrumentation (17.7s) |
+| `go vet ./...`; `go build ./...`; `go mod verify` | PASS |
+| `./scripts/check-go-quality.sh format`, `tidy`, `staticcheck` | PASS; Staticcheck 2026.2.1 / v0.8.1 |
+| `./scripts/validate-repository.sh .` | PASS; vendor runtime behavioral checks deliberately UNVERIFIED |
+| Accepted Plan/catalog suffix comparison against `87f8821` | PASS |
+
+The complete local `cmd/lingo` race attempt with `-timeout=180s` reached that
+limit during the pre-existing Work Item projection blackbox, without an
+assertion failure. Its full race result remains for CI; the complete non-race
+package and bounded probe race matrix passed. No timeout result is called PASS.
+
+Commit identity and remote Linux/macOS CI conclusions are recorded in the same
+PR after publication, against its exact head. A native
+macOS CI result is required; cross-compilation is not a substitute.
+
+Security/engineering self-review found no remaining blocking finding in this
+bounded diff. The dedicated `gitleaks` scanner is unavailable on this host; no
+dedicated-scanner result is claimed. Staged sensitive-file and whitespace checks
+passed before commit.
+
+**Handoff.** This bounded slice integrates the requested production seams;
+T13/T14/T16 are not declared merged, accepted or operationally proven. Continue
+in this same Draft PR. The next existing capability unit is T41's production
+extended-effects boundary before T44 public capability commands; consolidated
+stage dispatch still has its existing T25/T26/T31/T34 work. None was started
+here. Real probes, vendor version/help/authentication, inference, installed
+smoke, Provider effects and T40 remain **NOT_RUN**. AC-6, real capabilities and
+human operational acceptance remain unproved. No merge, release, Issue closure,
+Linear lifecycle/blocker/label change or new Work Item is authorized by this
+record. No additional human decision is needed for the delivered slice.
+
+### Review corrections 2026-10-15 — PR #320 round 1, CR-001 / CR-002
+
+Scope is exclusively the two Major findings in
+[review 5539186839](https://github.com/rgomids/axiom/pull/320#pullrequestreview-5539186839),
+against `481f6997f806beef74466678d13c9a9b33568f41`. The earlier implementation
+ledger remains historical; its capability-promotion and advisory-confinement
+claims are corrected by this entry. No Task, accepted Plan/catalog, Specification,
+ADR, receipt or historical corpus is changed.
+
+**CR-001.** Inbox lineage, digest, nonce, process identity and denial reports
+are consistency checks on child-controlled data. Neither unchanged targets nor
+parent-side positive controls attest that a denied syscall happened. A loopback
+nonce exchange also cannot identify the executable responsible. The existing
+contract provides no independent attestation of canary execution, model invocation
+or effective effort. The smallest safe correction retains those verification
+flags as false and the verification as inconclusive. Observed file contents and
+validated publications remain diagnostic observations; `Service.Probe` consequently
+persists all capability states and confinement as `unknown`. This applies even
+when the cooperative synthetic child runs the actual canary. These production
+ports cannot currently establish capability proof. No signature, permission
+expansion, dependency or alternative probe mechanism is introduced. This follows
+ADR-0025's own-observation and unknown rules, without changing that decision.
+
+The adversarial subprocess fixture reads the manifest, workspace nonce and
+launch context; writes the expected positive files; and publishes a valid
+`Progress` containing a correlated `CanaryReport` with fabricated `EACCES` for
+every negative target. It never invokes the canary or attempts a negative write.
+Both fake Runtime identities and both variants must reach report verification
+with exit zero and accepted negative observations, while `CanaryRan`,
+`CanaryExecuted`, `ModelInvoked` and `EffortVerified` remain false. Final Evidence
+must be inconclusive, with every capability and confinement `unknown`. Cooperative
+positive fixtures still require observed nonce/workspace/publication/canary-file
+effects, packet binding, zero-write preview, exact stored Evidence, unchanged
+outside roots and exact cleanup; they now expect honest unknown capability states.
+
+**CR-002.** `Service.Probe` cannot quarantine an envelope when its opener fails.
+The opener now owns failure recovery from immediately before the first launch-file
+write, including partially failed writes. Every unsuccessful return closes its
+listener, revokes the live preparation through existing `Envelope.Quarantine`,
+retains owned objects, and joins any quarantine verification error with the
+original failure. Recovery uses the existing inventory and exact cleanup protocol;
+there is no implicit deletion, reuse or retry. A private create callback at the
+existing inbox-creation boundary permits deterministic fault injection without
+changing the public port or adding a second lifecycle.
+
+Fault tests inject ENOSPC after launch persistence, after a partial attempt inbox
+with incomplete binding, and after complete inbox creation. A fourth test starts
+cleanup recovery before the final ready inspection. Every case requires a revoked
+handle, closed listener, refused reopening for dispatch, preserved objects,
+`InventoryRecovery`, recovery-only reopening and successful explicit exact cleanup.
+
+Validation uses the cached Go 1.26.0 binary with
+`GOTOOLCHAIN=local GOWORK=off GOFLAGS=`, ambient Claude effort unset and
+`AXIOM_TEST_PROBE_STATE_ROOT` under a private `/home/box` root outside repositories,
+temporary and vendor roots. The system Go 1.24.4 initially refused the module;
+that attempt executed no tests.
+
+| Command | Result |
+| --- | --- |
+| `go test -race ./internal/local ./cmd/lingo -run 'TestProbeOpenFailure\|TestPreparedProductionProbe(ForgedReport\|Variants)' -count=1 -timeout=180s` | PASS |
+| `go test -race ./internal/local ./internal/capabilityproof ./internal/runtimeadapter -count=1 -timeout=180s` | PASS, complete packages |
+| `go test -race -covermode=atomic -coverprofile=<private-output> ./cmd/lingo -run 'TestPreparedProductionProbe\|TestPrepareEnvelopeRequiresIndependentLocalAuthority\|TestHiddenCanary' -count=1 -timeout=180s` | PASS, full probe matrix with Linux CI instrumentation |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbeVariants$' -count=1 -timeout=120s` | PASS after adding explicit positive-effect assertions |
+| `go vet ./...`; `go build ./...`; `go mod verify` | PASS |
+| `./scripts/check-go-quality.sh all` | PASS, format/tidy/Staticcheck v0.8.1 |
+| `./scripts/validate-repository.sh .` | PASS, Runtime behavioral scenarios deliberately UNVERIFIED |
+
+Security review: child publications cannot elevate canonical capability Evidence;
+cleanup remains bound to verified ownership and exact objects. No material ADR
+conflict was identified. Dedicated `gitleaks` remains unavailable locally; no dedicated scanner result is claimed. Main-session implementation, review and validation were
+used without delegation because strict capability inferiority could not be
+verified. Real Runtime/version/help/authentication, inference, live probes,
+installed smoke, Provider effects and T40 remain **NOT_RUN**. No acceptance,
+merge, release, Issue/Task closure or Linear mutation. Remote exact-head native
+Linux/macOS CI and the re-review request are recorded on this same Draft PR.
+
+
+## CONTINUE 2026-10-15 — Operational checkpoint for PR #320
+
+Snapshot before edits: clean `feat/axm-8-stage-agent-execution` at
+`e05e209f7a77d5f56ad67ce02320cd533b8ea9b5`; remote branch matches;
+`main@87f882115667cd1de8ac06397a4d11941a01f7fd`. GitHub read-back:
+#276 OPEN; #320 OPEN/DRAFT, sole open AXM-8 work PR; unrelated #317 is not
+part of this work. CI run 38804515821 and delivery metadata PASS for that
+exact baseline HEAD, including native Linux/macOS. Review 5540357018 is
+favorable for its slice, native COMMENT/self-review, not native approval.
+CR-001/CR-002 remain resolved at baseline. AXM-8 is In Progress, no blockedBy,
+blocks AXM-9. No lifecycle, relation, label or acceptance mutation is authorized.
+
+The three maintainer decisions named in the continuation request were read in
+full and match the versioned scope addenda. Only technical decision summaries
+already authorized for this public repository are retained here. No raw provider
+comments are imported. No new Specification, ADR or Work Item is needed for the
+approved work. No delegation: a strictly lower model hierarchy cannot be
+verified from this runtime's metadata, so the Orchestrator performs the units.
+
+### Current Task inventory
+
+This overlays, rather than replaces, the dated main-baseline matrix. INTEGRADO
+means the component and its cited synthetic Evidence exist on main, not that
+the whole installed journey or Task Done has human acceptance. IMPLEMENTADO NO
+PR is unmerged and qualified by remaining public/operational boundaries. Tests
+below identify existing Evidence, not new executions in this checkpoint. Exact
+criteria, file links and residual gaps remain in the baseline rows; dependencies
+below are the immutable approved catalog, with the later v3/Linux/macOS addenda.
+
+| Task | State | Catalog predecessors | Requirement / AC | Existing Evidence locator |
+| --- | --- | --- | --- | --- |
+| I276-T01 | INTEGRADO | none (internal) | ADR-0026 D1–6; I-1–I-6. | successor_test.go: TestSuccessorCanonicalVectors, TestSuccessorHistoricalBytesAndDigests; successor_graph_store_test.go |
+| I276-T02 | INTEGRADO | none (internal) | G8; AC-5. | scheduler_test.go: TestSchedulerConcurrentRunningRetryNeverDispatches, TestReadyChildrenStatuses |
+| I276-T03 | INTEGRADO | none (internal) | CR-001; PD-9; AC-3/5. | classify_test.go: TestClassifyAttemptRules, TestLatestAttemptRecordTotalOrdering |
+| I276-T04 | INTEGRADO | T01, T02, T03 | PD-9; I-1–I-6; AC-4. | consumers_test.go: TestConsumerPersistedStateMatrix, TestConsumerLoadInvariants, TestConsumerBatchConcurrency |
+| I276-T05 | INTEGRADO | none (internal) | PD-2/9; AC-1/4. | scheduler_test.go: TestSchedulerSavesCompletionBeforeBatchEnds, TestOSProcessRunnerStdinBytes, TestSchedulerCompletionFailuresKeepRunningState |
+| I276-T06 | INTEGRADO | T01 | PD-2/10; AC-2/5. | run_lease_test.go: TestRunLeaseReplacementAndEpochFencing; successor_graph_store_test.go: TestSuccessorSavePinsLeaseThroughCommit |
+| I276-T07 | INTEGRADO | T01, T06 | PD-3/12; ADR-0007. | dispatch_authority_test.go: TestDispatchCompanionFaultWindows, TestDispatchGraphStoreCommitAndReadback, TestSingleDispatchStoreCommitAndScope |
+| I276-T08 | INTEGRADO | T04, T06 | PD-10; AC-5. | reconciliation_test.go: TestReconciliationAppendRetryAndConflict; successor_graph_store_test.go: TestSuccessorReconciliationPublicationRecovery |
+| I276-T09 | INTEGRADO | T01 | CR-006; PD-15; PM-11. | admission_test.go: TestAdmissionHistoricalMatrix, TestAllHistoricalGraphMutationsRefusedAndInspectionPreservesBytes; admission_v3_test.go |
+| I276-T10 | INTEGRADO | none (internal) | PD-13; D-1. | evidence_test.go: TestFreshnessAndExactBinding, TestNoPromotionWithoutProbe, TestRedactionAndStrictDecode |
+| I276-T11 | INTEGRADO | T10 | PD-13; ADR-0007. | capability_store_test.go: TestCapabilityStoreRoundTripInvalidate, TestCapabilityRecoveryAndInventory, TestCapabilityStoreRejectsUnsafeBeforeEffects |
+| I276-T12 | INTEGRADO | T10, T19 | PD-13; level-1 refutation. | interface_test.go: TestInterfaceRefutation; runtimeadapter/interface_observation_test.go: TestInterfaceExactEnvironmentAndReplacement; testdata help fixtures |
+| I276-T13 | IMPLEMENTADO NO PR | T11 | CR-005; ADR-0005/7. | T13/T14/T16 production integration + review corrections |
+| I276-T14 | IMPLEMENTADO NO PR | T13, T22 | CR-005/007; PD-13. | T13/T14/T16 production integration + review corrections |
+| I276-T15 | INTEGRADO | T13, T14 | CR-007/008; PD-13. | classify_test.go: TestVariantScoring, TestConfinementControlMatrix, TestControlMeasurementNoForeignEffects |
+| I276-T16 | IMPLEMENTADO NO PR | T11, T12, T15, T18, T19, T20 | PD-12/13; CR-007/008; PM. | T13/T14/T16 production integration + review corrections |
+| I276-T17 | PARCIAL | T10, T11, T18 | PD-13; BI-1/2; PM-12/13. | service_test.go: TestCheckBindingDrift, TestRequiredNonProvenBlocks; binding_source_test.go; capability_composition_test.go |
+| I276-T18 | INTEGRADO | none (internal) | PD-4; G5; AC-1. | stage_invocation_test.go: TestStageArgvGolden, TestStageRejectsConfiguredArguments; identity_test.go: TestModeDigestGolden |
+| I276-T19 | INTEGRADO | none (internal) | PD-5; G13/14; AC-1/6. | stage_invocation_test.go: TestStageEnvironmentClosed; authpreflight_test.go: TestAuthPreflightInspectsTheExactEffectiveInvocation |
+| I276-T20 | INTEGRADO | T05 | PD-11; AC-1. | packet_test.go: TestTaskPacketGraphAndSingleAgent, TestTaskPacketRejectsUnsafeInputs, TestPreparePacketRecordsBeforeDelivery |
+| I276-T21 | PARCIAL | T17, T18 | CR-003/006; PE-05a; PM-13. | frozen_stage_test.go: TestFrozenStageDeliveredEffortInspection; stage_effort_test.go; capability_composition_test.go |
+| I276-T22 | INTEGRADO | none (internal) | PD-4; AC-3; nine kinds. | attempt_inbox_test.go: TestAttemptInboxEveryKindAndExclusiveCreate, TestAttemptInboxRejectsInvalidPublish; stage_dispatch_test.go: TestPublishRefusesAbsentRunningContext |
+| I276-T23 | INTEGRADO | T03, T05, T06, T22, T24 | PD-4/9; I-1–I-6; AC-3. | coordination_ingest_test.go: TestIngestCrossRuntimeQuestionAnswerAndBlocker, TestIngestCapacityReserveAndCrashReplay, TestFinalDrainRacesPublishWithoutLateCanonicalRecord |
+| I276-T24 | INTEGRADO | none (internal) | PD-1/4; AC-3. | coordination_read_test.go: TestCoordinationReadStreamCanonicalOnlyAndTamper, TestReadStreamSupportsCompleteCodecByteWindow |
+| I276-T25 | PARCIAL | T09, T17, T18, T32, T19, T21 | PD-3/12; AC-1/4; PM. | preview_test.go: TestDispatchPreviewGraphAndSingle, TestDispatchPreviewRightsGolden, TestDispatchPreviewRefusals; stage_dispatch_test.go |
+| I276-T26 | PARCIAL | T07, T25, T27 | PD-3/11/12; AC-1. | run_test.go: TestRunGraphAndSingleCommitBeforeStart, TestRunConfirmedCommitFailureIsPartial; publisher_test.go |
+| I276-T27 | PARCIAL | T04, T05, T06, T21, T23, T07, T19, T20, T43 | PD-2; AC-1/2/4. | supervisor_test.go: TestSupervisorFailureInjectionPhases, TestSupervisorInitiatingContextDoesNotOwnRun; supervisor_preparation_test.go |
+| I276-T28 | PARCIAL | T04, T06, T26, T07 | PD-2/12; AC-2. | lifecycle_test.go: TestStatusRendersPersistedStateAcrossStatuses, TestResumeAfterSupervisorKillStartsOnlyRemainingFirstAttempts |
+| I276-T29 | PARCIAL | T43, T27 | PD-6; AC-5. | lifecycle_test.go: TestCancelBeforeDispatchPreventsAttempts, TestCancelWhileRunningRequiresConfirmedStop |
+| I276-T30 | PARCIAL | T08, T28 | PD-10; AC-5. | reconcile_test.go: TestReconcileStaleAndUnknownAppendsFactsOnly, TestReconcileRefusals |
+| I276-T31 | PARCIAL | T08, T26 | PD-8/12; AC-5. | retry_test.go; recompiled_proposal_test.go; cmd/lingo/stage_dispatch_test.go: TestStageDisposerResetFailsBeforeWorkspacePreparation; gitworkspace/retry_reset_test.go |
+| I276-T32 | INTEGRADO | none (internal) | PD-7; amendment A5. | validator_policy_test.go: TestPolicyPreviewApplyRefusesAgentAuthorityAndDrift; validator_policy_store_test.go |
+| I276-T33 | INTEGRADO | T04, T26, T32 | PD-7/9; AC-4. | integrate_test.go: TestIntegrateTwoChildrenWithValidators, TestIntegrateProjectionFailureIsPartialAndRepairable, TestIntegrateUnknownEffectBlocksRerun |
+| I276-T34 | PARCIAL | T24, T26, T28, T29, T30, T31, T33 | PD-1/12; AC-1/2/5; AC-009. | cli/workflow_stage_test.go: TestWorkflowStageCommandsRouteExactInputs, TestWorkflowStageJSONAndHumanParity, TestWorkflowStageExitCodesFollowCanonicalStatus; stage_dispatch_test.go |
+| I276-T35 | INTEGRADO | T34 | PD-14; ADR-0022; AC-2/009. | cli/domain_skill_routing_test.go: TestCanonicalSkillRoutingTableConvergesWithInspection, TestRoutingAloneNeverGrantsAuthority; codexruntime/domain_skills_upgrade_test.go |
+| I276-T36 | NÃO PROVADO | T34, T35, T44 | AC-1–5; AC-009. | Service/fake-adapter and local publication tests exist; no complete installed stage blackbox suite located |
+| I276-T37 | PARCIAL | T09, T01, T21, T26, T31 | CR-006; ADR-0026 D6; PM-11. | TestAdmissionHistoricalMatrix, TestUnknownWireNeverFallsBack, TestSuccessorHistoricalBytesAndDigests, TestStableCorpusResolvesToDirectUpgrade |
+| I276-T38 | PARCIAL | T15, T16, T18, T19, T23, T41, T43 | Plan §7/9.1; CR-005/007/008. | TestConfinementControlMatrix, TestExtendedMissingAuthority, TestExtendedResidue, TestStageRejectsConfiguredArguments, TestIngestRejectsCandidatesAndReportsSafeCategories |
+| I276-T39 | PARCIAL | T36, T37, T38 | Plan §13; documentation governance. | This dated reconciliation; repository/ADR checks V3; Task/DAG checks V4 |
+| I276-T40 | GATE HUMANO / NOT_RUN | T39, T16 | Plan §9.4; AC-1/3/6. | NOT_RUN; no real Runtime, inference, probe or Provider effect executed |
+| I276-T41 | PARCIAL | T16 | PD-17; CR-005. | extended_test.go: TestExtendedAuthorizedFakeRoots, TestExtendedMissingAuthority, TestExtendedResidue, TestExtendedForbiddenRoots |
+| I276-T42 | INTEGRADO | T11, T10 | PD-13; amendment A1. | service_test.go: TestShowStatesAndProfileRemoval, TestInvalidateAuthorityAndPreview, TestInvalidationPreviewFreezesProfile |
+| I276-T43 | PARCIAL | T05 | PD-2/6; AC-1/5. | process_posix_test.go: TestPOSIXProcessContainment, TestPOSIXAlreadyExitedGroup; process_test.go |
+| I276-T44 | PENDENTE | T16, T41, T42 | PD-1/12/14/17. | No capability command/blackbox suite located; application service tests belong to T16/T42 |
+
+### Recoverable execution sequence
+
+Each row is a checkpoint inside this one PR, not a new Task or a change to the
+approved DAG. Integrations and pushes are serialized. Read relevant contracts
+only as each unit is entered. Never use child claims, fake fixtures or the empty
+passive registry to create operational capability proof.
+
+| Unit / criteria | Prerequisites | Files / interfaces | Validation / output | Risk / stop condition |
+| --- | --- | --- | --- | --- |
+| T43: descendants and truthful stop | T05 integrated | executiongraph process boundary + OSProcessRunner | native fake-process exit/timeout/cancel/escape tests, race; native Linux/macOS CI | unobservable escape stays unknown; no Windows; no attribution-based kill outside owned group |
+| T41 → T44: extended effects and capability CLI | T16 ports in PR, T42 integrated | capabilityproof.ExtendedEffects; local owned file operations; cmd/lingo composition; internal/cli help/result | fake temp roots; exact cleanup/residue/identity; CLI no-authority zero-writes; preparation separate from probe | unsafe root or incomplete identity/attestation refuses; no real vendor call |
+| T17/T21/T25 → T27/T26: graph and single composition | T43, T07/T09/T18–24/T32 | stageexecution preview/run/start, stagepublication LocalPublisher.Single, CommittedStarter.Sequential, cmd/lingo supervisor | exact frozen-v3 preview; readback-before-spawn; both topologies; protected failure windows | no spawn before authority commit; missing proof fails closed |
+| T28/T29/T30/T31 → T34 | T26/T27; T06/T08 | persisted status/resume/cancel/reconcile/retry, gitworkspace fencing, stage/coordination CLI | restart, confirmed cancel, append-only facts, authority/lease/epoch/worktree checks at every reset effect | reset remains refused unless full safe destructive protocol is proved; no counter reset or automatic retry |
+| T36/T37/T38 → T39 | T34/T44 + required catalog predecessors | installed CLI fake suite, immutable corpora, commands/help, this record | graph/single; nine kinds; cross-Runtime Q/A consumed; overlap/dependencies; kill windows; 15 historical + v3 rows; consolidated security report | never weaken gate or rewrite historical fixture to pass; unresolved Major/Blocker prevents readiness claim |
+| T40 future operational gate | T39/T16, fresh independent authorization | future engineering_smoke_real package | exact preconditions/envelope checklist only in this implementation | NOT_RUN; no vendor version/help/auth/probe/inference, Provider effect, real smoke, merge, release or Done |
+
+AC-1–5 and WF-009/AC-009 retain component synthetic Evidence only; the installed
+end-to-end technical matrix is not yet proved. AC-1–3 real-runtime implications
+and AC-6 remain operational gates. T40's deferral does not satisfy its Done or
+AC-6. Continue the existing units without requesting generic reapproval.
+
+### T43 checkpoint — natural leader exit does not prove descendant completion
+
+`OSProcessRunner.RunObserved` now observes the process group after a natural
+leader exit. If members remain, an escape is observed, or observation fails,
+it requests the existing bounded group stop and records unknown/ambiguous
+effects. Exit 0 and a pending cancel cannot override those effects. A clean
+natural exit retains the prior `Stopped=false` semantics (no forced stop);
+`Stopped` is not repurposed as a generic completion flag. Existing timeout,
+cancel and correlation-publication-failure paths still require confirmed stop.
+An unstarted POSIX group refuses both stop and gone checks before any signal,
+preventing PID zero from addressing the caller's own group. Tests now release
+registered group handles explicitly.
+
+Reuse decision: stdlib `os/exec`, existing process observation, POSIX groups and
+`x/sys` suffice for this bounded correction. No dependency, wrapper protocol,
+privileged observer, broader signal authority, vendor invocation or schema
+change was introduced. The existing advisory containment boundary is retained.
+
+Regression proof: the new `TestOSProcessRunnerStopsDescendants/completion`
+was run against the baseline scheduler from `e05e209` while preserving/restoring
+the worktree implementation. `go test ./internal/executiongraph -run
+'^TestOSProcessRunnerStopsDescendants$/^completion$' -count=1 -timeout=30s`
+returned **exit 1**, showing exit 0, `Stopped=false`, `OutcomeUnknown=false`
+while the descendant was alive. Test cleanup stopped only that fixture's
+identity-matched descendant. The corrected test is green and separately checks
+that cancel cannot promote the ambiguous result.
+
+New native-process tests cover normal-leader exit with a surviving group member,
+timeout after observed startup, explicit cancellation, failed correlation
+publication, clean natural exit 0/7, and an unstarted group. The Linux-only
+`TestOSProcessRunnerOrphanedEscapeIsUnknown` exercises an escaped double-fork
+through the actual runner: the escape survives until explicit fixture cleanup,
+`Stopped=false`, unknown/ambiguous effects, and unknown classification. These
+are test-binary executables, not Codex/Claude or installed Runtime probes.
+
+**T43 remains PARTIAL.** Native macOS validation is required in this PR's CI,
+and the existing `TestPOSIXProcessContainment/orphaned escaped descendant`
+still skips on macOS: Darwin has no Linux child subreaper, and the current
+ancestry snapshot cannot attribute an already reparented escape. The new group
+completion fix does not close that observation gap and cannot prove the full
+T43 descendant criterion on macOS. This is a material remaining technical gap,
+not a request to waive safety or a claim of platform-complete stop. A verified
+platform tracking protocol (or a fail-closed unsupported/unknown boundary when
+tracking is insufficient) is still needed before T43/T29/T38 can be complete.
+Do not authorize signals to unattributable processes or treat group disappearance
+alone as proof against arbitrary daemonization. Windows remains outside scope.
+
+Validation on Linux, pinned cached Go 1.26.0, `GOTOOLCHAIN=local GOWORK=off
+GOFLAGS=`:
+
+| Command | Actual result |
+| --- | --- |
+| `go test -race ./internal/executiongraph ./internal/stageexecution ./internal/capabilityproof ./internal/runtimeadapter -count=1 -timeout=180s` | exit 0; 21.103s / 19.426s / 1.807s / 5.941s |
+| `go test -race ./internal/executiongraph -run 'TestOSProcessRunnerStopsDescendants\|TestOSProcessRunnerNaturalExitPreservesOutcome\|TestPOSIXUnstartedGroupRefusesStop' -count=1 -timeout=60s` | exit 0; 8.500s; includes final ambiguous-effect/cancel assertion and clean-exit regression |
+| `go test -race ./internal/executiongraph -run '^TestOSProcessRunnerOrphanedEscapeIsUnknown$' -count=1 -timeout=30s` | exit 0; 4.125s |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbe\|^TestProbeOpenFailure\|^TestStage' -count=1 -timeout=180s` with private `AXIOM_TEST_PROBE_STATE_ROOT` under `/home/box` | exit 0; 79.276s; production probe, forged-report and stage regressions, FAKE executables only |
+| `go vet ./...`; `go build ./...`; `go mod verify` | exit 0 |
+| `./scripts/check-go-quality.sh format`, `tidy`, `staticcheck` | exit 0; Staticcheck 2026.2.1 (v0.8.1) |
+| `./scripts/validate-repository.sh .` | exit 0; native vendor behavioral scenarios SKIP/UNVERIFIED as required |
+
+An initial intermediate implementation marked clean natural exits `Stopped`;
+the capability regression correctly failed because that flag means interrupted
+probe/quarantine. It was corrected before publication, preserving clean-exit
+semantics. That failed intermediate run is not reported as PASS. The final
+focused clean-exit and failed-probe regressions passed. Full exact-head native
+Linux/macOS CI remains a separate observation after push, never inferred from
+these local runs. No real version/help/authentication, probe, inference, smoke
+or Provider mutation was executed. T40/AC-6 remain NOT_RUN/unproved.
+
+Source SHA-256 at this checkpoint:
+
+- `internal/executiongraph/scheduler.go`: `cd2cbb4390c664739503735a6f6f3353f1dd8f9a4279d20eb8c2109d544793ed`
+- `internal/executiongraph/process_posix.go`: `b60249add3c5121fc0b38e3107979fa457e5c7e1bfcf31b529deeee849426c68`
+- `internal/executiongraph/process_posix_test.go`: `09d2873477ab79777122f909967b359e6c85ad3dcd454aa933f20b84422f810c`
+- `internal/executiongraph/process_runner_linux_test.go`: `54bfebf7d716c156430b9d9c3701f280d37cf545dd7b3758a9a37219ad7cf3d2`
+
+Engineering/security self-review used `axiom-review` and documentation
+reconciliation used `axiom-document`: no blocking finding in this bounded
+correction; the material Darwin observation gap remains explicitly open for the
+whole delivery. Existing CR-001/CR-002 fixes and their FAKE regression were
+preserved. No accepted ADR, historical Plan/catalog suffix, Graph1/2/corpus,
+capability facts, authority contract or runtime policy was weakened. No new
+narrative code comments, TODO/FIXME, permissions or unrelated changes.
+Dedicated gitleaks is unavailable; no dedicated scanner PASS is claimed.
+
+Inventory check: an ephemeral read-only Python check compared each of the 44
+unique continuation rows with the approved catalog's exact predecessor list and
+performed a DFS over all nodes: PASS, exit 0, acyclic. No durable helper added.
+
+### T41 checkpoint — digest of the read-only extended preview
+
+`ExtendedService.Preview` now returns a SHA-256 digest over the exact probe ID,
+ordered roots and their physical snapshots, unique filename, one-file limit and
+timeout. The closed projection uses stdlib JSON of `{Encoding, Preview}` with
+encoding `axiom-extended-probe-preview-v1` and the preview's Digest empty; the
+existing `packetDigest` supplies SHA-256. No raw paths are added to persisted
+Evidence; paths remain in the ephemeral local preview. This does not hash or
+attest an operational Runtime invocation: production extended adapter composition
+is still missing. The standard `ProbeAuthority` cannot substitute for the
+separate `ExtendedAuthority` type.
+
+Apply still re-observes the exact preview before the first effect. A missing,
+changed or stale digest, root identity, filename, timeout, limit or root set
+refuses without controls, canary or cleanup calls. Tests cover 17 mutation
+cases, repeat determinism, and independently changed probe/path/inode/root-set
+digests, in addition to existing missing authority, forbidden home/vendor/
+external roots, control failure and residue cases. All effects are fake; no
+shared system temp directory or real Runtime was probed.
+
+Validation (Go 1.26.0, same pinned environment as T43):
+
+| Command | Actual result |
+| --- | --- |
+| `go test ./internal/capabilityproof -run '^TestExtended' -count=1 -timeout=30s` | exit 0, 0.017s before the additional digest-source tests |
+| `go test -race ./internal/capabilityproof -count=1 -timeout=90s` | exit 0, 1.211s, including all final extended tests |
+| `go test ./internal/runtimeadapter ./internal/stageexecution -count=1 -timeout=90s` | exit 0, 0.726s / 2.738s |
+| `go vet ./internal/capabilityproof`; `go build ./internal/capabilityproof` | exit 0 |
+| `./scripts/check-go-quality.sh format`, `tidy`, `staticcheck` | exit 0 |
+
+Source SHA-256: `extended.go`
+`1e78f761e822436bcc9798ad465beaa0932c44feca2ab7aad37cd96d63ffb8ef`;
+`extended_test.go`
+`34c45e1a6d41a5ac188ac7e5b14ce111d7d87a0c58ab17034d153ce8372eb7c9`.
+Engineering/security review: no new dependency, effect authority, filesystem
+operation or capability promotion. This is an ephemeral preview API extension,
+not a persisted schema migration. Existing Graph/corpus/ADRs are untouched.
+**T41 remains PARTIAL:** production identity-bound ExtendedEffects with exact
+owned-file cleanup, dispatch-identical invocation/auth/binding and independent
+measurement, plus T44 routing, still need implementation and installed tests.
+Do not wire a child-controlled errno/claim as independent measurement. These
+checks neither satisfy operational proof nor make the delivery ready for review.
+
+### T40 preparation only — future authorization and Evidence checklist
+
+Status: **NOT_RUN**. This is a checklist, not an `engineering_smoke_real`
+Evidence package and not an authorized command sequence. The maintainer must
+grant new specific authority before any real vendor version/help/authentication,
+probe, inference or installed smoke is invoked. Preparation consent never
+implies probe consent; extended-temp consent is separate from standard consent.
+
+Before proposing a future run, verify all of Plan §9.4's five preconditions:
+
+1. IG-1: supported canonical v3 authoring creates the clean configuration, with
+   no hand-edited state. Confirm the installed Axiom binary's exact version,
+   commit and SHA-256, and the same reviewed CLI/skill contracts.
+2. Independently observed version identities must be admissible through the
+   accepted passive registry. Current empty registry does not meet this gate.
+   Fresh separately authorized capability probes must produce matching proven
+   Evidence for each exact child binding/variant, with inspected Profile/effort
+   sources. Current production verification's unknown results do not meet it.
+3. Both vendors must already be authenticated using subscription mode. Any
+   future `codex login status` / `claude auth status --json` observation needs
+   its own granted preflight envelope here; no API keys, environment bypass,
+   child claims or fixture auth can supply proof.
+4. A human must approve the exact run envelope: scratch lab repository (never
+   Axiom's repository), canonical workflow digest/stage, Graph3 and parent/child
+   identities, Runtime/Profile/model/effort, permitted read/worktree-write/process
+   effects, validator-policy digest, maximum attempts 1, per-child timeout,
+   total bound, coordination budget, private Evidence directory, approver/time,
+   and exact preview digest/authorities. Name residual confinement/cost risks,
+   cleanup/quarantine and uncertain-stop recovery before consent.
+5. Complete I2–I6 and the applicable delivered IG-7/#276 v3/Graph3 admission and
+   composition checks; T36/T37/T38/T39 technical Evidence and independent review
+   must cover the actual installed artifacts. No green component CI replaces
+   these missing installed-journey checks.
+
+If any prerequisite is absent, retain NOT_RUN and identify it. For a separately
+authorized run, the eventual redacted `engineering_smoke_real` record must include
+exact executable/version/mode/capability/Profile/effort/policy digests, subscription
+observation, confinement level and scope, exact graph/authority and packet
+correlation, bounded streams and attempt metadata, and all Plan §9.4 checks:
+Codex question_request, Claude answer with question_reference, both result
+records consumed by the orchestrator/integration owner, authorized concurrency,
+local integration/validator outputs, persisted status/reason/readiness before
+and after initiating-session exit, and start from one supported Runtime's skill
+with inspection/integration from the other. Preserve failures, uncertainty,
+stop confirmation and cleanup/residue, not only successes. Retain no account
+IDs, credentials or raw transcripts. This cannot claim R-2/R-3, #278, release,
+AXM-8 Done or operational acceptance. T40 execution and AC-6 remain open.
+
+### Acceptance at this continuation checkpoint
+
+| Criterion | Synthetic Evidence now | Still open |
+| --- | --- | --- |
+| AC-1 | Existing packet/argv/auth/environment and graph/single service components; production T13/T14/T16 FAKE matrix; new descendant boundary tests | Public installed graph AND single FAKE start, then separately authorized real configured Codex+Claude journey |
+| AC-2 | Persisted lease/status/resume and thin skill routes; detached-supervisor component tests | Complete installed cross-surface restart/status/resume and native initiating-session independence |
+| AC-3 | Nine-kind inbox/ingestion, lineage/revision/epoch/capacity, synthetic Q/A components | Installed orchestrator consumes cross-Runtime FAKE Q/A; full negative matrix; later separately authorized real exchange |
+| AC-4 | Scheduler conflict/overlap and validator-bound integration/roll-up components | Installed concurrency/dependency/effect and integration journey under final composition |
+| AC-5 | Classifier/reconciliation/retry and kill-window components; new exit/timeout/cancel/escaped-descendant regressions | Installed recovery; Darwin reparented escape gap; destructive retry-reset fencing remains unavailable/fail-closed |
+| AC-6 | No operational Evidence | T40 NOT_RUN; future exact-envelope authorization and all real smoke fields/checks |
+| WF-009 / AC-009 | Stage/coordination parser, T35 routing and persisted state components | Complete CLI/Codex/Claude installed parity, graph/single lifecycle, public coordination and recovery journeys |
+
+The Task inventory above remains current: T43 and T41 gained bounded unmerged
+implementation/Evidence but stay PARTIAL. T13/T14/T16 are preserved in the same
+Draft PR, not reimplemented. T44 is still PENDING; T36 is not proved; T37–T39
+are partial; no technical-delivery or human acceptance claim is made.
+
+### HANDOFF — continue the same AXM-8 technical delivery
+
+This is a recoverable session checkpoint, **not Done or technical delivery ready
+for review**. Do not restart SDD or request a new prompt per Task. Preserve the
+same objective and authorization from the single continuation request. Context
+was bounded after reconnaissance and two safe implementation units; the next
+production boundary should be entered with its full relevant contracts available.
+
+```yaml
+objective: Complete remaining authorized technical I276-T01–T44 in Draft PR 320
+state: in_progress
+branch: feat/axm-8-stage-agent-execution
+source_head: aa92e330d90bff360c55139493fb0ba316f5cd59
+source_head_note: This record is in the documentation-only successor; code equals source_head. Read exact published HEAD and CI from PR 320, then verify git status/rev-parse/ls-remote before mutation.
+source_commits:
+  - dbfe896f80de91e449a42265dbeb5ea165241648: T43 natural-exit descendants correction and 44-Task inventory
+  - aa92e330d90bff360c55139493fb0ba316f5cd59: T41 extended preview digest and synthetic refusals
+completed_units:
+  - Revalidated sole work PR, main, HEAD, AXM-8 relations and three human decisions
+  - Compared all 44 Tasks with main and PR; catalog predecessor and DAG check passed
+  - T43 bounded correction with regression failure against baseline and race checks
+  - T41 digest-bound read-only extended preview with 17 mutation refusals and digest-source tests
+  - T39 checkpoint reconciliation and T40 future prerequisite checklist only
+remaining_units:
+  - T43 Darwin reparented-escape observation or an honest fail-closed boundary; native test cannot be skipped as proof
+  - T41 production ExtendedEffects and exact invocation/binding/authentication/cleanup; fake-root positive/negative tests
+  - T44 public capability show/probe/invalidate plus independently authorized preparation and distinct extended operation
+  - T17/T21/T25 production preview and immediate revalidation; T26 graph AND single wiring with T27 supervision
+  - T28/T29/T30/T31 lifecycle and safe reset authority/lease/epoch/worktree fencing
+  - T34 installed stage/coordination parity; preserve T35 thin routes and T32/T33 validators
+  - T36 installed fake-Runtime graph/single and Q/A consumed by orchestrator, restart, overlap/conflicts and kill windows
+  - T37 compatibility matrix and immutable corpus hashes; T38 consolidated security regressions; final T39
+  - Final exact-head Linux/macOS CI and independent review, with findings resolved in this same PR
+next_action: Implement T41 production extended-effects composition against the existing port, with exact trusted root/file identities and separate invocation/authority preview. Keep native roots unprobed; test on private synthetic roots with FAKE executables. T43 Darwin is a separate material open technical node, not a reason to block independent T41/T44 work.
+next_files: internal/capabilityproof/extended.go; internal/local native extended-effects boundary; cmd/lingo capability composition and its tests. New filenames are a plan, not existing implementation.
+next_acceptance: Preview zero writes; missing authorities and stale digest/binding/root refuse before effects; one exclusive empty filename per root; cleanup only the exact owned inode; residue fails; child claims never prove invocation or denial; no promotion when independent observation is absent.
+authority_granted: Scoped #276 code/docs, deterministic and synthetic tests, cohesive commits, push existing branch, update same PR
+pending_authority: All real Runtime version/help/authentication/probe/inference/smoke effects, T40, Provider effects, merge, release, final acceptance
+validation_status: Focused race/regressions, vet/build/module/format/tidy/staticcheck/repository checks passed as recorded above; exact remote CI is SHA-specific and must be read from PR 320. Vendor behavioral checks deliberately UNVERIFIED.
+review_status: Earlier CR-001/CR-002 resolved; favorable COMMENT at e05e209 covers its slice only. New checkpoint self-review is not independent approval. Whole delivery remains incomplete.
+```
+
+Before a substantial process-tracking or extended-probe mechanism, compare the
+stdlib and existing `x/sys`/owned-filesystem primitives. Do not invent a new
+trust path or adopt another dependency implicitly. Stop only an effect whose
+safe authority/identity/measurement cannot be established; preserve all
+independent work. No current human action is required to continue implementation.
+Future operational tests need the specific independent consent listed above.
+
+### Continuation — Darwin orphan boundary (T43)
+
+The `82e711e` checkpoint is preserved. PR #320 was re-observed open/Draft on
+the same branch, with remote HEAD `82e711eaf85fd01f024ea94b4348b48bee58fd50`;
+its CI run `38818347537` passed native Linux/macOS. AXM-8 remains In Progress,
+with no blockedBy relation. The three specified human decisions were read in
+full; no Provider content was imported. No delegation: the required strictly
+lower model hierarchy is not established by the available runtime metadata.
+
+T43 now takes a pre-spawn Darwin launchd-adoption baseline using the existing
+`x/sys/unix` sysctl boundary. It compares PID **and start identity** after exit
+and before stop confirmation. A new live adopted process outside known attempt
+groups is un-attributable: stop stays unconfirmed and the runner remains unknown.
+This deliberately permits conservative false negatives when an unrelated process
+daemonizes concurrently; it grants no sandbox or arbitrary-descendant kill power.
+No new dependency or accepted ADR change. Linux retains its subreaper boundary.
+The previous Darwin orphan-test skip was removed and the runner's orphan test
+is shared by Linux and Darwin. Native macOS execution must be observed in CI;
+cross-compilation alone is not native proof.
+
+Local synthetic validation, pinned Go 1.26.0, ambient Claude effort unset:
+
+| Command | Result |
+| --- | --- |
+| `go test -race ./internal/executiongraph -run 'TestPOSIX\|TestOSProcessRunner' -count=1 -timeout=120s` | exit 0, 22.128s |
+| `go test ./internal/executiongraph ./internal/stageexecution ./internal/capabilityproof -count=1 -timeout=120s` | exit 0, 12.690s / 2.886s / 0.089s |
+| `GOOS=darwin GOARCH=arm64 go test -c ./internal/executiongraph` | exit 0, compilation only |
+| `go vet ./internal/executiongraph`; format / tidy / staticcheck | exit 0; Staticcheck 0.8.1 |
+
+Staticcheck initially refused because its installed binary was absent from PATH;
+adding the existing `/home/box/go/bin` resolved it, without installing anything.
+No actual vendor executable, authentication, probe or inference was invoked.
+T40 and AC-6 remain NOT_RUN. This unit does not close the remaining T41/T44,
+stage-composition, retry-reset or installed-validation gaps listed above.
+
+CI `38823438873` at `13412e0` **FAILED** on native macOS: the orphan regression
+ran, but the baseline wrongly included only processes already parented by
+launchd. Pre-existing unrelated processes adopted later made clean exits and
+confirmed group-stop tests inconclusive. The correction snapshots **all** live
+pre-spawn process identities, while subsequent observations consider adopted
+processes only. No outcome assertion or security gate was weakened. Linux
+focused race regression repeated: exit 0, 22.140s; Darwin arm64 compilation:
+exit 0. Native CI for the correction is still required. An unrelated process
+created and daemonized after spawn can still conservatively prevent confirmation.
+
+### T44 incremental CLI — show and invalidation
+
+Both `runtime codex capability` and `runtime claude capability` now route `show`
+and `invalidate` through the canonical T42 services and production BindingSource.
+The CLI has no evidence-selection or capability rules. Exact Profile, variant,
+process mode and operation roots select the binding; local consent gates effort
+inspection. Invalidation previews bind the entire domain preview by SHA-256;
+apply checks local authority, exact digest and the domain's fresh CAS preview.
+Unknown bindings remain unknown. No executable, auth command or Provider is run.
+Commands/help use the same flag registry; human/JSON share the payload. No
+capability route was added to a Runtime skill, per PD-14.
+
+Synthetic tests cover both command paths, parity/help, malformed/duplicate and
+foreign-authority flags, unknown-state zero-write refusal and an actual canonical
+Evidence-store show/invalidate/show round trip under injected version/Evidence
+fixtures. That fixture is explicitly not an operational proof. Focused race
+checks (`go test -race ./internal/cli ./cmd/lingo -run
+'TestRuntimeCapability|TestCapabilityInvalidation|TestCapabilityPublic|TestCapabilityExcluded'
+-count=1 -timeout=60s`) passed, exit 0 (1.124s / 1.152s).
+T44 remains partial until standard probe/preparation and distinct extended
+operation are composed and validated; T41 and installed T36 are still open.
+
+Native macOS CI at `4f841ab` (`38824648854`) also failed: new launchd services
+outside the operator identity can appear during probes/timeouts. The observer
+now scopes adoption to matching real, saved **or** effective operator UID;
+an effective-root supervisor still observes all identities. Setuid execution
+retains the real operator UID and remains included. This is advisory process
+tracking for the non-elevated Runtime contract, never a privilege/confinement
+claim. New unrelated processes with the operator's identity still conservatively
+prevent confirmation. No tests or result gates changed. Darwin arm64 test
+compilation passed (exit 0); native CI remains required.
+
+### Unused preparation handoff and durable single-use claim (T13/T16/T44)
+
+Option A's separately prepared envelope can now cross CLI invocations only while
+it is an unused, physically verified `ready` envelope, selected by its exact
+manifest digest. `OpenQuarantinedEnvelope` still never grants execution. Opening
+an unused preparation checks cleanup intent, quarantine, claim and an empty
+inbox without writes. Session open exclusively creates and fsyncs a claim before
+listener/inbox effects; only its live owning handle can continue. Recovery
+markers use the existing recognized `.axiom-recovery-*` namespace and contain
+only the manifest digest. Quarantine now persists revocation, except when an
+existing cleanup intent already excludes execution. Interrupted/claimed or
+quarantined envelopes refuse reuse. The pinned canary loader verifies the claim
+and refuses quarantine; child output remains diagnostic, never trusted proof.
+
+The claim revalidates the manifest objects and the opened root's physical
+identity before its first write. There is no new dependency, Runtime/Profile
+format, Graph format or canonical Evidence kind. Existing recovery inventory
+and exact-object cleanup recognize the markers. A cleanup preview made before
+quarantine must now be renewed because quarantine adds an owned object: the
+regression asserts refusal of the old preview and success of the new exact
+preview. Cleanup intent in progress does not receive a new object.
+
+Synthetic validation with `AXIOM_TEST_PROBE_STATE_ROOT` set to a private test
+directory outside temporary/repository roots, pinned Go 1.26.0 and ambient Claude
+effort unset: `go test -race ./internal/local -run
+'TestProbe|TestCanary|TestPreparedEnvelope|TestQuarantinedEnvelope' -count=1
+-timeout=90s` passed (exit 0, 2.069s), including eight concurrent handles, exactly
+one claim, crash-after-claim refusal, read-only re-open, quarantine refusal,
+physical identity checks, partial-open fault injection and exact recovery.
+Initial stale cleanup-preview and cleanup-intent regressions failed; they were
+resolved as above, without weakening cleanup identity checks. Full-suite results
+and native CI are recorded separately when observed. No real Runtime ran.
+
+### Native Darwin validation isolation
+
+At `267efdc`, native Linux verification passed but native macOS job
+`116733107467` in run `38825743111` failed: positive group/probe tests received
+conservative unknown outcomes. The global adoption observer can see detached
+descendants of other concurrently executing test packages under the same UID;
+their process-local attempt registries are intentionally not shared authority.
+The macOS full-suite command now uses `-p=1` to serialize packages. All packages,
+race instrumentation, assertions and mandatory conclusions remain enabled;
+Linux coverage execution is unchanged. This is validation isolation, not a
+claim that a global observer can attribute unrelated same-UID host processes.
+Native results for this adjustment are still required; failures above are not
+reported as PASS. No runner, permissions, entitlement or infrastructure changed.
+
+### Public standard probe and independent preparation CLI (T44 delta)
+
+`runtime <codex|claude> capability prepare` now exposes zero-write preparation
+preview and exact-digest apply under the distinct `--authorize-prepare` authority.
+The digest binds policy, roots, limits, unique ID and existing state-root
+ancestor identities. Invalid policy and pre-existing identities refuse before
+creation. Preparation never authenticates or starts a vendor.
+`runtime <codex|claude> capability probe` consumes an unused ready preparation
+by `--probe-id` and `--manifest-digest`. Preview is read-only. Apply first checks
+both local/external authorities and the reviewed digest, then uses the canonical
+Service's exact preflight, re-observation, claim, single invocation, redacted
+Evidence and quarantine/cleanup protocol. Preparation authority cannot substitute
+for probe authority. The empty production registry and PM-13 limitations still
+block unprovable bindings before auth/inference. Forged child data stays unknown.
+
+Validation, pinned Go 1.26.0, ambient Claude effort unset and the explicit private
+synthetic probe root set (no required fake-probe test skipped):
+
+| Command | Actual result |
+| --- | --- |
+| `go test -race ./... -count=1 -timeout=10m` | exit 0; CLI package 269.410s, other packages passed; before the final claim-root revalidation helper and added executable blackbox |
+| focused race: CLI probe/preparation, forged-report, variants, parser/help and public executable refusals (`-count=1 -timeout=120s`) | exit 0; cmd 52.171s, cli 1.108s; after final claim-root revalidation |
+| `go test ./cmd/lingo -run '^TestExecutableCapabilityRefusalsAndPreparation$' -count=1 -timeout=60s` | exit 0, 0.635s |
+| format / Staticcheck 0.8.1 / `go vet ./...` / `go build ./...` | exit 0 |
+| `./scripts/validate-repository.sh .` | exit 0; intentionally unauthorized native vendor checks remain UNVERIFIED |
+| `scripts/test-go-quality.py` / `scripts/test-code-health.py` | exit 0, 10 / 11 cases; the first unpinned-toolchain attempt refused and was rerun with the existing Go/Staticcheck PATH |
+
+The executable blackbox builds the public binary, places FAKE codex/claude first
+on PATH with an invocation tripwire, checks both Runtime refusals and zero-write
+preparation preview, then authorizes only local preparation. Neither fake vendor
+is invoked in that blackbox. Separate composed tests invoke only FAKE binaries
+and inject the version registry; both return inconclusive unknown Evidence.
+This does not prove the installed graph/single journey or operational acceptance.
+No new skill route, dependency, corpus edit, ADR change, permission or real
+Runtime effect. Dedicated gitleaks remains unavailable, not a claimed scanner PASS.
+
+T44 is **PARTIAL**, now missing the distinct production extended operation and
+its installed validation, rather than missing all public capability routing.
+T41 remains PARTIAL. T43 native CI is still a required open observation; the
+stage composition and T31/T36–T39 gaps in the checkpoint remain open.
+
+### T41/T44 — distinct extended preview and truthful unavailable boundary
+
+Both Runtime CLI paths now expose `capability probe-extended` with closed root
+kind selection and separate `--authorize-extended`. Preview combines the exact
+standard ProbePreview/manifest/binding with T41's physical roots/snapshots,
+filename, one-file limit and timeout, then hashes the complete projection. No
+arbitrary-path flag, default temp mutation or standard-authority fallback exists.
+Apply refuses missing local/external/extended authority and stale combined
+digests before any effect. The native `local.ExtendedRootObserver` supplies only
+read-only filesystem observations of host-selected canonical temp roots, with
+no symlink components or repository ancestors; it reports unreadable ACLs
+conservatively. Home/vendor aliases are resolved before the domain's exclusion
+checks. The domain can now preview through an Inspector without an Effects port;
+apply still re-observes the preview and refuses an absent Effects port.
+
+**Remaining material implementation boundary:** no independently observed
+extended canary and exact owned-file cleanup backend is composed. Production
+extended apply therefore returns `extended_measurement_unavailable`, state
+unknown, before controls, auth, claim, Runtime or cleanup. No child report,
+errno, filename publication or interface declaration is accepted as a substitute.
+This is an implemented safe refusal/CLI route, **not completed T41**, not a native
+extended success and not technical-delivery readiness. The existing trusted
+FAKE Effects unit tests retain positive/negative use-case coverage; their
+injected observations are not production proof. No real shared root was probed.
+
+Focused race validation after the final manifest-ID binding check:
+`go test -race ./internal/capabilityproof ./internal/local ./internal/cli
+./cmd/lingo -run
+'TestExtended|TestCapabilityExtended|TestCapabilityProbeHelp|TestRuntimeCapability|TestExecutableCapabilityRefusalsAndPreparation'
+-count=1 -timeout=60s` passed, exit 0 (1.085s / 1.116s / 1.094s / 3.460s), with the
+private synthetic probe root configured. Tests inspect only private FAKE temp
+directories: deterministic snapshots, replaced inode, changed mode, repository
+and link refusal, foreign roots, cancellation, separate authority, blocked apply
+without writes, help/parser and executable no-authority tripwires. Format,
+Staticcheck 0.8.1 and `go vet ./...` passed. T40/AC-6 remain NOT_RUN.
+
+
+### Material decision gate — single-stage attempt persistence
+
+**SINGLE-PERSISTENCE-01 (Major, specification/persistence).** The new executable
+contract test confirms that an existing valid Execution3 cannot be republished
+as an attempt generation by a no-op, timestamp-only/revision-only mutation or
+added attempt field. The stored workflow remains unchanged on every refusal.
+A child start/completion must not fabricate a workflow fact, failure or gate
+advance. The existing single interfaces do not provide persisted attempt truth.
+
+[ADR-0027](../../decisions/0027-single-stage-attempt-persistence.md) is a concrete
+**Proposed** resolution: a separate versioned single-stage operational ledger
+and versioned single-stage authority, preserving Execution3 and Graph history.
+It compares explicit Execution4 and the incomplete receipt-only fallback.
+No new codec/store, workflow event or fallback has been implemented from this
+proposal. The accepted 44 Tasks are not being resubmitted for generic approval.
+
+Required maintainer action: select/accept the bounded persistence contract in
+ADR-0027 (recommended A), choose its explicit alternative B, or supply another
+contract preserving these invariants. This changes a durable agent-execution
+and multi-object authority boundary; the architecture policy requires an ADR,
+and ADR-0018 keeps a proposed decision out of force until human acceptance.
+That decision is needed for the single writer/supervisor and its persisted
+status/cancel/reconcile/retry consumers. It grants no vendor/Provider effects.
+
+The full AXM-8 technical objective remains **incomplete**, with no readiness,
+merge, release, operational acceptance, Task closure or AXM transition. Independent
+implementation already delivered in this PR is preserved. Remaining technical
+work is not hidden by this gate: T41's native canary/owned-file cleanup backend,
+Darwin exact-head validation, T17/T21/T25–T34 final graph/single composition,
+T31's guarded destructive reset, installed T36 and full T37/T38/T39 closure are
+still open. Reset still returns `retry_reset_authority_fencing_unavailable`.
+T40 remains NOT_RUN and AC-6 unproved, separately authorized in the future.
+
+Decision-gate Evidence: pinned Go 1.26.0, `go test -race ./internal/local -run
+'TestSingleDispatchCannotInventAnExecution3AttemptGeneration|TestSingleDispatchStoreCommitAndScope|TestSingleDispatchRetryLedgerGeneration'
+-count=1 -timeout=60s` passed, exit 0, 2.218s. `scripts/check-adr-governance.py`
+passed with 28 ADRs; this proves proposal structure only, not acceptance.
+
+### Current 44-Task matrix at the decision gate
+
+The immutable catalog IDs, predecessors and AC mapping remain in the full
+continuation inventory above. This table supersedes its status/Evidence columns
+only; INTEGRADO denotes existing main components, not new end-to-end proof.
+IMPLEMENTADO NO PR is unmerged and does not extend the old favorable review to
+new changes. All referenced tests are synthetic unless explicitly stated.
+
+| Task | Current status | Evidence / limitation |
+| --- | --- | --- |
+| I276-T01 | INTEGRADO | successor_test.go: TestSuccessorCanonicalVectors, TestSuccessorHistoricalBytesAndDigests; successor_graph_store_test.go |
+| I276-T02 | INTEGRADO | scheduler_test.go: TestSchedulerConcurrentRunningRetryNeverDispatches, TestReadyChildrenStatuses |
+| I276-T03 | INTEGRADO | classify_test.go: TestClassifyAttemptRules, TestLatestAttemptRecordTotalOrdering |
+| I276-T04 | INTEGRADO | consumers_test.go: TestConsumerPersistedStateMatrix, TestConsumerLoadInvariants, TestConsumerBatchConcurrency |
+| I276-T05 | INTEGRADO | scheduler_test.go: TestSchedulerSavesCompletionBeforeBatchEnds, TestOSProcessRunnerStdinBytes, TestSchedulerCompletionFailuresKeepRunningState |
+| I276-T06 | INTEGRADO | run_lease_test.go: TestRunLeaseReplacementAndEpochFencing; successor_graph_store_test.go: TestSuccessorSavePinsLeaseThroughCommit |
+| I276-T07 | INTEGRADO | dispatch_authority_test.go: TestDispatchCompanionFaultWindows, TestDispatchGraphStoreCommitAndReadback, TestSingleDispatchStoreCommitAndScope |
+| I276-T08 | INTEGRADO | reconciliation_test.go: TestReconciliationAppendRetryAndConflict; successor_graph_store_test.go: TestSuccessorReconciliationPublicationRecovery |
+| I276-T09 | INTEGRADO | admission_test.go: TestAdmissionHistoricalMatrix, TestAllHistoricalGraphMutationsRefusedAndInspectionPreservesBytes; admission_v3_test.go |
+| I276-T10 | INTEGRADO | evidence_test.go: TestFreshnessAndExactBinding, TestNoPromotionWithoutProbe, TestRedactionAndStrictDecode |
+| I276-T11 | INTEGRADO | capability_store_test.go: TestCapabilityStoreRoundTripInvalidate, TestCapabilityRecoveryAndInventory, TestCapabilityStoreRejectsUnsafeBeforeEffects |
+| I276-T12 | INTEGRADO | interface_test.go: TestInterfaceRefutation; runtimeadapter/interface_observation_test.go: TestInterfaceExactEnvironmentAndReplacement; testdata help fixtures |
+| I276-T13 | IMPLEMENTADO NO PR | internal/local/probe_prepared_test.go; probe_session_test.go; production fake probe tests and earlier CR-002 correction |
+| I276-T14 | IMPLEMENTADO NO PR | internal/local/probe_canary.go; probe_session_test.go; cmd/lingo/capability_probe_test.go, including forged reports |
+| I276-T15 | INTEGRADO | classify_test.go: TestVariantScoring, TestConfinementControlMatrix, TestControlMeasurementNoForeignEffects |
+| I276-T16 | IMPLEMENTADO NO PR | cmd/lingo/capability_probe_test.go; runtime_capability_test.go; runtime_capability_blackbox_test.go; synthetic only |
+| I276-T17 | PARCIAL | service_test.go: TestCheckBindingDrift, TestRequiredNonProvenBlocks; binding_source_test.go; capability_composition_test.go |
+| I276-T18 | INTEGRADO | stage_invocation_test.go: TestStageArgvGolden, TestStageRejectsConfiguredArguments; identity_test.go: TestModeDigestGolden |
+| I276-T19 | INTEGRADO | stage_invocation_test.go: TestStageEnvironmentClosed; authpreflight_test.go: TestAuthPreflightInspectsTheExactEffectiveInvocation |
+| I276-T20 | INTEGRADO | packet_test.go: TestTaskPacketGraphAndSingleAgent, TestTaskPacketRejectsUnsafeInputs, TestPreparePacketRecordsBeforeDelivery |
+| I276-T21 | PARCIAL | frozen_stage_test.go: TestFrozenStageDeliveredEffortInspection; stage_effort_test.go; capability_composition_test.go |
+| I276-T22 | INTEGRADO | attempt_inbox_test.go: TestAttemptInboxEveryKindAndExclusiveCreate, TestAttemptInboxRejectsInvalidPublish; stage_dispatch_test.go: TestPublishRefusesAbsentRunningContext |
+| I276-T23 | INTEGRADO | coordination_ingest_test.go: TestIngestCrossRuntimeQuestionAnswerAndBlocker, TestIngestCapacityReserveAndCrashReplay, TestFinalDrainRacesPublishWithoutLateCanonicalRecord |
+| I276-T24 | INTEGRADO | coordination_read_test.go: TestCoordinationReadStreamCanonicalOnlyAndTamper, TestReadStreamSupportsCompleteCodecByteWindow |
+| I276-T25 | PARCIAL | preview_test.go: TestDispatchPreviewGraphAndSingle, TestDispatchPreviewRightsGolden, TestDispatchPreviewRefusals; stage_dispatch_test.go |
+| I276-T26 | PARCIAL — single persistence decision gate | ADR-0027 (Proposed); internal/local/single_dispatch_contract_test.go; existing graph run/publication tests |
+| I276-T27 | PARCIAL | supervisor_test.go: TestSupervisorFailureInjectionPhases, TestSupervisorInitiatingContextDoesNotOwnRun; supervisor_preparation_test.go |
+| I276-T28 | PARCIAL | lifecycle_test.go: TestStatusRendersPersistedStateAcrossStatuses, TestResumeAfterSupervisorKillStartsOnlyRemainingFirstAttempts |
+| I276-T29 | PARCIAL | lifecycle_test.go: TestCancelBeforeDispatchPreventsAttempts, TestCancelWhileRunningRequiresConfirmedStop |
+| I276-T30 | PARCIAL | reconcile_test.go: TestReconcileStaleAndUnknownAppendsFactsOnly, TestReconcileRefusals |
+| I276-T31 | PARCIAL | retry_test.go; recompiled_proposal_test.go; cmd/lingo/stage_dispatch_test.go: TestStageDisposerResetFailsBeforeWorkspacePreparation; gitworkspace/retry_reset_test.go |
+| I276-T32 | INTEGRADO | validator_policy_test.go: TestPolicyPreviewApplyRefusesAgentAuthorityAndDrift; validator_policy_store_test.go |
+| I276-T33 | INTEGRADO | integrate_test.go: TestIntegrateTwoChildrenWithValidators, TestIntegrateProjectionFailureIsPartialAndRepairable, TestIntegrateUnknownEffectBlocksRerun |
+| I276-T34 | PARCIAL | cli/workflow_stage_test.go: TestWorkflowStageCommandsRouteExactInputs, TestWorkflowStageJSONAndHumanParity, TestWorkflowStageExitCodesFollowCanonicalStatus; stage_dispatch_test.go |
+| I276-T35 | INTEGRADO | cli/domain_skill_routing_test.go: TestCanonicalSkillRoutingTableConvergesWithInspection, TestRoutingAloneNeverGrantsAuthority; codexruntime/domain_skills_upgrade_test.go |
+| I276-T36 | NÃO PROVADO | Only capability public-binary blackbox added; complete installed graph/single and consumed cross-Runtime Q/A remain absent |
+| I276-T37 | PARCIAL | TestAdmissionHistoricalMatrix, TestUnknownWireNeverFallsBack, TestSuccessorHistoricalBytesAndDigests, TestStableCorpusResolvesToDirectUpgrade |
+| I276-T38 | PARCIAL | TestConfinementControlMatrix, TestExtendedMissingAuthority, TestExtendedResidue, TestStageRejectsConfiguredArguments, TestIngestRejectsCandidatesAndReportsSafeCategories |
+| I276-T39 | PARCIAL | This continuation, commands and Proposed ADR-0027; complete technical/operational acceptance is not claimed |
+| I276-T40 | GATE HUMANO / NOT_RUN | NOT_RUN; no real Runtime, inference, probe or Provider effect executed |
+| I276-T41 | PARCIAL — production Effects unavailable | internal/capabilityproof/extended_test.go; internal/local/extended_probe_test.go; cmd/lingo/runtime_capability_extended_test.go; no real effects |
+| I276-T42 | INTEGRADO | service_test.go: TestShowStatesAndProfileRemoval, TestInvalidateAuthorityAndPreview, TestInvalidationPreviewFreezesProfile |
+| I276-T43 | PARCIAL — native verification open | Shared POSIX orphan tests now run on Darwin; failed native runs documented above; serialized exact-head CI still required |
+| I276-T44 | PARCIAL — extended measurement unavailable | internal/cli/runtime_capability_test.go; cmd/lingo/runtime_capability_test.go, runtime_capability_extended_test.go, runtime_capability_blackbox_test.go; five public routes |
+
+| Acceptance criterion | Synthetic evidence retained/added | Still unproved |
+| --- | --- | --- |
+| AC-1 | Existing adapter/packet/auth and new capability CLI/fake probes | Full installed graph and single start; later real configured journey |
+| AC-2 | Existing persisted graph lease/status/resume components | Single attempt persistence decision; complete installed restart independence |
+| AC-3 | Nine-kind and cross-Runtime Q/A component tests | Public installed orchestrator consumes bounded Q/A |
+| AC-4 | Scheduler overlap/conflict and validator integration components | Full installed concurrency/dependency/integration journey |
+| AC-5 | Linux fake descendants/unknown, refusal, claim/recovery and single codec fencing | Darwin exact-head proof, guarded reset, full installed recovery |
+| AC-6 | No operational Evidence | T40 NOT_RUN; future specific envelope authority and human acceptance |
+| WF-009 / AC-009 | Existing stage/coordination routes and new five-command capability CLI/help | Final graph/single installed composition, lifecycle and entrypoint parity |
+
+Review: engineering/security self-review only for this continuation. Earlier
+CR-001/CR-002 remain covered by adversarial FAKE regressions; the favorable old
+COMMENT is not independent approval of this delta. No claim of an independent
+whole-PR review, no technical-ready review request, and no unproved native PASS.
+
+### Continuation self-review correction — complete repository exclusion
+
+The public preparation composition initially supplied only the request's
+Repository/workspace roots to the envelope exclusion policy. Review identified
+that other installed Repository bindings also belong in that policy, including
+unavailable/archived membership. Composition now reads the protected complete
+installation catalog, inspects every record, and includes all concrete bound
+Repository paths. Missing/corrupt inventory, a disappearing record or an unknown
+root blocks preparation. No portable Project or Provider content is opened.
+The actual Create/Inspect envelope policy still enforces physical path and
+root exclusions before effects. A new regression registers another Repository
+containing the state root (without relying on a `.git` marker), proves refusal
+without writes, then proves unknown-root and corrupt-inventory refusal.
+
+Capability completions now distinguish `denied_authority` (missing/changed
+authority or stale preview), `failure` (preparation/probe recovery needed), and
+`validation_failure` (unavailable/unknown prerequisites). The public-binary
+blackbox asserts canonical status as well as category, failure exit and the
+Runtime invocation tripwire. Human/JSON still share one completion payload.
+
+Pinned Go 1.26.0 with private synthetic probe root and ambient Claude effort
+unset: focused capability/CLI/executable race regression passed, exit 0
+(cmd 16.836s / cli 1.085s); the final complete-inventory/unknown-root test repeated
+with race passed, exit 0 (1.395s). Format, Staticcheck 0.8.1 and vet passed.
+The preceding whole-tree race run (including the ADR-0027 contract proof) passed,
+exit 0, CLI 269.629s, before these final inventory/status corrections. Exact-head
+remote CI remains a separate required observation. The architecture decision
+gate and all incomplete Task/AC entries above remain open.
+
+### T43 review correction — foreign groups and credential-independent orphans
+
+The unmerged UID-filter experiment at `267efdc` is **withdrawn**. A process can
+change credentials, so current/real/saved UID is not proof that an adopted
+process could not be an escaped descendant. Darwin now considers all newly
+adopted live identities outside the attempt's own group. The native fixture
+asserts that both operator and root UID observations remain candidates and that
+start identity fences PID reuse. It invokes no privileged process or setuid tool.
+
+Review also found a concrete false-stop path in the earlier common POSIX
+predicate: an orphan could join the supervisor's group or a different registered
+attempt group, and group membership excluded it from escape observation. New
+FAKE processes actually exercise both escapes on Linux/macOS. Production now
+excludes only direct trusted attempt leaders by independently observed kernel
+start identity, never descendants by membership in a foreign group. Newly
+un-attributable orphans keep stop unknown. The group additionally pins its
+leader's process correlation and refuses signal/confirmation on identity drift;
+the stale-identity regression verifies the live helper was not signaled.
+
+Evidence on Linux, pinned Go 1.26.0, synthetic processes only:
+
+| Command | Actual result |
+| --- | --- |
+| `go test -overlay /tmp/axiom-320-unsafe-group-overlay.json ./internal/executiongraph -run '^TestPOSIXProcessContainment/orphaned_escape_to' -count=1 -timeout=30s` | expected exit 1: both real FAKE escapes incorrectly returned `Stopped=true` when only the old group-exclusion predicate was restored in an ephemeral overlay; no worktree code was weakened |
+| `go test -race ./internal/executiongraph -run 'TestPOSIX\|TestOSProcessRunner' -count=1 -timeout=120s` | exit 0, 28.210s with final ownership/leader guard |
+| `go test -race ./internal/executiongraph ./internal/stageexecution ./internal/capabilityproof -count=1 -timeout=150s` | exit 0, 29.699s / 13.389s / 1.232s |
+| `GOOS=darwin GOARCH=arm64 go test -c ./internal/executiongraph` | exit 0, compilation only; not native execution proof |
+| `go test -race ./cmd/lingo -run '^TestPreparedProductionProbe(Variants\|ForgedReport)$\|^TestCapabilityProbeCommand' -count=1 -timeout=120s` | exit 0, 50.880s, private FAKE binaries; CR-001/CR-002 integration preserved |
+| format / Staticcheck 0.8.1 / vet | exit 0 |
+
+Native CI `38829521431` at the earlier `444419d` passed Linux but **failed
+macOS**, even with serialized packages: positive probe/group cases returned
+unknown. Serialization did not resolve the global adoption observation gap.
+Those failures remain failures; the UID/group exclusions are not reinstated to
+make them pass. Native exact-head execution after this correction is still
+required. T43 stays PARTIAL. A new unrelated adopted host process can still
+conservatively prevent confirmation; no security sandbox or causal ancestry
+attestation is claimed. The single-stage decision gate and remaining technical
+scope remain as recorded above.
+
+Final reviewed source SHA-256 for this boundary:
+
+- `process_posix.go`: `970ec362204d27e05df09ef9fbff7b356da4bf0d8c6f82f266b4d0671b57ad77`
+- `process_posix_test.go`: `de9e7d1c7cabb9de993f24d4d07f361b0f48eb34f1a2c0e903cf56f398d0ef27`
+- `process_adopted_darwin.go`: `6661500f2b1ee4980bb3d4334fbc1247e07649866b99aeac1c21f808e3b08757`
+
+### Scope reduction delta — T43 process-group boundary and minimal PR CI
+
+Maintainer decision: [AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)
+Linear comment `247f9812-31d2-4c62-af63-7fd972d18f54` (2026-10-15), which
+supersedes the open Darwin orphan investigation above. Recorded as
+[ADR-0028](../../decisions/0028-mvp-posix-process-group-supervision-boundary.md)
+and [ADR-0029](../../decisions/0029-minimal-pr-gate-native-qualification.md),
+both **Proposed**. The accepted T43 Plan wording stays unchanged until
+ADR-0028 is accepted; then only a disposition note is added.
+
+**T43 (A).** `process_posix.go` supervises the leader and its own process group:
+`Setpgid`, recorded start/group identity, refusal on identity drift (PID reuse),
+`SIGKILL` to that group only, confirmation only when the group is observably
+empty, and a veto when an escape is visible through the live leader's
+ancestry. Removed: Linux child subreaper (`process_reaper_*`), the global
+attempt-leader registry, and the Darwin launchd adoption snapshot
+(`process_adopted_*`). Descendants that leave the group and lose ancestry are
+outside the MVP guarantee; they are not tracked, signalled or counted. Exit 0
+still never proves success (`ResultMissing` without a recorded result).
+
+The removed inference also produced false `unknown` on Linux: the new test
+`TestPOSIXIndependentHostActivityDoesNotVetoStop` fails at `d288cc1`
+("independent host activity vetoed confirmation of the attempt group") and
+passes now. A pre-existing false `unknown` for leaders that exit before their
+identity is read (zombie, so identity reads nil) was found by the first native
+run of the new suite (`TestProbeFakeExecutableFailureNeverProves`, Linux race).
+A 300-run `/bin/sh -c 'exit 7'` stress under CPU load measured 14/300 unknown at
+`d288cc1`, 2/300 after the boundary change, 0/900 after the fix. An unreaped
+leader keeps its PID, so a later live process at that PID is refused as reuse
+(`TestPOSIXLeaderExitedBeforeObservation`).
+
+Focused tests: descendants in the group, known escape (setsid child of a live
+leader) and known escape into another attempt group (`Stopped=false`, escapee
+untouched); decoupled orphans in their own session, the supervisor's group or
+another attempt's group (group confirmed, process untouched, outside
+guarantee); independent host activity; already exited group; changed identity
+never signals; unstarted group; exit 0/7; completion/timeout/cancel/correlation
+failure; cancel with known escape is `unknown`; permission and observation
+failures via the fake containment.
+
+**CI (B).** `ci.yml` is one `PR Checks` job; `delivery-metadata` is unchanged.
+The classifier (`classify-ci-changes.py`, `test-ci-classification.py`) and its
+conclusion jobs/artifacts are removed. `native-suite.yml` (Linux/macOS
+`go test -race`, Linux coverage, contracts, upgrade journeys) is called by the
+new `nightly.yml` (daily 05:17 UTC and manual), by the manual native
+qualification and by `release-artifacts.yml` at the release revision, whose
+failure blocks publication through `verify-prepared-release.sh`. The versioned
+ruleset requires `PR Checks` and `delivery-metadata`; release fixtures model a
+historical correction pin with the legacy contexts and a current policy that
+refuses missing, failing or foreign-app `PR Checks`.
+
+**Remote ruleset (pending, administrative).** Read-back 2026-10-16: ruleset
+`22828068` still requires the seven legacy contexts. Apply together with the
+merge of #320, never earlier (it would block every PR lacking `PR Checks`) and
+not later than the next PR: `gh api --method PUT repos/rgomids/axiom/rulesets/22828068 --input .github/rulesets/main.json`,
+then read back the contexts and the unchanged review, Code Owners, strict,
+thread, squash, deletion, non-fast-forward, code-quality and bypass rules. Until
+then #320 cannot satisfy the legacy contexts; that is expected, not a bypass.
+
+Runs at `99ad6f9`: PR CI [38843821453](https://github.com/rgomids/axiom/actions/runs/38843821453)
+`PR Checks` PASS in 3m04s (start 03:06:11Z, end 03:09:15Z; one run, target
+2–3 minutes not yet shown) and `delivery-metadata` PASS. Native qualification
+[38843824624](https://github.com/rgomids/axiom/actions/runs/38843824624):
+`suite (macos)` **PASS** (complete `go test -race ./... -p=1`, including
+`internal/executiongraph`, `cmd/lingo` and `internal/capabilityproof`, the
+packages that failed natively on macOS at `d288cc1`), `upgrade-journeys
+(linux|macos)`, `acceptance`, `smoke-macos` PASS; rejection/promotion as
+designed. `suite (linux)` FAILED on the zombie-at-start false `unknown` fixed
+above, and `contracts` FAILED because `test-go-quality.py` needs Staticcheck,
+installed only in `PR Checks`; it now runs there. The exact-HEAD rerun is
+listed in PR #320.

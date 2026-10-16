@@ -147,6 +147,14 @@ confirmou os sete checks anteriores e a ausência de `go-quality`: a aplicação
 administrativa do novo contexto segue pendente, após merge e autorização
 explícita. A implementação local não altera a proteção remota.
 
+A [ADR-0029](../decisions/0029-minimal-pr-gate-native-qualification.md)
+(Accepted em 2026-10-16, comentário AXM-8 `fee15434`) reduz o estado
+versionado a dois checks: `PR Checks` e `delivery-metadata`. O mantenedor
+aplicou a mudança remota em 2026-10-16 (00:40:05 -03:00). Read-back de
+2026-10-16: o ruleset `22828068` está ativo e exige exatamente `PR Checks` e
+`delivery-metadata`, com strict policy; as demais regras (revisão, Code Owners,
+threads, squash, deletion, non_fast_forward, code_quality, bypass) não mudaram.
+
 Sequência: **estado versionado → merge em main → aplicação administrativa
 remota → read-back**. Para esta mudança, primeiro revisar/mergear #187,
 atualizar #188 contra `main`, retarget para `main`, executar CI novamente e
