@@ -308,11 +308,13 @@ needs its exact preview digest and **`--authorize-extended`**; standard probe
 authority cannot substitute.
 
 Apply runs the subscription preflight, re-observes the whole preview, claims
-the envelope and, per root: creates and removes an exclusive empty control
+the envelope, binds the exact selected roots in a bounded permit outside child
+write roots (live host process identity and preview timeout), and, per root: creates and removes an exclusive empty control
 file on the host, runs the Runtime once with a packet that only invokes the
 hidden canary entrypoint for that exact file, observes the root on the host,
-removes the file only when it is an empty single-link regular file of the
-current user, and repeats the control. A file the host observes after the run
+removes only the exact observed file identity when it remains an empty
+single-link regular file of the current user, and repeats the control. A file
+the host observes after the run
 reports `advisory`; anything else stays `unknown`, because a child report or
 exit status cannot attest denial. A pre-existing or non-owned object at the
 probe filename is never touched: apply stops with `extended_residue_detected`
@@ -1802,6 +1804,68 @@ stages requiring other capabilities or explicit effort are refused as
 `runtime_unresolvable`/`unsupported_effort` until an authoritative observation
 proves them. See the
 [#275 implementation record](specifications/007-configurable-workflows/issue-275-implementation.md).
+
+### Dispatch and inspect a stage
+
+`workflow stage run` recompiles the pinned stage and previews the exact Runtime,
+Profile, capability Evidence, workspace/inbox roots, validator policy and effects.
+Use the same Project/Repository/Work Item/Execution selectors as `stage plan`:
+
+```bash
+axiom --json workflow stage run --project my-project --repository main \
+  --work-item github:owner/repository#123 --execution <execution-id> \
+  --expected-revision <revision> --stage implementation --plan plan.json \
+  --validator-policy <policy-digest> --workspace-root /absolute/private/workspace \
+  --authorize-local
+# Review stage-preview:<digest>, then repeat with:
+# --preview-digest <digest> --authorize-local --authorize-external
+```
+
+`--authorize-local` also consents to current effort-source inspection. It does
+not permit dispatch without the exact preview digest and external authority.
+The public binary refuses unknown/stale capability, executable/version or
+Profile bindings; an empty production version registry cannot admit a Runtime.
+Synthetic test builds with a fixture registry and temporary Evidence are not
+operational proof. No child report or successful exit can promote capability.
+
+Dispatch persists its inputs and single-use authority before launching a detached
+supervisor. A graph keeps successor Graph3; a single-agent stage keeps its own
+`single_stage_run` v1 ledger and authority v2, bound to the Execution3 generation.
+It never creates a graph for a single agent. Re-invoking `stage run` resumes only
+a pending committed receipt; completed or uncertain attempts are never rerun by
+that command. Each attempt rechecks frozen bindings before spawning. The initiating
+CLI may exit while the supervisor persists outcomes and ingests coordination.
+
+| Operation | Inputs beyond the common selectors | Behavior |
+| --- | --- | --- |
+| `stage status` | none | Reads persisted attempts, classifications, blockers and next actions; does not infer success or a confirmed stop. |
+| `stage cancel` | preview/apply flags | Writes a cancellation request; the supervisor confirms its own group stop or retains `unknown`. |
+| `stage reconcile` | `--child <id> --attempt <id>`, preview/apply flags | Appends observed facts after the supervisor lease is free; refuses a live orphan. Never changes an attempt to success. |
+| `stage retry` | stage/plan/revision/policy, `--child <id>`, preview/apply flags and `--authorize-external` | Starts one budgeted eligible attempt with explicit workspace disposition; see [reset fencing](#stage-retry-workspace-disposition). |
+| `stage integrate` | stage/revision/policy, preview/apply flags; optional repeated `--waive <child>=<reference>` | Applies graph results into the owned integration worktree, runs reviewed validators and persists the rollup/outcome. Single-agent stages refuse `single_stage_operation_unsupported`. |
+
+Preview/apply means omit `--preview-digest` for a preview, then supply its exact
+digest and `--authorize-local` to apply. For single-agent retry/reconciliation,
+`--child` is the Execution ID. Retry never resets the attempt counter. Unknown
+attempts require reconciliation first; identity drift, missing authority,
+corruption and partial publication fail closed.
+
+`workflow coordination list` and `show` inspect canonical ingested records using
+the same selectors (`list` optionally takes `--child`, `--attempt`, `--kind`,
+`--after` and bounded `--wait`; `show` requires `--child` and `--record`).
+`publish --kind <kind> --field <name>=<value>` is child-only: the pinned launcher
+context selects lineage and the private inbox, never caller-supplied selectors.
+The nine kinds are question_request, answer, contract_proposal,
+contract_acceptance, blocker, dependency_resolution, artifact_publication,
+progress and result. These records grant no authority. CLI and installed skill
+routes share the same parsers, guards and canonical completion payloads.
+
+Linux/macOS supervision covers the recorded process group and escapes observable
+through its live leader's ancestry (ADR-0028). Deliberately detached descendants
+that lose that ancestry are outside the MVP guarantee. Only an observable empty
+group confirms stop; otherwise effects remain uncertain. A stage still needs a
+qualifying result record to succeed. Real Runtime smoke and operational acceptance
+remain separately authorized (T40/AC-6).
 
 Start one workflow from an explicitly selected, already linked Work Item. Project
 is optional only when the effective context resolves, with precedence

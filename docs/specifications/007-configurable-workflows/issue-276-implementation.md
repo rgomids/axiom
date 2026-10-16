@@ -1,6 +1,6 @@
 # #276 implementation record
 
-Latest continuation: [operational checkpoint, Task inventory and T43/T41 Evidence](#continue-2026-10-15--operational-checkpoint-for-pr-320). Earlier PR implementation: [T13/T14/T16 production integration](#implement-2026-10-15--prepared-production-probe-and-canary). Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Baseline assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
+Latest continuation: [installed synthetic technical qualification](#continuation-2026-10-16--installed-synthetic-technical-qualification). Earlier checkpoint: [Task inventory and T43/T41 Evidence](#continue-2026-10-15--operational-checkpoint-for-pr-320). Earlier PR implementation: [T13/T14/T16 production integration](#implement-2026-10-15--prepared-production-probe-and-canary). Current scope: [maintainer addendum](#implementation-scope-addendum--2026-10-15). Baseline assessment: [2026-10-15 reconciliation and all 44 Tasks](#reconcile-2026-10-15--main-baseline-and-task-matrix). Earlier sections are dated implementation history; later records and the reconciliation qualify their pending/not-started statements.
 
 ## Implementation scope addendum — 2026-10-15
 
@@ -11,6 +11,268 @@ AC-6 remain unproved; active T43/T13 platform Evidence is Linux/macOS only.
 Windows requirements in the historical catalog are excluded prospectively.
 The maintainer owns the deferred-proof risk and final operational acceptance.
 No Task or AXM-8 state is promoted by these decisions.
+
+
+## Continuation 2026-10-16 — installed synthetic technical qualification
+
+This section supersedes the status columns of the earlier dated matrices. It
+records implementation on the same unmerged Draft PR #320, not Task lifecycle
+closure, merge readiness or operational acceptance. T40 and AC-6 remain NOT_RUN.
+
+Initial source: `95a4a5e72858a61bcd26bfe7d9a985a1eaaecc45` (Codex takeover).
+The [takeover HANDOFF](https://github.com/rgomids/axiom/pull/320#issuecomment-6216317513)
+records the four inherited dirty files before edits. The earlier
+[handoff at 6847990](https://github.com/rgomids/axiom/pull/320#issuecomment-6208213568)
+is historical: accepted ADR-0027/0028/0029, T31 reset, extended effects and two
+installed single journeys have since been implemented. No ruleset change is
+part of this continuation.
+
+### Delta and concrete integration corrections
+
+Relative to `4aa3bed`, the PR adds the accepted ADR dispositions, single-stage
+ledger v1 / authority v2 and their frozen candidate corpus, single publication,
+detached supervisor and lifecycle composition. Relative to `6847990`:
+
+| Change | Source / observed behavior |
+| --- | --- |
+| Linux process observation | `f8f84b1`: `/proc` enumeration can race with reap and return ESRCH. Like ENOENT, that entry has vanished; other errors retain unknown. Full failed CI 38851696265 was inspected; no stop assertion was relaxed. |
+| Fenced reset | `94d5f9a`: graph and single supervisors hold the lease, revalidate pending receipt/generation/epoch around destructive effects, and verify exact owned worktree/base after reset. |
+| Extended effects | `82e16c1`: host root snapshots, bounded control/canary/cleanup and public CLI measurement. This continuation additionally binds exact selected roots to a live claimed envelope and removes only observed physical objects. |
+| Installed single | `3bb56fd`, `95a4a5e`: installed dispatch/result and retry/reset with temporary synthetic capability Evidence. |
+| Installed graph | This continuation: graph preparation creates private worktree/inbox roots before use. Resume uses existing `EnsureWorkspace`, preserving verified owned worktrees rather than colliding on recreation. |
+| Store contention | A bounded one-second retry acquires the same shared/exclusive locks; every failed multi-root attempt releases partial acquisitions. This prevents a concurrent canonical coordination read from aborting supervisor ingestion. Long contention remains ErrConflict. |
+| Test assertions | Replaced inherited graph debug logs with assertions of child result records, overlap, all nine kinds, validated integration/rollup, file contents and refusal to repeat integration. Removed temporary DEBUGAPPLY production writes. |
+| Public failures | Invalid stage topology and invalid plan controls receive the existing deterministic refusal categories. Persisted corruption retains recovery semantics. |
+
+This continuation commits `511c12d` (resume/locks), `c2aee8e` (extended-root
+authority/cleanup) and `f9af14a` (installed journeys and refusal categories).
+
+The fixture originally gave the integration owner a repository-write effect for
+an unrelated output. The corrected plan grants explicit integration effects for
+the two source paths. The integration owner is a local operator-authorized Git
+operation, not an additional vendor child; the installed test expects exactly
+two FAKE Runtime invocations.
+
+### T36 test artifact and installed-path report (`synthetic`)
+
+`cmd/lingo/stage_journey_blackbox_test.go` builds a normal binary and a test
+binary. The only build overlay replaces the embedded `runtime-versions.json`
+with the exact two FAKE executable digests and synthetic version tuples. The
+FAKE executables are copies of the test executable with distinct trailers;
+their scripted dispatcher handles only the fixture environment. Capability
+Evidence is created through `local.CapabilityStore.Create` in temporary state,
+with the normally observed executable/adapter/mode/Axiom/Profile/effort binding.
+Production admission, capability checks and dispatch revalidation are unchanged.
+The normal binary is separately shown to refuse these identities/Evidence with
+`capability_unknown`; the production registry remains empty.
+
+Fixture setup selects a synthetic schema-2 workflow and creates its initial
+Execution through existing services with controlled synthetic observations;
+prior stage outputs are seeded via the normal artifact store. These are setup
+fixtures, not claims that normal workflow-start model proof is available. Once
+stage execution begins, dispatch, detached supervision, child publication,
+canonical ingestion, inspection, cancellation, reconciliation, retry and
+integration use installed CLI processes. No private acceptance runner writes
+outcomes into canonical state. The corruption case intentionally damages an
+already settled ledger and proves refusal; it never drives a positive run by
+editing canonical state.
+
+| Installed test | Observed requirement |
+| --- | --- |
+| `TestInstalledSyntheticSingleStageJourney` | Preview and both authorities; normal binary refusal; FAKE invocation and workspace edit; persisted qualifying result; no double dispatch; single integration refusal. |
+| `TestInstalledSyntheticSingleStageRetryReset` | Failed attempt, explicit disposition/external authority, fenced reset removes stale file, second attempt succeeds, receipt cannot be reused. |
+| `TestInstalledSyntheticGraphStageJourney` | Codex/Claude FAKE overlap, consumed question/answer and contract proposal/acceptance, all nine kinds, dependent integration pending until authority, reviewed validator, applied result tree and persisted outcome/rollup. |
+| `TestInstalledSyntheticGraphConflictRetryReset` | Workflow concurrency serializes overlapping effects; failed prerequisite holds dependent; explicit retry/reset and stage-run resume continue remaining first attempt; conflicting result trees refuse integration. |
+| `TestInstalledSyntheticSingleLifecycleAdversarial` | Cancel preview/authority/stale-digest refusal; confirmed group stop; fresh-process persisted status; process failure, missing result and timeout; terminal reconcile refusal; executable drift refuses dispatch. |
+| `TestInstalledSyntheticSingleSupervisorCrashAndReconcile` | Kill only a verified scoped supervisor; persisted stale/orphan identity; live orphan refuses reconciliation; exact FAKE group stop; append-only retry-safe observation; running attempt remains running and is never silently redispatched. |
+| `TestInstalledSyntheticSingleLedgerCorruptionFailsClosed` | Corruption after settlement refuses status without spawning another Runtime. |
+| `TestInstalledSyntheticSingleLineageCapacityAndAdmission` | Forged child context rejected, 63 progress records plus reserved terminal slot, excess candidates rejected, stale Execution revision and out-of-bound controls refused before spawn. |
+
+Failure windows at store publication, spawn/identity, running save, terminal save
+and inbox final drain additionally use deterministic fault injection in
+`TestDispatchCompanionFaultWindows`, `TestSingleStageCommitFaultWindows`,
+`TestSupervisorFailureInjectionPhases`,
+`TestSupervisorInterruptedAtSaveBoundariesLeavesPersistedTruth`,
+`TestSingleSupervisorCancellationAndDrift` and
+`TestFinalDrainRacesPublishWithoutLateCanonicalRecord`. Those component tests
+are distinguished from installed process-kill evidence above; not every
+injected storage fault is an installed OS kill. CLI/skill parser and authority
+parity remains covered by `TestCanonicalSkillRoutingTableConvergesWithInspection`,
+`TestWorkflowStageCommandsRouteExactInputs`,
+`TestWorkflowStageJSONAndHumanParity` and `TestRoutingAloneNeverGrantsAuthority`.
+
+A crashed attempt persisted as running is never made successful or automatically
+retryable by a reconciliation fact. This is the accepted running-attempt fence;
+status and the installed test preserve its exact identity. Reconciliation is an
+observation, not a terminal outcome rewrite or a blanket continuation grant.
+
+### T37 compatibility report
+
+The original §3.10 rows are consumed, not redefined. Runtime/Profile v3-only
+admission follows the accepted later amendment; the v1/v2 historical corpus is
+kept byte-for-byte. No released snapshot was modified.
+
+| §3.10 row | Executed test coverage |
+| --- | --- |
+| 1 | `TestAdmissionHistoricalMatrix/row01-schema1-default` |
+| 2 | `TestAdmissionHistoricalMatrix/row02-schema1-explicit` |
+| 3 | `TestAdmissionHistoricalMatrix/row03-legacy-run` |
+| 4 | `TestAdmissionHistoricalMatrix/row04-legacy-retry` |
+| 5 | `TestAdmissionHistoricalMatrix/row05-sequential-legacy-inspection` |
+| 6 | `TestAdmissionHistoricalMatrix/row06-legacy-coordination` |
+| 7 | `row07-graph1`; `TestAllHistoricalGraphMutationsRefusedAndInspectionPreservesBytes` |
+| 8 | `row08-local1`, `row08-local2`, local-missing/retired/probe cases; `TestAdmitV3RefusesNonCurrentConfiguration` |
+| 9 | `TestAdmitV3ActiveBindsCurrentIdentity`; workflowcompiler v2 frozen tuple tests |
+| 10 | `row10-first-attempt-next-gates`; installed graph/single positive journeys |
+| 11 | `row11-retry-next-gates`; installed graph/single retry/reset |
+| 12 | `row12-resume-next-gates`; installed graph resume, single crash/reconciliation; `TestRunLeaseAcquireProbeRestart` |
+| 13 | `row13-migration-not-selected`, `row13-missing-profile`, `row13-policy` |
+| 14 | `row14-removed-profile`; `TestAdmitV3RefusesNonCurrentConfiguration` |
+| 15 | `row15-default-r1`; historical default-r1 definition/digest invariants |
+
+`TestSuccessorCanonicalVectors` explicitly presents every valid Graph3 vector to
+the historical decoder and requires refusal. `TestSuccessorHistoricalBytesAndDigests`
+protects Graph1/2. `TestSuccessorInvalidVectors` covers duplicate/unknown/version
+failures. `TestSingleStageCanonicalVectors` and
+`TestSingleStageVersionAdmissionFailsClosed` protect single ledger v1 and mutual
+v1/v2 authority refusal. Inventory, every writer/readback, six-family historical
+corpus and candidate snapshot are checked by `TestEveryV1WriterIsRecognizedByInventory`,
+`TestEverySupportedRecordLoadsThroughItsCanonicalStore`,
+`TestStableCorpusIsAppendOnly` and `TestStableCorpusResolvesToDirectUpgrade`.
+Atomic publication, generation/epoch fencing and retry correlation remain in
+local dispatch/single-store suites. This report links distributed tests; it does
+not introduce a second compatibility framework or regenerate historical bytes.
+
+### T38 security report
+
+| Boundary | Executed invariant / negative tests |
+| --- | --- |
+| Adapter options/environment/auth | `TestStageRejectsConfiguredArguments`, `TestStageEnvironmentClosed`, `TestAuthPreflightRejectsEnvironmentOverridesBeforeRunningStatus`, `TestAuthReportExcludesSecretsAndAccountIdentifiers` |
+| Identity/capability drift | Binding/ModeDigest vectors, `TestCheckBindingDrift`, `TestRequiredNonProvenBlocks`, `TestRevalidationRejectsProcessModeDrift`, normal-binary installed refusal and executable-drift case |
+| Envelope/path/symlink/root limits | local probe/envelope safety suites; `TestExtendedRootObserverRefusals`, `TestExtendedRootEffectsRefuseUnreviewedTargets`, `TestCreateExtendedCanaryRefusesOutsideItsEnvelope` |
+| Exact extended root and authority | `TestExtendedMissingAuthority`, `TestExtendedPreviewDigestAndMutationRefusals`, `TestExtendedRootPermitBindsExactRootAndCleansWithEnvelope`, inverse selected-root/tampering/session negatives |
+| Cleanup/partial failure | `TestExtendedResidue`, `TestExtendedRootEffectsPreservePreexistingEmptyControlFile`, `TestExtendedRootEffectsPreserveReplacementAfterCanary`; owned identity only, foreign residue preserved/quarantined |
+| DAC/ACL/advisory truth | capabilityproof classification/control tables: unavailable/changed ACL or unequal identity remains unknown; observed creation is advisory, never confinement proof |
+| Spawn/stop/owner fencing | `TestOSProcessRunnerStopsDescendants`, POSIX identity/escape tests; installed crash/cancel/timeout; retry reset fence loss before/between/after effects and owner/confinement tests |
+| Forged reports and records | `TestPreparedProductionProbeForgedReport`, `TestIngestRejectsCandidatesAndReportsSafeCategories`, installed forged child context and capacity reserve |
+| Redaction/input bounds | `TestRedactionAndStrictDecode`, `TestRejectsStaleControlRawChatCredentialAndOversize`; installed out-of-bound plan/stale revision refusal |
+| Authority remains separate | missing local/external/disposition tests, validator-policy authority tests, no child claim promotion or Provider effects |
+
+The accepted ADR-0005 same-UID race exclusions still apply. Physical identity
+checks are bounded local observations, not an OS sandbox claim. Extended preview
+has no effects; apply runs only under its independent authority. All process and
+extended effects exercised here use FAKE or local synthetic fixtures.
+
+### Current T01–T44 implementation matrix
+
+`BASELINE` means already integrated component; `PR` means implemented in this
+unmerged PR with synthetic tests. Neither label changes the canonical Task or
+AXM lifecycle. Exact-head remote qualification and review are tracked on PR #320.
+
+| Task | Technical implementation | Evidence |
+| --- | --- | --- |
+| I276-T01 | BASELINE | successor codec/vectors/historical hashes |
+| I276-T02 | BASELINE | scheduler running/retry eligibility |
+| I276-T03 | BASELINE | classifier/latest qualifying records |
+| I276-T04 | BASELINE | persisted-state consumer matrix |
+| I276-T05 | BASELINE | scheduler completion persistence/process runner |
+| I276-T06 | BASELINE | lease replacement/epoch/CAS tests |
+| I276-T07 | BASELINE + PR single | dispatch companion and single publication fault windows |
+| I276-T08 | BASELINE | append-only reconciliation/recovery |
+| I276-T09 | BASELINE | historical/current admission matrix |
+| I276-T10 | BASELINE | exact capability binding/freshness/redaction |
+| I276-T11 | BASELINE | Evidence store/inventory/recovery |
+| I276-T12 | BASELINE | interface observation/refutation |
+| I276-T13 | PR | prepared production probe FAKE/session tests |
+| I276-T14 | PR | canary verification/forged-report refusal |
+| I276-T15 | BASELINE | control/confinement classification tables |
+| I276-T16 | PR | production binding/probe CLI, unknown retained without independent attestation |
+| I276-T17 | PR | per-attempt binding revalidation and installed drift refusal |
+| I276-T18 | BASELINE | stage argv/mode golden vectors |
+| I276-T19 | BASELINE | environment/auth exact-invocation tests |
+| I276-T20 | BASELINE | TaskPacket graph/single/record-before-delivery |
+| I276-T21 | PR | frozen-stage effort and installed Profile binding |
+| I276-T22 | BASELINE + PR single | all-kind inbox/publication and installed forged lineage |
+| I276-T23 | BASELINE + PR composition | ingestion/reserve/final drain and installed cross-Runtime Q/A |
+| I276-T24 | BASELINE + PR composition | canonical stream/read limits and installed list |
+| I276-T25 | PR | graph/single preview and installed authority/refusal cases |
+| I276-T26 | PR | graph publication + single ledger v1/authority v2 |
+| I276-T27 | PR | detached graph/single supervisors, failure windows and installed crash |
+| I276-T28 | PR | persisted status and graph resume / single pending receipt |
+| I276-T29 | PR | graph/single cancellation and installed confirmed cancel |
+| I276-T30 | PR | append-only reconciliation and installed orphan refusal |
+| I276-T31 | PR | fenced reset graph/single plus installed retry/reset |
+| I276-T32 | BASELINE | reviewed validator-policy store/authority |
+| I276-T33 | BASELINE + PR composition | installed validated integration/rollup/conflict refusal |
+| I276-T34 | PR | shared graph/single stage and coordination CLI routes |
+| I276-T35 | BASELINE | canonical skill route/CLI guard parity tests |
+| I276-T36 | PR synthetic suite | installed report above; component fault windows distinguished |
+| I276-T37 | PR report | fifteen-row compatibility and immutable corpora above |
+| I276-T38 | PR report | security matrix above |
+| I276-T39 | PR | command reference and this implementation record |
+| I276-T40 | NOT_RUN | real Runtime consent and AC-6 remain outstanding |
+| I276-T41 | PR | bounded host extended effects, exact-root permit, cleanup negatives |
+| I276-T42 | BASELINE + PR CLI | show/invalidate without capability promotion |
+| I276-T43 | PR | accepted process-group boundary; local race stress PASS, exact-head native qualification tracked on PR |
+| I276-T44 | PR | prepare/probe/extended/show/invalidate public CLI tests |
+
+| AC | Technical synthetic evidence | Operational boundary |
+| --- | --- | --- |
+| AC-1 | Installed graph/single start, task packet, edits/results | No real vendor invocation/proof |
+| AC-2 | Detached supervisor, fresh CLI inspection, graph resume, single crash identity | Stale running attempts remain fenced |
+| AC-3 | Installed cross-Runtime Q/A consumed; nine kinds, forged lineage/capacity refusals | FAKE only |
+| AC-4 | Installed overlap, conflict serialization, validator/integration outcome | No operational acceptance |
+| AC-5 | Installed timeout/cancel/failure/corruption/crash; component kill/publication windows | Native Linux/macOS exact SHA required below/on PR |
+| AC-6 | NOT_RUN / unproved | Specific future real-smoke envelope and independent consent required |
+| WF-009 / AC-009 | Common CLI/skill guards, installed graph/single lifecycle and bounded coordination | No Task closure, merge or acceptance inferred |
+
+### Validation and remaining gates
+
+Pinned Go 1.26.0, Linux amd64; ambient Claude effort unset; synthetic probe state
+uses a private directory outside temp roots. Observed before final commits:
+
+- `go test -race ./internal/executiongraph -run 'TestOSProcessRunnerStopsDescendants|TestPOSIX|Test.*Process.*Read' -count=10 -timeout=300s` — PASS, 171.116s.
+- Installed graph positive journey repeated three times — PASS, 35.647s.
+- Restoring only the original non-waiting store locks through an ephemeral test
+  overlay — expected FAIL in the installed cross-Runtime journey (3-run command,
+  failed child outcomes); no worktree guards/assertions were weakened.
+- `go test -race ./internal/local -run '^TestStoreLocks' -count=1 -timeout=20s` — PASS, 2.089s; contention wait, bound and release of partial acquisitions.
+- Installed graph retry/reset/resume/conflict journey — PASS, 23.778s after
+  replacing duplicate worktree creation with exact owned-worktree inspection.
+
+Integrated local checks also passed: `go test ./... -count=1 -timeout=360s`
+with private synthetic probe state (CLI 189.708s), `go vet ./...`,
+`./scripts/check-go-quality.sh all` (format, tidy, pinned Staticcheck 0.8.1),
+`./scripts/validate-repository.sh .`, staged sensitive-file checks before each
+commit, and focused extended local/CLI tests with race (1.434s / 16.901s).
+After the final test fixture adjustments (Darwin decimal group identity and
+UUID-shaped forged lineage), installed crash/admission tests passed, 18.746s.
+An earlier installed-race run compiled during refusal-category changes and
+failed stale assertions; that intermediate failure is not reported as PASS.
+The integrated `go test -race ./cmd/lingo ./internal/local ./internal/stageexecution
+./internal/gitworkspace ./internal/capabilityproof -count=1 -timeout=360s` passed
+(CLI 359.564s; local 54.144s; stageexecution 17.807s; gitworkspace 5.298s;
+capabilityproof 1.285s). The separate focused probe run used private probe state;
+final exact-head native jobs remain a separate remote observation.
+The dedicated gitleaks scanner is unavailable; no dedicated-scanner PASS is claimed.
+
+Independent agent review inventoried the complete PR diff (148 baseline paths)
+and inspected the tracked/untracked continuation, with deeper review of
+persistence/authority, supervisor, reset, extended roots and CI/release gates.
+No blocking or major finding remained in the final inspected code. This was a
+risk-focused engineering/security review, not an exhaustive line audit or human
+approval. The initial review found the extended-root/cleanup defects described
+above and the corrections have negative tests. A separate GitHub reviewer request
+and its state are recorded on the PR; no self-approval is performed.
+
+Final integrated Go/repository checks, exact implementation commits, CI/native
+workflow job conclusions and independent review requests are recorded in PR #320
+by SHA. Pending or failed jobs are not PASS. The final remote Evidence comment
+is the qualification record for the final HEAD; this document does not infer
+native execution from cross-compilation or from earlier source revisions.
+
+No real Runtime version/help/auth/probe/inference, Provider operation, merge,
+release, ruleset change, Issue closure or Linear state transition was performed.
 
 
 ## Historical gap report and approved decision
