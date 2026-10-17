@@ -109,8 +109,11 @@ ou reconstruí-la a partir de GitHub/Linear. Não foi criado estado Axiom.
    com operações de Project e confirma a associação por nova leitura. Em seguida
    consulta o Workflow selecionado, mostra uma descrição compreensível das
    etapas, opcionalmente diagramada pelo host, e encaminha uma edição da etapa
-   escolhida pelo contrato de autoria de Workflow; não seleciona a nova revisão
-   automaticamente. Nenhuma dessas operações é criada por AXM-31.
+   escolhida pelo contrato de autoria de Workflow. Quando o selecionado for o
+   default/built-in imutável, explica a necessidade de criar uma cópia editável
+   no Project antes de modificar a etapa; criar/editar não ativa a nova revisão.
+   Selecioná-la depois é uma operação separada, com preview e authority próprios.
+   Nenhuma dessas operações é criada por AXM-31.
 6. **Entrada explícita de skill seguida de conversa.** O usuário invoca uma
    operação suportada de `axiom-project` ou `axiom-workflow`: a IA preserva a
    operação exata, consulta o resultado e responde. No turno seguinte,
@@ -151,7 +154,9 @@ amendment; não renumeram WF/AC históricos.
   permanecem com seu dono técnico, não com AXM-31.
 - **Workflow:** `axiom-project` consulta e altera a **seleção**; a skill
   `axiom-workflow` consulta/valida/edita a **definição**. Mostrar diagrama
-  derivado do contrato não seleciona nem publica revisão. Uma edição deve
+  derivado do contrato não seleciona nem publica revisão. Definição built-in
+  é imutável: editar sua etapa exige primeiro cópia editável de Project por
+  operação suportada, nunca alteração direta do default. Uma edição deve
   preservar a versão anterior, validar a nova definição e obter preview exato;
   seleção exige operação e consentimento separados.
 - **Work Item/Execution:** `axiom-work-item` continua responsável por iniciar,
@@ -224,7 +229,9 @@ Fixtures são identificadas como synthetic; R-2/R-3 reais continuam AXM-12.
 | N7: perda de ack/partial e publicação; AO-03/08 | Efeito confirmado preservado e efeito incerto explicitado; próxima ação aponta à inspeção/reconciliação existente, zero replay cego | Fixtures de resultado partial/unknown; publicação real e rework testados por AXM-9/AXM-12 |
 | N8: injeção/segredos/autoaprovação; AO-09/10 | Comando host malicioso não executado; canário sensível ausente do handoff público; nenhum gate/aceite/proof promovido | Fixtures sanitizadas de conteúdo não confiável, assertions de zero efeitos e ausência de canários |
 | P7/N9: intenção natural vs operação explícita/inspect-only; AO-01/11 | Para `list/show` suportados, ambas as entradas resultam na mesma operação e nos mesmos resultados canônicos; a skill explícita não é reinterpretada, e uma próxima intenção segue no turno seguinte. `skill inspect` encerra na inspeção, sem mutação ou nova execução. Entrada/skill indisponível não produz comando fictício. | Diálogos sintéticos em Codex/Claude quando disponíveis, tracing de roteamento, CLI args/resultado, nenhuma mutação no modo inspect. |
-| P8/N10: contexto Project → Repository → Workflow e visualização; AO-02/05/12/13 | Project e etapa inequívocos são revalidados sem repetir dados conhecidos; chave duplicada apresenta alternativa sem aplicar; ambiguidade pede identificador; preview obsoleto recusa efeito; alteração aprovada é confirmada por read-back. Definição/seleção permanecem separadas. Diagrama somente quando suportado e derivado dos dados; fallback textual sempre disponível. | Cenários sintéticos de múltiplos Projects e chaves duplicadas, diferenças antes/depois, previews digests, contagem de prompts, referências, recusa com zero efeitos, captura de apresentação gráfica ou fallback. |
+| P8/N10: contexto Project → Repository → Workflow e visualização; AO-02/05/12/13 | Project e etapa inequívocos são revalidados sem repetir dados conhecidos; chave duplicada apresenta alternativa sem aplicar; ambiguidade pede identificador; preview obsoleto recusa efeito; alteração aprovada é confirmada por read-back. Definição/seleção permanecem separadas; tentativa de editar built-in diretamente
+  é recusada, enquanto cópia editável autorizada mantém o default intacto.
+  Diagrama somente quando suportado e derivado dos dados; fallback textual sempre disponível. | Cenários sintéticos de múltiplos Projects e chaves duplicadas, diferenças antes/depois, previews digests, contagem de prompts, referências, recusa com zero efeitos, captura de apresentação gráfica ou fallback. |
 
 Evidence de remediação/handoff MUST registrar objetivo delimitado, alvo canônico
 ou sua indisponibilidade, baseline/binding/revisão, classificação synthetic ou
