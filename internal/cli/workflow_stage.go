@@ -16,6 +16,11 @@ import (
 // own authority flags. Resume is a `stage run` re-invocation over an existing
 // committed authority record, never a separate command.
 const (
+	workflowDeliveryPrepareAction     action = "workflow_delivery_prepare"
+	workflowDeliveryPreviewAction     action = "workflow_delivery_preview"
+	workflowDeliveryApplyAction       action = "workflow_delivery_apply"
+	workflowDeliveryInspectAction     action = "workflow_delivery_inspect"
+	workflowDeliveryReconcileAction   action = "workflow_delivery_reconcile"
 	workflowDeliveryPacketAction      action = "workflow_delivery_packet"
 	workflowStageRunAction            action = "workflow_stage_run"
 	workflowStageStatusAction         action = "workflow_stage_status"
@@ -36,6 +41,7 @@ const MaxCoordinationWait = 30 * time.Second
 // It carries no lineage for publish: the running child context is resolved by
 // the trusted launcher, never from flags.
 type WorkflowStageInput struct {
+	AuthorizePush, AuthorizePR               bool
 	Operation                                string
 	Project, Repository, WorkItem, Execution string
 	ExpectedRevision                         uint64
@@ -65,6 +71,7 @@ type WorkflowStageResponse struct {
 }
 
 var workflowStageOperations = map[action]string{
+	workflowDeliveryPrepareAction: "delivery-prepare", workflowDeliveryPreviewAction: "delivery-preview", workflowDeliveryApplyAction: "delivery-apply", workflowDeliveryInspectAction: "delivery-inspect", workflowDeliveryReconcileAction: "delivery-reconcile",
 	workflowDeliveryPacketAction: "delivery-packet", workflowStageRunAction: "run", workflowStageStatusAction: "status", workflowStageCancelAction: "cancel",
 	workflowStageRetryAction: "retry", workflowStageReconcileAction: "reconcile", workflowStageIntegrateAction: "integrate",
 	workflowCoordinationListAction: "coordination-list", workflowCoordinationShowAction: "coordination-show", workflowCoordinationPublishAction: "coordination-publish",
@@ -150,6 +157,14 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 			return nil
 		})
 		preview()
+	case workflowDeliveryPrepareAction, workflowDeliveryPreviewAction, workflowDeliveryApplyAction:
+		preview()
+		set.StringVar(&in.PlanFile, "request", "", "Exact delivery target JSON; `<json-file>`.")
+		set.BoolVar(&in.AuthorizePush, "authorize-push", false, "Authorize the exact previewed Git push only.")
+		set.BoolVar(&in.AuthorizePR, "authorize-pr", false, "Authorize the exact previewed PR creation only.")
+	case workflowDeliveryInspectAction, workflowDeliveryReconcileAction:
+		preview()
+		set.StringVar(&in.Record, "publication", "", "Exact publication preview `<digest>`.")
 	case workflowDeliveryPacketAction:
 		preview()
 		set.StringVar(&in.Record, "packet", "", "Inspect an existing immutable packet by `<digest>`; omitted previews current readiness.")
@@ -296,6 +311,11 @@ func workflowStageSkillSpecs() []skillOperationSpec {
 	planned := " --expected-revision <revision> --stage <stage-id>"
 	return []skillOperationSpec{
 		local("delivery.packet", workflowDeliveryPacketAction, "axiom workflow delivery packet "+selectors),
+		local("delivery.prepare", workflowDeliveryPrepareAction, "axiom workflow delivery prepare "+selectors+" --request <json-file>"),
+		read("delivery.preview", workflowDeliveryPreviewAction, "axiom workflow delivery preview "+selectors+" --request <json-file>"),
+		{name: "delivery.apply", actions: []action{workflowDeliveryApplyAction}, modes: []skillModeSpec{{name: "default", effect: effectExternalMutation, authority: "exact digest and local authority; each remote effect needs separate push/PR authority", actions: []action{workflowDeliveryApplyAction}, authorityInputs: []string{"--preview-digest", "--authorize-local", "--authorize-push", "--authorize-pr"}, rejectedInputs: []string{}, example: "axiom workflow delivery apply " + selectors + " --request <json-file>"}}},
+		read("delivery.inspect", workflowDeliveryInspectAction, "axiom workflow delivery inspect "+selectors+" --publication <digest>"),
+		local("delivery.reconcile", workflowDeliveryReconcileAction, "axiom workflow delivery reconcile "+selectors+" --publication <digest>"),
 		inference("stage.run", workflowStageRunAction, "axiom workflow stage run "+selectors+planned+" --plan <json-file> --validator-policy <digest> --workspace-root <absolute-path>"),
 		read("stage.status", workflowStageStatusAction, "axiom workflow stage status "+selectors),
 		local("stage.cancel", workflowStageCancelAction, "axiom workflow stage cancel "+selectors),

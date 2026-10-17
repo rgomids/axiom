@@ -2259,3 +2259,35 @@ human-operator actor, authority reference and reason. It must match a persisted
 `stage_review` fact from that actor with the same authority reference and exact
 stage result digest; report text alone grants no waiver. Incomplete packets remain
 inspectable and authorize no publication.
+
+### Exact delivery publication
+
+`axiom workflow delivery preview --request <json-file>` uses the same Project,
+Repository, Work Item and Execution selectors as `delivery packet`. A local
+request is `{"kind":"local","metadata":null}`; GitHub requests bind `repository`,
+`remote` (canonical HTTPS GitHub URL), full `baseRef`/`headRef`, `baseCommit`/
+`headCommit`, `tree`, `diffDigest`, `title`, `body`, `push` and `pr`. Metadata is
+resolved against the Project policy; unsupported required fields block effects.
+The head commit must already represent the reviewed tree. No commit or push is
+inferred from preview. The Git boundary can prepare a commit without changing
+working files; any changed commit requires a new preview before remote effects.
+
+Retain the exact packet, then invoke `delivery apply --request <json-file>
+--preview-digest <digest> --authorize-local`. Each requested remote effect also
+requires its own `--authorize-push` / `--authorize-pr`. The publication fence is
+persisted before effects. `delivery inspect --publication <preview-digest>` reads
+it; `delivery reconcile --publication <preview-digest> --preview-digest
+<preview-digest> --authorize-local` confirms identity without repeating effects.
+Uncertain observations fail with recovery required. Confirmed replay is a no-op.
+These commands never accept, merge, release or close a Work Item.
+
+The strict bounded `delivery_publication` format-1 companion is stored alongside
+packets in the WorkflowStore. It retains packet correlation, the exact envelope,
+confirmed refs and uncertain effects, under protected CAS/read-back. Historical
+Execution encodings remain unchanged. Older binaries refuse the unknown record
+in inventory rather than treating it as an Execution or granting authority.
+
+If no publishable head exists, `delivery prepare --request <json-file>` previews
+only a local commit/ref change. Its exact digest and `--authorize-local` prepare
+the packet's final integration tree with the observed parent and head CAS.
+Use the returned target in a new publication preview. Preparation never pushes.

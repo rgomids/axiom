@@ -11,7 +11,7 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, and executable command
 metadata; do not maintain a second argument registry in this skill.
 
-Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `delivery.packet`, `stage.run`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `stage.integrate`, `coordination.list`, and `coordination.show`.
+Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `delivery.packet`, `delivery.prepare`, `delivery.preview`, `delivery.apply`, `delivery.inspect`, `delivery.reconcile`, `stage.run`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `stage.integrate`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted; sequential Executions have no
@@ -39,6 +39,11 @@ Execution history and Evidence are never edited. Runtime capability `show`,
 | `close` | - | `axiom work-item close --project <uuid-or-slug>` | external mutation | preview first; close only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous close intent |
 | `reopen` | - | `axiom work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
 | `delivery.packet` | - | `axiom workflow delivery packet` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery packet intent |
+| `delivery.prepare` | - | `axiom workflow delivery prepare` | local mutation | exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery preparation intent |
+| `delivery.preview` | - | `axiom workflow delivery preview` | read-only | none | allowed |
+| `delivery.apply` | - | `axiom workflow delivery apply` | external mutation | exact `--preview-digest`, `--authorize-local`, `--authorize-push` and `--authorize-pr` for requested effects | only for unambiguous delivery intent |
+| `delivery.inspect` | - | `axiom workflow delivery inspect` | read-only | none | allowed |
+| `delivery.reconcile` | - | `axiom workflow delivery reconcile` | local mutation | exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery intent |
 | `stage.run` | - | `axiom workflow stage run` | external mutation | preview first; dispatch only with the exact `--preview-digest`, `--authorize-local` and `--authorize-external` (vendor inference) | only for unambiguous stage run intent |
 | `stage.status` | - | `axiom workflow stage status` | read-only | none; persisted state only, never a stop or success claim | allowed |
 | `stage.cancel` | - | `axiom workflow stage cancel` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous stage cancel intent |
@@ -372,3 +377,17 @@ operation-specific payload, and do not extract, duplicate, rename, or relocate
 a payload.
 
 Resolving an operation never grants Provider or local mutation authority.
+
+## delivery publication
+
+Use `axiom workflow delivery preview --request <json-file>` with the exact
+Project, Repository, Work Item and Execution selectors. The request contains the
+local or GitHub target, remote, base/head refs and commits, tree/diff and PR
+content. Present the returned envelope unchanged. Retain the packet separately.
+Run `delivery apply` with the same request and `--preview-digest <digest>
+--authorize-local` only under exact authority; GitHub effects additionally need
+`--authorize-push` and/or `--authorize-pr` for each requested effect. Local
+authority does not cover remote publication. Use `delivery inspect --publication
+<digest>` to read its fence. Use `delivery reconcile` with that digest and exact
+local authority to confirm uncertain effects; reconciliation never repeats them.
+A recorded failure or partial result requires the returned recovery action.

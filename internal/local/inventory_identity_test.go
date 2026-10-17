@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"github.com/rgomids/axiom/internal/workflow"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,6 +144,15 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			return data
 		}
 		switch entry.Kind {
+		case InventoryDeliveryPublication:
+			r, err := workflow.DecodeDeliveryPublication(wire())
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, _ := NewWorkflowStore(state)
+			if _, err = store.LoadDeliveryPublication(ctx, parts[2], r.Preview.Digest()); err != nil {
+				t.Fatal(err)
+			}
 		case InventoryDeliveryPacket:
 			store, _ := NewWorkflowStore(state)
 			if _, err := store.LoadDeliveryPacket(ctx, parts[2], strings.TrimSuffix(parts[3], ".json")); err != nil {
