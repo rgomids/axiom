@@ -52,6 +52,7 @@ func TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation(t *testing.T) {
 		// state-relative path that must now fail closed.
 		relocate func(t *testing.T, state, relative string) string
 	}{
+		{"projection renamed", InventoryDeliveryProjection, renameTo(strings.Repeat("f", 64) + ".json")},
 		{"decision renamed", InventoryDeliveryDecision, renameTo(strings.Repeat("f", 64) + ".json")},
 		{"rework renamed", InventoryDeliveryRework, renameTo(strings.Repeat("f", 64) + ".json")},
 		{"retained renamed", InventoryRetainedExecution, renameTo(strings.Repeat("f", 64) + ".json")},

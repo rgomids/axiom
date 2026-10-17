@@ -294,6 +294,9 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	original, rework := localReworkFixture(t, ledgers, v3)
+	if err := ledgers.Save(context.Background(), original); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := ledgers.ApplyDeliveryRework(context.Background(), original, rework); err != nil {
 		t.Fatal(err)
 	}

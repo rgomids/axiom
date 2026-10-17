@@ -130,3 +130,58 @@ func TestDeliveryReworkExplicitRevisionIndependentGatesAndInputs(t *testing.T) {
 		t.Fatal("inherited authority")
 	}
 }
+
+func TestDeliveryDecisionProjectionAuthorityAndReplay(t *testing.T) {
+	for _, outcome := range []string{"accept", "reject"} {
+		t.Run(outcome, func(t *testing.T) {
+			ctx := context.Background()
+			state, d := decisionFixture(t, outcome)
+			service, store, provider := newS4Service(t)
+			store.state = state
+			store.created = true
+			service.store = deliveryProjectionMemory{store}
+			target := configuredTarget()
+			before := service.PrepareProjection(ctx, target, state.Revision)
+			if before.Preview == nil {
+				t.Fatal(before)
+			}
+			prior := service.Project(ctx, target, state.Revision, before.Preview.Digest, true)
+			if prior.Status != Succeeded {
+				t.Fatal(prior)
+			}
+			store.state.DeliveryDecision = &d
+			preview := service.PrepareProjection(ctx, target, state.Revision)
+			if preview.Status != Succeeded || preview.Preview == nil {
+				t.Fatal(preview)
+			}
+			count := len(provider.effects)
+			denied := service.Project(ctx, target, state.Revision, "wrong", true)
+			if (len(preview.Preview.Effects) > 0 && denied.Status != Denied) || len(provider.effects) != count {
+				t.Fatal(denied)
+			}
+			applied := service.Project(ctx, target, state.Revision, preview.Preview.Digest, true)
+			if applied.Status != Succeeded || !ValidState(applied.State) {
+				t.Fatalf("projection status=%s category=%s valid=%t", applied.Status, applied.Category, ValidState(applied.State))
+			}
+			accepted := provider.hasLabel("axiom:stage:accepted")
+			if accepted != (outcome == "accept") {
+				t.Fatal(provider.observation)
+			}
+			count = len(provider.effects)
+			replay := service.PrepareProjection(ctx, target, state.Revision)
+			if replay.Preview == nil || len(replay.Preview.Effects) != 0 {
+				t.Fatal(replay)
+			}
+			if r := service.Project(ctx, target, state.Revision, replay.Preview.Digest, true); r.Status != Succeeded || len(provider.effects) != count {
+				t.Fatal(r)
+			}
+		})
+	}
+}
+
+type deliveryProjectionMemory struct{ *s4Store }
+
+func (m deliveryProjectionMemory) Save(_ context.Context, s State) error {
+	m.state = cloneState(s)
+	return nil
+}

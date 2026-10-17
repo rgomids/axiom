@@ -2310,6 +2310,15 @@ Status exposes `deliveryStatus`, `deliveryDecision` and, when accepted,
 Generic `human-acceptance` remains unavailable for configured Executions. Closure,
 merge, release and projection to an external Provider retain separate authority.
 
+After a delivery decision, `workflow reconcile` still requires a fresh exact
+preview and `--authorize-external`. Its intent and confirmations use the bounded
+format-1 `delivery_projection` companion, bound to the decision and frozen ledger
+digests, with independent CAS/read-back. Only projection bookkeeping can change;
+packet, decision, transitions and original ledger bytes remain immutable.
+Historical inspection after rework includes this companion. Interrupted publication
+uses the existing recovery protocol. Older inventories refuse the unknown companion;
+no downgrade conversion or cleanup is implied.
+
 `delivery rework --request <json-file>` previews `newExecutionId`,
 `revisionChoice` (`retained` R1 / `selected` R2), explicit `runtimeId`,
 `runtimePreview`, `resolvedProfile` for schema 2, `scope`, corrective `plan`,

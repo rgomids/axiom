@@ -1060,6 +1060,32 @@ func (j *stageJourney) deliveryJourney(t *testing.T, initial *cli.WorkflowView) 
 	if rejected.WorkflowSuccess || rejected.DeliveryStatus != "rejected" || rejected.LifecycleStage == "accepted" {
 		t.Fatalf("rejection projected success %+v", rejected)
 	}
+
+	fakeGH, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	issueNumber, _ := strconv.Atoi(original.WorkItem.ExternalID)
+	fakeState := write("projection.json", fakeGitHub{IssueNumber: issueNumber, IssueCreated: true, RepositoryLabels: []string{"external"}, IssueLabels: []string{"external"}})
+	priorEnvironment := j.environment
+	j.environment = slices.DeleteFunc(append([]string(nil), priorEnvironment...), func(v string) bool { return strings.HasPrefix(v, "AXIOM_GH_BIN=") })
+	j.environment = append(j.environment, "AXIOM_GH_BIN="+fakeGH, fakeGitHubStateVariable+"="+fakeState)
+	reconcileArgs := append(append([]string{"workflow", "reconcile"}, selector...), "--expected-revision", strconv.FormatUint(rejected.Revision, 10))
+	_, _, projectionWire := j.invoke(t, j.axiom, reconcileArgs...)
+	var projectionEvent struct {
+		Projection *workflow.ProjectionPreview `json:"projection"`
+	}
+	if json.Unmarshal(projectionWire, &projectionEvent) != nil || projectionEvent.Projection == nil {
+		t.Fatalf("projection preview %s", projectionWire)
+	}
+	applyProjection := append(reconcileArgs, "--preview-digest", projectionEvent.Projection.Digest, "--authorize-external")
+	j.run(t, 0, applyProjection...)
+	j.run(t, 0, applyProjection...)
+	projected, err := beforeStore.Load(context.Background(), original.ProjectID, original.RepositoryKey, original.WorkItem)
+	if err != nil || projected.StorageRevision != original.StorageRevision || projected.DeliveryProjectionRevision == ([32]byte{}) || projected.DeliveryDecision.Digest() != d.Digest() {
+		t.Fatal("post-decision projection changed ledger", err)
+	}
+	j.environment = priorEnvironment
 	for _, name := range []string{"rework-authority.md", "corrective-plan.md"} {
 		if err = os.WriteFile(filepath.Join(j.repository, name), []byte("Explicit new bounded Execution authority\n"), 0600); err != nil {
 			t.Fatal(err)

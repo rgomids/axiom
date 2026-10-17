@@ -203,3 +203,94 @@ func TestDeliveryReworkLineageTamperFailsClosed(t *testing.T) {
 		t.Fatal("tampered lineage admitted")
 	}
 }
+
+func TestDeliveryDecisionProjectionPreservesLedgerCASAndTamper(t *testing.T) {
+	ctx := context.Background()
+	root := privateTestRoot(t)
+	store, _ := NewWorkflowStore(root)
+	state, rework := localReworkFixture(t, store, createLocalV3Execution(t, store))
+	before, _ := os.ReadFile(executionPath(t, root, state))
+	stale := state
+	if err := store.Save(ctx, state); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.Load(ctx, state.ProjectID, state.RepositoryKey, state.WorkItem)
+	if err != nil || loaded.DeliveryProjectionRevision == ([32]byte{}) || loaded.StorageRevision != state.StorageRevision {
+		t.Fatal(loaded, err)
+	}
+	if err = store.Save(ctx, stale); !errors.Is(err, workflow.ErrConflict) {
+		t.Fatal("stale projection accepted", err)
+	}
+	changed := loaded
+	changed.RuntimeID = "claude"
+	if err = store.Save(ctx, changed); err == nil {
+		t.Fatal("ledger mutation accepted")
+	}
+	if err = store.RecordDeliveryDecision(ctx, loaded, *loaded.DeliveryDecision); err != nil {
+		t.Fatal("decision replay", err)
+	}
+	if _, err = store.ApplyDeliveryRework(ctx, loaded, rework); err != nil {
+		t.Fatal(err)
+	}
+	historical, err := store.LoadExecutionID(ctx, state.ProjectID, state.RepositoryKey, state.WorkItem, state.ExecutionID)
+	if err != nil || historical.DeliveryProjectionRevision != loaded.DeliveryProjectionRevision {
+		t.Fatal(historical, err)
+	}
+	retained, _ := os.ReadFile(filepath.Join(root, "executions", "v1", state.ProjectID, retainedExecutionName(state.ExecutionID)))
+	if !bytes.Equal(before, retained) {
+		t.Fatal("ledger changed")
+	}
+	name := filepath.Join(root, "executions", "v1", state.ProjectID, deliveryProjectionName(state.ExecutionID))
+	wire, _ := os.ReadFile(name)
+	if classifyDeliveryProjection(state.ProjectID, filepath.Base(name), wire) != InventoryDeliveryProjection {
+		t.Fatal("projection inventory")
+	}
+	if _, err = decodeDeliveryProjection(append(wire, []byte(`{}`)...)); err == nil {
+		t.Fatal("non-strict codec")
+	}
+	if err = os.WriteFile(name, bytes.Replace(wire, []byte(state.DeliveryDecision.Digest()), []byte(strings.Repeat("f", 64)), 1), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = store.LoadExecutionID(ctx, state.ProjectID, state.RepositoryKey, state.WorkItem, state.ExecutionID); err == nil {
+		t.Fatal("tampered projection accepted")
+	}
+}
+
+func TestDeliveryDecisionProjectionPublicationFaultBlocksUntilRecovery(t *testing.T) {
+	for _, stage := range []FaultStage{FaultF3, FaultF6, FaultF8} {
+		t.Run(string(stage), func(t *testing.T) {
+			ctx := context.Background()
+			root := privateTestRoot(t)
+			store, _ := NewWorkflowStore(root)
+			state, _ := localReworkFixture(t, store, createLocalV3Execution(t, store))
+			store.hooks.fault = func(s FaultStage) error {
+				if s == stage {
+					return ErrSimulatedInterruption
+				}
+				return nil
+			}
+			if err := store.Save(ctx, state); err == nil {
+				t.Fatal("fault ignored")
+			}
+			store.hooks = publicationHooks{}
+			if _, err := store.Load(ctx, state.ProjectID, state.RepositoryKey, state.WorkItem); !errors.Is(err, workflow.ErrRecoveryRequired) {
+				t.Fatal("pending protocol admitted", err)
+			}
+			roots := RecoveryRoots{State: root}
+			report, err := InspectRecovery(ctx, roots)
+			if err != nil || len(report.Plans) != 1 {
+				t.Fatal(report, err)
+			}
+			authority, err := AuthorizeRecovery(report.Plans[0], report.Plans[0].Digest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = ApplyRecovery(ctx, roots, report.Plans[0], authority); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = store.Load(ctx, state.ProjectID, state.RepositoryKey, state.WorkItem); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

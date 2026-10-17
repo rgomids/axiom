@@ -57,3 +57,7 @@ snapshot.v0.17.0-issue277.delivery.status=unreleased test candidate; synthetic I
 snapshot.v0.17.0-issue277.delivery.base=e59a516e45c8
 snapshot.v0.17.0-issue277.delivery.generator=AXIOM_FREEZE_STATE_CORPUS=v0.17.0-issue277.delivery GOTOOLCHAIN=auto go test ./internal/local -run '^TestEveryV1WriterIsRecognizedByInventory$' -count=1; Go 1.26.0
 snapshot.v0.17.0-issue277.delivery.scope=publication/decision/rework companions, retained Execution and format-4 active link; previous snapshots unchanged
+snapshot.v0.17.0-issue277.projection.status=unreleased test candidate; synthetic Issue 277 writers, not a published release
+snapshot.v0.17.0-issue277.projection.base=0bbc9e559841a98aeda2ac0ac24eb97b2e4cf8e7
+snapshot.v0.17.0-issue277.projection.generator=AXIOM_FREEZE_STATE_CORPUS=v0.17.0-issue277.projection GOTOOLCHAIN=auto go test ./internal/local -run '^TestEveryV1WriterIsRecognizedByInventory$' -count=1; Go 1.26.0
+snapshot.v0.17.0-issue277.projection.scope=adds post-decision delivery_projection companion; frozen ledger and all earlier snapshots unchanged

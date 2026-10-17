@@ -77,12 +77,11 @@ func (s WorkflowStore) Save(ctx context.Context, state workflow.State) error {
 }
 
 func (s WorkflowStore) write(ctx context.Context, state workflow.State, create bool) error {
+	if !workflow.ValidState(state) {
+		return workflowStoreError(ErrUnsafe)
+	}
 	if err := ctx.Err(); err != nil {
 		return err
-	}
-	wire, err := encodeExecution(state)
-	if err != nil {
-		return workflowStoreError(err)
 	}
 	root, executions, version, projectRoot, err := s.openProject(state.ProjectID, true)
 	if err != nil {
@@ -113,11 +112,15 @@ func (s WorkflowStore) write(ctx context.Context, state workflow.State, create b
 		}
 	}
 	if !create {
-		if _, e := readDeliveryDecision(projectRoot, state.ProjectID, state.ExecutionID); e == nil {
-			return workflow.ErrConflict
+		if d, e := readDeliveryDecision(projectRoot, state.ProjectID, state.ExecutionID); e == nil {
+			return workflowStoreError(s.saveDeliveryProjection(ctx, projectRoot, expected, state, d))
 		} else if !errors.Is(e, os.ErrNotExist) && !errors.Is(e, ErrNotFound) {
 			return workflowStoreError(e)
 		}
+	}
+	wire, err := encodeExecution(state)
+	if err != nil {
+		return workflowStoreError(err)
 	}
 	hooks := s.hooks
 	hooks.contentLimit = MaxExecutionBytes
@@ -204,7 +207,7 @@ func (s WorkflowStore) List(ctx context.Context, projectID string) ([]workflow.S
 		if err != nil {
 			return nil, workflowStoreError(err)
 		}
-		if classifyDeliveryDecision(projectID, name, wire) == InventoryDeliveryDecision || classifyDeliveryRework(projectID, name, wire) == InventoryDeliveryRework || classifyDeliveryPublication(projectID, name, wire) == InventoryDeliveryPublication || classifyDeliveryPacket(projectID, name, wire) == InventoryDeliveryPacket || classifyStageOutcome(projectID, name, wire) == InventoryStageOutcome || classifyDispatchAuthority(projectID, name, wire, "single-first-attempt") == InventoryDispatchAuthority {
+		if classifyDeliveryProjection(projectID, name, wire) == InventoryDeliveryProjection || classifyDeliveryDecision(projectID, name, wire) == InventoryDeliveryDecision || classifyDeliveryRework(projectID, name, wire) == InventoryDeliveryRework || classifyDeliveryPublication(projectID, name, wire) == InventoryDeliveryPublication || classifyDeliveryPacket(projectID, name, wire) == InventoryDeliveryPacket || classifyStageOutcome(projectID, name, wire) == InventoryStageOutcome || classifyDispatchAuthority(projectID, name, wire, "single-first-attempt") == InventoryDispatchAuthority {
 			continue
 		}
 		state, err := decodeExecution(wire)

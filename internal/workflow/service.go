@@ -123,25 +123,26 @@ type ProjectionRecord struct {
 	Complete            bool
 }
 type State struct {
-	DeliveryDecision         *DeliveryDecision
-	ReworkOf                 *ReworkLink
-	Binding                  *WorkflowBinding
-	StageOrdinal             int
-	ExecutionID              string
-	FormatVersion            int
-	WorkflowVersion          string
-	ProjectID, RepositoryKey string
-	WorkItem                 WorkItem
-	RuntimeID                string
-	Stage                    Stage
-	Revision                 uint64
-	Status                   ExecutionStatus
-	Transitions              []Transition
-	CreatedAt, UpdatedAt     time.Time
-	Provenance               Identity
-	Terminal                 *Terminal
-	Projections              []ProjectionRecord
-	StorageRevision          [sha256.Size]byte
+	DeliveryDecision           *DeliveryDecision
+	ReworkOf                   *ReworkLink
+	Binding                    *WorkflowBinding
+	StageOrdinal               int
+	ExecutionID                string
+	FormatVersion              int
+	WorkflowVersion            string
+	ProjectID, RepositoryKey   string
+	WorkItem                   WorkItem
+	RuntimeID                  string
+	Stage                      Stage
+	Revision                   uint64
+	Status                     ExecutionStatus
+	Transitions                []Transition
+	CreatedAt, UpdatedAt       time.Time
+	Provenance                 Identity
+	Terminal                   *Terminal
+	Projections                []ProjectionRecord
+	StorageRevision            [sha256.Size]byte
+	DeliveryProjectionRevision [sha256.Size]byte `json:"-"`
 }
 type Store interface {
 	Create(context.Context, State) error
@@ -983,6 +984,12 @@ func validProjectionObservation(item WorkItem, observation ProjectionObservation
 func projectionRecord(state State, preview ProjectionPreview) ProjectionRecord {
 	for _, current := range state.Projections {
 		if current.ExecutionRevision == preview.ExecutionRevision {
+			if state.DeliveryDecision != nil {
+				lifecycle, err := DeriveLifecycle(state)
+				if err != nil || !validProjectionEffects(current, append([]string{preview.Label}, lifecycleFlags(lifecycle.Conditions)...), preview.Comment, validProjectionLabel) {
+					break
+				}
+			}
 			for _, effect := range preview.Effects {
 				if !containsEffect(current.Intended, effect) {
 					current.Intended = append(current.Intended, effect)
@@ -1190,6 +1197,13 @@ func validProjectionRecord(state State, record ProjectionRecord) bool {
 		}
 	}
 
+	if state.DeliveryDecision != nil {
+		state.DeliveryDecision = nil
+		if validProjectionRecord(state, record) {
+			return true
+		}
+	}
+
 	// Persisted S4 records remain readable without rewriting their labels,
 	// comments, or Evidence. New previews never create these legacy effects.
 	legacyLabel := stagePrefix + string(projected.Stage)
@@ -1230,6 +1244,9 @@ func projectionSnapshot(state State, revision uint64) State {
 	projected.UpdatedAt = projected.CreatedAt
 	projected.Terminal = nil
 	projected.Projections = nil
+	if revision != state.Revision {
+		projected.DeliveryDecision = nil
+	}
 	for _, event := range projected.Transitions {
 		if event.Ledger != nil && event.Outcome == OutcomePassed && event.From != event.To {
 			projected.StageOrdinal++
