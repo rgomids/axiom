@@ -262,6 +262,39 @@ func scanArtifactReferences(root *os.Root, artifacts []detailartifact.Artifact) 
 				projectRoot.Close()
 				return nil, ErrRecoveryRequired
 			}
+			if packet, e := workflow.DecodeDeliveryPacket(wire); e == nil {
+				if classifyDeliveryPacket(projectID, name, wire) != InventoryDeliveryPacket {
+					projectRoot.Close()
+					return nil, ErrRecoveryRequired
+				}
+				for _, stage := range packet.Stages {
+					refs := append([]workflow.Reference{}, stage.Artifacts...)
+					if stage.Ledger != nil {
+						for _, items := range []map[string]workflow.Reference{stage.Ledger.Result.Inputs, stage.Ledger.Result.Outputs} {
+							for _, ref := range items {
+								refs = append(refs, ref)
+							}
+						}
+					}
+					for _, review := range stage.Reviews {
+						for _, finding := range review.Findings {
+							refs = append(refs, finding.Evidence)
+						}
+						for _, waiver := range review.Waivers {
+							refs = append(refs, waiver.Authority)
+						}
+					}
+					for _, ref := range refs {
+						if ref.Kind == "artifact" {
+							references[ref.ID] = append(references[ref.ID], "delivery-packet:"+hexDigest(wire))
+						}
+					}
+				}
+				continue
+			}
+			if classifyStageOutcome(projectID, name, wire) == InventoryStageOutcome || classifyDispatchAuthority(projectID, name, wire, "single-first-attempt") == InventoryDispatchAuthority {
+				continue
+			}
 			state, err := decodeExecution(wire)
 			if err != nil {
 				projectRoot.Close()

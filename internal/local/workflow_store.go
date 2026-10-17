@@ -197,6 +197,9 @@ func (s WorkflowStore) List(ctx context.Context, projectID string) ([]workflow.S
 		if err != nil {
 			return nil, workflowStoreError(err)
 		}
+		if classifyDeliveryPacket(projectID, name, wire) == InventoryDeliveryPacket || classifyStageOutcome(projectID, name, wire) == InventoryStageOutcome || classifyDispatchAuthority(projectID, name, wire, "single-first-attempt") == InventoryDispatchAuthority {
+			continue
+		}
 		state, err := decodeExecution(wire)
 		if err != nil || state.ProjectID != projectID || executionName(state.RepositoryKey, state.WorkItem) != name {
 			return nil, workflowStoreError(ErrUnsafe)

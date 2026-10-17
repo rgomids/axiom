@@ -857,3 +857,19 @@ func cloneMap(values map[string]string) map[string]string {
 	}
 	return result
 }
+
+func (m *Manager) DeliveryTree(ctx context.Context, integration executiongraph.ChildExecution) (string, string, error) {
+	tree, err := m.writeWorkspaceTree(ctx, integration.Envelope.Workspace)
+	if err != nil {
+		return "", "", err
+	}
+	if err = m.ValidateResultTree(ctx, integration, tree); err != nil {
+		return "", "", err
+	}
+	patch, err := m.diffTrees(ctx, m.baseRevision, tree)
+	if err != nil {
+		return "", "", err
+	}
+	sum := sha256.Sum256(patch)
+	return tree, hex.EncodeToString(sum[:]), nil
+}

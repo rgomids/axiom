@@ -45,7 +45,7 @@ a known limitation owned by [#307](https://github.com/rgomids/axiom/issues/307).
 Readiness reports Configuration Valid, Runtime Ready and Authentication Ready as
 separate point-in-time facts. Auth is read-only and never blocks authoring.
 Project policy editing (#305), local Profile authoring (#306), global Doctor
-(#231), dispatch (#276) and delivery/rework (#277) remain unavailable.
+(#231), dispatch (#276) and delivery publication/rework (#277) are outside the configuration surface. Delivery packet preview/inspection is documented below.
 Work Item stage-plan confirmation binds to `planDocumentDigest`, Execution ID and
 expected revision, `stageId`, `workflowRef` and `plan.digest`; provisional
 `approved: true` never grants authority. Synthetic R-1 evidence does not establish
@@ -2235,3 +2235,27 @@ Release PR, another version, an unvalidated base, ambiguity, API errors and
 identity drift fail the run, so such a Release PR gets no required checks. Repeated
 dispatches only rerun checks. Existing Release PR heads must contain both workflow
 files; this path does not update their branches or bypass the delivery guard.
+
+## Delivery packet (#277)
+
+`axiom workflow delivery packet --project <id> --repository <key> --work-item
+github:<owner>/<repository>#<number> --execution <id>` previews the current canonical packet. Retain the snapshot by
+repeating with `--preview-digest <packetDigest> --authorize-local`. Add `--packet <digest>` to inspect its immutable snapshot.
+JSON and human output expose the same `packetDigest`, `packet.ready`, blockers
+and next action through the shared Work Item skill in Codex and Claude.
+
+Packets use the strict, bounded `delivery_packet` companion codec, format 1, in
+`executions/v1/<project>/<sha256>.json`. Execution1/2/3 bytes are unchanged.
+The inventory recognizes and retains these records; older readers refuse the
+unknown companion during inventory rather than deleting it. No cleanup or migration
+is implied. The forward path is a reader that understands this additive codec.
+
+Required review outputs carry a JSON `DeliveryReview` report rather than chat:
+formatVersion 1, executionId, definitionDigest, stageId, inputsDigest (SHA-256
+of the canonical Go JSON input reference map), outcome (`pass` or `fail`), findings
+and waivers. Findings include id, severity, evidence reference and resolved.
+A waiver binds the finding digest, Execution, definition and inputs, with
+human-operator actor, authority reference and reason. It must match a persisted
+`stage_review` fact from that actor with the same authority reference and exact
+stage result digest; report text alone grants no waiver. Incomplete packets remain
+inspectable and authorize no publication.

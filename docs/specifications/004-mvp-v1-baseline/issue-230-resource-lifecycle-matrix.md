@@ -491,6 +491,7 @@ Removing aliases removes no lifecycle CLI command or application operation.
 | axiom-work-item | comment | default | axiom work-item comment | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | close | default | axiom work-item close | external-mutation | --preview-digest --authorize-external |
 | axiom-work-item | reopen | default | axiom work-item reopen | external-mutation | --preview-digest --authorize-external |
+| axiom-work-item | delivery.packet | default | axiom workflow delivery packet | local-mutation | --preview-digest --authorize-local |
 | axiom-work-item | stage.run | default | axiom workflow stage run | external-mutation | --preview-digest --authorize-local --authorize-external |
 | axiom-work-item | stage.status | default | axiom workflow stage status | read-only |  |
 | axiom-work-item | stage.cancel | default | axiom workflow stage cancel | local-mutation | --preview-digest --authorize-local |

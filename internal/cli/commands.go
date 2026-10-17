@@ -70,6 +70,7 @@ func commandTree() commandDefinition {
 			leaf("fact", "Record explicit lifecycle fact", workflowFactAction), leaf("resume", "Resume committed Execution", workflowResumeAction),
 			leaf("status", "Inspect Execution and next gate action", workflowStatusAction), leaf("evidence", "Inspect Execution Evidence", workflowEvidenceAction),
 			leaf("list", "List local Executions", workflowListAction), leaf("reconcile", "Preview or project lifecycle metadata", workflowReconcileAction),
+			group("delivery", "Inspect reviewed delivery and readiness", leaf("packet", "Compose or inspect the canonical delivery packet", workflowDeliveryPacketAction)),
 			group("stage", "Plan, dispatch and inspect configured stage agents", workflowStageCommands()...),
 			group("coordination", "Inspect stage coordination records; children publish", workflowCoordinationCommands()...)),
 		group("compatibility", "Inspect and preserve local compatibility",

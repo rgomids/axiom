@@ -26,6 +26,7 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 	"github.com/rgomids/axiom/internal/stageexecution"
 	"github.com/rgomids/axiom/internal/validatorpolicy"
+	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
 
@@ -575,6 +576,13 @@ func TestInstalledSyntheticSingleStageJourney(t *testing.T) {
 	if len(status.Single.Attempts) != 1 || status.Single.Attempts[0].Status != "succeeded" || status.Single.Attempts[0].ClassificationReason != "result_recorded" || status.Single.Attempts[0].QualifyingRecordRef == "" || status.Next != "advance_execution" {
 		t.Fatalf("synthetic single status %+v", status)
 	}
+	packet := j.run(t, 0, append([]string{"workflow", "delivery", "packet"}, stageSelector(view)...)...)
+	var read struct {
+		Packet workflow.DeliveryPacket `json:"packet"`
+	}
+	if err := json.Unmarshal(packet.Stage, &read); err != nil || read.Packet.Ready || len(read.Packet.Stages) == 0 || read.Packet.Stages[0].SingleDigest == "" || read.Packet.Stages[0].SingleAttempt == nil || read.Packet.Stages[0].SingleAttempt.AttemptID != status.Single.Attempts[0].AttemptID {
+		t.Fatalf("single packet: %s %v", packet.Stage, err)
+	}
 	calls := j.invocations(t)
 	if len(calls) != 1 || calls[0].Runtime != "codex" || calls[0].Agent != "owner" || calls[0].Attempt != status.Single.Attempts[0].AttemptID || calls[0].CWD != status.Single.Binding.Workspace || !slices.Contains(calls[0].Argv, "local-codex-model") {
 		t.Fatalf("fake invocation %+v", calls)
@@ -800,6 +808,29 @@ func TestInstalledSyntheticGraphStageJourney(t *testing.T) {
 				t.Fatalf("integrated %s: %q %v", path, wire, err)
 			}
 		}
+	}
+	packetArgs := append([]string{"workflow", "delivery", "packet"}, selectors...)
+	packetEvent := j.run(t, 0, packetArgs...)
+	var packet struct {
+		Digest string                  `json:"packetDigest"`
+		Packet workflow.DeliveryPacket `json:"packet"`
+	}
+	if err := json.Unmarshal(packetEvent.Stage, &packet); err != nil || packet.Digest == "" || packet.Packet.Ready || len(packet.Packet.Blockers) == 0 {
+		t.Fatalf("incomplete packet: %s %v", packetEvent.Stage, err)
+	}
+	found := false
+	for _, item := range packet.Packet.Stages {
+		if item.StageID == "implementation" {
+			found = item.OutcomeRef == result.OutcomeRef && item.ResultTree == result.ResultTree && item.DiffDigest != ""
+		}
+	}
+	if !found {
+		t.Fatal("packet lost integration provenance")
+	}
+	j.run(t, 0, append(packetArgs, "--preview-digest", packet.Digest, "--authorize-local")...)
+	retained := j.run(t, 0, append(packetArgs, "--packet", packet.Digest)...)
+	if !bytes.Equal(packetEvent.Stage, retained.Stage) {
+		t.Fatal("retained packet changed")
 	}
 	if again := j.run(t, 1, append(integrate, "--preview-digest", idigest, "--authorize-local")...); again.Category == "stage_integrated" {
 		t.Fatal("integration repeated its effects")

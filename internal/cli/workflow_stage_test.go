@@ -45,7 +45,8 @@ func TestWorkflowStageCommandsRouteExactInputs(t *testing.T) {
 		"run apply": {"workflow stage run " + stageSelectors + " --expected-revision 3 --stage implementation --plan p.json --validator-policy v --workspace-root /w --preview-digest d --authorize-local --authorize-external", func(in WorkflowStageInput) bool {
 			return in.PreviewDigest == "d" && in.AuthorizeLocal && in.AuthorizeExternal
 		}},
-		"status": {"workflow stage status " + stageSelectors, func(in WorkflowStageInput) bool { return in.Operation == "status" && in.Execution == "e-1" }},
+		"delivery packet": {"workflow delivery packet " + stageSelectors + " --packet digest", func(in WorkflowStageInput) bool { return in.Operation == "delivery-packet" && in.Record == "digest" }},
+		"status":          {"workflow stage status " + stageSelectors, func(in WorkflowStageInput) bool { return in.Operation == "status" && in.Execution == "e-1" }},
 		"cancel": {"workflow stage cancel " + stageSelectors + " --preview-digest d --authorize-local", func(in WorkflowStageInput) bool {
 			return in.Operation == "cancel" && in.AuthorizeLocal && !in.AuthorizeExternal
 		}},
@@ -160,5 +161,30 @@ func TestWorkflowStageHelpAndUnavailableApplication(t *testing.T) {
 	code := Run(context.Background(), strings.Fields("workflow stage status "+stageSelectors), &recordingService{}, completionProvenance(t), &out)
 	if code == ExitSuccess || !strings.Contains(out.String(), "application_unavailable") {
 		t.Fatalf("missing service = %d %s", code, &out)
+	}
+}
+
+type packetRecorder struct{ stageRecorder }
+
+func (s *packetRecorder) WorkflowStage(ctx context.Context, in WorkflowStageInput) WorkflowStageResponse {
+	response := s.stageRecorder.WorkflowStage(ctx, in)
+	response.Payload = map[string]any{"packetDigest": strings.Repeat("c", 64), "packet": map[string]any{"ready": false, "blockers": []string{"review:review_unverified"}, "next": "resolve packet blockers"}}
+	return response
+}
+
+func TestDeliveryPacketJSONAndHumanExposeSameReadiness(t *testing.T) {
+	args := strings.Fields("workflow delivery packet " + stageSelectors)
+	service := &packetRecorder{stageRecorder: stageRecorder{status: completion.Facts{Completed: true}, source: completionProvenance(t)}}
+	var jsonOut, humanOut bytes.Buffer
+	if code := Run(context.Background(), args, service, completionProvenance(t), &jsonOut); code != ExitSuccess {
+		t.Fatal(jsonOut.String())
+	}
+	if code := RunInteractive(context.Background(), args, service, completionProvenance(t), nil, &humanOut, io.Discard); code != ExitSuccess {
+		t.Fatal(humanOut.String())
+	}
+	for _, value := range []string{strings.Repeat("c", 64), "review:review_unverified", "resolve packet blockers", "false"} {
+		if !strings.Contains(jsonOut.String(), value) || !strings.Contains(humanOut.String(), value) {
+			t.Fatalf("readiness differs for %s: %s %s", value, &jsonOut, &humanOut)
+		}
 	}
 }

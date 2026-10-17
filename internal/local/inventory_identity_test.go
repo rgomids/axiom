@@ -143,6 +143,11 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			return data
 		}
 		switch entry.Kind {
+		case InventoryDeliveryPacket:
+			store, _ := NewWorkflowStore(state)
+			if _, err := store.LoadDeliveryPacket(ctx, parts[2], strings.TrimSuffix(parts[3], ".json")); err != nil {
+				t.Fatal(err)
+			}
 		case InventoryDispatchAuthority:
 			a, err := executiongraph.DecodeDispatchAuthority(wire())
 			if err != nil {

@@ -16,6 +16,7 @@ import (
 // own authority flags. Resume is a `stage run` re-invocation over an existing
 // committed authority record, never a separate command.
 const (
+	workflowDeliveryPacketAction      action = "workflow_delivery_packet"
 	workflowStageRunAction            action = "workflow_stage_run"
 	workflowStageStatusAction         action = "workflow_stage_status"
 	workflowStageCancelAction         action = "workflow_stage_cancel"
@@ -64,7 +65,7 @@ type WorkflowStageResponse struct {
 }
 
 var workflowStageOperations = map[action]string{
-	workflowStageRunAction: "run", workflowStageStatusAction: "status", workflowStageCancelAction: "cancel",
+	workflowDeliveryPacketAction: "delivery-packet", workflowStageRunAction: "run", workflowStageStatusAction: "status", workflowStageCancelAction: "cancel",
 	workflowStageRetryAction: "retry", workflowStageReconcileAction: "reconcile", workflowStageIntegrateAction: "integrate",
 	workflowCoordinationListAction: "coordination-list", workflowCoordinationShowAction: "coordination-show", workflowCoordinationPublishAction: "coordination-publish",
 }
@@ -149,6 +150,9 @@ func workflowStageFlagSet(operation action, in *WorkflowStageInput) *flag.FlagSe
 			return nil
 		})
 		preview()
+	case workflowDeliveryPacketAction:
+		preview()
+		set.StringVar(&in.Record, "packet", "", "Inspect an existing immutable packet by `<digest>`; omitted previews current readiness.")
 	case workflowCoordinationListAction:
 		set.StringVar(&in.Child, "child", "", "Child stream; `<child-id>`.")
 		set.StringVar(&in.Attempt, "attempt", "", "Attempt filter; `<attempt-id>`.")
@@ -291,6 +295,7 @@ func workflowStageSkillSpecs() []skillOperationSpec {
 	}
 	planned := " --expected-revision <revision> --stage <stage-id>"
 	return []skillOperationSpec{
+		local("delivery.packet", workflowDeliveryPacketAction, "axiom workflow delivery packet "+selectors),
 		inference("stage.run", workflowStageRunAction, "axiom workflow stage run "+selectors+planned+" --plan <json-file> --validator-policy <digest> --workspace-root <absolute-path>"),
 		read("stage.status", workflowStageStatusAction, "axiom workflow stage status "+selectors),
 		local("stage.cancel", workflowStageCancelAction, "axiom workflow stage cancel "+selectors),
