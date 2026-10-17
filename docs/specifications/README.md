@@ -11,6 +11,12 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 
 ## 007 — Configurable Project workflows
 
+[AXM-31 operator autonomy amendment](007-configurable-workflows/amendment-axm31-operator-autonomy.md):
+**Proposed — specify, 2026-10-17**. Defines actionable failure diagnostics,
+bounded authorized remediation and recoverable handoff without weakening proof,
+preview/apply authority or human acceptance. AXM-9 delivery and AXM-12 real
+Runtime/MVP validation retain their ownership; this proposal unblocks neither.
+
 [Specification](007-configurable-workflows/spec.md): **Accepted, 2026-10-09**,
 for [#271](https://github.com/rgomids/axiom/issues/271) under
 [Epic #15](https://github.com/rgomids/axiom/issues/15). Defines portable default/custom
