@@ -4,6 +4,31 @@
 
 Accepted on 2026-10-11 by [explicit maintainer acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466), fixed to commit `823bce3141bae5e90951c5239181c46d88cfbfe9`, blob `c9753a515ef43d2a84bae2156b1c6f8eac170dd1`. The exact historical artifact is preserved in Git; [acceptance receipt](../specifications/002-lingo-project-initialization/evidence-306-acceptance-tasks.md) records the six independent decisions. Acceptance establishes future architecture, not delivered code, installed inventory or native proof. Tasks preparation is authorized; implementation/merge/release remain separately gated.
 
+> **Pre-stable local configuration compatibility amended — 2026-10-14.** The
+> maintainer decision C1 (Rafael Gomides, 2026-10-14 13:30 America/Sao_Paulo,
+> AXM-22 BLD-001B.3c-2a), recorded in
+> [Specification 007 AXM-22 clause PM-8](../specifications/007-configurable-workflows/amendment-276-axm22-binding-identity.md#pm2-pre-stable-compatibility-and-canonical-digestv3-bld-001b3c-2a),
+> amends this ADR prospectively. No superseding ADR was created, so this is a
+> historical note, not an ADR-0018 supersession annotation.
+>
+> Affected contract: only the local Runtime/Profile configuration part of
+> *Compatibility and evolution scope* — the operator-chosen local v1→v2
+> migration and the FR-026 window/forward-path requirement for local
+> Runtime/Profile formats before the first stable/LTS release. Prospectively:
+> the pre-stable period has no mandatory backward compatibility window; the
+> local v1→v2 migration commitment is superseded for the pre-MVP delivery;
+> configuration format 3 is the only target canonical format and no direct
+> v1→v3 or v2→v3 upgrade is promised; an installation on an unsupported
+> pre-stable local format requires explicit reconfiguration, refused safely
+> and never silently converted or deleted; strict compatibility obligations
+> begin at the first stable/LTS release.
+>
+> Still valid: the Decision (Model Profile is the sole effort owner), execution
+> binding semantics, the historical v1 meaning, Workflow/Execution/graph
+> compatibility, immutable execution facts, capability-proof requirements, the
+> acceptance receipt, and the append-only historical compatibility corpus and
+> Evidence, whose bytes are not rewritten. Text below is preserved as history.
+
 ## Context
 
 Local ModelProfile format 1 has no effort. Workflow schema 1 requires effort per

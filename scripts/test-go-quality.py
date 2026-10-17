@@ -100,28 +100,31 @@ class WorkflowContract(unittest.TestCase):
                     self.assertRegex(directive[2], r'^\s+[A-Z]+\d+(?:,[A-Z]+\d+)*\s+\S.*',
                                      'A local exception needs explicit check IDs and a reason')
 
-    def test_required_parallel_bounded_gate_and_existing_checks(self):
+    def test_required_pr_gate_and_native_suite_checks(self):
         import json
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        quality = workflow.split('  go-quality-suite:\n', 1)[1].split('\n  verify-suite:', 1)[0]
-        self.assertIn('name: go-quality', quality)
-        self.assertIn('timeout-minutes: 10', quality)
-        self.assertIn('needs: classify', quality)
-        self.assertNotIn('continue-on-error:', quality)
-        self.assertIn("if: needs.classify.outputs.go == 'true'", quality)
-        self.assertIn('persist-credentials: false', quality)
+        gate = workflow.split('  pr-checks:\n', 1)[1]
+        self.assertIn('name: PR Checks', gate)
+        self.assertIn('timeout-minutes: 15', gate)
+        self.assertNotIn('needs:', gate)
+        self.assertNotIn('continue-on-error:', gate)
+        self.assertNotIn('if:', gate)
+        self.assertIn('persist-credentials: false', gate)
         for command in ('format', 'tidy', 'staticcheck'):
-            self.assertIn(f'./scripts/check-go-quality.sh {command}', quality)
-        self.assertIn('staticcheck@v0.8.1', quality)
-        for command in ('go test -race ./...', 'go vet ./...', 'go build ./...', 'go mod verify',
-                        './scripts/validate-repository.sh .', './scripts/test-release-pipeline.sh',
+            self.assertIn(f'./scripts/check-go-quality.sh {command}', gate)
+        self.assertIn('staticcheck@v0.8.1', gate)
+        for command in ('go mod verify', 'go vet ./...', 'go build ./...', 'run: go test ./...',
+                        './scripts/validate-repository.sh .', 'python3 scripts/test-go-quality.py'):
+            self.assertIn(command, gate)
+        native = (ROOT / '.github/workflows/native-suite.yml').read_text()
+        for command in ('go test -race ./...', './scripts/test-release-pipeline.sh',
                         './scripts/test-upgrade-journeys.sh'):
-            self.assertIn(command, workflow)
+            self.assertIn(command, native)
         rules = json.loads((ROOT / '.github/rulesets/main.json').read_text())
         checks = next(r['parameters']['required_status_checks'] for r in rules['rules']
                       if r['type'] == 'required_status_checks')
-        self.assertIn({'context': 'go-quality', 'integration_id': 15368}, checks)
-
+        self.assertEqual(checks, [{'context': 'PR Checks', 'integration_id': 15368},
+                                  {'context': 'delivery-metadata', 'integration_id': 15368}])
 
 if __name__ == '__main__':
     unittest.main()

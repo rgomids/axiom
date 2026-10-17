@@ -151,3 +151,84 @@ func TestExtendedStaleRootAndControlFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestExtendedPreviewDigestAndMutationRefusals(t *testing.T) {
+	changes := []struct {
+		name   string
+		change func(*ExtendedPreview)
+	}{
+		{"digest", func(p *ExtendedPreview) { p.Digest = strings.Repeat("b", 64) }},
+		{"probe", func(p *ExtendedPreview) { p.ProbeID = "another-probe" }},
+		{"filename", func(p *ExtendedPreview) { p.Filename += "-other" }},
+		{"limit", func(p *ExtendedPreview) { p.Limit++ }},
+		{"timeout", func(p *ExtendedPreview) { p.Timeout++ }},
+		{"path", func(p *ExtendedPreview) { p.Roots[0].Path += "-other" }},
+		{"kind", func(p *ExtendedPreview) { p.Roots[0].Kind = "system-temp" }},
+		{"device", func(p *ExtendedPreview) { p.Roots[0].Snapshot.Device++ }},
+		{"inode", func(p *ExtendedPreview) { p.Roots[0].Snapshot.Inode++ }},
+		{"owner", func(p *ExtendedPreview) { p.Roots[0].Snapshot.Owner++ }},
+		{"mode", func(p *ExtendedPreview) { p.Roots[0].Snapshot.Mode++ }},
+		{"acl", func(p *ExtendedPreview) { p.Roots[0].Snapshot.ACLDigest = strings.Repeat("c", 64) }},
+		{"unreadable acl", func(p *ExtendedPreview) { p.Roots[0].Snapshot.ACLReadable = false }},
+		{"read-only", func(p *ExtendedPreview) { p.Roots[0].Snapshot.ReadOnly = true }},
+		{"symlink", func(p *ExtendedPreview) { p.Roots[0].Snapshot.SymlinkFree = false }},
+		{"target", func(p *ExtendedPreview) { p.Roots[0].Snapshot.ResolvedTarget = "home" }},
+		{"root set", func(p *ExtendedPreview) { p.Roots = p.Roots[:1] }},
+	}
+	for _, tc := range changes {
+		t.Run(tc.name, func(t *testing.T) {
+			s, effects := extendedFixture(t)
+			p, err := s.Preview(context.Background(), "unique-probe", []string{"tmpdir", "system-temp"})
+			if err != nil || !digest.MatchString(p.Digest) {
+				t.Fatalf("preview=%+v err=%v", p, err)
+			}
+			repeated, err := s.Preview(context.Background(), "unique-probe", []string{"tmpdir", "system-temp"})
+			if err != nil || p.Digest != repeated.Digest {
+				t.Fatal("preview digest is not deterministic", err)
+			}
+			if effects.controls != 0 || effects.canaries != 0 || effects.removals != 0 {
+				t.Fatal("preview performed effects")
+			}
+			tc.change(&p)
+			if _, err = s.Apply(context.Background(), p, ExtendedAuthority{Actor: "operator", Local: true, External: true, Preview: p}); !errors.Is(err, ErrStalePreview) {
+				t.Fatal("changed preview accepted", err)
+			}
+			if effects.controls != 0 || effects.canaries != 0 || effects.removals != 0 {
+				t.Fatal("refusal performed effects")
+			}
+		})
+	}
+}
+
+func TestExtendedPreviewDigestTracksCurrentIdentity(t *testing.T) {
+	s, effects := extendedFixture(t)
+	p, err := s.Preview(context.Background(), "unique-probe", []string{"tmpdir"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range []string{"probe", "path", "identity", "root set"} {
+		t.Run(change, func(t *testing.T) {
+			changed := s
+			changedEffects := *effects
+			changed.Effects = &changedEffects
+			id, kinds := "unique-probe", []string{"tmpdir"}
+			switch change {
+			case "probe":
+				id = "another-probe"
+			case "path":
+				changed.Policy.TempDir += "-other"
+			case "identity":
+				changedEffects.changed = true
+			case "root set":
+				kinds = append(kinds, "system-temp")
+			}
+			fresh, err := changed.Preview(context.Background(), id, kinds)
+			if err != nil || !digest.MatchString(fresh.Digest) || fresh.Digest == p.Digest {
+				t.Fatalf("digest did not bind %s: %+v, %v", change, fresh, err)
+			}
+			if changedEffects.controls != 0 || changedEffects.canaries != 0 || changedEffects.removals != 0 {
+				t.Fatal("preview performed effects")
+			}
+		})
+	}
+}

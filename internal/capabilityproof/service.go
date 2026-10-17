@@ -23,7 +23,16 @@ type Store interface {
 	Load(context.Context, string) (Evidence, error)
 	Invalidate(context.Context, string, string, [sha256.Size]byte) error
 }
-type Target struct{ RuntimeID, ProfileID, Variant string }
+
+// Target identifies one requested invocation mode. Process is an explicit mode
+// dimension (AXM-22): it may change the adapter's effective invocation and
+// therefore ModeDigest; false is a valid mode, never a fallback for unknown.
+type Target struct {
+	RuntimeID string
+	ProfileID string
+	Variant   string
+	Process   bool
+}
 type Current struct {
 	Binding       Binding
 	Model         *ModelBinding
@@ -33,6 +42,8 @@ type Current struct {
 
 // BindingSource must inspect current executable, adapter, pinned axiom, mode,
 // Profile and effort-source identities; evidence is never a source of identity.
+// ModeDigest is computed by runtimeadapter.ModeDigest from the effective request
+// for the Target's Variant and Process.
 type BindingSource interface {
 	Current(context.Context, Target) (Current, error)
 }
@@ -127,7 +138,8 @@ func (s Service) Check(ctx context.Context, t Target, declared []string, write, 
 	}
 	caps := append([]string(nil), declared...)
 	caps = append(caps, Noninteractive, AxiomCoordination, ModelInvocation)
-	if write && t.Variant != RepositoryWriteVariant || !write && t.Variant != ReadOnlyVariant {
+	// The requested mode must equal the Target the binding was read for.
+	if write && t.Variant != RepositoryWriteVariant || !write && t.Variant != ReadOnlyVariant || process != t.Process {
 		return "", "capability_stale", ErrBlocked
 	}
 	if write {
@@ -203,7 +215,7 @@ func (s Service) Invalidate(ctx context.Context, p InvalidationPreview, a LocalA
 }
 
 // ProbePreparation describes a single dispatch-identical invocation. Prepare
-// must freshly inspect the v2 Profile and PE-05a effort sources without creating
+// must freshly inspect the v3 Profile and PE-05a effort sources without creating
 // an envelope or launching inference. Host paths remain only in this preview.
 type ProbePreparation struct {
 	Current              Current
@@ -308,7 +320,7 @@ func (s Service) PreviewProbe(ctx context.Context, t Target) (ProbePreview, erro
 	check := Evidence{SchemaVersion: 1, Binding: c.Binding, Model: c.Model, Capabilities: map[string]Result{ModelInvocation: {State: Unknown}}, Confinement: Confinement{Level: "unknown", NotTested: []string{"home", "vendor-home", "tmpdir", "system-temp", "external-network"}}, ObservedAt: s.now(), ProbePacketDigest: packetDigest(p.Invocation.Stdin)}
 	m := p.Manifest
 	wire, _ := json.Marshal(m)
-	if p.ConfigurationVersion != 2 || !c.ProfileActive || c.Model == nil || c.Model.ProfileID != t.ProfileID || c.Binding.RuntimeID != t.RuntimeID || c.Binding.Variant != t.Variant || !ValidEvidence(check) || m.Version != 1 || m.Phase != "ready" || m.Variant != t.Variant || !safe(m.ProbeID) || !digest.MatchString(m.Nonce) || !digest.MatchString(m.Revision) || m.CreatedAt.IsZero() || m.Limits.Timeout <= 0 || m.Limits.Timeout > 24*time.Hour || m.Limits.MaxFiles <= 0 || m.Limits.MaxBytes <= 0 || p.ManifestDigest != packetDigest(wire) || p.Interface.ExecutableDigest != c.Binding.ExecutableDigest || p.Interface.Version != c.Binding.Version || p.Invocation.RuntimeID != t.RuntimeID || len(p.Invocation.Argv) == 0 || len(p.Invocation.Stdin) == 0 || p.Invocation.OutputMax <= 0 || p.Invocation.OutputMax > executiongraph.MaxCapturedOutputBytes || len(p.Invocation.Stdin) > executiongraph.MaxStdinBytes {
+	if p.ConfigurationVersion != 3 || !c.ProfileActive || c.Model == nil || c.Model.ProfileID != t.ProfileID || c.Binding.RuntimeID != t.RuntimeID || c.Binding.Variant != t.Variant || !ValidEvidence(check) || m.Version != 1 || m.Phase != "ready" || m.Variant != t.Variant || !safe(m.ProbeID) || !digest.MatchString(m.Nonce) || !digest.MatchString(m.Revision) || m.CreatedAt.IsZero() || m.Limits.Timeout <= 0 || m.Limits.Timeout > 24*time.Hour || m.Limits.MaxFiles <= 0 || m.Limits.MaxBytes <= 0 || p.ManifestDigest != packetDigest(wire) || p.Interface.ExecutableDigest != c.Binding.ExecutableDigest || p.Interface.Version != c.Binding.Version || p.Invocation.RuntimeID != t.RuntimeID || len(p.Invocation.Argv) == 0 || len(p.Invocation.Stdin) == 0 || p.Invocation.OutputMax <= 0 || p.Invocation.OutputMax > executiongraph.MaxCapturedOutputBytes || len(p.Invocation.Stdin) > executiongraph.MaxStdinBytes {
 		return ProbePreview{}, ErrBlocked
 	}
 	targets := []string{"sentinel"}

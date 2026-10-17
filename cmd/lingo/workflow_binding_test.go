@@ -109,10 +109,12 @@ func TestConfiguredExecutableRevisionIsolationAndAuthority(t *testing.T) {
 	selector := []string{"--project", "external", "--repository", "main", "--work-item", "github:owner/repo#7"}
 	start := append([]string{"workflow", "start"}, selector...)
 	start = append(start, "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills")
-	preview := run(0, start...)
+	// Production composition injects no Profile proof, so the public start
+	// fails closed before any Execution exists (Specification 007 PM-7).
+	preview := run(1, start...)
 	refused := run(1, append(start, "--runtime-preview", preview.PreviewDigest)...)
-	if refused.Workflow != nil {
-		t.Fatal("legacy public start created Execution")
+	if preview.PreviewDigest == "" || refused.Workflow != nil {
+		t.Fatal("unproven public start created Execution")
 	}
 	a := seedHistoricalWorkflow(t, env.service.(lifecycleService), cli.WorkflowInput{Project: "external", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: "codex", RuntimePreview: preview.PreviewDigest})
 	if a == nil || a.Binding == nil || a.Binding.Definition.Revision != 1 {
@@ -178,10 +180,10 @@ func TestConfiguredExecutableRevisionIsolationAndAuthority(t *testing.T) {
 	bSelector := []string{"--project", "external", "--repository", "main", "--work-item", "github:owner/repo#8"}
 	bStart := append([]string{"workflow", "start"}, bSelector...)
 	bStart = append(bStart, "--role", "implementation", "--complexity", "high", "--capabilities", "axiom-skills")
-	bPreview := run(0, bStart...)
+	bPreview := run(1, bStart...)
 	refusedB := run(1, append(bStart, "--runtime-preview", bPreview.PreviewDigest)...)
-	if refusedB.Workflow != nil {
-		t.Fatal("new schema1 revision bypassed migration")
+	if bPreview.PreviewDigest == "" || refusedB.Workflow != nil {
+		t.Fatal("unproven start created Execution")
 	}
 	b := seedHistoricalWorkflow(t, service, cli.WorkflowInput{Project: "external", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "8", Runtime: "codex", RuntimePreview: bPreview.PreviewDigest})
 	if b.Binding.Definition.Revision != 2 || b.Binding.Definition.WorkflowID != "custom" {

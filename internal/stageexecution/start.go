@@ -3,15 +3,14 @@ package stageexecution
 import (
 	"context"
 	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/workflow"
 )
 
-// CommittedStarter delegates graph supervision to T27 and single supervision to
-// the extended sequential executor. Both receive the same committed receipt.
+// CommittedStarter launches the detached supervisor of a committed graph or
+// single-stage publication. Both receive only the committed receipt identity.
 type CommittedStarter struct {
-	Store      SupervisorStore
-	Detached   DetachedStart
-	Sequential workflow.SequentialStageSupervisor
+	Store    SupervisorStore
+	Single   SingleStore
+	Detached DetachedStart
 }
 
 func (s CommittedStarter) Start(ctx context.Context, p Publication) (executiongraph.ProcessCorrelation, error) {
@@ -19,7 +18,7 @@ func (s CommittedStarter) Start(ctx context.Context, p Publication) (executiongr
 		return Launch(ctx, SupervisorRequest{ProjectID: p.Authority.ProjectID, ParentID: p.Authority.ParentID, PreviewDigest: p.Authority.PreviewDigest, AuthorityRef: p.Graph.DispatchAuthorityRef}, s.Store, s.Detached)
 	}
 	if p.Single != nil && p.Graph == nil {
-		return workflow.StartSingleStage(ctx, *p.Single, p.Authority, s.Sequential)
+		return LaunchSingle(ctx, p.Single.Request(), s.Single, s.Detached)
 	}
 	return executiongraph.ProcessCorrelation{}, ErrPreview
 }

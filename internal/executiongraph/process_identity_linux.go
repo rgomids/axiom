@@ -16,7 +16,7 @@ func ObserveProcessCorrelation(pid int64) (*ProcessCorrelation, error) {
 		return nil, ErrInvalidGraph
 	}
 	wire, err := os.ReadFile("/proc/" + strconv.FormatInt(pid, 10) + "/stat")
-	if errors.Is(err, os.ErrNotExist) {
+	if procEntryVanished(err) {
 		return nil, nil
 	}
 	if err != nil {

@@ -1,91 +1,57 @@
-# Change-aware PR CI
+# PR CI and native qualification
 
-Issue #243 routes CI from the exact PR base/head Git diff, including both
-rename sides and deleted paths. Manual dispatch always runs the full gate.
-The classifier uses a closed path allowlist; sensitive, empty, unknown or mixed categories
-run every suite. No labels or commit messages influence routing.
+The change-aware classifier of Issue #243 (`classify-ci-changes.py`, its plan,
+row and conclusion artifacts) is retired by the
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills) maintainer decision (Linear comment `247f9812-31d2-4c62-af63-7fd972d18f54`)
+recorded in [ADR-0029](../decisions/0029-minimal-pr-gate-native-qualification.md)
+(Proposed). Its history remains in Git and in the Issue #243 Evidence.
 
-| Single category | Applicable suites |
-| --- | --- |
-| Documentation (Markdown under docs, root README/CHANGELOG) | Repository |
-| Site and landing-page validation | Repository plus existing path-filtered landing-page workflow |
-| Nonsensitive repository skills/adapters | Repository |
-| Policies, rulesets, workflows, CODEOWNERS, security guide and maintainer entrypoints | All suites |
-| Go source/modules | Go quality, multi-OS verify, upgrade journeys |
-| Installer or compatibility | All suites |
-| Release scripts/contracts | Release contracts |
-| Unknown, mixed, manual dispatch | All suites |
+## Pull requests: two required checks
 
-Repository validation runs unconditionally. Workflow changes conservatively
-run all suites except the existing landing-page workflow. Required contexts
-retain their names from the main ruleset. Each always-running conclusion job
-requires successful classification and repository validation, and either a
-successful applicable suite or an explicitly unselected skipped suite.
-Failure, cancellation or unexpected skip cannot produce a passing conclusion.
-Matrix conclusions require both the complete suite result and a successful
-completion record for their own platform. That record must match the native
-runner OS, suite, tested SHA, repository, event, run ID and run attempt. A
-removed platform cannot be hidden by other successful matrix rows. Missing,
-malformed or mismatched platform records fail closed.
+| Required context | Workflow | What it proves |
+| --- | --- | --- |
+| `PR Checks` | `.github/workflows/ci.yml` | One Ubuntu job: `gofmt`, `go mod tidy -diff`, `go mod verify`, `go vet ./...`, pinned Staticcheck v0.8.1 and its gate contracts (`test-go-quality.py`), `go build ./...`, `go test ./...` and `scripts/validate-repository.sh` (governance and sensitive-file checks). The job's own exit status is the result. |
+| `delivery-metadata` | `.github/workflows/delivery-metadata.yml` | Unchanged PR description and Issue metadata contract. |
 
-The classification checkout is shallow (depth 1). PR classification fetches
-only the exact base/head SHAs with depth 64 and without tags, then verifies a
-merge-base. A missing ref, failed fetch or insufficient history selects FULL
-with `unverifiable_revision_relation`; it never permits partial routing.
-No unbounded history fetch is needed by classification. Product/release jobs
-retain their existing history requirements.
+There are no path filters, aggregators, artifacts or matrices in the PR gate.
+Race detection, coverage and macOS are not part of it. The 2–3 minute target is
+a hypothesis to measure on real runs, never a reason to skip or filter tests.
 
-## Evidence contract (schema version 1)
-
-Each run retains `ci-plan-<attempt>` and `ci-outcome-<suite>-<platform>-<attempt>`
-artifacts for 30 days (non-matrix outcomes omit platform). Completed physical
-matrix rows also retain `ci-row-<suite>-<platform>-<attempt>`. Evidence is scoped
-to the current run and attempt; required conclusions download only that run's
-exact artifact names. Upload/download failures fail the corresponding job.
-
-The plan contains `schema_version`, `identity` (event, repository, tested SHA,
-run ID/attempt, base and head), `changes` (status, path and matched category),
-`paths`, `categories`, `full`, `reason`, the four routing flags and `suites`.
-Each suite has a boolean `selected` and an explicit inclusion/N/A `reason`.
-Reasons distinguish single-category routing, sensitive/unknown/mixed/empty
-FULL selection, manual dispatch and an unverifiable revision relation.
-The tested SHA identifies the checked-out policy and test tree; PR base/head
-identify the immutable change set. Dispatch records its tested SHA as head,
-has no PR base and always selects FULL.
-
-Conclusions validate the complete v1 plan by recomputing its shape and routing,
-including N/A reasons, and matching the current run identity and selected flag.
-Outcome records include identity, suite/platform, selection, real upstream
-classification/repository/suite results, reason, platform Evidence and final
-conclusion. N/A is recorded as `selected=false`, `result=skipped`, with an
-explicit exclusion reason; it is never reported as a physical test pass.
-Absent or malformed plans produce a failing outcome with
-`classification_unavailable`. Cancellation can prevent artifact retention;
-it cannot produce a passing required check.
-
-The classifier prints the plan and writes it to the Actions summary; required
-conclusions summarize actual outcomes. Run local routing fixtures with:
+Reproduce locally with Go from `go.mod`:
 
 ```sh
-python3 scripts/test-ci-classification.py
+./scripts/check-go-quality.sh all && go mod verify && go vet ./... && go build ./... && go test ./... && ./scripts/validate-repository.sh .
 ```
 
-No main push CI or release-preparation behavior changes. The existing strict
-up-to-date PR policy and release tree-equivalence lookup keep the same required
-contexts; a merged tree reuses the checks for that exact PR tree.
+## Native suite outside the PR gate
 
-## Implementation validation (2026-10-09)
+`.github/workflows/native-suite.yml` is a reusable workflow on an exact SHA:
 
-- Routing fixtures pass, including real Git rename/deletion paths, manual
-  FULL selection, sensitive precedence and complete plan validation. Conclusion
-  contracts cover success, expected skip, missing output, failure, cancellation,
-  spoofed N/A and absent/mismatched per-platform records. CLI fixtures check
-  actual outcome artifacts, missing refs and insufficient shallow ancestry.
-- Go-quality workflow contracts (2 tests), code-health contracts (11 tests),
-  automation registry coverage and actionlint v1.7.12 pass.
-- Repository-wide validation remains unverified locally: this Windows checkout
-  materialized Claude symlinks as regular files. Registry unit fixtures also
-  require POSIX executable bits/symlink privilege; release dispatch tests execute
-  shell scripts directly and fail with WinError 193 here.
-- GitHub Actions execution and required check conclusions remain to be observed
-  on the implementation PR. No remote check or CI-minute reduction is claimed.
+- `suite (linux|macos)`: `go test -race ./...` (Linux with coverage), vet,
+  build, module verification, repository checks and the bounded dogfooding
+  smoke; Linux retains a report-only code health snapshot.
+- `contracts`: release pipeline, native acceptance, release flow, delivery,
+  recovery, Release PR dispatch and code health contracts.
+- `upgrade-journeys (linux|macos)`: owned N → candidate upgrades from public
+  release assets.
+
+It runs from three callers; a failed job fails the calling run:
+
+| Caller | Trigger | Role |
+| --- | --- | --- |
+| `nightly.yml` | daily schedule and `workflow_dispatch` | visible native regression signal on the default branch or a dispatched ref |
+| `native-acceptance-qualification.yml` | `workflow_dispatch` | non-publishing qualification; `verify-propagation` requires the native suite to succeed |
+| `release-artifacts.yml` | release preparation | gates publication: `verify-prepared-release.sh` accepts only a fully successful run, so a failed or missing native suite at the release revision blocks the preview and publication |
+
+## Release consumers of required checks
+
+`release.sh`, `release-repair.sh` and `publish-release.yml` read the required
+contexts from `.github/rulesets/main.json` (excluding the PR-only
+`delivery-metadata`), so release CI state now means `PR Checks` on the merged
+PR head. Pinned correction metadata keeps the policy committed at its own pin.
+
+## Known limitation
+
+`code-health-baseline.yml` promotes main baselines from PR CI artifacts. With
+coverage moved to the native suite, PR runs no longer produce them, so main
+baseline promotion reports "unavailable" (report-only; no gate depends on it).

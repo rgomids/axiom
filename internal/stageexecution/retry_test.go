@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
+	"github.com/rgomids/axiom/internal/gitworkspace"
 )
 
 // scriptedRunner returns a fixed synthetic process result; nothing executes.
@@ -100,6 +101,77 @@ func TestRetryPreserveDisposition(t *testing.T) {
 	if err != nil || result.Status != "success" || len(h.disposer.dispositions) != 1 || h.disposer.dispositions[0] != executiongraph.DispositionPreserve {
 		t.Fatal(result, err)
 	}
+}
+
+type fakeReset struct {
+	children []string
+	before   func()
+	err      error
+}
+
+func (f *fakeReset) ResetChild(ctx context.Context, _ executiongraph.SuccessorGraph, id string, guard func(context.Context) error) error {
+	if f.before != nil {
+		f.before()
+	}
+	if err := guard(ctx); err != nil {
+		return err
+	}
+	f.children = append(f.children, id)
+	if f.err != nil {
+		return f.err
+	}
+	return guard(ctx)
+}
+
+func TestRetryResetRunsOnlyInsideTheFencedSupervisor(t *testing.T) {
+	prepare := func(t *testing.T) (retryHarness, string) {
+		h := retryFixture(t, "unknown", 3)
+		appendRetrySafeFact(t, h)
+		p, err := h.service.Preview(context.Background(), h.request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := h.service.Apply(context.Background(), RetryApply{Preview: p, AuthorizeLocal: true, AuthorizeExternal: true, Actor: "operator", Disposition: executiongraph.DispositionReset})
+		if err != nil || result.Status != "success" {
+			t.Fatal(result, err)
+		}
+		return h, result.AuthorityRef
+	}
+	t.Run("missing port", func(t *testing.T) {
+		h, ref := prepare(t)
+		h.sup.Reset = nil
+		calls := h.runner.calls.Load()
+		if err := h.sup.RunRetry(context.Background(), h.supReq, ref); !errors.Is(err, gitworkspace.ErrRetryResetFencingUnavailable) {
+			t.Fatal(err)
+		}
+		if h.runner.calls.Load() != calls || len(h.store.g.Children[0].Attempts) != 1 {
+			t.Fatal("unfenced reset started an attempt")
+		}
+	})
+	t.Run("ledger changed under the fence", func(t *testing.T) {
+		h, ref := prepare(t)
+		reset := &fakeReset{}
+		reset.before = func() { h.store.g.StorageRevision[0] ^= 1 }
+		h.sup.Reset = reset
+		calls := h.runner.calls.Load()
+		if err := h.sup.RunRetry(context.Background(), h.supReq, ref); err == nil || len(reset.children) != 0 || h.runner.calls.Load() != calls {
+			t.Fatalf("err=%v reset=%v", err, reset.children)
+		}
+	})
+	t.Run("effect failure", func(t *testing.T) {
+		h, ref := prepare(t)
+		blocker := errors.New("synthetic reset failure")
+		h.sup.Reset = &fakeReset{err: blocker}
+		calls := h.runner.calls.Load()
+		if err := h.sup.RunRetry(context.Background(), h.supReq, ref); !errors.Is(err, blocker) || h.runner.calls.Load() != calls || len(h.store.g.Children[0].Attempts) != 1 {
+			t.Fatal(err)
+		}
+		reset := &fakeReset{}
+		h.sup.Reset = reset
+		if err := h.sup.RunRetry(context.Background(), h.supReq, ref); err != nil || len(reset.children) != 1 || len(h.store.g.Children[0].Attempts) != 2 {
+			t.Fatalf("pending receipt did not recover: %v", err)
+		}
+	})
 }
 
 type fakeRetryStarter struct{ refs []string }
@@ -208,8 +280,10 @@ func TestRetryEligibleStatusesCreateNewAttempt(t *testing.T) {
 				t.Fatal(result, e)
 			}
 			if outcome == "unknown" && (len(h.disposer.dispositions) != 1 || h.disposer.dispositions[0] != executiongraph.DispositionReset) {
-				t.Fatal("disposition not applied", h.disposer.dispositions)
+				t.Fatal("disposition not checked", h.disposer.dispositions)
 			}
+			reset := &fakeReset{}
+			h.sup.Reset = reset
 			if outcome != "unknown" && len(h.disposer.dispositions) != 0 {
 				t.Fatal("implicit workspace effect")
 			}
@@ -227,6 +301,9 @@ func TestRetryEligibleStatusesCreateNewAttempt(t *testing.T) {
 			}
 			if attempts[0].Status != executiongraph.AttemptStatus(outcome) {
 				t.Fatal("prior attempt rewritten")
+			}
+			if wantReset := outcome == "unknown"; wantReset != (len(reset.children) == 1) || wantReset && reset.children[0] != h.store.g.Children[0].ExecutionID {
+				t.Fatal("reset", reset.children)
 			}
 			// The receipt is consumed by the attempt it authorized.
 			if e = h.sup.RunRetry(context.Background(), h.supReq, result.AuthorityRef); e == nil || h.runner.calls.Load() != calls+1 {

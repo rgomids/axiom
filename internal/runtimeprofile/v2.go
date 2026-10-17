@@ -158,6 +158,14 @@ func ValidateResolvedProfile(p ResolvedProfile) error {
 	return nil
 }
 func resolveProfile(cfg Configuration, p ModelProfile, o Observation, capabilities []string) (ResolvedProfile, string) {
+	cd, _ := Digest(cfg)
+	return resolveProfileAt(cfg.Revision, cd, p, o, capabilities)
+}
+
+// resolveProfileAt is the single proof-consumption rule shared by the format-2
+// Resolver and the canonical v3 consumer: revision and configurationDigest are
+// the identity of the configuration the Profile was read from.
+func resolveProfileAt(revision uint64, configurationDigest string, p ModelProfile, o Observation, capabilities []string) (ResolvedProfile, string) {
 	code := "effort_unproven"
 	for _, proof := range o.ProfileProofs {
 		if proof.RuntimeID != p.RuntimeID || proof.Model != p.Model || proof.Effort != p.Effort || proof.ExecutableDigest != o.ExecutableDigest || proof.RuntimeVersion != o.Version || proof.InvocationMode != "noninteractive" || proof.ObservationRevision != o.Revision {
@@ -188,13 +196,12 @@ func resolveProfile(cfg Configuration, p ModelProfile, o Observation, capabiliti
 			code = "capability_unproven"
 			continue
 		}
-		cd, _ := Digest(cfg)
 		pd, _ := ProfileDigest(p)
 		normalized := o
 		// Collection time is not identity; the exact observation revision binds freshness.
 		normalized.ObservedAt = time.Unix(1, 0).UTC()
 		ow, _ := json.Marshal(normalized)
-		r := ResolvedProfile{p.ID, p.RuntimeID, p.Model, p.Effort, pd, cfg.Revision, cd, o.ExecutableDigest, o.Version, proof.InvocationMode, o.Revision, hash(ow), proof.EffortSourceDigest, proof.Reference}
+		r := ResolvedProfile{p.ID, p.RuntimeID, p.Model, p.Effort, pd, revision, configurationDigest, o.ExecutableDigest, o.Version, proof.InvocationMode, o.Revision, hash(ow), proof.EffortSourceDigest, proof.Reference}
 		if ValidateResolvedProfile(r) != nil {
 			return ResolvedProfile{}, "invalid_observation"
 		}

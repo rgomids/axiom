@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -17,13 +19,17 @@ type fakeProbeAdapter struct {
 	preparation ProbePreparation
 	result      executiongraph.ProcessResult
 	runs        int
+	runner      executiongraph.ProcessRunner
 }
 
 func (f *fakeProbeAdapter) Prepare(context.Context, Target) (ProbePreparation, error) {
 	return f.preparation, nil
 }
-func (f *fakeProbeAdapter) Run(context.Context, executiongraph.Invocation) executiongraph.ProcessResult {
+func (f *fakeProbeAdapter) Run(ctx context.Context, inv executiongraph.Invocation) executiongraph.ProcessResult {
 	f.runs++
+	if f.runner != nil {
+		return f.runner.Run(ctx, inv)
+	}
 	return f.result
 }
 
@@ -74,7 +80,7 @@ func probeFixture(t *testing.T, variant string) (Service, Target, *fakeProbeAdap
 		m.AllowedRoots = []string{"workspace", "inbox"}
 	}
 	wire, _ := json.Marshal(m)
-	a := &fakeProbeAdapter{preparation: ProbePreparation{Current: source.current, ConfigurationVersion: 2, Manifest: m, ManifestDigest: packetDigest(wire), Invocation: executiongraph.Invocation{RuntimeID: target.RuntimeID, Argv: []string{"/fake/runtime", "dispatch-mode"}, Stdin: []byte("fake task packet"), OutputMax: 1024}, Interface: InterfaceObservation{ExecutableDigest: source.current.Binding.ExecutableDigest, Version: source.current.Binding.Version}, OSSandbox: true}}
+	a := &fakeProbeAdapter{preparation: ProbePreparation{Current: source.current, ConfigurationVersion: 3, Manifest: m, ManifestDigest: packetDigest(wire), Invocation: executiongraph.Invocation{RuntimeID: target.RuntimeID, Argv: []string{"/fake/runtime", "dispatch-mode"}, Stdin: []byte("fake task packet"), OutputMax: 1024}, Interface: InterfaceObservation{ExecutableDigest: source.current.Binding.ExecutableDigest, Version: source.current.Binding.Version}, OSSandbox: true}}
 	e := &fakeProbeEnvelope{verification: ProbeVerification{ProbeID: m.ProbeID, ManifestDigest: packetDigest(wire), Nonce: m.Nonce, PacketDigest: packetDigest(a.preparation.Invocation.Stdin), Positive: positiveSteps(), Negatives: measurements(variant), ModelInvoked: true, EffortVerified: true}}
 	if variant == ReadOnlyVariant {
 		e.verification.Positive.WorkspaceCreated = false
@@ -117,7 +123,7 @@ func TestProbeEachVariant(t *testing.T) {
 	}
 }
 func TestProbeRefusesBeforeEffects(t *testing.T) {
-	for _, failure := range []string{"external", "local", "actor", "stale", "auth", "v1", "manifest", "variant"} {
+	for _, failure := range []string{"external", "local", "actor", "stale", "auth", "v1", "v2", "binding", "identity", "incomplete-binding", "manifest", "variant"} {
 		t.Run(failure, func(t *testing.T) {
 			s, target, adapter, envelope, writer := probeFixture(t, ReadOnlyVariant)
 			p, err := s.PreviewProbe(context.Background(), target)
@@ -138,6 +144,14 @@ func TestProbeRefusesBeforeEffects(t *testing.T) {
 				s.ProbeAuth = &fakeProbeAuth{false}
 			case "v1":
 				adapter.preparation.ConfigurationVersion = 1
+			case "v2":
+				adapter.preparation.ConfigurationVersion = 2
+			case "binding":
+				adapter.preparation.Current.Model.ConfigurationRevision++
+			case "identity":
+				adapter.preparation.Current.Binding.ExecutableDigest = strings.Repeat("f", 64)
+			case "incomplete-binding":
+				adapter.preparation.Current.Model.EffortSourceDigest = ""
 			case "manifest":
 				adapter.preparation.ManifestDigest = strings.Repeat("f", 64)
 			case "variant":
@@ -283,5 +297,35 @@ func TestProbeConfinementDoesNotReplacePositiveProof(t *testing.T) {
 	}
 	if out.Evidence.Confinement.Level != "os-enforced" || out.Evidence.Capabilities[Read].State != Unknown {
 		t.Fatal(out)
+	}
+}
+
+func TestProbeFakeExecutableFailureNeverProves(t *testing.T) {
+	s, target, adapter, envelope, writer := probeFixture(t, ReadOnlyVariant)
+	root := t.TempDir()
+	executable := filepath.Join(root, "fake-runtime")
+	if err := os.WriteFile(executable, []byte("#!/bin/sh\necho 'all capabilities proven'\nexit 7\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	adapter.runner = executiongraph.OSProcessRunner{}
+	adapter.preparation.Invocation.Argv = []string{executable}
+	adapter.preparation.Invocation.CWD = root
+	adapter.preparation.Invocation = executiongraph.WithExactEnvironment(adapter.preparation.Invocation, []string{"PATH=/usr/bin:/bin"})
+	p, err := s.PreviewProbe(context.Background(), target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := s.Probe(context.Background(), p, authorizeProbe(p))
+	if err != nil || !out.Inconclusive || adapter.runs != 1 || envelope.cleanups != 1 || len(writer.records) != 1 {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	for cap, result := range out.Evidence.Capabilities {
+		if result.State != Unknown {
+			t.Fatalf("%s promoted after failed subprocess: %+v", cap, result)
+		}
+	}
+	wire, err := EncodeEvidence(out.Evidence)
+	if err != nil || strings.Contains(string(wire), "all capabilities proven") || strings.Contains(string(wire), root) {
+		t.Fatal("process output or host path retained", err)
 	}
 }

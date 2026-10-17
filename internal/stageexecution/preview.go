@@ -135,7 +135,7 @@ func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.Execut
 		if workspace == "" || inbox == "" || workspace == inbox {
 			return DispatchPreview{}, ErrPreview
 		}
-		variant := capabilityproof.ReadOnlyVariant
+		variant, process := capabilityproof.ReadOnlyVariant, false
 		writes := []string{inbox}
 		required := append([]string{}, a.Capability.Capabilities...)
 		required = append(required, capabilityproof.Noninteractive, capabilityproof.AxiomCoordination, capabilityproof.ModelInvocation)
@@ -146,13 +146,16 @@ func (s PreviewService) Preview(ctx context.Context, ref workflowcompiler.Execut
 				required = append(required, capabilityproof.RepositoryWrite)
 			}
 			if effect.Kind == "process" {
+				process = true
 				required = append(required, capabilityproof.Process)
 			}
 		}
 		if frozen.Effort.Mode == "explicit" {
 			required = append(required, "reasoning-effort-"+frozen.Effort.Value)
 		}
-		target := capabilityproof.Target{RuntimeID: frozen.RuntimeID, ProfileID: frozen.ProfileID, Variant: variant}
+		// Variant and Process mirror the effects the supervisor applies to the
+		// dispatched StageInvocationRequest, so preview and dispatch share one mode.
+		target := capabilityproof.Target{RuntimeID: frozen.RuntimeID, ProfileID: frozen.ProfileID, Variant: variant, Process: process}
 		v, e := s.Capabilities.Show(ctx, target)
 		if e != nil {
 			return DispatchPreview{}, e

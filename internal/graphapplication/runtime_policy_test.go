@@ -18,10 +18,27 @@ import (
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
-type policySource struct{ snapshot runtimeapplication.Snapshot }
+// policySource re-reads its canonical v3 config on every Load, as production
+// does; an invalid config yields no consumer.
+type policySource struct {
+	snapshot runtimeapplication.Snapshot
+	config   runtimeprofile.ConfigurationV3
+}
 
 func (s *policySource) Load(context.Context, string) (runtimeapplication.Snapshot, error) {
-	return s.snapshot, nil
+	snapshot := s.snapshot
+	snapshot.Consumer, _ = runtimeprofile.NewConsumerV3(runtimeprofile.RecordActiveV3, &s.config)
+	return snapshot, nil
+}
+
+// syntheticProofs injects one authoritative proof per Profile for the observed
+// executable and version; nothing here acquires proof.
+func syntheticProofs(o runtimeprofile.Observation, profiles []runtimeprofile.ModelProfile) []runtimeprofile.ProfileProof {
+	proofs := []runtimeprofile.ProfileProof{}
+	for _, p := range profiles {
+		proofs = append(proofs, runtimeprofile.ProfileProof{RuntimeID: p.RuntimeID, Model: p.Model, Effort: p.Effort, ExecutableDigest: o.ExecutableDigest, RuntimeVersion: o.Version, InvocationMode: "noninteractive", ObservationRevision: o.Revision, Reference: "injected-test-proof", EffortSourceDigest: digest("effort-sources"), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: o.CapabilityStatus})
+	}
+	return proofs
 }
 
 // policyFixture reviews previews against the real executable that the command
@@ -32,8 +49,10 @@ func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID, executa
 	state := project.State{SchemaVersion: 2, ID: projectID, Slug: "sample", Name: "Sample", Runtimes: project.Configured([]project.Runtime{{ID: runtimeID}})}
 	portableProfiles := []project.ModelProfile{}
 	preferences := []project.RuntimePreference{}
-	cfg := runtimeprofile.Configuration{FormatVersion: 1, Revision: 1}
-	runtime := runtimeprofile.Runtime{ID: runtimeID, Adapter: runtimeID, Enabled: true, CredentialReference: credential}
+	// Canonical v3 carries no credential reference; credential is unused.
+	_ = credential
+	cfg := runtimeprofile.ConfigurationV3{FormatVersion: runtimeprofile.FormatVersionV3, Revision: 1}
+	runtime := runtimeprofile.RuntimeV3{ID: runtimeID, Adapter: runtimeID, Enabled: true}
 	for i := range graph.Children {
 		child := &graph.Children[i]
 		child.Envelope.Scope.ProjectID = projectID
@@ -42,7 +61,13 @@ func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID, executa
 		portableProfiles = append(portableProfiles, project.ModelProfile{Key: id, RuntimeRef: project.Configured(runtimeID), Model: project.Configured("local-test-profile")})
 		preferences = append(preferences, project.RuntimePreference{Role: child.Envelope.Capability.Role, Complexity: "low", ModelProfileRef: id})
 		runtime.AllowlistedProfileIDs = append(runtime.AllowlistedProfileIDs, id)
-		cfg.ModelProfiles = append(cfg.ModelProfiles, runtimeprofile.ModelProfile{ID: id, RuntimeID: runtimeID, Model: "local-test-profile", Capabilities: append([]string(nil), child.Envelope.Capability.Capabilities...), Complexities: []string{"low"}})
+		// Effort is Profile-owned (ADR-0024): a child's reasoning-effort
+		// control becomes the Profile's explicit effort, never a capability.
+		effort := runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}
+		if child.Envelope.Controls.ReasoningEffort != "" {
+			effort = runtimeprofile.Effort{Mode: "explicit", Value: child.Envelope.Controls.ReasoningEffort}
+		}
+		cfg.ModelProfiles = append(cfg.ModelProfiles, runtimeprofile.ModelProfile{ID: id, RuntimeID: runtimeID, Model: "local-test-profile", Effort: effort, Capabilities: authoredCapabilities(child.Envelope.Capability.Capabilities, &runtimeprofile.ResolvedProfile{}), Complexities: []string{"low"}})
 	}
 	state.ModelProfiles = project.Configured(portableProfiles)
 	state.RuntimePreferences = project.Configured(preferences)
@@ -50,7 +75,7 @@ func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID, executa
 	if len(issues) > 0 {
 		t.Fatal(issues)
 	}
-	cfg.Runtimes = []runtimeprofile.Runtime{runtime}
+	cfg.Runtimes = []runtimeprofile.RuntimeV3{runtime}
 	identity, err := runtimeadapter.ExecutableIdentity(executable)
 	if err != nil {
 		t.Fatal(err)
@@ -61,18 +86,28 @@ func policyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID, executa
 			capabilities[capability] = runtimeprofile.CapabilityProven
 		}
 	}
-	inventory, err := runtimeadapter.NewInventory([]runtimeprofile.Observation{{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, Version: "synthetic-1", ExecutableDigest: identity, Revision: 1, ObservedAt: time.Unix(10, 0).UTC(), CapabilityStatus: capabilities, NonInteractiveModelCapabilities: map[string]map[string]runtimeprofile.CapabilityStatus{"local-test-profile": capabilities}}})
+	observation := runtimeprofile.Observation{RuntimeID: runtimeID, Adapter: runtimeID, Installed: true, Available: true, Version: "synthetic-1", ExecutableDigest: identity, Revision: 1, ObservedAt: time.Unix(10, 0).UTC(), CapabilityStatus: capabilities, NonInteractiveModelCapabilities: map[string]map[string]runtimeprofile.CapabilityStatus{"local-test-profile": capabilities}}
+	observation.ProfileProofs = syntheticProofs(observation, cfg.ModelProfiles)
+	inventory, err := runtimeadapter.NewInventory([]runtimeprofile.Observation{observation})
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := &policySource{snapshot: runtimeapplication.Snapshot{Project: p, Configuration: cfg, Observer: inventory}}
+	source := &policySource{snapshot: runtimeapplication.Snapshot{Project: p, Observer: inventory}, config: cfg}
 	policy := runtimeapplication.New(source)
 	previews := map[string]runtimeapplication.Preview{}
-	for _, child := range graph.Children {
+	for i := range graph.Children {
+		child := &graph.Children[i]
 		capability := child.Envelope.Capability
-		preview, err := policy.Preview(context.Background(), projectID, runtimeapplication.Request{Role: capability.Role, Complexity: capability.Complexity, Capabilities: capability.Capabilities, RuntimeID: runtimeID})
+		preview, err := policy.Preview(context.Background(), projectID, runtimeapplication.Request{Role: capability.Role, Complexity: capability.Complexity, Capabilities: authoredCapabilities(capability.Capabilities, &runtimeprofile.ResolvedProfile{}), RuntimeID: runtimeID})
 		if err != nil || preview.Choice == nil {
 			t.Fatalf("preview=%+v err=%v", preview, err)
+		}
+		// An effort-bearing child is a current child bound to the exact
+		// resolved Profile, whose effort it carries.
+		if child.Envelope.Controls.ReasoningEffort != "" {
+			p := *preview.Choice.ResolvedProfile
+			child.Envelope.Resolution.ResolvedProfile = &p
+			graph.FormatVersion = 2
 		}
 		previews[child.ExecutionID] = preview
 	}
@@ -105,11 +140,13 @@ func TestPolicyInvocationChecksExactSelectionBeforeCredentials(t *testing.T) {
 		t.Run(runtimeID, func(t *testing.T) {
 			graph := buildGraph(t, canonicalTempDir(t))
 			executable, _ := stubRuntime(t, t.TempDir(), runtimeID)
-			policy, previews, source := policyFixture(t, &graph, runtimeID, executable, "synthetic:credential")
+			// Canonical v3 binds no credential reference, so the reviewed
+			// binding resolves no credential at all.
+			policy, previews, source := policyFixture(t, &graph, runtimeID, executable, "")
 			credentials := &countedCredentials{}
 			profiles := []runtimeadapter.CommandProfile{}
 			for _, child := range graph.Children {
-				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", CredentialReference: "synthetic:credential", OutputMax: 4096})
+				profiles = append(profiles, runtimeadapter.CommandProfile{RuntimeID: runtimeID, ModelProfileID: child.Envelope.Resolution.ModelProfileID, Executable: executable, Model: "local-test-profile", OutputMax: 4096})
 			}
 			adapter, err := runtimeadapter.NewInvocationResolver(profiles, credentials)
 			if err != nil {
@@ -120,7 +157,7 @@ func TestPolicyInvocationChecksExactSelectionBeforeCredentials(t *testing.T) {
 				t.Fatal(err)
 			}
 			invocation, err := guard.ResolveInvocation(context.Background(), graph.Children[0])
-			if err != nil || credentials.calls != 1 || !strings.Contains(strings.Join(invocation.Argv, " "), "--model local-test-profile") {
+			if err != nil || credentials.calls != 0 || !strings.Contains(strings.Join(invocation.Argv, " "), "--model local-test-profile") {
 				t.Fatalf("invocation=%+v err=%v calls=%d", invocation, err, credentials.calls)
 			}
 			before := credentials.calls
@@ -138,11 +175,11 @@ func TestPolicyInvocationChecksExactSelectionBeforeCredentials(t *testing.T) {
 					t.Fatalf("binding mismatch err=%v credentials=%d", err, credentials.calls)
 				}
 			}
-			source.snapshot.Configuration.ModelProfiles[0].Model = "changed-model"
+			source.config.ModelProfiles[0].Model = "changed-model"
 			if _, err := guard.ResolveInvocation(context.Background(), graph.Children[0]); err == nil || credentials.calls != before {
 				t.Fatalf("drift err=%v credentials=%d", err, credentials.calls)
 			}
-			source.snapshot.Configuration.ModelProfiles[0].Model = "local-test-profile"
+			source.config.ModelProfiles[0].Model = "local-test-profile"
 			state := source.snapshot.Project.State()
 			state.Name = "Changed Project"
 			changed, issues := project.New(state)
@@ -286,7 +323,7 @@ func TestProductionDispatchStalePolicyHasNoAttemptsOrCredentials(t *testing.T) {
 			if _, err := service.PrepareWorkspaces(context.Background()); err != nil {
 				t.Fatal(err)
 			}
-			source.snapshot.Configuration.Revision++
+			source.config.Revision++
 			result, err := service.DispatchReady(context.Background(), nil, false)
 			if err != nil || len(result.Records) != 0 || allocations != 0 || credentials.calls != 0 || string(store.wire) != before {
 				t.Fatalf("records=%v allocations=%d credentials=%d persistedChanged=%t err=%v", result.Records, allocations, credentials.calls, string(store.wire) != before, err)
@@ -427,7 +464,7 @@ func TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects(t *testing.T) 
 			return []string{marker}
 		}},
 		{"Runtime unavailable after preview", func(t *testing.T, _ string, _ []runtimeadapter.CommandProfile, source *policySource) []string {
-			observation, err := source.snapshot.Observer.Observe(context.Background(), source.snapshot.Configuration.Runtimes[0].ID)
+			observation, err := source.snapshot.Observer.Observe(context.Background(), source.config.Runtimes[0].ID)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -493,12 +530,14 @@ func TestProductionDispatchBlocksUnreviewedBindingWithZeroEffects(t *testing.T) 
 }
 
 // The reviewed binding itself still dispatches, so the blocks above come from
-// divergence rather than a guard that rejects every credential reference.
+// divergence. Canonical v3 binds no credential reference, so a command profile
+// carrying one diverges from the reviewed binding and is refused before any
+// credential is resolved.
 func TestPolicyInvocationResolvesOnlyTheReviewedCredentialReference(t *testing.T) {
 	graph := buildGraph(t, canonicalTempDir(t))
 	executable, _ := stubRuntime(t, t.TempDir(), "claude")
-	policy, previews, _ := policyFixture(t, &graph, "claude", executable, "synthetic:credential-a")
-	for reference, want := range map[string]int{"synthetic:credential-a": 1, "synthetic:credential-b": 0, "": 0} {
+	policy, previews, _ := policyFixture(t, &graph, "claude", executable, "")
+	for reference, dispatches := range map[string]bool{"synthetic:credential-a": false, "synthetic:credential-b": false, "": true} {
 		credentials := &countedCredentials{}
 		profiles := []runtimeadapter.CommandProfile{}
 		for _, child := range graph.Children {
@@ -513,7 +552,7 @@ func TestPolicyInvocationResolvesOnlyTheReviewedCredentialReference(t *testing.T
 			t.Fatal(err)
 		}
 		_, err = guard.ResolveInvocation(context.Background(), graph.Children[0])
-		if (err == nil) != (want == 1) || credentials.calls != want {
+		if (err == nil) != dispatches || credentials.calls != 0 {
 			t.Fatalf("reference=%q err=%v credentials=%d", reference, err, credentials.calls)
 		}
 	}

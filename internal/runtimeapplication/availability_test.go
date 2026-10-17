@@ -21,8 +21,8 @@ func TestAvailabilityProjection(t *testing.T) {
 		"not installed": {func(_ *sourceFake, o observerFake) {
 			o["claude"] = runtimeprofile.Observation{RuntimeID: "claude", Adapter: "claude"}
 		}, "runtime_unavailable"},
-		"disabled":       {func(s *sourceFake, _ observerFake) { s.snapshot.Configuration.Runtimes[0].Enabled = false }, "runtime_unavailable"},
-		"model mismatch": {func(s *sourceFake, _ observerFake) { s.snapshot.Configuration.ModelProfiles[0].Model = "other" }, "no_allowed_match"},
+		"disabled":       {func(s *sourceFake, _ observerFake) { s.config.Runtimes[0].Enabled = false }, "runtime_unavailable"},
+		"model mismatch": {func(s *sourceFake, _ observerFake) { s.config.ModelProfiles[0].Model = "other" }, "no_allowed_match"},
 		"no observer":    {func(s *sourceFake, _ observerFake) { s.snapshot.Observer = nil }, "inventory_unavailable"},
 		"unconfigured": {func(s *sourceFake, _ observerFake) {
 			state := s.snapshot.Project.State()

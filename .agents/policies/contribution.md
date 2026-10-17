@@ -24,6 +24,12 @@ For every contribution, the agent must:
 - assess security impact and state known limitations;
 - preserve human approval boundaries.
 
+For a squash merge, preserve the validated PR body's `Related-Issues` and
+`Completes-Issues` lines in the final commit message, including explicit
+`none` values. Validate any replacement title/body with
+`scripts/delivery-issues.sh check-pr` before merging. A passing PR check and
+the repository's `PR_BODY` default do not validate a custom merge message.
+
 Before opening a Pull Request, inspect the branch, complete diff, commits, PR
 title and description, related references, Evidence, documentation impact,
 security impact, limitations, and absence of out-of-scope changes.

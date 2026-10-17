@@ -475,13 +475,13 @@ func (s currentFixtureSource) Load(ctx context.Context, id string) (runtimeappli
 	if err != nil {
 		return snapshot, err
 	}
-	snapshot.Observer = currentFixtureObserver{base: snapshot.Observer, configuration: snapshot.Configuration}
+	snapshot.Observer = currentFixtureObserver{base: snapshot.Observer, configuration: snapshot.Consumer.Configuration()}
 	return snapshot, nil
 }
 
 type currentFixtureObserver struct {
 	base          runtimeprofile.Observer
-	configuration runtimeprofile.Configuration
+	configuration runtimeprofile.ConfigurationV3
 }
 
 func (o currentFixtureObserver) Observe(ctx context.Context, id string) (runtimeprofile.Observation, error) {
@@ -508,31 +508,19 @@ func currentProfileStartFixture(t *testing.T, service lifecycleService, root str
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := store.Load(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.FormatVersion == 1 {
-		mapping := map[string]runtimeprofile.Effort{}
-		for _, p := range cfg.ModelProfiles {
-			mapping[p.ID] = runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}
-		}
-		app := runtimeapplication.Authoring{Store: runtimeAuthoringStore{store}}
-		r := runtimeapplication.AuthoringRequest{Kind: "profile", Operation: "migrate", MigrationEfforts: mapping, ClearLegacyReferences: true}
-		p, err := app.Run(context.Background(), r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		r.AuthorizeLocal = true
-		r.ExpectedRevision = p.ExpectedRevision
-		r.PreviewDigest = p.PreviewDigest
-		if _, err := app.Run(context.Background(), r); err != nil {
-			t.Fatal(err)
-		}
+	if snapshot, err := store.Inspect(context.Background()); err != nil || snapshot.State != "active-v3" {
+		t.Fatalf("current fixtures need canonical v3 local configuration: %s %v", snapshot.State, err)
 	}
 	if record, category := service.installation.Inspect(context.Background(), workItemSourceProjectID); category == "" && record.Record.State().ProjectID == workItemSourceProjectID {
 		selectProfileBuiltinForTest(t, service, workItemSourceProjectID)
 	}
+	return withInjectedProofs(service, root)
+}
+
+// withInjectedProofs composes the real policy source over the service's
+// current machine observation seams and injects only per-Profile proof for the
+// observed executable; it never acquires proof.
+func withInjectedProofs(service lifecycleService, root string) lifecycleService {
 	service.RuntimePolicySource = currentFixtureSource{base: runtimePolicySource{installation: service.installation, portable: service.portable, stateRoot: root, runtimes: service.runtimeObservationSources()}}
 	return service
 }

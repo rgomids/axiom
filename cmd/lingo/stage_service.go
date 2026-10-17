@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -24,6 +23,7 @@ import (
 	"github.com/rgomids/axiom/internal/gitworkspace"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 	"github.com/rgomids/axiom/internal/stageexecution"
 	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
@@ -40,6 +40,7 @@ type stageStores struct {
 	executions local.WorkflowStore
 	policies   local.ValidatorPolicyStore
 	profiles   local.RuntimeProfileStore
+	singles    local.SingleStageStore
 }
 
 func (s lifecycleService) stageStores() (stageStores, error) {
@@ -57,6 +58,9 @@ func (s lifecycleService) stageStores() (stageStores, error) {
 	if out.policies, err = local.NewValidatorPolicyStore(s.stateRoot); err != nil {
 		return out, err
 	}
+	if out.singles, err = local.NewSingleStageStore(s.stateRoot); err != nil {
+		return out, err
+	}
 	out.profiles, err = local.NewRuntimeProfileStore(s.stateRoot)
 	return out, err
 }
@@ -68,6 +72,7 @@ type stageTarget struct {
 	request    stageexecution.StatusRequest
 	ref        workflowcompiler.ExecutionRef
 	repository workflow.Repository
+	single     *executiongraph.SingleStageRun
 }
 
 func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
@@ -88,6 +93,20 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 	target, failure := s.resolveStageTarget(ctx, in, operation)
 	if failure != nil {
 		return *failure
+	}
+	if target.single != nil {
+		switch in.Operation {
+		case "status":
+			return s.singleStatus(ctx, stores, target)
+		case "cancel":
+			return s.singleCancel(ctx, stores, target, in)
+		case "reconcile":
+			return s.singleReconcile(ctx, stores, target, in)
+		case "retry":
+			return s.singleRetry(ctx, stores, target, in)
+		case "integrate":
+			return s.stageError(stageexecution.ErrStageKindMismatch, nil)
+		}
 	}
 	switch in.Operation {
 	case "status":
@@ -147,6 +166,16 @@ func (s lifecycleService) resolveStageTarget(ctx context.Context, in cli.Workflo
 			return stageTarget{}, &response
 		}
 	}
+	if t.request.ParentID == state.ExecutionID {
+		singles, err := local.NewSingleStageStore(s.stateRoot)
+		if err == nil {
+			t.single, err = loadStageSingle(ctx, singles, state)
+		}
+		if err != nil {
+			response := s.stageError(err, nil)
+			return stageTarget{}, &response
+		}
+	}
 	if in.ExpectedRevision != 0 && in.ExpectedRevision != state.Revision {
 		response := s.stageFailure(completion.DeniedAuthority, "stale_execution_revision", "Execution revision changed", "Inspect workflow status and request a fresh preview", nil)
 		return stageTarget{}, &response
@@ -167,25 +196,24 @@ func (s lifecycleService) stageContract(ctx context.Context, stores stageStores,
 		// The Workflow was explicitly selected when this Execution was bound.
 		c.WorkflowSelected = state.Binding.SchemaVersion == 2
 	}
-	cfg, err := stores.profiles.Load(ctx)
+	// Stage admission (AdmitV3) derives the frozen Profile's availability from
+	// the canonical v3 record; a removed, disallowed or disabled Profile blocks
+	// and nothing falls back to another Profile, model, Runtime or effort.
+	snapshot, err := stores.profiles.Inspect(ctx)
 	if err != nil {
 		return c, stageexecution.ErrProfileEffortUnconfigured
 	}
-	c.Configuration = cfg
-	if state.Binding != nil && state.Binding.ResolvedProfile != nil {
-		frozen := state.Binding.ResolvedProfile
-		// A removed, disallowed or disabled frozen Profile blocks; nothing
-		// falls back to another Profile, model, Runtime or effort.
-		for _, runtime := range cfg.Runtimes {
-			if runtime.ID != frozen.RuntimeID || !runtime.Enabled || !slices.Contains(runtime.AllowlistedProfileIDs, frozen.ProfileID) {
-				continue
-			}
-			for _, profile := range cfg.ModelProfiles {
-				if profile.ID == frozen.ProfileID && profile.RuntimeID == frozen.RuntimeID {
-					c.ProfileAvailable = true
-				}
-			}
-		}
+	switch snapshot.State {
+	case "active-v3":
+		c.Record = runtimeprofile.RecordActiveV3
+		c.Configuration = runtimeprofile.VersionedConfiguration{FormatVersion: runtimeprofile.FormatVersionV3, V3: snapshot.V3}
+	case "retired":
+		c.Record = runtimeprofile.RecordRetiredV3
+	case "fresh":
+		c.Record = runtimeprofile.RecordMissingV3
+	default:
+		// Pre-stable records are never current configuration (PM-11, B1).
+		return c, stageexecution.ErrProfileEffortUnconfigured
 	}
 	return c, nil
 }
@@ -296,6 +324,14 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		{workflowcompiler.ErrWorkflowMigrationRequired, completion.ValidationFailure, "workflow_migration_required", "Migrate and select a schema-2 Workflow (#306)"},
 		{stageexecution.ErrProfileEffortUnconfigured, completion.ValidationFailure, "profile_effort_unconfigured", "Migrate local configuration to Profile-owned effort (#306)"},
 		{stageexecution.ErrPolicyUpdateRequired, completion.ValidationFailure, "project_policy_update_required", "Update the Project Runtime policy"},
+		{workflowcompiler.ErrAuthorityExceeded, completion.DeniedAuthority, "authority_denied", "Keep every child effect inside the Plan authority ceiling and the stage's effect ceilings"},
+		{executiongraph.ErrAuthoritySubset, completion.DeniedAuthority, "authority_denied", "Keep every child effect inside the Plan authority ceiling and the stage's effect ceilings"},
+		{executiongraph.ErrCycle, completion.ValidationFailure, "invalid_stage_topology", "Review stage dependencies, ownership and overlapping effects before a fresh preview"},
+		{executiongraph.ErrUnsafeOverlap, completion.ValidationFailure, "invalid_stage_topology", "Review stage dependencies, ownership and overlapping effects before a fresh preview"},
+		{executiongraph.ErrMissingOwner, completion.ValidationFailure, "invalid_stage_topology", "Review stage dependencies, ownership and overlapping effects before a fresh preview"},
+		{executiongraph.ErrInvalidPlan, completion.ValidationFailure, "invalid_stage_plan", "Review the bounded stage Plan and its execution controls before a fresh preview"},
+		{workflowcompiler.ErrInvalidRequest, completion.ValidationFailure, "invalid_stage_plan", "Review the bounded stage Plan and its execution controls before a fresh preview"},
+		{workflowcompiler.ErrRuntimeBlocked, completion.ValidationFailure, "runtime_unresolvable", "Inspect the Project Runtime policy, Profiles and current capability Evidence"},
 		{capabilityproof.ErrBlocked, completion.ValidationFailure, "capability_unknown", "Run an authorized capability probe: axiom runtime <codex|claude> capability probe"},
 		{stageexecution.ErrReconcileLeaseHeld, completion.ValidationFailure, "reconcile_lease_held", "Wait for the supervisor to finish or cancel the stage"},
 		{stageexecution.ErrReconcileOrphanAlive, completion.ValidationFailure, "stop_orphan_then_reconcile", "Stop the orphaned process group, then reconcile"},
@@ -316,6 +352,8 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		{coordination.ErrRecordNotFound, completion.ValidationFailure, "record_not_found", "List the child's canonical records first"},
 		{coordination.ErrInvalidWait, completion.ValidationFailure, "invalid_wait", "Use a positive --wait no longer than 30s"},
 		{errStageGraphMissing, completion.ValidationFailure, "stage_not_dispatched", "Run stage run for this Execution first"},
+		{stageexecution.ErrStageKindMismatch, completion.ValidationFailure, "single_stage_operation_unsupported", "A single-agent stage owns validation and integration of its own output; advance the Execution through its lifecycle"},
+		{executiongraph.ErrUnsupportedSingleStageFormat, completion.Failure, "unsupported_single_stage_format", "This release cannot read the single-stage ledger; nothing was changed"},
 		{local.ErrConflict, completion.RetryableFailure, "temporarily_unavailable", "A concurrent stage operation holds the lease; retry the read first"},
 		{local.ErrRecoveryRequired, completion.Failure, "recovery_required", "Run recovery inspect and apply the reviewed plan"},
 		{executiongraph.ErrInvalidGraph, completion.Failure, "recovery_required", "Inspect stage status and recovery state"},
@@ -371,7 +409,9 @@ func (s lifecycleService) stageCoordinationRead(ctx context.Context, stores stag
 	}
 	reader := coordination.Reader{Store: store}
 	children := []string{in.Child}
-	if in.Child == "" {
+	if in.Child == "" && t.single != nil {
+		children = []string{t.state.ExecutionID}
+	} else if in.Child == "" {
 		doc, err := stageGraph(ctx, stores, t.request)
 		if err != nil || doc == nil || doc.Successor == nil {
 			return s.stageError(errors.Join(errStageGraphMissing, err), nil)

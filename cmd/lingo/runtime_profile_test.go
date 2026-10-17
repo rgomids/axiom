@@ -17,7 +17,7 @@ import (
 )
 
 func TestRuntimeProfileValidateConfiguration(t *testing.T) {
-	for _, scenario := range []string{"valid", "missing-root", "missing-configuration", "malformed", "invalid", "unsafe-root"} {
+	for _, scenario := range []string{"valid", "missing-root", "missing-configuration", "malformed", "invalid", "unsafe-root", "pre-stable-v1", "pre-stable-v2", "retired"} {
 		for _, mode := range []string{"--json", "--human"} {
 			t.Run(scenario+mode, func(t *testing.T) {
 				base := t.TempDir()
@@ -32,20 +32,30 @@ func TestRuntimeProfileValidateConfiguration(t *testing.T) {
 						t.Fatal(err)
 					}
 				} else if scenario != "missing-root" {
-					store, err := local.NewRuntimeProfileStore(state)
-					if err != nil {
-						t.Fatal(err)
-					}
-					cfg := runtimeprofile.Configuration{
-						FormatVersion: runtimeprofile.FormatVersion, Revision: 1,
+					cfg := singleRuntimeV3("codex", "default", "private-model-name", []string{"code"}, nil)
+					active := publishRuntimeProfileV3(t, state, cfg)
+					path := filepath.Join(state, "runtime-profiles", "v1", "configuration.json")
+					legacy := runtimeprofile.Configuration{FormatVersion: runtimeprofile.FormatVersion, Revision: 1,
 						Runtimes:      []runtimeprofile.Runtime{{ID: "codex", Adapter: "codex", Enabled: true, AllowlistedProfileIDs: []string{"default"}, CredentialReference: "private-credential-reference"}},
 						ModelProfiles: []runtimeprofile.ModelProfile{{ID: "default", RuntimeID: "codex", Model: "private-model-name", Capabilities: []string{"code"}}},
 					}
-					if err := store.Create(context.Background(), cfg); err != nil {
-						t.Fatal(err)
-					}
-					path := filepath.Join(state, "runtime-profiles", "v1", "configuration.json")
 					switch scenario {
+					case "pre-stable-v1":
+						writeLegacyRuntimeProfile(t, state, legacy)
+					case "pre-stable-v2":
+						legacy.FormatVersion, legacy.Runtimes[0].CredentialReference = runtimeprofile.FormatVersionV2, ""
+						legacy.ModelProfiles[0].Effort = runtimeprofile.Effort{Mode: runtimeprofile.EffortRuntimeDefault, Value: "default"}
+						writeLegacyRuntimeProfile(t, state, legacy)
+					case "retired":
+						store, err := local.NewRuntimeProfileStore(state)
+						if err != nil {
+							t.Fatal(err)
+						}
+						digest, _ := runtimeprofile.DigestV3(*active.V3)
+						tomb, _ := runtimeprofile.EncodeTombstone(runtimeprofile.Tombstone{Kind: runtimeprofile.TombstoneKind, FormatVersion: 1, Revision: 2, PriorConfigurationDigest: digest})
+						if _, err := store.Publish(context.Background(), active.Token, tomb); err != nil {
+							t.Fatal(err)
+						}
 					case "missing-configuration":
 						if err := os.Remove(path); err != nil {
 							t.Fatal(err)

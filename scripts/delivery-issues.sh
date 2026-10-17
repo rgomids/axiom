@@ -10,8 +10,11 @@
 #       A PR must have a Conventional Commit title, declare valid metadata,
 #       and avoid GitHub closing keywords (they close Issues at merge time,
 #       before release).
-#   delivery-issues.sh commits --from SHA --to SHA
+#   delivery-issues.sh commits --from SHA --to SHA [--require-declared]
 #       One line per first-parent commit in FROM..TO (merge-time sync).
+#       --require-declared refuses missing squash metadata after v0.2.0,
+#       before any sync effects. Legacy history and Release Please commits
+#       remain readable; corrections come from TO's committed tree.
 #   delivery-issues.sh release --tag vX.Y.Z --revision SHA
 #       The Issue set delivered by the stable release committed at SHA:
 #       Completes-Issues of every first-parent commit since the previous
@@ -207,6 +210,26 @@ manifest_at() {
   printf '%s' "${BASH_REMATCH[1]}"
 }
 
+# Validate the actual merged message, not just the PR body checked before
+# squash. Consult manifest history so removing or downgrading the manifest
+# cannot make a modern undeclared commit look like legacy history.
+require_declared() {
+  local sha=$1 line=$2 version manifest_revision release_subject_re
+  [[ "$line" == *' metadata=undeclared '* ]] || return 0
+  version=$(sed -E 's/.* release=([^ ]+) .*/\1/' <<<"$line")
+  if [[ "$version" != none ]]; then
+    release_subject_re="^chore\\(main\\): release ${version//./\\.}( \\(#[1-9][0-9]{0,8}\\))?\$"
+    [[ $(git -C "$repository_root" log -1 --format=%s "$sha") =~ $release_subject_re ]] && return 0
+  fi
+  while IFS= read -r manifest_revision; do
+    version=$(manifest_at "$manifest_revision") || exit 1
+    [[ "$version" != none ]] || continue
+    if [[ "$version" == "$legacy_boundary" ]] || after_boundary "$version"; then
+      fail "commit $sha has no delivery metadata; merge a reviewed correction to .github/delivery-corrections.txt"
+    fi
+  done < <(git -C "$repository_root" log --first-parent --format=%H "$sha" -- .release-please-manifest.json)
+}
+
 temporary=$(mktemp -d)
 trap 'rm -rf -- "$temporary"' EXIT
 
@@ -219,6 +242,7 @@ from=
 to=
 tag=
 revision=
+require_declared_metadata=false
 while (($#)); do
   case "$1" in
     --file) file=${2:-}; shift 2 ;;
@@ -228,9 +252,11 @@ while (($#)); do
     --to) to=${2:-}; shift 2 ;;
     --tag) tag=${2:-}; shift 2 ;;
     --revision) revision=${2:-}; shift 2 ;;
+    --require-declared) require_declared_metadata=true; shift ;;
     *) fail 'invalid argument' ;;
   esac
 done
+[[ "$require_declared_metadata" == false || "$mode" == commits ]] || fail '--require-declared is only valid for commits'
 
 case "$mode" in
   parse)
@@ -282,7 +308,9 @@ case "$mode" in
     git -C "$repository_root" merge-base --is-ancestor "$from" "$to" || fail 'FROM is not an ancestor of TO'
     load_corrections "$to"
     while IFS= read -r sha; do
-      commit_line "$sha"
+      line=$(commit_line "$sha") || exit 1
+      [[ "$require_declared_metadata" == false ]] || require_declared "$sha" "$line"
+      printf '%s\n' "$line"
     done < <(git -C "$repository_root" rev-list --first-parent --reverse "$from..$to")
     ;;
   release)

@@ -48,7 +48,7 @@ func proofFixture(variant string) (Service, *fakeProofStore, *fakeBindingSource,
 	store := &fakeProofStore{evidence: e, ref: ref}
 	model := *e.Model
 	source := &fakeBindingSource{Current{e.Binding, &model, ref, true}}
-	return Service{Store: store, Source: source, Now: func() time.Time { return e.ObservedAt.Add(time.Hour) }}, store, source, Target{"codex", "profile", variant}
+	return Service{Store: store, Source: source, Now: func() time.Time { return e.ObservedAt.Add(time.Hour) }}, store, source, Target{RuntimeID: "codex", ProfileID: "profile", Variant: variant, Process: true}
 }
 func TestCheckMatchingPerVariant(t *testing.T) {
 	for _, variant := range []string{ReadOnlyVariant, RepositoryWriteVariant} {
@@ -95,6 +95,7 @@ func TestCheckBindingDrift(t *testing.T) {
 func TestCheckExpiredAndWrongVariant(t *testing.T) {
 	s, store, source, target := proofFixture(ReadOnlyVariant)
 	s.Now = func() time.Time { return store.evidence.ObservedAt.Add(MaxAge + time.Second) }
+	target.Process = false
 	if _, code, err := s.Check(context.Background(), target, nil, false, false, ""); err == nil || code != "capability_stale" {
 		t.Fatal(code, err)
 	}
@@ -169,6 +170,7 @@ func TestRequiredNonProvenBlocks(t *testing.T) {
 		store.evidence.Capabilities[Noninteractive] = Result{State: status, Facts: ProbeFacts{InterfaceAbsent: status == Unsupported}}
 		store.ref, _ = Digest(store.evidence)
 		source.current.EvidenceRef = store.ref
+		target.Process = false
 		if _, _, err := s.Check(context.Background(), target, nil, false, false, ""); err == nil {
 			t.Fatal("non-proven admitted")
 		}
@@ -202,5 +204,32 @@ func TestEachRequiredCapabilityBlocks(t *testing.T) {
 				t.Fatal(code, err)
 			}
 		})
+	}
+}
+func TestCheckRejectsContradictoryProcessMode(t *testing.T) {
+	for _, process := range []bool{false, true} {
+		s, store, _, target := proofFixture(ReadOnlyVariant)
+		target.Process = process
+		if ref, code, err := s.Check(context.Background(), target, []string{Read}, false, process, ""); err != nil || code != "" || ref != store.ref {
+			t.Fatalf("process=%v: matching mode %q %q %v", process, ref, code, err)
+		}
+		// A request whose Process differs from the Target that was read is drift.
+		if ref, code, err := s.Check(context.Background(), target, []string{Read}, false, !process, ""); !errors.Is(err, ErrBlocked) || code != "capability_stale" || ref != "" {
+			t.Fatalf("process=%v: contradictory mode %q %q %v", process, ref, code, err)
+		}
+		if view, err := s.Show(context.Background(), target); err != nil || view.Target != target {
+			t.Fatalf("process=%v: Target identity not preserved: %+v %v", process, view.Target, err)
+		}
+	}
+	// Target.Process names the mode; Evidence still decides the Process capability.
+	s, store, source, target := proofFixture(ReadOnlyVariant)
+	delete(store.evidence.Capabilities, Process)
+	store.ref, _ = Digest(store.evidence)
+	source.current.EvidenceRef = store.ref
+	if _, code, err := s.Check(context.Background(), target, []string{Read}, false, true, ""); !errors.Is(err, ErrBlocked) || code != "capability_unknown" {
+		t.Fatalf("unproven Process admitted: %q %v", code, err)
+	}
+	if store.writes != 0 {
+		t.Fatal("check mutated Evidence")
 	}
 }

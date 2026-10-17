@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -83,6 +84,12 @@ func TestStableCorpusIsAppendOnly(t *testing.T) {
 	}
 }
 
+// Every frozen snapshot stays an application upgrade (direct/compatible) and
+// keeps exercising every v1 kind. Under Specification 007 PM-8/PM-11 (B1) the
+// expectation is split, never weakened: each frozen local Runtime/Profile
+// record is recognized pre-stable history whose current support is explicit
+// reconfiguration (refused by consumers, never converted or deleted), not a
+// mandatory Runtime/Profile upgrade. Snapshots and labels are unchanged.
 func TestStableCorpusResolvesToDirectUpgrade(t *testing.T) {
 	observed := map[local.InventoryKind]bool{}
 	for _, label := range stableSnapshots(t) {
@@ -95,11 +102,26 @@ func TestStableCorpusResolvesToDirectUpgrade(t *testing.T) {
 		if decision.Strategy != StrategyDirect || decision.Outcome != OutcomeCompatible {
 			t.Fatalf("released v1 snapshot %s does not upgrade directly: %+v", label, decision)
 		}
+		preStable := false
 		for _, object := range report.objects {
 			observed[object.Kind] = true
+			if object.Kind == local.InventoryRuntimeProfile && preStableRuntimeProfile(t, filepath.Join(stableCorpus, "snapshots", label, "state", object.Relative)) {
+				t.Fatalf("released snapshot %s: pre-stable Runtime/Profile record %s classified as current configuration", label, object.Relative)
+			}
+			preStable = preStable || object.Kind == local.InventoryRuntimeProfilePreStable
+		}
+		if preStable != strings.Contains(strings.Join(report.Next, "\n"), "binding remove --runtime <id> --cascade") {
+			t.Fatalf("released snapshot %s: pre-stable reconfiguration guidance %v", label, report.Next)
 		}
 	}
 	for _, kind := range append(local.V1Kinds(), local.AdditiveKinds()...) {
+		// The frozen corpus predates canonical v3: its Runtime/Profile family
+		// is covered by the historical pre-stable records, while the canonical
+		// v3 kind is writer-tested (TestEveryV1WriterIsRecognizedByInventory)
+		// until the first stable release freezes it.
+		if kind == local.InventoryRuntimeProfile {
+			kind = local.InventoryRuntimeProfilePreStable
+		}
 		if !observed[kind] {
 			t.Errorf("v1 kind %s is missing from the stable corpus: run the freeze generator (see PROVENANCE) before releasing", kind)
 		}
@@ -135,4 +157,16 @@ func TestReleasePreparationEnforcesStableCorpus(t *testing.T) {
 	if position < 0 || build < 0 || position >= build {
 		t.Fatal("release preparation must validate the frozen compatibility corpus before building")
 	}
+}
+
+func preStableRuntimeProfile(t *testing.T, path string) bool {
+	t.Helper()
+	wire, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var probe struct {
+		FormatVersion int `json:"formatVersion"`
+	}
+	return json.Unmarshal(wire, &probe) == nil && (probe.FormatVersion == 1 || probe.FormatVersion == 2)
 }

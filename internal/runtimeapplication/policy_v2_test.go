@@ -7,20 +7,14 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/runtimeprofile"
+	"github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
+// setupV2 is the single-Runtime fixture whose injected proof binds the exact
+// v3 Profile intent; the tests keep their historical names.
 func setupV2(t *testing.T) (*sourceFake, observerFake) {
 	t.Helper()
-	s, o := setup(t, "codex")
-	s.snapshot.Configuration.FormatVersion = runtimeprofile.FormatVersionV2
-	s.snapshot.Configuration.Runtimes[0].CredentialReference = ""
-	s.snapshot.Configuration.ModelProfiles[0].Effort = runtimeprofile.Effort{Mode: "explicit", Value: "high"}
-	obs := o["codex"]
-	obs.ExecutableDigest = strings.Repeat("a", 64)
-	p := s.snapshot.Configuration.ModelProfiles[0]
-	obs.ProfileProofs = []runtimeprofile.ProfileProof{{RuntimeID: p.RuntimeID, Model: p.Model, Effort: p.Effort, ExecutableDigest: obs.ExecutableDigest, RuntimeVersion: obs.Version, InvocationMode: "noninteractive", ObservationRevision: obs.Revision, Reference: "injected-proof", EffortSourceDigest: strings.Repeat("b", 64), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: map[string]runtimeprofile.CapabilityStatus{"go": runtimeprofile.CapabilityProven}}}
-	o["codex"] = obs
-	return s, o
+	return setup(t, "codex")
 }
 func TestV2PreviewFullSnapshotAndExactCheck(t *testing.T) {
 	s, o := setupV2(t)
@@ -34,8 +28,8 @@ func TestV2PreviewFullSnapshotAndExactCheck(t *testing.T) {
 		t.Fatal("tuple did not bind exact preview")
 	}
 	binding, err := service.Check(context.Background(), p)
-	if err != nil || binding.CredentialReference != "" {
-		t.Fatal("v2 check failed", err)
+	if err != nil || binding.CredentialReference != "" || r.ConfigurationDigest != runtimeprofiletest.Digest(t, s.config) {
+		t.Fatal("v3 check failed", err)
 	}
 	binding.Choice.ResolvedProfile.Model = "mutated"
 	if p.Choice.ResolvedProfile.Model == "mutated" {

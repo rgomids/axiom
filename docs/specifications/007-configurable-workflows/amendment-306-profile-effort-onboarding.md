@@ -156,6 +156,18 @@ compilation under Profile-owned semantics return `workflow_migration_required`.
 They cannot ignore a legacy Agent override. Local v1 similarly returns
 `profile_effort_unconfigured` for new v2 admission, not invalid/unsupported data.
 
+> **Prospectively superseded for local configuration — 2026-10-14.** Maintainer
+> decision C1 (13:30 America/Sao_Paulo), recorded as
+> [AXM-22 clause PM-8](amendment-276-axm22-binding-identity.md#pm2-pre-stable-compatibility-and-canonical-digestv3-bld-001b3c-2a),
+> supersedes for the pre-MVP delivery only the *Local active config* and
+> *Local retirement* forward paths above and the reading of local configs 1/2 in
+> the first-release compatibility window: before the first stable/LTS release
+> there is no v1→v2 migration requirement, configuration format 3 is the only
+> target canonical format and unsupported pre-stable local state requires
+> explicit reconfiguration. The Workflow, distributed default, Stage Plan,
+> configured Execution and graph rows, and Profile effort ownership, remain in
+> force. The text above is preserved as history.
+
 Existing Executions retain their schema-1 WorkflowBinding and every prior graph,
 attempt and effect. Never rebind/recompile them from a migrated Project selection.
 New dispatch/retry that cannot demonstrate a v2 immutable Profile/effort snapshot

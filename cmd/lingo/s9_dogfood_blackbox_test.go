@@ -17,6 +17,12 @@ import (
 const fakeGitHubStateVariable = "AXIOM_TEST_FAKE_GH_STATE"
 
 func TestMain(m *testing.M) {
+	if handled, code := probeFakeProcess(); handled {
+		os.Exit(code)
+	}
+	if handled, code := stageFakeProcess(); handled {
+		os.Exit(code)
+	}
 	if path := os.Getenv(fakeGitHubStateVariable); path != "" {
 		os.Exit(runFakeGitHub(path, os.Args[1:], os.Stdin, os.Stdout))
 	}
@@ -272,28 +278,31 @@ func executableRuntimeJourney(t *testing.T, runtimeID string) {
 		t.Fatalf("other Runtime resolved: %+v", denied.RuntimeResolution)
 	}
 	values["runtime"] = runtimeID
-	runtimePreview := run(0, "success", previewArgs...)
-	if runtimePreview.RuntimeResolution == nil || runtimePreview.RuntimeResolution.Choice == nil || runtimePreview.RuntimeResolution.Choice.RuntimeID != runtimeID || runtimePreview.RuntimeResolution.Choice.ExecutableDigest == "" || runtimePreview.PreviewDigest == "" || runtimePreview.Workflow != nil {
+	// A verified executable and skill integration with canonical v3 intent
+	// still fail closed: the production composition injects no Profile proof
+	// and the embedded version registry is empty (Specification 007 PM-7).
+	runtimePreview := run(1, "validation_failure", previewArgs...)
+	if runtimePreview.RuntimeResolution == nil || runtimePreview.RuntimeResolution.Choice != nil || runtimePreview.RuntimeResolution.Blocker == nil || runtimePreview.RuntimeResolution.Blocker.Code != "effort_unproven" || runtimePreview.PreviewDigest == "" || runtimePreview.Workflow != nil {
 		t.Fatalf("preview = %+v", runtimePreview)
 	}
 	if records, _ := filepath.Glob(executions); len(records) != 0 {
 		t.Fatalf("preview created Executions: %v", records)
 	}
-	values["previewDigest"] = strings.Repeat("0", 64)
-	if stale := run(1, "validation_failure", expandProtocol(t, protocol[1], selector, values)...); stale.RuntimeResolution == nil || stale.RuntimeResolution.Blocker == nil || stale.RuntimeResolution.Blocker.Code != "stale_preview" {
-		t.Fatalf("unreviewed digest = %+v", stale.RuntimeResolution)
+	for _, digest := range []string{strings.Repeat("0", 64), runtimePreview.PreviewDigest} {
+		values["previewDigest"] = digest
+		if refused := run(1, "validation_failure", expandProtocol(t, protocol[1], selector, values)...); refused.RuntimeResolution == nil || refused.RuntimeResolution.Blocker == nil || refused.Workflow != nil {
+			t.Fatalf("unproven public start %+v", refused)
+		}
 	}
-	values["previewDigest"] = runtimePreview.PreviewDigest
-	refused := run(1, "validation_failure", expandProtocol(t, protocol[1], selector, values)...)
-	if !strings.Contains(refused.Next, "workflow_migration_required") || refused.Workflow != nil {
-		t.Fatalf("legacy public start refusal %+v", refused)
+	if records, _ := filepath.Glob(executions); len(records) != 0 {
+		t.Fatalf("refused start created Executions: %v", records)
 	}
 	t.Setenv("LINGO_PROJECTS_ROOT", portable)
 	t.Setenv("LINGO_STATE_ROOT", state)
 	fixtureService := composeWithProvenance(currentProvenance()).(lifecycleService)
 	historical := seedHistoricalWorkflow(t, fixtureService, cli.WorkflowInput{Project: "configured", Repository: "main", Provider: "github", ProviderRepository: "owner/repo", ExternalID: "7", Runtime: runtimeID, RuntimePreview: runtimePreview.PreviewDigest})
 	started := event{Workflow: historical}
-	if started.Workflow == nil || started.Workflow.RuntimeID != runtimePreview.RuntimeResolution.Choice.RuntimeID || started.Workflow.Revision != 1 {
+	if started.Workflow == nil || started.Workflow.RuntimeID != runtimeID || started.Workflow.Revision != 1 {
 		t.Fatalf("started = %+v", started.Workflow)
 	}
 	values["executionId"] = started.Workflow.ExecutionID

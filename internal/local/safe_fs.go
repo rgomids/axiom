@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // privateRoot creates and opens one owner-only directory without following
@@ -722,7 +723,20 @@ func markAttempt(root *os.Root, prefix string) (string, error) {
 	return name, nil
 }
 
+const storeLockWait = time.Second
+
 func lockRoots(exclusive bool, roots ...*os.Root) ([]*os.File, error) {
+	deadline := time.Now().Add(storeLockWait)
+	for {
+		locks, err := tryLockRoots(exclusive, roots...)
+		if !errors.Is(err, ErrConflict) || time.Now().After(deadline) {
+			return locks, err
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+}
+
+func tryLockRoots(exclusive bool, roots ...*os.Root) ([]*os.File, error) {
 	locks := make([]*os.File, 0, len(roots))
 	for _, root := range roots {
 		lock, err := lockDirectory(root, exclusive)

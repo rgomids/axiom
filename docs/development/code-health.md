@@ -9,7 +9,10 @@ post-merge product CI; #242 owns the unchanged required `go-quality` check.
 
 The approved decisions map to these implementation boundaries:
 
-1. D1: `verify (linux)` adds atomic coverage to its existing race test invocation.
+1. D1: the Linux native suite adds atomic coverage to its race test invocation
+   (`native-suite.yml` since ADR-0029; formerly `verify (linux)` in PR CI). PR
+   runs no longer produce snapshots, so D3 main baseline promotion reports
+   unavailable until it is rewired.
 2. D2: `scripts/code-health.py` normalizes statements, produces a Job Summary,
    and retains profile, snapshot JSON, summary JSON and Markdown in an artifact.
 3. D3: `code-health-baseline.yml` handles main pushes using successful PR CI

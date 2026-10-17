@@ -1,25 +1,26 @@
 # Project Commands
 
-## T34 recovery limitation: retry reset
+## Stage retry workspace disposition
 
-The pending T34 production adapter disables `workflow stage retry` with
-`--disposition reset`. A committed retry receipt alone does not authorize
-destructive workspace operations: persisted receipt binding, current lease
-fencing and managed-worktree ownership must remain protected across each
-effect. The existing disposer interface does not provide that guard.
+`workflow stage retry` requires an explicit `--disposition` once the prior
+attempt may have changed its workspace: `preserve` keeps the managed worktree
+as it is, `reset` restores it to the stage base revision. The retry command
+itself only commits the single-use retry receipt and checks the exact managed
+worktree without effects. A `reset` is applied by the detached supervisor,
+while it holds the run lease and before it starts the authorized attempt.
+Immediately before each destructive Git effect, and once after the last one,
+it revalidates the lease epoch, the unchanged pending receipt and ledger
+generation, the exact worktree ownership record, confinement below the
+workspace root and the absence of executable Git filter configuration. The
+worktree must then be clean at its base revision, or no attempt starts.
 
-Reset returns `failure` with category
-`retry_reset_authority_fencing_unavailable`, preserving workspace contents.
-If retry authority was already committed, its result remains
-`recovery_required`; no retry supervisor is started. Inspect that receipt and
-the disposition failure before recovery; do not blindly replay the operation
-or perform a manual reset as a workaround. `preserve` keeps the existing
-non-destructive workspace inspection path. Retry still requires fresh preview
-and local plus external authority; this fallback grants no new authority.
-The same canonical result is used by JSON and human presentation.
-
-T34 production completion and command parity remain unverified. This note
-does not claim delivery of operational smoke or capability probing.
+If any check fails, no further effect runs and no attempt is created; the
+receipt stays pending and authorizes nothing else. Inspect `stage status`.
+A single-agent stage resumes its pending receipt with the same `stage run`
+re-invocation; a graph child needs a fresh `stage retry` preview and both
+authorities. Either way the fenced reset repeats from the beginning. Never
+reset a managed worktree manually. JSON and human output carry the same
+canonical result.
 
 ## Author and select Project workflows
 
@@ -193,16 +194,54 @@ model, effort support or authentication. Inspect read-back after apply.
 
 Profile create/edit changes model intent, effort, capabilities and complexity.
 Binding edit changes eligibility through `--enabled`; enable/disable use the
-same preview protocol. Final removal requires explicit `--cascade` and retains
-a versioned tombstone. Reads and recovery never delete vendor settings,
-authentication, receipts, Projects, Workflows or historical Executions.
+same preview protocol. Removing one of several Runtimes publishes a new
+revision. Removing the final Runtime requires explicit `--cascade` and retires
+the configuration through the existing versioned tombstone; nothing is
+resurrected, and a new configuration is created explicitly afterwards. Reads
+and recovery never delete vendor settings, authentication, receipts, Projects,
+Workflows or historical Executions. Pending state uses scoped
+`runtime profile recover` and its separate exact recovery confirmation;
+uncertain publication requires inspection before any new attempt.
 
-Use `runtime profile migrate` with one repeated
-`--profile-effort <profile>:<explicit|runtime-default>:<value>` for each legacy
-Profile. Removing legacy credential references additionally requires
-`--clear-legacy-references`. Pending state uses scoped `runtime profile recover`
-and its separate exact recovery confirmation; uncertain publication requires
-inspection before any new attempt.
+Local configuration format 3, with Runtime-owned effort-source declarations, is
+the only canonical format before the first stable release: every authoring
+command above writes it and every Runtime/Profile consumer reads only it. There
+is no migration, automatic conversion or downgrade (Specification 007 AXM-22
+PM-1, PM-8, PM-11).
+
+A pre-stable local record (format 1 or 2, written by earlier releases) is kept
+byte-for-byte and refused by every current use with
+`unsupported_configuration_format`; upgrading the application does not convert
+it. Reconfigure explicitly: `axiom runtime binding remove --runtime <id>
+--cascade` on such a record retires the ENTIRE pre-stable configuration (the
+named Runtime must exist in it). Its preview lists every Runtime, Profile,
+allowlist and Preference retired and the historical configuration digest the
+tombstone binds; apply it with the exact `--expected-revision`,
+`--preview-digest` and `--authorize-local`. Then create a format-3
+configuration with `runtime binding create`. No other operation, including
+create, edit, enable, disable or a declaration edit, changes a pre-stable
+record. `axiom compatibility backup` can keep a copy of the source first.
+
+A declaration is authored on a format-3 record only:
+
+```bash
+axiom runtime binding edit --runtime codex \
+  --effort-declaration ./codex-declaration.json
+```
+
+The file holds exactly one complete declaration object for `--runtime` (no
+unknown, duplicate or defaulted field); it must be a regular, non-symlinked
+file and is never stored verbatim. Its `runtimeVersion` and `executableDigest`
+must equal the independently observed Runtime identity, or the command refuses
+with `effort_configuration_unproven`. The embedded Runtime version registry
+has no production entry, so an unregistered executable stays unproven and the
+command refuses without writing; the Runtime is never executed to learn its
+version. `edit` adds a declaration or replaces the one with the same
+`declarationId`, using the same preview and exact
+`--expected-revision`/`--preview-digest`/`--authorize-local` confirmation. On a
+format 1/2 record it refuses with `configuration_unavailable` and changes
+nothing. A declaration is configuration, not capability proof. Earlier Axiom
+versions that only read format 2 refuse format 3 without changing it.
 
 Workflow migration is a separate `project workflow migrate` operation: map each
 Agent using repeated `--agent-profile <stage>:<agent>:<profile>`, inspect the
@@ -212,6 +251,76 @@ Selection remains a separate Project operation. `--from-default
 readable. Current starts require schema 2 and local Profile-owned effort.
 Historical Executions remain readable; new stage compilation, dispatch or retry
 without a frozen v2 tuple refuses `legacy_execution_contract`.
+
+## Inspect and invalidate capability Evidence
+
+```bash
+axiom runtime codex capability show --help
+axiom runtime claude capability invalidate --help
+axiom --json runtime codex capability show --profile codex-high \
+  --variant repository-write --repository-root /absolute/repository \
+  --workspace-root /absolute/workspace --authorize-local
+axiom --json runtime codex capability invalidate --profile codex-high \
+  --variant repository-write --repository-root /absolute/repository \
+  --workspace-root /absolute/workspace --authorize-local
+```
+
+Both Runtime names expose the same commands. `--process` selects the exact mode
+with process effects. `--authorize-local` consents to effort-source inspection;
+it authorizes invalidation only with the exact `--preview-digest` returned by
+the invalidation preview. Omitting the digest previews without writes. Repeat
+the same selectors and add that digest to invalidate; no Runtime or Provider is
+invoked. JSON and human output carry the same completion and capability payload.
+
+Evidence must match the fresh executable, passive version observation, Profile,
+effort, variant and pinned Axiom binary. Unknown or unavailable observations
+remain `capability_unknown`, including the empty embedded version registry and
+the currently unprovable read-only effort boundary. Invalidation never promotes
+capability. Capability commands are CLI-only, outside `axiom-runtime` skill routing.
+
+`runtime <codex|claude> capability prepare` previews an envelope preparation.
+It uses the same Profile/variant and operation roots, plus `--probe-id <unique-id>`.
+Apply requires its exact `--preview-digest` and **`--authorize-prepare`**.
+This consent creates only the private envelope (30s, 64 files, 1 MiB); it never
+authorizes authentication, inference or Provider access. The preview binds the
+existing state-root ancestor identities. Preparation returns `manifestDigest`.
+
+`runtime <codex|claude> capability probe` takes the same selectors plus
+`--probe-id` and `--manifest-digest`. With no preview digest it inspects an unused
+ready envelope without writes. Apply requires the exact `--preview-digest`,
+`--authorize-local` and `--authorize-external`; preparation consent cannot replace
+them. Exact subscription preflight precedes effects and binding revalidation
+follows preflight. Claims and quarantine are durable: a started, interrupted or
+quarantined preparation cannot be reused. Inspect recovery and authorize exact
+cleanup instead. An unknown capability result is inconclusive even if the child
+exits successfully; child claims cannot attest invocation, effort or confinement.
+The empty production version registry continues to block unrecognized binaries
+before invocation.
+
+`runtime <codex|claude> capability probe-extended` is a distinct operation. It
+requires a prepared envelope and explicit `--roots tmpdir`, `--roots system-temp`
+or `--roots tmpdir,system-temp`. There is no arbitrary-path flag. Its read-only
+preview binds the standard invocation, exact physical roots and snapshots,
+unique filename, one-file limit, timeout, the digest of each per-root canary
+packet and its cost (one vendor inference per root, no retries). HOME, vendor
+homes, repository, linked and duplicate roots are refused. Apply additionally
+needs its exact preview digest and **`--authorize-extended`**; standard probe
+authority cannot substitute.
+
+Apply runs the subscription preflight, re-observes the whole preview, claims
+the envelope, binds the exact selected roots in a bounded permit outside child
+write roots (live host process identity and preview timeout), and, per root: creates and removes an exclusive empty control
+file on the host, runs the Runtime once with a packet that only invokes the
+hidden canary entrypoint for that exact file, observes the root on the host,
+removes only the exact observed file identity when it remains an empty
+single-link regular file of the current user, and repeats the control. A file
+the host observes after the run
+reports `advisory`; anything else stays `unknown`, because a child report or
+exit status cannot attest denial. A pre-existing or non-owned object at the
+probe filename is never touched: apply stops with `extended_residue_detected`
+and quarantines the envelope. The result is reported as
+`capability_extended_measured`; it writes no capability Evidence and proves no
+confinement.
 
 ## Inspect skill arguments
 
@@ -1094,6 +1203,7 @@ Each command is read-only unless stated:
 ./scripts/delivery-issues.sh parse --file message.txt                 # one commit message or PR body
 ./scripts/delivery-issues.sh check-pr --title title.txt --body body.txt
 ./scripts/delivery-issues.sh commits --from <full-sha> --to <full-sha>   # merge-time lines
+./scripts/delivery-issues.sh commits --from <full-sha> --to <full-sha> --require-declared # post-merge validation before sync effects
 ./scripts/delivery-issues.sh release --tag v0.2.0 --revision <release-commit>
 ./scripts/delivery-github.sh state --repo rgomids/axiom --tag v0.2.0 --revision <release-commit>
 ./scripts/delivery-github.sh verify --repo rgomids/axiom --tag v0.2.0 --revision <release-commit>
@@ -1695,6 +1805,68 @@ stages requiring other capabilities or explicit effort are refused as
 `runtime_unresolvable`/`unsupported_effort` until an authoritative observation
 proves them. See the
 [#275 implementation record](specifications/007-configurable-workflows/issue-275-implementation.md).
+
+### Dispatch and inspect a stage
+
+`workflow stage run` recompiles the pinned stage and previews the exact Runtime,
+Profile, capability Evidence, workspace/inbox roots, validator policy and effects.
+Use the same Project/Repository/Work Item/Execution selectors as `stage plan`:
+
+```bash
+axiom --json workflow stage run --project my-project --repository main \
+  --work-item github:owner/repository#123 --execution <execution-id> \
+  --expected-revision <revision> --stage implementation --plan plan.json \
+  --validator-policy <policy-digest> --workspace-root /absolute/private/workspace \
+  --authorize-local
+# Review stage-preview:<digest>, then repeat with:
+# --preview-digest <digest> --authorize-local --authorize-external
+```
+
+`--authorize-local` also consents to current effort-source inspection. It does
+not permit dispatch without the exact preview digest and external authority.
+The public binary refuses unknown/stale capability, executable/version or
+Profile bindings; an empty production version registry cannot admit a Runtime.
+Synthetic test builds with a fixture registry and temporary Evidence are not
+operational proof. No child report or successful exit can promote capability.
+
+Dispatch persists its inputs and single-use authority before launching a detached
+supervisor. A graph keeps successor Graph3; a single-agent stage keeps its own
+`single_stage_run` v1 ledger and authority v2, bound to the Execution3 generation.
+It never creates a graph for a single agent. Re-invoking `stage run` resumes only
+a pending committed receipt; completed or uncertain attempts are never rerun by
+that command. Each attempt rechecks frozen bindings before spawning. The initiating
+CLI may exit while the supervisor persists outcomes and ingests coordination.
+
+| Operation | Inputs beyond the common selectors | Behavior |
+| --- | --- | --- |
+| `stage status` | none | Reads persisted attempts, classifications, blockers and next actions; does not infer success or a confirmed stop. |
+| `stage cancel` | preview/apply flags | Writes a cancellation request; the supervisor confirms its own group stop or retains `unknown`. |
+| `stage reconcile` | `--child <id> --attempt <id>`, preview/apply flags | Appends observed facts after the supervisor lease is free; refuses a live orphan. Never changes an attempt to success. |
+| `stage retry` | stage/plan/revision/policy, `--child <id>`, preview/apply flags and `--authorize-external` | Starts one budgeted eligible attempt with explicit workspace disposition; see [reset fencing](#stage-retry-workspace-disposition). |
+| `stage integrate` | stage/revision/policy, preview/apply flags; optional repeated `--waive <child>=<reference>` | Applies graph results into the owned integration worktree, runs reviewed validators and persists the rollup/outcome. Single-agent stages refuse `single_stage_operation_unsupported`. |
+
+Preview/apply means omit `--preview-digest` for a preview, then supply its exact
+digest and `--authorize-local` to apply. For single-agent retry/reconciliation,
+`--child` is the Execution ID. Retry never resets the attempt counter. Unknown
+attempts require reconciliation first; identity drift, missing authority,
+corruption and partial publication fail closed.
+
+`workflow coordination list` and `show` inspect canonical ingested records using
+the same selectors (`list` optionally takes `--child`, `--attempt`, `--kind`,
+`--after` and bounded `--wait`; `show` requires `--child` and `--record`).
+`publish --kind <kind> --field <name>=<value>` is child-only: the pinned launcher
+context selects lineage and the private inbox, never caller-supplied selectors.
+The nine kinds are question_request, answer, contract_proposal,
+contract_acceptance, blocker, dependency_resolution, artifact_publication,
+progress and result. These records grant no authority. CLI and installed skill
+routes share the same parsers, guards and canonical completion payloads.
+
+Linux/macOS supervision covers the recorded process group and escapes observable
+through its live leader's ancestry (ADR-0028). Deliberately detached descendants
+that lose that ancestry are outside the MVP guarantee. Only an observable empty
+group confirms stop; otherwise effects remain uncertain. A stage still needs a
+qualifying result record to succeed. Real Runtime smoke and operational acceptance
+remain separately authorized (T40/AC-6).
 
 Start one workflow from an explicitly selected, already linked Work Item. Project
 is optional only when the effective context resolves, with precedence

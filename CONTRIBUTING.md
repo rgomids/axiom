@@ -232,14 +232,18 @@ Before every commit, inspect staged paths and content and run `./scripts/check-s
 
 ### Required CI
 
-The [CI workflow](.github/workflows/ci.yml) runs on every Pull Request and every
-push to `main`. Its jobs are the required checks of the `main` ruleset
-([desired state](.github/rulesets/main.json)):
+Every Pull Request has two required checks in the `main` ruleset
+([desired state](.github/rulesets/main.json)); see
+[PR CI and native qualification](docs/development/change-aware-ci.md):
 
 | Required check | Runs |
 |---|---|
-| `verify (linux)`, `verify (macos)` | `go test -race ./...`, `go vet ./...`, `go build ./...`, `go mod verify`, `./scripts/validate-repository.sh .`, `./scripts/dogfood-poc.sh` |
-| `release-contract` | `./scripts/test-release-pipeline.sh`, `./scripts/test-release-flow.sh` |
+| `PR Checks` ([CI workflow](.github/workflows/ci.yml)) | `gofmt`, `go mod tidy -diff`, `go mod verify`, `go vet ./...`, Staticcheck, `go build ./...`, `go test ./...`, `./scripts/validate-repository.sh .` |
+| `delivery-metadata` | PR description and Issue metadata contract |
+
+Linux/macOS `go test -race`, release contracts and upgrade journeys run in the
+[native suite](.github/workflows/native-suite.yml): nightly, on manual dispatch
+and in every release preparation, where a failure blocks publication.
 
 CI has a read-only token and never publishes anything. Renaming a job changes a
 required check: update the ruleset file and the repository ruleset together.
@@ -370,8 +374,16 @@ alone. Limits: it covers only Issues the merge completes; GitHub closes
 linked Issues asynchronously, so a closure that lands after that push's sync
 is repaired by the next push to `main` (at the latest the Release PR merge
 of the release that contains it), which re-scans the window.
-Keep the metadata intact when editing the squash commit message. If a merged
-commit's metadata is missing or malformed, the release preflight
+Keep the metadata intact when editing the squash commit message. If the
+message is summarized or supplied through a merge API/CLI, copy both metadata
+lines from the validated PR body and validate the final title/body with
+`scripts/delivery-issues.sh check-pr` before submitting the merge. The default
+`PR_BODY` squash setting supplies the body but does not prevent an override.
+After merge, Delivery sync validates the actual committed messages with
+`commits --require-declared` before any Issue or Project effect. An ordinary
+commit after the v0.2.0 boundary without metadata fails that run immediately;
+legacy history and genuine Release Please commits remain allowed.
+If a merged commit's metadata is missing or malformed, the release preflight
 (`$axiom-release`) stops before any Release PR exists, naming the commit. The
 fix is a normal reviewed PR to `main` that adds a line to
 [`.github/delivery-corrections.txt`](.github/delivery-corrections.txt) of the

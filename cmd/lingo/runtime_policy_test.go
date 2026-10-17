@@ -13,6 +13,7 @@ import (
 	"github.com/rgomids/axiom/internal/codexruntime"
 	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 func TestRuntimePolicyPreviewReadsRecordedSourceAndMachineState(t *testing.T) {
@@ -20,10 +21,11 @@ func TestRuntimePolicyPreviewReadsRecordedSourceAndMachineState(t *testing.T) {
 	source := env.installOutsideRoot(t, portableManifest(t, workItemSourceProjectID, "external", "External", true))
 	flags := installTestRuntimePolicy(t, env.state, workItemSourceProjectID, "claude")
 	service, executable := testRuntime(t, env.service.(lifecycleService), "claude")
+	service = withInjectedProofs(service, env.state)
 	input := cli.RuntimeProfilePreviewInput{Project: "external", Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
 	before := snapshotTrees(t, env.root, env.state, env.elsewhere)
 	preview, policy, err := service.runtimePolicyPreview(context.Background(), input)
-	if err != nil || preview.Choice == nil || preview.Choice.RuntimeID != "claude" || preview.Choice.ExecutableDigest == "" || preview.Choice.RuntimeVersion != "" {
+	if err != nil || preview.Choice == nil || preview.Choice.RuntimeID != "claude" || preview.Choice.ExecutableDigest == "" || preview.Choice.RuntimeVersion != "injected-fixture-1" {
 		t.Fatalf("preview=%+v err=%v", preview, err)
 	}
 	response := service.RuntimeProfilePreview(context.Background(), input)
@@ -78,24 +80,29 @@ func TestRuntimePolicyProvesOnlyLingoVerifiedFacts(t *testing.T) {
 			env.installOutsideRoot(t, portableManifest(t, workItemSourceProjectID, "external", "External", true))
 			installTestRuntimePolicy(t, env.state, workItemSourceProjectID, runtimeID)
 			base := env.service.(lifecycleService)
-			service, executable := testRuntime(t, base, runtimeID)
+			production, executable := testRuntime(t, base, runtimeID)
 			input := cli.RuntimeProfilePreviewInput{Project: "external", Role: "implementation", Complexity: "high", Capabilities: []string{runtimeadapter.IntegrationCapability}}
-			if preview, _, err := service.runtimePolicyPreview(context.Background(), input); err != nil || preview.Choice == nil {
-				t.Fatalf("verified Runtime blocked: %+v %v", preview, err)
-			}
-			blockedWith := func(name string, service lifecycleService, input cli.RuntimeProfilePreviewInput) {
+			blockedWith := func(name, code string, service lifecycleService, input cli.RuntimeProfilePreviewInput) {
 				t.Helper()
 				preview, _, err := service.runtimePolicyPreview(context.Background(), input)
-				if err == nil || preview.Choice != nil || preview.Blocker == nil || preview.Blocker.Code != "no_allowed_match" {
+				if err == nil || preview.Choice != nil || preview.Blocker == nil || preview.Blocker.Code != code {
 					t.Fatalf("%s resolved: %+v", name, preview)
 				}
 			}
+			// Production composition injects no Profile proof and the embedded
+			// version registry is empty, so a verified executable and skill
+			// integration alone never resolve a Profile (PM-5a, PM-7).
+			blockedWith("no injected proof", "effort_unproven", production, input)
+			service := withInjectedProofs(production, env.state)
+			if preview, _, err := service.runtimePolicyPreview(context.Background(), input); err != nil || preview.Choice == nil {
+				t.Fatalf("verified Runtime blocked: %+v %v", preview, err)
+			}
 			unproven := input
 			unproven.Capabilities = []string{"code"}
-			blockedWith("unprovable capability", service, unproven)
-			absent := service
+			blockedWith("unprovable capability", "no_allowed_match", service, unproven)
+			absent := production
 			absent.runtimes.lookPath = func(string) (string, error) { return "", exec.ErrNotFound }
-			blockedWith("absent executable", absent, input)
+			blockedWith("absent executable", "no_allowed_match", withInjectedProofs(absent, env.state), input)
 			unverified, _ := testRuntime(t, base, runtimeID)
 			unverified.runtimes.lookPath = service.runtimes.lookPath
 			skills, err := codexruntime.New(filepath.Join(t.TempDir(), "missing"))
@@ -103,11 +110,11 @@ func TestRuntimePolicyProvesOnlyLingoVerifiedFacts(t *testing.T) {
 				t.Fatal(err)
 			}
 			unverified.codex, unverified.runtimes.claudeSkillsRoot = skills, filepath.Join(t.TempDir(), "missing")
-			blockedWith("unverified integration", unverified, input)
+			blockedWith("unverified integration", "capability_unproven", withInjectedProofs(unverified, env.state), input)
 			if err := os.Chmod(executable, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			blockedWith("non-executable file", service, input)
+			blockedWith("non-executable file", "no_allowed_match", service, input)
 		})
 	}
 }
@@ -121,7 +128,9 @@ func (s *changingRuntimePolicySource) Load(context.Context, string) (runtimeappl
 	s.loads++
 	snapshot := s.snapshot
 	if s.loads > 1 {
-		snapshot.Configuration.Revision++
+		cfg := snapshot.Consumer.Configuration()
+		cfg.Revision++
+		snapshot.Consumer, _ = runtimeprofile.NewConsumerV3(runtimeprofile.RecordActiveV3, &cfg)
 	}
 	return snapshot, nil
 }

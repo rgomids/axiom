@@ -1,5 +1,83 @@
 # Plan and Tasks — #276 run and coordinate stage agents through CLI and Runtime skills
 
+Current scope: [accepted decision dispositions](#accepted-decision-dispositions--2026-10-16) and [maintainer addendum](#implementation-scope-addendum--2026-10-15). Technical baseline: [2026-10-15 reconciliation addendum](#reconciliation-addendum--2026-10-15), including the v3 configuration overlay and current delivery governance. Historical status statements below retain their dated meaning.
+
+## Accepted decision dispositions — 2026-10-16
+
+Authority: maintainer comment `fee15434-632b-4239-8d14-55653cab0ad7` on
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills),
+accepting three ADRs. The catalog below keeps its text; these notes say how it
+is read.
+
+- [ADR-0027](../../decisions/0027-single-stage-attempt-persistence.md), option A:
+  T26–T31 single-agent "stage ledger" means the private
+  `single-stage-runs/v1` operational ledger plus the version-2 single-stage
+  dispatch authority. Execution3 and Graph1/2/3 codecs are unchanged.
+- [ADR-0028](../../decisions/0028-mvp-posix-process-group-supervision-boundary.md):
+  T43 "the whole group is confirmed gone" and "descendant escaping the group
+  yields `unknown`" refer to the leader's own process group and to escapes
+  observable through the live leader's ancestry. Deliberately detached
+  descendants without observable ancestry are outside the MVP guarantee.
+- [ADR-0029](../../decisions/0029-minimal-pr-gate-native-qualification.md):
+  "platform tests green on the CI matrix" (T27, T43) is met by the nightly or
+  manual native suite and the release-revision gate, not by a required PR check.
+
+## Implementation scope addendum — 2026-10-15
+
+### Envelope lifecycle decision — option A
+
+Authority: maintainer comment `ee426468-cee7-41f2-8647-4ba854466ee9` on
+[AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills),
+15 October 2026, read in full. Publication of this bounded decision summary is
+authorized by the continuation brief for Draft PR #320.
+
+PREPARE is an independently authorized local operation: reuse T13 to create
+private Axiom-owned objects and a `ready` manifest with nonce, revision,
+physical identities and exact digest. It authorizes no Runtime, credentials,
+inference, dispatch or Provider. PREVIEW is read-only over that prepared
+envelope and binds the exact manifest, binding/Profile v3/effort, invocation,
+environment, packet, variant, risk and cost. It creates no objects and changes
+no manifest. Future APPLY needs its own exact-preview confirmation, separate
+local and external authorities, authentication and fail-closed revalidation of
+configuration, identity, digest, execution and effects. Drift refuses as
+`stale_preview`; the authorized digest is never silently replaced. Abandoned,
+interrupted or ambiguous envelopes remain quarantined for verified exact-object
+cleanup/recovery. No planned manifest or second envelope lifecycle is adopted.
+
+The deferred-real-proof, Linux/macOS and human acceptance boundaries below
+remain in force. This prospective addendum changes no accepted Plan/catalog,
+ADR, receipt, historical corpus or digest.
+
+### Deferred proof and platform scope
+
+Authority: maintainer comment `e67f6bbe-74dc-408d-b02d-bda86f930ca7`
+([AXM-8](https://linear.app/rgomids/issue/AXM-8/mvp-run-and-coordinate-stage-agents-through-cli-and-runtime-skills)),
+read in full before implementation. The maintainer explicitly authorizes a
+bounded T16/T14 implementation and publication of this scope summary.
+
+- All real Runtime tests, version/help commands, authentication, inference,
+  probes, installed smoke and Provider effects are deferred: **NOT_RUN**.
+  The maintainer assumes the risk of postponing this proof. Synthetic unit,
+  integration, fake subprocess, security and CI checks remain required;
+  authority gates, binding checks and fail-closed refusal remain mandatory.
+- T40 is optional and non-blocking for **technical delivery**. Its own Done
+  criterion and AC-6 still require real, independently authorized Evidence;
+  NOT_RUN, FAILED or INCONCLUSIVE do not satisfy them. A future attempt needs
+  its exact envelope, independent consent and all prerequisites. The owner
+  performs real validation and final acceptance after technical delivery.
+- Active T43 platform scope and expected Evidence are **Linux and macOS**:
+  POSIX descendant containment and confirmed stop, with synthetic tests and
+  applicable native CI. Windows job objects, native Windows Evidence and
+  Windows CI are excluded, reusing [Specification 006](../006-installer-host-eligibility/spec.md).
+  The same platform scope applies to T13 envelope checks. Historical Windows
+  wording in the accepted Plan/catalog is preserved, with this explicit scope
+  disposition; it is no longer an active delivery requirement.
+
+This addendum qualifies the earlier T40/T43 gate assessment and historical
+platform requirements without changing accepted ADRs, Task numbering, DAG,
+corpora, hashes or receipts. It grants no merge, release, operational acceptance
+or automatic AXM-8 state transition. No capability is proven by this decision.
+
 ## Status
 
 **Part I (Plan), revision 5 — Accepted, 2026-10-11**, by
@@ -127,6 +205,70 @@ matching records fail closed as ambiguous. No automatic precedence (newest,
 oldest, name or digest order) is accepted; a multiple-Evidence policy remains
 a pending decision. The production BindingSource and T34 composition remain
 separate work; T16/T17 are not complete.
+
+## Reconciliation addendum — 2026-10-15
+
+This dated operational addendum takes precedence over stale status, delivery
+strategy and configuration-version references below. It does not edit Part I
+revision 5, the accepted Task catalog, approval receipts or historical digests.
+The [current Task/Evidence matrix](issue-276-implementation.md#reconcile-2026-10-15--main-baseline-and-task-matrix)
+records the observed `main` SHA, integrated code, validation and remaining gates.
+
+- **Acceptance:** the 2026-10-13 record above remains effective: ADR-0026,
+  successor amendment and T01–T44 accepted; implementation within those
+  contracts authorized. Older “Proposed”, “Not Authorized”, “#311 Draft” and
+  “none executed” wording is dated history, including Part II tables, batches,
+  traceability and review readiness. Acceptance is not Task completion,
+  operational proof, inference/probe consent, merge or release authority.
+- **Configuration delta (§3.10; T09/T21/T25/T26/T37):** apply the later
+  [AXM-22 PM / PM-8 / PM-11 contract](amendment-276-axm22-binding-identity.md#pm--pre-mvp-canonical-configuration-format-bld-001b3c).
+  Active canonical Runtime/Profile **format 3 only** is admitted. Local v1/v2
+  are pre-stable history, not operational fallbacks; no v2→v3 migration,
+  automatic conversion or downgrade. Explicit authorized retirement then fresh
+  v3 authoring replaces migration. A recognized valid pre-stable record may
+  pass the *application upgrade* gate with bytes preserved and reconfiguration
+  guidance; this does not admit Runtime/Profile execution. Malformed, unsafe,
+  future and recovery states retain their refusals.
+- **Matrix overlay:** §3.10 historical rows 8–10 and any other local-v2
+  positive dispatch row are not current admission recipes. Replace the current
+  configuration premise with active v3 and apply the unchanged frozen tuple,
+  effort inspection, capability, auth and authority checks. Preserve the old
+  rows as historical verification, adding v3 admission/refusal verification;
+  do not relabel historical fixtures as current v3 proof. The I306-T02
+  cross-PR producer row is a delivered historical contract, consumed through
+  the subsequent AXM-22 v3 activation. #306 is not reopened.
+- **Independent formats:** Workflow schema 2, Stage Plan v2, Execution format 3
+  and successor Graph3 are separate contracts. Runtime/Profile v3 does not
+  imply a new Workflow/Execution/Graph version. ADR-0026 governs the successor;
+  Graph1/2 bytes/readers/corpus remain immutable, readable under their original
+  semantics and refused for #276 mutation. Historical Profile-v2 wording in
+  the accepted ADR/successor amendment is interpreted through this later
+  configuration overlay; their accepted text and hashes are preserved.
+- **Delivery governance:** the founder's 2026-10-14 reconsolidation in
+  [AXM-8](https://linear.app/rgomids/issue/AXM-8), confirmed by the 14/10
+  reconciliation decision (comment `df8bc25f-d795-4823-8e8f-0e7f62b766c7`),
+  supersedes both the original single-PR-forever row and the 13/10 future-child
+  strategy. Remaining work stays in AXM-8/#276; at most **one open work PR**
+  for AXM-8, reused if present. Historical merged #311/#315/#318 remain closed
+  history. AXM-21/22 keep their Evidence; AXM-23–26 are canceled, with scope
+  returned to AXM-8. No replacement cards or lifecycle/relationship mutations.
+- **Stable IDs:** T34 = Stage and coordination CLI; T44 = Capability CLI.
+  Linear's ex-AXM-23 “T34 composition/publication/retry digest” is a later
+  implementation-gap alias within T25/T26/T31/T34; ex-AXM-24 “T44 stage
+  dispatch CLI” maps to approved T34, not a renumbering of T44. Ex-AXM-25
+  maps to T06/T07/T08/T31 fencing/recovery; ex-AXM-26 to T36–T40 verification
+  and acceptance preparation. Their names create no new Task or acceptance.
+- **T41 optionality:** optional means *execution* of the extended temp-root
+  probe, separately previewed and authorized. Delivery of its guarded use case,
+  refusal/residue tests (T38) and CLI (T44) is in the approved catalog.
+  T41→T38/T44 edges therefore stay; a standard probe or T40 need not execute
+  the extended probe. Skipping its implementation would require a material
+  scope decision; no such waiver is inferred here.
+- **DAG/batches:** retain the approved IDs, edges and batch membership. Batches
+  group review/integration work, not strict barriers: e.g. B0 T14 needs B0
+  T22; B2 T16 needs B0 T20; B3 T27 needs B1 T07/B0 T43. The current matrix
+  names residual dependencies; old batch headings do not describe execution
+  status or require repeating integrated foundations.
 
 # Part I — Plan
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
-	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
 
 type RuntimeAuthoringService interface {
@@ -42,21 +41,12 @@ func runtimeAuthoringFlagSet(op action, r *runtimeapplication.AuthoringRequest) 
 			return nil
 		})
 	case "remove":
-		set.BoolVar(&r.Cascade, "cascade", false, "Include reviewed compound Profile/Runtime removal.")
-	case "migrate":
-		r.MigrationEfforts = map[string]runtimeprofile.Effort{}
-		set.Func("profile-effort", "Explicit mapping; repeat `<profile>:<mode>:<value>`.", func(v string) error {
-			p := strings.Split(v, ":")
-			if len(p) != 3 {
-				return flag.ErrHelp
-			}
-			if _, ok := r.MigrationEfforts[p[0]]; ok {
-				return flag.ErrHelp
-			}
-			r.MigrationEfforts[p[0]] = runtimeprofile.Effort{Mode: p[1], Value: p[2]}
-			return nil
-		})
-		set.BoolVar(&r.ClearLegacyReferences, "clear-legacy-references", false, "Include explicit removal of unresolved legacy references.")
+		set.BoolVar(&r.Cascade, "cascade", false, "Include reviewed compound Profile/Runtime removal; on a pre-stable record, retire the entire configuration.")
+	}
+	// Specification 007 PM-1: the only v3 declaration flag, on binding edit.
+	// There is no format-transition flag.
+	if r.Kind == "binding" && r.Operation == "edit" {
+		set.StringVar(&r.EffortDeclaration, "effort-declaration", "", "One EffortDeclaration for --runtime; `<json-file>`.")
 	}
 	if r.Operation != "list" && r.Operation != "show" && r.Operation != "validate" && r.Operation != "validate-candidate" {
 		set.StringVar(&r.ExpectedRevision, "expected-revision", "", "Exact opaque snapshot token from preview; `<digest>`.")
@@ -67,7 +57,7 @@ func runtimeAuthoringFlagSet(op action, r *runtimeapplication.AuthoringRequest) 
 }
 func runtimeAuthoringCommands(kind string) []commandDefinition {
 	out := []commandDefinition{}
-	for _, op := range []string{"list", "show", "create", "edit", "enable", "disable", "remove", "migrate", "validate-candidate", "recover"} {
+	for _, op := range []string{"list", "show", "create", "edit", "enable", "disable", "remove", "validate-candidate", "recover"} {
 		out = append(out, leaf(op, "Machine-local "+kind+" "+op, action("runtime_authoring_"+kind+"_"+op)))
 	}
 	return out
@@ -79,19 +69,8 @@ func runRuntimeAuthoring(ctx context.Context, mode outputMode, args []string, se
 	}
 	req := runtimeapplication.AuthoringRequest{}
 	set := runtimeAuthoringFlagSet(command.operation, &req)
-	// Repeated profile-effort mappings are supported; every other flag is unique.
-	filtered := []string{}
-	for i := 0; i < len(rest); i++ {
-		if rest[i] == "--profile-effort" {
-			i++
-			continue
-		}
-		if strings.HasPrefix(rest[i], "--profile-effort=") {
-			continue
-		}
-		filtered = append(filtered, rest[i])
-	}
-	if invalidFlagSyntax(set, rest, map[string]bool{"profile-effort": true}) || set.Parse(rest) != nil || set.NArg() != 0 || duplicateFlag(filtered) {
+	// Every flag is unique; there is no repeated migration mapping.
+	if invalidFlagSyntax(set, rest, map[string]bool{}) || set.Parse(rest) != nil || set.NArg() != 0 || duplicateFlag(rest) {
 		return true, emitParserFailure(out, mode, command.operation, "invalid_input", source)
 	}
 	adapter, ok := service.(RuntimeAuthoringService)
@@ -117,7 +96,7 @@ func runRuntimeAuthoring(ctx context.Context, mode outputMode, args []string, se
 func runtimeAuthoringSkillSpecs() []skillOperationSpec {
 	out := []skillOperationSpec{}
 	for _, kind := range []string{"binding", "profile"} {
-		for _, op := range []string{"list", "show", "create", "edit", "enable", "disable", "remove", "migrate", "validate-candidate", "recover"} {
+		for _, op := range []string{"list", "show", "create", "edit", "enable", "disable", "remove", "validate-candidate", "recover"} {
 			act := action("runtime_authoring_" + kind + "_" + op)
 			effect, authority := effectReadOnly, "none"
 			inputs := []string{}

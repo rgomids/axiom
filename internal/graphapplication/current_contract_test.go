@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/runtimeadapter"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
 	"github.com/rgomids/axiom/internal/runtimeprofile"
 )
@@ -20,23 +19,6 @@ func (injectedEffortSources) CheckEffortSources(_ context.Context, p runtimeprof
 func currentPolicyFixture(t *testing.T, graph *executiongraph.Graph, runtimeID, executable, credential string) (*runtimeapplication.Service, map[string]runtimeapplication.Preview, *policySource) {
 	t.Helper()
 	_, _, source := policyFixture(t, graph, runtimeID, executable, credential)
-	source.snapshot.Configuration.FormatVersion = 2
-	for i := range source.snapshot.Configuration.Runtimes {
-		source.snapshot.Configuration.Runtimes[i].CredentialReference = ""
-	}
-	for i := range source.snapshot.Configuration.ModelProfiles {
-		source.snapshot.Configuration.ModelProfiles[i].Effort = runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}
-	}
-	observation, err := source.snapshot.Observer.Observe(context.Background(), runtimeID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	observation.ProfileProofs = []runtimeprofile.ProfileProof{{RuntimeID: runtimeID, Model: "local-test-profile", Effort: runtimeprofile.Effort{Mode: "runtime-default", Value: "default"}, ExecutableDigest: observation.ExecutableDigest, RuntimeVersion: observation.Version, InvocationMode: "noninteractive", ObservationRevision: observation.Revision, Reference: "injected-test-proof", EffortSourceDigest: digest("effort-sources"), Authentication: runtimeprofile.CapabilityProven, ModelAvailability: runtimeprofile.CapabilityProven, EffortSupport: runtimeprofile.CapabilityProven, NoOverride: runtimeprofile.CapabilityProven, CapabilityStatus: observation.CapabilityStatus}}
-	inventory, err := runtimeadapter.NewInventory([]runtimeprofile.Observation{observation})
-	if err != nil {
-		t.Fatal(err)
-	}
-	source.snapshot.Observer = inventory
 	policy := runtimeapplication.New(source)
 	previews := map[string]runtimeapplication.Preview{}
 	graph.FormatVersion = 2

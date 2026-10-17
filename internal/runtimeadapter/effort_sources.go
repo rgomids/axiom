@@ -56,20 +56,44 @@ type effortSourceFact struct {
 // CheckEffortSources inspects only explicitly scoped, recognized sources. The
 // canonical digest records safe compatibility facts; raw values/paths are absent.
 func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofile.ResolvedProfile, inv executiongraph.Invocation) (string, error) {
-	d := i.Declaration
-	if !i.Consented || !d.PrecedenceProven || runtimeprofile.ValidateResolvedProfile(p) != nil || d.RuntimeID != p.RuntimeID || d.RuntimeVersion != p.RuntimeVersion || d.InvocationMode != p.InvocationMode || d.ExecutableDigest != p.ExecutableDigest || !runtimeprofile.SafeIdentifier(d.ProofReference) || len(d.Sources) > 32 || len(d.JSONKeys) > 16 || len(d.EnvironmentKeys) > 16 || len(inv.Argv) < 4 || inv.RuntimeID != p.RuntimeID {
-		return "", ErrEffortConfigurationUnproven
+	wire, err := i.effortProjection(ctx, p, inv)
+	if err != nil {
+		return "", err
+	}
+	return effortHash(wire), nil
+}
+func (i EffortInspection) effortProjection(ctx context.Context, p runtimeprofile.ResolvedProfile, inv executiongraph.Invocation) ([]byte, error) {
+	if !i.Consented || runtimeprofile.ValidateResolvedProfile(p) != nil {
+		return nil, ErrEffortConfigurationUnproven
+	}
+	return effortSourceProjection(ctx, i.Declaration, effortSubject{p.RuntimeID, p.RuntimeVersion, p.InvocationMode, p.ExecutableDigest, p.Model, p.Effort}, inv)
+}
+
+// effortSubject is the identity the canonical effort-source digest is bound
+// to: the independently observed executable and mode plus the Model Profile's
+// model and effort intent (ADR-0024). It carries no capability proof.
+type effortSubject struct {
+	RuntimeID, RuntimeVersion, InvocationMode, ExecutableDigest, Model string
+	Effort                                                             runtimeprofile.Effort
+}
+
+// effortSourceProjection is the single canonical PE-05a projection shared by
+// CheckEffortSources and InspectEffortSources; effortHash of it is the
+// EffortSourceDigest. Callers validate p.
+func effortSourceProjection(ctx context.Context, d EffortDeclaration, p effortSubject, inv executiongraph.Invocation) ([]byte, error) {
+	if !d.PrecedenceProven || d.RuntimeID != p.RuntimeID || d.RuntimeVersion != p.RuntimeVersion || d.InvocationMode != p.InvocationMode || d.ExecutableDigest != p.ExecutableDigest || !runtimeprofile.SafeIdentifier(d.ProofReference) || len(d.Sources) > 32 || len(d.JSONKeys) > 16 || len(d.EnvironmentKeys) > 16 || len(inv.Argv) < 4 || inv.RuntimeID != p.RuntimeID {
+		return nil, ErrEffortConfigurationUnproven
 	}
 	identity, e := ExecutableIdentity(inv.Argv[0])
 	if e != nil || identity != p.ExecutableDigest {
-		return "", ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnproven
 	}
 	mode := "exec"
 	if p.RuntimeID == "claude" {
 		mode = "--print"
 	}
 	if inv.Argv[1] != mode || inv.Argv[2] != "--model" || inv.Argv[3] != p.Model {
-		return "", ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnproven
 	}
 	facts := []effortSourceFact{}
 	args := inv.Argv[4:]
@@ -78,7 +102,7 @@ func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofi
 		switch p.RuntimeID {
 		case "codex":
 			if len(args) < 2 || args[len(args)-2] != "--config" || args[len(args)-1] != "model_reasoning_effort="+p.Effort.Value {
-				return "", ErrEffortConfigurationUnproven
+				return nil, ErrEffortConfigurationUnproven
 			}
 			args = args[:len(args)-2]
 			facts = append(facts, effortSourceFact{Scope: "argv", Key: "model_reasoning_effort", Present: true, Selector: true})
@@ -88,41 +112,46 @@ func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofi
 				if strings.HasPrefix(v, "CLAUDE_CODE_EFFORT_LEVEL=") {
 					count++
 					if v != "CLAUDE_CODE_EFFORT_LEVEL="+p.Effort.Value {
-						return "", ErrEffortOverrideConflict
+						return nil, ErrEffortOverrideConflict
 					}
 				}
 			}
 			if count != 1 {
-				return "", ErrEffortConfigurationUnproven
+				return nil, ErrEffortConfigurationUnproven
 			}
 			facts = append(facts, effortSourceFact{Scope: "canonical-environment", Key: "CLAUDE_CODE_EFFORT_LEVEL", Present: true, Selector: true})
 		default:
-			return "", ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnproven
 		}
 	} else {
 		facts = append(facts, effortSourceFact{Scope: "argv", Key: "profile-no-override", Present: true})
 	}
 
-	for _, a := range args {
+	for n := 0; n < len(args); n++ {
+		a := args[n]
+		if n+1 < len(args) && effortPathOperand(p.RuntimeID, a, args[n+1]) {
+			n++
+			continue
+		}
 		lower := strings.ToLower(a)
 		if strings.Contains(lower, "effort") || a == "--config" || a == "-c" || a == "--profile" || a == "-p" {
-			return "", ErrEffortOverrideConflict
+			return nil, ErrEffortOverrideConflict
 		}
 	}
 	env := executiongraph.EffectiveInvocationEnvironment(inv)
 	keys := append([]string(nil), d.EnvironmentKeys...)
 	if p.RuntimeID == "claude" && !containsKey(keys, "CLAUDE_CODE_EFFORT_LEVEL") {
-		return "", ErrEffortConfigurationUnproven
+		return nil, ErrEffortConfigurationUnproven
 	}
 	seenKeys := map[string]bool{}
 	for _, key := range keys {
 		normalized := strings.ToUpper(key)
 		if seenKeys[normalized] {
-			return "", ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnproven
 		}
 		seenKeys[normalized] = true
 		if !safeEffortKey(key) {
-			return "", ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnproven
 		}
 		present := false
 		count := 0
@@ -137,25 +166,25 @@ func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofi
 			}
 		}
 		if p.RuntimeID == "claude" && p.Effort.Mode == runtimeprofile.EffortExplicit && key == "CLAUDE_CODE_EFFORT_LEVEL" && count != 1 {
-			return "", ErrEffortOverrideConflict
+			return nil, ErrEffortOverrideConflict
 		}
 		facts = append(facts, effortSourceFact{Scope: "environment", Key: key, Present: present, Selector: present})
 		if present {
-			return "", ErrEffortOverrideConflict
+			return nil, ErrEffortOverrideConflict
 		}
 	}
 	seen := map[string]bool{}
 	for _, source := range d.Sources {
 		if ctx.Err() != nil {
-			return "", ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnproven
 		}
 		if !recognizedEffortSource(p.RuntimeID, source) || seen[source.Scope+"\x00"+source.Root+"\x00"+source.Relative] {
-			return "", ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnproven
 		}
 		seen[source.Scope+"\x00"+source.Root+"\x00"+source.Relative] = true
 		wires, present, binding, e := observeEffortSource(source)
 		if e != nil {
-			return "", ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnproven
 		}
 		selectors := []string{}
 		for _, wire := range wires {
@@ -166,7 +195,7 @@ func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofi
 				selected, e = jsonEffortSelectors(wire, d.JSONKeys)
 			}
 			if e != nil {
-				return "", ErrEffortConfigurationUnproven
+				return nil, ErrEffortConfigurationUnproven
 			}
 			selectors = append(selectors, selected...)
 		}
@@ -177,7 +206,7 @@ func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofi
 
 		// Native no-selector semantics, not value merging or invented precedence.
 		if len(selectors) != 0 {
-			return "", ErrEffortOverrideConflict
+			return nil, ErrEffortOverrideConflict
 		}
 	}
 	// Require explicit complete scope declaration; absent files are facts, while
@@ -192,7 +221,7 @@ func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofi
 			found = found || s.Scope == scope
 		}
 		if !found {
-			return "", ErrEffortConfigurationUnproven
+			return nil, ErrEffortConfigurationUnproven
 		}
 	}
 	sort.Slice(facts, func(a, b int) bool {
@@ -214,8 +243,30 @@ func (i EffortInspection) CheckEffortSources(ctx context.Context, p runtimeprofi
 		Proof string             `json:"proof"`
 		Facts []effortSourceFact `json:"facts"`
 	}{d.ProofReference, facts})
-	hash := sha256.Sum256(b)
-	return hex.EncodeToString(hash[:]), nil
+	return b, nil
+}
+
+// effortPathOperand reports whether value is the filesystem operand of one of
+// the adapter's own path options (BuildStageInvocation). A clean absolute path
+// there names a location, not an effort selector, so its spelling is not
+// scanned; the option name and every other token still are. It adds no fact.
+func effortPathOperand(runtimeID, option, value string) bool {
+	switch {
+	case option == "--add-dir" || runtimeID == "codex" && option == "-C":
+		return stagePath(value)
+	case runtimeID == "claude" && option == "--allowedTools" && !strings.HasPrefix(value, "-"):
+		for _, tool := range strings.Split(value, ",") {
+			path, ok := strings.CutPrefix(tool, "Bash(")
+			if ok {
+				path, ok = strings.CutSuffix(path, ":*)")
+			}
+			if !(ok && stagePath(path)) && strings.Contains(strings.ToLower(tool), "effort") {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 func containsKey(keys []string, key string) bool {
 	for _, v := range keys {

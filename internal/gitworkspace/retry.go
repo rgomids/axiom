@@ -18,15 +18,38 @@ func (m *Manager) InspectRetryWorkspace(ctx context.Context, child executiongrap
 	return err
 }
 
-// ResetWorkspace is disabled until persisted retry authority and lease fencing
-// can be held across each destructive effect. Workspace inspection alone cannot
-// establish that guarantee, even when a caller claims a committed receipt.
-func (m *Manager) ResetWorkspace(ctx context.Context, child executiongraph.ChildExecution) error {
-	return applyWorkspaceReset(ctx, child.Envelope.Workspace, "", nil, nil)
+// ResetWorkspace restores the exact owned worktree to its base revision and
+// then requires it to be clean. guard is the caller's fencing: it must fail
+// once the run lease, the pending retry receipt or the persisted state that
+// authorized the reset no longer holds. It runs, together with a fresh
+// ownership and confinement inspection, immediately before every destructive
+// effect and once after the last one.
+func (m *Manager) ResetWorkspace(ctx context.Context, child executiongraph.ChildExecution, guard func(context.Context) error) error {
+	if m == nil || guard == nil {
+		return ErrRetryResetFencingUnavailable
+	}
+	effects := [][]string{{"reset", "--hard", "--quiet", m.baseRevision}, {"clean", "-ffdxq"}}
+	for _, args := range effects {
+		if err := m.fenced(ctx, child, guard); err != nil {
+			return err
+		}
+		if _, err := m.gitOutput(ctx, child.Envelope.Workspace, nil, nil, args...); err != nil {
+			return errors.Join(ErrWorkspaceInvalid, err)
+		}
+	}
+	if err := guard(ctx); err != nil {
+		return err
+	}
+	_, err := m.inspect(ctx, child, true)
+	return err
 }
 
-// Keep the intercepted effect boundary fail-closed as well. There is no
-// validation/effect window: neither callback is invoked, regardless of inputs.
-func applyWorkspaceReset(ctx context.Context, workspace, base string, validate func(bool) error, run func(context.Context, string, ...string) error) error {
-	return ErrRetryResetFencingUnavailable
+func (m *Manager) fenced(ctx context.Context, child executiongraph.ChildExecution, guard func(context.Context) error) error {
+	if err := guard(ctx); err != nil {
+		return err
+	}
+	if _, err := m.inspect(ctx, child, false); err != nil {
+		return err
+	}
+	return m.rejectExecutableConfiguration(ctx, child.Envelope.Workspace)
 }

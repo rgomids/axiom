@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/executiongraph"
-	"github.com/rgomids/axiom/internal/workflow"
 	"github.com/rgomids/axiom/internal/workflowcompiler"
 )
 
@@ -17,7 +16,7 @@ var ErrDispatchAuthority = errors.New("local_and_external_dispatch_authority_req
 // use T07's protected multi-object protocol, CAS and (for graphs) a run lease.
 type Publication struct {
 	Graph     *executiongraph.SuccessorGraph
-	Single    *workflow.SingleDispatch
+	Single    *SinglePublication
 	Authority executiongraph.DispatchAuthority
 }
 type DispatchPublisher interface {
@@ -36,6 +35,7 @@ type DispatchProjection interface {
 }
 type RunService struct {
 	ResumeStore SupervisorStore
+	SingleStore SingleStore
 	Preview     PreviewService
 	Publisher   DispatchPublisher
 	Workspaces  DispatchWorkspaces
@@ -45,6 +45,7 @@ type RunService struct {
 }
 type RunRequest struct {
 	Committed                         *SupervisorRequest
+	CommittedSingle                   *SingleRequest
 	Execution                         workflowcompiler.ExecutionRef
 	StageID                           string
 	PreviewDigest                     string
@@ -62,6 +63,9 @@ type RunResult struct {
 func (s RunService) Apply(ctx context.Context, r RunRequest) (RunResult, error) {
 	if r.Committed != nil {
 		return s.resume(ctx, r)
+	}
+	if r.CommittedSingle != nil {
+		return s.resumeSingle(ctx, r)
 	}
 	result := RunResult{Status: "denied_authority"}
 	if !r.AuthorizeLocal || !r.AuthorizeExternal || r.Actor == "" {
@@ -153,12 +157,12 @@ func samePublication(a, b Publication) bool {
 	}
 	if a.Single != nil {
 		c := *a.Single
-		c.State.StorageRevision = [32]byte{}
+		c.Run.StorageRevision = [32]byte{}
 		a.Single = &c
 	}
 	if b.Single != nil {
 		c := *b.Single
-		c.State.StorageRevision = [32]byte{}
+		c.Run.StorageRevision = [32]byte{}
 		b.Single = &c
 	}
 	return reflect.DeepEqual(a, b)

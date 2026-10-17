@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/rgomids/axiom/internal/capabilityproof"
 	"io"
+	"os"
+
+	"github.com/rgomids/axiom/internal/capabilityproof"
+	"github.com/rgomids/axiom/internal/local"
 )
 
-// The hidden entrypoint accepts correlation, never host targets. T16 must
-// provide the envelope loader and T22 the verified child-inbox effects.
 type probeCanaryLoader interface {
 	Load(context.Context, string, string) (capabilityproof.CanaryContext, capabilityproof.CanaryEffects, error)
 }
@@ -32,4 +33,22 @@ func probeCanaryCommand(ctx context.Context, args []string, loader probeCanaryLo
 		return true, 1
 	}
 	return true, 0
+}
+
+func extendedCanaryCommand(args []string, cwd string) (bool, int) {
+	if len(args) == 0 || args[0] != "__probe-canary-extended" {
+		return false, 0
+	}
+	if len(args) != 4 || local.CreateExtendedCanary(cwd, args[1], args[2], args[3]) != nil {
+		return true, 1
+	}
+	return true, 0
+}
+
+func probeWorkingDirectory() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return cwd
 }

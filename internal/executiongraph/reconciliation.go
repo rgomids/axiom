@@ -213,7 +213,10 @@ func GatherReconciliationObservations(g SuccessorGraph, childID, attemptID strin
 	if attempt == nil {
 		return ReconciliationObservations{}, ErrInvalidGraph
 	}
-	o := ReconciliationObservations{ParentID: g.Parent.ExecutionID, ChildID: childID, GraphRevision: g.Parent.GraphRevision, AttemptID: attemptID, LeaseEpoch: attempt.LeaseEpoch}
+	return gatherObservations(ReconciliationObservations{ParentID: g.Parent.ExecutionID, ChildID: childID, GraphRevision: g.Parent.GraphRevision, AttemptID: attemptID, LeaseEpoch: attempt.LeaseEpoch}, *attempt, s)
+}
+
+func gatherObservations(o ReconciliationObservations, attempt SuccessorAttempt, s ReconciliationSources) (ReconciliationObservations, error) {
 	var err error
 	o.LeaseHeld, err = s.LeaseProbe()
 	if err != nil {
