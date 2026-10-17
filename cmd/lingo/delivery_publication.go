@@ -24,7 +24,15 @@ type deliveryEffects struct {
 }
 
 func (d deliveryEffects) ObserveDelivery(ctx context.Context, p workflow.DeliveryPreview) (workflow.DeliveryObservation, error) {
-	o, err := d.git.ObserveDeliveryGit(ctx, p)
+	token, err := d.github.DeliveryGitCredential(ctx)
+	if err != nil {
+		return workflow.DeliveryObservation{}, err
+	}
+	git, err := d.git.WithGitHubCredential(token)
+	if err != nil {
+		return workflow.DeliveryObservation{}, err
+	}
+	o, err := git.ObserveDeliveryGit(ctx, p)
 	if err != nil {
 		return o, err
 	}
@@ -32,7 +40,15 @@ func (d deliveryEffects) ObserveDelivery(ctx context.Context, p workflow.Deliver
 	return o, err
 }
 func (d deliveryEffects) PushDelivery(ctx context.Context, p workflow.DeliveryPreview) error {
-	return d.git.PushDelivery(ctx, p)
+	token, err := d.github.DeliveryGitCredential(ctx)
+	if err != nil {
+		return err
+	}
+	git, err := d.git.WithGitHubCredential(token)
+	if err != nil {
+		return err
+	}
+	return git.PushDelivery(ctx, p)
 }
 func (d deliveryEffects) CreateDeliveryPR(ctx context.Context, p workflow.DeliveryPreview) error {
 	return d.github.CreateDeliveryPR(ctx, p)
@@ -63,15 +79,24 @@ func (s lifecycleService) deliveryMetadata(ctx context.Context, projectID, repos
 	if err != nil {
 		return nil, err
 	}
+	if snapshot.Revision() != resolved.Project.PortableRevision || snapshot.Project().State().ID != resolved.Project.ID {
+		return nil, workflow.ErrDelivery
+	}
 	state := snapshot.Project().State()
 	refs, _ := state.Policies.Value()
 	docs := [][]byte{}
 	for _, ref := range refs {
-		b, err := readWorkflowContext(ctx, resolved.Project, state, ref)
-		if err != nil {
-			return nil, err
+		found := false
+		for _, document := range snapshot.Documents() {
+			if document.Name == ref {
+				docs = append(docs, document.Content)
+				found = true
+				break
+			}
 		}
-		docs = append(docs, b)
+		if !found {
+			return nil, workflow.ErrDelivery
+		}
 	}
 	policy, err := workitem.DecodeMetadataPolicies(docs)
 	if err != nil {
@@ -178,7 +203,14 @@ func (s lifecycleService) deliveryPublication(ctx context.Context, stores stageS
 		record, err = publisher.Apply(ctx, t.state, preview, workflow.DeliveryAuthority{Digest: in.PreviewDigest, Local: in.AuthorizeLocal, Push: in.AuthorizePush, PR: in.AuthorizePR})
 	}
 	if err != nil {
-		return s.stageFailure(completion.Failure, "delivery_recovery_required", "Delivery is not confirmed", record.Next, record)
+		if record.FormatVersion == 0 {
+			return s.stageFailure(completion.DeniedAuthority, "delivery_preflight_refused", "Exact delivery authority or observation did not match", "Review the packet, target and separate push/PR authorities; request a fresh preview", nil)
+		}
+		status := completion.Failure
+		if record.Status == "partial" {
+			status = completion.Partial
+		}
+		return s.stageFailure(status, "delivery_recovery_required", "Delivery is not confirmed", record.Next, record)
 	}
 	if record.Status != "success" {
 		return s.stageFailure(completion.Failure, "delivery_recovery_required", "Inspect and reconcile recorded effects", record.Next, record)

@@ -94,6 +94,12 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 	if failure != nil {
 		return *failure
 	}
+	if in.Operation == "delivery-decision" {
+		return s.deliveryDecision(ctx, stores, target, in)
+	}
+	if in.Operation == "delivery-rework" {
+		return s.deliveryRework(ctx, stores, target, in)
+	}
 	if strings.HasPrefix(in.Operation, "delivery-") && in.Operation != "delivery-packet" {
 		return s.deliveryPublication(ctx, stores, target, in)
 	}

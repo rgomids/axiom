@@ -1747,11 +1747,10 @@ message does not grant planning, implementation, review or acceptance authority.
 The actor is an audit assertion under the existing explicit authority protocol,
 not a new authentication mechanism. Final technical completion still precedes
 separate human acceptance. Configured technical completion stops at `reviewed`
-with `delivery_packet_required`; `human-acceptance` is denied until #277 supplies
-the exact validated delivery packet and its correlation/authority protocol.
+with `delivery_packet_required`; generic `human-acceptance` remains denied.
+Use `workflow delivery decision` for the exact packet and authority protocol.
 A valid Evidence file or final stage output cannot substitute for that packet.
-Status/Evidence expose this blocker without advertising an unsupported acceptance
-command. Legacy acceptance retains its historical behavior. Configured stages
+Status/Evidence expose this blocker until explicit delivery acceptance. Legacy acceptance retains its historical behavior. Configured stages
 have no automatic Intake shortcut.
 
 Historical format-1 Executions retain their fixed gate order and automatic Intake
@@ -2291,3 +2290,62 @@ If no publishable head exists, `delivery prepare --request <json-file>` previews
 only a local commit/ref change. Its exact digest and `--authorize-local` prepare
 the packet's final integration tree with the observed parent and head CAS.
 Use the returned target in a new publication preview. Preparation never pushes.
+
+### Human delivery decision and linked rework
+
+`axiom workflow delivery decision --request <json-file>` uses the same exact
+selectors as packet/publication. Request fields are `packetDigest`, optional
+`publicationDigest`, `outcome` (`accept`/`reject`), `actor`, `reason`, `authority`
+and `evidence` (bounded `Kind`/`ID`/`Digest` references). Preview validates all
+references against this Execution and Repository. Apply requires the same inputs,
+`--preview-digest <digest> --authorize-local --authorize-human`. The human flag
+records explicit authority; it does not introduce authentication. Omit the
+request to inspect the immutable decision. Identical replay is a no-op;
+contradictory or stale decisions fail closed. Acceptance requires readiness and a
+confirmed exact artifact. Rejection retains the reason and publication snapshot,
+including partial/unknown effects. Successful recording describes that operation.
+
+Status exposes `deliveryStatus`, `deliveryDecision` and, when accepted,
+`workflowSuccess: true`; technical `completed` alone grants no acceptance.
+Generic `human-acceptance` remains unavailable for configured Executions. Closure,
+merge, release and projection to an external Provider retain separate authority.
+
+`delivery rework --request <json-file>` previews `newExecutionId`,
+`revisionChoice` (`retained` R1 / `selected` R2), explicit `runtimeId`,
+`runtimePreview`, `resolvedProfile` for schema 2, `scope`, corrective `plan`,
+`inputs` and independent `authority`. Prior inputs must match packet artifact
+refs and be validated. Apply requires the exact preview digest plus
+`--authorize-local --authorize-execution`. No prior gate authority carries over;
+required gates restart at ordinal zero. Preview uses the existing Start binding
+admission without creating a canonical Execution. Status with an explicit
+`--execution` continues to inspect the original after rework.
+
+Decisions and rework admissions have strict bounded format-1 companions in the
+WorkflowStore. Before switching active Execution, the store retains original
+bytes under ExecutionID and records the exact new admission. The format-4
+`execution_link` envelope contains the active snapshot and `reworkOf` correlation;
+Save uses one protected CAS publication for this envelope. The link is accepted
+only after binding/read-back and retained lineage verification. List returns
+historical and active Executions once each. No global migration or cleanup runs.
+
+Compatibility window: current readers support snapshots 1/2/3 and active links 4;
+pre-AXM-9 readers cannot read or mutate a link 4 and refuse unknown companions.
+Forward path is this reader or a newer compatible reader. Downgrade preserves
+all retained files and effects; it never rewrites a link as an older snapshot.
+Interrupted retention/admission/link publication blocks reads until existing
+`recovery inspect` / digest-authorized `recovery apply` resolves the protected
+publication. Then replay the same rework request and ExecutionID. Never allocate
+a third Execution or retry a remote effect to recover local state.
+
+For a publication proven absent, an explicit `retryOf` field references the prior
+publication preview digest. Preview and apply require conclusive observation with
+no candidate and identical packet/target/content. A confirmed push can be omitted
+from the new envelope. The new digest requires new exact authority; the previous
+fence remains unchanged and is never automatically retried.
+
+Remote Git publication is limited to branch creation or a ref already at the
+exact reviewed head. Git's exact-ref lease closes the observation/push race;
+a newly appeared or changed remote tip is refused. The lease never authorizes
+replacement of a different existing commit or a history rewrite. GitHub
+credentials come from the configured `gh` account for `github.com`, stay in the
+Git process environment and are never written to requests, records or diagnostics.

@@ -11,6 +11,7 @@ import (
 )
 
 type DeliveryTarget struct {
+	RetryOf    string          `json:"retryOf,omitempty"`
 	Kind       string          `json:"kind"`
 	Repository string          `json:"repository"`
 	Remote     string          `json:"remote"`
@@ -103,8 +104,11 @@ type DeliveryPublisher struct {
 }
 
 func validDeliveryTarget(t DeliveryTarget) bool {
+	if t.RetryOf != "" && !validDigest(t.RetryOf) {
+		return false
+	}
 	if t.Kind == "local" {
-		return !t.Push && !t.PR && t.Remote == "" && t.Repository == ""
+		return t.RetryOf == "" && !t.Push && !t.PR && t.Remote == "" && t.Repository == ""
 	}
 	if t.Kind != "github" || !validText(t.Repository) || !validText(t.Remote) || !validText(t.Title) || len(t.Body) > 64<<10 || len(t.Metadata) > 8192 || !json.Valid(t.Metadata) || !validGitRef(t.BaseRef) || !validGitRef(t.HeadRef) || t.BaseRef == t.HeadRef {
 		return false
@@ -149,6 +153,9 @@ func (d DeliveryPublisher) Preview(ctx context.Context, s State, p DeliveryPacke
 	if err != nil || !validDeliveryObservation(v) {
 		return v, ErrDelivery
 	}
+	if err = d.validateRetry(ctx, v); err != nil {
+		return v, err
+	}
 	return v, nil
 }
 func validDeliveryObservation(p DeliveryPreview) bool {
@@ -160,6 +167,29 @@ func exactDeliveryPR(p DeliveryPreview, r DeliveryPR) bool {
 	return validText(r.ID) && r.URL == "https://github.com/"+t.Repository+"/pull/"+r.ID && r.Repository == t.Repository && r.BaseRef == t.BaseRef && r.HeadRef == t.HeadRef && r.BaseCommit == t.BaseCommit && r.HeadCommit == t.HeadCommit && r.Title == t.Title && r.Body == p.PRBody() && reflect.DeepEqual(r.Metadata, t.Metadata)
 }
 
+func (d DeliveryPublisher) validateRetry(ctx context.Context, p DeliveryPreview) error {
+	if p.Target.RetryOf == "" {
+		return nil
+	}
+	prior, err := d.Store.LoadDeliveryPublication(ctx, p.Packet.ProjectID, p.Target.RetryOf)
+	if err != nil || prior.Status == "success" || prior.Preview.PacketDigest != p.PacketDigest || !p.Observation.Conclusive || len(p.Observation.Candidates) != 0 {
+		return ErrDelivery
+	}
+	old, next := prior.Preview.Target, p.Target
+	old.RetryOf = ""
+	next.RetryOf = ""
+	if old.Push && !next.Push {
+		if p.Observation.RemoteHead != next.HeadCommit {
+			return ErrDelivery
+		}
+		old.Push = false
+	}
+	if !reflect.DeepEqual(old, next) {
+		return ErrDelivery
+	}
+	return nil
+}
+
 func (d DeliveryPublisher) Apply(ctx context.Context, s State, p DeliveryPreview, a DeliveryAuthority) (DeliveryPublication, error) {
 	ref, err := DeliveryPacketDigest(p.Packet)
 	if err != nil || ref != p.PacketDigest || !deliveryPacketCurrent(s, p.Packet) || !p.Packet.Ready || !validDeliveryTarget(p.Target) || a.Digest != p.Digest() || !a.Local || p.Target.Push && !a.Push || p.Target.PR && !a.PR {
@@ -167,16 +197,25 @@ func (d DeliveryPublisher) Apply(ctx context.Context, s State, p DeliveryPreview
 	}
 	prior, err := d.Store.LoadDeliveryPublication(ctx, s.ProjectID, p.Digest())
 	if err == nil {
+		if prior.Status != "success" {
+			return prior, ErrRecoveryRequired
+		}
 		return prior, nil
 	}
 	if !errors.Is(err, ErrNotFound) {
 		return prior, err
+	}
+	if s.DeliveryDecision != nil {
+		return prior, ErrDelivery
 	}
 	if p.Target.Kind != "local" {
 		observed, e := d.Effects.ObserveDelivery(ctx, p)
 		if e != nil || !reflect.DeepEqual(observed, p.Observation) || !validDeliveryObservation(p) {
 			return prior, ErrDelivery
 		}
+	}
+	if err = d.validateRetry(ctx, p); err != nil {
+		return prior, err
 	}
 	r := DeliveryPublication{FormatVersion: 1, Kind: "delivery_publication", Preview: p, Status: "failure", Push: "not_requested", PR: "not_requested", Next: "inspect/reconcile publication; never retry an uncertain effect"}
 	if p.Target.Push {

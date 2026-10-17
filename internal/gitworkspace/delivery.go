@@ -3,6 +3,7 @@ package gitworkspace
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"os/exec"
 	"strings"
@@ -11,8 +12,9 @@ import (
 )
 
 type DeliveryGit struct {
-	manager   *Manager
-	allowFile bool
+	manager        *Manager
+	allowFile      bool
+	authentication []string
 }
 
 func NewDeliveryGit(ctx context.Context, repository string) (DeliveryGit, error) {
@@ -55,9 +57,9 @@ func (g DeliveryGit) ObserveDeliveryGit(ctx context.Context, p workflow.Delivery
 	}
 	sum := sha256.Sum256(patch)
 	o.DiffDigest = hex.EncodeToString(sum[:])
-	output, err := m.gitOutput(ctx, m.repository, nil, nil, "-c", "protocol.allow=never", "-c", "protocol.https.allow=always", "-c", "protocol.file.allow=always", "ls-remote", "--refs", t.Remote, t.BaseRef, t.HeadRef)
+	output, err := m.gitOutput(ctx, m.repository, nil, g.authentication, "-c", "protocol.allow=never", "-c", "protocol.https.allow=always", "-c", "protocol.file.allow=always", "ls-remote", "--refs", t.Remote, t.BaseRef, t.HeadRef)
 	if err != nil {
-		return o, err
+		return o, ErrWorkspaceInvalid
 	}
 	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
 		if line == "" {
@@ -101,15 +103,23 @@ func (g DeliveryGit) safeRemote(ctx context.Context, t workflow.DeliveryTarget) 
 	return nil
 }
 func (g DeliveryGit) PushDelivery(ctx context.Context, p workflow.DeliveryPreview) error {
+	if p.Observation.RemoteHead != "" && p.Observation.RemoteHead != p.Target.HeadCommit {
+		return ErrWorkspaceInvalid
+	}
 	if err := g.safeRemote(ctx, p.Target); err != nil {
 		return err
 	}
-	_, err := g.manager.gitOutput(ctx, g.manager.repository, nil, nil, "-c", "protocol.allow=never", "-c", "protocol.file.allow="+map[bool]string{true: "always", false: "never"}[g.allowFile], "-c", "protocol.https.allow=always", "push", "--porcelain", "--", p.Target.Remote, p.Target.HeadCommit+":"+p.Target.HeadRef)
-	return err
-}
-func (g DeliveryGit) PrepareDeliveryCommit(ctx context.Context, tree, parent, message string) (string, error) {
-	if !validObjectID(tree) || !validObjectID(parent) || strings.TrimSpace(message) == "" || len(message) > 512 {
-		return "", ErrInvalidConfiguration
+	_, err := g.manager.gitOutput(ctx, g.manager.repository, nil, g.authentication, "-c", "protocol.allow=never", "-c", "protocol.file.allow="+map[bool]string{true: "always", false: "never"}[g.allowFile], "-c", "protocol.https.allow=always", "push", "--porcelain", "--force-with-lease="+p.Target.HeadRef+":"+p.Observation.RemoteHead, "--", p.Target.Remote, p.Target.HeadCommit+":"+p.Target.HeadRef)
+	if err != nil {
+		return ErrWorkspaceInvalid
 	}
-	return g.manager.gitObjectWithEnv(ctx, g.manager.repository, []string{"GIT_AUTHOR_NAME=Axiom", "GIT_AUTHOR_EMAIL=axiom@example.invalid", "GIT_COMMITTER_NAME=Axiom", "GIT_COMMITTER_EMAIL=axiom@example.invalid"}, "commit-tree", tree, "-p", parent, "-m", message)
+	return nil
+}
+func (g DeliveryGit) WithGitHubCredential(token string) (DeliveryGit, error) {
+	if token == "" || len(token) > 16384 || strings.ContainsAny(token, " \r\n\x00") {
+		return g, ErrInvalidConfiguration
+	}
+	value := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + token))
+	g.authentication = []string{"GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=http.https://github.com/.extraheader", "GIT_CONFIG_VALUE_0=AUTHORIZATION: basic " + value}
+	return g, nil
 }

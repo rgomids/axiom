@@ -9,27 +9,36 @@ import (
 )
 
 type publicationMemory struct {
-	record *DeliveryPublication
-	saves  int
-	failAt int
+	records map[string]DeliveryPublication
+	record  *DeliveryPublication
+	saves   int
+	failAt  int
 }
 
-func (m *publicationMemory) LoadDeliveryPublication(context.Context, string, string) (DeliveryPublication, error) {
-	if m.record == nil {
-		return DeliveryPublication{}, ErrNotFound
+func (m *publicationMemory) LoadDeliveryPublication(_ context.Context, _ string, ref string) (DeliveryPublication, error) {
+	if m.records != nil {
+		if r, ok := m.records[ref]; ok {
+			return r, nil
+		}
 	}
-	return *m.record, nil
+	return DeliveryPublication{}, ErrNotFound
 }
+
 func (m *publicationMemory) SaveDeliveryPublication(_ context.Context, _ State, r DeliveryPublication, prior *DeliveryPublication) error {
 	m.saves++
 	if m.saves == m.failAt {
 		return ErrRecoveryRequired
 	}
-	if prior == nil && m.record != nil || prior != nil && (m.record == nil || !reflect.DeepEqual(*prior, *m.record)) {
+	existing, exists := m.records[r.Preview.Digest()]
+	if prior == nil && exists || prior != nil && (!exists || !reflect.DeepEqual(*prior, existing)) {
 		return ErrConflict
 	}
 	copy := r
 	m.record = &copy
+	if m.records == nil {
+		m.records = map[string]DeliveryPublication{}
+	}
+	m.records[r.Preview.Digest()] = r
 	return nil
 }
 
@@ -145,7 +154,7 @@ func TestDeliveryPublicationUnknownRequiresReconciliation(t *testing.T) {
 			if err == nil || r.Status == "success" {
 				t.Fatal("uncertain publication succeeded")
 			}
-			if _, err = d.Apply(context.Background(), s, p, publicationAuthority(p)); err != nil {
+			if _, err = d.Apply(context.Background(), s, p, publicationAuthority(p)); !errors.Is(err, ErrRecoveryRequired) {
 				t.Fatal(err)
 			}
 			if f.pushes != 1 || effect == "pr" && f.prs != 1 {
@@ -180,5 +189,39 @@ func TestDeliveryPublicationFenceAndPostEffectPersistenceFailure(t *testing.T) {
 		if failAt == 1 && f.pushes != 0 || failAt == 2 && f.prs != 0 || r.Status == "success" && store.record.Status == "success" {
 			t.Fatal("unsafe failure", r)
 		}
+	}
+}
+
+func TestDeliveryPublicationRetryNeedsConclusiveAbsenceAndNewExactAuthority(t *testing.T) {
+	s, d, _, f, p := publicationFixture(t)
+	ctx := context.Background()
+	f.prError = errors.New("lost ack")
+	r, err := d.Apply(ctx, s, p, publicationAuthority(p))
+	if err == nil || r.Status != "partial" {
+		t.Fatal(r, err)
+	}
+	target := p.Target
+	target.RetryOf = p.Digest()
+	target.Push = false
+	if _, err = d.Preview(ctx, s, p.Packet, target); err == nil {
+		t.Fatal("existing candidate admitted retry")
+	}
+	f.observation.Candidates = []DeliveryPR{}
+	f.observation.Conclusive = false
+	if _, err = d.Preview(ctx, s, p.Packet, target); err == nil {
+		t.Fatal("inconclusive absence admitted retry")
+	}
+	f.observation.Conclusive = true
+	retry, err := d.Preview(ctx, s, p.Packet, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = d.Apply(ctx, s, retry, publicationAuthority(p)); err == nil || f.prs != 1 || f.pushes != 1 {
+		t.Fatal("old authority reused", err)
+	}
+	f.prError = nil
+	r, err = d.Apply(ctx, s, retry, publicationAuthority(retry))
+	if err != nil || r.Status != "success" || f.prs != 2 || f.pushes != 1 {
+		t.Fatal(r, err, f.prs, f.pushes)
 	}
 }

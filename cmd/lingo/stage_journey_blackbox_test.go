@@ -18,6 +18,7 @@ import (
 
 	"github.com/rgomids/axiom/internal/capabilityproof"
 	"github.com/rgomids/axiom/internal/cli"
+	"github.com/rgomids/axiom/internal/detailartifact"
 	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/local"
 	"github.com/rgomids/axiom/internal/projectapp"
@@ -835,6 +836,7 @@ func TestInstalledSyntheticGraphStageJourney(t *testing.T) {
 	if again := j.run(t, 1, append(integrate, "--preview-digest", idigest, "--authorize-local")...); again.Category == "stage_integrated" {
 		t.Fatal("integration repeated its effects")
 	}
+	j.deliveryJourney(t, view)
 }
 
 func TestInstalledSyntheticGraphConflictRetryReset(t *testing.T) {
@@ -948,4 +950,177 @@ func TestInstalledSyntheticGraphConflictRetryReset(t *testing.T) {
 	if len(j.invocations(t)) != 3 {
 		t.Fatalf("unexpected calls: %+v", j.invocations(t))
 	}
+}
+
+func (j *stageJourney) deliveryJourney(t *testing.T, initial *cli.WorkflowView) {
+	t.Helper()
+	view := initial
+	selector := stageSelector(view)
+	call := func(args ...string) *cli.WorkflowView {
+		t.Helper()
+		code, _, wire := j.invoke(t, j.axiom, args...)
+		var event workflowEvent
+		if code != 0 || json.Unmarshal(wire, &event) != nil || event.Workflow == nil {
+			t.Fatalf("delivery workflow %v: %d %s", args, code, wire)
+		}
+		return event.Workflow
+	}
+	view = call(append([]string{"workflow", "status"}, selector...)...)
+	sum := sha256.Sum256([]byte(stageJourneyDecision))
+	authorityDigest := hex.EncodeToString(sum[:])
+	for view.Status != "completed" {
+		if action := view.GateAction; action != nil && action.Operation == "fact" {
+			kind := "evidence"
+			if action.Fact == workflow.FactPlanningAuthority {
+				kind = "specification"
+			}
+			if action.Fact == workflow.FactImplementationAuthority {
+				kind = "plan"
+			}
+			view = call(append(append([]string{"workflow", "fact"}, selector...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--fact", strings.ReplaceAll(string(action.Fact), "_", "-"), "--active", "--actor", "fixture-human", "--reference", kind+":decision.md:"+authorityDigest, "--authorize-local")...)
+		}
+		file := j.deliveryOutput(t, view)
+		view = call(append(append([]string{"workflow", "advance"}, selector...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--gate", view.CurrentGate, "--outcome", "pass", "--stage-result", file)...)
+	}
+	args := append([]string{"workflow", "delivery", "packet"}, selector...)
+	event := j.run(t, 0, args...)
+	var packet struct {
+		Digest string                  `json:"packetDigest"`
+		Packet workflow.DeliveryPacket `json:"packet"`
+	}
+	if err := json.Unmarshal(event.Stage, &packet); err != nil || !packet.Packet.Ready {
+		t.Fatalf("final readiness %s %v", event.Stage, err)
+	}
+	j.run(t, 0, append(args, "--preview-digest", packet.Digest, "--authorize-local")...)
+	write := func(name string, value any) string {
+		t.Helper()
+		file := filepath.Join(t.TempDir(), name)
+		wire, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(file, wire, 0600); err != nil {
+			t.Fatal(err)
+		}
+		return file
+	}
+	request := write("local.json", workflow.DeliveryTarget{Kind: "local"})
+	previewArgs := append(append([]string{"workflow", "delivery", "preview"}, selector...), "--request", request)
+	preview := j.run(t, 0, previewArgs...)
+	var previewValue struct {
+		Preview workflow.DeliveryPreview `json:"preview"`
+	}
+	if err := json.Unmarshal(preview.Stage, &previewValue); err != nil {
+		t.Fatal(err)
+	}
+	p := previewValue.Preview
+	apply := append(append([]string{"workflow", "delivery", "apply"}, selector...), "--request", request, "--preview-digest", p.Digest(), "--authorize-local")
+	publicationEvent := j.run(t, 0, apply...)
+	j.run(t, 0, apply...)
+	var publication workflow.DeliveryPublication
+	if err := json.Unmarshal(publicationEvent.Stage, &publication); err != nil || publication.Status != "success" || publication.Artifact != "delivery-packet:"+packet.Digest {
+		t.Fatalf("publication %s %v", publicationEvent.Stage, err)
+	}
+	inspectArgs := append(append([]string{"workflow", "delivery", "inspect"}, selector...), "--publication", p.Digest())
+	inspected := j.run(t, 0, inspectArgs...)
+	var inspectedPublication workflow.DeliveryPublication
+	if json.Unmarshal(inspected.Stage, &inspectedPublication) != nil || inspectedPublication.Artifact != publication.Artifact || inspectedPublication.Status != publication.Status {
+		t.Fatal("publication inspection drift")
+	}
+	humanCommand := exec.Command(j.axiom, inspectArgs...)
+	humanCommand.Env = j.environment
+	humanCommand.Dir = j.home
+	human, err := humanCommand.Output()
+	if err != nil || !bytes.Contains(human, []byte(publication.Artifact)) || !bytes.Contains(human, []byte(publication.Status)) || !bytes.Contains(human, []byte(publication.Next)) {
+		t.Fatalf("human publication parity %s %v", human, err)
+	}
+	beforeStore, _ := local.NewWorkflowStore(j.env.state)
+	original, err := beforeStore.Load(context.Background(), packet.Packet.ProjectID, packet.Packet.RepositoryKey, packet.Packet.WorkItem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := deliveryDecisionRequest{PacketDigest: packet.Digest, PublicationDigest: p.Digest(), Outcome: "reject", Actor: "fixture-human", Reason: "repair bounded delivery finding", Authority: workflow.Reference{Kind: "decision", ID: "decision.md", Digest: authorityDigest}, Evidence: []workflow.Reference{}}
+	decisionFile := write("decision.json", decision)
+	decisionArgs := append(append([]string{"workflow", "delivery", "decision"}, selector...), "--request", decisionFile)
+	decisionEvent := j.run(t, 0, decisionArgs...)
+	var decisionValue struct {
+		Preview workflow.DeliveryDecision `json:"preview"`
+	}
+	if err := json.Unmarshal(decisionEvent.Stage, &decisionValue); err != nil {
+		t.Fatal(err)
+	}
+	d := decisionValue.Preview
+	j.run(t, 1, append(decisionArgs, "--preview-digest", d.Digest(), "--authorize-local")...)
+	appliedDecision := j.run(t, 0, append(decisionArgs, "--preview-digest", d.Digest(), "--authorize-local", "--authorize-human")...)
+	var recorded workflow.DeliveryDecision
+	if json.Unmarshal(appliedDecision.Stage, &recorded) != nil || recorded.Digest() != d.Digest() {
+		t.Fatal("decision changed")
+	}
+	rejected := call(append([]string{"workflow", "status"}, selector...)...)
+	if rejected.WorkflowSuccess || rejected.DeliveryStatus != "rejected" || rejected.LifecycleStage == "accepted" {
+		t.Fatalf("rejection projected success %+v", rejected)
+	}
+	for _, name := range []string{"rework-authority.md", "corrective-plan.md"} {
+		if err = os.WriteFile(filepath.Join(j.repository, name), []byte("Explicit new bounded Execution authority\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	newSum := sha256.Sum256([]byte("Explicit new bounded Execution authority\n"))
+	newDigest := hex.EncodeToString(newSum[:])
+	rework := workflow.ReworkInput{NewExecutionID: "00000000-0000-4000-8000-000000000099", RevisionChoice: "retained", RuntimeID: original.RuntimeID, RuntimePreview: original.Binding.RuntimePreview, ResolvedProfile: original.Binding.ResolvedProfile, Scope: d.Reason, Plan: workflow.Reference{Kind: "plan", ID: "corrective-plan.md", Digest: newDigest}, Authority: workflow.Reference{Kind: "decision", ID: "rework-authority.md", Digest: newDigest}, Inputs: []workflow.Reference{}}
+	reworkFile := write("rework.json", rework)
+	reworkArgs := append(append([]string{"workflow", "delivery", "rework"}, selector...), "--request", reworkFile)
+	reworkEvent := j.run(t, 0, reworkArgs...)
+	var reworkValue struct {
+		Preview workflow.ReworkPreview `json:"preview"`
+	}
+	if err = json.Unmarshal(reworkEvent.Stage, &reworkValue); err != nil {
+		t.Fatal(err)
+	}
+	proposal := reworkValue.Preview
+	j.run(t, 1, append(reworkArgs, "--preview-digest", proposal.Digest(), "--authorize-local")...)
+	authorized := append(reworkArgs, "--preview-digest", proposal.Digest(), "--authorize-local", "--authorize-execution")
+	j.run(t, 0, authorized...)
+	j.run(t, 0, authorized...)
+	historical := call(append([]string{"workflow", "status"}, selector...)...)
+	if historical.ExecutionID != original.ExecutionID || historical.DeliveryStatus != "rejected" {
+		t.Fatalf("history lost %+v", historical)
+	}
+	current, err := beforeStore.Load(context.Background(), original.ProjectID, original.RepositoryKey, original.WorkItem)
+	if err != nil || current.ExecutionID != rework.NewExecutionID || current.StageOrdinal != 0 || len(current.Transitions) != 0 || current.ReworkOf == nil || current.ReworkOf.DecisionDigest != d.Digest() {
+		t.Fatalf("new lineage %+v %v", current, err)
+	}
+	if list, err := beforeStore.List(context.Background(), original.ProjectID); err != nil || len(list) != 2 {
+		t.Fatal("duplicate execution", len(list), err)
+	}
+}
+func (j *stageJourney) deliveryOutput(t *testing.T, view *cli.WorkflowView) string {
+	t.Helper()
+	store, err := local.NewArtifactStore(j.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := workflow.StageResult{Inputs: view.StageInputs, Outputs: map[string]workflow.Reference{}}
+	inputs, _ := json.Marshal(view.StageInputs)
+	sum := sha256.Sum256(inputs)
+	for _, output := range view.StageContract.Outputs {
+		content := []byte("Validated synthetic delivery output\n")
+		if view.StageContract.Phase == "review" {
+			content, err = json.Marshal(workflow.DeliveryReview{FormatVersion: 1, ExecutionID: view.ExecutionID, DefinitionDigest: view.Binding.Definition.Digest, StageID: view.CurrentGate, InputsDigest: hex.EncodeToString(sum[:]), Outcome: "pass", Findings: []workflow.DeliveryFinding{}, Waivers: []workflow.DeliveryWaiver{}})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		artifact, err := store.Create(context.Background(), detailartifact.Draft{ExecutionID: view.ExecutionID, Category: output.Kind, Outcome: "success", Retention: detailartifact.Evidence, Markdown: content, References: []detailartifact.Reference{{Kind: "workflow-stage", Value: view.CurrentGate}, {Kind: "workflow-definition", Value: view.Binding.Definition.Digest}, {Kind: "workflow-output", Value: output.ID}}, Provenance: currentProvenance()})
+		if err != nil {
+			t.Fatal(err)
+		}
+		result.Outputs[output.ID] = workflow.Reference{Kind: "artifact", ID: artifact.ID, Digest: hex.EncodeToString(artifact.Digest[:])}
+	}
+	file := filepath.Join(t.TempDir(), "delivery-result.json")
+	wire, _ := json.Marshal(result)
+	if err = os.WriteFile(file, wire, 0600); err != nil {
+		t.Fatal(err)
+	}
+	return file
 }

@@ -382,6 +382,8 @@ func (p *authorityProbe) WorkItemReopen(_ context.Context, input WorkItemInput) 
 // mutatingRequests are the selector-complete requests a Runtime forms for
 // each mutating command after operation resolution, before any authority.
 var mutatingRequests = map[string][]string{
+	"workflow delivery decision":  {"workflow", "delivery", "decision", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--request", "request.json"},
+	"workflow delivery rework":    {"workflow", "delivery", "rework", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--request", "request.json"},
 	"workflow delivery prepare":   {"workflow", "delivery", "prepare", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--request", "request.json"},
 	"workflow delivery apply":     {"workflow", "delivery", "apply", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--request", "request.json"},
 	"workflow delivery reconcile": {"workflow", "delivery", "reconcile", "--project", "alpha", "--repository", "main", "--work-item", "github:owner/repo#7", "--execution", "e-1", "--publication", "digest"},

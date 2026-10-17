@@ -293,6 +293,10 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if err := ledgers.SaveDeliveryPublication(context.Background(), v3, publication, nil); err != nil {
 		t.Fatal(err)
 	}
+	original, rework := localReworkFixture(t, ledgers, v3)
+	if _, err := ledgers.ApplyDeliveryRework(context.Background(), original, rework); err != nil {
+		t.Fatal(err)
+	}
 	streams, err := NewCoordinationStore(state, authority.ProjectID)
 	if err != nil {
 		t.Fatal(err)

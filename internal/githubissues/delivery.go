@@ -28,7 +28,7 @@ func (a Adapter) ObserveDeliveryPR(ctx context.Context, p workflow.DeliveryPrevi
 	if !a.ValidResource(t.Repository) {
 		return nil, false, workflow.ErrDelivery
 	}
-	output, err := a.run(ctx, nil, "api", "--method", "GET", "repos/"+t.Repository+"/pulls", "-f", "state=all", "-f", "head="+strings.Split(t.Repository, "/")[0]+":"+strings.TrimPrefix(t.HeadRef, "refs/heads/"), "-f", "per_page=100")
+	output, err := a.run(ctx, nil, "api", "--hostname", "github.com", "--method", "GET", "repos/"+t.Repository+"/pulls", "-f", "state=all", "-f", "head="+strings.Split(t.Repository, "/")[0]+":"+strings.TrimPrefix(t.HeadRef, "refs/heads/"), "-f", "per_page=100")
 	if err != nil {
 		return nil, false, err
 	}
@@ -67,7 +67,7 @@ func (a Adapter) CreateDeliveryPR(ctx context.Context, p workflow.DeliveryPrevie
 	if err != nil {
 		return err
 	}
-	_, err = a.run(ctx, payload, "api", "--method", "POST", "repos/"+t.Repository+"/pulls", "--input", "-")
+	_, err = a.run(ctx, payload, "api", "--hostname", "github.com", "--method", "POST", "repos/"+t.Repository+"/pulls", "--input", "-")
 	return err
 }
 func decodeDeliveryPR(repository string, wire []byte, metadata json.RawMessage) (workflow.DeliveryPR, error) {
@@ -97,4 +97,16 @@ func decodeDeliveryPR(repository string, wire []byte, metadata json.RawMessage) 
 		return r, workflow.ErrDelivery
 	}
 	return r, nil
+}
+
+func (a Adapter) DeliveryGitCredential(ctx context.Context) (string, error) {
+	wire, err := a.run(ctx, nil, "auth", "token", "--hostname", "github.com")
+	if err != nil {
+		return "", errors.New("GitHub authentication unavailable")
+	}
+	token := strings.TrimSpace(string(wire))
+	if token == "" || len(token) > 16384 || strings.ContainsAny(token, " \r\n\x00") {
+		return "", errors.New("GitHub authentication unavailable")
+	}
+	return token, nil
 }

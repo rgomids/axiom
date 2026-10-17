@@ -292,6 +292,27 @@ func scanArtifactReferences(root *os.Root, artifacts []detailartifact.Artifact) 
 				}
 				continue
 			}
+			if classifyDeliveryPublication(projectID, name, wire) == InventoryDeliveryPublication {
+				continue
+			}
+			if classifyDeliveryDecision(projectID, name, wire) == InventoryDeliveryDecision {
+				d, _ := workflow.DecodeDeliveryDecision(wire)
+				for _, ref := range append([]workflow.Reference{d.Authority}, d.Evidence...) {
+					if ref.Kind == "artifact" {
+						references[ref.ID] = append(references[ref.ID], "delivery-decision:"+d.Digest())
+					}
+				}
+				continue
+			}
+			if classifyDeliveryRework(projectID, name, wire) == InventoryDeliveryRework {
+				p, _ := workflow.DecodeReworkPreview(wire)
+				for _, ref := range append([]workflow.Reference{p.Input.Authority, p.Input.Plan}, p.Input.Inputs...) {
+					if ref.Kind == "artifact" {
+						references[ref.ID] = append(references[ref.ID], "delivery-rework:"+p.Digest())
+					}
+				}
+				continue
+			}
 			if classifyStageOutcome(projectID, name, wire) == InventoryStageOutcome || classifyDispatchAuthority(projectID, name, wire, "single-first-attempt") == InventoryDispatchAuthority {
 				continue
 			}

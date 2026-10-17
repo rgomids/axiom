@@ -1095,6 +1095,9 @@ func workflowResult(result workflow.Result, source provenance.Value) cli.Result 
 		for _, step := range result.State.Transitions {
 			view.Transitions = append(view.Transitions, cli.WorkflowStepView{Revision: step.Revision, From: string(step.From), To: string(step.To), Outcome: string(step.Outcome), CommittedAt: step.CommittedAt.Format("2006-01-02T15:04:05.999999999Z07:00"), Fact: step.Fact, References: step.References})
 		}
+		view.DeliveryStatus, view.WorkflowSuccess = workflow.DeliveryDisposition(result.State)
+		view.DeliveryDecision = result.State.DeliveryDecision
+		view.ReworkOf = result.State.ReworkOf
 		response.Workflow = view
 		view.ExecutionKind = "legacy-sequential"
 		if result.State.Binding != nil {
@@ -1128,7 +1131,11 @@ func workflowResult(result workflow.Result, source provenance.Value) cli.Result 
 			}
 		}
 		if result.State.Binding != nil && result.State.Status == workflow.ExecutionCompleted {
-			view.Blockers = append(view.Blockers, "delivery_packet_required")
+			if view.DeliveryStatus == "rejected" {
+				view.Blockers = append(view.Blockers, "delivery_rework_required")
+			} else if !view.WorkflowSuccess {
+				view.Blockers = append(view.Blockers, "delivery_packet_required")
+			}
 		}
 	}
 	return response
@@ -1202,8 +1209,11 @@ func workflowResultReferences(result workflow.Result) []string {
 	return refs
 }
 func workflowResultNext(result workflow.Result) string {
+	if result.State.DeliveryDecision != nil {
+		return decisionNext(*result.State.DeliveryDecision)
+	}
 	if result.State.Binding != nil && (result.State.Status == workflow.ExecutionCompleted || result.Category == "delivery_packet_required") {
-		return "Technical validation is complete; human acceptance requires the exact validated delivery packet from the delivery operation (#277), which is not available in this slice"
+		return "Technical validation is complete; inspect delivery status and record an explicit human decision over the exact packet using workflow delivery decision (#277)"
 	}
 	if result.Category == "workflow_selection_required" {
 		return "Explicitly select a Project workflow revision with project workflow select, then review a fresh workflow start preview"

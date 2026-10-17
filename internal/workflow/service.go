@@ -123,6 +123,8 @@ type ProjectionRecord struct {
 	Complete            bool
 }
 type State struct {
+	DeliveryDecision         *DeliveryDecision
+	ReworkOf                 *ReworkLink
 	Binding                  *WorkflowBinding
 	StageOrdinal             int
 	ExecutionID              string
@@ -321,6 +323,9 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 	}
 	existing, err := s.store.Load(ctx, project.ID, repository.Key, item)
 	if err == nil {
+		if existing.DeliveryDecision != nil && existing.DeliveryDecision.Outcome == "reject" {
+			return result(Denied, "delivery_rework_required", existing)
+		}
 		if equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) {
 			return result(Succeeded, "execution_already_started", existing)
 		}
@@ -797,6 +802,18 @@ func (s Service) loadResolved(ctx context.Context, target Target) (State, Reposi
 		return State{}, Repository{}, failed
 	}
 	state, err := s.store.Load(ctx, project.ID, repository.Key, item)
+	if err == nil && target.ExecutionID != "" && state.ExecutionID != target.ExecutionID {
+		if reader, ok := s.store.(interface {
+			LoadExecutionID(context.Context, string, string, WorkItem, string) (State, error)
+		}); ok {
+			historical, readErr := reader.LoadExecutionID(ctx, project.ID, repository.Key, item, target.ExecutionID)
+			if errors.Is(readErr, ErrNotFound) {
+				return State{}, Repository{}, result(ValidationFailed, "execution_selector_conflict", State{})
+			}
+			state, err = historical, readErr
+		}
+	}
+
 	if err != nil {
 		return State{}, Repository{}, storeFailure(err)
 	}

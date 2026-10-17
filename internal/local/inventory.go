@@ -46,6 +46,9 @@ const (
 	InventoryDispatchAuthority    InventoryKind = "dispatch_authority"
 	InventoryRetryAuthority       InventoryKind = "stage_retry_authority"
 	InventoryStageOutcome         InventoryKind = "stage_outcome"
+	InventoryDeliveryDecision     InventoryKind = "delivery_decision"
+	InventoryDeliveryRework       InventoryKind = "delivery_rework"
+	InventoryRetainedExecution    InventoryKind = "retained_execution"
 	InventoryDeliveryPublication  InventoryKind = "delivery_publication"
 	InventoryDeliveryPacket       InventoryKind = "delivery_packet"
 	InventoryIntegrationAuthority InventoryKind = "stage_integration_authority"
@@ -74,7 +77,7 @@ const (
 // V1Only reports kinds that no historical POC revision could have written.
 func (k InventoryKind) V1Only() bool {
 	switch k {
-	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryDeliveryPublication, InventoryDeliveryPacket, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventorySingleStageRun, InventorySingleStageAuthority, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryRuntimeProfilePreStable, InventoryProjectContext, InventoryOperational:
+	case InventoryDispatchAuthority, InventoryRetryAuthority, InventoryDeliveryDecision, InventoryDeliveryRework, InventoryRetainedExecution, InventoryDeliveryPublication, InventoryDeliveryPacket, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventorySingleStageRun, InventorySingleStageAuthority, InventoryRunLease, InventoryValidatorPolicy, InventoryCapabilityEvidence, InventoryCreateAttempt, InventoryExecution, InventoryArtifact, InventoryCleanupRecord, InventoryRetirementRecord, InventoryGraph, InventoryCoordination, InventoryRuntimeProfile, InventoryRuntimeProfilePreStable, InventoryProjectContext, InventoryOperational:
 		return true
 	}
 	return false
@@ -95,7 +98,7 @@ func V1Kinds() []InventoryKind { return append([]InventoryKind(nil), v1Kinds...)
 // AXIOM_FREEZE_STATE_CORPUS, then moves it into v1Kinds. The stable corpus
 // guard includes additive kinds too: release acceptance cannot silently skip
 // their historical compatibility coverage.
-var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAuthority, InventoryDeliveryPublication, InventoryDeliveryPacket, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventorySingleStageRun, InventorySingleStageAuthority, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
+var additiveKinds = []InventoryKind{InventoryDispatchAuthority, InventoryRetryAuthority, InventoryDeliveryDecision, InventoryDeliveryRework, InventoryRetainedExecution, InventoryDeliveryPublication, InventoryDeliveryPacket, InventoryStageOutcome, InventoryIntegrationAuthority, InventoryDispatchInputs, InventorySingleStageRun, InventorySingleStageAuthority, InventoryRunLease, InventoryWorkflowDefinition, InventoryWorkflowIndex, InventoryCapabilityEvidence, InventoryValidatorPolicy}
 
 // AdditiveKinds returns a copy of the supported kinds awaiting their first
 // stable-corpus freeze.
@@ -292,6 +295,15 @@ func walkStateRootEntries(w *inventoryWalk, root *os.Root) error {
 						return "", MaxExecutionBytes
 					}, func(file string, wire []byte) InventoryKind {
 						if kind := classifyDispatchAuthority(id, file, wire, "single-first-attempt"); kind != "" {
+							return kind
+						}
+						if kind := classifyDeliveryDecision(id, file, wire); kind != "" {
+							return kind
+						}
+						if kind := classifyDeliveryRework(id, file, wire); kind != "" {
+							return kind
+						}
+						if kind := classifyRetainedExecution(id, file, wire); kind != "" {
 							return kind
 						}
 						if kind := classifyDeliveryPublication(id, file, wire); kind != "" {
