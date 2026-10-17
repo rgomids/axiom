@@ -3,6 +3,16 @@
 **Proposed — plan, 2026-10-17.** Somente desenho técnico; sem Tasks executáveis,
 implementação, dispatch, probe, Provider de produto ou transição de Execution.
 
+**Accepted — anotação factual, 2026-10-17.** O operador aprovou explicitamente
+este Plan na revisão `315ea2c422a9b7eba941f6e41a66019e1ff4e392`, blob
+`96b5fb383a74197baa58f2fae44c5521431ed2f7`, conforme
+[registro da decisão humana no Linear](https://linear.app/rgomids/issue/AXM-31/revisar-autonomia-escopo-e-responsabilidade-da-ia-operadora-no-axiom#comment-23f4e188).
+Foi aprovação comunicada em conversa e registrada no Linear, não aprovação
+nativa do GitHub. Esta anotação preserva o texto histórico Proposed e as decisões
+D1–D4; libera a preparação de Tasks, não seu aceite, implementação, merge,
+release ou avanço de Execution. As referências históricas abaixo a Plan pendente
+descrevem a revisão anterior a esta anotação.
+
 ## Gate, fontes e checkpoint
 
 O mantenedor @rgomids [aceitou explicitamente a Specification](https://github.com/rgomids/axiom/pull/325#issuecomment-6241938642)
