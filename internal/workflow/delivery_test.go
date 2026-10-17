@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rgomids/axiom/internal/detailartifact"
+	"github.com/rgomids/axiom/internal/executiongraph"
 	"github.com/rgomids/axiom/internal/provenance"
 	"github.com/rgomids/axiom/internal/workflowdefinition"
 )
@@ -17,6 +18,7 @@ func (f packetEvidence) Reference(context.Context, State, Reference) error { ret
 type packetEvidence struct {
 	artifacts map[string]detailartifact.Artifact
 	denied    bool
+	stages    map[int]DeliveryStage
 }
 
 func (f packetEvidence) Artifact(_ context.Context, _ State, _ workflowdefinition.Stage, _ workflowdefinition.Output, r Reference) (detailartifact.Artifact, error) {
@@ -25,8 +27,8 @@ func (f packetEvidence) Artifact(_ context.Context, _ State, _ workflowdefinitio
 	}
 	return f.artifacts[r.ID], nil
 }
-func (f packetEvidence) Stage(context.Context, State, int) (DeliveryStage, error) {
-	return DeliveryStage{}, nil
+func (f packetEvidence) Stage(_ context.Context, _ State, ordinal int) (DeliveryStage, error) {
+	return f.stages[ordinal], nil
 }
 
 func packetFixture(t *testing.T, finding bool, waiver bool, raw ...bool) (State, packetEvidence) {
@@ -35,8 +37,11 @@ func packetFixture(t *testing.T, finding bool, waiver bool, raw ...bool) (State,
 	s.allocateID = func() (string, error) { return "00000000-0000-4000-8000-000000000002", nil }
 	state := s.Start(context.Background(), configuredTarget()).State
 	source, _ := provenance.FromBuild(provenance.Build{SourceState: provenance.Unknown}, nil)
-	evidence := packetEvidence{artifacts: map[string]detailartifact.Artifact{}}
+	evidence := packetEvidence{artifacts: map[string]detailartifact.Artifact{}, stages: map[int]DeliveryStage{}}
 	for state.Status != ExecutionCompleted {
+		// This unit port projects verified execution evidence; the CLI journey
+		// exercises real synthetic dispatch, authority and canonical records.
+		evidence.stages[state.StageOrdinal] = DeliveryStage{SingleDigest: strings.Repeat("e", 64), SingleAttempt: &executiongraph.SuccessorAttempt{AttemptID: "00000000-0000-4000-8000-000000000003", Status: executiongraph.AttemptSucceeded, ClassificationReason: executiongraph.ResultRecorded, QualifyingRecordRef: strings.Repeat("f", 64)}}
 		stage := CurrentStage(state)
 		if kind := configuredPhaseGate(*stage); kind != "" {
 			result := s.RecordLifecycleFact(context.Background(), configuredTarget(), LifecycleFactInput{ExpectedRevision: state.Revision, Kind: kind, Active: true, Actor: "maintainer", Reference: Reference{Kind: map[LifecycleFactKind]string{FactPlanningAuthority: "specification", FactImplementationAuthority: "plan", FactReviewStarted: "evidence"}[kind], ID: "authority", Digest: strings.Repeat("a", 64)}}, true)
@@ -167,5 +172,46 @@ func TestDeliveryReviewMissingAndWaiverAuthorityFailClosed(t *testing.T) {
 	packet, err = ComposeDeliveryPacket(context.Background(), state, evidence)
 	if err != nil || packet.Ready {
 		t.Fatalf("waiver from different actor accepted: %v", err)
+	}
+}
+
+func TestDeliveryValidatedOutputsWithoutAttemptsRemainInspectable(t *testing.T) {
+	state, evidence := packetFixture(t, false, false)
+	evidence.stages = nil
+	packet, err := ComposeDeliveryPacket(context.Background(), state, evidence)
+	if err != nil || packet.Ready || len(packet.Blockers) != len(packet.Stages) || !strings.Contains(packet.Next, "stage attempts") {
+		t.Fatalf("packet %+v: %v", packet, err)
+	}
+	for _, stage := range packet.Stages {
+		if stage.Ledger == nil || len(stage.Artifacts) == 0 {
+			t.Fatal("missing validated checkpoint/output")
+		}
+	}
+	if _, err := DeliveryPacketDigest(packet); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeliverySingleStageRequiresQualifiedAttempt(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		change func(*DeliveryStage)
+	}{
+		{"attempt_missing", func(s *DeliveryStage) { s.SingleAttempt = nil }},
+		{"digest_missing", func(s *DeliveryStage) { s.SingleDigest = "" }},
+		{"attempt_failed", func(s *DeliveryStage) { s.SingleAttempt.Status = executiongraph.AttemptFailed }},
+		{"unqualified", func(s *DeliveryStage) { s.SingleAttempt.ClassificationReason = executiongraph.ResultMissing }},
+		{"coordination_ref_missing", func(s *DeliveryStage) { s.SingleAttempt.QualifyingRecordRef = "" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			state, evidence := packetFixture(t, false, false)
+			stage := evidence.stages[0]
+			test.change(&stage)
+			evidence.stages[0] = stage
+			packet, err := ComposeDeliveryPacket(context.Background(), state, evidence)
+			if err != nil || packet.Ready || len(packet.Blockers) != 1 {
+				t.Fatalf("blockers %v error %v", packet.Blockers, err)
+			}
+		})
 	}
 }

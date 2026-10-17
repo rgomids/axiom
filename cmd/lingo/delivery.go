@@ -71,46 +71,47 @@ func (d deliveryEvidence) Stage(ctx context.Context, state workflow.State, ordin
 		if err != nil {
 			return result, err
 		}
-		if run != nil {
-			if len(run.Attempts) > 0 {
-				copy := run.Attempts[len(run.Attempts)-1]
-				result.SingleAttempt = &copy
-			}
-			pending, blocker := executiongraph.SingleStageReadiness(*run)
-			if pending || blocker != "" || len(run.Attempts) == 0 {
-				result.SingleDigest = hex.EncodeToString(run.StorageRevision[:])
-				result.Blocker = "single_stage_incomplete"
-				return result, nil
-			}
-			last := run.Attempts[len(run.Attempts)-1]
-			if last.Status != executiongraph.AttemptSucceeded || last.ClassificationReason != executiongraph.ResultRecorded {
-				result.SingleDigest = hex.EncodeToString(run.StorageRevision[:])
-				result.Blocker = "single_stage_incomplete"
-				return result, nil
-			}
-			authority, err := d.stores.singles.LoadAuthority(ctx, *run, run.Authorities[len(run.Authorities)-1])
-			if err != nil || executiongraph.ValidateSingleStageBindingAuthority(*run, authority) != nil {
-				return result, workflow.ErrDelivery
-			}
-			coordinationStore, e := local.NewCoordinationStore(d.stateRoot, state.ProjectID)
-			if e != nil {
-				return result, e
-			}
-			records, e := (coordination.Reader{Store: coordinationStore}).List(ctx, coordination.Filter{ParentID: state.ExecutionID, ChildID: state.ExecutionID, AttemptID: last.AttemptID})
-			if e != nil {
-				return result, e
-			}
-			verified := false
-			for _, record := range records {
-				projected := coordination.ClassifierRecord(record)
-				if projected.Accepted && projected.Digest == last.QualifyingRecordRef && projected.Outcome == "succeeded" {
-					verified = true
-				}
-			}
-			if !verified {
-				return result, workflow.ErrDelivery
-			}
-			result.SingleDigest = hex.EncodeToString(run.StorageRevision[:])
+		if run == nil {
+			result.Blocker = "single_stage_run_missing"
+			return result, nil
+		}
+		result.SingleDigest = hex.EncodeToString(run.StorageRevision[:])
+		if len(run.Attempts) > 0 {
+			copy := run.Attempts[len(run.Attempts)-1]
+			result.SingleAttempt = &copy
+		}
+		// Readiness describes another dispatch, so a settled success is expected here.
+		pending, blocker := executiongraph.SingleStageReadiness(*run)
+		if pending || blocker != string(executiongraph.AttemptSucceeded) || len(run.Attempts) == 0 {
+			result.Blocker = "single_stage_incomplete"
+			return result, nil
+		}
+		last := run.Attempts[len(run.Attempts)-1]
+		if last.Status != executiongraph.AttemptSucceeded || last.ClassificationReason != executiongraph.ResultRecorded {
+			result.Blocker = "single_stage_incomplete"
+			return result, nil
+		}
+		authority, err := d.stores.singles.LoadAuthority(ctx, *run, run.Authorities[len(run.Authorities)-1])
+		if err != nil || executiongraph.ValidateSingleStageBindingAuthority(*run, authority) != nil {
+			result.Blocker = "single_stage_authority_unverified"
+			return result, nil
+		}
+		coordinationStore, e := local.NewCoordinationStore(d.stateRoot, state.ProjectID)
+		if e != nil {
+			return result, e
+		}
+		records, e := (coordination.Reader{Store: coordinationStore}).List(ctx, coordination.Filter{ParentID: state.ExecutionID, ChildID: state.ExecutionID, AttemptID: last.AttemptID})
+		if e != nil {
+			return result, e
+		}
+		projected := make([]executiongraph.AttemptRecord, 0, len(records))
+		for _, record := range records {
+			projected = append(projected, coordination.ClassifierRecord(record))
+		}
+		latest, verified := executiongraph.LatestAttemptRecord(executiongraph.AttemptCorrelation{ParentID: state.ExecutionID, ChildID: state.ExecutionID, AttemptID: last.AttemptID, GraphRevision: run.Binding.WorkflowRevision}, projected)
+		if !verified || latest.Digest != last.QualifyingRecordRef || latest.Outcome != "succeeded" {
+			result.Blocker = "single_stage_coordination_unverified"
+			return result, nil
 		}
 		return result, nil
 	}

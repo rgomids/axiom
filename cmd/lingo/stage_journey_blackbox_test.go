@@ -488,7 +488,9 @@ func (j *stageJourney) invocations(t *testing.T) []fakeStageInvocation {
 
 type singleStatus struct {
 	Single struct {
-		Binding struct {
+		Scope       executiongraph.SingleStageScope `json:"scope"`
+		Authorities []string                        `json:"authorityRefs"`
+		Binding     struct {
 			Workspace string `json:"workspace"`
 		} `json:"binding"`
 		Attempts []struct {
@@ -584,6 +586,31 @@ func TestInstalledSyntheticSingleStageJourney(t *testing.T) {
 	if err := json.Unmarshal(packet.Stage, &read); err != nil || read.Packet.Ready || len(read.Packet.Stages) == 0 || read.Packet.Stages[0].SingleDigest == "" || read.Packet.Stages[0].SingleAttempt == nil || read.Packet.Stages[0].SingleAttempt.AttemptID != status.Single.Attempts[0].AttemptID {
 		t.Fatalf("single packet: %s %v", packet.Stage, err)
 	}
+	if read.Packet.Stages[0].Blocker != "" {
+		t.Fatalf("qualified single stage blocked: %+v", read.Packet.Stages[0])
+	}
+	for _, missing := range []struct{ path, blocker string }{
+		{filepath.Join(j.env.state, "single-stage-runs", "v1", status.Single.Scope.ProjectID, status.Single.Authorities[0]+".json"), "single_stage_authority_unverified"},
+		{filepath.Join(j.env.state, "coordination"), "single_stage_coordination_unverified"},
+	} {
+		t.Run(missing.blocker, func(t *testing.T) {
+			if err := os.Rename(missing.path, missing.path+".retained"); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := os.Rename(missing.path+".retained", missing.path); err != nil {
+					t.Fatal(err)
+				}
+			}()
+			event := j.run(t, 0, append([]string{"workflow", "delivery", "packet"}, stageSelector(view)...)...)
+			var blocked struct {
+				Packet workflow.DeliveryPacket `json:"packet"`
+			}
+			if err := json.Unmarshal(event.Stage, &blocked); err != nil || blocked.Packet.Ready || blocked.Packet.Stages[0].Blocker != missing.blocker {
+				t.Fatalf("packet %s %v", event.Stage, err)
+			}
+		})
+	}
 	calls := j.invocations(t)
 	if len(calls) != 1 || calls[0].Runtime != "codex" || calls[0].Agent != "owner" || calls[0].Attempt != status.Single.Attempts[0].AttemptID || calls[0].CWD != status.Single.Binding.Workspace || !slices.Contains(calls[0].Argv, "local-codex-model") {
 		t.Fatalf("fake invocation %+v", calls)
@@ -677,7 +704,7 @@ type workflowEvent struct {
 	Workflow *cli.WorkflowView `json:"workflow"`
 }
 
-func (j *stageJourney) advanceTo(t *testing.T, view *cli.WorkflowView, stage string) *cli.WorkflowView {
+func (j *stageJourney) advanceTo(t *testing.T, view *cli.WorkflowView, stage string, executeSingles ...bool) *cli.WorkflowView {
 	t.Helper()
 	sum := sha256.Sum256([]byte(stageJourneyDecision))
 	digest := hex.EncodeToString(sum[:])
@@ -703,6 +730,9 @@ func (j *stageJourney) advanceTo(t *testing.T, view *cli.WorkflowView, stage str
 	}
 	for count := 0; view.CurrentGate != stage && count < 16; count++ {
 		view = fact(view)
+		if len(executeSingles) > 0 && executeSingles[0] {
+			j.runDeliverySingle(t, view)
+		}
 		file := publishConfiguredOutput(t, j.env.state, view)
 		view = call(append(append([]string{"workflow", "advance"}, selector...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--gate", view.CurrentGate, "--outcome", "pass", "--stage-result", file)...)
 	}
@@ -721,7 +751,9 @@ func TestInstalledSyntheticGraphStageJourney(t *testing.T) {
 	j.run(t, 0, "runtime", "codex", "install")
 	j.run(t, 0, "runtime", "claude", "install")
 	saveTargetLink(t, j.env.state, workItemSourceProjectID, "9", "owner/repo")
-	view := j.advanceTo(t, j.startExecution(t, "github:owner/repo#9"), "implementation")
+	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
+	view := j.advanceTo(t, j.startExecution(t, "github:owner/repo#9"), "implementation", true)
+	priorCalls := len(j.invocations(t))
 	impl := executiongraph.Effect{Kind: "repository-write", Target: "src/impl.go"}
 	review := executiongraph.Effect{Kind: "repository-write", Target: "docs/review.md"}
 	integrated := executiongraph.Effect{Kind: "integration", Target: "src/impl.go"}
@@ -732,7 +764,6 @@ func TestInstalledSyntheticGraphStageJourney(t *testing.T) {
 		stagePlanUnit("integrator", []string{"src", "docs"}, impl, integrated, integratedReview),
 	}, []executiongraph.Effect{impl, review, integrated, integratedReview})
 	args := stageRunArgs(view, "implementation", plan, j.policy, j.workspace)
-	j.seedEvidence(t, "codex", "profile-codex", capabilityproof.RepositoryWriteVariant, stageJourneyCaps...)
 	if refused := j.run(t, 1, append(args, "--authorize-local")...); refused.Category != "runtime_unresolvable" {
 		t.Fatalf("graph preview without Claude Evidence: %+v", refused)
 	}
@@ -783,7 +814,7 @@ func TestInstalledSyntheticGraphStageJourney(t *testing.T) {
 	if len(completed) != 2 || !completed[0].StartedAt.Before(*completed[1].FinishedAt) || !completed[1].StartedAt.Before(*completed[0].FinishedAt) {
 		t.Fatalf("independent children did not overlap: %+v", completed)
 	}
-	calls := j.invocations(t)
+	calls := j.invocations(t)[priorCalls:]
 	if len(calls) != 2 || calls[0].Runtime == calls[1].Runtime {
 		t.Fatalf("expected two cross-Runtime FAKE calls: %+v", calls)
 	}
@@ -979,6 +1010,9 @@ func (j *stageJourney) deliveryJourney(t *testing.T, initial *cli.WorkflowView) 
 			}
 			view = call(append(append([]string{"workflow", "fact"}, selector...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--fact", strings.ReplaceAll(string(action.Fact), "_", "-"), "--active", "--actor", "fixture-human", "--reference", kind+":decision.md:"+authorityDigest, "--authorize-local")...)
 		}
+		if view.CurrentGate != "implementation" {
+			j.runDeliverySingle(t, view)
+		}
 		file := j.deliveryOutput(t, view)
 		view = call(append(append([]string{"workflow", "advance"}, selector...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--gate", view.CurrentGate, "--outcome", "pass", "--stage-result", file)...)
 	}
@@ -1149,4 +1183,106 @@ func (j *stageJourney) deliveryOutput(t *testing.T, view *cli.WorkflowView) stri
 		t.Fatal(err)
 	}
 	return file
+}
+
+// Exercise the protected run/authority stores and canonical coordination through
+// the installed CLI and fake Runtime, rather than fabricating delivery evidence.
+func (j *stageJourney) runDeliverySingle(t *testing.T, view *cli.WorkflowView) {
+	t.Helper()
+	stage := view.StageContract
+	if stage == nil {
+		t.Fatal("stage contract missing")
+	}
+	if len(stage.Agents) != 1 {
+		t.Fatalf("expected single stage: %s", stage.ID)
+	}
+	agent := stage.Agents[0].ID
+	target := "docs/" + stage.ID + ".md"
+	plan := writeStagePlanDocument(t, []executiongraph.WorkUnit{writeUnit(agent, []string{"docs"}, target)}, []executiongraph.Effect{{Kind: "repository-write", Target: target}})
+	j.script(t, fakeStageScript{Agents: map[string][]fakeStageStep{agent: {
+		{Op: "write", Path: target, Content: "synthetic stage output\n"},
+		{Op: "publish", Kind: "result", Fields: []string{"outcome=succeeded", "summary=synthetic delivery stage"}},
+	}}})
+	// Give each single-stage manager its own authorized ownership root.
+	workspace := t.TempDir()
+	if err := os.Chmod(workspace, 0700); err != nil {
+		t.Fatal(err)
+	}
+	args := stageRunArgs(view, stage.ID, plan, j.policy, workspace)
+	digest := j.run(t, 0, append(args, "--authorize-local")...).reference(t, "stage-preview:")
+	j.run(t, 0, append(args, "--preview-digest", digest, "--authorize-local", "--authorize-external")...)
+	status := decodeSingle(t, j.waitStatus(t, view, latestSettled))
+	if len(status.Single.Attempts) != 1 || status.Single.Attempts[0].Status != "succeeded" {
+		t.Fatalf("single delivery stage: %+v", status)
+	}
+}
+
+func TestDeliveryCLIValidatedCheckpointsWithoutRuns(t *testing.T) {
+	j := newStageJourney(t)
+	saveTargetLink(t, j.env.state, workItemSourceProjectID, "15", "owner/repo")
+	view := j.startExecution(t, "github:owner/repo#15")
+	selector := stageSelector(view)
+	sum := sha256.Sum256([]byte(stageJourneyDecision))
+	for view.Status != "completed" {
+		if action := view.GateAction; action != nil && action.Operation == "fact" {
+			kind := "evidence"
+			if action.Fact == workflow.FactPlanningAuthority {
+				kind = "specification"
+			}
+			if action.Fact == workflow.FactImplementationAuthority {
+				kind = "plan"
+			}
+			code, _, wire := j.invoke(t, j.axiom, append(append([]string{"workflow", "fact"}, selector...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--fact", strings.ReplaceAll(string(action.Fact), "_", "-"), "--active", "--actor", "fixture-human", "--reference", kind+":decision.md:"+hex.EncodeToString(sum[:]), "--authorize-local")...)
+			var event workflowEvent
+			if code != 0 || json.Unmarshal(wire, &event) != nil || event.Workflow == nil {
+				t.Fatalf("fact: %s", wire)
+			}
+			view = event.Workflow
+		}
+		file := j.deliveryOutput(t, view)
+		code, _, wire := j.invoke(t, j.axiom, append(append([]string{"workflow", "advance"}, selector...), "--expected-revision", strconv.FormatUint(view.Revision, 10), "--gate", view.CurrentGate, "--outcome", "pass", "--stage-result", file)...)
+		var event workflowEvent
+		if code != 0 || json.Unmarshal(wire, &event) != nil || event.Workflow == nil {
+			t.Fatalf("advance: %s", wire)
+		}
+		view = event.Workflow
+	}
+	event := j.run(t, 0, append([]string{"workflow", "delivery", "packet"}, selector...)...)
+	var packet struct {
+		Packet workflow.DeliveryPacket `json:"packet"`
+	}
+	if err := json.Unmarshal(event.Stage, &packet); err != nil || packet.Packet.Ready {
+		t.Fatalf("packet: %s %v", event.Stage, err)
+	}
+	for _, stage := range packet.Packet.Stages {
+		if stage.Ledger == nil || len(stage.Artifacts) == 0 || stage.Blocker != "single_stage_run_missing" {
+			t.Fatalf("stage: %+v", stage)
+		}
+	}
+	request := filepath.Join(t.TempDir(), "local.json")
+	requestWire, err := json.Marshal(workflow.DeliveryTarget{Kind: "local"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(request, requestWire, 0600); err != nil {
+		t.Fatal(err)
+	}
+	preview := j.run(t, 0, append(append([]string{"workflow", "delivery", "preview"}, selector...), "--request", request)...)
+	var value struct {
+		Preview workflow.DeliveryPreview `json:"preview"`
+	}
+	if err := json.Unmarshal(preview.Stage, &value); err != nil {
+		t.Fatal(err)
+	}
+	j.run(t, 1, append(append([]string{"workflow", "delivery", "apply"}, selector...), "--request", request, "--preview-digest", value.Preview.Digest(), "--authorize-local")...)
+	store, err := local.NewWorkflowStore(j.env.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.LoadDeliveryPublication(context.Background(), packet.Packet.ProjectID, value.Preview.Digest()); err == nil {
+		t.Fatal("publication created without attempts")
+	}
+	if len(j.invocations(t)) != 0 {
+		t.Fatal("unexpected Runtime call")
+	}
 }

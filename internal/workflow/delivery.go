@@ -131,6 +131,13 @@ func ComposeDeliveryPacket(ctx context.Context, state State, evidence DeliveryEv
 		}
 		item.ResultTree, item.DiffDigest = observed.ResultTree, observed.DiffDigest
 		item.OutcomeRef, item.Outcome, item.GraphDigest, item.ReceiptRef, item.SingleDigest = observed.OutcomeRef, observed.Outcome, observed.GraphDigest, observed.ReceiptRef, observed.SingleDigest
+		if len(stage.Agents) == 1 {
+			if item.SingleAttempt == nil || !validDigest(item.SingleDigest) {
+				block(stage.ID, "single_stage_execution_missing")
+			} else if !validOpaqueID(item.SingleAttempt.AttemptID) || item.SingleAttempt.Status != executiongraph.AttemptSucceeded || item.SingleAttempt.ClassificationReason != executiongraph.ResultRecorded || !validDigest(item.SingleAttempt.QualifyingRecordRef) {
+				block(stage.ID, "single_stage_incomplete")
+			}
+		}
 		if item.Ledger == nil {
 			block(stage.ID, "checkpoint_missing")
 			p.Stages = append(p.Stages, item)
@@ -194,7 +201,7 @@ func ComposeDeliveryPacket(ctx context.Context, state State, evidence DeliveryEv
 	p.Ready = len(p.Blockers) == 0
 	p.Next = "preview delivery publication"
 	if !p.Ready {
-		p.Next = "resolve packet blockers through the retained workflow gates"
+		p.Next = "resolve packet blockers through the retained workflow gates; run or reconcile required stage attempts with matching authority and coordination Evidence"
 	}
 	if _, err := EncodeDeliveryPacket(p); err != nil {
 		return DeliveryPacket{}, err

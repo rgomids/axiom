@@ -225,3 +225,28 @@ func TestDeliveryPublicationRetryNeedsConclusiveAbsenceAndNewExactAuthority(t *t
 		t.Fatal(r, err, f.prs, f.pushes)
 	}
 }
+
+func TestDeliveryWithoutAttemptsRefusesAllPublicationEffects(t *testing.T) {
+	s, d, store, effects, ready := publicationFixture(t)
+	_, evidence := packetFixture(t, false, false)
+	evidence.stages = nil
+	packet, err := ComposeDeliveryPacket(context.Background(), s, evidence)
+	if err != nil || packet.Ready {
+		t.Fatalf("packet %v %v", packet.Blockers, err)
+	}
+	for _, target := range []DeliveryTarget{{Kind: "local"}, ready.Target} {
+		preview := ready
+		preview.Packet = packet
+		preview.PacketDigest, err = DeliveryPacketDigest(packet)
+		if err != nil {
+			t.Fatal(err)
+		}
+		preview.Target = target
+		if _, err := d.Apply(context.Background(), s, preview, publicationAuthority(preview)); err == nil {
+			t.Fatal("publication accepted missing execution")
+		}
+	}
+	if store.saves != 0 || effects.pushes != 0 || effects.prs != 0 {
+		t.Fatalf("unexpected effects: %+v %+v", store, effects)
+	}
+}
