@@ -11,7 +11,7 @@ Inspection stops there: do not collect inputs or execute an operation. The binar
 owns argument names, requirements, accepted forms, and executable command
 metadata; do not maintain a second argument registry in this skill.
 
-Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `stage.run`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `stage.integrate`, `coordination.list`, and `coordination.show`.
+Supported domain operations are `create`, `run`, `status`, `plan`, `list`, `show`, `update`, `comment`, `close`, `reopen`, `delivery.packet`, `delivery.decision`, `delivery.rework`, `delivery.prepare`, `delivery.preview`, `delivery.apply`, `delivery.inspect`, `delivery.reconcile`, `stage.run`, `stage.status`, `stage.cancel`, `stage.retry`, `stage.reconcile`, `stage.integrate`, `coordination.list`, and `coordination.show`.
 Any other operation, such as `delete` or Execution `cancel`, is unsupported:
 report that it is not available and do not run a Lingo command for it. Work
 Items are closed or reopened, never deleted; sequential Executions have no
@@ -38,6 +38,14 @@ Execution history and Evidence are never edited. Runtime capability `show`,
 | `comment` | - | `axiom work-item comment --project <uuid-or-slug>` | external mutation | preview first; comment only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous comment intent |
 | `close` | - | `axiom work-item close --project <uuid-or-slug>` | external mutation | preview first; close only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous close intent |
 | `reopen` | - | `axiom work-item reopen --project <uuid-or-slug>` | external mutation | preview first; reopen only with the exact `--preview-digest` plus `--authorize-external` | only for unambiguous reopen intent |
+| `delivery.packet` | - | `axiom workflow delivery packet` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery packet intent |
+| `delivery.decision` | - | `axiom workflow delivery decision` | local mutation | exact `--preview-digest`, `--authorize-local` and `--authorize-human` | only for unambiguous human delivery decision intent |
+| `delivery.rework` | - | `axiom workflow delivery rework` | local mutation | exact `--preview-digest`, `--authorize-local` and `--authorize-execution` | only for unambiguous new linked Execution intent |
+| `delivery.prepare` | - | `axiom workflow delivery prepare` | local mutation | exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery preparation intent |
+| `delivery.preview` | - | `axiom workflow delivery preview` | read-only | none | allowed |
+| `delivery.apply` | - | `axiom workflow delivery apply` | external mutation | exact `--preview-digest`, `--authorize-local`, `--authorize-push` and `--authorize-pr` for requested effects | only for unambiguous delivery intent |
+| `delivery.inspect` | - | `axiom workflow delivery inspect` | read-only | none | allowed |
+| `delivery.reconcile` | - | `axiom workflow delivery reconcile` | local mutation | exact `--preview-digest` and `--authorize-local` | only for unambiguous delivery intent |
 | `stage.run` | - | `axiom workflow stage run` | external mutation | preview first; dispatch only with the exact `--preview-digest`, `--authorize-local` and `--authorize-external` (vendor inference) | only for unambiguous stage run intent |
 | `stage.status` | - | `axiom workflow stage status` | read-only | none; persisted state only, never a stop or success claim | allowed |
 | `stage.cancel` | - | `axiom workflow stage cancel` | local mutation | preview first; apply only with the exact `--preview-digest` and `--authorize-local` | only for unambiguous stage cancel intent |
@@ -174,7 +182,7 @@ replace a human fact or final acceptance.
 
 Configured technical completion stops at `reviewed` with
 `delivery_packet_required`. Exact packet-bound acceptance belongs to the delivery
-operation (#277), which is not available in this slice. Never submit configured
+`delivery decision` operation. Never submit configured
 `human-acceptance` with an Evidence file or stage output as a substitute packet.
 Legacy format-1 acceptance retains its historical protocol.
 
@@ -269,11 +277,20 @@ fact merely because planning succeeded.
 Synthetic R-1 acceptance uses the deterministic maintainer runner
 `scripts/acceptance/stage-plan-r1.py` against the exact clean source revision;
 its sanitized Evidence is technical evidence, not human acceptance. R-2/R-3
-remain deferred to #278. Delivery/rework (#277) is unavailable. A proposal
+remain deferred to #278. Publication/decision/rework (#277) remain unavailable. A proposal
 never performs Execution work; dispatch is the separately authorized
 `stage.run`. Definition configuration
 belongs to `axiom-workflow`, selection belongs to `axiom-project`, and Work Item
 `run`/`status`/`plan` retain the canonical execution boundary.
+
+## delivery packet
+
+Use `axiom workflow delivery packet` with the exact persisted Project, Repository,
+Work Item and Execution selectors. Report `packetDigest`, readiness, blockers and
+next action unchanged. Retain only after exact local authority by repeating with
+`--preview-digest <packetDigest> --authorize-local`. `--packet <digest>` inspects
+a retained immutable packet.
+Packet readiness grants no publication, acceptance or rework authority.
 
 ## stage dispatch and coordination
 
@@ -362,3 +379,38 @@ operation-specific payload, and do not extract, duplicate, rename, or relocate
 a payload.
 
 Resolving an operation never grants Provider or local mutation authority.
+
+## delivery publication
+
+Use `axiom workflow delivery preview --request <json-file>` with the exact
+Project, Repository, Work Item and Execution selectors. The request contains the
+local or GitHub target, remote, base/head refs and commits, tree/diff and PR
+content. Present the returned envelope unchanged. Retain the packet separately.
+Run `delivery apply` with the same request and `--preview-digest <digest>
+--authorize-local` only under exact authority; GitHub effects additionally need
+`--authorize-push` and/or `--authorize-pr` for each requested effect. Local
+authority does not cover remote publication. Use `delivery inspect --publication
+<digest>` to read its fence. Use `delivery reconcile` with that digest and exact
+local authority to confirm uncertain effects; reconciliation never repeats them.
+A recorded failure or partial result requires the returned recovery action.
+
+## delivery decision and rework
+
+Use `delivery decision --request <json-file>` with the exact persisted selectors
+to preview a decision binding packetDigest, publicationDigest, outcome, actor,
+reason, authority and Evidence references. Omit the request to inspect the
+immutable decision. Only explicit human authority permits the same request with
+`--preview-digest <digest> --authorize-local --authorize-human`. Agent assertions,
+CI, PR creation, closure and merge never grant acceptance. Accept requires ready
+packet and confirmed delivery. Rejection preserves technical outcomes and any
+partial or uncertain publication; successful recording describes the operation.
+
+Use `delivery rework --request <json-file>` to preview a new linked Execution.
+The request explicitly selects retained R1 or selected R2, a new Execution ID,
+Runtime/profile, corrective scope/Plan, digest-bound prior inputs and a new
+authority reference. It does not start work. Apply only the exact returned digest
+with `--authorize-local --authorize-execution` under independent authority.
+Follow every gate from the start of the new binding. Never rewind the rejected
+Execution, inherit prior authority, allocate a replacement ID on retry, or infer
+acceptance. Interrupted local publication uses the existing `recovery inspect`
+and exact `recovery apply` protocol before replaying the same rework proposal.

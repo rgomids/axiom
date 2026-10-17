@@ -285,6 +285,21 @@ func writeEveryV1Kind(t *testing.T) (string, string) {
 	if _, err := ledgers.RecordStageOutcome(context.Background(), v3, localStageOutcome(v3, "00000000-0000-4000-8000-000000000095")); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := ledgers.RecordDeliveryPacket(context.Background(), v3, localDeliveryPacket(v3)); err != nil {
+		t.Fatal(err)
+	}
+	publication := workflow.DeliveryPublication{FormatVersion: 1, Kind: "delivery_publication", Preview: workflow.DeliveryPreview{Packet: localDeliveryPacket(v3), Target: workflow.DeliveryTarget{Kind: "local"}}, Status: "failure", Push: "not_requested", PR: "not_requested", Next: "inspect"}
+	publication.Preview.PacketDigest, _ = workflow.DeliveryPacketDigest(publication.Preview.Packet)
+	if err := ledgers.SaveDeliveryPublication(context.Background(), v3, publication, nil); err != nil {
+		t.Fatal(err)
+	}
+	original, rework := localReworkFixture(t, ledgers, v3)
+	if err := ledgers.Save(context.Background(), original); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ledgers.ApplyDeliveryRework(context.Background(), original, rework); err != nil {
+		t.Fatal(err)
+	}
 	streams, err := NewCoordinationStore(state, authority.ProjectID)
 	if err != nil {
 		t.Fatal(err)

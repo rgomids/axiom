@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"github.com/rgomids/axiom/internal/workflow"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,6 +52,10 @@ func TestInventoryRejectsRecordsAwayFromTheirCanonicalLocation(t *testing.T) {
 		// state-relative path that must now fail closed.
 		relocate func(t *testing.T, state, relative string) string
 	}{
+		{"projection renamed", InventoryDeliveryProjection, renameTo(strings.Repeat("f", 64) + ".json")},
+		{"decision renamed", InventoryDeliveryDecision, renameTo(strings.Repeat("f", 64) + ".json")},
+		{"rework renamed", InventoryDeliveryRework, renameTo(strings.Repeat("f", 64) + ".json")},
+		{"retained renamed", InventoryRetainedExecution, renameTo(strings.Repeat("f", 64) + ".json")},
 		{"authority renamed to another digest", InventoryDispatchAuthority, renameTo(strings.Repeat("f", 64) + ".json")},
 		{"authority moved under another project", InventoryDispatchAuthority, moveToProject("project-2")},
 		{"graph authority moved to executions", InventoryDispatchAuthority, moveAuthorityFamily},
@@ -143,6 +148,47 @@ func TestEverySupportedRecordLoadsThroughItsCanonicalStore(t *testing.T) {
 			return data
 		}
 		switch entry.Kind {
+		case InventoryDeliveryDecision:
+			d, err := workflow.DecodeDeliveryDecision(wire())
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, _ := NewWorkflowStore(state)
+			if _, err = store.LoadDeliveryDecision(ctx, parts[2], d.Packet.ExecutionID); err != nil {
+				t.Fatal(err)
+			}
+		case InventoryDeliveryRework:
+			p, err := workflow.DecodeReworkPreview(wire())
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, _ := NewWorkflowStore(state)
+			if _, err = store.LoadDeliveryRework(ctx, parts[2], p.OriginalPacket.ExecutionID); err != nil {
+				t.Fatal(err)
+			}
+		case InventoryRetainedExecution:
+			execution, err := decodeExecution(wire())
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, _ := NewWorkflowStore(state)
+			if _, err = store.LoadExecutionID(ctx, parts[2], execution.RepositoryKey, execution.WorkItem, execution.ExecutionID); err != nil {
+				t.Fatal(err)
+			}
+		case InventoryDeliveryPublication:
+			r, err := workflow.DecodeDeliveryPublication(wire())
+			if err != nil {
+				t.Fatal(err)
+			}
+			store, _ := NewWorkflowStore(state)
+			if _, err = store.LoadDeliveryPublication(ctx, parts[2], r.Preview.Digest()); err != nil {
+				t.Fatal(err)
+			}
+		case InventoryDeliveryPacket:
+			store, _ := NewWorkflowStore(state)
+			if _, err := store.LoadDeliveryPacket(ctx, parts[2], strings.TrimSuffix(parts[3], ".json")); err != nil {
+				t.Fatal(err)
+			}
 		case InventoryDispatchAuthority:
 			a, err := executiongraph.DecodeDispatchAuthority(wire())
 			if err != nil {

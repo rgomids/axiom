@@ -77,12 +77,11 @@ func (s WorkflowStore) Save(ctx context.Context, state workflow.State) error {
 }
 
 func (s WorkflowStore) write(ctx context.Context, state workflow.State, create bool) error {
+	if !workflow.ValidState(state) {
+		return workflowStoreError(ErrUnsafe)
+	}
 	if err := ctx.Err(); err != nil {
 		return err
-	}
-	wire, err := encodeExecution(state)
-	if err != nil {
-		return workflowStoreError(err)
 	}
 	root, executions, version, projectRoot, err := s.openProject(state.ProjectID, true)
 	if err != nil {
@@ -108,9 +107,20 @@ func (s WorkflowStore) write(ctx context.Context, state workflow.State, create b
 			return workflowStoreError(ErrConflict)
 		}
 		prior, e := decodeExecution(expected)
-		if e != nil || !sameExecutionBinding(prior, state) {
+		if e != nil || !sameExecutionBinding(prior, state) || !reflect.DeepEqual(prior.ReworkOf, state.ReworkOf) {
 			return workflow.ErrRecoveryRequired
 		}
+	}
+	if !create {
+		if d, e := readDeliveryDecision(projectRoot, state.ProjectID, state.ExecutionID); e == nil {
+			return workflowStoreError(s.saveDeliveryProjection(ctx, projectRoot, expected, state, d))
+		} else if !errors.Is(e, os.ErrNotExist) && !errors.Is(e, ErrNotFound) {
+			return workflowStoreError(e)
+		}
+	}
+	wire, err := encodeExecution(state)
+	if err != nil {
+		return workflowStoreError(err)
 	}
 	hooks := s.hooks
 	hooks.contentLimit = MaxExecutionBytes
@@ -149,7 +159,7 @@ func (s WorkflowStore) Load(ctx context.Context, projectID, repositoryKey string
 		return workflow.State{}, workflowStoreError(ErrUnsafe)
 	}
 	state.StorageRevision = sha256.Sum256(wire)
-	return state, nil
+	return attachDeliveryDecision(projectRoot, state)
 }
 
 // List enumerates every Execution record of one Project under the same shared
@@ -197,12 +207,30 @@ func (s WorkflowStore) List(ctx context.Context, projectID string) ([]workflow.S
 		if err != nil {
 			return nil, workflowStoreError(err)
 		}
+		if classifyDeliveryProjection(projectID, name, wire) == InventoryDeliveryProjection || classifyDeliveryDecision(projectID, name, wire) == InventoryDeliveryDecision || classifyDeliveryRework(projectID, name, wire) == InventoryDeliveryRework || classifyDeliveryPublication(projectID, name, wire) == InventoryDeliveryPublication || classifyDeliveryPacket(projectID, name, wire) == InventoryDeliveryPacket || classifyStageOutcome(projectID, name, wire) == InventoryStageOutcome || classifyDispatchAuthority(projectID, name, wire, "single-first-attempt") == InventoryDispatchAuthority {
+			continue
+		}
 		state, err := decodeExecution(wire)
-		if err != nil || state.ProjectID != projectID || executionName(state.RepositoryKey, state.WorkItem) != name {
+		if err != nil || state.ProjectID != projectID || executionName(state.RepositoryKey, state.WorkItem) != name && retainedExecutionName(state.ExecutionID) != name {
 			return nil, workflowStoreError(ErrUnsafe)
 		}
 		state.StorageRevision = sha256.Sum256(wire)
-		states = append(states, state)
+		state, err = attachDeliveryDecision(projectRoot, state)
+		if err != nil {
+			return nil, err
+		}
+		duplicate := false
+		for _, prior := range states {
+			if prior.ExecutionID == state.ExecutionID {
+				duplicate = true
+				if prior.StorageRevision != state.StorageRevision {
+					return nil, ErrUnsafe
+				}
+			}
+		}
+		if !duplicate {
+			states = append(states, state)
+		}
 	}
 	return states, nil
 }
@@ -239,7 +267,7 @@ func (s WorkflowStore) openProject(projectID string, create bool) (*os.Root, *os
 	return root, executions, version, projectRoot, nil
 }
 
-func encodeExecution(state workflow.State) ([]byte, error) {
+func encodeExecutionSnapshot(state workflow.State) ([]byte, error) {
 	if !workflow.ValidState(state) {
 		return nil, ErrUnsafe
 	}
@@ -275,7 +303,7 @@ func encodeExecution(state workflow.State) ([]byte, error) {
 
 const timeFormat = "2006-01-02T15:04:05.999999999Z07:00"
 
-func decodeExecution(wire []byte) (workflow.State, error) {
+func decodeExecutionSnapshot(wire []byte) (workflow.State, error) {
 	if len(wire) == 0 || len(wire) > MaxExecutionBytes {
 		return workflow.State{}, ErrUnsafe
 	}

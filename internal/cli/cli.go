@@ -297,28 +297,32 @@ type WorkflowStepView struct {
 	CommittedAt string                  `json:"committedAt"`
 }
 type WorkflowView struct {
-	Blockers        []string                      `json:"blockers,omitempty"`
-	StageInputs     map[string]workflow.Reference `json:"stageInputs,omitempty"`
-	ExecutionKind   string                        `json:"executionKind,omitempty"`
-	Binding         *workflow.BindingView         `json:"binding,omitempty"`
-	StageContract   *workflowdefinition.Stage     `json:"stageContract,omitempty"`
-	StageOrdinal    int                           `json:"stageOrdinal,omitempty"`
-	StageLedger     []workflow.StageLedger        `json:"stageLedger,omitempty"`
-	GateAction      *workflow.GateAction          `json:"gateAction,omitempty"`
-	GateCommand     []string                      `json:"gateCommand,omitempty"`
-	ExecutionID     string                        `json:"executionId"`
-	WorkflowVersion string                        `json:"workflowVersion"`
-	Status          string                        `json:"status"`
-	CurrentGate     string                        `json:"currentGate"`
-	LifecycleStage  string                        `json:"lifecycleStage,omitempty"`
-	Blocked         bool                          `json:"blocked,omitempty"`
-	NeedsDecision   bool                          `json:"needsDecision,omitempty"`
-	NeedsApproval   bool                          `json:"needsApproval,omitempty"`
-	Revision        uint64                        `json:"revision"`
-	RepositoryKey   string                        `json:"repositoryKey"`
-	WorkItem        WorkItemView                  `json:"workItem"`
-	RuntimeID       string                        `json:"runtimeId"`
-	Transitions     []WorkflowStepView            `json:"transitions"`
+	DeliveryStatus   string                        `json:"deliveryStatus,omitempty"`
+	WorkflowSuccess  bool                          `json:"workflowSuccess,omitempty"`
+	DeliveryDecision *workflow.DeliveryDecision    `json:"deliveryDecision,omitempty"`
+	ReworkOf         *workflow.ReworkLink          `json:"reworkOf,omitempty"`
+	Blockers         []string                      `json:"blockers,omitempty"`
+	StageInputs      map[string]workflow.Reference `json:"stageInputs,omitempty"`
+	ExecutionKind    string                        `json:"executionKind,omitempty"`
+	Binding          *workflow.BindingView         `json:"binding,omitempty"`
+	StageContract    *workflowdefinition.Stage     `json:"stageContract,omitempty"`
+	StageOrdinal     int                           `json:"stageOrdinal,omitempty"`
+	StageLedger      []workflow.StageLedger        `json:"stageLedger,omitempty"`
+	GateAction       *workflow.GateAction          `json:"gateAction,omitempty"`
+	GateCommand      []string                      `json:"gateCommand,omitempty"`
+	ExecutionID      string                        `json:"executionId"`
+	WorkflowVersion  string                        `json:"workflowVersion"`
+	Status           string                        `json:"status"`
+	CurrentGate      string                        `json:"currentGate"`
+	LifecycleStage   string                        `json:"lifecycleStage,omitempty"`
+	Blocked          bool                          `json:"blocked,omitempty"`
+	NeedsDecision    bool                          `json:"needsDecision,omitempty"`
+	NeedsApproval    bool                          `json:"needsApproval,omitempty"`
+	Revision         uint64                        `json:"revision"`
+	RepositoryKey    string                        `json:"repositoryKey"`
+	WorkItem         WorkItemView                  `json:"workItem"`
+	RuntimeID        string                        `json:"runtimeId"`
+	Transitions      []WorkflowStepView            `json:"transitions"`
 }
 
 // Run parses one CLI action, delegates it, and emits one safe structured event.

@@ -123,23 +123,26 @@ type ProjectionRecord struct {
 	Complete            bool
 }
 type State struct {
-	Binding                  *WorkflowBinding
-	StageOrdinal             int
-	ExecutionID              string
-	FormatVersion            int
-	WorkflowVersion          string
-	ProjectID, RepositoryKey string
-	WorkItem                 WorkItem
-	RuntimeID                string
-	Stage                    Stage
-	Revision                 uint64
-	Status                   ExecutionStatus
-	Transitions              []Transition
-	CreatedAt, UpdatedAt     time.Time
-	Provenance               Identity
-	Terminal                 *Terminal
-	Projections              []ProjectionRecord
-	StorageRevision          [sha256.Size]byte
+	DeliveryDecision           *DeliveryDecision
+	ReworkOf                   *ReworkLink
+	Binding                    *WorkflowBinding
+	StageOrdinal               int
+	ExecutionID                string
+	FormatVersion              int
+	WorkflowVersion            string
+	ProjectID, RepositoryKey   string
+	WorkItem                   WorkItem
+	RuntimeID                  string
+	Stage                      Stage
+	Revision                   uint64
+	Status                     ExecutionStatus
+	Transitions                []Transition
+	CreatedAt, UpdatedAt       time.Time
+	Provenance                 Identity
+	Terminal                   *Terminal
+	Projections                []ProjectionRecord
+	StorageRevision            [sha256.Size]byte
+	DeliveryProjectionRevision [sha256.Size]byte `json:"-"`
 }
 type Store interface {
 	Create(context.Context, State) error
@@ -321,6 +324,9 @@ func (s Service) Start(ctx context.Context, target Target) Result {
 	}
 	existing, err := s.store.Load(ctx, project.ID, repository.Key, item)
 	if err == nil {
+		if existing.DeliveryDecision != nil && existing.DeliveryDecision.Outcome == "reject" {
+			return result(Denied, "delivery_rework_required", existing)
+		}
 		if equivalentStart(existing, project.ID, repository.Key, item, target.RuntimeID) {
 			return result(Succeeded, "execution_already_started", existing)
 		}
@@ -797,6 +803,18 @@ func (s Service) loadResolved(ctx context.Context, target Target) (State, Reposi
 		return State{}, Repository{}, failed
 	}
 	state, err := s.store.Load(ctx, project.ID, repository.Key, item)
+	if err == nil && target.ExecutionID != "" && state.ExecutionID != target.ExecutionID {
+		if reader, ok := s.store.(interface {
+			LoadExecutionID(context.Context, string, string, WorkItem, string) (State, error)
+		}); ok {
+			historical, readErr := reader.LoadExecutionID(ctx, project.ID, repository.Key, item, target.ExecutionID)
+			if errors.Is(readErr, ErrNotFound) {
+				return State{}, Repository{}, result(ValidationFailed, "execution_selector_conflict", State{})
+			}
+			state, err = historical, readErr
+		}
+	}
+
 	if err != nil {
 		return State{}, Repository{}, storeFailure(err)
 	}
@@ -966,6 +984,12 @@ func validProjectionObservation(item WorkItem, observation ProjectionObservation
 func projectionRecord(state State, preview ProjectionPreview) ProjectionRecord {
 	for _, current := range state.Projections {
 		if current.ExecutionRevision == preview.ExecutionRevision {
+			if state.DeliveryDecision != nil {
+				lifecycle, err := DeriveLifecycle(state)
+				if err != nil || !validProjectionEffects(current, append([]string{preview.Label}, lifecycleFlags(lifecycle.Conditions)...), preview.Comment, validProjectionLabel) {
+					break
+				}
+			}
 			for _, effect := range preview.Effects {
 				if !containsEffect(current.Intended, effect) {
 					current.Intended = append(current.Intended, effect)
@@ -1173,6 +1197,13 @@ func validProjectionRecord(state State, record ProjectionRecord) bool {
 		}
 	}
 
+	if state.DeliveryDecision != nil {
+		state.DeliveryDecision = nil
+		if validProjectionRecord(state, record) {
+			return true
+		}
+	}
+
 	// Persisted S4 records remain readable without rewriting their labels,
 	// comments, or Evidence. New previews never create these legacy effects.
 	legacyLabel := stagePrefix + string(projected.Stage)
@@ -1213,6 +1244,9 @@ func projectionSnapshot(state State, revision uint64) State {
 	projected.UpdatedAt = projected.CreatedAt
 	projected.Terminal = nil
 	projected.Projections = nil
+	if revision != state.Revision {
+		projected.DeliveryDecision = nil
+	}
 	for _, event := range projected.Transitions {
 		if event.Ledger != nil && event.Outcome == OutcomePassed && event.From != event.To {
 			projected.StageOrdinal++

@@ -87,12 +87,24 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 		return s.stagePublish(ctx, in)
 	}
 	operation := projectapp.AdmitExecutionAdvance
-	if in.Operation == "status" || strings.HasPrefix(in.Operation, "coordination-") {
+	if in.Operation == "status" || in.Operation == "delivery-packet" && !in.AuthorizeLocal || strings.HasPrefix(in.Operation, "coordination-") {
 		operation = projectapp.AdmitExecutionStatus
 	}
 	target, failure := s.resolveStageTarget(ctx, in, operation)
 	if failure != nil {
 		return *failure
+	}
+	if in.Operation == "delivery-decision" {
+		return s.deliveryDecision(ctx, stores, target, in)
+	}
+	if in.Operation == "delivery-rework" {
+		return s.deliveryRework(ctx, stores, target, in)
+	}
+	if strings.HasPrefix(in.Operation, "delivery-") && in.Operation != "delivery-packet" {
+		return s.deliveryPublication(ctx, stores, target, in)
+	}
+	if in.Operation == "delivery-packet" {
+		return s.deliveryPacket(ctx, stores, target, in)
 	}
 	if target.single != nil {
 		switch in.Operation {

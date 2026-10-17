@@ -317,6 +317,15 @@ func configuredLifecycle(state State) (LifecycleProjection, error) {
 	default:
 		return LifecycleProjection{}, ErrRecoveryRequired
 	}
+	if state.DeliveryDecision != nil {
+		disposition, accepted := DeliveryDisposition(state)
+		if disposition == "recovery_required" {
+			return LifecycleProjection{}, ErrRecoveryRequired
+		}
+		if accepted {
+			value = LifecycleAccepted
+		}
+	}
 	return LifecycleProjection{Stage: value, Conditions: conditions}, nil
 }
 

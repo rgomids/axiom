@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -30,6 +31,7 @@ func TestMain(m *testing.M) {
 }
 
 type fakeGitHub struct {
+	IssueNumber      int      `json:"issueNumber,omitempty"`
 	RepositoryLabels []string `json:"repositoryLabels"`
 	IssueLabels      []string `json:"issueLabels"`
 	Comments         []string `json:"comments"`
@@ -62,7 +64,12 @@ func runFakeGitHub(path string, args []string, stdin io.Reader, stdout io.Writer
 		}
 	}
 	body, _ := io.ReadAll(stdin)
-	const issue = "repos/owner/repo/issues/7"
+	number := state.IssueNumber
+	if number == 0 {
+		number = 7
+	}
+	issue := "repos/owner/repo/issues/" + strconv.Itoa(number)
+	issueURL := "https://github.com/owner/repo/issues/" + strconv.Itoa(number)
 	names := func(values []string) []map[string]string {
 		result := make([]map[string]string, 0, len(values))
 		for _, value := range values {
@@ -82,7 +89,7 @@ func runFakeGitHub(path string, args []string, stdin io.Reader, stdout io.Writer
 		state.IssueLabels = append([]string(nil), request.Labels...)
 		state.IssueCreated = true
 		state.Mutations = append(state.Mutations, "create_issue")
-		response = map[string]any{"number": 7, "html_url": "https://github.com/owner/repo/issues/7", "state": "open", "labels": names(state.IssueLabels)}
+		response = map[string]any{"number": number, "html_url": issueURL, "state": "open", "labels": names(state.IssueLabels)}
 	case method == "GET" && strings.HasPrefix(endpoint, "repos/owner/repo/labels?per_page=100"):
 		response = names(state.RepositoryLabels)
 	case !state.IssueCreated:
@@ -96,7 +103,7 @@ func runFakeGitHub(path string, args []string, stdin io.Reader, stdout io.Writer
 		state.Mutations = append(state.Mutations, "create_label:"+label.Name)
 		response = map[string]string{"name": label.Name}
 	case method == "GET" && endpoint == issue:
-		response = map[string]any{"number": 7, "html_url": "https://github.com/owner/repo/issues/7", "state": "open", "labels": names(state.IssueLabels)}
+		response = map[string]any{"number": number, "html_url": issueURL, "state": "open", "labels": names(state.IssueLabels)}
 	case method == "POST" && endpoint == issue+"/labels":
 		var request struct{ Labels []string }
 		if json.Unmarshal(body, &request) != nil || len(request.Labels) != 1 {
