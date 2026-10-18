@@ -372,3 +372,78 @@ conversations, G1/G2 incident reproduction, Provider/Runtime effects and AXM-12 
 The Plan remains Proposed. Next action is a new Plan review and explicit human
 acceptance of the updated SHA before any `tasks` stage and its own gate/authority;
 this execution stops after documentary publication and verification.
+
+## Tasks preparation — 2026-10-18
+
+### Authority and documentary result
+
+The maintainer explicitly [accepted the Plan](https://github.com/rgomids/axiom/pull/328#issuecomment-6253809891)
+at `962adfdcd22384c681613810b78022469ee813cb`, also confirmed by the
+[Linear acceptance](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-42cacc85).
+Read that decision, the [round-4 review](https://github.com/rgomids/axiom/pull/328#pullrequestreview-5564396763),
+Spec/ADR, Clarify, Plan and current SDD/documentation/security governance before
+editing. This later acceptance supersedes earlier pending-Plan gate statements
+as current context; their historical bytes remain. Authority covers only Tasks
+preparation/publication in the same Draft PR, not implementation or Tasks acceptance.
+
+[Tasks](tasks.md) proposes eight stable IDs mapping all five Plan phases and
+R1–R4/AC1–AC9, with objective, scope/impact, dependencies, completion evidence,
+risks and gates. T03/T04 are the only potential parallel delivery units, after
+T02 and with disjoint ownership; T05 integrates them before distribution/rollback.
+T07 isolated smoke and T08 separately authorized native observations are distinct.
+All are future units, not executions. D1–D3 and historical #232/AXM-11/AXM-31
+acceptance are preserved; no #305 or AXM-12/#278 delivery is implied. G1/G2 stay
+conditional observations with bounded impact/decision escalation, no preventive
+fix/schema/migration/new Work Item. Technical completion never implies readiness.
+
+Initial `git status`, `git fetch origin`, `gh pr view 328` and `git ls-remote`
+agreed on a clean checkout and head `962adfdcd22384c681613810b78022469ee813cb`,
+branch `docs/axm-32-output-separation-specification`, OPEN/Draft. Open AXM-32 PR
+search returned only #328; Linear attachment agreed. Remote was re-read immediately
+before editing and still matched; no concurrent delta was observed. No accessible
+remote record inspected established another active Tasks writer. Canonical Execution,
+its revision/gate and execution in other hosts remain unknown; no Runtime/store
+was invoked or truth reconstructed. Linear remains In Progress, without blockedBy;
+no status/relations/labels changed. Baseline CI was re-read: PR Checks and returned
+delivery-metadata checks SUCCESS **only for `962adfd`**, not for this new change.
+
+Only `tasks.md`, this appended Evidence and the Specifications index change.
+Plan/Spec/Clarify/ADR/decisions index bytes are preserved. Index records the later
+Plan acceptance and Tasks Proposed. GitHub confirms repository PUBLIC; user
+publication authority covers these bounded decision summaries/references, not
+raw provider comments or personal data. No raw chat, private incident record or
+secret is imported. No delegation: a strictly inferior model hierarchy could not
+be verified; documentary self-review is not independent review.
+
+### Checks and limits
+
+| Executed check | Result / scope |
+|---|---|
+| `./scripts/validate-repository.sh .` | PASS: documentary/bootstrap/harness/adapters/automation/label/ADR/sensitive-file checks and their validator regressions. Native behavioral scenarios explicitly SKIP/UNVERIFIED; no product behavior claimed. |
+| `python3 scripts/check-adr-governance.py .` | PASS: 31 ADRs, structural only. |
+| One-off local links/anchors check | PASS across Tasks/Evidence/index; remote authority/review targets read via authenticated GitHub/Linear. No general remote-link crawler. |
+| One-off byte/scope/coverage assertions | PASS: Spec identical to accepted `18d29a6`; Plan/Spec/Clarify/ADR/decisions index identical to `962adfd`; eight unique ordered IDs, mandatory Task fields and R1–R4/AC1–AC9 coverage rows. Structural coverage is not behavioral proof. |
+| Plan→Tasks and security self-review | No blocking documentary finding identified: all five phases and gates map to units; no implicit contract/authority change or unclassified content. Dynamic coverage remains unverified. |
+| `git diff --check` | PASS, scoped content/diff inspected. |
+| `command -v gitleaks` | Unavailable, dedicated secret scanner NOT_RUN; no dependency installed. Sensitive-file checks are not a substitute for a consolidated scanner. |
+
+Publication preflight PASS: staged content/classification/path review (only the
+three authorized Markdown paths), append-only Evidence assertion,
+`git diff --cached --check`, `./scripts/check-sensitive-files.sh --staged .` and
+`./scripts/delivery-issues.sh check-pr --body <temporary-body> --title <temporary-title>`
+(`metadata=declared`, related/completes `none`). Commit SHA, remote read-back and
+exact-SHA CI observation are recorded on the [same PR #328](https://github.com/rgomids/axiom/pull/328)
+after publication, avoiding a self-referential commit SHA or attributing old CI
+to new bytes. Stop publication if head/concurrency/scope differs.
+
+**NOT_RUN:** implementation; Go product suites; R1/AC1–AC9 behavior, semantic
+oracles and security canaries; pipelines/broken-write behavior; prepared-artifact,
+installed-skill, upgrade/rollback smoke; native Codex/Claude conversations;
+Provider/Runtime effects; G1/G2 incident reproduction; AXM-12 E2E. Documentation
+checks only establish artifact integrity. Residual risks: dynamic JSON variants,
+unknown external human-text consumers, native-host omission/injection and mixed
+installed revisions. G1/G2 cannot be called resolved or harmless without evidence.
+
+**Next:** human review and explicit approval of Tasks at the published SHA, then
+separate bounded authority before implement. No Tasks acceptance, canonical
+Execution transition, merge, release or product completion is recorded here.
