@@ -11,6 +11,26 @@ bounded delivery unit. Technical merge does not imply human acceptance or next-T
 
 ## 007 — Configurable Project workflows
 
+[AXM-31 operator autonomy amendment](007-configurable-workflows/amendment-axm31-operator-autonomy.md):
+**Accepted, 2026-10-17**, by [explicit human acceptance](https://github.com/rgomids/axiom/pull/325#issuecomment-6241938642)
+of revision `2e9295293c84a51523df50b28258149debb6badf` (the original Proposed bytes
+are preserved). Defines actionable failure diagnostics,
+bounded authorized remediation, recoverable handoff, and equivalent natural-language
+or explicit-skill conversational entry over installed operations (AO-01–13), with
+canonical reference revalidation and optional human-readable workflow diagram.
+Preserves proof, preview/apply authority, human acceptance and feature ownership;
+AXM-9 delivery and AXM-12 real Runtime/MVP validation remain independent.
+The Specification alone unblocks neither.
+[AXM-31 Plan](007-configurable-workflows/plan-axm31-operator-autonomy.md):
+**Accepted, 2026-10-17**, with factual acceptance annotation preserving D1–D4.
+[Tasks T01–T08](007-configurable-workflows/tasks-axm31-operator-autonomy.md) were
+accepted at `10cb320df7ebbf727590acee9f091c51b54a2853` by the
+[human decision](https://github.com/rgomids/axiom/pull/325#issuecomment-6243413855).
+[Implementation Evidence](007-configurable-workflows/evidence-axm31-operator-autonomy.md)
+records output diagnostics, operator instructions and synthetic verification;
+canonical Execution, native conversations, independent proof and product
+acceptance remain separate gates.
+
 [Specification](007-configurable-workflows/spec.md): **Accepted, 2026-10-09**,
 for [#271](https://github.com/rgomids/axiom/issues/271) under
 [Epic #15](https://github.com/rgomids/axiom/issues/15). Defines portable default/custom

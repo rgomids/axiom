@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -74,6 +75,7 @@ func configureProjectWith(t *testing.T, service cli.Service, slug, name, provide
 }
 
 type editEvent struct {
+	Diagnostic *cli.Diagnostic        `json:"diagnostic"`
 	Status     string                 `json:"status"`
 	Result     string                 `json:"result"`
 	Next       string                 `json:"next"`
@@ -511,5 +513,19 @@ func TestCreateCollisionFailsWithoutReuseOrEditFallback(t *testing.T) {
 	records, err := filepath.Glob(filepath.Join(env.state, "projects", "*", "installation.json"))
 	if err != nil || len(records) != 1 {
 		t.Fatalf("collision allocated another identity: %v %v", records, err)
+	}
+}
+
+func TestOperatorProjectEditDiagnosticUsesRealReadOnlyFailure(t *testing.T) {
+	env := newEditEnvironment(t)
+	got, wire := env.runEdit(t, cli.ExitFailure, "validation_failure", "Project was not found", "--project", "missing", "--name", "synthetic")
+	if got.Diagnostic == nil || got.Diagnostic.SchemaVersion != 1 || got.Diagnostic.Category != "edit_project_not_found" || len(got.Diagnostic.Target) != 0 {
+		t.Fatalf("lost typed diagnostic: %s", wire)
+	}
+	before := snapshotTrees(t, env.root, env.state)
+	var human bytes.Buffer
+	code := cli.RunInteractive(context.Background(), []string{"project", "configure", "--project", "missing", "--name", "synthetic"}, env.service, currentProvenance(), nil, &human, io.Discard)
+	if code != cli.ExitFailure || !bytes.Equal(before, snapshotTrees(t, env.root, env.state)) || !strings.Contains(human.String(), "edit_project_not_found") {
+		t.Fatal("diagnostic rendering mutated state or lost refusal")
 	}
 }

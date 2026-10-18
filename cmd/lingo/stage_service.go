@@ -75,7 +75,27 @@ type stageTarget struct {
 	single     *executiongraph.SingleStageRun
 }
 
-func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStageInput) cli.WorkflowStageResponse {
+func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStageInput) (out cli.WorkflowStageResponse) {
+	var observed *stageTarget
+	defer func() {
+		if out.Result.Diagnostic != nil {
+			d := out.Result.Diagnostic
+			switch in.Operation {
+			case "run", "status", "cancel", "retry", "reconcile", "integrate":
+				d.Operation = "workflow stage " + in.Operation
+			case "coordination-list", "coordination-show", "coordination-publish":
+				d.Operation = "workflow coordination " + strings.TrimPrefix(in.Operation, "coordination-")
+			default:
+				// Delivery belongs to AXM-9; do not enrich its shared mapper
+				// calls or invent an operation for an unsupported input.
+				out.Result.Diagnostic = nil
+				return
+			}
+			if observed != nil {
+				bindStageDiagnostic(d, *observed)
+			}
+		}
+	}()
 	if ctx.Err() != nil {
 		return s.stageFailure(completion.Interrupted, "workflow_cancelled", "Stage operation was cancelled", "Inspect stage status before repeating any mutation", nil)
 	}
@@ -94,6 +114,7 @@ func (s lifecycleService) WorkflowStage(ctx context.Context, in cli.WorkflowStag
 	if failure != nil {
 		return *failure
 	}
+	observed = &target
 	if in.Operation == "delivery-decision" {
 		return s.deliveryDecision(ctx, stores, target, in)
 	}
@@ -308,8 +329,9 @@ func (s lifecycleService) stageFailure(status completion.Status, category, messa
 	if category == "" {
 		category = string(status)
 	}
-	result := canonicalCompletion(factsForCompletionStatus(status), message+": "+category, nil, next, s.provenance)
+	result := canonicalCompletion(factsForCompletionStatus(status), message+": "+category, stageConfirmedReferences(status, payload), next, s.provenance)
 	result.Category = category
+	result.Diagnostic = stageDiagnostic(category, status)
 	return cli.WorkflowStageResponse{Result: result, Payload: payload}
 }
 
@@ -344,9 +366,9 @@ func (s lifecycleService) stageError(err error, payload any) cli.WorkflowStageRe
 		{executiongraph.ErrInvalidPlan, completion.ValidationFailure, "invalid_stage_plan", "Review the bounded stage Plan and its execution controls before a fresh preview"},
 		{workflowcompiler.ErrInvalidRequest, completion.ValidationFailure, "invalid_stage_plan", "Review the bounded stage Plan and its execution controls before a fresh preview"},
 		{workflowcompiler.ErrRuntimeBlocked, completion.ValidationFailure, "runtime_unresolvable", "Inspect the Project Runtime policy, Profiles and current capability Evidence"},
-		{capabilityproof.ErrBlocked, completion.ValidationFailure, "capability_unknown", "Run an authorized capability probe: axiom runtime <codex|claude> capability probe"},
+		{capabilityproof.ErrBlocked, completion.ValidationFailure, "capability_unknown", "Inspect capability Evidence and producer support; a probe needs its own supported observation, envelope and authority"},
 		{stageexecution.ErrReconcileLeaseHeld, completion.ValidationFailure, "reconcile_lease_held", "Wait for the supervisor to finish or cancel the stage"},
-		{stageexecution.ErrReconcileOrphanAlive, completion.ValidationFailure, "stop_orphan_then_reconcile", "Stop the orphaned process group, then reconcile"},
+		{stageexecution.ErrReconcileOrphanAlive, completion.ValidationFailure, "stop_orphan_then_reconcile", "Inspect recorded process identity and liveness; wait or hand off a separately authorized stop before reconciliation"},
 		{stageexecution.ErrReconcileIneligible, completion.ValidationFailure, "reconcile_not_required", "Only stale or unknown latest attempts are reconciled"},
 		{stageexecution.ErrRetryIneligible, completion.ValidationFailure, "retry_not_eligible", "Reconcile unknown attempts first; skipped and succeeded children are never retried"},
 		{stageexecution.ErrRetryExhausted, completion.ValidationFailure, "retry_attempts_exhausted", "The child's maximum attempts are used"},

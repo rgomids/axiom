@@ -17,6 +17,7 @@ import (
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/provenance"
+	"github.com/rgomids/axiom/internal/workflowdefinition"
 	"github.com/rgomids/axiom/internal/workitem"
 )
 
@@ -62,6 +63,7 @@ func presentationScenarios(t *testing.T) []presentationScenario {
 		{"success-project-show", showAction, Result{Completion: presentationResult(t, completion.Facts{Completed: true}, "Project inspected", []string{"project:" + projectID}, "", ""), Project: &ProjectView{ID: projectID, Slug: "acme", Source: "explicit", Repositories: []RepositoryView{{Key: "app", Path: "/work/app", Availability: "available"}}}}, ExitSuccess},
 		{"no-op-work-item-close", workItemCloseAction, Result{Completion: presentationResult(t, completion.Facts{Completed: true}, "Work Item is already closed", []string{"github:acme/app#42"}, "", ""), Category: "work_item_already_closed", WorkItemChange: change, WorkItem: workItem}, ExitSuccess},
 		{"partial-work-item-create", workItemCreateAction, Result{Completion: presentationResult(t, completion.Facts{RequestedEffectConfirmed: true, SecondaryFailure: true}, "Work Item created; local link not persisted", []string{"github:acme/app#42"}, "Run work-item select with the created Work Item to link it", "artifact:"+projectID), WorkItem: workItem}, ExitFailure},
+		{"operator-diagnostic-refusal", configureAction, Result{Completion: presentationResult(t, completion.Facts{ValidationFailed: true}, "Project edit refused", nil, "Inspect canonical Projects", ""), Diagnostic: &Diagnostic{SchemaVersion: 1, Operation: "project configure edit", Category: "edit_project_not_found", Target: map[string]string{}, Observed: []string{"Project selector was not resolved"}, NotObserved: []string{"Exact target and revision"}, Hypotheses: []string{}, MissingPrerequisites: []string{"Canonical Project identity"}, Capability: "unknown", Authority: "not established", Confinement: "unknown", ConfirmedEffects: []string{}, UncertainEffects: []string{}, Options: []DiagnosticOption{{ID: "inspect", Availability: "available", Operation: "project list", Arguments: map[string]string{}, MissingArguments: []string{}, Prerequisites: []string{}, Effects: []string{"read-only"}, RequiredAuthority: []string{}, Purpose: "Resolve the missing Project", Verification: DiagnosticVerification{Operation: "project list", ExpectedFact: "Exact Project identity observed"}}}, Verification: DiagnosticVerification{Operation: "project list", ExpectedFact: "Exact Project identity observed"}}}, ExitFailure},
 		{"validation-failure", validateAction, Result{Completion: presentationResult(t, completion.Facts{ValidationFailed: true}, "Project slug is required", nil, "Provide a Project slug and retry validation", ""), Category: "missing_required_input"}, ExitFailure},
 		{"denied-authority-project-archive", projectArchiveAction, Result{Completion: presentationResult(t, completion.Facts{AuthorityDenied: true}, "Preview digest does not match the current Project", nil, "Preview again and authorize the new digest", ""), Category: "authority_denied", Operational: operational}, ExitFailure},
 		{"interrupted-execution", workflowStatusAction, Result{Completion: presentationResult(t, completion.Facts{WasInterrupted: true}, "Execution was interrupted", []string{"execution:exec-7"}, "Resume the Execution at revision 4", ""), Workflow: workflowView}, ExitCancelled},
@@ -350,5 +352,54 @@ func TestPresentationWorstCaseLiteralViewFits(t *testing.T) {
 		if !strings.Contains(string(literal), codeSpan(reference)) {
 			t.Fatal("worst-case literal view dropped a confirmed reference")
 		}
+	}
+}
+
+// A programmed auxiliary fallback for a host without graphics. It is checked
+// against the already observed definition; no CLI operation is repeated and
+// this test makes no claim about a native Runtime rendering a diagram.
+func TestOperatorAuxiliaryFallbackMatchesCanonicalOrderAndGates(t *testing.T) {
+	doc := workflowdefinition.Builtin()
+	// This human-readable fixture is intentionally independent of the renderer.
+	fallback := []struct{ id, source, gate string }{
+		{"intake", "target", ""},
+		{"specification", "intake/result", ""},
+		{"clarification", "specification/result", ""},
+		{"plan", "clarification/result", "planning_authority:before"},
+		{"tasks", "plan/result", ""},
+		{"implementation", "tasks/result", "implementation_authority:before"},
+		{"review", "implementation/result", "review_started:before"},
+		{"evidence", "review/result", ""},
+		{"reconciliation", "evidence/result", ""},
+		{"completion", "reconciliation/result", "human_acceptance:after"},
+	}
+	if len(fallback) != len(doc.Definition.Stages) {
+		t.Fatal("fallback omitted stages")
+	}
+	for i, row := range fallback {
+		stage := doc.Definition.Stages[i]
+		if stage.ID != row.id || len(stage.Inputs) != 1 || stage.Inputs[0].Source != row.source {
+			t.Fatalf("fallback contradicts canonical stage %d", i)
+		}
+		gate := ""
+		if len(stage.HumanGates) > 0 {
+			gate = stage.HumanGates[0].Kind + ":" + stage.HumanGates[0].Timing
+		}
+		if gate != row.gate {
+			t.Fatalf("fallback omitted/changed gate for %s", row.id)
+		}
+	}
+	c := presentationResult(t, completion.Facts{ValidationFailed: true}, "Refused", nil, "Inspect canonical selection", "")
+	wire, _ := renderCompletionJSON(*c)
+	canonical, err := renderMarkdown(wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auxiliary := append(append([]byte{}, canonical...), []byte("\nAuxiliary explanation: selection remains unavailable.\n")...)
+	for _, row := range fallback {
+		auxiliary = append(auxiliary, []byte(row.id+" <- "+row.source+" "+row.gate+"\n")...)
+	}
+	if !bytes.Equal(auxiliary[:len(canonical)], canonical) || !strings.Contains(string(auxiliary), "validation_failure") {
+		t.Fatal("auxiliary changed or hid refusal")
 	}
 }
