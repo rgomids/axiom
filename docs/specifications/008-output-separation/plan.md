@@ -9,10 +9,20 @@ The [READY_FOR_plan record](https://linear.app/rgomids/issue/AXM-32/separar-said
 and this request authorize documentary work on the single Draft PR #328.
 This Plan has not been accepted; it creates no Tasks or implementation authority.
 
-The [R1 inventory](clarify.md) and its subsequent maintainer decision are inputs.
-The [later explicit decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308)
-resolves the historical pre-Plan hold: G1/G2 remain observations, not preventive
-repairs or blockers. Earlier stage/status statements in accepted artifacts remain
+The [R1 inventory](clarify.md) and two subsequent maintainer decisions are inputs.
+The [ADR acceptance / G1–G2 decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308)
+keeps G1/G2 as observations, not preventive repairs or blockers. The later
+[explicit R1 decision](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-f5c308fd)
+confirms that Clarify's concrete producer/consumer, fact and gap inventory satisfies
+ADR-0030's pre-Plan inventory requirement **for planning only**, despite unverified
+dynamic variants. Inventory with Evidence is distinct from universal equivalence
+proof: this decision neither asserts universally lossless JSON nor waives R1 or
+AC1–AC9. Gaps and unverified coverage still require Evidence before behavioral
+acceptance; a material defect preventing the accepted contract needs its own
+review and authority. The [reconciliation Evidence](evidence.md#plan-correction--r1-decision-and-index-2026-10-18)
+records the round-3 responses and verification limits.
+
+Earlier stage/status statements in accepted artifacts and Clarify remain
 historical; no accepted Spec/ADR text is rewritten. D1–D3 are closed decisions.
 No new ADR candidate is needed within this boundary; a material contradiction
 requires specific Evidence and a human decision before changing the contract.
@@ -198,8 +208,9 @@ Redact secrets before canonical/detail emission; escaping display controls must
 not alter authorized actionable tokens. A discovered redaction gap must be reported
 rather than silently publishing a secret to meet “complete JSON”.
 
-Plan-stage exit: only this Plan and appended plan Evidence change; documentary
-checks and PR metadata are validated; accepted artifacts remain intact; no
+Plan-correction exit: only this Plan, appended Evidence and the Specifications
+index change to reconcile R1 and the round-3 Minor; documentary checks and PR
+metadata are validated; accepted artifacts remain intact; no
 behavioral PASS, Tasks, Execution transition or acceptance is claimed. Future
 implementation exit requires AC1–AC9 evidence, compatible binary/four-skill pairs
 in both hosts, rollback proof and explicit limits on unobserved consumers.

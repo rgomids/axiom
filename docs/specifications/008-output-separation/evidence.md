@@ -293,3 +293,82 @@ private/raw provider data or secrets. `git diff --cached --check`
 and `./scripts/check-sensitive-files.sh --staged .` passed. Remote Plan-commit CI
 and published HEAD are recorded on the same PR after push; they are not inferred
 from baseline results.
+
+## Plan correction — R1 decision and index, 2026-10-18
+
+### Authority, interpretation and round-3 response
+
+Read the full [subsequent human R1 decision](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-f5c308fd)
+(comment `f5c308fd-795c-44cc-a52a-0b7ba6a6ed84`) before editing. The user authorizes
+publishing its bounded documentary reconciliation, not raw provider discussion.
+It confirms that [Clarify](clarify.md)'s concrete inventory of producers, consumers,
+facts and gaps satisfies ADR-0030's pre-Plan requirement **for planning only**.
+This resolves the interpretation requested by [round 3](https://github.com/rgomids/axiom/pull/328#pullrequestreview-5563186345);
+it does not prove every dynamic path, assert universally lossless JSON, waive
+R1/AC1–AC9 or accept the [Plan](plan.md).
+
+ADR-0030 D3 requires an inventory with concrete producer/consumer Evidence;
+Clarify supplies that inventory and explicitly distinguishes `covered`,
+`gap_confirmed` and `unverified`. Inventory sufficiency and universal behavioral
+proof are different claims. No unavoidable contradiction with the accepted
+Spec/ADR was identified; their behavioral obligations remain binding. This dated
+section and Plan's updated gate context supersede only earlier pending-inventory
+interpretations as current planning context, preserving historical Evidence and
+Clarify bytes. The earlier G1/G2 decision alone was not treated as resolving R1.
+
+| Round-3 item | Documentary response for renewed review |
+|---|---|
+| [R1 gate comment](https://github.com/rgomids/axiom/pull/328#discussion_r4307209020) | Plan links the later human decision and states inventory sufficiency only for planning, with gaps/dynamic variants unverified and future behavioral Evidence still required. |
+| [CR-001 — Minor index comment](https://github.com/rgomids/axiom/pull/328#discussion_r4307209016) | Specifications index now records ADR-0030 Accepted (2026-10-18), its human acceptance and later R1 decision, and Plan Proposed. Obsolete future ADR/G1–G2 preconditions are removed; the decisions index already agrees and is unchanged. |
+
+Both requests have documentary responses; no thread was resolved and no new
+review or acceptance is claimed. D1–D3, flags/channels, status vs readiness,
+consent/digests/read-back, exits, provenance and effects remain unchanged. G1
+(`provider_create_ambiguous` lost on a no-payload JSON path) and G2 (64-item transfer
+view) remain conditional observations. Never blindly replay uncertain external
+mutations or call a truncated ledger complete. Concrete impact requires bounded
+reproduction/Evidence and a separate focused correction with review/authority;
+no schema, fix or Work Item is authorized here. #232/AXM-11 and AXM-31 acceptance
+history is preserved; #305 and AXM-12/#278 remain outside this authority.
+
+### Baseline, scope and validation
+
+Clean checkout, `gh pr view 328` and `git ls-remote` agreed on
+`add52daf16bb27d2189484485bae9c4ebea4938b`, branch
+`docs/axm-32-output-separation-specification`, OPEN/Draft. Search for AXM-32 PRs
+and the Linear attachment identified #328 as the sole open work PR; other search
+hits were merged history. Before edits, remote HEAD still matched. The public
+repository classification was verified. Baseline CI now shows PR Checks and both
+delivery-metadata observations SUCCESS; the round-3 pending result is historical,
+not a result for this correction's future SHA. Linear remains In Progress with
+no Blocked by; no operational metadata is changed or canonical Execution inferred.
+
+Only Plan, this appended Evidence and the Specifications index change. Clarify,
+accepted Spec/ADR and the decisions index remain byte-identical to baseline.
+No delegation: this bounded correction uses a linear path; no independent review
+is claimed. Documentary/security self-review checks scope, public-content
+classification, retained unknowns and unchanged authority. No provider text dump,
+private incident data, credential or secret is included.
+
+| Executed check | Result / scope |
+|---|---|
+| `./scripts/validate-repository.sh .` | PASS: repository/harness/adapters/automation/label/ADR/sensitive-file validation and validator regressions; native Runtime behavior explicitly SKIP/UNVERIFIED. |
+| `python3 scripts/check-adr-governance.py .` | PASS, 31 ADRs; structural, not behavioral or human acceptance. |
+| One-off Python local link/anchor check | PASS, 117 local links/anchors across all three changed documents. Remote decision/review targets were read through authenticated GitHub/Linear tools; no general external-link crawler run. |
+| One-off byte/scope assertions | PASS: Spec identical to accepted `18d29a6`; Spec/ADR/Clarify/decisions index identical to pre-correction `add52da`; exactly three authorized documentary paths changed. |
+| `git diff --check` | PASS; limited diff and public-content classification reviewed. |
+| `command -v gitleaks` | Unavailable; dedicated scanner NOT_RUN; no dependency installed. |
+
+Publication preparation: staged diff/content/classification review,
+`git diff --cached --check` and `./scripts/check-sensitive-files.sh --staged .`
+passed. `./scripts/delivery-issues.sh check-pr --body <temporary-body> --title
+<temporary-title>` passed (`metadata=declared`, related/completes `none`).
+Published SHA and exact-SHA CI observations are recorded in the same PR update
+after push, separate from baseline CI.
+
+**NOT_RUN:** implementation, Go product suites, R1/AC1–AC9 behavioral/equivalence/
+security checks, prepared-artifact/upgrade/rollback smoke, real Codex/Claude native
+conversations, G1/G2 incident reproduction, Provider/Runtime effects and AXM-12 E2E.
+The Plan remains Proposed. Next action is a new Plan review and explicit human
+acceptance of the updated SHA before any `tasks` stage and its own gate/authority;
+this execution stops after documentary publication and verification.

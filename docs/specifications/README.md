@@ -4,12 +4,16 @@
 [explicit human acceptance](https://github.com/rgomids/axiom/pull/328#issuecomment-6246060142)
 at `18d29a6c5446357defb2563483cfac180dcc4043` on 2026-10-18.
 [ADR-0030](../decisions/0030-canonical-results-terminal-and-host-presentation.md)
-remains Proposed independently. [Clarify](008-output-separation/clarify.md)
-classifies R1 producer/consumer coverage and exposes confirmed gaps G1/G2;
-ADR acceptance and separate gap decisions remain required before a subsequent
-Plan gate. D1–D3 and the accepted behavioral text are preserved.
-[Evidence](008-output-separation/evidence.md#clarify-investigation--2026-10-18)
-records documentary validation; no implementation/native-host acceptance is claimed.
+is **Accepted (2026-10-18)** by [explicit maintainer decision](https://github.com/rgomids/axiom/pull/328#issuecomment-6250321308).
+The [later R1 decision](https://linear.app/rgomids/issue/AXM-32/separar-saida-do-lingo-da-apresentacao-conversacional-da-ia#comment-f5c308fd)
+confirms that [Clarify](008-output-separation/clarify.md)'s inventory satisfies the
+pre-Plan requirement for planning only; universal/dynamic coverage remains
+unverified. G1/G2 remain conditional watch items, not preventive Plan preconditions.
+The [Plan](008-output-separation/plan.md) remains **Proposed for review** and needs
+its own explicit human acceptance before `tasks` and their separate gate/authority.
+D1–D3 and accepted behavioral requirements remain unchanged.
+[Correction Evidence](008-output-separation/evidence.md#plan-correction--r1-decision-and-index-2026-10-18)
+records the reconciliation; no implementation/native-host acceptance is claimed.
 
 Issue [#306](https://github.com/rgomids/axiom/issues/306): [Plan](002-lingo-project-initialization/plan-306-local-runtime-profiles.md), [Spec 002 amendment](002-lingo-project-initialization/amendment-306-local-runtime-authoring.md), [mandatory design Security Review](002-lingo-project-initialization/security-review-306-local-runtime-profiles.md), [Spec 007 effort/onboarding amendment](007-configurable-workflows/amendment-306-profile-effort-onboarding.md) and ADR-0023/0024 are **Accepted, 2026-10-11**, by [exact six-artifact acceptance](https://github.com/rgomids/axiom/pull/310#issuecomment-6109183466) at `823bce3`.
 [Acceptance/Tasks Evidence](002-lingo-project-initialization/evidence-306-acceptance-tasks.md) preserves blobs and historical [Planning Evidence](002-lingo-project-initialization/evidence-306-planning-reconciliation.md).
