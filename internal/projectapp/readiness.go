@@ -78,6 +78,7 @@ type CapabilityReadinessView struct {
 }
 
 type RuntimeReadiness struct {
+	Next   string `json:"next,omitempty"`
 	Status string `json:"status"`
 	Detail string `json:"detail,omitempty"`
 }
@@ -177,6 +178,10 @@ type RuntimeProbe interface {
 	Availability(context.Context, string) string
 }
 
+type SnapshotRuntimeProbe interface {
+	AvailabilityFor(context.Context, ReadinessSubject) string
+}
+
 type ProjectReadiness struct {
 	Projects      ReadinessProjects
 	Repositories  RepositoryProbe
@@ -237,7 +242,11 @@ func (r ProjectReadiness) evaluate(ctx context.Context, selector string, runtime
 		// Missing portable intent needs no machine observation.
 		input.RuntimeCode = "policy_unconfigured"
 		if project.RuntimePolicyDeclared(state) {
-			input.RuntimeCode = r.Runtime.Availability(ctx, state.ID)
+			if probe, ok := r.Runtime.(SnapshotRuntimeProbe); ok {
+				input.RuntimeCode = probe.AvailabilityFor(ctx, subject)
+			} else {
+				input.RuntimeCode = r.Runtime.Availability(ctx, state.ID)
+			}
 		}
 	}
 	return EvaluateReadiness(input)
@@ -340,6 +349,10 @@ func EvaluateReadiness(in ReadinessInput) ReadinessReport {
 	default:
 		report.Runtime = RuntimeReadiness{Status: "blocked", Detail: runtimeCode}
 		execution = append(execution, Finding{Code: BlockerRuntimeResolution, Detail: runtimeCode})
+	}
+
+	if runtimeCode != "" && runtimeCode != RuntimeNotEvaluated {
+		report.Runtime.Next = PolicyRuntimeGuidance(runtimeCode)
 	}
 
 	sources, _ := state.DocumentationSources.Value()

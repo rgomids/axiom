@@ -39,6 +39,7 @@ type PolicyRuntimeReadiness struct {
 	Agent   string `json:"agent,omitempty"`
 	Code    string `json:"code"`
 	Blocker string `json:"blocker,omitempty"`
+	Next    string `json:"next"`
 }
 
 type PolicyEditPreview struct {
@@ -114,11 +115,12 @@ func PreviewPolicyEdit(ctx context.Context, ports PolicyEditPorts, intent EditIn
 		return PolicyEditProposal{}, EditStateUnsafe
 	}
 	admission := AdmissionDecision{Operation: AdmitProjectEdit, Class: AdmissionAdministrative, Allowed: true, ProjectID: state.ID}
-	input := ReadinessInput{Project: proposal.project, Local: proposal.local, Repositories: map[string]bool{}, RuntimeCode: facts.Runtime[0].Code, Catalog: SupportedProviders}
+	input := ReadinessInput{Project: proposal.project, Local: proposal.local, Repositories: map[string]bool{}, RuntimeCode: PolicyRuntimeCode(facts.Runtime), Catalog: SupportedProviders}
 	for _, binding := range proposal.local.Repositories {
 		input.Repositories[binding.RepositoryKey] = binding.Observation.Availability == Available
 	}
 	for i := range facts.Runtime {
+		facts.Runtime[i].Next = PolicyRuntimeGuidance(facts.Runtime[i].Code)
 		facts.Runtime[i].Blocker = BlockerRuntimeResolution
 		if facts.Runtime[i].Code == "policy_unconfigured" {
 			facts.Runtime[i].Blocker = BlockerRuntimePolicyUnavailable
@@ -176,4 +178,26 @@ func validPolicyDependencies(d PolicyEditDependencies) bool {
 		}
 	}
 	return true
+}
+
+func PolicyRuntimeCode(rows []PolicyRuntimeReadiness) string {
+	for _, row := range rows {
+		if row.Code != "inventory_unavailable" {
+			return row.Code
+		}
+	}
+	return "inventory_unavailable"
+}
+
+func PolicyRuntimeGuidance(code string) string {
+	switch code {
+	case "policy_unconfigured":
+		return "Use axiom-project to declare portable Runtime and Model Profile policy, then run project validate"
+	case "configuration_missing", "configuration_retired", "no_allowed_match", "runtime_unavailable", "unsupported_configuration_format":
+		return "Use axiom-runtime to inspect local Runtime and Model Profile configuration; preserve portable declarations and request a fresh preview"
+	case "ambiguous_match":
+		return "Use axiom-project to review exact Profile references and preferences; do not choose a fallback"
+	default:
+		return "Runtime executable, authentication and capability proofs are uninspected; inspect them through axiom-runtime before Execution"
+	}
 }

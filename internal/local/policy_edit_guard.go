@@ -58,7 +58,11 @@ func (p ProjectEditPublisher) policyGuard(request projectapp.EditPublicationRequ
 			return ErrConflict
 		}
 		operational, _, err := observeOperationalRecord(target, request.ProjectID)
-		if err != nil || hexDigest([]byte("operational:"+operational.Revision)) != expected.Operational {
+		if err != nil {
+			return ErrConflict
+		}
+		operationalToken, err := policyOperationalToken(request.LocalDestination, operational.Revision)
+		if err != nil || operationalToken != expected.Operational {
 			return ErrConflict
 		}
 		runtimeStore, err := NewRuntimeProfileStore(p.Installation.root)

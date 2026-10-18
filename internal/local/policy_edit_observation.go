@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/rgomids/axiom/internal/project"
@@ -46,7 +47,10 @@ func (o PolicyEditObserver) ObservePolicyEdit(ctx context.Context, selection pro
 	if err != nil {
 		return facts, projectapp.EditStateUnsafe
 	}
-	facts.Dependencies.Operational = hexDigest([]byte("operational:" + facts.Operational.Revision))
+	facts.Dependencies.Operational, err = policyOperationalToken(selection.LocalDestination, facts.Operational.Revision)
+	if err != nil {
+		return facts, projectapp.EditStateUnsafe
+	}
 	facts.Dependencies.Installation, err = policyFileToken(filepath.Join(selection.LocalDestination, installationRecord))
 	if err != nil {
 		return facts, projectapp.EditStateUnsafe
@@ -98,7 +102,32 @@ func policyWorkflowToken(catalog WorkflowCatalog) (string, error) {
 }
 
 func policySourceToken(source string) (string, error) {
-	return policyFileToken(filepath.Join(source, manifestName))
+	root, err := existingPrivateRoot(source)
+	if err != nil {
+		return "", err
+	}
+	defer root.Close()
+	catalog, err := readWorkflowCatalog(root)
+	if err != nil {
+		return "", err
+	}
+	names := []string{manifestName}
+	if catalog.Wire != nil {
+		names = append(names, "workflows/index.json")
+		for name := range catalog.Documents {
+			names = append(names, "workflows/"+name)
+		}
+	}
+	sort.Strings(names)
+	var facts strings.Builder
+	for _, name := range names {
+		token, err := policyFileToken(filepath.Join(source, name))
+		if err != nil {
+			return "", err
+		}
+		facts.WriteString(name + "\x00" + token + "\x00")
+	}
+	return hexDigest([]byte(facts.String())), nil
 }
 
 func policyFileToken(target string) (string, error) {
@@ -123,4 +152,18 @@ func policyFileToken(target string) (string, error) {
 		facts.WriteByte(0)
 	}
 	return hexDigest([]byte(facts.String())), nil
+}
+
+func policyOperationalToken(directory, revision string) (string, error) {
+	path := filepath.Join(directory, operationalRecordName)
+	identity := "absent"
+	if _, err := os.Lstat(path); err == nil {
+		identity, err = policyFileToken(path)
+		if err != nil {
+			return "", err
+		}
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	return hexDigest([]byte("operational:" + revision + "\x00" + identity)), nil
 }

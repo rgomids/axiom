@@ -1,6 +1,7 @@
 package local
 
 import (
+	"context"
 	"github.com/rgomids/axiom/internal/project"
 	"github.com/rgomids/axiom/internal/projectapp"
 	"github.com/rgomids/axiom/internal/runtimeapplication"
@@ -36,4 +37,32 @@ func policyRuntimeReadiness(p project.Project, workflow projectapp.PolicyWorkflo
 		rows = append(rows, projectapp.PolicyRuntimeReadiness{Code: runtimeapplication.EvaluateAvailabilityV3(p, consumer)})
 	}
 	return rows
+}
+
+func ObservePolicyRuntime(ctx context.Context, subject projectapp.ReadinessSubject, stateRoot string) string {
+	if ctx.Err() != nil {
+		return "inventory_unavailable"
+	}
+	root, err := existingPrivateRoot(subject.Local.SourceLocation)
+	if err != nil {
+		return "inventory_unavailable"
+	}
+	defer root.Close()
+	catalog, err := readWorkflowCatalog(root)
+	if err != nil {
+		return "inventory_unavailable"
+	}
+	store, err := NewRuntimeProfileStore(stateRoot)
+	if err != nil {
+		return "inventory_unavailable"
+	}
+	facts, err := store.Inspect(ctx)
+	if err != nil {
+		return "inventory_unavailable"
+	}
+	workflow := projectapp.CheckPolicyWorkflow(subject.Project, subject.Project, catalog, "")
+	if !workflow.Compatible {
+		return "no_allowed_match"
+	}
+	return projectapp.PolicyRuntimeCode(policyRuntimeReadiness(subject.Project, workflow, facts))
 }

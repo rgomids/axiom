@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/rgomids/axiom/internal/projectapp"
+	"github.com/rgomids/axiom/internal/runtimeprofile"
+	fx "github.com/rgomids/axiom/internal/runtimeprofile/runtimeprofiletest"
 )
 
 func (f editPublicationFixture) policyRequest(t *testing.T) projectapp.EditPublicationRequest {
@@ -202,5 +204,78 @@ func TestPolicyPublicationConflictingProcesses(t *testing.T) {
 	}
 	if applied != 1 || conflicts != 1 || !bytes.Equal(fileBytes(t, f.manifestPath()), request.PortableNext) || !bytes.Equal(fileBytes(t, f.recordPath()), request.LocalNext) {
 		t.Fatalf("conflicting publishers: applied=%d conflict=%d", applied, conflicts)
+	}
+}
+
+func TestPolicyPublicationDetectsEqualRevisionContentAndIdentityDrift(t *testing.T) {
+	for _, name := range []string{"runtime_content", "operational_identity", "source_relocation", "manifest_hardlink"} {
+		t.Run(name, func(t *testing.T) {
+			f := newPolicyEditFixture(t)
+			ctx := context.Background()
+			store, err := NewRuntimeProfileStore(f.state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fresh, err := store.Inspect(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := fx.CodexOnly()
+			wire, err := runtimeprofile.EncodeV3(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := store.Publish(ctx, fresh.Token, wire); err != nil {
+				t.Fatal(err)
+			}
+			operational, err := EncodeOperational(editTestProjectID, projectapp.DefaultOperationalState())
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(filepath.Dir(f.recordPath()), operationalRecordName)
+			if err := os.WriteFile(path, operational, 0600); err != nil {
+				t.Fatal(err)
+			}
+			request := f.policyRequest(t)
+			publisher := f.publisher(nil)
+			publisher.Portable.beforeUpdatePublication = func() {
+				switch name {
+				case "runtime_content":
+					cfg.Runtimes[0].Enabled = false
+					next, err := runtimeprofile.EncodeV3(cfg)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(filepath.Join(f.state, "runtime-profiles", "v1", runtimeProfileObject), next, 0600); err != nil {
+						t.Fatal(err)
+					}
+				case "operational_identity":
+					if err := os.Rename(path, path+".moved"); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, operational, 0600); err != nil {
+						t.Fatal(err)
+					}
+				case "source_relocation":
+					if err := os.Rename(f.source, f.source+"-moved"); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Mkdir(f.source, 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(f.manifestPath(), request.PortableExpected, 0600); err != nil {
+						t.Fatal(err)
+					}
+				case "manifest_hardlink":
+					if err := os.Link(f.manifestPath(), filepath.Join(f.projects, "linked")); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			result := publisher.PublishEdit(ctx, request)
+			if result.Status == projectapp.EditPublicationApplied || result.Status == projectapp.EditPublicationPartial || !bytes.Equal(fileBytes(t, f.manifestPath()), request.PortableExpected) {
+				t.Fatal("drift committed", result)
+			}
+		})
 	}
 }

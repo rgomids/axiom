@@ -422,3 +422,35 @@ constraints:
 validation_status: see executed checks above and final PR receipt
 next_action: finish T03 parity/negative cases, then close T04 coverage before T05
 ```
+
+## r3 — readiness parity and dependency identity
+
+Resumed from clean `788e181f99124ac26ade6393e237b16dc64a251a`; remote/PR
+matched, both checks passed, only #327 is open for AXM-34. Direct Linear read:
+In Progress, no blocking relations. Canonical Execution remains unknown; no
+Execution or Provider transition. No delegation: strict relative model hierarchy
+cannot be verified. Approved amendment/Plan/Tasks remain byte-identical.
+
+T03 now supplies fixed actionable Runtime guidance. Canonical readiness accepts
+an optional snapshot-aware probe; production schemas 2/3 consume the same pure
+policy evaluator and inspected configuration as the proposed snapshot, without
+executable, authentication, capability or credential acquisition. Missing local
+facts remain blockers, never permission or portable invalidity. T04 now binds
+operational file identity and all consulted Workflow files in the source token,
+including exact contents via existing catalog validation. Standard library and
+existing locks/hash/codec suffice; no new dependency or generic transaction layer.
+
+Executed, exit 0: `go test ./internal/local ./internal/projectapp`; targeted
+`go test ./internal/local ./internal/projectapp -run 'Policy|Readiness'`;
+`go test -race ./internal/local ./internal/projectapp -run 'Policy|Readiness'`.
+Tests include matching-but-unproven, missing, disabled, wrong Runtime snapshot
+parity/guidance, exact operational-file replacement, same-revision changed Runtime
+content, source relocation and hardlink refusal immediately before commit.
+Initial disabled-case expectation was corrected to the existing evaluator's
+`runtime_unavailable`; the application and proposed result already agreed.
+
+These checks extend V03/V04, not native machine readiness or a claim of exhaustive
+G1-AC passage. The local portable store accepts manifest plus the existing Workflow
+catalog; unsupported companion layouts remain refused by the existing reader.
+Application tests retain full companion snapshots; no source-layout expansion is
+inferred. Native macOS and runtime conversations remain NOT RUN.

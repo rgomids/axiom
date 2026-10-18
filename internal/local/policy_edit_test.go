@@ -213,3 +213,55 @@ func TestPolicyPreviewUnconfiguredPolicyKeepsCanonicalBlocker(t *testing.T) {
 		t.Fatal("lost canonical unconfigured blocker", row)
 	}
 }
+
+func TestPolicyReadinessSnapshotParityAndGuidance(t *testing.T) {
+	for _, scenario := range []struct {
+		name, code string
+		config     *runtimeprofile.ConfigurationV3
+	}{
+		{"missing", "configuration_missing", nil},
+		{"matching_unproven", "inventory_unavailable", configPointer(fx.CodexOnly())},
+		{"disabled", "runtime_unavailable", configPointer(fx.WithRuntimeDisabled(fx.CodexOnly(), fx.CodexRuntimeID))},
+		{"wrong_runtime", "no_allowed_match", configPointer(fx.ClaudeOnly())},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			f := newPolicyEditFixture(t)
+			if scenario.config != nil {
+				store, err := NewRuntimeProfileStore(f.state)
+				if err != nil {
+					t.Fatal(err)
+				}
+				snapshot, err := store.Inspect(context.Background())
+				if err != nil {
+					t.Fatal(err)
+				}
+				wire, err := runtimeprofile.EncodeV3(*scenario.config)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := store.Publish(context.Background(), snapshot.Token, wire); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ports := f.policyPorts(t)
+			proposal, failure := projectapp.PreviewPolicyEdit(context.Background(), ports, policyIntent(t, `{}`))
+			if failure != projectapp.EditOK {
+				t.Fatal(failure)
+			}
+			selection, _ := ports.Edit.Source.SelectForEdit(context.Background(), "sample")
+			subject := projectapp.ReadinessSubject{Project: selection.Portable.Project(), Local: selection.Local}
+			code := ObservePolicyRuntime(context.Background(), subject, f.state)
+			if code != scenario.code || code != proposal.Preview().Runtime[0].Code {
+				t.Fatalf("parity: %s %+v", code, proposal.Preview().Runtime)
+			}
+			report := projectapp.EvaluateReadiness(projectapp.ReadinessInput{Project: subject.Project, Local: subject.Local, RuntimeCode: code, Catalog: projectapp.SupportedProviders})
+			if !reflect.DeepEqual(report.Operations, proposal.Preview().Readiness) || report.Runtime.Next == "" || report.Runtime.Next != proposal.Preview().Runtime[0].Next {
+				t.Fatal("canonical readiness differs", report, proposal.Preview())
+			}
+		})
+	}
+}
+
+func configPointer(config runtimeprofile.ConfigurationV3) *runtimeprofile.ConfigurationV3 {
+	return &config
+}

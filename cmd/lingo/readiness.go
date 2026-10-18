@@ -31,6 +31,14 @@ func (s lifecycleService) readiness() projectapp.ProjectReadiness {
 
 type runtimeReadiness struct{ service lifecycleService }
 
+func (r runtimeReadiness) AvailabilityFor(ctx context.Context, subject projectapp.ReadinessSubject) string {
+	version := subject.Project.State().SchemaVersion
+	if version == 2 || version == 3 {
+		return local.ObservePolicyRuntime(ctx, subject, r.service.stateRoot)
+	}
+	return r.Availability(ctx, subject.Project.State().ID)
+}
+
 func (r runtimeReadiness) Availability(ctx context.Context, projectID string) string {
 	source := r.service.RuntimePolicySource
 	if source == nil {
